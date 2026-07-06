@@ -170,6 +170,26 @@ export interface ResidentialExecuteResult {
     readonly liftCount?: number;
 }
 
+/** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — the canonical `wall.batch.create` payload shape
+ *  (a self-contained list of wall records + a default levelId). Every structural wall group
+ *  (shell / core-perimeter / cell-perimeter / partition / ground-corridor) is one of these. */
+type WallBatchPayload = { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+
+/** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — one apartment's DEFERRED finishing specs, pulled
+ *  out of the dispatch so they can be ACCUMULATED per level and committed as whole-level batches
+ *  (openings/boundaries/rooms) instead of one command trio per apartment. Building these is pure
+ *  (no store mutation); only the caller dispatches, so per-apartment and per-level paths emit the
+ *  IDENTICAL content — only the batching granularity differs. */
+interface ApartmentFinishSpecs {
+    readonly levelId: string;
+    /** Interior + shell-window + entry-door openings, each keyed to its own host wallId. */
+    readonly openings: Array<{ wallId: string; openingData: unknown }>;
+    /** Open-plan room-bounding lines (each self-contained: id/levelId/start/end). */
+    readonly boundaries: Array<{ id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }>;
+    /** Graph-authoritative rooms (already NUMBERED per apartment; empty when !useGraphRooms). */
+    readonly rooms: RoomData[];
+}
+
 /** A pending per-apartment command set, threaded into the deferred openings pass. */
 interface ApartmentBuild {
     readonly levelId: string;
@@ -528,13 +548,25 @@ export class ResidentialBuildingExecutor {
         const allLevelIds = [...new Set(levelIds)];
         let stairCount = 0, liftCount = 0;
         batchCoordinator.runBatch(() => {
+            // ── §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — ACCUMULATE every structural wall payload
+            // (shell + core-perimeter + ground-corridor + cell-perimeters + apartment partitions),
+            // then dispatch ONE `wall.batch.create` per LEVEL (was one per group/apartment ≈ 2/apt →
+            // ~160 dispatches for 80 apts). Each wall record is self-contained (id/levelId/baseLine/
+            // height/thickness/layers) and `CreateWallBatchHandler` runs ONE produceCommand over the
+            // whole `walls[]` — merging arrays changes only the batching GRANULARITY, never the
+            // content, so the store lands byte-identical walls (same ids, same geometry) and the P1
+            // end-of-gen resolve mitres/carves them identically. All these payloads use the
+            // `wall.batch.create` verb (partitions carry `b.set.wallBatch.command`, an ai-host
+            // constant = `wall.batch.create`). Gate: __pryzmBatchCoalescePerLevel (default ON); OFF ⇒
+            // the legacy one-dispatch-per-group path (see `_dispatchWallBatchesCoalesced`).
+            const structuralWallPayloads: Array<{ payload: WallBatchPayload; tag: string }> = [];
             // 0. Building shell perimeter per floor (host for the slab + the lobby/commercial face).
             for (const payload of shellPayloads) {
-                this._dispatchWallBatch(runtime, payload, 'shell');
+                structuralWallPayloads.push({ payload, tag: 'shell' });
             }
             // 0b. Core enclosure (RC) walls per floor — the stair+lift room with fire-door gaps.
             for (const payload of corePerimeterPayloads) {
-                this._dispatchWallBatch(runtime, payload, 'core-perimeter');
+                structuralWallPayloads.push({ payload, tag: 'core-perimeter' });
             }
             // 0c. §RESI-GROUND-CURTAIN — commercial glazed shopfront on the ground façade (legacy
             // cm.execute path, like the slab/stair; the id is pre-minted per the curtain contract).
@@ -552,22 +584,23 @@ export class ResidentialBuildingExecutor {
             }
             // 0d. §RESI-GROUND-CORRIDOR — interior corridor walls linking the entrance to the core.
             if (groundCorridorPayload && groundCorridorPayload.walls.length > 0) {
-                this._dispatchWallBatch(runtime, groundCorridorPayload, 'ground-corridor');
+                structuralWallPayloads.push({ payload: groundCorridorPayload, tag: 'ground-corridor' });
             }
             // 1. Apartment cell perimeters (host walls for the façade windows).
             for (const payload of cellPerimeterPayloads) {
-                this._dispatchWallBatch(runtime, payload, 'cell-perimeter');
+                structuralWallPayloads.push({ payload, tag: 'cell-perimeter' });
             }
             // 2. Apartment interior partitions (the engine's wall.batch.create payload
             //    verbatim — it already carries `walls` + `levelId`).
             for (const b of apartmentBuilds) {
-                this._dispatchWallBatch(
-                    runtime,
-                    b.set.wallBatch.payload as { walls: ReadonlyArray<Record<string, unknown>>; levelId: string },
-                    'partition',
-                    b.set.wallBatch.command,
-                );
+                structuralWallPayloads.push({
+                    payload: b.set.wallBatch.payload as WallBatchPayload,
+                    tag: 'partition',
+                });
             }
+            // §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — dispatch the accumulated wall payloads:
+            // ONE `wall.batch.create` per level (flag ON) or one per group (flag OFF, legacy).
+            this._dispatchWallBatchesCoalesced(runtime, structuralWallPayloads);
             // 3. Structural slab per floor.
             for (const s of slabPolys) {
                 this._createSlab(cm, s.levelId, s.poly);
@@ -1490,6 +1523,48 @@ export class ResidentialBuildingExecutor {
                 (r as Promise<unknown>).catch((e: unknown) => console.warn(`[resi-building] ${command} (${tag}) failed on`, payload.levelId, e));
             }
         } catch (e) { console.warn(`[resi-building] ${command} (${tag}) threw on`, payload.levelId, e); }
+    }
+
+    /** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — true when whole-level batch coalescing is
+     *  enabled (default ON). Set `globalThis.__pryzmBatchCoalescePerLevel = false` to revert to the
+     *  per-group / per-apartment command dispatch (instantly, no code change). Orthogonal to P1's
+     *  `__pryzmWallResolveOncePerGen` (which coalesces the wall-RESOLVE, not the wall-CREATE). */
+    private _coalescePerLevelOn(): boolean {
+        return (globalThis as { __pryzmBatchCoalescePerLevel?: boolean }).__pryzmBatchCoalescePerLevel !== false;
+    }
+
+    /** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — dispatch a set of `wall.batch.create` payloads.
+     *  Flag ON (default): GROUP by `levelId` (first-seen order) and dispatch ONE merged
+     *  `wall.batch.create` per level — fewer, larger commands, each paying one Zod parse + one OTel
+     *  span + one event-buffer flush instead of ~2/apartment. Flag OFF: dispatch each payload
+     *  individually (the legacy path). Content is identical either way: every wall record is
+     *  self-contained and the handler resolves each wall's level as `w.levelId ?? payload.levelId`;
+     *  since we only merge payloads that already share `payload.levelId`, the merged default equals
+     *  each source default, so no wall's level changes. Insertion order into the store object is
+     *  irrelevant (unique ids, and the whole-level resolve reads the final set). */
+    private _dispatchWallBatchesCoalesced(
+        runtime: PryzmRuntime,
+        dispatches: ReadonlyArray<{ payload: WallBatchPayload; tag: string }>,
+    ): void {
+        if (!this._coalescePerLevelOn()) {
+            for (const d of dispatches) this._dispatchWallBatch(runtime, d.payload, d.tag);
+            return;
+        }
+        const byLevel = new Map<string, { walls: Array<Record<string, unknown>>; tags: Set<string> }>();
+        const order: string[] = [];
+        for (const d of dispatches) {
+            if (!d.payload || d.payload.walls.length === 0) continue;
+            const levelId = d.payload.levelId;
+            let g = byLevel.get(levelId);
+            if (!g) { g = { walls: [], tags: new Set() }; byLevel.set(levelId, g); order.push(levelId); }
+            for (const w of d.payload.walls) g.walls.push(w);
+            g.tags.add(d.tag);
+        }
+        for (const levelId of order) {
+            const g = byLevel.get(levelId)!;
+            if (perfTraceOn()) perfLog('§PERF-GEN-INSTRUMENT', `[resi-building] coalesced wall.batch.create — ${g.walls.length} wall(s) on ${levelId} [${[...g.tags].join('+')}]`);
+            this._dispatchWallBatch(runtime, { walls: g.walls, levelId }, `level:${[...g.tags].join('+')}`);
+        }
     }
 
     /** §RESI-EXTERIOR-WALL-MITER-FIX2 (founder 2026-06-24: the generated build STILL shows square-cap
@@ -2587,7 +2662,33 @@ export class ResidentialBuildingExecutor {
             const levelIds = [...new Set(builds.map(b => b.levelId))];
             try {
                 batchCoordinator.runBatch(() => {
-                    for (const b of builds) this._finishOneApartment(cm, b, useGraphRooms);
+                    // §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — when ON (default), ACCUMULATE every
+                    // apartment's deferred openings + boundaries + rooms PER LEVEL and dispatch ONE
+                    // `CreateWallOpeningsBatchCommand` + ONE `CreateRoomBoundingLinesBatchCommand` +
+                    // ONE `BatchCreateRoomsCommand` per level (was one trio PER apartment → 3/apt).
+                    // Content is identical: openings keep their own host `wallId`+offset, boundaries
+                    // are self-contained, and rooms preserve their PER-APARTMENT numbering order so
+                    // `assignUniqueRoomNumbers` (which renumbers in input order against the level's
+                    // existing rooms) lands the exact same `{level}-NNN` sequence the per-apartment
+                    // dispatch produced. Flag OFF ⇒ the legacy per-apartment `_finishOneApartment`.
+                    if (this._coalescePerLevelOn()) {
+                        const byLevel = new Map<string, ApartmentFinishSpecs>();
+                        const order: string[] = [];
+                        for (const b of builds) {
+                            const s = this._buildApartmentFinishSpecs(b, useGraphRooms);
+                            let g = byLevel.get(s.levelId);
+                            if (!g) { g = { levelId: s.levelId, openings: [], boundaries: [], rooms: [] }; byLevel.set(s.levelId, g); order.push(s.levelId); }
+                            g.openings.push(...s.openings);
+                            g.boundaries.push(...s.boundaries);
+                            g.rooms.push(...s.rooms);
+                        }
+                        for (const levelId of order) {
+                            const g = byLevel.get(levelId)!;
+                            this._dispatchApartmentFinishSpecs(cm, g, useGraphRooms);
+                        }
+                    } else {
+                        for (const b of builds) this._finishOneApartment(cm, b, useGraphRooms);
+                    }
                 }, {
                     levelIds,
                     totalElementCount: builds.reduce((n, b) => n + b.set.openingCommands.length + b.set.shellWindowOpeningCommands.length + b.set.boundaryCommands.length + b.set.roomCommands.length, 0),
@@ -2956,11 +3057,16 @@ export class ResidentialBuildingExecutor {
         }, 700);   // §DEFERWORK-RESI-ADOPT — background-resilient defer
     }
 
-    /** Create one apartment's doors + windows + boundaries + graph rooms inside the
-     *  (already-open) batch. Mirrors the apartment executor's per-level fan-out.
-     *  `useGraphRooms` is the batch-wide decision (so a level marked
-     *  graph-authoritative is consistent with the batch's skipRedetectRooms). */
-    private _finishOneApartment(cm: CommandManagerLike, b: ApartmentBuild, useGraphRooms: boolean): void {
+    /** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — BUILD (pure, NO dispatch) one apartment's deferred
+     *  finishing specs: doors + shell windows + the entry door (openings), open-plan boundaries, and
+     *  graph-authoritative rooms. Mirrors the apartment executor's per-level fan-out but RETURNS the
+     *  specs so the caller can accumulate them per level and commit whole-level batches (instead of a
+     *  command trio per apartment). Rooms are numbered PER APARTMENT here (`rn` resets), unchanged —
+     *  concatenating per level and letting `assignUniqueRoomNumbers` renumber in input order lands the
+     *  IDENTICAL `{level}-NNN` sequence the per-apartment dispatch produced. `useGraphRooms` is the
+     *  batch-wide decision (so a level marked graph-authoritative stays consistent with the batch's
+     *  skipRedetectRooms). */
+    private _buildApartmentFinishSpecs(b: ApartmentBuild, useGraphRooms: boolean): ApartmentFinishSpecs {
         const set = b.set;
         const levelId = b.levelId;
         // Doors + shell windows → ONE opening batch.
@@ -3021,38 +3127,57 @@ export class ResidentialBuildingExecutor {
             : [];
         const allOpenings = [...openingItems.map(it => ({ wallId: it.p.wallId, openingData: it.p.opening })),
             ...entryItems.map(it => ({ wallId: it.wallId, openingData: it.opening }))];
-        if (allOpenings.length > 0) {
-            try {
-                cm.execute?.(new CreateWallOpeningsBatchCommand(allOpenings));
-            } catch (e) { console.warn('[resi-building] openings batch failed for', levelId, e); }
-        }
         // Room-bounding lines (open-plan splitters within the apartment).
-        if (set.boundaryCommands.length > 0) {
-            try {
-                cm.execute?.(new CreateRoomBoundingLinesBatchCommand(
-                    set.boundaryCommands.map(bc => bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }),
-                ));
-            } catch (e) { console.warn('[resi-building] boundaries batch failed for', levelId, e); }
-        }
-        // Graph-authoritative rooms (so the shipped rooms ARE the designed rooms).
+        const boundaries = set.boundaryCommands.length > 0
+            ? set.boundaryCommands.map(bc => bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } })
+            : [];
+        // Graph-authoritative rooms (so the shipped rooms ARE the designed rooms). Numbered PER
+        // APARTMENT (rn resets); the caller preserves this order when it concatenates a level's rooms.
+        const rooms: RoomData[] = [];
         if (useGraphRooms && set.roomCommands.length > 0) {
             const roomHeightM = typeof b.option.floorToCeilingMm === 'number' && b.option.floorToCeilingMm > 0
                 ? b.option.floorToCeilingMm / 1000 : 2.7;
-            const graphRooms: RoomData[] = [];
             let rn = 0;
             for (const rc of set.roomCommands) {
                 const spec = rc.payload as GraphRoomSpec;
                 const rd = roomDataFromGraphSpec({ ...spec, levelId }, { levelHeightM: roomHeightM, roomNumber: String(++rn).padStart(2, '0') });
-                if (rd) graphRooms.push(rd);
-            }
-            if (graphRooms.length > 0) {
-                try {
-                    cm.execute?.(new BatchCreateRoomsCommand(graphRooms));
-                    (window as unknown as { roomTopologyObserver?: { markGraphAuthoritative(l: string): void } })
-                        .roomTopologyObserver?.markGraphAuthoritative(levelId);
-                } catch (e) { console.warn('[resi-building] graph-room batch failed for', levelId, e); }
+                if (rd) rooms.push(rd);
             }
         }
+        return { levelId, openings: allOpenings, boundaries, rooms };
+    }
+
+    /** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — DISPATCH accumulated apartment finishing specs.
+     *  `specs` may be a SINGLE apartment's (flag OFF) or a whole LEVEL's merged specs (flag ON) — the
+     *  commands are identical either way: ONE `CreateWallOpeningsBatchCommand` (each opening keyed to
+     *  its own host wallId + offset), ONE `CreateRoomBoundingLinesBatchCommand`, ONE
+     *  `BatchCreateRoomsCommand`, each guarded + fail-soft exactly as the per-apartment path was.
+     *  Marks the level graph-authoritative iff rooms were committed (idempotent — the level was also
+     *  pre-marked in `execute`). */
+    private _dispatchApartmentFinishSpecs(cm: CommandManagerLike, specs: ApartmentFinishSpecs, useGraphRooms: boolean): void {
+        if (specs.openings.length > 0) {
+            try {
+                cm.execute?.(new CreateWallOpeningsBatchCommand(specs.openings));
+            } catch (e) { console.warn('[resi-building] openings batch failed for', specs.levelId, e); }
+        }
+        if (specs.boundaries.length > 0) {
+            try {
+                cm.execute?.(new CreateRoomBoundingLinesBatchCommand(specs.boundaries));
+            } catch (e) { console.warn('[resi-building] boundaries batch failed for', specs.levelId, e); }
+        }
+        if (useGraphRooms && specs.rooms.length > 0) {
+            try {
+                cm.execute?.(new BatchCreateRoomsCommand(specs.rooms));
+                (window as unknown as { roomTopologyObserver?: { markGraphAuthoritative(l: string): void } })
+                    .roomTopologyObserver?.markGraphAuthoritative(specs.levelId);
+            } catch (e) { console.warn('[resi-building] graph-room batch failed for', specs.levelId, e); }
+        }
+    }
+
+    /** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — legacy per-apartment path (flag OFF): build one
+     *  apartment's finishing specs and dispatch them immediately (one command trio per apartment). */
+    private _finishOneApartment(cm: CommandManagerLike, b: ApartmentBuild, useGraphRooms: boolean): void {
+        this._dispatchApartmentFinishSpecs(cm, this._buildApartmentFinishSpecs(b, useGraphRooms), useGraphRooms);
     }
 
     /**
