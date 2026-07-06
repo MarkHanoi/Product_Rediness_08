@@ -30,7 +30,9 @@
 import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 // §P3.1 (IMPL-PLAN-2026-05-17): CreateWallCommand, CreateCurtainWallCommand, window.commandManager (P4.4).
-// All copy dispatches are now bus-only (wall.create / curtain-wall.create / wall.createOpening).
+// All copy dispatches are now bus-only (wall.create / curtain-wall.create /
+// wall.opening.create — §FIX-COPY-HOSTED-OPENING-PAYLOAD (L-128) corrected the
+// hosted path from the wrong `wall.createOpening` command to `wall.opening.create`).
 // Mesh rebuild for walls is driven by the initTools.ts §P2.1 wall.created bridge;
 // for curtain walls by the initBusHandlers.ts §E.5.4 bridge.
 
@@ -339,18 +341,34 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const newOpeningId = crypto.randomUUID();
         const newElementId = crypto.randomUUID();
 
-        // Build new opening data from source, replacing IDs and offset
+        // §FIX-COPY-HOSTED-OPENING-PAYLOAD (L-128): build the opening payload the
+        // SAME way the working placement path does (DoorPlanToolHandler /
+        // WindowPlanToolHandler) — the copy MUST reuse the normal creation command,
+        // not a parallel copy-only path. Source `el` is a DoorData/WindowData record
+        // (WallTypes.ts) that already carries `type`, `offset`, `width`, `height`,
+        // `sillHeight` plus type-specific props (doorType/windowType/systemTypeId/
+        // frame*), so spreading it preserves a faithful copy; we only re-stamp the
+        // IDs and the along-wall offset. Unknown keys are stripped by OpeningSchema.
         const newOpeningData: Record<string, any> = {
             ...el,
             id:        newOpeningId,
             elementId: newElementId,
+            type:      kind,          // guarantee the schema-required discriminant
             offset:    newOffset,
         };
         // Remove mark so MarkGenerator assigns a new one
         delete newOpeningData.mark;
 
-        window.runtime?.bus?.executeCommand('wall.createOpening', { wallId: el.wallId, openingData: newOpeningData })
-            ?.catch((e: unknown) => console.error('[CopyTool] wall.createOpening failed:', e));
+        // §FIX-COPY-HOSTED-OPENING-PAYLOAD (L-128): dispatch `wall.opening.create`
+        // (WallOpeningLegacyAdapterHandler, payload `{ wallId, openingData }`), NOT
+        // `wall.createOpening` (CreateWallOpeningHandler, payload `{ wallId, opening }`).
+        // The old call passed `openingData` to a command whose canExecute reads
+        // `cmd.opening` → "opening must be an object" rejection, so no copy was ever
+        // created. `wall.opening.create` is the proven placement path: it drives the
+        // initTools.ts §P2.3 `wall.opening.created` bridge → legacy WallStore.addOpening
+        // → WallRebuildCoordinator mesh rebuild, and persists across save/reload (P6).
+        window.runtime?.bus?.executeCommand('wall.opening.create', { wallId: el.wallId, openingData: newOpeningData })
+            ?.catch((e: unknown) => console.error('[CopyTool] wall.opening.create failed:', e));
         console.log('[CopyTool]', kind, 'copied → new IDs:', newOpeningId, newElementId,
             '| offset:', newOffset.toFixed(3));
     }
