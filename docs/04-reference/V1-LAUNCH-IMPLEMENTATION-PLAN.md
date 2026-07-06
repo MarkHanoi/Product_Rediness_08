@@ -220,6 +220,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-117 [BLOCKER] big tower crashes on first 3D nav — 4 L-110 default elevations eagerly reproject ALL elements on every flush → NME thrash → WebGPU crash | views/projection/perf | **IN FLIGHT (view-projection agent)** — make inactive-view (elevation) reprojection LAZY (only active view projects; defer others until opened) + scope/cache elevation export + adaptive NME cache (subsumes L-114); no L-110/L-108 regression; test 3D edit doesn't reproject elevations. §FIX-LAZY-INACTIVE-VIEW-PROJECTION | 
 
+| L-118 [BLOCKER] elevation projection bleeds into 3D + elevations render empty ('Generating view…') + extreme slowness (1006 elts thrash) | views/elevation projection | **IN FLIGHT (view-projection agent, expands L-117)** — isolate elevation output to the elevation view layer (no 3D bleed) + make it actually render the building + lazy/perf (subsumes L-117/L-114); check marker-vs-projection bleed. §FIX-ELEVATION-PROJECTION-ISOLATION-AND-RENDER | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
