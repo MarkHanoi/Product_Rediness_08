@@ -32,7 +32,7 @@ import type { FloorPattern } from '@pryzm/core-app-model';
 // rides the unthrottled BackgroundHeartbeat when `document.hidden`, so these
 // deferred finishing passes / poll loops keep advancing instead of crawling
 // under the ≥1 s background setTimeout clamp.  See §BACKGROUND-TAB-KEEPALIVE.
-import { deferWork } from '@pryzm/frame-scheduler';
+import { deferWork, getFrameScheduler } from '@pryzm/frame-scheduler';
 import { createId } from '@pryzm/schemas';
 import {
     AddLevelCommand,
@@ -379,7 +379,23 @@ export class ResidentialBuildingExecutor {
         const planToWorldXZ = (p: { x: number; y: number }): { x: number; z: number } =>
             this._rotate({ x: p.x / 1000, z: p.y / 1000 }, xf);
 
+        // §PERF-PROGRESSIVE-GENERATION (L-131 P5) — resolve the frame-yielding gate ONCE up front so
+        // the whole pre-build uses one consistent value. OFF ⇒ this method takes no `await` at all and
+        // runs as one synchronous task (exact pre-P5 baseline).
+        const progressive = this._progressiveGenerationOn();
+
         for (let i = 0; i < result.levels.length; i++) {
+            // §PERF-PROGRESSIVE-GENERATION (L-131 P5) — yield ONE frame BETWEEN floors so the heavy
+            // per-apartment `buildLayoutCommands` + shell/core/cell perimeter construction spreads
+            // across frames instead of freezing rAF in a single task (root-cause #4). This is the PURE
+            // pre-build phase: it only fills in-memory payload arrays — NO store mutation, NO batch is
+            // open, and the P1 wall-resolve-coalesce window has not been opened — so a yield here is
+            // undo-, P1-, P2- and geometry-neutral. Skipped for the first floor (nothing built yet) and
+            // whenever the flag is OFF. Routed through the single frame scheduler (P3 — no raw rAF/rIC).
+            if (i > 0 && progressive) {
+                if (perfTraceOn()) perfLog('§PERF-PROGRESSIVE-GENERATION', `[resi-building] pre-build yield — floor ${i + 1}/${result.levels.length}`);
+                await this._yieldGenerationFrame();
+            }
             const lvl = result.levels[i]!;
             const levelId = levelIdByIndex.get(lvl.levelIndex)!;
             const perLevel = result.perLevelApartments[i];
@@ -516,6 +532,16 @@ export class ResidentialBuildingExecutor {
         }
 
         console.log(`[resi-building] prepared — ${placedCount} apartment(s), ${rejectedCount} rejected, ${shellPayloads.length} shell ring(s)`);
+
+        // §PERF-PROGRESSIVE-GENERATION (L-131 P5) — phase boundary: the PURE pre-build is complete;
+        // paint one frame before the SYNCHRONOUS structural commit (graph-authority pre-mark + the one
+        // atomic `batchCoordinator.runBatch`). Still BEFORE any store mutation and the P1 coalesce
+        // window (opened at `beginGenerationResolveCoalesce` further below), so the single-undo grouping
+        // and geometry are untouched — only the loading overlay gets a live frame here.
+        if (progressive) {
+            if (perfTraceOn()) perfLog('§PERF-PROGRESSIVE-GENERATION', '[resi-building] pre-build complete — yielding a frame before the structural commit');
+            await this._yieldGenerationFrame();
+        }
 
         // ── §RESI-DOUBLE-ROOM-TAGS (founder 2026-06-26: "every space ships with the correct
         // name AND a duplicate generic 'Room NN' overlaid on it") — ADR-0069 GR1, mirroring the
@@ -1523,6 +1549,29 @@ export class ResidentialBuildingExecutor {
                 (r as Promise<unknown>).catch((e: unknown) => console.warn(`[resi-building] ${command} (${tag}) failed on`, payload.levelId, e));
             }
         } catch (e) { console.warn(`[resi-building] ${command} (${tag}) threw on`, payload.levelId, e); }
+    }
+
+    /** §PERF-PROGRESSIVE-GENERATION (L-131 P5) — true when frame-yielding chunked generation is
+     *  enabled (default ON). Set `globalThis.__pryzmProgressiveGeneration = false` to revert to the
+     *  fully-synchronous single-task generation (exact pre-P5 baseline). Orthogonal to P1
+     *  (`__pryzmWallResolveOncePerGen`, coalesces the wall-RESOLVE) and P2
+     *  (`__pryzmBatchCoalescePerLevel`, coalesces the wall-CREATE): P5 changes only the CADENCE of the
+     *  PURE pre-build phase — it never splits the structural `runBatch`, never changes the undo
+     *  grouping, never touches the P1 resolve-coalesce window, and emits byte-identical geometry. */
+    private _progressiveGenerationOn(): boolean {
+        return (globalThis as { __pryzmProgressiveGeneration?: boolean }).__pryzmProgressiveGeneration !== false;
+    }
+
+    /** §PERF-PROGRESSIVE-GENERATION (L-131 P5) — yield ONE frame through the single frame scheduler
+     *  (P3: NEVER a raw requestAnimationFrame/requestIdleCallback), mirroring ProjectLoader's
+     *  chunked-load `yieldFrame`: schedule one `scheduleOnce('resi-gen-chunk', …, 'post-render')` tick
+     *  and resolve after it fires, so the browser PAINTS the frame in between. Called ONLY at PURE
+     *  pre-build chunk boundaries (between floors / before the structural commit), so a yield can never
+     *  bisect a `runBatch`, a `produceCommand`, or the P1 wall-resolve-coalesce window. */
+    private _yieldGenerationFrame(): Promise<void> {
+        return new Promise<void>((resolve) => {
+            getFrameScheduler().scheduleOnce('resi-gen-chunk', () => resolve(), 'post-render');
+        });
     }
 
     /** §PERF-BATCH-COALESCE-PER-LEVEL (L-131 P2) — true when whole-level batch coalescing is
