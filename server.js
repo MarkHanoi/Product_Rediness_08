@@ -65,8 +65,8 @@ import {
 } from './server/renderService.js';
 
 // ── Replit-PostgreSQL auth & project store ────────────────────────────────────
-import { getPgPool, query as pgQuery, getBackendInfo, setMigrationsReady as pgSetMigrationsReady, markMigrationsSettled as pgMarkMigrationsSettled } from './server/pgClient.js';
-import { handleProjectApiError, SnapshotTooLargeError, ProjectConflictError, VersionLimitError, PreconditionFailedError, ProjectGoneError } from './server/errors.js';
+import { getPgPool, closePgPool, query as pgQuery, getBackendInfo, setMigrationsReady as pgSetMigrationsReady, markMigrationsSettled as pgMarkMigrationsSettled } from './server/pgClient.js';
+import { handleProjectApiError, SnapshotTooLargeError, ProjectConflictError, VersionLimitError, PreconditionFailedError, ProjectGoneError, sendDbUnavailable } from './server/errors.js';
 import { runMigrations } from './server/dbMigrate.js';
 import { signUp as authSignUp, signIn as authSignIn, verifyToken as authVerifyToken } from './server/authStore.js';
 import * as pgProjectStore from './server/projectStore.js';
@@ -496,12 +496,24 @@ try {
             );
 
             if (!access.allowed) {
+                // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — distinguish a
+                // transient "could not verify" (retryable) from a verified denial.
+                // A retryable denial rides a `retryable:true` + `code:'db_unavailable'`
+                // flag so the client re-tries the join with bounded backoff (see
+                // initCollaboration §FIX-DB-SATURATION-RESILIENCE) instead of leaving
+                // the project silently un-joined (the "grey card" symptom). This never
+                // grants access — the socket is NOT joined here in either case.
+                const retryable = access.retryable === true;
                 console.warn(
-                    `[socket.io] join-project DENIED — socket: ${socket.id}` +
+                    `[socket.io] join-project ${retryable ? 'RETRYABLE (transient DB)' : 'DENIED'} — socket: ${socket.id}` +
                     ` userId: ${socket.data.userId} projectId: ${projectId}` +
                     ` reason: ${access.reason}`
                 );
-                socket.emit('join-project-denied', { projectId, reason: access.reason });
+                socket.emit('join-project-denied', {
+                    projectId,
+                    reason: access.reason,
+                    ...(retryable ? { retryable: true, code: 'db_unavailable' } : {}),
+                });
                 return;
             }
 
@@ -804,20 +816,42 @@ const _visibilityIntents = new Map();
 // {allowed:false, reason:'internal error'}. This caused every IFC request to
 // 403 and every Socket.io catch-up to 500 even for the legitimate owner.
 // This helper supplies the context once for all HTTP routes.
-async function _httpCanAccess(userId, projectId) {
-    if (!userId || userId === 'anonymous') return false;
+async function _httpAccessResult(userId, projectId) {
+    if (!userId || userId === 'anonymous') return { allowed: false, reason: 'anonymous' };
     try {
         const supabase = await getSupabaseClient().catch(() => null);
-        const access = await canUserAccessProject(userId, projectId, {
+        return await canUserAccessProject(userId, projectId, {
             supabase,
             pgPool: getPgPool(),
             projectsMap: pgProjectStore.imProjectsMapAdapter,
         });
-        return access.allowed;
     } catch (err) {
         console.warn('[httpCanAccess] check failed:', err.message);
-        return false;
+        return { allowed: false, reason: 'internal error during access check' };
     }
+}
+
+// Boolean shorthand — retained for call sites whose control flow is not a plain
+// "deny → 403" (e.g. owner-OR-member, or a fail-soft catch-up route). A retryable
+// result safely reduces to `false` (deny) here — no worse than the pre-L-136
+// behaviour, and never fail-open.
+async function _httpCanAccess(userId, projectId) {
+    const access = await _httpAccessResult(userId, projectId);
+    return access.allowed === true;
+}
+
+// §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — access guard for the uniform
+// "check then 403" HTTP routes. Returns TRUE when the caller may proceed. When
+// it returns FALSE it has ALREADY written the response: a retryable 503
+// (`db_unavailable`) if the DB could not be reached to verify, otherwise a 403.
+// This lets a saturated-DB blip on the OPEN path (visibility-intents / versions
+// reads) surface as a client-retryable 503 rather than a permanent 403.
+async function _httpRequireAccess(userId, projectId, res, denyBody = { error: 'Access denied to this project.', code: 'project_access_denied' }) {
+    const access = await _httpAccessResult(userId, projectId);
+    if (access.allowed === true) return true;
+    if (access.retryable === true) { sendDbUnavailable(res); return false; }
+    res.status(403).json(denyBody);
+    return false;
 }
 
 // ── Anthropic proxy ──────────────────────────────────────────────────────────
@@ -2388,10 +2422,9 @@ app.post('/api/projects/:projectId/ifc-uploads', authMiddleware, ifcUploadMw.sin
     const elementCount  = parseInt(req.body?.elementCount ?? '0', 10);
 
     // Ownership check — user must have access to the project
-    const canAccess = await _httpCanAccess(userId, projectId);
-    if (!canAccess) {
-        return res.status(403).json({ error: 'Access denied to this project.' });
-    }
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — 503 (db_unavailable) on a
+    // transient DB blip so the client retries; genuine denial stays 403.
+    if (!await _httpRequireAccess(userId, projectId, res)) return;
 
     try {
         const { uploadIfcFile } = ifcStorageService;
@@ -2415,10 +2448,9 @@ app.get('/api/projects/:projectId/ifc-uploads', authMiddleware, async (req, res)
     const { projectId } = req.params;
     const userId        = req.auth?.userId ?? 'anonymous';
 
-    const canAccess = await _httpCanAccess(userId, projectId);
-    if (!canAccess) {
-        return res.status(403).json({ error: 'Access denied to this project.' });
-    }
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — 503 (db_unavailable) on a
+    // transient DB blip so the client retries; genuine denial stays 403.
+    if (!await _httpRequireAccess(userId, projectId, res)) return;
 
     try {
         const { listIfcUploads } = ifcStorageService;
@@ -2435,10 +2467,9 @@ app.get('/api/projects/:projectId/ifc-uploads/:uploadId/data', authMiddleware, a
     const { projectId, uploadId } = req.params;
     const userId                  = req.auth?.userId ?? 'anonymous';
 
-    const canAccess = await _httpCanAccess(userId, projectId);
-    if (!canAccess) {
-        return res.status(403).json({ error: 'Access denied to this project.' });
-    }
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — 503 (db_unavailable) on a
+    // transient DB blip so the client retries; genuine denial stays 403.
+    if (!await _httpRequireAccess(userId, projectId, res)) return;
 
     try {
         const { getIfcFileData } = ifcStorageService;
@@ -2458,10 +2489,9 @@ app.delete('/api/projects/:projectId/ifc-uploads/:uploadId', authMiddleware, asy
     const { projectId, uploadId } = req.params;
     const userId                  = req.auth?.userId ?? 'anonymous';
 
-    const canAccess = await _httpCanAccess(userId, projectId);
-    if (!canAccess) {
-        return res.status(403).json({ error: 'Access denied to this project.' });
-    }
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — 503 (db_unavailable) on a
+    // transient DB blip so the client retries; genuine denial stays 403.
+    if (!await _httpRequireAccess(userId, projectId, res)) return;
 
     try {
         const { deleteIfcUpload } = ifcStorageService;
@@ -3647,9 +3677,8 @@ app.get('/api/projects/:id/visibility-intents', authMiddleware, async (req, res)
     // §H2 (audit) — was leaking any project's visibility config to any
     // authenticated user. Restrict to members of the project.
     const userId = req.auth?.userId ?? 'anonymous';
-    if (!await _httpCanAccess(userId, id)) {
-        return res.status(403).json({ error: 'Forbidden — no access to this project.' });
-    }
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — retryable 503 vs verified 403.
+    if (!await _httpRequireAccess(userId, id, res, { error: 'Forbidden — no access to this project.', code: 'project_access_denied' })) return;
     try {
         const supabase = await getSupabaseClient();
         if (supabase) {
@@ -3681,8 +3710,8 @@ app.post('/api/projects/:id/visibility-intents', authMiddleware, async (req, res
     // Without this check any authenticated user could create visibility intents on any project.
     const { id } = req.params;
     const userId = req.auth?.userId ?? 'anonymous';
-    const canAccess = await _httpCanAccess(userId, id);
-    if (!canAccess) return res.status(403).json({ error: 'Access denied to this project.' });
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — retryable 503 vs verified 403.
+    if (!await _httpRequireAccess(userId, id, res)) return;
     const payload = visibilityIntentPayload(req.body);
     if (!payload.name || !String(payload.name).trim()) return res.status(400).json({ error: 'name is required' });
     try {
@@ -3734,8 +3763,8 @@ app.put('/api/projects/:id/visibility-intents/:intentId', authMiddleware, async 
     // C08 §2.1 hasPermission: member write_intent — visibility intent updates require project membership.
     const { id, intentId } = req.params;
     const userId = req.auth?.userId ?? 'anonymous';
-    const canAccess = await _httpCanAccess(userId, id);
-    if (!canAccess) return res.status(403).json({ error: 'Access denied to this project.' });
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — retryable 503 vs verified 403.
+    if (!await _httpRequireAccess(userId, id, res)) return;
     const payload = visibilityIntentPayload(req.body, intentId);
     if (req.body?.isSystem === true || req.body?.intent?.isSystem === true) return res.status(400).json({ error: 'system intents are read-only fixtures' });
     try {
@@ -3787,8 +3816,8 @@ app.delete('/api/projects/:id/visibility-intents/:intentId', authMiddleware, asy
     // C08 §2.1 hasPermission: member write_intent — visibility intent deletes require project membership.
     const { id, intentId } = req.params;
     const userId = req.auth?.userId ?? 'anonymous';
-    const canAccess = await _httpCanAccess(userId, id);
-    if (!canAccess) return res.status(403).json({ error: 'Access denied to this project.' });
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — retryable 503 vs verified 403.
+    if (!await _httpRequireAccess(userId, id, res)) return;
     if (intentId.startsWith('system-')) return res.status(400).json({ error: 'system intents cannot be deleted' });
     try {
         const supabase = await getSupabaseClient();
@@ -4168,9 +4197,8 @@ app.get('/api/projects/:id/versions/:vid/audit', authMiddleware, async (req, res
     const { id, vid } = req.params;
     // §H2 (audit) — restrict cross-tenant audit-log read.
     const userId = req.auth?.userId ?? 'anonymous';
-    if (!await _httpCanAccess(userId, id)) {
-        return res.status(403).json({ error: 'Forbidden — no access to this project.' });
-    }
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — retryable 503 vs verified 403.
+    if (!await _httpRequireAccess(userId, id, res, { error: 'Forbidden — no access to this project.', code: 'project_access_denied' })) return;
     try {
         const supabase = await getSupabaseClient();
         if (supabase) {
@@ -4194,9 +4222,8 @@ app.get('/api/projects/:id/versions/:vid/state', authMiddleware, async (req, res
     const { id, vid } = req.params;
     // §H2 (audit) — restrict cross-tenant CDE-state read.
     const userId = req.auth?.userId ?? 'anonymous';
-    if (!await _httpCanAccess(userId, id)) {
-        return res.status(403).json({ error: 'Forbidden — no access to this project.' });
-    }
+    // §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) — retryable 503 vs verified 403.
+    if (!await _httpRequireAccess(userId, id, res, { error: 'Forbidden — no access to this project.', code: 'project_access_denied' })) return;
     try {
         const supabase = await getSupabaseClient();
         if (supabase) {
@@ -5828,16 +5855,12 @@ function _shutdown(signal) {
         try { io.close(() => console.log('[server] socket.io closed.')); }
         catch (e) { console.error('[server] io.close error:', e); }
     }
-    // Drain the PG pool.
-    const pool = getPgPool();
-    if (pool) {
-        pool.end()
-            .then(() => console.log('[server] pg pool drained.'))
-            .catch((e) => console.error('[server] pool.end error:', e))
-            .finally(() => process.exit(0));
-    } else {
-        setTimeout(() => process.exit(0), 200).unref?.();
-    }
+    // §FIX-DB-SATURATION-RESILIENCE (L-137) — drain the PG pool via the idempotent
+    // closePgPool() so a redeploy does not leak up-to-`max` connections on the
+    // Supabase pooler. Using closePgPool() (not getPgPool().end()) means we never
+    // CREATE a pool during shutdown just to close it (in-memory mode stays a no-op),
+    // and a double signal cannot double-close. The force-exit timer above bounds it.
+    closePgPool().finally(() => process.exit(0));
 }
 process.on('SIGTERM', () => _shutdown('SIGTERM'));
 process.on('SIGINT',  () => _shutdown('SIGINT'));

@@ -152,6 +152,80 @@ describe('canUserAccessProject() — anonymous rejection (C08 §2.1)', () => {
     });
 });
 
+// ── §4 — §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136) ────────────────────────
+//
+// A transient DB error must FALL THROUGH to the other sources and, only when
+// NO source can verify ownership because of a DB error, surface as a distinct
+// RETRYABLE result — never a plain deny, and NEVER fail-open (allowed:true).
+
+describe('canUserAccessProject() — transient DB error resilience (L-136)', () => {
+    // A Supabase stub that always errors (simulates a saturated/degraded pooler).
+    const erroringSupabase = {
+        from() { return this; },
+        select() { return this; },
+        eq() { return this; },
+        async maybeSingle() { return { data: null, error: { message: 'pooler timeout' } }; },
+    };
+    // A PG pool stub that always throws (connection error).
+    const erroringPgPool = {
+        async query() { throw new Error('connection terminated unexpectedly'); },
+    };
+
+    it('T22 — Supabase error FALLS THROUGH to in-memory and allows the verified owner', async () => {
+        const projectsMap = new Map([['proj-1', { id: 'proj-1', ownerId: 'user-abc' }]]);
+        const result = await canUserAccessProject('user-abc', 'proj-1', {
+            supabase: erroringSupabase, pgPool: null, projectsMap,
+        });
+        // Supabase blip must NOT deny the real owner — in-memory covers it.
+        expect(result.allowed).toBe(true);
+    });
+
+    it('T23 — Supabase error + PG error, project only in-memory → owner still allowed', async () => {
+        const projectsMap = new Map([['proj-1', { id: 'proj-1', ownerId: 'user-abc' }]]);
+        const result = await canUserAccessProject('user-abc', 'proj-1', {
+            supabase: erroringSupabase, pgPool: erroringPgPool, projectsMap,
+        });
+        expect(result.allowed).toBe(true);
+    });
+
+    it('T24 — ALL sources fail with DB errors → retryable, NOT a plain deny, and never fail-open', async () => {
+        const projectsMap = new Map(); // project not in memory either
+        const result = await canUserAccessProject('user-abc', 'proj-unverifiable', {
+            supabase: erroringSupabase, pgPool: erroringPgPool, projectsMap,
+        });
+        expect(result.allowed).toBe(false);      // SECURITY: never grant on error
+        expect(result.retryable).toBe(true);     // but flagged retryable, not permanent
+    });
+
+    it('T25 — DB error but a source VERIFIES not-owner → hard deny, NOT retryable', async () => {
+        // In-memory authoritatively says the project belongs to someone else.
+        const projectsMap = new Map([['proj-1', { id: 'proj-1', ownerId: 'someone-else' }]]);
+        const result = await canUserAccessProject('user-abc', 'proj-1', {
+            supabase: erroringSupabase, pgPool: null, projectsMap,
+        });
+        expect(result.allowed).toBe(false);
+        expect(result.retryable).not.toBe(true);
+    });
+
+    it('T26 — no DB error + genuinely not found → hard deny (not retryable)', async () => {
+        const projectsMap = new Map();
+        const result = await canUserAccessProject('user-abc', 'proj-missing', {
+            supabase: null, pgPool: null, projectsMap,
+        });
+        expect(result.allowed).toBe(false);
+        expect(result.retryable).not.toBe(true);
+        expect(result.reason).toMatch(/not found/i);
+    });
+
+    it('T27 — anonymous is still denied even when DB would error (no retry for anon)', async () => {
+        const result = await canUserAccessProject('anonymous', 'proj-1', {
+            supabase: erroringSupabase, pgPool: erroringPgPool, projectsMap: new Map(),
+        });
+        expect(result.allowed).toBe(false);
+        expect(result.retryable).not.toBe(true);
+    });
+});
+
 // ── §3 — Route permission coverage matrix (documentation test) ────────────────
 //
 // This test documents which enforcement mechanism protects each write route,

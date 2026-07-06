@@ -163,6 +163,75 @@ function showRemoteCommandToast(commandType: string, color: string): void {
     }, 3500);
 }
 
+/**
+ * §FIX-DB-SATURATION-RESILIENCE (L-137/L-136) — a single, self-replacing status
+ * toast for the collaboration-join lifecycle. Used to show "Reconnecting…" during
+ * bounded join retries and a clickable "Retry" affordance when automatic retries
+ * are exhausted — so a transient DB error surfaces as an actionable message
+ * instead of a silent grey card.
+ *
+ * When `onRetry` is null the toast auto-dismisses (transient status). When
+ * provided, it stays until clicked and invokes the callback.
+ */
+function showJoinStatusToast(message: string, onRetry: (() => void) | null): void {
+    const container = _ensureToastContainer();
+    // Only one join-status toast at a time — replace any previous one.
+    container.querySelectorAll('[data-pryzm-join-status]').forEach(el => el.remove());
+
+    const toast = document.createElement('div');
+    toast.dataset.pryzmJoinStatus = '1';
+    toast.style.cssText = [
+        'display:flex',
+        'align-items:center',
+        'gap:8px',
+        'padding:8px 12px',
+        'background:#1a2035ee',
+        'border:1px solid #6600FF',
+        'border-radius:6px',
+        'color:#fff',
+        'font-size:12px',
+        'font-family:system-ui,sans-serif',
+        'box-shadow:0 2px 8px #0004',
+        // Interactive toasts must receive clicks (container is pointer-events:none).
+        onRetry ? 'pointer-events:auto' : 'pointer-events:none',
+        'cursor:' + (onRetry ? 'pointer' : 'default'),
+    ].join(';');
+
+    const msg = document.createElement('span');
+    msg.textContent = message;
+    toast.appendChild(msg);
+
+    if (onRetry) {
+        const btn = document.createElement('button');
+        btn.textContent = 'Retry';
+        btn.style.cssText = [
+            'margin-left:6px',
+            'padding:2px 10px',
+            'background:#6600FF',
+            'color:#fff',
+            'border:none',
+            'border-radius:4px',
+            'font-size:12px',
+            'font-weight:600',
+            'cursor:pointer',
+        ].join(';');
+        btn.addEventListener('click', () => {
+            toast.remove();
+            onRetry();
+        });
+        toast.appendChild(btn);
+    }
+
+    container.appendChild(toast);
+
+    if (!onRetry) {
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 450);
+        }, 3500);
+    }
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export interface CollaborationHandle {
@@ -197,6 +266,54 @@ export function initCollaboration(params: {
 
     /** Unsubscribe function returned by CommandManager.onCommandExecuted(). */
     let unsubscribeCommands: (() => void) | null = null;
+
+    // ── §FIX-DB-SATURATION-RESILIENCE (L-137/L-136) — bounded join retry ────────
+    // When the server can't VERIFY project access because the DB is transiently
+    // degraded (saturated Supabase pooler) it replies join-project-denied with
+    // `{ retryable:true, code:'db_unavailable' }` (server/projectAccess.js +
+    // server.js join-project handler). That is NOT a permanent denial, so instead
+    // of leaving the project silently un-joined (the "grey card" symptom) we retry
+    // the join with bounded exponential backoff (~30s budget), then surface a
+    // "couldn't open — retry" affordance. A genuine denial (not owner / not found)
+    // is NOT retried.
+    const JOIN_RETRY_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 15_000]; // ≈30s total budget
+    let joinRetryAttempt = 0;
+    let joinRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearJoinRetry(): void {
+        if (joinRetryTimer !== null) { clearTimeout(joinRetryTimer); joinRetryTimer = null; }
+    }
+
+    function scheduleJoinRetry(projectId: string): void {
+        if (joinRetryAttempt >= JOIN_RETRY_BACKOFF_MS.length) {
+            console.warn(
+                '[initCollaboration] join-project still failing after ' +
+                `${JOIN_RETRY_BACKOFF_MS.length} retries (transient DB) — giving up automatic retry.`,
+            );
+            // Surface a manual "retry" affordance instead of a silent grey card.
+            showJoinStatusToast('Couldn’t open collaboration — server busy.', () => {
+                joinRetryAttempt = 0;
+                if (socket?.connected && currentProjectId === projectId) {
+                    console.log('[initCollaboration] Manual retry — re-joining project room:', projectId);
+                    socket.emit('join-project', projectId);
+                }
+            });
+            return;
+        }
+        const delay = JOIN_RETRY_BACKOFF_MS[joinRetryAttempt++] as number;
+        console.warn(
+            `[initCollaboration] join-project denied (transient DB) — retry ${joinRetryAttempt}/` +
+            `${JOIN_RETRY_BACKOFF_MS.length} in ${delay}ms.`,
+        );
+        showJoinStatusToast('Reconnecting to collaboration…', null);
+        clearJoinRetry();
+        joinRetryTimer = setTimeout(() => {
+            joinRetryTimer = null;
+            if (socket?.connected && currentProjectId === projectId) {
+                socket.emit('join-project', projectId);
+            }
+        }, delay);
+    }
 
     /** Map: userId → cursor overlay DOM element. */
     const remoteCursors = new Map<string, HTMLElement>();
@@ -401,6 +518,10 @@ export function initCollaboration(params: {
 
         socket.on('connect', () => {
             console.log('[initCollaboration] Socket connected — joining project room:', projectId);
+            // §FIX-DB-SATURATION-RESILIENCE — fresh connection: reset the bounded
+            // join-retry counter so a new session gets its full retry budget.
+            joinRetryAttempt = 0;
+            clearJoinRetry();
             socket.emit('join-project', projectId);
 
             // Phase E-2: catch-up replay — fetch commands we missed while disconnected/offline
@@ -409,11 +530,17 @@ export function initCollaboration(params: {
             });
         });
 
-        socket.on('join-project-denied', (data: { projectId: string; reason: string }) => {
+        socket.on('join-project-denied', (data: { projectId: string; reason: string; retryable?: boolean; code?: string }) => {
             console.warn(
                 '[initCollaboration] join-project denied for', data.projectId,
                 '— reason:', data.reason,
             );
+            // §FIX-DB-SATURATION-RESILIENCE (L-137/L-136) — a transient DB error
+            // (server could not verify access) is retryable; a genuine denial is not.
+            const isRetryable = data?.retryable === true || data?.code === 'db_unavailable';
+            if (isRetryable && data.projectId === currentProjectId) {
+                scheduleJoinRetry(data.projectId);
+            }
         });
 
         socket.on('user-joined', (data: { userId: string; displayName?: string }) => {
@@ -433,6 +560,7 @@ export function initCollaboration(params: {
 
         socket.on('disconnect', (reason: string) => {
             console.log('[initCollaboration] Socket disconnected:', reason);
+            clearJoinRetry(); // §FIX-DB-SATURATION-RESILIENCE — no pending join to a dead socket
             clearAllCursors();
             // §50 §5.5
             events?.emit('pryzm-presence-cleared', {}); // F.events.2a
@@ -798,6 +926,7 @@ export function initCollaboration(params: {
     };
 
     const onGoHub = (): void => {
+        clearJoinRetry(); // §FIX-DB-SATURATION-RESILIENCE — cancel any pending join retry
         if (socket && currentProjectId) {
             try { socket.emit('leave-project', currentProjectId); } catch { /* best effort */ }
         }
@@ -818,6 +947,9 @@ export function initCollaboration(params: {
 
     const handle: CollaborationHandle = {
         disconnect(): void {
+            // §FIX-DB-SATURATION-RESILIENCE — cancel any pending bounded join retry.
+            clearJoinRetry();
+
             // Unsubscribe command broadcast
             unsubscribeCommands?.();
             unsubscribeCommands = null;

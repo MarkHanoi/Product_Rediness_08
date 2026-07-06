@@ -35,6 +35,20 @@ function backoffMs(attemptIndex: number): number {
     return BACKOFF_SCHEDULE_MS[idx];
 }
 
+// ── §FIX-DB-SATURATION-RESILIENCE (L-137, 2026-07-06) — circuit breaker ────────
+//
+// The 2026-07-06 DB-saturation cascade was AMPLIFIED by this queue: when the
+// Supabase pooler was already saturated, every failed autosave retried, adding
+// MORE write load to the exhausted pool — a positive-feedback spiral. A circuit
+// breaker caps that: after N consecutive server-health failures (5xx / timeout /
+// network) we STOP hammering the server for a cooldown window, then probe with a
+// single item ("half-open"); a success closes the breaker, a failure re-opens it.
+//
+// This never sends requests FASTER than the existing exponential backoff — the
+// breaker only ever ADDS delay (a sane floor), never removes it.
+const BREAKER_FAILURE_THRESHOLD = 5;   // consecutive server failures before opening
+const BREAKER_COOLDOWN_MS = 30_000;    // quiet window while the breaker is open (floor)
+
 // ── Queue persistence key ─────────────────────────────────────────────────────
 
 const QUEUE_STORAGE_KEY = 'pryzm-sync-queue';
@@ -150,6 +164,17 @@ export class ServerSyncQueue {
     private isOnline: boolean = navigator.onLine;
     private isFlushing: boolean = false;
     private flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * §FIX-DB-SATURATION-RESILIENCE (L-137) — circuit-breaker state.
+     *   _consecutiveServerFailures — count of back-to-back server-health failures
+     *     (5xx / timeout / network). Reset to 0 on ANY server response that proves
+     *     the server is alive (2xx success OR a terminal 4xx rejection).
+     *   _breakerOpenUntil — epoch ms until which the breaker is OPEN; while open,
+     *     flush() does not touch the network (stops amplifying a saturated DB).
+     */
+    private _consecutiveServerFailures = 0;
+    private _breakerOpenUntil = 0;
 
     /**
      * PERF-FIX (2026-04-29) — sticky "plan rejects versions" latch.
@@ -296,23 +321,79 @@ export class ServerSyncQueue {
         }
     }
 
+    /** §FIX-DB-SATURATION-RESILIENCE — true while the breaker is open (network paused). */
+    private _isBreakerOpen(): boolean {
+        return this._breakerOpenUntil > Date.now();
+    }
+
+    /** §FIX-DB-SATURATION-RESILIENCE — the server proved it is alive; close the breaker. */
+    private _recordServerSuccess(): void {
+        if (this._consecutiveServerFailures > 0 || this._breakerOpenUntil !== 0) {
+            console.log('[ServerSyncQueue] Server responsive again — resetting circuit breaker.');
+        }
+        this._consecutiveServerFailures = 0;
+        this._breakerOpenUntil = 0;
+    }
+
+    /** §FIX-DB-SATURATION-RESILIENCE — a server-health failure (5xx / timeout /
+     *  network). Opens the breaker for a cooldown once the threshold is hit (and
+     *  re-opens it on a failed half-open probe). */
+    private _recordServerFailure(): void {
+        this._consecutiveServerFailures++;
+        if (this._consecutiveServerFailures >= BREAKER_FAILURE_THRESHOLD) {
+            this._breakerOpenUntil = Date.now() + BREAKER_COOLDOWN_MS;
+            console.warn(
+                `[ServerSyncQueue] Circuit breaker OPEN — ${this._consecutiveServerFailures} consecutive ` +
+                `server failures; pausing sync for ${Math.round(BREAKER_COOLDOWN_MS / 1000)}s to avoid ` +
+                'amplifying server load.',
+            );
+        }
+    }
+
+    /** §FIX-DB-SATURATION-RESILIENCE — test/diagnostic accessors. */
+    isCircuitOpen(): boolean { return this._isBreakerOpen(); }
+    getConsecutiveFailures(): number { return this._consecutiveServerFailures; }
+
     private async flush(): Promise<void> {
         if (this.isFlushing || !this.isOnline || this.queue.length === 0) return;
+
+        // §FIX-DB-SATURATION-RESILIENCE — while the breaker is OPEN, do not touch
+        // the network; reschedule for just after the cooldown expires so we probe
+        // exactly once when it does.
+        if (this._isBreakerOpen()) {
+            const wait = this._breakerOpenUntil - Date.now();
+            this.scheduleFlush(Math.max(wait, 1_000) + 200);
+            return;
+        }
 
         this.isFlushing = true;
         const now = Date.now();
 
         const ready = this.queue.filter(item => item.nextAttemptAt <= now);
+
+        // §FIX-DB-SATURATION-RESILIENCE — HALF-OPEN probe: if we are still in a
+        // degraded state (failures at/above threshold but the cooldown just
+        // elapsed), send a SINGLE item to test the water rather than the whole
+        // backlog. A success closes the breaker; a failure re-opens it.
+        const halfOpen = this._consecutiveServerFailures >= BREAKER_FAILURE_THRESHOLD;
+        const batch = halfOpen ? ready.slice(0, 1) : ready;
+
         let rescheduleMs: number | null = null;
 
-        for (const item of ready) {
+        for (const item of batch) {
             const success = await this.attemptSync(item);
-            if (!success) {
+            if (success) {
+                this._recordServerSuccess();
+            } else {
+                this._recordServerFailure();
                 const delay = backoffMs(item.attemptCount - 1);
                 item.nextAttemptAt = Date.now() + delay;
                 if (rescheduleMs === null || delay < rescheduleMs) {
                     rescheduleMs = delay;
                 }
+                // If this failure just opened the breaker, stop the batch now —
+                // do not keep hammering a server we've decided to back off from.
+                if (this._isBreakerOpen()) break;
             }
         }
 
@@ -320,6 +401,11 @@ export class ServerSyncQueue {
         this.isFlushing = false;
 
         if (this.queue.length > 0) {
+            // If the breaker opened during this pass, honour its cooldown floor.
+            if (this._isBreakerOpen()) {
+                this.scheduleFlush(Math.max(this._breakerOpenUntil - Date.now(), 1_000) + 200);
+                return;
+            }
             const minDelay = this.queue.reduce((min, item) => {
                 const wait = Math.max(0, item.nextAttemptAt - Date.now());
                 return Math.min(min, wait);

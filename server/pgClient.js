@@ -113,6 +113,37 @@ export function getPgPool() {
 }
 
 /**
+ * §FIX-DB-SATURATION-RESILIENCE (L-137, 2026-07-06) — gracefully drain the PG
+ * pool on process shutdown so a Fly redeploy / scale-down does NOT leave up to
+ * `max` (10) client connections lingering on Supabase's transaction pooler until
+ * *it* times them out. Under deploy churn (~15 restarts in a session) those
+ * stale connections accumulate against Supabase's finite client-connection
+ * limit and were a primary contributor to the 2026-07-06 saturation cascade.
+ *
+ * Idempotent + safe when no pool was ever created (in-memory mode): a no-op.
+ * We null `_pool` FIRST so any late `getPgPool()` during shutdown does not race
+ * a half-closed pool, and a double SIGTERM/SIGINT cannot double-`end()`.
+ *
+ * Bounded by design: `pool.end()` waits for in-flight queries, but the caller
+ * (server.js `_shutdown`) races the whole shutdown against a force-exit timer,
+ * so a hung query can never block the drain past that budget.
+ *
+ * @returns {Promise<void>}
+ */
+export async function closePgPool() {
+    const pool = _pool;
+    if (!pool) return;              // never created, or already drained — no-op.
+    _pool = null;                   // prevent re-entrancy / recreation races.
+    try {
+        await pool.end();
+        console.log('[pgClient] pg pool drained (closePgPool).');
+    } catch (e) {
+        // A drain error must never block process exit — log and move on.
+        console.error('[pgClient] closePgPool error:', e?.message ?? e);
+    }
+}
+
+/**
  * Execute a parameterized query using the pool directly.
  * pool.query() acquires and releases a connection automatically — no manual
  * connect/release needed and no risk of connection leak.

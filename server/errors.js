@@ -64,6 +64,49 @@ export class ProjectAccessDeniedError extends Error {
 }
 
 /**
+ * §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE (L-136, 2026-07-06) — the access check
+ * could NOT be VERIFIED because every ownership source (Supabase, Replit PG,
+ * in-memory) was unavailable due to a transient DB error (saturated / degraded
+ * Supabase pooler). This is NOT a verified denial — we simply cannot answer
+ * right now — so it must surface as a RETRYABLE 503, never a permanent 403.
+ *
+ * The `db_unavailable` code mirrors the `migrations_in_progress` retry shape
+ * (server/api/v1/routes.js §SERVER-500-V1-MIGRATION-RACE) so the client can
+ * ride it out with bounded backoff instead of showing a permanent grey card.
+ *
+ * SECURITY: this is only ever returned when we could not confirm ownership.
+ * It never grants access — the socket join / HTTP route still refuses to serve
+ * data; it only tells the client "retry" instead of "denied forever".
+ */
+export class DbUnavailableError extends Error {
+    constructor(projectId) {
+        super(`Database temporarily unavailable — could not verify access to project: ${projectId}`);
+        this.name = 'DbUnavailableError';
+        this.code = 'db_unavailable';
+        this.statusCode = 503;
+        this.projectId = projectId;
+    }
+}
+
+/**
+ * §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE — send the canonical retryable-503
+ * body for a transient, unverifiable access check. Reused by every HTTP
+ * access-check caller so the shape is identical everywhere the client must
+ * distinguish "retry me" from a genuine 403/404. Includes a `Retry-After`
+ * hint (seconds) so well-behaved clients pace their retries.
+ *
+ * @param {import('express').Response} res
+ * @param {number} [retryAfterSeconds=2]
+ */
+export function sendDbUnavailable(res, retryAfterSeconds = 2) {
+    res.set('Retry-After', String(retryAfterSeconds));
+    return res.status(503).json({
+        error: 'Database temporarily unavailable — please retry.',
+        code: 'db_unavailable',
+    });
+}
+
+/**
  * GAP-05: snapshot byte-size exceeded.
  * Thrown before any DB write so no partial state is persisted.
  */
