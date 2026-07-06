@@ -207,3 +207,76 @@ describe('ProjectListClient', () => {
     await client.list();
   });
 });
+
+// §FIX-CREATE-TIMEOUT-RETRY (L-132) — the request helper must never hang on a
+// stalled connection (e.g. a Fly redeploy rollout mid-`POST /api/v1/projects`):
+// it bounds every attempt with an AbortController timeout and retries transient
+// transport failures with backoff, ultimately rejecting with a typed, retriable
+// error instead of leaving the onboarding loader stuck forever.
+describe('ProjectListClient — timeout + retry (L-132)', () => {
+  it('create() rejects with a retriable timeout error instead of hanging when the server never responds', async () => {
+    vi.useFakeTimers();
+    try {
+      // A fetch that connects but never answers, only rejecting when WE abort it.
+      const fetchImpl = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (signal) {
+            signal.addEventListener('abort', () => {
+              const e = new Error('The operation was aborted.');
+              e.name = 'AbortError';
+              reject(e);
+            });
+          }
+        }),
+      ) as unknown as typeof fetch;
+      const client = new ProjectListClient({ fetch: fetchImpl });
+      const p = client.create('My project');
+      // Register the rejection assertion BEFORE advancing so there is no
+      // unhandled-rejection window while the fake timers drive the aborts.
+      const assertion = expect(p).rejects.toMatchObject({
+        kind: 'timeout',
+        status: 0,
+        retriable: true,
+      });
+      // Burn through all 3 attempts (12s timeout each) + backoff (400ms, 800ms).
+      await vi.advanceTimersByTimeAsync(60_000);
+      await assertion;
+      // 3 attempts total (1 initial + 2 retries) — the request did not hang.
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retries a transient transport failure with backoff and then succeeds', async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const fetchImpl = vi.fn(async () => {
+        calls += 1;
+        if (calls < 3) throw new Error('ECONNREFUSED'); // first two attempts fail fast
+        return jsonResponse({ ok: true, data: makeRow({ id: 'late', name: 'Late' }) });
+      }) as unknown as typeof fetch;
+      const client = new ProjectListClient({ fetch: fetchImpl });
+      const p = client.create('Late');
+      await vi.advanceTimersByTimeAsync(5_000); // cover the 400ms + 800ms backoffs
+      const out = await p;
+      expect(out.id).toBe('late');
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does NOT retry a completed HTTP error response (a 5xx is returned on the first hit)', async () => {
+    const fetchImpl = makeFetch(() => jsonResponse({ error: 'boom' }, 500));
+    const client = new ProjectListClient({ fetch: fetchImpl });
+    await expect(client.create('x')).rejects.toMatchObject({
+      kind: 'server-error',
+      status: 500,
+      retriable: true,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});

@@ -24,12 +24,24 @@ export type ProjectListClientErrorKind =
   | 'not-found'
   | 'invalid-request'
   | 'server-error'
-  | 'network-error';
+  | 'network-error'
+  // §FIX-CREATE-TIMEOUT-RETRY (L-132) — distinct from `network-error` (fetch
+  // rejected outright) so callers can tell "the server never answered in time"
+  // (e.g. a Fly redeploy rollout) apart from "the connection failed". Both are
+  // retriable; the UI copy differs slightly.
+  | 'timeout';
 
 export class ProjectListClientError extends Error {
   readonly kind: ProjectListClientErrorKind;
   readonly status: number;
   readonly body: unknown;
+  /**
+   * §FIX-CREATE-TIMEOUT-RETRY (L-132) — true when the failure is transient and a
+   * fresh attempt (or a user-driven retry) is worth showing. Lets the onboarding
+   * loader / hub surface a "try again" affordance instead of a terminal error for
+   * connectivity blips, while still treating 4xx (auth / validation) as final.
+   */
+  readonly retriable: boolean;
 
   constructor(kind: ProjectListClientErrorKind, status: number, body: unknown) {
     // §SERVER-500-CLIENT-VISIBILITY (DAILY-USE 2026-05-21, Round 39) —
@@ -54,6 +66,9 @@ export class ProjectListClientError extends Error {
     this.kind = kind;
     this.status = status;
     this.body = body;
+    // Transient transport failures + upstream 5xx are worth a retry; 4xx
+    // (unauthenticated / not-found / invalid-request) are deterministic and final.
+    this.retriable = kind === 'network-error' || kind === 'timeout' || kind === 'server-error';
   }
 }
 
@@ -292,25 +307,83 @@ export class ProjectListClient {
     if (token !== null && token.length > 0) {
       headers.authorization = `Bearer ${token}`;
     }
-    let res: Response;
-    try {
-      const init: RequestInit = {
-        method,
-        credentials: 'same-origin',
-        headers,
-      };
-      if (body !== undefined) init.body = JSON.stringify(body);
-      res = await this.fetchImpl(url, init);
-    } catch (err) {
-      throw new ProjectListClientError('network-error', 0, { cause: String(err) });
+    const payload = body !== undefined ? JSON.stringify(body) : undefined;
+
+    // §FIX-CREATE-TIMEOUT-RETRY (L-132) — bound every request with an
+    // AbortController-driven timeout and a small backoff retry. Before this,
+    // a stalled connection (e.g. the founder's push→deploy→test loop hitting a
+    // Fly rollout window mid-`POST /api/v1/projects`) left the fetch pending
+    // forever, hanging the onboarding loader on "PREPARING WORKSPACE" with no
+    // escape. Now the request either completes, or rejects with a typed,
+    // `retriable` error the UI can surface.
+    //
+    // Retry policy: we only re-attempt TRANSPORT failures (fetch rejected or
+    // our timeout fired) — never a completed HTTP response, so a 4xx/5xx is
+    // returned to the caller on the first hit without hammering the server.
+    // During a redeploy the transport failure is typically a fast
+    // connection-refused, so all attempts resolve within ~1-2s; the full
+    // per-attempt timeout only bites if the socket connects but never answers.
+    // NOTE (idempotency): re-attempting a non-idempotent POST (create/duplicate)
+    // could in principle double-create if the server processed the first request
+    // but the response was lost. In the connection-refused redeploy case the
+    // server never saw it, so the retry is safe; we accept the small
+    // response-lost edge over an indefinite hang.
+    let lastErr: ProjectListClientError | null = null;
+    for (let attempt = 0; attempt <= MAX_TRANSPORT_RETRIES; attempt++) {
+      if (attempt > 0) {
+        await delay(RETRY_BASE_DELAY_MS * attempt);
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      // Don't keep the Node event loop alive for the timer in test/SSR runtimes.
+      if (timer && typeof timer === 'object' && 'unref' in timer
+        && typeof (timer as { unref?: () => void }).unref === 'function') {
+        (timer as { unref: () => void }).unref();
+      }
+      let res: Response;
+      try {
+        const init: RequestInit = {
+          method,
+          credentials: 'same-origin',
+          headers,
+          signal: controller.signal,
+        };
+        if (payload !== undefined) init.body = payload;
+        res = await this.fetchImpl(url, init);
+      } catch (err) {
+        // Distinguish "our timeout aborted it" from a genuine transport reject.
+        const aborted = controller.signal.aborted
+          || (err as { name?: string })?.name === 'AbortError';
+        lastErr = aborted
+          ? new ProjectListClientError('timeout', 0, {
+              cause: `request timed out after ${REQUEST_TIMEOUT_MS}ms`, url, method,
+            })
+          : new ProjectListClientError('network-error', 0, { cause: String(err), url, method });
+        continue; // transient — retry (or fall through to throw after the last attempt)
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!res.ok) {
+        const errBody = await safeJson(res);
+        throw new ProjectListClientError(mapStatus(res.status), res.status, errBody);
+      }
+      if (res.status === 204) return undefined as T;
+      return (await safeJson(res)) as T;
     }
-    if (!res.ok) {
-      const errBody = await safeJson(res);
-      throw new ProjectListClientError(mapStatus(res.status), res.status, errBody);
-    }
-    if (res.status === 204) return undefined as T;
-    return (await safeJson(res)) as T;
+    throw lastErr ?? new ProjectListClientError('network-error', 0, { cause: 'request failed', url, method });
   }
+}
+
+// §FIX-CREATE-TIMEOUT-RETRY (L-132) — request robustness knobs.
+// 12s per attempt keeps a hung socket from stranding the UI while still
+// tolerating a slow-but-alive server; 2 retries (3 attempts total) rides out a
+// brief redeploy blip without user action.
+const REQUEST_TIMEOUT_MS = 12_000;
+const MAX_TRANSPORT_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 400; // linear backoff: 400ms, then 800ms
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function mapStatus(status: number): ProjectListClientErrorKind {

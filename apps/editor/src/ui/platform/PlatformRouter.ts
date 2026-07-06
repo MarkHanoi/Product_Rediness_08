@@ -84,6 +84,31 @@ const HASH_PROJECTS = '#/projects';
 const LAST_OPEN_PROJECT_KEY   = 'pryzm.lastOpenProject';
 const REOPEN_AFTER_RELOAD_KEY = 'pryzm.reopenProjectAfterReload';
 
+/**
+ * §FIX-CREATE-TIMEOUT-RETRY (L-132) — turn a project-create failure into a
+ * short, human, retriable message for the loading overlay's error state.
+ *
+ * The persistence layer now rejects with a typed `ProjectListClientError`
+ * (`kind` + `retriable`) on a timeout / connection blip instead of hanging, so
+ * we can say "couldn't reach the server, try again" for transient transport
+ * failures (the Fly-redeploy window the founder's push→test loop hits) versus a
+ * generic message for everything else. Duck-typed on the error shape so this L7
+ * file doesn't take a value import from the persistence package.
+ */
+function describeCreateFailure(err: unknown): string {
+    const e = err as { kind?: string; retriable?: boolean } | null | undefined;
+    if (e && (e.kind === 'timeout' || e.kind === 'network-error')) {
+        return "Couldn't reach the server to create your project — check your connection and try again.";
+    }
+    if (e && e.kind === 'unauthenticated') {
+        return 'Your session expired — please sign in again to create a project.';
+    }
+    if (e && (e.retriable === true || e.kind === 'server-error')) {
+        return 'The server had a hiccup creating your project — please try again.';
+    }
+    return 'Could not create the project.';
+}
+
 export class PlatformRouter {
     private root: HTMLElement;
     private landing: LandingPage | null = null;
@@ -918,8 +943,16 @@ export class PlatformRouter {
                 // shown synchronously above (show-once) and owns its hide/error.
                 this.launchWorkspace(summary.id, summary.name, { isNewProject: true });
             } catch (err) {
+                // §FIX-CREATE-TIMEOUT-RETRY (L-132) — the create request now
+                // rejects (with a typed, `retriable` ProjectListClientError) on a
+                // timeout/connection blip instead of hanging forever. Map that to a
+                // human, retriable message on the loader's error state (which offers
+                // "Return to Hub" → the user can immediately start the New Project
+                // flow again) rather than leaking the raw `[ProjectListClient] …`
+                // string. Duck-typed on `kind`/`retriable` so we don't need a
+                // cross-package type import here.
                 console.error('[PlatformRouter] createAndOpenProject failed (swallowed — onboarding flow unaffected):', err);
-                this._failEngineLoadingOverlay((err as Error)?.message ?? 'Could not create the project.');
+                this._failEngineLoadingOverlay(describeCreateFailure(err));
             }
         })();
     }

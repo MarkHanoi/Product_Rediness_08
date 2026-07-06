@@ -263,14 +263,27 @@ async function handleBriefReady(
 
     // Safety net: if the project never reports loaded, dispose the listener so we
     // don't leak it across the next manual open.
+    //
+    // §FIX-CREATE-TIMEOUT-RETRY (L-132) — previously this bailed SILENTLY (log
+    // only), leaving the user staring at a stuck loader with no idea the setup
+    // had given up. Now that `createAndOpenProject` rejects on a create timeout
+    // (instead of hanging), the loader's own error state usually surfaces first;
+    // this net is the backstop for any other "loaded never arrived" case, and it
+    // now emits a VISIBLE, retriable toast so the user knows to try again rather
+    // than waiting forever. (The loading overlay separately offers "Return to
+    // Hub" → re-run the New Project flow.)
     setTimeout(() => {
         if (!fired) {
             fired = true;
             onLoaded.dispose();
             console.warn(
                 '[onboarding-bootstrap] timed out waiting for pryzm-project-loaded — ' +
-                'the project may have failed to open. The user can still create a site + ' +
-                'generate manually. Bailing without throwing.',
+                'the project may have failed to open. Surfacing a retriable toast; the ' +
+                'user can retry from the projects hub. Bailing without throwing.',
+            );
+            toast(
+                "We couldn't finish setting up your project — please try again from the projects hub.",
+                'error',
             );
         }
     }, 30_000);
