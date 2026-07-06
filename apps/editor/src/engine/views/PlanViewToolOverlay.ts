@@ -145,7 +145,10 @@ export class PlanViewToolOverlay {
         baseCanvas.addEventListener('mousedown', this._boundMouseDownCapture, { capture: true });
         window.addEventListener('mousemove', this._boundMouseMove);
         window.addEventListener('mouseup',   this._boundMouseUp);
-        window.addEventListener('keydown',   this._boundKeyDown);
+        // §FIX-PLAN-SPACE-ROUTING (L-129) — capture phase, see _onKeyDown. The plan
+        // overlay must see the key BEFORE the document-level capture SPACE consumers
+        // installed by the 3D placement tools that are armed in parallel.
+        window.addEventListener('keydown',   this._boundKeyDown, { capture: true });
         baseCanvas.addEventListener('dblclick', this._boundDblClick, { capture: true });
 
         const tm = window.toolManager;
@@ -200,7 +203,7 @@ export class PlanViewToolOverlay {
         this._baseCanvas?.removeEventListener('mousedown', this._boundMouseDownCapture, { capture: true } as EventListenerOptions);
         window.removeEventListener('mousemove', this._boundMouseMove);
         window.removeEventListener('mouseup',   this._boundMouseUp);
-        window.removeEventListener('keydown',   this._boundKeyDown);
+        window.removeEventListener('keydown',   this._boundKeyDown, { capture: true } as EventListenerOptions);
         this._baseCanvas?.removeEventListener('dblclick', this._boundDblClick, { capture: true } as EventListenerOptions);
         // Contract 17 Phase 2 — F.events.10
         this._unsubSvpToolFocus?.(); this._unsubSvpToolFocus = null;
@@ -249,6 +252,16 @@ export class PlanViewToolOverlay {
     /** True while this overlay is attached to a live plan canvas (Contract 34/17). */
     isAttached(): boolean {
         return this._active;
+    }
+
+    /**
+     * §FIX-PLAN-SPACE-ROUTING (L-129) — true while a plan-tool placement handler is
+     * armed on this overlay (attached, not paused, a handler is active). The global
+     * SPACE-pan shortcut (initTools) consults this so it yields SPACE to the active
+     * plan handler while placing instead of hijacking it for a 3D camera truck.
+     */
+    isPlacing(): boolean {
+        return this._active && !this._paused && this._activeHandler !== null;
     }
 
     setActiveTool(tool: string): void {
@@ -544,28 +557,56 @@ export class PlanViewToolOverlay {
         if (pt) this._activeHandler.onMouseUp(pt);
     }
 
+    /**
+     * §FIX-PLAN-SPACE-ROUTING (L-129) — the SINGLE plan-view keyboard routing site
+     * (main plan view). Runs in the CAPTURE phase on `window` (see attach()) so it
+     * sees the key BEFORE any `document`-level capture listener.
+     *
+     * WHY capture: `ToolManager.activateFurniture` / the door tool arm the 3D
+     * placement tool (FurnitureTool → `PrePlacementRotation.attach`, door →
+     * `DoorPlacementFlip.attach`) IN PARALLEL with the plan tool. Those install a
+     * `document`-CAPTURE keydown listener that, on SPACE, calls
+     * `preventDefault()` + `stopPropagation()`. On the old BUBBLE listener that
+     * consumer fired first and swallowed SPACE, so the active plan handler's
+     * `onKeyDown` was never reached — the plan-view ghost never rotated/flipped
+     * (both main and split plan). Listening in capture on the window (the outermost
+     * node) lets the active plan handler claim the key first, then
+     * `stopImmediatePropagation()` prevents every lower-precedence global SPACE
+     * consumer from also acting. GENERAL: works for furniture, door, and any
+     * PlanToolHandler exposing `onKeyDown`.
+     */
     private _onKeyDown(e: KeyboardEvent): void {
         if (!this._activeHandler || this._paused) return;
+        // Never hijack keys typed into a text-entry field (dimension inputs, etc.):
+        // a capture-phase listener would otherwise swallow SPACE before the field.
+        if (PlanViewToolOverlay._isFormFieldTarget(e.target)) return;
+
         if (e.key === 'Escape') {
             this._activeHandler.cancel();
             this._hideSnapTooltip();
             e.preventDefault();
-            e.stopPropagation();
+            // Deliberately NOT stopImmediatePropagation: the redundantly-armed 3D
+            // tool listens for Escape on `document` to deactivate itself — let it.
             return;
         }
-        // §T-B2 (DAILY-USE-AUDIT 2026-05-20) — propagate the handler's "I consumed
-        // this key" signal up the listener chain. Previously the return value was
-        // discarded so a Backspace pop-last-vertex inside a polyline tool was
-        // ALSO seen by the global Backspace handler in initUI.ts:2871 — which
-        // deleted the currently-selected element from a previous selection. This
-        // is a contract conformance fix: every plan-tool handler's `onKeyDown`
-        // returns `boolean` per the PlanToolHandler interface to signal exactly
-        // this "claimed" semantics; the overlay must honour it.
+        // §T-B2 (DAILY-USE-AUDIT 2026-05-20) — honour the handler's "I consumed this
+        // key" signal. On true, stop the event OUTRIGHT (stopImmediatePropagation)
+        // so neither the global Backspace-delete handler (initUI.ts) nor the 3D
+        // tool's document-capture SPACE consumer also acts on a key the active plan
+        // handler just claimed (Backspace pop-vertex, SPACE rotate/flip, …).
         const handled = this._activeHandler.onKeyDown?.(e);
         if (handled === true) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation();
         }
+    }
+
+    /** True when the key event targets a text-entry field — never hijack those. */
+    private static _isFormFieldTarget(target: EventTarget | null): boolean {
+        const el = target as HTMLElement | null;
+        if (!el || !el.tagName) return false;
+        const tag = el.tagName.toUpperCase();
+        return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable === true;
     }
 
     private _onDblClick(e: MouseEvent): void {

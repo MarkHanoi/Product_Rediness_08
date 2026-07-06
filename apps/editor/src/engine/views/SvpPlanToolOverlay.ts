@@ -181,7 +181,10 @@ export class SvpPlanToolOverlay {
         svpCanvas.addEventListener('dblclick',   this._bDblClick,  { capture: true });
         window.addEventListener('mousemove', this._bMouseMove);
         window.addEventListener('mouseup',   this._bMouseUp);
-        window.addEventListener('keydown',   this._bKeyDown);
+        // §FIX-PLAN-SPACE-ROUTING (L-129) — capture phase, see _onKeyDown. Mirrors
+        // the main plan overlay so the split-view plan pane wins SPACE over the 3D
+        // placement tools' document-capture consumers.
+        window.addEventListener('keydown',   this._bKeyDown, { capture: true });
 
         // ── Coordinate with PlanViewToolOverlay ───────────────────────────
         // F.events.10 — svp:tool-focus-ack via runtime.events
@@ -232,7 +235,7 @@ export class SvpPlanToolOverlay {
         this._svpCanvas?.removeEventListener('dblclick',   this._bDblClick,  { capture: true } as EventListenerOptions);
         window.removeEventListener('mousemove', this._bMouseMove);
         window.removeEventListener('mouseup',   this._bMouseUp);
-        window.removeEventListener('keydown',   this._bKeyDown);
+        window.removeEventListener('keydown',   this._bKeyDown, { capture: true } as EventListenerOptions);
 
         for (const fn of this._focusUnlisteners) fn();
         this._focusUnlisteners = [];
@@ -310,6 +313,15 @@ export class SvpPlanToolOverlay {
     /** True while this overlay is attached to a live SVP canvas (Contract 34/17). */
     isAttached(): boolean {
         return this._active;
+    }
+
+    /**
+     * §FIX-PLAN-SPACE-ROUTING (L-129) — true while a plan-tool placement handler is
+     * armed on this split-view overlay. The global SPACE-pan shortcut (initTools)
+     * consults this so it yields SPACE to the active plan handler while placing.
+     */
+    isPlacing(): boolean {
+        return this._active && !this._paused && this._activeHandler !== null;
     }
 
     /**
@@ -569,6 +581,13 @@ export class SvpPlanToolOverlay {
         if (pt) this._activeHandler.onDoubleClick(pt);
     }
 
+    /**
+     * §FIX-PLAN-SPACE-ROUTING (L-129) — split-view plan keyboard routing. Runs in
+     * the CAPTURE phase on `window` (see attach()) so it claims the key before the
+     * `document`-capture SPACE consumers installed by the 3D placement tools that
+     * are armed in parallel (FurnitureTool / door flip). See the twin comment in
+     * PlanViewToolOverlay._onKeyDown for the full rationale.
+     */
     private _onKeyDown(e: KeyboardEvent): void {
         if (!this._activeHandler) return;
         // Contract 38 — when PlanViewManager is the primary viewport (3D renderer
@@ -577,23 +596,34 @@ export class SvpPlanToolOverlay {
         // Only require hover focus when the 3D view is the primary viewport.
         const planViewIsPrimary = Boolean(window.planViewManager?.isActive);
         if (!this._svpFocused && !planViewIsPrimary) return;
+        // Never hijack keys typed into a text-entry field (dimension inputs, etc.).
+        if (SvpPlanToolOverlay._isFormFieldTarget(e.target)) return;
+
         if (e.key === 'Escape') {
             this._activeHandler.cancel();
             this._hideSnapTooltip();
             e.preventDefault();
-            e.stopPropagation();
+            // NOT stopImmediatePropagation — let a redundantly-armed 3D tool also
+            // reset on Escape (its listener is on document).
             return;
         }
-        // §T-B2 (DAILY-USE-AUDIT 2026-05-20) — propagate handler's "I consumed it"
-        // signal so the global Backspace/Delete handler in initUI.ts doesn't also
-        // delete the previously-selected element when the user pops a polyline
-        // vertex. Mirrors the PlanViewToolOverlay fix; the PlanToolHandler interface
-        // contract declares `onKeyDown(e): boolean` for exactly this purpose.
+        // §T-B2 (DAILY-USE-AUDIT 2026-05-20) — honour the handler's "I consumed it"
+        // signal. On true, stopImmediatePropagation so neither the global
+        // Backspace/Delete handler (initUI.ts) nor the 3D tool's document-capture
+        // SPACE consumer also acts on a key the active plan handler just claimed.
         const handled = this._activeHandler.onKeyDown?.(e);
         if (handled === true) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation();
         }
+    }
+
+    /** True when the key event targets a text-entry field — never hijack those. */
+    private static _isFormFieldTarget(target: EventTarget | null): boolean {
+        const el = target as HTMLElement | null;
+        if (!el || !el.tagName) return false;
+        const tag = el.tagName.toUpperCase();
+        return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el.isContentEditable === true;
     }
 
     // ── Coordinate resolution ─────────────────────────────────────────────

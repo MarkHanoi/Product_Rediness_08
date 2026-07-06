@@ -382,7 +382,20 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             _spaceHeld = true;
             e.preventDefault();
-            if (navManager.currentMode === '3D') {
+            // §FIX-PLAN-SPACE-ROUTING (L-129) — yield SPACE to an active plan-tool
+            // placement handler. The plan overlay OWNS plan-view SPACE routing
+            // (furniture rotate / door flip / any PlanToolHandler.onKeyDown) and
+            // consumes the key in its own capture-phase router. Without this guard,
+            // in split view (3D is the primary viewport, so currentMode === '3D')
+            // a SPACE meant to rotate the plan-pane ghost would ALSO truck the 3D
+            // camera. We still preventDefault above (no page scroll); we only skip
+            // the camera-mode switch while a plan tool is placing.
+            const _planPlacing =
+                (window as { planViewToolOverlay?: { isPlacing?: () => boolean } })
+                    .planViewToolOverlay?.isPlacing?.() === true ||
+                (window as { svpPlanToolOverlay?: { isPlacing?: () => boolean } })
+                    .svpPlanToolOverlay?.isPlacing?.() === true;
+            if (navManager.currentMode === '3D' && !_planPlacing) {
                 world.camera.controls.mouseButtons.left = 2; // TRUCK / SCREEN_PAN
                 _canvas.style.cursor = 'grab';
             }
