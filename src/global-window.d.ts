@@ -468,6 +468,18 @@ declare global {
          *  sub-threshold drag that committed no command still settles the wall.
          *  See WallRebuildCoordinator._resumeAndFlushDeferredDrag. */
         resumeAndFlushDeferredDrag?(): void;
+        /** §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — open a generation coalesce window:
+         *  while open, rebuildWalls() requests are ACCUMULATED and the whole-level
+         *  WallJoinResolver.resolveLevel is deferred to ONE terminal resolve per affected
+         *  level at end-of-generation (instead of ~3× per level from the mitre + openings
+         *  passes). Gated by `__pryzmWallResolveOncePerGen` (default ON). See
+         *  WallRebuildCoordinator._beginGenerationResolveCoalesce. */
+        beginGenerationResolveCoalesce?(): void;
+        /** §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — close the coalesce window and run
+         *  the single terminal whole-level resolve over every accumulated wall. Fired by the
+         *  generator once its passes are quiescent; a coordinator backstop fires it otherwise.
+         *  Idempotent. See WallRebuildCoordinator._endGenerationResolveCoalesce. */
+        endGenerationResolveCoalesce?(): void;
     };
     /**
      * C13 §4 (Wave 35 I-2) — Project isolation teardown surface.

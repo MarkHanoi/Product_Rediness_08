@@ -25,7 +25,7 @@
 // `execute` boundary. The pure orchestrator already carries its own spans.
 
 import { trace } from '@opentelemetry/api';
-import { batchCoordinator, storeRegistry, storeEventBus } from '@pryzm/core-app-model';
+import { batchCoordinator, storeRegistry, storeEventBus, perfLog, perfTraceOn } from '@pryzm/core-app-model';
 import type { FloorPattern } from '@pryzm/core-app-model';
 // §DEFERWORK-RESI-ADOPT — background-tab-resilient deferral.  `deferWork` honours
 // the delay via setTimeout while the tab is VISIBLE (foreground identical) but
@@ -633,6 +633,17 @@ export class ResidentialBuildingExecutor {
         // their walls commit, which forces WallRebuildCoordinator._flush → WallJoinResolver.resolveLevel
         // → the bisector MITRE on every shared corner. Do the SAME here for the ground shell + every
         // storey's shell perimeter + the core (+ the ground corridor), once they've landed.
+        //
+        // §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — open the generation coalesce window BEFORE any
+        // pass calls rebuildWalls. Every subsequent whole-level rebuild request (mitre corners here +
+        // the deferred openings/doors/windows/entrance passes below) is ACCUMULATED in the coordinator
+        // and drained by ONE terminal resolveLevel per affected level once the store is quiescent —
+        // replacing the ~3× per-level resolves the mitre re-arm + openings repair triggered before.
+        // resolveLevel is a pure function of the final store geometry, so the result is identical
+        // (same mitred corners, same opening void cuts) at ~1/3 the cost. No-op when the flag is OFF.
+        if (perfTraceOn()) perfLog('§PERF-GEN-INSTRUMENT', '[resi-building] structural batch committed — opening wall-resolve coalesce window');
+        try { window.__wallRebuildControl?.beginGenerationResolveCoalesce?.(); }
+        catch (e) { console.warn('[resi-building] §PERF-WALL-RESOLVE-ONCE-PER-GEN begin failed (non-fatal):', e); }
         this._mitreShellCorners([
             ...shellPayloads,
             ...corePerimeterPayloads,
@@ -1500,6 +1511,14 @@ export class ResidentialBuildingExecutor {
      *  hop clears it). (3) Re-fire a couple more times on a short delay so any LATER deferred batch
      *  (openings / finishes) that re-opens then closes the discard window can't leave the corners
      *  square. Each rebuildWalls deliberately ignores discard/pause and runs the whole-level resolve. */
+    /** §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — true when the resolve-once-per-generation
+     *  coalescing is enabled (default ON). Mirrors the coordinator's flag read exactly so both
+     *  sides agree; set `globalThis.__pryzmWallResolveOncePerGen = false` to revert to the
+     *  per-pass inline whole-level resolves. */
+    private _resolveOncePerGenOn(): boolean {
+        return (globalThis as { __pryzmWallResolveOncePerGen?: boolean }).__pryzmWallResolveOncePerGen !== false;
+    }
+
     private _mitreShellCorners(
         payloads: ReadonlyArray<{ walls: ReadonlyArray<Record<string, unknown>>; levelId: string }>,
     ): void {
@@ -1550,11 +1569,26 @@ export class ResidentialBuildingExecutor {
         const budget = Math.min(60, Math.max(40, Math.ceil(ids.length / 8)));
         const tryMitre = (n: number): void => {
             if (!ready() && n > 0) { deferWork(() => tryMitre(n - 1), 150); return; }
-            // Walls have landed (or the budget ran out) → schedule the settle-gated, post-restore
-            // resolve. §RESI-MITER-SETTLE-ONCE — re-arm via SETTLE (not a timer) up to a SMALL bound so
-            // the openings + finish batches that can re-square corners are re-mitred, then it STOPS (a
-            // settled build with nothing in flight fires no further passes — no re-queue flicker/spam).
-            fireAfterSettle(2);
+            // §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — when the flag is ON (default), the
+            // whole-generation coalesce window (opened in _execute) is active, so we accumulate
+            // the mitre ids ONCE and let the SINGLE end-of-generation terminal resolve mitre
+            // every corner from the final store state. The fireAfterSettle re-arm chain (which
+            // ran the whole-level resolveLevel up to 3× per level) is then redundant — the
+            // terminal, firing after every opening/door/window pass has settled, sees the
+            // complete geometry and closes each corner in one pass. Flag OFF ⇒ the legacy
+            // §RESI-MITER-SETTLE-ONCE path (settle-re-armed direct resolves) is preserved so the
+            // change is instantly revertible.
+            if (this._resolveOncePerGenOn()) {
+                if (perfTraceOn()) perfLog('§PERF-GEN-INSTRUMENT', `[resi-building] mitre pass — accumulating ${ids.length} shell/core/perimeter wall id(s) for the end-of-gen resolve`);
+                try { window.__wallRebuildControl?.rebuildWalls?.(ids); }
+                catch (e) { console.warn('[resi-building] §PERF-WALL-RESOLVE-ONCE-PER-GEN mitre accumulate failed (non-fatal):', e); }
+            } else {
+                // Walls have landed (or the budget ran out) → schedule the settle-gated, post-restore
+                // resolve. §RESI-MITER-SETTLE-ONCE — re-arm via SETTLE (not a timer) up to a SMALL bound so
+                // the openings + finish batches that can re-square corners are re-mitred, then it STOPS (a
+                // settled build with nothing in flight fires no further passes — no re-queue flicker/spam).
+                fireAfterSettle(2);
+            }
         };
         tryMitre(budget);
     }
@@ -2564,9 +2598,14 @@ export class ResidentialBuildingExecutor {
             } catch (e) { console.warn('[resi-building] openings batch failed (non-fatal):', e); }
 
             // Flush the host-wall meshes for the openings just added (mirrors §A.21.D28).
+            // §PERF-WALL-RESOLVE-ONCE-PER-GEN — while the coalesce window is open this request
+            // is ACCUMULATED (not resolved inline); the openings' void cuts are applied by the
+            // single end-of-gen terminal resolve, which sees them because they are committed to
+            // the store BEFORE this call. Flag OFF ⇒ this resolves the level inline as before.
             const openingWallIds = [...neededWallIds];
             if (openingWallIds.length > 0) {
                 deferWork(() => {
+                    if (perfTraceOn()) perfLog('§PERF-GEN-INSTRUMENT', `[resi-building] openings pass — ${openingWallIds.length} host wall id(s) queued for rebuild`);
                     try { window.__wallRebuildControl?.rebuildWalls?.(openingWallIds); }
                     catch (e) { console.warn('[resi-building] rebuildWalls failed (non-fatal):', e); }
                 }, 250);

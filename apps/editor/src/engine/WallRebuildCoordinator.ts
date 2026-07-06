@@ -1,9 +1,11 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
+import { getFrameScheduler, deferWork, type TickListenerDisposer, type DeferWorkCanceller } from '@pryzm/frame-scheduler';
 import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta } from '@pryzm/geometry-wall';
 import {
     DEFAULT_SNAP_PIXEL_RADIUS,
     getWorldToleranceForActiveCamera,
+    perfTraceOn,
+    perfLog,
 } from '@pryzm/core-app-model';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
@@ -164,6 +166,45 @@ export class WallRebuildCoordinator {
     private static readonly _FLUSH_NOPROGRESS_MAX = 8;
     private static readonly _FLUSH_WINDOW_MS = 1_000;
 
+    // §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — end-of-generation resolve coalescing.
+    // A large multi-family generation triggers whole-level `WallJoinResolver.resolveLevel`
+    // ~3× PER LEVEL: the mitre-corner pass (§RESI-EXTERIOR-WALL-MITER-FIX2, re-armed via
+    // fireAfterSettle) + the openings/doors/windows repair passes each call
+    // `__wallRebuildControl.rebuildWalls(ids)`, and each takes the whole-level path
+    // (no prevState ⇒ `classifyWallDelta` = 'whole-level'). resolveLevel is a PURE
+    // function of the level's CURRENT store geometry, so running it once at the very end
+    // (after every wall + opening has settled into the store) is byte-identical to running
+    // it 3× — the last resolve is authoritative; the earlier ones are redundant. While a
+    // generation coalesce window is open the coordinator ACCUMULATES the requested wall ids
+    // instead of resolving inline, then runs ONE whole-level resolve per affected level when
+    // the window closes (the executor fires it once the generation is quiescent; a backstop
+    // timer fires it if the executor never does). Gated by `__pryzmWallResolveOncePerGen`
+    // (default ON — set `false` to revert to the per-pass inline resolves). This changes
+    // ONLY the SCHEDULING of resolveLevel, never the join math.
+    private _genCoalesceActive = false;
+    private _genPendingIds = new Set<string>();
+    private _genTerminalCancel: DeferWorkCanceller | null = null;
+    // Quiet-period after the LAST rebuildWalls accumulate before the terminal resolve fires.
+    // Must exceed the largest inter-pass gap (the openings pass fires its rebuildWalls ~250ms
+    // after its batch settles; other passes poll wall-readiness) so all corner + opening-void
+    // requests coalesce into ONE terminal per level. A late straggler after the window closes
+    // still resolves correctly (just as a separate flush) — the no-progress guard backstops
+    // any redundant re-arm.
+    private static readonly _GEN_TERMINAL_QUIET_MS = 1_500;
+    // Absolute backstop: if no accumulate ever re-arms the debounce (e.g. a zero-wall build),
+    // close the window anyway so the corners/voids are applied and an open window can't leak
+    // into a later generation.
+    private static readonly _GEN_COALESCE_BACKSTOP_MS = 20_000;
+
+    // §PERF-GEN-INSTRUMENT (L-131 P0) — per-level resolveLevel counter for one generation,
+    // reset at generation begin. Only written when `perfTraceOn()`; lets the founder capture
+    // before/after resolve counts on prod (flag OFF ≈ 3/level, flag ON ≈ 1/level).
+    private _resolveCountByLevel = new Map<string, number>();
+
+    private _resolveOncePerGenOn(): boolean {
+        return (globalThis as { __pryzmWallResolveOncePerGen?: boolean }).__pryzmWallResolveOncePerGen !== false;
+    }
+
     // Deps wired via init()
     private _wallTool!: WallRebuildDeps['wallTool'];
     private _slabStore!: any;
@@ -239,6 +280,11 @@ export class WallRebuildCoordinator {
             // §PERF-WALL-DRAG-DEFER (ADR-061) — drain wall events queued during a
             // wall drag once the gizmo is released (drag-end safety net).
             resumeAndFlushDeferredDrag: () => this._resumeAndFlushDeferredDrag(),
+            // §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — open/close a generation coalesce
+            // window so the mitre-corner + openings repair passes resolve each level ONCE at
+            // end-of-generation instead of ~3×. See _beginGenerationResolveCoalesce.
+            beginGenerationResolveCoalesce: () => this._beginGenerationResolveCoalesce(),
+            endGenerationResolveCoalesce:   () => this._endGenerationResolveCoalesce(),
         };
 
         window.__engineTeardown = {
@@ -429,7 +475,74 @@ export class WallRebuildCoordinator {
         this._pendingWallEvents.clear();
         this._prevJoinMap.clear();
         this._pendingRebuildKey = null;   // §A.21.D28-COALESCE — clear fingerprint on project switch
+        // §PERF-WALL-RESOLVE-ONCE-PER-GEN — abandon any open generation coalesce window
+        // (a project switch mid-generation must not carry accumulated ids across projects).
+        if (this._genTerminalCancel) { try { this._genTerminalCancel(); } catch { /* ignore */ } this._genTerminalCancel = null; }
+        this._genCoalesceActive = false;
+        this._genPendingIds.clear();
+        this._resolveCountByLevel.clear();
         console.log('[WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch');
+    }
+
+    /**
+     * §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — open a generation coalesce window.
+     * While open, `_rebuildWalls(ids)` ACCUMULATES the requested wall ids instead of
+     * running a whole-level `WallJoinResolver.resolveLevel` immediately; the single
+     * terminal resolve (one per affected level) runs when `_endGenerationResolveCoalesce`
+     * fires. The generator (ResidentialBuildingExecutor) opens the window before its
+     * mitre + openings passes and fires the terminal once the generation is quiescent.
+     *
+     * P0/P1 SEPARATION: the per-level resolve counter reset + the begin log run whenever
+     * perf-trace is on, REGARDLESS of the P1 flag — so a flag-OFF run still captures the
+     * BEFORE baseline (~3 resolves/level) and a flag-ON run the AFTER (~1). Coalescing
+     * itself only activates when `__pryzmWallResolveOncePerGen` is ON (default).
+     */
+    private _beginGenerationResolveCoalesce(): void {
+        if (perfTraceOn()) {
+            this._resolveCountByLevel.clear();
+            perfLog('§PERF-GEN-INSTRUMENT', 'generation begin — wall resolveLevel counter reset');
+        }
+        // Cancel any stale window from a prior generation before opening a fresh one.
+        if (this._genTerminalCancel) { this._genTerminalCancel(); this._genTerminalCancel = null; }
+        if (!this._resolveOncePerGenOn()) {
+            // Flag OFF → legacy behaviour: the passes' rebuildWalls calls resolve inline.
+            this._genCoalesceActive = false;
+            this._genPendingIds.clear();
+            return;
+        }
+        this._genCoalesceActive = true;
+        this._genPendingIds.clear();
+        // Absolute backstop so an open window can never leak (see field doc).
+        this._genTerminalCancel = deferWork(() => {
+            this._genTerminalCancel = null;
+            if (this._genCoalesceActive) {
+                console.warn('[WallRebuildCoordinator] §PERF-WALL-RESOLVE-ONCE-PER-GEN — backstop closing generation coalesce window (executor terminal never fired)');
+                this._endGenerationResolveCoalesce();
+            }
+        }, WallRebuildCoordinator._GEN_COALESCE_BACKSTOP_MS);
+    }
+
+    /**
+     * §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — close the generation coalesce window
+     * and run the single terminal rebuild over every accumulated wall id. Because the
+     * window is now closed, `_rebuildWalls(ids)` takes its normal whole-level path — all
+     * accumulated ids land in ONE `_pendingWallEvents` batch, so `_flush` resolves each
+     * affected level EXACTLY ONCE from the final store geometry (identical mitred corners
+     * + opening void cuts to the ~3 inline resolves these passes triggered before).
+     * Idempotent: a no-op when no window is open / nothing was accumulated.
+     */
+    private _endGenerationResolveCoalesce(): void {
+        if (this._genTerminalCancel) { this._genTerminalCancel(); this._genTerminalCancel = null; }
+        if (!this._genCoalesceActive) return;
+        this._genCoalesceActive = false;
+        const ids = Array.from(this._genPendingIds);
+        this._genPendingIds.clear();
+        if (perfTraceOn()) {
+            perfLog('§PERF-GEN-INSTRUMENT', `end-of-gen terminal — ${ids.length} coalesced wall id(s) → one whole-level resolve per affected level`);
+        }
+        if (ids.length === 0) return;
+        // Window closed → real whole-level path (single coalesced flush).
+        this._rebuildWalls(ids);
     }
 
     /**
@@ -449,6 +562,33 @@ export class WallRebuildCoordinator {
      * it never re-enters an in-flight resolve).
      */
     private _rebuildWalls(wallIds: readonly string[]): void {
+        // §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — inside an open generation coalesce
+        // window, ACCUMULATE the requested ids and defer the whole-level resolveLevel to the
+        // single end-of-generation terminal (`_endGenerationResolveCoalesce`). Every
+        // generation pass (mitre corners, openings/doors/windows repair) funnels through here;
+        // holding them until the store has fully settled lets one terminal resolve per level
+        // produce byte-identical corners + void cuts at ~1/3 the resolveLevel calls. NOTE:
+        // manual edits never reach this method (they flow through `_scheduleFlush → _flush`),
+        // so only the generator pipelines are coalesced. `_endGenerationResolveCoalesce`
+        // clears the flag BEFORE re-invoking, so the terminal drain takes the real path below.
+        if (this._genCoalesceActive) {
+            let added = 0;
+            for (const id of wallIds) {
+                if (typeof id === 'string' && id.length > 0 && !this._genPendingIds.has(id)) { this._genPendingIds.add(id); added++; }
+            }
+            // Re-arm the terminal debounce: every generation pass (mitre corners, openings,
+            // doors, windows, entrance) funnels its rebuildWalls request through here, so the
+            // terminal fires QUIET_MS after the LAST pass queues its walls — i.e. once the
+            // store is quiescent and every corner + opening void is captured. deferWork
+            // survives background-tab throttling (the passes themselves use it).
+            if (this._genTerminalCancel) this._genTerminalCancel();
+            this._genTerminalCancel = deferWork(() => {
+                this._genTerminalCancel = null;
+                this._endGenerationResolveCoalesce();
+            }, WallRebuildCoordinator._GEN_TERMINAL_QUIET_MS);
+            if (perfTraceOn()) perfLog('§PERF-GEN-INSTRUMENT', `rebuildWalls coalesced +${added} id(s) (pending=${this._genPendingIds.size})`);
+            return;
+        }
         const store = this._wallTool?.getWallStore?.();
         if (!store) return;
         // §A.21.D28-COALESCE — if an IDENTICAL set is already queued with a flush
@@ -1084,7 +1224,17 @@ export class WallRebuildCoordinator {
                 const _cam    = this._world.camera?.three;
                 const _canvas = this._world.renderer?.three?.domElement as HTMLCanvasElement | undefined;
                 const snapR   = getWorldToleranceForActiveCamera(DEFAULT_SNAP_PIXEL_RADIUS, _cam, _canvas);
+                // §PERF-GEN-INSTRUMENT (L-131 P0) — time the whole-level resolve and count how
+                // many times each level is resolved during one generation. Zero-cost when
+                // perf-trace is off (single boolean read). This is the measurement the founder
+                // uses on prod to compare BEFORE (flag OFF ≈ 3/level) vs AFTER (flag ON ≈ 1).
+                const _resT0 = perfTraceOn() ? performance.now() : 0;
                 const adjustments = WallJoinResolver.resolveLevel(levelWalls, { snapRadius: snapR });
+                if (perfTraceOn()) {
+                    const _n = (this._resolveCountByLevel.get(levelId) ?? 0) + 1;
+                    this._resolveCountByLevel.set(levelId, _n);
+                    perfLog('§PERF-GEN-INSTRUMENT', `_flush resolveLevel level=${levelId} walls=${levelWalls.length} elapsedMs=${(performance.now() - _resT0).toFixed(1)} resolveCountThisGen=${_n}`);
+                }
 
                 // ─── ADR-0055 — Pascal wall pipeline cache refresh ─────────────
                 // Orchestrator owns the level-wide miter cache used by the new
