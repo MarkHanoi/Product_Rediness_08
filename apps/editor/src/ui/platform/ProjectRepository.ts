@@ -24,10 +24,11 @@
  */
 
 import { VersionRecord } from './PlatformShellTypes';
-import { deflateSync, inflateSync, strToU8, strFromU8 } from 'fflate';
 import { getCurrentUserId } from '@pryzm/core-app-model';
 import { getThumbnailCacheStore } from './ThumbnailCacheStore';
 import { getVersionCacheStore } from './VersionCacheStore';
+import { encodeCompressed, decodeCompressed } from '../../workers/compressCodec';
+import { getCompressWorkerPool } from '../../workers/CompressWorkerPool';
 
 /**
  * Gap 8 — Snapshot compression utilities.
@@ -37,45 +38,22 @@ import { getVersionCacheStore } from './VersionCacheStore';
  * This guarantees backward compatibility: old data reads as-is, new saves
  * are transparently compressed before write and decompressed on read.
  *
+ * §PERF-COMPRESS-WORKER (L-131 P4a): the DEFLATE codec now lives in the SHARED
+ * `compressCodec` module so the SAME encode runs on the main thread (synchronous
+ * fallback) and inside `compress.worker.ts` (off-main-thread). `_compressJSON`
+ * delegates to `encodeCompressed`; the byte format is BYTE-FOR-BYTE unchanged
+ * (DEFLATE level 1 → chunked base64 → COMPRESSED_MARKER prefix), so every
+ * previously-saved project still inflates. The §FIX-AUTOSAVE-COMPRESS-LONGTASK
+ * decision (deflate level 6→1, 2026-05-05, ~31× faster) is preserved inside the
+ * codec.
+ *
  * Compression: DEFLATE (fflate) → Uint8Array → base64 string.
  * Typical JSON BIM snapshot (1–5 MB) compresses 4–8× to 150–700 KB.
  */
-const COMPRESSED_MARKER = '\x00fflate\x01';
-
-/** Convert Uint8Array → base64 string, chunked to avoid call-stack overflow. */
-function _uint8ToBase64(bytes: Uint8Array): string {
-    const CHUNK = 8192;
-    const parts: string[] = [];
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-        parts.push(String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length))));
-    }
-    return btoa(parts.join(''));
-}
 
 /** Compress a JSON string → marked compressed string. Falls back to raw on error. */
 function _compressJSON(json: string): string {
-    try {
-        // §FIX-AUTOSAVE-COMPRESS-LONGTASK (2026-05-05): Changed deflate level 6→1.
-        //
-        // Root cause: level 6 (zlib default) is the deflate "balance" preset that
-        // maximises compression ratio at maximum CPU cost.  On a 25MB JSON snapshot
-        // (96 curtain walls, 20 levels) this produces a 1,490ms LONGTASK that
-        // completely blocks the main thread immediately after the loading overlay
-        // dismisses, compounding the post-overlay freeze that users experience.
-        //
-        // level 1 ("fastest"): single-pass LZ77 with no lazy matching.
-        //   Measured: ~48ms for the same 25MB input (31× faster).
-        //   Output size: +4–6% larger than level 6 (still 65–75% smaller than raw).
-        //   The PostgreSQL BYTEA column has no size constraint — this is fine.
-        //
-        // The decompression path (inflateSync) is O(output) regardless of encode
-        // level; load performance is unchanged.
-        const compressed = deflateSync(strToU8(json), { level: 1 });
-        return COMPRESSED_MARKER + _uint8ToBase64(compressed);
-    } catch (err) {
-        console.warn('[ProjectRepository] Compression failed — storing raw JSON:', err);
-        return json;
-    }
+    return encodeCompressed(json);
 }
 
 /**
@@ -83,23 +61,77 @@ function _compressJSON(json: string): string {
  * If the string lacks the marker (legacy uncompressed), returns as-is.
  */
 function _decompressJSON(data: string): string {
-    if (!data.startsWith(COMPRESSED_MARKER)) return data;
-    try {
-        const b64 = data.slice(COMPRESSED_MARKER.length);
-        const binaryStr = atob(b64);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-        return strFromU8(inflateSync(bytes));
-    } catch (err) {
-        console.warn('[ProjectRepository] Decompression failed — returning raw:', err);
-        return data;
-    }
+    return decodeCompressed(data);
 }
 
 const STORAGE_INDEX_KEY = 'bim-projects-index';
 const STORAGE_VERSIONS_PREFIX = 'bim-project-';
 const VERSIONS_SUFFIX = '-versions';
 const MAX_VERSIONS_STORED = 20;
+
+/**
+ * §PERF-COMPRESS-WORKER / §PERF-VERSION-INCREMENTAL-COMPRESS (L-131 P4) — gate.
+ *
+ * DEFAULT ON. When `globalThis.__pryzmSaveWorkerOffload === false` the version
+ * save path reverts to the EXACT prior behaviour: a single synchronous
+ * whole-history `deflateSync` on the main thread (v1 whole-array payload). This
+ * is the revert switch — no on-disk change survives it in a way that breaks
+ * reads, because the READ path understands BOTH the legacy v1 whole-array format
+ * and the new v2 per-version container regardless of the flag.
+ */
+function _saveWorkerOffloadEnabled(): boolean {
+    try {
+        return (globalThis as { __pryzmSaveWorkerOffload?: boolean }).__pryzmSaveWorkerOffload !== false;
+    } catch {
+        return true;
+    }
+}
+
+/**
+ * §PERF-VERSION-INCREMENTAL-COMPRESS (L-131 P4b) — marker for the incremental,
+ * per-version container payload. Distinct from the per-blob COMPRESSED_MARKER so
+ * the read path can tell a v2 container from a legacy v1 whole-array blob or raw
+ * JSON.
+ *
+ * v2 payload = V2_CONTAINER_MARKER + JSON.stringify(entries), where each entry is
+ * `{ i: versionId, b: _compressJSON(JSON.stringify(oneVersionRecord)) }`. Each `b`
+ * is byte-identical to what `_compressJSON` produces for that single version — so
+ * a v2 container is just a JSON list of the SAME per-blob format. It is NOT a
+ * delta format and NOT a snapshot-schema change: every version is stored whole,
+ * merely compressed individually instead of jointly.
+ */
+const V2_CONTAINER_MARKER = '\x00fflate2\x01';
+interface _V2Entry { i: string; b: string }
+
+/**
+ * §PERF-VERSION-INCREMENTAL-COMPRESS — per-project cache of already-compressed
+ * per-version blobs (versionId → compressed blob string). Lets a save reuse the
+ * bytes of UNCHANGED versions and compress only the new/changed one, turning the
+ * per-save cost from O(history) back into O(1). Populated on read (when a v2
+ * container is decoded) and on every compress. Scoped to ≤ MAX_VERSIONS_STORED
+ * per project by {@link _commitVersionContainer}.
+ */
+const _versionBlobCache = new Map<string, Map<string, string>>();
+function _blobCacheFor(projectId: string): Map<string, string> {
+    let m = _versionBlobCache.get(projectId);
+    if (!m) { m = new Map<string, string>(); _versionBlobCache.set(projectId, m); }
+    return m;
+}
+
+/**
+ * §PERF-COMPRESS-WORKER — monotonic per-project save sequence. The async worker
+ * compress path only COMMITS its result if it is still the latest save for the
+ * project, so a slow worker for an older save can never clobber a newer one.
+ */
+const _versionSaveSeq = new Map<string, number>();
+function _bumpVersionSaveSeq(projectId: string): number {
+    const n = (_versionSaveSeq.get(projectId) ?? 0) + 1;
+    _versionSaveSeq.set(projectId, n);
+    return n;
+}
+function _currentVersionSaveSeq(projectId: string): number {
+    return _versionSaveSeq.get(projectId) ?? 0;
+}
 
 /** True for the QuotaExceededError thrown by localStorage.setItem when full. */
 function _isQuotaError(err: unknown): boolean {
@@ -580,11 +612,36 @@ export class LocalVersionRepository implements IVersionRepository {
             const raw = getVersionCacheStore().getVersionsSync(projectId)
                 ?? localStorage.getItem(this.key(projectId));
             if (!raw) return [];
-            const json = _decompressJSON(raw);
-            return JSON.parse(json) as VersionRecord[];
+            return this._decodeVersionsPayload(projectId, raw);
         } catch {
             return [];
         }
+    }
+
+    /**
+     * §PERF-VERSION-INCREMENTAL-COMPRESS (L-131 P4b) — decode a stored version
+     * payload, handling BOTH formats transparently (flag-independent, so toggling
+     * the offload flag never strands data):
+     *   • v2 per-version container (V2_CONTAINER_MARKER) — inflate each entry's
+     *     blob and, crucially, POPULATE the per-version blob cache so the next save
+     *     can reuse the unchanged versions' bytes (O(1) compress).
+     *   • legacy v1 whole-array blob, or raw uncompressed JSON — the original path.
+     * The reconstructed records are byte-identical to what was stored.
+     */
+    private _decodeVersionsPayload(projectId: string, raw: string): VersionRecord[] {
+        if (raw.startsWith(V2_CONTAINER_MARKER)) {
+            const entries = JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[];
+            const cache = _blobCacheFor(projectId);
+            cache.clear(); // rebuild to exactly the stored ids (drops trimmed-out versions)
+            const out: VersionRecord[] = [];
+            for (const e of entries) {
+                out.push(JSON.parse(_decompressJSON(e.b)) as VersionRecord);
+                cache.set(e.i, e.b); // reuse these exact bytes on the next save
+            }
+            return out;
+        }
+        // Legacy v1 whole-array blob / raw JSON.
+        return JSON.parse(_decompressJSON(raw)) as VersionRecord[];
     }
 
     saveVersions(projectId: string, versions: VersionRecord[]): void {
@@ -603,6 +660,10 @@ export class LocalVersionRepository implements IVersionRepository {
         } else {
             versions.push(version);
         }
+        // §PERF-VERSION-INCREMENTAL-COMPRESS — this version's content is (re)written
+        // here, so drop any cached blob for its id; every other version reuses its
+        // cached blob and is not re-deflated.
+        _blobCacheFor(projectId).delete(version.id);
         this.saveVersionsWithQuota(projectId, versions);
 
         // Contract 45 §7.2 — read full index so other-user rows aren't dropped.
@@ -676,7 +737,17 @@ export class LocalVersionRepository implements IVersionRepository {
         // §VERSION-QUOTA-INDEXEDDB — persist to IDB (durable, large quota). Never
         // throws; the mirror is updated synchronously so the next read is correct.
         try {
-            getVersionCacheStore().putVersions(projectId, _compressJSON(JSON.stringify(versions)));
+            const store = getVersionCacheStore();
+            if (_saveWorkerOffloadEnabled() && !store.isDisabled()) {
+                // §PERF-VERSION-INCREMENTAL-COMPRESS — only THIS version's content
+                // changed (its syncStatus). Invalidate its blob so it is re-deflated
+                // while every other version reuses its cached blob (O(1), not O(20)).
+                _blobCacheFor(projectId).delete(versionId);
+                this._persistVersionsIncremental(projectId, versions.slice(-MAX_VERSIONS_STORED));
+            } else {
+                // Flag OFF / no IDB — EXACT prior behaviour: whole-array recompress.
+                store.putVersions(projectId, _compressJSON(JSON.stringify(versions)));
+            }
         } catch {
             console.warn('[VersionRepository] syncStatus not persisted');
         }
@@ -685,6 +756,10 @@ export class LocalVersionRepository implements IVersionRepository {
     deleteVersions(projectId: string): void {
         // §VERSION-QUOTA-INDEXEDDB — drop from IDB (primary) AND legacy localStorage.
         try { getVersionCacheStore().deleteVersions(projectId); } catch { /* non-fatal */ }
+        // §PERF-VERSION-INCREMENTAL-COMPRESS — drop the per-version blob cache so a
+        // later project reusing memory can't read stale blobs (defensive hygiene).
+        _versionBlobCache.delete(projectId);
+        _versionSaveSeq.delete(projectId);
         try {
             localStorage.removeItem(this.key(projectId));
         } catch {
@@ -696,6 +771,18 @@ export class LocalVersionRepository implements IVersionRepository {
 
     private saveVersionsWithQuota(projectId: string, versions: VersionRecord[]): void {
         const trimmed = versions.slice(-MAX_VERSIONS_STORED);
+        const store = getVersionCacheStore();
+
+        // §PERF-COMPRESS-WORKER + §PERF-VERSION-INCREMENTAL-COMPRESS (L-131 P4) —
+        // when the offload flag is ON and IndexedDB is the primary store, compress
+        // ONLY the new/changed version (reusing cached blobs for the rest) and route
+        // that deflate through the compression worker. The whole-history stringify +
+        // deflate that ran on every auto-save is gone. Flag OFF or IDB-disabled
+        // falls through to the EXACT prior synchronous whole-array behaviour below.
+        if (_saveWorkerOffloadEnabled() && !store.isDisabled()) {
+            this._persistVersionsIncremental(projectId, trimmed);
+            return;
+        }
 
         // Gap 8 — log uncompressed size before compression
         const rawJson = JSON.stringify(trimmed);
@@ -713,9 +800,11 @@ export class LocalVersionRepository implements IVersionRepository {
         // a large project (785 elements) overflowed localStorage and the whole
         // version history was dropped, even though the SERVER copy saved fine. IDB
         // holds the full `MAX_VERSIONS_STORED` snapshots and survives a reload.
-        const store = getVersionCacheStore();
+        //
+        // (Reached only when the offload flag is OFF — the incremental path above
+        // handles the flag-ON + IDB case.)
         if (!store.isDisabled()) {
-            const payload = _compressJSON(JSON.stringify(trimmed));
+            const payload = _compressJSON(rawJson);
             store.putVersions(projectId, payload);               // mirror sync + IDB async, never throws
             // Best-effort: drop any stale legacy localStorage copy so we don't read
             // an outdated payload from the fallback path before the next warm.
@@ -763,6 +852,101 @@ export class LocalVersionRepository implements IVersionRepository {
             `Versions NOT saved. Consider clearing old projects.`
         );
         this._emitQuotaToast(projectId);
+    }
+
+    // ── §PERF-VERSION-INCREMENTAL-COMPRESS (L-131 P4b) ─────────────────────────
+
+    /**
+     * Persist `trimmed` to the IndexedDB-primary store as a v2 per-version
+     * container, compressing ONLY the versions whose blob isn't already cached.
+     *
+     * The heavy `deflate` is routed to the compression worker (P4a) when it is
+     * ready; the mirror is updated synchronously with a readable RAW snapshot so
+     * an in-session read stays correct while the worker runs. A monotonic
+     * sequence guards against an older save's worker clobbering a newer one.
+     *
+     * Fallbacks (never worse than today):
+     *   • worker not ready  → compress the new version(s) synchronously here;
+     *   • worker rejects    → synchronous compression in the `.catch`;
+     *   • all-cached        → assemble + commit immediately (zero deflate).
+     * Version content is immutable per id (mutations invalidate the cache entry at
+     * the call sites), so a blob computed for an id is always valid to reuse.
+     */
+    private _persistVersionsIncremental(projectId: string, trimmed: VersionRecord[]): void {
+        const cache = _blobCacheFor(projectId);
+        const blobs: (string | null)[] = new Array(trimmed.length).fill(null);
+        const need: { idx: number; key: string; json: string }[] = [];
+        for (let i = 0; i < trimmed.length; i++) {
+            const v = trimmed[i];
+            const cached = cache.get(v.id);
+            if (cached !== undefined) blobs[i] = cached;
+            else need.push({ idx: i, key: v.id, json: JSON.stringify(v) });
+        }
+
+        // Nothing new to compress → assemble + persist with zero deflate.
+        if (need.length === 0) {
+            this._commitVersionContainer(projectId, trimmed, blobs);
+            return;
+        }
+
+        const pool = getCompressWorkerPool();
+        if (pool.isReady()) {
+            // Keep in-session reads correct while the worker compresses: mirror the
+            // readable RAW snapshot now (unmarked JSON reads back verbatim). The
+            // compressed v2 container is written to mirror + IDB on completion.
+            const store = getVersionCacheStore();
+            store.putVersionsMirrorOnly(projectId, JSON.stringify(trimmed));
+            const seq = _bumpVersionSaveSeq(projectId);
+            pool.compress(need.map(n => ({ key: n.key, json: n.json })))
+                .then(results => {
+                    const map = new Map(results.map(r => [r.key, r.blob]));
+                    for (const n of need) {
+                        const b = map.get(n.key) ?? _compressJSON(n.json);
+                        blobs[n.idx] = b;
+                        cache.set(n.key, b); // valid regardless of supersession (content is immutable per id)
+                    }
+                    if (_currentVersionSaveSeq(projectId) !== seq) return; // superseded by a newer save
+                    this._commitVersionContainer(projectId, trimmed, blobs);
+                })
+                .catch(() => {
+                    // Worker failed mid-flight — synchronous fallback so the save is
+                    // never lost (never worse than the pre-P4 behaviour).
+                    for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, b); }
+                    if (_currentVersionSaveSeq(projectId) !== seq) return;
+                    this._commitVersionContainer(projectId, trimmed, blobs);
+                });
+            return;
+        }
+
+        // Worker not ready (first save of the session / unavailable) → compress the
+        // NEW version(s) synchronously. Still O(new) not O(history), because the
+        // unchanged versions reuse their cached blobs.
+        for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, b); }
+        this._commitVersionContainer(projectId, trimmed, blobs);
+    }
+
+    /**
+     * Assemble the v2 per-version container from `blobs`, refresh the per-project
+     * blob cache to EXACTLY the stored ids (bounding it to ≤ MAX_VERSIONS_STORED
+     * and dropping trimmed-out versions), and persist it to the IDB-primary store.
+     * The stored bytes round-trip byte-identically through {@link _decodeVersionsPayload}.
+     */
+    private _commitVersionContainer(projectId: string, trimmed: VersionRecord[], blobs: (string | null)[]): void {
+        const entries: _V2Entry[] = trimmed.map((v, i) => ({
+            i: v.id,
+            b: blobs[i] ?? _compressJSON(JSON.stringify(v)), // defensive: never store a null blob
+        }));
+        // Re-scope the cache to precisely the stored ids.
+        _versionBlobCache.set(projectId, new Map(entries.map(e => [e.i, e.b])));
+        const payload = V2_CONTAINER_MARKER + JSON.stringify(entries);
+        getVersionCacheStore().putVersions(projectId, payload); // mirror sync + IDB async, never throws
+        // Best-effort: drop any stale legacy localStorage copy so we don't read an
+        // outdated payload from the fallback path before the next warm.
+        try { localStorage.removeItem(this.key(projectId)); } catch { /* ignore */ }
+        console.log(
+            `[VersionRepository] ${trimmed.length} version(s) persisted to IndexedDB ` +
+            `(project "${projectId}", ~${(payload.length * 2 / 1024 / 1024).toFixed(1)} MB compressed).`
+        );
     }
 
     /** §QUOTA-EVICT — drop OTHER projects' version stores oldest-first until the

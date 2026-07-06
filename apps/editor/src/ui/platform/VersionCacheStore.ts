@@ -158,6 +158,23 @@ class VersionCacheStore {
     }
 
     /**
+     * §PERF-COMPRESS-WORKER (L-131 P4a) — update ONLY the synchronous mirror,
+     * without touching IndexedDB. Used by the off-main-thread save path: the
+     * mirror is set synchronously to the (uncompressed but readable) snapshot so
+     * an in-session read stays correct WHILE the worker compresses in the
+     * background; the compressed bytes are then written to both mirror and IDB via
+     * {@link putVersions} once the worker resolves. NEVER throws.
+     *
+     * The mirror payload is read back through the repository's
+     * decompress-or-passthrough path, so a raw (unmarked) JSON string here reads
+     * back identically to a compressed one — the on-disk (IDB) copy is always the
+     * compressed form written by {@link putVersions}.
+     */
+    putVersionsMirrorOnly(projectId: string, payload: string): void {
+        _versionMirror.set(projectId, payload);
+    }
+
+    /**
      * Persist a project's compressed version payload. Updates the synchronous
      * mirror immediately (so the next read sees it) and writes to IDB
      * fire-and-forget. NEVER throws.
