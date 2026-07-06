@@ -280,6 +280,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-137 [CRITICAL systemic] create+open+save+slowness = ONE cause: Supabase pooler SATURATED (deploy churn + save load + retry storm; pool max:10 exhausted). Analysis: INCIDENT-2026-07-06-DB-DEGRADATION-CASCADE.md | server DB resilience + pool hygiene + deploy discipline | **ANALYSIS DELIVERED; FIXES ROUTED** — immediate=stop deploy churn (recovering); code=L-136 access-check + ServerSyncQueue backoff/circuit-breaker + pool drain-on-shutdown + reduce autosave writes; infra=Supabase tier + L-133 zero-downtime. §FIX-DB-SATURATION-RESILIENCE | 
 
+| L-138 [SPIKE] deterministic AutoDimension engine (walls/doors/windows → dimension set; 8-stage pipeline; 11 deliverables) | documentation core / auto-dimension | **IN FLIGHT (deep-spike design agent)** — grounded in existing wall-graph (JunctionResolverV2/room-topology) + view-projection (EdgeProjectorService/ViewScope) + annotation/dimension stores; spike doc + phased plan; §SPIKE-AUTODIMENSION-ENGINE | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
