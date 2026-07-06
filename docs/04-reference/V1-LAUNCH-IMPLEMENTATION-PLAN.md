@@ -218,6 +218,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-116 [FEATURE] elevation MARKERS on ground plan for the 4 default elevations (L-110 follow-up) | views/annotations | **IN FLIGHT (defaultviews/elevation-marker agent)** — create one elevation-mark annotation per default elevation via existing section/elevation-mark infra + annotation store (P6), project-north oriented (ADR-0115), lifecycle tied to elevations, respects C24.1 + C03 annotation contract; test 4 markers on fresh project | 
 
+| L-117 [BLOCKER] big tower crashes on first 3D nav — 4 L-110 default elevations eagerly reproject ALL elements on every flush → NME thrash → WebGPU crash | views/projection/perf | **IN FLIGHT (view-projection agent)** — make inactive-view (elevation) reprojection LAZY (only active view projects; defer others until opened) + scope/cache elevation export + adaptive NME cache (subsumes L-114); no L-110/L-108 regression; test 3D edit doesn't reproject elevations. §FIX-LAZY-INACTIVE-VIEW-PROJECTION | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
