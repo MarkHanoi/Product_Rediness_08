@@ -53,6 +53,10 @@ export interface LevelWallSpec {
     readonly startXZ: Pt2;
     readonly endXZ:   Pt2;
     readonly thickness: number;
+    /** §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130) — the wall's WallSystemType id, threaded
+     *  into `WallInput.systemTypeId` so `JunctionResolverV2` can freeze an existing same-type
+     *  L-corner when a DIFFERENT-type wall joins it. Optional: absent ⇒ the guard is a no-op. */
+    readonly systemTypeId?: string;
 }
 
 /**
@@ -84,6 +88,7 @@ export class WallPipelineV2Cache {
             start: w.startXZ,
             end:   w.endXZ,
             thickness: w.thickness,
+            systemTypeId: w.systemTypeId,
         }));
         for (const w of inputs) this._walls.set(w.id, w);
         for (const m of resolveJunctions(inputs)) this._byId.set(m.id, m);
@@ -117,7 +122,7 @@ export function buildWallV2Geometry(
     cache: WallPipelineV2Cache,
     opts: ExtrudeOpts,
 ): { geometry: THREE.BufferGeometry; footprint: WallFootprint; miter: WallMiter | null } {
-    const input: WallInput = { id: wall.id, start: wall.startXZ, end: wall.endXZ, thickness: wall.thickness };
+    const input: WallInput = { id: wall.id, start: wall.startXZ, end: wall.endXZ, thickness: wall.thickness, systemTypeId: wall.systemTypeId };
     const miter = cache.getMiter(wall.id);
     const footprint = buildWallFootprint(input, miter);
     const geometry  = buildWallExtrusion(footprint, opts);

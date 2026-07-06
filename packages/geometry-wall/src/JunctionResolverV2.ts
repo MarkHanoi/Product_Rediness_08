@@ -42,6 +42,18 @@ export interface WallInput {
     readonly start: { readonly x: number; readonly z: number };
     readonly end:   { readonly x: number; readonly z: number };
     readonly thickness: number;
+    /**
+     * §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130) — the WallSystemType selected at
+     * creation time (e.g. an exterior shell type vs an interior partition type). OPTIONAL:
+     * legacy / exact-input callers (and every pre-L-130 test) omit it, in which case ALL
+     * walls read as the SAME (empty) type and the existing-corner-immutable guard is a
+     * strict no-op — byte-identical to the pre-fix V2 behaviour. When populated (the live
+     * WallRebuildCoordinator hand-off), a DIFFERENT-type newcomer joining an existing
+     * same-type L-corner is frozen out of the corner miter and adapts instead (mirrors the
+     * legacy WallJoinResolver §FIX-EXISTING-CORNER-IMMUTABLE guard). Detection-time metadata
+     * only — never affects a wall's centreline baseline.
+     */
+    readonly systemTypeId?: string;
 }
 
 export interface Pt2 { readonly x: number; readonly z: number }
@@ -232,6 +244,24 @@ function partitionInnerFaceV2Enabled(): boolean {
     return (globalThis as { __pryzmWallPartitionInnerFaceV2?: boolean }).__pryzmWallPartitionInnerFaceV2 !== false;
 }
 
+// §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130, founder 2026-07-06) — mirror the legacy
+// WallJoinResolver §FIX-EXISTING-CORNER-IMMUTABLE guard in the DEFAULT-ON V2 footprint
+// pipeline. See the block comment on the guard pass inside `detectJunctions`.
+//
+/** Escape hatch: set `__pryzmWallV2ExistingCornerImmutable = false` to restore the pre-fix
+ *  V2 behaviour, where a DIFFERENT-systemTypeId newcomer co-terminating at an existing
+ *  same-type L-corner re-mitres (distorts) that corner. Default ON. */
+function existingCornerImmutableV2Enabled(): boolean {
+    return (globalThis as { __pryzmWallV2ExistingCornerImmutable?: boolean })
+        .__pryzmWallV2ExistingCornerImmutable !== false;
+}
+
+/** systemTypeId of a wall, normalised (undefined → '') so equality tests treat every
+ *  type-less wall as one and the same type → the guard is a no-op on legacy inputs. */
+function wallSystemType(w: WallInput): string {
+    return w.systemTypeId ?? '';
+}
+
 // ─── Geometry helpers ─────────────────────────────────────────────────────────
 
 function sub(a: Pt2, b: Pt2): Pt2 { return { x: a.x - b.x, z: a.z - b.z }; }
@@ -405,6 +435,98 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
                 extra.push({ point: foot, realEndpoints: [G], passthroughWalls: [host] });
             });
             j.realEndpoints = keep;
+        }
+        for (const e of extra) drafts.push(e);
+    }
+
+    // §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130, founder 2026-07-06) — mirror the legacy
+    // WallJoinResolver §FIX-EXISTING-CORNER-IMMUTABLE guard in the V2 footprint pipeline.
+    //
+    // THE founder defect (recurring, HIGH-visibility): two EXTERIOR walls meet in a clean
+    // mitred L (inglete). A THIRD interior wall — a DIFFERENT systemTypeId — is drawn to join
+    // AT that corner (e.g. STRAIGHT DOWN, collinear with one exterior arm). Plain, opening-free
+    // exterior walls render their 3D body through THIS V2 pipeline, whose `WallInput` historically
+    // carried NO systemTypeId — so the legacy "different-type ⇒ newcomer adapts, existing corner
+    // frozen" guard never engaged here. The newcomer's endpoint clusters into the corner node, so
+    // `detectJunctions` sees THREE co-terminating real endpoints and NO passthrough → the ring
+    // sweep runs a 3-way miter → the existing exterior corner is RE-MITRED (arm A's outer corner
+    // is now bounded by the thin interior wall's edge instead of exterior arm B) = the founder's
+    // re-mitred / doubled / notched junction.
+    //
+    // FIX (faithful mirror, keyed on systemTypeId): in a pure co-terminating cluster (NO
+    // passthrough) with ≥3 real endpoints, if EXACTLY ONE systemTypeId group forms a genuine
+    // corner (≥2 same-type arms with at least one NON-collinear pair — a real L/Y, not a straight
+    // same-type run) and the remaining real endpoints are of a DIFFERENT systemTypeId, FREEZE the
+    // same-type corner (leave ONLY its arms in this junction so the ring sweep produces the
+    // BYTE-IDENTICAL L / same-type-N-way miter) and EXTRACT each different-type newcomer into its
+    // OWN T-junction, butting flat against the corner arm it is MOST PERPENDICULAR to (the legacy
+    // T-into-corner seat). The exterior arms stay byte-identical to the no-newcomer solve; only the
+    // newcomer adapts. DETECTION-FRAME ONLY: it splits a cluster and points the new junction at the
+    // foot on a corner arm — it NEVER relocates a centreline baseline (no §CLAMP-COSHARE-WELD /
+    // ADR-0072 doubling). Correctness guards: a GENUINE same-type through-wall / continuation / Y
+    // has all arms of ONE type → no different-type newcomer → no-op; when systemTypeId is absent on
+    // every wall (all existing V2 tests) all types read equal → no-op → byte-identical. Requiring
+    // EXACTLY ONE corner group keeps an ambiguous two-corner cluster untouched. Gated default-ON.
+    if (existingCornerImmutableV2Enabled()) {
+        const extra: JunctionDraft[] = [];
+        // A type group "forms a corner" when ≥2 of its arms meet non-collinearly (a real L/Y),
+        // as opposed to a straight same-type run (a pass-through, not a corner to freeze).
+        const awayDir = (r: EndpointRef): Pt2 => {
+            const w = walls[r.wallIdx]!;
+            return unit(r.isStart ? sub(w.end, w.start) : sub(w.start, w.end));
+        };
+        const formsCorner = (refs: readonly EndpointRef[]): boolean => {
+            for (let i = 0; i < refs.length; i++) {
+                const dA = awayDir(refs[i]!);
+                for (let k = i + 1; k < refs.length; k++) {
+                    if (refs[k]!.wallIdx === refs[i]!.wallIdx) continue;
+                    if (Math.abs(dot(dA, awayDir(refs[k]!))) < 0.94) return true;   // > ~20° apart
+                }
+            }
+            return false;
+        };
+        for (const j of drafts) {
+            if (j.passthroughWalls.length !== 0) continue;    // pure co-terminating clusters only
+            if (j.realEndpoints.length < 3) continue;         // need a corner (≥2) + a newcomer (≥1)
+            // Group the real endpoints by systemTypeId; ≥2 distinct types ⇒ a newcomer may exist.
+            const byType = new Map<string, EndpointRef[]>();
+            for (const r of j.realEndpoints) {
+                const t = wallSystemType(walls[r.wallIdx]!);
+                const arr = byType.get(t);
+                if (arr) arr.push(r); else byType.set(t, [r]);
+            }
+            if (byType.size < 2) continue;                    // one type ⇒ no different-type newcomer
+            // Exactly ONE type group forming a corner ⇒ that is the frozen existing corner; every
+            // other real endpoint is a different-type newcomer that must adapt.
+            let cornerType: string | null = null;
+            let cornerCount = 0;
+            for (const [t, refs] of byType) {
+                if (refs.length >= 2 && formsCorner(refs)) { cornerType = t; cornerCount++; }
+            }
+            if (cornerCount !== 1 || cornerType === null) continue;
+            const cornerRefs = byType.get(cornerType)!;
+            const newcomers = j.realEndpoints.filter(r => wallSystemType(walls[r.wallIdx]!) !== cornerType);
+            if (newcomers.length === 0) continue;
+            // Seat each newcomer as its OWN T-junction, butting the most-perpendicular corner arm
+            // (a collinear arm would give a degenerate parallel butt — the perpendicular arm's
+            // face is the clean seat). Foot on the host segment; NEVER moves the baseline.
+            for (const G of newcomers) {
+                const eG = G.isStart ? walls[G.wallIdx]!.start : walls[G.wallIdx]!.end;
+                const dG = awayDir(G);
+                let hostIdx = -1;
+                let bestAbsDot = Infinity;
+                for (const H of cornerRefs) {
+                    const dH = unit(sub(walls[H.wallIdx]!.end, walls[H.wallIdx]!.start));
+                    const ad = Math.abs(dot(dG, dH));
+                    if (ad < bestAbsDot) { bestAbsDot = ad; hostIdx = H.wallIdx; }
+                }
+                if (hostIdx < 0) continue;
+                const host = walls[hostIdx]!;
+                const foot = projectOnSeg(eG, host.start, host.end).foot;
+                extra.push({ point: foot, realEndpoints: [G], passthroughWalls: [hostIdx] });
+            }
+            // Freeze: this junction now contains ONLY the same-type corner arms.
+            j.realEndpoints = cornerRefs;
         }
         for (const e of extra) drafts.push(e);
     }

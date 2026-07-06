@@ -1248,7 +1248,7 @@ export class WallRebuildCoordinator {
                 // (older runtimes) — V2 then falls back to the per-call auto path.
                 try {
                     const refresh = (builder as unknown as {
-                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number }>) => void;
+                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number; systemTypeId?: string }>) => void;
                     }).refreshV2Cache;
                     if (typeof refresh === 'function') {
                         // §V2-PRETRIM-FIX (2026-05-27): feed the V2 resolver the
@@ -1272,6 +1272,11 @@ export class WallRebuildCoordinator {
                                     startXZ: { x: pStart.x, z: pStart.z },
                                     endXZ:   { x: pEnd.x,   z: pEnd.z },
                                     thickness: w.thickness,
+                                    // §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130) — thread the
+                                    // wall's systemTypeId into the V2 resolver so it freezes an
+                                    // existing same-type L-corner when a DIFFERENT-type wall joins
+                                    // (mirrors WallJoinResolver §FIX-EXISTING-CORNER-IMMUTABLE).
+                                    systemTypeId: (w as unknown as { systemTypeId?: string }).systemTypeId,
                                 };
                             });
                         refresh.call(builder, specs);

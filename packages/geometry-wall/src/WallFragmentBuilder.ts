@@ -2945,6 +2945,9 @@ export class WallFragmentBuilder {
                 startXZ: { x: preTrimStart.x, z: preTrimStart.z },
                 endXZ:   { x: preTrimEnd.x,   z: preTrimEnd.z },
                 thickness: wall.thickness,
+                // §FIX-WALL-V2-EXISTING-CORNER-IMMUTABLE (L-130) — carry the wall's type so the
+                // single-wall footprint frame matches the type-aware junction solve in the cache.
+                systemTypeId: wall.systemTypeId,
             };
             const { geometry: worldGeom } = buildWallV2Geometry(spec, v2Cache, {
                 height: wall.height,
