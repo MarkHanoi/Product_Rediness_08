@@ -933,6 +933,9 @@ importers:
 
   apps/editor:
     dependencies:
+      '@pryzm/auto-dimension':
+        specifier: workspace:*
+        version: link:../../packages/auto-dimension
       '@pryzm/building-graph':
         specifier: workspace:*
         version: link:../../packages/building-graph
@@ -1373,6 +1376,22 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@20.19.39)(happy-dom@15.11.7)(jsdom@25.0.1)
+
+  packages/auto-dimension:
+    dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.1
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
   packages/bench-visual-diff:
     dependencies:

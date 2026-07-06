@@ -59,6 +59,10 @@ import { generateDocumentationSet, generateFloorPlansPerLevel, generateBuildingE
 // This level / a specific room) then generates one interior elevation per room wall,
 // centered on each room. Mirrors "Building elevations" but for room interiors.
 import { triggerRoomInteriorElevations } from '../documentation/roomInteriorElevationTrigger';
+// §FEAT-AUTODIMENSION-P1 (L-138) — deterministic AutoDimension engine executor:
+// plans a non-redundant exterior chain + opening dims over the active level's
+// walls (@pryzm/auto-dimension) and creates them in one undoable batch.
+import { applyAutoDimensions } from '../documentation/applyAutoDimensions';
 // C27 INS-α-5 — dev surface for the Master Tree (single tree component
 // per C27 §1.2).  Opens a modal that mounts the live ModelTreeComponent +
 // shows the InspectSelection payload on each click.
@@ -432,6 +436,22 @@ const COMMAND_TREE: SuggestionNode[] = [
                 action: () => {
                     const rt = (window as unknown as { runtime?: unknown }).runtime;
                     if (rt) { generateBuildingElevations(rt as Parameters<typeof generateBuildingElevations>[0]); }
+                    else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
+                },
+            },
+            {
+                // §FEAT-AUTODIMENSION-P1 (L-138) — deterministic AutoDimension engine.
+                // Plans the minimum complete, non-redundant dimension set (overall +
+                // exterior wall-chain + opening chain + opening locations) over the
+                // active level's walls/openings and creates it as ONE undo
+                // (dimension.createMany). Direct action (C17 CB-8 style), same shape
+                // as "Generate documentation set" → real bus verb.
+                label: 'Auto-dimension plan',
+                hint: 'overall + exterior chain + opening dims (one undo)',
+                scopeBadge: 'batch',
+                action: () => {
+                    const rt = (window as unknown as { runtime?: unknown }).runtime;
+                    if (rt) { applyAutoDimensions(rt as Parameters<typeof applyAutoDimensions>[0]); }
                     else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
                 },
             },

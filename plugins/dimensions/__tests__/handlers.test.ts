@@ -49,8 +49,37 @@ describe('dimension handler registration', () => {
     env.detach();
   });
 
-  it('buildDimensionHandlerSet returns 6 handlers', () => {
-    expect(buildDimensionHandlerSet()).toHaveLength(6);
+  it('buildDimensionHandlerSet returns 7 handlers', () => {
+    expect(buildDimensionHandlerSet()).toHaveLength(7);
+  });
+});
+
+describe('dimension.createMany (§FEAT-AUTODIMENSION-P1)', () => {
+  let env: ReturnType<typeof buildEnv>;
+  afterEach(() => env?.detach());
+
+  it('creates every dimension in ONE command and inverts as ONE undo', async () => {
+    env = buildEnv();
+    const before = snap(env.dimension);
+    const ev = await env.bus.executeCommand('dimension.createMany', {
+      dimensions: [
+        { points: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }], levelId: 'L1', offsetMm: 8 },
+        { points: [{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 3 }], levelId: 'L1', offsetMm: 16 },
+        { points: [{ x: 1, y: 0, z: 0 }, { x: 2, y: 0, z: 0 }], levelId: 'L1', offsetMm: 24 },
+      ],
+    }) as EventRecord<unknown>;
+    expect(Object.keys(snap(env.dimension))).toHaveLength(3);
+    // Single inverse patch set restores the pre-batch state → one undo unit.
+    undoLast(env.dimension, ev);
+    expect(snap(env.dimension)).toEqual(before);
+  });
+
+  it('rejects an empty batch and non-finite points', async () => {
+    env = buildEnv();
+    await expect(env.bus.executeCommand('dimension.createMany', { dimensions: [] })).rejects.toThrow();
+    await expect(env.bus.executeCommand('dimension.createMany', {
+      dimensions: [{ points: [{ x: Number.NaN, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }] }],
+    })).rejects.toThrow();
   });
 });
 

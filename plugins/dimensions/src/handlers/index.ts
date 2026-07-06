@@ -2,6 +2,7 @@
 
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
 import { CreateDimensionHandler } from './CreateDimension.js';
+import { CreateManyDimensionsHandler } from './CreateManyDimensions.js';
 import { DeleteDimensionHandler } from './DeleteDimension.js';
 import { MoveDimensionHandler } from './MoveDimension.js';
 import { SetDimensionPrecisionHandler } from './SetDimensionPrecision.js';
@@ -10,6 +11,7 @@ import { SetDimensionTextHandler } from './SetDimensionText.js';
 
 export const DIMENSION_HANDLER_TYPES = [
   'dimension.create',
+  'dimension.createMany',
   'dimension.delete',
   'dimension.move',
   'dimension.setPrecision',
@@ -22,6 +24,7 @@ export type DimensionHandlerType = (typeof DIMENSION_HANDLER_TYPES)[number];
 export function buildDimensionHandlerSet(): readonly CommandHandler<unknown>[] {
   return [
     new CreateDimensionHandler() as unknown as CommandHandler<unknown>,
+    new CreateManyDimensionsHandler() as unknown as CommandHandler<unknown>,
     new DeleteDimensionHandler() as unknown as CommandHandler<unknown>,
     new MoveDimensionHandler() as unknown as CommandHandler<unknown>,
     new SetDimensionPrecisionHandler() as unknown as CommandHandler<unknown>,
@@ -36,6 +39,7 @@ export function registerDimensionHandlers(bus: CommandBus): readonly string[] {
 }
 
 export { CreateDimensionHandler, type CreateDimensionPayload } from './CreateDimension.js';
+export { CreateManyDimensionsHandler, type CreateManyDimensionsPayload } from './CreateManyDimensions.js';
 export { DeleteDimensionHandler, type DeleteDimensionPayload } from './DeleteDimension.js';
 export { MoveDimensionHandler, type MoveDimensionPayload } from './MoveDimension.js';
 export { SetDimensionPrecisionHandler, type SetDimensionPrecisionPayload } from './SetDimensionPrecision.js';

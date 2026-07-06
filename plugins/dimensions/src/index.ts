@@ -27,6 +27,7 @@ export {
   registerDimensionHandlers,
   type DimensionHandlerType,
   CreateDimensionHandler, type CreateDimensionPayload,
+  CreateManyDimensionsHandler, type CreateManyDimensionsPayload,
   DeleteDimensionHandler, type DeleteDimensionPayload,
   MoveDimensionHandler, type MoveDimensionPayload,
   SetDimensionPrecisionHandler, type SetDimensionPrecisionPayload,
