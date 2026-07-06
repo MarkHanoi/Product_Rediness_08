@@ -278,6 +278,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-136 [CRITICAL] project won't open — server access-check fails CLOSED on transient DB error (projectAccess.js:57-61); Supabase pooler degraded (7.5s) | server access resilience + client open-retry | **IN FLIGHT (server-resilience agent)** — fall-through+retryable-503 (never fail open), client retries open; §FIX-ACCESS-CHECK-TRANSIENT-RETRYABLE | 
 
+| L-137 [CRITICAL systemic] create+open+save+slowness = ONE cause: Supabase pooler SATURATED (deploy churn + save load + retry storm; pool max:10 exhausted). Analysis: INCIDENT-2026-07-06-DB-DEGRADATION-CASCADE.md | server DB resilience + pool hygiene + deploy discipline | **ANALYSIS DELIVERED; FIXES ROUTED** — immediate=stop deploy churn (recovering); code=L-136 access-check + ServerSyncQueue backoff/circuit-breaker + pool drain-on-shutdown + reduce autosave writes; infra=Supabase tier + L-133 zero-downtime. §FIX-DB-SATURATION-RESILIENCE | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
