@@ -26,7 +26,7 @@
 import { WallDimensionInput } from '@pryzm/geometry-wall';
 import { createId } from '@pryzm/schemas';
 import { isStrongSnap, type PlanToolHandler, type PlanToolDrawContext, type WorldPoint } from './PlanToolHandler';
-import { computeSetOutDimensions, type SetOutSegment } from './setOutDimensions';
+import { computeSetOutDimensions, solveSetOutPoint, type SetOutSegment, type SetOutDimension } from './setOutDimensions';
 // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — surface-independent active wall system type, so a
 // wall drawn in the SPLIT plan pane carries the same layered systemTypeId as the MAIN view.
 import { resolveActiveWallSystemTypeId } from './activeWallSystemType';
@@ -42,6 +42,11 @@ const DEG                    = Math.PI / 180;
 // functional MEASUREMENT, not a creation ghost, so it is OUT of the unified-purple
 // preview rule (§41) — but we still source ONE colour rather than invent a new hex.
 const SETOUT_BLUE = '#1e40af';
+// §WALL-SETOUT-4SIDE (founder 2026-07-06) — the SECONDARY set-out pair (the farther
+// wall on each axis, newly projected to the two other sides) renders in GREY so the
+// user distinguishes it from the PRIMARY (blue) pair. Grey is a neutral non-brand
+// tint (slate-500), consistent with C18 §2.4 "functional measurement" state colours.
+const SETOUT_GREY = '#64748b';
 
 function _getMode(): string {
     return window.wallModePicker?.getActiveMode?.() ?? 'linear';
@@ -113,6 +118,17 @@ export class WallPlanToolHandler implements PlanToolHandler {
     private _wallStatusOverlay: HTMLElement | null = null;
     private _dimInput: WallDimensionInput | null   = null;   // §04-12: typed dimension input
 
+    // §WALL-SETOUT-TAB-INPUT (L-126) — TAB-to-edit numeric entry for set-out dims.
+    // When active the user is typing an exact set-out distance (mm) into ONE of the
+    // dim fields; the live vertex is back-solved (solveSetOutPoint) so that set-out
+    // equals the typed value. Continued TAB cycles the focused field (primary → …
+    // → secondary); ENTER commits through the normal wall-creation command (P6).
+    private _setOutEditActive = false;
+    private _setOutDims: SetOutDimension[] = [];   // snapshot captured on TAB entry
+    private _setOutEditIndex = 0;                  // which dim currently has focus
+    private _setOutBuffer = '';                    // typed digits (mm) for the focused field
+    private _setOutEditPoint: WorldPoint | null = null; // accumulating back-solved vertex
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._wallFirstPoint     = null;
@@ -134,10 +150,24 @@ export class WallPlanToolHandler implements PlanToolHandler {
         this._arcMidPt           = null;
         this._wallSegmentCount   = 0;
         this._wallCursorPoint    = null;
+        this._resetSetOutEdit();
         this._ctx = null;
     }
 
+    /** §WALL-SETOUT-TAB-INPUT — leave set-out numeric-edit mode (keep the wall stroke). */
+    private _resetSetOutEdit(): void {
+        this._setOutEditActive = false;
+        this._setOutDims       = [];
+        this._setOutEditIndex  = 0;
+        this._setOutBuffer     = '';
+        this._setOutEditPoint  = null;
+    }
+
     onMouseMove(pt: WorldPoint): void {
+        // §WALL-SETOUT-TAB-INPUT — while typing an exact set-out distance the vertex
+        // is locked to the back-solved point; ignore raw cursor motion so the typed
+        // value is not overwritten (Escape / a fresh TAB returns to cursor control).
+        if (this._setOutEditActive) return;
         const mode = _getMode();
         let resolved = pt;
         // §STRICT-ORTHO (Apr 2026):
@@ -227,6 +257,21 @@ export class WallPlanToolHandler implements PlanToolHandler {
     onKeyDown(e: KeyboardEvent): boolean {
         const mode = _getMode();
 
+        // §WALL-SETOUT-TAB-INPUT — TAB enters set-out numeric-edit mode (or cycles the
+        // focused dim once in it). Only while a start point exists and not in curved mode.
+        if (e.key === 'Tab' && this._wallFirstPoint && mode !== 'curved') {
+            e.preventDefault();
+            this._handleSetOutTab();
+            return true;
+        }
+
+        // §WALL-SETOUT-TAB-INPUT — while editing a set-out distance, keystrokes drive the
+        // focused field (digits / backspace → live back-solve; Enter → commit; Esc → exit).
+        // This takes precedence over the §04-12 length input so the two never collide.
+        if (this._setOutEditActive) {
+            return this._handleSetOutEditKey(e);
+        }
+
         // §04-12: typed dimension input — capture digits/period/backspace/Escape
         // Only active in drawing state (first point set) and not in curved mode
         if (this._wallFirstPoint && this._dimInput && mode !== 'curved') {
@@ -282,6 +327,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
 
     cancel(): void {
         this._dimInput?.reset();
+        this._resetSetOutEdit();
         this._wallFirstPoint     = null;
         this._polylineFirstPoint = null;
         this._arcMidPt           = null;
@@ -382,6 +428,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
 
         // Chain: endpoint becomes new start; clear arc state and dim input
         this._dimInput?.reset();
+        this._resetSetOutEdit();   // §WALL-SETOUT-TAB-INPUT — leave edit mode on commit
         this._wallFirstPoint  = endPt;
         this._arcMidPt        = null;
         this._wallCursorPoint = null;
@@ -407,6 +454,96 @@ export class WallPlanToolHandler implements PlanToolHandler {
         };
     }
 
+    // ── §WALL-SETOUT-TAB-INPUT (L-126) — TAB-to-edit set-out numeric entry ──────────
+
+    /**
+     * TAB pressed: enter set-out edit mode (capturing the current set-out dims), or —
+     * if already editing — commit the focused field and cycle focus to the NEXT dim
+     * (primary → … → secondary, wrapping). No-op if there are no set-out references.
+     */
+    private _handleSetOutTab(): void {
+        if (!this._setOutEditActive) {
+            const anchor = this._wallCursorPoint ?? this._wallFirstPoint;
+            if (!anchor) return;
+            const dims = computeSetOutDimensions(
+                { x: anchor.worldX, z: anchor.worldZ },
+                this._collectLevelWallSegments(),
+            );
+            if (dims.length === 0) return;   // nothing to set out against
+            this._setOutEditActive = true;
+            this._setOutDims       = dims;
+            this._setOutEditIndex  = 0;
+            this._setOutBuffer     = '';
+            this._setOutEditPoint  = { worldX: anchor.worldX, worldZ: anchor.worldZ };
+        } else {
+            // Apply whatever is typed for the current field, then advance focus.
+            this._applySetOutBuffer();
+            this._setOutEditIndex = (this._setOutEditIndex + 1) % this._setOutDims.length;
+            this._setOutBuffer    = '';
+        }
+        this._syncCreationHud();
+        this._redrawSetOutEdit();
+    }
+
+    /** Keystrokes while in set-out edit mode. Returns true when consumed. */
+    private _handleSetOutEditKey(e: KeyboardEvent): boolean {
+        if (/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+            this._setOutBuffer += e.key;
+            this._applySetOutBuffer();
+            this._redrawSetOutEdit();
+            return true;
+        }
+        if (e.key === 'Backspace') {
+            e.preventDefault();
+            this._setOutBuffer = this._setOutBuffer.slice(0, -1);
+            this._applySetOutBuffer();
+            this._redrawSetOutEdit();
+            return true;
+        }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            this._applySetOutBuffer();
+            const pt = this._setOutEditPoint;
+            this._resetSetOutEdit();
+            if (pt) this._commitWall(pt);   // P6 — commit through the wall.create command
+            return true;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            this._resetSetOutEdit();
+            this._syncCreationHud();
+            if (this._wallFirstPoint && this._wallCursorPoint) this._drawWallPreview();
+            else this._clearOverlay();
+            return true;
+        }
+        // Swallow other printable keys so they don't leak into other handlers while editing.
+        return true;
+    }
+
+    /**
+     * Re-derive the live vertex from the typed buffer for the focused dim. The
+     * off-axis coordinate is preserved by solveSetOutPoint, so editing the X dim then
+     * the Z dim composes into one point across TAB cycles. Empty buffer ⇒ no change.
+     */
+    private _applySetOutBuffer(): void {
+        const dim = this._setOutDims[this._setOutEditIndex];
+        const base = this._setOutEditPoint;
+        if (!dim || !base || this._setOutBuffer === '') return;
+        const mm = parseInt(this._setOutBuffer, 10);
+        if (!Number.isFinite(mm)) return;
+        const np = solveSetOutPoint({ x: base.worldX, z: base.worldZ }, dim, mm);
+        this._setOutEditPoint = { worldX: np.x, worldZ: np.z };
+        // Mirror onto the cursor point so _commitWall + the wall band use the edited vertex.
+        this._wallCursorPoint = this._setOutEditPoint;
+    }
+
+    /** Redraw the wall band + set-out edit overlay for the current edited vertex. */
+    private _redrawSetOutEdit(): void {
+        if (this._setOutEditPoint) this._wallCursorPoint = this._setOutEditPoint;
+        this._drawWallPreview();
+    }
+
     private _closePolyline(): void {
         const start = this._wallFirstPoint;
         const end   = this._polylineFirstPoint;
@@ -417,6 +554,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
             this._commitWall(end);
         }
 
+        this._resetSetOutEdit();
         this._wallFirstPoint     = null;
         this._polylineFirstPoint = null;
         this._arcMidPt           = null;
@@ -575,8 +713,53 @@ export class WallPlanToolHandler implements PlanToolHandler {
 
         // §WALL-SETOUT — set-out dims from the MOVING end to the surrounding walls,
         // alongside the wall's own length label. Drawn after the wall band restore;
-        // _drawSetOutDimensions does its own save/restore and does NOT clear.
-        if (this._wallCursorPoint) this._drawSetOutDimensions(this._wallCursorPoint);
+        // these do their own save/restore and do NOT clear.
+        // §WALL-SETOUT-TAB-INPUT — while editing, render the CAPTURED dims (against the
+        // back-solved vertex) with the focused field highlighted, instead of recomputing
+        // (which could reselect walls and make the focused field jump under the caret).
+        if (this._setOutEditActive) {
+            this._drawSetOutEditOverlay();
+        } else if (this._wallCursorPoint) {
+            this._drawSetOutDimensions(this._wallCursorPoint);
+        }
+    }
+
+    /**
+     * §WALL-SETOUT-TAB-INPUT — render the captured set-out dims against the current
+     * back-solved vertex (`_setOutEditPoint`). Each dim's distance is re-derived from
+     * the edited point and its FIXED wall foot (axis-locked), so lines stay anchored;
+     * the focused field shows the typed buffer + caret in a highlighted box.
+     */
+    private _drawSetOutEditOverlay(): void {
+        const c = this._ctx;
+        const e = this._setOutEditPoint;
+        if (!c || !e) return;
+        const { ctx } = c;
+        ctx.save();
+        this._setOutDims.forEach((d, i) => {
+            const focused = i === this._setOutEditIndex;
+            // Re-anchor the dim to the edited vertex along its own axis (wall foot is fixed).
+            const live: SetOutDimension = d.axis === 'x'
+                ? {
+                    ...d,
+                    from: { x: e.worldX, z: e.worldZ },
+                    to:   { x: d.to.x,   z: e.worldZ },
+                    distanceMm: focused && this._setOutBuffer !== ''
+                        ? parseInt(this._setOutBuffer, 10) || 0
+                        : Math.round(Math.abs(e.worldX - d.to.x) * 1000),
+                }
+                : {
+                    ...d,
+                    from: { x: e.worldX, z: e.worldZ },
+                    to:   { x: e.worldX, z: d.to.z },
+                    distanceMm: focused && this._setOutBuffer !== ''
+                        ? parseInt(this._setOutBuffer, 10) || 0
+                        : Math.round(Math.abs(e.worldZ - d.to.z) * 1000),
+                };
+            const colour = d.role === 'secondary' ? SETOUT_GREY : SETOUT_BLUE;
+            this._drawOneSetOutDim(live, colour, focused);
+        });
+        ctx.restore();
     }
 
     /** §WALL-SETOUT — the active level's existing wall baselines as 2D segments
@@ -602,7 +785,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
     private _drawSetOutDimensions(point: WorldPoint): void {
         const c = this._ctx;
         if (!c) return;
-        const { ctx, planCanvas } = c;
+        const { ctx } = c;
         const dims = computeSetOutDimensions(
             { x: point.worldX, z: point.worldZ },
             this._collectLevelWallSegments(),
@@ -610,38 +793,54 @@ export class WallPlanToolHandler implements PlanToolHandler {
         if (dims.length === 0) return;
 
         ctx.save();
-        for (const d of dims) {
-            const from = planCanvas.worldToScreen(d.from.x, d.from.z);
-            const to   = planCanvas.worldToScreen(d.to.x,   d.to.z);
-
-            ctx.strokeStyle = SETOUT_BLUE;
-            ctx.lineWidth   = 1;
-            ctx.setLineDash([4, 3]);
-            ctx.beginPath();
-            ctx.moveTo(from.sx, from.sy);
-            ctx.lineTo(to.sx, to.sy);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // small end ticks at the wall foot
-            ctx.beginPath();
-            ctx.arc(to.sx, to.sy, 2.5, 0, Math.PI * 2);
-            ctx.fillStyle = SETOUT_BLUE;
-            ctx.fill();
-
-            const mx = (from.sx + to.sx) / 2;
-            const my = (from.sy + to.sy) / 2;
-            const label = `${d.distanceMm} mm`;
-            ctx.font = '10px sans-serif';
-            const tw = ctx.measureText(label).width;
-            ctx.fillStyle = 'rgba(255,255,255,0.92)';
-            ctx.fillRect(mx - tw / 2 - 3, my - 8, tw + 6, 14);
-            ctx.fillStyle = SETOUT_BLUE;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, mx, my);
-        }
+        // §WALL-SETOUT-4SIDE — PRIMARY pair (nearer wall per axis) draws blue, SECONDARY
+        // pair (the farther/newly-projected sides) draws grey, so the user distinguishes them.
+        for (const d of dims) this._drawOneSetOutDim(d, d.role === 'secondary' ? SETOUT_GREY : SETOUT_BLUE);
         ctx.restore();
+    }
+
+    /** §WALL-SETOUT — render a single set-out dimension line + label in `colour`. */
+    private _drawOneSetOutDim(d: SetOutDimension, colour: string, focused = false): void {
+        const c = this._ctx;
+        if (!c) return;
+        const { ctx, planCanvas } = c;
+        const from = planCanvas.worldToScreen(d.from.x, d.from.z);
+        const to   = planCanvas.worldToScreen(d.to.x,   d.to.z);
+
+        ctx.strokeStyle = colour;
+        ctx.lineWidth   = focused ? 2 : 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(from.sx, from.sy);
+        ctx.lineTo(to.sx, to.sy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // small end tick at the wall foot
+        ctx.beginPath();
+        ctx.arc(to.sx, to.sy, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = colour;
+        ctx.fill();
+
+        const mx = (from.sx + to.sx) / 2;
+        const my = (from.sy + to.sy) / 2;
+        // Focused (TAB-edited) field appends a static caret to read as an active text field
+        // (a blinking caret would need its own rAF — forbidden by P3 outside the scheduler).
+        const label = focused ? `${d.distanceMm} mm |` : `${d.distanceMm} mm`;
+        ctx.font = focused ? 'bold 11px sans-serif' : '10px sans-serif';
+        const tw = ctx.measureText(label).width;
+        // Focused (TAB-edited) field gets a solid highlight box so it reads as a text field.
+        ctx.fillStyle = focused ? colour : 'rgba(255,255,255,0.92)';
+        ctx.fillRect(mx - tw / 2 - 4, my - 9, tw + 8, 16);
+        if (focused) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(mx - tw / 2 - 4, my - 9, tw + 8, 16);
+        }
+        ctx.fillStyle = focused ? '#ffffff' : colour;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, mx, my);
     }
 
     /** §WALL-SETOUT — before the first click: clear the overlay + draw only the
@@ -715,7 +914,10 @@ export class WallPlanToolHandler implements PlanToolHandler {
         const canClose = this._wallSegmentCount >= 2 && !!this._polylineFirstPoint && !!this._wallFirstPoint;
 
         if (textEl) {
-            if (!this._wallFirstPoint) {
+            if (this._setOutEditActive) {
+                // §WALL-SETOUT-TAB-INPUT — editing a set-out distance numerically.
+                textEl.textContent = 'Type set-out mm · TAB next dim · ↵ commit · Esc cancel';
+            } else if (!this._wallFirstPoint) {
                 textEl.textContent = 'Click to set start point';
             } else if (mode === 'curved' && !this._arcMidPt) {
                 textEl.textContent = 'Click arc midpoint · Esc to cancel arc';
