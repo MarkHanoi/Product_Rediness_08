@@ -214,6 +214,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-113 [EDITING] level stacked/unstacked breaks coordination — floating selection + move commits wrong (jumps to original) | editing/level-explode | **IN FLIGHT (level-explode agent)** — explode offset must stay a pure display transform; make pick/gizmo/move convert exploded↔model space via active per-level offset; selection tracks exploded mesh; test move commits correct model pos | 
 | L-114 [PERF] elevation NME cache 0% hit (500/500) on 7-level/909-elt building — new L-110 elevations | perf/views | **OPEN (obs)** — adaptive/per-view NME cache size OR frustum-scope elevation export OR per-(view,gen) elevation cache; confirm via §PERF | 
 
+| L-115 [RECURRENT] plan Draw Wall dropdown shows layered type but panel says 'Plain Wall ready' → draws PLAIN (dropdown select doesn't arm the type; needs Apply) | walls/plan-arm UX | **IN FLIGHT (plan-tools agent)** — dropdown-select must ARM the type immediately (no separate Apply / 'Plain Wall ready' mismatch); plan≡3D for wall type; test dropdown-select→wall.create carries systemTypeId. §FIX-PLAN-WALL-TYPE-ARM-ON-SELECT | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
