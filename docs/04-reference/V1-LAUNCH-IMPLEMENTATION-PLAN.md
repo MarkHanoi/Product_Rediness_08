@@ -211,6 +211,9 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-112 [L-11/107] ground shadow-catcher shows grey rectangle, not true time-of-day building shadow | rendering | **QUEUED (environment agent)** — make catcher receive the REAL sun-cast building shadow (accurate silhouette + direction/length per time-of-day); investigate WebGPU ShadowMaterial sampling + tighten sun shadow-camera frustum/res; keep ADR-0111 + L-107; test shadow footprint matches caster silhouette. ADR-0106/C04 | 
 
+| L-113 [EDITING] level stacked/unstacked breaks coordination — floating selection + move commits wrong (jumps to original) | editing/level-explode | **IN FLIGHT (level-explode agent)** — explode offset must stay a pure display transform; make pick/gizmo/move convert exploded↔model space via active per-level offset; selection tracks exploded mesh; test move commits correct model pos | 
+| L-114 [PERF] elevation NME cache 0% hit (500/500) on 7-level/909-elt building — new L-110 elevations | perf/views | **OPEN (obs)** — adaptive/per-view NME cache size OR frustum-scope elevation export OR per-(view,gen) elevation cache; confirm via §PERF | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
