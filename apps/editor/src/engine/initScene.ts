@@ -1093,6 +1093,18 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         if (svm?.activeViewId) viewDependencyTracker.notifyViewActivated(svm.activeViewId);
     });
 
+    // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124 / L-123) — catch-up reprojection.
+    // ViewTechnicalDrawingCache dispatches this when it accepts a STALE projection into
+    // an empty cache (rapid SET_VIEW_CROP bumps the generation faster than projections
+    // complete). Request a fresh full reprojection so the FINAL crop lands with COMPLETE
+    // linework instead of an older, smaller-crop drawing (elevation "shows only a
+    // portion / incomplete as the crop extends"). forceReproject respects the lazy
+    // active-view gate, so an inactive elevation still just projects on activation.
+    window.addEventListener('vd:reprojection-required', (e: Event) => {
+        const viewId = (e as CustomEvent<{ viewId?: string }>).detail?.viewId;
+        if (viewId) viewDependencyTracker.forceReproject(viewId);
+    });
+
     window.addEventListener('bim-project-cleared', () => {
         viewDependencyTracker.clear();
         viewTechnicalDrawingCache.clear();

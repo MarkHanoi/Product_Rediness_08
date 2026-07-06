@@ -376,6 +376,34 @@ export class ViewDependencyTracker {
         unifiedFrameLoop.queueLowPriority(() => this._flush());
     }
 
+    /**
+     * §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — request a fresh FULL
+     * reprojection of `viewId` at the current generation.
+     *
+     * Used by the `vd:reprojection-required` catch-up path: when
+     * ViewTechnicalDrawingCache accepts a STALE projection into an empty cache to
+     * avoid a blank view (rapid SET_VIEW_CROP bumps the generation faster than
+     * projections complete), the displayed drawing may reflect an OLDER, smaller
+     * crop. This schedules a debounced full reprojection so the FINAL crop lands
+     * with COMPLETE linework (the flush calls `beginProjection()` AFTER
+     * `invalidate()`, so the resulting projection is always current-generation and
+     * wins).
+     *
+     * Respects the lazy active-view gate (§FIX-LAZY-INACTIVE-VIEW-PROJECTION,
+     * L-117): an INACTIVE view is deferred here too and reprojects on activation —
+     * this never reintroduces the inactive-view thrash.
+     */
+    forceReproject(viewId: string): void {
+        if (!viewId) return;
+        this._dirtyViewIds.add(viewId);
+        this._viewsNeedingFullInvalidate.add(viewId);
+        this._dirtyElementsByView.delete(viewId);
+        emitViewProjectionEvent('force-reproject', {
+            'pryzm.view_projection.view_id': viewId,
+        });
+        this._scheduleDebouncedFlush();
+    }
+
     // ── Batch suppression API ─────────────────────────────────────────────────
 
     /**

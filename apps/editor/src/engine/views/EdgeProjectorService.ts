@@ -25,6 +25,9 @@ import { removeHiddenLines } from '@pryzm/core-app-model';
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
 import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS } from '@pryzm/core-app-model';
+// §FIX-ELEVATION-POCHE (L-119) — unified per-view-type drawing scope. An
+// elevation has cut:false → emit :proj/:beyond ONLY (no :cut → no black poché).
+import { resolveViewScope } from '@pryzm/core-app-model';
 import { BimManager } from '@pryzm/core-app-model';
 // Wave 11 / Stage S7 — per-IFC-type visibility veto.
 import { resolveBoundIntentWithInheritance } from '@pryzm/core-app-model';
@@ -1514,6 +1517,12 @@ export class EdgeProjectorService {
         const sectionDepthBands = isSectionDepthView ? resolveSectionDepthBands(viewDef, far) : null;
         const sectionVolumeBox = isSectionDepthView ? resolveSectionVolumeBox(viewDef, direction, far, this._bimManager) : null;
 
+        // §FIX-ELEVATION-POCHE (L-119) — unified drawing scope for this view. Drives
+        // whether depth-classified geometry is routed to a `:cut` layer (section) or
+        // to `:proj`/`:beyond` only (elevation — no cut, no poché). Replaces the prior
+        // ad-hoc `viewType === 'elevation' && layerName === 'A-WALL'` special case.
+        const viewScope = resolveViewScope(viewDef.viewType);
+
         // DOC-4.4 — Log crop region when active (culling is performed by NativeElementMeshExporter).
         const cropRegion = viewDef.spatial?.cropRegion;
         // §C.3 — viewId is used as the cache partition key (each view has its own projected geometry).
@@ -1967,41 +1976,22 @@ export class EdgeProjectorService {
                             addProjectedLayer(beyondGeo, _layerBeyond(layerName));
                             tempGeosToDispose.push(beyondGeo);
                         }
-                    } else if (
-                        sectionDepthBands &&
-                        viewDef.viewType === 'elevation' &&
-                        layerName === 'A-WALL' &&
-                        mergedGeo
-                    ) {
-                        const cutParts = [...meshCutGeos];
-                        const classified = classifyByProjectionDepth(
-                            mergedGeo,
-                            viewDef,
-                            direction,
-                            sectionDepthBands.projectionDepth,
-                            sectionDepthBands.farClipDepth,
-                            near,
-                            sectionVolumeBox,
-                        );
-                        if (classified.cutGeo) {
-                            cutParts.push(classified.cutGeo);
-                            tempGeosToDispose.push(classified.cutGeo);
-                        }
-                        if (classified.projGeo) tempGeosToDispose.push(classified.projGeo);
-                        if (classified.beyondGeo) tempGeosToDispose.push(classified.beyondGeo);
-                        const mergedCutGeo = concatLineGeometries(cutParts);
-                        if (mergedCutGeo) {
-                            addProjectedLayer(mergedCutGeo, _layerCut(layerName));
-                            tempGeosToDispose.push(mergedCutGeo);
-                        }
-                        const wallProjectionParts = [classified.projGeo, classified.beyondGeo]
-                            .filter((geo): geo is THREE.BufferGeometry => !!geo);
-                        const clippedWallProjectionGeo = concatLineGeometries(wallProjectionParts);
-                        if (clippedWallProjectionGeo) {
-                            addProjectedLayer(clippedWallProjectionGeo, _layerProj(layerName));
-                            tempGeosToDispose.push(clippedWallProjectionGeo);
-                        }
                     } else if (sectionDepthBands) {
+                        // §FIX-ELEVATION-POCHE (L-119) — UNIFIED section/elevation depth
+                        // classification, keyed on ViewScope instead of the old
+                        // `viewType === 'elevation' && layerName === 'A-WALL'` special case.
+                        //
+                        // Every element (not just A-WALL) is classified along view depth into
+                        // cut / projection / beyond bands. ViewScope.cut then decides routing:
+                        //   • SECTION  (cut:true)  — the mesh-plane intersection + near-band
+                        //                            edges are the CUT → `:cut` (heavy + poché),
+                        //                            with `:proj` / `:beyond` behind it.
+                        //   • ELEVATION(cut:false) — there is NO cut. The silhouette + near
+                        //                            edges are PROJECTION linework → `:proj`;
+                        //                            depth-cued far edges stay `:beyond`. Emitting
+                        //                            a `:cut` layer here is what made the plan
+                        //                            poché pass paint the whole façade solid
+                        //                            black (L-119) and mis-count the layers.
                         const cutParts = [...meshCutGeos];
                         let projGeo: THREE.BufferGeometry | null = null;
                         let beyondGeo: THREE.BufferGeometry | null = null;
@@ -2022,18 +2012,39 @@ export class EdgeProjectorService {
                             projGeo = classified.projGeo;
                             beyondGeo = classified.beyondGeo;
                         }
-                        const mergedCutGeo = concatLineGeometries(cutParts);
-                        if (mergedCutGeo) {
-                            addProjectedLayer(mergedCutGeo, _layerCut(layerName));
-                            tempGeosToDispose.push(mergedCutGeo);
-                        }
-                        if (projGeo) {
-                            addProjectedLayer(projGeo, _layerProj(layerName));
-                            tempGeosToDispose.push(projGeo);
-                        }
-                        if (beyondGeo) {
-                            addProjectedLayer(beyondGeo, _layerBeyond(layerName));
-                            tempGeosToDispose.push(beyondGeo);
+
+                        if (viewScope.cut) {
+                            // SECTION — route the cut band to `:cut`.
+                            const mergedCutGeo = concatLineGeometries(cutParts);
+                            if (mergedCutGeo) {
+                                addProjectedLayer(mergedCutGeo, _layerCut(layerName));
+                                tempGeosToDispose.push(mergedCutGeo);
+                            }
+                            if (projGeo) {
+                                addProjectedLayer(projGeo, _layerProj(layerName));
+                                tempGeosToDispose.push(projGeo);
+                            }
+                            if (beyondGeo) {
+                                addProjectedLayer(beyondGeo, _layerBeyond(layerName));
+                                tempGeosToDispose.push(beyondGeo);
+                            }
+                        } else {
+                            // ELEVATION — NO `:cut` layer. Fold the (would-be) cut silhouette
+                            // into the projection linework so the face reads as a line drawing.
+                            const projParts = [...cutParts];
+                            if (projGeo) {
+                                projParts.push(projGeo);
+                                tempGeosToDispose.push(projGeo);
+                            }
+                            const mergedProjGeo = concatLineGeometries(projParts);
+                            if (mergedProjGeo) {
+                                addProjectedLayer(mergedProjGeo, _layerProj(layerName));
+                                tempGeosToDispose.push(mergedProjGeo);
+                            }
+                            if (beyondGeo) {
+                                addProjectedLayer(beyondGeo, _layerBeyond(layerName));
+                                tempGeosToDispose.push(beyondGeo);
+                            }
                         }
                     } else if (mergedGeo) {
                         addProjectedLayer(mergedGeo, layerName);
@@ -2286,7 +2297,9 @@ export class EdgeProjectorService {
                                 beyondGeo.dispose();
                             }
                         } else if (sectionDepthBands) {
-                            // Section/elevation: classify edges as cut / proj / beyond along view depth.
+                            // §FIX-ELEVATION-POCHE (L-119) — classify edges along view depth,
+                            // then route by ViewScope: SECTION → `:cut` + `:proj`/`:beyond`;
+                            // ELEVATION → `:proj`/`:beyond` ONLY (no cut, no poché black fill).
                             const meshCutGeo = buildMeshPlaneIntersectionGeometry(mesh, viewDef, direction, near, sectionVolumeBox);
                             const classified = classifyByProjectionDepth(
                                 edgesGeo, viewDef, direction,
@@ -2297,9 +2310,18 @@ export class EdgeProjectorService {
                             const cutParts: THREE.BufferGeometry[] = [];
                             if (meshCutGeo) cutParts.push(meshCutGeo);
                             if (classified.cutGeo) cutParts.push(classified.cutGeo);
-                            const mergedCut = concatLineGeometries(cutParts);
-                            if (mergedCut) { addIfcLayer(mergedCut, _layerCut(layerName)); mergedCut.dispose(); }
-                            if (classified.projGeo) { addIfcLayer(classified.projGeo, _layerProj(layerName)); classified.projGeo.dispose(); }
+                            if (viewScope.cut) {
+                                const mergedCut = concatLineGeometries(cutParts);
+                                if (mergedCut) { addIfcLayer(mergedCut, _layerCut(layerName)); mergedCut.dispose(); }
+                                if (classified.projGeo) { addIfcLayer(classified.projGeo, _layerProj(layerName)); classified.projGeo.dispose(); }
+                            } else {
+                                // Elevation — fold the cut silhouette into projection linework.
+                                const projParts: THREE.BufferGeometry[] = [...cutParts];
+                                if (classified.projGeo) projParts.push(classified.projGeo);
+                                const mergedProj = concatLineGeometries(projParts);
+                                if (mergedProj) { addIfcLayer(mergedProj, _layerProj(layerName)); mergedProj.dispose(); }
+                                if (classified.projGeo) classified.projGeo.dispose();
+                            }
                             if (classified.beyondGeo) { addIfcLayer(classified.beyondGeo, _layerBeyond(layerName)); classified.beyondGeo.dispose(); }
                             if (meshCutGeo) meshCutGeo.dispose();
                             if (classified.cutGeo) classified.cutGeo.dispose();

@@ -2,6 +2,9 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import type { BimManager } from '@pryzm/core-app-model';
 import { type ViewDefinition, PLAN_VIEW_TYPES } from '../views/ViewDefinitionTypes';
+// §FIX-ELEVATION-CROP-CLIP (L-123) — the flat-XZ crop cull is a plan-plane concept;
+// depth-projected views must not cull straddling elements by it.
+import { resolveViewScope } from '../views/ViewScope';
 import {
     resolveEffectiveViewRange,
     resolveViewRangeWorldY,
@@ -228,7 +231,21 @@ export class NativeElementMeshExporter {
         if (desiredCap > this._maxCacheEntries) this._maxCacheEntries = desiredCap;
 
         // DOC-4.4 — Read optional crop region for XZ AABB pre-filter.
-        const cropRegion = viewDef.spatial?.cropRegion;
+        //
+        // §FIX-ELEVATION-CROP-CLIP (L-123) — the crop region is an XZ box. For PLAN-family
+        // views XZ IS the drawing plane, so an XZ AABB cull is correct. For DEPTH-projected
+        // views (elevation/section) the XZ axes mix the drawing-horizontal axis with the
+        // view DEPTH axis; a flat XZ box CULL then drops any element (or curtain-wall
+        // instance) that straddles the crop's depth slab — walls/mullions "partly inside"
+        // vanish and the elevation shows only a PORTION of each element (the founder's
+        // `Culled 7/10 elements outside cropRegion` symptom). Depth scoping for those views
+        // is done correctly downstream by EdgeProjectorService's ORIENTED sectionVolumeBox
+        // (intersection test → keeps straddlers; `clipSegmentToSectionBox` clips them to the
+        // boundary — true clip-not-cull). So the flat-XZ NME cull runs for plan-family views
+        // ONLY. Bonus: elevation/section NME output becomes crop-INDEPENDENT, so dragging the
+        // crop reuses the cached proxies (helps the L-124 stale/thrash lane).
+        const scope = resolveViewScope(viewDef.viewType);
+        const cropRegion = scope.planFamily ? viewDef.spatial?.cropRegion : undefined;
 
         // §H.2 — Stable view-level cache key components.
         const viewId = viewDef.id ?? '';

@@ -7,6 +7,9 @@ import { RoomColourSystem } from '@pryzm/room-topology';
 // A-1: DrawingSelectionIndex — primary UUID resolution path for hitTest
 import { lookupElementUUID } from './DrawingSelectionIndex';
 import type { ViewDefinition } from './ViewDefinitionTypes';
+// §FIX-ELEVATION-POCHE (L-119) — poché (solid cut fills) is a CUT-view concept.
+// ViewScope.poche is false for elevation/3d, so the façade is never painted black.
+import { resolveViewScope } from './ViewScope';
 // Contract 23 §8 — pen weight table (zone/category helpers)
 import { penZoneFromFlags, categoryFromFlags } from '../drawing/PenWeightTable';
 import type { PenStyle } from '../drawing/PenWeightTable';
@@ -243,7 +246,12 @@ export class PlanViewCanvas {
 
         const hairline = Math.max(0.5, 1 / Math.max(dpr, 1));
 
-        this._renderPocheFills(ctx, drawing, viewDef);
+        // §FIX-ELEVATION-POCHE (L-119) — only CUT-family views (plan / section) get
+        // poché solid fills. Elevations are pure line drawings; running the poché pass
+        // for them painted every façade cut layer solid black over the linework.
+        if (resolveViewScope(this._viewType).poche) {
+            this._renderPocheFills(ctx, drawing, viewDef);
+        }
 
         (drawing as any).three?.traverse?.((child: THREE.Object3D) => {
             if (!(child instanceof THREE.LineSegments)) return;
@@ -1412,7 +1420,9 @@ export class PlanViewCanvas {
         if (!isPlanLike && this._sectionFlipV) this._renderLevelDatums(ctx);
 
         // ── Poche polygons (Stage 7a) ─────────────────────────────────────────
-        if (result.polygons.length > 0) {
+        // §FIX-ELEVATION-POCHE (L-119) — same CUT-view gate as the main render()
+        // path: elevations are line drawings and must never receive solid fills.
+        if (result.polygons.length > 0 && resolveViewScope(this._viewType).poche) {
             ctx.save();
             ctx.setLineDash([]);
             for (const poly of result.polygons) {

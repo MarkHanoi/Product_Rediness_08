@@ -221,6 +221,9 @@ export type {
 export {
     ALL_VIEW_TYPES, PLAN_VIEW_TYPES, VIEW_PROJECTION_DIRECTIONS,
 } from './views/ViewDefinitionTypes.js';
+// §FIX-ELEVATION-POCHE / §FIX-ELEVATION-SCOPE (L-119 / L-120 P4) — unified view scope.
+export { resolveViewScope } from './views/ViewScope.js';
+export type { ViewScope } from './views/ViewScope.js';
 
 // ── BimKernel + SpatialAuthority (P9-W2 2026-05-10) ────────────────────────
 

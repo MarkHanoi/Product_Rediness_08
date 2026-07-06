@@ -44,6 +44,14 @@ export class ViewTechnicalDrawingCache {
      */
     private readonly _generations = new Map<string, number>();
 
+    /**
+     * §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — views whose cached drawing is
+     * a stale fallback awaiting a current-generation catch-up projection. Populated in
+     * `setIfCurrent()`'s empty-cache stale-accept branch; cleared on a gen-matching
+     * accept, on `invalidate()`, and on `clear()`.
+     */
+    private readonly _provisionalStaleViewIds = new Set<string>();
+
     constructor() {
         this._wireDirtyTracking();
     }
@@ -164,6 +172,25 @@ export class ViewTechnicalDrawingCache {
                     `viewId=${viewId} staleGen=${gen} currentGen=${this._generations.get(viewId)}`,
                 );
                 this.set(viewId, drawing);
+
+                // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124, ties L-123) — accepting
+                // a stale drawing avoids a BLANK view, but on rapid SET_VIEW_CROP the
+                // generation is bumped (invalidate) more often than a projection actually
+                // completes, so the accepted drawing reflects an OLDER, SMALLER crop —
+                // the elevation then shows only a PORTION of the model and never catches
+                // up ("incomplete as the crop extends"). Mark the view provisional and
+                // request a fresh reprojection at the CURRENT generation so the FINAL crop
+                // lands with COMPLETE linework (last generation wins). The listener
+                // (initScene → ViewDependencyTracker.forceReproject) respects the lazy
+                // active-view gate, so an inactive view simply projects on activation.
+                this._provisionalStaleViewIds.add(viewId);
+                if (typeof window !== 'undefined') {
+                    try {
+                        window.dispatchEvent(new CustomEvent('vd:reprojection-required', {
+                            detail: { viewId, reason: 'stale-accept', staleGen: gen },
+                        }));
+                    } catch { /* DOM dispatch must never throw past this guard */ }
+                }
                 return true;
             }
             console.log(
@@ -173,7 +200,21 @@ export class ViewTechnicalDrawingCache {
             return false;
         }
         this.set(viewId, drawing);
+        // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — a gen-matching completion is
+        // the authoritative, current-crop drawing: the view is no longer provisional.
+        this._provisionalStaleViewIds.delete(viewId);
         return true;
+    }
+
+    /**
+     * §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — true while the cached drawing
+     * for `viewId` is a STALE fallback (accepted into an empty cache by
+     * §FIX-PLAN-BLANK-STALEGEN) that has not yet been superseded by a gen-matching,
+     * current-crop projection. Diagnostic only — the catch-up reprojection is driven
+     * by the `vd:reprojection-required` event dispatched at the accept site.
+     */
+    isProvisionalStale(viewId: string): boolean {
+        return this._provisionalStaleViewIds.has(viewId);
     }
 
     /**
@@ -182,6 +223,9 @@ export class ViewTechnicalDrawingCache {
      */
     invalidate(viewId: string): void {
         this._generations.set(viewId, (this._generations.get(viewId) ?? 0) + 1);
+        // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124) — the drawing is gone; any
+        // provisional-stale marker no longer applies (a fresh projection is coming).
+        this._provisionalStaleViewIds.delete(viewId);
         const drawing = this._cache.get(viewId);
         if (drawing) {
             try {
@@ -355,6 +399,7 @@ export class ViewTechnicalDrawingCache {
         }
         this._cache.clear();
         this._generations.clear();   // DOC-1.5f: reset all generation counters
+        this._provisionalStaleViewIds.clear();  // §FIX-ELEVATION-PROJECTION-COMPLETENESS (L-124)
         this.staleElementIds.clear();
         this._fullRebuildRequired = false;
     }
