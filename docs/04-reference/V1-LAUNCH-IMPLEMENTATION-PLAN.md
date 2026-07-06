@@ -226,6 +226,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-120 [ARCH+PERF REVIEW] holistic documentation/view-projection architecture + perf across all view types (plan/elevation/section/…) | review+plan | **IN FLIGHT (read-only Plan agent)** — unified incremental+lazy+scoped projection+cache model across view types; sizing/keying (subsumes L-114/117/118); linework style (L-119); extensible for sections+sheets; C04/C24.1/ADR-0115 | 
 
+| L-121 [BLOCKER] wall+door move FREEZE — now amplified by L-110 elevations (every edit reprojects 5 views); L-117 lazy-active-view fix resolves it | walls+views | **IN FLIGHT (view-projection agent, = L-117)** — edit reprojects ONLY active view not the 4 elevations; test wall+door+move no freeze; L-97 guard still holds | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
