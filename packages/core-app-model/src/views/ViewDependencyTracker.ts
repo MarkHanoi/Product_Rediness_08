@@ -33,6 +33,7 @@ import { elementRegistry } from '../ElementRegistry';
 import { viewDefinitionStore } from './ViewDefinitionStore';
 import { viewTechnicalDrawingCache } from './ViewTechnicalDrawingCache';
 import { unifiedFrameLoop } from '../rendering/UnifiedFrameLoop';
+import { emitViewProjectionEvent } from './otel';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,43 @@ export class ViewDependencyTracker {
      * regardless. Cleared every flush alongside `_dirtyViewIds`.
      */
     private _viewsGraftIneligible = new Set<string>();
+
+    /**
+     * §FIX-LAZY-INACTIVE-VIEW-PROJECTION (L-117, C04 §3.3 / DOC-1.4) — predicate
+     * that reports whether a view is CURRENTLY VISIBLE (the main viewport's active
+     * 2D documentation view, or the split-view Canvas2D pane). Wired by the engine
+     * bootstrap via `setActiveViewPredicate()`.
+     *
+     * INVARIANT: an INACTIVE view must NOT eagerly reproject. On a 2000+ element
+     * tower the four always-present L-110 default elevations (§FEAT-DEFAULT-ELEVATIONS)
+     * were each reprojecting the WHOLE model on every 3D-view edit — 4×full-tower
+     * projections per flush → runaway CPU/GPU churn → WebGPU device-loss crash on
+     * first navigation. When this predicate reports a dirty view inactive, `_flush`
+     * DEFERS its reprojection (records it in `_deferredDirtyViewIds`) until the view
+     * is actually activated (`notifyViewActivated` → one full reprojection).
+     *
+     * When null (headless / tests before wiring), every view is treated as active —
+     * the legacy eager behaviour — so nothing regresses when the predicate is absent.
+     */
+    private _isViewActive: ((viewId: string) => boolean) | null = null;
+
+    /**
+     * §FIX-LAZY-INACTIVE-VIEW-PROJECTION — views that were dirtied while INACTIVE and
+     * whose reprojection is therefore deferred until they are activated. A deferred
+     * view always takes a FULL reprojection on activation (a view that sat inactive
+     * across an unknown number of edits cannot be safely graft-narrowed; the
+     * incremental graft fast-path is a warm-ACTIVE-view optimisation only).
+     */
+    private _deferredDirtyViewIds = new Set<string>();
+
+    /**
+     * §FIX-LAZY-INACTIVE-VIEW-PROJECTION — views that `notifyViewActivated()` has
+     * queued for a one-shot reprojection. These bypass the active-view gate on the
+     * NEXT flush (the view has just been activated; project it regardless of any
+     * predicate-read race between activation state settling and the flush landing).
+     * Drained every flush.
+     */
+    private _forceProjectViewIds = new Set<string>();
 
     /** Maps elementId → levelId. Populated by `registerElement()`. */
     private readonly _elementLevelMap = new Map<string, string>();
@@ -283,6 +321,9 @@ export class ViewDependencyTracker {
         this._viewsNeedingFullInvalidate.clear();
         // §FIX-PLAN-PROJECT-INCREMENTAL — reset graft-eligibility tracking.
         this._viewsGraftIneligible.clear();
+        // §FIX-LAZY-INACTIVE-VIEW-PROJECTION — drop deferred / forced projection state.
+        this._deferredDirtyViewIds.clear();
+        this._forceProjectViewIds.clear();
         viewTechnicalDrawingCache.clear();
         if (this._debounceTimer !== null) {
             clearTimeout(this._debounceTimer);
@@ -292,6 +333,47 @@ export class ViewDependencyTracker {
 
     setLevelResolver(resolver: (elementId: string) => string | undefined): void {
         this._resolveElementLevelId = resolver;
+    }
+
+    // ── §FIX-LAZY-INACTIVE-VIEW-PROJECTION (L-117) — lazy inactive-view API ────────
+
+    /**
+     * Wire the "is this view currently visible?" predicate used to gate eager
+     * reprojection. Called once by the engine bootstrap with a closure over the
+     * ViewController (main-viewport active 2D view) and the split-view pane.
+     * Pass `null` to restore the legacy eager-for-all behaviour.
+     */
+    setActiveViewPredicate(pred: ((viewId: string) => boolean) | null): void {
+        this._isViewActive = pred;
+    }
+
+    /**
+     * Notify the tracker that `viewId` has been ACTIVATED (main viewport or split
+     * pane). If the view accumulated deferred dirty state while it was inactive,
+     * schedule exactly ONE full reprojection now so the freshly-opened drawing is
+     * up to date. Idempotent + cheap when the view has no deferred state (no-op).
+     *
+     * This is the "a view must not project until it is viewed → project once on
+     * view" half of the lazy invariant.
+     */
+    notifyViewActivated(viewId: string): void {
+        if (!this._deferredDirtyViewIds.has(viewId)) return;
+        this._deferredDirtyViewIds.delete(viewId);
+        // Full reprojection — the view sat inactive across an unknown change set.
+        this._dirtyViewIds.add(viewId);
+        this._viewsNeedingFullInvalidate.add(viewId);
+        this._dirtyElementsByView.delete(viewId);
+        // Bypass the active-view gate on the imminent flush (the view is active now).
+        this._forceProjectViewIds.add(viewId);
+        emitViewProjectionEvent('activate-deferred', {
+            'pryzm.view_projection.view_id': viewId,
+        });
+        // Project promptly — the user just opened this view; no debounce dead-time.
+        if (this._debounceTimer !== null) {
+            clearTimeout(this._debounceTimer);
+            this._debounceTimer = null;
+        }
+        unifiedFrameLoop.queueLowPriority(() => this._flush());
     }
 
     // ── Batch suppression API ─────────────────────────────────────────────────
@@ -601,9 +683,41 @@ export class ViewDependencyTracker {
         this._viewsNeedingFullInvalidate = new Set<string>();
         this._viewsGraftIneligible = new Set<string>();
 
+        // §FIX-LAZY-INACTIVE-VIEW-PROJECTION (L-117) — partition the dirty set into
+        // ACTIVE views (visible now → reproject eagerly) and INACTIVE views (deferred
+        // until activated). An inactive view is recorded in `_deferredDirtyViewIds`
+        // and skipped entirely — no cache invalidate, no export, no projection. This
+        // is the core crash fix: a 3D-view edit on a 2000+ element tower no longer
+        // fans out 4×full-tower elevation reprojections per flush. Views queued by
+        // `notifyViewActivated` are force-projected regardless of the predicate.
+        const forceProject = this._forceProjectViewIds;
+        this._forceProjectViewIds = new Set<string>();
+        const activeToFlush: string[] = [];
+        for (const viewId of toFlush) {
+            this._deferredDirtyViewIds.delete(viewId);
+            if (!forceProject.has(viewId) && this._isViewActive && !this._isViewActive(viewId)) {
+                this._deferredDirtyViewIds.add(viewId);
+            } else {
+                activeToFlush.push(viewId);
+            }
+        }
+
+        if (activeToFlush.length === 0) {
+            if (this._deferredDirtyViewIds.size > 0) {
+                console.log(
+                    `[ViewDependencyTracker] §FIX-LAZY-INACTIVE-VIEW-PROJECTION — deferred ` +
+                    `${toFlush.length} inactive view(s); reprojection waits until activation.`,
+                );
+            }
+            return;
+        }
+
         console.log(
-            `[ViewDependencyTracker] flush — ${toFlush.length} dirty view(s): ` +
-            toFlush.map(id => id.slice(0, 8)).join(', '),
+            `[ViewDependencyTracker] flush — ${activeToFlush.length} active dirty view(s): ` +
+            activeToFlush.map(id => id.slice(0, 8)).join(', ') +
+            (this._deferredDirtyViewIds.size > 0
+                ? ` (+${this._deferredDirtyViewIds.size} deferred inactive)`
+                : ''),
         );
 
         // §FIX-WALLMOVE-PLAN-INCREMENTAL — per-view invalidation strategy: a view
@@ -637,7 +751,7 @@ export class ViewDependencyTracker {
             // DOC-1.5e: increment counter for ALL views atomically before the fan-out
             // begins; fire one UI transition (idle → reprojecting). Decrements happen
             // per-view in the finally blocks below.
-            this._activeProjectionCount += toFlush.length;
+            this._activeProjectionCount += activeToFlush.length;
             this._notifyReprojectionState();
 
             // §III-1 (Sprint 3): fan-out all views concurrently with Promise.all().
@@ -652,7 +766,7 @@ export class ViewDependencyTracker {
             // first await, so the generation counter is captured per-view even though
             // all map() closures start "simultaneously" (they run synchronously up to
             // their first await, which is inside onReprojectionNeeded).
-            await Promise.all(toFlush.map(async (viewId) => {
+            await Promise.all(activeToFlush.map(async (viewId) => {
                 // §FIX-PLAN-PROJECT-INCREMENTAL — capture graft eligibility BEFORE
                 // invalidateView (which drops the dirty elements' warm lines); the graft
                 // path re-projects only those and grafts them back onto the warm drawing.
@@ -671,8 +785,10 @@ export class ViewDependencyTracker {
             }));
         } else {
             // No projection callback wired yet — just invalidate the cache
-            // (incremental where the view's change set is element-scoped).
-            for (const viewId of toFlush) {
+            // (incremental where the view's change set is element-scoped). Only the
+            // ACTIVE views are invalidated; deferred inactive views keep their warm
+            // cache until activation (§FIX-LAZY-INACTIVE-VIEW-PROJECTION).
+            for (const viewId of activeToFlush) {
                 invalidateView(viewId);
             }
         }

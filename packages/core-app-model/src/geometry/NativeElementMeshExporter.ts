@@ -109,7 +109,26 @@ export class NativeElementMeshExporter {
      * Acceptable against C10 NFT-MEM-01 (<1.5 GB session budget).
      */
     private readonly _proxyCache = new Map<string, NMEProxyCacheEntry>();
-    private static readonly MAX_CACHE_ENTRIES = 500;
+
+    /**
+     * §FIX-NME-ADAPTIVE-LRU (L-117 / L-118 / L-114) — the proxy cache capacity is
+     * ADAPTIVE, not a fixed 500. A fixed 500-entry cap on a large view (e.g. a
+     * ~1006-element elevation or a 2000+ element tower) guaranteed a 0% hit rate:
+     * a single `exportForView()` pass produced more misses than the cap, so each
+     * miss evicted an entry inserted EARLIER IN THE SAME PASS, and the next
+     * projection re-expanded every element from scratch (the continuous
+     * `§H2 evicted …:full` thrash observed on the tower). We grow the cap to hold
+     * the current view's full element set (+25% headroom) so a whole view fits
+     * without self-eviction, bounded by HARD_CAP for memory safety. The cap only
+     * ratchets UP within a session (never shrinks) so alternating between a large
+     * and a small view does not re-introduce thrash on the large one.
+     */
+    private static readonly BASE_CACHE_ENTRIES = 500;
+    /** Hard ceiling on adaptive growth. At ~131 avg proxies × ~120 B/descriptor the
+     *  worst case (curtain-wall-dense) is ~94 MB — well within C10 NFT-MEM-01's
+     *  1.5 GB session budget; a plain-wall tower is a small fraction of that. */
+    private static readonly HARD_CAP_CACHE_ENTRIES = 6000;
+    private _maxCacheEntries = NativeElementMeshExporter.BASE_CACHE_ENTRIES;
 
     constructor() {
         // §H.2 — Wire onUnregister so removed elements are immediately evicted from
@@ -193,6 +212,20 @@ export class NativeElementMeshExporter {
                 `across ${allLevels.length} levels (viewType=${viewDef.viewType ?? 'unknown'})`,
             );
         }
+
+        // §FIX-NME-ADAPTIVE-LRU (L-117 / L-118 / L-114) — ratchet the proxy-cache
+        // capacity up so this whole view's element set fits without self-eviction.
+        // Without this, a ~1006-element elevation (or a 2000+ element tower) against
+        // the old fixed 500 cap thrashed to a 0% hit rate — every projection
+        // re-expanded all elements. Never shrinks within a session.
+        const desiredCap = Math.min(
+            NativeElementMeshExporter.HARD_CAP_CACHE_ENTRIES,
+            Math.max(
+                NativeElementMeshExporter.BASE_CACHE_ENTRIES,
+                Math.ceil(elementIds.length * 1.25),
+            ),
+        );
+        if (desiredCap > this._maxCacheEntries) this._maxCacheEntries = desiredCap;
 
         // DOC-4.4 — Read optional crop region for XZ AABB pre-filter.
         const cropRegion = viewDef.spatial?.cropRegion;
@@ -449,7 +482,7 @@ export class NativeElementMeshExporter {
 
                 // §H.2 — Store cache entry for this element (cache miss path).
                 // Evict LRU if at capacity before inserting.
-                if (this._proxyCache.size >= NativeElementMeshExporter.MAX_CACHE_ENTRIES) {
+                if (this._proxyCache.size >= this._maxCacheEntries) {
                     this._evictLRU();
                 }
                 this._proxyCache.set(cacheKey, {
@@ -474,7 +507,7 @@ export class NativeElementMeshExporter {
             console.log(
                 `[NME] §H2-NME-CACHE hits=${h2Hits} misses=${h2Misses} ` +
                 `hitRate=${((h2Hits / (h2Hits + h2Misses)) * 100).toFixed(0)}% ` +
-                `cacheSize=${this._proxyCache.size}/${NativeElementMeshExporter.MAX_CACHE_ENTRIES}`
+                `cacheSize=${this._proxyCache.size}/${this._maxCacheEntries}`
             );
         }
 

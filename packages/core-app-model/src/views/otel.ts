@@ -39,3 +39,18 @@ export function emitPlanViewMotionEvent(verb: string, attrs: Attributes): void {
     span.setStatus({ code: SpanStatusCode.OK });
     span.end();
 }
+
+/**
+ * §FIX-LAZY-INACTIVE-VIEW-PROJECTION (L-117) — P8 span for the ViewDependencyTracker
+ * lazy inactive-view projection path (deferral of an inactive view's reprojection and
+ * its one-shot reprojection on activation). Same fire-and-done shape as
+ * `emitPlanViewMotionEvent`; no-op until the TracerProvider is installed.
+ *
+ * @param verb  — event verb, e.g. `'activate-deferred'`, `'defer'`
+ * @param attrs — additional attributes merged onto the span
+ */
+export function emitViewProjectionEvent(verb: string, attrs: Attributes): void {
+    const span = TRACER.startSpan(`pryzm.view-projection.${verb}`, { attributes: attrs });
+    span.setStatus({ code: SpanStatusCode.OK });
+    span.end();
+}

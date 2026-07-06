@@ -383,6 +383,20 @@ export class ViewController implements IViewController {
         this._mountDrawing(drawing);
     }
 
+    /**
+     * §FIX-LAZY-INACTIVE-VIEW-PROJECTION (L-117) — public predicate consumed by
+     * ViewDependencyTracker to decide whether a 2D documentation view is CURRENTLY
+     * VISIBLE in the MAIN viewport (and therefore must reproject eagerly). Mirrors
+     * exactly the mount gate: a view is "active" iff a freshly-projected drawing for
+     * it would actually be mounted right now (not while the main viewport is in 3D,
+     * and — for Canvas2D views — only while the PlanViewManager is active). The
+     * split-view Canvas2D pane is a separate surface and is handled by the tracker
+     * via `window.splitViewManager`.
+     */
+    isDrawingViewActive(viewId: string): boolean {
+        return this._canMountDrawingForView(viewId);
+    }
+
     private _canMountDrawingForView(viewId: string): boolean {
         if (this._state.viewMode === '3D') return false;
 

@@ -1051,6 +1051,48 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         }
     };
 
+    // ── §FIX-LAZY-INACTIVE-VIEW-PROJECTION (L-117 / L-121, C04 §3.3 / DOC-1.4) ────
+    // An INACTIVE documentation view must NOT eagerly reproject. The four
+    // always-present L-110 default elevations (§FEAT-DEFAULT-ELEVATIONS) were being
+    // reprojected on EVERY view-dependency flush — each one exporting the WHOLE
+    // model (`No levelId — exporting all N elements`). On a 2000+ element tower that
+    // is 4×full-tower projections per 3D/plan edit → runaway CPU/GPU + NME cache
+    // thrash → WebGPU device-loss crash on first navigation (L-117), and the
+    // wall+door-move freeze (L-121: `flush — 5 dirty view(s): vd-sys-p, vd-sys-e ×4`).
+    //
+    // The predicate reports a view VISIBLE iff its drawing would mount right now:
+    //   • the MAIN viewport's active 2D view (ViewController.isDrawingViewActive), or
+    //   • the split-view Canvas2D pane (window.splitViewManager).
+    // Any dirty view the predicate reports inactive is DEFERRED by the tracker
+    // (marked dirty, NOT reprojected) until it is actually activated — at which
+    // point `notifyViewActivated` triggers exactly one full reprojection. This drops
+    // per-edit reprojection from N views to just the active one, while L-110 stays
+    // correct (an elevation still reprojects the moment it is opened).
+    viewDependencyTracker.setActiveViewPredicate((viewId: string): boolean => {
+        try {
+            if (viewController.isDrawingViewActive(viewId)) return true;
+        } catch { /* fall through to split-view check */ }
+        const svm = window.splitViewManager as
+            { isActive?: boolean; activeViewId?: string } | undefined;
+        if (svm?.isActive === true && svm.activeViewId === viewId) return true;
+        return false;
+    });
+
+    // When a documentation view is activated (main viewport OR split pane), project
+    // it once if it accumulated deferred dirty state while inactive.
+    window.runtime?.events?.on('view-selected', (payload: unknown) => { // F.events.8
+        const viewId = (payload as { viewId?: string | null })?.viewId;
+        if (viewId) viewDependencyTracker.notifyViewActivated(viewId);
+    });
+    window.runtime?.events?.on('split-view-view-changed', (payload: unknown) => { // F.events.7
+        const viewId = (payload as { viewId?: string | null })?.viewId;
+        if (viewId) viewDependencyTracker.notifyViewActivated(viewId);
+    });
+    window.runtime?.events?.on('split-view-activated', () => { // F.events.7
+        const svm = window.splitViewManager as { activeViewId?: string } | undefined;
+        if (svm?.activeViewId) viewDependencyTracker.notifyViewActivated(svm.activeViewId);
+    });
+
     window.addEventListener('bim-project-cleared', () => {
         viewDependencyTracker.clear();
         viewTechnicalDrawingCache.clear();
