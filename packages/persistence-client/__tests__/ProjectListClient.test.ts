@@ -280,3 +280,136 @@ describe('ProjectListClient — timeout + retry (L-132)', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
+
+// §FIX-RETRY-MIGRATIONS-503 (L-134) — during a server boot/restart the v1 gate
+// answers with HTTP 503 `code:'migrations_in_progress'` for a brief,
+// self-clearing window (server/api/v1/routes.js §SERVER-500-V1-MIGRATION-RACE),
+// even sending a `Retry-After`. Unlike any other completed response, `req` must
+// ride this out — retry with increasing backoff over a longer wall-clock budget
+// — so create/list/open transparently succeed once migrations settle, instead
+// of dying with "Failed to create project" when the server literally asked us
+// to try again. Every non-migrations error still fails fast (no retry storm).
+function migrations503(retryAfter?: string): Response {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (retryAfter !== undefined) headers['retry-after'] = retryAfter;
+  return new Response(
+    JSON.stringify({
+      error: 'Server is starting up — database migrations in progress. Retry in a few seconds.',
+      code: 'migrations_in_progress',
+      errorId: 'err-boot-1',
+    }),
+    { status: 503, headers },
+  );
+}
+
+describe('ProjectListClient — migrations_in_progress 503 retry (L-134)', () => {
+  it('retries a 503 migrations_in_progress and then succeeds once the boot window clears', async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const fetchImpl = vi.fn(async () => {
+        calls += 1;
+        if (calls === 1) return migrations503('2'); // still booting…
+        return jsonResponse({ ok: true, data: makeRow({ id: 'booted', name: 'Booted' }) });
+      }) as unknown as typeof fetch;
+      const client = new ProjectListClient({ fetch: fetchImpl });
+      const p = client.create('Booted');
+      // Cover the first backoff (Retry-After: 2s) then let the 200 resolve.
+      await vi.advanceTimersByTimeAsync(5_000);
+      const out = await p;
+      expect(out.id).toBe('booted');
+      expect(out.name).toBe('Booted');
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('list() and open() paths also transparently ride out the boot window', async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const fetchImpl = vi.fn(async () => {
+        calls += 1;
+        if (calls <= 2) return migrations503('2'); // two boot 503s, then ready
+        return jsonResponse({ ok: true, data: [makeRow({ id: 'ready' })] });
+      }) as unknown as typeof fetch;
+      const client = new ProjectListClient({ fetch: fetchImpl });
+      const p = client.list();
+      await vi.advanceTimersByTimeAsync(15_000);
+      const out = await p;
+      expect(out[0].id).toBe('ready');
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives up with a retriable migrations error after the boot-retry budget (bounded attempts, not infinite)', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(async () => migrations503('2')) as unknown as typeof fetch;
+      const client = new ProjectListClient({ fetch: fetchImpl });
+      const p = client.create('Never');
+      const assertion = expect(p).rejects.toMatchObject({
+        kind: 'migrations',
+        status: 503,
+        retriable: true,
+      });
+      // Advance well past the ~60s budget; the call must give up, not loop forever.
+      await vi.advanceTimersByTimeAsync(90_000);
+      await assertion;
+      const n = (fetchImpl as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+      expect(n).toBeGreaterThan(1);   // it DID retry
+      expect(n).toBeLessThanOrEqual(40); // …but a bounded number of times
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('honours the server Retry-After even when it exceeds the exponential backoff', async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const fetchImpl = vi.fn(async () => {
+        calls += 1;
+        if (calls === 1) return migrations503('5'); // server asks for a 5s wait
+        return jsonResponse({ ok: true, data: [makeRow({ id: 'slow-boot' })] });
+      }) as unknown as typeof fetch;
+      const client = new ProjectListClient({ fetch: fetchImpl });
+      const p = client.list();
+      // Only 3s elapsed — the mandated 5s Retry-After has NOT passed, so no retry yet.
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      // Cross the 5s mark → the retry fires and succeeds.
+      await vi.advanceTimersByTimeAsync(3_000);
+      const out = await p;
+      expect(out[0].id).toBe('slow-boot');
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does NOT retry a bare 503 that lacks the migrations_in_progress code (fails fast as server-error)', async () => {
+    const fetchImpl = makeFetch(() => jsonResponse({ error: 'unavailable' }, 503));
+    const client = new ProjectListClient({ fetch: fetchImpl });
+    await expect(client.list()).rejects.toMatchObject({
+      kind: 'server-error',
+      status: 503,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT retry auth/validation errors — 401 and 404 fail on the first hit', async () => {
+    const f401 = makeFetch(() => jsonResponse({ error: 'auth' }, 401));
+    const c401 = new ProjectListClient({ fetch: f401 });
+    await expect(c401.list()).rejects.toMatchObject({ kind: 'unauthenticated', status: 401 });
+    expect(f401).toHaveBeenCalledTimes(1);
+
+    const f404 = makeFetch(() => jsonResponse({ error: 'gone' }, 404));
+    const c404 = new ProjectListClient({ fetch: f404 });
+    await expect(c404.delete('missing')).rejects.toMatchObject({ kind: 'not-found', status: 404 });
+    expect(f404).toHaveBeenCalledTimes(1);
+  });
+});

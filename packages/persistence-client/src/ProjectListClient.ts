@@ -29,7 +29,14 @@ export type ProjectListClientErrorKind =
   // rejected outright) so callers can tell "the server never answered in time"
   // (e.g. a Fly redeploy rollout) apart from "the connection failed". Both are
   // retriable; the UI copy differs slightly.
-  | 'timeout';
+  | 'timeout'
+  // §FIX-RETRY-MIGRATIONS-503 (L-134) — the server answered, but with an
+  // explicit "I'm still booting" 503 (`code:'migrations_in_progress'`, see
+  // server/api/v1/routes.js §SERVER-500-V1-MIGRATION-RACE). `req` rides this
+  // out with a longer wall-clock budget; this kind is only surfaced once that
+  // budget is exhausted, so the caller can tell "still starting up" apart from
+  // a generic upstream 5xx. Retriable — the boot window is self-clearing.
+  | 'migrations';
 
 export class ProjectListClientError extends Error {
   readonly kind: ProjectListClientErrorKind;
@@ -66,9 +73,11 @@ export class ProjectListClientError extends Error {
     this.kind = kind;
     this.status = status;
     this.body = body;
-    // Transient transport failures + upstream 5xx are worth a retry; 4xx
-    // (unauthenticated / not-found / invalid-request) are deterministic and final.
-    this.retriable = kind === 'network-error' || kind === 'timeout' || kind === 'server-error';
+    // Transient transport failures + upstream 5xx + a still-booting server are
+    // worth a retry; 4xx (unauthenticated / not-found / invalid-request) are
+    // deterministic and final.
+    this.retriable = kind === 'network-error' || kind === 'timeout'
+      || kind === 'server-error' || kind === 'migrations';
   }
 }
 
@@ -317,22 +326,47 @@ export class ProjectListClient {
     // escape. Now the request either completes, or rejects with a typed,
     // `retriable` error the UI can surface.
     //
-    // Retry policy: we only re-attempt TRANSPORT failures (fetch rejected or
-    // our timeout fired) — never a completed HTTP response, so a 4xx/5xx is
-    // returned to the caller on the first hit without hammering the server.
-    // During a redeploy the transport failure is typically a fast
-    // connection-refused, so all attempts resolve within ~1-2s; the full
-    // per-attempt timeout only bites if the socket connects but never answers.
+    // Retry policy: two distinct transient failures are re-attempted; anything
+    // else is returned to the caller on the FIRST hit so we never hammer the
+    // server on a deterministic error.
+    //
+    //  1. TRANSPORT failures (fetch rejected or our timeout fired) — the socket
+    //     never carried a completed HTTP response. Short linear backoff, a
+    //     small fixed budget (MAX_TRANSPORT_RETRIES). During a redeploy the
+    //     failure is typically a fast connection-refused resolving within
+    //     ~1-2s; the per-attempt timeout only bites if the socket connects but
+    //     never answers.
+    //  2. §FIX-RETRY-MIGRATIONS-503 (L-134) — a COMPLETED HTTP 503 whose body
+    //     carries `code:'migrations_in_progress'`. The server opens its
+    //     listening socket BEFORE boot migrations finish (server/api/v1/
+    //     routes.js §SERVER-500-V1-MIGRATION-RACE) and, for that brief window,
+    //     explicitly asks us to wait + retry (it even sends `Retry-After`).
+    //     Before L-134 we threw on the first 503 and onboarding died with
+    //     "Failed to create project" even though the server literally requested
+    //     a retry. Because a boot/migration window can outlast the transport
+    //     budget, this path gets its own LONGER wall-clock budget
+    //     (MIGRATIONS_RETRY_BUDGET_MS) with increasing backoff — each attempt
+    //     still bounded by the same per-request AbortController timeout.
+    //
+    // Every OTHER completed response — 4xx (auth/validation) and any 5xx that
+    // is NOT a migrations_in_progress 503 — is thrown on the first hit: no
+    // retry storm. On budget exhaustion we throw a typed, `retriable` error so
+    // the L-132 onboarding/PlatformRouter UI shows a retry affordance.
+    //
     // NOTE (idempotency): re-attempting a non-idempotent POST (create/duplicate)
     // could in principle double-create if the server processed the first request
-    // but the response was lost. In the connection-refused redeploy case the
-    // server never saw it, so the retry is safe; we accept the small
-    // response-lost edge over an indefinite hang.
+    // but the response was lost. For the connection-refused redeploy case the
+    // server never saw it; for the migrations 503 the gate runs BEFORE the route
+    // handler so no row is ever written — both retries are safe. We accept the
+    // small response-lost edge over an indefinite hang.
     let lastErr: ProjectListClientError | null = null;
-    for (let attempt = 0; attempt <= MAX_TRANSPORT_RETRIES; attempt++) {
-      if (attempt > 0) {
-        await delay(RETRY_BASE_DELAY_MS * attempt);
-      }
+    let transportAttempts = 0;   // transport failures consumed (fetch reject / timeout)
+    let migrationsAttempts = 0;  // consecutive migrations_in_progress 503s ridden out
+    const startedAt = Date.now(); // wall-clock anchor for the migrations retry budget
+    // Provably-bounded loop: the wall-clock budget is the real ceiling; this
+    // hard cap is a belt-and-suspenders against a pathological zero-length sleep
+    // and keeps the loop condition non-constant.
+    for (let attempt = 0; attempt < MAX_TOTAL_ATTEMPTS; attempt++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       // Don't keep the Node event loop alive for the timer in test/SSR runtimes.
@@ -359,12 +393,33 @@ export class ProjectListClient {
               cause: `request timed out after ${REQUEST_TIMEOUT_MS}ms`, url, method,
             })
           : new ProjectListClientError('network-error', 0, { cause: String(err), url, method });
-        continue; // transient — retry (or fall through to throw after the last attempt)
+        // Transient transport failure — retry up to the transport budget, else throw.
+        if (transportAttempts >= MAX_TRANSPORT_RETRIES) throw lastErr;
+        transportAttempts += 1;
+        await delay(RETRY_BASE_DELAY_MS * transportAttempts);
+        continue;
       } finally {
         clearTimeout(timer);
       }
       if (!res.ok) {
         const errBody = await safeJson(res);
+        // §FIX-RETRY-MIGRATIONS-503 (L-134) — the one completed response we ride
+        // out: HTTP 503 `code:'migrations_in_progress'`. The server is asking us
+        // to wait for the self-clearing boot window; retry with backoff until the
+        // wall-clock budget is spent, then surface a typed retriable error.
+        if (isMigrationsInProgress(res.status, errBody)) {
+          lastErr = new ProjectListClientError('migrations', res.status, errBody);
+          const elapsed = Date.now() - startedAt;
+          const remaining = MIGRATIONS_RETRY_BUDGET_MS - elapsed;
+          if (remaining <= 0) throw lastErr; // budget spent — give up (retriable)
+          // Increasing backoff (honouring the server's Retry-After), clamped so
+          // the total wall-clock never overshoots the budget by more than one sleep.
+          const backoff = Math.min(migrationsBackoffMs(migrationsAttempts, res), remaining);
+          migrationsAttempts += 1;
+          await delay(backoff);
+          continue;
+        }
+        // Every other 4xx/5xx is deterministic — fail fast, no retry.
         throw new ProjectListClientError(mapStatus(res.status), res.status, errBody);
       }
       if (res.status === 204) return undefined as T;
@@ -382,6 +437,19 @@ const REQUEST_TIMEOUT_MS = 12_000;
 const MAX_TRANSPORT_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 400; // linear backoff: 400ms, then 800ms
 
+// §FIX-RETRY-MIGRATIONS-503 (L-134) — the still-booting server (HTTP 503
+// `migrations_in_progress`) window can outlast the short transport budget, so
+// it gets its own longer wall-clock budget with increasing backoff. 60s of
+// wall clock across a handful of attempts comfortably rides out the typical
+// 200ms-3s migration window (and even a slower cold DB) without spinning
+// forever. Each attempt is still bounded by REQUEST_TIMEOUT_MS.
+const MIGRATIONS_RETRY_BUDGET_MS = 60_000; // total wall-clock across all retries
+const MIGRATIONS_BASE_DELAY_MS = 1_000;    // 1s, then 2s, 4s, 8s…
+const MIGRATIONS_MAX_DELAY_MS = 8_000;     // per-sleep cap for the exponential term
+// Hard iteration ceiling — the wall-clock budget is the real bound; this only
+// guards against a pathological zero-length backoff and keeps the loop bounded.
+const MAX_TOTAL_ATTEMPTS = 128;
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -391,6 +459,42 @@ function mapStatus(status: number): ProjectListClientErrorKind {
   if (status === 404) return 'not-found';
   if (status >= 400 && status < 500) return 'invalid-request';
   return 'server-error';
+}
+
+/** §FIX-RETRY-MIGRATIONS-503 (L-134) — true only for the server's explicit
+ *  "still booting, retry me" signal: HTTP 503 with a JSON body carrying
+ *  `code:'migrations_in_progress'`. Deliberately narrow — a bare 503 (or any
+ *  other 5xx) is NOT treated as retriable here, so we never retry-storm a
+ *  genuinely unavailable upstream. */
+function isMigrationsInProgress(status: number, body: unknown): boolean {
+  return status === 503
+    && !!body && typeof body === 'object'
+    && (body as { code?: unknown }).code === 'migrations_in_progress';
+}
+
+/** Backoff for the migrations retry path: an increasing exponential term
+ *  (1s → 2s → 4s → 8s, capped), taken as the max with any `Retry-After` the
+ *  server advertised so we never poll faster than it asked. */
+function migrationsBackoffMs(attempt: number, res: Response): number {
+  const exp = Math.min(MIGRATIONS_BASE_DELAY_MS * 2 ** attempt, MIGRATIONS_MAX_DELAY_MS);
+  const retryAfter = parseRetryAfterMs(res);
+  return retryAfter !== null ? Math.max(exp, retryAfter) : exp;
+}
+
+/** Parse an HTTP `Retry-After` header → milliseconds, supporting both the
+ *  delta-seconds form (`Retry-After: 2`) and the HTTP-date form. Returns
+ *  `null` when absent or unparseable (caller falls back to its own backoff). */
+function parseRetryAfterMs(res: Response): number | null {
+  let raw: string | null = null;
+  try { raw = res.headers.get('retry-after'); } catch { raw = null; }
+  if (raw === null) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  const secs = Number(trimmed);
+  if (Number.isFinite(secs) && secs >= 0) return Math.round(secs * 1000);
+  const when = Date.parse(trimmed);
+  if (!Number.isNaN(when)) return Math.max(0, when - Date.now());
+  return null;
 }
 
 async function safeJson(res: Response): Promise<unknown> {
