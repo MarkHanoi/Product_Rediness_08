@@ -25,6 +25,13 @@
 
 import { WallDimensionInput } from '@pryzm/geometry-wall';
 import { createId } from '@pryzm/schemas';
+// §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — pure alignment inference mirrored from
+// the 3D tool's WallAlignmentGuide, consumed here for the plan-view wall tool.
+import {
+    computeWallAlignmentInference,
+    type AlignReference,
+    type AlignGuide,
+} from '@pryzm/snapping';
 import { isStrongSnap, type PlanToolHandler, type PlanToolDrawContext, type WorldPoint } from './PlanToolHandler';
 import { computeSetOutDimensions, solveSetOutPoint, type SetOutSegment, type SetOutDimension } from './setOutDimensions';
 // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — surface-independent active wall system type, so a
@@ -47,6 +54,17 @@ const SETOUT_BLUE = '#1e40af';
 // user distinguishes it from the PRIMARY (blue) pair. Grey is a neutral non-brand
 // tint (slate-500), consistent with C18 §2.4 "functional measurement" state colours.
 const SETOUT_GREY = '#64748b';
+// §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — alignment guide colours mirror the 3D
+// WallAlignmentGuide (blue single-axis lock, cyan double-lock / intersection) so
+// the two surfaces read identically. These are inference REFERENCES (a functional
+// alignment aid, like the set-out dims), not the creation ghost — out of the
+// unified-purple preview rule (§41), same as §WALL-SETOUT.
+const ALIGN_GUIDE_BLUE = '#0088ff';
+const ALIGN_GUIDE_CYAN = '#00ccff';
+// Soft-snap tolerance for the alignment inference, in SCREEN pixels. Converted to
+// world metres per-frame via planCanvas.getPixelsPerUnit() so the "tendency to
+// stop" feels the same at every zoom level. ~10 px ≈ the 3D tool's 0.15 m feel.
+const ALIGN_SNAP_PX = 10;
 
 function _getMode(): string {
     return window.wallModePicker?.getActiveMode?.() ?? 'linear';
@@ -129,6 +147,12 @@ export class WallPlanToolHandler implements PlanToolHandler {
     private _setOutBuffer = '';                    // typed digits (mm) for the focused field
     private _setOutEditPoint: WorldPoint | null = null; // accumulating back-solved vertex
 
+    // §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — the dashed inference guides + label
+    // for the CURRENT cursor position, recomputed each mouse-move. Empty ⇒ no
+    // inference this frame (flag OFF, no start point, or no candidate in tolerance).
+    private _alignGuides: AlignGuide[] = [];
+    private _alignLabel: string | null = null;
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._wallFirstPoint     = null;
@@ -151,6 +175,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
         this._wallSegmentCount   = 0;
         this._wallCursorPoint    = null;
         this._resetSetOutEdit();
+        this._resetAlignGuides();
         this._ctx = null;
     }
 
@@ -200,6 +225,20 @@ export class WallPlanToolHandler implements PlanToolHandler {
             const locked = this._computeLockedEndPoint(this._wallFirstPoint, resolved);
             if (locked) resolved = locked;
         }
+        // §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — soft-snap the placed 2nd point to
+        // alignment references (perpendicular / collinear-extension / endpoint) and
+        // capture the dashed guides for the preview. Reset first so flag-OFF or a
+        // no-candidate frame clears any prior guide (exact prior drawing restored).
+        this._alignGuides = [];
+        this._alignLabel  = null;
+        if (this._alignInferenceActive(mode) && !isStrongSnap(pt)) {
+            const inf = this._computeAlignInference(resolved);
+            if (inf) {
+                resolved = { worldX: inf.snapped.x, worldZ: inf.snapped.z };
+                this._alignGuides = inf.guides.slice();
+                this._alignLabel  = inf.label;
+            }
+        }
         this._wallCursorPoint = resolved;
         if (this._wallFirstPoint) {
             this._drawWallPreview();
@@ -225,6 +264,12 @@ export class WallPlanToolHandler implements PlanToolHandler {
             } else if (mode !== 'linear' && mode !== 'curved' && mode !== 'byslab' && !isStrongSnap(pt)) {
                 const step = window.wallModePicker?.getAngleStep?.() ?? 15;
                 resolved = _snapAngle(this._wallFirstPoint, pt, step);
+            }
+            // §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — commit the SAME inferred point
+            // the preview showed (P6: only the placed point changes, not the pipeline).
+            if (this._alignInferenceActive(mode) && !isStrongSnap(pt)) {
+                const inf = this._computeAlignInference(resolved);
+                if (inf) resolved = { worldX: inf.snapped.x, worldZ: inf.snapped.z };
             }
         }
 
@@ -328,6 +373,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
     cancel(): void {
         this._dimInput?.reset();
         this._resetSetOutEdit();
+        this._resetAlignGuides();
         this._wallFirstPoint     = null;
         this._polylineFirstPoint = null;
         this._arcMidPt           = null;
@@ -429,6 +475,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
         // Chain: endpoint becomes new start; clear arc state and dim input
         this._dimInput?.reset();
         this._resetSetOutEdit();   // §WALL-SETOUT-TAB-INPUT — leave edit mode on commit
+        this._resetAlignGuides();  // §FEAT-PLAN-WALL-ALIGN-INFERENCE — clear stale guides
         this._wallFirstPoint  = endPt;
         this._arcMidPt        = null;
         this._wallCursorPoint = null;
@@ -452,6 +499,114 @@ export class WallPlanToolHandler implements PlanToolHandler {
             worldX: start.worldX + (dx / dist) * length,
             worldZ: start.worldZ + (dz / dist) * length,
         };
+    }
+
+    // ── §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — alignment inference snap ──────────
+
+    /**
+     * Whether alignment inference should run this frame. Gated so it never fights
+     * the existing constraints: flag ON (default), a start point exists, FREE
+     * (linear) mode only — ortho / angle already lock direction — and neither the
+     * typed-length input nor the set-out numeric editor is active (both are more
+     * explicit than a soft inference). The caller additionally skips inference when
+     * the raw point already landed on a strong object snap (endpoint/etc. wins).
+     */
+    private _alignInferenceActive(mode: string): boolean {
+        return this._alignInferenceEnabled()
+            && !!this._wallFirstPoint
+            && mode === 'linear'
+            && !this._dimInput?.isActive
+            && !this._setOutEditActive;
+    }
+
+    /** Feature gate — DEFAULT ON; only an explicit `false` disables (P4: typed flag). */
+    private _alignInferenceEnabled(): boolean {
+        return window.__pryzmPlanWallAlignInference !== false;
+    }
+
+    /**
+     * Run the pure alignment inference for `cursor` against the active level's
+     * walls. Tolerance is a fixed screen-pixel budget converted to world metres
+     * via the live pixels-per-unit, so the snap "feel" is zoom-invariant. Returns
+     * null when there is no start point or no candidate within tolerance.
+     */
+    private _computeAlignInference(cursor: WorldPoint): ReturnType<typeof computeWallAlignmentInference> {
+        const start = this._wallFirstPoint;
+        if (!start || !this._ctx) return null;
+        const segs = this._collectLevelWallSegments();
+        if (segs.length === 0) return null;
+        const ppu = this._ctx.planCanvas.getPixelsPerUnit?.() ?? 0;
+        const axisThresholdM = ppu > 0 ? ALIGN_SNAP_PX / ppu : 0.15;
+        return computeWallAlignmentInference(
+            { x: start.worldX,  z: start.worldZ },
+            { x: cursor.worldX, z: cursor.worldZ },
+            this._collectAlignReferences(segs),
+            segs,
+            { axisThresholdM },
+        );
+    }
+
+    /** Endpoint + midpoint reference points from the active level's wall segments. */
+    private _collectAlignReferences(segs: readonly SetOutSegment[]): AlignReference[] {
+        const refs: AlignReference[] = [];
+        for (const s of segs) {
+            refs.push({ x: s.a.x, z: s.a.z, kind: 'endpoint' });
+            refs.push({ x: s.b.x, z: s.b.z, kind: 'endpoint' });
+            refs.push({ x: (s.a.x + s.b.x) / 2, z: (s.a.z + s.b.z) / 2, kind: 'midpoint' });
+        }
+        return refs;
+    }
+
+    /** Clear the captured alignment guides (called when a stroke commits/resets). */
+    private _resetAlignGuides(): void {
+        this._alignGuides = [];
+        this._alignLabel  = null;
+    }
+
+    /**
+     * Draw the dashed alignment inference guides + a snap-label chip. Assumes the
+     * overlay transform is already the dpr transform (called from _drawWallPreview
+     * after the wall band's save/restore). Does its own save/restore; never clears.
+     */
+    private _drawAlignmentGuides(): void {
+        const c = this._ctx;
+        if (!c || (this._alignGuides.length === 0 && !this._alignLabel)) return;
+        const { ctx, planCanvas } = c;
+
+        ctx.save();
+        for (const g of this._alignGuides) {
+            const colour = g.isIntersection ? ALIGN_GUIDE_CYAN : ALIGN_GUIDE_BLUE;
+            const from = planCanvas.worldToScreen(g.from.x, g.from.z);
+            const to   = planCanvas.worldToScreen(g.to.x,   g.to.z);
+            ctx.strokeStyle = colour;
+            ctx.lineWidth   = 1.25;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(from.sx, from.sy);
+            ctx.lineTo(to.sx, to.sy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // Small tick at the reference (existing wall feature) end.
+            ctx.beginPath();
+            ctx.arc(from.sx, from.sy, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = colour;
+            ctx.fill();
+        }
+
+        // Snap-label chip near the snapped cursor (like the existing snap chips).
+        if (this._alignLabel && this._wallCursorPoint) {
+            const p = planCanvas.worldToScreen(this._wallCursorPoint.worldX, this._wallCursorPoint.worldZ);
+            const label = this._alignLabel;
+            ctx.font = 'bold 10px sans-serif';
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = 'rgba(0,136,255,0.92)';
+            ctx.fillRect(p.sx + 10, p.sy - 22, tw + 8, 15);
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, p.sx + 14, p.sy - 14);
+        }
+        ctx.restore();
     }
 
     // ── §WALL-SETOUT-TAB-INPUT (L-126) — TAB-to-edit set-out numeric entry ──────────
@@ -555,6 +710,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
         }
 
         this._resetSetOutEdit();
+        this._resetAlignGuides();
         this._wallFirstPoint     = null;
         this._polylineFirstPoint = null;
         this._arcMidPt           = null;
@@ -710,6 +866,12 @@ export class WallPlanToolHandler implements PlanToolHandler {
         }
 
         ctx.restore();
+
+        // §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — dashed inference guides + snap
+        // chip for the current cursor. Drawn after the wall band's restore; does its
+        // own save/restore and does NOT clear (this method owns the clear at the top).
+        // Not shown while the set-out numeric editor owns the overlay.
+        if (!this._setOutEditActive) this._drawAlignmentGuides();
 
         // §WALL-SETOUT — set-out dims from the MOVING end to the surrounding walls,
         // alongside the wall's own length label. Drawn after the wall band restore;

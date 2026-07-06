@@ -492,6 +492,14 @@ declare global {
          *  default (picking the office typology IS the opt-in). Set explicitly to
          *  `false` to force-disable; any other value (incl. undefined) ⇒ enabled. */
         __PRYZM_OFFICE_BUILDING__: boolean | undefined;
+        /**
+         * §FEAT-PLAN-WALL-ALIGN-INFERENCE (L-135) — gate for the 2D plan wall
+         * tool's perpendicular / alignment inference snap + dashed guide. ON by
+         * default (the proven 3D behaviour, brought to parity in plan view). Set
+         * explicitly to `false` to disable and restore the exact prior plan-wall
+         * drawing (no inference snap, no guide); any other value ⇒ enabled.
+         */
+        __pryzmPlanWallAlignInference?: boolean | undefined;
         __resetCwPrewarm: (() => void) | undefined;
     }
 }

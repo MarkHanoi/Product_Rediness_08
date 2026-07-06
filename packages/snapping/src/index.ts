@@ -14,6 +14,7 @@
 
 export * from './types.js';
 export * from './GeometryUtils.js';
+export * from './WallAlignmentInference.js';
 export * from './SnapManager.js';
 export * from './SnapVisualizer.js';
 export * from './providers/GridSnapProvider.js';
