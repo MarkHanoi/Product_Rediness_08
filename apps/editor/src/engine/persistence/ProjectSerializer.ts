@@ -913,7 +913,15 @@ export class ProjectSerializer {
 
     /** Stringify a snapshot — safe to call after serialize(). */
     static stringify(snapshot: ProjectSnapshot): string {
-        return JSON.stringify(snapshot, null, 2);
+        // §PERF-SERIALIZE-COMPACT (L-131 P3a) — emit COMPACT JSON (no pretty-print
+        // indent). At 80-apartment scale the snapshot is thousands of elements; the
+        // former `JSON.stringify(snapshot, null, 2)` inserted ~2 spaces of indent +
+        // a newline per node, inflating the payload with pure whitespace BEFORE it is
+        // deflated + written to localStorage/IndexedDB (and re-compressed across the
+        // 20-version history on every save). The on-disk format is JSON — parse() uses
+        // `JSON.parse`, never a line/indent-sensitive reader — so dropping the indent
+        // is byte-for-byte round-trip-safe and only shrinks the stored/compressed size.
+        return JSON.stringify(snapshot);
     }
 
     /**

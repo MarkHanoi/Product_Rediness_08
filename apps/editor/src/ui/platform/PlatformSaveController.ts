@@ -25,11 +25,31 @@ import { EntitlementStore } from '@pryzm/core-app-model';
 import { Feature } from '@pryzm/core-app-model';
 import { UiPreferences } from '../UiPreferences';
 import { showToast, generateId } from './PlatformToastSystem';
-import type { VersionRecord, SaveStatus, ShellCtx } from './PlatformShellTypes';
+import type { VersionRecord, SaveStatus, ShellCtx, IProjectSnapshot } from './PlatformShellTypes';
 
 export class PlatformSaveController {
     readonly orchestrator: SaveOrchestrator;
     readonly syncQueue: ServerSyncQueue;
+
+    /**
+     * §PERF-AUTOSAVE-SINGLE-SERIALIZE (L-131 P3b) — single-use serialize cache.
+     *
+     * An auto-save previously walked every store THREE times per fire: the
+     * orchestrator's dirty-check `getHash()` serialized + stringified once, then
+     * `saveVersionInternal()` serialized the whole model AGAIN and stringified it a
+     * third time for the hash baseline. At 80-apartment scale each pass is O(all
+     * elements) + deepStrip + ~30 sub-store serializes — the dominant save cost.
+     *
+     * The orchestrator ALWAYS calls `getHash()` immediately before `onAutoSave()`
+     * inside the SAME synchronous `executeSave()` / `flushBeforeUnload()` tick (no
+     * awaits, no mutations between). So `getHash()` stashes the ONE snapshot + its
+     * stringified `json` here, and the auto-save path of `saveVersionInternal()`
+     * TAKES-and-CLEARS it, reusing that single serialize instead of re-walking the
+     * stores. Single-use consumption + overwrite-on-every-getHash mean a stale stash
+     * can never be consumed: a `getHash()` with no following save is simply
+     * overwritten by the next `getHash()` before any save reads it.
+     */
+    private _autosaveSerialization: { snapshot: IProjectSnapshot; json: string } | null = null;
 
     constructor(private readonly ctx: ShellCtx) {
         this.syncQueue = new ServerSyncQueue({
@@ -44,13 +64,20 @@ export class PlatformSaveController {
         this.orchestrator = new SaveOrchestrator({
             getHash: () => {
                 try {
-                    return ctx.saveAdapter.stringify(
-                        ctx.saveAdapter.serialize({
-                            projectName: ctx.projectName,
-                            projectId: ctx.projectId,
-                        })
-                    );
+                    // §PERF-AUTOSAVE-SINGLE-SERIALIZE (L-131 P3b) — serialize + stringify
+                    // ONCE, and stash the result so the auto-save the orchestrator fires
+                    // synchronously right after this getHash() reuses it (no second walk
+                    // of every store). Serialized WITHOUT a versionLabel so the dirty-check
+                    // hash is label-independent (undo-to-saved-state semantics unchanged).
+                    const snapshot = ctx.saveAdapter.serialize({
+                        projectName: ctx.projectName,
+                        projectId: ctx.projectId,
+                    });
+                    const json = ctx.saveAdapter.stringify(snapshot);
+                    this._autosaveSerialization = { snapshot, json };
+                    return json;
                 } catch {
+                    this._autosaveSerialization = null;
                     return '';
                 }
             },
@@ -174,11 +201,36 @@ export class PlatformSaveController {
         }
 
         try {
-            const snapshot = this.ctx.saveAdapter.serialize({
-                projectName: this.ctx.projectName,
-                projectId: this.ctx.projectId,
-                versionLabel: label,
-            });
+            // §PERF-AUTOSAVE-SINGLE-SERIALIZE (L-131 P3b) — reuse the ONE serialize the
+            // orchestrator's getHash() just produced (auto-save path only). Take-and-clear
+            // so a stale stash can never be consumed by a later save. Manual saves (modal /
+            // Ctrl+S) and any autosave lacking a fresh stash serialize normally.
+            const stashed = isAutoSave ? this._autosaveSerialization : null;
+            this._autosaveSerialization = null;
+
+            let snapshot: IProjectSnapshot;
+            let serialisedHash: string;
+            if (
+                stashed &&
+                stashed.snapshot.projectId === this.ctx.projectId &&
+                stashed.snapshot.projectName === this.ctx.projectName
+            ) {
+                snapshot = stashed.snapshot;
+                // getHash() serialized WITHOUT a versionLabel (dirty-check is label-
+                // independent). Stamp the label so the persisted VersionRecord is identical
+                // to a fresh serialize({…, versionLabel}); the dirty-check baseline stays the
+                // label-free `json` (identical to what the NEXT getHash() emits) → hash
+                // semantics unchanged.
+                snapshot.versionLabel = label;
+                serialisedHash = stashed.json;
+            } else {
+                snapshot = this.ctx.saveAdapter.serialize({
+                    projectName: this.ctx.projectName,
+                    projectId: this.ctx.projectId,
+                    versionLabel: label,
+                });
+                serialisedHash = this.ctx.saveAdapter.stringify(snapshot);
+            }
 
             const version: VersionRecord = {
                 id: generateId(),
@@ -240,7 +292,9 @@ export class PlatformSaveController {
                 this._uploadThumbnailToServer(this.ctx.projectId, capturedThumb);
             }
 
-            const serialisedHash = this.ctx.saveAdapter.stringify(snapshot);
+            // §PERF-AUTOSAVE-SINGLE-SERIALIZE (L-131 P3b) — `serialisedHash` was computed
+            // above (reused stash bytes on the auto-save path, or one fresh stringify on the
+            // manual path); no third stringify here.
             this.markCleanLabel(label, serialisedHash);
 
             this.ctx.ownSyncedVersionIds.add(version.id);
