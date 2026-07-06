@@ -47,6 +47,26 @@ kill_timeout = "10s"
 [build]
   dockerfile = "Dockerfile"
 
+# ─── Deploy strategy ──────────────────────────────────────────────────────────
+# §OPS-ZERO-DOWNTIME-DEPLOY (L-133, founder-approved 2026-07-06). BLUE-GREEN:
+# with a single always-on machine, a rolling deploy must STOP the old machine
+# before the new one is health-passing → a ~30-90s window with NO healthy
+# instance where the whole site 503s and shows `migrations_in_progress`
+# (the incident 2026-07-06, docs/03-execution/analysis/INCIDENT-2026-07-06-*).
+# Blue-green instead boots the NEW (green) machine, waits for it to pass the
+# /api/health/ready check (SELECT 1 + boot migrations done), and ONLY THEN
+# switches traffic over and stops the old (blue) one — ZERO downtime, and users
+# never see the migration gate because the old machine keeps serving until the
+# new one is fully ready. Runs a 2nd machine only TRANSIENTLY during the deploy
+# (auto-scales back to min_machines_running=1 after; ~$0 on free tier). Peak
+# ~2×pool(10)=20 Supabase connections during the brief overlap — fine, and the
+# departing machine releases its pool cleanly via the shutdown drain (L-137,
+# closePgPool on SIGINT). Strictly SAFER than rolling: Fly never cuts traffic to
+# an unhealthy green, so a bad boot just leaves blue serving. Revert = delete
+# this block (returns to the default rolling strategy).
+[deploy]
+  strategy = "bluegreen"
+
 # ─── Non-secret env (visible in `flyctl config show`) ──────────────────────
 # Secrets MUST go through `flyctl secrets set` (encrypted at rest, not in this file).
 [env]
