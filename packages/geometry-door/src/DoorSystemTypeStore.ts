@@ -59,6 +59,27 @@ export interface DoorSystemType {
      *   • glazingOpacity — 0 = clear glass, 1 = opaque (mirrors the leaf field).
      */
     sidelight?: { widthRatio: number; glazingOpacity: number };
+    /**
+     * §FIX-DOOR-PREVIEW-EXACT (L-127) — real nominal dimensions of this door
+     * assembly (metres). Consumed as the SINGLE SOURCE OF TRUTH by
+     * `resolveDoorDimensions()` so the placement preview is dimensionally
+     * identical to the placed door. Optional: absent → the resolver falls back
+     * to `DEFAULT_DOOR_DIMENSIONS` (the historical constants).
+     */
+    dimensions?: {
+        /** Single-leaf structural opening (void) width. */
+        width: number;
+        /** Double-leaf structural opening width; defaults to 2×width when absent. */
+        doubleWidth?: number;
+        /** Leaf height (sill → head). */
+        height: number;
+        /** Frame member face width. */
+        frameThickness: number;
+        /** Frame depth across the wall reveal. */
+        frameDepth: number;
+        /** Leaf panel thickness. */
+        leafThickness: number;
+    };
     tags?: string[];
     ifcTypeName?: string;
     metadata: { createdAt: number; modifiedAt: number; createdBy: string; version: number };
@@ -92,6 +113,7 @@ function makeBuiltIn(
     tags?: string[],
     ifcTypeName?: string,
     sidelight?: DoorSystemType['sidelight'],
+    dimensions?: DoorSystemType['dimensions'],
 ): DoorSystemType {
     return Object.freeze({
         id, name, description, category,
@@ -103,6 +125,7 @@ function makeBuiltIn(
             ? Object.freeze(defaultSegments.map(s => Object.freeze({ ...s })))
             : undefined,
         sidelight: sidelight ? Object.freeze({ ...sidelight }) : undefined,
+        dimensions: dimensions ? Object.freeze({ ...dimensions }) : undefined,
         tags,
         ifcTypeName,
         metadata: Object.freeze(makeMeta()),
@@ -123,7 +146,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'panel', heightRatio: 0.6, columnRatios: [1] },
         ],
         ['timber', 'solid', 'residential'],
-        'DOOR'
+        'DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — 926 mm structural opening, 44 mm solid leaf.
+        { width: 0.926, doubleWidth: 1.85, height: 2.04, frameThickness: 0.058, frameDepth: 0.07, leafThickness: 0.044 },
     ),
     makeBuiltIn(
         'dt-white-primed',
@@ -137,7 +163,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'panel', heightRatio: 1.0, columnRatios: [1] },
         ],
         ['white', 'primed', 'interior', 'flush'],
-        'DOOR'
+        'DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — 826 mm interior flush door, slim frame + leaf.
+        { width: 0.826, doubleWidth: 1.652, height: 2.04, frameThickness: 0.05, frameDepth: 0.07, leafThickness: 0.040 },
     ),
     makeBuiltIn(
         'dt-glazed-timber',
@@ -152,7 +181,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'panel',  heightRatio: 0.5, columnRatios: [1] },
         ],
         ['glazed', 'half-light', 'timber', 'vision'],
-        'DOOR'
+        'DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — half-light timber, standard 926 mm opening.
+        { width: 0.926, doubleWidth: 1.85, height: 2.04, frameThickness: 0.058, frameDepth: 0.07, leafThickness: 0.044 },
     ),
     makeBuiltIn(
         'dt-glazed-aluminium',
@@ -166,7 +198,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'glass', heightRatio: 1.0, columnRatios: [1] },
         ],
         ['glazed', 'aluminium', 'commercial', 'full-light'],
-        'DOOR'
+        'DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — commercial full-height glazed leaf, 950 mm.
+        { width: 0.95, doubleWidth: 1.9, height: 2.10, frameThickness: 0.05, frameDepth: 0.07, leafThickness: 0.050 },
     ),
     makeBuiltIn(
         'dt-modern-entrance-glazed',
@@ -186,6 +221,9 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
         'DOOR',
         // Fixed glazed sidelight beside the leaf — ~38% of the leaf width, clear glass.
         { widthRatio: 0.38, glazingOpacity: 0.25 },
+        // §FIX-DOOR-PREVIEW-EXACT — wide warm-timber entrance: 1.0 m opening, 90 mm
+        // frame, chunky 54 mm leaf (matches the high-end front-door read).
+        { width: 1.0, height: 2.10, frameThickness: 0.09, frameDepth: 0.10, leafThickness: 0.054 },
     ),
     makeBuiltIn(
         'dt-fire-rated-60',
@@ -199,7 +237,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'panel', heightRatio: 1.0, columnRatios: [1] },
         ],
         ['fire-rated', 'FD60', 'steel', 'safety'],
-        'FIRE_DOOR'
+        'FIRE_DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — FD60: heavy 54 mm leaf, 60 mm steel frame.
+        { width: 0.926, doubleWidth: 1.85, height: 2.04, frameThickness: 0.06, frameDepth: 0.075, leafThickness: 0.054 },
     ),
     makeBuiltIn(
         'dt-fire-rated-30',
@@ -213,7 +254,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'panel', heightRatio: 1.0, columnRatios: [1] },
         ],
         ['fire-rated', 'FD30', 'timber', 'residential'],
-        'FIRE_DOOR'
+        'FIRE_DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — FD30: 44 mm timber leaf, 58 mm frame.
+        { width: 0.926, doubleWidth: 1.85, height: 2.04, frameThickness: 0.058, frameDepth: 0.07, leafThickness: 0.044 },
     ),
     makeBuiltIn(
         'dt-steel-industrial',
@@ -227,7 +271,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'panel', heightRatio: 1.0, columnRatios: [1] },
         ],
         ['steel', 'industrial', 'security', 'heavy-duty'],
-        'DOOR'
+        'DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — heavy steel: 900 mm opening, 60 mm frame.
+        { width: 0.9, doubleWidth: 1.8, height: 2.10, frameThickness: 0.06, frameDepth: 0.08, leafThickness: 0.050 },
     ),
     makeBuiltIn(
         'dt-aluminium-commercial',
@@ -241,7 +288,10 @@ const BUILT_IN_TYPES: DoorSystemType[] = [
             { type: 'panel', heightRatio: 1.0, columnRatios: [1] },
         ],
         ['aluminium', 'commercial', 'anodised'],
-        'DOOR'
+        'DOOR',
+        undefined, // no sidelight
+        // §FIX-DOOR-PREVIEW-EXACT — anodised aluminium shopfront leaf, 950 mm.
+        { width: 0.95, doubleWidth: 1.9, height: 2.10, frameThickness: 0.05, frameDepth: 0.07, leafThickness: 0.050 },
     ),
 ];
 

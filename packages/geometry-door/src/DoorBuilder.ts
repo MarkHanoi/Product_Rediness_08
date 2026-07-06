@@ -5,6 +5,10 @@ import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three'
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { doorStore } from './DoorStore';
 import { doorSystemTypeStore } from './DoorSystemTypeStore';
+// §FIX-DOOR-PREVIEW-EXACT / §FIX-DOOR-FRAME (L-127) — resolve the door's real
+// frame/leaf dimensions from the SAME source the preview + plan symbol use, so
+// the placed 3D frame is dimensionally identical to what the user previewed.
+import { resolveDoorDimensions } from './DoorDimensions';
 import { DoorOpening } from './DoorTypes';
 import { WallStore } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -414,9 +418,18 @@ export class DoorBuilder {
      */
     private buildVisuals(door: DoorOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle): THREE.Material[] {
         const mats: THREE.Material[] = [];
-        const { width: w, height: h, frameThickness: ft } = door;
-        // Use the wall-derived depth when provided so the frame spans the full void.
-        const fd = wallFrameDepth ?? door.frameDepth;
+        // §FIX-DOOR-PREVIEW-EXACT (L-127) — width/height are the authoritative void
+        // dims (they must match the wall cut, so read them from the record), but
+        // frame + leaf thickness come from the SELECTED type via the shared resolver
+        // so the placed frame equals the preview even when the opening-mirror bridge
+        // did not persist the exact thickness onto the record.
+        const dims = resolveDoorDimensions(door.systemTypeId, door.doorType);
+        const w = door.width;
+        const h = door.height;
+        const ft = dims.frameThickness;
+        // Use the wall-derived depth when provided so the frame spans the full void;
+        // otherwise fall back to the type's frame depth (then the record's).
+        const fd = wallFrameDepth ?? dims.frameDepth ?? door.frameDepth;
 
         // §DOOR-AUDIT-2026 / W5 — apply VG governance overrides on top of the
         // door's stored colours. Both override hooks are optional; when absent
@@ -468,7 +481,8 @@ export class DoorBuilder {
         }
 
         // ── Leaf / Hinges / Handle ─────────────────────────────────────────
-        const leafThickness = door.leafThickness ?? 0.04;
+        // §FIX-DOOR-PREVIEW-EXACT — leaf thickness resolved from the selected type.
+        const leafThickness = dims.leafThickness;
         const innerW = w - 2 * ft;
         const innerH = h - ft;   // from floor/threshold to underside of head bar
 

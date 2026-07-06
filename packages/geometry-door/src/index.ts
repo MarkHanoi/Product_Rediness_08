@@ -8,6 +8,10 @@
 export * from './DoorTypes';
 export * from './DoorStore';
 export * from './DoorSystemTypeStore';
+// §FIX-DOOR-PREVIEW-EXACT (L-127) — single source of truth for door dimensions;
+// preview (DoorTool / DoorPlanToolHandler) and geometry (DoorBuilder /
+// DoorPlanSymbolBuilder) resolve identical dims here so preview ≡ placed door.
+export { resolveDoorDimensions, DEFAULT_DOOR_DIMENSIONS, type ResolvedDoorDimensions } from './DoorDimensions';
 export { DoorBuilder } from './DoorBuilder';
 export { DoorDependencyTracker } from './DoorDependencyTracker';
 export { DoorLevelCleanupHandler } from './DoorLevelCleanupHandler';

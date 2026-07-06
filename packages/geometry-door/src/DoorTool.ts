@@ -9,6 +9,9 @@ import { PREVIEW_COLOR } from '@pryzm/core-app-model';
 // §FEAT-DOOR-FLIP-ON-SPACE (L-92, ADR-0107) — shared SPACE-to-flip state (swing
 // in/out × hinge left/right) so 3D door placement matches the plan handler.
 import { DoorPlacementFlip } from '@pryzm/core-app-model';
+// §FIX-DOOR-PREVIEW-EXACT (L-127) — single source of truth for door dims so the
+// 3D preview + placed door use the SELECTED type's real width/height/leaf/frame.
+import { resolveDoorDimensions } from './DoorDimensions';
 
 /**
  * §DOOR-AUDIT-2026 M6 — explicit HUD state machine. The previous
@@ -201,7 +204,9 @@ export class DoorTool {
             const wallDirN = wallDir.clone().normalize();
             const hitDir = new THREE.Vector3().subVectors(hit.point, start);
             const rawOffset = hitDir.dot(wallDirN);
-            const width = this.doorType === 'double' ? 2.0 : 1.0;
+            // §FIX-DOOR-PREVIEW-EXACT — occupancy must use the SAME width the door
+            // will actually be placed at (selected type), not a hardcoded 1 m/2 m.
+            const width = resolveDoorDimensions(this.systemTypeId, this.doorType).width;
             const halfW = width / 2;
             if (rawOffset < halfW || rawOffset > wallLength - halfW) {
                 return { ok: false, state: 'out-of-range' };
@@ -306,8 +311,11 @@ export class DoorTool {
             return;
         }
 
-        const width = this.doorType === 'double' ? 2.0 : 1.0;
-        const doorHeight = 2.1;
+        // §FIX-DOOR-PREVIEW-EXACT (L-127) — dimension the preview box from the
+        // SELECTED door type (single source of truth), NOT a hardcoded 1 m × 2.1 m.
+        const previewDims = resolveDoorDimensions(this.systemTypeId, this.doorType);
+        const width = previewDims.width;
+        const doorHeight = previewDims.height;
         const thickness = wallData.thickness;
 
         // §DOOR-AUDIT-2026 (PreviewStyle compliance) — doors are wall-hosted; use
@@ -428,7 +436,10 @@ export class DoorTool {
         // left edge and clamp the SPAN inside [0, wallLength]. (Previously this stored
         // the centre and even passed a centre to the left-edge canPlace — a pre-existing
         // producer/occupancy mismatch fixed here.)
-        const width = this.doorType === 'double' ? 2.0 : 1.0;
+        // §FIX-DOOR-PREVIEW-EXACT (L-127) — the placed door uses the SELECTED type's
+        // real dimensions (identical to the preview above) via the shared resolver.
+        const placeDims = resolveDoorDimensions(this.systemTypeId, this.doorType);
+        const width = placeDims.width;
         let offset = centreAlong - width / 2;
         offset = Math.max(0, Math.min(offset, wallLength - width));
 
@@ -458,9 +469,14 @@ export class DoorTool {
                     type: 'door',
                     doorType: this.doorType,
                     width,
-                    height: 2.1,
+                    height: placeDims.height,
                     offset: offset,
                     sillHeight: 0,
+                    // §FIX-DOOR-PREVIEW-EXACT — carry the resolved frame/leaf dims so
+                    // the persisted record matches the type (frameDepth still tracks
+                    // wall thickness so the frame spans the full reveal).
+                    frameThickness: placeDims.frameThickness,
+                    leafThickness: placeDims.leafThickness,
                     frameDepth: wallData.thickness,
                     systemTypeId: this.systemTypeId,
                     // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — the SPACE-chosen configuration

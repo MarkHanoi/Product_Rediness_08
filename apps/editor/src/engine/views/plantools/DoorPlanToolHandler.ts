@@ -9,6 +9,11 @@ import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToo
 // PlanToolHandler contract §21 §2), so it constructs the state but does NOT call
 // attach(); it advances on the SPACE key inside onKeyDown().
 import { DoorPlacementFlip } from '@pryzm/core-app-model';
+// §FIX-DOOR-PREVIEW-EXACT (L-127) — the SINGLE SOURCE OF TRUTH for door
+// dimensions. Both the preview (`_drawDoorPreview`) and the placement (`onClick`)
+// resolve the SELECTED door type's real width/height/frame/leaf here so the
+// preview is dimensionally identical to the placed door — never a default 1 m box.
+import { resolveDoorDimensions } from '@pryzm/geometry-door';
 
 const PRYZM_PREVIEW_PURPLE = '#6600ff';
 const PRYZM_PREVIEW_PURPLE_FILL = 'rgba(102,0,255,0.16)';
@@ -111,7 +116,6 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         // when the tool object is absent (e.g. plan tool used without 3D pre-arm).
         const ot           = c.activeOpeningTool ?? {};
         const doorType     = (ot.doorType ?? 'single') as 'single' | 'double';
-        const DOOR_WIDTH   = doorType === 'double' ? 2.0 : 1.0;
         // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — read the DOOR tool's live systemTypeId
         // directly. Now that window.windowTool is exposed, `activeOpeningTool` resolves
         // via `window.windowTool ?? window.doorTool` (window FIRST), so reading
@@ -122,11 +126,16 @@ export class DoorPlanToolHandler implements PlanToolHandler {
             (window.doorTool as { systemTypeId?: string } | undefined)?.systemTypeId
             ?? 'dt-solid-timber';
 
+        // §FIX-DOOR-PREVIEW-EXACT (L-127) — resolve the SELECTED type's REAL dims via
+        // the shared single source of truth (identical to the preview + placed door).
+        const dims       = resolveDoorDimensions(systemTypeId, doorType);
+        const DOOR_WIDTH = dims.width;
+
         const offset = c.viewPlane.isVertical
             ? this._computeWallOffsetInVerticalView(pt.worldX, wallId, DOOR_WIDTH, c, wallStore)
             : this._computeWallOffset(world3D.x, world3D.z, wallId, DOOR_WIDTH, wallStore);
 
-        console.log(`[DoorPlanToolHandler] Door placement — wallId=${wallId} type=${doorType} width=${DOOR_WIDTH}m offset=${offset.toFixed(3)}m`);
+        console.log(`[DoorPlanToolHandler] Door placement — wallId=${wallId} type=${doorType} systemTypeId=${systemTypeId} width=${DOOR_WIDTH.toFixed(3)}m height=${dims.height.toFixed(3)}m offset=${offset.toFixed(3)}m`);
 
         // §P2.3 (IMPL-PLAN-2026-05-17): bus-only dispatch — single pipeline path.
         // WallOpeningLegacyAdapterHandler (plugins/wall) handles wall.opening.create:
@@ -148,8 +157,14 @@ export class DoorPlanToolHandler implements PlanToolHandler {
             type:         'door',
             offset,
             width:        DOOR_WIDTH,
-            height:       2.1,
+            // §FIX-DOOR-PREVIEW-EXACT (L-127) — exact selected-type dims (was 2.1).
+            height:       dims.height,
             sillHeight:   0,
+            // Carry the resolved frame/leaf dims so the persisted door record and
+            // its plan symbol reflect the selected type, not the schema defaults.
+            frameThickness: dims.frameThickness,
+            frameDepth:     dims.frameDepth,
+            leafThickness:  dims.leafThickness,
             doorType,
             systemTypeId,
             hingesSide:     this._flip.hingesSide(),
@@ -189,11 +204,21 @@ export class DoorPlanToolHandler implements PlanToolHandler {
 
         // §DOOR-AUDIT-2026 (DI cleanup): doorType from injected activeOpeningTool.
         const doorType  = (c.activeOpeningTool?.doorType ?? 'single') as 'single' | 'double';
-        const totalWidthPx = (doorType === 'double' ? 2.0 : 1.0) * ppu;
+        // §FIX-DOOR-PREVIEW-EXACT (L-127) — dimension the preview from the SELECTED
+        // door type via the shared resolver (identical to what onClick places), so
+        // the preview footprint / swing arc / frame equal the placed door exactly.
+        const systemTypeId =
+            (window.doorTool as { systemTypeId?: string } | undefined)?.systemTypeId
+            ?? 'dt-solid-timber';
+        const dims = resolveDoorDimensions(systemTypeId, doorType);
+        const totalWidthPx = dims.width * ppu;
         const halfPx = totalWidthPx / 2;
+        // Frame member face width (px) — used to inset the leaf hinge so the swing
+        // arc matches DoorPlanSymbolBuilder (hinge at the inner frame corner).
+        const frameThickPx = dims.frameThickness * ppu;
 
         if (c.viewPlane.isVertical) {
-            const heightPx = 2.1 * ppu;
+            const heightPx = dims.height * ppu;
             const panelBottom = 0;
             const panelTop = -heightPx;
             ctx.save();
@@ -234,6 +259,20 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         ctx.strokeStyle = PRYZM_PREVIEW_PURPLE;
         ctx.lineWidth   = 1.5;
 
+        // §FIX-DOOR-FRAME (L-127) — draw the framed OPENING so the preview reads as
+        // a framed reveal exactly like the placed plan symbol (DoorPlanSymbolBuilder),
+        // never an open gap. Wall-aligned local frame: X = along wall, Y = across the
+        // wall thickness. Two frame face lines (parallel to the wall) close the reveal;
+        // two jamb ticks (across the wall) sit on the void edges (±halfWidth).
+        const halfThkPx = (this._getNearestWallThickness(this._doorCursorPoint.worldX, this._doorCursorPoint.worldZ, c) / 2) * ppu;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(-halfPx, -halfThkPx); ctx.lineTo(halfPx, -halfThkPx); // outer frame face
+        ctx.moveTo(-halfPx,  halfThkPx); ctx.lineTo(halfPx,  halfThkPx); // inner frame face
+        ctx.moveTo(-halfPx, -halfThkPx); ctx.lineTo(-halfPx, halfThkPx); // left jamb
+        ctx.moveTo( halfPx, -halfThkPx); ctx.lineTo( halfPx, halfThkPx); // right jamb
+        ctx.stroke();
+
         // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — the swing arc + leaf now reflect the
         // live 4-state flip: swing INWARD (+y in this wall-aligned frame, the
         // historical §C19-P15 default) vs OUTWARD (−y), and hinge LEFT (−halfPx)
@@ -268,19 +307,29 @@ export class DoorPlanToolHandler implements PlanToolHandler {
             ctx.stroke();
         };
 
+        // §FIX-DOOR-PREVIEW-EXACT (L-127) — the swing leaf hinges at the INNER FRAME
+        // CORNER (inset from the void edge by the frame member) and its radius is the
+        // CLEAR leaf length, EXACTLY as DoorPlanSymbolBuilder computes them
+        // (single: hinge = ±(halfWidth − frameThick), radius = width − 2·frameThick;
+        //  double: hinge = ±(halfWidth − frameThick), radius = (width − 2·frameThick)/2).
+        // Consuming `frameThickPx` here is what makes the previewed arc land on the
+        // same corner + sweep the same radius as the placed plan symbol.
+        const clearHalfPx = Math.max(1, halfPx - frameThickPx);
         if (doorType === 'double') {
-            // Two symmetric leaves — each hinged at its outer jamb, panels toward
-            // the centre, both swinging to swingSign. (Hinge side does not apply to
-            // a double door; SPACE flips only the swing side.)
-            drawLeaf(-halfPx, 0, +1, 0, 0, swingSign, halfPx);
-            drawLeaf(+halfPx, 0, -1, 0, 0, swingSign, halfPx);
+            // Two symmetric leaves — each hinged at its inner jamb corner, panels
+            // toward the centre, both swinging to swingSign. (Hinge side does not
+            // apply to a double door; SPACE flips only the swing side.)
+            const leafLenPx = Math.max(2, (totalWidthPx - 2 * frameThickPx) / 2);
+            drawLeaf(-clearHalfPx, 0, +1, 0, 0, swingSign, leafLenPx);
+            drawLeaf(+clearHalfPx, 0, -1, 0, 0, swingSign, leafLenPx);
         } else {
-            // Single leaf — hinge at LEFT (−halfPx, panel toward +x) or RIGHT
-            // (+halfPx, panel toward −x). Radius = full clear width.
+            // Single leaf — hinge at LEFT (−clearHalfPx, panel toward +x) or RIGHT
+            // (+clearHalfPx, panel toward −x). Radius = clear leaf length.
             const hingeLeft = this._flip.hingesSide() !== 'right';
-            const hx        = hingeLeft ? -halfPx : +halfPx;
+            const leafLenPx = Math.max(2, totalWidthPx - 2 * frameThickPx);
+            const hx        = hingeLeft ? -clearHalfPx : +clearHalfPx;
             const panelSign = hingeLeft ? +1 : -1;
-            drawLeaf(hx, 0, panelSign, 0, 0, swingSign, totalWidthPx);
+            drawLeaf(hx, 0, panelSign, 0, 0, swingSign, leafLenPx);
         }
         ctx.restore();
 
@@ -447,6 +496,49 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         const o  = c.planCanvas.worldToScreen(0, 0);
         const t  = c.planCanvas.worldToScreen(wx, wz);
         return Math.atan2(t.sy - o.sy, t.sx - o.sx);
+    }
+
+    /**
+     * §FIX-DOOR-FRAME (L-127) — thickness (metres) of the wall nearest the cursor.
+     *
+     * The framed-reveal preview (`_drawDoorPreview`) draws its two frame face lines
+     * at ±(thickness/2) across the wall, exactly matching where DoorPlanSymbolBuilder
+     * lays the placed door's frame faces (it reads `wallData.thickness`). Resolving the
+     * SAME host wall's thickness here — via the identical nearest-wall search used for
+     * the preview angle — keeps preview ≡ placed symbol. Falls back to the canonical
+     * 0.2 m default (the same floor DoorPlanSymbolBuilder clamps to) when no wall is in
+     * reach, so the preview frame never collapses to a zero-depth line.
+     */
+    private _getNearestWallThickness(worldX: number, worldZ: number, c: PlanToolDrawContext): number {
+        const wallStore = c.wallStore;
+        if (!wallStore?.getAll) return 0.2;
+
+        const levelId = c.viewDef.spatial?.levelId;
+        const SNAP_R  = 2.0;
+
+        let bestWall: WallData | null = null;
+        let bestDist = SNAP_R;
+
+        for (const wall of wallStore.getAll() as WallData[]) {
+            if (levelId && wall.levelId !== levelId) continue;
+            const bl = wall.baseLine;
+            if (!bl || bl.length < 2) continue;
+            const ax = bl[0].x, az = bl[0].z;
+            const bx = bl[1].x, bz = bl[1].z;
+            const dx = bx - ax, dz = bz - az;
+            const lenSq = dx * dx + dz * dz;
+            let dist: number;
+            if (lenSq < 1e-10) {
+                dist = Math.hypot(worldX - ax, worldZ - az);
+            } else {
+                const t = Math.max(0, Math.min(1, ((worldX - ax) * dx + (worldZ - az) * dz) / lenSq));
+                dist = Math.hypot(worldX - (ax + t * dx), worldZ - (az + t * dz));
+            }
+            if (dist < bestDist) { bestDist = dist; bestWall = wall; }
+        }
+
+        // §FIX-DOOR-FRAME — mirror DoorPlanSymbolBuilder's `Math.max(0.05, thickness ?? 0.2)`.
+        return bestWall ? Math.max(0.05, Number(bestWall.thickness ?? 0.2)) : 0.2;
     }
 
     private _clearOverlay(): void {

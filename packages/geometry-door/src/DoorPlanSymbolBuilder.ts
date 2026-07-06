@@ -27,6 +27,9 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { doorStore } from '@pryzm/geometry-door';
+// §FIX-DOOR-PREVIEW-EXACT / §FIX-DOOR-FRAME (L-127) — same dimension source as
+// the 3D builder + the plan-tool preview so the swing symbol matches exactly.
+import { resolveDoorDimensions } from './DoorDimensions';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import { storeRegistry } from '@pryzm/core-app-model';
 import { vgGovernanceStore } from '@pryzm/visibility';
@@ -226,8 +229,12 @@ export class DoorPlanSymbolBuilder {
         const centre   = start.clone().addScaledVector(dir, Number(door.offset) + halfWidth);
 
         // ── Frame and leaf dimensions ─────────────────────────────────────────
-        const frameThick: number = Math.max(0, Number(door.frameThickness ?? 0.05));
-        const leafThick:  number = Math.max(0.01, Number(door.leafThickness ?? 0.04));
+        // §FIX-DOOR-PREVIEW-EXACT (L-127) — resolve frame + leaf thickness from the
+        // SELECTED door type (single source of truth) so the plan symbol's frame /
+        // leaf geometry is identical to the placed 3D door and the tool preview.
+        const dims = resolveDoorDimensions(door.systemTypeId, door.doorType);
+        const frameThick: number = Math.max(0, dims.frameThickness);
+        const leafThick:  number = Math.max(0.01, dims.leafThickness);
         const halfLeaf = leafThick / 2;
 
         // ── Swing direction (perpendicular to wall) ───────────────────────────
@@ -273,6 +280,27 @@ export class DoorPlanSymbolBuilder {
                 halfThickness: halfThk,
             }),
         );
+
+        // §FIX-DOOR-FRAME (L-127) — CLOSE THE REVEAL. The host wall's two plan face
+        // lines are suppressed across the opening span (EdgeProjectorService
+        // `_suppressPlanViewOpeningLines`), so without a frame the doorway reads as
+        // an OPEN GAP in the wall outline (founder: "openings show gap where frame
+        // should close the reveal"). Mirror WindowPlanSymbolBuilder: draw the two
+        // frame face lines PARALLEL to the wall at ±halfThickness, spanning the void
+        // edges (∓halfWidth from centre). Together with the jamb ticks above these
+        // frame the opening into a watertight rectangle — the door FRAME cut profile.
+        {
+            const nOuter = leftNormal.clone().multiplyScalar(halfThk);
+            const nInner = leftNormal.clone().multiplyScalar(-halfThk);
+            const voidLeft  = centre.clone().addScaledVector(dir, -halfWidth);
+            const voidRight = centre.clone().addScaledVector(dir, +halfWidth);
+            const oL = voidLeft.clone().add(nOuter);
+            const oR = voidRight.clone().add(nOuter);
+            const iL = voidLeft.clone().add(nInner);
+            const iR = voidRight.clone().add(nInner);
+            cutPositions.push(oL.x, 0, oL.z, oR.x, 0, oR.z);   // outer frame face line
+            cutPositions.push(iL.x, 0, iL.z, iR.x, 0, iR.z);   // inner frame face line
+        }
 
         const isDouble = door.doorType === 'double';
 
