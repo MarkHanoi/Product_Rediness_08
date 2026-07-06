@@ -1059,7 +1059,46 @@ export class WallJoinResolver {
                         const coincidentTol = Math.max(0.05, Math.max(wI.thickness, wJ.thickness) * 0.5);
                         laterallyCoincident = perpOffset <= coincidentTol;
                     }
-                    if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT && laterallyCoincident) {
+                    // §FIX-EXISTING-CORNER-IMMUTABLE (L-122, founder 2026-07-04) — an EXISTING
+                    // mitred L-corner (its two arms A,B are the committed `primaryPair`) must stay
+                    // BYTE-IDENTICAL when a NEW wall joins; only the newcomer adapts (ADR-0055
+                    // baseline immutability). THE founder defect: two exterior walls meet in a
+                    // clean L; a NEW interior wall (a DIFFERENT systemTypeId, thinner) comes
+                    // STRAIGHT DOWN — i.e. COLLINEAR with one arm B — to join at the corner. The
+                    // pass-through detection then paired the committed arm B with the newcomer C
+                    // (collinear + coincident) → the WHOLE cluster went through §PASS-THROUGH-FLUSH,
+                    // so arm A tees onto the B+C "through-line" and BOTH A and B LOSE their corner
+                    // mitre (eMN/sMN → null; V2 moves A's outer corner) — the corner notch/gap the
+                    // founder reports. But B is a frozen L-arm, not half of a straight through-wall:
+                    // a genuine pass-through pair is two segments of ONE run — EITHER both are
+                    // committed-corner arms (the collinear resi §_repro_passthrough through-pair,
+                    // both in primaryWallIds → allowed), OR NEITHER is (two newcomers forming a run
+                    // → allowed). A MIX — exactly one candidate is a committed primary-corner arm —
+                    // is a new wall abutting an existing corner, NOT a pass-through: reject it so the
+                    // committed L (A,B) is left untouched and the newcomer C falls to the T-into-
+                    // corner / flush-butt path (L-94), seating cleanly onto the frozen corner. The
+                    // partition's own body-T onto an arm (offset, non-collinear) is unaffected (it
+                    // never reached the COLLINEAR_DOT test). Gated default-ON.
+                    //
+                    // DISAMBIGUATION (crucial — must NOT regress §PASS-THROUGH-FLUSH): a genuine
+                    // through-wall is ONE wall (its two collinear segments share a systemTypeId; the
+                    // §cornerFlush `collinear-pass-through + perpendicular-stem` T-junction, and the
+                    // resi §_repro_passthrough through-pair, are SAME-type). The founder's L-122 case
+                    // is TWO DISTINCT walls of DIFFERENT type — an exterior L-arm and a new interior
+                    // wall — that merely happen to be collinear. So reject the pass-through ONLY when
+                    // (i) exactly ONE candidate is a committed primary-corner arm (a frozen existing
+                    // L) AND (ii) the two candidates are DIFFERENT systemTypeId (a distinct newcomer,
+                    // not a straight continuation). Same-type collinear runs (through-walls) are
+                    // byte-unchanged; a same-type newcomer still passes through. The founder's note
+                    // "different type must not change the rule" is honoured — a different type is
+                    // exactly what marks the newcomer as a distinct wall that adapts, never an excuse
+                    // to distort the frozen exterior L.
+                    const _wallType = (w: WallData): string | undefined => (w as unknown as { systemTypeId?: string }).systemTypeId;
+                    const freezeExistingCorner =
+                        (globalThis as any).window?.__pryzmExistingCornerImmutable !== false &&
+                        (primaryWallIds.has(epI.wallId) !== primaryWallIds.has(epJ.wallId)) &&
+                        _wallType(wI) !== _wallType(wJ);
+                    if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT && laterallyCoincident && !freezeExistingCorner) {
                         clusterHasPassThrough = true;
                         passThroughDir = dirI.clone();
                         break;
