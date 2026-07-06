@@ -274,6 +274,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-132 [CRITICAL] project-create hangs (no client timeout on POST /api/v1/projects) → stuck PREPARING WORKSPACE on any server blip; server verified healthy (transient deploy-window blip, not a regression) | onboarding/create robustness | **IN FLIGHT (create-hardening agent)** — AbortController timeout + retry + retriable error UI; §FIX-CREATE-TIMEOUT-RETRY. Separate: localStorage quota flood → L-131 P4 + old-project cleanup | 
 
+| L-135 [FEATURE] plan-view wall-draw alignment inference (perpendicular 'tendency to stop' + dashed guide; 3D has it, 2D doesn't) | wall creation UX / snapping | **IN FLIGHT (plan-wall-snap agent, fenced off L-130 geometry + P6 render)** — mirror 3D guideline inference into WallPlanToolHandler via shared SnapManager; §FEAT-PLAN-WALL-ALIGN-INFERENCE | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
