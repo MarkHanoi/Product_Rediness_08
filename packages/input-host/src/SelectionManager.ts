@@ -2226,8 +2226,24 @@ export class SelectionManager implements ISelectionManager {
 
 
     unselectAll() {
+        // §FIX-ESC-DESELECT-ELEVATION (L-125) — the plan-view section/elevation MARK
+        // selection (its marker highlight AND crop-gizmo scope handles) is tracked in
+        // `window.__pryzmSelectedAnnotationId`, which PlanViewAnnotationRenderer reads via
+        // `_getSelectedAnnotationId()` to paint the selected scope overlay and to enable
+        // scope-handle hit-testing. That state lives OUTSIDE `selectedObject`, so
+        // unselectAll() — the single owner of the deselect intent, reached on ESC via the
+        // `window.unselectAll` wrapper — previously never cleared it. A section deselected
+        // only because its teardown happened to run through here with a live selectedObject;
+        // an elevation's mark selection was left "stuck" (marker + crop gizmo persisted after
+        // ESC → deactivateAll → unselectAll). Clearing it here gives section AND elevation the
+        // identical teardown path (no per-type branch). Including it in `wasSelected` fires
+        // `bim-selection-changed`, which drives PlanViewManager to repaint and drop the overlay.
+        const hadAnnotationSelection = window.__pryzmSelectedAnnotationId != null;
+        if (hadAnnotationSelection) window.__pryzmSelectedAnnotationId = null;
+
         const wasSelected = this.selectedObject !== null
-            || this._marqueeHighlightMeshes.length > 0;
+            || this._marqueeHighlightMeshes.length > 0
+            || hadAnnotationSelection;
         this.selectedObject = null;
 
         // Release the level-plane Y constraint before clearing the highlight
