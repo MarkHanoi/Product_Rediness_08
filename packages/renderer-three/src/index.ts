@@ -36,6 +36,11 @@ export {
   type ProjectOriginMarkerOptions,
 } from './ProjectOriginMarker.js';
 
+// §PERF-INSTANCE-MATERIAL-DEDUP (L-131 P6) — pure VISUAL-signature serializer used
+// by the shared-material cache (core-app-model) so InstancedElementRenderer batches
+// same-look elements into one draw call. Pure THREE-reading helper; no allocation.
+export { materialInstanceSignature } from './materialSignature.js';
+
 // ── three/examples/jsm addon re-exports ────────────────────────────────────
 // Contract C04 §1.1 (P2): only packages/renderer-three/ may touch three sub-paths.
 

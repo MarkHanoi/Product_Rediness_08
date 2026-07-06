@@ -53,6 +53,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { InstanceGroup, INSTANCE_GROUP_MAX } from './InstanceGroup';
+import { dedupInstanceMaterial, resetSharedMaterialCache } from './SharedMaterialCache';
 
 /**
  * A record stored for each registered element so we can find its group on
@@ -152,7 +153,22 @@ export class InstancedElementRenderer {
         elementType?: string,
         pickId?: string,
     ): void {
-        const key = this._hashGeometry(geometry, material, levelId);
+        // §PERF-INSTANCE-MATERIAL-DEDUP (L-131 P6) — swap a fresh-but-look-alike
+        // material for the canonical shared instance for its VISUAL signature
+        // BEFORE the group key is computed. Because _hashGeometry keys on
+        // material.uuid, builders that mint one material per element (columns,
+        // beams, handrails, rails, furniture leaves) otherwise force one
+        // InstanceGroup of size 1 each — instancing collapses nothing. With
+        // dedup, all same-look elements share one canonical material → one group →
+        // one draw call per (geometry × look × level). No-op when the material is
+        // already canonical, is not dedup-eligible, or the flag
+        // `__pryzmInstanceMaterialDedup === false` (→ exact pre-P6 behaviour).
+        // Selection/highlight is a separate OBB overlay, so sharing the base
+        // material is imperceptible; a per-element colour change re-signatures and
+        // re-keys the element out WITHOUT recolouring the others it shared with.
+        const sharedMaterial = dedupInstanceMaterial(material);
+
+        const key = this._hashGeometry(geometry, sharedMaterial, levelId);
 
         // §WALL-AUDIT-2026-W7 (move-revert root cause):
         //
@@ -185,7 +201,7 @@ export class InstancedElementRenderer {
 
         // Ensure the group exists.
         if (!this._groups.has(key)) {
-            const group = new InstanceGroup(geometry, material, INSTANCE_GROUP_MAX);
+            const group = new InstanceGroup(geometry, sharedMaterial, INSTANCE_GROUP_MAX);
             group.mesh.name = `instanced-group-${key}`;
 
             // Store instanceElementIds on userData so SelectionManager can
@@ -347,6 +363,11 @@ export class InstancedElementRenderer {
             this._removeGroup(key, group);
         }
         this._elements.clear();
+        // §PERF-INSTANCE-MATERIAL-DEDUP (L-131 P6) — drop canonical-material
+        // references so a canonical cannot outlive the scene and be served after
+        // its builder disposes it on the next project. Materials themselves are
+        // disposed by their builders/groups exactly as before (flag-off parity).
+        resetSharedMaterialCache();
         console.log('[InstancedElementRenderer] cleared');
     }
 

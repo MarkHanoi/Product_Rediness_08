@@ -14,6 +14,7 @@ export * from './FrustumCullingService.js';
 export * from './HDRIEnvironmentManager.js';
 export * from './InstancedElementRenderer.js';
 export * from './InstanceGroup.js';
+export * from './SharedMaterialCache.js';
 export * from './PanoramaCapture.js';
 export * from './PascalSceneLighting.js';
 export * from './PathTracingUtils.js';
