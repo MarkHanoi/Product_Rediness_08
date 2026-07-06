@@ -230,6 +230,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-122 interior wall (diff type) joining exterior L-corner: original 2 walls must stay UNCHANGED + new wall joins clean (exec==preview) | walls/joins | **IN FLIGHT (sole-wall agent)** — enforce ADR-0055 baseline immutability: existing walls' mitre unchanged, only new interior wall trims to seat clean; test exterior baselines byte-identical + interior seats flush + exec==preview. Builds on L-94 | 
 
+| L-123 [BLOCKER] elevation shows only portion of elements — crop-region CULLS straddling walls (binary in/out, 'Culled 7/10') instead of clipping; also applied=0/14 layers | views/elevation crop | **IN FLIGHT (view-projection agent, with L-117/118/119/121)** — clip elements to crop (render in-crop portion, don't cull whole); default crop encompasses model; fix 0/14 layer application. §FIX-ELEVATION-CROP-CLIP | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
