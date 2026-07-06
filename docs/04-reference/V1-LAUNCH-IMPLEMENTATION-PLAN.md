@@ -247,6 +247,31 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 | L-119/L-123/L-124 elevation drawing correctness (poche/crop-clip/completeness) | views/ViewScope | **FIXED 15425570** — unified ViewScope model (elevation cut:false/poche:false); prod-verify | 
 | L-131 [PERF] massively speed up 80-apt large multi-family INITIAL generation/processing (independent perf agent) | perf/large-model gen + orchestration | **IN FLIGHT (independent perf agent — READ-ONLY deep-eval → phased plan first)** — §PERF-LARGE-MULTIFAMILY-GEN | 
 
+| L-129 plan-view SPACE routing | plan overlay key precedence | **FIXED cb6c39d6** — window capture-phase router + stopImmediatePropagation + initTools isPlacing() yield; unblocks door flip too | 
+
+### L-131 — 80-APARTMENT GENERATION PERF EVALUATION (deliverable; 2/3 profilers landed, generation-replication re-run pending)
+
+**Root causes, ranked (code-grounded):**
+1. **WALL REBUILD dominates.** `WallRebuildCoordinator._flush` runs `WallJoinResolver.resolveLevel` over the ENTIRE level's walls (WallRebuildCoordinator.ts:1081-1087), and `ResidentialBuildingExecutor` re-triggers whole-level resolves **~3×/level** (`_mitreShellCorners:1503` + `fireAfterSettle(2)` + openings-repair `rebuildWalls:2570`), all bypassing the openings-only/body-only fast paths → **O(F floors · W_floor² ) · k≈3**.
+2. **Fragmented batch creation (~320+ commands).** Walls use the fast `wall.batch.create` produceCommand path BUT are dispatched **once per apartment/perimeter group** (~160 wall batches) + per-apartment legacy `CreateWallOpeningsBatchCommand` + boundary + room commands; each pays Zod parse + OTel span + event buffering. Not one produceCommand for the building; openings/rooms on legacy commandManager.
+3. **Synchronous main-thread serialize/save.** `ProjectSerializer.serialize` (ProjectSerializer.ts:686) = O(all elements) + recursive `deepStrip` + ~30 sub-store serializes + `JSON.stringify(…, null, 2)` pretty-print; auto-save serializes the whole model **2-3× per fire** (SaveOrchestrator getHash + saveVersionInternal + stringify) then re-compresses a **20-version history** via synchronous `deflateSync` → the `localStorage/IndexedDB quota exceeded` thrash.
+4. **Generation is 100% main-thread**, blocking rAF. Only project LOAD is chunked (`ImportProjectCommand.executeChunked`, 120 elems/frame); generation/serialize/save are not. No `requestIdleCallback`/`postTask`; `deferWork` does NOT offload. `WorkerPool` (cap 4) + `geometry.worker.ts` exist as substrate.
+5. Spurious 5-view reprojection during gen — **partly mitigated already** by ViewScope lazy-projection (15425570 / L-117).
+
+**Phased plan (map→contract; SAFE quick-win vs DEEP):**
+| P | Change | Type | Contract | Expected |
+|---|---|---|---|---|
+| P0 | Add gated perf-trace on generation critical path (like __pryzmPerfTrace) so gains are prod-measurable | SAFE instrument | C04 | baseline |
+| P1 | Resolve each level's walls **ONCE at end-of-generation** — remove the k≈3 repeated whole-level resolveLevel (mitre + openings repair) | SAFE (biggest win) | C04 | ~3× less wall-rebuild |
+| P2 | Coalesce per-apartment `wall.batch.create` + opening/boundary/room commands into **whole-level** batches (one produceCommand/level) | SAFE | C11 + C17 | fewer×command overhead |
+| P3 | Serialize: drop `JSON.stringify` pretty-print; **single-serialize per auto-save** (reuse hash bytes as payload) | SAFE | C04/persistence | ~2-3× less save cost |
+| P4 | Move snapshot stringify+deflate to a **Web Worker**; chunked/generator serialize (mirror executeChunked); version history = **deltas** not 20 full snapshots | DEEP | C04 | unblock main thread + fix quota |
+| P5 | **Progressive-reveal generation** — chunk the executor across frames via frame-scheduler `scheduleOnce` (reveal floors incrementally); route through scheduler, keep P3 single-rAF | DEEP | C04 / P3 | non-blocking gen |
+| P6 | Offload generation geometry to workers (geometry.worker.ts pattern); ensure per-element-unique-material doesn't defeat InstancedMesh at scale | DEEP | C04 | GPU + CPU at scale |
+
+**Ship P0-P3 as SAFE quick-wins (independent, revertible); schedule P4-P6 as the orchestration refactor. Route all to the independent perf agent (re-run after session reset), one gated phase at a time. NO architecture compromise.**
+
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
