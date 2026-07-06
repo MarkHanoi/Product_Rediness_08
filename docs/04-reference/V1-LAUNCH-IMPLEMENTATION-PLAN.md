@@ -239,6 +239,9 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-126 [FEATURE] wall set-out dims: project to all 4 sides + 2 blue/2 grey + TAB-into-dim numeric entry (defines wall point) → TAB cycles → ENTER commits | wall creation preview / dynamic input | **IN FLIGHT (wall-setout agent, FENCED off wall-join geometry)** — extend computeSetOutDimensions to 4 dirs tagged primary/secondary; WallPlanToolHandler._drawWallPreview renders 2 blue+2 grey + TAB numeric overlay back-solving the vertex from the typed value; command-path placement. Maps C11+C16+wall-preview contract; pure maths; P8 spans. §WALL-SETOUT-4SIDE + §WALL-SETOUT-TAB-INPUT | 
 
+| L-127 door preview: SPACE-flip (verify existing §FEAT-DOOR-FLIP-ON-SPACE) + exact selected-type dims (not hardcoded DOOR_WIDTH) + render door FRAME (jambs/head, no gaps) | door creation preview + frame (C15) | **IN FLIGHT (door-preview agent)** — preview ≡ placed; §FIX-DOOR-PREVIEW-EXACT + §FIX-DOOR-FRAME | 
+| L-128 COPY tool creates no element — hosted copy fails `wall.createOpening: opening must be an object` (_copyHosted); check all elements | copy tool / command payload | **IN FLIGHT (copy-tool agent)** — build correct wall.createOpening payload; verify plain+hosted copy persists at delta; §FIX-COPY-HOSTED-OPENING-PAYLOAD | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
