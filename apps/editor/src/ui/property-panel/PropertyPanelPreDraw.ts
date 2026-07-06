@@ -124,7 +124,6 @@ export function showWallPreDraw(host: PreDrawPanelHost, wallTool: any): void {
 
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.85);margin-bottom:8px;';
-    hint.textContent = '✓ Plain Wall ready — click on canvas to draw. Change type below (optional).';
     header.appendChild(hint);
 
     // §WALL-TYPE-PLAN-FIX: resolve the canonical wall tool — the instance the plan
@@ -134,31 +133,50 @@ export function showWallPreDraw(host: PreDrawPanelHost, wallTool: any): void {
     const canonicalWallTool = (window as { wallTool?: any }).wallTool ?? wallTool;
     const currentTypeId: string = canonicalWallTool?.getSystemTypeId?.() ?? '';
 
-    // §FIX-PLAN-WALLTOOL-DEFAULT-ACTIVE (L-28): pre-APPLY the default type on activation
-    // so the tool is explicitly seeded — matching 3D, which draws with the tool's
-    // selectedSystemTypeId (default undefined → Plain Wall / thickness 0.2). This is a
-    // no-op when a type is already selected (mid-session mode switch preserves it); it
-    // only guarantees the default is committed, so the very first plan click draws a
-    // Plain Wall with no Apply click needed. Idempotent: re-asserts the current value.
-    canonicalWallTool?.setSystemTypeId?.(currentTypeId || undefined);
-    // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — ALSO record the selection in the stable,
-    // surface-independent store the plan handler reads at dispatch, so a wall drawn in the
-    // SPLIT plan pane threads the same layered systemTypeId as the MAIN view (window.wallTool
-    // alone is a transient/stale reference on some split layout paths → systemTypeId=none).
-    setActiveWallSystemTypeId(currentTypeId || undefined);
+    // §FIX-PLAN-WALL-TYPE-ARM-ON-SELECT (L-115) — the WALL TYPE dropdown is the SINGLE source
+    // of truth for the ARMED wall type. Selecting a type ARMS it IMMEDIATELY (no separate
+    // Apply click): it writes BOTH the transient `window.wallTool` selection (read by the 3-D
+    // builder) AND the stable, surface-independent `activeWallSystemType` store (read by the
+    // plan handler at dispatch — L-98), and updates the "ready" label to the SELECTED type.
+    // So the panel can NEVER say "Plain Wall ready" while a layered type is chosen — the
+    // recurring "plan plain / 3-D layered" bug: the founder picked "Interior – Partition" in
+    // the dropdown, the label still said "Plain Wall ready", drew → a PLAIN wall dispatching
+    // `systemTypeId=none`. Apply still works (idempotent), but SELECTION alone arms.
+    // Folds in the L-28 pre-apply (seed on open) + L-98 store write. ADR-0055; C16.
+    const armWallType = (rawId: string | undefined): void => {
+        const id = rawId && !rawId.startsWith('__') ? (rawId || undefined) : undefined;
+        canonicalWallTool?.setSystemTypeId?.(id);
+        setActiveWallSystemTypeId(id);
+        const name = id
+            ? ((window as { wallSystemTypeStore?: { getById?: (i: string) => { name?: string } | undefined } })
+                .wallSystemTypeStore?.getById?.(id)?.name ?? 'Type')
+            : null;
+        hint.textContent = name
+            ? `✓ ${name} ready — click on canvas to draw`
+            : '✓ Plain Wall ready — click on canvas to draw. Change type below (optional).';
+        hint.style.color = 'rgba(255,255,255,0.85)';
+    };
+
+    // Seed the armed type + label from the current selection: a pre-selected layered type is
+    // armed on open (label reflects it); default → Plain Wall.
+    armWallType(currentTypeId || undefined);
 
     const pseudoData = { elementType: 'wall', systemTypeId: currentTypeId };
 
+    // The Apply button (and the widget's own applyOnChange) route here → arm.
     const typeWidget = buildWallTypeSelectorWidget(pseudoData, (payload) => {
-        canonicalWallTool?.setSystemTypeId?.(payload.systemTypeId ?? undefined);
-        setActiveWallSystemTypeId(payload.systemTypeId ?? undefined);
-        hint.textContent = payload.systemTypeId
-            ? `✓ Type set — click on canvas to draw`
-            : `✓ Plain Wall — click on canvas to draw`;
-        hint.style.color = 'rgba(255,255,255,0.85)';
+        armWallType(payload.systemTypeId ?? undefined);
     }, { applyOnChange: true });
 
-    if (typeWidget) header.appendChild(typeWidget);
+    if (typeWidget) {
+        header.appendChild(typeWidget);
+        // §FIX-PLAN-WALL-TYPE-ARM-ON-SELECT (L-115) — bind a DIRECT change listener on the
+        // dropdown so a selection arms the type even if the widget's internal applyOnChange
+        // path is ever unwired: dropdown-select is THE single source of truth for the armed
+        // type, independent of the (optional) Apply button.
+        const sel = typeWidget.querySelector('select');
+        if (sel) sel.addEventListener('change', () => armWallType((sel as HTMLSelectElement).value));
+    }
 
     const escNote = document.createElement('div');
     escNote.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.35);margin-top:6px;';
