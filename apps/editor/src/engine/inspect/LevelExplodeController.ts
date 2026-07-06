@@ -43,6 +43,37 @@ const EXPLODE_GAP  = 5.0;  // metres of Y separation per floor in exploded mode
 const LERP_FACTOR  = 10;   // higher = snappier approach (units: 1/sec decay)
 const DONE_EPSILON = 0.001; // stop RAf loop when within this distance of target
 
+// §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — DOM/runtime events emitted by every
+// element builder AFTER it disposes the old Object3D and adds a fresh one (same
+// userData.id). While the explode is active, a rebuild (move / property edit /
+// undo) produces a NEW root that is NOT in any level group, so it renders at its
+// true (model) elevation and drops OUT of the exploded stack — the founder's
+// "moved element jumps back to its unstacked position". We reconcile the groups
+// on these events so the rebuilt mesh is re-lifted into the stack. Mirrors the
+// set SelectionManager listens to for §SELECT-GIZMO-REATTACH.
+const REBUILD_EVENTS = [
+  'bim-wall-added',        'bim-wall-updated',        'bim-wall-removed',
+  'bim-slab-added',        'bim-slab-updated',        'bim-slab-removed',
+  'bim-floor-added',       'bim-floor-updated',       'bim-floor-removed',
+  'bim-ceiling-added',     'bim-ceiling-updated',     'bim-ceiling-removed',
+  'bim-furniture-added',   'bim-furniture-updated',   'bim-furniture-removed',
+  'bim-column-added',      'bim-column-updated',      'bim-column-removed',
+  'bim-beam-added',        'bim-beam-updated',        'bim-beam-removed',
+  'bim-roof-added',        'bim-roof-updated',        'bim-roof-removed',
+  'bim-stair-added',       'bim-stair-updated',       'bim-stair-removed',
+  'bim-curtainwall-added', 'bim-curtainwall-updated', 'bim-curtainwall-removed',
+  'bim-door-added',        'bim-door-updated',        'bim-door-removed',
+  'bim-window-added',      'bim-window-updated',      'bim-window-removed',
+] as const;
+
+// SelectionManager surface reached (cross-layer, via window per §05 §6.1) to
+// re-anchor the highlight + gizmo after the explode offset for the selected
+// element changes. Kept intentionally narrow.
+interface SelectionManagerLike {
+  selectedObject?: THREE.Object3D | null;
+  applyHighlight?: (obj: THREE.Object3D) => void;
+}
+
 // ── Minimal bimManager interface (accessed via window global per §05 §6.1) ──
 
 interface BimLevel {
@@ -81,6 +112,15 @@ export class LevelExplodeController {
 
   private _unsubExplode: (() => void) | null = null;
 
+  // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — rebuild reconciliation state.
+  /** Bound handler kept so we can removeEventListener on dispose. */
+  private _onRebuild:    (() => void) | null = null;
+  /** Debounce handle for a queued reconcile (coalesces bursts to one/frame). */
+  private _reconcileScheduled: TickListenerDisposer | null = null;
+  /** True when the explode offset for the selected element changed and the
+   *  selection highlight / gizmo must be re-anchored once the lift settles. */
+  private _reanchorPending: boolean = false;
+
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   init(scene: THREE.Scene): void {
@@ -91,6 +131,22 @@ export class LevelExplodeController {
       'pryzm-inspect-level-explode',
       this._onExplodeEvent.bind(this),
     ) ?? null;
+
+    // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — reconcile on element rebuilds so a
+    // moved/edited element re-lifts into the exploded stack instead of dropping
+    // back to its true elevation. Builders dispatch these as window CustomEvents
+    // (DOMEventBus during migration), so window.addEventListener reaches them —
+    // the same channel SelectionManager uses for §SELECT-GIZMO-REATTACH.
+    this._onRebuild = () => { if (this._active) this._scheduleReconcile(); };
+    for (const evt of REBUILD_EVENTS) window.addEventListener(evt, this._onRebuild);
+
+    // Publish the active per-level explode offset so the interaction layer
+    // (SelectionManager anchor logic in @pryzm/input-host, a lower layer) can
+    // place a MODEL-space highlight box (instanced walls / OBB fallback) in the
+    // SAME exploded space the mesh is drawn — no floating highlight.
+    window.pryzmLevelExplodeOffsetForObject = (obj: unknown): number =>
+      this.getActiveOffsetForObject(obj as THREE.Object3D | null | undefined);
+
     console.log('[LevelExplodeController] Initialized');
   }
 
@@ -115,6 +171,8 @@ export class LevelExplodeController {
     this._active = false;
     this._mode = 'stacked';
     this._cancelRaf();
+    this._cancelReconcile();
+    this._reanchorPending = false;
 
     let restored = 0;
     for (const group of this._levelGroups) {
@@ -133,6 +191,13 @@ export class LevelExplodeController {
     this.deactivate();
     this._unsubExplode?.();
     this._unsubExplode = null;
+    if (this._onRebuild) {
+      for (const evt of REBUILD_EVENTS) window.removeEventListener(evt, this._onRebuild);
+      this._onRebuild = null;
+    }
+    if (window.pryzmLevelExplodeOffsetForObject) {
+      window.pryzmLevelExplodeOffsetForObject = undefined;
+    }
     this._scene = null;
     console.log('[LevelExplodeController] Disposed');
   }
@@ -172,6 +237,12 @@ export class LevelExplodeController {
   private _applyMode(mode: LevelExplodeMode, soloLevelId: string | undefined): void {
     this._mode        = mode;
     this._soloLevelId = soloLevelId;
+
+    // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — the per-level offset for the
+    // selected element is about to change; once the lift settles we must
+    // re-anchor its highlight (frozen geometry-overlay clones) + gizmo so the
+    // selection tracks the exploded mesh instead of floating at the old Y.
+    this._reanchorPending = true;
 
     let hiddenCeilings = 0;
     for (const group of this._levelGroups) {
@@ -218,6 +289,16 @@ export class LevelExplodeController {
   // ── Scene group building ──────────────────────────────────────────────────
 
   private _buildLevelGroups(): void {
+    // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — preserve the captured baseY
+    // (unstacked/model Y) of roots that survive a reconcile. Re-capturing baseY
+    // from a root that is CURRENTLY lifted would bake the explode offset into the
+    // baseline and double-lift it on the next apply; only genuinely NEW roots
+    // (freshly rebuilt meshes, still at model Y) get a fresh capture.
+    const preservedBaseY = new Map<THREE.Object3D, number>();
+    for (const group of this._levelGroups) {
+      for (const [root, y] of group.originalY) preservedBaseY.set(root, y);
+    }
+
     this._levelGroups = [];
 
     const bm = window.bimManager as (BimManagerLike & { getLevels(): BimLevel[] }) | undefined;
@@ -289,7 +370,10 @@ export class LevelExplodeController {
 
       const originalY = new Map<THREE.Object3D, number>();
       for (const root of roots) {
-        originalY.set(root, root.position.y);
+        // Reconcile: reuse the survivor's original baseY; capture model Y only
+        // for NEW roots (which sit at their true elevation before any lift).
+        const preserved = preservedBaseY.get(root);
+        originalY.set(root, preserved !== undefined ? preserved : root.position.y);
       }
 
       this._levelGroups.push({
@@ -385,7 +469,107 @@ export class LevelExplodeController {
     if (allSettled && this._raf !== null) {
       this._raf();
       this._raf = null;
+      // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — the lift has settled; re-anchor
+      // the selection now so the highlight + gizmo sit on the exploded mesh.
+      if (this._reanchorPending) this._refreshSelectionAnchor();
     }
+  }
+
+  // ── §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — explode-aware interaction ──────
+
+  /**
+   * The Y offset (metres) currently applied to `levelId`'s roots by the explode
+   * (0 when inactive or stacked). This is the authoritative "active per-level
+   * explode offset" the interaction layer adds to a MODEL-space anchor so the
+   * selection tracks the exploded mesh, and that a move commit treats as a pure
+   * view transform (never persisted).
+   */
+  getActiveOffsetForLevel(levelId: string): number {
+    if (!this._active) return 0;
+    const g = this._levelGroups.find(grp => grp.levelId === levelId);
+    return g ? g.targetOffset : 0;
+  }
+
+  /**
+   * The active explode Y offset for the level owning `obj` (0 when inactive /
+   * stacked / unknown). Resolves the object's level by group membership first
+   * (covers instanced roots with no per-element id), then by walking the parent
+   * chain for a `userData.levelId`.
+   */
+  getActiveOffsetForObject(obj: THREE.Object3D | null | undefined): number {
+    if (!this._active || !obj) return 0;
+
+    // (1) Direct membership — obj or an ancestor is a tracked level root.
+    for (const group of this._levelGroups) {
+      for (const root of group.roots) {
+        for (let cur: THREE.Object3D | null = obj; cur; cur = cur.parent) {
+          if (cur === root) return group.targetOffset;
+        }
+      }
+    }
+    // (2) Fall back to a levelId stamped on obj or an ancestor.
+    for (let cur: THREE.Object3D | null = obj; cur; cur = cur.parent) {
+      const lvl = (cur.userData as { levelId?: string }).levelId;
+      if (lvl) return this.getActiveOffsetForLevel(String(lvl));
+    }
+    return 0;
+  }
+
+  /**
+   * Debounced reconcile — coalesces a burst of rebuild events (e.g. a whole-level
+   * wall re-resolve) into a single next-frame reconcile.
+   */
+  private _scheduleReconcile(): void {
+    if (this._reconcileScheduled !== null) return;
+    this._reconcileScheduled = getFrameScheduler().scheduleOnce(
+      'level-explode-reconcile',
+      () => {
+        this._reconcileScheduled = null;
+        this._reconcile();
+      },
+    );
+  }
+
+  private _cancelReconcile(): void {
+    if (this._reconcileScheduled !== null) {
+      this._reconcileScheduled();
+      this._reconcileScheduled = null;
+    }
+  }
+
+  /**
+   * Re-bucket the level groups after an element rebuild (preserving survivors'
+   * baseY) and re-apply the current mode so any freshly-rebuilt mesh animates
+   * back INTO the exploded stack instead of stranding at its true elevation.
+   */
+  private _reconcile(): void {
+    if (!this._active || !this._scene) return;
+    this._buildLevelGroups();
+    this._applyMode(this._mode, this._soloLevelId);
+  }
+
+  /**
+   * Re-anchor the current selection to the (now-lifted) exploded mesh: re-apply
+   * its highlight so frozen geometry-overlay clones + OBB boxes track the mesh,
+   * and emit `pryzm-reanchor-transform` so the wall/stair gizmo PROXIES re-sync
+   * to the lifted position. Deliberately does NOT re-emit `bim-selection-changed`
+   * (that would re-populate every property panel). No-op headless / no selection.
+   */
+  private _refreshSelectionAnchor(): void {
+    this._reanchorPending = false;
+    const sm = window.selectionManager as SelectionManagerLike | undefined;
+    const sel = sm?.selectedObject ?? null;
+    if (!sel) return;
+
+    // Direct-attach gizmos (furniture/column/slab/…) already track obj.matrixWorld
+    // every frame; walls/stairs use a static proxy that needs an explicit re-sync.
+    window.runtime?.events?.emit('pryzm-reanchor-transform', { object: sel });
+
+    // Re-clone the frozen highlight overlay at the settled (lifted) matrixWorld.
+    // Skip instanced groups: re-applying without the per-instance id would box the
+    // whole group — their OBB is placed correctly via the offset provider instead.
+    if (sel.userData?.isInstancedGroup === true) return;
+    sm?.applyHighlight?.(sel);
   }
 }
 

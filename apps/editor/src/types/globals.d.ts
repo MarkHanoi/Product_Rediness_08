@@ -357,6 +357,18 @@ declare global {
             | undefined;
         unselectAll: (() => void) | undefined;
 
+        /**
+         * §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — the active per-level explode
+         * Y offset (metres) for the level owning `obj`, or 0 when the Level
+         * STACKED/UNSTACKED (explode) view is inactive or collapsed. Published by
+         * LevelExplodeController.init(); read by the SelectionManager anchor logic
+         * (a LOWER layer, @pryzm/input-host) so a MODEL-space highlight box for an
+         * instanced/OBB-fallback element is placed in the SAME exploded space the
+         * mesh is drawn — the explode offset stays a pure view transform and never
+         * pollutes the persisted model position. Undefined until init.
+         */
+        pryzmLevelExplodeOffsetForObject?: ((obj: unknown) => number) | undefined;
+
         // ── Constraint & solver globals ───────────────────────────────────────
         constraintStore:          unknown;
         constraintSolver:         unknown;

@@ -1902,6 +1902,32 @@ export class SelectionManager implements ISelectionManager {
         return false;
     }
 
+    /**
+     * §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — the active per-level explode Y
+     * offset (metres) for `obj`, or 0 when the Level STACKED/UNSTACKED view is
+     * inactive/collapsed. The explode lifts each level's meshes by a pure view
+     * transform (root.position.y), so a MODEL-space highlight box (instanced wall
+     * / OBB fallback, built from userData.baseLine at the element's TRUE
+     * elevation) would float below the lifted mesh. Adding this offset to the OBB
+     * centre.y places the highlight in the SAME exploded space the mesh is drawn.
+     * Provided cross-layer by LevelExplodeController (a higher layer) via a typed
+     * window slot — the same window-global escape hatch this file already uses for
+     * gridStore/roomStore. Geometry-overlay + Box3 highlights already track the
+     * mesh's world matrix, so this is applied ONLY on the model-space OBB paths.
+     */
+    private _explodeOffsetFor(obj: THREE.Object3D): number {
+        const provider = (window as unknown as {
+            pryzmLevelExplodeOffsetForObject?: (o: THREE.Object3D) => number;
+        }).pryzmLevelExplodeOffsetForObject;
+        if (typeof provider !== 'function') return 0;
+        try {
+            const v = provider(obj);
+            return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+        } catch {
+            return 0;
+        }
+    }
+
     applyHighlight(obj: THREE.Object3D, instanceElementId?: string) {
         this.clearHighlight();
 
@@ -1985,6 +2011,15 @@ export class SelectionManager implements ISelectionManager {
             center             = result.center;
             size               = result.size;
             highlightQuaternion = result.quaternion ?? null;
+            // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — the model-space OBB builders
+            // reaching this fallback (a 'wall' with only an InstancedMesh to clone)
+            // return a centre at the element's TRUE elevation; lift it into the
+            // exploded view so the box tracks the mesh instead of floating below it.
+            // World-matrix OBB builders (door/column/curtain-wall via getWorldPosition)
+            // already include the offset, so restrict the correction to 'wall'.
+            if (elementType === 'wall') {
+                center.y += this._explodeOffsetFor(obj);
+            }
         } else {
             // No registry builder — fall back to world-space AABB.
             const box = new THREE.Box3().setFromObject(obj);
@@ -2144,6 +2179,12 @@ export class SelectionManager implements ISelectionManager {
         size: THREE.Vector3,
         quaternion: THREE.Quaternion,
     ): void {
+        // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — per-instance OBBs are stamped
+        // at register() time in MODEL space (the element's true elevation); when the
+        // level is exploded the hosting group is lifted by a view-only Y offset, so
+        // add it here to keep the box on the lifted instance instead of floating.
+        center = center.clone();
+        center.y += this._explodeOffsetFor(obj);
         const PADDING = 0.06; // metres — small clearance so the box doesn't z-fight the surface
         const geo = new THREE.BoxGeometry(size.x + PADDING, size.y + PADDING, size.z + PADDING);
         const mat = new THREE.MeshBasicMaterial({

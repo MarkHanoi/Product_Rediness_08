@@ -596,4 +596,22 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
             wallEndpointController.deactivate();
         }
     });
+
+    // ── §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — re-anchor gizmo proxies ────────
+    // The wall/stair gizmos attach to an invisible PROXY positioned ONCE at
+    // selection time (WallTransformController / StairTransformController). When the
+    // Level STACKED/UNSTACKED (explode) view lifts the selected element's level
+    // AFTER it was selected, the proxy stays at the old Y and the gizmo floats
+    // away from the mesh. LevelExplodeController emits this once the lift settles;
+    // we re-run activateFor so each proxy re-syncs to the mesh's exploded position.
+    // Distinct from `bim-selection-changed` so property panels are NOT re-populated.
+    window.runtime?.events?.on('pryzm-reanchor-transform', (payload: unknown) => {
+        const obj = (payload as { object?: THREE.Object3D | null })?.object
+            ?? selectionManager.selectedObject;
+        if (!obj) return;
+        wallTransformController.activateFor(obj);
+        stairTransformController.activateFor(obj);
+        wallEndpointController.activateFor(obj);
+        hostedDragController.activateFor(obj);
+    });
 }
