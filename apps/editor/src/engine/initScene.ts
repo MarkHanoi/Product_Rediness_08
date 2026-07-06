@@ -3093,48 +3093,13 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             realEnvironment.setGroundShadows(enabled);
         });
 
-        // §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY (L-107) — the ground shadow-catcher
-        // is a ShadowMaterial plane that renders as a GREY fill when the scene has NO
-        // shadow map (empty project → WebGPU reads an absent shadow map as fully
-        // shadowed). So the catcher must only be in the scene while there is something
-        // to catch a shadow FROM. Detect the caster set on the same debounced cadence
-        // as the Pascal shadow-flag pass (add / update / remove events) and tell the
-        // service — it attaches the catcher on the first caster and removes it when the
-        // scene goes empty. Pure scene read (no store mutation); no GPU dispose.
-        const _casterSyncEvents = [
-            'bim-wall-added',        'bim-wall-updated',        'bim-wall-removed',
-            'bim-slab-added',        'bim-slab-updated',        'bim-slab-removed',
-            'bim-ceiling-added',     'bim-ceiling-updated',     'bim-ceiling-removed',
-            'bim-floor-added',       'bim-floor-updated',       'bim-floor-removed',
-            'bim-column-added',      'bim-column-updated',      'bim-column-removed',
-            'bim-beam-added',        'bim-beam-updated',        'bim-beam-removed',
-            'bim-roof-added',        'bim-roof-updated',        'bim-roof-removed',
-            'bim-stair-added',       'bim-stair-updated',       'bim-stair-removed',
-            'bim-curtainwall-added', 'bim-curtainwall-updated', 'bim-curtainwall-removed',
-            'bim-furniture-added',   'bim-furniture-updated',   'bim-furniture-removed',
-        ];
-        let _casterSyncTimer: ReturnType<typeof setTimeout> | null = null;
-        const _syncGroundCasters = (): void => {
-            if (_casterSyncTimer !== null) clearTimeout(_casterSyncTimer);
-            // 120ms > the 100ms Pascal shadow-flag debounce so castShadow flags on any
-            // newly-added meshes are already set before we count them.
-            _casterSyncTimer = setTimeout(() => {
-                _casterSyncTimer = null;
-                try {
-                    const scene = world.scene.three as THREE.Scene;
-                    let hasCasters = false;
-                    scene.traverse((o: THREE.Object3D) => {
-                        if (hasCasters) return;
-                        if (o instanceof THREE.Mesh && o.castShadow &&
-                            o.userData?.role !== 'ground-shadow-catcher') {
-                            hasCasters = true;
-                        }
-                    });
-                    realEnvironment.setSceneHasCasters(hasCasters);
-                } catch { /* advisory — catcher keeps its current presence */ }
-            }, 120);
-        };
-        _casterSyncEvents.forEach(evt => window.addEventListener(evt, _syncGroundCasters));
+        // §FIX-SHADOW-CATCHER-RESTORE (L-112) — the ground shadow-catcher is attached
+        // up front at enable() (above) so it is in the shadow-sampling set from the
+        // first frame and receives the real building shadow, exactly as it did before
+        // L-107. The prior L-107 deferred-attach (a debounced caster sweep that added
+        // the receiver only after the first element) dropped the plane out of the
+        // WebGPU shadow pass — the real shadow stopped rendering. That sweep is removed;
+        // no caster-presence gating touches the receive path.
 
         // Expose for the panel + the existing VisualizationEnginePanel / console.
         window.realEnvironmentService = realEnvironment;

@@ -1,12 +1,16 @@
 /**
- * §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY (L-107) — RealEnvironmentService gates
- * the ground shadow-catcher's SCENE PRESENCE on there being a shadow caster.
+ * §FIX-SHADOW-CATCHER-RESTORE (L-112) — the ground shadow-catcher must be attached
+ * UP FRONT (at enable()) so it is in the renderer's shadow-sampling set from the
+ * first frame and RECEIVES the real sun-cast building shadow.
  *
- * Regression: on a brand-new EMPTY project the invisible ShadowMaterial plane
- * rendered as a GREY fill (WebGPU reads an absent shadow map as "fully shadowed"
- * → opaque). Fix: the catcher is in the scene only while the scene has something
- * to catch a shadow from — so an empty scene contributes no visible pixels, and a
- * scene with a caster still receives the ground shadow.
+ * Regression post-mortem: L-107 deferred the attach until the first shadow caster
+ * arrived (a debounced scene sweep) to hide the empty-project grey rectangle. On
+ * the live WebGPU/TSL renderer that late-attach dropped the receiver out of the
+ * shadow pass — the plane stopped receiving the real building shadow (the founder's
+ * "amazing" ground shadows disappeared). This test locks in the restored behaviour:
+ * the receiver is present + shadow-receiving whenever ground shadows are on,
+ * regardless of caster count, and is only shown/hidden by the user toggle — the
+ * receive path is never gated on caster presence.
  *
  * Imports the module directly (not via the rendering barrel) to keep the node
  * vitest env free of window-touching siblings.
@@ -19,10 +23,21 @@ import type { KeyLightHost } from './RealSunService';
 function makeKeyLightHost(): KeyLightHost {
     const light = new THREE.DirectionalLight(0xffffff, 4);
     light.position.set(10, 10, 10);
+    light.castShadow = true;
     return { get keyLight() { return light; } };
 }
 
-describe('RealEnvironmentService §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY (L-107)', () => {
+/** A shadow-casting box, standing in for a building. */
+function addCaster(scene: THREE.Scene): THREE.Mesh {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), new THREE.MeshStandardMaterial());
+    box.castShadow = true;
+    box.receiveShadow = true;
+    box.position.set(0, 5, 0);
+    scene.add(box);
+    return box;
+}
+
+describe('RealEnvironmentService §FIX-SHADOW-CATCHER-RESTORE (L-112)', () => {
     let scene: THREE.Scene;
     let svc: RealEnvironmentService;
 
@@ -32,51 +47,54 @@ describe('RealEnvironmentService §FIX-GROUND-CATCHER-INVISIBLE-WHEN-EMPTY (L-10
         svc.bind(scene, makeKeyLightHost(), () => null, () => 0);
     });
 
-    it('EMPTY scene → catcher is NOT in the scene (no grey plane, no visible pixels)', () => {
+    it('enable() attaches the receiver UP FRONT so it can receive the real shadow', () => {
         svc.enable();
-        expect(svc.groundShadowsEnabled).toBe(true); // ground shadows default ON …
-        expect(svc.isGroundCatcherAttached()).toBe(false); // … but nothing to catch → not attached
-        expect(scene.children).not.toContain(svc.ground.mesh);
-    });
-
-    it('first caster → catcher attaches and RECEIVES (not casts) the ground shadow', () => {
-        svc.enable();
-        svc.setSceneHasCasters(true);
+        // Attached from enable() — NOT deferred until a caster exists (that late-attach
+        // is what broke shadow receive on WebGPU).
         expect(svc.isGroundCatcherAttached()).toBe(true);
         expect(scene.children).toContain(svc.ground.mesh);
-        // The plane receives shadows and never casts (adds zero casters).
+        // Configured as a receiver: receives shadows, never casts (adds zero casters).
         expect(svc.ground.mesh.receiveShadow).toBe(true);
         expect(svc.ground.mesh.castShadow).toBe(false);
+        expect(svc.ground.mesh.material).toBeInstanceOf(THREE.ShadowMaterial);
+        expect(svc.ground.mesh.visible).toBe(true);
     });
 
-    it('scene goes empty again → catcher is removed (no GPU dispose, ADR-0111 safe)', () => {
+    it('receiver stays attached when a caster (building) is added — real shadow lands', () => {
         svc.enable();
-        svc.setSceneHasCasters(true);
+        addCaster(scene);
+        // The receiver is (and remains) in the scene graph → in the shadow pass →
+        // it receives the caster's real sun shadow. No caster-count gating.
         expect(svc.isGroundCatcherAttached()).toBe(true);
+        expect(svc.ground.mesh.receiveShadow).toBe(true);
+    });
 
-        svc.setSceneHasCasters(false);
-        expect(svc.isGroundCatcherAttached()).toBe(false);
-        // Material + geometry retained (not disposed) — instant re-attach possible.
+    it('moving the sun keeps the receiver attached and re-drives the key light', () => {
+        svc.enable();
+        addCaster(scene);
+        const before = svc.sun.lastPosition?.altitude;
+        svc.setSunTime(6);   // dawn
+        const after = svc.sun.lastPosition?.altitude;
+        // Receiver never leaves the scene; the sun angle changed (shadow moves).
+        expect(svc.isGroundCatcherAttached()).toBe(true);
+        expect(after).not.toBe(before);
+    });
+
+    it('ground-shadows OFF hides the receiver; ON re-attaches it', () => {
+        svc.enable();
+        svc.setGroundShadows(false);
+        expect(svc.ground.mesh.visible).toBe(false);
+        svc.setGroundShadows(true);
+        expect(svc.isGroundCatcherAttached()).toBe(true);
+        expect(svc.ground.mesh.visible).toBe(true);
+        expect(svc.ground.mesh.receiveShadow).toBe(true);
+    });
+
+    it('no synchronous GPU dispose on toggle (ADR-0111 safe) — material/geometry kept', () => {
+        svc.enable();
+        svc.setGroundShadows(false);
+        svc.setGroundShadows(true);
         expect(svc.ground.mesh.material).toBeTruthy();
         expect(svc.ground.mesh.geometry).toBeTruthy();
-
-        // Re-adding a caster re-attaches the SAME mesh.
-        svc.setSceneHasCasters(true);
-        expect(svc.isGroundCatcherAttached()).toBe(true);
-    });
-
-    it('toggling ground shadows ON with an empty scene must NOT show the plane', () => {
-        svc.enable();
-        svc.setGroundShadows(false);
-        svc.setGroundShadows(true); // user turns it on, but scene is still empty
-        expect(svc.isGroundCatcherAttached()).toBe(false);
-    });
-
-    it('ground-shadows OFF removes the catcher even when casters exist', () => {
-        svc.enable();
-        svc.setSceneHasCasters(true);
-        expect(svc.isGroundCatcherAttached()).toBe(true);
-        svc.setGroundShadows(false);
-        expect(svc.isGroundCatcherAttached()).toBe(false);
     });
 });
