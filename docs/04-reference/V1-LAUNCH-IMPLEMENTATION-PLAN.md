@@ -263,7 +263,7 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 |---|---|---|---|---|
 | P0 ✅96332c7f | Add gated perf-trace on generation critical path (like __pryzmPerfTrace) so gains are prod-measurable | SAFE instrument | C04 | baseline |
 | P1 ✅96332c7f | Resolve each level's walls **ONCE at end-of-generation** — remove the k≈3 repeated whole-level resolveLevel (mitre + openings repair) | SAFE (biggest win) | C04 | ~3× less wall-rebuild |
-| P2 | Coalesce per-apartment `wall.batch.create` + opening/boundary/room commands into **whole-level** batches (one produceCommand/level) | SAFE | C11 + C17 | fewer×command overhead |
+| P2 ✅c5992ad8 | Coalesce per-apartment `wall.batch.create` + opening/boundary/room commands into **whole-level** batches (one produceCommand/level) | SAFE | C11 + C17 | fewer×command overhead |
 | P3 ✅a58f45b0 | Serialize: drop `JSON.stringify` pretty-print; **single-serialize per auto-save** (reuse hash bytes as payload) | SAFE | C04/persistence | ~2-3× less save cost |
 | P4 | Move snapshot stringify+deflate to a **Web Worker**; chunked/generator serialize (mirror executeChunked); version history = **deltas** not 20 full snapshots | DEEP | C04 | unblock main thread + fix quota |
 | P5 | **Progressive-reveal generation** — chunk the executor across frames via frame-scheduler `scheduleOnce` (reveal floors incrementally); route through scheduler, keep P3 single-rAF | DEEP | C04 / P3 | non-blocking gen |
