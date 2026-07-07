@@ -86,12 +86,15 @@ function _ensureDefaultIntent(viewId: string): void {
 // `CreateElevationMarkCommand` creates BOTH view+mark atomically and would reject
 // on the pre-existing view id, so we cannot reuse it wholesale for the defaults.
 //
-// The mark lives on the plan (`ownerViewId` = the Ground Floor plan), is oriented
-// to PROJECT NORTH (its `facingDirection` = the elevation's L-110
-// `projectionDirection`, world axes = project north per ADR-0115), and LINKS to
-// its elevation via `parameters.linkedViewId` (Revit behaviour — the plan marker
-// navigates to the elevation view; navigation is handled by the existing
-// plan-view annotation interaction).
+// §FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158) — like Revit, the four N/E/S/W elevation
+// tags appear on EVERY level's floor plan, not only the Ground Floor. Each plan
+// view OWNS its own set of marks (`ownerViewId` = that plan view — the renderer
+// filters annotations by ownerViewId, so a mark is only visible on its owning
+// view). Each mark is oriented to PROJECT NORTH (its `facingDirection` = the
+// elevation's L-110 `projectionDirection`, world axes = project north per
+// ADR-0115), and LINKS to its elevation via `parameters.linkedViewId` (Revit
+// behaviour — the plan marker navigates to the elevation view; navigation is
+// handled by the existing plan-view annotation interaction).
 //
 // Contract compliance: C24.1 (auto-documentation — system-seeded doc annotations),
 // C03 (the annotation record is the same schema-pure `elevation-mark` shape the
@@ -100,12 +103,21 @@ function _ensureDefaultIntent(viewId: string): void {
 // the L7 `plugins/annotations` types (layer rule), so the record is built as a
 // plain, store-shaped literal.
 
-/** The shared DOC annotation store, when available (set by initTools at boot). */
-function _annotationStore(): {
+/** Minimal structural view of the shared DOC annotation store used by this module. */
+interface AnnStoreLike {
     has(id: string): boolean;
     add(el: unknown): void;
     remove(id: string): void;
-} | null {
+    // Optional read surfaces — used for the scan-based idempotency of the
+    // per-plan-view elevation marks (§FIX-ELEV-MARKS-ALL-FLOOR-PLANS L-158). The
+    // production store exposes all three; the L-116 test fake exposes getByType/getAll.
+    getByView?(viewId: string): Array<Record<string, unknown>>;
+    getByType?(type: string): Array<Record<string, unknown>>;
+    getAll?(): Array<Record<string, unknown>>;
+}
+
+/** The shared DOC annotation store, when available (set by initTools at boot). */
+function _annotationStore(): AnnStoreLike | null {
     try {
         const s = typeof window !== 'undefined' ? window.annotationStore : null; // TODO(TASK-08)
         return s && typeof s.has === 'function' && typeof s.add === 'function' ? s : null;
@@ -127,16 +139,62 @@ function _elevationMarkPlacement(dir: { x: number; y: number; z: number }): {
     return { position, facingDirection };
 }
 
-/**
- * Guarantee the elevation-mark annotation for one default elevation on the plan.
- * Idempotent (skips if the mark already exists) and tolerant of the annotation
- * store not being ready yet (it is topped-up on the next ensureDefaultViews run).
- */
-function _ensureElevationMark(elevViewId: string, markId: string, dir: { x: number; y: number; z: number }): void {
-    const store = _annotationStore();
-    if (!store) return;
-    if (store.has(markId)) return;
+// §FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158) — a valid `annotation_<ULID>` id for the
+// per-plan-view marks. The Ground Floor plan keeps its stable L-116 fixed ids
+// (`an-sys-elev-*`) for backwards-compat + navigation; every OTHER plan view mints
+// a fresh id. core-app-model does not depend on @pryzm/schemas, so the ULID is
+// generated inline (Crockford base32, 26 chars) — the same `annotation_<ULID>` id
+// shape `createId('annotation')` produces, without adding a cross-layer dependency.
+const _ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function _ulid(): string {
+    let ts = Date.now();
+    const time: string[] = [];
+    for (let i = 0; i < 10; i++) {
+        time.unshift(_ULID_ALPHABET[ts % 32]);
+        ts = Math.floor(ts / 32);
+    }
+    let rand = '';
+    for (let i = 0; i < 16; i++) rand += _ULID_ALPHABET[(Math.random() * 32) | 0];
+    return time.join('') + rand;
+}
+function _annotationId(): string {
+    return `annotation_${_ulid()}`;
+}
 
+/** Every elevation-mark annotation currently in the store (across all views). */
+function _allElevationMarks(store: AnnStoreLike): Array<Record<string, unknown>> {
+    try {
+        if (typeof store.getByType === 'function') return store.getByType('elevation-mark');
+        if (typeof store.getAll === 'function') {
+            return store.getAll().filter(m => (m as { type?: string }).type === 'elevation-mark');
+        }
+    } catch {
+        /* non-fatal */
+    }
+    return [];
+}
+
+/** True iff `planViewId` already owns an elevation-mark linking to `elevViewId`. */
+function _planViewHasElevationMark(store: AnnStoreLike, planViewId: string, elevViewId: string): boolean {
+    return _allElevationMarks(store).some(m =>
+        m.ownerViewId === planViewId &&
+        (m.parameters as { linkedViewId?: string } | undefined)?.linkedViewId === elevViewId,
+    );
+}
+
+/**
+ * Build + add ONE `elevation-mark` annotation owned by `planViewId`, linking to
+ * `elevViewId`. Store-shaped literal (same shape makeAnnotationElement produces —
+ * see plugins/annotations AnnotationTypes); core-app-model MUST NOT up-import the
+ * L7 annotation types (layer rule), so the record is a plain literal.
+ */
+function _addElevationMark(
+    store: AnnStoreLike,
+    markId: string,
+    planViewId: string,
+    elevViewId: string,
+    dir: { x: number; y: number; z: number },
+): void {
     const { position, facingDirection } = _elevationMarkPlacement(dir);
     const dirEndpoint = {
         x: position.x + facingDirection.x * ELEV_MARK_ARROW_LEN_M,
@@ -144,12 +202,10 @@ function _ensureElevationMark(elevViewId: string, markId: string, dir: { x: numb
         z: position.z + facingDirection.z * ELEV_MARK_ARROW_LEN_M,
     };
     const now = Date.now();
-    // Store-shaped `elevation-mark` AnnotationElement literal (same shape
-    // makeAnnotationElement produces — see plugins/annotations AnnotationTypes).
     const mark = {
         id: markId,
         type: 'elevation-mark' as const,
-        ownerViewId: DEFAULT_PLAN_VIEW_ID,          // the mark lives on the Ground Floor plan
+        ownerViewId: planViewId,                     // the mark lives on THIS plan view
         references: [] as unknown[],
         geometry2D: { modelPoints: [position, dirEndpoint], offset: 0 },
         style: {},
@@ -166,13 +222,42 @@ function _ensureElevationMark(elevViewId: string, markId: string, dir: { x: numb
     }
 }
 
-/** Remove a default elevation's mark (used when its elevation view is deleted). */
-function _removeElevationMark(markId: string): void {
+/**
+ * §FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158) — guarantee the four default elevation
+ * marks on ONE plan view. Idempotent + tolerant of the annotation store not being
+ * ready yet (topped-up on the next ensureDefaultViews run):
+ *   • Ground Floor plan → stable L-116 fixed ids (`store.has(markId)` guard).
+ *   • Every other plan view → fresh `annotation_<ULID>` id, idempotency by scan
+ *     (owner + linkedViewId) so a reload never duplicates marks.
+ */
+function _ensureElevationMarksForPlanView(planViewId: string): void {
     const store = _annotationStore();
-    try {
-        if (store && store.has(markId)) store.remove(markId);
-    } catch {
-        /* non-fatal */
+    if (!store) return;
+    const isGround = planViewId === DEFAULT_PLAN_VIEW_ID;
+    for (const elev of DEFAULT_ELEVATION_VIEWS) {
+        if (isGround) {
+            if (store.has(elev.markId)) continue;
+            _addElevationMark(store, elev.markId, planViewId, elev.id, elev.dir);
+        } else {
+            if (_planViewHasElevationMark(store, planViewId, elev.id)) continue;
+            _addElevationMark(store, _annotationId(), planViewId, elev.id, elev.dir);
+        }
+    }
+}
+
+/**
+ * Remove EVERY plan view's mark for a given elevation (used when the elevation
+ * view is deleted — the tag disappears from every floor plan, then is
+ * re-guaranteed alongside the elevation on the next startup).
+ */
+function _removeElevationMarksForElevation(elevViewId: string): void {
+    const store = _annotationStore();
+    if (!store) return;
+    for (const m of _allElevationMarks(store)) {
+        const linked = (m.parameters as { linkedViewId?: string } | undefined)?.linkedViewId;
+        if (linked === elevViewId && typeof m.id === 'string') {
+            try { store.remove(m.id); } catch { /* non-fatal */ }
+        }
     }
 }
 
@@ -249,10 +334,18 @@ function ensureDefaultViews(): void {
         } else {
             _ensureDefaultIntent(elev.id);
         }
-        // §FEAT-ELEVATION-MARKERS (L-116) — guarantee the plan elevation-mark too.
-        // Ensured every pass (idempotent) so a mark missing because the annotation
-        // store was not ready on first boot is topped-up on the next run.
-        _ensureElevationMark(elev.id, elev.markId, elev.dir);
+    }
+
+    // ── 4. Elevation marks on EVERY plan view — §FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158)
+    // §FEAT-ELEVATION-MARKERS (L-116) originally seeded the N/E/S/W marks on the
+    // Ground Floor plan only. Like Revit, every level's floor plan carries them, so
+    // we ensure a mark set on each existing plan view (each owned by that view).
+    // Ensured every pass (idempotent) so a mark missing because the annotation store
+    // was not ready on first boot is topped-up on the next run. Per-level plan views
+    // created LATER (via `view.createDefinition`) are handled by the `vd:view-created`
+    // listener in initDefaultViewsManager().
+    for (const planView of viewDefinitionStore.getByType('plan')) {
+        _ensureElevationMarksForPlanView(planView.id);
     }
 }
 
@@ -285,6 +378,18 @@ export function initDefaultViewsManager(): void {
         ensureDefaultViews();
     });
 
+    // §FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158) — when a NEW plan view is created
+    // later (e.g. per-level floor plans via `view.createDefinition` →
+    // CreateViewDefinitionCommand → viewDefinitionStore.create), give it the same
+    // N/E/S/W elevation marks every other floor plan carries (Revit behaviour).
+    // Idempotent, so a redundant top-up from ensureDefaultViews is harmless.
+    window.addEventListener('vd:view-created', (e: Event) => {
+        const detail = (e as CustomEvent).detail as { viewId?: string; viewType?: string } | undefined;
+        if (detail?.viewType === 'plan' && typeof detail.viewId === 'string') {
+            _ensureElevationMarksForPlanView(detail.viewId);
+        }
+    });
+
     // After a project clear: wait up to 300 ms for vd:store-loaded to fire.
     // If the project has no saved viewDefinitions, store-loaded never fires, so
     // the timer is the fallback that guarantees defaults in that case.
@@ -305,11 +410,11 @@ export function initDefaultViewsManager(): void {
             viewId === DEFAULT_PLAN_VIEW_ID ||
             (viewId !== undefined && DEFAULT_ELEVATION_IDS.has(viewId)) // §FEAT-DEFAULT-ELEVATIONS (L-110)
         ) {
-            // §FEAT-ELEVATION-MARKERS (L-116) — a default elevation's plan mark is
-            // deleted WITH its elevation, then re-guaranteed alongside it below.
+            // §FEAT-ELEVATION-MARKERS (L-116) / §FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158)
+            // — a default elevation's marks (now on EVERY floor plan) are deleted
+            // WITH its elevation, then re-guaranteed alongside it below.
             if (viewId !== undefined && DEFAULT_ELEVATION_IDS.has(viewId)) {
-                const elev = DEFAULT_ELEVATION_VIEWS.find(v => v.id === viewId);
-                if (elev) _removeElevationMark(elev.markId);
+                _removeElevationMarksForElevation(viewId);
             }
             console.warn(`[DefaultViewsManager] Default view "${viewId}" was deleted — restoring.`);
             setTimeout(() => ensureDefaultViews(), 0);

@@ -64,8 +64,9 @@ describe('§FEAT-ELEVATION-MARKERS (L-116)', () => {
         for (const elev of DEFAULT_ELEVATION_VIEWS) {
             const mark = anns.getAll().find(m => m.id === elev.markId)!;
             expect(mark.parameters.facingDirection).toEqual({ x: elev.dir.x, y: 0, z: elev.dir.z });
-            // placed on the side the elevation looks FROM (arrow points into the model)
-            expect(mark.parameters.position).toEqual({ x: -elev.dir.x * 6, y: 0, z: -elev.dir.z * 6 });
+            // placed on the side the elevation looks FROM (arrow points into the model),
+            // at the §FIX-ELEV-MARK-RADIUS-DOUBLE (L-151) radius of 12 m from origin.
+            expect(mark.parameters.position).toEqual({ x: -elev.dir.x * 12, y: 0, z: -elev.dir.z * 12 });
         }
         // the four marks point in four distinct directions
         const dirs = anns.getByType('elevation-mark')
@@ -107,5 +108,85 @@ describe('§FEAT-ELEVATION-MARKERS (L-116)', () => {
         const s = installFakeAnnotationStore();
         initDefaultViewsManager();
         expect(s.getByType('elevation-mark')).toHaveLength(4);
+    });
+});
+
+describe('§FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158)', () => {
+    let anns: FakeAnnotationStore;
+
+    const groundMarks = () =>
+        anns.getByType('elevation-mark').filter(m => m.ownerViewId === DEFAULT_PLAN_VIEW_ID);
+    const marksFor = (planViewId: string) =>
+        anns.getByType('elevation-mark').filter(m => m.ownerViewId === planViewId);
+
+    beforeEach(() => {
+        viewDefinitionStore.reset();
+        anns = installFakeAnnotationStore();
+    });
+
+    it('gives every level plan view its own N/E/S/W marks (not just the Ground Floor)', () => {
+        initDefaultViewsManager();                 // registers the vd:view-created listener
+        expect(groundMarks()).toHaveLength(4);     // Ground Floor keeps its L-116 marks
+
+        // A per-level plan view is created LATER (mirrors generateFloorPlansPerLevel →
+        // view.createDefinition → viewDefinitionStore.create dispatching vd:view-created).
+        viewDefinitionStore.create({
+            id: 'vd-doc-plan-lvl-1', name: 'Level 1', viewType: 'plan',
+            spatial: { levelId: 'L1' }, createdBy: 'system',
+        });
+
+        const lvl1 = marksFor('vd-doc-plan-lvl-1');
+        expect(lvl1).toHaveLength(4);
+        // one per default elevation, each linking to a distinct elevation view
+        expect(new Set(lvl1.map(m => m.parameters.linkedViewId)).size).toBe(4);
+        for (const elev of DEFAULT_ELEVATION_VIEWS) {
+            expect(lvl1.some(m => m.parameters.linkedViewId === elev.id)).toBe(true);
+        }
+        // per-level marks carry valid annotation_<ULID> ids (not the fixed ground ids)
+        for (const m of lvl1) expect(m.id).toMatch(/^annotation_[0-9A-HJKMNP-TV-Z]{26}$/);
+    });
+
+    it('preserves the L-151 12 m radius on per-level marks', () => {
+        initDefaultViewsManager();
+        viewDefinitionStore.create({
+            id: 'vd-doc-plan-lvl-1', name: 'Level 1', viewType: 'plan',
+            spatial: { levelId: 'L1' }, createdBy: 'system',
+        });
+        for (const elev of DEFAULT_ELEVATION_VIEWS) {
+            const mark = marksFor('vd-doc-plan-lvl-1').find(m => m.parameters.linkedViewId === elev.id)!;
+            expect(mark.parameters.position).toEqual({ x: -elev.dir.x * 12, y: 0, z: -elev.dir.z * 12 });
+        }
+    });
+
+    it('does not duplicate per-level marks on reload (idempotent)', () => {
+        initDefaultViewsManager();
+        viewDefinitionStore.create({
+            id: 'vd-doc-plan-lvl-1', name: 'Level 1', viewType: 'plan',
+            spatial: { levelId: 'L1' }, createdBy: 'system',
+        });
+        expect(marksFor('vd-doc-plan-lvl-1')).toHaveLength(4);
+
+        // Simulated reload: the boot guarantee re-runs — marks must NOT duplicate.
+        initDefaultViewsManager();
+        expect(marksFor('vd-doc-plan-lvl-1')).toHaveLength(4);
+        expect(groundMarks()).toHaveLength(4);
+    });
+
+    it('deleting an elevation removes its mark from EVERY floor plan', () => {
+        initDefaultViewsManager();
+        viewDefinitionStore.create({
+            id: 'vd-doc-plan-lvl-1', name: 'Level 1', viewType: 'plan',
+            spatial: { levelId: 'L1' }, createdBy: 'system',
+        });
+        const victim = DEFAULT_ELEVATION_VIEWS[0];
+        // present on both the ground plan and the level-1 plan before deletion
+        expect(groundMarks().some(m => m.parameters.linkedViewId === victim.id)).toBe(true);
+        expect(marksFor('vd-doc-plan-lvl-1').some(m => m.parameters.linkedViewId === victim.id)).toBe(true);
+
+        viewDefinitionStore.delete(victim.id);
+        window.dispatchEvent(new CustomEvent('vd:view-deleted', { detail: { viewId: victim.id } }));
+
+        // removed from every plan view, on both the ground and per-level plans
+        expect(anns.getByType('elevation-mark').some(m => m.parameters.linkedViewId === victim.id)).toBe(false);
     });
 });
