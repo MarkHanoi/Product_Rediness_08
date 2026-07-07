@@ -120,6 +120,7 @@ import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { ifcProjectionStore } from '@pryzm/core-app-model';
 import { frustumCullingService } from '@pryzm/core-app-model/rendering';
 import { levelScoped3DCullingService } from '@pryzm/core-app-model/rendering';
+import type { LevelScoped3DMode } from '@pryzm/core-app-model/rendering';
 import { viewRenderCache } from '@pryzm/core-app-model';
 import { levelClipPlaneCache } from '@pryzm/core-app-model';
 import { stairPlanSymbolRegistry } from '@pryzm/scene-committer';
@@ -135,6 +136,97 @@ import { batchCoordinator } from '@pryzm/core-app-model';
 // Preserves the specific scene/camera/renderer generic params from createBimWorld
 // so callers retain full type narrowing (mode, needsUpdate, controls, updateShadows…).
 type BimWorld = ReturnType<typeof createBimWorld>['world'];
+
+// ── §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — 3D-detail view-option control ──────────
+//
+// The level-scoped 3D culler (L-139) + massing LOD (L-150) previously had ONLY a
+// console flag. This mounts a small user-facing selector so a user can choose how a
+// large building renders in 3D:
+//
+//   • "Full building (massing)" — DEFAULT: active floors in full detail, all other
+//     floors as a lightweight massing silhouette (the whole tower is visible).
+//   • "Active floors only"      — the L-139 behaviour (far floors hidden; lightest).
+//   • "All floors — heavy"      — the escape hatch (full detail everywhere); gated
+//     behind a confirm() because on a 40-storey tower it is the WebGPU device-loss
+//     path L-139 exists to prevent.
+//
+// It is self-contained DOM (no dependency on the UI chrome package) and only appears
+// once level-scoping engages on a large model — it stays hidden for houses / single
+// apartments. Visibility is refreshed off the same events the culler listens to
+// (no polling loop — P3). The console flag / globals keep working unchanged.
+function mountLevelScoped3DViewControl(): void {
+    if (typeof document === 'undefined') return;
+    const CONTROL_ID = 'pryzm-level3d-detail-control';
+    if (document.getElementById(CONTROL_ID)) return; // idempotent
+
+    const readEngaged = (): boolean => {
+        const stats = (globalThis as unknown as {
+            __pryzmLevelCullStats?: { engaged?: boolean };
+        }).__pryzmLevelCullStats;
+        return stats?.engaged === true;
+    };
+
+    const wrap = document.createElement('div');
+    wrap.id = CONTROL_ID;
+    wrap.setAttribute('data-pryzm-view-option', 'level-3d-detail');
+    wrap.style.cssText =
+        'position:fixed;bottom:12px;left:12px;z-index:40;display:none;align-items:center;' +
+        'gap:6px;padding:6px 9px;border-radius:8px;font:11px/1.2 system-ui,sans-serif;' +
+        'color:#2a2140;background:rgba(255,255,255,0.92);border:1px solid #6600FF33;' +
+        'box-shadow:0 2px 8px rgba(102,0,255,0.12);backdrop-filter:blur(4px);';
+
+    const label = document.createElement('span');
+    label.textContent = '3D detail';
+    label.style.cssText = 'font-weight:600;color:#6600FF;';
+
+    const select = document.createElement('select');
+    select.style.cssText =
+        'font:11px system-ui,sans-serif;color:#2a2140;background:#fff;border:1px solid #6600FF44;' +
+        'border-radius:6px;padding:2px 4px;cursor:pointer;';
+    const OPTIONS: ReadonlyArray<{ value: LevelScoped3DMode; text: string }> = [
+        { value: 'massing', text: 'Full building (massing)' },
+        { value: 'scoped',  text: 'Active floors only' },
+        { value: 'all',     text: 'All floors — heavy' },
+    ];
+    for (const opt of OPTIONS) {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.text;
+        select.appendChild(o);
+    }
+    select.value = levelScoped3DCullingService.getMode();
+
+    select.addEventListener('change', () => {
+        const mode = select.value as LevelScoped3DMode;
+        if (mode === 'all') {
+            const ok = typeof window !== 'undefined' && typeof window.confirm === 'function'
+                ? window.confirm(
+                    'Render ALL floors at full detail?\n\nOn a large building this is heavy and can ' +
+                    'destabilise the 3D renderer (WebGPU device loss). Use "Full building (massing)" ' +
+                    'for a stable full-building view.')
+                : true;
+            if (!ok) { select.value = levelScoped3DCullingService.getMode(); return; }
+        }
+        levelScoped3DCullingService.setMode(mode);
+        select.value = levelScoped3DCullingService.getMode();
+    });
+
+    wrap.appendChild(label);
+    wrap.appendChild(select);
+    document.body.appendChild(wrap);
+
+    const refresh = (): void => {
+        wrap.style.display = readEngaged() ? 'flex' : 'none';
+        select.value = levelScoped3DCullingService.getMode();
+    };
+    for (const evt of ['project-loaded', 'pryzm-project-loaded', 'activeLevelChanged', 'view-activated']) {
+        window.addEventListener(evt, () => {
+            // The culler re-derives on these events; refresh after it settles.
+            setTimeout(refresh, 350);
+        });
+    }
+    refresh();
+}
 
 // ── §RPM-RECOVERY-DOWNGRADE (ADR-0087) — non-fatal pipeline rebind helper ────────
 //
@@ -358,7 +450,13 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     try {
         levelScoped3DCullingService.setScene(world.scene.three as THREE.Scene);
         levelScoped3DCullingService.activate();
-        console.log('[initScene] LevelScoped3DCullingService ready.');
+        // §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — user-facing view option so the massing
+        // LOD is not just a console flag. Mounts a compact "3D detail" selector that
+        // only appears once level-scoping engages (a large model). Default is 'massing'
+        // (whole tower shown as a silhouette); 'scoped' hides far levels (lightest);
+        // 'all' is the gated heavy escape hatch (full detail on every level).
+        mountLevelScoped3DViewControl();
+        console.log('[initScene] LevelScoped3DCullingService ready (massing-LOD default).');
     } catch (lcErr: any) {
         console.warn('[initScene] LevelScoped3DCullingService init error:', lcErr?.message ?? lcErr);
     }

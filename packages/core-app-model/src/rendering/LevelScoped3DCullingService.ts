@@ -64,6 +64,25 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { trace, SpanStatusCode, type Attributes } from '@opentelemetry/api';
 import { perfLog } from './perfTrace.js';
+import { levelMassingRenderer, type LevelMassingGroup } from './LevelMassingRenderer.js';
+
+/**
+ * §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — how the 3D view treats out-of-scope levels
+ * on a large model:
+ *
+ *   'massing' — DEFAULT. Full-detail BIM near the active level; every other level
+ *               is drawn as a lightweight massing block so the WHOLE building
+ *               silhouette stays visible (see {@link LevelMassingRenderer}).
+ *   'scoped'  — the L-139 behaviour: out-of-scope levels are simply hidden (no
+ *               massing). Lightest possible, but the far building is invisible.
+ *   'all'     — the escape hatch: render every level at full detail. Heavy — on a
+ *               40-storey tower this is the WebGPU device-loss path L-139 exists to
+ *               prevent. Equivalent to `__pryzmLevelScoped3DCulling === false`.
+ */
+export type LevelScoped3DMode = 'scoped' | 'massing' | 'all';
+
+/** Default mode for large models — massing so opening a big tower shows its full shape. */
+const DEFAULT_MODE: LevelScoped3DMode = 'massing';
 
 const TRACER = trace.getTracer('@pryzm/core-app-model/level-scoped-3d-culling', '0.1.0');
 
@@ -115,10 +134,13 @@ interface BimManagerLike {
 
 interface CullGlobals {
     __pryzmLevelScoped3DCulling?: boolean;
+    __pryzmLevelScoped3DMode?: LevelScoped3DMode;
     __pryzmLevelScopedAdjacent?: number;
     __pryzmLevelCullStats?: {
         engaged: boolean;
+        mode: LevelScoped3DMode;
         hidden: number;
+        massingLevels: number;
         elementCount: number;
         levelCount: number;
         activeLevelId: string | null;
@@ -172,6 +194,8 @@ export class LevelScoped3DCullingService {
     /** Inject the Three.js scene. Call once from initScene after the world is ready. */
     setScene(scene: THREE.Scene): void {
         this._scene = scene;
+        // §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — the massing renderer shares this scene.
+        levelMassingRenderer.setScene(scene);
     }
 
     /**
@@ -195,9 +219,11 @@ export class LevelScoped3DCullingService {
             }
 
             console.log(
-                '[LevelScoped3DCullingService] Active — 3D view scoped to active level ± ' +
-                `${this._adjacentCount()} on large models (> ${LARGE_MODEL_ELEMENT_THRESHOLD} elems ` +
-                `or > ${LARGE_MODEL_LEVEL_THRESHOLD} levels). Flag: __pryzmLevelScoped3DCulling.`,
+                `[LevelScoped3DCullingService] Active (mode=${this._resolveMode()}) — 3D view scoped to active ` +
+                `level ± ${this._adjacentCount()} on large models (> ${LARGE_MODEL_ELEMENT_THRESHOLD} elems ` +
+                `or > ${LARGE_MODEL_LEVEL_THRESHOLD} levels); out-of-scope levels render as massing LOD by ` +
+                `default. View option: __pryzmLevelScoped3DMode ('massing'|'scoped'|'all'); ` +
+                `legacy flag __pryzmLevelScoped3DCulling (=== false ⇒ all).`,
             );
             // Derive once now in case geometry is already present (e.g. reactivation).
             this.derive();
@@ -230,9 +256,39 @@ export class LevelScoped3DCullingService {
 
     // ── Config readers ──────────────────────────────────────────────────────
 
-    /** True unless explicitly disabled. DEFAULT ON (restores pre-fix behaviour only when === false). */
-    private _flagEnabled(): boolean {
-        return G().__pryzmLevelScoped3DCulling !== false;
+    /**
+     * §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — resolve the active mode.
+     *
+     * The legacy console flag stays authoritative for back-compat: setting
+     * `__pryzmLevelScoped3DCulling === false` forces 'all' (exact pre-fix
+     * behaviour — every level at full detail). Otherwise `__pryzmLevelScoped3DMode`
+     * governs, defaulting to 'massing' so a big tower shows its whole shape.
+     */
+    private _resolveMode(): LevelScoped3DMode {
+        if (G().__pryzmLevelScoped3DCulling === false) return 'all';
+        const m = G().__pryzmLevelScoped3DMode;
+        return m === 'scoped' || m === 'massing' || m === 'all' ? m : DEFAULT_MODE;
+    }
+
+    /** The mode currently in effect (resolved from the flag + mode globals). */
+    getMode(): LevelScoped3DMode {
+        return this._resolveMode();
+    }
+
+    /**
+     * Set the 3D detail mode from a user-facing control and re-derive immediately.
+     * Keeps the legacy flag coherent (`'all'` ⇔ `__pryzmLevelScoped3DCulling=false`)
+     * so the console escape hatch and the view option never disagree.
+     *
+     * P8: `pryzm.level-cull.set-mode` span.
+     */
+    setMode(mode: LevelScoped3DMode): void {
+        withSpan('set-mode', { 'pryzm.level-cull.mode': mode }, () => {
+            const g = G();
+            g.__pryzmLevelScoped3DMode = mode;
+            g.__pryzmLevelScoped3DCulling = mode !== 'all';
+            this.derive();
+        });
     }
 
     private _adjacentCount(): number {
@@ -288,10 +344,13 @@ export class LevelScoped3DCullingService {
         const scene = this._scene;
         if (!scene) return;
 
-        // Disabled → exact pre-fix behaviour.
-        if (!this._flagEnabled()) { this._restoreAllInternal('flag-off'); return; }
+        const mode = this._resolveMode();
+
+        // 'all' (or the legacy flag === false) → exact pre-fix behaviour: every level
+        // at full detail, no massing. The gated "heavy" escape hatch.
+        if (mode === 'all') { this._standDown('mode-all', mode); return; }
         // Plan / section view → the plan culler is authoritative; stand down.
-        if (!this._is3DView()) { this._restoreAllInternal('plan-view'); return; }
+        if (!this._is3DView()) { this._standDown('plan-view', mode); return; }
 
         const bimManager = this._getBimManager();
         const levels = bimManager?.getLevels?.() ?? [];
@@ -303,7 +362,7 @@ export class LevelScoped3DCullingService {
             levelCount > LARGE_MODEL_LEVEL_THRESHOLD;
 
         // Small / normal scene → never scope; restore anything left over.
-        if (!isLarge) { this._restoreAllInternal('small-model'); return; }
+        if (!isLarge) { this._standDown('small-model', mode); return; }
 
         // Resolve the active level's index in the elevation-sorted stack.
         const sorted = [...levels].sort((a, b) => a.elevation - b.elevation);
@@ -312,7 +371,7 @@ export class LevelScoped3DCullingService {
 
         // Can't place the active level → fail OPEN (show everything) rather than
         // risk hiding the wrong storeys.
-        if (activeIdx < 0) { this._restoreAllInternal('active-level-unresolved'); return; }
+        if (activeIdx < 0) { this._standDown('active-level-unresolved', mode); return; }
 
         const n = this._adjacentCount();
         const lo = Math.max(0, activeIdx - n);
@@ -321,6 +380,11 @@ export class LevelScoped3DCullingService {
         for (let i = lo; i <= hi; i++) visibleLevelIds.add(sorted[i].id);
 
         const newHidden = new Set<THREE.Object3D>();
+        // §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — out-of-scope roots grouped by level so
+        // the massing renderer can build one block per level from their union AABB.
+        // Includes ALL out-of-scope roots with a level (even ones another system hid),
+        // so the block always spans the real floor footprint.
+        const outByLevel = new Map<string, THREE.Object3D[]>();
         let hidThisPass = 0;
         let restoredThisPass = 0;
 
@@ -340,6 +404,11 @@ export class LevelScoped3DCullingService {
 
             const inRange = visibleLevelIds.has(levelId);
             if (!inRange) {
+                // Collect for the massing LOD regardless of who hid it.
+                let bucket = outByLevel.get(levelId);
+                if (!bucket) { bucket = []; outByLevel.set(levelId, bucket); }
+                bucket.push(child);
+
                 // Out of scope → hide, but ONLY if currently visible (never clobber
                 // another system's hide), and only track roots WE actually hid.
                 if (child.visible === true) {
@@ -372,9 +441,24 @@ export class LevelScoped3DCullingService {
         this._hidden.clear();
         for (const r of newHidden) this._hidden.add(r);
 
+        // §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — 'massing' draws the out-of-scope levels
+        // as one instanced block mesh (full silhouette visible, device-loss safety kept:
+        // far-level FULL geometry is still hidden = not submitted). 'scoped' = pure hide.
+        let massingLevels = 0;
+        if (mode === 'massing') {
+            const groups: LevelMassingGroup[] = [];
+            for (const [levelId, roots] of outByLevel) groups.push({ levelId, roots });
+            levelMassingRenderer.syncMassing(groups);
+            massingLevels = levelMassingRenderer.levelCount;
+        } else {
+            levelMassingRenderer.clear();
+        }
+
         this._publishStats({
             engaged: true,
+            mode,
             hidden: this._hidden.size,
+            massingLevels,
             elementCount,
             levelCount,
             activeLevelId,
@@ -382,33 +466,50 @@ export class LevelScoped3DCullingService {
         });
 
         perfLog(
-            '§FIX-HEAVY-SCENE-3D-SCALABILITY',
-            `level-cull engaged: active=${activeLevelId} scope=±${n} ` +
+            '§FIX-HEAVY-SCENE-MASSING-LOD',
+            `level-cull engaged (${mode}): active=${activeLevelId} scope=±${n} ` +
             `visibleLevels=${visibleLevelIds.size}/${levelCount} ` +
             `hiddenRoots=${this._hidden.size} (+${hidThisPass}/-${restoredThisPass} this pass) ` +
-            `elements=${elementCount}`,
+            `massingLevels=${massingLevels} elements=${elementCount}`,
         );
     }
 
     // ── Restore ───────────────────────────────────────────────────────────────
 
-    /** Restore every root we hid. Public entry (P8 span). */
+    /** Restore every root we hid AND drop the massing LOD. Public entry (P8 span). */
     restoreAll(): void {
-        withSpan('restore-all', {}, () => this._restoreAllInternal('explicit'));
+        withSpan('restore-all', {}, () => this._standDown('explicit', this._resolveMode()));
     }
 
-    private _restoreAllInternal(reason: string): void {
-        if (this._hidden.size === 0) return;
+    /**
+     * §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — full stand-down: restore hidden roots
+     * to full detail AND remove the massing blocks, so neither perf effect lingers.
+     */
+    private _standDown(reason: string, mode: LevelScoped3DMode): void {
+        levelMassingRenderer.clear();
+        this._restoreAllInternal(reason, mode);
+    }
+
+    private _restoreAllInternal(reason: string, mode: LevelScoped3DMode): void {
+        if (this._hidden.size === 0) {
+            this._publishStats({
+                engaged: false, mode, hidden: 0, massingLevels: 0,
+                elementCount: 0, levelCount: 0,
+                activeLevelId: this._getActiveLevelId(), visibleLevelIds: [],
+            });
+            return;
+        }
         let restored = 0;
         for (const r of this._hidden) {
             if (r.visible === false) { r.visible = true; restored++; }
         }
         this._hidden.clear();
         this._publishStats({
-            engaged: false, hidden: 0, elementCount: 0, levelCount: 0,
+            engaged: false, mode, hidden: 0, massingLevels: 0,
+            elementCount: 0, levelCount: 0,
             activeLevelId: this._getActiveLevelId(), visibleLevelIds: [],
         });
-        perfLog('§FIX-HEAVY-SCENE-3D-SCALABILITY', `level-cull stood down (${reason}) — restored ${restored} root(s)`);
+        perfLog('§FIX-HEAVY-SCENE-MASSING-LOD', `level-cull stood down (${reason}) — restored ${restored} root(s), massing cleared`);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
