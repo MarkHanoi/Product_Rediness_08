@@ -1,7 +1,8 @@
 /**
  * @file packages/core-app-model/src/rendering/LevelMassingRenderer.ts
  *
- * LevelMassingRenderer — §FIX-HEAVY-SCENE-MASSING-LOD (L-150).
+ * LevelMassingRenderer — §FIX-HEAVY-SCENE-MASSING-LOD (L-150)
+ *                       + §FIX-MASSING-HUGE-TOWER-UX (L-169: opaque, building-like block).
  *
  * ## Why this exists
  *
@@ -248,16 +249,33 @@ export class LevelMassingRenderer {
         // One unit box shared by every level's block, scaled per-instance by matrix.
         const unitBox = new THREE.BoxGeometry(1, 1, 1);
 
-        // A single flat massing material → one PSO for the entire out-of-scope stack.
-        // Light neutral tone + slight translucency so the LOD reads as "massing", not
-        // real BIM. Opaque enough to give the tower a solid silhouette.
+        // §FIX-MASSING-HUGE-TOWER-UX (L-169) — A SOLID, OPAQUE, building-like massing.
+        //
+        // Before L-169 this material was `transparent: true, opacity: 0.9`. On the
+        // founder's 40-storey office that read as a grey TRANSLUCENT "envelope shell":
+        // a stack of see-through boxes blends face-over-face into a grey haze, and any
+        // faint geometry peeking through looked like a ghosted double-image over the
+        // tower — jarring, not intentional.
+        //
+        // The A.24 Massing tier is a CLEAN SOLID BLOCK — the tower itself, simplified.
+        // So the massing is now fully OPAQUE (no transparent pass, no blending): each
+        // out-of-scope level reads as a solid architectural mass, and stacked they read
+        // as the whole building's silhouette. Combined with the culler still setting
+        // `visible=false` on every out-of-scope root (device-loss safety preserved — the
+        // far-level FULL geometry is never submitted), the user sees ONE clean solid
+        // massing of the tower with NOTHING ghosting through underneath it.
+        //
+        // `flatShading` gives crisp per-face facets (the faceted "massing block" read).
+        // A single opaque material → one PSO for the entire out-of-scope stack.
         this._material = new THREE.MeshStandardMaterial({
-            color: 0xc3c8d4,
-            roughness: 0.9,
+            color: 0xb9c0cc,
+            roughness: 0.85,
             metalness: 0.0,
-            transparent: true,
-            opacity: 0.9,
+            transparent: false,
+            opacity: 1.0,
             depthWrite: true,
+            depthTest: true,
+            flatShading: true,
         });
         this._material.name = 'pryzm-level-massing';
 

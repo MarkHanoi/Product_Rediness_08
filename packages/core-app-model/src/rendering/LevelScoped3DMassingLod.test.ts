@@ -299,6 +299,65 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
         expect(levelMassingRenderer.levelCount).toBe(7);
     });
 
+    // ── §FIX-MASSING-HUGE-TOWER-UX (L-169) ───────────────────────────────────────────
+    // The founder saw the auto-escalated massing on the 40-storey office as a grey
+    // TRANSLUCENT "envelope shell" over ghosted floors, not an intentional building.
+    // Fix: the massing block is now fully OPAQUE + building-like (A.24 Massing tier),
+    // and the culler still hides every out-of-scope real root under it — so the user
+    // sees ONE clean solid massing with no translucent double-image. Device-loss safety
+    // is untouched: far-level full geometry stays visible=false (never submitted).
+
+    it('L-169: the massing block is OPAQUE + building-like (no translucent envelope shell)', () => {
+        buildHeavyTower(scene, 'L5');
+        service.derive();
+        const mesh = massingMesh(scene) as THREE.InstancedMesh;
+        expect(mesh).toBeDefined();
+        const mat = mesh.material as THREE.MeshStandardMaterial;
+        // Opaque: not in the transparent pass, full opacity → no grey haze / face blending.
+        expect(mat.transparent).toBe(false);
+        expect(mat.opacity).toBe(1);
+        // Writes + tests depth so it occludes cleanly like a solid building mass.
+        expect(mat.depthWrite).toBe(true);
+        expect(mat.depthTest).toBe(true);
+    });
+
+    it('L-169: real far-level geometry is HIDDEN under the massing (no double-image)', () => {
+        const { rootsByLevel } = buildHeavyTower(scene, 'L5'); // visible L4/L5/L6
+        service.derive();
+
+        // A massing block is drawn for every out-of-scope level…
+        expect(levelMassingRenderer.isActive).toBe(true);
+        expect(levelMassingRenderer.levelCount).toBe(HEAVY_HIDDEN_LEVELS);
+
+        // …and the ACTUAL BIM geometry beneath each of those blocks is fully hidden
+        // (visible=false = not submitted), so nothing ghosts through the opaque mass.
+        const hiddenLevels = ['L0', 'L1', 'L2', 'L3', 'L7', 'L8', 'L9', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15'];
+        for (const lvl of hiddenLevels) {
+            for (const r of rootsByLevel.get(lvl)!) {
+                expect(r.visible).toBe(false);
+            }
+        }
+        // The in-scope floors stay full detail — massing does NOT cover the active band.
+        for (const lvl of ['L4', 'L5', 'L6']) {
+            for (const r of rootsByLevel.get(lvl)!) {
+                expect(r.visible).toBe(true);
+            }
+        }
+    });
+
+    it('L-169: a modest model stays FULL detail — no opaque mass, no hidden floors', () => {
+        // Same regression guard axis as L-164: below threshold → full detail everywhere,
+        // so the opaque-massing change never touches a building a normal GPU handles.
+        buildTower(scene, 6, 'L0', 100); // 6 × 100 = 600 elems → not heavy
+        service.derive();
+        expect(service.getMode()).toBe('all');
+        for (const c of scene.children) {
+            if (c.userData.levelId) expect(c.visible).toBe(true);
+        }
+        expect(levelMassingRenderer.isActive).toBe(false);
+        expect(massingMesh(scene)).toBeUndefined();
+    });
+
     it('exposes mode + massingLevels in the live stats snapshot', () => {
         buildHeavyTower(scene, 'L5');
         service.derive();
