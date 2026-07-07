@@ -290,6 +290,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-142 [HIGH] Cesium 3D globe opens black; only Zoom-to-Site frames it — (a) CSP blocks CesiumWorldTerrain→async clamp, (b) camera framed before async re-placement (base 0 vs 707m) | GIS / Cesium globe framing + CSP | **IN FLIGHT (GIS agent)** — CSP add ion terrain host + frame AFTER clamp/re-placement (initial open = Zoom-to-Site); §FIX-CESIUM-GLOBE-OPEN-FRAMING | 
 
+| L-143 [HIGH perf] Sun Hours ~1min on 3D Site (1621 cells × raycast vs 4755 context buildings); navigation may re-trigger compute | solar-analysis / geospatial perf | **QUEUED behind L-142 (CesiumViewport collision)** — worker-offload raycast + BVH occluders + no-recompute-on-nav + adaptive sampling; §PERF-SUNHOURS-WORKER-BVH-NO-RECOMPUTE | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
