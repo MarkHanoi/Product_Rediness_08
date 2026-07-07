@@ -1,6 +1,11 @@
 import { getCesium, storeRegistry } from '@pryzm/core-app-model';
 import type { CesiumThreeBridge } from '@pryzm/plugin-geospatial';
 import type { UIProps } from '../Layout';
+// §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — the single z-index source of
+// truth + the no-overlap launcher-rail layout policy. Replaces the hand-picked
+// `position:absolute … zIndex:'20'`-inside-#container anchoring that buried these
+// always-on pills under root-level chrome (toolbar 9000, nav rail 9999).
+import { launcherRailStyle } from './zLayers';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
@@ -2506,25 +2511,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             btn.setAttribute('data-testid', 'site-view-launcher');
             btn.textContent = '◉ 3D Site / Globe';
             btn.title = 'Open the 3D site / globe view (true north + geolocation). Works from any 3D view.';
-            // §FIX-SITE-LAUNCHER-POSITION (L-103) — DOCK the launcher to the
-            // bottom-left canvas corner so it reads as a deliberate, permanent
-            // control rather than a stray pill floating mid-left of the viewport.
-            // History: L-60 moved it to top:56px/left:220px (just right of the
-            // ViewBrowser `.plat-left-panel`), but when that panel is collapsed or
-            // absent the 220px offset strands the pill in the middle-left of the
-            // canvas (the founder's "floats awkwardly mid-screen" report). A fixed
-            // CORNER anchor is unambiguous at every viewport width and panel state.
-            // We stack it just ABOVE the bottom-left GPU renderer-backend toggle
-            // (RendererBackendToggle: position:fixed, bottom:10px/left:10px, a ~28px
-            // pill) — bottom:48px clears that pill with margin, so the two corner
-            // controls form a clean left-edge stack instead of overlapping. Kept as
-            // position:absolute inside the (position:relative) #container — the SAME
-            // stacking idiom as before (the launcher rides with the container's
-            // z-index when the Cesium overlay raises it), just re-anchored from a
-            // mid-left offset to the true bottom-left corner. Container == viewport,
-            // so absolute bottom/left lands on the real canvas corner.
+            // §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — ROOT-CAUSE FIX for the
+            // founder's "launcher renders BELOW / overlapping other UI". The pill was
+            // `position:absolute` inside `#container` at `zIndex:'20'`; since #container
+            // (z:auto in BIM view) does not create a stacking context, the pill competed
+            // at ROOT and lost to every chrome sibling (toolbar 9000, nav rail 9999),
+            // so it painted underneath them. It is now `position:fixed` (escapes the
+            // #container trap + Cesium's raised container z:15 + the overflow:hidden clip)
+            // at the shared `launcher` layer (10000 — above canvas + panels + rails +
+            // toolbar, below popovers/menus/modals/toasts/spinner), in the declared
+            // collision-free bottom-left launcher rail (slot 0). Appended to <body> so
+            // the fixed pill is never re-parented under a transformed ancestor.
+            // (History: L-103 docked it to bottom:48/left:10 absolute — deliberate corner,
+            // but still z-trapped; L-149 keeps the corner intent, fixes the stacking.)
             Object.assign(btn.style, {
-                position: 'absolute', bottom: '48px', left: '10px', zIndex: '20',
+                ...launcherRailStyle('siteView'),
                 appearance: 'none', cursor: 'pointer',
                 padding: '7px 12px', borderRadius: '9px',
                 border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
@@ -2534,8 +2535,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             btn.addEventListener('mouseenter', () => { btn.style.background = '#f4f0ff'; });
             btn.addEventListener('mouseleave', () => { btn.style.background = '#ffffff'; });
             btn.addEventListener('click', () => window.pryzmEnterSiteView?.('plan'));
-            viewport.appendChild(btn);
-            console.log('[gis][site-view] always-on 3D Site launcher mounted (L-40).');
+            document.body.appendChild(btn);
+            console.log('[gis][site-view] always-on 3D Site launcher mounted (L-40, C06 §7 launcher layer).');
 
             // §FEAT-PLAN-VIEW-GIS (L-104) — the PLAN-VIEW companion launcher, stacked in the
             // SAME bottom-left corner column just ABOVE the 3D Site pill (bottom:48px) — so the
@@ -2549,8 +2550,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 planBtn.setAttribute('data-testid', 'plan-gis-launcher');
                 planBtn.textContent = '▦ Plan + Site';
                 planBtn.title = 'Open the plan view on the real-world GIS context (project north, orthographic). Works from any view.';
+                // §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — launcher rail slot 1
+                // (directly above the "3D Site" pill). Same fixed / launcher-layer fix as
+                // slot 0; the two GIS site pills now form a clean pair at the bottom of the
+                // rail, with the graph pills (slots 2–3) stacked above — no interleaving.
                 Object.assign(planBtn.style, {
-                    position: 'absolute', bottom: '86px', left: '10px', zIndex: '20',
+                    ...launcherRailStyle('planGis'),
                     appearance: 'none', cursor: 'pointer',
                     padding: '7px 12px', borderRadius: '9px',
                     border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
@@ -2560,8 +2565,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 planBtn.addEventListener('mouseenter', () => { planBtn.style.background = '#f4f0ff'; });
                 planBtn.addEventListener('mouseleave', () => { planBtn.style.background = '#ffffff'; });
                 planBtn.addEventListener('click', () => { void window.pryzmEnterPlanViewGis?.(); });
-                viewport.appendChild(planBtn);
-                console.log('[gis][plan-gis] always-on Plan + Site (GIS) launcher mounted (L-104).');
+                document.body.appendChild(planBtn);
+                console.log('[gis][plan-gis] always-on Plan + Site (GIS) launcher mounted (L-104, C06 §7 launcher layer).');
             }
         } catch (e) {
             console.warn('[gis][site-view] launcher mount failed (non-fatal):', e);

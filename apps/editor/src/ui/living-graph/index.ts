@@ -12,6 +12,9 @@
 // UI — see the report / SPEC for the exact button-wiring reconciliation step.
 
 import { LivingGraphOverlay } from './LivingGraphOverlay';
+// §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — shared launcher-rail policy
+// (single z-index source of truth + collision-free bottom-left slots).
+import { launcherRailStyle } from '../layout/zLayers';
 
 export { LivingGraphOverlay } from './LivingGraphOverlay';
 export { LivingGraphCanvas } from './LivingGraphCanvas';
@@ -92,10 +95,10 @@ export function installLivingGraphOverlay(): void {
     btn.title = 'Living Graph — force-directed live space-relationship view';
     btn.textContent = '✦ Living Graph';
     Object.assign(btn.style, {
-      position: 'fixed',
-      left: '12px',
-      bottom: '104px', // sits ABOVE the static '⚛ Graph' launcher (bottom:64px)
-      zIndex: '28',
+      // Launcher rail slot 3 (top of the bottom-left column) — above the "Graph"
+      // pill (slot 2) and the two GIS site pills (slots 0–1). Shared `launcher`
+      // layer (10000) + collision-free bottom offset via the rail policy.
+      ...launcherRailStyle('livingGraph'),
       padding: '6px 12px',
       borderRadius: '10px',
       background: '#ffffff',

@@ -23,6 +23,29 @@
   --pryzm-transition: 200ms ease;
 }
 
+/* ── UI layering scale (z-index) — SINGLE SOURCE OF TRUTH ─────────────────── *
+ * Contract: C06 §7 (UI Layering & Overlap). MIRRORS the TS token module at
+ * `apps/editor/src/ui/layout/zLayers.ts` — the two MUST stay in lock-step.
+ * Ascending = paints on top. New/edited chrome MUST use `var(--z-*)` (CSS) or
+ * `Z_LAYERS` / `zCss()` (TS), never a raw z-index literal. See zLayers.ts for
+ * the full rationale + the ~325-site phased-migration audit (§FIX-UI-LAYERING). */
+:root {
+  --z-canvas: 0;
+  --z-underlay: 100;
+  --z-viewport-hud: 900;
+  --z-panel: 1000;
+  --z-rail: 2000;
+  --z-toolbar: 9000;
+  --z-contextual-bar: 9100;
+  --z-launcher: 10000;
+  --z-popover: 20000;
+  --z-drawer: 40000;
+  --z-modal: 200000;
+  --z-toast: 300000;
+  --z-loading-overlay: 900000;
+  --z-critical: 2147483000;
+}
+
 /* ── Base layout (desktop, >1024px) ─────────────────────────────────────── */
 .pryzm-shell {
   display: grid;

@@ -1,7 +1,7 @@
 # C06 — UI Shell & Tools
 
-> **Stamp**: 2026-05-16 · **Status**: CANONICAL  
-> **Scope**: `PlatformRouter`, panel management, tool registration, keyboard shortcuts, camera integration, and the 2D plan-view / section-view rendering pipeline.  
+> **Stamp**: 2026-07-07 · **Status**: CANONICAL  
+> **Scope**: `PlatformRouter`, panel management, tool registration, keyboard shortcuts, camera integration, the 2D plan-view / section-view rendering pipeline, **and UI layering / overlap (z-index)**.  
 > **Key principles**: P1 (single composition root), P4 (no `window as any`), P6 (commands only).
 
 ---
@@ -168,3 +168,117 @@ Section views and elevation views are produced by the drawing engine (`packages/
 - The boot-shell skeleton CSS is inlined in `index.html` (Stage 0) and MUST NOT be injected by JS.
 - Dark mode MUST toggle via `<html data-theme="dark|light">`.
 - All text-on-background combinations MUST meet WCAG AA contrast (4.5:1 for normal text, 3:1 for large). CI gate: `packages/wcag-audit/`.
+
+---
+
+## §7 — UI Layering & Overlap (z-index)
+
+> **Added 2026-07-07 · L-149 · §FIX-UI-LAYERING-ZINDEX-CONTRACT.**
+> Founder report: the always-on GIS launcher rail ("◉ 3D Site / Globe", "▦ Plan +
+> Site") rendered BELOW / overlapping other chrome — and, systemically, "the UI
+> needs to be aware of each element around — we cannot afford overlaps." Root
+> cause (confirmed): there was NO central stacking system — **~325 hardcoded
+> `z-index` literals** across `apps/editor/src/ui` (values from `2` to
+> `2147483000`) with no ordering discipline.
+
+### §7.1 — The layer scale is the ONLY source of stacking truth
+
+There is exactly ONE ordered z-index scale for the editor UI. It is declared in
+**two mirrored forms that MUST stay in lock-step**:
+
+- **TS:** `apps/editor/src/ui/layout/zLayers.ts` — `Z_LAYERS` const map + `zCss()`.
+- **CSS:** `apps/editor/src/ui/styles/layout.css` — the `:root { --z-* }` block.
+
+Ascending value = paints on top. Numeric values are calibrated to the app's
+pre-existing thousands/hundred-thousands convention so a **phased** migration is
+monotonic (a migrated element keeps working against not-yet-migrated neighbours).
+**The ORDER is the contract; the exact numbers MAY be re-based once every site is
+migrated.**
+
+| Layer (token) | Value | `--z-*` | Role |
+|---|---|---|---|
+| `canvas` | 0 | `--z-canvas` | 3D canvases (`#container`, WebGPU/WebGL, Cesium globe) |
+| `underlay` | 100 | `--z-underlay` | scene / plan-canvas underlays beneath authored geometry |
+| `viewportHud` | 900 | `--z-viewport-hud` | canvas-space overlays (snap, structural, ambient indicators) |
+| `panel` | 1000 | `--z-panel` | docks, side panels, browsers, inspectors |
+| `rail` | 2000 | `--z-rail` | persistent nav / tool rails |
+| `toolbar` | 9000 | `--z-toolbar` | top platform toolbar / ribbon / workspace-mode bars |
+| `contextualBar` | 9100 | `--z-contextual-bar` | selection-driven contextual edit bars + view toggles |
+| `launcher` | 10000 | `--z-launcher` | **always-on floating launchers / rails (GIS + graph pills)** |
+| `popover` | 20000 | `--z-popover` | menus, dropdowns, tooltips, mode-pickers |
+| `drawer` | 40000 | `--z-drawer` | side drawers (sync-state, data) |
+| `modal` | 200000 | `--z-modal` | blocking dialogs (import mode, conflict, IFC overlays) |
+| `toast` | 300000 | `--z-toast` | transient notifications |
+| `loadingOverlay` | 900000 | `--z-loading-overlay` | engine boot spinner / blocking progress overlays |
+| `critical` | 2147483000 | `--z-critical` | last-resort escape hatch (renderer backend toggle, reload notice) |
+
+### §7.2 — No-overlap layout policy
+
+Chrome elements that share a screen REGION MUST declare that region and MUST NOT
+occlude peers. A launcher/toolbar/panel MAY sit above the viewport, but two
+chrome elements in the SAME region MUST NOT be placed at overlapping coordinates.
+
+- **Region ownership.** The viewport (`#container`) owns the canvas. Persistent
+  chrome owns fixed screen edges: top = toolbar, left = nav/tool rails, bottom-left
+  corner = the **launcher rail**, right = inspectors. A floating control MUST NOT
+  be anchored inside another region's footprint.
+- **Launcher rail (bottom-left).** The always-on launcher pills form a single,
+  declared, collision-free vertical column, `position:fixed` at the `launcher`
+  layer, stacking upward from just above the bottom-left renderer-backend toggle.
+  Each pill owns a numbered SLOT via `launcherRailStyle(slot)` in `zLayers.ts`
+  (`siteView`=0, `planGis`=1, `graph`=2, `livingGraph`=3). New launchers MUST take
+  the next slot — never a hand-picked `bottom:`/`z-index`.
+- **`position:absolute` inside a low-lying container is forbidden for chrome that
+  must float above panels.** `#container` does not create a stacking context in
+  the BIM view (`z-index:auto`), so an absolutely-positioned child with `z-index`
+  competes at the ROOT and is buried by any chrome sibling with a higher value.
+  Chrome that must overlay panels MUST be `position:fixed` at the correct layer.
+
+### §7.3 — Migration rule (merge-blocking intent)
+
+- New or edited UI-chrome code MUST NOT introduce a raw `z-index` literal — always
+  the token (`Z_LAYERS`/`zCss()` in TS, `var(--z-*)` in CSS).
+- Adding a stacking tier means adding a NAMED token to BOTH mirrors, not a literal.
+- Until a lint rule lands, reviewers enforce this on any diff touching `src/ui/`.
+
+### §7.4 — Audit & phased migration (the ~325 sites)
+
+The inventory below groups the raw literals by ROLE → target layer. **Phase 1
+(DONE, L-149)** migrated the always-on launcher cluster — the reported bug — as
+the proof-of-system:
+
+| Element | Was | Now |
+|---|---|---|
+| `#pryzm-site-view-launcher` ("◉ 3D Site / Globe") | `absolute` in `#container`, `z:20` | `fixed`, `launcher` (10000), rail slot 0 |
+| `#pryzm-plan-gis-launcher` ("▦ Plan + Site") | `absolute` in `#container`, `z:20` | `fixed`, `launcher`, rail slot 1 |
+| `#pryzm-graph-launcher` ("⚛ Graph") | `fixed`, `z:28`, `bottom:64` | `fixed`, `launcher`, rail slot 2 |
+| `#pryzm-living-graph-launcher` ("✦ Living Graph") | `fixed`, `z:28`, `bottom:104` | `fixed`, `launcher`, rail slot 3 |
+
+Files touched Phase 1: `apps/editor/src/ui/layout/zLayers.ts` (new SSOT),
+`apps/editor/src/ui/styles/layout.css` (`--z-*` mirror),
+`apps/editor/src/ui/layout/GISAreaLayout.ts`, `apps/editor/src/ui/graph/index.ts`,
+`apps/editor/src/ui/living-graph/index.ts`.
+
+**Remaining phases (NOT yet migrated — logged so nothing is silently half-done):**
+
+- **Phase 2 — Overlays/modals/toasts tier** (highest literals, clearest mapping):
+  IFC import/export/report overlays (`z:999999`, `initUI.ts`), import-mode dialog
+  (`z:200000`), `EngineLoadingOverlay` (`z:99999`), `appToast` (`z:99999`),
+  `earlyAccessBanner` (`z:99999`), `RendererSwapOverlay`, `BatchLoadingIndicator`,
+  `operationOverlay` → `modal` / `toast` / `loadingOverlay` / `critical`.
+- **Phase 3 — Platform shell chrome:** `platformToolbar` (`9000/9900/9101/8900`),
+  `contextualEditBar` (`8990/9100`), `leftNavRail` (`9999`), `workspaceModeBar`
+  (`200`), `appMenu` (`2000`), `ribbonMenu` (`10`), `ownerSettingsPanel` (`9999`)
+  → `toolbar` / `contextualBar` / `rail` / `popover`.
+- **Phase 4 — Docks, panels, drawers:** `dockingSystem`, `splitView`, `sheetEditor`
+  (16 sites), `dataWorkbench`, `projectHub` (12 sites), `syncStateDrawer`,
+  `viewerPanels`, the ViewBrowser/inspector panels → `panel` / `drawer`.
+- **Phase 5 — Canvas-space overlays & mode-pickers:** `canvasOverlays`,
+  `selectionOverlay`, `SnapIndicatorOverlay`, `StructuralOverlay`,
+  `AmbientIndicator`, `drawingHuds`, `toolHud`, the `mode-pickers/*` → `viewportHud`
+  / `popover`.
+- **Phase 6 — Result-view toggles:** the two `showSiteResultView` bars in
+  `GISAreaLayout.ts` (`z:30/31`, floating over the Cesium view) → `contextualBar`
+  (kept raw in Phase 1 to preserve their intentional +1 ordering over Cesium `z:15`).
+- **Phase 7 — CesiumViewport** (`CESIUM_Z=15`) and the WebGPU overlay (`z:2`) →
+  `canvas` band tokens (deferred — those files are outside the L-149 fence).

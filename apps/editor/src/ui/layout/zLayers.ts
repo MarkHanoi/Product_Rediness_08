@@ -1,0 +1,143 @@
+/**
+ * zLayers — the SINGLE SOURCE OF TRUTH for UI stacking order (z-index).
+ *
+ * Contract: C06 §7 — UI Layering & Overlap (see
+ * `docs/02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md`).
+ *
+ * WHY THIS EXISTS (L-149, §FIX-UI-LAYERING-ZINDEX-CONTRACT)
+ * ─────────────────────────────────────────────────────────
+ * Before this module there were ~325 hardcoded `z-index` literals across
+ * `apps/editor/src/ui` with no ordering discipline (values ranged from `2` to
+ * `2147483000`). Arbitrary literals produced unpredictable stacking and visible
+ * overlaps — most visibly the always-on GIS launcher rail ("◉ 3D Site / Globe",
+ * "▦ Plan + Site") which was `position:absolute` inside `#container` at
+ * `z-index:20` and therefore lost the stacking race to every piece of root-level
+ * chrome (top toolbar `9000`, left nav rail `9999`), rendering BELOW them.
+ *
+ * THE SCALE (ascending — larger paints on top)
+ * ─────────────────────────────────────────────
+ * A NAMED, ORDERED token set. Numeric values are calibrated to the app's
+ * pre-existing convention (thousands / hundred-thousands) so a PHASED migration
+ * is monotonic: a migrated element keeps working against not-yet-migrated
+ * neighbours. The ORDER is the contract; the exact numbers are an implementation
+ * detail that MAY be re-based once every site is migrated.
+ *
+ *   canvas          — the 3D canvases (#container, WebGPU/WebGL, Cesium globe)
+ *   underlay        — scene / plan-canvas underlays beneath authored geometry
+ *   viewportHud     — canvas-space overlays (snap, structural, ambient indicators)
+ *   panel           — docks, side panels, browsers, inspectors
+ *   rail            — persistent nav / tool rails (left nav, tools rail)
+ *   toolbar         — top platform toolbar / ribbon / workspace-mode bars
+ *   contextualBar   — selection-driven contextual edit bars + view toggles
+ *   launcher        — ALWAYS-ON floating launchers / rails (GIS + graph pills)
+ *   popover         — menus, dropdowns, tooltips, mode-pickers
+ *   drawer          — side drawers (sync-state, data)
+ *   modal           — blocking dialogs (import mode, conflict, IFC overlays)
+ *   toast           — transient notifications
+ *   loadingOverlay  — engine boot spinner / blocking progress overlays
+ *   critical        — last-resort escape hatch (renderer backend toggle, reload notice)
+ *
+ * MIGRATION RULE (CI-intent, enforced by review until a lint rule lands):
+ *   New or edited UI-chrome code MUST NOT introduce a raw `z-index` literal.
+ *   Always use `Z_LAYERS` / `zCss()` (TS) or the matching `--z-*` custom property
+ *   (CSS, declared in `apps/editor/src/ui/styles/layout.css`). Both derive from
+ *   the SAME scale documented here — keep them in lock-step.
+ */
+
+export const Z_LAYERS = {
+    canvas:         0,
+    underlay:       100,
+    viewportHud:    900,
+    panel:          1000,
+    rail:           2000,
+    toolbar:        9000,
+    contextualBar:  9100,
+    launcher:       10000,
+    popover:        20000,
+    drawer:         40000,
+    modal:          200000,
+    toast:          300000,
+    loadingOverlay: 900000,
+    critical:       2147483000,
+} as const;
+
+export type ZLayer = keyof typeof Z_LAYERS;
+
+/** Numeric z-index for a named layer. */
+export function zIndexOf(layer: ZLayer): number {
+    return Z_LAYERS[layer];
+}
+
+/** z-index for a named layer as a CSS string (for inline `style.zIndex`). */
+export function zCss(layer: ZLayer): string {
+    return String(Z_LAYERS[layer]);
+}
+
+/**
+ * The `:root { --z-* }` custom-property block, derived from the SAME scale, so
+ * CSS-authored chrome can reference `var(--z-launcher)` etc. This string is the
+ * canonical CSS mirror; it is duplicated (kept in lock-step) inside
+ * `apps/editor/src/ui/styles/layout.css` so the vars are available even before
+ * any JS runs. Exposed here for a future single-injection wiring / tests.
+ */
+export function zLayerCssVars(): string {
+    const lines = (Object.keys(Z_LAYERS) as ZLayer[])
+        .map((k) => `  --z-${kebab(k)}: ${Z_LAYERS[k]};`)
+        .join('\n');
+    return `:root {\n${lines}\n}`;
+}
+
+function kebab(s: string): string {
+    return s.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// No-overlap layout policy — the always-on launcher rail
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// C06 §7.2 — chrome elements that share a screen region MUST declare that region
+// and MUST NOT occlude peers. The always-on launcher pills (GIS "3D Site" +
+// "Plan + Site", plus the "Graph" + "Living Graph" overlays) all live in the
+// bottom-LEFT corner. Historically two independent code paths placed pills there
+// with hand-picked `bottom:` offsets (GIS at 48/86, graph at 64/104) that
+// INTERLEAVED and physically overlapped. This helper makes the corner a single,
+// declared, collision-free vertical stack: each launcher owns a fixed SLOT.
+//
+// The stack is `position:fixed` (escapes the `#container` stacking trap that
+// buried the GIS pills) at the `launcher` layer, left-anchored, stacking upward
+// from just above the bottom-left renderer-backend toggle (`critical` layer,
+// bottom:10px, ~30px tall).
+
+export const LAUNCHER_RAIL = {
+    /** Left inset for the whole corner column (px). */
+    left: 12,
+    /** Bottom offset of slot 0 (px) — clears the GPU backend toggle at bottom:10. */
+    bottomBase: 54,
+    /** Vertical pitch between slots (px) — pill ≈ 30px tall + ~14px gap. */
+    slotStep: 44,
+} as const;
+
+/** Ordered slots in the bottom-left launcher rail (0 = lowest). */
+export type LauncherSlot = 'siteView' | 'planGis' | 'graph' | 'livingGraph';
+
+export const LAUNCHER_SLOT_INDEX: Record<LauncherSlot, number> = {
+    siteView:    0,
+    planGis:     1,
+    graph:       2,
+    livingGraph: 3,
+};
+
+/**
+ * The collision-free `position:fixed` anchoring + `launcher`-layer z-index for a
+ * launcher pill's declared slot. Spread onto the element's inline style; the
+ * caller still owns cosmetic styling (padding, colour, shadow).
+ */
+export function launcherRailStyle(slot: LauncherSlot): Partial<CSSStyleDeclaration> {
+    const i = LAUNCHER_SLOT_INDEX[slot];
+    return {
+        position: 'fixed',
+        left: `${LAUNCHER_RAIL.left}px`,
+        bottom: `${LAUNCHER_RAIL.bottomBase + i * LAUNCHER_RAIL.slotStep}px`,
+        zIndex: zCss('launcher'),
+    };
+}

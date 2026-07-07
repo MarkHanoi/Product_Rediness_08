@@ -7,6 +7,10 @@
 // P3-safe (no rAF — see BuildingGraphOverlay.startTicker).
 
 import { BuildingGraphOverlay } from './BuildingGraphOverlay';
+// §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — shared launcher-rail policy
+// so this pill declares a collision-free SLOT instead of a hand-picked bottom/z
+// that interleaved with the GIS launchers (the founder's bottom-left overlap).
+import { launcherRailStyle } from '../layout/zLayers';
 
 export { BuildingGraphOverlay } from './BuildingGraphOverlay';
 export {
@@ -60,10 +64,9 @@ export function installBuildingGraphOverlay(): void {
     btn.title = 'Building graph — relational view of the model';
     btn.textContent = '⚛ Graph';
     Object.assign(btn.style, {
-      position: 'fixed',
-      left: '12px',
-      bottom: '64px',
-      zIndex: '28',
+      // Launcher rail slot 2 — above the two GIS site pills (slots 0–1), below
+      // "Living Graph" (slot 3). Shared `launcher` layer (10000) via the policy.
+      ...launcherRailStyle('graph'),
       padding: '6px 12px',
       borderRadius: '10px',
       background: '#ffffff',
