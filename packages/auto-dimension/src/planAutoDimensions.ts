@@ -104,11 +104,90 @@ function serialize(
   });
 }
 
+/** Minimal structural view of a run for coverage QA (also satisfied by `WallRun`). */
+export interface ChainCoverageRun {
+  readonly id: string;
+  readonly nodeRefs: readonly { readonly station: number }[];
+}
+/** Minimal structural view of a placed string for coverage QA (satisfied by `PlacedString`). */
+export interface ChainCoverageString {
+  readonly axisId: string;
+  readonly kind: string;
+  readonly stationSpan: readonly [number, number];
+}
+
+/**
+ * §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147, SPEC §4.4 QA-2 / C56 §1.3 DI-3+DI-6)
+ * — per-run chain-partition detection. For each exterior run, the chain ticks
+ * MUST partition `[firstStation, lastStation]` with no GAP (a façade interval with
+ * no covering dim = incomplete documentation) and no OVERLAP (two chain segments
+ * measuring the same interval). Returns non-blocking `chain-gap`/`chain-overlap`
+ * warnings; never throws. Slivers below `minSeg` are intentionally un-dimensioned
+ * (planners.ts skips them) so gaps ≤ `minSeg` are not reported.
+ *
+ * Exported (structural inputs) so the completeness detection is unit-testable in
+ * isolation without fabricating a full PlacedString. Pure + deterministic.
+ */
+export function detectChainCoverageGaps(
+  runs: readonly ChainCoverageRun[],
+  planned: readonly ChainCoverageString[],
+  minSeg: number,
+): ValidationWarning[] {
+  // P8 (§1.7) — exported entry opens a `qa`-stage span; nests under the QA span
+  // when called from the pipeline, opens its own when unit-tested directly.
+  return withAutoDimSpan('qa', () => detectChainCoverageGapsImpl(runs, planned, minSeg));
+}
+
+/** Unspanned implementation — the pipeline's Stage-8 QA calls this directly. */
+function detectChainCoverageGapsImpl(
+  runs: readonly ChainCoverageRun[],
+  planned: readonly ChainCoverageString[],
+  minSeg: number,
+): ValidationWarning[] {
+  const out: ValidationWarning[] = [];
+  for (const run of runs) {
+    const nodeStations = run.nodeRefs.map((r) => r.station);
+    if (nodeStations.length < 2) continue;
+    const lo = Math.min(...nodeStations);
+    const hi = Math.max(...nodeStations);
+    if (hi - lo < minSeg) continue;
+
+    // Covered intervals = chain strings on THIS run's axis (excludes overalls,
+    // whose axisId is `overall-*`). Sorted ascending, normalised [a,b].
+    const intervals = planned
+      .filter((p) => p.axisId === run.id && (p.kind === 'linear-chain' || p.kind === 'linear-element'))
+      .map((p) => [Math.min(p.stationSpan[0], p.stationSpan[1]), Math.max(p.stationSpan[0], p.stationSpan[1])] as [number, number])
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+    if (intervals.length === 0) {
+      out.push({ code: 'chain-gap', detail: `${run.id} [${lo.toFixed(3)},${hi.toFixed(3)}] uncovered` });
+      continue;
+    }
+
+    // Walk left→right: report gaps > minSeg and overlaps > EPSILON.
+    let cursor = lo;
+    for (const [a, b] of intervals) {
+      if (a - cursor > minSeg) {
+        out.push({ code: 'chain-gap', detail: `${run.id} [${cursor.toFixed(3)},${a.toFixed(3)}] uncovered` });
+      } else if (cursor - a > 0.001) {
+        out.push({ code: 'chain-overlap', detail: `${run.id} [${a.toFixed(3)},${Math.min(b, cursor).toFixed(3)}]` });
+      }
+      cursor = Math.max(cursor, b);
+    }
+    if (hi - cursor > minSeg) {
+      out.push({ code: 'chain-gap', detail: `${run.id} [${cursor.toFixed(3)},${hi.toFixed(3)}] uncovered` });
+    }
+  }
+  return out;
+}
+
 function runQA(
   snapshot: AutoDimSnapshot,
   perimNodes: readonly DimNode[],
   planned: readonly PlacedString[],
+  runs: readonly WallRun[],
   hasPerimeter: boolean,
+  minSeg: number,
   resolutionNotes: readonly ValidationWarning[],
 ): ValidationWarning[] {
   const warnings: ValidationWarning[] = [...resolutionNotes];
@@ -118,6 +197,44 @@ function runQA(
   }
   if (!hasPerimeter) {
     warnings.push({ code: 'open-perimeter', detail: 'no closed building perimeter — per-wall fallback used' });
+  }
+
+  // §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147, C56 §1.3 DI-7) — the ORTHOGONAL-ONLY
+  // invariant. The `overall` bbox extents are axis-aligned by construction (the
+  // AABB is world-cardinal); an `overall` that ever arrived non-cardinal would be
+  // rendered as a diagonal across the footprint. Defensive guard — never expected
+  // to fire (planOverall only emits horizontal/vertical), records if it ever does.
+  for (const p of planned) {
+    if (p.kind === 'overall' && p.orientation !== 'horizontal' && p.orientation !== 'vertical') {
+      warnings.push({ code: 'non-orthogonal-string', detail: `overall ${p.axisId} orientation=${p.orientation}` });
+    }
+  }
+
+  // §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147, SPEC §4.4 QA-2) — chain gap/overlap.
+  // A full-façade run whose length equals the perimeter AABB extent shares its
+  // end-to-end ref-pair with the `overall` and is DEDUPED into it (DI-4, keep the
+  // higher-rank overall — SPEC §4.3). That façade IS dimensioned (by the overall),
+  // so credit the run's full interval when an overall carries its end-to-end refs.
+  if (hasPerimeter) {
+    const overallRefKeys = new Set<string>();
+    for (const p of planned) {
+      if (p.kind !== 'overall') continue;
+      overallRefKeys.add([...p.refs].map((r) => `${r.elementId}:${r.anchor}`).sort().join('|'));
+    }
+    const coverage: ChainCoverageString[] = planned.map((p) => ({
+      axisId: p.axisId, kind: p.kind, stationSpan: p.stationSpan,
+    }));
+    for (const run of runs) {
+      const first = run.nodeRefs[0];
+      const last = run.nodeRefs[run.nodeRefs.length - 1];
+      if (!first || !last) continue;
+      const key = [`${first.elementId}:${first.anchor}`, `${last.elementId}:${last.anchor}`].sort().join('|');
+      if (overallRefKeys.has(key)) {
+        coverage.push({ axisId: run.id, kind: 'linear-chain', stationSpan: [first.station, last.station] });
+      }
+    }
+    // Unspanned impl — already inside the Stage-8 `qa` span (avoid double nesting).
+    warnings.push(...detectChainCoverageGapsImpl(runs, coverage, minSeg));
   }
 
   // QA-1 opening coverage + DI-2 (every opening located AND sized).
@@ -262,7 +379,7 @@ export function planAutoDimensions(
     const strings = serialize(resolved, opts, idFactory);
 
     // ── Stage 8: QA (post-resolution validation notes) ──────────────────────
-    const warnings = withAutoDimSpan('qa', () => runQA(snapshot, perimNodes, resolved, hasPerimeter, notes));
+    const warnings = withAutoDimSpan('qa', () => runQA(snapshot, perimNodes, resolved, runs, hasPerimeter, minSeg, notes));
 
     const openingCount = snapshot.walls.reduce((s, w) => s + w.openings.length, 0);
     const dimensioned = new Set<string>();

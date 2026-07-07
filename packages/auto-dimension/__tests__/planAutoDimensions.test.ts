@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { planAutoDimensions, polygonCentroid, outwardNormal, segmentsCross } from '../src/index.js';
+import {
+  planAutoDimensions, polygonCentroid, outwardNormal, segmentsCross,
+  cardinalMeasurementAxis, detectChainCoverageGaps,
+} from '../src/index.js';
 import type { AutoDimSnapshot, AutoDimWall } from '../src/index.js';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -29,6 +32,25 @@ function lPlan(): AutoDimSnapshot {
     b: v[(i + 1) % v.length]!,
     thickness: 0.2,
     openings: [],
+  }));
+  return { walls };
+}
+
+/**
+ * §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147) — a NOTCHED-CORNER L whose min-X
+ * extreme corner and max-X extreme corner sit at DIFFERENT z (and min-Z vs max-Z
+ * at different x). This is the founder's staircase footprint: the perimeter AABB
+ * corners the `overall` references are NOT collinear on the cross-axis, so a bare
+ * point-to-point render would draw the corner-to-corner DIAGONAL (hypot of the
+ * bbox). Vertices CCW: (2,0)(8,0)(8,6)(0,6)(0,3)(2,3) — bbox 8 × 6.
+ */
+function notchedCornerPlan(): AutoDimSnapshot {
+  const v = [
+    { x: 2, z: 0 }, { x: 8, z: 0 }, { x: 8, z: 6 },
+    { x: 0, z: 6 }, { x: 0, z: 3 }, { x: 2, z: 3 },
+  ];
+  const walls: AutoDimWall[] = v.map((p, i) => ({
+    id: `wall_${i}`, a: p, b: v[(i + 1) % v.length]!, thickness: 0.2, openings: [],
   }));
   return { walls };
 }
@@ -311,5 +333,153 @@ describe('planAutoDimensions — P2 edge cases (angled walls, geometry helpers)'
     expect(segmentsCross({ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 2, z: -1 }, { x: 2, z: 1 })).toBe(true); // cross
     expect(segmentsCross({ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 2 })).toBe(false); // touch at endpoint
     expect(segmentsCross({ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 1, z: 0 }, { x: 3, z: 0 })).toBe(false); // collinear
+  });
+});
+
+// ── L-147 §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS — orthogonal-only + completeness ────
+
+/**
+ * Mirror of the renderer's §DIM-ORTHO measurement (PlanViewAnnotationRenderer.
+ * _renderLinearDim): given a cardinal measurement axis, the drawn/labelled length
+ * is the PROJECTION of (p2−p1) onto that axis — NOT the point-to-point hypot.
+ * Without a measurement axis the renderer falls back to the hypot (the diagonal).
+ */
+function renderMeasure(
+  snapshot: AutoDimSnapshot,
+  s: { references: readonly { elementId: string; anchor: string }[]; orientation: string },
+): number {
+  const p1 = resolvePoint(snapshot, s.references[0]!.elementId as string, s.references[0]!.anchor);
+  const p2 = resolvePoint(snapshot, s.references[1]!.elementId as string, s.references[1]!.anchor);
+  const axis = cardinalMeasurementAxis(s.orientation as 'horizontal' | 'vertical' | 'aligned' | 'angular');
+  if (!axis) return Math.hypot(p2.x - p1.x, p2.z - p1.z); // aligned → along-line hypot
+  // Project onto the cardinal axis (world +X for horizontal, +Z for vertical).
+  return Math.abs((p2.x - p1.x) * axis.x + (p2.z - p1.z) * axis.z);
+}
+
+describe('cardinalMeasurementAxis — the orthogonal-only invariant (DI-7)', () => {
+  it('maps cardinal orientations to a world axis, aligned/angular to null', () => {
+    expect(cardinalMeasurementAxis('horizontal')).toEqual({ x: 1, y: 0, z: 0 });
+    expect(cardinalMeasurementAxis('vertical')).toEqual({ x: 0, y: 0, z: 1 });
+    expect(cardinalMeasurementAxis('aligned')).toBeNull();
+    expect(cardinalMeasurementAxis('angular')).toBeNull();
+  });
+});
+
+describe('planAutoDimensions — ORTHOGONAL-ONLY on a notched-corner L (no diagonal)', () => {
+  it('the overall corners are non-collinear (would render a diagonal without the axis)', () => {
+    const snap = notchedCornerPlan();
+    const { strings } = planAutoDimensions(snap, OPTS);
+    const h = strings.find((s) => s.kind === 'overall' && s.orientation === 'horizontal')!;
+    const v = strings.find((s) => s.kind === 'overall' && s.orientation === 'vertical')!;
+    // Diagonal-prone: the two referenced corners differ on the cross-axis.
+    const hp1 = resolvePoint(snap, h.references[0]!.elementId as string, h.references[0]!.anchor);
+    const hp2 = resolvePoint(snap, h.references[1]!.elementId as string, h.references[1]!.anchor);
+    expect(Math.abs(hp1.z - hp2.z)).toBeGreaterThan(0.001); // NOT collinear on z
+    // A naive point-to-point render would label the bbox HYPOT (the founder's bug).
+    expect(Math.hypot(hp2.x - hp1.x, hp2.z - hp1.z)).toBeGreaterThan(8 + 0.01);
+    // The ORTHOGONAL render measures the axis extent: exactly the bbox width/height.
+    expect(renderMeasure(snap, h)).toBeCloseTo(8, 6);
+    expect(renderMeasure(snap, v)).toBeCloseTo(6, 6);
+  });
+
+  it('EVERY emitted string is cardinal (zero diagonal strings) with a defined axis', () => {
+    for (const snap of [lPlan(), notchedCornerPlan()]) {
+      const { strings } = planAutoDimensions(snap, OPTS);
+      expect(strings.length).toBeGreaterThan(0);
+      for (const s of strings) {
+        // No 'aligned'/'angular' string on an axis-aligned footprint.
+        expect(['horizontal', 'vertical']).toContain(s.orientation);
+        // Its cardinal measurement axis is defined → renderer draws axis-aligned.
+        expect(cardinalMeasurementAxis(s.orientation as 'horizontal' | 'vertical')).not.toBeNull();
+        // The orthogonal render never exceeds the point-to-point hypot (it is the
+        // axis projection of it), and matches the orientation-aware value.
+        const rm = renderMeasure(snap, s);
+        expect(rm).toBeCloseTo(measured(snap, s), 6);
+      }
+    }
+  });
+
+  it('QA flags no non-orthogonal overall on the notched plan', () => {
+    const { report } = planAutoDimensions(notchedCornerPlan(), OPTS);
+    expect(report.warnings.filter((w) => w.code === 'non-orthogonal-string').length).toBe(0);
+  });
+
+  it('re-run is byte-identical (determinism preserved on the notched plan)', () => {
+    const a = planAutoDimensions(notchedCornerPlan(), OPTS);
+    const b = planAutoDimensions(notchedCornerPlan(), OPTS);
+    expect(JSON.stringify(a.strings)).toEqual(JSON.stringify(b.strings));
+    expect(JSON.stringify(a.report.warnings)).toEqual(JSON.stringify(b.report.warnings));
+  });
+});
+
+describe('planAutoDimensions — COMPLETE exterior chains (DI-3, QA-2)', () => {
+  it('every exterior run interval is covered — no chain-gap/overlap (L + notched)', () => {
+    for (const snap of [lPlan(), notchedCornerPlan()]) {
+      const { report } = planAutoDimensions(snap, OPTS);
+      expect(report.warnings.filter((w) => w.code === 'chain-gap').length).toBe(0);
+      expect(report.warnings.filter((w) => w.code === 'chain-overlap').length).toBe(0);
+    }
+  });
+
+  it('the notch jogs each get their own chain segment (per-side coverage)', () => {
+    const snap = notchedCornerPlan();
+    const { strings } = planAutoDimensions(snap, OPTS);
+    const chainLens = strings
+      .filter((s) => s.kind === 'linear-chain')
+      .map((s) => measured(snap, s));
+    // Bottom-left notch jog (x: 0→2 on the z=3 step) and (z: 0→3 on the x=2 step).
+    expect(chainLens.some((l) => Math.abs(l - 2) < 1e-6)).toBe(true);
+    expect(chainLens.some((l) => Math.abs(l - 3) < 1e-6)).toBe(true);
+    // Full-width top (8) and full-height right (6) façades are chained too.
+    expect(chainLens.some((l) => Math.abs(l - 8) < 1e-6)).toBe(true);
+    expect(chainLens.some((l) => Math.abs(l - 6) < 1e-6)).toBe(true);
+  });
+});
+
+describe('detectChainCoverageGaps — QA-2 gap/overlap detection (unit)', () => {
+  const run = { id: 'run:A', nodeRefs: [{ station: 0 }, { station: 6 }] };
+
+  it('reports a chain-gap when part of a run has no covering dim', () => {
+    // Only [0,2] covered; [2,6] is an undimensioned façade interval.
+    const warnings = detectChainCoverageGaps(
+      [run],
+      [{ axisId: 'run:A', kind: 'linear-chain', stationSpan: [0, 2] }],
+      0.05,
+    );
+    expect(warnings.some((w) => w.code === 'chain-gap')).toBe(true);
+  });
+
+  it('reports a chain-overlap when two segments cover the same interval', () => {
+    const warnings = detectChainCoverageGaps(
+      [run],
+      [
+        { axisId: 'run:A', kind: 'linear-chain', stationSpan: [0, 4] },
+        { axisId: 'run:A', kind: 'linear-chain', stationSpan: [3, 6] },
+      ],
+      0.05,
+    );
+    expect(warnings.some((w) => w.code === 'chain-overlap')).toBe(true);
+  });
+
+  it('a fully-partitioned run is clean (no gap, no overlap) — non-crashing', () => {
+    const warnings = detectChainCoverageGaps(
+      [run],
+      [
+        { axisId: 'run:A', kind: 'linear-chain', stationSpan: [0, 3] },
+        { axisId: 'run:A', kind: 'linear-chain', stationSpan: [3, 6] },
+      ],
+      0.05,
+    );
+    expect(warnings.length).toBe(0);
+  });
+
+  it('ignores sub-minSeg slivers (intentional un-dimensioned tick)', () => {
+    // [0,2.99] covered, 0.01 sliver to 3 (< minSeg 0.05) — not a reportable gap.
+    const warnings = detectChainCoverageGaps(
+      [{ id: 'run:A', nodeRefs: [{ station: 0 }, { station: 3 }] }],
+      [{ axisId: 'run:A', kind: 'linear-chain', stationSpan: [0, 2.99] }],
+      0.05,
+    );
+    expect(warnings.length).toBe(0);
   });
 });

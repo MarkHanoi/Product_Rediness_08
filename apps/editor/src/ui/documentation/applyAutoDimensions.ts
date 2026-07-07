@@ -48,6 +48,7 @@ import {
 } from '@pryzm/geometry-kernel';
 import {
   planAutoDimensions,
+  cardinalMeasurementAxis,
   type AutoDimSnapshot,
   type AutoDimWall,
 } from '@pryzm/auto-dimension';
@@ -272,6 +273,19 @@ export function dimensionStringsToLinearDimAnnotations(
       // p1World/p2World are [worldX_mm, worldZ_mm]; back to metres for the plan.
       const vA = new THREE.Vector3(ev.p1World[0] / MM_PER_M, 0, ev.p1World[1] / MM_PER_M);
       const vB = new THREE.Vector3(ev.p2World[0] / MM_PER_M, 0, ev.p2World[1] / MM_PER_M);
+      // §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147, C56 §1.3 DI-7) — the ORTHOGONAL-
+      // ONLY invariant at the render boundary. The `overall` string references the
+      // two EXTREME perimeter corners (SPEC §4.2) so it stays live; on an L/notched
+      // footprint those corners are NOT collinear on the cross-axis, so a bare
+      // point-to-point `linear-dim` renders (and labels) the corner-to-corner
+      // DIAGONAL = hypot of the bbox (the founder's spurious `34601 mm`). We stamp
+      // `measurementNormal` = the engine's cardinal axis for the string's
+      // orientation (world +X for horizontal, +Z for vertical); the renderer's
+      // §DIM-ORTHO branch (PlanViewAnnotationRenderer._renderLinearDim) then draws a
+      // clean axis-aligned line and labels the axis EXTENT (the bbox width/height),
+      // never the diagonal. `aligned` strings (angled façades) get no normal and
+      // legitimately measure along their own direction.
+      const measurementNormal = cardinalMeasurementAxis(seg.orientation) ?? undefined;
       const geometry2D = {
         modelPoints: [
           { x: vA.x, y: 0, z: vA.z },
@@ -279,6 +293,7 @@ export function dimensionStringsToLinearDimAnnotations(
         ],
         // engine offsetMm is SIGNED (per-side, P2); geometry2D.offset is metres.
         offset: seg.offsetMm / MM_PER_M,
+        ...(measurementNormal ? { measurementNormal } : {}),
       };
       return makeAnnotationElement(
         createId('annotation'),

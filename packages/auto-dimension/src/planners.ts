@@ -8,11 +8,45 @@
 // Dedup rule: identical (orientation, ref-pair) strings are never emitted twice.
 // Tiny segments (< minSegmentM) are skipped so slivers never produce a dim.
 
+import type { DimOrientation } from '@pryzm/schemas/annotation/dimension';
 import type { DimNode, WallRun, PlannedString, TickRef } from './types.js';
 import type { RunOpening } from './openings.js';
 import { stationToWorld } from './geometry.js';
+import { withAutoDimSpan } from './tracing.js';
 
 const EPSILON_M = 0.001; // tick coincidence (mirrors WallOccupancyStore epsilon)
+
+/**
+ * §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147, C56 §1.3 DI-7) — the ORTHOGONAL-ONLY
+ * invariant, as a pure lookup the L5 executor consumes.
+ *
+ * A `DimensionString` carries an `orientation` but the plan render path draws a
+ * `linear-dim` annotation POINT-TO-POINT between its two resolved world anchors
+ * unless a `measurementNormal` (the axis to measure along) is supplied
+ * (`PlanViewAnnotationRenderer._renderLinearDim` §DIM-ORTHO branch). The `overall`
+ * string deliberately references the two EXTREME perimeter corners (SPEC §4.2) so
+ * it stays live; on an L / notched footprint those corners are NOT collinear on
+ * the cross-axis, so without a measurement axis the renderer draws (and labels)
+ * the corner-to-corner DIAGONAL (`hypot` of the bbox) instead of the axis extent.
+ *
+ * This returns the CARDINAL measurement axis for a horizontal/vertical string
+ * (world +X / +Z), or `null` for `aligned`/`angular` strings which legitimately
+ * measure along their own (possibly diagonal) direction. The executor stamps the
+ * result onto `geometry2D.measurementNormal` so every cardinal auto-dim renders
+ * as a clean axis-aligned line — never a diagonal across the footprint.
+ *
+ * Pure + deterministic; P8 (§1.7) — opens a `chain`-stage span at its exported
+ * entry (bounded: called once per emitted orientation, ≤ a handful of values).
+ */
+export function cardinalMeasurementAxis(
+  orientation: DimOrientation,
+): { x: number; y: number; z: number } | null {
+  return withAutoDimSpan('chain', () => {
+    if (orientation === 'horizontal') return { x: 1, y: 0, z: 0 };
+    if (orientation === 'vertical') return { x: 0, y: 0, z: 1 };
+    return null; // 'aligned' / 'angular' — measured along the A→B direction.
+  });
+}
 
 /** World point of a run tick (station → origin + axisDir·station). */
 function runWorld(run: WallRun, s: number) {

@@ -144,6 +144,15 @@ export interface ValidationWarning {
     | 'duplicate-string'       // a duplicate survived Stage-7 (QA-4)
     | 'text-overlap-unresolved'
     | 'geometry-crossing'      // dim line crosses geometry, unavoidable (DI-5)
+    // §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147) — QA-2 run-partition detection
+    // (SPEC §4.4, DI-3/DI-6). A run whose ticks leave part of its façade
+    // uncovered, or whose chain segments overlap, is incomplete documentation.
+    | 'chain-gap'              // a run interval has no covering chain dim (DI-3/DI-6)
+    | 'chain-overlap'          // two chain segments cover the same run interval (QA-2)
+    // §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147) — the orthogonal-only invariant
+    // (C56 §1.3 DI-7). A cardinal (horizontal/vertical) string whose orientation
+    // cannot be honoured as an axis measure would render diagonally.
+    | 'non-orthogonal-string'
     | 'no-walls'
     | 'degenerate-run';
   readonly detail: string;
