@@ -308,6 +308,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-152 [HIGH] creating the LAST wall re-mutates earlier already-correct joints (whole-level re-resolve not idempotent) | Wall junction resolver (ADR-0055) | **OPEN → wall agent (resume Agent B; fenced geometry-wall + WallRebuildCoordinator)** — resolve must be idempotent: only the new wall's junctions may change, all settled joints byte-identical; broader than L-146; §FIX-WALL-RESOLVE-IDEMPOTENT-JOINTS |
 
+| L-153 [HIGH] live swap WebGL→WebGPU CRASHES back to project page (WebGPU→WebGL fine) — TSL/device not ready before ScenePass on the to-WebGPU path | Rendering / renderer live-swap (ADR-0077, C04) | **OPEN → rendering lane, SEQUENCED after L-150 agent (shares initScene/createRenderer)** — order swap: create WebGPU→initTSL→rebuild pipeline→resume; roll back on failure (never remount/lose project); reuse L-141 overlay; §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
