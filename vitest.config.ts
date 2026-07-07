@@ -26,6 +26,8 @@ export default defineConfig({
       'apps/editor/src/engine/__tests__/**/*.spec.ts',
       // §FIX-AUTODIM-RENDER-SINK (L-138): DimensionString → 'linear-dim' adapter specs.
       'apps/editor/src/ui/documentation/__tests__/**/*.spec.ts',
+      // §FEAT-SWAP-LOADING-OVERLAY (L-141): renderer live-swap loading overlay specs.
+      'apps/editor/src/ui/overlays/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).

@@ -44,6 +44,12 @@ import {
   WebGPURendererAdapter,
   WebGLRendererAdapter,
 } from '@pryzm/renderer-three';
+// §FEAT-SWAP-LOADING-OVERLAY (L-141) — the WebGPU device-loss recovery below
+// disposes the dead renderer and rebuilds a fresh one (a backend swap in all but
+// name), so the viewport blanks during recovery. Cover it with the SAME shared
+// brand overlay the manual live-swap uses (apps/editor is one L7 unit, so this
+// intra-app UI import is in-bounds).
+import { showRendererSwapOverlay, hideRendererSwapOverlay } from '@app/ui/overlays/RendererSwapOverlay';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -233,6 +239,14 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
 
                     if (info.reason === 'destroyed') return;
 
+                    // §FEAT-SWAP-LOADING-OVERLAY (L-141) — the viewport is dead from
+                    // here until the recovered renderer is rebound (through the 2s GC
+                    // cooldown + renderer rebuild). Cover it with the shared brand
+                    // overlay now; the finally on the recovery try/catch below hides it
+                    // the instant recovery finishes (rebind ready OR safe-mode degrade
+                    // OR failure), so it is bounded by recovery and never stuck.
+                    showRendererSwapOverlay('Recovering renderer…');
+
                     // ── §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139): recovery CAP ──
                     // Count this loss and, once we exceed the cap, drop to a STABLE
                     // WebGL safe-mode BEFORE recreating: persist the 'webgl' backend
@@ -356,6 +370,11 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
                         }
                     } catch (err) {
                         console.error('[createRenderer] WebGPU recovery failed:', err);
+                    } finally {
+                        // §FEAT-SWAP-LOADING-OVERLAY (L-141) — guaranteed hide once
+                        // recovery settles on EVERY path (rebound, safe-mode, or a
+                        // thrown recovery error). Paired with the show() above.
+                        hideRendererSwapOverlay();
                     }
                 }).catch((err: unknown) => {
                     console.error('[createRenderer] WebGPU device.lost handler rejected (non-fatal):', err);

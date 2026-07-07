@@ -83,6 +83,8 @@ import type { RendererBackendPreference } from '../rendering/createRenderer';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 // §PERF-WEBGPU-FRAGMENT / ADR-0076 — user-facing GPU backend corner toggle.
 import { rendererBackendToggle } from '@app/ui/overlays/RendererBackendToggle';
+// §FEAT-SWAP-LOADING-OVERLAY (L-141) — brand loading cover over the live backend swap.
+import { showRendererSwapOverlay, hideRendererSwapOverlay } from '@app/ui/overlays/RendererSwapOverlay';
 import { RenderPipelineManager } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
 import { RenderHealthIndicator } from '@app/ui/overlays/RenderHealthIndicator';
@@ -3612,6 +3614,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             }
 
             _swapInFlight = true;
+            // §FEAT-SWAP-LOADING-OVERLAY (L-141) — cover the swap window. The old
+            // renderer/canvas are disposed and a fresh one is built below, so the
+            // viewport briefly blanks/flickers; show a brand loading cover now and
+            // hide it in the finally so it is bounded by this swap's own completion
+            // or rollback and can NEVER get stuck visible (even if the swap throws).
+            showRendererSwapOverlay('Switching renderer…');
             // Persist FIRST so createRenderer() resolves the new backend AND a fresh
             // boot honours the choice. (No reload — that is the whole point.)
             setRendererBackendPreference(pref);
@@ -3760,6 +3768,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 _swapInFlight = false;
                 span.end();
                 return false;
+            } finally {
+                // §FEAT-SWAP-LOADING-OVERLAY (L-141) — guaranteed hide on EVERY exit
+                // path (success, rollback, or an unexpected throw). Paired with the
+                // showRendererSwapOverlay() above so the cover is always bounded by
+                // this swap and never left stuck.
+                hideRendererSwapOverlay();
             }
         });
     };
