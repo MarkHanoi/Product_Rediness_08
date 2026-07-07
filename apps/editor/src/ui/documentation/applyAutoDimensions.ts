@@ -5,12 +5,26 @@
 // wall/opening snapshot into a non-redundant, architect-grade `DimensionString[]`.
 // This executor is the ONLY impure surface (P6): it gathers the live stores,
 // calls the planner, resolves each element-anchored string to WORLD points via
-// the geometry-kernel evaluator, and dispatches them through the command bus in
-// ONE `dimension.createMany` verb — one undo (C24.1 §1.2). It mirrors
-// `generateDocumentationSet` (gather → pure plan → bus) and never throws to the
-// caller. See docs/03-execution/spikes/SPIKE-AUTODIMENSION-ENGINE.md §1.3.
+// the geometry-kernel evaluator, and creates them through the command bus.
+// It mirrors `generateDocumentationSet` (gather → pure plan → bus) and never
+// throws to the caller. See docs/03-execution/spikes/SPIKE-AUTODIMENSION-ENGINE.md §1.3.
+//
+// §FIX-AUTODIM-RENDER-SINK (L-138) — the pure engine emits an ABSTRACT
+// `DimensionString[]` (element-anchored, sheet-mm offsets). The platform's plan
+// renderer (`PlanViewAnnotationRenderer`) only draws two RENDERED
+// representations filtered by the active view: view-owned `AnnotationElement`s
+// (`annotationStore.getByView`) and flat `DimensionElement`s
+// (`annotationStore.getDimensionsByView`). It NEVER reads the `@pryzm/plugin-
+// dimensions` DimensionStore that `dimension.createMany` writes to — so dims
+// created that way are created-but-invisible. This executor therefore ADAPTS
+// each engine `DimensionString` into `'linear-dim'` AnnotationElements (exactly
+// as the manual `LinearDimPlanToolHandler` does), owned by the active plan view,
+// so the existing renderer draws them. `dimension.createMany` + its store are
+// left in place (valid infra) but are no longer the executor's render sink.
 
-import { storeRegistry } from '@pryzm/core-app-model';
+import { batchCoordinator, storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
+import { makeAnnotationElement, makePointRef } from '@pryzm/plugin-annotations';
+import * as THREE from '@pryzm/renderer-three/three';
 import {
   evaluateDimensions,
   type ElementSnapshotForDim,
@@ -19,9 +33,41 @@ import {
   type WindowLikeEvaluator,
   type RoomLikeEvaluator,
 } from '@pryzm/geometry-kernel';
-import { planAutoDimensions, type AutoDimSnapshot, type AutoDimWall } from '@pryzm/auto-dimension';
+import {
+  planAutoDimensions,
+  type AutoDimSnapshot,
+  type AutoDimWall,
+} from '@pryzm/auto-dimension';
+import type { DimensionString } from '@pryzm/schemas/annotation/dimension';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+
+// View types whose canvas draws annotations/dimensions in plan projection.
+const PLAN_VIEW_TYPES: ReadonlySet<string> = new Set(['plan', 'ceiling-plan', 'structural-plan']);
+
+interface ViewControllerLike { currentViewDefinitionId?: string | null }
+interface WindowWithView { viewController?: ViewControllerLike }
+
+/**
+ * The id of the ACTIVE plan view — the view whose canvas the user is looking at
+ * and which the renderer filters annotations by (`ownerViewId`). Mirrors how
+ * `LinearDimPlanToolHandler` targets `ctx.viewDef.id` and how `initTools`/
+ * `RadialMenu` read the active view: `ViewController.currentViewDefinitionId`
+ * (which persists after `activate()` returns, §ANN-VIEW-PERSIST). Returns
+ * undefined when no plan view is active (e.g. the 3D view), so the caller can
+ * ask the user to open a plan first. Typed via a local `WindowWithView` shape
+ * (no `(window as any)`, P4).
+ */
+function resolveActivePlanViewId(): string | undefined {
+  const w = window as unknown as WindowWithView;
+  const id = w.viewController?.currentViewDefinitionId ?? undefined;
+  if (!id) return undefined;
+  // When the view definition is resolvable, require a plan-like view; if its
+  // type says elevation/section/3D, the plan renderer won't draw these dims.
+  const def = viewDefinitionStore.get(id);
+  if (def?.viewType && !PLAN_VIEW_TYPES.has(def.viewType)) return undefined;
+  return id;
+}
 
 // ── Live store record shapes (defensive, minimal) ───────────────────────────
 
@@ -57,6 +103,12 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
   try {
     const level = resolveActiveLevel();
     if (!level) { toast('Auto-Dimension: no active level.', 'warn'); return 0; }
+
+    // §FIX-AUTODIM-RENDER-SINK — the dims are view-scoped annotations; they only
+    // render on the plan the user is on. Resolve it up front so we can bail with
+    // a clear message rather than silently create invisible (mis-owned) dims.
+    const activeViewId = resolveActivePlanViewId();
+    if (!activeViewId) { toast('Auto-Dimension: open a plan view first.', 'warn'); return 0; }
 
     const wallStore = storeRegistry.getStoreForType('wall') as unknown as
       | { getAll?(): WallRecord[] }
@@ -94,43 +146,105 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
     const { strings, report } = planAutoDimensions(snapshot, { viewId, levelId: level.id });
     if (strings.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
 
-    // ── Resolve element-anchored strings → WORLD points (geometry-kernel L4).
+    // ── §FIX-AUTODIM-RENDER-SINK: adapt the abstract engine DimensionString[] to
+    //    the RENDERED representation the plan reads — `'linear-dim'` annotations
+    //    owned by the active plan view (see file header + the pure helper below).
     const evalSnapshot = buildEvalSnapshot(onLevel, level.id);
-    const evaluated = evaluateDimensions(strings, evalSnapshot, { unit: 'mm', decimalPlaces: 0 });
-    const elevation = typeof level.elevation === 'number' ? level.elevation : 0;
+    const annotations = dimensionStringsToLinearDimAnnotations(strings, evalSnapshot, activeViewId);
+    if (annotations.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
 
-    const dimensions = strings.map((s, i) => {
-      const ev = evaluated[i]!;
-      return {
-        levelId: level.id,
-        viewId,
-        kind: 'linear' as const,
-        // p1World/p2World are [worldX_mm, worldZ_mm]; back to metres for the DTO.
-        points: [
-          { x: ev.p1World[0] / MM_PER_M, y: elevation, z: ev.p1World[1] / MM_PER_M },
-          { x: ev.p2World[0] / MM_PER_M, y: elevation, z: ev.p2World[1] / MM_PER_M },
-        ],
-        offsetMm: s.offsetMm,
-        units: 'mm' as const,
-      };
-    });
-
-    // ── ONE bus verb → ONE undo (dimension.createMany, P6).
-    runtime.bus.executeCommand('dimension.createMany', { dimensions });
+    // ── ONE undo: there is no `annotation.createMany` verb, so wrap every
+    //    `annotation.create` dispatch in a single batchCoordinator.runBatch — the
+    //    whole auto-dimension set collapses to ONE undo unit (P6). Annotations
+    //    don't bound rooms → skipRedetectRooms.
+    batchCoordinator.runBatch(() => {
+      for (const annotation of annotations) {
+        const r = runtime.bus.executeCommand('annotation.create', annotation) as unknown;
+        if (r && typeof (r as { catch?: unknown }).catch === 'function') {
+          (r as Promise<unknown>).catch((e: unknown) =>
+            console.warn('[auto-dimension] annotation.create failed:', e));
+        }
+      }
+    }, { levelIds: [level.id], totalElementCount: annotations.length, skipRedetectRooms: true });
 
     const undim = report.warnings.filter((w) => w.code === 'opening-undimensioned').length;
     toast(
-      `Auto-Dimension: created ${dimensions.length} dimensions across ${report.coverage.runCount} façade run(s)` +
+      `Auto-Dimension: created ${annotations.length} dimensions across ${report.coverage.runCount} façade run(s)` +
       (undim > 0 ? ` — ${undim} opening(s) uncovered.` : '.'),
       'success',
     );
     console.log('[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage:', report.coverage, 'warnings:', report.warnings);
-    return dimensions.length;
+    return annotations.length;
   } catch (e) {
     console.error('[auto-dimension] apply failed:', e);
     toast('Auto-Dimension failed — see console.', 'error');
     return 0;
   }
+}
+
+/**
+ * §FIX-AUTODIM-RENDER-SINK — pure adapter: abstract engine `DimensionString[]`
+ * → the platform's RENDERED representation, `'linear-dim'` AnnotationElements
+ * owned by `ownerViewId` (what `PlanViewAnnotationRenderer` draws via
+ * `annotationStore.getByView`). Mirrors `LinearDimPlanToolHandler._commitLinearDim`:
+ * two point refs + world `modelPoints` (metres) + the perpendicular offset.
+ *
+ * A `linear-chain` string carries N ordered stations (references[0..N-1]) sharing
+ * ONE dimension line; the renderer models a linear dim as a 2-POINT measure, so a
+ * chain of N stations becomes N-1 segment dims (consecutive station pairs). The
+ * geometry-kernel evaluator only resolves the FIRST TWO references of any string,
+ * so we flatten every string into 2-ref segment sub-strings FIRST, then evaluate —
+ * reusing the exact same world-point resolution. Each segment inherits its parent's
+ * SIGNED `offsetMm` (per-side placement, P2) so it sits on the correct outward side.
+ *
+ * Pure (no window/bus/store) so it is unit-testable in isolation.
+ */
+export function dimensionStringsToLinearDimAnnotations(
+  strings: readonly DimensionString[],
+  evalSnapshot: ElementSnapshotForDim,
+  ownerViewId: string,
+): ReturnType<typeof makeAnnotationElement>[] {
+  const segStrings: DimensionString[] = [];
+  for (const s of strings) {
+    const refs = s.references;
+    for (let i = 0; i + 1 < refs.length; i++) {
+      const refA = refs[i]!;
+      const refB = refs[i + 1]!;
+      segStrings.push({ ...s, references: [refA, refB] });
+    }
+  }
+  if (segStrings.length === 0) return [];
+
+  const evaluated = evaluateDimensions(segStrings, evalSnapshot, { unit: 'mm', decimalPlaces: 0 });
+
+  return segStrings
+    .map((seg, i) => {
+      const ev = evaluated[i]!;
+      // p1World/p2World are [worldX_mm, worldZ_mm]; back to metres for the plan.
+      const vA = new THREE.Vector3(ev.p1World[0] / MM_PER_M, 0, ev.p1World[1] / MM_PER_M);
+      const vB = new THREE.Vector3(ev.p2World[0] / MM_PER_M, 0, ev.p2World[1] / MM_PER_M);
+      const geometry2D = {
+        modelPoints: [
+          { x: vA.x, y: 0, z: vA.z },
+          { x: vB.x, y: 0, z: vB.z },
+        ],
+        // engine offsetMm is SIGNED (per-side, P2); geometry2D.offset is metres.
+        offset: seg.offsetMm / MM_PER_M,
+      };
+      return makeAnnotationElement(
+        crypto.randomUUID(),
+        'linear-dim',
+        ownerViewId,
+        [makePointRef(vA), makePointRef(vB)],
+        geometry2D,
+        { unit: 'mm' },
+      );
+    })
+    // Drop degenerate zero-length segments (mirrors the manual tool's A≈B guard).
+    .filter((a) => {
+      const [p, q] = a.geometry2D.modelPoints;
+      return !!p && !!q && Math.hypot(q.x - p.x, q.z - p.z) >= 0.01;
+    });
 }
 
 /** Build the geometry-kernel evaluator snapshot from live walls (openings → doors/windows). */

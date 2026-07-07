@@ -24,6 +24,8 @@ export default defineConfig({
       'apps/editor/src/ui/site/overlay/__tests__/**/*.spec.ts',
       // §FIX-POSTFX-WEBGPU (L-111): backend-aware post-FX routing specs.
       'apps/editor/src/engine/__tests__/**/*.spec.ts',
+      // §FIX-AUTODIM-RENDER-SINK (L-138): DimensionString → 'linear-dim' adapter specs.
+      'apps/editor/src/ui/documentation/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).
