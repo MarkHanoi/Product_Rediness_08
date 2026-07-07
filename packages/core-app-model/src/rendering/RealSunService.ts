@@ -245,6 +245,37 @@ export class RealSunService {
     private _elevationOffDeg  = 0;   // real+offset: added to real el; manual: absolute el
     private _intensityMul     = 1;   // real+offset: ×real; manual: absolute (0–2)
 
+    /**
+     * §FIX-GROUND-SHADOW-AT-PERF-TIER (L-168 / L-140) — the world-space building
+     * bounds the key light's shadow frustum must ENCLOSE so the primary sun→ground
+     * shadow (building → GroundShadowCatcher, the L-11 §FEAT-REAL-ENVIRONMENT feature)
+     * survives however big/tall the building is and whatever the render tier.
+     *
+     * The Pascal key light ships with a FIXED shadow camera (ortho ±50, near 1,
+     * far 100) and orbits at its initial distance (~17 m). That is fine for a small
+     * hand-drawn scene, but once a generated building renders full-detail (L-164:
+     * all floors → ~4000 meshes → `performance` tier) the building's footprint/height
+     * exceed the ±50/far-100 frustum AND the light at ~17 m sits INSIDE the building —
+     * so nothing projects a clean shadow onto the L0 catcher and the building "floats".
+     *
+     * When set (via {@link setShadowCoverage}) and we are driving the key light, the
+     * solve re-homes the light OUTSIDE the building along the sun direction and sizes
+     * the ortho frustum + near/far to bracket the whole model. Null ⇒ legacy fixed
+     * frustum (unchanged small-scene behaviour). Only the shadow CAMERA (bounds +
+     * position) changes — never `shadow.mapSize` — so no ShadowDepthTexture realloc
+     * occurs (respects §SHADOW-DEVICE-LOSS-FIX / ADR-0111: no mid-submit GPU dispose).
+     */
+    private _shadowCenter: THREE.Vector3 | null = null;
+    private _shadowRadius  = 0;
+    /**
+     * The key light's ORIGINAL (fixed) shadow-camera frustum, snapshotted the first
+     * time coverage widens it, so clearing coverage restores the legacy ±50 frustum
+     * exactly (no hardcoded assumptions about PascalSceneLighting's defaults).
+     */
+    private _shadowCamSaved:
+        | { left: number; right: number; top: number; bottom: number; near: number; far: number }
+        | null = null;
+
     /** Fired whenever sun position is updated (e.g. for UI refresh). */
     onPositionChange?: (pos: SunPosition) => void;
 
@@ -297,6 +328,29 @@ export class RealSunService {
         if (next.azimuthDeg   !== undefined) this._azimuthOffDeg   = next.azimuthDeg;
         if (next.elevationDeg !== undefined) this._elevationOffDeg = next.elevationDeg;
         if (next.intensity    !== undefined) this._intensityMul    = next.intensity;
+        if (this._enabled) this._drive();
+    }
+
+    /**
+     * §FIX-GROUND-SHADOW-AT-PERF-TIER (L-168 / L-140) — tell the sun the world-space
+     * building bounds its shadow frustum must ENCLOSE, so the primary sun→ground
+     * shadow survives at any building size/tier.
+     *
+     * `center` / `radius` come from the live scene AABB (see
+     * RealEnvironmentService.refitShadowToScene). Pass `center=null` to clear coverage
+     * and fall back to the legacy fixed ±50 frustum. Re-drives immediately when
+     * enabled so the frustum tracks the building as it grows. Cheap + fully reversible;
+     * touches only the shadow CAMERA (bounds + light position), never `shadow.mapSize`,
+     * so it can NOT churn the ShadowDepthTexture / lose the WebGPU device.
+     */
+    setShadowCoverage(center: THREE.Vector3 | null, radius: number): void {
+        if (center && Number.isFinite(radius) && radius > 0) {
+            (this._shadowCenter ??= new THREE.Vector3()).copy(center);
+            this._shadowRadius = radius;
+        } else {
+            this._shadowCenter = null;
+            this._shadowRadius = 0;
+        }
         if (this._enabled) this._drive();
     }
 
@@ -517,11 +571,62 @@ export class RealSunService {
         const dirY   =  Math.max(0.02, Math.sin(altitude));
         const dirZ   = -cosAlt * Math.cos(azimuth);
 
-        // Preserve the light's existing distance so we don't shrink the Pascal key
-        // light's shadow-frustum coverage (it sits at |pos|≈17; own light at 120).
-        const dist = target.position.length() || 120;
-        target.position.set(dirX * dist, dirY * dist, dirZ * dist);
-        if (target.target) target.target.position.set(0, 0, 0);
+        // §FIX-GROUND-SHADOW-AT-PERF-TIER (L-168 / L-140) — when a scene-bounds coverage
+        // is set AND we are driving the key light, re-home the light OUTSIDE the building
+        // along the sun direction and FIT its ortho shadow frustum to the whole model so
+        // the primary sun→ground shadow reaches the L0 catcher however tall/wide the
+        // building is. Otherwise keep the legacy fixed behaviour (small-scene, unchanged):
+        // preserve the light's existing distance (Pascal key light |pos|≈17; own light 120).
+        if (drivingKeyLight && this._shadowCenter) {
+            const c = this._shadowCenter;
+            const r = Math.max(this._shadowRadius, 2);
+            // Normalise the solar direction so the coverage distance is exact.
+            const dLen = Math.hypot(dirX, dirY, dirZ) || 1;
+            const nx = dirX / dLen, ny = dirY / dLen, nz = dirZ / dLen;
+            // Sit the light ~3× the model radius out along the sun ray — comfortably
+            // clear of the building so the whole model is in front of the shadow camera.
+            const dist = r * 3;
+            target.position.set(c.x + nx * dist, c.y + ny * dist, c.z + nz * dist);
+            if (target.target) {
+                target.target.position.copy(c);
+                // The key light's target is NOT parented to the scene, so scene-graph
+                // traversal never refreshes its world matrix — update it explicitly or
+                // THREE's shadow camera would keep aiming at the stale (origin) target.
+                target.target.updateMatrixWorld();
+            }
+            const cam = target.shadow?.camera as THREE.OrthographicCamera | undefined;
+            if (cam) {
+                // Snapshot the fixed frustum once so clearing coverage can restore it.
+                this._shadowCamSaved ??= {
+                    left: cam.left, right: cam.right, top: cam.top,
+                    bottom: cam.bottom, near: cam.near, far: cam.far,
+                };
+                // Ortho half-extent with headroom for shadows cast a little past the
+                // footprint; near/far bracket the model along the light's view axis.
+                const half = r * 1.35;
+                cam.left   = -half;
+                cam.right  =  half;
+                cam.top    =  half;
+                cam.bottom = -half;
+                cam.near   = Math.max(0.5, dist - r * 2);
+                cam.far    = dist + r * 2;
+                cam.updateProjectionMatrix();
+            }
+        } else {
+            const dist = target.position.length() || 120;
+            target.position.set(dirX * dist, dirY * dist, dirZ * dist);
+            if (target.target) target.target.position.set(0, 0, 0);
+            // Coverage was cleared — restore the light's original fixed shadow frustum
+            // (only mutates the shadow camera; no mapSize realloc — ADR-0111 safe).
+            const cam = drivingKeyLight ? (target.shadow?.camera as THREE.OrthographicCamera | undefined) : undefined;
+            if (cam && this._shadowCamSaved) {
+                const s = this._shadowCamSaved;
+                cam.left = s.left; cam.right = s.right; cam.top = s.top;
+                cam.bottom = s.bottom; cam.near = s.near; cam.far = s.far;
+                cam.updateProjectionMatrix();
+                this._shadowCamSaved = null;
+            }
+        }
 
         // 4. Colour — warm when low, white at noon (Forma-like). Uses the REAL
         //    elevation in real+offset so the warmth tracks true time-of-day.

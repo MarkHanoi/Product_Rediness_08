@@ -3253,7 +3253,31 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         window.runtime?.events?.on('view-activated', () => {
             try { realEnvironment.refreshGroundElevation(); }
             catch { /* advisory */ }
+            scheduleShadowRefit();
         });
+
+        // §FIX-GROUND-SHADOW-AT-PERF-TIER (L-168 / L-140) — keep the key light's shadow
+        // frustum fitted to the LIVE building as geometry is added, so the primary
+        // sun→ground shadow reaches the L0 catcher however tall/wide the building grows
+        // (the "building floats" regression after L-164 rendered all floors full-detail).
+        // Debounced (300 ms) so a generation that fires hundreds of *-added events costs
+        // at most one AABB traverse per settle window; the fit only mutates the shadow
+        // CAMERA (never mapSize), so it can never churn the ShadowDepthTexture.
+        let _shadowRefitTimer: ReturnType<typeof setTimeout> | null = null;
+        function scheduleShadowRefit(): void {
+            if (_shadowRefitTimer) return;
+            _shadowRefitTimer = setTimeout(() => {
+                _shadowRefitTimer = null;
+                try { realEnvironment.refitShadowToScene(); }
+                catch (e) { console.warn('[initScene] realEnvironment.refitShadowToScene error:', e); }
+            }, 300);
+        }
+        const _envShadowRefitEvents = [
+            'bim-wall-added', 'bim-slab-added', 'bim-roof-added', 'bim-column-added',
+            'bim-beam-added', 'bim-stair-added', 'bim-curtainwall-added', 'bim-floor-added',
+            'bim-ceiling-added', 'bim-furniture-added', 'pryzm-project-loaded',
+        ] as const;
+        _envShadowRefitEvents.forEach((evt) => window.addEventListener(evt, scheduleShadowRefit));
 
         // Panel bridge — the View Properties panel emits these via runtime.events.
         // §FEAT-REAL-ENVIRONMENT-SUN — sun mode / offsets / time / ground toggle.

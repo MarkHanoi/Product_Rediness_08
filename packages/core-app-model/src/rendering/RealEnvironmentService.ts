@@ -117,6 +117,9 @@ export class RealEnvironmentService {
         if (this._groundShadowsEnabled) this._ground.attach(this._scene);
 
         this._enabled = true;
+        // §FIX-GROUND-SHADOW-AT-PERF-TIER — fit the shadow frustum to whatever geometry
+        // is already present (project switch / reload). A no-op on a fresh empty scene.
+        this.refitShadowToScene();
         console.log(
             '[RealEnvironmentService] §FEAT-REAL-ENVIRONMENT enabled — ' +
             `site=${site ? `${site.lat.toFixed(3)},${site.lon.toFixed(3)}` : 'default'} ` +
@@ -133,6 +136,57 @@ export class RealEnvironmentService {
     /** Re-place the ground catcher after the active level / levels change. */
     refreshGroundElevation(): void {
         this._ground.setElevation(this._readGroundElevation());
+    }
+
+    /**
+     * §FIX-GROUND-SHADOW-AT-PERF-TIER (L-168 / L-140) — re-fit the key light's shadow
+     * frustum to the LIVE building bounds so the primary sun→ground shadow reaches the
+     * L0 catcher however large/tall the model is and whatever the render tier.
+     *
+     * WHY (root cause): the Pascal key light — the scene's SOLE real shadow caster,
+     * driven as the sun — has a fixed ±50/far-100 shadow camera and orbits at ~17 m.
+     * When L-164 made all floors of a generated building render full-detail (~4000
+     * meshes → `performance` tier) the building outgrew that frustum AND the light sat
+     * inside it, so nothing projected onto the catcher — the "building floats" bug. The
+     * key light is NOT suppressed at that scale (it stays a caster below the 8000 ceiling);
+     * the shadow was simply out of frame. This computes the model AABB (excluding the
+     * catcher + helper/edge/grid meshes and hidden far-level geometry) and hands the sun
+     * a centre + radius to enclose. Only the shadow CAMERA changes — never the map size —
+     * so it is device-loss safe (no mid-submit ShadowDepthTexture realloc; ADR-0111).
+     *
+     * Cheap enough to call on a debounced geometry-change; a no-op on an empty scene.
+     */
+    refitShadowToScene(): void {
+        if (!this._enabled || !this._scene) return;
+        const catcher = this._ground.mesh;
+        const box = new THREE.Box3();
+        let any = false;
+        this._scene.traverse((obj) => {
+            if (obj === catcher) return;
+            // Meshes + InstancedMeshes (generated buildings render instanced) — the
+            // InstancedMesh's own boundingBox covers every instance, so expandByObject
+            // grounds the frustum on the whole aggregate.
+            if (!(obj as THREE.Mesh).isMesh) return;
+            if (obj.visible === false) return; // skip hidden far-level (massing) geometry
+            const role = (obj.userData?.role as string | undefined) ?? '';
+            if (role === 'edges' || role === 'edge-overlay' || role === 'ground-shadow-catcher') return;
+            const name = (obj.name ?? '').toLowerCase();
+            if (name.includes('edge') || name.includes('grid') ||
+                name.includes('collision') || name.includes('helper')) return;
+            box.expandByObject(obj as THREE.Object3D);
+            any = true;
+        });
+        if (!any || box.isEmpty()) {
+            // No real geometry yet — clear coverage so an emptied scene reverts to the
+            // legacy fixed frustum instead of holding a stale (possibly huge) one.
+            this._sun.setShadowCoverage(null, 0);
+            return;
+        }
+        const center = box.getCenter(new THREE.Vector3());
+        const size   = box.getSize(new THREE.Vector3());
+        const radius = 0.5 * Math.hypot(size.x, size.y, size.z);
+        if (!Number.isFinite(radius) || radius <= 0) return;
+        this._sun.setShadowCoverage(center, radius);
     }
 
     /** True while the catcher mesh is attached to the scene (for diagnostics/tests). */
