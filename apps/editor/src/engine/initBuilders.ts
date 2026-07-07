@@ -960,12 +960,27 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     window.roomBoundingLineStore = roomBoundingLineStore; // TODO(TASK-08)
     const roomBoundingLineBuilder = new RoomBoundingLineBuilder(scene, bimManager);
 
+    // §FIX-RBL-IDONLY-EVENT-NO-RENDER (L-172): the F.events.17 catalog contract
+    // for `bim-room-bounding-line-added/updated` is `{ id }`-only (see
+    // event-bus/catalog.ts). The store persists the FULL record (with a valid
+    // `placement`), so the handler must resolve id → full record via
+    // roomBoundingLineStore.get(id) BEFORE calling build/rebuild — otherwise the
+    // builder sees no placement.start/end and §RBL-PLACEMENT-GUARD skips every
+    // line, so the dashed room-bounding lines never render. This mirrors the
+    // sibling slab/roof handlers (id → store.getById → builder). We still accept a
+    // full record passed inline in the detail for backward-compat.
     window.addEventListener('bim-room-bounding-line-added', (e: Event) => {
-        const data = (e as CustomEvent).detail;
+        const detail = (e as CustomEvent).detail;
+        const id: string | undefined = detail?.id;
+        if (!id) return;
+        const data = roomBoundingLineStore.get(id) ?? (detail?.placement ? detail : undefined);
         if (data) roomBoundingLineBuilder.build(data);
     });
     window.addEventListener('bim-room-bounding-line-updated', (e: Event) => {
-        const data = (e as CustomEvent).detail;
+        const detail = (e as CustomEvent).detail;
+        const id: string | undefined = detail?.id;
+        if (!id) return;
+        const data = roomBoundingLineStore.get(id) ?? (detail?.placement ? detail : undefined);
         if (data) roomBoundingLineBuilder.rebuild(data);
     });
     window.addEventListener('bim-room-bounding-line-removed', (e: Event) => {
