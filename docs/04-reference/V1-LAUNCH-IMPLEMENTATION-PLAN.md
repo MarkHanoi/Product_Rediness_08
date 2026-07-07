@@ -330,6 +330,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-165 [LOW SPIKE] shadow projection pixelated (512px shadow map) — perf-conditional | Rendering / shadow quality (C04, C10) | **OPEN → rendering-spike (when capacity)** — spike: res-bump vs CSM vs PCF/PCSS, tier-aware, never regress heavy-scene budget; leave-as-is if too costly; §SPIKE-SHADOW-MAP-ACCURACY |
 
+| L-166 [HIGH UX] two competing view-mode bars (Forma toolbar vs 3D+plan/3D globe/3D Site segmented); keep segmented only, can't tell/switch active view | UI/geospatial view-mode bar (C06, C12) | **OPEN → GIS/UI agent (fenced geospatial view-mode bar + GISAreaLayout + SplitViewManager)** — consolidate to ONE control, preserve Zoom-to-Site/Analysis/Real/Massing actions, fix Views-hides-panel; §FIX-VIEWMODE-BAR-CONSOLIDATE |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
