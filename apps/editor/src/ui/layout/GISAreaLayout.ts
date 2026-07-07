@@ -466,8 +466,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // existing toggleGIS + view-switch + split-view plumbing.
     let resultToggle: HTMLElement | null = null;
     let resultViewMode: '2D' | '3D' = '2D';
+    // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — the ONE view-mode control is the
+    // segmented result bar (◧ 3D + plan · ◉ 3D globe · ◉ 3D Site). `activeSegment`
+    // is the tri-state truth of which of the THREE top-level modes is active — it
+    // paints all three segments (so the user ALWAYS knows which view they're in)
+    // and gates the globe-only sub-controls. The Forma ("3D Site") view is no longer
+    // a rival bar that REPLACES this one: it mounts a SECONDARY contextual sub-bar
+    // beneath it while `activeSegment === 'forma'` keeps ◉ 3D Site lit here.
+    let activeSegment: '2D' | '3D' | 'forma' = '2D';
     let btn2dRef: HTMLButtonElement | null = null;
     let btn3dRef: HTMLButtonElement | null = null;
+    let formaBtnRef: HTMLButtonElement | null = null;
 
     // §GLOBE-FIDELITY (founder) — mirror the Forma view's [Real][Massing] toggle on
     // the photoreal "3D globe" result view. 'real' (the default — matches today's
@@ -504,6 +513,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         resultToggle = null;
         btn2dRef = null;
         btn3dRef = null;
+        formaBtnRef = null;
         globeFidelityWrap = null;
         globeZoomBtn = null;
         globeTourBtn = null;
@@ -518,18 +528,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         el.style.color = active ? '#ffffff' : '#6600FF';
     };
     const refreshResultButtons = (): void => {
-        styleResultBtn(btn2dRef, resultViewMode === '2D');
-        styleResultBtn(btn3dRef, resultViewMode === '3D');
+        // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — paint all THREE top-level segments
+        // from the single `activeSegment` truth so the active view is ALWAYS visible
+        // (the founder's "I don't know which view I'm in"). ◉ 3D Site (forma) is now a
+        // first-class lit segment, not an unpainted launch button.
+        styleResultBtn(btn2dRef, activeSegment === '2D');
+        styleResultBtn(btn3dRef, activeSegment === '3D');
+        styleResultBtn(formaBtnRef, activeSegment === 'forma');
+        const globeActive = activeSegment === '3D';
         // §GLOBE-FIDELITY — the [Real][Massing] group is only meaningful on the
-        // photoreal "3D globe" view; hide it on the BIM dual-pane (2D) mode.
-        if (globeFidelityWrap) globeFidelityWrap.style.display = resultViewMode === '3D' ? 'flex' : 'none';
+        // photoreal "3D globe" view; hide it on the BIM dual-pane + Forma modes.
+        if (globeFidelityWrap) globeFidelityWrap.style.display = globeActive ? 'flex' : 'none';
         // §GLOBE-ZOOM-DEFAULT — "Zoom to Site" is only meaningful on the 3D globe
-        // (it reframes the Cesium camera to the placed building); hide on the 2D pane.
-        if (globeZoomBtn) globeZoomBtn.style.display = resultViewMode === '3D' ? 'inline-block' : 'none';
+        // (it reframes the Cesium camera to the placed building); hide otherwise.
+        if (globeZoomBtn) globeZoomBtn.style.display = globeActive ? 'inline-block' : 'none';
         // §FLY-TOUR — same gating as Zoom to Site; also disabled (greyed) until a
         // building is placed, since the tour orbits the placed massing centroid.
         if (globeTourBtn) {
-            globeTourBtn.style.display = resultViewMode === '3D' ? 'inline-block' : 'none';
+            globeTourBtn.style.display = globeActive ? 'inline-block' : 'none';
             const canTour = cesiumViewport?.hasFormaMassingPlaced?.() ?? false;
             globeTourBtn.disabled = !canTour;
             globeTourBtn.style.opacity = canTour ? '1' : '0.45';
@@ -560,7 +576,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     const applyResultView = async (mode: '2D' | '3D'): Promise<void> => {
+        // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — choosing a top-level 2D/3D segment
+        // leaves the Forma "3D Site" view, so tear down its secondary sub-bar (no-op
+        // when it isn't mounted). Keeps exactly ONE contextual sub-bar at a time.
+        removeFormaViewToggle();
         resultViewMode = mode;
+        activeSegment = mode;
         if (mode === '3D') {
             // Show the Cesium globe with the site context and frame the plot.
             toggleGIS(true);
@@ -590,21 +611,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
-     * O.7.2 — mount the post-generate dual-view toggle + land on the chosen view.
-     * Called by the onboarding generate-finish handoff (window.pryzmShowSiteResultView).
-     * `initial` is the view to land on first ('2D' plan by default — the no-blank fix).
+     * §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — build the ONE segmented view-mode bar
+     * (◧ 3D + plan · ◉ 3D globe · ◉ 3D Site + the globe sub-controls). IDEMPOTENT:
+     * a no-op when the bar already exists, so it can be called from EVERY entry path
+     * (onboarding generate, the always-on "3D Site / Globe" launcher, the GIS rail)
+     * without duplicating or replacing the bar. It only builds DOM — it does NOT pick
+     * a landing view (callers drive that via applyResultView / mountFormaViewToggle).
      */
-    const showSiteResultView = (initial: '2D' | '3D' = '2D'): void => {
+    const mountResultToggleBar = (): void => {
+        if (resultToggle) return; // the single bar is already mounted.
         const viewport = document.getElementById('container');
         if (!viewport) {
-            console.error('[gis] showSiteResultView: #container not found');
+            console.error('[gis] mountResultToggleBar: #container not found');
             return;
         }
-        // O.7.2.b — GENERATE-TIME teardown of the cream 2D plan map. After the
-        // boundary commit the map stayed alive (so the confirm step rendered over a
-        // live plan map); this is the ONLY place it is disposed — reached exclusively
-        // via the onboarding "Generate" action's pryzmShowSiteResultView() handoff.
-        closeBoundaryMap2D();
         if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
             viewport.style.position = 'relative';
         }
@@ -639,8 +659,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 padding: '7px 14px', borderRadius: '7px', color: '#6600FF',
                 background: 'transparent', font: 'inherit',
             } satisfies Partial<CSSStyleDeclaration>);
-            b.addEventListener('mouseenter', () => { if (resultViewMode !== mode) b.style.background = '#f4f0ff'; });
-            b.addEventListener('mouseleave', () => { if (resultViewMode !== mode) b.style.background = 'transparent'; });
+            b.addEventListener('mouseenter', () => { if (activeSegment !== mode) b.style.background = '#f4f0ff'; });
+            b.addEventListener('mouseleave', () => { if (activeSegment !== mode) b.style.background = 'transparent'; });
             b.addEventListener('click', () => { void applyResultView(mode); });
             return b;
         };
@@ -666,13 +686,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             padding: '7px 14px', borderRadius: '7px', color: '#6600FF',
             background: 'transparent', font: 'inherit', borderLeft: '1px solid #ece7fb',
         } satisfies Partial<CSSStyleDeclaration>);
-        formaBtn.addEventListener('mouseenter', () => { formaBtn.style.background = '#f4f0ff'; });
-        formaBtn.addEventListener('mouseleave', () => { formaBtn.style.background = 'transparent'; });
+        formaBtn.addEventListener('mouseenter', () => { if (activeSegment !== 'forma') formaBtn.style.background = '#f4f0ff'; });
+        formaBtn.addEventListener('mouseleave', () => { if (activeSegment !== 'forma') formaBtn.style.background = 'transparent'; });
         formaBtn.addEventListener('click', () => {
-            console.log('[gis][forma] result-toggle: launching Forma massing view (Plan-oblique default).');
+            console.log('[gis][forma] result-toggle: launching Forma "3D Site" view (Plan-oblique default).');
+            // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — mountFormaViewToggle sets
+            // activeSegment='forma' + repaints, so this segment lights up and the
+            // Forma sub-bar mounts BELOW (never replacing) this segmented switch.
             mountFormaViewToggle('plan');
         });
         bar.appendChild(formaBtn);
+        formaBtnRef = formaBtn;
 
         // §GLOBE-FIDELITY — [ ◉ Real ] [ ▢ Massing ] for the photoreal "3D globe".
         // Mirrors the Forma view's fidelity toggle (same labels, same #6600FF brand,
@@ -781,8 +805,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
         viewport.appendChild(bar);
         resultToggle = bar;
+        refreshResultButtons(); // paint the current activeSegment on the fresh bar.
+        console.log('[gis] mountResultToggleBar: segmented view-mode switch mounted.');
+    };
 
-        console.log(`[gis] showSiteResultView: dual-view toggle mounted, landing on "${initial}".`);
+    // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — guarantee the ONE segmented switch is
+    // present. Called by every site/globe/forma entry so the top-level view switch is
+    // ALWAYS visible (fixes the launcher path that used to open the Forma bar alone,
+    // leaving the user unable to tell which view they were in or swap out of it).
+    const ensureResultToggle = (): void => { mountResultToggleBar(); };
+
+    /**
+     * O.7.2 — mount the post-generate view switch + land on the chosen view. Called
+     * by the onboarding generate-finish handoff (window.pryzmShowSiteResultView).
+     * `initial` is the view to land on first ('2D' plan by default — the no-blank fix).
+     */
+    const showSiteResultView = (initial: '2D' | '3D' = '2D'): void => {
+        // O.7.2.b — GENERATE-TIME teardown of the cream 2D plan map. After the
+        // boundary commit the map stayed alive (so the confirm step rendered over a
+        // live plan map); this is the ONLY place it is disposed — reached exclusively
+        // via the onboarding "Generate" action's pryzmShowSiteResultView() handoff.
+        closeBoundaryMap2D();
+        mountResultToggleBar();
+        console.log(`[gis] showSiteResultView: landing on "${initial}".`);
         void applyResultView(initial);
     };
 
@@ -2049,23 +2094,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             viewport.style.position = 'relative';
         }
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
-        // §FORMA-TOGGLE-EXCLUSIVE (founder 2026-06-17 "two lines of buttons, same values
-        // — fix the mess"). The Forma view toggle carries its OWN [2D Map][Plan][3D][Real]
-        // [Massing][Zoom to Site] controls that DUPLICATE the result toggle's. Mounting it
-        // BELOW the still-visible result bar stacked two rows of overlapping buttons. The
-        // Forma toggle now REPLACES the result bar: hide the result bar while Forma is up
-        // (restored in removeFormaViewToggle) + a "‹ Views" button below returns to it.
-        if (resultToggle) resultToggle.style.display = 'none';
+        // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — the Forma view is NO LONGER a rival
+        // bar that hides/replaces the segmented switch. Guarantee the ONE top-level
+        // switch (◧ 3D + plan · ◉ 3D globe · ◉ 3D Site) is present + light up the
+        // "3D Site" segment, then mount THIS bar as a SECONDARY contextual sub-bar
+        // BELOW it. So the user always sees which of the three views is active AND can
+        // swap freely from the switch above — no "‹ Views" dead-end, no covering.
+        // (Supersedes §FORMA-TOGGLE-EXCLUSIVE, which hid the switch + added a back
+        // button that vanished the whole panel when the switch had never been mounted
+        // — the launcher path; that was the L-166 "clicking Views hides the panel" bug.)
+        ensureResultToggle();
+        activeSegment = 'forma';
+        refreshResultButtons();
 
         const bar = document.createElement('div');
         bar.className = 'pryzm-forma-view-toggle';
         bar.setAttribute('data-testid', 'forma-view-toggle');
         Object.assign(bar.style, {
             // §A.10.h (founder) — CENTRED over the 3D view + width-adaptive (left:50%
-            // + translateX(-50%)). §FORMA-TOGGLE-EXCLUSIVE — sits at the result bar's slot
-            // (top:64px) now that the result bar is hidden while Forma is up (was 108px,
-            // stacked under it → the founder's duplicate two-row toolbar).
-            position: 'absolute', top: '64px', left: '50%', transform: 'translateX(-50%)',
+            // + translateX(-50%)). §FIX-VIEWMODE-BAR-CONSOLIDATE — sits at top:108px, a
+            // row BELOW the always-visible segmented switch (top:64px), as its secondary
+            // contextual actions (no overlap, C06 §7 no-overlap intent). zIndex 31 keeps
+            // it above the Cesium canvas, matching the switch's own stacking.
+            position: 'absolute', top: '108px', left: '50%', transform: 'translateX(-50%)',
             zIndex: '31', display: 'flex', gap: '4px', padding: '4px',
             background: '#ffffff', borderRadius: '10px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
@@ -2090,27 +2141,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             b.addEventListener('click', () => applyFormaView(mode));
             return b;
         };
+        // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — a muted, non-interactive label so the
+        // secondary bar reads as the "3D Site" view's OWN contextual actions (the user
+        // returns to another view via the always-present segmented switch above, not a
+        // back button). Replaces the old "‹ Views" back button (which dead-ended the
+        // panel when the switch had never been mounted).
+        const ctxLabel = document.createElement('span');
+        ctxLabel.className = 'pryzm-forma-view-ctxlabel';
+        ctxLabel.textContent = '3D Site';
+        Object.assign(ctxLabel.style, {
+            padding: '7px 10px 7px 4px', color: '#9b8fc7', font: 'inherit',
+            borderRight: '1px solid #ece7fb', alignSelf: 'center', userSelect: 'none',
+        } satisfies Partial<CSSStyleDeclaration>);
+        bar.appendChild(ctxLabel);
+
         // FORMA-PLAN-OBLIQUE — 3-way group: [ 2D Map ] [ Plan ] [ 3D ]. "2D Map"
         // is the MapLibre exit (boundary drawing); "Plan" + "3D" are the Cesium-
         // Forma canvas at different pitches (plan-oblique vs NW oblique).
-        // §FORMA-TOGGLE-EXCLUSIVE — "‹ Views" returns to the result toggle bar (which the
-        // Forma toggle replaced) so the founder is never trapped without the top-level
-        // 2D / 3D-globe / Site-3D switch. Restores the result bar via removeFormaViewToggle.
-        const backBtn = document.createElement('button');
-        backBtn.type = 'button';
-        backBtn.className = 'pryzm-forma-view-btn';
-        backBtn.textContent = '‹ Views';
-        backBtn.title = 'Back to the view switch (2D · 3D globe · Site 3D)';
-        Object.assign(backBtn.style, {
-            appearance: 'none', border: 'none', cursor: 'pointer',
-            padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
-            background: 'transparent', font: 'inherit', borderRight: '1px solid #ece7fb',
-        } satisfies Partial<CSSStyleDeclaration>);
-        backBtn.addEventListener('mouseenter', () => { backBtn.style.background = '#f4f0ff'; });
-        backBtn.addEventListener('mouseleave', () => { backBtn.style.background = 'transparent'; });
-        backBtn.addEventListener('click', () => { removeFormaViewToggle(); });
-        bar.appendChild(backBtn);
-
         formaMap2dBtn = mkBtn('map2d', '▦ 2D Map', 'Drop to the 2D draw map (MapLibre) to draw or edit the boundary');
         formaPlanBtn = mkBtn('plan', '◳ Plan', 'Forma plan-oblique — near-top-down shadowed massing (the Forma signature look)');
         formaThreeBtn = mkBtn('3d', '◉ 3D', 'Forma 3D — NW oblique massing study (depth view)');
@@ -2245,11 +2292,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     const removeFormaViewToggle = (): void => {
+        const wasMounted = formaToggle !== null;
         disposeFormaAnalysis(); // FORMA.5 — tear down analysis chrome with the toggle.
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
         formaToggle = null;
-        // §FORMA-TOGGLE-EXCLUSIVE — restore the result toggle bar the Forma toggle hid.
-        if (resultToggle) resultToggle.style.display = '';
+        // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — the segmented switch stays mounted
+        // (it was never hidden), so there is nothing to "restore". If we were on the
+        // "3D Site" segment, drop back to the underlying 2D/3D segment so the switch
+        // no longer shows a Forma sub-bar as active. Guard on wasMounted so calling
+        // this while already on a 2D/3D segment doesn't clobber that paint.
+        if (wasMounted && activeSegment === 'forma') {
+            activeSegment = resultViewMode;
+            refreshResultButtons();
+        }
         formaMap2dBtn = null;
         formaPlanBtn = null;
         formaThreeBtn = null;
