@@ -117,6 +117,7 @@ import type { EdgeProjectorService } from './views/EdgeProjectorService';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { ifcProjectionStore } from '@pryzm/core-app-model';
 import { frustumCullingService } from '@pryzm/core-app-model/rendering';
+import { levelScoped3DCullingService } from '@pryzm/core-app-model/rendering';
 import { viewRenderCache } from '@pryzm/core-app-model';
 import { levelClipPlaneCache } from '@pryzm/core-app-model';
 import { stairPlanSymbolRegistry } from '@pryzm/scene-committer';
@@ -342,6 +343,24 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         console.warn('[initScene] FrustumCullingService init error:', fcErr?.message ?? fcErr);
     }
     // ── End FrustumCullingService ─────────────────────────────────────────────
+
+    // ── §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139): LevelScoped3DCullingService ───
+    // On a large model (> 500 elements OR > 5 levels) the 3D view is scoped to
+    // the active level ± N adjacent storeys — the rest of the tower is hidden
+    // (visibility intent only; no store / scene-graph mutation). This slashes
+    // draw calls + PSO + GPU memory + shadow casters, keeping the WebGPU device
+    // alive and the view navigable on the 40-storey office (was a device-loss
+    // cascade → dead renderer). Plan/section views stand down (plan culler owns
+    // those). Flag __pryzmLevelScoped3DCulling (default ON; === false restores
+    // the pre-fix all-levels behaviour exactly).
+    try {
+        levelScoped3DCullingService.setScene(world.scene.three as THREE.Scene);
+        levelScoped3DCullingService.activate();
+        console.log('[initScene] LevelScoped3DCullingService ready.');
+    } catch (lcErr: any) {
+        console.warn('[initScene] LevelScoped3DCullingService init error:', lcErr?.message ?? lcErr);
+    }
+    // ── End LevelScoped3DCullingService ───────────────────────────────────────
 
     // ── Phase 4 Performance: ViewRenderCache (Task 4.5) ───────────────────────
     // Per-view offscreen WebGLRenderTarget cache for non-interactive contexts

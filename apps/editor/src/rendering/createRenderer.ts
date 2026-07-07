@@ -89,6 +89,36 @@ export type RendererBackendPreference = 'auto' | 'webgpu' | 'webgl';
 
 const BACKEND_PREF_KEY = 'pryzm.renderer.backend';
 
+// ── §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139): device-loss recovery CAP ────────
+//
+// The native-WebGPU device-loss handler below recreates the renderer and re-arms
+// a FRESH `device.lost` handler on every recovered device. On a heavy scene that
+// is genuinely over the GPU's budget (the 40-storey office), the recovered device
+// is lost AGAIN within seconds → an UNBOUNDED recovery loop that thrashes until the
+// browser blocks the context ("Web page caused context loss and was blocked") and
+// the renderer is dead. This cap breaks the loop: after MAX_WEBGPU_DEVICE_LOSSES
+// native-WebGPU losses we switch to a STABLE WebGL safe-mode (WebGL2 backend →
+// TSL post-FX off, reduced DPR, shadows off) and STOP re-arming the WebGPU loss
+// handler, so the user keeps a plainer-but-navigable 3D view instead of a dead one.
+//
+// Module-scoped (persists across the recursive createRenderer() re-creations).
+// Gate: globalThis.__pryzmDeviceLossRecoveryCap === false disables the cap
+// (restores the prior unbounded-recovery behaviour). Default ON.
+const MAX_WEBGPU_DEVICE_LOSSES = 2;
+let _webgpuDeviceLossCount = 0;
+
+interface DeviceLossGlobals {
+    __pryzmDeviceLossRecoveryCap?: boolean;
+    __pryzmRenderSafeMode?: boolean;
+    __pryzmDeviceLossCount?: number;
+}
+function _deviceLossGlobals(): DeviceLossGlobals {
+    return globalThis as unknown as DeviceLossGlobals;
+}
+function _isDeviceLossCapEnabled(): boolean {
+    return _deviceLossGlobals().__pryzmDeviceLossRecoveryCap !== false;
+}
+
 /**
  * Read the persisted backend preference.
  *
@@ -203,6 +233,30 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
 
                     if (info.reason === 'destroyed') return;
 
+                    // ── §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139): recovery CAP ──
+                    // Count this loss and, once we exceed the cap, drop to a STABLE
+                    // WebGL safe-mode BEFORE recreating: persist the 'webgl' backend
+                    // preference so the recursive createRenderer() below resolves to
+                    // the WebGL2 forced path (backend='webgl-fallback' → the WebGPU
+                    // device.lost handler is NOT re-armed → the thrash loop ends), and
+                    // flag safe-mode so we can reduce DPR + disable shadows on the new
+                    // renderer. Observable via globalThis.__pryzmDeviceLossCount.
+                    _webgpuDeviceLossCount++;
+                    _deviceLossGlobals().__pryzmDeviceLossCount = _webgpuDeviceLossCount;
+                    const capEnabled = _isDeviceLossCapEnabled();
+                    const capReached = capEnabled && _webgpuDeviceLossCount >= MAX_WEBGPU_DEVICE_LOSSES;
+                    if (capReached) {
+                        console.error(
+                            `[createRenderer] §FIX-HEAVY-SCENE-3D-SCALABILITY device-loss cap reached ` +
+                            `(${_webgpuDeviceLossCount}/${MAX_WEBGPU_DEVICE_LOSSES}) — switching to STABLE WebGL ` +
+                            `safe-mode (WebGL2 backend, post-FX off, reduced DPR, shadows off) and STOPPING ` +
+                            `WebGPU recovery. The 3D view stays navigable (plainer) instead of thrashing to a ` +
+                            `dead/blocked context.`,
+                        );
+                        setRendererBackendPreference('webgl');
+                        _deviceLossGlobals().__pryzmRenderSafeMode = true;
+                    }
+
                     // BN-05c: Reset the CW prewarm flag immediately (before the 2s
                     // recovery delay) so the next CW batch re-warms against the fresh
                     // device instead of treating stale PSOs as valid.
@@ -231,6 +285,22 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
 
                         const newResult = await createRenderer(canvas);
                         window.pryzmRenderer = newResult.renderer;
+
+                        // §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139) — once in safe-mode,
+                        // degrade the freshly-created renderer to the stable settings:
+                        // reduced DPR (halve GPU fill cost) and shadows OFF (the shadow
+                        // pass over a 40-storey caster set is a primary device-loss
+                        // trigger). Best-effort — a failure here must not abort recovery.
+                        if (_deviceLossGlobals().__pryzmRenderSafeMode === true) {
+                            try {
+                                newResult.renderer.setPixelRatio(1);
+                                const sm = (newResult.renderer as { shadowMap?: { enabled?: boolean } }).shadowMap;
+                                if (sm) sm.enabled = false;
+                                console.log('[createRenderer] §FIX-HEAVY-SCENE-3D-SCALABILITY safe-mode applied — DPR=1, shadows OFF.');
+                            } catch (e) {
+                                console.warn('[createRenderer] safe-mode degrade failed (non-fatal):', e);
+                            }
+                        }
                         // §SHADOW-DEVICE-LOSS-FIX (Bug C) — if the fallback swapped in a
                         // FRESH canvas (WebGL2 cannot bind a WebGPU-tainted canvas), the
                         // live canvas is the renderer's domElement now, NOT the old one.

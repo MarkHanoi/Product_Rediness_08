@@ -88,6 +88,30 @@ const _hingeMat = new THREE.MeshStandardMaterial({
     color: 0xaaaaaa, roughness: 0.2, metalness: 0.85,
 });
 
+/**
+ * §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139) — flat-panel (Glass / Opaque) material cache.
+ *
+ * {@link buildFlatPanel} previously minted a FRESH `MeshStandardMaterial` on every
+ * cell. On the 40-storey office (per-slab curtain-wall glass across 41 slabs) that
+ * is thousands of one-off materials — each its own GPU program-state churn + GC
+ * pressure, adding to the WebGPU device-loss root cause. Identical-look panels
+ * (same type + colour + transparency) can safely SHARE one material: THREE reuses
+ * the compiled program and we stop the per-panel allocation.
+ *
+ * Disposal-safe: cached panels are stamped `userData.sharedMaterial = true` so
+ * CurtainWallBuilder._disposeChildren() skips freeing the shared material on rebuild
+ * (matching the existing mullion / fallback-glass sharedMaterial discipline). The
+ * cache is bounded (one material per distinct panel look — a handful in practice).
+ *
+ * Gate: `globalThis.__pryzmCurtainPanelMatDedup === false` disables sharing (exact
+ * prior behaviour: a fresh material per panel, no sharedMaterial flag). Default ON.
+ */
+const _flatPanelMatCache = new Map<string, THREE.MeshStandardMaterial>();
+
+function _flatPanelDedupEnabled(): boolean {
+    return (globalThis as { __pryzmCurtainPanelMatDedup?: boolean }).__pryzmCurtainPanelMatDedup !== false;
+}
+
 // ── Wooden slat panel materials ──
 // Two wood tones are used across the four panel types:
 //   - "light" oak/teak frame  (frames + posts on Image 1, posts on Image 3)
@@ -213,14 +237,37 @@ function buildFlatPanel(ctx: PanelBuildContext): THREE.Mesh {
         catch { /* ignore — fall back to type default */ }
     }
 
-    const mat = new THREE.MeshStandardMaterial({
-        color,
-        transparent: defaults.transparent,
-        opacity:     defaults.opacity,
-        metalness:   defaults.metalness,
-        roughness:   defaults.roughness,
-        side:        defaults.transparent ? THREE.DoubleSide : THREE.FrontSide,
-    });
+    // §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139) — share one material per distinct
+    // panel look (type + colour + transparency) instead of one per cell.
+    const dedup = _flatPanelDedupEnabled();
+    let mat: THREE.MeshStandardMaterial;
+    if (dedup) {
+        const key =
+            `${panelData.panelType}|${color}|${defaults.transparent ? 1 : 0}|` +
+            `${defaults.opacity}|${defaults.metalness}|${defaults.roughness}`;
+        let cached = _flatPanelMatCache.get(key);
+        if (!cached) {
+            cached = new THREE.MeshStandardMaterial({
+                color,
+                transparent: defaults.transparent,
+                opacity:     defaults.opacity,
+                metalness:   defaults.metalness,
+                roughness:   defaults.roughness,
+                side:        defaults.transparent ? THREE.DoubleSide : THREE.FrontSide,
+            });
+            _flatPanelMatCache.set(key, cached);
+        }
+        mat = cached;
+    } else {
+        mat = new THREE.MeshStandardMaterial({
+            color,
+            transparent: defaults.transparent,
+            opacity:     defaults.opacity,
+            metalness:   defaults.metalness,
+            roughness:   defaults.roughness,
+            side:        defaults.transparent ? THREE.DoubleSide : THREE.FrontSide,
+        });
+    }
 
     const geo = new THREE.BoxGeometry(panelWidth, panelHeight, panelThickness);
     const mesh = new THREE.Mesh(geo, mat);
@@ -230,7 +277,9 @@ function buildFlatPanel(ctx: PanelBuildContext): THREE.Mesh {
     mesh.castShadow    = true;
     mesh.receiveShadow = true;
 
-    stampUserData(mesh, panelData, ctx.levelId);
+    // When the material is shared, stamp sharedMaterial so _disposeChildren skips
+    // freeing it on rebuild (the cache owns disposal). No-op flag when not deduped.
+    stampUserData(mesh, panelData, ctx.levelId, dedup ? { sharedMaterial: true } : {});
     return mesh;
 }
 

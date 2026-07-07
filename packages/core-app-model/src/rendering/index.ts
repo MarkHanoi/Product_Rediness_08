@@ -11,6 +11,7 @@ export * from './EnhancedBloomService.js';
 export * from './ExportQualityPresets.js';
 export * from './FrameCoordinator.js';
 export * from './FrustumCullingService.js';
+export * from './LevelScoped3DCullingService.js';
 export * from './HDRIEnvironmentManager.js';
 export * from './InstancedElementRenderer.js';
 export * from './InstanceGroup.js';
