@@ -304,6 +304,10 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-150 [HIGH] Large 40-storey tower: only active±1 of 40 levels render in 3D — L-139 LevelScoped3DCulling HIDES far levels (no massing-LOD half) | Rendering / heavy-scene level scoping (C04, A.24) | **OPEN → rendering lane (fenced core-app-model/rendering + initScene + renderer-three; disjoint from D/E; coord w/ L-140)** — far levels render as massing LOD (full building silhouette always visible) + user toggle full-detail vs scoped; complete the L-139 design; §FIX-HEAVY-SCENE-MASSING-LOD |
 
+| L-151 [UX] default elevation marks too close to origin | Views / elevation-mark placement (C06) | **FIXED f619ea62** — doubled ELEV_MARK_RADIUS_M 6→12m; bounds-relative placement queued; §FIX-ELEV-MARK-RADIUS-DOUBLE |
+
+| L-152 [HIGH] creating the LAST wall re-mutates earlier already-correct joints (whole-level re-resolve not idempotent) | Wall junction resolver (ADR-0055) | **OPEN → wall agent (resume Agent B; fenced geometry-wall + WallRebuildCoordinator)** — resolve must be idempotent: only the new wall's junctions may change, all settled joints byte-identical; broader than L-146; §FIX-WALL-RESOLVE-IDEMPOTENT-JOINTS |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
