@@ -13,6 +13,7 @@ import { RGBELoader } from '@pryzm/renderer-three';
 import { STANDARD_MATERIAL_LIBRARY, VisualStyle } from '@pryzm/core-app-model/material-library';
 import { undoManager } from '@pryzm/command-registry';
 import { PropertyPanelAdapter } from '@app/ui/property-panel/PropertyPanelAdapter';
+import { openDimensionPropertiesOnSelect } from '@app/ui/property-panel/dimensionSelectionPanel';
 import { ViewPropertiesPanel } from '@app/ui/ViewPropertiesPanel';
 import { workspaceController } from '@app/ui/WorkspaceController';
 import { SceneTheme } from '@pryzm/core-app-model';
@@ -336,6 +337,27 @@ export async function bootstrap(
     if (runtime) {
         runtime.events.on('pryzm-element-selected', (detail) => {
             reactToScheduleSelection(detail, selectionManager, runtime.bus);
+        });
+
+        // §FIX-DIM-SELECT-PROPERTIES-PANEL (L-173) — a dimension is a first-class
+        // SELECTABLE element: selecting one surfaces its Properties Panel exactly
+        // like a wall. This is the SINGLE, event-bus-driven authority for that —
+        // it mirrors how a wall selection reaches inspector.showElement (see
+        // updateInspector above), rather than a per-view direct poke. A UI-drawn
+        // linear dimension is an AnnotationElement in the documentation layer
+        // (ADR-0119 subsystem annotationStore, Revit parity) — "like a wall" means
+        // the SAME panel surface + selectability, NOT promotion to model geometry.
+        // The panel's own edits stay P6 commands (annotation.update / setColor /
+        // setTextHeight / delete). Fires for BOTH the plan-view pick and the
+        // drag-commit re-select (PlanViewInteraction emits with an annotationId);
+        // a wall/other id resolves to no annotation and is skipped, so normal BIM
+        // selection is untouched.
+        runtime.events.on('pryzm-element-selected', (detail) => {
+            openDimensionPropertiesOnSelect(detail, {
+                getAnnotationById: (id) => annotationStore.getById(id),
+                getSelectedElementId: () => window.projectContext?.selectedElementId,
+                panel: inspector,
+            });
         });
     }
 

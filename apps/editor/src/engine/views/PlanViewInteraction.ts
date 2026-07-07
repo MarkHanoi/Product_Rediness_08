@@ -607,14 +607,14 @@ export class PlanViewInteraction {
             window.__pryzmSelectedAnnotationId = annotationId;
             this._planCanvas.setSelectedGridId?.(null);
             window.runtime?.events?.emit('pryzm-element-selected', { elementId: annotationId, annotationId, source: 'plan-view' });
-            const hitAnn = annotationStore.getById(annotationId);
-            // §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — a plan-view dimension
-            // pick opens the shared dimension Properties panel (value/override edit +
-            // delete). The 3D-canvas path gets this for free via
-            // AnnotationManager._canvasClickHandler; the plan surface routes here.
-            if (hitAnn?.type === 'linear-dim') {
-                this._openDimensionPanel(annotationId);
-            }
+            // §FIX-DIM-SELECT-PROPERTIES-PANEL (L-173) — opening a selected dimension's
+            // Properties Panel is now driven by the `pryzm-element-selected` emit above:
+            // engineLauncher's centralized listener resolves the annotationId to the
+            // linear-dim AnnotationElement and calls inspector.showLinearDimension
+            // (mirroring how a wall selection reaches inspector.showElement). This
+            // supersedes the L-161 direct _openDimensionPanel poke — ONE event-driven
+            // authority, no double-open. The 3D-canvas path keeps its own
+            // AnnotationManager._canvasClickHandler route.
             // §FIX-ELEV-CROP-EDIT-REGRESSION (L-157) — a SINGLE click now only
             // SELECTS the mark (the continuous plan render then draws
             // _renderSelectedScopeOverlay's crop adjust-arrows + drag handles, which
@@ -900,20 +900,6 @@ export class PlanViewInteraction {
             e.stopPropagation();
             this._navigateToLinkedView(linkedViewId);
         }
-    }
-
-    /**
-     * §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — open the shared dimension
-     * Properties panel (value/override edit + delete) for a plan-view-selected
-     * linear dim. Delegates to AnnotationManager.showDimensionPanelFor (the same
-     * panel + UpdateAnnotationCommand/DeleteAnnotationCommand edit path the 3D
-     * canvas uses). Typed via a narrow local shape — no `(window as any)` (P4).
-     */
-    private _openDimensionPanel(annotationId: string): void {
-        interface AnnotationManagerLike { showDimensionPanelFor?(id: string, selectedWallId?: string): void }
-        const am = (window as unknown as { annotationManager?: AnnotationManagerLike }).annotationManager;
-        try { am?.showDimensionPanelFor?.(annotationId); }
-        catch (err) { console.warn('[PlanViewInteraction] showDimensionPanelFor failed:', err); }
     }
 
     private _onContextMenu(e: MouseEvent): void {
