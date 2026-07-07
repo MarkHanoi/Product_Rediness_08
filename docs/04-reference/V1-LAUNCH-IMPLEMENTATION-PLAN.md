@@ -322,6 +322,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-161 [HIGH] AutoDim/manual linear dims not selectable/editable in plan (render but inert) | Documentation / dim edit (C03, C56, DOC-2.x) | **OPEN → AutoDim/annotation-usability agent, SEQUENCED behind L-157 (shared PlanViewInteraction)** — make linear-dim selectable+draggable+value-editable+deletable (reuse manual dim edit path); bundle w/ L-155 offset-outward; §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE |
 
+| L-162 [CRITICAL contract] AutoDim undo doesn't remove dims (violates C11/C24.1 one-undo) | Documentation / AutoDim undo (ADR-0119) | **OPEN → AutoDim agent (bundle L-155/L-161/L-162)** — CreateManyAnnotationsCommand must be one undoable unit on the CommandManager stack; §FIX-AUTODIM-UNDO-ONE-UNIT |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
