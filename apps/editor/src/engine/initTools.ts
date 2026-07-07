@@ -76,6 +76,7 @@ import { StairTool } from '@pryzm/geometry-stair';
 import { LiftTool } from '@pryzm/geometry-lift';
 import { StairPath3DToolHandler } from './views/plantools/StairPath3DToolHandler';
 import { shouldSuppressAutoFrameWhileDrawing } from './views/autoframeGuard';
+import { createBatchAutoFrameCoordinator } from './views/batchAutoFrame';
 import { singleVolumeWallProducer } from './singleVolumeWallProducer';
 import { OpeningTool } from '@pryzm/input-host';
 import { AnnotationManager, obcAnnotationAdapter } from '@pryzm/plugin-annotations';
@@ -1941,6 +1942,39 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             }, 300);
         });
         console.log('[initTools] §3D-FRAME-ON-VIEW-SWITCH: first-3D-view-activation framing registered.');
+
+        // §FIX-BATCH-GEN-AUTOFRAME-3D (L-174, 2026-07-06) — REGRESSION FIX.
+        //
+        // The three handlers above (§3D-FRAME-ON-VIEW-SWITCH here, §VIEW-AUTOFRAME +
+        // §SVP3D-FRAME-ON-SWITCH in SplitViewManager) all frame the 3D view on a VIEW
+        // event (view-activated / split-view entry). On a NEW project the 3D / split
+        // view is entered at PROJECT-OPEN while the scene is EMPTY: the once-per-session
+        // §3D-FRAME flag above is consumed and §VIEW-AUTOFRAME's zoomToAll no-ops on the
+        // empty scene. When the building then GENERATES seconds later — geometry draining
+        // across many frames via the L-131 P5 progressive WallFragmentBuilder /
+        // SlabFragmentBuilder RAF_DRAIN — no view event fires, so nothing re-frames and
+        // the founder must click Fit All.
+        //
+        // FIX: frame on the GENERATION-COMPLETE signal, not a view event or the flag.
+        // The batch lifecycle already emits `pryzm-batch-started` / `pryzm-batch-ended`
+        // (initBatchLifecycle.ts, fired from BatchCoordinator._onBatchEnd AFTER the build
+        // queue drains, registrations settle, and the GPU-compile wait completes — all
+        // geometry stable). The coordinator ref-counts those (identically to
+        // SaveOrchestrator) and frames ONCE, a single frame after the LAST per-level
+        // batch drains — not per-chunk (L-131 / L-139 / L-150 perf budget). It reuses
+        // zoomToAll() (self-guards an empty scene) and keeps the
+        // §AUTOFRAME-NO-HIJACK-WHILE-DRAWING guard so a mid-draw commit never moves the
+        // camera. Typology-generic: every typology (resi / house / apartment / office)
+        // generates through batchCoordinator.runBatch(). onFramed satisfies the
+        // once-per-session flag so the view-switch handler above won't redundantly
+        // re-frame the already-framed scene.
+        const _batchGenAutoFrame = createBatchAutoFrameCoordinator({
+            frame:   () => { zoomToAll(); },
+            onFramed: () => { _3dViewFirstFrameDone = true; },
+        });
+        window.addEventListener('pryzm-batch-started', () => _batchGenAutoFrame.onBatchStarted());
+        window.addEventListener('pryzm-batch-ended',   () => _batchGenAutoFrame.onBatchEnded());
+        console.log('[initTools] §FIX-BATCH-GEN-AUTOFRAME-3D: batch-generation-complete 3D auto-frame registered.');
     }
 
     // ── Stair railing proposal handler ────────────────────────────────────────
