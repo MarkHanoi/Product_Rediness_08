@@ -292,6 +292,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-143 [HIGH perf] Sun Hours ~1min on 3D Site (1621 cells × raycast vs 4755 context buildings); navigation may re-trigger compute | solar-analysis / geospatial perf | **QUEUED behind L-142 (CesiumViewport collision)** — worker-offload raycast + BVH occluders + no-recompute-on-nav + adaptive sampling; §PERF-SUNHOURS-WORKER-BVH-NO-RECOMPUTE | 
 
+| L-144 [HIGH] Forma façade/sun analysis runs on 4-face MASSING PROXY not the real building geometry (192 walls+openings already placed) | solar/Forma analysis fidelity | **QUEUED — bundled w/ L-143, behind L-142 (CesiumViewport)** — run analysis on REAL façade surfaces (reuse placed real geometry), massing = fast preview tier only; depends on L-143 worker+BVH; §FIX-FACADE-ANALYSIS-REAL-GEOMETRY | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
