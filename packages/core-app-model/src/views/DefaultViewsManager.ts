@@ -50,7 +50,10 @@ const GROUND_LEVEL_ID = 'L0';
 
 // §FEAT-ELEVATION-MARKERS (L-116) — how far (metres) each default elevation MARK
 // sits from the project origin on the Ground Floor plan, and the arrow length.
-const ELEV_MARK_RADIUS_M = 6;
+// §FIX-ELEV-MARK-RADIUS-DOUBLE (L-151) — doubled 6 → 12 m: at 6 m the marks sat
+// too close to the origin (inside larger footprints). A future bounds-relative
+// placement (marks clamped OUTSIDE the building footprint) is queued as a refinement.
+const ELEV_MARK_RADIUS_M = 12;
 const ELEV_MARK_ARROW_LEN_M = 1;
 
 function _ensureVgBridge(viewId: string, viewName: string): void {
