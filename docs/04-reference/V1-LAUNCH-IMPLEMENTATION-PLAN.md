@@ -302,6 +302,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-149 [UX] GIS launcher rail (3D Site/Plan+Site/Graph/Living Graph) below other UI + overlaps; NO central z-index scale (325 hardcoded z-index) — needs UI/UX layering CONTRACT | UI shell / layering (C06) | **OPEN → UI-layering agent (fenced apps/editor/src/ui chrome + initUI, EXCL documentation/auto-dimension)** — contract: single named z-layer token scale + no-overlap policy (extend C06 or new C57); audit 325 sites; raise launcher rail to correct layer + de-overlap; token migration phased; §FIX-UI-LAYERING-ZINDEX-CONTRACT |
 
+| L-150 [HIGH] Large 40-storey tower: only active±1 of 40 levels render in 3D — L-139 LevelScoped3DCulling HIDES far levels (no massing-LOD half) | Rendering / heavy-scene level scoping (C04, A.24) | **OPEN → rendering lane (fenced core-app-model/rendering + initScene + renderer-three; disjoint from D/E; coord w/ L-140)** — far levels render as massing LOD (full building silhouette always visible) + user toggle full-detail vs scoped; complete the L-139 design; §FIX-HEAVY-SCENE-MASSING-LOD |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
