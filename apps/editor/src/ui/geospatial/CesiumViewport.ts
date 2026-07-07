@@ -72,10 +72,23 @@ import {
     // into ONE smooth bilinearly-interpolated texture per wall face (+ roof) so the façade
     // reads as a continuous gradient like the floor heatmap, not ~2159 discrete quads.
     rasterizeFacadeSunTexture,
+    // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY (L-144 / L-160b) — punch the REAL authored
+    // window/door openings out of the façade study so the analysis surface is the real
+    // walls-with-openings, not a solid perimeter prism. + §PERF-SUNHOURS-WORKER probe type
+    // (the raycast itself runs in the worker via computeSunIntensitiesForProbes).
+    facadeOpeningUvRects,
+    type FacadeOpening,
+    type FacadeOpeningRect,
+    type SunProbe,
     type FacadeSamplePoint,
     type FacadeSunPrep,
     type FacadeSunTexture,
 } from "../climate/siteMetricGrids";
+// §PERF-SUNHOURS-WORKER (L-143 / L-160c, ADR-0110) — off-main-thread sun-hours raycast.
+// The pool computes per-probe intensities in a Web Worker so the heavy real-geometry
+// façade + ground grid never freeze the 3D site view; unavailable/errored → the existing
+// synchronous chunked path is the fallback (never worse than today).
+import { getSolarWorkerPool, isSolarSuperseded } from "../../workers/SolarWorkerPool";
 // §ANALYSIS-REAL-POPULATION + §ANALYSIS-REAL-TEMPERATURE + §ANALYSIS-REAL-WIND
 // (ADR-0095) — REAL free-dataset baselines (NASA POWER climate + WorldPop population)
 // for the analysis metrics. Async + cached + non-fatal; the render path peeks the
@@ -4980,6 +4993,22 @@ export class CesiumViewport {
     // Occluders = OSM context + the proposed massing (the same set the ground grid uses).
     const occluders = this.siteMetricFootprints(origin);
 
+    // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY (L-144 / L-160b) — the REAL authored window +
+    // door openings, in the metric frame (east = x, north = −z, matching sceneRingToMetric).
+    // These are the SAME openings the real full-fidelity GLB is built from (the founder's
+    // "228 openings"). Each is punched out of its exterior façade face below, so the study
+    // surface is the real walls WITH their openings, not a solid perimeter prism. When there
+    // are no openings (older callers / apartment massing) every face stays solid — the fast
+    // preview / fallback tier (A.24), unchanged behaviour.
+    const metricOpenings: FacadeOpening[] = (input?.openings ?? []).map((o) => ({
+      a: { x: o.a.x, z: -o.a.z },
+      b: { x: o.b.x, z: -o.b.z },
+      baseElevation: o.baseElevation,
+      sill: o.sill,
+      height: o.height,
+      kind: o.kind,
+    }));
+
     // §FORMA-FACADE-SMOOTH (founder 2026-07-01) — the compute LATTICE spacing. The heavy
     // per-point raycast is COMPUTE; the DISPLAY is DECOUPLED (each face is rasterised to a
     // fine bilinear texture, exactly like the ground §SITE-METRIC-SUN-TEXTURE), so the
@@ -5027,6 +5056,9 @@ export class CesiumViewport {
       intensities: Array<number | null>;
       // sampler geometry: face start (ax,az), along-unit (ux,uz), outward normal (nE,nN).
       geo: { ax: number; az: number; ux: number; uz: number; nE: number; nN: number };
+      // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY — the authored openings on THIS face, in face
+      // UV (u along, v up with v0 = bottom); punched as transparent holes in the texture.
+      openings: FacadeOpeningRect[];
     }
     const enuLocal = (e: number, n: number, u: number): Cesium.Cartesian3 =>
       Cesium.Matrix4.multiplyByPoint(enu, new Cesium.Cartesian3(e, n, u), new Cesium.Cartesian3());
@@ -5046,11 +5078,16 @@ export class CesiumViewport {
       // Face rectangle corners (perPositionHeight polygon). Order: BL, BR, TR, TL.
       const bl = enuLocal(a.x, a.z, 0), br = enuLocal(b.x, b.z, 0);
       const tr = enuLocal(b.x, b.z, heightM), tl = enuLocal(a.x, a.z, heightM);
+      // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY — the authored openings that lie on THIS face.
+      const faceOpenings = facadeOpeningUvRects(
+        { ax: a.x, az: a.z, ux, uz, segLen }, heightM, metricOpenings,
+      );
       faceJobs.push({
         nU, nV, segLen,
         corners: [bl, br, tr, tl],
         intensities: new Array<number | null>(nU * nV).fill(null),
         geo: { ax: a.x, az: a.z, ux, uz, nE, nN },
+        openings: faceOpenings,
       });
     }
 
@@ -5133,7 +5170,8 @@ export class CesiumViewport {
         const aspect = job.segLen / Math.max(1e-3, heightM);
         // §FORMA-FACADE-VISIBLE — near-opaque (0.98) + vivid ramp so the sun-hours gradient
         // reads boldly on the tower and the analysis colours dominate the wall face.
-        const tex: FacadeSunTexture = rasterizeFacadeSunTexture(job.intensities, job.nU, job.nV, aspect, 0.98, true);
+        // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY — punch the real window/door openings as holes.
+        const tex: FacadeSunTexture = rasterizeFacadeSunTexture(job.intensities, job.nU, job.nV, aspect, 0.98, true, job.openings);
         const material = this.facadeTextureMaterial(tex);
         if (!material) continue;
         const ent = viewer.entities.add({
@@ -5171,9 +5209,12 @@ export class CesiumViewport {
         this.setBuildingMaterialsVisibleForFacade(false);
       }
       try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
+      let openingHoles = 0;
+      for (const j of faceJobs) openingHoles += j.openings.length;
       console.log(
-        `[CesiumViewport][forma-facade] §FORMA-FACADE-SMOOTH painted ${this.facadeAnalysisEntities.length} ` +
-          `smooth textured façade surface(s) (${facesPainted} wall face(s) + roof, ${nodes.length} lattice node(s), ` +
+        `[CesiumViewport][forma-facade] §FORMA-FACADE-SMOOTH + §FIX-FACADE-ANALYSIS-REAL-GEOMETRY painted ` +
+          `${this.facadeAnalysisEntities.length} smooth textured façade surface(s) (${facesPainted} wall face(s) + roof, ` +
+          `${nodes.length} lattice node(s), ${openingHoles} real opening hole(s) from ${metricOpenings.length} authored, ` +
           `H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}).`,
       );
     });
@@ -5405,15 +5446,56 @@ export class CesiumViewport {
           sunStepMinutes: 25,        // sane cadence for the heaviest metric
         });
         if (!prep) return;
-        // Compute the coloured cells via the chunked raycast; the texture is built ONCE
-        // at the end. No cell ever becomes a Cesium entity.
-        const sunCells: MetricGridCell[] = [];
-        this.chunkBuild(seq, prep.cells.length, 220, (lo, hi) => {
-          for (let i = lo; i < hi; i++) {
-            const cell = prep.evaluate(prep.cells[i] as SunHoursCell);
-            if (cell) sunCells.push(cell);
+
+        // The existing synchronous chunked raycast — the FALLBACK when the worker is
+        // unavailable / errors (behaviour identical to before the worker landed). Compute
+        // the coloured cells across frames; the texture is built ONCE at the end.
+        const paintFromChunkedRaycast = (): void => {
+          const sunCells: MetricGridCell[] = [];
+          this.chunkBuild(seq, prep.cells.length, 220, (lo, hi) => {
+            for (let i = lo; i < hi; i++) {
+              const cell = prep.evaluate(prep.cells[i] as SunHoursCell);
+              if (cell) sunCells.push(cell);
+            }
+          }, () => finishTexture(sunCells, prep.cellSizeM, legendTitle));
+        };
+
+        // §PERF-SUNHOURS-WORKER (L-143 / L-160c, ADR-0110) — run the heavy per-cell raycast
+        // OFF the main thread when the worker is live, so navigating / toggling the 3D site
+        // view never freezes on the ~1 min raycast. The worker computes byte-identical
+        // intensities (same BVH + sun samples); we then paint them through the SAME ramp via
+        // `cellFromIntensity`. A superseded toggle/date is dropped by the seq guard; any
+        // worker failure falls back to the synchronous chunked path (never worse than today).
+        const pool = getSolarWorkerPool();
+        if (pool.isReady()) {
+          const validIdx: number[] = [];
+          const probes: SunProbe[] = [];
+          for (let i = 0; i < prep.cells.length; i++) {
+            const c = prep.cells[i] as SunHoursCell;
+            // Mirror evaluateIntensity's null mask: skip cells under a mass / outside the
+            // round analysis disc (they contribute no field value).
+            if (c.underBuilding || Math.hypot(c.x, c.z) > prep.radiusM * 1.02) continue;
+            validIdx.push(i);
+            probes.push({ east: c.x, north: c.z, up: 0.5 });
           }
-        }, () => finishTexture(sunCells, prep.cellSizeM, legendTitle));
+          pool.computeIntensities(probes, footprints, {
+            latDeg: origin.lat, lngDeg: origin.lon, sunDay: this.siteMetricSunDay, stepMinutes: 25,
+          }).then((intensities) => {
+            if (seq !== this.siteMetricBuildSeq) return;   // a newer toggle/date superseded
+            const sunCells: MetricGridCell[] = [];
+            for (let k = 0; k < validIdx.length; k++) {
+              const cell = prep.cellFromIntensity(prep.cells[validIdx[k]!] as SunHoursCell, intensities[k] ?? null);
+              if (cell) sunCells.push(cell);
+            }
+            finishTexture(sunCells, prep.cellSizeM, `${legendTitle}, worker`);
+          }).catch((e) => {
+            if (isSolarSuperseded(e) || seq !== this.siteMetricBuildSeq) return;
+            console.warn('[CesiumViewport][site-metric] §PERF-SUNHOURS-WORKER sun-hours worker failed — chunked fallback:', e);
+            paintFromChunkedRaycast();
+          });
+          return;
+        }
+        paintFromChunkedRaycast();
         return;
       }
 

@@ -1134,6 +1134,11 @@ export interface SunHoursGridPrep {
      *  null when the cell is under a building (no contribution to the field). The
      *  heavy raycast lives here; the caller still batches it across frames. */
     readonly evaluateIntensity: (cell: SunHoursCell) => number | null;
+    /** §PERF-SUNHOURS-WORKER — build the coloured `MetricGridCell` for a cell from an
+     *  ALREADY-computed intensity (0..1), or null for a skipped/under-mass cell. Uses the
+     *  SAME ramp + hour scale as `evaluate`, so a worker-computed intensity paints
+     *  byte-identically to the synchronous raycast — no re-raycast on the main thread. */
+    readonly cellFromIntensity: (cell: SunHoursCell, intensity: number | null) => MetricGridCell | null;
     /** The compute-grid cell edge (m) — the spacing of the cell-centre lattice the
      *  texture resamples FROM. */
     readonly cellSizeM: number;
@@ -1205,8 +1210,10 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
         return maxHours > 0 ? hours / maxHours : 0;
     };
 
-    const evaluate = (c: SunHoursCell): MetricGridCell | null => {
-        const intensity = evaluateIntensity(c);
+    // §PERF-SUNHOURS-WORKER — turn an already-computed intensity into the coloured cell
+    // (the display half of `evaluate`), so the off-main-thread worker path paints with the
+    // IDENTICAL ramp + hour scale as the synchronous raycast.
+    const cellFromIntensity = (c: SunHoursCell, intensity: number | null): MetricGridCell | null => {
         if (intensity == null) return null;
         return {
             east: c.x, north: c.z, halfSize: c.size / 2, up,
@@ -1215,10 +1222,14 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
         };
     };
 
+    const evaluate = (c: SunHoursCell): MetricGridCell | null =>
+        cellFromIntensity(c, evaluateIntensity(c));
+
     return {
         cells: cells.map((c) => ({ x: c.x, z: c.z, size: c.size, underBuilding: c.underBuilding })),
         evaluate,
         evaluateIntensity,
+        cellFromIntensity,
         cellSizeM: cellSize,
         radiusM: radius,
     };
@@ -1456,6 +1467,208 @@ export function prepareFacadeSunGrid(input: FacadeSunInput): FacadeSunPrep | nul
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §FIX-FACADE-ANALYSIS-REAL-GEOMETRY (L-144 / L-160b, ADR-0074) — analyse the REAL
+// walls-with-openings, not a solid perimeter prism
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The Forma façade study collapsed the designed building to ONE exterior perimeter
+// ring and extruded it to a handful of SOLID faces (a "massing prism"), ignoring the
+// authored window/door openings — even though the SAME opening data the real GLB is
+// built from is available (`renderFormaMassing`'s `openings`). The founder: paint the
+// analysis on the REAL walls WITH their openings, not the solid cube.
+//
+// FIX (pure, P2-safe): keep the exterior face rectangles at their REAL positions (the
+// ring edges ARE the real exterior wall lines), but PUNCH each authored opening out of
+// the face — skip the raycast inside an opening (a void receives no wall-surface sun
+// value) AND render the opening as a transparent HOLE in the face texture. The result
+// is the real exterior walls with real windows + doors, reusing the authored geometry.
+// A face with no openings falls back to the solid rectangle exactly as before (the fast
+// preview / fallback tier, A.24). Deterministic; no THREE / DOM.
+
+/** One authored opening (window/door) on a wall, in the metric frame (east = x,
+ *  north = z) — the same convention the façade rings use. */
+export interface FacadeOpening {
+    /** Opening span endpoints along the wall baseline, metric XZ metres. */
+    readonly a: { readonly x: number; readonly z: number };
+    readonly b: { readonly x: number; readonly z: number };
+    /** Owning wall storey base elevation (m above ground). */
+    readonly baseElevation: number;
+    /** Sill height above the storey base (m). */
+    readonly sill: number;
+    /** Opening height (m). */
+    readonly height: number;
+    /** Window vs door (reserved — both punch as holes; kept for future styling). */
+    readonly kind?: 'window' | 'door';
+}
+
+/** A rectangular hole in a face's UV space (0..1 along U, 0..1 up V with v0 = the
+ *  BOTTOM of the wall). The rasteriser zeroes alpha inside these rects. */
+export interface FacadeOpeningRect {
+    readonly u0: number;
+    readonly u1: number;
+    readonly v0: number;
+    readonly v1: number;
+}
+
+/** The geometry of ONE façade face for opening projection: its start point + along-unit
+ *  + span, in the metric frame (east = x, north = z). */
+export interface FacadeFaceGeo {
+    readonly ax: number;
+    readonly az: number;
+    /** Along-face unit vector (metric XZ). */
+    readonly ux: number;
+    readonly uz: number;
+    /** Face length (m). */
+    readonly segLen: number;
+}
+
+/**
+ * §FIX-FACADE-ANALYSIS-REAL-GEOMETRY — project the authored openings that lie ON a
+ * given exterior face into that face's UV rectangle(s). An opening belongs to a face
+ * when BOTH its endpoints sit on the face line (perpendicular distance ≤ `tolM`) and
+ * their along-projections fall within the face span. The vertical extent comes from the
+ * opening's sill + height relative to the face's full height `heightM`. PURE + testable.
+ *
+ * @param face     the face start/along/span (metric XZ).
+ * @param heightM  the face's full height (m) — V normalises to this.
+ * @param openings all authored openings (only those on THIS face are returned).
+ * @param tolM     perpendicular on-face tolerance (m). Default 0.6 (wall half-thickness-ish).
+ */
+export function facadeOpeningUvRects(
+    face: FacadeFaceGeo,
+    heightM: number,
+    openings: readonly FacadeOpening[],
+    tolM = 0.6,
+): FacadeOpeningRect[] {
+    const H = Math.max(1e-3, heightM);
+    const L = Math.max(1e-3, face.segLen);
+    // Perpendicular unit (metric XZ) to measure on-face distance.
+    const pE = -face.uz, pN = face.ux;
+    const out: FacadeOpeningRect[] = [];
+    for (const o of openings) {
+        // Along + perpendicular coordinates of each endpoint relative to the face start.
+        const along = (px: number, pz: number): { s: number; d: number } => {
+            const rx = px - face.ax, rz = pz - face.az;
+            return { s: rx * face.ux + rz * face.uz, d: rx * pE + rz * pN };
+        };
+        const pa = along(o.a.x, o.a.z);
+        const pb = along(o.b.x, o.b.z);
+        // Both endpoints must be ON the face line (small perpendicular offset).
+        if (Math.abs(pa.d) > tolM || Math.abs(pb.d) > tolM) continue;
+        let s0 = Math.min(pa.s, pb.s);
+        let s1 = Math.max(pa.s, pb.s);
+        // Must overlap the face span at all.
+        if (s1 < -tolM || s0 > L + tolM) continue;
+        s0 = Math.max(0, Math.min(L, s0));
+        s1 = Math.max(0, Math.min(L, s1));
+        if (s1 - s0 < 1e-3) continue;
+        const vLo = o.baseElevation + o.sill;
+        const vHi = vLo + o.height;
+        const v0 = Math.max(0, Math.min(1, vLo / H));
+        const v1 = Math.max(0, Math.min(1, vHi / H));
+        if (v1 - v0 < 1e-3) continue;
+        out.push({ u0: s0 / L, u1: s1 / L, v0, v1 });
+    }
+    return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §PERF-SUNHOURS-WORKER (L-143 / L-160c, ADR-0110) — off-main-thread probe compute
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The heavy part of BOTH the ground sun-hours grid and the façade study is the same
+// direct-beam raycast: for each PROBE POINT, count the sun samples whose ray is not
+// blocked by the occluder prisms. `computeSunIntensitiesForProbes` is the ONE pure,
+// deterministic core that does exactly this — reused by (a) the main-thread fallback,
+// (b) the `solar.worker.ts` off-main-thread path, and (c) the equivalence tests. It is
+// byte-identical to the per-cell / per-point `evaluateIntensity` closures above (same
+// BVH-accelerated `sunBlockedIndexed`, same daylight-only sample set, same lit / count
+// normalisation, same wall back-face cull), so moving it to a worker changes ONLY speed.
+
+/** A probe point for the sun raycast. A WALL probe carries an outward normal (metric
+ *  east/north) so back-facing sun samples are self-shaded; a GROUND/ROOF probe leaves
+ *  the normal undefined (all above-horizon samples count). */
+export interface SunProbe {
+    readonly east: number;
+    readonly north: number;
+    readonly up: number;
+    /** Outward wall normal (metric east/north). Omit for ground/roof probes. */
+    readonly normE?: number;
+    readonly normN?: number;
+}
+
+/** Sun parameters for a probe-compute batch (site position + analysis day + cadence). */
+export interface SunProbeParams {
+    readonly latDeg: number;
+    readonly lngDeg: number;
+    readonly sunDay?: SunDayPreset;
+    /** Sun-sample cadence (minutes). Default 15. */
+    readonly stepMinutes?: number;
+}
+
+/**
+ * §PERF-SUNHOURS-WORKER — compute the direct-beam sun-hours INTENSITY (0 = shaded …
+ * 1 = full sun) for a batch of probe points against a set of occluder footprints. PURE
+ * + deterministic (no THREE / DOM / RNG / Date): same probes + occluders + sun params ⇒
+ * byte-identical `Float32Array`, whether run on the main thread or inside `solar.worker`.
+ *
+ * The result at index i is the fraction of above-horizon sun samples reaching probe i
+ * unobstructed (for a WALL probe, only front-facing samples can count). It is a DOUBLE
+ * (`Float64Array`, which is transferable) and mirrors `prepareSunHoursGrid.evaluateIntensity`
+ * EXACTLY — the same `(lit·stepHours)/maxHours` expression — so a worker-computed value is
+ * byte-identical to the synchronous main-thread value (the worker changes only speed).
+ *
+ * @param probes    probe points (packed by the caller; order preserved in the output).
+ * @param occluders occluder footprints (context + own massing) for the shadow test.
+ * @param params    site lat/lon + analysis day + sample cadence.
+ */
+export function computeSunIntensitiesForProbes(
+    probes: readonly SunProbe[],
+    occluders: readonly MetricFootprint[],
+    params: SunProbeParams,
+): Float64Array {
+    const out = new Float64Array(probes.length);
+    if (probes.length === 0) return out;
+    const stepMinutes = params.stepMinutes && params.stepMinutes > 0 ? params.stepMinutes : 15;
+    const samples = generateSunSamples({
+        latDeg: params.latDeg,
+        lngDeg: params.lngDeg,
+        dayOfYear: sunDayOfYear(params.sunDay),
+        stepMinutes,
+        daylightOnly: true,
+    });
+    // Same hour scale as prepareSunHoursGrid.evaluateIntensity ⇒ byte-identical result.
+    const stepHours = stepMinutes / 60;
+    const maxHours = samples.length * stepHours;
+    const prisms = toPrisms(occluders);
+    const shadow = buildPrismShadowIndex(prisms);
+    const scratch: number[] = [];
+    for (let i = 0; i < probes.length; i++) {
+        const p = probes[i]!;
+        const isWall = p.normE !== undefined && p.normN !== undefined
+            && (Math.abs(p.normE) + Math.abs(p.normN)) > 1e-6;
+        let lit = 0;
+        for (const s of samples) {
+            if (isWall) {
+                // Sun on the OUTWARD side only (back-faces self-shade). east = dir.x,
+                // north = −dir.z (same frame as prepareFacadeSunGrid).
+                const facing = s.dir.x * p.normE! + (-s.dir.z) * p.normN!;
+                if (facing <= 0) continue;
+            }
+            if (!sunBlockedIndexed(p.east, p.north, p.up, s, shadow, scratch)) lit++;
+        }
+        out[i] = maxHours > 0 ? (lit * stepHours) / maxHours : 0;
+    }
+    try {
+        console.debug(
+            `[span][sunhours-probe-compute] ${probes.length} probe(s) × ${samples.length} sun sample(s) ` +
+            `vs ${prisms.length} occluder prism(s).`,
+        );
+    } catch { /* console unavailable (headless) — span is best-effort */ }
+    return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §FORMA-FACADE-SMOOTH (founder 2026-07-01) — smooth CONTINUOUS façade gradient
 // ─────────────────────────────────────────────────────────────────────────────
 //
@@ -1521,6 +1734,11 @@ const FACADE_TEXTURE_MAX = 256;
  *                    façade skin so the analysis colours dominate the surface).
  * @param vivid       when true (default), colour through the punchy `sunHoursRgbVivid`
  *                    presentation of the ramp; when false, the plain `sunHoursRgb`.
+ * @param openings    §FIX-FACADE-ANALYSIS-REAL-GEOMETRY — face-UV rectangles (u along,
+ *                    v up with v0 = BOTTOM) of the authored window/door openings on this
+ *                    face; texels inside any rect are punched to alpha 0 (a transparent
+ *                    HOLE), so the façade reads as the REAL wall WITH its openings rather
+ *                    than a solid prism. Empty (default) = a solid face (fallback tier).
  */
 export function rasterizeFacadeSunTexture(
     intensities: ReadonlyArray<number | null>,
@@ -1529,6 +1747,7 @@ export function rasterizeFacadeSunTexture(
     aspect = 1,
     alpha = 0.98,
     vivid = true,
+    openings: readonly FacadeOpeningRect[] = [],
 ): FacadeSunTexture {
     const lu = Math.max(2, Math.floor(nU));
     const lv = Math.max(2, Math.floor(nV));
@@ -1577,15 +1796,30 @@ export function rasterizeFacadeSunTexture(
     let sampleCount = 0;
     for (let k = 0; k < valid.length; k++) if (valid[k]) sampleCount++;
 
+    // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY — is texel (u,v) inside an authored opening?
+    // u = along-face 0..1, v = up 0..1 with 0 = bottom of the wall.
+    const inOpening = openings.length > 0
+        ? (u: number, v: number): boolean => {
+            for (const r of openings) {
+                if (u >= r.u0 && u <= r.u1 && v >= r.v0 && v <= r.v1) return true;
+            }
+            return false;
+        }
+        : null;
+
     const rgba = new Uint8ClampedArray(width * height * 4);
     for (let ty = 0; ty < height; ty++) {
         // Row 0 = TOP of the face → highest v. Map texel row → lattice v in [0, lv-1].
         const fv = (1 - (ty + 0.5) / height) * (lv - 1);
         const gj = Math.floor(fv), sv = fv - gj;
+        // v in 0..1 (0 = bottom) for the opening test — flip of the row index.
+        const vNorm = 1 - (ty + 0.5) / height;
         for (let tx = 0; tx < width; tx++) {
             const fu = ((tx + 0.5) / width) * (lu - 1);
             const gi = Math.floor(fu), su = fu - gi;
             const o = (ty * width + tx) * 4;
+            // Punch authored window/door openings as transparent holes (real geometry).
+            if (inOpening !== null && inOpening((tx + 0.5) / width, vNorm)) { rgba[o + 3] = 0; continue; }
             let acc = 0, wsum = 0;
             const corner = (ci: number, cj: number, w: number): void => {
                 if (ci < 0 || cj < 0 || ci >= lu || cj >= lv) return;

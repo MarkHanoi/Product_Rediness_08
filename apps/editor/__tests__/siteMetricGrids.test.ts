@@ -20,10 +20,15 @@ import {
     siteMetricGridBudget,
     buildFacadeSamplePoints,
     prepareFacadeSunGrid,
+    rasterizeFacadeSunTexture,
     buildRealWindRose,
     __sunHoursBvhEquivalenceProbe,
+    facadeOpeningUvRects,
+    computeSunIntensitiesForProbes,
     type SiteMetric,
     type MetricFootprint,
+    type SunProbe,
+    type FacadeOpeningRect,
 } from '../src/ui/climate/siteMetricGrids';
 
 // A bundled (offline, deterministic) dataset for a temperate site — non-empty
@@ -759,5 +764,135 @@ describe('§PERF-SUNHOURS-BVH: spatial index is byte-identical to the naive rayc
         const a = __sunHoursBvhEquivalenceProbe(CITY, PROBES, cfg);
         const b = __sunHoursBvhEquivalenceProbe(CITY, PROBES, cfg);
         expect(a.map((r) => r.indexed)).toEqual(b.map((r) => r.indexed));
+    });
+});
+
+// §PERF-SUNHOURS-WORKER (L-143 / L-160c, ADR-0110) — the pure probe-compute core the
+// off-main-thread worker runs MUST be byte-identical to the existing per-cell / per-point
+// evaluators, and slicing it (as the worker does between yields, for cancellation) MUST
+// equal the whole-batch result. This locks the "worker changes only speed, never the math"
+// guarantee at the pure-function boundary (no Worker needed for these).
+describe('§PERF-SUNHOURS-WORKER: computeSunIntensitiesForProbes core', () => {
+    const CITY: MetricFootprint[] = [];
+    for (let gx = -5; gx <= 5; gx++) {
+        for (let gz = -5; gz <= 5; gz++) {
+            if (gx === 0 && gz === 0) continue;
+            const cx = gx * 28, cz = gz * 28;
+            CITY.push({
+                ring: [
+                    { x: cx - 7, z: cz - 7 }, { x: cx + 7, z: cz - 7 },
+                    { x: cx + 7, z: cz + 7 }, { x: cx - 7, z: cz + 7 },
+                ],
+                heightM: 15 + ((gx * 5 + gz * 11) % 4) * 7,
+            });
+        }
+    }
+    const PARAMS = { latDeg: 41.39, lngDeg: 2.17, sunDay: 'summer' as const, stepMinutes: 20 };
+
+    it('equals prepareSunHoursGrid.evaluateIntensity for every non-masked cell (worker == main)', () => {
+        const prep = prepareSunHoursGrid({
+            radius: 120, footprints: CITY, dataset: null,
+            latDeg: PARAMS.latDeg, lngDeg: PARAMS.lngDeg, sunDay: PARAMS.sunDay, sunStepMinutes: PARAMS.stepMinutes,
+        });
+        expect(prep).not.toBeNull();
+        const cells = prep!.cells;
+        // Build probes for the cells the render path would compute (mirror the null mask).
+        const probes: SunProbe[] = [];
+        const idx: number[] = [];
+        for (let i = 0; i < cells.length; i++) {
+            const c = cells[i]!;
+            if (c.underBuilding || Math.hypot(c.x, c.z) > prep!.radiusM * 1.02) continue;
+            idx.push(i);
+            probes.push({ east: c.x, north: c.z, up: 0.5 });
+        }
+        expect(probes.length).toBeGreaterThan(50);
+        const intens = computeSunIntensitiesForProbes(probes, CITY, PARAMS);
+        for (let k = 0; k < idx.length; k++) {
+            const ref = prep!.evaluateIntensity(cells[idx[k]!]!);
+            expect(ref).not.toBeNull();
+            // Byte-identical (both are lit / sampleCount with the SAME BVH + samples).
+            expect(intens[k]).toBe(ref);
+        }
+    });
+
+    it('is slice-invariant — computing in chunks (as the worker yields) equals the whole batch', () => {
+        const probes: SunProbe[] = [];
+        for (let e = -80; e <= 80; e += 11) for (let n = -80; n <= 80; n += 13) probes.push({ east: e, north: n, up: 0.5 });
+        const whole = computeSunIntensitiesForProbes(probes, CITY, PARAMS);
+        // Re-compute in slices (the worker's SLICE loop) and concatenate.
+        const sliced = new Float64Array(probes.length);
+        const SLICE = 37;
+        for (let s = 0; s < probes.length; s += SLICE) {
+            const part = computeSunIntensitiesForProbes(probes.slice(s, s + SLICE), CITY, PARAMS);
+            sliced.set(part, s);
+        }
+        expect(Array.from(sliced)).toEqual(Array.from(whole));
+    });
+
+    it('honours the wall back-face cull — a wall never receives more sun than an unnormalled probe', () => {
+        // A probe with an outward normal must see ≤ the sun of the same point with no normal
+        // (back-facing samples are culled), and a north-facing wall in the N hemisphere summer
+        // gets strictly LESS than a south-facing one.
+        const probeNoNormal: SunProbe = { east: 0, north: 0, up: 2 };
+        const south: SunProbe = { east: 0, north: 0, up: 2, normE: 0, normN: -1 };
+        const north: SunProbe = { east: 0, north: 0, up: 2, normE: 0, normN: 1 };
+        const [full] = computeSunIntensitiesForProbes([probeNoNormal], [], PARAMS);
+        const [s] = computeSunIntensitiesForProbes([south], [], PARAMS);
+        const [n] = computeSunIntensitiesForProbes([north], [], PARAMS);
+        expect(s!).toBeLessThanOrEqual(full! + 1e-9);
+        expect(n!).toBeLessThanOrEqual(full! + 1e-9);
+        expect(s!).toBeGreaterThan(n!);   // south-facing beats north-facing in the N summer
+    });
+});
+
+// §FIX-FACADE-ANALYSIS-REAL-GEOMETRY (L-144 / L-160b) — the façade study surface must be
+// the REAL exterior walls WITH their authored window/door openings, not a solid prism.
+describe('§FIX-FACADE-ANALYSIS-REAL-GEOMETRY: real openings punched into the façade', () => {
+    // A 10 m face running east from the origin (along +east, up +north offset 0), height 6 m.
+    const FACE = { ax: 0, az: 0, ux: 1, uz: 0, segLen: 10 };
+    const HEIGHT = 6;
+
+    it('projects an opening ON the face into the correct UV rect', () => {
+        // A window from x=3..5 along the face, sill 1 m, height 2 m (so v 1/6..3/6).
+        const rects = facadeOpeningUvRects(FACE, HEIGHT, [
+            { a: { x: 3, z: 0 }, b: { x: 5, z: 0 }, baseElevation: 0, sill: 1, height: 2, kind: 'window' },
+        ]);
+        expect(rects.length).toBe(1);
+        expect(rects[0]!.u0).toBeCloseTo(0.3, 5);
+        expect(rects[0]!.u1).toBeCloseTo(0.5, 5);
+        expect(rects[0]!.v0).toBeCloseTo(1 / 6, 5);
+        expect(rects[0]!.v1).toBeCloseTo(3 / 6, 5);
+    });
+
+    it('excludes openings that are OFF the face line (different wall)', () => {
+        // Same along-span but offset 3 m in +north — not on this (north=0) face.
+        const rects = facadeOpeningUvRects(FACE, HEIGHT, [
+            { a: { x: 3, z: 3 }, b: { x: 5, z: 3 }, baseElevation: 0, sill: 1, height: 2 },
+        ]);
+        expect(rects.length).toBe(0);
+    });
+
+    it('rasterises opening texels as transparent HOLES (alpha 0) and solid elsewhere', () => {
+        const nU = 6, nV = 6;
+        const intensities: Array<number | null> = new Array(nU * nV).fill(0.7);
+        const openings: FacadeOpeningRect[] = [{ u0: 0.3, u1: 0.5, v0: 1 / 6, v1: 3 / 6 }];
+        const tex = rasterizeFacadeSunTexture(intensities, nU, nV, 10 / 6, 0.98, true, openings);
+        // A texel squarely inside the opening → alpha 0; a texel well outside → opaque.
+        const alphaAt = (u: number, v: number): number => {
+            const tx = Math.min(tex.width - 1, Math.floor(u * tex.width));
+            const ty = Math.min(tex.height - 1, Math.floor((1 - v) * tex.height)); // row 0 = top
+            return tex.rgba[(ty * tex.width + tx) * 4 + 3]!;
+        };
+        expect(alphaAt(0.4, 0.33)).toBe(0);      // centre of the opening
+        expect(alphaAt(0.85, 0.85)).toBeGreaterThan(0); // solid wall corner
+    });
+
+    it('a face with NO openings stays fully solid (fallback preview tier)', () => {
+        const nU = 4, nV = 4;
+        const intensities: Array<number | null> = new Array(nU * nV).fill(0.5);
+        const tex = rasterizeFacadeSunTexture(intensities, nU, nV, 1, 0.98, true, []);
+        let anyOpaque = false;
+        for (let i = 3; i < tex.rgba.length; i += 4) if (tex.rgba[i]! > 0) { anyOpaque = true; break; }
+        expect(anyOpaque).toBe(true);
     });
 });
