@@ -19,9 +19,9 @@
 
 - **INV-1 Determinism.** Same snapshot → byte-identical `DimensionString[]` (C56 §1.1). No AI/ML/LLM, no `Math.random`/`Date.now`, no floating tie-breaks. Every order is total with a ULID `id` final comparator.
 - **INV-2 Purity.** The package imports no THREE, no DOM, no I/O, no store/bus/renderer, no RNG. Only `@opentelemetry/api` is allowed (spans). It is a DTO→DTO function (C56 §1.4).
-- **INV-3 Completeness.** Output satisfies DI-1…DI-6 (C56 §1.3): overall dims exist; every opening located + sized; every wall break ticked; no distance dimensioned twice; no avoidable overlap; QA rejects (records an error for) any incomplete SET.
+- **INV-3 Completeness.** Output satisfies DI-1…DI-6 (C56 §1.3): overall dims exist; every opening located + sized; every wall break ticked; no distance dimensioned twice; no avoidable overlap; QA **surfaces** any incompleteness as a non-blocking `AutoDimReport.warning` (no silent omission — the hard-reject `errors` channel is deferred, ADR-0119).
 - **INV-4 Liveness.** Emitted strings carry element+anchor `DimensionReference`s (not raw points) so they re-evaluate on element move.
-- **INV-5 Executor-only mutation.** The engine emits data; only the L5 `applyAutoDimensions` executor dispatches through the command bus, inside one `runBatch` (one undo, C56 §1.4).
+- **INV-5 Executor-only mutation.** The engine emits data; only the L5 `applyAutoDimensions` executor dispatches through a command path — the composite `CreateManyAnnotationsCommand` (RENDER sink, ADR-0119) — inside one `runBatch` (one undo, C56 §1.4).
 - **INV-6 Observability.** Every exported function opens a `pryzm.autodim.*` OTel span (C56 §1.7, P8).
 
 ---
@@ -79,7 +79,8 @@ interface PlannedString {                            // planned, pre-placement
 interface PlacementRecord { axisId: string; side: 1 | -1; rows: PlannedString[][]; rowOffsetsMm: number[]; }
 
 interface AutoDimResult { strings: DimensionString[]; report: AutoDimReport; }
-interface AutoDimReport { coverage: {...}; errors: ValidationError[]; skipped: { id: string; reason: string }[]; }
+// ADR-0119: non-blocking `warnings` (not a hard-reject `errors` channel — deferred to P2).
+interface AutoDimReport { coverage: {...}; warnings: ValidationWarning[]; skipped: { id: string; reason: string }[]; }
 
 interface AutoDimSnapshot {                           // the executor gathers this from the stores
   walls: DimWall[]; doors: Door[]; windows: Window[]; rooms?: DetectedRoom[]; levelId: string;
@@ -133,13 +134,15 @@ Union-find over adjacent wall pairs sharing a `detectJunctions` node: two walls 
 | Crossing geometry | dim line intersects a wall footprint (spatial-index broad-phase) | push whole stack out one `rowSpacingMm` until clear (bounded). |
 | Redundant overall | overall == sum of a complete chain within tolerance | keep both (architect convention); flag `chainCloses:true`. |
 
-### §4.4 — Stage-8 QA rules (→ `AutoDimReport.errors`; never throws)
+### §4.4 — Stage-8 QA rules (→ `AutoDimReport.warnings`; never throws)
 
-- **QA-1** every door/window appears in ≥1 emitted string → else `opening-undimensioned`.
-- **QA-2** each run's ticks partition `[0,runLength]` with no gap/overlap > `EPSILON_M` → else `chain-gap` / `chain-overlap`.
-- **QA-3** each `overall` value == run/perimeter extent within 0.5% → else `overall-mismatch`.
+> **Amendment (ADR-0119, 2026-07-07).** QA records **non-blocking `warnings`**, not a hard-reject `errors` channel (matching the shipped `AutoDimReport { warnings, skipped }` and the "surface, don't silently omit" intent — C24.1 §1.3). A hard-`errors` reject + the QA-2 run-partition detection below are **deferred to P2** (conflict/stacking).
+
+- **QA-1** every door/window appears in ≥1 emitted string → else `opening-undimensioned` (warning).
+- **QA-2** *(deferred to P2)* each run's ticks partition `[0,runLength]` with no gap/overlap > `EPSILON_M` → `chain-gap` / `chain-overlap`.
+- **QA-3** each `overall` value == run/perimeter extent within 0.5% → else `overall-mismatch` (warning).
 - **QA-4** post-Stage-7 re-check: no duplicates, no zero-length.
-- **QA-5** `outerFacePolygon` is a closed simple ring (`RoomPolygonUtils.isSimple`) → else `warn: open-perimeter`, fall back to per-run overalls.
+- **QA-5** `outerFacePolygon` is a closed simple ring (`RoomPolygonUtils.isSimple`) → else `open-perimeter` (warning), fall back to per-run overalls.
 - **QA-6** (test-only) running twice on the same input yields a byte-identical `DimensionString[]`.
 
 ---
@@ -156,18 +159,25 @@ export function registerPlanner(p: StringPlanner): void;   // WallRunPlanner, Op
 ```
 
 ```ts
-// apps/editor (L5, impure) — the ONLY bus caller
-async function applyAutoDimensions(runtime, viewId, levelId): Promise<void> {
-  // span: pryzm.autodim.apply
-  const snapshot = gatherSnapshot(runtime, levelId);            // WallStore/DoorStore/WindowStore/RoomStore
-  const { strings, report } = planAutoDimensions(snapshot, { styleTable: standardsStore.dimStyles() });
-  batchCoordinator.runBatch(() =>                               // ONE undo (C11, C56 §1.4)
-    bus.executeCommand('dimension.createMany', { dims: strings.map(toCreatePayload) }));  // via evaluateDimensions
-  surfaceReport(report);                                        // coverage + validation errors (no silent omission)
+// apps/editor (L5, impure) — the ONLY command caller
+function applyAutoDimensions(runtime): number {
+  // span: pryzm.autodim.apply  (attrs: wall_count, string_count, annotation_count, error_count)
+  const snapshot = gatherSnapshot(runtime, levelId);            // WallStore + embedded C15 openings
+  const { strings, report } = planAutoDimensions(snapshot, { viewId, levelId });
+  // ADR-0119 RENDER sink: adapt DimensionString[] → 'linear-dim' AnnotationElement[]
+  // (via evaluateDimensions) and write the SET to the SUBSYSTEM annotationStore the
+  // plan renderer reads, as ONE composite command = ONE undo (C11, C56 §1.4).
+  const annotations = dimensionStringsToLinearDimAnnotations(strings, evalSnapshot, viewId);
+  batchCoordinator.runBatch(() =>
+    window.commandManager.execute(new CreateManyAnnotationsCommand(annotations)));
+  surfaceReport(report);                                        // coverage + warnings (no silent omission)
+  return annotations.length;
 }
 ```
 
-Output mapping: each `PlannedString` → `DimensionString { kind, autoMode, references: refs, offsetMm, orientation, arrowheads:'tick', isAutoGenerated:true }`. The executor adapts to the raw-point `dimension.create` payload via `evaluateDimensions` only at the sink.
+> **Amendment (ADR-0119, 2026-07-07).** The prior sketch dispatched `bus.executeCommand('dimension.createMany', …)`, which writes the `DimensionStore` that `PlanViewAnnotationRenderer` **never reads** — so nothing rendered. The **RENDER sink** is the subsystem `annotationStore` `'linear-dim'` path via a composite `CreateManyAnnotationsCommand` on the `CommandManager` (the subsystem store is not a CQRS `Store` in the bus `storesProvider`, so its patch-routed undo is owned by the legacy command protocol — the same path the working `LinearDimensionAnnotationTool` uses). `dimension.createMany`/`DimensionStore` are retained for **non-rendered** consumers (schedules/take-off/export), not rendering.
+
+Output mapping: each `PlannedString` → `DimensionString { kind, autoMode, references: refs, offsetMm, orientation, arrowheads:'tick', isAutoGenerated:true }`. The executor resolves each to world points via `evaluateDimensions` and adapts to a `'linear-dim'` `AnnotationElement` at the sink.
 
 ---
 

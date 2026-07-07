@@ -184,6 +184,7 @@ export {
 export { LinearDimOptionsBar } from './plantools/LinearDimOptionsBar.js';
 
 export { CreateAnnotationCommand } from './commands/CreateAnnotationCommand.js';
+export { CreateManyAnnotationsCommand } from './commands/CreateManyAnnotationsCommand.js';
 export { DeleteAnnotationCommand } from './commands/DeleteAnnotationCommand.js';
 export { UpdateAnnotationCommand } from './commands/UpdateAnnotationCommand.js';
 export { LockAnnotationCommand, type LockAnnotationOptions } from './commands/LockAnnotationCommand.js';

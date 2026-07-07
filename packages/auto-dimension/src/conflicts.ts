@@ -17,7 +17,9 @@
 // No RNG, no heuristics with inconsistent output (§1.1).
 
 import type { PlacedString, ValidationWarning, AutoDimWall } from './types.js';
-import { segmentsCross } from './geometry.js';
+// P8/perf: the Stage-7 crossing scan uses the UNSPANNED `segmentsCrossImpl`
+// (the barrel `segmentsCross` opens a span per call; this loop must not).
+import { segmentsCrossImpl } from './geometry.js';
 import { dedupKey } from './planners.js';
 
 const SPAN_EPS_M = 0.001;      // exact-span dedupe tolerance
@@ -158,7 +160,7 @@ export function resolveConflicts(
       const pos = anchor + p.side * (stackWorldBaseM + row * stackWorldSpacingM);
       const q1 = p.orientation === 'horizontal' ? { x: lo, z: pos } : { x: pos, z: lo };
       const q2 = p.orientation === 'horizontal' ? { x: hi, z: pos } : { x: pos, z: hi };
-      for (const s of wallSegs) if (segmentsCross(q1, q2, s.a, s.b)) return true;
+      for (const s of wallSegs) if (segmentsCrossImpl(q1, q2, s.a, s.b)) return true;
       return false;
     };
     let row = rows.get(p)!;

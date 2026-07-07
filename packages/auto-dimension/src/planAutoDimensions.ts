@@ -21,7 +21,7 @@ import { openingsOnRun, type RunOpening } from './openings.js';
 import {
   planOverall, planWallChain, planOpeningChain, planOpeningLocations, dedupKey,
 } from './planners.js';
-import { placeStrings, polygonCentroid } from './placement.js';
+import { placeStrings, polygonCentroidImpl } from './placement.js';
 import { resolveConflicts } from './conflicts.js';
 import { withAutoDimSpan } from './tracing.js';
 
@@ -242,7 +242,7 @@ export function planAutoDimensions(
     // ── Stage 6: true outward-side placement + row stacking ─────────────────
     const placed = withAutoDimSpan('place', () => {
       const centroid = hasPerimeter && perimPolygon.length >= 3
-        ? polygonCentroid(perimPolygon)
+        ? polygonCentroidImpl(perimPolygon)
         : null;
       return placeStrings(planned, centroid, opts.labelCharWidthM);
     });

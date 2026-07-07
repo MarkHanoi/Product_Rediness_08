@@ -6,7 +6,7 @@
 // pipeline stage body. The stage set is a closed union so span cardinality stays
 // bounded; per-run detail rides as attributes, never as span names.
 
-import { trace, type Tracer, type SpanOptions } from '@opentelemetry/api';
+import { trace, type Span, type Tracer, type SpanOptions } from '@opentelemetry/api';
 
 const TRACER_NAME = '@pryzm/auto-dimension';
 const TRACER_VERSION = '0.1.0';
@@ -19,7 +19,8 @@ export type AutoDimStage =
   | 'chain'     // Stage 4/5: chain planning + tick resolution
   | 'place'     // Stage 6: placement / stacking
   | 'conflict'  // Stage 7: dedupe + text-overlap + geometry-crossing
-  | 'qa';       // Stage 8: validation
+  | 'qa'        // Stage 8: validation
+  | 'apply';    // editor executor boundary (`pryzm.autodim.apply`, C56 §1.7 / P8)
 
 let cachedTracer: Tracer | null = null;
 function tracer(): Tracer {
@@ -30,17 +31,23 @@ function tracer(): Tracer {
 /**
  * Wrap a pipeline stage body in a `pryzm.autodim.{stage}` span. The engine is
  * pure and synchronous, so every stage is sync.
+ *
+ * The active `Span` is passed to `fn` so callers that only know their attribute
+ * values mid-body (e.g. the editor executor's `string_count`/`error_count`) can
+ * `span.setAttribute(...)` without importing `@opentelemetry/api` themselves.
+ * Existing zero-arg stage bodies (`() => …`) remain assignable — TS allows a
+ * callback that ignores the extra parameter.
  */
 export function withAutoDimSpan<T>(
   stage: AutoDimStage,
-  fn: () => T,
+  fn: (span: Span) => T,
   attrs?: SpanOptions['attributes'],
 ): T {
   const name = `pryzm.autodim.${stage}` as const;
   const spanOpts: SpanOptions = attrs !== undefined ? { attributes: attrs } : {};
   return tracer().startActiveSpan(name, spanOpts, (span) => {
     try {
-      const result = fn();
+      const result = fn(span);
       span.end();
       return result;
     } catch (err) {

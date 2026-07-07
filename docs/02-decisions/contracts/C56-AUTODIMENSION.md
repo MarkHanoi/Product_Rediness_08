@@ -47,14 +47,16 @@ Stages 4 is a **registry of pure string-planners** keyed by element class (`Wall
 
 ### §1.3 — Documentation-completeness invariants (what a valid dimension SET must satisfy)
 
-A returned SET is only valid if it satisfies **all** of the following. QA (Stage 8) MUST reject an incomplete SET by recording a `ValidationError` — it MUST NOT silently omit.
+A returned SET is only valid if it satisfies **all** of the following. QA (Stage 8) MUST surface any incompleteness in the `AutoDimReport` — it MUST NOT silently omit.
+
+> **Amendment (ADR-0119, 2026-07-07).** Completeness shortfalls are recorded as **non-blocking `AutoDimReport.warnings`** (e.g. `opening-undimensioned`) which the executor surfaces to the user (toast + console) — satisfying C24.1 §1.3 "no silent omission". They are NOT a hard reject: the executor still creates whatever the engine did produce. A hard-`errors` **reject** channel and the run-partition `chain-gap`/`chain-overlap` detection (QA-2) are **deferred** to P2 (conflict/stacking). DI-6 below is restated to match the shipped intent.
 
 - **DI-1 Overall dims always exist.** At least one horizontal + one vertical `overall` string spans the perimeter AABB, once per axis.
 - **DI-2 Every opening is located AND sized.** Every door/window appears in ≥1 emitted string as a ref, contributing both a **location** (offset-from-datum station) and a **width** dim. A width with no location, or vice-versa, is incomplete.
 - **DI-3 Every wall break is dimensioned.** Every junction node on a run is a tick; the chain ticks partition `[0, runLength]` with no gap and no overlap beyond `EPSILON_M`.
 - **DI-4 Never dimension the same distance twice.** A distance already ticked by a higher-rank string MUST NOT be re-emitted by a lower-rank string. An interior member of a chain gets **no** standalone length dim (DR-1); an opening already located in the exterior chain gets **no** separate opening chain on that façade (DR-2); two collinear walls forming one run produce **one** chain, not two length dims; the overall is emitted **once per axis**.
 - **DI-5 No overlapping / crossing where avoidable.** Placement + conflict resolution (Stages 6–7) MUST avoid overlapping text and dim-line-vs-geometry crossings by stacking/bumping/pushing. Where a v1 overlap is genuinely unavoidable it MAY remain (see §1.5) but MUST be logged to the report — it is never "fixed" with RNG.
-- **DI-6 QA rejects incomplete documentation.** An SET missing any of DI-1…DI-4 surfaces a typed error (`opening-undimensioned`, `chain-gap`, `chain-overlap`, `overall-mismatch`, …) in `AutoDimReport.errors`. Silent omission is forbidden (C24.1 §1.3).
+- **DI-6 QA surfaces incomplete documentation (no silent omission).** An SET missing any of DI-1…DI-4 surfaces a typed diagnostic (`opening-undimensioned`, `overall-mismatch`, …) in `AutoDimReport.warnings`, which the executor reports to the user. Silent omission is forbidden (C24.1 §1.3). A hard-reject `errors` channel + `chain-gap`/`chain-overlap` (QA-2) are deferred to P2 (ADR-0119).
 
 **Why**: these are the exact defects of the naive `produceDimensions` per-element emitter that C56 exists to cure — un-chained collinear façades, located-but-unwidthed openings, and duplicate/overlapping dims. A dimension set that fails any of these is not construction-ready.
 
@@ -90,29 +92,36 @@ Concretely, the engine MUST:
 
 Every exported engine function MUST open ≥1 OpenTelemetry span, following the pure-module pattern already used by `solveSetOutPoint` (`startActiveSpan('pryzm.wall.solve_setout_point')`). The root span is `pryzm.autodim.plan` (attributes: `wall_count`, `opening_count`, `string_count`, `error_count`); each stage opens a child (`pryzm.autodim.graph|segment|chain|resolve|place|conflict|qa`). The editor executor adds `pryzm.autodim.apply` around the `runBatch` dispatch (C24.1 §1.9 span-at-boundary). QA-6 (byte-identical re-run) is a test obligation, not a runtime span.
 
+> **Amendment (ADR-0119, 2026-07-07).** Implemented: the executor `applyAutoDimensions` opens `pryzm.autodim.apply` (attrs `wall_count`/`string_count`/`annotation_count`/`error_count`); its pure adapter `dimensionStringsToLinearDimAnnotations` opens a child `apply` span (`phase=adapt`). The barrel-exported pure helpers (`polygonCentroid`, `outwardNormal`, `segmentsCross`) each open a span at their **exported** entry; internal Stage-6/7 hot loops call an unspanned `…Impl` sibling so per-call span cardinality stays bounded (the O(n log n) target is unperturbed). `withAutoDimSpan(stage, fn, attrs)` passes the active `Span` to `fn` so a caller can set attributes it only knows mid-body without importing `@opentelemetry/api`.
+
 **Why**: P8 requires ≥1 span per new exported function; the per-stage spans also give the C10 perf target (`O(n log n)`) an observable surface.
 
 ### §1.8 — Layered placement
 
 The subsystem splits across the 8-layer model:
 - the **pure engine** in a new low-layer package (`packages/auto-dimension/`, **L2** — the 8-stage pipeline, the string-planner registry, the pure geometry helpers; no THREE/DOM/I/O/RNG);
-- the **output schema** is the existing `packages/schemas/annotation/dimension.ts` (**L0**, pure — reused, not extended);
+- the **engine output schema** is the existing `packages/schemas/annotation/dimension.ts` `DimensionString` (**L0**, pure — reused, not extended);
 - the **evaluation + render** reuse `packages/geometry-kernel` `evaluateDimensions` (**L4**) → `PlanViewAnnotationRenderer` (**L4**) — unchanged;
-- the **executor + sink** (`applyAutoDimensions`, `dimension.*` command dispatch) live in `apps/editor` (**L5**) — the only impure surface.
+- the **executor + sink** (`applyAutoDimensions`) live in `apps/editor` (**L5**) — the only impure surface.
 
-**Why**: keeps the THREE owner singular (P2), keeps the engine pure/deterministic/node-testable, reuses the existing output + render halves with zero schema churn, and confines mutation to the editor boundary (P6).
+> **Amendment (ADR-0119, 2026-07-07) — the RENDER sink.** The engine emits `DimensionString[]` (L0); the executor **adapts** each to a `'linear-dim'` `AnnotationElement` (the plugin-level type in `plugins/annotations`, NOT an L0 Zod schema) via `evaluateDimensions`, then writes the SET to the **subsystem `annotationStore`** — the store `PlanViewAnnotationRenderer.getByView` actually draws — through **one composite `CreateManyAnnotationsCommand`** on the legacy `CommandManager`, inside one `runBatch` (one undo). The bus `annotation.create` verb (CQRS `AnnotationsState`, text-notes) is NOT the render sink and drops dimension geometry; `dimension.createMany` / `DimensionStore` are retained for non-rendered consumers (schedules/export), not rendering. So the RENDERED representation's schema authority is the annotations plugin (DOC-*), not `packages/schemas`.
+
+**Why**: keeps the THREE owner singular (P2), keeps the engine pure/deterministic/node-testable, reuses the existing render half with zero engine-schema churn, and confines mutation to a command on the editor boundary (P6).
 
 ---
 
 ## §2 — Command surface (normative shape — full schema in SPEC)
 
+> **Amendment (ADR-0119, 2026-07-07) — the actual RENDER sink.** The `dimension.*` verbs below write the `plugins/dimensions` `DimensionStore`, which `PlanViewAnnotationRenderer` **does not read** — so they are the sink for **non-rendered** consumers (schedules, take-off, IFC/export), not for drawing. The **RENDER sink** the executor uses is `CreateManyAnnotationsCommand` (a composite legacy command → subsystem `annotationStore` `'linear-dim'` elements → `getByView`), dispatched once through the `CommandManager` inside one `runBatch` (one undo). See the §1.8 amendment.
+
 | Command | Effect |
 |---|---|
-| `dimension.create` | Create one dimension (typed §P3.5-DI handler; raw points via `evaluateDimensions` payload adapter). Undoable. The P6-clean sink for a single string. |
-| `dimension.createMany` | **New batch verb (P2 open item).** Create N dimensions in one handler round-trip so a whole SET is one undo without N dispatches (C24.1 §1.2). Required for the executor's one-`runBatch` guarantee (§1.4). |
-| `dimension.autoGenerate` (editor executor) | The `applyAutoDimensions` entry: gather snapshot → call the pure `planAutoDimensions` → dispatch the emitted strings via `dimension.createMany` inside one `runBatch`. Opens `pryzm.autodim.apply`. |
+| `CreateManyAnnotationsCommand` (RENDER sink — ADR-0119) | Create N `'linear-dim'` `AnnotationElement`s in the subsystem `annotationStore` (the store the plan renderer reads) as ONE undoable unit. The executor's actual one-`runBatch` = one-undo path. Mutation via a command object on the `CommandManager` (P6). |
+| `dimension.create` | Create one `DimensionString`/`DimensionData` in `DimensionStore` (typed handler; raw points via `evaluateDimensions` adapter). Undoable. Retained for **non-rendered** dimension consumers. |
+| `dimension.createMany` | Batch `DimensionStore` verb. Retained for non-rendered consumers; **not** the render sink (its store is not drawn). |
+| `dimension.autoGenerate` (editor executor) | The `applyAutoDimensions` entry: gather snapshot → call the pure `planAutoDimensions` → adapt strings → dispatch the RENDER sink command inside one `runBatch`. Opens `pryzm.autodim.apply`. |
 
-All mutate via the command bus only (P6). All emit OTel spans (§1.7, P8). The pure engine emits **no** commands — it returns `DimensionString[]`; the executor is the only bus caller.
+All mutate via a command path only (P6). All emit OTel spans (§1.7, P8). The pure engine emits **no** commands — it returns `DimensionString[]`; the executor is the only command caller.
 
 ---
 

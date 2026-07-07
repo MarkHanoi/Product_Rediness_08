@@ -21,9 +21,22 @@
 // as the manual `LinearDimPlanToolHandler` does), owned by the active plan view,
 // so the existing renderer draws them. `dimension.createMany` + its store are
 // left in place (valid infra) but are no longer the executor's render sink.
+//
+// §FIX-AUTODIM-SUBSYSTEM-STORE-SINK (L-145, ADR-0119) — the CANONICAL render
+// sink is the SUBSYSTEM `annotationStore` (the singleton `PlanViewAnnotationRenderer`
+// reads), whose mutation + undo are owned by the legacy command protocol — the
+// same path the WORKING `LinearDimensionAnnotationTool` uses. The bus verb
+// `annotation.create` is a TEXT-NOTE handler: it writes a FLAT `AnnotationData`
+// (id/viewId/kind only) into the CQRS `AnnotationsState` and DROPS
+// `geometry2D`+`references`, so routing the full element through it lost the
+// dimension geometry and nothing rendered. We now dispatch ONE composite
+// `CreateManyAnnotationsCommand` through the CommandManager (P6 — mutation via a
+// command, never a direct UI store write) inside one `batchCoordinator.runBatch`
+// → the whole SET writes to the render store as a SINGLE undo (C11, C24.1 §1.2).
 
 import { batchCoordinator, storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
-import { makeAnnotationElement, makePointRef } from '@pryzm/plugin-annotations';
+import { makeAnnotationElement, makePointRef, CreateManyAnnotationsCommand } from '@pryzm/plugin-annotations';
+import { withAutoDimSpan } from '@pryzm/auto-dimension';
 import * as THREE from '@pryzm/renderer-three/three';
 import {
   evaluateDimensions,
@@ -51,7 +64,21 @@ import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 const PLAN_VIEW_TYPES: ReadonlySet<string> = new Set(['plan', 'ceiling-plan', 'structural-plan']);
 
 interface ViewControllerLike { currentViewDefinitionId?: string | null }
-interface WindowWithView { viewController?: ViewControllerLike }
+/** Legacy CommandManager surface — assigned at `window.commandManager` in initTools. */
+interface CommandManagerLike { execute(cmd: unknown): unknown }
+interface WindowWithView {
+  viewController?: ViewControllerLike;
+  commandManager?: CommandManagerLike;
+}
+
+/**
+ * The live legacy CommandManager (`window.commandManager`, set in initTools) —
+ * the owner of the subsystem `annotationStore` mutation + undo. Typed via a local
+ * shape (no `(window as any)`, P4). Returns undefined before the engine boots.
+ */
+function resolveCommandManager(): CommandManagerLike | undefined {
+  return (window as unknown as WindowWithView).commandManager ?? undefined;
+}
 
 /**
  * The id of the ACTIVE plan view — the view whose canvas the user is looking at
@@ -105,86 +132,98 @@ const MM_PER_M = 1000;
 export function applyAutoDimensions(runtime: PryzmRuntime): number {
   const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void =>
     runtime.events?.emit('pryzm:toast', { message, severity });
-  try {
-    const level = resolveActiveLevel();
-    if (!level) { toast('Auto-Dimension: no active level.', 'warn'); return 0; }
+  // §FIX-AUTODIM-APPLY-SPAN (L-145, C56 §1.7 / P8) — the mandated executor
+  // boundary span `pryzm.autodim.apply` around the gather → plan → runBatch
+  // dispatch. Attributes (wall/string/error counts) ride the span, never the name.
+  return withAutoDimSpan('apply', (span): number => {
+    try {
+      const level = resolveActiveLevel();
+      if (!level) { toast('Auto-Dimension: no active level.', 'warn'); return 0; }
 
-    // §FIX-AUTODIM-RENDER-SINK — the dims are view-scoped annotations; they only
-    // render on the plan the user is on. Resolve it up front so we can bail with
-    // a clear message rather than silently create invisible (mis-owned) dims.
-    const activeViewId = resolveActivePlanViewId();
-    if (!activeViewId) { toast('Auto-Dimension: open a plan view first.', 'warn'); return 0; }
+      // §FIX-AUTODIM-RENDER-SINK — the dims are view-scoped annotations; they only
+      // render on the plan the user is on. Resolve it up front so we can bail with
+      // a clear message rather than silently create invisible (mis-owned) dims.
+      const activeViewId = resolveActivePlanViewId();
+      if (!activeViewId) { toast('Auto-Dimension: open a plan view first.', 'warn'); return 0; }
 
-    const wallStore = storeRegistry.getStoreForType('wall') as unknown as
-      | { getAll?(): WallRecord[] }
-      | undefined;
-    const onLevel = (wallStore?.getAll?.() ?? []).filter((w) => w.levelId === level.id);
-    if (onLevel.length === 0) { toast('Auto-Dimension: no walls on this level.', 'warn'); return 0; }
+      const wallStore = storeRegistry.getStoreForType('wall') as unknown as
+        | { getAll?(): WallRecord[] }
+        | undefined;
+      const onLevel = (wallStore?.getAll?.() ?? []).filter((w) => w.levelId === level.id);
+      if (onLevel.length === 0) { toast('Auto-Dimension: no walls on this level.', 'warn'); return 0; }
 
-    // ── Build the PURE engine snapshot from the live walls + embedded openings.
-    const engineWalls: AutoDimWall[] = [];
-    for (const w of onLevel) {
-      const bl = w.baseLine;
-      if (!bl || bl.length < 2) continue;
-      const openings = (w.openings ?? [])
-        .filter((o) => typeof o.offset === 'number' && typeof o.width === 'number' && (o.width ?? 0) > 0)
-        .map((o) => ({
-          id: (o.elementId ?? o.id ?? '') as string,
-          kind: o.type,
-          offset: o.offset as number,
-          width: o.width as number,
-        }))
-        .filter((o) => o.id.length > 0);
-      engineWalls.push({
-        id: w.id,
-        a: { x: bl[0].x, z: bl[0].z },
-        b: { x: bl[1].x, z: bl[1].z },
-        thickness: typeof w.thickness === 'number' ? w.thickness : 0.1,
-        levelId: level.id,
-        openings,
-      });
-    }
-    if (engineWalls.length === 0) { toast('Auto-Dimension: walls have no usable geometry.', 'warn'); return 0; }
-
-    const snapshot: AutoDimSnapshot = { walls: engineWalls };
-    const viewId = `plan-${level.id}`;
-    const { strings, report } = planAutoDimensions(snapshot, { viewId, levelId: level.id });
-    if (strings.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
-
-    // ── §FIX-AUTODIM-RENDER-SINK: adapt the abstract engine DimensionString[] to
-    //    the RENDERED representation the plan reads — `'linear-dim'` annotations
-    //    owned by the active plan view (see file header + the pure helper below).
-    const evalSnapshot = buildEvalSnapshot(onLevel, level.id);
-    const annotations = dimensionStringsToLinearDimAnnotations(strings, evalSnapshot, activeViewId);
-    if (annotations.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
-
-    // ── ONE undo: there is no `annotation.createMany` verb, so wrap every
-    //    `annotation.create` dispatch in a single batchCoordinator.runBatch — the
-    //    whole auto-dimension set collapses to ONE undo unit (P6). Annotations
-    //    don't bound rooms → skipRedetectRooms.
-    batchCoordinator.runBatch(() => {
-      for (const annotation of annotations) {
-        const r = runtime.bus.executeCommand('annotation.create', annotation) as unknown;
-        if (r && typeof (r as { catch?: unknown }).catch === 'function') {
-          (r as Promise<unknown>).catch((e: unknown) =>
-            console.warn('[auto-dimension] annotation.create failed:', e));
-        }
+      // ── Build the PURE engine snapshot from the live walls + embedded openings.
+      const engineWalls: AutoDimWall[] = [];
+      for (const w of onLevel) {
+        const bl = w.baseLine;
+        if (!bl || bl.length < 2) continue;
+        const openings = (w.openings ?? [])
+          .filter((o) => typeof o.offset === 'number' && typeof o.width === 'number' && (o.width ?? 0) > 0)
+          .map((o) => ({
+            id: (o.elementId ?? o.id ?? '') as string,
+            kind: o.type,
+            offset: o.offset as number,
+            width: o.width as number,
+          }))
+          .filter((o) => o.id.length > 0);
+        engineWalls.push({
+          id: w.id,
+          a: { x: bl[0].x, z: bl[0].z },
+          b: { x: bl[1].x, z: bl[1].z },
+          thickness: typeof w.thickness === 'number' ? w.thickness : 0.1,
+          levelId: level.id,
+          openings,
+        });
       }
-    }, { levelIds: [level.id], totalElementCount: annotations.length, skipRedetectRooms: true });
+      span.setAttribute('pryzm.autodim.wall_count', engineWalls.length);
+      if (engineWalls.length === 0) { toast('Auto-Dimension: walls have no usable geometry.', 'warn'); return 0; }
 
-    const undim = report.warnings.filter((w) => w.code === 'opening-undimensioned').length;
-    toast(
-      `Auto-Dimension: created ${annotations.length} dimensions across ${report.coverage.runCount} façade run(s)` +
-      (undim > 0 ? ` — ${undim} opening(s) uncovered.` : '.'),
-      'success',
-    );
-    console.log('[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage:', report.coverage, 'warnings:', report.warnings);
-    return annotations.length;
-  } catch (e) {
-    console.error('[auto-dimension] apply failed:', e);
-    toast('Auto-Dimension failed — see console.', 'error');
-    return 0;
-  }
+      const snapshot: AutoDimSnapshot = { walls: engineWalls };
+      const viewId = `plan-${level.id}`;
+      const { strings, report } = planAutoDimensions(snapshot, { viewId, levelId: level.id });
+      span.setAttribute('pryzm.autodim.string_count', strings.length);
+      span.setAttribute('pryzm.autodim.error_count', report.warnings.length);
+      if (strings.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
+
+      // ── §FIX-AUTODIM-RENDER-SINK: adapt the abstract engine DimensionString[] to
+      //    the RENDERED representation the plan reads — `'linear-dim'` annotations
+      //    owned by the active plan view (see file header + the pure helper below).
+      const evalSnapshot = buildEvalSnapshot(onLevel, level.id);
+      const annotations = dimensionStringsToLinearDimAnnotations(strings, evalSnapshot, activeViewId);
+      span.setAttribute('pryzm.autodim.annotation_count', annotations.length);
+      if (annotations.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
+
+      // ── §FIX-AUTODIM-SUBSYSTEM-STORE-SINK (ADR-0119): write the FULL elements to
+      //    the SUBSYSTEM annotationStore the renderer reads, via ONE composite
+      //    CommandManager command (P6 — command-path mutation) inside one
+      //    batchCoordinator.runBatch → the whole SET is ONE undo (C11, C24.1 §1.2).
+      //    (The bus `annotation.create` verb is a text-note handler that would drop
+      //    geometry2D+references and write the wrong store — NOT the render sink.)
+      //    Annotations don't bound rooms → skipRedetectRooms.
+      const commandManager = resolveCommandManager();
+      if (!commandManager) {
+        toast('Auto-Dimension: command system not ready — try again.', 'error');
+        return 0;
+      }
+      batchCoordinator.runBatch(() => {
+        commandManager.execute(new CreateManyAnnotationsCommand(annotations));
+      }, { levelIds: [level.id], totalElementCount: annotations.length, skipRedetectRooms: true });
+
+      const undim = report.warnings.filter((w) => w.code === 'opening-undimensioned').length;
+      toast(
+        `Auto-Dimension: created ${annotations.length} dimensions across ${report.coverage.runCount} façade run(s)` +
+        (undim > 0 ? ` — ${undim} opening(s) uncovered.` : '.'),
+        'success',
+      );
+      console.log('[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage:', report.coverage, 'warnings:', report.warnings);
+      return annotations.length;
+    } catch (e) {
+      span.setAttribute('pryzm.autodim.error_count', -1);
+      console.error('[auto-dimension] apply failed:', e);
+      toast('Auto-Dimension failed — see console.', 'error');
+      return 0;
+    }
+  });
 }
 
 /**
@@ -203,12 +242,17 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
  * SIGNED `offsetMm` (per-side placement, P2) so it sits on the correct outward side.
  *
  * Pure (no window/bus/store) so it is unit-testable in isolation.
+ *
+ * P8 (§FIX-AUTODIM-APPLY-SPAN, L-145): opens a `pryzm.autodim.apply` span (tagged
+ * `phase=adapt`); when called from the executor it nests under the executor's
+ * apply span, when unit-tested it opens its own.
  */
 export function dimensionStringsToLinearDimAnnotations(
   strings: readonly DimensionString[],
   evalSnapshot: ElementSnapshotForDim,
   ownerViewId: string,
 ): ReturnType<typeof makeAnnotationElement>[] {
+  return withAutoDimSpan('apply', () => {
   const segStrings: DimensionString[] = [];
   for (const s of strings) {
     const refs = s.references;
@@ -250,6 +294,7 @@ export function dimensionStringsToLinearDimAnnotations(
       const [p, q] = a.geometry2D.modelPoints;
       return !!p && !!q && Math.hypot(q.x - p.x, q.z - p.z) >= 0.01;
     });
+  }, { 'pryzm.autodim.phase': 'adapt', 'pryzm.autodim.string_count': strings.length });
 }
 
 /** Build the geometry-kernel evaluator snapshot from live walls (openings → doors/windows). */

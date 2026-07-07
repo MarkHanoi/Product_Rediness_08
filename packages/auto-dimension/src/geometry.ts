@@ -8,6 +8,8 @@
 // its barrel — importing it would taint this L2 package and break P2 (single
 // THREE owner). Same maths, same tolerances; zero external dependencies.
 
+import { withAutoDimSpan } from './tracing.js';
+
 /** Plan-view point in metres (world XZ, y dropped — the engine convention). */
 export interface PtXZ {
   readonly x: number;
@@ -100,6 +102,14 @@ export function stationToWorld(origin: PtXZ, axisDir: PtXZ, s: number): PtXZ {
  * so a chain tick that lands on a corner is not a false positive.
  */
 export function segmentsCross(p1: PtXZ, p2: PtXZ, q1: PtXZ, q2: PtXZ): boolean {
+  // P8: the barrel-exported entry opens a span; the Stage-7 hot loop calls the
+  // unspanned `segmentsCrossImpl` directly (see conflicts.ts) so per-pair span
+  // cardinality stays bounded and the O(K·W) crossing scan is unperturbed.
+  return withAutoDimSpan('conflict', () => segmentsCrossImpl(p1, p2, q1, q2));
+}
+
+/** Unspanned implementation — internal hot-loop callers use this directly. */
+export function segmentsCrossImpl(p1: PtXZ, p2: PtXZ, q1: PtXZ, q2: PtXZ): boolean {
   const r = sub(p2, p1);
   const s = sub(q2, q1);
   const denom = r.x * s.z - r.z * s.x;

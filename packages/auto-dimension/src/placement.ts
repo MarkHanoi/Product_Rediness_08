@@ -12,6 +12,7 @@
 
 import type { PlannedString, PlacedString } from './types.js';
 import { type PtXZ, sub, unit, leftPerp, dot } from './geometry.js';
+import { withAutoDimSpan } from './tracing.js';
 
 const BUCKET_EPS_M = 0.05; // datum-line bucket (strings within 50 mm share a stack)
 const DEFAULT_LABEL_CHAR_WIDTH_M = 0.15;
@@ -21,6 +22,12 @@ const DEFAULT_LABEL_CHAR_WIDTH_M = 0.15;
  * the vertex mean for a degenerate (zero-area) ring. Deterministic.
  */
 export function polygonCentroid(poly: readonly PtXZ[]): PtXZ {
+  // P8: barrel-exported entry opens a span; Stage-6 internals call `…Impl`.
+  return withAutoDimSpan('place', () => polygonCentroidImpl(poly));
+}
+
+/** Unspanned implementation — internal Stage-6 callers use this directly. */
+export function polygonCentroidImpl(poly: readonly PtXZ[]): PtXZ {
   const n = poly.length;
   if (n === 0) return { x: 0, z: 0 };
   if (n < 3) {
@@ -52,6 +59,13 @@ export function polygonCentroid(poly: readonly PtXZ[]): PtXZ {
  * For an axis-aligned run this reduces to ±X / ±Z. Deterministic sign.
  */
 export function outwardNormal(p1: PtXZ, p2: PtXZ, centroid: PtXZ | null): PtXZ {
+  // P8: barrel-exported entry opens a span; `placeStrings` calls `…Impl` per
+  // string so per-string span cardinality stays bounded.
+  return withAutoDimSpan('place', () => outwardNormalImpl(p1, p2, centroid));
+}
+
+/** Unspanned implementation — internal Stage-6 callers use this directly. */
+export function outwardNormalImpl(p1: PtXZ, p2: PtXZ, centroid: PtXZ | null): PtXZ {
   const dir = unit(sub(p2, p1));
   let n = leftPerp(dir);
   if (n.x === 0 && n.z === 0) n = { x: 0, z: 1 };
@@ -122,7 +136,7 @@ export function placeStrings(
     return {
       ...p,
       side,
-      outwardNormal: outwardNormal(p.p1, p.p2, centroid),
+      outwardNormal: outwardNormalImpl(p.p1, p.p2, centroid),
       labelCentre: labelCentre(p),
       labelHalfM: labelHalf(p, charWidthM),
       groupKey,

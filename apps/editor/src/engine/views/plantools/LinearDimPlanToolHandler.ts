@@ -1,6 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { createId } from '@pryzm/schemas';
-import { makeAnnotationElement } from '@pryzm/plugin-annotations';
+import { makeAnnotationElement, CreateAnnotationCommand } from '@pryzm/plugin-annotations';
 import { makePointRef, makeWallFaceRef } from '@pryzm/plugin-annotations';
 import {
     detectWallFace,
@@ -218,9 +218,26 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         const annotation = makeAnnotationElement(annotId, 'linear-dim', c.viewDef.id, [refA, refB], geometry2D, { unit });
 
         const dist = vecA.distanceTo(vecB);
-        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
-        window.runtime?.bus?.executeCommand('annotation.create', annotation)
-            ?.catch((e: Error) => console.error('[LinearDimPlanToolHandler] annotation.create failed:', e));
+        // §FIX-AUTODIM-SUBSYSTEM-STORE-SINK (L-145, ADR-0119) — the RENDER sink is
+        // the SUBSYSTEM annotationStore (what PlanViewAnnotationRenderer.getByView
+        // draws), whose mutation + undo are owned by the legacy CommandManager —
+        // exactly as the working LinearDimensionAnnotationTool does via
+        // CreateAnnotationCommand. Previously this dispatched the FULL element
+        // through the bus `annotation.create` verb, a TEXT-NOTE handler that DROPS
+        // geometry2D+references AND rejects `kind:'linear-dim'` (not in
+        // ANNOTATION_KINDS) — writing the wrong (unrendered) store or nothing at
+        // all, so manual plan-tool dims never appeared. A dimension is NOT a CQRS
+        // `AnnotationsState` text-note; it lives only in the subsystem store — so
+        // there is no bus telemetry here (the CQRS verb correctly does not model
+        // dimensions). CommandManager.execute is the sole P6 command-path write.
+        const commandManager = window.commandManager as unknown as
+            | { execute(cmd: unknown): unknown }
+            | undefined;
+        if (commandManager) {
+            commandManager.execute(new CreateAnnotationCommand(annotation));
+        } else {
+            console.error('[LinearDimPlanToolHandler] commandManager unavailable — dim not persisted');
+        }
         console.log('[LinearDimPlanToolHandler] Linear dim created', annotId, `length=${formatDimension(dist, unit)}`);
 
         this._dimRefA        = null;
