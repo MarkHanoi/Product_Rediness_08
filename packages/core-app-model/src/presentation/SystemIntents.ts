@@ -89,6 +89,67 @@ const BUILT_IN_PURPOSE_MODIFIERS: PurposeModifier[] = [
 
 const DETAIL_LINE_WEIGHT_SCALE = 2;
 
+/**
+ * §ELEV-LINEWEIGHT (L-182) — elevation line-weight hierarchy.
+ *
+ * An elevation is a pure orthographic projection of a façade (ViewScope:
+ * `cut:false, poche:false, depthProjected:true`). EdgeProjectorService already
+ * classifies every element along view depth into cut / projection / beyond bands;
+ * PenWeightTable already supplies the base ladder (projection 0.25 / beyond
+ * 0.13-dashed-55% / hidden not drawn). What was missing was (a) any elevation
+ * entry in the seed — so the Visibility Intents panel's Elevation tab showed
+ * "No modifiers defined for this view type" (parity gap with Plan) — and (b)
+ * emphasis on the `cut` band so a wall the elevation plane is drawn THROUGH reads
+ * as the heaviest line (the building outline). These modifiers close both:
+ *
+ *   • wall / slab / roof / column — `cut` band ×1.5 (mirrors the section cut
+ *     emphasis) → cut is the thickest tier when the plane passes through solid.
+ *   • door / window — explicit `projection` pen (0.18 mm) so façade openings read
+ *     as secondary linework and the two rows appear in the Elevation tab exactly
+ *     like the Plan door/window pattern.
+ *
+ * projection / beyond / hidden otherwise inherit the base PenWeightTable ladder,
+ * yielding: cut (0.75–1.05) > projection (0.25) > beyond (0.13 dashed) > hidden
+ * (not drawn). Scoped strictly to `viewType: 'elevation'` — plan / section /
+ * ceiling-plan behaviour is untouched.
+ */
+const ELEVATION_MODIFIERS: VisibilityIntent['viewTypeModifiers'] = [
+    {
+        viewType: 'elevation',
+        elementType: 'wall',
+        statePatch: {},
+        stateTransform: { cut: { lineWeightMultiplier: 1.5 } },
+    },
+    {
+        viewType: 'elevation',
+        elementType: 'slab',
+        statePatch: {},
+        stateTransform: { cut: { lineWeightMultiplier: 1.5 } },
+    },
+    {
+        viewType: 'elevation',
+        elementType: 'roof',
+        statePatch: {},
+        stateTransform: { cut: { lineWeightMultiplier: 1.5 } },
+    },
+    {
+        viewType: 'elevation',
+        elementType: 'column',
+        statePatch: {},
+        stateTransform: { cut: { lineWeightMultiplier: 1.5 } },
+    },
+    {
+        viewType: 'elevation',
+        elementType: 'door',
+        statePatch: { projection: { line: { weight: 0.18 } } },
+    },
+    {
+        viewType: 'elevation',
+        elementType: 'window',
+        statePatch: { projection: { line: { weight: 0.18 } } },
+    },
+];
+
 const SECTION_AND_DETAIL_MODIFIERS: VisibilityIntent['viewTypeModifiers'] = [
     {
         viewType: 'section',
@@ -163,6 +224,7 @@ export const SYSTEM_VISIBILITY_INTENTS: readonly VisibilityIntent[] = Object.fre
                 elementType: 'wall',
                 statePatch: { projection: { fill: { style: 'solid', colour: '#ffffff', opacity: 1 } } },
             },
+            ...ELEVATION_MODIFIERS,
             ...SECTION_AND_DETAIL_MODIFIERS,
         ],
     }),
@@ -190,6 +252,7 @@ export const SYSTEM_VISIBILITY_INTENTS: readonly VisibilityIntent[] = Object.fre
                 elementType: 'wall',
                 statePatch: { projection: { fill: { style: 'solid', colour: '#ffffff', opacity: 1 } } },
             },
+            ...ELEVATION_MODIFIERS,
             ...SECTION_AND_DETAIL_MODIFIERS,
         ],
     }),

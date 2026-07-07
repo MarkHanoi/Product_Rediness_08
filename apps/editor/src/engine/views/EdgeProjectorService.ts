@@ -2029,17 +2029,31 @@ export class EdgeProjectorService {
                                 tempGeosToDispose.push(beyondGeo);
                             }
                         } else {
-                            // ELEVATION — NO `:cut` layer. Fold the (would-be) cut silhouette
-                            // into the projection linework so the face reads as a line drawing.
-                            const projParts = [...cutParts];
-                            if (projGeo) {
-                                projParts.push(projGeo);
-                                tempGeosToDispose.push(projGeo);
+                            // ELEVATION — §ELEV-LINEWEIGHT (L-182).
+                            //
+                            // Route the depth-classified `cut` band to `:cut` so a wall the
+                            // elevation plane is drawn THROUGH renders at the heavy CUT pen
+                            // weight — establishing the cut > projection > beyond line-weight
+                            // hierarchy the founder reported missing. The façade proper is
+                            // classified as `:proj` (medium) and receding geometry as
+                            // `:beyond` (thin/dashed), so a correctly-placed elevation mark
+                            // (outside the building → near plane crosses no geometry) yields
+                            // an empty cut band and reads as pure `:proj` — only geometry the
+                            // plane actually slices becomes `:cut`.
+                            //
+                            // This does NOT reintroduce the L-119 black-façade poché: solid
+                            // cut fills are gated on ViewScope.poche (false for elevation) in
+                            // PlanViewCanvas, wholly independent of whether a `:cut` linework
+                            // layer exists. `_renderPocheFills` — the only consumer that scans
+                            // `:cut` sub-layers — is never invoked for an elevation.
+                            const mergedCutGeo = concatLineGeometries(cutParts);
+                            if (mergedCutGeo) {
+                                addProjectedLayer(mergedCutGeo, _layerCut(layerName));
+                                tempGeosToDispose.push(mergedCutGeo);
                             }
-                            const mergedProjGeo = concatLineGeometries(projParts);
-                            if (mergedProjGeo) {
-                                addProjectedLayer(mergedProjGeo, _layerProj(layerName));
-                                tempGeosToDispose.push(mergedProjGeo);
+                            if (projGeo) {
+                                addProjectedLayer(projGeo, _layerProj(layerName));
+                                tempGeosToDispose.push(projGeo);
                             }
                             if (beyondGeo) {
                                 addProjectedLayer(beyondGeo, _layerBeyond(layerName));
