@@ -32,6 +32,16 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
     private _dimOffsetMoved = false;
     private _optionsBar: LinearDimOptionsBar | null = null;
 
+    // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — the A–B measurement line that
+    // BOTH the live preview and the committed annotation use. When the parallel-wall
+    // perpendicular constraint applies, this is the resolved (projected) line, else
+    // the raw ref-A/ref-B line. Computed once when ref B is locked (state 2 → 3) so
+    // the offset (perpendicular standoff) is measured against, and the dim is placed
+    // on, the exact same line the preview renders — no post-create drag required.
+    private _measureA: { x: number; z: number } | null = null;
+    private _measureB: { x: number; z: number } | null = null;
+    private _measureResolved = false;
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._dimState       = 1;
@@ -41,6 +51,9 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         this._dimCursorPoint = null;
         this._dimLiveOffset  = 0;
         this._dimOffsetMoved = false;
+        this._measureA       = null;
+        this._measureB       = null;
+        this._measureResolved = false;
         if (!this._optionsBar) this._optionsBar = new LinearDimOptionsBar();
         this._optionsBar.show();
     }
@@ -55,6 +68,9 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         this._dimCursorPoint = null;
         this._dimLiveOffset  = 0;
         this._dimOffsetMoved = false;
+        this._measureA       = null;
+        this._measureB       = null;
+        this._measureResolved = false;
         this._ctx = null;
     }
 
@@ -63,16 +79,11 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         this._dimCursorPoint = pt;
         if (this._dimState !== 3) {
             this._dimHoverHit = this._findNearestWallHit(pt.worldX, pt.worldZ);
-        } else if (this._dimState === 3 && this._dimRefA && this._dimRefB) {
-            const ax = this._dimRefA.worldX, az = this._dimRefA.worldZ;
-            const bx = this._dimRefB.worldX, bz = this._dimRefB.worldZ;
-            const dx = bx - ax, dz = bz - az;
-            const len = Math.hypot(dx, dz);
-            if (len > 0.001) {
-                const nx = -dz / len, nz = dx / len;
-                this._dimLiveOffset = (pt.worldX - ax) * nx + (pt.worldZ - az) * nz;
-                this._dimOffsetMoved = true;
-            }
+        } else if (this._dimState === 3 && this._measureA && this._measureB) {
+            // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — measure the standoff
+            // against the SAME A–B line the preview draws and the commit stores.
+            this._dimLiveOffset  = this._offsetForPoint(pt.worldX, pt.worldZ);
+            this._dimOffsetMoved = true;
         }
         this._drawLinearDimPreview();
     }
@@ -108,10 +119,23 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
             this._dimState = 3;
             this._dimLiveOffset  = 0;
             this._dimOffsetMoved = false;
+            // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — resolve the A–B line now
+            // (applies the parallel-wall perpendicular constraint if both refs are on
+            // near-parallel walls) so preview, offset-measurement and commit all share it.
+            this._updateMeasureLine();
             console.log('[LinearDimPlanToolHandler] Dim ref B set', this._dimRefB);
 
         } else if (this._dimState === 3) {
-            if (this._dimOffsetMoved) this._commitLinearDim();
+            if (this._dimOffsetMoved) {
+                // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — the 3rd click's
+                // perpendicular distance from the A–B line IS the placement standoff.
+                // Recompute from the exact click point so the committed dim lands
+                // where the preview showed it, with no post-create drag.
+                if (this._measureA && this._measureB) {
+                    this._dimLiveOffset = this._offsetForPoint(pt.worldX, pt.worldZ);
+                }
+                this._commitLinearDim();
+            }
         }
     }
 
@@ -147,6 +171,9 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         this._dimCursorPoint = null;
         this._dimLiveOffset  = 0;
         this._dimOffsetMoved = false;
+        this._measureA       = null;
+        this._measureB       = null;
+        this._measureResolved = false;
         this._dimState = 1;
         this._clearOverlay();
     }
@@ -160,6 +187,9 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
             this._dimRefB = null;
             this._dimLiveOffset = 0;
             this._dimOffsetMoved = false;
+            this._measureA = null;
+            this._measureB = null;
+            this._measureResolved = false;
             this._dimState = 2;
             this._clearOverlay();
             console.log('[LinearDimPlanToolHandler] Dim Escape: DEFINE_OFFSET → PICK_WALL_B');
@@ -181,19 +211,21 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         const refBData = this._dimRefB;
         if (!refAData || !refBData || !c) return;
 
-        // Phase 6: resolve perpendicular constraint for parallel walls
-        const resolved = this._resolveParallelWallDim(refAData, refBData);
-        const ptAx = resolved?.ax ?? refAData.worldX;
-        const ptAz = resolved?.az ?? refAData.worldZ;
-        const ptBx = resolved?.bx ?? refBData.worldX;
-        const ptBz = resolved?.bz ?? refBData.worldZ;
+        // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — commit on the SAME A–B line
+        // the preview rendered and the 3rd-click offset was measured against. The
+        // measure line was resolved when ref B was locked (state 2 → 3); recompute
+        // defensively if it is somehow missing. Phase-6 parallel-wall perpendicular
+        // constraint is preserved via _updateMeasureLine → _resolveParallelWallDim.
+        if (!this._measureA || !this._measureB) this._updateMeasureLine();
+        const mA = this._measureA ?? { x: refAData.worldX, z: refAData.worldZ };
+        const mB = this._measureB ?? { x: refBData.worldX, z: refBData.worldZ };
 
-        if (resolved) {
+        if (this._measureResolved) {
             console.log('[LinearDimPlanToolHandler] Parallel wall constraint applied — perpendicular dim');
         }
 
-        const vecA = new THREE.Vector3(ptAx, 0, ptAz);
-        const vecB = new THREE.Vector3(ptBx, 0, ptBz);
+        const vecA = new THREE.Vector3(mA.x, 0, mA.z);
+        const vecB = new THREE.Vector3(mB.x, 0, mB.z);
 
         const refA = refAData.wallId
             ? makeWallFaceRef(refAData.wallId, refAData.faceType as any, refAData.param)
@@ -208,6 +240,10 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
                 { x: vecA.x, y: 0, z: vecA.z },
                 { x: vecB.x, y: 0, z: vecB.z },
             ],
+            // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — WORLD-metre standoff (L-155),
+            // the perpendicular distance of the 3rd click from the A–B line above. Because
+            // modelPoints ARE that same line, the renderer places the dim exactly where the
+            // live preview showed it — no default offset, no post-create drag.
             offset: this._dimLiveOffset,
         };
 
@@ -245,6 +281,9 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         this._dimHoverHit    = null;
         this._dimLiveOffset  = 0;
         this._dimOffsetMoved = false;
+        this._measureA       = null;
+        this._measureB       = null;
+        this._measureResolved = false;
         this._dimState       = 1;
         this._clearOverlay();
     }
@@ -309,6 +348,53 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         return { ax, az, bx, bz };
     }
 
+    /**
+     * §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — establish the A–B measurement
+     * line used uniformly by the preview, the offset-measurement, and the commit.
+     *
+     * When both refs sit on near-parallel walls, the Phase-6 constraint projects
+     * them onto their wall baselines (perpendicular dimension); otherwise the raw
+     * ref-A / ref-B points are used. Computed once when ref B is locked so the three
+     * consumers can never disagree — the root cause of the pre-fix placement drift.
+     */
+    private _updateMeasureLine(): void {
+        const a = this._dimRefA;
+        const b = this._dimRefB;
+        if (!a || !b) {
+            this._measureA = null;
+            this._measureB = null;
+            this._measureResolved = false;
+            return;
+        }
+        const resolved = this._resolveParallelWallDim(a, b);
+        if (resolved) {
+            this._measureA = { x: resolved.ax, z: resolved.az };
+            this._measureB = { x: resolved.bx, z: resolved.bz };
+            this._measureResolved = true;
+        } else {
+            this._measureA = { x: a.worldX, z: a.worldZ };
+            this._measureB = { x: b.worldX, z: b.worldZ };
+            this._measureResolved = false;
+        }
+    }
+
+    /**
+     * §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — signed perpendicular distance of
+     * a world point from the current A–B measurement line, in WORLD metres. This is
+     * the exact standoff the preview renders and the value stored as geometry2D.offset
+     * (consumed as world metres per L-155), so the placed dim matches the preview.
+     */
+    private _offsetForPoint(px: number, pz: number): number {
+        const a = this._measureA;
+        const b = this._measureB;
+        if (!a || !b) return 0;
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const len = Math.hypot(dx, dz);
+        if (len < 0.001) return 0;
+        const nx = -dz / len, nz = dx / len;
+        return (px - a.x) * nx + (pz - a.z) * nz;
+    }
+
     private _drawLinearDimPreview(): void {
         const c = this._ctx;
         if (!c) return;
@@ -328,12 +414,19 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         }
 
         if (this._dimRefA && (this._dimState === 2 || this._dimState === 3)) {
-            const sA = planCanvas.worldToScreen(this._dimRefA.worldX, this._dimRefA.worldZ);
+            // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — in DEFINE_OFFSET show the
+            // reference dot on the resolved measure line so the preview matches the
+            // committed geometry (renderer draws refs at modelPoints = measure line).
+            const rA = (this._dimState === 3 && this._measureA)
+                ? this._measureA
+                : { x: this._dimRefA.worldX, z: this._dimRefA.worldZ };
+            const sA = planCanvas.worldToScreen(rA.x, rA.z);
             ctx.fillStyle = '#1e40af'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.arc(sA.sx, sA.sy, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         }
         if (this._dimRefB && this._dimState === 3) {
-            const sB = planCanvas.worldToScreen(this._dimRefB.worldX, this._dimRefB.worldZ);
+            const rB = this._measureB ?? { x: this._dimRefB.worldX, z: this._dimRefB.worldZ };
+            const sB = planCanvas.worldToScreen(rB.x, rB.z);
             ctx.fillStyle = '#1e40af'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.arc(sB.sx, sB.sy, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         }
@@ -367,8 +460,13 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         }
 
         if (this._dimState === 3 && this._dimRefA && this._dimRefB) {
-            const ax = this._dimRefA.worldX, az = this._dimRefA.worldZ;
-            const bx = this._dimRefB.worldX, bz = this._dimRefB.worldZ;
+            // §FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176) — draw the dim line on the
+            // resolved measure line (identical to the committed modelPoints) so the
+            // preview standoff is exactly what gets placed.
+            const mA = this._measureA ?? { x: this._dimRefA.worldX, z: this._dimRefA.worldZ };
+            const mB = this._measureB ?? { x: this._dimRefB.worldX, z: this._dimRefB.worldZ };
+            const ax = mA.x, az = mA.z;
+            const bx = mB.x, bz = mB.z;
             const dirX = bx - ax, dirZ = bz - az;
             const dirLen = Math.hypot(dirX, dirZ);
             if (dirLen > 0.001) {
