@@ -328,6 +328,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-164 [HIGH REGRESSION L-150] batch resi building shows grey massing-LOD 'envelope shade' (threshold >5 levels/>500 elems too aggressive) | Rendering / massing-LOD threshold (C04, A.24) | **OPEN → rendering lane (fenced LevelScoped3DCullingService + LevelMassingRenderer)** — raise threshold so normal buildings render full detail; massing only for huge models; workaround __pryzmLevelScoped3DMode='all'; §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE |
 
+| L-165 [LOW SPIKE] shadow projection pixelated (512px shadow map) — perf-conditional | Rendering / shadow quality (C04, C10) | **OPEN → rendering-spike (when capacity)** — spike: res-bump vs CSM vs PCF/PCSS, tier-aware, never regress heavy-scene budget; leave-as-is if too costly; §SPIKE-SHADOW-MAP-ACCURACY |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
