@@ -320,6 +320,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-160 [HIGH re-review] Cesium not resolved: globe still needs Zoom-to-Site + building above ground; 'Real' still placeholder cube (L-144 deferred); sun-hours needs more perf | GIS/Cesium/Forma/solar (C18-23, C21, ADR-0074/79/110) | **OPEN → Cesium/Forma agent (fenced CesiumViewport+GISAreaLayout+solar-analysis+FormaControls)** — deterministic open-frame after clamp; real-geometry façade + land solar worker; more perf; §FIX-CESIUM-GLOBE-REAL-GEOMETRY-PERF |
 
+| L-161 [HIGH] AutoDim/manual linear dims not selectable/editable in plan (render but inert) | Documentation / dim edit (C03, C56, DOC-2.x) | **OPEN → AutoDim/annotation-usability agent, SEQUENCED behind L-157 (shared PlanViewInteraction)** — make linear-dim selectable+draggable+value-editable+deletable (reuse manual dim edit path); bundle w/ L-155 offset-outward; §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
