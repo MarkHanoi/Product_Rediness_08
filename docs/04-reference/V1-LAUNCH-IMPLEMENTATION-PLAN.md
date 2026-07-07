@@ -298,6 +298,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-146 [CRITICAL] New wall started NEAR (not exactly at) the shared L-corner of two joined walls malforms the two EXISTING walls; mid-point T is sound | Wall junction resolver (ADR-0055 JunctionResolverV2) | **OPEN → wall-join agent (fenced geometry-wall + WallRebuildCoordinator + WallPlanToolHandler)** — snap-precision + near-coincident cluster: snap start EXACTLY to shared vertex or guard; existing walls immutable (__pryzmWallV2ExistingCornerImmutable); §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE |
 
+| L-147 [HIGH] AutoDim renders (L-145 works) but set not architect-correct on non-rectangular footprints: spurious DIAGONAL (34601mm corner-to-corner) + incomplete exterior chains (jogs/notch undimensioned) | Documentation / AutoDimension engine quality | **OPEN → AutoDim-engine-quality agent (fenced @pryzm/auto-dimension + applyAutoDimensions)** — orthogonal-only (axis-projected, NO diagonals; overall=bbox H+V offset chains) + complete per-side exterior chains over jogged perimeter + fold in deferred QA-2 gap/overlap; §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
