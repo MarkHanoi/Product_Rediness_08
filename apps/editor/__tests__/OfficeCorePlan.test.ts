@@ -15,7 +15,7 @@ import {
     cubiclesPerGender,
     planOfficeCore,
     planOfficeFloorArchitecture,
-    circulationRingSegments,
+    officeFloorArchitectureBoundingLineSegments,
 } from '../src/ui/office-building/officeCorePlan';
 
 describe('classifyFloorSize', () => {
@@ -178,48 +178,46 @@ describe('§OFFICE-CORE-REAL-CIRCULATION — the plan always yields placeable st
     });
 });
 
-// §OFFICE-CIRC-RBL-PLACEMENT (founder 2026-07-01: "hundreds of office-circ annotations render with
-// placement.start/end undefined — the circulation corridors DON'T render") — the executor draws each
-// circulation ring's RoomBoundingLines via `circulationRingSegments`. These pin the FIX: every emitted
-// segment carries a REAL, finite start/end (never undefined/NaN, never degenerate), so the renderer's
-// §RBL-PLACEMENT-GUARD never skips it and the corridors render.
-describe('§OFFICE-CIRC-RBL-PLACEMENT — circulationRingSegments always carry a defined, finite placement', () => {
-    it('emits closed inner + outer ring segments with finite, non-degenerate start/end', () => {
-        const segs = circulationRingSegments({ innerR: 6, outerR: 8 });
+// §FIX-OFFICE-CIRC-RBL-UNDEFINED-PLACEMENT (L-170, founder log: "hundreds of office-circ
+// room-bounding-line annotations with UNDEFINED placement.start/end … tripping the redetect
+// circuit-breaker 65+×"). ROOT CAUSE: the circulation RINGS were materialised as ~190 `office-circ`
+// RoomBoundingLine records PER FLOOR that (a) never carve rooms (office floors are graph-authoritative),
+// (b) never render (the shared RoomBoundingLineStore fires an {id}-only DOM event so the builder skips
+// every line), and (c) fired RoomTopologyObserver's per-add redetect (ungated by skipRedetectRooms) →
+// same-geometry storm. FIX: the office FLOOR only materialises bounding lines for the real rectangular
+// SUPPORT rooms — the circulation rings are NOT emitted at all. This pins that invariant + that every
+// emitted segment still carries a REAL, finite, non-degenerate start/end.
+describe('§FIX-OFFICE-CIRC-RBL-UNDEFINED-PLACEMENT — floor emits ONLY support-room lines, no circulation rings', () => {
+    const input = { discR: 22, coreR: 6, innerCircOuterR: 8, openPlanOuterR: 16, perimMidR: 19 };
+
+    it('emits exactly the support-room rectangle edges (no ~190 circulation-ring lines)', () => {
+        const arch = planOfficeFloorArchitecture(input);
+        const segs = officeFloorArchitectureBoundingLineSegments(arch);
+        // 4 edges per support room, and NOTHING for the circulation rings (which would add ~190).
+        expect(segs.length).toBe(arch.supportRooms.length * 4);
+        // Sanity: the planner DOES still compute circulation rings (for support-room band placement),
+        // so the small count above proves the rings are deliberately NOT materialised as RBLs.
+        expect(arch.circulation.length).toBeGreaterThan(0);
+        expect(segs.length).toBeLessThan(arch.circulation.length * 32); // nowhere near a 32-gon/ring
+    });
+
+    it('every emitted segment carries a defined, finite, non-degenerate start/end', () => {
+        const arch = planOfficeFloorArchitecture(input);
+        const segs = officeFloorArchitectureBoundingLineSegments(arch);
         expect(segs.length).toBeGreaterThan(0);
         for (const s of segs) {
-            // The exact invariant the renderer's §RBL-PLACEMENT-GUARD checks: start/end both defined
-            // + finite (an undefined endpoint is what got every office-circ line skipped).
+            // The exact invariant a RoomBoundingLine payload needs (an undefined endpoint is what got
+            // every office-circ line skipped at render / rejected on collab replay).
             expect(s.start).toBeDefined();
             expect(s.end).toBeDefined();
-            expect(Number.isFinite(s.start.x)).toBe(true);
-            expect(Number.isFinite(s.start.z)).toBe(true);
-            expect(Number.isFinite(s.end.x)).toBe(true);
-            expect(Number.isFinite(s.end.z)).toBe(true);
-            // Non-degenerate (≥ the command's 10 mm min-length guard).
+            expect(Number.isFinite(s.start.x) && Number.isFinite(s.start.z)).toBe(true);
+            expect(Number.isFinite(s.end.x) && Number.isFinite(s.end.z)).toBe(true);
             expect(Math.hypot(s.end.x - s.start.x, s.end.z - s.start.z)).toBeGreaterThanOrEqual(0.01);
         }
     });
-    it('drops a ring with a collapsed / non-positive radius (no undefined-placement line ever emitted)', () => {
-        expect(circulationRingSegments({ innerR: 0, outerR: 0 })).toHaveLength(0);
-        expect(circulationRingSegments({ innerR: -3, outerR: -1 })).toHaveLength(0);
-        // A single valid radius still yields ONE ring (the other, zero, is dropped) — all finite.
-        const oneRing = circulationRingSegments({ innerR: 0, outerR: 8 });
-        expect(oneRing.length).toBeGreaterThan(0);
-        for (const s of oneRing) {
-            expect(Number.isFinite(s.start.x) && Number.isFinite(s.end.x)).toBe(true);
-        }
-    });
-    it('every real circulation ring from the planner yields defined-placement segments', () => {
-        const arch = planOfficeFloorArchitecture({ discR: 22, coreR: 6, innerCircOuterR: 8, openPlanOuterR: 16, perimMidR: 19 });
-        for (const ring of arch.circulation) {
-            for (const s of circulationRingSegments(ring)) {
-                expect(s.start).toBeDefined();
-                expect(s.end).toBeDefined();
-                expect(Number.isFinite(s.start.x) && Number.isFinite(s.start.z)).toBe(true);
-                expect(Number.isFinite(s.end.x) && Number.isFinite(s.end.z)).toBe(true);
-            }
-        }
+
+    it('returns no lines when the floor has no support rooms (never floods the command)', () => {
+        expect(officeFloorArchitectureBoundingLineSegments({ supportRooms: [] })).toHaveLength(0);
     });
 });
 

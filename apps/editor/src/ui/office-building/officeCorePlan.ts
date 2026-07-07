@@ -548,33 +548,36 @@ export function planOfficeFloorArchitecture(input: {
     return { circulation, supportRooms, partitionWalls, glazedEnclosures, namedRooms, diagnostic };
 }
 
-/** Number of segments in each circulation ring outline (a 32-gon reads as round in plan). */
-const CIRCULATION_RING_SEGMENTS = 32;
-
 /**
- * §OFFICE-CIRC-RBL-PLACEMENT (founder 2026-07-01) — the PURE producer of the circulation-ring
- * room-bounding-line segments the executor draws as `office-circ-` RoomBoundingLines. Builds the
- * ring's inner + outer circle outlines (a 32-gon each) and routes EVERY edge through the SAME
- * `ringPlanSegments` §RBL-PLACEMENT-AT-SOURCE guard that every other office RBL uses, so no edge
- * with an undefined / NaN endpoint or a degenerate (< 10 mm) length ever reaches a
- * `CREATE_ROOM_BOUNDING_LINE` payload. Before this, the executor built the 32-gon INLINE and pushed
- * `{start,end}` verbatim — the ONLY office RBL emission that bypassed the guard — so a ring on a
- * collapsed radius (innerR === outerR, or a clamped zone radius) minted coincident-vertex edges the
- * renderer's §RBL-PLACEMENT-GUARD then SKIPPED (placement.start/end undefined) → the circulation
- * corridors never rendered. A radius ≤ 0 is dropped (no outline). Pure + deterministic.
+ * §FIX-OFFICE-CIRC-RBL-UNDEFINED-PLACEMENT (L-170) — the PURE producer of the RoomBoundingLine
+ * segments the office FLOOR architecture materialises. Only the real rectangular SUPPORT rooms
+ * (meeting / kitchenette / storage / plant) yield bounding lines; the circulation RINGS are
+ * DELIBERATELY NOT materialised as RoomBoundingLines.
+ *
+ * Why circulation rings are NOT emitted (the L-170 fix — STOP creating them, don't "populate"):
+ *   • They never carve rooms — office floors are GRAPH-AUTHORITATIVE (the executor dispatches
+ *     BatchCreateRoomsCommand + markGraphAuthoritative from the NamedRooms), so auto-detection is
+ *     explicitly overridden and no bounding line establishes room identity here. Circulation is
+ *     represented by the named 'Corridor' / 'Open-Plan Office' rooms instead.
+ *   • They never rendered — the shared RoomBoundingLineStore fires an {id}-only DOM event, so the
+ *     RoomBoundingLineBuilder receives no `placement` and the §RBL-PLACEMENT-GUARD skips every line
+ *     however finite the emitted endpoints are (a shared store/builder-wiring issue).
+ *   • They were pure waste + a redetect storm — a 32-gon per radius × 2 circles × N rings minted
+ *     ~190 RoomBoundingLine records PER FLOOR, each burning a command + mark id AND firing
+ *     RoomTopologyObserver's per-add redetect (ungated by the batch's skipRedetectRooms), tripping
+ *     the same-geometry circuit-breaker 60+×.
+ *
+ * Every emitted support-room edge is routed through the SAME `ringPlanSegments`
+ * §RBL-PLACEMENT-AT-SOURCE guard the zone lines use, so no undefined / NaN / degenerate (< 10 mm)
+ * endpoint ever reaches a `CREATE_ROOM_BOUNDING_LINE` payload. Pure + deterministic.
  */
-export function circulationRingSegments(
-    ring: Pick<CirculationRing, 'innerR' | 'outerR'>,
+export function officeFloorArchitectureBoundingLineSegments(
+    arch: Pick<OfficeFloorArchitecture, 'supportRooms'>,
 ): Array<{ start: Pt2; end: Pt2 }> {
     const out: Array<{ start: Pt2; end: Pt2 }> = [];
-    for (const r of [ring.innerR, ring.outerR]) {
-        if (!(r > 0) || !Number.isFinite(r)) continue;
-        const poly = Array.from({ length: CIRCULATION_RING_SEGMENTS }, (_v, i) => {
-            const a = (2 * Math.PI * i) / CIRCULATION_RING_SEGMENTS;
-            return { x: Math.cos(a) * r, z: Math.sin(a) * r };
-        });
+    for (const r of arch.supportRooms) {
         // §RBL-PLACEMENT-AT-SOURCE — the shared guard: only finite-endpoint, non-degenerate edges.
-        out.push(...ringPlanSegments(poly));
+        out.push(...ringPlanSegments(rectCorners(r.x0, r.z0, r.x1, r.z1)));
     }
     return out;
 }

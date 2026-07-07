@@ -65,7 +65,7 @@ import { coreSquare } from './officeInteriorFitout.js';
 import {
     planOfficeCore,
     planOfficeFloorArchitecture,
-    circulationRingSegments,
+    officeFloorArchitectureBoundingLineSegments,
     type OfficeCorePlan,
     type WallSeg,
 } from './officeCorePlan.js';
@@ -1116,25 +1116,29 @@ export class OfficeBuildingExecutor {
         innerWallColor?: string,
         glassColor?: string,
     ): void {
-        // Circulation rings + escape spokes + support-room outlines as room-bounding lines.
-        // §OFFICE-CIRC-RBL-PLACEMENT (founder 2026-07-01: "hundreds of office-circ annotations render
-        // with placement.start/end undefined — the circulation corridors the core claims to add DON'T
-        // render") — ROOT CAUSE: this pass built the circulation ring 32-gon INLINE and pushed
-        // {start,end} verbatim, the ONLY office RBL emission that BYPASSED the §RBL-PLACEMENT-AT-SOURCE
-        // guard (`ringPlanSegments`) every other office RBL routes through (zone lines `office-rbl-`,
-        // rect rooms `office-room-`). A ring built on a collapsed radius (innerR === outerR, or a
-        // clamped/degenerate zone radius) minted zero-length / coincident-vertex edges whose serialized
-        // placement round-tripped to undefined, so the RoomBoundingLineBuilder's §RBL-PLACEMENT-GUARD
-        // SKIPPED every one. FIX: build each ring outline through `circulationRingSegments` (which
-        // routes every edge through the SAME `ringPlanSegments` finite-endpoint + non-degenerate guard),
-        // so every emitted `office-circ-` line carries a REAL, finite placement.start/end and renders.
+        // §FIX-OFFICE-CIRC-RBL-UNDEFINED-PLACEMENT (L-170) — the floor emits room-bounding lines ONLY
+        // for the real rectangular SUPPORT rooms; the circulation RINGS are NO LONGER materialised as
+        // `office-circ` RoomBoundingLines. WHY the rings were removed (not "populated"):
+        //   • They never established room identity — office floors are GRAPH-AUTHORITATIVE
+        //     (`_nameAndFinishFloors` dispatches BatchCreateRoomsCommand + markGraphAuthoritative), so
+        //     RoomBoundingLines never carve rooms here; auto-detection is explicitly overridden. The
+        //     circulation is already represented by the NAMED 'Corridor' / 'Open-Plan Office' rooms.
+        //   • They never rendered — RoomBoundingLineStore.add fires `bim-room-bounding-line-added` with
+        //     an {id}-only detail (F.events.17), so the shared RoomBoundingLineBuilder receives no
+        //     `placement` and the §RBL-PLACEMENT-GUARD skips EVERY line regardless of how finite the
+        //     emitted endpoints are (a shared store/builder-wiring issue, not an office-emission one).
+        //   • They were pure waste + a redetect storm — each ring outline is a 32-gon per radius, so
+        //     3 rings × 2 circles minted ~190 RoomBoundingLine records PER FLOOR (RB-01-722…839+), each
+        //     burning a CreateRoomBoundingLineCommand + mark id AND directly notifying
+        //     RoomTopologyObserver's per-add RBL subscription (which is NOT gated by the batch's
+        //     `skipRedetectRooms`), hammering same-geometry room-redetects until the circuit-breaker
+        //     tripped 60+×. Not emitting them removes the flood + the storm AT SOURCE.
+        // The remaining support-room lines route through the SAME finite-endpoint + non-degenerate guard
+        // (`ringPlanSegments`, via `officeFloorArchitectureBoundingLineSegments`) every office RBL uses.
         const lines: BoundingLineItem[] = [];
-        for (const ring of arch.circulation) {
-            for (const seg of circulationRingSegments(ring)) {
-                lines.push({ id: `office-circ-${createId('annotation')}`, levelId, start: seg.start, end: seg.end });
-            }
+        for (const seg of officeFloorArchitectureBoundingLineSegments(arch)) {
+            lines.push({ id: `office-room-${createId('annotation')}`, levelId, start: seg.start, end: seg.end });
         }
-        for (const room of arch.supportRooms) this._rectRoomLines(lines, room, levelId);
 
         // Internal partition walls (opaque) + glazed office enclosures (curtain-wall).
         // §OFFICE-INNER-WALL-COLOUR — internal partitions read the inner-wall colour (absent ⇒ default).
