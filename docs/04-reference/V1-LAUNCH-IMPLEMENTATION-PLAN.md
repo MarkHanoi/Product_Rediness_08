@@ -286,6 +286,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-140 [HIGH] batch-generated building casts NO shadow (instanced meshes likely not castShadow; hand-drawn works) | rendering / instanced shadows | **QUEUED behind L-139 (same renderer-three shadow/instancing files — sequential, not parallel)** — castShadow on InstancedMesh + shadow-pass inclusion + catcher-frame check; §FIX-INSTANCED-GENERATED-SHADOWS | 
 
+| L-141 [UX] loading overlay during renderer backend live-swap (WebGL<->WebGPU) + device-loss recovery | rendering / live-swap UX (ADR-0077) | **QUEUED behind L-139 (same initScene swap/recovery code)** — overlay on swap start/recovery, hide on complete/rollback; §FEAT-SWAP-LOADING-OVERLAY | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
