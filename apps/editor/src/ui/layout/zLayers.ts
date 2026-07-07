@@ -107,6 +107,14 @@ function kebab(s: string): string {
 // buried the GIS pills) at the `launcher` layer, left-anchored, stacking upward
 // from just above the bottom-left renderer-backend toggle (`critical` layer,
 // bottom:10px, ~30px tall).
+//
+// §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159) — the Split View toggle button (mounted
+// in `initUI.ts`) ALSO lives in this corner. It is a peer chrome control, so it
+// MUST be part of the SAME slot accounting or the launcher column re-occludes it
+// (which it did: the re-slotted "Graph" pill landed exactly on the split-view
+// button at bottom:144). It is therefore slot 0 (the bottom of the column, just
+// above the GPU toggle); the launchers stack ABOVE it. Every occupant of this
+// corner is now a named slot — nothing hand-picks a `bottom:`/`z-index` (C06 §7.2).
 
 export const LAUNCHER_RAIL = {
     /** Left inset for the whole corner column (px). */
@@ -117,14 +125,19 @@ export const LAUNCHER_RAIL = {
     slotStep: 44,
 } as const;
 
-/** Ordered slots in the bottom-left launcher rail (0 = lowest). */
-export type LauncherSlot = 'siteView' | 'planGis' | 'graph' | 'livingGraph';
+/**
+ * Ordered slots in the bottom-left launcher rail (0 = lowest, nearest the GPU
+ * toggle). `splitView` is the non-launcher Split View toggle folded into the same
+ * accounting so it can never be re-occluded (L-159).
+ */
+export type LauncherSlot = 'splitView' | 'siteView' | 'planGis' | 'graph' | 'livingGraph';
 
 export const LAUNCHER_SLOT_INDEX: Record<LauncherSlot, number> = {
-    siteView:    0,
-    planGis:     1,
-    graph:       2,
-    livingGraph: 3,
+    splitView:   0,
+    siteView:    1,
+    planGis:     2,
+    graph:       3,
+    livingGraph: 4,
 };
 
 /**

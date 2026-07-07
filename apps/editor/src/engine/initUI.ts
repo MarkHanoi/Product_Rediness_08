@@ -105,6 +105,10 @@ import { frameObject }             from '@pryzm/core-app-model';
 import { SectionBoxTool }          from '@pryzm/input-host';
 import { installShortcutCheatSheet } from '@app/ui/ShortcutCheatSheet';
 import { inlineLabelEditor }        from '@app/ui/InlineLabelEditor';
+// §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159, C06 §7.2) — the Split View toggle shares
+// the bottom-left launcher-rail corner, so it takes a declared slot from the
+// single z-layer/no-overlap policy instead of a hand-picked bottom/z-index.
+import { launcherRailStyle }        from '@app/ui/layout/zLayers';
 
 // ── Params interface ──────────────────────────────────────────────────────────
 
@@ -2953,25 +2957,19 @@ export async function initUI(p: UIParams): Promise<void> {
         svpBtn.className = 'svp-toggle-btn';
         svpBtn.title     = 'Toggle Split View (3D + Floor Plan)';
         svpBtn.setAttribute('aria-label', 'Toggle split view');
-        // §FIX-UI-BUTTON-OVERLAP (L-60) — the split-view toggle previously sat at
-        // bottom:24px / left:12px, which OVERLAPPED the GPU renderer-backend pill
-        // (RendererBackendToggle @ bottom:10px / left:10px, ~21px tall → spans
-        // 10-31px): the 32px-tall toggle at bottom:24px spans 24-56px and clashed
-        // in the 24-31px band. The 33px gap between the GPU pill (top ~31px) and
-        // the `⚛ Graph` launcher (bottom:64px) is too small for the 32px button to
-        // sit flush, so it moves to the TOP of the shared left column, one ~40px
-        // row above `✦ Living Graph` (bottom:104px). Final bottom-to-top stack:
-        // GPU (10) · ⚛ Graph (64) · ✦ Living Graph (104) · Split View (144) — a
-        // consistent 40px rhythm, all left:12px, nothing overlapping.
-        // Positions use the existing fixed-overlay convention (px from the
-        // viewport corner) so they stay responsive across screen sizes.
-        svpBtn.style.cssText = [
-            'position:fixed',
-            'bottom:144px',
-            'left:12px',
-            'z-index:28',
-            'pointer-events:auto',
-        ].join(';');
+        // §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159, C06 §7.2) — the split-view toggle
+        // shares the bottom-left launcher-rail corner. It now takes launcher-rail
+        // SLOT 0 (the bottom of the column, just above the GPU renderer-backend
+        // pill) from the single z-layer/no-overlap policy in `zLayers.ts`, so it
+        // can never be re-occluded by a re-slotted launcher pill. (History: L-60
+        // hand-picked bottom:144px to sit above the launchers, but L-149 re-slotted
+        // the pills and "Graph" landed on bottom:142 — right on this button.)
+        // The rail is bottom-to-top: GPU toggle (critical, bottom:10) · Split View
+        // (slot 0) · 3D Site (1) · Plan+Site (2) · Graph (3) · Living Graph (4).
+        Object.assign(svpBtn.style, {
+            ...launcherRailStyle('splitView'),
+            pointerEvents: 'auto',
+        } satisfies Partial<CSSStyleDeclaration>);
 
         // Split-pane icon (two vertical panels)
         svpBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

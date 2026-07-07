@@ -222,12 +222,15 @@ chrome elements in the SAME region MUST NOT be placed at overlapping coordinates
   chrome owns fixed screen edges: top = toolbar, left = nav/tool rails, bottom-left
   corner = the **launcher rail**, right = inspectors. A floating control MUST NOT
   be anchored inside another region's footprint.
-- **Launcher rail (bottom-left).** The always-on launcher pills form a single,
-  declared, collision-free vertical column, `position:fixed` at the `launcher`
-  layer, stacking upward from just above the bottom-left renderer-backend toggle.
-  Each pill owns a numbered SLOT via `launcherRailStyle(slot)` in `zLayers.ts`
-  (`siteView`=0, `planGis`=1, `graph`=2, `livingGraph`=3). New launchers MUST take
-  the next slot — never a hand-picked `bottom:`/`z-index`.
+- **Launcher rail (bottom-left).** Every always-on floating control in this corner
+  forms a single, declared, collision-free vertical column, `position:fixed` at the
+  `launcher` layer, stacking upward from just above the bottom-left renderer-backend
+  toggle. Each control owns a numbered SLOT via `launcherRailStyle(slot)` in
+  `zLayers.ts`: `splitView`=0, `siteView`=1, `planGis`=2, `graph`=3, `livingGraph`=4.
+  The Split View toggle (a non-launcher chrome control that shares the corner) is
+  folded into this SAME accounting — L-159, §FIX-LAUNCHER-COVERS-SPLITVIEW — so it
+  can never be re-occluded by a re-slotted launcher pill. Any new control in this
+  corner MUST take the next slot — never a hand-picked `bottom:`/`z-index`.
 - **`position:absolute` inside a low-lying container is forbidden for chrome that
   must float above panels.** `#container` does not create a stacking context in
   the BIM view (`z-index:auto`), so an absolutely-positioned child with `z-index`
@@ -249,15 +252,17 @@ the proof-of-system:
 
 | Element | Was | Now |
 |---|---|---|
-| `#pryzm-site-view-launcher` ("◉ 3D Site / Globe") | `absolute` in `#container`, `z:20` | `fixed`, `launcher` (10000), rail slot 0 |
-| `#pryzm-plan-gis-launcher` ("▦ Plan + Site") | `absolute` in `#container`, `z:20` | `fixed`, `launcher`, rail slot 1 |
-| `#pryzm-graph-launcher` ("⚛ Graph") | `fixed`, `z:28`, `bottom:64` | `fixed`, `launcher`, rail slot 2 |
-| `#pryzm-living-graph-launcher` ("✦ Living Graph") | `fixed`, `z:28`, `bottom:104` | `fixed`, `launcher`, rail slot 3 |
+| `#svp-toggle-button` (Split View) | `fixed`, `z:28`, `bottom:144` | `fixed`, `launcher` (10000), rail slot 0 |
+| `#pryzm-site-view-launcher` ("◉ 3D Site / Globe") | `absolute` in `#container`, `z:20` | `fixed`, `launcher` (10000), rail slot 1 |
+| `#pryzm-plan-gis-launcher` ("▦ Plan + Site") | `absolute` in `#container`, `z:20` | `fixed`, `launcher`, rail slot 2 |
+| `#pryzm-graph-launcher` ("⚛ Graph") | `fixed`, `z:28`, `bottom:64` | `fixed`, `launcher`, rail slot 3 |
+| `#pryzm-living-graph-launcher` ("✦ Living Graph") | `fixed`, `z:28`, `bottom:104` | `fixed`, `launcher`, rail slot 4 |
 
 Files touched Phase 1: `apps/editor/src/ui/layout/zLayers.ts` (new SSOT),
 `apps/editor/src/ui/styles/layout.css` (`--z-*` mirror),
 `apps/editor/src/ui/layout/GISAreaLayout.ts`, `apps/editor/src/ui/graph/index.ts`,
-`apps/editor/src/ui/living-graph/index.ts`.
+`apps/editor/src/ui/living-graph/index.ts`, `apps/editor/src/engine/initUI.ts`
+(Split View toggle folded into the rail — L-159, §FIX-LAUNCHER-COVERS-SPLITVIEW).
 
 **Remaining phases (NOT yet migrated — logged so nothing is silently half-done):**
 
