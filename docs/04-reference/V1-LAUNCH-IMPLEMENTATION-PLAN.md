@@ -294,6 +294,10 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-144 [HIGH] Forma façade/sun analysis runs on 4-face MASSING PROXY not the real building geometry (192 walls+openings already placed) | solar/Forma analysis fidelity | **QUEUED — bundled w/ L-143, behind L-142 (CesiumViewport)** — run analysis on REAL façade surfaces (reuse placed real geometry), massing = fast preview tier only; depends on L-143 worker+BVH; §FIX-FACADE-ANALYSIS-REAL-GEOMETRY | 
 
+| L-145 [CRITICAL] AutoDim computes dims but NONE render — annotation.create Zod-rejects id (crypto.randomUUID ≠ annotation_<ULID>, ADR-0061); manual LinearDim silently same | Documentation / AutoDimension annotation-id | **FIXED (pending batch push)** — mint createId('annotation') at BOTH sinks (applyAutoDimensions + LinearDimPlanToolHandler); plugins/annotations sweep → compliance audit; §FIX-AUTODIM-ANNOTATION-ID |
+
+| L-146 [CRITICAL] New wall started NEAR (not exactly at) the shared L-corner of two joined walls malforms the two EXISTING walls; mid-point T is sound | Wall junction resolver (ADR-0055 JunctionResolverV2) | **OPEN → wall-join agent (fenced geometry-wall + WallRebuildCoordinator + WallPlanToolHandler)** — snap-precision + near-coincident cluster: snap start EXACTLY to shared vertex or guard; existing walls immutable (__pryzmWallV2ExistingCornerImmutable); §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
