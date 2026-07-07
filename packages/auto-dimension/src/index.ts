@@ -6,6 +6,9 @@
 
 export { planAutoDimensions } from './planAutoDimensions.js';
 export { withAutoDimSpan, _resetTracerCache, type AutoDimStage } from './tracing.js';
+// Pure placement helpers exposed for deterministic unit tests (§SPIKE §8/§13).
+export { polygonCentroid, outwardNormal } from './placement.js';
+export { segmentsCross } from './geometry.js';
 export type {
   AutoDimSnapshot,
   AutoDimWall,

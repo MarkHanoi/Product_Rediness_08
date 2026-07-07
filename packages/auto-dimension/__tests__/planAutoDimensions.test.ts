@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planAutoDimensions } from '../src/index.js';
+import { planAutoDimensions, polygonCentroid, outwardNormal, segmentsCross } from '../src/index.js';
 import type { AutoDimSnapshot, AutoDimWall } from '../src/index.js';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -173,5 +173,143 @@ describe('planAutoDimensions — openings (door + window on one wall)', () => {
     for (const s of strings) {
       expect(measured(snap, s)).toBeGreaterThanOrEqual(0.05 - 1e-9);
     }
+  });
+});
+
+// ── P2 — outward-side placement + conflict/overlap resolution (L-138 P2) ────────
+
+/** The engine's own outward-side rule (§SPIKE §8), re-derived from geometry. */
+function outwardSideOf(
+  snap: AutoDimSnapshot,
+  centroid: { x: number; z: number },
+  s: { references: readonly { elementId: string; anchor: string }[]; orientation: string },
+): 1 | -1 {
+  const p1 = resolvePoint(snap, s.references[0]!.elementId as string, s.references[0]!.anchor);
+  const p2 = resolvePoint(snap, s.references[1]!.elementId as string, s.references[1]!.anchor);
+  const anchor = s.orientation === 'horizontal' ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
+  const c = s.orientation === 'horizontal' ? centroid.z : centroid.x;
+  return anchor >= c ? 1 : -1;
+}
+
+describe('planAutoDimensions — P2 outward-side placement', () => {
+  it('every exterior dim sits on the correct OUTSIDE side (rectangle)', () => {
+    const snap = rectangle();
+    const centroid = polygonCentroid([
+      { x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 },
+    ]);
+    const { strings } = planAutoDimensions(snap, OPTS);
+    // Signed offset encodes side: below/left = negative, above/right = positive.
+    for (const s of strings) {
+      expect(Math.sign(s.offsetMm)).toBe(outwardSideOf(snap, centroid, s));
+    }
+    // The bottom overall is below (negative), a top chain is above (positive):
+    // both sides are actually used (not merely stacked outward by rank).
+    const signs = new Set(strings.map((s) => Math.sign(s.offsetMm)));
+    expect(signs.has(1)).toBe(true);
+    expect(signs.has(-1)).toBe(true);
+  });
+
+  it('every exterior dim sits on the correct OUTSIDE side (L-plan)', () => {
+    const snap = lPlan();
+    const centroid = polygonCentroid([
+      { x: 0, z: 0 }, { x: 8, z: 0 }, { x: 8, z: 3 },
+      { x: 4, z: 3 }, { x: 4, z: 6 }, { x: 0, z: 6 },
+    ]);
+    const { strings, report } = planAutoDimensions(snap, OPTS);
+    for (const s of strings) {
+      expect(Math.sign(s.offsetMm)).toBe(outwardSideOf(snap, centroid, s));
+    }
+    // A correct outward placement crosses no geometry on a rect/L plan.
+    expect(report.warnings.filter((w) => w.code === 'geometry-crossing').length).toBe(0);
+  });
+});
+
+describe('planAutoDimensions — P2 conflict resolution', () => {
+  const openings: AutoDimWall['openings'] = [
+    { id: 'door_1', kind: 'door', offset: 2, width: 0.9 },
+    { id: 'window_1', kind: 'window', offset: 4, width: 1.2 },
+  ];
+
+  it('no duplicate string survives resolution (QA-4) and every opening is located AND sized (DI-2)', () => {
+    const { strings, report } = planAutoDimensions(rectangle(openings), OPTS);
+    // No structural duplicates flagged.
+    for (const code of ['duplicate-string', 'opening-unsized', 'opening-unlocated', 'opening-undimensioned'] as const) {
+      expect(report.warnings.filter((w) => w.code === code).length).toBe(0);
+    }
+    // And no two strings share (orientation, axis-span) — checked directly on output.
+    const keys = strings.map((s) =>
+      `${s.orientation}|${[...s.references].map((r) => `${r.elementId as string}:${r.anchor}`).sort().join('|')}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('bumps an overlapping label to a new stack row — deterministically', () => {
+    // With a small label footprint the two location dims share a row (same |offset|).
+    const small = planAutoDimensions(rectangle(openings), { ...OPTS, labelCharWidthM: 0.15 });
+    const smallLocs = small.strings.filter((s) =>
+      s.kind === 'linear-element' && s.references.some((x) => x.anchor === 'center'));
+    const smallOffsets = smallLocs.map((s) => Math.abs(s.offsetMm));
+    expect(new Set(smallOffsets).size).toBe(1); // same row
+
+    // With a large label footprint they overlap → the lower-priority one bumps out.
+    const bigA = planAutoDimensions(rectangle(openings), { ...OPTS, labelCharWidthM: 1.5 });
+    const bigB = planAutoDimensions(rectangle(openings), { ...OPTS, labelCharWidthM: 1.5 });
+    // Determinism preserved through the bump (byte-identical).
+    expect(JSON.stringify(bigA.strings)).toEqual(JSON.stringify(bigB.strings));
+    const bigLocs = bigA.strings.filter((s) =>
+      s.kind === 'linear-element' && s.references.some((x) => x.anchor === 'center'));
+    const bigOffsets = bigLocs.map((s) => Math.abs(s.offsetMm));
+    expect(new Set(bigOffsets).size).toBeGreaterThan(1); // bumped to distinct rows
+    // The closer-to-wall (smaller centre = door at offset 2) keeps the inner row.
+    const door = bigLocs.find((s) => s.references.some((x) => (x.elementId as string) === 'door_1'))!;
+    const win = bigLocs.find((s) => s.references.some((x) => (x.elementId as string) === 'window_1'))!;
+    expect(Math.abs(win.offsetMm)).toBeGreaterThan(Math.abs(door.offsetMm));
+  });
+
+  it('re-asserts determinism + input-order independence AFTER the P2 stages (with openings)', () => {
+    const base = rectangle(openings);
+    const shuffled: AutoDimSnapshot = { walls: [base.walls[2]!, base.walls[0]!, base.walls[3]!, base.walls[1]!] };
+    const a = planAutoDimensions(base, OPTS);
+    const b = planAutoDimensions(base, OPTS);
+    expect(JSON.stringify(a.strings)).toEqual(JSON.stringify(b.strings)); // byte-identical
+    const c = planAutoDimensions(shuffled, OPTS);
+    // Same measured multiset + same signed-offset multiset regardless of input order.
+    expect(a.strings.length).toBe(c.strings.length);
+    expect(a.strings.map((s) => measured(base, s)).sort()).toEqual(c.strings.map((s) => measured(shuffled, s)).sort());
+    expect(a.strings.map((s) => s.offsetMm).sort()).toEqual(c.strings.map((s) => s.offsetMm).sort());
+  });
+});
+
+describe('planAutoDimensions — P2 edge cases (angled walls, geometry helpers)', () => {
+  it('handles a fully angled (diamond) plan deterministically along run normals', () => {
+    const v = [{ x: 3, z: 0 }, { x: 6, z: 3 }, { x: 3, z: 6 }, { x: 0, z: 3 }];
+    const walls: AutoDimWall[] = v.map((p, i) => ({
+      id: `w${i}`, a: p, b: v[(i + 1) % v.length]!, thickness: 0.2, openings: [],
+    }));
+    const snap: AutoDimSnapshot = { walls };
+    const a = planAutoDimensions(snap, OPTS);
+    const b = planAutoDimensions(snap, OPTS);
+    expect(JSON.stringify(a.strings)).toEqual(JSON.stringify(b.strings));
+    expect(a.strings.filter((s) => s.kind === 'overall').length).toBe(2);
+    expect(a.report.coverage.runCount).toBe(4); // one run per angled side
+    // Order-independent.
+    const shuffled: AutoDimSnapshot = { walls: [walls[2]!, walls[0]!, walls[3]!, walls[1]!] };
+    const c = planAutoDimensions(shuffled, OPTS);
+    expect(a.strings.length).toBe(c.strings.length);
+  });
+
+  it('outwardNormal points away from the centroid (angled edge)', () => {
+    const n = outwardNormal({ x: 0, z: 0 }, { x: 4, z: 4 }, { x: 3, z: 1 });
+    // Unit length, and the dot with (midpoint − centroid) is positive (outward).
+    expect(Math.hypot(n.x, n.z)).toBeCloseTo(1, 6);
+    const mid = { x: 2, z: 2 };
+    expect(n.x * (mid.x - 3) + n.z * (mid.z - 1)).toBeGreaterThan(0);
+    // Axis-aligned bottom edge → straight down.
+    expect(outwardNormal({ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 3, z: 2 })).toEqual({ x: 0, z: -1 });
+  });
+
+  it('segmentsCross detects only strict transverse crossings (collinear/endpoint excluded)', () => {
+    expect(segmentsCross({ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 2, z: -1 }, { x: 2, z: 1 })).toBe(true); // cross
+    expect(segmentsCross({ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 2 })).toBe(false); // touch at endpoint
+    expect(segmentsCross({ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 1, z: 0 }, { x: 3, z: 0 })).toBe(false); // collinear
   });
 });

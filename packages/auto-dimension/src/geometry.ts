@@ -86,3 +86,27 @@ export function canonicalDir(d: PtXZ): PtXZ {
   // x ≈ 0 — decide by z.
   return u.z >= 0 ? u : { x: -u.x, z: -u.z };
 }
+
+/** World point at `station` metres along the axis anchored at `origin`. */
+export function stationToWorld(origin: PtXZ, axisDir: PtXZ, s: number): PtXZ {
+  return add(origin, scale(axisDir, s));
+}
+
+/**
+ * Strict transverse crossing test for two segments `p1→p2` and `q1→q2`
+ * (§SPIKE §9 stack-collision / geometry-crossing). Parallel and collinear
+ * segments return `false` (a dim line running *along* the wall it measures is
+ * never a crossing); shared endpoints/corners (`t`/`u` at 0 or 1) are excluded
+ * so a chain tick that lands on a corner is not a false positive.
+ */
+export function segmentsCross(p1: PtXZ, p2: PtXZ, q1: PtXZ, q2: PtXZ): boolean {
+  const r = sub(p2, p1);
+  const s = sub(q2, q1);
+  const denom = r.x * s.z - r.z * s.x;
+  if (Math.abs(denom) < PARALLEL_DET) return false; // parallel / collinear
+  const qp = sub(q1, p1);
+  const t = (qp.x * s.z - qp.z * s.x) / denom;
+  const u = (qp.x * r.z - qp.z * r.x) / denom;
+  const E = 1e-9;
+  return t > E && t < 1 - E && u > E && u < 1 - E;
+}

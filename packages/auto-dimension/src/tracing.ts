@@ -18,6 +18,7 @@ export type AutoDimStage =
   | 'segment'   // Stage 2/3: opening segmentation + station projection
   | 'chain'     // Stage 4/5: chain planning + tick resolution
   | 'place'     // Stage 6: placement / stacking
+  | 'conflict'  // Stage 7: dedupe + text-overlap + geometry-crossing
   | 'qa';       // Stage 8: validation
 
 let cachedTracer: Tracer | null = null;

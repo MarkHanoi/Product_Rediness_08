@@ -10,8 +10,14 @@
 
 import type { DimNode, WallRun, PlannedString, TickRef } from './types.js';
 import type { RunOpening } from './openings.js';
+import { stationToWorld } from './geometry.js';
 
 const EPSILON_M = 0.001; // tick coincidence (mirrors WallOccupancyStore epsilon)
+
+/** World point of a run tick (station → origin + axisDir·station). */
+function runWorld(run: WallRun, s: number) {
+  return stationToWorld(run.origin, run.axisDir, s);
+}
 
 function extreme(nodes: readonly DimNode[], axis: 'x' | 'z', pick: 'min' | 'max'): DimNode | null {
   let best: DimNode | null = null;
@@ -45,6 +51,7 @@ export function planOverall(perimNodes: readonly DimNode[]): PlannedString[] {
       kind: 'overall', orientation: 'horizontal', refs: [a, b],
       axisId: 'overall-h', rank: 1, rowIndex: 0,
       stationSpan: [a.station, b.station],
+      p1: minX.point, p2: maxX.point,
     });
   }
   if (minZ && maxZ && Math.abs(maxZ.point.z - minZ.point.z) > EPSILON_M) {
@@ -54,6 +61,7 @@ export function planOverall(perimNodes: readonly DimNode[]): PlannedString[] {
       kind: 'overall', orientation: 'vertical', refs: [a, b],
       axisId: 'overall-v', rank: 1, rowIndex: 0,
       stationSpan: [a.station, b.station],
+      p1: minZ.point, p2: maxZ.point,
     });
   }
   return out;
@@ -71,6 +79,7 @@ export function planWallChain(run: WallRun, minSegmentM: number): PlannedString[
       kind: 'linear-chain', orientation: run.orientation, refs: [a, b],
       axisId: run.id, rank: 2, rowIndex: 0,
       stationSpan: [a.station, b.station],
+      p1: runWorld(run, a.station), p2: runWorld(run, b.station),
     });
   }
   return out;
@@ -109,6 +118,7 @@ export function planOpeningChain(
       kind: 'linear-chain', orientation: run.orientation, refs: [a, b],
       axisId: run.id, rank: 3, rowIndex: 0,
       stationSpan: [a.station, b.station],
+      p1: runWorld(run, a.station), p2: runWorld(run, b.station),
     });
   }
   return out;
@@ -130,6 +140,7 @@ export function planOpeningLocations(
       refs: [datum, op.centreTick],
       axisId: run.id, rank: 4, rowIndex: 0,
       stationSpan: [datum.station, op.centreTick.station],
+      p1: runWorld(run, datum.station), p2: runWorld(run, op.centreTick.station),
     });
   }
   return out;

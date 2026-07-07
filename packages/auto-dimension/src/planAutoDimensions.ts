@@ -13,23 +13,24 @@ import {
 } from '@pryzm/schemas/annotation/dimension';
 import type {
   AutoDimSnapshot, AutoDimOptions, AutoDimResult, AutoDimReport,
-  AutoDimWall, PlannedString, WallRun, DimNode, ValidationWarning, TickRef,
+  AutoDimWall, PlannedString, PlacedString, WallRun, DimNode, ValidationWarning, TickRef,
 } from './types.js';
+import type { PtXZ } from './geometry.js';
 import { buildGraph, tracePerimeter, splitRuns, type DimGraph } from './perimeter.js';
 import { openingsOnRun, type RunOpening } from './openings.js';
 import {
   planOverall, planWallChain, planOpeningChain, planOpeningLocations, dedupKey,
 } from './planners.js';
+import { placeStrings, polygonCentroid } from './placement.js';
+import { resolveConflicts } from './conflicts.js';
 import { withAutoDimSpan } from './tracing.js';
 
 const DEFAULT_SNAP_EPS_M = 0.20;
 const DEFAULT_MIN_SEGMENT_M = 0.05;
 const DEFAULT_BASE_OFFSET_MM = 8;
 const DEFAULT_ROW_SPACING_MM = 8;
-
-// Innermost → outermost stack rows by rank (§SPIKE §8): location, opening-chain,
-// wall-chain, then overall on the very outside.
-const RANK_ROW: Readonly<Record<number, number>> = { 4: 0, 3: 1, 2: 2, 1: 3, 5: 0 };
+const DEFAULT_STACK_WORLD_BASE_M = 0.5;
+const DEFAULT_STACK_WORLD_SPACING_M = 0.5;
 
 function makeMonotonicIdFactory(): () => string {
   let n = 0;
@@ -61,18 +62,19 @@ function planPerWallFallback(walls: readonly AutoDimWall[], minSegmentM: number)
       orientation: Math.abs(dx) >= Math.abs(dz) ? 'horizontal' : 'vertical',
       refs: [a, b], axisId: `wall:${w.id}`, rank: 5, rowIndex: 0,
       stationSpan: [0, L],
+      p1: w.a, p2: w.b,
     });
   }
   return out;
 }
 
 function serialize(
-  planned: readonly PlannedString[],
+  placed: readonly PlacedString[],
   opts: AutoDimOptions,
   idFactory: () => string,
 ): DimensionString[] {
   // Total order for positionally-stable ids (§SPIKE §14.4).
-  const ordered = [...planned].sort((a, b) => {
+  const ordered = [...placed].sort((a, b) => {
     if (a.orientation !== b.orientation) return a.orientation < b.orientation ? -1 : 1;
     if (a.axisId !== b.axisId) return a.axisId < b.axisId ? -1 : 1;
     if (a.rank !== b.rank) return a.rank - b.rank;
@@ -82,8 +84,12 @@ function serialize(
   });
 
   return ordered.map((p) => {
-    const offsetMm = (opts.baseOffsetMm ?? DEFAULT_BASE_OFFSET_MM)
+    // Signed outward offset: side folds the outward-normal decision (§SPIKE §8)
+    // into the scalar the evaluator adds to the anchor coordinate (a negative
+    // offset drops the dim line below / left of the geometry).
+    const magnitude = (opts.baseOffsetMm ?? DEFAULT_BASE_OFFSET_MM)
       + p.rowIndex * (opts.rowSpacingMm ?? DEFAULT_ROW_SPACING_MM);
+    const offsetMm = p.side * magnitude;
     return DimensionStringSchema.parse({
       id: idFactory(),
       kind: p.kind,
@@ -101,10 +107,11 @@ function serialize(
 function runQA(
   snapshot: AutoDimSnapshot,
   perimNodes: readonly DimNode[],
-  planned: readonly PlannedString[],
+  planned: readonly PlacedString[],
   hasPerimeter: boolean,
+  resolutionNotes: readonly ValidationWarning[],
 ): ValidationWarning[] {
-  const warnings: ValidationWarning[] = [];
+  const warnings: ValidationWarning[] = [...resolutionNotes];
   if (snapshot.walls.length === 0) {
     warnings.push({ code: 'no-walls', detail: 'snapshot has no walls' });
     return warnings;
@@ -113,15 +120,36 @@ function runQA(
     warnings.push({ code: 'open-perimeter', detail: 'no closed building perimeter — per-wall fallback used' });
   }
 
-  // QA-1 opening coverage.
+  // QA-1 opening coverage + DI-2 (every opening located AND sized).
   const referenced = new Set<string>();
   for (const p of planned) for (const r of p.refs) referenced.add(r.elementId);
+  // A width dim = both refs are the opening's own left/right edges.
+  const sizedIds = new Set<string>();
+  const locatedIds = new Set<string>();
+  for (const p of planned) {
+    const ids = p.refs.map((r) => r.elementId);
+    if (p.refs.length === 2 && ids[0] === ids[1]) {
+      const anchors = new Set(p.refs.map((r) => r.anchor));
+      if (anchors.has('left') && anchors.has('right')) sizedIds.add(ids[0]!);
+    }
+    for (const r of p.refs) if (r.anchor === 'center') locatedIds.add(r.elementId);
+  }
   for (const w of snapshot.walls) {
     for (const op of w.openings) {
-      if (!referenced.has(op.id)) {
-        warnings.push({ code: 'opening-undimensioned', detail: op.id });
-      }
+      if (!referenced.has(op.id)) { warnings.push({ code: 'opening-undimensioned', detail: op.id }); continue; }
+      if (!sizedIds.has(op.id)) warnings.push({ code: 'opening-unsized', detail: op.id });
+      if (!locatedIds.has(op.id)) warnings.push({ code: 'opening-unlocated', detail: op.id });
     }
+  }
+
+  // QA-4 no duplicates survive resolution (same orientation + axis + span).
+  const spanSeen = new Set<string>();
+  for (const p of planned) {
+    const lo = Math.round(Math.min(p.stationSpan[0], p.stationSpan[1]) / 0.001);
+    const hi = Math.round(Math.max(p.stationSpan[0], p.stationSpan[1]) / 0.001);
+    const k = `${p.orientation}|${p.axisId}|${lo}|${hi}`;
+    if (spanSeen.has(k)) warnings.push({ code: 'duplicate-string', detail: k });
+    else spanSeen.add(k);
   }
 
   // QA-3 overall consistency (bbox extent within 0.5%).
@@ -165,14 +193,18 @@ export function planAutoDimensions(
     const wallsById = new Map<string, AutoDimWall>(walls.map((w) => [w.id, w]));
 
     // ── Stage 1: connectivity graph + perimeter ─────────────────────────────
-    const { runs, perimNodes, hasPerimeter } = withAutoDimSpan('graph', () => {
+    const { runs, perimNodes, perimPolygon, hasPerimeter } = withAutoDimSpan('graph', () => {
       const g: DimGraph = buildGraph(walls, snapEps);
       const ring = tracePerimeter(g);
-      if (!ring) return { runs: [] as WallRun[], perimNodes: g.nodes, hasPerimeter: false };
+      if (!ring) {
+        return { runs: [] as WallRun[], perimNodes: g.nodes, perimPolygon: [] as PtXZ[], hasPerimeter: false };
+      }
       const rs = splitRuns(ring, g);
       const perimNodeSet = new Set(ring.nodeIds);
       const pn = g.nodes.filter((n) => perimNodeSet.has(n.id));
-      return { runs: rs, perimNodes: pn, hasPerimeter: true };
+      const posById = new Map<string, PtXZ>(g.nodes.map((n) => [n.id, n.point]));
+      const poly = ring.nodeIds.map((id) => posById.get(id)!).filter(Boolean);
+      return { runs: rs, perimNodes: pn, perimPolygon: poly, hasPerimeter: true };
     }, { wall_count: walls.length });
 
     // ── Stage 2/3: openings per run ─────────────────────────────────────────
@@ -207,20 +239,34 @@ export function planAutoDimensions(
       return list;
     });
 
-    // ── Stage 6: placement (assign outward stack rows) ──────────────────────
-    const placed = withAutoDimSpan('place', () =>
-      planned.map((p) => ({ ...p, rowIndex: RANK_ROW[p.rank] ?? 0 })),
+    // ── Stage 6: true outward-side placement + row stacking ─────────────────
+    const placed = withAutoDimSpan('place', () => {
+      const centroid = hasPerimeter && perimPolygon.length >= 3
+        ? polygonCentroid(perimPolygon)
+        : null;
+      return placeStrings(planned, centroid, opts.labelCharWidthM);
+    });
+
+    // ── Stage 7: conflict detection + resolution (deterministic) ────────────
+    const { placed: resolved, notes, skipped } = withAutoDimSpan('conflict', () =>
+      resolveConflicts(
+        placed,
+        walls,
+        minSeg,
+        opts.stackWorldBaseM ?? DEFAULT_STACK_WORLD_BASE_M,
+        opts.stackWorldSpacingM ?? DEFAULT_STACK_WORLD_SPACING_M,
+      ),
     );
 
     // Serialize (deterministic id order).
-    const strings = serialize(placed, opts, idFactory);
+    const strings = serialize(resolved, opts, idFactory);
 
-    // ── Stage 8: QA ─────────────────────────────────────────────────────────
-    const warnings = withAutoDimSpan('qa', () => runQA(snapshot, perimNodes, placed, hasPerimeter));
+    // ── Stage 8: QA (post-resolution validation notes) ──────────────────────
+    const warnings = withAutoDimSpan('qa', () => runQA(snapshot, perimNodes, resolved, hasPerimeter, notes));
 
     const openingCount = snapshot.walls.reduce((s, w) => s + w.openings.length, 0);
     const dimensioned = new Set<string>();
-    for (const p of placed) for (const r of p.refs) dimensioned.add(r.elementId);
+    for (const p of resolved) for (const r of p.refs) dimensioned.add(r.elementId);
     let openingsDimensioned = 0;
     for (const w of snapshot.walls) for (const op of w.openings) if (dimensioned.has(op.id)) openingsDimensioned++;
 
@@ -233,7 +279,7 @@ export function planAutoDimensions(
         runCount: runs.length,
       },
       warnings,
-      skipped: [],
+      skipped,
     };
     return { strings, report };
   }, { wall_count: snapshot.walls.length });
