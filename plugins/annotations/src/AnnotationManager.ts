@@ -127,6 +127,25 @@ export class AnnotationManager {
         this._propertyPanel = panel;
     }
 
+    /**
+     * §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — open the dimension Properties
+     * panel (value/override edit + delete) for a linear dimension selected from the
+     * PLAN view. The 3D-viewport click path (_canvasClickHandler) already routes to
+     * `showLinearDimension` via `getAnnotationAtPoint`, but a plan-view pick comes
+     * through PlanViewInteraction.hitTestAnnotation, which has no access to the
+     * PropertyPanel. This public entry point lets the plan surface reuse the SAME
+     * panel (and therefore the same UpdateAnnotationCommand / DeleteAnnotationCommand
+     * edit path) instead of a bespoke inline editor. No-op for a missing panel or a
+     * non-linear-dim id. `selectedWallId` is optional (enables the "Move Wall"
+     * drive-dimension field when a wall is also selected).
+     */
+    showDimensionPanelFor(annotationId: string, selectedWallId?: string): void {
+        const ann = this.store.getById(annotationId);
+        if (!ann || ann.type !== 'linear-dim') return;
+        this._propertyPanel?.showLinearDimension(ann, selectedWallId ?? this._selectedElementId ?? undefined);
+        this._dimensionPanelActive = true;
+    }
+
     /** Tracks whether the property panel is currently showing a dimension (not a BIM element). */
     private _dimensionPanelActive = false;
 

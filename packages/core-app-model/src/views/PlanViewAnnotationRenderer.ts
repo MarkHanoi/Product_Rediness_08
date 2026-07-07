@@ -102,6 +102,12 @@ export const DRAGGABLE_ANNOTATION_TYPES = new Set<string>([
     'diameter-dim',
     'slope-dim',
     'linear-dimension',
+    // §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — the RENDERED dimension type
+    // written by BOTH the manual LinearDimPlanToolHandler AND the AutoDimension
+    // executor (ADR-0119) is `'linear-dim'`, NOT the historical `'linear-dimension'`.
+    // Omitting it made hitTestAnnotation() skip every dim, so plan-view dims were
+    // inert (not selectable, not draggable) — the founder-reported regression.
+    'linear-dim',
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -374,7 +380,11 @@ export class PlanViewAnnotationRenderer {
         // user can click anywhere along the annotation to select/drag it.
         const SEGMENT_TYPES = new Set([
             'matchline', 'revision-cloud', 'callout-detail',
-            'linear-dimension', 'angular-dim', 'radius-dim', 'diameter-dim', 'slope-dim',
+            // §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — `'linear-dim'` is the
+            // 2-point measure the plan actually renders; treat it as a segment
+            // annotation so a click anywhere ALONG the dim line (not just on an
+            // endpoint) selects it.
+            'linear-dimension', 'linear-dim', 'angular-dim', 'radius-dim', 'diameter-dim', 'slope-dim',
         ]);
         for (let i = annotations.length - 1; i >= 0; i--) {
             const ann = annotations[i];
@@ -562,6 +572,30 @@ export class PlanViewAnnotationRenderer {
 
         // ── Extension lines (reference → dim line)
         ctx.save();
+
+        // §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — selection affordance.
+        // When this dim is the selected annotation, underlay a soft highlight along
+        // the dimension line + endpoint handles so the user can SEE it is picked
+        // (parity with section/elevation-mark selection). Purely visual; the actual
+        // hit-test/drag is driven by hitTestAnnotation + PlanViewInteraction.
+        const isSelected = this._getSelectedAnnotationId() === ann.id;
+        if (isSelected) {
+            ctx.save();
+            ctx.strokeStyle = '#6600ff';
+            ctx.lineWidth = 3.5;
+            ctx.globalAlpha = 0.35;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(sDimA.sx, sDimA.sy); ctx.lineTo(sDimB.sx, sDimB.sy);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#6600ff';
+            for (const s of [sDimA, sDimB]) {
+                ctx.beginPath(); ctx.arc(s.sx, s.sy, 4, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+
         // Contract 23 §7 — colour/weight resolved through GraphicsRulesEngine
         ctx.strokeStyle = this._annotationLineColor(style.lineColor);
         ctx.lineWidth   = this._annotationLineWidthPx(style.lineWeight, 0.35, 0.5);
