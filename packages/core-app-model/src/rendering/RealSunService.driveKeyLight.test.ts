@@ -113,3 +113,68 @@ describe('RealSunService §FEAT-REAL-ENVIRONMENT-SUN — drives the key light', 
         expect(light.position.length()).toBeCloseTo(origDist, 4);
     });
 });
+
+/**
+ * §FIX-GROUND-SHADOW-WEBGPU-RECEIVE (L-171) — every time the real shadow caster
+ * (key light) is re-driven — its direction / world position / shadow-camera frustum
+ * changed — the service MUST signal `onKeyLightDriven` so the host can re-render the
+ * shadow map + repaint. Without this, L-168's frustum refit re-homes the light on an
+ * idle scene and the newly-fitted ground shadow never renders (the regression).
+ */
+describe('RealSunService §FIX-GROUND-SHADOW-WEBGPU-RECEIVE — signals a shadow refresh', () => {
+    let scene: THREE.Scene;
+    let svc: RealSunService;
+
+    beforeEach(() => {
+        scene = new THREE.Scene();
+        svc = new RealSunService();
+    });
+
+    it('fires onKeyLightDriven when the key light is first driven (enable)', () => {
+        const { host } = makeHost();
+        let hits = 0;
+        svc.onKeyLightDriven = () => { hits++; };
+        svc.bind(scene);
+        svc.bindKeyLightHost(host);
+        svc.enableRealSun({ date: new Date(Date.UTC(2026, 5, 21, 12, 0, 0)) });
+        expect(hits).toBeGreaterThan(0);
+    });
+
+    it('fires again when the shadow frustum is refit (setShadowCoverage) — the L-168 idle re-home', () => {
+        const { host } = makeHost();
+        svc.bind(scene);
+        svc.bindKeyLightHost(host);
+        svc.enableRealSun({ date: new Date(Date.UTC(2026, 5, 21, 12, 0, 0)) });
+
+        let hits = 0;
+        svc.onKeyLightDriven = () => { hits++; };
+        // A building arrives → RealEnvironmentService.refitShadowToScene hands the sun a
+        // fitted centre + radius. This is the exact call that re-homed the light on an
+        // idle scene WITHOUT asking for a repaint before this fix.
+        svc.setShadowCoverage(new THREE.Vector3(0, 60, 0), 82);
+        expect(hits).toBe(1);
+    });
+
+    it('fires when the sun time changes (shadow moves) so the viewport repaints live', () => {
+        const { host } = makeHost();
+        svc.bind(scene);
+        svc.bindKeyLightHost(host);
+        svc.enableRealSun({ date: new Date(Date.UTC(2026, 5, 21, 12, 0, 0)) });
+
+        let hits = 0;
+        svc.onKeyLightDriven = () => { hits++; };
+        svc.setTime(6); // dawn
+        expect(hits).toBe(1);
+    });
+
+    it('does NOT fire on the own-light (no host) path — that path renders every frame', () => {
+        let hits = 0;
+        svc.onKeyLightDriven = () => { hits++; };
+        svc.bind(scene);
+        // No key-light host bound → the service manages its OWN sun light, which owns its
+        // shadow lifecycle each frame; the key-light refresh hook must stay silent.
+        svc.enableRealSun({ date: new Date(Date.UTC(2026, 5, 21, 12, 0, 0)) });
+        svc.setTime(9);
+        expect(hits).toBe(0);
+    });
+});

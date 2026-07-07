@@ -279,6 +279,28 @@ export class RealSunService {
     /** Fired whenever sun position is updated (e.g. for UI refresh). */
     onPositionChange?: (pos: SunPosition) => void;
 
+    /**
+     * §FIX-GROUND-SHADOW-WEBGPU-RECEIVE (L-171) — fired whenever the KEY LIGHT (the
+     * scene's SOLE real shadow caster) is re-driven: its direction / world position /
+     * shadow-camera frustum changed, so the shadow map MUST be re-rendered for the
+     * new caster pose to reach the L0 ground catcher.
+     *
+     * ROOT CAUSE this closes: L-168 fits the key light's shadow frustum + re-homes it
+     * on a debounced geometry-settle (RealEnvironmentService.refitShadowToScene), which
+     * runs ~300 ms AFTER the last edit — when the scene is IDLE. On the on-demand WebGPU
+     * loop nothing repaints after that move, and if a prior device-loss FREEZE left
+     * `renderer.shadowMap.autoUpdate === false` (ADR-0111 / L-25/L-39/L-64) the depth
+     * pass is skipped entirely — so the freshly-fitted shadow is never rendered and the
+     * ground shadow stays absent/stale until an unrelated interaction repaints. The
+     * frustum math was correct; the missing piece was requesting the render.
+     *
+     * initScene wires this to force ONE shadow-map refresh (`shadowMap.needsUpdate=true`)
+     * + mark the frame bus dirty. Device-loss safe: it only re-renders the depth pass
+     * into the EXISTING ShadowDepthTexture — never touches `shadow.mapSize` (no realloc),
+     * exactly like the RenderPipelineManager thaw. Undefined under node/tests (no window).
+     */
+    onKeyLightDriven?: () => void;
+
     // ── Public getters ─────────────────────────────────────────────────────
 
     get enabled(): boolean { return this._enabled; }
@@ -666,6 +688,12 @@ export class RealSunService {
 
         this._lastPosition = { altitude, azimuth, isAboveHorizon, color, intensity };
         this.onPositionChange?.(this._lastPosition);
+
+        // §FIX-GROUND-SHADOW-WEBGPU-RECEIVE (L-171) — the real shadow caster (key light)
+        // just moved / re-framed, so ask the host to re-render the shadow map once and
+        // repaint. Only when we are actually driving the key light (the own-light path
+        // renders each frame and owns its own shadow lifecycle above). No-op under tests.
+        if (drivingKeyLight) this.onKeyLightDriven?.();
 
         // Notify RealSunControl / VisualizationEnginePanel (DOM readout listeners).
         // Guarded — the service is also exercised under node (tests) with no window.

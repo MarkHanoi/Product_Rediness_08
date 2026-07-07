@@ -3242,6 +3242,36 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             readSiteLatLon,
             readL0Elevation,
         );
+
+        // §FIX-GROUND-SHADOW-WEBGPU-RECEIVE (L-171) — force ONE shadow-map refresh +
+        // repaint whenever the real caster (Pascal key light) is re-driven (frustum-fit
+        // to new geometry, sun-time/offset change, level change). Without this the
+        // L-168 refit re-homes the light ~300 ms after the last edit — on an IDLE scene
+        // that never repaints on the on-demand WebGPU loop — so the newly-fitted shadow
+        // never renders onto the L0 ground catcher (and if a device-loss FREEZE left
+        // `shadowMap.autoUpdate === false`, the depth pass is skipped entirely). This is
+        // the real root of the "ground shadow gone" regression: the fit was correct but
+        // nothing asked the renderer to re-render the shadow.
+        //
+        // Device-loss safe (ADR-0111): sets `shadowMap.needsUpdate = true` only — a
+        // single depth-pass re-render into the EXISTING ShadowDepthTexture; NEVER touches
+        // `shadow.mapSize` (no realloc) — identical to the RenderPipelineManager thaw.
+        // Skipped while a batch is draining (§BATCH-SHADOW-MAP-SUPPRESS owns the shadow
+        // map then; the trailing post-settle refit repaints once the batch restores it).
+        realEnvironment.sun.onKeyLightDriven = (): void => {
+            if (batchCoordinator.isBatching) return;
+            try {
+                const sm = (window.pryzmRenderer as { shadowMap?: { enabled?: boolean; needsUpdate?: boolean } } | undefined)?.shadowMap;
+                // Only nudge a re-render — respect any deliberate OFF (survival tier /
+                // render safe-mode set `enabled=false`); needsUpdate is inert while off.
+                if (sm && sm.enabled !== false) sm.needsUpdate = true;
+            } catch { /* renderer not ready — next interaction repaints */ }
+            // Wake the frame bus once so the refreshed shadow is drawn on the idle scene
+            // (P3: no new rAF — reuse the shared scheduler, like the shadow-freeze thaws).
+            try { getFrameScheduler().markDirty('ground-shadow-refit'); }
+            catch { /* scheduler not ready — next interaction repaints */ }
+        };
+
         realEnvironment.enable();
 
         // Re-solve the sun when the site location changes (onboarding / relocate).
