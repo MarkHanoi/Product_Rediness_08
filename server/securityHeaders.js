@@ -89,18 +89,6 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         'https://api.cesium.com',
         'https://assets.cesium.com',
         'https://ionfetch.cesium.com',
-        // §FIX-CESIUM-GLOBE-OPEN-FRAMING (L-142, founder 2026-07-06) — Cesium World
-        // Terrain streams its layer.json + quantized-mesh tiles from the ion asset
-        // depot at `assets.ion.cesium.com` (NOT `assets.cesium.com`). Without this
-        // host the browser logs "Connecting to 'https://assets.ion.cesium.com/.../
-        // CesiumWorldTerrain/.../layer.json' violates … connect-src", World Terrain
-        // load fails (§GLOBE-TERRAIN-HEIGHT), and the globe height clamp falls back to
-        // the slow async photoreal-tile bare-earth sample. api/assets.cesium.com are
-        // already allowed, so this omission was unintended. The `*.ion.cesium.com`
-        // wildcard covers the depot plus any sibling ion sub-hosts terrain/tiles are
-        // sharded onto, keeping this SAMPLE-ONLY provider unblocked in any region.
-        'https://assets.ion.cesium.com',
-        'https://*.ion.cesium.com',
         // GIS-CESIUM-NOTOKEN-IMAGERY (2026-06-04) — external photoreal-imagery tile
         // origins. These are ONLY ever requested on the token/photoreal Cesium path
         // (apps/editor/src/ui/geospatial/CesiumViewport.ts): ESRI World Imagery

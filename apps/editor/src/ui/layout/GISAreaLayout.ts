@@ -578,18 +578,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // only the photoreal CONTEXT showed, no building). Reuses the Forma
                 // massing readers via renderBuildingOnGlobe (keepPhotoreal) so the
                 // real imagery/tiles/sky stay shown with the house sitting in them.
-                //
-                // §FIX-CESIUM-GLOBE-OPEN-FRAMING (L-142) — frame:true so the placement
-                // itself frames the building AND arms the one-shot re-frame that fires
-                // after the async height clamp settles the real ground base. This makes
-                // the initial open land exactly like a "Zoom to Site" click (same
-                // flyToFormaSite target), instead of framing once at base 0 and being
-                // stranded when the building re-places at the true base (black globe).
-                placeBuildingOnGlobe(true);
-                // Fallback ONLY when nothing was authored to place (no building →
-                // placeBuildingOnGlobe returns early without framing): frame the Site
-                // location so the user still lands on their plot, not the globe limb.
-                if (!cesiumViewport?.hasFormaMassingPlaced?.()) void reframeSiteIn3D();
+                placeBuildingOnGlobe();
+                void reframeSiteIn3D();
             }, 350);
         } else {
             // O.7.2.b — '2D' now means the BIM DUAL-PANE (LEFT 3D · RIGHT plan), the
@@ -1588,20 +1578,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // Reuses every Forma input reader (walls/slabs/roof/openings/stairs/furniture/
     // boundary) but routes through renderBuildingOnGlobe (keepPhotoreal) so the
     // scene stays photoreal — the user's house sits inside the real-world city.
-    // Best-effort + guarded.
-    //
-    // §FIX-CESIUM-GLOBE-OPEN-FRAMING (L-142, founder 2026-07-06) — `frame` routes the
-    // camera framing through the SAME proven §GLOBE-FRAME-NO-JUMP machinery the working
-    // "Site 3D (Forma)" path uses (renderFormaMassing(true)). The INITIAL globe open
-    // passes frame:true so renderBuildingOnGlobe (a) flies to the building now AND (b)
-    // ARMS the one-shot corrective re-frame that fires after the async height clamp
-    // re-places the building at the real ground base (e.g. 0 → 707 m). WITHOUT arming,
-    // the old path framed once at base 0 via an EXTERNAL reframeSiteIn3D() the settle
-    // machinery knew nothing about, so the re-placement stranded the camera looking at
-    // empty space (the founder's black globe fixed only by a manual "Zoom to Site").
-    // Live-update callers (fidelity toggle) keep frame:false → no re-fly (the standing
-    // NO-RE-FLY GUARANTEE).
-    const placeBuildingOnGlobe = (frame = false): void => {
+    // Best-effort + guarded; the camera is framed separately by reframeSiteIn3D.
+    const placeBuildingOnGlobe = (): void => {
         if (!cesiumViewport?.renderBuildingOnGlobe) {
             console.warn('[gis][globe] renderBuildingOnGlobe unavailable (Cesium not mounted / old build).');
             return;
@@ -1643,10 +1621,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 furniture,
                 openings,
                 stairs,
-                // §FIX-CESIUM-GLOBE-OPEN-FRAMING (L-142) — frame + ARM the corrective
-                // post-clamp re-frame internally (frame:true on the initial open); live
-                // in-place updates pass frame:false so the camera never re-flies.
-                frameCentroid: frame,
+                // The camera is framed by reframeSiteIn3D() — don't double-fly here.
+                frameCentroid: false,
             });
             refreshFormaFloorSelector();
 
