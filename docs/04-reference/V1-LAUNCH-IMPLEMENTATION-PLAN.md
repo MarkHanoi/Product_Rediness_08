@@ -332,6 +332,10 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-166 [HIGH UX] two competing view-mode bars (Forma toolbar vs 3D+plan/3D globe/3D Site segmented); keep segmented only, can't tell/switch active view | UI/geospatial view-mode bar (C06, C12) | **OPEN → GIS/UI agent (fenced geospatial view-mode bar + GISAreaLayout + SplitViewManager)** — consolidate to ONE control, preserve Zoom-to-Site/Analysis/Real/Massing actions, fix Views-hides-panel; §FIX-VIEWMODE-BAR-CONSOLIDATE |
 
+| L-169 [MED] massing envelope still on 40-storey tower (L-164 threshold keeps it by design = device-loss safety); founder wants no grey shell | Rendering / massing UX (C04, A.24) | **OPEN → rendering lane** — opaque/building-like massing OR hide real under massing; full-detail on WebGL for huge; prominent 3D-detail toggle+tooltip; workaround __pryzmLevelScoped3DMode='all'; §FIX-MASSING-HUGE-TOWER-UX |
+
+| L-170 [HIGH] office gen emits 100s of office-circ room-bounding-lines w/ undefined placement → flood + redetect circuit-breaker 65+× | Generative / office circulation RBL | **OPEN → office-gen agent (fenced ui/office-building)** — validate start/end before create (or populate); stop the redetect storm; §FIX-OFFICE-CIRC-RBL-UNDEFINED-PLACEMENT |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
