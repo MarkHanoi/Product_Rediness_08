@@ -655,14 +655,14 @@ export class StairRailingBuilder {
     // `nextFlatDir` (the NEXT flight's direction), which is the axis along which
     // the landing platform extends.
     //
-    // BUG-FIX §LANDING-U-SHAPE: For U-shape stairs the second flight uses a
-    // startOverride whose XZ is already positioned so that the left railing
-    // of flight 1 and the left railing of flight 2 terminate at the same physical
-    // point. The right (outer) railing of flight 1 is on the OPPOSITE physical
-    // side from the right (outer) railing of flight 2, so a direct connector would
-    // span the full U width diagonally. Skipping the connector for U-shape (the
-    // `startOverride` path) is the correct behaviour — the flights terminate with
-    // end-cap posts and no landing segment is drawn.
+    // BUG-FIX §LANDING-U-SHAPE / §FIX-STAIR-LANDING-DIRECTION-RAILING (L-163):
+    // A true 180° U-switchback (flights anti-parallel, `flatDir.dot(nextDir) < -0.7`)
+    // routes to buildULandingGuard, which draws the open-edge half-landing guard.
+    // A 90° L-corner (dot ≈ 0) — including the per-corner landings of a U-3-run —
+    // uses the L-landing wrap below. The switchback test is on the flight-to-flight
+    // ANGLE, matching StairMeshBuilder, NOT on `startOverride` presence: since the
+    // 2D path adapter corner-pins EVERY non-first flight, an `startOverride`-based
+    // test misclassified all path-drawn L-shapes as switchbacks.
     private buildLandingSegment(
         group: THREE.Group,
         f: ReturnType<StairRailingBuilder['resolveFlightPositions']>[0],
@@ -700,29 +700,56 @@ export class StairRailingBuilder {
         //   by `landing.depth` (= 2*width). The open edge is the slab's forward
         //   `flatDir` edge, spanning from flight 1's OUTER rail line (perpDir*-width/2)
         //   to flight 2's OUTER rail line (perpDir*+3*width/2).
-        if (nextFlight.startOverride) {
+        // §FIX-STAIR-LANDING-DIRECTION-RAILING (L-163) — discriminate a 180°
+        // U-switchback from a 90° L-corner by the ANGLE between the two flights,
+        // EXACTLY as StairMeshBuilder does (`flatDir.dot(nextDir) < -0.7`), NOT by
+        // the mere presence of `nextFlight.startOverride`.
+        //
+        // Why this was the bug: since §STAIR-PREVIEW-MATCH-2026-04-25 v2/v3 the 2D
+        // path adapter corner-PINS every non-first flight (L-shapes AND U-3-run
+        // corners now carry a `startOverride`), so `if (nextFlight.startOverride)`
+        // wrongly routed EVERY 2D-drawn L-shape landing into `buildULandingGuard`
+        // — the half-turn guard designed for a 180° switchback. That guard derives
+        // its geometry from a `perpDir` and a `width*1.5` span one slab-depth
+        // forward, so on a 90° corner the landing railing wrapped at odd angles and
+        // did not follow the landing edge between the flights (the founder defect).
+        // The mesh builder meanwhile drew a correct 90° L landing → mesh and railing
+        // disagreed. Keying on the flight-to-flight angle realigns them: a true
+        // switchback (anti-parallel, dot < -0.7) still gets the U guard; a 90° L (or
+        // U-3-run) corner falls through to the L-landing wrap below.
+        const nextFlatDir = new THREE.Vector3(
+            nextFlight.direction.x, 0, nextFlight.direction.z
+        ).normalize();
+        const isUSwitchback = flatDir.dot(nextFlatDir) < -0.7;
+        if (isUSwitchback) {
             this.buildULandingGuard(group, f, railing, stair, sideSign, buildSegment, nextEntry);
             return;
         }
 
-        // L-shape: compute nextFlightStart using the SAME advance formula as
-        // StairMeshBuilder §LANDING-01 and StairStringerBuilder §STRINGER-L-01.
-        const nextFlatDir = new THREE.Vector3(
-            nextFlight.direction.x, 0, nextFlight.direction.z
-        ).normalize();
+        // L-shape (90° corner) — flight 2's rail-start along its own side.
         const nextSideAxis = new THREE.Vector3(-nextFlatDir.z, 0, nextFlatDir.x).normalize();
         const nextOffset = nextSideAxis.clone().multiplyScalar(sideSign * (stair.width / 2));
 
-        // BUG-FIX §LANDING-L-SHAPE-ENDPOINT: The old formula advanced by nextFlatDir*landing.depth
-        // but the mesh builder advances by flatDir*(treadDepth/2+width/2) + nextDir*(landing.depth/2-treadDepth/2).
-        // Using the wrong formula caused the landing segment's end point to miss the start of
-        // flight 2's railing, leaving a visual gap / misalignment.
-        const nextFlightStart = flightEndPos.clone()
-            .sub(offset)
-            .add(flatDir.clone().multiplyScalar(stair.treadDepth / 2 + stair.width / 2))
-            .add(nextFlatDir.clone().multiplyScalar(landing.depth / 2 - stair.treadDepth / 2))
-            .add(nextOffset)
-            .setY(flightEndElev);
+        // §FIX-STAIR-LANDING-DIRECTION-RAILING (L-163) — flight 2's rail START.
+        //   • Corner-pinned (2D-path) L-shape: flight 2 begins at its RESOLVED entry
+        //     (the drawn polyline flight-start), so read it straight from `nextEntry`
+        //     (the same resolveFlightPositions() output the flight-2 rails use). The
+        //     old legacy-advance projection placed this endpoint where flight 2 would
+        //     have started under auto-advance — NOT where the corner-pinned flight
+        //     actually is — so the connector pointed the "second run" the wrong way
+        //     relative to the landing (the mis-fitted-second-run defect).
+        //   • Legacy (no startOverride): keep the auto-advance formula that mirrors
+        //     StairMeshBuilder §LANDING-01 / StairStringerBuilder §STRINGER-L-01.
+        const nextFlightStart = (nextFlight.startOverride && nextEntry)
+            ? nextEntry.flightStart.clone()
+                .add(nextEntry.offset)
+                .setY(flightEndElev)
+            : flightEndPos.clone()
+                .sub(offset)
+                .add(flatDir.clone().multiplyScalar(stair.treadDepth / 2 + stair.width / 2))
+                .add(nextFlatDir.clone().multiplyScalar(landing.depth / 2 - stair.treadDepth / 2))
+                .add(nextOffset)
+                .setY(flightEndElev);
 
         const landingRailStart = new THREE.Vector3(
             flightEndPos.x, flightEndElev + railHeight, flightEndPos.z
