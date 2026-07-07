@@ -124,6 +124,17 @@ const JUNCTION_BAND_FLOOR_M = 0.20;
 /** The pre-fix tight cluster epsilon (1 mm). Available via the escape hatch. */
 const LEGACY_TIGHT_M = 0.001;
 
+// §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE (L-146, founder 2026-07-07) — two endpoints within this
+// distance are treated as the SAME shared corner vertex. A CLEAN, snap-drawn L-corner has its
+// two arms at byte-identical coordinates (0 mm apart — the endpoint snap sets identical world
+// coords), so a real shared corner tight-clusters at ~0 mm. A THIRD wall started a few mm off
+// that vertex sits measurably farther (> this floor) and is a NEAR-COINCIDENT NEWCOMER that must
+// NOT drag the existing mitre. Kept at the legacy tight epsilon (1 mm) — far below the 0.20 m
+// loose §RESI-L0 band, and below the founder's "a few mm off" newcomer offset — so a genuine
+// corner and a near newcomer separate cleanly, while a sub-mm start reads as the exact vertex
+// (the founder's "sound" 3-way Y). See the guard pass inside `detectJunctions`.
+const SHARED_CORNER_TIGHT_M = LEGACY_TIGHT_M;
+
 /** Default endpoint-cluster + T-projection band (m). The near-junction floor
  *  (0.20 m), overridable to the legacy 1 mm via `__pryzmWallV2JunctionBandM`. */
 function defaultJunctionBandM(): number {
@@ -254,6 +265,18 @@ function partitionInnerFaceV2Enabled(): boolean {
 function existingCornerImmutableV2Enabled(): boolean {
     return (globalThis as { __pryzmWallV2ExistingCornerImmutable?: boolean })
         .__pryzmWallV2ExistingCornerImmutable !== false;
+}
+
+// §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE (L-146, founder 2026-07-07) — the TYPE-INDEPENDENT
+// generalisation of the L-130 guard. See the block comment on the guard pass in `detectJunctions`.
+//
+/** Escape hatch: set `__pryzmWallV2ThirdAtLCornerImmutable = false` to restore the pre-fix
+ *  behaviour, where a NEAR-coincident (a few mm off) third wall started next to an existing
+ *  clean L-corner clusters into it and DRAGS the two existing walls' mitre off the shared
+ *  vertex (the centroid of {A.end, B.start, C.start} is pulled toward C). Default ON. */
+function thirdAtLCornerImmutableEnabled(): boolean {
+    return (globalThis as { __pryzmWallV2ThirdAtLCornerImmutable?: boolean })
+        .__pryzmWallV2ThirdAtLCornerImmutable !== false;
 }
 
 /** systemTypeId of a wall, normalised (undefined → '') so equality tests treat every
@@ -526,6 +549,123 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
                 extra.push({ point: foot, realEndpoints: [G], passthroughWalls: [hostIdx] });
             }
             // Freeze: this junction now contains ONLY the same-type corner arms.
+            j.realEndpoints = cornerRefs;
+        }
+        for (const e of extra) drafts.push(e);
+    }
+
+    // §FIX-WALL-3RD-AT-LCORNER-IMMUTABLE (L-146, founder 2026-07-07) — the TYPE-INDEPENDENT
+    // generalisation of the L-130 existing-corner-immutable guard.
+    //
+    // THE founder defect (CRITICAL, HIGH-visibility): two walls meet in a clean mitred L (their
+    // shared corner vertex = byte-identical coordinates, drawn with endpoint snap). The user
+    // starts a THIRD wall whose FIRST point lands a FEW MILLIMETRES off that shared vertex (below
+    // the snap tolerance, so the plan tool placed it free rather than snapping it to the corner).
+    // `clusterEndpoints` (0.20 m §RESI-L0 band) fuses the third wall's endpoint into the corner
+    // node, so `detectJunctions` sees THREE co-terminating real endpoints and NO passthrough →
+    // the ring sweep runs a 3-WAY miter around the cluster CENTROID = (A.end + B.start + C.start)/3,
+    // which is DRAGGED off the true corner toward the newcomer → the two EXISTING walls' mitre
+    // corners + footprints are RECOMPUTED and DEFORM (the founder's "existing walls malform").
+    //
+    // The founder's decisive refinement pins the mechanism: EXACTLY on the shared vertex the
+    // result is sound (centroid == vertex → a clean symmetric 3-way Y — no drag), and starting on
+    // a wall MID-POINT is sound (a clean T). ONLY the NEAR-BUT-NOT-EXACT start malforms — a
+    // near-coincident cluster whose centroid drags the existing mitre. The L-130 guard already
+    // freezes an existing corner + re-seats the newcomer as a clean T, but it is keyed on the
+    // newcomer having a DIFFERENT systemTypeId — so a SAME-type (or the common type-less V2)
+    // newcomer, which is exactly the founder's case, slips straight through and drags the corner.
+    //
+    // FIX (systemTypeId-INDEPENDENT, keyed on coincidence TIGHTNESS): in a pure co-terminating
+    // cluster (NO passthrough) with ≥3 real endpoints, TIGHT-cluster the endpoints at
+    // `SHARED_CORNER_TIGHT_M` (1 mm). A real shared corner's arms are byte-identical (one tight
+    // group at ~0 mm); a near newcomer sits alone. If EXACTLY ONE tight group forms a genuine
+    // CORNER (≥2 arms with a NON-COLLINEAR pair — a real L/Y, never a collinear straight-run such
+    // as the L-44 bar-through-T) and there is ≥1 endpoint OUTSIDE it, FREEZE the corner (leave
+    // ONLY its tight arms in this junction, so the ring sweep produces the BYTE-IDENTICAL L/N-way
+    // miter — the existing walls are truly immutable) and EXTRACT each near newcomer into its OWN
+    // T-junction, butting flat against the corner arm it is MOST PERPENDICULAR to (the same seat
+    // as L-130). This maps to the founder's guardrail: a near-corner start becomes a clean T (or,
+    // when sub-mm, stays inside the tight corner and resolves as the sound exact-vertex Y).
+    //
+    // DETECTION-FRAME ONLY: it splits a cluster and points the new junction at the foot on a
+    // corner arm — it NEVER relocates a centreline baseline (no §CLAMP-COSHARE-WELD / ADR-0072
+    // doubling). Guards keep it inert everywhere it must be: a genuine exact 3-way Y (all arms
+    // tight together) has NO outsider → no-op → unchanged; a collinear straight-run+tee is not a
+    // corner (formsCorner=false) → no-op → the L-44 path is unchanged; a welded/DRIFTED §RESI-L0
+    // corner (arms > 1 mm apart, generated shells) has no tight corner group → no-op → its
+    // loose-band closing is preserved. Runs AFTER §FIX-WALL-LCORNER-T-CLEAN + L-130 so genuine
+    // interior tees and different-type newcomers are already peeled. Gated default-ON with an
+    // escape hatch; pure + deterministic. Maps to ADR-0055 (Pascal wall pipeline P1 junction
+    // solve) and C11 (element-creation pipeline: creating an element must not mutate existing ones).
+    if (thirdAtLCornerImmutableEnabled()) {
+        const extra: JunctionDraft[] = [];
+        const posOf = (r: EndpointRef): Pt2 => (r.isStart ? walls[r.wallIdx]!.start : walls[r.wallIdx]!.end);
+        const awayDir = (r: EndpointRef): Pt2 => {
+            const w = walls[r.wallIdx]!;
+            return unit(r.isStart ? sub(w.end, w.start) : sub(w.start, w.end));
+        };
+        // A set of endpoints "forms a corner" when ≥2 of its arms (from DISTINCT walls) meet
+        // NON-COLLINEARLY (a real L/Y) — as opposed to a straight collinear run (the L-44 bar
+        // pass-through, which must keep its existing 3-way resolution untouched).
+        const formsCorner = (refs: readonly EndpointRef[]): boolean => {
+            for (let i = 0; i < refs.length; i++) {
+                const dA = awayDir(refs[i]!);
+                for (let k = i + 1; k < refs.length; k++) {
+                    if (refs[k]!.wallIdx === refs[i]!.wallIdx) continue;
+                    if (Math.abs(dot(dA, awayDir(refs[k]!))) < 0.94) return true;   // > ~20° apart
+                }
+            }
+            return false;
+        };
+        for (const j of drafts) {
+            if (j.passthroughWalls.length !== 0) continue;    // pure co-terminating clusters only
+            if (j.realEndpoints.length < 3) continue;         // need a corner (≥2) + a newcomer (≥1)
+            // Tight-cluster the real endpoints (greedy, 1 mm): a snap-drawn corner's arms share
+            // byte-identical coords (one tight group); a near newcomer sits in its own group.
+            const refs = j.realEndpoints;
+            const usedTight = new Array<boolean>(refs.length).fill(false);
+            const tightGroups: EndpointRef[][] = [];
+            for (let i = 0; i < refs.length; i++) {
+                if (usedTight[i]) continue;
+                usedTight[i] = true;
+                const g: EndpointRef[] = [refs[i]!];
+                for (let k = i + 1; k < refs.length; k++) {
+                    if (usedTight[k]) continue;
+                    if (len(sub(posOf(refs[i]!), posOf(refs[k]!))) <= SHARED_CORNER_TIGHT_M) {
+                        usedTight[k] = true;
+                        g.push(refs[k]!);
+                    }
+                }
+                tightGroups.push(g);
+            }
+            // Require EXACTLY ONE tight group that forms a genuine corner; ambiguous clusters
+            // (≥2 corner groups, or none) are left untouched.
+            const cornerGroups = tightGroups.filter(g => g.length >= 2 && formsCorner(g));
+            if (cornerGroups.length !== 1) continue;
+            const cornerRefs = cornerGroups[0]!;
+            const cornerSet = new Set<EndpointRef>(cornerRefs);
+            const newcomers = refs.filter(r => !cornerSet.has(r));
+            if (newcomers.length === 0) continue;             // exact N-way Y (all tight) — leave as-is
+            // Seat each near newcomer as its OWN T-junction, butting the most-perpendicular frozen
+            // corner arm (a collinear arm would give a degenerate parallel butt). Foot on the host
+            // segment; NEVER moves the baseline.
+            for (const G of newcomers) {
+                const eG = posOf(G);
+                const dG = awayDir(G);
+                let hostIdx = -1;
+                let bestAbsDot = Infinity;
+                for (const H of cornerRefs) {
+                    if (H.wallIdx === G.wallIdx) continue;
+                    const dH = unit(sub(walls[H.wallIdx]!.end, walls[H.wallIdx]!.start));
+                    const ad = Math.abs(dot(dG, dH));
+                    if (ad < bestAbsDot) { bestAbsDot = ad; hostIdx = H.wallIdx; }
+                }
+                if (hostIdx < 0) continue;
+                const host = walls[hostIdx]!;
+                const foot = projectOnSeg(eG, host.start, host.end).foot;
+                extra.push({ point: foot, realEndpoints: [G], passthroughWalls: [hostIdx] });
+            }
+            // Freeze: this junction now contains ONLY the tight same-corner arms.
             j.realEndpoints = cornerRefs;
         }
         for (const e of extra) drafts.push(e);
