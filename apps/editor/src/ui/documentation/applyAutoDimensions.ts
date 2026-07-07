@@ -306,7 +306,12 @@ export function dimensionStringsToLinearDimAnnotations(
           { x: vA.x, y: 0, z: vA.z },
           { x: vB.x, y: 0, z: vB.z },
         ],
-        // engine offsetMm is SIGNED (per-side, P2); geometry2D.offset is metres.
+        // §FIX-AUTODIM-OFFSET-WORLD-SCALE (L-155): the engine now emits a SIGNED
+        // WORLD-scale offset (side · (stackWorldBaseM + rowIndex·stackWorldSpacingM)
+        // · 1000 mm), so `offsetMm/1000` is the world-metre standoff the plan
+        // renderer adds to world coordinates — the dim line stands VISIBLY OUTSIDE
+        // the footprint (0.5 m row 0 → 2.0 m overall), not hugging the wall. The
+        // sign (per-side placement, P2) is preserved; only the magnitude is fixed.
         offset: seg.offsetMm / MM_PER_M,
         ...(measurementNormal ? { measurementNormal } : {}),
       };

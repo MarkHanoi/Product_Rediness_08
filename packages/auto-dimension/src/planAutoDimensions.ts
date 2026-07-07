@@ -27,10 +27,9 @@ import { withAutoDimSpan } from './tracing.js';
 
 const DEFAULT_SNAP_EPS_M = 0.20;
 const DEFAULT_MIN_SEGMENT_M = 0.05;
-const DEFAULT_BASE_OFFSET_MM = 8;
-const DEFAULT_ROW_SPACING_MM = 8;
 const DEFAULT_STACK_WORLD_BASE_M = 0.5;
 const DEFAULT_STACK_WORLD_SPACING_M = 0.5;
+const MM_PER_M = 1000;
 
 function makeMonotonicIdFactory(): () => string {
   let n = 0;
@@ -83,13 +82,24 @@ function serialize(
     return dedupKey(a) < dedupKey(b) ? -1 : 1;
   });
 
+  // §FIX-AUTODIM-OFFSET-WORLD-SCALE (L-155, C56 §Stage-6 / SPEC-AUTODIMENSION §6):
+  // the emitted `offsetMm/1000` is consumed as a WORLD-metre standoff — the
+  // executor writes it straight into `geometry2D.offset` (metres) and the plan
+  // renderer adds it to world coordinates, exactly like a hand-dragged dim. The
+  // former sheet-paper magnitude (8 mm base + 8 mm/row) collapsed to 8–24 mm in
+  // WORLD space, so every dim line HUGGED the wall instead of standing outside the
+  // footprint (L-155). Emit the WORLD standoff instead, reusing the SAME per-row
+  // world scale Stage-7 already uses for geometry-crossing detection
+  // (`stackWorldBaseM`/`stackWorldSpacingM`) so the rendered dim line lands exactly
+  // where the crossing check assumed it would. `side` (P2 per-side outward sign,
+  // §SPIKE §8) and `rowIndex` (progressive outward stacking — location dims nearest
+  // the wall, the overall furthest out, so exterior chains never overlap opening
+  // dims) are BOTH preserved; only the magnitude/scale changes.
+  const worldBaseM = opts.stackWorldBaseM ?? DEFAULT_STACK_WORLD_BASE_M;
+  const worldSpacingM = opts.stackWorldSpacingM ?? DEFAULT_STACK_WORLD_SPACING_M;
   return ordered.map((p) => {
-    // Signed outward offset: side folds the outward-normal decision (§SPIKE §8)
-    // into the scalar the evaluator adds to the anchor coordinate (a negative
-    // offset drops the dim line below / left of the geometry).
-    const magnitude = (opts.baseOffsetMm ?? DEFAULT_BASE_OFFSET_MM)
-      + p.rowIndex * (opts.rowSpacingMm ?? DEFAULT_ROW_SPACING_MM);
-    const offsetMm = p.side * magnitude;
+    const magnitudeM = worldBaseM + p.rowIndex * worldSpacingM;
+    const offsetMm = p.side * magnitudeM * MM_PER_M;
     return DimensionStringSchema.parse({
       id: idFactory(),
       kind: p.kind,

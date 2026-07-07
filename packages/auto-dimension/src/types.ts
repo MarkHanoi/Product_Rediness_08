@@ -44,9 +44,15 @@ export interface AutoDimOptions {
   readonly levelId?: string;
   /** Deterministic id factory (default monotonic — same input → same ids). */
   readonly idFactory?: () => string;
-  /** mm offset of the innermost (row-0) dimension line. */
+  /**
+   * @deprecated §FIX-AUTODIM-OFFSET-WORLD-SCALE (L-155) — a SHEET-paper gap (mm)
+   * reserved for future paper/sheet output (P4 DimStyleTable). It NO LONGER drives
+   * the emitted `offsetMm`: the world standoff is now derived from
+   * `stackWorldBaseM`/`stackWorldSpacingM` so the dim line stands VISIBLY outside
+   * the footprint (a sheet-mm gap ÷1000 hugged the wall).
+   */
   readonly baseOffsetMm?: number;
-  /** mm gap added per outward stack row. */
+  /** @deprecated §FIX-AUTODIM-OFFSET-WORLD-SCALE (L-155) — see `baseOffsetMm`. */
   readonly rowSpacingMm?: number;
   /** Endpoint-cluster band, metres (mirrors JunctionResolverV2 0.20 m). */
   readonly snapEpsilonM?: number;
@@ -60,11 +66,18 @@ export interface AutoDimOptions {
    */
   readonly labelCharWidthM?: number;
   /**
-   * World-metre base outward distance of row 0 used ONLY by the Stage-7
-   * geometry-crossing check (the emitted `offsetMm` is sheet-mm, §SPIKE §8).
+   * World-metre base outward distance of row 0. Drives BOTH the Stage-7
+   * geometry-crossing check AND the emitted signed `offsetMm`
+   * (§FIX-AUTODIM-OFFSET-WORLD-SCALE, L-155): `offsetMm/1000` = world metres, so
+   * the dim line stands `stackWorldBaseM` m outside the footprint (row 0), keeping
+   * the crossing check and the rendered position consistent (§SPIKE §8).
    */
   readonly stackWorldBaseM?: number;
-  /** World-metre outward distance added per stack row for the crossing check. */
+  /**
+   * World-metre outward distance added per stack row — drives both the crossing
+   * check and the emitted `offsetMm` so exterior chains stack progressively
+   * further out than opening/location dims and never overlap.
+   */
   readonly stackWorldSpacingM?: number;
 }
 

@@ -301,6 +301,70 @@ describe('planAutoDimensions — P2 conflict resolution', () => {
   });
 });
 
+describe('planAutoDimensions — §FIX-AUTODIM-OFFSET-WORLD-SCALE (L-155) world standoff', () => {
+  // Rectangle fixture footprint AABB.
+  const BBOX = { minX: 0, maxX: 6, minZ: 0, maxZ: 4 };
+  const openings: AutoDimWall['openings'] = [
+    { id: 'door_1', kind: 'door', offset: 2, width: 0.9 },
+    { id: 'window_1', kind: 'window', offset: 4, width: 1.2 },
+  ];
+
+  /** World-metre position of the dim line along its offset axis (anchor + signed offset). */
+  function dimLinePos(snap: AutoDimSnapshot, s: { references: readonly { elementId: string; anchor: string }[]; orientation: string; offsetMm: number }): number {
+    const p1 = resolvePoint(snap, s.references[0]!.elementId as string, s.references[0]!.anchor);
+    const p2 = resolvePoint(snap, s.references[1]!.elementId as string, s.references[1]!.anchor);
+    const anchor = s.orientation === 'horizontal' ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
+    return anchor + s.offsetMm / 1000; // metres — mirrors the executor's geometry2D.offset
+  }
+
+  it('every dim line stands a VISIBLE world margin (≥ 0.5 m) OUTSIDE the footprint — never hugging the wall (the L-155 bug)', () => {
+    const snap = rectangle(openings);
+    const { strings } = planAutoDimensions(snap, OPTS);
+    expect(strings.length).toBeGreaterThan(0);
+    for (const s of strings) {
+      // The sheet-mm/1000 bug collapsed offsets to 0.008–0.024 m; assert firmly in metres.
+      const worldOffsetM = Math.abs(s.offsetMm) / 1000;
+      expect(worldOffsetM).toBeGreaterThanOrEqual(0.5 - 1e-9);
+      // …and the resulting dim line lands OUTSIDE the footprint AABB (with margin).
+      const pos = dimLinePos(snap, s);
+      const outside = s.orientation === 'horizontal'
+        ? (pos <= BBOX.minZ - 0.4 || pos >= BBOX.maxZ + 0.4)
+        : (pos <= BBOX.minX - 0.4 || pos >= BBOX.maxX + 0.4);
+      expect(outside).toBe(true);
+    }
+  });
+
+  it('stacks chains progressively outward: the exterior overall sits FURTHER out than opening/location dims (no collision)', () => {
+    const snap = rectangle(openings);
+    const { strings } = planAutoDimensions(snap, OPTS);
+    // Bottom datum (horizontal, negative side = below centroid at z=2).
+    const bottomOverall = strings.find((s) => s.kind === 'overall' && s.orientation === 'horizontal' && s.offsetMm < 0)!;
+    expect(bottomOverall).toBeTruthy();
+    const bottomLocs = strings.filter((s) =>
+      s.kind === 'linear-element' && s.orientation === 'horizontal' && s.offsetMm < 0 &&
+      s.references.some((r) => r.anchor === 'center'));
+    expect(bottomLocs.length).toBeGreaterThan(0);
+    for (const loc of bottomLocs) {
+      // Location dims hug the wall (row 0); the overall is the outermost row.
+      expect(Math.abs(bottomOverall.offsetMm)).toBeGreaterThan(Math.abs(loc.offsetMm));
+    }
+    // Every row lands on the world grid the crossing check assumes (0.5 m steps).
+    for (const s of strings) {
+      const rows = (Math.abs(s.offsetMm) / 1000 - 0.5) / 0.5;
+      expect(Math.abs(rows - Math.round(rows))).toBeLessThan(1e-6);
+    }
+  });
+
+  it('honours the injected stackWorld scale and stays deterministic (byte-identical)', () => {
+    const snap = rectangle();
+    const a = planAutoDimensions(snap, { ...OPTS, stackWorldBaseM: 1.0, stackWorldSpacingM: 0.75 });
+    const b = planAutoDimensions(snap, { ...OPTS, stackWorldBaseM: 1.0, stackWorldSpacingM: 0.75 });
+    expect(JSON.stringify(a.strings)).toEqual(JSON.stringify(b.strings));
+    // Row 0 is now 1.0 m out; nothing hugs the wall.
+    for (const s of a.strings) expect(Math.abs(s.offsetMm) / 1000).toBeGreaterThanOrEqual(1.0 - 1e-9);
+  });
+});
+
 describe('planAutoDimensions — P2 edge cases (angled walls, geometry helpers)', () => {
   it('handles a fully angled (diamond) plan deterministically along run normals', () => {
     const v = [{ x: 3, z: 0 }, { x: 6, z: 3 }, { x: 3, z: 6 }, { x: 0, z: 3 }];
