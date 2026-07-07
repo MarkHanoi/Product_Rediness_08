@@ -39,6 +39,11 @@ import {
   type AutoDimWall,
 } from '@pryzm/auto-dimension';
 import type { DimensionString } from '@pryzm/schemas/annotation/dimension';
+// §FIX-AUTODIM-ANNOTATION-ID (L-145): annotation ids MUST be `annotation_<ULID>`
+// (ADR-0061 typed ids; enforced by the AnnotationSchema id regex). Minting via
+// `crypto.randomUUID()` produced a bare UUID → `annotation.create` Zod-rejected
+// every string, so nothing rendered. Use the canonical id factory instead.
+import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 
@@ -232,7 +237,7 @@ export function dimensionStringsToLinearDimAnnotations(
         offset: seg.offsetMm / MM_PER_M,
       };
       return makeAnnotationElement(
-        crypto.randomUUID(),
+        createId('annotation'),
         'linear-dim',
         ownerViewId,
         [makePointRef(vA), makePointRef(vB)],

@@ -1,4 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
+import { createId } from '@pryzm/schemas';
 import { makeAnnotationElement } from '@pryzm/plugin-annotations';
 import { makePointRef, makeWallFaceRef } from '@pryzm/plugin-annotations';
 import {
@@ -210,7 +211,10 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
             offset: this._dimLiveOffset,
         };
 
-        const annotId    = crypto.randomUUID();
+        // §FIX-AUTODIM-ANNOTATION-ID (L-145): ids MUST be `annotation_<ULID>`
+        // (ADR-0061 typed ids; AnnotationSchema id regex). A bare `crypto.randomUUID()`
+        // was Zod-rejected by `annotation.create` → manual linear dims silently failed.
+        const annotId    = createId('annotation');
         const annotation = makeAnnotationElement(annotId, 'linear-dim', c.viewDef.id, [refA, refB], geometry2D, { unit });
 
         const dist = vecA.distanceTo(vecB);
