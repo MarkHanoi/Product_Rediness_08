@@ -49,8 +49,21 @@ function addElement(scene: THREE.Scene, id: string, levelId: string, elevation: 
     return root;
 }
 
-/** Build an N-level tower (2 elements/level) and wire the fake bim manager. */
-function buildTower(scene: THREE.Scene, levelCount: number, activeLevelId: string): {
+/**
+ * Build an N-level tower (elementsPerLevel elements/level, default 2) and wire the
+ * fake bim manager.
+ *
+ * §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164): the service now AUTO-ESCALATES to
+ * massing ONLY on a device-loss-risk model — ≥ 15 levels AND ≥ 1000 elements (or ≥ 4000
+ * elements outright). So a heavy tower is built with a high element count per level; a
+ * modest building (few levels, low element count) must stay at full detail.
+ */
+function buildTower(
+    scene: THREE.Scene,
+    levelCount: number,
+    activeLevelId: string,
+    elementsPerLevel = 2,
+): {
     levels: Array<{ id: string; elevation: number }>;
     rootsByLevel: Map<string, THREE.Object3D[]>;
 } {
@@ -60,9 +73,11 @@ function buildTower(scene: THREE.Scene, levelCount: number, activeLevelId: strin
         const levelId = `L${i}`;
         const elevation = i * 3;
         levels.push({ id: levelId, elevation });
-        const a = addElement(scene, `${levelId}-a`, levelId, elevation);
-        const b = addElement(scene, `${levelId}-b`, levelId, elevation);
-        rootsByLevel.set(levelId, [a, b]);
+        const roots: THREE.Object3D[] = [];
+        for (let e = 0; e < elementsPerLevel; e++) {
+            roots.push(addElement(scene, `${levelId}-${e}`, levelId, elevation));
+        }
+        rootsByLevel.set(levelId, roots);
     }
     G().bimManager = {
         getLevels: () => levels,
@@ -70,6 +85,19 @@ function buildTower(scene: THREE.Scene, levelCount: number, activeLevelId: strin
         activeLevelId,
     };
     return { levels, rootsByLevel };
+}
+
+/**
+ * A genuinely device-loss-risk tower: 16 levels × 64 elements = 1024 elements — clears
+ * BOTH the level gate (≥ 15) and the element gate (≥ 1000), so the service auto-escalates
+ * to massing with NO explicit mode set. Active level 'L5', adjacency ±1 → visible L4/L5/L6,
+ * 13 out-of-scope levels.
+ */
+const HEAVY_LEVELS = 16;
+const HEAVY_PER_LEVEL = 64;
+const HEAVY_HIDDEN_LEVELS = HEAVY_LEVELS - 3; // active ± 1 → 3 visible
+function buildHeavyTower(scene: THREE.Scene, activeLevelId = 'L5') {
+    return buildTower(scene, HEAVY_LEVELS, activeLevelId, HEAVY_PER_LEVEL);
 }
 
 function massingMesh(scene: THREE.Scene): THREE.Object3D | undefined {
@@ -102,9 +130,12 @@ afterEach(() => {
 });
 
 describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope levels', () => {
-    it('large model (default massing): far levels are HIDDEN AND present as a massing mesh', () => {
-        buildTower(scene, 10, 'L5'); // 10 levels > 5 → large; active L5, ±1 → visible L4/L5/L6
+    it('heavy tower (auto-escalates to massing): far levels HIDDEN AND present as a massing mesh', () => {
+        buildHeavyTower(scene, 'L5'); // 16 levels × 64 = 1024 elems → heavy; active L5, ±1 → visible L4/L5/L6
         service.derive();
+
+        // No explicit mode set → auto-escalation resolves to massing on a heavy model.
+        expect(service.getMode()).toBe('massing');
 
         // In-scope levels stay full detail (visible).
         for (const lvl of ['L4', 'L5', 'L6']) {
@@ -113,7 +144,7 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
             }
         }
         // Out-of-scope full-detail roots are hidden (device-loss safety preserved).
-        const hiddenLevels = ['L0', 'L1', 'L2', 'L3', 'L7', 'L8', 'L9'];
+        const hiddenLevels = ['L0', 'L1', 'L2', 'L3', 'L7', 'L8', 'L9', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15'];
         for (const lvl of hiddenLevels) {
             for (const r of scene.children.filter((c) => c.userData.levelId === lvl)) {
                 expect(r.visible).toBe(false);
@@ -121,12 +152,12 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
         }
         // …but they are NOT invisible to the user: one massing block per out-of-scope level.
         expect(levelMassingRenderer.isActive).toBe(true);
-        expect(levelMassingRenderer.levelCount).toBe(hiddenLevels.length); // 7
+        expect(levelMassingRenderer.levelCount).toBe(HEAVY_HIDDEN_LEVELS); // 13
         expect(massingMesh(scene)).toBeDefined();
     });
 
     it('massing mesh is a shadow-free helper (does not re-inflate the shadow-caster budget)', () => {
-        buildTower(scene, 10, 'L5');
+        buildHeavyTower(scene, 'L5');
         service.derive();
         const mesh = massingMesh(scene) as THREE.Mesh;
         expect(mesh).toBeDefined();
@@ -139,7 +170,7 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
     });
 
     it('active-level change swaps LOD ↔ full detail cleanly', () => {
-        const { rootsByLevel } = buildTower(scene, 10, 'L5'); // visible L4/L5/L6
+        const { rootsByLevel } = buildHeavyTower(scene, 'L5'); // visible L4/L5/L6
         service.derive();
         // L3 starts massed+hidden; L6 starts visible.
         expect(rootsByLevel.get('L3')!.every((r) => r.visible === false)).toBe(true);
@@ -152,7 +183,7 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
         expect(rootsByLevel.get('L3')!.every((r) => r.visible === true)).toBe(true);  // restored to full detail
         expect(rootsByLevel.get('L6')!.every((r) => r.visible === false)).toBe(true); // now hidden + massed
         expect(levelMassingRenderer.isActive).toBe(true);
-        expect(levelMassingRenderer.levelCount).toBe(7); // 10 - 3 in-scope
+        expect(levelMassingRenderer.levelCount).toBe(HEAVY_HIDDEN_LEVELS); // 16 - 3 in-scope
     });
 
     it("'scoped' mode hides far levels with NO massing (exact L-139 behaviour)", () => {
@@ -187,7 +218,7 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
     });
 
     it('small model → service no-ops (nothing hidden, no massing)', () => {
-        // 4 levels ≤ 5 and 8 elements ≤ 500 → not large.
+        // 4 levels, 8 elements → nowhere near device-loss-risk scale.
         buildTower(scene, 4, 'L1');
         service.derive();
         for (const c of scene.children) {
@@ -195,6 +226,47 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
         }
         expect(levelMassingRenderer.isActive).toBe(false);
         expect(massingMesh(scene)).toBeUndefined();
+    });
+
+    // ── §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164) regression guards ──────────
+    // The L-150 default engaged massing at > 500 elements OR > 5 levels, so a normal
+    // ~6-storey residential building collapsed its upper floors into a grey massing
+    // block (the founder's "envelope shade"). These lock in full detail for anything a
+    // normal GPU handles: massing auto-escalates ONLY on a genuinely huge model.
+
+    it('L-164: a modest 6-storey / 600-element building renders FULL detail (no massing block)', () => {
+        // Trips BOTH old gates (6 > 5 levels AND 600 > 500 elements) but neither new one
+        // (6 < 15 levels; 600 < 4000). Default (no explicit mode) → 'all' → every floor full.
+        buildTower(scene, 6, 'L0', 100); // 6 × 100 = 600 elements
+        service.derive();
+
+        expect(service.getMode()).toBe('all');
+        for (const c of scene.children) {
+            if (c.userData.levelId) expect(c.visible).toBe(true);
+        }
+        expect(levelMassingRenderer.isActive).toBe(false);
+        expect(massingMesh(scene)).toBeUndefined();
+        const stats = G().__pryzmLevelCullStats as { engaged: boolean };
+        expect(stats.engaged).toBe(false);
+    });
+
+    it('L-164: a TALL-but-light tower (15 levels, 30 elems) stays full detail (AND gate)', () => {
+        // Level gate met (15 ≥ 15) but NOT the element gate (30 < 1000) → not heavy.
+        buildTower(scene, 15, 'L7'); // 15 × 2 = 30 elements
+        service.derive();
+        expect(service.getMode()).toBe('all');
+        for (const c of scene.children) {
+            if (c.userData.levelId) expect(c.visible).toBe(true);
+        }
+        expect(levelMassingRenderer.isActive).toBe(false);
+    });
+
+    it('L-164: an enormous single stack (≥ 4000 elements) DOES auto-escalate regardless of levels', () => {
+        // Few levels but a huge element count → device-loss-risk on its own → massing.
+        buildTower(scene, 8, 'L4', 520); // 8 × 520 = 4160 ≥ 4000 elements
+        service.derive();
+        expect(service.getMode()).toBe('massing');
+        expect(levelMassingRenderer.isActive).toBe(true);
     });
 
     it('plan/section (orthographic) view stands down — no scoping, no massing', () => {
@@ -228,12 +300,12 @@ describe('L-150 §FIX-HEAVY-SCENE-MASSING-LOD — massing LOD for out-of-scope l
     });
 
     it('exposes mode + massingLevels in the live stats snapshot', () => {
-        buildTower(scene, 10, 'L5');
+        buildHeavyTower(scene, 'L5');
         service.derive();
         const stats = G().__pryzmLevelCullStats as { mode: string; massingLevels: number; engaged: boolean };
         expect(stats.engaged).toBe(true);
         expect(stats.mode).toBe('massing');
-        expect(stats.massingLevels).toBe(7);
+        expect(stats.massingLevels).toBe(HEAVY_HIDDEN_LEVELS);
     });
 });
 

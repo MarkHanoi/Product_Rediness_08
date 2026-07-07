@@ -438,25 +438,29 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     }
     // ── End FrustumCullingService ─────────────────────────────────────────────
 
-    // ── §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139): LevelScoped3DCullingService ───
-    // On a large model (> 500 elements OR > 5 levels) the 3D view is scoped to
-    // the active level ± N adjacent storeys — the rest of the tower is hidden
-    // (visibility intent only; no store / scene-graph mutation). This slashes
-    // draw calls + PSO + GPU memory + shadow casters, keeping the WebGPU device
-    // alive and the view navigable on the 40-storey office (was a device-loss
-    // cascade → dead renderer). Plan/section views stand down (plan culler owns
-    // those). Flag __pryzmLevelScoped3DCulling (default ON; === false restores
-    // the pre-fix all-levels behaviour exactly).
+    // ── §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139) / §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164) ───
+    // LevelScoped3DCullingService renders EVERY floor at full detail by default. It
+    // AUTO-ESCALATES to massing LOD (active level ± N, rest hidden + drawn as a light
+    // block) ONLY on a genuinely device-loss-risk model — a tall tower (≥ 15 levels)
+    // carrying substantial geometry (≥ 1000 elements), or ≥ 4000 elements outright.
+    // That keeps the 40-storey office alive (was a device-loss cascade → dead renderer)
+    // while a normal ~6-storey residential building renders in full (L-164 fixed the
+    // L-150 over-aggressive > 500-elems / > 5-levels default that showed a grey massing
+    // "envelope shade" around a modest building). Visibility intent only; no store /
+    // scene-graph mutation. Plan/section views stand down (plan culler owns those).
+    // Flag __pryzmLevelScoped3DCulling (=== false restores all-levels full detail);
+    // __pryzmLevelScoped3DMode ('all'|'scoped'|'massing') is an explicit user override.
     try {
         levelScoped3DCullingService.setScene(world.scene.three as THREE.Scene);
         levelScoped3DCullingService.activate();
-        // §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — user-facing view option so the massing
-        // LOD is not just a console flag. Mounts a compact "3D detail" selector that
-        // only appears once level-scoping engages (a large model). Default is 'massing'
-        // (whole tower shown as a silhouette); 'scoped' hides far levels (lightest);
-        // 'all' is the gated heavy escape hatch (full detail on every level).
+        // §FIX-HEAVY-SCENE-MASSING-LOD (L-150) / §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164)
+        // — user-facing view option so the massing LOD is not just a console flag. Mounts a
+        // compact "3D detail" selector that only appears once scoping ENGAGES (a heavy model
+        // auto-escalates, or the user opts in). On a normal building it stays hidden and every
+        // floor renders full detail. 'all' = full detail (default); 'massing' = whole tower as
+        // a silhouette; 'scoped' hides far levels (lightest).
         mountLevelScoped3DViewControl();
-        console.log('[initScene] LevelScoped3DCullingService ready (massing-LOD default).');
+        console.log('[initScene] LevelScoped3DCullingService ready (full detail default; massing auto-escalation on huge models).');
     } catch (lcErr: any) {
         console.warn('[initScene] LevelScoped3DCullingService init error:', lcErr?.message ?? lcErr);
     }

@@ -156,6 +156,14 @@ export class LevelMassingRenderer {
         for (const g of groups) {
             if (g.roots.length === 0) continue;
 
+            // §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164) point 3 — a massing block
+            // stands in for a HIDDEN (out-of-scope) level. If every root here is still
+            // visible it is real on-screen geometry, and a translucent block over it would
+            // read as a grey "shade" on visible floors — exactly the L-164 defect. Never
+            // mass a fully-visible level (defensive; the culler only ever passes hidden
+            // roots, so this is an invariant guard against future misuse).
+            if (g.roots.every((r) => r.visible === true)) continue;
+
             const cached = this._cache.get(g.levelId);
             let matrix: THREE.Matrix4;
 

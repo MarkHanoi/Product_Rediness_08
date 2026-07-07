@@ -34,14 +34,21 @@
  *   self-heals to the correct state on the next derive (which fires on
  *   activeLevelChanged / view-activated / geometry / project-loaded).
  *
- * ## Flag — DEFAULT ON for large models, revertible
+ * ## Engagement — full detail by default, auto-escalates only on huge models
  *
- * `globalThis.__pryzmLevelScoped3DCulling === false` disables the service
- * entirely (restores everything it hid → EXACT pre-fix behaviour: all levels
- * render). Any other value (undefined / true) enables it, but it only ACTS on a
- * large model (> {@link LARGE_MODEL_ELEMENT_THRESHOLD} elements OR
- * > {@link LARGE_MODEL_LEVEL_THRESHOLD} levels). Small / normal scenes (a house,
- * one apartment) are never touched.
+ * The resting state is {@link DEFAULT_MODE} = 'all' (every floor full detail). The
+ * service only scopes / massing-LODs when it AUTO-ESCALATES on a genuinely
+ * device-loss-risk model — see {@link isHeavyModel} (a tall tower ≥
+ * {@link HEAVY_MODEL_LEVEL_THRESHOLD} levels carrying ≥
+ * {@link HEAVY_MODEL_ELEMENT_THRESHOLD} elements, OR ≥
+ * {@link HUGE_MODEL_ELEMENT_THRESHOLD} elements outright). A house, an apartment,
+ * a modest ~6-storey residential block are never touched (L-164).
+ *
+ * `globalThis.__pryzmLevelScoped3DMode` ('all' | 'scoped' | 'massing') is an
+ * explicit user override honoured at ANY scale (the "3D detail" control writes it):
+ * a user can force massing/scoped on a small model, or 'all' on a huge one.
+ * `globalThis.__pryzmLevelScoped3DCulling === false` is the legacy back-compat flag
+ * — it forces 'all' (exact pre-fix behaviour: every level renders).
  *
  * `globalThis.__pryzmLevelScopedAdjacent` (default {@link DEFAULT_ADJACENT_LEVELS})
  * tunes how many storeys above/below the active level stay visible.
@@ -67,22 +74,43 @@ import { perfLog } from './perfTrace.js';
 import { levelMassingRenderer, type LevelMassingGroup } from './LevelMassingRenderer.js';
 
 /**
- * §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — how the 3D view treats out-of-scope levels
- * on a large model:
+ * §FIX-HEAVY-SCENE-MASSING-LOD (L-150) / §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164)
+ * — how the 3D view treats out-of-scope levels:
  *
- *   'massing' — DEFAULT. Full-detail BIM near the active level; every other level
- *               is drawn as a lightweight massing block so the WHOLE building
- *               silhouette stays visible (see {@link LevelMassingRenderer}).
+ *   'all'     — DEFAULT. Render every level at full detail — the resting state for
+ *               ANY building a normal GPU handles (a house, an apartment, a modest
+ *               6-storey residential block). No massing block, no hidden storeys.
+ *   'massing' — full-detail BIM near the active level; every other level is drawn as
+ *               a lightweight massing block so the WHOLE building silhouette stays
+ *               visible (see {@link LevelMassingRenderer}). This is what the service
+ *               AUTO-ESCALATES to on a genuinely device-loss-risk model (a tall tower
+ *               with substantial geometry — the 40-storey office L-139/L-150 target),
+ *               and what a user can opt into via the "3D detail" control.
  *   'scoped'  — the L-139 behaviour: out-of-scope levels are simply hidden (no
  *               massing). Lightest possible, but the far building is invisible.
- *   'all'     — the escape hatch: render every level at full detail. Heavy — on a
- *               40-storey tower this is the WebGPU device-loss path L-139 exists to
- *               prevent. Equivalent to `__pryzmLevelScoped3DCulling === false`.
+ *
+ * Rationale for the L-164 change: L-150 shipped with `massing` as the DEFAULT that
+ * engaged at > 500 elements OR > 5 levels. A normal ~6-storey residential building
+ * trips that (it clears one storey ± the active level and collapses the rest into a
+ * translucent grey massing block), so the founder saw a grey "envelope shade" around
+ * a building the GPU renders fine in full. Massing is now a heavy-model AUTO-ESCALATION
+ * (see {@link isHeavyModel}), never the resting state — full detail is the default.
  */
 export type LevelScoped3DMode = 'scoped' | 'massing' | 'all';
 
-/** Default mode for large models — massing so opening a big tower shows its full shape. */
-const DEFAULT_MODE: LevelScoped3DMode = 'massing';
+/**
+ * Resting-state mode: full detail. Massing is NOT the default — it is an
+ * auto-escalation gated on {@link isHeavyModel} (L-164). A user / the console flag
+ * can still override to any mode.
+ */
+const DEFAULT_MODE: LevelScoped3DMode = 'all';
+
+/**
+ * The representation the service auto-escalates to when — and only when — a model is
+ * at genuine device-loss-risk scale ({@link isHeavyModel}). Keeps the 40-storey tower
+ * (L-139/L-150) protected while a modest building stays at {@link DEFAULT_MODE}.
+ */
+const AUTO_ESCALATION_MODE: LevelScoped3DMode = 'massing';
 
 const TRACER = trace.getTracer('@pryzm/core-app-model/level-scoped-3d-culling', '0.1.0');
 
@@ -101,13 +129,53 @@ function withSpan<T>(verb: string, attrs: Attributes, fn: () => T): T {
     }
 }
 
-// ── Thresholds ──────────────────────────────────────────────────────────────
+// ── Heavy-model (device-loss-risk) thresholds — §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164) ──
+//
+// Massing LOD / scoping AUTO-ESCALATES only for a genuinely device-loss-risk model.
+// The discriminator is a TALL tower (many levels) CARRYING substantial geometry — the
+// 40-storey / 1366-element office L-139/L-150 exist to protect. A normal building that
+// a browser GPU renders fine — a house, an apartment, a densely-furnished ~6-storey
+// residential block — must render EVERY floor at full detail (no massing block).
+//
+// Why level count is the primary gate (not raw element count): the L-150 default
+// (> 500 elements OR > 5 levels) regressed on a 6-storey residential building (L-164) —
+// low-rise buildings can carry hundreds of elements per floor, so element count alone
+// does NOT separate them from the tall tower. Storey count does: people rarely model a
+// > 12–15-storey building in the browser, and the device-loss cascade was specifically
+// the 40-storey case. So auto-escalation requires BOTH a tall stack AND substantial
+// geometry — a modest building trips neither.
 
-/** Only scope the 3D view when the model has more than N placed elements. */
-const LARGE_MODEL_ELEMENT_THRESHOLD = 500;
+/**
+ * Auto-escalate only at/above this many levels. A modest low-rise (≤ ~12 storeys) never
+ * engages massing regardless of how densely furnished it is (fixes L-164); the 40-storey
+ * tower does. Chosen at 15 to sit clearly above any normal residential/house typology.
+ */
+const HEAVY_MODEL_LEVEL_THRESHOLD = 15;
 
-/** …OR more than N levels (a tall tower with sparse floors still qualifies). */
-const LARGE_MODEL_LEVEL_THRESHOLD = 5;
+/**
+ * …AND at/above this many placed elements. "Substantial geometry" — the L-150 office was
+ * 1366 elements. A tall-but-trivially-light model gains nothing from massing, so we
+ * require real GPU load before escalating. Combined with the level gate (AND, not OR).
+ */
+const HEAVY_MODEL_ELEMENT_THRESHOLD = 1000;
+
+/**
+ * …OR a single model this enormous regardless of storey count — a few thousand elements
+ * is device-loss-risk on its own even in a squat footprint. Set well above anything a
+ * normal building (incl. the L-164 6-storey block) reaches, so it never regresses.
+ */
+const HUGE_MODEL_ELEMENT_THRESHOLD = 4000;
+
+/**
+ * True when a model is at genuine device-loss-risk scale and the service should
+ * auto-escalate to massing LOD. A modest building returns false → full detail (L-164).
+ */
+function isHeavyModel(levelCount: number, elementCount: number): boolean {
+    return (
+        (levelCount >= HEAVY_MODEL_LEVEL_THRESHOLD && elementCount >= HEAVY_MODEL_ELEMENT_THRESHOLD) ||
+        elementCount >= HUGE_MODEL_ELEMENT_THRESHOLD
+    );
+}
 
 /** Storeys above/below the active level kept visible (active ± N). */
 const DEFAULT_ADJACENT_LEVELS = 1;
@@ -219,10 +287,12 @@ export class LevelScoped3DCullingService {
             }
 
             console.log(
-                `[LevelScoped3DCullingService] Active (mode=${this._resolveMode()}) — 3D view scoped to active ` +
-                `level ± ${this._adjacentCount()} on large models (> ${LARGE_MODEL_ELEMENT_THRESHOLD} elems ` +
-                `or > ${LARGE_MODEL_LEVEL_THRESHOLD} levels); out-of-scope levels render as massing LOD by ` +
-                `default. View option: __pryzmLevelScoped3DMode ('massing'|'scoped'|'all'); ` +
+                `[LevelScoped3DCullingService] Active (mode=${this.getMode()}) — full detail by default; ` +
+                `AUTO-ESCALATES to massing LOD (active level ± ${this._adjacentCount()}) only on a ` +
+                `device-loss-risk model (≥ ${HEAVY_MODEL_LEVEL_THRESHOLD} levels AND ` +
+                `≥ ${HEAVY_MODEL_ELEMENT_THRESHOLD} elems, or ≥ ${HUGE_MODEL_ELEMENT_THRESHOLD} elems). ` +
+                `A modest ~6-storey building renders every floor full-detail (L-164). ` +
+                `View option: __pryzmLevelScoped3DMode ('all'|'scoped'|'massing'); ` +
                 `legacy flag __pryzmLevelScoped3DCulling (=== false ⇒ all).`,
             );
             // Derive once now in case geometry is already present (e.g. reactivation).
@@ -257,22 +327,35 @@ export class LevelScoped3DCullingService {
     // ── Config readers ──────────────────────────────────────────────────────
 
     /**
-     * §FIX-HEAVY-SCENE-MASSING-LOD (L-150) — resolve the active mode.
+     * §FIX-HEAVY-SCENE-MASSING-LOD (L-150) / §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164)
+     * — resolve the effective mode for a model of the given scale.
      *
-     * The legacy console flag stays authoritative for back-compat: setting
-     * `__pryzmLevelScoped3DCulling === false` forces 'all' (exact pre-fix
-     * behaviour — every level at full detail). Otherwise `__pryzmLevelScoped3DMode`
-     * governs, defaulting to 'massing' so a big tower shows its whole shape.
+     *   1. `__pryzmLevelScoped3DCulling === false` → 'all' (legacy back-compat).
+     *   2. An explicit `__pryzmLevelScoped3DMode` → that value, honoured at ANY scale
+     *      (a user who picked "Active floors only" means it, even on a small model).
+     *   3. Otherwise AUTO: 'all' (full detail) for anything a normal GPU handles, and
+     *      only AUTO-ESCALATE to massing when the model is device-loss-risk scale
+     *      ({@link isHeavyModel}). This is the L-164 fix — massing is never the resting
+     *      default, so a modest ~6-storey building renders every floor in full.
      */
-    private _resolveMode(): LevelScoped3DMode {
+    private _resolveMode(isHeavy: boolean): LevelScoped3DMode {
         if (G().__pryzmLevelScoped3DCulling === false) return 'all';
         const m = G().__pryzmLevelScoped3DMode;
-        return m === 'scoped' || m === 'massing' || m === 'all' ? m : DEFAULT_MODE;
+        if (m === 'scoped' || m === 'massing' || m === 'all') return m;
+        return isHeavy ? AUTO_ESCALATION_MODE : DEFAULT_MODE;
     }
 
-    /** The mode currently in effect (resolved from the flag + mode globals). */
+    /** Whether the CURRENT scene (if injected) is device-loss-risk scale. */
+    private _currentIsHeavy(): boolean {
+        const scene = this._scene;
+        if (!scene) return false;
+        const levelCount = this._getBimManager()?.getLevels?.().length ?? 0;
+        return isHeavyModel(levelCount, this._elementCount(scene));
+    }
+
+    /** The mode currently in effect (explicit override, else scale-based auto). */
     getMode(): LevelScoped3DMode {
-        return this._resolveMode();
+        return this._resolveMode(this._currentIsHeavy());
     }
 
     /**
@@ -344,25 +427,25 @@ export class LevelScoped3DCullingService {
         const scene = this._scene;
         if (!scene) return;
 
-        const mode = this._resolveMode();
+        const bimManager = this._getBimManager();
+        const levels = bimManager?.getLevels?.() ?? [];
+        const levelCount = levels.length;
+        const elementCount = this._elementCount(scene);
 
-        // 'all' (or the legacy flag === false) → exact pre-fix behaviour: every level
-        // at full detail, no massing. The gated "heavy" escape hatch.
+        // §FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE (L-164): scale drives the AUTO mode.
+        // A modest building is not heavy → auto resolves to 'all' → full detail (no massing).
+        const isHeavy = isHeavyModel(levelCount, elementCount);
+        const mode = this._resolveMode(isHeavy);
+
+        // 'all' — the resting default for anything a normal GPU handles (auto, non-heavy),
+        // an explicit user choice, or the legacy flag === false. Full detail, no massing.
         if (mode === 'all') { this._standDown('mode-all', mode); return; }
         // Plan / section view → the plan culler is authoritative; stand down.
         if (!this._is3DView()) { this._standDown('plan-view', mode); return; }
 
-        const bimManager = this._getBimManager();
-        const levels = bimManager?.getLevels?.() ?? [];
-        const levelCount = levels.length;
-
-        const elementCount = this._elementCount(scene);
-        const isLarge =
-            elementCount > LARGE_MODEL_ELEMENT_THRESHOLD ||
-            levelCount > LARGE_MODEL_LEVEL_THRESHOLD;
-
-        // Small / normal scene → never scope; restore anything left over.
-        if (!isLarge) { this._standDown('small-model', mode); return; }
+        // Reaching here, mode is 'scoped' | 'massing': either the model auto-escalated
+        // (heavy) or the user explicitly opted in. A modest model with no explicit choice
+        // resolves to 'all' and already stood down above (L-164).
 
         // Resolve the active level's index in the elevation-sorted stack.
         const sorted = [...levels].sort((a, b) => a.elevation - b.elevation);
@@ -478,7 +561,7 @@ export class LevelScoped3DCullingService {
 
     /** Restore every root we hid AND drop the massing LOD. Public entry (P8 span). */
     restoreAll(): void {
-        withSpan('restore-all', {}, () => this._standDown('explicit', this._resolveMode()));
+        withSpan('restore-all', {}, () => this._standDown('explicit', this.getMode()));
     }
 
     /**
