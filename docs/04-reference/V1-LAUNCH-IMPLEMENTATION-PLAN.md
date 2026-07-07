@@ -284,6 +284,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-139 [CRITICAL] large office (1366 elem/40 levels) 3D unnavigable — WebGPU device-loss cascade → renderer dies (no GPU available) | rendering / heavy-scene scalability | **IN FLIGHT (heavy-scene rendering agent, investigation-first)** — level-scoped 3D culling + device-loss recovery-cap→safe-mode + curtain-wall instancing verify + shadow/PSO budget; §FIX-HEAVY-SCENE-3D-SCALABILITY | 
 
+| L-140 [HIGH] batch-generated building casts NO shadow (instanced meshes likely not castShadow; hand-drawn works) | rendering / instanced shadows | **QUEUED behind L-139 (same renderer-three shadow/instancing files — sequential, not parallel)** — castShadow on InstancedMesh + shadow-pass inclusion + catcher-frame check; §FIX-INSTANCED-GENERATED-SHADOWS | 
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
