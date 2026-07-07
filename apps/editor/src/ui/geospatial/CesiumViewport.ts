@@ -629,6 +629,12 @@ export class CesiumViewport {
   private facadeAnalysisChunkCancellers: DeferWorkCanceller[] = [];
   /** Monotonic façade build token — a chunk bails if a newer build superseded it. */
   private facadeAnalysisBuildSeq = 0;
+  /** §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — the (geometry · occluders · sun-day) signature
+   *  of the LAST painted façade study. `renderFacadeAnalysis` skips the whole per-point
+   *  raycast when this is unchanged AND the entities are still present, so a massing
+   *  re-render / repaint that doesn't actually change the façade never recomputes. Reset
+   *  to null by `clearFacadeAnalysis` so a genuine clear always forces a fresh build. */
+  private facadeAnalysisLastKey: string | null = null;
   /** §FORMA-FACADE-VISIBLE (founder 2026-07-01) — TRUE while the normal building
    *  materials (massing blocks + real GLB) are being SUPPRESSED so ONLY the sun-hours
    *  façade texture reads on the tower ("once façade analysis is on only those colours
@@ -4878,6 +4884,21 @@ export class CesiumViewport {
   private renderFacadeAnalysis(): void {
     const viewer = this.viewer;
     const origin = this.overlayOrigin();
+    // §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — the façade study is the heaviest raycast pass
+    // and (unlike the ground heatmap) was recomputed on EVERY massing re-render /
+    // refreshActiveClimateOverlays, including the terrain-settle re-clamps that fire as the
+    // camera/tiles stream. Gate it: if the façade inputs (origin · designed-building
+    // geometry · occluder set · sun-day) are byte-for-byte the last painted study AND its
+    // entities are still on screen, this repaint is a NO-OP — keep the painted gradient +
+    // material suppression exactly as they are and skip the whole per-point raycast. A
+    // genuine change (re-place / re-locate / new day / new context) changes the key and
+    // recomputes. `clearFacadeAnalysis` nulls the key so an explicit clear always rebuilds.
+    if (viewer && origin && this.facadeAnalysisOn && this.siteMetricActive === 'sunHours') {
+      const key = this.facadeAnalysisKey(origin);
+      if (key !== null && key === this.facadeAnalysisLastKey && this.facadeAnalysisEntities.length > 0) {
+        return; // unchanged inputs + already painted → no recompute, no re-clear
+      }
+    }
     this.clearFacadeAnalysis();                       // also cancels in-flight chunks
     // §FORMA-FACADE-VISIBLE — un-suppress the building's own materials up-front: this
     // repaint replaces the old façade texture, and if it BAILS before painting (no
@@ -5069,6 +5090,13 @@ export class CesiumViewport {
       return inside;
     };
 
+    // §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — record the signature of the study we are about
+    // to compute, so a later repaint with identical inputs (a massing re-render that didn't
+    // change the façade) short-circuits at the top of `renderFacadeAnalysis` instead of
+    // re-running this per-point raycast. The build is chunked/async; entities only appear on
+    // completion, so a same-key repaint mid-build (entities still empty) safely rebuilds.
+    this.facadeAnalysisLastKey = this.facadeAnalysisKey(origin);
+
     this.facadeChunkBuild(seq, nodes.length, 400, (lo, hi) => {
       for (let i = lo; i < hi; i++) {
         const ref = nodes[i]!;
@@ -5203,6 +5231,9 @@ export class CesiumViewport {
       for (const e of this.facadeAnalysisEntities) { try { viewer.entities.remove(e); } catch { /* gone */ } }
     }
     this.facadeAnalysisEntities = [];
+    // §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — an explicit clear drops the memoised study so
+    // the next render always rebuilds (the painted result no longer exists to reuse).
+    this.facadeAnalysisLastKey = null;
   }
 
   /**
@@ -5596,7 +5627,56 @@ export class CesiumViewport {
     origin: { lat: number; lon: number },
     radius: number,
   ): string {
-    return `${metric}|${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}|${this.siteMetricSunDay}|r${Math.round(radius)}`;
+    return `${metric}|${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}|${this.siteMetricSunDay}|r${Math.round(radius)}|${this.siteMetricGeometrySig()}`;
+  }
+
+  /**
+   * §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — a cheap signature of the OCCLUDER GEOMETRY that
+   * feeds the heatmap (OSM context + the massing), folded into the texture cache key so a
+   * cached field is reused iff the geometry is unchanged. This is the "geometry-hash" half
+   * of the (geometry · sun-params · date/location · resolution) cache contract: an ordinary
+   * camera orbit/zoom changes NONE of these, so `renderSiteMetricOverlay` re-runs from a
+   * camera move only ever REPAINTS the cached texture — it NEVER re-runs the raycast. The
+   * signature changes only when the context set is genuinely refetched (a >1.1 km pan moves
+   * `contextBuildingsAt` + swaps the feature set) or the massing is re-placed at a new
+   * area/origin — exactly the cases where the sun-hours field truly differs. Deliberately
+   * cheap (no ring projection) so it costs nothing on a cache hit.
+   */
+  private siteMetricGeometrySig(): string {
+    const ctx = this.lastContextCollection;
+    const at = this.contextBuildingsAt;
+    const ctxSig = ctx
+      ? `c${ctx.features.length}@${at ? `${at.lat.toFixed(4)},${at.lon.toFixed(4)}` : '?'}`
+      : 'c0';
+    const o = this.formaMassingOrigin;
+    const massSig = o ? `m${Math.round(o.areaM2)}` : 'm0';
+    return `${ctxSig}|${massSig}`;
+  }
+
+  /**
+   * §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — a byte-stable signature of everything the façade
+   * sun-hours study depends on: the site origin, the DESIGNED building geometry (its
+   * boundary/wall/slab identity + total storey height), the OCCLUDER set
+   * (`siteMetricGeometrySig`), and the analysis sun-day. An unchanged signature ⇒ an
+   * identical façade result ⇒ `renderFacadeAnalysis` can skip the per-point raycast. Cheap
+   * (no ring reconstruction): the massing identity is proxied by the input's
+   * boundary/wall/slab counts + endpoints + the storey-band height stack — any real
+   * re-author (re-place, re-locate, add storeys, new context) changes at least one term.
+   */
+  private facadeAnalysisKey(origin: { lat: number; lon: number }): string {
+    const inp = this.formaLastMassingInput;
+    const b = inp?.boundary ?? null;
+    const bSig = b && b.length > 0
+      ? `b${b.length}:${b[0]!.x.toFixed(1)},${b[0]!.z.toFixed(1)}:${b[b.length - 1]!.x.toFixed(1)},${b[b.length - 1]!.z.toFixed(1)}`
+      : 'b0';
+    const wSig = `w${inp?.walls?.length ?? 0}`;
+    const sSig = `s${inp?.slabs?.length ?? 0}`;
+    let heightM = 0;
+    for (const band of this.formaStoreyBands) {
+      const top = (band.baseElevation || 0) + (band.heightM || 0);
+      if (top > heightM) heightM = top;
+    }
+    return `${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}|${bSig}|${wSig}|${sSig}|h${heightM.toFixed(1)}|${this.siteMetricSunDay}|${this.siteMetricGeometrySig()}`;
   }
 
   /** §CESIUM-PERF-METRIC-TEXTURE-CACHE — drop every cached heatmap texture. Called

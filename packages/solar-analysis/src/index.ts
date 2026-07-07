@@ -46,6 +46,13 @@ export {
     type AccumulateOptions,
 } from './sunHours.js';
 
+// ── Occluder spatial index (BVH-style raycast acceleration, L-143) ────────────
+export {
+    buildOccluderIndex,
+    type OccluderBox,
+    type OccluderIndex,
+} from './occluderIndex.js';
+
 // ── Per-room solar heat gain ("real heat", C21 §10.10) ───────────────────────
 export {
     accumulateRoomHeatGain,

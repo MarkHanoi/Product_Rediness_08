@@ -57,6 +57,12 @@ import {
     juneSolsticeDayOfYear,
     decemberSolsticeDayOfYear,
     marchEquinoxDayOfYear,
+    // §PERF-SUNHOURS-BVH (L-143) — pure uniform-grid spatial index over occluder bboxes,
+    // so the direct-beam shadow raycast tests only occluders NEAR the ray instead of all
+    // ~4700 context buildings. Superset-guaranteed ⇒ byte-identical occlusion, only faster.
+    buildOccluderIndex,
+    type OccluderBox,
+    type OccluderIndex,
     type SunSample,
 } from '@pryzm/solar-analysis';
 import { monthlyTempSeries } from './climateChartData';
@@ -440,6 +446,95 @@ function sunBlocked(
         if (rayBlockedByPrism(e0, n0, up0, de, dn, slope, p)) return true;
     }
     return false;
+}
+
+// §PERF-SUNHOURS-BVH (L-143) — the raycast accelerator. The naive `sunBlocked` above
+// loops over EVERY prism per (cell × sun-sample); with ~4700 context buildings that is
+// the dominant cost. `PrismShadowIndex` bundles the prisms with a uniform-grid spatial
+// index over their bboxes + the tallest roof, so `sunBlockedIndexed` only runs the exact
+// `rayBlockedByPrism` test on the handful of prisms the shadow ray could actually cross.
+//
+// DETERMINISM: the index returns a strict SUPERSET of the prisms whose bbox the ray
+// crosses (see buildOccluderIndex's proof); the SAME `rayBlockedByPrism` runs on each
+// candidate and the result is OR-ed, so the occlusion answer is byte-identical to the
+// naive loop — only faster. Beyond the distance at which the ray rises above the tallest
+// roof no prism can block, so the query reach is bounded by that height/slope crossing.
+interface PrismShadowIndex {
+    readonly prisms: readonly Prism[];
+    readonly index: OccluderIndex;
+    readonly maxHeightM: number;
+}
+
+/** Build the shadow-ray acceleration structure for a prism set (once per grid). */
+function buildPrismShadowIndex(prisms: readonly Prism[]): PrismShadowIndex {
+    const boxes: OccluderBox[] = prisms.map((p) => ({ minE: p.minE, maxE: p.maxE, minN: p.minN, maxN: p.maxN }));
+    let maxHeightM = 0;
+    for (const p of prisms) if (p.heightM > maxHeightM) maxHeightM = p.heightM;
+    return { prisms, index: buildOccluderIndex(boxes), maxHeightM };
+}
+
+/** True when the sun (sample `s`) is occluded for the cell at `(e0, n0)` — accelerated by
+ *  the spatial index. Byte-identical result to `sunBlocked(e0,n0,up0,s,prisms)`. `scratch`
+ *  is a reusable candidate-index array (cleared per call) so the hot loop never allocates. */
+function sunBlockedIndexed(
+    e0: number, n0: number, up0: number,
+    s: SunSample,
+    acc: PrismShadowIndex,
+    scratch: number[],
+): boolean {
+    const he = s.dir.x;
+    const hn = -s.dir.z;
+    const hmag = Math.hypot(he, hn);
+    if (hmag < 1e-6) return false;          // sun overhead → unobstructed
+    const de = he / hmag, dn = hn / hmag;
+    const slope = s.dir.y / hmag;           // up per horizontal metre (>0 above horizon)
+    // Beyond `maxReach` the ray height (up0 + slope·d) exceeds the tallest roof, so no
+    // prism can block; the index clamps this further to the indexed extent internally.
+    const maxReach = slope > 1e-6
+        ? Math.max(0, (acc.maxHeightM - up0) / slope)
+        : Number.POSITIVE_INFINITY;         // grazing sun — index clamps to its extent
+    const candidates = acc.index.queryRaySegment(e0, n0, de, dn, maxReach, scratch);
+    const prisms = acc.prisms;
+    for (let k = 0; k < candidates.length; k++) {
+        if (rayBlockedByPrism(e0, n0, up0, de, dn, slope, prisms[candidates[k]!]!)) return true;
+    }
+    return false;
+}
+
+/**
+ * §PERF-SUNHOURS-BVH (L-143) — TEST SEAM. Compute the direct-beam sun-hours INTENSITY at
+ * each probe point BOTH ways — the naive all-prisms loop (`sunBlocked`) and the
+ * spatial-index accelerated path (`sunBlockedIndexed`) — over the SAME footprints + sun
+ * samples, so a test can assert they are byte-identical (the acceleration must change only
+ * speed, never the result). Exported solely for the equivalence test; not used in the
+ * render path. Returns per-probe `{ naive, indexed }` intensities in [0,1].
+ */
+export function __sunHoursBvhEquivalenceProbe(
+    footprints: readonly MetricFootprint[],
+    probes: ReadonlyArray<{ east: number; north: number; up?: number }>,
+    sun: { latDeg: number; lngDeg: number; sunDay?: SunDayPreset; stepMinutes?: number },
+): Array<{ naive: number; indexed: number }> {
+    const prisms = toPrisms(footprints);
+    const shadow = buildPrismShadowIndex(prisms);
+    const scratch: number[] = [];
+    const stepMinutes = sun.stepMinutes && sun.stepMinutes > 0 ? sun.stepMinutes : 15;
+    const samples = generateSunSamples({
+        latDeg: sun.latDeg,
+        lngDeg: sun.lngDeg,
+        dayOfYear: sunDayOfYear(sun.sunDay),
+        stepMinutes,
+        daylightOnly: true,
+    });
+    const maxLit = samples.length || 1;
+    return probes.map((p) => {
+        const up = p.up ?? 0.5;
+        let litNaive = 0, litIndexed = 0;
+        for (const s of samples) {
+            if (!sunBlocked(p.east, p.north, up, s, prisms)) litNaive++;
+            if (!sunBlockedIndexed(p.east, p.north, up, s, shadow, scratch)) litIndexed++;
+        }
+        return { naive: litNaive / maxLit, indexed: litIndexed / maxLit };
+    });
 }
 
 /** Resolve the analysis day-of-year from a preset (default summer solstice). */
@@ -1078,6 +1173,18 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
     });
     const stepHours = stepMinutes / 60;
     const prisms = toPrisms(input.footprints);
+    // §PERF-SUNHOURS-BVH (L-143) — build the shadow-ray acceleration ONCE per grid and
+    // reuse it across all cells/sun-samples. A single reusable scratch array keeps the hot
+    // per-cell loop allocation-free. Span breadcrumb (this transitional zone has no otel
+    // facade; same [span] convention as prepareFacadeSunGrid / rasterizeSunHoursTexture).
+    const shadow = buildPrismShadowIndex(prisms);
+    const scratch: number[] = [];
+    try {
+        console.debug(
+            `[span][site-metric-sunhours-bvh] indexed ${prisms.length} occluder prism(s) ` +
+            `(cell ${shadow.index.cellSizeM.toFixed(0)} m, maxH ${shadow.maxHeightM.toFixed(0)} m).`,
+        );
+    } catch { /* console unavailable (headless) — span is best-effort */ }
     const sampleUp = 0.5;
     const maxHours = samples.length * stepHours;
     const radius = input.radius;
@@ -1092,7 +1199,7 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
         if (Math.hypot(c.x, c.z) > radius * 1.02) return null;
         let lit = 0;
         for (const s of samples) {
-            if (!sunBlocked(c.x, c.z, sampleUp, s, prisms)) lit++;
+            if (!sunBlockedIndexed(c.x, c.z, sampleUp, s, shadow, scratch)) lit++;
         }
         const hours = lit * stepHours;
         return maxHours > 0 ? hours / maxHours : 0;
@@ -1315,6 +1422,10 @@ export function prepareFacadeSunGrid(input: FacadeSunInput): FacadeSunPrep | nul
         daylightOnly: true,
     });
     const prisms = toPrisms(input.occluders);
+    // §PERF-SUNHOURS-BVH (L-143) — same spatial-index acceleration as the ground grid, so
+    // the per-façade-point raycast tests only nearby occluders. Byte-identical result.
+    const shadow = buildPrismShadowIndex(prisms);
+    const scratch: number[] = [];
     const maxLit = samples.length || 1;
 
     const evaluateIntensity = (p: FacadeSamplePoint): number => {
@@ -1328,7 +1439,7 @@ export function prepareFacadeSunGrid(input: FacadeSunInput): FacadeSunPrep | nul
                 const facing = sE * p.normE + sN * p.normN;
                 if (facing <= 0) continue;               // sun is behind this face
             }
-            if (!sunBlocked(p.east, p.north, p.up, s, prisms)) lit++;
+            if (!sunBlockedIndexed(p.east, p.north, p.up, s, shadow, scratch)) lit++;
         }
         return Math.max(0, Math.min(1, lit / maxLit));
     };

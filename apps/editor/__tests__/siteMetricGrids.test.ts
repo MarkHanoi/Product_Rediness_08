@@ -21,6 +21,7 @@ import {
     buildFacadeSamplePoints,
     prepareFacadeSunGrid,
     buildRealWindRose,
+    __sunHoursBvhEquivalenceProbe,
     type SiteMetric,
     type MetricFootprint,
 } from '../src/ui/climate/siteMetricGrids';
@@ -707,5 +708,56 @@ describe('§FORMA-FACADE-ANALYSIS — prepareFacadeSunGrid', () => {
         // The colour map is the SAME sun-hours ramp used by the ground heatmap.
         expect(prep!.colourFor(1)).toMatch(/^rgb\(/);
         expect(prep!.colourFor(0)).toMatch(/^rgb\(/);
+    });
+});
+
+// §PERF-SUNHOURS-BVH (L-143) — the spatial-index acceleration must change ONLY speed, not
+// the result: sun-hours intensity via the index MUST equal the naive all-prisms loop
+// byte-for-byte (so @pryzm/solar-analysis's determinism claim holds under acceleration).
+describe('§PERF-SUNHOURS-BVH: spatial index is byte-identical to the naive raycast', () => {
+    // A dense field of context prisms around the origin (the L-143 scenario: many
+    // occluders make the naive per-cell loop the dominant cost).
+    const CITY: MetricFootprint[] = [];
+    for (let gx = -6; gx <= 6; gx++) {
+        for (let gz = -6; gz <= 6; gz++) {
+            if (gx === 0 && gz === 0) continue; // leave the origin clear
+            const cx = gx * 30, cz = gz * 30;
+            CITY.push({
+                ring: [
+                    { x: cx - 8, z: cz - 8 }, { x: cx + 8, z: cz - 8 },
+                    { x: cx + 8, z: cz + 8 }, { x: cx - 8, z: cz + 8 },
+                ],
+                heightM: 12 + ((gx * 7 + gz * 13) % 5) * 6, // varied heights
+            });
+        }
+    }
+    // Probe points scattered through the field (streets + right next to towers).
+    const PROBES: Array<{ east: number; north: number }> = [];
+    for (let e = -90; e <= 90; e += 17) for (let n = -90; n <= 90; n += 23) PROBES.push({ east: e, north: n });
+
+    for (const day of ['summer', 'winter', 'equinox'] as const) {
+        it(`matches naive for every probe (${day} solstice/equinox, dense city)`, () => {
+            const rows = __sunHoursBvhEquivalenceProbe(CITY, PROBES, {
+                latDeg: 41.39, lngDeg: 2.17, sunDay: day, stepMinutes: 15,
+            });
+            expect(rows.length).toBe(PROBES.length);
+            let sawShade = false;
+            let sawSun = false;
+            for (const r of rows) {
+                expect(r.indexed).toBe(r.naive);   // byte-identical
+                if (r.naive < 0.99) sawShade = true;
+                if (r.naive > 0.01) sawSun = true;
+            }
+            // The scene genuinely exercises BOTH occluded and lit outcomes (not a trivial pass).
+            expect(sawShade).toBe(true);
+            expect(sawSun).toBe(true);
+        });
+    }
+
+    it('is deterministic — same inputs twice give identical intensities', () => {
+        const cfg = { latDeg: 41.39, lngDeg: 2.17, sunDay: 'summer' as const, stepMinutes: 20 };
+        const a = __sunHoursBvhEquivalenceProbe(CITY, PROBES, cfg);
+        const b = __sunHoursBvhEquivalenceProbe(CITY, PROBES, cfg);
+        expect(a.map((r) => r.indexed)).toEqual(b.map((r) => r.indexed));
     });
 });
