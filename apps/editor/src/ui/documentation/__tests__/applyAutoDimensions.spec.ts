@@ -9,7 +9,7 @@
 // for a 2-point string AND a multi-station chain (N stations → N-1 segment dims).
 
 import { describe, it, expect } from 'vitest';
-import { dimensionStringsToLinearDimAnnotations } from '../applyAutoDimensions';
+import { dimensionStringsToLinearDimAnnotations, buildAnnotationRingUndoPair } from '../applyAutoDimensions';
 import { DimensionStringSchema } from '@pryzm/schemas/annotation/dimension';
 import type { ElementSnapshotForDim, WallLikeEvaluator } from '@pryzm/geometry-kernel';
 
@@ -88,5 +88,65 @@ describe('dimensionStringsToLinearDimAnnotations (§FIX-AUTODIM-RENDER-SINK)', (
     expect(anns[1]!.geometry2D.modelPoints[1]).toMatchObject({ x: 6, z: 0 });
 
     for (const a of anns) expect(a.geometry2D.offset).toBeCloseTo(0.3, 6);
+  });
+});
+
+// §FIX-AUTODIM-UNDO-ONE-UNIT (L-162, C11/C24.1 §1.2) — the ring-buffer PatchPair
+// that makes an auto-dim SET undoable via the unified ring-first undo path. The
+// pair is the load-bearing pure logic; the round-trip below simulates the
+// elementUndoStoreAdapter's whole-element add/remove semantics on the 'annotation'
+// store so a single undo removes the whole set and redo restores it.
+describe('buildAnnotationRingUndoPair (§FIX-AUTODIM-UNDO-ONE-UNIT)', () => {
+  const set = [
+    { id: 'annotation_A' },
+    { id: 'annotation_B' },
+    { id: 'annotation_C' },
+  ];
+
+  it('routes both sides to the annotation store the plan renderer reads', () => {
+    const pair = buildAnnotationRingUndoPair(set);
+    expect(pair.affectedStores).toEqual(['annotation']);
+  });
+
+  it('FORWARD (redo) adds every element; INVERSE (undo) removes them all in reverse', () => {
+    const pair = buildAnnotationRingUndoPair(set);
+    expect(pair.forward.ops.map((o) => o.op)).toEqual(['add', 'add', 'add']);
+    expect(pair.forward.ops.map((o) => o.path)).toEqual(['/annotation_A', '/annotation_B', '/annotation_C']);
+    // Every forward op carries the element as its value so redo re-adds it.
+    expect(pair.forward.ops.every((o, i) => o.value === set[i])).toBe(true);
+    // Inverse removes in reverse insertion order so the store returns to prior state.
+    expect(pair.inverse.ops.map((o) => o.op)).toEqual(['remove', 'remove', 'remove']);
+    expect(pair.inverse.ops.map((o) => o.path)).toEqual(['/annotation_C', '/annotation_B', '/annotation_A']);
+  });
+
+  it('is ONE undoable unit: applying INVERSE clears the whole set; FORWARD restores it', () => {
+    // Minimal whole-element store mirroring the elementUndoStoreAdapter contract
+    // (path length 1 → add(value) / remove(id)); ids parsed from the JSON pointer.
+    const store = new Map<string, { id: string }>();
+    const idOf = (path: string): string => path.slice(1); // '/annotation_A' → 'annotation_A'
+    const apply = (ops: readonly { op: string; path: string; value: unknown }[]): void => {
+      for (const op of ops) {
+        const id = idOf(op.path);
+        if (op.op === 'add') store.set(id, op.value as { id: string });
+        else if (op.op === 'remove') store.delete(id);
+      }
+    };
+
+    const pair = buildAnnotationRingUndoPair(set);
+    apply(pair.forward.ops);              // creation state (as CreateManyAnnotationsCommand.execute leaves it)
+    expect(store.size).toBe(3);
+
+    apply(pair.inverse.ops);             // ONE undo → all dims gone
+    expect(store.size).toBe(0);
+
+    apply(pair.forward.ops);             // redo → all dims back
+    expect([...store.keys()].sort()).toEqual(['annotation_A', 'annotation_B', 'annotation_C']);
+  });
+
+  it('is a no-op-safe empty pair for an empty set', () => {
+    const pair = buildAnnotationRingUndoPair([]);
+    expect(pair.forward.ops).toHaveLength(0);
+    expect(pair.inverse.ops).toHaveLength(0);
+    expect(pair.affectedStores).toEqual(['annotation']);
   });
 });
