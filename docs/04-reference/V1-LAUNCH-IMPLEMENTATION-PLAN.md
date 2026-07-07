@@ -310,6 +310,14 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-153 [HIGH] live swap WebGL→WebGPU CRASHES back to project page (WebGPU→WebGL fine) — TSL/device not ready before ScenePass on the to-WebGPU path | Rendering / renderer live-swap (ADR-0077, C04) | **OPEN → rendering lane, SEQUENCED after L-150 agent (shares initScene/createRenderer)** — order swap: create WebGPU→initTSL→rebuild pipeline→resume; roll back on failure (never remount/lose project); reuse L-141 overlay; §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH |
 
+| L-156 [HIGH] resi-building façade walls only on ground floor (upper floors miss perimeter walls) | Generative / resi executor | **OPEN → resi-gen agent (fenced ui/residential-building)** — emit façade ring per storey; §FIX-RESI-FACADE-ALL-FLOORS |
+
+| L-157 [HIGH REGRESSION] elevation crop edit won't engage (worked yesterday) — suspect L-149 launcher pointer-intercept or L-151 mark-move | Views / crop interaction | **OPEN → resume Agent E (investigate L-149 pointer + L-151 mark)**; §FIX-ELEV-CROP-EDIT-REGRESSION |
+
+| L-158 [MED] default elevation marks only on ground plan; want all floor plans | Views / DefaultViewsManager | **OPEN → views agent (fenced DefaultViewsManager)** — emit marks per level plan; §FIX-ELEV-MARKS-ALL-FLOOR-PLANS |
+
+| L-159 [HIGH REGRESSION L-149] launcher pills cover the Split View button | UI shell (C06 §7) | **OPEN → resume Agent E** — re-anchor launcher column clear of split-view btn / register it in slot system; §FIX-LAUNCHER-COVERS-SPLITVIEW |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
