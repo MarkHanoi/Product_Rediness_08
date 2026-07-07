@@ -75,11 +75,18 @@ import { buildAnnotationHandlerSet } from '@pryzm/plugin-annotations';
 //
 // storeKey convention: matches the package's plugin-id (without the
 // `plugin-` prefix).  Note that the `dimensions` plugin's handler types
-// are singular (`dimension.create`, …) while its storeKey + plugin id
-// are plural (`dimensions`); this mirrors `plugin-rooms` (handlers:
-// `room.*`, storeKey: `rooms`).  Resolution: keep handler types as
-// shipped — the L2 bus matches by exact handler-type string and is
-// orthogonal to storeKey naming.
+// are singular (`dimension.create`, …) and its plugin-id is plural
+// (`dimensions`).  Handler TYPE strings are orthogonal to storeKey (the L2
+// bus matches types by exact string).  BUT the STORE KEY the handlers READ
+// is NOT orthogonal: every dimension handler declares
+// `affectedStores = ['dimension']` + reads `ctx.stores.dimension` (singular),
+// so the bus storesProvider (built from `stores[plugin.storeKey]`) MUST
+// contribute the store under `'dimension'` — otherwise `dimension.createMany`
+// (the first dimension verb ever dispatched through the bus, by the
+// AutoDimension executor L-138) throws "required store 'dimension' is missing
+// from HandlerContext.stores" (ADR-002 §3), exactly the §LIGHTING-STORE-FIX
+// class. §FIX-DIMENSION-STOREKEY-SINGULAR (L-138): storeKey='dimension' to
+// match the handlers (unlike rooms, whose handlers read the plural key).
 import { FurnitureStore, buildFurnitureHandlerSet } from '@pryzm/plugin-furniture';
 import { PlumbingStore, buildPlumbingHandlerSet } from '@pryzm/plugin-plumbing';
 // §LIGHTING-STORE-FIX (2026-06-26) — lighting was registered for HANDLERS
@@ -389,9 +396,16 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
   },
 
   // ---- Dimensions (E-finish.0.E orphan registration) ----
+  // §FIX-DIMENSION-STOREKEY-SINGULAR (L-138): storeKey MUST be 'dimension'
+  // (singular) to match every handler's affectedStores=['dimension'] +
+  // ctx.stores.dimension. Was 'dimensions' (plural) — the bus storesProvider
+  // then had no 'dimension' key, so dimension.createMany (AutoDimension) threw
+  // "required store 'dimension' is missing" (ADR-002 §3). Mirror of
+  // §LIGHTING-STORE-FIX. The DimensionStore held no bus data before (this bug
+  // blocked all bus dimension creates), so no persistence is orphaned.
   {
     id: 'dimensions',
-    storeKey: 'dimensions',
+    storeKey: 'dimension',
     buildStore: () => new DimensionStore() as unknown as Store<object>,
     buildHandlers: () => buildDimensionHandlerSet() as readonly CommandHandler<unknown>[],
   },
