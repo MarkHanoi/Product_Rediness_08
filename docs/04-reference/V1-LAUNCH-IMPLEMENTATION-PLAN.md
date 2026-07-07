@@ -318,6 +318,8 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-159 [HIGH REGRESSION L-149] launcher pills cover the Split View button | UI shell (C06 §7) | **OPEN → resume Agent E** — re-anchor launcher column clear of split-view btn / register it in slot system; §FIX-LAUNCHER-COVERS-SPLITVIEW |
 
+| L-160 [HIGH re-review] Cesium not resolved: globe still needs Zoom-to-Site + building above ground; 'Real' still placeholder cube (L-144 deferred); sun-hours needs more perf | GIS/Cesium/Forma/solar (C18-23, C21, ADR-0074/79/110) | **OPEN → Cesium/Forma agent (fenced CesiumViewport+GISAreaLayout+solar-analysis+FormaControls)** — deterministic open-frame after clamp; real-geometry façade + land solar worker; more perf; §FIX-CESIUM-GLOBE-REAL-GEOMETRY-PERF |
+
 ## STATUS RECONCILIATION — 2026-07-04 (session close)
 
 **Founder-reported this session (L-58 … L-93): ALL fixed & deployed** except the 3 the founder cancelled (L-18, L-19, L-48 HELD). Doc-sync fix applied: L-62/L-64/L-66/L-67/L-74 were shipped in code but were mislabeled BROKEN/REGRESSION — now marked FIXED.
