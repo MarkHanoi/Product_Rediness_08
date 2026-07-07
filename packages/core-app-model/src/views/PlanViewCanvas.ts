@@ -6,7 +6,10 @@ import { PocheFillBuilder, type PochePolygon } from './PocheFillBuilder';
 import { RoomColourSystem } from '@pryzm/room-topology';
 // A-1: DrawingSelectionIndex — primary UUID resolution path for hitTest
 import { lookupElementUUID } from './DrawingSelectionIndex';
-import type { ViewDefinition } from './ViewDefinitionTypes';
+import type { ViewDefinition, ViewCropSettings } from './ViewDefinitionTypes';
+// §FIX-ELEVATION-CROP-EXTEND (L-175) — crop-boundary handle drag needs the live
+// ViewDefinition (crop region + sectionVolume) to invert screen → region coords.
+import { viewDefinitionStore } from './ViewDefinitionStore';
 // §FIX-ELEVATION-POCHE (L-119) — poché (solid cut fills) is a CUT-view concept.
 // ViewScope.poche is false for elevation/3d, so the façade is never painted black.
 import { resolveViewScope } from './ViewScope';
@@ -1256,41 +1259,170 @@ export class PlanViewCanvas {
             return { minH, maxH, minV, maxV };
         }
 
-        const ann = annotationStore.getAll().find(item =>
-            (item.type === 'elevation-mark' || item.type === 'section-mark') &&
-            item.parameters.linkedViewId === viewDef.id
+        const frame = this._elevationCropFrame(viewDef);
+        if (!frame) return { minH, maxH, minV, maxV };
+
+        const toH = (offset: number) => this._worldPointToCanvasH(
+            frame.origin.x + frame.right.x * offset,
+            frame.origin.z + frame.right.z * offset,
         );
-        if (!ann) return { minH, maxH, minV, maxV };
-
-        let origin: { x: number; z: number } | null = null;
-        let right: { x: number; z: number } | null = null;
-
-        if (ann.type === 'elevation-mark') {
-            const anchor = ann.geometry2D.modelPoints?.[0];
-            const dir = ann.parameters.facingDirection as { x?: number; z?: number } | undefined;
-            const len = Math.hypot(dir?.x ?? 0, dir?.z ?? 0) || 1;
-            origin = anchor ? { x: anchor.x, z: anchor.z } : null;
-            right = { x: -((dir?.z ?? -1) / len), z: (dir?.x ?? 0) / len };
-        } else {
-            const pts = ann.geometry2D.modelPoints;
-            if (pts && pts.length >= 2) {
-                origin = { x: (pts[0].x + pts[1].x) / 2, z: (pts[0].z + pts[1].z) / 2 };
-                const len = Math.hypot(pts[1].x - pts[0].x, pts[1].z - pts[0].z) || 1;
-                right = { x: (pts[1].x - pts[0].x) / len, z: (pts[1].z - pts[0].z) / len };
-            }
-        }
-
-        if (!origin || !right) return { minH, maxH, minV, maxV };
-
-        const toH = (offset: number) => {
-            const x = origin!.x + right!.x * offset;
-            const z = origin!.z + right!.z * offset;
-            return this._worldPointToCanvasH(x, z);
-        };
         minH = toH(region.min[0]);
         maxH = toH(region.max[0]);
         if (minH > maxH) [minH, maxH] = [maxH, minH];
         return { minH, maxH, minV, maxV };
+    }
+
+    /**
+     * §FIX-ELEVATION-CROP-EXTEND (L-175) — the anchor origin + perpendicular
+     * `right` axis of the linked section/elevation mark. For elevation/section
+     * views WITHOUT a stored sectionVolume, `crop.region.min[0]` / `max[0]` hold
+     * signed perpendicular OFFSETS from this frame (not absolute world-H), so both
+     * the forward projection (`_resolveCropCanvasBounds`) and the inverse
+     * (`_projectRegionHToCanvasH`) must share this derivation. Returns null when
+     * no linked mark exists (the sectionVolume path is used instead).
+     */
+    private _elevationCropFrame(viewDef: ViewDefinition): { origin: { x: number; z: number }; right: { x: number; z: number } } | null {
+        const ann = annotationStore.getAll().find(item =>
+            (item.type === 'elevation-mark' || item.type === 'section-mark') &&
+            item.parameters.linkedViewId === viewDef.id
+        );
+        if (!ann) return null;
+
+        if (ann.type === 'elevation-mark') {
+            const anchor = ann.geometry2D.modelPoints?.[0];
+            if (!anchor) return null;
+            const dir = ann.parameters.facingDirection as { x?: number; z?: number } | undefined;
+            const len = Math.hypot(dir?.x ?? 0, dir?.z ?? 0) || 1;
+            return {
+                origin: { x: anchor.x, z: anchor.z },
+                right: { x: -((dir?.z ?? -1) / len), z: (dir?.x ?? 0) / len },
+            };
+        }
+
+        const pts = ann.geometry2D.modelPoints;
+        if (!pts || pts.length < 2) return null;
+        const len = Math.hypot(pts[1].x - pts[0].x, pts[1].z - pts[0].z) || 1;
+        return {
+            origin: { x: (pts[0].x + pts[1].x) / 2, z: (pts[0].z + pts[1].z) / 2 },
+            right: { x: (pts[1].x - pts[0].x) / len, z: (pts[1].z - pts[0].z) / len },
+        };
+    }
+
+    /**
+     * §FIX-ELEVATION-CROP-EXTEND (L-175) — forward-project a single stored
+     * `crop.region` horizontal value into canvas-H, matching the exact frame
+     * `_resolveCropCanvasBounds()` uses (plan → identity; section/elevation with
+     * sectionVolume → absolute world-H; otherwise → perpendicular offset from the
+     * linked mark). Used to calibrate the screen→region inverse in
+     * `cropFromHandleDrag()`. Returns null when the frame cannot be resolved.
+     */
+    private _projectRegionHToCanvasH(viewDef: ViewDefinition, regionH: number): number | null {
+        if (!this._sectionFlipV) return regionH;
+        if (viewDef.spatial.sectionVolume) return this._worldHToCanvasH(regionH);
+        const frame = this._elevationCropFrame(viewDef);
+        if (!frame) return null;
+        return this._worldPointToCanvasH(
+            frame.origin.x + frame.right.x * regionH,
+            frame.origin.z + frame.right.z * regionH,
+        );
+    }
+
+    /**
+     * §FIX-ELEVATION-CROP-EXTEND (L-175) — hit-test the four crop-boundary corner
+     * handles that `_renderCropBoundary()` draws in section/elevation views. Gated
+     * to `_sectionFlipV` (elevation/section only, per L-175 scope) — plan-view crop
+     * editing keeps the section-mark scope-box path (`hitTestScopeHandle`). Returns
+     * the corner id (nw/ne/se/sw) nearest the cursor within `thresholdPx`, or null.
+     */
+    hitTestCropHandle(sx: number, sy: number, thresholdPx = 10): { handle: 'nw' | 'ne' | 'se' | 'sw' } | null {
+        if (!this._sectionFlipV || !this._lastViewId) return null;
+        const viewDef = viewDefinitionStore.get(this._lastViewId);
+        if (!viewDef) return null;
+        const bounds = this._resolveCropCanvasBounds(viewDef);
+        if (!bounds) return null;
+
+        // Canvas-space corners: worldToScreen flips V for sections (higher V = lower
+        // sy), so maxV maps to the visual top, minV to the bottom.
+        const corners: Array<{ handle: 'nw' | 'ne' | 'se' | 'sw'; h: number; v: number }> = [
+            { handle: 'nw', h: bounds.minH, v: bounds.maxV },
+            { handle: 'ne', h: bounds.maxH, v: bounds.maxV },
+            { handle: 'se', h: bounds.maxH, v: bounds.minV },
+            { handle: 'sw', h: bounds.minH, v: bounds.minV },
+        ];
+        let best: { handle: 'nw' | 'ne' | 'se' | 'sw' } | null = null;
+        let bestDist = thresholdPx;
+        for (const c of corners) {
+            const p = this.worldToScreen(c.h, c.v);
+            const d = Math.hypot(sx - p.sx, sy - p.sy);
+            if (d < bestDist) {
+                bestDist = d;
+                best = { handle: c.handle };
+            }
+        }
+        return best;
+    }
+
+    /**
+     * §FIX-ELEVATION-CROP-EXTEND (L-175) — given a grabbed crop-boundary corner and
+     * the current cursor position, return the new `ViewCropSettings` to dispatch via
+     * the `view.setCrop` command (P6 — the ONLY mutation path; this method itself is
+     * pure and writes nothing). Works in canvas-H/canvas-V space (the frame
+     * `_resolveCropCanvasBounds` returns), then inverts back to the stored
+     * `crop.region` representation via an affine calibration from the current region
+     * corners — so it is correct for every frame (plan identity, section-volume
+     * absolute world-H, and elevation perpendicular-offset) without duplicating the
+     * per-frame math. Returns null when the drag would collapse the crop.
+     */
+    cropFromHandleDrag(handle: 'nw' | 'ne' | 'se' | 'sw', sx: number, sy: number): ViewCropSettings | null {
+        if (!this._sectionFlipV || !this._lastViewId) return null;
+        const viewDef = viewDefinitionStore.get(this._lastViewId);
+        const region = viewDef?.crop?.region;
+        if (!viewDef || !region) return null;
+        const bounds = this._resolveCropCanvasBounds(viewDef);
+        if (!bounds) return null;
+
+        // Cursor → canvas-H/canvas-V (inverse of worldToScreen).
+        const { worldX: dragH, worldZ: dragV } = this.screenToWorld(sx, sy);
+
+        // Move only the grabbed corner's H and V extremes; the opposite corner stays.
+        const hIsMin = handle === 'nw' || handle === 'sw'; // left corners → minH edge
+        const vIsMax = handle === 'nw' || handle === 'ne'; // top corners  → maxV edge
+        let cMinH = bounds.minH;
+        let cMaxH = bounds.maxH;
+        let cMinV = bounds.minV;
+        let cMaxV = bounds.maxV;
+        if (hIsMin) cMinH = dragH; else cMaxH = dragH;
+        if (vIsMax) cMaxV = dragV; else cMinV = dragV;
+
+        // Affine calibration of the H inverse from the current region↔canvas corners.
+        const cRegMinH = this._projectRegionHToCanvasH(viewDef, region.min[0]);
+        const cRegMaxH = this._projectRegionHToCanvasH(viewDef, region.max[0]);
+        if (cRegMinH === null || cRegMaxH === null) return null;
+        const denomH = cRegMaxH - cRegMinH;
+        const slopeH = Math.abs(denomH) < 1e-6 ? 1 : (region.max[0] - region.min[0]) / denomH;
+        const toRegionH = (canvasH: number) => region.min[0] + (canvasH - cRegMinH) * slopeH;
+
+        let regMinH = toRegionH(cMinH);
+        let regMaxH = toRegionH(cMaxH);
+        if (regMinH > regMaxH) [regMinH, regMaxH] = [regMaxH, regMinH];
+        // Vertical axis is identity in every frame: crop.region[1] === canvas-V (world Y).
+        let regMinV = cMinV;
+        let regMaxV = cMaxV;
+        if (regMinV > regMaxV) [regMinV, regMaxV] = [regMaxV, regMinV];
+
+        // Reject drags that would collapse (or invert) the crop below a usable span.
+        const MIN_SPAN = 0.1;
+        if (regMaxH - regMinH < MIN_SPAN || regMaxV - regMinV < MIN_SPAN) return null;
+
+        const r3 = (n: number) => Number(n.toFixed(3));
+        return {
+            ...viewDef.crop,
+            enabled: true,
+            region: {
+                min: [r3(regMinH), r3(regMinV)],
+                max: [r3(regMaxH), r3(regMaxV)],
+            },
+        };
     }
 
     setSize(w: number, h: number): void {

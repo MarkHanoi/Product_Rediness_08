@@ -70,6 +70,10 @@ export class PlanViewInteraction {
     private _pointerDownY = 0;
     private _isDragging = false;
     private _scopeDrag: { annotationId: string; linkedViewId: string; handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane'; lastUpdate: number } | null = null;
+    // §FIX-ELEVATION-CROP-EXTEND (L-175) — resize the crop rectangle by dragging its
+    // corner handles while IN a section/elevation view (parity with the plan-view
+    // scope-box resize). Mutates ONLY via the view.setCrop command (P6).
+    private _cropDrag: { handle: 'nw' | 'ne' | 'se' | 'sw'; lastUpdate: number } | null = null;
     private _levelDrag: { levelId: string; startSy: number; startElevation: number } | null = null;
     private _annotDrag: {
         annotationId: string;
@@ -146,6 +150,7 @@ export class PlanViewInteraction {
         this._snapEngine.detach();
         this._isDragging = false;
         this._scopeDrag = null;
+        this._cropDrag = null;
         this._levelDrag = null;
         this._hoveredElementId = null;
     }
@@ -195,6 +200,20 @@ export class PlanViewInteraction {
         if (scopeHit) {
             this._scopeDrag = { annotationId: scopeHit.annotationId, linkedViewId: scopeHit.linkedViewId, handle: scopeHit.handle, lastUpdate: 0 };
             this._isDragging = true;
+            (e as any).__pryzmToolHandled = true;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
+        // ── §FIX-ELEVATION-CROP-EXTEND (L-175) — crop-boundary corner-handle drag ──
+        // Only fires in section/elevation views (hitTestCropHandle is _sectionFlipV-
+        // gated); resizes the view's crop rectangle in-place via view.setCrop.
+        const cropHit = this._planCanvas.hitTestCropHandle?.(sx, sy, 10) ?? null;
+        if (cropHit) {
+            this._cropDrag = { handle: cropHit.handle, lastUpdate: 0 };
+            this._isDragging = true;
+            this._canvas.style.cursor = this._cropCursor(cropHit.handle);
             (e as any).__pryzmToolHandled = true;
             e.preventDefault();
             e.stopPropagation();
@@ -301,6 +320,15 @@ export class PlanViewInteraction {
             e.preventDefault();
             this._canvas.style.cursor = this._scopeDrag.handle === 'cut-plane' ? 'move' : this._scopeDrag.handle === 'depth' ? 'ns-resize' : 'ew-resize';
             this._applyScopeDragFromPointer(e, false);
+            return;
+        }
+
+        // §FIX-ELEVATION-CROP-EXTEND (L-175) — live crop resize preview.
+        if (this._cropDrag) {
+            (e as any).__pryzmToolHandled = true;
+            e.preventDefault();
+            this._canvas.style.cursor = this._cropCursor(this._cropDrag.handle);
+            this._applyCropHandleDrag(e, false);
             return;
         }
 
@@ -483,6 +511,18 @@ export class PlanViewInteraction {
         if (this._scopeDrag) {
             this._applyScopeDragFromPointer(e, true);
             this._scopeDrag = null;
+            this._isDragging = false;
+            if (this._canvas) this._canvas.style.cursor = '';
+            (e as any).__pryzmToolHandled = true;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
+        // ── §FIX-ELEVATION-CROP-EXTEND (L-175) — crop resize commit ───────────
+        if (this._cropDrag) {
+            this._applyCropHandleDrag(e, true);
+            this._cropDrag = null;
             this._isDragging = false;
             if (this._canvas) this._canvas.style.cursor = '';
             (e as any).__pryzmToolHandled = true;
@@ -1062,6 +1102,37 @@ export class PlanViewInteraction {
             window.runtime?.bus?.executeCommand('view.setCrop', { viewId: viewDef.id, crop: nextCrop ?? null })
                 ?.catch((e: Error) => console.error('[PlanViewInteraction] view.setCrop failed:', e));
         }
+    }
+
+    /**
+     * §FIX-ELEVATION-CROP-EXTEND (L-175) — apply an in-progress crop-boundary
+     * corner drag while in a section/elevation view. The crop-region math (screen →
+     * canvas-H/canvas-V → stored `crop.region`, respecting the elevation projection
+     * frame) lives in PlanViewCanvas.cropFromHandleDrag(); this method just throttles
+     * and dispatches the result through the view.setCrop command (P6 — the sole
+     * mutation path, mirroring the plan-view scope-box resize in
+     * _applyScopeDragFromPointer). It is a view-crop (documentation) concern only —
+     * no geometry is mutated.
+     */
+    private _applyCropHandleDrag(e: MouseEvent, final: boolean): void {
+        if (!this._cropDrag || !this._canvas || !this._planCanvas || !this._viewId) return;
+        const now = performance.now();
+        if (!final && now - this._cropDrag.lastUpdate < 80) return;
+        this._cropDrag.lastUpdate = now;
+
+        const rect = this._canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const crop = this._planCanvas.cropFromHandleDrag(this._cropDrag.handle, sx, sy);
+        if (!crop) return;
+
+        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
+        window.runtime?.bus?.executeCommand('view.setCrop', { viewId: this._viewId, crop })
+            ?.catch((err: Error) => console.error('[PlanViewInteraction] §FIX-ELEVATION-CROP-EXTEND view.setCrop failed:', err));
+    }
+
+    private _cropCursor(handle: 'nw' | 'ne' | 'se' | 'sw'): string {
+        return handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize';
     }
 
     private _resolveSectionVolumeForDrag(ann: AnnotationElement, viewDef: ViewDefinition): ViewSectionVolume | null {
