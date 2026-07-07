@@ -96,6 +96,7 @@ export class PlanViewInteraction {
     private readonly _boundMouseMove   = this._onMouseMove.bind(this);
     private readonly _boundMouseDown   = this._onMouseDown.bind(this);
     private readonly _boundMouseUp     = this._onMouseUp.bind(this);
+    private readonly _boundDblClick    = this._onDblClick.bind(this);
     private readonly _boundContextMenu = this._onContextMenu.bind(this);
     private readonly _boundKeyDown     = this._onKeyDown.bind(this);
 
@@ -110,6 +111,7 @@ export class PlanViewInteraction {
         this._hoveredElementId = null;
 
         canvas.addEventListener('mousedown', this._boundMouseDown, true);
+        canvas.addEventListener('dblclick', this._boundDblClick, true);
         canvas.addEventListener('contextmenu', this._boundContextMenu);
         window.addEventListener('mousemove', this._boundMouseMove);
         window.addEventListener('mouseup', this._boundMouseUp);
@@ -127,6 +129,7 @@ export class PlanViewInteraction {
 
     detach(): void {
         this._canvas?.removeEventListener('mousedown', this._boundMouseDown, true);
+        this._canvas?.removeEventListener('dblclick', this._boundDblClick, true);
         this._canvas?.removeEventListener('contextmenu', this._boundContextMenu);
         window.removeEventListener('mousemove', this._boundMouseMove);
         window.removeEventListener('mouseup',   this._boundMouseUp);
@@ -604,17 +607,23 @@ export class PlanViewInteraction {
             window.__pryzmSelectedAnnotationId = annotationId;
             this._planCanvas.setSelectedGridId?.(null);
             window.runtime?.events?.emit('pryzm-element-selected', { elementId: annotationId, annotationId, source: 'plan-view' });
-            // §FIX-MARK-NAVIGATE (G8, V1-audit §3.5) — click-to-navigate. A
-            // section-mark / elevation-mark stores its target view in
-            // parameters.linkedViewId (set by Create{Section,Elevation}MarkCommand).
-            // Clicking the mark should open that view, matching the Revit workflow.
-            // The mark is still selected above (Properties panel shows its params);
-            // navigation is additive.
             const hitAnn = annotationStore.getById(annotationId);
-            const linkedViewId = hitAnn?.parameters?.linkedViewId as string | undefined;
-            if ((hitAnn?.type === 'section-mark' || hitAnn?.type === 'elevation-mark') && linkedViewId) {
-                this._navigateToLinkedView(linkedViewId);
+            // §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — a plan-view dimension
+            // pick opens the shared dimension Properties panel (value/override edit +
+            // delete). The 3D-canvas path gets this for free via
+            // AnnotationManager._canvasClickHandler; the plan surface routes here.
+            if (hitAnn?.type === 'linear-dim') {
+                this._openDimensionPanel(annotationId);
             }
+            // §FIX-ELEV-CROP-EDIT-REGRESSION (L-157) — a SINGLE click now only
+            // SELECTS the mark (the continuous plan render then draws
+            // _renderSelectedScopeOverlay's crop adjust-arrows + drag handles, which
+            // are gated on __pryzmSelectedAnnotationId). NAVIGATION to the linked
+            // view moved to DOUBLE-click (_onDblClick). Previously navigate-on-single-
+            // click deactivated the plan → SelectionManager.unselectAll() cleared the
+            // selection → the crop arrows never appeared and the extent could not be
+            // dragged (the founder regression). §FIX-MARK-NAVIGATE (L-129/G8) intent
+            // is preserved on double-click.
             return;
         }
 
@@ -866,6 +875,45 @@ export class PlanViewInteraction {
         document.body.appendChild(input);
         input.select();
         input.focus();
+    }
+
+    /**
+     * §FIX-ELEV-CROP-EDIT-REGRESSION (L-157) — DOUBLE-click on a section/elevation
+     * mark NAVIGATES to its linked view (the Revit click-to-open workflow, formerly
+     * bound to single-click). Splitting SELECT (single-click, keeps the crop adjust
+     * arrows visible) from NAVIGATE (double-click) is what lets the user drag the
+     * crop extent without the plan tearing down and losing the selection. Preserves
+     * §FIX-MARK-NAVIGATE (L-129/G8).
+     */
+    private _onDblClick(e: MouseEvent): void {
+        if (e.button !== 0 || !this._canvas || !this._planCanvas) return;
+        const rect = this._canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const annotationId = this._planCanvas.hitTestAnnotation(sx, sy, 12);
+        if (!annotationId) return;
+        const ann = annotationStore.getById(annotationId);
+        const linkedViewId = ann?.parameters?.linkedViewId as string | undefined;
+        if ((ann?.type === 'section-mark' || ann?.type === 'elevation-mark') && linkedViewId) {
+            (e as { __pryzmToolHandled?: boolean }).__pryzmToolHandled = true;
+            e.preventDefault();
+            e.stopPropagation();
+            this._navigateToLinkedView(linkedViewId);
+        }
+    }
+
+    /**
+     * §FIX-AUTODIM-DIMS-SELECTABLE-EDITABLE (L-161) — open the shared dimension
+     * Properties panel (value/override edit + delete) for a plan-view-selected
+     * linear dim. Delegates to AnnotationManager.showDimensionPanelFor (the same
+     * panel + UpdateAnnotationCommand/DeleteAnnotationCommand edit path the 3D
+     * canvas uses). Typed via a narrow local shape — no `(window as any)` (P4).
+     */
+    private _openDimensionPanel(annotationId: string): void {
+        interface AnnotationManagerLike { showDimensionPanelFor?(id: string, selectedWallId?: string): void }
+        const am = (window as unknown as { annotationManager?: AnnotationManagerLike }).annotationManager;
+        try { am?.showDimensionPanelFor?.(annotationId); }
+        catch (err) { console.warn('[PlanViewInteraction] showDimensionPanelFor failed:', err); }
     }
 
     private _onContextMenu(e: MouseEvent): void {
