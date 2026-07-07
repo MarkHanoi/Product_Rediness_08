@@ -389,8 +389,34 @@ function registerAnnotationRingUndo(annotations: readonly { id: string }[]): voi
   catch (err) { console.warn('[auto-dimension] §FIX-AUTODIM-UNDO-ONE-UNIT — ring push failed:', err); }
 }
 
-/** Build the geometry-kernel evaluator snapshot from live walls (openings → doors/windows). */
-function buildEvalSnapshot(walls: readonly WallRecord[], levelId: string): ElementSnapshotForDim {
+/**
+ * Build the geometry-kernel evaluator snapshot from live walls (openings → doors/windows).
+ *
+ * §FIX-AUTODIM-OPENING-EDGE-ORIGIN (L-180, C56 AutoDimension / C15 §2) — the two
+ * halves of the pipeline use DIFFERENT along-wall offset conventions and this
+ * boundary is where they must be reconciled:
+ *   • the STORE opening `offset` is the LEFT EDGE of the span `[offset, offset+width]`
+ *     (§OPENING-OFFSET-LEFTEDGE-UNIFY; the same convention edge-projection.ts /
+ *     poche.ts cut voids by, and the convention the pure engine `openings.ts` lifts
+ *     onto the run axis: left = a + u·offset, right = a + u·(offset+width));
+ *   • the geometry-kernel EVALUATOR (`resolveDoorAnchor`) interprets its
+ *     `DoorLikeEvaluator.offset` as the door CENTRE along the wall
+ *     (`center = a + u·offset`, then left = center − u·width/2) — a documented,
+ *     unit-tested contract (offset=2 m → center anchor = 2000 mm).
+ * Feeding the store's LEFT-EDGE offset straight into the evaluator made it treat
+ * the left jamb as the centre, so every opening's witness lines (and the location
+ * dim's centre reference) landed shifted along-wall by −width/2 — off the real
+ * jambs (the founder's misaligned door/window dims). We therefore convert the
+ * store left edge into the evaluator's CENTRE convention here (`offset + width/2`),
+ * so the resolved world jambs coincide EXACTLY with the run-frame stations the
+ * chain planner used: left = a + u·offset, right = a + u·(offset+width),
+ * center = a + u·(offset + width/2). (The pure engine snapshot above keeps the raw
+ * left-edge offset, which is what `openings.ts` expects — do NOT convert there.)
+ *
+ * Exported so the store-offset → evaluator-centre conversion is unit-testable
+ * against a known (offset, width) opening without a live runtime.
+ */
+export function buildEvalSnapshot(walls: readonly WallRecord[], levelId: string): ElementSnapshotForDim {
   const wallMap = new Map<string, WallLikeEvaluator>();
   const doorMap = new Map<string, DoorLikeEvaluator>();
   const windowMap = new Map<string, WindowLikeEvaluator>();
@@ -414,7 +440,10 @@ function buildEvalSnapshot(walls: readonly WallRecord[], levelId: string): Eleme
       const entry = {
         id,
         wallId: w.id,
-        offset: o.offset,
+        // §FIX-AUTODIM-OPENING-EDGE-ORIGIN (L-180): store `offset` is the LEFT EDGE;
+        // the evaluator wants the CENTRE → convert so resolved jambs land on the
+        // true left/right edges (see buildEvalSnapshot header for the full rationale).
+        offset: o.offset + o.width / 2,
         width: o.width,
         height: typeof o.height === 'number' ? o.height : 2.1,
         sillHeight: typeof o.sillHeight === 'number' ? o.sillHeight : 0,

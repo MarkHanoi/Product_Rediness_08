@@ -9,7 +9,7 @@
 // for a 2-point string AND a multi-station chain (N stations → N-1 segment dims).
 
 import { describe, it, expect } from 'vitest';
-import { dimensionStringsToLinearDimAnnotations, buildAnnotationRingUndoPair } from '../applyAutoDimensions';
+import { dimensionStringsToLinearDimAnnotations, buildAnnotationRingUndoPair, buildEvalSnapshot } from '../applyAutoDimensions';
 import { DimensionStringSchema } from '@pryzm/schemas/annotation/dimension';
 import type { ElementSnapshotForDim, WallLikeEvaluator } from '@pryzm/geometry-kernel';
 
@@ -148,5 +148,92 @@ describe('buildAnnotationRingUndoPair (§FIX-AUTODIM-UNDO-ONE-UNIT)', () => {
     expect(pair.forward.ops).toHaveLength(0);
     expect(pair.inverse.ops).toHaveLength(0);
     expect(pair.affectedStores).toEqual(['annotation']);
+  });
+});
+
+// §FIX-AUTODIM-OPENING-EDGE-ORIGIN (L-180, C56 / C15 §2) — the store opening
+// `offset` is the LEFT EDGE of the span `[offset, offset+width]`, but the
+// geometry-kernel evaluator interprets `DoorLikeEvaluator.offset` as the door
+// CENTRE. buildEvalSnapshot must reconcile the two (offset → offset+width/2) so the
+// resolved world jambs land on the TRUE left/right edges in the SAME wall frame the
+// chain planner used (left = a + u·offset, right = a + u·(offset+width),
+// center = a + u·(offset+width/2)) — never shifted by −width/2 off the real jamb.
+describe('buildEvalSnapshot opening edge origin (§FIX-AUTODIM-OPENING-EDGE-ORIGIN)', () => {
+  // 6 m wall along +X from origin; unit dir u = (1,0), start a = (0,0,0).
+  const OFFSET = 2.358; // store LEFT-EDGE offset (from the founder's placement log)
+  const WIDTH = 0.926;
+  const wallRecord = {
+    id: 'w1',
+    levelId: 'level-1',
+    baseLine: [
+      { x: 0, y: 0, z: 0 },
+      { x: 6, y: 0, z: 0 },
+    ] as const,
+    thickness: 0.1,
+    height: 2.5,
+    openings: [
+      { elementId: 'door1', type: 'door' as const, offset: OFFSET, width: WIDTH, height: 2.1, sillHeight: 0 },
+      // A window with a DIFFERENT known offset — same left-edge convention.
+      { elementId: 'win1', type: 'window' as const, offset: 4.0, width: 1.2, height: 1.2, sillHeight: 0.9 },
+    ],
+  };
+
+  function widthDim(elementId: string): ReturnType<typeof DimensionStringSchema.parse> {
+    return DimensionStringSchema.parse({
+      id: `wdim-${elementId}`,
+      kind: 'linear-element',
+      references: [
+        { elementId, anchor: 'left' },
+        { elementId, anchor: 'right' },
+      ],
+      orientation: 'horizontal',
+      offsetMm: -500,
+      viewId: 'plan-view-1',
+    });
+  }
+
+  function locationDim(elementId: string): ReturnType<typeof DimensionStringSchema.parse> {
+    return DimensionStringSchema.parse({
+      id: `ldim-${elementId}`,
+      kind: 'linear-element',
+      references: [
+        { elementId: 'w1', anchor: 'start' }, // run datum = wall start (0 m)
+        { elementId, anchor: 'center' },
+      ],
+      orientation: 'horizontal',
+      offsetMm: -500,
+      viewId: 'plan-view-1',
+    });
+  }
+
+  it('DOOR width dim lands on the true LEFT/RIGHT jambs (offset, offset+width)', () => {
+    const snap = buildEvalSnapshot([wallRecord], 'level-1');
+    const anns = dimensionStringsToLinearDimAnnotations([widthDim('door1')], snap, 'plan-view-1');
+    expect(anns).toHaveLength(1);
+    const [p, q] = anns[0]!.geometry2D.modelPoints;
+    // Left jamb = a + u·offset; right jamb = a + u·(offset+width) — NOT offset±width/2.
+    expect(p!.x).toBeCloseTo(OFFSET, 6);
+    expect(q!.x).toBeCloseTo(OFFSET + WIDTH, 6);
+    // Span equals the true opening width.
+    expect(Math.abs(q!.x - p!.x)).toBeCloseTo(WIDTH, 6);
+  });
+
+  it('DOOR location dim references the true CENTRE (offset + width/2), not the left edge/origin', () => {
+    const snap = buildEvalSnapshot([wallRecord], 'level-1');
+    const anns = dimensionStringsToLinearDimAnnotations([locationDim('door1')], snap, 'plan-view-1');
+    expect(anns).toHaveLength(1);
+    const [datum, centre] = anns[0]!.geometry2D.modelPoints;
+    expect(datum!.x).toBeCloseTo(0, 6);          // run datum at wall start
+    expect(centre!.x).toBeCloseTo(OFFSET + WIDTH / 2, 6); // true set-out centre
+  });
+
+  it('WINDOW (different offset) also lands on true jambs + centre', () => {
+    const snap = buildEvalSnapshot([wallRecord], 'level-1');
+    const w = dimensionStringsToLinearDimAnnotations([widthDim('win1')], snap, 'plan-view-1');
+    const [wp, wq] = w[0]!.geometry2D.modelPoints;
+    expect(wp!.x).toBeCloseTo(4.0, 6);
+    expect(wq!.x).toBeCloseTo(4.0 + 1.2, 6);
+    const l = dimensionStringsToLinearDimAnnotations([locationDim('win1')], snap, 'plan-view-1');
+    expect(l[0]!.geometry2D.modelPoints[1]!.x).toBeCloseTo(4.0 + 1.2 / 2, 6);
   });
 });
