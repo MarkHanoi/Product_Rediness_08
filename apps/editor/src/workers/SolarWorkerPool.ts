@@ -19,10 +19,14 @@
 // P8: `computeIntensities()` opens an OTel span covering the full worker round-trip.
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
-import type { MetricFootprint, SunProbe, SunProbeParams } from '../ui/climate/siteMetricGrids';
+// §FIX-SOLAR-WORKER-NO-RANDOM (L-178) — probe/footprint types now live on the solarCodec
+// leaf (not siteMetricGrids) so the worker's import graph excludes the crypto-at-load deps.
 import {
     packProbes,
     SOLAR_WORKER_READY_ID,
+    type MetricFootprint,
+    type SunProbe,
+    type SunProbeParams,
     type SolarWorkerCancel,
     type SolarWorkerRequest,
     type SolarWorkerResult,

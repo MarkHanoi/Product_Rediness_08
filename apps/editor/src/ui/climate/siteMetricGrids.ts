@@ -52,20 +52,34 @@ import {
     type BuildingObstacle,
 } from '@pryzm/street-analytics';
 // §SITE-METRIC-HEATMAP — the repo's own pure NOAA sun-sample generator (no SunCalc).
+import { generateSunSamples } from '@pryzm/solar-analysis';
+// §FIX-SOLAR-WORKER-NO-RANDOM (L-178) — the pure sun-hours raycast CORE (prism occlusion +
+// BVH + probe compute) + its probe/footprint types moved to the worker's `solarCodec` leaf
+// so the off-main-thread worker's import graph excludes THIS module's crypto-at-load analysis
+// deps. Imported back here (byte-identical, same functions) for the main-thread evaluators
+// and the BVH-equivalence test seam, and RE-EXPORTED below so every existing caller that
+// imports these from `siteMetricGrids` is unchanged.
 import {
-    generateSunSamples,
-    juneSolsticeDayOfYear,
-    decemberSolsticeDayOfYear,
-    marchEquinoxDayOfYear,
-    // §PERF-SUNHOURS-BVH (L-143) — pure uniform-grid spatial index over occluder bboxes,
-    // so the direct-beam shadow raycast tests only occluders NEAR the ray instead of all
-    // ~4700 context buildings. Superset-guaranteed ⇒ byte-identical occlusion, only faster.
-    buildOccluderIndex,
-    type OccluderBox,
-    type OccluderIndex,
-    type SunSample,
-} from '@pryzm/solar-analysis';
+    computeSunIntensitiesForProbes,
+    toPrisms,
+    pointInRing,
+    rayBlockedByPrism,
+    buildPrismShadowIndex,
+    sunBlocked,
+    sunBlockedIndexed,
+    sunDayOfYear,
+    type Prism,
+    type MetricFootprint,
+    type SunProbe,
+    type SunProbeParams,
+    type SunDayPreset,
+} from '../../workers/solarCodec';
 import { monthlyTempSeries } from './climateChartData';
+
+// §FIX-SOLAR-WORKER-NO-RANDOM (L-178) — re-export the sun-hours public surface so external
+// callers keep importing it from `siteMetricGrids` (its historical home) unchanged.
+export type { MetricFootprint, SunProbe, SunProbeParams, SunDayPreset };
+export { computeSunIntensitiesForProbes };
 
 /** The metrics the side-3D switcher can route to. `'sunHours'` + `'daylight'` are
  *  both chunked raycast/hemisphere passes this bridge produces as GROUND grids.
@@ -116,16 +130,9 @@ export interface MetricLegend {
     readonly unit: string;
 }
 
-/** A building footprint in the site-ENU frame (east/north metres) + its height. */
-export interface MetricFootprint {
-    /** Outer ring, site-ENU metres (east = x, north = z to match StreetGrid's XZ). */
-    readonly ring: readonly Pt[];
-    readonly heightM: number;
-    readonly floors?: number;
-}
-
-/** A sun-hours analysis day preset (Forma pattern). */
-export type SunDayPreset = 'summer' | 'winter' | 'equinox';
+// §FIX-SOLAR-WORKER-NO-RANDOM (L-178) — `MetricFootprint` + `SunDayPreset` now live on the
+// `solarCodec` leaf (imported + re-exported above) so the worker's graph excludes this
+// module's crypto-at-load analysis deps.
 
 /** Inputs for a ground-grid metric build. */
 export interface MetricGridInput {
@@ -354,152 +361,11 @@ function toObstacles(footprints: readonly MetricFootprint[]): {
 // (x = east, z = north). Sun-sample `dir` is the solar-analysis ENU frame
 // { x = East, y = Up, z = South }, so north = −dir.z, up = dir.y, east = dir.x.
 
-/** An extruded-footprint prism for the analytic shadow-ray test. */
-interface Prism {
-    /** Footprint ring in (east, north) metres. */
-    readonly ring: ReadonlyArray<{ e: number; n: number }>;
-    /** Axis-aligned bbox of the ring (cheap reject). */
-    readonly minE: number; readonly maxE: number; readonly minN: number; readonly maxN: number;
-    readonly heightM: number;
-}
-
-function toPrisms(footprints: readonly MetricFootprint[]): Prism[] {
-    const out: Prism[] = [];
-    for (const f of footprints) {
-        if (f.ring.length < 3 || !(f.heightM > 0)) continue;
-        const ring = f.ring.map((p) => ({ e: p.x, n: p.z }));
-        let minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
-        for (const v of ring) {
-            if (v.e < minE) minE = v.e; if (v.e > maxE) maxE = v.e;
-            if (v.n < minN) minN = v.n; if (v.n > maxN) maxN = v.n;
-        }
-        out.push({ ring, minE, maxE, minN, maxN, heightM: f.heightM });
-    }
-    return out;
-}
-
-/** Point-in-polygon (ray casting) in (east, north). */
-function pointInRing(e: number, n: number, ring: ReadonlyArray<{ e: number; n: number }>): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const ei = ring[i]!.e, ni = ring[i]!.n;
-        const ej = ring[j]!.e, nj = ring[j]!.n;
-        const intersect = (ni > n) !== (nj > n) &&
-            e < ((ej - ei) * (n - ni)) / (nj - ni) + ei;
-        if (intersect) inside = !inside;
-    }
-    return inside;
-}
-
-/**
- * Is the ray from `(e0, n0, up0)` in horizontal direction `(de, dn)` (unit) rising
- * at `slope` (= up.per.horizontal-metre, > 0 toward the sun) BLOCKED by `prism`
- * before it clears the roof? We march the horizontal ray a few steps across the
- * prism's footprint extent; if any step lies inside the ring AND the ray height
- * there is below the roof, it's blocked. Coarse but pure + adequate for a planning
- * heatmap (a stylised shadow, not a survey). */
-function rayBlockedByPrism(
-    e0: number, n0: number, up0: number,
-    de: number, dn: number, slope: number,
-    prism: Prism,
-): boolean {
-    // How far ahead (horizontal metres) the prism bbox is — quick reject if the ray
-    // points away from it.
-    const cx = (prism.minE + prism.maxE) / 2;
-    const cz = (prism.minN + prism.maxN) / 2;
-    const toCx = cx - e0, toCz = cz - n0;
-    if (toCx * de + toCz * dn <= 0) return false; // prism is behind the ray
-    // March from the bbox near edge to the far edge in ~1.5 m steps.
-    const span = Math.hypot(prism.maxE - prism.minE, prism.maxN - prism.minN);
-    const reach = Math.hypot(toCx, toCz) + span; // generous upper bound
-    const step = Math.max(1.0, span / 8);
-    for (let d = 1.0; d <= reach; d += step) {
-        const e = e0 + de * d;
-        const n = n0 + dn * d;
-        if (e < prism.minE - 1 || e > prism.maxE + 1 || n < prism.minN - 1 || n > prism.maxN + 1) {
-            // Past the prism extent in the march direction → stop early if we've gone by.
-            if (d > 1.0 && (e - cx) * de + (n - cz) * dn > span) break;
-            continue;
-        }
-        if (!pointInRing(e, n, prism.ring)) continue;
-        const heightAtD = up0 + slope * d;
-        if (heightAtD < prism.heightM) return true; // ray passes through the solid
-    }
-    return false;
-}
-
-/** True when the sun (sample `s`) is occluded for the cell at `(e0, n0)`. */
-function sunBlocked(
-    e0: number, n0: number, up0: number,
-    s: SunSample,
-    prisms: readonly Prism[],
-): boolean {
-    // Sun direction TOWARD the sun in (east, north, up): east = dir.x, north = −dir.z,
-    // up = dir.y. Build the horizontal unit + the vertical slope per horizontal metre.
-    const he = s.dir.x;
-    const hn = -s.dir.z;
-    const hmag = Math.hypot(he, hn);
-    if (hmag < 1e-6) return false;          // sun overhead → unobstructed
-    const de = he / hmag, dn = hn / hmag;
-    const slope = s.dir.y / hmag;           // up per horizontal metre (>0 above horizon)
-    for (const p of prisms) {
-        if (rayBlockedByPrism(e0, n0, up0, de, dn, slope, p)) return true;
-    }
-    return false;
-}
-
-// §PERF-SUNHOURS-BVH (L-143) — the raycast accelerator. The naive `sunBlocked` above
-// loops over EVERY prism per (cell × sun-sample); with ~4700 context buildings that is
-// the dominant cost. `PrismShadowIndex` bundles the prisms with a uniform-grid spatial
-// index over their bboxes + the tallest roof, so `sunBlockedIndexed` only runs the exact
-// `rayBlockedByPrism` test on the handful of prisms the shadow ray could actually cross.
-//
-// DETERMINISM: the index returns a strict SUPERSET of the prisms whose bbox the ray
-// crosses (see buildOccluderIndex's proof); the SAME `rayBlockedByPrism` runs on each
-// candidate and the result is OR-ed, so the occlusion answer is byte-identical to the
-// naive loop — only faster. Beyond the distance at which the ray rises above the tallest
-// roof no prism can block, so the query reach is bounded by that height/slope crossing.
-interface PrismShadowIndex {
-    readonly prisms: readonly Prism[];
-    readonly index: OccluderIndex;
-    readonly maxHeightM: number;
-}
-
-/** Build the shadow-ray acceleration structure for a prism set (once per grid). */
-function buildPrismShadowIndex(prisms: readonly Prism[]): PrismShadowIndex {
-    const boxes: OccluderBox[] = prisms.map((p) => ({ minE: p.minE, maxE: p.maxE, minN: p.minN, maxN: p.maxN }));
-    let maxHeightM = 0;
-    for (const p of prisms) if (p.heightM > maxHeightM) maxHeightM = p.heightM;
-    return { prisms, index: buildOccluderIndex(boxes), maxHeightM };
-}
-
-/** True when the sun (sample `s`) is occluded for the cell at `(e0, n0)` — accelerated by
- *  the spatial index. Byte-identical result to `sunBlocked(e0,n0,up0,s,prisms)`. `scratch`
- *  is a reusable candidate-index array (cleared per call) so the hot loop never allocates. */
-function sunBlockedIndexed(
-    e0: number, n0: number, up0: number,
-    s: SunSample,
-    acc: PrismShadowIndex,
-    scratch: number[],
-): boolean {
-    const he = s.dir.x;
-    const hn = -s.dir.z;
-    const hmag = Math.hypot(he, hn);
-    if (hmag < 1e-6) return false;          // sun overhead → unobstructed
-    const de = he / hmag, dn = hn / hmag;
-    const slope = s.dir.y / hmag;           // up per horizontal metre (>0 above horizon)
-    // Beyond `maxReach` the ray height (up0 + slope·d) exceeds the tallest roof, so no
-    // prism can block; the index clamps this further to the indexed extent internally.
-    const maxReach = slope > 1e-6
-        ? Math.max(0, (acc.maxHeightM - up0) / slope)
-        : Number.POSITIVE_INFINITY;         // grazing sun — index clamps to its extent
-    const candidates = acc.index.queryRaySegment(e0, n0, de, dn, maxReach, scratch);
-    const prisms = acc.prisms;
-    for (let k = 0; k < candidates.length; k++) {
-        if (rayBlockedByPrism(e0, n0, up0, de, dn, slope, prisms[candidates[k]!]!)) return true;
-    }
-    return false;
-}
+// §FIX-SOLAR-WORKER-NO-RANDOM (L-178) — the prism occlusion + BVH shadow-index +
+// `computeSunIntensitiesForProbes` implementation moved VERBATIM to `../../workers/solarCodec`
+// (imported above) so the off-main-thread worker's import graph excludes this module's
+// crypto-at-load analysis deps. The math is byte-identical; only its home changed. The
+// equivalence test seam below still asserts the naive vs BVH paths agree, unchanged.
 
 /**
  * §PERF-SUNHOURS-BVH (L-143) — TEST SEAM. Compute the direct-beam sun-hours INTENSITY at
@@ -535,16 +401,6 @@ export function __sunHoursBvhEquivalenceProbe(
         }
         return { naive: litNaive / maxLit, indexed: litIndexed / maxLit };
     });
-}
-
-/** Resolve the analysis day-of-year from a preset (default summer solstice). */
-function sunDayOfYear(preset: SunDayPreset | undefined): number {
-    switch (preset) {
-        case 'winter': return decemberSolsticeDayOfYear();
-        case 'equinox': return marchEquinoxDayOfYear();
-        case 'summer':
-        default: return juneSolsticeDayOfYear();
-    }
 }
 
 /** Sun-hours intensity (0 = shaded … 1 = full sun) → blue→teal→gold→warm ramp as
@@ -1584,89 +1440,12 @@ export function facadeOpeningUvRects(
 // byte-identical to the per-cell / per-point `evaluateIntensity` closures above (same
 // BVH-accelerated `sunBlockedIndexed`, same daylight-only sample set, same lit / count
 // normalisation, same wall back-face cull), so moving it to a worker changes ONLY speed.
-
-/** A probe point for the sun raycast. A WALL probe carries an outward normal (metric
- *  east/north) so back-facing sun samples are self-shaded; a GROUND/ROOF probe leaves
- *  the normal undefined (all above-horizon samples count). */
-export interface SunProbe {
-    readonly east: number;
-    readonly north: number;
-    readonly up: number;
-    /** Outward wall normal (metric east/north). Omit for ground/roof probes. */
-    readonly normE?: number;
-    readonly normN?: number;
-}
-
-/** Sun parameters for a probe-compute batch (site position + analysis day + cadence). */
-export interface SunProbeParams {
-    readonly latDeg: number;
-    readonly lngDeg: number;
-    readonly sunDay?: SunDayPreset;
-    /** Sun-sample cadence (minutes). Default 15. */
-    readonly stepMinutes?: number;
-}
-
-/**
- * §PERF-SUNHOURS-WORKER — compute the direct-beam sun-hours INTENSITY (0 = shaded …
- * 1 = full sun) for a batch of probe points against a set of occluder footprints. PURE
- * + deterministic (no THREE / DOM / RNG / Date): same probes + occluders + sun params ⇒
- * byte-identical `Float32Array`, whether run on the main thread or inside `solar.worker`.
- *
- * The result at index i is the fraction of above-horizon sun samples reaching probe i
- * unobstructed (for a WALL probe, only front-facing samples can count). It is a DOUBLE
- * (`Float64Array`, which is transferable) and mirrors `prepareSunHoursGrid.evaluateIntensity`
- * EXACTLY — the same `(lit·stepHours)/maxHours` expression — so a worker-computed value is
- * byte-identical to the synchronous main-thread value (the worker changes only speed).
- *
- * @param probes    probe points (packed by the caller; order preserved in the output).
- * @param occluders occluder footprints (context + own massing) for the shadow test.
- * @param params    site lat/lon + analysis day + sample cadence.
- */
-export function computeSunIntensitiesForProbes(
-    probes: readonly SunProbe[],
-    occluders: readonly MetricFootprint[],
-    params: SunProbeParams,
-): Float64Array {
-    const out = new Float64Array(probes.length);
-    if (probes.length === 0) return out;
-    const stepMinutes = params.stepMinutes && params.stepMinutes > 0 ? params.stepMinutes : 15;
-    const samples = generateSunSamples({
-        latDeg: params.latDeg,
-        lngDeg: params.lngDeg,
-        dayOfYear: sunDayOfYear(params.sunDay),
-        stepMinutes,
-        daylightOnly: true,
-    });
-    // Same hour scale as prepareSunHoursGrid.evaluateIntensity ⇒ byte-identical result.
-    const stepHours = stepMinutes / 60;
-    const maxHours = samples.length * stepHours;
-    const prisms = toPrisms(occluders);
-    const shadow = buildPrismShadowIndex(prisms);
-    const scratch: number[] = [];
-    for (let i = 0; i < probes.length; i++) {
-        const p = probes[i]!;
-        const isWall = p.normE !== undefined && p.normN !== undefined
-            && (Math.abs(p.normE) + Math.abs(p.normN)) > 1e-6;
-        let lit = 0;
-        for (const s of samples) {
-            if (isWall) {
-                // Sun on the OUTWARD side only (back-faces self-shade). east = dir.x,
-                // north = −dir.z (same frame as prepareFacadeSunGrid).
-                const facing = s.dir.x * p.normE! + (-s.dir.z) * p.normN!;
-                if (facing <= 0) continue;
-            }
-            if (!sunBlockedIndexed(p.east, p.north, p.up, s, shadow, scratch)) lit++;
-        }
-        out[i] = maxHours > 0 ? (lit * stepHours) / maxHours : 0;
-    }
-    try {
-        console.debug(
-            `[span][sunhours-probe-compute] ${probes.length} probe(s) × ${samples.length} sun sample(s) ` +
-            `vs ${prisms.length} occluder prism(s).`,
-        );
-    } catch { /* console unavailable (headless) — span is best-effort */ }
-    return out;
-}
+//
+// §FIX-SOLAR-WORKER-NO-RANDOM (L-178) — `SunProbe`, `SunProbeParams` and
+// `computeSunIntensitiesForProbes` now LIVE on the `../../workers/solarCodec` leaf (imported
+// + re-exported at the top of this file) so the worker's static import graph excludes this
+// module's crypto-at-load analysis deps. Every caller importing them from `siteMetricGrids`
+// is unaffected by the move.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §FORMA-FACADE-SMOOTH (founder 2026-07-01) — smooth CONTINUOUS façade gradient

@@ -23,8 +23,14 @@
 // then posts `{ cancelled: true }` instead of a now-stale result — mirroring the
 // monotonic-requestId cancellation of the geometry / compress workers.
 
-import { computeSunIntensitiesForProbes } from '../ui/climate/siteMetricGrids';
+// §FIX-SOLAR-WORKER-NO-RANDOM (L-178) — import the pure raycast core from solarCodec (the
+// leaf), NOT from siteMetricGrids. siteMetricGrids statically drags in the climate/street
+// analysis graph whose transitive dependency runs a secure-crypto id generator at module
+// load; that path is unusable in a DedicatedWorkerGlobalScope and threw
+// `secure crypto unusable, insecure Math.random not allowed`, killing the worker on startup.
+// solarCodec's graph is exactly { solarCodec → @pryzm/solar-analysis } — pure + crypto-free.
 import {
+    computeSunIntensitiesForProbes,
     unpackProbes,
     SOLAR_WORKER_READY_ID,
     type SolarWorkerRequest,

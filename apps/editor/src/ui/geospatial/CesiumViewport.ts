@@ -700,21 +700,16 @@ export class CesiumViewport {
    *  provider → ellipsoid-height 0 ≠ the visible NYC street surface which is tens of metres up). */
   private photorealTileset: Cesium.Cesium3DTileset | null = null;
 
-  /** §GLOBE-TERRAIN-HEIGHT (founder 2026-07-01) — a STANDALONE Cesium World Terrain
-   *  provider (bare-earth, buildings EXCLUDED) attached via the SAME ion access that
-   *  streams the Google Photorealistic 3D-Tiles. Used ONLY as the height-SAMPLE source
-   *  for `sampleTerrainMostDetailed` at the footprint centroid — it is deliberately NOT
-   *  set as `viewer.scene.terrainProvider` because the photoreal tiles already ARE the
-   *  rendered surface (mounting terrain under them z-fights / floats the tiles). Lazily
-   *  created on the FIRST photoreal clamp (so a keyless/no-ion build never pays for it),
-   *  then cached. `null` = not yet attempted; a resolved provider or `false`-ish failure
-   *  is tracked by `photorealTerrainLoadTried`. Bare-earth ground avoids the rooftop
-   *  overshoot the tile-mesh clamp hits in wall-to-wall cities (Paris ~131 m rooftop). */
-  private photorealTerrainProvider: Cesium.TerrainProvider | null = null;
-  /** §GLOBE-TERRAIN-HEIGHT — one-shot latch so we only attempt to create the World
-   *  Terrain provider ONCE per viewport (a failed/absent ion asset must not re-fetch on
-   *  every clamp). Set true the first time creation is attempted regardless of outcome. */
-  private photorealTerrainLoadTried = false;
+  // §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES (L-179, 2026-07-06) — the ion World Terrain
+  // sample provider (`photorealTerrainProvider` / `photorealTerrainLoadTried`) added by
+  // §GLOBE-TERRAIN-HEIGHT (bd23f6a3) is REMOVED. On the photoreal "3D globe" the building
+  // must sit on the SAME surface it is depth-tested against — the loaded Google
+  // Photorealistic 3D-Tiles mesh — not on a bare-earth terrain sample whose vertical datum
+  // is independent of the tiles. Preferring World Terrain (a) re-introduced the L-142
+  // 727 m-underground regression when the two datums disagree, and (b) opened an async
+  // network await whose token-abort race left the base at flat 0 → the model buried
+  // ~650 m under Madrid's photoreal ground. The globe now clamps ONLY to the tile surface
+  // (see `clampToPhotorealTilesThenReplace`). No ion terrain host, no CSP change.
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -3295,6 +3290,41 @@ export class CesiumViewport {
   }
 
   /**
+   * §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES (L-179) — PURE reduction of the photoreal-tile
+   * height picks to the building base height. Given every FINITE height sampled off the
+   * loaded Google 3D-Tiles surface (via clampToHeightMostDetailed / sampleHeightMostDetailed
+   * over the footprint + surrounding street ring) and an optional tileset bounding-sphere
+   * ground estimate, returns:
+   *   • the MINIMUM finite sample — a building roof is always ABOVE the ground it stands on,
+   *     so the min over the footprint+street ring reliably recovers the true street ground
+   *     even when the centroid itself is occluded by a neighbouring tile building; else
+   *   • the sphere ground estimate when it is finite and materially non-zero (|h| > 1 m — a
+   *     bogus ellipsoid-0 sphere must not be mistaken for real ground); else
+   *   • null → tiles have not streamed a height at this LOD yet (caller retries).
+   * No Cesium, no I/O, deterministic → P8 span-exempt (pure). Unit-tested (globe clamp math).
+   */
+  static selectPhotorealTileBaseHeight(
+    sampledHeights: readonly (number | null | undefined)[],
+    sphereGroundHeight: number | null,
+  ): number | null {
+    let min: number | null = null;
+    for (const h of sampledHeights) {
+      if (typeof h === 'number' && Number.isFinite(h)) {
+        min = min === null ? h : Math.min(min, h);
+      }
+    }
+    if (min !== null) return min;
+    if (
+      sphereGroundHeight !== null &&
+      Number.isFinite(sphereGroundHeight) &&
+      Math.abs(sphereGroundHeight) > 1
+    ) {
+      return sphereGroundHeight;
+    }
+    return null;
+  }
+
+  /**
    * §GLOBE-TILE-CLAMP-FLUSH (ADR-0095) — best-effort ground-height estimate from the
    * loaded Google Photorealistic 3D-Tiles primitive's own bounding sphere, used ONLY as
    * a last resort when both height-picking APIs return nothing (keyless ellipsoid → 0).
@@ -3314,94 +3344,6 @@ export class CesiumViewport {
       // sphere radius fraction so we approach the ground, not the mid-air centre.
       return cg.height - Math.min(sphere.radius ?? 0, 60) * 0.5;
     } catch {
-      return null;
-    }
-  }
-
-  /**
-   * §GLOBE-TERRAIN-HEIGHT (founder 2026-07-01) — lazily create (once) a STANDALONE
-   * Cesium World Terrain provider for BARE-EARTH height sampling, reusing the same
-   * `Cesium.Ion.defaultAccessToken` (set at module load from VITE_CESIUM_TOKEN) that
-   * unlocks the Google Photorealistic 3D-Tiles. Returns the provider (usable by
-   * `sampleTerrainMostDetailed`) or null when unavailable (no ion token, offline, older
-   * Cesium without `createWorldTerrainAsync`, or the fetch failed). Deliberately does
-   * NOT touch `viewer.scene.terrainProvider` — see the field doc: mounting terrain under
-   * the photoreal tiles z-fights them, so we keep this SAMPLE-ONLY. Guarded/best-effort;
-   * never throws. The `photorealTerrainLoadTried` latch ensures one attempt per viewport.
-   */
-  private async getPhotorealBareEarthTerrain(): Promise<Cesium.TerrainProvider | null> {
-    if (this.photorealTerrainProvider) return this.photorealTerrainProvider;
-    if (this.photorealTerrainLoadTried) return this.photorealTerrainProvider;
-    this.photorealTerrainLoadTried = true;
-    // No ion access → the world-terrain asset can't stream; skip (fall back to tiles).
-    if (!Cesium.Ion.defaultAccessToken) {
-      console.log(
-        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — no ion token → World Terrain ' +
-          'height sample unavailable; falling back to the photoreal-tile clamp.',
-      );
-      return null;
-    }
-    try {
-      const factory = (
-        Cesium as unknown as {
-          createWorldTerrainAsync?: () => Promise<Cesium.TerrainProvider>;
-        }
-      ).createWorldTerrainAsync;
-      if (typeof factory !== 'function') {
-        console.warn(
-          '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — Cesium.createWorldTerrainAsync ' +
-            'unavailable in this build; falling back to the photoreal-tile clamp.',
-        );
-        return null;
-      }
-      const provider = await factory.call(Cesium);
-      // Only keep it if it actually carries elevation data (has `availability`, is not the
-      // flat ellipsoid) — otherwise sampleTerrainMostDetailed would throw on it.
-      if (provider && this.terrainProviderHasElevationData(provider)) {
-        this.photorealTerrainProvider = provider;
-        console.log(
-          '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — Cesium World Terrain attached ' +
-            '(sample-only, bare-earth) for accurate building base height.',
-        );
-        return provider;
-      }
-      console.warn(
-        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — World Terrain provider has no ' +
-          'elevation availability; falling back to the photoreal-tile clamp.',
-      );
-      return null;
-    } catch (e) {
-      console.warn(
-        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — World Terrain load failed (' +
-          String(e) + '); falling back to the photoreal-tile clamp.',
-      );
-      return null;
-    }
-  }
-
-  /**
-   * §GLOBE-TERRAIN-HEIGHT — sample the TRUE bare-earth ground height at the footprint
-   * centroid via `Cesium.sampleTerrainMostDetailed` on the World Terrain provider. This
-   * is the ROBUST base height in ANY city because the terrain mesh EXCLUDES buildings —
-   * unlike the photoreal-tile clamp, whose every footprint/street sample can land on a
-   * roof in a wall-to-wall city (Paris 48.8697,2.317 logged a 131.98 m rooftop overshoot;
-   * central-Paris bare ground is ~40–80 m ellipsoid). Returns a finite height or null
-   * (provider unavailable / sample rejected / NaN). Guarded/best-effort; never throws.
-   */
-  private async samplePhotorealBareEarthHeight(lat: number, lon: number): Promise<number | null> {
-    const provider = await this.getPhotorealBareEarthTerrain();
-    if (!provider) return null;
-    try {
-      const carto = Cesium.Cartographic.fromDegrees(lon, lat);
-      const [result] = await Cesium.sampleTerrainMostDetailed(provider, [carto]);
-      const h = result?.height;
-      if (typeof h === 'number' && Number.isFinite(h)) return h;
-      return null;
-    } catch (e) {
-      console.warn(
-        '[CesiumViewport][globe] §GLOBE-TERRAIN-HEIGHT — sampleTerrainMostDetailed rejected (' +
-          String(e) + '); falling back to the photoreal-tile clamp.',
-      );
       return null;
     }
   }
@@ -3496,29 +3438,17 @@ export class CesiumViewport {
       samplePts.push({ lat: sampleLat, lon: sampleLon });
     }
 
-    // §GLOBE-TERRAIN-HEIGHT (founder 2026-07-01) — DEFINITIVE Z FIX. Prefer a REAL
-    // BARE-EARTH terrain sample over the tile-mesh clamp. The tile clamp raycasts the
-    // Google Photorealistic 3D-Tiles, which INCLUDE buildings — so in a wall-to-wall
-    // city EVERY footprint + street-ring sample lands on a roof, the min is still a
-    // rooftop, and the tower floats (Paris 48.8697,2.317 logged 131.98 m — a rooftop
-    // overshoot; bare ground is ~40–80 m ellipsoid). Cesium World Terrain is bare-earth
-    // (buildings excluded), so `sampleTerrainMostDetailed` at the footprint centroid
-    // gives the TRUE ground height in ANY city. We attach it as a SAMPLE-ONLY provider
-    // (NOT viewer.scene.terrainProvider — that would z-fight/float the photoreal tiles),
-    // reusing the same ion access that streams the tiles. If terrain is unavailable
-    // (no ion token / offline / older Cesium), we fall through to the tile-mesh clamp +
-    // street-ring below (unchanged), so nothing regresses on the keyless path.
-    {
-      const myTerrainToken = ++this.formaTerrainToken;
-      const bareEarth = await this.samplePhotorealBareEarthHeight(sampleLat, sampleLon);
-      // A newer placement started during the await → let it own the clamp; bail.
-      // §GLOBE-CRASH-GUARD — also bail if the viewer was disposed during the await.
-      if (myTerrainToken !== this.formaTerrainToken || !this.isViewerLive()) return;
-      if (bareEarth !== null && Number.isFinite(bareEarth)) {
-        this.commitPhotorealBase(input, bareEarth, sampleLat, sampleLon, 'terrain height sample');
-        return;
-      }
-    }
+    // §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES (L-179, 2026-07-06) — the building is seated on
+    // the SAME surface Cesium depth-tests it against: the loaded Google Photorealistic
+    // 3D-Tiles mesh. The prior §GLOBE-TERRAIN-HEIGHT path preferred an ion World-Terrain
+    // bare-earth sample here; that (a) re-introduced the L-142 727 m-underground regression
+    // whenever the terrain datum disagreed with the tiles, and (b) added a slow ion network
+    // await whose token-abort race (a retry/re-render bumping `formaTerrainToken` mid-await)
+    // returned out of the WHOLE clamp before the tile-mesh fallback ran → the base stayed at
+    // flat 0 and the real GLB sank ~650 m under Madrid's photoreal ground. We now go straight
+    // to the tile-surface clamp below (min over the footprint + surrounding STREET ring, so a
+    // wall-to-wall city's rooftops never win — the street min IS the ground), with NO ion
+    // terrain and NO CSP terrain host. See §GLOBE-GROUND-STREET-RING for the roof-rejection.
 
     // §GLOBE-TILE-CLAMP-FLUSH (founder 2026-07-01, ADR-0095) — RESIDUAL FLOAT ROOT CAUSE.
     // The prior clamp used `scene.sampleHeightMostDetailed`, which projects each point
@@ -3569,7 +3499,10 @@ export class CesiumViewport {
     const excludeArg = exclude.length > 0 ? exclude : undefined;
 
     const myToken = ++this.formaTerrainToken;
-    let sampledHeight: number | null = null;
+    // §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES — collect every finite tile-surface height pick
+    // (clamp + sample), then reduce to the base via the pure `selectPhotorealTileBaseHeight`
+    // (min over footprint+street ring; tileset bounding-sphere ground as the last resort).
+    const tileHeights: number[] = [];
     try {
       // Prefer clampToHeightMostDetailed against the loaded photoreal tile MESH.
       if (typeof clampFn === 'function') {
@@ -3581,20 +3514,16 @@ export class CesiumViewport {
           if (!c) continue;
           const cg = Cesium.Cartographic.fromCartesian(c);
           const h = cg?.height;
-          if (typeof h === 'number' && Number.isFinite(h)) {
-            sampledHeight = sampledHeight === null ? h : Math.min(sampledHeight, h);
-          }
+          if (typeof h === 'number' && Number.isFinite(h)) tileHeights.push(h);
         }
       }
       // Fallback: sampleHeightMostDetailed (may still resolve if clamp found nothing).
-      if (sampledHeight === null && typeof sampleFn === 'function') {
+      if (tileHeights.length === 0 && typeof sampleFn === 'function') {
         const cartos = samplePts.map((s) => Cesium.Cartographic.fromDegrees(s.lon, s.lat));
         const results = await sampleFn.call(scene, cartos, excludeArg);
         for (const r of results) {
           const h = r?.height;
-          if (typeof h === 'number' && Number.isFinite(h)) {
-            sampledHeight = sampledHeight === null ? h : Math.min(sampledHeight, h);
-          }
+          if (typeof h === 'number' && Number.isFinite(h)) tileHeights.push(h);
         }
       }
     } catch (e) {
@@ -3613,15 +3542,15 @@ export class CesiumViewport {
     // mid-height for the area, a far better ground estimate than 0. We keep the retry
     // path (below) for when tiles simply haven't streamed; this only fires once retries
     // are exhausted OR the sphere is clearly non-zero.
-    if (sampledHeight === null) {
-      const sphereH = this.photorealTilesetGroundHeight();
-      if (sphereH !== null && Number.isFinite(sphereH) && Math.abs(sphereH) > 1) {
-        sampledHeight = sphereH;
-        console.log(
-          `[CesiumViewport][globe] §GLOBE-TILE-CLAMP-FLUSH picking returned no height — ` +
-            `falling back to tileset bounding-sphere ground ${sphereH.toFixed(2)} m.`,
-        );
-      }
+    let sampledHeight = CesiumViewport.selectPhotorealTileBaseHeight(
+      tileHeights,
+      this.photorealTilesetGroundHeight(),
+    );
+    if (sampledHeight !== null && tileHeights.length === 0) {
+      console.log(
+        `[CesiumViewport][globe] §GLOBE-TILE-CLAMP-FLUSH picking returned no height — ` +
+          `falling back to tileset bounding-sphere ground ${sampledHeight.toFixed(2)} m.`,
+      );
     }
 
     // A newer placement started after us — let it own the clamp; bail.
