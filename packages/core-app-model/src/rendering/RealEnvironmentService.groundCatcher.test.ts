@@ -47,26 +47,48 @@ describe('RealEnvironmentService §FIX-SHADOW-CATCHER-RESTORE (L-112)', () => {
         svc.bind(scene, makeKeyLightHost(), () => null, () => 0);
     });
 
-    it('enable() attaches the receiver UP FRONT so it can receive the real shadow', () => {
+    it('enable() attaches the receiver UP FRONT (L-112 receive) but keeps it INVISIBLE on an empty scene (L-107 no grey)', () => {
         svc.enable();
         // Attached from enable() — NOT deferred until a caster exists (that late-attach
-        // is what broke shadow receive on WebGPU).
+        // is what broke shadow receive on WebGPU in L-107). Graph membership is stable.
         expect(svc.isGroundCatcherAttached()).toBe(true);
         expect(scene.children).toContain(svc.ground.mesh);
         // Configured as a receiver: receives shadows, never casts (adds zero casters).
         expect(svc.ground.mesh.receiveShadow).toBe(true);
         expect(svc.ground.mesh.castShadow).toBe(false);
         expect(svc.ground.mesh.material).toBeInstanceOf(THREE.ShadowMaterial);
+        // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — 0 casters ⇒ HIDDEN,
+        // so a brand-new empty project shows NO opaque grey square. (L-112 restored the
+        // grey as a tradeoff; L-200 reconciles: attached-up-front AND caster-gated.)
+        expect(svc.ground.mesh.visible).toBe(false);
+        expect(svc.sceneHasCasters).toBe(false);
+    });
+
+    it('§L-200: 0 casters → catcher.visible=false; ≥1 caster → catcher.visible=true (and receiving)', () => {
+        svc.enable();
+        // Empty scene → hidden.
+        expect(svc.ground.mesh.visible).toBe(false);
+
+        // Add a real shadow caster (a building) and re-run the caster gate.
+        addCaster(scene);
+        svc.refitShadowToScene();
+
+        // ≥1 caster → shown, still attached, still a receiver → the real ground shadow lands.
+        expect(svc.sceneHasCasters).toBe(true);
         expect(svc.ground.mesh.visible).toBe(true);
+        expect(svc.isGroundCatcherAttached()).toBe(true);
+        expect(svc.ground.mesh.receiveShadow).toBe(true);
     });
 
     it('receiver stays attached when a caster (building) is added — real shadow lands', () => {
         svc.enable();
         addCaster(scene);
+        svc.refitShadowToScene();
         // The receiver is (and remains) in the scene graph → in the shadow pass →
-        // it receives the caster's real sun shadow. No caster-count gating.
+        // it receives the caster's real sun shadow, and is now visible (caster present).
         expect(svc.isGroundCatcherAttached()).toBe(true);
         expect(svc.ground.mesh.receiveShadow).toBe(true);
+        expect(svc.ground.mesh.visible).toBe(true);
     });
 
     it('moving the sun keeps the receiver attached and re-drives the key light', () => {
@@ -80,14 +102,27 @@ describe('RealEnvironmentService §FIX-SHADOW-CATCHER-RESTORE (L-112)', () => {
         expect(after).not.toBe(before);
     });
 
-    it('ground-shadows OFF hides the receiver; ON re-attaches it', () => {
+    it('ground-shadows OFF hides the receiver; ON re-attaches it (visible because a caster is present)', () => {
         svc.enable();
+        // A caster is present, so the ground toggle governs visibility.
+        addCaster(scene);
+        svc.refitShadowToScene();
+        expect(svc.ground.mesh.visible).toBe(true);
+
         svc.setGroundShadows(false);
         expect(svc.ground.mesh.visible).toBe(false);
         svc.setGroundShadows(true);
         expect(svc.isGroundCatcherAttached()).toBe(true);
         expect(svc.ground.mesh.visible).toBe(true);
         expect(svc.ground.mesh.receiveShadow).toBe(true);
+    });
+
+    it('§L-200: toggling ground-shadows ON with an EMPTY scene shows NO grey plane (still hidden)', () => {
+        svc.enable();
+        svc.setGroundShadows(false);
+        svc.setGroundShadows(true); // ON, but no caster → must stay hidden
+        expect(svc.isGroundCatcherAttached()).toBe(true); // attached (in the shadow pass)
+        expect(svc.ground.mesh.visible).toBe(false);       // but invisible → no grey
     });
 
     it('no synchronous GPU dispose on toggle (ADR-0111 safe) — material/geometry kept', () => {

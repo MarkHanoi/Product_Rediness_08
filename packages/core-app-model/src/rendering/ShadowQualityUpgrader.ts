@@ -200,25 +200,59 @@ export class ShadowQualityUpgrader {
                     shadowNormalBias: obj.shadow.normalBias,
                 });
 
-                // Apply upgrade
-                obj.shadow.mapSize.set(cfg.mapWidth, cfg.mapHeight);
-                obj.shadow.bias       = cfg.bias;
-                obj.shadow.normalBias = cfg.normalBias;
-                if ('radius' in obj.shadow) {
-                    (obj.shadow as any).radius = cfg.radius;
+                // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (founder L-200) — a LIVE
+                // caster whose shadow map is ALREADY allocated (the Pascal key light after
+                // the live WebGPU renderer has rendered its first shadow depth pass) must
+                // NEVER be reallocated here. Changing `mapSize` or nulling `sh.map` forces
+                // THREE to destroy+recreate the ShadowDepthTexture; the old texture is
+                // disposed while the previous frame's WebGPU submit still references it →
+                // "Destroyed texture [ShadowDepthTexture] used in a submit" ×hundreds, and
+                // the live RenderPipeline keeps binding the now-stale handle every frame
+                // (the founder's 500× repeat). This is THE unguarded churn behind L-200:
+                // on project open the auto-activate `apply('standard')` shrank the Pascal
+                // key light's 1024 map → 512, reallocating + disposing the live
+                // ShadowDepthTexture. The `_reallocShadow` freeze only stops THREE's OWN
+                // in-render realloc; it cannot stop this explicit resize+release, whose
+                // `setTimeout(0)` dispose is a timing hope, not a GPU fence.
+                //
+                // Mirrors the L-195 setLevel contract: the map's device-safe SIZE is fixed
+                // at its FIRST (cold, not-yet-rendered) allocation; every later apply tunes
+                // only the NON-reallocating params (bias / normalBias / radius / type). When
+                // the map has not been allocated yet (`sh.map == null` — a true cold start,
+                // and every headless test where THREE never renders) we DO set the size and
+                // prime the regen: that allocation is device-safe precisely because no GPU
+                // submit can reference a texture that does not exist yet.
+                const shadow = obj.shadow;
+                const alreadyAllocated = shadow.map != null;
+                if (!alreadyAllocated) {
+                    shadow.mapSize.set(cfg.mapWidth, cfg.mapHeight);
+                }
+                shadow.bias       = cfg.bias;
+                shadow.normalBias = cfg.normalBias;
+                if ('radius' in shadow) {
+                    (shadow as any).radius = cfg.radius;
                 }
 
-                // Invalidate shadow map so it is regenerated at new resolution.
-                // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) / §SHADOW-DEVICE-LOSS-FIX —
-                // null the map NOW so THREE regenerates it, but DEFER the GPU dispose past
-                // the current frame's submit. Disposing synchronously while a command
-                // buffer still references the texture triggers "Destroyed texture
-                // [ShadowDepthTexture] used in a submit" → device-loss cascade.
-                ShadowQualityUpgrader._deferReleaseShadowMap(obj.shadow);
+                if (!alreadyAllocated) {
+                    // Cold start only. `sh.map` is null so this deferral is a documented
+                    // no-op (nothing to reclaim); THREE allocates the map fresh at the
+                    // device-safe size on the next render. Kept for cold-start symmetry.
+                    // §SHADOW-DISPOSE-DEFER (founder 2026-06-19) / §SHADOW-DEVICE-LOSS-FIX.
+                    ShadowQualityUpgrader._deferReleaseShadowMap(shadow);
+                }
+                // else: an already-allocated LIVE caster — its ShadowDepthTexture is left
+                // untouched (size pinned, handle preserved), so no texture is ever destroyed
+                // mid-submit and the live pipeline never binds a stale handle. The tier's
+                // level change is now purely the cosmetic radius/bias tune it was meant to be.
             }
         });
 
         this._isApplied = true;
+        // NOTE (§FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER / L-200): the logged
+        // `map: ${cfg.mapWidth}px` is the level's NOMINAL size. It only reaches an
+        // already-allocated live caster's texture on a cold start (sh.map == null);
+        // an already-rendered caster keeps its first device-safe allocation (see the
+        // upgrade loop above) — the level change tunes radius/bias, never the map size.
         console.log(
             `[ShadowQualityUpgrader] Applied "${level}" — map: ${cfg.mapWidth}px` +
             ` radius: ${cfg.radius} bias: ${cfg.bias}` +

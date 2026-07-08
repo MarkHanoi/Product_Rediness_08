@@ -102,6 +102,49 @@ describe('ShadowQualityUpgrader §FIX-SHADOW-REALLOC-DEVICE-LOSS-PROJECT-SWITCH'
         expect(disposed).toBe(false);
     });
 
+    it('§FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200): apply() on a LIVE caster whose shadow map is already allocated NEVER reallocs/disposes it', async () => {
+        // Root cause of L-200: on project open the auto-activate `apply('standard')`
+        // ran AFTER the live WebGPU renderer had already rendered the Pascal key light's
+        // shadow depth pass — so `sh.map` was a real ShadowDepthTexture. The OLD apply
+        // shrank mapSize 1024→512 and nulled+disposed that texture, destroying it while
+        // the in-flight WebGPU submit still referenced it → "Destroyed texture
+        // [ShadowDepthTexture] used in a submit" ×hundreds → device loss → the shadow
+        // pass died → the invisible ground catcher had nothing to composite → opaque grey.
+        // The fix pins the map to its first (cold) allocation; a later apply on a live
+        // caster tunes only the non-reallocating params. This proves NO realloc/dispose.
+        const { scene, key } = sceneWithKeyLight();
+
+        // Simulate the live state: the key light already has a rendered 1024 map.
+        key.shadow.mapSize.set(1024, 1024);
+        let disposed = false;
+        const liveMap = { dispose() { disposed = true; } };
+        (key.shadow as unknown as { map: unknown }).map = liveMap;
+
+        upgrader.apply(fakeRenderer(), scene, 'standard');
+
+        // The existing ShadowDepthTexture is KEPT (never nulled) — no regen, no destroy.
+        expect((key.shadow as unknown as { map: unknown }).map).toBe(liveMap);
+        // The device-safe size stays at its first allocation — NOT shrunk to 512.
+        expect(key.shadow.mapSize.width).toBe(1024);
+        expect(key.shadow.mapSize.height).toBe(1024);
+        // The non-reallocating params DO tune to the requested level (standard).
+        expect((key.shadow as unknown as { radius: number }).radius).toBe(1);
+        expect(key.shadow.bias).toBeCloseTo(-0.0001);
+        // No deferred dispose is scheduled either — the live texture survives.
+        await new Promise((r) => setTimeout(r, 0));
+        expect(disposed).toBe(false);
+    });
+
+    it('§FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200): a COLD caster (no map yet) still gets its device-safe allocation', () => {
+        // The cold-start path (true first open + every headless test where THREE never
+        // renders, so sh.map stays null) must be UNCHANGED: apply sets the level's size.
+        const { scene, key } = sceneWithKeyLight();
+        expect((key.shadow as unknown as { map: unknown }).map).toBeNull();
+        upgrader.apply(fakeRenderer(), scene, 'standard');
+        expect(key.shadow.mapSize.width).toBe(512);
+        expect(key.shadow.mapSize.height).toBe(512);
+    });
+
     it('survival shadows-OFF gate still disables the map so shadows cost nothing on heavy scenes', () => {
         const { scene, key } = sceneWithKeyLight();
         const renderer = fakeRenderer();

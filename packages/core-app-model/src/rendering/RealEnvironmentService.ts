@@ -51,12 +51,31 @@ export class RealEnvironmentService {
     private _readGroundElevation: GroundElevationReader = () => 0;
     private _enabled = false;
     private _groundShadowsEnabled = true;
+    /**
+     * §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — whether the scene
+     * currently holds any shadow-CASTING geometry. The catcher is a `ShadowMaterial`
+     * plane that, with NO caster/shadow, reads as "fully shadowed" → an opaque GREY
+     * fill on WebGPU (the founder's empty-project grey square). It is updated by
+     * {@link refitShadowToScene} on the app's debounced geometry cadence.
+     *
+     * RECONCILING L-107 + L-112: L-107 removed the grey by DETACHING the receiver
+     * when empty, but that late re-attach dropped it out of the WebGPU shadow-sampling
+     * set → the real ground shadow disappeared (L-112 reverted it, re-accepting the
+     * grey). The correct fix keeps the receiver ATTACHED up front (L-112's receive is
+     * preserved — it is in the shadow pass from frame 1) and gates only its VISIBILITY
+     * on caster presence (L-107's grey fix): invisible with 0 casters, visible + fully
+     * receiving once ≥1 caster exists. Graph membership never changes, so no late
+     * pipeline rebind can drop the receiver.
+     */
+    private _hasCasters = false;
 
     // ── Getters (diagnostics / tests) ────────────────────────────────────────
     get enabled(): boolean { return this._enabled; }
     get sun(): RealSunService { return this._sun; }
     get ground(): GroundShadowCatcher { return this._ground; }
     get groundShadowsEnabled(): boolean { return this._groundShadowsEnabled; }
+    /** §L-200 — true while the scene has a shadow caster (so the catcher is shown). */
+    get sceneHasCasters(): boolean { return this._hasCasters; }
 
     /**
      * Bind the service to the live scene + the host that owns the real shadow
@@ -112,19 +131,45 @@ export class RealEnvironmentService {
         // count. (The cosmetic empty-project grey — ShadowMaterial not fully
         // transparent where unlit on WebGPU — is a SEPARATE follow-up that must NOT
         // touch this receive path.)
+        // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — ATTACH the receiver
+        // up front (keep L-112: in the shadow pass from frame 1 so it receives the real
+        // shadow), but leave VISIBILITY to the caster gate below. On a brand-new empty
+        // project there are 0 casters → the plane is attached-but-invisible, so there is
+        // no opaque grey square; the moment the first caster lands (refit fires on the
+        // geometry event) it becomes visible and composites the real ground shadow.
         this._ground.setElevation(this._readGroundElevation());
-        this._ground.setEnabled(this._groundShadowsEnabled);
         if (this._groundShadowsEnabled) this._ground.attach(this._scene);
 
         this._enabled = true;
         // §FIX-GROUND-SHADOW-AT-PERF-TIER — fit the shadow frustum to whatever geometry
-        // is already present (project switch / reload). A no-op on a fresh empty scene.
+        // is already present (project switch / reload) AND recompute the caster gate that
+        // drives the catcher's visibility. A no-op-safe hide on a fresh empty scene.
         this.refitShadowToScene();
         console.log(
             '[RealEnvironmentService] §FEAT-REAL-ENVIRONMENT enabled — ' +
             `site=${site ? `${site.lat.toFixed(3)},${site.lon.toFixed(3)}` : 'default'} ` +
-            `ground=${this._groundShadowsEnabled ? 'on (catcher attached — receiving real shadow)' : 'off'}.`,
+            `ground=${this._groundShadowsEnabled ? `on (catcher attached; ${this._hasCasters ? 'visible — receiving real shadow' : 'hidden until first caster'})` : 'off'}.`,
         );
+    }
+
+    /**
+     * §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — apply the catcher's
+     * attach + visibility from the current ground-shadow toggle and caster gate.
+     *
+     * Keeps the receiver ATTACHED whenever ground shadows are on (L-112 — never dropped
+     * from the shadow-sampling set), and shows it (`setEnabled(true)` → `mesh.visible`)
+     * ONLY when there is a caster (L-107 — no grey on an empty scene). No GPU dispose,
+     * no graph churn — ADR-0111 safe.
+     */
+    private _applyCatcher(): void {
+        if (!this._scene) return;
+        if (this._groundShadowsEnabled) {
+            this._ground.setElevation(this._readGroundElevation());
+            this._ground.attach(this._scene);
+            this._ground.setEnabled(this._hasCasters);
+        } else {
+            this._ground.setEnabled(false);
+        }
     }
 
     /** Re-solve the sun after the site location changes (onboarding / relocate). */
@@ -161,6 +206,7 @@ export class RealEnvironmentService {
         const catcher = this._ground.mesh;
         const box = new THREE.Box3();
         let any = false;
+        let hasCaster = false;
         this._scene.traverse((obj) => {
             if (obj === catcher) return;
             // Meshes + InstancedMeshes (generated buildings render instanced) — the
@@ -175,7 +221,17 @@ export class RealEnvironmentService {
                 name.includes('collision') || name.includes('helper')) return;
             box.expandByObject(obj as THREE.Object3D);
             any = true;
+            // §L-200 — a real, shadow-CASTING mesh is what the catcher needs to show a
+            // shadow. Pascal flags every element castShadow, so "has caster" == "has
+            // real geometry" in practice, but check castShadow explicitly for intent.
+            if ((obj as THREE.Mesh).castShadow) hasCaster = true;
         });
+        // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — drive the catcher's
+        // visibility from the caster gate: hidden on an empty scene (no grey square),
+        // shown + receiving once a caster exists. The receiver stays ATTACHED throughout
+        // (L-112 receive preserved); only mesh.visible flips.
+        this._hasCasters = hasCaster;
+        this._applyCatcher(); // idempotent — sets the initial hidden state on empty too
         if (!any || box.isEmpty()) {
             // No real geometry yet — clear coverage so an emptied scene reverts to the
             // legacy fixed frustum instead of holding a stale (possibly huge) one.
@@ -217,13 +273,10 @@ export class RealEnvironmentService {
     setGroundShadows(enabled: boolean): void {
         this._groundShadowsEnabled = enabled;
         if (!this._scene) return;
-        if (enabled) {
-            this._ground.setElevation(this._readGroundElevation());
-            this._ground.attach(this._scene);
-            this._ground.setEnabled(true);
-        } else {
-            this._ground.setEnabled(false);
-        }
+        // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — enabling attaches the
+        // receiver up front (L-112 receive) but shows it ONLY when a caster exists (L-107 —
+        // toggling ON with an empty scene must NOT paint a grey plane); disabling hides it.
+        this._applyCatcher();
     }
 
     /** Tear down: restore the key light, remove + free the catcher. */
