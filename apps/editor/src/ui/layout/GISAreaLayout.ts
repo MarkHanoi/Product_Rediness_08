@@ -10,6 +10,15 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
+// §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193) — PURE view-switch
+// decision helpers (no Cesium/DOM/THREE): the Forma real-model cache reuse decision +
+// its invalidation when the photoreal globe destroys the Forma primitive (Symptom A),
+// and the toggleGIS re-activation branch action (Symptom B).
+import {
+    decideGlobeReactivationAction,
+    decideFormaRealPlacement,
+    invalidateFormaRealCacheOnPhotorealGlobeEntry,
+} from '../geospatial/globePlacementDecisions';
 // §FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) — the PLAN-VIEW analogue of the 3D site view:
 // composite the real-world GIS/aerial context (buildSiteGisContextRaster) as a plan-canvas
 // underlay BENEATH the authored building via the EXISTING L-71 underlay pipeline
@@ -39,6 +48,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let isGisInitialized = false;
     let isBimPlacedOnEarth = false;
     let _gisActive = false;
+    // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193, Symptom B) — set true
+    // by an orchestrator (applyResultView('3D') globe entry / engageFormaCesium Forma entry)
+    // around its own `toggleGIS(true)` call so the re-activation branch does NOT ALSO place
+    // (avoids a double-place / fighting Forma mode). Direct entries (nav-rail GIS button,
+    // onboarding pryzmToggleGIS) leave it false → the branch restores the modern real model.
+    let gisReactivationSelfPlaceSuppressed = false;
     // A.8.a/A.8.c — GIS site-authoring surfaces, created when Cesium mounts.
     let geocodeBox: import('../site/siteGeocodeSearchBox').SiteGeocodeSearchBox | null = null;
     let boundaryTool: import('../geospatial/SiteBoundaryDrawTool').SiteBoundaryDrawTool | null = null;
@@ -296,14 +311,33 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     detachBimGizmoForGis();
                     cesiumViewport.setVisible(true);
 
-                    // 🔄 SYNC UPDATE (Only After Placement Exists)
-                    if (isBimPlacedOnEarth) {
+                    // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193/L-186,
+                    // Symptom B) — decide how to restore the building on a Cesium RE-entry.
+                    // `setVisible(false)` (on GIS exit) preserved the Cesium primitives, but a
+                    // view round-trip (esp. globe→forma→globe) DESTROYS the globe real-model
+                    // primitive (CesiumViewport.clearRealModelOnGlobe). The old branch only
+                    // re-synced the LEGACY loadBimGltf model (gated on isBimPlacedOnEarth) and
+                    // never re-ran the modern real-model placement + reframe — so a building
+                    // placed via the real-model path vanished on a direct re-entry (nav-rail
+                    // GIS button / onboarding). The pure decision preserves the legacy re-sync
+                    // exactly and ADDS the modern restore for the direct (non-suppressed) path;
+                    // applyResultView/engageFormaCesium suppress it (they self-place).
+                    const reactivation = decideGlobeReactivationAction({
+                        isBimPlacedOnEarth,
+                        selfPlaceSuppressed: gisReactivationSelfPlaceSuppressed,
+                    });
+                    if (reactivation === 'legacy-gltf-resync') {
+                        // 🔄 SYNC UPDATE (legacy placeBimOnEarth path) — no camera fly.
                         import('@pryzm/file-format').then(async ({ exportFragmentsToGLB }) => {
                             const url = await exportFragmentsToGLB(props.world.scene.three as any);
-                            // Load without flying camera to preserve current view
                             await cesiumViewport.loadBimGltf(url, {}, 1.0, false);
                             console.log("GIS: Sync update completed (no camera fly)");
                         });
+                    } else if (reactivation === 'restore-real-model') {
+                        console.log('[gis] §FIX-GISLAYOUT-…-GLOBE-REENTRY: direct globe re-entry — re-placing the real model + reframing (idempotent).');
+                        restorePhotorealGlobeContent();
+                    } else {
+                        console.log('[gis] §FIX-GISLAYOUT-…-GLOBE-REENTRY: re-activation placement suppressed (orchestrator self-places).');
                     }
                 }
                 if (bridge) {
@@ -584,34 +618,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         activeSegment = mode;
         if (mode === '3D') {
             // Show the Cesium globe with the site context and frame the plot.
-            toggleGIS(true);
-            // toggleGIS mounts Cesium async on first use; give it a beat, then frame.
-            setTimeout(() => {
-                // §GLOBE-EXIT-FORMA (2026-06-05) — the viewer force-mounts in FORMA
-                // mode when there's no Cesium token (applyFormaMode hides ALL imagery
-                // layers + darkens the sky), so the "3D globe" rendered BLACK even
-                // though the keyless OSM basemap is installed. EXIT Forma here so the
-                // real-world OSM globe shows. "Site 3D (Forma)" stays the massing
-                // study (it forces Forma back on via mountFormaViewToggle → engage).
-                try { cesiumViewport?.setFormaMode?.(false); }
-                catch (e) { console.warn('[gis] 3D globe: setFormaMode(false) failed (non-fatal):', e); }
-                // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — arm the one-shot corrective
-                // re-frame BEFORE placing (so it survives the async tile-height clamp the
-                // placement kicks off). The immediate reframeSiteIn3D() below frames at the
-                // flat base 0; once the clamp settles the real Google-tile ground, this arm
-                // fires performInitialReframe ONCE to re-frame the building at the settled
-                // base — so the founder lands ON the building with no manual "Zoom to Site".
-                // Entry-only: fidelity flips route through setGlobeBuildingFidelity, which
-                // must NOT re-arm (never yank the camera on a flip).
-                try { cesiumViewport?.armGlobeReframeOnBaseSettle?.('oblique'); }
-                catch (e) { console.warn('[gis] 3D globe: armGlobeReframeOnBaseSettle failed (non-fatal):', e); }
-                // §A.21.D39#5 — place the user's HOUSE on the photoreal globe (was:
-                // only the photoreal CONTEXT showed, no building). Reuses the Forma
-                // massing readers via renderBuildingOnGlobe (keepPhotoreal) so the
-                // real imagery/tiles/sky stay shown with the house sitting in them.
-                placeBuildingOnGlobe();
-                void reframeSiteIn3D();
-            }, 350);
+            // §FIX-GISLAYOUT-…-GLOBE-REENTRY (L-193, Symptom B) — this orchestrator drives its
+            // OWN placement below (setTimeout → restorePhotorealGlobeContent), so suppress the
+            // synchronous re-activation-branch placement to avoid a double-place. toggleGIS runs
+            // the re-activation branch SYNCHRONOUSLY, so the flag is only live for that tick.
+            gisReactivationSelfPlaceSuppressed = true;
+            try { toggleGIS(true); } finally { gisReactivationSelfPlaceSuppressed = false; }
+            // toggleGIS mounts Cesium async on first use; give it a beat, then frame + place.
+            // On FIRST mount the re-activation branch does NOT run (first-mount branch), so this
+            // is the sole placement path there; on a re-entry the branch was suppressed above.
+            setTimeout(() => { restorePhotorealGlobeContent(); }, 350);
         } else {
             // O.7.2.b — '2D' now means the BIM DUAL-PANE (LEFT 3D · RIGHT plan), the
             // founder-specified post-generate landing, not the Cesium globe.
@@ -1706,6 +1722,34 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
 
+    // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193) — the SINGLE routine
+    // that (re)establishes the photoreal "3D globe" content. Shared by the result-toggle
+    // globe entry (applyResultView('3D')) AND the direct-toggle re-entry branch (Symptom B),
+    // so every globe entry seats + frames identically + idempotently.
+    //   1. EXIT Forma (setFormaMode(false)) so the real-world imagery shows (§GLOBE-EXIT-FORMA).
+    //      This ALSO destroys the Forma study real-model primitive (restorePhotorealMode →
+    //      clearRealModelOnForma) — so we INVALIDATE the GISAreaLayout Forma real-model cache
+    //      (Symptom A): the next Forma "3D Site" entry must re-export + re-place the real house
+    //      instead of reusing a destroyed model (which left the massing prism on screen).
+    //   2. Arm the one-shot corrective re-frame that fires once the async tile-height clamp
+    //      settles the real Google-tile ground (§FIX-GLOBE-AUTOFRAME-AND-SEAT, L-184).
+    //   3. Place the building on the photoreal globe (renderBuildingOnGlobe → real-model
+    //      overlay; L-186 liveness cache re-exports when the primitive was cleared, reuses
+    //      when still live; L-179 clamp-to-photoreal-tiles preserved inside the viewport).
+    //   4. Frame the camera to the placed building now (reframeSiteIn3D).
+    const restorePhotorealGlobeContent = (): void => {
+        try { cesiumViewport?.setFormaMode?.(false); }
+        catch (e) { console.warn('[gis] 3D globe: setFormaMode(false) failed (non-fatal):', e); }
+        // Symptom A — entering the photoreal globe destroyed any Forma study real model.
+        const invalidated = invalidateFormaRealCacheOnPhotorealGlobeEntry();
+        formaRealLastSig = invalidated.lastSig;
+        formaRealPlaced = invalidated.placed;
+        try { cesiumViewport?.armGlobeReframeOnBaseSettle?.('oblique'); }
+        catch (e) { console.warn('[gis] 3D globe: armGlobeReframeOnBaseSettle failed (non-fatal):', e); }
+        placeBuildingOnGlobe();
+        void reframeSiteIn3D();
+    };
+
     // §A.21.D49 — export the live BIM scene to GLB and place it as the REAL detailed
     // model on the photoreal tiles. On success, hide the abstract Forma massing
     // blocks so only the real model shows. Any failure leaves the massing in place
@@ -1873,20 +1917,32 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // the geometry signature is unchanged (task #4 perf).
     const placeRealModelOnForma = async (origin: { lat: number; lon: number }): Promise<void> => {
         try {
-            if (formaBuildingFidelity !== 'real') return;             // massing study chosen.
-            if (!cesiumViewport?.renderRealModelOnForma) {
+            const sig = computeBuildingSignature();
+            // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193, Symptom A) — the
+            // reuse-vs-re-export decision. The cache flags (formaRealPlaced / formaRealLastSig)
+            // are INVALIDATED when the photoreal globe destroys the Forma real-model primitive
+            // (restorePhotorealGlobeContent → invalidateFormaRealCacheOnPhotorealGlobeEntry), so
+            // after a globe→forma round-trip this returns 'export-and-place' (re-places the real
+            // house) instead of a stale 'reuse-placed' (which left the massing prism on screen).
+            const action = decideFormaRealPlacement({
+                fidelity: formaBuildingFidelity,
+                hasViewportApi: typeof cesiumViewport?.renderRealModelOnForma === 'function',
+                exporting: formaRealExporting,
+                currentSig: sig,
+                cache: { lastSig: formaRealLastSig, placed: formaRealPlaced },
+            });
+            if (action === 'skip-massing-fidelity') return;           // massing study chosen.
+            if (action === 'skip-no-viewport-api') {
                 console.warn('[gis][forma6] renderRealModelOnForma unavailable (old build) — keeping massing.');
                 return;
             }
-            if (formaRealExporting) return;                           // an export is already in flight.
-            const sig = computeBuildingSignature();
-            // Skip re-export when geometry is unchanged AND a model is already placed.
-            if (sig === formaRealLastSig && formaRealPlaced && formaRealLastSig !== null) {
-                // Geometry unchanged — just re-seat (cheap) by re-placing nothing; the
-                // viewport keeps the existing model. Done.
+            if (action === 'skip-export-in-flight') return;           // an export is already in flight.
+            if (action === 'reuse-placed') {
+                // Geometry unchanged AND the model is still placed — reuse it, no re-export.
                 console.log('[gis][forma6] geometry unchanged — reusing placed real model (no re-export).');
                 return;
             }
+            // action === 'export-and-place'
             const scene = props.world?.scene?.three;
             if (!scene) {
                 console.warn('[gis][forma6] no BIM scene to serialise — keeping massing.');
@@ -2056,7 +2112,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const engageFormaCesium = (preset: 'oblique' | 'plan'): void => {
         const targetMode: FormaViewMode = preset === 'plan' ? 'plan' : '3d';
         console.log(`[gis][forma] activating ${targetMode === 'plan' ? 'Plan (plan-oblique)' : '3D (NW oblique)'} → forcing Forma massing mode.`);
-        toggleGIS(true);
+        // §FIX-GISLAYOUT-…-GLOBE-REENTRY (L-193, Symptom B) — entering the Forma "3D Site"
+        // study self-places via renderFormaMassing (after awaitCesiumReady); suppress the
+        // synchronous re-activation-branch globe placement so it never fights Forma mode.
+        gisReactivationSelfPlaceSuppressed = true;
+        try { toggleGIS(true); } finally { gisReactivationSelfPlaceSuppressed = false; }
         // Force Forma look NOW (idempotent) so even an already-mounted viewer
         // (with a Cesium token → otherwise photoreal) flips to the massing study.
         window.pryzmSetCesiumFormaMode?.(true);
