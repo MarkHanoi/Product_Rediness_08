@@ -56,6 +56,13 @@ export interface ContextBuildingFeature {
         readonly floors?: number;
         /** OSM id (debug / dedupe). */
         readonly osmId: number;
+        /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — distance ring for the renderer's LOD:
+         *  'near' = extruded + shadows (as today); 'far' = flat/low-poly, shadows OFF.
+         *  Absent on the legacy near-only path (treated as 'near'). */
+        readonly ring?: 'near' | 'far';
+        /** §FEAT-FORMA-CONTEXT-EXTENT-LOD — planar distance (m) of the footprint centroid
+         *  from the site origin; drives the nearest-N cap + the LOD ring split. */
+        readonly distM?: number;
     };
 }
 
@@ -175,6 +182,24 @@ export const CONTEXT_BBOX_HALF_DEG = 0.008;
  * context buildings rather than a bare ground plane.
  */
 export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
+
+/**
+ * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187, founder-approved) — the FAR-ring half-extent.
+ *
+ * Extends the Forma context OUTWARD to read as a fuller neighbourhood WITHOUT the naïve
+ * "just multiply the constant" perf cliff the founder called out: a 5× radius = 25× area =
+ * ~10k shadow-casting extruded footprints would blow the A.24 / device-loss budget. Instead
+ * this is a MODERATE extension (0.008° → 0.016°, ~2× radius / ~4× area) whose EXTRA (annulus)
+ * footprints render as FLAT low-poly blocks with SHADOWS OFF and are hard-CAPPED to the
+ * nearest `CONTEXT_FAR_MAX_BUILDINGS`. The inner near ring is untouched (extruded + shadows),
+ * so nothing regresses; the far ring is purely additive, bounded context.
+ */
+export const CONTEXT_BBOX_FAR_HALF_DEG = 0.016;
+
+/** §FEAT-FORMA-CONTEXT-EXTENT-LOD — hard CAP on FAR-ring footprints kept for render (the
+ *  nearest N by centroid distance). Bounds the shadow-off geometry budget so a dense urban
+ *  annulus can never stack thousands of extra primitives. */
+export const CONTEXT_FAR_MAX_BUILDINGS = 900;
 
 /**
  * Overpass request timeout (ms).
@@ -658,6 +683,98 @@ async function raceMirrors(
     } finally {
         signal?.removeEventListener('abort', linkCaller);
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — distance-based far-ring selection + fetch
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Centroid (lon,lat) of a footprint's outer ring (ignores the closing duplicate). PURE. */
+export function ringCentroidLonLat(feature: ContextBuildingFeature): [number, number] {
+    const ring = feature.geometry.coordinates[0] ?? [];
+    const n = ring.length >= 2
+        && ring[0]![0] === ring[ring.length - 1]![0]
+        && ring[0]![1] === ring[ring.length - 1]![1]
+        ? ring.length - 1 : ring.length;
+    let lon = 0, lat = 0, c = 0;
+    for (let i = 0; i < n; i++) { lon += ring[i]![0]!; lat += ring[i]![1]!; c++; }
+    return c > 0 ? [lon / c, lat / c] : [0, 0];
+}
+
+/** Planar metre distance between two lon/lat points (lat ≈ 111.32 km/deg; lon × cos lat). */
+function planarMetres(lat0: number, lon0: number, lat1: number, lon1: number): number {
+    const dLat = (lat1 - lat0) * 111_320;
+    const dLon = (lon1 - lon0) * 111_320 * Math.cos((lat0 * Math.PI) / 180);
+    return Math.hypot(dLat, dLon);
+}
+
+/**
+ * §FEAT-FORMA-CONTEXT-EXTENT-LOD — pick the FAR-ring footprints to render: everything in
+ * the far collection whose centroid falls OUTSIDE the (already-rendered) near bbox, tagged
+ * with `ring:'far'` + `distM`, sorted nearest-first and hard-capped to `cap`. Deduplicates
+ * against the near set by `osmId` so a footprint never draws twice. PURE + testable — this
+ * is the budget guard the founder asked for (no naïve radius blow-up). Never throws.
+ */
+export function selectFarRingFootprints(input: {
+    readonly farFeatures: readonly ContextBuildingFeature[];
+    readonly centerLat: number;
+    readonly centerLon: number;
+    readonly nearBbox: Bbox;
+    readonly nearOsmIds: ReadonlySet<number>;
+    readonly cap?: number;
+}): ContextBuildingFeature[] {
+    const cap = input.cap ?? CONTEXT_FAR_MAX_BUILDINGS;
+    const [w, s, e, n] = input.nearBbox;
+    const tagged: ContextBuildingFeature[] = [];
+    for (const f of input.farFeatures) {
+        if (input.nearOsmIds.has(f.properties.osmId)) continue;      // already in the near set
+        const [clon, clat] = ringCentroidLonLat(f);
+        // Skip the inner disc — the near ring already covers it (extruded + shadows).
+        if (clon >= w && clon <= e && clat >= s && clat <= n) continue;
+        const distM = planarMetres(input.centerLat, input.centerLon, clat, clon);
+        tagged.push({
+            ...f,
+            properties: { ...f.properties, ring: 'far', distM },
+        });
+    }
+    tagged.sort((a, b) => (a.properties.distM ?? 0) - (b.properties.distM ?? 0));
+    return cap > 0 && tagged.length > cap ? tagged.slice(0, cap) : tagged;
+}
+
+/**
+ * §FEAT-FORMA-CONTEXT-EXTENT-LOD — fetch the FAR-ring (annulus) context footprints around a
+ * site: everything inside the wider `CONTEXT_BBOX_FAR_HALF_DEG` bbox that is NOT already in
+ * the near bbox, nearest-N capped. Reuses the SAME keyless Overpass mirror machinery + cache
+ * as `fetchContextBuildings` (via `fetchForBbox`). Progressive by design: the caller renders
+ * the near ring first, then awaits this for the far ring, so the immediate neighbourhood is
+ * never blocked on the wider fetch. NEVER throws — any failure resolves to an EMPTY collection.
+ *
+ * @param nearOsmIds osm ids already drawn in the near ring (dedup) — pass an empty set if none.
+ */
+export async function fetchContextBuildingsFarRing(
+    lat: number,
+    lon: number,
+    nearOsmIds: ReadonlySet<number>,
+    signal?: AbortSignal,
+    cap: number = CONTEXT_FAR_MAX_BUILDINGS,
+): Promise<ContextBuildingCollection> {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
+        return emptyContextCollection();
+    }
+    const far = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+    if (signal?.aborted) return emptyContextCollection();
+    const nearBbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const features = selectFarRingFootprints({
+        farFeatures: far.features,
+        centerLat: lat, centerLon: lon,
+        nearBbox, nearOsmIds, cap,
+    });
+    console.log(
+        `[gis] §FEAT-FORMA-CONTEXT-EXTENT-LOD far-ring: ${features.length} flat/shadowless ` +
+            `footprint(s) kept (of ${far.features.length} in the ${CONTEXT_BBOX_FAR_HALF_DEG}° bbox, ` +
+            `cap ${cap}, nearest-first).`,
+    );
+    return { type: 'FeatureCollection', features };
 }
 
 /** Test/diagnostic helper — clears the per-bbox cache (memory + in-flight) and

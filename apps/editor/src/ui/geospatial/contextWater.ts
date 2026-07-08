@@ -28,6 +28,11 @@ export interface ContextWaterCollection {
     readonly type: 'ContextWaterCollection';
     readonly areas: ContextWaterArea[];
     readonly ways: ContextWaterway[];
+    /** §FEAT-FORMA-SEA-CONTEXT (L-185) — OPEN-WATER surfaces derived by clipping the site
+     *  bbox against `natural=coastline` ways (open ocean/bay is NOT a closed `natural=water`
+     *  polygon, so it was previously invisible even on a waterfront site like Rose Bay).
+     *  Each ring is a closed [lon,lat] loop on the SEA side of the coastline within the bbox. */
+    readonly sea: ContextWaterArea[];
 }
 
 const cache = new Map<string, ContextWaterCollection>();
@@ -38,11 +43,14 @@ function bboxKey(b: Bbox): string { return 'water:' + b.map((n) => n.toFixed(4))
 function overpassWaterQuery(bbox: Bbox): string {
     const [w, s, e, n] = bbox;
     const b = `${s},${w},${n},${e}`;
-    // Lakes/ponds/reservoirs as polygons + rivers/streams/canals as lines.
+    // Lakes/ponds/reservoirs as polygons + rivers/streams/canals as lines + the COASTLINE
+    // ways (§FEAT-FORMA-SEA-CONTEXT L-185) so open ocean/bay renders (it is NOT a closed
+    // `natural=water` polygon — it is `natural=coastline` line work with land on the LEFT).
     return `[out:json][timeout:25];(` +
         `way["natural"="water"](${b});` +
         `way["landuse"="reservoir"](${b});` +
         `way["waterway"~"river|stream|canal|riverbank"](${b});` +
+        `way["natural"="coastline"](${b});` +
         `);out geom;`;
 }
 
@@ -53,16 +61,23 @@ interface OverpassWay {
 }
 
 export function emptyWaterCollection(): ContextWaterCollection {
-    return { type: 'ContextWaterCollection', areas: [], ways: [] };
+    return { type: 'ContextWaterCollection', areas: [], ways: [], sea: [] };
 }
 
-/** Parse Overpass `out geom` elements into water areas + waterways. Shared by
- *  the §OVERPASS-PROXY path and the direct-mirror fallback below. */
-function waterFromElements(elements: OverpassWay[]): ContextWaterCollection {
+/** Parse Overpass `out geom` elements into water areas + waterways + a coastline-derived
+ *  SEA mask. Shared by the §OVERPASS-PROXY path and the direct-mirror fallback below. The
+ *  `bbox` is needed to clip the (unbounded) coastline into a closed sea surface (L-185). */
+function waterFromElements(elements: OverpassWay[], bbox: Bbox): ContextWaterCollection {
     const areas: ContextWaterArea[] = [];
     const ways: ContextWaterway[] = [];
+    const coastlines: Array<Array<readonly [number, number]>> = [];
     for (const el of elements) {
         if (el.type !== 'way' || !el.geometry || el.geometry.length < 2) continue;
+        // §FEAT-FORMA-SEA-CONTEXT — coastline ways feed the sea-mask, NOT the area/line sets.
+        if (el.tags?.['natural'] === 'coastline') {
+            coastlines.push(el.geometry.map((p) => [p.lon, p.lat] as const));
+            continue;
+        }
         const isArea = el.tags?.['natural'] === 'water'
             || el.tags?.['landuse'] === 'reservoir'
             || el.tags?.['waterway'] === 'riverbank'
@@ -73,7 +88,240 @@ function waterFromElements(elements: OverpassWay[]): ContextWaterCollection {
             ways.push({ coords: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
         }
     }
-    return { type: 'ContextWaterCollection', areas, ways };
+    const sea = buildSeaMaskFromCoastline(coastlines, bbox).map(
+        (ring, i): ContextWaterArea => ({ ring, osmId: -1 - i }),
+    );
+    return { type: 'ContextWaterCollection', areas, ways, sea };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-FORMA-SEA-CONTEXT (L-185, founder) — coastline → closed SEA surface
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Open ocean/bay is mapped in OSM as `natural=coastline` LINE work (with LAND on the LEFT
+// of the way direction, WATER on the RIGHT), never as a closed `natural=water` polygon. So
+// a waterfront site (Sydney / Rose Bay) showed context buildings + parks + roads but the
+// bay rendered as neutral ground. FIX (pure + testable, never-throw): stitch the coastline
+// ways into polylines, CLIP them to the site bbox, and close each crossing strand back
+// along the bbox boundary on the WATER (right-hand) side — yielding a closed sea polygon
+// the Forma study fills as blue water at ground level. Convex/simple coasts (the common
+// waterfront case) resolve cleanly; a strand we cannot close is skipped (non-fatal).
+
+/** Round a coord to ~1e-7 deg (~1 cm) so shared way endpoints match for stitching. */
+function nodeKey(p: readonly [number, number]): string {
+    return `${p[0].toFixed(7)},${p[1].toFixed(7)}`;
+}
+
+/** Stitch coastline ways that share endpoints into longer polylines (OSM splits a coast
+ *  into many ways). Greedy endpoint-matching in either orientation. PURE + exported for tests. */
+export function stitchCoastlineWays(
+    ways: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+): Array<Array<readonly [number, number]>> {
+    const segs = ways
+        .filter((w) => w.length >= 2)
+        .map((w) => w.slice() as Array<readonly [number, number]>);
+    const used = new Array<boolean>(segs.length).fill(false);
+    const out: Array<Array<readonly [number, number]>> = [];
+    for (let i = 0; i < segs.length; i++) {
+        if (used[i]) continue;
+        used[i] = true;
+        const chain = segs[i]!.slice();
+        // Extend forwards + backwards by matching endpoints against unused segments.
+        let extended = true;
+        while (extended) {
+            extended = false;
+            const tail = chain[chain.length - 1]!;
+            const head = chain[0]!;
+            for (let j = 0; j < segs.length; j++) {
+                if (used[j]) continue;
+                const s = segs[j]!;
+                const sHead = s[0]!, sTail = s[s.length - 1]!;
+                if (nodeKey(tail) === nodeKey(sHead)) { chain.push(...s.slice(1)); used[j] = true; extended = true; break; }
+                if (nodeKey(tail) === nodeKey(sTail)) { chain.push(...s.slice(0, -1).reverse()); used[j] = true; extended = true; break; }
+                if (nodeKey(head) === nodeKey(sTail)) { chain.unshift(...s.slice(0, -1)); used[j] = true; extended = true; break; }
+                if (nodeKey(head) === nodeKey(sHead)) { chain.unshift(...s.slice(1).reverse()); used[j] = true; extended = true; break; }
+            }
+        }
+        out.push(chain);
+    }
+    return out;
+}
+
+function inBbox(p: readonly [number, number], b: Bbox): boolean {
+    return p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3];
+}
+
+/** Liang–Barsky clip of segment p→q against the bbox. Returns the parameter interval
+ *  [u1,u2] ⊆ [0,1] of the portion INSIDE the bbox, or null if the segment misses it. */
+function liangBarsky(
+    p: readonly [number, number], q: readonly [number, number], b: Bbox,
+): { u1: number; u2: number } | null {
+    const [w, s, e, n] = b;
+    const dx = q[0] - p[0], dy = q[1] - p[1];
+    let u1 = 0, u2 = 1;
+    const edges: ReadonlyArray<readonly [number, number]> = [
+        [-dx, p[0] - w], // left
+        [dx, e - p[0]],  // right
+        [-dy, p[1] - s], // bottom
+        [dy, n - p[1]],  // top
+    ];
+    for (const [pk, qk] of edges) {
+        if (Math.abs(pk) < 1e-12) { if (qk < 0) return null; continue; } // parallel + outside
+        const t = qk / pk;
+        if (pk < 0) { if (t > u2) return null; if (t > u1) u1 = t; }     // entering
+        else { if (t < u1) return null; if (t < u2) u2 = t; }            // leaving
+    }
+    return u1 <= u2 ? { u1, u2 } : null;
+}
+
+/** Clip a polyline to the bbox → strands lying inside, each starting/ending ON the boundary
+ *  (or at a polyline end that is itself inside). PURE + exported for tests. */
+export function clipPolylineToBbox(
+    line: ReadonlyArray<readonly [number, number]>, b: Bbox,
+): Array<Array<readonly [number, number]>> {
+    const strands: Array<Array<readonly [number, number]>> = [];
+    const at = (p: readonly [number, number], q: readonly [number, number], u: number): [number, number] =>
+        [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
+    let cur: Array<readonly [number, number]> | null = null;
+    for (let i = 0; i < line.length; i++) {
+        const p = line[i]!;
+        const pIn = inBbox(p, b);
+        if (pIn) {
+            if (!cur) {
+                cur = [];
+                // Entering: add the boundary crossing from the previous (outside) point.
+                if (i > 0) { const seg = liangBarsky(line[i - 1]!, p, b); if (seg) cur.push(at(line[i - 1]!, p, seg.u1)); }
+            }
+            cur.push(p);
+        } else {
+            if (cur) {
+                // Exiting: add the boundary crossing to this (outside) point + close the strand.
+                const prev = line[i - 1]!;
+                const seg = liangBarsky(prev, p, b); if (seg) cur.push(at(prev, p, seg.u2));
+                if (cur.length >= 2) strands.push(cur);
+                cur = null;
+            } else if (i > 0) {
+                // Both previous + current outside, but the SEGMENT may still cross the bbox.
+                const prev = line[i - 1]!;
+                const seg = liangBarsky(prev, p, b);
+                if (seg && seg.u2 > seg.u1) strands.push([at(prev, p, seg.u1), at(prev, p, seg.u2)]);
+            }
+        }
+    }
+    if (cur && cur.length >= 2) strands.push(cur);
+    return strands;
+}
+
+/** Rectangle-perimeter parameter (0..4, CCW from SW corner) of a boundary point. */
+function perimeterParam(p: readonly [number, number], b: Bbox): number {
+    const [w, s, e, n] = b;
+    const spanX = (e - w) || 1e-9, spanY = (n - s) || 1e-9;
+    const eps = 1e-7 * Math.max(spanX, spanY) + 1e-9;
+    if (Math.abs(p[1] - s) <= eps) return 0 + Math.max(0, Math.min(1, (p[0] - w) / spanX));       // south
+    if (Math.abs(p[0] - e) <= eps) return 1 + Math.max(0, Math.min(1, (p[1] - s) / spanY));       // east
+    if (Math.abs(p[1] - n) <= eps) return 2 + Math.max(0, Math.min(1, (e - p[0]) / spanX));       // north
+    if (Math.abs(p[0] - w) <= eps) return 3 + Math.max(0, Math.min(1, (n - p[1]) / spanY));       // west
+    // Not exactly on an edge (numeric) — snap to nearest edge.
+    const dS = Math.abs(p[1] - s), dN = Math.abs(p[1] - n), dW = Math.abs(p[0] - w), dE = Math.abs(p[0] - e);
+    const m = Math.min(dS, dN, dW, dE);
+    if (m === dS) return (p[0] - w) / spanX;
+    if (m === dE) return 1 + (p[1] - s) / spanY;
+    if (m === dN) return 2 + (e - p[0]) / spanX;
+    return 3 + (n - p[1]) / spanY;
+}
+
+/** The bbox corner point at integer perimeter param k (0..3). */
+function cornerAt(k: number, b: Bbox): [number, number] {
+    const [w, s, e, n] = b;
+    switch (((k % 4) + 4) % 4) {
+        case 0: return [w, s];
+        case 1: return [e, s];
+        case 2: return [e, n];
+        default: return [w, n];
+    }
+}
+
+/** Corner points crossed walking the bbox perimeter from param `from` to `to` in `dir`
+ *  (+1 = CCW / increasing, −1 = CW / decreasing). */
+function boundaryWalk(from: number, to: number, dir: 1 | -1, b: Bbox): Array<[number, number]> {
+    const pts: Array<[number, number]> = [];
+    let t = from;
+    // Normalise the sweep so we always move `dir` and stop at `to`.
+    let guard = 0;
+    if (dir === 1) {
+        let k = Math.floor(from) + 1;
+        let target = to > from ? to : to + 4;
+        while (k < target && guard++ < 8) { pts.push(cornerAt(k, b)); k++; }
+    } else {
+        let k = Math.ceil(from) - 1;
+        let target = to < from ? to : to - 4;
+        while (k > target && guard++ < 8) { pts.push(cornerAt(k, b)); k--; }
+    }
+    void t;
+    return pts;
+}
+
+/** Even-odd point-in-polygon (ring = [lon,lat] loop). */
+function pointInRing(pt: readonly [number, number], ring: ReadonlyArray<readonly [number, number]>): boolean {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i]![0], yi = ring[i]![1], xj = ring[j]![0], yj = ring[j]![1];
+        if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
+    }
+    return inside;
+}
+
+/**
+ * §FEAT-FORMA-SEA-CONTEXT — build closed SEA rings from coastline ways clipped to `bbox`.
+ * OSM convention: walking a coastline way in its stored direction, LAND is on the LEFT and
+ * WATER on the RIGHT. For each strand crossing the bbox we close it back along the boundary
+ * on the water (right) side, using a test point just off the strand's right to pick the
+ * boundary-walk direction. PURE + exported for tests. Never throws; unclosable strands are
+ * dropped.
+ */
+export function buildSeaMaskFromCoastline(
+    ways: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+    bbox: Bbox,
+): Array<Array<readonly [number, number]>> {
+    if (ways.length === 0) return [];
+    const [w, s, e, n] = bbox;
+    if (!(e > w) || !(n > s)) return [];
+    const spanX = e - w, spanY = n - s;
+    const eps = 1e-4 * Math.min(spanX, spanY);
+    const rings: Array<Array<readonly [number, number]>> = [];
+
+    for (const line of stitchCoastlineWays(ways)) {
+        for (const strand of clipPolylineToBbox(line, bbox)) {
+            if (strand.length < 2) continue;
+            const start = strand[0]!, end = strand[strand.length - 1]!;
+            // Only strands that both enter AND exit on the boundary can be closed to a sea area.
+            const startP = perimeterParam(start, bbox);
+            const endP = perimeterParam(end, bbox);
+            if (!Number.isFinite(startP) || !Number.isFinite(endP)) continue;
+
+            // Water-side test point: just off the RIGHT of a mid strand segment. Right of a
+            // direction (dx,dy) is (dy,-dx). Normalise in metric-ish (scale lat by cos not
+            // needed here — sign is all that matters).
+            const mi = Math.max(1, Math.floor(strand.length / 2));
+            const a = strand[mi - 1]!, c = strand[mi]!;
+            const dx = c[0] - a[0], dy = c[1] - a[1];
+            const rlen = Math.hypot(dx, dy) || 1e-12;
+            const rx = (dy / rlen) * eps, ry = (-dx / rlen) * eps;
+            const test: [number, number] = [(a[0] + c[0]) / 2 + rx, (a[1] + c[1]) / 2 + ry];
+
+            // Two candidate closings: walk the boundary from end→start CCW (+1) or CW (−1).
+            const build = (dir: 1 | -1): Array<readonly [number, number]> => {
+                const ring = strand.slice();
+                for (const cp of boundaryWalk(endP, startP, dir, bbox)) ring.push(cp);
+                return ring;
+            };
+            const ringA = build(1), ringB = build(-1);
+            const pick = pointInRing(test, ringA) ? ringA : (pointInRing(test, ringB) ? ringB : null);
+            if (!pick || pick.length < 4) continue;
+            rings.push(pick);
+        }
+    }
+    return rings;
 }
 
 /** Is this way a closed ring (first point ≈ last point)? Lakes are closed; a
@@ -102,9 +350,9 @@ export async function fetchContextWater(
     const viaProxy = await fetchOverpassViaProxy<OverpassWay>(query, signal);
     if (signal?.aborted) return emptyWaterCollection();
     if (viaProxy) {
-        const collection = waterFromElements(viaProxy.elements ?? []);
+        const collection = waterFromElements(viaProxy.elements ?? [], bbox);
         cache.set(key, collection);
-        console.log(`[gis] context water: ${collection.areas.length} area(s) + ${collection.ways.length} waterway(s) for bbox ${key} via /api/overpass proxy.`);
+        console.log(`[gis] context water: ${collection.areas.length} area(s) + ${collection.ways.length} waterway(s) + ${collection.sea.length} sea surface(s) for bbox ${key} via /api/overpass proxy.`);
         return collection;
     }
 
@@ -130,9 +378,9 @@ export async function fetchContextWater(
                 continue;
             }
             const json = (await res.json()) as { elements?: OverpassWay[] };
-            const collection = waterFromElements(json.elements ?? []);
+            const collection = waterFromElements(json.elements ?? [], bbox);
             cache.set(key, collection);
-            console.log(`[gis] context water: ${collection.areas.length} area(s) + ${collection.ways.length} waterway(s) for bbox ${key} via ${new URL(endpoint).host}.`);
+            console.log(`[gis] context water: ${collection.areas.length} area(s) + ${collection.ways.length} waterway(s) + ${collection.sea.length} sea surface(s) for bbox ${key} via ${new URL(endpoint).host}.`);
             return collection;
         } catch (e) {
             if (signal?.aborted) return emptyWaterCollection();

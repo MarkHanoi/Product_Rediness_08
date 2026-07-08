@@ -7,6 +7,10 @@ import * as Cesium from "cesium";
 // that cast shadows (Forma/Archistar-style context). Same data path as the 2D map.
 import {
     fetchContextBuildings,
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — the wider annulus fetch, rendered as flat
+    // low-poly shadowless blocks (nearest-N capped) so the neighbourhood extends without
+    // the naïve-radius shadow/geometry perf cliff.
+    fetchContextBuildingsFarRing,
     CONTEXT_BBOX_HALF_DEG,
     type ContextBuildingCollection,
 } from "./contextBuildings";
@@ -77,6 +81,12 @@ import {
     // walls-with-openings, not a solid perimeter prism. + §PERF-SUNHOURS-WORKER probe type
     // (the raycast itself runs in the worker via computeSunIntensitiesForProbes).
     facadeOpeningUvRects,
+    // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — build the WALL
+    // (cylindrical) + ROOF (top-down) sun-hours lookup textures a Cesium CustomShader
+    // drapes onto the REAL placed GLB model, replacing the separate envelope-prism paint.
+    buildRealModelSunDrape,
+    type FacadeDrapeFace,
+    type RealModelSunDrape,
     type FacadeOpening,
     type FacadeOpeningRect,
     type SunProbe,
@@ -666,6 +676,12 @@ export class CesiumViewport {
    *  should render"). Set when the analysis paints, cleared when it's turned OFF, so the
    *  suppression is fully reversible and the floor-filter respects it. */
   private facadeSuppressingMassing = false;
+  /** §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — TRUE while the
+   *  sun-hours study is DRAPED onto the REAL GLB model via a Cesium CustomShader (the
+   *  analysis colours the real house's own faces, no separate envelope prism). When true,
+   *  the real model stays VISIBLE (not suppressed) and NO façade polygon entities are
+   *  painted. Cleared when the analysis is turned off / the model is dropped. */
+  private facadeDrapingRealModel = false;
 
   /** The last OSM context collection (footprints + heights, lon/lat) so the
    *  population/wind/heat grids can read built density. Captured on context load. */
@@ -690,6 +706,9 @@ export class CesiumViewport {
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
    *  load / dispose so a stale response can't repaint the wrong site). */
   private contextBuildingsAbort: AbortController | null = null;
+  /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — abort handle for the in-flight FAR-ring
+   *  (annulus) fetch, cancelled independently of the near ring on a newer load / dispose. */
+  private contextBuildingsFarAbort: AbortController | null = null;
   /** One-time guard so the "context buildings unavailable" warning logs once. */
   private contextBuildingsWarned = false;
   /** §A.21.D-GLOBE (2026-06-05) — debounce handle for the pan-driven context-building
@@ -4461,6 +4480,87 @@ export class CesiumViewport {
       `[CesiumViewport][forma] context buildings rendered: ${placed} extruded footprint(s) ` +
         `around LAT ${lat} LON ${lon} (base ${base.toFixed(1)} m, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
     );
+
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — PROGRESSIVE: the near ring (above) is now on
+    // screen; fetch + draw the wider FAR ring as flat/low-poly SHADOWLESS blocks (nearest-N
+    // capped) so the neighbourhood extends without blocking the immediate context and
+    // without the naïve-radius shadow/geometry perf cliff. Fire-and-forget; never throws.
+    const nearOsmIds = new Set<number>(collection.features.map((f) => f.properties.osmId));
+    void this.loadContextBuildingsFarRing(lat, lon, nearOsmIds, viewer);
+  }
+
+  /**
+   * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187, founder-approved) — draw the wider FAR ring of
+   * context footprints as FLAT low-poly blocks with SHADOWS OFF. This is the distance-based
+   * LOD tier: the near ring (loadContextBuildings) stays extruded + shadow-casting; the far
+   * annulus is nearest-N capped (fetchContextBuildingsFarRing) and rendered cheaply so the
+   * shadow + geometry budget stays bounded (A.24 / device-loss). Additive to the near set
+   * (shares `contextBuildingEntities`, so clearContextBuildings drops both). Never throws.
+   */
+  private async loadContextBuildingsFarRing(
+    lat: number, lon: number, nearOsmIds: ReadonlySet<number>, viewer: Cesium.Viewer,
+  ): Promise<void> {
+    if (!this.viewer || this.viewer !== viewer) return;
+    this.contextBuildingsFarAbort?.abort();
+    this.contextBuildingsFarAbort = new AbortController();
+    const signal = this.contextBuildingsFarAbort.signal;
+
+    let far: ContextBuildingCollection;
+    try { far = await fetchContextBuildingsFarRing(lat, lon, nearOsmIds, signal); }
+    catch { return; }
+    // A newer near/far load or a dispose superseded us, or the site moved.
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+    if (!this.contextBuildingsAt
+      || Math.abs(this.contextBuildingsAt.lat - lat) > 1e-9
+      || Math.abs(this.contextBuildingsAt.lon - lon) > 1e-9) return;
+    if (far.features.length === 0) return;
+
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    const base = this.formaTerrainBaseHeight - FORMA_BASE_SINK_M;
+    const top = this.formaTerrainBaseHeight;
+    // A hair MORE transparent + no outline than the near ring so the distant massing reads
+    // as clearly secondary (aerial-perspective) and stays cheap.
+    const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.82);
+
+    let placed = 0;
+    for (const f of far.features) {
+      try {
+        const ring = f.geometry.coordinates[0];
+        if (!ring || ring.length < 4) continue;
+        const positions = ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon!, flat!, 0);
+          const localOffset = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return Cesium.Matrix4.multiplyByPoint(
+            enu, new Cesium.Cartesian3(localOffset.x, localOffset.y, base), new Cesium.Cartesian3(),
+          );
+        });
+        // §FEAT-FORMA-CONTEXT-EXTENT-LOD — LOW-POLY: cap the far height so distant blocks read
+        // as simple massing (never a stray far skyscraper dominating), and SHADOWS OFF — the
+        // shadow pass is the perf driver the founder flagged, so the far ring never casts.
+        const h = Math.min(24, Math.max(0.1, f.properties.heightM));
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-building-far',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: base,
+            extrudedHeight: top + h,
+            material: fill,
+            outline: false,
+            shadows: Cesium.ShadowMode.DISABLED,   // far ring never casts/receives (budget)
+            perPositionHeight: false,
+            closeBottom: false,
+          },
+        });
+        this.contextBuildingEntities.push(ent);
+        placed++;
+      } catch { /* skip a malformed far footprint */ }
+    }
+    viewer.scene.requestRender();
+    console.log(
+      `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD far ring rendered: ${placed} ` +
+        `flat/low-poly shadowless footprint(s) (nearest-first, capped).`,
+    );
   }
 
   /**
@@ -4511,6 +4611,10 @@ export class CesiumViewport {
 
   /** MAP-DATA-OVERTURE — remove all context-building entities (idempotent). */
   public clearContextBuildings(): void {
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD — cancel any in-flight far-ring fetch so a stale
+    // response can't repaint far blocks after the near set was cleared.
+    this.contextBuildingsFarAbort?.abort();
+    this.contextBuildingsFarAbort = null;
     const viewer = this.viewer;
     if (viewer) {
       for (const ent of this.contextBuildingEntities) {
@@ -4641,7 +4745,7 @@ export class CesiumViewport {
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextWater();
-    if (collection.areas.length === 0 && collection.ways.length === 0) return;
+    if (collection.areas.length === 0 && collection.ways.length === 0 && collection.sea.length === 0) return;
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
@@ -4654,6 +4758,33 @@ export class CesiumViewport {
     const waterLine = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.95);
 
     let placed = 0;
+    // §FEAT-FORMA-SEA-CONTEXT (L-185) — open ocean/bay from the coastline sea-mask. These
+    // are large bbox-scale surfaces, so draw them FIRST + a hair BELOW the lakes/rivers so
+    // the smaller water bodies + road ribbons read cleanly on top and never z-fight. A
+    // slightly deeper blue so the sea reads as water, not the neutral Forma ground.
+    const seaBase = this.formaTerrainBaseHeight + 0.02;
+    const seaFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.9);
+    for (const area of collection.sea) {
+      try {
+        const positions = area.ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return this.enuToCartesian(enu, off.x, off.y, seaBase);
+        });
+        if (positions.length < 4) continue;
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-sea',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: seaBase,
+            material: seaFill,
+            outline: false,
+          },
+        });
+        this.contextWaterEntities.push(ent);
+        placed++;
+      } catch { /* skip one malformed sea ring */ }
+    }
     // Filled lake/pond/reservoir polygons.
     for (const area of collection.areas) {
       try {
@@ -4701,7 +4832,7 @@ export class CesiumViewport {
       } catch { /* skip one malformed waterway */ }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} water feature(s).`);
+    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} water feature(s) (incl. ${collection.sea.length} §FEAT-FORMA-SEA-CONTEXT sea surface(s)).`);
   }
 
   /** FORMA-CTX-WATER — remove all water polygons/polylines (idempotent). */
@@ -4944,7 +5075,10 @@ export class CesiumViewport {
     // recomputes. `clearFacadeAnalysis` nulls the key so an explicit clear always rebuilds.
     if (viewer && origin && this.facadeAnalysisOn && this.siteMetricActive === 'sunHours') {
       const key = this.facadeAnalysisKey(origin);
-      if (key !== null && key === this.facadeAnalysisLastKey && this.facadeAnalysisEntities.length > 0) {
+      // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL — a live REAL-model drape counts as "already
+      // painted" too (it adds no entities), so an unchanged repaint short-circuits.
+      const alreadyPainted = this.facadeAnalysisEntities.length > 0 || this.facadeDrapingRealModel;
+      if (key !== null && key === this.facadeAnalysisLastKey && alreadyPainted) {
         return; // unchanged inputs + already painted → no recompute, no re-clear
       }
     }
@@ -5197,10 +5331,56 @@ export class CesiumViewport {
         }
       }
     }, () => {
+      // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — when the REAL
+      // full-fidelity GLB is placed, DRAPE the sun-hours result onto ITS OWN faces via a
+      // Cesium CustomShader instead of painting the separate translucent envelope prism.
+      // The BVH intensities computed above are byte-identical (ADR-0110); only the DISPLAY
+      // target changes. On any failure we fall through to the polygon envelope (no regression).
+      const drapeModel = this.realModelOnForma && !this.realModelOnForma.isDestroyed()
+        ? this.realModelOnForma : null;
+      if (drapeModel) {
+        try {
+          const drapeFaces: FacadeDrapeFace[] = faceJobs.map((job) => ({
+            ax: job.geo.ax, az: job.geo.az,
+            bx: job.geo.ax + job.geo.ux * job.segLen,
+            bz: job.geo.az + job.geo.uz * job.segLen,
+            nU: job.nU, nV: job.nV,
+            intensities: job.intensities,
+            openings: job.openings,
+          }));
+          const drape = buildRealModelSunDrape({
+            faces: drapeFaces,
+            centroidE: cx, centroidN: cz, heightM,
+            roofIntensities: roofInts, roofNU, roofNV,
+            roofMinE: minE, roofMinN: minN, roofSpanE: roofW, roofSpanN: roofD,
+            vivid: true, alpha: 1,
+          });
+          if (this.applyRealModelSunDrape(drape)) {
+            this.facadeDrapingRealModel = true;
+            // Keep the REAL model VISIBLE — the analysis now lives on its own faces, so
+            // never suppress it (the old path hid it behind the envelope prism).
+            if (this.facadeSuppressingMassing) this.setBuildingMaterialsVisibleForFacade(true);
+            try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
+            let holes = 0;
+            for (const j of faceJobs) holes += j.openings.length;
+            console.log(
+              `[CesiumViewport][forma-facade] §FIX-FACADE-ANALYSIS-ON-REAL-MODEL draped sun-hours ` +
+                `onto the REAL GLB model (wall ${drape.wallW}×${drape.wallH}, roof ${drape.roofW}×${drape.roofH}, ` +
+                `${faceJobs.length} face(s), ${holes} opening(s), H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}). ` +
+                `No envelope prism painted.`,
+            );
+            return;
+          }
+          console.warn('[CesiumViewport][forma-facade] real-model drape unavailable (no CustomShader / 2D ctx) — envelope-prism fallback.');
+        } catch (e) {
+          console.warn('[CesiumViewport][forma-facade] real-model drape failed — envelope-prism fallback:', e);
+        }
+      }
       // §FORMA-FACADE-SMOOTH — rasterise + paint ONE textured polygon per face + roof.
       // Each face texture is a smooth bilinear gradient continuous both along the face and
       // up the FULL elevation (V spans 0..H in a single lattice), so there are no seams
-      // between storeys and no discrete quads.
+      // between storeys and no discrete quads. This is the MASSING-mode representation (the
+      // abstract volumes ARE the building) and the fallback when no real model is placed.
       let facesPainted = 0;
       for (const job of faceJobs) {
         const aspect = job.segLen / Math.max(1e-3, heightM);
@@ -5272,6 +5452,93 @@ export class CesiumViewport {
     return new Cesium.ImageMaterialProperty({ image: canvas, transparent: true });
   }
 
+  /**
+   * §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — attach a Cesium
+   * CustomShader to the REAL placed GLB so the sun-hours study colours the model's OWN
+   * faces (no separate envelope prism). The shader reads each fragment's model-space
+   * position (positionMC: x = east, y = up, z with north = −z — the SAME ENU mapping the
+   * model is placed with, §A.21.D54) and looks up:
+   *   • ROOF — when the fragment is within `roofBand` of the building top — from the
+   *     top-down bbox lookup (u = east, v = north);
+   *   • WALL — otherwise — from the CYLINDRICAL lookup (u = centroid-angle, v = height).
+   * Openings (alpha 0) `discard` so the real window/door voids read through. UNLIT so the
+   * analysis colours are the pure ramp, not darkened by the Forma sun (the founder: "only
+   * those colours should render"). A.24 Presentation tier: ONE shader + two small texture
+   * uploads, no per-frame work — inside the device-loss budget.
+   *
+   * The lookup textures are uploaded straight from the drape's RGBA typed arrays (no DOM
+   * canvas), so this works head-lessly and the texel row order is unambiguous (row 0 =
+   * bottom / min-north, matching the shader's v). Returns false if CustomShader is
+   * unavailable in this Cesium build (caller falls back to the polygon envelope).
+   */
+  private applyRealModelSunDrape(drape: RealModelSunDrape): boolean {
+    const model = this.realModelOnForma;
+    if (!model || model.isDestroyed()) return false;
+    if (typeof Cesium.CustomShader !== 'function') return false;
+    try {
+      const wallTex = new Cesium.TextureUniform({
+        typedArray: Uint8Array.from(drape.wallRgba),
+        width: drape.wallW, height: drape.wallH, repeat: false,
+      });
+      const roofTex = new Cesium.TextureUniform({
+        typedArray: Uint8Array.from(drape.roofRgba),
+        width: drape.roofW, height: drape.roofH, repeat: false,
+      });
+      const shader = new Cesium.CustomShader({
+        mode: Cesium.CustomShaderMode.MODIFY_MATERIAL,
+        lightingModel: Cesium.LightingModel.UNLIT,
+        uniforms: {
+          u_pryzmWallTex: { type: Cesium.UniformType.SAMPLER_2D, value: wallTex },
+          u_pryzmRoofTex: { type: Cesium.UniformType.SAMPLER_2D, value: roofTex },
+          u_pryzmHeight: { type: Cesium.UniformType.FLOAT, value: Math.max(0.001, drape.heightM) },
+          u_pryzmRoofBand: { type: Cesium.UniformType.FLOAT, value: Math.max(0.5, drape.heightM * 0.03) },
+          u_pryzmCentroid: { type: Cesium.UniformType.VEC2, value: new Cesium.Cartesian2(drape.centroidE, drape.centroidN) },
+          u_pryzmRoofBBox: { type: Cesium.UniformType.VEC4, value: new Cesium.Cartesian4(drape.roofMinE, drape.roofMinN, drape.roofSpanE, drape.roofSpanN) },
+        },
+        fragmentShaderText: [
+          'void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {',
+          '  vec3 p = fsInput.attributes.positionMC;',
+          '  float east = p.x;',
+          '  float north = -p.z;',   // ENU mapping: north = −z (§A.21.D54)
+          '  float upM = p.y;',
+          '  vec4 col;',
+          '  if (upM >= u_pryzmHeight - u_pryzmRoofBand) {',
+          '    vec2 ruv = vec2((east - u_pryzmRoofBBox.x) / max(u_pryzmRoofBBox.z, 0.001),',
+          '                    (north - u_pryzmRoofBBox.y) / max(u_pryzmRoofBBox.w, 0.001));',
+          '    col = texture(u_pryzmRoofTex, clamp(ruv, 0.0, 1.0));',
+          '  } else {',
+          '    float ang = atan(north - u_pryzmCentroid.y, east - u_pryzmCentroid.x);',
+          '    float u = (ang + 3.14159265) / 6.28318531;',
+          '    float v = clamp(upM / max(u_pryzmHeight, 0.001), 0.0, 1.0);',
+          '    col = texture(u_pryzmWallTex, vec2(u, v));',
+          '  }',
+          '  if (col.a < 0.05) { discard; }',
+          '  material.diffuse = col.rgb;',
+          '  material.alpha = 1.0;',
+          '}',
+        ].join('\n'),
+      });
+      model.customShader = shader;
+      return true;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma-facade] §FIX-FACADE-ANALYSIS-ON-REAL-MODEL CustomShader construct failed:', e);
+      return false;
+    }
+  }
+
+  /** §FIX-FACADE-ANALYSIS-ON-REAL-MODEL — remove the sun-hours drape shader from the real
+   *  model (restoring its normal materials) and clear the draping flag. Idempotent. */
+  private clearRealModelSunDrape(): void {
+    this.facadeDrapingRealModel = false;
+    const model = this.realModelOnForma;
+    if (!model || model.isDestroyed()) return;
+    // Cesium's Model.customShader is runtime-nullable (assigning undefined removes the
+    // shader) but its .d.ts types it non-null; cast around the imprecise type.
+    try { (model as { customShader: Cesium.CustomShader | undefined }).customShader = undefined; }
+    catch { /* model gone */ }
+    try { this.viewer?.scene.requestRender(); } catch { /* viewer gone */ }
+  }
+
   /** §FORMA-FACADE-ANALYSIS — chunked driver for the per-point façade raycast (mirrors
    *  `chunkBuild` but on the façade build's own token + cancellers). */
   private facadeChunkBuild(
@@ -5308,6 +5575,9 @@ export class CesiumViewport {
       for (const e of this.facadeAnalysisEntities) { try { viewer.entities.remove(e); } catch { /* gone */ } }
     }
     this.facadeAnalysisEntities = [];
+    // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL — also strip the real-model drape shader (restores
+    // the model's own materials); no-op when the study was painted as polygons instead.
+    this.clearRealModelSunDrape();
     // §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — an explicit clear drops the memoised study so
     // the next render always rebuilds (the painted result no longer exists to reuse).
     this.facadeAnalysisLastKey = null;
@@ -6567,6 +6837,17 @@ export class CesiumViewport {
         `[CesiumViewport][forma6] REAL full-fidelity model placed on the Forma study ` +
           `at LAT ${input.originLat.toFixed(6)} LON ${input.originLon.toFixed(6)} base ${baseHeight.toFixed(2)} m.`,
       );
+
+      // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — if the sun-hours
+      // façade study was already ON (showing the ENVELOPE PRISM because no real model was
+      // placed yet), REBUILD it now that the real GLB exists so the analysis DRAPES onto the
+      // real house and the prism is dropped. The study inputs (origin/geometry/occluders/day)
+      // are unchanged, so the memo key matches — force a rebuild by nulling it first, else
+      // the no-recompute guard would keep the stale envelope prism.
+      if (this.facadeAnalysisOn && this.siteMetricActive === 'sunHours') {
+        this.facadeAnalysisLastKey = null;
+        this.renderFacadeAnalysis();
+      }
       return true;
     } catch (err) {
       console.warn('[CesiumViewport][forma6] renderRealModelOnForma failed (keeping massing fallback):', err);
@@ -6589,6 +6870,9 @@ export class CesiumViewport {
     }
     this.realModelOnForma = null;
     this.realModelOnFormaOrigin = null;
+    // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL — the drape shader lived on the now-destroyed
+    // model; clear the flag so a re-placed model / re-toggle rebuilds the drape cleanly.
+    this.facadeDrapingRealModel = false;
     if (this.realModelOnFormaUrl) {
       try { URL.revokeObjectURL(this.realModelOnFormaUrl); } catch { /* not a blob url */ }
       this.realModelOnFormaUrl = null;
@@ -7359,6 +7643,7 @@ export class CesiumViewport {
       // materials visible and the study OFF (the entities were dropped just above).
       this.facadeAnalysisOn = false;
       this.facadeSuppressingMassing = false;
+      this.facadeDrapingRealModel = false;
     } catch (e) {
       console.warn('[CesiumViewport] climate-overlay dispose failed:', e);
     }

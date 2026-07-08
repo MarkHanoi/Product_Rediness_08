@@ -1629,6 +1629,232 @@ export function rasterizeFacadeSunTexture(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — drape the sun-hours
+// study onto the REAL placed GLB model, not a separate translucent envelope prism.
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// PROBLEM: §FORMA-FACADE-SMOOTH painted the façade study as SEPARATE textured POLYGON
+// entities extruded from the perimeter footprint — a translucent multi-coloured ENVELOPE
+// PRISM floating where the house is, with the real GLB HIDDEN. The founder (escalated
+// multiple times) wants the analysis ON the real placed model's OWN faces.
+//
+// FIX (DISPLAY-target only — the BVH sun-hours evaluator is byte-identical, ADR-0110):
+// resample the SAME per-face + roof sun-hours intensities into TWO lookup textures a
+// Cesium CustomShader samples per-fragment on the REAL model (CesiumViewport wires the
+// shader; this module owns the PURE texture build so it is unit-testable head-lessly):
+//   • WALL drape — a CYLINDRICAL unwrap: U = angle around the footprint centroid
+//     (atan2(north, east) mapped to 0..1 over −π..π), V = height (0..H, row 0 = BOTTOM).
+//     For a footprint that is star-shaped about its centroid (every convex plan + most
+//     L/T/rectangular towers) a fragment's centroid-angle uniquely selects its wall face
+//     AND the along-face position where the centroid ray meets that face IS the fragment's
+//     real position — so sampling by (angle, height) reconstructs the correct per-face
+//     intensity at the fragment's actual location. Authored openings punch to alpha 0.
+//   • ROOF drape — a top-down field over the footprint bbox: U = (east−minE)/spanE,
+//     V = (north−minN)/spanN, sampled where the fragment sits at roof height.
+// The shader picks wall vs roof by the fragment's model-space up (see CesiumViewport
+// §FIX-FACADE-ANALYSIS-ON-REAL-MODEL). The colour ramp is the SAME sunHoursRgb(Vivid) the
+// floor heatmap, the legend and the polygon façade use, so all three read one scale.
+
+/** ONE exterior wall face for the real-model drape: its metric endpoints (x = east,
+ *  z = north), its computed intensity lattice (`v*nU+u`, v0 = BOTTOM / up=0), and the
+ *  authored opening rectangles on it (face UV, v0 = bottom). §FIX-FACADE-ANALYSIS-ON-REAL-MODEL. */
+export interface FacadeDrapeFace {
+    readonly ax: number;
+    readonly az: number;
+    readonly bx: number;
+    readonly bz: number;
+    readonly nU: number;
+    readonly nV: number;
+    readonly intensities: ReadonlyArray<number | null>;
+    readonly openings: readonly FacadeOpeningRect[];
+}
+
+/** The two RGBA lookup textures + the frame metadata a CustomShader needs to drape the
+ *  sun-hours study onto the REAL model. §FIX-FACADE-ANALYSIS-ON-REAL-MODEL. */
+export interface RealModelSunDrape {
+    /** Cylindrical WALL lookup, `wallW·wallH·4` RGBA (U = centroid-angle, V = height,
+     *  row 0 = BOTTOM). Alpha 0 = an authored opening hole or off-footprint direction. */
+    readonly wallRgba: Uint8ClampedArray;
+    readonly wallW: number;
+    readonly wallH: number;
+    /** Top-down ROOF lookup, `roofW·roofH·4` RGBA (U = east over bbox, V = north over bbox,
+     *  row 0 = min-north). Alpha 0 where no roof value was resolvable. */
+    readonly roofRgba: Uint8ClampedArray;
+    readonly roofW: number;
+    readonly roofH: number;
+    /** Footprint centroid (metric east/north) — the cylindrical unwrap origin. */
+    readonly centroidE: number;
+    readonly centroidN: number;
+    /** Building top height (m) — the V=1 line of the wall drape. */
+    readonly heightM: number;
+    /** Roof bbox (metric) for the top-down lookup. */
+    readonly roofMinE: number;
+    readonly roofMinN: number;
+    readonly roofSpanE: number;
+    readonly roofSpanN: number;
+    /** Diagnostic: count of wall texels that resolved to a lit value. */
+    readonly wallLitTexels: number;
+}
+
+/** Default drape texture sizes — coarse enough to be a cheap ONE-per-model GPU upload,
+ *  fine enough to read as a continuous gradient on the real façade. */
+const DRAPE_WALL_W = 512;
+const DRAPE_WALL_H = 192;
+const DRAPE_ROOF_SIZE = 128;
+
+/** Bilinear-sample a face intensity lattice (`v*nU+u`, v0 = bottom) at fractional
+ *  (uFrac along 0..1, vFrac up 0..1), skipping null corners and renormalising. Returns
+ *  null when no corner carried a value. §FIX-FACADE-ANALYSIS-ON-REAL-MODEL. */
+function sampleFaceIntensity(
+    intensities: ReadonlyArray<number | null>,
+    nU: number,
+    nV: number,
+    uFrac: number,
+    vFrac: number,
+): number | null {
+    const lu = Math.max(2, Math.floor(nU));
+    const lv = Math.max(2, Math.floor(nV));
+    const fu = Math.max(0, Math.min(1, uFrac)) * (lu - 1);
+    const fv = Math.max(0, Math.min(1, vFrac)) * (lv - 1);
+    const gi = Math.min(lu - 2, Math.floor(fu)), su = fu - gi;
+    const gj = Math.min(lv - 2, Math.floor(fv)), sv = fv - gj;
+    let acc = 0, wsum = 0;
+    const corner = (ci: number, cj: number, w: number): void => {
+        const val = intensities[cj * lu + ci];
+        if (val == null || !Number.isFinite(val)) return;
+        acc += Math.max(0, Math.min(1, val)) * w; wsum += w;
+    };
+    corner(gi, gj, (1 - su) * (1 - sv));
+    corner(gi + 1, gj, su * (1 - sv));
+    corner(gi, gj + 1, (1 - su) * sv);
+    corner(gi + 1, gj + 1, su * sv);
+    return wsum > 0 ? acc / wsum : null;
+}
+
+/** Which face does the ray from the centroid at direction `dir` hit, and at what
+ *  along-fraction `w` ∈ [0,1]? Nearest positive intersection wins (robust for concave
+ *  plans). Returns null when the ray misses every face. §FIX-FACADE-ANALYSIS-ON-REAL-MODEL. */
+function faceForAngle(
+    faces: readonly FacadeDrapeFace[],
+    cx: number,
+    cz: number,
+    dirE: number,
+    dirN: number,
+): { face: FacadeDrapeFace; w: number } | null {
+    let best: { face: FacadeDrapeFace; w: number } | null = null;
+    let bestS = Infinity;
+    for (const f of faces) {
+        const ex = f.bx - f.ax, ez = f.bz - f.az;             // face edge a→b
+        const det = ex * dirN - ez * dirE;
+        if (Math.abs(det) < 1e-9) continue;                    // ray parallel to face
+        const rx = f.ax - cx, rz = f.az - cz;
+        // Solve C + s·dir = a + w·e.
+        const s = (ex * rz - ez * rx) / det;                   // distance along the ray
+        const w = (dirE * rz - dirN * rx) / det;               // fraction along the face
+        if (s <= 1e-6 || w < -1e-3 || w > 1 + 1e-3) continue;
+        if (s < bestS) { bestS = s; best = { face: f, w: Math.max(0, Math.min(1, w)) }; }
+    }
+    return best;
+}
+
+/** Is face-UV (u along 0..1, v up 0..1 with v0 = bottom) inside an authored opening? */
+function faceUvInOpening(openings: readonly FacadeOpeningRect[], u: number, v: number): boolean {
+    for (const r of openings) {
+        if (u >= r.u0 && u <= r.u1 && v >= r.v0 && v <= r.v1) return true;
+    }
+    return false;
+}
+
+/**
+ * §FIX-FACADE-ANALYSIS-ON-REAL-MODEL — build the WALL (cylindrical) + ROOF (top-down)
+ * lookup textures a CustomShader drapes onto the REAL GLB model. PURE (no Cesium / THREE /
+ * DOM): raw RGBA the renderer wraps in a canvas. Reuses the SAME `sunHoursRgb(Vivid)` ramp
+ * the polygon façade + floor heatmap + legend use, so every surface reads one scale. The
+ * per-face + roof intensities are the byte-identical BVH result (ADR-0110) — this only
+ * changes the DISPLAY target from a separate envelope prism to the real model's own faces.
+ */
+export function buildRealModelSunDrape(input: {
+    readonly faces: readonly FacadeDrapeFace[];
+    readonly centroidE: number;
+    readonly centroidN: number;
+    readonly heightM: number;
+    readonly roofIntensities: ReadonlyArray<number | null>;
+    readonly roofNU: number;
+    readonly roofNV: number;
+    readonly roofMinE: number;
+    readonly roofMinN: number;
+    readonly roofSpanE: number;
+    readonly roofSpanN: number;
+    readonly wallWidth?: number;
+    readonly wallHeight?: number;
+    readonly roofSize?: number;
+    readonly vivid?: boolean;
+    readonly alpha?: number;
+}): RealModelSunDrape {
+    const vivid = input.vivid ?? true;
+    const alpha = Math.max(0, Math.min(1, input.alpha ?? 1));
+    const alphaByte = Math.round(alpha * 255);
+    const ramp = vivid ? sunHoursRgbVivid : sunHoursRgb;
+    const wallW = Math.max(8, Math.floor(input.wallWidth ?? DRAPE_WALL_W));
+    const wallH = Math.max(8, Math.floor(input.wallHeight ?? DRAPE_WALL_H));
+    const roofW = Math.max(8, Math.floor(input.roofSize ?? DRAPE_ROOF_SIZE));
+    const roofH = roofW;
+    const cx = input.centroidE, cz = input.centroidN;
+
+    // WALL drape — one column per centroid-angle, one row per height. Row 0 = BOTTOM.
+    const wallRgba = new Uint8ClampedArray(wallW * wallH * 4);
+    let wallLitTexels = 0;
+    const TWO_PI = Math.PI * 2;
+    for (let tx = 0; tx < wallW; tx++) {
+        // Column angle θ ∈ (−π, π] — the SAME mapping the shader inverts:
+        // u = (atan2(north−cN, east−cE) + π) / 2π.
+        const theta = ((tx + 0.5) / wallW) * TWO_PI - Math.PI;
+        const dirE = Math.cos(theta), dirN = Math.sin(theta);
+        const hit = faceForAngle(input.faces, cx, cz, dirE, dirN);
+        for (let ty = 0; ty < wallH; ty++) {
+            const o = (ty * wallW + tx) * 4;
+            if (!hit) { wallRgba[o + 3] = 0; continue; }       // no face this direction
+            const vFrac = (ty + 0.5) / wallH;                   // 0 = bottom, 1 = top
+            if (faceUvInOpening(hit.face.openings, hit.w, vFrac)) { wallRgba[o + 3] = 0; continue; }
+            const val = sampleFaceIntensity(hit.face.intensities, hit.face.nU, hit.face.nV, hit.w, vFrac);
+            if (val == null) { wallRgba[o + 3] = 0; continue; }
+            const [r, g, b] = ramp(val);
+            wallRgba[o] = r; wallRgba[o + 1] = g; wallRgba[o + 2] = b; wallRgba[o + 3] = alphaByte;
+            wallLitTexels++;
+        }
+    }
+
+    // ROOF drape — top-down over the footprint bbox. Row 0 = min-north.
+    const roofRgba = new Uint8ClampedArray(roofW * roofH * 4);
+    const spanE = Math.max(1e-3, input.roofSpanE), spanN = Math.max(1e-3, input.roofSpanN);
+    for (let ty = 0; ty < roofH; ty++) {
+        const vFrac = (ty + 0.5) / roofH;
+        for (let tx = 0; tx < roofW; tx++) {
+            const uFrac = (tx + 0.5) / roofW;
+            const o = (ty * roofW + tx) * 4;
+            const val = sampleFaceIntensity(input.roofIntensities, input.roofNU, input.roofNV, uFrac, vFrac);
+            if (val == null) { roofRgba[o + 3] = 0; continue; }
+            const [r, g, b] = ramp(val);
+            roofRgba[o] = r; roofRgba[o + 1] = g; roofRgba[o + 2] = b; roofRgba[o + 3] = alphaByte;
+        }
+    }
+
+    try {
+        console.debug(
+            `[span][forma-facade-real-drape] §FIX-FACADE-ANALYSIS-ON-REAL-MODEL wall ${wallW}×${wallH} ` +
+            `(${wallLitTexels} lit) + roof ${roofW}×${roofH} from ${input.faces.length} face(s), H ${input.heightM.toFixed(1)} m.`,
+        );
+    } catch { /* headless — span best-effort */ }
+
+    return {
+        wallRgba, wallW, wallH, roofRgba, roofW, roofH,
+        centroidE: cx, centroidN: cz, heightM: input.heightM,
+        roofMinE: input.roofMinE, roofMinN: input.roofMinN,
+        roofSpanE: spanE, roofSpanN: spanN, wallLitTexels,
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §SITE-METRIC-SUN-TEXTURE (founder 2026-06-30, ADR-0086) — smooth sun-hours TEXTURE
 // ─────────────────────────────────────────────────────────────────────────────
 //
