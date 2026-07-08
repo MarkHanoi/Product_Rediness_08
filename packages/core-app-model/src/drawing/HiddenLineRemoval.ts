@@ -322,6 +322,148 @@ interface ElevOccluder2D extends Occluder2D {
     depth: number; // nearest projection depth of the element (smaller = closer to viewer)
 }
 
+// ─── §ELEV-LINEWEIGHT-03 (L-196) — per-segment (partial) occlusion primitives ──
+
+/**
+ * A nearer element that may occlude farther projection linework. Carries both the
+ * TRUE projected silhouette (`segs`, flat [x0,z0,x1,z1,…] outline edges in drawing
+ * space) and its AABB. `usePolygon` picks the exact even-odd silhouette test; when
+ * false the element has too few edges to bound a closed region and the AABB is used
+ * as an explicit, LOGGED fallback (no silent cap — Contract 23 §9).
+ */
+interface ElevOccluderFull extends ElevOccluder2D {
+    segs: number[];      // TRUE silhouette outline edges (drawing space H=x, V=z)
+    usePolygon: boolean; // true → even-odd silhouette test; false → AABB fallback
+}
+
+/** Numeric slop (drawing units ≈ m) for de-duplicating split boundaries along an edge. */
+const ELEV_SPLIT_T_EPS = 1e-6;
+
+/**
+ * Parametric intersection of far segment A→B with occluder edge C→D, both in the
+ * drawing's 2D (H=x, V=z) plane. Returns the parameter t∈(0,1) along A→B where the
+ * two segments cross (the exact occlusion enter/exit point), or null when they are
+ * parallel or do not cross within the interiors. Endpoints (t≈0 / t≈1) are excluded
+ * because the split-boundary set already carries 0 and 1.
+ */
+function segCrossT(
+    ax: number, az: number, bx: number, bz: number,
+    cx: number, cz: number, dx: number, dz: number,
+): number | null {
+    const rX = bx - ax, rZ = bz - az;
+    const sX = dx - cx, sZ = dz - cz;
+    const denom = rX * sZ - rZ * sX;
+    if (Math.abs(denom) < 1e-12) return null; // parallel / degenerate
+    const qpX = cx - ax, qpZ = cz - az;
+    const t = (qpX * sZ - qpZ * sX) / denom;
+    const u = (qpX * rZ - qpZ * rX) / denom;
+    const E = 1e-9;
+    if (t <= E || t >= 1 - E) return null;   // interior crossings only
+    if (u < -E || u > 1 + E) return null;    // must land on the occluder edge
+    return t;
+}
+
+/**
+ * Even-odd (crossing-number) point-in-silhouette test against an occluder's outline
+ * edges. A horizontal ray is cast in the +H direction from (px,pz); an odd crossing
+ * count means the point lies inside the projected silhouette (and is therefore hidden
+ * by that nearer element). Interior openings (e.g. a window rectangle inside a wall
+ * outline) correctly read as NOT occluding — you can see through them — which is the
+ * desired behaviour, not a defect.
+ */
+function pointInSilhouette(px: number, pz: number, segs: number[]): boolean {
+    let inside = false;
+    for (let i = 0; i + 3 < segs.length; i += 4) {
+        const cz = segs[i + 1];
+        const dz = segs[i + 3];
+        if ((cz > pz) !== (dz > pz)) {
+            const cx = segs[i];
+            const dx = segs[i + 2];
+            const xInt = cx + ((pz - cz) / (dz - cz)) * (dx - cx);
+            if (xInt > px) inside = !inside;
+        }
+    }
+    return inside;
+}
+
+function pointInAabb(px: number, pz: number, o: ElevOccluderFull): boolean {
+    return px >= o.xMin && px <= o.xMax && pz >= o.yMin && pz <= o.yMax;
+}
+
+/** True when far-segment AABB [sMinX,sMaxX]×[sMinZ,sMaxZ] overlaps occluder AABB. */
+function aabbOverlap(
+    sMinX: number, sMaxX: number, sMinZ: number, sMaxZ: number, o: ElevOccluderFull,
+): boolean {
+    return sMaxX >= o.xMin && sMinX <= o.xMax && sMaxZ >= o.yMin && sMinZ <= o.yMax;
+}
+
+/**
+ * §ELEV-LINEWEIGHT-03 core — split ONE far segment A→B into contiguous VISIBLE and
+ * HIDDEN sub-intervals against the supplied set of strictly-nearer occluders.
+ *
+ * The split boundaries are the exact points where the segment enters/exits an
+ * occluder's projected silhouette (edge crossings), so a partially-covered edge is
+ * cut at the massing's real step-back rather than the coarse whole-element AABB. Each
+ * sub-interval's occlusion state is decided by sampling its midpoint against every
+ * occluder (true silhouette, or AABB fallback). Adjacent same-state intervals are
+ * merged so a fully-visible or fully-hidden edge yields exactly one span.
+ *
+ * @returns list of { t0, t1, hidden } spans covering [0,1] in order.
+ */
+function splitSegmentByOccluders(
+    ax: number, az: number, bx: number, bz: number,
+    occluders: ElevOccluderFull[],
+): Array<{ t0: number; t1: number; hidden: boolean }> {
+    // Collect exact enter/exit boundaries from every occluder that can reach this edge.
+    const bounds: number[] = [0, 1];
+    for (const o of occluders) {
+        if (o.usePolygon) {
+            const segs = o.segs;
+            for (let i = 0; i + 3 < segs.length; i += 4) {
+                const t = segCrossT(ax, az, bx, bz, segs[i], segs[i + 1], segs[i + 2], segs[i + 3]);
+                if (t !== null) bounds.push(t);
+            }
+        } else {
+            // AABB fallback — add the segment's clip-in / clip-out parameters vs the box.
+            for (const [start, delta, min, max] of [
+                [ax, bx - ax, o.xMin, o.xMax] as const,
+                [az, bz - az, o.yMin, o.yMax] as const,
+            ]) {
+                if (Math.abs(delta) < 1e-12) continue;
+                for (const edge of [min, max]) {
+                    const t = (edge - start) / delta;
+                    if (t > ELEV_SPLIT_T_EPS && t < 1 - ELEV_SPLIT_T_EPS) bounds.push(t);
+                }
+            }
+        }
+    }
+
+    bounds.sort((p, q) => p - q);
+
+    // Classify each sub-interval by midpoint sampling, merging adjacent same-state runs.
+    const spans: Array<{ t0: number; t1: number; hidden: boolean }> = [];
+    let prevT = bounds[0];
+    for (let i = 1; i < bounds.length; i++) {
+        const t1 = bounds[i];
+        if (t1 - prevT <= ELEV_SPLIT_T_EPS) continue; // collapse duplicate / zero-width
+        const tm = (prevT + t1) / 2;
+        const px = ax + (bx - ax) * tm;
+        const pz = az + (bz - az) * tm;
+        let hidden = false;
+        for (const o of occluders) {
+            if (o.usePolygon ? pointInSilhouette(px, pz, o.segs) : pointInAabb(px, pz, o)) {
+                hidden = true;
+                break;
+            }
+        }
+        const last = spans[spans.length - 1];
+        if (last && last.hidden === hidden) last.t1 = t1;
+        else spans.push({ t0: prevT, t1, hidden });
+        prevT = t1;
+    }
+    return spans;
+}
+
 /**
  * §ELEV-LINEWEIGHT-02 (L-190 Bug B) — reclassify OCCLUDED elevation projection
  * linework as `hidden` → dashed, in-place, on a TechnicalDrawing.
@@ -339,32 +481,44 @@ interface ElevOccluder2D extends Occluder2D {
  *
  * This pass supplies the missing occlusion for elevations WITHOUT touching plan /
  * section (the caller gates it on viewType === 'elevation'):
- *   1. Build one 2D-drawing-space AABB + nearest-depth per element from its solid
- *      front silhouette (`:cut` + `:proj` linework). Depth is stamped by
- *      EdgeProjectorService as `userData.elevationDepth` (nearest point of the
- *      element along the view direction).
- *   2. For every `:proj` segment of element E, if it is fully inside the AABB of a
- *      NEARER element O (O.depth < E.depth − margin, O ≠ E) it is occluded.
- *   3. Occluded segments are MOVED from the element's `:proj` layer to its sibling
+ *   1. Build one 2D-drawing-space AABB + nearest-depth + TRUE projected silhouette
+ *      (outline edges) per element from its solid front linework (`:cut` + `:proj`).
+ *      Depth is stamped by EdgeProjectorService as `userData.elevationDepth` (nearest
+ *      point of the element along the view direction).
+ *   2. §ELEV-LINEWEIGHT-03 (L-196) — PER-SEGMENT (partial) occlusion. For every
+ *      `:proj` edge of element E, split it at the exact points where it enters/exits a
+ *      NEARER element O's silhouette (O.depth < E.depth − margin, O ≠ E). Each resulting
+ *      sub-segment is classified independently: inside a nearer silhouette → hidden,
+ *      otherwise → visible. A long edge occluded for only PART of its length therefore
+ *      yields a solid sub-segment + a dashed sub-segment with the transition at the
+ *      real step-back boundary (not the coarse whole-element AABB of the v1 pass).
+ *   3. Hidden sub-segments are MOVED from the element's `:proj` layer to its sibling
  *      `:beyond` layer — which the canvas already renders as the light dashed
  *      "beyond" pen — so occluded-but-useful geometry reads dashed/thin exactly as
  *      the cut > projection > beyond > hidden ladder (L-182) intends, regardless of
  *      element type (wall / window / door share the same path).
  *
- * Reuses the v1 Cohen-Sutherland trivial-accept occlusion test and the same AABB /
- * shrink conventions. Same v1 limitation applies (AABB has no window hole, so an
- * element visible strictly through a window may over-dash — acceptable per Contract
- * 23 §9, and safe: over-dashing degrades to the correct heavier reading, never to a
- * dropped line).
+ * The occlusion test prefers the element's TRUE silhouette (even-odd point-in-polygon
+ * on its outline edges), so an L-shaped / stepped / recessed massing's notch is
+ * respected and the split lands at the real step-back. When an occluder has too few
+ * outline edges to bound a closed region it degrades to its coarse AABB — that
+ * degradation is counted and LOGGED (no silent cap), per Contract 23 §9. Interior
+ * openings (a window drawn inside a wall outline) correctly read as non-occluding —
+ * geometry visible strictly through a window stays solid.
  *
- * @returns the number of segments reclassified to dashed/beyond.
+ * @returns the number of (sub-)segments reclassified to dashed/beyond.
  */
 export function reclassifyOccludedElevationLines(drawing: OBC.TechnicalDrawing): number {
     const drawingThree = (drawing as unknown as { three?: THREE.Object3D }).three;
     if (!drawingThree) return 0;
 
-    // ── Pass 1 — accumulate per-element occluder AABB + nearest depth. ──
-    const occMap = new Map<string, { minX: number; maxX: number; minZ: number; maxZ: number; depth: number }>();
+    // ── Pass 1 — accumulate per-element occluder AABB + nearest depth + true silhouette. ──
+    // §ELEV-LINEWEIGHT-03 (L-196): `segs` is the element's projected outline in drawing
+    // space (flat [x0,z0,x1,z1,…]) — the TRUE silhouette used for per-segment (partial)
+    // occlusion so a partially-covered edge splits at the real step-back boundary rather
+    // than the coarse whole-element AABB (v1). The AABB is retained as a cheap pre-filter
+    // and as an explicit fallback when an element has too few edges to form a closed loop.
+    const occMap = new Map<string, { minX: number; maxX: number; minZ: number; maxZ: number; depth: number; segs: number[] }>();
     const projNodes: Array<{ node: THREE.LineSegments; uuid: string; depth: number; layerName: string }> = [];
 
     drawingThree.traverse((child: THREE.Object3D) => {
@@ -384,7 +538,7 @@ export function reclassifyOccludedElevationLines(drawing: OBC.TechnicalDrawing):
         // Solid front silhouette (:cut + :proj) contributes to the occluder box.
         if (isCut || isProj) {
             let e = occMap.get(uuid);
-            if (!e) { e = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity, depth }; occMap.set(uuid, e); }
+            if (!e) { e = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity, depth, segs: [] }; occMap.set(uuid, e); }
             e.depth = Math.min(e.depth, depth);
             const count = posAttr.count;
             for (let i = 0; i < count; i++) {
@@ -395,6 +549,10 @@ export function reclassifyOccludedElevationLines(drawing: OBC.TechnicalDrawing):
                 if (z < e.minZ) e.minZ = z;
                 if (z > e.maxZ) e.maxZ = z;
             }
+            // Collect the outline edges (drawing-space H=x, V=z) as the true silhouette.
+            for (let i = 0; i + 1 < count; i += 2) {
+                e.segs.push(posAttr.getX(i), posAttr.getZ(i), posAttr.getX(i + 1), posAttr.getZ(i + 1));
+            }
         }
 
         if (isProj) projNodes.push({ node: child, uuid, depth, layerName });
@@ -402,31 +560,47 @@ export function reclassifyOccludedElevationLines(drawing: OBC.TechnicalDrawing):
 
     if (occMap.size === 0 || projNodes.length === 0) return 0;
 
-    const occluders: ElevOccluder2D[] = [];
+    const occluders: ElevOccluderFull[] = [];
+    let aabbFallbacks = 0;
     for (const [uuid, b] of occMap) {
         if (!Number.isFinite(b.minX)) continue;
         const w = b.maxX - b.minX;
         const h = b.maxZ - b.minZ;
         if (w * h < MIN_OCCLUDER_AREA) continue;
-        const shrinkX = Math.min(OCCLUDER_SHRINK, w * 0.1);
-        const shrinkZ = Math.min(OCCLUDER_SHRINK, h * 0.1);
+        // §ELEV-LINEWEIGHT-03: prefer the TRUE silhouette (even-odd on the element's
+        // outline edges) — this respects an L-shaped / stepped / recessed massing's
+        // real notch. Fall back to the coarse AABB only when the element has fewer
+        // than 3 outline edges (cannot bound a closed region); that degradation is
+        // counted + LOGGED below (no silent cap, per Contract 23 §9).
+        const edgeCount = b.segs.length / 4;
+        const usePolygon = edgeCount >= 3;
+        if (!usePolygon) aabbFallbacks++;
         occluders.push({
             uuid,
             depth: b.depth,
-            xMin: b.minX + shrinkX,
-            xMax: b.maxX - shrinkX,
-            yMin: b.minZ + shrinkZ,
-            yMax: b.maxZ - shrinkZ,
+            // Raw (unshrunk) AABB: used as pre-filter + fallback coverage. Self-occlusion
+            // is already excluded by UUID, so no shrink is needed here.
+            xMin: b.minX,
+            xMax: b.maxX,
+            yMin: b.minZ,
+            yMax: b.maxZ,
+            segs: b.segs,
+            usePolygon,
         });
     }
     if (occluders.length === 0) return 0;
 
-    // ── Pass 2 — split each :proj node into visible (kept) + occluded (→ beyond). ──
+    // ── Pass 2 — per-SEGMENT (partial) occlusion: split each :proj edge at the points ──
+    //    where it enters/exits a nearer element's silhouette → solid `:proj` where
+    //    visible, dashed `:beyond` where hidden (transition at the real step-back).
     let movedSegments = 0;
 
     for (const { node, uuid, depth, layerName } of projNodes) {
         const posAttr = node.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
         if (!posAttr || posAttr.count < 2) continue;
+
+        // Occluders strictly NEARER than this element (beyond the co-planar margin).
+        const nearer = occluders.filter(o => o.uuid !== uuid && o.depth < depth - ELEV_OCCLUSION_DEPTH_MARGIN);
 
         const kept: number[] = [];
         const hidden: number[] = [];
@@ -436,28 +610,35 @@ export function reclassifyOccludedElevationLines(drawing: OBC.TechnicalDrawing):
             const x0 = posAttr.getX(i);     const y0 = posAttr.getY(i);     const z0 = posAttr.getZ(i);
             const x1 = posAttr.getX(i + 1); const y1 = posAttr.getY(i + 1); const z1 = posAttr.getZ(i + 1);
 
-            let occluded = false;
-            for (const occ of occluders) {
-                if (occ.uuid === uuid) continue;                         // never self-occlude
-                if (occ.depth >= depth - ELEV_OCCLUSION_DEPTH_MARGIN) continue; // occluder must be NEARER
-                if (isSegmentOccluded(x0, z0, x1, z1, occ.xMin, occ.yMin, occ.xMax, occ.yMax)) {
-                    occluded = true;
-                    break;
-                }
+            // Restrict to occluders whose AABB overlaps this edge (cheap pre-filter).
+            const sMinX = Math.min(x0, x1), sMaxX = Math.max(x0, x1);
+            const sMinZ = Math.min(z0, z1), sMaxZ = Math.max(z0, z1);
+            const active = nearer.filter(o => aabbOverlap(sMinX, sMaxX, sMinZ, sMaxZ, o));
+
+            if (active.length === 0) {
+                kept.push(x0, y0, z0, x1, y1, z1); // no nearer occluder can reach this edge
+                continue;
             }
 
-            const bucket = occluded ? hidden : kept;
-            bucket.push(x0, y0, z0, x1, y1, z1);
+            // Split into visible + hidden spans at the exact occlusion transitions.
+            const spans = splitSegmentByOccluders(x0, z0, x1, z1, active);
+            for (const { t0, t1, hidden: isHidden } of spans) {
+                const bucket = isHidden ? hidden : kept;
+                bucket.push(
+                    x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0, z0 + (z1 - z0) * t0,
+                    x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1, z0 + (z1 - z0) * t1,
+                );
+            }
         }
 
         if (hidden.length === 0) continue; // nothing occluded — leave :proj untouched
 
-        // Shrink the :proj node to the still-visible segments (may become empty).
+        // Shrink the :proj node to the still-visible sub-segments (may become empty).
         node.geometry.dispose();
         node.geometry = new THREE.BufferGeometry();
         node.geometry.setAttribute('position', new THREE.Float32BufferAttribute(kept, 3));
 
-        // Move occluded segments onto this element's sibling :beyond layer (dashed pen).
+        // Move occluded sub-segments onto this element's sibling :beyond layer (dashed pen).
         const beyondLayer = layerName.replace(/:proj$/i, ':beyond');
         drawing.layers.create(beyondLayer);
         const hiddenLines = new THREE.LineSegments(
@@ -475,8 +656,11 @@ export function reclassifyOccludedElevationLines(drawing: OBC.TechnicalDrawing):
 
     if (movedSegments > 0) {
         console.log(
-            `[HiddenLineRemoval] §ELEV-LINEWEIGHT-02 elevation occlusion — ` +
-            `${occluders.length} occluder(s), ${movedSegments} segment(s) reclassified proj → beyond (dashed)`,
+            `[HiddenLineRemoval] §ELEV-LINEWEIGHT-03 elevation partial occlusion — ` +
+            `${occluders.length} occluder(s), ${movedSegments} sub-segment(s) reclassified proj → beyond (dashed)` +
+            (aabbFallbacks > 0
+                ? ` [${aabbFallbacks} occluder(s) degraded to coarse AABB — too few outline edges for silhouette]`
+                : ''),
         );
     }
 
