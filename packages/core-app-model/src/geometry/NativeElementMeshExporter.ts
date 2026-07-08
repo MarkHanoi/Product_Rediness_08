@@ -210,9 +210,45 @@ export class NativeElementMeshExporter {
             // No levelId → section, elevation, or 3D view: project entire model.
             const allLevels = this._bimManager.getLevels();
             elementIds = allLevels.flatMap(l => l.childrenIds);
+
+            // §FIX-ELEV-WINDOWS (L-190 Bug A) — hosted openings (windows/doors) register a
+            // scene ROOT via elementRegistry.registerRoot() (WindowBuilder/DoorBuilder), but
+            // are only appended to Level.childrenIds by CreateWallOpeningCommand. ANY path that
+            // (re)builds an opening WITHOUT that command — project RELOAD (WallStore
+            // .repopulateFromWallData rebuilds the opening geometry but never re-runs the
+            // create command, and reconcileSpatialContainment() has no live caller), batch/AI
+            // import, generated typologies — leaves the window/door root OUT of childrenIds.
+            // PLAN still shows those openings because WindowPlanSymbolBuilder reads the
+            // WallStore/WindowStore directly (bypassing childrenIds); ELEVATION / SECTION / 3D
+            // project ONLY from the childrenIds element set, so the openings silently vanished
+            // (the founder's blank-façade South Elevation — windows present in plan, absent in
+            // elevation). elementRegistry.getAllRoots() is the documented SINGLE SOURCE OF
+            // TRUTH for placed element roots — union in every hosted-opening root so it always
+            // projects, independent of how it was created. `seen` dedupes the live-session case
+            // where the opening IS already in childrenIds. Element type is read from the root's
+            // frozen userData (set by the builder on every rebuild, incl. reload) because
+            // registerSemantic() — like registerElement() — only runs in CreateWallOpeningCommand
+            // and is therefore ALSO missing on the reload path.
+            const seen = new Set(elementIds);
+            let hostedOpeningsAdded = 0;
+            for (const { id, root, storeType } of elementRegistry.getAllRoots()) {
+                if (seen.has(id)) continue;
+                const et = (root.userData?.elementType as string | undefined)?.toLowerCase();
+                const isHostedOpening =
+                    et === 'window' || et === 'door' ||
+                    storeType === 'window' || storeType === 'door' || storeType === 'opening';
+                if (isHostedOpening) {
+                    elementIds.push(id);
+                    seen.add(id);
+                    hostedOpeningsAdded++;
+                }
+            }
+
             console.log(
                 `[NativeElementMeshExporter] No levelId — exporting all ${elementIds.length} elements ` +
-                `across ${allLevels.length} levels (viewType=${viewDef.viewType ?? 'unknown'})`,
+                `across ${allLevels.length} levels (viewType=${viewDef.viewType ?? 'unknown'}` +
+                (hostedOpeningsAdded > 0 ? `, +${hostedOpeningsAdded} hosted openings not in childrenIds` : '') +
+                `)`,
             );
         }
 

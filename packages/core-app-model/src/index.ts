@@ -582,7 +582,7 @@ export { createBimWorld } from './BimWorld.js';
 
 // ── Sprint L drawing sub-barrel re-exports ────────────────────────────────────
 
-export { removeHiddenLines } from './drawing/HiddenLineRemoval.js';
+export { removeHiddenLines, reclassifyOccludedElevationLines } from './drawing/HiddenLineRemoval.js';
 
 export type { SymbolSegment } from './drawing/SymbolicRuleRenderer.js';
 export {

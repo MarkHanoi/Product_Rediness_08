@@ -88,7 +88,7 @@ export { ElementSpatialIndex, elementSpatialIndex } from './ElementSpatialIndex.
 
 // ── Sprint L (2026-05-10) — HiddenLineRemoval + SymbolicRuleRenderer ─────────
 
-export { removeHiddenLines } from './HiddenLineRemoval.js';
+export { removeHiddenLines, reclassifyOccludedElevationLines } from './HiddenLineRemoval.js';
 
 export type { SymbolSegment } from './SymbolicRuleRenderer.js';
 export {

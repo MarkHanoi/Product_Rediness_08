@@ -20,7 +20,9 @@ import { mergeGeometries } from '@pryzm/renderer-three';
 // A-1: DrawingSelectionIndex — per-element UUID tagging for plan-view hitTest
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 // Contract 23 §9 — HLR pass: remove occluded projection segments before cache write
-import { removeHiddenLines } from '@pryzm/core-app-model';
+// §ELEV-LINEWEIGHT-02 (L-190) — reclassifyOccludedElevationLines adds the occlusion
+// test the elevation depth-band classifier lacks (set-back geometry → dashed :beyond).
+import { removeHiddenLines, reclassifyOccludedElevationLines } from '@pryzm/core-app-model';
 // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — P8 span for the incremental graft path.
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
@@ -1523,6 +1525,30 @@ export class EdgeProjectorService {
         // ad-hoc `viewType === 'elevation' && layerName === 'A-WALL'` special case.
         const viewScope = resolveViewScope(viewDef.viewType);
 
+        // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — per-element NEAREST projection depth,
+        // stamped onto every elevation LineSegments so the post-pass
+        // reclassifyOccludedElevationLines() can order occluders front-to-back and
+        // dash geometry that is set back behind the façade silhouette. Elevation only
+        // (section keeps its own :cut occluders; plan uses cut-plane classification).
+        const isElevationView = viewDef.viewType === 'elevation';
+        let elevDepthOfBox: ((box: THREE.Box3) => number) | null = null;
+        if (isElevationView) {
+            const { normal: elevNormal, constant: elevConstant } = resolveSectionDepthPlane(viewDef, direction);
+            const elevSign = elevNormal.dot(direction) >= 0 ? 1 : -1;
+            elevDepthOfBox = (box: THREE.Box3): number => {
+                let min = Infinity;
+                for (const x of [box.min.x, box.max.x]) {
+                    for (const y of [box.min.y, box.max.y]) {
+                        for (const z of [box.min.z, box.max.z]) {
+                            const d = (elevNormal.x * x + elevNormal.y * y + elevNormal.z * z + elevConstant) * elevSign;
+                            if (d < min) min = d;
+                        }
+                    }
+                }
+                return min;
+            };
+        }
+
         // DOC-4.4 — Log crop region when active (culling is performed by NativeElementMeshExporter).
         const cropRegion = viewDef.spatial?.cropRegion;
         // §C.3 — viewId is used as the cache partition key (each view has its own projected geometry).
@@ -1741,6 +1767,10 @@ export class EdgeProjectorService {
                 const perElemLayerGeos = new Map<string, THREE.BufferGeometry[]>();
                 const perElemLayerCutGeos = new Map<string, THREE.BufferGeometry[]>();
 
+                // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — nearest projection depth of this
+                // element across the meshes that survive the section-volume filter.
+                let elemElevDepth = Infinity;
+
                 group.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
@@ -1789,6 +1819,12 @@ export class EdgeProjectorService {
                         try {
                             const meshWorldBox = getMeshWorldAABB(mesh);
                             if (sectionVolumeBox && (!meshWorldBox || !sectionBoxIntersectsWorldAABB(sectionVolumeBox, meshWorldBox))) return;
+                            // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — track this element's nearest
+                            // projection depth from the meshes that pass the view filter.
+                            if (elevDepthOfBox && meshWorldBox) {
+                                const d = elevDepthOfBox(meshWorldBox);
+                                if (d < elemElevDepth) elemElevDepth = d;
+                            }
                             // Plan-view Y-range filter: skip meshes whose AABB lies entirely
                             // outside [planBelowY, far + 0.5]. planBelowY = levelFloor − belowDepth
                             // so below-floor geometry up to belowDepthOffset is included, while
@@ -1934,6 +1970,12 @@ export class EdgeProjectorService {
                         }
                         projected.name = targetLayerName;
                         projected.userData.layerName = targetLayerName;
+                        // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — stamp the element's nearest
+                        // projection depth so reclassifyOccludedElevationLines() can order
+                        // occluders and dash set-back geometry. Elevation only.
+                        if (isElevationView && Number.isFinite(elemElevDepth)) {
+                            projected.userData.elevationDepth = elemElevDepth;
+                        }
                         if (!isPlanView && layerName === 'A-WALL' && !/:cut$/i.test(targetLayerName)) {
                             _suppressWallOpeningSeams(projected, drawing, group);
                         }
@@ -2474,6 +2516,18 @@ export class EdgeProjectorService {
             viewDef.viewType === 'structural-plan'
         ) {
             wallLayerPlanSymbolBuilder.inject(drawing, viewDef);
+        }
+
+        // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — elevation occlusion pass. The generic
+        // HLR below derives occluders from `:cut` layers; a correctly-placed elevation
+        // mark slices no solid → zero `:cut` occluders → HLR is a no-op, so set-back
+        // geometry stayed solid `:proj`. This supplies the missing occlusion for
+        // elevations only: geometry occluded by a nearer element is moved from `:proj`
+        // to its `:beyond` sibling (the light dashed pen), giving the founder's set-back
+        // wall its correct dashed/hidden reading. Scoped strictly to elevation — plan /
+        // section are untouched (no `elevationDepth` stamps ⇒ the pass early-returns).
+        if (isElevationView) {
+            reclassifyOccludedElevationLines(drawing);
         }
 
         // Contract 23 §9 — HLR pass (v1: depth-bucket / AABB approach).
