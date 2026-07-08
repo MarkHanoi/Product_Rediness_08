@@ -18,7 +18,8 @@
  *   matching Enscape's shadow quality model.
  *
  * Quality levels:
- *   standard  — default Three.js (512px, PCFSoft, no change)
+ *   standard  — 1024px maps, PCFSoft, radius 2 (§SPIKE-SHADOW-MAP-ACCURACY / L-165;
+ *               was 512px/radius 1 — too coarse on the `performance` tier's fitted frustum)
  *   high      — 2048px maps, PCFSoft, tuned bias/radius
  *   ultra     — 4096px maps, PCFSoft, tighter bias, 8-sample radius
  */
@@ -48,10 +49,24 @@ interface ShadowQualityConfig {
 
 const QUALITY_CONFIGS: Record<ShadowQualityLevel, ShadowQualityConfig> = {
     standard: {
-        mapWidth:    512,
-        mapHeight:   512,
+        // §SPIKE-SHADOW-MAP-ACCURACY (L-165) — 512→1024 px, radius 1→2.
+        // `standard` is the level the `performance` tier maps to (the band EVERY real
+        // generated building lands in — ≥1200 meshes, ADR-0094). 512 px spread over the
+        // key light's ortho frustum (±50, and up to ±80 once RealSunService fits it to
+        // the building) is ~0.2–0.3 m/texel → the founder's stair-stepped ground shadow.
+        // 1024 halves the texel size (~0.1 m/texel); the +1 PCF radius smooths the residue.
+        // Cost: a single ~4 MB depth map (one caster, ADR-0106) — negligible vs the heavy
+        // scene budget; only depth-pass FILL rises, not caster count (the real cost).
+        // Device-loss-safe: this is a static config consumed only by the already-guarded
+        // apply()/setLevel() realloc on a TIER TRANSITION (RenderingPipelineCoordinator
+        // _reallocShadow freeze/thaw + _deferReleaseShadowMap post-submit dispose) — no new
+        // realloc path, nothing mid-submit. Tier-scaled: survival (shadows=false) and the
+        // >8000-mesh shadows-OFF ceiling both DISABLE the map, so the 1024 map is only ever
+        // allocated in the 1200–8000 band — the 40-storey WebGPU budget is untouched.
+        mapWidth:    1024,
+        mapHeight:   1024,
         shadowType:  THREE.PCFSoftShadowMap,
-        radius:      1,
+        radius:      2,
         bias:        -0.0001,
         normalBias:  0.02,
     },
