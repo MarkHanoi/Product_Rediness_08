@@ -65,8 +65,8 @@ describe('§FEAT-ELEVATION-MARKERS (L-116)', () => {
             const mark = anns.getAll().find(m => m.id === elev.markId)!;
             expect(mark.parameters.facingDirection).toEqual({ x: elev.dir.x, y: 0, z: elev.dir.z });
             // placed on the side the elevation looks FROM (arrow points into the model),
-            // at the §FIX-ELEV-MARK-RADIUS-DOUBLE (L-151) radius of 12 m from origin.
-            expect(mark.parameters.position).toEqual({ x: -elev.dir.x * 12, y: 0, z: -elev.dir.z * 12 });
+            // at the §FIX-ELEV-MARK-RADIUS-DOUBLE-2 (L-201) radius of 24 m from origin.
+            expect(mark.parameters.position).toEqual({ x: -elev.dir.x * 24, y: 0, z: -elev.dir.z * 24 });
         }
         // the four marks point in four distinct directions
         const dirs = anns.getByType('elevation-mark')
@@ -146,7 +146,7 @@ describe('§FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158)', () => {
         for (const m of lvl1) expect(m.id).toMatch(/^annotation_[0-9A-HJKMNP-TV-Z]{26}$/);
     });
 
-    it('preserves the L-151 12 m radius on per-level marks', () => {
+    it('preserves the L-201 24 m radius on per-level marks', () => {
         initDefaultViewsManager();
         viewDefinitionStore.create({
             id: 'vd-doc-plan-lvl-1', name: 'Level 1', viewType: 'plan',
@@ -154,7 +154,7 @@ describe('§FIX-ELEV-MARKS-ALL-FLOOR-PLANS (L-158)', () => {
         });
         for (const elev of DEFAULT_ELEVATION_VIEWS) {
             const mark = marksFor('vd-doc-plan-lvl-1').find(m => m.parameters.linkedViewId === elev.id)!;
-            expect(mark.parameters.position).toEqual({ x: -elev.dir.x * 12, y: 0, z: -elev.dir.z * 12 });
+            expect(mark.parameters.position).toEqual({ x: -elev.dir.x * 24, y: 0, z: -elev.dir.z * 24 });
         }
     });
 

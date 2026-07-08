@@ -53,7 +53,10 @@ const GROUND_LEVEL_ID = 'L0';
 // §FIX-ELEV-MARK-RADIUS-DOUBLE (L-151) — doubled 6 → 12 m: at 6 m the marks sat
 // too close to the origin (inside larger footprints). A future bounds-relative
 // placement (marks clamped OUTSIDE the building footprint) is queued as a refinement.
-const ELEV_MARK_RADIUS_M = 12;
+// §FIX-ELEV-MARK-RADIUS-DOUBLE-2 (L-201) — founder: doubled again 12 → 24 m so the
+// elevation marks sit further apart / clearly OUTSIDE larger footprints (the marks
+// on a big plan were still landing on/near the shell at 12 m).
+const ELEV_MARK_RADIUS_M = 24;
 const ELEV_MARK_ARROW_LEN_M = 1;
 
 function _ensureVgBridge(viewId: string, viewName: string): void {
