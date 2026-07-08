@@ -801,19 +801,27 @@ export class OnboardingStepController {
     }
 
     /**
-     * §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — land the user in the editor canvas with the
-     * imported plan VISIBLE. The overlay controller already created + placed the underlay
-     * mesh in the BIM scene (awaited before this runs). Here we: (1) dispose the 2D overlay
-     * map; (2) EXIT GIS and switch to PLAN (Top) view via `pryzmActivateBimView` (which routes
-     * through activateView → toggleGIS(false) → ViewController.activate) so the BIM canvas is
-     * shown; (3) zoom-to-fit onto the plan so the founder sees it centred; (4) dispose the
-     * wizard. All best-effort + guarded — a missing hook degrades to a plain GIS-exit.
+     * §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) + §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D
+     * (L-194) — land the user in the editor with the imported plan VISIBLE, in the 3D SPLIT view
+     * (plan + 3D) ready to continue drawing walls over the underlay. The overlay controller already
+     * created + placed the underlay mesh in the BIM scene (awaited before this runs). Here we:
+     *   (1) dispose the 2D overlay map;
+     *   (2) EXIT GIS and switch to a BIM view via `pryzmActivateBimView` (which routes through
+     *       activateView → toggleGIS(false) → ViewController.activate) so the BIM canvas is shown —
+     *       'Top' (plan) so the imported floor-plan underlay sits square under the wall-draw tool;
+     *   (3) OPEN THE SPLIT VIEW (`window.splitViewManager.activate()`) so the 3D pane appears
+     *       alongside the plan — the founder's requested "plan + 3D" surface. Idempotent: only
+     *       activate when it is not already the auto-opened split;
+     *   (4) zoom-to-fit onto the plan so the founder sees it centred;
+     *   (5) dispose the wizard.
+     * All best-effort + guarded — a missing hook degrades to a plain GIS-exit / plan view.
      */
     private async landInCanvasWithUnderlay(): Promise<void> {
         const w = window as unknown as {
             pryzmCloseBoundaryMap2D?: () => void;
             pryzmActivateBimView?: (mode?: string) => Promise<void> | void;
             pryzmToggleGIS?: (active: boolean) => void;
+            splitViewManager?: { isActive?: boolean; activate?: () => void };
             viewController?: { zoomToFit?: (opts?: { animate?: boolean }) => Promise<void> | void };
         };
         // 1) Tear down the 2D overlay map (it sits over the editor #container).
@@ -829,9 +837,18 @@ export class OnboardingStepController {
             console.warn('[onboarding-step] §SITE-OVERLAY: enter-canvas view switch failed (non-fatal):', err);
             try { w.pryzmToggleGIS?.(false); } catch { /* ignore */ }
         }
-        // 3) Frame the camera on the just-placed plan.
+        // 3) Open the plan + 3D SPLIT view so the user gets both panes, ready to draw over the
+        //    imported underlay. The split auto-opens on project load, so it may already be active
+        //    (activate() is a no-op then) — guard on isActive to avoid a redundant rebuild.
+        try {
+            const svm = w.splitViewManager;
+            if (svm && typeof svm.activate === 'function' && !svm.isActive) svm.activate();
+        } catch (err) {
+            console.warn('[onboarding-step] §SITE-OVERLAY: split-view activation failed (non-fatal):', err);
+        }
+        // 4) Frame the camera on the just-placed plan.
         try { await w.viewController?.zoomToFit?.({ animate: false }); } catch { /* ignore */ }
-        // 4) Dispose the wizard — we're done; the user is in the canvas.
+        // 5) Dispose the wizard — we're done; the user is in the canvas.
         this.dispose();
     }
 

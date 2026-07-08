@@ -320,6 +320,10 @@ export function mountSiteBoundaryMap2D(
         font: '16px/1 system-ui, sans-serif',
         boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
     } satisfies Partial<CSSStyleDeclaration>);
+    // §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — in overlay-only import
+    // mode the map's own ✕ is redundant chrome (and closing via it would orphan the onboarding
+    // wizard banner). The onboarding "← Back" is the single cancel path; hide the map ✕.
+    if (opts.overlayOnly) closeBtn.style.display = 'none';
     overlay.appendChild(closeBtn);
 
     // ── A.8.c.f.4 — Map ↔ Satellite basemap toggle (top-right, under the × ) ────
@@ -1283,6 +1287,11 @@ export function mountSiteBoundaryMap2D(
         // Ignore shortcuts while typing in a field (e.g. the geocode box).
         const t = ev.target as HTMLElement | null;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+        // §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — OVERLAY-ONLY
+        // mode: the boundary draw tool is disarmed, so Enter (commit-loop) and the
+        // R/L/O/C/I/E mode-switch keys must be inert. Escape still tears the map down
+        // (handled by the branch below), so it deliberately falls through.
+        if (opts.overlayOnly && ev.key !== 'Escape') return;
         if (ev.key === 'Enter') {
             ev.preventDefault();
             // §RECT-BOUNDARY / §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — Enter is a
@@ -1580,14 +1589,23 @@ export function mountSiteBoundaryMap2D(
             map.jumpTo({ center: [opts.initial.lon, opts.initial.lat], zoom: opts.initial.zoom ?? 16 });
             console.log('[gis] map2d: centred on point', opts.initial.lat, opts.initial.lon);
         }
-        map.on('click', onClick);
-        map.on('dblclick', onDblClick);
-        map.on('mousedown', VERTEX_LAYER, onMouseDownVertex);
-        map.on('mousemove', onMouseMove);
-        map.on('mouseup', onMouseUp);
-        // Hover affordance over vertices.
-        map.on('mouseenter', VERTEX_LAYER, () => { map.getCanvas().style.cursor = 'grab'; });
-        map.on('mouseleave', VERTEX_LAYER, () => { if (draggingIdx === null) map.getCanvas().style.cursor = ''; });
+        // §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — OVERLAY-ONLY mode:
+        // do NOT attach ANY boundary-draw interaction. The map exists solely to place + calibrate
+        // the site-plan overlay (whose controller binds its OWN map 'click' handler for the
+        // 2-point calibration, mounted below). Never attaching the draw handlers is the definitive
+        // "disarm": no vertex can ever be added, no boundary can ever be committed, and no
+        // "Generate with AI?" confirm can ever be triggered from this map. (onClick also
+        // early-returns on overlayOnly as belt-and-braces.) The draw-plot branch attaches as before.
+        if (!opts.overlayOnly) {
+            map.on('click', onClick);
+            map.on('dblclick', onDblClick);
+            map.on('mousedown', VERTEX_LAYER, onMouseDownVertex);
+            map.on('mousemove', onMouseMove);
+            map.on('mouseup', onMouseUp);
+            // Hover affordance over vertices.
+            map.on('mouseenter', VERTEX_LAYER, () => { map.getCanvas().style.cursor = 'grab'; });
+            map.on('mouseleave', VERTEX_LAYER, () => { if (draggingIdx === null) map.getCanvas().style.cursor = ''; });
+        }
         // MAP-DATA-OVERTURE — populate context footprints now + on every pan/zoom.
         loadContextBuildings(true);
         map.on('moveend', () => loadContextBuildings(false));

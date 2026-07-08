@@ -35,6 +35,7 @@ let hooks: {
     zoomToFit: ReturnType<typeof vi.fn>;
     closeMap: ReturnType<typeof vi.fn>;
     openPicker: ReturnType<typeof vi.fn>;
+    splitActivate: ReturnType<typeof vi.fn>;
 };
 
 beforeEach(() => {
@@ -46,6 +47,7 @@ beforeEach(() => {
         zoomToFit: vi.fn(async () => {}),
         closeMap: vi.fn(),
         openPicker: vi.fn(),
+        splitActivate: vi.fn(),
     };
     const w = window as unknown as Record<string, unknown>;
     w['pryzmStartSitePlanOverlayImport'] = hooks.startOverlay;
@@ -55,11 +57,14 @@ beforeEach(() => {
     w['pryzmCloseBoundaryMap2D'] = hooks.closeMap;
     w['pryzmOpenSitePlanOverlay'] = hooks.openPicker;
     w['viewController'] = { zoomToFit: hooks.zoomToFit };
+    // §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — the split-view
+    // manager the onboarding lands into after Finish (starts inactive so activate() runs).
+    w['splitViewManager'] = { isActive: false, activate: hooks.splitActivate };
 });
 afterEach(() => {
     document.body.innerHTML = '';
     const w = window as unknown as Record<string, unknown>;
-    for (const k of ['pryzmStartSitePlanOverlayImport', 'pryzmStartBoundaryDraw', 'pryzmToggleGIS', 'pryzmActivateBimView', 'pryzmCloseBoundaryMap2D', 'pryzmOpenSitePlanOverlay', 'viewController']) delete w[k];
+    for (const k of ['pryzmStartSitePlanOverlayImport', 'pryzmStartBoundaryDraw', 'pryzmToggleGIS', 'pryzmActivateBimView', 'pryzmCloseBoundaryMap2D', 'pryzmOpenSitePlanOverlay', 'viewController', 'splitViewManager']) delete w[k];
 });
 
 function mountAtSiteStep() {
@@ -144,5 +149,37 @@ describe('§FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — Finish lands in a framed ca
         expect(hooks.closeMap).toHaveBeenCalledTimes(1);
         expect(hooks.toggleGIS).toHaveBeenLastCalledWith(false); // degrade path
         expect(document.querySelector('[data-testid="onboarding-step-overlay"]')).toBeNull();
+    });
+});
+
+describe('§FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — Finish opens the 3D split view', () => {
+    it('activates the plan + 3D SPLIT view (window.splitViewManager) after exiting GIS', async () => {
+        const { runtime, card } = mountAtSiteStep();
+        card.click();
+        runtime.events.emit('site.overlay-placement-committed', {});
+        await flush(); await flush();
+        // Exited to the BIM plan view AND opened the split so the user gets plan + 3D.
+        expect(hooks.activateBimView).toHaveBeenCalledWith('Top');
+        expect(hooks.splitActivate).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT re-activate the split view when it is already open (auto-opened)', async () => {
+        (window as unknown as Record<string, unknown>)['splitViewManager'] = { isActive: true, activate: hooks.splitActivate };
+        const { runtime, card } = mountAtSiteStep();
+        card.click();
+        runtime.events.emit('site.overlay-placement-committed', {});
+        await flush(); await flush();
+        expect(hooks.splitActivate).not.toHaveBeenCalled();
+        // Still framed + disposed — the rest of the landing is unaffected.
+        expect(hooks.zoomToFit).toHaveBeenCalledTimes(1);
+        expect(document.querySelector('[data-testid="onboarding-step-overlay"]')).toBeNull();
+    });
+
+    it('overlay branch NEVER arms the boundary-draw tool (no generate coupling)', () => {
+        const { card } = mountAtSiteStep();
+        card.click();
+        // Only the overlay-only map import is armed; the boundary draw tool is never started.
+        expect(hooks.startOverlay).toHaveBeenCalledTimes(1);
+        expect(hooks.startBoundary).not.toHaveBeenCalled();
     });
 });
