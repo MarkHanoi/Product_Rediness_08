@@ -442,6 +442,15 @@ declare global {
                  * Load-time sibling of setShadowPassSuppressed. No-op on WebGL / inactive.
                  */
                 setShadowReallocFrozen?: (frozen: boolean) => void;
+                /**
+                 * §FIX-WEBGPU-GROUND-SHADOW-DEVICE-LOSS (founder L-197) — freeze-AWARE
+                 * single shadow-map refresh for the L-171 ground-shadow re-home. Sets
+                 * `shadowMap.needsUpdate=true` ONLY when no freeze latch is active (the
+                 * deferred thaw refreshes the settled scene otherwise), so it can never
+                 * force the shadow depth pass mid-tier-realloc / mid-submit and destroy
+                 * the ShadowDepthTexture. No-op on WebGL / when shadows are off.
+                 */
+                requestShadowRefresh?: () => void;
               }
             | undefined;
         renderingPipelineCoordinator: unknown;

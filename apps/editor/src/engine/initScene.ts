@@ -3253,19 +3253,26 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // the real root of the "ground shadow gone" regression: the fit was correct but
         // nothing asked the renderer to re-render the shadow.
         //
-        // Device-loss safe (ADR-0111): sets `shadowMap.needsUpdate = true` only — a
-        // single depth-pass re-render into the EXISTING ShadowDepthTexture; NEVER touches
-        // `shadow.mapSize` (no realloc) — identical to the RenderPipelineManager thaw.
+        // §FIX-WEBGPU-GROUND-SHADOW-DEVICE-LOSS (founder L-197) — route the refresh
+        // through RenderPipelineManager.requestShadowRefresh() so it is FREEZE-AWARE.
+        // The earlier L-171 code poked `window.pryzmRenderer.shadowMap.needsUpdate=true`
+        // DIRECTLY. On the geometry-settle refit (which fires in the SAME window the tier
+        // escalates to `cinematic` and the L-25/L-39/ADR-0111 freeze latch holds
+        // `autoUpdate=false`), `needsUpdate` OVERRODE that freeze and forced the shadow
+        // depth pass to run mid-realloc/mid-submit → the ShadowDepthTexture was
+        // destroyed+recreated while the WebGPU queue still referenced it →
+        // "Destroyed texture [ShadowDepthTexture] used in a submit" ×hundreds → device
+        // loss → the L0 ground shadow vanished. requestShadowRefresh() no-ops while a
+        // freeze latch is active (the deferred thaw refreshes the settled scene instead),
+        // and refreshes only when genuinely idle — L-171's intent WITHOUT the mid-submit
+        // destroy. P2: the shadowMap write now lives in renderer-three (the THREE owner).
+        //
         // Skipped while a batch is draining (§BATCH-SHADOW-MAP-SUPPRESS owns the shadow
         // map then; the trailing post-settle refit repaints once the batch restores it).
         realEnvironment.sun.onKeyLightDriven = (): void => {
             if (batchCoordinator.isBatching) return;
-            try {
-                const sm = (window.pryzmRenderer as { shadowMap?: { enabled?: boolean; needsUpdate?: boolean } } | undefined)?.shadowMap;
-                // Only nudge a re-render — respect any deliberate OFF (survival tier /
-                // render safe-mode set `enabled=false`); needsUpdate is inert while off.
-                if (sm && sm.enabled !== false) sm.needsUpdate = true;
-            } catch { /* renderer not ready — next interaction repaints */ }
+            try { window.renderPipelineManager?.requestShadowRefresh?.(); }
+            catch { /* renderer not ready — next interaction repaints */ }
             // Wake the frame bus once so the refreshed shadow is drawn on the idle scene
             // (P3: no new rAF — reuse the shared scheduler, like the shadow-freeze thaws).
             try { getFrameScheduler().markDirty('ground-shadow-refit'); }

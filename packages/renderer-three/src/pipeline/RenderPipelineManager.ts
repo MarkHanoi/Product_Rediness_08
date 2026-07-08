@@ -892,6 +892,51 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     /**
+     * §FIX-WEBGPU-GROUND-SHADOW-DEVICE-LOSS (founder L-197) — freeze-AWARE single
+     * shadow-map refresh for the L-171 §FIX-GROUND-SHADOW-WEBGPU-RECEIVE re-home.
+     *
+     * ROOT CAUSE this closes: after L-171, `RealSunService.onKeyLightDriven` poked
+     * `renderer.shadowMap.needsUpdate = true` DIRECTLY (from initScene, on the live
+     * WebGPU renderer) whenever the key light was re-driven — including on the debounced
+     * geometry-settle refit (RealEnvironmentService.refitShadowToScene), which fires in
+     * the SAME window the SceneQualityTier escalates to `cinematic` and the shadow-map
+     * freeze latch (§FIX-SHADOW-MIDSUBMIT-DESTROY L-25 / §FIX-SHADOW-LOAD-TIER-DESTROY
+     * L-39 / ADR-0111) holds `autoUpdate=false` to keep the map quiet during the realloc.
+     * `needsUpdate` OVERRIDES `autoUpdate=false` (THREE renders a shadow map when
+     * `autoUpdate || needsUpdate`), so that direct poke DEFEATED the freeze: it forced
+     * the shadow depth pass to run mid-tier-realloc / mid-submit, destroying+recreating
+     * the ShadowDepthTexture while the WebGPU queue still referenced it →
+     * "Destroyed texture [ShadowDepthTexture] used in a submit" ×hundreds → device loss →
+     * the shadow pass died → the L0 ground shadow vanished. L-171's comment claimed the
+     * poke was "identical to the RenderPipelineManager thaw", but the thaw only sets
+     * `needsUpdate=true` AS PART OF thawing (`autoUpdate=true`, deferred past the submit) —
+     * never while the map is frozen.
+     *
+     * The fix routes L-171's refresh through here so it is FREEZE-AWARE: when a freeze
+     * latch is active we NO-OP — the pending thaw ({@link _applyShadowFreezeState} on the
+     * last release) already sets `needsUpdate=true` against the settled scene, so the
+     * caster's newly-fitted pose is refreshed the instant the freeze releases (L-171's
+     * intent preserved). When nothing is frozen (a genuinely idle settled scene — the case
+     * L-171 actually needed), we set `needsUpdate=true` for the one depth re-render into the
+     * EXISTING texture; never touches `shadow.mapSize`, never disposes a texture (ADR-0111).
+     *
+     * P2: the `renderer.shadowMap` write lives here in renderer-three (the THREE owner),
+     * not in the app layer. Inert when shadows are OFF (`enabled=false` — survival tier /
+     * safe-mode). On the WebGL2 fallback (`_webGpuActive=false`) no freeze is ever active,
+     * so it simply refreshes — matching L-171's original WebGL behaviour.
+     */
+    requestShadowRefresh(): void {
+        const shadowMap = (this._renderer as { shadowMap?: { enabled?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
+        if (!shadowMap || shadowMap.enabled === false) return;
+        if (this._webGpuActive &&
+            (this._shadowFrozenState || this._shadowReallocFreezeDepth > 0 || this._shadowPassSuppressed)) {
+            // Frozen — the thaw will refresh. Forcing it now would destroy the texture mid-submit.
+            return;
+        }
+        shadowMap.needsUpdate = true;
+    }
+
+    /**
      * Multi-Camera Single-Pipeline — Phase A.
      *
      * Signal that the NEXT updateCamera() call is a projection toggle
