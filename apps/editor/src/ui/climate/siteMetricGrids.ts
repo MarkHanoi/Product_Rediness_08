@@ -1669,20 +1669,39 @@ export interface FacadeDrapeFace {
     readonly openings: readonly FacadeOpeningRect[];
 }
 
-/** The two RGBA lookup textures + the frame metadata a CustomShader needs to drape the
- *  sun-hours study onto the REAL model. §FIX-FACADE-ANALYSIS-ON-REAL-MODEL. */
+/** The lookup textures + frame metadata a CustomShader needs to drape the sun-hours study
+ *  onto the REAL model. §FIX-FORMA-FACADE-ANALYSIS-QUALITY-PER-FACE (L-199). */
 export interface RealModelSunDrape {
-    /** Cylindrical WALL lookup, `wallW·wallH·4` RGBA (U = centroid-angle, V = height,
-     *  row 0 = BOTTOM). Alpha 0 = an authored opening hole or off-footprint direction. */
+    /** WALL ATLAS, `wallW·wallH·4` RGBA. The N façade faces are packed as a HORIZONTAL STRIP
+     *  of equal-width cells: face `i` occupies columns `[i·cellW, (i+1)·cellW)`, with U = the
+     *  along-face fraction (0..1) and V = the height fraction (0..1, row 0 = BOTTOM). Each cell
+     *  is a PLANAR sun-hours gradient sampled on that face's own UV plane (NO angular unwrap —
+     *  the cylindrical LUT's roof-apex pole singularity + cross-face smear are gone). Alpha 0 =
+     *  an authored opening hole or no-data. `wallW = faceCount·cellW`, `wallH = cellH`. */
     readonly wallRgba: Uint8ClampedArray;
     readonly wallW: number;
     readonly wallH: number;
+    /** Per-face atlas cell size (texels). Along-face = cellW, height = cellH. */
+    readonly cellW: number;
+    readonly cellH: number;
+    /** Number of façade faces packed into the wall atlas (atlas cell count). */
+    readonly faceCount: number;
+    /** FACE TABLE — a NEAREST-filtered RGBA data texture, `faceTableW × faceTableH` (=2 × faceCount).
+     *  Row `i` encodes face `i`'s two metric endpoints RELATIVE TO THE CENTROID, each component as
+     *  a 16-bit fixed-point value over ±`encodeRange` m (hi byte, lo byte): texel col 0 = endpoint
+     *  A (E in R,G; N in B,A), col 1 = endpoint B. The shader decodes these to select, per fragment,
+     *  the NEAREST façade face (planar projection) and its along-fraction — replacing the cylinder. */
+    readonly faceTableRgba: Uint8ClampedArray;
+    readonly faceTableW: number;
+    readonly faceTableH: number;
+    /** Half-range (m) the face-table 16-bit fixed-point encodes over (± this about the centroid). */
+    readonly encodeRange: number;
     /** Top-down ROOF lookup, `roofW·roofH·4` RGBA (U = east over bbox, V = north over bbox,
-     *  row 0 = min-north). Alpha 0 where no roof value was resolvable. */
+     *  row 0 = min-north). PLANAR top-down field — never the cylinder. Alpha 0 where no value. */
     readonly roofRgba: Uint8ClampedArray;
     readonly roofW: number;
     readonly roofH: number;
-    /** Footprint centroid (metric east/north) — the cylindrical unwrap origin. */
+    /** Footprint centroid (metric east/north) — the face-table encode origin + shader frame. */
     readonly centroidE: number;
     readonly centroidN: number;
     /** Building top height (m) — the V=1 line of the wall drape. */
@@ -1696,11 +1715,16 @@ export interface RealModelSunDrape {
     readonly wallLitTexels: number;
 }
 
-/** Default drape texture sizes — coarse enough to be a cheap ONE-per-model GPU upload,
- *  fine enough to read as a continuous gradient on the real façade. */
-const DRAPE_WALL_W = 512;
-const DRAPE_WALL_H = 192;
+/** Per-face atlas cell + roof texture sizing. Target ~1 m/texel to MATCH the ground
+ *  sun-hours heatmap (`sunHours heatmap: smooth texture … ≈0.9 m/texel`), capped so the
+ *  packed atlas stays inside the WebGL max-texture-size / device-loss budget (A.24). */
 const DRAPE_ROOF_SIZE = 128;
+const DRAPE_TEXELS_PER_M = 1;        // ~1 m/texel — matches the ground heatmap resolution
+const DRAPE_CAP_CELL_W = 256;        // along-face texel cap per face cell
+const DRAPE_CAP_CELL_H = 512;        // height texel cap per face cell
+const DRAPE_CAP_ATLAS_W = 4096;      // faceCount·cellW cap (safe WebGL max-texture-size bound)
+/** Face-table columns: 2 texels/face — endpoint A, endpoint B (each E,N as 16-bit rel centroid). */
+const FACE_TABLE_COLS = 2;
 
 /** Bilinear-sample a face intensity lattice (`v*nU+u`, v0 = bottom) at fractional
  *  (uFrac along 0..1, vFrac up 0..1), skipping null corners and renormalising. Returns
@@ -1731,32 +1755,6 @@ function sampleFaceIntensity(
     return wsum > 0 ? acc / wsum : null;
 }
 
-/** Which face does the ray from the centroid at direction `dir` hit, and at what
- *  along-fraction `w` ∈ [0,1]? Nearest positive intersection wins (robust for concave
- *  plans). Returns null when the ray misses every face. §FIX-FACADE-ANALYSIS-ON-REAL-MODEL. */
-function faceForAngle(
-    faces: readonly FacadeDrapeFace[],
-    cx: number,
-    cz: number,
-    dirE: number,
-    dirN: number,
-): { face: FacadeDrapeFace; w: number } | null {
-    let best: { face: FacadeDrapeFace; w: number } | null = null;
-    let bestS = Infinity;
-    for (const f of faces) {
-        const ex = f.bx - f.ax, ez = f.bz - f.az;             // face edge a→b
-        const det = ex * dirN - ez * dirE;
-        if (Math.abs(det) < 1e-9) continue;                    // ray parallel to face
-        const rx = f.ax - cx, rz = f.az - cz;
-        // Solve C + s·dir = a + w·e.
-        const s = (ex * rz - ez * rx) / det;                   // distance along the ray
-        const w = (dirE * rz - dirN * rx) / det;               // fraction along the face
-        if (s <= 1e-6 || w < -1e-3 || w > 1 + 1e-3) continue;
-        if (s < bestS) { bestS = s; best = { face: f, w: Math.max(0, Math.min(1, w)) }; }
-    }
-    return best;
-}
-
 /** Is face-UV (u along 0..1, v up 0..1 with v0 = bottom) inside an authored opening? */
 function faceUvInOpening(openings: readonly FacadeOpeningRect[], u: number, v: number): boolean {
     for (const r of openings) {
@@ -1766,12 +1764,21 @@ function faceUvInOpening(openings: readonly FacadeOpeningRect[], u: number, v: n
 }
 
 /**
- * §FIX-FACADE-ANALYSIS-ON-REAL-MODEL — build the WALL (cylindrical) + ROOF (top-down)
- * lookup textures a CustomShader drapes onto the REAL GLB model. PURE (no Cesium / THREE /
- * DOM): raw RGBA the renderer wraps in a canvas. Reuses the SAME `sunHoursRgb(Vivid)` ramp
- * the polygon façade + floor heatmap + legend use, so every surface reads one scale. The
- * per-face + roof intensities are the byte-identical BVH result (ADR-0110) — this only
- * changes the DISPLAY target from a separate envelope prism to the real model's own faces.
+ * §FIX-FORMA-FACADE-ANALYSIS-QUALITY-PER-FACE (L-199) — build the WALL ATLAS + FACE TABLE +
+ * ROOF lookup a CustomShader drapes onto the REAL GLB model. PURE (no Cesium / THREE / DOM):
+ * raw RGBA the renderer uploads as textures. Reuses the SAME `sunHoursRgb(Vivid)` ramp the
+ * ground heatmap + legend use, so every surface reads one scale, and the per-face + roof
+ * intensities are the byte-identical BVH result (ADR-0110) — only the DISPLAY MAPPING changes.
+ *
+ * WHY (root of L-199): the prior L-177 build unwrapped the walls CYLINDRICALLY (U = centroid
+ * angle, V = height). On a non-cylindrical rectangular + balconied tower that angular map
+ * smeared/wrapped across faces and — because every angle converges at the footprint centre —
+ * collapsed to a POLE SINGULARITY that read as RADIAL SPIKES from the roof apex (founder's
+ * "garbled cyan mess"). This build instead gives EACH façade face its OWN PLANAR gradient cell
+ * (U = along-face, V = height) packed into a horizontal ATLAS, plus a FACE TABLE the shader
+ * uses to pick, per fragment, the NEAREST face by planar projection (balconies/insets snap to
+ * their parent wall — no wrap). The roof stays a top-down planar field. Result: a clean flat
+ * yellow→purple gradient on every wall + roof face, exactly like the ground heatmap.
  */
 export function buildRealModelSunDrape(input: {
     readonly faces: readonly FacadeDrapeFace[];
@@ -1785,46 +1792,91 @@ export function buildRealModelSunDrape(input: {
     readonly roofMinN: number;
     readonly roofSpanE: number;
     readonly roofSpanN: number;
-    readonly wallWidth?: number;
-    readonly wallHeight?: number;
+    /** Force the per-face cell along-texel count (else ~1 m/texel over the widest face, capped). */
+    readonly cellWidth?: number;
+    /** Force the per-face cell height-texel count (else ~1 m/texel over the height, capped). */
+    readonly cellHeight?: number;
     readonly roofSize?: number;
     readonly vivid?: boolean;
     readonly alpha?: number;
 }): RealModelSunDrape {
+    const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
     const vivid = input.vivid ?? true;
-    const alpha = Math.max(0, Math.min(1, input.alpha ?? 1));
-    const alphaByte = Math.round(alpha * 255);
+    const alphaByte = Math.round(clamp01(input.alpha ?? 1) * 255);
     const ramp = vivid ? sunHoursRgbVivid : sunHoursRgb;
-    const wallW = Math.max(8, Math.floor(input.wallWidth ?? DRAPE_WALL_W));
-    const wallH = Math.max(8, Math.floor(input.wallHeight ?? DRAPE_WALL_H));
-    const roofW = Math.max(8, Math.floor(input.roofSize ?? DRAPE_ROOF_SIZE));
-    const roofH = roofW;
+    const faces = input.faces;
+    const faceCount = faces.length;
     const cx = input.centroidE, cz = input.centroidN;
+    const H = Math.max(1e-3, input.heightM);
 
-    // WALL drape — one column per centroid-angle, one row per height. Row 0 = BOTTOM.
+    // ── Cell size: ~1 m/texel (match the ground heatmap), capped for the GPU budget. ──
+    let maxFaceW = 0;
+    for (const f of faces) maxFaceW = Math.max(maxFaceW, Math.hypot(f.bx - f.ax, f.bz - f.az));
+    let cellW = input.cellWidth != null
+        ? Math.max(4, Math.floor(input.cellWidth))
+        : Math.max(8, Math.min(DRAPE_CAP_CELL_W, Math.round(maxFaceW * DRAPE_TEXELS_PER_M)));
+    const cellH = input.cellHeight != null
+        ? Math.max(4, Math.floor(input.cellHeight))
+        : Math.max(8, Math.min(DRAPE_CAP_CELL_H, Math.round(H * DRAPE_TEXELS_PER_M)));
+    // Cap the packed atlas width (faceCount·cellW) to the safe WebGL max-texture-size.
+    let atlasWCapped = false;
+    if (faceCount > 0 && faceCount * cellW > DRAPE_CAP_ATLAS_W) {
+        cellW = Math.max(4, Math.floor(DRAPE_CAP_ATLAS_W / faceCount));
+        atlasWCapped = true;
+    }
+    const wallW = Math.max(1, faceCount) * cellW; // ≥ cellW even with 0 faces (transparent strip)
+    const wallH = cellH;
+
+    // ── WALL ATLAS — one PLANAR gradient cell per face (U = along-face, V = height, v0 = BOTTOM). ──
     const wallRgba = new Uint8ClampedArray(wallW * wallH * 4);
     let wallLitTexels = 0;
-    const TWO_PI = Math.PI * 2;
-    for (let tx = 0; tx < wallW; tx++) {
-        // Column angle θ ∈ (−π, π] — the SAME mapping the shader inverts:
-        // u = (atan2(north−cN, east−cE) + π) / 2π.
-        const theta = ((tx + 0.5) / wallW) * TWO_PI - Math.PI;
-        const dirE = Math.cos(theta), dirN = Math.sin(theta);
-        const hit = faceForAngle(input.faces, cx, cz, dirE, dirN);
-        for (let ty = 0; ty < wallH; ty++) {
-            const o = (ty * wallW + tx) * 4;
-            if (!hit) { wallRgba[o + 3] = 0; continue; }       // no face this direction
-            const vFrac = (ty + 0.5) / wallH;                   // 0 = bottom, 1 = top
-            if (faceUvInOpening(hit.face.openings, hit.w, vFrac)) { wallRgba[o + 3] = 0; continue; }
-            const val = sampleFaceIntensity(hit.face.intensities, hit.face.nU, hit.face.nV, hit.w, vFrac);
-            if (val == null) { wallRgba[o + 3] = 0; continue; }
-            const [r, g, b] = ramp(val);
-            wallRgba[o] = r; wallRgba[o + 1] = g; wallRgba[o + 2] = b; wallRgba[o + 3] = alphaByte;
-            wallLitTexels++;
+    for (let fi = 0; fi < faceCount; fi++) {
+        const face = faces[fi]!;
+        const colBase = fi * cellW;
+        for (let ty = 0; ty < cellH; ty++) {
+            const vFrac = (ty + 0.5) / cellH;               // 0 = bottom, 1 = top
+            for (let lx = 0; lx < cellW; lx++) {
+                const uFrac = (lx + 0.5) / cellW;           // along-face 0..1
+                const o = (ty * wallW + (colBase + lx)) * 4;
+                if (faceUvInOpening(face.openings, uFrac, vFrac)) { wallRgba[o + 3] = 0; continue; }
+                const val = sampleFaceIntensity(face.intensities, face.nU, face.nV, uFrac, vFrac);
+                if (val == null) { wallRgba[o + 3] = 0; continue; }
+                const [r, g, b] = ramp(val);
+                wallRgba[o] = r; wallRgba[o + 1] = g; wallRgba[o + 2] = b; wallRgba[o + 3] = alphaByte;
+                wallLitTexels++;
+            }
         }
     }
 
-    // ROOF drape — top-down over the footprint bbox. Row 0 = min-north.
+    // ── FACE TABLE — 16-bit fixed-point endpoints (rel centroid) so the shader can pick the
+    //    nearest face by planar projection. Encoded over ±encodeRange m; NEAREST-sampled. ──
+    let maxAbs = 1;
+    for (const f of faces) {
+        maxAbs = Math.max(maxAbs, Math.abs(f.ax - cx), Math.abs(f.az - cz), Math.abs(f.bx - cx), Math.abs(f.bz - cz));
+    }
+    const encodeRange = maxAbs * 1.05 + 1; // headroom so no endpoint saturates the ±range
+    const faceTableW = FACE_TABLE_COLS;
+    const faceTableH = Math.max(1, faceCount);
+    const faceTableRgba = new Uint8ClampedArray(faceTableW * faceTableH * 4);
+    const enc16 = (x: number): [number, number] => {
+        const u16 = Math.round(clamp01((x / encodeRange) * 0.5 + 0.5) * 65535);
+        return [(u16 >> 8) & 0xff, u16 & 0xff];
+    };
+    for (let fi = 0; fi < faceCount; fi++) {
+        const f = faces[fi]!;
+        const [aEhi, aElo] = enc16(f.ax - cx);
+        const [aNhi, aNlo] = enc16(f.az - cz);
+        const [bEhi, bElo] = enc16(f.bx - cx);
+        const [bNhi, bNlo] = enc16(f.bz - cz);
+        const rowA = (fi * faceTableW + 0) * 4;   // texel col 0 = endpoint A (E in R,G; N in B,A)
+        faceTableRgba[rowA] = aEhi; faceTableRgba[rowA + 1] = aElo; faceTableRgba[rowA + 2] = aNhi; faceTableRgba[rowA + 3] = aNlo;
+        const rowB = (fi * faceTableW + 1) * 4;   // texel col 1 = endpoint B
+        faceTableRgba[rowB] = bEhi; faceTableRgba[rowB + 1] = bElo; faceTableRgba[rowB + 2] = bNhi; faceTableRgba[rowB + 3] = bNlo;
+    }
+
+    // ── ROOF drape — top-down PLANAR field over the footprint bbox. Row 0 = min-north. ──
+    const roofW = Math.max(8, Math.floor(input.roofSize ?? DRAPE_ROOF_SIZE));
+    const roofH = roofW;
     const roofRgba = new Uint8ClampedArray(roofW * roofH * 4);
     const spanE = Math.max(1e-3, input.roofSpanE), spanN = Math.max(1e-3, input.roofSpanN);
     for (let ty = 0; ty < roofH; ty++) {
@@ -1841,13 +1893,16 @@ export function buildRealModelSunDrape(input: {
 
     try {
         console.debug(
-            `[span][forma-facade-real-drape] §FIX-FACADE-ANALYSIS-ON-REAL-MODEL wall ${wallW}×${wallH} ` +
-            `(${wallLitTexels} lit) + roof ${roofW}×${roofH} from ${input.faces.length} face(s), H ${input.heightM.toFixed(1)} m.`,
+            `[span][forma-facade-real-drape] §FIX-FORMA-FACADE-ANALYSIS-QUALITY-PER-FACE wall atlas ${wallW}×${wallH} ` +
+            `(${faceCount} face cell(s) ${cellW}×${cellH}, ${wallLitTexels} lit${atlasWCapped ? `, ATLAS-W CAPPED @${DRAPE_CAP_ATLAS_W}` : ''}) + ` +
+            `roof ${roofW}×${roofH}, H ${H.toFixed(1)} m.`,
         );
     } catch { /* headless — span best-effort */ }
 
     return {
-        wallRgba, wallW, wallH, roofRgba, roofW, roofH,
+        wallRgba, wallW, wallH, cellW, cellH, faceCount,
+        faceTableRgba, faceTableW, faceTableH, encodeRange,
+        roofRgba, roofW, roofH,
         centroidE: cx, centroidN: cz, heightM: input.heightM,
         roofMinE: input.roofMinE, roofMinN: input.roofMinN,
         roofSpanE: spanE, roofSpanN: spanN, wallLitTexels,

@@ -5364,10 +5364,11 @@ export class CesiumViewport {
             let holes = 0;
             for (const j of faceJobs) holes += j.openings.length;
             console.log(
-              `[CesiumViewport][forma-facade] §FIX-FACADE-ANALYSIS-ON-REAL-MODEL draped sun-hours ` +
-                `onto the REAL GLB model (wall ${drape.wallW}×${drape.wallH}, roof ${drape.roofW}×${drape.roofH}, ` +
+              `[CesiumViewport][forma-facade] §FIX-FORMA-FACADE-ANALYSIS-QUALITY-PER-FACE draped sun-hours ` +
+                `onto the REAL GLB model — PER-FACE PLANAR atlas ${drape.wallW}×${drape.wallH} ` +
+                `(${drape.faceCount} face cell(s) ${drape.cellW}×${drape.cellH}) + roof ${drape.roofW}×${drape.roofH}, ` +
                 `${faceJobs.length} face(s), ${holes} opening(s), H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}). ` +
-                `No envelope prism painted.`,
+                `No envelope prism painted; no angular wrap.`,
             );
             return;
           }
@@ -5453,23 +5454,27 @@ export class CesiumViewport {
   }
 
   /**
-   * §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — attach a Cesium
-   * CustomShader to the REAL placed GLB so the sun-hours study colours the model's OWN
-   * faces (no separate envelope prism). The shader reads each fragment's model-space
-   * position (positionMC: x = east, y = up, z with north = −z — the SAME ENU mapping the
-   * model is placed with, §A.21.D54) and looks up:
-   *   • ROOF — when the fragment is within `roofBand` of the building top — from the
-   *     top-down bbox lookup (u = east, v = north);
-   *   • WALL — otherwise — from the CYLINDRICAL lookup (u = centroid-angle, v = height).
+   * §FIX-FORMA-FACADE-ANALYSIS-QUALITY-PER-FACE (L-199) — attach a Cesium CustomShader to the
+   * REAL placed GLB so the sun-hours study colours the model's OWN faces (no separate envelope
+   * prism). The shader reads each fragment's model-space position (positionMC: x = east, y = up,
+   * z with north = −z — the SAME ENU mapping the model is placed with, §A.21.D54) and looks up:
+   *   • ROOF — when the fragment is within `roofBand` of the building top — from the top-down
+   *     bbox lookup (u = east, v = north). Planar; unchanged.
+   *   • WALL — otherwise — by selecting the NEAREST façade face (planar projection against the
+   *     FACE TABLE) and sampling that face's own PLANAR gradient cell in the wall ATLAS
+   *     (u = along-face, v = height). This REPLACES L-177's cylindrical (u = centroid-angle)
+   *     unwrap, whose pole singularity at the footprint centre read as radial spikes from the
+   *     roof apex and smeared across faces on rectangular + balconied towers. Balconies / insets
+   *     snap to their parent wall (nearest face) → a clean flat gradient, no angular wrap.
    * Openings (alpha 0) `discard` so the real window/door voids read through. UNLIT so the
-   * analysis colours are the pure ramp, not darkened by the Forma sun (the founder: "only
-   * those colours should render"). A.24 Presentation tier: ONE shader + two small texture
-   * uploads, no per-frame work — inside the device-loss budget.
+   * analysis colours are the pure ramp, not darkened by the Forma sun (the founder: "only those
+   * colours should render"). A.24 Presentation tier: ONE shader + three small texture uploads,
+   * no per-frame work — inside the device-loss budget.
    *
-   * The lookup textures are uploaded straight from the drape's RGBA typed arrays (no DOM
-   * canvas), so this works head-lessly and the texel row order is unambiguous (row 0 =
-   * bottom / min-north, matching the shader's v). Returns false if CustomShader is
-   * unavailable in this Cesium build (caller falls back to the polygon envelope).
+   * The lookup textures are uploaded straight from the drape's RGBA typed arrays (no DOM canvas),
+   * so this works head-lessly. The FACE TABLE is NEAREST-filtered (its bytes are 16-bit
+   * fixed-point endpoints, not colours — must not be interpolated). Returns false if CustomShader
+   * is unavailable in this Cesium build (caller falls back to the per-face polygon envelope).
    */
   private applyRealModelSunDrape(drape: RealModelSunDrape): boolean {
     const model = this.realModelOnForma;
@@ -5484,18 +5489,36 @@ export class CesiumViewport {
         typedArray: Uint8Array.from(drape.roofRgba),
         width: drape.roofW, height: drape.roofH, repeat: false,
       });
+      // FACE TABLE — data texture (encoded geometry, NOT colour) → NEAREST both ways so the
+      // shader recovers the exact 16-bit endpoint bytes without filtering.
+      const faceTableTex = new Cesium.TextureUniform({
+        typedArray: Uint8Array.from(drape.faceTableRgba),
+        width: drape.faceTableW, height: drape.faceTableH, repeat: false,
+        minificationFilter: Cesium.TextureMinificationFilter.NEAREST,
+        magnificationFilter: Cesium.TextureMagnificationFilter.NEAREST,
+      });
       const shader = new Cesium.CustomShader({
         mode: Cesium.CustomShaderMode.MODIFY_MATERIAL,
         lightingModel: Cesium.LightingModel.UNLIT,
         uniforms: {
           u_pryzmWallTex: { type: Cesium.UniformType.SAMPLER_2D, value: wallTex },
           u_pryzmRoofTex: { type: Cesium.UniformType.SAMPLER_2D, value: roofTex },
+          u_pryzmFaceTbl: { type: Cesium.UniformType.SAMPLER_2D, value: faceTableTex },
           u_pryzmHeight: { type: Cesium.UniformType.FLOAT, value: Math.max(0.001, drape.heightM) },
           u_pryzmRoofBand: { type: Cesium.UniformType.FLOAT, value: Math.max(0.5, drape.heightM * 0.03) },
           u_pryzmCentroid: { type: Cesium.UniformType.VEC2, value: new Cesium.Cartesian2(drape.centroidE, drape.centroidN) },
           u_pryzmRoofBBox: { type: Cesium.UniformType.VEC4, value: new Cesium.Cartesian4(drape.roofMinE, drape.roofMinN, drape.roofSpanE, drape.roofSpanN) },
+          u_pryzmFaceCount: { type: Cesium.UniformType.FLOAT, value: Math.max(0, drape.faceCount) },
+          u_pryzmCellW: { type: Cesium.UniformType.FLOAT, value: Math.max(1, drape.cellW) },
+          u_pryzmEncRange: { type: Cesium.UniformType.FLOAT, value: Math.max(1, drape.encodeRange) },
         },
         fragmentShaderText: [
+          '#define PRYZM_MAX_FACES 128',
+          // Decode a 16-bit fixed-point value (hi,lo normalised bytes) → metres rel centroid.
+          'float pryzmDec16(float hiN, float loN) {',
+          '  float u16 = floor(hiN * 255.0 + 0.5) * 256.0 + floor(loN * 255.0 + 0.5);',
+          '  return (u16 / 65535.0 * 2.0 - 1.0) * u_pryzmEncRange;',
+          '}',
           'void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {',
           '  vec3 p = fsInput.attributes.positionMC;',
           '  float east = p.x;',
@@ -5507,10 +5530,36 @@ export class CesiumViewport {
           '                    (north - u_pryzmRoofBBox.y) / max(u_pryzmRoofBBox.w, 0.001));',
           '    col = texture(u_pryzmRoofTex, clamp(ruv, 0.0, 1.0));',
           '  } else {',
-          '    float ang = atan(north - u_pryzmCentroid.y, east - u_pryzmCentroid.x);',
-          '    float u = (ang + 3.14159265) / 6.28318531;',
-          '    float v = clamp(upM / max(u_pryzmHeight, 0.001), 0.0, 1.0);',
-          '    col = texture(u_pryzmWallTex, vec2(u, v));',
+          // WALL — nearest-face planar projection against the face table.
+          '    int count = int(u_pryzmFaceCount + 0.5);',
+          '    vec2 frag = vec2(east - u_pryzmCentroid.x, north - u_pryzmCentroid.y);',
+          '    float bestD = 1.0e20;',
+          '    int bestIdx = -1;',
+          '    float bestW = 0.0;',
+          '    for (int i = 0; i < PRYZM_MAX_FACES; i++) {',
+          '      if (i >= count) { break; }',
+          '      float fy = (float(i) + 0.5) / float(count);',
+          '      vec4 ta = texture(u_pryzmFaceTbl, vec2(0.25, fy));',  // col 0 → endpoint A
+          '      vec4 tb = texture(u_pryzmFaceTbl, vec2(0.75, fy));',  // col 1 → endpoint B
+          '      vec2 a = vec2(pryzmDec16(ta.r, ta.g), pryzmDec16(ta.b, ta.a));',
+          '      vec2 b = vec2(pryzmDec16(tb.r, tb.g), pryzmDec16(tb.b, tb.a));',
+          '      vec2 e = b - a;',
+          '      float L = length(e);',
+          '      if (L < 0.001) { continue; }',
+          '      vec2 ud = e / L;',
+          '      float along = dot(frag - a, ud);',
+          '      float w = clamp(along / L, 0.0, 1.0);',
+          '      vec2 nearest = a + ud * (w * L);',
+          '      float d = distance(frag, nearest);',
+          '      if (d < bestD) { bestD = d; bestIdx = i; bestW = w; }',
+          '    }',
+          '    if (bestIdx < 0) { discard; }',
+          '    float vFrac = clamp(upM / max(u_pryzmHeight, 0.001), 0.0, 1.0);',
+          // Atlas cell U with a half-texel inset so LINEAR filtering never bleeds across faces.
+          '    float halfTexel = 0.5 / max(u_pryzmCellW, 1.0);',
+          '    float wIn = mix(halfTexel, 1.0 - halfTexel, bestW);',
+          '    float atlasU = (float(bestIdx) + wIn) / float(count);',
+          '    col = texture(u_pryzmWallTex, vec2(atlasU, vFrac));',
           '  }',
           '  if (col.a < 0.05) { discard; }',
           '  material.diffuse = col.rgb;',
@@ -5521,7 +5570,7 @@ export class CesiumViewport {
       model.customShader = shader;
       return true;
     } catch (e) {
-      console.warn('[CesiumViewport][forma-facade] §FIX-FACADE-ANALYSIS-ON-REAL-MODEL CustomShader construct failed:', e);
+      console.warn('[CesiumViewport][forma-facade] §FIX-FORMA-FACADE-ANALYSIS-QUALITY-PER-FACE CustomShader construct failed:', e);
       return false;
     }
   }
