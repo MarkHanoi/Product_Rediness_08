@@ -75,3 +75,51 @@ export function openDimensionPropertiesOnSelect(
     deps.panel.showLinearDimension(ann, selectedWallId ?? undefined);
     return true;
 }
+
+/** Injected dependencies for {@link deleteSelectedDimension} — keeps it pure + testable. */
+export interface DimensionDeleteDeps {
+    /**
+     * True when a 3D/BIM scene object (`selectionManager.selectedObject`) is the
+     * active selection — that delete takes precedence, so we never hijack a real
+     * element deletion.
+     */
+    hasBimSelection(): boolean;
+    /** The currently-selected plan-view annotation id (`window.__pryzmSelectedAnnotationId`). */
+    getSelectedAnnotationId(): string | null | undefined;
+    /** Resolve an id against the runtime annotation subsystem store. */
+    getAnnotationById(id: string): AnnotationElement | undefined;
+    /** Dispatch the `annotation.delete` command (P6 — DeleteAnnotationHandler). */
+    deleteAnnotation(annotationId: string): void;
+}
+
+/**
+ * Delete the selected plan-view dimension/annotation — the final leg of the L-173
+ * "first-class selectable element" contract (selectable → movable → DELETABLE).
+ *
+ * A UI-drawn dimension is an ADR-0119 subsystem AnnotationElement (Canvas2D-
+ * rendered), NOT a scene `Object3D`. The keyboard Delete/Backspace handler
+ * (`deleteSelected` in initUI) inspects only `selectionManager.selectedObject`,
+ * so it can never reach a selected dimension → dims were undeletable via the
+ * keyboard (founder L-173: "cannot be deleted"). This pure resolver is the single
+ * testable seam that routes a selected-annotation delete through the
+ * `annotation.delete` command (P6 — never a direct store write), mirroring the
+ * Properties Panel "Delete Dimension" button.
+ *
+ * Returns `true` iff it deleted an annotation. Skips (returns `false`) when a 3D
+ * BIM object is selected (that delete takes precedence), when nothing is selected,
+ * or when the id is stale (resolves to no live annotation) — so normal BIM element
+ * deletion is never disturbed.
+ */
+export function deleteSelectedDimension(deps: DimensionDeleteDeps): boolean {
+    // A live 3D/BIM selection owns the delete gesture (element.delete path).
+    if (deps.hasBimSelection()) return false;
+    const id = deps.getSelectedAnnotationId();
+    if (!id) return false;
+    // Only act on a still-live annotation — a stale id (e.g. left over after an
+    // empty-space deselect that already removed the record) resolves to nothing
+    // and is a safe no-op.
+    const ann = deps.getAnnotationById(id);
+    if (!ann) return false;
+    deps.deleteAnnotation(id);
+    return true;
+}

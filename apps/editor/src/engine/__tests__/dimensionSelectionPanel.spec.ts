@@ -17,12 +17,14 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { AnnotationElement } from '@pryzm/plugin-annotations';
 import {
     openDimensionPropertiesOnSelect,
+    deleteSelectedDimension,
     type DimensionPanelLike,
 } from '../../ui/property-panel/dimensionSelectionPanel';
 import {
     showLinearDimension,
     type AnnotationPanelHost,
 } from '../../ui/property-panel/PropertyPanelAnnotations';
+import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -163,5 +165,97 @@ describe('showLinearDimension APPLY drives annotation.update (P6)', () => {
         const updateCall = executeCommand.mock.calls.find((c) => c[0] === 'annotation.update');
         expect(updateCall, 'annotation.update dispatched (P6)').toBeTruthy();
         expect((updateCall![1] as { annotationId: string }).annotationId).toBe(dim.id);
+    });
+});
+
+// ── 3. Selection → DELETE (L-173 completion) ────────────────────────────────────
+
+describe('deleteSelectedDimension (L-173 keyboard-delete seam, P6)', () => {
+    function makeDeps(over: {
+        bim?: boolean;
+        selectedId?: string | null;
+        store?: Map<string, AnnotationElement>;
+        del?: ReturnType<typeof vi.fn>;
+    } = {}) {
+        const store = over.store ?? new Map<string, AnnotationElement>();
+        const del = over.del ?? vi.fn();
+        return {
+            del,
+            deps: {
+                hasBimSelection: () => over.bim ?? false,
+                getSelectedAnnotationId: () => (over.selectedId === undefined ? null : over.selectedId),
+                getAnnotationById: (id: string) => store.get(id),
+                deleteAnnotation: del,
+            },
+        };
+    }
+
+    it('deletes the selected plan-view dimension via annotation.delete (returns true)', () => {
+        const dim = makeLinearDim();
+        const store = new Map([[dim.id, dim]]);
+        const { deps, del } = makeDeps({ selectedId: dim.id, store });
+        expect(deleteSelectedDimension(deps)).toBe(true);
+        expect(del).toHaveBeenCalledTimes(1);
+        expect(del).toHaveBeenCalledWith(dim.id);
+    });
+
+    it('does NOT delete when a 3D BIM object is selected (element delete takes precedence)', () => {
+        const dim = makeLinearDim();
+        const store = new Map([[dim.id, dim]]);
+        const { deps, del } = makeDeps({ bim: true, selectedId: dim.id, store });
+        expect(deleteSelectedDimension(deps)).toBe(false);
+        expect(del).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op when no annotation is selected', () => {
+        const { deps, del } = makeDeps({ selectedId: null });
+        expect(deleteSelectedDimension(deps)).toBe(false);
+        expect(del).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op for a stale id that no longer resolves to a live annotation', () => {
+        const { deps, del } = makeDeps({ selectedId: 'annotation_GONE', store: new Map() });
+        expect(deleteSelectedDimension(deps)).toBe(false);
+        expect(del).not.toHaveBeenCalled();
+    });
+});
+
+// ── 4. Selection → MOVE (UpdateAnnotationCommand applies the drag, P6) ───────────
+
+describe('dimension MOVE applies via UpdateAnnotationCommand (P6)', () => {
+    /** Minimal AnnotationStore surface UpdateAnnotationCommand touches. */
+    function makeFakeStore(seed: AnnotationElement) {
+        const map = new Map<string, AnnotationElement>([[seed.id, seed]]);
+        return {
+            has: (id: string) => map.has(id),
+            getById: (id: string) => map.get(id),
+            update: (patch: { id: string } & Partial<AnnotationElement>) => {
+                const cur = map.get(patch.id);
+                if (cur) map.set(patch.id, { ...cur, ...patch } as AnnotationElement);
+            },
+            add: (el: AnnotationElement) => { map.set(el.id, el); },
+            remove: (id: string) => { map.delete(id); },
+        };
+    }
+
+    it('patches the annotation to the dragged position (move command fires + mutates)', () => {
+        const dim = makeLinearDim();
+        const store = makeFakeStore(dim);
+        const ctx = { stores: { annotationStore: store } } as never;
+
+        // The drag-commit builds exactly this command (PlanViewInteraction._onMouseUp).
+        const movedGeometry2D = {
+            ...dim.geometry2D,
+            modelPoints: [{ x: 1, y: 0, z: 1 }, { x: 5, y: 0, z: 1 }],
+        };
+        const cmd = new UpdateAnnotationCommand(dim.id, { geometry2D: movedGeometry2D } as never);
+
+        expect(cmd.canExecute(ctx).ok).toBe(true);
+        const res = cmd.execute(ctx);
+        expect(res.success).toBe(true);
+
+        const after = store.getById(dim.id)!;
+        expect(after.geometry2D.modelPoints[0]).toEqual({ x: 1, y: 0, z: 1 });
+        expect(after.geometry2D.modelPoints[1]).toEqual({ x: 5, y: 0, z: 1 });
     });
 });

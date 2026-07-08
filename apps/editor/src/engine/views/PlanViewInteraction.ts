@@ -692,6 +692,12 @@ export class PlanViewInteraction {
         } else {
             // Clicked empty space — clear grid selection and deselect underlay if selected
             this._planCanvas.setSelectedGridId?.(null);
+            // §FIX-DIMENSION-FIRST-CLASS-SELECTABLE-L173 — deselect the plan-view
+            // annotation/dimension too. Without this the id lingered, so (a) the dim
+            // stayed visually highlighted after the user clicked away, and (b) a
+            // subsequent keyboard Delete would remove the "deselected" dimension. An
+            // empty-space click is an explicit deselect — clear the annotation selection.
+            window.__pryzmSelectedAnnotationId = null;
             // Do not deselect underlay while the reference scale tool is picking points
             if (!window.__underlayScaleActive) {
                 const underlayTool = window.floorPlanUnderlayTool;

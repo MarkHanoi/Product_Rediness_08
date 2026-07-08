@@ -105,6 +105,12 @@ import { frameObject }             from '@pryzm/core-app-model';
 import { SectionBoxTool }          from '@pryzm/input-host';
 import { installShortcutCheatSheet } from '@app/ui/ShortcutCheatSheet';
 import { inlineLabelEditor }        from '@app/ui/InlineLabelEditor';
+// §FIX-DIMENSION-FIRST-CLASS-SELECTABLE-L173 — a plan-view dimension/annotation is a
+// first-class SELECTABLE element (ADR-0119 subsystem annotationStore), so keyboard
+// Delete/Backspace must be able to remove it via the annotation.delete command (P6),
+// not only geometry Object3Ds. deleteSelectedDimension is the pure, testable seam.
+import { deleteSelectedDimension } from '@app/ui/property-panel/dimensionSelectionPanel';
+import { annotationStore }          from '@pryzm/plugin-annotations';
 // §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159, C06 §7.2) — the Split View toggle shares
 // the bottom-left launcher-rail corner, so it takes a declared slot from the
 // single z-layer/no-overlap policy instead of a hand-picked bottom/z-index.
@@ -2154,6 +2160,31 @@ export async function initUI(p: UIParams): Promise<void> {
     // which routes to the correct per-type delete branch and registers itself
     // with commandManager's undo stack.
     const deleteSelected = async () => {
+        // §FIX-DIMENSION-FIRST-CLASS-SELECTABLE-L173 — a plan-view dimension/annotation is
+        // an ADR-0119 subsystem AnnotationElement (Canvas2D-rendered), NOT a scene
+        // Object3D, so the BIM delete path below (which inspects only
+        // selectionManager.selectedObject) can never reach it — keyboard Delete/Backspace
+        // on a selected dimension hit the "No element selected" early-return, leaving dims
+        // undeletable (founder L-173). Route a selected-annotation delete through the
+        // annotation.delete command (P6 — DeleteAnnotationHandler), exactly like the
+        // Properties Panel "Delete Dimension" button. A live 3D BIM selection takes
+        // precedence (returns false), so element deletion is untouched.
+        if (deleteSelectedDimension({
+            hasBimSelection: () => !!selectionManager.selectedObject,
+            getSelectedAnnotationId: () => window.__pryzmSelectedAnnotationId,
+            getAnnotationById: (id) => annotationStore.getById(id),
+            deleteAnnotation: (id) => {
+                window.runtime?.bus?.executeCommand('annotation.delete', { annotationId: id })
+                    ?.catch((e: Error) => console.error('[deleteSelected] annotation.delete failed:', e));
+                window.__pryzmSelectedAnnotationId = null;
+            },
+        })) {
+            // Close the (now-stale) dimension Properties Panel + clear selection state.
+            unselectAll();
+            toast('Dimension deleted', 'success');
+            return;
+        }
+
         if (!selectionManager.selectedObject) {
             toast('No element selected to delete', 'warn');
             return;
