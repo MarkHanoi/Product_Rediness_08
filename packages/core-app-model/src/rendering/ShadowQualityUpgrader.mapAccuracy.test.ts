@@ -65,31 +65,41 @@ describe('ShadowQualityUpgrader §FIX-SHADOW-REALLOC-DEVICE-LOSS-PROJECT-SWITCH'
         expect(ultra.key.shadow.mapSize.width).toBe(4096);
     });
 
-    it('project-switch realloc: setLevel(standard→high) never disposes the old ShadowDepthTexture synchronously', async () => {
-        // Reproduces the project-switch tier transition (`Level changed to "high"`): the
-        // OLD standard-tier depth texture must be released via the DEFERRED (post-submit)
-        // path, never a synchronous .dispose() inside setLevel — a synchronous dispose while
-        // the pre-freeze frame's submit still references it is the device-loss trigger.
+    it('§FIX-SHADOW-GROUND-REGRESSION (L-195): setLevel(standard→high) NEVER grows/reallocs the map — the ground shadow survives', async () => {
+        // Reproduces the small/new-scene tier transition (`Level changed to "high"`, fired by
+        // SceneQualityTier's cinematic tier on every fresh project). The PRIOR fix (L-189)
+        // tried to make setLevel's 512→2048 realloc SAFE via a deferred dispose — but a single
+        // setTimeout(0) does not guarantee the in-flight WebGPU submit has drained, so
+        // "Destroyed texture [ShadowDepthTexture] used in a submit" STILL fired → device-loss →
+        // the shadow pass was invalidated → the invisible ground shadow-catcher rendered NOTHING
+        // (the founder's regression). The correct contract: a LIVE tier change must NOT
+        // reallocate the shadow map at all. It keeps apply()'s device-safe allocation and tunes
+        // only the non-reallocating params (radius/bias) — so no texture is ever destroyed.
         const { scene, key } = sceneWithKeyLight();
         upgrader.apply(fakeRenderer(), scene, 'standard');
         expect(key.shadow.mapSize.width).toBe(512);
+        expect((key.shadow as unknown as { radius: number }).radius).toBe(1);
 
         // Stand in a fake GPU texture on the light's shadow map and track its dispose.
         let disposed = false;
-        (key.shadow as unknown as { map: unknown }).map = {
-            dispose() { disposed = true; },
-        };
+        const fakeMap = { dispose() { disposed = true; } };
+        (key.shadow as unknown as { map: unknown }).map = fakeMap;
 
         upgrader.setLevel('high');
-        // sh.map is nulled synchronously so THREE regenerates at the new size...
-        expect((key.shadow as unknown as { map: unknown }).map).toBeNull();
-        // ...but the OLD texture must NOT have been disposed synchronously (still mid-submit).
-        expect(disposed).toBe(false);
-        expect(key.shadow.mapSize.width).toBe(2048);
 
-        // The dispose is deferred to a macrotask (past the current submit).
+        // The map is KEPT (never nulled) — no regeneration, so THREE never disposes the old one.
+        expect((key.shadow as unknown as { map: unknown }).map).toBe(fakeMap);
+        // The map size is PINNED to apply()'s device-safe 512 — it must NOT grow to 2048.
+        expect(key.shadow.mapSize.width).toBe(512);
+        expect(key.shadow.mapSize.height).toBe(512);
+        // The non-reallocating params DO update (high's softer PCF radius / tighter bias).
+        expect((key.shadow as unknown as { radius: number }).radius).toBe(4);
+        expect(key.shadow.bias).toBeCloseTo(-0.00005);
+        expect(disposed).toBe(false);
+
+        // No deferred dispose is scheduled either — nothing to reclaim, so it stays alive.
         await new Promise((r) => setTimeout(r, 0));
-        expect(disposed).toBe(true);
+        expect(disposed).toBe(false);
     });
 
     it('survival shadows-OFF gate still disables the map so shadows cost nothing on heavy scenes', () => {

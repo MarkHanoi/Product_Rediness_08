@@ -287,19 +287,32 @@ export class ShadowQualityUpgrader {
         for (const snap of this._snapshots) {
             const sh = snap.light.shadow;
             if (!sh) continue;
-            sh.mapSize.set(cfg.mapWidth, cfg.mapHeight);
+            // §FIX-SHADOW-GROUND-REGRESSION (L-195) — a LIVE tier change must NEVER GROW the
+            // shadow map. Growing it (e.g. standard 512 → high 2048, the logged
+            // `Level changed to "high"` on every small/new scene via SceneQualityTier's
+            // cinematic tier) forces THREE to reallocate the ShadowDepthTexture; the old
+            // texture is disposed while the in-flight WebGPU submit still references it →
+            // "Destroyed texture [ShadowDepthTexture] used in a submit" → device-loss → the
+            // shadow pass is invalidated → the invisible ground shadow-catcher receives
+            // NOTHING (the founder's regression: ground shadows disappear). The map's
+            // device-safe size is owned by apply() (the deferred, freeze/thaw-guarded
+            // allocation); setLevel only tunes the NON-reallocating params (softness/bias),
+            // so no texture is ever destroyed mid-submit here. This is the same constraint
+            // the `standard` config documents ("DO NOT re-bump above 512 without the GPU
+            // fence") — setLevel's 2048 grow was exactly that un-fenced realloc. The
+            // provably-correct alternative (grow the map behind a GPU fence) is L-192.
             sh.bias       = cfg.bias;
             sh.normalBias = cfg.normalBias;
             if ('radius' in sh) {
+                // Softer/harder PCF radius is a free uniform change — no realloc, so high/
+                // ultra still visibly improve the shadow without touching the map size.
                 (sh as any).radius = cfg.radius;
             }
-            // §SHADOW-DEVICE-LOSS-FIX — defer the ShadowDepthTexture dispose past the
-            // current submit (was a synchronous sh.map.dispose() while the WebGPU queue
-            // still referenced it → "Destroyed texture used in a submit" → device lost).
-            ShadowQualityUpgrader._deferReleaseShadowMap(sh);
+            // Intentionally NO sh.mapSize.set() and NO _deferReleaseShadowMap() here — the
+            // existing allocation is kept, which is what keeps the ground shadow alive.
         }
 
-        console.log(`[ShadowQualityUpgrader] Level changed to "${level}"`);
+        console.log(`[ShadowQualityUpgrader] Level changed to "${level}" (map size pinned to apply()'s device-safe allocation — §FIX-SHADOW-GROUND-REGRESSION; radius/bias tuned)`);
     }
 
     /**
