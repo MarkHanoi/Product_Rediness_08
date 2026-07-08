@@ -200,7 +200,15 @@ describe('planAutoDimensions — openings (door + window on one wall)', () => {
 
 // ── P2 — outward-side placement + conflict/overlap resolution (L-138 P2) ────────
 
-/** The engine's own outward-side rule (§SPIKE §8), re-derived from geometry. */
+/**
+ * The RENDERER-accurate expected sign of the emitted `offsetMm` (§SPIKE §8,
+ * §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD L-191). The plan renderer applies the
+ * signed offset along `leftPerp(measurementDir)` — `+Z` for a horizontal string
+ * (leftPerp(+X)) but `−X` for a vertical string (leftPerp(+Z)). So the sign that
+ * pushes the dim line OUTWARD is the world-+axis rule for horizontal, and its
+ * INVERSE for vertical (a positive offset moves a vertical dim in −X). Modelling
+ * that here asserts TRUE outwardness rather than the old +axis-only convention.
+ */
 function outwardSideOf(
   snap: AutoDimSnapshot,
   centroid: { x: number; z: number },
@@ -208,9 +216,11 @@ function outwardSideOf(
 ): 1 | -1 {
   const p1 = resolvePoint(snap, s.references[0]!.elementId as string, s.references[0]!.anchor);
   const p2 = resolvePoint(snap, s.references[1]!.elementId as string, s.references[1]!.anchor);
-  const anchor = s.orientation === 'horizontal' ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
-  const c = s.orientation === 'horizontal' ? centroid.z : centroid.x;
-  return anchor >= c ? 1 : -1;
+  const horizontal = s.orientation === 'horizontal';
+  const anchor = horizontal ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
+  const c = horizontal ? centroid.z : centroid.x;
+  const rawSide: 1 | -1 = anchor >= c ? 1 : -1;
+  return (horizontal ? rawSide : -rawSide) as 1 | -1;
 }
 
 describe('planAutoDimensions — P2 outward-side placement', () => {
@@ -309,12 +319,18 @@ describe('planAutoDimensions — §FIX-AUTODIM-OFFSET-WORLD-SCALE (L-155) world 
     { id: 'window_1', kind: 'window', offset: 4, width: 1.2 },
   ];
 
-  /** World-metre position of the dim line along its offset axis (anchor + signed offset). */
+  /**
+   * RENDERER-accurate world position of the dim line along its offset axis
+   * (§FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD, L-191). The plan renderer offsets a
+   * horizontal dim along `+Z` (leftPerp(+X)) but a vertical dim along `−X`
+   * (leftPerp(+Z)), by `geometry2D.offset = offsetMm/1000` world metres.
+   */
   function dimLinePos(snap: AutoDimSnapshot, s: { references: readonly { elementId: string; anchor: string }[]; orientation: string; offsetMm: number }): number {
     const p1 = resolvePoint(snap, s.references[0]!.elementId as string, s.references[0]!.anchor);
     const p2 = resolvePoint(snap, s.references[1]!.elementId as string, s.references[1]!.anchor);
-    const anchor = s.orientation === 'horizontal' ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
-    return anchor + s.offsetMm / 1000; // metres — mirrors the executor's geometry2D.offset
+    const horizontal = s.orientation === 'horizontal';
+    const anchor = horizontal ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
+    return horizontal ? anchor + s.offsetMm / 1000 : anchor - s.offsetMm / 1000;
   }
 
   it('every dim line stands a VISIBLE world margin (≥ 0.5 m) OUTSIDE the footprint — never hugging the wall (the L-155 bug)', () => {
@@ -362,6 +378,97 @@ describe('planAutoDimensions — §FIX-AUTODIM-OFFSET-WORLD-SCALE (L-155) world 
     expect(JSON.stringify(a.strings)).toEqual(JSON.stringify(b.strings));
     // Row 0 is now 1.0 m out; nothing hugs the wall.
     for (const s of a.strings) expect(Math.abs(s.offsetMm) / 1000).toBeGreaterThanOrEqual(1.0 - 1e-9);
+  });
+});
+
+describe('planAutoDimensions — §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD (L-191)', () => {
+  // RENDERER-accurate dim-line position: the plan renderer offsets a horizontal dim
+  // along +Z and a vertical dim along −X (leftPerp of its cardinal measurement axis),
+  // by geometry2D.offset = offsetMm/1000 world metres.
+  function renderedPos(
+    snap: AutoDimSnapshot,
+    s: { references: readonly { elementId: string; anchor: string }[]; orientation: string; offsetMm: number },
+  ): number {
+    const p1 = resolvePoint(snap, s.references[0]!.elementId as string, s.references[0]!.anchor);
+    const p2 = resolvePoint(snap, s.references[1]!.elementId as string, s.references[1]!.anchor);
+    const horizontal = s.orientation === 'horizontal';
+    const anchor = horizontal ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
+    return horizontal ? anchor + s.offsetMm / 1000 : anchor - s.offsetMm / 1000;
+  }
+
+  function bboxOf(snap: AutoDimSnapshot): { minX: number; maxX: number; minZ: number; maxZ: number } {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const w of snap.walls) for (const p of [w.a, w.b]) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+    }
+    return { minX, maxX, minZ, maxZ };
+  }
+
+  /**
+   * The UNIVERSAL outward invariant (holds for convex AND concave/L footprints):
+   * for every perimeter string, the rendered dim line is FARTHER from the shell
+   * centroid than the wall it measures — i.e. it sits on the side AWAY from the
+   * interior (§FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD, L-191). For a convex
+   * rectangle this also means "outside the AABB"; at a concave NOTCH step the
+   * away-from-centroid direction can legitimately point into the AABB void, so the
+   * centroid-relative test — not an AABB test — is the correct measure of outward.
+   */
+  function assertOutwardOfCentroid(snap: AutoDimSnapshot, poly: readonly { x: number; z: number }[]): void {
+    const c = polygonCentroid(poly);
+    const { strings } = planAutoDimensions(snap, OPTS);
+    const perim = strings.filter((s) => s.kind === 'overall' || s.kind === 'linear-chain' || s.kind === 'linear-element');
+    expect(perim.length).toBeGreaterThan(0);
+    for (const s of perim) {
+      const p1 = resolvePoint(snap, s.references[0]!.elementId as string, s.references[0]!.anchor);
+      const p2 = resolvePoint(snap, s.references[1]!.elementId as string, s.references[1]!.anchor);
+      const horizontal = s.orientation === 'horizontal';
+      const anchor = horizontal ? Math.max(p1.z, p2.z) : Math.max(p1.x, p2.x);
+      const cPerp = horizontal ? c.z : c.x;
+      const pos = renderedPos(snap, s);
+      // The dim line moved strictly FARTHER from the centroid than the wall.
+      expect(Math.abs(pos - cPerp)).toBeGreaterThan(Math.abs(anchor - cPerp) + 1e-9);
+    }
+  }
+
+  it('rectangle: every perimeter chain sits OUTSIDE the shell — all four outward sides used', () => {
+    const snap = rectangle();
+    const poly = [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 }];
+    assertOutwardOfCentroid(snap, poly);
+    // For a convex rectangle "outward" == outside the AABB; the bug was top/left
+    // landing INSIDE. Assert every cardinal outward side (above/below/left/right).
+    const bb = bboxOf(snap);
+    const { strings } = planAutoDimensions(snap, OPTS);
+    const sides = new Set<string>();
+    for (const s of strings) {
+      const pos = renderedPos(snap, s);
+      if (s.orientation === 'horizontal') sides.add(pos < bb.minZ ? 'above' : pos > bb.maxZ ? 'below' : 'INSIDE');
+      else sides.add(pos < bb.minX ? 'left' : pos > bb.maxX ? 'right' : 'INSIDE');
+    }
+    expect(sides.has('INSIDE')).toBe(false);
+    for (const side of ['above', 'below', 'left', 'right']) expect(sides.has(side)).toBe(true);
+  });
+
+  it('rectangle with openings: opening chains + locations are also placed outward', () => {
+    const openings: AutoDimWall['openings'] = [
+      { id: 'door_1', kind: 'door', offset: 2, width: 0.9 },
+      { id: 'window_1', kind: 'window', offset: 4, width: 1.2 },
+    ];
+    assertOutwardOfCentroid(rectangle(openings), [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 }]);
+  });
+
+  it('L-shell: every perimeter chain on every façade run is placed away from the interior', () => {
+    assertOutwardOfCentroid(lPlan(), [
+      { x: 0, z: 0 }, { x: 8, z: 0 }, { x: 8, z: 3 },
+      { x: 4, z: 3 }, { x: 4, z: 6 }, { x: 0, z: 6 },
+    ]);
+  });
+
+  it('notched-corner L: outward placement holds on non-collinear-corner runs too', () => {
+    assertOutwardOfCentroid(notchedCornerPlan(), [
+      { x: 2, z: 0 }, { x: 8, z: 0 }, { x: 8, z: 6 },
+      { x: 0, z: 6 }, { x: 0, z: 3 }, { x: 2, z: 3 },
+    ]);
   });
 });
 

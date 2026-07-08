@@ -88,6 +88,23 @@ function anchorCoord(p: PlannedString): number {
     : Math.max(p.p1.x, p.p2.x); // vertical + aligned → evaluator uses max-x
 }
 
+/**
+ * §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD (L-191) — the world direction the plan
+ * renderer MEASURES this string along. Cardinal strings carry a fixed
+ * `measurementNormal` (world +X for horizontal, +Z for vertical — see
+ * `cardinalMeasurementAxis` / applyAutoDimensions), so
+ * `PlanViewAnnotationRenderer._renderLinearDim` offsets the dim line along
+ * `leftPerp(thisDir)`; 'aligned' strings have no normal and measure along p1→p2.
+ * The emitted signed offset must therefore be signed relative to `leftPerp(dir)`,
+ * NOT the world +axis — the two disagree for vertical (leftPerp(+Z) = −X), which
+ * is exactly why left/right perimeter chains previously landed INWARD.
+ */
+function measurementDir(p: PlannedString): PtXZ {
+  if (p.orientation === 'horizontal') return { x: 1, z: 0 };
+  if (p.orientation === 'vertical') return { x: 0, z: 1 };
+  return unit(sub(p.p2, p.p1));
+}
+
 /** Along-line coordinate of the label centre (consistent within an orientation). */
 function labelCentre(p: PlannedString): number {
   if (p.orientation === 'horizontal') return (p.p1.x + p.p2.x) / 2;
@@ -127,16 +144,27 @@ export function placeStrings(
   // 1. Side + group key per string.
   const placed: PlacedString[] = planned.map((p) => {
     const coord = anchorCoord(p);
-    const centroidCoord = centroid
-      ? (p.orientation === 'horizontal' ? centroid.z : centroid.x)
-      : -Infinity; // no perimeter → default outward (+1)
-    const side: 1 | -1 = coord >= centroidCoord ? 1 : -1;
+    // §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD (L-191, C56 AutoDimension / L-155): the
+    // signed `offset` is applied by the plan renderer along `leftPerp(measurementDir)`
+    // (`_renderLinearDim` lines 558-566), NOT the world +axis. Choose `side` so that
+    // `leftPerp(measurementDir) · side` == the TRUE outward normal (the perpendicular
+    // pointing AWAY from the shell centroid) — then EVERY perimeter chain + its L-155
+    // world standoff lands OUTSIDE the shell (bottom→below, top→above, left→left,
+    // right→right, and the correct outward side of any angled/L run). The former
+    // `coord >= centroidCoord` rule was a world-+axis convention: it agrees with the
+    // renderer for horizontal runs (leftPerp(+X)=+Z=+axis) but is INVERTED for
+    // vertical runs (leftPerp(+Z)=−X), so left/right chains were drawn INWARD. `|dot|`
+    // is 1 for cardinal runs → deterministic; the tie branch cannot arise for a real
+    // perimeter run. No perimeter (per-wall fallback, centroid null) → default +1.
+    const outN = outwardNormalImpl(p.p1, p.p2, centroid);
+    const rPerp = leftPerp(measurementDir(p));
+    const side: 1 | -1 = centroid === null ? 1 : (dot(rPerp, outN) >= 0 ? 1 : -1);
     const bucket = Math.round(coord / BUCKET_EPS_M);
     const groupKey = `${p.orientation}|${side}|${bucket}`;
     return {
       ...p,
       side,
-      outwardNormal: outwardNormalImpl(p.p1, p.p2, centroid),
+      outwardNormal: outN,
       labelCentre: labelCentre(p),
       labelHalfM: labelHalf(p, charWidthM),
       groupKey,

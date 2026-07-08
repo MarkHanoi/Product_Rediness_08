@@ -156,8 +156,16 @@ export function resolveConflicts(
     const anchor = p.orientation === 'horizontal'
       ? Math.max(p.p1.z, p.p2.z)
       : Math.max(p.p1.x, p.p2.x);
+    // §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD (L-191): the dim line's ACTUAL world
+    // position is `anchor + outwardNormal[perpAxis] · magnitude` — the same place
+    // the plan renderer draws it (`leftPerp(measurementDir) · side` == the outward
+    // normal by construction, placement.ts). The former `anchor + side · magnitude`
+    // assumed a world-+axis offset and so probed the WRONG side for vertical runs
+    // (side is now leftPerp-signed, not +x-signed). Use the outward normal so the
+    // crossing scan checks exactly where the dim is rendered.
+    const perpComp = p.orientation === 'horizontal' ? p.outwardNormal.z : p.outwardNormal.x;
     const crossesAt = (row: number): boolean => {
-      const pos = anchor + p.side * (stackWorldBaseM + row * stackWorldSpacingM);
+      const pos = anchor + perpComp * (stackWorldBaseM + row * stackWorldSpacingM);
       const q1 = p.orientation === 'horizontal' ? { x: lo, z: pos } : { x: pos, z: lo };
       const q2 = p.orientation === 'horizontal' ? { x: hi, z: pos } : { x: pos, z: hi };
       for (const s of wallSegs) if (segmentsCrossImpl(q1, q2, s.a, s.b)) return true;
