@@ -926,13 +926,28 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * so it simply refreshes — matching L-171's original WebGL behaviour.
      */
     requestShadowRefresh(): void {
-        const shadowMap = (this._renderer as { shadowMap?: { enabled?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
+        const shadowMap = (this._renderer as { shadowMap?: { enabled?: boolean; autoUpdate?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
         if (!shadowMap || shadowMap.enabled === false) return;
         if (this._webGpuActive &&
             (this._shadowFrozenState || this._shadowReallocFreezeDepth > 0 || this._shadowPassSuppressed)) {
             // Frozen — the thaw will refresh. Forcing it now would destroy the texture mid-submit.
             return;
         }
+        // §FIX-WEBGPU-GROUND-SHADOW-RECEIVE (founder L-202) — RESTORE `autoUpdate=true` here,
+        // not just `needsUpdate`. `_applyShadowFreezeState` is the ONLY writer of `autoUpdate`
+        // and it flips it back to `true` ONLY on a frozen→thawed TRANSITION. If any freeze
+        // source (nav / whole-load / tier realloc / wall-commit) left `autoUpdate=false` and
+        // its thaw transition was missed or served against the pre-caster (empty) scene, the
+        // live WebGPU key-light shadow map stops re-rendering each frame — so once the L0
+        // ground catcher flips visible on the first caster it samples an empty/stale depth map,
+        // reads "fully shadowed", and paints a SOLID GREY square with NO projected shadow
+        // (the founder's populated-scene regression). This refresh only runs when NOT frozen,
+        // and post-§FIX-WEBGPU-SHADOW-TIER-DESTROY `apply()` never resizes a live caster, so
+        // resuming `autoUpdate` re-renders the depth pass into the EXISTING texture — the
+        // natural THREE default, device-loss safe (no mapSize realloc, no mid-submit destroy).
+        // This is what makes the geometry-settle refit's refresh ACTUALLY take effect and keep
+        // the ground shadow live thereafter, restoring L-171's receive without L-171's crash.
+        shadowMap.autoUpdate = true;
         shadowMap.needsUpdate = true;
     }
 

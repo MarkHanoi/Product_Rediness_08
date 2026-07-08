@@ -89,9 +89,35 @@ describe('RenderPipelineManager.requestShadowRefresh (§FIX-WEBGPU-GROUND-SHADOW
         rpm.requestShadowRefresh();
 
         expect(shadowMap.needsUpdate).toBe(true); // one depth re-render into the EXISTING texture
-        expect(shadowMap.autoUpdate).toBe(true);  // never touches autoUpdate itself
+        expect(shadowMap.autoUpdate).toBe(true);  // resumed/kept true so the map keeps rendering
         expect(disposeSpy).not.toHaveBeenCalled();
         expect(destroySpy).not.toHaveBeenCalled(); // never a mapSize realloc / texture destroy
+    });
+
+    it('§L-202: RESTORES autoUpdate=true when a caster is added but a leaked freeze left it false (the grey-catcher receive fix)', () => {
+        const rpm = new RenderPipelineManager();
+        const { shadowMap, disposeSpy, destroySpy } = makeFakeRenderer();
+        armWebGpu(rpm, { shadowMap });
+
+        // Simulate the populated-scene regression: a prior freeze left autoUpdate=false, but
+        // every freeze source has since released (latches all clear — NOT frozen now). Without
+        // the fix the WebGPU shadow map never re-renders → the visible L0 catcher samples an
+        // empty depth map → solid grey with no projected shadow.
+        shadowMap.autoUpdate = false;
+        expect((rpm as unknown as { _shadowFrozenState: boolean })._shadowFrozenState).toBe(false);
+        expect((rpm as unknown as { _shadowReallocFreezeDepth: number })._shadowReallocFreezeDepth).toBe(0);
+
+        // The geometry-settle refit (RealEnvironmentService.refitShadowToScene → sun drive →
+        // onKeyLightDriven) requests the refresh once a caster exists.
+        rpm.requestShadowRefresh();
+
+        // It ACTUALLY fires: the depth pass re-renders AND autoUpdate is restored so the map
+        // keeps rendering the casters each frame → the catcher receives the real ground shadow.
+        expect(shadowMap.needsUpdate).toBe(true);
+        expect(shadowMap.autoUpdate).toBe(true);
+        // Never a realloc / texture destroy — device-loss safe (L-200 apply() no longer resizes).
+        expect(disposeSpy).not.toHaveBeenCalled();
+        expect(destroySpy).not.toHaveBeenCalled();
     });
 
     it('is inert when shadows are OFF (enabled=false — survival tier / safe-mode)', () => {

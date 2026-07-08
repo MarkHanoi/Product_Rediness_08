@@ -15,7 +15,7 @@
  * Imports the module directly (not via the rendering barrel) to keep the node
  * vitest env free of window-touching siblings.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { RealEnvironmentService } from './RealEnvironmentService';
 import type { KeyLightHost } from './RealSunService';
@@ -78,6 +78,24 @@ describe('RealEnvironmentService §FIX-SHADOW-CATCHER-RESTORE (L-112)', () => {
         expect(svc.ground.mesh.visible).toBe(true);
         expect(svc.isGroundCatcherAttached()).toBe(true);
         expect(svc.ground.mesh.receiveShadow).toBe(true);
+    });
+
+    it('§L-202: refit with a caster REQUESTS a shadow refresh (onKeyLightDriven) so the WebGPU depth pass re-renders', () => {
+        svc.enable();
+        // Wire the receive-refresh seam (in production initScene routes this to
+        // RenderPipelineManager.requestShadowRefresh — which restores autoUpdate + needsUpdate).
+        const refresh = vi.fn();
+        svc.sun.onKeyLightDriven = refresh;
+
+        addCaster(scene);
+        refresh.mockClear(); // ignore any drive during setup
+        svc.refitShadowToScene();
+
+        // The refit fitted the frustum to the caster AND drove the key light → a shadow
+        // refresh was requested. Without this the map never re-renders → solid grey catcher.
+        expect(refresh).toHaveBeenCalled();
+        expect(svc.sceneHasCasters).toBe(true);
+        expect(svc.ground.mesh.visible).toBe(true);
     });
 
     it('receiver stays attached when a caster (building) is added — real shadow lands', () => {
