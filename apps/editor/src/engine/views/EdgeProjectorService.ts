@@ -1134,12 +1134,18 @@ function resolveSectionDepthBands(viewDef: ViewDefinition, farClipDepth: number)
 const DEFAULT_FAR_OFFSET  = 3.0;
 
 /**
- * Default depth range for elevation/section views (metres along projection direction).
- * Must cover the full depth of a typical building floor-plate.
- * DOC-22 §7: 50 m is a safe conservative maximum; the EdgeProjector clips
- * any geometry beyond this depth from the view origin.
+ * Default CAPTURE depth for elevation/section views (metres along the projection
+ * direction). This is how DEEP the elevation reaches from the view origin — the
+ * EdgeProjector clips any geometry beyond this depth. It is INDEPENDENT of the
+ * proj→beyond classification boundary (`DEFAULT_SECTION_PROJECTION_DEPTH`, ~12 m):
+ * increasing the capture depth only pulls MORE receding geometry into the drawing
+ * (as `:beyond` linework), it does not move where projection flips to beyond.
+ *
+ * §FIX-ELEV-LIVE-CROP-REPROJECT-AND-4X-DEFAULT (L-202) — raised 4× (50 → 200 m)
+ * so a default elevation captures the full depth of large/deep buildings the
+ * founder was losing beyond the old 50 m cut. DOC-22 §7.
  */
-const DEFAULT_ELEVATION_FAR_DEPTH = 50.0;
+const DEFAULT_ELEVATION_FAR_DEPTH = 200.0;
 
 /** Fallback cut elevation when no level reference is available. */
 const FALLBACK_CUT_ELEVATION = 0;
