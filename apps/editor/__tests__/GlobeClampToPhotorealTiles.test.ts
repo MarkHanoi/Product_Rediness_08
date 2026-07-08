@@ -196,3 +196,47 @@ describe('§FIX-GLOBE-REENTRY-MODEL-LOST — shouldReuseGlobeRealModel', () => {
         expect(reuse('s', 's', true, true)).toBe(reuse('s', 's', true, true));
     });
 });
+
+// §FIX-GLOBE-REAL-MODEL-UNDERGROUND-CLAMP (L-198) — the REAL detailed GLB was placed at the
+// stale pre-await base (~0 = ellipsoid/sea-level) even though the photoreal-tile clamp had
+// already resolved the true ground (e.g. Madrid 706.9 m) — so the model sank ~707 m
+// underground while the massing sat correctly on the tiles. `renderRealModelOnGlobe` captured
+// its base BEFORE `await Cesium.Model.fromGltfAsync(...)`; the clamp settles DURING that parse
+// and the reseat-on-settle missed the not-yet-assigned primitive. `resolveGlobeRealModelBaseHeight`
+// is the PURE reduction the fix re-evaluates AFTER the parse so the model seats on the same
+// clamped base the massing uses (never flat 0).
+describe('§FIX-GLOBE-REAL-MODEL-UNDERGROUND-CLAMP — resolveGlobeRealModelBaseHeight', () => {
+    const resolve = CesiumViewport.resolveGlobeRealModelBaseHeight;
+
+    it('uses the tile-clamped base (NOT 0) when the caller passes no override — THE BUG', () => {
+        // Madrid: clamp settled 706.9 m during the async GLB parse; the real model must seat
+        // there, exactly like the massing — never at the pre-await ellipsoid 0.
+        expect(resolve(undefined, 706.9)).toBe(706.9);
+    });
+
+    it('falls back to the clamped base for a non-finite / undefined override', () => {
+        expect(resolve(undefined, 650.0)).toBe(650.0);
+        expect(resolve(Number.NaN, 650.0)).toBe(650.0);
+        expect(resolve(Number.POSITIVE_INFINITY, 650.0)).toBe(650.0);
+    });
+
+    it('honours an explicit FINITE caller override (including a genuine 0 at sea level)', () => {
+        expect(resolve(12.5, 706.9)).toBe(12.5);
+        expect(resolve(0, 706.9)).toBe(0);        // an EXPLICIT sea-level pin wins
+        expect(resolve(-4.2, 100)).toBe(-4.2);    // reclaimed land below the ellipsoid
+    });
+
+    it('re-evaluated post-parse yields the settled base even if the pre-await base was 0', () => {
+        // Models the L-198 race: pre-await formaTerrainBaseHeight = 0, clamp settles 706.9 during
+        // the parse → re-evaluating against the fresh SSOT re-seats flush, not underground.
+        const preAwait = resolve(undefined, 0);       // captured before fromGltfAsync
+        const postAwait = resolve(undefined, 706.9);  // re-read after the clamp settled mid-parse
+        expect(preAwait).toBe(0);
+        expect(postAwait).toBe(706.9);
+        expect(postAwait).not.toBe(preAwait);
+    });
+
+    it('is a pure function — deterministic on identical inputs', () => {
+        expect(resolve(undefined, 706.9)).toBe(resolve(undefined, 706.9));
+    });
+});

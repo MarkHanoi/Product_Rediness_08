@@ -6533,10 +6533,15 @@ export class CesiumViewport {
         console.warn('[CesiumViewport][globe] shadow setup failed (non-fatal):', e);
       }
 
-      const baseHeight =
-        typeof input.baseHeight === 'number' && Number.isFinite(input.baseHeight)
-          ? input.baseHeight
-          : this.formaTerrainBaseHeight;
+      // §FIX-GLOBE-REAL-MODEL-UNDERGROUND-CLAMP (L-198) — PRE-await base for the initial
+      // matrix handed to `fromGltfAsync`. This is re-evaluated AFTER the parse (below) so a
+      // photoreal-tile clamp that settles DURING the async GLB parse is honoured — otherwise
+      // the model lands at the stale pre-await base (~0 → ~707 m underground in elevated
+      // cities) and the reseat-on-settle misses it (the primitive isn't assigned yet).
+      const baseHeight = CesiumViewport.resolveGlobeRealModelBaseHeight(
+        input.baseHeight,
+        this.formaTerrainBaseHeight,
+      );
 
       // ONE ENU frame at the site origin, seated at the tile-clamped base height —
       // the SAME anchor the massing uses, so the real model lands exactly where the
@@ -6591,6 +6596,22 @@ export class CesiumViewport {
       // Replace any prior real-model primitive (dedup) + revoke its blob URL.
       this.clearRealModelOnGlobe();
 
+      // §FIX-GLOBE-REAL-MODEL-UNDERGROUND-CLAMP (L-198) — RE-EVALUATE the base AFTER the
+      // async GLB parse. The photoreal-tile clamp (`commitPhotorealBase`) can settle a
+      // materially different ground height (e.g. 0 → 706.9 m) DURING `fromGltfAsync` above;
+      // the pre-await `baseHeight` would then bury the model ~707 m under the tiles. Re-read
+      // the tile-clamped SSOT here (unless the caller pinned an explicit finite override) and
+      // re-seat the primitive's matrix so it lands FLUSH on the tiles the massing sits on.
+      const seatBase = CesiumViewport.resolveGlobeRealModelBaseHeight(
+        input.baseHeight,
+        this.formaTerrainBaseHeight,
+      );
+      if (Math.abs(seatBase - baseHeight) > 1e-3) {
+        newModel.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
+          Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, seatBase),
+        );
+      }
+
       this.realModelOnGlobe = newModel;
       this.realModelOnGlobeUrl = input.glbUrl;
       this.realModelOnGlobeOrigin = { lat: input.originLat, lon: input.originLon };
@@ -6599,7 +6620,7 @@ export class CesiumViewport {
 
       console.log(
         `[CesiumViewport][globe] §A.21.D49 REAL model placed on photoreal tiles ` +
-          `at LAT ${input.originLat.toFixed(6)} LON ${input.originLon.toFixed(6)} base ${baseHeight.toFixed(2)} m.`,
+          `at LAT ${input.originLat.toFixed(6)} LON ${input.originLon.toFixed(6)} base ${seatBase.toFixed(2)} m.`,
       );
       return true;
     } catch (err) {
@@ -6663,6 +6684,30 @@ export class CesiumViewport {
       lastSignature !== null &&
       signature === lastSignature
     );
+  }
+
+  /**
+   * §FIX-GLOBE-REAL-MODEL-UNDERGROUND-CLAMP (L-198) — PURE resolution of the base height
+   * the REAL detailed model seats at on the photoreal-tiles globe. Prefers an explicit,
+   * FINITE caller override; otherwise the tile-clamped ground base (`formaTerrainBaseHeight`).
+   *
+   * ROOT of L-198: `renderRealModelOnGlobe` captured the base BEFORE its `await
+   * Cesium.Model.fromGltfAsync(...)`. The photoreal-tile clamp (`commitPhotorealBase`,
+   * base e.g. 706.9 m in Madrid) settles asynchronously and can resolve DURING that GLB
+   * parse; the reseat-on-settle (renderFormaMassing → reseatRealModelOnGlobe) then finds
+   * `realModelOnGlobe` still null (assigned only after the await) and skips, so the model
+   * was placed at the stale pre-await base (~0 = ellipsoid/sea-level → ~707 m underground)
+   * and never re-seated. The fix RE-EVALUATES this reduction AFTER the parse so a clamp
+   * that settled mid-parse is honoured. No I/O, deterministic → P8 span-exempt (pure).
+   * Unit-tested (globe real-model base resolution).
+   */
+  static resolveGlobeRealModelBaseHeight(
+    explicitBase: number | undefined,
+    clampedBase: number,
+  ): number {
+    return typeof explicitBase === 'number' && Number.isFinite(explicitBase)
+      ? explicitBase
+      : clampedBase;
   }
 
   /**
