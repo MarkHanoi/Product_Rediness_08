@@ -24,8 +24,13 @@ import {
     siteSetParcelBoundary,
     type SiteModelStore,
 } from '@pryzm/stores';
-import type { ParcelEdgeClassification } from '@pryzm/schemas';
+import type { ParcelEdgeClassification, SiteModel } from '@pryzm/schemas';
+import { SiteModelSchema } from '@pryzm/schemas';
 import { GeospatialAdapter } from '@pryzm/geospatial';
+import { trace } from '@opentelemetry/api';
+import { polygonAreaXZ } from './siteInspectorData';
+
+const _siteRestoreTracer = trace.getTracer('pryzm.site.restore');
 
 // ── FORMA.4 / C19 §1.3 — LTP-ENU origin rebase at the draw surface ───────────
 //
@@ -107,6 +112,138 @@ function setLtpOriginIfSafe(ctx: SiteContext, lat: number, lon: number): void {
         // Origin-rebase is best-effort site intelligence; never block the location
         // dispatch (the lat/lon is still recorded on the Site for IFC export).
         console.warn('[gis] LTPENURebase.setOrigin failed (non-fatal):', e);
+    }
+}
+
+/**
+ * §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — force the LTP-ENU origin to a
+ * lat/lon UNCONDITIONALLY (bypasses the `setLtpOriginIfSafe` boundary guard).
+ *
+ * On PROJECT RESTORE the persisted origin is authoritative: the parcel boundary
+ * was projected in exactly this frame at author time (they were committed
+ * together), so re-seeding the origin here can never desynchronise them — it
+ * merely re-establishes the same C19 §1.3 frame the geometry already lives in.
+ * The guarded `setLtpOriginIfSafe` (used on interactive geocode) would SKIP once
+ * a boundary exists, which is wrong for restore where the boundary always exists.
+ */
+function setLtpOriginForce(lat: number, lon: number): void {
+    try {
+        if (lat === 0 && lon === 0) return; // Null Island placeholder — not a real origin.
+        if (!_ltpAdapter) {
+            _ltpAdapter = new GeospatialAdapter({
+                proj4String: utmProj4StringForLon(lat, lon),
+                origin: { lat, lon, elev: 0 },
+            });
+        } else {
+            _ltpAdapter.setOrigin(lat, lon, 0);
+        }
+        _lastSiteOrigin = { lat, lon }; // §CESIUM-SITE-ORIGIN — for the Cesium fallback read.
+        console.log(`[gis] LTPENURebase origin RESTORED → LAT ${lat} LON ${lon} (C19 §1.3, L-188).`);
+    } catch (e) {
+        console.warn('[gis] §FIX-GIS-SITE-STATE-NOT-PERSISTED — LTP origin restore failed (non-fatal):', e);
+    }
+}
+
+/**
+ * §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — restore a persisted C19 SiteModel
+ * into the LIVE runtime on project open, re-establishing everything the GIS/site
+ * substrate needs so reopening a GIS project shows its REAL location + boundary
+ * (not the Madrid default):
+ *
+ *   1. Hydrate `runtime.siteModelStore` with the validated SiteModel (location,
+ *      parcel boundary, footprint, context buildings).
+ *   2. Re-seed the LTP-ENU geospatial origin (C19 §1.3) to the persisted lat/lon
+ *      + record it for the §CESIUM-SITE-ORIGIN fallback read.
+ *   3. Re-emit the domain events (`site.created` → `site.location-changed` →
+ *      `site.parcel-boundary-set`) so the EXISTING event-driven consumers react
+ *      exactly as they do during onboarding: RealEnvironmentService re-anchors
+ *      the sun at the real site (not Madrid), CesiumViewport frames the plot, and
+ *      the ParcelBoundarySceneRenderer re-draws the boundary.
+ *
+ * When `site` is null/absent (a non-GIS project) the store is RESET so a prior
+ * project's site never leaks across a project switch (C13 isolation) — mirrors
+ * the IfcMetaStore restore pattern in ProjectLoader.
+ *
+ * Idempotent + fully guarded — never throws into the load path. Returns true when
+ * a real site was restored.
+ */
+export function restoreSiteState(
+    runtimeArg: PryzmRuntime | null | undefined,
+    site: SiteModel | null | undefined,
+): boolean {
+    const span = _siteRestoreTracer.startSpan('pryzm.site.restoreSiteState');
+    try {
+        const winRuntime = (typeof window !== 'undefined')
+            ? (window.runtime as unknown as PryzmRuntime | undefined)
+            : undefined;
+        const rt = (runtimeArg ?? winRuntime) ?? undefined;
+        const store = rt?.siteModelStore as SiteModelStore | undefined;
+        if (!store) {
+            console.warn('[gis] restoreSiteState: runtime.siteModelStore unavailable — site not restored.');
+            span.setAttribute('pryzm.site.restored', false);
+            return false;
+        }
+
+        // No persisted site (non-GIS project) → clear for project-switch isolation.
+        if (!site) {
+            store.reset();
+            _lastSiteOrigin = null;
+            span.setAttribute('pryzm.site.restored', false);
+            return false;
+        }
+
+        // Validate defensively (an old/partial snapshot re-fills defaults) before set.
+        let model: SiteModel;
+        try {
+            model = SiteModelSchema.parse(site);
+        } catch (e) {
+            console.warn('[gis] restoreSiteState: persisted SiteModel failed schema validation — site not restored:', e);
+            span.setAttribute('pryzm.site.restored', false);
+            return false;
+        }
+
+        store.set(model);
+
+        const { latitude: lat, longitude: lon } = model.location;
+        span.setAttribute('pryzm.site.lat', lat);
+        span.setAttribute('pryzm.site.lon', lon);
+
+        // Re-seed the C19 geospatial origin from the persisted location (authoritative
+        // on restore — see setLtpOriginForce).
+        setLtpOriginForce(lat, lon);
+
+        // Re-emit domain events so the existing consumers re-anchor to the real site.
+        rt?.events?.emit('site.created', {
+            type: 'site.created',
+            siteId: model.id,
+            projectId: model.projectId,
+        });
+        rt?.events?.emit('site.location-changed', {
+            type: 'site.location-changed',
+            siteId: model.id,
+            location: model.location,
+        });
+        const polygon = model.parcel?.boundary?.polygon;
+        if (Array.isArray(polygon) && polygon.length >= 3) {
+            rt?.events?.emit('site.parcel-boundary-set', {
+                type: 'site.parcel-boundary-set',
+                siteId: model.id,
+                boundary: model.parcel.boundary,
+                area: polygonAreaXZ(polygon),
+            });
+        }
+
+        console.log(
+            `[gis] §FIX-GIS-SITE-STATE-NOT-PERSISTED — site restored: siteId=${model.id} ` +
+            `LAT ${lat} LON ${lon} boundaryPts=${Array.isArray(polygon) ? polygon.length : 0} (L-188).`,
+        );
+        span.setAttribute('pryzm.site.restored', true);
+        return true;
+    } catch (e) {
+        console.warn('[gis] §FIX-GIS-SITE-STATE-NOT-PERSISTED — restoreSiteState failed (non-fatal):', e);
+        return false;
+    } finally {
+        span.end();
     }
 }
 

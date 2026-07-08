@@ -63,6 +63,14 @@ import { WallSystemTypeStore } from '@pryzm/geometry-wall';
 // round-trip join keys). The snapshot shape is the store's own serialize() output.
 import type { IfcMetaStore } from '@pryzm/stores';
 type IfcMetaSnapshot = ReturnType<IfcMetaStore['serialize']>;
+// §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — type-only refs to the L3 SiteModelStore
+// (a per-runtime instance, like IfcMetaStore) and the L0 SiteModel schema. The GIS/site
+// state (location lat/lon, parcel boundary, C19 geospatial origin, footprint, context
+// buildings) lives ONLY in this store — it was never in the snapshot, so it was lost on
+// every save/reload (the site silently defaulted to Madrid). The SiteModel is pure Zod
+// data (no THREE / DOM), so it round-trips through JSON directly.
+import type { SiteModelStore } from '@pryzm/stores';
+import type { SiteModel } from '@pryzm/schemas';
 import { CeilingStore } from '@pryzm/core-app-model/stores';
 import { CeilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { requirementStore } from '@pryzm/core-app-model';
@@ -360,6 +368,19 @@ export interface ProjectSnapshot {
      * hydrate). Optional + omitted when the store is empty (backward compat).
      */
     ifcElementMeta?: IfcMetaSnapshot;
+
+    /**
+     * §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — the full C19 SiteModel for this
+     * project: location (lat/lon/elev/true-north/CRS/address), parcel boundary +
+     * setbacks + zoning, building footprint, and reference context buildings. This
+     * is the geospatial substrate the LTP-ENU origin, RealSunService and Cesium
+     * globe are all anchored to. Prior to L-188 it lived ONLY in the per-runtime
+     * `SiteModelStore` (never serialized), so reopening a GIS project lost the real
+     * site and silently defaulted to Madrid. The SiteModel is pure Zod data, so it
+     * round-trips through JSON as-is. `null` / absent = no site authored (backward
+     * compat with every pre-L-188 snapshot).
+     */
+    site?: SiteModel | null;
 }
 
 // ── THREE.js strippers ──────────────────────────────────────────────────────
@@ -675,6 +696,15 @@ export interface ProjectStores {
      * compat with bootstraps (and isolated tests) that don't wire the runtime store.
      */
     ifcMetaStore?: IfcMetaStore;
+    /**
+     * §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — the per-runtime SiteModelStore
+     * (`runtime.siteModelStore`). Threaded through here (like `ifcMetaStore`) so the
+     * snapshot can capture the C19 site/geospatial state. Optional for backward
+     * compat with bootstraps / isolated tests that don't wire the runtime store; when
+     * absent the serializer falls back to `window.runtime.siteModelStore` and finally
+     * omits `site` from the snapshot.
+     */
+    siteModelStore?: SiteModelStore;
 }
 
 export class ProjectSerializer {
@@ -693,8 +723,27 @@ export class ProjectSerializer {
             beamStore, curtainWallStore, roofStore, plumbingStore,
             furnitureStore, handrailStore, openingStore, roomStore,
             slabSystemTypeStore, wallSystemTypeStore, ceilingStore, ceilingSystemTypeStore,
-            floorStore, floorSystemTypeStore, ifcMetaStore,
+            floorStore, floorSystemTypeStore, ifcMetaStore, siteModelStore,
         } = stores;
+
+        // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — capture the C19 SiteModel so the
+        // real location / parcel boundary / geospatial origin survive save+reload. The
+        // store is a per-runtime instance (not a module singleton); prefer the threaded
+        // `stores.siteModelStore`, fall back to `window.runtime.siteModelStore` (parity
+        // with how `lighting` sources `window.lightingStore`). structuredClone yields a
+        // plain, unfrozen snapshot — the SiteModel is pure Zod data (no THREE/DOM refs).
+        const resolvedSiteStore: SiteModelStore | undefined =
+            siteModelStore
+            ?? ((window as { runtime?: { siteModelStore?: SiteModelStore } }).runtime?.siteModelStore);
+        const site: SiteModel | null = (() => {
+            try {
+                const s = resolvedSiteStore?.getSite?.() ?? null;
+                return s ? (structuredClone(s) as SiteModel) : null;
+            } catch (e) {
+                console.warn('[ProjectSerializer] §FIX-GIS-SITE-STATE-NOT-PERSISTED — failed to read SiteModel (non-fatal):', e);
+                return null;
+            }
+        })();
 
         const levels = wallStore.getLevels().map(l => ({ ...l }));
         const grids = gridStore.getAll().map(g => ({ ...g }));
@@ -900,6 +949,11 @@ export class ProjectSerializer {
                 if (!ifcMetaStore || ifcMetaStore.size() === 0) return undefined;
                 return ifcMetaStore.serialize();
             })(),
+
+            // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — the C19 SiteModel (location,
+            // parcel boundary, footprint, context buildings). Omitted when no site is
+            // authored so non-GIS projects keep a byte-identical snapshot.
+            site: site ?? undefined,
         };
 
         console.log(

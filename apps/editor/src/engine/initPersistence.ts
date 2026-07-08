@@ -75,8 +75,17 @@ export function initPersistence(params: {
     // so it is merged onto the bundle here rather than living on `stores` already. We
     // never mutate the caller's object; when no runtime is supplied (pre-D.4 isolated
     // tests) the bundle is passed through unchanged.
-    const serializeStores: ProjectStores = params.runtime?.ifcMetaStore
-        ? { ...stores, ifcMetaStore: stores.ifcMetaStore ?? params.runtime.ifcMetaStore }
+    //
+    // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — the per-runtime SiteModelStore is
+    // threaded the same way so the C19 site/geospatial state (location lat/lon, parcel
+    // boundary, geospatial origin, footprint) is captured in the `.pryzm` snapshot.
+    // Without it, reopening a GIS project lost the real site and defaulted to Madrid.
+    const serializeStores: ProjectStores = (params.runtime?.ifcMetaStore || params.runtime?.siteModelStore)
+        ? {
+            ...stores,
+            ifcMetaStore:   stores.ifcMetaStore   ?? params.runtime?.ifcMetaStore,
+            siteModelStore: stores.siteModelStore ?? params.runtime?.siteModelStore,
+        }
         : stores;
 
     // ── Save delegate ─────────────────────────────────────────────────────────

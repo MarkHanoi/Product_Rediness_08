@@ -105,6 +105,11 @@ import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateFloorCommand, ImportProjectCommand, dropDegeneratePolygonRecords, ceilingRestoreBoundaryFields } from '@pryzm/command-registry'; // §LOAD-HEAL-DEGENERATE-POLYGON + §OPEN-OLD-CEILING-RESTORE
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { hierarchyStore } from '@pryzm/core-app-model';
+// §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — restores the persisted C19 SiteModel
+// (location / parcel boundary / geospatial origin) into the live runtime + re-emits
+// the site.* domain events so the sun (RealSunService), Cesium globe, and parcel
+// renderer re-anchor to the REAL site instead of defaulting to Madrid.
+import { restoreSiteState } from '@app/ui/site/siteDispatch';
 import { templateStore } from '@pryzm/core-app-model';
 import { templateAssignmentStore } from '@pryzm/core-app-model';
 import { elementCodeStore } from '@pryzm/core-app-model';
@@ -1645,6 +1650,23 @@ export class ProjectLoader {
             if (snapshot.hierarchy) {
                 hierarchyStore.deserialize(snapshot.hierarchy.nodes);
                 console.log(`[ProjectLoader] Hierarchy store restored from snapshot (${snapshot.hierarchy.nodes.length} nodes)`);
+            }
+
+            // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — restore the C19 SiteModel into
+            // the live runtime.siteModelStore + re-seed the LTP-ENU geospatial origin +
+            // re-emit site.* events, so reopening a GIS project shows its REAL location
+            // + parcel boundary (the sun/Cesium/parcel-renderer re-anchor via the events)
+            // instead of silently defaulting to Madrid. ALWAYS invoked (even when
+            // snapshot.site is absent) so a non-GIS project resets any prior project's
+            // site for C13 isolation — mirrors the IfcMetaStore restore above.
+            try {
+                const restored = restoreSiteState(
+                    (window as { runtime?: import('@pryzm/runtime-composer/types').PryzmRuntime }).runtime,
+                    (snapshot as { site?: import('@pryzm/schemas').SiteModel | null }).site ?? null,
+                );
+                if (restored) console.log('[ProjectLoader] §FIX-GIS-SITE-STATE-NOT-PERSISTED — C19 site state restored from snapshot');
+            } catch (e) {
+                console.warn('[ProjectLoader] §FIX-GIS-SITE-STATE-NOT-PERSISTED — site restore failed (non-fatal):', e);
             }
             if (snapshot.templates) {
                 templateStore.deserialize(snapshot.templates.templates);

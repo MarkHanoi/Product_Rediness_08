@@ -99,6 +99,15 @@ export interface SnapshotHeader {
 
     /** §IFC-STORE-1 — IFC import registry. */
     ifcImports?: ProjectSnapshot['ifcImports'];
+
+    /**
+     * §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — the C19 SiteModel (location /
+     * parcel boundary / geospatial origin / footprint). It is a single top-level
+     * (non-per-level) subsystem, so it rides in the header. Without this entry the
+     * split→merge streaming round-trip would drop the site (reconstruct it as
+     * undefined) and reopening a GIS project would default to Madrid.
+     */
+    site?: ProjectSnapshot['site'];
 }
 
 // ─── Level chunk shape ─────────────────────────────────────────────────────
@@ -230,6 +239,8 @@ export function splitSnapshotByLevel(snap: ProjectSnapshot): SnapshotSplitResult
         annotationVisibility: snap.annotationVisibility,
         obcAnnotationMap: snap.obcAnnotationMap,
         ifcImports: snap.ifcImports,
+        // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — carry the C19 site through the split.
+        site: snap.site,
     };
 
     // Pre-create one chunk per declared level, in declared order.
@@ -369,6 +380,8 @@ export function mergeSnapshotFromHeaderAndLevels(
         annotationVisibility: header.annotationVisibility,
         obcAnnotationMap: header.obcAnnotationMap,
         ifcImports: header.ifcImports,
+        // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — restore the C19 site on merge.
+        site: header.site,
     };
 
     const sink = (chunk: LevelChunk): void => {
