@@ -69,4 +69,130 @@ describe('§FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES — selectPhotorealTileBaseHeight
         expect(a).toBe(b);
         expect(a).toBe(650);
     });
+
+    // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — a real tile pick is sunk by the seat epsilon so
+    // the model seats FLUSH on the tile ground instead of perching a hair above it.
+    it('sinks a real tile pick by the seat epsilon (seats flush, no float)', () => {
+        // min = 650.0; seat 0.3 m lower so the model is flush, not floating on tile-mesh noise.
+        expect(pick([662.4, 651.1, 650.0, 658.2], null, 0.3)).toBeCloseTo(649.7, 6);
+    });
+
+    it('does NOT apply the seat epsilon to the coarse sphere-ground fallback', () => {
+        // No real pick resolved → the sphere estimate is already downward-biased; leave it as-is.
+        expect(pick([], 650.0, 0.3)).toBe(650.0);
+        expect(pick([null, undefined], 650.0, 0.3)).toBe(650.0);
+    });
+
+    it('never turns a null (retry) result into a spurious base via the epsilon', () => {
+        expect(pick([], null, 0.3)).toBeNull();
+        expect(pick([null, Number.NaN], null, 5)).toBeNull();
+    });
+
+    it('defaults the seat epsilon to 0 (back-compat with the 2-arg callers)', () => {
+        expect(pick([650, 651], null)).toBe(650);
+    });
+});
+
+// §FIX-GLOBE-3DTILES-CRASH (L-183) — the intermittent "3D globe crashes" was an unhandled
+// promise rejection from a Cesium tile height-sample (clampToHeightMostDetailed /
+// sampleHeightMostDetailed) thrown when the 3D-tileset wasn't ready — escaping a `void`-ed
+// call and tripping ViewportCrashGuard → full reload. `safeSampleTileHeights` is the guard:
+// it NEVER rejects, returning the finite heights on success and an empty array on any throw so
+// the caller degrades to its sphere fallback / retry (tiles stream in) instead of crashing.
+describe('§FIX-GLOBE-3DTILES-CRASH — safeSampleTileHeights swallows sample throws', () => {
+    const safe = CesiumViewport.safeSampleTileHeights;
+
+    it('returns the finite heights on success (prefers the real tile surface)', async () => {
+        const heights = await safe(
+            () => Promise.resolve([{ height: 650.1 }, { height: 651.4 }]),
+            (r: { height: number }) => r.height,
+        );
+        expect(heights).toEqual([650.1, 651.4]);
+    });
+
+    it('swallows a REJECTED sampler (tileset not ready) → empty array, no unhandled rejection', async () => {
+        // The whole point: this must RESOLVE (not reject) so the `void`-ed caller never crashes.
+        await expect(
+            safe(
+                () => Promise.reject(new Error('tileset has not streamed a height at this LOD')),
+                (r: { height: number }) => r.height,
+            ),
+        ).resolves.toEqual([]);
+    });
+
+    it('swallows a SYNCHRONOUSLY-throwing sampler → empty array', async () => {
+        await expect(
+            safe(
+                () => { throw new Error('scene destroyed mid-await'); },
+                (r: { height: number }) => r.height,
+            ),
+        ).resolves.toEqual([]);
+    });
+
+    it('skips a per-item extract that throws (degenerate cartesian) but keeps the good picks', async () => {
+        const heights = await safe(
+            () => Promise.resolve([{ ok: true }, { ok: false }, { ok: true }]),
+            (r: { ok: boolean }) => {
+                if (!r.ok) throw new Error('Cartographic.fromCartesian failed');
+                return 650;
+            },
+        );
+        expect(heights).toEqual([650, 650]);
+    });
+
+    it('drops null / undefined / NaN heights (tiles not height-pickable at this point)', async () => {
+        const heights = await safe(
+            () => Promise.resolve([{ height: null }, { height: 649.2 }, { height: Number.NaN }]),
+            (r: { height: number | null }) => r.height,
+        );
+        expect(heights).toEqual([649.2]);
+    });
+
+    it('returns [] when the sampler is unavailable (older Cesium build / API missing)', async () => {
+        await expect(safe(undefined, (r: { height: number }) => r.height)).resolves.toEqual([]);
+    });
+
+    it('returns [] when the sampler resolves a non-array', async () => {
+        await expect(
+            safe(
+                () => Promise.resolve(null as unknown as { height: number }[]),
+                (r: { height: number }) => r.height,
+            ),
+        ).resolves.toEqual([]);
+    });
+});
+
+// §FIX-GLOBE-REENTRY-MODEL-LOST (L-186) — after a globe→forma→globe round-trip the PRYZM house
+// vanished: the Forma "3D Site" study path DESTROYS the globe model (clearRealModelOnGlobe), but
+// the placement cache still thought it was placed (unchanged signature + stale "placed" flag) and
+// short-circuited to an EMPTY globe. `shouldReuseGlobeRealModel` gates reuse on the model STILL
+// being live, so a cleared model is re-placed on re-entry.
+describe('§FIX-GLOBE-REENTRY-MODEL-LOST — shouldReuseGlobeRealModel', () => {
+    const reuse = CesiumViewport.shouldReuseGlobeRealModel;
+
+    it('reuses the model when geometry is unchanged AND the model is still live', () => {
+        expect(reuse('sigA', 'sigA', true, true)).toBe(true);
+    });
+
+    it('does NOT reuse after a forma round-trip destroyed the model (THE BUG) — forces re-place', () => {
+        // Same signature, still-flagged placed, but the primitive is GONE → must re-place.
+        expect(reuse('sigA', 'sigA', true, false)).toBe(false);
+    });
+
+    it('does NOT reuse when the geometry signature changed (a real edit) — re-export', () => {
+        expect(reuse('sigB', 'sigA', true, true)).toBe(false);
+    });
+
+    it('does NOT reuse when nothing was placed yet', () => {
+        expect(reuse('sigA', 'sigA', false, true)).toBe(false);
+    });
+
+    it('does NOT reuse when there is no prior signature (first placement)', () => {
+        expect(reuse('sigA', null, true, true)).toBe(false);
+        expect(reuse(null, null, true, true)).toBe(false);
+    });
+
+    it('is a pure function — deterministic on identical inputs', () => {
+        expect(reuse('s', 's', true, true)).toBe(reuse('s', 's', true, true));
+    });
 });

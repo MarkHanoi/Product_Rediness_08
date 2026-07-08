@@ -148,6 +148,18 @@ const SITE_FRAME_HEIGHT_M = 600;
 const SITE_FRAME_PITCH_DEG = -80;
 
 /**
+ * §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — a small DOWNWARD seat epsilon (metres) applied
+ * to the resolved photoreal-tile ground height so the building sits FLUSH on the tile
+ * surface instead of perching a hair above it. The min-over-footprint+street-ring pick is
+ * biased slightly HIGH by tile-mesh thickness / canopy / LOD noise, leaving a visible float
+ * gap; sinking the base by a sub-metre epsilon absorbs that noise. Deliberately tiny so it
+ * NEVER buries the model (a few decimetres into a metres-tall building is invisible), and
+ * applied ONLY to a real tile pick — never to the coarse bounding-sphere fallback, which is
+ * already a downward-biased estimate.
+ */
+const GLOBE_GROUND_SEAT_EPSILON_M = 0.3;
+
+/**
  * §SITE-CINEMATIC-ARRIVAL (founder, 2026-06-17) — the OPPOSITE of the quick
  * snap-zoom. On an interactive location change the camera should establish like
  * a film shot: start FAR/high above the target, then SLOWLY descend with an
@@ -3301,11 +3313,15 @@ export class CesiumViewport {
    *   • the sphere ground estimate when it is finite and materially non-zero (|h| > 1 m — a
    *     bogus ellipsoid-0 sphere must not be mistaken for real ground); else
    *   • null → tiles have not streamed a height at this LOD yet (caller retries).
+   * §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — a real tile-surface pick is sunk by `seatEpsilonM`
+   * (metres) so the model seats FLUSH rather than perching on tile-mesh noise; the epsilon is
+   * NOT applied to the coarse sphere fallback (already downward-biased) nor to a null result.
    * No Cesium, no I/O, deterministic → P8 span-exempt (pure). Unit-tested (globe clamp math).
    */
   static selectPhotorealTileBaseHeight(
     sampledHeights: readonly (number | null | undefined)[],
     sphereGroundHeight: number | null,
+    seatEpsilonM = 0,
   ): number | null {
     let min: number | null = null;
     for (const h of sampledHeights) {
@@ -3313,7 +3329,7 @@ export class CesiumViewport {
         min = min === null ? h : Math.min(min, h);
       }
     }
-    if (min !== null) return min;
+    if (min !== null) return min - seatEpsilonM;
     if (
       sphereGroundHeight !== null &&
       Number.isFinite(sphereGroundHeight) &&
@@ -3322,6 +3338,45 @@ export class CesiumViewport {
       return sphereGroundHeight;
     }
     return null;
+  }
+
+  /**
+   * §FIX-GLOBE-3DTILES-CRASH (L-183) — run ONE Cesium photoreal-tile height sampler and
+   * NEVER let it reject. `clampToHeightMostDetailed` / `sampleHeightMostDetailed` return
+   * promises that REJECT/THROW when the 3D-tileset hasn't streamed a height at this LOD, the
+   * scene has no depth-testable primitive yet, or the viewer is torn down mid-await — an
+   * intermittent race right after the "3D globe" toggle. Because the clamp is invoked via a
+   * `void`-ed call, such a rejection would escape as an unhandled window 'error', trip
+   * ViewportCrashGuard's consecutive-throw escalation, and reload the whole view (the founder's
+   * intermittent "3D globe crashes"). Swallowing it here (→ empty array) lets the caller fall
+   * through to its sphere-ground fallback and its retry (tiles stream in) so the globe DEGRADES
+   * GRACEFULLY. Both the sampler await AND each per-item `extract` (which calls Cesium math that
+   * can throw on a degenerate cartesian) are guarded. Dependency-injected → unit-testable
+   * without a live Cesium viewer.
+   */
+  static async safeSampleTileHeights<T>(
+    sampler: (() => Promise<T[]>) | undefined,
+    extract: (item: T) => number | null | undefined,
+  ): Promise<number[]> {
+    if (typeof sampler !== 'function') return [];
+    let items: T[];
+    try {
+      items = await sampler();
+    } catch {
+      return [];
+    }
+    const out: number[] = [];
+    if (!Array.isArray(items)) return out;
+    for (const it of items) {
+      let h: number | null | undefined;
+      try {
+        h = extract(it);
+      } catch {
+        continue;
+      }
+      if (typeof h === 'number' && Number.isFinite(h)) out.push(h);
+    }
+    return out;
   }
 
   /**
@@ -3348,7 +3403,32 @@ export class CesiumViewport {
     }
   }
 
+  /**
+   * §FIX-GLOBE-3DTILES-CRASH (L-183) — crash-guard WRAPPER. `clampToPhotorealTilesThenReplace`
+   * is fired via `void` (from renderFormaMassing and the retry setTimeout), so ANY rejection
+   * it produces — a torn-down viewer, a degenerate footprint whose ENU math throws, a transient
+   * Cesium throw in the re-place/re-frame tail — would surface as an unhandled window 'error',
+   * cross ViewportCrashGuard's consecutive-throw threshold, and reload the whole view (the
+   * founder's intermittent "3D globe crashes"). The inner method already swallows the sample
+   * awaits; this belt wraps EVERYTHING ELSE so a failure DEGRADES to the flat base 0 (a correct
+   * flat-ground seat) instead of crashing. NEVER rejects.
+   */
   private async clampToPhotorealTilesThenReplace(
+    input: Parameters<CesiumViewport['renderFormaMassing']>[0],
+    retriesLeft = 3,
+  ): Promise<void> {
+    try {
+      await this.clampToPhotorealTilesThenReplaceInner(input, retriesLeft);
+    } catch (e) {
+      this.warnTerrainOnce(
+        'globe tile-clamp failed — building stays at base 0 on the globe: ' + String(e),
+      );
+      // Best-effort disarm of the one-shot re-frame so a failed clamp never leaves it armed.
+      try { this.reframeAfterBaseSettle(); } catch { /* reframe best-effort */ }
+    }
+  }
+
+  private async clampToPhotorealTilesThenReplaceInner(
     input: Parameters<CesiumViewport['renderFormaMassing']>[0],
     retriesLeft = 3,
   ): Promise<void> {
@@ -3429,10 +3509,17 @@ export class CesiumViewport {
       for (const p of input.boundary) {
         ext = Math.max(ext, Math.hypot(p.x - east, -p.z - north));
       }
-      const ringR = ext + 30;
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        samplePts.push(enuToLatLon(east + Math.cos(a) * ringR, north + Math.sin(a) * ringR));
+      // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — DENSER + WIDER street sampling so the min
+      // reliably catches TRUE street ground rather than perching on the nearest slightly
+      // elevated tile (podium / canopy / neighbour rooftop). Two concentric rings of 16
+      // compass points each (near ≈ ext+25 m, far ≈ ext+55 m) — more chances to hit an open
+      // street cell → a lower, truer ground min → the model seats flush (with the small
+      // downward seat epsilon applied in the reduction) instead of floating.
+      for (const ringR of [ext + 25, ext + 55]) {
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          samplePts.push(enuToLatLon(east + Math.cos(a) * ringR, north + Math.sin(a) * ringR));
+        }
       }
     } else {
       samplePts.push({ lat: sampleLat, lon: sampleLon });
@@ -3502,37 +3589,35 @@ export class CesiumViewport {
     // §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES — collect every finite tile-surface height pick
     // (clamp + sample), then reduce to the base via the pure `selectPhotorealTileBaseHeight`
     // (min over footprint+street ring; tileset bounding-sphere ground as the last resort).
-    const tileHeights: number[] = [];
-    try {
-      // Prefer clampToHeightMostDetailed against the loaded photoreal tile MESH.
-      if (typeof clampFn === 'function') {
-        // Clamp positions must sit ABOVE the surface so the down-projection finds the
-        // tile mesh; start each footprint point 1 km up (well above any tile roof).
-        const cartesians = samplePts.map((s) => Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 1000));
-        const clamped = await clampFn.call(scene, cartesians, excludeArg);
-        for (const c of clamped) {
-          if (!c) continue;
-          const cg = Cesium.Cartographic.fromCartesian(c);
-          const h = cg?.height;
-          if (typeof h === 'number' && Number.isFinite(h)) tileHeights.push(h);
-        }
-      }
-      // Fallback: sampleHeightMostDetailed (may still resolve if clamp found nothing).
-      if (tileHeights.length === 0 && typeof sampleFn === 'function') {
-        const cartos = samplePts.map((s) => Cesium.Cartographic.fromDegrees(s.lon, s.lat));
-        const results = await sampleFn.call(scene, cartos, excludeArg);
-        for (const r of results) {
-          const h = r?.height;
-          if (typeof h === 'number' && Number.isFinite(h)) tileHeights.push(h);
-        }
-      }
-    } catch (e) {
-      this.warnTerrainOnce('globe height clamp rejected — building stays at base 0 on the globe: ' + String(e));
-      // §GLOBE-FIRST-FRAME-BASE — sampling failed; base stays at the flat 0 we framed
-      // at (already correct). Disarm the one-shot, but ONLY if no newer placement has
-      // taken ownership (a newer token owns its own re-frame arm).
-      if (myToken === this.formaTerrainToken) this.reframeAfterBaseSettle();
-      return;
+    // §FIX-GLOBE-3DTILES-CRASH (L-183) — route BOTH height APIs through `safeSampleTileHeights`
+    // so a tileset-not-ready rejection/throw NEVER escapes (was the intermittent crash) and,
+    // crucially, does NOT abort the whole clamp: an empty result falls through to the
+    // sphere-ground fallback + the retry below, so a globe that wasn't ready yet self-heals as
+    // tiles stream in (previously a single sample throw bailed the placement at flat base 0).
+    // Prefer clampToHeightMostDetailed against the loaded photoreal tile MESH; clamp positions
+    // must sit ABOVE the surface so the down-projection finds the mesh (start 1 km up).
+    let tileHeights = await CesiumViewport.safeSampleTileHeights(
+      typeof clampFn === 'function'
+        ? () => clampFn.call(
+            scene,
+            samplePts.map((s) => Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 1000)),
+            excludeArg,
+          )
+        : undefined,
+      (c: Cesium.Cartesian3) => (c ? Cesium.Cartographic.fromCartesian(c)?.height : null),
+    );
+    // Fallback: sampleHeightMostDetailed (may still resolve if clamp found nothing).
+    if (tileHeights.length === 0) {
+      tileHeights = await CesiumViewport.safeSampleTileHeights(
+        typeof sampleFn === 'function'
+          ? () => sampleFn.call(
+              scene,
+              samplePts.map((s) => Cesium.Cartographic.fromDegrees(s.lon, s.lat)),
+              excludeArg,
+            )
+          : undefined,
+        (r: Cesium.Cartographic) => r?.height,
+      );
     }
 
     // §GLOBE-TILE-CLAMP-FLUSH — LAST-RESORT geoid fallback. Both picking APIs came back
@@ -3545,6 +3630,7 @@ export class CesiumViewport {
     let sampledHeight = CesiumViewport.selectPhotorealTileBaseHeight(
       tileHeights,
       this.photorealTilesetGroundHeight(),
+      GLOBE_GROUND_SEAT_EPSILON_M, // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — seat flush, no float
     );
     if (sampledHeight !== null && tileHeights.length === 0) {
       console.log(
@@ -3832,6 +3918,27 @@ export class CesiumViewport {
    */
   public hasFormaMassingPlaced(): boolean {
     return this.formaMassingOrigin != null;
+  }
+
+  /**
+   * §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — arm the ONE-SHOT corrective re-frame for a fresh
+   * "3D globe" ENTRY so no manual "Zoom to Site" is needed. The globe placement path
+   * (`renderBuildingOnGlobe`) runs with `frameCentroid:false` — it deliberately does not fly,
+   * leaving GISAreaLayout's immediate `reframeSiteIn3D()` to frame the building. But that
+   * immediate frame lands at the FLAT base 0 (the async photoreal-tile height clamp hasn't
+   * settled yet); when the clamp then re-seats the model on the real Google-tile ground, the
+   * camera is NOT re-framed and stays parked at the base-0 overview (founder had to click "Zoom
+   * to Site" by hand). Arming here routes the tile-base settle through `performInitialReframe`
+   * (fires AT MOST ONCE, honours a user who has already grabbed the camera, frames the
+   * building's bounding sphere at the SETTLED base) — the SAME machinery the flat-ground "3D
+   * Site" view already uses. Also resets the fire/user-moved latches so a stale mount framing
+   * can't suppress it. Call ONLY on a fresh globe entry — never on a fidelity flip, which must
+   * not yank the camera. Public, Cesium-free, best-effort.
+   */
+  public armGlobeReframeOnBaseSettle(preset: 'oblique' | 'plan' = 'oblique'): void {
+    this.formaReframeOnBaseSettle = preset;
+    this.formaInitialReframeFired = false;
+    this.formaUserMovedCamera = false;
   }
 
   /**
@@ -6250,6 +6357,42 @@ export class CesiumViewport {
       try { URL.revokeObjectURL(this.realModelOnGlobeUrl); } catch { /* not a blob url */ }
       this.realModelOnGlobeUrl = null;
     }
+  }
+
+  /**
+   * §FIX-GLOBE-REENTRY-MODEL-LOST (L-186) — TRUE only when the real detailed PRYZM model is
+   * CURRENTLY live on the photoreal globe (present and not destroyed). The globe placement
+   * caller (GISAreaLayout §CESIUM-PERF-GLOBE-GLB-CACHE) skips the costly GLB re-export when the
+   * building geometry is unchanged AND a model is "already placed" — but the Forma "3D Site"
+   * study path calls `clearRealModelOnGlobe()` (it renders massing with keepPhotoreal:false),
+   * DESTROYING this primitive. After a globe→forma→globe round-trip the caller's own "placed"
+   * flag is stale-true while the primitive is gone, so it short-circuited to an EMPTY globe (the
+   * founder's "house lost on re-entry"). Gating the reuse on this live check forces a re-place
+   * when the model was actually cleared. Public, Cesium-free read.
+   */
+  public hasRealModelOnGlobe(): boolean {
+    return this.realModelOnGlobe != null && !this.realModelOnGlobe.isDestroyed();
+  }
+
+  /**
+   * §FIX-GLOBE-REENTRY-MODEL-LOST (L-186) — PURE decision for the globe real-model perf cache:
+   * reuse the already-placed model (skip the GLB re-export) ONLY when the building signature is
+   * unchanged, a model was placed, AND that model is STILL LIVE on the globe (`modelPresent`).
+   * The last conjunct is the fix: a model destroyed by a Forma round-trip must be RE-PLACED, not
+   * assumed present. No I/O, deterministic → P8 span-exempt (pure). Unit-tested.
+   */
+  static shouldReuseGlobeRealModel(
+    signature: string | null,
+    lastSignature: string | null,
+    placed: boolean,
+    modelPresent: boolean,
+  ): boolean {
+    return (
+      modelPresent &&
+      placed &&
+      lastSignature !== null &&
+      signature === lastSignature
+    );
   }
 
   /**

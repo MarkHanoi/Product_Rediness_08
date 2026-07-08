@@ -595,6 +595,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // study (it forces Forma back on via mountFormaViewToggle → engage).
                 try { cesiumViewport?.setFormaMode?.(false); }
                 catch (e) { console.warn('[gis] 3D globe: setFormaMode(false) failed (non-fatal):', e); }
+                // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — arm the one-shot corrective
+                // re-frame BEFORE placing (so it survives the async tile-height clamp the
+                // placement kicks off). The immediate reframeSiteIn3D() below frames at the
+                // flat base 0; once the clamp settles the real Google-tile ground, this arm
+                // fires performInitialReframe ONCE to re-frame the building at the settled
+                // base — so the founder lands ON the building with no manual "Zoom to Site".
+                // Entry-only: fidelity flips route through setGlobeBuildingFidelity, which
+                // must NOT re-arm (never yank the camera on a flip).
+                try { cesiumViewport?.armGlobeReframeOnBaseSettle?.('oblique'); }
+                catch (e) { console.warn('[gis] 3D globe: armGlobeReframeOnBaseSettle failed (non-fatal):', e); }
                 // §A.21.D39#5 — place the user's HOUSE on the photoreal globe (was:
                 // only the photoreal CONTEXT showed, no building). Reuses the Forma
                 // massing readers via renderBuildingOnGlobe (keepPhotoreal) so the
@@ -1716,13 +1726,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // a re-export; only a real geometry edit (which bumps the signature) does.
             if (globeRealExporting) return;                          // an export is already in flight.
             const sig = computeBuildingSignature();
-            if (sig === globeRealLastSig && globeRealPlaced && globeRealLastSig !== null) {
-                // Geometry unchanged + the model is still on the tiles → reuse it as-is.
-                // (renderBuildingOnGlobe hides the massing blocks; the placed real model
-                // persists across view switches until geometry changes or fidelity flips.)
-                console.log('[gis][globe] §CESIUM-PERF-GLOBE-GLB-CACHE geometry unchanged — reusing placed real model (no re-export).');
+            // §FIX-GLOBE-REENTRY-MODEL-LOST (L-186) — reuse ONLY when the model is STILL LIVE on
+            // the globe. Mirrors CesiumViewport.shouldReuseGlobeRealModel (the tested SSOT). The
+            // Forma "3D Site" study path destroys the globe model (clearRealModelOnGlobe), so on
+            // a globe→forma→globe round-trip `globeRealPlaced` is stale-true while the primitive
+            // is GONE — the old cache short-circuited to an EMPTY globe (house lost). Gating on
+            // the live presence check forces a re-place (re-export) when the model was cleared;
+            // plain view/camera/metric switches (model still alive) still skip the re-export.
+            const modelStillLive = (cesiumViewport.hasRealModelOnGlobe?.() ?? false) as boolean;
+            if (sig === globeRealLastSig && globeRealPlaced && globeRealLastSig !== null && modelStillLive) {
+                console.log('[gis][globe] §CESIUM-PERF-GLOBE-GLB-CACHE geometry unchanged + model still live — reusing placed real model (no re-export).');
                 cesiumViewport.clearFormaMassingEntitiesOnly?.();
                 return;
+            }
+            if (!modelStillLive && globeRealPlaced) {
+                // The model was destroyed by a Forma round-trip; the perf flag was stale.
+                // Reset it so the re-place path below runs cleanly.
+                globeRealPlaced = false;
+                console.log('[gis][globe] §FIX-GLOBE-REENTRY-MODEL-LOST real model was cleared (forma round-trip) — re-placing on globe re-entry.');
             }
             const scene = props.world?.scene?.three;
             if (!scene) {
