@@ -40,6 +40,10 @@ import { createObjectPreviewMaterial } from '@pryzm/core-app-model';
 // accumulated yaw is applied to the live ghost (onChange) AND committed on the
 // furniture.create payload so preview orientation ≡ placed orientation.
 import { PrePlacementRotation } from '@pryzm/core-app-model';
+// §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214) — one canonical furniture.create
+// payload builder shared with WardrobeCabinetTool + FurniturePlanToolHandler, so
+// all three placement surfaces emit an identical, scalar-rotation payload.
+import { buildFurnitureCreatePayload } from '@app/engine/furniture/furnitureCreatePayload';
 
 let _idCounter = 0;
 /**
@@ -373,30 +377,35 @@ export class KitchenCabinetTool {
         const id = newId();
 
         // [F-1.3] Bus-primary: commandManager exfiltrated to CreateFurnitureHandler (plugins/furniture).
-        // §FIX-KITCHEN-SECOND-PLACE (ADR-0112, founder L-33) — `rotation` MUST be a
-        // SCALAR yaw (radians): CreateFurnitureHandler.canExecute validates
-        // `Number.isFinite(rotation)`, and the CommandBus THROWS `canExecute
-        // rejected — rotation must be finite` for a { x, y, z } object. Passing the
-        // Euler object silently rejected EVERY kitchen placement (the `.catch`
-        // swallowed the throw while the tool still "deactivated" as if it had
-        // placed), so no run was ever committed via this 3D path. Mirrors
-        // FurniturePlanToolHandler / wardrobe-plan which already commit a scalar yaw.
-        window.runtime?.bus?.executeCommand('furniture.create', {
+        // §FIX-KITCHEN-SECOND-PLACE (ADR-0112, founder L-33) / §FIX-WARDROBE-CREATE-
+        // ROTATION-NAN (L-214) — `rotation` MUST be a SCALAR yaw (radians):
+        // CreateFurnitureHandler.canExecute validates `Number.isFinite(rotation)` and
+        // the CommandBus REJECTS a { x, y, z } object with "rotation must be finite".
+        // The canonical builder enforces the scalar at compile time so the Euler bug
+        // that broke wardrobe placement cannot recur here. `rotY` is read from the
+        // SAME shared PrePlacementRotation the preview uses (placed ≡ preview).
+        const payload = buildFurnitureCreatePayload({
             id,
-            furnitureType:  this._config.layoutType as any,
-            position:       { x: position.x, y: position.y, z: position.z },
-            rotation:       rotY,
+            furnitureType:     this._config.layoutType,
+            position,
+            rotation:          rotY,
             levelId,
-            baseOffset:     0,
-            width:          this._config.length,
-            length:         this._config.depth,
-            height:         this._config.height,
-            material:       'wood',
-            metadata:       {},
+            baseOffset:        0,
+            width:             this._config.length,
+            length:            this._config.depth,
+            height:            this._config.height,
+            material:          'wood',
             furnitureCategory: 'kitchen',
-            kitchenConfig:  cfg,
-        } as any).catch((e: Error) => {
+            kitchenConfig:     cfg,
+        });
+        window.runtime?.bus?.executeCommand('furniture.create', payload as any).catch((e: Error) => {
+            // §FIX-WARDROBE-CREATE-ROTATION-NAN P4 — surface a rejected canExecute to
+            // the user instead of leaving a silent no-op click (console only).
             console.error('[KitchenCabinetTool] furniture.create failed:', e);
+            window.runtime?.events?.emit('pryzm:toast', {
+                message: `Could not place kitchen: ${e?.message ?? String(e)}`,
+                severity: 'error',
+            });
         });
 
         // §FIX-KITCHEN-SECOND-PLACE — RE-ARM for continuous placement instead of

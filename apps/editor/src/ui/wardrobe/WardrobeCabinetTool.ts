@@ -33,6 +33,12 @@ import {
 // "R" key. SPACE = +90° cumulative; the accumulated yaw is applied to the live
 // ghost (onChange) AND committed so preview orientation ≡ placed orientation.
 import { PrePlacementRotation } from '@pryzm/core-app-model';
+// §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214) — one canonical furniture.create
+// payload builder shared with KitchenCabinetTool + FurniturePlanToolHandler.
+// `rotation` is typed as a SCALAR yaw, so the Euler-object that this tool used
+// to send (which the bus guard rejected with "rotation must be finite") is now
+// a compile error rather than a silent no-op click.
+import { buildFurnitureCreatePayload } from '@app/engine/furniture/furnitureCreatePayload';
 
 let _idCounter = 0;
 function newId(): string { return `wardrobe_cab_${Date.now()}_${_idCounter++}`; }
@@ -345,22 +351,35 @@ export class WardrobeCabinetTool {
 
         const id = newId();
         // [F-1.3] Bus-primary: commandManager exfiltrated to CreateFurnitureHandler (plugins/furniture).
-        window.runtime?.bus?.executeCommand('furniture.create', {
+        // §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214) — the canonical builder types
+        // `rotation` as a SCALAR yaw (radians). Previously this passed a THREE Euler
+        // object `{ x, y, z, order }`, which `CreateFurnitureHandler.canExecute`
+        // rejected via `Number.isFinite(rotation)` ("rotation must be finite"), so
+        // no wardrobe was ever committed from 3D. `rotY` is read from the SAME
+        // shared PrePlacementRotation the preview uses, so placed ≡ preview.
+        const payload = buildFurnitureCreatePayload({
             id,
-            furnitureType:    this._config.layoutType as any,
-            position:         { x: position.x, y: position.y, z: position.z },
-            rotation:         { x: 0, y: rotY, z: 0, order: 'XYZ' },
+            furnitureType:         this._config.layoutType,
+            position,
+            rotation:              rotY,
             levelId,
-            baseOffset:       0,
-            width:            this._config.length,
-            length:           this._config.depth,
-            height:           this._config.height,
-            material:         'wood',
-            metadata:         {},
-            furnitureCategory: 'bedroom',
+            baseOffset:            0,
+            width:                 this._config.length,
+            length:                this._config.depth,
+            height:                this._config.height,
+            material:              'wood',
+            furnitureCategory:     'bedroom',
             wardrobeCabinetConfig: cfg,
-        } as any).catch((e: Error) => {
+        });
+        window.runtime?.bus?.executeCommand('furniture.create', payload as any).catch((e: Error) => {
+            // §FIX-WARDROBE-CREATE-ROTATION-NAN P4 — a rejected canExecute must NOT
+            // be a silent no-op. Surface it on the shared toast channel so a user
+            // whose click did nothing gets feedback instead of only a console error.
             console.error('[WardrobeCabinetTool] furniture.create failed:', e);
+            window.runtime?.events?.emit('pryzm:toast', {
+                message: `Could not place wardrobe: ${e?.message ?? String(e)}`,
+                severity: 'error',
+            });
         });
 
         this.deactivate();

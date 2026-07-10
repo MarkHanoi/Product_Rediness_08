@@ -40,6 +40,13 @@ import { getDescriptorForType } from '@app/ui/furniture-carousel/FurnitureCatego
 // PlanToolHandler contract §21 §2), so it constructs the state but does NOT
 // call attach(); it advances on the SPACE key inside onKeyDown().
 import { PrePlacementRotation } from '@pryzm/core-app-model';
+// §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214) — the ONE canonical furniture.create
+// payload builder, shared with the 3D KitchenCabinetTool + WardrobeCabinetTool.
+// `rotation` is a SCALAR yaw; routing every branch here converges the plan-view
+// and 3D-view payloads and carries the SPACE-chosen yaw to commit (the kitchen /
+// wardrobe branches previously hard-coded `rotation: 0`, dropping the preview's
+// orientation).
+import { buildFurnitureCreatePayload } from '@app/engine/furniture/furnitureCreatePayload';
 
 // ── Anchor model ──────────────────────────────────────────────────────────────
 // Most furniture is built with geometry centred at the group origin, so a
@@ -304,24 +311,23 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         // identical to 3D-view placement.
         if (isKitchenLayoutType(type)) {
             const cfg = buildDefaultKitchenConfig(type, 'door');
-            window.runtime?.bus?.executeCommand('furniture.create', {
+            // §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214): carry the SPACE-chosen yaw
+            // (was hard-coded 0, silently dropping the preview orientation) and route
+            // through the canonical scalar-rotation builder shared with the 3D tools.
+            this._dispatchFurnitureCreate(buildFurnitureCreatePayload({
                 id,
-                furnitureType: type as FurnitureType,
-                position:      { x: pt.worldX, y: 0, z: pt.worldZ },
-                // §FIX-FURNITURE-ROTATION (C11 §7.0): furniture.create's canExecute
-            // validates `Number.isFinite(rotation)` — rotation is a SCALAR yaw
-            // angle (radians), not a Vec3. Passing { x, y, z } made the guard
-            // reject every furniture placement with "rotation must be finite".
-            rotation:      0,
+                furnitureType:     type as FurnitureType,
+                position:          { x: pt.worldX, y: 0, z: pt.worldZ },
+                rotation:          this._rotation.rotationY(),
                 levelId,
-                baseOffset:    0,
-                width:         cfg.length,
-                length:        cfg.depth,
-                height:        cfg.height,
-                material:      DEFAULT_MATERIAL,
+                baseOffset:        0,
+                width:             cfg.length,
+                length:            cfg.depth,
+                height:            cfg.height,
+                material:          DEFAULT_MATERIAL,
                 furnitureCategory: 'kitchen',
-                kitchenConfig: cfg,
-            })?.catch((e: unknown) => console.error('[FurniturePlanToolHandler] furniture.create (kitchen) failed:', e));
+                kitchenConfig:     cfg,
+            }), 'kitchen');
             console.log('[FurniturePlanToolHandler] Kitchen run created', id, type, 'at', pt);
             this._clearOverlay();
             return;
@@ -331,53 +337,72 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         // wardrobe RUN with sections / arms populated, not a single panel.
         if (isWardrobeLayoutType(type)) {
             const cfg = buildDefaultWardrobeCabinetConfig(type);
-            window.runtime?.bus?.executeCommand('furniture.create', {
+            // §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214): carry the SPACE-chosen yaw
+            // (was hard-coded 0) and route through the canonical scalar-rotation
+            // builder shared with the 3D WardrobeCabinetTool.
+            this._dispatchFurnitureCreate(buildFurnitureCreatePayload({
                 id,
-                furnitureType: type as FurnitureType,
-                position:      { x: pt.worldX, y: 0, z: pt.worldZ },
-                // §FIX-FURNITURE-ROTATION (C11 §7.0): furniture.create's canExecute
-            // validates `Number.isFinite(rotation)` — rotation is a SCALAR yaw
-            // angle (radians), not a Vec3. Passing { x, y, z } made the guard
-            // reject every furniture placement with "rotation must be finite".
-            rotation:      0,
+                furnitureType:         type as FurnitureType,
+                position:              { x: pt.worldX, y: 0, z: pt.worldZ },
+                rotation:              this._rotation.rotationY(),
                 levelId,
-                baseOffset:    0,
-                width:         cfg.length,
-                length:        cfg.depth,
-                height:        cfg.height,
-                material:      DEFAULT_MATERIAL,
-                furnitureCategory: 'bedroom',
+                baseOffset:            0,
+                width:                 cfg.length,
+                length:                cfg.depth,
+                height:                cfg.height,
+                material:              DEFAULT_MATERIAL,
+                furnitureCategory:     'bedroom',
                 wardrobeCabinetConfig: cfg,
-            })?.catch((e: unknown) => console.error('[FurniturePlanToolHandler] furniture.create (wardrobe) failed:', e));
+            }), 'wardrobe');
             console.log('[FurniturePlanToolHandler] Wardrobe run created', id, type, 'at', pt);
             this._clearOverlay();
             return;
         }
 
         // ── Plain furniture types — single primitive placement.
+        // §FIX-FURNITURE-ROTATION (C11 §7.0): rotation is a scalar yaw angle
+        // (radians) — furniture.create validates Number.isFinite(rotation).
+        // §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105): carry the SPACE-chosen yaw
+        // through to the committed element — the CommandEventBridge + §FT-FURNITURE
+        // bridge lift this scalar into the mesh's Y-Euler, so preview ≡ placed.
         const fp = _footprint(type);
-        window.runtime?.bus?.executeCommand('furniture.create', {
+        this._dispatchFurnitureCreate(buildFurnitureCreatePayload({
             id,
-            furnitureType: type,
-            position:  { x: pt.worldX, y: 0, z: pt.worldZ },
-            // §FIX-FURNITURE-ROTATION (C11 §7.0): rotation is a scalar yaw angle
-            // (radians) — furniture.create validates Number.isFinite(rotation).
-            // §FEAT-PLACEMENT-SPACEBAR-ROTATE (ADR-0105): carry the SPACE-chosen
-            // yaw through to the committed element — the CommandEventBridge +
-            // §FT-FURNITURE bridge lift this scalar into the mesh's Y-Euler, so
-            // preview orientation ≡ placed orientation.
-            rotation:  this._rotation.rotationY(),
+            furnitureType: type as FurnitureType,
+            position:      { x: pt.worldX, y: 0, z: pt.worldZ },
+            rotation:      this._rotation.rotationY(),
             levelId,
-            baseOffset: 0,
-            width:    fp.w,
-            length:   fp.l,
-            height:   fp.h,
-            material: DEFAULT_MATERIAL,
-        })?.catch((e: unknown) => console.error('[FurniturePlanToolHandler] furniture.create failed:', e));
+            baseOffset:    0,
+            width:         fp.w,
+            length:        fp.l,
+            height:        fp.h,
+            material:      DEFAULT_MATERIAL,
+        }), _label(type));
         console.log('[FurniturePlanToolHandler] Furniture created', id, type, 'at', pt);
 
         // Stay active for multi-placement — clear overlay for next click
         this._clearOverlay();
+    }
+
+    /**
+     * §FIX-WARDROBE-CREATE-ROTATION-NAN (L-214) P4 — dispatch a canonical
+     * `furniture.create` payload and, on a rejected `canExecute`, surface the
+     * failure on the shared toast channel instead of leaving a silent no-op
+     * click (previously the rejection was swallowed into a `console.error`).
+     */
+    private _dispatchFurnitureCreate(
+        payload: ReturnType<typeof buildFurnitureCreatePayload>,
+        label: string,
+    ): void {
+        window.runtime?.bus?.executeCommand('furniture.create', payload as unknown as Record<string, unknown>)
+            ?.catch((e: unknown) => {
+                const msg = e instanceof Error ? e.message : String(e);
+                console.error(`[FurniturePlanToolHandler] furniture.create (${label}) failed:`, e);
+                window.runtime?.events?.emit('pryzm:toast', {
+                    message: `Could not place ${label}: ${msg}`,
+                    severity: 'error',
+                });
+            });
     }
 
     private _drawPreview(): void {
