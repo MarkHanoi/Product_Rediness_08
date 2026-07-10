@@ -620,3 +620,57 @@ violation into silent data damage. `beginBatch` has the same shape (`:1215` — 
 | **P3 — fix + tests** | Implement; test that N nested batches produce exactly ONE undo unit and that guards are never dropped. | `BatchCoordinator.ts` + callers |
 
 **Tag:** `§FIX-RUNBATCH-NESTING-DROPS-GUARDS`. **Non-goals:** no change to the undo store layering.
+
+---
+
+# FOUNDER DECISIONS — 2026-07-10 (L-207 fit-out scope, L-208 WebGPU differentiation)
+
+Both decisions are recorded verbatim, together with a **compounding-risk warning and a mandatory
+sequencing** that neither decision implies on its own.
+
+## Decision 1 (L-207) — Fan out the finish chain PER STOREY, mirroring the house
+
+> Chosen: mirror `runHousePostGenChain` on every storey (name → floor+ceiling → furnish → lighting),
+> add the missing ceilings, and reuse the shared `LightingLayoutExecutor` instead of the bespoke
+> `ceilingLightGrid` loop.
+
+This satisfies the standing rule ("office/new typologies MUST mirror the proven resi+house executors,
+not reinvent") and closes the envelope-only report at its root.
+
+## Decision 2 (L-208) — Make WebGPU visibly better
+
+> Chosen: enable SSGI and/or TRAA by default on capable devices, gated by `SceneQualityTier` and
+> element count. The `cinematic` tier already implies this intent but explicitly does not do it.
+
+## ⚠ COMPOUNDING RISK — why these two cannot be built in parallel
+
+Taken together the two decisions reconstruct, almost exactly, the conditions of the **already-fixed
+40-storey WebGPU device-loss cascade** (§SHADOW-DEVICE-LOSS-FIX):
+
+- Decision 1 multiplies tower element count by roughly **20×** (2 fitted floors → 40).
+- Decision 2 multiplies **per-frame GPU cost** (SSGI is a screen-space GI pass; TRAA adds temporal
+  history buffers) on the exact heavy scene Decision 1 creates.
+- **Instancing does not currently save us**: it is defeated by per-element unique materials (recorded
+  in project memory). So 40 fully-fitted storeys means ~40× unique-material draw calls, not ~40×
+  instances.
+- Decision 1's per-storey fan-out invokes auto-lighting **inside an ambient batch** — which is
+  precisely the L-209 nesting defect. Fanning out before L-209 lands would multiply broken undo
+  units by the number of storeys.
+
+## MANDATORY SEQUENCING (each gate blocks the next)
+
+| Gate | Work | Why it must precede the next |
+|---|---|---|
+| **G0** | **L-209** — `LightingLayoutExecutor` commits via `onNextSettle` when `isBatching`. | Per-storey fan-out calls lighting inside a batch. Without G0, fan-out produces N×59 broken undo transactions. **In flight.** |
+| **G1** | **Material dedup / instancing repair** — stop minting per-element unique materials so `InstancedMesh` batching actually engages for repeated tower geometry (~960 perimeter walls, ~960 windows). | Without G1, Decision 1 alone can re-trigger the device-loss cascade, before SSGI is even considered. |
+| **G2** | **L-207 fan-out** — office runs the shared per-storey chain; add ceilings; reuse `LightingLayoutExecutor`; drop the non-rendering room-bounding lines (L-170). Add a `§DIAG-POSTGEN-TIMING`-equivalent for the office lane so the 40-storey cost is measured, not guessed. | Establishes the real heavy-scene cost envelope that G3 must be gated against. |
+| **G3** | **L-208 SSGI/TRAA default-on** — gated by `SceneQualityTier` **and** element count, with an explicit escalation ceiling and a proven downgrade path (ADR-0087 `§RPM-RECOVERY-DOWNGRADE`). Must NOT auto-enable on the scenes G2 produces until G1's instancing win is measured. | SSGI on a 40-storey unique-material scene is the documented crash. |
+
+**Blocked right now:** G3 touches `RenderPipelineManager.ts`, which the in-flight
+`§FIX-SHADOW-PASS-SINGLE-OWNER` lane (L-205) currently owns. G3 cannot start until that lands —
+and should not start before G1/G2 regardless.
+
+**Non-negotiable for G3:** SSGI/TRAA default-on must be *measured*, not asserted. Before flipping the
+default, capture frame time + device-loss telemetry on (a) a 2-storey house, (b) a 6-storey resi
+building, (c) a 40-storey tower, on both an integrated GPU and a discrete one. If the tower regresses,
+the tier gate — not the feature — is what ships.
