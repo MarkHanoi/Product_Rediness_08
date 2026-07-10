@@ -257,13 +257,28 @@ export class RealEnvironmentService {
             const t = key?.target?.position;
             let casterCount = 0;
             this._scene?.traverse((o) => { if ((o as THREE.Mesh).isMesh && (o as THREE.Mesh).castShadow) casterCount++; });
+            // §DIAG-GROUND-SHADOW-MAPTYPE (L-205 attempt 9) — the grey rectangle is the
+            // shadow camera's ground footprint reading "fully shadowed" everywhere, which
+            // points at a WebGPU depth map that is never written. Print the shadow MAP's
+            // and TEXTURE's constructor names (a live WebGPU `RenderTarget`/`Texture` vs a
+            // foreign OBC `WebGLRenderTarget` the WebGPU pass never wrote), the per-light
+            // `shadow.autoUpdate` (three's node ShadowNode gates the depth redraw on THIS,
+            // not on `renderer.shadowMap.autoUpdate`), and `metresPerTexel` (C04 §SHADOW.2.2).
+            const sh = key?.shadow as (THREE.DirectionalLightShadow & { map?: { constructor?: { name?: string }; texture?: { constructor?: { name?: string } } } | null; autoUpdate?: boolean }) | undefined;
+            const shMap = sh?.map;
+            const camWidth = cam ? cam.right - cam.left : NaN;
+            const mapW = sh?.mapSize?.width ?? 0;
+            const metresPerTexel = Number.isFinite(camWidth) && mapW > 0 ? camWidth / mapW : NaN;
             console.log(
                 '[RealEnvironmentService] §DIAG-GROUND-SHADOW-FIT — ' +
                 `keyLightPos=${p ? `(${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)})` : 'none'} ` +
                 `target=${t ? `(${t.x.toFixed(1)},${t.y.toFixed(1)},${t.z.toFixed(1)})` : 'none'} ` +
                 `shadowCam=${cam ? `[L${cam.left.toFixed(1)} R${cam.right.toFixed(1)} T${cam.top.toFixed(1)} B${cam.bottom.toFixed(1)} n${cam.near.toFixed(1)} f${cam.far.toFixed(1)}]` : 'none'} ` +
                 `mapSize=${key?.shadow ? `${key.shadow.mapSize.x}x${key.shadow.mapSize.y}` : 'none'} ` +
-                `castShadow=${key?.castShadow ?? 'none'} shadowMapAllocated=${key?.shadow?.map != null} ` +
+                `metresPerTexel=${Number.isFinite(metresPerTexel) ? metresPerTexel.toFixed(3) : '?'} ` +
+                `castShadow=${key?.castShadow ?? 'none'} shadowMapAllocated=${shMap != null} ` +
+                `shadowMapType=${shMap?.constructor?.name ?? 'none'} shadowTexType=${shMap?.texture?.constructor?.name ?? 'none'} ` +
+                `lightAutoUpdate=${sh?.autoUpdate} ` +
                 `catcher{visible=${this._ground.mesh.visible},mat=${mat?.type ?? 'none'},opacity=${mat?.opacity ?? 'none'}} ` +
                 `casters=${casterCount}`,
             );

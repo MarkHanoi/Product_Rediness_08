@@ -1141,6 +1141,26 @@ export class RenderPipelineManager implements IViewSwitchListener {
         const kl = keyLight as THREE.DirectionalLight | null;
         const cam = kl?.shadow?.camera as THREE.OrthographicCamera | undefined;
 
+        // §DIAG-GROUND-SHADOW-MAPTYPE (L-205 attempt 9 — shared-shadow-map probe).
+        //
+        // The grey rectangle is the shadow camera's ground footprint reading "fully
+        // shadowed" everywhere. The prime suspect is a WebGPU depth map that is never
+        // written: three's WebGPU `ShadowNode` OWNS its own RenderTarget and samples
+        // `this.shadowMap`, but the shared `THREE.DirectionalLight` also carries the OBC
+        // WebGL renderer's `WebGLRenderTarget` in `light.shadow.map`. Reading the MAP's
+        // and its TEXTURE's constructor names discriminates a live WebGPU shadow target
+        // (`RenderTarget` / `Texture`) from a foreign `WebGLRenderTarget` the WebGPU pass
+        // never wrote, and the PER-LIGHT `shadow.autoUpdate` says whether the node path
+        // (which gates on it, NOT on `renderer.shadowMap.autoUpdate`) will redraw the depth.
+        //
+        // `metresPerTexel = (right − left) / mapSize.width` is the shadow-quality invariant
+        // (C04 §SHADOW.2.2). Pure reads; mutates nothing.
+        const sh = kl?.shadow as (THREE.DirectionalLightShadow & { map?: { texture?: unknown }; autoUpdate?: boolean }) | undefined;
+        const shMap = sh?.map as { constructor?: { name?: string }; texture?: { constructor?: { name?: string } } } | null | undefined;
+        const camWidth = cam ? cam.right - cam.left : NaN;
+        const mapW = sh?.mapSize?.width ?? 0;
+        const metresPerTexel = Number.isFinite(camWidth) && mapW > 0 ? camWidth / mapW : NaN;
+
         console.log(
             `[RenderPipelineManager] §DIAG-GROUND-SHADOW (${tag}) ` +
             `backend=${this._webGpuActive ? 'webgpu' : 'webgl2'} phase=${this._phase} ` +
@@ -1149,8 +1169,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
             `| frozenState=${this._shadowFrozenState} reallocDepth=${this._shadowReallocFreezeDepth} ` +
             `passSuppressed=${this._shadowPassSuppressed} ` +
             `| keyLight=${kl ? 'present' : 'MISSING'} castShadow=${kl?.castShadow} ` +
-            `shadow.map=${kl?.shadow?.map ? 'allocated' : 'NULL'} ` +
-            `mapSize=${kl?.shadow?.mapSize?.width ?? '?'} ` +
+            `shadow.map=${shMap ? 'allocated' : 'NULL'} ` +
+            `shadowMapType=${shMap?.constructor?.name ?? 'none'} ` +
+            `shadowTexType=${shMap?.texture?.constructor?.name ?? 'none'} ` +
+            `lightAutoUpdate=${sh?.autoUpdate} ` +
+            `mapSize=${mapW || '?'} ` +
+            `metresPerTexel=${Number.isFinite(metresPerTexel) ? metresPerTexel.toFixed(3) : '?'} ` +
             `frustum=[${cam ? `${cam.left},${cam.right},${cam.top},${cam.bottom},near=${cam.near},far=${cam.far}` : 'n/a'}] ` +
             `| scenePass=${this._scenePass ? 'built' : 'NULL'} ` +
             `| effEnabled=${this._shadowsEffectivelyEnabled()} ` +
