@@ -2265,21 +2265,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             } catch (tierErr) {
                 console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
             }
-            // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — the one-shot WebGPU ScenePass rebuild is
-            // NOT triggered here. It must fire on the first real shadow-CASTER, and this pass
-            // also runs for non-caster meshes (grid / datum sphere / helpers — ~29 of them on
-            // a brand-new empty project), which would consume the one-shot before the user
-            // ever draws a wall. It is driven instead by RealEnvironmentService's caster gate
-            // (`setFirstCasterHook`, wired in the §FEAT-REAL-ENVIRONMENT block below), which
-            // fires on the exact 0→≥1 caster transition that also un-hides the catcher.
-            //
-            // The historical NOTE that once forbade any rebuild here was right that meshes do
-            // not own `ShadowDepthTexture`, but missed that the TSL ScenePass is compiled
-            // AGAINST THE SCENE (`_buildPipeline` → `createScenePass(scene)`), once, at boot,
-            // when no caster exists. Its "needless rebuilds" concern is met (one per project)
-            // and its "Destroyed texture" concern was `ShadowQualityUpgrader.apply()`
-            // reallocating a LIVE caster's map, fixed in
-            // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER.
+            // §REVERT-SHADOW-TO-KNOWN-GOOD (L-205) — no WebGPU ScenePass rebuild is triggered
+            // on new geometry, here or anywhere. The first-caster rebuild seam was reverted:
+            // shadow sampling is keyed on the LIGHT (the Pascal key light casts from boot) and
+            // the shadow depth map re-renders every frame via THREE's `autoUpdate`
+            // (ShadowNode.updateShadow draws every castShadow mesh currently in the scene), so
+            // new casters are picked up with NO pipeline rebuild — the last-known-good
+            // 72e34915 topology. The only geometry-driven shadow work now is
+            // RealEnvironmentService's pure caster-VISIBILITY gate (below), which flips
+            // `mesh.visible` and touches no GPU resource.
         };
         // Publish the consolidated pass to the hoisted handle so the post-load
         // handler (outside this try-block's scope) can fire it exactly once.
@@ -3215,43 +3209,17 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // ground shadow, fully reversible, no synchronous GPU dispose (ADR-0111 safe).
     try {
         const realEnvironment = new RealEnvironmentService();
-        // §FIX-WEBGPU-FIRSTCASTER-NO-REBUILD (L-205) — DO NOT rebuild the ScenePass when the
-        // first caster appears. The previous §FIX-WEBGPU-SCENEPASS-FIRST-CASTER (be79abdf)
-        // fired `scheduleShadowRebuild()` here on the 0→≥1 caster transition, on the belief
-        // that the TSL ScenePass had to be recomposed to "learn" about a new caster. That
-        // belief is REFUTED by three@0.183 source and by the founder's own bisect:
-        //   • Shadow sampling in the receiver's NodeMaterial is keyed on the LIGHT, not on
-        //     caster meshes. `LightsNode.customCacheKey()` hashes `light.castShadow`
-        //     (node_modules/three/src/nodes/lighting/LightsNode.js:126) — the Pascal KEY
-        //     LIGHT casts from boot, so the receiver samples the shadow map from frame 1.
-        //   • The shadow DEPTH map is re-rendered every frame by `ShadowNode.updateShadow`
-        //     (…/ShadowNode.js:679, driven by `autoUpdate`), which draws EVERY castShadow
-        //     mesh currently in the scene — new casters are picked up automatically, with
-        //     NO pipeline/ScenePass rebuild.
-        //   • The last known-GOOD state (72e34915) had NO first-caster rebuild and a working
-        //     sun shadow with no grey.
-        // The rebuild was, in fact, the L-205 TRIGGER: `scheduleShadowRebuild()` →
-        // fire-and-forget async `_buildPipeline()` disposes the old RenderPipeline + recreates
-        // the ScenePass OFF-FRAME, unsynchronised with the WebGPU submit, destroying the live
-        // ShadowDepthTexture mid-submit ("Destroyed texture … used in a submit" ×hundreds) →
-        // the shadow pass dies for the session → the catcher composites uniform grey. Backend
-        // swap "fixes" it only by allocating a fresh GPUDevice + texture (ADR-0111 class).
-        // Removing the call restores the known-good topology and eliminates the trigger for
-        // BOTH the single hand-drawn wall and the batch (their only shared rebuild trigger).
-        // The catcher's 0→≥1 visibility flip (RealEnvironmentService.refitShadowToScene) is
-        // unaffected — it flips `mesh.visible`, never touching any GPU resource.
-        realEnvironment.setFirstCasterHook(() => {
-            // §DIAG-GROUND-SHADOW (L-205) — read-only shadow-state dump at the exact instant
-            // the catcher flips visible, and again after any pending freeze/thaws settle.
-            // No rebuild is requested here (see §FIX-WEBGPU-FIRSTCASTER-NO-REBUILD above).
-            try {
-                window.renderPipelineManager?.logShadowDiagnostics?.('first-caster');
-                setTimeout(
-                    () => window.renderPipelineManager?.logShadowDiagnostics?.('first-caster+1200ms'),
-                    1200,
-                );
-            } catch { /* diagnostics are advisory — never break the caster gate */ }
-        });
+        // §REVERT-SHADOW-TO-KNOWN-GOOD (L-205) — the three shadow files (RealSunService,
+        // RealEnvironmentService, ShadowQualityUpgrader) were reverted to the last-known-good
+        // 72e34915, which projected the real sun shadow with no grey. The only behaviour kept
+        // from the reverted stack is the pure caster-VISIBILITY gate
+        // (RealEnvironmentService.updateGroundCatcherVisibility → flips `mesh.visible`; no GPU
+        // work). The removed seams — the first-caster ScenePass rebuild (setFirstCasterHook),
+        // the fitted shadow frustum + light re-home (setShadowCoverage), and the forced shadow
+        // refresh (onKeyLightDriven → requestShadowRefresh) — are NOT re-wired here: each was a
+        // repair-chasing-a-repair since 72e34915 and each is re-earned later, one at a time,
+        // verified on prod. A read-only §DIAG-GROUND-SHADOW-FIT line now logs the live light +
+        // shadow-camera numbers on the first caster (inside updateGroundCatcherVisibility).
         // Site location (C19) via the composed runtime's siteModelStore — mirrors
         // CesiumViewport.readSiteLocation() so the two viewports agree on the sun.
         // 0/0 is the ensureSite placeholder (Null Island) and is treated as unset.
@@ -3288,42 +3256,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             readL0Elevation,
         );
 
-        // §FIX-GROUND-SHADOW-WEBGPU-RECEIVE (L-171) — force ONE shadow-map refresh +
-        // repaint whenever the real caster (Pascal key light) is re-driven (frustum-fit
-        // to new geometry, sun-time/offset change, level change). Without this the
-        // L-168 refit re-homes the light ~300 ms after the last edit — on an IDLE scene
-        // that never repaints on the on-demand WebGPU loop — so the newly-fitted shadow
-        // never renders onto the L0 ground catcher (and if a device-loss FREEZE left
-        // `shadowMap.autoUpdate === false`, the depth pass is skipped entirely). This is
-        // the real root of the "ground shadow gone" regression: the fit was correct but
-        // nothing asked the renderer to re-render the shadow.
-        //
-        // §FIX-WEBGPU-GROUND-SHADOW-DEVICE-LOSS (founder L-197) — route the refresh
-        // through RenderPipelineManager.requestShadowRefresh() so it is FREEZE-AWARE.
-        // The earlier L-171 code poked `window.pryzmRenderer.shadowMap.needsUpdate=true`
-        // DIRECTLY. On the geometry-settle refit (which fires in the SAME window the tier
-        // escalates to `cinematic` and the L-25/L-39/ADR-0111 freeze latch holds
-        // `autoUpdate=false`), `needsUpdate` OVERRODE that freeze and forced the shadow
-        // depth pass to run mid-realloc/mid-submit → the ShadowDepthTexture was
-        // destroyed+recreated while the WebGPU queue still referenced it →
-        // "Destroyed texture [ShadowDepthTexture] used in a submit" ×hundreds → device
-        // loss → the L0 ground shadow vanished. requestShadowRefresh() no-ops while a
-        // freeze latch is active (the deferred thaw refreshes the settled scene instead),
-        // and refreshes only when genuinely idle — L-171's intent WITHOUT the mid-submit
-        // destroy. P2: the shadowMap write now lives in renderer-three (the THREE owner).
-        //
-        // Skipped while a batch is draining (§BATCH-SHADOW-MAP-SUPPRESS owns the shadow
-        // map then; the trailing post-settle refit repaints once the batch restores it).
-        realEnvironment.sun.onKeyLightDriven = (): void => {
-            if (batchCoordinator.isBatching) return;
-            try { window.renderPipelineManager?.requestShadowRefresh?.(); }
-            catch { /* renderer not ready — next interaction repaints */ }
-            // Wake the frame bus once so the refreshed shadow is drawn on the idle scene
-            // (P3: no new rAF — reuse the shared scheduler, like the shadow-freeze thaws).
-            try { getFrameScheduler().markDirty('ground-shadow-refit'); }
-            catch { /* scheduler not ready — next interaction repaints */ }
-        };
-
+        // §REVERT-SHADOW-TO-KNOWN-GOOD (L-205) — the L-171 `onKeyLightDriven` →
+        // requestShadowRefresh() forced-refresh seam is intentionally NOT wired. At the
+        // known-good 72e34915 the key light's shadow map re-renders on THREE's own
+        // `autoUpdate` schedule (ShadowNode.updateShadow draws every castShadow mesh each
+        // frame) with no external poke; the forced refresh existed only to service the
+        // reverted frustum-fit's idle re-home, and on the freeze/realloc window it forced
+        // the depth pass mid-submit — a prime suspect for the destroyed ShadowDepthTexture
+        // that left the catcher reading uniform grey. Re-earn a freeze-aware refresh later
+        // only if a genuine idle-repaint gap is observed on prod.
         realEnvironment.enable();
 
         // Re-solve the sun when the site location changes (onboarding / relocate).
@@ -3335,31 +3276,32 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         window.runtime?.events?.on('view-activated', () => {
             try { realEnvironment.refreshGroundElevation(); }
             catch { /* advisory */ }
-            scheduleShadowRefit();
+            scheduleCatcherVisibilityUpdate();
         });
 
-        // §FIX-GROUND-SHADOW-AT-PERF-TIER (L-168 / L-140) — keep the key light's shadow
-        // frustum fitted to the LIVE building as geometry is added, so the primary
-        // sun→ground shadow reaches the L0 catcher however tall/wide the building grows
-        // (the "building floats" regression after L-164 rendered all floors full-detail).
-        // Debounced (300 ms) so a generation that fires hundreds of *-added events costs
-        // at most one AABB traverse per settle window; the fit only mutates the shadow
-        // CAMERA (never mapSize), so it can never churn the ShadowDepthTexture.
-        let _shadowRefitTimer: ReturnType<typeof setTimeout> | null = null;
-        function scheduleShadowRefit(): void {
-            if (_shadowRefitTimer) return;
-            _shadowRefitTimer = setTimeout(() => {
-                _shadowRefitTimer = null;
-                try { realEnvironment.refitShadowToScene(); }
-                catch (e) { console.warn('[initScene] realEnvironment.refitShadowToScene error:', e); }
+        // §L-205 caster-visibility gate — recompute the catcher's visibility as geometry is
+        // added, so the invisible-on-empty catcher flips visible the moment the first caster
+        // (a hand-drawn wall or a generated building) lands and starts receiving the real
+        // ground shadow. Debounced (300 ms) so a generation that fires hundreds of *-added
+        // events costs at most one scene sweep per settle window. This is a PURE scene-graph
+        // sweep + `mesh.visible` flip — NO frustum fit, NO light re-home, NO shadow-map /
+        // mapSize write, NO pipeline rebuild (the wider shadow improvements were reverted at
+        // §REVERT-SHADOW-TO-KNOWN-GOOD and are re-earned later, one at a time).
+        let _catcherVisTimer: ReturnType<typeof setTimeout> | null = null;
+        function scheduleCatcherVisibilityUpdate(): void {
+            if (_catcherVisTimer) return;
+            _catcherVisTimer = setTimeout(() => {
+                _catcherVisTimer = null;
+                try { realEnvironment.updateGroundCatcherVisibility(); }
+                catch (e) { console.warn('[initScene] realEnvironment.updateGroundCatcherVisibility error:', e); }
             }, 300);
         }
-        const _envShadowRefitEvents = [
+        const _envCatcherVisEvents = [
             'bim-wall-added', 'bim-slab-added', 'bim-roof-added', 'bim-column-added',
             'bim-beam-added', 'bim-stair-added', 'bim-curtainwall-added', 'bim-floor-added',
             'bim-ceiling-added', 'bim-furniture-added', 'pryzm-project-loaded',
         ] as const;
-        _envShadowRefitEvents.forEach((evt) => window.addEventListener(evt, scheduleShadowRefit));
+        _envCatcherVisEvents.forEach((evt) => window.addEventListener(evt, scheduleCatcherVisibilityUpdate));
 
         // Panel bridge — the View Properties panel emits these via runtime.events.
         // §FEAT-REAL-ENVIRONMENT-SUN — sun mode / offsets / time / ground toggle.

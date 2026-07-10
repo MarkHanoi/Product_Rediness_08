@@ -51,52 +51,39 @@ export class RealEnvironmentService {
     private _readGroundElevation: GroundElevationReader = () => 0;
     private _enabled = false;
     private _groundShadowsEnabled = true;
+
     /**
-     * §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — whether the scene
-     * currently holds any shadow-CASTING geometry. The catcher is a `ShadowMaterial`
-     * plane that, with NO caster/shadow, reads as "fully shadowed" → an opaque GREY
-     * fill on WebGPU (the founder's empty-project grey square). It is updated by
-     * {@link refitShadowToScene} on the app's debounced geometry cadence.
+     * §L-205 caster-visibility gate (re-applied from L-200; the ONLY behaviour kept
+     * from the reverted §FIX-GROUND-SHADOW-AT-PERF-TIER / §FIX-WEBGPU-* stack).
      *
-     * RECONCILING L-107 + L-112: L-107 removed the grey by DETACHING the receiver
-     * when empty, but that late re-attach dropped it out of the WebGPU shadow-sampling
-     * set → the real ground shadow disappeared (L-112 reverted it, re-accepting the
-     * grey). The correct fix keeps the receiver ATTACHED up front (L-112's receive is
-     * preserved — it is in the shadow pass from frame 1) and gates only its VISIBILITY
-     * on caster presence (L-107's grey fix): invisible with 0 casters, visible + fully
-     * receiving once ≥1 caster exists. Graph membership never changes, so no late
-     * pipeline rebind can drop the receiver.
+     * Whether the scene currently holds any shadow-CASTING geometry. The catcher is a
+     * `ShadowMaterial` plane: with NO caster it composites as "fully shadowed" → an
+     * opaque grey fill on WebGPU (the founder's empty-project grey square). We suppress
+     * that COSMETIC grey by gating only the catcher's VISIBILITY on caster presence —
+     * a pure scene-graph boolean. The receiver stays ATTACHED (in the shadow pass) from
+     * frame 1 (L-112), so this never drops it from the shadow-sampling set. Updated by
+     * {@link updateGroundCatcherVisibility} on the app's debounced geometry cadence.
+     *
+     * NOTE: this gate performs NO GPU allocation, NO dispose, NO shadow-camera mutation,
+     * and NO pipeline/ScenePass rebuild — it flips `mesh.visible` only.
      */
     private _hasCasters = false;
 
     /**
-     * §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — invoked exactly on the 0→≥1 shadow-caster
-     * transition (the same instant the catcher becomes visible).
-     *
-     * The WebGPU TSL ScenePass is composed against the scene ONCE at boot, when no caster
-     * exists, and is never rebuilt when one appears — so the shadow graph never learns the
-     * caster exists and the catcher composites as fully-shadowed (an opaque grey plane) with
-     * no projected shadow. The app layer wires this to `RenderPipelineManager.scheduleShadowRebuild()`.
-     *
-     * INJECTED (a hook seam, not a renderer reach-in) so this package keeps no renderer
-     * handle — mirroring RenderingPipelineCoordinator's other hooks. Self-resetting: clearing
-     * the scene drops `_hasCasters` to false, so the next project re-fires on ITS first caster.
-     * Gating on the CASTER (not on "any new mesh") matters: the grid/datum/helper meshes that
-     * exist on an empty project are not casters, and must not consume the one-shot.
+     * §DIAG-GROUND-SHADOW-FIT (L-205) — the host that owns the scene's sole real shadow
+     * caster (the Pascal key light), kept ONLY so the read-only diagnostic can dump the
+     * live light + shadow-camera state on the first caster. Never mutated here.
      */
-    private _onFirstCaster?: () => void;
-
-    /** §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — inject the first-caster hook (app layer). */
-    setFirstCasterHook(hook: () => void): void {
-        this._onFirstCaster = hook;
-    }
+    private _keyLightHost: KeyLightHost | null = null;
+    /** §DIAG-GROUND-SHADOW-FIT — ensures the one-line diagnostic logs at most once per project. */
+    private _diagLogged = false;
 
     // ── Getters (diagnostics / tests) ────────────────────────────────────────
     get enabled(): boolean { return this._enabled; }
     get sun(): RealSunService { return this._sun; }
     get ground(): GroundShadowCatcher { return this._ground; }
     get groundShadowsEnabled(): boolean { return this._groundShadowsEnabled; }
-    /** §L-200 — true while the scene has a shadow caster (so the catcher is shown). */
+    /** §L-205 — true while the scene has a shadow caster (so the catcher is shown). */
     get sceneHasCasters(): boolean { return this._hasCasters; }
 
     /**
@@ -113,6 +100,7 @@ export class RealEnvironmentService {
         this._scene = scene;
         this._readSiteLatLon = readSiteLatLon;
         this._readGroundElevation = readGroundElevation;
+        this._keyLightHost = keyLightHost; // §DIAG-GROUND-SHADOW-FIT — read-only handle for the diagnostic.
         this._sun.bind(scene);
         // Steer the scene's existing key light instead of adding a parallel light.
         this._sun.bindKeyLightHost(keyLightHost);
@@ -153,45 +141,24 @@ export class RealEnvironmentService {
         // count. (The cosmetic empty-project grey — ShadowMaterial not fully
         // transparent where unlit on WebGPU — is a SEPARATE follow-up that must NOT
         // touch this receive path.)
-        // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — ATTACH the receiver
-        // up front (keep L-112: in the shadow pass from frame 1 so it receives the real
-        // shadow), but leave VISIBILITY to the caster gate below. On a brand-new empty
-        // project there are 0 casters → the plane is attached-but-invisible, so there is
-        // no opaque grey square; the moment the first caster lands (refit fires on the
-        // geometry event) it becomes visible and composites the real ground shadow.
+        // §L-205 caster-visibility gate — ATTACH the receiver up front (keep L-112: in
+        // the shadow pass from frame 1 so it receives the real shadow), but leave its
+        // VISIBILITY to the caster gate. On a brand-new empty project there are 0 casters
+        // → the plane is attached-but-invisible, so there is no cosmetic opaque grey
+        // square; the moment the first caster lands (updateGroundCatcherVisibility fires
+        // on the geometry event) it becomes visible and composites the real ground shadow.
         this._ground.setElevation(this._readGroundElevation());
         if (this._groundShadowsEnabled) this._ground.attach(this._scene);
 
         this._enabled = true;
-        // §FIX-GROUND-SHADOW-AT-PERF-TIER — fit the shadow frustum to whatever geometry
-        // is already present (project switch / reload) AND recompute the caster gate that
-        // drives the catcher's visibility. A no-op-safe hide on a fresh empty scene.
-        this.refitShadowToScene();
+        // Recompute the caster gate for whatever geometry is already present (project
+        // switch / reload). A no-op-safe hide on a fresh empty scene.
+        this.updateGroundCatcherVisibility();
         console.log(
             '[RealEnvironmentService] §FEAT-REAL-ENVIRONMENT enabled — ' +
             `site=${site ? `${site.lat.toFixed(3)},${site.lon.toFixed(3)}` : 'default'} ` +
             `ground=${this._groundShadowsEnabled ? `on (catcher attached; ${this._hasCasters ? 'visible — receiving real shadow' : 'hidden until first caster'})` : 'off'}.`,
         );
-    }
-
-    /**
-     * §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — apply the catcher's
-     * attach + visibility from the current ground-shadow toggle and caster gate.
-     *
-     * Keeps the receiver ATTACHED whenever ground shadows are on (L-112 — never dropped
-     * from the shadow-sampling set), and shows it (`setEnabled(true)` → `mesh.visible`)
-     * ONLY when there is a caster (L-107 — no grey on an empty scene). No GPU dispose,
-     * no graph churn — ADR-0111 safe.
-     */
-    private _applyCatcher(): void {
-        if (!this._scene) return;
-        if (this._groundShadowsEnabled) {
-            this._ground.setElevation(this._readGroundElevation());
-            this._ground.attach(this._scene);
-            this._ground.setEnabled(this._hasCasters);
-        } else {
-            this._ground.setEnabled(false);
-        }
     }
 
     /** Re-solve the sun after the site location changes (onboarding / relocate). */
@@ -206,77 +173,101 @@ export class RealEnvironmentService {
     }
 
     /**
-     * §FIX-GROUND-SHADOW-AT-PERF-TIER (L-168 / L-140) — re-fit the key light's shadow
-     * frustum to the LIVE building bounds so the primary sun→ground shadow reaches the
-     * L0 catcher however large/tall the model is and whatever the render tier.
+     * §L-205 caster-visibility gate — apply the catcher's attach + visibility from the
+     * current ground-shadow toggle and caster gate.
      *
-     * WHY (root cause): the Pascal key light — the scene's SOLE real shadow caster,
-     * driven as the sun — has a fixed ±50/far-100 shadow camera and orbits at ~17 m.
-     * When L-164 made all floors of a generated building render full-detail (~4000
-     * meshes → `performance` tier) the building outgrew that frustum AND the light sat
-     * inside it, so nothing projected onto the catcher — the "building floats" bug. The
-     * key light is NOT suppressed at that scale (it stays a caster below the 8000 ceiling);
-     * the shadow was simply out of frame. This computes the model AABB (excluding the
-     * catcher + helper/edge/grid meshes and hidden far-level geometry) and hands the sun
-     * a centre + radius to enclose. Only the shadow CAMERA changes — never the map size —
-     * so it is device-loss safe (no mid-submit ShadowDepthTexture realloc; ADR-0111).
+     * Keeps the receiver ATTACHED whenever ground shadows are on (L-112 — never dropped
+     * from the shadow-sampling set), and shows it (`setEnabled(true)` → `mesh.visible`)
+     * ONLY when there is a caster (no cosmetic grey on an empty scene). No GPU dispose,
+     * no shadow-camera mutation, no graph churn — ADR-0111 safe.
+     */
+    private _applyCatcher(): void {
+        if (!this._scene) return;
+        if (this._groundShadowsEnabled) {
+            this._ground.setElevation(this._readGroundElevation());
+            this._ground.attach(this._scene);
+            this._ground.setEnabled(this._hasCasters);
+        } else {
+            this._ground.setEnabled(false);
+        }
+    }
+
+    /**
+     * §L-205 caster-visibility gate — recompute whether the scene holds any shadow-CASTING
+     * geometry and drive the catcher's visibility from it: hidden on an empty scene (no
+     * cosmetic grey square), shown + receiving once a caster exists. The receiver stays
+     * ATTACHED throughout (L-112 receive preserved); only `mesh.visible` flips.
+     *
+     * This is a PURE scene-graph sweep + boolean. It performs NO frustum fit, NO light
+     * re-home, NO shadow-map / mapSize write, NO pipeline rebuild — the deliberate scope
+     * after the §REVERT-SHADOW-TO-KNOWN-GOOD reset. The wider shadow improvements
+     * (frustum fit, first-caster rebuild, forced shadow refresh) are re-earned later, one
+     * at a time, each verified on prod.
      *
      * Cheap enough to call on a debounced geometry-change; a no-op on an empty scene.
      */
-    refitShadowToScene(): void {
+    updateGroundCatcherVisibility(): void {
         if (!this._enabled || !this._scene) return;
         const catcher = this._ground.mesh;
-        const box = new THREE.Box3();
-        let any = false;
         let hasCaster = false;
         this._scene.traverse((obj) => {
+            if (hasCaster) return;
             if (obj === catcher) return;
-            // Meshes + InstancedMeshes (generated buildings render instanced) — the
-            // InstancedMesh's own boundingBox covers every instance, so expandByObject
-            // grounds the frustum on the whole aggregate.
-            if (!(obj as THREE.Mesh).isMesh) return;
-            if (obj.visible === false) return; // skip hidden far-level (massing) geometry
+            const mesh = obj as THREE.Mesh;
+            if (!mesh.isMesh) return;
+            if (mesh.visible === false) return; // skip hidden far-level (massing) geometry
             const role = (obj.userData?.role as string | undefined) ?? '';
             if (role === 'edges' || role === 'edge-overlay' || role === 'ground-shadow-catcher') return;
             const name = (obj.name ?? '').toLowerCase();
             if (name.includes('edge') || name.includes('grid') ||
                 name.includes('collision') || name.includes('helper')) return;
-            box.expandByObject(obj as THREE.Object3D);
-            any = true;
-            // §L-200 — a real, shadow-CASTING mesh is what the catcher needs to show a
-            // shadow. Pascal flags every element castShadow, so "has caster" == "has
-            // real geometry" in practice, but check castShadow explicitly for intent.
-            if ((obj as THREE.Mesh).castShadow) hasCaster = true;
+            // A real, shadow-CASTING mesh is what the catcher needs to show a shadow.
+            // Pascal flags every element castShadow, so "has caster" == "has real
+            // geometry" in practice, but check castShadow explicitly for intent.
+            if (mesh.castShadow) hasCaster = true;
         });
-        // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — drive the catcher's
-        // visibility from the caster gate: hidden on an empty scene (no grey square),
-        // shown + receiving once a caster exists. The receiver stays ATTACHED throughout
-        // (L-112 receive preserved); only mesh.visible flips.
         const hadCasters = this._hasCasters;
         this._hasCasters = hasCaster;
-        this._applyCatcher(); // idempotent — sets the initial hidden state on empty too
-        // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — the caster just appeared (0→≥1). Ask the app
-        // layer to rebuild the WebGPU ScenePass ONCE so the shadow graph actually contains
-        // it; otherwise the now-visible catcher reads as fully shadowed (opaque grey) and no
-        // sun shadow projects. Fired after _applyCatcher() so the receiver is already shown.
-        if (!hadCasters && hasCaster) {
-            try {
-                this._onFirstCaster?.();
-            } catch (err) {
-                console.warn('[RealEnvironmentService] §FIX-WEBGPU-SCENEPASS-FIRST-CASTER hook threw (non-fatal):', err);
-            }
+        this._applyCatcher();
+        // §DIAG-GROUND-SHADOW-FIT (L-205) — one read-only line on the first caster (0→≥1),
+        // dumping the live light + shadow-camera + catcher state so the next shadow bug is
+        // diagnosed from real numbers, not another hypothesis. Mutates NOTHING.
+        if (!hadCasters && hasCaster && !this._diagLogged) {
+            this._diagLogged = true;
+            this._logGroundShadowDiagnostic();
         }
-        if (!any || box.isEmpty()) {
-            // No real geometry yet — clear coverage so an emptied scene reverts to the
-            // legacy fixed frustum instead of holding a stale (possibly huge) one.
-            this._sun.setShadowCoverage(null, 0);
-            return;
-        }
-        const center = box.getCenter(new THREE.Vector3());
-        const size   = box.getSize(new THREE.Vector3());
-        const radius = 0.5 * Math.hypot(size.x, size.y, size.z);
-        if (!Number.isFinite(radius) || radius <= 0) return;
-        this._sun.setShadowCoverage(center, radius);
+        // Re-arm the one-shot diagnostic when the scene empties (project switch / clear),
+        // so the next project logs its own first-caster numbers.
+        if (hadCasters && !hasCaster) this._diagLogged = false;
+    }
+
+    /**
+     * §DIAG-GROUND-SHADOW-FIT (L-205) — read-only dump of the exact numbers that decide
+     * whether the sun→ground shadow reaches the catcher. Logs the key light's world pose,
+     * its ortho shadow-camera bounds + near/far, mapSize, castShadow, whether the shadow
+     * map is allocated, and the catcher's visible/material/opacity + the scene caster
+     * count. Never mutates anything (pure reads); guarded so a null light is a no-op.
+     */
+    private _logGroundShadowDiagnostic(): void {
+        try {
+            const key = this._keyLightHost?.keyLight ?? null;
+            const cam = key?.shadow?.camera as THREE.OrthographicCamera | undefined;
+            const mat = this._ground.mesh.material as THREE.ShadowMaterial | undefined;
+            const p = key?.position;
+            const t = key?.target?.position;
+            let casterCount = 0;
+            this._scene?.traverse((o) => { if ((o as THREE.Mesh).isMesh && (o as THREE.Mesh).castShadow) casterCount++; });
+            console.log(
+                '[RealEnvironmentService] §DIAG-GROUND-SHADOW-FIT — ' +
+                `keyLightPos=${p ? `(${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)})` : 'none'} ` +
+                `target=${t ? `(${t.x.toFixed(1)},${t.y.toFixed(1)},${t.z.toFixed(1)})` : 'none'} ` +
+                `shadowCam=${cam ? `[L${cam.left.toFixed(1)} R${cam.right.toFixed(1)} T${cam.top.toFixed(1)} B${cam.bottom.toFixed(1)} n${cam.near.toFixed(1)} f${cam.far.toFixed(1)}]` : 'none'} ` +
+                `mapSize=${key?.shadow ? `${key.shadow.mapSize.x}x${key.shadow.mapSize.y}` : 'none'} ` +
+                `castShadow=${key?.castShadow ?? 'none'} shadowMapAllocated=${key?.shadow?.map != null} ` +
+                `catcher{visible=${this._ground.mesh.visible},mat=${mat?.type ?? 'none'},opacity=${mat?.opacity ?? 'none'}} ` +
+                `casters=${casterCount}`,
+            );
+        } catch { /* diagnostics are advisory — never break the caster gate */ }
     }
 
     /** True while the catcher mesh is attached to the scene (for diagnostics/tests). */
@@ -299,17 +290,15 @@ export class RealEnvironmentService {
 
     /**
      * Toggle the invisible L0 ground shadow-catcher (user control). Reversible with
-     * NO GPU dispose (ADR-0111 safe): enabling attaches the receiver at the current
-     * ground elevation; disabling hides it. Presence is NOT gated on caster count —
-     * the receiver must be attached up front so it stays in the shadow pass and
-     * receives the real building shadow (§FIX-SHADOW-CATCHER-RESTORE, L-112).
+     * NO GPU dispose (ADR-0111 safe). The receiver is attached up front so it stays in
+     * the shadow pass and receives the real building shadow (§FIX-SHADOW-CATCHER-RESTORE,
+     * L-112); §L-205 gates only its VISIBILITY on caster presence — enabling with an
+     * EMPTY scene must NOT paint a cosmetic grey plane, so it shows only once a caster
+     * exists; disabling hides it.
      */
     setGroundShadows(enabled: boolean): void {
         this._groundShadowsEnabled = enabled;
         if (!this._scene) return;
-        // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER (L-200) — enabling attaches the
-        // receiver up front (L-112 receive) but shows it ONLY when a caster exists (L-107 —
-        // toggling ON with an empty scene must NOT paint a grey plane); disabling hides it.
         this._applyCatcher();
     }
 
