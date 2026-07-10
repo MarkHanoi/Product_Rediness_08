@@ -1629,6 +1629,83 @@ export function rasterizeFacadeSunTexture(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227, founder 2026-07-09) — expand the
+// façade field to the SAME cold→warm ramp span the ground heatmap uses
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ROOT of the "flat cyan" façade: a façade sample's raw intensity is `lit / samples.length`
+// (`prepareFacadeSunGrid.evaluateIntensity`), where a WALL only accumulates the sun samples
+// on its OUTWARD side (the physical back-face cull) — so a vertical face can NEVER reach the
+// all-day daylight sample count the fraction is divided by, and the whole building collapses
+// into the COLD HALF of the ramp (blue→teal). The ground heatmap does NOT suffer this: a
+// horizontal ground cell in the open is lit by EVERY daylight sample → intensity 1.0 → it
+// uses the full ramp, giving the rich gradient the founder loves.
+//
+// FIX (this helper): normalise the whole façade study to its realised MAXIMUM WALL intensity,
+// exactly mirroring `computeSunHoursOnModel`'s per-model `maxSunHours` normalisation (ADR-0074,
+// the very pass the founder calls "amazing"). This is NOT a cosmetic saturation boost — the
+// underlying per-point field genuinely varies (north vs south face, context-shaded base vs
+// sunlit top); rescaling by the field's own max simply lets that REAL variation span the full
+// cold→warm ramp instead of the compressed cold band. Walls span [0,1]; the roof (which sees
+// more sun than any wall) clamps to the warm end — one scale across the whole building. PURE.
+
+/** A whole façade study's normalised fields (walls + roof), rescaled to the realised max
+ *  WALL intensity so the gradient fills the full ramp. §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY. */
+export interface NormalizedFacadeStudy {
+    /** Per-face wall intensity lattices (same shape/order as the input), rescaled to [0,1]. */
+    readonly walls: Array<Array<number | null>>;
+    /** Roof intensity lattice, rescaled by the SAME wall-max (clamped to 1). */
+    readonly roof: Array<number | null>;
+    /** The realised max WALL intensity the fields were divided by (0 → no wall data). */
+    readonly max: number;
+}
+
+/**
+ * §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227) — normalise a façade study's per-face
+ * wall lattices + roof lattice to the study's realised maximum WALL intensity, so the façade
+ * uses the full cold→warm span of the SAME `sunHoursRgb` ramp the ground heatmap uses (rather
+ * than collapsing into the cold band). Mirrors `computeSunHoursOnModel`'s `maxSunHours`
+ * normalisation. Nulls (holes) are preserved; values clamp to [0,1]. PURE + deterministic.
+ *
+ * When there are no wall faces with data the roof's OWN max is used, so a roof-only study
+ * still fills the ramp. When the whole study is dark (max ≈ 0) it is a no-op (never amplifies
+ * noise). The wall-max (not a global max including the sunnier roof) is the divisor precisely
+ * so the WALLS — the "façades" the founder cares about — occupy the full ramp; the roof, being
+ * brighter than any wall, simply clamps to the warm end (physically correct: the roof gets the
+ * most sun).
+ *
+ * @param wallFaces per-face intensity lattices (0..1 or null), in face order.
+ * @param roof      roof intensity lattice (0..1 or null); defaults to empty (no roof).
+ */
+export function normalizeFacadeStudy(
+    wallFaces: ReadonlyArray<ReadonlyArray<number | null>>,
+    roof: ReadonlyArray<number | null> = [],
+): NormalizedFacadeStudy {
+    let max = 0;
+    for (const face of wallFaces) {
+        for (const v of face) {
+            if (v != null && Number.isFinite(v) && v > max) max = v;
+        }
+    }
+    // No wall data → fall back to the roof's own max so a roof-only study still fills the ramp.
+    if (max <= 0) {
+        for (const v of roof) if (v != null && Number.isFinite(v) && v > max) max = v;
+    }
+    const norm = max > 1e-6 ? max : 1;
+    const scale = (arr: ReadonlyArray<number | null>): Array<number | null> =>
+        arr.map((v) => (v == null || !Number.isFinite(v) ? null : Math.max(0, Math.min(1, v / norm))));
+
+    try {
+        console.debug(
+            `[span][feat-facade-analysis-match-sunhours-quality] normalised façade study to ` +
+            `max wall intensity ${max.toFixed(3)} (${wallFaces.length} face(s), roof ${roof.length} node(s)).`,
+        );
+    } catch { /* console unavailable (headless test) — span is best-effort */ }
+
+    return { walls: wallFaces.map(scale), roof: scale(roof), max };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — drape the sun-hours
 // study onto the REAL placed GLB model, not a separate translucent envelope prism.
 // ─────────────────────────────────────────────────────────────────────────────

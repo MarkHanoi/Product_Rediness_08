@@ -76,6 +76,10 @@ import {
     // into ONE smooth bilinearly-interpolated texture per wall face (+ roof) so the façade
     // reads as a continuous gradient like the floor heatmap, not ~2159 discrete quads.
     rasterizeFacadeSunTexture,
+    // §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227) — normalise the façade study to its
+    // realised max WALL intensity so the gradient fills the SAME cold→warm ramp span as the
+    // ground heatmap (fixes the compressed "flat cyan" façade), mirroring computeSunHoursOnModel.
+    normalizeFacadeStudy,
     // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY (L-144 / L-160b) — punch the REAL authored
     // window/door openings out of the façade study so the analysis surface is the real
     // walls-with-openings, not a solid perimeter prism. + §PERF-SUNHOURS-WORKER probe type
@@ -5331,6 +5335,22 @@ export class CesiumViewport {
         }
       }
     }, () => {
+      // §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227, founder 2026-07-09) — the raw
+      // per-point field (`lit / samples.length`) collapses a vertical façade into the COLD
+      // HALF of the ramp: a wall only takes the sun samples on its OUTWARD side (back-face
+      // cull), so it can never reach the all-day sample count the fraction divides by, and the
+      // whole building read as a near-flat cyan. Normalise the study to its realised MAXIMUM
+      // WALL intensity — exactly as `computeSunHoursOnModel` normalises by `maxSunHours` (the
+      // ground pass the founder calls "amazing") — so the REAL per-point variation (N vs S
+      // faces, context-shaded base vs sunlit top) spans the FULL cold→warm `sunHoursRgb` ramp,
+      // matching the ground heatmap's fidelity. This is a range rescale of the genuine field,
+      // NOT a saturation boost; combined with dropping the vivid variant below the façade now
+      // reads the IDENTICAL ramp + scale as the ground it sits on.
+      {
+        const normed = normalizeFacadeStudy(faceJobs.map((j) => j.intensities), roofInts);
+        for (let fi = 0; fi < faceJobs.length; fi++) faceJobs[fi]!.intensities = normed.walls[fi]!;
+        for (let i = 0; i < roofInts.length; i++) roofInts[i] = normed.roof[i] ?? null;
+      }
       // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — when the REAL
       // full-fidelity GLB is placed, DRAPE the sun-hours result onto ITS OWN faces via a
       // Cesium CustomShader instead of painting the separate translucent envelope prism.
@@ -5353,7 +5373,13 @@ export class CesiumViewport {
             centroidE: cx, centroidN: cz, heightM,
             roofIntensities: roofInts, roofNU, roofNV,
             roofMinE: minE, roofMinN: minN, roofSpanE: roofW, roofSpanN: roofD,
-            vivid: true, alpha: 1,
+            // §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227) — plain `sunHoursRgb`, the
+            // IDENTICAL ramp the ground heatmap uses. The vivid saturation/contrast boost
+            // (§FORMA-FACADE-VISIBLE) was a cosmetic patch for the compressed cold-band field —
+            // it turned the mid-band teal into the founder's "flat cyan" and diverged the façade
+            // from the ground scale. With the field now range-normalised above, the honest ramp
+            // reads boldly on its own; drop the boost so façade + ground are one scale.
+            vivid: false, alpha: 1,
           });
           if (this.applyRealModelSunDrape(drape)) {
             this.facadeDrapingRealModel = true;
@@ -5385,10 +5411,11 @@ export class CesiumViewport {
       let facesPainted = 0;
       for (const job of faceJobs) {
         const aspect = job.segLen / Math.max(1e-3, heightM);
-        // §FORMA-FACADE-VISIBLE — near-opaque (0.98) + vivid ramp so the sun-hours gradient
-        // reads boldly on the tower and the analysis colours dominate the wall face.
+        // §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227) — near-opaque (0.98) + the PLAIN
+        // `sunHoursRgb` ramp (vivid=false), IDENTICAL to the ground heatmap, on the study now
+        // range-normalised to fill the full cold→warm span (no vivid saturation lie).
         // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY — punch the real window/door openings as holes.
-        const tex: FacadeSunTexture = rasterizeFacadeSunTexture(job.intensities, job.nU, job.nV, aspect, 0.98, true, job.openings);
+        const tex: FacadeSunTexture = rasterizeFacadeSunTexture(job.intensities, job.nU, job.nV, aspect, 0.98, false, job.openings);
         const material = this.facadeTextureMaterial(tex);
         if (!material) continue;
         const ent = viewer.entities.add({
@@ -5405,7 +5432,7 @@ export class CesiumViewport {
         facesPainted++;
       }
       // Roof — one textured polygon of the ring. Aspect = bbox width / depth.
-      const roofTex = rasterizeFacadeSunTexture(roofInts, roofNU, roofNV, roofW / Math.max(1e-3, roofD), 0.98, true);
+      const roofTex = rasterizeFacadeSunTexture(roofInts, roofNU, roofNV, roofW / Math.max(1e-3, roofD), 0.98, false);
       const roofMat = this.facadeTextureMaterial(roofTex);
       if (roofMat && roofRingWorld.length >= 3) {
         const ent = viewer.entities.add({

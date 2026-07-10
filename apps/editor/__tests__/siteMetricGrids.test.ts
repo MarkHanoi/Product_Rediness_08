@@ -21,6 +21,7 @@ import {
     buildFacadeSamplePoints,
     prepareFacadeSunGrid,
     rasterizeFacadeSunTexture,
+    normalizeFacadeStudy,
     buildRealWindRose,
     __sunHoursBvhEquivalenceProbe,
     facadeOpeningUvRects,
@@ -894,5 +895,85 @@ describe('§FIX-FACADE-ANALYSIS-REAL-GEOMETRY: real openings punched into the fa
         let anyOpaque = false;
         for (let i = 3; i < tex.rgba.length; i += 4) if (tex.rgba[i]! > 0) { anyOpaque = true; break; }
         expect(anyOpaque).toBe(true);
+    });
+});
+
+// §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227, founder 2026-07-09) — the façade study
+// must fill the SAME cold→warm span the ground heatmap uses (the regression is a flat cyan coat
+// stuck in the cold band) AND render through the IDENTICAL `sunHoursRgb` ramp (no vivid variant,
+// no cyan). These pure tests lock both: the range-normalisation and the one-ramp colour mapping.
+describe('§FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY: façade fills the ground ramp', () => {
+    // Read one texel's RGBA from a façade texture at UV (u along 0..1, v up 0..1, v0 = bottom).
+    const rgbaAt = (tex: { width: number; height: number; rgba: Uint8ClampedArray },
+                    u: number, v: number): [number, number, number, number] => {
+        const tx = Math.min(tex.width - 1, Math.max(0, Math.floor(u * tex.width)));
+        const ty = Math.min(tex.height - 1, Math.max(0, Math.floor((1 - v) * tex.height))); // row 0 = top
+        const o = (ty * tex.width + tx) * 4;
+        return [tex.rgba[o]!, tex.rgba[o + 1]!, tex.rgba[o + 2]!, tex.rgba[o + 3]!];
+    };
+
+    it('normalizeFacadeStudy expands a cold-band field to fill [0,1] (real variation, not a boost)', () => {
+        // A compressed façade field — a vertical wall never reaches the all-day sample count, so
+        // every raw value sits in the cold half. Two faces, one brighter than the other.
+        const faceHot: Array<number | null> = [0.10, 0.20, 0.35, 0.45];
+        const faceCold: Array<number | null> = [0.02, 0.05, 0.08, 0.12];
+        const roof: Array<number | null> = [0.55, 0.60]; // roof sees more sun than any wall
+        const out = normalizeFacadeStudy([faceHot, faceCold], roof);
+        // The max WALL intensity (0.45) is the divisor → the brightest wall node reaches 1.0.
+        expect(out.max).toBeCloseTo(0.45, 6);
+        expect(Math.max(...out.walls[0]!.map((v) => v ?? 0))).toBeCloseTo(1, 6);
+        // Ratios are PRESERVED (a pure rescale of the genuine field — not saturation).
+        expect(out.walls[0]![1]! / out.walls[0]![3]!).toBeCloseTo(0.20 / 0.45, 6);
+        // The field now spans nearly the full ramp (regression = a flat tint with tiny range).
+        const all = [...out.walls[0]!, ...out.walls[1]!].map((v) => v ?? 0);
+        expect(Math.max(...all) - Math.min(...all)).toBeGreaterThan(0.9);
+        // The roof (brighter than any wall) clamps to the warm end (one scale, no overflow).
+        expect(out.roof.every((v) => v == null || (v >= 0 && v <= 1))).toBe(true);
+        expect(Math.max(...out.roof.map((v) => v ?? 0))).toBe(1);
+    });
+
+    it('normalizeFacadeStudy preserves holes and is a no-op on a fully-dark study', () => {
+        const withHoles: Array<number | null> = [0.3, null, 0.1, null];
+        const out = normalizeFacadeStudy([withHoles], []);
+        expect(out.walls[0]![1]).toBeNull();
+        expect(out.walls[0]![3]).toBeNull();
+        // Dark study (max ≈ 0) → norm defaults to 1, values unchanged (never amplify noise).
+        const dark = normalizeFacadeStudy([[0, 0, 0]], [0]);
+        expect(dark.max).toBe(0);
+        expect(dark.walls[0]).toEqual([0, 0, 0]);
+    });
+
+    it('renders through the IDENTICAL sunHoursRgb ramp as the ground — warm at full sun, blue at shade, NEVER cyan', () => {
+        // Plain ramp (vivid=false): a fully-sunlit face → the ground ramp's warm stop #F4753A.
+        const hot = rasterizeFacadeSunTexture(new Array(4).fill(1), 2, 2, 1, 0.98, false, []);
+        const [rH, gH, bH] = rgbaAt(hot, 0.5, 0.5);
+        expect([rH, gH, bH]).toEqual([0xF4, 0x75, 0x3A]); // exact ground ramp warm end
+        expect(rH).toBeGreaterThan(gH); expect(gH).toBeGreaterThan(bH); // warm: R>G>B
+
+        // A fully-shaded face → the ground ramp's cold stop #2C3E80 (deep blue) — NOT cyan.
+        const cold = rasterizeFacadeSunTexture(new Array(4).fill(0), 2, 2, 1, 0.98, false, []);
+        const [rC, gC, bC] = rgbaAt(cold, 0.5, 0.5);
+        expect([rC, gC, bC]).toEqual([0x2C, 0x3E, 0x80]); // exact ground ramp cold end
+        expect(bC).toBeGreaterThan(rC); // cold: blue-dominant
+
+        // "Never cyan" — cyan is high-G, high-B, low-R. The plain ramp never produces it: at the
+        // teal midpoint the boosted (vivid) variant DID, so assert the plain path stays off it.
+        const mid = rasterizeFacadeSunTexture(new Array(4).fill(0.4), 2, 2, 1, 0.98, false, []);
+        const [rM, gM, bM] = rgbaAt(mid, 0.5, 0.5);
+        const isCyan = rM < 100 && gM > 150 && bM > 150;
+        expect(isCyan).toBe(false);
+    });
+
+    it('a normalised sunny façade reads warm, a shaded façade reads cold (per-face gradient, not a flat coat)', () => {
+        // Two faces from a compressed study: one relatively sunny, one deeply shaded.
+        const sunny: Array<number | null> = [0.40, 0.42, 0.44, 0.45];
+        const shaded: Array<number | null> = [0.03, 0.04, 0.05, 0.06];
+        const out = normalizeFacadeStudy([sunny, shaded], []);
+        const sunnyTex = rasterizeFacadeSunTexture(out.walls[0]!, 2, 2, 1, 0.98, false, []);
+        const shadedTex = rasterizeFacadeSunTexture(out.walls[1]!, 2, 2, 1, 0.98, false, []);
+        const [rS, , bS] = rgbaAt(sunnyTex, 0.9, 0.9);   // brightest corner of the sunny face
+        const [rD, , bD] = rgbaAt(shadedTex, 0.1, 0.1);  // darkest corner of the shaded face
+        expect(rS).toBeGreaterThan(bS);  // sunny face → warm (R>B)
+        expect(bD).toBeGreaterThan(rD);  // shaded face → cold (B>R)
     });
 });
