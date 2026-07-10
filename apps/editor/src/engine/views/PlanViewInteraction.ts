@@ -47,6 +47,13 @@ import { DRAGGABLE_ANNOTATION_TYPES } from '@pryzm/core-app-model';
 const HOVER_RADIUS_PX = 10;
 const CLICK_MAX_DRAG_PX = 5;
 const GRID_HIT_RADIUS_PX = 12;
+/**
+ * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — grab tolerance for the selected
+ * elevation/section-mark crop handles. Widened from the old ~10 px (the L-154
+ * "invisible target") so a selected mark's crop handles are comfortably grabbable,
+ * matching the discoverable enlarged squares the renderer now draws.
+ */
+const SCOPE_HANDLE_GRAB_PX = 14;
 
 /**
  * Snap families and snap algorithm live in `PlanSnapEngine` (Contract 32).
@@ -94,6 +101,14 @@ export class PlanViewInteraction {
     /** Currently hovered element UUID, or null. Updated on every mousemove. */
     private _hoveredElementId: string | null = null;
 
+    /**
+     * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — the selected mark's crop handle
+     * currently under the cursor (or null). Drives the resize cursor + the enlarged
+     * handle highlight so crop editing is discoverable. Purely a UI-affordance flag;
+     * the mutation still flows through the view.setCrop command (P6).
+     */
+    private _scopeHoverHandle: 'depth' | 'width-left' | 'width-right' | 'cut-plane' | null = null;
+
     /** True while planElementDragController owns the current drag. */
     private _elementDragActive = false;
 
@@ -140,6 +155,8 @@ export class PlanViewInteraction {
         window.removeEventListener('keydown',   this._boundKeyDown);
         this._planCanvas?.clearSnapIndicator();
         this._planCanvas?.setHoveredElementId(null);
+        this._planCanvas?.setHoveredScopeHandle(null);
+        this._scopeHoverHandle = null;
         if (this._elementDragActive) {
             planElementDragController.cancel();
             this._elementDragActive = false;
@@ -196,10 +213,14 @@ export class PlanViewInteraction {
             }
         }
 
-        const scopeHit = this._planCanvas.hitTestScopeHandle(sx, sy, 10);
+        // §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — crop handles of the SELECTED
+        // mark are hit-tested BEFORE the mark body, with a comfortable grab tolerance,
+        // so a handle drag never falls through to body-select/navigate.
+        const scopeHit = this._planCanvas.hitTestScopeHandle(sx, sy, SCOPE_HANDLE_GRAB_PX);
         if (scopeHit) {
             this._scopeDrag = { annotationId: scopeHit.annotationId, linkedViewId: scopeHit.linkedViewId, handle: scopeHit.handle, lastUpdate: 0 };
             this._isDragging = true;
+            this._canvas.style.cursor = this._scopeCursor(scopeHit.handle);
             (e as any).__pryzmToolHandled = true;
             e.preventDefault();
             e.stopPropagation();
@@ -318,7 +339,7 @@ export class PlanViewInteraction {
         if (this._scopeDrag) {
             (e as any).__pryzmToolHandled = true;
             e.preventDefault();
-            this._canvas.style.cursor = this._scopeDrag.handle === 'cut-plane' ? 'move' : this._scopeDrag.handle === 'depth' ? 'ns-resize' : 'ew-resize';
+            this._canvas.style.cursor = this._scopeCursor(this._scopeDrag.handle);
             this._applyScopeDragFromPointer(e, false);
             return;
         }
@@ -408,6 +429,32 @@ export class PlanViewInteraction {
         const rect = this._canvas.getBoundingClientRect();
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
+
+        // ── §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — crop-handle hover affordance ──
+        // When the SELECTED elevation/section mark's crop handle is under the cursor,
+        // show the matching resize cursor and tell the renderer to enlarge + accent
+        // that handle. This is what makes crop editing DISCOVERABLE (the L-154 gap) —
+        // the handles were previously an invisible ~10px target, so every interaction
+        // read as body-select/navigate. hitTestScopeHandle only returns a handle once
+        // a mark is selected, so this is inert for unselected marks / plain plan views.
+        const toolActiveForScope = window.toolManager?.isAnyToolActive?.() ?? false;
+        const scopeHover = toolActiveForScope ? null : this._planCanvas.hitTestScopeHandle(sx, sy, SCOPE_HANDLE_GRAB_PX);
+        const nextScopeHandle = scopeHover?.handle ?? null;
+        if (nextScopeHandle !== this._scopeHoverHandle) {
+            const hadHandle = this._scopeHoverHandle !== null;
+            this._scopeHoverHandle = nextScopeHandle;
+            this._planCanvas.setHoveredScopeHandle(nextScopeHandle);
+            if (!nextScopeHandle && hadHandle) this._canvas.style.cursor = '';
+        }
+        if (nextScopeHandle) {
+            this._canvas.style.cursor = this._scopeCursor(nextScopeHandle);
+            if (this._hoveredElementId !== null) {
+                this._hoveredElementId = null;
+                this._planCanvas.setHoveredElementId(null);
+            }
+            this._planCanvas.clearSnapIndicator();
+            return;
+        }
 
         // ── Geometry snap indicator (delegates to PlanSnapEngine) ────────────
         const snap = this._snapEngine.querySnap(sx, sy);
@@ -1139,6 +1186,17 @@ export class PlanViewInteraction {
 
     private _cropCursor(handle: 'nw' | 'ne' | 'se' | 'sw'): string {
         return handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize';
+    }
+
+    /**
+     * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — resize cursor for a selected mark's
+     * crop handle: depth extends front-to-back (ns), width extends side-to-side (ew),
+     * and the cut-plane slides the whole cut line (move).
+     */
+    private _scopeCursor(handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane'): string {
+        if (handle === 'cut-plane') return 'move';
+        if (handle === 'depth') return 'ns-resize';
+        return 'ew-resize';
     }
 
     private _resolveSectionVolumeForDrag(ann: AnnotationElement, viewDef: ViewDefinition): ViewSectionVolume | null {

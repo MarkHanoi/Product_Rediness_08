@@ -464,6 +464,16 @@ export class PlanViewCanvas {
         this._hoveredElementId = id;
     }
 
+    /**
+     * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — forward the scope/crop handle
+     * currently under the cursor to the annotation renderer, so the selected-mark
+     * scope overlay can draw it enlarged + accented (the crop grab affordance).
+     * Called by PlanViewInteraction on hover; purely visual (no mutation).
+     */
+    setHoveredScopeHandle(handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane' | null): void {
+        planViewAnnotationRenderer.setHoveredScopeHandle(handle);
+    }
+
     /** Set/clear the selected grid ID — used for highlight + dimension rendering. */
     setSelectedGridId(id: string | null): void {
         this._selectedGridId = id;

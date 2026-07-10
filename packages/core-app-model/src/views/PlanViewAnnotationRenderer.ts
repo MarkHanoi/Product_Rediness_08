@@ -110,6 +110,13 @@ export const DRAGGABLE_ANNOTATION_TYPES = new Set<string>([
     'linear-dim',
 ]);
 
+/**
+ * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — the four grabbable crop/scope handles
+ * on a selected section/elevation mark. `depth` extends the view depth, `width-left`
+ * / `width-right` extend the crop width, `cut-plane` shifts the cut line.
+ */
+export type ScopeHandleId = 'depth' | 'width-left' | 'width-right' | 'cut-plane';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -161,6 +168,21 @@ export class PlanViewAnnotationRenderer {
 
     /** Tracks elevation-mark anchor keys already drawn this frame to avoid duplicate group symbols. */
     private readonly _renderedElevAnchors = new Set<string>();
+
+    /**
+     * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — the scope/crop handle currently
+     * under the cursor (set by PlanViewInteraction on hover). The selected-mark
+     * scope overlay draws this handle enlarged + accented so the crop grab targets
+     * are DISCOVERABLE (the L-154 bug was invisible ~10px handles). Purely visual —
+     * the actual hit-test/drag lives in hitTestScopeHandle + PlanViewInteraction and
+     * all crop mutation stays on the view.setCrop command (P6).
+     */
+    private _hoveredScopeHandle: ScopeHandleId | null = null;
+
+    /** §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — set the hovered scope/crop handle. */
+    setHoveredScopeHandle(handle: ScopeHandleId | null): void {
+        this._hoveredScopeHandle = handle;
+    }
 
     /**
      * Contract 23 §7 — rules-engine resolved base style for annotations.
@@ -1688,12 +1710,21 @@ export class PlanViewAnnotationRenderer {
         const fa = w2s(scope.farA.x, scope.farA.z);
         const depthHandle = { sx: (fa.sx + fb.sx) / 2, sy: (fa.sy + fb.sy) / 2 };
 
+        // §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — grab affordance palette. Handles
+        // read as amber squares by default; the one under the cursor turns the PRYZM
+        // selection purple (#6600ff, the same accent linear-dimension selection uses)
+        // and enlarges, so the crop grab targets are obvious BEFORE the user commits.
+        const hov = this._hoveredScopeHandle;
+        const ACCENT = 'rgba(180, 83, 9, 0.95)';
+        const HOVER = '#6600ff';
+
         ctx.save();
         this._renderScopeZoneFills(ctx, scope, w2s);
 
+        // Cut line (near plane) — the `cut-plane` grab; thickens + turns purple on hover.
         ctx.setLineDash([]);
-        ctx.strokeStyle = 'rgba(180, 83, 9, 0.95)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = hov === 'cut-plane' ? HOVER : ACCENT;
+        ctx.lineWidth = hov === 'cut-plane' ? 3.5 : 2;
         ctx.beginPath();
         ctx.moveTo(a.sx, a.sy);
         ctx.lineTo(b.sx, b.sy);
@@ -1724,35 +1755,50 @@ export class PlanViewAnnotationRenderer {
             y: depthHandle.sy - (a.sy + b.sy) / 2,
         }, 7);
 
-        const cornerHandles = [a, b, fa, fb, depthHandle];
+        // §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — draw a prominent grab square.
+        // Hovered handles enlarge (12→16 px) and fill purple; the rest stay white
+        // amber-bordered but are still noticeably larger than the old 8 px targets.
+        const drawGrab = (p: { sx: number; sy: number }, hovered: boolean, base: number): void => {
+            const s = hovered ? base + 4 : base;
+            ctx.beginPath();
+            ctx.rect(p.sx - s / 2, p.sy - s / 2, s, s);
+            ctx.fillStyle = hovered ? HOVER : '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = hovered ? HOVER : ACCENT;
+            ctx.lineWidth = hovered ? 2 : 1.4;
+            ctx.stroke();
+        };
+
+        // Far corners frame the scope box (visual anchors, small); the depth midpoint
+        // and the two width midpoints are the primary grab targets (larger).
         ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = 'rgba(180, 83, 9, 0.95)';
+        ctx.strokeStyle = ACCENT;
         ctx.lineWidth = 1.2;
-        for (const p of cornerHandles) {
+        for (const p of [a, b, fa, fb]) {
             ctx.beginPath();
             ctx.rect(p.sx - 4, p.sy - 4, 8, 8);
             ctx.fill();
             ctx.stroke();
         }
+        drawGrab(depthHandle, hov === 'depth', 12);
 
         const wh = this._scopeWidthHandleScreenPoints(ann, w2s);
         if (wh) {
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = 'rgba(180, 83, 9, 0.95)';
-            ctx.lineWidth = 1.2;
-            for (const p of [wh.left, wh.right]) {
-                ctx.beginPath();
-                ctx.rect(p.sx - 5, p.sy - 5, 10, 10);
-                ctx.fill();
-                ctx.stroke();
-            }
+            drawGrab(wh.left,  hov === 'width-left',  12);
+            drawGrab(wh.right, hov === 'width-right', 12);
         }
 
         ctx.font = `11px ${FONT}`;
         ctx.fillStyle = 'rgba(120, 53, 15, 0.95)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(`Depth ${depth.toFixed(2)} m`, depthHandle.sx, depthHandle.sy - 7);
+        ctx.fillText(`Depth ${depth.toFixed(2)} m`, depthHandle.sx, depthHandle.sy - 9);
+        // Discoverability hint: the mark is BOTH a crop editor (drag handles) and a
+        // navigation target (double-click) — spell it out so neither is hidden.
+        ctx.font = `10px ${FONT}`;
+        ctx.fillStyle = 'rgba(120, 53, 15, 0.72)';
+        ctx.textBaseline = 'top';
+        ctx.fillText('Drag handles to crop · double-click to open', (a.sx + b.sx) / 2, (a.sy + b.sy) / 2 + 9);
         ctx.restore();
     }
 
