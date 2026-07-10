@@ -792,3 +792,223 @@ export function repairToSimplePolygon(polygon: RoomVertex[]): RoomVertex[] | nul
   if (polygonAreaM2(ring) < 0.01) return null;
   return ring;
 }
+
+/**
+ * §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — a read-only view of a wall the
+ * room-finish boundary derivation needs: its centreline endpoints, thickness, and
+ * door/window openings. Mirrors the WallData shape without importing the full type
+ * (keeps this helper pure + decoupled from the wall store / geometry-wall package).
+ */
+export interface RoomFinishWall {
+  /** Wall centreline as `[start, end]` in world X-Z. */
+  baseLine?: ReadonlyArray<{ x: number; z: number }>;
+  /** Overall wall thickness (m). The finish insets each edge by `thickness / 2`. */
+  thickness: number;
+  /** Door/window openings — only DOORS create a threshold gap in the finish. */
+  openings?: ReadonlyArray<{ type: 'door' | 'window'; offset: number; width: number }>;
+}
+
+/**
+ * §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — THE single canonical derivation of
+ * a room's floor-finish boundary from its CENTRELINE ring + bounding walls. Both the
+ * batch generators (`CreateFloorsByRoomTypeCommand`) and the interactive floor tool
+ * (`FloorPlanToolHandler` AUTO mode) MUST call this so a room's finish has ONE boundary
+ * regardless of entry point (C11: one element type → one creation pipeline).
+ *
+ * The room boundary polygon runs along the wall CENTRELINES (the planar face tracer
+ * walks wall-graph nodes on `wall.baseLine`). A floor built on that polygon spans to the
+ * wall centre and OVERLAPS the neighbour's floor UNDER the partition. This helper insets
+ * each edge inward to its bounding wall's INNER FACE (`thickness / 2`), keeping the
+ * centreline only across DOOR openings so adjacent floors meet at the threshold
+ * (§FLOOR-DOOR-GAP). Fail-safe: returns the centreline polygon on any degenerate result
+ * (so a floor is ALWAYS produced) — never a compensating second offset.
+ *
+ * Strategy (extracted verbatim from the batch path so its output is byte-identical):
+ *   1. For each centreline edge, find the bounding wall whose centreline segment is
+ *      collinear with — and contains the midpoint of — that edge.
+ *   2. The edge's inset = that wall's thickness/2 (0 if no wall matched — keeps the
+ *      centreline, the safe default).
+ *   3. If the matched wall has ≥1 door opening, subdivide the edge into the door span(s)
+ *      (inset 0) and the solid run(s) (inset thickness/2), introducing the span-boundary
+ *      vertices so the miter inset only pulls back the solid runs.
+ *   4. Call the pure `insetPolygonToInnerFaces`, which miters the offset edges, then
+ *      accept the inset only if it is sane (≥3 verts, area ≥ 50% of the centreline);
+ *      otherwise fall back to the centreline polygon.
+ *
+ * Pure: no THREE, no store access, no I/O. The caller resolves `walls` from its store and
+ * passes an optional `onDiag` sink for the §DIAG breadcrumbs.
+ *
+ * @param centreline CCW room centreline ring (≥3 verts). Not mutated.
+ * @param walls      Candidate bounding walls (the per-edge collinear test selects each).
+ * @param onDiag     Optional diagnostic sink (dev-only; gated OFF in prod by callers).
+ */
+export function deriveRoomFinishBoundary(
+  centreline: RoomVertex[],
+  walls: ReadonlyArray<RoomFinishWall>,
+  onDiag?: (line: string) => void,
+): RoomVertex[] {
+  const HALF = (t: number): number => Math.max(0, t) / 2;
+  const ring: RoomVertex[] = [];
+  const insets: number[] = [];
+  let matchedEdges = 0;
+  let doorGaps = 0;
+
+  for (let i = 0; i < centreline.length; i++) {
+    const a = centreline[i]!;
+    const b = centreline[(i + 1) % centreline.length]!;
+    const wall = _wallForFinishEdge(a, b, walls);
+    if (!wall) {
+      // No bounding wall on this edge — keep it on the centreline.
+      ring.push({ x: a.x, z: a.z });
+      insets.push(0);
+      continue;
+    }
+    matchedEdges++;
+    const half = HALF(wall.thickness);
+    // Door spans on this wall, expressed as [t0,t1] parametric along a→b.
+    const spans = _doorSpansOnFinishEdge(a, b, wall);
+    if (spans.length === 0) {
+      ring.push({ x: a.x, z: a.z });
+      insets.push(half);
+      continue;
+    }
+    // Subdivide a→b at door-span boundaries: solid runs inset to the inner face; door
+    // runs stay on the centreline (inset 0) so adjacent floors meet at the threshold.
+    doorGaps += spans.length;
+    const cuts = _mergeFinishSpans(spans);
+    let cursor = 0;
+    for (const seg of cuts) {
+      // Solid run before this door span.
+      if (seg.t0 > cursor + 1e-6) {
+        ring.push(_lerpFinish(a, b, cursor)); insets.push(half);
+      }
+      // Door run.
+      ring.push(_lerpFinish(a, b, Math.max(seg.t0, cursor))); insets.push(0);
+      cursor = seg.t1;
+    }
+    if (cursor < 1 - 1e-6) {
+      ring.push(_lerpFinish(a, b, cursor)); insets.push(half);
+    }
+  }
+
+  if (ring.length < 3) {
+    onDiag?.('boundary=centreline ⚠ (degenerate after subdivide)');
+    return centreline;
+  }
+
+  const inner = insetPolygonToInnerFaces(ring, insets, onDiag);
+  const ok = inner !== ring; // util returns the SAME array ref on fail-safe.
+  // §FLOOR-INSET-VALIDATE — the util can return a DIFFERENT array that is nonetheless
+  // DEGENERATE (near-collapsed ring) on an odd / rotated room polygon; `inner !== ring`
+  // only catches its EXPLICIT same-ref fail-safe. A wall-half-thickness inset (~0.1 m)
+  // trims only a few % of area, so a >50% drop (or sign flip → ~0 area, or <3 verts)
+  // means the inset folded → fall back to the centreline polygon (always a valid simple
+  // ring from room detection / graph).
+  const innerArea = polygonAreaM2(inner);
+  const baseArea = polygonAreaM2(centreline);
+  const insetSane = ok && inner.length >= 3 && baseArea > 0 && innerArea >= 0.5 * baseArea;
+  const maxInset = insets.reduce((m, v) => Math.max(m, v), 0);
+  onDiag?.(
+    `boundary=${insetSane ? 'inner-face ✓' : (ok ? `centreline ⚠ (inset DEGENERATE: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)` : 'centreline ⚠ (inset collapsed)')} ` +
+    `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps}`,
+  );
+  return insetSane ? inner : centreline;
+}
+
+/** Linear interpolation between two X-Z points at parameter `t`. */
+function _lerpFinish(a: RoomVertex, b: RoomVertex, t: number): RoomVertex {
+  return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+}
+
+/**
+ * Find the bounding wall whose CENTRELINE segment is collinear with the room edge a→b
+ * and contains the edge's midpoint (within a tolerance). The room polygon edge runs
+ * along a wall centreline, so the midpoint lies ON the wall's baseLine; perpendicular
+ * distance ≈ 0 and the foot of the projection is between the wall endpoints. Returns the
+ * BEST (closest) match.
+ */
+function _wallForFinishEdge(
+  a: RoomVertex,
+  b: RoomVertex,
+  walls: ReadonlyArray<RoomFinishWall>,
+): RoomFinishWall | undefined {
+  const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+  const exx = b.x - a.x, ezz = b.z - a.z;
+  const elen = Math.hypot(exx, ezz);
+  if (elen < 1e-6) return undefined;
+  const eux = exx / elen, euz = ezz / elen;
+  let best: RoomFinishWall | undefined;
+  let bestPerp = 0.20; // 200 mm — tolerant of join-trim/miter offsets at ends.
+  for (const w of walls) {
+    const w0 = w.baseLine?.[0], w1 = w.baseLine?.[1];
+    if (!w0 || !w1) continue;
+    // Parallel? (edge direction ≈ wall direction, either sign)
+    const wdx = w1.x - w0.x, wdz = w1.z - w0.z;
+    const wlen = Math.hypot(wdx, wdz);
+    if (wlen < 1e-6) continue;
+    const wux = wdx / wlen, wuz = wdz / wlen;
+    const dot = Math.abs(eux * wux + euz * wuz);
+    if (dot < 0.985) continue; // > ~10° off — not the same wall line.
+    // Perpendicular distance of the edge midpoint to the wall centreline.
+    const vx = mx - w0.x, vz = mz - w0.z;
+    const tproj = (vx * wux + vz * wuz) / wlen; // 0..1 along the wall
+    const footX = w0.x + tproj * wdx, footZ = w0.z + tproj * wdz;
+    const perp = Math.hypot(mx - footX, mz - footZ);
+    // Midpoint must project ONTO the wall (allow a small overhang for trims).
+    if (tproj < -0.02 || tproj > 1.02) continue;
+    if (perp < bestPerp) { bestPerp = perp; best = w; }
+  }
+  return best;
+}
+
+/**
+ * Door opening spans on the wall, mapped to parametric `[t0,t1]` along the room edge
+ * a→b (t in 0..1). A wall stores openings as `{ offset, width }` where `offset` is the
+ * centre position along the wall baseLine (metres from baseLine start). We project the
+ * door's start/end onto a→b. Windows are ignored (a floor does not meet a neighbour at a
+ * window). Clamped to [0,1]; empty if none land on this edge.
+ */
+function _doorSpansOnFinishEdge(
+  a: RoomVertex,
+  b: RoomVertex,
+  wall: RoomFinishWall,
+): Array<{ t0: number; t1: number }> {
+  const openings = wall.openings ?? [];
+  if (openings.length === 0) return [];
+  const w0 = wall.baseLine?.[0], w1 = wall.baseLine?.[1];
+  if (!w0 || !w1) return [];
+  const wlen = Math.hypot(w1.x - w0.x, w1.z - w0.z);
+  if (wlen < 1e-6) return [];
+  const wux = (w1.x - w0.x) / wlen, wuz = (w1.z - w0.z) / wlen;
+  const edx = b.x - a.x, edz = b.z - a.z;
+  const elen2 = edx * edx + edz * edz;
+  if (elen2 < 1e-12) return [];
+  // Project a wall-baseLine distance `d` (from w0) onto edge param t.
+  const toEdgeT = (d: number): number => {
+    const px = w0.x + wux * d, pz = w0.z + wuz * d;
+    return ((px - a.x) * edx + (pz - a.z) * edz) / elen2;
+  };
+  const spans: Array<{ t0: number; t1: number }> = [];
+  for (const op of openings) {
+    if (op.type !== 'door') continue;
+    const half = (op.width ?? 0) / 2;
+    const tA = toEdgeT(op.offset - half);
+    const tB = toEdgeT(op.offset + half);
+    let t0 = Math.min(tA, tB), t1 = Math.max(tA, tB);
+    t0 = Math.max(0, t0); t1 = Math.min(1, t1);
+    if (t1 - t0 > 1e-4) spans.push({ t0, t1 });
+  }
+  return spans;
+}
+
+/** Merge overlapping door spans and sort ascending by t0. */
+function _mergeFinishSpans(spans: Array<{ t0: number; t1: number }>): Array<{ t0: number; t1: number }> {
+  const sorted = [...spans].sort((p, q) => p.t0 - q.t0);
+  const out: Array<{ t0: number; t1: number }> = [];
+  for (const s of sorted) {
+    const last = out[out.length - 1];
+    if (last && s.t0 <= last.t1 + 1e-6) { last.t1 = Math.max(last.t1, s.t1); }
+    else { out.push({ ...s }); }
+  }
+  return out;
+}

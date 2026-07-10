@@ -17,6 +17,10 @@
  */
 
 import { createId } from '@pryzm/schemas';
+// §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — the SAME canonical inner-face
+// derivation the batch generators use, so an AUTO-from-room finish sits inside the
+// walls (not on their centreline) regardless of entry point (C11: one pipeline).
+import { deriveRoomFinishBoundary, type RoomFinishWall } from '@pryzm/room-topology';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { FloorPickerMode } from '@app/ui/FloorModePicker';
 
@@ -192,7 +196,13 @@ export class FloorPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const polygon = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
+        // §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — the room boundary polygon runs
+        // along the wall CENTRELINES; a finish built on it overshoots into every wall by
+        // half its thickness. Derive the INNER-FACE polygon with the SAME canonical helper
+        // the batch generators use so UI-created and batch-created finishes for the same
+        // room are identical. Fail-safe inside the helper falls back to the centreline.
+        const centreline = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
+        const polygon = this._innerFacePolygon(room, levelId, centreline);
         const floorId = createId('floor');
         const ifcGuid = crypto.randomUUID();
         // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
@@ -204,6 +214,40 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         this._cursorPoint = null;
         this._rectAnchor  = null;
         this._clearOverlay();
+    }
+
+    /**
+     * §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — resolve the clicked room's
+     * candidate bounding walls from `window.wallStore` (the room's recorded
+     * `boundingWallIds`, else all walls on the level) and delegate the geometry to the
+     * SINGLE canonical `deriveRoomFinishBoundary` shared with the batch generators.
+     * Mirrors `CreateFloorsByRoomTypeCommand._innerFacePolygon` — no compensating offset;
+     * the same pure function produces a byte-identical inner-face polygon. Falls back to
+     * the centreline polygon if the wall store is unavailable so a floor is always made.
+     */
+    private _innerFacePolygon(
+        room: any,
+        levelId: string,
+        centreline: Array<{ x: number; z: number }>,
+    ): Array<{ x: number; z: number }> {
+        try {
+            const wallStore = window.wallStore as {
+                getById?: (id: string) => RoomFinishWall | undefined;
+                getByLevel?: (levelId: string) => RoomFinishWall[];
+            } | undefined; // TODO(TASK-08)
+            if (!wallStore) return centreline;
+            const ids: string[] = room.boundingWallIds ?? [];
+            const walls: RoomFinishWall[] = [];
+            for (const id of ids) { const w = wallStore.getById?.(id); if (w) walls.push(w); }
+            if (walls.length === 0 && wallStore.getByLevel) {
+                walls.push(...wallStore.getByLevel(levelId));
+            }
+            if (walls.length === 0) return centreline;
+            return deriveRoomFinishBoundary(centreline, walls);
+        } catch (e) {
+            console.warn('[FloorPlanToolHandler] inner-face derivation failed — using centreline', e);
+            return centreline;
+        }
     }
 
     private _pointInPolygon(pt: { x: number; z: number }, polygon: Array<{ x: number; z: number }>): boolean {

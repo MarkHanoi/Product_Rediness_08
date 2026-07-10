@@ -29,7 +29,7 @@ import { CreateFloorCommand } from './CreateFloorCommand';
 import { batchCoordinator, type FloorServiceHole } from '@pryzm/core-app-model';
 import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type PerRoomCtx } from '../rooms/perRoomBoundary';
 import { floorFinishFor } from './floorFinish';
-import { insetPolygonToInnerFaces } from '@pryzm/room-topology';
+import { deriveRoomFinishBoundary } from '@pryzm/room-topology';
 
 /** occupancyType → finish category. #34: timber in living/bedroom, tile in kitchen/bathroom.
  *  §FLOOR-FINISH-COVERAGE (founder 2026-06-15, "floor finishes") — the sets key on the
@@ -274,23 +274,12 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     }
 
     /**
-     * §FLOOR-INNER-FACE (2026-06-10) — derive the room's INNER-FACE floor polygon by
-     * insetting the centreline boundary inward, per edge, by each bounding wall's
-     * `thickness / 2`. At any edge that carries a DOOR opening the inset is kept at 0
-     * across the door span so the two rooms' floors meet at the threshold
-     * (§FLOOR-DOOR-GAP). Deterministic; pure read of WallStore (no mutation).
-     *
-     * Strategy:
-     *   1. For each centreline edge, find the bounding wall whose centreline segment
-     *      is collinear with — and contains the midpoint of — that edge.
-     *   2. The edge's inset = that wall's thickness/2 (0 if no wall matched — keeps
-     *      the centreline, the safe default).
-     *   3. If the matched wall has ≥1 door opening, subdivide the edge into the door
-     *      span(s) (inset 0) and the solid run(s) (inset thickness/2), introducing the
-     *      span-boundary vertices so the miter inset only pulls back the solid runs.
-     *   4. Call the pure `insetPolygonToInnerFaces`, which miters the offset edges.
-     *
-     * Falls back to the centreline polygon on any failure so a floor is always made.
+     * §FLOOR-INNER-FACE (2026-06-10) · §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) —
+     * derive the room's INNER-FACE floor polygon. Resolves the room's candidate bounding
+     * walls from the store, then delegates the pure geometry to the SINGLE canonical
+     * `deriveRoomFinishBoundary` (shared with the interactive floor tool, so a room's
+     * finish has ONE boundary regardless of entry point — C11). Falls back to the
+     * centreline polygon on any failure so a floor is always made.
      */
     private _innerFacePolygon(
         context: CommandContext,
@@ -318,85 +307,10 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             }
             if (walls.length === 0) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no bounding walls)`); return centreline; }
 
-            // Build subdivided ring + per-edge insets.
-            const HALF = (t: number) => Math.max(0, t) / 2;
-            const ring: Array<{ x: number; z: number }> = [];
-            const insets: number[] = [];
-            let matchedEdges = 0;
-            let doorGaps = 0;
-
-            for (let i = 0; i < centreline.length; i++) {
-                const a = centreline[i];
-                const b = centreline[(i + 1) % centreline.length];
-                const wall = this._wallForEdge(a, b, walls);
-                if (!wall) {
-                    // No bounding wall on this edge — keep it on the centreline.
-                    ring.push({ x: a.x, z: a.z });
-                    insets.push(0);
-                    continue;
-                }
-                matchedEdges++;
-                const half = HALF(wall.thickness);
-                // Door spans on this wall, expressed as [t0,t1] parametric along a→b.
-                const spans = this._doorSpansOnEdge(a, b, wall);
-                if (spans.length === 0) {
-                    ring.push({ x: a.x, z: a.z });
-                    insets.push(half);
-                    continue;
-                }
-                // Subdivide a→b at door-span boundaries: solid runs inset to the inner
-                // face; door runs stay on the centreline (inset 0) so floors meet.
-                doorGaps += spans.length;
-                const cuts = this._mergeSpansToSegments(spans);
-                let cursor = 0;
-                for (const seg of cuts) {
-                    // Solid run before this door span.
-                    if (seg.t0 > cursor + 1e-6) {
-                        ring.push(this._lerp(a, b, cursor)); insets.push(half);
-                    }
-                    // Door run.
-                    ring.push(this._lerp(a, b, Math.max(seg.t0, cursor))); insets.push(0);
-                    cursor = seg.t1;
-                }
-                if (cursor < 1 - 1e-6) {
-                    ring.push(this._lerp(a, b, cursor)); insets.push(half);
-                }
-            }
-
-            if (ring.length < 3) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (degenerate after subdivide)`); return centreline; }
-
-            const inner = insetPolygonToInnerFaces(ring, insets, (line) => {
-                // §DIAG-FLOOR-INSET — surface the miter-clamp / fall-back reason per
-                // room so we can see which rooms triggered the robustness path.
-                this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} ${line}`);
-            });
-            const ok = inner !== ring; // util returns the SAME array ref on fail-safe
-            // §FLOOR-INSET-VALIDATE (2026-06-16) — the util can return a DIFFERENT array
-            // that is nonetheless DEGENERATE/self-intersecting (a bowtie or near-collapsed
-            // ring) on an odd / rotated room polygon; `inner !== ring` only catches its
-            // EXPLICIT same-ref fail-safe, not a bad-but-distinct result. A folded inner
-            // polygon renders as a triangular/diagonal floor (the founder's "one floor
-            // geometrically not working" — a wedge crossing the room). Guard on area: a
-            // wall-half-thickness inset (~0.1 m) trims only a few % of area, so a >50% drop
-            // (or a sign flip → ~0 area, or <3 verts) means the inset folded → fall back to
-            // the centreline polygon (always a valid simple ring from room detection/graph).
-            const polyArea = (p: ReadonlyArray<{ x: number; z: number }>): number => {
-                let a2 = 0;
-                for (let i = 0; i < p.length; i++) {
-                    const u = p[i], v = p[(i + 1) % p.length];
-                    a2 += u.x * v.z - v.x * u.z;
-                }
-                return Math.abs(a2) / 2;
-            };
-            const innerArea = polyArea(inner);
-            const baseArea = polyArea(centreline);
-            const insetSane = ok && inner.length >= 3 && baseArea > 0 && innerArea >= 0.5 * baseArea;
-            const maxInset = insets.reduce((m, v) => Math.max(m, v), 0);
-            this._pushDiag(() =>
-                `[floor §DIAG] ${this._roomTag(room)} boundary=${insetSane ? 'inner-face ✓' : (ok ? `centreline ⚠ (inset DEGENERATE: ${innerArea.toFixed(2)}m² vs base ${baseArea.toFixed(2)}m²)` : 'centreline ⚠ (inset collapsed)')} ` +
-                `edges=${matchedEdges}/${centreline.length} maxInset=${(maxInset * 1000).toFixed(0)}mm door-gaps=${doorGaps}`,
+            // Canonical derivation — identical to the interactive floor tool.
+            return deriveRoomFinishBoundary(centreline, walls, (line) =>
+                this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} ${line}`),
             );
-            return insetSane ? inner : centreline;
         } catch (err) {
             this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (error: ${String(err)})`);
             return centreline;
@@ -405,104 +319,6 @@ export class CreateFloorsByRoomTypeCommand implements Command {
 
     private _roomTag(room: PerRoomCtx): string {
         return `room "${room.name ?? room.occupancyType ?? room.id}"`;
-    }
-
-    private _lerp(a: { x: number; z: number }, b: { x: number; z: number }, t: number): { x: number; z: number } {
-        return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
-    }
-
-    /**
-     * Find the bounding wall whose CENTRELINE segment is collinear with the room
-     * edge a→b and contains the edge's midpoint (within a tolerance). The room
-     * polygon edge runs along a wall centreline, so the midpoint lies ON the wall's
-     * baseLine; perpendicular distance ≈ 0 and the foot of the projection is between
-     * the wall endpoints. Returns the BEST (closest) match.
-     */
-    private _wallForEdge(
-        a: { x: number; z: number },
-        b: { x: number; z: number },
-        walls: WallLike[],
-    ): WallLike | undefined {
-        const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
-        const exx = b.x - a.x, ezz = b.z - a.z;
-        const elen = Math.hypot(exx, ezz);
-        if (elen < 1e-6) return undefined;
-        const eux = exx / elen, euz = ezz / elen;
-        let best: WallLike | undefined;
-        let bestPerp = 0.20; // 200 mm — tolerant of join-trim/miter offsets at ends.
-        for (const w of walls) {
-            const w0 = w.baseLine?.[0], w1 = w.baseLine?.[1];
-            if (!w0 || !w1) continue;
-            // Parallel? (edge direction ≈ wall direction, either sign)
-            const wdx = w1.x - w0.x, wdz = w1.z - w0.z;
-            const wlen = Math.hypot(wdx, wdz);
-            if (wlen < 1e-6) continue;
-            const wux = wdx / wlen, wuz = wdz / wlen;
-            const dot = Math.abs(eux * wux + euz * wuz);
-            if (dot < 0.985) continue; // > ~10° off — not the same wall line.
-            // Perpendicular distance of the edge midpoint to the wall centreline.
-            const vx = mx - w0.x, vz = mz - w0.z;
-            const tproj = (vx * wux + vz * wuz) / wlen; // 0..1 along the wall
-            const footX = w0.x + tproj * wdx, footZ = w0.z + tproj * wdz;
-            const perp = Math.hypot(mx - footX, mz - footZ);
-            // Midpoint must project ONTO the wall (allow a small overhang for trims).
-            if (tproj < -0.02 || tproj > 1.02) continue;
-            if (perp < bestPerp) { bestPerp = perp; best = w; }
-        }
-        return best;
-    }
-
-    /**
-     * Door opening spans on the wall, mapped to parametric `[t0,t1]` along the room
-     * edge a→b (t in 0..1). A wall stores openings as `{ offset, width }` where
-     * `offset` is the centre position along the wall baseLine (metres from baseLine
-     * start). We project the door's start/end onto a→b. Windows are ignored (a floor
-     * does not meet a neighbour at a window). Clamped to [0,1]; empty if none land on
-     * this edge.
-     */
-    private _doorSpansOnEdge(
-        a: { x: number; z: number },
-        b: { x: number; z: number },
-        wall: WallLike,
-    ): Array<{ t0: number; t1: number }> {
-        const openings = wall.openings ?? [];
-        if (openings.length === 0) return [];
-        const w0 = wall.baseLine?.[0], w1 = wall.baseLine?.[1];
-        if (!w0 || !w1) return [];
-        const wlen = Math.hypot(w1.x - w0.x, w1.z - w0.z);
-        if (wlen < 1e-6) return [];
-        const wux = (w1.x - w0.x) / wlen, wuz = (w1.z - w0.z) / wlen;
-        const edx = b.x - a.x, edz = b.z - a.z;
-        const elen2 = edx * edx + edz * edz;
-        if (elen2 < 1e-12) return [];
-        // Project a wall-baseLine distance `d` (from w0) onto edge param t.
-        const toEdgeT = (d: number): number => {
-            const px = w0.x + wux * d, pz = w0.z + wuz * d;
-            return ((px - a.x) * edx + (pz - a.z) * edz) / elen2;
-        };
-        const spans: Array<{ t0: number; t1: number }> = [];
-        for (const op of openings) {
-            if (op.type !== 'door') continue;
-            const half = (op.width ?? 0) / 2;
-            const tA = toEdgeT(op.offset - half);
-            const tB = toEdgeT(op.offset + half);
-            let t0 = Math.min(tA, tB), t1 = Math.max(tA, tB);
-            t0 = Math.max(0, t0); t1 = Math.min(1, t1);
-            if (t1 - t0 > 1e-4) spans.push({ t0, t1 });
-        }
-        return spans;
-    }
-
-    /** Merge overlapping door spans and sort ascending by t0. */
-    private _mergeSpansToSegments(spans: Array<{ t0: number; t1: number }>): Array<{ t0: number; t1: number }> {
-        const sorted = [...spans].sort((p, q) => p.t0 - q.t0);
-        const out: Array<{ t0: number; t1: number }> = [];
-        for (const s of sorted) {
-            const last = out[out.length - 1];
-            if (last && s.t0 <= last.t1 + 1e-6) { last.t1 = Math.max(last.t1, s.t1); }
-            else { out.push({ ...s }); }
-        }
-        return out;
     }
 
     /**
