@@ -1189,3 +1189,136 @@ sequential ones.
 
 **Hard non-goal, restated:** do NOT resolve this by relabelling buttons while the code paths stay
 identical.
+
+---
+
+## L-220 — §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT  (HIGH, correctness, **SYSTEMIC**)
+
+Founder: *"Please do an audit on all elements — I have moved a plumbing fixture, a toilet, in the 3D
+view, but the 2D view did not get updated. The sofa for example moves; the toilet not."*
+
+### Root cause — printed verbatim in his log
+
+```
+[TransformDrag] plumbing.move failed: CommandBusError:
+    plumbing.move: canExecute rejected — plumbingId must be a non-empty string
+```
+
+`registerTransformDragHandler.ts:256-258` dispatches `{ id, to: {...} }`, but
+`MovePlumbingHandler.canExecute` (`plugins/plumbing/src/handlers/MovePlumbing.ts:28-33`) requires
+**`plumbingId`** and a **`delta`** with finite x/y/z. **Both the key name and the semantics are
+wrong** — absolute `to` versus relative `delta`.
+
+The gizmo moves the mesh on screen, the command is rejected, the store is never written, and the plan
+view — which re-projects **from the store** — correctly keeps drawing the toilet where it always was.
+The sofa works only because `furniture.updateParameters` happens to take a bare `id`.
+
+The code admits it was never verified. `:241-243`:
+
+> *"NOTE: this commit only fires if the gizmo actually attaches to the fixture on selection —
+> pending in-browser confirmation (harmless no-op if it does not)."*
+
+It was not harmless.
+
+### A second, independent defect in the same log
+
+```
+[TransformDrag] floor.update failed: Error: [Immer] minified error nr: 18   (at applyPatches)
+```
+
+The floor drag's inverse-patch payload (`:426-431`, `_prev.boundary.polygon`) is malformed, so
+**dragging a floor throws.**
+
+### The systemic root — why an audit of ALL elements is the right ask
+
+The id key is ad-hoc per command (`plumbingId`, `beamId`, `floorId`, bare `id`) and the dispatch site
+is **stringly-typed with an `unknown` payload**:
+
+```ts
+// packages/runtime-composer/src/types.ts:3394
+readonly bus: { executeCommand(type: string, payload: unknown): unknown; ... }
+```
+
+Meanwhile a fully-typed `CommandRegistry` **already exists** — `packages/command-bus/src/commands.ts:4`
+describes itself as *"The typed contract for every command dispatched through
+runtime.bus.executeCommand."* **`runtime.bus` throws that typing away.** Every payload mismatch is
+therefore a *runtime* rejection instead of a *compile* error.
+
+**Third founder-visible bug of this exact class in one day:**
+
+| Tracker | Element | Payload defect |
+|---|---|---|
+| L-214 | wardrobe | THREE Euler **object** into a scalar `rotation: number` field |
+| L-218 | carousel furniture | same Euler-object defect (deprecated path) |
+| **L-220** | **plumbing** | **wrong id key + `to` where `delta` is required** |
+| **L-220** | **floor** | **malformed inverse patch, Immer throws** |
+
+One defect wearing four costumes.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | **Audit every element type** in `registerTransformDragHandler.ts` — wall, slab, column, beam, floor, ceiling, roof, furniture, plumbing, lighting, stair, curtain-wall, grid, opening. For each, prove drag then command then store then **plan re-projection**, end to end. Deliver a table: element x id-key x payload shape x handler expectation x pass/fail. |
+| **P2** | Fix `plumbing.move` (`plumbingId` + `delta`) and `floor.update` (the Immer patch). |
+| **P3** | **Close the class, do not patch the instances.** Type `runtime.bus.executeCommand` against the existing `CommandRegistry` so each dispatch type-checks its payload at the call site. Incrementally: a typed overload alongside the loose one, then migrate call sites. A big-bang retype is unreviewable. |
+| **P4** | A rejected `canExecute` on a user drag must **surface** (toast), never a swallowed `console.error` — the rule L-214 established. |
+| **P5** | Tests: per element type, a drag commits a store change **and** the plan view re-projects. |
+
+**Why P3 is the point.** L-214's `buildFurnitureCreatePayload()` closed this class *locally* by typing
+one payload — the Euler-object regression became a compile error at every call site. P3 does the same
+globally. Without it, this audit finds today's four and the next tool introduces the fifth.
+
+**Contract mapping:** C03 (schemas/commands/state), C16 (command authoring), C11 (one element, one
+pipeline), P6 (commands are the only mutation path).
+
+---
+
+## L-221 — §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS  *(quality)*
+
+Founder: *"The existing toilets, showers etc. elevations and plan view are true projections — somehow
+toooo many lines. Please make sound quality plan view and elevation projections for all plumbing
+fixtures."*
+
+### Current state — confirmed in code and in his log
+
+Every element type needing a 2D representation has a dedicated symbol builder:
+
+```
+ColumnPlanSymbolBuilder      DoorPlanSymbolBuilder       WindowPlanSymbolBuilder
+WallLayerPlanSymbolBuilder   SofaPlanSymbolBuilder       BedPlanSymbolBuilder
+ChairPlanSymbolBuilder       KitchenPlanSymbolBuilder    WardrobePlanSymbolBuilder
+TreePlanSymbolBuilder
+```
+
+**There is no `PlumbingPlanSymbolBuilder`.** Plumbing therefore falls through to
+`EdgeProjectorService`'s generic **true-edge projection of the full 3D mesh**. His log measures it:
+
+```
+§DIAG-EPS-01 edgesGeo elemType=PlumbingFixture faceCount=2108 edgeVertices=3400 allocMs=11.38ms
+§DIAG-EPS-01 edgesGeo elemType=PlumbingFixture faceCount=3916 edgeVertices=6552 allocMs=20.60ms
+   ... six such meshes for ONE toilet ...
+[HiddenLineRemoval] v1 pass — 2 occluder(s), 0/894 segments removed      <- before
+[HiddenLineRemoval] v1 pass — 2 occluder(s), 0/11706 segments removed    <- after the toilet
+```
+
+One fixture: **~55 ms of edge extraction and +10,800 hidden-line-removal segments.**
+
+### Framing
+
+A **drawing-correctness** issue, not only aesthetics. An architectural plan shows a toilet as a
+standardised symbol — bowl outline plus cistern rectangle — not a wireframe trace of its mesh. The
+perf cost is a second, independent reason.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | Author `PlumbingPlanSymbolBuilder` for every fixture type (toilet, basin, shower, bath, bidet, urinal, tap/mixer, cistern), following the `SofaPlanSymbolBuilder` / `DoorPlanSymbolBuilder` pattern **exactly**. Do not invent a second symbol mechanism. |
+| **P2** | **Suppress the generic true-edge projection for any element that has a symbol builder.** Establish how door/window/sofa already do this — they must, or they would double-draw — and reuse it. The 11,706-segment HLR load must *go away*, not be overdrawn. |
+| **P3** | **Elevation symbology is genuinely new** — the existing builders are plan-only. Decide, and record in C06 / DOC-2.x, whether elevation gets its own symbol set or a simplified silhouette + profile projection. Do not silently reuse plan symbols in elevation. |
+| **P4** | Symbols follow architectural convention and scale with the **drawing**, not the model. |
+| **P5** | Tests: a placed toilet contributes a **bounded, deterministic** number of plan segments (assert an upper bound — the regression is unbounded triangulation); the generic edge path is not invoked for fixtures that have a symbol. |
+
+**Contract mapping:** C06 (UI shell & tools), DOC-2.x (plan symbols), C11. Sibling of **L-211**
+(layered-wall plan lines) — same subsystem, likely the same agent.
