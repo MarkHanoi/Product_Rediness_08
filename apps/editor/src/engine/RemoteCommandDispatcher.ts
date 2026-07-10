@@ -71,11 +71,69 @@ export interface SuppressBroadcastRef {
  */
 export function isAlreadyAppliedCreate(serialized: SerializedCommand): boolean {
     const type = String(serialized.type ?? '');
-    if (!type.startsWith('CREATE_') && !type.startsWith('BATCH_CREATE_')) return false;
-    const ids = serialized.targetIds;
-    if (!Array.isArray(ids) || ids.length === 0) return false;
-    // Every target already in the registry ⇒ this create was already applied.
+
+    // ── Legacy CommandManager creates (CREATE_WALL, BATCH_CREATE_ROOMS, …) ────
+    // Historic behaviour, preserved BYTE-FOR-BYTE: the id lives in `targetIds`.
+    const isLegacyCreate = type.startsWith('CREATE_') || type.startsWith('BATCH_CREATE_');
+
+    // ── §FIX-CATCHUP-DUPLICATE-CREATE (L-18) — dotted-bus create family ───────
+    // Bus commands are lowercase-dotted (`furniture.create`, `lighting.create`,
+    // `wall.batch.create`, …) so they fall through the CREATE_* / BATCH_CREATE_*
+    // gate above. `endsWith('.create')` covers BOTH the single and the
+    // `*.batch.create` forms (both end in `.create`). Their element id lives in
+    // the PAYLOAD (`payload.id`, or per-entry `id` inside a batch array such as
+    // `payload.furniture[]` / `payload.walls[]`), not in `targetIds`. Without
+    // this branch a replayed dotted-bus create was NEVER recognised as
+    // already-applied, so collab catch-up double-created the element (the
+    // "duplicate sofa underneath" for furniture). Explicitly exclude other
+    // `*.createXxx` verbs (e.g. `wall.createOpening`, `plumbing.createFixture`)
+    // which are not element-minting creates keyed by a single element id.
+    const isBusCreate = type.endsWith('.create');
+
+    if (!isLegacyCreate && !isBusCreate) return false;
+
+    const ids = isLegacyCreate
+        ? (Array.isArray(serialized.targetIds) ? serialized.targetIds.map(String) : [])
+        : collectBusCreateTargetIds(serialized);
+
+    if (ids.length === 0) return false;
+    // Conservative by design: skip ONLY when EVERY extracted id is already in the
+    // registry (⇒ this create was already applied). A partially-applied batch
+    // (some ids missing) still replays to fill the gap; a create whose ids cannot
+    // be extracted (empty set) is never skipped.
     return ids.every((id) => elementRegistry.getStoreType(String(id)) !== undefined);
+}
+
+/**
+ * §FIX-CATCHUP-DUPLICATE-CREATE — extract the element ids a dotted-bus create
+ * command declares. Bus payloads carry ids inline rather than in `targetIds`:
+ *   • single create  → `payload.id`
+ *   • batch create   → per-entry `id` inside each top-level ARRAY field
+ *                       (`payload.furniture[]`, `payload.walls[]`, `payload.slabs[]`, …)
+ * `targetIds` is also unioned in for the rare bus command that populates it, so
+ * this is a superset of — never a regression on — the legacy id source.
+ */
+function collectBusCreateTargetIds(serialized: SerializedCommand): string[] {
+    const ids = new Set<string>();
+
+    const t = (serialized as { targetIds?: unknown }).targetIds;
+    if (Array.isArray(t)) for (const id of t) if (id != null) ids.add(String(id));
+
+    const payload = (serialized as { payload?: unknown }).payload;
+    if (payload && typeof payload === 'object') {
+        const p = payload as Record<string, unknown>;
+        if (typeof p.id === 'string' && p.id) ids.add(p.id);
+        // Batch payloads: any top-level array of element records keyed by `id`.
+        for (const value of Object.values(p)) {
+            if (!Array.isArray(value)) continue;
+            for (const entry of value) {
+                const eid = (entry as { id?: unknown } | null)?.id;
+                if (typeof eid === 'string' && eid) ids.add(eid);
+            }
+        }
+    }
+
+    return [...ids];
 }
 
 export class RemoteCommandDispatcher {

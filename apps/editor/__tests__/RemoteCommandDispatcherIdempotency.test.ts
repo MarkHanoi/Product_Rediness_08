@@ -45,6 +45,13 @@ function serialized(type: string, targetIds: string[]): SerializedCommand {
   return { type: type as never, payload: {}, targetIds, timestamp: 0, version: 1 };
 }
 
+// §FIX-CATCHUP-DUPLICATE-CREATE — dotted-bus creates carry ids INLINE in the
+// payload (not in targetIds), so build serialized records that mirror the bus
+// shape: single create → payload.id; batch → payload[<arrayField>][].id.
+function busSerialized(type: string, payload: Record<string, unknown>): SerializedCommand {
+  return { type: type as never, payload, targetIds: [], timestamp: 0, version: 1 } as SerializedCommand;
+}
+
 afterEach(() => {
   (elementRegistry as { clear: () => void }).clear();
 });
@@ -85,6 +92,65 @@ describe('isAlreadyAppliedCreate (§DUPLICATE-ROOMS-PERSIST)', () => {
 
   it('never skips a create with empty targetIds (derived/bulk creates that do not predeclare ids)', () => {
     expect(isAlreadyAppliedCreate(serialized('CREATE_SLABS_ON_ALL_FLOORS', []))).toBe(false);
+  });
+});
+
+describe('isAlreadyAppliedCreate — furniture / dotted-bus family (§FIX-CATCHUP-DUPLICATE-CREATE, L-18)', () => {
+  it('skips a legacy CREATE_FURNITURE whose target id is already registered (the founder-reported catch-up path)', () => {
+    // CreateFurnitureCommand now registers the furniture id in the ElementRegistry
+    // on execute(), exactly like CreateWallCommand — so a replayed CREATE_FURNITURE
+    // (targetIds carries the id) on catch-up is recognised as already-applied.
+    elementRegistry.registerSemantic('furn-sofa-1', 'furniture');
+    expect(isAlreadyAppliedCreate(serialized('CREATE_FURNITURE', ['furn-sofa-1']))).toBe(true);
+  });
+
+  it('skips a dotted-bus furniture.create whose payload id is already registered', () => {
+    elementRegistry.registerSemantic('furn-9', 'furniture');
+    expect(isAlreadyAppliedCreate(busSerialized('furniture.create', { id: 'furn-9' }))).toBe(true);
+  });
+
+  it('does NOT skip a genuinely NEW remote furniture.create (id not yet registered → first apply runs)', () => {
+    expect(isAlreadyAppliedCreate(busSerialized('furniture.create', { id: 'furn-new' }))).toBe(false);
+  });
+
+  it('skips a fully-applied furniture.batch.create (every per-entry id registered)', () => {
+    elementRegistry.registerSemantic('furn-a', 'furniture');
+    elementRegistry.registerSemantic('furn-b', 'furniture');
+    expect(isAlreadyAppliedCreate(
+      busSerialized('furniture.batch.create', { furniture: [{ id: 'furn-a' }, { id: 'furn-b' }] }),
+    )).toBe(true);
+  });
+
+  it('does NOT skip a partially-applied furniture.batch.create (one id missing → replay fills the gap)', () => {
+    elementRegistry.registerSemantic('furn-a', 'furniture');
+    // furn-b not registered yet → batch not fully applied → must replay.
+    expect(isAlreadyAppliedCreate(
+      busSerialized('furniture.batch.create', { furniture: [{ id: 'furn-a' }, { id: 'furn-b' }] }),
+    )).toBe(false);
+  });
+
+  it('covers another dotted-bus create family too — lighting.create (not special-cased to furniture)', () => {
+    elementRegistry.registerSemantic('light-3', 'furniture'); // storeType value is irrelevant to the check
+    expect(isAlreadyAppliedCreate(busSerialized('lighting.create', { id: 'light-3' }))).toBe(true);
+  });
+
+  it('covers a dotted-bus wall.batch.create (per-entry ids in payload.walls[])', () => {
+    elementRegistry.registerSemantic('w-1', 'wall');
+    elementRegistry.registerSemantic('w-2', 'wall');
+    expect(isAlreadyAppliedCreate(
+      busSerialized('wall.batch.create', { walls: [{ id: 'w-1' }, { id: 'w-2' }] }),
+    )).toBe(true);
+  });
+
+  it('does NOT treat non-minting *.createXxx verbs as element creates (wall.createOpening / plumbing.createFixture)', () => {
+    elementRegistry.registerSemantic('wall-7', 'wall');
+    // These end in "Opening"/"Fixture", not ".create" → must never be dedup-skipped here.
+    expect(isAlreadyAppliedCreate(busSerialized('wall.createOpening', { id: 'wall-7' }))).toBe(false);
+    expect(isAlreadyAppliedCreate(busSerialized('plumbing.createFixture', { id: 'wall-7' }))).toBe(false);
+  });
+
+  it('does NOT skip a bus create with no extractable ids (empty payload)', () => {
+    expect(isAlreadyAppliedCreate(busSerialized('furniture.create', {}))).toBe(false);
   });
 });
 

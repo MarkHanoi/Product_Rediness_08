@@ -96,6 +96,7 @@ import { constraintSolver } from '@pryzm/plugin-annotations';
 // ANNOTATION-SYSTEM-AUDIT-2026 A1 — inject annotation/view stores into CommandContext
 import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore, storeEventBus, viewDependencyTracker } from '@pryzm/core-app-model';
+import { elementRegistry } from '@pryzm/core-app-model/element-registry'; // §FIX-CATCHUP-DUPLICATE-CREATE (L-18)
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
@@ -1831,6 +1832,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // level.childrenIds membership — required for plan-view export.
                 viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
                 try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-CATCHUP-DUPLICATE-CREATE (L-18) — bus-placed furniture (carousel /
+                // plan tool / AI furnish) reaches the legacy store ONLY through this
+                // bridge, so register its id in the ElementRegistry here too, matching the
+                // CreateFurnitureCommand legacy path. This keeps furniture's id→storeType
+                // routing complete for EVERY placement path, so
+                // RemoteCommandDispatcher.isAlreadyAppliedCreate can recognise a replayed
+                // furniture create as already-applied (idempotent catch-up, C08).
+                // registerSemanticOrReplace is redo-safe (never throws on a known id).
+                try { elementRegistry.registerSemanticOrReplace(ev.id, 'furniture'); } catch { /* non-fatal */ }
                 console.log('[initTools] §FT-FURNITURE: furniture mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error('[initTools] §FT-FURNITURE: failed to mirror furniture to legacy store — mesh may not build:', err);

@@ -3,6 +3,7 @@ import { FurnitureData, FurnitureType, FurnitureMaterial } from '@pryzm/geometry
 import type { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import type { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
 import { semanticGraphManager, resolveFflOffset } from '@pryzm/core-app-model';
+import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 
 export interface CreateFurniturePayload {
     id?: string;
@@ -85,6 +86,17 @@ export class CreateFurnitureCommand implements Command {
             if (!level) throw new Error(`Level not found: ${this.payload.levelId}`);
 
             context.bimManager.registerElement(id, this.payload.levelId);
+
+            // §FIX-CATCHUP-DUPLICATE-CREATE (L-18) — register the furniture id in the
+            // ElementRegistry, exactly like every other Create* command (wall/slab/room/
+            // stair/roof/floor/ceiling/column…). This id→storeType routing table is what
+            // RemoteCommandDispatcher.isAlreadyAppliedCreate (§DUPLICATE-ROOMS-PERSIST)
+            // consults to make collab catch-up replay IDEMPOTENT. Furniture was the lone
+            // Create* family that registered ONLY in the BimKernel spatial map and NOT
+            // here, so a replayed CREATE_FURNITURE on reconnect/open was never recognised
+            // as already-applied → the "duplicate sofa underneath". Guarded so a redo /
+            // double-apply cannot throw on an already-registered id.
+            try { elementRegistry.registerSemantic(id, 'furniture'); } catch { /* already registered (redo/replay) */ }
 
             // §03 §1.7: every furniture instance gets an FU-FF-NNN element mark.
             const mark = this._generateMark(context);
@@ -296,11 +308,17 @@ export class CreateFurnitureCommand implements Command {
             // and the builder is wired to that event (§01 §2.7).
             for (const childId of this.createdChildrenIds) {
                 context.bimManager.unregisterElement(childId);
+                // §FIX-CATCHUP-DUPLICATE-CREATE — mirror the execute()-time
+                // ElementRegistry registration so an undone furniture create can be
+                // legitimately re-applied (redo / genuine remote re-create) instead of
+                // being wrongly skipped by isAlreadyAppliedCreate as "already applied".
+                elementRegistry.unregister(childId);
                 (context.stores as any).furnitureStore?.remove(childId);
             }
 
             // Remove parent
             context.bimManager.unregisterElement(this.createdId);
+            elementRegistry.unregister(this.createdId); // §FIX-CATCHUP-DUPLICATE-CREATE
             try {
                 semanticGraphManager.removeAllRelationshipsForElement(this.createdId);
             } catch (err) {
