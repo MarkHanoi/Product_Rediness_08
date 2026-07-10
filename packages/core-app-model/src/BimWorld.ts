@@ -39,13 +39,29 @@ export function createBimWorld(container: HTMLElement) {
         }
     }
 
-    world.renderer.three.shadowMap.enabled = true;
-    // Doc 22 fix: PCFSoftShadowMap is deprecated in Three.js WebGPU/modern builds.
-    // On first shadow render, Three.js mutates the type to PCFShadowMap internally
-    // and emits a warning. This mutation can trigger shadow render target recreation
-    // mid-frame, contributing to the "Destroyed texture [ShadowDepthTexture]" error.
-    // Using PCFShadowMap directly prevents the mutation and eliminates this cascade.
-    world.renderer.three.shadowMap.type = THREE.PCFShadowMap;
+    // §FIX-SHADOWMAP-DUAL-RENDERER-CLAIM (L-205) — MUST stay false.
+    //
+    // `world.renderer` is the OBC PostproductionRenderer: a **WebGLRenderer**. PRYZM's LIVE
+    // renderer is a separate WebGPURenderer (`window.pryzmRenderer`). Both draw the SAME scene,
+    // so both see the SAME Pascal key light — and a THREE light has exactly ONE `shadow.map` slot.
+    //
+    // With `shadowMap.enabled = true`, `WebGLShadowMap.render()` runs every frame (it iterates
+    // casting lights; it does NOT consult OBC's `scene.shadowsEnabled` policy below) and
+    // ALLOCATES `keyLight.shadow.map` as a `WebGLRenderTarget`. The WebGPU renderer then finds
+    // `shadow.map` already non-null, never creates or writes its own ShadowDepthTexture, and
+    // `ShadowNode` compare-samples a texture WebGPU never rendered into. Every fragment reads
+    // "occluded" ⇒ the L0 `ShadowMaterial` catcher paints a solid grey rectangle covering exactly
+    // the shadow camera's footprint, and no sun shadow is projected. Swapping backend appeared to
+    // "fix" it only because a fresh GPUDevice allocated a fresh map.
+    //
+    // `ViewController._restore3DRendererPresentation()` already sets this to false on every
+    // 3D-view restore, with a comment naming this exact hazard ("OBC's WebGLShadowMap.render()
+    // writes a new WebGLRenderTarget over the WebGPU depth handle"). It was never joined up with
+    // this line, so between boot and the first view restore the WebGL renderer claimed the slot.
+    //
+    // Disabling it costs nothing: OBC never renders shadows (`scene.shadowsEnabled = false`
+    // below), and PRYZM's WebGPU pipeline owns the shadow pass end-to-end. See C04 §SHADOW.
+    world.renderer.three.shadowMap.enabled = false;
 
     const sceneComponent = new OBC.ShadowedScene(components);
     world.scene = sceneComponent;
