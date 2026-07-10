@@ -1106,3 +1106,86 @@ the tier level. The question is which GPU API is actually in force.
 `RealEnvironmentService` and `BimWorld` are frozen under the **L-205** investigation (C04 §SHADOW).
 P1/P2 are read-only and therefore safe to run in parallel; P3 must wait for the L-205 fence to lift
 or be explicitly re-scoped.
+
+### L-219 — DIAGNOSTIC RESULT (2026-07-10, read-only; no code changed)
+
+**The orchestrator's framing was incomplete and its implied fix was wrong.** The agent refuted it.
+Recording the refutation, because the correction is the valuable part.
+
+#### The measured truth table
+
+`createRenderer(pref)` reduces the entire preference space to one boolean —
+`forceWebGL = pref === 'webgl'` (`createRenderer.ts:203`). That line is the **sole** discriminator.
+
+| # | preference | `navigator.gpu` | adapter | `forceWebGL` | resolved backend |
+|---|---|---|---|---|---|
+| 1 | `'webgl'` | any | any | **true** | **`webgl-fallback`** |
+| 2 | `'webgl'` | any | any | true | `webgl-only` — *only if `WebGPURenderer` throws* |
+| 3 | `'auto'` / `'webgpu'` | present | **yes** | false | **`webgpu`** |
+| 4 | `'auto'` / `'webgpu'` | present | **no** | false | **`webgl-fallback`** |
+| 5 | `'auto'` / `'webgpu'` | absent | n/a | false | **`webgl-fallback`** |
+| 6 | `'auto'` / `'webgpu'` | any | n/a | false | `webgl-only` — *only if construction throws* |
+
+#### Three stacked defects — any ONE alone yields identical pixels
+
+1. **`'auto'` and `'webgpu'` are the identical code path.** Nothing branches on the difference.
+   Three buttons, two possible behaviours; on non-WebGPU hardware, **one** observable outcome.
+2. **`'webgl-only'` is unreachable by preference.** The plain `THREE.WebGLRenderer` documented at
+   `createRenderer.ts:59-61` is **dead code in production** — reachable only when `WebGPURenderer`
+   construction throws. The three-way type oversells a distinction the runtime never makes.
+3. **THE REFUTATION — acquiring native WebGPU would not change the pixels today.** Even a successful
+   native-WebGPU boot lands at `phase4` with **outlines only**. SSGI and TRAA are **default-OFF**,
+   opt-in via the RenderRail (`initScene.ts:2659-2674`; §FIX-SSGI-DEFAULT-OFF-TRAA-SELECT-FLASH,
+   founder L-59). Outlines paint on hover/selection only; shadows are the same fixed ±50 m soft
+   shadow on both paths. Native-WebGPU vs `webgl-fallback` therefore differ only by TSL
+   ScenePass/tonemap vs OBC forward render — **invisible on a static, unselected grey model.**
+
+**So "WebGPU is never engaged" is REAL but NOT SUFFICIENT.** The default-off post-FX gating is an
+equal, independent cause. *Any fix that only chases backend acquisition will reproduce the founder's
+"still identical" complaint.* This is the single most important line in this section.
+
+#### L-203's fix holds
+
+No localStorage latch strands anyone. The only persisted key is `pryzm.renderer.backend`
+(`createRenderer.ts:96`). The device-loss safe-mode cap is **session-only**, applied via a per-call
+`backendOverride` and deliberately never persisted (`:294-303`, `:332-337`) — that *is* the L-203
+fix, and it works. But the unset default is `'webgl'` (`:143`), so **a fresh profile never attempts
+WebGPU at all** until the user actively picks it.
+
+#### The contract violation is the UI promise, not the plumbing
+
+ADR-0076 and ADR-0077 are honoured; the live swap (`initScene.ts:3740-3944`) correctly gates TSL on
+`backend === 'webgpu'` (`:3846`). The **footer** honestly prints the *resolved* backend as its
+`- <backend>` suffix (`RendererBackendToggle.ts:118-124`). But the three **buttons** highlight the
+*requested* preference (`:99`, `:114-116`). The user sees `[WebGPU]` highlighted beside
+`- webgl-fallback` with no explanation of the silent downgrade — and the WebGPU button's advertised
+*"full WebGPU pipeline: SSGI/TRAA/shadows"* (`:115`) is **false by default even where WebGPU does
+engage.** Per CLAUDE.md, when code disagrees with a contract the code is wrong; here the *UI copy* is
+the contract being broken.
+
+#### Still unmeasured — needs the founder
+
+Whether `navigator.gpu.requestAdapter()` succeeds on his machine. Decisive cell, cross-referenced
+with `backend.isWebGPUBackend`. If an adapter IS acquired but `isWebGPUBackend` is false while the
+`'webgpu'` position is selected, the fault is in `WebGPURenderer` backend selection, not availability.
+
+#### Proposed contract — fidelity tiers (agent's Option A; recommended)
+
+Collapse the dead `'auto'` / `'webgpu'` duplication. Redefine the positions as **fidelity tiers**
+(Stable / Balanced / Cinematic) where:
+
+- the top tier **forces SSGI + TRAA on**, so the positions differ by post-FX that is visible on *any*
+  model — not by a backend name the user cannot see;
+- the top tier **hard-requires** `backend === 'webgpu'`. If the adapter cannot be acquired, that
+  position renders **disabled with a reason** ("WebGPU unavailable on this GPU/browser") — never
+  silently degraded to look like the others;
+- the label always names the config **actually in force**, and a downgraded request surfaces the
+  downgrade and why (promote the existing honest console warning at `createRenderer.ts:442-450`
+  into the UI).
+
+**This unblocks L-208 by construction:** selecting the top tier is the same control that turns
+SSGI/TRAA on, so backend acquisition and pipeline gating are resolved by one decision instead of two
+sequential ones.
+
+**Hard non-goal, restated:** do NOT resolve this by relabelling buttons while the code paths stay
+identical.
