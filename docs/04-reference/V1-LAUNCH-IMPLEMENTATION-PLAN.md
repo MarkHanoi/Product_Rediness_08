@@ -890,3 +890,72 @@ it was swallowed into a console error, leaving a silent no-op on click.
 
 **Non-goals:** do not weaken or remove the `rotation must be finite` guard; do not change the plan
 tool's successful creation path except to make it share the canonical payload builder.
+
+---
+
+# L-215 / L-216 — stair parametric rebuild, then stair types + PBR railings
+
+**Sequence matters: L-215 first.** A richer type system built on top of a broken rebuild path only
+multiplies the bug.
+
+## L-215 — §FIX-STAIR-PARAM-NO-REGEN  (HIGH, correctness)
+
+### Root cause (code-confirmed)
+
+`packages/command-registry/src/generic/UpdateElementParameterCommand.ts` carries **explicit,
+hard-coded post-update rebuild branches** for:
+
+| Element | Line | Comment |
+|---|---|---|
+| window | :165 | "sync rich WindowStore so WindowBuilder rebuilds the frame geometry" |
+| door | :171 | "sync rich DoorStore so DoorBuilder rebuilds the frame geometry" |
+| roof | :251 | "rebuild is handled automatically via the bim-roof-updated event" |
+| **stair** | — | **none** |
+
+So a stair parameter edit **writes the store and stops**. `GenerateStairGeometryCommand` is never
+re-run, and every *derived* quantity is left stale:
+
+- `width` → landing polygon
+- `riserHeight` → riser **count**, total run
+- `treadDepth` → going
+
+The stale mesh **and** the stale purple selection overlay both remain — exactly what the founder's
+screenshots show.
+
+### The architectural smell is the real defect
+
+A per-element-type `if` ladder inside a **generic** command means every new element type must
+remember to add its own rebuild branch. Stair was forgotten. **Do not add a fourth branch.**
+
+| Phase | Scope |
+|---|---|
+| **P1** | Introduce a **declarative rebuild contract**: an element type declares which parameters are geometry-affecting and which command owns their rebuild. `UpdateElementParameterCommand` consults that registry instead of hard-coding types |
+| **P2** | Migrate **stair** onto it first: a geometry-affecting parameter change re-runs `GenerateStairGeometryCommand`, rebuilding flight, landing, treads/risers and railing |
+| **P3** | Leave window/door/roof branches working; document the migration path (do not big-bang them) |
+| **P4** | Selection overlay + preview must invalidate with the mesh — kill the stale ghost |
+| **P5** | Tests: `width` changes the landing polygon; `riserHeight` changes the riser **count**; `treadDepth` changes the going; the old mesh is disposed |
+
+Maps **C11** (single element-creation pipeline), **C16** (command-authoring), **C03** (commands +
+state), **P6**.
+
+## L-216 — §FEAT-STAIR-TYPES-PBR-RAILINGS  *(quality; after L-215)*
+
+### Current state (code-confirmed)
+
+`packages/core-app-model/src/stores/StairTypeDefinitions.ts` defines exactly **5** types —
+Monolithic Concrete, Steel Open Riser, Timber Closed String, Residential Timber, Marble Luxury.
+Each carries a single `material: 'concrete' | 'steel' | 'wood'` **string**. There is **no railing /
+balustrade specification in the type at all**, and no PBR material definition. The railing is built
+independently by `StairRailingBuilder` and is not part of the stair TYPE.
+
+| Phase | Scope |
+|---|---|
+| **P1** | Extend the stair TYPE schema: a type declares its tread, riser, stringer **and balustrade/railing** sub-specs (profile, material, baluster spacing, handrail section). **The railing becomes part of the type**, not a separate builder decision |
+| **P2** | Author **≥15** architecturally-real types: in-situ + precast concrete, steel open-riser, steel with timber tread, timber closed string, timber cut string, oak, walnut, marble, terrazzo, glass-balustrade variants, floating/cantilever, helical, … |
+| **P3** | PBR materials shared **per TYPE, never per element**; tier-gated; textures **self-hosted** |
+| **P4** | Tests: every type produces a complete stair **and** railing; exactly one shared material per type |
+
+**Hard constraints:** per-element unique materials already defeat instancing (see **G1**) — one
+material per **type**. Textures must be self-hosted: the CSP is `connect-src 'self'` and external
+fetches are already blocked in prod. **Reuse the L-212 floor-finish PBR material pipeline** rather
+than inventing a second one.
