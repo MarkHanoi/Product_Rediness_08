@@ -84,3 +84,33 @@ describe('getRendererBackendPreference (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () =>
         expect(getRendererBackendPreference()).toBe('webgl');
     });
 });
+
+// §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION (L-203) — the per-call override the device-loss
+// safe-mode recovery uses so it can force WebGL for the CURRENT session WITHOUT persisting
+// (i.e. without silently flip-flopping the user's stored WebGPU/Auto preference).
+describe('resolveEffectiveBackendPreference (§DIAG-FIX-WEBGPU-BACKEND-OSCILLATION)', () => {
+    beforeEach(() => { vi.resetModules(); });
+    afterEach(() => { Reflect.deleteProperty(globalThis as object, 'localStorage'); });
+
+    it('an explicit override WINS over the persisted preference (and does not mutate storage)', async () => {
+        const store = installStorage({ 'pryzm.renderer.backend': 'webgpu' });
+        const { resolveEffectiveBackendPreference } = await import('./createRenderer');
+        // Safe-mode recovery forces 'webgl' for this call only…
+        expect(resolveEffectiveBackendPreference('webgl')).toBe('webgl');
+        // …but the user's persisted WebGPU choice is UNTOUCHED (no flip-flop).
+        expect(store.get('pryzm.renderer.backend')).toBe('webgpu');
+    });
+
+    it('with NO override, falls through to the persisted preference', async () => {
+        installStorage({ 'pryzm.renderer.backend': 'auto' });
+        const { resolveEffectiveBackendPreference } = await import('./createRenderer');
+        expect(resolveEffectiveBackendPreference()).toBe('auto');
+        expect(resolveEffectiveBackendPreference(undefined)).toBe('auto');
+    });
+
+    it('with NO override and an unset profile, resolves to the webgl default', async () => {
+        installStorage({});
+        const { resolveEffectiveBackendPreference } = await import('./createRenderer');
+        expect(resolveEffectiveBackendPreference()).toBe('webgl');
+    });
+});

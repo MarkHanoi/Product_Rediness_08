@@ -77,7 +77,7 @@ import { RenderPerformanceService } from '@pryzm/core-app-model/rendering';
 import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
 // ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget setter.
 import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
-import { probeRendererBackend, createRenderer, setRendererBackendPreference } from '../rendering/createRenderer';
+import { probeRendererBackend, createRenderer, setRendererBackendPreference, getRendererBackendPreference } from '../rendering/createRenderer';
 import type { RendererBackendPreference } from '../rendering/createRenderer';
 // ADR-0077 (§RENDERER-LIVE-SWAP) — OTel span for the live backend swap (C01 P8).
 import { trace, SpanStatusCode } from '@opentelemetry/api';
@@ -3810,6 +3810,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // hide it in the finally so it is bounded by this swap's own completion
             // or rollback and can NEVER get stuck visible (even if the swap throws).
             showRendererSwapOverlay('Switching renderer…');
+            // §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH (L-153) — snapshot the CURRENTLY persisted
+            // preference BEFORE we overwrite it, so a rollback (a failed WebGL→WebGPU swap)
+            // can restore it. Otherwise the persisted key would say 'webgpu' while the live
+            // renderer is still the rolled-back WebGL one → the next reload re-attempts the
+            // failing backend and the desync compounds.
+            const prevPersistedPref = getRendererBackendPreference();
             // Persist FIRST so createRenderer() resolves the new backend AND a fresh
             // boot honours the choice. (No reload — that is the whole point.)
             setRendererBackendPreference(pref);
@@ -3940,6 +3946,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 span.recordException(err as Error);
                 span.setStatus({ code: SpanStatusCode.ERROR });
                 try { newCanvas?.remove(); } catch { /* ignore */ }
+                // §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH (L-153) — restore the persisted preference
+                // to what it was before this (now-rolled-back) swap, so the toggle label and
+                // the next fresh boot reflect the backend that is ACTUALLY live, not the one
+                // we failed to reach.
+                try { setRendererBackendPreference(prevPersistedPref); } catch { /* non-fatal */ }
                 try {
                     pryzmRenderer        = oldRenderer;
                     pryzmCanvas          = oldCanvas;

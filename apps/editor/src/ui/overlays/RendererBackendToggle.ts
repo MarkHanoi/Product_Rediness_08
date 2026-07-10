@@ -34,6 +34,27 @@ import {
 
 const TOGGLE_ID = 'pryzm-renderer-backend-toggle';
 
+/**
+ * §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH (L-153) — decide whether a failed/declined backend
+ * switch should fall back to the legacy persist+reload path.
+ *
+ * A plain `location.reload()` boots to the projects HUB (#/projects), so it is only
+ * acceptable when there is NO live in-place swap available (the engine has not yet
+ * registered `window.pryzmSwapRendererBackend` — e.g. the toggle was clicked before
+ * initScene ran, when no project is even open yet).
+ *
+ * When the live-swap entry point EXISTS but the swap returned `false` or threw, the swap
+ * has ALREADY rolled back to the previous, still-rendering renderer (initScene's
+ * §RENDERER-LIVE-SWAP catch re-binds it). Reloading in that case is what dumped the
+ * founder back to the project hub on a WebGL→WebGPU switch (which does heavy TSL-pipeline
+ * work on a freshly-acquired device and can fail, unlike WebGPU→WebGL which builds no
+ * pipeline). So: reload ONLY when the swap is unavailable; otherwise stay on the live
+ * (rolled-back) renderer and just tell the user.
+ */
+export function shouldFallBackToReload(swapAvailable: boolean): boolean {
+    return !swapAvailable;
+}
+
 export class RendererBackendToggle {
     /** Mounts the corner pill. Idempotent. */
     mount(parent: HTMLElement = document.body): void {
@@ -132,22 +153,39 @@ export class RendererBackendToggle {
                         this.mount();
                         return;
                     }
-                    // Swap declined/failed (e.g. Phase 5 inactive, or WebGPU
-                    // unavailable and rolled back). Fall back to the legacy reload
-                    // path so the user still lands on the chosen backend.
-                    console.warn('[RendererBackendToggle] §RENDERER-LIVE-SWAP live swap unavailable/failed — using reload fallback.');
-                    this._reloadInto(pref);
+                    // §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH (L-153) — the swap ran and returned
+                    // false, which means it ALREADY rolled back to the previous, still-
+                    // rendering renderer (or declined without touching it). Do NOT reload:
+                    // a plain reload boots to the project hub, which is the exact crash the
+                    // founder saw switching WebGL→WebGPU. Keep the live renderer and tell the
+                    // user we stayed put (the swap is available, so shouldFallBackToReload is
+                    // false).
+                    console.warn(
+                        '[RendererBackendToggle] §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH live swap could not ' +
+                        'complete and rolled back — keeping the current renderer (no reload to the hub).',
+                    );
+                    this._notifyStayedPut(pref);
+                    this.mount(); // clears the busy state; reflects the unchanged backend
                 })
                 .catch((err) => {
-                    console.error('[RendererBackendToggle] §RENDERER-LIVE-SWAP swap threw — using reload fallback:', err);
-                    this._reloadInto(pref);
+                    // A thrown swap is likewise rolled back by initScene's catch — stay put.
+                    console.error(
+                        '[RendererBackendToggle] §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH swap threw — keeping the ' +
+                        'current renderer (no reload to the hub):',
+                        err,
+                    );
+                    this._notifyStayedPut(pref);
+                    this.mount();
                 });
             return;
         }
 
-        // No swap entry point registered (engine not fully initialised) — use the
-        // legacy reload path so the toggle still works.
-        this._reloadInto(pref);
+        // No live-swap entry point registered — the engine has not wired the in-place
+        // rebind yet (toggle clicked before initScene ran, typically with no project open).
+        // Only here is the persist+reload fallback safe (shouldFallBackToReload(false)).
+        if (shouldFallBackToReload(/* swapAvailable */ false)) {
+            this._reloadInto(pref);
+        }
     }
 
     /** Disable the buttons + show a tiny "switching…" hint during the live swap. */
@@ -162,6 +200,38 @@ export class RendererBackendToggle {
             hint.textContent = `· switching to ${label}…`;
             hint.style.opacity = '0.7';
             wrap.appendChild(hint);
+        } catch { /* non-fatal cosmetic */ }
+    }
+
+    /**
+     * §FIX-SWAP-WEBGL-TO-WEBGPU-CRASH (L-153) — brief, non-destructive inline notice
+     * shown when a live backend switch could not complete and rolled back. Unlike the
+     * old reload path this NEVER navigates away (no hub crash); the viewport keeps
+     * rendering on the previous backend. Auto-dismisses.
+     */
+    private _notifyStayedPut(pref: RendererBackendPreference): void {
+        try {
+            const label = pref === 'webgl' ? 'WebGL' : pref === 'webgpu' ? 'WebGPU' : 'Auto';
+            const active = window.pryzmRendererBackend ?? 'current';
+            const note = document.createElement('div');
+            note.setAttribute('role', 'status');
+            Object.assign(note.style, {
+                position: 'fixed',
+                bottom: '44px',
+                left: '10px',
+                zIndex: '2147483600',
+                maxWidth: '280px',
+                padding: '8px 12px',
+                borderRadius: '10px',
+                background: 'rgba(255,255,255,0.96)',
+                border: '1px solid rgba(102,0,255,0.35)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+                font: '12px/1.4 system-ui, sans-serif',
+                color: '#3a2a66',
+            } as CSSStyleDeclaration);
+            note.textContent = `Couldn't switch to ${label} — staying on ${active}. The viewport is unchanged.`;
+            document.body.appendChild(note);
+            setTimeout(() => { try { note.remove(); } catch { /* already gone */ } }, 4200);
         } catch { /* non-fatal cosmetic */ }
     }
 

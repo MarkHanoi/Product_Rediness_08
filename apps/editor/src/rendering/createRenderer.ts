@@ -152,6 +152,23 @@ export function setRendererBackendPreference(pref: RendererBackendPreference): v
     }
 }
 
+/**
+ * §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION — resolve the EFFECTIVE backend preference for
+ * one `createRenderer()` call.
+ *
+ * An explicit per-call `override` wins over the persisted preference. This lets the
+ * device-loss safe-mode recovery force the WebGL2 path for the CURRENT session WITHOUT
+ * calling `setRendererBackendPreference('webgl')` — which previously silently clobbered
+ * the user's persisted WebGPU/Auto choice and produced the "persisted `forceWebGL`
+ * flip-flopping true↔false" the founder reported (L-203 issue #1). With no override the
+ * persisted preference is used unchanged.
+ */
+export function resolveEffectiveBackendPreference(
+    override?: RendererBackendPreference,
+): RendererBackendPreference {
+    return override ?? getRendererBackendPreference();
+}
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 /**
@@ -167,7 +184,10 @@ export function setRendererBackendPreference(pref: RendererBackendPreference): v
  * @returns `{ renderer, backend }` where `backend` is `'webgpu'`, `'webgl-fallback'`,
  *          or `'webgl-only'`.
  */
-export async function createRenderer(canvas: HTMLCanvasElement): Promise<RendererResult> {
+export async function createRenderer(
+    canvas: HTMLCanvasElement,
+    backendOverride?: RendererBackendPreference,
+): Promise<RendererResult> {
     // ── User backend preference (corner toggle, §PERF-WEBGPU-FRAGMENT) ────
     // 'webgl' resolves to the WebGL2 backend (high limits, modern resource
     // management — via WebGPURenderer's forceWebGL), falling back to plain
@@ -175,7 +195,11 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
     // last-resort that crash-guarded on heavy generated buildings. The render
     // quality tier keeps SSGI/TRAA off on heavy scenes so WebGL2 stays light.
     // 'auto'/'webgpu' use the normal C04 §1.4 (native-WebGPU-first) chain.
-    const pref = getRendererBackendPreference();
+    //
+    // §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION — `backendOverride` (when supplied by the
+    // device-loss safe-mode recovery) forces the backend for THIS call only, WITHOUT
+    // persisting it, so the user's stored preference is never silently flip-flopped.
+    const pref = resolveEffectiveBackendPreference(backendOverride);
     const forceWebGL = pref === 'webgl';
 
     // §PERF-WEBGPU-FRAGMENT — make the boot backend DECISION observable so a
@@ -185,7 +209,7 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
     //     (NOT an independent default — there is one renderer-creation path).
     console.log(
         `[createRenderer] §PERF-WEBGPU-FRAGMENT resolvedPreference=${pref} ` +
-        `(forceWebGL=${forceWebGL}) — ${forceWebGL
+        `(forceWebGL=${forceWebGL}${backendOverride ? `, session-override=${backendOverride}` : ''}) — ${forceWebGL
             ? 'resolving to WebGL2 backend (high limits; tier keeps post-FX off on heavy scenes)'
             : "using WebGPU-first chain (this value was explicitly persisted by the backend toggle; clear it or pick 'WebGL' to get the WebGL default)"}`,
     );
@@ -267,7 +291,15 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
                             `WebGPU recovery. The 3D view stays navigable (plainer) instead of thrashing to a ` +
                             `dead/blocked context.`,
                         );
-                        setRendererBackendPreference('webgl');
+                        // §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION (L-203) — safe-mode is now a
+                        // SESSION-only flag, driven through the recovery's backendOverride
+                        // below. We deliberately do NOT persist 'webgl' here: overwriting the
+                        // user's stored WebGPU/Auto choice is exactly the "persisted forceWebGL
+                        // flip-flopping true↔false" the founder reported (the toggle then reads
+                        // 'webgl', the user re-picks 'webgpu', a device loss forces 'webgl'
+                        // again …). The persisted preference stays whatever the user chose; a
+                        // fresh reload gives WebGPU another chance, and if it is genuinely
+                        // unstable the cap re-engages safe-mode for that session.
                         _deviceLossGlobals().__pryzmRenderSafeMode = true;
                     }
 
@@ -297,7 +329,13 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
                         try { (threeRenderer as any).dispose?.(); }
                         catch (e) { console.warn('[createRenderer] prior renderer dispose failed during recovery:', e); }
 
-                        const newResult = await createRenderer(canvas);
+                        // §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION — once safe-mode is engaged,
+                        // force the WebGL2 path for THIS recovery via the override (NOT by
+                        // persisting), so the WebGPU device.lost handler is not re-armed and
+                        // the thrash loop ends, while the user's stored preference is untouched.
+                        const _recoveryOverride: RendererBackendPreference | undefined =
+                            _deviceLossGlobals().__pryzmRenderSafeMode === true ? 'webgl' : undefined;
+                        const newResult = await createRenderer(canvas, _recoveryOverride);
                         window.pryzmRenderer = newResult.renderer;
 
                         // §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139) — once in safe-mode,
@@ -392,6 +430,22 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
         throw new Error(
             '[createRenderer] RendererHandleFactory returned an unknown RendererHandle type. ' +
             'Please update createRenderer.ts to handle the new adapter class.',
+        );
+    }
+
+    // §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION (L-203 issue #2) — surface a WebGL2 fallback
+    // HONESTLY. When the user asked for 'webgpu'/'auto' but this device has no native
+    // WebGPU, the WebGPURenderer silently used its WebGL2 backend → backend==='webgl-
+    // fallback' and the TSL post-FX pipeline (SSGI/outlines/shadows) stays OFF. Say so
+    // plainly so "are we actually on WebGPU?" is answerable from the console; the GPU
+    // badge already shows "· webgl-fallback" (never a fake "· webgpu").
+    if (backend === 'webgl-fallback' && pref !== 'webgl') {
+        console.warn(
+            `[createRenderer] §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION requested backend "${pref}" but this ` +
+            `device exposes NO native WebGPU adapter — resolved to the WebGL2 fallback (backend=` +
+            `'webgl-fallback'). This is HONEST fallback, not a WebGPU device: TSL post-FX (SSGI / ` +
+            `outlines / soft shadows) stays OFF. Pick "WebGL" in the toggle to make this explicit, or ` +
+            `use a WebGPU-capable browser/GPU for the full pipeline.`,
         );
     }
 

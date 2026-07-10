@@ -143,6 +143,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _camera:             THREE.Camera | null          = null;
     private _renderer:           THREE.WebGLRenderer | null   = null;
     private _renderPipeline:     unknown                      = null;
+    // §FIX-DISPOSE-USEDTIMES-DEVICE — the GPUDevice the CURRENT `_renderPipeline` was
+    // built against. Disposing a RenderPipeline ACROSS a device boundary (after a backend
+    // swap / device-loss recovery rebinds a NEW renderer+device) is the ROOT of the
+    // "Cannot read properties of undefined (reading 'usedTimes')" throw:
+    // RenderPipeline.dispose() → NodeManager.delete(renderObject) reads `.usedTimes` on
+    // render objects the NEW device's NodeManager never created → `undefined.usedTimes`.
+    // Recording the build-time device lets `_safeDisposeRenderPipeline` SKIP the
+    // cross-device teardown (the old device's GPU resources are already reclaimed by the
+    // browser) instead of walking a foreign NodeManager and throwing.
+    private _renderPipelineDevice: unknown                    = null;
     private _scenePass:          PassNode | null              = null;
     private _zonePass:           PassNode | null              = null;
     private _outputNode:         TSLNode | null               = null;
@@ -1484,6 +1494,8 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
         this._safeDisposeRenderPipeline();
         this._renderPipeline   = rp;
+        // §FIX-DISPOSE-USEDTIMES-DEVICE — record the device this pipeline is built against.
+        this._renderPipelineDevice = this._currentBackendDevice();
         this._hasPipelineError = false;
         this._phase = this._outlinesActive ? 'phase4' : 'phase2';
         this._emitState();
@@ -1612,6 +1624,8 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
         this._safeDisposeRenderPipeline();
         this._renderPipeline   = rp;
+        // §FIX-DISPOSE-USEDTIMES-DEVICE — record the device this pipeline is built against.
+        this._renderPipelineDevice = this._currentBackendDevice();
         this._hasPipelineError = false;
 
         // Phase flag: promote to phase4 if TRAA or outlines are active
@@ -1642,34 +1656,67 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * Callers: _buildPipeline(), _buildPhase3Pipeline(), _rebuildPipelineGraphOnly(),
      * and dispose(). All four replace this._renderPipeline immediately after this call.
      */
+    /**
+     * @internal — the GPUDevice backing the current renderer (WebGPU backend), or null
+     * when there is no renderer / it is the WebGL2 fallback (which owns no GPUDevice).
+     * Used only to detect a device boundary in {@link _safeDisposeRenderPipeline}.
+     */
+    private _currentBackendDevice(): unknown {
+        try {
+            return (this._renderer as unknown as { backend?: { device?: unknown } })
+                ?.backend?.device ?? null;
+        } catch {
+            return null;
+        }
+    }
+
     private _safeDisposeRenderPipeline(): void {
         if (!this._renderPipeline) return;
+
+        // §FIX-DISPOSE-USEDTIMES-DEVICE (root fix — replaces the old §I2 `usedTimes`
+        // number-patch, which was a band-aid on the WRONG object):
+        //
+        // ROOT of "Cannot read properties of undefined (reading 'usedTimes')":
+        // RenderPipeline.dispose() fans out to NodeManager.delete(renderObject) for every
+        // render object the pipeline referenced; delete() reads
+        // `this.get(renderObject).nodeBuilderState.usedTimes`. After a backend swap or a
+        // device-loss recovery, `this._renderer` (and its NodeManager) is a DIFFERENT
+        // GPUDevice than the one this pipeline was built against, so
+        // `this.get(staleRenderObject)` returns `undefined` → `undefined.usedTimes` throws.
+        // `usedTimes` is therefore never undefined ON THE PIPELINE — it is undefined on an
+        // INTERNAL render object the NEW device's NodeManager never created (see
+        // safeDispose.ts). The old code pre-set `pipeline.usedTimes = 0`, which patched the
+        // pipeline handle, NOT the throwing render object — so it was ineffective and only
+        // the surrounding catch hid the throw.
+        //
+        // The real fix: never call THREE's teardown ACROSS a device boundary. If the
+        // pipeline was built against a device that is no longer the renderer's current
+        // device, the old device's GPU resources are already reclaimed by the browser on
+        // device loss / renderer disposal — so we simply DROP the reference here. This
+        // eliminates the `usedTimes` cascade at its source (the dominant swap / device-loss
+        // case) rather than swallowing it after the fact.
+        const builtDevice = this._renderPipelineDevice;
+        const liveDevice  = this._currentBackendDevice();
+        if (builtDevice !== null && liveDevice !== null && builtDevice !== liveDevice) {
+            console.warn(
+                '[RenderPipelineManager] §FIX-DISPOSE-USEDTIMES-DEVICE skipping RenderPipeline.dispose() ' +
+                'across a device boundary — the pipeline was built against a superseded/lost GPU device ' +
+                '(its GPU resources are already reclaimed). Dropping the stale pipeline reference without ' +
+                'walking the new NodeManager (prevents the usedTimes device-loss cascade at its source).',
+            );
+            this._renderPipelineDevice = null;
+            return;
+        }
+
         try {
-            // §I.2.1 — Null-guard `usedTimes` before dispose.
-            //
-            // Root cause (§FIX-DISPOSE-USEDTIMES, doc 47 §3.1): After a WebGPU device loss
-            // the pipeline's `usedTimes` counter may be `undefined` because compilation
-            // was interrupted mid-way.  When `dispose()` is called on such a pipeline it
-            // internally reads `usedTimes` to decide whether to defer teardown → TypeError
-            // (cannot read property of undefined) → cascading GPU errors → device recovery
-            // starts a new round of PSO compilation.
-            //
-            // Fix: if `usedTimes` is not a number we force it to 0 before calling dispose(),
-            // ensuring the pipeline tears down cleanly without triggering the recovery loop.
-            const _rp = this._renderPipeline as any;
-            if (_rp && typeof _rp.usedTimes !== 'number') {
-                console.warn(
-                    '[RenderPipelineManager] §I2 pipeline.usedTimes is not a number ' +
-                    `(got ${typeof _rp.usedTimes}) — patching to 0 before dispose to prevent device-loss cascade.`
-                );
-                _rp.usedTimes = 0;
-            }
-            (this._renderPipeline as any).dispose?.();
+            (this._renderPipeline as { dispose?: () => void }).dispose?.();
         } catch (dispErr: unknown) {
-            // §I2 — classify via the shared `usedTimes` predicate (single source
-            // of truth, reused by the element-builder safeDispose helpers).
+            // Residual SAME-device path: a stale render object left over from a previous
+            // build on the SAME device can still hit the usedTimes throw. Classify via the
+            // shared predicate and keep the disposal non-fatal (unchanged behaviour) —
+            // the device-boundary skip above already covers the swap/device-loss case.
             const kind = isUsedTimesDisposeError(dispErr)
-                ? 'stale GPU session after device loss'
+                ? 'stale same-device render object (usedTimes)'
                 : 'unexpected pipeline dispose failure';
             console.warn(
                 `[RenderPipelineManager] §FIX-DISPOSE-USEDTIMES — old pipeline dispose ` +
@@ -1677,6 +1724,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 (dispErr as Error)?.message ?? dispErr,
             );
         }
+        this._renderPipelineDevice = null;
     }
 
     /**
@@ -1977,6 +2025,8 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
         this._safeDisposeRenderPipeline();
         this._renderPipeline   = rp;
+        // §FIX-DISPOSE-USEDTIMES-DEVICE — record the device this pipeline is built against.
+        this._renderPipelineDevice = this._currentBackendDevice();
         this._hasPipelineError = false;
         this._phase = this._outlinesActive ? 'phase4' : 'phase2';
         this._emitState();
