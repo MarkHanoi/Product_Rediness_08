@@ -318,10 +318,45 @@ function _versionKeysOldestFirst(excludeId: string | null): string[] {
 }
 
 /**
- * §PROJECT-INDEX-EVICT — write `value` to `key`, and on QuotaExceededError evict
+ * §FIX-LOCALSTORAGE-QUOTA-RESIDUAL — Tier-1 reclamation with ZERO data loss.
+ *
+ * Drop every legacy `bim-project-<id>-versions` blob still sitting in localStorage
+ * whose payload is ALREADY durably held in the IndexedDB version store (mirror
+ * hit). These are redundant, migrated-away copies: the authoritative bytes live in
+ * IDB, so removing the localStorage duplicate cannot lose any version history. This
+ * is exactly the bloat `warmVersionCache()` migrates — but a save that races the
+ * (previously fire-and-forget) warm, or one triggered before the warm on a device
+ * whose IDB is slow, would otherwise hit "eviction exhausted" while several MB of
+ * already-in-IDB duplicates sat unreclaimed. Honours C13 isolation: only THIS
+ * module's own `bim-project-*-versions` keys are ever touched. Returns the number
+ * of duplicate keys reclaimed (0 when IDB is unavailable — nothing is redundant).
+ */
+function _reclaimRedundantLegacyVersionStores(): number {
+    let store: ReturnType<typeof getVersionCacheStore>;
+    try { store = getVersionCacheStore(); } catch { return 0; }
+    try { if (store.isDisabled()) return 0; } catch { return 0; }
+    const drop: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (!k.startsWith(STORAGE_VERSIONS_PREFIX)) continue;
+        if (!k.endsWith(VERSIONS_SUFFIX)) continue;
+        const id = k.slice(STORAGE_VERSIONS_PREFIX.length, -VERSIONS_SUFFIX.length);
+        // Redundant ⇔ the IDB mirror already holds this project's payload.
+        try { if (store.getVersionsSync(id) !== undefined) drop.push(k); } catch { /* ignore */ }
+    }
+    for (const k of drop) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
+    return drop.length;
+}
+
+/**
+ * §PROJECT-INDEX-EVICT — write `value` to `key`, and on QuotaExceededError first
+ * reclaim redundant (already-in-IDB) legacy version blobs with zero data loss
+ * (§FIX-LOCALSTORAGE-QUOTA-RESIDUAL Tier 1), then, only if still over quota, evict
  * the version stores of OTHER projects (oldest `updatedAt` first) and retry until
  * the write succeeds or there is nothing left to evict. `excludeId` is the
- * project being saved (its own history is never evicted). Returns true on a
+ * project being saved (its own history is never evicted in Tier 2; Tier 1 is safe
+ * for any project because it only drops IDB-backed duplicates). Returns true on a
  * successful write. NEVER throws — quota is a soft failure for callers.
  */
 function _setItemWithEviction(key: string, value: string, excludeId: string | null): boolean {
@@ -334,6 +369,18 @@ function _setItemWithEviction(key: string, value: string, excludeId: string | nu
             return false;
         }
     }
+    // Tier 1 (zero data loss): free redundant legacy version blobs already in IDB.
+    if (_reclaimRedundantLegacyVersionStores() > 0) {
+        try {
+            localStorage.setItem(key, value);
+            return true;
+        } catch (err) {
+            if (!_isQuotaError(err)) { console.warn('[ProjectRepository] setItem retry failed (non-quota):', err); return false; }
+            // still over quota — fall through to Tier 2 oldest-first eviction
+        }
+    }
+    // Tier 2: evict OTHER projects' version stores oldest-first (may drop
+    // localStorage-only history — a genuine last resort under real exhaustion).
     const evictKeys = _versionKeysOldestFirst(excludeId);
     let evicted = 0;
     for (const k of evictKeys) {
@@ -411,6 +458,14 @@ export interface IProjectRepository {
     /** Contract 45 §7.2 — bypass owner filter; for sync/reconcile only. */
     listAllProjectsUnfiltered(): ProjectMeta[];
     saveProject(meta: ProjectMeta): void;
+    /**
+     * §FIX-LOCALSTORAGE-QUOTA-RESIDUAL — apply many upserts (and optional deletes)
+     * against the index in a SINGLE serialize + write, instead of one full-index
+     * write per project. Used by the server-sync reconcile so a 50-project sync
+     * performs exactly one `bim-projects-index` write (and at most one quota warn),
+     * not O(n) writes / O(n) warns.
+     */
+    saveProjectsBatch(upserts: ProjectMeta[], deleteIds?: readonly string[]): void;
     deleteProject(id: string): void;
     generateProjectId(): string;
 }
@@ -494,6 +549,55 @@ export class LocalProjectRepository implements IProjectRepository {
         // §HUB-THUMBNAIL-STORAGE — `_serializeIndex` routes EVERY entry's thumbnail
         // bytes to IDB and strips them, so the index blob holds only light metadata.
         if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(index), meta.id)) {
+            console.warn('[ProjectRepository] localStorage quota exceeded — project index not saved (eviction exhausted)');
+        }
+    }
+
+    /**
+     * §FIX-LOCALSTORAGE-QUOTA-RESIDUAL — coalesce an entire reconcile pass into ONE
+     * index write. Reads the FULL index once (Contract 45 §7.2 — other users' rows
+     * preserved), applies every upsert (routing each thumbnail to IDB + stripping
+     * it, exactly like `saveProject`) and every delete (dropping the version store +
+     * IDB thumbnail), then serializes + writes the index a SINGLE time via the
+     * quota-safe path. A 50-project server sync therefore does one `setItem`, not
+     * 50 — and on quota exhaustion emits at most one warning instead of a per-project
+     * spam loop. Deleted ids are excluded from eviction candidacy is unnecessary
+     * (their stores are removed here); Tier-1 reclamation frees redundant IDB-backed
+     * duplicates first, so the single write succeeds whenever the migrated index fits.
+     */
+    saveProjectsBatch(upserts: ProjectMeta[], deleteIds: readonly string[] = []): void {
+        const index = this.listAllProjectsUnfiltered();
+        const posById = new Map<string, number>();
+        index.forEach((m, i) => posById.set(m.id, i));
+
+        const currentUser = getCurrentUserId() ?? undefined;
+        for (const meta of upserts) {
+            const ownerId = meta.ownerId ?? currentUser;
+            const stamped: ProjectMeta = _routeThumbnailToIdb({ ...meta, ownerId });
+            const at = posById.get(meta.id);
+            if (at !== undefined) {
+                index[at] = stamped;
+            } else {
+                posById.set(meta.id, index.length);
+                index.push(stamped);
+            }
+        }
+
+        let toWrite = index;
+        if (deleteIds.length > 0) {
+            const del = new Set(deleteIds);
+            toWrite = index.filter(p => !del.has(p.id));
+            for (const id of del) {
+                try { localStorage.removeItem(`${STORAGE_VERSIONS_PREFIX}${id}${VERSIONS_SUFFIX}`); } catch { /* ignore */ }
+                try { getThumbnailCacheStore().delete(id); } catch { /* non-fatal */ }
+            }
+        }
+
+        // ONE serialize + ONE quota-safe write for the whole reconcile pass. No
+        // single project is privileged for eviction (excludeId=null); Tier-1
+        // reclamation drops IDB-backed duplicates with zero loss before any Tier-2
+        // eviction is considered.
+        if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(toWrite), null)) {
             console.warn('[ProjectRepository] localStorage quota exceeded — project index not saved (eviction exhausted)');
         }
     }

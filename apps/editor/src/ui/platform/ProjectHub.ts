@@ -90,14 +90,32 @@ export class ProjectHub {
         // §VERSION-QUOTA-INDEXEDDB (2026-06-25) — warm the IndexedDB version mirror
         // (and migrate any legacy localStorage version stores) on hub mount so the
         // synchronous auto-restore read at project-open surfaces local history that
-        // is now too large for localStorage. Fire-and-forget; never blocks the hub.
-        warmVersionCache().catch(() => { /* non-fatal — server version fallback covers cold reads */ });
-        warmThumbnailCache()
-            .then(() => { this.refreshGrid(); })
-            .catch(() => { /* non-fatal — server thumbnailUrl / placeholder still render */ })
-            // Sync projects from server AFTER the warm so the reconcile pass sees the
-            // migrated (lean) index. Sync also fills localStorage across sessions.
-            .finally(() => { this.syncFromServer(); });
+        // is now too large for localStorage.
+        // §FIX-LOCALSTORAGE-QUOTA-RESIDUAL (L-148) — BOTH migrations must COMPLETE
+        // before the first server-sync `saveProject*` write. The version migration
+        // used to be fire-and-forget, so the sync's index writes raced it: the heavy
+        // legacy `bim-project-<id>-versions` blobs were still in localStorage when the
+        // index write fired, yielding "quota exceeded — eviction exhausted" once per
+        // project. Awaiting both warms relocates that bloat into IndexedDB (and strips
+        // inline thumbnails) FIRST, so the single reconcile write lands in a lean
+        // localStorage.
+        void this._warmThenSync();
+    }
+
+    /**
+     * §FIX-LOCALSTORAGE-QUOTA-RESIDUAL — await the version + thumbnail migrations,
+     * THEN reconcile with the server. Sequencing (not fire-and-forget) guarantees
+     * the legacy blobs are migrated out of localStorage before the first index write.
+     * Never throws — each leg degrades independently (server/version fallbacks cover
+     * a cold cache).
+     */
+    private async _warmThenSync(): Promise<void> {
+        try { await warmVersionCache(); } catch { /* non-fatal — server version fallback covers cold reads */ }
+        try { await warmThumbnailCache(); } catch { /* non-fatal — server thumbnailUrl / placeholder still render */ }
+        this.refreshGrid();
+        // Sync projects from server AFTER the warms so the reconcile pass sees the
+        // migrated (lean) index. Sync also fills localStorage across sessions.
+        await this.syncFromServer();
     }
 
     // ── Build ─────────────────────────────────────────────────────────────────
@@ -144,12 +162,22 @@ export class ProjectHub {
             if (summaries === null) return;
 
             const serverIds = new Set(summaries.map(s => s.id));
-            let didChange = false;
+
+            // §FIX-LOCALSTORAGE-QUOTA-RESIDUAL (L-148) — accumulate ALL reconcile
+            // mutations (upserts + purges) and apply them in a SINGLE index write via
+            // `saveProjectsBatch`, instead of one full-index `saveProject`/`deleteProject`
+            // write (and one potential quota warn) per project. A 50-project sync now
+            // performs exactly ONE `bim-projects-index` write.
+            const upserts: ProjectMeta[] = [];
+            const deleteIds: string[] = [];
+
+            // Snapshot the local index ONCE (was re-read per iteration before).
+            const localById = new Map(projectRepository.listProjects().map(lp => [lp.id, lp]));
 
             // ── Add / update entries from the server ──────────────────────────
             for (const s of summaries) {
                 if (!s.id || !s.name) continue;
-                const existing = projectRepository.listProjects().find(lp => lp.id === s.id);
+                const existing = localById.get(s.id);
                 const serverUpdatedAt = Date.parse(s.lastModifiedAt);
                 const lastModifiedAt = Number.isFinite(serverUpdatedAt) ? serverUpdatedAt : Date.now();
                 if (!existing || existing.updatedAt < lastModifiedAt) {
@@ -158,7 +186,7 @@ export class ProjectHub {
                     // from a previous session or another browser), use the server's copy.
                     const serverThumbnail = s.thumbnailUrl ?? undefined;
                     const resolvedThumbnail = existing?.thumbnail ?? serverThumbnail;
-                    projectRepository.saveProject({
+                    upserts.push({
                         id: s.id,
                         name: s.name,
                         updatedAt: lastModifiedAt,
@@ -177,7 +205,6 @@ export class ProjectHub {
                         cdeSummary:   existing?.cdeSummary,
                     });
                     console.log(`[ProjectHub] Synced project "${s.name}" (${s.id}) — thumbnail: ${existing?.thumbnail ? 'local' : serverThumbnail ? 'from server' : 'none'}`);
-                    didChange = true;
                 }
             }
 
@@ -188,23 +215,26 @@ export class ProjectHub {
             // This protects projects created while offline (they have local versions
             // but may not yet be on the server) and free-plan users whose versions
             // never make it to the server.
-            const localProjects = projectRepository.listProjects();
-            for (const lp of localProjects) {
+            for (const lp of localById.values()) {
                 if (serverIds.has(lp.id)) continue;
                 try {
-                    const raw = localStorage.getItem(`bim-project-${lp.id}-versions`);
-                    const hasLocalVersions = raw && JSON.parse(raw).length > 0;
+                    // §FIX-LOCALSTORAGE-QUOTA-RESIDUAL — read via the version repository
+                    // (IDB mirror + localStorage fallback), NOT raw localStorage. The
+                    // legacy `bim-project-<id>-versions` blob has now been migrated into
+                    // IndexedDB, so a raw localStorage read would miss it and wrongly
+                    // purge a project that DOES have local history.
+                    const hasLocalVersions = versionRepository.getVersions(lp.id).length > 0;
                     if (hasLocalVersions) {
                         console.log(`[ProjectHub] Keeping local-only project ${lp.id} — has unsaved local versions`);
                         continue;
                     }
-                } catch { /* parse error — keep it to be safe */ continue; }
+                } catch { /* read error — keep it to be safe */ continue; }
                 console.log(`[ProjectHub] Purging empty stale local project ${lp.id} (not on server, no local data)`);
-                projectRepository.deleteProject(lp.id);
-                didChange = true;
+                deleteIds.push(lp.id);
             }
 
-            if (didChange) {
+            if (upserts.length > 0 || deleteIds.length > 0) {
+                projectRepository.saveProjectsBatch(upserts, deleteIds);
                 console.log(`[ProjectHub] Synced with server: ${summaries.length} project(s)`);
                 this.refreshSidebar();
                 this.refreshGrid();
