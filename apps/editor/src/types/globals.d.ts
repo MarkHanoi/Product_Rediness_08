@@ -451,6 +451,15 @@ declare global {
                  * the ShadowDepthTexture. No-op on WebGL / when shadows are off.
                  */
                 requestShadowRefresh?: () => void;
+                /**
+                 * §FIX-WEBGPU-SCENEPASS-FIRST-CASTER (L-200 follow-up) — debounced,
+                 * freeze-aware rebuild of the WebGPU TSL ScenePass. The pass is composed via
+                 * `createScenePass(scene)` at boot, when the scene holds no shadow-casters, and
+                 * is never rebuilt when one appears — leaving the ground shadow-catcher fully
+                 * shadowed (opaque grey) with no projected shadow. initScene calls this ONCE,
+                 * the first time real geometry is added, so the pass sees the caster.
+                 */
+                scheduleShadowRebuild?: () => void;
               }
             | undefined;
         renderingPipelineCoordinator: unknown;
