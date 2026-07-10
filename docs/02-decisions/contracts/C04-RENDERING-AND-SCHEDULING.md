@@ -167,3 +167,106 @@ See C10 for the full NFT table and measurement methodology.
 - The plan-view 2D rendering pipeline → C06 §4.
 - The path-tracer (photorealistic mode) — `three-gpu-pathtracer` is a lazy dynamic import; its contract is in [SPEC-31].
 - How renders are saved to the gallery → C05 §5.
+
+---
+
+## §SHADOW — the sun/ground-shadow subsystem (NORMATIVE)
+
+Added 2026-07-10 after L-205: a grey rectangle over the ground that took **eight** root-cause
+attempts to close. Seven were wrong. Everything below is written so that never repeats.
+
+### §SHADOW.1 — The actual root cause of L-205 (for the record)
+
+The L0 ground catcher is a `THREE.ShadowMaterial` plane. It paints `opacity × (1 − shadowMask)`.
+It therefore goes **uniform grey** exactly when every fragment reads "fully shadowed".
+
+`§FIX-GROUND-SHADOW-AT-PERF-TIER` (`f4533641`) replaced the key light's **fixed** ortho shadow
+camera with one shrink-wrapped to the scene AABB — the standard way to sharpen a pixellated
+shadow. It was written in direct response to the founder reporting the (then working) shadow
+looked "too pixellated".
+
+The AABB sweep swept in something enormous. The `§DIAG-GROUND-SHADOW` instrumentation caught it
+on prod, 1.2 s apart, on a scene containing **one wall**:
+
+```
+(first-caster)          frustum=[-50, 50, 50, -50, near=1, far=100]                  ← healthy
+(first-caster+1200ms)   frustum=[-113657.66, …, near=84190.86, far=420954.30]        ← after the fit
+```
+
+A **227 km-wide** shadow frustum sampled by a **512×512** map is **~444 m per texel**. The whole
+building falls inside one texel; depth resolution is destroyed; every ground fragment resolves as
+occluded; the catcher paints uniform grey to the horizon.
+
+Every symptom follows: grey only once geometry exists (the fit runs on the first caster); grey
+vanishes with *either* "Cast shadows" or "Ground shadows" off (no shadow pass ⇒ `shadowMask = 1`
+⇒ alpha 0); grey vanishes on a backend swap (a fresh device + a not-yet-refitted camera).
+
+**The lesson is not "don't fit the frustum". It is: an unbounded, unvalidated derived quantity
+silently destroyed a downstream GPU resource, and no test or assertion caught it.**
+
+### §SHADOW.2 — Rules
+
+1. **The shadow camera MUST be bounded.** Any code deriving `light.shadow.camera` extents from
+   scene geometry MUST clamp the result to a documented maximum (a building-scale bound, not a
+   planet-scale one) and MUST assert `Number.isFinite` on every derived extent. A fit that would
+   exceed the clamp is a **bug in the AABB sweep** — clamp, log the offending object, and fall
+   back to the fixed frustum. Never silently accept it.
+2. **Texel density is the invariant that matters, not the frustum.** The quantity that governs
+   shadow quality is `metresPerTexel = (right − left) / mapSize.width`. Sharpening means
+   *reducing metres per texel*. Any change claiming to sharpen the shadow MUST state its
+   before/after `metresPerTexel`, and a test MUST pin it.
+3. **Never resize a live caster's shadow map.** Writing `light.shadow.mapSize` (or disposing
+   `light.shadow.map`) while the light is casting makes THREE destroy + recreate the
+   `ShadowDepthTexture` inside `render()`, while the previous frame's command buffer still
+   references it → `Destroyed texture [ShadowDepthTexture] used in a submit` → WebGPU device
+   loss. Choose the allocation once, at a device-safe size. See ADR-0111. The
+   `alreadyAllocated` guard in `ShadowQualityUpgrader` enforces this; do not remove it.
+   Quality tiers may change `bias`, `normalBias`, `radius` (free uniform writes) — never the
+   allocation.
+4. **Never dispose or rebuild the render pipeline off-frame.** `scheduleShadowRebuild()` →
+   `_rebuildPipeline()` was fire-and-forget (`SHADOW_REBUILD_COMPLETE elapsed=0.0ms` — it timed a
+   promise, not the work), so `createScenePass()` + pipeline dispose landed on an arbitrary
+   microtask, mid-submit. Any teardown MUST be scheduled at a frame-safe point.
+5. **A new caster does NOT require a pipeline rebuild.** three's `LightsNode.customCacheKey()`
+   hashes `light.castShadow` per-*light*, not per-caster-mesh; `ShadowNode.updateShadow()`
+   redraws the depth map each frame with whatever casters exist. Rebuilding the ScenePass when
+   geometry appears is unnecessary **and** destructive.
+6. **`ShadowMaterial` behaves differently per backend.** On WebGPU it resolves to
+   `ShadowNodeMaterial` + `ShadowMaskModel`, whose `finish()` is
+   `diffuseColor.a.mulAssign(shadowMask.oneMinus())` — opacity IS respected. `ShadowNode`'s
+   `frustumTest` clamps `x,y ∈ [0,1] ∧ z ≤ 1` and returns `1` (LIT) outside, so geometry outside
+   the shadow frustum is invisible on the catcher, never grey. **Grey outside the frustum is
+   therefore impossible; grey everywhere means the frustum covers everywhere.**
+
+### §SHADOW.3 — Debugging protocol (follow this order; do not skip to code)
+
+L-205 cost eight attempts because it was debugged by inference. Every wrong answer was
+internally consistent. Measure first:
+
+1. **Untick "Ground shadows".** Grey gone ⇒ it is the catcher. Grey stays ⇒ it is a different
+   mesh, and everything below is irrelevant.
+2. **Untick "Cast shadows".** Grey gone ⇒ the catcher and its material are healthy; the fault is
+   in the shadow pass.
+3. **Read `§DIAG-GROUND-SHADOW`** (`RenderPipelineManager.logShadowDiagnostics`). It prints
+   `shadowMap.enabled/autoUpdate/needsUpdate`, both freeze latches, `keyLight.castShadow`,
+   `shadow.map` allocated?, `mapSize`, and **the shadow camera extents**. The extents are the
+   single most diagnostic number and were the line that finally cracked L-205.
+4. Only then form a hypothesis.
+
+**Refuted hypotheses — do not re-attempt** (each cost a deploy): ScenePass-not-rebuilt-on-first-
+caster; catcher-outside-the-frustum; freeze-latch-unbalanced; `ViewController` disabling the live
+shadow map (it writes `world.renderer.three`, the *silenced OBC* renderer, assigned once at
+`BimWorld.ts:24`); leaked `shadowMap.enabled=false`; transition-only `autoUpdate` writer;
+off-frame ScenePass rebuild.
+
+### §SHADOW.4 — Current state and the safe path to sharpness
+
+HEAD (`360c48ff` + `c3fb81f8`) runs the **fixed ±50 m** shadow camera — the known-good
+`72e34915` configuration — with the caster-visibility gate and the no-realloc guard.
+`metresPerTexel = 100 / 512 ≈ 0.195 m`. The shadow is therefore **soft/pixellated by design**.
+
+To sharpen, in this order, each verified on prod against `§DIAG-GROUND-SHADOW` before the next:
+1. Raise `mapSize` **once**, at allocation time, on the fixed camera (e.g. 512 → 2048 ⇒
+   0.049 m/texel). Never resize a live map (§SHADOW.2.3).
+2. Only then consider a **clamped** fit (§SHADOW.2.1) with an explicit maximum radius, a
+   finite-check, a fallback to the fixed frustum, and a test pinning `metresPerTexel`.
