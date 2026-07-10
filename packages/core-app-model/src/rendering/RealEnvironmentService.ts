@@ -69,6 +69,28 @@ export class RealEnvironmentService {
      */
     private _hasCasters = false;
 
+    /**
+     * §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — invoked exactly on the 0→≥1 shadow-caster
+     * transition (the same instant the catcher becomes visible).
+     *
+     * The WebGPU TSL ScenePass is composed against the scene ONCE at boot, when no caster
+     * exists, and is never rebuilt when one appears — so the shadow graph never learns the
+     * caster exists and the catcher composites as fully-shadowed (an opaque grey plane) with
+     * no projected shadow. The app layer wires this to `RenderPipelineManager.scheduleShadowRebuild()`.
+     *
+     * INJECTED (a hook seam, not a renderer reach-in) so this package keeps no renderer
+     * handle — mirroring RenderingPipelineCoordinator's other hooks. Self-resetting: clearing
+     * the scene drops `_hasCasters` to false, so the next project re-fires on ITS first caster.
+     * Gating on the CASTER (not on "any new mesh") matters: the grid/datum/helper meshes that
+     * exist on an empty project are not casters, and must not consume the one-shot.
+     */
+    private _onFirstCaster?: () => void;
+
+    /** §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — inject the first-caster hook (app layer). */
+    setFirstCasterHook(hook: () => void): void {
+        this._onFirstCaster = hook;
+    }
+
     // ── Getters (diagnostics / tests) ────────────────────────────────────────
     get enabled(): boolean { return this._enabled; }
     get sun(): RealSunService { return this._sun; }
@@ -230,8 +252,20 @@ export class RealEnvironmentService {
         // visibility from the caster gate: hidden on an empty scene (no grey square),
         // shown + receiving once a caster exists. The receiver stays ATTACHED throughout
         // (L-112 receive preserved); only mesh.visible flips.
+        const hadCasters = this._hasCasters;
         this._hasCasters = hasCaster;
         this._applyCatcher(); // idempotent — sets the initial hidden state on empty too
+        // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — the caster just appeared (0→≥1). Ask the app
+        // layer to rebuild the WebGPU ScenePass ONCE so the shadow graph actually contains
+        // it; otherwise the now-visible catcher reads as fully shadowed (opaque grey) and no
+        // sun shadow projects. Fired after _applyCatcher() so the receiver is already shown.
+        if (!hadCasters && hasCaster) {
+            try {
+                this._onFirstCaster?.();
+            } catch (err) {
+                console.warn('[RealEnvironmentService] §FIX-WEBGPU-SCENEPASS-FIRST-CASTER hook threw (non-fatal):', err);
+            }
+        }
         if (!any || box.isEmpty()) {
             // No real geometry yet — clear coverage so an emptied scene reverts to the
             // legacy fixed frustum instead of holding a stale (possibly huge) one.

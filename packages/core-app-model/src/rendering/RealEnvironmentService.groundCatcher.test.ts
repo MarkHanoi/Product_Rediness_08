@@ -151,3 +151,84 @@ describe('RealEnvironmentService §FIX-SHADOW-CATCHER-RESTORE (L-112)', () => {
         expect(svc.ground.mesh.geometry).toBeTruthy();
     });
 });
+
+/**
+ * §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — the WebGPU TSL ScenePass is composed against the
+ * scene ONCE at boot (no caster present) and never rebuilt when one appears, so the shadow
+ * graph never learns about the caster and the catcher composites as fully-shadowed (opaque
+ * grey) with no projected shadow. The app wires `setFirstCasterHook` →
+ * `RenderPipelineManager.scheduleShadowRebuild()`.
+ *
+ * The hook MUST fire on the 0→≥1 CASTER transition — not on "any new mesh". A brand-new
+ * empty project already carries ~29 non-caster meshes (grid, datum sphere, helpers); an
+ * earlier mesh-count gate let those consume the one-shot at project load, so the user's
+ * first wall never triggered the rebuild and the grey plane persisted. These tests pin that.
+ */
+describe('RealEnvironmentService §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — first-caster hook', () => {
+    let scene: THREE.Scene;
+    let svc: RealEnvironmentService;
+    let hook: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+        scene = new THREE.Scene();
+        svc = new RealEnvironmentService();
+        svc.bind(scene, makeKeyLightHost(), () => null, () => 0);
+        hook = vi.fn();
+        svc.setFirstCasterHook(hook);
+    });
+
+    it('does NOT fire on an empty scene, nor for non-caster helper meshes (the grid/datum bug)', () => {
+        svc.enable();               // enable() refits: 0 casters
+        expect(hook).not.toHaveBeenCalled();
+
+        // Non-casters: a grid + a datum sphere + a plain mesh. None may consume the one-shot.
+        const grid = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+        grid.name = 'grid';
+        const datum = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial());
+        datum.castShadow = false;
+        scene.add(grid, datum);
+        svc.refitShadowToScene();
+
+        expect(hook).not.toHaveBeenCalled();
+        expect(svc.sceneHasCasters).toBe(false);
+        expect(svc.ground.mesh.visible).toBe(false); // still no grey plane
+    });
+
+    it('fires EXACTLY ONCE on the first real caster, and the catcher becomes visible', () => {
+        svc.enable();
+        addCaster(scene);
+        svc.refitShadowToScene();
+
+        expect(hook).toHaveBeenCalledTimes(1);
+        expect(svc.sceneHasCasters).toBe(true);
+        expect(svc.ground.mesh.visible).toBe(true);
+
+        // Further geometry must NOT re-trigger it (no per-event pipeline churn).
+        addCaster(scene);
+        svc.refitShadowToScene();
+        expect(hook).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-arms when the scene is emptied, so the next project rebuilds on ITS first caster', () => {
+        svc.enable();
+        const caster = addCaster(scene);
+        svc.refitShadowToScene();
+        expect(hook).toHaveBeenCalledTimes(1);
+
+        scene.remove(caster);       // project switch / clear
+        svc.refitShadowToScene();
+        expect(svc.sceneHasCasters).toBe(false);
+
+        addCaster(scene);           // new project's first caster
+        svc.refitShadowToScene();
+        expect(hook).toHaveBeenCalledTimes(2);
+    });
+
+    it('a throwing hook is non-fatal — the catcher still flips visible', () => {
+        svc.setFirstCasterHook(() => { throw new Error('rpm unavailable'); });
+        svc.enable();
+        addCaster(scene);
+        expect(() => svc.refitShadowToScene()).not.toThrow();
+        expect(svc.ground.mesh.visible).toBe(true);
+    });
+});

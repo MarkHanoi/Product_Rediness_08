@@ -2187,15 +2187,6 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // meshes, so a later batch never re-iterates earlier storeys' geometry.
         // Correctness is unchanged — every mesh is still upgraded exactly once.
         const pbrSeenMeshes = new WeakSet<THREE.Object3D>();
-
-        // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER (L-200 follow-up) — one-shot latch: the WebGPU
-        // ScenePass must be rebuilt the FIRST time shadow-casting geometry exists (see the
-        // rationale at the call site below). Reset per project so a freshly-opened empty
-        // project rebuilds again on ITS first caster.
-        let _scenePassRebuiltForFirstCaster = false;
-        window.addEventListener('pryzm-project-switch', () => {
-            _scenePassRebuiltForFirstCaster = false;
-        });
         /** Collect scene meshes not yet handed to the PBR upgrader, marking them
          *  seen. Returns only the genuinely-new meshes for this pass. */
         const collectNewPbrMeshes = (scene: THREE.Scene): THREE.Mesh[] => {
@@ -2274,37 +2265,21 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             } catch (tierErr) {
                 console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
             }
-            // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER (L-200 follow-up) — rebuild the WebGPU
-            // ScenePass EXACTLY ONCE, the first time real shadow-casting geometry exists.
+            // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — the one-shot WebGPU ScenePass rebuild is
+            // NOT triggered here. It must fire on the first real shadow-CASTER, and this pass
+            // also runs for non-caster meshes (grid / datum sphere / helpers — ~29 of them on
+            // a brand-new empty project), which would consume the one-shot before the user
+            // ever draws a wall. It is driven instead by RealEnvironmentService's caster gate
+            // (`setFirstCasterHook`, wired in the §FEAT-REAL-ENVIRONMENT block below), which
+            // fires on the exact 0→≥1 caster transition that also un-hides the catcher.
             //
-            // Root cause of the founder's "massive grey rectangle + no ground shadow":
-            // `_buildPipeline()` composes the TSL graph via `createScenePass(this._scene, …)`.
-            // That runs ONCE at boot, when the scene still holds NO shadow-casting geometry.
-            // Adding a caster later never rebuilds the pass, so the WebGPU shadow graph never
-            // learns a caster exists — the invisible L0 ground catcher then composites as
-            // FULLY shadowed (an opaque grey plane) and no real sun shadow ever projects.
-            // Manually swapping the renderer backend appeared to "fix" it only because the
-            // swap's `recoverPipeline → activateOutlines → _buildPipeline` recreates the
-            // ScenePass against the now-populated scene (the founder's decisive clue).
-            //
-            // The previous NOTE here was right that meshes don't own `ShadowDepthTexture`,
-            // but it missed that the TSL ScenePass is compiled AGAINST THE SCENE. Its other
-            // concerns are addressed rather than ignored:
-            //   • "needless pipeline rebuilds" → latched: fires once per project, not per event.
-            //   • "can trigger Destroyed-texture by disposing mid-render" → that hazard was
-            //     `ShadowQualityUpgrader.apply()` reallocating a LIVE caster's shadow map,
-            //     fixed in §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER; and
-            //     scheduleShadowRebuild() is itself debounced + freeze-aware.
-            // Subsequent adds need no rebuild: once the pass knows about casters the depth
-            // pass re-renders every frame (autoUpdate restored by §FIX-WEBGPU-GROUND-SHADOW-RECEIVE).
-            if (!_scenePassRebuiltForFirstCaster && newMeshes.length > 0) {
-                _scenePassRebuiltForFirstCaster = true;
-                try {
-                    window.renderPipelineManager?.scheduleShadowRebuild?.();
-                } catch (err) {
-                    console.warn('[initScene] §FIX-WEBGPU-SCENEPASS-FIRST-CASTER rebuild request failed (non-fatal):', err);
-                }
-            }
+            // The historical NOTE that once forbade any rebuild here was right that meshes do
+            // not own `ShadowDepthTexture`, but missed that the TSL ScenePass is compiled
+            // AGAINST THE SCENE (`_buildPipeline` → `createScenePass(scene)`), once, at boot,
+            // when no caster exists. Its "needless rebuilds" concern is met (one per project)
+            // and its "Destroyed texture" concern was `ShadowQualityUpgrader.apply()`
+            // reallocating a LIVE caster's map, fixed in
+            // §FIX-WEBGPU-SHADOW-TIER-DESTROY-AND-GREY-CATCHER.
         };
         // Publish the consolidated pass to the hoisted handle so the post-load
         // handler (outside this try-block's scope) can fire it exactly once.
@@ -3240,6 +3215,25 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // ground shadow, fully reversible, no synchronous GPU dispose (ADR-0111 safe).
     try {
         const realEnvironment = new RealEnvironmentService();
+        // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — the WebGPU TSL ScenePass is composed via
+        // `_buildPipeline() → createScenePass(scene)` ONCE at boot, when the scene holds no
+        // shadow-caster. Adding a caster later never rebuilds it, so the shadow graph never
+        // learns the caster exists: the (now visible) L0 ground catcher composites as FULLY
+        // shadowed — the founder's opaque grey plane — and no sun shadow projects. Manually
+        // swapping the renderer backend appeared to fix it only because the swap's
+        // `recoverPipeline → activateOutlines → _buildPipeline` recreates the pass against the
+        // populated scene. So rebuild ONCE, on the exact 0→≥1 caster transition that also
+        // un-hides the catcher. Gating on the CASTER (not on "any new mesh") is essential:
+        // an empty project already carries ~29 non-caster meshes (grid/datum/helpers) that
+        // would otherwise consume the one-shot before the first wall is drawn.
+        // `scheduleShadowRebuild()` is WebGPU-gated, debounced, and coalesces in-flight rebuilds.
+        realEnvironment.setFirstCasterHook(() => {
+            try {
+                window.renderPipelineManager?.scheduleShadowRebuild?.();
+            } catch (err) {
+                console.warn('[initScene] §FIX-WEBGPU-SCENEPASS-FIRST-CASTER rebuild request failed (non-fatal):', err);
+            }
+        });
         // Site location (C19) via the composed runtime's siteModelStore — mirrors
         // CesiumViewport.readSiteLocation() so the two viewports agree on the sun.
         // 0/0 is the ensureSite placeholder (Null Island) and is treated as unset.
