@@ -14,3 +14,12 @@ export { PlumbingFragmentBuilder } from './PlumbingFragmentBuilder';
 export { PlumbingSystemTypeStore, plumbingSystemTypeStore } from './PlumbingSystemTypeStore';
 export type { PlumbingSystemType } from './PlumbingSystemTypeStore';
 export { PlumbingTool } from './PlumbingTool';
+// §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221) — 2D symbol builders + pure linework.
+export {
+    resolveFixtureFootprint,
+    buildPlanLinework,
+    buildElevationLinework,
+} from './PlumbingSymbolGeometry';
+export type { FixtureSymbolInput, FixtureFootprint } from './PlumbingSymbolGeometry';
+export { PlumbingPlanSymbolBuilder, plumbingPlanSymbolBuilder } from './PlumbingPlanSymbolBuilder';
+export { PlumbingElevationSymbolBuilder, plumbingElevationSymbolBuilder } from './PlumbingElevationSymbolBuilder';

@@ -61,14 +61,24 @@ export class PlumbingFragmentBuilder {
         // Ensure the mesh itself is selectable and carries the ID
         mesh.traverse((child) => {
             if (child instanceof THREE.Mesh) {
-                child.userData = { 
+                child.userData = {
                     id: data.id,
                     elementType: 'PlumbingFixture',
                     selectable: true,
                     levelId: data.levelId,
                     levelName: data.levelName,
                     levelElevation: data.levelElevation,
-                    baseOffset: data.baseOffset
+                    baseOffset: data.baseOffset,
+                    // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P2) — suppress the generic
+                    // true-edge projection of the LOD400 fixture mesh in the 2D views.
+                    // Without this, EdgeProjectorService projects every triangulation
+                    // edge (~55 ms + ~10.8 k HLR segments for ONE toilet). The dedicated
+                    // Plumbing{Plan,Elevation}SymbolBuilder injects a clean architectural
+                    // symbol instead. `skipInPlan` is the existing plan-only mechanism
+                    // (doors/sofas/kitchens use it); `skipInElevation` is its new
+                    // elevation sibling added for L-221.
+                    skipInPlan: true,
+                    skipInElevation: true,
                 };
             }
         });

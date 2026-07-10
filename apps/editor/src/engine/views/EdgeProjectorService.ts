@@ -63,6 +63,11 @@ import { windowPlanSymbolBuilder } from '@pryzm/geometry-window';
 // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — internal layer-boundary lines for LAYERED walls in
 // plan (the wall's OUTER footprint is already projected; this adds the core+finish lines).
 import { wallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
+// §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221) — plumbing fixtures (toilet/sink/bath/shower/
+// bidet/urinal/accessory) carry `skipInPlan`+`skipInElevation` on their meshes so the dense
+// LOD400 edge-dump is suppressed in the 2D views; these builders inject the clean AEC symbol
+// (plan footprint + elevation silhouette/profile) onto A-PLMB with UUID registration.
+import { plumbingPlanSymbolBuilder, plumbingElevationSymbolBuilder } from '@pryzm/geometry-plumbing';
 import { annotationStore } from '@pryzm/plugin-annotations';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -1923,6 +1928,14 @@ export class EdgeProjectorService {
                         if (isPlanView && mesh.userData.skipInPlan === true) {
                             return;
                         }
+                        // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P2/P3) — elevation sibling of
+                        // skipInPlan. Meshes with a dedicated ELEVATION symbol (plumbing fixtures)
+                        // opt out of the generic true-edge projection in elevation views so the
+                        // LOD400 mesh edge-dump is replaced by the clean silhouette symbol below.
+                        // Section views are unaffected (a section legitimately cuts the fixture).
+                        if (isElevationView && mesh.userData.skipInElevation === true) {
+                            return;
+                        }
 
                         const elementType = mesh.userData?.elementType as string | undefined;
                         const layerName   = (elementType
@@ -2568,6 +2581,11 @@ export class EdgeProjectorService {
             // outline + ground-shadow offset + per-archetype crown pattern
             // + trunk dot) onto A-FURN with UUID registration for selection.
             treePlanSymbolBuilder.inject(drawing, viewDef);
+            // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P1) — plumbing fixtures tag
+            // skipInPlan so their LOD400 mesh edges are suppressed above; this injects
+            // the clean architectural plan symbol (bowl outline + cistern rectangle for
+            // toilets, basin/tray/tub outlines for the rest) onto A-PLMB, UUID-registered.
+            plumbingPlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // ── Phase 6: Window frame symbol injection ─────────────────────────────
@@ -2630,6 +2648,15 @@ export class EdgeProjectorService {
             viewDef.viewType === 'structural-plan'
         ) {
             wallLayerPlanSymbolBuilder.inject(drawing, viewDef);
+        }
+
+        // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P3) — elevation symbol injection.
+        // The GENUINELY-NEW elevation seam: plumbing fixtures opt their meshes out of
+        // the generic elevation edge-dump (skipInElevation, above) and this builder
+        // injects a clean silhouette + family profile onto A-PLMB. Runs BEFORE the
+        // occlusion + HLR passes so injected linework is occlusion-tested like any other.
+        if (isElevationView) {
+            plumbingElevationSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — elevation occlusion pass. The generic
