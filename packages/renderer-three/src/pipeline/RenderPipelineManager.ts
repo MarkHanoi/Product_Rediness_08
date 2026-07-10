@@ -376,6 +376,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._camera   = camera;
         this._renderer = renderer;
 
+        // §FIX-SHADOW-ENABLE-LATCH (founder L-205) — RE-ASSERT both shadow latches onto the
+        // (possibly freshly-swapped) renderer. `bind()` runs on the initial attach AND on a
+        // backend swap / recoverPipeline re-attach; a new renderer object carries THREE's
+        // defaults (`enabled=true`, `autoUpdate=true`), which would silently diverge from the
+        // latch's intended state. Asserting here makes the enable/freeze state an INVARIANT of
+        // whatever renderer is currently bound — the fix for "the leak survives a renderer
+        // identity change". P2/ADR-0111: timing flags only, no dispose, no mapSize change.
+        this._applyShadowEnabledState();
+        this._applyShadowFreezeState();
+
         const isWebGPU = RenderPipelineManager.isRealWebGPUBackend(renderer, backendIsWebGPU);
 
         if (!isWebGPU) {
@@ -888,17 +898,119 @@ export class RenderPipelineManager implements IViewSwitchListener {
         const shadowMap = (this._renderer as { shadowMap?: { autoUpdate?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
         if (!shadowMap) return;
         const shouldFreeze = this._shadowPassSuppressed || this._shadowReallocFreezeDepth > 0;
-        if (shouldFreeze === this._shadowFrozenState) return;
+        const transitioned = shouldFreeze !== this._shadowFrozenState;
         this._shadowFrozenState = shouldFreeze;
-        if (shouldFreeze) {
-            // Freeze: reuse the current ShadowDepthTexture, stop re-rendering it.
-            // THREE never destroys a frozen map, so no mid-submit destroy is possible.
-            shadowMap.autoUpdate = false;
-        } else {
-            // Resume: refresh the (frozen) map exactly once against the settled scene.
-            shadowMap.autoUpdate = true;
-            shadowMap.needsUpdate = true;
-        }
+        // §FIX-SHADOW-ENABLE-LATCH (founder L-205) — ASSERT `autoUpdate` on EVERY call
+        // (idempotent: same value ⇒ no thrash) rather than writing ONLY on a frozen⇄thawed
+        // transition. The transition-only writer was the L-205 grey-catcher trap: after a
+        // renderer REPLACEMENT (bind / backend swap / recoverPipeline) `this._renderer` is a
+        // fresh object whose `shadowMap.autoUpdate` defaults to `true`, but the cached
+        // `_shadowFrozenState` may still read `true`, so the next thaw saw "no transition"
+        // and NEVER re-asserted — a leaked freeze left the live map with `autoUpdate=false`
+        // forever, so the first shadow caster's depth pass never rendered and the L0 ground
+        // catcher composited SOLID GREY. Asserting every call, plus re-invoking this from
+        // {@link bind}, guarantees the NEW renderer always carries the intended freeze state.
+        shadowMap.autoUpdate = !shouldFreeze;
+        // Only KICK a one-shot refresh on a real THAW transition — never mid-freeze (that
+        // would force a depth pass while the texture may still be in a submit; ADR-0111).
+        if (transitioned && !shouldFreeze) shadowMap.needsUpdate = true;
+    }
+
+    // ── §FIX-SHADOW-ENABLE-LATCH (founder L-205) — single-owner shadow-PASS enable latch ──
+    /**
+     * `renderer.shadowMap.enabled` is a GLOBAL GPU flag. Before L-205 it was save/restored
+     * by FIVE modules across FOUR packages (BatchCoordinator + CurtainWallBuilder via the
+     * `__pryzmBatchShadowWasEnabled` window hand-off, initUI's Cast-shadows toggle + IFC
+     * streaming, PerformanceModePanel, ShadowQualityUpgrader) with NO single owner and NO
+     * invariant. Any consumer that threw between save and restore leaked `enabled=false`
+     * FOREVER (P4 violation: shared `window` state; P2 violation: `renderer.shadowMap` poked
+     * from L4/L7 packages). {@link requestShadowRefresh} then silently no-op'd, so nothing
+     * ever recovered — the exact "grey square until a manual backend swap" the founder saw
+     * (a swap constructs a fresh adapter with `enabled=true`, masking the leak).
+     *
+     * This manager (renderer-three, the L1 THREE owner — P2) is now the SOLE writer of
+     * `shadowMap.enabled`. Two orthogonal channels compose into it:
+     *   • PREFERENCES ({@link _shadowPrefs}) — persistent user/mode choices (Cast-shadows
+     *     toggle, performance mode). Effective-enabled requires EVERY preference `true`.
+     *   • SUPPRESSIONS ({@link _shadowSuppressions}) — transient, ref-counted-by-reason
+     *     (batch PSO-storm, IFC streaming). Effective-enabled requires EVERY count `0`.
+     * Modelling them separately means a transient release can NEVER override a user's
+     * explicit OFF, and a user toggle can never strand a transient suppression.
+     */
+    private _shadowPrefs = new Map<string, boolean>();
+    private _shadowSuppressions = new Map<string, number>();
+
+    private _shadowsEffectivelyEnabled(): boolean {
+        for (const enabled of this._shadowPrefs.values()) if (!enabled) return false;
+        for (const count of this._shadowSuppressions.values()) if (count > 0) return false;
+        return true;
+    }
+
+    /**
+     * THE ONLY writer of `renderer.shadowMap.enabled`. Idempotent — writes only on a real
+     * change, but re-computes from the latch every call, so re-invoking it from {@link bind}
+     * re-asserts the intended state onto a freshly-swapped renderer (closing the L-205 leak).
+     * ADR-0111: touches only the timing flag `enabled` (skips/runs the pass) — never disposes
+     * a texture, never resizes a live caster's mapSize.
+     */
+    private _applyShadowEnabledState(): void {
+        const shadowMap = (this._renderer as { shadowMap?: { enabled?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
+        if (!shadowMap) return;
+        const enabled = this._shadowsEffectivelyEnabled();
+        if (shadowMap.enabled === enabled) return;
+        shadowMap.enabled = enabled;
+        // Re-enabling: ask for one depth render so the freshly-enabled pass repaints the
+        // settled scene — unless a freeze latch is deliberately holding the map quiet
+        // (its deferred thaw owns the refresh then).
+        if (enabled && !this._shadowFrozenState) shadowMap.needsUpdate = true;
+    }
+
+    /**
+     * Set a persistent shadow PREFERENCE (a user/mode choice, NOT a transient suppression).
+     * `source` namespaces independent choosers ('user' = Cast-shadows toggle, 'performance'
+     * = performance mode) so they compose without clobbering each other. Effective-enabled
+     * requires every preference `true`. P2: the sole `renderer.shadowMap.enabled` write lives
+     * here; L4/L7 callers dispatch DOWN into this facade instead of poking the renderer.
+     */
+    setShadowsEnabledPreference(source: string, enabled: boolean): void {
+        this._shadowPrefs.set(source, enabled);
+        this._applyShadowEnabledState();
+    }
+
+    /**
+     * Push a transient shadow-PASS suppression, ref-counted under `reason`. Returns an
+     * idempotent, exception-safe release handle: call it (ideally in a `finally`) to pop.
+     * Calling the handle twice pops only once, so a throwing consumer that releases in
+     * `finally` can never leak the flag. Multiple concurrent pushes under the same reason
+     * stack; the pass re-enables only when the LAST releases AND no preference forbids it.
+     */
+    pushShadowPassDisabled(reason: string): () => void {
+        this._shadowSuppressions.set(reason, (this._shadowSuppressions.get(reason) ?? 0) + 1);
+        this._applyShadowEnabledState();
+        let released = false;
+        return (): void => {
+            if (released) return;
+            released = true;
+            const next = (this._shadowSuppressions.get(reason) ?? 0) - 1;
+            if (next <= 0) this._shadowSuppressions.delete(reason);
+            else this._shadowSuppressions.set(reason, next);
+            this._applyShadowEnabledState();
+        };
+    }
+
+    /**
+     * Symmetric boolean form for suppressions whose push and release happen in DIFFERENT
+     * modules (the batch PSO-storm: `BatchCoordinator._setupBatch` disables; either
+     * `CurtainWallBuilder._reactivateShadows` ~30 s later OR the BatchCoordinator fallback
+     * re-enables). Boolean-presence per reason (not counted) so the several batch restore
+     * paths collapse to one idempotent release — replacing the cross-package
+     * `__pryzmBatchShadowWasEnabled` window hand-off entirely. A given reason MUST use either
+     * this or {@link pushShadowPassDisabled}, never both.
+     */
+    setShadowPassDisabled(reason: string, disabled: boolean): void {
+        if (disabled) this._shadowSuppressions.set(reason, 1);
+        else this._shadowSuppressions.delete(reason);
+        this._applyShadowEnabledState();
     }
 
     /**
@@ -937,7 +1049,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     requestShadowRefresh(): void {
         const shadowMap = (this._renderer as { shadowMap?: { enabled?: boolean; autoUpdate?: boolean; needsUpdate?: boolean } } | null)?.shadowMap;
-        if (!shadowMap || shadowMap.enabled === false) return;
+        if (!shadowMap) return;
+        // §FIX-SHADOW-ENABLE-LATCH (founder L-205) — `enabled === false` is now ALWAYS a
+        // LEGITIMATE suppression (user Cast-shadows OFF, performance mode, or a transient
+        // batch/IFC suppression), never a leak: {@link _applyShadowEnabledState} is the sole
+        // writer and the ref-counted latch makes an accidental leak impossible. So this early
+        // return is a deliberate "shadows are off on purpose", not the silent bug-mask it was
+        // before L-205 (when a leaked `enabled=false` stranded the refresh forever).
+        if (shadowMap.enabled === false) return;
         if (this._webGpuActive &&
             (this._shadowFrozenState || this._shadowReallocFreezeDepth > 0 || this._shadowPassSuppressed)) {
             // Frozen — the thaw will refresh. Forcing it now would destroy the texture mid-submit.
@@ -970,11 +1089,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * rendered (every fragment reads "fully shadowed"), and INVISIBLE when the map is live
      * and the fragment is lit. Five independent mechanisms can stop that depth pass:
      *
-     *   1. `shadowMap.enabled === false`  — five modules save/restore this global flag
-     *      (BatchCoordinator + CurtainWallBuilder via the `__pryzmBatchShadowWasEnabled`
-     *      window hand-off, initUI thumbnail capture, PerformanceModePanel,
-     *      ShadowQualityUpgrader). Any throw between save and restore leaks it OFF, and
-     *      {@link requestShadowRefresh} then silently no-ops forever.
+     *   1. `shadowMap.enabled === false`  — post-L-205 the SINGLE-OWNER enable latch
+     *      ({@link setShadowsEnabledPreference} + {@link pushShadowPassDisabled} /
+     *      {@link setShadowPassDisabled}) is the sole writer, so this is always a LEGITIMATE
+     *      preference/suppression (reported below as `prefs`/`suppress`), never the leaked
+     *      global it was when five modules save/restored it via `__pryzmBatchShadowWasEnabled`.
      *   2. `shadowMap.autoUpdate === false` — a leaked freeze latch (`_shadowFrozenState` /
      *      `_shadowReallocFreezeDepth` / `_shadowPassSuppressed`, ADR-0111).
      *   3. `keyLight.castShadow === false` — the nav-LOD / heavy-scene lever dropped it.
@@ -1019,7 +1138,9 @@ export class RenderPipelineManager implements IViewSwitchListener {
             `mapSize=${kl?.shadow?.mapSize?.width ?? '?'} ` +
             `frustum=[${cam ? `${cam.left},${cam.right},${cam.top},${cam.bottom},near=${cam.near},far=${cam.far}` : 'n/a'}] ` +
             `| scenePass=${this._scenePass ? 'built' : 'NULL'} ` +
-            `__pryzmBatchShadowWasEnabled=${(globalThis as Record<string, unknown>).__pryzmBatchShadowWasEnabled ?? 'absent'}`,
+            `| effEnabled=${this._shadowsEffectivelyEnabled()} ` +
+            `prefs={${Array.from(this._shadowPrefs.entries()).map(([k, v]) => `${k}:${v}`).join(',') || '∅'}} ` +
+            `suppress={${Array.from(this._shadowSuppressions.entries()).map(([k, v]) => `${k}:${v}`).join(',') || '∅'}}`,
         );
     }
 
@@ -1334,6 +1455,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._shadowPassSuppressed             = false;
         this._shadowReallocFreezeDepth         = 0;
         this._shadowFrozenState                = false;
+        // §FIX-SHADOW-ENABLE-LATCH — a rebound singleton starts with a clean enable latch
+        // (no stale transient suppressions; preferences re-seed from the fresh UI state).
+        this._shadowPrefs.clear();
+        this._shadowSuppressions.clear();
     }
 
     // ── Phase 3: SSGI activation ──────────────────────────────────────────

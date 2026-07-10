@@ -25,6 +25,13 @@ interface PerfPanelState {
     prevLevel:      EnhancementLevel;
 }
 
+/**
+ * §FIX-SHADOW-ENABLE-LATCH (founder L-205) — narrow typed view of renderer-three's
+ * RenderPipelineManager shadow-enable latch. Performance mode records a persistent shadow
+ * PREFERENCE via the L1 THREE owner (P2) rather than poking `renderer.shadowMap` directly.
+ */
+type ShadowLatchRpm = { setShadowsEnabledPreference?(source: string, enabled: boolean): void };
+
 // ── PerformanceModePanel ────────────────────────────────────────────────────
 
 export class PerformanceModePanel {
@@ -361,13 +368,13 @@ export class PerformanceModePanel {
         const rpm = window.renderPipelineManager; // TODO(D.4): legacy renderPipelineManager — replace with runtime.scene.renderer.pipeline
         const coordinator = window.renderingPipelineCoordinator; // TODO(D.4): legacy renderingPipelineCoordinator — replace with runtime.scene.renderer.pipeline coordinator
 
-        // Access renderer via OBC world (most reliable path)
-        const world = window.world ?? window.obcWorld; // TODO(D.4): legacy obcWorld — replace with runtime.scene.world (ThatOpen)
-        const renderer = world?.renderer?.three ?? world?.renderer;
-        if (renderer?.shadowMap) {
-            renderer.shadowMap.enabled = enabled;
-            if (!enabled) renderer.shadowMap.needsUpdate = false;
-        }
+        // §FIX-SHADOW-ENABLE-LATCH (founder L-205) — performance mode is a persistent MODE
+        // choice, so record it as a shadow PREFERENCE (source 'performance') in
+        // renderer-three's single-owner latch. This reaches the LIVE renderer via the L1 THREE
+        // owner (P2); the pre-L-205 poke of `world.renderer.three.shadowMap` hit the SILENCED
+        // OBC WebGL renderer and never quieted the live WebGPU pass. Composing as a preference
+        // keeps it independent of transient batch/IFC suppressions.
+        (rpm as unknown as ShadowLatchRpm | undefined)?.setShadowsEnabledPreference?.('performance', enabled);
 
         // Also toggle via coordinator if available
         if (!enabled && coordinator) {

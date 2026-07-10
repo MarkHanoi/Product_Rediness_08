@@ -127,6 +127,14 @@ import type {
 } from './GeometryWorkerTypes';
 
 /**
+ * §FIX-SHADOW-ENABLE-LATCH (founder L-205) — narrow typed view of renderer-three's
+ * RenderPipelineManager latch entry point. Lets the batch shadow-reactivation RELEASE the
+ * 'batch' suppression by calling DOWN into the L1 THREE owner instead of poking
+ * `renderer.shadowMap.enabled` directly (P2) or hand-off via a `window` global (P4).
+ */
+type ShadowLatchRpm = { setShadowPassDisabled?(reason: string, disabled: boolean): void };
+
+/**
  * §CURTAIN-WALL-AUDIT-2026 §5.4 — Dependency-injection struct for
  * CurtainWallBuilder. Cross-layer collaborators (bimManager, panelStore,
  * roomTopologyObserver, planSymbolCache) MUST be supplied explicitly so the
@@ -1379,16 +1387,14 @@ export class CurtainWallBuilder {
 
         if (pending.length === 0) {
             // §K.1-SHADOW-MAP-RESTORE (empty batch path): No walls to reactivate, but
-            // BatchCoordinator._setupBatch() may have suppressed the WebGPU renderer's
-            // shadowMap. Restore it immediately so an all-slab or zero-CW batch does not
-            // leave shadows permanently disabled.
+            // BatchCoordinator._setupBatch() may have suppressed the shadow pass. Release the
+            // 'batch' suppression via renderer-three's single-owner latch so an all-slab or
+            // zero-CW batch does not leave shadows disabled. §FIX-SHADOW-ENABLE-LATCH (L-205):
+            // boolean-presence-per-reason ⇒ idempotent; the latch keeps the user's Cast-shadows
+            // PREFERENCE independent, so this never re-enables shadows the user turned OFF.
             try {
-                const webgpuRenderer = window.pryzmRenderer;
-                if (webgpuRenderer?.shadowMap && '__pryzmBatchShadowWasEnabled' in window) {
-                    const wasEnabled = Boolean(window.__pryzmBatchShadowWasEnabled ?? true);
-                    webgpuRenderer.shadowMap.enabled = wasEnabled;
-                    delete window.__pryzmBatchShadowWasEnabled;
-                }
+                (window.renderPipelineManager as unknown as ShadowLatchRpm | undefined)
+                    ?.setShadowPassDisabled?.('batch', false);
             } catch { /* non-fatal */ }
             return;
         }
@@ -1446,23 +1452,20 @@ export class CurtainWallBuilder {
                 );
             } else {
                 this._shadowSliceDisposer = null;
-                // §K.1-SHADOW-MAP-RESTORE: re-enable the WebGPU renderer's shadowMap
-                // suppressed by BatchCoordinator._setupBatch() (§BATCH-SHADOW-MAP-SUPPRESS).
-                // Reads window.__pryzmBatchShadowWasEnabled — the state captured before the
-                // batch — so we restore to EXACTLY what the user had, not blindly to true.
-                // This correctly honours: user toggled shadows OFF before or during the batch,
-                // user had shadows on (normal case → restore to true).
+                // §K.1-SHADOW-MAP-RESTORE / §FIX-SHADOW-ENABLE-LATCH (L-205): release the
+                // 'batch' shadow-PASS suppression pushed by BatchCoordinator._setupBatch()
+                // (§BATCH-SHADOW-MAP-SUPPRESS) DOWN into renderer-three's single-owner latch.
+                // The latch composes the release with the user's Cast-shadows PREFERENCE, so
+                // the pass re-enables to EXACTLY what the user had — the pre-L-205
+                // `__pryzmBatchShadowWasEnabled` window hand-off (which this replaces) captured
+                // that manually and could leak the flag OFF on any throw between save/restore.
                 try {
-                    const webgpuRenderer = window.pryzmRenderer;
-                    if (webgpuRenderer?.shadowMap && '__pryzmBatchShadowWasEnabled' in window) {
-                        const wasEnabled = Boolean(window.__pryzmBatchShadowWasEnabled ?? true);
-                        webgpuRenderer.shadowMap.enabled = wasEnabled;
-                        delete window.__pryzmBatchShadowWasEnabled;
-                        console.log(
-                            `[CurtainWallBuilder] §K1-SHADOW-MAP-RESTORED ` +
-                            `shadowMap.enabled=${wasEnabled} (pre-batch state restored)`
-                        );
-                    }
+                    (window.renderPipelineManager as unknown as ShadowLatchRpm | undefined)
+                        ?.setShadowPassDisabled?.('batch', false);
+                    console.log(
+                        `[CurtainWallBuilder] §K1-SHADOW-MAP-RESTORED ` +
+                        `setShadowPassDisabled('batch', false) (pre-batch shadow preference restored)`
+                    );
                 } catch { /* non-fatal */ }
                 console.log(
                     `[CurtainWallBuilder] §K1-SHADOW-COMPLETE ${pending.length} walls reactivated. ` +

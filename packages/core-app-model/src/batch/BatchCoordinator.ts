@@ -104,6 +104,16 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { viewDependencyTracker } from '../views/ViewDependencyTracker';
 import { unifiedFrameLoop } from '../rendering/UnifiedFrameLoop';
 
+/**
+ * §FIX-SHADOW-ENABLE-LATCH (founder L-205) — the narrow view of renderer-three's
+ * RenderPipelineManager needed to dispatch a transient shadow-PASS suppression DOWN into
+ * the single-owner latch. `window.renderPipelineManager` is typed with an opaque index
+ * signature in this package's global augmentation; this typed projection (NOT `any`, so P4
+ * holds) exposes only the latch entry point. renderer-three (L1) remains the sole writer of
+ * `renderer.shadowMap.enabled`.
+ */
+type ShadowLatchRpm = { setShadowPassDisabled?(reason: string, disabled: boolean): void };
+
 export interface BatchOptions {
     /** Level IDs affected by the batch — used for the final REDETECT_ROOMS sweep. */
     levelIds: string[];
@@ -1358,29 +1368,23 @@ class BatchCoordinatorImpl {
         // is re-rendered into the shadow map on each of the ~120 frames in a typical 2-second
         // batch — adding measurable GPU cost and competing with the CPU-side build drain.
         //
-        // Fix: set pryzmRenderer.shadowMap.enabled=false at batch start so the renderer
-        // skips the shadow depth pass entirely. CurtainWallBuilder._reactivateShadows()
-        // restores the correct state at T+30s (after the PSO-compile storm clears) by
-        // reading window.__pryzmBatchShadowWasEnabled.
-        //
-        // Edge cases handled:
-        //   • User toggles shadows OFF during the batch → toggleShadows() updates
-        //     __pryzmBatchShadowWasEnabled to false → restore honours their choice.
-        //   • No CW shadow callbacks registered (slab-only batch) → _executeFinalSweep()
-        //     onComplete restores the shadow map as a safety fallback.
-        //   • pryzmRenderer not yet initialised (early batches) → guarded by try/catch.
+        // Fix (§FIX-SHADOW-ENABLE-LATCH, founder L-205): push a transient shadow-PASS
+        // suppression under the reason 'batch' DOWN into renderer-three's single-owner latch
+        // (P2: the L1 THREE owner is the ONLY writer of `shadowMap.enabled`; L4 batch code
+        // must not poke `renderer.shadowMap` directly). Either CurtainWallBuilder
+        // ._reactivateShadows() at T+30s OR the _executeFinalSweep() fallback below RELEASES
+        // it via `setShadowPassDisabled('batch', false)`. The latch composes with the user's
+        // Cast-shadows PREFERENCE, so releasing the batch suppression can never re-enable
+        // shadows the user turned OFF — replacing the old `__pryzmBatchShadowWasEnabled`
+        // window hand-off (deleted; P4) and its save/restore leak surface.
         try {
-            const webgpuRenderer = window.pryzmRenderer;
-            if (webgpuRenderer?.shadowMap) {
-                window.__pryzmBatchShadowWasEnabled = webgpuRenderer.shadowMap.enabled;
-                webgpuRenderer.shadowMap.enabled = false;
-                console.log(
-                    `[BatchCoordinator] §BATCH-SHADOW-MAP-SUPPRESS shadowMap.enabled=false ` +
-                    `(was=${window.__pryzmBatchShadowWasEnabled}) — shadow depth pass ` +
-                    `suppressed for batch duration batchId=${this._currentBatchId}`
-                );
-            }
-        } catch { /* non-fatal — pryzmRenderer may not be initialised at batch start */ }
+            (window.renderPipelineManager as unknown as ShadowLatchRpm | undefined)
+                ?.setShadowPassDisabled?.('batch', true);
+            console.log(
+                `[BatchCoordinator] §BATCH-SHADOW-MAP-SUPPRESS setShadowPassDisabled('batch', true) — ` +
+                `shadow depth pass suppressed for batch duration batchId=${this._currentBatchId}`
+            );
+        } catch { /* non-fatal — renderPipelineManager may not be initialised at batch start */ }
 
         console.log(
             `[BatchCoordinator] §TRACE _setupBatch — ${opts.levelIds.length} level(s), ` +
@@ -1504,19 +1508,19 @@ class BatchCoordinatorImpl {
 
                 // §BATCH-SHADOW-MAP-RESTORE-FALLBACK: safety net for batches that have no
                 // CurtainWall shadow-reactivation callbacks (e.g. slab-only batches, or
-                // batches where CurtainWallBuilder._reactivateShadows() returned early via
-                // the pending.length===0 path without clearing __pryzmBatchShadowWasEnabled).
-                // CurtainWallBuilder clears __pryzmBatchShadowWasEnabled in its restore paths;
-                // if the key still exists here it means no CW reactivation ran — we restore now.
+                // batches where CurtainWallBuilder._reactivateShadows() returned early via the
+                // pending.length===0 path). §FIX-SHADOW-ENABLE-LATCH (L-205): unconditionally
+                // RELEASE the 'batch' suppression via the single-owner latch — boolean-presence
+                // per reason makes this idempotent, so it is harmless if CurtainWallBuilder
+                // already released, and it can never re-enable shadows the user toggled OFF
+                // (the latch keeps the user PREFERENCE independent of transient suppressions).
                 try {
-                    const webgpuRenderer = window.pryzmRenderer;
-                    if (webgpuRenderer?.shadowMap && '__pryzmBatchShadowWasEnabled' in window) {
-                        const wasEnabled = Boolean(window.__pryzmBatchShadowWasEnabled ?? true);
-                        webgpuRenderer.shadowMap.enabled = wasEnabled;
-                        delete window.__pryzmBatchShadowWasEnabled;
+                    (window.renderPipelineManager as unknown as ShadowLatchRpm | undefined)
+                        ?.setShadowPassDisabled?.('batch', false);
+                    {
                         console.log(
                             `[BatchCoordinator] §BATCH-SHADOW-MAP-RESTORE-FALLBACK ` +
-                            `shadowMap.enabled=${wasEnabled} (no CW shadow callbacks ran)`
+                            `setShadowPassDisabled('batch', false) (idempotent; no CW shadow callbacks ran)`
                         );
                     }
                 } catch { /* non-fatal */ }

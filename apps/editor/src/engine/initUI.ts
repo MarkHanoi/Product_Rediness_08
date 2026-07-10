@@ -166,6 +166,17 @@ type IfcImportOverlay = {
     remove: () => void;
 };
 
+/**
+ * §FIX-SHADOW-ENABLE-LATCH (founder L-205) — narrow typed view of renderer-three's
+ * RenderPipelineManager shadow-enable latch. The Cast-shadows toggle records a persistent
+ * PREFERENCE; IFC streaming pushes a transient SUPPRESSION. Both call DOWN into the L1 THREE
+ * owner (P2) instead of poking `renderer.shadowMap` or a `window` global (P4).
+ */
+type ShadowLatchRpm = {
+    setShadowsEnabledPreference?(source: string, enabled: boolean): void;
+    pushShadowPassDisabled?(reason: string): () => void;
+};
+
 
 function createIfcImportOverlay(fileName: string): IfcImportOverlay {
     document.getElementById('pryzm-ifc-import-overlay')?.remove();
@@ -1345,11 +1356,14 @@ export async function initUI(p: UIParams): Promise<void> {
             importOverlay.update('Streaming 3D geometry', 66, 'Creating WebGPU-safe meshes for the viewport.');
             const rpm = window.renderPipelineManager;
             if (rpm && typeof rpm.setSuspended === 'function') rpm.setSuspended(true);
-            // Disable shadow maps during streaming to avoid redundant shadow-map
-            // rebuilds for each mesh added to the scene.
-            const threeRenderer = (world as any).renderer?.three ?? (world as any).renderer;
-            const prevShadowEnabled = threeRenderer?.shadowMap?.enabled ?? true;
-            if (threeRenderer?.shadowMap) threeRenderer.shadowMap.enabled = false;
+            // §FIX-SHADOW-ENABLE-LATCH (founder L-205) — suppress the LIVE shadow PASS during
+            // streaming to avoid redundant shadow-map rebuilds per added mesh. Push a transient
+            // 'ifc-import' suppression DOWN into renderer-three's single-owner latch (P2). The
+            // pre-L-205 code poked `world.renderer.three.shadowMap` — the SILENCED OBC WebGL
+            // renderer — so it never actually quieted the live WebGPU pass; the latch targets
+            // the real renderer and cannot leak (idempotent release below).
+            const shadowSuppressRelease =
+                (rpm as unknown as ShadowLatchRpm | undefined)?.pushShadowPassDisabled?.('ifc-import') ?? null;
 
             const geoRenderer = new IfcGeometryRenderer(importer.getApi());
             const renderedModel = geoRenderer.renderFromOpenModel(
@@ -1393,7 +1407,10 @@ export async function initUI(p: UIParams): Promise<void> {
             importOverlay.update('Finalizing scene', 90, 'Uploading geometry and rebuilding rendering support.');
 
             // Restore shadow maps and resume post-FX pipeline now that all geometry is in place.
-            if (threeRenderer?.shadowMap) threeRenderer.shadowMap.enabled = prevShadowEnabled;
+            // §FIX-SHADOW-ENABLE-LATCH — release the transient 'ifc-import' shadow suppression
+            // (idempotent handle; the latch recomputes effective-enabled honouring the user's
+            // Cast-shadows preference).
+            try { shadowSuppressRelease?.(); } catch { /* non-fatal */ }
             if (rpm && typeof rpm.setSuspended === 'function') rpm.setSuspended(false);
 
             // Give the WebGPU pipeline one clean frame to build GPU handles
@@ -2561,11 +2578,15 @@ export async function initUI(p: UIParams): Promise<void> {
         // Without this, "Cast shadows" toggle has zero effect under WebGPU — it
         // only flips shadowedScene.shadowsEnabled on OBC's silenced renderer.
         try {
-            const webgpuRenderer = window.pryzmRenderer;
-            if (webgpuRenderer?.shadowMap) {
-                webgpuRenderer.shadowMap.enabled = enabling;
-            }
-        } catch { /* non-fatal — pryzmRenderer may not be initialised */ }
+            // §FIX-SHADOW-ENABLE-LATCH (founder L-205) — the Cast-shadows toggle is a
+            // persistent user PREFERENCE, not a transient suppression. Record it as such in
+            // renderer-three's single-owner latch (P2: the L1 THREE owner is the sole writer
+            // of `shadowMap.enabled`). Because preference and transient batch/IFC suppressions
+            // are modelled independently, a batch release can never override the user's OFF,
+            // and this toggle never strands an in-flight suppression.
+            (window.renderPipelineManager as unknown as ShadowLatchRpm | undefined)
+                ?.setShadowsEnabledPreference?.('user', enabling);
+        } catch { /* non-fatal — renderPipelineManager may not be initialised */ }
 
         // ── Sync castShadow/receiveShadow on ALL scene meshes (both directions) ──
         // The prior implementation only traversed meshes when ENABLING shadows,
@@ -2583,12 +2604,11 @@ export async function initUI(p: UIParams): Promise<void> {
             await shadowedScene.updateShadows();
         }
 
-        // ── Batch-window guard ────────────────────────────────────────────────────
-        // BatchCoordinator._setupBatch() stores window.__pryzmBatchShadowWasEnabled
-        // so _reactivateShadows() can restore the renderer to the pre-batch state at
-        // T+30s. If the user explicitly toggles shadows during a batch, update that
-        // flag so the restore honours the user's actively chosen state.
-        window.__pryzmBatchShadowWasEnabled = enabling;
+        // §FIX-SHADOW-ENABLE-LATCH (founder L-205) — the former batch-window guard
+        // (`window.__pryzmBatchShadowWasEnabled = enabling`) is GONE. The user's toggle is now
+        // a first-class PREFERENCE in the latch, independent of the transient 'batch'
+        // suppression, so a mid-batch toggle is honoured automatically when the batch releases
+        // — no window hand-off, no save/restore race.
 
         updateIfManualMode();
     };
