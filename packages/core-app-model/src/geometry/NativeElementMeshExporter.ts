@@ -120,11 +120,21 @@ export class NativeElementMeshExporter {
      * a single `exportForView()` pass produced more misses than the cap, so each
      * miss evicted an entry inserted EARLIER IN THE SAME PASS, and the next
      * projection re-expanded every element from scratch (the continuous
-     * `§H2 evicted …:full` thrash observed on the tower). We grow the cap to hold
-     * the current view's full element set (+25% headroom) so a whole view fits
-     * without self-eviction, bounded by HARD_CAP for memory safety. The cap only
-     * ratchets UP within a session (never shrinks) so alternating between a large
-     * and a small view does not re-introduce thrash on the large one.
+     * `§H2 evicted …:full` thrash observed on the tower).
+     *
+     * §FIX-ELEV-NME-CACHE-MULTIVIEW (L-114) — sizing the cap off ONE view's element
+     * count was necessary but NOT sufficient: `_proxyCache` is a SINGLE GLOBAL LRU
+     * shared across every view (keys embed viewId), so with the 4 default L-110
+     * elevations (+3D) each exporting ~all N elements, a single-view cap only ever
+     * held ONE view's worth. Switching the ACTIVE view (South→East→South) then
+     * re-evicted the previous elevation's entries and reprojected from scratch —
+     * L-114's 0% hit rate, now the dominant residual after L-117 made only the
+     * active view reproject. The cap is therefore the HARD_CAP-bounded SUM of the
+     * per-view working sets actually seen (each view sized to hold its own element
+     * set + 25% headroom), so plan + the 4 elevations COEXIST without evicting each
+     * other. Bounded by HARD_CAP for memory. The cap only ratchets UP within a
+     * session (never shrinks) so alternating between a large and a small view does
+     * not re-introduce thrash on the large one.
      */
     private static readonly BASE_CACHE_ENTRIES = 500;
     /** Hard ceiling on adaptive growth. At ~131 avg proxies × ~120 B/descriptor the
@@ -132,6 +142,16 @@ export class NativeElementMeshExporter {
      *  1.5 GB session budget; a plain-wall tower is a small fraction of that. */
     private static readonly HARD_CAP_CACHE_ENTRIES = 6000;
     private _maxCacheEntries = NativeElementMeshExporter.BASE_CACHE_ENTRIES;
+
+    /**
+     * §FIX-ELEV-NME-CACHE-MULTIVIEW (L-114) — per-view desired cache capacity
+     * (ceil(elementCount × 1.25)), keyed by viewId. `_maxCacheEntries` is the
+     * HARD_CAP-bounded SUM of these so concurrently-open views (plan + the 4 default
+     * elevations + 3D) never evict each other's proxy descriptors. Ratchets up per
+     * view only; descriptors hold SHARED geometry refs (no geometry duplication) so
+     * the per-entry cost is the descriptor array + userData, not mesh data.
+     */
+    private readonly _viewDesiredCap = new Map<string, number>();
 
     constructor() {
         // §H.2 — Wire onUnregister so removed elements are immediately evicted from
@@ -252,19 +272,38 @@ export class NativeElementMeshExporter {
             );
         }
 
-        // §FIX-NME-ADAPTIVE-LRU (L-117 / L-118 / L-114) — ratchet the proxy-cache
-        // capacity up so this whole view's element set fits without self-eviction.
-        // Without this, a ~1006-element elevation (or a 2000+ element tower) against
-        // the old fixed 500 cap thrashed to a 0% hit rate — every projection
-        // re-expanded all elements. Never shrinks within a session.
+        // §FIX-ELEV-NME-CACHE-MULTIVIEW (L-114 / L-117 / L-118) — ratchet the GLOBAL
+        // proxy-cache capacity to the SUM of the per-view working sets we have seen
+        // (each view sized to hold its own element set + 25% headroom). The cache is
+        // one shared LRU keyed by (elementId, viewId, version, cropKey); sizing off a
+        // SINGLE view's count (the prior §FIX-NME-ADAPTIVE-LRU) fixed a view thrashing
+        // ITSELF but not the multi-view case — with the 4 default elevations (+3D)
+        // each exporting ~all N elements, switching the active view re-evicted the
+        // previous elevation and reprojected from scratch (L-114's 0% hit). Summing
+        // the per-view desired caps lets plan + the 4 elevations coexist without
+        // evicting each other. Bounded by HARD_CAP for memory; never shrinks.
+        const viewCapKey = viewDef.id ?? '';
+        const thisViewDesired = Math.ceil(elementIds.length * 1.25);
+        if (thisViewDesired > (this._viewDesiredCap.get(viewCapKey) ?? 0)) {
+            this._viewDesiredCap.set(viewCapKey, thisViewDesired);
+        }
+        let summedDesired = 0;
+        for (const cap of this._viewDesiredCap.values()) summedDesired += cap;
         const desiredCap = Math.min(
             NativeElementMeshExporter.HARD_CAP_CACHE_ENTRIES,
-            Math.max(
-                NativeElementMeshExporter.BASE_CACHE_ENTRIES,
-                Math.ceil(elementIds.length * 1.25),
-            ),
+            Math.max(NativeElementMeshExporter.BASE_CACHE_ENTRIES, summedDesired),
         );
-        if (desiredCap > this._maxCacheEntries) this._maxCacheEntries = desiredCap;
+        if (desiredCap > this._maxCacheEntries) {
+            this._maxCacheEntries = desiredCap;
+            // §FIX-ELEV-NME-CACHE-MULTIVIEW — surface every cap ratchet so the working
+            // set the cache is sized for is never silently changed (nothing is culled;
+            // this only GROWS headroom so no geometry is dropped).
+            console.log(
+                `[NME] §FIX-ELEV-NME-CACHE-MULTIVIEW cap→${desiredCap} ` +
+                `(views=${this._viewDesiredCap.size} summedDesired=${summedDesired} ` +
+                `hardCap=${NativeElementMeshExporter.HARD_CAP_CACHE_ENTRIES})`,
+            );
+        }
 
         // DOC-4.4 — Read optional crop region for XZ AABB pre-filter.
         //
