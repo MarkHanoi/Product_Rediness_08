@@ -30,7 +30,22 @@ export class RoomBoundingLineBuilder {
   private _roots: Map<string, THREE.Group> = new Map();
   private _scene: THREE.Scene;
   private _bimManager: BimManager;
-  private _visible: boolean = true;
+  // §FIX-RBL-3D-XRAY-ALWAYS-ON (L-210) — the 3D mesh representation defaults to
+  // HIDDEN. A room-bounding line is a PLAN / documentation construct (it defines
+  // a room boundary so areas and finishes can be computed); its 3D mesh is NOT a
+  // modelled element and must not paint over the building unbidden. Per P7
+  // (visibility is domain INTENT, not an always-on renderer flag) the mesh is
+  // opt-in: it becomes visible only through the visibility path — {@link setVisible}
+  // — exactly as RoomLabelRenderer's `_visible` flag governs the 3D room-name
+  // sprites (packages/room-topology/src/RoomLabelRenderer.ts:38 + setRoomLabelsVisible),
+  // except this documentation overlay defaults OFF rather than ON. New roots inherit
+  // this flag in {@link build} (`root.visible = this._visible`).
+  //
+  // NOTE: this does NOT touch the plan-view representation — the plan technical
+  // drawing is projected by EdgeProjectorService/NativeElementMeshExporter, which
+  // iterates elementRegistry roots and never consults the scene `.visible` flag,
+  // so the plan boundary lines are unaffected by this default.
+  private _visible: boolean = false;
 
   constructor(scene: THREE.Scene, bimManager: BimManager) {
     this._scene = scene;
@@ -91,6 +106,12 @@ export class RoomBoundingLineBuilder {
 
     const points = [start, end];
     const geo = new THREE.BufferGeometry().setFromPoints(points);
+    // §FIX-RBL-3D-XRAY-ALWAYS-ON (L-210) — depthTest stays at the THREE default
+    // (true) so that WHEN the overlay is enabled it OCCLUDES correctly behind
+    // floors / the roof / the façade instead of x-raying every storey at once.
+    // The former `depthTest: false` + `renderOrder = 1/2` pairing existed ONLY to
+    // force these lines to paint over all geometry; with real depth testing
+    // restored the render-order overrides are removed so the lines sort normally.
     const mat = new THREE.LineDashedMaterial({
       color,
       linewidth:   2,
@@ -98,25 +119,21 @@ export class RoomBoundingLineBuilder {
       gapSize:     0.12,
       transparent: true,
       opacity:     LINE_OPACITY,
-      depthTest:   false,
     });
     const line = new THREE.Line(geo, mat);
     line.computeLineDistances();
-    line.renderOrder = 1;
     root.add(line);
 
     // ── Endpoint diamonds ────────────────────────────────────────────────
     const diamondGeo = this._makeDiamondGeometry(ENDPOINT_SIZE);
-    const diamondMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: LINE_OPACITY, depthTest: false });
+    const diamondMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: LINE_OPACITY });
 
     const startMesh = new THREE.Mesh(diamondGeo, diamondMat);
     startMesh.position.set(data.placement.start.x, y, data.placement.start.z);
-    startMesh.renderOrder = 2;
     root.add(startMesh);
 
     const endMesh = new THREE.Mesh(diamondGeo.clone(), diamondMat.clone());
     endMesh.position.set(data.placement.end.x, y, data.placement.end.z);
-    endMesh.renderOrder = 2;
     root.add(endMesh);
 
     this._scene.add(root);
