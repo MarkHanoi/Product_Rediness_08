@@ -1892,3 +1892,32 @@ same field + ramp.
 
 **Contract mapping:** C21-CLIMATE-INGESTION, ADR-0074 (solar), ADR-0093 (façade analysis), A.24
 (Presentation render tier). Related: L-226 (globe autoframe, same geospatial surface).
+
+---
+
+## L-222 — FIXED (078fa550) + L-228 deferred
+
+§PERF-ELEV-CROP-DRAG-FLOW landed. The "crop drag" is a section/elevation **scope-box depth-handle**
+drag. `PlanViewInteraction._applyScopeDragFromPointer` (`:1139-1157`) fired **two** legacy
+`commandManager.execute` commands per throttled pointermove (`view.updateDefinition` + `view.setCrop`),
+each dispatching `vd:view-updated` → `PlanViewManager._onViewUpdated` reprojected on each → two
+projections/tick; the first saw the stale `far`. **D2 is caused by the two-command split — P1
+subsumed P3.**
+
+Fix: live drag = direct view-state write (0 undoable commands), ONE `view.updateDefinition` on
+pointer-up (undo entries: dozens → 1); projections frame-coalesced (superseded dropped); cache holds
+the warm drawing on a generation bump so a superseded projection hits reject, never stale-accept →
+**displayed generation monotonic** (the flicker). §FIX-PLAN-BLANK-STALEGEN (L-90) preserved untouched.
+
+**P6 (FastPathProjectorService) not routed** — hard-gated to orthographic plan previews, draws raw
+`EdgesGeometry` to an overlay; would change the elevation look mid-drag. "Flowing" comes from
+coalesce + hold-last-good instead.
+
+**⚠ P5 was a wrong root cause — the agent refuted it.** `_cwProjectionCache` stores post-classification
+geometry, and its `clipSignature` including `far` IS L-202's correctness fix. Removing `far` from the
+key reintroduces the L-202 defect. Deferred as **L-228** (§PERF-EDGEPROJECTOR-TWO-LEVEL-CACHE): a
+two-level cache — crop-invariant extraction (element+version) + per-crop re-classification (`far`).
+LOW priority (the flicker is already gone; the 0% hit-rate is now harmless because the warm drawing
+renders every frame). Must not regress L-202.
+
+Gate: core-app-model views 49/49, geometry-plumbing 16/16, root tsc exit 0. 6 files.
