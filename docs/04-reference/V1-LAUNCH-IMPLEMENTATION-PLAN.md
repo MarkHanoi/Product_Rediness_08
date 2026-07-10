@@ -1049,3 +1049,60 @@ the 3D sketch path this guard was added to gate).
 
 **Sequencing:** independent of L-215 / L-216. L-215 owns `UpdateElementParameterCommand` +
 `geometry-stair`; L-217 owns the view-state routing layer. Disjoint fences, may run in parallel.
+
+---
+
+## L-219 — §DIAG-WEBGPU-NEVER-ENGAGED  (HIGH; escalation of L-203; **BLOCKS L-208 / G3**)
+
+Founder: *"still webgl and webgpu render the same — mistake! I think webgl is not being triggered."*
+Two screenshots of the same model, toggle in different positions, pixel-indistinguishable.
+
+### What is already established (log + source, not inference)
+
+| Fact | Source |
+|---|---|
+| The pipeline reports it is **not** on WebGPU | founder's log: `[RenderPipelineManager] Phase: phase2 \| WebGPU: false \| SSGI: false \| TRAA: false` |
+| The active backend is `webgl-fallback` | founder's footer: `GPU: … WebGL · webgl-fallback` |
+| `webgl-fallback` = **WebGPURenderer on its WebGL2 backend**, NOT a plain `WebGLRenderer` | `apps/editor/src/rendering/createRenderer.ts:56-63` |
+| `webgl-only` (plain `WebGLRenderer`, "TSL pipeline NOT available") is a **third, distinct** state | ibid. `:60-61` |
+| Unset preference defaults to **`'webgl'`**, not `'auto'` | `createRenderer.ts:136-144` (§PERF-WEBGPU-FRAGMENT, ADR-0076) |
+| Every "working" run in the L-205 investigation was also `webgl-fallback` | L-205 evidence trail |
+
+### The architectural consequence
+
+The toggle's **"WebGL" position does not select a WebGL renderer.** It forces the *WebGPU* renderer
+onto a WebGL2 backend. If the `'webgpu'` position *also* degrades to `webgl-fallback` — via failed
+adapter acquisition, the device-loss safe-mode cap (`__pryzmDeviceLossRecoveryCap`), or the L-203
+swap-loop oscillation (`resolvedPreference=webgl (forceWebGL=true)`) — then **both positions resolve
+to the same renderer running the same pipeline, and identical pixels are the correct and inevitable
+output.** The toggle is then a no-op that advertises a choice the product does not have.
+
+**This invalidates L-208.** The founder's decision *"make WebGPU visibly better"* (SSGI/TRAA
+default-on, gate **G3**) is unobservable and untestable while the native backend is never acquired.
+`SSGI: false | TRAA: false` is precisely what `§PERF-WEBGL2-NO-TSL` prescribes on the WebGL2 path —
+so G3 would be built, shipped, and silently never run.
+
+### Measure before touching anything
+
+L-205 cost **ten** shipped root-cause attempts because it was debugged by inference. C04 §SHADOW.3
+made measure-first normative. It applies here. **Phase 1 is diagnostic-only; it produces no code
+change.**
+
+| Phase | Work |
+|---|---|
+| **P1 (read-only)** | On the founder's machine, for EACH preference (`auto` / `webgpu` / `webgl`): report `navigator.gpu` presence, `requestAdapter()` result, the resolved `window.pryzmRendererBackend`, and whether `forceWebGL` was applied and by whom. Suspicion: `webgl-fallback` for all three. |
+| **P2 (read-only)** | Determine whether `webgl-only` is reachable at all, and whether the device-loss safe-mode cap or the L-203 oscillation latches `forceWebGL=true` across reloads. |
+| **P3** | **Contract decision, then code.** Either the three toggle positions map to three genuinely distinct, observable renderer configurations — and the label names the backend **actually in force**, never the one requested — or the toggle reports its degradation and *why*. A toggle whose positions are indistinguishable is a lie in the UI. |
+| **P4** | Only once a native `'webgpu'` backend is provably acquired: revisit **L-208 / G3** (SSGI + TRAA default-on, tier-gated). |
+
+**Hard non-goal:** do NOT "fix" this by making the two positions render differently at the label or
+the tier level. The question is which GPU API is actually in force.
+
+**Contract mapping:** C04 (rendering & scheduling), ADR-0007 (WebGPU/WebGL2 dual mode), ADR-0076
+(§PERF-WEBGPU-FRAGMENT — the founder's `'webgl'` default), ADR-0077 (§RENDERER-LIVE-SWAP), L-203
+(backend oscillation), L-208 (WebGPU differentiation — **blocked by this**).
+
+**Fence note:** `RenderPipelineManager`, `PascalSceneLighting`, `RealSunService`,
+`RealEnvironmentService` and `BimWorld` are frozen under the **L-205** investigation (C04 §SHADOW).
+P1/P2 are read-only and therefore safe to run in parallel; P3 must wait for the L-205 fence to lift
+or be explicitly re-scoped.
