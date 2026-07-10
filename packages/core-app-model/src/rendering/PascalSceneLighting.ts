@@ -28,6 +28,16 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 
+/**
+ * §FIX-SHADOW-CASTER-DENYLIST (L-205) — a mesh whose world-space bounding radius exceeds this is
+ * scene infrastructure (a ground/backdrop plane), never a BIM element, and must never cast a
+ * shadow. For scale: a 40-storey tower is ~140 m tall on a ~44 m footprint (radius ~75 m); the
+ * whole Madrid site fits inside 500 m. A ground-level plane that casts shadows shadows the entire
+ * L0 shadow catcher, painting a solid grey rectangle the size of the shadow camera's footprint.
+ * See C04 §SHADOW.
+ */
+const MAX_CASTER_RADIUS_M = 500;
+
 export interface PascalLightingConfig {
     /** Whether the shadow-casting key light casts shadows (default: true) */
     castShadows: boolean;
@@ -336,6 +346,9 @@ export class PascalSceneLighting {
      */
     private _enableShadowsOnScene(scene: THREE.Scene): void {
         let count = 0;
+        /** §FIX-SHADOW-CASTER-DENYLIST (L-205) — offenders demoted this pass, for the log. */
+        const demoted: string[] = [];
+
         scene.traverse((obj) => {
             if (!(obj instanceof THREE.Mesh)) return;
 
@@ -345,8 +358,43 @@ export class PascalSceneLighting {
             if (role === 'edges' || role === 'edge-overlay') return;
             if (name.includes('edge') || name.includes('grid') || name.includes('collision')) return;
 
-            // Skip transparent/glass meshes — they cause shadow artifacts
             const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+
+            // §FIX-SHADOW-CASTER-DENYLIST (L-205) — a mesh that EXISTS TO RECEIVE a shadow must
+            // never CAST one. Previously the only thing keeping the L0 ground catcher out of the
+            // caster set was an incidental `transparent && opacity < 0.5` check, and that check
+            // merely `return`s: it never CLEARS a `castShadow` some other pass already set. A
+            // ground-level plane that casts shadows shadows the entire catcher, producing a solid
+            // grey rectangle bounded exactly by the shadow camera's footprint — at ±50 m a ~100 m
+            // square, at ±113 km the whole horizon. Demote explicitly, don't merely skip.
+            const isShadowReceiverPlane =
+                role === 'ground-shadow-catcher' ||
+                (mat as THREE.Material | undefined)?.type === 'ShadowMaterial';
+
+            // A real BIM element is never this large. A scene/ground plane always is. Any mesh
+            // above this radius is infrastructure, not geometry, and must not cast. This also
+            // catches whatever non-BIM plane the OBC ShadowedScene installs at boot (the scene
+            // has 2 meshes and 0 elements at that point, yet 1 was being flagged as a caster).
+            let radiusM = 0;
+            try {
+                if (!obj.geometry.boundingSphere) obj.geometry.computeBoundingSphere();
+                radiusM = (obj.geometry.boundingSphere?.radius ?? 0) *
+                    Math.max(Math.abs(obj.scale.x), Math.abs(obj.scale.y), Math.abs(obj.scale.z));
+            } catch { /* degenerate geometry — treat as small */ }
+            const isImplausiblyLarge = Number.isFinite(radiusM) && radiusM > MAX_CASTER_RADIUS_M;
+
+            if (isShadowReceiverPlane || isImplausiblyLarge) {
+                if (obj.castShadow) {
+                    obj.castShadow = false;   // demote: clear, don't just skip
+                    demoted.push(`${obj.name || '(unnamed)'}[${(mat as THREE.Material | undefined)?.type ?? '?'}` +
+                        `${role ? ` role=${role}` : ''} r=${radiusM.toFixed(0)}m]`);
+                }
+                // Receivers still receive — that is their whole purpose.
+                obj.receiveShadow = true;
+                return;
+            }
+
+            // Skip transparent/glass meshes — they cause shadow artifacts
             if (mat && (mat as THREE.MeshStandardMaterial).transparent &&
                 (mat as THREE.MeshStandardMaterial).opacity < 0.5) return;
 
@@ -358,6 +406,12 @@ export class PascalSceneLighting {
         });
         if (count > 0) {
             console.log(`[PascalSceneLighting] Shadow flags set on ${count} mesh(es).`);
+        }
+        if (demoted.length > 0) {
+            console.log(
+                `[PascalSceneLighting] §FIX-SHADOW-CASTER-DENYLIST demoted ${demoted.length} ` +
+                `non-caster mesh(es) (receiver plane or radius > ${MAX_CASTER_RADIUS_M} m): ${demoted.join(', ')}`,
+            );
         }
     }
 }
