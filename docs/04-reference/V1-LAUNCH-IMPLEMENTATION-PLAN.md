@@ -674,3 +674,70 @@ and should not start before G1/G2 regardless.
 default, capture frame time + device-loss telemetry on (a) a 2-storey house, (b) a 6-storey resi
 building, (c) a 40-storey tower, on both an integrated GPU and a discrete one. If the tower regresses,
 the tier gate — not the feature — is what ships.
+
+---
+
+# L-205 CLOSED — shadow caster-set ownership (ADR-0120, C04 §SHADOW)
+
+**Status: FIXED and founder-confirmed on prod** (`92f437a0`, live in `domain-engine-Dygm4jwC.js`).
+Element shadows now project correctly onto the invisible L0 ground layer; the grey rectangle is gone.
+
+## What it was
+
+`PascalSceneLighting._enableShadowsOnScene()` set `castShadow = true` on **every mesh in the scene**,
+filtered only by whether the mesh name contained `edge`/`grid`/`collision`. A non-BIM ground-level
+plane (installed by the OBC `ShadowedScene`) became a shadow caster. A ground-level plane that casts
+shadows the entire L0 catcher, so every catcher fragment inside the shadow camera reads
+`shadowMask = 0` and paints `alpha = opacity` — a solid grey rectangle **exactly the size of the
+shadow camera's footprint**.
+
+That last property is why it took ten attempts: resizing the shadow camera changed the grey's *size*
+(`±113,657 m` → horizon; `±50 m` → a 100 m diamond) and never its cause. Nine fixes read the
+symptom's dimensions as evidence about its origin.
+
+## Fix
+
+`§FIX-SHADOW-CASTER-DENYLIST` — **demote** (clear, never merely skip) any mesh that exists to
+*receive* a shadow, and any mesh whose world bounding radius exceeds `MAX_CASTER_RADIUS_M = 500`.
+Demotions are logged by name/type/role/radius. 5 tests pin the invariant, including a *pre-poisoned*
+catcher (must be cleared, not skipped) and a 40-storey tower (must still cast).
+
+## Governance written
+
+| Doc | Content |
+|---|---|
+| **C04 §SHADOW** | Mental model; true root cause; **11 normative rules**; a **measure-first debugging protocol**; the nine refuted hypotheses |
+| **ADR-0120** | Decision record: the caster set is owned, explicit, receiver-never-casts, size-bounded, self-logging |
+| **V1-LAUNCH-READINESS-AUDIT.md** | L-205 row rewritten with the true root cause and the three adjacent defects |
+
+## Three real defects found en route — none was the grey
+
+| Commit | Defect | Verdict |
+|---|---|---|
+| `d9b8f7cf` | Off-frame `createScenePass()` + pipeline dispose destroying the live `ShadowDepthTexture` mid-submit (`Destroyed texture … used in a submit` ×485, climbing) | **Real.** WebGPU device-loss hazard. Keep. |
+| `f4533641` (reverted) | Scene-AABB shadow-frustum fit deriving an **84 km** radius from a one-wall scene | **Real.** Why the grey once reached the horizon. Offending mesh **still unidentified**. |
+| `f3b28961` | OBC WebGL + PRYZM WebGPU renderers sharing one light's `shadow.map` slot | **Real** hazard, though three's `ShadowNode` proved robust. Keep. |
+
+**Finding a real bug adjacent to a symptom is not the same as finding the bug.**
+
+## Remaining work — sharpness, done safely (C04 §SHADOW.4)
+
+The shadow is now correct but **soft**: `metresPerTexel = 100 / 512 ≈ 0.195 m`. Sharpening is the
+founder's original Tuesday request, whose careless implementation started L-205. Do it in this order,
+each step verified on prod against `§DIAG-GROUND-SHADOW` before the next:
+
+| Gate | Work | Constraint |
+|---|---|---|
+| **S1** | Raise `mapSize` **once, at allocation time**, on the **fixed** camera: 512 → 2048 ⇒ `0.049 m/texel` (4×) | Never resize a live caster's map (C04 §SHADOW.2.6 / ADR-0111). Check `maxTextureSize`; degrade on `performance` and lower tiers — a 2048² depth texture is 4× the memory, and the 40-storey tower is a known device-loss scene. Pin `metresPerTexel` in a test (§SHADOW.2.5). |
+| **S2** | Only if S1 is insufficient: a **clamped** fit | Explicit max radius, `Number.isFinite` assert on every extent, log the offending object, fall back to the fixed frustum, and a regression test feeding the 84 km outlier. |
+| **S3** | Identify the mesh that poisoned the AABB to 84 km | Prerequisite for S2. Latent bug; a per-object bound dump at sweep time will name it. |
+
+**Non-goals:** do not shrink-wrap the shadow camera to sharpen (that is what exploded); do not
+reintroduce a geometry-driven `scheduleShadowRebuild()` or `onKeyLightDriven → requestShadowRefresh`;
+do not remove the caster denylist or the `alreadyAllocated` no-realloc guard.
+
+## Also re-test now that shadows work
+
+- **L-140** — "generated building casts no shadow." Almost certainly the same root cause; the fixed
+  ±50 m frustum may still clip a very tall building (that was L-140/L-168's original motivation for
+  the fit). Re-test before re-opening.

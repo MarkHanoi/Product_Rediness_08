@@ -107,6 +107,8 @@ The most-cited ADRs in the 2026-05 work:
 
 | ID | Used by |
 |---|---|
+| ADR-0120 | Shadow caster-set ownership — explicit, receiver-never-casts, size-bounded, self-logging. Referenced from C04 §SHADOW; closes L-205 |
+| ADR-0111 | Shadow lifecycle — never synchronously dispose a `ShadowDepthTexture`. Referenced from C04 §SHADOW |
 | ADR-014 | L7.5 promotion (ai-host lazy load) — referenced from [../../01-strategy/architecture.md](../../01-strategy/architecture.md), C09 |
 | ADR-029 | drawing-primitives multi-backend + PDF stub — referenced from C24, C29 |
 | ADR-031 | Sheets PRYZM 2 S37 substrate — referenced from C24 |
