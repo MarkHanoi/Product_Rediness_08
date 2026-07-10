@@ -460,6 +460,13 @@ declare global {
                  * the first time real geometry is added, so the pass sees the caster.
                  */
                 scheduleShadowRebuild?: () => void;
+                /**
+                 * §DIAG-GROUND-SHADOW (L-205) — read-only dump of every state that can leave
+                 * the key light's shadow depth map unrendered (shadowMap.enabled/autoUpdate,
+                 * the freeze latches, keyLight.castShadow, shadow.map, the ScenePass). Mutates
+                 * nothing; called from the first-caster gate to name the failing mechanism.
+                 */
+                logShadowDiagnostics?: (tag: string) => void;
               }
             | undefined;
         renderingPipelineCoordinator: unknown;

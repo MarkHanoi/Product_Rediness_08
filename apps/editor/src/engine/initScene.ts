@@ -3233,6 +3233,17 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             } catch (err) {
                 console.warn('[initScene] §FIX-WEBGPU-SCENEPASS-FIRST-CASTER rebuild request failed (non-fatal):', err);
             }
+            // §DIAG-GROUND-SHADOW (L-205) — the catcher just flipped visible; this is the
+            // exact instant the grey square appears. Dump the shadow state now, and again
+            // once the debounced rebuild + freeze thaws have settled, so the two lines
+            // together name WHICH mechanism left the depth map unrendered. Read-only.
+            try {
+                window.renderPipelineManager?.logShadowDiagnostics?.('first-caster');
+                setTimeout(
+                    () => window.renderPipelineManager?.logShadowDiagnostics?.('first-caster+1200ms'),
+                    1200,
+                );
+            } catch { /* diagnostics are advisory — never break the caster gate */ }
         });
         // Site location (C19) via the composed runtime's siteModelStore — mirrors
         // CesiumViewport.readSiteLocation() so the two viewports agree on the sun.

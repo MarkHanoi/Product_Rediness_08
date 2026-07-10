@@ -962,6 +962,68 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     /**
+     * §DIAG-GROUND-SHADOW (founder L-205) — one-line dump of EVERY state that can make the
+     * L0 ground catcher paint a solid grey square instead of receiving the real sun shadow.
+     *
+     * The catcher is a `ShadowMaterial` plane: it paints `opacity × (1 − shadowMask)`. It
+     * therefore goes UNIFORM GREY exactly when the key light's shadow depth map is never
+     * rendered (every fragment reads "fully shadowed"), and INVISIBLE when the map is live
+     * and the fragment is lit. Five independent mechanisms can stop that depth pass:
+     *
+     *   1. `shadowMap.enabled === false`  — five modules save/restore this global flag
+     *      (BatchCoordinator + CurtainWallBuilder via the `__pryzmBatchShadowWasEnabled`
+     *      window hand-off, initUI thumbnail capture, PerformanceModePanel,
+     *      ShadowQualityUpgrader). Any throw between save and restore leaks it OFF, and
+     *      {@link requestShadowRefresh} then silently no-ops forever.
+     *   2. `shadowMap.autoUpdate === false` — a leaked freeze latch (`_shadowFrozenState` /
+     *      `_shadowReallocFreezeDepth` / `_shadowPassSuppressed`, ADR-0111).
+     *   3. `keyLight.castShadow === false` — the nav-LOD / heavy-scene lever dropped it.
+     *   4. `keyLight.shadow.map === null` — the depth target was disposed and never rebuilt.
+     *   5. the WebGPU TSL ScenePass was composed against a caster-less scene and never
+     *      rebuilt (§FIX-WEBGPU-SCENEPASS-FIRST-CASTER).
+     *
+     * Reading the code cannot distinguish these — they all end in "no shadow map". This
+     * reports the live values so the failing one is named outright. Pure read + console
+     * log; mutates nothing. P2: the THREE/renderer reads live in renderer-three.
+     */
+    logShadowDiagnostics(tag: string): void {
+        const shadowMap = (this._renderer as {
+            shadowMap?: { enabled?: boolean; autoUpdate?: boolean; needsUpdate?: boolean };
+        } | null)?.shadowMap;
+
+        let keyLight: THREE.DirectionalLight | null = null;
+        this._scene?.traverse((obj) => {
+            const light = obj as THREE.DirectionalLight;
+            if (!keyLight && light.isDirectionalLight && light.castShadow) keyLight = light;
+        });
+        // Fall back to ANY directional light so a `castShadow=false` key light is reported
+        // rather than silently read as "no light at all" (suspect 3 must stay visible).
+        if (!keyLight) {
+            this._scene?.traverse((obj) => {
+                const light = obj as THREE.DirectionalLight;
+                if (!keyLight && light.isDirectionalLight) keyLight = light;
+            });
+        }
+        const kl = keyLight as THREE.DirectionalLight | null;
+        const cam = kl?.shadow?.camera as THREE.OrthographicCamera | undefined;
+
+        console.log(
+            `[RenderPipelineManager] §DIAG-GROUND-SHADOW (${tag}) ` +
+            `backend=${this._webGpuActive ? 'webgpu' : 'webgl2'} phase=${this._phase} ` +
+            `| shadowMap.enabled=${shadowMap?.enabled} autoUpdate=${shadowMap?.autoUpdate} ` +
+            `needsUpdate=${shadowMap?.needsUpdate} ` +
+            `| frozenState=${this._shadowFrozenState} reallocDepth=${this._shadowReallocFreezeDepth} ` +
+            `passSuppressed=${this._shadowPassSuppressed} ` +
+            `| keyLight=${kl ? 'present' : 'MISSING'} castShadow=${kl?.castShadow} ` +
+            `shadow.map=${kl?.shadow?.map ? 'allocated' : 'NULL'} ` +
+            `mapSize=${kl?.shadow?.mapSize?.width ?? '?'} ` +
+            `frustum=[${cam ? `${cam.left},${cam.right},${cam.top},${cam.bottom},near=${cam.near},far=${cam.far}` : 'n/a'}] ` +
+            `| scenePass=${this._scenePass ? 'built' : 'NULL'} ` +
+            `__pryzmBatchShadowWasEnabled=${(globalThis as Record<string, unknown>).__pryzmBatchShadowWasEnabled ?? 'absent'}`,
+        );
+    }
+
+    /**
      * Multi-Camera Single-Pipeline — Phase A.
      *
      * Signal that the NEXT updateCamera() call is a projection toggle
