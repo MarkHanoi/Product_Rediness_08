@@ -46,6 +46,16 @@ export class PlanViewManager implements IPlanViewManager {
     private _planViewInteraction: PlanViewInteraction | null = null;
     private _lastRender = 0;
     private _hasFitDrawing = false;
+    /**
+     * §PERF-ELEV-CROP-DRAG-FLOW (L-222, C04 P3) — frame-coalescing state for the
+     * live view-definition (crop / scope drag) double-buffered reprojection.
+     * `_reprojectPendingViewId` holds the LATEST view awaiting reprojection;
+     * `_reprojectScheduled` guards a single per-frame frame-bus task so a burst of
+     * `vd:view-updated` events in one frame collapses to one projection of the latest
+     * def (superseded ticks dropped, never two projections per tick).
+     */
+    private _reprojectPendingViewId: string | null = null;
+    private _reprojectScheduled = false;
     private _isPanning = false;
     private readonly _panStart = new THREE.Vector2();
     private _frustumH = DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM;
@@ -857,17 +867,23 @@ export class PlanViewManager implements IPlanViewManager {
         if (!this._active || !viewId) return;
 
         if (viewId === this._viewDef?.id) {
-            // Active plan view updated — full invalidation + reprojection.
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — Active plan view updated (crop / scope
+            // drag, range edit, rename …). HOLD-LAST-GOOD: do NOT invalidate (dispose +
+            // empty the cache) and do NOT blank `activePlanDrawingRef` — that empties the
+            // cache mid-drag and lets §FIX-PLAN-BLANK-STALEGEN force-display an OLDER
+            // projection (the founder-reported flicker). Instead, adopt the live def (so
+            // the crop overlay + resolveClipRange read the current crop), keep the warm
+            // drawing rendering, and schedule ONE frame-coalesced, double-buffered
+            // reprojection that swaps atomically when the new generation is ready.
+            //
+            // `_hasFitDrawing` is intentionally NOT reset: a live crop change must never
+            // yank/refit the camera (that produced a per-tick zoom jump during the drag).
             const nextDef = viewDefinitionStore.get(viewId);
             if (!nextDef) return;
 
             this._viewDef = nextDef;
-            viewTechnicalDrawingCache.invalidate(viewId);
-            activePlanDrawingRef.drawing = null;
-            this._hasFitDrawing = false;
-            this._lastRender = 0;
-            this._planViewInteraction?.notifyDrawingChanged(viewId);
-            this._ensureProjection(nextDef);
+            this._lastRender = 0;   // repaint the warm drawing + moved crop handle next frame
+            this._scheduleDoubleBufferedReproject(nextDef);
         } else if (viewId === this._activeSplitViewId) {
             // The split view's elevation/section scope changed while a different
             // view is active in the main panel.  Invalidate the cached drawing and
@@ -877,6 +893,107 @@ export class PlanViewManager implements IPlanViewManager {
             viewTechnicalDrawingCache.invalidate(viewId);
             this._ensureProjectionForSplitView(nextDef);
         }
+    }
+
+    /**
+     * §PERF-ELEV-CROP-DRAG-FLOW (L-222, C04 P3) — coalesce live view-definition
+     * reprojections to at most ONE per frame through the single frame bus. A burst of
+     * `vd:view-updated` events (a crop / scope drag fires ~12×/s, and its pointer-up
+     * commit fires a restore + a command in the same tick) collapses to a single
+     * reprojection of the LATEST def; superseded ticks are dropped. NOT a setTimeout /
+     * debounce — the frame bus drains once per rAF, so this removes duplicate work
+     * without adding latency, and it guarantees "never two projections for one tick".
+     */
+    private _scheduleDoubleBufferedReproject(viewDef: ViewDefinition): void {
+        this._reprojectPendingViewId = viewDef.id;
+        if (this._reprojectScheduled) return;
+        this._reprojectScheduled = true;
+        const run = (): void => {
+            this._reprojectScheduled = false;
+            const pendingId = this._reprojectPendingViewId;
+            this._reprojectPendingViewId = null;
+            if (!this._active || !pendingId || this._viewDef?.id !== pendingId) return;
+            const def = viewDefinitionStore.get(pendingId);
+            if (def) this._reprojectActiveViewDoubleBuffered(def);
+        };
+        if (this._frameLoop) this._frameLoop.queueLowPriority(run);
+        else run();
+    }
+
+    /**
+     * §PERF-ELEV-CROP-DRAG-FLOW (L-222, C04 §3.3 / DOC-1.5f) — DOUBLE-BUFFERED
+     * reprojection of the active view. Mirrors the projection body of `_ensureProjection`
+     * but (a) never early-returns on a warm cache — it always projects the latest def —
+     * and (b) never disposes/empties the cache first. The last-good drawing keeps
+     * rendering every frame until the new generation is accepted, at which point it is
+     * swapped in atomically and the superseded warm drawing is disposed. A projection
+     * that completes out-of-generation lands into a NON-empty cache → `setIfCurrent`
+     * REJECTS it (never the stale-accept path) → an older drawing is never displayed.
+     * This is the hold-last-good-drawing invariant (P4); the settled rendered output is
+     * byte-for-byte the same `EdgeProjectorService.project()` result as before.
+     */
+    private _reprojectActiveViewDoubleBuffered(viewDef: ViewDefinition): void {
+        if (!this._edgeProjectorService) return;
+
+        const fragmentsMgr = this._components.get(OBC.FragmentsManager);
+        const allModels = fragmentsMgr.list.size > 0 ? Array.from(fragmentsMgr.list.values()) : [];
+        const models = ifcProjectionStore.filterModels(allModels, viewDef.id);
+        const nativeGroups = useEdgeProjectorNative()
+            ? nativeElementMeshExporter.exportForView(viewDef)
+            : [];
+
+        const ifcSceneGroups: THREE.Group[] = [];
+        if (ifcProjectionStore.shouldIncludeIFC(viewDef.id)) {
+            const scene = (this._world.scene as any)?.three as THREE.Scene | undefined;
+            if (scene) {
+                for (const obj of scene.children) {
+                    if ((obj as THREE.Group).isGroup && obj.userData?.source === 'ifc-import') {
+                        ifcSceneGroups.push(obj as THREE.Group);
+                    }
+                }
+            }
+        }
+
+        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
+
+        const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
+
+        // HOLD the warm drawing: no invalidate() — the cache keeps rendering it while the
+        // fresh projection runs. beginProjection() only bumps the generation.
+        const previous = viewTechnicalDrawingCache.get(viewDef.id) ?? null;
+        const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
+        this._edgeProjectorService.project(viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset).then(drawing => {
+            if (!this._active || this._viewDef?.id !== viewDef.id) {
+                nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+                this._disposeRejectedDrawing(drawing);
+                return;
+            }
+
+            const accepted = viewTechnicalDrawingCache.setIfCurrent(viewDef.id, projectionGen, drawing);
+            if (!accepted) {
+                // Superseded — a newer generation started while this ran. The warm
+                // `previous` drawing stays on screen; discard this one.
+                nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+                this._disposeRejectedDrawing(drawing);
+                return;
+            }
+
+            const vgApplicator = window.vgSceneApplicator;
+            if (vgApplicator && typeof vgApplicator.applyToProjectionLayers === 'function') {
+                vgApplicator.applyToProjectionLayers(drawing, viewDef.id);
+            }
+
+            activePlanDrawingRef.drawing = drawing;
+            this._planViewInteraction?.notifyDrawingChanged(viewDef.id);
+            this._lastRender = 0;
+
+            // Double-buffer release: dispose the warm drawing we just swapped out. The
+            // cache now owns `drawing`; nothing else references `previous`.
+            if (previous && previous !== drawing) this._disposeRejectedDrawing(previous);
+        }).catch(err => {
+            nativeElementMeshExporter.releaseGroups(nativeGroups, { disposeProxies: true });
+            console.error(`[PlanViewManager] §PERF-ELEV-CROP-DRAG-FLOW double-buffered reproject failed for "${viewDef.id}":`, err);
+        });
     }
 
     /**

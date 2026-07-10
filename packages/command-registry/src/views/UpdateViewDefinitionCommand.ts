@@ -15,7 +15,7 @@
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
-import type { ViewDefinition, ViewSpatialContext, ViewTemporalContext } from '@pryzm/core-app-model';
+import type { ViewDefinition, ViewSpatialContext, ViewTemporalContext, ViewCropSettings } from '@pryzm/core-app-model';
 
 export interface UpdateViewDefinitionPatch {
     name?:         string;
@@ -26,6 +26,17 @@ export interface UpdateViewDefinitionPatch {
     intent?:       string;
     tags?:         string[];
     purpose?:      ViewDefinition['purpose'] | null;
+    /**
+     * §PERF-ELEV-CROP-DRAG-FLOW (L-222) — optional crop patch so a single command
+     * can commit BOTH a spatial change (sectionVolume / cropRegion / sectionPlane)
+     * AND the crop it derives (farClip.offset / region) as ONE undo entry. This is
+     * the atomic commit of a section/elevation scope-box drag: previously the drag
+     * fired UPDATE_VIEW_DEFINITION *and* SET_VIEW_CROP per pointermove — two commands,
+     * two undo entries, two competing projections. `viewDefinitionStore.update()`
+     * already applies `patch.crop`; `undo()` below restores the pre-command crop.
+     * Pass `null` to clear crop, `undefined` (omit) to leave crop untouched.
+     */
+    crop?:         ViewCropSettings | null;
 }
 
 export class UpdateViewDefinitionCommand implements Command {
@@ -75,6 +86,11 @@ export class UpdateViewDefinitionCommand implements Command {
             intent:       snap.intent,
             tags:         snap.metadata.tags,
             purpose:      snap.purpose ?? null,
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — restore the pre-command crop only
+            // when this command actually patched it, so a spatial-only update never
+            // clobbers an unrelated crop. `snap.crop` is the crop as it was at
+            // execute() time (i.e. before this command applied `patch.crop`).
+            ...(this.patch.crop !== undefined ? { crop: snap.crop ?? null } : {}),
         } as any);
         return { success: ok, affectedElementIds: [this.viewId] };
     }

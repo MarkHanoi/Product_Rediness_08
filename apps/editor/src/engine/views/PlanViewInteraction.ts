@@ -28,7 +28,7 @@ import { annotationStore } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { floorPlanUnderlayRef } from '@pryzm/core-app-model';
 import type { AnnotationElement } from '@pryzm/plugin-annotations';
-import type { ViewDefinition, ViewSectionVolume } from '@pryzm/core-app-model';
+import type { ViewDefinition, ViewSectionVolume, ViewCropSettings } from '@pryzm/core-app-model';
 // Phase 1 — Cross-View Selection Parity (Contract 27 §4 / Contract 38 §"Selection Parity").
 // Routing standalone-plan-view picks through SelectionBus is what brings the
 // surface to feature parity with the SVP: it triggers SelectionManager.selectById,
@@ -76,11 +76,18 @@ export class PlanViewInteraction {
     private _pointerDownX = 0;
     private _pointerDownY = 0;
     private _isDragging = false;
-    private _scopeDrag: { annotationId: string; linkedViewId: string; handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane'; lastUpdate: number } | null = null;
+    // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — `preSpatial` / `preCrop` snapshot the
+    // ViewDefinition state at pointer-DOWN. During the drag the live preview writes the
+    // store DIRECTLY (view state, not an undoable mutation — C04 / P6: a live preview
+    // must not round-trip the command bus 12×/s). On pointer-UP the store is restored to
+    // this pre-drag snapshot and the FINAL value is committed through ONE command, so the
+    // gesture leaves exactly one undo entry that restores the pre-drag state.
+    private _scopeDrag: { annotationId: string; linkedViewId: string; handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane'; lastUpdate: number; preSpatial: ViewDefinition['spatial']; preCrop: ViewCropSettings | undefined } | null = null;
     // §FIX-ELEVATION-CROP-EXTEND (L-175) — resize the crop rectangle by dragging its
     // corner handles while IN a section/elevation view (parity with the plan-view
-    // scope-box resize). Mutates ONLY via the view.setCrop command (P6).
-    private _cropDrag: { handle: 'nw' | 'ne' | 'se' | 'sw'; lastUpdate: number } | null = null;
+    // scope-box resize). §PERF-ELEV-CROP-DRAG-FLOW (L-222): live preview writes the store
+    // directly; the single committed undo entry (view.setCrop) fires on pointer-up.
+    private _cropDrag: { handle: 'nw' | 'ne' | 'se' | 'sw'; lastUpdate: number; preCrop: ViewCropSettings | undefined } | null = null;
     private _levelDrag: { levelId: string; startSy: number; startElevation: number } | null = null;
     private _annotDrag: {
         annotationId: string;
@@ -218,7 +225,17 @@ export class PlanViewInteraction {
         // so a handle drag never falls through to body-select/navigate.
         const scopeHit = this._planCanvas.hitTestScopeHandle(sx, sy, SCOPE_HANDLE_GRAB_PX);
         if (scopeHit) {
-            this._scopeDrag = { annotationId: scopeHit.annotationId, linkedViewId: scopeHit.linkedViewId, handle: scopeHit.handle, lastUpdate: 0 };
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — snapshot the pre-drag spatial + crop so
+            // the pointer-up commit produces ONE undo entry that restores this state.
+            const scopeDef = viewDefinitionStore.get(scopeHit.linkedViewId);
+            this._scopeDrag = {
+                annotationId: scopeHit.annotationId,
+                linkedViewId: scopeHit.linkedViewId,
+                handle: scopeHit.handle,
+                lastUpdate: 0,
+                preSpatial: scopeDef ? { ...scopeDef.spatial } : ({} as ViewDefinition['spatial']),
+                preCrop: scopeDef?.crop,
+            };
             this._isDragging = true;
             this._canvas.style.cursor = this._scopeCursor(scopeHit.handle);
             (e as any).__pryzmToolHandled = true;
@@ -232,7 +249,10 @@ export class PlanViewInteraction {
         // gated); resizes the view's crop rectangle in-place via view.setCrop.
         const cropHit = this._planCanvas.hitTestCropHandle?.(sx, sy, 10) ?? null;
         if (cropHit) {
-            this._cropDrag = { handle: cropHit.handle, lastUpdate: 0 };
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — snapshot the pre-drag crop for the
+            // single-undo-entry pointer-up commit.
+            const cropDef = this._viewId ? viewDefinitionStore.get(this._viewId) : undefined;
+            this._cropDrag = { handle: cropHit.handle, lastUpdate: 0, preCrop: cropDef?.crop };
             this._isDragging = true;
             this._canvas.style.cursor = this._cropCursor(cropHit.handle);
             (e as any).__pryzmToolHandled = true;
@@ -1137,24 +1157,44 @@ export class PlanViewInteraction {
         }
 
         const nextCropRegion = this._cropRegionFromSectionVolume(nextVolume);
-        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
+        const nextSpatial = {
+            sectionVolume: nextVolume,
+            cropRegion: nextCropRegion,
+            sectionPlane: {
+                normal: [dir.x, 0, dir.z] as [number, number, number],
+                constant: -(dir.x * nextVolume.origin[0] + dir.z * nextVolume.origin[2]),
+            },
+        };
+
+        if (!final) {
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — LIVE PREVIEW: write view state directly
+            // (no command, no undo). Previously EACH throttled pointermove fired
+            // UPDATE_VIEW_DEFINITION *and* SET_VIEW_CROP through the command bus — two undo
+            // entries and two competing projections (the first at the PREVIOUS crop's far)
+            // per tick, which is the flicker. Here both writes happen synchronously and
+            // PlanViewManager coalesces them into ONE double-buffered reprojection.
+            viewDefinitionStore.update(viewDef.id, { spatial: nextSpatial });
+            if (nextCrop !== viewDef.crop) {
+                viewDefinitionStore.setCrop(viewDef.id, nextCrop ?? null);
+            }
+            return;
+        }
+
+        // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — COMMIT: restore the pre-drag spatial + crop,
+        // then fire ONE `view.updateDefinition` carrying BOTH the final spatial and the
+        // final crop. UpdateViewDefinitionCommand now applies + restores `crop`, so the
+        // scope drag collapses to a single command / single undo entry. The restore and
+        // the command run in the same synchronous tick, so the coalesced reprojection
+        // renders once at the final scope (no flash).
+        viewDefinitionStore.update(viewDef.id, { spatial: this._scopeDrag.preSpatial });
+        viewDefinitionStore.setCrop(viewDef.id, this._scopeDrag.preCrop ?? null);
         window.runtime?.bus?.executeCommand('view.updateDefinition', {
             viewId: viewDef.id,
             updates: {
-                spatial: {
-                    sectionVolume: nextVolume,
-                    cropRegion: nextCropRegion,
-                    sectionPlane: {
-                        normal: [dir.x, 0, dir.z],
-                        constant: -(dir.x * nextVolume.origin[0] + dir.z * nextVolume.origin[2]),
-                    },
-                },
+                spatial: nextSpatial,
+                ...(nextCrop !== viewDef.crop ? { crop: nextCrop ?? null } : {}),
             },
-        })?.catch((e: Error) => console.error('[PlanViewInteraction] view.updateDefinition failed:', e));
-        if (nextCrop !== viewDef.crop) {
-            window.runtime?.bus?.executeCommand('view.setCrop', { viewId: viewDef.id, crop: nextCrop ?? null })
-                ?.catch((e: Error) => console.error('[PlanViewInteraction] view.setCrop failed:', e));
-        }
+        })?.catch((e: Error) => console.error('[PlanViewInteraction] §PERF-ELEV-CROP-DRAG-FLOW view.updateDefinition commit failed:', e));
     }
 
     /**
@@ -1179,7 +1219,21 @@ export class PlanViewInteraction {
         const crop = this._planCanvas.cropFromHandleDrag(this._cropDrag.handle, sx, sy);
         if (!crop) return;
 
-        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
+        if (!final) {
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — LIVE PREVIEW: write view state directly
+            // (no command / no undo entry). This fires `vd:view-updated`, which drives the
+            // coalesced, double-buffered reprojection in PlanViewManager — the crop handle
+            // follows the cursor and the elevation flows, without littering the undo stack.
+            viewDefinitionStore.setCrop(this._viewId, crop as ViewCropSettings);
+            return;
+        }
+
+        // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — COMMIT: restore the pre-drag crop, then fire
+        // ONE `view.setCrop` command. Because the restore + command are dispatched in the
+        // same synchronous tick, the frame-coalesced reprojection runs once at the final
+        // crop (no flash back to pre-drag). SetViewCropCommand.execute() now snapshots the
+        // restored (pre-drag) crop, so the single undo entry correctly reverts the gesture.
+        viewDefinitionStore.setCrop(this._viewId, this._cropDrag.preCrop ?? null);
         window.runtime?.bus?.executeCommand('view.setCrop', { viewId: this._viewId, crop })
             ?.catch((err: Error) => console.error('[PlanViewInteraction] §FIX-ELEVATION-CROP-EXTEND view.setCrop failed:', err));
     }

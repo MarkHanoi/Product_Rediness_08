@@ -132,6 +132,33 @@ export class ViewTechnicalDrawingCache {
     }
 
     /**
+     * §PERF-ELEV-CROP-DRAG-FLOW (L-222, C04 §3.3 / DOC-1.5f) — HOLD-LAST-GOOD generation
+     * bump. Increments the monotonic generation for `viewId` (so any in-flight
+     * projection tagged with an older generation is rejected by `setIfCurrent`) WITHOUT
+     * disposing or deleting the currently-cached drawing.
+     *
+     * This is the double-buffer primitive: on a live view-definition change (a crop /
+     * scope drag mutating the ViewDefinition ~12×/s), the coarse `invalidate()` disposes
+     * the drawing and EMPTIES the cache — so the next projection to complete lands into an
+     * empty cache and is force-accepted by §FIX-PLAN-BLANK-STALEGEN even when it is the
+     * OLDER of two competing projections. That older-projection-into-empty-cache is the
+     * founder-reported FLICKER. Keeping the last-good drawing warm means:
+     *   • the plan canvas keeps rendering the last good drawing every frame (no blank);
+     *   • a superseded projection completes into a NON-empty cache → `setIfCurrent` takes
+     *     the REJECT path (never the stale-accept path) → the older drawing is discarded,
+     *     never displayed;
+     *   • the current-generation projection swaps the drawing in atomically when ready.
+     *
+     * The caller that drives the fresh projection is responsible for disposing the
+     * warm drawing it replaces (PlanViewManager double-buffered reproject). The genuine
+     * cold-cache blank-view guard in `setIfCurrent()` is untouched: it still fires the
+     * first time a view is ever projected (nothing warm to hold).
+     */
+    bumpGeneration(viewId: string): void {
+        this._generations.set(viewId, (this._generations.get(viewId) ?? 0) + 1);
+    }
+
+    /**
      * Write `drawing` to the cache only if `gen` still matches the current
      * generation for `viewId`. Returns `true` when the cache was updated,
      * `false` when a newer projection superseded this one (stale rejection).
@@ -434,7 +461,18 @@ export class ViewTechnicalDrawingCache {
 
     private _onStoreChange(event: StoreChangeEvent): void {
         if (event.elementType === VIEW_DEFINITION_ELEMENT_TYPE) {
-            if (event.operation !== 'create') this.invalidate(event.elementId);
+            // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — a view-definition UPDATE (crop / scope
+            // drag, range edit, rename …) must not DISPOSE the cached drawing: that
+            // empties the cache mid-drag and lets §FIX-PLAN-BLANK-STALEGEN force-display an
+            // older projection (the flicker). Bump the generation to reject in-flight
+            // stale completions but HOLD the last-good drawing warm; the active view's
+            // PlanViewManager drives a double-buffered reprojection that swaps it in
+            // atomically. A view DELETE still fully invalidates (dispose + drop).
+            if (event.operation === 'update') {
+                this.bumpGeneration(event.elementId);
+            } else if (event.operation !== 'create') {
+                this.invalidate(event.elementId);
+            }
             return;
         }
 
