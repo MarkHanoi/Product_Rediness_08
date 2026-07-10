@@ -3215,28 +3215,35 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // ground shadow, fully reversible, no synchronous GPU dispose (ADR-0111 safe).
     try {
         const realEnvironment = new RealEnvironmentService();
-        // §FIX-WEBGPU-SCENEPASS-FIRST-CASTER — the WebGPU TSL ScenePass is composed via
-        // `_buildPipeline() → createScenePass(scene)` ONCE at boot, when the scene holds no
-        // shadow-caster. Adding a caster later never rebuilds it, so the shadow graph never
-        // learns the caster exists: the (now visible) L0 ground catcher composites as FULLY
-        // shadowed — the founder's opaque grey plane — and no sun shadow projects. Manually
-        // swapping the renderer backend appeared to fix it only because the swap's
-        // `recoverPipeline → activateOutlines → _buildPipeline` recreates the pass against the
-        // populated scene. So rebuild ONCE, on the exact 0→≥1 caster transition that also
-        // un-hides the catcher. Gating on the CASTER (not on "any new mesh") is essential:
-        // an empty project already carries ~29 non-caster meshes (grid/datum/helpers) that
-        // would otherwise consume the one-shot before the first wall is drawn.
-        // `scheduleShadowRebuild()` is WebGPU-gated, debounced, and coalesces in-flight rebuilds.
+        // §FIX-WEBGPU-FIRSTCASTER-NO-REBUILD (L-205) — DO NOT rebuild the ScenePass when the
+        // first caster appears. The previous §FIX-WEBGPU-SCENEPASS-FIRST-CASTER (be79abdf)
+        // fired `scheduleShadowRebuild()` here on the 0→≥1 caster transition, on the belief
+        // that the TSL ScenePass had to be recomposed to "learn" about a new caster. That
+        // belief is REFUTED by three@0.183 source and by the founder's own bisect:
+        //   • Shadow sampling in the receiver's NodeMaterial is keyed on the LIGHT, not on
+        //     caster meshes. `LightsNode.customCacheKey()` hashes `light.castShadow`
+        //     (node_modules/three/src/nodes/lighting/LightsNode.js:126) — the Pascal KEY
+        //     LIGHT casts from boot, so the receiver samples the shadow map from frame 1.
+        //   • The shadow DEPTH map is re-rendered every frame by `ShadowNode.updateShadow`
+        //     (…/ShadowNode.js:679, driven by `autoUpdate`), which draws EVERY castShadow
+        //     mesh currently in the scene — new casters are picked up automatically, with
+        //     NO pipeline/ScenePass rebuild.
+        //   • The last known-GOOD state (72e34915) had NO first-caster rebuild and a working
+        //     sun shadow with no grey.
+        // The rebuild was, in fact, the L-205 TRIGGER: `scheduleShadowRebuild()` →
+        // fire-and-forget async `_buildPipeline()` disposes the old RenderPipeline + recreates
+        // the ScenePass OFF-FRAME, unsynchronised with the WebGPU submit, destroying the live
+        // ShadowDepthTexture mid-submit ("Destroyed texture … used in a submit" ×hundreds) →
+        // the shadow pass dies for the session → the catcher composites uniform grey. Backend
+        // swap "fixes" it only by allocating a fresh GPUDevice + texture (ADR-0111 class).
+        // Removing the call restores the known-good topology and eliminates the trigger for
+        // BOTH the single hand-drawn wall and the batch (their only shared rebuild trigger).
+        // The catcher's 0→≥1 visibility flip (RealEnvironmentService.refitShadowToScene) is
+        // unaffected — it flips `mesh.visible`, never touching any GPU resource.
         realEnvironment.setFirstCasterHook(() => {
-            try {
-                window.renderPipelineManager?.scheduleShadowRebuild?.();
-            } catch (err) {
-                console.warn('[initScene] §FIX-WEBGPU-SCENEPASS-FIRST-CASTER rebuild request failed (non-fatal):', err);
-            }
-            // §DIAG-GROUND-SHADOW (L-205) — the catcher just flipped visible; this is the
-            // exact instant the grey square appears. Dump the shadow state now, and again
-            // once the debounced rebuild + freeze thaws have settled, so the two lines
-            // together name WHICH mechanism left the depth map unrendered. Read-only.
+            // §DIAG-GROUND-SHADOW (L-205) — read-only shadow-state dump at the exact instant
+            // the catcher flips visible, and again after any pending freeze/thaws settle.
+            // No rebuild is requested here (see §FIX-WEBGPU-FIRSTCASTER-NO-REBUILD above).
             try {
                 window.renderPipelineManager?.logShadowDiagnostics?.('first-caster');
                 setTimeout(

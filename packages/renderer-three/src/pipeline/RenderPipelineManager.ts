@@ -586,7 +586,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
                     `[RenderPipelineManager] Scheduling rebuild ` +
                     `(attempt ${this._retryCount}/${MAX_RETRIES}, backoff ${backoffMs}ms)`,
                 );
-                setTimeout(() => this._rebuildPipeline(), backoffMs);
+                setTimeout(() => { void this._rebuildPipeline(); }, backoffMs);
             } else {
                 console.error('[RenderPipelineManager] Retries exhausted — rendering without post-FX.');
                 this._phase = 'error';
@@ -778,13 +778,28 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
             // Normal path: reuse cached SSGI nodes — safe because we have not been in
             // plan view since the last rebuild (no SSGI contamination).
-            try {
-                const __t_shadow_start = performance.now();
-                this._rebuildPipeline();
-                console.log(`[RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=${(performance.now() - __t_shadow_start).toFixed(1)}ms`);
-            } finally {
-                this._finishRebuildAndDrainQueue();
-            }
+            //
+            // §FIX-SHADOW-REBUILD-LATCH-ASYNC (L-205) — `_rebuildPipeline()` is ASYNC
+            // (its real work — dispose old RenderPipeline + `createScenePass()` — lands on a
+            // later microtask). The old code cleared `_rebuildInFlight` in a SYNCHRONOUS
+            // `finally`, so the latch fell to false (logged `SHADOW_REBUILD_COMPLETE
+            // elapsed=0.0ms`) long BEFORE the async teardown completed. That defeated §#47's
+            // coalescing: a second `scheduleShadowRebuild()` arriving during the async window
+            // saw `_rebuildInFlight === false`, armed a fresh timer, and a SECOND rebuild's
+            // off-frame dispose could race the first's still-in-flight GPU submit — the
+            // "Destroyed texture [ShadowDepthTexture] used in a submit" class. We now await
+            // the promise so the latch spans the REAL work; `_finishRebuildAndDrainQueue()`
+            // clears it only once the async rebuild has settled, and any schedule that arrived
+            // meanwhile is coalesced into exactly one post-completion follow-up.
+            const __t_shadow_start = performance.now();
+            Promise.resolve(this._rebuildPipeline())
+                .then(() => {
+                    console.log(`[RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=${(performance.now() - __t_shadow_start).toFixed(1)}ms`);
+                })
+                .finally(() => {
+                    this._finishRebuildAndDrainQueue();
+                });
+            return;
         }, SHADOW_REBUILD_DEBOUNCE_MS);
     }
 
@@ -1425,7 +1440,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
             // composited. Falls back to a plain rebuild if activation fails.
             this.activateOutlines().catch((err: unknown) => {
                 console.error('[RenderPipelineManager] onProjectLoaded: outline activation failed:', err);
-                this._rebuildPipeline();
+                void this._rebuildPipeline();
             });
         }, 300);
     }
@@ -1977,12 +1992,21 @@ export class RenderPipelineManager implements IViewSwitchListener {
         }
     }
 
-    /** Async pipeline rebuild — used by retry logic and project-switch. */
-    private _rebuildPipeline(): void {
-        if (!this._webGpuActive) return;
+    /**
+     * Async pipeline rebuild — used by retry logic and project-switch.
+     *
+     * §FIX-SHADOW-REBUILD-LATCH-ASYNC (L-205) — returns the underlying rebuild
+     * Promise so callers (notably `scheduleShadowRebuild`'s §#47 in-flight latch)
+     * can await the REAL async work (dispose old pipeline + `createScenePass`)
+     * rather than the synchronous shell. Own errors are still handled internally,
+     * so the returned promise always resolves (never rejects) — call-and-forget
+     * callers (retry backoff, projection toggle) are unaffected.
+     */
+    private _rebuildPipeline(): Promise<void> {
+        if (!this._webGpuActive) return Promise.resolve();
         this._hasPipelineError = false;
 
-        this._rebuildPipelineWithCurrentState().catch((err: unknown) => {
+        return this._rebuildPipelineWithCurrentState().catch((err: unknown) => {
             // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — a shader-compile failure during
             // a rebuild downgrades to the safe lightweight pipeline instead of
             // killing the viewport with phase='error' (→ crash overlay).

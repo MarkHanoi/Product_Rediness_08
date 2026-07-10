@@ -91,6 +91,54 @@ describe('RenderPipelineManager shadow-rebuild debounce (§PERF-PHASE2, 100 ms)'
         expect((rpm as unknown as { _rebuildQueuedAfterFlight: boolean })._rebuildQueuedAfterFlight).toBe(true);
     });
 
+    it('§FIX-SHADOW-REBUILD-LATCH-ASYNC: the in-flight latch spans the ASYNC rebuild — ' +
+       'a schedule during the async window coalesces into ONE follow-up (no second concurrent rebuild)',
+    async () => {
+        // Real timers: this test drives the actual debounce window + real microtasks so the
+        // async in-flight window is observable end-to-end.
+        vi.useRealTimers();
+
+        const rpm = new RenderPipelineManager();
+        const priv = rpm as unknown as {
+            _webGpuActive: boolean;
+            _rebuildPipeline: () => Promise<void>;
+            _rebuildInFlight: boolean;
+            _rebuildQueuedAfterFlight: boolean;
+        };
+        priv._webGpuActive = true;
+
+        // Replace _rebuildPipeline with a DEFERRED promise we resolve by hand, so the async
+        // rebuild window is explicit: while pending, the latch MUST stay in-flight.
+        let calls = 0;
+        let resolveActive: (() => void) | null = null;
+        priv._rebuildPipeline = () => {
+            calls++;
+            return new Promise<void>((res) => { resolveActive = () => res(); });
+        };
+
+        const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+        // First schedule → after the 100 ms debounce the async rebuild starts and STAYS
+        // in-flight until we resolve it.
+        rpm.scheduleShadowRebuild();
+        await settle(150);
+        expect(calls).toBe(1);
+        expect(priv._rebuildInFlight).toBe(true);
+
+        // A schedule arriving DURING the async window must coalesce (set the follow-up latch),
+        // NOT arm a fresh timer / start a second concurrent rebuild.
+        rpm.scheduleShadowRebuild();
+        expect(priv._rebuildQueuedAfterFlight).toBe(true);
+        expect(calls).toBe(1);
+
+        // Completing the async rebuild clears the latch and drains exactly ONE follow-up.
+        resolveActive?.();
+        await settle(0);
+        expect(priv._rebuildInFlight).toBe(false);
+        await settle(150); // let the single follow-up's debounce elapse
+        expect(calls).toBe(2);
+    }, 10_000);
+
     it('is inert when WebGPU is not active (no timer, no rebuild)', () => {
         const rpm = new RenderPipelineManager();
         const rebuildSpy = vi.fn();
