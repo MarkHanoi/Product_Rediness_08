@@ -848,3 +848,45 @@ This is the **Presentation tier** (A.24) — not a new engine.
 **Hard constraints:** textures MUST be self-hosted — the CSP is `connect-src 'self'` and the log
 already shows external fetches blocked. **One material per type**, never per element: per-element
 unique materials already defeat instancing (see G1).
+
+---
+
+# L-214 — §FIX-WARDROBE-CREATE-ROTATION-NAN  (HIGH)
+
+## Root cause — printed verbatim in the founder's log
+
+```
+[WardrobeCabinetTool] furniture.create failed:
+  CommandBusError: furniture.create: canExecute rejected — rotation must be finite
+    at sB._placeWardrobe (engineLauncher-DZ2ZilFL.js:1944:10134)
+    at e._onPointerDown (engineLauncher-DZ2ZilFL.js:1944:9060)
+```
+
+The 3D `WardrobeCabinetTool._placeWardrobe()` builds a `furniture.create` payload whose `rotation`
+is **NaN / undefined**. The command's `canExecute` guard rejects it, so **nothing is created**. The
+preview never passes through `canExecute` — which is exactly why it renders while the commit fails.
+
+The same defect explains the second symptom: the Space-key rotation the preview accumulates **never
+reaches the command payload**, so even on the plan path — which *does* succeed
+(`[FurniturePlanToolHandler] Wardrobe run created furniture_01KX66BQ… wardrobe_straight`) — the
+committed element ignores the previewed rotation.
+
+**Two tools build the same `furniture.create` payload independently, and one of them loses
+`rotation`.** That is the same class of defect as L-213: one element type, divergent creation paths
+— a **C11** violation.
+
+**The guard is correct and stays.** `rotation must be finite` caught a real bug. The failure is that
+it was swallowed into a console error, leaving a silent no-op on click.
+
+## Phases
+
+| Phase | Scope |
+|---|---|
+| **P1** | Find where `WardrobeCabinetTool._placeWardrobe` derives `rotation` and why it is non-finite — likely an unset preview-rotation accumulator, or `Math.atan2` on a zero-length direction vector |
+| **P2** | **Converge.** The previewed transform (position **and** rotation) must be the single source both the 3D tool and `FurniturePlanToolHandler` hand to `furniture.create`. Do **not** patch one tool's payload in isolation |
+| **P3** | Rotation state (Space key) lives **with the preview** and is read at commit — never recomputed at commit time |
+| **P4** | A rejected `canExecute` must surface to the user (toast). A command rejection must never be a silent no-op |
+| **P5** | Tests: a Space-rotated preview commits an element whose rotation **equals** the preview's; a zero-length placement direction cannot produce NaN |
+
+**Non-goals:** do not weaken or remove the `rotation must be finite` guard; do not change the plan
+tool's successful creation path except to make it share the canonical payload builder.
