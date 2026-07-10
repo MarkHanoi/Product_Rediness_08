@@ -1845,3 +1845,50 @@ base-settle fires, or (c) the base-settle on the photoreal-tile path
 | **P5** | Test: default globe entry ends framed on the building at the settled base, zero clicks, and does not re-yank after a subsequent tile-height restream. |
 
 **Contract mapping:** C06 §7 (launcher layer), A.24 (render tiers), L-40 / L-104 / L-184 lineage.
+
+---
+
+## L-227 — §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY  (MEDIUM, quality)
+
+Founder: *"Regarding the Forma '3D Site' view — can you make the 'Façade analysis ON' as sound as the
+Sun Hours? The Sun Hours have an amazing quality gradient; on the building it is not nice, not sound.
+It needs to be perfect — the exact quality in ALL the façades of the building."*
+
+### Two different pipelines — that is the whole story
+
+- **Ground (the one he loves)** — `computeSunHoursOnModel()` sampled per-face, coloured by the 5-stop
+  `DEFAULT_SUN_HOURS_RAMP` (`packages/renderer-three/src/solar/heatmapRamp.ts:30-36`):
+  `#6600FF purple (t0) → magenta → pink-red → orange → warm yellow (t1)`.
+- **Façade (the flat cyan one)** — a *separate* subsystem: `prepareFacadeSunGrid` →
+  `rasterizeFacadeSunTexture` (§FORMA-FACADE-SMOOTH, founder 2026-07-01) → Cesium entities
+  (`CesiumViewport.ts:71-95, 656-679`, §FORMA-FACADE-ANALYSIS / ADR-0093), consumed via
+  `siteMetricGrids.ts` + `workers/solarCodec.ts`.
+
+Because they are different code, they produce different fidelity. His screenshot: ground = smooth
+gradient, building = near-flat cyan.
+
+### Hypotheses (measure; do not assume)
+
+- **H-a** the façade rasteriser does not use `DEFAULT_SUN_HOURS_RAMP` → different colour mapping.
+- **H-b** the façade sun grid samples at far lower density (or one band) than `computeSunHoursOnModel`
+  → the gradient collapses to a flat tint.
+- **H-c** the drape is a baked Cesium texture whose resolution / UV under-samples the wall.
+- **H-d** the near-flat cyan is a *fallback* (occlusion / sun-vector returned constant), not a real
+  per-point field. "In ALL the façades" suggests some faces carry no gradient at all.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | Measure WHY the façade field is flatter: compare façade sun-grid density, ramp, and occlusion inputs against `computeSunHoursOnModel` for the SAME building + day. State which of H-a…H-d hold. |
+| **P2** | Façade uses the **same `DEFAULT_SUN_HOURS_RAMP`** as the ground (single source of truth — identical quality ⇒ identical colour mapping). |
+| **P3** | Per-face sample density high enough for a smooth gradient across each façade, not banded. If a baked texture, raise resolution / fix UV; if entity-per-sample, raise the grid. **Tier-gate + memory-budget** (40-storey WebGPU device-loss history — no 4K drapes on a tower). |
+| **P4** | Occlusion parity: the façade study shadows by the same massing + OSM context as the ground study, so self-shadowed faces read correctly. |
+| **P5** | Test: for a reference building + day, the façade per-face field has the same value range + ramp mapping as the ground field on a co-located probe, and varies smoothly per face (assert non-constant per-face variance — the regression is a flat tint). |
+
+**Non-goal:** do not author a second ramp or a parallel solar sampler. Converge on the ground
+pipeline's ramp + sampling; the façade path may keep its Cesium drape *mechanism* but must feed it the
+same field + ramp.
+
+**Contract mapping:** C21-CLIMATE-INGESTION, ADR-0074 (solar), ADR-0093 (façade analysis), A.24
+(Presentation render tier). Related: L-226 (globe autoframe, same geospatial surface).
