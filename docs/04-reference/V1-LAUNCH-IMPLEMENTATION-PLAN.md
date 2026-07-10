@@ -1921,3 +1921,36 @@ LOW priority (the flicker is already gone; the 0% hit-rate is now harmless becau
 renders every frame). Must not regress L-202.
 
 Gate: core-app-model views 49/49, geometry-plumbing 16/16, root tsc exit 0. 6 files.
+
+---
+
+## L-220 — FIXED (99f90411) + L-229 deferred
+
+Both of the orchestrator's stated root causes were wrong; the agent refuted them from source.
+
+**Plumbing:** `{id,to}` was CORRECT for the legacy `MovePlumbingCommand` (updates the geometry
+`window.plumbingStore` the plan reads). A plugin `MovePlumbingHandler` (`{plumbingId,delta}`)
+registered FIRST shadowed the bridge AND mutates a detached DTO store with no bridge to geometry — so
+the brief's `{plumbingId,delta}` fix would have passed `canExecute` and still left the plan stale.
+Fix: distinct un-shadowed `plumbing.moveFixture` dispatching `{id,to}`. No guard weakened.
+
+**Floor/column/beam (Immer 18):** not a malformed patch. `affectedStores:['floor']` (correct for
+undo) also drives `attachStores` to re-apply the forward patch to a detached empty `FloorStore`; the
+id doesn't resolve → throw → `executeCommand` rejects. Fix: hardened `Store.applyPatch` to skip a
+nested patch whose root id is absent, mirroring `ElementStore.applyPatch`'s existing guard. The matrix
+test missed it because it wired no `attachStores`.
+
+**P3 typed bus:** `dispatchTyped()` in `@pryzm/command-bus` + all 11 drag sites via `dragDispatch()`
+→ wrong payload = compile error. A typed *overload* can't enforce it (loose signature always matches);
+a typed *wrapper* can, and is what shipped. Non-drag dispatches stay loose (intended residue).
+**P4:** rejections raise a toast, not a swallowed console error.
+
+**+L-229 (§FIX-DRAG-MISSING-BRANCHES, MEDIUM):** the audit found slab/grid/lighting/opening have no
+3D-drag branch (silent no-op — same class as the reported plumbing bug); ceiling commits but sets no
+`_recordUndo`. Deferred to the same fence: add the missing branches (converging on `dragDispatch`),
+add ceiling undo capture, and consider an exhaustive element-type switch so a new draggable type
+without a branch fails loudly.
+
+Gate: `@pryzm/stores` 745, matrix 14 (+ production-wiring regression), command-bus 26; every fenced
+file tsc-clean. Sole root-tsc error is `CesiumViewport.ts:5346 normalizeFacadeStudy` — the live L-227
+agent's mid-flight edit, resolves when L-227 commits.
