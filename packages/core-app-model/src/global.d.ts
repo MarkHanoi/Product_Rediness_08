@@ -65,8 +65,12 @@ declare global {
         __activeBatchId?: string;
         /** THREE renderer exposed by engineLauncher; null until initScene() runs. */
         pryzmRenderer?:   { shadowMap?: { enabled: boolean }; [key: string]: unknown } | null;
-        /** Saved shadow-map state during batch shadow suppression. §BATCH-SHADOW-MAP */
-        __pryzmBatchShadowWasEnabled?: boolean;
+        // §FIX-SHADOW-ENABLE-LATCH (L-205) — `__pryzmBatchShadowWasEnabled` is DELETED.
+        // The shadow PASS enable state is now owned solely by renderer-three's
+        // ref-counted latch (RenderPipelineManager.setShadowPassDisabled /
+        // setShadowsEnabledPreference). Do not reintroduce a window hand-off: five
+        // modules across four packages once save/restored this flag, and any throw
+        // between save and restore leaked shadows OFF permanently.
         /** RoomTopologyObserver singleton — set by initTools(). §G.2 */
         roomTopologyObserver?: {
             cancelPendingForLevels?(levelIds: string[]): void;

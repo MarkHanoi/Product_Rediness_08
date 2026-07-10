@@ -276,12 +276,10 @@ declare global {
     // Wave 7 additions — rendering
     pryzmRenderer?: any;
     __pryzmRenderer?: any;
-    /**
-     * §BATCH-SHADOW (BatchCoordinator / CurtainWallBuilder) — saves the Three.js
-     * renderer shadowMap.enabled state before a batch suppresses shadows, so
-     * _reactivateShadows() can restore the exact pre-batch state.
-     */
-    __pryzmBatchShadowWasEnabled?: boolean;
+    // §FIX-SHADOW-ENABLE-LATCH (L-205) — `__pryzmBatchShadowWasEnabled` is DELETED.
+    // It used to save `shadowMap.enabled` across a batch so CurtainWallBuilder could
+    // restore it from a DIFFERENT package ~30s later. Shadow-pass enable state is now
+    // owned solely by renderer-three's ref-counted latch. Do not reintroduce it.
     /**
      * §IFC-CRS (initUI IFC import) — CRS record from the last loaded IFC file.
      * null when IFC had a CRS block but no parseable record; undefined when not
