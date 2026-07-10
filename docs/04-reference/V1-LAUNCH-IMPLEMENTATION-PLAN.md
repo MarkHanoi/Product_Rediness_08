@@ -781,3 +781,70 @@ areas and floor finishes depend on them. Only the 3D mesh representation is at i
 representation is correct and must not change.
 
 **Tag:** `§FIX-RBL-3D-XRAY-ALWAYS-ON`. Maps P7, C09 (visibility intent), C06 (UI shell + tools).
+
+---
+
+# L-211 / L-212 / L-213 — layered-wall plan lines, PBR floor finishes, floor-finish boundary
+
+## L-213 — §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH  **(HIGH — correctness, do first)**
+
+The same conceptual element — a room's floor finish — has **two different boundary derivations**
+depending on how it is created:
+
+| Entry point | Boundary | Result |
+|---|---|---|
+| Batch (`residential house` / `residential building` generators) | room's **inner-face** polygon | correct — finish sits inside the walls |
+| Interactive UI (floor tool) | wall **centreline** polygon | wrong — overshoots into every wall by half its thickness |
+
+Areas, material take-off and IFC export all inherit the error. This is a **C11 violation**: one
+element type must have **one** creation pipeline.
+
+| Phase | Scope |
+|---|---|
+| **P1** | Locate the batch path's inner-face derivation (`CREATE_FLOORS_BY_ROOM_TYPE` / the floor-layout executor) and extract it as the single canonical `deriveRoomFinishBoundary(room, walls)` |
+| **P2** | Make the interactive `floor.create` handler / FloorTool call that same function. **Do not add a second offset** — converge, don't compensate |
+| **P3** | Test: UI-created and batch-created finishes for the same room produce an **identical polygon and area** |
+
+**Non-goal:** do not change the batch behaviour — it is the correct one.
+
+## L-211 — §FIX-LAYERED-WALL-PLAN-LINES
+
+The plan symbol path is **healthy**: `[WallLayerPlanSymbolBuilder] injected layer lines for 2 layered
+wall(s)` fires on every reprojection. The gate is `WallLayerPlanSymbolBuilder.ts:68`:
+
+```ts
+if (!wall.layers || wall.layers.length < 2 || wall.curve) continue;   // plain / curved → skip
+```
+
+A wall is drawn with layers only if the **instance** carries a populated `layers` array. Hypothesis:
+assigning a layered wall **type** via the properties panel updates the 3D mesh (which reads the
+systemType catalogue) but never writes `layers` onto the instance — so plan sees a plain wall.
+
+| Phase | Scope |
+|---|---|
+| **P1** | Establish the single source of truth for a wall's layer stack: the systemType catalogue, or the instance `layers`? Prove which the 3D builder reads |
+| **P2** | Make **both** the 3D builder and `WallLayerPlanSymbolBuilder` resolve through it. If the catalogue is canonical, do **not** duplicate the stack onto the instance |
+| **P3** | Test: a wall whose type is layered draws N−1 layer lines in plan |
+
+**Adjacent, same lane:** `[TechnicalDrawing] Layer "A-WALL" does not exist. Falling back to "0".` —
+a CAD-layer registration gap seen in the same log.
+
+## L-212 — §FEAT-PBR-FLOOR-FINISHES  *(quality, not a defect)*
+
+The catalogue is already architecturally rich (porcelain, marble, carpet tile, broadloom, engineered
+timber, solid oak, LVT, rubber sports, epoxy, UFH screed, raised access, wet-area tanked, oak
+herringbone, smoked-oak chevron, walnut herringbone). Each renders as a **flat tinted
+`MeshStandardMaterial`** — no maps, no real-world UV scale, and the herringbone/chevron patterns are
+named but never drawn.
+
+This is the **Presentation tier** (A.24) — not a new engine.
+
+| Phase | Scope |
+|---|---|
+| **P1** | Give each floor-finish systemType a PBR definition: albedo + normal + roughness (+ optional AO), real-world UV scale in metres, pattern rotation for herringbone/chevron |
+| **P2** | Tier-gate + memory-budget: no 4K maps on the 40-storey tower (see the WebGPU device-loss history) |
+| **P3** | Test: one shared material **per finish TYPE**, never per element |
+
+**Hard constraints:** textures MUST be self-hosted — the CSP is `connect-src 'self'` and the log
+already shows external fetches blocked. **One material per type**, never per element: per-element
+unique materials already defeat instancing (see G1).
