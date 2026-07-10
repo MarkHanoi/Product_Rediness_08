@@ -1730,3 +1730,118 @@ changes the *authority*, not the *pixels* — until the user actually edits an i
 
 **Contract mapping:** **P7** (intent is domain, not UI state), **C09**, **P6**, **P1**, C06,
 DOC-1.13, Contract 25b (superseded), new ADR `IntentSceneApplicator`.
+
+---
+
+## L-224 — PHASE A AUDIT RESULT + PHASE B GREENLIT (2026-07-10)
+
+**The root cause is a bus mismatch — not a missing clear, and neither of the orchestrator's two
+suspects.** The `F.events` migration re-pointed the EMITTERS of `pryzm-project-switch` /
+`pryzm-project-loaded` to the typed in-memory `runtime.events.emit()` (`EventBus`, which never
+touches `window`), but left **six isolation-critical listeners bound with `window.addEventListener`**.
+They are dead — they never fire:
+
+| Dead listener | What died with it |
+|---|---|
+| `ProjectLifecycleController.ts:48` | the **entire C13 §4 teardown** (`batchCoordinator.forceReset()`, wall-rebuild reset, `clearUndoStacks()`) |
+| `ProjectIsolationAudit.ts:142` | the **tripwire itself** — no audit has run since the migration |
+| `ProjectScopedStorage.ts:60/67` | project-scoped storage binding (inert — zero callers) |
+| `ConstraintEngine.ts:111` | per-project constraint re-run |
+| `AmbientIntelligence.ts:118/121` | per-project ambient reset |
+| `ImportManagerPanel.ts:99` | import-panel reset |
+
+~30 other listeners were migrated to `runtime.events.on()` and DO fire — so the bus works; these six
+were orphaned. **The teardown controller written specifically to prevent this class of bug has not
+run since the migration, and the audit that should have surfaced the leak observes nothing.** That is
+the reminiscencia: `BatchCoordinator` / wall-rebuild / `ConstraintEngine` / `AmbientIntelligence`
+state surviving the switch.
+
+### Both suspects refuted with evidence
+
+- **S1 (undo ring-buffer) — REFUTED as an A→B leak.** Every load routes through `ProjectLoader.load`,
+  whose `finally` (`:2079-2083`) calls `clearHistory()` + `runtime.bus.clearUndoStacks()` (ring +
+  legacy). A's entries are gone before B is interactive. The `skip remove … furniture_01KX…` lines
+  are within-B ring-apply failures (ULID vs UUID = two creation paths in B, not two projects). The
+  dedicated switch-time undo clear IS dead, but the load-time clear makes it redundant — a backstop
+  gap, not a live leak.
+- **S2 (collab catch-up) — REFUTED.** Catch-up requests B's own projectId with a per-project
+  `sessionStorage` cursor; replayed commands dispatch `source:'REMOTE'` → `suppressUndo`, never
+  touching the ring. The 21 duplicate-skips + opening-overlap rejects are idempotency guards working
+  as designed. Within-project chatter, not reminiscencia.
+
+### Contract-number correction
+
+This is **C13 (Project Lifecycle & Isolation)**, not "Contract 48" (C48 is Backup & DR).
+`ProjectIsolationAudit.ts` / `ProjectScopedStorage.ts` cite "Contract 48"; `ProjectScopeRegistry.ts`
+cites a non-existent `44/45-*` doc. Stale references — the orchestrator fixes the doc refs and lands
+the invariant in **C13 §3**.
+
+### Proposed C13 invariants (orchestrator to author)
+
+- **C13 §3.9** — every project-lifecycle listener MUST subscribe on the same bus the events are
+  emitted on (`runtime.events.on`), never `window.addEventListener`. CI gate: `check-project-isolation`
+  fails any `window.addEventListener('pryzm-project-{switch,loaded,context-set}'`.
+- **C13 §3.10** — a project switch is a full teardown with NAMED OWNERS; the audit enumerates owners
+  (via `ProjectScopeRegistry`), runs on EVERY load, and compares live state against the loaded
+  snapshot's expected contents across stores/graphs/caches/undo — not just the THREE scene.
+
+### Phase B — GREENLIT (no founder decision needed; nothing changes appearance)
+
+| Phase | Work |
+|---|---|
+| **B0** | Migrate the 6 orphaned `window.addEventListener` listeners to `runtime.events.on` / `onRuntimeEvent`, reviving `ProjectLifecycleController` + `ProjectIsolationAudit` first (they are the fix). |
+| **B1** | Run the audit on EVERY load, comparing against the loaded snapshot's expected contents (not "must be empty"). |
+| **B2** | Extend the audit beyond the scene to stores / graphs / caches / undo. |
+| **B3** | Own-registry invariant: every switch-reset surface has a named owner in `ProjectScopeRegistry`; a store that registers no `clear` fails a test. |
+| **B4** | CI gate in `check-project-isolation` on the forbidden `addEventListener` string; fix the stale "Contract 48"/`44/45-*` doc refs. |
+| **B5** | Tests: open A → edit → open B ⇒ every enumerated surface holds only B's state; a new store with no clear-path fails; the revived audit fires on load. |
+
+**Fence sequencing (from the agent):** `ProjectLifecycleController.ts` is in `packages/runtime-composer/src/`
+— NOT L-220's fence (`runtime-composer/src/types.ts` only), so it is this agent's to fix, but confirm
+no collision. `ConstraintEngine.ts` (`packages/constraint-solver/`) and `AmbientIntelligence.ts`
+(`packages/ai-host/`) are outside the persistence fence — orchestrator sequences those two.
+`EdgeProjectorService` CW drawing cache (possible cross-project drawing reminiscencia) is L-221's
+fence — flagged, not touched.
+
+**Contract mapping:** C13 §3 (project lifecycle & isolation), C02, C03, P1, P4.
+
+---
+
+## L-226 — §FEAT-GLOBE-DEFAULT-AUTOFRAME  (MEDIUM, UX)
+
+Founder: *"The Cesium 3D tiles view (3D Globe) is sound, but I always need to click 'Zoom to Site' to
+see the correct building. Could you add this on the default pipeline?"*
+
+**The auto-frame is HALF-BUILT — this is almost certainly a wiring fix, not new camera code.**
+§FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) already implements exactly "no manual Zoom to Site needed":
+
+- `armGlobeReframeOnBaseSettle()` (`CesiumViewport.ts:3957`) arms a one-shot corrective reframe.
+- `performInitialReframe()` (`:3995`) fires it ≤ once, honours a user who has grabbed the camera,
+  frames the building's bounding sphere at the **settled** tile base.
+- The header (`:3942-3956`) states the problem verbatim: `renderBuildingOnGlobe` runs
+  `frameCentroid:false` (deliberately does not fly); `GISAreaLayout.reframeSiteIn3D()` frames the
+  building immediately — but at FLAT base 0, before the async photoreal-tile height clamp settles.
+  When the clamp re-seats the model on the real ground, the camera is **not** re-framed → it stays
+  parked at the base-0 overview. **That is the founder's symptom.**
+
+The Zoom-to-Site button (`GISAreaLayout.ts:795`) calls the same `reframeSiteIn3D()` the auto-path
+should run — which is why clicking it works.
+
+### Hypothesis to prove
+
+`armGlobeReframeOnBaseSettle()` is either (a) not called on the default '3D globe' entry, (b) called
+but its latches (`formaInitialReframeFired` / `formaUserMovedCamera`) are consumed before the
+base-settle fires, or (c) the base-settle on the photoreal-tile path
+(`clampToPhotorealTilesThenReplace`) is not wired to `reframeAfterBaseSettle()`.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | Trace the default globe entry (`GISAreaLayout` launcher → `renderBuildingOnGlobe` → `clampToPhotorealTilesThenReplace`); establish why the L-184 one-shot does not fire (or fires against base 0). |
+| **P2** | Wire `armGlobeReframeOnBaseSettle()` into the default entry so the settle-triggered `performInitialReframe()` frames the building at the settled base. **Reuse the funnel — no parallel flyTo.** |
+| **P3** | Preserve the three §GLOBE-FRAME-NO-JUMP invariants: fire at most once, never after the user grabs the camera, never to a NaN target. |
+| **P4** | Keep the manual 'Zoom to Site' button (explicit re-frame). |
+| **P5** | Test: default globe entry ends framed on the building at the settled base, zero clicks, and does not re-yank after a subsequent tile-height restream. |
+
+**Contract mapping:** C06 §7 (launcher layer), A.24 (render tiers), L-40 / L-104 / L-184 lineage.
