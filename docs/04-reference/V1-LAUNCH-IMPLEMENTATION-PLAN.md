@@ -1668,3 +1668,65 @@ Two missing meshes are the symptom. A fixture type with no geometry factory sile
 | **P3** | Test: every member of `PlumbingFixtureType` produces geometry distinct from every other member. |
 
 **Contract mapping:** C11 (one element type ⇒ one creation pipeline), C06.
+
+---
+
+## L-223 — PHASE A AUDIT RESULT + FOUNDER DECISION (2026-07-10)
+
+**The orchestrator's root cause was a red herring; the agent refuted it from all 668 lines of
+`HiddenLineRemoval.ts`.** HLR does **occlusion only** — it never held pen appearance, so its
+ignorance of the intent store is irrelevant.
+
+**Real root cause — a two-authority collision.** The intent store IS wired into the pen resolver
+(`GraphicsRulesEngine.resolveStyle()._intentRules()`, `GraphicsRulesEngine.ts:187-218` — priority-1000
+over PenWeightTable's priority-0). But the on-screen elevation renderer is **`PlanViewCanvas`**
+(Canvas2D; `ViewController.ts:959-967` routes elevation/section here, not the OBC THREE scene), and at
+`PlanViewCanvas.ts:321-329` it **overwrites** `_pen.color` with `vgEdge` and `_pen.widthMm` with
+`vgLineWeight` — both from the **legacy `vgGovernanceStore`** (`PlanViewManager.ts:669-686`), which is
+non-null for every real category, so the override **always fires**.
+
+- Intent **opacity + dash + door/window symbolic** path → reach screen.
+- Intent **width + colour** → computed, then **discarded**.
+- The panel edits the **losing** authority — and can't even do that, because all four shipped intents
+  are `isSystem` → all 17 inputs `disabled`.
+
+**A1** `applied=9/14`: expected — a DXF layer exists only if EdgeProjectorService projected ≥1 element
+of that category into the view; the 5 skipped had no geometry in the south elevation. Legacy VG path,
+not the intent path. **A3** the values are concrete `PenWeightTable` seeds, NOT `inherit`;
+`VGToIntentMigration` "0 migrated" is a no-op, not the cause. The disabled fields + the fact that
+elevation weights live in the (also-disabled) **View Modifiers** tab is why they read as placeholders.
+**A4** breaches: P7/C09 split-brain (two authorities; `VGSceneApplicator` self-marked `@deprecated`);
+P6 — 7 `cm?.execute?.` sites that `check:commandmanager` **silently misses** (it scans only
+`packages/`+`plugins/` for the literal `commandManager.execute`; the panel is in `apps/` and writes
+`cm?.execute?.`); P1 — the 50-line stub panel has zero importers.
+
+### FOUNDER DECISION (2026-07-10): **Retire VG everywhere (plan + elevation + section).**
+
+The intent store becomes the **single** style authority for all 2D views; the deprecated
+`vgGovernanceStore` override is fully removed. This is the `IntentSceneApplicator` supersession that
+`VGSceneApplicator`'s own header promises. The founder chose the full retirement over the
+elevation-only narrow fix, accepting that it also touches plan-view rendering he currently considers
+correct — so **plan appearance must be proven unchanged** (regression guard), since the intent seeds
+are `PenWeightTable`-derived and *should* resolve to the same weights VG produces today.
+
+**This warrants an ADR** (retiring a legacy authority across all 2D views). Orchestrator to author
+`ADR-01xx IntentSceneApplicator supersedes VGSceneApplicator` alongside the code, citing C09 / P7 and
+superseding the Contract-25b VG governance path.
+
+### Phase B — the fix, in order
+
+| Phase | Work |
+|---|---|
+| **B0** | **Prove plan/elevation appearance is byte-identical FIRST** — capture the current resolved (width, colour, opacity, dash) per category×state for a reference model, as the regression oracle. The founder likes today's output; B2 must not change it, only change *which authority produces it*. |
+| **B2a** | Make the intent-inclusive `_pen` from `GraphicsRulesEngine.resolveStyle()` **authoritative** for width+colour in `PlanViewCanvas` (all 2D views). Remove the `vgEdge`/`vgLineWeight` override at `:321-329`; keep VG only as an explicit fallback for a category the intent system genuinely doesn't cover, or remove it entirely if coverage is complete. Verify against B0 — plan + elevation unchanged. |
+| **B2b** | Per-view **"assign intent"** affordance in the panel (`viewIntentInstanceStore.assign`), so a duplicated user intent actually binds to `vd-sys-elev-south`. Today only collab/migration call assign. |
+| **B1** | System intents become **visibly read-only with a "Duplicate to edit"** explanation. Now meaningful, because post-B2a a duplicated intent's edits actually reach the view. |
+| **B3** | Delete the zero-importer stub `apps/editor/src/ui/visibility/VisibilityIntentPanel.ts` (P1). |
+| **B4** | Migrate the 7 `cm?.execute?.` sites to `runtime.bus`. **Not mechanical:** 3 (`BulkApplyAppearance`, `Copy/PasteAppearancePatch`) have **no bus handlers** and the panel is built with a **null runtime** (`initUI.ts:596`) — thread the runtime + author 3 handlers. **Also fix `check:commandmanager`** to scan `apps/` and match `cm?.execute?.`, so this class of P6 breach can't hide again. |
+| **B5** | Tests: a duplicated+assigned intent's `line.colour` change reaches the rendered elevation AND plan; a system intent cannot be mutated; plan appearance matches the B0 oracle; the stub panel no longer resolves. |
+
+**HARD NON-GOAL:** do not change the settled rendered appearance (B0 is the guard). The migration
+changes the *authority*, not the *pixels* — until the user actually edits an intent.
+
+**Contract mapping:** **P7** (intent is domain, not UI state), **C09**, **P6**, **P1**, C06,
+DOC-1.13, Contract 25b (superseded), new ADR `IntentSceneApplicator`.
