@@ -556,3 +556,67 @@ identity when **θ = 0** (ADR-0070/0115 byte-identity discipline).
 **Tag:** `§FEAT-PLAN-VIEW-GIS`. **Non-goals:** no new rendering engine, no parallel projector, no
 change to SplitViewManager / selection / wall geometry. The GIS underlay is a plain plan-canvas
 underlay beneath the existing building projection — one composited image, project-north, orthographic.
+
+---
+
+# L-207 / L-208 / L-209 — commercial tower, WebGPU differentiation, batch-nesting
+
+Filed 2026-07-10 from the founder's commercial-use-case report. Audit rows: `V1-LAUNCH-READINESS-AUDIT.md`.
+
+**Evidence correction first.** The console pasted with the report is the **house** pipeline, not the
+tower: `[house-postgen]` is emitted only by `apps/editor/src/ui/house-layout/runHousePostGenChain.ts`,
+and the office lane never calls it. There is therefore no tower log yet; L-207 is being audited from
+code. This is recorded so nobody later mistakes the house timings below for tower timings.
+
+## L-207 — §AUDIT-OFFICE-TOWER-ENVELOPE-ONLY
+
+| Phase | Scope | Files |
+|---|---|---|
+| **A — does the interior build at all?** | Trace `pryzmGenerateOfficeBuilding({stories,radiusM})` trigger → controller → executor → {perimeter glazing, core plan, floor plates, interior fit-out, rooms, furnish, lighting}. Per stage record: dispatched? silently no-ops (empty catch / `return []` / `if(!x) return`)? flag-gated off in the default 40-storey path? Precedent to hunt: §ENVELOPE-DIAGNOSTIC, where an envelope HARD-reject fell through to `[]` silently. | `apps/editor/src/ui/office-building/**` (audit only) |
+| **B — non-orthogonal plate** | Determine whether `deriveOfficeCircle.ts`'s CIRCULAR plate breaks the orthogonal assumptions the house/resi executors depend on — same class as the known `shellWallMatch` failure on non-orthogonal shells that zeroed windows in the Casa demo. | `deriveOfficeCircle.ts`, `officePerimeterGlazing.ts`, `officeInteriorFitout.ts` |
+| **C — parity gate** | Diff office stage list + ordering against `runHousePostGenChain.ts` and the residential-building executor. Enumerate: stages the house has that the office lacks; stages implemented differently; shared commands (`BATCH_CREATE_ROOMS`, `CREATE_FLOORS_BY_ROOM_TYPE`, furnish/lighting executors) reused vs reinvented. **Standing rule:** office/new typologies MUST mirror the proven resi+house executors, not reinvent. Every reinvention is a candidate defect. | audit only |
+
+**Non-goals:** no new typology engine; no envelope rewrite. Reuse the proven executors.
+
+## L-208 — §DECIDE-WEBGPU-VISUAL-DIFFERENTIATION (founder decision, not a code task)
+
+Confirmed by design, not a bug. The TSL pipeline boots to **Phase 4 = Outlines only**; SSGI and TRAA
+are **off by default** (`initScene.ts:2680`; `RenderPipelineManager.ts:222-223`), which the founder's own
+log states verbatim: `Phase: phase4 | WebGPU: true | SSGI: false | TRAA: false`. Both backends therefore
+render identical PBR + shadows. The WebGPU-exclusive effects are opt-in and nobody enables them, so the
+WebGPU investment is invisible while still carrying WebGPU-only risk (L-139/L-153/L-197/L-200/L-202/L-203/L-205).
+
+Options — **decide before spending more on WebGPU-only bugfixes**:
+
+1. **Make WebGPU visibly better.** Enable SSGI and/or TRAA by default on capable devices via
+   `SceneQualityTier` (the `cinematic` tier already implies this intent but explicitly does not do it),
+   gated by tier + element count, accepting perf and device-loss risk.
+2. **Keep parity; justify WebGPU on perf/compute** (instancing, compute picking, future GPU solar) and
+   stop treating it as a visual tier — in which case the defensible default is WebGL2 for stability,
+   with WebGPU opt-in.
+3. **Status quo** — WebGPU default, zero visual delta, ongoing WebGPU-only risk with no user-visible
+   payoff. Hardest to defend.
+
+Maps C04 + the Massing/Presentation render-tier strategy (A.24).
+
+## L-209 — §FIX-RUNBATCH-NESTING-DROPS-GUARDS
+
+`LightingLayoutExecutor.ts:134` calls `batchCoordinator.runBatch(...)` explicitly to get ONE undo unit
+(":131 — ONE runBatch — single undo unit"). Inside the post-gen chain a batch is already open, so it hits
+`BatchCoordinator.ts:867` — *"runBatch called while already batching — nesting not supported. Running fn()
+without batch guards."* — and the body runs **unguarded**. Consequences, both visible in the founder's log:
+
+- **Correctness:** the 59 fixtures are 59 undo entries, not one. Auto-lighting cannot be undone as a unit.
+- **Perf:** the per-element path runs for every fixture — 59 `§FT-LIGHTING: lighting mirrored to legacy store`
+  lines, `step=lighting stepMs=8998`.
+
+A warn-and-continue on a correctness-critical guard is the wrong failure mode: it turns a structural
+violation into silent data damage. `beginBatch` has the same shape (`:1215` — *"Ignoring."*).
+
+| Phase | Scope | Files |
+|---|---|---|
+| **P1 — contract** | Decide against C17 (§II-2) + P6 + the three-store undo design: make `runBatch` **re-entrant / ref-counted** (inner calls JOIN the ambient batch; the outermost commit closes exactly one undo unit), OR require callers to detect an ambient batch and join it. Either way the nesting case must become a **hard error in dev**, never a silent downgrade. | `docs/02-decisions/contracts/` (read), ADR if the semantics change |
+| **P2 — sweep** | Find every `runBatch`/`beginBatch` caller that can execute inside an ambient batch (`officeFurnish`, `furnishLayout`, ceiling, floor, lighting). | `apps/editor/src/ui/**`, `packages/ai-host/src/workflows/**` |
+| **P3 — fix + tests** | Implement; test that N nested batches produce exactly ONE undo unit and that guards are never dropped. | `BatchCoordinator.ts` + callers |
+
+**Tag:** `§FIX-RUNBATCH-NESTING-DROPS-GUARDS`. **Non-goals:** no change to the undo store layering.
