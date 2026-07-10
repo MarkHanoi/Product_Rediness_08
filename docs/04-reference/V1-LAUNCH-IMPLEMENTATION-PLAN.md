@@ -959,3 +959,93 @@ independently by `StairRailingBuilder` and is not part of the stair TYPE.
 material per **type**. Textures must be self-hosted: the CSP is `connect-src 'self'` and external
 fetches are already blocked in prod. **Reuse the L-212 floor-finish PBR material pipeline** rather
 than inventing a second one.
+
+---
+
+## L-217 — §FIX-STAIR-PLAN-ROUTING-VIEWSTATE  (HIGH, correctness)
+
+Founder: *"Check why the stair creation now is not working on plan view — maybe something is not
+wired?"*
+
+### Root cause (code-confirmed, and printed in the founder's own log)
+
+The log establishes the view is a plan view beyond doubt:
+
+```
+[VST] dispatching "view-activated" event (mode="Top", type="orthographic")
+[VST] dispatching "view-selected" event (viewId="vd-sys-plan-l0")
+[WallEdgeVisibilityService] Edge render mode set to 'plan'.
+...
+[StairPath3DToolHandler] activated in 3D (shape=L, groundY=0)     <-- WRONG HANDLER
+```
+
+The routing decision lives at `apps/editor/src/engine/BimService.ts:292-297`:
+
+```ts
+const cam = window.world?.camera?.three;
+const inPlanView = cam ? planView2DCreationMode.isInPlanView(cam) : false;
+if (!inPlanView && window.stairPath3DTool) {
+    if (window.stairPath3DTool.activate(shape)) return;
+}
+```
+
+And `isInPlanView()` (`packages/core-app-model/src/views/PlanView2DCreationMode.ts:46-49`) is a
+**conjunction**:
+
+```ts
+isInPlanView(camera: THREE.Camera): boolean {
+    return camera instanceof THREE.OrthographicCamera &&
+           activePlanDrawingRef.drawing !== null;
+}
+```
+
+**The name lies about the meaning.** Its own header says it answers *"is the camera orthographic AND
+a TechnicalDrawing currently mounted"* — i.e. **is 2D snapping available**. It does **not** answer
+*"is the active view a plan view"*. `SlabTool` consumes it correctly, as a snap-availability guard.
+`BimService` misuses it as a **view-mode discriminator**. So when the drawing is absent, the stair
+tool concludes "we must be in 3D" and binds `StairPath3DToolHandler` over an orthographic plan
+camera. Nothing is ever created.
+
+**And the drawing is absent.** `apps/editor/src/engine/views/PlanViewManager.ts:251` runs
+`activePlanDrawingRef.drawing = null` on deactivate — a **third writer**, contradicting the ref's own
+contract header (`ActivePlanDrawingRef.ts:18`):
+
+> *"Write access: ViewController._mountDrawing() and ._unmountDrawing() only."*
+
+The founder's log shows precisely that teardown immediately before the stair activation
+(`[SvpPlanToolOverlay] Detached`, `[SplitViewManager] Split view deactivated`). The accompanying
+`GL_INVALID_FRAMEBUFFER_OPERATION: Framebuffer is incomplete: Attachment has zero size` flood
+(hundreds of lines, then *"too many errors"*) suggests the drawing/render-target then fails to
+re-mount at a non-zero size, so the ref is never repopulated.
+
+**The authoritative view mode was available the whole time and was never consulted:**
+`ViewController.viewMode` (`ViewController.ts:587`) returns
+`ViewMode = '3D' | 'Top' | 'Ceiling' | 'ceiling-plan' | 'Front' | 'Back' | 'Left' | 'Right'`
+and was `'Top'`.
+
+### The architectural smell is the real defect
+
+Tool routing must be a function of **view state**, never of whether a *rendering artifact* happens to
+be mounted. A creation tool asking "is a TechnicalDrawing attached?" to decide which pipeline to run
+couples C11 element-creation to an incidental render-target lifecycle. This is the same class as
+L-213 and L-214: **one element type, divergent creation paths, selected by an unreliable predicate.**
+
+A second, independent hazard enabled it: a module whose header declares two writers has three. The
+single-writer invariant on `activePlanDrawingRef` is what should have made the null unreachable.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | Route on **view state**. `activateStairPathTool` asks `ViewController.viewMode` / the active `ViewDefinition` type — never `isInPlanView(camera)`. |
+| **P2** | Rename `isInPlanView()` to what it means (`is2DSnapAvailable()`), keeping `SlabTool`'s snap guard working. If a genuine plan predicate is wanted, derive it from view state. |
+| **P3** | Restore the single-writer invariant on `activePlanDrawingRef`: either `PlanViewManager` stops writing it and defers to `ViewController._unmountDrawing()`, or ownership genuinely moves and the header is amended. Header and code must agree. |
+| **P4** | Investigate the zero-size framebuffer. A `TechnicalDrawing` mounted at 0×0 is a real defect, not noise. (Related: the `[TechnicalDrawing] Layer "A-WALL" does not exist` gap under L-211.) |
+| **P5** | Tests: orthographic plan camera + **no** mounted drawing ⇒ stair resolves to the **plan** handler; 3D perspective ⇒ **3D** handler; split-view teardown does not strand the plan view in 3D-routing. |
+
+**Contract mapping:** C11 (one element type ⇒ one creation pipeline), C06 (UI shell & tools),
+DOC-5.2 / DOC-5.3 (`ActivePlanDrawingRef`, `PlanView2DCreationMode`), SPEC-STAIR-3D-CREATION (#101 —
+the 3D sketch path this guard was added to gate).
+
+**Sequencing:** independent of L-215 / L-216. L-215 owns `UpdateElementParameterCommand` +
+`geometry-stair`; L-217 owns the view-state routing layer. Disjoint fences, may run in parallel.
