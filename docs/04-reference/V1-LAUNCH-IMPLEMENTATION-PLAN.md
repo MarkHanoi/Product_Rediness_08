@@ -1322,3 +1322,83 @@ perf cost is a second, independent reason.
 
 **Contract mapping:** C06 (UI shell & tools), DOC-2.x (plan symbols), C11. Sibling of **L-211**
 (layered-wall plan lines) — same subsystem, likely the same agent.
+
+---
+
+## L-222 — §PERF-ELEV-CROP-DRAG-FLOW  (MEDIUM; perf + correctness)
+
+Founder: *"The elevations are sound — really good to be honest — but I have a request. When the user
+moves the crop view, at the moment the live elevation updates, but flickering a bit. Would it be
+possible to update the performance and make it more organic, like flowing?"*
+
+### Four defects, all printed in his log
+
+One pointermove during a crop drag produces:
+
+```
+EXECUTE: UPDATE_VIEW_DEFINITION                          <- command 1
+[ViewTechnicalDrawingCache] invalidated viewId=vd-sys-elev-south
+[NativeElementMeshExporter] ... (x2)
+EXECUTE: SET_VIEW_CROP                                   <- command 2, SAME pointermove
+[SetViewCropCommand] View 'vd-sys-elev-south' crop updated.
+project() ... near=0.000 far=3.669  cropRegion=[-20.73,21.39 -> 20.73,24.05]   <- projection A
+project() ... near=0.000 far=2.557  cropRegion=[-20.73,21.39 -> 20.73,24.05]   <- projection B
+[HiddenLineRemoval] ... (x2)
+§PERF-CACHE-STATS ... cacheHits=0 cacheMisses=18 hitRate=0%
+§FIX-PLAN-BLANK-STALEGEN — accepting a stale projection into an EMPTY cache
+    to avoid a blank view: staleGen=1206 currentGen=1209
+```
+
+1. **Two commands per pointermove.** `UPDATE_VIEW_DEFINITION` *and* `SET_VIEW_CROP`. Each invalidates
+   the drawing cache and drives a full `EdgeProjectorService.project()` + `HiddenLineRemoval`.
+2. **The two projections disagree.** Paired `project()` calls in one tick carry **different `far`**
+   values (`3.669` then `2.557`; `12.135` then `28.895`; …) because `resolveClipRange()` derives
+   elevation depth from the crop and the first projection still sees the **previous** crop's depth.
+   Each tick therefore renders two different drawings.
+3. **The stale one sometimes wins.** `§FIX-PLAN-BLANK-STALEGEN` fires on **every tick** —
+   `staleGen=1206 currentGen=1209`, then `1212/1215`, `1218/1221` … generation advancing by 3 per
+   drag step. The guard is honest about what it does, and during a drag what it does is periodically
+   present the **older** of the two competing projections. **This is the flicker.**
+4. **The edge cache is useless during the drag.** `cacheHits=0 … hitRate=0%` every tick, because the
+   cache key includes the crop-derived `far`. But **moving a crop does not change any element's edge
+   geometry** — it changes the clip range and the `proj` vs `beyond` (dashed) classification. Re-
+   extracting all 18 groups per mouse-move is pure waste. The 0% hit rate is a cache-key defect.
+
+### Architectural framing
+
+A crop drag is **one user gesture, not N commands.**
+
+- **P6** — the *commit* is a command: one `SET_VIEW_CROP`, one undo entry, on pointer-up. The *live
+  preview* between pointer-down and pointer-up is view state, not a mutation, and must not round-trip
+  the command bus and the undo stack 60x/s.
+- **P3** — all refresh coalesces through the single frame bus: at most one projection per frame,
+  superseded ticks dropped, never two projections for one tick.
+- A live view must **never regress to an older generation.** Hold the last good drawing until the new
+  one is ready. The flicker is a *correctness* bug about ordering, not a *speed* bug — and it will
+  not be fixed by making the projection faster.
+
+**`FastPathProjectorService` already exists and boots** — `[main] FastPathProjectorService initialized
+(sub-50ms interactive projection)`. The "organic, flowing" behaviour the founder is asking for is
+**progressive refinement**: fast path while dragging, full-quality projection on settle.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | **One gesture ⇒ one command.** Collapse the `UPDATE_VIEW_DEFINITION` + `SET_VIEW_CROP` pair. Commit one `SET_VIEW_CROP` on pointer-up (one undo entry). Live drag updates view state / the projector directly. |
+| **P2** | **Coalesce to the frame bus (P3):** ≤ 1 projection per frame; drop superseded ticks. |
+| **P3** | **Fix the clip-range ordering** so a projection can never run against the previous crop's `far`. |
+| **P4** | **Never display a stale generation.** Replace the drag-time `§FIX-PLAN-BLANK-STALEGEN` behaviour with hold-last-good-drawing (double-buffer); swap only when the new generation is ready. **Keep** the blank-view guard for the genuine cold-cache case it was written for — do not delete it. |
+| **P5** | **Fix the edge-cache key** so it excludes the crop-derived `far`. Element edge geometry is crop-invariant. Target a high hit-rate during drag. **Biggest single win.** |
+| **P6** | **Progressive refinement:** drive the drag through `FastPathProjectorService`; settle to full `EdgeProjectorService` + `HiddenLineRemoval` on pointer-up. |
+| **P7** | Tests: one drag gesture ⇒ exactly one committed command + one undo entry; N pointermoves ⇒ ≤ N projections, never two per tick; displayed generation is **monotonic**; edge-cache hit-rate > 0 during a pure crop drag. |
+
+**Sequencing:** **after L-221** — that agent currently owns `EdgeProjectorService`, and P5 lives there.
+P1–P4 are in the crop/drag/cache layer and could start earlier if the fences are respected.
+
+**Contract mapping:** C04 (rendering & scheduling), **P3** (single rAF / frame bus), **P6** (commands
+are the only mutation path), C06, DOC-1.4 / DOC-1.8 (projection + technical-drawing cache).
+
+**Note on praise:** the founder called the elevation output itself *"really good"*. Nothing in this
+task should change the rendered result — only *when* and *how often* it is computed, and *which*
+generation is shown.
