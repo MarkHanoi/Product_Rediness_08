@@ -1176,6 +1176,75 @@ interface SectionVolumeBox {
     maxY: number;
 }
 
+/** §FIX-ELEV-LIVE-CROP-REPROJECT (L-202) — inputs the per-element cache signature depends on. */
+export interface ClipSignatureInput {
+    viewType: string;
+    direction: THREE.Vector3;
+    near: number;
+    far: number;
+    planBelowDepthOffset: number;
+    cutPlaneY: number | null;
+    planFloorY: number | null;
+    planBelowY: number | null;
+    sectionDepthBands: { projectionDepth: number; farClipDepth: number } | null;
+    sectionVolumeBox: SectionVolumeBox | null;
+}
+
+/**
+ * §FIX-ELEV-LIVE-CROP-REPROJECT-AND-4X-DEFAULT (L-202) — Per-view CLIP SIGNATURE.
+ *
+ * The per-element projection cache (`_cwProjectionCache`) stores drawing-space
+ * geometry AFTER crop-dependent classification: elevation/section depth banding
+ * (`classifyByProjectionDepth` with the crop-derived `sectionVolumeBox` +
+ * `farClipDepth`) and plan cut/beyond banding (`classifyByVertexY` with the
+ * clip-derived `cutPlaneY` / `planFloorY` / `planBelowY`). That cached geometry
+ * is therefore ONLY valid for the exact clip/crop configuration it was projected
+ * under. The cache is keyed on (elementId, viewId, version) where `version`
+ * tracks ELEMENT GEOMETRY only — it does NOT encode the view's crop.
+ *
+ * Without this signature a live crop change (view.setCrop → `_onViewUpdated`
+ * full reproject) cache-HITS every unchanged element and replays geometry
+ * clipped/classified under the OLD crop: elements newly captured as the scope
+ * grows render against a stale reference while the originals (fully inside the
+ * old crop, so their clipped geometry is unchanged) stay sound — exactly the
+ * founder-reported defect. `invalidateCwView()` exists to clear this cache on a
+ * view-definition change but is never wired to the crop-change path (dead code),
+ * and `ViewTechnicalDrawingCache.invalidate()` disposes only the DRAWING cache.
+ *
+ * Folding every clip input the cached geometry depends on into a signature makes
+ * the cache SELF-INVALIDATE on any crop / clip / direction change: same crop →
+ * identical signature → cache still hits (normal element edits keep the perf
+ * win); changed crop → signature mismatch → full re-classify from scratch,
+ * identical to a from-scratch projection at the new crop.
+ */
+export function computeClipSignature(input: ClipSignatureInput): string {
+    const n = (v: number | null | undefined): string =>
+        (v === null || v === undefined || !Number.isFinite(v)) ? 'x' : v.toFixed(4);
+    const d   = input.direction;
+    const sdb = input.sectionDepthBands;
+    const box = input.sectionVolumeBox;
+    const parts: string[] = [
+        input.viewType,
+        n(d.x), n(d.y), n(d.z),
+        n(input.near), n(input.far),
+        n(input.planBelowDepthOffset),
+        n(input.cutPlaneY), n(input.planFloorY), n(input.planBelowY),
+        sdb ? `${n(sdb.projectionDepth)}/${n(sdb.farClipDepth)}` : 'x',
+    ];
+    if (box) {
+        parts.push(
+            n(box.origin.x),  n(box.origin.y),  n(box.origin.z),
+            n(box.forward.x), n(box.forward.y), n(box.forward.z),
+            n(box.minRight),  n(box.maxRight),
+            n(box.minDepth),  n(box.maxDepth),
+            n(box.minY),      n(box.maxY),
+        );
+    } else {
+        parts.push('x');
+    }
+    return parts.join('|');
+}
+
 // ── Service ──────────────────────────────────────────────────────────────────
 
 export class EdgeProjectorService {
@@ -1218,6 +1287,11 @@ export class EdgeProjectorService {
      */
     private readonly _cwProjectionCache = new Map<string, Map<string, {
         readonly version:      number;
+        // §FIX-ELEV-LIVE-CROP-REPROJECT (L-202) — clip/crop signature the cached
+        // drawing-space geometry was classified under. A crop change (same element
+        // version) flips this, invalidating the entry so newly-captured elements
+        // re-classify from scratch instead of replaying stale clipped geometry.
+        readonly clipSignature: string;
         readonly layers:       ReadonlyMap<string, THREE.BufferGeometry>;
         readonly projectedAt:  number;
     }>>();
@@ -1355,8 +1429,17 @@ export class EdgeProjectorService {
 
     // ── §C.2 Cache helpers ────────────────────────────────────────────────────
 
-    private _cwCacheIsValid(elementId: string, viewId: string, currentVersion: number): boolean {
-        return this._cwProjectionCache.get(elementId)?.get(viewId)?.version === currentVersion;
+    private _cwCacheIsValid(
+        elementId: string,
+        viewId: string,
+        currentVersion: number,
+        clipSignature: string,
+    ): boolean {
+        const entry = this._cwProjectionCache.get(elementId)?.get(viewId);
+        // §FIX-ELEV-LIVE-CROP-REPROJECT (L-202) — both the element geometry version
+        // AND the view's clip/crop signature must match; a live crop change flips
+        // the signature so stale, differently-clipped geometry is never replayed.
+        return entry?.version === currentVersion && entry?.clipSignature === clipSignature;
     }
 
     private _getCwCached(elementId: string, viewId: string): ReadonlyMap<string, THREE.BufferGeometry> | null {
@@ -1400,6 +1483,7 @@ export class EdgeProjectorService {
         viewId: string,
         version: number,
         layers: Map<string, THREE.BufferGeometry>,
+        clipSignature: string,
     ): void {
         let inner = this._cwProjectionCache.get(elementId);
         if (!inner) {
@@ -1418,6 +1502,7 @@ export class EdgeProjectorService {
         }
         inner.set(viewId, {
             version,
+            clipSignature,  // §FIX-ELEV-LIVE-CROP-REPROJECT (L-202)
             layers: new Map(layers),
             projectedAt: performance.now(),
         });
@@ -1524,6 +1609,25 @@ export class EdgeProjectorService {
 
         const sectionDepthBands = isSectionDepthView ? resolveSectionDepthBands(viewDef, far) : null;
         const sectionVolumeBox = isSectionDepthView ? resolveSectionVolumeBox(viewDef, direction, far, this._bimManager) : null;
+
+        // §FIX-ELEV-LIVE-CROP-REPROJECT (L-202) — clip/crop signature for the
+        // per-element projection cache. Encodes every clip input the cached
+        // drawing-space geometry is classified against, so a live crop change
+        // (view.setCrop → full reproject) invalidates every stale entry and
+        // newly-captured elements re-classify identically to a from-scratch
+        // projection at the new crop.
+        const clipSignature = computeClipSignature({
+            viewType: viewDef.viewType,
+            direction,
+            near,
+            far,
+            planBelowDepthOffset,
+            cutPlaneY,
+            planFloorY,
+            planBelowY,
+            sectionDepthBands,
+            sectionVolumeBox,
+        });
 
         // §FIX-ELEVATION-POCHE (L-119) — unified drawing scope for this view. Drives
         // whether depth-classified geometry is routed to a `:cut` layer (section) or
@@ -1697,9 +1801,13 @@ export class EdgeProjectorService {
 
                 // §C.3 — Cache gate: skip the expensive traverse + EdgesGeometry +
                 // toDrawingSpace pipeline when the element hasn't changed since the
-                // last projection.  Cache key: (elementUUID, viewId, version) — the
-                // `version` is stamped by every fragment builder on every rebuild,
-                // so a cache miss equals "geometry actually changed".
+                // last projection.  Cache key: (elementUUID, viewId, version,
+                // clipSignature) — the `version` is stamped by every fragment builder
+                // on every rebuild (so a version miss equals "geometry actually
+                // changed"), and `clipSignature` (§FIX-ELEV-LIVE-CROP-REPROJECT, L-202)
+                // captures the view's crop/clip reference so a live crop change
+                // invalidates entries whose cached geometry was clipped/classified
+                // under the OLD crop.
                 //
                 // §PLAN-VIEW-INCREMENTAL-PROJECTION §4.1 (Day 1, 2026-05-20):
                 //   The cache used to gate only on `elementType === 'curtainwall'`
@@ -1721,7 +1829,7 @@ export class EdgeProjectorService {
                     : undefined;
 
                 if (isCacheableElement && elementUUID !== undefined && currentVer !== undefined) {
-                    if (this._cwCacheIsValid(elementUUID, viewId, currentVer)) {
+                    if (this._cwCacheIsValid(elementUUID, viewId, currentVer, clipSignature)) {
                         // §C.3.2 — CACHE HIT: replay stored drawing-space geometries directly.
                         // Skips: group.traverse(), N×EdgesGeometry, N×matrixWorld, mergeGeometries,
                         //        OBC.TechnicalDrawing.toDrawingSpace(), and opening suppressors.
@@ -2156,7 +2264,7 @@ export class EdgeProjectorService {
                 //   isCWElement=true, elementUUID defined, currentVer defined (MISS path).
                 if (freshLayersCollector !== null && freshLayersCollector.size > 0
                     && elementUUID !== undefined && currentVer !== undefined) {
-                    this._putCwCache(elementUUID, viewId, currentVer, freshLayersCollector);
+                    this._putCwCache(elementUUID, viewId, currentVer, freshLayersCollector, clipSignature);
                     cacheMisses++;
                     if (EPS_VERBOSE) console.log(
                         `[EdgeProjectorService] §PERF-CACHE-MISS ` +
