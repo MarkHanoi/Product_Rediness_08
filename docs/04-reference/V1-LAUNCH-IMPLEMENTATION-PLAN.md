@@ -741,3 +741,43 @@ do not remove the caster denylist or the `alreadyAllocated` no-realloc guard.
 - **L-140** — "generated building casts no shadow." Almost certainly the same root cause; the fixed
   ±50 m frustum may still clip a very tall building (that was L-140/L-168's original motivation for
   the fit). Re-test before re-opening.
+
+---
+
+# L-210 — §FIX-RBL-3D-XRAY-ALWAYS-ON (pink dashed lines through the building)
+
+Founder report: violet dashed lines drawn across every floor and *through* the roof and façade.
+Assumed to be corridor floor finishes; **they are not**. They are **room-bounding lines**
+(`packages/geometry-wall/src/RoomBoundingLineBuilder.ts`, `ACTIVE_COLOR = 0xA855F7`).
+
+## Why they look like a bug
+
+| # | Defect | Evidence |
+|---|---|---|
+| 1 | The dashed line **and** the vertex diamonds are built with `depthTest: false` + `renderOrder = 1` | `RoomBoundingLineBuilder.ts:101, 105, 110` — they render over ALL geometry, so every floor's lines x-ray through the roof at once |
+| 2 | **Nothing ever hides them.** `setVisible()` exists but no view / level / V-G / visibility-intent path calls it | `setVisible` at `:42`; zero call sites outside the builder |
+| 3 | Emitted unconditionally by every generator | `ApartmentLayoutExecutor:395`, `HouseLayoutExecutor:3393`, `OfficeBuildingExecutor:38`, resi |
+
+## Architectural framing
+
+A room-bounding line is a **plan / documentation** construct — it defines a room boundary so areas
+and finishes can be computed. Its 3D mesh representation being **always-on and depth-ignoring**
+violates **P7** (visibility is *domain intent*, not a hardcoded renderer flag) and bypasses the
+visibility-intent system entirely.
+
+Related: **L-170** already records that the office lane emits non-rendering room-bounding lines that
+cause redetect churn — the same element, a different symptom. Fix them together.
+
+## Phases
+
+| Phase | Scope | Files |
+|---|---|---|
+| **P1 — default OFF, governed by intent** | The 3D representation defaults to hidden and becomes a V/G-togglable category driven through the visibility-intent system. **No hardcoded `visible = true`.** | `RoomBoundingLineBuilder.ts`, the visibility-intent registration site |
+| **P2 — correct depth behaviour** | Remove `depthTest: false` from the line **and** the diamond materials, so that when a user *does* enable them they occlude behind geometry instead of x-raying it. Re-check `renderOrder`. | `RoomBoundingLineBuilder.ts` |
+| **P3 — test** | Assert: default 3D visibility is OFF; enabling via visibility intent shows them; materials do not disable depth testing. | new spec beside the builder |
+
+**Non-goals:** do **not** stop the generators emitting the room-bounding-line *elements* — rooms,
+areas and floor finishes depend on them. Only the 3D mesh representation is at issue. The plan-view
+representation is correct and must not change.
+
+**Tag:** `§FIX-RBL-3D-XRAY-ALWAYS-ON`. Maps P7, C09 (visibility intent), C06 (UI shell + tools).
