@@ -644,7 +644,7 @@ export class SlabTool {
         // service first (endpoint / midpoint / perpendicular on projected wall edges),
         // then falls back to a ground-plane raycast at the correct level elevation.
         // This replaces the hardcoded Y=0 plane with the authoritative level Y.
-        if (planView2DCreationMode.isInPlanView(camera)) {
+        if (planView2DCreationMode.is2DSnapAvailable(camera)) {
             const levelId = projectContext.activeLevelId;
             const elevation = this.resolveElevationForPreview(levelId);
             return planView2DCreationMode.resolvePoint(clientX, clientY, camera, canvas, elevation);

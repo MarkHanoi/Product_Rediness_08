@@ -27,7 +27,7 @@
  *
  * **Integration points:**
  *   WallTool    — getWorldPoint() uses resolvePoint() as primary resolver in plan view.
- *   SlabTool    — getPlanPoint() uses resolvePoint() when isInPlanView() is true.
+ *   SlabTool    — getPlanPoint() uses resolvePoint() when is2DSnapAvailable() is true.
  *   RoomTool    — _canvasToWorld() uses resolvePoint() for all modes.
  */
 
@@ -37,13 +37,23 @@ import { planView2DSnapService } from './PlanView2DSnapService';
 
 export class PlanView2DCreationMode {
     /**
-     * Returns true when the camera is orthographic AND a TechnicalDrawing is
-     * currently mounted in the plan view.
+     * Returns true when 2D snapping is available: the camera is orthographic AND
+     * a TechnicalDrawing is currently mounted (activePlanDrawingRef.drawing).
      *
-     * Use this guard before calling resolvePoint() to decide whether 2D mode
+     * ─── NAME IS DELIBERATE (§FIX-STAIR-PLAN-ROUTING-VIEWSTATE, L-217) ──────────
+     * This is a SNAP-AVAILABILITY guard, NOT a view-mode discriminator. It answers
+     * "can resolvePoint() snap to projected drawing edges right now?", which is a
+     * conjunction of an orthographic camera AND a mounted drawing. It does NOT
+     * answer "is the active view a plan view?" — an orthographic plan view with no
+     * drawing mounted (e.g. mid teardown) is still a plan view but returns false
+     * here. For plan-vs-3D routing, consult the authoritative ViewController view
+     * mode instead (see apps/editor stairSketchRouting.ts). Renamed from the
+     * misleading `isInPlanView()` after that misuse mis-routed stair creation.
+     *
+     * Use this guard before calling resolvePoint() to decide whether 2D snap mode
      * is active. When false, tools should fall through to their 3D resolution.
      */
-    isInPlanView(camera: THREE.Camera): boolean {
+    is2DSnapAvailable(camera: THREE.Camera): boolean {
         return camera instanceof THREE.OrthographicCamera &&
                activePlanDrawingRef.drawing !== null;
     }

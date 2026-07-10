@@ -15,7 +15,22 @@
  *   §02 §6.1 — Tools may read from this to query geometry for snapping;
  *               they may NOT write to it or modify the drawing.
  *
- * Write access: ViewController._mountDrawing() and ._unmountDrawing() only.
+ * Write access — there are two mutually-exclusive plan-render paths, partitioned by
+ * which renderer is active, so exactly one owner writes this ref at any time:
+ *
+ *   1. ViewController._mountDrawing() / ._unmountDrawing() — owns the ref for the
+ *      3D-scene-mounted TechnicalDrawing overlay path. NOTE: _mountDrawing()
+ *      early-returns to a Canvas2D branch (skipping scene.add) when the
+ *      PlanViewManager is active, deferring the ref's lifecycle to it (below).
+ *   2. PlanViewManager — owns the ref across the Canvas2D plan-view lifecycle:
+ *      it SETS the ref when a (warm or freshly projected) drawing becomes ready
+ *      and CLEARS it on deactivate / level-switch / projection invalidation /
+ *      failure fallback. This is by design, not a rogue writer: ViewController
+ *      abdicates the ref for the Canvas2D path, so PlanViewManager must manage it.
+ *
+ * (§FIX-STAIR-PLAN-ROUTING-VIEWSTATE, L-217 — header corrected to match code; the
+ * two paths never run simultaneously, preserving a single-active-writer invariant.)
+ *
  * Read access:  Tool layer (PlanView2DSnapService query) only.
  */
 

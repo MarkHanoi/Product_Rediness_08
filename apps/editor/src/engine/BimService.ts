@@ -5,8 +5,10 @@ import { StairSetupPanel } from '@app/ui/StairSetupPanel';
 import { StairLevelRequiredPanel } from '@app/ui/StairLevelRequiredPanel';
 import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-format';
 
-import { BimManager, planView2DCreationMode } from '@pryzm/core-app-model';
+import { BimManager } from '@pryzm/core-app-model';
+import type { ViewMode } from '@pryzm/core-app-model';
 import type { IBimService } from '@pryzm/engine';
+import { shouldSketchStairIn3D } from './stairSketchRouting';
 
 export class BimService implements IBimService {
     private bimManager: BimManager;
@@ -284,14 +286,23 @@ export class BimService implements IBimService {
             return;
         }
 
-        // #101 / SPEC-STAIR-3D-CREATION — when the active view is the 3D view
-        // (camera is NOT an orthographic plan camera with a mounted drawing),
-        // sketch the stair directly in 3D via StairPath3DToolHandler. The plan
-        // and split-plan-pane paths below are unchanged. `world.camera.three`
-        // reflects the active view's camera (same accessor SlabTool relies on).
-        const cam = window.world?.camera?.three;
-        const inPlanView = cam ? planView2DCreationMode.isInPlanView(cam) : false;
-        if (!inPlanView && window.stairPath3DTool) {
+        // §FIX-STAIR-PLAN-ROUTING-VIEWSTATE (L-217) — route on the AUTHORITATIVE
+        // view mode, never on snap availability. The prior guard asked
+        // planView2DCreationMode.isInPlanView(camera), which answers "is a 2D snap
+        // drawing mounted?" (orthographic camera AND a TechnicalDrawing) — NOT "is
+        // the active view a plan view?". Whenever the drawing was absent (e.g. right
+        // after a split-view / plan teardown nulls activePlanDrawingRef) that guard
+        // mis-concluded "3D" over an orthographic plan camera and bound the 3D
+        // sketch handler, so nothing was created. ViewController is the single
+        // source of truth for view state; window.viewController is the documented
+        // seam other UI guards already read (ViewsRailPanel / GridsLevelsRailPanel /
+        // BottomActionMenu — pending Phase D.4). Only the perspective '3D' view
+        // hosts the 3D sketch handler (SPEC-STAIR-3D-CREATION #101); every plan-like
+        // mode ('Top' and the ceiling-plan family) authors the footprint via the
+        // plan tool handlers below. See stairSketchRouting.ts for the full mode map.
+        const viewMode = (window.viewController as { currentMode?: ViewMode } | undefined)?.currentMode;
+        const cameraIsPerspective = window.world?.camera?.three?.isPerspectiveCamera === true;
+        if (shouldSketchStairIn3D(viewMode, cameraIsPerspective) && window.stairPath3DTool) {
             if (window.stairPath3DTool.activate(shape)) return;
             console.warn('[BimService] 3D stair activation declined — falling back to plan/legacy path');
         }
