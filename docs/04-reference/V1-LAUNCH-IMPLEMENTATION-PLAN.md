@@ -1505,3 +1505,132 @@ within a minute.
 
 **Contract mapping:** **P7** (visibility intent is not UI state), **C09** (AI and visibility intent),
 C06 (UI shell and tools), C03 / C16 (commands), DOC-1.13 (projection layers), **P1**, **P6**.
+
+---
+
+## L-224 — §AUDIT-PROJECT-ISOLATION-E2E  (HIGH; audit-first, then fix)
+
+Founder: *"Please audit the project isolation end to end. At the moment, when the user opens a
+project, works on it, goes back to Projects and either creates a project or opens another, there is a
+reminiscencia from the previous one. It is not a proper start-from-scratch concept."*
+
+There **is** a guard — `ProjectIsolationAudit` (Contract 48). It is blind to exactly the case he hit.
+
+### Structural finding 1 — the audit never runs when you OPEN another project
+
+`packages/core-app-model/src/persistence/ProjectIsolationAudit.ts:144`:
+
+```ts
+if (detail.empty !== true) return;   // only audit fresh / cleared projects
+```
+
+Its own header (`:38-39`):
+
+> *"The audit runs only on `empty:true` loads to keep the false-positive rate at zero — non-empty
+> loads legitimately bring back saved geometry."*
+
+The founder's scenario is *"go back to Projects and either **create** a project or **open another**."*
+**Creating is audited. Opening another project is never audited at all.** The coverage hole is
+precisely the reported bug.
+
+The false-positive reasoning is sound **for geometry** — a loaded project legitimately has walls. But
+it throws away *all* coverage of the surfaces where leakage actually shows: stores, caches, graphs,
+registries, undo history. The right fix is to compare against **the loaded snapshot's expected
+contents**, not against "must be empty".
+
+### Structural finding 2 — the audit inspects the scene and two window globals. Not one store.
+
+`runAudit()` (`:111-129`) checks only:
+
+- `inspectScene()` (`:63-94`) — underlay meshes, IFC groups, DXF overlays, surviving BIM meshes
+- `inspectGlobals()` (`:96-109`) — `window.floorPlanUnderlayTool`, `window._ifcServerUploadIds`
+
+Boot logs:
+
+```
+[initStores] StoreRegistry: 37 stores registered — visibility-intent, view-intent-instance,
+  vg-governance, view, phase-filter, RoomRequirement, title-block, schedule, user-material, sheet,
+  view-template, AssetCatalogEntry, wall, slab, column, beam, stair, ..., annotation
+```
+
+**A stale schedule, sheet, view-template, annotation, room-requirement or visibility-intent carried
+from project A would pass this audit as "✓ loaded clean".** Nor does it inspect `SemanticGraph`,
+`TemporalGraph`, `RoomGraphService`, the `ViewTechnicalDrawingCache` / NME / EdgeProjector caches,
+`ElementRegistry`, `BimManager`'s level registry, the selection, or the undo ring-buffer.
+
+**It is a scene-graph guard wearing the name of a project-isolation guard.** A "✓ loaded clean" that
+never looked at 37 stores is worse than no audit — it manufactures confidence.
+
+### Suspects (real evidence; causality not yet proven)
+
+**S1 — the undo ring-buffer survives the switch.** From his log:
+
+```
+[elementUndoStoreAdapter] skip remove — not found in store: furniture_01KX68Z34JZZNQBBQ528BEKAH3
+[elementUndoStoreAdapter] skip remove — not found in store: plumbing_01KX68T0455A479V3YP5VYWD9P
+```
+
+…while the fixture he had just created in the open project carried id
+`9e44427e-9bbf-4224-834b-9558616bab7f`. **Two different id namespaces in one undo stack.** Ctrl+Z was
+reaching for elements that do not exist in the open project.
+
+**S2 — collaboration catch-up replays across the switch.**
+
+```
+[initCollaboration] Catch-up: requesting commands since 2026-07-10T14:53:36.440Z
+[initCollaboration] Catch-up: replaying 28 missed command(s)
+[RemoteCommandDispatcher] §DUPLICATE-ROOMS-PERSIST — skipping already-applied create  (x21)
+[RemoteCommandDispatcher] Applied remote command: ADD_OPENING
+[CreateWallOpeningCommand] canExecute rejected: Opening overlaps existing opening(s):
+    new=[1.561,2.487]m vs existing 7214bd62 [1.561,2.487]m
+```
+
+Immediately after a project switch, the replay tried to re-add openings that were already there —
+identical intervals, to three decimal places.
+
+### NOT a leak — checked, and my first instinct was wrong
+
+`[UnderlayPersistence] Clear skipped — no current project bound` is **deliberate and correct**.
+`clearPersistedUnderlay` (`apps/editor/src/engine/UnderlayPersistence.ts:112-124`):
+
+> *"No-op when no project is bound, which is exactly what we want during project-switch teardown —
+> the outgoing project's record must survive for next visit."*
+
+Recorded so nobody re-litigates it.
+
+### Phase A — the end-to-end audit (read-only)
+
+Enumerate **every stateful surface** that must be reset on project switch, and classify each as
+**CLEARED / RESTORED-FROM-SNAPSHOT / LEAKS**:
+
+| Surface group | Members |
+|---|---|
+| Stores | all 37 in `StoreRegistry` |
+| Graphs / engines | `SemanticGraph`, `TemporalGraph`, `RoomGraphService`, `DecisionRecordStore`, `ConstraintEngine`, `PhysicsEngine` |
+| Registries | `ElementRegistry`, `BimManager` levels |
+| Caches | `ViewTechnicalDrawingCache`, NME cache, `EdgeProjectorService` cache, `ViewRenderCache`, `IntentStylePrewarmer` |
+| Interaction | `SelectionManager`, **undo ring-buffer + `commandManager` history** |
+| Collaboration | `RemoteCommandDispatcher` catch-up cursor, socket room |
+| Ambient | `window.*` singletons, `localStorage` / IndexedDB scoping |
+
+Reconcile against what `ClearProjectCommand` and `ProjectLoader` actually do, and against the existing
+static guards (`npm run check:isolation` → `scripts/check/check-project-isolation.mjs` +
+`check-storage-isolation.mjs`).
+
+### Phase B — the fix, in order
+
+| Phase | Work |
+|---|---|
+| **B1** | **Make the audit cover the reported case:** run on EVERY project load, comparing against the loaded snapshot's expected contents rather than against "must be empty". That keeps the false-positive rate at zero *without* abandoning coverage. |
+| **B2** | **Extend it beyond the scene** to the store / cache / graph / undo surfaces above. |
+| **B3** | Prove or refute **S1** (undo ring-buffer) and **S2** (collaboration catch-up) **with evidence**, then fix what is real. |
+| **B4** | Establish the invariant in **Contract 48**: *a project switch is a full teardown; every surface has a named owner responsible for clearing it, and the audit enumerates **owners**, not symptoms.* |
+| **B5** | Tests: open A, edit, open B ⇒ every enumerated surface holds only B's state; Ctrl+Z in B never references an A-era id. |
+
+**Non-goal:** do not silence the audit or narrow its scope to make it pass.
+
+**Also:** `ProjectIsolationAudit` reads `window` through a `(window as any)` cast helper (`:59-61`).
+Check it against **P4** and the allowlist while you are in there.
+
+**Contract mapping:** **Contract 48** (project isolation), C02 (composition root & boot), C03
+(stores), P1, P4.
