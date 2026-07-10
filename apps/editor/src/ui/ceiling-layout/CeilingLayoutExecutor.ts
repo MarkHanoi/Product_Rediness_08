@@ -178,33 +178,57 @@ export class CeilingLayoutExecutor {
             const set = buildCeilingCommands(allPlaced, level.id, () => createId('ceiling'));
             for (const w of set.warnings) console.warn('[ceiling-layout] warning:', w);
 
-            // ONE runBatch — single undo unit. Ceilings don't bound rooms,
-            // so skip the redetect sweep.
-            try {
-                batchCoordinator.runBatch(() => {
-                    for (const cmd of set.commands) {
-                        const r = runtime.bus.executeCommand(cmd.command, cmd.payload) as unknown;
-                        if (r && typeof (r as { catch?: unknown }).catch === 'function') {
-                            (r as Promise<unknown>).catch((e: unknown) =>
-                                console.warn('[ceiling-layout] ceiling.batch.create failed:', e));
+            // §FIX-RUNBATCH-NESTING-DROPS-GUARDS (L-209) — same nesting hazard as the
+            // lighting executor. When ceiling runs inside the multi-storey HOUSE post-gen
+            // chain, the house's structural `runBatch` is still draining (`isBatching` is
+            // true), so a nested `runBatch` here runs UNGUARDED and its opts are silently
+            // discarded. NOTE: ceiling emits a SINGLE `ceiling.batch.create` command, so —
+            // unlike lighting — its undo is NOT fragmented even when unguarded (one command
+            // = one undo entry). The real cost dropped here is (b): `skipRedetectRooms`
+            // (an unwanted room-redetect can fire mid-house-build) and `skipPbrUpgrade` /
+            // the render suppression (a wasted full-scene PBR pass, §POSTGEN-PERF). Fix is
+            // identical: defer via `onNextSettle` so we open a clean, non-nested batch once
+            // the ambient batch settles; run immediately when no batch is open (the
+            // apartment single-level path) — behaviour-preserving. `ceiling.layout-executed`
+            // fires AFTER the commit in BOTH paths (the house chain sequences on it).
+            const commitAndAnnounce = (): void => {
+                // ONE runBatch — single undo unit. Ceilings don't bound rooms, so skip the
+                // redetect sweep.
+                try {
+                    batchCoordinator.runBatch(() => {
+                        for (const cmd of set.commands) {
+                            const r = runtime.bus.executeCommand(cmd.command, cmd.payload) as unknown;
+                            if (r && typeof (r as { catch?: unknown }).catch === 'function') {
+                                (r as Promise<unknown>).catch((e: unknown) =>
+                                    console.warn('[ceiling-layout] ceiling.batch.create failed:', e));
+                            }
                         }
-                    }
-                }, { levelIds: [level.id], totalElementCount: set.totalElementCount, skipRedetectRooms: true, skipPbrUpgrade: true });  // §POSTGEN-PERF: finish batch adds no walls + PBR-ready meshes → skip the wasted full-scene PBR render
-            } catch (e) {
-                console.warn('[ceiling-layout] runBatch threw:', e);
-                toast('Ceiling auto-place failed — see console.', 'error');
-                return;
-            }
+                    }, { levelIds: [level.id], totalElementCount: set.totalElementCount, skipRedetectRooms: true, skipPbrUpgrade: true });  // §POSTGEN-PERF: finish batch adds no walls + PBR-ready meshes → skip the wasted full-scene PBR render
+                } catch (e) {
+                    console.warn('[ceiling-layout] runBatch threw:', e);
+                    toast('Ceiling auto-place failed — see console.', 'error');
+                    return;
+                }
 
-            runtime.events.emit('ceiling.layout-executed', {
-                placedCount: set.totalElementCount,
-                roomCount: allRooms.length,
-                levelId: level.id,
-            });
-            toast(
-                `Ceiled ${ceiled}/${allRooms.length} rooms — ${set.totalElementCount} slabs placed.`,
-                'success',
-            );
+                runtime.events.emit('ceiling.layout-executed', {
+                    placedCount: set.totalElementCount,
+                    roomCount: allRooms.length,
+                    levelId: level.id,
+                });
+                toast(
+                    `Ceiled ${ceiled}/${allRooms.length} rooms — ${set.totalElementCount} slabs placed.`,
+                    'success',
+                );
+            };
+
+            if (batchCoordinator.isBatching) {
+                // Defer so we open a clean, non-nested batch after the ambient (structural)
+                // batch settles. Escape the settle callback's synchronous `onComplete` tail
+                // onto a fresh macrotask before opening our batch (P3: macrotask, no raw rAF).
+                batchCoordinator.onNextSettle(() => { setTimeout(commitAndAnnounce, 0); });
+            } else {
+                commitAndAnnounce();
+            }
         } catch (err) {
             console.warn('[CeilingLayoutExecutor] execute failed (non-fatal):', err);
             runtime.events?.emit('pryzm:toast', { message: 'Ceiling auto-place failed.', severity: 'error' });

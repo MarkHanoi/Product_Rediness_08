@@ -128,33 +128,75 @@ export class LightingLayoutExecutor {
             const set = buildLightingCommands(allPlaced, level.id, () => createId('lighting'));
             for (const w of set.warnings) console.warn('[lighting-layout] warning:', w);
 
-            // ONE runBatch — single undo unit. Lighting doesn't bound rooms,
-            // so skip the redetect sweep.
-            try {
-                batchCoordinator.runBatch(() => {
-                    for (const cmd of set.commands) {
-                        const r = runtime.bus.executeCommand(cmd.command, cmd.payload) as unknown;
-                        if (r && typeof (r as { catch?: unknown }).catch === 'function') {
-                            (r as Promise<unknown>).catch((e: unknown) =>
-                                console.warn('[lighting-layout] lighting.create failed:', e));
+            // §FIX-RUNBATCH-NESTING-DROPS-GUARDS (L-209) — commit the N `lighting.create`
+            // commands inside ONE `runBatch` so they form ONE undo unit (C17 DI-6 / PS-3:
+            // "each dispatch is exactly one undo unit") and the `skipRedetectRooms` /
+            // `skipPbrUpgrade` opts are honoured.
+            //
+            // BUT `runBatch` refuses to nest: when this executor runs as the terminus of
+            // the multi-storey HOUSE post-gen chain, the house's structural `runBatch`
+            // (HouseLayoutExecutor.ts) is STILL draining, so `isBatching` is true and a
+            // nested `runBatch` here would run its body UNGUARDED — the N fixtures become
+            // N separate undo transactions and the opts are silently discarded (the
+            // founder saw 59 fixtures = 59 undo steps). Making `runBatch` re-entrant is
+            // rejected: it would change global semantics for every caller and still could
+            // not fold nested work into one correct undo unit.
+            //
+            // Fix, caller-side: if a batch is already open, DEFER the commit via
+            // `onNextSettle` so it opens a CLEAN, non-nested batch once the ambient batch
+            // has fully settled. The ambient (structural) batch settles on its own
+            // geometry drain — it never awaits this lighting commit — so the deferral can
+            // never deadlock against the settle it waits on. If `isBatching` is false (the
+            // apartment single-level path, invoked outside any batch) the commit runs
+            // immediately, exactly as before — behaviour-preserving.
+            //
+            // `lighting.layout-executed` MUST fire AFTER the commit in BOTH paths: the
+            // house chain sequences the next storey on it (runHousePostGenChain.ts). In
+            // the deferred path it therefore fires later (after the ambient batch settles);
+            // the chain's §CHAIN-TIMEOUT (12 000 ms) is the backstop if the ambient batch
+            // never settles, so a missed settle degrades to "no fixtures" but never wedges.
+            const commitAndAnnounce = (): void => {
+                // ONE runBatch — single undo unit. Lighting doesn't bound rooms, so skip
+                // the redetect sweep.
+                try {
+                    batchCoordinator.runBatch(() => {
+                        for (const cmd of set.commands) {
+                            const r = runtime.bus.executeCommand(cmd.command, cmd.payload) as unknown;
+                            if (r && typeof (r as { catch?: unknown }).catch === 'function') {
+                                (r as Promise<unknown>).catch((e: unknown) =>
+                                    console.warn('[lighting-layout] lighting.create failed:', e));
+                            }
                         }
-                    }
-                }, { levelIds: [level.id], totalElementCount: set.commands.length, skipRedetectRooms: true, skipPbrUpgrade: true });  // §POSTGEN-PERF: finish batch adds no walls + PBR-ready meshes → skip the wasted full-scene PBR render
-            } catch (e) {
-                console.warn('[lighting-layout] runBatch threw:', e);
-                toast('Lighting auto-place failed — see console.', 'error');
-                return;
-            }
+                    }, { levelIds: [level.id], totalElementCount: set.commands.length, skipRedetectRooms: true, skipPbrUpgrade: true });  // §POSTGEN-PERF: finish batch adds no walls + PBR-ready meshes → skip the wasted full-scene PBR render
+                } catch (e) {
+                    console.warn('[lighting-layout] runBatch threw:', e);
+                    toast('Lighting auto-place failed — see console.', 'error');
+                    return;
+                }
 
-            runtime.events.emit('lighting.layout-executed', {
-                placedCount: set.commands.length,
-                roomCount: allRooms.length,
-                levelId: level.id,
-            });
-            toast(
-                `Lit ${lit}/${allRooms.length} rooms — ${set.commands.length} fixtures placed.`,
-                'success',
-            );
+                runtime.events.emit('lighting.layout-executed', {
+                    placedCount: set.commands.length,
+                    roomCount: allRooms.length,
+                    levelId: level.id,
+                });
+                toast(
+                    `Lit ${lit}/${allRooms.length} rooms — ${set.commands.length} fixtures placed.`,
+                    'success',
+                );
+            };
+
+            if (batchCoordinator.isBatching) {
+                // A batch is already open (house post-gen chain). Defer so we open a
+                // clean, non-nested batch after it settles. The `onNextSettle` callback
+                // fires SYNCHRONOUSLY inside the settling batch's `onComplete` tail (which
+                // is still unwinding its §G1/§G2 / view-suppression lift and re-reads its
+                // own batch state); escape that tail onto a fresh macrotask before opening
+                // our batch so we never re-enter `runBatch` mid-settle. P3: a macrotask
+                // yield, no raw rAF (mirrors runHousePostGenChain's §POSTGEN-SETTLE).
+                batchCoordinator.onNextSettle(() => { setTimeout(commitAndAnnounce, 0); });
+            } else {
+                commitAndAnnounce();
+            }
         } catch (err) {
             console.warn('[LightingLayoutExecutor] execute failed (non-fatal):', err);
             runtime.events?.emit('pryzm:toast', { message: 'Lighting auto-place failed.', severity: 'error' });
