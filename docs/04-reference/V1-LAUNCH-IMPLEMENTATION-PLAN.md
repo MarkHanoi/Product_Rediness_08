@@ -1402,3 +1402,106 @@ are the only mutation path), C06, DOC-1.4 / DOC-1.8 (projection + technical-draw
 **Note on praise:** the founder called the elevation output itself *"really good"*. Nothing in this
 task should change the rendered result — only *when* and *how often* it is computed, and *which*
 generation is shown.
+
+---
+
+## L-223 — §AUDIT-VISIBILITY-INTENT-WIRING  (HIGH; audit-first, then phased fix)
+
+Founder: *"Can you please audit the visibility intent full and complete architecture — orchestration,
+element, and compliance with contracts? The concept is sound but I believe it is not connected and
+wired with the actual real view properties. An example is the elevation view on the screenshot: they
+are not connected with the ones on the real elevation (which are correct). The ones on the view
+intent look just like placeholders — which should not be the case. Ideally if the user changes the
+colours, the values, the view should be updated — and also the user should be able to change the
+values. At the moment I click a colour but can't change it."*
+
+### Grounded findings (established before any agent starts)
+
+**1. The colour picker is disabled by design, and nothing says so.**
+
+The live panel is `apps/editor/src/ui/VisibilityIntentPanel.ts` (1155 lines). It stamps
+`${intent.isSystem ? 'disabled' : ''}` onto **every** input — 17 `isSystem` gates:
+
+| Field | Line |
+|---|---|
+| name / description | `:140`, `:141` |
+| visible | `:249` |
+| line.colour / line.opacity / line.style | `:265`, `:267`, `:269` |
+| fill.style / fill.colour / fill.opacity | `:274`, `:280`, `:284` |
+| symbolicRule | `:286` |
+| 3D surface section | `:326-330` |
+| Add Modifier (view + purpose) | `:399`, `:481` |
+
+**All four intents in the founder's sidebar are `system`.** The form is therefore inert for every
+intent that ships. `Duplicate` is the only escape hatch, and the UI never says so.
+
+This is the **L-219 failure mode restated**: a control that looks editable, is not, and gives no reason.
+
+**2. The modifiers appear not to drive the real elevation.**
+
+The correct elevation pen weights come from `packages/core-app-model/src/drawing/HiddenLineRemoval.ts`
+(`§ELEV-LINEWEIGHT-02` / `§ELEV-LINEWEIGHT-03`, L-190 / L-196). A grep of that module finds **no
+reference to the visibility-intent store or to `IntentStyle`**.
+
+Meanwhile the intent system demonstrably does *something*:
+
+```
+[IntentStylePrewarmer] Pre-warmed 1632 style slots in 5.39ms
+[VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — applied=9/14 layers
+```
+
+So it is **half-connected**: layer visibility flows; per-view-type CUT / BEYOND / HIDDEN / PROJECTION
+appearance apparently does not reach the drawing HLR emits. And **5 of 14 layers are never applied** —
+unexplained. Half-connected is the worst state: it looks alive.
+
+**3. Duplicate module hazard.** Two classes named `VisibilityIntentPanel`. The second,
+`apps/editor/src/ui/visibility/VisibilityIntentPanel.ts`, is a **50-line Phase-F stub** whose header
+reads *"Phase F stub: evaluates all elements as visible."* `initUI.ts:92-93` lazily imports the real
+one. A stub that claims to evaluate visibility, sharing a class name with the real panel, is a trap.
+
+**4. The panel mutates via the legacy path.** Seven `window.commandManager` sites (`:764`, `:785`,
+`:883`, `:913`, `:926`, `:1038-1039`), each tagged
+`TODO(E.5.x): legacy commandManager — replace with runtime.bus.executeCommand`. `npm run
+check:commandmanager` is a CI guard against exactly this.
+
+### Phase A — THE AUDIT (read-only; this is what the founder asked for)
+
+Produce a **wiring map**, hop by hop, stating for each whether appearance data (line weight, colour,
+fill, visible — per CUT | BEYOND | HIDDEN | PROJECTION, per view type) **flows or stops**:
+
+```
+VisibilityIntentTypes / Defaults / Store
+   -> viewIntentInstanceStore
+   -> IntentStylePrewarmer            (1632 style slots — of what? consumed by whom?)
+   -> VGSceneApplicator.applyToProjectionLayers()    (applied=9/14 — which 5, and why?)
+   -> EdgeProjectorService
+   -> HiddenLineRemoval  (elevation lineweight)
+   -> the rendered elevation
+```
+
+Answer explicitly:
+
+- **A1.** Why `applied=9/14`? Name the five layers and why they are skipped.
+- **A2.** Does **any** intent appearance field reach HLR's elevation lineweight decision, or is
+  the elevation lineweight logic wholly independent of the intent system?
+- **A3.** Is `VGToIntentMigration` leaving the four system intents with every field `inherit`, so the
+  panel would render placeholders **even if it were editable**?
+- **A4.** Contract compliance: **P7** (visibility intent is a DOMAIN concept, not UI state), **C09**,
+  **P6**, **P1**. Where does the code disagree with the contract? Per CLAUDE.md, the code is wrong.
+
+### Phase B — the fix, in this order (only after Phase A)
+
+| Phase | Work |
+|---|---|
+| **B1** | System intents become **visibly read-only, with an explanation and a prominent "Duplicate to edit"**. Do **not** simply unlock them — they are the shipped defaults, a user editing them in place has no way back, and P7 makes them domain state, not preferences. |
+| **B2** | **A user-owned intent's appearance edits must actually reach the elevation and plan.** This is the real request. If the pipeline cannot express per-view-type appearance today, **say so and propose the seam** rather than faking it. |
+| **B3** | Delete or rename the 50-line stub panel (**P1** — single composition root, no parallel wiring). |
+| **B4** | Migrate the 7 `window.commandManager` sites to `runtime.bus.executeCommand` (**P6**; `check:commandmanager`). |
+| **B5** | Tests: a duplicated intent's `line.colour` change reaches the rendered elevation; a system intent cannot be mutated; the stub panel no longer resolves. |
+
+**HARD NON-GOAL:** do not make the swatches *look* editable while the value still cannot reach the
+view. That is precisely the lie-in-the-UI failure mode L-219 is about, and the founder would find it
+within a minute.
+
+**Contract mapping:** **P7** (visibility intent is not UI state), **C09** (AI and visibility intent),
+C06 (UI shell and tools), C03 / C16 (commands), DOC-1.13 (projection layers), **P1**, **P6**.
