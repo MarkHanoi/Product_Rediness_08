@@ -1634,3 +1634,37 @@ Check it against **P4** and the allowlist while you are in there.
 
 **Contract mapping:** **Contract 48** (project isolation), C02 (composition root & boot), C03
 (stores), P1, P4.
+
+---
+
+## L-225 — §FIX-URINAL-BIDET-RENDER-AS-TOILET  (MEDIUM, correctness)
+
+Found by the L-221 agent while authoring the plumbing symbols. **Not founder-reported.**
+
+`packages/geometry-plumbing/src/PlumbingTypes.ts:13` declares seven fixture types:
+
+```ts
+export type PlumbingFixtureType =
+    'toilet' | 'sink' | 'urinal' | 'bidet' | 'bath' | 'shower' | 'accessory';
+```
+
+**`urinal` and `bidet` have no 3D geometry factory.** `PlumbingFragmentBuilder` falls both through its
+`else` branch to `createToiletMesh()`. Place a urinal, get a toilet — silently. The model, the
+schedule, the IFC export and the take-off all disagree with the drawing.
+
+L-221 authored correct 2D symbols for the **full** union (so the exhaustiveness test holds), which
+means plan and elevation now draw a urinal while the 3D view draws a toilet. That inconsistency is
+newly **visible** — and that is the honest way round.
+
+### The real defect is the silent `else`
+
+Two missing meshes are the symptom. A fixture type with no geometry factory silently rendering as a
+*different fixture* is the disease.
+
+| Phase | Work |
+|---|---|
+| **P1** | Author real `createUrinalMesh()` / `createBidetMesh()` parametric geometry, matching the footprints the L-221 symbols already declare — **the 2D symbol is now the spec.** |
+| **P2** | **Remove the silent `else` fallback.** A type with no factory must fail loudly (typed exhaustiveness switch / dev-time error), never render as another fixture. |
+| **P3** | Test: every member of `PlumbingFixtureType` produces geometry distinct from every other member. |
+
+**Contract mapping:** C11 (one element type ⇒ one creation pipeline), C06.
