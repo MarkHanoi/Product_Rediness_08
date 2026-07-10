@@ -1,6 +1,32 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
+import { dispatchTyped, type CommandRegistry } from '@pryzm/command-bus';
 import type { TransformControllerSet } from './initTransformControllers';
+
+/**
+ * §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — typed drag-command dispatch that
+ * closes the payload-mismatch class AND surfaces failures to the user.
+ *
+ * Routes through `dispatchTyped` so a wrong payload for a known command id is a
+ * COMPILE error at the call site (the L-214 / L-218 / L-220 defect class:
+ * `runtime.bus.executeCommand(type, unknown)` accepted anything and only caught
+ * the mismatch at runtime as a swallowed `console.error`). And a rejected
+ * `canExecute` on a user drag now SURFACES via the `pryzm:toast` channel (§P4) —
+ * the founder clicked and nothing happened, with only a console line to show for
+ * it. Best-effort: no runtime → silent no-op; toast bus optional.
+ */
+function dragDispatch<K extends keyof CommandRegistry>(type: K, payload: CommandRegistry[K]): void {
+    const bus = window.runtime?.bus;
+    if (!bus) return;
+    dispatchTyped(bus, type, payload).catch((e: unknown) => {
+        console.error(`[TransformDrag] ${type} failed:`, e);
+        const noun = String(type).split('.')[0];
+        window.runtime?.events?.emit('pryzm:toast', {
+            message: `Couldn't update the ${noun} — ${e instanceof Error ? e.message : String(e)}`,
+            severity: 'error',
+        });
+    });
+}
 // [F-1.2] R2/R3 dual-write — commandManager is the authoritative path for
 // WallRebuildCoordinator; bus is PRYZM3 store parity only.
 
@@ -90,7 +116,7 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                             (pt: [number, number]) => [pt[0] + dx, pt[1] + dz] as [number, number]
                         );
                         const newCentroid: [number, number] = [cx + dx, cz + dz];
-                        window.runtime?.bus?.executeCommand('roof.update', { id: roofId, updates: { footprint: { polygon: newPolygon, centroid: newCentroid } } })?.catch((e: unknown) => console.error('[TransformDrag] roof.update failed:', e));
+                        dragDispatch('roof.update', { id: roofId, updates: { footprint: { polygon: newPolygon, centroid: newCentroid } } });
                         const captured = obj;
                         const sched = getFrameScheduler();
                         sched.scheduleOnce('engine-bootstrap-roof-rehighlight-1', () => {
@@ -157,12 +183,12 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                         // independent cm cursor — was never reverted ("wall stays moved"). The
                         // handler now emits a baseLine forward/inverse PatchPair; the cm twin is
                         // shadow-dropped after the ring-buffer undo (dual-dispatch — like a CREATE).
-                        window.runtime?.bus?.executeCommand('wall.updateBaseline', {
+                        dragDispatch('wall.updateBaseline', {
                             wallId,
                             newBaseLine:  [newStart,  newEnd],
                             prevBaseLine: [prevStart, prevEnd],
                             _recordUndo: true,
-                        })?.catch((e: unknown) => console.error('[TransformDrag] wall.updateBaseline failed:', e));
+                        });
                     }
 
                     const capturedObj = obj;
@@ -211,14 +237,14 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                         // inverse PatchPair restores it exactly; without this the move landed
                         // ONLY in commandManager and the ring-buffer-first undo reverted some
                         // other element ("furniture stays moved").
-                        window.runtime?.bus?.executeCommand('furniture.updateParameters', {
+                        dragDispatch('furniture.updateParameters', {
                             id,
                             position: { x: prevX + dx, y: prevY, z: prevZ + dz },
                             rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z, order: obj.rotation.order },
                             _recordUndo: true,
                             _prevPosition: { x: prevX, y: prevY, z: prevZ },
                             _prevRotation: { x: prevRx, y: prevRy, z: prevRz },
-                        })?.catch((e: unknown) => console.error('[TransformDrag] furniture.updateParameters failed:', e));
+                        });
                         const captured = obj;
                         const sched = getFrameScheduler();
                         sched.scheduleOnce('drag-furniture-rehighlight-1', () => {
@@ -237,10 +263,21 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
             // commit (and, before MovePlumbingCommand, no command to commit to). The
             // fragment builder tags the mesh elementType='PlumbingFixture' → lowercases
             // to 'plumbingfixture'; accept the bare 'plumbing' alias too. Position-
-            // anchored + delta-based, exactly like furniture, so it is anchor-safe.
-            // NOTE: this commit only fires if the gizmo actually attaches to the fixture
-            // on selection — pending in-browser confirmation (harmless no-op if it does
-            // not). MovePlumbingCommand also translates a bath's start/end by the delta.
+            // anchored, exactly like furniture, so it is anchor-safe.
+            //
+            // §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — the founder moved a toilet in
+            // 3D and the 2D plan did not update. Root cause: this dispatched
+            // `plumbing.move { id, to }`, but the plugin `MovePlumbingHandler`
+            // (registered first) claims 'plumbing.move', wants { plumbingId, delta },
+            // and rejected the payload at canExecute — so the store was never written
+            // and the plan (which re-projects FROM the geometry store) kept drawing the
+            // toilet where it was. Worse, that plugin handler mutates a DETACHED plugin
+            // DTO store never bridged to the geometry store, so even a corrected payload
+            // could not update the 2D plan. Fix: dispatch `plumbing.moveFixture` (the
+            // un-shadowed legacy bridge → MovePlumbingCommand → geometry window.plumbingStore
+            // → bim-plumbing-updated → 3D rebuild + 2D re-projection), the same proven
+            // path furniture uses. `MovePlumbingCommand` also translates a bath's
+            // start/end by the same delta so line-based fixtures stay consistent.
             if ((elemType === 'plumbingfixture' || elemType === 'plumbing') && obj.userData?.id) {
                 const ps = window.plumbingStore; // TODO(TASK-08)
                 const id = obj.userData.id as string;
@@ -253,10 +290,10 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                     const dz = obj.position.z - prevZ;
                     if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
                         // y is level-locked (LevelPlaneConstraint) — keep the fixture's own y.
-                        window.runtime?.bus?.executeCommand('plumbing.move', {
+                        dragDispatch('plumbing.moveFixture', {
                             id,
                             to: { x: prevX + dx, y: prevY, z: prevZ + dz },
-                        })?.catch((e: unknown) => console.error('[TransformDrag] plumbing.move failed:', e));
+                        });
                         const captured = obj;
                         const sched = getFrameScheduler();
                         sched.scheduleOnce('drag-plumbing-rehighlight-1', () => {
@@ -294,12 +331,12 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                         // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — ring-capture the move/rotate
                         // (declare `_recordUndo` + the pre-move `_prev` pose so the bridge
                         // emits an invertible PatchPair; see initBusHandlers column.update).
-                        window.runtime?.bus?.executeCommand('column.update', {
+                        dragDispatch('column.update', {
                             id,
                             updates: { position: { x: prevX + dx, y: prevY, z: prevZ + dz }, rotation: obj.rotation.y },
                             _recordUndo: true,
                             _prev: { position: { x: prevX, y: prevY, z: prevZ }, rotation: prevRy },
-                        })?.catch((e: unknown) => console.error('[TransformDrag] column.update failed:', e));
+                        });
                         const captured = obj;
                         const sched = getFrameScheduler();
                         sched.scheduleOnce('drag-column-rehighlight-1', () => {
@@ -330,7 +367,7 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                             // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — ring-capture the move
                             // (pre-move endpoints as `_prev` so the bridge emits an
                             // invertible PatchPair; see initBusHandlers beam.update).
-                            window.runtime?.bus?.executeCommand('beam.update', {
+                            dragDispatch('beam.update', {
                                 beamId: id,
                                 updates: {
                                     startPoint: { x: sp.x + dx, y: sp.y, z: sp.z + dz },
@@ -341,7 +378,7 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                                     startPoint: { x: sp.x, y: sp.y, z: sp.z },
                                     endPoint:   { x: ep.x, y: ep.y, z: ep.z },
                                 },
-                            })?.catch((e: unknown) => console.error('[TransformDrag] beam.update failed:', e));
+                            });
                             const captured = obj;
                             const sched = getFrameScheduler();
                             sched.scheduleOnce('drag-beam-rehighlight-1', () => {
@@ -379,7 +416,7 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                                 { x: prev[0].x + dx, y: prev[0].y, z: prev[0].z + dz },
                                 { x: prev[1].x + dx, y: prev[1].y, z: prev[1].z + dz },
                             ];
-                            window.runtime?.bus?.executeCommand('wall.updateCurtainWall', { id, updates: { baseLine: next } })?.catch((e: unknown) => console.error('[TransformDrag] wall.updateCurtainWall failed:', e));
+                            dragDispatch('wall.updateCurtainWall', { id, updates: { baseLine: next } });
                             const captured = obj;
                             const sched = getFrameScheduler();
                             sched.scheduleOnce('drag-cw-rehighlight-1', () => {
@@ -423,12 +460,12 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                             // boundary in place) so the inverse PatchPair restores the exact
                             // original vertices (see initBusHandlers floor.update).
                             const prevPoly = poly.map((p) => ({ ...p }));
-                            window.runtime?.bus?.executeCommand('floor.update', {
+                            dragDispatch('floor.update', {
                                 floorId: id,
                                 updates: { boundary: { ...floor.boundary, polygon: newPoly } },
                                 _recordUndo: true,
                                 _prev: { boundary: { ...floor.boundary, polygon: prevPoly } },
-                            })?.catch((e: unknown) => console.error('[TransformDrag] floor.update failed:', e));
+                            });
                             const captured = obj;
                             const sched = getFrameScheduler();
                             sched.scheduleOnce('drag-floor-rehighlight-1', () => {
@@ -467,10 +504,10 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                                     ? { x: pt.x + dx, z: pt.z + dz }
                                     : { x: pt.x + dx, y: (pt.y ?? 0) + dz }
                             );
-                            window.runtime?.bus?.executeCommand('ceiling.update', {
+                            dragDispatch('ceiling.update', {
                                 ceilingId: id,
                                 updates: { boundary: { ...ceiling.boundary, polygon: newPoly } },
-                            })?.catch((e: unknown) => console.error('[TransformDrag] ceiling.update failed:', e));
+                            });
                             const captured = obj;
                             const sched = getFrameScheduler();
                             sched.scheduleOnce('drag-ceiling-rehighlight-1', () => {
@@ -504,10 +541,10 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                     // MoveStairCommand is authored at the new world anchor with the
                     // group back at (0,0,0); leaving the offset would double the move.
                     obj.position.set(0, obj.position.y, 0);
-                    window.runtime?.bus?.executeCommand('stair.move', {
+                    dragDispatch('stair.move', {
                         stairId: id,
                         delta: { x: dx, y: 0, z: dz },
-                    })?.catch((e: unknown) => console.error('[TransformDrag] stair.move failed:', e));
+                    });
                     const captured = obj;
                     const sched = getFrameScheduler();
                     sched.scheduleOnce('drag-stair-rehighlight-1', () => {

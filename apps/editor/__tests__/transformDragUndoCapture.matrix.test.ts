@@ -27,6 +27,9 @@
 import { describe, it, expect } from 'vitest';
 import { CommandBus, PatchEmitter, UndoStack, type CommandHandler, type Patch } from '@pryzm/plugin-sdk';
 import { RingBufferUndoStack, type PatchPair } from '@pryzm/runtime-undo-stack';
+// §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — production-wiring regression deps.
+import { Store, attachStores } from '@pryzm/stores';
+import { dispatchTyped } from '@pryzm/command-bus';
 
 import { MoveColumnHandler } from '@pryzm/plugin-column';
 import { MoveBeamHandler } from '@pryzm/plugin-beam';
@@ -38,6 +41,25 @@ import { MoveFurnitureHandler, RotateFurnitureHandler } from '@pryzm/plugin-furn
 
 const V = () => ({ x: 2, y: 0, z: 3 });
 const DELTA = { x: 1.5, y: 0, z: -2 };
+
+// ── §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — TYPE-LEVEL guard (P5) ─────────
+// `dispatchTyped` keys `payload` to CommandRegistry, so a wrong id-key/shape is a
+// COMPILE error at the call site — the point of "closing the class" (L-214/L-218/
+// L-220). These are compile-time assertions: run `tsc --noEmit` over this file to
+// validate them (vitest's esbuild transform strips types, and the repo's root
+// tsconfig `include` excludes __tests__, so CI does not currently gate them —
+// tracked as P3 residue).
+{
+  const _typedBus = { executeCommand: (_t: string, _p?: unknown) => Promise.resolve() };
+  // Correct payloads COMPILE:
+  void (() => dispatchTyped(_typedBus, 'plumbing.moveFixture', { id: 'p1', to: { x: 0, y: 0, z: 0 } }));
+  void (() => dispatchTyped(_typedBus, 'floor.update', { floorId: 'f1', updates: {} }));
+  // Wrong id-key is a COMPILE error — the exact founder bug (plumbingId/delta vs id/to):
+  // @ts-expect-error — 'plumbing.moveFixture' requires { id, to }, not the plugin handler's { plumbingId, delta }
+  void (() => dispatchTyped(_typedBus, 'plumbing.moveFixture', { plumbingId: 'p1', delta: { x: 0, y: 0, z: 0 } }));
+  // @ts-expect-error — 'floor.update' requires `floorId`, not `id`
+  void (() => dispatchTyped(_typedBus, 'floor.update', { id: 'f1', updates: {} }));
+}
 
 /** Build a CommandBus + RingBuffer whose storesProvider seeds ONE element under
  *  `storeKey` so the move/rotate handler's canExecute passes and produceCommand
@@ -223,5 +245,80 @@ describe('§FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — commandManager-bridge move comm
     const { bus, ringBuffer } = buildBridgeEnv(makeBridge('column.update', 'column'), 'column');
     await bus.executeCommand('column.update', { id: 'col_c', updates: { position: { x: 9, y: 0, z: 9 } } });
     expect(ringBuffer.size).toBe(0);
+  });
+});
+
+// ── §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — PRODUCTION-WIRING regression ──
+// The suite above wired NO `attachStores`, so it never reproduced the founder's
+// `[TransformDrag] floor.update failed: [Immer] error nr: 18` — in production
+// `attachStores(emitter, stores)` re-applies each command's FORWARD patch to the
+// plugin store at dispatch time. The floor/column/beam bridges declare
+// `affectedStores: ['floor'|'column'|'beam']` (needed so ring-buffer UNDO routes to
+// the legacy geometry store) but their plugin DTO store is a DETACHED instance that
+// never held the element, so `Store.applyPatch` hit Immer's id-prefixed `replace`
+// on an absent id → error 18 ("Cannot apply patch, path doesn't resolve") → the whole
+// drag rejected. This suite wires attachStores + a real (empty) plugin Store and
+// asserts the drag no longer throws while STILL capturing the ring-buffer undo entry.
+describe('§FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — drag bridge tolerates a DETACHED (empty) plugin store', () => {
+  const movePatchPair = (
+    id: string | undefined,
+    prev: Record<string, unknown> | undefined,
+    next: Record<string, unknown> | undefined,
+  ): { forward: Patch[]; inverse: Patch[] } | null => {
+    if (!id || !prev || !next) return null;
+    const forward: Patch[] = [];
+    const inverse: Patch[] = [];
+    for (const field of Object.keys(next)) {
+      if (!(field in prev)) continue;
+      forward.push({ op: 'replace', path: [id, field], value: next[field] });
+      inverse.push({ op: 'replace', path: [id, field], value: prev[field] });
+    }
+    return forward.length > 0 ? { forward, inverse } : null;
+  };
+
+  // Faithful copy of the initBusHandlers floor bridge: reads cmd.floorId, opts the
+  // move onto the ring buffer via _movePatchPair, declares affectedStores ['floor'].
+  const floorBridge: CommandHandler<Record<string, unknown>> = {
+    type: 'floor.update',
+    affectedStores: ['floor'] as never,
+    canExecute: (_ctx, cmd) => (cmd.floorId ? { valid: true } : { valid: false, reason: 'floorId is required' }),
+    execute: (_ctx, cmd) => {
+      const pair = cmd._recordUndo
+        ? movePatchPair(cmd.floorId as string, cmd._prev as Record<string, unknown>, cmd.updates as Record<string, unknown>)
+        : null;
+      return pair ?? { forward: [], inverse: [] };
+    },
+  };
+
+  it('floor.update no longer throws Immer error 18 when attachStores re-applies to an EMPTY plugin store', async () => {
+    const ringBuffer = new RingBufferUndoStack({ maxSize: 50 });
+    const emitter = new PatchEmitter();
+    // The plugin `floor` store is a real Store<T> and DETACHED (empty) — the floor
+    // being dragged lives only in the legacy geometry store, not here.
+    const floorStore = new Store<{ id: string }>('floor');
+    const detach = attachStores(emitter, { floor: floorStore as unknown as Store<object> });
+    const bus = new CommandBus({
+      audit: { actorId: 'test', projectId: 'p1', clientId: 't1' },
+      emitter,
+      undoStack: new UndoStack({ maxSize: 50 }),
+      ringBuffer,
+      storesProvider: () => ({ floor: {} }),
+    });
+    bus.register(floorBridge as never);
+
+    // Before L-220 this rejected with Immer error 18; it must now resolve.
+    await expect(
+      bus.executeCommand('floor.update', {
+        floorId: 'fl_detached',
+        updates: { boundary: { polygon: [{ x: 1, z: 1 }] } },
+        _recordUndo: true,
+        _prev: { boundary: { polygon: [{ x: 0, z: 0 }] } },
+      }),
+    ).resolves.toBeDefined();
+
+    // The ring-buffer undo entry is STILL captured (undo continues to work).
+    expect(ringBuffer.size).toBe(1);
+    expect((ringBuffer.current() as PatchPair).affectedStores).toEqual(['floor']);
+    detach();
   });
 });

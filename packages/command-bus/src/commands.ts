@@ -1063,6 +1063,57 @@ export type ElementCommandBusCommands = {
 };
 
 /**
+ * §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — 3D transform-gizmo drag-end
+ * mutation payloads.
+ *
+ * Each entry is dispatched by `registerTransformDragHandler.ts` on drag-end and
+ * routed (via the `initBusHandlers.ts` command-bridges) to the LEGACY geometry
+ * command that drives BOTH the 3D mesh rebuild AND the 2D plan re-projection
+ * (the "proven working path" — mirrors `furniture.updateParameters`). Typing
+ * them here lets the drag dispatch through `dispatchTyped()` so a wrong id-key
+ * or payload shape is a COMPILE error at the call site instead of a runtime
+ * `canExecute` rejection (the L-214 / L-218 / L-220 defect class).
+ *
+ * C16 command authoring: these are the drag/gizmo authoring verbs. See
+ * `docs/02-decisions/contracts` C03 (schemas/commands/state) + C16.
+ */
+export type TransformDragCommands = {
+    /**
+     * Move a placed plumbing fixture to a new ABSOLUTE world position.
+     * Bridged to the legacy `MovePlumbingCommand` (geometry `window.plumbingStore`
+     * → `bim-plumbing-updated` → 3D fragment rebuild + 2D plan re-projection).
+     *
+     * DELIBERATELY DISTINCT from the plugin `plumbing.move` ({ plumbingId, delta })
+     * handler: that handler mutates a DETACHED plugin DTO store (`origin`) which is
+     * a SEPARATE instance from the geometry store the plan/builder read, and has NO
+     * move-bridge to it — so it can never update the 2D plan (L-220 root cause).
+     */
+    'plumbing.moveFixture': { readonly id: string; readonly to: { readonly x: number; readonly y: number; readonly z: number } };
+    /**
+     * Move a floor by translating its boundary polygon. `_recordUndo` + `_prev`
+     * opt the move onto the ring-buffer undo timeline (§FIX-UNDO-CAPTURE-SYSTEMIC).
+     * Bridged to the legacy `UpdateFloorCommand` (geometry `window.floorStore`).
+     */
+    'floor.update': { readonly floorId: string; readonly updates: Record<string, unknown>; readonly _recordUndo?: boolean; readonly _prev?: Record<string, unknown> };
+    /** Move/rotate a column. Bridged to legacy `UpdateColumnCommand`. */
+    'column.update': { readonly id: string; readonly updates: Record<string, unknown>; readonly _recordUndo?: boolean; readonly _prev?: Record<string, unknown> };
+    /** Move a beam. Bridged to legacy `UpdateBeamCommand`. */
+    'beam.update': { readonly beamId: string; readonly updates: Record<string, unknown>; readonly _recordUndo?: boolean; readonly _prev?: Record<string, unknown> };
+    /** Move a ceiling by translating its boundary polygon. Bridged to legacy `UpdateCeilingCommand`. */
+    'ceiling.update': { readonly ceilingId: string; readonly updates: Record<string, unknown> };
+    /**
+     * Translate a wall by moving its centre-line. `_recordUndo` opts onto the ring
+     * buffer (§FIX-WALL-MOVE-UNDO-CAPTURE / L-49). Handled by UpdateWallBaselineHandler.
+     */
+    'wall.updateBaseline': {
+        readonly wallId: string;
+        readonly newBaseLine: readonly [{ readonly x: number; readonly y: number; readonly z: number }, { readonly x: number; readonly y: number; readonly z: number }];
+        readonly prevBaseLine: readonly [{ readonly x: number; readonly y: number; readonly z: number }, { readonly x: number; readonly y: number; readonly z: number }];
+        readonly _recordUndo?: boolean;
+    };
+};
+
+/**
  * The authoritative typed registry of every PRYZM command through wave-6-c-d10.
  * Consumers (handlers, plugin SDK) key into this map:
  *
@@ -1131,7 +1182,38 @@ export type CommandRegistry =
     & ApartmentParameterMutationCommands
     & PlanMutationCommands
     & AnnotationMutationCommands
-    & MiscMutationCommands;
+    & MiscMutationCommands
+    // §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — 3D drag-gizmo authoring verbs.
+    & TransformDragCommands;
 
 /** Narrowed payload accessor — derives the payload type for a given command id. */
 export type PayloadOf<T extends keyof CommandRegistry> = CommandRegistry[T];
+
+/**
+ * §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — compile-time-checked command dispatch.
+ *
+ * `runtime.bus.executeCommand(type: string, payload: unknown)` is stringly-typed:
+ * a payload whose id-key or shape does not match the handler is only caught at
+ * RUNTIME (a `canExecute` rejection swallowed into a `console.error`). That is the
+ * defect class behind L-214 (wardrobe rotation), L-218 (carousel), and L-220
+ * (plumbing wrong key + floor patch). This helper keys `payload` to the command's
+ * `CommandRegistry` entry so a wrong payload is a COMPILE error AT THE CALL SITE.
+ *
+ * Incremental by design (per the L-220 brief): only migrated call sites pass through
+ * `dispatchTyped`; every other dispatch keeps the loose `executeCommand` path, so
+ * this is NOT a big-bang retype of the whole repo. A plain typed *overload* on
+ * `executeCommand` cannot enforce this — the loose `(string, unknown)` overload
+ * always matches and silently swallows the payload error — so the seam is a typed
+ * wrapper, not an overload. L3 `runtime-composer` / L5 `apps/editor` may both import
+ * this from L1 `@pryzm/command-bus` (a lower layer).
+ *
+ * Returns a Promise so callers keep the `.catch()` ergonomics of the async bus,
+ * regardless of the underlying `executeCommand` return type.
+ */
+export function dispatchTyped<K extends keyof CommandRegistry>(
+  bus: { executeCommand(type: string, payload?: unknown): unknown },
+  type: K,
+  payload: CommandRegistry[K],
+): Promise<unknown> {
+  return Promise.resolve(bus.executeCommand(type, payload));
+}

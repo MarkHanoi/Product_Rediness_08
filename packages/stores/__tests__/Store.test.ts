@@ -111,6 +111,50 @@ describe('Store.applyPatch — root add/update/remove', () => {
   });
 });
 
+// §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — a nested patch whose root element is
+// ABSENT from this store is a no-op here, NOT an Immer error 18. In production the
+// floor/column/beam drag bridges declare `affectedStores: ['floor'|…]` (for undo
+// routing to the legacy store) which also makes attachStores re-apply the forward
+// patch to this DETACHED plugin DTO store; without this guard Immer threw "Cannot
+// apply patch, path doesn't resolve" and rejected the whole drag.
+describe('Store.applyPatch — L-220 absent-id tolerance', () => {
+  it('skips a nested replace for an absent id (no throw, empty diff)', () => {
+    const store = new DemoStore();
+    let diff!: DirtyDiff;
+    expect(() => {
+      diff = store.applyPatch([REPLACE_NESTED('ghost', 'nested', { tag: 'x' })]);
+    }).not.toThrow();
+    expect(diff.added.size + diff.updated.size + diff.removed.size).toBe(0);
+    expect(store.size()).toBe(0);
+  });
+
+  it('skips a nested remove for an absent id (no throw)', () => {
+    const store = new DemoStore();
+    expect(() =>
+      store.applyPatch([{ op: 'remove', path: ['ghost', 'nested'] }]),
+    ).not.toThrow();
+  });
+
+  it('still applies a nested replace for a PRESENT id (guard is scoped)', () => {
+    const store = new DemoStore();
+    store.applyPatch([ADD('a', { value: 1, nested: { tag: 'init' } })]);
+    const diff = store.applyPatch([REPLACE_NESTED('a', 'nested', { tag: 'evolved' })]);
+    expect([...diff.updated]).toEqual(['a']);
+    expect(store.getState().get('a')).toEqual({ value: 1, nested: { tag: 'evolved' } });
+  });
+
+  it('applies the present-id patches and skips only the absent-id ones in a mixed batch', () => {
+    const store = new DemoStore();
+    store.applyPatch([ADD('a', { value: 1 })]);
+    const diff = store.applyPatch([
+      REPLACE_NESTED('a', 'value', 9),
+      REPLACE_NESTED('ghost', 'value', 9),
+    ]);
+    expect([...diff.updated]).toEqual(['a']);
+    expect(store.getState().get('a')).toEqual({ value: 9 });
+  });
+});
+
 describe('Store.applyPatch — diff aggregation across one call', () => {
   it('add THEN nested replace within one call ⇒ added (history wins)', () => {
     const store = new DemoStore();

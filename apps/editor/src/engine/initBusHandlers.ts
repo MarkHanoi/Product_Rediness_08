@@ -390,10 +390,25 @@ export function initBusHandlers(
         },
         {
             // §ELEMENT-SEMANTIC-AUDIT S4 (2026-06-20) — plumbing gizmo-move authoring
-            // bridge. registerTransformDragHandler dispatches 'plumbing.move' { id, to }
-            // on drag-end; this routes it through commandManager (MovePlumbingCommand) so
-            // the move is undoable and store-backed. Mirrors furniture.updateParameters.
-            type: 'plumbing.move',
+            // bridge. registerTransformDragHandler dispatches 'plumbing.moveFixture'
+            // { id, to } on drag-end; this routes it through commandManager
+            // (MovePlumbingCommand → geometry window.plumbingStore → bim-plumbing-updated
+            // → 3D fragment rebuild + 2D plan re-projection). Mirrors the WORKING
+            // furniture.updateParameters bridge.
+            //
+            // §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — the type was previously
+            // 'plumbing.move', but the plugin `MovePlumbingHandler` (from
+            // registerPlumbingHandlers, registered first) also claims 'plumbing.move'
+            // and SHADOWED this bridge (the `registry.has()` skip below). That plugin
+            // handler (a) wants a different payload ({ plumbingId, delta }) — so the
+            // drag's { id, to } was rejected at canExecute, the founder's error — and
+            // (b) mutates a DETACHED plugin DTO store (a SEPARATE PlumbingStore instance
+            // from the geometry store the plan/builder read, with no move-bridge to it),
+            // so even a correct payload could never update the 2D plan. Giving the
+            // legacy bridge a DISTINCT type ('plumbing.moveFixture') un-shadows it: the
+            // drag now reaches the proven geometry path, and the typed plugin handler is
+            // left intact for a future plugin-store-authoritative migration.
+            type: 'plumbing.moveFixture',
             stores: [] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.to ? 'to is required' : null)),
             fn: (cmd) => { _cmExec(new MovePlumbingCommand({ id: cmd.id, to: cmd.to })); },

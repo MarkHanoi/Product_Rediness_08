@@ -95,13 +95,50 @@ export class Store<T extends object> {
       return EMPTY_DIFF;
     }
 
+    // §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — tolerate a nested patch whose
+    // root element is ABSENT from this store by skipping it (a no-op), matching the
+    // `current !== undefined` guard `ElementStore.applyPatch` already has. Rationale:
+    // the 3D-gizmo drag bridges (floor / column / beam) declare
+    // `affectedStores: ['floor'|'column'|'beam']` so ring-buffer UNDO routes their
+    // inverse patch to the LEGACY geometry store (via elementUndoStoreAdapter). But
+    // that same `affectedStores` also drives `attachStores` to re-apply the FORWARD
+    // patch to THIS store — a DETACHED plugin DTO instance (see PluginRegistry
+    // `buildStore: () => new FloorStore()`) that never held the element. Immer then
+    // threw error 18 ("Cannot apply patch, path doesn't resolve") on the id-prefixed
+    // `replace`, rejecting the whole drag (the founder's `floor.update failed`). A
+    // nested replace/remove for an id we do not own is legitimately a no-op here; we
+    // drop it rather than throw. Root add/replace (`path.length === 1`) still
+    // create/replace, and ids a root add introduces earlier in the SAME batch are
+    // preserved. This does not mask real handler bugs — a produceCommand handler only
+    // patches ids whose presence its `canExecute` already asserted.
+    const willExist = new Set<Id>(this.state.keys());
+    for (const p of patches) {
+      const rootId = p.path[0];
+      if (typeof rootId === 'string' && p.path.length === 1 && (p.op === 'add' || p.op === 'replace')) {
+        willExist.add(rootId);
+      }
+    }
+    const effectivePatches: readonly Patch[] = patches.filter(
+      p => p.path.length === 1 || (typeof p.path[0] === 'string' && willExist.has(p.path[0] as Id)),
+    );
+    if (effectivePatches.length === 0) {
+      return EMPTY_DIFF;
+    }
+    if (effectivePatches.length < patches.length) {
+      console.warn(
+        `[Store:${this.storeKey}] §L-220 skipped ${patches.length - effectivePatches.length} ` +
+        `nested patch(es) targeting element id(s) not present in this store ` +
+        `(the authoritative store owns them).`,
+      );
+    }
+
     // 1) Snapshot WHICH ids existed before, plus per-id object identity
     //    for `replace`-detection on root.  We do NOT clone the entries
     //    themselves — immer.applyPatches returns fresh references for
     //    the entities it touches, so identity != identity ⇒ updated.
     const before = new Map<Id, T>(this.state);
     const touched = new Map<Id, PatchTouchSummary>();
-    for (const p of patches) {
+    for (const p of effectivePatches) {
       const id = p.path[0];
       if (typeof id !== 'string' || id.length === 0) {
         // Defensive: a patch with an empty path would target the Map
@@ -127,7 +164,7 @@ export class Store<T extends object> {
     //    (immer doesn't apply paths against Map keys), then write the
     //    result back into the canonical Map.
     const recordView: Record<Id, T> = Object.fromEntries(this.state);
-    const next = applyPatches(recordView, patches as Patch[]);
+    const next = applyPatches(recordView, effectivePatches as Patch[]);
 
     // 3) Reconcile the canonical Map with `next`.  We iterate `next`
     //    once for adds/updates and once over `before` for removes, so

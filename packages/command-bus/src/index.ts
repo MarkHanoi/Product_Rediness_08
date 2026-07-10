@@ -105,4 +105,8 @@ export type {
   ModelManagementToolbarCommands,
   PluginManagerToolbarCommands,
   SettingsToolbarCommands,
+  // §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — 3D drag-gizmo authoring verbs.
+  TransformDragCommands,
 } from './commands.js';
+// §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — compile-time-checked dispatch helper.
+export { dispatchTyped } from './commands.js';
