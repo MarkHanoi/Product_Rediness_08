@@ -11,6 +11,13 @@ export * from './StairLandingTypes';
 export * from './StairTypeDefinitions';
 export * from './StairTypes';
 export * from './StairFootprintUtils';
+// §FIX-STAIR-PARAM-NO-REGEN (L-215) — pure derived-geometry reconciler.
+export {
+    deriveStairGeometry,
+    stairHasAuthoredFlightGeometry,
+    stairDerivedGeometryDiffers,
+} from './StairParameterReconciler';
+export type { StairDerivedGeometry } from './StairParameterReconciler';
 export * from './StairTypeStore';
 export * from './StairValidationAuthority';
 export * from './LevelTraversalPolicy';

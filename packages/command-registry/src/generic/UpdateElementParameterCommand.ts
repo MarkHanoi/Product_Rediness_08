@@ -22,6 +22,7 @@
 import { Command, CommandResult, CommandValidationResult, CommandContext, SerializedCommand, CommandType } from '../types';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
+import { resolveElementRebuildDescriptor, isGeometryAffectingChange } from './ElementRebuildRegistry';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -157,7 +158,7 @@ export class UpdateElementParameterCommand implements Command {
         return store.getById?.(elementId) ?? store.get?.(elementId);
     }
 
-    private applyUpdate(store: any, elementType: string, elementId: string, parameters: Record<string, any>, _context: CommandContext): void {
+    private applyUpdate(store: any, elementType: string, elementId: string, parameters: Record<string, any>, context: CommandContext): void {
         const t = elementType.toLowerCase();
 
         if (t === 'window') {
@@ -202,11 +203,35 @@ export class UpdateElementParameterCommand implements Command {
             store.update?.(elementId, parameters);
         }
 
-        this.triggerGeometryRebuild(elementType, elementId);
+        this.triggerGeometryRebuild(elementType, elementId, context);
     }
 
-    private triggerGeometryRebuild(elementType: string, elementId: string): void {
+    private triggerGeometryRebuild(elementType: string, elementId: string, context: CommandContext): void {
         const t = elementType.toLowerCase();
+
+        // §FIX-STAIR-PARAM-NO-REGEN (L-215) — declarative rebuild path.
+        // Element types that register an ElementRebuildDescriptor own their own
+        // "regenerate geometry from parameters" command; the generic command
+        // dispatches it instead of carrying a per-type branch below. This is how
+        // stair now rebuilds (flight + landing + treads/risers + railing, with its
+        // DERIVED fields reconciled first). New parametric elements register a
+        // descriptor rather than growing the legacy if-ladder.
+        const descriptor = resolveElementRebuildDescriptor(elementType);
+        if (descriptor) {
+            const changedKeys = Object.keys(this.input.parameters);
+            if (isGeometryAffectingChange(descriptor, changedKeys)) {
+                try {
+                    const rebuildCmd = descriptor.createRebuildCommand(elementId);
+                    const res = rebuildCmd.execute(context);
+                    if (!res.success) {
+                        console.warn('[UpdateElementParameterCommand] Rebuild command failed:', res.info);
+                    }
+                } catch (e) {
+                    console.warn('[UpdateElementParameterCommand] Declarative rebuild error:', e);
+                }
+            }
+            return;
+        }
 
         try {
             if (t === 'wall') {
@@ -257,32 +282,11 @@ export class UpdateElementParameterCommand implements Command {
             } else if (t === 'handrail') {
                 _bus.emit('bim-handrail-updated', { id: elementId }); // F.events.17
 
-            } else if (t === 'stair' || t === 'stairs') {
-                // When stair geometry params change (treadDepth, riserHeight, width, etc.)
-                // the railing builder must rebuild all railings for this stair so they
-                // stay parametrically in sync. StairRailingBuilder listens to
-                // 'bim-stair-updated', which StairStore.update() already emits — so
-                // we only need the store update (already done in applyUpdate above).
-                // However, if railingType changed via properties.railingType we must also
-                // propagate the new type to the railing configs stored in StairRailingStore.
-                try {
-                    const stairRailingStore = window.stairRailingStore // TODO(TASK-07);
-                    if (stairRailingStore) {
-                        const stair = window.stairStore // TODO(TASK-07)?.getById?.(elementId)
-                            ?? window.stairStore // TODO(TASK-07)?.get?.(elementId);
-                        if (stair && stair.properties?.railingType !== undefined) {
-                            const railings = stairRailingStore.getByStairId(elementId);
-                            railings.forEach((r: any) => {
-                                stairRailingStore.update?.(r.id, {
-                                    railingType: stair.properties.railingType,
-                                });
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[UpdateElementParameterCommand] Railing type sync error:', e);
-                }
             }
+            // NOTE: stair / stairs are handled above via the declarative
+            // ElementRebuildRegistry (GenerateStairGeometryCommand) — including the
+            // railing-type propagation that used to live here — so there is no
+            // per-type stair branch in this legacy ladder any more.
         } catch (e) {
             console.warn('[UpdateElementParameterCommand] Geometry rebuild error:', e);
         }
