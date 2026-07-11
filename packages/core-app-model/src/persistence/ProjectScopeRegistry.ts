@@ -1,9 +1,12 @@
 /**
  * ProjectScopeRegistry — Single source of truth for "what is per-project state".
  *
- * Contract: docs/02-decisions/contracts/45-PROJECT-ISOLATION-LEAK-IMPLEMENTATION-PLAN.md
+ * Contract: docs/02-decisions/contracts/C13-PROJECT-LIFECYCLE-AND-ISOLATION.md
+ *   (§3.10 — every switch-reset surface has a NAMED OWNER; this registry is the
+ *    owner-of-record for module-singleton stores.)
+ * (The prior header cited `44-…-ANALYSIS.md` / `45-…-IMPLEMENTATION-PLAN.md`,
+ *  which do not exist; corrected to C13 in L-224 §AUDIT-PROJECT-ISOLATION-E2E.)
  *
- * Background — see docs/02-decisions/contracts/44-PROJECT-ISOLATION-LEAK-ANALYSIS.md.
  * Historically, ClearProjectCommand and ProjectSerializer maintained two
  * hand-written lists of stores. They drifted apart, leaving ~18 serialized
  * stores that ClearProjectCommand never wiped — including ifcModelStore,

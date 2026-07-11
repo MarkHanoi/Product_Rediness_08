@@ -137,6 +137,14 @@ const ALLOWLIST = [
 
     // ── Per-tab collaboration baseline (sessionStorage, key includes projectId) ─
     { kind: 'prefix',   value: 'pryzm:lastSync:',                 why: 'Catch-up baseline timestamp. Key already includes projectId.' },
+
+    // ── Stale-chunk reload dedup (sessionStorage, app-global by design) ────────
+    // Added by §STALE-CHUNK-RELOAD (src/main.ts vite:preloadError handler): a
+    // single timestamp that loop-guards the "reload once on a lazy-chunk 404
+    // after a deploy" self-heal. It is intentionally cross-project/cross-user —
+    // deploy skew is a property of the tab, not of any project. Pre-existing gate
+    // failure surfaced (not introduced) by L-224's isolation work.
+    { kind: 'literal',  value: 'pryzm:chunk-reload-at',           why: 'App-global stale-chunk reload dedup timestamp (deploy skew is per-tab, not per-project).' },
 ];
 
 /* ────────────────────────────────────────────────────────────────────────── *

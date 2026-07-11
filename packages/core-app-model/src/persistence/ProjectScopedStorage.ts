@@ -1,7 +1,9 @@
 /**
  * ProjectScopedStorage — Type-safe, leak-proof per-project localStorage.
  *
- * Contract 48 — Project-Isolation Deep Check.
+ * Contract C13 — Project Lifecycle and Isolation (§3.9).
+ * (Historically mis-cited as "Contract 48"; C48 is Backup & DR. Corrected in
+ *  L-224 §AUDIT-PROJECT-ISOLATION-E2E.)
  *
  * Why this exists
  * ───────────────
@@ -53,25 +55,38 @@ class ProjectScopedStorageImpl {
      */
     install(): void {
         if (this._installed) return;
-        this._installed = true;
 
         if (typeof window === 'undefined') return;
 
-        window.addEventListener('pryzm-project-switch', () => {
+        // §L-224 — subscribe on the TYPED `runtime.events` bus. The prior
+        // `window.addEventListener` binding was dead after the F.events migration
+        // (the events are emitted only on `runtime.events`), so `_projectId` was
+        // never bound and every scoped read/write silently no-op'd.
+        const bus = (window as unknown as {
+            runtime?: { events?: { on(ev: string, cb: (p: unknown) => void): (() => void) } };
+        }).runtime?.events;
+        if (!bus || typeof bus.on !== 'function') {
+            console.error('[ProjectScopedStorage] runtime.events unavailable at install — NOT wired.');
+            return;
+        }
+
+        this._installed = true;
+
+        bus.on('pryzm-project-switch', () => {
             // Suspend writes during the gap between switch and load. Any
             // teardown-time `setItem` will silently no-op rather than write
             // into the OUTGOING project's key (or worse, the INCOMING one).
             this._projectId = null;
         });
 
-        window.addEventListener('pryzm-project-loaded', (e: Event) => {
-            const detail = (e as CustomEvent).detail ?? {};
-            const projectId = detail.projectId as string | undefined;
+        bus.on('pryzm-project-loaded', (payload: unknown) => {
+            const detail = (payload as { projectId?: string } | undefined) ?? {};
+            const projectId = detail.projectId;
             if (projectId) this._projectId = projectId;
         });
 
         if (typeof console !== 'undefined') {
-            console.log('[ProjectScopedStorage] Installed — auto-keyed by projectId');
+            console.log('[ProjectScopedStorage] Installed — auto-keyed by projectId (typed runtime.events)');
         }
     }
 

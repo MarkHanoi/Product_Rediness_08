@@ -1,14 +1,25 @@
 /**
  * ProjectLifecycleController — C13 project-isolation teardown (Task 5.2).
  *
- * Owns the `pryzm-project-switch` window listener and executes the normative
- * 5-step teardown before Project B's stores are populated.
+ * Owns the `pryzm-project-switch` listener and executes the normative teardown
+ * before Project B's stores are populated.
+ *
+ * §L-224 (2026-07-10) — CRITICAL FIX. This controller previously bound its
+ * listener with `window.addEventListener('pryzm-project-switch', …)`. But the
+ * `F.events` migration re-pointed the emitter: `pryzm-project-switch` is now
+ * emitted ONLY on the in-memory typed `runtime.events` bus (PlatformShell), which
+ * does NOT dispatch a DOM CustomEvent. The DOM listener was therefore DEAD — the
+ * entire C13 §4 teardown (BatchCoordinator.forceReset, wall-rebuild reset,
+ * clearUndoStacks) never ran on a project switch. This was the root cause of the
+ * founder-reported "reminiscencia" (L-224). `bind()` now subscribes on the typed
+ * bus, and the handler reads the typed payload `{ projectId, projectName }`
+ * directly (no `.detail`, and no `from`/`to` — the typed event carries neither).
  *
  * Dependency policy: zero imports from `src/`.  The concrete BatchCoordinator
  * is injected via structural `IBatchCoordinatorTeardown` so this package stays
  * at L3 (packages/).
  *
- * Spec: C13 §4 (Wave 35 I-3/I-5).
+ * Spec: C13 §3.9 / §4 (Wave 35 I-3/I-5; L-224).
  */
 
 /** Minimal BatchCoordinator surface needed by the teardown sequence. */
@@ -16,6 +27,17 @@ export interface IBatchCoordinatorTeardown {
     readonly isBatching: boolean;
     readonly pendingRegistrationCount: number;
     forceReset(): void;
+}
+
+/** Typed payload of the `pryzm-project-switch` runtime event. */
+interface ProjectSwitchPayload {
+    readonly projectId?: string;
+    readonly projectName?: string;
+}
+
+/** Minimal typed-event-bus surface this controller subscribes on. */
+export interface IProjectSwitchEventBus {
+    on(event: 'pryzm-project-switch', handler: (payload: ProjectSwitchPayload) => void): (() => void);
 }
 
 export class ProjectLifecycleController {
@@ -43,17 +65,50 @@ export class ProjectLifecycleController {
         this._onClearUndoStacks = onClearUndoStacks;
     }
 
-    /** Registers the pryzm-project-switch listener. Call once after engine boot. */
-    bind(): void {
-        window.addEventListener('pryzm-project-switch', this._handleProjectSwitch.bind(this));
+    /** Disposer for the typed-bus subscription (so bind() is idempotent + testable). */
+    private _unsub: (() => void) | null = null;
+
+    /**
+     * Registers the `pryzm-project-switch` listener on the TYPED runtime event
+     * bus. Call once after engine boot (engineLauncher, after `window.runtime`
+     * is set). §L-224 — was `window.addEventListener` (dead after the F.events
+     * migration); now `runtime.events.on`.
+     *
+     * @param bus Optional typed bus. Defaults to `window.runtime.events` — the
+     *            same emitter PlatformShell fires `pryzm-project-switch` on.
+     */
+    bind(bus?: IProjectSwitchEventBus): void {
+        const target = bus ?? (window as unknown as {
+            runtime?: { events?: IProjectSwitchEventBus };
+        }).runtime?.events ?? null;
+
+        if (!target || typeof target.on !== 'function') {
+            console.error(
+                '[ProjectLifecycleController] runtime.events unavailable at bind() — ' +
+                'C13 project-switch teardown NOT wired. Project-isolation teardown will not run.',
+            );
+            return;
+        }
+
+        // Idempotent: drop any prior subscription before re-binding.
+        this._unsub?.();
+        this._unsub = target.on('pryzm-project-switch', (payload) => this._handleProjectSwitch(payload));
     }
 
-    private _handleProjectSwitch(e: Event): void {
-        const detail   = (e as CustomEvent).detail ?? {};
-        const fromId: string | null = detail.from ?? null;
-        const toId:   string        = detail.to   ?? '(unknown)';
+    /** Tear down the subscription (idempotent). */
+    unbind(): void {
+        this._unsub?.();
+        this._unsub = null;
+    }
 
-        console.log(`[ProjectLifecycleController] C13 project-switch: ${fromId ?? 'cold-boot'} → ${toId}`);
+    private _handleProjectSwitch(payload: ProjectSwitchPayload): void {
+        // §L-224 — the typed `pryzm-project-switch` payload is `{ projectId,
+        // projectName }`; it carries no `from`/`to`. `toId` is the incoming
+        // project; the outgoing id is not available on this event.
+        const toId: string = payload?.projectId ?? '(unknown)';
+        const fromId: string | null = null;
+
+        console.log(`[ProjectLifecycleController] C13 project-switch → ${toId}`);
 
         const batchWasActive    = this._bc.isBatching;
         const regQueueCount     = this._bc.pendingRegistrationCount;

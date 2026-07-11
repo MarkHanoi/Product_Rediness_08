@@ -133,11 +133,16 @@ export class FrustumCullingService {
         }
 
         // pryzm-project-loaded is handled separately from TRIGGERING_EVENTS so
-        // we can inspect detail.empty (Contract 20 §7.3 / GAP-3 fix).
+        // we can inspect payload.empty (Contract 20 §7.3 / GAP-3 fix).
         // When empty:true the project is brand-new with no geometry — auditing
         // zero meshes is a no-op, so we skip the debounce cycle entirely.
-        window.addEventListener('pryzm-project-loaded', (e) => {
-            const detail = (e as CustomEvent).detail ?? {};
+        // §L-224 — subscribe on the TYPED `runtime.events` bus; the prior
+        // `window.addEventListener` binding was dead after the F.events migration
+        // (event emitted only on runtime.events).
+        (window as unknown as {
+            runtime?: { events?: { on(ev: string, cb: (p: unknown) => void): (() => void) } };
+        }).runtime?.events?.on('pryzm-project-loaded', (payload: unknown) => {
+            const detail = (payload as { empty?: boolean } | undefined) ?? {};
             if (detail.empty) {
                 console.log('[FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry');
                 return;

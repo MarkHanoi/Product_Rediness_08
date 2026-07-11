@@ -120,23 +120,84 @@ for (const name of referencedSingletons) {
     if (!registeredScopes.has(name)) missing.push(name);
 }
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ * C13 §3.9 — DEAD-LISTENER GUARD (L-224).
+ *
+ * The project-lifecycle events `pryzm-project-{switch,loaded,context-set}` are
+ * emitted ONLY on the typed `runtime.events` bus (the `F.events` migration
+ * re-pointed the emitter). Binding them with `window.addEventListener` is a
+ * SILENT no-op — the listener never fires. This is exactly the regression that
+ * left ProjectLifecycleController's teardown + ProjectIsolationAudit dead and
+ * caused the founder-reported project "reminiscencia" (L-224).
+ *
+ * FAIL the build on any `window.addEventListener('pryzm-project-{switch,loaded,
+ * context-set}', …)` occurrence. Subscribe via `runtime.events.on(...)` (or the
+ * `onRuntimeEvent` deferred bridge) instead.
+ * ────────────────────────────────────────────────────────────────────────── */
+const DEAD_LISTENER_RE =
+    /window\s*\.\s*addEventListener\s*\(\s*['"]pryzm-project-(switch|loaded|context-set)['"]/g;
+
+// Two files are KNOWN-PENDING migration and sequenced under a separate ticket
+// (out of L-224's fence): ConstraintEngine (per-project constraint recompute)
+// and AmbientIntelligence (per-project AI recompute). They are per-project
+// recompute niceties, NOT isolation-critical teardown. Remove each entry when
+// its listener is migrated to `runtime.events.on`.
+const LISTENER_ALLOWLIST = new Set([
+    'ConstraintEngine.ts',   // packages/constraint-solver — L-224 follow-up
+    'AmbientIntelligence.ts', // packages/ai-host — L-224 follow-up
+]);
+
+const listenerOffenders = [];
+function walkListeners(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+            walkListeners(full);
+        } else if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
+            if (/\.(test|spec)\.tsx?$/.test(entry.name)) continue; // tests may fabricate DOM events
+            if (LISTENER_ALLOWLIST.has(entry.name)) continue;
+            const text = fs.readFileSync(full, 'utf8');
+            DEAD_LISTENER_RE.lastIndex = 0;
+            if (!DEAD_LISTENER_RE.test(text)) continue;
+            // Record each offending line for a precise report. Skip comment
+            // lines (JSDoc `*`, `//`, `/*`) so docs that MENTION the forbidden
+            // pattern (e.g. a fix note) do not trip the guard.
+            const lines = text.split(/\r?\n/);
+            for (let i = 0; i < lines.length; i++) {
+                const trimmed = lines[i].trim();
+                if (trimmed.startsWith('*') || trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
+                if (/window\s*\.\s*addEventListener\s*\(\s*['"]pryzm-project-(switch|loaded|context-set)['"]/.test(lines[i])) {
+                    listenerOffenders.push(`${path.relative(ROOT, full)}:${i + 1}`);
+                }
+            }
+        }
+    }
+}
+if (fs.existsSync(SRC)) walkListeners(SRC);
+if (fs.existsSync(APPS_EDITOR_SRC)) walkListeners(APPS_EDITOR_SRC);
+if (fs.existsSync(PACKAGES)) walkListeners(PACKAGES);
+if (fs.existsSync(PLUGINS)) walkListeners(PLUGINS);
+
 // 5. Report.
 const banner = '─'.repeat(78);
 console.log(banner);
-console.log('Contract 45 — Project-Isolation Registry Guard');
+console.log('C13 — Project-Isolation Guard (registry + dead-listener)');
 console.log(banner);
 console.log(`Singletons serialized in ProjectSerializer.ts : ${referencedSingletons.size}`);
 console.log(`Scopes registered with ProjectScopeRegistry  : ${registeredScopes.size}`);
 console.log(`Allowlisted (intentionally unregistered)     : ${ALLOWLIST.size}`);
+console.log(`Dead project-lifecycle DOM listeners found    : ${listenerOffenders.length}`);
+console.log(`Listener migrations pending (allowlisted)    : ${LISTENER_ALLOWLIST.size}`);
 
-if (missing.length === 0) {
-    console.log(`\n✓ All serialized singletons are registered. Project isolation is intact.\n`);
-    process.exit(0);
-}
+let failed = false;
 
-console.error(`\n✗ ${missing.length} serialized store(s) MISSING from ProjectScopeRegistry:\n`);
-for (const name of missing.sort()) console.error(`    • ${name}`);
-console.error(`
+// 5a. Registry check.
+if (missing.length > 0) {
+    failed = true;
+    console.error(`\n✗ ${missing.length} serialized store(s) MISSING from ProjectScopeRegistry:\n`);
+    for (const name of missing.sort()) console.error(`    • ${name}`);
+    console.error(`
 This means switching projects will leak the above store's data across projects.
 
 To fix, append the following to the store file (after the singleton export):
@@ -152,4 +213,32 @@ If a store is intentionally not registered (e.g. cleared via ctx.stores by
 ClearProjectCommand), add it to the ALLOWLIST in this script with a comment
 explaining why.
 `);
-process.exit(1);
+} else {
+    console.log(`\n✓ All serialized singletons are registered.`);
+}
+
+// 5b. Dead-listener check (C13 §3.9 / L-224).
+if (listenerOffenders.length > 0) {
+    failed = true;
+    console.error(`\n✗ ${listenerOffenders.length} DEAD project-lifecycle DOM listener(s) found:\n`);
+    for (const site of listenerOffenders) console.error(`    • ${site}`);
+    console.error(`
+'pryzm-project-{switch,loaded,context-set}' are emitted ONLY on the typed
+'runtime.events' bus. 'window.addEventListener(...)' for these events is a
+SILENT no-op — the listener never fires (L-224 root cause).
+
+To fix, subscribe on the typed bus instead:
+
+    window.runtime?.events?.on('pryzm-project-switch', (payload) => { ... });
+    // or, for pre-runtime singletons: onRuntimeEvent('pryzm-project-loaded', ...)
+
+If a listener is a known-pending migration sequenced under another ticket, add
+its filename to LISTENER_ALLOWLIST in this script with a justification comment.
+`);
+} else {
+    console.log(`✓ No dead project-lifecycle DOM listeners.`);
+}
+
+if (failed) process.exit(1);
+console.log(`\n✓ Project isolation is intact.\n`);
+process.exit(0);

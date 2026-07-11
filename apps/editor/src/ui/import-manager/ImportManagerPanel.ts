@@ -96,7 +96,11 @@ export class ImportManagerPanel {
             this._reconcileFromLiveState();
             setTimeout(() => this._reconcileFromLiveState(), 600);
         });
-        window.addEventListener('pryzm-project-switch', () => {
+        // §L-224 — subscribe on the TYPED `runtime.events` bus. The prior
+        // `window.addEventListener('pryzm-project-switch')` was dead after the
+        // F.events migration (event emitted only on runtime.events), so stale
+        // import entries from the previous project survived the switch.
+        window.runtime?.events?.on('pryzm-project-switch', () => { // F.events.15
             // Project changed → drop stale entries; the new project's
             // restore + IFC re-import events will repopulate.
             this._entries.clear();

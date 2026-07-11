@@ -2083,6 +2083,41 @@ export class ProjectLoader {
             } catch (e) { /* no-op */ }
             // ── End undo stack clear ──────────────────────────────────────────
 
+            // ── §L-224 — publish the EXPECTED element-id set for the audit ─────
+            // ProjectIsolationAudit fires on `pryzm-project-loaded` (emitted by
+            // PlatformShell / PlatformVersionController AFTER this load resolves).
+            // It compares the live scene + element stores against the ids this
+            // snapshot declared: any live element whose id is NOT in this set is a
+            // cross-project leftover (the founder-reported "reminiscencia"). We
+            // publish here — in the load finally, on every path — so the audit can
+            // run on EVERY load (not only empty ones) with zero false positives:
+            // legitimately-restored elements are all in the set. Derived state
+            // (redetected rooms, room-bounding-lines, annotations) is intentionally
+            // NOT part of the audited surface, so it is not included here.
+            try {
+                const __expectedIds: string[] = [];
+                const __pushIds = (arr: unknown): void => {
+                    if (!Array.isArray(arr)) return;
+                    for (const e of arr) {
+                        const id = (e as { id?: unknown } | null)?.id;
+                        if (typeof id === 'string' && id.length > 0) __expectedIds.push(id);
+                    }
+                };
+                const s = snapshot as unknown as Record<string, unknown>;
+                __pushIds(s.walls);     __pushIds(s.slabs);    __pushIds(s.columns);
+                __pushIds(s.beams);     __pushIds(s.stairs);   __pushIds(s.roofs);
+                __pushIds(s.furniture); __pushIds(s.handrails); __pushIds(s.curtainWalls);
+                __pushIds(s.plumbing);  __pushIds(s.ceilings); __pushIds(s.floors);
+                __pushIds(s.grids);     __pushIds(s.doors);    __pushIds(s.windows);
+                (globalThis as unknown as {
+                    __pryzmLoadedProjectExpectation?: { projectId: string; elementIds: string[] };
+                }).__pryzmLoadedProjectExpectation = {
+                    projectId: (s.projectId as string | undefined) ?? '<unknown>',
+                    elementIds: __expectedIds,
+                };
+            } catch (e) { /* audit expectation is best-effort — never fail a load over it */ }
+            // ── End §L-224 audit expectation ──────────────────────────────────
+
             // Reference loadedLevelIds so TS strict mode doesn't flag it unused.
             // (Reserved for future per-level instrumentation.)
             void loadedLevelIds;
