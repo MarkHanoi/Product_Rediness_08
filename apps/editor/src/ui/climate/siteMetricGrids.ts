@@ -1104,10 +1104,11 @@ export function prepareSunHoursGrid(input: MetricGridInput): SunHoursGridPrep | 
 // POINTS across each exterior vertical wall face (along the segment × up the storey)
 // plus the roof, and exposes a pure `evaluateIntensity(point)` that runs the SAME
 // direct-beam shadow test the ground grid uses (`sunBlocked` vs the extruded context
-// + own-massing prisms). The CesiumViewport renders coloured quads/points per face
-// (clean per-face colouring; the smooth-interpolated-per-face version is SPEC'd in
-// ADR-0093). The caller batches `evaluateIntensity` across frames so the per-point
-// raycast never freezes the viewport.
+// + own-massing prisms). The CesiumViewport renders each face as ONE smooth bilinearly-
+// interpolated per-face texture (§FORMA-FACADE-SMOOTH realised the ADR-0093 "SPEC'd next
+// increment"; §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE / L-232 then raised the sampling density
+// via `planFacadeSampling` so the gradient is smooth WITHIN and ACROSS storeys). The caller
+// batches `evaluateIntensity` across frames so the per-point raycast never freezes the viewport.
 //
 // FRAME: same as the ground grid — (east, north, up) metres; footprint rings are the
 // StreetGrid XZ convention (x = east, z = north). The outward face NORMAL is used only
@@ -1145,9 +1146,11 @@ export interface FacadeSunInput {
     readonly lngDeg: number;
     /** Analysis-day preset (default 'summer'). */
     readonly sunDay?: SunDayPreset;
-    /** Sun sample cadence (minutes). Default 25 (matches the ground sun-hours). */
+    /** Sun sample cadence (minutes). Default 25; the CesiumViewport façade path passes the
+     *  finer `planFacadeSampling` cadence (§FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE, L-232). */
     readonly sunStepMinutes?: number;
-    /** Target sample spacing on the façade (m). Default 2.5 (clean per-face read). */
+    /** Target sample spacing on the façade (m). Default 2.5; the CesiumViewport façade path
+     *  passes the finer sub-storey `planFacadeSampling` spacing (L-232, budget-bounded). */
     readonly sampleSpacingM?: number;
     /** Hard cap on façade sample points (perf). Default 4000. */
     readonly maxSamples?: number;
@@ -1703,6 +1706,114 @@ export function normalizeFacadeStudy(
     } catch { /* console unavailable (headless test) — span is best-effort */ }
 
     return { walls: wallFaces.map(scale), roof: scale(roof), max };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE (L-232, founder 2026-07-11) — kill the per-storey
+// banding so the façade reads as smoothly as the ground
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ROOT of the banding (measured — see the L-232 report): the sun-hours field is QUANTISED to
+// the number of daylight sun samples (each sample is a binary lit/blocked raycast, so a point's
+// intensity is `lit / N` — a staircase of N+1 levels). The GROUND heatmap hides this: it
+// normalises by the FULL-day sample count, so its step is 1/N (~2.9% at the 25-min cadence) —
+// below the banding threshold. The FAÇADE cannot: a vertical wall only takes the sun samples on
+// its outward side, so §FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY (L-227) rightly normalises it
+// to its realised max WALL intensity (~half the day) to fill the ramp — but that STRETCH doubles
+// the visible quantisation step to ~1/(N/2) (~5%), which reads as horizontal iso-sun-hours BANDS
+// once the full ramp makes them visible (before L-227 they hid inside the compressed cyan). So the
+// façade needs ~2× the ground's sun-sample density to match its contour fineness.
+//
+// FIX (this planner, CPU-only — NO GPU-resource change, so it is L-231-device-loss-SAFE): pick a
+// FINER sun-time cadence (≈ half the ground step, to counter the L-227 stretch) + a sub-storey
+// spatial lattice, both BOUNDED by a work budget that SHRINKS as the building grows so a tower
+// never explodes the raycast count. The DISPLAY drape textures are UNCHANGED (already capped), so
+// denser sampling adds zero GPU footprint — it only feeds the same-size bilinear textures a
+// smoother field.
+
+/** A bounded façade sampling plan — the spatial lattice spacing + sun-time cadence to use, sized
+ *  so the total raycast work stays within a building-size-scaled budget. §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE. */
+export interface FacadeSamplingPlan {
+    /** Compute-lattice spacing on the façade (m) — sub-storey, coarsened up on big buildings. */
+    readonly spacingM: number;
+    /** Sun sample cadence (minutes) — finer than the ground to counter the L-227 range stretch. */
+    readonly stepMinutes: number;
+    /** Hard cap on total façade lattice nodes the caller must not exceed (perf / L-231 guard). */
+    readonly maxNodes: number;
+    /** The work budget (node·sun-sample raycasts) this plan was fitted to (diagnostic). */
+    readonly workBudget: number;
+}
+
+function clampNum(x: number, lo: number, hi: number): number {
+    return x < lo ? lo : x > hi ? hi : x;
+}
+
+/**
+ * §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE (L-232) — plan a façade study's sampling density so the
+ * gradient reads as smoothly as the ground WITHOUT ever growing the GPU footprint (the drape
+ * textures are separately capped). PURE + deterministic.
+ *
+ * Time: `stepMinutes` ≈ half the ground cadence, so the façade — whose L-227 wall-max normalisation
+ * stretches its ~half-day field to the full ramp — gets ~2× the sun samples and therefore the SAME
+ * per-step contour fineness as the (unstretched) ground. Floored so a huge study never runs away.
+ *
+ * Space: a sub-storey `spacingM` (≈ storey/2.5) so each floor carries several vertical samples and
+ * the context-shadow gradient resolves; coarsened UP when the node count would blow the budget.
+ *
+ * Budget: `workBudget` (node·sun-sample raycasts) SHRINKS with building height, so a 40-storey
+ * tower gets a much coarser plan than a house — the 40-storey WebGPU device-loss history (L-231)
+ * is respected by never letting a tall/heavy scene inflate either the raycast count OR (via the
+ * caller's fixed-cap drape textures) the GPU resources. The raycast itself is CPU + chunked.
+ *
+ * @param input.perimeterM      total exterior wall perimeter (m).
+ * @param input.heightM         building top height (m).
+ * @param input.storeyHeightM   typical storey height (m); default 3.
+ * @param input.groundStepMinutes the ground heatmap's sun cadence (parity anchor); default 25.
+ * @param input.heavy           explicit heavy-scene / low-tier flag → extra coarsening (optional).
+ */
+export function planFacadeSampling(input: {
+    readonly perimeterM: number;
+    readonly heightM: number;
+    readonly storeyHeightM?: number;
+    readonly groundStepMinutes?: number;
+    readonly heavy?: boolean;
+}): FacadeSamplingPlan {
+    const H = Math.max(3, input.heightM);
+    const perim = Math.max(1, input.perimeterM);
+    const storey = input.storeyHeightM && input.storeyHeightM > 0 ? input.storeyHeightM : 3;
+    const groundStep = input.groundStepMinutes && input.groundStepMinutes > 0 ? input.groundStepMinutes : 25;
+
+    // Time — half the ground step (counter the L-227 wall-max stretch), floored at 10 min so the
+    // sample count (and raycast cost) stays bounded.
+    const stepMinutes = Math.max(10, Math.round(groundStep / 2));
+    // Estimate the daylight sample count at this cadence (a generous ~14 h day) for the work budget.
+    const daylightSamples = Math.max(8, Math.round((14 * 60) / stepMinutes));
+
+    // Work budget (node·sample raycasts): full for a low building, shrinking ∝ 1/H for a tower, so a
+    // heavy scene NEVER inflates the raycast count. Sized so a NORMAL tower keeps ≈ its prior 2.5 m
+    // spatial resolution (the banding cure is the finer CADENCE, not finer space) while a megatower
+    // still auto-coarsens. `heavy` halves it again (future tier wiring). Raycasts are CPU + chunked;
+    // the drape textures are capped elsewhere, so this never touches the GPU budget (L-231-safe).
+    let workBudget = clampNum(600_000 * (40 / Math.max(40, H)), 100_000, 600_000);
+    if (input.heavy) workBudget *= 0.5;
+    workBudget = Math.round(workBudget);
+    const maxNodes = Math.max(400, Math.floor(workBudget / daylightSamples));
+
+    // Space — sub-storey target, coarsened up if it would overshoot the node cap (auto-decimate so
+    // a big façade stays within budget instead of exploding).
+    let spacingM = clampNum(storey / 2.5, 0.75, 1.5);
+    const estNodes = (perim * H) / (spacingM * spacingM);
+    if (estNodes > maxNodes) spacingM = Math.sqrt((perim * H) / maxNodes);
+
+    try {
+        console.debug(
+            `[span][feat-facade-analysis-smooth-per-face] planned façade sampling: spacing ` +
+            `${spacingM.toFixed(2)} m, step ${stepMinutes} min, maxNodes ${maxNodes} ` +
+            `(H ${H.toFixed(0)} m, perim ${perim.toFixed(0)} m, budget ${workBudget}).`,
+        );
+    } catch { /* console unavailable (headless test) — span is best-effort */ }
+
+    return { spacingM, stepMinutes, maxNodes, workBudget };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

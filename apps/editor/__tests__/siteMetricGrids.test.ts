@@ -22,6 +22,7 @@ import {
     prepareFacadeSunGrid,
     rasterizeFacadeSunTexture,
     normalizeFacadeStudy,
+    planFacadeSampling,
     buildRealWindRose,
     __sunHoursBvhEquivalenceProbe,
     facadeOpeningUvRects,
@@ -975,5 +976,57 @@ describe('§FEAT-FACADE-ANALYSIS-MATCH-SUNHOURS-QUALITY: façade fills the groun
         const [rD, , bD] = rgbaAt(shadedTex, 0.1, 0.1);  // darkest corner of the shaded face
         expect(rS).toBeGreaterThan(bS);  // sunny face → warm (R>B)
         expect(bD).toBeGreaterThan(rD);  // shaded face → cold (B>R)
+    });
+});
+
+// §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE (L-232, founder 2026-07-11) — the façade must read as
+// smoothly as the ground. Root: the sun-hours field is quantised to the sun-sample count, and
+// L-227's wall-max stretch ~doubles the visible step → per-storey bands. `planFacadeSampling`
+// picks a finer cadence + sub-storey spacing, BOUNDED by a building-size work budget so a tower
+// never inflates the raycast count (and the drape textures — capped elsewhere — never grow → no
+// L-231 GPU-device-loss regression).
+describe('§FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE: planFacadeSampling', () => {
+    const GROUND_STEP = 25;
+    // The internal daylight-sample estimate (mirrors the planner) — for the work-bound assertion.
+    const estSamples = (step: number): number => Math.max(8, Math.round((14 * 60) / step));
+
+    it('uses a FINER sun cadence than the ground (counters the L-227 range stretch)', () => {
+        const plan = planFacadeSampling({ perimeterM: 60, heightM: 12, storeyHeightM: 3, groundStepMinutes: GROUND_STEP });
+        // ~half the ground step so the stretched façade field has ~2× the intensity levels.
+        expect(plan.stepMinutes).toBeLessThanOrEqual(Math.round(GROUND_STEP / 2));
+        expect(plan.stepMinutes).toBeGreaterThanOrEqual(10); // floored so cost never runs away
+    });
+
+    it('uses a SUB-STOREY spatial spacing on a normal building (resolves the vertical gradient)', () => {
+        const plan = planFacadeSampling({ perimeterM: 60, heightM: 12, storeyHeightM: 3, groundStepMinutes: GROUND_STEP });
+        expect(plan.spacingM).toBeLessThan(3);        // finer than a storey
+        expect(plan.spacingM).toBeGreaterThanOrEqual(0.75); // but not absurdly fine
+    });
+
+    it('BOUNDS the raycast work and shrinks the budget as the building grows (L-231 safety)', () => {
+        const house = planFacadeSampling({ perimeterM: 40, heightM: 12, storeyHeightM: 3, groundStepMinutes: GROUND_STEP });
+        const tower = planFacadeSampling({ perimeterM: 160, heightM: 120, storeyHeightM: 3, groundStepMinutes: GROUND_STEP });
+        // The tower gets a SMALLER budget + node cap than the house — never a bigger one.
+        expect(tower.workBudget).toBeLessThan(house.workBudget);
+        expect(tower.maxNodes).toBeLessThan(house.maxNodes);
+        // The node cap × the sun-sample count stays within the fitted work budget (bounded raycasts).
+        for (const p of [house, tower]) {
+            expect(p.maxNodes * estSamples(p.stepMinutes)).toBeLessThanOrEqual(Math.ceil(p.workBudget * 1.01));
+        }
+    });
+
+    it('auto-decimates (coarsens spacing) so a large façade never exceeds the node cap', () => {
+        // A very large façade at the sub-storey target would blow the cap → spacing must grow.
+        const plan = planFacadeSampling({ perimeterM: 400, heightM: 200, storeyHeightM: 3, groundStepMinutes: GROUND_STEP });
+        const estNodes = (400 * 200) / (plan.spacingM * plan.spacingM);
+        expect(estNodes).toBeLessThanOrEqual(plan.maxNodes * 1.02);
+        expect(plan.spacingM).toBeGreaterThan(0.75); // coarsened above the sub-storey floor
+    });
+
+    it('an explicit heavy-scene flag coarsens further (halves the budget)', () => {
+        const normal = planFacadeSampling({ perimeterM: 160, heightM: 120, storeyHeightM: 3, groundStepMinutes: GROUND_STEP });
+        const heavy = planFacadeSampling({ perimeterM: 160, heightM: 120, storeyHeightM: 3, groundStepMinutes: GROUND_STEP, heavy: true });
+        expect(heavy.workBudget).toBeLessThan(normal.workBudget);
+        expect(heavy.maxNodes).toBeLessThanOrEqual(normal.maxNodes);
     });
 });
