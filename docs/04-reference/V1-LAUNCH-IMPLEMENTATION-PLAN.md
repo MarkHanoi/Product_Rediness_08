@@ -1983,3 +1983,76 @@ screenshots are purple→magenta→pink→orange→yellow = the renderer-three `
 the Forma ground's blue→teal→gold→warm. He may want the whole Forma feature restyled to the purple
 ramp. One-function change (`sunHoursRgb` 4 stops → purple 5-stop) that moves ground+façade together
 (they now share the ramp). Not started — needs the founder to confirm which gradient he means.
+
+---
+
+## L-224 — Phase B FIXED (51c3109a)
+
+§FIX-PROJECT-ISOLATION-DEAD-LISTENERS. Migrated the orphaned `window.addEventListener`
+project-lifecycle listeners to the typed `runtime.events` bus, reviving `ProjectLifecycleController`
+(C13 §4 teardown: `BatchCoordinator.forceReset` + `clearUndoStacks` + wall/CW/slab resume) and
+`ProjectIsolationAudit` (the tripwire). The new CI gate found a **7th** dead listener Phase A missed
+(`FrustumCullingService.ts:139`). B1: `ProjectLoader` publishes `__pryzmLoadedProjectExpectation`
+(snapshot ids); the audit flags a live element only if its id is not in that set → zero false
+positives on a populated load, still catches a foreign id. Undo double-clear confirmed idempotent.
+`ConstraintEngine` + `AmbientIntelligence` left dead (out of fence, gate-allowlisted) — per-project
+recompute niceties, not isolation resets; orchestrator to sequence. Orchestrator TODO: land C13
+§3.9/§3.10 invariants + fix the stale "Contract 48"→C13 doc references. Gate: `check:isolation` exit
+0, runtime-composer 136/136, core-app-model 136/136 (+12 tests), root tsc exit 0, 12 files.
+
+---
+
+## L-231 — §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE  (CRITICAL, crash)
+
+Founder: *"Check why the 3D view graphics broke while going to Cesium 3D tiles (3D globe view)."*
+
+### The chain (all in the founder's log)
+
+```
+[RealEnvironmentService] §DIAG-GROUND-SHADOW-FIT … shadowMapAllocated=false … casters=7
+[RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+SHADOW_REBUILD_SCHEDULED meshCount=1492
+SHADOW_REBUILD_COMPLETE elapsed=6019.7ms                      ← 6-SECOND rebuild
+Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.   ×24
+THREE.WebGPURenderer: WebGPU Device Lost: "A valid external Instance reference no longer exists."
+→ WebGPU device recovered — renderer recreated
+GIS toggle activated: true  →  Cesium activates
+[Cesium WebGL] Fragment shader compile log: null
+RuntimeError: Fragment shader failed to compile. Compile log: null
+"An error occurred while rendering. Rendering has stopped."
+footer: GPU: Auto WebGPU [WebGL] · webgl-fallback
+```
+
+**This is a recurrence of the 40-storey office device-loss cascade** (ShadowDepthTexture-mid-submit →
+device loss), previously addressed by §SHADOW-DEVICE-LOSS-FIX / ADR-0111 — incomplete for heavy
+*residential* scenes (3908 meshes, 1492 casters).
+
+### Two linked defects
+
+**(A) The shadow rebuild still destroys `ShadowDepthTexture` mid-submit.** `RenderPipelineManager`
+already has §#47 coalescing + §FIX-SHADOW-REBUILD-LATCH-ASYNC (`:735-819`) that awaits the async
+`_rebuildPipeline()` so the in-flight latch spans the real work. Yet the ×24 destroy still fires — so
+a submit references the depth texture from a path the latch doesn't cover (candidates: the
+device-loss RECOVERY dispose; an OBC/Pascal submit landing during the 6s async rebuild; the
+shadow-map REALLOCATION itself). "External Instance reference no longer exists" = a Dawn instance
+teardown = the whole GPU device died, not one texture.
+
+**(B) Cesium can't survive the device loss.** After WebGPU is lost/recovered, Cesium's WebGL context
+is invalid; `Compile log: null` is the classic lost/reset-GPU-process signature. The globe toggle then
+hits a shader-compile failure and Cesium halts with a dead-end error panel and no recovery.
+
+**L-205 freeze LIFTED** for this — the grey-square investigation is resolved (C04 §SHADOW + ADR-0120
+shipped); this is a device-loss crash in the ADR-0111 domain. The fix must still honour C04 §SHADOW
+(never resize a live map; never dispose off-frame).
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **A** | Instrument the ×24 `ShadowDepthTexture` destroy; identify which pass holds the submit-referenced handle when the 6s rebuild tears it down. Make teardown wait for the in-flight submit to drain (ADR-0111). Question whether a shadow-map *update* must rebuild the WHOLE pipeline — a 6s rebuild on 1492 casters says the scope is too broad. |
+| **B** | Make Cesium activation survive/recover a device loss: gate the globe toggle until the renderer is confirmed live, and/or add a Cesium context-lost/restore handler that recompiles rather than halting. A `Compile log: null` must not be a dead end. |
+| **C** | Tier-gate the shadow rebuild + map size for 1000+ casters (memory: oversized GPU resources + per-element unique materials are the device-loss triggers). |
+| **D** | Tests: a simulated device-loss during a shadow rebuild does not destroy a submit-referenced texture; a device-loss followed by Cesium activation recovers instead of halting. |
+
+**Contract mapping:** C04 §SHADOW, **ADR-0111** (shadow lifecycle / never sync-dispose
+`ShadowDepthTexture`), §SHADOW-DEVICE-LOSS-FIX, A.24 (render tiers).
