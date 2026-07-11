@@ -2099,3 +2099,44 @@ is open.
 
 **Contract mapping:** C21-CLIMATE-INGESTION, ADR-0074 (solar), **ADR-0093** (façade analysis — the
 smooth-per-face spec this implements), A.24 (Presentation tier). Follow-up to L-227.
+
+---
+
+## L-233 — §FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES  (MEDIUM, correctness)
+
+Founder: *"When the levels are stacked, if the user moves or creates an element, many of the elements
+in the view get un-stacked — back to normal. Is this intended?"* — No. Documented, partially-fixed bug.
+
+### Root cause (code-confirmed; the code names the founder's bug)
+
+`LevelExplodeController` (`apps/editor/src/engine/inspect/LevelExplodeController.ts`) applies a
+VISUAL-only per-level Y-offset (`EXPLODE_GAP = 5 m`). Its own comment (`:48-50`): *"While the explode
+is active, a rebuild (move / property edit) regenerate[s] the mesh at its true (model) elevation and
+drops OUT of the exploded stack — the founder's [bug]."*
+
+The partial fix **§FIX-LEVEL-EXPLODE-COORDINATION (L-113)** re-runs `_buildLevelGroups()` on a list of
+`REBUILD_RECONCILE_EVENTS` (`:55-66`) to re-lift rebuilt meshes. **That allowlist is incomplete** —
+it covers wall/slab/floor/ceiling/furniture/column/beam/roof/stair/curtainwall/door/window but NOT
+`bim-room-*` / room-bounding-lines / room labels, handrail, opening, plumbing, lighting,
+stair-railing, verticalCirculation, annotation.
+
+**The log proves it:** exploded view = `rooms 526, labels 263`; the founder runs `MOVE_WINDOW` →
+`bim-window-updated` + `bim-wall-updated` (in the list → wall re-lifts) BUT also a room re-detect
+(rooms + labels rebuild) which is NOT in the list → **789 room/label roots drop to model Y** while
+walls stay exploded. "Many elements un-stacked from one edit."
+
+**Smell (same class as L-215 / L-229):** a per-element-type event allowlist — every new type must be
+remembered, and derived elements (rooms/labels) rebuilt as a side-effect are the easiest to forget.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | **Do NOT extend the allowlist.** Re-apply the explode offset **type-agnostically to ALL level-tagged roots** after a rebuild settles — reconcile on the batch-complete / frame-settle signal (or a single `bim-element-*` chokepoint), re-running `_buildLevelGroups()` for every root regardless of type. Rooms/labels/handrails/openings and any future type covered by construction. |
+| **P2** | Preserve the L-113 `preservedBaseY` double-lift guard (`:292-300`) — a currently-lifted root must not re-capture its lifted Y as baseline. |
+| **P3** | Coalesce: one move → N rebuilds must reconcile ONCE after the batch, not per-event (perf + correctness). |
+| **P4** | Fix the gizmo/selection re-anchor after a rebuild-during-explode (the `§SELECT-GIZMO-REATTACH` per-frame flood in the log) so the moved element's selection tracks the rebuilt mesh at its exploded Y. |
+| **P5** | Tests: in exploded mode, moving a window keeps rooms+labels+walls lifted; creating an element in exploded mode places it in the stack, not at model Y; collapsing restores exact original Y (no double-lift). |
+
+**Contract mapping:** C06 (UI shell / inspect mode), C09 + P7 (visibility/inspect intent), L-113
+lineage. Fence: `apps/editor/src/engine/inspect/**` — not owned by any live agent.
