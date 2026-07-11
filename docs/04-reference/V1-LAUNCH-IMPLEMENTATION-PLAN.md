@@ -2140,3 +2140,58 @@ remembered, and derived elements (rooms/labels) rebuilt as a side-effect are the
 
 **Contract mapping:** C06 (UI shell / inspect mode), C09 + P7 (visibility/inspect intent), L-113
 lineage. Fence: `apps/editor/src/engine/inspect/**` — not owned by any live agent.
+
+---
+
+## L-234 — §FIX-WALL-MOVE-HOSTED-DOOR-FREEZE  (CRITICAL, hang — RECURRENT)
+
+Founder: *"RECURRENT — moving a wall with a hosted door freezes the project, but the logs don't seem
+to say much. I have raised this many times. Review, deeply analyse and fix."*
+
+### The "no logs" clue is the whole diagnosis
+
+A frozen tab that emits **nothing** is a **synchronous main-thread hang** — an infinite loop or an
+unbounded (O(n²) / recursive) blow-up that never yields. The event loop never flushes console or
+renders, which is exactly why every prior attempt found nothing: there is no error to log; the thread
+simply never returns.
+
+### Trigger (in the founder's log)
+
+```
+[WallTransform] Wall "wall_…" — gizmo aligned with direction N {x:-1, y:0, z:1.157487755090348e-16}
+[CommandManager] EXECUTE: UPDATE_WALL_BASELINE
+```
+
+The near-zero `z` (1.16e-16) is a **degeneracy smell** — the moved baseline is almost degenerate.
+
+### Suspect code
+
+`packages/command-registry/src/walls/UpdateWallBaselineCommand.ts` (`:116-208`) handles the fragile
+hosted-opening case: the drag recomputes the baseline; for a wall hosting doors/windows,
+`WallStore.update()` throws `BaselineReversalError` if endpoints swap (opening offsets are measured
+from endpoint[0]); the command detects reversal via a `dot` product (`:142-149`), swaps to preserve
+offsets, then force-rebuilds the wall (`:165-200`).
+
+### Hang hypotheses — MEASURE, do not assume
+
+- **(a)** the reversal `dot` check misbehaves at a near-degenerate baseline (`dot ≈ 0`) → oscillates swap/no-swap.
+- **(b)** the force-rebuild re-hosts the opening → re-triggers a baseline update → rebuild → re-host cascade with no fixpoint.
+- **(c)** the door/window re-projection onto the moved wall loops when the opening no longer fits / falls off the wall (`WallOccupancyStore.canPlace`, interior-wall-on-opening conflict class).
+- **(d)** `WallJoinResolver` / `JunctionResolverV2` enters an unbounded loop on the degenerate near-zero-length wall (known multi-cluster degenerate-wall bug).
+
+Related: **ADR-057** (realtime-edit perf — a door move triggering a whole-level rebuild).
+
+### Phases — measure-first (this is a hang; the L-205 discipline applies)
+
+| Phase | Work |
+|---|---|
+| **P1** | **LOCATE the hang first** — add a main-thread watchdog + bounded loop-iteration guards across wall-move → baseline-update → rebuild → opening-re-host → join-resolve. Counters that throw+log after N iterations; a frame-budget watchdog that dumps the active call stack when a synchronous span exceeds ~1 s. Turn the silent freeze into a located, logged failure — what every prior attempt lacked. |
+| **P2** | **Reproduce deterministically** — a wall hosting a door, moved to a near-degenerate / endpoint-reversing baseline (`z ≈ 1e-16`). Add it as a test fixture. |
+| **P3** | **Fix the actual loop** — a missing fixpoint/guard in the re-host cascade, or a degenerate-baseline guard in the reversal/join path. A degenerate baseline (near-zero length or `dot ≈ 0`) must be **rejected with a user toast**, never processed into a loop. |
+| **P4** | **Preserve the `BaselineReversalError` guard** — it is CORRECT (opening offsets depend on endpoint[0]). The fix stops the swap/rebuild CASCADING, it does not remove the guard. |
+| **P5** | Tests: moving a hosted-door wall to a degenerate baseline terminates (bounded), commits or cleanly rejects, never hangs; the re-host cascade reaches a fixpoint in ≤1 pass. |
+
+**Contract mapping:** C11 (element pipeline), **C15** (hosted elements: doors/windows in walls),
+**ADR-057** (realtime-edit perf), P6. Fence: `packages/command-registry/src/walls/**`,
+`packages/geometry-wall/**`, the wall/opening re-host + join path — disjoint from the live agents
+(L-231 renderer, L-232 façade, L-233 level-explode).

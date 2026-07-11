@@ -80,6 +80,10 @@ import {
     // realised max WALL intensity so the gradient fills the SAME cold→warm ramp span as the
     // ground heatmap (fixes the compressed "flat cyan" façade), mirroring computeSunHoursOnModel.
     normalizeFacadeStudy,
+    // §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE (L-232) — plan the façade sampling density (finer
+    // sun cadence + sub-storey spacing) bounded by a building-size work budget, so the gradient
+    // reads as smoothly as the ground WITHOUT growing the (separately-capped) drape textures.
+    planFacadeSampling,
     // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY (L-144 / L-160b) — punch the REAL authored
     // window/door openings out of the façade study so the analysis surface is the real
     // walls-with-openings, not a solid perimeter prism. + §PERF-SUNHOURS-WORKER probe type
@@ -5231,18 +5235,35 @@ export class CesiumViewport {
       kind: o.kind,
     }));
 
-    // §FORMA-FACADE-SMOOTH (founder 2026-07-01) — the compute LATTICE spacing. The heavy
-    // per-point raycast is COMPUTE; the DISPLAY is DECOUPLED (each face is rasterised to a
-    // fine bilinear texture, exactly like the ground §SITE-METRIC-SUN-TEXTURE), so the
-    // compute lattice can stay affordably coarse (~2.5 m nodes) and still DISPLAY as a
-    // continuous gradient. We build the lattice PER FACE (each ring edge × the full 0..H
-    // height) so it samples continuously up the WHOLE tower — no per-storey tiling, hence
-    // no seams between the storey bands within a face.
-    const LATTICE_SPACING_M = 2.5;
-    // Sun/occluder machinery (sun samples, occluder prisms, the pure per-point evaluator)
-    // is reused verbatim from the ground grid via prepareFacadeSunGrid; we only supply our
-    // OWN per-face lattice geometry to `evaluateIntensity` for full control of the texture
-    // topology. maxSamples is generous — the lattice is coarse, so this never bites.
+    // §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE (L-232, founder 2026-07-11) — the 2.5 m lattice + the
+    // 25-min sun cadence were too coarse for a façade: after L-227 stretches the wall field to the
+    // full ramp, the finite sun-sample quantisation (∼5% steps) reads as per-storey banding, and a
+    // storey (∼3 m) carried barely one vertical node. `planFacadeSampling` picks a FINER, sub-storey
+    // spacing + a finer sun cadence (∼half the ground's, to counter the L-227 range stretch so the
+    // façade's contour fineness matches the ground's), BOTH bounded by a work budget that SHRINKS as
+    // the building grows. This is CPU raycast work only (chunked below); the DISPLAY drape textures
+    // are separately capped and UNCHANGED, so a tall tower adds ZERO GPU footprint — the 40-storey
+    // WebGPU device-loss history (L-231) cannot recur from this path.
+    const facadePerimeterM = ring.reduce((acc, p, i) => {
+      const q = ring[(i + 1) % ring.length]!;
+      return acc + Math.hypot(q.x - p.x, q.z - p.z);
+    }, 0);
+    const facadeStoreyH = this.formaStoreyBands.length > 0
+      ? heightM / this.formaStoreyBands.length : 3;
+    const facadePlan = planFacadeSampling({
+      perimeterM: facadePerimeterM,
+      heightM,
+      storeyHeightM: facadeStoreyH,
+      groundStepMinutes: 25,     // the ground heatmap's cadence — the parity anchor
+    });
+    // The DISPLAY is DECOUPLED (each face → a fine bilinear texture, exactly like the ground
+    // §SITE-METRIC-SUN-TEXTURE); we build the lattice PER FACE (each ring edge × the full 0..H
+    // height) so it samples continuously up the WHOLE tower — no per-storey tiling.
+    const LATTICE_SPACING_M = facadePlan.spacingM;
+    // Sun/occluder machinery (sun samples, occluder prisms, the pure per-point evaluator) is reused
+    // verbatim from the ground grid via prepareFacadeSunGrid; we only supply our OWN per-face lattice
+    // geometry to `evaluateIntensity`. maxSamples caps the built-in point set (unused on our path but
+    // kept generous), while the per-face lattice below is bounded by `facadePlan.maxNodes`.
     const prep: FacadeSunPrep | null = prepareFacadeSunGrid({
       footprintRings: [ring],
       heightM,
@@ -5250,7 +5271,7 @@ export class CesiumViewport {
       latDeg: origin.lat,
       lngDeg: origin.lon,
       sunDay: this.siteMetricSunDay,
-      sunStepMinutes: 25,
+      sunStepMinutes: facadePlan.stepMinutes,
       sampleSpacingM: LATTICE_SPACING_M,
       maxSamples: 20000,
     });
