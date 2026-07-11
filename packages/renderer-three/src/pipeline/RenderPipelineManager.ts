@@ -522,6 +522,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
         if (!this._renderPipeline || this._hasPipelineError) return;
 
+        // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — do NOT submit a WebGPU frame while
+        // an async shadow rebuild is in flight. Submitting during the rebuild's pipeline
+        // dispose + `createScenePass()` recomposition (and the shadow-map realloc it can
+        // trigger) is what destroyed the `ShadowDepthTexture` mid-submit → device loss.
+        // The last-rendered frame stays on screen for the rebuild's duration (mirrors the
+        // `_fullRebuild` plan-view path's `_hasPipelineError` pause). C04 §SHADOW rule 7.
+        if (this._shadowRebuildPaused) return;
+
         // Skip expensive post-FX passes while suspended (e.g. during IFC geometry streaming).
         if (this._suspended) return;
 
@@ -732,6 +740,39 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _rebuildInFlight = false;
     private _rebuildQueuedAfterFlight = false;
 
+    /**
+     * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (founder L-231) — true while an async shadow
+     * rebuild is in flight. While set, {@link render} skips the WebGPU `rp.render()` submit
+     * so NO frame is submitted during the rebuild's pipeline dispose + `createScenePass()`
+     * recomposition (C04 §SHADOW rule 7: "never dispose or rebuild the render pipeline
+     * off-frame" — the old normal path left `_hasPipelineError=false` and kept submitting
+     * frames for the whole ~6 s rebuild, so the dispose/realloc landed mid-submit → device
+     * loss). Paired with a shadow-map freeze so neither the pipeline teardown NOR the
+     * per-light shadow depth pass can touch a submit-referenced texture during the rebuild.
+     */
+    private _shadowRebuildPaused = false;
+
+    /**
+     * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — enter the guarded window for an async
+     * shadow rebuild: pause WebGPU submits AND freeze the shadow map (now per-light-effective,
+     * see {@link _applyShadowFreezeState}). Balanced by {@link _endShadowRebuildGuard}.
+     */
+    private _beginShadowRebuildGuard(): void {
+        this._shadowRebuildPaused = true;
+        this.setShadowReallocFrozen(true);
+    }
+
+    /**
+     * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — leave the guarded window: resume
+     * submits and thaw the shadow map DEFERRED one macrotask past any in-flight submit
+     * (ADR-0111 / §SHADOW-DEVICE-LOSS-FIX — the single depth regen at the new state lands on
+     * a clean idle frame, never in a submit).
+     */
+    private _endShadowRebuildGuard(): void {
+        this._shadowRebuildPaused = false;
+        setTimeout(() => this.setShadowReallocFrozen(false), 0);
+    }
+
     scheduleShadowRebuild(): void {
         if (!this._webGpuActive) return;
 
@@ -752,6 +793,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._shadowRebuildTimer = setTimeout(() => {
             this._shadowRebuildTimer = null;
             this._rebuildInFlight = true;
+            // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — pause submits + freeze the
+            // shadow map for the WHOLE async rebuild (covers both branches below). Released
+            // in `_finishRebuildAndDrainQueue`, which every completion path funnels through.
+            this._beginShadowRebuildGuard();
             console.log('[RenderPipelineManager] Rebuilding pipeline after shadow-map update.');
 
             // BUG-FIX (bugs 1 & 3): if returning from plan view with contaminated SSGI
@@ -812,6 +857,9 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private _finishRebuildAndDrainQueue(): void {
         this._rebuildInFlight = false;
+        // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — resume submits + thaw the shadow
+        // map (deferred past the in-flight submit) now the async rebuild has settled.
+        this._endShadowRebuildGuard();
         if (this._rebuildQueuedAfterFlight) {
             this._rebuildQueuedAfterFlight = false;
             setTimeout(() => this.scheduleShadowRebuild(), 0);
@@ -929,6 +977,48 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // Only KICK a one-shot refresh on a real THAW transition — never mid-freeze (that
         // would force a depth pass while the texture may still be in a submit; ADR-0111).
         if (transitioned && !shouldFreeze) shadowMap.needsUpdate = true;
+
+        // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (founder L-231) — freeze the PER-LIGHT
+        // shadow flag, not just `renderer.shadowMap.autoUpdate`.
+        //
+        // ROOT CAUSE this closes (C04 §SHADOW rule 10, ADR-0120): on the WebGPU node path
+        // `renderer.shadowMap.autoUpdate` is INERT — three's `ShadowNode.updateBefore()`
+        // gates the per-frame depth redraw on the PER-LIGHT `light.shadow.autoUpdate` /
+        // `light.shadow.needsUpdate`, NOT on the renderer-level flag. So every freeze latch
+        // in this manager (§FIX-SHADOW-MIDSUBMIT-DESTROY nav, §FIX-SHADOW-LOAD-TIER-DESTROY
+        // realloc/whole-load, §FIX-SHADOW-WALLCOMMIT-DESTROY) was a NO-OP against the real
+        // WebGPU shadow pass: the ShadowNode kept re-rendering (and, when a caller nulled
+        // `shadow.map` for a mapSize realloc, kept destroying + recreating) the
+        // `ShadowDepthTexture` every frame regardless of the "freeze" — which is exactly the
+        // "Destroyed texture [ShadowDepthTexture] used in a submit" ×N → WebGPU device loss
+        // the founder hit on the heavy residential scene. Writing the per-light flag makes
+        // the freeze ACTUALLY stop the depth pass for the frozen duration, so no realloc /
+        // regen can land mid-submit. WebGPU-path only (WebGL2 fallback owns its own shadowMap
+        // and honours the renderer-level flag). Never disposes a texture (ADR-0111).
+        if (this._webGpuActive) {
+            this._forEachShadowCastingLight((sh) => {
+                sh.autoUpdate = !shouldFreeze;
+                if (transitioned && !shouldFreeze) sh.needsUpdate = true;
+            });
+        }
+    }
+
+    /**
+     * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — invoke `cb` with the `shadow` object of
+     * every shadow-CASTING directional light in the scene. Used to write the PER-LIGHT shadow
+     * flags the WebGPU `ShadowNode` actually gates on (C04 §SHADOW rule 10). Pure traversal;
+     * mutates nothing itself. Freeze transitions are infrequent (nav settle / realloc / load /
+     * wall-commit / shadow-rebuild), so the sub-millisecond traverse is not a per-frame cost.
+     */
+    private _forEachShadowCastingLight(
+        cb: (shadow: { autoUpdate?: boolean; needsUpdate?: boolean }) => void,
+    ): void {
+        this._scene?.traverse((obj) => {
+            const light = obj as THREE.DirectionalLight;
+            if (light.isDirectionalLight && light.castShadow && light.shadow) {
+                cb(light.shadow as unknown as { autoUpdate?: boolean; needsUpdate?: boolean });
+            }
+        });
     }
 
     // ── §FIX-SHADOW-ENABLE-LATCH (founder L-205) — single-owner shadow-PASS enable latch ──

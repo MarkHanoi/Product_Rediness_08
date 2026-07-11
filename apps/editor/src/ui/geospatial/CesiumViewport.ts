@@ -502,6 +502,12 @@ export class CesiumViewport {
   private formaPostProcessFaulted = false;
   /** Disposer for the `scene.renderError` subscription (called on dispose). */
   private renderErrorSub: (() => void) | null = null;
+  /** §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — remover for the canvas
+   *  webglcontextlost/restored listeners (called on dispose). */
+  private contextLossSub: (() => void) | null = null;
+  /** §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — re-entrancy guard so a burst of
+   *  render-errors / context-loss events triggers at most ONE re-init at a time. */
+  private gpuRecoveryInFlight = false;
   /** §FORMA-SCENE-QUALITY (ADR-0089) — the container's `style.background` captured
    *  the first time the Forma sky-gradient backdrop is applied, restored when the
    *  gradient is cleared (leaving Forma) so the photoreal/globe path gets its
@@ -831,6 +837,15 @@ export class CesiumViewport {
       console.warn("CesiumViewer already exists — skipping mount.");
       return;
     }
+
+    // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (founder L-231) — GATE globe activation on the
+    // BIM renderer being live. If the WebGPU device was just lost, the browser's GPU process
+    // is mid-reset; constructing the Cesium Viewer NOW makes its first WebGL shader compile
+    // fail ("Fragment shader failed to compile. Compile log: null") and Cesium halts behind a
+    // dead-end "Rendering has stopped" panel with no recovery. `createRenderer` sets
+    // `globalThis.__pryzmRendererRecovering` for the whole loss→rebind window; wait (bounded)
+    // for it to clear so Cesium comes up against a settled GPU.
+    await this._awaitRendererLive(12_000);
 
     console.log("CesiumViewport: Mount started");
     console.log(
@@ -1188,6 +1203,10 @@ export class CesiumViewport {
       // applied, so a post-process shader-compile failure disables the offending
       // stage and keeps the loop alive instead of letting Cesium stop rendering.
       this.installRenderErrorGuard();
+      // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — wire canvas WebGL context-loss
+      // recovery so a GPU-process reset (e.g. from a BIM-side WebGPU device loss) does not
+      // strand Cesium behind the dead-end "Rendering has stopped" panel.
+      this.installContextLossGuard();
 
       try {
         const win = window as unknown as {
@@ -2257,12 +2276,111 @@ export class CesiumViewport {
           } catch (e) {
             console.warn('[CesiumViewport][forma] requestRender after render-error failed:', e);
           }
+        } else {
+          // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — the render error is NOT a Forma
+          // post-process stage (no AO/silhouette live). This is the "Fragment shader failed to
+          // compile. Compile log: null" class that hits when Cesium's WebGL context was reset
+          // under it (a GPU-process reset from a BIM-side WebGPU device loss). Shedding a
+          // post-FX stage cannot fix it — Cesium latches "Rendering has stopped". Attempt a
+          // bounded viewer RE-INIT against the (now settled) GPU instead of a dead end.
+          console.error(
+            '[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE render error is NOT a ' +
+            'post-process stage (likely a GPU-reset shader-compile failure) — attempting a ' +
+            'viewer re-init instead of halting. Error:', error,
+          );
+          void this.recoverFromGpuReset('renderError');
         }
       });
       this.renderErrorSub = typeof remover === 'function' ? remover : null;
       console.log('[CesiumViewport][forma] §FORMA-RENDER-ERROR-GUARD installed (post-process crashes are non-fatal).');
     } catch (e) {
       console.warn('[CesiumViewport][forma] failed to install render-error guard:', e);
+    }
+  }
+
+  /**
+   * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — resolve once the BIM/WebGPU renderer is
+   * live (not mid device-loss recovery). `createRenderer` sets `globalThis.__pryzmRendererRecovering`
+   * for the whole loss→rebind window; poll it (cheap) up to `maxWaitMs`, then proceed regardless
+   * so a stuck flag can never permanently block the globe. Resolves immediately when the flag is
+   * already clear — the overwhelmingly common path.
+   */
+  private async _awaitRendererLive(maxWaitMs: number): Promise<void> {
+    const recovering = () =>
+      (globalThis as unknown as { __pryzmRendererRecovering?: boolean }).__pryzmRendererRecovering === true;
+    if (!recovering()) return;
+    console.warn(
+      '[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE renderer is mid device-loss ' +
+      `recovery — deferring globe activation (up to ${maxWaitMs} ms) so Cesium's first shader ` +
+      'compile lands on a settled GPU.',
+    );
+    const start = Date.now();
+    while (recovering() && Date.now() - start < maxWaitMs) {
+      await new Promise<void>((r) => setTimeout(r, 100));
+    }
+    console.log(
+      '[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE globe activation gate released ' +
+      `after ${Date.now() - start} ms (recovering=${recovering()}).`,
+    );
+  }
+
+  /**
+   * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — attach WebGL context-loss recovery to the
+   * Cesium canvas. Without this, a GPU-process reset (e.g. a BIM-side WebGPU device loss) that
+   * takes Cesium's WebGL context down leaves Cesium permanently dead: the browser does NOT
+   * restore a lost context unless `webglcontextlost` is `preventDefault()`-ed. We preventDefault
+   * (so the browser fires `webglcontextrestored`) and, on restore — or on the first non-post-
+   * process render error after a reset — re-initialise the viewer against the settled GPU.
+   */
+  private installContextLossGuard(): void {
+    const canvas = this.viewer?.scene?.canvas as HTMLCanvasElement | undefined;
+    if (!canvas || typeof canvas.addEventListener !== 'function') {
+      console.warn('[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE canvas unavailable — context-loss guard not installed.');
+      return;
+    }
+    const onLost = (e: Event) => {
+      // CRITICAL: preventDefault makes the loss RECOVERABLE (else the browser never restores).
+      try { e.preventDefault(); } catch { /* older browsers */ }
+      console.error('[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE Cesium WebGL context LOST — preventing default so the browser can restore it.');
+    };
+    const onRestored = () => {
+      console.warn('[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE Cesium WebGL context RESTORED — re-initialising the viewer.');
+      void this.recoverFromGpuReset('webglcontextrestored');
+    };
+    canvas.addEventListener('webglcontextlost', onLost, false);
+    canvas.addEventListener('webglcontextrestored', onRestored, false);
+    this.contextLossSub = () => {
+      try { canvas.removeEventListener('webglcontextlost', onLost, false); } catch { /* detached */ }
+      try { canvas.removeEventListener('webglcontextrestored', onRestored, false); } catch { /* detached */ }
+    };
+    console.log('[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE context-loss guard installed.');
+  }
+
+  /**
+   * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — best-effort re-initialise the Cesium viewer
+   * after a GPU reset / context loss so the globe recovers instead of dead-ending on Cesium's
+   * "Rendering has stopped" panel. Re-entrancy-guarded (one re-init at a time); waits for the BIM
+   * renderer to be live; disposes + re-mounts against the settled GPU and restores GIS
+   * visibility. Never throws — a failed re-init logs and leaves the prior state (no worse than
+   * the dead-end panel it replaces).
+   */
+  private async recoverFromGpuReset(source: string): Promise<void> {
+    if (this.gpuRecoveryInFlight) return;
+    this.gpuRecoveryInFlight = true;
+    console.warn(`[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE recovering Cesium after ${source} …`);
+    try {
+      await this._awaitRendererLive(12_000);
+      try { this.dispose(); } catch (e) { console.warn('[CesiumViewport] recovery dispose failed:', e); }
+      // Clear any residual child nodes so the re-mount does not stack internal containers.
+      try { while (this.container.firstChild) this.container.removeChild(this.container.firstChild); }
+      catch { /* best-effort */ }
+      await this.mount();
+      try { this.setVisible(true); } catch (e) { console.warn('[CesiumViewport] recovery setVisible failed:', e); }
+      console.log('[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE Cesium re-initialised — rendering resumed.');
+    } catch (e) {
+      console.error('[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE Cesium re-init failed (leaving prior state):', e);
+    } finally {
+      this.gpuRecoveryInFlight = false;
     }
   }
 
@@ -7895,6 +8013,16 @@ export class CesiumViewport {
         console.warn('[CesiumViewport] renderError subscription dispose failed:', e);
       }
       this.renderErrorSub = null;
+    }
+    // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — drop the canvas context-loss listeners
+    // before the viewer/canvas is destroyed so a re-mount installs a fresh guard on the new canvas.
+    if (this.contextLossSub) {
+      try {
+        this.contextLossSub();
+      } catch (e) {
+        console.warn('[CesiumViewport] context-loss subscription dispose failed:', e);
+      }
+      this.contextLossSub = null;
     }
     this.formaPostProcessFaulted = false;
     // §FORMA-SCENE-QUALITY (ADR-0089) — drop the sky-gradient backdrop on dispose

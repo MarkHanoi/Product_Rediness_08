@@ -117,6 +117,12 @@ interface DeviceLossGlobals {
     __pryzmDeviceLossRecoveryCap?: boolean;
     __pryzmRenderSafeMode?: boolean;
     __pryzmDeviceLossCount?: number;
+    // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — true from the instant the WebGPU
+    // device is lost until the recovered renderer is rebound (or recovery gives up). Read by
+    // CesiumViewport.mount() to GATE globe activation: bringing Cesium up while the browser's
+    // GPU process is mid-reset makes Cesium's first shader compile fail ("Compile log: null")
+    // → its dead-end "Rendering has stopped" panel. Gating until this clears avoids that.
+    __pryzmRendererRecovering?: boolean;
 }
 function _deviceLossGlobals(): DeviceLossGlobals {
     return globalThis as unknown as DeviceLossGlobals;
@@ -262,6 +268,12 @@ export async function createRenderer(
                     );
 
                     if (info.reason === 'destroyed') return;
+
+                    // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — mark the renderer as
+                    // recovering so CesiumViewport.mount() GATES globe activation until the
+                    // GPU process has settled and the pipeline is rebound. Cleared in the
+                    // `finally` below on EVERY recovery outcome (rebound / safe-mode / failure).
+                    _deviceLossGlobals().__pryzmRendererRecovering = true;
 
                     // §FEAT-SWAP-LOADING-OVERLAY (L-141) — the viewport is dead from
                     // here until the recovered renderer is rebound (through the 2s GC
@@ -413,6 +425,11 @@ export async function createRenderer(
                         // recovery settles on EVERY path (rebound, safe-mode, or a
                         // thrown recovery error). Paired with the show() above.
                         hideRendererSwapOverlay();
+                        // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — recovery has
+                        // settled: the renderer is rebound (or degraded to safe-mode, or the
+                        // attempt failed). Clear the gate so a queued Cesium activation may
+                        // proceed. Bounded by recovery, so it can never stick indefinitely.
+                        _deviceLossGlobals().__pryzmRendererRecovering = false;
                     }
                 }).catch((err: unknown) => {
                     console.error('[createRenderer] WebGPU device.lost handler rejected (non-fatal):', err);
