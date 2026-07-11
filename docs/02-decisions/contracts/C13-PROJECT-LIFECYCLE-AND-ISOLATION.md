@@ -133,6 +133,26 @@ Between `pryzm-project-switch` and `pryzm-project-loaded`, no command handler or
 
 **Why**: Zustand stores are global singletons shared across sessions. A command from Project A's async tail (e.g., a deferred `rooms.redetect` that somehow reached the handler) would corrupt Project B's newly populated store slices.
 
+### §3.9 — Lifecycle listeners MUST subscribe on the bus the events are EMITTED on (binding)
+
+`pryzm-project-switch`, `pryzm-project-context-set` and `pryzm-project-loaded` are emitted on the **typed `runtime.events` bus** (`EventBus`, `composeRuntime.ts`). `EventBus.emit()` invokes only handlers registered via `.on()` — **it does not dispatch a DOM event.**
+
+Therefore any subsystem participating in teardown or open MUST subscribe via `runtime.events.on(...)` (directly, or via the deferred `onRuntimeEvent` bridge for pre-runtime singletons). **Binding a lifecycle event through `window.addEventListener` is a silent no-op and is PROHIBITED.**
+
+**Why this rule exists (L-224).** The `F.events` migration re-pointed the *emitters* to the typed bus but left six listeners on `window.addEventListener`. They became dead code. Among them: **`ProjectLifecycleController` — the owner of the entire §4 teardown — and `ProjectIsolationAudit` — the tripwire meant to catch exactly this class of bug.** The teardown had not run since the migration, and the audit that would have reported it was watching a channel nobody broadcasts on. A seventh dead listener (`FrustumCullingService`) was found only once the CI gate below existed.
+
+**CI gate (binding):** `scripts/check/check-project-isolation.mjs` MUST fail on any occurrence of `window.addEventListener('pryzm-project-{switch,loaded,context-set}'`. A listener that cannot fire is worse than a missing one: it reads as protection while providing none.
+
+### §3.10 — A project switch is a full teardown with NAMED OWNERS; the audit enumerates owners, not symptoms (binding)
+
+Every stateful surface reset on a project switch MUST have exactly one **named owner**: a `ProjectLifecycleController` step, a `ProjectScopeRegistry` scope, or a `ClearProjectCommand` step. `ProjectScopeRegistry` is the registry of owners; **a store that registers no `clear` MUST fail a test.**
+
+The runtime audit MUST run on **every** project load — not only `empty: true` loads — and MUST compare live state against **the loaded snapshot's expected contents** (`__pryzmLoadedProjectExpectation`: the element ids the snapshot declared). This keeps the false-positive rate at zero on a legitimately-populated load *without* abandoning coverage of the open-another-project path, which is where users actually hit leakage. Derived state (redetected rooms, room-bounding lines, annotations, curtain panels) is deliberately excluded, because post-load redetection legitimately creates entries absent from the snapshot.
+
+The audit MUST span stores, graphs, caches, registries and undo — **not only the THREE scene.**
+
+**Why**: the pre-L-224 audit inspected the scene graph and two `window` globals. It touched **none** of the 37 registered stores. A stale schedule, sheet, view-template or annotation carried from Project A sailed past it as "✓ loaded clean" — a clean verdict that never looked is worse than no verdict, because it manufactures confidence. An audit that enumerates **symptoms** always lags the code; one that enumerates **owners** fails loudly the moment a 38th store appears with no clear-path.
+
 ---
 
 ## §4 — The normative teardown sequence
