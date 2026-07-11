@@ -13,7 +13,10 @@
  *   - Propagation Impact: No
  *   - Topology Impact:    No — visual-only Y-offset, fully reverted on deactivation
  *   - World Model Impact: No
- *   - Event Bus Impact:   No — listens to DOM CustomEvents only (same pattern as Z-Slicer)
+ *   - Event Bus Impact:   No — consumes the `pryzm-inspect-level-explode` runtime event
+ *                         plus THREE's own `childadded`/`childremoved` scene-graph
+ *                         events (L-233); emits nothing but the narrow
+ *                         `pryzm-reanchor-transform` re-anchor signal.
  *   - Store Registry Impact: No
  *   - Undo/Redo Impact:   No — visual only
  *   - Spatial Impact:     No — position changes reverted when leaving inspect mode
@@ -43,28 +46,34 @@ const EXPLODE_GAP  = 5.0;  // metres of Y separation per floor in exploded mode
 const LERP_FACTOR  = 10;   // higher = snappier approach (units: 1/sec decay)
 const DONE_EPSILON = 0.001; // stop RAf loop when within this distance of target
 
-// §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — DOM/runtime events emitted by every
-// element builder AFTER it disposes the old Object3D and adds a fresh one (same
-// userData.id). While the explode is active, a rebuild (move / property edit /
-// undo) produces a NEW root that is NOT in any level group, so it renders at its
-// true (model) elevation and drops OUT of the exploded stack — the founder's
-// "moved element jumps back to its unstacked position". We reconcile the groups
-// on these events so the rebuilt mesh is re-lifted into the stack. Mirrors the
-// set SelectionManager listens to for §SELECT-GIZMO-REATTACH.
-const REBUILD_EVENTS = [
-  'bim-wall-added',        'bim-wall-updated',        'bim-wall-removed',
-  'bim-slab-added',        'bim-slab-updated',        'bim-slab-removed',
-  'bim-floor-added',       'bim-floor-updated',       'bim-floor-removed',
-  'bim-ceiling-added',     'bim-ceiling-updated',     'bim-ceiling-removed',
-  'bim-furniture-added',   'bim-furniture-updated',   'bim-furniture-removed',
-  'bim-column-added',      'bim-column-updated',      'bim-column-removed',
-  'bim-beam-added',        'bim-beam-updated',        'bim-beam-removed',
-  'bim-roof-added',        'bim-roof-updated',        'bim-roof-removed',
-  'bim-stair-added',       'bim-stair-updated',       'bim-stair-removed',
-  'bim-curtainwall-added', 'bim-curtainwall-updated', 'bim-curtainwall-removed',
-  'bim-door-added',        'bim-door-updated',        'bim-door-removed',
-  'bim-window-added',      'bim-window-updated',      'bim-window-removed',
-] as const;
+// §FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES (L-233) — the reconcile TRIGGER is now
+// TYPE-AGNOSTIC BY CONSTRUCTION. It used to be a hand-maintained allowlist of
+// per-element-type `bim-<type>-added|updated|removed` window events
+// (§FIX-LEVEL-EXPLODE-COORDINATION / L-113). That allowlist was necessarily
+// incomplete — it covered wall/slab/floor/ceiling/furniture/column/beam/roof/
+// stair/curtainwall/door/window but NOT rooms, room-bounding-lines, room LABELS,
+// handrail, opening, plumbing, lighting or stair-railing. So the founder's
+// MOVE_WINDOW (which fires `bim-window-updated` + `bim-wall-updated` → the wall
+// re-lifted) ALSO triggered a room re-detect that rebuilt 789 room + label roots
+// which were NOT on the list — they dropped back to model Y while the walls
+// stayed exploded. "Many elements un-stacked from one edit."
+//
+// The invariant we now key on instead: EVERY level-tracked root is a DIRECT CHILD
+// of the scene root. Verified across the builder surface — WallFragmentBuilder /
+// SlabFragmentBuilder / ColumnFragmentBuilder (`this.scene.add(root)`),
+// InstancedMeshCoalescer (`scene.add(merged)`) and RoomLabelRenderer
+// (`this._scene.add(sprite)` / `.remove(sprite)`) all attach their ROOT to the
+// scene and nest their meshes INSIDE it. A rebuild is therefore always a
+// `scene.remove(oldRoot)` + `scene.add(newRoot)` pair on the scene root.
+//
+// THREE (r163+, this repo is 0.183) dispatches `childadded` / `childremoved` on
+// the PARENT for exactly those calls. Listening to them on the scene root catches
+// every rebuilt root of every element type — rooms, labels, handrails, openings
+// and ANY FUTURE TYPE — with no list to remember. Note an in-place rebuild that
+// swaps only a root's CHILD meshes needs no reconcile: the root object (and hence
+// its lifted position.y + its captured baseY) is untouched, so it stays in the
+// stack. Only a root SWAP can drop an element, and only a root swap fires here.
+const SCENE_MUTATION_EVENTS = ['childadded', 'childremoved'] as const;
 
 // SelectionManager surface reached (cross-layer, via window per §05 §6.1) to
 // re-anchor the highlight + gizmo after the explode offset for the selected
@@ -113,8 +122,8 @@ export class LevelExplodeController {
   private _unsubExplode: (() => void) | null = null;
 
   // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — rebuild reconciliation state.
-  /** Bound handler kept so we can removeEventListener on dispose. */
-  private _onRebuild:    (() => void) | null = null;
+  /** Bound scene-mutation handler, kept so we can removeEventListener on dispose. */
+  private _onSceneMutation: ((e: { child?: THREE.Object3D }) => void) | null = null;
   /** Debounce handle for a queued reconcile (coalesces bursts to one/frame). */
   private _reconcileScheduled: TickListenerDisposer | null = null;
   /** True when the explode offset for the selected element changed and the
@@ -132,13 +141,15 @@ export class LevelExplodeController {
       this._onExplodeEvent.bind(this),
     ) ?? null;
 
-    // §FIX-LEVEL-EXPLODE-COORDINATION (L-113) — reconcile on element rebuilds so a
-    // moved/edited element re-lifts into the exploded stack instead of dropping
-    // back to its true elevation. Builders dispatch these as window CustomEvents
-    // (DOMEventBus during migration), so window.addEventListener reaches them —
-    // the same channel SelectionManager uses for §SELECT-GIZMO-REATTACH.
-    this._onRebuild = () => { if (this._active) this._scheduleReconcile(); };
-    for (const evt of REBUILD_EVENTS) window.addEventListener(evt, this._onRebuild);
+    // §FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES (L-233) — reconcile on SCENE-GRAPH
+    // mutation, not on a per-element-type event allowlist. Every rebuilt root of
+    // every element type lands here (see SCENE_MUTATION_EVENTS above), so
+    // rooms/labels/handrails/openings — and any future type — are covered by
+    // construction rather than by remembering to add them to a list.
+    this._onSceneMutation = (e) => this._onSceneChildMutated(e?.child);
+    for (const evt of SCENE_MUTATION_EVENTS) {
+      scene.addEventListener(evt, this._onSceneMutation as never);
+    }
 
     // Publish the active per-level explode offset so the interaction layer
     // (SelectionManager anchor logic in @pryzm/input-host, a lower layer) can
@@ -191,10 +202,12 @@ export class LevelExplodeController {
     this.deactivate();
     this._unsubExplode?.();
     this._unsubExplode = null;
-    if (this._onRebuild) {
-      for (const evt of REBUILD_EVENTS) window.removeEventListener(evt, this._onRebuild);
-      this._onRebuild = null;
+    if (this._onSceneMutation && this._scene) {
+      for (const evt of SCENE_MUTATION_EVENTS) {
+        this._scene.removeEventListener(evt, this._onSceneMutation as never);
+      }
     }
+    this._onSceneMutation = null;
     if (window.pryzmLevelExplodeOffsetForObject) {
       window.pryzmLevelExplodeOffsetForObject = undefined;
     }
@@ -516,6 +529,50 @@ export class LevelExplodeController {
   }
 
   /**
+   * §FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES (L-233) — the single, type-agnostic
+   * reconcile trigger: a root was added to / removed from the SCENE ROOT.
+   *
+   * Two cheap gates keep this off the hot path without ever reintroducing a
+   * per-element-type list:
+   *
+   *  (1) MODE. Only a NON-stacked mode can strand a rebuilt root. In `stacked`
+   *      every group's targetOffset is 0 and every root sits at its model Y — a
+   *      freshly rebuilt root arrives at model Y and is therefore ALREADY correct,
+   *      so there is nothing to reconcile. `exploded` (Y offset + ceiling-hide) and
+   *      `solo` (per-level visibility) both need the rebuilt root re-processed.
+   *
+   *  (2) TRACKABILITY. Skip nodes `_buildLevelGroups` could never bucket anyway.
+   *      This is deliberately NOT an element-type check — it is precisely the
+   *      predicate `_buildLevelGroups` itself keys on (`userData.levelId`, or a
+   *      `userData.id` matched against `level.childrenIds`, or a `userData.roomId`
+   *      resolved to a level via the room store). A node carrying none of the three
+   *      cannot land in any level group, so it cannot drop out of the stack. This
+   *      filters the scene's non-BIM furniture — the TransformControls helper, the
+   *      selection-highlight outlines, the diagnostic overlay group — so hovering
+   *      or selecting in exploded mode does not trigger a whole-scene re-bucket.
+   */
+  private _onSceneChildMutated(child: THREE.Object3D | undefined): void {
+    if (!this._active) return;
+    if (this._mode === 'stacked') return;
+    if (child && !LevelExplodeController._isTrackableRoot(child)) return;
+    this._scheduleReconcile();
+  }
+
+  /** True when `obj` carries level-identifying userData — see gate (2) above. */
+  private static _isTrackableRoot(obj: THREE.Object3D): boolean {
+    const ud = obj.userData as { levelId?: string; id?: string; roomId?: string };
+    return ud.levelId !== undefined || ud.id !== undefined || ud.roomId !== undefined;
+  }
+
+  /** True when `obj`'s parent chain still reaches the live scene root. */
+  private _isAttachedToScene(obj: THREE.Object3D): boolean {
+    for (let cur: THREE.Object3D | null = obj; cur; cur = cur.parent) {
+      if (cur === this._scene) return true;
+    }
+    return false;
+  }
+
+  /**
    * Debounced reconcile — coalesces a burst of rebuild events (e.g. a whole-level
    * wall re-resolve) into a single next-frame reconcile.
    */
@@ -560,6 +617,24 @@ export class LevelExplodeController {
     const sm = window.selectionManager as SelectionManagerLike | undefined;
     const sel = sm?.selectedObject ?? null;
     if (!sel) return;
+
+    // §FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES (L-233) P4 — NEVER re-anchor onto a
+    // DETACHED object. When the reconcile is driven by a rebuild, `selectedObject`
+    // can still point at the PRE-rebuild mesh that the builder just
+    // `scene.remove()`d. Emitting `pryzm-reanchor-transform` for it makes
+    // registerTransformDragHandler run `wallTransformController.activateFor(stale)`
+    // et al, which re-attaches TransformControls to an object whose parent chain no
+    // longer reaches the scene root — and stock THREE's
+    // `TransformControls.updateMatrixWorld()` then THROWS "The attached 3D object
+    // must be a part of the scene graph" on EVERY render frame. That is the
+    // §SELECT-GIZMO-REATTACH per-frame flood in the founder's log: the explode
+    // controller was re-arming the very stale binding SelectionManager's guard had
+    // just torn down. Bail out instead — SelectionManager owns re-resolution
+    // (`_reresolveSelectionAfterRebuild` re-selects the REBUILT mesh by element id
+    // on the same `bim-*-updated` event, which re-applies the highlight and
+    // re-attaches the gizmo). The rebuilt mesh is already lifted by the reconcile
+    // above, so that re-selection lands on the mesh at its exploded Y.
+    if (!this._isAttachedToScene(sel)) return;
 
     // Direct-attach gizmos (furniture/column/slab/…) already track obj.matrixWorld
     // every frame; walls/stairs use a static proxy that needs an explicit re-sync.
