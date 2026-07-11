@@ -1954,3 +1954,32 @@ without a branch fails loudly.
 Gate: `@pryzm/stores` 745, matrix 14 (+ production-wiring regression), command-bus 26; every fenced
 file tsc-clean. Sole root-tsc error is `CesiumViewport.ts:5346 normalizeFacadeStudy` — the live L-227
 agent's mid-flight edit, resolves when L-227 commits.
+
+---
+
+## L-227 — FIXED (a6bcd902) + L-230 (founder colour question)
+
+**The orchestrator's named ground pipeline was wrong; the agent refuted it.** The purple
+`DEFAULT_SUN_HOURS_RAMP` + `computeSunHoursOnModel` (renderer-three) is a THIRD subsystem — the
+BIM-model console heatmap — never used by the Cesium Forma view. In the real Forma view, both surfaces
+live in `siteMetricGrids.ts`: ground = `sunHoursRgb` (blue→teal→gold→warm); façade =
+`sunHoursRgbVivid` (same ramp ×1.45 sat).
+
+**Real root cause (H-a + H-d):** (1) the vivid variant over-saturates the teal mid-band into cyan —
+the founder's "cyan"; (2) `evaluateIntensity = lit / samples.length`, but a wall only accrues sun on
+its outward side, so a vertical face can never reach the all-day divisor → the building collapses into
+the cold half and never reaches gold/warm (open ground hits 1.0 → full ramp, which is why it looks
+rich). H-b/H-c FALSE (façade lattice 2.5 m is finer than ground 4 m; atlas adequate). Material is
+UNLIT — not a lighting wash.
+
+**Fix:** façade → plain `sunHoursRgb` (dropped vivid) + field normalized to fill the ground's cold→warm
+span (ported `computeSunHoursOnModel`'s own-max normalization). Drape mechanism + renderer-three
+untouched; zero added GPU cost (deliberate — device-loss history). Occlusion parity confirmed. Gate:
+apps/editor 64/64 (+4 incl. never-cyan ramp identity), solar-analysis 46/46, renderer-three 28/28,
+tsc exit 0, 3 files.
+
+**+L-230 (§FEAT-FORMA-SUNHOURS-PURPLE-RAMP, LOW, AWAITING FOUNDER):** the founder's "amazing" gradient
+screenshots are purple→magenta→pink→orange→yellow = the renderer-three `DEFAULT_SUN_HOURS_RAMP`, NOT
+the Forma ground's blue→teal→gold→warm. He may want the whole Forma feature restyled to the purple
+ramp. One-function change (`sunHoursRgb` 4 stops → purple 5-stop) that moves ground+façade together
+(they now share the ramp). Not started — needs the founder to confirm which gradient he means.
