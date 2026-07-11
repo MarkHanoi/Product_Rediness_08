@@ -2056,3 +2056,46 @@ shipped); this is a device-loss crash in the ADR-0111 domain. The fix must still
 
 **Contract mapping:** C04 §SHADOW, **ADR-0111** (shadow lifecycle / never sync-dispose
 `ShadowDepthTexture`), §SHADOW-DEVICE-LOSS-FIX, A.24 (render tiers).
+
+---
+
+## L-232 — §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE  (MEDIUM, quality — L-227 follow-up)
+
+Founder: *"Check the façade analysis image (Forma 3D Site) — it is still really bad. Review, analyse
+and make it sound (as ground — with this level of quality)."*
+
+L-227 fixed the **colour** (dropped the vivid over-saturation, filled the ramp span so façades reach
+gold/warm, not just the cold band). The founder's new image shows the colour is now right but the
+**spatial** quality is not: per-storey horizontal banding and blotchy facets on the walls, vs the
+ground's smooth continuous gradient. Different defect — resolution, not colour.
+
+### Grounded root causes
+
+1. **Sample spacing too coarse.** `prepareFacadeSunGrid` targets **2.5 m** (`siteMetricGrids.ts:1150`,
+   *"Default 2.5 (clean per-face read)"*). Storeys are ~3 m → ~1 vertical sample per floor → the
+   banding. The ground raster is continuous; the façade is under-sampled.
+2. **The smooth path is spec'd but inactive.** `:1108` verbatim: *"clean per-face colouring; the
+   smooth-interpolated-per-face version is SPEC'd in ADR-0093."* ADR-0093 specifies a smooth field;
+   the coarse per-point path renders instead.
+3. **Balcony/slab self-shadow hard edges.** The building's own balconies/slabs cast on the wall
+   below; at 2.5 m those occlusion boundaries come out as hard blotches. The ground has no such fine
+   self-occluders — which is why it looks clean.
+4. **Possible per-face normalization seams.** L-227 added a fill-the-span normalization. If it
+   normalizes per-face (each to its own max) rather than by the model's GLOBAL realised max (as
+   `computeSunHoursOnModel` does), adjacent faces get different scales → seams. Verify it is global.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | Implement the **smooth-interpolated-per-face** façade field ADR-0093 already specifies (`:1108`, `:1462-1464`) — smooth within a storey AND across every storey seam. |
+| **P2** | Raise façade sample density below storey height (2.5 m → sub-metre) so self-shadow gradients resolve — **TIER-GATE + memory-budget HARD.** This is the 40-storey device-loss territory (**L-231**, an active CRITICAL crash); denser sampling + bigger drapes must scale DOWN on heavy scenes, never up on a tower. |
+| **P3** | Verify L-227's normalization is by the model's **global** realised max, not per-face (per-face → seams). |
+| **P4** | Soften balcony/slab self-shadow boundaries (denser sampling near occluder edges, or an AO-style soft term) so they read as gradient, not blotch. |
+| **P5** | Tests: façade field is smooth across storey seams (no step at floor lines beyond the real sun gradient); co-located ground-vs-façade probe matches value + ramp; sample density bounded per tier (assert the heavy-scene budget). |
+
+**Coordinate with L-231** — do not raise GPU resource use on heavy scenes while the device-loss crash
+is open.
+
+**Contract mapping:** C21-CLIMATE-INGESTION, ADR-0074 (solar), **ADR-0093** (façade analysis — the
+smooth-per-face spec this implements), A.24 (Presentation tier). Follow-up to L-227.
