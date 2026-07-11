@@ -93,3 +93,60 @@ describe('§GLOBE-FRAME-NO-JUMP performInitialReframe', () => {
     expect(s.flyToFormaSite).not.toHaveBeenCalled();
   });
 });
+
+// §FEAT-GLOBE-DEFAULT-AUTOFRAME (L-226) — the token-gated in-flight flag. The default
+// "3D globe" entry fires a `flyToFormaSite` reframe ~350 ms after the cinematic site-
+// arrival flight starts; Cesium cancels the still-gliding arrival tween when the newer
+// flight begins, running the arrival flight's `cancel` callback. With the OLD bare
+// boolean that stale cancel cleared `formaProgrammaticFlyInFlight` to false WHILE the
+// newer flight was mid-glide, so the newer flight's `moveStart` mis-latched
+// `formaUserMovedCamera = true`, and the later tile-base settle then suppressed the one
+// corrective re-frame — stranding the camera at the base-0 (Z=0) frame. Token-gating
+// makes the stale flight's teardown a no-op.
+
+type FlyStub = {
+  formaProgrammaticFlyInFlight: boolean;
+  formaFlyToken: number;
+  beginProgrammaticFly: () => number;
+  endProgrammaticFly: (token: number) => void;
+};
+
+const flyProto = CesiumViewport.prototype as unknown as {
+  beginProgrammaticFly: () => number;
+  endProgrammaticFly: (token: number) => void;
+};
+
+function makeFlyStub(): FlyStub {
+  const stub: Partial<FlyStub> = { formaProgrammaticFlyInFlight: false, formaFlyToken: 0 };
+  stub.beginProgrammaticFly = flyProto.beginProgrammaticFly.bind(stub);
+  stub.endProgrammaticFly = flyProto.endProgrammaticFly.bind(stub);
+  return stub as FlyStub;
+}
+
+describe('§FEAT-GLOBE-DEFAULT-AUTOFRAME programmatic-fly token', () => {
+  it("a superseded flight's late cancel does NOT clear the flag mid-glide (the Z=0 bug)", () => {
+    const s = makeFlyStub();
+    // Cinematic site-arrival flight starts.
+    const arrivalToken = s.beginProgrammaticFly();
+    expect(s.formaProgrammaticFlyInFlight).toBe(true);
+    // ~350 ms later the default-globe reframe flight starts, superseding the arrival.
+    const reframeToken = s.beginProgrammaticFly();
+    expect(s.formaProgrammaticFlyInFlight).toBe(true);
+    // Cesium cancels the arrival tween → its (now stale) cancel callback fires.
+    s.endProgrammaticFly(arrivalToken);
+    // The reframe flight is STILL gliding, so any moveStart it emits now must read the
+    // flag as TRUE and therefore NOT latch formaUserMovedCamera.
+    expect(s.formaProgrammaticFlyInFlight).toBe(true);
+    // The reframe flight completing is the one that legitimately releases the flag.
+    s.endProgrammaticFly(reframeToken);
+    expect(s.formaProgrammaticFlyInFlight).toBe(false);
+  });
+
+  it('the most recent flight releases the flag on its own completion', () => {
+    const s = makeFlyStub();
+    const t = s.beginProgrammaticFly();
+    expect(s.formaProgrammaticFlyInFlight).toBe(true);
+    s.endProgrammaticFly(t);
+    expect(s.formaProgrammaticFlyInFlight).toBe(false);
+  });
+});

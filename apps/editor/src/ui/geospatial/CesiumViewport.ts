@@ -598,6 +598,19 @@ export class CesiumViewport {
    *  programmatic motion apart from genuine user input (only the latter sets
    *  `formaUserMovedCamera`). */
   private formaProgrammaticFlyInFlight = false;
+  /** §FEAT-GLOBE-DEFAULT-AUTOFRAME (L-226) — generation token for the in-flight flag.
+   *  `formaProgrammaticFlyInFlight` was a bare boolean shared by EVERY programmatic
+   *  flight (the cinematic site-arrival, `flyToFormaSite`, `flyToModelBoundingSphere`).
+   *  Cesium CANCELS an in-progress camera tween when a new `flyTo`/`flyToBoundingSphere`
+   *  starts, firing the OLD flight's `cancel` callback — which cleared the shared flag to
+   *  `false` even though the NEWER flight it was just replaced by is still gliding. The
+   *  new flight's `moveStart` then fired with the flag falsely cleared, so the listener
+   *  mis-latched `formaUserMovedCamera = true`; the later tile-base settle then saw the
+   *  "user moved" latch and SUPPRESSED the one corrective re-frame — stranding the camera
+   *  at the base-0 frame (founder: default globe points at Z=0 / sea level; had to click
+   *  Zoom to Site). Token-gating makes a stale flight's teardown a NO-OP: only the MOST
+   *  RECENT flight may release the flag. Mirrors the existing `formaTerrainToken` idiom. */
+  private formaFlyToken = 0;
 
   // ---- FORMA.5 — sun-driven light + time/season scrubber state ----
   /** The datetime the Forma directional light is currently solved for. Drives
@@ -1449,8 +1462,15 @@ export class CesiumViewport {
         destination: Cesium.Cartesian3.fromDegrees(lon, lat, SITE_ARRIVAL_HIGH_ALT_M),
         orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
       });
-      this.formaProgrammaticFlyInFlight = true;
-      const clearArrivalFlag = (): void => { this.formaProgrammaticFlyInFlight = false; };
+      // §FEAT-GLOBE-DEFAULT-AUTOFRAME (L-226) — token-gated in-flight flag. When the
+      // default "3D globe" entry fires its `flyToFormaSite` reframe ~350 ms later, that
+      // newer flight CANCELS this still-gliding arrival tween; Cesium then runs THIS
+      // flight's `cancel` callback. A bare boolean would clear the shared flag `false`
+      // mid-glide of the newer flight, so its `moveStart` mis-latched `formaUserMovedCamera`
+      // and the base-settle reframe self-suppressed (camera stuck at Z=0). Token-gating
+      // makes this stale cancel a no-op once the reframe flight has superseded it.
+      const arrivalToken = this.beginProgrammaticFly();
+      const clearArrivalFlag = (): void => { this.endProgrammaticFly(arrivalToken); };
       // §GLOBE-CRASH-GUARD — compose with §GLOBE-FRAME-NO-JUMP-2: if `flyTo` throws
       // synchronously the `complete`/`cancel` callbacks never run, so the in-flight
       // flag would stick `true` forever (the moveStart listener would then never
@@ -4073,6 +4093,30 @@ export class CesiumViewport {
    * and the "Zoom to Site" button. Returns true when it flew; false when no bounding
    * sphere could be resolved (the caller then falls back to the √area heuristic).
    */
+  /**
+   * §FEAT-GLOBE-DEFAULT-AUTOFRAME (L-226) — begin one of OUR programmatic camera flights.
+   * Sets the in-flight flag and returns a fresh generation token. Pair with
+   * `endProgrammaticFly(token)` on the flight's complete/cancel (and on a synchronous
+   * throw). Starting a new flight supersedes any earlier one, so an earlier flight's
+   * `cancel` callback — fired because Cesium cancelled its tween when this newer flight
+   * began — cannot clear the flag out from under us (its token is now stale). This keeps
+   * `formaProgrammaticFlyInFlight` TRUE for the whole span a flight of ours is animating,
+   * so the `moveStart` listener never mistakes the handoff for the user grabbing the camera.
+   */
+  private beginProgrammaticFly(): number {
+    this.formaProgrammaticFlyInFlight = true;
+    return ++this.formaFlyToken;
+  }
+
+  /**
+   * §FEAT-GLOBE-DEFAULT-AUTOFRAME (L-226) — release the in-flight flag for `token`, but
+   * ONLY when it is still the most recent flight. A superseded/cancelled flight passing its
+   * stale token is a no-op, so it can't clear the flag while a newer flight is mid-air.
+   */
+  private endProgrammaticFly(token: number): void {
+    if (token === this.formaFlyToken) this.formaProgrammaticFlyInFlight = false;
+  }
+
   private flyToModelBoundingSphere(orientationOverride?: { headingDeg: number; pitchDeg: number }): boolean {
     const viewer = this.viewer;
     if (!viewer) return false;
@@ -4081,8 +4125,8 @@ export class CesiumViewport {
     const headingDeg = orientationOverride?.headingDeg ?? FORMA_FLY_HEADING_DEG;
     const pitchDeg = orientationOverride?.pitchDeg ?? FORMA_FLY_PITCH_DEG;
     try {
-      this.formaProgrammaticFlyInFlight = true;
-      const clearFlyFlag = (): void => { this.formaProgrammaticFlyInFlight = false; };
+      const flyToken = this.beginProgrammaticFly();
+      const clearFlyFlag = (): void => { this.endProgrammaticFly(flyToken); };
       // Offset range ≈ 2.5× radius so the whole building sits comfortably in frame with
       // margin (matches "fit all" on the BIM view), from the same oblique heading/pitch.
       const range = Math.max(20, sphere.radius * 2.5);
@@ -4104,6 +4148,7 @@ export class CesiumViewport {
       return true;
     } catch (e) {
       this.formaProgrammaticFlyInFlight = false;
+      this.formaFlyToken++; // invalidate any pending clear so a late callback can't re-toggle.
       console.warn('[CesiumViewport][forma] §GLOBE-FIT-BUILDING flyToBoundingSphere failed — falling back:', e);
       return false;
     }
@@ -4160,9 +4205,10 @@ export class CesiumViewport {
       // §GLOBE-FRAME-NO-JUMP — mark this flight as OURS so the moveStart listener
       // doesn't mis-read the resulting camera motion as a user taking control.
       // Cleared on complete/cancel (and defensively, the moveStart guard only
-      // latches when this is false).
-      this.formaProgrammaticFlyInFlight = true;
-      const clearFlyFlag = (): void => { this.formaProgrammaticFlyInFlight = false; };
+      // latches when this is false). §FEAT-GLOBE-DEFAULT-AUTOFRAME — token-gated so a
+      // superseded flight's late cancel can't clear the flag mid-glide.
+      const flyToken = this.beginProgrammaticFly();
+      const clearFlyFlag = (): void => { this.endProgrammaticFly(flyToken); };
       viewer.camera.flyTo({
         destination,
         orientation: {
@@ -4184,8 +4230,10 @@ export class CesiumViewport {
       // §GLOBE-CRASH-GUARD — if flyTo (or the centroid math) threw synchronously
       // after we set the in-flight flag, its complete/cancel callbacks never ran;
       // clear the flag here so it cannot stick `true` and freeze the moveStart
-      // user-control latch. Composes with §GLOBE-FRAME-NO-JUMP.
+      // user-control latch. Composes with §GLOBE-FRAME-NO-JUMP. §FEAT-GLOBE-DEFAULT-
+      // AUTOFRAME — bump the token so the now-orphaned clearFlyFlag can't re-toggle it.
       this.formaProgrammaticFlyInFlight = false;
+      this.formaFlyToken++;
       console.warn('[CesiumViewport][forma] flyToFormaSite failed:', e);
     }
   }
