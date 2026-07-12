@@ -272,7 +272,7 @@ function _openingControlPointToDrawingHV(
  * Called only for plan-view A-WALL layers (both :cut and :proj).
  * Does NOT affect section or elevation views.
  */
-function _suppressPlanViewOpeningLines(
+export function _suppressPlanViewOpeningLines(
     projected: THREE.LineSegments,
     _drawing: OBC.TechnicalDrawing,
     group: THREE.Group,
@@ -1108,6 +1108,125 @@ function buildMeshPlaneIntersectionGeometry(
         intersectEdge(v1, d1, v2, d2, points);
         intersectEdge(v2, d2, v0, d0, points);
 
+        if (points.length === 2) {
+            addSegment(points[0], points[1]);
+        } else if (points.length >= 3) {
+            addSegment(points[0], points[1]);
+            addSegment(points[1], points[2]);
+            addSegment(points[2], points[0]);
+        }
+    }
+
+    return makeGeoFromPositions(positions);
+}
+
+/**
+ * §FIX-PLAN-DOOR-CUTS-WALL (L-246) — TRUE horizontal plan cut of a solid.
+ *
+ * THE OPENING-CLIP RULE, EXPRESSED AS GEOMETRY.
+ *
+ * Until now the plan `:cut` layer was populated ONLY by `classifyByVertexY()`, which
+ * tags an EDGE as "cut" when one of its endpoints lies within `CUT_LINE_EPSILON`
+ * (15 cm) of the cut plane. A wall box has NO edge anywhere near a 1.2 m cut plane
+ * (its horizontal edges sit at the base and at the head; its vertical edges have
+ * endpoints only at those two elevations) — so **A-WALL:cut was ALWAYS EMPTY in a
+ * plan view**. Consequences, both reported by the founder:
+ *
+ *   • no wall POCHÉ (the `:cut` sub-layer is the only thing `_renderPocheFills`
+ *     scans, so there was never a fill to paint) — "the cut wall is a thin outline,
+ *     the drawing reads flat" (L-241);
+ *   • no CUT lineweight hierarchy for walls — every wall line was `:proj`.
+ *
+ * This function intersects the mesh's triangles with the horizontal plane
+ * `y = cutPlaneY` and returns the resulting section outline in world space. For a
+ * wall carrying a door that means the outline of the pieces of solid that ACTUALLY
+ * EXIST at the cut height — i.e. the wall left of the jamb and the wall right of the
+ * jamb, **each closed on itself at the void edge**. The opening is voided BY
+ * CONSTRUCTION: no line and no fill can cross it, on ANY wall render path (plain,
+ * layered, opening-bearing, curved, CSG single-volume or V2), because the solid
+ * simply is not there. This is the invariant of `_suppressPlanViewOpeningLines`
+ * (`wall face line terminus === opening void edge === frame jamb tick`) obtained
+ * from the geometry instead of asserted about the geometry.
+ *
+ * `_suppressPlanViewOpeningLines` remains the clip for the PROJECTION linework (the
+ * base/head edges of the solid, which do span the opening and are NOT cut by this
+ * plane). There is still exactly ONE opening-clip rule per zone — no third ladder.
+ *
+ * Scope: A-WALL in plan views only (C15 hosted openings live in walls). Slabs sit
+ * below the cut plane; giving A-FLOR a section here would paint the whole plate.
+ */
+export function buildPlanCutSectionGeometry(
+    mesh: THREE.Mesh,
+    cutPlaneY: number,
+    epsilon: number = TRIANGLE_PLANE_EPSILON,
+): THREE.BufferGeometry | null {
+    const geometry = mesh.geometry as THREE.BufferGeometry | undefined;
+    const posAttr = geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
+    if (!geometry || !posAttr || posAttr.count < 3) return null;
+
+    const worldBox = getMeshWorldAABB(mesh);
+    if (!worldBox) return null;
+    // Cheap reject: the solid must straddle the cut plane.
+    if (worldBox.min.y > cutPlaneY - epsilon || worldBox.max.y < cutPlaneY + epsilon) return null;
+
+    const index = geometry.index;
+    const positions: number[] = [];
+    const v0 = new THREE.Vector3();
+    const v1 = new THREE.Vector3();
+    const v2 = new THREE.Vector3();
+
+    const readVertex = (vertexIndex: number, target: THREE.Vector3): THREE.Vector3 => {
+        target.set(posAttr.getX(vertexIndex), posAttr.getY(vertexIndex), posAttr.getZ(vertexIndex));
+        return target.applyMatrix4(mesh.matrixWorld);
+    };
+
+    const addUniquePoint = (points: THREE.Vector3[], point: THREE.Vector3): void => {
+        const tolSq = epsilon * epsilon;
+        if (points.some(existing => existing.distanceToSquared(point) <= tolSq)) return;
+        points.push(point.clone());
+    };
+
+    const addSegment = (a: THREE.Vector3, b: THREE.Vector3): void => {
+        if (a.distanceToSquared(b) <= epsilon * epsilon) return;
+        positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    };
+
+    const intersectEdge = (
+        a: THREE.Vector3, da: number,
+        b: THREE.Vector3, db: number,
+        points: THREE.Vector3[],
+    ): void => {
+        if (Math.abs(da) <= epsilon) addUniquePoint(points, a);
+        if (Math.abs(db) <= epsilon) addUniquePoint(points, b);
+        if (da * db >= 0) return;
+        const t = da / (da - db);
+        addUniquePoint(points, a.clone().lerp(b, t));
+    };
+
+    const triangleCount = index ? Math.floor(index.count / 3) : Math.floor(posAttr.count / 3);
+    for (let tri = 0; tri < triangleCount; tri++) {
+        const i0 = index ? index.getX(tri * 3)     : tri * 3;
+        const i1 = index ? index.getX(tri * 3 + 1) : tri * 3 + 1;
+        const i2 = index ? index.getX(tri * 3 + 2) : tri * 3 + 2;
+        readVertex(i0, v0);
+        readVertex(i1, v1);
+        readVertex(i2, v2);
+
+        const d0 = v0.y - cutPlaneY;
+        const d1 = v1.y - cutPlaneY;
+        const d2 = v2.y - cutPlaneY;
+        if ((d0 > epsilon && d1 > epsilon && d2 > epsilon) ||
+            (d0 < -epsilon && d1 < -epsilon && d2 < -epsilon)) continue;
+
+        const points: THREE.Vector3[] = [];
+        intersectEdge(v0, d0, v1, d1, points);
+        intersectEdge(v1, d1, v2, d2, points);
+        intersectEdge(v2, d2, v0, d0, points);
+
+        // A triangle lying IN the plane contributes its 3 edges; a crossing triangle
+        // contributes the single chord. (A coplanar triangle only occurs for a solid
+        // whose face sits exactly at the cut height — the base/head of a wall whose
+        // top or bottom coincides with the cut plane; its outline is still correct.)
         if (points.length === 2) {
             addSegment(points[0], points[1]);
         } else if (points.length >= 3) {
@@ -1989,6 +2108,19 @@ export class EdgeProjectorService {
                             edgesGeo.applyMatrix4(mesh.matrixWorld);
                             if (!perElemLayerGeos.has(layerName)) perElemLayerGeos.set(layerName, []);
                             perElemLayerGeos.get(layerName)!.push(edgesGeo);
+                            // §FIX-PLAN-DOOR-CUTS-WALL (L-246) — TRUE plan cut for walls.
+                            // The wall's section AT the cut plane, so the `:cut` layer (and
+                            // therefore the poché fill stitched from it) contains only the
+                            // solid that actually exists at that height: it terminates on the
+                            // void edges of every door/window opening BY CONSTRUCTION, on every
+                            // wall render path. See buildPlanCutSectionGeometry().
+                            if (isPlanView && cutPlaneY !== null && layerName === 'A-WALL') {
+                                const planCutGeo = buildPlanCutSectionGeometry(mesh, cutPlaneY);
+                                if (planCutGeo) {
+                                    if (!perElemLayerCutGeos.has(layerName)) perElemLayerCutGeos.set(layerName, []);
+                                    perElemLayerCutGeos.get(layerName)!.push(planCutGeo);
+                                }
+                            }
                             if (sectionDepthBands) {
                                 const meshCutGeo = buildMeshPlaneIntersectionGeometry(mesh, viewDef, direction, near, sectionVolumeBox);
                                 if (meshCutGeo) {
