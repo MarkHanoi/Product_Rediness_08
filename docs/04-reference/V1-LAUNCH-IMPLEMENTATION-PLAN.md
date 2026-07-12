@@ -2262,3 +2262,66 @@ caster denylist and the shadow-camera size are **not** the cause — resizing th
 changed the grey's *size*.
 
 **Contract mapping:** C04 §SHADOW.0 + rules 7/10/11, ADR-0111, ADR-0120, L-205 lineage.
+
+---
+
+## L-238 — §FIX-ORPHAN-MESH-ISOLATION-BLINDSPOT  (HIGH — data integrity)
+
+Founder: *"Project isolation is still not sound. I open an old project, go back to Projects, create a
+NEW project — and the new project has an object on screen. It seems one of those corrupted triangular
+shapes created in wall joints of 3 walls in an L or T shape."*
+
+### The C13 teardown IS running — and the leak still happens, silently
+
+His log proves the L-224 fix is live: `[ProjectLifecycleController] C13 project-switch`,
+`[BatchCoordinator] C13 forceReset()`, `[WallRebuildCoordinator] C13 resetWallRebuildState()`,
+`C13 teardown complete`, `[ProjectIsolationAudit] Installed — will audit every project load`.
+
+**Yet an object leaked, and no violation was reported.** That silence is the diagnosis.
+
+### Root cause — the id-less-mesh blind spot
+
+`ProjectIsolationAudit.ts:126`:
+
+```js
+if (idKnown && ud.elementId != null && ud.elementType != null) {
+```
+
+**A scene node with no `elementId` is never examined.** A wall junction / mitre / corner-weld mesh —
+exactly the *"corrupted triangular shape at an L or T joint"*, and the known `WallJoinResolver`
+degenerate-wall artifact (the guard skips the degenerate wall, but its **mesh still renders**) —
+carries **no element id**. So:
+
+| Layer | Why it misses the shard |
+|---|---|
+| `ClearProjectCommand` | clears **by element id** → never sees it |
+| `WallFragmentBuilder.dispose()` | fires, but only clears geometry it **owns** — an artifact parented elsewhere survives |
+| `ProjectIsolationAudit` | **skips id-less nodes silently** → the tripwire reports nothing |
+
+**An id-less mesh is invisible to the clear AND to the guard.**
+
+### This blind spot is a consequence of the L-224 design the orchestrator approved
+
+The skip-if-no-trackable-id rule was chosen to hold the false-positive rate at zero. The trade-off let
+a real leak through. Recorded plainly. (L-233's agent independently used the same predicate for its
+explode reconcile — fine for a *visual offset*, but for an **isolation guard** it is a hole.)
+
+### C13 §3.10 already forbids this
+
+The invariant that just landed says the audit must enumerate **OWNERS**, not symptoms: *every stateful
+surface has exactly one named owner.* **A mesh in the scene with no element id has NO OWNER — it is,
+by definition, the violation §3.10 exists to catch.** After a clear, the scene root must contain no
+un-owned children.
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | **Close the audit hole — detect ORPHAN meshes.** Flag any renderable scene-root descendant with **no owner** (no `elementId`, and not in a positive infrastructure allowlist: catcher, grid, origin sphere, gizmo, outline, TransformControls helper). Never silently skip. **Beware the L-233 perf trap** — selection outlines and helpers are legitimately id-less, so use a positive allowlist, not a blanket skip. |
+| **P2** | **Close the teardown hole.** Establish WHO owns wall junction/mitre meshes and ensure the C13 teardown disposes them. If they are parented outside `WallFragmentBuilder`, that is the bug — a geometry artifact with no owner must not exist (ADR-0120 made the same argument for the shadow caster set). |
+| **P3** | **Trace the actual leaked object.** Instrument a fresh project: dump every scene-root child with its `userData` after `ClearProjectCommand` completes, and **name the shard**. Do not guess which mesh it is. |
+| **P4** | **Fix the PRODUCER too.** The `WallJoinResolver` degenerate-wall bug (guard skips the wall, mesh still renders) is the likely source — an artifact that should never have been created. Cleanup alone is not enough. |
+| **P5** | Tests: after `ClearProjectCommand` the scene root has **zero** renderable descendants outside the infrastructure allowlist; a junction artifact from project A is absent in project B; the audit **REPORTS** an id-less orphan mesh (it must fail loudly, not skip). |
+
+**Contract mapping:** **C13 §3.10** (the owner-enumeration invariant — this is exactly the case it was
+written for), C11, ADR-0120, the `WallJoinResolver` degenerate-wall class.
