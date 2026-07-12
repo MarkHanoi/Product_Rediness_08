@@ -34,6 +34,13 @@ import {
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { ensureFloorCCW as ensureCCW, validateFloorPolygon as validatePolygon } from '@pryzm/core-app-model';
 import { resolveFinishSeating, DEFAULT_FINISH_THICKNESS_M } from '@pryzm/core-app-model';
+// §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — the inner-face inset is a DOMAIN RULE of
+// the floor-finish element type, so it is resolved HERE (the single create chokepoint), not
+// in each tool. `@pryzm/room-topology` is an existing declared dependency of this package
+// (CreateFloorsByRoomTypeCommand already imports it); both symbols are called at execute()
+// time only, never at module evaluation, so the command-registry ↔ room-topology cycle is
+// not exercised at load (see MEMORY §SCC: no barrel access at module load).
+import { resolveRoomFinishBoundary, ringsCoincide, type RoomFinishWall } from '@pryzm/room-topology';
 
 export interface CreateFloorPayload {
   /** Pre-generated UUID — MUST come from the calling tool. Never generate here. */
@@ -66,6 +73,25 @@ export interface CreateFloorPayload {
   hostSlabId?: string;
   /** Room this floor is linked to — finish data is absorbed from the room at creation time. */
   hostRoomId?: string;
+  /**
+   * §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — what `polygon` MEANS. This is the
+   * caller's declaration of INTENT, not a geometry switch:
+   *
+   *   • `'room-centreline'` — `polygon` is the host room's boundary ring, which runs along
+   *     the wall CENTRELINES. The command derives the real finish boundary from it by
+   *     insetting each edge to its bounding wall's INNER FACE. Every room-derived path
+   *     (3D FloorTool AUTO_FROM_ROOM, CreateFloorsByRoomTypeCommand, any future tool that
+   *     floors a room) declares this.
+   *   • `'explicit-polygon'` — `polygon` is the user's / the file's stated geometry and is
+   *     stored VERBATIM. Hand-drawn floors (3D FloorTool DRAW), room-independent finishes
+   *     (roof decks, lobby discs), project load, IFC import and paste declare this.
+   *
+   * OMITTED → the command infers: a polygon that IS the host room's centreline ring
+   * (`ringsCoincide`) is a room-derived boundary whose author forgot to say so — exactly the
+   * L-240 defect — and is inset. Anything else is stored verbatim. This is what makes the
+   * rule impossible for a future tool to bypass by omission.
+   */
+  boundarySource?: 'room-centreline' | 'explicit-polygon';
   createdBy?: string;
 }
 
@@ -120,7 +146,13 @@ export class CreateFloorCommand implements Command {
     const floorId = this._payload.floorId;
     const now = Date.now();
 
-    const polygon = ensureCCW(this._payload.polygon);
+    // §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — THE chokepoint. A floor finish is
+    // bounded by the INNER FACES of its bounding walls; that is a rule of the element type,
+    // so it is applied here, once, for every creation path — not re-implemented per tool
+    // (which is how L-213 left the 3D FloorTool AUTO path shipping the raw centreline).
+    // Derivation happens BEFORE ensureCCW, exactly as the batch path did it, so the batch
+    // output is byte-identical.
+    const polygon = ensureCCW(this._resolveBoundary(context));
     // §A.21.D48 — seat the finish ON the slab top: a thin finish whose BOTTOM rests
     // at the slab top (no shared volume → no Z-fighting, clash-detectable). Explicit
     // thickness / baseOffset / layers are honoured verbatim (structural / IFC paths).
@@ -212,6 +244,61 @@ export class CreateFloorCommand implements Command {
     }
 
     return { success: true, affectedElementIds: [floorId] };
+  }
+
+  /**
+   * §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — resolve the floor's stored boundary
+   * from the payload's DECLARED intent (see `boundarySource`).
+   *
+   * Room-derived boundary  → inset the centreline ring to the bounding walls' inner faces
+   *                          via the single canonical `resolveRoomFinishBoundary`.
+   * Explicit / user-drawn  → returned VERBATIM. A hand-drawn polygon is the user's stated
+   *                          geometry and is never silently re-inset (C11 §Floor-finish
+   *                          boundary). Hosting a drawn floor in a room (FloorTool's
+   *                          centroid autodetect) is a LINK, not a re-derivation.
+   *
+   * Fail-safe on every branch: returns the payload polygon unchanged, so a floor is always
+   * created. Never applies a second offset — it only ever insets a ring it has PROVEN to be
+   * a centreline, so "converge, don't compensate" holds by construction.
+   */
+  private _resolveBoundary(context: CommandContext): FloorVertex[] {
+    const src = this._payload.polygon;
+    const hostRoomId = this._payload.hostRoomId;
+    // No host room → nothing to derive from (roof decks, lobby discs, IFC slabs, paste).
+    if (!hostRoomId || !src || src.length < 3) return src;
+    if (this._payload.boundarySource === 'explicit-polygon') return src;
+
+    const roomStore = (context.stores as any).roomStore as
+      | { getById?: (id: string) => { boundary?: { polygon?: Array<{ x: number; z: number }> }; boundingWallIds?: string[] } | undefined }
+      | undefined;
+    const wallStore = (context.stores as any).wallStore as
+      | { getById?: (id: string) => RoomFinishWall | undefined; getByLevel?: (levelId: string) => RoomFinishWall[] }
+      | undefined;
+    if (!roomStore || !wallStore) return src;
+
+    if (this._payload.boundarySource !== 'room-centreline') {
+      // UNDECLARED payload — infer. A polygon that IS the host room's centreline ring is a
+      // room-derived boundary that forgot to declare itself (the L-240 defect shape). Any
+      // correctly-inset finish lies strictly inside the ring, so it can never match here →
+      // an already-derived boundary can never be inset twice.
+      const centreline = roomStore.getById?.(hostRoomId)?.boundary?.polygon;
+      if (!ringsCoincide(src, centreline)) return src;
+    }
+
+    const levelId = this._payload.levelId || context.projectContext.activeLevelId;
+    const derived = resolveRoomFinishBoundary(
+      src.map(v => ({ x: v.x, z: v.z })),
+      {
+        roomId: hostRoomId,
+        levelId,
+        lookup: {
+          getRoomById:    (id) => roomStore.getById?.(id),
+          getWallById:    (id) => wallStore.getById?.(id),
+          getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
+        },
+      },
+    );
+    return derived.length >= 3 ? (derived as FloorVertex[]) : src;
   }
 
   undo(context: CommandContext): CommandResult {

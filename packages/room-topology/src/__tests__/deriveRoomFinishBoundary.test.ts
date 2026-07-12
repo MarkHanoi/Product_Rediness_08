@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   deriveRoomFinishBoundary,
+  resolveRoomFinishBoundary,
+  ringsCoincide,
   polygonAreaM2,
   isSimple,
   type RoomFinishWall,
@@ -8,18 +10,28 @@ import {
 import type { RoomVertex } from '../RoomTypes';
 
 /**
- * §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — a room's floor finish must have ONE
- * boundary derivation regardless of entry point (batch generators OR the interactive
- * floor tool AUTO mode). Both now call this single canonical helper, which insets the
- * centreline ring to the walls' INNER FACES. These tests pin:
- *   1. Convergence — a "UI"-derived and a "batch"-derived finish for the SAME room are
- *      byte-identical (the whole point of L-213).
- *   2. Regression guard — the inner-face polygon for a known room is exact + stable
- *      (batch behaviour must not drift after the extraction).
+ * §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) · §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS
+ * (L-240) — a room's floor finish must have ONE boundary derivation regardless of entry
+ * point, which insets the centreline ring to the walls' INNER FACES.
+ *
+ * ⚠ THIS SUITE WAS TITLED "UI↔batch convergence" AND THAT FRAMING IS WHY L-213 REGRESSED.
+ * It compared the only two paths that had ALREADY been converged, so it stayed green while
+ * a THIRD path (the 3D FloorTool AUTO_FROM_ROOM branch) shipped the raw centreline. Two-way
+ * convergence is a coincidence, not an invariant. The N-WAY, chokepoint-level convergence
+ * test now lives in `apps/editor/__tests__/floorFinishInnerFaceAllPaths.test.ts`, where it
+ * exercises the REAL `CreateFloorCommand` — the seam every creation path must pass through.
+ *
+ * What remains here is the GEOMETRY contract of the two shared helpers:
+ *   1. The inner-face inset for a known room is exact + stable (no drift).
+ *   2. Convergence — every caller feeding the same centreline + walls gets the same ring.
  *   3. Non-orthogonal / L-shaped rooms still derive a valid inner-face polygon.
  *   4. Fail-safe — no bounding walls → the centreline is returned unchanged.
+ *   5. `resolveRoomFinishBoundary` — the ONE store-aware wall resolution (previously
+ *      duplicated in the batch command and the plan tool).
+ *   6. `ringsCoincide` — recognises a centreline ring, never an inset one (so the
+ *      chokepoint can never inset a boundary twice).
  */
-describe('deriveRoomFinishBoundary (L-213 UI↔batch convergence)', () => {
+describe('deriveRoomFinishBoundary (all-paths inner-face convergence — L-213 · L-240)', () => {
   // A 4 m × 3 m room, centreline ring CCW in world X-Z.
   const rect: RoomVertex[] = [
     { x: 0, z: 0 },
@@ -121,5 +133,60 @@ describe('deriveRoomFinishBoundary (L-213 UI↔batch convergence)', () => {
     // robust: with no wall matching any edge, every inset is 0 → centreline is returned.
     const inner = deriveRoomFinishBoundary(rect, []);
     expect(inner).toEqual(rect);
+  });
+
+  // ── §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — the shared store-aware resolver ──
+
+  describe('resolveRoomFinishBoundary — the ONE store-aware wall resolution', () => {
+    const lookup = {
+      getRoomById: () => ({ boundingWallIds: ['w0', 'w1', 'w2', 'w3'] }),
+      getWallById: (id: string) => rectWalls[Number(id.slice(1))],
+      getWallsByLevel: () => rectWalls,
+    };
+
+    it('resolves the room\'s boundingWallIds and insets to the inner faces', () => {
+      const inner = resolveRoomFinishBoundary(rect, { roomId: 'r1', levelId: 'L0', lookup });
+      expect(polygonAreaM2(inner)).toBeCloseTo(3.8 * 2.8, 6);
+      // Identical to calling the pure helper directly — one derivation, not two.
+      expect(inner).toEqual(deriveRoomFinishBoundary(rect, rectWalls));
+    });
+
+    it('falls back to the level\'s walls when the room records no boundingWallIds', () => {
+      const inner = resolveRoomFinishBoundary(rect, {
+        roomId: 'r1', levelId: 'L0',
+        lookup: { ...lookup, getRoomById: () => ({ boundingWallIds: [] }) },
+      });
+      expect(polygonAreaM2(inner)).toBeCloseTo(3.8 * 2.8, 6);
+    });
+
+    it('fail-safe — no store, no room, or no walls returns the centreline (a floor is ALWAYS made)', () => {
+      expect(resolveRoomFinishBoundary(rect, { roomId: 'r1', levelId: 'L0', lookup: {} })).toEqual(rect);
+      expect(resolveRoomFinishBoundary(rect, {
+        roomId: 'r1', levelId: 'L0',
+        lookup: { getRoomById: () => undefined, getWallsByLevel: () => [] },
+      })).toEqual(rect);
+      // A throwing store must not lose the floor.
+      expect(resolveRoomFinishBoundary(rect, {
+        roomId: 'r1', levelId: 'L0',
+        lookup: { getRoomById: () => { throw new Error('store down'); } },
+      })).toEqual(rect);
+    });
+  });
+
+  describe('ringsCoincide — the chokepoint\'s "is this a centreline?" guard', () => {
+    it('recognises the room centreline ring', () => {
+      expect(ringsCoincide(rect.map(v => ({ ...v })), rect)).toBe(true);
+    });
+
+    it('NEVER matches an already-inset inner-face ring → a boundary can never be inset twice', () => {
+      const inner = deriveRoomFinishBoundary(rect, rectWalls);
+      expect(ringsCoincide(inner, rect)).toBe(false);
+    });
+
+    it('rejects mismatched / degenerate / missing rings', () => {
+      expect(ringsCoincide(rect, rect.slice(0, 3))).toBe(false);
+      expect(ringsCoincide(rect, undefined)).toBe(false);
+      expect(ringsCoincide([{ x: 0, z: 0 }, { x: 1, z: 1 }], [{ x: 0, z: 0 }, { x: 1, z: 1 }])).toBe(false); // < 3 verts
+    });
   });
 });

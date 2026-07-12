@@ -305,6 +305,91 @@ type ElementCreationHandler<P> = (
 - Import from `src/engine/` or `src/ui/` — handlers live in `plugins/` or `packages/` and obey the layer boundary matrix (C01 §2).
 - Mutate stores of other element families (e.g. a wall handler MUST NOT write to `stores.elements.rooms`). Cross-element effects are achieved through event subscribers.
 
+### §5.4 — Element-type DOMAIN RULES resolve at the command, NEVER in the tool (NORMATIVE)
+
+> Added by §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240), after the same class of defect
+> recurred five times in one cycle (L-213 floor finishes, L-214 wardrobe rotation, L-220
+> plumbing drag, L-239 wall layers, L-240 floor finishes AGAIN).
+
+**The rule.** If a property of an element is determined by the *kind of thing it is* — not by
+what the user drew — then it MUST be derived **inside the create command**, keyed off the
+payload's declared intent. It MUST NOT be derived in a tool and passed in.
+
+**Why.** "One element type ⇒ one creation pipeline" (§1) is not satisfied by making N tools each
+call the same helper. That is convergence *by coincidence*: it holds only until tool N+1 is
+written, and nothing fails when tool N+1 omits the call. L-213 converged two of three
+floor-finish paths onto `deriveRoomFinishBoundary` and shipped a test named *"UI↔batch
+convergence"*; the test stayed green for a month because **it compared the two paths that were
+already converged and never enumerated the third**, which was shipping wrong geometry the whole
+time. A derivation that lives at the chokepoint cannot be omitted, because there is nowhere to
+omit it from.
+
+**Therefore, when adding a creation path:**
+
+1. A tool's job is to capture **intent + raw input**. It declares *what the polygon/transform
+   means*; it does not compute the element's final geometry.
+2. Any *"a &lt;type&gt; is always …"* rule belongs in the command handler.
+3. If a payload can carry BOTH a derived and a non-derived form of the same field, the payload
+   MUST carry an explicit **intent discriminator**, and the command MUST behave safely when the
+   discriminator is **omitted** (a new tool that says nothing must get the *correct* behaviour,
+   not the legacy one).
+4. Convergence tests MUST be **N-way and enumerate every path**, and MUST exercise the
+   **chokepoint**, not the shared helper. A test that compares two callers of one function proves
+   nothing about a third caller that never calls it.
+
+#### §5.4.1 — Floor-finish boundary (the worked example, BINDING)
+
+> **A floor finish is bounded by the INNER FACES of its bounding walls.**
+
+A room's `boundary.polygon` runs along the wall **CENTRELINES** (the planar face tracer walks
+wall-graph nodes on `wall.baseLine`). A finish built on that ring overshoots into every bounding
+wall by half its thickness and overlaps the neighbouring room's finish *under* the partition.
+
+- The derivation is `deriveRoomFinishBoundary` (pure geometry) wrapped by
+  `resolveRoomFinishBoundary` (the single store-aware wall resolution), both in
+  `@pryzm/room-topology`.
+- It is applied **once**, inside **`CreateFloorCommand`** (`packages/command-registry/src/floors/`),
+  which every floor-creation path passes through. Tools do not inset polygons.
+- `CreateFloorPayload.boundarySource` is the intent discriminator:
+  - **`'room-centreline'`** — the polygon is a room ring; the command insets it to the inner
+    faces. (3D FloorTool AUTO_FROM_ROOM, `CreateFloorsByRoomTypeCommand`, any future
+    floor-a-room tool.)
+  - **`'explicit-polygon'`** — the polygon is stated geometry; it is stored **VERBATIM**.
+  - **omitted** — the command *infers*: a polygon that IS the host room's centreline ring
+    (`ringsCoincide`) is a room-derived boundary whose author forgot to declare it, and is
+    inset. This is what makes omission non-fatal for a future tool.
+- **Double-insetting is impossible by construction:** the command only ever insets a ring it has
+  *proven* to be a centreline, and a correctly-inset finish lies strictly inside that ring.
+  Converge, never compensate.
+
+#### §5.4.2 — DRAW vs AUTO: explicit user intent is never re-derived (BINDING)
+
+> **A hand-drawn polygon is the user's stated geometry. It MUST NOT be silently re-inset.**
+
+Only **room-derived** boundaries are inset. `FloorTool` auto-detects a host room from a drawn
+polygon's centroid — that autodetect exists to **HOST** the floor (so `hostRoomId` /
+`coveredRoomIds` / the room's finish material resolve), and **hosting ≠ re-deriving**. A DRAW-mode
+floor declares `'explicit-polygon'` and is stored exactly as drawn, host room or not.
+
+This is settled. Do not re-litigate it by "fixing" DRAW mode to match AUTO.
+
+#### §5.4.3 — Known residual: `floor` has TWO command implementations (C11 debt)
+
+Floors are created through **two** code paths that are not yet unified:
+
+| | implementation | reached by |
+|---|---|---|
+| legacy | `CreateFloorCommand` (`@pryzm/command-registry`) | 3D FloorTool (AUTO + DRAW), `CreateFloorsByRoomTypeCommand` (all AI/batch generators), residential + office executors, ProjectLoader, `ImportProjectCommand`, IFC import, `CREATE_FLOOR` replay |
+| bus | `CreateFloorHandler` (`plugins/floor`) — the `floor.create` handler | `FloorPlanToolHandler` (plan-view tool) only |
+
+The bus handler **cannot** host the §5.4.1 rule today: its `HandlerContext` exposes only the
+`floor` store, rooms and walls live in the legacy singletons, and `pryzm/store-single-channel`
+(plus P4) forbids a plugin handler reaching for them. So `FloorPlanToolHandler` derives the
+boundary in the tool via the same canonical `resolveRoomFinishBoundary` and dispatches the
+finished ring. **This is the one sanctioned exception**, and it is a symptom of the dual-command
+debt, not a licence for other tools. Retiring `CreateFloorCommand` in favour of the bus handler
+(once rooms/walls are in the plugin store world) collapses the exception.
+
 ---
 
 ## §6 — Post-command lifecycle

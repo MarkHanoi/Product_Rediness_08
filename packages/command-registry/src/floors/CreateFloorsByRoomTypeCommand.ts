@@ -29,7 +29,7 @@ import { CreateFloorCommand } from './CreateFloorCommand';
 import { batchCoordinator, type FloorServiceHole } from '@pryzm/core-app-model';
 import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type PerRoomCtx } from '../rooms/perRoomBoundary';
 import { floorFinishFor } from './floorFinish';
-import { deriveRoomFinishBoundary } from '@pryzm/room-topology';
+import { resolveRoomFinishBoundary } from '@pryzm/room-topology';
 
 /** occupancyType → finish category. #34: timber in living/bedroom, tile in kitchen/bathroom.
  *  §FLOOR-FINISH-COVERAGE (founder 2026-06-15, "floor finishes") — the sets key on the
@@ -162,6 +162,15 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             // edge inward to its bounding wall's INNER FACE (thickness/2), keeping the
             // centreline only across door openings so adjacent floors meet at the
             // threshold (§FLOOR-DOOR-GAP). Fail-safe: falls back to the centreline poly.
+            //
+            // §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — the inset is no longer applied
+            // HERE. This command now hands `CreateFloorCommand` the CENTRELINE ring plus the
+            // declaration `boundarySource: 'room-centreline'`, and the create chokepoint does
+            // the derivation for EVERY path (3D tool, plan tool, batch, AI, import) with the
+            // same canonical resolver + the same stores → byte-identical output to before.
+            // We still derive locally, because the stairwell-void containment test below must
+            // run against the FINAL (inset) ring exactly as it did before this change; the
+            // resolver is pure, so the command's re-derivation returns the same polygon.
             const centrelinePoly = room.boundary!.polygon!.map(p => ({ x: p.x, z: p.z }));
             const roomPoly = this._innerFacePolygon(context, room, centrelinePoly);
             // §A.21.D29 #1 — cut any stairwell void hosted in THIS room as a `polygon`
@@ -172,7 +181,8 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             return new CreateFloorCommand({
                 floorId: crypto.randomUUID(),
                 ifcGuid: crypto.randomUUID(),
-                polygon: roomPoly,
+                polygon: centrelinePoly,
+                boundarySource: 'room-centreline',
                 levelId: this.levelId,
                 systemTypeId: this._resolveFinishTypeId(finishStore, category),
                 hostRoomId: room.id,
@@ -274,47 +284,46 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     }
 
     /**
-     * §FLOOR-INNER-FACE (2026-06-10) · §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) —
-     * derive the room's INNER-FACE floor polygon. Resolves the room's candidate bounding
-     * walls from the store, then delegates the pure geometry to the SINGLE canonical
-     * `deriveRoomFinishBoundary` (shared with the interactive floor tool, so a room's
-     * finish has ONE boundary regardless of entry point — C11). Falls back to the
-     * centreline polygon on any failure so a floor is always made.
+     * §FLOOR-INNER-FACE (2026-06-10) · §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) ·
+     * §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — the room's INNER-FACE floor polygon.
+     *
+     * The store-walking that used to live here (bounding walls → level walls → derive →
+     * fail-safe) was duplicated VERBATIM in `FloorPlanToolHandler._innerFacePolygon`, and the
+     * 3D `FloorTool` had no copy at all — which is precisely why the 3D AUTO path shipped a
+     * centreline floor (L-240). It now delegates to the SINGLE canonical, store-injected
+     * `resolveRoomFinishBoundary` in `@pryzm/room-topology`.
+     *
+     * This result is used ONLY for the stairwell-void containment test; the AUTHORITY for the
+     * stored boundary is `CreateFloorCommand` (which re-derives it with the same pure resolver
+     * from the `'room-centreline'` payload), so no tool can omit the inset.
      */
     private _innerFacePolygon(
         context: CommandContext,
         room: PerRoomCtx,
         centreline: Array<{ x: number; z: number }>,
     ): Array<{ x: number; z: number }> {
-        try {
-            const wallStore = (context.stores as any).wallStore as {
-                getById?: (id: string) => WallLike | undefined;
-                getByLevel?: (levelId: string) => WallLike[];
-            } | undefined;
-            const roomStore = (context.stores as any).roomStore as {
-                getById?: (id: string) => { boundingWallIds?: string[] } | undefined;
-            } | undefined;
-            if (!wallStore) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no wallStore)`); return centreline; }
+        const wallStore = (context.stores as any).wallStore as {
+            getById?: (id: string) => WallLike | undefined;
+            getByLevel?: (levelId: string) => WallLike[];
+        } | undefined;
+        const roomStore = (context.stores as any).roomStore as {
+            getById?: (id: string) => { boundingWallIds?: string[] } | undefined;
+        } | undefined;
+        if (!wallStore) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no wallStore)`); return centreline; }
 
-            // Candidate bounding walls: the room's recorded boundingWallIds, else all
-            // walls on the level (the per-edge collinear test selects the right one).
-            const fullRoom = roomStore?.getById?.(room.id);
-            const ids = fullRoom?.boundingWallIds ?? [];
-            const walls: WallLike[] = [];
-            for (const id of ids) { const w = wallStore.getById?.(id); if (w) walls.push(w); }
-            if (walls.length === 0 && wallStore.getByLevel) {
-                walls.push(...wallStore.getByLevel(this.levelId));
-            }
-            if (walls.length === 0) { this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (no bounding walls)`); return centreline; }
-
-            // Canonical derivation — identical to the interactive floor tool.
-            return deriveRoomFinishBoundary(centreline, walls, (line) =>
-                this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} ${line}`),
-            );
-        } catch (err) {
-            this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} boundary=centreline ⚠ (error: ${String(err)})`);
-            return centreline;
-        }
+        return resolveRoomFinishBoundary(
+            centreline,
+            {
+                roomId: room.id,
+                levelId: this.levelId,
+                lookup: {
+                    getRoomById:     (id) => roomStore?.getById?.(id),
+                    getWallById:     (id) => wallStore.getById?.(id),
+                    getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
+                },
+            },
+            (line) => this._pushDiag(() => `[floor §DIAG] ${this._roomTag(room)} ${line}`),
+        );
     }
 
     private _roomTag(room: PerRoomCtx): string {

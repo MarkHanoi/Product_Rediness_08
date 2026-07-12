@@ -20,7 +20,7 @@ import { createId } from '@pryzm/schemas';
 // §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — the SAME canonical inner-face
 // derivation the batch generators use, so an AUTO-from-room finish sits inside the
 // walls (not on their centreline) regardless of entry point (C11: one pipeline).
-import { deriveRoomFinishBoundary, type RoomFinishWall } from '@pryzm/room-topology';
+import { resolveRoomFinishBoundary, type RoomFinishWall } from '@pryzm/room-topology';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { FloorPickerMode } from '@app/ui/FloorModePicker';
 
@@ -206,7 +206,16 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         const floorId = createId('floor');
         const ifcGuid = crypto.randomUUID();
         // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
-        window.runtime?.bus?.executeCommand('floor.create', { floorId, ifcGuid, polygon, levelId })
+        //
+        // §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — this path dispatches the BUS
+        // `floor.create` (→ CreateFloorHandler, an L7 plugin handler whose HandlerContext
+        // exposes ONLY the `floor` store — rooms and walls live in the legacy singletons, and
+        // `pryzm/store-single-channel` forbids a plugin handler touching a second store). So
+        // the bus handler CANNOT host the inner-face derivation; this tool derives it and
+        // sends the finished boundary. `hostRoomId` is now sent too — it was omitted, so plan
+        // AUTO floors were never linked to their room (empty `coveredRoomIds`, no room finish
+        // absorbed, and the schedule could not join floor→room).
+        window.runtime?.bus?.executeCommand('floor.create', { floorId, ifcGuid, polygon, levelId, hostRoomId: room.id })
             ?.catch((e: Error) => console.error('[FloorPlanToolHandler] floor.create failed:', e));
         console.log('[FloorPlanToolHandler] Floor created from room', { floorId, roomId: room.id });
         // Continuous-creation: ready for the next click immediately.
@@ -217,37 +226,34 @@ export class FloorPlanToolHandler implements PlanToolHandler {
     }
 
     /**
-     * §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) — resolve the clicked room's
-     * candidate bounding walls from `window.wallStore` (the room's recorded
-     * `boundingWallIds`, else all walls on the level) and delegate the geometry to the
-     * SINGLE canonical `deriveRoomFinishBoundary` shared with the batch generators.
-     * Mirrors `CreateFloorsByRoomTypeCommand._innerFacePolygon` — no compensating offset;
-     * the same pure function produces a byte-identical inner-face polygon. Falls back to
-     * the centreline polygon if the wall store is unavailable so a floor is always made.
+     * §FIX-FLOOR-FINISH-BOUNDARY-UI-VS-BATCH (L-213) · §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS
+     * (L-240) — the clicked room's INNER-FACE floor boundary.
+     *
+     * The store-walking this used to do by hand (boundingWallIds → level walls → derive →
+     * centreline fail-safe) was a verbatim copy of `CreateFloorsByRoomTypeCommand`'s. Both now
+     * delegate to the ONE canonical, store-injected `resolveRoomFinishBoundary`, so there is a
+     * single definition of "which walls bound this room's finish" in the codebase.
      */
     private _innerFacePolygon(
         room: any,
         levelId: string,
         centreline: Array<{ x: number; z: number }>,
     ): Array<{ x: number; z: number }> {
-        try {
-            const wallStore = window.wallStore as {
-                getById?: (id: string) => RoomFinishWall | undefined;
-                getByLevel?: (levelId: string) => RoomFinishWall[];
-            } | undefined; // TODO(TASK-08)
-            if (!wallStore) return centreline;
-            const ids: string[] = room.boundingWallIds ?? [];
-            const walls: RoomFinishWall[] = [];
-            for (const id of ids) { const w = wallStore.getById?.(id); if (w) walls.push(w); }
-            if (walls.length === 0 && wallStore.getByLevel) {
-                walls.push(...wallStore.getByLevel(levelId));
-            }
-            if (walls.length === 0) return centreline;
-            return deriveRoomFinishBoundary(centreline, walls);
-        } catch (e) {
-            console.warn('[FloorPlanToolHandler] inner-face derivation failed — using centreline', e);
-            return centreline;
-        }
+        const wallStore = window.wallStore as {
+            getById?: (id: string) => RoomFinishWall | undefined;
+            getByLevel?: (levelId: string) => RoomFinishWall[];
+        } | undefined; // TODO(TASK-08)
+        if (!wallStore) return centreline;
+        return resolveRoomFinishBoundary(centreline, {
+            roomId: room.id,
+            levelId,
+            lookup: {
+                // The plan tool already holds the full room record from the pick.
+                getRoomById:     () => ({ boundingWallIds: room.boundingWallIds ?? [] }),
+                getWallById:     (id) => wallStore.getById?.(id),
+                getWallsByLevel: (lid) => wallStore.getByLevel?.(lid) ?? [],
+            },
+        });
     }
 
     private _pointInPolygon(pt: { x: number; z: number }, polygon: Array<{ x: number; z: number }>): boolean {

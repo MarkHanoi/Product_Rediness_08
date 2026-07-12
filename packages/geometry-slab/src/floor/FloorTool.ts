@@ -506,7 +506,8 @@ export class FloorTool {
           // create payload; _createFloor resolves its layer snapshot from this id.
           this._pendingSystemTypeId = params.systemTypeId;
         }
-        this._createFloor(polygon);
+        // DRAW mode — the polygon is the user's stated geometry: stored verbatim (L-240 P3).
+        this._createFloor(polygon, 'explicit-polygon');
         // CONTINUOUS-CREATION: reset polygon state but keep listeners + HUD.
         // Only ESC / deactivate() fully tears down.  Mirrors SlabTool.
         this._resetForNext();
@@ -537,7 +538,25 @@ export class FloorTool {
     this._showHUD();   // refresh prompt text for "first vertex"
   }
 
-  private _createFloor(polygon: FloorVertex[]): void {
+  /**
+   * @param boundarySource §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — what `polygon`
+   * MEANS, declared to the `CreateFloorCommand` chokepoint:
+   *
+   *   • AUTO_FROM_ROOM passes the room's boundary ring, which runs along the wall
+   *     CENTRELINES → `'room-centreline'`. The command insets it to the bounding walls'
+   *     INNER FACES. Before L-240 this tool shipped that ring RAW, so the finish overshot
+   *     into every wall by half its thickness (the founder's bug). The geometry is NOT
+   *     derived here: `@pryzm/geometry-slab` deliberately does not depend on
+   *     `@pryzm/room-topology` (that edge would add a new arc to the core-app-model SCC),
+   *     and the derivation is a rule of the ELEMENT TYPE, not of this tool.
+   *   • DRAW passes the user's hand-drawn polygon → `'explicit-polygon'`, stored VERBATIM.
+   *     The centroid room-autodetect below is a HOSTING link, never a licence to re-derive
+   *     the user's stated geometry (C11 §Floor-finish boundary).
+   */
+  private _createFloor(
+    polygon: FloorVertex[],
+    boundarySource: 'room-centreline' | 'explicit-polygon',
+  ): void {
     const cm = this._deps.getCommandManager?.();
     if (!cm) {
       console.error('[FloorTool] CommandManager not available.');
@@ -580,6 +599,7 @@ export class FloorTool {
       layers: resolvedLayers,
       hostSlabId: this._pendingHostSlabId,
       hostRoomId: this._pendingHostRoomId,
+      boundarySource,   // §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240)
       createdBy: 'user',
     });
 
@@ -940,7 +960,12 @@ export class FloorTool {
             this._pendingBaseOffset = params.baseOffset;
             this._pendingSystemTypeId = params.systemTypeId; // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105)
           }
-          this._createFloor(polygon);
+          // §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — `polygon` is the ROOM BOUNDARY
+          // ring, which runs along the wall CENTRELINES. Declare that to the chokepoint;
+          // CreateFloorCommand insets it to the bounding walls' INNER FACES, exactly as the
+          // batch generators and the plan tool already did. Before this, the raw ring shipped
+          // and the finish overshot half a wall thickness into every bounding wall.
+          this._createFloor(polygon, 'room-centreline');
           this._pendingHostRoomId = undefined;
           // CONTINUOUS-CREATION: re-attach the room-pick listener so the user
           // can keep clicking rooms.  Only ESC fully tears down.

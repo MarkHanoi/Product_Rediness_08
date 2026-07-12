@@ -915,6 +915,110 @@ export function deriveRoomFinishBoundary(
   return insetSane ? inner : centreline;
 }
 
+// ─── §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) ───────────────────────────
+//
+// L-213 converged TWO of the THREE floor-finish creation paths on
+// `deriveRoomFinishBoundary` and called it a fix. The third (the 3D `FloorTool`
+// AUTO_FROM_ROOM branch) shipped the RAW centreline ring, so its finish overshot
+// into every bounding wall by half its thickness — the founder's L-240 bug.
+//
+// Converging N call sites by hand is a coincidence, not an architecture. The two
+// helpers below make the derivation a property of the ELEMENT TYPE rather than of
+// each tool:
+//
+//   • `resolveRoomFinishBoundary` — the ONE store-aware resolver (room → its
+//     bounding walls → the pure `deriveRoomFinishBoundary`). Previously duplicated
+//     verbatim in `CreateFloorsByRoomTypeCommand._innerFacePolygon` and
+//     `FloorPlanToolHandler._innerFacePolygon`; both now delegate here.
+//   • `ringsCoincide` — lets the `floor.create` chokepoint RECOGNISE a payload whose
+//     polygon *is* the host room's centreline ring, i.e. a room-derived boundary that
+//     forgot to say so. That is exactly the shape of the L-240 defect, and it is what
+//     lets the command inset it by construction instead of trusting each tool to.
+//
+// Store-injected (no store import → this package stays a leaf w.r.t. the element
+// stores, and the helper stays unit-testable with plain object literals).
+
+/** Minimal store surface the finish resolver needs. Injected by the caller so this
+ *  module keeps zero store / THREE / DOM dependencies. */
+export interface RoomFinishStoreLookup {
+  /** Host-room lookup — only `boundingWallIds` is read. */
+  readonly getRoomById?: (id: string) => { boundingWallIds?: string[] } | undefined | null;
+  /** Wall lookup by id (the room's recorded bounding walls). */
+  readonly getWallById?: (id: string) => RoomFinishWall | undefined | null;
+  /** Fallback when the room records no bounding walls: every wall on the level.
+   *  The per-edge collinear test in `deriveRoomFinishBoundary` then selects. */
+  readonly getWallsByLevel?: (levelId: string) => ReadonlyArray<RoomFinishWall>;
+}
+
+/**
+ * §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — THE single store-aware derivation of
+ * a room's floor-finish boundary: resolve the room's candidate bounding walls, then
+ * delegate the geometry to the pure `deriveRoomFinishBoundary`.
+ *
+ * Fail-safe on EVERY branch: an unavailable store, an unknown room, or no bounding walls
+ * returns the centreline unchanged, so a floor is ALWAYS produced (never a half-derived
+ * or compensated polygon).
+ *
+ * IDEMPOTENT BY CONSTRUCTION: it insets the CENTRELINE it is given. Callers must never
+ * feed it an already-inset ring (the `floor.create` chokepoint guarantees this with
+ * `ringsCoincide` + an explicit `boundarySource`), so a second inset is impossible.
+ */
+export function resolveRoomFinishBoundary(
+  centreline: RoomVertex[],
+  args: {
+    readonly roomId?: string;
+    readonly levelId?: string;
+    readonly lookup: RoomFinishStoreLookup;
+  },
+  onDiag?: (line: string) => void,
+): RoomVertex[] {
+  try {
+    const { roomId, levelId, lookup } = args;
+    const walls: RoomFinishWall[] = [];
+
+    // Candidate bounding walls: the room's recorded `boundingWallIds` first…
+    const ids = (roomId ? lookup.getRoomById?.(roomId)?.boundingWallIds : undefined) ?? [];
+    for (const id of ids) {
+      const w = lookup.getWallById?.(id);
+      if (w) walls.push(w);
+    }
+    // …else every wall on the level (the per-edge collinear test picks the right one).
+    if (walls.length === 0 && levelId && lookup.getWallsByLevel) {
+      walls.push(...lookup.getWallsByLevel(levelId));
+    }
+    if (walls.length === 0) {
+      onDiag?.('boundary=centreline ⚠ (no bounding walls)');
+      return centreline;
+    }
+    return deriveRoomFinishBoundary(centreline, walls, onDiag);
+  } catch (err) {
+    onDiag?.(`boundary=centreline ⚠ (resolver error: ${String(err)})`);
+    return centreline;
+  }
+}
+
+/**
+ * §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — do two rings describe the SAME polygon,
+ * vertex-for-vertex (same length, index-aligned, within `eps`)?
+ *
+ * Used by the `floor.create` chokepoint to detect a payload whose polygon IS the host
+ * room's centreline ring — a room-derived boundary that did not declare itself. Every
+ * correctly-derived finish is strictly INSIDE the centreline, so a true inner-face polygon
+ * can never be mistaken for one (and therefore can never be inset twice).
+ */
+export function ringsCoincide(
+  a: ReadonlyArray<{ x: number; z: number }> | undefined | null,
+  b: ReadonlyArray<{ x: number; z: number }> | undefined | null,
+  eps = 1e-6,
+): boolean {
+  if (!a || !b || a.length !== b.length || a.length < 3) return false;
+  for (let i = 0; i < a.length; i++) {
+    const p = a[i]!, q = b[i]!;
+    if (Math.abs(p.x - q.x) > eps || Math.abs(p.z - q.z) > eps) return false;
+  }
+  return true;
+}
+
 /** Linear interpolation between two X-Z points at parameter `t`. */
 function _lerpFinish(a: RoomVertex, b: RoomVertex, t: number): RoomVertex {
   return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
