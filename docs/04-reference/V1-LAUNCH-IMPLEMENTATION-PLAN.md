@@ -871,6 +871,76 @@ already captured and then dropped on the floor.
 
 **Non-goal:** do not change the batch behaviour — it is the correct one, and the founder has confirmed so from the product side.
 
+## L-241 — §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL
+
+**Founder (feature request + quality defect, 3 reference images):** *“Look at the quality of the door in plan view — I want a
+SOUND door, still absolutely accurate with regards to its element dims… I have attached an LOD 200-300 image and… an LOD 100.
+**I want all doors to have the two options** — in the properties panel the user can choose — **also through the visibility
+intent**… the projection in plan view is TRUE… but **the symbol needs to be better done — more sound.**”*
+
+He is diagnosing this correctly: **the geometry is right, the draughting is wrong.** This is a presentation-quality item — the
+opposite of most of this log — and it must land **without touching dimensional accuracy**.
+
+### Finding 1 — `detailLevel` already exists end-to-end, and nothing consumes it. It is a dead knob.
+
+The user can already choose Coarse / Medium / Fine today **and nothing on screen changes:**
+
+| Layer | Where | State |
+|---|---|---|
+| Schema | `packages/schemas/src/view/view-template.ts:224` | ✅ `z.enum(['Coarse','Medium','Fine']).default('Medium')` |
+| View store | `core-app-model/src/views/ViewDefinitionTypes.ts:245` | ✅ `detailLevel?: 'coarse'\|'medium'\|'fine'` |
+| Command | `command-registry/src/views/SetViewOutputCommand.ts:57` | ✅ validates it |
+| Defaults | `DefaultViewsManager.ts:279/302/329` | ✅ every default view ships `detailLevel: 'medium'` |
+| **UI** | `apps/editor/src/ui/ViewPropertiesPanelBuilders.ts:258-265` | ✅ **a live dropdown the user can already operate** |
+| View template | `ViewTemplateManagerPanel.ts:26`, `SyncStateEngine.ts:315` | ✅ lockable + syncable |
+| **Consumer (geometry)** | — | ❌ **NOTHING READS IT** |
+
+**~70% of the founder's feature is already in the tree. What is missing is precisely the consumer.** Same dead-wiring class as
+**L-224** (listener on the wrong bus) and **L-219** (inert renderer toggle): a control the user can operate that is connected to
+nothing.
+
+### Finding 2 — the enum is FORKED (a real latent bug, and a blocker)
+
+`schemas` says **`'Coarse' | 'Medium' | 'Fine'`**. `core-app-model` and `SetViewOutputCommand` say **`'coarse' | 'medium' |
+'fine'`**. Two spellings of one domain enum across a layer boundary — a **P5 / C03 violation** (schemas are the single source of
+type truth). **Unify this BEFORE writing the consumer, or the consumer will silently never match.**
+
+### Finding 3 — the current symbol is structurally sound; the draughting is thin
+
+`packages/geometry-door/src/DoorPlanSymbolBuilder.ts` (437 lines) already has a lineweight hierarchy (`:95-96` — `A-DOOR-CUT` =
+leaf rectangle, **heavy**, cut by the section plane; `A-DOOR-PROJ` = swing arc + open line, **light**), a 32-segment arc (`:37`),
+correct double-leaf handling (`:123-125`), and the **L-127** rule that resolves frame/leaf thickness from the *selected door type*
+so the symbol matches the placed 3D door exactly (`:232-238`). **Dimensional truth is already guaranteed and must be preserved.**
+
+The gap between the founder's image 1 (PRYZM today) and image 2 (target) is draughting: **no wall poché**, the **lineweight
+hierarchy is too weak to see on screen**, no **frame reveal / jamb rebate** at Fine, no **lever hardware** at Fine, and the
+closed-leaf + open-leaf + arc lines together read as a confusing extra chord.
+
+### The architecture is already decided by the codebase — honour it
+
+Detail Level is a **VIEW property** (Revit's Coarse/Medium/Fine). It already lives on `ViewDefinition.output.detailLevel`, and
+per **P7** it is *visibility **intent**, not UI state*. **Do NOT invent a per-door `lod` field as the primary mechanism** — that
+is a second authority, and a second authority over the same pixels is exactly the collision L-223 is stuck on.
+
+> **Resolution order: per-element OVERRIDE (existing C09 graphic-override / visibility-intent mechanism) → the VIEW's
+> `detailLevel` → the view-template default.**
+
+The founder asked for **both** knobs — the properties panel *and* the visibility intent. This gives him both, with **one
+authority and a defined precedence**, which is the only version of “both” that is architecturally sound.
+
+| Phase | Scope |
+|---|---|
+| **P1** | **Unify the forked enum** (Finding 2) in `packages/schemas`; make `core-app-model` + `SetViewOutputCommand` import it. Prerequisite, not a nice-to-have. |
+| **P2** | **Build the shared resolver — once.** `resolveEffectiveDetailLevel(elementId, viewId)` as drawing infrastructure implementing the precedence above. **Do not special-case the door.** Windows, stairs, plumbing (L-221) and furniture all have plan symbols; if this is written inside `DoorPlanSymbolBuilder` it becomes the next per-element-type if-ladder (cf. L-215 / L-229 / L-233). |
+| **P3** | **Make the existing dropdown live.** The view Detail Level select (`ViewPropertiesPanelBuilders.ts:258`) starts working the moment a consumer exists. **Verify that end-to-end BEFORE building any new per-element UI** — the founder may already have most of what he asked for. |
+| **P4** | **The door as first consumer.** `COARSE` (LOD 100, his image 3) = heavy jamb ticks + single thin leaf line + thin arc. `FINE` (LOD 200-300, his image 2) = frame with reveal, leaf as a true double-line rectangle at its real `leafThickness`, swing arc, threshold, lever hardware. **`MEDIUM` stays exactly as today** so nothing regresses by default. |
+| **P5** | **Lineweight hierarchy + poché — the single biggest quality win, and it is already half-built.** `A-DOOR-CUT` vs `A-DOOR-PROJ` exist (`:95-96`) but render at near-identical weight. Find out why, make CUT genuinely heavy and PROJ genuinely light, and add wall poché for the cut. This alone moves image 1 most of the way to image 2. |
+| **P6** | **Per-element override** through the existing C09 mechanism — *only after* P2/P3 prove the view-level path works. |
+| **P7** | Tests: Fine and Coarse symbols of the SAME door yield different line counts but **identical leaf width, frame thickness and hinge position** (L-127 invariant holds at every LOD); changing a view's `detailLevel` re-projects; a per-element override beats the view value. |
+
+**Non-negotiable:** dimensional truth. Every symbol dimension resolves from the door **type** (`DoorDimensions`) — never a
+hard-coded literal. The founder was explicit: *“still absolutely accurate with regards to its element dims.”*
+
 ## L-211 — §FIX-LAYERED-WALL-PLAN-LINES
 
 The plan symbol path is **healthy**: `[WallLayerPlanSymbolBuilder] injected layer lines for 2 layered
