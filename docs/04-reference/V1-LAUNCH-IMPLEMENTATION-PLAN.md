@@ -871,6 +871,74 @@ already captured and then dropped on the floor.
 
 **Non-goal:** do not change the batch behaviour — it is the correct one, and the founder has confirmed so from the product side.
 
+## L-242 — §FIX-WALL-JOINTS-ADR0055-P4
+
+**Founder:** *“Can you review the wall joints — they should be sound, but sometimes there are errors, especially around T and L
+joints. Do this really carefully.”* (Two plan screenshots: an L-corner with a notch/sliver where the two faces fail to meet; a run
+of T-joints between **layered** walls that **contain doors**, with a spurious diagonal at the right-hand junction.)
+
+### The fix already exists — it was only ever shipped for half the walls
+
+**ADR-0055** built `JunctionResolverV2` + `WallFootprint2D` + `WallPolygonExtruder`, which produce **edge-coincident corners at
+L/T/X junctions BY CONSTRUCTION** — no wedge, no overlap, no infill prism. It is **default-ON**
+(`WallPipelineV2.ts:44`, escape hatch `window.__pryzmWallPipelineV2 = false`).
+
+But ADR-0055 P3b wired it into **one** call site, described in the ADR itself as *“(non-layered, no-openings — the simplest call
+site)”*. And **P4 — “extend V2 to the layered + opening call sites; delete `WallJunctionInfill*`” — is ⏳ Backlogged.**
+
+> **ADR-0055:118, verbatim:** *“The current ship state (P1+P2+P3a+P3b, default-ON) already closes the wedge for the **dominant**
+> production case (plain partition walls)… **Layered + opening junctions retain `WallJunctionInfill` as the interim mitigation
+> until P4a/P4b ship.**”*
+
+| Wall class | Join engine today | Founder's screenshots |
+|---|---|---|
+| Plain, no openings | **V2** — correct by construction | clean |
+| **Layered** | **LEGACY** `MiterPrismBuilder` + `WallJunctionInfill` | ❌ **his image 2** |
+| **With openings (doors)** | **LEGACY** | ❌ **his image 2** |
+| Layered **and** with openings | **LEGACY** | ❌ |
+
+**Two join engines are live in the same scene, and which one a wall gets depends on whether it has layers or a door in it.** That
+is precisely why the report is *“sometimes there are errors”*: a plain wall joins cleanly and the layered/doored wall beside it
+does not.
+
+### The legacy path's failure mode is already on record — and it is exactly what he is seeing
+
+ADR-0055's own rationale for making V2 default-ON (`WallPipelineV2.ts:33-42`) records that routing every wall through the legacy
+`MiterPrismBuilder` *“made the 3-WALL (T/X) JOINS WORSE: legacy **over-extends at complex junctions into degenerate dark
+slivers**”* — founder, 2026-06-19: *“black shapes appearing in joins, often 3 wall joins, got worse.”* The legacy path is a
+**prism-overlap + `polygonOffset` infill hack** that *patches* junctions instead of solving them. The residual notches and slivers
+**are** its documented failure mode.
+
+### Four join subsystems coexist in `packages/geometry-wall`
+
+1. `JunctionResolverV2` + `WallFootprint2D` + `WallPolygonExtruder` + `WallPipelineV2` — the V2 solve (correct model)
+2. `WallJoinResolver` — baseline trimming, carrying accreted patches (§MULTI-CLUSTER, §WJR-INVALID, §WJR-DIFF-THICKNESS, §PARTITION-SHELL-INNER-FACE)
+3. `WallJunctionInfill` + `WallJunctionInfillManager` + `MiterPrismBuilder` — **the legacy patch ADR-0055 P4c exists to DELETE**
+4. `WallJunctionClustering`
+
+### This ticket is the hub of an open cluster, not an isolated bug
+
+- **L-238** — the *“corrupted triangular shape created in wall joints of 3 walls in L or T shape”* leaking into a new project is
+  almost certainly the **same artifact** (the `§V2-SPIKE-GUARD` / `§WJR-INVALID` degenerate-mesh family, `WallFragmentBuilder.ts:880-900`, `:2963`).
+- **L-239** — layered walls: the same population of walls.
+- **L-234** — the wall-move freeze lives in `WallJoinResolver.resolveLevel`.
+
+| Phase | Scope |
+|---|---|
+| **P0** | **Do not invent a new approach and do not add a fifth patch to the infill.** The architecture already decided V2 is the correct model and the infill must be retired. This ticket is the business case for **finishing ADR-0055**. |
+| **P4a** | **Layered walls.** ADR-0055:110 names the hard part: `WallMiter` stores absolute world-XZ corners computed against the wall's *half-thickness*, so a layered wall cannot reuse one wall-level miter (each layer has a different lateral offset + thickness). The ADR offers **(a)** run `resolveJunctions` once per layer offset, or **(b)** derive per-layer corners by **inset from a single wall-level envelope**. **(b) is the sound one** — one junction solve stays the single source of truth and layers derive from it; (a) creates N independent solves that can disagree at one corner. **Write an ADR-0055 addendum — decide this in the ADR, not in code.** |
+| **P4b** | **Walls with openings.** ADR-0055:111: the end segments abutting a junction need a polygon footprint that *also* respects the opening's left/right edges (polygon-vs-rectangle carve). **Interacts with L-234** (which governs how *often* these bodies rebuild) — coordinate, do not collide. |
+| **P4c** | **Retire the infill.** Delete `WallJunctionInfill*` + the `polygonOffset` patch, gated on P4a+P4b verification. **`polygonOffset` is a rendering band-aid over a geometry defect and must not survive V1.** |
+| **P5** | **Golden junction matrix — the deliverable that makes “sometimes there are errors” measurable.** {L, T, X} × {plain, layered, opening-bearing, layered+opening} × {same thickness, different thickness}, asserting **no sliver, no notch, no negative-area polygon, edge-coincident faces**. |
+| **P6** | Fold **L-238** in: fix the **producer** of the degenerate junction mesh, not just the cleanup. |
+
+**Hard non-goal:** do **not** touch `§CLAMP-COSHARE-WELD`. That corner fix was **reverted** because moving shared baseline endpoints
+surfaced **doubled walls**. Any new corner work must not move endpoints.
+
+**Sequencing:** the fix is **blocked on the `packages/geometry-wall` file fence** — the L-239 (wall layers) and L-234
+(incremental rebuild) agents currently own these files, and L-236 rule (c) forbids two agents on one file. Investigation runs
+read-only now; the fix dispatches when the fence clears.
+
 ## L-241 — §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL
 
 **Founder (feature request + quality defect, 3 reference images):** *“Look at the quality of the door in plan view — I want a
