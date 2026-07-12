@@ -2382,3 +2382,42 @@ The same **C11** violation as L-213 (floor finishes), L-214 (wardrobe), L-220 (p
 
 **Contract mapping:** **C11** (one element ⇒ one creation pipeline), C03 (store schema), **P1**
 (composition root), L-41 + L-211 lineage.
+
+---
+
+## L-239 — FOUNDER DECISION (2026-07-12, BINDING): the INSTANCE is canonical
+
+> *"The layers NEED to be STORED IN THE STORE — and have an architecturally sound engine strategy for
+> ANY type of creation."*
+
+So **option (b)**: `layers` is **persisted on the wall record**, and the strategy must hold for **every**
+creation path — plan tool, 3D tool, batch generators, AI, import, paste — **by construction, not by
+each tool remembering.**
+
+### The seam that makes it by-construction
+
+**Resolve `systemTypeId` → `layers` ONCE, inside the `wall.create` COMMAND HANDLER** — the chokepoint
+every creation path already dispatches through — **not in the individual tools.**
+
+That is precisely *why this bug exists*: each tool builds its own payload, so one of them forgot. Move
+the resolution **below** the tools and no future tool can forget. The 3D builder then **reads the
+stored `layers`** instead of re-deriving from `systemTypeId`, which collapses the two-source split at
+its root.
+
+### Revised phases
+
+| Phase | Work |
+|---|---|
+| **P1** | **Schema (C03):** `layers` becomes a first-class, persisted field on the wall record. Define it properly in the Zod schema — it is domain data, not a render detail. |
+| **P2** | **Resolve at the chokepoint.** The `wall.create` handler resolves `layers` (and thickness) from `systemTypeId` via the systemType store and persists them. **Every** path — plan, 3D, batch, AI, import, paste — inherits this for free. Tools stop resolving anything themselves. |
+| **P3** | **3D builder reads the instance.** Stop re-deriving from `systemTypeId` at render. One source of truth, read by every consumer (3D builder, `WallLayerPlanSymbolBuilder`, IFC export, schedules). |
+| **P4** | **Migration/backfill.** Existing walls have no `layers`. On load, backfill from `systemTypeId` via the catalogue — a one-way migration so old projects render correctly. Must be idempotent and must not corrupt walls whose type no longer exists (fall back safely + log). |
+| **P5** | **Fix the "first-registration-wins" facade** (`WallPlanToolHandler.ts:410-430` names it): `systemTypeId` resolution must not depend on which `wall.create` handler registered first. That is a **P1 composition-root** violation and it is what makes the thickness override fire only sometimes. |
+| **P6** | **Tests:** a layered wall created in PLAN and the same type created in 3D produce **identical stored records** (including `layers`) and identical rendering in **both** views. Same equality-test pattern as L-213. Plus: a batch/AI-generated wall also carries `layers`; a backfilled legacy wall renders layers in plan. |
+| **P7** | **Closes L-211** (same root). |
+
+**Why this ordering:** P2 before P3 — persist first, then switch the reader — so there is never a
+window where the 3D builder reads a field that isn't populated yet.
+
+**Contract mapping:** **C11** (one element ⇒ one creation pipeline), **C03** (schema — `layers` is
+domain state), **P1** (composition root — the registration facade), L-41 + L-211 lineage.
