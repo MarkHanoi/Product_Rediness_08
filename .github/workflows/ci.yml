@@ -13,6 +13,10 @@
 #   - build
 #   - apex-gates
 #   - docker-image   (Fly parity — build + boot smoke; ~15-20 min)
+# NOT yet required (advisory by design, see the job header):
+#   - test-unit      (L-247 G0 — becomes REQUIRED at phase 0.5d, once the 22 known
+#                     failures are triaged product-first. Adding it to the required
+#                     list before then would block every merge.)
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: CI
@@ -104,6 +108,45 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:server
+
+  # §GATE-TEST-ESTATE-NOT-A-CI-GATE (L-247) — Gate G0, phase 0.5b.
+  #
+  # THE UNIT TESTS HAVE NEVER RUN IN CI. Until this job existed, the ONLY test job
+  # here was `test-server` (plus the a11y Playwright run): `pnpm run test:ci` was
+  # never invoked, and it would not have helped if it were — the root aggregator is
+  # `pnpm -r --if-present run test:ci`, and `--if-present` SILENTLY SKIPS any
+  # workspace with no `test:ci` script. Only 12 of ~134 workspaces define one.
+  # `@pryzm/editor` did not — so its 1,495 tests had ZERO enforcement, and 34 of them
+  # were red on `main` with nobody reporting it. That is how L-248 (a real latent
+  # defect whose own regression guard had been failing for months) survived in `main`.
+  #
+  # This is therefore step ONE of a deliberate three-step sequence, and the order is
+  # load-bearing:
+  #   0.5b  land the gate RED and ADVISORY (this job)  <-- we are here
+  #   0.5c  triage the red PRODUCT-FIRST (audit L-247 groups A–E). Deleting or
+  #         `.skip`-ing a test to green the board is FORBIDDEN — park it in
+  #         `test:quarantined` with an L-id and a reason.
+  #   0.5d  flip `continue-on-error` to false. Only then is this a real gate.
+  #
+  # Scoped to @pryzm/editor first (the known 22-failure surface). Broaden to the full
+  # `pnpm run test:ci` aggregator — and add `test:ci` to the other 121 workspaces —
+  # once this one is green (0.5e).
+  test-unit:
+    name: Unit tests — editor (advisory, L-247 G0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true   # advisory until L-247 phase 0.5c lands (the 22 known failures)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pryzm/editor run test:ci
 
   ga-gate:
     name: GA-gate (P1..P8 + perf budgets)
