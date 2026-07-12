@@ -2325,3 +2325,60 @@ un-owned children.
 
 **Contract mapping:** **C13 §3.10** (the owner-enumeration invariant — this is exactly the case it was
 written for), C11, ADR-0120, the `WallJoinResolver` degenerate-wall class.
+
+---
+
+## L-239 — §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION  (HIGH — recurrent, raised many times)
+
+Founder: *"The user chooses a layered interior wall and creates it on plan view. The wall is created,
+the correct thickness is applied — however **the layers are not present**. Whereas if the user creates
+the wall in 3D, same interior wall, the wall **is** created with the correct layers. Why?"*
+
+### The code answers it verbatim
+
+`WallPlanToolHandler.ts:422-423`, in the header of the earlier L-41 fix:
+
+> *"3D looked right because **the 3D builder re-resolves layers/thickness from `systemTypeId` at
+> render**; PLAN view reads the **stored** thickness."*
+
+**The layer stack is never persisted on the wall instance.** The 3D builder *derives* it from the wall
+type on every render — so 3D can never be wrong. Plan reads what is actually on the wall record, and
+there is no `layers` array there.
+
+The prior fix (§FIX-PLAN-WALL-TYPE-IGNORED, L-41, `:410-430`) hit this exact wall for **thickness**,
+and worked around it by resolving thickness locally (`_getSelectedWallThickness()`) and storing it
+explicitly — **but nobody did the same for `layers`.** Hence the founder's precise symptom: **thickness
+right, layers absent.** The thickness was patched onto the instance; the layers never were.
+
+### This also explains L-211 — same root
+
+`WallLayerPlanSymbolBuilder.ts:68` gates on `if (!wall.layers || wall.layers.length < 2 || wall.curve)
+continue;` — it reads `layers` **from the instance**, which is empty. L-211 (layers render in 3D, not
+in plan) and L-239 (plan-created wall has no layers) are the **same defect** seen from the symbol side
+and the creation side.
+
+### Contributing hazard, named in the same comment
+
+The `systemTypeId` → thickness override (§WALL-TYPE-THICKNESS in `CreateWall.ts`) fires **only** when a
+populated `WallSystemTypeStore` is wired into the *active* `wall.create` handler — and a
+**"first-registration-wins" facade** means the picked `systemTypeId` reaches the store but its
+thickness never resolves. Whichever handler wins registration decides whether type resolution works at
+all. That is a **P1 composition-root smell**.
+
+### Architectural class
+
+The same **C11** violation as L-213 (floor finishes), L-214 (wardrobe), L-220 (plumbing/floor drag):
+**one element type, two creation paths, a field silently dropped by one of them.**
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **P1** | **THE DECISION FIRST — do not code before answering it.** What is the SINGLE SOURCE OF TRUTH for a wall's layer stack: the systemType **catalogue**, or the wall **instance**? Both are defensible. What is **not** defensible is today's split — 3D derives from the catalogue, plan reads the instance. **(a) Catalogue canonical** (what the 3D builder already trusts) ⇒ `WallLayerPlanSymbolBuilder` and every plan/doc consumer must resolve through the systemType store, and `layers` must NOT be duplicated onto the instance. **(b) Instance canonical** ⇒ `wall.create` must persist resolved `layers` at creation **from both paths**, and the 3D builder must read the instance instead of re-deriving. Pick one, write it into C11/C03, make every consumer obey. |
+| **P2** | **Converge the two `wall.create` payloads.** `WallPlanToolHandler` (`resolveActiveWallSystemTypeId()` + locally-resolved thickness) vs `WallTool` (`this.selectedSystemTypeId`, thickness overridden by the command) → **ONE payload builder**, the way L-214's `buildFurnitureCreatePayload()` did, so a dropped field is a **compile error**, not a silent visual difference. |
+| **P3** | **Fix the first-registration-wins facade** so `systemTypeId` resolution does not depend on which handler registered first (**P1**). |
+| **P4** | **Tests:** a layered wall created in PLAN and the same type created in 3D produce **identical stored records** AND identical layer rendering **in both views**. (This is the L-213 equality-test pattern — the guard that keeps it fixed.) |
+| **P5** | **Closes L-211** as the same root. |
+
+**Contract mapping:** **C11** (one element ⇒ one creation pipeline), C03 (store schema), **P1**
+(composition root), L-41 + L-211 lineage.
