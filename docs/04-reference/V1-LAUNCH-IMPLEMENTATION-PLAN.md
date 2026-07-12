@@ -2195,3 +2195,70 @@ Related: **ADR-057** (realtime-edit perf — a door move triggering a whole-leve
 **ADR-057** (realtime-edit perf), P6. Fence: `packages/command-registry/src/walls/**`,
 `packages/geometry-wall/**`, the wall/opening re-host + join path — disjoint from the live agents
 (L-231 renderer, L-232 façade, L-233 level-explode).
+
+---
+
+## L-237 — §FIX-GREY-CATCHER-FIRST-CASTER-UNBOUND-SHADOWMAP  (HIGH — the L-205 grey, solved)
+
+Founder, with the decisive new evidence: *"When the project starts the canvas is white, the 3D
+renders perfect. **After the first wall is created** the wrong rectangular grey shape renders. Then I
+switch to WebGL — render perfect. Then back to WebGPU — **also perfect**, all walls with the shade
+projection on the invisible ground layer. But during the first element creation and until I switch,
+the grey rectangle is present."*
+
+### This closes the mechanism. Three facts do it:
+
+1. **It appears exactly at the FIRST CASTER** — not before, not later.
+2. **A renderer swap in EITHER direction cures it permanently.** So it is not "WebGL is better"; it is
+   a **transient invalid state** that a full pipeline rebuild clears.
+3. `RealEnvironmentService` keeps the catcher **attached but INVISIBLE until the first caster**
+   (`_applyCatcher` → `setEnabled(this._hasCasters)`, `:184-189`). The reveal *is* the trigger.
+
+### The code already confesses the bug
+
+`RealEnvironmentService.ts:141-143`, verbatim:
+
+> *"(The cosmetic empty-project grey — **ShadowMaterial not fully transparent where unlit on WebGPU** —
+> is a SEPARATE follow-up that must NOT touch this receive path.)"*
+
+The caster-visibility gate is a **workaround** that hid this on an empty scene. It resurfaces the
+instant the catcher is shown.
+
+### The mechanism (C04 §SHADOW.0)
+
+The catcher paints `alpha = opacity × (1 − shadowMask)`. Lit ⇒ `shadowMask = 1` ⇒ alpha 0 ⇒ invisible.
+**If the shadow map is not validly bound / not yet rendered when the catcher first composites, every
+fragment reads `shadowMask = 0` ⇒ `alpha = opacity` ⇒ a solid grey plane bounded by the shadow
+camera** — the founder's rectangle, exactly.
+
+A renderer swap rebuilds the pipeline and recompiles the ShadowNode material against a freshly-bound
+map — hence the permanent cure, in either direction.
+
+### Direct link to L-231 (just landed, `068ff74d`)
+
+The first caster fires `scheduleShadowRebuild()`. L-231 **measured** that its normal branch cleared
+`_hasPipelineError = false` **synchronously before awaiting the async rebuild**, so the render gate
+stayed **open for the whole rebuild** and frames kept submitting against a pipeline being torn down
+and a shadow map being reallocated — **precisely the window in which the catcher reads
+`shadowMask = 0`.** L-231 also found the entire shadow-freeze family was writing
+`renderer.shadowMap.autoUpdate`, **inert on the WebGPU node path** (C04 §SHADOW rule 10), so the map
+regenerated uncontrolled while nominally frozen.
+
+**L-231's fix pauses WebGPU submits for the rebuild AND writes the real per-light flags — it may
+already fix this grey.**
+
+### Phases
+
+| Phase | Work |
+|---|---|
+| **STEP 0** | **Founder, 1 minute: re-test on the deploy containing L-231 (`068ff74d`).** If the grey is gone, this is closed by L-231 and only the regression test remains. |
+| **P1** | If it persists: the fix is an **ordering guarantee** — the catcher must not become visible until the shadow depth map has actually been rendered at least once **with the new caster**. Gate `setEnabled(true)` on *"shadow map valid"*, not merely on *"a caster exists"*. |
+| **P2** | Investigate the recorded WebGPU `ShadowMaterial` transparency defect on its own terms: is `ShadowNodeMaterial` / `ShadowMaskModel` compositing correctly when the depth map is **empty**? Per C04 §SHADOW.11 the frustum test returns LIT *outside* the frustum — so an **empty/unrendered map INSIDE the frustum** is the suspect state. |
+| **P3** | The caster-visibility gate is a workaround masking a real bug. Once compositing is correct, decide whether it is still needed. |
+| **P4** | Tests: creating the FIRST caster in a fresh project does not produce a fully-opaque catcher; the catcher's alpha is 0 wherever lit, on the WebGPU path, **without a renderer swap**. |
+
+**HARD NON-GOAL:** do **not** re-litigate the nine refuted L-205 hypotheses (C04 §SHADOW.3). The
+caster denylist and the shadow-camera size are **not** the cause — resizing the camera only ever
+changed the grey's *size*.
+
+**Contract mapping:** C04 §SHADOW.0 + rules 7/10/11, ADR-0111, ADR-0120, L-205 lineage.
