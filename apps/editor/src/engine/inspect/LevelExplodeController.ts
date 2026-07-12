@@ -116,7 +116,8 @@ export class LevelExplodeController {
   private _levelGroups:  LevelGroup[] = [];
   // D.7.6: rAF handle replaced by FrameScheduler disposer.
   private _raf:          TickListenerDisposer | null = null;
-  private _lastTime:     number = 0;
+  /** Baseline for dt. `null` = no tick yet; the next tick adopts its own `now`. */
+  private _lastTime:     number | null = null;
   private _active:       boolean = false;
 
   private _unsubExplode: (() => void) | null = null;
@@ -429,7 +430,16 @@ export class LevelExplodeController {
 
   private _startRaf(): void {
     this._cancelRaf();
-    this._lastTime = performance.now();
+    // §FIX-LEVEL-EXPLODE-OFFSET-COMPOUNDING (L-248) — ONE CLOCK, AND IT IS THE
+    // INJECTED ONE. This used to seed `performance.now()` — the AMBIENT global —
+    // while `_tick` is handed its `now` by the FrameScheduler. Nothing guarantees
+    // those two clocks share a time origin, so the FIRST dt was whatever the gap
+    // between them happened to be. A NEGATIVE dt inverts the approach factor
+    // (`k = 1 - 0.01^(dt*LERP)` goes large-negative), the lerp runs BACKWARDS, and
+    // the lift diverges exponentially — the model is flung to ~1e+119 in a few
+    // frames. `null` means "no baseline yet"; the first tick establishes it from
+    // the same clock every later tick uses, so dt starts at exactly 0.
+    this._lastTime = null;
     // D.7.6: continuous tick driven by FrameScheduler. The scheduler passes
     // (now, deltaMs); we forward `now` to the existing `_tick` signature so
     // its dt computation against `_lastTime` stays bit-exact with the prior
@@ -451,7 +461,19 @@ export class LevelExplodeController {
   }
 
   private _tick(now: DOMHighResTimeStamp): void {
-    const dt   = Math.min((now - this._lastTime) / 1000, 0.05);
+    // §FIX-LEVEL-EXPLODE-OFFSET-COMPOUNDING (L-248). First tick after a start:
+    // adopt `now` as the baseline (dt = 0) rather than differencing it against a
+    // foreign clock. Thereafter dt is clamped to [0, 0.05]: the upper bound keeps
+    // a long stall from teleporting the stack, and the LOWER bound is the load-
+    // bearing one — time must never run backwards. A negative dt makes
+    // `k = 1 - 0.01^(dt*LERP)` large-NEGATIVE, which turns the exponential
+    // approach into exponential DIVERGENCE (`position.y += diff * k` overshoots
+    // further every frame). That is not drift; it reaches ~1e+119 in a handful of
+    // frames and rips every root out of the exploded stack. Clamping here makes
+    // the lerp correct for ANY timestamp source, monotonic or not.
+    const dt   = this._lastTime === null
+      ? 0
+      : Math.max(0, Math.min((now - this._lastTime) / 1000, 0.05));
     this._lastTime = now;
 
     // Exponential approach lerp factor: fraction of remaining distance to close per frame.
