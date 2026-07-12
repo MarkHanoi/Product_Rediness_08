@@ -807,6 +807,70 @@ element type must have **one** creation pipeline.
 
 **Non-goal:** do not change the batch behaviour — it is the correct one.
 
+> **⚠️ P2 WAS ONLY HALF-DONE — SEE L-240.** P2 said *“Make the interactive `floor.create` handler **/ FloorTool** call that
+> same function.”* Only the **plan** tool (`FloorPlanToolHandler.ts:246`) was converged. The **3D `FloorTool`**
+> (`packages/geometry-slab/src/floor/FloorTool.ts`) was never touched, and its `AUTO_FROM_ROOM` mode still passes the raw
+> **centreline** ring through. The founder re-reported the identical bug as **L-240**. The P3 equality test passed because it
+> compared the two paths that *were* converged — it never enumerated the third. **Converging two paths is not a fix; it is a
+> coincidence.** L-240 supersedes this section.
+
+## L-240 — §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS
+
+**Founder (recurrent):** *“On floor finish creation — AUTO — the floor finish gets created perfectly fine, however the
+perimeter of it is aligned with the CENTER of the wall. I would like it aligned with the INNER FACE of the wall. This is
+already happening [correctly] on the BATCH element creations during the residential house and residential building AI batch
+creation.”*
+
+He is right, and the code confirms it exactly. `packages/geometry-slab/src/floor/FloorTool.ts:921` (`AUTO_FROM_ROOM`):
+
+```ts
+const polygon: FloorVertex[] = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
+…
+this._createFloor(polygon);   // ← the room boundary ring, RAW
+```
+
+The room boundary **runs along wall centrelines**, so the finish is laid on the centreline and overshoots into every bounding
+wall by half its thickness. `packages/geometry-slab` does not import `@pryzm/room-topology` at all — the inner-face inset is
+simply never applied on this path.
+
+### The canonical derivation already exists — and only two of the three paths call it
+
+`deriveRoomFinishBoundary(centreline, walls)` — `packages/room-topology/src/RoomPolygonUtils.ts:845`, wrapping
+`insetPolygonToInnerFaces` (`:233`, `§FLOOR-INNER-FACE`) — offsets each edge inward by the bounding wall's half-thickness and
+miters the corners.
+
+| Floor-finish creation path | Calls `deriveRoomFinishBoundary`? | Founder sees |
+|---|---|---|
+| **BATCH** — `CreateFloorsByRoomTypeCommand.ts:311` (resi house / resi building AI) | ✅ yes | **correct** |
+| **PLAN tool** — `FloorPlanToolHandler.ts:246` | ✅ yes | correct |
+| **3D FloorTool `AUTO_FROM_ROOM`** — `FloorTool.ts:921` | ❌ **NO** | **the bug** |
+
+That table *is* the root cause. It also explains why the founder is certain the batch path is right — it is.
+
+### The real lesson — do not repeat L-213's mistake
+
+The one-line change (make `FloorTool.ts:921` call the shared function) fixes the founder's bug **and leaves the class alive for
+the next tool that gets written.** L-213 already did exactly that kind of pairwise convergence and the bug came straight back.
+
+**The inner-face inset is a domain rule of the floor-finish ELEMENT TYPE** — *“a floor finish is bounded by the inner faces of
+its bounding walls”* — **not a per-tool decision.** So it must live **below every tool**, at the `floor.create` command
+chokepoint, keyed off `hostRoomId`. This is the identical seam the founder mandated for **L-239** (wall layers resolved once, in
+the `wall.create` handler). Same disease, same cure.
+
+Note: `FloorTool` **already** records `this._pendingHostRoomId = room.id` (`:919`) — the host-room link the handler needs is
+already captured and then dropped on the floor.
+
+| Phase | Scope |
+|---|---|
+| **P0** | **Enumerate EVERY floor-finish creation path** (3D AUTO, 3D DRAW, plan tool, batch generator, AI, import, paste) and prove which reach `floor.create`. **The enumeration is a deliverable** — L-213 failed precisely because nobody produced one. |
+| **P1** | **Layering check, before any code.** `packages/geometry-slab` does not depend on `@pryzm/room-topology` today. Verify that edge is legal under the 8-layer rule. **If it is not, that is positive evidence the derivation belongs at the command layer, not in the tool** — do not force the import. |
+| **P2** | **Move the derivation to the chokepoint.** `floor.create` derives the boundary from `hostRoomId` + bounding walls via `deriveRoomFinishBoundary`. Every path inherits it by construction. Tools stop deriving boundaries themselves. |
+| **P3** | **Preserve explicit user intent.** A hand-drawn DRAW-mode polygon is the user's stated geometry and must **NOT** be silently re-inset — only **room-derived** boundaries get the inset. `FloorTool.ts:553` auto-detects a host room from the polygon centroid for hosting purposes; hosting ≠ re-deriving. **Write this rule explicitly into C11.** |
+| **P4** | **N-way equality test, not 2-way.** The same room floored via 3D-AUTO, 3D-DRAW(room), PLAN and BATCH must yield an **identical boundary polygon and area**, inset to the inner faces. Upgrade `deriveRoomFinishBoundary.test.ts` from its current *“L-213 UI↔batch convergence”* framing to **all-paths** convergence. |
+| **P5** | Confirm areas / schedules / material take-off / IFC export all inherit the corrected boundary (they consume the stored polygon, so they should — assert it). |
+
+**Non-goal:** do not change the batch behaviour — it is the correct one, and the founder has confirmed so from the product side.
+
 ## L-211 — §FIX-LAYERED-WALL-PLAN-LINES
 
 The plan symbol path is **healthy**: `[WallLayerPlanSymbolBuilder] injected layer lines for 2 layered
