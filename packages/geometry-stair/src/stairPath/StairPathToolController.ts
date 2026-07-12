@@ -105,6 +105,19 @@ export interface StairPathToolConfig {
     // ── Callbacks ─────────────────────────────────────────────────────────
     onComplete?: (input: ReturnType<StairPathAdapter['toCreateStairInput']>) => void;
     onCancel?:   () => void;
+    /**
+     * §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) — invoked when the user tries to
+     * finish a stair that the solver rejects (e.g. "Riser too small (0 mm)",
+     * "Run too short").
+     *
+     * Before this existed, `_finish()` logged `console.warn` and returned. The tool
+     * simply did nothing — no stair, no message. That silence IS the founder's
+     * "stair in plan view can not yet be created": with no level above the base
+     * level the old plan handler passed a ZERO floor-to-floor height, the solver
+     * computed riserHeight = 0, `isValid` went false, and the stair evaporated.
+     * A stair that cannot be committed MUST tell the user why.
+     */
+    onInvalid?:  (validationMessage: string) => void;
 }
 
 // ── Snap (90° only for plan accuracy) ────────────────────────────────────────
@@ -639,13 +652,16 @@ export class StairPathToolController {
         StairPreviewRenderer.annotateSegmentsWithWidth(result, this._solver.width);
 
         if (!result.isValid) {
+            // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) — surface, do not swallow.
             console.warn('[StairPathToolController] Cannot finish: invalid —', result.validationMessage);
+            this._config.onInvalid?.(result.validationMessage);
             return;
         }
 
         const input = this._adapter.toCreateStairInput(result);
         if (!input) {
             console.warn('[StairPathToolController] Adapter returned null input');
+            this._config.onInvalid?.('The drawn path did not produce a valid stair.');
             return;
         }
 
@@ -680,6 +696,7 @@ export class StairPathToolController {
 
         if (!result.isValid) {
             console.warn('[StairPathToolController] Curved stair invalid:', result.validationMessage);
+            this._config.onInvalid?.(result.validationMessage);   // §FIX-STAIR-PLAN-CREATION-BLOCKED
             return;
         }
 

@@ -30,6 +30,7 @@ import type { ViewDefinition }       from '@pryzm/core-app-model';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './plantools/PlanToolHandler';
 import { viewPlaneFromDefinition }   from '@pryzm/core-app-model';
 import { AddLevelCommand }           from '@pryzm/command-registry';
+import { getStairToolConfig }        from '@pryzm/geometry-stair';
 import { trace }                     from '@opentelemetry/api';
 
 // §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — P8: one OTel span per new exported entry point.
@@ -441,6 +442,12 @@ export class PlanViewToolOverlay {
             wallStore:         window.wallStore, // TODO(TASK-08)
             runtime:           window.runtime ?? undefined, // §P4.1 — typed injection; eliminates (window as any).runtime in handlers
             activeOpeningTool,
+            // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) P2 — inject the architect's
+            // resolved stair config from the single StairToolConfigStore chokepoint.
+            // Kills `window.activeStairConfig`, which only the 3D path ever stamped
+            // (so plan-drawn stairs silently lost the chosen shape/width/type) and
+            // which was a live P4 violation.
+            stairConfig:       getStairToolConfig(),
         };
     }
 

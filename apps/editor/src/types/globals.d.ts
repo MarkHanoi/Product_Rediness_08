@@ -117,22 +117,14 @@ declare global {
         /** Y-elevation (metres) of the currently active floor level. */
         activeLevelElevation: number | undefined;
 
-        /**
-         * §STAIR-L-U-PLAN (DAILY-USE 2026-05-20) — Transitional global
-         * stamped by `BimService.createStair`'s setup-panel onConfirm so the
-         * plan-view `StairPlanToolHandler` can read the architect's choice
-         * of shape / width / typeId / mode without a new DI plumbing change.
-         * TODO(STAIR-PLAN-DI): replace with a `PlanToolDrawContext.stairConfig`
-         * slot threaded by the overlay so this complies with PRYZM-3 P4.
-         */
-        activeStairConfig: {
-            shape: 'I' | 'L' | 'U';
-            width?: number;
-            typeId?: string;
-            mode?: 'linear' | 'ortho';
-            baseLevelId?: string;
-            topLevelId?: string;
-        } | undefined;
+        // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) P2 — `activeStairConfig` DELETED.
+        // It was a transitional global that ONLY `BimService.createStair`'s 3D setup
+        // panel ever stamped, and that the plan stair handler scavenged. A stair drawn
+        // in plan therefore silently lost the architect's chosen shape / width / type
+        // (the C11 defect of L-239 / L-213 / L-240), and the read was a live P4
+        // violation. The config now lives in the single `StairToolConfigStore`
+        // chokepoint (@pryzm/geometry-stair) and reaches the plan handlers by DI via
+        // `PlanToolDrawContext.stairConfig`. Do not reintroduce this global.
 
         // ── Tool singletons (registered by initTools) ─────────────────────────
         slabTool: { enterProfileEditMode: (slab: object) => void } | undefined;

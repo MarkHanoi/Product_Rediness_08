@@ -16,6 +16,7 @@ import type { ViewDefinition }    from '@pryzm/core-app-model';
 import type { ViewPlane }         from '@pryzm/core-app-model';
 import type { CommandManager }    from '@pryzm/command-registry';
 import type { WallStore } from '@pryzm/geometry-wall';
+import type { StairToolConfig } from '@pryzm/geometry-stair';
 import type { PryzmRuntime }     from '@pryzm/runtime-composer/types';
 
 /**
@@ -84,6 +85,21 @@ export interface PlanToolDrawContext {
      * avoid a circular import between core/views and elements.
      */
     readonly activeOpeningTool?: { readonly doorType?: 'single' | 'double'; readonly windowType?: 'single' | 'double'; readonly systemTypeId?: string };
+
+    /**
+     * §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) P2 — the architect's resolved stair
+     * configuration (shape / width / stair TYPE), injected by the overlay from the
+     * single `StairToolConfigStore` chokepoint in `@pryzm/geometry-stair`.
+     *
+     * This slot exists to KILL `window.activeStairConfig`. The plan stair handler
+     * used to scavenge that global — which only the *3D* path's StairSetupPanel ever
+     * stamped — so a plan-drawn stair silently lost the user's shape/width/type
+     * (the same C11 defect as L-239 / L-213 / L-240) and it was a live P4 violation.
+     * The config now reaches every creation path identically, resolved BELOW the tools.
+     *
+     * This is the `TODO(STAIR-PLAN-DI)` the handler itself asked for, discharged.
+     */
+    readonly stairConfig?: StairToolConfig;
 }
 
 /**

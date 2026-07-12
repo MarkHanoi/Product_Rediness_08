@@ -9,18 +9,59 @@
  *   Straight (I): click start → move (live preview) → click end → stair placed.
  *   L-shape:      3 clicks → landing auto-placed between runs → stair placed.
  *   U-shape:      4 clicks → two landings → stair placed.
+ *
+ * ── §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) ──────────────────────────────────
+ *
+ * THIS is the handler the ribbon actually reaches in plan view (tool key
+ * `stair-path`, via `BimService.activateStairPathTool` → `ToolManager.activateStairPath`).
+ * It is where the founder's "stair in plan view can not yet be created" died — NOT in
+ * `StairPlanToolHandler` (tool key `stair`, reachable only via the RadialMenu →
+ * `BimService.createStair` → `StairSetupPanel` route).
+ *
+ * The old `_resolveAdjacentLevel()` LIED when it could not find a level above:
+ *   • base level is topmost → it returned `top = base`  → a ZERO vertical span
+ *     → StairSolver2D got totalHeight 0 → riserHeight 0 → `isValid = false`
+ *     → StairPathToolController._finish() bailed after a bare `console.warn`.
+ *     No stair, no toast, no error — the tool just silently did nothing.
+ *   • base level not found  → it fabricated `${baseLevelId}:top`, an id present in
+ *     no store, which CreateStairCommand.canExecute would then reject.
+ *
+ * Both are gone. Level resolution is now delegated to the ONE chokepoint,
+ * `resolveStairVerticalSpan()` (@pryzm/geometry-stair), which never fabricates and
+ * never returns a zero span. When no level exists above, the stair IMPLIES one
+ * (ADR-0098) and we create it with a COMMAND (`AddLevelCommand`, P6) instead of
+ * dead-ending the user with a toast. And an invalid solve now SURFACES to the user
+ * rather than dying in the console.
  */
 
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { StairPathToolController } from '@pryzm/geometry-stair';
-import type { StairLevelOption } from '@pryzm/geometry-stair';
+import type { StairLevelOption, StairToolConfig, StairLevelInput } from '@pryzm/geometry-stair';
+import {
+    resolveStairVerticalSpan,
+    getStairToolConfig,
+    DEFAULT_STOREY_HEIGHT,
+} from '@pryzm/geometry-stair';
+import { AddLevelCommand } from '@pryzm/command-registry';
+import { trace } from '@opentelemetry/api';
+
+const _tracer = trace.getTracer('@pryzm/editor.stair-path-plan-tool', '0.1.0');
+
+interface ResolvedSpan {
+    topLevelId: string;
+    baseLevelElevation: number;
+    topLevelElevation: number;
+    levels: StairLevelOption[];
+}
 
 export class StairPathPlanToolHandler implements PlanToolHandler {
     private _ctrl: StairPathToolController | null = null;
     private _pendingShapeHint: 'I' | 'L' | 'U' | null = null;
 
     constructor() {
-        // Listen for shape hints dispatched by ToolManager.activateStairPath()
+        // Shape hints dispatched by ToolManager.activateStairPath(). The hint is a
+        // TRANSPORT, not a source of truth — it is folded into the StairToolConfig
+        // chokepoint below so plan / 3D / batch all agree on the shape (L-243 P2).
         window.addEventListener('stair-path:shape-hint', (e) => {
             const detail = (e as CustomEvent).detail;
             if (detail === 'I' || detail === 'L' || detail === 'U') {
@@ -30,6 +71,19 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
     }
 
     activate(ctx: PlanToolDrawContext): void {
+        _tracer.startActiveSpan('pryzm.stair.plan_path_tool.activate', (span) => {
+            try {
+                this._activate(ctx);
+            } catch (err) {
+                span.recordException(err as Error);
+                throw err;
+            } finally {
+                span.end();
+            }
+        });
+    }
+
+    private _activate(ctx: PlanToolDrawContext): void {
         // Guard: destroy any pre-existing controller before creating a new one.
         // Without this, rapid mouseenter/leave cycles (e.g. param panel overlap)
         // would accumulate orphaned controllers, canvases, and HUD elements.
@@ -42,15 +96,56 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
         const shapeHint = this._pendingShapeHint;
         this._pendingShapeHint = null;
 
-        const viewDef      = ctx.viewDef;
-        const baseLevelId: string = (viewDef.spatial as any)?.levelId ?? '';
+        const viewDef = ctx.viewDef;
+        const baseLevelId: string = (viewDef.spatial as { levelId?: string } | undefined)?.levelId ?? '';
         if (!baseLevelId) {
-            console.error('[StairPathPlanToolHandler] viewDef.spatial.levelId missing');
+            this._fail('This view is not bound to a level, so a stair cannot be placed here.');
             return;
         }
 
-        const cm = window.commandManager; // TODO(TASK-05): no bus handler yet
-        const levelContext = this._resolveAdjacentLevel(baseLevelId, cm);
+        // §FIX-STAIR-PLAN-CREATION-BLOCKED P2 — the architect's shape / width / type
+        // arrives by DI (ctx.stairConfig) from the single StairToolConfigStore, never
+        // from `window.activeStairConfig`. The ribbon's I/L/U hint is folded in as an
+        // override for this activation.
+        const config: StairToolConfig = {
+            ...(ctx.stairConfig ?? getStairToolConfig()),
+            ...(shapeHint ? { shape: shapeHint } : {}),
+        };
+
+        const cm = ctx.commandManager ?? window.commandManager;
+        const levels = this._getLevels(cm);
+
+        // ── The chokepoint: what vertical span does this stair climb? ───────────
+        const span = resolveStairVerticalSpan(levels, baseLevelId, DEFAULT_STOREY_HEIGHT);
+
+        if (span.status === 'unresolvable') {
+            this._fail(`Stair cannot be placed: ${span.reason}`);
+            return;
+        }
+
+        let resolved: ResolvedSpan | null;
+        if (span.status === 'needs-level-above') {
+            // ADR-0098 — the stair IMPLIES the level above. Realise the implication
+            // with a COMMAND (P6), not an error toast. The user draws; the storey
+            // appears; the stair spans it. This is what makes the upper level
+            // OPTIONAL from the architect's point of view.
+            resolved = this._createImpliedLevelAbove(span.suggestedName, span.suggestedElevation, span.height, cm, baseLevelId);
+            if (!resolved) {
+                this._fail('Stair needs a level above, and it could not be created automatically.');
+                return;
+            }
+            this._toast(
+                `"${span.suggestedName}" created above to host the stair (${span.height.toFixed(2)} m).`,
+                'info',
+            );
+        } else {
+            resolved = {
+                topLevelId:         span.topLevelId,
+                baseLevelElevation: span.baseElevation,
+                topLevelElevation:  span.topElevation,
+                levels:             this._toLevelOptions(this._getLevels(cm)),
+            };
+        }
 
         this._ctrl = new StairPathToolController({
             container:        document.body,
@@ -58,21 +153,24 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
             planViewCanvas:   ctx.planCanvas,
             commandManager:   cm,
             baseLevelId,
-            topLevelId:          levelContext.topLevelId,
-            baseLevelElevation:  levelContext.baseLevelElevation,
-            topLevelElevation:   levelContext.topLevelElevation,
-            levelOptions:        levelContext.levels,
-            width:               1.2,
+            topLevelId:          resolved.topLevelId,
+            baseLevelElevation:  resolved.baseLevelElevation,
+            topLevelElevation:   resolved.topLevelElevation,
+            levelOptions:        resolved.levels,
+            width:               config.width ?? 1.2,
+            typeId:              config.typeId,
             riserHeight:         undefined,
             treadDepth:          undefined,
             risersBeforeLanding: 0,
             risersInRun2:        0,
             turnDirection:       'left',
             secondRunSide:       'left',
-            initialShape:        shapeHint ?? undefined,
-            onCancel: () => {
-                // Controller cancelled itself (ESC) — nothing extra needed
-            },
+            initialShape:        config.shape,
+            // §FIX-STAIR-PLAN-CREATION-BLOCKED — an invalid solve used to die in the
+            // console. It now reaches the user. A stair that cannot be committed must
+            // SAY SO; silence is the bug the founder reported.
+            onInvalid: (message: string) => this._toast(`Stair not placed — ${message}`, 'warning'),
+            onCancel: () => { /* controller cancelled itself (ESC) */ },
         });
 
         this._ctrl.activate();
@@ -135,58 +233,74 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
         };
     }
 
-    /** Resolve the adjacent level above `baseLevelId` and both elevations. */
-    private _resolveAdjacentLevel(baseLevelId: string, cm: any): {
-        topLevelId: string;
-        baseLevelElevation: number;
-        topLevelElevation: number;
-        levels: StairLevelOption[];
-    } {
-        const fallback = {
-            topLevelId:         baseLevelId,
-            baseLevelElevation: 0,
-            topLevelElevation:  3.0,
-            levels: [
-                { id: baseLevelId, name: 'Current Level', elevation: 0 },
-                { id: `${baseLevelId}:top`, name: 'Level Above', elevation: 3.0 },
-            ],
-        };
-
+    /** Every level in the project. TODO(TASK-08): DI a level store into PlanToolDrawContext. */
+    private _getLevels(cm: unknown): StairLevelInput[] {
         try {
-            const levels: any[] =
-                cm?.context?.stores?.wallStore?.getLevels?.() ??
-                window.levelStore?.getAll?.() ?? // TODO(TASK-08)
-                [];
+            const ctxStores = (cm as { context?: { stores?: { wallStore?: { getLevels?: () => StairLevelInput[] } } } })
+                ?.context?.stores?.wallStore?.getLevels?.();
+            return ctxStores ?? window.levelStore?.getAll?.() ?? [];
+        } catch (e) {
+            console.warn('[StairPathPlanToolHandler] level lookup failed', e);
+            return [];
+        }
+    }
 
-            if (!levels.length) return fallback;
-
-            const sorted = [...levels].sort(
-                (a, b) => (a.elevation ?? a.height ?? 0) - (b.elevation ?? b.height ?? 0),
-            );
-
-            const baseIdx = sorted.findIndex(l => l.id === baseLevelId);
-            if (baseIdx < 0) return fallback;
-
-            const base = sorted[baseIdx];
-            const top  = baseIdx < sorted.length - 1
-                ? sorted[baseIdx + 1]
-                : sorted[sorted.length - 1];
-
-            const levelOptions = sorted.map((level, index) => ({
+    private _toLevelOptions(levels: StairLevelInput[]): StairLevelOption[] {
+        return [...levels]
+            .sort((a, b) => Number(a.elevation ?? a.height ?? 0) - Number(b.elevation ?? b.height ?? 0))
+            .map((level, index) => ({
                 id:        String(level.id),
-                name:      String(level.name ?? level.label ?? `Level ${index + 1}`),
+                name:      String(level.name ?? `Level ${index + 1}`),
                 elevation: Number(level.elevation ?? level.height ?? 0),
             }));
+    }
 
-            return {
-                topLevelId:         top.id,
-                baseLevelElevation: base.elevation ?? base.height ?? 0,
-                topLevelElevation:  top.elevation  ?? top.height  ?? fallback.topLevelElevation,
-                levels:             levelOptions,
-            };
-        } catch (e) {
-            console.warn('[StairPathPlanToolHandler] _resolveAdjacentLevel error', e);
-            return fallback;
+    /**
+     * ADR-0098 — create the level the stair implies, through AddLevelCommand (P6:
+     * commands are the only mutation path). AddLevelCommand.execute() is synchronous,
+     * so re-resolving immediately afterwards observes the new level.
+     */
+    private _createImpliedLevelAbove(
+        name: string,
+        elevation: number,
+        height: number,
+        cm: unknown,
+        baseLevelId: string,
+    ): ResolvedSpan | null {
+        const manager = cm as { execute?: (cmd: unknown) => void } | undefined;
+        if (!manager?.execute) {
+            console.error('[StairPathPlanToolHandler] no CommandManager — cannot create the implied level');
+            return null;
         }
+
+        const levelId = `level-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        try {
+            manager.execute(new AddLevelCommand({ levelId, name, elevation, height }));
+        } catch (err) {
+            console.error('[StairPathPlanToolHandler] AddLevelCommand failed:', err);
+            return null;
+        }
+
+        // Re-resolve against the mutated store — never trust the payload we just sent.
+        const span = resolveStairVerticalSpan(this._getLevels(cm), baseLevelId, DEFAULT_STOREY_HEIGHT);
+        if (span.status !== 'ok') {
+            console.error('[StairPathPlanToolHandler] implied level did not resolve:', span);
+            return null;
+        }
+        return {
+            topLevelId:         span.topLevelId,
+            baseLevelElevation: span.baseElevation,
+            topLevelElevation:  span.topElevation,
+            levels:             this._toLevelOptions(this._getLevels(cm)),
+        };
+    }
+
+    private _fail(message: string): void {
+        console.error('[StairPathPlanToolHandler]', message);
+        this._toast(message, 'error');
+    }
+
+    private _toast(message: string, severity: 'info' | 'warning' | 'error'): void {
+        window.runtime?.events?.emit('pryzm:toast', { message, severity }); // F.events.15
     }
 }

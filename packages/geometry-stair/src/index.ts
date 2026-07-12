@@ -11,6 +11,12 @@ export * from './StairLandingTypes';
 export * from './StairTypeDefinitions';
 export * from './StairTypes';
 export * from './StairFootprintUtils';
+
+// §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) — the two stair-authoring chokepoints.
+// Every creation path (plan tool, stair-path tool, 3D sketch, batch, AI) resolves
+// its vertical span and its shape/width/type config through THESE, and nowhere else.
+export * from './StairVerticalSpanResolver';
+export * from './StairToolConfigStore';
 // §FIX-STAIR-PARAM-NO-REGEN (L-215) — pure derived-geometry reconciler.
 export {
     deriveStairGeometry,

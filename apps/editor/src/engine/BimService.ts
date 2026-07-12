@@ -7,6 +7,7 @@ import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-form
 
 import { BimManager } from '@pryzm/core-app-model';
 import type { ViewMode } from '@pryzm/core-app-model';
+import { setStairToolConfig } from '@pryzm/geometry-stair';
 import type { IBimService } from '@pryzm/engine';
 import { shouldSketchStairIn3D } from './stairSketchRouting';
 
@@ -279,12 +280,34 @@ export class BimService implements IBimService {
     }
 
     activateStairPathTool(shape?: 'I' | 'L' | 'U') {
-        // §42-ELEMENT-CREATION-HUD — pre-tool prerequisite check.
-        // A stair connects two levels, so block tool activation when the
-        // project only has one level and surface the StairLevelRequiredPanel.
-        if (!this._ensureTwoLevelsForStair(() => this.activateStairPathTool(shape))) {
-            return;
-        }
+        // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) — publish the ribbon's shape choice
+        // to the single StairToolConfigStore chokepoint, so the plan tool, the 3D sketch
+        // tool and any batch/AI path all author from the SAME resolved config (P2).
+        if (shape) setStairToolConfig({ shape });
+
+        // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) — the "≥ 2 levels" pre-tool gate is
+        // GONE from this path, and its removal is the fix, not a regression.
+        //
+        // It asked the WRONG QUESTION. A stair does not need "two levels to exist" —
+        // it needs "a level ABOVE THE ONE IT IS DRAWN ON". The old gate was both:
+        //   • too strict — a fresh project boots with a single Ground level, so the
+        //     stair tool refused to activate at all and the architect could never draw
+        //     one without first hand-creating a storey (the founder's report); and
+        //   • too weak  — a 2-level project whose TOP level's plan view is open sailed
+        //     through the gate and then died SILENTLY inside the tool (zero span →
+        //     riserHeight 0 → solver invalid → bare console.warn).
+        //
+        // ADR-0098: the stair is authored by HEIGHT and IMPLIES the level above when
+        // none exists. The plan handlers now resolve the span at the ONE chokepoint
+        // (`resolveStairVerticalSpan`) and create the implied storey with AddLevelCommand
+        // (P6) — a command, not a dead-end toast. The invariant the old gate was
+        // imagined to protect (riserHeight × riserCount === height) is NOT protected by
+        // counting levels; it is protected by `deriveRisers()` and enforced by
+        // `CreateStairCommand.canExecute`'s HEIGHT_TOLERANCE check. Both still hold.
+        //
+        // `createStair()` (the 3D StairSetupPanel route) KEEPS the panel, because that
+        // panel makes the user PICK a base and a top level from a dropdown and so
+        // genuinely needs two levels to populate.
 
         // §FIX-STAIR-PLAN-ROUTING-VIEWSTATE (L-217) — route on the AUTHORITATIVE
         // view mode, never on snap availability. The prior guard asked
@@ -448,22 +471,16 @@ export class BimService implements IBimService {
                     mode,
                 };
 
-                // §STAIR-L-U-PLAN (DAILY-USE 2026-05-20) — Make the user's
-                // setup-panel selection (shape, width, typeId, mode, levels)
-                // visible to the plan-view StairPlanToolHandler.  The plan
-                // handler previously hard-coded `shape: 'I'` because it had
-                // no read path to this config.  Mirrors the existing
-                // `window.stairTool` / `window.activeLevelElevation` pattern
-                // (transitional global, flagged for later DI plumbing through
-                // PlanToolDrawContext per P4 — see TODO in StairPlanToolHandler).
-                window.activeStairConfig = {
-                    shape,
-                    width,
-                    typeId,
-                    mode,
-                    baseLevelId: baseLevel.id,
-                    topLevelId:  topLevel.id,
-                };
+                // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) P2 — publish the user's
+                // setup-panel selection to the SINGLE StairToolConfigStore chokepoint.
+                // This used to stamp `window.activeStairConfig`, a transitional global
+                // that ONLY this (3D) path ever wrote, so a stair drawn in PLAN silently
+                // lost the chosen shape / width / type unless the architect had first
+                // been through the 3D flow — the same C11 defect as L-239 / L-213 / L-240,
+                // and a live P4 violation. Every creation path now reads the same
+                // resolved config (plan handlers receive it by DI via
+                // PlanToolDrawContext.stairConfig). The global is gone.
+                setStairToolConfig({ shape, width, typeId, mode });
 
                 const stairTool = this.props.stairTool || window.stairTool;
                 if (stairTool) {

@@ -59,6 +59,7 @@ const ACTIVE_TOOL_KEYS = new Set(Object.keys(SVP_TOOL_HANDLERS));
 // fixed by routing through the engine.
 
 import { PlanSnapEngine } from '@pryzm/core-app-model';
+import { getStairToolConfig } from '@pryzm/geometry-stair';
 import { trace } from '@opentelemetry/api';
 
 // §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — P8: one OTel span per new exported entry point.
@@ -499,6 +500,9 @@ export class SvpPlanToolOverlay {
             wallStore:         window.wallStore, // TODO(TASK-08)
             runtime:           window.runtime ?? undefined, // §P4.1 — typed injection; eliminates (window as any).runtime in handlers
             activeOpeningTool,
+            // §FIX-STAIR-PLAN-CREATION-BLOCKED (L-243) P2 — same stair-config chokepoint
+            // as the main overlay, so split-view keeps L-73 parity by construction.
+            stairConfig:       getStairToolConfig(),
         };
     }
 
