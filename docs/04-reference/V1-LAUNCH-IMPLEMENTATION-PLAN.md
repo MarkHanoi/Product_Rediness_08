@@ -27,6 +27,26 @@ Blocking defects that make the app unusable. Gate: G1, G2, G3.
   during nav; 0.4b instancing coverage (walls/slabs/windows across floors); 0.4c nav-LOD (suppress non-essential
   passes while camera moves); 0.4d cached/incremental frustum culling. **Gate G3**.
 
+- **0.5 The unit-test estate is not a CI gate** (L-247 / §GATE-TEST-ESTATE-NOT-A-CI-GATE) — *queued, CRITICAL*.
+  **This is the gate under every other gate on this board, and it is currently open.** `ci.yml:106` runs only
+  `test:server`; it never calls `test:ci`. Root `test:ci` uses `--if-present`, and **122 workspaces define `test`
+  but not `test:ci`** — including `@pryzm/editor`, whose **1,495 tests (34 currently RED) have never run in CI**.
+  Sub: **0.5a** add `test:ci` to `apps/editor` + the other 121; **0.5b** add a `test-unit` job to `ci.yml` that calls
+  `pnpm run test:ci`, landed **non-blocking for exactly one PR** so the true red surface shows up in CI, not on an
+  agent's laptop; **0.5c** triage the 34 **product-first** (groups A–F in audit L-247) — quarantine via the existing
+  `test:quarantined` script with an L-id, **never `.skip`/delete to green the board**; **0.5d** flip the gate to
+  blocking; **0.5e** record it in **C10**'s CI-gate inventory and correct the "CI-enforced / merge-blocking" claim in
+  **C01** + `CLAUDE.md`, which is true for lint/boundaries/ga-gate but **false for every unit test**. **Gate G0.**
+  *Ordering is load-bearing: the gate lands RED and FIRST — fixes with no gate behind them regress by the next commit.*
+- **0.6 Level-explode offset compounding — suspected LIVE regression of L-113** (L-248 /
+  §FIX-LEVEL-EXPLODE-OFFSET-COMPOUNDING) — *queued, HIGH*. The regression guards written for **L-113 (a founder bug
+  reported from prod)** are RED, measuring a lift of **~1e+119** where **8** is expected — a transform being
+  re-applied, not drift. One red test is named *"THE FOUNDER SCENARIO: MOVE_WINDOW rebuilds wall + room + label"*.
+  **Hidden by 0.5:** nobody has run this suite. Sub: **0.6a REPRODUCE ON THE DEPLOYED BUILD FIRST** (explode levels,
+  move a window — report what you *see*); **0.6b** if it reproduces it is a Phase-0 live defect and jumps the queue;
+  **0.6c** if it does not, the *guard* is the defect — fix it, do **not** delete it, and never widen the tolerance
+  (1e+119 is not a tolerance problem); **0.6d** the guard ends green *inside* the G0 gate. **Gate G0 (blocks G7).**
+
 ## Phase 1 — CORE INTERACTION CORRECTNESS — **MUST for launch**
 The everyday gestures must be exact and smooth. Gate: G4, G5, G6.
 
@@ -74,6 +94,7 @@ Gate: G2 (deepened) + G10.
 
 | Gate | Phase | Owner | State |
 |---|---|---|---|
+| **G0 the unit tests actually gate CI** | **0.5/0.6** | **queued (platform/CI-governance)** | **OPEN — CRITICAL. The gate under every gate below: `ci.yml` never runs `test:ci`, 122 workspaces are invisible to it, and the editor's 1,495 tests (34 RED) have never run in CI. Until G0 closes, every "green" state on this board is asserted, not measured.** |
 | G1 no host-wall-move freeze | 0.1/0.2 | aba7751 | F1 shipped; Q6 in flight |
 | G2 no heavy-load freeze/fail | 0.3 | a14d3b7 | in flight |
 | G3 smooth heavy-nav | 0.4 | aa374d0 | in flight |
@@ -94,6 +115,9 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-id | Phase | Status |
 |---|---|---|
+| L-246 plan: door must CUT the wall | 3.2 annotations/drawing | **SHIPPED** (`2fe5cf8b`, §FIX-PLAN-DOOR-CUTS-WALL). All 4 briefed hypotheses refuted: the opening-clip machinery was never the bug — **`A-WALL:cut` was ALWAYS empty** (`classifyByVertexY` only tags edges within 15 cm of the cut plane, and a wall has no edge near a 1.2 m cut). Fix cuts the SOLID (true plane∩triangle section), so the door void is empty **by construction** on every render path — which also explains the missing poché (L-241). 9/9 specs; snapshots unchanged; root tsc 0. **Projection-line clip (`_suppressPlanViewOpeningLines`) still unproven on screen — founder verification wanted.** |
+| **L-247 unit-test estate is not a CI gate** | **0.5 (Gate G0)** | **OPEN — CRITICAL.** `ci.yml` never calls `test:ci`; `--if-present` skips the **122 workspaces** (incl. `@pryzm/editor`) that lack a `test:ci` script; **1,495 editor tests, 34 RED, have never run in CI.** The "CI-enforced / merge-blocking" claim in C01/`CLAUDE.md` holds for lint/boundaries/ga-gate and **is false for every unit test**. Gate lands RED first, then triage product-first. |
+| **L-248 level-explode offset compounding** | **0.6 (Gate G0 → blocks G7)** | **OPEN — HIGH.** L-113's regression guards are RED, measuring a lift of **~1e+119** vs an expected **8** — a transform re-applied, not drift. **Suspected live regression of a founder-reported prod bug**, hidden because L-247 means nobody ran the suite. **Reproduce on the deployed build BEFORE reading code.** |
 | L-11 Environment real sun/shadows/buttons | new **Phase 3.3** (real environment) | **SHIPPED** `§FEAT-REAL-ENVIRONMENT` (ADR-0106) — real sun drives the Pascal key light (KeyLightHost seam, real+offset/manual modes, time-of-day) + invisible L0 `GroundShadowCatcher`; no parallel light, ADR-0111/§PERF-HEAVY-SHADOW-OFF intact. 12 tests. Remainder: verify AO/bloom/exposure post-FX reach the live WebGPU renderer. |
 | L-12 wall T-junction spike | 0.5 geometry soundness | **SHIPPED** (ADR-0055 §FIX-WALL-TJUNCTION-BUTT, batch 2) |
 | L-13 plan-view door jamb gap | 3.2 annotations/drawing | **SHIPPED** (ADR-0104) |
