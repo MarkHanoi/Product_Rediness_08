@@ -38,6 +38,15 @@ Blocking defects that make the app unusable. Gate: G1, G2, G3.
   blocking; **0.5e** record it in **C10**'s CI-gate inventory and correct the "CI-enforced / merge-blocking" claim in
   **C01** + `CLAUDE.md`, which is true for lint/boundaries/ga-gate but **false for every unit test**. **Gate G0.**
   *Ordering is load-bearing: the gate lands RED and FIRST — fixes with no gate behind them regress by the next commit.*
+  **0.5b SHIPPED (`d98f75e1`)** — `apps/editor` gains `test:ci`; new advisory `test-unit` job runs its 1,495 tests,
+  the first unit tests ever to execute in CI. Not in required-checks until 0.5d.
+  **⚠ 0.5f — NEW, FOUNDER DECISION, and it partly defeats the gate.** `ci.yml` triggers on **`pull_request` → `main`
+  + `workflow_dispatch` ONLY** (§A.10.i, to save Actions minutes) — **it does NOT run on a direct push to `main`.**
+  But push-straight-to-`main` **is** the founder's loop (every fix in this audit shipped that way, incl. L-246/L-248).
+  **A gate that only fires on PRs will almost never fire.** Options: **(a)** also run `test-unit` on push to `main`
+  (`paths-ignore` keeps doc pushes free) — *recommended, the only option that makes the gate true without changing how
+  the founder works*; **(b)** move code changes to a PR flow; **(c)** accept G0 guards PRs only — **then say so out
+  loud, because the gate is otherwise decorative.**
 - **0.6 Level-explode offset compounding** (L-248 / §FIX-LEVEL-EXPLODE-OFFSET-COMPOUNDING) — **SHIPPED**
   (`7192e4cb`). **NOT the live prod regression I escalated it as** — H3 was right: the *guard* was broken, not the
   product; L-113 is not regressed and users were never affected. **But the guard broke because the product carried a
