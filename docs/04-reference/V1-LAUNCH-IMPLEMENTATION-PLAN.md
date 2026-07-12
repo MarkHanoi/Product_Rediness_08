@@ -871,6 +871,79 @@ already captured and then dropped on the floor.
 
 **Non-goal:** do not change the batch behaviour — it is the correct one, and the founder has confirmed so from the product side.
 
+## L-243 — §FIX-STAIR-PLAN-CREATION-BLOCKED
+
+**Founder:** *“Stair in plan view can not yet be created.”* — **a re-report of L-217, which I marked FIXED (`f52f71f0`).**
+
+### Why my L-217 fix did not close it (recorded honestly)
+
+L-217 was a **real** bug and the fix stands: `BimService.activateStairPathTool` used a *snap-availability* predicate
+(`planView2DCreationMode.isInPlanView`) as a plan-vs-3D discriminator, so an orthographic plan camera could mis-route to the 3D
+handler. **But that fixed WHICH HANDLER RUNS — not WHETHER THE HANDLER CAN SUCCEED.** Once correctly routed, the plan handler
+still hits a hard abort. **I closed L-217 on routing evidence without ever driving the tool to a created stair.**
+
+> **Process lesson, and it generalises: a fix verified at the seam is not a fix verified at the outcome.**
+
+### Root cause #1 — the missing-upper-level hard abort (the blocker)
+
+`apps/editor/src/engine/views/plantools/StairPlanToolHandler.ts:93-104`:
+
+```ts
+const topLevelId = this._resolveTopLevel(baseLevelId, cm);
+if (!topLevelId) {
+    console.error('[StairPlanToolHandler] Could not resolve topLevelId for baseLevelId:', baseLevelId);
+    window.runtime?.events?.emit('pryzm:toast', {
+        message: 'Add a second level before placing a stair — go to Levels and create the floor above.',
+        severity: 'error',
+    });
+    this._cornerA = null; this._cursor = null; this._clearOverlay();
+    return;                                   // ← the in-progress stair is DISCARDED
+}
+```
+
+`_resolveTopLevel` (`:236-259`) returns `null` when there is no level **above** the base level. **A fresh PRYZM project boots with
+exactly one level (Ground)** — the boot log says so (`[ProjectLoader] Loading 0 levels`; `[BimManager] Cannot delete the default
+Ground level`; `DefaultViewsManager` seeds one *Ground Floor* plan view). **So in a new project the stair tool is dead on arrival,
+and the only feedback is a toast.** This is not a wiring bug — it is a **domain precondition the product never satisfies by
+default.**
+
+### Root cause #2 — the plan tool scavenges state the 3D tool writes (the C11 disease again)
+
+`StairPlanToolHandler.ts:133-145` — the comment says it outright:
+
+```ts
+// §STAIR-L-U-PLAN — read the architect's chosen shape from the global stamped by
+// BimService.createStair's onConfirm. Falls back to 'I' (straight) if no setup-panel ever ran.
+// TODO(STAIR-PLAN-DI): replace with a PlanToolDrawContext.stairConfig slot … so this handler
+//   matches the WallPlanToolHandler / SlabPlanToolHandler DI shape and complies with PRYZM-3 P4.
+const config = window.activeStairConfig;
+const shape  = (config?.shape as 'I'|'L'|'U'|undefined) ?? 'I';
+const requestedWidth = config?.width ?? (depth >= w ? w : depth);
+const typeId = config?.typeId;
+```
+
+**The plan path has no config of its own — it scavenges a global left behind by the 3D path's setup panel.** So a user's chosen
+**shape (I/L/U), width and stair type silently do not reach a plan-created stair** unless they first went through the 3D flow.
+This is **exactly** L-239 (wall layers), L-213 (floor finishes) and L-240 (floor inner face): *one element type, two creation
+paths, and the plan path silently drops what the 3D path resolved.* It is also a live **P4** violation (`window.*` read), and the
+file's own TODO admits both.
+
+### Root cause #3 — the design question that must be ANSWERED, not patched
+
+**Should a stair require a pre-existing upper level at all?** Today `riserHeight` is derived from `levelHeight` so that
+`riserHeight × riserCount === levelHeight` exactly (`:122-131`), and `CreateStairCommand.canExecute` validates it against a height
+tolerance. **That invariant is sound and must be preserved.** But it makes the upper level a *hard input*. In real BIM a stair is
+authored by **height**, and commonly implies or creates the level above. **Forcing the user to hand-create the floor above before
+they may draw a stair is a workflow trap — and it is the reason the tool appears broken.**
+
+| Phase | Scope |
+|---|---|
+| **P0** | **Reproduce in a FRESH single-level project first.** Do not trust the above — drive the plan stair tool end-to-end and report exactly where it dies. My L-217 call was already wrong once on this very ticket. |
+| **P1** | **Answer root cause #3 in an ADR before writing code.** **(a)** author the stair by explicit HEIGHT (default = level height when an upper level exists; a sane default otherwise) → the upper level becomes OPTIONAL; **(b)** drawing a stair with no level above **offers to create it** (a command, not a toast); **(c)** keep the hard requirement but make it a discoverable precondition, not an error *after* the user has drawn. **(a) is the strongest** — the stair's geometry becomes self-determining while preserving the `riserHeight × riserCount === height` invariant, which is the thing that actually matters. **Do NOT simply delete the guard** — the invariant it protects is real. |
+| **P2** | **Converge the config at the chokepoint (the L-239 cure).** Stop reading `window.activeStairConfig`. Shape / width / typeId must reach `stair.create` identically from the plan tool, the 3D tool, batch generators and AI — resolved **once, below the tools**, not scavenged from a global one tool happens to set. Thread `PlanToolDrawContext.stairConfig` per the file's own TODO and match the `WallPlanToolHandler` / `SlabPlanToolHandler` DI shape. **Clears a P4 violation at the same time.** |
+| **P3** | Tests: **(i)** a stair can be created in a **fresh single-level project** — the regression guard L-217 lacked; **(ii)** a plan-created and a 3D-created stair of the same shape/width/type produce **identical stored records** (the L-213 equality pattern); **(iii)** `riserHeight × riserCount === height` holds on every path. |
+| **P4** | Coordinate with **L-216** (15 stair types) — same subsystem, and the `typeId` plumbing in P2 is the plumbing L-216 needs. |
+
 ## L-242 — §FIX-WALL-JOINTS-ADR0055-P4
 
 **Founder:** *“Can you review the wall joints — they should be sound, but sometimes there are errors, especially around T and L
