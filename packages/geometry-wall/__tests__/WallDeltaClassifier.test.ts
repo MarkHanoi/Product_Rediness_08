@@ -107,7 +107,7 @@ describe('classifyWallDelta — (a) openings-only fast path', () => {
 });
 
 describe('classifyWallDelta — (b) whole-level fallback', () => {
-    it('baseline MOVE → whole-level', () => {
+    it('baseline MOVE → moved-wall (NOT openings-only; §PERF-WALL-MOVE-INCREMENTAL-REBUILD, L-234)', () => {
         const prev = makeWall({ id: 'w1' });
         const next = makeWall({
             id: 'w1',
@@ -117,8 +117,16 @@ describe('classifyWallDelta — (b) whole-level fallback', () => {
             ],
         });
         const result = classifyWallDelta([{ event: 'update', wall: next, prevState: prev }]);
-        expect(result.kind).toBe('whole-level');
-        if (result.kind === 'whole-level') expect(result.reason).toBe('join-geometry-changed');
+        // A move is STILL refused the ADR-057 openings-only fast path — the junction
+        // geometry genuinely changed, so the consumer must still run the whole-level
+        // `resolveLevel` + V2 miter-cache refresh. The dedicated `moved-wall` kind exists
+        // so the consumer can name the moved wall and gate the BUILD (not the solve).
+        expect(result.kind).toBe('moved-wall');
+        if (result.kind === 'moved-wall') {
+            expect(result.movedWallIds).toEqual(['w1']);
+            expect(result.wallIds).toEqual(['w1']);
+            expect(result.levelId).toBe(prev.levelId);
+        }
     });
 
     it('wall ADD (no prevState) → whole-level', () => {
@@ -196,7 +204,7 @@ describe('classifyWallDelta — (b) whole-level fallback', () => {
         if (result.kind === 'whole-level') expect(result.reason).toBe('multi-level-batch');
     });
 
-    it('mixed batch — one openings-only + one baseline-move → whole-level (the whole batch falls back)', () => {
+    it('mixed batch — one openings-only + one baseline-move → moved-wall (the whole batch leaves the openings-only fast path)', () => {
         const op = makeOpening();
         const prevA = makeWall({ id: 'wA', openings: [op] });
         const nextA = makeWall({ id: 'wA', openings: [{ ...op, offset: 2 }] });
@@ -209,7 +217,17 @@ describe('classifyWallDelta — (b) whole-level fallback', () => {
             { event: 'update', wall: nextA, prevState: prevA },
             { event: 'update', wall: nextB, prevState: prevB },
         ]);
-        expect(result.kind).toBe('whole-level');
+        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — the batch is NOT admitted to the
+        // openings-only fast path (wB's baseline moved, so junction geometry changed and
+        // the whole-level `resolveLevel` + V2 miter-cache refresh must still run). It is
+        // now named `moved-wall` rather than the anonymous `whole-level`, so the consumer
+        // can gate the BUILD. wA is still rebuilt — its opening offset changed, so its
+        // geometry content hash changed. Both walls are carried in `wallIds`.
+        expect(result.kind).toBe('moved-wall');
+        if (result.kind === 'moved-wall') {
+            expect(result.movedWallIds).toEqual(['wB']);
+            expect(result.wallIds).toEqual(['wA', 'wB']);
+        }
     });
 
     it('empty batch → whole-level (no-op safe)', () => {

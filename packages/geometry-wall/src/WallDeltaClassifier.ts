@@ -47,6 +47,29 @@ export type WallDeltaClassification =
           levelId: string;
       }
     | {
+          /**
+           * §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — a pure BASELINE MOVE of one
+           * or more walls on a single level, with NO other join-geometry change
+           * (thickness / layers / curve stable) and NO opening-set membership change.
+           *
+           * This is NOT a licence to skip `resolveLevel`. A move changes junction
+           * geometry, so the whole-level solve (and the ADR-0055 V2 miter-cache
+           * refresh that follows it) MUST still run — see the "why we did not make
+           * `resolveLevel` partial" note at the bottom of this file. What this kind
+           * buys is the *consumer* side: the coordinator knows the batch is a move,
+           * can name the moved walls for telemetry, and applies the incremental
+           * BUILD gate (rebuild only the wall bodies whose geometry inputs actually
+           * changed) instead of re-extruding every wall on the level.
+           */
+          kind: 'moved-wall';
+          /** The walls whose baseline actually moved (>= BASELINE_EPS_M). Never empty. */
+          movedWallIds: string[];
+          /** Every wall in the batch (moved + any openings-value-only edits alongside). */
+          wallIds: string[];
+          /** The single level all batch walls belong to. */
+          levelId: string;
+      }
+    | {
           /** Slow path: the existing whole-level rebuild, unchanged. */
           kind: 'whole-level';
           /** Human-readable reason (for telemetry / tests); not load-bearing. */
@@ -86,6 +109,24 @@ export function baselineMoved(prev: WallData, next: WallData): boolean {
  */
 export function joinGeometryChanged(prev: WallData, next: WallData): boolean {
     if (baselineMoved(prev, next)) return true;
+    return joinGeometryChangedExcludingBaseline(prev, next);
+}
+
+/**
+ * §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — the NON-BASELINE half of
+ * {@link joinGeometryChanged}: thickness, layer count, curve descriptor.
+ *
+ * Extracted so the classifier can distinguish the two reasons a batch fails the
+ * ADR-0057 openings-only gate:
+ *
+ *   • baseline moved, everything else stable   → `moved-wall`  (the L-234 case)
+ *   • thickness / layers / curve changed       → `whole-level` (unchanged)
+ *
+ * This is a REFACTOR, not a relaxation: `joinGeometryChanged` still returns
+ * exactly what it returned before (`baselineMoved || thisFunction`), so the
+ * openings-only fast path is gated identically. Nothing is loosened.
+ */
+export function joinGeometryChangedExcludingBaseline(prev: WallData, next: WallData): boolean {
     if ((prev.thickness ?? 0) !== (next.thickness ?? 0)) return true;
     // Layered-wall geometry feeds the infill/footprint path — any change is unsafe.
     if ((prev.layers?.length ?? 0) !== (next.layers?.length ?? 0)) return true;
@@ -135,6 +176,16 @@ export function openingSetUnchanged(prev: WallData, next: WallData): boolean {
  *   4. no entry's join geometry changed (baseline/thickness/layers/curve stable);
  *   5. every entry's opening SET is unchanged (only offset/width/height/sill values may differ);
  *   6. all affected walls are on a single level.
+ *
+ * §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — returns `moved-wall` iff guards
+ * 1,2,3,5,6 hold, the NON-baseline join geometry (thickness/layers/curve) is
+ * stable, AND at least one baseline moved. That is: exactly the batches that
+ * previously returned `whole-level / join-geometry-changed` *because a wall was
+ * dragged*, and nothing else. Guard 4 is NOT relaxed — a thickness / layer /
+ * curve change still returns `whole-level / join-geometry-changed`, and
+ * `moved-wall` still requires the caller to run the full whole-level
+ * `resolveLevel` + V2-cache refresh (see the type doc).
+ *
  * Otherwise returns `whole-level` with a reason.
  */
 export function classifyWallDelta(
@@ -143,6 +194,7 @@ export function classifyWallDelta(
     if (batch.length === 0) return { kind: 'whole-level', reason: 'empty-batch' };
 
     const wallIds: string[] = [];
+    const movedWallIds: string[] = [];
     let levelId: string | undefined;
 
     for (const entry of batch) {
@@ -154,7 +206,8 @@ export function classifyWallDelta(
         if (!prevState) {
             return { kind: 'whole-level', reason: 'no-prevState' };
         }
-        if (joinGeometryChanged(prevState, wall)) {
+        // NOT relaxed: thickness / layers / curve still force the whole-level path.
+        if (joinGeometryChangedExcludingBaseline(prevState, wall)) {
             return { kind: 'whole-level', reason: 'join-geometry-changed' };
         }
         if (!openingSetUnchanged(prevState, wall)) {
@@ -170,8 +223,53 @@ export function classifyWallDelta(
             return { kind: 'whole-level', reason: 'multi-level-batch' };
         }
         wallIds.push(wall.id);
+        if (baselineMoved(prevState, wall)) movedWallIds.push(wall.id);
+    }
+
+    if (movedWallIds.length > 0) {
+        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — a pure baseline move (the founder's
+        // wall-drag). Junction geometry DID change, so the consumer must still run
+        // the whole-level solve; what it must NOT do is re-extrude every wall body
+        // on the level. See WallRebuildCoordinator's incremental build gate.
+        return { kind: 'moved-wall', movedWallIds, wallIds, levelId: levelId! };
     }
 
     // Every guard passed: provably openings-only on baseline-stable walls of one level.
     return { kind: 'openings-only', wallIds, levelId: levelId! };
 }
+
+/*
+ * ── Why `resolveLevel` is NOT made partial here (ADR-0099's deferred item) ─────
+ *
+ * The obvious next step is to hand `resolveLevel` a "moved set" and have it solve
+ * only the moved wall + its junction neighbours. We deliberately did NOT do that,
+ * and the reason is a correctness one, not an effort one:
+ *
+ * `WallJoinResolver.resolveLevel` is not a per-junction function. It is a SEQUENCE
+ * of whole-level passes that mutate one shared working-baseline map:
+ * §MULTI-CLUSTER (transitive union-find over ALL endpoints) → the pair-wise
+ * corner/T `_detect` → §PARTITION-SHELL-INNER-FACE (whose host search scans every
+ * wall) → §RESOLVED-STUB-SWEEP. Several of those passes read walls that are NOT in
+ * the cluster (§SHELL-ANCHOR-PRESERVE explicitly looks for a NON-cluster shell body
+ * under a partition endpoint), and each pass consumes the baselines the previous
+ * pass moved. The influence of a moved wall therefore propagates along the junction
+ * graph, and on a real floor plate that graph is CONNECTED — so a "conservative
+ * closure" of the affected set is the whole level again, and any smaller bound is a
+ * heuristic we cannot prove. `§CLAMP-COSHARE-WELD` was reverted for exactly this
+ * class of "seemed local, wasn't" mistake.
+ *
+ * So we keep the solve exact and whole-level, and instead make the CONSUMER
+ * incremental: `resolveLevel` returns adjustments for every wall as before, and the
+ * coordinator rebuilds only the wall bodies whose *geometry inputs actually
+ * changed* (content hash over baseline+dims+openings+layers+joinData+worldY). That
+ * yields the same O(affected) rebuild count with a correctness guarantee that is a
+ * MEMOIZATION rather than an approximation — a skipped wall is skipped because its
+ * inputs are byte-identical, so `buildWall` would have produced the identical mesh.
+ * It also keeps the level-wide V2 miter cache (ADR-0055 P4b / L-242) fresh, which a
+ * partial solve would not.
+ *
+ * The cost of the whole-level solve itself is attacked separately, and safely, by
+ * removing the O(N²) allocation storm in the resolver's two host-search loops
+ * (§PERF-WALL-MOVE-INCREMENTAL-REBUILD in WallJoinResolver.ts) — a pure
+ * constant-factor change with byte-identical output.
+ */

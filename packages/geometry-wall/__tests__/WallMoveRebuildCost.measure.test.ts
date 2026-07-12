@@ -1,5 +1,15 @@
 /**
- * §DIAG-WALL-MOVE-REBUILD-COST — L-234 Phase 2, step 1: MEASURE.
+ * §DIAG-WALL-MOVE-REBUILD-COST → §PERF-WALL-MOVE-INCREMENTAL-REBUILD — L-234.
+ *
+ * ── STATUS: the cliff this suite MEASURED is now FIXED. ───────────────────────
+ * The suite is now a BEFORE/AFTER instrument: `measureMove(n, doors, incremental)`
+ * replays the coordinator flush with the incremental build gate OFF (the pre-fix
+ * unconditional `buildWall` at :1543) and ON, on the same real store / real command
+ * / real `resolveLevel` / real `WallFragmentBuilder`, and asserts BOTH columns —
+ * the old O(level) cliff stays pinned as the BEFORE column (it can never silently
+ * come back) and the new O(affected) behaviour is asserted as the AFTER column.
+ * The original diagnostic narrative follows unchanged.
+ * ─────────────────────────────────────────────────────────────────────────────
  *
  * The founder's recurrent report: "moving a wall with a hosted door FREEZES the
  * project, but the logs don't say much." Phase 1 refuted every infinite-loop
@@ -79,7 +89,9 @@ import { WallStore } from '../src/WallStore';
 import { WallJoinResolver } from '../src/WallJoinResolver';
 import { WallFragmentBuilder } from '../src/WallFragmentBuilder';
 import { classifyWallDelta, type WallDeltaEntry } from '../src/WallDeltaClassifier';
+import { composeWallGeometryHash } from '../src/composeWallGeometryHash';
 import type { WallData } from '../src/WallTypes';
+import type { JoinData } from '@pryzm/core-app-model';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { UpdateWallBaselineCommand } from '@pryzm/command-registry';
 
@@ -174,7 +186,15 @@ function replayWholeLevelFlush(
     batch: WallDeltaEntry[],
     store: WallStore,
     builder: WallFragmentBuilder,
-): { classification: string; reason: string; rebuilt: number; openBodies: number; resolveMs: number } {
+    /**
+     * §PERF-WALL-MOVE-INCREMENTAL-REBUILD — the coordinator's `_lastBuildKey` memo
+     * (WallRebuildCoordinator :135ff). wallId → content hash of the exact arguments
+     * `buildWall(wall, joinData, renderMap, worldY)` last consumed.
+     */
+    lastBuildKey: Map<string, string>,
+    /** false → replay the PRE-FIX unconditional `buildWall` at :1543. */
+    incremental: boolean,
+): { classification: string; reason: string; rebuilt: number; openBodies: number; skippedClean: number; resolveMs: number } {
     let rebuilt = 0;
     let openBodies = 0;
     const build = (w: WallData, adj: unknown): void => {
@@ -189,34 +209,49 @@ function replayWholeLevelFlush(
         // Fast path: rebuild ONLY the touched wall bodies; no resolveLevel.
         for (const id of delta.wallIds) {
             const w = store.getById(id);
-            if (w) build(w as WallData, null);
+            if (w) { lastBuildKey.delete(id); build(w as WallData, null); }
         }
-        return { classification: 'openings-only', reason: '-', rebuilt, openBodies, resolveMs: 0 };
+        return { classification: 'openings-only', reason: '-', rebuilt, openBodies, skippedClean: 0, resolveMs: 0 };
     }
 
     // ── Whole-level path (coordinator :1211–1602) ─────────────────────────────
+    // NB: 'moved-wall' does NOT get a fast path — it falls through to the FULL
+    // whole-level solve, exactly as the coordinator does. The incrementality is in
+    // the BUILD gate below, not in the resolve.
     const levelWalls = store.getAll().filter(w => w.levelId === LEVEL_ID);           // :1221
     const t0 = performance.now();
     const adjustments = WallJoinResolver.resolveLevel(levelWalls as WallData[]);      // :1232
     const resolveMs = performance.now() - t0;
 
+    let skippedClean = 0;
     adjustments.forEach((adjustment, wallId) => {                                     // :1291
         const updated = store.getById(wallId);
         if (!updated) return;
-        build(updated as WallData, adjustment);                                       // :1543 — UNCONDITIONAL
+        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — the fix (coordinator :1543). `buildWall`
+        // is a deterministic function of (wall, joinData, renderMap, worldY); if the
+        // content hash of those is unchanged the mesh it would emit is byte-identical to
+        // the one already in the scene, so the call is a provable no-op. Skip it.
+        const key = composeWallGeometryHash(updated as WallData, adjustment as JoinData, 0) + '|y0';
+        if (incremental && lastBuildKey.get(wallId) === key) { skippedClean += 1; return; }
+        build(updated as WallData, adjustment);
+        lastBuildKey.set(wallId, key);
     });
     // Batch walls the resolver produced no adjustment for still get updateWall (:1610).
     for (const e of batch) {
         if (!adjustments.has(e.wall.id)) {
             const fresh = store.getById(e.wall.id);
-            if (fresh) { builder.updateWall(fresh as WallData, null, undefined, 0); rebuilt += 1; }
+            if (fresh) {
+                lastBuildKey.delete(e.wall.id);
+                builder.updateWall(fresh as WallData, null, undefined, 0);
+                rebuilt += 1;
+            }
         }
     }
-    return { classification: 'whole-level', reason: delta.reason, rebuilt, openBodies, resolveMs };
+    return { classification: delta.kind, reason: delta.kind === 'whole-level' ? delta.reason : '-', rebuilt, openBodies, skippedClean, resolveMs };
 }
 
 /** Seed a level of N walls, then move ONE hosted-door wall through the real command. */
-function measureMove(n: number, doorEveryNth = 0): Measurement {
+function measureMove(n: number, doorEveryNth = 0, incremental = true): Measurement {
     _seq = 0;
     csgCalls.n = 0;
 
@@ -227,13 +262,19 @@ function measureMove(n: number, doorEveryNth = 0): Measurement {
     );
     const scene = new THREE.Scene();
     const builder = new WallFragmentBuilder(scene, makeLevelProvider());
+    const lastBuildKey = new Map<string, string>();
 
     for (const w of walls) store.add({ ...w } as WallData);
 
     // Settle: an initial whole-level build, exactly as project-open does. Its cost
-    // is NOT part of the measurement.
+    // is NOT part of the measurement. It also primes the `_lastBuildKey` memo — which
+    // is exactly what happens in production (the first flush after a project open
+    // builds every wall and records what it built).
     const seedBatch: WallDeltaEntry[] = [];
-    replayWholeLevelFlush(seedBatch.length ? seedBatch : [{ event: 'add', wall: store.getById(movedId)! }], store, builder);
+    replayWholeLevelFlush(
+        seedBatch.length ? seedBatch : [{ event: 'add', wall: store.getById(movedId)! }],
+        store, builder, lastBuildKey, incremental,
+    );
 
     // ── The founder's edit ───────────────────────────────────────────────────
     // Collect the store delta exactly as WallRebuildCoordinator's subscriber does
@@ -257,7 +298,7 @@ function measureMove(n: number, doorEveryNth = 0): Measurement {
     csgCalls.n = 0;
     const t0 = performance.now();
     const res = cmd.execute({ stores: { wallStore: store } } as any);
-    const flush = replayWholeLevelFlush(Array.from(batch.values()), store, builder);
+    const flush = replayWholeLevelFlush(Array.from(batch.values()), store, builder, lastBuildKey, incremental);
     const ms = performance.now() - t0;
     unsub();
 
@@ -278,67 +319,94 @@ function measureMove(n: number, doorEveryNth = 0): Measurement {
 describe('§DIAG-WALL-MOVE-REBUILD-COST — cost of moving ONE wall on a level of N (L-234)', () => {
     beforeEach(() => { _seq = 0; csgCalls.n = 0; });
 
-    it('the ADR-057 openings-only fast path does NOT admit a baseline move (the cliff gate)', () => {
+    it('a baseline move classifies as `moved-wall` — NOT the ADR-057 openings-only fast path', () => {
         _seq = 0;
         const prev = mkWall([0, 0], [4, 0], [door(1)]);
         const next = { ...prev, baseLine: [{ x: 0.5, y: 0, z: 0.5 }, { x: 4.5, y: 0, z: 0.5 }] } as WallData;
 
-        // A door OFFSET edit → fast path (this is what ADR-057 was built for).
+        // A door OFFSET edit → fast path (this is what ADR-057 was built for). UNCHANGED.
         const openingEdit = { ...prev, openings: [{ ...door(1), offset: 2.4 }] } as WallData;
         expect(classifyWallDelta([{ event: 'update', wall: openingEdit, prevState: prev }]).kind)
             .toBe('openings-only');
 
-        // A wall MOVE → whole-level, by construction: `joinGeometryChanged` is true
-        // the moment a baseline shifts more than BASELINE_EPS_M (1 mm).
+        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — a wall MOVE is now classified
+        // `moved-wall`. It is STILL NOT admitted to the openings-only fast path (a move
+        // genuinely changes junction geometry, so `resolveLevel` + the V2 miter cache
+        // MUST still run whole-level); the new kind exists so the consumer can name the
+        // moved wall and apply the incremental BUILD gate.
         const moveDelta = classifyWallDelta([{ event: 'update', wall: next, prevState: prev }]);
-        expect(moveDelta.kind).toBe('whole-level');
-        expect(moveDelta.kind === 'whole-level' && moveDelta.reason).toBe('join-geometry-changed');
+        expect(moveDelta.kind).toBe('moved-wall');
+        expect(moveDelta.kind === 'moved-wall' && moveDelta.movedWallIds).toEqual([prev.id]);
+
+        // NOT relaxed: a thickness change is still whole-level/join-geometry-changed.
+        const thicker = { ...prev, thickness: 0.3 } as WallData;
+        const thickDelta = classifyWallDelta([{ event: 'update', wall: thicker, prevState: prev }]);
+        expect(thickDelta.kind).toBe('whole-level');
+        expect(thickDelta.kind === 'whole-level' && thickDelta.reason).toBe('join-geometry-changed');
     });
 
     it('MEASUREMENT — N walls on level → wall bodies rebuilt by ONE hosted-door wall move', () => {
-        const rows: Measurement[] = [];
-        for (const n of [5, 50, 200]) rows.push(measureMove(n));
+        // BEFORE = the pre-fix unconditional `buildWall` at coordinator :1543.
+        // AFTER  = the same flush with §PERF-WALL-MOVE-INCREMENTAL-REBUILD's build gate.
+        // Everything else (real store, real command, real resolveLevel, real builder) is
+        // identical between the two columns.
+        const before: Measurement[] = [];
+        const after:  Measurement[] = [];
+        for (const n of [5, 50, 200]) {
+            before.push(measureMove(n, 0, /* incremental */ false));
+            after .push(measureMove(n, 0, /* incremental */ true));
+        }
         // Realistic door density (1 wall in 4 hosts a door) — how the opening-body
         // (CSG-class) passes scale with the LEVEL rather than with the edit.
-        const dense = measureMove(200, 4);
+        const denseBefore = measureMove(200, 4, false);
+        const denseAfter  = measureMove(200, 4, true);
 
-        const fmt = (r: Measurement, label: string) =>
-            `${label}\t${r.classification}\t${r.rebuilt}\t${r.openBodies}\t${r.extrudes}\t${r.ms.toFixed(1)}\t${r.resolveMs.toFixed(1)}`;
+        const fmt = (b: Measurement, a: Measurement, label: string) =>
+            `${label}\t${b.rebuilt}\t→ ${a.rebuilt}\t\t${b.openBodies}\t→ ${a.openBodies}\t\t` +
+            `${b.extrudes}\t→ ${a.extrudes}\t\t${b.ms.toFixed(0)}\t→ ${a.ms.toFixed(0)}\t\t` +
+            `${b.resolveMs.toFixed(0)}\t→ ${a.resolveMs.toFixed(0)}`;
         // eslint-disable-next-line no-console
         console.log(
-            '\n§DIAG-WALL-MOVE-REBUILD-COST — ONE wall move on a level of N walls\n' +
-            'N\tpath\t\trebuilt\topenBodies\textrudes\tms\tresolveLevelMs\n' +
-            rows.map(r => fmt(r, String(r.n))).join('\n') + '\n' +
-            fmt(dense, '200*') + '   (* 1-in-4 walls hosts a door)\n',
+            '\n§PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — ONE hosted-door wall move on a level of N walls' +
+            '\n            BEFORE → AFTER on every column\n' +
+            'N\trebuilt\t\topenBodies\textrudes\t\tms\t\tresolveLevelMs\n' +
+            before.map((b, i) => fmt(b, after[i]!, String(b.n))).join('\n') + '\n' +
+            fmt(denseBefore, denseAfter, '200*') + '   (* 1-in-4 walls hosts a door)\n',
         );
 
-        // Every move takes the whole-level path — never the ADR-057 fast path.
-        for (const r of rows) {
-            expect(r.classification).toBe('whole-level');
-            expect(r.reason).toBe('join-geometry-changed');
+        // Every move classifies `moved-wall` and STILL takes the full whole-level solve.
+        for (const r of [...before, ...after]) expect(r.classification).toBe('moved-wall');
+
+        // ── THE CLIFF — pinned as the BEFORE column, so it can never come back ──────
+        const [b5, b50, b200] = before;
+        expect(b5.rebuilt).toBeGreaterThanOrEqual(b5.n - 1);
+        expect(b50.rebuilt).toBeGreaterThanOrEqual(b50.n * 0.8);
+        expect(b200.rebuilt).toBeGreaterThanOrEqual(b200.n * 0.8);
+        expect(denseBefore.openBodies).toBeGreaterThan(40);   // re-cut ~1-in-4 of 200 doors
+        expect(denseBefore.extrudes).toBeGreaterThan(10);
+
+        // ── THE FIX — rebuilt is now O(affected), NOT O(level) ─────────────────────
+        // A one-wall drag touches the moved wall plus the handful of walls whose join
+        // geometry it actually perturbs. It must NOT scale with the size of the plate.
+        const [a5, a50, a200] = after;
+        const AFFECTED_MAX = 8;
+        for (const r of after) {
+            expect(r.rebuilt).toBeGreaterThanOrEqual(1);       // the moved wall itself, always
+            expect(r.rebuilt).toBeLessThanOrEqual(AFFECTED_MAX);
         }
+        // FLAT in N — the whole point. A 40× bigger level costs the same rebuild count.
+        expect(a200.rebuilt).toBeLessThanOrEqual(a5.rebuilt + 2);
+        expect(a50.rebuilt).toBeLessThan(b50.rebuilt / 5);
+        expect(a200.rebuilt).toBeLessThan(b200.rebuilt / 20);
 
-        // ── THE CLIFF ────────────────────────────────────────────────────────
-        // Wall bodies rebuilt by a ONE-wall move scale with the SIZE OF THE LEVEL,
-        // not with the size of the edit. This is the founder's freeze.
-        //
-        // These bounds pin the CURRENT (pre-fix) behaviour. The eventual
-        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD fix MUST flip them (rebuilt → O(1)),
-        // and until it lands they guarantee the regression cannot get worse.
-        const [n5, n50, n200] = rows;
-        expect(n5.rebuilt).toBeGreaterThanOrEqual(n5.n - 1);
-        expect(n50.rebuilt).toBeGreaterThanOrEqual(n50.n * 0.8);
-        expect(n200.rebuilt).toBeGreaterThanOrEqual(n200.n * 0.8);
+        // The founder's edit touches ONE door — and now re-cuts ONE door, even on a
+        // level where 1 wall in 4 hosts one. This is the hosted-door freeze, gone.
+        for (const r of after) expect(r.openBodies).toBeLessThanOrEqual(2);
+        expect(denseAfter.openBodies).toBeLessThanOrEqual(AFFECTED_MAX);
+        expect(denseAfter.openBodies).toBeLessThan(denseBefore.openBodies / 5);
 
-        // Growth is super-linear in wall-clock terms, not flat: a 40x bigger level
-        // costs far more than 40x a one-wall rebuild would.
-        expect(n200.rebuilt).toBeGreaterThan(n5.rebuilt * 10);
-
-        // The opening-body (CSG-class) pass runs once per opening-bearing wall the
-        // level-wide loop touches. The founder's edit touches ONE door — but at a
-        // realistic door density the move re-cuts EVERY door on the level.
-        for (const r of rows) expect(r.openBodies).toBe(1);      // only 1 door on the level
-        expect(dense.openBodies).toBeGreaterThan(40);            // ~1-in-4 of 200 walls
-        expect(dense.extrudes).toBeGreaterThan(10);              // real ExtrudeGeometry passes
+        // The whole-level `resolveLevel` still runs (correctness is untouched) but its
+        // O(N²) allocation storm is gone — see `_segAabbDistSq` in WallJoinResolver.
+        expect(a200.resolveMs).toBeLessThan(b200.resolveMs * 1.25);
     });
 });

@@ -168,6 +168,47 @@ function _resolveThresholds(opts?: ResolveLevelOptions): JoinThresholds {
 const _tmpEpATan = new THREE.Vector3();
 const _tmpEpBTan = new THREE.Vector3();
 
+/**
+ * §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — allocation-free EXACT lower bound
+ * on the distance from point `p` to the segment `[a,b]`: the distance from `p` to
+ * that segment's axis-aligned bounding box.
+ *
+ * ── Why this prune is EXACT, not a heuristic ────────────────────────────────────
+ * The closest point on the segment necessarily lies INSIDE the segment's AABB, so
+ *
+ *     dist(p, segment) >= dist(p, aabb(segment))        for every p
+ *
+ * always. Both call sites below run the shape
+ *
+ *     const c = _closestOnSegment(p, hs, he);
+ *     const perp = p.distanceTo(c);
+ *     if (perp > bestPerp) continue;                    // bestPerp only ever SHRINKS
+ *
+ * so a candidate rejected by `_segAabbDistSq(p, hs, he) > bestPerp²` would have been
+ * rejected by that exact `perp > bestPerp` test one line later. Iteration order,
+ * tie-breaking (last-equal-perp wins) and the chosen host are therefore byte-
+ * identical to the unpruned loop. Nothing is approximated and no tolerance is
+ * widened. It is also staleness-proof: the AABB is derived from the SAME live
+ * `bl` entry the exact test then uses, never from a precomputed index.
+ *
+ * ── Why it matters ──────────────────────────────────────────────────────────────
+ * `_closestOnSegment` allocates three THREE.Vector3 per call. Both host searches —
+ * `_bodyAnchorOf` (§SHELL-ANCHOR-PRESERVE) and `_clampEndToShellInnerFace`
+ * (§PARTITION-SHELL-INNER-FACE) — scan EVERY wall on the level, per endpoint. On a
+ * 200-wall plate that is ~160 000 calls / ~half a million Vector3 allocations per
+ * `resolveLevel`, which is where the measured 156 ms of a wall-move resolve went
+ * (L-234). The AABB reject is ~12 scalar ops and no allocation.
+ */
+function _segAabbDistSq(p: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3): number {
+    const minX = a.x < b.x ? a.x : b.x, maxX = a.x < b.x ? b.x : a.x;
+    const minY = a.y < b.y ? a.y : b.y, maxY = a.y < b.y ? b.y : a.y;
+    const minZ = a.z < b.z ? a.z : b.z, maxZ = a.z < b.z ? b.z : a.z;
+    const dx = p.x < minX ? minX - p.x : (p.x > maxX ? p.x - maxX : 0);
+    const dy = p.y < minY ? minY - p.y : (p.y > maxY ? p.y - maxY : 0);
+    const dz = p.z < minZ ? minZ - p.z : (p.z > maxZ ? p.z - maxZ : 0);
+    return dx * dx + dy * dy + dz * dz;
+}
+
 export class WallJoinResolver {
 
     static resolveLevel(
@@ -378,6 +419,11 @@ export class WallJoinResolver {
             const hbl = bl.get(h.id);
             if (!hbl) continue;
             const [hs, he] = hbl;
+            // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — EXACT allocation-free
+            // reject. dist(joinPt, segment) >= dist(joinPt, aabb(segment)), and
+            // `bestPerp` only ever shrinks, so any host pruned here would have hit
+            // the `perp > bestPerp` continue below. Byte-identical outcome.
+            if (_segAabbDistSq(joinPt, hs, he) > bestPerp * bestPerp) continue;
             const c = this._closestOnSegment(joinPt, hs, he);
             const perp = joinPt.distanceTo(c);
             if (perp > bestPerp) continue;
@@ -1140,6 +1186,12 @@ export class WallJoinResolver {
                     if (w.id === ep.wallId) continue;
                     if (_clusterWallIds.has(w.id)) continue;      // only NON-cluster (e.g. shell) bodies
                     const [hs, he] = bl.get(w.id)!;
+                    // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — EXACT allocation-free
+                    // reject (see `_segAabbDistSq`). Pruned hosts are exactly the hosts the
+                    // `perp > bestPerp` test below would have skipped; the chosen host and
+                    // the tie-breaking are byte-identical. This loop is O(walls) per cluster
+                    // endpoint and was the single biggest cost in a wall-move resolve.
+                    if (_segAabbDistSq(pos, hs, he) > bestPerp * bestPerp) continue;
                     const c = this._closestOnSegment(pos, hs, he);
                     const perp = pos.distanceTo(c);
                     if (perp > bestPerp) continue;

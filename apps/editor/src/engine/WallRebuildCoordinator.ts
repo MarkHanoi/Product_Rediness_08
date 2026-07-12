@@ -1,6 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, deferWork, type TickListenerDisposer, type DeferWorkCanceller } from '@pryzm/frame-scheduler';
-import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta } from '@pryzm/geometry-wall';
+import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta, composeWallGeometryHash } from '@pryzm/geometry-wall';
 import {
     DEFAULT_SNAP_PIXEL_RADIUS,
     getWorldToleranceForActiveCamera,
@@ -134,6 +134,83 @@ export class WallRebuildCoordinator {
     private _viewSwitchInProgress = false;
     private _prevJoinMap = new Map<string, JoinData>();
     private static readonly _ADJACENCY_TOL = 0.31;
+
+    // ─── §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) ──────────────────────────────
+    //
+    // THE founder's most-repeated bug: "the user moves a wall with a hosted door and
+    // the project gets FROZEN — but the logs don't say much."
+    //
+    // MEASURED (packages/geometry-wall/__tests__/WallMoveRebuildCost.measure.test.ts,
+    // real store + real command + real resolver + real fragment builder): moving ONE
+    // wall on a level of N re-extruded EXACTLY N wall bodies — 5/5, 50/50, 200/200 —
+    // and, at a realistic door density, re-cut EVERY door void on the level. Not a
+    // loop, not a hang: an O(level) synchronous geometry storm on the main thread,
+    // silent because the only instrumentation was behind `perfTraceOn()`.
+    //
+    // Root cause (this file): the whole-level branch calls `builder.buildWall(...)`
+    // UNCONDITIONALLY for every wall `resolveLevel` returns an adjustment for — and on
+    // a connected floor plate that is every wall. The builder's own dirty guard
+    // (`_lastBuiltVersion`, consulted inside `updateWall`/`_buildWallInternal`) is
+    // bypassed by that direct `buildWall` call, so no wall is ever skipped.
+    //
+    // FIX — a MEMOIZATION, not an approximation. `buildWall(wall, joinData, renderMap,
+    // worldY)` is a deterministic function of exactly those four arguments. We record
+    // a CONTENT hash of them per wall and skip the call when it is unchanged: the mesh
+    // the call would produce is byte-identical to the mesh already in the scene. So a
+    // skipped wall is provably a no-op, which is a far stronger guarantee than any
+    // "affected set" heuristic could give (and it is why we did NOT make `resolveLevel`
+    // partial — see the note at the bottom of WallDeltaClassifier.ts).
+    //
+    // Why it is evaluated on the POST-preserve inputs: `_baselineImmutable`
+    // (§FIX-WALL-JOIN-BASELINE-IMMUTABLE, L-44/46/47) and §POST-RESOLVE-PRESERVE below
+    // DISCARD most of the resolver's baseline moves before they reach the builder. The
+    // key is composed from `updated` (the store record after that decision) and
+    // `adjustment` (after the anchor has rewritten `_adjBL`), i.e. from the geometry as
+    // it is ACTUALLY CONSUMED. A different-thickness neighbour whose endpoint move the
+    // anchor throws away therefore hashes IDENTICALLY and is correctly skipped — it has
+    // no rendered effect. (That discarded-endpoint-move behaviour is L-242's separate
+    // open defect; it is not touched here.)
+    //
+    // Self-healing: the skip also requires the builder to STILL own a group for the
+    // wall (`getWallRoot`). If any other subsystem disposed the mesh, we rebuild. The
+    // key is dropped on remove, on the openings-only fast path (which rebuilds bodies
+    // with a cached join outside this map's knowledge), and on project reset.
+    //
+    // Escape hatch (DevTools, matching the house style of every other guard here):
+    //   `window.__pryzmWallIncrementalRebuild = false`  → unconditional rebuild (old behaviour).
+    private _lastBuildKey = new Map<string, string>();
+
+    /**
+     * §PERF-WALL-MOVE-INCREMENTAL-REBUILD — content key over EVERY input
+     * `builder.buildWall(wall, joinData, renderMap, worldY)` consumes.
+     *
+     * `composeWallGeometryHash` (packages/geometry-wall — the existing, contract-
+     * documented composer; NOT a re-implementation) folds baseLine, height, thickness,
+     * baseOffset, levelId, curve, the full opening set, systemTypeId/materialId, the
+     * layer stack and the JoinData (trimmed baseline + both miter normals). We append
+     * the two inputs it cannot see: the resolved `worldY` (level elevation + slab
+     * offset + baseOffset) and the per-opening render map (door/window colours the
+     * legacy in-wall frame path draws).
+     */
+    private static _buildKey(
+        wall: WallData,
+        joinData: JoinData | null | undefined,
+        renderMap: OpeningRenderMap | undefined,
+        slabBaseOffset: number,
+        worldY: number,
+    ): string {
+        let rm = '';
+        if (renderMap) {
+            for (const [id, data] of renderMap) rm += `${id}=${JSON.stringify(data)};`;
+        }
+        return `${composeWallGeometryHash(wall, joinData, slabBaseOffset)}|y${worldY.toFixed(4)}|rm${rm}`;
+    }
+
+    /** §PERF-WALL-MOVE-INCREMENTAL-REBUILD — default ON; `false` restores the old unconditional rebuild. */
+    private static _incrementalRebuildOn(): boolean {
+        return (globalThis as unknown as { __pryzmWallIncrementalRebuild?: boolean })
+            .__pryzmWallIncrementalRebuild !== false;
+    }
 
     // §A.21.D28-COALESCE (2026-06-30) — de-dup redundant explicit `rebuildWalls()`
     // re-queues. The generated-layout pipelines (and the resi §RESI-EXTERIOR-WALL-
@@ -474,6 +551,9 @@ export class WallRebuildCoordinator {
         if (this._wallRafHandle !== null) { try { this._wallRafHandle(); } catch { /* ignore */ } this._wallRafHandle = null; }
         this._pendingWallEvents.clear();
         this._prevJoinMap.clear();
+        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — a project switch throws the scene away;
+        // every wall must rebuild from scratch on the new project's first flush.
+        this._lastBuildKey.clear();
         this._pendingRebuildKey = null;   // §A.21.D28-COALESCE — clear fingerprint on project switch
         // §PERF-WALL-RESOLVE-ONCE-PER-GEN — abandon any open generation coalesce window
         // (a project switch mid-generation must not carry accumulated ids across projects).
@@ -977,6 +1057,12 @@ export class WallRebuildCoordinator {
                 // Re-use the wall's last-resolved join (miter normals + trimmed
                 // baseline) — invariant under an openings-only edit. null when free.
                 const cachedJoinData = this._prevJoinMap.get(wallId) ?? null;
+                // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — this fast path rebuilds the
+                // body through the builder's OWN guard with a CACHED join, outside the
+                // whole-level memo's knowledge. Drop the memo entry so the next whole-level
+                // flush can never mistake this wall for "already built with those inputs".
+                // Strictly conservative: the worst case is one redundant rebuild.
+                this._lastBuildKey.delete(wallId);
                 try {
                     builder.updateWall(fresh, cachedJoinData, resolveOpeningRenderMap(fresh, store), slabOff);
                     _rebuiltWallIds.push(wallId);
@@ -1185,6 +1271,14 @@ export class WallRebuildCoordinator {
             for (const levelId of _flushLevels) this._lastFlushLevelSig.set(levelId, this._levelWallSig(levelId, store));
             return;
         }
+        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — `_delta.kind === 'moved-wall'`
+        // (a pure baseline drag) deliberately does NOT get a fast path here. A move
+        // DOES change junction geometry, so it MUST fall through to the authoritative
+        // whole-level `resolveLevel` + ADR-0055 `refreshV2Cache` below — skipping either
+        // would render stale corners the moment ADR-0055 P4b / L-242 lands. What the
+        // classification buys is downstream: the incremental BUILD gate in the
+        // `adjustments.forEach` loop, which rebuilds only the wall bodies whose geometry
+        // inputs actually changed instead of re-extruding the entire level.
         // ──────────────────────────────────────────────────────────────────────
 
         // §STEP7: Diff-based dirty marking — find former neighbours of moved/removed walls.
@@ -1214,6 +1308,9 @@ export class WallRebuildCoordinator {
                 for (const [wallId, { event }] of batch) {
                     if (event === 'remove') {
                         builder.removeWall(wallId);
+                        // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — the mesh is gone; drop the
+                        // memo so a re-created wall (undo of a delete) always rebuilds.
+                        this._lastBuildKey.delete(wallId);
                         try { window.__planSymbolCache?.invalidate(wallId); } catch { /* noop */ }
                     }
                 }
@@ -1287,6 +1384,11 @@ export class WallRebuildCoordinator {
                 // ────────────────────────────────────────────────────────────────
 
                 const _rebuiltWallIds = new Set<string>();
+                // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — walls the resolver
+                // returned an adjustment for whose geometry inputs were byte-identical to
+                // the last build, so `buildWall` was elided. On the founder's edit (drag
+                // ONE wall on a plate of N) this is N − (the handful that actually moved).
+                let _skippedCleanWalls = 0;
 
                 adjustments.forEach((adjustment: JoinData & { baseLine: [THREE.Vector3, THREE.Vector3] }, wallId: string) => {
                     const _adjBL = adjustment.baseLine;
@@ -1539,9 +1641,40 @@ export class WallRebuildCoordinator {
                         const slabOff = resolveSlabBaseOffsetForWall(updated, this._slabStore);
                         const lvl     = this._bimManager.getLevelById(updated.levelId);
                         const worldY  = (lvl?.elevation ?? 0) + slabOff + (updated.baseOffset ?? 0);
+                        const _renderMap = resolveOpeningRenderMap(updated, store);
+
+                        // ── §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) ────────────────
+                        // THE fix for the founder's "move a wall with a hosted door → the
+                        // project freezes". `buildWall` was called here UNCONDITIONALLY for
+                        // every wall the resolver returned an adjustment for — i.e. every
+                        // wall on the plate — re-extruding N wall bodies (and re-cutting
+                        // every door void) synchronously on the main thread for a ONE-wall
+                        // edit. `buildWall` is a deterministic function of exactly
+                        // (wall, joinData, renderMap, worldY): if all four are byte-identical
+                        // to the last build, the mesh it would produce is byte-identical to
+                        // the mesh already in the scene, so the call is a provable no-op.
+                        // Skip it. This is a memoization — NOT a heuristic affected set —
+                        // so join correctness is untouched: `resolveLevel` still solves the
+                        // WHOLE level, `refreshV2Cache` above still sees every wall, and
+                        // `_prevJoinMap` below is still written for every adjustment. Only
+                        // the redundant GEOMETRY work is elided.
+                        // Guards: the builder must still own the wall's group (self-heal if
+                        // another subsystem disposed the mesh), and the whole gate is
+                        // disable-able via `window.__pryzmWallIncrementalRebuild = false`.
+                        const _buildKey = WallRebuildCoordinator._buildKey(updated, adjustment, _renderMap, slabOff, worldY);
+                        const _clean =
+                            WallRebuildCoordinator._incrementalRebuildOn()
+                            && this._lastBuildKey.get(wallId) === _buildKey
+                            && !!builder.getWallRoot(wallId);
+                        if (_clean) {
+                            _skippedCleanWalls++;
+                            return;   // geometry inputs unchanged → mesh already correct.
+                        }
+
                         try {
-                            builder.buildWall(updated, adjustment, resolveOpeningRenderMap(updated, store), worldY);
+                            builder.buildWall(updated, adjustment, _renderMap, worldY);
                             builder.recordBuiltVersion(wallId, updated, adjustment, slabOff);
+                            this._lastBuildKey.set(wallId, _buildKey);
                             _rebuiltWallIds.add(wallId);
 
                             // §DIAG-MESH-SPIKE (founder 2026-06-19) — PATH-AGNOSTIC extrusion-
@@ -1606,6 +1739,9 @@ export class WallRebuildCoordinator {
                         const fresh = store.getById(wallId);
                         if (fresh) {
                             const slabOff = resolveSlabBaseOffsetForWall(fresh, this._slabStore);
+                            // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — built via the builder's own
+                            // guard with a null join, outside the memo. Drop the entry.
+                            this._lastBuildKey.delete(wallId);
                             try {
                                 builder.updateWall(fresh, null, resolveOpeningRenderMap(fresh, store), slabOff);
                                 _rebuiltWallIds.add(wallId);
@@ -1622,6 +1758,9 @@ export class WallRebuildCoordinator {
                         const fresh = store.getById(w.id);
                         if (fresh) {
                             const slabOff = resolveSlabBaseOffsetForWall(fresh, this._slabStore);
+                            // §PERF-WALL-MOVE-INCREMENTAL-REBUILD — the wall LOST its join;
+                            // rebuilt with a null join outside the memo. Drop the entry.
+                            this._lastBuildKey.delete(w.id);
                             try {
                                 builder.updateWall(fresh, null, resolveOpeningRenderMap(fresh, store), slabOff);
                                 _rebuiltWallIds.add(w.id);
@@ -1634,6 +1773,22 @@ export class WallRebuildCoordinator {
 
                 for (const w of levelWalls) this._prevJoinMap.delete(w.id);
                 adjustments.forEach((adj: JoinData, wallId: string) => this._prevJoinMap.set(wallId, adj));
+
+                // §PERF-WALL-MOVE-INCREMENTAL-REBUILD (L-234) — the number the founder has
+                // been waiting months for. BEFORE this fix `rebuilt` was ALWAYS the whole
+                // level (200/200 on a 200-wall plate, measured); it is now the size of the
+                // set that actually changed. ALWAYS-ON (one line per flush, not per wall):
+                // the whole point of L-234 is that this cost used to be invisible because
+                // the only instrumentation on this path was behind `perfTraceOn()`.
+                if (_delta.kind === 'moved-wall' || _skippedCleanWalls > 0) {
+                    // eslint-disable-next-line no-console
+                    console.debug(
+                        `[WallRebuildCoordinator] §PERF-WALL-MOVE-INCREMENTAL-REBUILD level=${levelId} ` +
+                        `delta=${_delta.kind}${_delta.kind === 'moved-wall' ? ` moved=[${_delta.movedWallIds.join(',')}]` : ''} ` +
+                        `levelWalls=${levelWalls.length} adjustments=${adjustments.size} ` +
+                        `rebuilt=${_rebuiltWallIds.size} skippedClean=${_skippedCleanWalls}`,
+                    );
+                }
 
                 // §DIAG-PERIM-CORNER-WHOLE (founder #5/#11, 2026-06-12) — the active
                 // generated-house repair takes THIS whole-level resolveLevel path (v184
