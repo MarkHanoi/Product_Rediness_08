@@ -774,7 +774,17 @@ export class ProjectLoader {
                     materialId: wall.materialId,
                     materialColor: wall.materialColor,
                     curve: wall.curve,
-                    systemTypeId: wall.systemTypeId
+                    systemTypeId: wall.systemTypeId,
+                    // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239, P4 backfill) — thread the
+                    // PERSISTED layer stack back in. ProjectSerializer has always written
+                    // `wall.layers`, but this restore dropped it and asked CreateWallCommand to
+                    // re-derive from `systemTypeId` — which CANNOT work for a user-defined type,
+                    // because custom wallSystemTypes are restored LATER in this same load() (see
+                    // "FIX-3 (M9)" below). Result: walls of custom types came back plain.
+                    // Persisted stack wins; absent ⇒ CreateWallCommand backfills from the
+                    // catalogue (upgrading legacy walls saved before layers were stamped) and
+                    // falls back safely to an unlayered wall if the type is gone.
+                    layers: (wall as { layers?: any[] }).layers,
                 });
                 const r = exec(cmd);
                 if (r.success) {

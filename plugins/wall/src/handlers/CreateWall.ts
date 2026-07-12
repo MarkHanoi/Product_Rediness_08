@@ -36,6 +36,7 @@ import {
 } from '../errors.js';
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
+import { resolveWallSystemType } from './resolveWallSystemType.js';
 
 /** Optional shape for the create-wall input.  Every field falls back
  *  to the schema defaults — `Wall.parse({})` is a valid wall. */
@@ -130,42 +131,40 @@ export class CreateWallHandler
       throw new WallSystemTypeNotFoundError(cmd.systemTypeId);
     }
 
-    // §WALL-TYPE-THICKNESS (2026-05-22) — when a systemTypeId is supplied, the
-    // wall's thickness IS the type's total layer thickness, not the caller's
-    // placeholder default. The 3D builder re-resolves this from the type at render,
-    // but PLAN VIEW reads the stored `thickness` — so without resolving here, a
-    // plan-created wall rendered at the DEFAULT thickness and the chosen wall type
-    // appeared "not picked up" (3D OK, plan wrong). Resolving in the command (as the
-    // call-site comment always promised: "thickness is overridden by the command if
-    // a systemTypeId is set") makes the stored state correct for EVERY view. Safe +
-    // idempotent for 3D (it would re-resolve the identical value).
-    let resolvedThickness = cmd.thickness;
-    if (cmd.systemTypeId !== undefined) {
-      // §DIAG-WALL-TYPE-RESOLVE (founder 2026-06-20) — root-cause instrumentation for
-      // "selected Interior Partition but got a standard wall". The wall is stored WITH
-      // its systemTypeId (below), but its THICKNESS is only resolved here when a
-      // populated systemTypeStore is wired into this handler. engineLauncher.ts calls
-      // `registerWallHandlers(_bus)` with NO systemTypeStore → this resolution is
-      // skipped → plan view renders the DEFAULT thickness (the bug). These warns make
-      // the exact missing link self-evident on the next browser test WITHOUT changing
-      // behaviour (the real fix — wiring a populated WallSystemTypeStore whose ids match
-      // the PreDraw selector's catalogue — must be browser-verified, not shipped blind:
-      // a wrong/empty store would make canExecute reject EVERY typed wall).
-      if (this.systemTypeStore === undefined) {
-        console.warn(
-          `[CreateWallHandler] systemTypeId='${cmd.systemTypeId}' set but NO systemTypeStore wired ` +
-          `→ thickness NOT resolved (wall stored with type id, rendered at default thickness). ` +
-          `Fix: pass a populated WallSystemTypeStore to registerWallHandlers() in engineLauncher.`,
-        );
-      } else {
-        const total = this.systemTypeStore.get(cmd.systemTypeId)?.totalThickness;
-        if (typeof total === 'number' && total > 0) resolvedThickness = total;
-        else console.warn(
-          `[CreateWallHandler] systemTypeId='${cmd.systemTypeId}' not found in the wired ` +
-          `systemTypeStore (or totalThickness ≤ 0) → id-namespace mismatch between the PreDraw ` +
-          `selector catalogue and the handler catalogue. Thickness left at default.`,
-        );
-      }
+    // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239 / L-211, 2026-07-11) — THE CHOKEPOINT.
+    //
+    // `systemTypeId` is resolved into the two INTRINSIC fields the renderers read
+    // — `thickness` AND `layers[]` — ONCE, here, below every tool. Both are then
+    // PERSISTED on the instance (step 2). The instance is canonical: the 3D builder
+    // (WallFragmentBuilder §03-1.3) and the plan builder (WallLayerPlanSymbolBuilder)
+    // both read `wall.layers` off the record, so if the record carries the stack,
+    // BOTH views draw it and they cannot disagree.
+    //
+    // This supersedes §WALL-TYPE-THICKNESS (2026-05-22), which resolved thickness
+    // here but NOT layers — the asymmetry that produced the founder's exact
+    // fingerprint: a plan-created layered wall got the right thickness and NO layers,
+    // while the SAME type created in 3D got both (only because the 3D WallTool also
+    // dual-writes through the legacy CreateWallCommand, which does stamp layers).
+    // Resolution belongs below the tools — a tool cannot forget what it never does.
+    //
+    // Precedence + idempotency live in resolveWallSystemType (explicit layers win,
+    // catalogue second, caller's values on a miss — an unknown id NEVER rejects a
+    // wall; ADR-0116 §Decision).
+    const resolved = resolveWallSystemType(this.systemTypeStore, cmd);
+    const resolvedThickness = resolved.thickness;
+    const resolvedLayers    = resolved.layers;
+
+    // §DIAG-WALL-TYPE-RESOLVE — kept: a typed wall that resolves to NO layers means
+    // the catalogue the handler reads and the catalogue the picker reads have
+    // diverged (the ADR-0116 failure mode). Loud, non-fatal, and self-evident in the
+    // browser log rather than a silently plain wall.
+    if (cmd.systemTypeId !== undefined && resolvedLayers === undefined) {
+      console.warn(
+        `[CreateWallHandler] systemTypeId='${cmd.systemTypeId}' did not resolve to a layer stack ` +
+        `(${this.systemTypeStore === undefined ? 'NO systemTypeStore wired' : 'id not found in the wired catalogue'}). ` +
+        `Wall stored unlayered at thickness=${resolvedThickness ?? 'default'}. ` +
+        `Expected: the ONE shared catalogue (ADR-0116, buildSharedWallCatalogue) is wired into wall.create.`,
+      );
     }
 
     // 1) Mint id (or accept the caller's deterministic id for tests).
@@ -186,6 +185,11 @@ export class CreateWallHandler
         ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
         ...(cmd.materialId !== undefined ? { materialId: cmd.materialId } : {}),
         ...(cmd.systemTypeId !== undefined ? { systemTypeId: cmd.systemTypeId } : {}),
+        // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION — PERSIST the resolved stack. `layers`
+        // was declared on CreateWallPayload but never written here: the field was
+        // dropped on the floor by the canonical handler, so NO bus-created wall has
+        // ever carried a layer stack in the PRYZM3 store. This line is the fix.
+        ...(resolvedLayers !== undefined ? { layers: resolvedLayers } : {}),
       }) as WallData;
     } catch (cause) {
       // `WallSchemaError` is thrown OUTWARD so the bus surfaces it as

@@ -95,6 +95,25 @@ export class CreateWallCommand implements Command {
             curve?: WallCurve,
             /** Contract §03-1.3: optional wall system type ID. Omit for plain walls. */
             systemTypeId?: string,
+            /**
+             * §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239, P4 backfill) — an ALREADY-RESOLVED
+             * layer stack, supplied by the project loader when re-hydrating a persisted wall.
+             *
+             * WHY: this command re-derives `layers` from `systemTypeId` against
+             * `ctx.stores.wallSystemTypeStore` (below) — but `ProjectLoader.load()` restores
+             * WALLS (step 4) BEFORE it restores the project's CUSTOM wall system types. So a
+             * wall of a user-defined type could never resolve at restore time and silently
+             * came back PLAIN (no layers) at the default thickness — the persisted stack was
+             * on disk (ProjectSerializer does write `wall.layers`) and was thrown away on the
+             * way back in. Passing the persisted stack through makes the round-trip lossless
+             * and removes the ordering dependency entirely.
+             *
+             * When supplied it WINS over catalogue re-derivation (it is the wall's own frozen
+             * snapshot). When absent, the catalogue backfills it — which is what upgrades
+             * legacy projects saved before layers were ever stamped. Both branches are
+             * idempotent: re-running the load produces byte-identical layers.
+             */
+            layers?: WallLayer[],
         }
     ) {
         this.targetIds = [wallId];
@@ -152,13 +171,31 @@ export class CreateWallCommand implements Command {
         let resolvedLayers: WallLayer[] | undefined;
         let resolvedThickness = this.wallData.thickness;
 
-        if (this.wallData.systemTypeId) {
+        // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239, P4) — an explicitly-supplied stack
+        // (the project loader's persisted snapshot) WINS over re-derivation. Only when the
+        // caller has no stack do we backfill from the catalogue — which is what upgrades
+        // legacy walls saved before layers were stamped, and what keeps the interactive
+        // create paths behaving exactly as before. Both branches are idempotent.
+        if (Array.isArray(this.wallData.layers) && this.wallData.layers.length > 0) {
+            resolvedLayers = structuredClone(this.wallData.layers) as WallLayer[];
+        } else if (this.wallData.systemTypeId) {
             const typeStore = (ctx.stores as any).wallSystemTypeStore;
             const sysType = typeStore?.getById(this.wallData.systemTypeId);
             if (sysType) {
                 // §01 §2.2 — structuredClone for correct deep snapshot
                 resolvedLayers = structuredClone(sysType.layers) as WallLayer[];
                 resolvedThickness = sysType.totalThickness;
+            } else {
+                // MISSING-TYPE FALLBACK (P4): the wall's type no longer exists (deleted, or
+                // a project authored against a catalogue this build does not ship). Do NOT
+                // invent a stack and do NOT corrupt the wall — keep its persisted thickness,
+                // leave it unlayered, and say so loudly. The wall still renders; it simply
+                // renders plain, which is strictly better than a wrong stack.
+                console.warn(
+                    `[CreateWallCommand] §L-239 systemTypeId='${this.wallData.systemTypeId}' not found in ` +
+                    `the wall system-type catalogue — wall ${this.wallId} restored UNLAYERED at its ` +
+                    `persisted thickness (${resolvedThickness} m). The type was likely deleted or never restored.`,
+                );
             }
         }
 

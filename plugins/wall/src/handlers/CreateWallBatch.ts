@@ -39,6 +39,7 @@ import {
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
 import type { CreateWallPayload } from './CreateWall.js';
+import { resolveWallSystemType } from './resolveWallSystemType.js';
 
 export interface CreateWallBatchPayload {
   /** One spec per wall to create.  Must be a non-empty array. */
@@ -114,6 +115,15 @@ export class CreateWallBatchHandler
 
       const id = w.id ?? createId('wall');
 
+      // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239) — the SAME chokepoint resolution
+      // as wall.create, so a batch/AI/generator-created wall inherits its type's
+      // `layers[]` + `thickness` for free. Previously this handler forwarded an
+      // EXPLICIT layer stack (§RESI-FACADE-INTERIOR-WHITE) but resolved NOTHING from
+      // `systemTypeId` — so an apartment/house generator that named a wall type and
+      // left thickness/layers to the pipeline got a default-thickness, unlayered wall.
+      // Explicit layers still win (the façade-colour stack is not clobbered).
+      const resolved = resolveWallSystemType(this.systemTypeStore, w);
+
       // Materialise the wall via the canonical schema — fills in defaults.
       let wall: WallData;
       try {
@@ -122,14 +132,12 @@ export class CreateWallBatchHandler
           levelId: w.levelId ?? defaultLevelId,
           ...(w.baseLine !== undefined ? { baseLine: w.baseLine } : {}),
           ...(w.height !== undefined ? { height: w.height } : {}),
-          ...(w.thickness !== undefined ? { thickness: w.thickness } : {}),
+          ...(resolved.thickness !== undefined ? { thickness: resolved.thickness } : {}),
           ...(w.baseOffset !== undefined ? { baseOffset: w.baseOffset } : {}),
           ...(w.materialColor !== undefined ? { materialColor: w.materialColor } : {}),
           ...(w.materialId !== undefined ? { materialId: w.materialId } : {}),
           ...(w.systemTypeId !== undefined ? { systemTypeId: w.systemTypeId } : {}),
-          // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack so a layered
-          // wall (exterior façade colour + interior white) persists + renders per-face.
-          ...(w.layers !== undefined ? { layers: w.layers } : {}),
+          ...(resolved.layers !== undefined ? { layers: resolved.layers } : {}),
         }) as WallData;
       } catch (cause) {
         throw new WallSchemaError(

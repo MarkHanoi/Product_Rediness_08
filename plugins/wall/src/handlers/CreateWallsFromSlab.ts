@@ -40,6 +40,7 @@ import { Wall, createId } from '@pryzm/plugin-sdk';
 import { WallSchemaError, WallSystemTypeNotFoundError } from '../errors.js';
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
+import { resolveWallSystemType } from './resolveWallSystemType.js';
 
 export interface CreateWallsFromSlabPayload {
   readonly levelId: string;
@@ -137,6 +138,10 @@ export class CreateWallsFromSlabHandler
       throw new WallSystemTypeNotFoundError(cmd.systemTypeId);
     }
 
+    // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239) — resolve the type ONCE for the
+    // whole perimeter (loop-invariant: every edge shares `cmd.systemTypeId`).
+    const resolved = resolveWallSystemType(this.systemTypeStore, cmd);
+
     // Build N walls in one Immer batch.  Schema parse is per-wall so
     // the FIRST schema rejection aborts the whole batch (transactional
     // semantics — no half-built perimeter in the store).
@@ -148,16 +153,19 @@ export class CreateWallsFromSlabHandler
       const id = createId('wall');
       let wall: WallData;
       try {
+        // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239) — same chokepoint resolution as
+        // wall.create; every perimeter wall of a typed slab carries its type's stack.
         wall = Wall.parse({
           id,
           levelId: cmd.levelId,
           baseLine: [a, b],
           ...(cmd.height !== undefined ? { height: cmd.height } : {}),
-          ...(cmd.thickness !== undefined ? { thickness: cmd.thickness } : {}),
+          ...(resolved.thickness !== undefined ? { thickness: resolved.thickness } : {}),
           ...(cmd.baseOffset !== undefined ? { baseOffset: cmd.baseOffset } : {}),
           ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
           ...(cmd.materialId !== undefined ? { materialId: cmd.materialId } : {}),
           ...(cmd.systemTypeId !== undefined ? { systemTypeId: cmd.systemTypeId } : {}),
+          ...(resolved.layers !== undefined ? { layers: resolved.layers } : {}),
         }) as WallData;
       } catch (cause) {
         throw new WallSchemaError(

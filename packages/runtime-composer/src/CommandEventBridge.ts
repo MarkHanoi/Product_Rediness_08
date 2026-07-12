@@ -37,6 +37,56 @@
 import type { PatchEmitter } from '@pryzm/command-bus';
 import type { EventBus } from './EventBus.js';
 
+/** Minimal shape of a committed wall as it appears in the Immer `add` patch
+ *  produced by the wall create handlers (`draft[id] = wall`). */
+interface CommittedWall {
+  id?: string;
+  levelId?: string;
+  baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+  height?: number;
+  thickness?: number;
+  baseOffset?: number;
+  systemTypeId?: string;
+  materialColor?: string;
+  layers?: ReadonlyArray<{ name: string; function: string; thickness: number; materialId?: string; materialColor?: string }>;
+}
+
+/**
+ * §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239 / L-211) — index the walls this
+ * command actually COMMITTED, keyed by id.
+ *
+ * ROOT CAUSE THIS CLOSES: every `wall.created` field below used to be read off
+ * `record.payload` — i.e. what the CALLER ASKED FOR, not what the handler
+ * COMMITTED. The legacy-store mirror in `initTools.ts` §P2.1 (which feeds BOTH
+ * the 3D mesh via WallRebuildCoordinator AND the plan view via
+ * WallLayerPlanSymbolBuilder) is driven by this event — so any field the
+ * chokepoint DERIVED (`layers[]` and the type-resolved `thickness`) was
+ * invisible to both renderers unless the tool had already put it in the payload.
+ * That is precisely why a plan-created layered wall drew as a plain wall.
+ *
+ * The command handlers write the fully-materialised wall as a single Immer
+ * `add` patch (`draft[id] = wall`, path `[id]`), so `record.forward` carries the
+ * canonical committed record. Reading it here makes the event describe the
+ * COMMIT, not the REQUEST — which is what an event-sourcing relay must do
+ * (ADR-002 §5: handlers stay pure; the bridge relays their result).
+ *
+ * Falls back to the payload for any wall not found in the patches, so handlers
+ * that mutate through a different patch shape keep their previous behaviour.
+ */
+function indexCommittedWalls(
+  forward: readonly { readonly op: string; readonly path: readonly (string | number)[]; readonly value?: unknown }[],
+): Map<string, CommittedWall> {
+  const byId = new Map<string, CommittedWall>();
+  for (const patch of forward) {
+    if (patch.op !== 'add' || patch.path.length !== 1) continue;
+    const value = patch.value as CommittedWall | undefined;
+    if (!value || typeof value !== 'object') continue;
+    const id = String(patch.path[0]);
+    if (id.length > 0) byId.set(id, value);
+  }
+  return byId;
+}
+
 /**
  * Subscribe to `patchEmitter` and re-emit typed events on `events` after
  * every successful CommandBus dispatch:
@@ -78,34 +128,32 @@ export function wireCommandEventBridge(
           // §P2.1 (IMPL-PLAN-2026-05-17): forward geometry fields so the F-1.2
           // legacy-store bridge in initTools.ts can mirror the wall into the legacy
           // WallStore without a second commandManager.execute() dual-write.
-          const p = record.payload as {
-            id?: string;
-            levelId?: string;
-            baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
-            height?: number;
-            thickness?: number;
-            baseOffset?: number;
-            systemTypeId?: string;
-            materialColor?: string;
-            layers?: ReadonlyArray<{ name: string; function: string; thickness: number; materialId?: string; materialColor?: string }>;
-          };
+          const p = record.payload as CommittedWall;
+          // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239) — prefer the COMMITTED wall
+          // (the Immer `add` patch value) over the request payload, so handler-derived
+          // fields (`layers[]`, the type-resolved `thickness`) reach the legacy-store
+          // mirror → the 3D mesh AND the plan view. The payload is the fallback.
+          const committed = indexCommittedWalls(record.forward);
+          const w = (p.id !== undefined ? committed.get(p.id) : undefined)
+            ?? [...committed.values()][0]
+            ?? p;
           events.emit('wall.created', {
             commandId:    record.id,
             commandType:  'wall.create',
-            levelId:      p.levelId ?? '',
+            levelId:      w.levelId ?? p.levelId ?? '',
             wallCount:    1,
-            wallId:       p.id,
-            baseLine:     p.baseLine,
-            height:       p.height,
-            thickness:    p.thickness,
-            baseOffset:   p.baseOffset,
-            systemTypeId: p.systemTypeId,
+            wallId:       p.id ?? w.id,
+            baseLine:     w.baseLine     ?? p.baseLine,
+            height:       w.height       ?? p.height,
+            thickness:    w.thickness    ?? p.thickness,
+            baseOffset:   w.baseOffset   ?? p.baseOffset,
+            systemTypeId: w.systemTypeId ?? p.systemTypeId,
             // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — forward the per-wall finish colour so
             // the legacy-store mirror renders it (the field was dropped here before).
-            materialColor: p.materialColor,
+            materialColor: w.materialColor ?? p.materialColor,
             // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — forward the per-layer finish stack so the
             // legacy mirror builds a layered (per-face) wall.
-            layers:       p.layers,
+            layers:       w.layers ?? p.layers,
           });
           break;
         }
@@ -117,39 +165,36 @@ export function wireCommandEventBridge(
           // The batch is still one atomic Immer patch / one undo-stack entry — this emit
           // loop is notification-only and does not affect undo behaviour.
           const p = record.payload as {
-            walls?: Array<{
-              id?: string;
-              levelId?: string;
-              baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
-              height?: number;
-              thickness?: number;
-              baseOffset?: number;
-              systemTypeId?: string;
-              materialColor?: string;
-              layers?: ReadonlyArray<{ name: string; function: string; thickness: number; materialId?: string; materialColor?: string }>;
-            }>;
+            walls?: Array<CommittedWall>;
             levelId?: string;
           };
           const _batchWallLevelId = p.levelId ?? '';
-          for (const w of (p.walls ?? [])) {
-            if (!w.id || !w.baseLine || w.baseLine.length < 2) continue;
+          // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239) — same commit-over-request rule
+          // as the single-wall case, so batch/AI/generator walls fan out with the
+          // handler-resolved `layers[]` + `thickness`, not the caller's placeholders.
+          const committed = indexCommittedWalls(record.forward);
+          for (const req of (p.walls ?? [])) {
+            if (!req.id) continue;
+            const w = committed.get(req.id) ?? req;
+            const baseLine = w.baseLine ?? req.baseLine;
+            if (!baseLine || baseLine.length < 2) continue;
             events.emit('wall.created', {
               commandId:    record.id,
               commandType:  'wall.create',
-              levelId:      w.levelId ?? _batchWallLevelId,
+              levelId:      w.levelId ?? req.levelId ?? _batchWallLevelId,
               wallCount:    1,
-              wallId:       w.id,
-              baseLine:     w.baseLine,
-              height:       w.height,
-              thickness:    w.thickness,
-              baseOffset:   w.baseOffset,
-              systemTypeId: w.systemTypeId,
+              wallId:       req.id,
+              baseLine,
+              height:       w.height       ?? req.height,
+              thickness:    w.thickness    ?? req.thickness,
+              baseOffset:   w.baseOffset   ?? req.baseOffset,
+              systemTypeId: w.systemTypeId ?? req.systemTypeId,
               // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — carry the per-wall finish colour
               // through the batch fan-out (was dropped → façade walls rendered default grey).
-              materialColor: w.materialColor,
+              materialColor: w.materialColor ?? req.materialColor,
               // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack through
               // the batch fan-out so layered (per-face) shell walls render correctly.
-              layers:       w.layers,
+              layers:       w.layers ?? req.layers,
             });
           }
           break;

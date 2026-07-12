@@ -409,24 +409,37 @@ export class WallPlanToolHandler implements PlanToolHandler {
         // store (falling back to window.wallTool), so the SPLIT plan pane threads the same
         // selected layered type as the MAIN plan view instead of dispatching systemTypeId=none.
         const systemTypeId = resolveActiveWallSystemTypeId();
-        // §FIX-PLAN-WALL-TYPE-IGNORED (L-41): resolve the SELECTED type's thickness from the
-        // SAME catalogue the pre-draw picker reads (window.wallSystemTypeStore) and STORE it,
-        // instead of always sending WALL_DEFAULT_THICKNESS and trusting the command handler to
-        // override it from systemTypeId. That override (§WALL-TYPE-THICKNESS in CreateWall.ts)
-        // fires ONLY when a populated WallSystemTypeStore is wired into the ACTIVE wall.create
-        // handler — but composeRuntime registers the authoritative handler first (PluginRegistry
-        // seeds a *separate* plugin-side WallSystemTypeStore) and engineLauncher's §WALL-TYPE-WIRE
-        // adapter (which DID point at window.wallSystemTypeStore) is then skipped by the
-        // "first-registration-wins" facade. Net effect: the picked systemTypeId reaches the store
-        // but its thickness never resolves, so the wall is STORED at the default 0.2 m. 3D looked
-        // right because the 3D builder re-resolves layers/thickness from systemTypeId at render;
-        // PLAN view reads the stored thickness → every typed wall rendered as the default "Plain
-        // Wall". Resolving here (reusing _getSelectedWallThickness — the same store the picker
-        // dropdown is populated from) makes the STORED thickness correct for EVERY view,
-        // independent of which handler/catalogue the bus ended up with. systemTypeId is still
-        // carried for downstream type-keyed rendering; when the handler's catalogue DOES resolve,
-        // it re-derives the identical value (idempotent). L-28's active-by-default + default-seed
-        // behaviour is untouched (no type selected → helper returns WALL_DEFAULT_THICKNESS).
+        // §FIX-PLAN-WALL-TYPE-IGNORED (L-41) — HISTORICAL NOTE, CORRECTED 2026-07-11.
+        //
+        // The original comment here blamed a "first-registration-wins" facade (composeRuntime
+        // seeding a *separate* plugin-side WallSystemTypeStore, making engineLauncher's
+        // §WALL-TYPE-WIRE adapter dead) AND asserted that "the 3D builder re-resolves
+        // layers/thickness from systemTypeId at render". BOTH are now false:
+        //
+        //   • The catalogue split was fixed at the composition root by ADR-0116
+        //     (§FIX-WALL-TYPE-UNIFY-CATALOGUE): PluginRegistry's wall descriptor now seeds
+        //     `buildSharedWallCatalogue()` — the ONE geometry-wall singleton the picker reads —
+        //     into the authoritative handler, and the dead §WALL-TYPE-WIRE adapter was removed.
+        //     Type resolution no longer depends on registration order.
+        //   • The 3D builder does NOT re-derive anything. WallFragmentBuilder (§03-1.3) reads
+        //     `wall.layers` straight off the INSTANCE, exactly as WallLayerPlanSymbolBuilder
+        //     does for plan. 3D-created walls only *looked* right because WallTool ALSO
+        //     dual-writes through the legacy CreateWallCommand, which stamps `layers` — the
+        //     bus-only plan path had no such stamp, so a plan-created layered wall was stored
+        //     WITHOUT layers and drew plain in BOTH views (L-239 / L-211).
+        //
+        // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239) moves BOTH derivations
+        // (systemTypeId → thickness AND → layers[]) into the `wall.create` COMMAND handler —
+        // the chokepoint every creation path dispatches through — and persists them on the
+        // instance. This tool therefore no longer needs to resolve anything.
+        //
+        // The `thickness` below is retained ONLY as a defensive fallback for a catalogue miss
+        // (the chokepoint overrides it with the type's totalThickness whenever the type
+        // resolves — idempotent, identical value). It is deliberately NOT deleted yet: the
+        // legacy `CreateWallCommand` path (WallTool's dual-write, CreateWallsFromSlab, the
+        // project loader) still writes the legacy WallStore WITHOUT passing through
+        // `wall.create`, so the bus chokepoint is not yet the sole writer. See the L-239
+        // report — collapsing that legacy path is the follow-up that makes this line removable.
         const thickness    = this._getSelectedWallThickness();
         const mode         = _getMode();
 

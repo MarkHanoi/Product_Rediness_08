@@ -29,6 +29,7 @@ import {
 } from '../errors.js';
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
+import { resolveWallSystemType } from './resolveWallSystemType.js';
 
 export interface CreateWallBetweenMarksPayload {
   readonly levelId: string;
@@ -121,16 +122,21 @@ export class CreateWallBetweenMarksHandler
 
     let wall: WallData;
     try {
+      // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239) — same chokepoint resolution as
+      // wall.create: `systemTypeId` → { thickness, layers } is derived here, never in
+      // the tool, so this creation path cannot silently drop the layer stack.
+      const resolved = resolveWallSystemType(this.systemTypeStore, cmd);
       wall = Wall.parse({
         id,
         levelId: cmd.levelId,
         baseLine: [cmd.start, cmd.end],
         ...(cmd.height !== undefined ? { height: cmd.height } : {}),
-        ...(cmd.thickness !== undefined ? { thickness: cmd.thickness } : {}),
+        ...(resolved.thickness !== undefined ? { thickness: resolved.thickness } : {}),
         ...(cmd.baseOffset !== undefined ? { baseOffset: cmd.baseOffset } : {}),
         ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
         ...(cmd.materialId !== undefined ? { materialId: cmd.materialId } : {}),
         ...(cmd.systemTypeId !== undefined ? { systemTypeId: cmd.systemTypeId } : {}),
+        ...(resolved.layers !== undefined ? { layers: resolved.layers } : {}),
       }) as WallData;
     } catch (cause) {
       throw new WallSchemaError(
