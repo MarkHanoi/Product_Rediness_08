@@ -21,6 +21,17 @@ export {
   type ViewTemplate,
 } from './view-template.js';
 
+// §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — single source of type truth
+// for the Coarse/Medium/Fine enum consumed by core-app-model, command-registry,
+// the properties panel and every plan-symbol builder.
+export {
+  DETAIL_LEVELS,
+  DEFAULT_DETAIL_LEVEL,
+  DetailLevelSchema,
+  normalizeDetailLevel,
+  type DetailLevel,
+} from './detail-level.js';
+
 export {
   SYSTEM_VIEW_TEMPLATES,
   getSystemViewTemplate,

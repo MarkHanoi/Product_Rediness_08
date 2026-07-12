@@ -22,6 +22,7 @@ import {
 } from '../types';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import type { ViewOutputSettings } from '@pryzm/core-app-model';
+import { DETAIL_LEVELS } from '@pryzm/schemas/view/detail-level';
 
 export interface SetViewOutputParams {
     viewId: string;
@@ -54,8 +55,11 @@ export class SetViewOutputCommand implements Command {
             if (o.scale !== undefined && (typeof o.scale !== 'number' || o.scale <= 0)) {
                 return { ok: false, reason: 'output.scale must be a positive number (e.g. 100 for 1:100).' };
             }
-            if (o.detailLevel !== undefined && !['coarse', 'medium', 'fine'].includes(o.detailLevel)) {
-                return { ok: false, reason: "output.detailLevel must be 'coarse', 'medium', or 'fine'." };
+            // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — validate against the
+            // ONE owner of the enum (@pryzm/schemas, P5) instead of a local literal
+            // list. The list used to be a third fork of the same domain enum.
+            if (o.detailLevel !== undefined && !(DETAIL_LEVELS as readonly string[]).includes(o.detailLevel)) {
+                return { ok: false, reason: `output.detailLevel must be one of: ${DETAIL_LEVELS.join(', ')}.` };
             }
             if (o.displayModel !== undefined && !['normal', 'halftone', 'hidden'].includes(o.displayModel)) {
                 return { ok: false, reason: "output.displayModel must be 'normal', 'halftone', or 'hidden'." };

@@ -25,7 +25,9 @@ function tpl(overrides: Partial<ViewTemplate> = {}): ViewTemplate {
   return {
     id: 'sys-test',
     name: 'Test Template',
-    detailLevel: 'Medium',
+    // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — the enum is now canonically
+    // lower-case (owned by @pryzm/schemas/view/detail-level).
+    detailLevel: 'medium',
     displayStyle: 'HiddenLine',
     annotationCategories: {},
     isSystemTemplate: false,

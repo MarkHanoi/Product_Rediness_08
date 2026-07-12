@@ -19,6 +19,14 @@
  *   No existing field name or type has been changed.
  */
 
+// §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — the Detail Level enum is owned
+// by L0 `@pryzm/schemas` (P5: schemas are the single source of type truth). Type-
+// only import: erased at build, so it adds no runtime edge from core-app-model.
+import type { DetailLevel } from '@pryzm/schemas/view/detail-level';
+
+/** Re-exported so consumers of the view types get the enum from one place. */
+export type { DetailLevel };
+
 // ── Phase C stub — lightweight rule reference stored on ViewDefinition ────────
 // Full VisibilityRule objects live in VisibilityRuleEngine. ViewDefinition.rules
 // holds only this reference so the store can list which rules are associated
@@ -239,10 +247,18 @@ export interface ViewOutputSettings {
     displayModel?: 'normal' | 'halftone' | 'hidden';
 
     /**
-     * Level of detail for element geometry representation.
-     * Coarse = simplified; Medium = standard; Fine = full geometry.
+     * Level of detail for element geometry + plan-symbol representation.
+     * coarse = LOD 100 (simplified); medium = LOD 200 (standard); fine = LOD 300 (full).
+     *
+     * §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — this enum used to be FORKED:
+     * lower-case here, Title-Case in `@pryzm/schemas`. It now has ONE owner
+     * (`@pryzm/schemas/view/detail-level`, P5 / C03 §1) and this field imports it.
+     *
+     * CONSUMER: `resolveEffectiveDetailLevel()` (core-app-model/drawing) — read by
+     * every plan-symbol builder. Precedence: per-element C09 graphic override →
+     * per-elementType / per-category C09 override → THIS field → DEFAULT_DETAIL_LEVEL.
      */
-    detailLevel?: 'coarse' | 'medium' | 'fine';
+    detailLevel?: DetailLevel;
 
     /**
      * Visibility of Part elements (for construction documentation workflows):

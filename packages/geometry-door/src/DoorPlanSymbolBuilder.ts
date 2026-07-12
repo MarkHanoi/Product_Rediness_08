@@ -32,10 +32,39 @@ import { doorStore } from '@pryzm/geometry-door';
 import { resolveDoorDimensions } from './DoorDimensions';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import { storeRegistry } from '@pryzm/core-app-model';
+// §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P2/P4 — the door is the FIRST
+// consumer of the SHARED detail-level resolver. It does NOT own the precedence.
+import { resolveEffectiveDetailLevel, type DetailLevel } from '@pryzm/core-app-model';
 import { vgGovernanceStore } from '@pryzm/visibility';
 
 /** Number of line segments used to approximate the quarter-circle swing arc. */
 const ARC_SEGMENTS = 32;
+
+/**
+ * §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) — what each Detail Level EMITS.
+ *
+ * Founder (with three reference images): *"I want a SOUND door, still absolutely
+ * accurate with regards to its element dims… In any case the FRAME of the door is
+ * present, the LEAF of the door in plan view renders OPENED."*
+ *
+ *   'coarse'  LOD 100  — framed opening + a SINGLE-LINE leaf at 90° + swing arc.
+ *   'medium'  LOD 200  — framed opening + the leaf as a TRUE DOUBLE-LINE rectangle
+ *                        at its real `leafThickness`, at 90° + swing arc.
+ *   'fine'    LOD 300  — medium + frame reveal / rebate, threshold, lever hardware.
+ *
+ * THE LEAF IS DRAWN OPEN AT EVERY LEVEL. Before L-241 it was drawn CLOSED (lying
+ * in the opening) *and* an open-position radial line *and* the arc were drawn —
+ * three coincident readings of one leaf, which is the "confusing extra chord" the
+ * founder reported. AEC convention (and both of his reference images) draw the
+ * leaf once, in the 90° open position, with the arc closing back onto the frame.
+ *
+ * DIMENSIONAL TRUTH (non-negotiable, L-127): every dimension below — leaf length,
+ * leaf thickness, frame thickness, frame depth, hinge position — is resolved from
+ * the SELECTED DOOR TYPE via `resolveDoorDimensions()`. There is no hard-coded
+ * literal in any symbol. Consequently the leaf width, the frame thickness and the
+ * hinge position are IDENTICAL at coarse, medium and fine; only the number of
+ * lines drawn changes.
+ */
 
 /**
  * §FIX-PLAN-DOOR-JAMB-SEAM (2026-07-02) — watertight door-in-wall plan symbol.
@@ -157,7 +186,17 @@ export class DoorPlanSymbolBuilder {
             // §WIN-AUDIT-2026 W5 parity — respect VG governance hidden flag.
             if (vgGovernanceStore.getEffectiveStyle('Door', door.id).hidden) continue;
 
-            const geos = this._computeSwingGeometry(door, wallData);
+            // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P2 — ask the SHARED
+            // resolver, per door, which LOD this view wants. Precedence lives in
+            // `resolveEffectiveDetailLevel` (C09 element/type/category override →
+            // the view's own `output.detailLevel` → 'medium'); the door owns none
+            // of it. Every other plan-symbol builder calls exactly this function.
+            const lod = resolveEffectiveDetailLevel(door.id, viewDef.id, {
+                elementType: 'door',
+                category:    'door',
+            });
+
+            const geos = this._computeSwingGeometry(door, wallData, lod);
             if (!geos) continue;
 
             // ── Cut symbol (heavy) — leaf rectangle ────────────────────────────
@@ -200,15 +239,17 @@ export class DoorPlanSymbolBuilder {
     // ── Private ──────────────────────────────────────────────────────────────
 
     /**
-     * Computes the complete door plan symbol geometry in world XZ (y = 0).
+     * Computes the complete door plan symbol geometry in world XZ (y = 0) at the
+     * requested Detail Level (§FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL, L-241 P4).
      *
-     * For single doors: one leaf rectangle + one 90° swing arc + one open-position line.
-     * For double doors: two symmetric leaf rectangles + two 90° swing arcs +
-     *                   two open-position lines, mirrored about the door centre.
+     * Single door: one leaf (drawn OPEN at 90°) + one swing arc.
+     * Double door: two symmetric leaves + two arcs, mirrored about the centre.
+     *
+     * `lod` changes ONLY how many lines are emitted — never a dimension (L-127).
      *
      * Returns null if the wall baseline data is missing or malformed.
      */
-    private _computeSwingGeometry(door: any, wallData: any):
+    private _computeSwingGeometry(door: any, wallData: any, lod: DetailLevel = 'medium'):
         { cut: THREE.BufferGeometry | null; proj: THREE.BufferGeometry | null } | null {
         const bl0 = wallData.baseLine?.[0];
         const bl1 = wallData.baseLine?.[1];
@@ -302,6 +343,46 @@ export class DoorPlanSymbolBuilder {
             cutPositions.push(iL.x, 0, iL.z, iR.x, 0, iR.z);   // inner frame face line
         }
 
+        const clearHalf = halfWidth - frameThick;   // centre → inner frame corner
+
+        // ── FINE (LOD 300) — frame REVEAL + REBATE (founder's image 2) ────────
+        // The framed opening at medium is a plain rectangle. At fine we draw the
+        // frame MEMBER itself: a reveal tick across the wall at each inner frame
+        // corner (∓clearHalf), closing the frame profile into a true rectangle of
+        // face-width `frameThickness`; plus the door STOP (rebate) — two short
+        // lines along the wall from the void edge to the inner corner, offset from
+        // the leaf plane by half the real leaf thickness.
+        //
+        // Every offset here is a DOOR-TYPE dimension (frameThickness, leafThickness,
+        // frameDepth) — no literals (L-127).
+        if (lod === 'fine' && clearHalf > 0) {
+            const tick = leftNormal.clone().multiplyScalar(halfThk);
+            for (const s of [-clearHalf, +clearHalf]) {
+                const p = centre.clone().addScaledVector(dir, s);
+                cutPositions.push(
+                    p.x - tick.x, 0, p.z - tick.z,
+                    p.x + tick.x, 0, p.z + tick.z,
+                );
+            }
+            // Rebate / door stop: the leaf seats against it, so the two stop faces
+            // sit at ±halfLeaf either side of the leaf's closed plane (the wall
+            // centreline — where the hinge pivots), and the stop runs `frameThick`
+            // along the wall, i.e. from the void edge to the inner frame corner.
+            // §DOOR-FRAME-DEPTH — the frame LINING spans the full wall reveal
+            // (DoorBuilder overrides `frameDepth` with the host wall thickness), so
+            // the plan reveal is governed by `halfThk`, not by `dims.frameDepth`.
+            const stopOffset = Math.min(halfLeaf, halfThk);
+            for (const sign of [-1, 1]) {
+                const outer = centre.clone().addScaledVector(dir, sign * halfWidth);
+                const inner = centre.clone().addScaledVector(dir, sign * clearHalf);
+                for (const n of [-stopOffset, +stopOffset]) {
+                    const a = outer.clone().addScaledVector(leftNormal, n);
+                    const b = inner.clone().addScaledVector(leftNormal, n);
+                    cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
+                }
+            }
+        }
+
         const isDouble = door.doorType === 'double';
 
         if (isDouble) {
@@ -319,7 +400,6 @@ export class DoorPlanSymbolBuilder {
             //   canvas right arc: centred at +halfPx, angle π → π/2 (CCW)
             // ─────────────────────────────────────────────────────────────────
             const leafLength = Math.max(0.05, (width - 2 * frameThick) / 2);
-            const clearHalf  = halfWidth - frameThick;   // distance from centre to inner jamb corner
 
             const leftHinge  = centre.clone().addScaledVector(dir, -clearHalf);
             const rightHinge = centre.clone().addScaledVector(dir, +clearHalf);
@@ -330,11 +410,11 @@ export class DoorPlanSymbolBuilder {
             ];
 
             for (const { hinge, panelDir } of leaves) {
-                this._addLeaf(hinge, panelDir, swingDir, leafLength, halfLeaf, leafThick,
+                this._addLeaf(hinge, panelDir, swingDir, leafLength, leafThick, lod,
                               cutPositions, projPositions);
             }
         } else {
-            // ── Single door — existing geometry, unchanged ────────────────────
+            // ── Single door ──────────────────────────────────────────────────
             const leafLength: number = Math.max(0.05, width - 2 * frameThick);
 
             const panelDir = (door.hingesSide === 'right')
@@ -342,11 +422,22 @@ export class DoorPlanSymbolBuilder {
                 : dir.clone();
 
             const hingePoint = (door.hingesSide === 'right')
-                ? centre.clone().addScaledVector(dir, +(halfWidth - frameThick))
-                : centre.clone().addScaledVector(dir, -(halfWidth - frameThick));
+                ? centre.clone().addScaledVector(dir, +clearHalf)
+                : centre.clone().addScaledVector(dir, -clearHalf);
 
-            this._addLeaf(hingePoint, panelDir, swingDir, leafLength, halfLeaf, leafThick,
+            this._addLeaf(hingePoint, panelDir, swingDir, leafLength, leafThick, lod,
                           cutPositions, projPositions);
+        }
+
+        // ── FINE (LOD 300) — THRESHOLD (projection, light) ───────────────────
+        // The leaf is drawn OPEN, so its closed plane (the wall centreline across
+        // the clear opening) is empty — which is exactly where the threshold /
+        // floor-finish transition line belongs. Spans the CLEAR opening
+        // (∓clearHalf = the inner frame corners), so it is dimensionally exact.
+        if (lod === 'fine' && clearHalf > 0) {
+            const tA = centre.clone().addScaledVector(dir, -clearHalf);
+            const tB = centre.clone().addScaledVector(dir, +clearHalf);
+            projPositions.push(tA.x, 0, tA.z, tB.x, 0, tB.z);
         }
 
         const cutGeo = cutPositions.length > 0 ? new THREE.BufferGeometry() : null;
@@ -359,58 +450,81 @@ export class DoorPlanSymbolBuilder {
     }
 
     /**
-     * Appends a single door-leaf symbol into the positions array:
-     *   1. Closed-position leaf rectangle (4 edges).
-     *   2. Quarter-circle swing arc (ARC_SEGMENTS edges).
-     *   3. Open-position line (hinge → fully-open latch tip).
+     * Appends ONE door leaf, drawn in the 90° OPEN position, plus its swing arc.
      *
-     * @param hinge     World XZ pivot point (hinge jamb corner on wall centreline).
-     * @param panelDir  Unit vector along wall away from hinge toward latch (closed direction).
-     * @param swingDir  Unit vector perpendicular to wall (open direction = 90° target).
-     * @param leafLength Distance from hinge to latch corner (= arc radius).
-     * @param halfLeaf  Half the leaf thickness (leafThick / 2).
-     * @param leafThick Full leaf thickness.
-     * @param positions Accumulator array for line-segment positions (x,y,z pairs).
+     * §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P4 — draughting, per LOD:
+     *
+     *   coarse : 1 single leaf line (hinge → open tip) + arc          → 1 + 32 segs
+     *   medium : leaf as a true double-line rectangle at `leafThick` + arc
+     *   fine   : medium + lever hardware on the open leaf
+     *
+     * WHY THE LEAF IS OPEN (was: closed): the previous symbol drew the leaf lying
+     * CLOSED inside the opening AND a radial "open-position" line AND the arc —
+     * three readings of one leaf, which is the confusing extra chord the founder
+     * reported. Both of his reference images (LOD 100 and LOD 200-300) draw the
+     * leaf ONCE, open, with the arc closing back onto the frame.
+     *
+     * L-127 INVARIANT (must hold at EVERY LOD): the hinge point, `leafLength`
+     * (the clear leaf width) and `leafThick` are inputs resolved from the door
+     * TYPE — this function never invents a dimension. The arc radius is exactly
+     * `leafLength`, so the arc still terminates on the opposite frame corner.
+     *
+     * @param hinge      World XZ pivot (inner frame corner on the wall centreline).
+     * @param panelDir   Unit vector along the wall, hinge → latch (the CLOSED direction).
+     * @param swingDir   Unit vector perpendicular to the wall (the OPEN direction).
+     * @param leafLength Clear leaf width = hinge → latch = the arc radius.
+     * @param leafThick  Full leaf thickness (from the door type).
+     * @param lod        Effective detail level for this door in this view.
      */
     private _addLeaf(
         hinge: THREE.Vector3,
         panelDir: THREE.Vector3,
         swingDir: THREE.Vector3,
         leafLength: number,
-        halfLeaf: number,
         leafThick: number,
+        lod: DetailLevel,
         cutPositions: number[],
         projPositions: number[],
     ): void {
-        const cutSeg = (ax: number, az: number, bx: number, bz: number): void => {
-            cutPositions.push(ax, 0, az, bx, 0, bz);
+        const cutSeg = (a: THREE.Vector3, b: THREE.Vector3): void => {
+            cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
         };
         const projSeg = (ax: number, az: number, bx: number, bz: number): void => {
             projPositions.push(ax, 0, az, bx, 0, bz);
         };
 
-        // ── 1. Leaf rectangle — closed position (CUT — heavy line weight) ────
+        // ── 1. The LEAF at 90° OPEN (CUT — the leaf is sliced by the plan cut) ─
         //
-        //   A ─────────────────── B   ← outer face (−swingDir × halfLeaf)
-        //   │  hinge end  latch  │
-        //   D ─────────────────── C   ← inner face (+swingDir × halfLeaf)
+        //          P1 ─────── P2      ← latch / free edge (tip)
+        //           │          │
+        //           │ leaf     │      length = leafLength (clear width)
+        //           │          │      thickness = leafThick (along the wall)
+        //          P0 ─────── P3      ← hinge edge, ON the wall centreline
+        //        (hinge)
         //
-        const A = hinge.clone().addScaledVector(swingDir, -halfLeaf);
-        const B = A.clone().addScaledVector(panelDir, leafLength);
-        const C = B.clone().addScaledVector(swingDir, leafThick);
-        const D = hinge.clone().addScaledVector(swingDir, halfLeaf);
+        const P0 = hinge.clone();
+        const P1 = hinge.clone().addScaledVector(swingDir, leafLength);
+        const P3 = hinge.clone().addScaledVector(panelDir, leafThick);
+        const P2 = P1.clone().addScaledVector(panelDir, leafThick);
 
-        cutSeg(A.x, A.z, B.x, B.z);  // outer face
-        cutSeg(B.x, B.z, C.x, C.z);  // latch (free) edge
-        cutSeg(C.x, C.z, D.x, D.z);  // inner face
-        cutSeg(D.x, D.z, A.x, A.z);  // hinge edge
+        if (lod === 'coarse') {
+            // LOD 100 — a single leaf line on the hinge face. Same hinge, same
+            // length, same swing: only the leaf's THICKNESS is not draughted.
+            cutSeg(P0, P1);
+        } else {
+            cutSeg(P0, P1);   // hinge-side face
+            cutSeg(P1, P2);   // latch (free) edge — the leaf's real thickness
+            cutSeg(P2, P3);   // opposite face
+            cutSeg(P3, P0);   // hinge edge
+        }
 
-        // ── 2. Swing arc — traces outer corner B through 90° (PROJECTION) ────
+        // ── 2. Swing arc — hinge-face corner swept through 90° (PROJECTION) ───
         //
-        // Arc centre: hinge point (pivot on wall centreline)
-        // Arc radius: leafLength
-        // At t=0:   panelDir direction (leaf closed, lying along wall)
-        // At t=π/2: swingDir direction (leaf fully open, perpendicular to wall)
+        // Arc centre: the hinge. Arc radius: leafLength.
+        //   t = 0    → panelDir  (leaf CLOSED, lying in the opening)
+        //   t = π/2  → swingDir  (leaf OPEN, = P1, the drawn leaf tip)
+        // So the arc runs from the far frame corner to the drawn leaf tip — the
+        // classic quarter-circle that closes the symbol onto the frame.
         for (let i = 0; i < ARC_SEGMENTS; i++) {
             const t0 = (i       / ARC_SEGMENTS) * (Math.PI / 2);
             const t1 = ((i + 1) / ARC_SEGMENTS) * (Math.PI / 2);
@@ -424,9 +538,30 @@ export class DoorPlanSymbolBuilder {
             );
         }
 
-        // ── 3. Open-position line — leaf at 90° (PROJECTION) ──────────────────
-        const openTip = hinge.clone().addScaledVector(swingDir, leafLength);
-        projSeg(hinge.x, hinge.z, openTip.x, openTip.z);
+        // ── 3. FINE (LOD 300) — LEVER HARDWARE on the open leaf (PROJECTION) ──
+        // A lever on each leaf face, set back from the latch edge. Its length and
+        // set-back are DERIVED from the real leaf thickness (2 × / 3 ×) — no magic
+        // numbers, and it scales with the door type. Skipped on leaves too narrow
+        // to carry it, so a slim leaf never draws hardware over its own tip.
+        if (lod === 'fine') {
+            const setBack  = 3 * leafThick;
+            const leverLen = 2 * leafThick;
+            if (leafLength > setBack + leverLen) {
+                const base = hinge.clone().addScaledVector(swingDir, leafLength - setBack);
+                // Face A (hinge-side face, at the leaf's near face = offset 0).
+                const a0 = base.clone();
+                const a1 = base.clone().addScaledVector(panelDir, -leverLen);
+                projSeg(a0.x, a0.z, a1.x, a1.z);
+                // Face B (opposite face, offset by the real leaf thickness).
+                const b0 = base.clone().addScaledVector(panelDir, leafThick);
+                const b1 = base.clone().addScaledVector(panelDir, leafThick + leverLen);
+                projSeg(b0.x, b0.z, b1.x, b1.z);
+            }
+        }
+
+        // §L-241 — the legacy "open-position line" (hinge → open tip) is GONE: the
+        // leaf itself is now drawn there. Emitting both produced the double line
+        // the founder flagged.
     }
 }
 

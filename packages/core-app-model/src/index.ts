@@ -40,6 +40,11 @@ export type {
 export type { PenStyle, PenZone } from './drawing/PenWeightTable.js';
 export { FALLBACK_PEN, resolvePen, penZoneFromFlags, categoryFromFlags } from './drawing/PenWeightTable.js';
 
+// §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P2 — shared LOD resolver + the enum
+// (re-exported from L0 @pryzm/schemas so downstream packages have one import site).
+export type { DetailLevelTargets } from './drawing/DetailLevelResolver.js';
+export { DEFAULT_DETAIL_LEVEL, resolveEffectiveDetailLevel } from './drawing/DetailLevelResolver.js';
+
 export { ISO_CUT_LAYER_TO_POCHE_FILL, VG_CATEGORY_TO_ISO_LAYER, resolvePocheFill } from './drawing/PocheFillTable.js';
 
 export type { HatchPatternKey } from './drawing/HatchPatternLibrary.js';
@@ -217,6 +222,8 @@ export type {
     OverridePenStyle, ViewCategoryOverride, ViewElementOverride, ViewDefinition,
     ViewProjectionSettings, ViewLightingSettings, ViewSectionBox,
     ViewDefinitionStoreSnapshot,
+    // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — one owner: @pryzm/schemas.
+    DetailLevel,
 } from './views/ViewDefinitionTypes.js';
 export {
     ALL_VIEW_TYPES, PLAN_VIEW_TYPES, VIEW_PROJECTION_DIRECTIONS,

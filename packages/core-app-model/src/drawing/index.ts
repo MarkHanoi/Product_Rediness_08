@@ -90,6 +90,17 @@ export { ElementSpatialIndex, elementSpatialIndex } from './ElementSpatialIndex.
 
 export { removeHiddenLines, reclassifyOccludedElevationLines } from './HiddenLineRemoval.js';
 
+// ── §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P2 — shared LOD resolver ─────
+// The single answer to "at what Detail Level must element E be drawn in view V?"
+// consumed by EVERY plan-symbol builder (door first; window / stair / plumbing /
+// furniture next). Do NOT re-implement this precedence per element type.
+
+export type { DetailLevelTargets } from './DetailLevelResolver.js';
+export {
+    DEFAULT_DETAIL_LEVEL,
+    resolveEffectiveDetailLevel,
+} from './DetailLevelResolver.js';
+
 export type { SymbolSegment } from './SymbolicRuleRenderer.js';
 export {
     hasSymbolicRenderer,

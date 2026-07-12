@@ -14,6 +14,7 @@
     "./annotation/dimension": "./src/annotation/dimension.ts",
     "./view": "./src/view/index.ts",
     "./view/view-template": "./src/view/view-template.ts",
+    "./view/detail-level": "./src/view/detail-level.ts",
     "./sheet": "./src/sheet/index.ts",
     "./sheet/paper-size": "./src/sheet/paper-size.ts",
     "./sheet/sheet": "./src/sheet/sheet.ts",

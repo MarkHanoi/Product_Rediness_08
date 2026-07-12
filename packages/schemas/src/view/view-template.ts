@@ -25,6 +25,11 @@
 // • Schema typechecks under `tsc --noEmit` with zero `any`.
 
 import { z } from 'zod';
+// §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — the Detail Level enum was
+// forked (Title-Case here, lower-case in core-app-model + command-registry).
+// It now has ONE owner: `./detail-level.ts`. The schema below is a tolerant
+// reader of the legacy Title-Case spelling and a canonical lower-case writer.
+import { DetailLevelSchema, DEFAULT_DETAIL_LEVEL } from './detail-level.js';
 
 // ── Stroke style (one stroke / line family) ─────────────────────────────────
 
@@ -221,7 +226,7 @@ export const ViewTemplateSchema = z.object({
   filters: z.array(ViewFilterSchema).default([]),
   /** Optional view range (only meaningful for plan / RCP / section views). */
   viewRange: ViewRangeSchema.optional(),
-  detailLevel: z.enum(['Coarse', 'Medium', 'Fine']).default('Medium'),
+  detailLevel: DetailLevelSchema.default(DEFAULT_DETAIL_LEVEL),
   displayStyle: z
     .enum(['Wireframe', 'HiddenLine', 'Shaded', 'ConsistentColors', 'Realistic'])
     .default('HiddenLine'),

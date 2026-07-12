@@ -8,6 +8,7 @@ import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import type { SheetDefinition } from '@pryzm/core-app-model';
 import type { ViewScheduleDefinition as ScheduleDefinition } from '@pryzm/core-app-model';
+import type { DetailLevel } from '@pryzm/core-app-model';
 
 import { buildVisibilityIntentSection, buildOutputSection, buildViewRangeSection } from './ViewPropertiesPanelBuilders';
 export interface ViewProperties {
@@ -19,7 +20,11 @@ export interface ViewProperties {
     scale: string;
     visualStyle: 'Consistent' | 'Textures' | 'Realistic';
     showCutFill: boolean;
-    detailLevel?: 'Coarse' | 'Medium' | 'Fine';
+    // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — the Detail Level enum has a
+    // single owner (`@pryzm/schemas/view/detail-level`). This panel's legacy
+    // Title-Case fork ('Coarse'|'Medium'|'Fine') never matched the lower-case
+    // values the LIVE dropdown writes into `ViewOutputSettings.detailLevel`.
+    detailLevel?: DetailLevel;
     discipline?: string;
     createdDate?: string;
 }

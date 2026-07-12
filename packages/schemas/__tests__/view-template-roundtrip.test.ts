@@ -141,7 +141,10 @@ describe('ViewTemplateSchema — Architectural-Plan reference template', () => {
       name: 'Architectural Plan',
       discipline: 'Architectural',
       isSystemTemplate: true,
-      detailLevel: 'Medium',
+      // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — canonical spelling is
+      // lower-case; the legacy Title-Case form is still ACCEPTED on parse (see
+      // the tolerant-reader case below) but is normalised away.
+      detailLevel: 'medium',
       displayStyle: 'HiddenLine',
       annotationCategories: { Dimension: true, Tag: true },
       filters: [],
@@ -172,9 +175,23 @@ describe('ViewTemplateSchema — Architectural-Plan reference template', () => {
     expect(ViewTemplateSchema.parse(tpl)).toEqual(tpl);
   });
 
+  // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P1 — the enum was forked
+  // (Title-Case here vs lower-case in core-app-model / command-registry).
+  // `DetailLevelSchema` is now the single owner: a TOLERANT READER of the
+  // legacy Title-Case spelling and a CANONICAL lower-case WRITER, so persisted
+  // pre-L-241 documents upgrade in place with no migration script (C47).
+  it('accepts the legacy Title-Case detailLevel and normalises it to lower-case', () => {
+    const t = ViewTemplateSchema.parse({ id: 'legacy', name: 'Legacy', detailLevel: 'Fine' });
+    expect(t.detailLevel).toBe('fine');
+  });
+
+  it('rejects a detailLevel outside the enum', () => {
+    expect(() => ViewTemplateSchema.parse({ id: 'x', name: 'X', detailLevel: 'ultra' })).toThrow();
+  });
+
   it('parses minimal {id, name} input applying every default', () => {
     const t = ViewTemplateSchema.parse({ id: 'minimal', name: 'Minimal' });
-    expect(t.detailLevel).toBe('Medium');
+    expect(t.detailLevel).toBe('medium');
     expect(t.displayStyle).toBe('HiddenLine');
     expect(t.categoryOverrides).toEqual({});
     expect(t.filters).toEqual([]);

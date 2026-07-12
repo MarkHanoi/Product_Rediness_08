@@ -67,6 +67,17 @@ const ISO_LAYER_TO_VG_CATEGORY: Readonly<Record<string, string>> = {
 
 // ISO_CUT_LAYER_TO_POCHE_FILL is imported from ../drawing/PocheFillTable (Contract 23 §3)
 
+/**
+ * §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P5 — the VG "normal" line weight.
+ *
+ * `VGGovernanceStore.BUILT_IN_DEFAULT.lineWeight` is 1; the built-in templates
+ * emphasise structure relative to it (wall = 2, column = 2). The VG weight is
+ * therefore a RELATIVE emphasis index, NOT a pixel width and NOT a millimetre
+ * width — dividing by this base turns it into the factor it always was, so it
+ * can multiply (rather than obliterate) the Contract-23 §8 pen width.
+ */
+const VG_BASE_LINE_WEIGHT = 1;
+
 const _tmpV1 = new THREE.Vector3();
 const _tmpV2 = new THREE.Vector3();
 
@@ -299,13 +310,6 @@ export class PlanViewCanvas {
                 vgEdge = resolved?.edgeColor ?? null;
                 vgLineWeight = resolved?.lineWeight ?? null;
             }
-            const material = child.material as THREE.Material | THREE.Material[] | undefined;
-            const baseMaterial = Array.isArray(material) ? material[0] : material;
-            const materialLineWeight = Number((baseMaterial as any)?.linewidth);
-            if (vgLineWeight === null && Number.isFinite(materialLineWeight) && materialLineWeight > 0) {
-                vgLineWeight = materialLineWeight;
-            }
-
             // Contract 23 §7 — GraphicsRulesEngine.resolveStyle() is the ONLY
             // style entry point.  It layers view/element overrides on top of the
             // locked SYSTEM_PEN_TABLE values from PenWeightTable.resolvePen().
@@ -319,14 +323,43 @@ export class PlanViewCanvas {
             });
 
             ctx.strokeStyle = vgEdge ?? _pen.color;
-            ctx.lineWidth   = Math.max(hairline, _pen.widthMm * SCREEN_PX_PER_MM);
             ctx.globalAlpha = _pen.opacity;
             ctx.setLineDash(_pen.dashPx ? _pen.dashPx.map(v => v * hairline) : []);
 
-            // Explicit VG lineWeight override wins over pen table (backward compatibility)
-            if (vgLineWeight !== null) {
-                ctx.lineWidth = Math.max(hairline, vgLineWeight * hairline);
-            }
+            // ── §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P5 — LINEWEIGHT HIERARCHY ──
+            //
+            // ROOT CAUSE of "every plan line renders at the same hairline weight"
+            // (founder: image 1 = uniform thin lineweight, no readable cut/projection
+            // hierarchy). TWO defects stacked, and BOTH bypassed the Contract-23 §8
+            // pen table entirely — so the whole zone × category hierarchy was DEAD on
+            // screen, for every element type, not just doors:
+            //
+            //  1. `material.linewidth` was read as a "VG line weight". THREE's
+            //     LineBasicMaterial DEFAULTS `linewidth` to 1 — so EVERY LineSegments
+            //     child in the drawing looked like it carried an authored weight of 1.
+            //     (Deleted: the drawing's weight authority is the pen table + the VG
+            //     override, never a THREE material default. Symbol builders keep their
+            //     `userData.lineWeight`/`role` metadata, which is exported to DXF/PDF.)
+            //
+            //  2. `ctx.lineWidth = vgLineWeight * hairline` treated the VG weight as if
+            //     it were PIXELS and OVERWROTE the pen width unconditionally. The VG
+            //     resolver ALWAYS returns a weight (BUILT_IN_DEFAULT.lineWeight = 1;
+            //     wall = 2), so the pen's `widthMm × SCREEN_PX_PER_MM` was overwritten
+            //     on every single line — collapsing 0.50 mm cut and 0.18 mm projection
+            //     to `1 × hairline` and `1 × hairline`. Identical. Every time.
+            //
+            // CORRECT COMPOSITION (Contract 23 §7.1: the pen table is the locked base;
+            // VG *layers on top of* it): the PEN decides the physical width in mm per
+            // (zone × category); the VG weight is a RELATIVE emphasis factor normalised
+            // against its own built-in default (1 = "normal", 2 = "heavier"). A door CUT
+            // (0.35 mm) now genuinely outweighs a door PROJECTION (0.18 mm), and a wall
+            // CUT (0.50 mm × wall's VG emphasis) outweighs both — which is exactly the
+            // hierarchy the founder's reference drawings read by.
+            const _penPx    = _pen.widthMm * SCREEN_PX_PER_MM;
+            const _vgFactor = (vgLineWeight !== null && Number.isFinite(vgLineWeight) && vgLineWeight > 0)
+                ? vgLineWeight / VG_BASE_LINE_WEIGHT
+                : 1;
+            ctx.lineWidth = Math.max(hairline, _penPx * _vgFactor);
 
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';

@@ -20,6 +20,10 @@
  *     IntentRuleResolver).
  */
 
+// §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) — the Detail Level enum is owned by
+// L0 `@pryzm/schemas` (P5). Type-only import: erased at build; purity preserved.
+import type { DetailLevel } from '@pryzm/schemas/view/detail-level';
+
 // ─── Element State ────────────────────────────────────────────────────────────
 
 /**
@@ -125,6 +129,20 @@ export interface ElementStateAppearance {
      * Only consumed in '3d' (and 'render') views; ignored by 2D projection.
      */
     surface3D?:    ThreeDimensionalAppearance;
+    /**
+     * §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P6 — per-target DETAIL LEVEL
+     * override (C09 visibility INTENT, not UI state; P7).
+     *
+     * Set via a `GraphicOverride` whose `targetKind` is 'element' (one door),
+     * 'elementType' (all doors) or 'category'. It is the HIGHEST-priority input to
+     * `resolveEffectiveDetailLevel()`; when absent the view's
+     * `ViewDefinition.output.detailLevel` decides, then `DEFAULT_DETAIL_LEVEL`.
+     *
+     * ONE authority, defined precedence — deliberately NOT a second per-element
+     * `lod` field on the element record (that is the two-authorities-over-one-pixel
+     * collision that has L-223 stuck).
+     */
+    detailLevel?:  DetailLevel;
 }
 
 // ─── Three-Dimensional Appearance (Stage S5) ──────────────────────────────────
