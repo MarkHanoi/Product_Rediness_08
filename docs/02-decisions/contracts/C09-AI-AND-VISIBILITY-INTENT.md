@@ -206,6 +206,75 @@ Each layer is evaluated in strict precedence order. Local overrides win over int
 
 Visibility intents replace Revit-style view templates. A view MUST NOT have its own stored material overrides. Override state is always computed from the intent + view lens + element state.
 
+### §4.6 — THE SOLIDITY RULE (normative, all view types)
+
+> **Every element is a SOLID.** For any given view, each element is in exactly one **zone**:
+> it is **CUT** by the view plane, **PROJECTED** in front of it, or **BEYOND** it.
+> **Nothing behind a solid is drawn through it — in ANY view type.**
+> Line weight, fill and visibility for each zone are resolved from **VIEW INTENT** through the
+> pen/graphics table (**Contract-23 §3/§8**). They are NEVER hardcoded in a builder, and they
+> are NEVER re-derived per view type.
+
+This rule is normative for **plan, elevation and section alike**. It exists because the same
+concept was re-invented three times in three view types and drifted apart each time (see
+ADR-0110). A rule that lives only inside a builder gets re-invented per view type; a rule
+written here does not.
+
+**§4.6.1 — Zone assignment.** The zone is a property of the (element, view) pair, derived from
+geometry — never a per-element flag:
+
+| View type | CUT | PROJECTION | BEYOND |
+|---|---|---|---|
+| plan / ceiling-plan / structural-plan / detail | the solid ∩ the horizontal cut plane | solid between the cut plane and the view range's near/below bound | solid beyond the view range |
+| section | the solid ∩ the section plane | solid within the projection depth behind the plane | solid beyond the projection depth |
+| elevation | **empty by definition** — an elevation slices nothing (`ViewScope.cut = false`) | the façade: solid within the near depth band | receding solid behind it |
+
+`ViewScope` (`packages/core-app-model/src/views/ViewScope.ts`) is the ONE encoding of this
+table. `viewPlane.isVertical` is the only legitimate difference between the three consumers.
+
+**§4.6.2 — CUT ⇒ POCHÉ.** A cut solid is a **filled region**, not an outline. The fill is a
+per-(category × zone) graphic property of the intent — exactly like a pen weight — resolved
+through the same intent → pen/graphics table → layer chain, so a view can override it and a
+template can carry it. The **system default is a LIGHT GREY** (`ISO_CUT_LAYER_TO_POCHE_FILL`);
+the dense near-black poché is an EXPLICIT `construction-docs` purpose modifier, not the
+default. Elevations have no cut and therefore no poché (`ViewScope.poche = false`).
+
+**§4.6.3 — A LAYERED element pochés PER LAYER.** Where an element stores a construction
+build-up (`wall.layers`, `slab.layers`, …), the cut region is subdivided into one filled
+region **per stored layer**, toned by the layer's stored `function`. The regions, their count
+and their tones derive from the **stored record** (L-127 dimensional truth) — never from a
+magic literal, never from a hardcoded layer count. The tone is a deterministic **spread of the
+intent-resolved colour**, not a second palette: override the intent and every tone moves with
+it (`resolveWallLayerPocheFill`, Contract-23 §3).
+
+**§4.6.4 — The pen hierarchy is intent.** For every category:
+`weight(CUT) > weight(PROJECTION) > weight(BEYOND) ≥ weight(HIDDEN)` (ISO 13567 / the Revit
+principle). It is resolved from the intent through `PenWeightTable`; a builder that writes its
+own line weight is in breach. This holds in **section and elevation** exactly as it does in
+plan.
+
+**§4.6.5 — Occlusion is ONE engine, three consumers.** There MUST NOT be a second occluder
+implementation per view type. The engine takes (a) the occluder set — the SOLID silhouettes of
+the drawing, and (b) a **disposition** for occluded spans, and clips every segment against
+every occluder that is not its own element. The **disposition is INTENT**, not a code branch:
+
+- `remove` — the occluded span is not drawn (plan / section default: the slab does not show
+  through the wall);
+- `demote` — the occluded span is re-classified to its `:beyond` sibling and drawn on the light
+  dashed pen (the elevation default, per L-190: set-back geometry reads dashed).
+
+Both are legitimate drafting conventions; **which one applies is a property of the view's
+intent**, and a view MUST be able to choose. What is NOT legitimate is a view type having no
+occlusion at all, or having its own private occluder.
+
+**§4.6.6 — Guards (merge-blocking).** Per view type:
+- no segment behind a solid survives inside that solid's projected silhouette (subject to the
+  view's disposition);
+- `weight(CUT) > weight(PROJECTION) > weight(BEYOND)`, resolved from the intent;
+- a plain cut solid yields exactly ONE filled region; a layered cut solid yields exactly N,
+  where N is its **stored** layer count;
+- no poché colour or pen weight literal appears in any builder.
+
 ---
 
 ## §5 — AI Cost Governance

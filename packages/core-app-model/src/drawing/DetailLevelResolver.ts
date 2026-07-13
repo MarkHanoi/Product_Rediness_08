@@ -21,7 +21,7 @@
  *   3. C09 per-CATEGORY override           (GraphicOverride targetKind 'category')
  *   4. The VIEW's own setting              (ViewDefinition.output.detailLevel —
  *                                           the LIVE properties-panel dropdown)
- *   5. DEFAULT_DETAIL_LEVEL ('medium')
+ *   5. DEFAULT_DETAIL_LEVEL (the L0 schema default — 'fine' since L-252)
  *
  * Tiers 1–3 are the founder's "also through the visibility intent" knob; tier 4
  * is his "in the properties panel the user can choose" knob. Both knobs, ONE
@@ -40,13 +40,28 @@
  */
 
 import { trace, SpanStatusCode, type Tracer } from '@opentelemetry/api';
-import type { DetailLevel } from '@pryzm/schemas/view/detail-level';
+import { DEFAULT_DETAIL_LEVEL as SCHEMA_DEFAULT_DETAIL_LEVEL, type DetailLevel } from '@pryzm/schemas/view/detail-level';
 import { viewDefinitionStore } from '../views/ViewDefinitionStore.js';
 import { viewIntentInstanceStore } from '../presentation/ViewIntentInstanceStore.js';
 import type { GraphicOverride, OverrideTargetKind } from '../presentation/VisibilityIntentTypes.js';
 
-/** Canonical fallback when nothing in the precedence chain says otherwise. */
-export const DEFAULT_DETAIL_LEVEL: DetailLevel = 'medium';
+/**
+ * Canonical fallback when nothing in the precedence chain says otherwise.
+ *
+ * §STUDY-LOD-200-300-ACROSS-VIEW-TYPES (L-262) — RE-EXPORTED, NOT RE-DECLARED.
+ *
+ * This constant had FORKED from the L0 source of truth: L-241 P1 created
+ * `packages/schemas/src/view/detail-level.ts` precisely to kill a three-way spelling
+ * fork of this enum, and L-252 then raised the schema default 'medium' → 'fine' — but
+ * THIS file kept its own `= 'medium'` literal. Every view that DefaultViewsManager
+ * stamps carries an explicit level, so tier 4 of the precedence chain hid the fork; a
+ * view WITHOUT one (imported, legacy, ad-hoc, or created by a plugin) silently resolved
+ * to a DIFFERENT default from the one the schema declares. Two constants, one name, one
+ * domain concept — the exact defect L-241 P1 was written to prevent, one layer up.
+ *
+ * P5: `@pryzm/schemas` owns the enum AND its default. This is a re-export.
+ */
+export const DEFAULT_DETAIL_LEVEL: DetailLevel = SCHEMA_DEFAULT_DETAIL_LEVEL;
 
 const _VALID: readonly string[] = ['coarse', 'medium', 'fine'];
 
