@@ -450,3 +450,56 @@ See the companion plan for the phased path to green.
 **OPEN / needs heavy-scene repro (original perf gates):** L-02 (heavy-tower nav perf), L-03 (heavy-project load) — require a large test project to validate; flag for a dedicated perf pass.
 
 **Non-blocking engineering follow-ups:** CSG path-convergence for a door hard against a corner (`§WALL-SINGLE-VOLUME-CSG`); align root vitest config so `packages/**/*.test.ts` regression suites run in CI.
+
+---
+
+## SESSION HANDOFF — 2026-07-13 (start here)
+
+**Read this first. It is what the next session needs and nothing else.**
+
+### The one insight that reframes the board
+
+**L-253 (WebGPU invalid render pipeline) is very likely the root of L-250 (the wall+door "freeze").**
+Geometry is backend-agnostic. The founder's freeze was CURED by swapping WebGL→WebGPU, and a wall's
+baseline does not care who draws it — so the fault was never in the wall pipeline. That is why **all
+five** L-250 geometry hypotheses came back clean *under measurement*:
+
+- rebuild is **O(affected)**: 200 wall bodies → 4, 48 CSG extrudes → 0 (`WallMoveRebuildCost.measure.test.ts`)
+- `WallJoinResolver.resolveLevel` is a **proven fixed point**, even on the §SELF-CLUSTER topology
+  (`WallJoinResolver.hostedDoorLengthEditNoHang.test.ts` — written today)
+- the flush no-progress signature is millimetre-rounded geometry, so it **cannot** be defeated
+
+**ACTION: after the L-253 deploy, ask the founder to re-test the wall+door move. If it is gone, close
+L-250 as a symptom of L-253 and say so out loud in the audit.**
+
+### Immediately actionable, in order
+
+1. **L-253 remainder** — the WebGPU MRT fix is SHIPPED (`873832c5`). The **WebGL2 sibling fault is NOT**:
+   `GL_INVALID_OPERATION: glDrawElements: Mismatch between texture format and sampler type
+   (signed/unsigned/float/shadow)`. Same disease, other backend. Also still open in the same log:
+   `Destroyed texture [ShadowDepthTexture] used in a submit` (§SHADOW-DISPOSE-DEFER) and
+   `ViewportCrashGuard: Cannot read properties of undefined (reading 'usedTimes')` — a material/texture
+   disposed while still referenced.
+2. **L-247 phase 0.5c** — red surface is **34 → 3**. The 3 remaining are `FormaSiteAnalysisControls`, and
+   they are **PRODUCT-SUSPECT, NOT test rot**: the wind rose paints bars from a dataset that
+   `climateStore.resolveSite(site.id)` **cannot find under the site's own id** — a KEYING MISMATCH, same
+   family as L-249. **Do not edit the assertions.**
+3. **L-247 phase 0.5d** — flip `test-unit` from `continue-on-error` to a required check once green.
+4. **L-254 / L-255 / L-256** — window symbol, floor-finish plan modal, dimension conformance. All briefed.
+
+### The pattern that keeps producing bugs — name it when you see it
+
+**ONE element, TWO creation paths, and the plan path silently drops what the 3D path resolves.**
+Six instances now: **L-239** (wall layers), **L-240** (floor finish inner face), **L-243** (stair config
+scavenged from a global), **L-246** (the plan cut), **L-251** (the mitre), **L-255** (floor-finish modal).
+The fix is always the same shape: **converge at the creation chokepoint (C11); never add a fifth branch.**
+
+### Process lessons paid for in full today
+
+- **A hang is invisible to a cost test.** L-234 closed on a measured *cost*; the founder still froze.
+- **Verify at the OUTCOME, not the seam.** L-243's lesson, re-learned twice.
+- **When a red test looks like rot, ask "is the TEST wrong, or is the PRODUCT wrong?"** Three of the five
+  L-247 groups were the PRODUCT's fault — including **L-249**, a live production bug where climate normals
+  could NEVER load.
+- **I was refuted on my own root cause SIX times today** (L-239, L-243, L-246, L-248, L-250 ×2). Reproduce.
+  Do not confirm.
