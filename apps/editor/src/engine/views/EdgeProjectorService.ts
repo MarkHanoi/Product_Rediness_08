@@ -140,6 +140,72 @@ const ELEMENT_TYPE_TO_PROJECTION_LAYER: Readonly<Record<string, string>> = {
 const FALLBACK_NATIVE_LAYER = 'projection-visible';
 
 /**
+ * §FIX-PLAN-WALL-LAYER-CASE (L-275) — RESOLVE THE ISO LAYER BY *CANONICAL* ELEMENT TYPE.
+ *
+ * ## The bug this kills, and it was a good one
+ *
+ * The founder: *"ONLY when I placed a door does the wall render as it should."* Two
+ * screenshots, same wall, same view: **no door → a hollow outline; door → a properly
+ * filled poché.** He isolated the variable himself, and his own log corroborated it:
+ *
+ *     no door :  1 edge geometries across 1 ISO layer(s)     applied= 6/14 layers
+ *     door    :  9 edge geometries across 2 ISO layer(s)     applied=12/14 layers
+ *
+ * The `:cut` layer never materialised for a plain wall. **Why:** `ELEMENT_TYPE_TO_PROJECTION_LAYER`
+ * keys walls as `Wall` / `WallPart` / `LayeredWall` / `WallLayer` / `WallEdges` /
+ * `CurtainWall` — every one CAPITALISED — while it keys floors, ceilings, doors and
+ * windows in lowercase (`floor`, `ceiling`, `door`, `window`). **The map mixes two naming
+ * conventions.** A plain wall mesh stamps `elementType = 'wall'` (his log:
+ * `§DIAG-EPS-01 … elemType=wall`), which matches NOTHING, so it fell through to
+ * `FALLBACK_NATIVE_LAYER` (`projection-visible`) — outside `A-WALL`, outside the pen
+ * table, and outside the cut gate. **No `A-WALL` ⇒ no cut section ⇒ no poché.**
+ *
+ * Place a door and the wall is rebuilt through the opening/CSG path, which stamps a
+ * CAPITALISED type. It lands on `A-WALL`, the cut section builds, and the wall fills.
+ * **That is exactly the two images.**
+ *
+ * ## Why this is a normaliser and not one more alias
+ *
+ * Adding `wall: 'A-WALL'` would have fixed the screenshot and LEFT THE LANDMINE ARMED
+ * for the next element type someone stamps in the other convention. This is the THIRD
+ * time a layer-stamp mismatch has silently dropped geometry out of the pen table
+ * (L-257: layered walls drawn on layer 0; L-261: opening-hosting wall layers with no
+ * `elementType` at all). **A map that is case- and separator-sensitive is a bug
+ * generator, so the LOOKUP is fixed, not the map.**
+ *
+ * `wall`, `Wall`, `WALL`, `wall-part`, `WallPart` and `wall_part` now all resolve to
+ * `A-WALL`. The canonical key is lowercase with `-`/`_`/spaces stripped.
+ *
+ * Collisions are impossible by construction: every key in the source map canonicalises
+ * uniquely (verified by the guard in `planWallLayerCase.test.ts`, which fails if a
+ * future edit introduces two keys that collapse onto one canonical form).
+ */
+function _canonicalTypeKey(elementType: string): string {
+    return elementType.toLowerCase().replace(/[-_\s]/g, '');
+}
+
+/** Canonical-key index built once from the authoring map above. */
+const _CANONICAL_TYPE_TO_LAYER: ReadonlyMap<string, string> = (() => {
+    const m = new Map<string, string>();
+    for (const [type, layer] of Object.entries(ELEMENT_TYPE_TO_PROJECTION_LAYER)) {
+        m.set(_canonicalTypeKey(type), layer);
+    }
+    return m;
+})();
+
+/**
+ * The ONE way to resolve an element type to its ISO projection layer.
+ *
+ * Exported for the guard test — a projection layer that silently falls back to
+ * `projection-visible` is how geometry disappears from the pen table, the cut gate and
+ * the poché, all at once and with no error.
+ */
+export function resolveProjectionLayer(elementType: string | undefined): string {
+    if (!elementType) return FALLBACK_NATIVE_LAYER;
+    return _CANONICAL_TYPE_TO_LAYER.get(_canonicalTypeKey(elementType)) ?? FALLBACK_NATIVE_LAYER;
+}
+
+/**
  * §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — one CUT-zone section of ONE solid mesh,
  * carrying the construction-layer identity of the mesh it was cut from.
  *
@@ -215,6 +281,46 @@ function readMeshPocheLayer(mesh: THREE.Mesh): CutSectionPart['pocheLayer'] | un
 const _LAYER_CUT_NAME    = new Map<string, string>();
 const _LAYER_PROJ_NAME   = new Map<string, string>();
 const _LAYER_BEYOND_NAME = new Map<string, string>();
+
+/**
+ * §FEAT-POCHE-ALL-SOLIDS (L-261 residual, ADR-121 §5.2(3)) — WHICH ELEMENTS CAN THE
+ * PLAN CUT PLANE PASS *THROUGH*?
+ *
+ * Poché shipped WALL-ONLY: the cut-section gate read `layerName === 'A-WALL'`, so a
+ * COLUMN or a STAIR standing squarely in the 1.2 m cut plane still drew as a HOLLOW
+ * OUTLINE next to a properly filled wall. That is not a missing feature — it is the
+ * SOLIDITY RULE (C09 §4.6) applied to one element type and no other, which is the
+ * exact habit ADR-121 was written to name: *PRYZM's documentation layer is built for
+ * ONE case and never carried across.*
+ *
+ * THE RULE, RESTATED: an element is a SOLID. A view either CUTS it (→ heavy outline +
+ * poché fill) or PROJECTS it. **GEOMETRY decides which — not a layer name.** So this
+ * is deliberately a set of SOLID ELEMENT LAYERS, not a whitelist of the ones we
+ * happened to fix. A layer-name whitelist that names only walls IS the bug.
+ *
+ * Widening the gate is SAFE BY CONSTRUCTION: `buildPlanCutSectionGeometry()` returns
+ * `null` when the mesh does not intersect the plane, so an element that is BELOW the
+ * cut (a ground slab) or ABOVE it (a ceiling beam) contributes nothing and costs one
+ * bbox rejection. A mezzanine slab that genuinely crosses the plane, on the other
+ * hand, IS cut — and should be poché'd. That is the rule doing its job.
+ *
+ * EXCLUDED, AND WHY — these are NOT "solids we forgot":
+ *   A-DOOR / A-GLAZ  a door/window in the cut plane is drawn as a SYMBOL (swing arc,
+ *                    frame profile), and the wall's own cut section already carries
+ *                    the VOID at the opening by construction (L-246). Poché-ing the
+ *                    leaf would fill the hole the opening exists to make.
+ *   A-FURN / A-PLMB  furniture and fittings are symbols in plan, never poché.
+ *   A-CEIL           above the cut plane by definition; it is a reflected-ceiling
+ *                    concept, not a cut one.
+ */
+const CUT_ELIGIBLE_PLAN_LAYERS: ReadonlySet<string> = new Set([
+    'A-WALL',  // walls + curtain walls (shipped in L-261)
+    'A-COLS',  // a column in the cut plane is as cut as a wall is
+    'A-STRS',  // a stair flight crossing the plane is cut — Revit draws it cut + break-line
+    'A-BEAM',  // usually above the plane (→ null, free); cut when it genuinely crosses
+    'A-FLOR',  // ground slabs sit below (→ null); a MEZZANINE slab crossing IS cut
+    'A-ROOF',  // a roof crossing the cut plane (a low eaves, a dormer cheek) is cut
+]);
 
 (function _preinternLayerNames() {
     const known = [
@@ -2143,9 +2249,12 @@ export class EdgeProjectorService {
                             ?? (mesh.userData?.wallId !== undefined && mesh.userData?.layerIndex !== undefined
                                 ? 'WallLayer'
                                 : undefined);
-                        const layerName   = (elementType
-                            ? (ELEMENT_TYPE_TO_PROJECTION_LAYER[elementType] ?? FALLBACK_NATIVE_LAYER)
-                            : FALLBACK_NATIVE_LAYER);
+                        // §FIX-PLAN-WALL-LAYER-CASE (L-275) — resolve by CANONICAL type.
+                        // A plain wall stamps 'wall' (lowercase); the map keys it 'Wall'.
+                        // The old direct index missed it, dropped the wall onto
+                        // 'projection-visible', and so the wall got NO :cut layer and NO
+                        // poché — until a door forced a rebuild that stamped 'Wall'.
+                        const layerName   = resolveProjectionLayer(elementType);
 
                         mesh.updateWorldMatrix(true, false);
                         try {
@@ -2200,7 +2309,7 @@ export class EdgeProjectorService {
                             // solid that actually exists at that height: it terminates on the
                             // void edges of every door/window opening BY CONSTRUCTION, on every
                             // wall render path. See buildPlanCutSectionGeometry().
-                            if (isPlanView && cutPlaneY !== null && layerName === 'A-WALL') {
+                            if (isPlanView && cutPlaneY !== null && CUT_ELIGIBLE_PLAN_LAYERS.has(layerName)) {
                                 const planCutGeo = buildPlanCutSectionGeometry(mesh, cutPlaneY);
                                 if (planCutGeo) {
                                     if (!perElemLayerCutGeos.has(layerName)) perElemLayerCutGeos.set(layerName, []);
@@ -2732,9 +2841,10 @@ export class EdgeProjectorService {
                         return;
                     }
 
-                    const layerName   = elementType
-                        ? (ELEMENT_TYPE_TO_PROJECTION_LAYER[elementType] ?? FALLBACK_NATIVE_LAYER)
-                        : FALLBACK_NATIVE_LAYER;
+                    // §FIX-PLAN-WALL-LAYER-CASE (L-275) — canonical resolution. Both call
+                    // sites MUST go through the one resolver; a second raw index lookup is
+                    // how the case mismatch survived here in the first place.
+                    const layerName   = resolveProjectionLayer(elementType);
 
                     mesh.updateWorldMatrix(true, false);
                     try {
