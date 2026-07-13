@@ -1,5 +1,11 @@
 // MAP-DATA-OVERTURE — keyless context-building footprint loader (OSM / Overpass).
 //
+// §FIX-CTXBLD-UNBOUNDED-CACHE (L-273) — this module OWNS the `pryzm:ctxbld:*` key
+// family, so under C13 (single-writer) it — and only it — may reclaim those keys. It
+// therefore registers its own reclaimer with the platform quota flow rather than
+// letting `ProjectRepository` reach across the boundary into keys it does not own.
+import { ctxbldRead, ctxbldWrite } from './contextBuildingsCache';
+//
 // WHY THIS EXISTS
 // ---------------
 // The founder ratified "Overture + Cesium (free)": the 2D plan + the Cesium Forma
@@ -319,24 +325,19 @@ function bboxKey(bbox: Bbox): string {
 // many generations). Persisting footprints for 7 days means a re-visited site loads
 // instantly + offline, with zero Overpass calls. Best-effort: quota / private-mode
 // failures are swallowed.
-const LS_PREFIX = 'pryzm:ctxbld:';
-const LS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function lsRead(key: string): ContextBuildingCollection | null {
-    try {
-        const raw = globalThis.localStorage?.getItem(LS_PREFIX + key);
-        if (!raw) return null;
-        const o = JSON.parse(raw) as { t: number; c: ContextBuildingCollection };
-        if (!o || typeof o.t !== 'number' || (Date.now() - o.t) > LS_TTL_MS) return null;
-        return o.c;
-    } catch { return null; }
-}
-
-function lsWrite(key: string, c: ContextBuildingCollection): void {
-    try {
-        globalThis.localStorage?.setItem(LS_PREFIX + key, JSON.stringify({ t: Date.now(), c }));
-    } catch { /* quota / unavailable — non-fatal */ }
-}
+// §FIX-CTXBLD-UNBOUNDED-CACHE (L-273) — THE CACHE MOVED OUT, DELIBERATELY.
+//
+// The `pryzm:ctxbld:*` key family is now owned by `contextBuildingsCache.ts`, a tiny
+// module with no fetch, no THREE and no Cesium, which the platform imports EAGERLY at
+// boot. That matters: a storage reclaimer that only registers when this (LAZY-LOADED)
+// module is pulled in could not free anything in a session where the user never opened
+// the globe — i.e. it would silently fail in exactly the case that matters, a user who
+// is out of quota. One owner for the keys (C13 single-writer); registration that does
+// not depend on a lazy chunk.
+//
+// This module keeps what it is actually for: fetching footprints from Overpass.
+const lsRead = ctxbldRead;
+const lsWrite = ctxbldWrite;
 
 /**
  * Compute the fetch bbox `[w,s,e,n]` centred on a site lat/lon.

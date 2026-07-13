@@ -27,6 +27,19 @@
  */
 
 import { injectAppTheme } from '../styles/AppTheme';
+// §FIX-STORAGE-RECLAIMER-REGISTRY (L-273) — SIDE-EFFECT IMPORT, AND IT MUST STAY EAGER.
+//
+// This registers the `pryzm:ctxbld:*` (cached OSM context buildings) reclaimer with the
+// storage-quota flow. It is imported HERE, at platform boot, rather than from the
+// lazy-loaded geospatial chunk, because a reclaimer that only registers once the user
+// opens the globe cannot free anything in a session where they never did — i.e. it would
+// silently fail in exactly the case that matters: a user who is already out of quota.
+//
+// The module it pulls in is deliberately tiny (no fetch, no THREE, no Cesium); the
+// Overpass layer stays lazy. Removing this import re-breaks "Free up space" — which is
+// how the founder ended up staring at "Nothing safe to reclaim" while 1.56 MB of pure
+// cache sat in his origin and his autosave index failed to write (L-269).
+import '../geospatial/contextBuildingsCache';
 import { versionRepository, warmVersionCache } from './ProjectRepository';
 import type { SaveAdapter, LoadAdapter, IProjectSnapshot, ShellCtx } from './PlatformShellTypes';
 import type { VersionRecord } from './PlatformShellTypes';

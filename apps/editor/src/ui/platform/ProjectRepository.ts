@@ -34,6 +34,9 @@ import {
     formatStorageUsageReport,
     markStorageQuotaTerminal,
     resetStorageQuotaTerminal,
+    // §FIX-STORAGE-RECLAIMER-REGISTRY (L-273) — ask every key-family OWNER to free its
+    // own cache, rather than reaching across the C13 single-writer boundary ourselves.
+    runRegisteredReclaimers,
     type StorageUsageReport,
 } from './StorageQuotaDiagnostics';
 
@@ -435,7 +438,33 @@ export function reclaimRedundantLocalStorage(): { keysDropped: number; bytesFree
         }
     } catch { return { keysDropped: 0, bytesFreed: 0 }; }
     for (const k of drop) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
-    return { keysDropped: drop.length, bytesFreed };
+
+    // §FIX-STORAGE-RECLAIMER-REGISTRY (L-273) — NOW ASK EVERY OTHER OWNER.
+    //
+    // The founder saw: "Nothing safe to reclaim. pryzm:ctxbld:… is using 1.56 MB."
+    // The diagnostic named the hog correctly — and then "Free up space" could free
+    // NOTHING, because this function only ever scanned its OWN key family. 1.56 MB of
+    // pure, re-fetchable OSM cache sat there while his autosave index failed to write.
+    //
+    // The fix is NOT to let this function delete `pryzm:ctxbld:*` — that would breach
+    // C13 (single-writer): a repository reaching into another module's keys is how a
+    // storage bug becomes a data-loss bug. Instead each OWNER registers a reclaimer for
+    // its OWN family, and we ask them all. Authority stays with the owner; the platform
+    // merely asks.
+    const fromOwners = runRegisteredReclaimers();
+    if (fromOwners.keysDropped > 0) {
+        for (const f of fromOwners.byFamily) {
+            console.log(
+                `[StorageQuota] reclaimed ${(f.bytesFreed / 1024 / 1024).toFixed(2)} MB ` +
+                `from "${f.label}" (${f.keysDropped} key(s))`,
+            );
+        }
+    }
+
+    return {
+        keysDropped: drop.length + fromOwners.keysDropped,
+        bytesFreed: bytesFreed + fromOwners.bytesFreed,
+    };
 }
 
 /**

@@ -138,6 +138,87 @@ export function largestStorageConsumer(report: StorageUsageReport): StorageFamil
     return report.families[0] ?? null;
 }
 
+// ── The reclaimer registry (§FIX-STORAGE-RECLAIMER-REGISTRY, L-273) ──────────
+//
+// THE BUG THIS EXISTS TO KILL, IN THE FOUNDER'S OWN WORDS:
+//
+//     "Nothing safe to reclaim. pryzm:ctxbld:-0.2125,51.5056,-0.1964,51.5156 is using
+//      1.56 MB of browser storage — export your project and clear site data."
+//
+// The diagnostics NAMED the hog correctly (that part worked). But "Free up space"
+// could reclaim NOTHING, because `reclaimRedundantLocalStorage()` scans exactly one
+// key family — its OWN (`STORAGE_VERSIONS_PREFIX`). It cannot see `pryzm:ctxbld:*`,
+// which belongs to `contextBuildings`.
+//
+// AND IT MUST NOT SEE IT. C13 is single-writer: `ProjectRepository` deleting another
+// module's keys is precisely the shortcut that turns a storage bug into a data-loss
+// bug. An earlier agent hit this same wall and CORRECTLY refused to reach across the
+// boundary — that refusal was the architecture working, and it is why L-273 was filed
+// rather than hacked.
+//
+// SO THE FIX IS NOT "let the repository delete more keys". It is: EVERY OWNER OF A
+// LOCALSTORAGE KEY FAMILY REGISTERS ITS OWN RECLAIMER, and the quota flow runs them
+// all. The owner keeps sole authority over its keys (C13); the platform gains a way
+// to ask, without ever reaching in.
+//
+// A cache that can never be evicted is not a cache — it is a leak with a TTL comment.
+
+/** A module's own reclaim routine. MUST only touch keys that module owns (C13). */
+export interface StorageReclaimer {
+    /** Key family this owner is responsible for, e.g. `pryzm:ctxbld:` — for reporting. */
+    readonly prefix: string;
+    /** Human name shown in the "freed X from Y" summary. */
+    readonly label: string;
+    /**
+     * Free what is safe to free. MUST be non-destructive to user data: a reclaimer
+     * may drop CACHES and DERIVED data only. If a module cannot distinguish the two,
+     * it must not register.
+     */
+    reclaim(): { keysDropped: number; bytesFreed: number };
+}
+
+const _reclaimers = new Map<string, StorageReclaimer>();
+
+/**
+ * Register a reclaimer for a localStorage key family you OWN.
+ *
+ * Idempotent by prefix, so a module can register at import time without worrying
+ * about double-registration under HMR or a re-imported barrel.
+ */
+export function registerStorageReclaimer(r: StorageReclaimer): void {
+    _reclaimers.set(r.prefix, r);
+}
+
+/**
+ * Run every registered reclaimer. Used by the "Free up space" action.
+ *
+ * A reclaimer that throws is isolated: one badly-behaved owner must not prevent the
+ * others from freeing space, because the user is already in a failing state.
+ */
+export function runRegisteredReclaimers(): {
+    keysDropped: number;
+    bytesFreed: number;
+    byFamily: { label: string; keysDropped: number; bytesFreed: number }[];
+} {
+    let keysDropped = 0;
+    let bytesFreed = 0;
+    const byFamily: { label: string; keysDropped: number; bytesFreed: number }[] = [];
+
+    for (const r of _reclaimers.values()) {
+        try {
+            const got = r.reclaim();
+            if (got.keysDropped > 0 || got.bytesFreed > 0) {
+                keysDropped += got.keysDropped;
+                bytesFreed += got.bytesFreed;
+                byFamily.push({ label: r.label, ...got });
+            }
+        } catch (err) {
+            console.warn(`[StorageQuota] reclaimer "${r.label}" failed (isolated):`, err);
+        }
+    }
+    return { keysDropped, bytesFreed, byFamily };
+}
+
 // ── Terminal-state latch ─────────────────────────────────────────────────────
 //
 // "Eviction exhausted" is TERMINAL, not a warning: the recovery path is spent (or,
