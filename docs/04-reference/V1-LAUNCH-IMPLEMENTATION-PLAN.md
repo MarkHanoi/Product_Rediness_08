@@ -52,6 +52,27 @@ Blocking defects that make the app unusable. Gate: G1, G2, G3.
   flushes*; **0.0e** verify on the deployed build (localhost dev is unusable for this). **Gate G1.**
   *A fix is not done until the cost is MEASURED on THIS path — L-234 was closed on a measured drag path,
   which is precisely why it did not close this.*
+- **0.0b WALL JOINT: a clean 2-wall MITRE is destroyed when a THIRD wall joins the corner** (L-251 /
+  §FIX-WALL-JOIN-MITRE-BROKEN-BY-THIRD-WALL) — **OPEN, HIGH.** Founder, 2026-07-13, two screenshots: two
+  walls meeting *en inglete* render correctly; add a third (L+I / T) into that corner and the mitre breaks —
+  a dark **wedge** opens in 3D, a square **notch** appears in plan. **Our own source names the seam:**
+  [WallJoinResolver.ts:258](packages/geometry-wall/src/WallJoinResolver.ts#L258) runs a **`§MULTI-CLUSTER`
+  consensus-trim for 3+ endpoint clusters BEFORE the pair-wise loop**, while a 2-wall corner is **mitred by a
+  bisector plane** ([:143-153](packages/geometry-wall/src/WallJoinResolver.ts#L143)). **So the same corner is
+  MITRED at two walls and CONSENSUS-TRIMMED at three — adding a wall silently switches join algorithms, and the
+  wedge is the difference between them.** Fourth appearance of the one-thing-two-paths disease (cf. L-239,
+  L-242, L-246, L-250). Sub: **0.0b-1 reproduce IN ORDER** (build the mitre, confirm clean, *then* add the third
+  wall — the order IS the bug); **0.0b-2 answer H3 FIRST, it is cheap and decides the fix** — the founder's wall
+  **hosts a door**, and L-242 proved ADR-0055's JunctionResolverV2 only ever shipped for
+  `!layers && !curve && openings.length === 0`, so this corner may be on the **legacy** resolver by construction
+  — if so the real ticket is **"ADR-0055 P4b: land V2 for opening-bearing walls"** and patching the legacy trim is
+  polishing a path we intend to delete; **0.0b-3** the fix is **CONVERGENCE, not another branch** — one algorithm
+  whose result is *continuous* as wall-count goes 2 → 3; `WallJoinResolver` already carries a pair-wise mitre, a
+  multi-cluster consensus trim, a partition-shell clamp and a diff-thickness butt, **and this bug exists because
+  they disagree — do not add a fifth**; **0.0b-4 do NOT re-attempt §CLAMP-COSHARE-WELD** (reverted for DOUBLING
+  walls) — solve it in the footprint/mitre-normal, never by moving baselines; **0.0b-5** guard: *a 2-wall mitre
+  that gains a third wall must stay WATERTIGHT* — assert zero uncovered area, not merely "no exception".
+  **Same agent as 0.0 (L-250) — both live in the wall-rebuild/join path and will collide if split.**
 - **0.5 The unit-test estate is not a CI gate** (L-247 / §GATE-TEST-ESTATE-NOT-A-CI-GATE) — *queued, CRITICAL*.
   **This is the gate under every other gate on this board, and it is currently open.** `ci.yml:106` runs only
   `test:server`; it never calls `test:ci`. Root `test:ci` uses `--if-present`, and **122 workspaces define `test`
@@ -151,6 +172,7 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-id | Phase | Status |
 |---|---|---|
+| **L-251 wall mitre destroyed by a third wall (L/T)** | **0.0b (with L-250 — same agent)** | **OPEN — HIGH.** A clean 2-wall mitre breaks when a third wall joins: wedge in 3D, notch in plan. `WallJoinResolver` **mitres** a 2-wall corner (bisector plane, `:143-153`) but **consensus-trims** a 3+ cluster in a `§MULTI-CLUSTER` pass that runs **before** the pair-wise loop (`:258`) — **adding a wall silently switches join algorithms, and the wedge is the difference.** The wall **hosts a door**, so per L-242 it is likely on the LEGACY resolver and ADR-0055 V2 never sees it (**answer that first — it may reframe this as ADR-0055 P4b**). Fix = convergence, not a fifth branch. Do NOT re-attempt §CLAMP-COSHARE-WELD (reverted: doubled walls). |
 | **L-250 wall+hosted-door FREEZE (founder #1, recurrent)** | **0.0 (Gate G1 REOPENED)** | **OPEN — CRITICAL.** Survived L-01/ADR-0099, L-97 and L-234. **The founder's screenshot shows the PROPERTY-PANEL `Length` edit, not a drag — and L-234 measured only the drag path.** Four call sites reach `wall.updateBaseline`; the panel one carries no `_recordUndo`/`_skipBridge` and moves ONE ENDPOINT (changing junction topology). Our own source already names the failure: a moved door-bearing wall in a `§SELF-CLUSTER-GUARD` cluster makes the flush *"re-arm EVERY rAF frame and never converge → the founder's hard freeze"*. **REPRODUCE ON THE PANEL PATH FIRST — every prior root cause is refuted until re-proven.** |
 | L-246 plan: door must CUT the wall | 3.2 annotations/drawing | **SHIPPED** (`2fe5cf8b`, §FIX-PLAN-DOOR-CUTS-WALL). All 4 briefed hypotheses refuted: the opening-clip machinery was never the bug — **`A-WALL:cut` was ALWAYS empty** (`classifyByVertexY` only tags edges within 15 cm of the cut plane, and a wall has no edge near a 1.2 m cut). Fix cuts the SOLID (true plane∩triangle section), so the door void is empty **by construction** on every render path — which also explains the missing poché (L-241). 9/9 specs; snapshots unchanged; root tsc 0. **Projection-line clip (`_suppressPlanViewOpeningLines`) still unproven on screen — founder verification wanted.** |
 | **L-247 unit-test estate is not a CI gate** | **0.5 (Gate G0)** | **OPEN — CRITICAL.** `ci.yml` never calls `test:ci`; `--if-present` skips the **122 workspaces** (incl. `@pryzm/editor`) that lack a `test:ci` script; **1,495 editor tests, 34 RED, have never run in CI.** The "CI-enforced / merge-blocking" claim in C01/`CLAUDE.md` holds for lint/boundaries/ga-gate and **is false for every unit test**. Gate lands RED first, then triage product-first. |
