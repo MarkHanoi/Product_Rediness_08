@@ -272,10 +272,30 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     // §SELECT-PICK-RESOLUTION — GPU max texture dimension (see SelectionManager).
                     get maxTextureSize() { return (r as any).capabilities?.maxTextureSize ?? 4096; },
                     renderToTarget: (scene: THREE.Scene, camera: THREE.Camera, target: THREE.WebGLRenderTarget, mat: THREE.Material | null) => {
+                        // §FIX-WEBGL2-GHOST-STALE-TARGET (L-05 / G6) — RESTORE ON THE ERROR PATH.
+                        //
+                        // This borrows the SHARED renderer, redirects it to an offscreen pick
+                        // target, and restores it afterwards. Without a `finally`, a throw inside
+                        // `render()` skips the restore and leaves the renderer PERMANENTLY BOUND
+                        // to this pick buffer — after which every subsequent frame paints
+                        // offscreen, the canvas keeps compositing its last good image while the
+                        // camera orbits behind it (the ghost), and `clearObcBaseFramebuffer()`
+                        // starts clearing THIS target instead of the canvas, silently turning the
+                        // ADR-0108 ghost fix into a no-op for the rest of the session.
+                        //
+                        // And it DOES throw on this backend: the founder's console carries
+                        // `GL_INVALID_OPERATION: Mismatch between texture format and sampler type`
+                        // and `Cannot read properties of undefined (reading 'usedTimes')`.
+                        //
+                        // A borrower of shared GPU state must hand it back on EVERY path.
+                        // `SelectionManager` already does this; this probe did not.
                         const prev = r.getRenderTarget(); const prevMat = (r as any).overrideMaterial;
-                        r.setRenderTarget(target); (r as any).overrideMaterial = mat;
-                        r.render(scene, camera);
-                        (r as any).overrideMaterial = prevMat; r.setRenderTarget(prev);
+                        try {
+                            r.setRenderTarget(target); (r as any).overrideMaterial = mat;
+                            r.render(scene, camera);
+                        } finally {
+                            (r as any).overrideMaterial = prevMat; r.setRenderTarget(prev);
+                        }
                     },
                     readPixels: (t: THREE.WebGLRenderTarget, x: number, y: number, w: number, h: number, buf: Uint8Array) =>
                         r.readRenderTargetPixels(t, x, y, w, h, buf),

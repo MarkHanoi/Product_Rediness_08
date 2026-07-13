@@ -1391,6 +1391,30 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     const clearObcBaseFramebuffer = (reason: string, quiet = false): void => {
         try {
             const obc = postproductionRenderer.three as THREE.WebGLRenderer;
+
+            // §FIX-WEBGL2-GHOST-STALE-TARGET (L-05 / G6) — CLEAR THE CANVAS, NOT WHOEVER'S
+            // BUFFER HAPPENS TO BE BOUND.
+            //
+            // three's `WebGLRenderer.clear()` issues `gl.clear()` against the CURRENTLY BOUND
+            // framebuffer — not the canvas. And this renderer is SHARED: the GPU picker borrows
+            // it on every hover/click (`SelectionManager`), and so do the pick-strategy probe
+            // and `ViewRenderCache`, each via `setRenderTarget(target) → render() → restore`.
+            // When that inner `render()` THROWS — and on this backend it does; the founder's
+            // console carries `GL_INVALID_OPERATION: Mismatch between texture format and sampler
+            // type` and `Cannot read properties of undefined (reading 'usedTimes')` — the
+            // restore never runs and the renderer stays PERMANENTLY BOUND to that offscreen
+            // target.
+            //
+            // From that moment the ghost fix becomes a NO-OP: every per-frame call here dutifully
+            // clears the leaked PICK BUFFER while the canvas keeps compositing its last good
+            // frame, and the camera goes on orbiting behind a frozen image. That is precisely why
+            // ADR-0108 is in the code and the founder STILL sees ghost-on-rotate.
+            //
+            // Unbinding first makes this function mean what its name says. It is also the honest
+            // fix for a shared resource: the frame owner asserts its own invariant rather than
+            // trusting every borrower to unwind correctly on the error path.
+            obc.setRenderTarget?.(null);
+
             obc.setClearColor?.(new THREE.Color(0x000000), 0);
             obc.clear?.(true, true, true);
             if (!quiet) {
