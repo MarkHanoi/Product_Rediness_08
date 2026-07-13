@@ -172,6 +172,75 @@ Binding rules:
 - **B-4** Hoist any duplicate-scan out of the inner loop (the `CreateAllSlabsFromLevelToAllFloors` O(N²) laggard; commit `8919f20`).
 - **B-5 — Post-batch wall-join invariant (NEW, see §12 OI-057).** After a wall batch, exactly one `WallJoinResolver.resolveLevel(levelWalls)` pass MUST run per affected level **with all walls present**. In the current architecture this is delivered by the deferred `resume() → WallRebuildCoordinator._flush()` path (which reads `store.getAll().filter(levelId)` at flush time, i.e. the complete set). Authors of new batch-wall paths MUST route through this flush and MUST NOT mark walls built without a level join pass. This invariant is currently **timing-implicit and untested** — see §12.
 
+### §8.6 — What actually buys "one gesture = one undo entry"
+
+**A batch is not an undo unit.** This is the single most-misunderstood point in this contract, and it
+was measured (not assumed) under `§FIX-NESTED-BATCH-DROPS-GUARDS`, L-271:
+
+> `CommandBus.executeCommand()` pushes **exactly one ring-buffer entry per DISPATCH**, gated only on
+> `suppressUndo` and the empty-patch check. It **never reads `batchCoordinator`**. Therefore
+> **`runBatch()` is UNDO-NEUTRAL**: opening, nesting, or dropping a batch cannot change the number of
+> undo entries a gesture produces.
+
+Binding consequences:
+
+- **B-6** — "One gesture = one undo entry" is bought by **dispatching ONE `*.batch.create` command**
+  (one `produceCommand` → one Immer patch pair → one ring entry). It is **NEVER** bought by holding a
+  batch open. An executor that dispatches N `foo.create` commands inside a `runBatch` produces **N**
+  undo entries, and the batch does not, and cannot, merge them.
+- **B-7** — `runBatch()` exists for the **GUARDS** (builder pauses, `ViewDependencyTracker`
+  suppression, room-redetect suppression, the CRDT blackout window, the registration queue, the
+  loading overlay), not for undo. Author for the guards; author the undo unit separately, per B-6.
+
+Pinned by `apps/editor/__tests__/batchNestingUndo.test.ts` (I-N1…I-N4) — the nesting half of gate G10.
+
+### §8.7 — Re-entrancy: `runBatch()` called while a batch is live (binding)
+
+`runBatch()` **is** re-entered in production (the resi/house/office post-gen fan-outs). It previously
+detected that case, printed *"nesting not supported — running fn() without batch guards"*, and then
+ran `fn()` **with the guards off**, silently discarding the inner call's `BatchOptions`.
+
+> **A warning is not a guard.** Detect-warn-and-carry-on-unguarded is **NOT** an acceptable state and
+> MUST NOT be reintroduced. Likewise, a caller-side `if (isBatching) …` check is **not** a guard — it
+> is a check-then-act race (two deferrals released by the same settle both pass it). **Re-entrancy
+> safety is the COORDINATOR's invariant, never the caller's.**
+
+`BatchCoordinator.runBatch()` therefore has **four** states and no silent fifth way. This follows the
+existing `StoreEventBus.beginBatch()` depth-counting precedent rather than inventing a second model:
+
+| # | State | Behaviour |
+|---|---|---|
+| **N1** | IDLE | Open a batch (unchanged). |
+| **N2** | Live batch, inside its **synchronous** phase (`_syncDepth > 0`) | **JOIN** by depth-counting. It is the SAME logical batch: options MERGE, guards are inherited (the outer bus bracket already buffers, the builder pauses already hold, `trackRegistration()` already queues), and **nothing releases until depth returns to 0**. No second bus bracket. |
+| **N3** | Live batch, **settling**, final sweep NOT yet begun | **EXTEND** the live batch: re-apply the builder pauses for the new work, MERGE the options, run `fn` inside the still-open bus bracket, and **re-arm completion** so the grown batch cannot complete on the stale drain signal. Still ONE batch — one overlay, one CRDT blackout, one final sweep. |
+| **N4** | Live batch, final sweep **has begun** | **DEFER** into a clean, fully-guarded batch on settle. Joining here is unsafe for a concrete reason: the registration queue has already drained, so a `trackRegistration()` pushed now would sit in a queue nobody drains again and the element would never reach `BimManager`. Never run unguarded; never dropped (`forceReset()` flushes the settle listeners, so a project switch cannot strand it). |
+
+**Option merge rules** (N2/N3) — the inner call's options were previously dropped on the floor:
+
+- `levelIds` — **UNION.** Every level any participant touched MUST be swept by the final REDETECT.
+- `totalElementCount` — **SUM.** The overlay's denominator must cover the whole batch.
+- `skipRedetectRooms`, `skipPbrUpgrade` — **AND.** A skip is a promise made to *every* participant; it
+  may only hold if *every* participant opted out. If one participant needs the pass, the batch runs it.
+  (Fail-safe direction: doing the work is correct-but-slower; skipping it is **wrong**.)
+
+Binding rules:
+
+- **B-8** — Authors MUST NOT hand-roll `if (batchCoordinator.isBatching) { onNextSettle(…) }` as a
+  correctness guard. Re-entering `runBatch` is safe by construction (N2–N4). Deferring remains a
+  legitimate **performance** choice (do not grow a settling batch indefinitely), never a correctness one.
+- **B-9** — In the **N4** path `runBatch` returns `undefined` (the work has not run yet); its signature
+  is `T | undefined`. A caller that needs the return value, or must act strictly after the commit, MUST
+  await `batchCoordinator.onNextSettle()` itself.
+- **B-10 — Serialise fan-outs; advance on a REAL signal.** A post-gen orchestrator that fans out
+  per-level passes MUST process levels **one at a time**, advancing on the downstream **commit event**
+  (e.g. `ceiling.layout-executed`) with a timeout only as a *backstop against wedging* — never as the
+  primary advance. Parallel per-level pollers both pile up overlapping batches **and** race on the
+  shared `projectContext.activeLevelId` that the downstream cascade reads, landing the cascade on the
+  wrong level. Precedent: `runHousePostGenChain`. (L-271 fixed `ResidentialBuildingExecutor._ceilRoomsPerLevel`,
+  which armed one independent poller per level.)
+
+Pinned by `packages/core-app-model/src/batch/BatchCoordinator.nesting.test.ts` (N2…N4).
+
 ---
 
 ## §9 — AI-initiated command authoring
@@ -227,6 +296,15 @@ COMMAND: <type>   KIND (§3): <single | batch | bus-batch | hosted | update | de
 - C11 §8.3 single create; §8.4 plan-view ≤ 400 ms; §8.2 batch (no LONGTASK).
 - **Level-visibility gate** — create N elements across 2 levels, hide one level: only the other level's elements remain (covers §INSTANCED-LEVEL-VIS). 
 - **Undo/redo gate** — create → undo → redo restores identical geometry + semantics (C03 §4.5).
+
+**Suite (G10 — undo/redo at scale, incl. its NESTING half):**
+- `apps/editor/__tests__/undoRedoAtScale.test.ts` — "one gesture = one undo entry" from an IDLE coordinator.
+- `apps/editor/__tests__/batchNestingUndo.test.ts` — **the same invariant under a NESTED `runBatch`** (I-N1…I-N4).
+  G10 was previously green while the invariant was still breakable under nesting: it pinned the flat case only.
+  A gate that does not cover the reachable state is not a gate. **Any change to `runBatch`'s re-entrancy
+  behaviour MUST keep both halves green.**
+- `packages/core-app-model/src/batch/BatchCoordinator.nesting.test.ts` — the §8.7 N2/N3/N4 state machine
+  (option merge, builder re-pause on EXTEND, deferral after the sweep, depth balance on throw).
 
 ---
 

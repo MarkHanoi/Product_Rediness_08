@@ -88,6 +88,13 @@ import { resolveEntranceOnShell, type EntranceHostHit } from './groundFloorPlace
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 
+/** §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — backstop for the SERIALISED per-level ceiling queue
+ *  (`_ceilRoomsPerLevel`). The queue advances on the REAL `ceiling.layout-executed` commit signal;
+ *  this timer exists ONLY so a level that never announces (executor threw, no rooms, a settle that
+ *  never arrives) cannot strand the remaining levels. Generous, because a level's ceiling commit is
+ *  itself deferred behind the ambient structural batch's settle. */
+const CEIL_ADVANCE_BACKSTOP_MS = 20_000;
+
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
 const DEFAULT_SLAB_THICKNESS_M = 0.2;
 const SHELL_WALL_THICKNESS_M = 0.2;
@@ -2926,9 +2933,38 @@ export class ResidentialBuildingExecutor {
             (roomStore?.getAll?.() ?? []).filter(r => r.levelId === lid && (r.boundary?.polygon?.length ?? 0) >= 3).length;
         const anyDegenerateOn = (lid: string): boolean =>
             (roomStore?.getAll?.() ?? []).some(r => r.levelId === lid && (r.boundary?.polygon?.length ?? 0) > 0 && (r.boundary?.polygon?.length ?? 0) < 3);
-        // Per level, WAIT for that level's VALID room count to stabilise (detection settled + every
-        // room has a real polygon) before firing — large plates land rooms on a size-scaled budget.
-        levelIds.forEach((lid) => {
+        // §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — SERIALISE the per-level ceiling passes.
+        //
+        // This used to be `levelIds.forEach(...)`, which armed ONE INDEPENDENT POLLER PER LEVEL,
+        // all at the same instant, all polling on the same 300 ms tick. Nothing serialised them,
+        // so levels 3/4/5 could reach `fire()` on adjacent ticks and each spawn a full
+        // CEIL → FURNISH → LIGHT cascade concurrently. Two measured consequences:
+        //
+        //  1. OVERLAPPING BATCHES — each cascade opens its own `runBatch` while the previous one
+        //     is still draining. That is precisely the re-entrancy the founder's console reported
+        //     ("runBatch called while already batching"). BatchCoordinator now folds those in
+        //     safely (C16 §8.7 N3 EXTEND), but the RIGHT fix is not to generate the overlap.
+        //
+        //  2. WRONG-LEVEL CASCADE — `triggerCeilingLayout` reads `pc.activeLevelId`, and so does
+        //     the FURNISH executor that the ceiling's `ceiling.layout-executed` event cascades into
+        //     (`furnishLayoutTrigger` re-emits `furnish.layout-execute` with NO levelId, so the
+        //     executor falls back to `resolveActiveLevel()`). With N pollers racing to write the
+        //     SHARED `pc.activeLevelId`, the cascade lands on whichever level last won the write —
+        //     not the level whose ceilings just committed.
+        //
+        // So: process levels ONE AT A TIME, advancing only when the level's ceilings have actually
+        // COMMITTED (`ceiling.layout-executed`) — a REAL signal, with a timeout backstop so a level
+        // that never emits (no rooms, executor threw) can never wedge the queue. This mirrors
+        // `runHousePostGenChain`'s per-storey sequencing rather than inventing a second mechanism.
+        const events = runtime.events as unknown as {
+            on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
+        };
+        const queue = [...levelIds];
+
+        const nextLevel = (): void => {
+            const lid = queue.shift();
+            if (lid === undefined) return;   // every level done
+
             let prev = -1, stable = 0;
             const fire = (n: number): void => {
                 const c = validRoomsOn(lid);
@@ -2936,20 +2972,45 @@ export class ResidentialBuildingExecutor {
                 if (c > 0 && c === prev && !anyDegenerateOn(lid)) stable++; else stable = 0;
                 prev = c;
                 if (!(stable >= 2 || n <= 0)) { deferWork(() => fire(n - 1), 300); return; }
-                if (c === 0) return;   // no VALID rooms on this level (e.g. a bare core-only level) → nothing to ceil
+                // no VALID rooms on this level (e.g. a bare core-only level) → nothing to ceil
+                if (c === 0) { nextLevel(); return; }
                 // Budget exhausted but rooms still degenerate ⇒ DO NOT ceil (a degenerate ceiling would
                 // break the save). Better to ship un-ceiled than to freeze the project on reload.
                 if (n <= 0 && anyDegenerateOn(lid)) {
                     console.warn('[resi-building] §RESI-CEILING-INVALID-POLYGON — rooms on', lid, 'still lack polygons after the budget; skipping ceilings to avoid a broken save.');
+                    nextLevel();
                     return;
                 }
+
+                // Advance on the REAL commit signal, never on a bare timer. The backstop only
+                // exists so a level that never announces cannot strand the remaining levels.
+                let advanced = false;
+                let off: (() => void) | void;
+                const advance = (why: string): void => {
+                    if (advanced) return;
+                    advanced = true;
+                    try { if (typeof off === 'function') off(); } catch { /* non-fatal */ }
+                    console.log(`[resi-building] §FIX-NESTED-BATCH-DROPS-GUARDS ceiling pass on ${lid} done (${why}) — advancing.`);
+                    nextLevel();
+                };
+                off = events.on?.('ceiling.layout-executed', (p: unknown) => {
+                    const ev = p as { levelId?: string } | undefined;
+                    // The executor stamps its levelId; accept it (or an unstamped event) for THIS level.
+                    if (!ev?.levelId || ev.levelId === lid) advance('ceiling.layout-executed');
+                });
+                deferWork(() => advance('backstop-timeout'), CEIL_ADVANCE_BACKSTOP_MS);
+
                 try {
                     if (pc) pc.activeLevelId = lid;
                     triggerCeilingLayout(runtime);
-                } catch (e) { console.warn('[resi-building] ceiling pass failed on', lid, '(non-fatal):', e); }
+                } catch (e) {
+                    console.warn('[resi-building] ceiling pass failed on', lid, '(non-fatal):', e);
+                    advance('threw');
+                }
             };
             deferWork(() => fire(80), 900);   // first check after the floor stagger; ~24 s budget per level
-        });
+        };
+        nextLevel();
     }
 
     /** §RESI-PUBLIC-FLOOR-FINISH (founder 2026-06-24) — lay a thin applied floor FINISH over the

@@ -206,6 +206,56 @@ class BatchCoordinatorImpl {
     get isBatching(): boolean { return this._isBatching; }
 
     /**
+     * §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — RE-ENTRANCY STATE.
+     *
+     * `runBatch()` used to DETECT the re-entrant case, WARN, and then run `fn()`
+     * anyway **with the guards off** — the builder pauses were not applied to the
+     * new work and the inner call's `BatchOptions` were silently discarded (its
+     * `levelIds` never reached the final REDETECT sweep, its element count never
+     * reached the loading overlay). A warning is not a guard. C16 §8.7 now defines
+     * FOUR states and no silent third way:
+     *
+     *   IDLE                     → open a batch.
+     *   SYNC   (`_syncDepth > 0`) → JOIN by depth-counting (the StoreEventBus
+     *                              `beginBatch()` precedent, which has done exactly
+     *                              this since P1.1). Options MERGE; guards inherited;
+     *                              nothing releases until depth returns to 0.
+     *   SETTLING, pre-sweep      → EXTEND the live batch: re-apply the builder
+     *                              pauses, merge the options, run `fn` inside the
+     *                              still-open bus bracket, re-arm completion.
+     *   SETTLING, sweep started  → joining is UNSAFE (the registration queue has
+     *                              already drained; a registration pushed now would
+     *                              never run). DEFER into a clean, fully-guarded
+     *                              batch on settle.
+     *
+     * NOTE (measured, not assumed — `apps/editor/__tests__/batchNestingUndo.test.ts`):
+     * none of this affects UNDO. `CommandBus.executeCommand()` pushes one ring entry
+     * per DISPATCH and never reads this coordinator, so `runBatch` is undo-neutral.
+     * "One gesture = one undo entry" is bought by dispatching ONE `*.batch.create`
+     * command (C16 §8.6) — never by holding a batch open.
+     */
+    private _syncDepth = 0;
+    /** True once `_executeFinalSweep()` has begun — after this point the registration
+     *  queue has drained and the bus bracket is closing, so new work CANNOT join. */
+    private _sweepStarted = false;
+    /** Batches deferred out of the post-sweep window; run in a clean batch on settle. */
+    private _deferredBatches: Array<{ fn: () => unknown; opts: BatchOptions }> = [];
+
+    /** Re-entrancy depth of the SYNCHRONOUS phase: 0 = idle or settling, 1 = the
+     *  outer `fn()` is running, ≥2 = a nested `runBatch` has joined it. */
+    get batchDepth(): number { return this._syncDepth; }
+    /** Levels the live batch will REDETECT — the union across every joined call. */
+    get affectedLevelIds(): readonly string[] { return Array.from(this._pendingLevelIds); }
+    /** Elements the live batch expects — the sum across every joined call (overlay denominator). */
+    get expectedElementCount(): number { return this._totalElementCount; }
+    /** True only if EVERY participant of the live batch opted out of room redetection. */
+    get skipRedetectRooms(): boolean { return this._skipRedetectRooms; }
+    /** True once the build-queue drain has been signalled (the final sweep is running). */
+    get hasSignalledDrain(): boolean { return this._drainSignalled; }
+    /** Batches deferred because they arrived after the final sweep began (C16 §8.7 N4). */
+    get deferredBatchCount(): number { return this._deferredBatches.length; }
+
+    /**
      * C13 §3.1 — Number of deferred BimManager registrations still queued.
      * Read by the `project.session.teardown` OTel span in engineLauncher
      * (I-5) so the span can report how many registrations were discarded
@@ -872,10 +922,14 @@ class BatchCoordinatorImpl {
      * @param opts  Level IDs and element count for the final REDETECT_ROOMS sweep.
      * @returns     The return value of fn().
      */
-    runBatch<T>(fn: () => T, opts: BatchOptions): T {
+    runBatch<T>(fn: () => T, opts: BatchOptions): T | undefined {
+        // §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — C16 §8.7. Re-entrancy is DECIDED,
+        // never warned-about-and-ignored. See the `_syncDepth` doc block above.
         if (this._isBatching) {
-            console.warn('[BatchCoordinator] runBatch called while already batching — nesting not supported. Running fn() without batch guards.');
-            return fn();
+            if (this._syncDepth > 0)   return this._joinBatch(fn, opts);   // N2 — true nesting
+            if (!this._sweepStarted)   return this._extendBatch(fn, opts); // N3 — drain overlap
+            this._deferBatch(fn, opts);                                     // N4 — post-sweep
+            return undefined;
         }
 
         // Set up coordinator state (same as old beginBatch, factored out).
@@ -889,7 +943,10 @@ class BatchCoordinatorImpl {
             // Inner synchronous bracket: depth 1 → 2 during fn(), 2 → 1 after.
             // Does NOT flush on return (depth returns to 1, not 0).
             // Does NOT flush on throw (buffer discarded, depth returns to 1).
-            const result = storeEventBus.batch(fn);
+            this._syncDepth++;
+            let result: T;
+            try { result = storeEventBus.batch(fn); }
+            finally { this._syncDepth--; }
 
             // PERF-DEFER-RESUME-FLUSH: Defer the three resumeAndFlush() calls plus the
             // watchdog start into the next 'pre-render' FrameScheduler slot so they do
@@ -914,6 +971,35 @@ class BatchCoordinatorImpl {
             // traversal from a prior slab batch). Delay > 2s indicates cross-batch
             // interference that should be investigated; it does not indicate a bug in this
             // path but surfaces regressions if BN-06's skipPbrUpgrade is accidentally removed.
+            this._scheduleResumeFlush();
+            return result;
+        } catch (err) {
+            this._abortBatch(err);
+        }
+    }
+
+    /**
+     * §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — the batch's COMPLETION machinery,
+     * extracted from `runBatch()` so `_extendBatch()` can RE-ARM it when a batch
+     * grows after its synchronous phase (see C16 §8.7 N3). Idempotent: any
+     * previously-scheduled slot / watchdog / idle-probe is cancelled first, so a
+     * batch that is extended twice still has exactly ONE completion path in flight.
+     *
+     * PERF-DEFER-RESUME-FLUSH: defers the three `resume()` calls (wall, curtain-wall,
+     * slab) plus the watchdog start into the next 'pre-render' FrameScheduler slot so
+     * they do not run synchronously on the main thread the instant `fn()` returns.
+     */
+    private _scheduleResumeFlush(): void {
+            // Re-arming (extend path): cancel whatever completion was already in flight so
+            // the grown batch cannot complete on the OLD signal.
+            if (this._resumeFlushDispose !== null) {
+                try { this._resumeFlushDispose(); } catch { /* ignore */ }
+                this._resumeFlushDispose = null;
+            }
+            if (this._watchdogTimer !== null) { clearTimeout(this._watchdogTimer); this._watchdogTimer = null; }
+            if (this._idleProbeDispose !== null) { try { this._idleProbeDispose(); } catch { /* ignore */ } this._idleProbeDispose = null; }
+            this._idleProbeStreak = 0;
+
             const _resumeQueuedAt = performance.now();
             this._resumeFlushDispose = getFrameScheduler().scheduleOnce(
                 'batch-coordinator-resume-flush',
@@ -1015,8 +1101,16 @@ class BatchCoordinatorImpl {
                 },
                 'pre-render',
             );
-            return result;
-        } catch (err) {
+    }
+
+    /**
+     * §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — the shared abort path, extracted from
+     * `runBatch()`'s catch so the JOIN / EXTEND paths reach the identical cleanup when
+     * their `fn()` throws. Always re-throws.
+     */
+    private _abortBatch(err: unknown): never {
+        if (!this._isBatching) throw err; // idempotent — an inner abort already cleaned up
+        {
             // fn() threw — the inner batch() already discarded the buffer.
             // On the normal code path _resumeFlushDispose is null here because scheduleOnce()
             // is only called AFTER storeEventBus.batch(fn) returns successfully.  However,
@@ -1043,6 +1137,8 @@ class BatchCoordinatorImpl {
             }
             // Reset coordinator state — the async sweep will never fire.
             this._isBatching = false;
+            this._syncDepth = 0;
+            this._sweepStarted = false;
             this._pendingLevelIds.clear();
             this._registrationQueue = [];
             // §POSTGEN-SETTLE — the async onComplete will never fire on this path,
@@ -1051,8 +1147,161 @@ class BatchCoordinatorImpl {
             console.error('[BatchCoordinator] runBatch fn() threw — batch aborted, bus cleaned up:', err);
             throw err;
         }
-        // Normal path: fn() returned, depth is 1, bus is still buffering.
-        // _executeFinalSweep() will close the outer bracket (depth 1→0) when ready.
+    }
+
+    /**
+     * §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — C16 §8.7 N2: JOIN.
+     *
+     * A `runBatch()` issued from INSIDE the live batch's synchronous phase (a command
+     * dispatched by the outer `fn()` opening its own batch — the resi/house per-room
+     * fan-out). It is the SAME logical batch: merge its options, run `fn` directly
+     * (the outer `storeEventBus.batch()` bracket already buffers every event it emits,
+     * the builder pauses are already applied, and `trackRegistration()` already queues),
+     * and release nothing — the outer call owns completion.
+     *
+     * This is exactly the depth-counting `StoreEventBus.beginBatch()` has done since
+     * P1.1; the coordinator now follows the precedent instead of contradicting it.
+     */
+    private _joinBatch<T>(fn: () => T, opts: BatchOptions): T {
+        this._mergeOptions(opts, 'JOIN');
+        this._syncDepth++;
+        try {
+            // No second bus bracket: the outer `storeEventBus.batch()` is already open.
+            // A throw propagates to the OUTER runBatch's catch, which owns the abort —
+            // the joining call must not tear down a batch it does not own.
+            return fn();
+        } finally {
+            this._syncDepth--;
+        }
+    }
+
+    /**
+     * §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — C16 §8.7 N3: EXTEND.
+     *
+     * A `runBatch()` issued while a batch is SETTLING — i.e. `runBatch()` has already
+     * returned but the async geometry drain / final sweep has not completed, so
+     * `isBatching` is still true. This is NOT lexical nesting: it is a batch that
+     * arrives during the previous one's drain (the resi generator's back-to-back
+     * per-storey sub-batches, which is what the founder's console was reporting).
+     *
+     * The live batch has NOT begun its final sweep, so it can still GROW:
+     *   • re-apply the builder pauses so the new mutations coalesce exactly as the
+     *     first phase's did (this is the guard that was being dropped — without it
+     *     every element re-arms its own rAF flush, the O(n²) WallJoinResolver path);
+     *   • merge the options (levels to redetect, expected element count, skip flags);
+     *   • run `fn` inside `storeEventBus.batch()` — depth 1 → 2 → 1, no flush, because
+     *     the outer async bracket is still open;
+     *   • re-arm completion (`_scheduleResumeFlush()` cancels the in-flight watchdog /
+     *     idle-probe first) so the GROWN batch cannot complete on the OLD drain signal.
+     *
+     * Still ONE batch: one overlay, one CRDT blackout window, one final sweep.
+     */
+    private _extendBatch<T>(fn: () => T, opts: BatchOptions): T {
+        this._mergeOptions(opts, 'EXTEND');
+        // The batch is growing — it is no longer "drained".
+        this._drainSignalled = false;
+        // Re-apply the builder pauses for the incoming mutations (§BATCH-{WALL,CW,SLAB}-PAUSE).
+        try { this._wallControl?.pause(); } catch { /* control may not be wired */ }
+        try { this._cwControl?.pause(); }   catch { /* control may not be wired */ }
+        try { this._slabControl?.pause(); } catch { /* control may not be wired */ }
+
+        this._syncDepth++;
+        let result: T;
+        try {
+            result = storeEventBus.batch(fn);
+        } catch (err) {
+            this._syncDepth--;
+            this._abortBatch(err);
+        } finally {
+            if (this._syncDepth > 0) this._syncDepth--;
+        }
+        // Re-arm the completion machinery for the grown batch.
+        this._scheduleResumeFlush();
+        return result;
+    }
+
+    /**
+     * §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — C16 §8.7 N4: DEFER.
+     *
+     * A `runBatch()` issued AFTER the live batch's final sweep has begun. Joining is
+     * unsafe here and the reason is concrete, not theoretical: the registration queue
+     * has already been drained, so a `trackRegistration()` pushed now would sit in a
+     * queue nobody will drain again — the element would never reach BimManager. The
+     * bus bracket is also closing.
+     *
+     * So the work is DEFERRED into a CLEAN, fully-guarded batch once the live batch
+     * settles (`onNextSettle` + a macrotask hop to escape the settle callback's
+     * synchronous `onComplete` tail — the same discipline the layout executors use).
+     * It is never run unguarded and never dropped: `forceReset()` flushes the settle
+     * listeners too, so a project switch cannot strand it.
+     *
+     * Callers that need the batch's RETURN VALUE, or need to act strictly after the
+     * commit, must not rely on this path — they should await `onNextSettle()`
+     * themselves (C16 §8.7). `runBatch` returns `undefined` here, which is why its
+     * signature is `T | undefined`.
+     */
+    private _deferBatch<T>(fn: () => T, opts: BatchOptions): void {
+        console.warn(
+            '[BatchCoordinator] §FIX-NESTED-BATCH-DROPS-GUARDS runBatch() called after the live ' +
+            "batch's final sweep began — joining would strand its registrations. DEFERRING it into a " +
+            'clean, fully-guarded batch on settle (C16 §8.7 N4). The caller should await ' +
+            'onNextSettle() itself if it depends on the commit having happened.',
+        );
+        this._deferredBatches.push({ fn: fn as () => unknown, opts });
+        if (this._deferredBatches.length > 1) return; // one drainer is already registered
+        this.onNextSettle(() => {
+            // Macrotask hop: the settle callback fires inside onComplete's synchronous
+            // tail, which is still unwinding this batch's suppression lifts (P3: a
+            // macrotask, never a raw rAF).
+            setTimeout(() => {
+                const queued = this._deferredBatches.splice(0);
+                for (const b of queued) {
+                    try { this.runBatch(b.fn, b.opts); }
+                    catch (e) { console.error('[BatchCoordinator] deferred batch threw:', e); }
+                }
+            }, 0);
+        });
+    }
+
+    /**
+     * §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — merge a joining/extending call's
+     * `BatchOptions` into the live batch. The old code DISCARDED them silently.
+     *
+     *   levelIds           — UNION. Every level any participant touched must be swept.
+     *   totalElementCount  — SUM. The overlay's denominator must cover the whole batch.
+     *   skipRedetectRooms  — AND. A skip is a promise made to EVERY participant; it may
+     *   skipPbrUpgrade       only hold if EVERY participant opted out. If one participant
+     *                        needs the pass, the batch runs it (fail-safe direction: doing
+     *                        the work is correct-but-slower; skipping it is WRONG).
+     *
+     * NOTE `_setupBatch()`'s §PERF-LARGE-BATCH-SKIP-PBR auto-default may have set
+     * `_skipPbrUpgrade = true` for a large scene. That decision is about the SCENE, not
+     * about a participant's request, so it is re-evaluated against the grown element
+     * count rather than being clobbered by a participant that simply left the flag unset.
+     */
+    private _mergeOptions(opts: BatchOptions, mode: 'JOIN' | 'EXTEND'): void {
+        const before = { levels: this._pendingLevelIds.size, elements: this._totalElementCount };
+        for (const id of opts.levelIds) this._pendingLevelIds.add(id);
+        this._totalElementCount += opts.totalElementCount;
+        this._skipRedetectRooms = this._skipRedetectRooms && (opts.skipRedetectRooms ?? false);
+        this._skipPbrUpgrade = this._skipPbrUpgrade && (opts.skipPbrUpgrade ?? false);
+        // Re-apply the large-scene auto-default to the GROWN batch (it is a scene-size
+        // decision, not a participant preference — see §PERF-LARGE-BATCH-SKIP-PBR).
+        if (!this._skipPbrUpgrade) {
+            let sceneMeshes = -1;
+            try { sceneMeshes = this._sceneMeshCountProvider?.() ?? -1; } catch { sceneMeshes = -1; }
+            if (sceneMeshes > BatchCoordinatorImpl.LARGE_BATCH_SKIP_PBR_SCENE_MESHES
+                || this._totalElementCount > BatchCoordinatorImpl.LARGE_BATCH_SKIP_PBR_ELEMENTS) {
+                this._skipPbrUpgrade = true;
+            }
+        }
+        console.log(
+            `[BatchCoordinator] §FIX-NESTED-BATCH-DROPS-GUARDS ${mode} — re-entrant runBatch ` +
+            `folded into the live batch (C16 §8.7). levels ${before.levels}→${this._pendingLevelIds.size}, ` +
+            `elements ${before.elements}→${this._totalElementCount}, ` +
+            `skipRedetectRooms=${this._skipRedetectRooms} skipPbrUpgrade=${this._skipPbrUpgrade} ` +
+            `syncDepth=${this._syncDepth}`,
+        );
     }
 
     /**
@@ -1271,6 +1520,9 @@ class BatchCoordinatorImpl {
             });
         } catch { /* non-fatal — sync client may not be connected */ }
         this._isBatching = true;
+        // §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — fresh re-entrancy state for this batch.
+        this._syncDepth = 0;
+        this._sweepStarted = false;
         // §A.21.D7-FIX — fresh idle-probe state for this batch.
         this._drainSignalled = false;
         this._idleProbeStreak = 0;
@@ -1447,6 +1699,11 @@ class BatchCoordinatorImpl {
      *   5. onComplete → REDETECT_ROOMS     — fired after isBatching cleared.
      */
     private _executeFinalSweep(): void {
+        // §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — the point of no return: past here the
+        // registration queue has drained and the bus bracket is closing, so a re-entrant
+        // runBatch can no longer JOIN or EXTEND (its registrations would never run). From
+        // now on `runBatch` DEFERS instead (C16 §8.7 N4).
+        this._sweepStarted = true;
         console.log(
             `[BatchCoordinator] §TRACE FINAL-SWEEP-START ` +
             `levels=${this._pendingLevelIds.size} skipRedetect=${this._skipRedetectRooms} ` +
@@ -2122,6 +2379,12 @@ class BatchCoordinatorImpl {
             try { this._onBatchEnd(); } catch { /* indicator errors must not block reset */ }
         }
         this._isBatching = false;
+        // §FIX-NESTED-BATCH-DROPS-GUARDS (L-271) — clear the re-entrancy state. Deferred
+        // batches are NOT dropped here: `_flushSettleListeners()` (Step 6, below) releases
+        // their drainer, which re-runs them as clean top-level batches in the new project
+        // session. Dropping them would be a silent loss of committed intent.
+        this._syncDepth = 0;
+        this._sweepStarted = false;
         // §PERF-VIEW-BATCH-SUPPRESS: Always clear suppression on project switch,
         // regardless of whether a batch was in progress.  Leaves ViewDependencyTracker
         // and UnifiedFrameLoop in a clean state for the next project.
