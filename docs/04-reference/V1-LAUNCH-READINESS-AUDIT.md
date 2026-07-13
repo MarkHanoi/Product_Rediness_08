@@ -310,6 +310,105 @@ an empty project and a heavy one, without freezes or stutter.
 | L-276 | founder (2026-07-13, with the Autodesk Forma inspector as reference) | **[UX] PROPERTY PANEL REDESIGN - card-based, minimalist, modern.** Founder: *"Redesign the properties panel - make it more elegant, more simple and minimalist, yet more modern. Check the Forma properties panel: each SECTION is an individual component; BETWEEN them is TRANSPARENT; although everything as a whole is the panel."* **HIS SENTENCE IS THE WHOLE SPEC, AND IT INVERTS WHAT WE HAD.** Before: ONE heavy opaque slab (white card + border + 24px shadow + padding) with grey sections stamped INSIDE it - **the container was the object and the sections were decoration on it.** Forma's model is the opposite, and it is why it reads as calm: **THE PANEL IS NOT A SURFACE. It is a transparent COLUMN - a layout, nothing more.** Each section is an autonomous card floating on the scene, and the gaps between them are **the scene itself showing through**. Depth comes from the CARDS, never from the frame. | UX / brand (**preview-color-unified-pryzm-purple** - white + #6600FF, never black: the saturated purple header slab is now a 3px identity RAIL, since purple is a brand ACCENT and not a background; `PropertyInspector.ts`) | **SHIPPED.** Container: no background, no border, no shadow, no padding - a flex COLUMN with a gap. `.pi-section`: autonomous card (translucent surface + blur + 14px radius + soft shadow + hover lift). Header: a quiet card with a purple identity rail. Inputs: flat and borderless until touched. **`display:flex` NOT `block`** - the transparent gap is the design, and `block` would collapse it (guarded in a comment: a one-word regression silently returns the panel to a stacked slab). | route -> **done by the orchestrator.** Residual for the next UI pass: the legacy section builders still set INLINE chrome (`container.style.background = '#f1f3f5'`), which the card stylesheet must currently override with `!important`. **Migrate those ~15 call sites to drop their inline styling, then delete the `!important`s** - they are a symptom, not the design. §FEAT-PROPERTY-PANEL-CARD-LAYOUT. |
 | _next_ | | _append here_ | | | |
 
+## PROCESS LESSONS — PAID FOR IN PRODUCTION, 2026-07-13
+
+These are not reflections. Each one cost the founder a broken build, a wasted agent, or a
+bug I "fixed" in the wrong place. They are recorded here because the next person (or the
+next me) will otherwise pay for them again.
+
+### L-A — A CALLER AND ITS CALLEE ARE **ONE** CHANGE. IF YOU SPLIT THEM, YOU SHIP A CRASH.
+
+Happened **TWICE in one day**, and the second time was in *production*:
+
+1. `PlanViewCanvas` (the CALLER of `setViewProjection`) shipped; `PlanViewAnnotationRenderer`
+   (which DEFINES it) did not. Every mousedown, mouseup and dblclick threw
+   `TypeError: setViewProjection is not a function`, in plan **and** elevation. The founder:
+   *"I am struggling to open elevation views — before it was working perfectly."*
+   **Cause: I ran `git restore --staged` on the renderer to keep a docs commit clean — which
+   was correct — and then a LATER commit shipped its caller.**
+2. The elevation auto-dimension ENGINE shipped (`fb9eb26f`); its BUTTON (`AIPanel.ts`) did
+   not, because a scoped `git add` missed it. The founder was left looking at a pill that
+   still said *"Auto-dimension **plan**"* and reasonably concluded the feature was missing.
+
+**THE RULE: un-staging a file to keep a commit clean is only safe if NOTHING ELSE IN THAT
+COMMIT DEPENDS ON IT.** Before pushing a scoped commit, ask: *does anything I am shipping
+CALL something I am not?* A feature and its entry point are one change too — an engine
+with no button is not shipped, it is hidden.
+
+### L-B — VERIFY AT THE **OUTCOME**, NOT AT THE **SEAM**.
+
+`L-246` computed a perfect plane-vs-solid wall section for every wall, on every projection,
+and **threw it away** — the plan branch never read the map it was written into. It emitted
+correct geometry that reached **nothing**, and I declared it fixed.
+
+That one dropped array was the common cause of **three separately-reported defects**: no
+poché, no CUT lineweight, and the founder's *"2 occluder(s), 0/1532 segments removed"*.
+Two later fixes (L-260 B/C) were **algorithmically correct and sat downstream of an empty
+layer**.
+
+**THE RULE: a builder emitting geometry is not evidence. Prove the geometry REACHES THE VIEW.**
+
+### L-C — WHEN A TEST IS RED, ASK: *IS THE TEST WRONG, OR IS THE PRODUCT WRONG?*
+
+Both answers happened today, and getting the question backwards would have destroyed working
+code **both times**:
+
+* My `pocheAllSolids` guard forbade *every* `layerName === 'A-WALL'`. It went red — and the
+  **PRODUCT was right**: `_suppressWallOpeningSeams` and `_suppressPlanViewOpeningLines` are
+  wall-only **correctly**, because openings are hosted in walls and nowhere else (C15). A
+  column has no openings. **The reflex to "make the test pass" would have deleted correct
+  code.** The guard was narrowed to the CUT GATE, which must generalise, and left the
+  opening behaviour alone, which must not.
+* Conversely, `PickStrategyResolver`'s "healthy" fake returned an all-zero readback — which
+  is exactly the broken-driver signature the real probe detects. **Product right, FAKE stale.**
+
+### L-D — REPRODUCE, DO NOT CONFIRM. I WAS REFUTED ON MY OWN ROOT CAUSE **ELEVEN TIMES** TODAY.
+
+L-239 · L-243 · L-246 · L-248 · L-250 (×2) · L-269 (×2) · L-271 · L-272 · L-273. Every one
+was a bug I would otherwise have "fixed" in the wrong place. The refutations that mattered
+most:
+
+* **"A batch is not an undo unit."** I asserted nested `runBatch` fragments undo. Measured:
+  `CommandBus` pushes one ring entry **per dispatch** and never reads `batchCoordinator`, so
+  `runBatch` is **undo-neutral** — it could not fragment undo because it never merged
+  anything. The real bug (silently dropped GUARDS) survived and was fixed. Now C16 §8.6.
+* **"Eviction exhausted" never evicted a byte.** The evictor scans a key family a previous
+  migration had already emptied — so it looped **zero times** and printed "exhausted".
+  *The safety path silently never ran* — the same shape as L-249.
+* **The storage hog was not what I guessed.** I suspected legacy underlay rasters. It was
+  `pryzm:ctxbld:*` — 1.56 MB of cached OSM footprints. **The diagnostic I shipped to stop
+  people guessing refuted the person who shipped it.**
+
+### L-E — THE MOST VALUABLE THING I DID ALL DAY WAS **REFUSE TO FIX SOMETHING**.
+
+The founder said door parity was *still* wrong after L-260A. The reflex was to re-fix the
+creation path. **I read it first — and it was already sound.** Re-fixing it would have burned
+an agent on a working path and left the real defect standing: **untyped legacy records**
+(`0.900 × 2.100` vs `0.926 × 2.040` — *a different door, drawn correctly, forever*, because
+nothing backfills). That check is now a test so nobody re-fixes it (L-274).
+
+### L-F — A CREATION-PATH FIX IS ONLY **HALF** A FIX WITHOUT A BACKFILL.
+
+Seven creation-path bugs have been closed by converging the paths — and **every one left
+behind the records the broken path had already written.** Those records are still in the
+founder's project, still rendering as different elements.
+
+### L-G — A GATE THAT DOES NOT **COVER** IS NOT A GATE.
+
+I reported G0 closed. CI ran `--filter @pryzm/editor` — **the editor and nothing else**; 121
+workspaces were invisible to it, and a truth-audit found a RED test in `packages/picking`
+within ten minutes. The same shape as L-247, one level up. And **G10** pinned "one gesture =
+one undo entry" while **nothing pinned it under NESTED batching** — green, and still
+breakable.
+
+### L-H — A WARNING IS NOT A GUARD.
+
+`BatchCoordinator` detected an unsupported nested batch, **announced it**, and proceeded with
+the guards **off**. Detect-warn-continue is not a third option; it is the bug wearing a
+high-vis jacket.
+
+---
+
 ---
 
 ## §3 Functional-area conformance
