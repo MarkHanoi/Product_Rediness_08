@@ -27,6 +27,31 @@ Blocking defects that make the app unusable. Gate: G1, G2, G3.
   during nav; 0.4b instancing coverage (walls/slabs/windows across floors); 0.4c nav-LOD (suppress non-essential
   passes while camera moves); 0.4d cached/incremental frustum culling. **Gate G3**.
 
+- **0.0 WALL-WITH-HOSTED-DOOR FREEZE — THE FOUNDER'S #1 BUG, RAISED MANY TIMES, STILL LIVE** (L-250 /
+  §FIX-WALL-LENGTH-EDIT-HOSTED-DOOR-FREEZE) — **OPEN, CRITICAL. Gate G1 REOPENED. This outranks
+  everything else on this board.** Escalated 2026-07-13 with a live log + screenshot. **It has survived
+  THREE fixes (L-01/ADR-0099, L-97, L-234) — so every prior root cause is REFUTED until re-proven.**
+  **The screenshot shows the founder editing the `Length` FIELD IN THE PROPERTY PANEL, not dragging** —
+  and `Length` is the only editable placement field ([PlacementEditor.ts:84](apps/editor/src/ui/property-panel/PlacementEditor.ts#L84)).
+  It dispatches `wall.updateBaseline` from [PropertyPanelSections.ts:98](apps/editor/src/ui/property-panel/PropertyPanelSections.ts#L98)
+  with **no `_recordUndo`, no `_skipBridge`, no drag context**. There are **four** call sites into that
+  command — and **L-234 measured and fixed only the DRAG path** (its own commit says *"the drag path
+  (registerTransformDragHandler / MovePlanToolHandler)"*). **Nobody has ever measured the panel path.**
+  That is the repo's signature disease: one element, two paths, the second silently keeping the old
+  behaviour (cf. L-239, L-240, L-242, L-246). A `Length` edit also **moves ONE ENDPOINT**, changing
+  junction topology in a way a rigid drag never does. **The freeze mechanism is already described in our
+  own source** — [WallRebuildCoordinator.ts:227-234](apps/editor/src/engine/WallRebuildCoordinator.ts#L227):
+  a moved **door-bearing** wall landing in a `§SELF-CLUSTER-GUARD` cluster makes the flush *"re-arm EVERY
+  rAF frame and never converge → the founder's hard freeze."* A guard exists; he still freezes; **so the
+  guard does not cover his case.** Sub: **0.0a REPRODUCE THE PANEL GESTURE FIRST** (extend L-234's existing
+  `WallMoveRebuildCost.measure` / `WallMoveIncrementalRebuild.equality` harnesses — do not write new ones);
+  **0.0b** count `_flush` iterations + `produceWall` calls on that path; **0.0c** if H1 holds, the fix is
+  **CONVERGENCE, not optimisation** — every `wall.updateBaseline` call site enters ONE rebuild path with ONE
+  scoping rule; **do not add a fifth special case**; **0.0d** ship the regression guard the last three fixes
+  lacked — *a door-bearing wall whose Length is edited from the panel must settle in a BOUNDED number of
+  flushes*; **0.0e** verify on the deployed build (localhost dev is unusable for this). **Gate G1.**
+  *A fix is not done until the cost is MEASURED on THIS path — L-234 was closed on a measured drag path,
+  which is precisely why it did not close this.*
 - **0.5 The unit-test estate is not a CI gate** (L-247 / §GATE-TEST-ESTATE-NOT-A-CI-GATE) — *queued, CRITICAL*.
   **This is the gate under every other gate on this board, and it is currently open.** `ci.yml:106` runs only
   `test:server`; it never calls `test:ci`. Root `test:ci` uses `--if-present`, and **122 workspaces define `test`
@@ -106,7 +131,7 @@ Gate: G2 (deepened) + G10.
 | Gate | Phase | Owner | State |
 |---|---|---|---|
 | **G0 the unit tests actually gate CI** | **0.5/0.6** | **queued (platform/CI-governance)** | **OPEN — CRITICAL. The gate under every gate below: `ci.yml` never runs `test:ci`, 122 workspaces are invisible to it, and the editor's 1,495 tests (22 RED after L-248) have never run in CI. Until G0 closes, every "green" state on this board is asserted, not measured.** |
-| G1 no host-wall-move freeze | 0.1/0.2 | aba7751 | F1 shipped; Q6 in flight |
+| **G1 no host-wall-move freeze** | **0.0** (was 0.1/0.2) | **queued (wall-rebuild agent)** | **🔴 REOPENED — CRITICAL. L-250: founder re-reported 2026-07-13 with a log + screenshot; the freeze is LIVE after three fixes (L-01, L-97, L-234). The screenshot shows the PROPERTY-PANEL `Length` edit — a path L-234 never measured. This is the #1 item on the board.** |
 | G2 no heavy-load freeze/fail | 0.3 | a14d3b7 | in flight |
 | G3 smooth heavy-nav | 0.4 | aa374d0 | in flight |
 | G4 correct selection | 1.1 | a536dda | in flight |
@@ -126,6 +151,7 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-id | Phase | Status |
 |---|---|---|
+| **L-250 wall+hosted-door FREEZE (founder #1, recurrent)** | **0.0 (Gate G1 REOPENED)** | **OPEN — CRITICAL.** Survived L-01/ADR-0099, L-97 and L-234. **The founder's screenshot shows the PROPERTY-PANEL `Length` edit, not a drag — and L-234 measured only the drag path.** Four call sites reach `wall.updateBaseline`; the panel one carries no `_recordUndo`/`_skipBridge` and moves ONE ENDPOINT (changing junction topology). Our own source already names the failure: a moved door-bearing wall in a `§SELF-CLUSTER-GUARD` cluster makes the flush *"re-arm EVERY rAF frame and never converge → the founder's hard freeze"*. **REPRODUCE ON THE PANEL PATH FIRST — every prior root cause is refuted until re-proven.** |
 | L-246 plan: door must CUT the wall | 3.2 annotations/drawing | **SHIPPED** (`2fe5cf8b`, §FIX-PLAN-DOOR-CUTS-WALL). All 4 briefed hypotheses refuted: the opening-clip machinery was never the bug — **`A-WALL:cut` was ALWAYS empty** (`classifyByVertexY` only tags edges within 15 cm of the cut plane, and a wall has no edge near a 1.2 m cut). Fix cuts the SOLID (true plane∩triangle section), so the door void is empty **by construction** on every render path — which also explains the missing poché (L-241). 9/9 specs; snapshots unchanged; root tsc 0. **Projection-line clip (`_suppressPlanViewOpeningLines`) still unproven on screen — founder verification wanted.** |
 | **L-247 unit-test estate is not a CI gate** | **0.5 (Gate G0)** | **OPEN — CRITICAL.** `ci.yml` never calls `test:ci`; `--if-present` skips the **122 workspaces** (incl. `@pryzm/editor`) that lack a `test:ci` script; **1,495 editor tests, 34 RED, have never run in CI.** The "CI-enforced / merge-blocking" claim in C01/`CLAUDE.md` holds for lint/boundaries/ga-gate and **is false for every unit test**. Gate lands RED first, then triage product-first. |
 | **L-248 level-explode offset compounding** | **0.6** | **SHIPPED** (`7192e4cb`). **My "suspected live regression" was WRONG — H3 was right: the guard broke, not the product; L-113 is intact and users were never affected.** But the guard broke on a real latent defect: `_startRaf` seeded `_lastTime` from the **ambient** `performance.now()` while `_tick` gets an **injected** `now` — a negative `dt` inverts the lerp (`k = 1 − 0.01^(dt·10)`) and `position.y` **diverges to ~1e+119**. The old clamp was upper-bound only. Fix = **one clock (the injected one)** + clamp dt to **[0, 0.05]**. 19/19 green; suite 34→22; tsc 0. |
