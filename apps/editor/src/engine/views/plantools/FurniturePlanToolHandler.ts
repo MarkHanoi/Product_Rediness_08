@@ -7,7 +7,10 @@
  *   • Moving the mouse shows a dashed 2D footprint rectangle (width × length)
  *     centred at the cursor, with a crosshair and a type label — matching the
  *     visual language used by ColumnPlanToolHandler.
- *   • One click commits the furniture at the cursor world position with 0 rotation.
+ *   • SPACEBAR rotates the preview +90° CW before committing
+ *     (§FEAT-PLACEMENT-SPACEBAR-ROTATE, ADR-0105). Escape resets it to 0°.
+ *   • One click commits the furniture at the cursor world position AT THE
+ *     PREVIEW'S ROTATION — every branch routes through `_rotation.rotationY()`.
  *   • Escape cancels (clears the overlay, returns to idle).
  *
  * Reads the active furniture type from:
@@ -15,7 +18,19 @@
  * Falls back to 'bed' if not set.
  *
  * Fires CreateFurnitureCommand with sensible defaults for all required fields.
- * Plan view does not support rotation at placement time — rotation defaults to 0.
+ *
+ * §DOC-LIE-PLAN-ROTATION (L-267) — THIS BLOCK USED TO END WITH THE LINE:
+ *     "Plan view does not support rotation at placement time — rotation defaults to 0."
+ * That was FALSE the moment §FEAT-PLACEMENT-SPACEBAR-ROTATE landed, and it was left
+ * standing directly above the code that refutes it. A stale docstring is worse than no
+ * docstring: the founder asked "why is plan-view rotation not implemented" and the FILE
+ * ITSELF said it wasn't — while its own commit path passed a live rotation through.
+ * If you change the interaction model here, CHANGE THIS BLOCK IN THE SAME EDIT.
+ *
+ * SCOPE, STATED PRECISELY SO NOBODY OVER-CLAIMS AGAIN: what is implemented is
+ * PRE-placement rotation (90° steps, at creation time). POST-placement rotation of an
+ * ALREADY-PLACED element from the plan view — select a wardrobe in plan, rotate it — is
+ * the 3D rotate gizmo's job and is tracked separately under Gate G7 (L-267).
  */
 
 import { createId } from '@pryzm/schemas';

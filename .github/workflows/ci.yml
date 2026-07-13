@@ -164,7 +164,27 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @pryzm/editor run test:ci
+      # §GATE-TEST-ESTATE-NOT-A-CI-GATE phase 0.5e (L-247) — BROADENED FROM THE EDITOR TO
+      # THE AGGREGATOR, BECAUSE THE GATE WAS NARROWER THAN THE BOARD CLAIMED.
+      #
+      # This job used to run `pnpm --filter @pryzm/editor run test:ci` — the editor and
+      # NOTHING ELSE. The board recorded G0 as "closed, red surface 34 -> 0", and that was
+      # true *of apps/editor*. It was not true of the repo: 121 other workspaces still never
+      # ran in CI, and a truth-audit found a RED test in `packages/picking` within ten
+      # minutes of looking (`PickStrategyResolver.test.ts` — a stale fake whose "healthy"
+      # renderer returned an all-zero readback, i.e. exactly the broken-driver signature the
+      # real probe is designed to catch).
+      #
+      # That is the L-247 disease repeating one level up: a gate that looks green because it
+      # does not COVER. A gate you have to remember the scope of is not a gate.
+      #
+      # `pnpm run test:ci` is the root aggregator (`pnpm -r --if-present run test:ci`), so it
+      # now runs every workspace that declares a `test:ci` script — 14 today, including the
+      # editor. HONEST LIMIT, STATED SO NOBODY QUOTES THIS AS FULL COVERAGE: `--if-present`
+      # still SILENTLY SKIPS the ~120 workspaces that have a `test` script but no `test:ci`.
+      # Closing that is the rest of 0.5e: add `test:ci` to each, in batches, triaging the red
+      # PRODUCT-FIRST as we go — never `.skip` a test to green the board.
+      - run: pnpm run test:ci
 
   ga-gate:
     name: GA-gate (P1..P8 + perf budgets)
