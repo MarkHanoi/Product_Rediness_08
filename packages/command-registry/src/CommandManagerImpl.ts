@@ -476,8 +476,38 @@ export class CommandManager {
     }
 
     /**
+     * §UNDO-SHADOW-DROP-SCOPE (G10) — is this element still alive in ANY store?
+     *
+     * The existence oracle for the orphan test in `dropEntriesForTargets()`. It reads
+     * the SAME live legacy stores the undo adapter mutates (`elementUndoStoreAdapter`
+     * drives `window.<x>Store.remove()`, and `context.stores.<x>Store` is that very
+     * instance — C03 §4.4 "Legacy store" row), so "absent here" is exactly "the
+     * ring-buffer undo removed it".
+     *
+     * Duck-typed over `getById`/`get` and defensive: a store that throws, or an env
+     * with no stores at all (headless/tests), reads as "absent" — which degrades to
+     * the previous, more permissive drop behaviour rather than to a phantom keypress.
+     */
+    private _elementExists(id: string): boolean {
+        const stores = (this.context?.stores ?? {}) as Record<string, unknown>;
+        const candidates: unknown[] = [...Object.values(stores), doorStore, windowStore];
+        for (const store of candidates) {
+            const s = store as { getById?: (i: string) => unknown; get?: (i: string) => unknown } | null | undefined;
+            if (!s) continue;
+            try {
+                const found = typeof s.getById === 'function' ? s.getById(id)
+                    : typeof s.get === 'function' ? s.get(id)
+                    : undefined;
+                if (found != null) return true;
+            } catch { /* a non-element store that dislikes the key — not an existence signal */ }
+        }
+        return false;
+    }
+
+    /**
      * §OI-054 SHADOW-DROP (C03 §4.6 U-5) — remove every undo/redo entry whose
-     * `targetIds` are a SUBSET of `ids`, returning the count removed.
+     * `targetIds` are a SUBSET of `ids` **and whose elements no longer exist**,
+     * returning the count removed.
      *
      * WHY: the 3D create tools (WallTool, Slab, Roof, Furniture, Plumbing,
      * Stair, Handrail, Beam) DUAL-DISPATCH — they run `bus.executeCommand(...)`
@@ -492,13 +522,41 @@ export class CommandManager {
      * Subset (not intersection) match: only drop an entry when ALL of its targets
      * were just reverted, so a multi-target legacy command that merely overlaps is
      * preserved. Entries with no declared targetIds are never dropped.
+     *
+     * §UNDO-SHADOW-DROP-SCOPE (G10, 2026-07-13) — ORPHAN-SCOPED, and this is the
+     * load-bearing half of the predicate.
+     *
+     * ROOT CAUSE it fixes: the subset rule alone is an ELEMENT-IDENTITY match with no
+     * notion of WHICH gesture an entry belongs to, applied across the WHOLE history.
+     * So it dropped far more than the twin. Undoing a bus-only FIELD edit on wall W
+     * (`wall.setHeight`, a `replace` patch — the wall is NOT removed) hands `ids=[W]`
+     * to this method, and every older commandManager entry that touched W — a JoinTool
+     * / OffsetTool / CutTool / property-panel command, all still live
+     * `commandManager.execute` sites — was deleted from BOTH the history and the redo
+     * stack. Those user steps became permanently un-undoable and un-redoable: silent,
+     * unrecoverable timeline loss, and the exact opposite of what U-8 is for.
+     *
+     * The phantom keypress U-8 exists to kill only ever happens when the ring-buffer
+     * undo REMOVED the element — that is what makes the twin's `undo()` a no-op. So
+     * that is the precise condition to test: an entry is dropped only when every one
+     * of its targets is GONE from the stores. A still-live element means the entry is
+     * still a real step in the user's timeline, and it survives.
      */
     dropEntriesForTargets(ids: readonly string[]): number {
         if (ids.length === 0) return 0;
         const wanted = new Set(ids);
+        // Existence is per-id, not per-entry — cache it so a 500-element batch undo
+        // does not re-scan the stores once per (entry × target).
+        const aliveCache = new Map<string, boolean>();
+        const isOrphaned = (id: string): boolean => {
+            let alive = aliveCache.get(id);
+            if (alive === undefined) { alive = this._elementExists(id); aliveCache.set(id, alive); }
+            return !alive;
+        };
         const covers = (entry: { command: Command }): boolean => {
             const targets = entry.command.targetIds;
-            return Array.isArray(targets) && targets.length > 0 && targets.every(t => wanted.has(t));
+            if (!Array.isArray(targets) || targets.length === 0) return false;
+            return targets.every(t => wanted.has(t)) && targets.every(isOrphaned);
         };
         let removed = 0;
         const before = this.history.length + this.redoStack.length;
