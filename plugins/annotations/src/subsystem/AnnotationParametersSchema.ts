@@ -118,6 +118,10 @@ const SchemasByType: Partial<Record<AnnotationType, z.ZodTypeAny>> = {
 
     'door-tag':   z.object({ targetElementId: z.string().optional(), _orphaned: z.boolean().optional() }).passthrough(),
     'window-tag': z.object({ targetElementId: z.string().optional(), _orphaned: z.boolean().optional() }).passthrough(),
+    // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — same shape as its door/window siblings.
+    // `elementId` (the key the manual tag tools and the auto-tagger both write) rides
+    // through `.passthrough()`, exactly as it does for door-tag/window-tag today.
+    'wall-tag':   z.object({ targetElementId: z.string().optional(), _orphaned: z.boolean().optional() }).passthrough(),
     'level-tag':  z.object({ levelId: z.string().optional(), _orphaned: z.boolean().optional() }).passthrough(),
 
     'grid-bubble': z.object({

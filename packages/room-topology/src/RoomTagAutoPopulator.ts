@@ -2,9 +2,23 @@
  * RoomTagAutoPopulator — DOC-2.5b
  *
  * Sprint J extraction (2026-05-10): moved from src/engine/subsystems/rooms/ to
- * @pryzm/room-topology. Import remapping:
- *   ../commands                       → @pryzm/command-registry
- *   ../core/views/ViewDefinitionTypes → @pryzm/core-app-model
+ * @pryzm/room-topology.
+ *
+ * §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — THIS CLASS NO LONGER OWNS THE LIFECYCLE.
+ *
+ * The four decisions it used to make inline — which live element still needs a tag,
+ * which tag has drifted, which is a duplicate, which is an orphan — are now
+ * `reconcileTagSet()` in @pryzm/core-app-model, parameterised by CATEGORY. Rooms are
+ * simply its first consumer; doors, windows and walls (via `autoTagActiveView`) are
+ * the others. One engine, N categories — a second populator per category would have
+ * been four more copies of the same four decisions.
+ *
+ * What stays here, and only here, is what is genuinely ROOM-specific:
+ *   • the room's LABEL rule (`desiredRoomLabel`) and its drift test (`roomTagNeedsRefresh`),
+ *   • the room's ANCHOR rule (the centroid — a room tag has no leader),
+ *   • the room's TRIGGER (view activation, per level), and the area sub-label.
+ * Behaviour is unchanged, including the log line and the idempotent no-op on a
+ * settled view (§A.21.D25 — the guard that stops the re-projection feedback loop).
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
@@ -14,6 +28,8 @@ import { CreateAnnotationCommand } from '@pryzm/command-registry';
 import { DeleteAnnotationCommand } from '@pryzm/command-registry';
 import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 import type { ViewDefinition } from '@pryzm/core-app-model';
+// §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — the GENERIC tag lifecycle. Rooms consume it.
+import { reconcileTagSet, type ExistingTagLike } from '@pryzm/core-app-model';
 import type { RoomStore } from './RoomStore';
 import { roomTagNeedsRefresh, desiredRoomLabel } from './roomTagIdempotency';
 
@@ -24,6 +40,12 @@ export interface RoomTagAutoPopulatorDeps {
     roomStore?:        RoomStore;
     annotationStore?:  IAnnotationStoreLite;
     commandManager?:   ICommandManagerLite;
+}
+
+/** A live room, adapted to the generic engine's `TagTargetLike` contract. */
+interface RoomTagTarget {
+    readonly targetId: string;
+    readonly room: any;
 }
 
 export class RoomTagAutoPopulator {
@@ -51,79 +73,52 @@ export class RoomTagAutoPopulator {
         if (!levelId) return;
 
         const rooms = roomStore.getByLevel(levelId);
-        const liveRoomIds = new Set<string>(rooms.map((r: any) => r.id));
-        const roomById = new Map<string, any>(rooms.map((r: any) => [r.id, r]));
 
-        const existingRoomIds = new Set<string>();
-        const existingAnns: any[] = annotationStore.getByView(viewDef.id);
-        const tagsByRoomId = new Map<string, any[]>();
-        for (const ann of existingAnns) {
-            if (ann.type === 'room-tag' && typeof ann.parameters?.roomId === 'string') {
-                const roomId = ann.parameters.roomId as string;
-                const tags = tagsByRoomId.get(roomId) ?? [];
-                tags.push(ann);
-                tagsByRoomId.set(roomId, tags);
-            }
+        // ── THE GENERIC LIFECYCLE (L-265). Rooms bring only their own drift rule.
+        const live: RoomTagTarget[] = rooms.map((r: any) => ({ targetId: r.id, room: r }));
+        const plan = reconcileTagSet<RoomTagTarget>({
+            category: 'room',
+            existing: annotationStore.getByView(viewDef.id) as ExistingTagLike[],
+            live,
+            needsRefresh: (params, target) =>
+                roomTagNeedsRefresh((params ?? {}) as any, target.room),
+        });
+
+        let removedOrphans = 0;
+        for (const id of plan.orphanTagIds) {
+            const cmd = new DeleteAnnotationCommand(id);
+            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); removedOrphans++; }
         }
 
         let removedDuplicates = 0;
-        let removedOrphans = 0;
+        for (const id of plan.duplicateTagIds) {
+            const cmd = new DeleteAnnotationCommand(id);
+            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); removedDuplicates++; }
+        }
+
+        // §A.21.D25 — IDEMPOTENT REFRESH. Only tags whose room's label/area actually
+        // drifted are updated (e.g. the house post-gen chain renames rooms AFTER their
+        // tags were placed). When nothing drifted, `toRefresh` is EMPTY — no command,
+        // no store event — so a settled view's populate() writes nothing and cannot
+        // feed a re-projection.
         let refreshed = 0;
-        for (const [roomId, tags] of tagsByRoomId) {
-            if (tags.length === 0) continue;
-
-            if (!liveRoomIds.has(roomId)) {
-                for (const orphan of tags) {
-                    const cmd = new DeleteAnnotationCommand(orphan.id);
-                    const valid = cmd.canExecute({} as any);
-                    if (valid.ok) {
-                        commandManager.execute(cmd);
-                        removedOrphans++;
-                    }
-                }
-                continue;
-            }
-
-            existingRoomIds.add(roomId);
-            for (const duplicate of tags.slice(1)) {
-                const cmd = new DeleteAnnotationCommand(duplicate.id);
-                const valid = cmd.canExecute({} as any);
-                if (valid.ok) {
-                    commandManager.execute(cmd);
-                    removedDuplicates++;
-                }
-            }
-
-            // §A.21.D25 — IDEMPOTENT REFRESH (true "tags already match" guard).
-            // The single kept tag is reused for a live room. Only UPDATE it when
-            // the room's label/area actually drifted (e.g. the house post-gen
-            // chain renamed the room AFTER the tag was first placed). When nothing
-            // drifted this is a NO-OP — no command, no store event — so a settled
-            // view's populate() writes nothing and cannot feed a re-projection.
-            const keptTag = tags[0];
-            const liveRoom = roomById.get(roomId);
-            if (keptTag && liveRoom) {
-                const desiredLabel = desiredRoomLabel(liveRoom);
-                const desiredArea  = liveRoom.computed?.area;
-                const p = keptTag.parameters ?? {};
-                if (roomTagNeedsRefresh(p, liveRoom)) {
-                    const cmd = new UpdateAnnotationCommand(keptTag.id, {
-                        parameters: {
-                            ...p,
-                            roomName:    liveRoom.name,
-                            roomNumber:  liveRoom.roomNumber,
-                            ...(typeof desiredArea === 'number' ? { area: desiredArea } : {}),
-                            cachedLabel: desiredLabel,
-                            ...(typeof desiredArea === 'number' ? { areaLabel: `${desiredArea.toFixed(1)} m²` } : {}),
-                        },
-                    } as any);
-                    const valid = cmd.canExecute({} as any);
-                    if (valid.ok) {
-                        commandManager.execute(cmd);
-                        refreshed++;
-                    }
-                }
-            }
+        for (const { tagId, target } of plan.toRefresh) {
+            const liveRoom = target.room;
+            const desiredLabel = desiredRoomLabel(liveRoom);
+            const desiredArea  = liveRoom.computed?.area;
+            const existingTag  = (annotationStore.getByView(viewDef.id) as any[]).find((a) => a.id === tagId);
+            const p = existingTag?.parameters ?? {};
+            const cmd = new UpdateAnnotationCommand(tagId, {
+                parameters: {
+                    ...p,
+                    roomName:    liveRoom.name,
+                    roomNumber:  liveRoom.roomNumber,
+                    ...(typeof desiredArea === 'number' ? { area: desiredArea } : {}),
+                    cachedLabel: desiredLabel,
+                    ...(typeof desiredArea === 'number' ? { areaLabel: `${desiredArea.toFixed(1)} m²` } : {}),
+                },
+            } as any);
+            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); refreshed++; }
         }
 
         if (rooms.length === 0) {
@@ -136,9 +131,7 @@ export class RoomTagAutoPopulator {
         }
 
         let created = 0;
-        for (const room of rooms) {
-            if (existingRoomIds.has(room.id)) continue;
-
+        for (const { room } of plan.toCreate) {
             const cx = room.computed.centroid.x;
             const cz = room.computed.centroid.z;
             const worldPos = new THREE.Vector3(cx, 0, cz);
@@ -163,11 +156,7 @@ export class RoomTagAutoPopulator {
             );
 
             const cmd = new CreateAnnotationCommand(ann);
-            const valid = cmd.canExecute({} as any);
-            if (valid.ok) {
-                commandManager.execute(cmd);
-                created++;
-            }
+            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); created++; }
         }
 
         console.log(

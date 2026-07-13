@@ -64,6 +64,10 @@ import { triggerRoomInteriorElevations } from '../documentation/roomInteriorElev
 // walls (@pryzm/auto-dimension) and creates them in one undoable batch.
 // §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — one entry point, routed by view type.
 import { autoDimensionActiveView } from '../documentation/autoDimensionActiveView';
+// §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — the sibling batch executor: tags the ACTIVE
+// view's doors/windows/walls (marks resolved from the model, one undo). A tagged plan
+// is what makes a drawing SCHEDULABLE — the tag is the join to the schedule (C28).
+import { autoTagActiveView } from '../documentation/autoTagActiveView';
 // C27 INS-α-5 — dev surface for the Master Tree (single tree component
 // per C27 §1.2).  Opens a modal that mounts the live ModelTreeComponent +
 // shows the InspectSelection payload on each click.
@@ -457,6 +461,26 @@ const COMMAND_TREE: SuggestionNode[] = [
                 action: () => {
                     const rt = (window as unknown as { runtime?: unknown }).runtime;
                     if (rt) { autoDimensionActiveView(rt as Parameters<typeof autoDimensionActiveView>[0]); }
+                    else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
+                },
+            },
+            {
+                // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — the tag sibling of Auto-dimension,
+                // and deliberately built the same way: ONE view-aware action, not one button
+                // per view type. `autoTagActiveView` asks the ACTIVE VIEW what it is (plan →
+                // anchors + leaders in world XZ; elevation → anchors + leaders in the FAÇADE
+                // plane) and what it wants tagged (P7/C09 — the view's annotation-category
+                // intent, carried by its view template). The marks are resolved from the
+                // element's real record (type mark by default — the reference convention —
+                // with the instance mark always carried), so the tagged drawing JOINS to the
+                // door/window/wall schedule (C28). Running it twice is a no-op; deleting a
+                // tagged element removes its tag. One batch = ONE undo (C16).
+                label: 'Auto-tag view',
+                hint: 'doors · windows · walls — marks from the model (one undo)',
+                scopeBadge: 'batch',
+                action: () => {
+                    const rt = (window as unknown as { runtime?: unknown }).runtime;
+                    if (rt) { autoTagActiveView(rt as Parameters<typeof autoTagActiveView>[0]); }
                     else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
                 },
             },

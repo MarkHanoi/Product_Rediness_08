@@ -100,6 +100,10 @@ export const DRAGGABLE_ANNOTATION_TYPES = new Set<string>([
     'room-tag',
     'door-tag',
     'window-tag',
+    // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — an auto-placed tag the user cannot MOVE
+    // is an auto-placed tag the user cannot USE: the leader rule is a default, not a
+    // decree. Same selection/drag path as its door/window siblings.
+    'wall-tag',
     'text-note',
     'tag',
     'keynote',
@@ -267,6 +271,29 @@ export class PlanViewAnnotationRenderer {
      */
     private _project(pt: { x: number; y: number; z: number }): { h: number; v: number } {
         return { h: this._ptH(pt), v: this._ptV(pt) };
+    }
+
+    /**
+     * §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — project a MODEL point to screen through
+     * the ACTIVE VIEW's plane, then to screen. The one call every point-anchored
+     * annotation must make.
+     *
+     * The bug this closes: every tag renderer below used to call `w2s(pt.x, pt.z)` —
+     * the PLAN mapping, hardcoded — while `_renderLinearDim` went through `_ptH`/`_ptV`.
+     * In a plan view the two agree by coincidence (H = x, V = z). In an ELEVATION they
+     * do not: a tag anchored at a door's real world position (x, y, z) was drawn using
+     * its DEPTH (z) as the vertical axis instead of its HEIGHT (y) — i.e. somewhere
+     * else entirely, usually off-canvas. Elevation tags could therefore never have
+     * rendered, no matter how correctly they were created. Exactly the same defect the
+     * hit-test carried until L-256, and the reason L-265 could not be "plan with
+     * different numbers".
+     */
+    private _w2sModel(
+        w2s: PlanWorldToScreen,
+        pt: { x: number; y: number; z: number },
+    ): { sx: number; sy: number } {
+        const p = this._project(pt);
+        return w2s(p.h, p.v);
     }
 
     /**
@@ -666,6 +693,8 @@ export class PlanViewAnnotationRenderer {
             case 'tag':             this._renderTag(ann, ctx, w2s, style);           break;
             case 'door-tag':        this._renderDoorTag(ann, ctx, w2s, style);       break;
             case 'window-tag':      this._renderWindowTag(ann, ctx, w2s, style);     break;
+            // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — the wall diamond.
+            case 'wall-tag':        this._renderWallTag(ann, ctx, w2s, style);       break;
             case 'room-tag':        this._renderRoomTag(ann, ctx, w2s, style);       break;
             case 'grid-bubble':     this._renderGridBubble(ann, ctx, w2s, style);   break;
             case 'detail-line':     this._renderDetailLine(ann, ctx, w2s, style);   break;
@@ -1057,7 +1086,8 @@ export class PlanViewAnnotationRenderer {
         const leaderPt = ann.references[0]?.cachedPosition ?? ann.geometry2D.modelPoints?.[0];
         if (!leaderPt) return;
 
-        const { sx: leaderSx, sy: leaderSy } = w2s(leaderPt.x, leaderPt.z);
+        // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — view-aware projection (see _w2sModel).
+        const { sx: leaderSx, sy: leaderSy } = this._w2sModel(w2s, leaderPt);
 
         // Label box position: use screenOverride if set, else offset from leader
         let boxSx: number, boxSy: number;
@@ -1067,7 +1097,7 @@ export class PlanViewAnnotationRenderer {
         } else {
             const tagPt = ann.geometry2D.modelPoints?.[1];
             if (tagPt) {
-                const sp = w2s(tagPt.x, tagPt.z);
+                const sp = this._w2sModel(w2s, tagPt);
                 boxSx = sp.sx; boxSy = sp.sy;
             } else {
                 boxSx = leaderSx; boxSy = leaderSy - 24;
@@ -1115,47 +1145,78 @@ export class PlanViewAnnotationRenderer {
         ctx.restore();
     }
 
-    // ── Door Tag ──────────────────────────────────────────────────────────────
-    // Standard BIM symbol: circle bubble at the door centre with the door mark
-    // on the top half and optional W×H dimensions on the bottom half.
-    // A thin leader line connects the bubble to the door position when the
-    // user placed the tag at a different screen point.
+    // ── Element tags: door · window · wall ────────────────────────────────────
+    //
+    // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — ONE renderer, three symbols.
+    //
+    // `_renderDoorTag` and `_renderWindowTag` were two ~70-line copies of the same
+    // drawing (leader + dot + bubble + mark + optional W×H), differing only in stroke
+    // colour, fill tint, and whether the divider is always drawn. Adding a WALL tag as
+    // a third copy would have made the divergence permanent — so the three now share
+    // `_renderMarkedTag`, parameterised by the SYMBOL. The symbol is the only thing
+    // that is genuinely different, and it is the thing the convention names:
+    //
+    //   door   → circle bubble          (mark, + W×H when the tag carries sizes)
+    //   window → circle bubble + divider (the classic visual differentiator)
+    //   wall   → DIAMOND                 (the wall TYPE mark, per the reference drawing)
+    //
+    // The leader always runs from the ELEMENT (a dot on the door/window/wall) to the
+    // symbol, and both ends are projected through the ACTIVE VIEW's plane — so the
+    // same tag draws correctly in a plan AND in an elevation.
 
-    private _renderDoorTag(
+    private _renderMarkedTag(
         ann: AnnotationElement,
         ctx: CanvasRenderingContext2D,
         w2s: PlanWorldToScreen,
         style: AnnotationStyle,
+        symbol: {
+            shape: 'circle' | 'diamond';
+            /** Draw the horizontal divider even when the tag carries no size string. */
+            alwaysDivide: boolean;
+            defaultLineColor: string;
+            fillColor: string;
+        },
     ): void {
         const mark  = (ann.parameters.cachedLabel ?? ann.parameters.label ?? ann.parameters.mark ?? '') as string;
         const leaderPt = ann.references[0]?.cachedPosition ?? ann.geometry2D.modelPoints?.[0];
         if (!leaderPt || !mark) return;
 
-        const { sx: leaderSx, sy: leaderSy } = w2s(leaderPt.x, leaderPt.z);
+        const { sx: leaderSx, sy: leaderSy } = this._w2sModel(w2s, leaderPt);
 
-        // Tag bubble position — second modelPoint if present, else offset from leader
+        // Symbol position — second modelPoint if present, else on the element itself.
         let bx = leaderSx;
         let by = leaderSy;
         const tagPt = ann.geometry2D.modelPoints?.[1];
-        if (tagPt) { const sp = w2s(tagPt.x, tagPt.z); bx = sp.sx; by = sp.sy; }
+        if (tagPt) { const sp = this._w2sModel(w2s, tagPt); bx = sp.sx; by = sp.sy; }
+        if (ann.geometry2D.screenOverride) {
+            bx = ann.geometry2D.screenOverride.x;
+            by = ann.geometry2D.screenOverride.y;
+        }
 
         const isSelected = this._getSelectedAnnotationId() === ann.id;
-        const lineColor  = isSelected ? ANNOT_SEL_COLOR : (style.lineColor ?? '#1a2035');
-        const textColor  = isSelected ? ANNOT_SEL_COLOR : (style.textColor ?? '#1a2035');
+        const lineColor  = isSelected ? ANNOT_SEL_COLOR : (style.lineColor ?? symbol.defaultLineColor);
+        const textColor  = isSelected ? ANNOT_SEL_COLOR : (style.textColor ?? symbol.defaultLineColor);
 
-        // Size string e.g. "900×2100" derived from width/height parameters (mm)
+        // Size string e.g. "900×2100" — from the tag's REAL stored dimensions (mm).
         const wMm = ann.parameters.widthMm  as number | undefined;
         const hMm = ann.parameters.heightMm as number | undefined;
         const hasSize = (wMm != null && wMm > 0) || (hMm != null && hMm > 0);
         const sizeStr = hasSize ? `${Math.round(wMm ?? 0)}×${Math.round(hMm ?? 0)}` : '';
 
-        const r = sizeStr ? 16 : 13;
         const markPx = Math.max(7, mmToPx(style.textSizeMm) * 0.9);
         const sizePx = Math.max(6, markPx * 0.8);
 
         ctx.save();
+        ctx.font = `bold ${markPx}px ${FONT}`;
+        // The symbol must CONTAIN the mark — a wall type name ("Concrete 200") is far
+        // wider than a door number, so the radius is measured, never assumed.
+        const textW = ctx.measureText(mark).width;
+        const rBase = sizeStr ? 16 : 13;
+        const r = symbol.shape === 'diamond'
+            ? Math.max(rBase, textW * 0.75 + 6)
+            : Math.max(rBase, textW / 2 + 5);
 
-        // Leader line
+        // Leader line + dot on the element
         if (ann.parameters.showLeader !== false) {
             const ldx = bx - leaderSx, ldy = by - leaderSy;
             const ldLen = Math.hypot(ldx, ldy);
@@ -1168,7 +1229,6 @@ export class PlanViewAnnotationRenderer {
                 ctx.moveTo(leaderSx, leaderSy);
                 ctx.lineTo(bx - ux * r, by - uy * r);
                 ctx.stroke();
-                // Dot at door centre
                 ctx.fillStyle = lineColor;
                 ctx.beginPath();
                 ctx.arc(leaderSx, leaderSy, 2.5, 0, Math.PI * 2);
@@ -1176,32 +1236,44 @@ export class PlanViewAnnotationRenderer {
             }
         }
 
-        // Circle bubble
+        // The symbol
         ctx.strokeStyle = lineColor;
         ctx.lineWidth = isSelected ? 1.5 : 1;
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.fillStyle = symbol.fillColor;
         ctx.beginPath();
-        ctx.arc(bx, by, r, 0, Math.PI * 2);
+        if (symbol.shape === 'diamond') {
+            const rh = r;                 // half-width
+            const rv = Math.max(11, r * 0.62); // half-height — a flatter, drawing-standard diamond
+            ctx.moveTo(bx, by - rv);
+            ctx.lineTo(bx + rh, by);
+            ctx.lineTo(bx, by + rv);
+            ctx.lineTo(bx - rh, by);
+            ctx.closePath();
+        } else {
+            ctx.arc(bx, by, r, 0, Math.PI * 2);
+        }
         ctx.fill();
         ctx.stroke();
 
-        // Horizontal divider when size is shown
-        if (sizeStr) {
+        // Horizontal divider (window always; door/wall only when a size is shown)
+        const divide = symbol.alwaysDivide || !!sizeStr;
+        if (divide && symbol.shape === 'circle') {
             ctx.beginPath();
             ctx.moveTo(bx - r, by);
             ctx.lineTo(bx + r, by);
             ctx.stroke();
         }
 
-        // Mark number (top half or centred)
+        // Mark (top half when the symbol is divided, otherwise centred)
         ctx.font = `bold ${markPx}px ${FONT}`;
         ctx.fillStyle = textColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(mark, bx, sizeStr ? by - r * 0.3 : by);
+        const divided = divide && symbol.shape === 'circle';
+        ctx.fillText(mark, bx, divided ? by - r * 0.3 : by);
 
-        // Dimensions (bottom half)
-        if (sizeStr) {
+        // Size (bottom half)
+        if (sizeStr && symbol.shape === 'circle') {
             ctx.font = `${sizePx}px ${FONT}`;
             ctx.fillText(sizeStr, bx, by + r * 0.38);
         }
@@ -1209,90 +1281,53 @@ export class PlanViewAnnotationRenderer {
         ctx.restore();
     }
 
-    // ── Window Tag ────────────────────────────────────────────────────────────
-    // Standard BIM symbol: circle bubble with a horizontal strike-through line
-    // (differentiating it visually from a door tag), window mark on top,
-    // optional W×H dimensions on bottom.
+    /** Door tag — circle bubble, mark (+ W×H when the tag carries sizes). */
+    private _renderDoorTag(
+        ann: AnnotationElement,
+        ctx: CanvasRenderingContext2D,
+        w2s: PlanWorldToScreen,
+        style: AnnotationStyle,
+    ): void {
+        this._renderMarkedTag(ann, ctx, w2s, style, {
+            shape: 'circle',
+            alwaysDivide: false,
+            defaultLineColor: '#1a2035',
+            fillColor: 'rgba(255,255,255,0.95)',
+        });
+    }
 
+    /** Window tag — circle bubble with the divider always drawn (the differentiator). */
     private _renderWindowTag(
         ann: AnnotationElement,
         ctx: CanvasRenderingContext2D,
         w2s: PlanWorldToScreen,
         style: AnnotationStyle,
     ): void {
-        const mark  = (ann.parameters.cachedLabel ?? ann.parameters.label ?? ann.parameters.mark ?? '') as string;
-        const leaderPt = ann.references[0]?.cachedPosition ?? ann.geometry2D.modelPoints?.[0];
-        if (!leaderPt || !mark) return;
+        this._renderMarkedTag(ann, ctx, w2s, style, {
+            shape: 'circle',
+            alwaysDivide: true,
+            defaultLineColor: '#0f4c81',
+            fillColor: 'rgba(240,247,255,0.95)',
+        });
+    }
 
-        const { sx: leaderSx, sy: leaderSy } = w2s(leaderPt.x, leaderPt.z);
-
-        let bx = leaderSx;
-        let by = leaderSy;
-        const tagPt = ann.geometry2D.modelPoints?.[1];
-        if (tagPt) { const sp = w2s(tagPt.x, tagPt.z); bx = sp.sx; by = sp.sy; }
-
-        const isSelected = this._getSelectedAnnotationId() === ann.id;
-        const lineColor  = isSelected ? ANNOT_SEL_COLOR : (style.lineColor ?? '#0f4c81');
-        const textColor  = isSelected ? ANNOT_SEL_COLOR : (style.textColor ?? '#0f4c81');
-
-        const wMm = ann.parameters.widthMm  as number | undefined;
-        const hMm = ann.parameters.heightMm as number | undefined;
-        const hasSize = (wMm != null && wMm > 0) || (hMm != null && hMm > 0);
-        const sizeStr = hasSize ? `${Math.round(wMm ?? 0)}×${Math.round(hMm ?? 0)}` : '';
-
-        const r = sizeStr ? 16 : 13;
-        const markPx = Math.max(7, mmToPx(style.textSizeMm) * 0.9);
-        const sizePx = Math.max(6, markPx * 0.8);
-
-        ctx.save();
-
-        // Leader line
-        if (ann.parameters.showLeader !== false) {
-            const ldx = bx - leaderSx, ldy = by - leaderSy;
-            const ldLen = Math.hypot(ldx, ldy);
-            if (ldLen > r + 2) {
-                const ux = ldx / ldLen, uy = ldy / ldLen;
-                ctx.strokeStyle = lineColor;
-                ctx.lineWidth = 0.75;
-                ctx.setLineDash([]);
-                ctx.beginPath();
-                ctx.moveTo(leaderSx, leaderSy);
-                ctx.lineTo(bx - ux * r, by - uy * r);
-                ctx.stroke();
-                ctx.fillStyle = lineColor;
-                ctx.beginPath();
-                ctx.arc(leaderSx, leaderSy, 2.5, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        // Circle bubble (blue tint for window)
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = isSelected ? 1.5 : 1;
-        ctx.fillStyle = 'rgba(240,247,255,0.95)';
-        ctx.beginPath();
-        ctx.arc(bx, by, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Divider line always shown for window tags (visual differentiator)
-        ctx.beginPath();
-        ctx.moveTo(bx - r, by);
-        ctx.lineTo(bx + r, by);
-        ctx.stroke();
-
-        ctx.font = `bold ${markPx}px ${FONT}`;
-        ctx.fillStyle = textColor;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(mark, bx, by - r * 0.3);
-
-        if (sizeStr) {
-            ctx.font = `${sizePx}px ${FONT}`;
-            ctx.fillText(sizeStr, bx, by + r * 0.38);
-        }
-
-        ctx.restore();
+    /**
+     * Wall tag — the DIAMOND carrying the wall TYPE mark, on a leader to the wall.
+     * §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265): the third symbol of the same tag family,
+     * and the drawing's join to the wall schedule (C28).
+     */
+    private _renderWallTag(
+        ann: AnnotationElement,
+        ctx: CanvasRenderingContext2D,
+        w2s: PlanWorldToScreen,
+        style: AnnotationStyle,
+    ): void {
+        this._renderMarkedTag(ann, ctx, w2s, style, {
+            shape: 'diamond',
+            alwaysDivide: false,
+            defaultLineColor: '#1a2035',
+            fillColor: 'rgba(255,255,255,0.95)',
+        });
     }
 
     // ── Room Tag ──────────────────────────────────────────────────────────────
@@ -1309,7 +1344,8 @@ export class PlanViewAnnotationRenderer {
         const pt = ann.references[0]?.cachedPosition ?? ann.geometry2D.modelPoints?.[0];
         if (!pt) return;
 
-        const { sx, sy } = w2s(pt.x, pt.z);
+        // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — view-aware projection (see _w2sModel).
+        const { sx, sy } = this._w2sModel(w2s, pt);
         const textPx = Math.max(8, mmToPx(style.textSizeMm));
         const isSelected = this._getSelectedAnnotationId() === ann.id;
 

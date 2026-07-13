@@ -33,7 +33,11 @@
 // Together: exactly ONE undoable unit, and redo restores it.
 
 import { batchCoordinator } from '@pryzm/core-app-model';
-import { CreateManyAnnotationsCommand, type AnnotationElement } from '@pryzm/plugin-annotations';
+import {
+  CreateManyAnnotationsCommand,
+  DeleteAnnotationCommand,
+  type AnnotationElement,
+} from '@pryzm/plugin-annotations';
 
 /** A single RFC-6902 JSON-Patch op as stored in the bus ring buffer. */
 interface RingJsonPatchOp { readonly op: 'add' | 'remove'; readonly path: string; readonly value: unknown }
@@ -64,12 +68,26 @@ interface CommandManagerLike { execute(cmd: unknown): unknown }
  */
 export function buildAnnotationRingUndoPair(
   annotations: readonly { id: string }[],
+  // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — a RECONCILIATION is not only additive.
+  // Auto-tag's unit of work is "make this view's tags match the model": it creates the
+  // missing tags AND removes the duplicates/orphans. Both halves must ride the SAME
+  // undo entry, or Ctrl-Z would put the created tags back and silently keep the
+  // deletions — a half-undone drawing, which is worse than no undo at all.
+  // Removals carry their FULL element so the inverse can re-add them verbatim.
+  removals: readonly { id: string }[] = [],
 ): RingPatchPair {
-  const forwardOps: RingJsonPatchOp[] = annotations.map((el) => ({ op: 'add', path: `/${el.id}`, value: el }));
-  // Remove in reverse insertion order so the store returns to its prior state.
-  const inverseOps: RingJsonPatchOp[] = [...annotations]
-    .reverse()
-    .map((el) => ({ op: 'remove', path: `/${el.id}`, value: undefined }));
+  const forwardOps: RingJsonPatchOp[] = [
+    // Forward (redo) replays the reconciliation in the order it happened: remove first,
+    // then add — so a re-created tag can never collide with the duplicate it replaced.
+    ...[...removals].map((el) => ({ op: 'remove' as const, path: `/${el.id}`, value: undefined })),
+    ...annotations.map((el) => ({ op: 'add' as const, path: `/${el.id}`, value: el })),
+  ];
+  // Inverse (undo) unwinds it exactly backwards: drop the additions (reverse insertion
+  // order), then restore the removals.
+  const inverseOps: RingJsonPatchOp[] = [
+    ...[...annotations].reverse().map((el) => ({ op: 'remove' as const, path: `/${el.id}`, value: undefined })),
+    ...[...removals].reverse().map((el) => ({ op: 'add' as const, path: `/${el.id}`, value: el })),
+  ];
   return { forward: { ops: forwardOps }, inverse: { ops: inverseOps }, affectedStores: ['annotation'] };
 }
 
@@ -78,15 +96,18 @@ export function buildAnnotationRingUndoPair(
  * shape — no `(window as any)` (P4). Best-effort: absent in headless/test (no
  * runtime) → silent no-op, and the CommandManager twin remains the fallback owner.
  */
-function registerAnnotationRingUndo(annotations: readonly { id: string }[]): void {
-  if (annotations.length === 0) return;
+function registerAnnotationRingUndo(
+  annotations: readonly { id: string }[],
+  removals: readonly { id: string }[] = [],
+): void {
+  if (annotations.length === 0 && removals.length === 0) return;
   const rb = (window as unknown as { runtime?: { bus?: { ringBuffer?: RingBufferLike } } })
     .runtime?.bus?.ringBuffer;
   if (!rb || typeof rb.push !== 'function') {
     console.warn('[annotation-set] ring buffer unavailable; undo falls to CommandManager only');
     return;
   }
-  try { rb.push(buildAnnotationRingUndoPair(annotations)); }
+  try { rb.push(buildAnnotationRingUndoPair(annotations, removals)); }
   catch (err) { console.warn('[annotation-set] ring push failed:', err); }
 }
 
@@ -102,6 +123,11 @@ function resolveCommandManager(): CommandManagerLike | undefined {
  * @param levelIds     Levels the batch touches — drives the batch coordinator's
  *                     invalidation scope. Annotations do not bound rooms, so room
  *                     re-detection is always skipped.
+ * @param removals     §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — annotations this same
+ *                     unit of work DELETES (auto-tag's duplicate + orphan cleanup).
+ *                     They must be FULL elements, not ids: the ring's inverse re-adds
+ *                     them verbatim on undo. Empty for the dimension executors, whose
+ *                     unit of work is purely additive.
  * @returns `true` when the set was committed; `false` when the command system is
  *          not ready (the caller should tell the user, not fail silently).
  */
@@ -111,18 +137,31 @@ export function commitAnnotationSet(
   // object that is NOT an AnnotationElement. The command's undo() removes `_added`, so a
   // structurally-typed impostor would commit and then fail to undo cleanly — exactly the
   // class of defect C16 exists to prevent. The command's own signature is the contract:
-  // take AnnotationElement, or do not take it at all.
+  // take AnnotationElement, or do not take it at all. The same rule binds `removals`:
+  // DeleteAnnotationCommand snapshots the live element, and the ring inverse re-adds it.
   annotations: readonly AnnotationElement[],
   levelIds: readonly string[],
+  removals: readonly AnnotationElement[] = [],
 ): boolean {
-  if (annotations.length === 0) return false;
+  if (annotations.length === 0 && removals.length === 0) return false;
   const commandManager = resolveCommandManager();
   if (!commandManager) return false;
 
   batchCoordinator.runBatch(
-    () => { commandManager.execute(new CreateManyAnnotationsCommand(annotations)); },
-    { levelIds: [...levelIds], totalElementCount: annotations.length, skipRedetectRooms: true },
+    () => {
+      // Removals FIRST: a stale duplicate must be gone before its replacement lands,
+      // so the store can never hold two tags for one element even mid-batch.
+      for (const el of removals) commandManager.execute(new DeleteAnnotationCommand(el.id));
+      if (annotations.length > 0) {
+        commandManager.execute(new CreateManyAnnotationsCommand(annotations));
+      }
+    },
+    {
+      levelIds: [...levelIds],
+      totalElementCount: annotations.length + removals.length,
+      skipRedetectRooms: true,
+    },
   );
-  registerAnnotationRingUndo(annotations);
+  registerAnnotationRingUndo(annotations, removals);
   return true;
 }

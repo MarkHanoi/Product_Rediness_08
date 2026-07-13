@@ -30,6 +30,12 @@ export type AnnotationType =
     | 'slope-dim'       // DOC-2.4 — Slope dimension (slope ratio + rise/run arrow)
     | 'door-tag'        // DOC-2.5 — Door tag (type, width, height, mark)
     | 'window-tag'      // DOC-2.5 — Window tag (type, width, height, mark)
+    // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — Wall tag: the DIAMOND carrying the wall
+    // TYPE mark on a leader to the wall it names. The third sibling of door-tag /
+    // window-tag (same parameters, same leader, different symbol), NOT a new family:
+    // it is drawn by the same renderer, reconciled by the same lifecycle, and is the
+    // drawing's join to the wall schedule (C28).
+    | 'wall-tag'        // L-265 — Wall tag (diamond + wall type/instance mark)
     | 'level-tag'       // DOC-2.5 — Level tag (triangle head + elevation in metres)
     | 'grid-bubble'     // DOC-2.5 — Grid bubble (circle + alphanumeric label at grid endpoint)
     | 'section-mark'   // DOC-2.7 — Section mark (cut line + head circles with sheet/detail ref)

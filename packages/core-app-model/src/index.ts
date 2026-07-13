@@ -245,7 +245,7 @@ export {
     ALL_VIEW_TYPES, PLAN_VIEW_TYPES, VIEW_PROJECTION_DIRECTIONS,
 } from './views/ViewDefinitionTypes.js';
 // §FIX-ELEVATION-POCHE / §FIX-ELEVATION-SCOPE (L-119 / L-120 P4) — unified view scope.
-export { resolveViewScope } from './views/ViewScope.js';
+export { resolveViewScope, resolveOcclusionDisposition } from './views/ViewScope.js';
 export type { ViewScope } from './views/ViewScope.js';
 
 // ── BimKernel + SpatialAuthority (P9-W2 2026-05-10) ────────────────────────
@@ -415,6 +415,13 @@ export { visibilityRuleEngine } from './presentation/VisibilityRuleEngine.js';
 // ── P9-W4 Batch 4D (2026-05-10) — VGSceneApplicator ─────────────────────────
 
 export { VGSceneApplicator } from './presentation/VGSceneApplicator.js';
+
+// ── annotations/ — §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) ─────────────────────
+// The GENERIC tag engine: one lifecycle (create · refresh · dedupe · un-orphan),
+// N categories (room / door / window / wall), two projections (plan / elevation).
+// Consumers: RoomTagAutoPopulator (@pryzm/room-topology) and the editor's
+// autoTagActiveView. Nobody else may grow a second tag lifecycle.
+export * from './annotations/index.js';
 
 // ── schedules/ + requirements/ (P9-W6 2026-05-10) ────────────────────────────
 

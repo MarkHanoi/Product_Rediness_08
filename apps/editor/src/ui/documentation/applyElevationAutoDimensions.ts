@@ -38,7 +38,10 @@
 // pulled from real records (level elevations, opening sill/head). There is not one
 // literal height in this file or in the engine.
 
-import { storeRegistry, viewDefinitionStore, viewPlaneFromDefinition } from '@pryzm/core-app-model';
+import { storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
+// §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — the façade rule + the (H,V) frame are now
+// SHARED with the auto-tag executor. Same walls, same plane, one definition.
+import { resolveViewFacadeFrame, selectFacadeWalls } from './facadeSelection.js';
 import { makeAnnotationElement, makePointRef } from '@pryzm/plugin-annotations';
 // P2 — THREE only ever via the single owner's re-export, exactly as the plan
 // executor (`applyAutoDimensions`) does. `makePointRef` takes a THREE.Vector3.
@@ -61,11 +64,6 @@ const ELEVATION_VIEW_TYPES: ReadonlySet<string> = new Set([
   'elevation',
   'building-elevation',
 ]);
-
-/** |dir · right| below this and the wall is edge-on to the viewer — not on this façade. */
-const FACADE_PARALLEL_MIN = 0.7;   // ≈ within 45° of the view's horizontal axis
-/** Walls within this depth of the closest façade wall are on the SAME façade plane. */
-const FACADE_DEPTH_BAND_M = 0.6;   // one wall thickness + tolerance
 
 // ── Live store record shapes (defensive, minimal — mirrors applyAutoDimensions) ──
 
@@ -132,32 +130,22 @@ export function buildElevationSnapshot(
   }
   if (engineLevels.length === 0) return null;
 
-  // ── Façade selection (the documented heuristic) ────────────────────────────
+  // ── Façade selection — the SHARED heuristic (§FEAT-AUTO-TAG-BATCH-EXECUTOR, L-265).
+  // The rule that used to live here now lives in `facadeSelection.ts`, because the
+  // auto-TAG executor must select the exact same walls: a dimension measuring one wall
+  // while a tag names another would be two truths about one drawing. Same test, same
+  // constants, same eligibility gate (a wall whose level has no elevation cannot be
+  // measured in a vertical view) — extracted, not re-derived.
   const projH = (p: Vec3Like): number => frame.hSign * (frame.hWorldAxis === 'x' ? p.x : p.z);
-  const depthOf = (p: Vec3Like): number => p.x * frame.normal.x + p.z * frame.normal.z;
 
-  interface Candidate { wall: WallRecord; depth: number }
-  const candidates: Candidate[] = [];
-  for (const w of walls) {
-    const bl = w.baseLine;
-    if (!bl || bl.length < 2) continue;
-    if (levelElev.get(w.levelId ?? '') === undefined) continue;
-    const dx = bl[1].x - bl[0].x;
-    const dz = bl[1].z - bl[0].z;
-    const len = Math.hypot(dx, dz);
-    if (len < 1e-6) continue;
-    // (a) does the wall run ACROSS the view, or edge-on to it?
-    const dot = Math.abs((dx / len) * frame.right.x + (dz / len) * frame.right.z);
-    if (dot < FACADE_PARALLEL_MIN) continue;
-    const mid = { x: (bl[0].x + bl[1].x) / 2, y: 0, z: (bl[0].z + bl[1].z) / 2 };
-    candidates.push({ wall: w, depth: depthOf(mid) });
-  }
-  if (candidates.length === 0) return null;
-
-  // (b) keep the band closest to the viewer. `normal` points AWAY from the viewer,
-  // so the SMALLEST depth is the nearest façade.
-  const nearest = Math.min(...candidates.map((c) => c.depth));
-  const facade = candidates.filter((c) => c.depth - nearest <= FACADE_DEPTH_BAND_M);
+  const selection = selectFacadeWalls(
+    walls,
+    frame,
+    (w) => levelElev.get(w.levelId ?? '') !== undefined,
+  );
+  if (!selection) return null;
+  const facade = selection.walls;
+  const nearest = selection.depth;
 
   // ── Extent + datums, all measured from the real records ────────────────────
   let hMin = Infinity;
@@ -165,7 +153,7 @@ export function buildElevationSnapshot(
   let topElevation = -Infinity;
   const openings: ElevAutoDimOpening[] = [];
 
-  for (const { wall: w } of facade) {
+  for (const w of facade) {
     const bl = w.baseLine!;
     const levelId = w.levelId ?? '';
     const base = levelElev.get(levelId)!;
@@ -230,7 +218,7 @@ export function buildElevationSnapshot(
       openings,
     },
     facadeDepth: nearest,
-    facadeWallIds: facade.map((c) => c.wall.id),
+    facadeWallIds: facade.map((w) => w.id),
   };
 }
 
@@ -303,20 +291,11 @@ export function applyElevationAutoDimensions(runtime: PryzmRuntime): number {
       const viewDef = viewDefinitionStore.get(viewId);
       if (!viewDef) { toast('Auto-Dimension: elevation view not found.', 'error'); return 0; }
 
-      // ── The (H, V) frame — from the EXISTING ViewPlane abstraction (L-263 §3).
-      const plane = viewPlaneFromDefinition(viewDef, 0);
-      if (!plane.isVertical) { toast('Auto-Dimension: this view is not a vertical view.', 'warn'); return 0; }
-      const hWorldAxis = plane.hWorldAxis;
-      // Mirrors PlanViewManager._buildContext(): the canvas H sign is the sign of the
-      // view's `right` vector on the horizontal axis. Same derivation, one source.
-      const rightH = hWorldAxis === 'x' ? plane.right.x : plane.right.z;
-      const hSign: 1 | -1 = rightH < 0 ? -1 : 1;
-      const frame = {
-        hWorldAxis,
-        hSign,
-        right:  { x: plane.right.x,  z: plane.right.z },
-        normal: { x: plane.normal.x, z: plane.normal.z },
-      };
+      // ── The (H, V) frame — from the EXISTING ViewPlane abstraction (L-263 §3),
+      // now via the shared `resolveViewFacadeFrame` so the tag executor derives it
+      // from the same one place (L-265).
+      const frame = resolveViewFacadeFrame(viewDef);
+      if (!frame) { toast('Auto-Dimension: this view is not a vertical view.', 'warn'); return 0; }
 
       // ── View INTENT (P7 / C09): the view's detail level gates WHICH rules fire.
       const detailLevel: DetailLevel =

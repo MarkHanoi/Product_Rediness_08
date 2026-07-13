@@ -261,6 +261,20 @@ export interface ViewOutputSettings {
     detailLevel?: DetailLevel;
 
     /**
+     * §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — which MARK this view's tags display.
+     *
+     * 'type'     — the element's SYSTEM TYPE name ("WallA", "Timber Casement"). The
+     *              convention on the founder's reference drawing, and the default.
+     * 'instance' — the element's own mark (WA-00-001, from MarkGenerator §03-1.7).
+     *
+     * A representation property ("HOW the view is drawn"), so it lives here beside
+     * `scale` and `detailLevel` rather than in a parallel tag-settings store. Both
+     * marks are always CARRIED in the tag's parameters — this only selects the one
+     * that is DRAWN, so the C28 schedule join holds either way.
+     */
+    tagMarkSource?: 'type' | 'instance';
+
+    /**
      * Visibility of Part elements (for construction documentation workflows):
      * - 'showOriginal' — show original elements, hide parts
      * - 'showParts'    — show divided parts, hide originals
@@ -388,6 +402,20 @@ export interface AnnotationVisibilitySettings {
     spotElevations?:    boolean;
     spotCoordinates?:   boolean;
     roomTags?:          boolean;
+    /**
+     * §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — the per-view TAG INTENT (P7 / C09).
+     *
+     * These sit beside `roomTags` because they are the same kind of thing: an
+     * annotation CATEGORY this view does or does not carry. `autoTagActiveView`
+     * reads them to decide WHICH categories it tags — the decision belongs to the
+     * view (and, via `ViewTemplate.annotationOverrides`, to its template), never to
+     * a hardcoded step inside the batch button.
+     *
+     * undefined ⇒ the default set for the view's projection (see `resolveAutoTagIntent`).
+     */
+    doorTags?:          boolean;
+    windowTags?:        boolean;
+    wallTags?:          boolean;
     spaceTags?:         boolean;
     genericAnnotation?: boolean;
     detailItems?:       boolean;
