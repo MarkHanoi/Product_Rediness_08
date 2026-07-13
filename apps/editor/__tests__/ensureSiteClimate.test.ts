@@ -69,6 +69,26 @@ function liveFetchStub(): FetchLike {
 
 const SITE = 'site_proj-live-001';
 
+/**
+ * Wait for the site's dataset to reach `tier`, or give up.
+ *
+ * The live upgrade is a background task (see the note in the first test), so it lands some
+ * microtasks/timers AFTER `ensureSiteClimate` resolves. Bounded so that an upgrade which
+ * never arrives FAILS the assertion instead of hanging the suite.
+ */
+async function waitForTier(
+    store: ClimateStore,
+    tier: string,
+    tries = 100,
+): Promise<ReturnType<ClimateStore['resolveSite']>> {
+    let ds = store.resolveSite(SITE as never);
+    for (let i = 0; i < tries && ds?.source !== tier; i += 1) {
+        await new Promise(resolve => setTimeout(resolve, 1));
+        ds = store.resolveSite(SITE as never);
+    }
+    return ds;
+}
+
 describe('ensureSiteClimate — live wiring', () => {
     beforeEach(() => clearNormalsCache());
 
@@ -77,11 +97,27 @@ describe('ensureSiteClimate — live wiring', () => {
         const fetchImpl = makeLiveClimateFetch(liveFetchStub());
         const ok = await ensureSiteClimate(fakeRuntime(store), { fetchImpl });
         expect(ok).toBe(true);
-        const ds = store.resolveSite(SITE as never)!;
+
+        // §GATE-TEST-ESTATE-NOT-A-CI-GATE (L-247, group B) — this assertion used to read the
+        // store the instant `ensureSiteClimate` resolved, and it was RACING A BACKGROUND TASK
+        // IT NEVER WAITED FOR. Triaged product-first: THE PRODUCT IS RIGHT. `ensureSiteClimate`
+        // is offline-first BY DESIGN (C21 §1.2) — stage 1 seeds the BUNDLED tier and returns
+        // immediately, and stage 2 upgrades to live measured normals in a deliberately
+        // fire-and-forget `void (async () => …)()` that, in its own words, "never blocks the
+        // caller". So `await ensureSiteClimate(...)` guarantees the BUNDLED tier, never the live
+        // one. The old test only ever passed on microtask luck, and it stopped being lucky.
+        //
+        // Waiting for the upgrade is not a workaround — it is the only way to assert the real
+        // contract, and it makes the test STRONGER: it now proves the background upgrade
+        // actually lands and overwrites the bundled tier, which is precisely the behaviour the
+        // bundled→live handoff exists to deliver. A bounded wait keeps a genuine regression
+        // (an upgrade that never arrives) a FAILURE rather than a hang.
+        const ds = await waitForTier(store, 'noaa-normals');
+
         expect(ds).not.toBeNull();
-        expect(ds.source).toBe('noaa-normals'); // live tier
-        expect(ds.provenance.vendor).toContain('Open-Meteo');
-        expect(ds.monthlyNormals).toHaveLength(12);
+        expect(ds!.source).toBe('noaa-normals'); // live tier
+        expect(ds!.provenance.vendor).toContain('Open-Meteo');
+        expect(ds!.monthlyNormals).toHaveLength(12);
     });
 
     it('degrades to BUNDLED when the live fetch yields no usable data', async () => {

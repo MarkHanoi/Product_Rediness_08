@@ -125,7 +125,25 @@ export async function resolveNormals(
     const key = cacheKey(lat, lon);
     if (!opts.bypassCache) {
         const hit = _cache.get(key);
-        if (hit) return { ...hit, cacheHit: true };
+        // §FIX-CLIMATE-BUNDLED-CACHE-BLOCKS-LIVE-UPGRADE (L-249) — THE CACHE MUST BE
+        // TIER-AWARE, OR THE LIVE UPGRADE CAN NEVER HAPPEN.
+        //
+        // `ensureSiteClimate` is offline-first (C21 §1.2): stage 1 resolves the BUNDLED
+        // tier so the climate card paints instantly, then stage 2 re-resolves WITH a
+        // `fetchImpl` to upgrade to live measured normals. But stage 1 cached its bundled
+        // result under this very key — so stage 2 hit the cache HERE, returned `bundled`,
+        // and NEVER ATTEMPTED THE LIVE FETCH. The upgrade was structurally unreachable:
+        // live climate data could not land in production at all, and the card was pinned
+        // to `fallback-defaults` forever. (Found by triaging the L-247 red suite: the test
+        // was not stale — it was reporting this, truthfully, the whole time.)
+        //
+        // A BUNDLED entry is a FALLBACK, not an answer. It may satisfy a caller that has no
+        // way to do better (no `fetchImpl`), but it must never short-circuit a caller that
+        // CAN fetch live. Only a `noaa-normals` entry is a final answer for everyone.
+        // This keeps both properties that matter: once live normals are cached, no caller
+        // re-fetches them; and bundled-only callers still get their instant cache hit.
+        const hitIsFinal = hit && (hit.tier === 'noaa-normals' || !opts.fetchImpl);
+        if (hit && hitIsFinal) return { ...hit, cacheHit: true };
     }
 
     // ── Live fetch (guarded) ────────────────────────────────────────────
