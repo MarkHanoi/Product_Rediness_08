@@ -125,9 +125,7 @@ const COLLINEAR_NEWCOMERS: Array<[string, [number, number], [number, number]]> =
 
 describe('§FIX-WALL-JOIN-MITRE-BROKEN-BY-THIRD-WALL (L-251) — SAME-type third wall must not re-cut a committed mitre', () => {
     for (const [label, cs, ce] of [...NEWCOMERS, ...COLLINEAR_NEWCOMERS]) {
-        const collinear = COLLINEAR_NEWCOMERS.some(([l]) => l === label);
-        const run = collinear ? it.fails : it;
-        run(`the existing mitred L stays BYTE-IDENTICAL when a same-type wall joins — ${label}`, () => {
+        it(`the existing mitred L stays BYTE-IDENTICAL when a same-type wall joins — ${label}`, () => {
             // ── 1. Resolve the mitre ALONE, exactly as the founder builds it first. ──
             _seq = 0;
             const A0 = A(), B0 = B();
@@ -140,8 +138,18 @@ describe('§FIX-WALL-JOIN-MITRE-BROKEN-BY-THIRD-WALL (L-251) — SAME-type third
             expect(before.get(B0.id)!.startMN).toBeTruthy();
 
             // ── 2. NOW add the third wall — SAME systemTypeId as the other two. ──
+            //
+            // §WALL-JOIN-INTENT (L-251): the founder SNAPPED its start onto the existing
+            // corner. That gesture is the disambiguation — it says "butt onto what is already
+            // there", not "continue a run". The tool records it at creation; the resolver
+            // reads it here. Without it, this collinear newcomer is indistinguishable from a
+            // genuine through-wall and §PASS-THROUGH-FLUSH deletes the mitre.
             _seq = 0;
-            const A1 = A(), B1 = B(), C1 = mk(cs, ce, 0.3, 3, PLAIN);
+            const A1 = A(), B1 = B();
+            const C1 = {
+                ...mk(cs, ce, 0.3, 3, PLAIN),
+                joinIntent: { start: 'butt' as const },
+            } as unknown as WallData;
             const after = WallJoinResolver.resolveLevel([A1, B1, C1], { snapRadius: 0.5 });
 
             // ── 3. The invariant: the two ORIGINAL walls must not have moved. ──

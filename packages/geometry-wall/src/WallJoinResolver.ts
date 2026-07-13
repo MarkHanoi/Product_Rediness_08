@@ -1139,11 +1139,46 @@ export class WallJoinResolver {
                     // "different type must not change the rule" is honoured — a different type is
                     // exactly what marks the newcomer as a distinct wall that adapts, never an excuse
                     // to distort the frozen exterior L.
+                    // §WALL-JOIN-INTENT (L-251) — ASK THE GESTURE, NOT THE GEOMETRY.
+                    //
+                    // The type test below (L-122) is a PROXY, and the comment above admits its
+                    // hole: "a same-type newcomer still passes through." The founder draws every
+                    // wall with the DEFAULT type, so the proxy never fires for him and
+                    // §PASS-THROUGH-FLUSH square-caps his committed corner — deleting the miter
+                    // normals of a mitre he had already drawn (L-251: `707107,707107` → `null`).
+                    //
+                    // The information needed to disambiguate is NOT IN THE GEOMETRY. A mitred
+                    // corner plus a butting newcomer, and a through-wall plus a stem, are the
+                    // SAME topology — identical shape, order and types. They differ only in what
+                    // the author MEANT, and the authoring tool is the only thing that knows.
+                    //
+                    // So: if this endpoint was SNAPPED ONTO AN EXISTING JUNCTION, the author is
+                    // butting a newcomer onto something already committed — never continuing a
+                    // run. Freeze the corner; the newcomer adapts (ADR-0055 baseline immutability).
+                    // If the intent says `through`, or is absent (legacy walls, generated walls,
+                    // every pre-existing test), behaviour is EXACTLY as before — the type proxy
+                    // still applies, so nothing regresses and genuine T-junctions still square-cap.
                     const _wallType = (w: WallData): string | undefined => (w as unknown as { systemTypeId?: string }).systemTypeId;
+                    const _buttsHere = (w: WallData, side: 'start' | 'end'): boolean =>
+                        (w as unknown as { joinIntent?: { start?: string; end?: string } })
+                            .joinIntent?.[side] === 'butt';
+
+                    const iIsCommitted = primaryWallIds.has(epI.wallId);
+                    const jIsCommitted = primaryWallIds.has(epJ.wallId);
+                    const exactlyOneCommitted = iIsCommitted !== jIsCommitted;
+
+                    // The NON-committed candidate is the newcomer. Did the author snap its
+                    // endpoint onto the committed corner? Then it butts — it is not a continuation.
+                    const newcomerButtsOntoCorner =
+                        exactlyOneCommitted &&
+                        (iIsCommitted
+                            ? _buttsHere(wJ, epJ.side as 'start' | 'end')
+                            : _buttsHere(wI, epI.side as 'start' | 'end'));
+
                     const freezeExistingCorner =
                         (globalThis as any).window?.__pryzmExistingCornerImmutable !== false &&
-                        (primaryWallIds.has(epI.wallId) !== primaryWallIds.has(epJ.wallId)) &&
-                        _wallType(wI) !== _wallType(wJ);
+                        exactlyOneCommitted &&
+                        (_wallType(wI) !== _wallType(wJ) || newcomerButtsOntoCorner);
                     if (Math.abs(dirI.dot(dirJ)) >= COLLINEAR_DOT && laterallyCoincident && !freezeExistingCorner) {
                         clusterHasPassThrough = true;
                         passThroughDir = dirI.clone();

@@ -169,6 +169,26 @@ export interface WallMetadata {
     description?: string;
 }
 
+/**
+ * §WALL-JOIN-INTENT (L-251) — what the author DID at each endpoint of a wall.
+ *
+ * See the `joinIntent` field on {@link WallData} for the full rationale. In short: a
+ * mitred corner and a T-junction are the same geometry, so the resolver cannot tell them
+ * apart. The authoring tool can. This is that signal, carried per endpoint.
+ */
+export type WallEndJoinIntent =
+    /** Snapped onto an EXISTING committed junction — that junction is frozen, this wall adapts. */
+    | 'butt'
+    /** Continues a run — a collinear partner here is a genuine through-wall (square caps). */
+    | 'through';
+
+export interface WallJoinIntent {
+    /** Intent at `baseLine[0]`. */
+    start?: WallEndJoinIntent;
+    /** Intent at `baseLine[1]`. */
+    end?: WallEndJoinIntent;
+}
+
 export interface WallData extends CoreElement {
     type: 'wall';
     /**
@@ -237,6 +257,45 @@ export interface WallData extends CoreElement {
     //   The builder reads this; the store does not validate it.
     systemTypeId?: string;
     layers?: WallLayer[];
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ─── §WALL-JOIN-INTENT (L-251) — the authoring gesture, recorded ──────────
+    //
+    // WHY THIS FIELD EXISTS: A MITRED CORNER AND A T-JUNCTION ARE THE SAME GEOMETRY.
+    //
+    // Two collinear walls meeting a third at a node has two valid readings:
+    //
+    //   (1) a THROUGH-WALL plus a STEM   — the collinear pair is ONE straight wall,
+    //       drawn in two segments, and the third wall tees into it. The through-pair
+    //       must take SQUARE CAPS (§PASS-THROUGH-FLUSH). This is a T-junction.
+    //
+    //   (2) a MITRED CORNER plus a BUTTING NEWCOMER — two walls already meet in a
+    //       committed mitred L, and a third arrives later, collinear with one arm.
+    //       The corner must be FROZEN and the newcomer butts onto it (ADR-0055
+    //       baseline immutability; the founder's L-122/L-251 invariant).
+    //
+    // These are indistinguishable from geometry alone — identical topology, identical
+    // creation order, identical types. They differ ONLY in what the author MEANT.
+    // L-122 tried to separate them by `systemTypeId` (different type ⇒ newcomer), and
+    // that fails the moment the user draws everything with the DEFAULT wall type —
+    // which is exactly what the founder does, and exactly why his mitre kept dying.
+    //
+    // No cleverer heuristic can fix that, because the information is not in the
+    // geometry. It is in the GESTURE — and the tool knows the gesture: the snapping
+    // layer knows whether this endpoint was snapped ONTO an existing junction (a
+    // corner someone already committed) or drawn as a straight continuation of a run.
+    // So we capture it at creation and pass it down, instead of asking the resolver
+    // to guess. That is the whole fix.
+    //
+    //   'butt'    — this endpoint was snapped onto an EXISTING committed junction.
+    //               Whatever is already there is frozen; THIS wall adapts to it.
+    //   'through' — this endpoint continues a run (the author is extending a wall).
+    //               A collinear partner here is a genuine pass-through: square caps.
+    //   undefined — unknown/legacy. Behaviour is EXACTLY as before this field existed,
+    //               so every pre-existing wall and every existing test is unaffected.
+    //
+    // Set at creation from the snap result; never inferred from geometry afterwards.
+    joinIntent?: WallJoinIntent;
     // ─────────────────────────────────────────────────────────────────────────
 
     // ─── Contract §STEP6: Interior/Exterior side classification ──────────────

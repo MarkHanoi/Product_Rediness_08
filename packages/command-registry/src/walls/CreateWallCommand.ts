@@ -285,6 +285,60 @@ export class CreateWallCommand implements Command {
                     : undefined,
             }));
 
+        // ─── §WALL-JOIN-INTENT (L-251) — RECORD THE GESTURE, ONCE, AT THE CHOKEPOINT ───
+        //
+        // A MITRED CORNER AND A T-JUNCTION ARE THE SAME GEOMETRY. Two collinear walls
+        // meeting a third at a node reads either as "a through-wall plus a stem" (square
+        // caps — correct for a T) or as "a committed mitred corner plus a butting newcomer"
+        // (freeze the corner — the founder's invariant). The resolver cannot tell them apart,
+        // because they are not geometrically different: they differ only in what the author
+        // MEANT. L-122 tried to proxy that with `systemTypeId`, and it fails the moment the
+        // user draws everything with the DEFAULT wall type — which is exactly what the
+        // founder does, and exactly why his mitre kept dying (L-251: the corner's miter
+        // normals went `707107,707107` → `null` the instant a same-type wall joined it).
+        //
+        // The disambiguating fact is not geometric, it is HISTORICAL, and it is knowable
+        // exactly HERE and nowhere else: **at the moment this wall is created, did a
+        // committed junction already exist at that endpoint?** Two or more existing wall
+        // endpoints meeting at a node IS a committed corner. A wall arriving onto it is a
+        // newcomer that must adapt — it is never a continuation of a run.
+        //
+        // Captured ONCE, at creation, and thereafter carried on the record — never
+        // re-inferred from geometry on a later resolve pass, which is what made every
+        // previous attempt a heuristic. This is the single element-creation chokepoint
+        // (C11), so it is captured identically for the 3D tool, the plan tool, batch
+        // generators and AI — one path, not five.
+        {
+            const EPS = 0.02;                       // 20 mm — the endpoint-coincidence radius
+            const levelWalls = ctx.stores.wallStore.getAll()
+                .filter(w => w.levelId === newWall.levelId && w.id !== newWall.id);
+
+            /** How many EXISTING wall endpoints already meet at this point. */
+            const committedEndpointsAt = (p: { x: number; z: number }): number => {
+                let n = 0;
+                for (const w of levelWalls) {
+                    for (const e of [w.baseLine[0], w.baseLine[1]]) {
+                        if (Math.hypot(e.x - p.x, e.z - p.z) <= EPS) n++;
+                    }
+                }
+                return n;
+            };
+
+            // ≥2 existing endpoints at the node ⇒ a corner was already committed there.
+            // (Exactly 1 means we are meeting a lone wall end — that may be the author
+            // FORMING a corner, or continuing a run, and it stays ambiguous by design:
+            // we leave the intent undefined and behaviour is exactly as before.)
+            const startIsOntoCommitted = committedEndpointsAt(newWall.baseLine[0]) >= 2;
+            const endIsOntoCommitted   = committedEndpointsAt(newWall.baseLine[1]) >= 2;
+
+            if (startIsOntoCommitted || endIsOntoCommitted) {
+                (newWall as { joinIntent?: { start?: 'butt'; end?: 'butt' } }).joinIntent = {
+                    ...(startIsOntoCommitted ? { start: 'butt' as const } : {}),
+                    ...(endIsOntoCommitted   ? { end:   'butt' as const } : {}),
+                };
+            }
+        }
+
         // 1️⃣ Store first — triggers Store Event Bus → subscriber in main.ts
         //    handles WallJoinResolver + geometry rebuild (§2.7 compliant).
         ctx.stores.wallStore.add(newWall);
