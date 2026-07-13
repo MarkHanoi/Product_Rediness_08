@@ -27,6 +27,25 @@ Blocking defects that make the app unusable. Gate: G1, G2, G3.
   during nav; 0.4b instancing coverage (walls/slabs/windows across floors); 0.4c nav-LOD (suppress non-essential
   passes while camera moves); 0.4d cached/incremental frustum culling. **Gate G3**.
 
+- **0.-1 WEBGPU 3D-SCENE STUTTER — AND IT PROBABLY *IS* 0.0** (L-253 / §FIX-WEBGPU-PREWARM-STUTTER) —
+  **OPEN, CRITICAL. Do this BEFORE 0.0.** Founder, 2026-07-13: *"freezing on moving — when I move in the scene
+  is not flowing… then I swap to WebGL and back to WebGPU and it works well."* **The CURE is the clue.**
+  Geometry is backend-agnostic — a wall's baseline, the join resolver and the rebuild coordinator do not care
+  who draws them. **So if swapping the RENDERER fixes it, the fault is in the RENDERER.** That is why every
+  L-250 hypothesis came back clean under measurement (rebuild is O(affected): 200 bodies → 4, 48 CSG → 0;
+  `resolveLevel` is a proven fixed point; the no-progress signature cannot be defeated). **I was hunting in the
+  wrong subsystem, and the founder's own workaround is the proof.** Two smoking guns in his console:
+  (i) `WebGPU: too many warnings, no more warnings will be reported` — **the device is flooding validation
+  warnings and nobody has read them**; (ii) the first WebGPU renderer is the **PRE-WARMED** one
+  (`RendererPrewarm … pre-warmed in 226 ms` → `Phase 5: pre-warmed renderer consumed`), and a live swap
+  **throws it away and builds a fresh one — which is exactly when it goes smooth.** Sub: **0.-1a READ THE
+  WEBGPU WARNINGS FIRST** (cheapest step; they may name the bug); **0.-1b** run the founder's control
+  experiment properly — boot → measure orbit frame-time → swap → back → measure; **the only variable is the
+  renderer instance**; **0.-1c** if the prewarmed instance is the culprit, **make it correct, do NOT delete it**
+  — it removes a 2,401 ms LONGTASK from project-open; **0.-1d** answer the asymmetry: WebGL2 turns ON continuous
+  repaint during camera move (`§PERF-WEBGL2-RENDER-ON-MOVE`) and WebGPU does not — **one of the two is wrong**;
+  **0.-1e RE-TEST L-250 afterwards** — if the wall+door freeze goes when the renderer is healthy, L-250 was a
+  symptom of this all along and the audit must say so. **Gate G3.**
 - **0.0 WALL-WITH-HOSTED-DOOR FREEZE — THE FOUNDER'S #1 BUG, RAISED MANY TIMES, STILL LIVE** (L-250 /
   §FIX-WALL-LENGTH-EDIT-HOSTED-DOOR-FREEZE) — **OPEN, CRITICAL. Gate G1 REOPENED. This outranks
   everything else on this board.** Escalated 2026-07-13 with a live log + screenshot. **It has survived
@@ -172,6 +191,9 @@ As each lands (merge→gate→push) the freed slot takes the next queued gate it
 
 | L-id | Phase | Status |
 |---|---|---|
+| **L-253 WebGPU 3D-scene stutter (renderer, NOT geometry)** | **0.-1 (Gate G3) — do BEFORE 0.0** | **OPEN — CRITICAL. The warnings NAME the bug.** `THREE.Color target has no corresponding fragment stage output … While validating targets[1] … CreateRenderPipeline` → `[Invalid RenderPipeline] … While calling [Queue].Submit`. **The MRT ScenePass declares a second colour attachment the fragment shader never writes, so the render pipeline is INVALID and every frame's submit is REJECTED** — a validation-error flood, not a slow GPU. Explains the founder's cure exactly: a live backend swap rebuilds the pipeline and it goes smooth. **Very likely the true root of L-250** (geometry is backend-agnostic — if swapping the renderer fixes it, the fault is the renderer). |
+| **L-254 window plan symbol not sound** | **3.2 annotations/drawing** | **OPEN.** The window has no LOD-300 plan symbol: no frame block, no jamb rebate, no glazing double-line, no sill, no pen hierarchy — it reads as a flat band. **The DOOR has all of this** (`DoorPlanSymbolBuilder`, L-241/L-252). Doors and windows are ONE family under **C15** and must be drawn to ONE standard. **Do not write a second symbol engine** — mirror the door's structure, reuse the shared `DetailLevel` enum, and keep L-127 dimensional truth (every dimension from the element's real record, never a literal). |
+| **L-255 floor finish: plan tool skips the setup modal** | **2.3 creation defaults (C11)** | **OPEN — HIGH.** The 3D floor-finish tool opens a modal that collects the **elevation**; the plan `Auto` tool creates immediately with a silent default. **Sixth instance of the signature disease: one element, two creation paths, and the plan path drops what 3D resolves** (cf. L-239 layers, L-240 inner face — *the same element*, L-243 stair config, L-246). Fix = converge at the `floor.create` chokepoint via a `PlanToolDrawContext.floorFinishConfig`, exactly as L-243 replaced the scavenged `window.activeStairConfig` global. **Ask once per tool activation, not once per click** — the Auto tool is a rapid repeat-click flow. |
 | **L-251 wall mitre destroyed by a third wall (L/T)** | **0.0b** | **SHIPPED** (`c495a534`, §WALL-JOIN-INTENT). **Reproduced exactly**: arm A's mitre normal goes `707107,707107` → `null` the instant a same-type collinear wall joins. Root cause: L-122 froze the corner only for a **different** `systemTypeId`, and its own comment concedes *"a same-type newcomer still passes through"* — the founder draws everything as "Plain Wall". **A mitred corner and a T-junction are the SAME GEOMETRY**, so no geometric rule can separate them; a `createdAt` heuristic was tried and REVERTED (it turns the genuine T-junction guards red). Founder decision: **pass the authoring gesture.** New optional `joinIntent` on the wall record, captured ONCE at the C11 creation chokepoint (a committed junction already existed at that endpoint ⇒ `butt`), consumed by the resolver. 249/249 — the founder's corner is fixed AND every T-junction still square-caps. |
 | **L-252 door plan symbol not "real sound"** | **3.2 annotations/drawing** | **SHIPPED** (§FEAT-DOOR-PLAN-SYMBOL-LOD300-DEFAULT). The full LOD-300 door — frame rebate, threshold, lever hardware — **has been implemented since L-241 and never once ran**: every view was stamped `detailLevel: 'medium'`, and LOD 200 excludes exactly those three BY DEFINITION. Fix = `DEFAULT_DETAIL_LEVEL` `'medium'` → `'fine'`, and `DefaultViewsManager`'s three hard-coded literals now read the shared constant — killing the same enum fork L-241 existed to kill. Composes with L-246: the wall is truly sectioned, so the door draws its detail into a real void. |
 | **L-250 wall+hosted-door FREEZE (founder #1, recurrent)** | **0.0 (Gate G1 REOPENED)** | **OPEN — CRITICAL.** Survived L-01/ADR-0099, L-97 and L-234. **The founder's screenshot shows the PROPERTY-PANEL `Length` edit, not a drag — and L-234 measured only the drag path.** Four call sites reach `wall.updateBaseline`; the panel one carries no `_recordUndo`/`_skipBridge` and moves ONE ENDPOINT (changing junction topology). Our own source already names the failure: a moved door-bearing wall in a `§SELF-CLUSTER-GUARD` cluster makes the flush *"re-arm EVERY rAF frame and never converge → the founder's hard freeze"*. **REPRODUCE ON THE PANEL PATH FIRST — every prior root cause is refuted until re-proven.** |

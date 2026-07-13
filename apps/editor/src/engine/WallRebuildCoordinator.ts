@@ -243,6 +243,12 @@ export class WallRebuildCoordinator {
     private static readonly _FLUSH_NOPROGRESS_MAX = 8;
     private static readonly _FLUSH_WINDOW_MS = 1_000;
 
+    // §DIAG-WALL-MOVE-FREEZE (L-250) — see the block in `_flush()`. A 1-second rolling
+    // window over flush count + wall-clock, so a frozen tab prints ONE line that says which
+    // subsystem is actually looping instead of leaving us to guess a sixth hypothesis.
+    private static _diagWindow = { ts: 0, flushes: 0, ms: 0, warned: false };
+    private static readonly _DIAG_FLUSHES_PER_SEC = 30;
+
     // §PERF-WALL-RESOLVE-ONCE-PER-GEN (L-131 P1) — end-of-generation resolve coalescing.
     // A large multi-family generation triggers whole-level `WallJoinResolver.resolveLevel`
     // ~3× PER LEVEL: the mitre-corner pass (§RESI-EXTERIOR-WALL-MITER-FIX2, re-armed via
@@ -1212,6 +1218,70 @@ export class WallRebuildCoordinator {
 
         const builder = this._wallTool.getFragmentBuilder();
         const store   = this._wallTool.getWallStore();
+
+        // ─── §DIAG-WALL-MOVE-FREEZE (L-250) — MAKE THE FREEZE REPORT ITSELF ──────────────
+        //
+        // The founder's #1 bug: moving/resizing a wall that hosts a door freezes the tab.
+        // It has now survived L-01/ADR-0099, L-97, and L-234 — and, as of today, a FRESH
+        // bundle. Every hypothesis reachable from a test has been REFUTED BY MEASUREMENT:
+        //
+        //   · the rebuild is O(affected), not O(level)   — 200 wall bodies → 4, 48 CSG → 0
+        //     (WallMoveRebuildCost.measure.test.ts, on HEAD)
+        //   · WallJoinResolver.resolveLevel CONVERGES     — it is a fixed point even on the
+        //     §SELF-CLUSTER topology a Length edit creates
+        //     (WallJoinResolver.hostedDoorLengthEditNoHang.test.ts)
+        //   · the no-progress guard below CANNOT be defeated by a version counter — the
+        //     level signature is millimetre-rounded geometry only, so it is stable.
+        //
+        // So the freeze is NOT the rebuild cost, NOT the resolver, and NOT this loop — and I
+        // cannot reproduce it from a test. That means the ONLY way forward is to make the
+        // LIVE app produce the evidence, instead of guessing at a sixth hypothesis.
+        //
+        // This counts flushes and wall-clock inside a 1-second window and, when a single
+        // settle blows past a sane bound, prints ONE loud line carrying the state that
+        // actually discriminates between the remaining explanations: how many flushes fired,
+        // how long they took, how many walls are on the level, and whether the level
+        // signature is CHANGING (a real oscillation, geometry that will not settle) or STATIC
+        // (the loop is upstream of us — the re-arm is coming from the view/projection layer,
+        // not the wall pipeline). Those two answers point at completely different subsystems.
+        //
+        // Cheap by construction: two counters and a timestamp on a path that already runs.
+        {
+            const _now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+            const w = WallRebuildCoordinator._diagWindow;
+            if (_now - w.ts > 1_000) { w.ts = _now; w.flushes = 0; w.ms = 0; w.warned = false; }
+            w.flushes++;
+            const _t0 = _now;
+            // Report ONCE per window, the moment the bound is crossed — never spam a frozen tab.
+            if (!w.warned && w.flushes > WallRebuildCoordinator._DIAG_FLUSHES_PER_SEC) {
+                w.warned = true;
+                const lvls = new Set<string>();
+                for (const { wall } of batch.values()) lvls.add(wall.levelId);
+                const levelId = [...lvls][0] ?? '?';
+                const wallsOnLevel = (() => {
+                    try { return store.getAll().filter((x: any) => x?.levelId === levelId).length; }
+                    catch { return -1; }
+                })();
+                const sigNow  = (() => { try { return this._levelWallSig(levelId, store); } catch { return '?'; } })();
+                const sigLast = this._lastFlushLevelSig.get(levelId) ?? '(none)';
+                const doorWalls = (() => {
+                    try {
+                        return store.getAll()
+                            .filter((x: any) => x?.levelId === levelId && (x.openings?.length ?? 0) > 0).length;
+                    } catch { return -1; }
+                })();
+                console.warn(
+                    `[WallRebuildCoordinator] §DIAG-WALL-MOVE-FREEZE (L-250) — ${w.flushes} flushes in <1s ` +
+                    `(${w.ms.toFixed(0)}ms in flush). level=${levelId} walls=${wallsOnLevel} wallsWithOpenings=${doorWalls} ` +
+                    `batch=${batch.size} — level signature is ${sigNow === sigLast ? 'STATIC (the re-arm is UPSTREAM of the wall pipeline — look at the view/projection layer)' : 'CHANGING (a genuine geometric oscillation — the walls will not settle)'}`,
+                );
+            }
+            // Charge this flush's cost to the window on the way out.
+            queueMicrotask(() => {
+                const _t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                WallRebuildCoordinator._diagWindow.ms += (_t1 - _t0);
+            });
+        }
 
         // §FIX-WALLFLUSH-NOPROGRESS-GUARD (L-97) — break the self-re-arming flush loop. This
         // runs BEFORE the openings-only fast path so BOTH rebuild paths are covered. If the
