@@ -21,6 +21,7 @@
  *             action) so default views do NOT pollute the undo history.
  */
 
+import { DEFAULT_DETAIL_LEVEL } from '@pryzm/schemas/view';
 import { viewDefinitionStore } from './ViewDefinitionStore';
 import { VIEW_PROJECTION_DIRECTIONS } from './ViewDefinitionTypes';
 import { SYSTEM_INTENT_IDS } from '../presentation/SystemIntents';
@@ -276,7 +277,7 @@ function ensureDefaultViews(): void {
             createdBy:  'system',
             output: {
                 visualStyle: 'realistic',
-                detailLevel: 'medium',
+                detailLevel: DEFAULT_DETAIL_LEVEL,   // §FEAT-DOOR-PLAN-SYMBOL-LOD300-DEFAULT (L-252) — one source of truth, no re-fork
                 shadows:     true,
             },
         });
@@ -299,7 +300,7 @@ function ensureDefaultViews(): void {
             createdBy:  'system',
             output: {
                 scale:       100,
-                detailLevel: 'medium',
+                detailLevel: DEFAULT_DETAIL_LEVEL,   // §FEAT-DOOR-PLAN-SYMBOL-LOD300-DEFAULT (L-252) — one source of truth, no re-fork
                 visualStyle: 'shadedWithEdges',
                 shadows:     false,
             },
@@ -326,7 +327,7 @@ function ensureDefaultViews(): void {
                 intent:     `Default ${elev.name.toLowerCase()} — system default (project north).`,
                 createdBy:  'system',
                 output: {
-                    detailLevel: 'medium',
+                    detailLevel: DEFAULT_DETAIL_LEVEL,   // §FEAT-DOOR-PLAN-SYMBOL-LOD300-DEFAULT (L-252) — one source of truth, no re-fork
                     visualStyle: 'shadedWithEdges',
                     shadows:     false,
                 },

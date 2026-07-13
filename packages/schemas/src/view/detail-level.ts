@@ -42,8 +42,24 @@ export const DETAIL_LEVELS = ['coarse', 'medium', 'fine'] as const;
  */
 export type DetailLevel = (typeof DETAIL_LEVELS)[number];
 
-/** The project-wide default detail level (matches `DefaultViewsManager`). */
-export const DEFAULT_DETAIL_LEVEL: DetailLevel = 'medium';
+/**
+ * The project-wide default detail level (matches `DefaultViewsManager`).
+ *
+ * §FEAT-DOOR-PLAN-SYMBOL-LOD300-DEFAULT (L-252) — RAISED 'medium' → 'fine'.
+ *
+ * The full LOD-300 door symbol — frame reveal/rebate, threshold, lever hardware — has
+ * been IMPLEMENTED since L-241 (`DoorPlanSymbolBuilder`, the `lod === 'fine'` branches).
+ * It simply never ran: every view was stamped `'medium'`, and LOD 200 excludes exactly
+ * those three features by definition. So the founder looked at a door with no rebate, no
+ * threshold and no hardware and correctly said it was not "real sound" — while the code
+ * that draws all three sat one enum value away.
+ *
+ * A drawing default should be the quality you want to hand a builder, not the cheapest
+ * thing that renders. The knob stays live (C09 — visibility INTENT): any view can drop to
+ * 'medium' or 'coarse' from the view properties panel, and a coarse view is still the
+ * right answer for a 1:200 key plan. What changes is only what you get without asking.
+ */
+export const DEFAULT_DETAIL_LEVEL: DetailLevel = 'fine';
 
 /**
  * Normalise an arbitrary value to a canonical `DetailLevel`.
