@@ -265,16 +265,28 @@ export function renderPlacementSection(
             ].join(';');
             inp.title = `Edit ${f.label}`;
 
+            // §FIX-PLACEMENT-EDITOR-DOUBLE-COMMIT (L-250 triage) — Enter used to commit
+            // TWICE. `commit(); inp.blur();` fires the handler, then the blur() call
+            // re-enters it through the 'blur' listener — so ONE Enter dispatched TWO
+            // `wall.updateBaseline` commands: two store mutations, two rebuild passes, and
+            // TWO undo entries for a single user edit (the second a no-op the user must
+            // still press Ctrl+Z through). Latch on the committed value: a commit is only
+            // dispatched when the value actually differs from the last one we sent.
+            let lastCommitted = inp.value;
             const commit = () => {
+                if (inp.value === lastCommitted) return;   // nothing changed — say nothing
                 const v = parseFloat(inp.value);
                 if (!isNaN(v) && v > 0 && f.key) {
+                    lastCommitted = inp.value;
                     onCommit(f.key, v);
                 }
             };
             inp.addEventListener('blur',  commit);
             inp.addEventListener('keydown', (ev: KeyboardEvent) => {
                 if (ev.key === 'Enter') { ev.preventDefault(); commit(); inp.blur(); }
-                if (ev.key === 'Escape') { inp.blur(); }
+                // Escape reverts to the last committed value rather than silently
+                // committing whatever half-typed number is in the box on blur.
+                if (ev.key === 'Escape') { inp.value = lastCommitted; inp.blur(); }
             });
 
             container.appendChild(inp);
