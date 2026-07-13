@@ -31,6 +31,8 @@ Everything in this dossier serves that thesis.
 | **07** | [Coding-session drills](./07-CODING-DRILLS.md) | What to be able to type from memory. |
 | **08** | [Stories & questions](./08-STORIES-AND-QUESTIONS.md) | STAR-format war stories; what to ask them. |
 | **09** | [**Deep Q&A on your work**](./09-DEEP-QA-ON-YOUR-WORK.md) | **Every question they can ask about PRYZM, and the answer.** Most of the hour will be this. |
+| **10** | [**System design: build MORFIS**](./10-SYSTEM-DESIGN-BUILD-MORFIS.md) | **The most likely whiteboard question.** Where you can outclass every other candidate. |
+| **11** | [Fundamentals drill](./11-FUNDAMENTALS-DRILL.md) | Graphics math, WebGPU, geometry, LLM internals. They test the foundations, not the API. |
 
 Companion one-pager (skimmable during the call): the published cheat sheet artifact.
 
