@@ -43,79 +43,29 @@ const SNAP_TOLERANCE    = 0.005;   // 5 mm — polygon stitching snap grid
 // Mirrored from PenWeightTable.ts to keep the worker bundle free of THREE.js.
 // Any change to PenWeightTable.ts MUST be reflected here.
 
-interface PenStyle {
-    widthMm:  number;
-    color:    string;
-    dashPx:   number[] | null;
-    opacity:  number;
-}
+// §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — THE MIRRORED PEN TABLE IS DELETED.
+//
+// This file used to carry a HAND-COPIED duplicate of `SYSTEM_PEN_TABLE`, with the comment
+// *"Mirrored from PenWeightTable.ts to keep the worker bundle free of THREE.js. Any change to
+// PenWeightTable.ts MUST be reflected here."* **`PenWeightTable.ts` imports nothing** — it is
+// a pure module with no THREE, no DOM and no I/O. The mirror bought nothing and cost a FORK:
+// two tables, two zone classifiers (`VRZone` here, `PenZone` there), and a convention that
+// every future pen change had to be typed out twice or silently diverge. A rule that has to be
+// copied is a rule that will drift — the exact disease C09 §4.6 was written to stop.
+//
+// The worker now imports the ONE table and the ONE zone classifier directly (module imports,
+// not the package barrel, so no THREE is pulled in).
+import { type PenStyle, resolvePen } from './PenWeightTable';
+import { type PenZone, penZoneOf, drawingZoneFromLayerName } from './DrawingZone';
 
-function pen(widthMm: number, color: string, dashPx: number[] | null = null, opacity = 1): PenStyle {
-    return { widthMm, color, dashPx, opacity };
-}
-
-const SYSTEM_PEN_TABLE: Record<string, Record<string, PenStyle>> = {
-    CUT: {
-        wall:       pen(0.50, '#000000'),
-        slab:       pen(0.50, '#000000'),
-        column:     pen(0.70, '#000000'),
-        structural: pen(0.70, '#000000'),
-        beam:       pen(0.70, '#000000'),
-        door:       pen(0.35, '#000000'),
-        window:     pen(0.35, '#000000'),
-        stair:      pen(0.35, '#000000'),
-        roof:       pen(0.50, '#000000'),
-        ceiling:    pen(0.35, '#000000'),
-    },
-    PROJECTION: {
-        wall:       pen(0.25, '#000000'),
-        slab:       pen(0.25, '#000000'),
-        column:     pen(0.25, '#1e293b'),
-        structural: pen(0.25, '#1e293b'),
-        beam:       pen(0.25, '#1e293b'),
-        door:       pen(0.18, '#1f2937'),
-        window:     pen(0.18, '#1f2937'),
-        stair:      pen(0.18, '#334155'),
-        roof:       pen(0.18, '#475569', [3, 2]),
-        ceiling:    pen(0.13, '#64748b', [2, 2]),
-        furniture:  pen(0.13, '#303030'),
-        lighting:   pen(0.13, '#303030'),
-        plumbing:   pen(0.13, '#374151'),
-        grid:       pen(0.13, '#0000cc', [8, 4]),
-        annotation: pen(0.18, '#000000'),
-        level:      pen(0.13, '#334155', [5, 3]),
-    },
-    BEYOND: {
-        wall:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        slab:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        column:     pen(0.13, '#6b7280', [4, 3], 0.55),
-        structural: pen(0.13, '#6b7280', [4, 3], 0.55),
-        beam:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        door:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        window:     pen(0.13, '#6b7280', [4, 3], 0.55),
-        stair:      pen(0.13, '#6b7280', [4, 3], 0.55),
-        roof:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        ceiling:    pen(0.13, '#6b7280', [4, 3], 0.55),
-        furniture:  pen(0.13, '#6b7280', [4, 3], 0.55),
-        lighting:   pen(0.13, '#6b7280', [4, 3], 0.55),
-    },
-    HIDDEN: {
-        _default:   pen(0.0, '#000000', null, 0),
-    },
-};
-
-const DEFAULT_PEN: PenStyle = pen(0.13, '#374151');
-
-function systemResolvePen(zone: string, category: string): PenStyle {
-    return SYSTEM_PEN_TABLE[zone]?.[category]
-        ?? SYSTEM_PEN_TABLE[zone]?.['wall']   // structural fallback
-        ?? DEFAULT_PEN;
+function systemResolvePen(zone: PenZone, category: string): PenStyle {
+    return resolvePen(zone, category);
 }
 
 // ─── In-worker style resolver (mirrors GraphicsRulesEngine logic) ─────────────
 
 function workerResolveStyle(
-    zone:      string,
+    zone:      PenZone,
     category:  string,
     elementId: string,
     viewId:    string,
@@ -148,13 +98,17 @@ function workerResolveStyle(
 
 // ─── Zone + category classification from ISO layer tag (Stage 2) ──────────────
 
-type VRZone = 'CUT' | 'PROJECTION' | 'BEYOND' | 'HIDDEN';
+// §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — `VRZone` (a THIRD private declaration of the four
+// zones) is deleted in favour of the canonical `PenZone`/`DrawingZone`. Its `zoneFromLayerTag`
+// also matched only the `:cut$` COLON form, so every hyphen-form sub-layer the symbol builders
+// author (`A-DOOR-CUT`, `A-GLAZ-CUT`) fell through to `PROJECTION` and a door's section frame
+// was drawn at the light projection pen — the same silent mis-classification `penZoneFromLayerName`
+// already fixed on the main-thread path (L-260 B) and which this fork quietly kept.
+type VRZone = PenZone;
 
 function zoneFromLayerTag(layerTag: string): VRZone {
-    if (/:cut$/i.test(layerTag))     return 'CUT';
-    if (/:beyond$/i.test(layerTag))  return 'BEYOND';
-    if (/:hidden$/i.test(layerTag))  return 'HIDDEN';
-    return 'PROJECTION';
+    const zone = drawingZoneFromLayerName(layerTag);
+    return zone === null ? 'PROJECTION' : penZoneOf(zone);
 }
 
 const ISO_LAYER_TO_CATEGORY: Record<string, string> = {
@@ -250,23 +204,39 @@ interface ClassifiedEdges {
     cut:        RawEdge[];
     projection: RawEdge[];
     beyond:     RawEdge[];
+    hidden:     RawEdge[];
 }
 
+/**
+ * §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — HIDDEN IS NO LONGER DROPPED ON THE FLOOR.
+ *
+ * This switch had a fourth case that read, in full: `// HIDDEN — dropped`. Combined with the
+ * pen table's `HIDDEN: { _default: pen(0.0, '#000000', null, 0) }` — zero width, zero opacity —
+ * the worker path had TWO independent mechanisms for making a hidden line invisible and ZERO
+ * for drawing one. HIDDEN was not a zone the product chose not to render: it was a zone the
+ * product could not render. So when occlusion needed somewhere to put an occluded span, the
+ * only bucket with a dashed pen was `:beyond` — which is also where DISTANCE puts things.
+ * That merge is the L-277 defect, and this line is one of the four places it was enforced.
+ *
+ * Hidden edges are now carried through to the style resolver, where they pick up the ONE
+ * dashed pen in the table (Contract-23 §8).
+ */
 function stage2_classify(edges: RawEdge[]): ClassifiedEdges {
     const cut:        RawEdge[] = [];
     const projection: RawEdge[] = [];
     const beyond:     RawEdge[] = [];
+    const hidden:     RawEdge[] = [];
 
     for (const edge of edges) {
         switch (edge.zone) {
             case 'CUT':        cut.push(edge);        break;
             case 'PROJECTION': projection.push(edge); break;
             case 'BEYOND':     beyond.push(edge);     break;
-            // HIDDEN — dropped
+            case 'HIDDEN':     hidden.push(edge);     break;
         }
     }
 
-    return { cut, projection, beyond };
+    return { cut, projection, beyond, hidden };
 }
 
 // ─── Stage 3 — CutIntersector / Poche polygon stitching ──────────────────────
@@ -396,8 +366,13 @@ function stage3_cutIntersector(
 
 // ─── Stage 4 — EdgeExtractor ──────────────────────────────────────────────────
 
+/**
+ * Draw order is the pen ladder, heaviest last: HIDDEN → BEYOND → PROJECTION → CUT, so the cut
+ * poché boundary is never overdrawn by a lighter zone (`PlanViewCanvas` paints `result.edges`
+ * in array order).
+ */
 function stage4_edgeExtractor(classified: ClassifiedEdges): RawEdge[] {
-    return [...classified.cut, ...classified.projection, ...classified.beyond];
+    return [...classified.hidden, ...classified.beyond, ...classified.projection, ...classified.cut];
 }
 
 // ─── Stage 5 — HLR Pass ──────────────────────────────────────────────────────
@@ -455,7 +430,10 @@ function stage5_hlr(edges: RawEdge[], cutEdges: RawEdge[]): RawEdge[] {
     if (occluders.length === 0) return edges;
 
     return edges.filter(edge => {
-        if (edge.zone === 'CUT') return true;
+        // CUT is the poché boundary — it IS the occluder. HIDDEN is already-resolved occlusion
+        // (produced by `applyOcclusion`, C09 §4.6.5) — re-testing it here would DELETE the very
+        // hidden-line graphics the view asked to see. (§FEAT-REVIT-LINE-TYPE-SEMANTICS / L-277)
+        if (edge.zone === 'CUT' || edge.zone === 'HIDDEN') return true;
         return !isSegmentOccludedHlr(edge.h0, edge.v0, edge.h1, edge.v1, occluders);
     });
 }
@@ -478,7 +456,7 @@ function stage6_styleResolver(
             widthMm:   p.widthMm,
             opacity:   p.opacity,
             dashPx:    p.dashPx ?? null,
-            zone:      edge.zone as 'CUT' | 'PROJECTION' | 'BEYOND',
+            zone:      edge.zone,
             elementId: edge.elementId,
             layerTag:  edge.layerTag,
         };

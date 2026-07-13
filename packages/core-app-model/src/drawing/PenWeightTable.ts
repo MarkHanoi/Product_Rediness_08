@@ -45,8 +45,13 @@ export interface PenStyle {
     opacity:  number;
 }
 
-/** Zone classification — matches VRZone in ViewRangeClassifier. */
-export type PenZone = 'CUT' | 'PROJECTION' | 'BEYOND' | 'HIDDEN';
+/**
+ * Zone classification — DERIVED from the canonical `DrawingZone` union (C09 §4.6).
+ * Re-exported here so every existing `import { PenZone } from './PenWeightTable'` keeps
+ * working while there remains exactly ONE declaration of the four zones.
+ */
+import { type DrawingZone, type PenZone, penZoneOf, drawingZoneFromLayerName } from './DrawingZone';
+export type { PenZone };
 
 // ─── Internal builder ────────────────────────────────────────────────────────
 
@@ -67,10 +72,49 @@ function pen(
  *
  * Override mechanism: inject higher-priority GraphicsRules via
  * GraphicsRulesEngine rather than modifying this table.
+ *
+ * ═══ §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — THE ZONE→PEN MAP IS THE CONTRACT ═══
+ *
+ * C09 §4.6.4, from the founder verbatim: **"Dashed lines should be reserved ONLY for true
+ * hidden edges."** This table is the ONE place that decides what dashes, and it now says:
+ *
+ *   CUT        — SOLID, heaviest, filled (poché).      NEVER dashed.
+ *   PROJECTION — SOLID, thinner.                       NEVER dashed. Distance is irrelevant.
+ *   BEYOND     — SOLID, lighter than PROJECTION.       NEVER dashed (it is DELIBERATELY shown).
+ *   HIDDEN     — DASHED, thin, no fill.                THE ONLY ZONE THAT DASHES.
+ *
+ * WHAT CHANGED, AND WHY EACH ONE WAS A BUG (see `DrawingZone.ts` for the full chain):
+ *
+ *   • BEYOND lost its dash `[4,3]`. `:beyond` is produced by DISTANCE
+ *     (`classifyByProjectionDepth`: `avgDepth > projectionDepth → beyond`; `classifyByVertexY`:
+ *     below the floor → beyond). Dashing it meant **an edge that is merely FAR was drawn as
+ *     if something were IN FRONT OF IT.** That is L-277's headline defect, and this single
+ *     line was where it was rendered. The founder's canonical example — the lower run of a
+ *     stair — now reads SOLID and lighter, exactly as he specified.
+ *   • BEYOND width 0.13 → 0.09 mm, so the C09 §4.6.4 ladder
+ *     `weight(CUT) > weight(PROJECTION) > weight(BEYOND) ≥ weight(HIDDEN)` holds STRICTLY
+ *     for every category (PROJECTION's thinnest entry is 0.13). It was not strict before —
+ *     `furniture` was 0.13 in BOTH zones, so "lighter than projection" was, for four
+ *     categories, false. Guarded by the merge-blocking ladder test.
+ *   • ROOF PROJECTION lost `[3,2]` and CEILING PROJECTION lost `[2,2]`. These dashed an
+ *     element for being ABOVE the cut plane — the ISO "overhead" convention. The founder's
+ *     model has no overhead zone: *"objects above/below the cut plane that are directly
+ *     visible"* are PROJECTION and are SOLID. The overhead-dash convention remains
+ *     available, but as an EXPLICIT intent override (`GraphicsRulesEngine`), never as the
+ *     default — that is the P7 rule (graphics are view intent) applied honestly.
+ *   • HIDDEN went from `{}` — an EMPTY object, i.e. every category fell through to
+ *     `FALLBACK_PEN` (0.18 mm SOLID BLACK) — to a real, dashed, thin, translucent pen.
+ *     HIDDEN was not "not rendered": it was **unrenderable**, because nothing ever produced
+ *     it. Occlusion had nowhere to go, so it was dumped into BEYOND. Now it has a home.
+ *
+ * THE DATUM EXEMPTION (`grid`, `level`, `annotation` — `DATUM_CATEGORIES`): these are not
+ * solids. Their chain/centre-line dash is an ISO 128-24 category convention, not a
+ * hidden-line reading, and the ladder guard skips them EXPLICITLY rather than silently.
  */
 const SYSTEM_PEN_TABLE: Partial<Record<PenZone, Partial<Record<string, PenStyle>>>> = {
 
     // ── CUT zone — heaviest weights; elements physically sliced by the cut plane ──
+    //    SOLID by construction. A cut solid is a filled region (C09 §4.6.2), never a dash.
     CUT: {
         wall:       pen(0.50, '#000000'),
         slab:       pen(0.50, '#000000'),
@@ -84,7 +128,9 @@ const SYSTEM_PEN_TABLE: Partial<Record<PenZone, Partial<Record<string, PenStyle>
         ceiling:    pen(0.35, '#000000'),
     },
 
-    // ── PROJECTION zone — medium weights; elements visible below the cut plane ──
+    // ── PROJECTION zone — directly VISIBLE, not cut. SOLID, thinner than CUT. ──
+    //    *** DISTANCE FROM THE VIEWER DOES NOT MAKE AN EDGE HIDDEN. *** Projection stays
+    //    solid however far away it is (C09 §4.6.4 / L-277).
     PROJECTION: {
         wall:       pen(0.25, '#000000'),
         slab:       pen(0.25, '#000000'),
@@ -94,34 +140,53 @@ const SYSTEM_PEN_TABLE: Partial<Record<PenZone, Partial<Record<string, PenStyle>
         door:       pen(0.18, '#1f2937'),
         window:     pen(0.18, '#1f2937'),
         stair:      pen(0.18, '#334155'),
-        roof:       pen(0.18, '#475569', [3, 2]),
-        ceiling:    pen(0.13, '#64748b', [2, 2]),
+        roof:       pen(0.18, '#475569'),          // L-277: dash [3,2] DELETED — overhead ≠ hidden
+        ceiling:    pen(0.13, '#64748b'),          // L-277: dash [2,2] DELETED — overhead ≠ hidden
         furniture:  pen(0.13, '#303030'),
         lighting:   pen(0.13, '#303030'),
         plumbing:   pen(0.13, '#374151'),
-        grid:       pen(0.13, '#0000cc', [8, 4]),
+        grid:       pen(0.13, '#0000cc', [8, 4]),  // DATUM — ISO 128-24 chain line, not a zone dash
         annotation: pen(0.18, '#000000'),
-        level:      pen(0.13, '#334155', [5, 3]),
+        level:      pen(0.13, '#334155', [5, 3]),  // DATUM — ISO 128-24 chain line, not a zone dash
     },
 
-    // ── BEYOND zone — all elements share the same light dashed style (wall standard) ──
+    // ── BEYOND zone — past the cut plane, DELIBERATELY still shown. ──
+    //    SOLID and LIGHTER than projection. This is NOT hidden geometry (C09 §4.6.4).
+    //    The stair's lower run; the storey below in a plan's view range.
     BEYOND: {
-        wall:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        slab:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        column:     pen(0.13, '#6b7280', [4, 3], 0.55),
-        structural: pen(0.13, '#6b7280', [4, 3], 0.55),
-        beam:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        door:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        window:     pen(0.13, '#6b7280', [4, 3], 0.55),
-        stair:      pen(0.13, '#6b7280', [4, 3], 0.55),
-        roof:       pen(0.13, '#6b7280', [4, 3], 0.55),
-        ceiling:    pen(0.13, '#6b7280', [4, 3], 0.55),
-        furniture:  pen(0.13, '#6b7280', [4, 3], 0.55),
-        lighting:   pen(0.13, '#6b7280', [4, 3], 0.55),
+        wall:       pen(0.09, '#6b7280', null, 0.55),
+        slab:       pen(0.09, '#6b7280', null, 0.55),
+        column:     pen(0.09, '#6b7280', null, 0.55),
+        structural: pen(0.09, '#6b7280', null, 0.55),
+        beam:       pen(0.09, '#6b7280', null, 0.55),
+        door:       pen(0.09, '#6b7280', null, 0.55),
+        window:     pen(0.09, '#6b7280', null, 0.55),
+        stair:      pen(0.09, '#6b7280', null, 0.55),
+        roof:       pen(0.09, '#6b7280', null, 0.55),
+        ceiling:    pen(0.09, '#6b7280', null, 0.55),
+        furniture:  pen(0.09, '#6b7280', null, 0.55),
+        lighting:   pen(0.09, '#6b7280', null, 0.55),
+        plumbing:   pen(0.09, '#6b7280', null, 0.55),
     },
 
-    // ── HIDDEN — no pen; nothing is rendered ─────────────────────────────────
-    HIDDEN: {},
+    // ── HIDDEN zone — OCCLUDED by a solid, shown with hidden-line graphics. ──
+    //    THE ONLY ZONE THAT DASHES BY DEFAULT. Thin, no fill. Produced ONLY by the
+    //    occlusion engine (`applyOcclusion`), NEVER by a depth/distance test.
+    HIDDEN: {
+        wall:       pen(0.09, '#6b7280', [4, 3], 0.55),
+        slab:       pen(0.09, '#6b7280', [4, 3], 0.55),
+        column:     pen(0.09, '#6b7280', [4, 3], 0.55),
+        structural: pen(0.09, '#6b7280', [4, 3], 0.55),
+        beam:       pen(0.09, '#6b7280', [4, 3], 0.55),
+        door:       pen(0.09, '#6b7280', [4, 3], 0.55),
+        window:     pen(0.09, '#6b7280', [4, 3], 0.55),
+        stair:      pen(0.09, '#6b7280', [4, 3], 0.55),
+        roof:       pen(0.09, '#6b7280', [4, 3], 0.55),
+        ceiling:    pen(0.09, '#6b7280', [4, 3], 0.55),
+        furniture:  pen(0.09, '#6b7280', [4, 3], 0.55),
+        lighting:   pen(0.09, '#6b7280', [4, 3], 0.55),
+        plumbing:   pen(0.09, '#6b7280', [4, 3], 0.55),
+    },
 };
 
 // ─── Fallback ────────────────────────────────────────────────────────────────
@@ -152,15 +217,23 @@ export function resolvePen(zone: PenZone, category: string): PenStyle {
 }
 
 /**
- * Convenience: derive zone from boolean flags already computed in PlanViewCanvas
- * render loop.  Eliminates the tri-branch ternary at call sites.
+ * §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — `penZoneFromFlags(isCut, isBeyond)` IS DELETED.
  *
- * Priority: CUT > BEYOND > PROJECTION  (HIDDEN items are not rendered at all)
+ * It took TWO booleans and could therefore only ever return THREE of the four zones. It was
+ * `PlanViewCanvas`'s sole zone classifier, so **HIDDEN was structurally unreachable at the
+ * only place that paints a line**: even a correctly-produced `:hidden` layer would have been
+ * classified `PROJECTION` and drawn SOLID. A zone that cannot be NAMED cannot be STYLED —
+ * and that is precisely how occlusion ended up dumped into `:beyond` (the only bucket with a
+ * dashed pen) and how PROJECTION ended up dashed.
+ *
+ * The replacement is {@link penZoneFromLayerName} — one argument, four possible answers,
+ * resolved from the canonical `DrawingZone` classifier. Do not reintroduce a boolean-pair
+ * zone resolver: it is not a convenience, it is a type that cannot hold the domain.
  */
-export function penZoneFromFlags(isCut: boolean, isBeyond: boolean): PenZone {
-    if (isCut)    return 'CUT';
-    if (isBeyond) return 'BEYOND';
-    return 'PROJECTION';
+
+/** Zone of a projected segment from its ISO sub-layer name, in the DOMAIN spelling. */
+export function drawingZoneFromLayer(layerTag: string): DrawingZone | null {
+    return drawingZoneFromLayerName(layerTag);
 }
 
 /**
@@ -183,16 +256,16 @@ export function penZoneFromFlags(isCut: boolean, isBeyond: boolean): PenZone {
  * `projection-hidden` IFC fallback) return `null` — they carry no zone and must NOT be
  * coerced into one.
  *
- * Pure classifier, no I/O — no span (same precedent as `penZoneFromFlags` /
- * `categoryFromFlags` below, cited in ViewScope.ts).
+ * Pure classifier, no I/O — no span (same precedent as `categoryFromFlags` below, cited in
+ * ViewScope.ts).
+ *
+ * §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277): the regexes moved to `DrawingZone.ts`, which is
+ * now the ONE encoding of the four zones. This is a spelling adapter onto it, nothing more —
+ * so a fifth zone, or a fifth naming convention, cannot be born in a second file again.
  */
 export function penZoneFromLayerName(layerTag: string): PenZone | null {
-    if (!layerTag) return null;
-    if (/[:-]cut\b/i.test(layerTag))    return 'CUT';
-    if (/[:-]beyond\b/i.test(layerTag)) return 'BEYOND';
-    if (/[:-]proj\b/i.test(layerTag))   return 'PROJECTION';
-    if (/[:-]hidden\b/i.test(layerTag)) return 'HIDDEN';
-    return null;
+    const zone = drawingZoneFromLayerName(layerTag);
+    return zone === null ? null : penZoneOf(zone);
 }
 
 /**

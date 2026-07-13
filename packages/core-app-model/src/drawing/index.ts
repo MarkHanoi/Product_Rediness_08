@@ -41,9 +41,24 @@ export type {
 export {
     FALLBACK_PEN,
     resolvePen,
-    penZoneFromFlags,
+    penZoneFromLayerName,
+    drawingZoneFromLayer,
     categoryFromFlags,
 } from './PenWeightTable.js';
+
+// ── §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — C09 §4.6, the four zones ───────
+export type { DrawingZone, OcclusionDisposition } from './DrawingZone.js';
+export {
+    DRAWING_ZONES,
+    DATUM_CATEGORIES,
+    ZONE_LAYER_SUFFIX,
+    penZoneOf,
+    drawingZoneOf,
+    layerForZone,
+    siblingZoneLayer,
+    drawingZoneFromLayerName as drawingZoneFrom,
+    zoneDashesByDefault,
+} from './DrawingZone.js';
 
 export {
     ISO_CUT_LAYER_TO_POCHE_FILL,
@@ -95,7 +110,11 @@ export { ElementSpatialIndex, elementSpatialIndex } from './ElementSpatialIndex.
 
 // ── Sprint L (2026-05-10) — HiddenLineRemoval + SymbolicRuleRenderer ─────────
 
-export { removeHiddenLines, reclassifyOccludedElevationLines } from './HiddenLineRemoval.js';
+// §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — `removeHiddenLines` and
+// `reclassifyOccludedElevationLines` are DELETED. They were two occluders for three view
+// types (C09 §4.6.5 forbids exactly that). `applyOcclusion` is the one engine.
+export { applyOcclusion, VIEW_DEPTH_KEY } from './HiddenLineRemoval.js';
+export type { OcclusionOptions, OcclusionResult } from './HiddenLineRemoval.js';
 
 // ── §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P2 — shared LOD resolver ─────
 // The single answer to "at what Detail Level must element E be drawn in view V?"

@@ -17,6 +17,10 @@
  * The original path is now a re-export shim pointing here.
  */
 
+// C09 §4.6 — the four drawing zones, declared ONCE (DrawingZone.ts is pure: no THREE, no DOM,
+// so it is worker-bundle safe).
+import type { PenZone } from './DrawingZone';
+
 // ─── Output types (worker → main) ────────────────────────────────────────────
 
 /**
@@ -45,8 +49,12 @@ export interface StyledEdge {
     opacity: number;
     /** Dash pattern in CSS-pixel units, or null for solid lines. */
     dashPx: number[] | null;
-    /** View-range zone classification. */
-    zone: 'CUT' | 'PROJECTION' | 'BEYOND';
+    /**
+     * Drawing-zone classification (C09 §4.6). §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) added
+     * `'HIDDEN'`: the union listed three of the four zones, so a styled hidden edge could not
+     * even be TYPED, let alone posted back from the worker.
+     */
+    zone: PenZone;
     /** Element UUID — empty string when not available. */
     elementId: string;
     /** ISO layer tag composite string, e.g. 'A-WALL:cut'. */

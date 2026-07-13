@@ -14,7 +14,9 @@ import { viewDefinitionStore } from './ViewDefinitionStore';
 // ViewScope.poche is false for elevation/3d, so the façade is never painted black.
 import { resolveViewScope } from './ViewScope';
 // Contract 23 §8 — pen weight table (zone/category helpers)
-import { penZoneFromFlags, categoryFromFlags } from '../drawing/PenWeightTable';
+import { categoryFromFlags } from '../drawing/PenWeightTable';
+// §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
+import { drawingZoneFromLayerName, penZoneOf } from '../drawing/DrawingZone';
 import type { PenStyle } from '../drawing/PenWeightTable';
 import { SCREEN_PX_PER_MM } from '../drawing/DrawingConstants';
 // Contract 23 §7 — GraphicsRulesEngine: resolveStyle() replaces direct resolvePen() calls
@@ -289,8 +291,16 @@ export class PlanViewCanvas {
             // `-CUT` sub-layer to be drawn HEAVY as a section cut — were
             // mis-classified as projection zone and rendered with light pen
             // weight, so the "section cut frame" never read as a frame.
-            const isCut = /[:-]cut\b/i.test(layerTag);
-            const isBeyond = /[:-]beyond\b/i.test(layerTag);
+            //
+            // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — THE ZONE IS NAMED, NOT INFERRED FROM
+            // TWO BOOLEANS. This was `penZoneFromFlags(isCut, isBeyond)`: two booleans, three
+            // reachable answers — so **`HIDDEN` was structurally unreachable at the one place
+            // in the product that paints a line.** Even a correctly-produced `:hidden` layer
+            // would have been classified `PROJECTION` and drawn SOLID. That is why occlusion
+            // had to be dumped into `:beyond` (the only zone with a dashed pen) and why
+            // "far" therefore rendered as "hidden". The zone now comes from the canonical
+            // `DrawingZone` classifier and all four zones reach the pen table.
+            const _zone = drawingZoneFromLayerName(layerTag) ?? 'projection';
             const isWall = /A-WALL|wall/i.test(layerTag);
             const isDoor = /A-DOOR|door/i.test(layerTag);
             const isSlab = /A-FLOR|slab/i.test(layerTag);
@@ -314,7 +324,7 @@ export class PlanViewCanvas {
             // Contract 23 §7 — GraphicsRulesEngine.resolveStyle() is the ONLY
             // style entry point.  It layers view/element overrides on top of the
             // locked SYSTEM_PEN_TABLE values from PenWeightTable.resolvePen().
-            const _penZone     = penZoneFromFlags(isCut, isBeyond);
+            const _penZone     = penZoneOf(_zone);
             const _penCategory = categoryFromFlags({ isWall, isDoor, isSlab, isCol, isStair, isRoof, isCeiling, isFurniture, isHandrail, isWindow });
             const _elementId   = child.userData?.elementUUID as string | undefined;
             const _pen = graphicsRulesEngine.resolveStyle(_penZone, _penCategory, {

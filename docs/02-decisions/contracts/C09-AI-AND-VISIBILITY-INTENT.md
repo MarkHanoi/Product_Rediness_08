@@ -208,26 +208,64 @@ Visibility intents replace Revit-style view templates. A view MUST NOT have its 
 
 ### §4.6 — THE SOLIDITY RULE (normative, all view types)
 
-> **Every element is a SOLID.** For any given view, each element is in exactly one **zone**:
-> it is **CUT** by the view plane, **PROJECTED** in front of it, or **BEYOND** it.
+> **Every element is a SOLID.** For any given view, every projected segment is in exactly one
+> of **FOUR ZONES**: **CUT** by the view plane, **PROJECTED** and directly visible, **BEYOND**
+> the plane but deliberately still shown, or **HIDDEN** behind another solid.
 > **Nothing behind a solid is drawn through it — in ANY view type.**
-> Line weight, fill and visibility for each zone are resolved from **VIEW INTENT** through the
-> pen/graphics table (**Contract-23 §3/§8**). They are NEVER hardcoded in a builder, and they
-> are NEVER re-derived per view type.
+> Line weight, fill, dash and visibility for each zone are resolved from **VIEW INTENT** through
+> the pen/graphics table (**Contract-23 §3/§8**). They are NEVER hardcoded in a builder, and
+> they are NEVER re-derived per view type.
+>
+> **AND: ONLY THE `hidden` ZONE DASHES.**
+> *"Dashed lines should be reserved ONLY for true hidden edges."* (founder, L-277)
 
 This rule is normative for **plan, elevation and section alike**. It exists because the same
 concept was re-invented three times in three view types and drifted apart each time (see
 ADR-0110). A rule that lives only inside a builder gets re-invented per view type; a rule
 written here does not.
 
+**§4.6.0 — THE FOUR ZONES, AND THE ONE THAT DASHES** *(added by L-277,
+`§FEAT-REVIT-LINE-TYPE-SEMANTICS`; the type is
+`DrawingZone` in `packages/core-app-model/src/drawing/DrawingZone.ts`)*
+
+| Zone | What it MEANS | How it DRAWS | Canonical examples |
+|---|---|---|---|
+| **`cut`** | the solid ∩ the view's cut plane | **SOLID** · heaviest weight · **cut fill (poché)** if defined · **NEVER dashed** | walls cut in a floor plan; a column intersected by the section plane |
+| **`projection`** | directly **VISIBLE** to the viewer, but **not** intersected by the cut plane. Includes geometry above/below the plane that is directly visible, surfaces seen in elevation, edges visible in 3D, and geometry *behind* the plane that is still directly visible | **SOLID** · typically thinner than CUT · **NO DASHES** | furniture in plan; an un-cut door/window; a visible wall face in elevation |
+| **`beyond`** | past the cut plane, and the view **DELIBERATELY keeps showing it**. **THIS IS NOT HIDDEN GEOMETRY.** | **SOLID** · usually lighter than CUT · **NEVER dashed** unless the user explicitly overrides | the lower run of a stair; the storey below in a plan's view range |
+| **`hidden`** | **OCCLUDED by another solid**, but intentionally shown with hidden-line graphics | **DASHED** · thin · **no fill** — **THE ONLY ZONE THAT DASHES BY DEFAULT** | a pipe behind a wall; a back-face edge when hidden lines are enabled |
+
+> **DISTANCE FROM THE VIEWER DOES NOT MAKE AN EDGE HIDDEN.** A projected edge stays SOLID
+> however far away it is. *"Is it far?"* and *"is something in front of it?"* are **different
+> questions**, and the drawing layer must answer the one it was asked.
+>
+> `hidden` is an **OCCLUSION FACT**. It is produced by **`applyOcclusion()` and by nothing
+> else** (§4.6.5). **It MUST NEVER be derived from a depth, a distance, or a view-range band.**
+> Any code path that assigns a dash from a depth comparison is in breach of this contract.
+
+*Why this is written here and not left to the builders (L-277).* Before this section existed,
+the code had no zone **type** — it reasoned in ad-hoc booleans (`isCut`, `isBeyond`), layer-name
+suffixes, and a private zone union re-declared in the drawing worker. `hidden` was therefore
+**unproducible**: the canvas's zone resolver took two booleans and could only return three
+answers, the worker's edge extractor dropped `HIDDEN` on the floor, and the pen table's `HIDDEN`
+entry was an empty object. So when occlusion needed somewhere to put an occluded span, the only
+bucket carrying a dashed pen was `beyond` — which is also where the **depth** classifier puts
+everything far away. Distance and occlusion merged into one bucket, and the bucket dashed.
+**A ZONE THAT CANNOT BE NAMED CANNOT BE STYLED CORRECTLY, AND THAT IS EXACTLY HOW `projection`
+ENDED UP DASHED.**
+
 **§4.6.1 — Zone assignment.** The zone is a property of the (element, view) pair, derived from
 geometry — never a per-element flag:
 
-| View type | CUT | PROJECTION | BEYOND |
-|---|---|---|---|
-| plan / ceiling-plan / structural-plan / detail | the solid ∩ the horizontal cut plane | solid between the cut plane and the view range's near/below bound | solid beyond the view range |
-| section | the solid ∩ the section plane | solid within the projection depth behind the plane | solid beyond the projection depth |
-| elevation | **empty by definition** — an elevation slices nothing (`ViewScope.cut = false`) | the façade: solid within the near depth band | receding solid behind it |
+| View type | CUT | PROJECTION | BEYOND | HIDDEN |
+|---|---|---|---|---|
+| plan / ceiling-plan / structural-plan / detail | the solid ∩ the horizontal cut plane | solid between the cut plane and the view range's near/below bound | solid beyond the view range | *(occlusion only — §4.6.5)* |
+| section | the solid ∩ the section plane | solid within the projection depth behind the plane | solid beyond the projection depth | *(occlusion only — §4.6.5)* |
+| elevation | **empty by definition** — an elevation slices nothing (`ViewScope.cut = false`) | the façade: solid within the near depth band | receding solid behind it | *(occlusion only — §4.6.5)* |
+
+**The `HIDDEN` column is deliberately empty of geometry rules.** It is not a band of space. The
+first three columns are **depth/range** classifications and produce **only** SOLID linework;
+`hidden` is produced **exclusively** by the occlusion engine. That separation is the contract.
 
 `ViewScope` (`packages/core-app-model/src/views/ViewScope.ts`) is the ONE encoding of this
 table. `viewPlane.isVertical` is the only legitimate difference between the three consumers.
@@ -247,33 +285,116 @@ magic literal, never from a hardcoded layer count. The tone is a deterministic *
 intent-resolved colour**, not a second palette: override the intent and every tone moves with
 it (`resolveWallLayerPocheFill`, Contract-23 §3).
 
-**§4.6.4 — The pen hierarchy is intent.** For every category:
+**§4.6.4 — The pen hierarchy is intent, and the DASH is part of it.** For every category:
 `weight(CUT) > weight(PROJECTION) > weight(BEYOND) ≥ weight(HIDDEN)` (ISO 13567 / the Revit
 principle). It is resolved from the intent through `PenWeightTable`; a builder that writes its
 own line weight is in breach. This holds in **section and elevation** exactly as it does in
 plan.
 
+**The dash is governed by the same table and by the same rule:**
+
+| Zone | dash by default |
+|---|---|
+| `cut` | ✗ — **never** (a cut solid is a filled region, not a line style) |
+| `projection` | ✗ — **never**, *at any distance* |
+| `beyond` | ✗ — **never** by default; a user MAY override it through the intent chain |
+| `hidden` | ✓ — **always**. The only one. |
+
+*Two consequences worth stating explicitly, because both were live defaults before L-277:*
+
+- **The ISO "overhead dashed" convention is NOT a default.** A roof or a ceiling above the plan
+  cut plane is `projection` — *"objects above/below the cut plane that are directly visible"* —
+  and it is drawn **SOLID**. Drafting standards that dash overhead geometry are expressed as an
+  **explicit intent override** (`GraphicsRulesEngine`), which is precisely what P7 is for. A
+  dash that arrives from a code branch rather than from intent is in breach.
+- **DATUM categories are the ONE exemption, and it is closed.** `grid`, `level` and `annotation`
+  are **not solids** — they have no cut, no projection and no occlusion. Their chain/centre-line
+  dash is an ISO 128-24 *category* convention, not a hidden-line reading. `DATUM_CATEGORIES`
+  enumerates them; the merge-blocking ladder guard skips exactly those three and no others.
+
 **§4.6.5 — Occlusion is ONE engine, three consumers.** There MUST NOT be a second occluder
-implementation per view type. The engine takes (a) the occluder set — the SOLID silhouettes of
-the drawing, and (b) a **disposition** for occluded spans, and clips every segment against
-every occluder that is not its own element. The **disposition is INTENT**, not a code branch:
+implementation per view type. The single entry point is
+**`applyOcclusion(drawing, { disposition, minProjectionOccluderDepth })`**
+(`packages/core-app-model/src/drawing/HiddenLineRemoval.ts`). It is **the only producer of the
+`hidden` zone in the product.**
+
+**(a) The occluder set — every SOLID, depth-ordered.** For each element (grouped by
+`elementUUID`, so an element never hides its own linework), the occluder is built from its
+front-facing linework:
+
+- its **`:cut`** section — a cut solid is *at* the view plane, so its depth is −∞ and it occludes
+  everything behind it, unconditionally;
+- its **`:proj`** silhouette — a **projected** solid, ordered by the `viewDepth` stamp the
+  projector writes for **every view type**.
+
+> **The `:proj` half of that set is the hole L-277 closed, and it is worth recording why it
+> survived so long.** `removeHiddenLines()` *was* called for plan and section — the call was
+> never missing. But plan and section built their occluders from **`:cut` linework only**, so a
+> *projected* solid occluded **nothing**, and a section showed you the far wall straight through
+> the near one. The depth stamp that would have ordered a projection occluder existed under the
+> name `elevationDepth` and was written for elevations only. **The engine was not absent; it was
+> being handed a crippled occluder set by two of its three callers.** There was never a third
+> occluder to write.
+
+**(b) The disposition — INTENT, not a code branch.** Carried on `ViewScope.occlusionDisposition`:
 
 - `remove` — the occluded span is not drawn (plan / section default: the slab does not show
   through the wall);
-- `demote` — the occluded span is re-classified to its `:beyond` sibling and drawn on the light
-  dashed pen (the elevation default, per L-190: set-back geometry reads dashed).
+- `demote` — the occluded span is re-classified to the element's **`:hidden`** sibling layer and
+  drawn on the **dashed hidden-line pen** (the elevation default, per L-190).
 
 Both are legitimate drafting conventions; **which one applies is a property of the view's
 intent**, and a view MUST be able to choose. What is NOT legitimate is a view type having no
 occlusion at all, or having its own private occluder.
 
+> **A demoted span goes to `:hidden`, NEVER to `:beyond`.** Writing occlusion into `:beyond` —
+> which is what the elevation pass did before L-277, because `:beyond` was the only layer with a
+> dashed pen — **merges an occlusion fact with a distance fact into one bucket**, and that merge
+> is the entire L-277 defect. `:beyond` is SOLID.
+
+**(c) Two structural rules the engine MUST enforce.** Both exist because a naïve "every nearer
+solid occludes" rule has a catastrophic degenerate case in plan:
+
+1. **`beyond` is clipped by `cut` occluders ONLY — never by `projection` occluders.** `beyond`
+   is, by definition, geometry the view **deliberately keeps showing** past the plane. A floor
+   slab is a *projected* solid that spans the whole plate and lies nearer to the viewer than
+   everything below it; if projected solids could clip `beyond`, the slab would silently delete
+   the entire below-storey reference band the view range was configured to include — and with it
+   the founder's stair example. A **cut** solid still occludes it: you do not see the storey
+   below through a wall's poché.
+2. **A plan looks down FROM its cut plane, not from infinity** (`minProjectionOccluderDepth: 0`).
+   Geometry *above* the plan cut plane has a negative view depth and **is not an occluder**.
+   Without this clip a roof — the nearest solid in the drawing, with a silhouette covering the
+   whole plate — would occlude the **entire plan**.
+
 **§4.6.6 — Guards (merge-blocking).** Per view type:
 - no segment behind a solid survives inside that solid's projected silhouette (subject to the
   view's disposition);
-- `weight(CUT) > weight(PROJECTION) > weight(BEYOND)`, resolved from the intent;
+- `weight(CUT) > weight(PROJECTION) > weight(BEYOND) ≥ weight(HIDDEN)`, resolved from the intent;
+- **a segment that is merely FAR is SOLID; a segment that is OCCLUDED is DASHED** — asserted at
+  the **outcome** (the pen the canvas actually resolves via `graphicsRulesEngine.resolveStyle()`),
+  never at the seam;
+- **only the `hidden` zone dashes**, for every zone × every solid category, `DATUM_CATEGORIES`
+  excepted;
+- **`hidden` is `visible`** — it is drawn, dashed, with a non-zero weight and opacity and no
+  fill. A "hidden" zone that resolves to a zero pen is a zone that cannot exist;
+- occlusion is **idempotent** — a second pass must not re-occlude already-resolved `:hidden`
+  linework;
 - a plain cut solid yields exactly ONE filled region; a layered cut solid yields exactly N,
   where N is its **stored** layer count;
-- no poché colour or pen weight literal appears in any builder.
+- no poché colour, pen weight, **or dash array** literal appears in any builder.
+
+*Guarded by* `packages/core-app-model/src/drawing/DrawingZone.test.ts` (20 assertions),
+`HiddenLineRemoval.planPoche.test.ts`, `HiddenLineRemoval.elevationOcclusion.test.ts`.
+
+**§4.6.7 — Open cells (recorded, not faked).**
+- **A per-VIEW override of `occlusionDisposition`.** §4.6.5(b) says a view MUST be able to
+  choose; today the default is carried per view *type* on `ViewScope` and the engine honours
+  whatever it is handed, but there is no field on `ViewDefinition` and therefore no user-facing
+  switch. The type is in place; only the plumbing is missing.
+- **Plan projection-occluders are enabled but conservative** — see §4.6.5(c). Widening rule (1)
+  requires a real answer to "may a slab occlude the storey below?", which is a *view-range*
+  question, not an occlusion one.
 
 ---
 

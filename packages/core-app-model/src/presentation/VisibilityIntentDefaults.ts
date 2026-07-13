@@ -69,20 +69,40 @@ function fillFor(elementType: string, state: ElementState): FillAppearance {
     return { style: 'poche', colour, opacity: 1 };
 }
 
+/**
+ * §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — THE `hidden` STATE IS **SHOWN**, NOT SUPPRESSED.
+ *
+ * This function used to open with `const visible = state !== 'hidden'`, and then zero out the
+ * hidden state's weight, colour and opacity. Because `GraphicsRulesEngine.resolveStyle()`
+ * layers the INTENT on TOP of the pen table at `RULE_PRIORITY_INTENT`, that single line
+ * OVERRODE the pen table for the hidden zone — so a `:hidden` segment would have been painted
+ * at **width 0, opacity 0, solid**. Correct occlusion geometry, a correct dashed pen in the
+ * table, and NOTHING ON SCREEN.
+ *
+ * (This is the L-246 trap exactly: a perfect plan cut section was computed and the plan branch
+ * never read the map it was written into. VERIFY AT THE OUTCOME. The guard for this line is an
+ * assertion through `graphicsRulesEngine.resolveStyle('HIDDEN', …)` — the call the canvas
+ * actually makes — not through `resolvePen`.)
+ *
+ * The old semantics were coherent only while NOTHING produced the hidden zone. C09 §4.6 now
+ * defines it as the founder does: *"geometry OCCLUDED by other geometry but INTENTIONALLY
+ * SHOWN with hidden-line graphics"* — visible, dashed, thin, no fill. An element the user has
+ * genuinely switched OFF is a different mechanism entirely (`visibilityOverrides` / isolate),
+ * and it is untouched.
+ */
 export function defaultStateAppearance(elementType: string, state: ElementState): ElementStateAppearance {
-    const visible = state !== 'hidden';
     const category = elementType === '__default__' ? 'wall' : elementType;
     const pen = resolvePen(STATE_TO_ZONE[state], category);
     const line: LineAppearance = {
-        style: visible ? dashStyle(pen.dashPx) : 'solid',
-        weight: visible ? pen.widthMm : 0,
-        colour: visible ? pen.color : '#000000',
-        opacity: visible ? pen.opacity : 0,
+        style:   dashStyle(pen.dashPx),   // the pen table is the ONE authority on what dashes
+        weight:  pen.widthMm,
+        colour:  pen.color,
+        opacity: pen.opacity,
     };
     return {
-        visible,
+        visible: true,
         line,
-        fill: fillFor(category, state),
+        fill: fillFor(category, state),   // `hidden` has NO fill — fillFor() gates on 'cut'
         ghostStyle: 'fade',
         ghostOpacity: 0.35,
     };

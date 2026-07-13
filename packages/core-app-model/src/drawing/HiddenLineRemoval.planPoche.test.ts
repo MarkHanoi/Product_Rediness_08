@@ -22,7 +22,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
-import { removeHiddenLines } from './HiddenLineRemoval';
+import { applyOcclusion } from './HiddenLineRemoval';
 
 function makeFakeDrawing() {
     const three = new THREE.Group();
@@ -96,7 +96,7 @@ describe('§FIX-PLAN-CUT-POCHE-OCCLUSION (L-260 B) — the cut poché is solid',
         // is precisely why HLR v1 removed 0 of it.
         three.add(seg('slab-1', 'A-FLOR:proj', [[0, 3], [6, 3]]));
 
-        removeHiddenLines(drawing);
+        applyOcclusion(drawing, { disposition: 'remove', minProjectionOccluderDepth: 0 });
 
         const slab = findNode(three, 'slab-1', 'A-FLOR:proj')!;
         const parts = segmentsOf(slab);
@@ -119,7 +119,7 @@ describe('§FIX-PLAN-CUT-POCHE-OCCLUSION (L-260 B) — the cut poché is solid',
         three.add(seg('roof-1', 'A-ROOF:beyond', [[1, 0.1], [3, 0.2]]));   // inside → gone
         three.add(seg('roof-1', 'A-ROOF:proj',  [[1, 2.0], [3, 2.0]]));    // outside → kept
 
-        removeHiddenLines(drawing);
+        applyOcclusion(drawing, { disposition: 'remove', minProjectionOccluderDepth: 0 });
 
         expect(segmentsOf(findNode(three, 'roof-1', 'A-ROOF:beyond')!).length).toBe(0);
         expect(segmentsOf(findNode(three, 'roof-1', 'A-ROOF:proj')!).length).toBe(1);
@@ -137,7 +137,7 @@ describe('§FIX-PLAN-CUT-POCHE-OCCLUSION (L-260 B) — the cut poché is solid',
         // Door swing arc chord sitting in the void [2,3] — must SURVIVE untouched.
         three.add(seg('door-1', 'A-DOOR-PROJ', [[2.1, 0.1], [2.9, 0.1]]));
 
-        removeHiddenLines(drawing);
+        applyOcclusion(drawing, { disposition: 'remove', minProjectionOccluderDepth: 0 });
 
         expect(segmentsOf(findNode(three, 'door-1', 'A-DOOR-PROJ')!).length).toBe(1);
     });
@@ -148,7 +148,7 @@ describe('§FIX-PLAN-CUT-POCHE-OCCLUSION (L-260 B) — the cut poché is solid',
         // The wall's own base/head edges project onto its own footprint.
         three.add(seg('wall-1', 'A-WALL:proj', [[0, 0.15], [4, 0.15]]));
 
-        removeHiddenLines(drawing);
+        applyOcclusion(drawing, { disposition: 'remove', minProjectionOccluderDepth: 0 });
 
         expect(segmentsOf(findNode(three, 'wall-1', 'A-WALL:proj')!).length).toBe(1);
     });
@@ -160,7 +160,7 @@ describe('§FIX-PLAN-CUT-POCHE-OCCLUSION (L-260 B) — the cut poché is solid',
         three.add(seg('door-1', 'A-DOOR-CUT', rectOutline(0, 0, 1, 1)));
         three.add(seg('slab-1', 'A-FLOR:proj', [[0.2, 0.5], [0.8, 0.5]]));
 
-        removeHiddenLines(drawing);
+        applyOcclusion(drawing, { disposition: 'remove', minProjectionOccluderDepth: 0 });
 
         expect(segmentsOf(findNode(three, 'slab-1', 'A-FLOR:proj')!).length).toBe(0);
     });

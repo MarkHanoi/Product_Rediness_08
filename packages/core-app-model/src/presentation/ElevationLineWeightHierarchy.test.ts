@@ -9,10 +9,14 @@
  *   1. The default system documentation intent now carries `elevation`
  *      view-type modifiers (UI parity with Plan — the tab is populated).
  *   2. `resolveIntentStyle(..., viewType: 'elevation', ...)` yields the correct
- *      weight ladder: cut (thickest) > projection > beyond (thinner) > hidden
- *      (not drawn), matching the four-band classification an East Elevation
- *      produces (façade = projection, a wall the plane cuts through = cut,
- *      receding = beyond, occluded = hidden).
+ *      weight ladder: cut (thickest) > projection > beyond > hidden, matching the
+ *      four-zone classification an East Elevation produces (façade = projection, a
+ *      wall the plane cuts through = cut, receding = beyond, OCCLUDED = hidden).
+ *
+ *      §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) corrected the GRAPHICS of the last two
+ *      tiers: `beyond` (a DISTANCE zone) is SOLID and lighter, and `hidden` (an
+ *      OCCLUSION zone) is DASHED and DRAWN — it used to be a zero pen, which is why
+ *      occlusion had to borrow `beyond`'s dash and "far" started reading as "hidden".
  *   3. The change is scoped to elevation — Plan door/window symbolic behaviour
  *      and Section cut behaviour are untouched.
  */
@@ -90,7 +94,22 @@ describe('§ELEV-LINEWEIGHT — resolved weight hierarchy for an East Elevation 
         expect(cut).toBeCloseTo(0.75, 5);
     });
 
-    it('hidden geometry is not drawn (thinnest tier — zero pen)', () => {
+    /**
+     * §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — THIS ASSERTION WAS INVERTED, AND IT WAS THE
+     * BUG WRITTEN DOWN AS A TEST.
+     *
+     * It used to read `expect(hidden.visible).toBe(false)` — *"hidden geometry is not drawn
+     * (thinnest tier — zero pen)"*. That belief is what left the `hidden` zone with no pen, no
+     * producer and no way to reach the canvas — so when elevation occlusion needed somewhere to
+     * put an occluded span, the only bucket with a dashed pen was `:beyond`, which is ALSO where
+     * the depth classifier puts everything far away. Distance and occlusion merged, and the
+     * merged bucket dashed. That is L-277.
+     *
+     * C09 §4.6 (from the founder, verbatim): HIDDEN is *"geometry OCCLUDED by other geometry but
+     * INTENTIONALLY SHOWN with hidden-line graphics… Dashed, thin, no fill."* It is DRAWN. An
+     * element the user has switched off is a different mechanism (`visibilityOverrides`).
+     */
+    it('hidden geometry IS drawn — dashed, thin, no fill (C09 §4.6: the only zone that dashes)', () => {
         const intent = defaultIntent();
         const hidden = resolveIntentStyle(
             emptyInstance(intent.id),
@@ -100,7 +119,24 @@ describe('§ELEV-LINEWEIGHT — resolved weight hierarchy for an East Elevation 
             'elevation',
             { elementType: 'wall', category: 'wall' },
         );
-        expect(hidden.visible).toBe(false);
+        expect(hidden.visible).toBe(true);
+        expect(hidden.line.style).toBe('dashed');       // THE only zone that dashes
+        expect(hidden.line.weight).toBeGreaterThan(0);  // it is not a zero pen
+        expect(hidden.fill.style).toBe('none');         // no poché on hidden linework
+    });
+
+    it('and BEYOND — the DISTANCE zone — is SOLID: far is not hidden (L-277)', () => {
+        const intent = defaultIntent();
+        const beyond = resolveIntentStyle(
+            emptyInstance(intent.id),
+            intent,
+            'wall',
+            'beyond',
+            'elevation',
+            { elementType: 'wall', category: 'wall' },
+        );
+        expect(beyond.visible).toBe(true);
+        expect(beyond.line.style).toBe('solid');   // was 'dashed' — the founder's exact defect
     });
 
     it('façade openings (door/window) sit below walls in the projection tier', () => {

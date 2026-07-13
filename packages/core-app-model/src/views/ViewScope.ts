@@ -28,7 +28,7 @@
  *
  * P8 note: this is a pure, deterministic, hot-path classifier (called per
  * projection layer and per canvas render). It follows the same "pure style
- * classifier, no span" precedent as `PenWeightTable.penZoneFromFlags` /
+ * classifier, no span" precedent as `DrawingZone.drawingZoneFromLayerName` /
  * `categoryFromFlags` — instrumenting it would flood traces and violate the C10
  * perf budget. Side-effecting exported functions in this lane (e.g.
  * `ViewDependencyTracker.forceReproject`) carry the OTel spans.
@@ -36,6 +36,7 @@
 
 import type { ViewType } from './ViewDefinitionTypes';
 import { PLAN_VIEW_TYPES } from './ViewDefinitionTypes';
+import type { OcclusionDisposition } from '../drawing/DrawingZone';
 
 export interface ViewScope {
     /** Solid cut fills (poché) are rendered for this view. */
@@ -50,6 +51,26 @@ export interface ViewScope {
     depthProjected: boolean;
     /** Top-down plan-family view (plan / ceiling-plan / structural-plan / detail). */
     planFamily: boolean;
+    /**
+     * §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6.5 — what this view does with a span
+     * the occlusion engine has PROVED is behind a solid.
+     *
+     *   • `'remove'` — do not draw it. The plan / section convention: the slab does not show
+     *     through the wall.
+     *   • `'demote'` — reclassify it to the `hidden` zone and draw it on the DASHED
+     *     hidden-line pen. The elevation convention (L-190).
+     *
+     * Both are legitimate drafting conventions, and C09 §4.6.5 is explicit that **which one
+     * applies is a property of the VIEW'S INTENT, not a `viewType ===` branch buried inside
+     * an occluder**. It lives here — on the one classifier every consumer already reads —
+     * precisely so that `HiddenLineRemoval` does not have to know what an elevation is.
+     *
+     * (The remaining cell, recorded honestly rather than faked: a per-VIEW override of this
+     * default — a plan that wants hidden lines shown dashed rather than removed — needs a
+     * field on `ViewDefinition` and is not yet plumbed. The TYPE is here and the engine
+     * already honours whatever it is handed; only the user-facing switch is missing.)
+     */
+    occlusionDisposition: OcclusionDisposition;
 }
 
 /** Plan-family view types for scope purposes — PLAN_VIEW_TYPES plus `detail`
@@ -61,15 +82,21 @@ const _PLAN_FAMILY_TYPES: ReadonlySet<string> = new Set<string>([
 
 const _ELEVATION_SCOPE: ViewScope = Object.freeze({
     poche: false, cut: false, depthProjected: true, planFamily: false,
+    // L-190: set-back geometry on a façade reads DASHED, not deleted — the viewer wants to
+    // see the recessed wing behind the front plane.
+    occlusionDisposition: 'demote' as const,
 });
 const _SECTION_SCOPE: ViewScope = Object.freeze({
     poche: true, cut: true, depthProjected: true, planFamily: false,
+    occlusionDisposition: 'remove' as const,
 });
 const _PLAN_SCOPE: ViewScope = Object.freeze({
     poche: true, cut: true, depthProjected: false, planFamily: true,
+    occlusionDisposition: 'remove' as const,
 });
 const _NON_TECHNICAL_SCOPE: ViewScope = Object.freeze({
     poche: false, cut: false, depthProjected: false, planFamily: false,
+    occlusionDisposition: 'remove' as const,
 });
 
 /**

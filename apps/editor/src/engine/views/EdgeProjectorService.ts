@@ -20,9 +20,10 @@ import { mergeGeometries } from '@pryzm/renderer-three';
 // A-1: DrawingSelectionIndex — per-element UUID tagging for plan-view hitTest
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 // Contract 23 §9 — HLR pass: remove occluded projection segments before cache write
-// §ELEV-LINEWEIGHT-02 (L-190) — reclassifyOccludedElevationLines adds the occlusion
-// test the elevation depth-band classifier lacks (set-back geometry → dashed :beyond).
-import { removeHiddenLines, reclassifyOccludedElevationLines } from '@pryzm/core-app-model';
+// §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6.5 — ONE occlusion engine for plan,
+// section AND elevation. `VIEW_DEPTH_KEY` is the userData key this projector stamps with each
+// element's nearest depth along the view direction so the engine can order occluders.
+import { applyOcclusion, VIEW_DEPTH_KEY } from '@pryzm/core-app-model';
 // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — P8 span for the incremental graft path.
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
@@ -1929,28 +1930,45 @@ export class EdgeProjectorService {
         // ad-hoc `viewType === 'elevation' && layerName === 'A-WALL'` special case.
         const viewScope = resolveViewScope(viewDef.viewType);
 
-        // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — per-element NEAREST projection depth,
-        // stamped onto every elevation LineSegments so the post-pass
-        // reclassifyOccludedElevationLines() can order occluders front-to-back and
-        // dash geometry that is set back behind the façade silhouette. Elevation only
-        // (section keeps its own :cut occluders; plan uses cut-plane classification).
+        // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — per-element NEAREST depth along the VIEW
+        // DIRECTION, stamped on every projected LineSegments so `applyOcclusion()` can order
+        // occluders front-to-back.
+        //
+        // THIS USED TO BE `elevDepthOfBox`, COMPUTED FOR ELEVATIONS ONLY, AND THAT NAME WAS
+        // THE BUG'S HIDING PLACE. Depth along the view direction is a property of ANY view.
+        // Because only elevation had it, only elevation could depth-order occluders — so plan
+        // and section built their occluder sets from `:cut` linework alone and a PROJECTED
+        // solid occluded NOTHING. A section showed you the far wall straight through the near
+        // one (ADR-121 §2.2 / §5.2(2)). Stamping every view type is what turns three occluder
+        // regimes back into ONE engine (C09 §4.6.5).
+        //
+        //   • elevation / section — signed distance from the view's depth plane (as before).
+        //   • plan                — metres BELOW the cut plane of the element's TOPMOST point.
+        //     The viewer of a plan stands ON the cut plane looking down, so "nearest" is
+        //     "highest". Geometry ABOVE the cut plane yields a NEGATIVE depth and is rejected
+        //     as an occluder by `minProjectionOccluderDepth: 0` — without that clip a roof
+        //     (the nearest solid in the drawing, silhouette covering the whole plate) would
+        //     occlude the ENTIRE PLAN.
         const isElevationView = viewDef.viewType === 'elevation';
-        let elevDepthOfBox: ((box: THREE.Box3) => number) | null = null;
-        if (isElevationView) {
-            const { normal: elevNormal, constant: elevConstant } = resolveSectionDepthPlane(viewDef, direction);
-            const elevSign = elevNormal.dot(direction) >= 0 ? 1 : -1;
-            elevDepthOfBox = (box: THREE.Box3): number => {
+        let viewDepthOfBox: ((box: THREE.Box3) => number) | null = null;
+        if (isSectionDepthView) {
+            const { normal: depthNormal, constant: depthConstant } = resolveSectionDepthPlane(viewDef, direction);
+            const depthSign = depthNormal.dot(direction) >= 0 ? 1 : -1;
+            viewDepthOfBox = (box: THREE.Box3): number => {
                 let min = Infinity;
                 for (const x of [box.min.x, box.max.x]) {
                     for (const y of [box.min.y, box.max.y]) {
                         for (const z of [box.min.z, box.max.z]) {
-                            const d = (elevNormal.x * x + elevNormal.y * y + elevNormal.z * z + elevConstant) * elevSign;
+                            const d = (depthNormal.x * x + depthNormal.y * y + depthNormal.z * z + depthConstant) * depthSign;
                             if (d < min) min = d;
                         }
                     }
                 }
                 return min;
             };
+        } else if (isPlanView && cutPlaneY !== null) {
+            const planeY = cutPlaneY;
+            viewDepthOfBox = (box: THREE.Box3): number => planeY - box.max.y;
         }
 
         // DOC-4.4 — Log crop region when active (culling is performed by NativeElementMeshExporter).
@@ -2179,9 +2197,11 @@ export class EdgeProjectorService {
                 const perElemLayerGeos = new Map<string, THREE.BufferGeometry[]>();
                 const perElemLayerCutGeos = new Map<string, CutSectionPart[]>();
 
-                // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — nearest projection depth of this
-                // element across the meshes that survive the section-volume filter.
-                let elemElevDepth = Infinity;
+                // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — nearest depth of this element along
+                // the view direction, across the meshes that survive the view filter. Stamped on
+                // every projected LineSegments so the ONE occlusion engine can order occluders
+                // front-to-back in plan, section AND elevation.
+                let elemViewDepth = Infinity;
 
                 group.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
@@ -2260,11 +2280,12 @@ export class EdgeProjectorService {
                         try {
                             const meshWorldBox = getMeshWorldAABB(mesh);
                             if (sectionVolumeBox && (!meshWorldBox || !sectionBoxIntersectsWorldAABB(sectionVolumeBox, meshWorldBox))) return;
-                            // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — track this element's nearest
-                            // projection depth from the meshes that pass the view filter.
-                            if (elevDepthOfBox && meshWorldBox) {
-                                const d = elevDepthOfBox(meshWorldBox);
-                                if (d < elemElevDepth) elemElevDepth = d;
+                            // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — track this element's
+                            // nearest depth along the view direction, from the meshes that pass
+                            // the view filter. Every view type, not just elevation.
+                            if (viewDepthOfBox && meshWorldBox) {
+                                const d = viewDepthOfBox(meshWorldBox);
+                                if (d < elemViewDepth) elemViewDepth = d;
                             }
                             // Plan-view Y-range filter: skip meshes whose AABB lies entirely
                             // outside [planBelowY, far + 0.5]. planBelowY = levelFloor − belowDepth
@@ -2461,11 +2482,15 @@ export class EdgeProjectorService {
                         // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — construction-layer identity
                         // of a CUT section ring, consumed by the poché pass to tone it.
                         if (extraUserData) Object.assign(projected.userData, extraUserData);
-                        // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — stamp the element's nearest
-                        // projection depth so reclassifyOccludedElevationLines() can order
-                        // occluders and dash set-back geometry. Elevation only.
-                        if (isElevationView && Number.isFinite(elemElevDepth)) {
-                            projected.userData.elevationDepth = elemElevDepth;
+                        // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — stamp the element's nearest
+                        // depth along the view direction so `applyOcclusion()` can order
+                        // occluders front-to-back. EVERY view type: an unstamped `:proj` layer is
+                        // silently disqualified as a depth-ordered occluder (it cannot be
+                        // ordered), and that disqualification — under the old name
+                        // `elevationDepth` — is exactly why plan and section had no projection
+                        // occluders at all.
+                        if (Number.isFinite(elemViewDepth)) {
+                            projected.userData[VIEW_DEPTH_KEY] = elemViewDepth;
                         }
                         if (!isPlanView && layerName === 'A-WALL' && !/:cut$/i.test(targetLayerName)) {
                             _suppressWallOpeningSeams(projected, drawing, group);
@@ -3084,24 +3109,34 @@ export class EdgeProjectorService {
             plumbingElevationSymbolBuilder.inject(drawing, viewDef);
         }
 
-        // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — elevation occlusion pass. The generic
-        // HLR below derives occluders from `:cut` layers; a correctly-placed elevation
-        // mark slices no solid → zero `:cut` occluders → HLR is a no-op, so set-back
-        // geometry stayed solid `:proj`. This supplies the missing occlusion for
-        // elevations only: geometry occluded by a nearer element is moved from `:proj`
-        // to its `:beyond` sibling (the light dashed pen), giving the founder's set-back
-        // wall its correct dashed/hidden reading. Scoped strictly to elevation — plan /
-        // section are untouched (no `elevationDepth` stamps ⇒ the pass early-returns).
-        if (isElevationView) {
-            reclassifyOccludedElevationLines(drawing);
-        }
-
-        // Contract 23 §9 — HLR pass (v1: depth-bucket / AABB approach).
-        // Must run AFTER all symbol injections so that injected linework (door
-        // swings, stair symbols, etc.) is also tested against occluders.
-        // Must run BEFORE the drawing is written to ViewTechnicalDrawingCache
-        // (the caller does that — this is the last mutation point).
-        removeHiddenLines(drawing);
+        // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — Contract 23 §9 / C09 §4.6.5.
+        //
+        // ONE OCCLUSION ENGINE, THREE CONSUMERS. This replaces the two passes that used to
+        // stand here — `reclassifyOccludedElevationLines()` (elevation-only, verb = demote to
+        // the DASHED `:beyond` pen) and `removeHiddenLines()` (verb = remove, occluders from
+        // `:cut` only). They were two engines answering the same question with different
+        // occluder sets, and their divergence WAS the defect:
+        //
+        //   • plan + section built occluders from `:cut` ONLY ⇒ a PROJECTED solid occluded
+        //     nothing ⇒ a section showed the far wall straight through the near one;
+        //   • elevation demoted OCCLUDED geometry onto `:beyond` — the same layer the DEPTH
+        //     classifier fills with everything farther than ~12 m — and `:beyond` was dashed.
+        //     So "far" and "behind something" rendered identically. That is L-277.
+        //
+        // Now: occluders are every element's CUT section AND its depth-ordered PROJECTION
+        // silhouette; occluded spans are removed (plan/section) or demoted to `:hidden` — the
+        // ONE zone that dashes. The disposition is VIEW INTENT (`ViewScope`), not a branch.
+        //
+        // Runs AFTER all symbol injections (so door swings and stair symbols are
+        // occlusion-tested like any other linework) and BEFORE the drawing is written to
+        // ViewTechnicalDrawingCache — this is the last mutation point.
+        applyOcclusion(drawing, {
+            disposition: viewScope.occlusionDisposition,
+            // A plan looks DOWN FROM its cut plane: anything above the plane (roof, ceiling)
+            // has a negative depth and must not occlude, or it would erase the whole drawing.
+            // Elevation/section have no such degenerate case — every visible solid may occlude.
+            minProjectionOccluderDepth: isPlanView ? 0 : -Infinity,
+        });
 
         const drawingObject = (drawing as any).three as THREE.Object3D | undefined;
         drawingObject?.parent?.remove(drawingObject);

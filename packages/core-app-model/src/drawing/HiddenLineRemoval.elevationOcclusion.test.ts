@@ -1,24 +1,30 @@
 /**
- * §ELEV-LINEWEIGHT-02 (L-190 Bug B) — elevation occlusion → hidden/dashed.
+ * §ELEV-LINEWEIGHT-02 (L-190) + §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) —
+ * OCCLUSION → the HIDDEN zone (dashed). NOT the BEYOND zone.
  *
  * Fixture reproduces the founder's South Elevation wall run:
- *   • a FAÇADE wall at the front (nearest projection depth 0) — the visible
- *     silhouette; stays solid `:proj`.
- *   • a WINDOW flush in that façade (depth 0) — must remain solid/visible
- *     `:proj` (L-190 Bug A ⇒ windows appear; here we prove the occlusion pass
- *     does NOT dash them away).
- *   • an interior wall SET BACK behind the façade (depth 0.5) whose linework is
- *     fully inside the façade silhouette — must be reclassified from solid
- *     `:proj` to the light dashed `:beyond` pen (the founder's "renders solid,
- *     should be dashed" defect).
+ *   • a FAÇADE wall at the front (nearest view depth 0) — the visible silhouette; stays
+ *     solid `:proj`.
+ *   • a WINDOW flush in that façade (depth 0) — must remain solid/visible `:proj` (L-190
+ *     Bug A ⇒ windows appear; here we prove the occlusion pass does NOT dash them away).
+ *   • an interior wall SET BACK behind the façade (depth 0.5) whose linework is fully
+ *     inside the façade silhouette — it is genuinely OCCLUDED, so it is demoted to the
+ *     `:hidden` dashed pen.
  *
- * The pass is driven entirely by the `userData.elevationDepth` stamps that
- * EdgeProjectorService writes for elevation views, so plan/section drawings —
- * which carry no such stamp — early-return untouched (asserted).
+ * L-277 CHANGED THE DESTINATION, AND THAT IS THE POINT OF THIS SUITE NOW. Occluded spans
+ * used to be moved to `:beyond` — the same layer the DEPTH classifier fills with everything
+ * farther than ~12 m. Occlusion and distance shared one bucket and the bucket was dashed,
+ * so a wall that was merely FAR drew exactly like a wall that was BEHIND something. They go
+ * to `:hidden` now — the ONE zone that dashes — and `:beyond` is solid and lighter.
+ *
+ * The pass is driven entirely by the `userData.viewDepth` stamps EdgeProjectorService writes.
+ * A drawing with no stamps has no depth-orderable projection occluder and is untouched
+ * (asserted) — an unordered projection occluder could hide geometry that is actually NEARER
+ * than it, so the engine refuses to guess.
  */
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
-import { reclassifyOccludedElevationLines } from './HiddenLineRemoval';
+import { applyOcclusion } from './HiddenLineRemoval';
 
 /** Minimal TechnicalDrawing stand-in exposing the surface the pass touches. */
 function makeFakeDrawing() {
@@ -47,7 +53,7 @@ function seg(
     ls.name = layerName;
     ls.userData.layerName = layerName;
     ls.userData.elementUUID = uuid;
-    if (depth !== undefined) ls.userData.elevationDepth = depth;
+    if (depth !== undefined) ls.userData.viewDepth = depth;
     return ls;
 }
 
@@ -83,8 +89,8 @@ function xSpan(s: [[number, number], [number, number]]): [number, number] {
     return [Math.min(s[0][0], s[1][0]), Math.max(s[0][0], s[1][0])];
 }
 
-describe('§ELEV-LINEWEIGHT-02 — elevation occlusion reclassification', () => {
-    it('dashes a set-back wall (moves it to :beyond) while façade + window stay solid :proj', () => {
+describe('§ELEV-LINEWEIGHT-02 / §FEAT-REVIT-LINE-TYPE-SEMANTICS — occlusion demotes to the HIDDEN zone', () => {
+    it('dashes a set-back wall (moves it to :hidden) while façade + window stay solid :proj', () => {
         const { drawing, three } = makeFakeDrawing();
 
         // Façade wall — box outline [0,4]×[0,3], nearest depth 0 (the silhouette).
@@ -107,7 +113,7 @@ describe('§ELEV-LINEWEIGHT-02 — elevation occlusion reclassification', () => 
             [2, 0.5], [2, 2.5],
         ]));
 
-        const moved = reclassifyOccludedElevationLines(drawing);
+        const moved = applyOcclusion(drawing, { disposition: 'demote' }).demoted;
 
         // One occluded segment reclassified.
         expect(moved).toBe(1);
@@ -116,17 +122,17 @@ describe('§ELEV-LINEWEIGHT-02 — elevation occlusion reclassification', () => 
         const setbackProj = findNode(three, 'wall-setback', 'A-WALL:proj')!;
         expect(countSegments(setbackProj)).toBe(0);
 
-        // … and its segment now lives on the dashed :beyond sibling layer.
-        const setbackBeyond = findNode(three, 'wall-setback', 'A-WALL:beyond');
-        expect(setbackBeyond).toBeDefined();
-        expect(countSegments(setbackBeyond!)).toBe(1);
+        // … and its segment now lives on the dashed :hidden sibling layer (NOT :beyond — L-277).
+        const setbackHidden = findNode(three, 'wall-setback', 'A-WALL:hidden');
+        expect(setbackHidden).toBeDefined();
+        expect(countSegments(setbackHidden!)).toBe(1);
 
         // Façade silhouette untouched (stays solid).
         expect(countSegments(findNode(three, 'wall-facade', 'A-WALL:proj')!)).toBe(4);
 
         // Window stays solid/visible — occlusion must NOT dash a flush façade opening.
         expect(countSegments(findNode(three, 'win-1', 'A-GLAZ:proj')!)).toBe(2);
-        expect(findNode(three, 'win-1', 'A-GLAZ:beyond')).toBeUndefined();
+        expect(findNode(three, 'win-1', 'A-GLAZ:hidden')).toBeUndefined();
     });
 
     // ── §ELEV-LINEWEIGHT-03 (L-196) — per-SEGMENT (partial) occlusion ──────────────
@@ -145,7 +151,7 @@ describe('§ELEV-LINEWEIGHT-02 — elevation occlusion reclassification', () => 
         // Only the x∈[0,2] portion lies behind the massing; the rest is genuinely visible.
         three.add(seg('wall-run', 'A-WALL:proj', 0.5, [[-1, 1.5], [5, 1.5]]));
 
-        const moved = reclassifyOccludedElevationLines(drawing);
+        const moved = applyOcclusion(drawing, { disposition: 'demote' }).demoted;
         expect(moved).toBe(1); // exactly one hidden sub-segment
 
         // Visible remainder stays solid :proj — TWO sub-segments split at the massing edges.
@@ -157,8 +163,8 @@ describe('§ELEV-LINEWEIGHT-02 — elevation occlusion reclassification', () => 
         expect(visible[1][0]).toBeCloseTo(2, 6);   // transition at massing's step-back edge
         expect(visible[1][1]).toBeCloseTo(5, 6);
 
-        // Hidden portion → dashed :beyond, exactly the covered span [0,2].
-        const beyond = findNode(three, 'wall-run', 'A-WALL:beyond')!;
+        // Hidden portion → dashed :hidden, exactly the covered span [0,2].
+        const beyond = findNode(three, 'wall-run', 'A-WALL:hidden')!;
         const hidden = segmentsOf(beyond).map(xSpan);
         expect(hidden.length).toBe(1);
         expect(hidden[0][0]).toBeCloseTo(0, 6);
@@ -184,7 +190,7 @@ describe('§ELEV-LINEWEIGHT-02 — elevation occlusion reclassification', () => 
         // Hidden only behind the left column [0,2]; visible left of 0 AND through the notch [2,5].
         three.add(seg('wall-run', 'A-WALL:proj', 0.5, [[-1, 2.2], [5, 2.2]]));
 
-        const moved = reclassifyOccludedElevationLines(drawing);
+        const moved = applyOcclusion(drawing, { disposition: 'demote' }).demoted;
         expect(moved).toBe(1);
 
         const proj = findNode(three, 'wall-run', 'A-WALL:proj')!;
@@ -195,26 +201,26 @@ describe('§ELEV-LINEWEIGHT-02 — elevation occlusion reclassification', () => 
         expect(visible[1][0]).toBeCloseTo(2, 6);
         expect(visible[1][1]).toBeCloseTo(5, 6);
 
-        const beyond = findNode(three, 'wall-run', 'A-WALL:beyond')!;
+        const beyond = findNode(three, 'wall-run', 'A-WALL:hidden')!;
         const hidden = segmentsOf(beyond).map(xSpan);
         expect(hidden.length).toBe(1);
         expect(hidden[0][0]).toBeCloseTo(0, 6);
         expect(hidden[0][1]).toBeCloseTo(2, 6);    // NOT 4 — the notch is not occluded
     });
 
-    it('is a no-op on drawings without elevationDepth stamps (plan/section untouched)', () => {
+    it('is a no-op on drawings with no viewDepth stamps — an unorderable occluder is refused, not guessed', () => {
         const { drawing, three } = makeFakeDrawing();
 
-        // Same geometry but NO elevationDepth stamp → not an elevation drawing.
+        // Same geometry but NO viewDepth stamp → no depth-orderable projection occluder.
         three.add(seg('wall-facade', 'A-WALL:proj', undefined, [
             [0, 0], [4, 0], [4, 0], [4, 3], [4, 3], [0, 3], [0, 3], [0, 0],
         ]));
         three.add(seg('wall-setback', 'A-WALL:proj', undefined, [[2, 0.5], [2, 2.5]]));
 
-        const moved = reclassifyOccludedElevationLines(drawing);
+        const moved = applyOcclusion(drawing, { disposition: 'demote' }).demoted;
 
         expect(moved).toBe(0);
         expect(countSegments(findNode(three, 'wall-setback', 'A-WALL:proj')!)).toBe(1);
-        expect(findNode(three, 'wall-setback', 'A-WALL:beyond')).toBeUndefined();
+        expect(findNode(three, 'wall-setback', 'A-WALL:hidden')).toBeUndefined();
     });
 });
