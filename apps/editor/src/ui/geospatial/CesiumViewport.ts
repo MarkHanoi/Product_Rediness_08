@@ -26,6 +26,22 @@ import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
 import { getCurrentSiteOrigin } from "../site/siteDispatch";
+// §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — pure vertical-datum + georeference
+// decisions (no Cesium/THREE/DOM): the ONE datum boundary (C12 §1.4) that decides whether
+// the globe ground height is RESOLVED (a measurement off the photoreal tile mesh, or the
+// ellipsoid when no tiles are shown) or UNRESOLVED — in which case the building is held
+// HIDDEN rather than silently anchored at ellipsoid 0 (~50 m underground in Menorca, where
+// the geoid/ellipsoid separation is ≈ +49 m). Plus the origin-divergence instrumentation
+// for the separate HORIZONTAL defect (C12 §1.5).
+import {
+  type GlobeGroundAnchor,
+  type GeorefOriginEvidence,
+  reduceTileGroundHeight,
+  resolveGlobeGroundAnchor,
+  decideGroundAnchorAction,
+  originSeparationMeters,
+  georefOriginsDiverge,
+} from "./globeGroundAnchor";
 // FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
 // show-all decision + geometry signature for the REAL full-fidelity Forma model.
 import { realModelStaysVisible } from "./formaBuildingFidelity";
@@ -176,6 +192,26 @@ const SITE_FRAME_PITCH_DEG = -80;
  * already a downward-biased estimate.
  */
 const GLOBE_GROUND_SEAT_EPSILON_M = 0.3;
+
+/**
+ * §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the tile-height clamp's RETRY BUDGET.
+ *
+ * ROOT CAUSE of the founder's intermittent "still at 0 elevation / underground" globe: the
+ * photoreal tile-surface height sample is ASYNCHRONOUS (it can only return a height once
+ * tiles have STREAMED at that LOD). The old policy retried 3 × 1.2 s ≈ 3.6 s and then GAVE
+ * UP, leaving the base at the initial `formaTerrainBaseHeight = 0` — which is the WGS-84
+ * ELLIPSOID, not sea level. At Menorca the geoid/ellipsoid separation is ≈ +49 m, so
+ * ellipsoid-0 is ~50 m BELOW the visible tile ground → the house is buried. Tiles arriving
+ * inside 3.6 s → looks right; a cold cache / slow link → buried. That single race explains
+ * BOTH "still 0 elevation" AND "sometimes correct".
+ *
+ * The budget below is generous (≈ 15 s) AND is no longer the only trigger: the tileset's own
+ * load events (`initialTilesLoaded` / `allTilesLoaded`) re-fire the clamp the moment tiles
+ * land (see `attachPhotorealTilesLoadedHook`). While the ground is UNRESOLVED the building is
+ * held HIDDEN — never anchored at a fabricated 0 (C12 §1.4).
+ */
+const GLOBE_GROUND_CLAMP_MAX_RETRIES = 12;
+const GLOBE_GROUND_CLAMP_RETRY_MS = 1200;
 
 /**
  * §SITE-CINEMATIC-ARRIVAL (founder, 2026-06-17) — the OPPOSITE of the quick
@@ -556,6 +592,23 @@ export class CesiumViewport {
    *  centroid, used as the Z base of every extrusion + the boundary overlay so
    *  buildings sit on sloped ground. 0 until a terrain sample succeeds. */
   private formaTerrainBaseHeight = 0;
+  /**
+   * §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — has the GLOBE ground datum actually
+   * been RESOLVED (a measurement), as opposed to still sitting at the `formaTerrainBaseHeight
+   * = 0` INITIAL VALUE? `0` is the WGS-84 ELLIPSOID, not sea level and not the photoreal tile
+   * surface (≈ +49 m of geoid separation in the Balearics alone), so "base is 0" and "the
+   * ground is unknown" were indistinguishable — and the code treated the second as the first.
+   * This flag makes the distinction explicit: while it is FALSE and photoreal tiles are the
+   * visible ground, the building is HELD HIDDEN rather than buried at ellipsoid 0 (C12 §1.4).
+   */
+  private globeGroundResolved = false;
+  /** L-259 — where the resolved ground height came from (for the anchor evidence log). */
+  private globeGroundSource: GlobeGroundAnchor['source'] = 'unresolved';
+  /** L-259 — true while the globe building is hidden PURELY because the ground datum is
+   *  unresolved (so the reveal is idempotent and never fights the floor filter). */
+  private globeBuildingHiddenForGround = false;
+  /** L-259 — the tileset load-event hook is attached at most once per tileset. */
+  private photorealTilesLoadedHookAttached = false;
   /** The (lat,lon) the terrain height was last sampled at — so a live-update
    *  only re-samples terrain when the centroid actually moves (SPEC §4.6 /
    *  task #2 "re-clamp terrain only when the centroid changes"). */
@@ -1423,26 +1476,59 @@ export class CesiumViewport {
   }
 
   /**
-   * Read the current Site's geographic origin (lat/lon) from the runtime's
-   * `siteModelStore`, or null if there's no site / no real location yet. A 0/0
-   * location is the `ensureSite` placeholder (siteDispatch §94) and is treated as
-   * "unset" so we don't frame the camera on Null Island.
+   * Read the current Site's geographic origin (lat/lon). A 0/0 location is the `ensureSite`
+   * placeholder (siteDispatch §94) and is treated as "unset" so we don't frame the camera on
+   * Null Island.
+   *
+   * §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259, defect ii — "the house is not in the
+   * correct location, neither the view") — PRECEDENCE INVERTED, and this is the fix, not a
+   * tidy-up. PRYZM has TWO georeference authorities:
+   *
+   *   • the **LTP-ENU origin** (`getCurrentSiteOrigin()`) — the frame EVERY authored
+   *     coordinate is BAKED in: `boundaryProjection.latLonToSceneXZ` projects the parcel ring
+   *     about it at commit time, the generator authors walls in that scene-XZ, and
+   *     `GISAreaLayout.getFormaOrigin()` anchors the Cesium ENU frame at it. It IS the scene
+   *     origin (C12 §1.1).
+   *   • the **geocoded address** (`siteModelStore.getLocation()`) — a LABEL, not a frame.
+   *
+   * They coincide until a parcel boundary is committed; from then on `setLtpOriginIfSafe`
+   * FREEZES the LTP origin (C19 §1.3 boundary-shift guard) while the store location may still
+   * move (a later geocode, a restore ordering, an onboarding re-dispatch). The OLD code read
+   * the ADDRESS first here, so the camera framing, the Forma sun anchor and the OSM context
+   * were all anchored at a point that can be arbitrarily far from the building the massing/GLB
+   * are anchored at — an elevation bug cannot move a building horizontally, but THIS can.
+   *
+   * The LTP-ENU origin is therefore the SSOT for every Cesium anchor AND every Cesium camera
+   * frame (C12 §1.5). The address stays as the pre-boundary fallback (before any origin is
+   * pinned the two are the same point by construction). Any divergence is logged in metres —
+   * it must never again be diagnosed by guesswork.
    */
   private readSiteLocation(): { lat: number; lon: number } | null {
     const store = this.runtime?.siteModelStore as
       | { getLocation?: () => { latitude: number; longitude: number } | null }
       | undefined;
-    const loc = store?.getLocation?.();
-    if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
-      return { lat: loc.latitude, lon: loc.longitude };
+    const raw = store?.getLocation?.();
+    const address =
+      raw && (raw.latitude !== 0 || raw.longitude !== 0)
+        ? { lat: raw.latitude, lon: raw.longitude }
+        : null;
+    // §CESIUM-SITE-ORIGIN — the process-wide LTP-ENU origin, set by the onboarding location
+    // step (siteDispatch) BEFORE Cesium mounts in the GIS handoff. It is BOTH the earliest
+    // available signal AND the authoritative scene frame.
+    const ltpRaw = getCurrentSiteOrigin();
+    const ltp = ltpRaw && (ltpRaw.lat !== 0 || ltpRaw.lon !== 0) ? { lat: ltpRaw.lat, lon: ltpRaw.lon } : null;
+
+    if (ltp && address && georefOriginsDiverge({ ltpOrigin: ltp, storeLocation: address, anchorOrigin: ltp })) {
+      console.warn(
+        `[CesiumViewport][georef] §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF — the LTP-ENU scene ` +
+          `origin and the geocoded Site address DIVERGE by ` +
+          `${originSeparationMeters(ltp, address).toFixed(1)} m ` +
+          `(LTP ${ltp.lat.toFixed(6)},${ltp.lon.toFixed(6)} vs address ${address.lat.toFixed(6)},${address.lon.toFixed(6)}). ` +
+          `Anchoring + framing on the LTP-ENU origin — it is the frame the boundary + walls ` +
+          `are baked in (C12 §1.5). The address is a label, not a frame.`,
+      );
     }
-    // §CESIUM-SITE-ORIGIN — fall back to the process-wide LTP-ENU origin set by the
-    // onboarding location step (siteDispatch). It's set BEFORE Cesium mounts in the
-    // GIS handoff, so the store-read above is null even though the real site is
-    // known — without this, the camera framed the Sydney default (the founder's bug).
-    const ltp = getCurrentSiteOrigin();
-    if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) return { lat: ltp.lat, lon: ltp.lon };
-    return null;
+    return ltp ?? address;
   }
 
   /**
@@ -1542,7 +1628,28 @@ export class CesiumViewport {
       // §CESIUM-PERF-METRIC-TEXTURE-CACHE — the site moved, so cached heatmap fields
       // (keyed by origin) are stale for the fallback (no-massing) origin path. Flush.
       this.invalidateSiteMetricTextureCache();
-      this.frameSiteLocation(loc.latitude, loc.longitude, { instant: false });
+      // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259, defect ii) — "the house is not in the
+      // correct location, NEITHER THE VIEW". This handler used to fly the camera to the
+      // event's raw lat/lon UNCONDITIONALLY — i.e. to the geocoded ADDRESS — even when a
+      // building was already placed and anchored in the LTP-ENU frame (which, once a boundary
+      // is committed, is FROZEN and can differ from the address; see readSiteLocation). It also
+      // fires on PROJECT RESTORE (§FIX-GIS-SITE-STATE-NOT-PERSISTED re-emits site.location-
+      // changed), so a restored GIS project framed the address while the house sat elsewhere.
+      // The camera must follow the BUILDING whenever one is placed — the building IS the site.
+      if (this.formaMassingOrigin) {
+        const sep = originSeparationMeters(
+          { lat: this.formaMassingOrigin.lat, lon: this.formaMassingOrigin.lon },
+          { lat: loc.latitude, lon: loc.longitude },
+        );
+        console.log(
+          `[CesiumViewport][georef] site.location-changed with a PLACED building — framing the ` +
+            `BUILDING (LTP-ENU anchor), not the address ` +
+            `(${Number.isFinite(sep) ? sep.toFixed(1) : '?'} m apart). §L-259 defect (ii).`,
+        );
+        this.flyToFormaSite();
+      } else {
+        this.frameSiteLocation(loc.latitude, loc.longitude, { instant: false });
+      }
       // MAP-DATA-OVERTURE — refresh the surrounding context buildings for the new
       // site (only while the Forma massing canvas is active; in photoreal the
       // Google/ESRI tiles already show real buildings). Best-effort, guarded.
@@ -1633,6 +1740,12 @@ export class CesiumViewport {
     // entry (restorePhotorealMode → renderBuildingOnGlobe → clampToPhotorealTiles).
     this.formaTerrainBaseHeight = 0;
     this.formaTerrainSampledAt = null;
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the base just went back to the ellipsoid
+    // 0 that the FORMA flat-ground study legitimately uses. That is NOT a measured GLOBE ground:
+    // the next photoreal-globe entry must re-measure the tile ground before it may anchor there.
+    this.globeGroundResolved = false;
+    this.globeGroundSource = 'unresolved';
+    this.globeBuildingHiddenForGround = false;
     // §GLOBE-FIRST-FRAME-BASE — drop any pending one-shot re-frame across the mode
     // switch; the next placement re-arms it if it frames against an unresolved base.
     this.formaReframeOnBaseSettle = null;
@@ -3417,6 +3530,18 @@ export class CesiumViewport {
       this.clearFormaMassingEntitiesOnly();
     }
 
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — THE VERTICAL INVARIANT. On the photoreal
+    // globe the visible ground is the Google 3D-Tiles MESH (ellipsoidal heights, geoid
+    // included), NOT the WGS-84 ellipsoid. Until the tile-height clamp has MEASURED that
+    // ground, `formaTerrainBaseHeight` is still its initial 0 = the ellipsoid = ~49 m BELOW
+    // mean sea level in the Balearics — so placing the house there buries it (the founder's
+    // "we are really close to sea level and it still goes underground"). We therefore HOLD the
+    // just-placed building HIDDEN until the datum resolves; `commitPhotorealBase` re-places it
+    // at the measured base and reveals it. Never a silent 0.
+    if (input.keepPhotoreal && this.globeGroundUnknownWhileTilesShown()) {
+      this.holdGlobeBuildingForUnresolvedGround();
+    }
+
     // FORMA.6 — the SAME logic for the FORMA flat-ground study real model. On the
     // study path (keepPhotoreal falsy), if the real full-fidelity model is already
     // placed (case b: a terrain-clamp re-place just settled `formaTerrainBaseHeight`)
@@ -3488,21 +3613,10 @@ export class CesiumViewport {
     sphereGroundHeight: number | null,
     seatEpsilonM = 0,
   ): number | null {
-    let min: number | null = null;
-    for (const h of sampledHeights) {
-      if (typeof h === 'number' && Number.isFinite(h)) {
-        min = min === null ? h : Math.min(min, h);
-      }
-    }
-    if (min !== null) return min - seatEpsilonM;
-    if (
-      sphereGroundHeight !== null &&
-      Number.isFinite(sphereGroundHeight) &&
-      Math.abs(sphereGroundHeight) > 1
-    ) {
-      return sphereGroundHeight;
-    }
-    return null;
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — ONE reduction, now owned by the pure
+    // `globeGroundAnchor` module (which also owns the datum + resolved/unresolved decision).
+    // This static is preserved as the tested public surface (L-179/L-184) and delegates.
+    return reduceTileGroundHeight(sampledHeights, sphereGroundHeight, seatEpsilonM);
   }
 
   /**
@@ -3580,14 +3694,19 @@ export class CesiumViewport {
    */
   private async clampToPhotorealTilesThenReplace(
     input: Parameters<CesiumViewport['renderFormaMassing']>[0],
-    retriesLeft = 3,
+    retriesLeft = GLOBE_GROUND_CLAMP_MAX_RETRIES,
   ): Promise<void> {
     try {
       await this.clampToPhotorealTilesThenReplaceInner(input, retriesLeft);
     } catch (e) {
+      // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — a THROWN clamp leaves the ground
+      // datum UNRESOLVED. We must not leave the building hidden forever, but we must also
+      // never pretend ellipsoid-0 is the ground: reveal it and say so, LOUDLY.
       this.warnTerrainOnce(
-        'globe tile-clamp failed — building stays at base 0 on the globe: ' + String(e),
+        'globe tile-clamp THREW — the ground datum is UNRESOLVED; revealing the building at ' +
+          `base ${this.formaTerrainBaseHeight.toFixed(2)} m (may be underground): ` + String(e),
       );
+      try { this.revealGlobeBuildingForGround('clamp-threw'); } catch { /* best-effort */ }
       // Best-effort disarm of the one-shot re-frame so a failed clamp never leaves it armed.
       try { this.reframeAfterBaseSettle(); } catch { /* reframe best-effort */ }
     }
@@ -3595,7 +3714,7 @@ export class CesiumViewport {
 
   private async clampToPhotorealTilesThenReplaceInner(
     input: Parameters<CesiumViewport['renderFormaMassing']>[0],
-    retriesLeft = 3,
+    retriesLeft = GLOBE_GROUND_CLAMP_MAX_RETRIES,
   ): Promise<void> {
     const viewer = this.viewer;
     if (!viewer) return;
@@ -3608,17 +3727,29 @@ export class CesiumViewport {
     // of itself each time → it CREPT UP ~one building height per view switch. If the
     // centroid is unchanged, reuse the cached `formaTerrainBaseHeight` and just re-place
     // absolutely at it (never relative to the model's current position).
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the shortcut is now ALSO gated on the
+    // ground datum actually being RESOLVED. Previously a centroid match alone reused
+    // `formaTerrainBaseHeight` — which on a viewport whose sample had never landed is the
+    // INITIAL 0, i.e. the WGS-84 ellipsoid (~50 m below the visible tile ground in Menorca).
+    // "Same centroid" is not "known ground".
     if (!input._skipTerrainClamp) {
       const prev = this.formaTerrainSampledAt;
-      if (prev && this.centroidUnchangedFor(input, prev)) {
+      if (prev && this.globeGroundResolved && this.centroidUnchangedFor(input, prev)) {
         console.log(
           `[CesiumViewport][globe] §GLOBE-TILE-CLAMP-NO-SELF-HIT centroid unchanged — ` +
-            `reusing settled ground height ${this.formaTerrainBaseHeight.toFixed(2)} m (no re-sample, no creep).`,
+            `reusing settled ground height ${this.formaTerrainBaseHeight.toFixed(2)} m ` +
+            `(source ${this.globeGroundSource}; no re-sample, no creep).`,
         );
+        this.revealGlobeBuildingForGround('centroid-unchanged-resolved');
         this.reframeAfterBaseSettle();
         return;
       }
     }
+
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — CHASE THE RACE. The tile-height sample
+    // can only succeed once tiles have STREAMED at this LOD, so re-fire the clamp the MOMENT
+    // the tileset reports tiles loaded instead of relying on the blind retry timer alone.
+    this.attachPhotorealTilesLoadedHook(input);
 
     // §GIS-LOC (2026-06-08) — GROUND-height sampling that rejects tile-building roofs.
     //
@@ -3733,8 +3864,18 @@ export class CesiumViewport {
         width?: number,
       ) => Promise<Cesium.Cartographic[]>;
     }).sampleHeightMostDetailed;
-    if (typeof clampFn !== 'function' && typeof sampleFn !== 'function') {
-      this.warnTerrainOnce('scene.clampToHeightMostDetailed/sampleHeightMostDetailed unavailable — building stays at base 0 on the globe.');
+    const heightPickingAvailable = typeof clampFn === 'function' || typeof sampleFn === 'function';
+    if (!heightPickingAvailable) {
+      // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — a CAPABILITY gap (old Cesium build),
+      // not the async race: the tile ground can never be measured here, so no amount of
+      // retrying helps. Degrade LOUDLY (base 0 = the WGS-84 ellipsoid, which is NOT the tile
+      // ground when tiles are shown) and reveal the building rather than hiding it forever.
+      this.warnTerrainOnce(
+        'scene.clampToHeightMostDetailed/sampleHeightMostDetailed unavailable — the globe ground ' +
+          'datum CANNOT be measured on this Cesium build; the building is shown at base ' +
+          `${this.formaTerrainBaseHeight.toFixed(2)} m (ellipsoidal) and may sit under the tiles.`,
+      );
+      this.revealGlobeBuildingForGround('no-height-picking-api');
       // §GLOBE-FIRST-FRAME-BASE — no sampling API → base stays at the flat 0 we
       // framed at; disarm the one-shot so it never fires stale later.
       this.reframeAfterBaseSettle();
@@ -3785,22 +3926,24 @@ export class CesiumViewport {
       );
     }
 
-    // §GLOBE-TILE-CLAMP-FLUSH — LAST-RESORT geoid fallback. Both picking APIs came back
-    // empty/zero (keyless ellipsoid; tiles not height-pickable at this LOD yet). Rather
-    // than default to ellipsoid-0 (the visible float), read the photoreal tileset's own
-    // root bounding-sphere centre height — it sits at roughly the tiled ground+building
-    // mid-height for the area, a far better ground estimate than 0. We keep the retry
-    // path (below) for when tiles simply haven't streamed; this only fires once retries
-    // are exhausted OR the sphere is clearly non-zero.
-    let sampledHeight = CesiumViewport.selectPhotorealTileBaseHeight(
-      tileHeights,
-      this.photorealTilesetGroundHeight(),
-      GLOBE_GROUND_SEAT_EPSILON_M, // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — seat flush, no float
-    );
-    if (sampledHeight !== null && tileHeights.length === 0) {
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — THE ONE DATUM BOUNDARY (C12 §1.4).
+    // Reduce every signal to an explicit ground ANCHOR that is either RESOLVED (with its
+    // source recorded) or UNRESOLVED. There is deliberately NO numeric fallback: `0` is the
+    // WGS-84 ELLIPSOID, and with photoreal tiles as the visible ground that is ~50 m BELOW
+    // real ground at Menorca (geoid separation ≈ +49 m) — the founder's burial. The sphere
+    // ground is a real (coarse) measurement and is allowed; a fabricated 0 is not.
+    const anchor = resolveGlobeGroundAnchor({
+      photorealTilesActive: this.photorealTilesActive,
+      heightPickingAvailable,
+      tileSampleHeights: tileHeights,
+      tilesetSphereGroundHeightM: this.photorealTilesetGroundHeight(),
+      seatEpsilonM: GLOBE_GROUND_SEAT_EPSILON_M, // L-184 — seat flush, no float
+    });
+    if (anchor.source === 'tileset-bounding-sphere') {
       console.log(
         `[CesiumViewport][globe] §GLOBE-TILE-CLAMP-FLUSH picking returned no height — ` +
-          `falling back to tileset bounding-sphere ground ${sampledHeight.toFixed(2)} m.`,
+          `falling back to tileset bounding-sphere ground ${(anchor.heightM ?? 0).toFixed(2)} m ` +
+          `(ellipsoidal).`,
       );
     }
 
@@ -3815,26 +3958,208 @@ export class CesiumViewport {
     // rooftop". Instead we now take the MINIMUM over the footprint PLUS a surrounding-street
     // ring (added above): the street min IS the ground in both cases — no absolute cap.
 
-    if (sampledHeight === null) {
-      // Tiles not yet loaded at this LOD (common right after the toggle). Retry a
-      // few times (capped) after a short delay so the building lands on the tiles
-      // once streamed, then give up gracefully (keyless / ellipsoid → base 0 is
-      // already a correct flat-ground seat).
-      if (retriesLeft > 0) {
-        this.warnTerrainOnce('photoreal tile height was null (tiles still streaming) — retrying.');
-        // §GLOBE-CRASH-GUARD — skip the retry if the viewport was disposed in the meantime.
-        setTimeout(() => { if (this.isViewerLive()) void this.clampToPhotorealTilesThenReplace(input, retriesLeft - 1); }, 1200);
-      } else {
-        // §GLOBE-FIRST-FRAME-BASE — retries exhausted (tiles never streamed a height
-        // at this LOD). The building stays at the flat base 0 it was placed + framed
-        // at, so the initial frame is already correct — DISARM the one-shot so a stale
-        // re-frame can't fire on a later, unrelated clamp.
-        this.reframeAfterBaseSettle();
-      }
+    const action = decideGroundAnchorAction(anchor, retriesLeft);
+    console.log(
+      `[CesiumViewport][globe] §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF ground anchor: ` +
+        `status=${anchor.status} source=${anchor.source} ` +
+        `height=${anchor.heightM === null ? 'UNKNOWN' : anchor.heightM.toFixed(2) + ' m'} ` +
+        `datum=${anchor.datum} | tiles=${this.photorealTilesActive ? 'ACTIVE' : 'off'} ` +
+        `picks=${tileHeights.length} retriesLeft=${retriesLeft} → ${action}.`,
+    );
+
+    if (action === 'hold-hidden-retry') {
+      // THE FIX FOR (i): tiles have not streamed a height at this LOD yet. The building is
+      // HELD HIDDEN (never anchored at a fabricated 0) and we retry — the tileset load hook
+      // above ALSO re-fires the clamp the instant tiles land, so this is not a blind timer.
+      this.holdGlobeBuildingForUnresolvedGround();
+      this.warnTerrainOnce(
+        'photoreal tile height UNRESOLVED (tiles still streaming) — the building is held HIDDEN ' +
+          'rather than anchored at ellipsoid 0 (which is ~50 m underground where the geoid ' +
+          'separation is large). Retrying as tiles stream in.',
+      );
+      // §GLOBE-CRASH-GUARD — skip the retry if the viewport was disposed in the meantime.
+      setTimeout(() => {
+        if (this.isViewerLive()) void this.clampToPhotorealTilesThenReplace(input, retriesLeft - 1);
+      }, GLOBE_GROUND_CLAMP_RETRY_MS);
       return;
     }
 
-    this.commitPhotorealBase(input, sampledHeight, sampleLat, sampleLon, 'photoreal-tile clamp');
+    if (action === 'reveal-unknown-datum-warn') {
+      // The retry budget is spent and the tiles STILL never gave a height. We refuse to hide
+      // the house forever, but we must not pretend we know the ground: reveal at the last
+      // known base and say so explicitly (never silent — this is the C12 §1.4 escape hatch).
+      console.error(
+        `[CesiumViewport][globe] §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF — the globe GROUND DATUM ` +
+          `could not be measured after ${GLOBE_GROUND_CLAMP_MAX_RETRIES} attempts (photoreal tiles ` +
+          `never returned a height). Revealing the building at base ` +
+          `${this.formaTerrainBaseHeight.toFixed(2)} m ELLIPSOIDAL — if the site's geoid separation ` +
+          `is large (≈ +49 m in the Balearics) it may read as underground. This is a DATA problem ` +
+          `(tiles), not a transform problem.`,
+      );
+      this.revealGlobeBuildingForGround('retries-exhausted-datum-unknown');
+      this.reframeAfterBaseSettle();
+      return;
+    }
+
+    // action === 'seat-and-reveal' — a measured ground datum.
+    this.globeGroundSource = anchor.source;
+    this.commitPhotorealBase(
+      input,
+      anchor.heightM as number,
+      sampleLat,
+      sampleLon,
+      `photoreal-tile clamp (${anchor.source})`,
+    );
+  }
+
+  /**
+   * §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — CHASE THE RACE. The tile-height sample can
+   * only succeed once the photoreal tileset has STREAMED tiles at this LOD, so subscribe ONCE to
+   * the tileset's own load events and re-fire the clamp the moment they land, instead of waiting
+   * out a blind retry timer (the old 3 × 1.2 s budget expired on a cold cache → the base stayed
+   * at ellipsoid 0 → the building was buried; a warm cache won the race → it looked correct.
+   * THAT is the intermittency). Best-effort + guarded: an old Cesium build without the events
+   * simply falls back to the (now much longer) retry budget.
+   */
+  private attachPhotorealTilesLoadedHook(
+    input: Parameters<CesiumViewport['renderFormaMassing']>[0],
+  ): void {
+    if (this.photorealTilesLoadedHookAttached) return;
+    const ts = this.photorealTileset;
+    if (!ts || ts.isDestroyed()) return;
+    try {
+      const onLoaded = (): void => {
+        if (!this.isViewerLive()) return;
+        if (this.globeGroundResolved) return; // already measured — nothing to re-fire.
+        console.log(
+          '[CesiumViewport][globe] §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF — photoreal tiles ' +
+            'reported LOADED while the ground datum was unresolved → re-running the height clamp now.',
+        );
+        void this.clampToPhotorealTilesThenReplace(input, GLOBE_GROUND_CLAMP_MAX_RETRIES);
+      };
+      const events = ts as unknown as {
+        initialTilesLoaded?: { addEventListener?: (cb: () => void) => void };
+        allTilesLoaded?: { addEventListener?: (cb: () => void) => void };
+      };
+      events.initialTilesLoaded?.addEventListener?.(onLoaded);
+      events.allTilesLoaded?.addEventListener?.(onLoaded);
+      this.photorealTilesLoadedHookAttached = true;
+    } catch (e) {
+      console.warn('[CesiumViewport][globe] tileset load-hook attach failed (non-fatal):', e);
+    }
+  }
+
+  /**
+   * §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — HOLD the globe building hidden while the
+   * ground datum is UNRESOLVED. The alternative (what the code did before) is to anchor it at
+   * `formaTerrainBaseHeight = 0` — the WGS-84 ELLIPSOID, which is ~49 m BELOW mean sea level in
+   * the Balearics — i.e. bury it. A house you cannot see yet is honest; a house 50 m under the
+   * street is a georeferencing lie. Hidden state is idempotent + reversible
+   * (`revealGlobeBuildingForGround`), and only ever applies while photoreal tiles are the
+   * visible ground.
+   */
+  private holdGlobeBuildingForUnresolvedGround(): void {
+    if (!this.photorealTilesActive) return; // ellipsoid IS the ground → 0 is correct, show it.
+    if (this.globeBuildingHiddenForGround) return;
+    this.globeBuildingHiddenForGround = true;
+    this.setGlobeBuildingShown(false);
+  }
+
+  /**
+   * §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the ground datum is now known (or we have
+   * explicitly given up and said so): SHOW the globe building. Idempotent; marks the datum
+   * resolved so the centroid-unchanged shortcut and the real-model placement can trust it.
+   */
+  private revealGlobeBuildingForGround(reason: string): void {
+    this.globeGroundResolved = true;
+    if (!this.globeBuildingHiddenForGround) return;
+    this.globeBuildingHiddenForGround = false;
+    this.setGlobeBuildingShown(true);
+    console.log(
+      `[CesiumViewport][globe] §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF — revealing the building ` +
+        `at base ${this.formaTerrainBaseHeight.toFixed(2)} m ELLIPSOIDAL (${reason}).`,
+    );
+  }
+
+  /** L-259 — toggle BOTH globe representations (massing entities + the real GLB primitive).
+   *  The massing entities are only CREATED for visible storey bands, so a blanket show flip
+   *  cannot resurrect a floor the user filtered out. Guarded; never throws. */
+  private setGlobeBuildingShown(shown: boolean): void {
+    for (const ent of this.formaMassingEntities) {
+      try { ent.show = shown; } catch { /* entity gone */ }
+    }
+    const model = this.realModelOnGlobe;
+    if (model && !model.isDestroyed()) {
+      try { model.show = shown; } catch { /* model gone */ }
+    }
+    try { this.viewer?.scene.requestRender(); } catch { /* viewer gone */ }
+  }
+
+  /** L-259 — TRUE when the globe building must be hidden right now because the ground datum is
+   *  still unknown (photoreal tiles are the visible ground and no height has been measured). */
+  private globeGroundUnknownWhileTilesShown(): boolean {
+    return this.photorealTilesActive && !this.globeGroundResolved;
+  }
+
+  /**
+   * §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the ANCHOR EVIDENCE log. Emitted at the
+   * exact moment a building is anchored on the globe, so the two defects can never again be
+   * argued about from screenshots: it prints the lat/lon actually used, BOTH origin authorities
+   * and their separation in metres (defect ii), whether the tiles/height-sample had RESOLVED,
+   * which height value was used and in WHICH DATUM (defect i), and the resulting ECEF Cartesian3
+   * re-projected back to lat/lon/height (so a wrong anchor is self-evident).
+   */
+  private logGlobeAnchorEvidence(
+    what: string,
+    originLat: number,
+    originLon: number,
+    baseHeightM: number,
+    position: Cesium.Cartesian3 | null,
+  ): void {
+    try {
+      const store = this.runtime?.siteModelStore as
+        | { getLocation?: () => { latitude: number; longitude: number } | null }
+        | undefined;
+      const raw = store?.getLocation?.();
+      const ltpRaw = getCurrentSiteOrigin();
+      const ev: GeorefOriginEvidence = {
+        ltpOrigin: ltpRaw && (ltpRaw.lat !== 0 || ltpRaw.lon !== 0) ? { lat: ltpRaw.lat, lon: ltpRaw.lon } : null,
+        storeLocation: raw && (raw.latitude !== 0 || raw.longitude !== 0)
+          ? { lat: raw.latitude, lon: raw.longitude }
+          : null,
+        anchorOrigin: { lat: originLat, lon: originLon },
+      };
+      const sepLtpAddress = originSeparationMeters(ev.ltpOrigin, ev.storeLocation);
+      const sepAnchorLtp = originSeparationMeters(ev.anchorOrigin, ev.ltpOrigin);
+      let echo = 'n/a';
+      if (position) {
+        const cg = Cesium.Cartographic.fromCartesian(position);
+        if (cg) {
+          echo =
+            `${Cesium.Math.toDegrees(cg.latitude).toFixed(6)},` +
+            `${Cesium.Math.toDegrees(cg.longitude).toFixed(6)} @ ${cg.height.toFixed(2)} m`;
+        }
+      }
+      console.log(
+        `[CesiumViewport][georef] §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF ANCHOR EVIDENCE (${what})\n` +
+          `  • anchor lat/lon      : ${originLat.toFixed(6)}, ${originLon.toFixed(6)}\n` +
+          `  • LTP-ENU origin      : ${ev.ltpOrigin ? `${ev.ltpOrigin.lat.toFixed(6)}, ${ev.ltpOrigin.lon.toFixed(6)}` : 'UNSET'} ` +
+          `(anchor↔LTP ${Number.isFinite(sepAnchorLtp) ? sepAnchorLtp.toFixed(1) + ' m' : 'n/a'})\n` +
+          `  • Site address (store): ${ev.storeLocation ? `${ev.storeLocation.lat.toFixed(6)}, ${ev.storeLocation.lon.toFixed(6)}` : 'UNSET'} ` +
+          `(LTP↔address ${Number.isFinite(sepLtpAddress) ? sepLtpAddress.toFixed(1) + ' m' : 'n/a'}` +
+          `${georefOriginsDiverge(ev) ? ' ⚠ DIVERGED — defect (ii)' : ''})\n` +
+          `  • photoreal tiles     : ${this.photorealTilesActive ? 'ACTIVE (tile mesh IS the ground)' : 'off (ellipsoid IS the ground)'}\n` +
+          `  • ground datum        : ${
+            this.globeGroundSource === 'unresolved'
+              ? 'UNRESOLVED — no measurement (see the §L-259 error above)'
+              : `MEASURED via ${this.globeGroundSource}`
+          }\n` +
+          `  • base height used    : ${baseHeightM.toFixed(2)} m ELLIPSOIDAL (WGS-84 — NOT above sea level)\n` +
+          `  • resulting Cartesian3: ${echo}`,
+      );
+    } catch {
+      /* evidence logging must never affect the placement */
+    }
   }
 
   /**
@@ -3861,13 +4186,24 @@ export class CesiumViewport {
       // never leaks to a later location change's clamp. reframeAfterBaseSettle is a
       // no-op when nothing armed it and a (harmless) re-fly at the correct base when
       // the initial frame ran against this same base.
+      //
+      // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the height is now MEASURED even
+      // though it happens to equal the value we already held: the datum is RESOLVED, so the
+      // building must be revealed (it may have been held hidden while the tiles streamed).
+      this.logGlobeAnchorEvidence(`${source} (base unchanged)`, sampleLat, sampleLon, sampledHeight, null);
+      this.revealGlobeBuildingForGround(`${source} — base unchanged`);
       this.reframeAfterBaseSettle();
       return; // already seated
     }
 
     this.formaTerrainBaseHeight = sampledHeight;
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the ground datum is MEASURED. Mark it
+    // resolved BEFORE the re-place below, so the re-place (and the real-model reseat it
+    // triggers) seats at the measured base AND the building is revealed rather than held.
+    this.revealGlobeBuildingForGround(source);
+    this.logGlobeAnchorEvidence(source, sampleLat, sampleLon, sampledHeight, null);
     console.log(
-      `[CesiumViewport][globe] ${source}: base height ${sampledHeight.toFixed(2)} m ` +
+      `[CesiumViewport][globe] ${source}: base height ${sampledHeight.toFixed(2)} m ELLIPSOIDAL ` +
         `at LAT ${sampleLat.toFixed(6)} LON ${sampleLon.toFixed(6)} — re-placing.`,
     );
     // Re-place at the resolved base. `_skipTerrainClamp` prevents re-entry;
@@ -6869,10 +7205,20 @@ export class CesiumViewport {
         input.baseHeight,
         this.formaTerrainBaseHeight,
       );
+      const seatPosition = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, seatBase);
       if (Math.abs(seatBase - baseHeight) > 1e-3) {
-        newModel.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
-          Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, seatBase),
-        );
+        newModel.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(seatPosition);
+      }
+
+      // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — THE VERTICAL INVARIANT, applied to the
+      // REAL model too. If the tile-height clamp has NOT yet measured the ground, `seatBase` is
+      // still the initial 0 (the WGS-84 ellipsoid — ~49 m below MSL in the Balearics), so the
+      // GLB would land underground. Add it HIDDEN; `commitPhotorealBase` re-seats it (via
+      // `reseatRealModelOnGlobe`) and reveals it the moment the datum resolves. Never a silent 0.
+      const holdForGround = this.globeGroundUnknownWhileTilesShown();
+      if (holdForGround) {
+        newModel.show = false;
+        this.globeBuildingHiddenForGround = true;
       }
 
       this.realModelOnGlobe = newModel;
@@ -6881,9 +7227,18 @@ export class CesiumViewport {
       this.viewer.scene.primitives.add(newModel);
       this.viewer.scene.requestRender();
 
+      this.logGlobeAnchorEvidence(
+        'renderRealModelOnGlobe',
+        input.originLat,
+        input.originLon,
+        seatBase,
+        seatPosition,
+      );
       console.log(
         `[CesiumViewport][globe] §A.21.D49 REAL model placed on photoreal tiles ` +
-          `at LAT ${input.originLat.toFixed(6)} LON ${input.originLon.toFixed(6)} base ${seatBase.toFixed(2)} m.`,
+          `at LAT ${input.originLat.toFixed(6)} LON ${input.originLon.toFixed(6)} base ` +
+          `${seatBase.toFixed(2)} m ELLIPSOIDAL` +
+          `${holdForGround ? ' — HELD HIDDEN until the tile ground datum resolves (L-259)' : ''}.`,
       );
       return true;
     } catch (err) {
@@ -7977,6 +8332,13 @@ export class CesiumViewport {
     this.formaTerrainBaseHeight = 0;
     this.formaTerrainSampledAt = null;
     this.formaTerrainToken++;
+    // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — a re-mounted viewport has measured
+    // NOTHING: the ground datum is unknown again (and the tileset load hook belongs to the
+    // destroyed tileset). Never let a stale "resolved" flag authorise anchoring at 0.
+    this.globeGroundResolved = false;
+    this.globeGroundSource = 'unresolved';
+    this.globeBuildingHiddenForGround = false;
+    this.photorealTilesLoadedHookAttached = false;
     // §GLOBE-FIRST-FRAME-BASE — clear any pending one-shot re-frame on dispose.
     this.formaReframeOnBaseSettle = null;
     // §GLOBE-FRAME-NO-JUMP — reset the per-open framing guards for a re-mounted viewport.
