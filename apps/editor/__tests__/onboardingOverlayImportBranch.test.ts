@@ -124,7 +124,7 @@ describe('§FIX-SITE-OVERLAY-DOUBLE-PANEL (L-77) — single active panel', () =>
 });
 
 describe('§FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — Finish lands in a framed canvas', () => {
-    it('closes the map, EXITS GIS + switches to plan (Top) view, zooms to fit, disposes the wizard — NO generate prompt', async () => {
+    it('closes the map, EXITS GIS + switches to the 3D view, zooms to fit, disposes the wizard — NO generate prompt', async () => {
         const { runtime, card } = mountAtSiteStep();
         card.click();
         // The overlay controller fires this AFTER it has created + placed the underlay.
@@ -132,7 +132,10 @@ describe('§FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — Finish lands in a framed ca
         await flush(); await flush(); // let the async landing (activateBimView → zoomToFit) settle.
         // Landed in the canvas, FRAMED on the plan:
         expect(hooks.closeMap).toHaveBeenCalledTimes(1);
-        expect(hooks.activateBimView).toHaveBeenCalledWith('Top'); // exits GIS + plan view
+        // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 B) — the founder's landing state is
+        // the 3D PRYZM view WITH the plan pane beside it, so the main view is '3D' (the split's
+        // secondary pane renders the plan). Landing on 'Top' gave plan + plan.
+        expect(hooks.activateBimView).toHaveBeenCalledWith('3D');
         expect(hooks.zoomToFit).toHaveBeenCalledTimes(1);          // frame the plan
         // Wizard disposed; NO generate-confirm ever shown.
         expect(document.querySelector('[data-testid="onboarding-step-overlay"]')).toBeNull();
@@ -158,9 +161,18 @@ describe('§FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — 
         card.click();
         runtime.events.emit('site.overlay-placement-committed', {});
         await flush(); await flush();
-        // Exited to the BIM plan view AND opened the split so the user gets plan + 3D.
-        expect(hooks.activateBimView).toHaveBeenCalledWith('Top');
+        // Exited to the BIM 3D view AND opened the split so the user gets 3D + plan.
+        expect(hooks.activateBimView).toHaveBeenCalledWith('3D');
         expect(hooks.splitActivate).toHaveBeenCalledTimes(1);
+    });
+
+    // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the ORDER regression guard.
+    it('does NOT auto-open the file picker on mode entry (the user locates FIRST)', async () => {
+        const { card } = mountAtSiteStep();
+        card.click();
+        await flush(); await flush();
+        expect(hooks.startOverlay).toHaveBeenCalledTimes(1); // the overlay-only map opens …
+        expect(hooks.openPicker).not.toHaveBeenCalled();     // … but NO upload is forced on entry.
     });
 
     it('does NOT re-activate the split view when it is already open (auto-opened)', async () => {

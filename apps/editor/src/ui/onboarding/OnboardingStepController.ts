@@ -84,6 +84,10 @@ import { buildResidentialCirculationGraphSvg } from '../residential-building/res
 import { FACADE_PALETTE, DEFAULT_FACADE_HEX } from '../preview-kit/buildingPlanDescriptor.js';
 import { orchestrateResidentialBuilding } from '@pryzm/ai-host';
 import type { ResidentialBuildingOk } from '@pryzm/ai-host';
+// §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 B) — the ONE terminal "Finish → land in
+// the 3D + plan split canvas" transition, shared with the map host (which owns it when the
+// wizard is not mounted — the GIS launcher / re-entry paths).
+import { enterCanvasWithSitePlanUnderlay } from '../site/overlay/enterCanvasWithSitePlan.js';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
@@ -762,12 +766,14 @@ export class OnboardingStepController {
         // and show a slim "place your plan" banner instead, so the onboarding wizard and the
         // "Site plan overlay" controls panel are never on screen at once (only one active
         // panel). The banner carries the sole in-wizard affordance for this step: "← Back".
-        this.setStepIndicator(2, 'Place your plan');
+        this.setStepIndicator(2, 'Find your site');
         this.setDrawingPresentation(true);
         const body = this.clearBody();
         const hint = document.createElement('p');
         hint.className = 'os-hint os-draw-instruction';
-        hint.textContent = 'Place, scale and rotate your plan on the map, then press ✓ Finish on the panel.';
+        // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the instruction now matches
+        // the real (locate → place → finish) order instead of assuming the plan is already up.
+        hint.textContent = 'Pan and zoom the map to your site · then press "Overlay plan / PDF" to add your plan · place, scale and rotate it · then press ✓ Finish.';
         body.appendChild(hint);
         const footer = document.createElement('div');
         footer.className = 'os-footer';
@@ -804,51 +810,19 @@ export class OnboardingStepController {
      * §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) + §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D
      * (L-194) — land the user in the editor with the imported plan VISIBLE, in the 3D SPLIT view
      * (plan + 3D) ready to continue drawing walls over the underlay. The overlay controller already
-     * created + placed the underlay mesh in the BIM scene (awaited before this runs). Here we:
-     *   (1) dispose the 2D overlay map;
-     *   (2) EXIT GIS and switch to a BIM view via `pryzmActivateBimView` (which routes through
-     *       activateView → toggleGIS(false) → ViewController.activate) so the BIM canvas is shown —
-     *       'Top' (plan) so the imported floor-plan underlay sits square under the wall-draw tool;
-     *   (3) OPEN THE SPLIT VIEW (`window.splitViewManager.activate()`) so the 3D pane appears
-     *       alongside the plan — the founder's requested "plan + 3D" surface. Idempotent: only
-     *       activate when it is not already the auto-opened split;
-     *   (4) zoom-to-fit onto the plan so the founder sees it centred;
-     *   (5) dispose the wizard.
-     * All best-effort + guarded — a missing hook degrades to a plain GIS-exit / plan view.
+     * created + placed the underlay mesh in the BIM scene (awaited before this runs).
+     *
+     * §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 B) — the transition itself now lives in
+     * ONE place, `enterCanvasWithSitePlanUnderlay()` (close map → exit GIS → 3D view → split
+     * 3D+plan → frame), because the wizard is NOT always there: the same panel is reachable from
+     * the always-on Plan + Site (GIS) launcher (C06 §7) and on re-entry to an onboarded project,
+     * and in those cases this listener does not exist — which is precisely why "✓ Finish" left the
+     * founder on the map. The map host calls the same function; it is idempotent, so exactly one
+     * landing happens. The wizard's remaining job is simply to dispose itself.
      */
     private async landInCanvasWithUnderlay(): Promise<void> {
-        const w = window as unknown as {
-            pryzmCloseBoundaryMap2D?: () => void;
-            pryzmActivateBimView?: (mode?: string) => Promise<void> | void;
-            pryzmToggleGIS?: (active: boolean) => void;
-            splitViewManager?: { isActive?: boolean; activate?: () => void };
-            viewController?: { zoomToFit?: (opts?: { animate?: boolean }) => Promise<void> | void };
-        };
-        // 1) Tear down the 2D overlay map (it sits over the editor #container).
-        try { w.pryzmCloseBoundaryMap2D?.(); } catch { /* ignore */ }
-        // 2) Exit GIS + switch to plan (Top) view so the BIM canvas + underlay are on screen.
-        try {
-            if (typeof w.pryzmActivateBimView === 'function') {
-                await w.pryzmActivateBimView('Top');
-            } else {
-                w.pryzmToggleGIS?.(false);
-            }
-        } catch (err) {
-            console.warn('[onboarding-step] §SITE-OVERLAY: enter-canvas view switch failed (non-fatal):', err);
-            try { w.pryzmToggleGIS?.(false); } catch { /* ignore */ }
-        }
-        // 3) Open the plan + 3D SPLIT view so the user gets both panes, ready to draw over the
-        //    imported underlay. The split auto-opens on project load, so it may already be active
-        //    (activate() is a no-op then) — guard on isActive to avoid a redundant rebuild.
-        try {
-            const svm = w.splitViewManager;
-            if (svm && typeof svm.activate === 'function' && !svm.isActive) svm.activate();
-        } catch (err) {
-            console.warn('[onboarding-step] §SITE-OVERLAY: split-view activation failed (non-fatal):', err);
-        }
-        // 4) Frame the camera on the just-placed plan.
-        try { await w.viewController?.zoomToFit?.({ animate: false }); } catch { /* ignore */ }
-        // 5) Dispose the wizard — we're done; the user is in the canvas.
+        await enterCanvasWithSitePlanUnderlay();
+        // Dispose the wizard — we're done; the user is in the canvas.
         this.dispose();
     }
 
@@ -867,33 +841,19 @@ export class OnboardingStepController {
             };
             if (typeof w.pryzmStartSitePlanOverlayImport === 'function') {
                 try { w.pryzmStartSitePlanOverlayImport(); } catch (err) { console.warn('[onboarding-step] startSitePlanOverlayImport threw:', err); }
-                // Open the upload picker once the overlay controller has mounted (a further
-                // short poll — the map mount is async inside GISAreaLayout).
-                this.openOverlayPickerWhenReady();
+                // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — WE DO NOT OPEN THE
+                // FILE PICKER HERE. This auto-open on MODE ENTRY was the inverted order: the
+                // upload fired before the user had panned/zoomed to their site, so the raster
+                // landed at the geocode origin — the founder's "RANDOM, not accurate location".
+                // The map now opens in the `locating` phase; the user navigates, THEN presses
+                // "Overlay plan / PDF" (the map button / the overlay panel's own upload button),
+                // which anchors the plan to the view they actually chose.
                 return;
             }
             if (++tries >= MAX_TRIES) {
                 console.warn('[onboarding-step] §SITE-OVERLAY-IMPORT: pryzmStartSitePlanOverlayImport never appeared.');
                 return;
             }
-            const t = setTimeout(tick, 250);
-            this.addCleanup(() => clearTimeout(t));
-        };
-        tick();
-    }
-
-    /** Poll (bounded) for the overlay upload-picker hook, then open the file picker. */
-    private openOverlayPickerWhenReady(): void {
-        let tries = 0;
-        const MAX_TRIES = 40;
-        const tick = (): void => {
-            if (this.disposed) return;
-            const open = (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay;
-            if (typeof open === 'function') {
-                try { open(); } catch (err) { console.warn('[onboarding-step] pryzmOpenSitePlanOverlay threw:', err); }
-                return;
-            }
-            if (++tries >= MAX_TRIES) return;
             const t = setTimeout(tick, 250);
             this.addCleanup(() => clearTimeout(t));
         };

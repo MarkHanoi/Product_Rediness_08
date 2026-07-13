@@ -25,12 +25,13 @@ import {
 import { SitePlanOverlayLayer } from './SitePlanOverlayLayer';
 import {
     defaultOverlayTransform,
+    viewportAnchoredTransform,
+    latLonToEastNorth,
     translateOverlay,
     setOverlayRotation,
     scaleOverlay,
     applyCalibration,
     computeCalibrationScale,
-    toMapLibreCoordinates,
     type SitePlanOverlayTransform,
     type PixelPoint,
 } from './sitePlanOverlayGeometry';
@@ -133,9 +134,20 @@ interface OverlayState {
     file: File | null;
 }
 
+/**
+ * §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the site-plan overlay flow IS a
+ * state machine; modelling it as one is the fix. See the `phase` declaration below.
+ */
+export type SitePlanOverlayPhase = 'locating' | 'placing' | 'finished';
+
 export interface SitePlanOverlayControllerHandle {
-    /** Open the file picker (the onboarding entry button calls this). */
+    /**
+     * Open the file picker. This is the USER'S OPT-IN, and the ONLY way an upload can start
+     * (`locating` → `placing`). Nothing may call it on mode entry — that inversion is L-258 (A).
+     */
     promptUpload(): void;
+    /** The flow's current phase (`locating` until the user opts into an upload). */
+    phase(): SitePlanOverlayPhase;
     /**
      * §FIX-SITE-OVERLAY-CALIBRATION-EXCLUSIVE (L-69) — true while the 2-point scale
      * calibration is capturing its two map clicks. The host boundary-DRAW tool queries
@@ -176,30 +188,59 @@ export function mountSitePlanOverlayController(
         return { lat: 0, lon: 0 };
     }
 
-    // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — after a FRESH upload, ease the map so the whole
-    // plan is comfortably in frame. The raster is anchored geographically, so if the map
-    // happened to be zoomed to a large bbox the (default 50 m) plan could be a speck; this
-    // makes "choose file → the image appears on the map" reliably true.
-    function fitMapToOverlay(transform: SitePlanOverlayTransform, origin: { lat: number; lon: number }): void {
+    // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the visible map width in
+    // metres, used to size a freshly uploaded plan against the view the user chose. Null
+    // when the map handle cannot report bounds (a test double / a torn-down map).
+    function viewportSpanMetres(): number | null {
         try {
-            const coords = toMapLibreCoordinates(transform, origin.lat, origin.lon);
-            let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-            for (const [lng, lat] of coords) {
-                if (lng < minLng) minLng = lng;
-                if (lat < minLat) minLat = lat;
-                if (lng > maxLng) maxLng = lng;
-                if (lat > maxLat) maxLat = lat;
-            }
-            if (![minLng, minLat, maxLng, maxLat].every(Number.isFinite)) return;
-            map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 64, maxZoom: 20, duration: 500 });
-        } catch (err) {
-            console.warn('[site-overlay] fitMapToOverlay failed (non-fatal):', err);
+            const b = (map as unknown as { getBounds?: () => { getWest(): number; getEast(): number; getNorth(): number; getSouth(): number } }).getBounds?.();
+            if (!b) return null;
+            const west = b.getWest();
+            const east = b.getEast();
+            const lat = (b.getNorth() + b.getSouth()) / 2;
+            if (![west, east, lat].every(Number.isFinite)) return null;
+            const DEG2RAD = Math.PI / 180;
+            const R = 6_378_137;
+            const span = Math.abs(east - west) * DEG2RAD * R * Math.max(1e-6, Math.cos(lat * DEG2RAD));
+            return Number.isFinite(span) && span > 0 ? span : null;
+        } catch {
+            return null;
         }
+    }
+
+    /**
+     * §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the initial placement of a
+     * FRESH upload: centred on the map viewport THE USER NAVIGATED TO, sized to ~60% of the
+     * visible width, expressed in LTP-ENU metres about the site origin (C12) so it survives
+     * a re-centre / reload. Falls back to the legacy origin-centred 50 m default only when
+     * the map cannot report a centre (never a silent "somewhere else" jump).
+     */
+    function initialTransform(widthPx: number, heightPx: number, origin: { lat: number; lon: number }): SitePlanOverlayTransform {
+        try {
+            const c = map.getCenter?.();
+            if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) {
+                const centre = latLonToEastNorth({ lat: c.lat, lon: c.lng }, origin.lat, origin.lon);
+                return viewportAnchoredTransform(widthPx, heightPx, centre, viewportSpanMetres());
+            }
+        } catch { /* map gone — fall through */ }
+        return defaultOverlayTransform(widthPx, heightPx);
     }
 
     let state: OverlayState | null = null;
     let disposed = false;
     let calibrating: { a: PixelPoint | null; b: PixelPoint | null } | null = null;
+    // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the flow's REAL state machine.
+    //   locating → the map is free: the user pans/zooms to their actual site. NO overlay, NO
+    //              upload, nothing placed. The ONLY affordance is "upload a plan" (opt-in).
+    //   placing  → a raster exists and is anchored to the view the user chose; they move /
+    //              rotate / scale / 2-point-calibrate it.
+    //   finished → committed: Project North set, the underlay created on the canvas (P6,
+    //              CREATE_UNDERLAY), the host landed in the 3D + plan split view.
+    // The upload used to fire on MODE ENTRY (the onboarding auto-opened the file picker), so
+    // the raster was placed before the user had navigated anywhere — the founder's "imports
+    // in a RANDOM, not accurate location". Entry now lands in `locating` and STAYS there
+    // until the user explicitly asks for the plan.
+    let phase: SitePlanOverlayPhase = 'locating';
 
     // ── panel shell ────────────────────────────────────────────────────────────
     const panel = document.createElement('div');
@@ -278,7 +319,10 @@ export function mountSitePlanOverlayController(
         // Dispose any prior layer first.
         state?.layer.dispose();
 
-        const transform = preset?.transform ?? defaultOverlayTransform(widthPx, heightPx);
+        // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — a FRESH upload is anchored
+        // to the map view the user navigated to (not the site origin at a fixed 50 m span);
+        // a RESTORE keeps its persisted, geo-anchored (LTP-ENU) transform verbatim.
+        const transform = preset?.transform ?? initialTransform(widthPx, heightPx, origin);
         const opacity = preset?.opacity ?? 0.7;
         const visible = preset?.visible ?? true;
         const locked = preset?.locked ?? false;
@@ -299,12 +343,15 @@ export function mountSitePlanOverlayController(
             fileName, sourceKind, dataUrl, page, pageCount,
             transform, opacity, locked, visible, calibrated, projectNorthSet, layer, file,
         };
+        // locating → placing. A restored overlay that was already committed re-enters as
+        // `finished` (its CTA reads "update & re-enter canvas"), otherwise it is `placing`.
+        phase = projectNorthSet ? 'finished' : 'placing';
         renderPanel();
         schedulePersist();
-        // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — on a FRESH upload (no preset = not a restore)
-        // ease the view to the plan so the founder immediately SEES it. Restores keep the
-        // user's current camera (they placed it deliberately last session).
-        if (!preset && visible) fitMapToOverlay(transform, origin);
+        // NOTE (L-258 A): we deliberately do NOT move the camera on a fresh upload. The plan
+        // is now centred in the CURRENT viewport at ~60% of its width, so it is already under
+        // the user's eyes — and yanking the map (the old fitBounds) would throw away the very
+        // navigation the user did to find their site.
     }
 
     // ── §FEAT-PROJECT-TRUE-NORTH — commit the placement as Project North ──────────
@@ -316,13 +363,17 @@ export function mountSitePlanOverlayController(
         if (!state) return;
         const thetaRad = deriveProjectNorthAngle(state.transform);
         state.projectNorthSet = true;
+        phase = 'finished';
         try {
             onCommitProjectNorth?.(thetaRad);
         } catch (err) {
             console.warn('[site-overlay] onCommitProjectNorth threw (non-fatal):', err);
         }
         renderPanel();
-        schedulePersist();
+        // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 B) — persist NOW, not on the
+        // 300 ms debounce: the host tears this controller (and its pending timer) down as
+        // part of landing in the canvas, which silently dropped the committed placement.
+        persistNow();
         const deg = ((thetaRad * 180) / Math.PI).toFixed(1);
         toast(`Project North set from the plan (${deg}° to true north). Opening it on the canvas, axis-aligned.`, 'success');
 
@@ -406,6 +457,8 @@ export function mountSitePlanOverlayController(
         state?.layer.dispose();
         state = null;
         calibrating = null;
+        // Back to `locating`: the map is free again and nothing is placed.
+        phase = 'locating';
         if (projectId) {
             clearPersistedOverlay(projectId);
             // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — drop the raster from IDB too (isolation).
@@ -533,6 +586,7 @@ export function mountSitePlanOverlayController(
         persistTimer = setTimeout(persistNow, 300);
     }
     function persistNow(): void {
+        if (persistTimer) clearTimeout(persistTimer);
         persistTimer = null;
         if (!projectId || !state) return;
         const origin = resolveOrigin();
@@ -616,11 +670,16 @@ export function mountSitePlanOverlayController(
         panel.appendChild(title);
 
         if (!state) {
+            // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the `locating` phase.
+            // The map is FREE: pan/zoom to the real site first. Nothing is uploaded and nothing
+            // is placed until the user presses this button — that opt-in IS the state transition.
             const hint = document.createElement('div');
-            hint.textContent = 'Upload a survey or CAD plan (PDF or image) to lay over the map.';
+            hint.textContent = '1 · Pan and zoom the map to your site. 2 · Then add your plan — it drops onto the view you chose.';
             hint.style.marginBottom = '10px';
             panel.appendChild(hint);
-            panel.appendChild(button('Upload plan / PDF', promptUpload, true));
+            const up = button('Upload plan / PDF', promptUpload, true);
+            up.setAttribute('data-testid', 'site-overlay-upload');
+            panel.appendChild(up);
             return;
         }
 
@@ -774,5 +833,5 @@ export function mountSitePlanOverlayController(
         return calibrating != null;
     }
 
-    return { promptUpload, isCalibrating, dispose, element: panel };
+    return { promptUpload, phase: () => phase, isCalibrating, dispose, element: panel };
 }

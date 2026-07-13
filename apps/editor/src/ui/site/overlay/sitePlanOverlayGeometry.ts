@@ -213,6 +213,42 @@ export function defaultOverlayTransform(
     };
 }
 
+/**
+ * §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the FIRST placement of a
+ * freshly uploaded plan, anchored on the map viewport THE USER NAVIGATED TO.
+ *
+ * `defaultOverlayTransform` centres the plan on the SITE ORIGIN (the geocoded address)
+ * at a fixed 50 m span. That is exactly the "random, not accurate location" the founder
+ * hit: the user pans/zooms away from the geocode pin to their ACTUAL site, uploads, and
+ * the raster lands back at the origin (often off-screen, often the wrong lot) at a size
+ * unrelated to the current zoom.
+ *
+ * The correct first placement is derived from the CURRENT VIEW: centre the plan on the
+ * map's centre and size it to a fraction of the visible width. The centre is passed in as
+ * metres East/North about the site origin (LTP-ENU, C12 §2 / C19 §1.3) — NOT as a screen
+ * coordinate — so the placement is a real geo-anchored transform that survives a re-centre,
+ * a basemap swap, a reload, and a 1 km camera move.
+ *
+ * @param centre            viewport centre in metres East/North of the SITE ORIGIN.
+ * @param viewportSpanM     the visible map width in metres (null/≤0 ⇒ fall back to 50 m).
+ * @param coverage          fraction of the visible width the plan's longest side spans.
+ */
+export function viewportAnchoredTransform(
+    widthPx: number,
+    heightPx: number,
+    centre: EastNorth,
+    viewportSpanM: number | null,
+    coverage = 0.6,
+): SitePlanOverlayTransform {
+    const span = Number.isFinite(viewportSpanM as number) && (viewportSpanM as number) > 0
+        ? (viewportSpanM as number) * coverage
+        : 50;
+    const base = defaultOverlayTransform(widthPx, heightPx, span);
+    const east = Number.isFinite(centre.east) ? centre.east : 0;
+    const north = Number.isFinite(centre.north) ? centre.north : 0;
+    return { ...base, centre: { east, north } };
+}
+
 // ── transform mutators (pure — return a new transform) ───────────────────────
 
 /** Move the overlay centre by (dEast, dNorth) metres. */
