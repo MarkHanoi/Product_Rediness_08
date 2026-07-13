@@ -1,25 +1,57 @@
 /**
- * HiddenLineRemoval — Contract 23 §9 (v1)
+ * HiddenLineRemoval — Contract 23 §9 (v2)
  *
- * Removes projected line segments that are fully occluded by solid CUT geometry
- * in a TechnicalDrawing.  Applied by EdgeProjectorService before caching.
+ * Removes projected line segments that are occluded by solid CUT geometry in a
+ * TechnicalDrawing.  Applied by EdgeProjectorService before caching.
  *
- * Algorithm (v1 — depth-bucket / AABB approach):
- *   1. Collect all `:cut` layer LineSegments in the drawing.
- *   2. Group them by element UUID → build one axis-aligned bounding box (AABB)
- *      per cut element in 2D drawing space.
- *   3. For each `:proj` and `:beyond` segment, use Cohen-Sutherland to test
- *      whether both endpoints lie INSIDE any occluder AABB.  If so, the segment
- *      is fully behind solid geometry and is removed.
+ * THE INVARIANT (L-260 B): a wall sliced by the plan cut plane is a SOLID POCHÉ
+ * REGION.  Nothing below it and nothing beyond it may be drawn inside that region.
  *
- * v1 limitations (acceptable per contract):
- *   • AABB per element — may over-occlude near diagonal walls (v2 uses exact polygons).
- *   • No partial clipping of crossing segments — only fully-hidden segments removed.
- *   • No depth ordering within the PROJ zone — all CUT elements occlude all PROJ.
+ * §FIX-PLAN-CUT-POCHE-OCCLUSION (L-260 B) — WHY v1 REMOVED NOTHING
+ * ────────────────────────────────────────────────────────────────
+ * The founder's live log read:
  *
- * v2 upgrade path: replace _buildOccluderList() with full polygon accumulation
- * (union of cut cross-sections) and replace _isSegmentOccluded() with Cohen-
- * Sutherland polygon clipping per edge of each accumulated polygon.
+ *     [HiddenLineRemoval] v1 pass — 2 occluder(s), 0/1532 segments removed
+ *
+ * and his plan showed a slab plate edge running straight THROUGH a wall body.  All
+ * three candidate causes were tested; the first two are REFUTED by that log itself:
+ *
+ *   • occluder registration — NOT the bug. Two walls were registered (2 occluders).
+ *   • edge testing — NOT the bug. The slab's `:proj` segments were fed to the test.
+ *   • draw order — a CONTRIBUTING FACT, not the root: PlanViewCanvas paints the poché
+ *     fills first and every LineSegments afterwards, so any surviving segment is
+ *     guaranteed to be drawn ON TOP of the poché.  Reordering cannot fix it — the
+ *     segment must not exist.
+ *
+ * The ROOT CAUSE was the test itself.  v1 used Cohen-Sutherland "trivial accept":
+ * a segment was hidden only when BOTH endpoints lay inside an occluder AABB.  A slab
+ * plate edge spans the whole plan and CROSSES the wall — both endpoints are OUTSIDE
+ * the wall box — so the predicate could never fire.  v1 could only ever delete
+ * geometry entirely swallowed by a wall; the one case that actually matters in a plan
+ * (a long edge passing THROUGH the poché) was, by construction, unremovable.  Hence
+ * 0/1532 with the occluders present and the segments tested.
+ *
+ * Algorithm (v2 — true silhouette + per-segment clipping):
+ *   1. Collect every CUT-zone LineSegments (both sub-layer conventions — the
+ *      projector's `A-WALL:cut` and the symbol builders' `A-DOOR-CUT`, resolved via
+ *      the canonical `penZoneFromLayerName()` classifier, not a local regex).
+ *   2. Group by `userData.elementUUID` → one occluder per element carrying its TRUE
+ *      projected silhouette (the plane∩solid section outline emitted by L-246's
+ *      `buildPlanCutSectionGeometry`) plus an AABB pre-filter.  An element with fewer
+ *      than 3 outline edges cannot bound a region and degrades to its AABB — counted
+ *      and LOGGED, never silent (Contract 23 §9).
+ *   3. For every `:proj` / `:beyond` segment, SPLIT it at the exact points where it
+ *      enters/exits an occluder silhouette and drop the inside spans.  A crossing edge
+ *      therefore survives outside the wall and is clipped exactly at the wall faces.
+ *
+ * Why the silhouette and not the AABB: a wall carrying a door has a VOID at the cut
+ * plane, so its section is two closed pieces with a hole between them.  Even-odd
+ * point-in-silhouette reads that hole as NOT solid, so the door swing/leaf symbol
+ * standing in the opening survives — an AABB would have erased it.  Openings are
+ * voided by construction (C15), exactly as L-246 intended.
+ *
+ * Self-occlusion is excluded by elementUUID (a wall never hides its own linework), so
+ * no geometric shrink of the occluder is needed or applied.
  *
  * Contract constraints respected:
  *   ❌ GPU depth readback — not used
@@ -35,61 +67,13 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import type * as OBC from '@thatopen/components';
-
-// ─── Cohen-Sutherland outcodes ────────────────────────────────────────────────
-
-const CS_INSIDE = 0; // 0000
-const CS_LEFT   = 1; // 0001
-const CS_RIGHT  = 2; // 0010
-const CS_BOTTOM = 4; // 0100
-const CS_TOP    = 8; // 1000
-
-/**
- * Compute the Cohen-Sutherland outcode for point (x, y) relative to
- * the axis-aligned bounding box [xMin, xMax] × [yMin, yMax].
- *
- * CS_INSIDE (0) means the point is inside the clipping rectangle.
- */
-function csOutcode(
-    x: number, y: number,
-    xMin: number, yMin: number,
-    xMax: number, yMax: number,
-): number {
-    let code = CS_INSIDE;
-    if      (x < xMin) code |= CS_LEFT;
-    else if (x > xMax) code |= CS_RIGHT;
-    if      (y < yMin) code |= CS_BOTTOM;
-    else if (y > yMax) code |= CS_TOP;
-    return code;
-}
-
-/**
- * Returns true when both endpoints of the segment (x0,y0)→(x1,y1) are
- * INSIDE the AABB [xMin,xMax]×[yMin,yMax] — i.e. the segment is completely
- * occluded by the solid region represented by that AABB.
- *
- * This is the "trivial accept" case of the Cohen-Sutherland algorithm
- * repurposed as a hidden-line test: accept = hidden.
- */
-function isSegmentOccluded(
-    x0: number, y0: number,
-    x1: number, y1: number,
-    xMin: number, yMin: number,
-    xMax: number, yMax: number,
-): boolean {
-    const c0 = csOutcode(x0, y0, xMin, yMin, xMax, yMax);
-    const c1 = csOutcode(x1, y1, xMin, yMin, xMax, yMax);
-    return c0 === CS_INSIDE && c1 === CS_INSIDE;
-}
+import { penZoneFromLayerName } from './PenWeightTable';
 
 // ─── Occluder extraction ──────────────────────────────────────────────────────
 
 /**
  * Axis-aligned bounding box in 2D drawing space.
  * xMin/xMax are in the H axis; yMin/yMax are in the raw Z axis (not negated).
- *
- * A small padding (OCCLUDER_SHRINK) is applied so that the CUT boundary
- * linework itself is not self-occluded.
  */
 interface Occluder2D {
     xMin: number;
@@ -99,11 +83,17 @@ interface Occluder2D {
 }
 
 /**
- * Shrink each CUT element AABB by this amount (drawing units ≈ metres) to
- * prevent the CUT boundary linework from occluding itself.
- * Must be < SNAP_TOLERANCE (0.005 m) but large enough to be visible at scale.
+ * A solid region that hides linework behind it, carrying BOTH its true projected
+ * silhouette (`segs` — flat [x0,z0,x1,z1,…] outline edges in drawing space) and its
+ * AABB.  `usePolygon` selects the exact even-odd silhouette test; when false the
+ * element has too few edges to bound a closed region and the AABB is used as an
+ * explicit, LOGGED fallback (no silent cap — Contract 23 §9).
  */
-const OCCLUDER_SHRINK = 0.002;
+interface SilhouetteOccluder extends Occluder2D {
+    uuid:       string;
+    segs:       number[];
+    usePolygon: boolean;
+}
 
 /**
  * Minimum AABB area (m²) for an occluder to be registered.
@@ -111,42 +101,43 @@ const OCCLUDER_SHRINK = 0.002;
  */
 const MIN_OCCLUDER_AREA = 0.001 * 0.001;
 
+/** Element key used when a LineSegments carries no `elementUUID` stamp. */
+const ANON_ELEMENT = '_anon';
+
 /**
- * Walk the TechnicalDrawing scene tree and collect per-element AABB occluders
- * from all LineSegments whose layer ends with ':cut'.
+ * Walk the TechnicalDrawing scene tree and collect one silhouette occluder per element
+ * from every CUT-zone LineSegments.
  *
- * Grouping is by `userData.elementUUID` so each architectural element contributes
- * exactly one AABB regardless of how many CUT sub-layers it has.
- *
- * @returns Array of axis-aligned bounding boxes (in drawing 2D space).
+ * Grouping is by `userData.elementUUID` so each architectural element contributes exactly
+ * one occluder regardless of how many CUT sub-layers it has — and so an element can be
+ * excluded from occluding ITSELF.
  */
-function buildOccluderList(drawing: OBC.TechnicalDrawing): Occluder2D[] {
+function buildOccluderList(drawing: OBC.TechnicalDrawing): { occluders: SilhouetteOccluder[]; aabbFallbacks: number } {
 
     const drawingThree = (drawing as unknown as { three?: THREE.Object3D }).three;
-    if (!drawingThree) return [];
+    if (!drawingThree) return { occluders: [], aabbFallbacks: 0 };
 
-    // Accumulate per-element bounding boxes keyed by elementUUID.
-    // Elements without a UUID share a single "anonymous" bucket.
-    const bboxMap = new Map<string, {
-        minX: number; maxX: number; minZ: number; maxZ: number;
+    const cutMap = new Map<string, {
+        minX: number; maxX: number; minZ: number; maxZ: number; segs: number[];
     }>();
 
     drawingThree.traverse((child: THREE.Object3D) => {
         if (!(child instanceof THREE.LineSegments)) return;
 
-        // Only process CUT layer segments.
+        // CUT-zone linework only — resolved through the canonical classifier so BOTH the
+        // `A-WALL:cut` and `A-DOOR-CUT` conventions register (v1's `/:cut$/` missed the latter).
         const layerName = (child.userData?.layerName ?? child.name ?? '') as string;
-        if (!/:cut$/i.test(layerName)) return;
+        if (penZoneFromLayerName(layerName) !== 'CUT') return;
 
         const posAttr = child.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
         if (!posAttr || posAttr.count < 2) return;
 
-        const uuid = (child.userData?.elementUUID ?? '_anon') as string;
-        let entry = bboxMap.get(uuid);
+        const uuid = (child.userData?.elementUUID ?? ANON_ELEMENT) as string;
+        let entry = cutMap.get(uuid);
 
         if (!entry) {
-            entry = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
-            bboxMap.set(uuid, entry);
+            entry = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity, segs: [] };
+            cutMap.set(uuid, entry);
         }
 
         const count = posAttr.count;
@@ -158,76 +149,39 @@ function buildOccluderList(drawing: OBC.TechnicalDrawing): Occluder2D[] {
             if (z < entry.minZ) entry.minZ = z;
             if (z > entry.maxZ) entry.maxZ = z;
         }
+        // The section outline — the TRUE silhouette of the solid at the cut plane.
+        for (let i = 0; i + 1 < count; i += 2) {
+            entry.segs.push(posAttr.getX(i), posAttr.getZ(i), posAttr.getX(i + 1), posAttr.getZ(i + 1));
+        }
     });
 
-    const occluders: Occluder2D[] = [];
+    const occluders: SilhouetteOccluder[] = [];
+    let aabbFallbacks = 0;
 
-    for (const b of bboxMap.values()) {
+    for (const [uuid, b] of cutMap) {
         if (!Number.isFinite(b.minX)) continue;
 
         const w = b.maxX - b.minX;
         const h = b.maxZ - b.minZ;
         if (w * h < MIN_OCCLUDER_AREA) continue;
 
-        // Shrink inward to avoid self-occlusion of the CUT boundary lines.
-        const shrinkX = Math.min(OCCLUDER_SHRINK, w * 0.1);
-        const shrinkZ = Math.min(OCCLUDER_SHRINK, h * 0.1);
+        // Prefer the exact section silhouette (openings read as voids); degrade to the
+        // coarse AABB only when the element cannot bound a closed region.
+        const usePolygon = b.segs.length / 4 >= 3;
+        if (!usePolygon) aabbFallbacks++;
 
         occluders.push({
-            xMin: b.minX + shrinkX,
-            xMax: b.maxX - shrinkX,
-            yMin: b.minZ + shrinkZ,
-            yMax: b.maxZ - shrinkZ,
+            uuid,
+            xMin: b.minX,
+            xMax: b.maxX,
+            yMin: b.minZ,
+            yMax: b.maxZ,
+            segs: b.segs,
+            usePolygon,
         });
     }
 
-    return occluders;
-}
-
-// ─── Segment filtering ────────────────────────────────────────────────────────
-
-/**
- * Filter a LineSegments geometry, removing segments whose midpoint or both
- * endpoints are fully inside any of the supplied occluder AABBs.
- *
- * Returns a new BufferGeometry with only the visible segments, or null when
- * all segments are removed (caller should dispose and remove the LineSegments).
- */
-function filterOccludedSegments(
-    posAttr:   THREE.BufferAttribute,
-    occluders: Occluder2D[],
-): THREE.BufferGeometry | 'unchanged' | 'empty' {
-    if (occluders.length === 0) return 'unchanged';
-
-    const count    = posAttr.count;
-    const kept: number[] = [];
-
-    for (let i = 0; i + 1 < count; i += 2) {
-        const x0 = posAttr.getX(i);     const z0 = posAttr.getZ(i);
-        const x1 = posAttr.getX(i + 1); const z1 = posAttr.getZ(i + 1);
-
-        let hidden = false;
-        for (const occ of occluders) {
-            if (isSegmentOccluded(x0, z0, x1, z1, occ.xMin, occ.yMin, occ.xMax, occ.yMax)) {
-                hidden = true;
-                break;
-            }
-        }
-
-        if (!hidden) {
-            kept.push(
-                x0, posAttr.getY(i),   z0,
-                x1, posAttr.getY(i + 1), z1,
-            );
-        }
-    }
-
-    if (kept.length === count * 3) return 'unchanged';
-    if (kept.length === 0)         return 'empty';
-
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(kept, 3));
-    return geo;
+    return { occluders, aabbFallbacks };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -239,10 +193,11 @@ function filterOccludedSegments(
  * symbol injections, before the drawing is written to ViewTechnicalDrawingCache.
  *
  * Steps:
- *   1. buildOccluderList() — collect CUT-layer AABBs per element.
- *   2. For each `:proj` and `:beyond` LineSegments in the scene: filter
- *      segments that are fully inside any occluder AABB.
- *   3. Replace or remove LineSegments geometry in-place (no new scene nodes).
+ *   1. buildOccluderList() — one silhouette occluder per CUT element.
+ *   2. For each `:proj` / `:beyond` LineSegments in the scene: split every segment at
+ *      its occlusion entry/exit points and keep only the spans OUTSIDE every occluder
+ *      (excluding the element's own).
+ *   3. Replace the geometry in-place (no new scene nodes).
  *
  * @param drawing  The TechnicalDrawing whose linework should be cleaned.
  */
@@ -250,8 +205,8 @@ export function removeHiddenLines(drawing: OBC.TechnicalDrawing): void {
     const drawingThree = (drawing as unknown as { three?: THREE.Object3D }).three;
     if (!drawingThree) return;
 
-    const occluders = buildOccluderList(drawing);
-    if (occluders.length === 0) return; // Nothing to occlude — skip early.
+    const { occluders, aabbFallbacks } = buildOccluderList(drawing);
+    if (occluders.length === 0) return; // Nothing solid in the cut — skip early.
 
     // Collect PROJ / BEYOND LineSegments to process.
     // (Avoid mutating the scene while traversing it.)
@@ -260,10 +215,10 @@ export function removeHiddenLines(drawing: OBC.TechnicalDrawing): void {
     drawingThree.traverse((child: THREE.Object3D) => {
         if (!(child instanceof THREE.LineSegments)) return;
         const layerName = (child.userData?.layerName ?? child.name ?? '') as string;
-        // Process projection and beyond zones; leave CUT and IFC fallback layers alone.
-        if (/:proj$/i.test(layerName) || /:beyond$/i.test(layerName)) {
-            projNodes.push(child);
-        }
+        // Projection and beyond zones only; CUT stays (it IS the poché boundary) and the
+        // zone-less IFC fallback layers (`projection-visible`) are left alone.
+        const zone = penZoneFromLayerName(layerName);
+        if (zone === 'PROJECTION' || zone === 'BEYOND') projNodes.push(child);
     });
 
     let hiddenCount = 0;
@@ -273,36 +228,67 @@ export function removeHiddenLines(drawing: OBC.TechnicalDrawing): void {
         const posAttr = ls.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
         if (!posAttr || posAttr.count < 2) continue;
 
-        totalCount += posAttr.count / 2;
+        const uuid  = (ls.userData?.elementUUID ?? ANON_ELEMENT) as string;
+        const count = posAttr.count;
+        totalCount += count / 2;
 
-        const result = filterOccludedSegments(posAttr, occluders);
+        // An element never occludes its own linework (a wall's base/head edges project
+        // onto its own footprint and must survive).
+        const others = occluders.filter(o => o.uuid !== uuid);
+        if (others.length === 0) continue;
 
-        if (result === 'unchanged') {
-            continue;
+        const kept: number[] = [];
+        let changed = false;
+
+        for (let i = 0; i + 1 < count; i += 2) {
+            const x0 = posAttr.getX(i);     const y0 = posAttr.getY(i);     const z0 = posAttr.getZ(i);
+            const x1 = posAttr.getX(i + 1); const y1 = posAttr.getY(i + 1); const z1 = posAttr.getZ(i + 1);
+
+            // Cheap AABB pre-filter: only occluders that can reach this edge take part.
+            const sMinX = Math.min(x0, x1), sMaxX = Math.max(x0, x1);
+            const sMinZ = Math.min(z0, z1), sMaxZ = Math.max(z0, z1);
+            const active = others.filter(o => aabbOverlap(sMinX, sMaxX, sMinZ, sMaxZ, o));
+
+            if (active.length === 0) {
+                kept.push(x0, y0, z0, x1, y1, z1);
+                continue;
+            }
+
+            // Split at the exact poché entry/exit points; keep only the OUTSIDE spans.
+            const spans = splitSegmentByOccluders(x0, z0, x1, z1, active);
+            for (const { t0, t1, hidden } of spans) {
+                if (hidden) {
+                    hiddenCount += t1 - t0; // fractional — a partially-clipped edge counts fractionally
+                    changed = true;
+                    continue;
+                }
+                if (t0 === 0 && t1 === 1) {
+                    kept.push(x0, y0, z0, x1, y1, z1); // untouched — keep the exact original endpoints
+                    continue;
+                }
+                changed = true;
+                kept.push(
+                    x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0, z0 + (z1 - z0) * t0,
+                    x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1, z0 + (z1 - z0) * t1,
+                );
+            }
         }
 
-        if (result === 'empty') {
-            // All segments in this LineSegments are hidden — replace with empty geometry.
-            hiddenCount += posAttr.count / 2;
-            ls.geometry.dispose();
-            ls.geometry = new THREE.BufferGeometry();
-            ls.geometry.setAttribute('position', new THREE.Float32BufferAttribute([], 3));
-            continue;
-        }
+        if (!changed) continue;
 
-        // Partial removal — swap in the filtered geometry.
-        const oldCount = posAttr.count / 2;
-        const newCount = (result.getAttribute('position') as THREE.BufferAttribute).count / 2;
-        hiddenCount += oldCount - newCount;
         ls.geometry.dispose();
-        ls.geometry = result;
+        ls.geometry = new THREE.BufferGeometry();
+        ls.geometry.setAttribute('position', new THREE.Float32BufferAttribute(kept, 3));
     }
 
     if (totalCount > 0) {
         console.log(
-            `[HiddenLineRemoval] v1 pass — ` +
+            `[HiddenLineRemoval] v2 pass (§FIX-PLAN-CUT-POCHE-OCCLUSION) — ` +
             `${occluders.length} occluder(s), ` +
-            `${hiddenCount}/${totalCount} segments removed`,
+            `${hiddenCount.toFixed(1)}/${totalCount} segment-equivalents clipped inside poché` +
+            (aabbFallbacks > 0
+                ? ` [${aabbFallbacks} occluder(s) degraded to coarse AABB — too few outline edges for a silhouette]`
+                : ''),
         );
     }
 }
@@ -317,8 +303,7 @@ export function removeHiddenLines(drawing: OBC.TechnicalDrawing): void {
  */
 const ELEV_OCCLUSION_DEPTH_MARGIN = 0.05;
 
-interface ElevOccluder2D extends Occluder2D {
-    uuid: string;
+interface ElevOccluder2D extends SilhouetteOccluder {
     depth: number; // nearest projection depth of the element (smaller = closer to viewer)
 }
 
@@ -331,10 +316,7 @@ interface ElevOccluder2D extends Occluder2D {
  * false the element has too few edges to bound a closed region and the AABB is used
  * as an explicit, LOGGED fallback (no silent cap — Contract 23 §9).
  */
-interface ElevOccluderFull extends ElevOccluder2D {
-    segs: number[];      // TRUE silhouette outline edges (drawing space H=x, V=z)
-    usePolygon: boolean; // true → even-odd silhouette test; false → AABB fallback
-}
+type ElevOccluderFull = ElevOccluder2D;
 
 /** Numeric slop (drawing units ≈ m) for de-duplicating split boundaries along an edge. */
 const ELEV_SPLIT_T_EPS = 1e-6;
@@ -386,13 +368,13 @@ function pointInSilhouette(px: number, pz: number, segs: number[]): boolean {
     return inside;
 }
 
-function pointInAabb(px: number, pz: number, o: ElevOccluderFull): boolean {
+function pointInAabb(px: number, pz: number, o: SilhouetteOccluder): boolean {
     return px >= o.xMin && px <= o.xMax && pz >= o.yMin && pz <= o.yMax;
 }
 
 /** True when far-segment AABB [sMinX,sMaxX]×[sMinZ,sMaxZ] overlaps occluder AABB. */
 function aabbOverlap(
-    sMinX: number, sMaxX: number, sMinZ: number, sMaxZ: number, o: ElevOccluderFull,
+    sMinX: number, sMaxX: number, sMinZ: number, sMaxZ: number, o: SilhouetteOccluder,
 ): boolean {
     return sMaxX >= o.xMin && sMinX <= o.xMax && sMaxZ >= o.yMin && sMinZ <= o.yMax;
 }
@@ -412,7 +394,7 @@ function aabbOverlap(
  */
 function splitSegmentByOccluders(
     ax: number, az: number, bx: number, bz: number,
-    occluders: ElevOccluderFull[],
+    occluders: SilhouetteOccluder[],
 ): Array<{ t0: number; t1: number; hidden: boolean }> {
     // Collect exact enter/exit boundaries from every occluder that can reach this edge.
     const bounds: number[] = [0, 1];

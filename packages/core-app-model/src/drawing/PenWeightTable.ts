@@ -164,6 +164,38 @@ export function penZoneFromFlags(isCut: boolean, isBeyond: boolean): PenZone {
 }
 
 /**
+ * §FIX-PLAN-CUT-POCHE-OCCLUSION (L-260 B) — canonical layer-name → pen-zone classifier.
+ *
+ * The drawing carries TWO sub-layer conventions, both legitimate and both in the
+ * founder's live drawings:
+ *   • the projector's colon form   — `A-WALL:cut`, `A-FLOR:proj`, `A-ROOF:beyond`
+ *     (EdgeProjectorService `_layerCut()` / `_layerProj()` / `_layerBeyond()`);
+ *   • the symbol builders' hyphen form — `A-DOOR-CUT`, `A-DOOR-PROJ`, `A-GLAZ-CUT`
+ *     (Door/Window plan symbol builders authoring their frame as a section CUT).
+ *
+ * Every consumer that must decide "is this linework CUT, PROJECTION or BEYOND?" resolves
+ * it HERE, so the zone ladder is derived from ONE rule rather than re-typed as a regex at
+ * each call site. (HiddenLineRemoval's v1 `/:cut$/` accepted only the colon form, so a
+ * door frame's CUT jambs were never registered as occluders — the same class of silent
+ * drop L-257 fixed at the layer-creation end.)
+ *
+ * Layers with no zone suffix (`A-WALL`, `A-GRID`, the `projection-visible` /
+ * `projection-hidden` IFC fallback) return `null` — they carry no zone and must NOT be
+ * coerced into one.
+ *
+ * Pure classifier, no I/O — no span (same precedent as `penZoneFromFlags` /
+ * `categoryFromFlags` below, cited in ViewScope.ts).
+ */
+export function penZoneFromLayerName(layerTag: string): PenZone | null {
+    if (!layerTag) return null;
+    if (/[:-]cut\b/i.test(layerTag))    return 'CUT';
+    if (/[:-]beyond\b/i.test(layerTag)) return 'BEYOND';
+    if (/[:-]proj\b/i.test(layerTag))   return 'PROJECTION';
+    if (/[:-]hidden\b/i.test(layerTag)) return 'HIDDEN';
+    return null;
+}
+
+/**
  * Convenience: derive ISO-13567 element category string from the boolean type
  * flags already computed in the PlanViewCanvas render loop.
  */
