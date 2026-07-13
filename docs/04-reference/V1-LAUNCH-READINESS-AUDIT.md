@@ -15,6 +15,18 @@ plan turns these into phased work. **Nothing is dropped.**
 Verdict legend: **OK** (verified working) · **GAP** (works but diverges/incomplete) · **BROKEN** (reproduced
 defect) · **N/V** (needs source verification — file cited).
 
+### L-I — `git commit` COMMITS THE **INDEX**, NOT YOUR ARGUMENTS. IN A SHARED CHECKOUT, THAT SHIPS OTHER PEOPLE'S HALF-DONE WORK.
+
+**I broke `main` with a DOCS commit.** I ran `git add docs/04-reference/ && git commit` — scoped, careful, docs only. But a live agent had **staged** `packages/core-app-model/src/index.ts` (its new barrel exports), and **`git commit` commits the whole index**, not just the paths I passed to `git add`. So my "docs" commit silently carried that file, and `main` spent ~20 minutes **re-exporting `./drawing/DrawingZone.js` with the file absent** — a broken build on the founder's deploy branch.
+
+The agent caught it, said so plainly, and closed it in its own commit. **It also did the right thing on the way out: it split the shared `index.ts` BY HUNK, so the annotations agent's still-unstaged export stayed unstaged.**
+
+**THE RULES, and they are cheap:**
+- In a shared checkout, **`git commit -- <paths>`** (or `git commit <paths>`), **never a bare `git commit` after a scoped `git add`.** The bare form is a snapshot of whatever is staged — including work you have never read.
+- **Check `git status --short` before EVERY commit.** If something is staged that you did not stage, STOP.
+- This is the third face of **L-A** (*a caller and its callee are one change*): the first two shipped **half a change**; this one shipped **someone else's half a change**. All three have the same shape — **a commit is only safe if you can name everything inside it.**
+- After pushing to `main`, VERIFY THE OUTCOME (**L-B**): `git show origin/main:<the file the export points at>`. A barrel that re-exports a missing file is a build break that no local test will catch, because the file is right there in *your* tree.
+
 ---
 
 ## §1 Scope — the "basic modeling must be perfect" surface
