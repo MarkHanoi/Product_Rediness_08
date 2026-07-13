@@ -50,6 +50,20 @@ export interface PlanViewAnnotationRenderOptions {
      * Only used when viewType is section/elevation-like. Defaults to 'x'.
      */
     sectionHAxis?: 'x' | 'z';
+    /**
+     * §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — the sign of the horizontal world
+     * axis, forwarded from `PlanViewCanvas._hWorldSign`.
+     *
+     * PlanViewCanvas projects its GEOMETRY through `_worldPointToCanvasH()`, which
+     * multiplies the chosen world axis by `_hWorldSign` so that a back/right
+     * elevation reads left-to-right the way it is actually drawn. The annotation
+     * renderer did NOT apply it, so on any elevation with `hSign === -1` the
+     * annotations were MIRRORED relative to the geometry they annotate — a dim
+     * would sit on the opposite side of the building from the wall it measures.
+     * Never noticed because elevations carried no auto-dimensions until L-263.
+     * Defaults to +1 (every plan view, and every front/left elevation).
+     */
+    hSign?: 1 | -1;
 }
 
 type ScopeWorld = {
@@ -109,6 +123,16 @@ export const DRAGGABLE_ANNOTATION_TYPES = new Set<string>([
     // inert (not selectable, not draggable) — the founder-reported regression.
     'linear-dim',
 ]);
+
+/**
+ * §FIX-DIMENSION-PICK-CORRIDOR (L-256) — the annotation types drawn by
+ * `_renderLinearDim`, and therefore the types whose pick corridor must follow the
+ * DIMENSION LINE (offset out from the geometry) rather than the reference line.
+ * Both spellings: `'linear-dim'` is what the manual tool and the AutoDimension
+ * executor actually write; `'linear-dimension'` is the historical spelling still
+ * present in older documents.
+ */
+const LINEAR_DIM_TYPES = new Set<string>(['linear-dim', 'linear-dimension']);
 
 /**
  * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — the four grabbable crop/scope handles
@@ -202,6 +226,8 @@ export class PlanViewAnnotationRenderer {
      */
     private _viewType: string = 'plan';
     private _sectionHAxis: 'x' | 'z' = 'x';
+    /** §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — see PlanViewAnnotationRenderOptions.hSign. */
+    private _hSign: 1 | -1 = 1;
 
     /** Returns true when the current view is a vertical cut (section or elevation). */
     private _isSectionLike(): boolean {
@@ -216,8 +242,47 @@ export class PlanViewAnnotationRenderer {
      * depending on _sectionHAxis.
      */
     private _ptH(pt: { x: number; y: number; z: number }): number {
-        if (this._isSectionLike()) return this._sectionHAxis === 'x' ? pt.x : pt.z;
+        if (this._isSectionLike()) {
+            // §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — apply the view's horizontal
+            // SIGN, exactly as PlanViewCanvas._worldPointToCanvasH() does for the
+            // geometry. Without it, annotations on an hSign === -1 elevation are
+            // mirrored relative to the walls they annotate. Plan views are unaffected
+            // (this branch does not run, and hSign is +1 there regardless).
+            return this._hSign * (this._sectionHAxis === 'x' ? pt.x : pt.z);
+        }
         return pt.x;
+    }
+
+    /**
+     * §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — project a model point into the view's
+     * (H, V) canvas space using the SAME axis mapping the render pass uses.
+     *
+     * The hit-test used to project every point as `(pt.x, pt.z)` — the PLAN mapping,
+     * hardcoded — while `_renderLinearDim` projected through `_ptH`/`_ptV`. In a plan
+     * view the two agree by coincidence (H = x, V = z). In an ELEVATION they do not:
+     * the dim was DRAWN at (H = x|z, V = y) and HIT-TESTED at (x, z), so the click
+     * target sat somewhere else entirely — usually off-canvas. That is why a
+     * dimension on an elevation could not be selected. Render and hit-test must share
+     * one projection or selection is a lie about what you can see.
+     */
+    private _project(pt: { x: number; y: number; z: number }): { h: number; v: number } {
+        return { h: this._ptH(pt), v: this._ptV(pt) };
+    }
+
+    /**
+     * §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — set the projection used by BOTH
+     * `render()` and `hitTestAnnotation()`.
+     *
+     * `render()` already set these fields from its options every frame, and the
+     * hit-test runs against whatever the last render left behind. That is fine for a
+     * single canvas but not for split-view (two canvases, one singleton renderer), so
+     * `PlanViewCanvas` now sets the projection explicitly before hit-testing, making
+     * the shared state a deliberate parameter rather than a leftover.
+     */
+    setViewProjection(viewType: string, sectionHAxis: 'x' | 'z', hSign: 1 | -1): void {
+        this._viewType = viewType;
+        this._sectionHAxis = sectionHAxis;
+        this._hSign = hSign;
     }
 
     /**
@@ -250,6 +315,7 @@ export class PlanViewAnnotationRenderer {
         // _ptH() / _ptV() helpers return the correct axis for the current view type.
         if (options.viewType !== undefined) this._viewType = options.viewType;
         if (options.sectionHAxis !== undefined) this._sectionHAxis = options.sectionHAxis;
+        if (options.hSign !== undefined) this._hSign = options.hSign;
 
         // Contract 23 §7 — resolve annotation base pen once per render call.
         // Priority: element override (10000) > view override (9000) > system (0).
@@ -336,6 +402,79 @@ export class PlanViewAnnotationRenderer {
         });
     }
 
+    /**
+     * §FIX-DIMENSION-PICK-CORRIDOR (L-256) — is the click inside the dimension's
+     * VISIBLE pick corridor?
+     *
+     * The founder's acceptance test is "a dimension should be selected as easily as a
+     * door". A door is a filled symbol tens of pixels across; a dimension is a
+     * hairline. Parity therefore needs a corridor around every part of the mark the
+     * user can actually aim at, all of it derived from the SAME geometry the renderer
+     * draws (`_linearDimViewGeometry`) so the pick target can never drift from the
+     * paint:
+     *
+     *   1. the DIMENSION LINE   — the thing you look at and point at;
+     *   2. the EXTENSION LINES  — reference → dim line, the two witness legs;
+     *   3. the LABEL BOX        — the text at the dim line's midpoint, which for a
+     *                             SHORT dim is by far the biggest target it has;
+     *   4. the ENDPOINT HANDLES — a generous radius on the two dim-line ends, which
+     *                             are also the drag grips.
+     *
+     * The reference line is deliberately NOT part of the corridor: it lies on the
+     * wall, and picking there must continue to select the WALL.
+     */
+    private _hitLinearDim(
+        ann: AnnotationElement,
+        sx: number,
+        sy: number,
+        w2s: PlanWorldToScreen,
+        thresholdPx: number,
+    ): boolean {
+        const geo = this._linearDimViewGeometry(ann);
+        if (!geo) return false;
+
+        const sRefA = w2s(geo.refA.h, geo.refA.v);
+        const sRefB = w2s(geo.refB.h, geo.refB.v);
+        const sDimA = w2s(geo.dimA.h, geo.dimA.v);
+        const sDimB = w2s(geo.dimB.h, geo.dimB.v);
+
+        // (4) endpoint handles — the drag grips, generous like every other annotation.
+        for (const s of [sDimA, sDimB]) {
+            if (Math.hypot(sx - s.sx, sy - s.sy) <= thresholdPx + 10) return true;
+        }
+
+        // (1) the dimension line itself.
+        if (distanceToSegment(sx, sy, sDimA.sx, sDimA.sy, sDimB.sx, sDimB.sy) <= thresholdPx + 4) return true;
+
+        // (2) the two extension / witness lines.
+        if (distanceToSegment(sx, sy, sRefA.sx, sRefA.sy, sDimA.sx, sDimA.sy) <= thresholdPx) return true;
+        if (distanceToSegment(sx, sy, sRefB.sx, sRefB.sy, sDimB.sx, sDimB.sy) <= thresholdPx) return true;
+
+        // (3) the label box at the dim line's midpoint. Sized the same way the label
+        // is drawn (`_renderLinearDim`): textPx = max(9, mmToPx(textSizeMm)), centred
+        // and middle-baselined. The half-width is a deterministic proxy for the glyph
+        // run — no canvas measureText here (the hit-test has no 2D context), and a
+        // proxy that is a little generous is exactly what "as easy as a door" wants.
+        const style = mergeStyle(ann.style ?? {});
+        const textPx = Math.max(9, mmToPx(style.textSizeMm));
+        const label = formatDimension(
+            geo.rawDist,
+            ann.parameters.unit ?? 'mm',
+            ann.parameters.prefix,
+            ann.parameters.suffix,
+            ann.parameters.override,
+        );
+        const halfW = Math.max(textPx, (label.length * textPx * 0.6) / 2);
+        const halfH = textPx * 0.75;
+        const midSx = (sDimA.sx + sDimB.sx) * 0.5;
+        const midSy = (sDimA.sy + sDimB.sy) * 0.5;
+        if (Math.abs(sx - midSx) <= halfW + thresholdPx && Math.abs(sy - midSy) <= halfH + thresholdPx) {
+            return true;
+        }
+
+        return false;
+    }
+
     hitTestAnnotation(
         viewId: string,
         sx: number,
@@ -414,16 +553,40 @@ export class PlanViewAnnotationRenderer {
             const pts = ann.geometry2D.modelPoints;
             if (!pts || pts.length === 0) continue;
 
+            // §FIX-DIMENSION-PICK-CORRIDOR (L-256) — a linear dimension is picked on
+            // what the user can SEE: the dimension LINE, its extension lines and its
+            // TEXT — not on the reference line lying under the wall. See
+            // `_linearDimViewGeometry` for the full root cause.
+            if (LINEAR_DIM_TYPES.has(ann.type)) {
+                if (this._hitLinearDim(ann, sx, sy, worldToScreen, thresholdPx)) return ann.id;
+                continue;
+            }
+
             if (SEGMENT_TYPES.has(ann.type) && pts.length >= 2) {
-                // Check all point anchors first (generous radius)
+                // §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — project through the SAME
+                // view-aware mapping `_renderLinearDim` draws with (`_project`), not the
+                // hardcoded plan mapping `(pt.x, pt.z)`. In plan the two are identical
+                // (H = x, V = z), so plan-view picking is bit-for-bit unchanged; in an
+                // ELEVATION the dim is now hit-testable where it is actually drawn.
+                //
+                // The point-based branch below still projects as (x, z) — deliberately.
+                // Point annotations (tags, notes, keynotes) are still RENDERED with the
+                // plan mapping too (`_renderTag` et al. call `w2s(pt.x, pt.z)`), so
+                // hit-test and render remain in agreement. Projecting only the hit-test
+                // would DESYNC them. That the point-annotation RENDER path is plan-only
+                // is a real, separate gap (the same plan-first disease as L-262/L-263/
+                // L-265) — it is not silently half-fixed here.
                 for (const pt of pts) {
-                    const { sx: ax, sy: ay } = worldToScreen(pt.x, pt.z);
+                    const p = this._project(pt);
+                    const { sx: ax, sy: ay } = worldToScreen(p.h, p.v);
                     if (Math.hypot(sx - ax, sy - ay) <= thresholdPx + 10) return ann.id;
                 }
                 // Then check all segments for line annotations
                 for (let k = 0; k + 1 < pts.length; k++) {
-                    const sA = worldToScreen(pts[k].x, pts[k].z);
-                    const sB = worldToScreen(pts[k + 1].x, pts[k + 1].z);
+                    const pA = this._project(pts[k]);
+                    const pB = this._project(pts[k + 1]);
+                    const sA = worldToScreen(pA.h, pA.v);
+                    const sB = worldToScreen(pB.h, pB.v);
                     if (distanceToSegment(sx, sy, sA.sx, sA.sy, sB.sx, sB.sy) <= thresholdPx + 4) return ann.id;
                 }
             } else {
@@ -531,18 +694,47 @@ export class PlanViewAnnotationRenderer {
 
     // ── Linear Dimension ───────────────────────────────────────────────────────
 
-    private _renderLinearDim(
-        ann: AnnotationElement,
-        ctx: CanvasRenderingContext2D,
-        w2s: PlanWorldToScreen,
-        style: AnnotationStyle,
-    ): void {
+    /**
+     * §FIX-DIMENSION-PICK-CORRIDOR (L-256) — the ONE authority for where a linear
+     * dimension actually lies in view (H, V) space.
+     *
+     * WHY THIS EXTRACTION EXISTS — the root cause of "a dimension is very hard to
+     * select". A linear dim is drawn as FOUR things: the REFERENCE line (on the
+     * geometry it measures), two EXTENSION lines, the DIMENSION LINE — offset
+     * perpendicularly from the reference line by `geometry2D.offset` — and the
+     * LABEL at the dim line's midpoint. What the user SEES and aims at is the
+     * dimension line and its text. What `hitTestAnnotation` used to measure was the
+     * distance to the REFERENCE line, i.e. the line lying ON THE WALL.
+     *
+     * For an auto-dimension that offset is 0.5 m (row 0) to 2.0 m (the overall
+     * string) of WORLD standoff (§FIX-AUTODIM-OFFSET-WORLD-SCALE, L-155) — tens to
+     * hundreds of screen pixels at any usable plan zoom. So to select a dimension
+     * you had to click not on the dimension but on the wall it measures, and if a
+     * wall was there you selected the WALL instead. That is the founder's "if it is
+     * possible to select at all, it is fairly hard": it was never a tolerance
+     * problem, it was a hit-test aimed at the wrong line.
+     *
+     * (This also REFUTES the standing hypothesis that annotations were never given a
+     * pick representation. They were — `DRAGGABLE_ANNOTATION_TYPES` + `SEGMENT_TYPES`
+     * + a 16 px corridor, since L-161. The representation existed; it was pointed at
+     * the wrong geometry.)
+     *
+     * Render and pick now both consume this, so they cannot drift apart again.
+     * Returns null for a dimension with no drawable geometry.
+     */
+    private _linearDimViewGeometry(ann: AnnotationElement): {
+        refA: { h: number; v: number };
+        refB: { h: number; v: number };
+        dimA: { h: number; v: number };
+        dimB: { h: number; v: number };
+        rawDist: number;
+    } | null {
         const refs = ann.references;
-        if (refs.length < 2) return;
+        if (refs.length < 2) return null;
 
         const mpA = refs[0].cachedPosition ?? ann.geometry2D.modelPoints?.[0];
         const mpB = refs[1].cachedPosition ?? ann.geometry2D.modelPoints?.[1];
-        if (!mpA || !mpB) return;
+        if (!mpA || !mpB) return null;
 
         // §ANN-ELEV-SEC: Project reference points using view-aware axis helpers.
         // Plan: H=X, V=Z. Section/Elevation: H=sectionHAxis, V=Y (world height).
@@ -571,21 +763,41 @@ export class PlanViewAnnotationRenderer {
             // Diagonal or section/elevation: A→B direction in view space
             const dx = bx - ax, dz = bz - az;
             const len = Math.hypot(dx, dz);
-            if (len < 0.001) return;
+            if (len < 0.001) return null;
             dirX = dx / len; dirZ = dz / len;
             bProjX = bx; bProjZ = bz;
             rawDist = len;
         }
 
-        // Perpendicular side (XZ: rotate dir by 90°)
+        // Perpendicular side (rotate dir by 90° in the view plane)
         const sideX = -dirZ;
         const sideZ =  dirX;
-
         const offset = ann.geometry2D.offset;
 
-        // Dimension line endpoints (offset perpendicularly from reference line)
-        const dAx = ax + sideX * offset, dAz = az + sideZ * offset;
-        const dBx = bProjX + sideX * offset, dBz = bProjZ + sideZ * offset;
+        return {
+            refA: { h: ax,     v: az },
+            refB: { h: bProjX, v: bProjZ },
+            // Dimension line endpoints — offset perpendicularly from the reference line.
+            dimA: { h: ax     + sideX * offset, v: az     + sideZ * offset },
+            dimB: { h: bProjX + sideX * offset, v: bProjZ + sideZ * offset },
+            rawDist,
+        };
+    }
+
+    private _renderLinearDim(
+        ann: AnnotationElement,
+        ctx: CanvasRenderingContext2D,
+        w2s: PlanWorldToScreen,
+        style: AnnotationStyle,
+    ): void {
+        const geo = this._linearDimViewGeometry(ann);
+        if (!geo) return;
+
+        const ax = geo.refA.h, az = geo.refA.v;
+        const bProjX = geo.refB.h, bProjZ = geo.refB.v;
+        const dAx = geo.dimA.h, dAz = geo.dimA.v;
+        const dBx = geo.dimB.h, dBz = geo.dimB.v;
+        const rawDist = geo.rawDist;
 
         const sRefA = w2s(ax, az);
         const sRefB = w2s(bProjX, bProjZ);
