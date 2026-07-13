@@ -69,7 +69,14 @@ describe('buildLayoutModalHtml (A5-modal)', () => {
 
     it('tolerates missing thumbnails array (defaults to empty)', () => {
         const html = buildLayoutModalHtml([card()]);
-        expect(html).toContain('class="alm-thumb"');
+        // §GATE-TEST-ESTATE-NOT-A-CI-GATE (L-247, group D) — triaged product-first: THE
+        // PRODUCT IS RIGHT. This asserted the exact attribute string `class="alm-thumb"`,
+        // which stopped matching the moment DEMO-2 added the Plan/Graph card toggle and the
+        // element became `class="alm-thumb alm-view alm-view--plan"`. The behaviour under
+        // test — a card still renders its thumb container when NO thumbnails are supplied,
+        // so the layout does not collapse — is intact. Pin the CLASS, not the attribute
+        // string, so adding a sibling class never falsely reds this again.
+        expect(html).toMatch(/class="[^"]*\balm-thumb\b[^"]*"/);
         expect((html.match(/class="alm-card"/g) ?? []).length).toBe(1);
     });
 
