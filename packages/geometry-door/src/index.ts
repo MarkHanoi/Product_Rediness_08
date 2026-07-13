@@ -12,6 +12,25 @@ export * from './DoorSystemTypeStore';
 // preview (DoorTool / DoorPlanToolHandler) and geometry (DoorBuilder /
 // DoorPlanSymbolBuilder) resolve identical dims here so preview ≡ placed door.
 export { resolveDoorDimensions, DEFAULT_DOOR_DIMENSIONS, type ResolvedDoorDimensions } from './DoorDimensions';
+// §FIX-DOOR-CREATION-PARITY (L-260 A) — the ONE door config (single source of truth
+// for the architect's door-type + system-type choice) and the ONE `door.create`
+// chokepoint. 3D tool, plan tool, batch generators and AI all resolve here, so a
+// plan-created door and a 3D-created door are byte-identical by construction (C11 §3).
+export {
+    getDoorToolConfig,
+    setDoorToolConfig,
+    resetDoorToolConfig,
+    DEFAULT_DOOR_TOOL_CONFIG,
+    type DoorToolConfig,
+    type DoorTypeChoice,
+} from './DoorToolConfigStore';
+export {
+    buildDoorOpening,
+    buildDoorStoreRecord,
+    type DoorOpeningData,
+    type BuildDoorOpeningInput,
+    type BuildDoorStoreRecordInput,
+} from './DoorOpeningFactory';
 export { DoorBuilder } from './DoorBuilder';
 export { DoorDependencyTracker } from './DoorDependencyTracker';
 export { DoorLevelCleanupHandler } from './DoorLevelCleanupHandler';

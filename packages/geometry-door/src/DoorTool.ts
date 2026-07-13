@@ -12,6 +12,11 @@ import { DoorPlacementFlip } from '@pryzm/core-app-model';
 // §FIX-DOOR-PREVIEW-EXACT (L-127) — single source of truth for door dims so the
 // 3D preview + placed door use the SELECTED type's real width/height/leaf/frame.
 import { resolveDoorDimensions } from './DoorDimensions';
+// §FIX-DOOR-CREATION-PARITY (L-260 A) — the tool no longer OWNS the door config;
+// it reads/writes the ONE DoorToolConfigStore, and commits through the ONE
+// `door.create` chokepoint (buildDoorOpening), exactly as the plan tool does.
+import { getDoorToolConfig, setDoorToolConfig, type DoorTypeChoice } from './DoorToolConfigStore';
+import { buildDoorOpening } from './DoorOpeningFactory';
 
 /**
  * §DOOR-AUDIT-2026 M6 — explicit HUD state machine. The previous
@@ -81,9 +86,19 @@ export class DoorTool {
 
     get active(): boolean { return this._isActive; }
 
-    public doorType: 'single' | 'double' = 'single';
-    /** Pre-selected to Solid Timber — the standard residential/commercial default. */
-    public systemTypeId: string | undefined = 'dt-solid-timber';
+    // §FIX-DOOR-CREATION-PARITY (L-260 A) — `doorType` / `systemTypeId` are NOT tool
+    // state any more. They are ACCESSORS onto the single DoorToolConfigStore, so the
+    // ribbon (which writes `doorTool.doorType = …` / `ToolManager.activateDoor()`) and
+    // the PLAN tool (which reads the DI'd `ctx.doorConfig`) can never disagree about
+    // which door the architect chose. Writing `undefined` is a no-op by construction —
+    // `ToolManager.activateDoor('single')` used to WIPE the chosen system type on the
+    // 3D path only, which is precisely how the two paths diverged.
+    public get doorType(): DoorTypeChoice { return getDoorToolConfig().doorType; }
+    public set doorType(v: DoorTypeChoice) { setDoorToolConfig({ doorType: v }); }
+
+    /** The chosen `DoorSystemType.id` — defaults to Solid Timber (see the config store). */
+    public get systemTypeId(): string { return getDoorToolConfig().systemTypeId; }
+    public set systemTypeId(v: string | undefined) { setDoorToolConfig({ systemTypeId: v }); }
 
     async activate() {
         if (this._isActive) return;
@@ -461,31 +476,20 @@ export class DoorTool {
         // A4: use injected commandManager only — no window global fallback.
         const cm = this.commandManager;
         if (cm) {
-            // B6: Pass rich payload so DoorStore receives full parametric data.
-            // frameDepth matches wall thickness for accurate frame geometry.
-            cm.execute(new CreateWallOpeningCommand({
-                wallId,
-                openingData: {
-                    type: 'door',
-                    doorType: this.doorType,
-                    width,
-                    height: placeDims.height,
-                    offset: offset,
-                    sillHeight: 0,
-                    // §FIX-DOOR-PREVIEW-EXACT — carry the resolved frame/leaf dims so
-                    // the persisted record matches the type (frameDepth still tracks
-                    // wall thickness so the frame spans the full reveal).
-                    frameThickness: placeDims.frameThickness,
-                    leafThickness: placeDims.leafThickness,
-                    frameDepth: wallData.thickness,
-                    systemTypeId: this.systemTypeId,
-                    // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — the SPACE-chosen configuration
-                    // (P6: flows through the command). CreateWallOpeningCommand threads
-                    // these onto the DoorStore record.
-                    hingesSide: this._flip.hingesSide(),
-                    swingDirection: this._flip.swingDirection(),
-                }
-            }));
+            // §FIX-DOOR-CREATION-PARITY (L-260 A) — the opening record is built by the
+            // ONE `door.create` chokepoint from the ONE config (C11 §3). The plan tool
+            // calls the SAME function with the SAME config, so the two stored records
+            // are byte-identical. Nothing about the door is resolved here any more —
+            // the tool contributes only the host wall, the offset and the SPACE flip.
+            const openingData = buildDoorOpening({
+                wallThickness:  wallData.thickness,
+                offset,
+                // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — the SPACE-chosen configuration
+                // (P6: flows through the command).
+                hingesSide:     this._flip.hingesSide(),
+                swingDirection: this._flip.swingDirection(),
+            });
+            cm.execute(new CreateWallOpeningCommand({ wallId, openingData }));
         }
 
         this.clearPreview();

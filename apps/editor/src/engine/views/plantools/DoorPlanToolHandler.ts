@@ -14,6 +14,14 @@ import { DoorPlacementFlip } from '@pryzm/core-app-model';
 // resolve the SELECTED door type's real width/height/frame/leaf here so the
 // preview is dimensionally identical to the placed door — never a default 1 m box.
 import { resolveDoorDimensions } from '@pryzm/geometry-door';
+// §FIX-DOOR-CREATION-PARITY (L-260 A) — the plan tool no longer resolves the door
+// itself. It reads the architect's choice from the INJECTED `ctx.doorConfig` (the ONE
+// DoorToolConfigStore, mirroring the L-243 stair DI) and commits through the ONE
+// `door.create` chokepoint, `buildDoorOpening`, which the 3D DoorTool also calls.
+// This kills BOTH divergences: the `window.doorTool` global read (a P4 violation) and
+// the `activeOpeningTool.doorType` read — `activeOpeningTool` resolves to the WINDOW
+// tool, which has no `doorType`, so EVERY plan-placed door silently became SINGLE.
+import { buildDoorOpening, getDoorToolConfig, type DoorToolConfig } from '@pryzm/geometry-door';
 
 const PRYZM_PREVIEW_PURPLE = '#6600ff';
 const PRYZM_PREVIEW_PURPLE_FILL = 'rgba(102,0,255,0.16)';
@@ -26,6 +34,17 @@ export class DoorPlanToolHandler implements PlanToolHandler {
     // Advanced from onKeyDown (overlay-routed SPACE), read on commit into the
     // opening payload and in the swing-arc preview so preview ≡ placed door.
     private readonly _flip = new DoorPlacementFlip();
+
+    /**
+     * §FIX-DOOR-CREATION-PARITY (L-260 A) — the architect's door choice, resolved
+     * ONCE below the tools. Prefers the DI'd `ctx.doorConfig` (injected by the plan
+     * overlays from `getDoorToolConfig()`); falls back to the store directly so a
+     * handler constructed without the context still reads the SAME truth as the 3D
+     * tool. Never a `window.*` read (P4).
+     */
+    private _doorConfig(): DoorToolConfig {
+        return this._ctx?.doorConfig ?? getDoorToolConfig();
+    }
 
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
@@ -111,66 +130,40 @@ export class DoorPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        // §DOOR-AUDIT-2026 (FK-VALIDATE): door type + system type read from the
-        // injected active opening tool. Fall back to defaults rather than crashing
-        // when the tool object is absent (e.g. plan tool used without 3D pre-arm).
-        const ot           = c.activeOpeningTool ?? {};
-        const doorType     = (ot.doorType ?? 'single') as 'single' | 'double';
-        // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — read the DOOR tool's live systemTypeId
-        // directly. Now that window.windowTool is exposed, `activeOpeningTool` resolves
-        // via `window.windowTool ?? window.doorTool` (window FIRST), so reading
-        // ot.systemTypeId for a door would surface a WINDOW type id. Bind to the door
-        // tool here so a plan-placed door keeps its own type/material; the existing
-        // 'dt-solid-timber' default still guarantees a valid door type.
-        const systemTypeId =
-            (window.doorTool as { systemTypeId?: string } | undefined)?.systemTypeId
-            ?? 'dt-solid-timber';
-
-        // §FIX-DOOR-PREVIEW-EXACT (L-127) — resolve the SELECTED type's REAL dims via
-        // the shared single source of truth (identical to the preview + placed door).
-        const dims       = resolveDoorDimensions(systemTypeId, doorType);
+        // §FIX-DOOR-CREATION-PARITY (L-260 A) — resolve the door ONCE, at the SAME
+        // chokepoint the 3D DoorTool uses, from the SAME injected config (C11 §3).
+        // The width must be known BEFORE the offset (the offset is the LEFT EDGE of
+        // the span), so the opening is built in two steps against the same config.
+        const cfg        = this._doorConfig();
+        const doorType   = cfg.doorType;
+        const dims       = resolveDoorDimensions(cfg.systemTypeId, doorType);
         const DOOR_WIDTH = dims.width;
 
         const offset = c.viewPlane.isVertical
             ? this._computeWallOffsetInVerticalView(pt.worldX, wallId, DOOR_WIDTH, c, wallStore)
             : this._computeWallOffset(world3D.x, world3D.z, wallId, DOOR_WIDTH, wallStore);
 
-        console.log(`[DoorPlanToolHandler] Door placement — wallId=${wallId} type=${doorType} systemTypeId=${systemTypeId} width=${DOOR_WIDTH.toFixed(3)}m height=${dims.height.toFixed(3)}m offset=${offset.toFixed(3)}m`);
+        // §FEAT-DOOR-FLIP-ON-SPACE (L-92): the SPACE-chosen swing/hand flows through
+        // the command (P6), never a post-hoc store write.
+        // id + elementId are pre-generated inside the chokepoint so the PRYZM3 Immer
+        // store and the legacy WallStore share the same stable IDs (undo replay).
+        const _openingData = buildDoorOpening({
+            config:         cfg,
+            wallThickness:  Number(targetWall.thickness ?? 0.2),
+            offset,
+            hingesSide:     this._flip.hingesSide(),
+            swingDirection: this._flip.swingDirection(),
+        });
+
+        console.log(`[DoorPlanToolHandler] §MAT Door placement — wallId=${wallId} type=${doorType} systemTypeId=${_openingData.systemTypeId} width=${_openingData.width.toFixed(3)}m height=${_openingData.height.toFixed(3)}m offset=${offset.toFixed(3)}m`);
 
         // §P2.3 (IMPL-PLAN-2026-05-17): bus-only dispatch — single pipeline path.
         // WallOpeningLegacyAdapterHandler (plugins/wall) handles wall.opening.create:
         //   → PRYZM3 Immer store write (if wall in PRYZM3 store)
         //   → CommandEventBridge emits wall.opening.created
-        //   → initTools.ts bridge calls legacyWallStore.addOpening() → mesh rebuild.
-        // id + elementId are pre-generated here so PRYZM3 store and legacy store share
-        // the same stable IDs (avoids mismatch on undo replay).
-        const _openingId  = crypto.randomUUID();
-        const _elementId  = crypto.randomUUID();
-        // §FEAT-DOOR-FLIP-ON-SPACE (L-92): carry the SPACE-chosen swing/hand through
-        // to the committed door (P6 — configuration flows through the command, not a
-        // post-hoc store write). The initTools.ts wall.opening.created bridge threads
-        // these into doorStore.add() so DoorPlanSymbolBuilder draws the arc + leaf at
-        // the previewed configuration.
-        const _openingData = {
-            id:           _openingId,
-            elementId:    _elementId,
-            type:         'door',
-            offset,
-            width:        DOOR_WIDTH,
-            // §FIX-DOOR-PREVIEW-EXACT (L-127) — exact selected-type dims (was 2.1).
-            height:       dims.height,
-            sillHeight:   0,
-            // Carry the resolved frame/leaf dims so the persisted door record and
-            // its plan symbol reflect the selected type, not the schema defaults.
-            frameThickness: dims.frameThickness,
-            frameDepth:     dims.frameDepth,
-            leafThickness:  dims.leafThickness,
-            doorType,
-            systemTypeId,
-            hingesSide:     this._flip.hingesSide(),
-            swingDirection: this._flip.swingDirection(),
-        } as const;
-
+        //   → initTools.ts bridge calls legacyWallStore.addOpening() + doorStore.add()
+        //     via the SAME buildDoorStoreRecord() chokepoint CreateWallOpeningCommand
+        //     uses, so the persisted DoorStore record is identical to the 3D path's.
         // §P4.1: ctx.runtime is now typed — no unsafe (window as any) cast needed.
         const _runtime = c.runtime ?? window.runtime;
         _runtime?.bus?.executeCommand('wall.opening.create', { wallId, openingData: _openingData })
@@ -202,15 +195,16 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         const { sx, sy } = planCanvas.worldToScreen(this._doorCursorPoint.worldX, this._doorCursorPoint.worldZ);
         const angle = this._getNearestWallScreenAngle(this._doorCursorPoint.worldX, this._doorCursorPoint.worldZ, c);
 
-        // §DOOR-AUDIT-2026 (DI cleanup): doorType from injected activeOpeningTool.
-        const doorType  = (c.activeOpeningTool?.doorType ?? 'single') as 'single' | 'double';
+        // §FIX-DOOR-CREATION-PARITY (L-260 A) — the preview reads the SAME injected
+        // config the commit does (was: `activeOpeningTool.doorType`, which resolved to
+        // the WINDOW tool → the preview always drew a SINGLE leaf, and a `window.doorTool`
+        // global read for the type — a P4 violation).
         // §FIX-DOOR-PREVIEW-EXACT (L-127) — dimension the preview from the SELECTED
         // door type via the shared resolver (identical to what onClick places), so
         // the preview footprint / swing arc / frame equal the placed door exactly.
-        const systemTypeId =
-            (window.doorTool as { systemTypeId?: string } | undefined)?.systemTypeId
-            ?? 'dt-solid-timber';
-        const dims = resolveDoorDimensions(systemTypeId, doorType);
+        const cfg       = this._doorConfig();
+        const doorType  = cfg.doorType;
+        const dims      = resolveDoorDimensions(cfg.systemTypeId, doorType);
         const totalWidthPx = dims.width * ppu;
         const halfPx = totalWidthPx / 2;
         // Frame member face width (px) — used to inset the leaf hinge so the swing

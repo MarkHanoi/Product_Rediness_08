@@ -17,6 +17,7 @@ import type { ViewPlane }         from '@pryzm/core-app-model';
 import type { CommandManager }    from '@pryzm/command-registry';
 import type { WallStore } from '@pryzm/geometry-wall';
 import type { StairToolConfig } from '@pryzm/geometry-stair';
+import type { DoorToolConfig } from '@pryzm/geometry-door';
 import type { PryzmRuntime }     from '@pryzm/runtime-composer/types';
 
 /**
@@ -100,6 +101,34 @@ export interface PlanToolDrawContext {
      * This is the `TODO(STAIR-PLAN-DI)` the handler itself asked for, discharged.
      */
     readonly stairConfig?: StairToolConfig;
+
+    /**
+     * §FIX-DOOR-CREATION-PARITY (L-260 A) — the architect's resolved DOOR configuration,
+     * injected by the overlay from the single `DoorToolConfigStore` chokepoint in
+     * `@pryzm/geometry-door`.
+     *
+     * THE SEVENTH INSTANCE OF THE SAME DEFECT, AND THE SAME CURE.
+     *
+     * The founder: *"The doors are rendering different — one was created on PLAN VIEW
+     * (split mode), the other in 3D — why?"* Because the two creation paths resolved the
+     * door's configuration from different places, so a plan-drawn door and a 3D-drawn door
+     * of the "same" type were not the same object.
+     *
+     * That is C11's signature failure, and this audit has now hit it seven times:
+     *   L-239 (wall layers) · L-240 (floor-finish inner face) · L-243 (stair config, the
+     *   slot directly above) · L-246 (the plan cut) · L-251 (the mitre) · L-255 (the
+     *   floor-finish elevation modal) · and now the door.
+     *
+     * The cure is always the same shape, and it is the one L-243 established: DO NOT teach
+     * the plan tool to imitate the 3D tool — that leaves two paths that must be kept in
+     * step by hand, and they never are. Resolve the config ONCE, BELOW the tools, at the
+     * creation chokepoint, and let the 3D tool, the plan tool, batch generators and the AI
+     * all inherit the identical truth.
+     *
+     * Optional so a handler constructed without a context still falls back to
+     * `getDoorToolConfig()` — the SAME store, never a `window.*` global (P4).
+     */
+    readonly doorConfig?: DoorToolConfig;
 }
 
 /**
