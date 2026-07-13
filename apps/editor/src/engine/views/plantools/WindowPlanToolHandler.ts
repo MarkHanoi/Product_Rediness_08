@@ -1,4 +1,10 @@
 import type { WallData, WallStore } from '@pryzm/geometry-wall';
+// §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the two chokepoints this file
+// must resolve through, and the ONLY legitimate source of a window's type or size:
+//   getWindowToolConfig()      — WHICH window the architect chose (WindowTool reads it too)
+//   resolveWindowDimensions()  — that window's REAL dimensions (serves the pre-creation
+//                                case: pass {systemTypeId, windowType}, no width needed)
+import { getWindowToolConfig, resolveWindowDimensions } from '@pryzm/geometry-window';
 import { canvasHitToWorld3D } from '@pryzm/core-app-model';
 // §P2.3 (IMPL-PLAN-2026-05-17): CreateWallOpeningCommand + window.commandManager bridge (P4.4).
 // Window placement is now bus-only via WallOpeningLegacyAdapterHandler (plugins/wall).
@@ -76,27 +82,51 @@ export class WindowPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        // §WINDOW-AUDIT-2026 (DI cleanup): windowType + system from injected tool.
-        const ot           = c.activeOpeningTool ?? {};
-        const windowType   = (ot.windowType ?? 'single') as 'single' | 'double';
-        const WINDOW_WIDTH = windowType === 'double' ? 2.4 : 1.2;
-        // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — read the WINDOW tool's live
-        // systemTypeId directly. `activeOpeningTool` resolves via
-        // `window.windowTool ?? window.doorTool`, so binding to the window tool here
-        // keeps the chosen window type/material unambiguous (and recovers it even if
-        // activeOpeningTool surfaced a different opening tool). Without a resolved
-        // type the opening carries none and the 3D builder falls back to the
-        // schema-default grey frame.
-        const systemTypeId =
-            (window.windowTool as { systemTypeId?: string } | undefined)?.systemTypeId
-            ?? ot.systemTypeId ?? undefined;
-        console.log(`[WindowPlanToolHandler] §MAT systemTypeId=${systemTypeId ?? '∅'} (windowTool=${(window.windowTool as { systemTypeId?: string } | undefined)?.systemTypeId ?? '∅'})`);
+        // ── §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) ────────────────────
+        //
+        // THIS BLOCK USED TO BE THE BUG. It read the window type off a `window.*`
+        // global (P4) with its own fallback chain, and then INVENTED the dimensions:
+        //
+        //     const WINDOW_WIDTH = windowType === 'double' ? 2.4 : 1.2;   // ← literals
+        //     width: WINDOW_WIDTH, height: 1.2, sillHeight: 1.0,          // ← literals
+        //
+        // Meanwhile `WindowTool` (3D) resolved the SAME window from its own defaults
+        // and a DIFFERENT systemTypeId. So a window drawn in 3D was a TIMBER CASEMENT
+        // and the "same" window drawn in plan was a SINGLE PANE — a different type,
+        // therefore different column/row ratios (a mullion, or none), a different
+        // frame finish, and a different plan symbol. THAT is the founder's "window
+        // parity not correct", and it is C11's signature failure for the EIGHTH time
+        // (L-239 / 240 / 243 / 246 / 251 / 255 / 260A): ONE ELEMENT, TWO CREATION
+        // PATHS, AND THE PLAN PATH SILENTLY DROPS WHAT THE 3D PATH RESOLVES.
+        //
+        // THE CURE IS L-243's, APPLIED AGAIN — and it is deliberately NOT "teach the
+        // plan tool to imitate the 3D tool", because that leaves two paths that must
+        // be kept in step BY HAND, and they never are. Instead:
+        //
+        //   1. WHICH window did the architect choose?  → `getWindowToolConfig()`, the
+        //      ONE chokepoint (WindowToolConfigStore), which `WindowTool` also reads.
+        //      Both paths therefore agree on the TYPE by construction.
+        //   2. What are that window's real dimensions? → `resolveWindowDimensions()`,
+        //      the ONE resolver, which serves the PRE-CREATION case explicitly: pass
+        //      `{ systemTypeId, windowType }` with no width, and it falls through to
+        //      the TYPE's standard opening, then to DEFAULT_WINDOW_DIMENSIONS.
+        //
+        // Parity BY CONSTRUCTION, not by convention (C11 §3). NO LITERAL DIMENSION
+        // MAY APPEAR IN THIS FILE — if you find yourself typing a number here, you
+        // are re-introducing the bug at a new site.
+        const _toolCfg     = getWindowToolConfig();
+        const windowType   = _toolCfg.windowType;
+        const systemTypeId = _toolCfg.systemTypeId;
+        const _dims        = resolveWindowDimensions({ systemTypeId, windowType });
+        const WINDOW_WIDTH = _dims.width;
+
+        console.log(`[WindowPlanToolHandler] §MAT systemTypeId=${systemTypeId} (resolved via WindowToolConfigStore — the same chokepoint WindowTool reads)`);
 
         const offset = c.viewPlane.isVertical
             ? this._computeWallOffsetInVerticalView(pt.worldX, wallId, WINDOW_WIDTH, c, wallStore)
             : this._computeWallOffset(world3D.x, world3D.z, wallId, WINDOW_WIDTH, wallStore);
 
-        console.log(`[WindowPlanToolHandler] Window placement — wallId=${wallId} type=${windowType} width=${WINDOW_WIDTH}m offset=${offset.toFixed(3)}m`);
+        console.log(`[WindowPlanToolHandler] Window placement — wallId=${wallId} type=${windowType} width=${WINDOW_WIDTH.toFixed(3)}m height=${_dims.height.toFixed(3)}m sill=${_dims.sillHeight.toFixed(3)}m offset=${offset.toFixed(3)}m (all RESOLVED — no literals)`);
 
         // §P2.3 (IMPL-PLAN-2026-05-17): bus-only dispatch — single pipeline path.
         // WallOpeningLegacyAdapterHandler (plugins/wall) handles wall.opening.create:
@@ -113,8 +143,8 @@ export class WindowPlanToolHandler implements PlanToolHandler {
             type:         'window',
             offset,
             width:        WINDOW_WIDTH,
-            height:       1.2,
-            sillHeight:   1.0,
+            height:       _dims.height,      // §L-266 was a literal 1.2 — now resolved from the TYPE
+            sillHeight:   _dims.sillHeight,  // §L-266 was a literal 1.0 — now resolved from the TYPE
             windowType,
             systemTypeId,
         } as const;
@@ -149,16 +179,24 @@ export class WindowPlanToolHandler implements PlanToolHandler {
         const { sx, sy } = planCanvas.worldToScreen(this._windowCursorPoint.worldX, this._windowCursorPoint.worldZ);
         const angle = this._getNearestWallScreenAngle(this._windowCursorPoint.worldX, this._windowCursorPoint.worldZ, c);
 
-        // §WINDOW-AUDIT-2026 (DI cleanup): windowType from injected activeOpeningTool.
-        const windowType   = (c.activeOpeningTool?.windowType ?? 'single') as 'single' | 'double';
-        const winWidthM    = windowType === 'double' ? 2.4 : 1.2;
-        const winWidthPx   = winWidthM * ppu;
+        // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — THE PREVIEW MUST RESOLVE
+        // FROM THE SAME CHOKEPOINT AS THE COMMIT, OR IT LIES TO THE USER.
+        //
+        // This block used to re-derive the geometry from its OWN literals (2.4 / 1.2 /
+        // 1.0), independently of both the commit path AND the 3D tool — a THIRD source
+        // of truth for one window. "Preview ≠ build" is a defect this project has
+        // already paid for; the dashed rectangle must be the window the click produces.
+        // Same two calls as the commit path, in the same order. NO LITERALS.
+        const _cfg         = getWindowToolConfig();
+        const windowType   = _cfg.windowType;
+        const _pdims       = resolveWindowDimensions({ systemTypeId: _cfg.systemTypeId, windowType });
+        const winWidthPx   = _pdims.width * ppu;
         const wallThickPx  = Math.max(4, 0.2 * ppu);
         const hw = winWidthPx / 2;
 
         if (c.viewPlane.isVertical) {
-            const sillPx = 1.0 * ppu;
-            const heightPx = 1.2 * ppu;
+            const sillPx = _pdims.sillHeight * ppu;
+            const heightPx = _pdims.height * ppu;
             const yBottom = -sillPx;
             const yTop = yBottom - heightPx;
             ctx.save();

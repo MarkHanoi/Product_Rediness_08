@@ -16,6 +16,27 @@ export {
     type ResolvedWindowDimensions,
     type WindowDimensionSource,
 } from './WindowDimensions';
+
+// ── §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) ────────────────────────
+// THE ONE ANSWER to "which window did the architect choose?" (mirrors the door's
+// DoorToolConfigStore, L-260 A) and THE ONE `window.create` chokepoint that both
+// creation paths commit through, so a plan-created window and a 3D-created window
+// are byte-identical records — and therefore the identical symbol (C11 §3, C15).
+export {
+    getWindowToolConfig,
+    setWindowToolConfig,
+    resetWindowToolConfig,
+    DEFAULT_WINDOW_TOOL_CONFIG,
+    type WindowToolConfig,
+    type WindowTypeChoice,
+} from './WindowToolConfigStore';
+export {
+    buildWindowOpening,
+    buildWindowStoreRecord,
+    type WindowOpeningData,
+    type BuildWindowOpeningInput,
+    type BuildWindowStoreRecordInput,
+} from './WindowOpeningFactory';
 export { WindowBuilder } from './WindowBuilder';
 export { WindowDependencyTracker } from './WindowDependencyTracker';
 export { WindowLevelCleanupHandler } from './WindowLevelCleanupHandler';

@@ -3,6 +3,12 @@ import * as OBC from '@thatopen/components';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
 import { WallStore, WallFragmentBuilder, wallOccupancyStore } from '@pryzm/geometry-wall';
 import { PREVIEW_COLOR } from '@pryzm/core-app-model';
+// §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the 3D window tool no longer
+// owns any window state: it reads/writes the ONE WindowToolConfigStore and commits
+// through the ONE `window.create` chokepoint, exactly as DoorTool does (L-260 A).
+import { getWindowToolConfig, setWindowToolConfig, type WindowTypeChoice } from './WindowToolConfigStore';
+import { buildWindowOpening } from './WindowOpeningFactory';
+import { resolveWindowDimensions } from './WindowDimensions';
 
 /**
  * §WIN-AUDIT-2026 M6 — explicit HUD state machine. Mirrors the door tool.
@@ -30,12 +36,23 @@ export class WindowTool {
     /** §M6 — current HUD state. */
     private _hudState: WindowHudState = 'idle';
 
-    // Default window dimensions
-    private readonly DEFAULT_SINGLE_WIDTH = 1.2;
-    private readonly DEFAULT_DOUBLE_WIDTH = 2.4;
-    private readonly DEFAULT_HEIGHT = 1.2;
-    private readonly DEFAULT_SILL_HEIGHT = 1.0;
+    // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the DEFAULT_SINGLE_WIDTH /
+    // DEFAULT_DOUBLE_WIDTH / DEFAULT_HEIGHT / DEFAULT_SILL_HEIGHT private fields are
+    // GONE. They were one of TWO independent truths for the window's structural
+    // opening (the other being the bare literals 1.2 / 2.4 / 1.2 / 1.0 inside
+    // WindowPlanToolHandler), which is exactly how a window drawn in plan became a
+    // different object from the "same" window drawn in 3D. Every dimension now comes
+    // from `resolveWindowDimensions()` — record → system type → canonical default.
     private readonly DEFAULT_THICKNESS_OFFSET = 0.02;
+
+    /** The window's real dimensions for the CURRENT tool choice (pre-creation case). */
+    private _dims() {
+        const cfg = getWindowToolConfig();
+        return resolveWindowDimensions({
+            systemTypeId: cfg.systemTypeId,
+            windowType:   cfg.windowType,
+        });
+    }
 
     // A3: wall object cache — built once at activate(), kept in sync via wallStore subscription.
     // Eliminates the O(n) scene.traverse() that previously ran on every pointermove event.
@@ -64,9 +81,24 @@ export class WindowTool {
 
     get active(): boolean { return this._isActive; }
 
-    public windowType: 'single' | 'double' = 'single';
+    // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — `windowType` and
+    // `systemTypeId` are NOT tool state any more. They are ACCESSORS onto the single
+    // `WindowToolConfigStore`, so the 3D tool, the plan tool, the batch generators and
+    // the AI planes cannot hold different answers to "which window did the architect
+    // choose?". This mirrors DoorTool (L-260 A) exactly.
+    //
+    // LOAD-BEARING SIDE-EFFECT: `WindowPlanToolHandler` reads
+    // `window.windowTool?.systemTypeId` (a P4 global). Because that global is THIS
+    // object, the getter below now routes that read into the ONE config store — so the
+    // plan path inherits the architect's real choice instead of falling through to the
+    // `initTools` bridge's invented `'wt-single-pane'` fallback. The P4 violation still
+    // wants deleting, but it can no longer cause a PARITY divergence.
+    public get windowType(): WindowTypeChoice { return getWindowToolConfig().windowType; }
+    public set windowType(v: WindowTypeChoice) { setWindowToolConfig({ windowType: v }); }
+
     /** Pre-selected to Timber Casement — the standard residential default. */
-    public systemTypeId: string | undefined = 'wt-timber-casement';
+    public get systemTypeId(): string { return getWindowToolConfig().systemTypeId; }
+    public set systemTypeId(v: string | undefined) { setWindowToolConfig({ systemTypeId: v }); }
 
     async activate() {
         if (this._isActive) return;
@@ -175,7 +207,7 @@ export class WindowTool {
             const wallDirN = wallDir.clone().normalize();
             const hitDir = new THREE.Vector3().subVectors(hit.point, start);
             const rawOffset = hitDir.dot(wallDirN);
-            const width = this.windowType === 'double' ? this.DEFAULT_DOUBLE_WIDTH : this.DEFAULT_SINGLE_WIDTH;
+            const width = this._dims().width;
             const halfW = width / 2;
             if (rawOffset < halfW || rawOffset > wallLength - halfW) {
                 return { ok: false, state: 'out-of-range' };
@@ -236,9 +268,11 @@ export class WindowTool {
             return;
         }
 
-        // Get and validate dimensions
-        const width = this.windowType === 'double' ? this.DEFAULT_DOUBLE_WIDTH : this.DEFAULT_SINGLE_WIDTH;
-        const height = this.DEFAULT_HEIGHT;
+        // Get and validate dimensions — §L-266: the PREVIEW resolves through the SAME
+        // authority the committed window does, so preview ≡ placed window (L-127).
+        const _d = this._dims();
+        const width = _d.width;
+        const height = _d.height;
         const thickness = wallData.thickness; // use semantic data, not userData (may be stale)
 
         // Validate all dimensions are finite numbers
@@ -287,7 +321,7 @@ export class WindowTool {
 
         this.previewWindow.position.set(
             previewCenter.x,
-            elevation + this.DEFAULT_SILL_HEIGHT + height / 2,
+            elevation + _d.sillHeight + height / 2,
             previewCenter.z
         );
 
@@ -364,10 +398,10 @@ export class WindowTool {
 
         const centreAlong = hitDir.dot(wallDirNormalized);
 
-        // Get and validate window dimensions
-        const width = this.windowType === 'double' ? this.DEFAULT_DOUBLE_WIDTH : this.DEFAULT_SINGLE_WIDTH;
-        const height = this.DEFAULT_HEIGHT;
-        const sillHeight = this.DEFAULT_SILL_HEIGHT;
+        // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — dimensions come from the ONE
+        // authority (record → system type → canonical). The width must be known BEFORE the
+        // offset, because the offset is the LEFT EDGE of the span.
+        const { width, height, sillHeight } = this._dims();
 
         // Ensure all dimensions are finite numbers
         if (!isFinite(width) || !isFinite(height) || !isFinite(sillHeight)) {
@@ -404,21 +438,16 @@ export class WindowTool {
         // A4: use injected commandManager only — no window global fallback.
         const cm = this.commandManager;
         if (cm) {
-            // B6: Pass rich payload so WindowStore receives full parametric data.
-            // frameDepth matches wall thickness for accurate frame geometry.
-            cm.execute(new CreateWallOpeningCommand({
-                wallId,
-                openingData: {
-                    type: 'window',
-                    windowType: this.windowType,
-                    width: width,
-                    height: height,
-                    offset: offset,
-                    sillHeight: sillHeight,
-                    frameDepth: wallData.thickness,
-                    systemTypeId: this.systemTypeId,
-                }
-            }));
+            // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the opening record is
+            // built by the ONE `window.create` chokepoint from the ONE config (C11 §3).
+            // Nothing about the window is resolved here any more: the tool contributes
+            // only the host wall and the offset. The plan tool's commit converges on the
+            // same record via `buildWindowStoreRecord()`, so the two are byte-identical.
+            const openingData = buildWindowOpening({
+                wallThickness: wallData.thickness,
+                offset,
+            });
+            cm.execute(new CreateWallOpeningCommand({ wallId, openingData }));
         }
 
         this.clearPreview();

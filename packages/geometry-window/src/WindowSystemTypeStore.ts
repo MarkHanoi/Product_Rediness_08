@@ -45,14 +45,45 @@ export interface WindowFinishLayer {
  * All values in metres; every field optional (an omitted field falls through).
  */
 export interface WindowTypeDimensions {
+    /**
+     * §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the STRUCTURAL OPENING
+     * dimensions. Mirrors `DoorSystemType.dimensions.width` / `.doubleWidth` /
+     * `.height`, and exists for the same reason: before L-266 these lived as
+     * `DEFAULT_SINGLE_WIDTH` / `DEFAULT_DOUBLE_WIDTH` / `DEFAULT_HEIGHT` /
+     * `DEFAULT_SILL_HEIGHT` private fields on `WindowTool` AND, independently, as the
+     * bare literals `1.2` / `2.4` / `1.2` / `1.0` inside `WindowPlanToolHandler`. Two
+     * truths for one dimension is precisely L-127, and it is what made a window drawn
+     * in plan a different object from the "same" window drawn in 3D.
+     */
+    /** Single-leaf structural opening width. */
+    width?: number;
+    /** Double-leaf structural opening width. */
+    doubleWidth?: number;
+    /** Window head height (sill → head). */
+    height?: number;
+    /** Sill height above the level. */
+    sillHeight?: number;
     /** Frame member face width — how far the frame reaches into the opening. */
     frameThickness?: number;
     /** Frame member depth across the wall reveal. */
     frameDepth?: number;
+    /**
+     * §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — SASH member face width.
+     * The openable leaf frame captured inside the outer frame. The founder's LOD-300
+     * reference draws the window as a REAL multi-line profile — outer frame, SASH,
+     * mullion/meeting-stile, glazing — and the sash was the one member neither the
+     * record nor the type could name, so the symbol could not draw it without
+     * inventing an offset (which L-127 forbids).
+     */
+    sashThickness?: number;
+    /** SASH member depth across the reveal — the sash sits proud of the glazing plane. */
+    sashDepth?: number;
     /** Glazing unit thickness (e.g. 0.024 for a 4-16-4 sealed unit). */
     glazingThickness?: number;
     /** Jamb rebate / check depth — the pocket that captures the glazing. */
     rebateDepth?: number;
+    /** Mullion / meeting-stile member face width (the centre post between panes). */
+    mullionThickness?: number;
     /** Sill board projection beyond the wall face. */
     sillDepth?: number;
     /** Sill board thickness (vertical). */
