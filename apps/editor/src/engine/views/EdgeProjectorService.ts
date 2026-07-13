@@ -139,6 +139,70 @@ const ELEMENT_TYPE_TO_PROJECTION_LAYER: Readonly<Record<string, string>> = {
 /** Layer name used for element types not covered by ELEMENT_TYPE_TO_PROJECTION_LAYER. */
 const FALLBACK_NATIVE_LAYER = 'projection-visible';
 
+/**
+ * §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — one CUT-zone section of ONE solid mesh,
+ * carrying the construction-layer identity of the mesh it was cut from.
+ *
+ * A layered wall is built as N separate layer meshes (WallFragmentBuilder /
+ * LayeredWallOpeningBuilder, each stamped `layerIndex` / `layerFunction` /
+ * `layerName` from the wall's STORED `layers` array). Cutting each mesh at the view
+ * plane therefore yields, for free, the N closed regions of the wall's build-up —
+ * one ring per layer, tiling the wall body, voided at every opening BY CONSTRUCTION
+ * (L-246). The ONLY thing that was missing is that the identity of each ring was
+ * being thrown away at the merge, so the poché pass could not tone them apart.
+ *
+ * `pocheLayer` is that identity, and it is the ONLY thing the renderer needs: the
+ * COLOUR is still resolved from the view intent (C09/P7) for (wall × cut); the layer
+ * function merely spreads that one colour into the grey-scale (see
+ * `resolveWallLayerPocheFill` in the pen/graphics table). L-127 dimensional truth:
+ * regions and tones derive from the wall's real stored layers — never a literal.
+ */
+/**
+ * One cached drawing-space projection emission.
+ *
+ * §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — the cache used to be keyed by layer name
+ * alone (`Map<layerName, BufferGeometry>`). A layered wall now emits ONE `:cut`
+ * LineSegments PER CONSTRUCTION LAYER, so several emissions share a target layer
+ * name: keyed by name, the last ring would evict its siblings and a cache HIT would
+ * draw a DIFFERENT wall from a cache MISS (fewer poché regions). The key is now the
+ * emission; the layer name and the poché identity travel in the value, so a replayed
+ * element is byte-identical to a freshly projected one.
+ */
+interface CachedProjectionLayer {
+    readonly layerName: string;
+    readonly geo: THREE.BufferGeometry;
+    readonly userData?: Readonly<Record<string, unknown>>;
+}
+
+interface CutSectionPart {
+    readonly geo: THREE.BufferGeometry;
+    readonly pocheLayer?: {
+        readonly layerIndex: number;
+        readonly layerFunction?: string;
+        readonly layerName?: string;
+    };
+}
+
+/**
+ * The construction-layer identity of a mesh, read from the userData every layered-wall
+ * builder already stamps. Returns undefined for a plain (single-volume) solid — which
+ * is exactly the "ONE uniform fill" case.
+ */
+function readMeshPocheLayer(mesh: THREE.Mesh): CutSectionPart['pocheLayer'] | undefined {
+    const ud = mesh.userData ?? {};
+    const idx = typeof ud.layerIndex === 'number'
+        ? ud.layerIndex as number
+        : (Array.isArray(ud.layerIndices) && typeof ud.layerIndices[0] === 'number'
+            ? ud.layerIndices[0] as number     // §PERF-PHASE2 same-colour merged layers
+            : undefined);
+    if (idx === undefined) return undefined;
+    return {
+        layerIndex: idx,
+        layerFunction: typeof ud.layerFunction === 'string' ? ud.layerFunction as string : undefined,
+        layerName: typeof ud.layerName === 'string' ? ud.layerName as string : undefined,
+    };
+}
+
 // ── §C.6 — Pre-interned layer sublayer name strings ──────────────────────────
 //
 // Replaces `${layerName}:cut` / `:proj` / `:beyond` template literals in the
@@ -1416,7 +1480,7 @@ export class EdgeProjectorService {
         // version) flips this, invalidating the entry so newly-captured elements
         // re-classify from scratch instead of replaying stale clipped geometry.
         readonly clipSignature: string;
-        readonly layers:       ReadonlyMap<string, THREE.BufferGeometry>;
+        readonly layers:       ReadonlyMap<string, CachedProjectionLayer>;
         readonly projectedAt:  number;
     }>>();
 
@@ -1566,7 +1630,7 @@ export class EdgeProjectorService {
         return entry?.version === currentVersion && entry?.clipSignature === clipSignature;
     }
 
-    private _getCwCached(elementId: string, viewId: string): ReadonlyMap<string, THREE.BufferGeometry> | null {
+    private _getCwCached(elementId: string, viewId: string): ReadonlyMap<string, CachedProjectionLayer> | null {
         return this._cwProjectionCache.get(elementId)?.get(viewId)?.layers ?? null;
     }
 
@@ -1595,7 +1659,7 @@ export class EdgeProjectorService {
         if (oldestElementId !== null && oldestViewId !== null) {
             const inner = this._cwProjectionCache.get(oldestElementId)!;
             const entry = inner.get(oldestViewId)!;
-            entry.layers.forEach(geo => geo.dispose());
+            entry.layers.forEach(l => l.geo.dispose());
             inner.delete(oldestViewId);
             if (inner.size === 0) this._cwProjectionCache.delete(oldestElementId);
             this._cwCacheEntryCount--;
@@ -1606,7 +1670,7 @@ export class EdgeProjectorService {
         elementId: string,
         viewId: string,
         version: number,
-        layers: Map<string, THREE.BufferGeometry>,
+        layers: Map<string, CachedProjectionLayer>,
         clipSignature: string,
     ): void {
         let inner = this._cwProjectionCache.get(elementId);
@@ -1616,7 +1680,7 @@ export class EdgeProjectorService {
         }
         const existing = inner.get(viewId);
         if (existing) {
-            existing.layers.forEach(geo => geo.dispose());
+            existing.layers.forEach(l => l.geo.dispose());
         } else {
             // §C.2.2 — New entry: enforce LRU cap before inserting.
             if (this._cwCacheEntryCount >= EdgeProjectorService.MAX_CW_PROJECTION_CACHE) {
@@ -1646,7 +1710,7 @@ export class EdgeProjectorService {
         const inner = this._cwProjectionCache.get(elementId);
         if (inner) {
             this._cwCacheEntryCount -= inner.size;
-            inner.forEach(entry => entry.layers.forEach(geo => geo.dispose()));
+            inner.forEach(entry => entry.layers.forEach(l => l.geo.dispose()));
             this._cwProjectionCache.delete(elementId);
         }
     }
@@ -1662,7 +1726,7 @@ export class EdgeProjectorService {
         for (const inner of this._cwProjectionCache.values()) {
             const entry = inner.get(viewId);
             if (entry) {
-                entry.layers.forEach(geo => geo.dispose());
+                entry.layers.forEach(l => l.geo.dispose());
                 inner.delete(viewId);
                 this._cwCacheEntryCount--;
             }
@@ -1676,7 +1740,7 @@ export class EdgeProjectorService {
      */
     clearCwProjectionCache(): void {
         for (const inner of this._cwProjectionCache.values()) {
-            inner.forEach(entry => entry.layers.forEach(geo => geo.dispose()));
+            inner.forEach(entry => entry.layers.forEach(l => l.geo.dispose()));
         }
         this._cwProjectionCache.clear();
         this._cwCacheEntryCount = 0;
@@ -1958,16 +2022,20 @@ export class EdgeProjectorService {
                         // Skips: group.traverse(), N×EdgesGeometry, N×matrixWorld, mergeGeometries,
                         //        OBC.TechnicalDrawing.toDrawingSpace(), and opening suppressors.
                         const cachedLayers = this._getCwCached(elementUUID, viewId)!;
-                        for (const [sublayerName, cachedGeo] of cachedLayers) {
+                        for (const cached of cachedLayers.values()) {
+                            const sublayerName = cached.layerName;
                             drawing.layers.create(sublayerName);
                             // Clone the cached geometry so the drawing owns its copy and
                             // OBC disposal cannot corrupt the cache on drawing teardown.
                             const hitLines = new THREE.LineSegments(
-                                (cachedGeo as THREE.BufferGeometry).clone(),
+                                cached.geo.clone(),
                                 new THREE.LineBasicMaterial({ color: 0x000000 }),
                             );
                             hitLines.name = sublayerName;
                             hitLines.userData.layerName = sublayerName;
+                            // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — replay the poché identity
+                            // too, or a cached layered wall would lose its per-layer tones.
+                            if (cached.userData) Object.assign(hitLines.userData, cached.userData);
                             if (elementUUID) {
                                 hitLines.userData.elementUUID = elementUUID;
                                 registerSegmentUUID(drawing, hitLines, elementUUID);
@@ -1992,7 +2060,7 @@ export class EdgeProjectorService {
                 // complete.
                 // §PLAN-VIEW-INCREMENTAL-PROJECTION §4.1 — gate widened to all
                 // cacheable element types (was: isCWElement only).
-                const freshLayersCollector: Map<string, THREE.BufferGeometry> | null =
+                const freshLayersCollector: Map<string, CachedProjectionLayer> | null =
                     (isCacheableElement && elementUUID !== undefined && currentVer !== undefined)
                         ? new Map()
                         : null;
@@ -2003,7 +2071,7 @@ export class EdgeProjectorService {
 
                 // Collect EdgesGeometry instances per ISO layer for this element only.
                 const perElemLayerGeos = new Map<string, THREE.BufferGeometry[]>();
-                const perElemLayerCutGeos = new Map<string, THREE.BufferGeometry[]>();
+                const perElemLayerCutGeos = new Map<string, CutSectionPart[]>();
 
                 // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — nearest projection depth of this
                 // element across the meshes that survive the section-volume filter.
@@ -2056,7 +2124,25 @@ export class EdgeProjectorService {
                             return;
                         }
 
-                        const elementType = mesh.userData?.elementType as string | undefined;
+                        // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — WALL-LAYER MESHES THAT
+                        // CARRY NO `elementType` STILL BELONG ON A-WALL.
+                        //
+                        // WallFragmentBuilder stamps `elementType: 'WallLayer'` on each layer
+                        // mesh; LayeredWallOpeningBuilder (the path taken by every layered wall
+                        // that HOSTS AN OPENING) stamps `wallId` + `layerIndex` + `layerFunction`
+                        // but NO `elementType`. Those meshes therefore fell through to
+                        // FALLBACK_NATIVE_LAYER ('projection-visible') — a layer that carries no
+                        // ISO zone, no pen weight, no VG override and no poché association. Same
+                        // silent-drop family as L-257 (layered walls dumped on layer "0"): the
+                        // wall was drawn, but OUTSIDE the drawing system.
+                        //
+                        // Resolve the wall identity from the userData the builders DO stamp, so
+                        // no builder can opt out of the layer system by omission.
+                        const rawElementType = mesh.userData?.elementType as string | undefined;
+                        const elementType = rawElementType
+                            ?? (mesh.userData?.wallId !== undefined && mesh.userData?.layerIndex !== undefined
+                                ? 'WallLayer'
+                                : undefined);
                         const layerName   = (elementType
                             ? (ELEMENT_TYPE_TO_PROJECTION_LAYER[elementType] ?? FALLBACK_NATIVE_LAYER)
                             : FALLBACK_NATIVE_LAYER);
@@ -2118,14 +2204,24 @@ export class EdgeProjectorService {
                                 const planCutGeo = buildPlanCutSectionGeometry(mesh, cutPlaneY);
                                 if (planCutGeo) {
                                     if (!perElemLayerCutGeos.has(layerName)) perElemLayerCutGeos.set(layerName, []);
-                                    perElemLayerCutGeos.get(layerName)!.push(planCutGeo);
+                                    perElemLayerCutGeos.get(layerName)!.push({
+                                        geo: planCutGeo,
+                                        pocheLayer: readMeshPocheLayer(mesh),
+                                    });
                                 }
                             }
                             if (sectionDepthBands) {
                                 const meshCutGeo = buildMeshPlaneIntersectionGeometry(mesh, viewDef, direction, near, sectionVolumeBox);
                                 if (meshCutGeo) {
                                     if (!perElemLayerCutGeos.has(layerName)) perElemLayerCutGeos.set(layerName, []);
-                                    perElemLayerCutGeos.get(layerName)!.push(meshCutGeo);
+                                    // §FEAT-SOLID-OCCLUSION-AND-POCHE-ACROSS-ALL-VIEW-TYPES (L-264) —
+                                    // a cut wall in a SECTION is exactly as cut as a cut wall in a
+                                    // plan. The section's mesh∩plane parts carry the same layer
+                                    // identity, so a layered wall pochés per layer in section too.
+                                    perElemLayerCutGeos.get(layerName)!.push({
+                                        geo: meshCutGeo,
+                                        pocheLayer: readMeshPocheLayer(mesh),
+                                    });
                                 }
                             }
                         } catch {
@@ -2198,14 +2294,38 @@ export class EdgeProjectorService {
                             `mergedVerts=${__merged_verts} mergeMs=${(__t_merge_done - __t_merge_start).toFixed(1)}ms`
                         );
                     }
-                    for (const g of meshCutGeos) tempGeosToDispose.push(g);
+                    for (const p of meshCutGeos) tempGeosToDispose.push(p.geo);
+
+                    // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — the wall's REAL layer count,
+                    // and each layer's ordinal among the layers that share its `function`.
+                    // Both derive from the stored `layers` (via the meshes built from them):
+                    // never a magic literal, never a hardcoded count (L-127).
+                    const _distinctLayerIdx = [...new Set(
+                        meshCutGeos.map(p => p.pocheLayer?.layerIndex).filter((i): i is number => i !== undefined),
+                    )].sort((a, b) => a - b);
+                    const _pocheLayerCount = _distinctLayerIdx.length;
+                    const _tieOrdinal = new Map<number, number>();   // layerIndex → ordinal within its function group
+                    {
+                        const seen = new Map<string, number>();
+                        for (const idx of _distinctLayerIdx) {
+                            const fn = meshCutGeos.find(p => p.pocheLayer?.layerIndex === idx)?.pocheLayer?.layerFunction ?? '';
+                            const n = seen.get(fn) ?? 0;
+                            _tieOrdinal.set(idx, n);
+                            seen.set(fn, n + 1);
+                        }
+                    }
 
                     // DOC-1.13: Create the ISO 13567 layer on the drawing so
                     // addProjectionLines() can assign the material properly.
                     // DrawingLayers.create() is idempotent — returns existing layer if present.
                     drawing.layers.create(layerName);
 
-                    const addProjectedLayer = (geo: THREE.BufferGeometry, targetLayerName: string): void => {
+                    const addProjectedLayer = (
+                        geo: THREE.BufferGeometry,
+                        targetLayerName: string,
+                        extraUserData?: Record<string, unknown>,
+                        isTrueSection = false,
+                    ): void => {
                         const lines = new THREE.LineSegments(
                             geo,
                             new THREE.LineBasicMaterial({ color: 0x000000 }),
@@ -2229,6 +2349,9 @@ export class EdgeProjectorService {
                         }
                         projected.name = targetLayerName;
                         projected.userData.layerName = targetLayerName;
+                        // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — construction-layer identity
+                        // of a CUT section ring, consumed by the poché pass to tone it.
+                        if (extraUserData) Object.assign(projected.userData, extraUserData);
                         // §ELEV-LINEWEIGHT-02 (L-190 Bug B) — stamp the element's nearest
                         // projection depth so reclassifyOccludedElevationLines() can order
                         // occluders and dash set-back geometry. Elevation only.
@@ -2242,7 +2365,14 @@ export class EdgeProjectorService {
                         // no wall layer edges cross through the opening gap. Both :cut and
                         // :proj sub-layers are processed — the outline box geometry (which
                         // spans the full wall length) produces both kinds of along-wall edges.
-                        if (isPlanView && layerName === 'A-WALL' && cutPlaneY !== null) {
+                        // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — the TRUE section (L-246) is
+                        // ALREADY voided at every opening BY CONSTRUCTION (the solid is not there
+                        // at the cut height). Running the line-clip over it would cut its
+                        // void-edge closing segments — which lie exactly ON the opening boundary
+                        // — and an open ring cannot be stitched into a poché region. The clip
+                        // stays where it belongs: on the PROJECTION linework (the base/head edges
+                        // that DO span the opening). One opening-clip rule per zone, as L-246 set.
+                        if (isPlanView && layerName === 'A-WALL' && cutPlaneY !== null && !isTrueSection) {
                             _suppressPlanViewOpeningLines(projected, drawing, group, cutPlaneY);
                         }
                         if (elementUUID) {
@@ -2256,14 +2386,67 @@ export class EdgeProjectorService {
                         if (freshLayersCollector) {
                             const projGeo = projected.geometry as THREE.BufferGeometry | undefined;
                             if (projGeo) {
-                                freshLayersCollector.set(targetLayerName, projGeo.clone());
+                                // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — a layered wall emits
+                                // ONE `:cut` LineSegments PER CONSTRUCTION LAYER, so the collector
+                                // can no longer be keyed by layer name alone (the last ring would
+                                // evict its siblings and a cache HIT would silently draw a wall
+                                // with fewer layers than a cache MISS). Key by emission; the
+                                // target layer name and the poché identity travel in the value.
+                                const key = freshLayersCollector.has(targetLayerName)
+                                    ? `${targetLayerName}#${freshLayersCollector.size}`
+                                    : targetLayerName;
+                                freshLayersCollector.set(key, {
+                                    layerName: targetLayerName,
+                                    geo: projGeo.clone(),
+                                    userData: extraUserData,
+                                });
                             }
                         }
                         drawing.addProjectionLines(projected, targetLayerName);
                     };
 
-                    if (cutPlaneY !== null && mergedGeo) {
-                        const { cutGeo, projGeo, beyondGeo } = classifyByVertexY(mergedGeo, cutPlaneY, planFloorY, CUT_LINE_EPSILON, planBelowY);
+                    /**
+                     * §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) / §FEAT-SOLID-OCCLUSION-AND-POCHE-
+                     * ACROSS-ALL-VIEW-TYPES (L-264) — EMIT THE TRUE SECTION OF THE SOLID.
+                     *
+                     * THE BUG THIS CLOSES: L-246 built `buildPlanCutSectionGeometry()` and pushed
+                     * its result into `perElemLayerCutGeos` — but the PLAN branch below never read
+                     * that map. It is read ONLY inside `else if (sectionDepthBands)`, which a plan
+                     * view never enters (plan takes the `cutPlaneY !== null` branch). So the true
+                     * plan section was computed, per wall, on every projection — and thrown away.
+                     * `A-WALL:cut` stayed EMPTY in plan, exactly as it had been before L-246, and
+                     * with it went the poché (L-241/L-261), the CUT lineweight (L-260 C) and every
+                     * HLR occluder (L-260 B: "2 occluder(s), 0/1532 segments removed"). Three
+                     * founder-visible defects, one dropped array.
+                     *
+                     * Each part is emitted as its OWN `:cut` LineSegments so a layered wall keeps
+                     * one closed ring per construction layer (HiddenLineRemoval groups occluders by
+                     * `elementUUID`, so N rings still make ONE solid occluder — and the rings TILE
+                     * the wall body, so the polygon parity test is unaffected).
+                     */
+                    const emitCutSections = (parts: CutSectionPart[]): void => {
+                        for (const part of parts) {
+                            const pl = part.pocheLayer;
+                            const extra: Record<string, unknown> | undefined = pl
+                                ? {
+                                    pocheLayer: {
+                                        layerIndex: pl.layerIndex,
+                                        layerFunction: pl.layerFunction,
+                                        layerName: pl.layerName,
+                                        layerCount: _pocheLayerCount,
+                                        tieOrdinal: _tieOrdinal.get(pl.layerIndex) ?? 0,
+                                    },
+                                }
+                                : undefined;
+                            addProjectedLayer(part.geo, _layerCut(layerName), extra, true);
+                        }
+                    };
+
+                    if (cutPlaneY !== null) {
+                        emitCutSections(meshCutGeos);
+                        const { cutGeo, projGeo, beyondGeo } = mergedGeo
+                            ? classifyByVertexY(mergedGeo, cutPlaneY, planFloorY, CUT_LINE_EPSILON, planBelowY)
+                            : { cutGeo: null, projGeo: null, beyondGeo: null };
                         if (cutGeo) {
                             addProjectedLayer(cutGeo, _layerCut(layerName));
                             tempGeosToDispose.push(cutGeo);
@@ -2293,7 +2476,7 @@ export class EdgeProjectorService {
                         //                            a `:cut` layer here is what made the plan
                         //                            poché pass paint the whole façade solid
                         //                            black (L-119) and mis-count the layers.
-                        const cutParts = [...meshCutGeos];
+                        const cutParts: CutSectionPart[] = [...meshCutGeos];
                         let projGeo: THREE.BufferGeometry | null = null;
                         let beyondGeo: THREE.BufferGeometry | null = null;
                         if (mergedGeo) {
@@ -2307,7 +2490,7 @@ export class EdgeProjectorService {
                                 sectionVolumeBox,
                             );
                             if (classified.cutGeo) {
-                                cutParts.push(classified.cutGeo);
+                                cutParts.push({ geo: classified.cutGeo });
                                 tempGeosToDispose.push(classified.cutGeo);
                             }
                             projGeo = classified.projGeo;
@@ -2316,11 +2499,11 @@ export class EdgeProjectorService {
 
                         if (viewScope.cut) {
                             // SECTION — route the cut band to `:cut`.
-                            const mergedCutGeo = concatLineGeometries(cutParts);
-                            if (mergedCutGeo) {
-                                addProjectedLayer(mergedCutGeo, _layerCut(layerName));
-                                tempGeosToDispose.push(mergedCutGeo);
-                            }
+                            // §FEAT-SOLID-OCCLUSION-AND-POCHE-ACROSS-ALL-VIEW-TYPES (L-264) — the
+                            // parts are emitted individually (not concatenated) so a layered wall
+                            // pochés PER LAYER in a section exactly as it does in a plan. Same
+                            // intent chain, same table, same tones: a cut wall is a cut wall.
+                            emitCutSections(cutParts);
                             if (projGeo) {
                                 addProjectedLayer(projGeo, _layerProj(layerName));
                                 tempGeosToDispose.push(projGeo);
@@ -2347,7 +2530,7 @@ export class EdgeProjectorService {
                             // PlanViewCanvas, wholly independent of whether a `:cut` linework
                             // layer exists. `_renderPocheFills` — the only consumer that scans
                             // `:cut` sub-layers — is never invoked for an elevation.
-                            const mergedCutGeo = concatLineGeometries(cutParts);
+                            const mergedCutGeo = concatLineGeometries(cutParts.map(p => p.geo));
                             if (mergedCutGeo) {
                                 addProjectedLayer(mergedCutGeo, _layerCut(layerName));
                                 tempGeosToDispose.push(mergedCutGeo);

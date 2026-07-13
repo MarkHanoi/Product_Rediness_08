@@ -1,5 +1,9 @@
 import type { PlanViewRangeDefaults, PurposeModifier, VisibilityIntent } from './VisibilityIntentTypes';
 import { cloneDefaultElementGraphicsRules } from './VisibilityIntentDefaults';
+// §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — the DENSE poché is an INTENT (the
+// construction-docs purpose), not the system default. The system default is the light
+// grey seeded from the pen/graphics table (see VisibilityIntentDefaults.fillFor).
+import { POCHE_CONSTRUCTION_DOCS_FILL } from '../drawing/PocheFillTable';
 
 export const SYSTEM_INTENT_IDS = {
     architecturalDocumentation: 'system-architectural-documentation',
@@ -46,21 +50,21 @@ const BUILT_IN_PURPOSE_MODIFIERS: PurposeModifier[] = [
         purpose: 'construction-docs',
         elementType: 'wall',
         statePatch: {
-            cut: { fill: { style: 'poche', colour: '#1a1a1a', opacity: 1.0 } },
+            cut: { fill: { style: 'poche', colour: POCHE_CONSTRUCTION_DOCS_FILL, opacity: 1.0 } },
         },
     },
     {
         purpose: 'construction-docs',
         elementType: 'slab',
         statePatch: {
-            cut: { fill: { style: 'poche', colour: '#1a1a1a', opacity: 1.0 } },
+            cut: { fill: { style: 'poche', colour: POCHE_CONSTRUCTION_DOCS_FILL, opacity: 1.0 } },
         },
     },
     {
         purpose: 'construction-docs',
         elementType: 'column',
         statePatch: {
-            cut: { fill: { style: 'poche', colour: '#1a1a1a', opacity: 1.0 } },
+            cut: { fill: { style: 'poche', colour: POCHE_CONSTRUCTION_DOCS_FILL, opacity: 1.0 } },
         },
     },
     {

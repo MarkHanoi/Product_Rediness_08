@@ -20,7 +20,8 @@ import { SCREEN_PX_PER_MM } from '../drawing/DrawingConstants';
 // Contract 23 §7 — GraphicsRulesEngine: resolveStyle() replaces direct resolvePen() calls
 import { graphicsRulesEngine } from '../drawing/GraphicsRulesEngine';
 // Contract 23 §3 (Day 3-4) — centralised poche fill table
-import { ISO_CUT_LAYER_TO_POCHE_FILL } from '../drawing/PocheFillTable';
+// §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — + the per-construction-layer tone spread.
+import { ISO_CUT_LAYER_TO_POCHE_FILL, resolveWallLayerPocheFill } from '../drawing/PocheFillTable';
 // Contract 23 §9 (Day 9) — VGGovernanceStore view overrides → GraphicsRulesEngine injection
 import { vgGovernanceStore } from '../presentation/VGGovernanceStore';
 // Contract 23 §14 — Worker Thread Pipeline (Stage 1)
@@ -468,6 +469,11 @@ export class PlanViewCanvas {
                 activeLinkedViewId: options.activeLinkedViewId ?? null,
                 viewType:     this._viewType,
                 sectionHAxis: (this._hWorldAxis ?? 'x') as 'x' | 'z',
+                // §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — the geometry above is
+                // projected through _worldPointToCanvasH(), which applies _hWorldSign.
+                // Annotations must use the SAME sign, or they are mirrored relative to
+                // the elements they annotate on any hSign === -1 elevation.
+                hSign:        this._hWorldSign,
             },
         );
 
@@ -1229,6 +1235,16 @@ export class PlanViewCanvas {
 
     hitTestAnnotation(sx: number, sy: number, thresholdPx = 12): string | null {
         if (!this._lastViewId) return null;
+        // §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — the annotation renderer is a
+        // SINGLETON shared by every PlanViewCanvas (split view has two). Its
+        // projection is otherwise whatever the last render() left behind, which in a
+        // split view can belong to the OTHER canvas. Set it explicitly from THIS
+        // canvas before hit-testing so the pick projects exactly as this canvas drew.
+        planViewAnnotationRenderer.setViewProjection(
+            this._viewType,
+            (this._hWorldAxis ?? 'x') as 'x' | 'z',
+            this._hWorldSign,
+        );
         return planViewAnnotationRenderer.hitTestAnnotation(
             this._lastViewId,
             sx,
@@ -1677,6 +1693,11 @@ export class PlanViewCanvas {
                 activeLinkedViewId: options.activeLinkedViewId ?? null,
                 viewType:     this._viewType,
                 sectionHAxis: (this._hWorldAxis ?? 'x') as 'x' | 'z',
+                // §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — the geometry above is
+                // projected through _worldPointToCanvasH(), which applies _hWorldSign.
+                // Annotations must use the SAME sign, or they are mirrored relative to
+                // the elements they annotate on any hSign === -1 elevation.
+                hSign:        this._hWorldSign,
             },
         );
 
@@ -2033,8 +2054,26 @@ export class PlanViewCanvas {
             }
             // ──────────────────────────────────────────────────────────────────────
 
-            const fill = intentFillColour ?? resolved?.fillColor ?? ISO_CUT_LAYER_TO_POCHE_FILL[baseLayer];
-            if (!fill) return;
+            const baseFill = intentFillColour ?? resolved?.fillColor ?? ISO_CUT_LAYER_TO_POCHE_FILL[baseLayer];
+            if (!baseFill) return;
+
+            // ── §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — LAYERED WALL: ONE TONE PER LAYER ──
+            //
+            // `baseFill` is the colour the INTENT chain resolved for (category × cut) — the
+            // single authority over the poché colour, exactly as it is for a plain wall.
+            // A layered wall's cut section arrives as one closed ring PER CONSTRUCTION LAYER
+            // (EdgeProjectorService stamps `pocheLayer` from the mesh built out of the wall's
+            // STORED `layers` array — L-127: never a magic literal, never a hardcoded count).
+            // The layer's stored `function` only SPREADS that one colour into the grey-scale,
+            // so overriding the intent moves every tone with it and the drawing keeps ONE
+            // source of truth for "what colour is a cut wall".
+            const _pocheLayer = (child.userData?.pocheLayer ?? null) as {
+                layerFunction?: string;
+                tieOrdinal?: number;
+            } | null;
+            const fill = _pocheLayer
+                ? resolveWallLayerPocheFill(baseFill, _pocheLayer.layerFunction, _pocheLayer.tieOrdinal ?? 0)
+                : baseFill;
 
             const transparency = Math.max(0, Math.min(100, Number(resolved?.transparency ?? 0)));
             const vgOpacity = 1 - (transparency / 100);

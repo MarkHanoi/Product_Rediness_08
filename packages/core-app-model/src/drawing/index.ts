@@ -49,6 +49,13 @@ export {
     ISO_CUT_LAYER_TO_POCHE_FILL,
     VG_CATEGORY_TO_ISO_LAYER,
     resolvePocheFill,
+    // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261)
+    POCHE_CONSTRUCTION_DOCS_FILL,
+    WALL_LAYER_POCHE_TONE_FACTOR,
+    WALL_LAYER_POCHE_TONE_FALLBACK,
+    defaultPocheFillForCategory,
+    wallLayerPocheToneFactor,
+    resolveWallLayerPocheFill,
 } from './PocheFillTable.js';
 
 export type { HatchPatternKey } from './HatchPatternLibrary.js';
