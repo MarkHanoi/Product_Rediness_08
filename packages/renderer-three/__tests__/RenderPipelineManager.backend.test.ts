@@ -303,6 +303,144 @@ describe('RenderPipelineManager — per-frame OBC base clear hook (§FIX-WEBGL2-
   });
 });
 
+// ── §FIX-WEBGL2-GHOST-STALE-TARGET (L-05 / G6) — the frame must hit the CANVAS ─
+//
+// ROOT CAUSE of the residual ghost/smear-on-rotate that survived §FIX-WEBGL2-GHOST-
+// ON-ROTATE: the WebGL2 renderer is SHARED. The GPU picker
+// (SelectionManager._buildGpuPickRenderer → renderToTarget), initTools' pick-strategy
+// probe, ViewRenderCache.renderToCache, PhotorealisticRenderer, PanoramaCapture and
+// ViewportPathTracer all borrow it and REDIRECT it to an offscreen render target
+// (setRenderTarget(target) → render() → setRenderTarget(prev)). Two of those restore
+// with NO try/finally — so when the inner render() throws (the founder's console shows
+// `GL_INVALID_OPERATION: glDrawElements: Mismatch between texture format and sampler
+// type` and `Cannot read properties of undefined (reading 'usedTimes')` on exactly this
+// backend) the renderer stays PERMANENTLY BOUND to that offscreen target.
+//
+// From that frame on, every `renderer.render(scene, camera)` paints into the offscreen
+// buffer, the canvas is never touched again, and it keeps compositing its LAST frame
+// while the camera keeps orbiting → stale geometry trailing the live camera. It also
+// defeats every explicit per-frame clear, because `clear()` clears the BOUND framebuffer.
+//
+// The frame owner enforces its own invariants (C04 §2): canvas-bound + clear-enabled,
+// re-asserted at the top of each lightweight WebGL2 frame.
+describe('RenderPipelineManager — lightweight frame target/clear invariants (§FIX-WEBGL2-GHOST-STALE-TARGET)', () => {
+  const scene  = {} as any;
+  const camera = {} as any;
+
+  /** WebGL2 renderer with a mutable render-target + autoClear latches, like THREE's. */
+  function sharedWebGl2Renderer(initialTarget: unknown = null): any {
+    let target: unknown = initialTarget;
+    return {
+      isWebGPURenderer: true,
+      backend: { isWebGPUBackend: false }, // forced-WebGL → WebGL2 backend
+      autoClear: true,
+      autoClearColor: true,
+      autoClearDepth: true,
+      setClearAlpha: () => {},
+      getRenderTarget: () => target,
+      setRenderTarget: (t: unknown) => { target = t; },
+      // Record the target that was live at the moment of the paint — that is the
+      // surface the frame actually landed on.
+      render: function (this: any) { this.__paintedInto.push(target); },
+      __paintedInto: [] as unknown[],
+    };
+  }
+
+  it('paints into the CANVAS even when a borrower leaked its offscreen pick target', async () => {
+    // A GPU-pick / thumbnail pass threw mid-render and never restored → still bound.
+    const leakedPickTarget = { __id: 'gpu-pick-id-buffer' };
+    const renderer = sharedWebGl2Renderer(leakedPickTarget);
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+
+    rpm.render(0.016);
+    rpm.render(0.016);
+
+    // Both frames landed on the canvas (null), NOT in the leaked offscreen buffer.
+    // Before the fix these two frames went into `leakedPickTarget` and the canvas
+    // kept showing its last composite while the camera moved = the ghost.
+    expect(renderer.__paintedInto).toEqual([null, null]);
+    expect(renderer.getRenderTarget()).toBeNull();
+  });
+
+  it('re-asserts autoClear latches so a frame can never accumulate over the previous one', async () => {
+    const renderer = sharedWebGl2Renderer();
+    // A borrower (or a legacy path, exactly like BimWorld does to the OBC renderer)
+    // suppressed the clear — the overlay would become an accumulation buffer.
+    renderer.autoClear      = false;
+    renderer.autoClearColor = false;
+    renderer.autoClearDepth = false;
+
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+    rpm.render(0.016);
+
+    expect(renderer.autoClear).toBe(true);
+    expect(renderer.autoClearColor).toBe(true);
+    expect(renderer.autoClearDepth).toBe(true);
+  });
+
+  it('leaves an already-clean renderer untouched (no redundant setRenderTarget churn)', async () => {
+    const renderer = sharedWebGl2Renderer(null);
+    const setSpy = vi.spyOn(renderer, 'setRenderTarget');
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+
+    rpm.render(0.016);
+
+    // Target was already the canvas → no re-bind is issued on the hot path.
+    expect(setSpy).not.toHaveBeenCalled();
+    expect(renderer.__paintedInto).toEqual([null]);
+  });
+
+  it('the invariant re-assertion runs AFTER the OBC base-clear hook, before the paint', async () => {
+    const log: string[] = [];
+    const renderer = sharedWebGl2Renderer({ __id: 'leaked' });
+    renderer.setRenderTarget = (t: unknown) => { log.push('setRenderTarget'); (renderer as any).__t = t; };
+    renderer.getRenderTarget = () => ((renderer as any).__t ?? { __id: 'leaked' });
+    renderer.render = () => { log.push('render'); };
+
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+    rpm.setPreLightweightFrameHook(() => log.push('obc-clear'));
+
+    rpm.render(0.016);
+
+    expect(log).toEqual(['obc-clear', 'setRenderTarget', 'render']);
+  });
+
+  it('tolerates a renderer without the target API (older/plain adapters) — never breaks the frame', async () => {
+    const renderer: any = {
+      isWebGPURenderer: true,
+      backend: { isWebGPUBackend: false },
+      setClearAlpha: () => {},
+      render: () => { renderer.__painted = (renderer.__painted ?? 0) + 1; },
+    };
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
+
+    expect(() => rpm.render(0.016)).not.toThrow();
+    expect(renderer.__painted).toBe(1);
+  });
+
+  it('does NOT touch the render target on the real-WebGPU TSL path (L-253 pipeline untouched)', async () => {
+    const rpm = new RenderPipelineManager();
+    const renderer = fakeWebGPURenderer() as any;
+    renderer.setRenderTarget = vi.fn();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    expect(rpm.status.webGpuActive).toBe(true);
+    expect(rpm.isLightweightWebGlActive).toBe(false);
+    // Structural: _assertLightweightFrameTarget is called ONLY inside the lightweight
+    // branch, which this path never enters — PostProcessing owns its own target chain.
+    expect(renderer.setRenderTarget).not.toHaveBeenCalled();
+  });
+});
+
 // ── §RPM-RECOVERY-DOWNGRADE (ADR-0087) — device-loss recovery is NON-FATAL ─────
 //
 // DEMO-KILLER (prod, 2026-06-29): on the office-building circular plate a WebGPU

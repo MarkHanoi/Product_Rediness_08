@@ -480,6 +480,78 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._preLightweightFrameHook = hook;
     }
 
+    /**
+     * §FIX-WEBGL2-GHOST-STALE-TARGET (L-05 / G6) — re-assert the two invariants a
+     * ghost/smear REQUIRES to be violated, once per lightweight WebGL2 move-frame:
+     *
+     *   1. the frame must land on the CANVAS  → `setRenderTarget(null)`
+     *   2. the frame must CLEAR before it paints → `autoClear{,Color,Depth} = true`
+     *
+     * WHY THIS IS NOT DEFENSIVE NOISE — the renderer is BORROWED, and a borrower can
+     * leave it pointing somewhere else.
+     *
+     * `renderer` here is a shared THREE renderer, not a private one. Other subsystems
+     * legitimately borrow it and REDIRECT its output to an offscreen render target:
+     * the GPU picker (`SelectionManager._buildGpuPickRenderer().renderToTarget`),
+     * `initTools`' pick-strategy probe, `ViewRenderCache.renderToCache`,
+     * `PhotorealisticRenderer`, `PanoramaCapture`, `ViewportPathTracer` — every one of
+     * them does `setRenderTarget(target) → render() → setRenderTarget(prev)`.
+     *
+     * Two of those restore WITHOUT a `try/finally` (the initTools probe;
+     * `ViewRenderCache.renderToCache`, whose outer `catch` swallows the throw and never
+     * restores). So if the inner `render()` THROWS — and on this backend it demonstrably
+     * does: the founder's console carries `GL_INVALID_OPERATION: glDrawElements:
+     * Mismatch between texture format and sampler type` and `Cannot read properties of
+     * undefined (reading 'usedTimes')` on exactly this path — the renderer is left
+     * PERMANENTLY BOUND to that offscreen target. From that instant every subsequent
+     * `renderer.render(scene, camera)` paints into the offscreen buffer and NOTHING
+     * touches the canvas: the canvas keeps compositing its LAST frame while the camera
+     * keeps orbiting → stale geometry visibly trailing the live camera = the reported
+     * ghost/smear-on-rotate. It also silently defeats every per-frame clear (an explicit
+     * `clear()` clears the BOUND framebuffer, not the canvas — three's
+     * `WebGLRenderer.clear()` issues `gl.clear()` against whatever FBO is current), which
+     * is why a session can start clean and ghost permanently from one bad pick onwards.
+     *
+     * The frame owner is the only place that can enforce "my frame goes to the canvas".
+     * Per C04 §2 the render-loop owner owns the frame — so it re-asserts the target and
+     * the clear latches at the top of the frame instead of trusting every borrower to
+     * unwind cleanly. Cost: two property writes + one no-op `setRenderTarget(null)` per
+     * frame (three early-returns when the target is already null).
+     *
+     * WebGL2 lightweight path ONLY — the native-WebGPU TSL path composes through
+     * PostProcessing, which owns its own target chain; it is deliberately untouched
+     * (§FIX-WEBGPU-INVALID-PIPELINE-MRT, L-253).
+     */
+    private _assertLightweightFrameTarget(renderer: THREE.WebGLRenderer): void {
+        const r = renderer as unknown as {
+            getRenderTarget?: () => unknown;
+            setRenderTarget?: (t: unknown) => void;
+            autoClear?: boolean;
+            autoClearColor?: boolean;
+            autoClearDepth?: boolean;
+        };
+        try {
+            // 1. Canvas, not a leaked offscreen target.
+            if (typeof r.setRenderTarget === 'function' && r.getRenderTarget?.() != null) {
+                console.warn(
+                    '[RenderPipelineManager] §FIX-WEBGL2-GHOST-STALE-TARGET — a borrowed render ' +
+                    'target was still bound at the start of a lightweight WebGL2 frame (a GPU-pick / ' +
+                    'thumbnail / path-trace pass did not unwind, most likely because its render() threw). ' +
+                    'Re-binding the canvas so the frame is not painted into an offscreen buffer.',
+                );
+                r.setRenderTarget(null);
+            }
+            // 2. Clear before paint — the overlay is alpha:true and composites over the
+            //    OBC base canvas; a suppressed clear turns every frame into an accumulation
+            //    buffer (exactly what `BimWorld.ts` does to the OBC renderer on purpose).
+            if (r.autoClear === false)      r.autoClear      = true;
+            if (r.autoClearColor === false) r.autoClearColor = true;
+            if (r.autoClearDepth === false) r.autoClearDepth = true;
+        } catch {
+            /* invariant re-assertion is best-effort; never break the frame over it */
+        }
+    }
+
     render(delta = 0.016): void {
         // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────────
         // Lightweight WebGL2 path: the TSL pipeline is OFF (_webGpuActive=false)
@@ -504,6 +576,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
                     try { this._preLightweightFrameHook(); }
                     catch { /* base-clear is best-effort; overlay render proceeds */ }
                 }
+                this._assertLightweightFrameTarget(renderer);
                 (renderer as any).setClearAlpha?.(0);
                 renderer.render(scene, camera);
             } catch (err: unknown) {
