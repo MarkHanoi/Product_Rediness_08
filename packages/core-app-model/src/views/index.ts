@@ -36,7 +36,7 @@ export {
 
 // §FIX-ELEVATION-POCHE / §FIX-ELEVATION-SCOPE (L-119 / L-120 P4) — unified
 // per-view-type drawing semantics (poché / cut / depth-projected / plan-family).
-export { resolveViewScope } from './ViewScope.js';
+export { resolveViewScope, resolveOcclusionDisposition } from './ViewScope.js';
 export type { ViewScope } from './ViewScope.js';
 
 // ── P9-W4 (2026-05-10) — ViewDefinitionStore, ViewTechnicalDrawingCache, ViewDependencyTracker ──

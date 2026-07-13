@@ -30,7 +30,10 @@ import type * as FRAGS from '@thatopen/fragments';
 import { ViewDefinition, VIEW_PROJECTION_DIRECTIONS } from '@pryzm/core-app-model';
 // §FIX-ELEVATION-POCHE (L-119) — unified per-view-type drawing scope. An
 // elevation has cut:false → emit :proj/:beyond ONLY (no :cut → no black poché).
-import { resolveViewScope } from '@pryzm/core-app-model';
+// §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — `resolveViewScope` gives the view TYPE's
+// defaults; `resolveOcclusionDisposition` layers the VIEW's own override on top (C09
+// §4.6.5(b)). Both are needed: the scope alone would ignore the user's per-view setting.
+import { resolveViewScope, resolveOcclusionDisposition } from '@pryzm/core-app-model';
 import { BimManager } from '@pryzm/core-app-model';
 // Wave 11 / Stage S7 — per-IFC-type visibility veto.
 import { resolveBoundIntentWithInheritance } from '@pryzm/core-app-model';
@@ -3131,7 +3134,15 @@ export class EdgeProjectorService {
         // occlusion-tested like any other linework) and BEFORE the drawing is written to
         // ViewTechnicalDrawingCache — this is the last mutation point.
         applyOcclusion(drawing, {
-            disposition: viewScope.occlusionDisposition,
+            // §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — resolve through the ONE resolver,
+            // never straight off the scope. `viewScope.occlusionDisposition` is only the
+            // view TYPE's default; a per-VIEW override (C09 §4.6.5(b), the open cell §4.6.7
+            // recorded) lives on the view's own `output` and MUST win. Reading the scope
+            // directly here would silently ignore the user's setting — i.e. the control
+            // would exist, be persisted, be shown in the panel, and do nothing. That is a
+            // worse failure than not having it, and it is exactly the shape of the Rotate
+            // button that was enabled and did nothing (L-267).
+            disposition: resolveOcclusionDisposition(viewDef?.output, viewScope),
             // A plan looks DOWN FROM its cut plane: anything above the plane (roof, ceiling)
             // has a negative depth and must not occlude, or it would erase the whole drawing.
             // Elevation/section have no such degenerate case — every visible solid may occlude.

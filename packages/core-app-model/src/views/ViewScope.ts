@@ -116,3 +116,31 @@ export function resolveViewScope(viewType: ViewType | string | undefined): ViewS
     // 3d / analysis / drafting / legend / render / walkthrough — no technical cut.
     return _NON_TECHNICAL_SCOPE;
 }
+
+/**
+ * §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — resolve what happens to an OCCLUDED line
+ * for a SPECIFIC view. Closes the first open cell of C09 §4.6.7.
+ *
+ * PRECEDENCE — instance beats type beats default, the same shape as every other resolver
+ * in this codebase (C11 §3, and `resolveWindowDimensions` / `resolveEffectiveDetailLevel`
+ * before it):
+ *
+ *     the VIEW's own `output.occlusionDisposition`   (an explicit act of intent, P7)
+ *       → the view TYPE's default on `ViewScope`     (elevation 'demote', plan/section 'remove')
+ *
+ * `undefined` on the view means "I have no opinion" — and the ONLY correct reading of that
+ * is to inherit the type default, so a view that has never been touched behaves EXACTLY as
+ * it does today. A resolver that silently substituted its own preference here would be the
+ * `DetailLevelResolver` bug again (it re-forked `DEFAULT_DETAIL_LEVEL = 'medium'` against
+ * the schema's `'fine'`, and the two disagreed for months).
+ *
+ * This function is the ONE place the choice is made. The projector must not read
+ * `scope.occlusionDisposition` directly any more — if it does, a per-view override is
+ * silently ignored, and the user's setting becomes a lie.
+ */
+export function resolveOcclusionDisposition(
+    viewOutput: { occlusionDisposition?: OcclusionDisposition } | undefined,
+    scope: ViewScope,
+): OcclusionDisposition {
+    return viewOutput?.occlusionDisposition ?? scope.occlusionDisposition;
+}

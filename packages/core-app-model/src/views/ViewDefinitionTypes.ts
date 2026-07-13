@@ -23,6 +23,10 @@
 // by L0 `@pryzm/schemas` (P5: schemas are the single source of type truth). Type-
 // only import: erased at build, so it adds no runtime edge from core-app-model.
 import type { DetailLevel } from '@pryzm/schemas/view/detail-level';
+// §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — the ONE definition of what happens to an
+// occluded line. Imported, never re-declared: a second copy of this union is exactly how
+// `mullionThickness` became a second source of truth for the door mullion this morning.
+import type { OcclusionDisposition } from '../drawing/DrawingZone';
 
 /** Re-exported so consumers of the view types get the enum from one place. */
 export type { DetailLevel };
@@ -226,6 +230,38 @@ export type ViewVisualStyle =
     ;
 
 export interface ViewOutputSettings {
+    /**
+     * §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — CLOSES C09 §4.6.7's FIRST OPEN CELL.
+     *
+     * What happens to a line that is genuinely OCCLUDED — a solid lies in front of it?
+     *   'remove'  the span is deleted. The drawing shows only what you could see.
+     *   'demote'  the span survives, reclassified to the HIDDEN zone — and HIDDEN is the
+     *             ONE zone that dashes (C09 §4.6.4). You get a dashed ghost of what is
+     *             behind the solid.
+     *
+     * WHY THIS FIELD HAD TO EXIST, AND WHY IT WAS AN HONEST GAP RATHER THAN A BUG:
+     * C09 §4.6.5(b) says a VIEW must be able to choose. The engine ALREADY honoured
+     * whatever it was handed, and `ViewScope` already carried a sensible default PER VIEW
+     * TYPE (elevation 'demote' — a recessed wing behind the front plane should read as a
+     * dashed ghost, L-190; plan/section 'remove'). But there was no field on the view
+     * ITSELF, so the plumbing stopped one inch short of the user: the contract mandated a
+     * choice nobody could make. The agent that landed L-277 recorded that in §4.6.7 as an
+     * OPEN CELL rather than quietly pretending the feature existed. This closes it.
+     *
+     * PRECEDENCE (and it is the same shape as every other resolver in this codebase —
+     * instance beats type beats documented default, C11 §3):
+     *     this field  →  ViewScope's per-view-TYPE default  →  the engine's behaviour
+     *
+     * `undefined` means "inherit the view type's default", which is the correct and safe
+     * reading: a view that has never expressed an opinion must behave exactly as it does
+     * today. Setting it is an explicit act of INTENT (P7) — never a literal in a builder.
+     *
+     * The canonical use the founder asked for: a plan where you want to SEE the pipe
+     * behind the wall, dashed, instead of losing it. That is 'demote' on that one view —
+     * not a global toggle, and not a hack in the projector.
+     */
+    occlusionDisposition?: OcclusionDisposition;
+
     /**
      * Drawing scale as a ratio denominator (e.g. 100 = 1:100, 50 = 1:50).
      * Governs annotation symbol sizes, line weights, and dimension text height.
