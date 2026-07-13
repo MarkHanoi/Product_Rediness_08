@@ -1770,7 +1770,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         if (!tsl) throw new Error('[RenderPipelineManager] TSL not loaded — bind() must be called with a WebGPU renderer first.');
         const { vec4, mix, step, float } = tsl;
 
-        this._scenePass = createScenePass(this._scene, this._camera);
+        // §FIX-WEBGPU-INVALID-PIPELINE-MRT (L-253) — the G-buffer (diffuseColor/normal/velocity)
+        // exists ONLY for SSGI and TRAA. Declaring those targets when nothing reads them made
+        // every render pipeline INVALID for any material that does not emit them (ShadowMaterial,
+        // lines, gizmos) — every submit was rejected, every frame. Ask for it only when used.
+        this._scenePass = createScenePass(this._scene, this._camera, this._ssgiActive || this._traaActive);
         this._zonePass  = createZonePass(this._scene, this._camera);
 
         const scenePassColor = this._scenePass.getTextureNode(MRT_OUTPUT);
@@ -1842,6 +1846,17 @@ export class RenderPipelineManager implements IViewSwitchListener {
         const tsl = (globalThis as any).__PRYZM_TSL__;
         if (!tsl) throw new Error('[RenderPipelineManager] TSL not loaded — bind() must be called with a WebGPU renderer first.');
         const { add, vec4, mix, select, step, float } = tsl;
+
+        // §FIX-WEBGPU-INVALID-PIPELINE-MRT (L-253) — this is the ONLY consumer of the
+        // G-buffer. The scene pass now builds those targets only when SSGI/TRAA is active
+        // (declaring targets nothing reads made every pipeline INVALID — see ScenePass.ts).
+        // If we somehow got here without them, rebuild the pass WITH the G-buffer rather
+        // than reading absent targets: a missing attachment here would be the same class of
+        // invalid-pipeline bug in the other direction.
+        if (!this._ssgiActive && !this._traaActive && this._scene && this._camera) {
+            console.warn('[RenderPipelineManager] §FIX-WEBGPU-INVALID-PIPELINE-MRT — phase-3 pipeline requested with SSGI/TRAA inactive; rebuilding the scene pass WITH its G-buffer.');
+            this._scenePass = createScenePass(this._scene, this._camera, true);
+        }
 
         const scenePassColor   = this._scenePass.getTextureNode('output');
         const scenePassDiffuse = this._scenePass.getTextureNode('diffuseColor');
@@ -2390,7 +2405,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private async _fullRebuild(): Promise<void> {
         if (!this._scene || !this._camera || !this._renderer) return;
 
-        this._scenePass = createScenePass(this._scene, this._camera);
+        // §FIX-WEBGPU-INVALID-PIPELINE-MRT (L-253) — the G-buffer (diffuseColor/normal/velocity)
+        // exists ONLY for SSGI and TRAA. Declaring those targets when nothing reads them made
+        // every render pipeline INVALID for any material that does not emit them (ShadowMaterial,
+        // lines, gizmos) — every submit was rejected, every frame. Ask for it only when used.
+        this._scenePass = createScenePass(this._scene, this._camera, this._ssgiActive || this._traaActive);
         this._zonePass  = createZonePass(this._scene, this._camera);
 
         // Phase C unification: when SSGI is active, ALWAYS build the Phase 3
