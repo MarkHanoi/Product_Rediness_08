@@ -62,7 +62,8 @@ import { triggerRoomInteriorElevations } from '../documentation/roomInteriorElev
 // §FEAT-AUTODIMENSION-P1 (L-138) — deterministic AutoDimension engine executor:
 // plans a non-redundant exterior chain + opening dims over the active level's
 // walls (@pryzm/auto-dimension) and creates them in one undoable batch.
-import { applyAutoDimensions } from '../documentation/applyAutoDimensions';
+// §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — one entry point, routed by view type.
+import { autoDimensionActiveView } from '../documentation/autoDimensionActiveView';
 // C27 INS-α-5 — dev surface for the Master Tree (single tree component
 // per C27 §1.2).  Opens a modal that mounts the live ModelTreeComponent +
 // shows the InspectSelection payload on each click.
@@ -441,17 +442,21 @@ const COMMAND_TREE: SuggestionNode[] = [
             },
             {
                 // §FEAT-AUTODIMENSION-P1 (L-138) — deterministic AutoDimension engine.
-                // Plans the minimum complete, non-redundant dimension set (overall +
-                // exterior wall-chain + opening chain + opening locations) over the
-                // active level's walls/openings and creates it as ONE undo
-                // (dimension.createMany). Direct action (C17 CB-8 style), same shape
-                // as "Generate documentation set" → real bus verb.
-                label: 'Auto-dimension plan',
-                hint: 'overall + exterior chain + opening dims (one undo)',
+                // §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — ONE action, routed by
+                // the ACTIVE VIEW (`autoDimensionActiveView`): a plan gets the
+                // horizontal rule set (overall + exterior chain + opening chain +
+                // opening locations); an elevation gets the VERTICAL rule set (overall
+                // height + floor-to-floor/level datums + typical sill & head), gated by
+                // the view's detail level (P7/C09). Same engine, same commands, same
+                // render sink, ONE undo. A second "auto-dimension elevation" button
+                // would push the strategy choice onto the user and re-create exactly the
+                // plan-first bolt-on this ticket exists to end.
+                label: 'Auto-dimension view',
+                hint: 'plan: chains + openings · elevation: heights + sill/head (one undo)',
                 scopeBadge: 'batch',
                 action: () => {
                     const rt = (window as unknown as { runtime?: unknown }).runtime;
-                    if (rt) { applyAutoDimensions(rt as Parameters<typeof applyAutoDimensions>[0]); }
+                    if (rt) { autoDimensionActiveView(rt as Parameters<typeof autoDimensionActiveView>[0]); }
                     else { (window as unknown as { runtime?: { events?: { emit(k: string, p: unknown): void } } }).runtime?.events?.emit('pryzm:toast', { message: 'Runtime not ready.', severity: 'error' }); }
                 },
             },
