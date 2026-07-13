@@ -112,7 +112,7 @@ solid the cut plane straddles* and let the AABB straddle-reject do its job.
 
 | Element | plan 100 | plan 200 | plan 300 | elev 100/200/300 | sec 100/200/300 |
 |---|---|---|---|---|---|
-| **door** | ✅ single-line leaf | ✅ framed opening + true leaf + arc | ✅ + reveal/rebate, threshold, hardware | ✗ identical at all 3 | ✗ identical |
+| **door** | ✅ jamb ticks + single-line leaf | ✅ + jamb lining profile + true leaf + arc | ✅ + rebate, lever **+ escutcheon**, closed-leaf ghost | ✅ **(L-266)** massing / +panelisation / +rebate, rail-and-stile leaf, escutcheon — the 3D mesh is the LOD consumer and elevation projects it | ✗ identical |
 | **window** | ✅ | ✅ | ◐ mirrors the door (L-254); **frame/sash/mullion articulation NOT derived from the record** (L-266) | ✗ identical | ✗ identical |
 | **wall** | ✗ | ✗ | ✗ layer lines always drawn | ✗ | ✗ |
 | **column** | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -132,6 +132,22 @@ Restated the way it will be seen: **a sheet at 1:200 and a sheet at 1:50 are the
 at two scales.** That is not a drawing set.
 
 **And ELEVATION and SECTION consume detail level in ZERO cells.** Not partially. Zero.
+
+> **UPDATE (L-266, §FEAT-DOOR-3D-LOD).** The door row is closed: door×3D and door×elevation
+> are now real consumers, so the count is **4 of 42**, and elevation is no longer zero. It was
+> done WITHOUT a second symbol engine (§4.3): an elevation is a projection of the 3D meshes, so
+> `DoorBuilder` resolves the tier through the SAME `resolveEffectiveDetailLevel()` — against the
+> real `vd-sys-3d-1` ViewDefinition — and the elevation inherits the articulation. **Any element
+> that projects its mesh into elevation can close its cell the same way; only elements whose
+> elevation is a SYMBOL (plumbing) need an injected builder.**
+>
+> Two corrections to the plan-300 cell as it was written above. (1) **The "threshold" line is
+> gone**: it ran across the door void on the wall centreline, and the founder's enumeration of
+> the plan symbol is exhaustive — *"the FRAME, the LEAF (opened) and the CURVED LINE. That's
+> all."* Its place at 300 is taken by the **closed-leaf ghost**, so 300 remains a strict superset
+> of 200. (2) The frame at 200 is **two jamb linings, not a box around the doorway** — the two
+> "frame face lines" that spanned the void were the WALL, re-drawn through the opening. See
+> §FIX-DOOR-PLAN-SYMBOL-PURITY.
 
 ---
 
@@ -205,10 +221,18 @@ will disagree with the 3D geometry the moment anyone edits the record.
 
 ### 5.2 The backlog — the empty cells, in priority order
 
-1. **L-266 — door/window symbol parity + LOD-300 fidelity.** *Parity before beauty*: prove with
-   a test that a door created in PLAN and one created in 3D produce a byte-identical record.
-   Then derive the LOD-300 articulation from `DoorDimensions` / `WindowDimensions` — never from
-   new literals. (Highest priority: the founder is looking at it now.)
+1. ~~**L-266 — door/window symbol parity + LOD-300 fidelity.**~~ **DOOR: DONE** (parity 9dff8721;
+   fidelity §FIX-DOOR-PLAN-SYMBOL-PURITY + §FEAT-DOOR-3D-LOD). Two findings worth carrying:
+   **(a) an element with a plan SYMBOL must not also emit its MESH EDGES in plan** — the door's
+   3D head bar, hinges, threshold and glazing were dumping their outlines across the void on top
+   of the symbol; the fix is the Contract 48 §5 `skipInPlan` convention, and **stair, column and
+   every furniture family should be audited for the same double-draw.** **(b) A per-part ROLE
+   allowlist in the projector is a bug generator** (the door had three, and the head bar was the
+   part nobody had thought of) — the tag belongs on the builder, not the allowlist.
+   **WINDOW: still open** — frame/sash/mullion articulation is not yet derived from the record,
+   and its 3D/elevation cells are still ✗. Note the window is NOT the same case as the door in
+   plan: a window's frame and glazing ARE cut by the plan plane, so its spanning lines are real
+   cut geometry and must stay.
 2. **Section/plan projection occluders** — give `removeHiddenLines` a depth-ordered PROJECTION
    occluder so a near solid hides a far one, and make the disposition (`remove` | `demote`) an
    intent property. This is the "one engine, three consumers" of C09 §4.6.5.
