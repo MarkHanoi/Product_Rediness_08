@@ -34,8 +34,8 @@
 // command, never a direct UI store write) inside one `batchCoordinator.runBatch`
 // → the whole SET writes to the render store as a SINGLE undo (C11, C24.1 §1.2).
 
-import { batchCoordinator, storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
-import { makeAnnotationElement, makePointRef, CreateManyAnnotationsCommand } from '@pryzm/plugin-annotations';
+import { storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
+import { makeAnnotationElement, makePointRef } from '@pryzm/plugin-annotations';
 import { withAutoDimSpan } from '@pryzm/auto-dimension';
 import * as THREE from '@pryzm/renderer-three/three';
 import {
@@ -60,25 +60,15 @@ import type { DimensionString } from '@pryzm/schemas/annotation/dimension';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+// §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — the SHARED commit + ONE-undo path.
+import { commitAnnotationSet } from './commitAnnotationSet.js';
 
 // View types whose canvas draws annotations/dimensions in plan projection.
 const PLAN_VIEW_TYPES: ReadonlySet<string> = new Set(['plan', 'ceiling-plan', 'structural-plan']);
 
 interface ViewControllerLike { currentViewDefinitionId?: string | null }
-/** Legacy CommandManager surface — assigned at `window.commandManager` in initTools. */
-interface CommandManagerLike { execute(cmd: unknown): unknown }
 interface WindowWithView {
   viewController?: ViewControllerLike;
-  commandManager?: CommandManagerLike;
-}
-
-/**
- * The live legacy CommandManager (`window.commandManager`, set in initTools) —
- * the owner of the subsystem `annotationStore` mutation + undo. Typed via a local
- * shape (no `(window as any)`, P4). Returns undefined before the engine boots.
- */
-function resolveCommandManager(): CommandManagerLike | undefined {
-  return (window as unknown as WindowWithView).commandManager ?? undefined;
 }
 
 /**
@@ -201,36 +191,35 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
       //    (The bus `annotation.create` verb is a text-note handler that would drop
       //    geometry2D+references and write the wrong store — NOT the render sink.)
       //    Annotations don't bound rooms → skipRedetectRooms.
-      const commandManager = resolveCommandManager();
-      if (!commandManager) {
+      // §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — the commit + ONE-undo logic
+      // that used to live here is now the SHARED `commitAnnotationSet()` chokepoint,
+      // so the elevation strategy (and L-265's auto-tag) reuse this exact proven path
+      // instead of each growing a copy. Behaviour is unchanged: one composite
+      // CreateManyAnnotationsCommand inside one runBatch, plus the ring-buffer
+      // PatchPair that makes the unified ring-first undo path see the set
+      // (§FIX-AUTODIM-UNDO-ONE-UNIT, L-162). See commitAnnotationSet.ts for why both
+      // halves are required.
+      if (!commitAnnotationSet(annotations, [level.id])) {
         toast('Auto-Dimension: command system not ready — try again.', 'error');
         return 0;
       }
-      batchCoordinator.runBatch(() => {
-        commandManager.execute(new CreateManyAnnotationsCommand(annotations));
-      }, { levelIds: [level.id], totalElementCount: annotations.length, skipRedetectRooms: true });
-
-      // ── §FIX-AUTODIM-UNDO-ONE-UNIT (L-162, C11/C24.1 §1.2) ────────────────────
-      // The CreateManyAnnotationsCommand above IS recorded on the CommandManager
-      // history (its undo() removes the whole set — unit-tested). But the UNIFIED
-      // undo path (performUndoRedo.ts, C03 §4.6 U-5) consults the bus RING BUFFER
-      // FIRST and only falls back to the CommandManager when the ring's top entry is
-      // uncovered/empty. After a bus-generated building the ring is full of COVERED
-      // wall/slab entries, so Ctrl-Z undoes those and never reaches the CM stack —
-      // exactly the founder report ("it undoes elements done before but the
-      // dimensions remain"). Mirror the proven 3D DUAL-DISPATCH pattern: register a
-      // ring-buffer entry on the 'annotation' store (already in buildUndoStoreMap →
-      // driven by elementUndoStoreAdapter) whose INVERSE removes and FORWARD re-adds
-      // the set. performUndo then removes the dims via the ring AND shadow-drops the
-      // CM twin by target id → exactly ONE undoable unit (redo re-adds via FORWARD).
-      registerAnnotationRingUndo(annotations);
 
       const undim = report.warnings.filter((w) => w.code === 'opening-undimensioned').length;
+      // §FIX-AUTODIM-MULTI-BUILDING (L-268) — SAY how many buildings were dimensioned.
+      // The original defect was not that the second building was skipped; it was that
+      // nothing SAID SO. Partial coverage is now always reported, and a building that
+      // received no dimensions at all is escalated to a warning toast.
+      const buildings = report.coverage.buildingCount;
+      const undimBuildings = report.warnings.filter((w) => w.code === 'building-undimensioned');
       toast(
         `Auto-Dimension: created ${annotations.length} dimensions across ${report.coverage.runCount} façade run(s)` +
+        (buildings > 1 ? ` on ${buildings} buildings` : '') +
         (undim > 0 ? ` — ${undim} opening(s) uncovered.` : '.'),
         'success',
       );
+      if (undimBuildings.length > 0) {
+        toast(`Auto-Dimension: ${undimBuildings[0]!.detail}`, 'warn');
+      }
       console.log('[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage:', report.coverage, 'warnings:', report.warnings);
       return annotations.length;
     } catch (e) {
@@ -332,62 +321,14 @@ export function dimensionStringsToLinearDimAnnotations(
   }, { 'pryzm.autodim.phase': 'adapt', 'pryzm.autodim.string_count': strings.length });
 }
 
-// ── §FIX-AUTODIM-UNDO-ONE-UNIT (L-162) — ring-buffer undo registration ─────────
-
-/** A single RFC-6902 JSON-Patch op as stored in the bus ring buffer. */
-interface RingJsonPatchOp { readonly op: 'add' | 'remove'; readonly path: string; readonly value: unknown }
-/** Forward/inverse patch pair pushed onto the ring buffer (mirrors PatchPair). */
-interface RingPatchPair {
-  readonly forward: { readonly ops: readonly RingJsonPatchOp[] };
-  readonly inverse: { readonly ops: readonly RingJsonPatchOp[] };
-  readonly affectedStores: readonly string[];
-}
-/** Minimal ring-buffer surface (avoids importing CommandBus internals). */
-interface RingBufferLike { push(pair: RingPatchPair): void }
-
-/**
- * §FIX-AUTODIM-UNDO-ONE-UNIT (L-162) — PURE builder for the ring-buffer PatchPair
- * that makes an auto-dim SET undoable via the unified ring-first undo path.
- *
- * The `annotation` store is a whole-element `Record<id, element>` from the
- * `elementUndoStoreAdapter`'s perspective, so each op is a single-segment pointer
- * `/<id>`:
- *   • FORWARD (redo) → `{ op:'add',    path:'/<id>', value: element }`
- *   • INVERSE (undo) → `{ op:'remove', path:'/<id>' }` (reverse insertion order)
- * `affectedStores: ['annotation']` routes both sides to `window.annotationStore`
- * (the SAME subsystem store the plan renderer reads) via `buildUndoStoreMap`.
- *
- * Exported pure so the undo round-trip is unit-testable without a live runtime.
- */
-export function buildAnnotationRingUndoPair(
-  annotations: readonly { id: string }[],
-): RingPatchPair {
-  const forwardOps: RingJsonPatchOp[] = annotations.map((el) => ({ op: 'add', path: `/${el.id}`, value: el }));
-  // Remove in reverse insertion order so the store returns to its prior state.
-  const inverseOps: RingJsonPatchOp[] = [...annotations]
-    .reverse()
-    .map((el) => ({ op: 'remove', path: `/${el.id}`, value: undefined }));
-  return { forward: { ops: forwardOps }, inverse: { ops: inverseOps }, affectedStores: ['annotation'] };
-}
-
-/**
- * Push the auto-dim set's undo entry onto the bus ring buffer so a single Ctrl-Z
- * removes the whole set (see the call-site comment for the full rationale). Typed
- * via a narrow local shape — no `(window as any)` (P4). Best-effort: absent in
- * headless/test (no runtime) → silent no-op, the CommandManager twin remains the
- * fallback owner.
- */
-function registerAnnotationRingUndo(annotations: readonly { id: string }[]): void {
-  if (annotations.length === 0) return;
-  const rb = (window as unknown as { runtime?: { bus?: { ringBuffer?: RingBufferLike } } })
-    .runtime?.bus?.ringBuffer;
-  if (!rb || typeof rb.push !== 'function') {
-    console.warn('[auto-dimension] §FIX-AUTODIM-UNDO-ONE-UNIT — ring buffer unavailable; undo falls to CommandManager only');
-    return;
-  }
-  try { rb.push(buildAnnotationRingUndoPair(annotations)); }
-  catch (err) { console.warn('[auto-dimension] §FIX-AUTODIM-UNDO-ONE-UNIT — ring push failed:', err); }
-}
+// ── §FIX-AUTODIM-UNDO-ONE-UNIT (L-162) — now the SHARED chokepoint ────────────
+//
+// The ring-buffer PatchPair builder and the commit itself MOVED to
+// `commitAnnotationSet.ts` (§FEAT-AUTO-DIMENSION-ELEVATION-VIEWS, L-263) so the
+// elevation strategy — and L-265's auto-tag executor — reuse this exact proven
+// one-undo path rather than each copying it. Re-exported here because it is a
+// tested pure function and its call sites/tests know it by this name.
+export { buildAnnotationRingUndoPair } from './commitAnnotationSet.js';
 
 /**
  * Build the geometry-kernel evaluator snapshot from live walls (openings → doors/windows).

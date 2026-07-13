@@ -20,7 +20,14 @@ export type AutoDimStage =
   | 'place'     // Stage 6: placement / stacking
   | 'conflict'  // Stage 7: dedupe + text-overlap + geometry-crossing
   | 'qa'        // Stage 8: validation
-  | 'apply';    // editor executor boundary (`pryzm.autodim.apply`, C56 §1.7 / P8)
+  | 'apply'     // editor executor boundary (`pryzm.autodim.apply`, C56 §1.7 / P8)
+  // §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — the ELEVATION strategy's
+  // planner boundary. One stage, not a parallel stage set: the elevation rule
+  // set (overall height / floor-to-floor / sill+head) is a single pure pass over
+  // scalar datums, so it needs no graph/segment/chain sub-stages. Span cardinality
+  // stays bounded; per-run detail (detail_level, level_count, string_count) rides
+  // as attributes.
+  | 'elevation'; // `pryzm.autodim.elevation`
 
 let cachedTracer: Tracer | null = null;
 function tracer(): Tracer {

@@ -121,7 +121,7 @@ export function buildGraph(walls: readonly AutoDimWall[], snapEps: number): DimG
 
 // ── Perimeter outer-face trace (pure port of computeTopology) ────────────────
 
-interface Ring {
+export interface Ring {
   /** Ordered node ids around the outer face (cyclic). */
   readonly nodeIds: readonly string[];
   /** wallIds[i] connects nodeIds[i] → nodeIds[(i+1)%n]. */
@@ -141,13 +141,101 @@ function signedArea(nodeIds: readonly string[], pos: ReadonlyMap<string, PtXZ>):
 }
 
 /**
+ * §FIX-AUTODIM-MULTI-BUILDING (L-268) — trace the outer face of EVERY building on
+ * the level, not just the biggest one.
+ *
+ * THE BUG THIS REPLACES. `tracePerimeter` (below, kept) traces the faces of the whole
+ * wall graph and then returns **the single most-negative signed-area face**. On a level
+ * with two disjoint footprints that is the LARGER building — and the smaller one is
+ * discarded in silence. The founder had two buildings; one came back dimensioned and
+ * nothing told him the other had been skipped. It was never a "two buildings" branch
+ * that was missing: **there was no notion of a BUILDING in the documentation layer at
+ * all.** The perimeter was, by construction, singular.
+ *
+ * THE FIX, AND WHY IT IS SHAPED THIS WAY. The walls are partitioned into connected
+ * components **always** — a single building is simply N = 1 and goes down the exact same
+ * path. There is no special case to forget, which is the only way this stops recurring.
+ * Each component contributes its own outer face (its most-negative-area face), so each
+ * building is dimensioned on its own perimeter. An "overall" dimension spanning two
+ * buildings would measure across the gap between them, which is not a number anyone
+ * wants on a drawing.
+ *
+ * Deterministic: components are keyed by their lexicographically-smallest node id and
+ * returned in sorted order, so the same level always yields the same drawing.
+ *
+ * Returns one Ring per building that has a closed perimeter. A component with no closed
+ * face (an open run of walls) contributes nothing here — the caller falls back to
+ * per-wall handling for it, exactly as before.
+ */
+export function tracePerimeters(graph: DimGraph): Ring[] {
+  const pos = new Map<string, PtXZ>(graph.nodes.map((n) => [n.id, n.point]));
+  const faces = traceFaces(graph, pos);
+  if (faces.length === 0) return [];
+
+  // ── Connected components over the wall graph (union-find, order-stable) ──────
+  const parent = new Map<string, string>();
+  const find = (a: string): string => {
+    let r = a;
+    while (parent.get(r) !== r) r = parent.get(r)!;
+    // Path compression.
+    let c = a;
+    while (parent.get(c) !== r) { const nxt = parent.get(c)!; parent.set(c, r); c = nxt; }
+    return r;
+  };
+  for (const n of graph.nodes) parent.set(n.id, n.id);
+  for (const { startNodeId: s, endNodeId: e } of graph.wallNodes.values()) {
+    const rs = find(s), re = find(e);
+    if (rs !== re) parent.set(rs < re ? re : rs, rs < re ? rs : re); // smaller id wins → stable
+  }
+
+  // ── One outer face per component: the most-negative signed area within it ────
+  const bestByComponent = new Map<string, { ring: Ring; area: number }>();
+  for (const f of faces) {
+    const anchor = f.nodeIds[0];
+    if (anchor === undefined) continue;
+    const comp = find(anchor);
+    const area = signedArea(f.nodeIds, pos);
+    const cur = bestByComponent.get(comp);
+    if (!cur || area < cur.area) bestByComponent.set(comp, { ring: f, area });
+  }
+
+  return [...bestByComponent.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .map(([, v]) => v.ring);
+}
+
+/**
  * Trace the building perimeter (outer face) via the angular-sorted half-edge
  * walk of computeTopology. Returns the most-negative signed-area face, or null
  * when no closed face exists (open perimeter → caller falls back to per-wall).
+ *
+ * §FIX-AUTODIM-MULTI-BUILDING (L-268) — RETAINED, but it is SINGULAR BY DESIGN and
+ * therefore only correct on a single-building level. New callers want
+ * {@link tracePerimeters}. This one is kept because its "largest face wins" semantics
+ * are exactly what the multi-building reproduction test pins down.
  */
 export function tracePerimeter(graph: DimGraph): Ring | null {
   const pos = new Map<string, PtXZ>(graph.nodes.map((n) => [n.id, n.point]));
   if (pos.size === 0 || graph.wallNodes.size === 0) return null;
+  const faces = traceFaces(graph, pos);
+  if (faces.length === 0) return null;
+
+  let outer: Ring | null = null;
+  let outerArea = Infinity;
+  for (const f of faces) {
+    const a = signedArea(f.nodeIds, pos);
+    if (a < outerArea) { outerArea = a; outer = f; }
+  }
+  return outer;
+}
+
+/**
+ * The shared half-edge face walk — extracted so the singular `tracePerimeter` and the
+ * partitioning `tracePerimeters` cannot drift apart. Returns EVERY closed face in the
+ * graph (of every component); selecting among them is the caller's job.
+ */
+function traceFaces(graph: DimGraph, pos: ReadonlyMap<string, PtXZ>): Ring[] {
+  if (pos.size === 0 || graph.wallNodes.size === 0) return [];
 
   // Adjacency: node → [{neighborId, wallId}]. Half-edge wall lookup.
   const adj = new Map<string, { neighborId: string; wallId: string }[]>();
@@ -219,15 +307,7 @@ export function tracePerimeter(graph: DimGraph): Ring | null {
       if (nodeIds.length >= 3) faces.push({ nodeIds, wallIds });
     }
   }
-  if (faces.length === 0) return null;
-
-  let outer: Ring | null = null;
-  let outerArea = Infinity;
-  for (const f of faces) {
-    const a = signedArea(f.nodeIds, pos);
-    if (a < outerArea) { outerArea = a; outer = f; }
-  }
-  return outer;
+  return faces;
 }
 
 // ── Run splitting (collinear grouping along the perimeter ring) ──────────────

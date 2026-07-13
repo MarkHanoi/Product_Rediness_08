@@ -16,7 +16,7 @@ import type {
   AutoDimWall, PlannedString, PlacedString, WallRun, DimNode, ValidationWarning, TickRef,
 } from './types.js';
 import type { PtXZ } from './geometry.js';
-import { buildGraph, tracePerimeter, splitRuns, type DimGraph } from './perimeter.js';
+import { partitionBuildings, type BuildingFootprint } from './buildings.js';
 import { openingsOnRun, type RunOpening } from './openings.js';
 import {
   planOverall, planWallChain, planOpeningChain, planOpeningLocations, dedupKey,
@@ -30,6 +30,22 @@ const DEFAULT_MIN_SEGMENT_M = 0.05;
 const DEFAULT_STACK_WORLD_BASE_M = 0.5;
 const DEFAULT_STACK_WORLD_SPACING_M = 0.5;
 const MM_PER_M = 1000;
+
+/**
+ * §FIX-AUTODIM-MULTI-BUILDING (L-268) — ONE building on the level.
+ *
+ * This was the missing concept: before it, the documentation layer had no notion of a
+ * "building" at all — the perimeter was singular by construction, so a level with two
+ * footprints could only ever be understood as one. A level is now always a LIST of these,
+ * and N = 1 is not a special case.
+ *
+ * It is deliberately NOT defined here. It is the SHARED domain type
+ * `BuildingFootprint` (buildings.ts), so that elevation auto-dimension (L-263), auto-tag
+ * (L-265) and schedules (C28) partition the level into exactly the same buildings this
+ * planner does, from the same code. A second, private definition here is how the concept
+ * would drift back apart.
+ */
+type Building = BuildingFootprint;
 
 function makeMonotonicIdFactory(): () => string {
   let n = 0;
@@ -319,20 +335,32 @@ export function planAutoDimensions(
     const walls = sortWalls(snapshot.walls);
     const wallsById = new Map<string, AutoDimWall>(walls.map((w) => [w.id, w]));
 
-    // ── Stage 1: connectivity graph + perimeter ─────────────────────────────
-    const { runs, perimNodes, perimPolygon, hasPerimeter } = withAutoDimSpan('graph', () => {
-      const g: DimGraph = buildGraph(walls, snapEps);
-      const ring = tracePerimeter(g);
-      if (!ring) {
-        return { runs: [] as WallRun[], perimNodes: g.nodes, perimPolygon: [] as PtXZ[], hasPerimeter: false };
-      }
-      const rs = splitRuns(ring, g);
-      const perimNodeSet = new Set(ring.nodeIds);
-      const pn = g.nodes.filter((n) => perimNodeSet.has(n.id));
-      const posById = new Map<string, PtXZ>(g.nodes.map((n) => [n.id, n.point]));
-      const poly = ring.nodeIds.map((id) => posById.get(id)!).filter(Boolean);
-      return { runs: rs, perimNodes: pn, perimPolygon: poly, hasPerimeter: true };
-    }, { wall_count: walls.length });
+    // ── Stage 1: connectivity graph + perimeter, PER BUILDING ───────────────
+    //
+    // §FIX-AUTODIM-MULTI-BUILDING (L-268). This stage used to call `tracePerimeter`,
+    // which returns THE single most-negative-area face — i.e. the LARGEST footprint on
+    // the level — and silently threw the rest away. A level with two disjoint buildings
+    // therefore got one of them dimensioned and NO warning about the other.
+    //
+    // The level is now partitioned into buildings ALWAYS: `tracePerimeters` returns one
+    // outer face per connected component, and a single building is simply N = 1 down the
+    // same path. There is no "if two buildings" branch to forget. Each building keeps its
+    // OWN perimeter nodes and its OWN centroid — the centroid matters, because placement
+    // pushes dim lines *outward from the centroid*, and a centroid averaged across two
+    // separate buildings would push one building's dimensions INTO the other.
+    // The partition itself is NOT ours: it is the shared domain concept
+    // `partitionBuildings` (buildings.ts), which elevation auto-dimension (L-263), auto-tag
+    // (L-265), interior elevations and schedules (C28) all consume. Keeping it out here —
+    // rather than inline in this planner, and emphatically rather than in the L5
+    // `applyAutoDimensions` executor — is what stops the next consumer re-deriving a
+    // singular perimeter and reintroducing exactly this bug.
+    const partition = partitionBuildings(walls, snapEps);
+    const buildings: readonly Building[] = partition.buildings;
+    const hasPerimeter = partition.hasPerimeter;
+    const runs: WallRun[] = buildings.flatMap((b) => [...b.runs]);
+    const perimNodes: DimNode[] = hasPerimeter
+      ? buildings.flatMap((b) => [...b.perimNodes])
+      : [...partition.graph.nodes];
 
     // ── Stage 2/3: openings per run ─────────────────────────────────────────
     const runOpenings = withAutoDimSpan('segment', () => {
@@ -341,38 +369,63 @@ export function planAutoDimensions(
       return m;
     });
 
-    // ── Stage 4/5: chain planning ───────────────────────────────────────────
-    const planned = withAutoDimSpan('chain', () => {
-      let list: PlannedString[] = [];
-      if (hasPerimeter && runs.length > 0) {
-        list.push(...planOverall(perimNodes));
-        for (const run of runs) {
+    // ── Stage 4/5: chain planning, PER BUILDING ─────────────────────────────
+    //
+    // §FIX-AUTODIM-MULTI-BUILDING (L-268) — each building is planned against its OWN
+    // perimeter. `planOverall` must never see two buildings' nodes at once: its overall
+    // string spans the extreme corners of what it is given, so a shared call would emit
+    // one "overall" measuring ACROSS THE GAP between two separate buildings — a number
+    // that means nothing on a drawing.
+    //
+    // Dedup stays GLOBAL (a key seen on building A is not re-emitted on building B), so
+    // the non-redundancy guarantee is unchanged for the N = 1 case.
+    const plannedByBuilding = withAutoDimSpan('chain', () => {
+      const seen = new Set<string>();
+      const dedupe = (list: PlannedString[]): PlannedString[] => {
+        const byKey = new Map<string, PlannedString>();
+        // Keep the higher-rank (lower rank number) string for a duplicate distance.
+        for (const p of [...list].sort((a, b) => a.rank - b.rank)) {
+          const k = dedupKey(p);
+          if (seen.has(k) || byKey.has(k)) continue;
+          byKey.set(k, p);
+        }
+        const out = [...byKey.values()];
+        for (const p of out) seen.add(dedupKey(p));
+        return out;
+      };
+
+      if (!hasPerimeter || runs.length === 0) {
+        return [{ polygon: [] as PtXZ[], list: dedupe(planPerWallFallback(walls, minSeg)) }];
+      }
+
+      return buildings.map((b) => {
+        const list: PlannedString[] = [];
+        list.push(...planOverall(b.perimNodes));
+        for (const run of b.runs) {
           const ops = runOpenings.get(run.id) ?? [];
           list.push(...planWallChain(run, minSeg));
           list.push(...planOpeningChain(run, ops, minSeg));
           list.push(...planOpeningLocations(run, ops, minSeg));
         }
-      } else {
-        list.push(...planPerWallFallback(walls, minSeg));
-      }
-      // Dedup identical (orientation, ref-pair) strings — never dimension the
-      // same distance twice; keep the higher-rank (lower rank number) one.
-      const byKey = new Map<string, PlannedString>();
-      for (const p of list.sort((a, b) => a.rank - b.rank)) {
-        const k = dedupKey(p);
-        if (!byKey.has(k)) byKey.set(k, p);
-      }
-      list = [...byKey.values()];
-      return list;
+        return { polygon: b.perimPolygon, list: dedupe(list) };
+      });
     });
 
-    // ── Stage 6: true outward-side placement + row stacking ─────────────────
-    const placed = withAutoDimSpan('place', () => {
-      const centroid = hasPerimeter && perimPolygon.length >= 3
-        ? polygonCentroidImpl(perimPolygon)
-        : null;
-      return placeStrings(planned, centroid, opts.labelCharWidthM);
-    });
+    // ── Stage 6: true outward-side placement + row stacking, PER BUILDING ────
+    //
+    // The outward side is chosen relative to the building's OWN centroid (§SPIKE §8), so
+    // each building's dim stack is pushed away from ITS footprint. A centroid averaged
+    // over two buildings would sit in the gap between them and push building A's
+    // dimensions straight into building B.
+    const placed = withAutoDimSpan('place', () =>
+      plannedByBuilding.flatMap(({ polygon, list }) =>
+        placeStrings(
+          list,
+          polygon.length >= 3 ? polygonCentroidImpl(polygon) : null,
+          opts.labelCharWidthM,
+        ),
+      ),
+    );
 
     // ── Stage 7: conflict detection + resolution (deterministic) ────────────
     const { placed: resolved, notes, skipped } = withAutoDimSpan('conflict', () =>
@@ -397,6 +450,28 @@ export function planAutoDimensions(
     let openingsDimensioned = 0;
     for (const w of snapshot.walls) for (const op of w.openings) if (dimensioned.has(op.id)) openingsDimensioned++;
 
+    // §FIX-AUTODIM-MULTI-BUILDING (L-268) — NEVER FAIL SILENTLY AGAIN. A building whose
+    // walls were never referenced by any emitted string is an UNDIMENSIONED BUILDING, and
+    // the founder must be told, not left to notice. This is the check that would have
+    // caught the original bug on the day it shipped.
+    const buildingCount = hasPerimeter ? buildings.length : 0;
+    if (hasPerimeter) {
+      let undimensioned = 0;
+      for (const b of buildings) {
+        const wallIds = new Set(b.runs.flatMap((r) => [...r.members]));
+        const covered = [...wallIds].some((id) => dimensioned.has(id));
+        if (!covered && wallIds.size > 0) undimensioned++;
+      }
+      if (undimensioned > 0) {
+        warnings.push({
+          code: 'building-undimensioned',
+          detail:
+            `${undimensioned} of ${buildings.length} building(s) on this level received NO dimensions — ` +
+            `the drawing is incomplete`,
+        });
+      }
+    }
+
     const report: AutoDimReport = {
       coverage: {
         wallCount: snapshot.walls.length,
@@ -404,6 +479,9 @@ export function planAutoDimensions(
         openingsDimensioned,
         stringCount: strings.length,
         runCount: runs.length,
+        // §FIX-AUTODIM-MULTI-BUILDING (L-268) — surfaced so the executor can TELL the
+        // user how many buildings it dimensioned. Silence is what made this a bug.
+        buildingCount,
       },
       warnings,
       skipped,

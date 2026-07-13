@@ -29,3 +29,42 @@ export type {
   ValidationWarning,
 } from './types.js';
 export type { PtXZ } from './geometry.js';
+
+// ── BUILDING PARTITION (§FIX-AUTODIM-MULTI-BUILDING, L-268) ──────────────────
+//
+// "A BUILDING" as a first-class domain concept, exported because it is NOT a private
+// detail of the plan planner. Auto-dimension covered only one of two buildings not
+// because a branch was missing but because the documentation layer had NO NOTION OF A
+// BUILDING — the perimeter was singular by construction.
+//
+// It is exported here so that every documentation consumer partitions the level with the
+// SAME code and can never disagree about what a building is: elevation auto-dimension
+// (L-263), auto-tag (L-265), interior elevations, and schedules (C28). C19 already
+// contemplates a SITE holding N buildings; this is that concept reaching the
+// documentation layer. A consumer that re-derives its own perimeter instead of calling
+// this is reintroducing L-268.
+export { partitionBuildings } from './buildings.js';
+export type { BuildingFootprint, BuildingPartition } from './buildings.js';
+
+// ── ELEVATION strategy (§FEAT-AUTO-DIMENSION-ELEVATION-VIEWS, L-263) ─────────
+// ONE engine, multiple consumers. The plan planner above and the elevation
+// planner below share this package, the `DimensionString` schema, the tracing
+// helper, the report/warning vocabulary, the dimension COMMANDS and the render
+// sink. What differs — and ONLY what differs — is the measurement plane (view H/V
+// against world-Y) and the rule set (EV-1 overall height / EV-2 floor-to-floor /
+// EV-3 typical sill+head). See `elevation/planElevationAutoDimensions.ts` for the
+// rule set in full, written down before it was coded.
+export {
+  planElevationAutoDimensions,
+  ELEVATION_RULES_BY_DETAIL_LEVEL,
+  type ElevAutoDimResult,
+} from './elevation/planElevationAutoDimensions.js';
+export type {
+  ElevAutoDimSnapshot,
+  ElevAutoDimOptions,
+  ElevAutoDimLevel,
+  ElevAutoDimOpening,
+  ElevDimSegment,
+  ElevDimRule,
+  ElevTopDatumKind,
+} from './elevation/types.js';

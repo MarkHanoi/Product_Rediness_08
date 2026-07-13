@@ -167,6 +167,10 @@ export interface ValidationWarning {
     // cannot be honoured as an axis measure would render diagonally.
     | 'non-orthogonal-string'
     | 'no-walls'
+    // §FIX-AUTODIM-MULTI-BUILDING (L-268) — a whole BUILDING on the level got no
+    // dimensions. Partial coverage must never be silent again: the founder had two
+    // footprints, one came back dimensioned, and nothing said the other had been skipped.
+    | 'building-undimensioned'
     | 'degenerate-run';
   readonly detail: string;
 }
@@ -178,6 +182,12 @@ export interface AutoDimReport {
     readonly openingsDimensioned: number;
     readonly stringCount: number;
     readonly runCount: number;
+    /**
+     * §FIX-AUTODIM-MULTI-BUILDING (L-268) — how many BUILDINGS (connected wall
+     * footprints) the level was partitioned into. Always present; a single building is
+     * simply 1. `0` means no closed perimeter was found and the per-wall fallback ran.
+     */
+    readonly buildingCount: number;
   };
   readonly warnings: readonly ValidationWarning[];
   readonly skipped: readonly { readonly id: string; readonly reason: string }[];
