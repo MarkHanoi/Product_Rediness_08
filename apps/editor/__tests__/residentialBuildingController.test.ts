@@ -1,3 +1,11 @@
+// @vitest-environment happy-dom
+//
+// §GATE-TEST-ESTATE-NOT-A-CI-GATE (L-247, group A) — this file exercises browser-surface
+// code (its import graph reaches window/document/HTMLElement), but carried NO environment
+// pragma, and apps/editor/vitest.config.ts defaults to `environment: node`. So it did not
+// ROT — it never ran green: it died on import with "window is not defined" and no gate
+// objected, because the editor suite has never run in CI. Pragma matches the passing
+// siblings (classifyByVertexY.viewRange, levelExplode*, ElevMarkCropDiscoverable).
 // ResidentialBuildingController pure helpers (P3.3) — input building + counts.
 
 import { describe, expect, it } from 'vitest';

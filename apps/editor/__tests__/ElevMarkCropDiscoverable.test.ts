@@ -257,7 +257,26 @@ describe('§FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — navigate rule + P6 crop 
         expect(activate).not.toHaveBeenCalled();
     });
 
-    it('dragging a crop handle dispatches view.setCrop (P6), not a direct store write', () => {
+    // §GATE-TEST-ESTATE-NOT-A-CI-GATE (L-247, group C) — this guard was RED, and it read
+    // like a live P6 breach: "dragging a crop handle dispatches view.setCrop … expected 0
+    // to be greater than 0", i.e. NO command at all. Triaged product-first, per the L-247
+    // brief. THE PRODUCT IS RIGHT AND THIS TEST WAS STALE.
+    //
+    // §PERF-ELEV-CROP-DRAG-FLOW (L-222) deliberately COLLAPSED the scope-drag commit from
+    // two bus commands (`view.updateDefinition` + `view.setCrop`) into ONE
+    // `view.updateDefinition` carrying BOTH the final spatial and the final crop
+    // (PlanViewInteraction._applyScopeDragFromPointer). Two commands meant two undo entries
+    // and two competing projections per tick — that was the flicker L-222 fixed. So
+    // `view.setCrop` is no longer emitted on this path, and asserting it pinned a shape the
+    // architecture had intentionally moved past.
+    //
+    // P6 IS NOT WEAKENED, AND THAT IS WHAT THIS TEST STILL EXISTS TO PROVE: the mutation is
+    // committed through the runtime bus, never by a direct store write. The transient
+    // `viewDefinitionStore` writes during the drag are live preview, and the commit restores
+    // the pre-drag state and re-applies it through the command in the same synchronous tick —
+    // so the store is never the author of record. We assert the invariant (bus-only, one
+    // command, crop included, annotation store untouched), NOT the command's former name.
+    it('dragging a crop handle commits ONE bus command carrying the crop (P6), not a direct store write', () => {
         // The fake canvas reports a width-right handle grab (the mark is selected in
         // production; here we assert the drag→command wiring downstream of the hit-test).
         planCanvas.hitTestScopeHandle.mockReturnValue({ annotationId: 'ann-elev-mark', linkedViewId: ELEV_ID, handle: 'width-right' });
@@ -267,11 +286,17 @@ describe('§FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — navigate rule + P6 crop 
         move(300, 100);           // drag outward
         up(300, 100);             // commit
 
-        const setCropCalls = bus.mock.calls.filter(([type]) => type === 'view.setCrop');
-        expect(setCropCalls.length).toBeGreaterThan(0);
-        const [, payload] = setCropCalls[0] as [string, { viewId: string; crop: unknown }];
-        expect(payload.viewId).toBe(ELEV_ID);
-        expect(payload.crop).toBeTruthy();
+        // EXACTLY ONE command for the whole drag — the single-undo-entry guarantee of L-222.
+        const commits = bus.mock.calls.filter(([type]) => type === 'view.updateDefinition');
+        expect(commits.length).toBe(1);
+
+        // …and no stray legacy second command (the thing L-222 removed must stay removed).
+        expect(bus.mock.calls.some(([type]) => type === 'view.setCrop')).toBe(false);
+
+        const [, payload] = commits[0] as [string, { viewId: string; updates: { crop?: unknown } }];
+        expect(payload.viewId).toBe(ELEV_ID);     // the LINKED view is cropped, not the plan
+        expect(payload.updates.crop).toBeTruthy(); // the crop rides on the same command
+
         // Crop editing must NOT write the annotation store directly (P6 — bus only).
         expect(updateSpy).not.toHaveBeenCalled();
     });

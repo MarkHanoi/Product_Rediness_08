@@ -67,12 +67,32 @@ export class ViewRenderCache {
     ] as const;
 
     constructor() {
+        // §FIX-CORE-APP-MODEL-IMPORT-NEEDS-DOM (L-247, group A) — THE MODULE MUST BE
+        // IMPORTABLE WITHOUT A DOM.
+        //
+        // `viewRenderCache` (below) is a MODULE-LOAD singleton, and it is re-exported from
+        // the `@pryzm/core-app-model` barrel. So this constructor runs the moment ANYTHING
+        // imports that barrel — and it used to call `window.addEventListener` unguarded.
+        // In any non-DOM environment (a Node unit test, a server-side import, SSR) that
+        // threw `ReferenceError: window is not defined` AT IMPORT, killing the whole module
+        // graph before a single line of test body ran. That is what took out the editor's
+        // bootstrap suites; they were not failing assertions, they were failing to LOAD.
+        //
+        // Guarding here — rather than pragma-ing each test into a fake DOM — is the honest
+        // fix: a domain-layer cache has no business REQUIRING a browser merely to be
+        // constructed. Browser behaviour is byte-for-byte unchanged; in a DOM-less host we
+        // simply skip the listeners, which is correct, because there are no events to hear.
+        if (typeof window === 'undefined') return;
+
         // Bulk invalidation: when the project state changes, all cached renders
         // are stale because the scene content may have changed.
         for (const name of ViewRenderCache.BULK_INVALIDATING_EVENTS) {
             window.addEventListener(name, () => this.invalidateAll());
         }
 
+        // NOTE (pre-existing P4 debt, NOT introduced here): this is a `window.*` global
+        // handle. It is out of scope for L-247 and is left behind the same DOM guard rather
+        // than silently widened. Retiring it belongs with the C14 window-access migration.
         window.__viewRenderCache = this;
     }
 
