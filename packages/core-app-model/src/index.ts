@@ -38,7 +38,23 @@ export type {
 } from './drawing/DrawingPipelineTypes.js';
 
 export type { PenStyle, PenZone } from './drawing/PenWeightTable.js';
-export { FALLBACK_PEN, resolvePen, penZoneFromFlags, categoryFromFlags } from './drawing/PenWeightTable.js';
+export { FALLBACK_PEN, resolvePen, penZoneFromLayerName, drawingZoneFromLayer, categoryFromFlags } from './drawing/PenWeightTable.js';
+
+// §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — C09 §4.6, the four drawing zones. ONLY `hidden`
+// dashes. `penZoneFromFlags(isCut, isBeyond)` is DELETED: two booleans cannot express four
+// zones, so HIDDEN was structurally unreachable at the one place that paints a line.
+export type { DrawingZone, OcclusionDisposition } from './drawing/DrawingZone.js';
+export {
+    DRAWING_ZONES,
+    DATUM_CATEGORIES,
+    ZONE_LAYER_SUFFIX,
+    penZoneOf,
+    drawingZoneOf,
+    layerForZone,
+    siblingZoneLayer,
+    drawingZoneFromLayerName,
+    zoneDashesByDefault,
+} from './drawing/DrawingZone.js';
 
 // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P2 — shared LOD resolver + the enum
 // (re-exported from L0 @pryzm/schemas so downstream packages have one import site).
@@ -593,7 +609,8 @@ export { createBimWorld } from './BimWorld.js';
 
 // ── Sprint L drawing sub-barrel re-exports ────────────────────────────────────
 
-export { removeHiddenLines, reclassifyOccludedElevationLines } from './drawing/HiddenLineRemoval.js';
+export { applyOcclusion, VIEW_DEPTH_KEY } from './drawing/HiddenLineRemoval.js';
+export type { OcclusionOptions, OcclusionResult } from './drawing/HiddenLineRemoval.js';
 
 export type { SymbolSegment } from './drawing/SymbolicRuleRenderer.js';
 export {
