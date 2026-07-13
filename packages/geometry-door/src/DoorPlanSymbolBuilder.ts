@@ -47,16 +47,53 @@ const ARC_SEGMENTS = 32;
  * accurate with regards to its element dims… In any case the FRAME of the door is
  * present, the LEAF of the door in plan view renders OPENED."*
  *
- *   'coarse'  LOD 100  — framed opening + a SINGLE-LINE leaf at 90° + swing arc.
- *   'medium'  LOD 200  — framed opening + the leaf as a TRUE DOUBLE-LINE rectangle
- *                        at its real `leafThickness`, at 90° + swing arc.
- *   'fine'    LOD 300  — medium + frame reveal / rebate, threshold, lever hardware.
+ *   'coarse'  LOD 100  — jamb cut ticks + a SINGLE-LINE leaf at 90° + swing arc.
+ *   'medium'  LOD 200  — + the jamb LINING PROFILE (a true rectangle per jamb) and
+ *                        the leaf as a TRUE DOUBLE-LINE rectangle at its real
+ *                        `leafThickness`, at 90° + swing arc.
+ *   'fine'    LOD 300  — medium + the door STOP / rebate in each lining, the LEVER
+ *                        + ESCUTCHEON hardware, and the CLOSED-LEAF GHOST.
  *
  * THE LEAF IS DRAWN OPEN AT EVERY LEVEL. Before L-241 it was drawn CLOSED (lying
  * in the opening) *and* an open-position radial line *and* the arc were drawn —
  * three coincident readings of one leaf, which is the "confusing extra chord" the
  * founder reported. AEC convention (and both of his reference images) draw the
  * leaf once, in the 90° open position, with the arc closing back onto the frame.
+ *
+ * §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266) — WHAT THE SYMBOL MAY CONTAIN, AND NOTHING ELSE
+ * ─────────────────────────────────────────────────────────────────────────────────────
+ * The founder, on the shipped symbol: *"There are lines that are really not needed —
+ * those lines are imaginary. In the symbol we only need the FRAME, the LEAF (opened)
+ * and the CURVED LINE representing the opening. That's all."*
+ *
+ * NOTHING MAY BRIDGE THE VOID except the leaf, its arc and (at LOD 300) its ghost.
+ * At the plan cut height a DOOR OPENING IS EMPTY — the leaf has swung out of it. Any
+ * line drawn across the void span is therefore drawing something that is not there.
+ * (This is exactly where a door differs from a WINDOW: a window's frame and glazing
+ * ARE cut by the 1.2 m plane, so its spanning lines are real cut geometry. The door's
+ * were not.) Two producers were drawing across the void and BOTH are now gone:
+ *
+ *   1. THIS BUILDER drew two FRAME FACE LINES from void edge to void edge at ±half
+ *      the wall thickness (§FIX-DOOR-FRAME, L-127) — i.e. it re-drew the WALL through
+ *      the doorway. They were added to "close the reveal" when the wall's own face
+ *      lines were clipped at the opening and the jamb ticks were still inset by
+ *      `frameThickness`, leaving a 50 mm gap. §FIX-PLAN-DOOR-JAMB-SEAM (2026-07-02)
+ *      moved the ticks ONTO the void edges, which is what actually closes the outline
+ *      — the spanning lines have been redundant ever since, and read as two imaginary
+ *      chords across the doorway. The FRAME is now drawn as what it physically is: a
+ *      LINING PROFILE at each jamb, `frameThickness` long, spanning the wall reveal.
+ *   2. THE 3D DOOR MESH itself. `DoorBuilder`'s head bar spans the FULL opening width
+ *      (it is the frame's head member, ~2.05 m up), and the projector classifies any
+ *      edge above the cut plane as PROJECTION linework — so the head bar, the hinges,
+ *      the threshold plate, the centre mullion and the glazing all dumped their edges
+ *      onto A-DOOR:proj, straight across the void. `DoorBuilder` now tags every mesh
+ *      `userData.skipInPlan` (the Contract 48 §5 convention: an element with a plan
+ *      SYMBOL does not also emit its mesh edges), so the plan door is this symbol and
+ *      only this symbol.
+ *
+ * NOTE FOR THE NEXT READER: the wall's own face lines are clipped to the void span by
+ * `_suppressPlanViewOpeningLines`, and the true plan cut section is void at the opening
+ * BY CONSTRUCTION (L-246). Neither was the source of the reported lines.
  *
  * DIMENSIONAL TRUTH (non-negotiable, L-127): every dimension below — leaf length,
  * leaf thickness, frame thickness, frame depth, hinge position — is resolved from
@@ -128,11 +165,33 @@ const DOOR_LAYER = 'A-DOOR';
  */
 const DOOR_LAYER_CUT  = 'A-DOOR-CUT';
 const DOOR_LAYER_PROJ = 'A-DOOR-PROJ';
+/**
+ * §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266) — the CLOSED-LEAF GHOST sub-layer.
+ *
+ * The founder: *"If you can, you can represent the leaf when CLOSED in GREY and DASHED."*
+ *
+ * A LIGHTER PEN IS A ZONE, NOT A COLOUR LITERAL (Contract 23 §8). `drawingZoneFromLayerName`
+ * classifies any `*-BEYOND` sub-layer into the BEYOND zone, and `resolvePen('BEYOND','door')`
+ * IS the light grey reference pen (0.09 mm, #6b7280, opacity 0.55) — thinner than both the cut
+ * and the projection pen. The ghost asks the pen table for a lighter pen by declaring its ZONE;
+ * it never carries a hex value or a width.
+ *
+ * ON "DASHED", AND WHY IT IS NOT: §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277, landed the same day)
+ * made C09 §4.6.4 normative from the founder's own words — *"Dashed lines should be reserved
+ * ONLY for true hidden edges."* The closed-leaf ghost is not an OCCLUDED edge; it is reference
+ * linework we DELIBERATELY show, which is precisely what the BEYOND zone means. Filing it under
+ * HIDDEN to steal the dash would break the one invariant L-277 exists to hold (occlusion, never
+ * distance and never convenience, is the sole producer of `hidden`). If the ghost should dash,
+ * that is one explicit GraphicsRules intent override (P7) — not a literal in this builder.
+ */
+const DOOR_LAYER_GHOST = 'A-DOOR-BEYOND';
 
 /** Line weight (px) for cut symbols — matches §M5 plan-line-weight contract. */
 const LW_CUT  = 2;
 /** Line weight (px) for projection symbols — lighter than cut. */
 const LW_PROJ = 1;
+/** Line weight (px) for the closed-leaf ghost — the lightest of the three. */
+const LW_GHOST = 1;
 
 export class DoorPlanSymbolBuilder {
     /**
@@ -170,9 +229,9 @@ export class DoorPlanSymbolBuilder {
             return;
         }
 
-        // §M5 — ensure all three layers exist. The legacy DOOR_LAYER is kept so
-        // existing per-category VG overrides continue to resolve.
-        for (const layer of [DOOR_LAYER, DOOR_LAYER_CUT, DOOR_LAYER_PROJ]) {
+        // §M5 — ensure all layers exist. The legacy DOOR_LAYER is kept so existing
+        // per-category VG overrides continue to resolve.
+        for (const layer of [DOOR_LAYER, DOOR_LAYER_CUT, DOOR_LAYER_PROJ, DOOR_LAYER_GHOST]) {
             if (!drawing.layers.has(layer)) drawing.layers.create(layer);
         }
 
@@ -225,6 +284,21 @@ export class DoorPlanSymbolBuilder {
                 registerSegmentUUID(drawing, projectedProj, door.id);
             }
 
+            // ── Closed-leaf GHOST (lightest) — LOD 300 only ────────────────────
+            // §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266). On the BEYOND sub-layer, so the
+            // pen table (not this builder) decides that it is grey and dashed.
+            if (geos.ghost) {
+                const ghostSeg = new THREE.LineSegments(
+                    geos.ghost,
+                    new THREE.LineBasicMaterial({ color: 0x000000, linewidth: LW_GHOST }),
+                );
+                ghostSeg.userData = { lineWeight: LW_GHOST, role: 'beyond', elementType: 'Door' };
+                ghostSeg.updateWorldMatrix(true, false);
+                const projectedGhost = OBC.TechnicalDrawing.toDrawingSpace(ghostSeg, drawing);
+                drawing.addProjectionLines(projectedGhost, DOOR_LAYER_GHOST);
+                registerSegmentUUID(drawing, projectedGhost, door.id);
+            }
+
             injectedCount++;
         }
 
@@ -250,7 +324,8 @@ export class DoorPlanSymbolBuilder {
      * Returns null if the wall baseline data is missing or malformed.
      */
     private _computeSwingGeometry(door: any, wallData: any, lod: DetailLevel = 'medium'):
-        { cut: THREE.BufferGeometry | null; proj: THREE.BufferGeometry | null } | null {
+        { cut: THREE.BufferGeometry | null; proj: THREE.BufferGeometry | null;
+          ghost: THREE.BufferGeometry | null } | null {
         const bl0 = wallData.baseLine?.[0];
         const bl1 = wallData.baseLine?.[1];
         if (!bl0 || !bl1) return null;
@@ -283,9 +358,16 @@ export class DoorPlanSymbolBuilder {
             ? leftNormal.clone().negate()
             : leftNormal.clone();
 
+        // L-266 — the hardware is drawn only when the RECORD says the door carries a
+        // handle (`DoorOpeningSchema.handle`, the same flag DoorBuilder builds the 3D
+        // lever from). A symbol that draws ironmongery onto a handle-less door has
+        // invented it.
+        const hasHandle: boolean = door.handle !== false;
+
         // ── Segment accumulators (separated by line-weight role) ─────────────
-        const cutPositions:  number[] = [];   // §M5 leaf rectangle (cut by section plane)
-        const projPositions: number[] = [];   // §M5 swing arc + open-position line (projection)
+        const cutPositions:   number[] = [];  // §M5 frame + leaf rectangle (cut by section plane)
+        const projPositions:  number[] = [];  // §M5 swing arc + hardware (projection)
+        const ghostPositions: number[] = [];  // L-266 closed-leaf ghost (BEYOND pen)
 
         // §DOOR-WINDOW-PLAN-FRAME (DAILY-USE 2026-05-21) — Add the frame
         // jamb cut symbols (two short perpendicular ticks at each jamb
@@ -322,55 +404,58 @@ export class DoorPlanSymbolBuilder {
             }),
         );
 
-        // §FIX-DOOR-FRAME (L-127) — CLOSE THE REVEAL. The host wall's two plan face
-        // lines are suppressed across the opening span (EdgeProjectorService
-        // `_suppressPlanViewOpeningLines`), so without a frame the doorway reads as
-        // an OPEN GAP in the wall outline (founder: "openings show gap where frame
-        // should close the reveal"). Mirror WindowPlanSymbolBuilder: draw the two
-        // frame face lines PARALLEL to the wall at ±halfThickness, spanning the void
-        // edges (∓halfWidth from centre). Together with the jamb ticks above these
-        // frame the opening into a watertight rectangle — the door FRAME cut profile.
-        {
-            const nOuter = leftNormal.clone().multiplyScalar(halfThk);
-            const nInner = leftNormal.clone().multiplyScalar(-halfThk);
-            const voidLeft  = centre.clone().addScaledVector(dir, -halfWidth);
-            const voidRight = centre.clone().addScaledVector(dir, +halfWidth);
-            const oL = voidLeft.clone().add(nOuter);
-            const oR = voidRight.clone().add(nOuter);
-            const iL = voidLeft.clone().add(nInner);
-            const iR = voidRight.clone().add(nInner);
-            cutPositions.push(oL.x, 0, oL.z, oR.x, 0, oR.z);   // outer frame face line
-            cutPositions.push(iL.x, 0, iL.z, iR.x, 0, iR.z);   // inner frame face line
-        }
-
         const clearHalf = halfWidth - frameThick;   // centre → inner frame corner
 
-        // ── FINE (LOD 300) — frame REVEAL + REBATE (founder's image 2) ────────
-        // The framed opening at medium is a plain rectangle. At fine we draw the
-        // frame MEMBER itself: a reveal tick across the wall at each inner frame
-        // corner (∓clearHalf), closing the frame profile into a true rectangle of
-        // face-width `frameThickness`; plus the door STOP (rebate) — two short
-        // lines along the wall from the void edge to the inner corner, offset from
-        // the leaf plane by half the real leaf thickness.
+        // ── MEDIUM+ (LOD 200) — the JAMB LINING PROFILE ──────────────────────
         //
-        // Every offset here is a DOOR-TYPE dimension (frameThickness, leafThickness,
-        // frameDepth) — no literals (L-127).
-        if (lod === 'fine' && clearHalf > 0) {
+        // §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266). THE FRAME IS TWO LININGS, NOT A BOX
+        // AROUND THE DOORWAY. What was here before were two lines running from void
+        // edge to void edge at ±halfThickness — the wall's own face lines, re-drawn
+        // straight through the doorway (see the header note). A door lining is a
+        // member that lines the REVEAL at each jamb; it is `frameThickness` long
+        // along the wall and spans the wall thickness across it. In plan that is a
+        // RECTANGLE AT EACH JAMB — and nothing at all between them.
+        //
+        //        wall face ──┐ ┌── lining ──┐                 ┌── lining ──┐ ┌── wall
+        //                    │ │            │      VOID       │            │ │
+        //                    └─┴────────────┘   (empty!)      └────────────┴─┘
+        //                   void edge   inner corner      inner corner   void edge
+        //
+        // The void-edge tick (above) is the outer end of each lining; here we close
+        // the profile with the inner reveal tick and the two lining FACE lines. Every
+        // offset is a record dimension: the lining length is exactly `frameThickness`
+        // (void edge → inner corner) and its depth is the host wall's reveal.
+        if (lod !== 'coarse' && clearHalf > 0) {
             const tick = leftNormal.clone().multiplyScalar(halfThk);
-            for (const s of [-clearHalf, +clearHalf]) {
-                const p = centre.clone().addScaledVector(dir, s);
+            for (const sign of [-1, 1]) {
+                const outer = centre.clone().addScaledVector(dir, sign * halfWidth);   // void edge
+                const inner = centre.clone().addScaledVector(dir, sign * clearHalf);   // inner corner
+                // Inner reveal tick — the lining's inner end, across the wall depth.
                 cutPositions.push(
-                    p.x - tick.x, 0, p.z - tick.z,
-                    p.x + tick.x, 0, p.z + tick.z,
+                    inner.x - tick.x, 0, inner.z - tick.z,
+                    inner.x + tick.x, 0, inner.z + tick.z,
                 );
+                // The two lining face lines — flush with the wall faces, `frameThickness`
+                // long. These are what the wall's clipped face lines terminate onto.
+                for (const n of [-halfThk, +halfThk]) {
+                    const a = outer.clone().addScaledVector(leftNormal, n);
+                    const b = inner.clone().addScaledVector(leftNormal, n);
+                    cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
+                }
             }
-            // Rebate / door stop: the leaf seats against it, so the two stop faces
-            // sit at ±halfLeaf either side of the leaf's closed plane (the wall
-            // centreline — where the hinge pivots), and the stop runs `frameThick`
-            // along the wall, i.e. from the void edge to the inner frame corner.
-            // §DOOR-FRAME-DEPTH — the frame LINING spans the full wall reveal
-            // (DoorBuilder overrides `frameDepth` with the host wall thickness), so
-            // the plan reveal is governed by `halfThk`, not by `dims.frameDepth`.
+        }
+
+        // ── FINE (LOD 300) — the door STOP / REBATE in each lining ───────────
+        // The leaf seats against the stop, so the two stop faces sit at ±half the
+        // REAL leaf thickness either side of the leaf's closed plane (the wall
+        // centreline, where the hinge pivots), and each stop runs the lining's own
+        // length — void edge → inner corner = exactly `frameThickness`.
+        //
+        // §DOOR-FRAME-DEPTH — the frame LINING spans the full wall reveal (DoorBuilder
+        // overrides `frameDepth` with the host wall thickness), so the plan reveal is
+        // governed by `halfThk`, not by `dims.frameDepth`. No literal appears here:
+        // the rebate offset IS the leaf thickness the 3D leaf is built from (L-127).
+        if (lod === 'fine' && clearHalf > 0) {
             const stopOffset = Math.min(halfLeaf, halfThk);
             for (const sign of [-1, 1]) {
                 const outer = centre.clone().addScaledVector(dir, sign * halfWidth);
@@ -410,8 +495,8 @@ export class DoorPlanSymbolBuilder {
             ];
 
             for (const { hinge, panelDir } of leaves) {
-                this._addLeaf(hinge, panelDir, swingDir, leafLength, leafThick, lod,
-                              cutPositions, projPositions);
+                this._addLeaf(hinge, panelDir, swingDir, leafLength, leafThick, hasHandle, lod,
+                              cutPositions, projPositions, ghostPositions, leftNormal);
             }
         } else {
             // ── Single door ──────────────────────────────────────────────────
@@ -425,20 +510,18 @@ export class DoorPlanSymbolBuilder {
                 ? centre.clone().addScaledVector(dir, +clearHalf)
                 : centre.clone().addScaledVector(dir, -clearHalf);
 
-            this._addLeaf(hingePoint, panelDir, swingDir, leafLength, leafThick, lod,
-                          cutPositions, projPositions);
+            this._addLeaf(hingePoint, panelDir, swingDir, leafLength, leafThick, hasHandle, lod,
+                          cutPositions, projPositions, ghostPositions, leftNormal);
         }
 
-        // ── FINE (LOD 300) — THRESHOLD (projection, light) ───────────────────
-        // The leaf is drawn OPEN, so its closed plane (the wall centreline across
-        // the clear opening) is empty — which is exactly where the threshold /
-        // floor-finish transition line belongs. Spans the CLEAR opening
-        // (∓clearHalf = the inner frame corners), so it is dimensionally exact.
-        if (lod === 'fine' && clearHalf > 0) {
-            const tA = centre.clone().addScaledVector(dir, -clearHalf);
-            const tB = centre.clone().addScaledVector(dir, +clearHalf);
-            projPositions.push(tA.x, 0, tA.z, tB.x, 0, tB.z);
-        }
+        // §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266) — the THRESHOLD LINE IS GONE. It ran
+        // from inner corner to inner corner ACROSS THE VOID on the wall centreline —
+        // one of the "imaginary lines" the founder marked. His enumeration of the
+        // symbol is exhaustive: *"the FRAME, the LEAF (opened) and the CURVED LINE.
+        // That's all"* (+ the optional closed-leaf ghost). ADR-121 §4.2 lists
+        // "thresholds" among the LOD-300 plan additions; the founder's direction is
+        // higher in the conflict order, and LOD 300 remains a strict superset of 200
+        // via the rebate, the hardware and the ghost.
 
         const cutGeo = cutPositions.length > 0 ? new THREE.BufferGeometry() : null;
         if (cutGeo) cutGeo.setAttribute('position', new THREE.Float32BufferAttribute(cutPositions, 3));
@@ -446,7 +529,10 @@ export class DoorPlanSymbolBuilder {
         const projGeo = projPositions.length > 0 ? new THREE.BufferGeometry() : null;
         if (projGeo) projGeo.setAttribute('position', new THREE.Float32BufferAttribute(projPositions, 3));
 
-        return { cut: cutGeo, proj: projGeo };
+        const ghostGeo = ghostPositions.length > 0 ? new THREE.BufferGeometry() : null;
+        if (ghostGeo) ghostGeo.setAttribute('position', new THREE.Float32BufferAttribute(ghostPositions, 3));
+
+        return { cut: cutGeo, proj: projGeo, ghost: ghostGeo };
     }
 
     /**
@@ -456,7 +542,8 @@ export class DoorPlanSymbolBuilder {
      *
      *   coarse : 1 single leaf line (hinge → open tip) + arc          → 1 + 32 segs
      *   medium : leaf as a true double-line rectangle at `leafThick` + arc
-     *   fine   : medium + lever hardware on the open leaf
+     *   fine   : medium + LEVER + ESCUTCHEON hardware on the open leaf,
+     *            + the CLOSED-LEAF GHOST (grey/dashed, via the BEYOND pen)
      *
      * WHY THE LEAF IS OPEN (was: closed): the previous symbol drew the leaf lying
      * CLOSED inside the opening AND a radial "open-position" line AND the arc —
@@ -474,7 +561,9 @@ export class DoorPlanSymbolBuilder {
      * @param swingDir   Unit vector perpendicular to the wall (the OPEN direction).
      * @param leafLength Clear leaf width = hinge → latch = the arc radius.
      * @param leafThick  Full leaf thickness (from the door type).
+     * @param hasHandle  The RECORD's `handle` flag — gates the LOD-300 ironmongery.
      * @param lod        Effective detail level for this door in this view.
+     * @param leftNormal Wall left-normal — the closed leaf's thickness runs across it.
      */
     private _addLeaf(
         hinge: THREE.Vector3,
@@ -482,9 +571,12 @@ export class DoorPlanSymbolBuilder {
         swingDir: THREE.Vector3,
         leafLength: number,
         leafThick: number,
+        hasHandle: boolean,
         lod: DetailLevel,
         cutPositions: number[],
         projPositions: number[],
+        ghostPositions: number[],
+        leftNormal: THREE.Vector3,
     ): void {
         const cutSeg = (a: THREE.Vector3, b: THREE.Vector3): void => {
             cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
@@ -538,25 +630,81 @@ export class DoorPlanSymbolBuilder {
             );
         }
 
-        // ── 3. FINE (LOD 300) — LEVER HARDWARE on the open leaf (PROJECTION) ──
-        // A lever on each leaf face, set back from the latch edge. Its length and
-        // set-back are DERIVED from the real leaf thickness (2 × / 3 ×) — no magic
-        // numbers, and it scales with the door type. Skipped on leaves too narrow
-        // to carry it, so a slim leaf never draws hardware over its own tip.
-        if (lod === 'fine') {
-            const setBack  = 3 * leafThick;
-            const leverLen = 2 * leafThick;
-            if (leafLength > setBack + leverLen) {
+        // ── 3. FINE (LOD 300) — LEVER + ESCUTCHEON on the open leaf (PROJECTION) ──
+        //
+        // §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266). The founder, red arrow on the shipped
+        // symbol: *"the LOD and quality of the handle — honestly not being enough."*
+        // His Revit-grade reference draws the ironmongery as a LEVER growing out of a
+        // ROSE (escutcheon) on BOTH leaf faces. The prior symbol drew one bare line
+        // per face — a lever with no rose and no body.
+        //
+        // Drawn per face:
+        //          ┌──┐            rose: a `roseHalf`-long plate standing `roseProj`
+        //     ─────┤  ├────        proud of the leaf face (3 lines: 2 cheeks + 1 back)
+        //          │  │
+        //          └──┘  ← lever   lever: a single line out of the rose centre,
+        //                          perpendicular to the face, `leverLen` long.
+        //
+        // EVERY dimension is a multiple of the REAL `leafThickness` resolved from the
+        // door type, so the hardware scales with the door and no literal is typed here
+        // (ADR-121 §4.4: *a richer HARDCODED glyph is the same bug at higher
+        // resolution*). It is skipped on a leaf too narrow to carry it (so a slim leaf
+        // never draws hardware over its own tip) and on a door whose record says it has
+        // no handle.
+        if (lod === 'fine' && hasHandle) {
+            const setBack   = 3 * leafThick;         // latch edge → handle centreline
+            const leverLen  = 2 * leafThick;         // lever projection from the face
+            const roseHalf  = leafThick;             // half the rose's along-leaf length
+            const roseProj  = leafThick / 2;         // how far the rose stands proud
+            if (leafLength > setBack + roseHalf) {
                 const base = hinge.clone().addScaledVector(swingDir, leafLength - setBack);
-                // Face A (hinge-side face, at the leaf's near face = offset 0).
-                const a0 = base.clone();
-                const a1 = base.clone().addScaledVector(panelDir, -leverLen);
-                projSeg(a0.x, a0.z, a1.x, a1.z);
-                // Face B (opposite face, offset by the real leaf thickness).
-                const b0 = base.clone().addScaledVector(panelDir, leafThick);
-                const b1 = base.clone().addScaledVector(panelDir, leafThick + leverLen);
-                projSeg(b0.x, b0.z, b1.x, b1.z);
+                // face = 0 (hinge-side face) and face = leafThick (opposite face);
+                // `out` is the outward normal of that face, along ∓panelDir.
+                for (const [faceOffset, outSign] of [[0, -1], [leafThick, +1]] as const) {
+                    const c = base.clone().addScaledVector(panelDir, faceOffset);
+                    const along = (t: number) => c.clone().addScaledVector(swingDir, t);
+                    const out   = (p: THREE.Vector3, d: number) =>
+                        p.clone().addScaledVector(panelDir, outSign * d);
+                    // Rose — two cheeks off the leaf face + the back plate joining them.
+                    const cheekA0 = along(-roseHalf);
+                    const cheekB0 = along(+roseHalf);
+                    const cheekA1 = out(cheekA0, roseProj);
+                    const cheekB1 = out(cheekB0, roseProj);
+                    projSeg(cheekA0.x, cheekA0.z, cheekA1.x, cheekA1.z);
+                    projSeg(cheekB0.x, cheekB0.z, cheekB1.x, cheekB1.z);
+                    projSeg(cheekA1.x, cheekA1.z, cheekB1.x, cheekB1.z);
+                    // Lever — out of the rose's face, perpendicular to the leaf.
+                    const lever0 = out(c, roseProj);
+                    const lever1 = out(c, roseProj + leverLen);
+                    projSeg(lever0.x, lever0.z, lever1.x, lever1.z);
+                }
             }
+        }
+
+        // ── 4. FINE (LOD 300) — the CLOSED-LEAF GHOST (BEYOND pen) ───────────
+        //
+        // The founder: *"you can represent the leaf when CLOSED in GREY and DASHED."*
+        // Same leaf, same hinge, same thickness — lying in the opening instead of at
+        // 90°: from the hinge along `panelDir` (the CLOSED direction) for `leafLength`,
+        // its thickness `leafThick` across the wall, centred on the wall centreline
+        // exactly as the 3D leaf is (DoorBuilder centres the leaf on the wall's centre
+        // plane). Its latch edge therefore lands on the arc's t=0 end — the ghost and
+        // the arc close onto the same frame corner, which is the geometric statement
+        // the ghost exists to make.
+        //
+        // GREY + DASHED IS A PEN, NOT A COLOUR (Contract 23 §8): these segments go to
+        // the `A-DOOR-BEYOND` sub-layer and the pen table resolves BEYOND × door to the
+        // grey dashed reference pen. No hex literal is authored here.
+        if (lod === 'fine') {
+            const half = leafThick / 2;
+            const g = (t: number, n: number): THREE.Vector3 =>
+                hinge.clone().addScaledVector(panelDir, t).addScaledVector(leftNormal, n);
+            const q0 = g(0, -half), q1 = g(leafLength, -half);
+            const q2 = g(leafLength, +half), q3 = g(0, +half);
+            const ghostSeg = (a: THREE.Vector3, b: THREE.Vector3): void => {
+                ghostPositions.push(a.x, 0, a.z, b.x, 0, b.z);
+            };
+            ghostSeg(q0, q1); ghostSeg(q1, q2); ghostSeg(q2, q3); ghostSeg(q3, q0);
         }
 
         // §L-241 — the legacy "open-position line" (hinge → open tip) is GONE: the

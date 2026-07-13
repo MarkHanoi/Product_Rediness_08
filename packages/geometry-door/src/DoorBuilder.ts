@@ -346,14 +346,41 @@ export class DoorBuilder {
         this.positionGroup(door, group, wallData);
         group.traverse(obj => {
             if (obj !== group && obj instanceof THREE.Mesh) {
+                const isLeaf = obj.userData.role === 'doorLeaf';
                 obj.userData = Object.freeze({
                     ...obj.userData,
-                    elementType: obj.userData.role === 'doorLeaf' ? 'DoorLeaf' : 'Door',
+                    elementType: isLeaf ? 'DoorLeaf' : 'Door',
                     parentId: door.id,
                     wallId: door.wallId,
                     levelId: wallData.levelId,
                     selectable: false,
                     leafVisibleInPlan: door.leafVisibleInPlan ?? false,
+                    /**
+                     * §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266) — IN PLAN, THE DOOR IS ITS SYMBOL.
+                     *
+                     * The founder: *"There are lines that are really not needed — those lines
+                     * are imaginary."* They were the 3D door's OWN edges. The plan projector
+                     * dumps every mesh's `EdgesGeometry` onto A-DOOR, and classifies anything
+                     * above the cut plane as PROJECTION linework — so the frame's HEAD BAR
+                     * (`addBox(w, ft, fd)`, spanning the FULL opening width at ~2 m), the
+                     * hinges, the threshold plate, the double-door centre mullion and every
+                     * glazing pane drew their outlines STRAIGHT ACROSS THE DOOR VOID, on top
+                     * of the clean symbol `DoorPlanSymbolBuilder` had just injected.
+                     *
+                     * That is the Contract 48 §5 convention, already applied to every furniture
+                     * family (sofa/bed/chair/tree): AN ELEMENT WITH A PLAN SYMBOL DOES NOT ALSO
+                     * EMIT ITS MESH EDGES IN PLAN. The projector honours `userData.skipInPlan`
+                     * generically. The door had three ad-hoc role-based skips instead
+                     * (doorLeaf / doorHandle / legacyDoorFrame) — a per-part allowlist that
+                     * silently admits every part nobody thought of. This is the rule, not a
+                     * fourth exception.
+                     *
+                     * The ONE escape hatch is the record's own `leafVisibleInPlan` flag: when
+                     * the user asks for the real 3D leaf in plan, the leaf mesh keeps
+                     * projecting (the projector's existing doorLeaf gate reads that same flag).
+                     * Intent stays in the record; the builder does not decide it.
+                     */
+                    skipInPlan: !(isLeaf && (door.leafVisibleInPlan ?? false)),
                 });
             }
         });

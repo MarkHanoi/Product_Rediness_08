@@ -37,18 +37,19 @@ const VOID_RIGHT  = DOOR.offset + DOOR.width;             // 1.90  (= centre + h
 const HINGE_X     = CENTRE_X - (HALF_WIDTH - FRAME_T);    // 1.05  (inner frame corner)
 const LEAF_LENGTH = DOOR.width - 2 * FRAME_T;             // 0.80  (clear leaf width)
 
-interface Geos { cut: { getAttribute(n: string): { array: ArrayLike<number> } } | null;
-                 proj: { getAttribute(n: string): { array: ArrayLike<number> } } | null; }
+type Geo = { getAttribute(n: string): { array: ArrayLike<number> } } | null;
+interface Geos { cut: Geo; proj: Geo; ghost: Geo }
 
-function build(lod: Lod): { cut: number[]; proj: number[] } {
+function build(lod: Lod): { cut: number[]; proj: number[]; ghost: number[] } {
     const builder = new DoorPlanSymbolBuilder();
     const geos = (builder as unknown as {
         _computeSwingGeometry(d: unknown, w: unknown, lod: Lod): Geos | null;
     })._computeSwingGeometry(DOOR, WALL, lod);
     expect(geos).not.toBeNull();
     return {
-        cut:  Array.from(geos!.cut?.getAttribute('position').array ?? []),
-        proj: Array.from(geos!.proj?.getAttribute('position').array ?? []),
+        cut:   Array.from(geos!.cut?.getAttribute('position').array ?? []),
+        proj:  Array.from(geos!.proj?.getAttribute('position').array ?? []),
+        ghost: Array.from(geos!.ghost?.getAttribute('position').array ?? []),
     };
 }
 
@@ -70,21 +71,47 @@ const LODS: Lod[] = ['coarse', 'medium', 'fine'];
 describe('DoorPlanSymbolBuilder — detail levels emit different DRAUGHTING', () => {
     it('coarse < medium < fine in total line count', () => {
         const c = build('coarse'), m = build('medium'), f = build('fine');
-        const total = (g: { cut: number[]; proj: number[] }) => segCount(g.cut) + segCount(g.proj);
+        const total = (g: { cut: number[]; proj: number[]; ghost: number[] }) =>
+            segCount(g.cut) + segCount(g.proj) + segCount(g.ghost);
         expect(total(c)).toBeLessThan(total(m));
         expect(total(m)).toBeLessThan(total(f));
     });
 
     it('coarse draws the leaf as ONE line; medium/fine as a true double-line rectangle', () => {
-        // Frame (2 jamb ticks + 2 frame face lines) = 4 cut segments at every LOD.
-        expect(segCount(build('coarse').cut)).toBe(4 + 1);   // + single leaf line
-        expect(segCount(build('medium').cut)).toBe(4 + 4);   // + 4-edge leaf rectangle
+        // §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266) — coarse frame = the 2 jamb cut ticks.
+        expect(segCount(build('coarse').cut)).toBe(2 + 1);       // + single leaf line
+        // Medium adds the JAMB LINING PROFILE: per jamb an inner reveal tick + 2 lining
+        // face lines (the two full-span "frame face lines" that used to bridge the void
+        // are GONE — they were the wall, re-drawn through the doorway).
+        expect(segCount(build('medium').cut)).toBe(2 + 2 * 3 + 4);  // + 4-edge leaf rect
     });
 
-    it('fine adds the frame reveal + rebate (cut) and the threshold + lever (projection)', () => {
+    it('fine adds the rebate (cut), the lever + escutcheon (proj) and the ghost', () => {
         const m = build('medium'), f = build('fine');
-        expect(segCount(f.cut)).toBeGreaterThan(segCount(m.cut));    // reveal ticks + rebate
-        expect(segCount(f.proj)).toBe(segCount(m.proj) + 2 + 1);     // 2 lever + 1 threshold
+        expect(segCount(f.cut)).toBe(segCount(m.cut) + 4);      // 2 stop faces × 2 jambs
+        expect(segCount(f.proj)).toBe(segCount(m.proj) + 8);    // (3 rose + 1 lever) × 2 faces
+        expect(segCount(m.ghost)).toBe(0);
+        expect(segCount(f.ghost)).toBe(4);                      // closed-leaf rectangle
+    });
+
+    it('LOD 300 emits a STRICT SUPERSET of LOD 200 (ADR-121 §4.2 invariant)', () => {
+        // A tier may never REMOVE a line another tier draws; it may only add.
+        const key = (flat: number[]): string[] => {
+            const out: string[] = [];
+            for (let i = 0; i < flat.length; i += 6) {
+                const a = [flat[i], flat[i + 2]].map(v => v.toFixed(5));
+                const b = [flat[i + 3], flat[i + 5]].map(v => v.toFixed(5));
+                out.push([a.join(), b.join()].sort().join('|'));   // undirected segment
+            }
+            return out;
+        };
+        for (const [lo, hi] of [['coarse', 'medium'], ['medium', 'fine']] as Array<[Lod, Lod]>) {
+            const l = build(lo), h = build(hi);
+            const hiSet = new Set([...key(h.cut), ...key(h.proj), ...key(h.ghost)]);
+            // Coarse's single leaf line is the hinge FACE of the medium leaf rectangle,
+            // so every coarse segment survives into medium verbatim.
+            for (const seg of [...key(l.cut), ...key(l.proj)]) expect(hiSet.has(seg)).toBe(true);
+        }
     });
 
     it('every LOD draws the swing arc (32 segments)', () => {
