@@ -29,6 +29,73 @@ import { getThumbnailCacheStore } from './ThumbnailCacheStore';
 import { getVersionCacheStore } from './VersionCacheStore';
 import { encodeCompressed, decodeCompressed } from '../../workers/compressCodec';
 import { getCompressWorkerPool } from '../../workers/CompressWorkerPool';
+import {
+    measureLocalStorageUsage,
+    formatStorageUsageReport,
+    markStorageQuotaTerminal,
+    resetStorageQuotaTerminal,
+    type StorageUsageReport,
+} from './StorageQuotaDiagnostics';
+
+/**
+ * §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — the outcome of a write that
+ * touches the localStorage project index.
+ *
+ * The index write USED to fail with nothing but a `console.warn`, returning `void`
+ * to callers. PlatformSaveController therefore had no way to know and logged
+ * "Version saved" straight afterwards — a FALSE SUCCESS reported to the user while
+ * the row that makes the project findable did not persist. P8 is explicit: a
+ * persistence failure that loses data surfaces to the USER as a resolvable event.
+ *
+ * `indexPersisted: false` means: the version BODY is durable in IndexedDB, but the
+ * project's META ROW is not in `bim-projects-index`. For a project that was never
+ * indexed, that is an ORPHAN — versions exist that the user can never find.
+ */
+export interface StorageWriteOutcome {
+    /** True only when EVERY durable write in the call succeeded. */
+    ok: boolean;
+    /** Whether `bim-projects-index` actually persisted this call's changes. */
+    indexPersisted: boolean;
+    /** Populated when `ok` is false. */
+    reason?: 'quota-index-write-failed';
+    /** Ranked localStorage usage, captured at the moment of failure. */
+    usage?: StorageUsageReport;
+}
+
+/** The single success value — avoids allocating a fresh literal per successful save. */
+function _writeOk(): StorageWriteOutcome {
+    // A successful index write means the user freed space (or never lacked it):
+    // leave the terminal state so the quota banner can be earned back.
+    resetStorageQuotaTerminal();
+    return { ok: true, indexPersisted: true };
+}
+
+/**
+ * §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE — a quota-blocked index write is TERMINAL,
+ * not a warning. Measure what is ACTUALLY filling the origin (it is emphatically not
+ * the version history — that lives in IndexedDB), latch the terminal state so the
+ * autosave loop stops silently re-entering the same failure every 30 s, and hand the
+ * caller a structured failure it MUST NOT report as success.
+ */
+function _indexWriteFailed(source: string): StorageWriteOutcome {
+    const usage = measureLocalStorageUsage();
+    const first = markStorageQuotaTerminal(usage);
+    if (first) {
+        // Once, loudly, with the evidence — so we stop guessing which subsystem is
+        // the hog. NOTE: the eviction valve only ever considered
+        // `bim-project-*-versions` keys, a family §VERSION-QUOTA-INDEXEDDB already
+        // migrated OUT of localStorage — so "eviction exhausted" can mean "eviction
+        // had no candidates at all". The report below names the real consumer.
+        console.error(
+            `[${source}] localStorage QUOTA EXHAUSTED — the project meta index did NOT persist. ` +
+            'The version body is durable in IndexedDB, but the project row that makes it findable is not. ' +
+            'This is terminal until space is freed.\n' + formatStorageUsageReport(usage),
+        );
+    } else {
+        console.error(`[${source}] localStorage quota still exhausted — project meta index NOT persisted.`);
+    }
+    return { ok: false, indexPersisted: false, reason: 'quota-index-write-failed', usage };
+}
 
 /**
  * Gap 8 — Snapshot compression utilities.
@@ -332,21 +399,43 @@ function _versionKeysOldestFirst(excludeId: string | null): string[] {
  * of duplicate keys reclaimed (0 when IDB is unavailable — nothing is redundant).
  */
 function _reclaimRedundantLegacyVersionStores(): number {
+    return reclaimRedundantLocalStorage().keysDropped;
+}
+
+/**
+ * §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — the ONE reclamation this app
+ * can perform with provably ZERO data loss, exposed so the user-facing quota
+ * surface can offer a real "free up space" action rather than a dead end.
+ *
+ * Drops every legacy `bim-project-<id>-versions` blob whose payload is ALREADY
+ * durable in the IndexedDB version store (mirror hit) — a redundant, migrated-away
+ * duplicate. A blob NOT in IDB is authoritative history and is never touched.
+ * Honours C13 isolation: only this module's own key family is ever removed.
+ */
+export function reclaimRedundantLocalStorage(): { keysDropped: number; bytesFreed: number } {
     let store: ReturnType<typeof getVersionCacheStore>;
-    try { store = getVersionCacheStore(); } catch { return 0; }
-    try { if (store.isDisabled()) return 0; } catch { return 0; }
+    try { store = getVersionCacheStore(); } catch { return { keysDropped: 0, bytesFreed: 0 }; }
+    try { if (store.isDisabled()) return { keysDropped: 0, bytesFreed: 0 }; } catch { return { keysDropped: 0, bytesFreed: 0 }; }
     const drop: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k) continue;
-        if (!k.startsWith(STORAGE_VERSIONS_PREFIX)) continue;
-        if (!k.endsWith(VERSIONS_SUFFIX)) continue;
-        const id = k.slice(STORAGE_VERSIONS_PREFIX.length, -VERSIONS_SUFFIX.length);
-        // Redundant ⇔ the IDB mirror already holds this project's payload.
-        try { if (store.getVersionsSync(id) !== undefined) drop.push(k); } catch { /* ignore */ }
-    }
+    let bytesFreed = 0;
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k) continue;
+            if (!k.startsWith(STORAGE_VERSIONS_PREFIX)) continue;
+            if (!k.endsWith(VERSIONS_SUFFIX)) continue;
+            const id = k.slice(STORAGE_VERSIONS_PREFIX.length, -VERSIONS_SUFFIX.length);
+            // Redundant ⇔ the IDB mirror already holds this project's payload.
+            try {
+                if (store.getVersionsSync(id) !== undefined) {
+                    drop.push(k);
+                    bytesFreed += (k.length + (localStorage.getItem(k)?.length ?? 0)) * 2;
+                }
+            } catch { /* ignore */ }
+        }
+    } catch { return { keysDropped: 0, bytesFreed: 0 }; }
     for (const k of drop) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
-    return drop.length;
+    return { keysDropped: drop.length, bytesFreed };
 }
 
 /**
@@ -457,7 +546,12 @@ export interface IProjectRepository {
     listProjects(): ProjectMeta[];
     /** Contract 45 §7.2 — bypass owner filter; for sync/reconcile only. */
     listAllProjectsUnfiltered(): ProjectMeta[];
-    saveProject(meta: ProjectMeta): void;
+    /**
+     * §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — returns a
+     * {@link StorageWriteOutcome}; `indexPersisted: false` means this project is
+     * NOT listed on this device and cannot be reopened. Never silently ignored.
+     */
+    saveProject(meta: ProjectMeta): StorageWriteOutcome;
     /**
      * §FIX-LOCALSTORAGE-QUOTA-RESIDUAL — apply many upserts (and optional deletes)
      * against the index in a SINGLE serialize + write, instead of one full-index
@@ -465,7 +559,7 @@ export interface IProjectRepository {
      * performs exactly one `bim-projects-index` write (and at most one quota warn),
      * not O(n) writes / O(n) warns.
      */
-    saveProjectsBatch(upserts: ProjectMeta[], deleteIds?: readonly string[]): void;
+    saveProjectsBatch(upserts: ProjectMeta[], deleteIds?: readonly string[]): StorageWriteOutcome;
     deleteProject(id: string): void;
     generateProjectId(): string;
 }
@@ -525,7 +619,7 @@ export class LocalProjectRepository implements IProjectRepository {
         return all.filter(p => !p.ownerId || p.ownerId === userId);
     }
 
-    saveProject(meta: ProjectMeta): void {
+    saveProject(meta: ProjectMeta): StorageWriteOutcome {
         // Read the FULL index so we don't drop entries belonging to other
         // signed-in users on this browser (Contract 45 §7.2).
         const index = this.listAllProjectsUnfiltered();
@@ -549,8 +643,11 @@ export class LocalProjectRepository implements IProjectRepository {
         // §HUB-THUMBNAIL-STORAGE — `_serializeIndex` routes EVERY entry's thumbnail
         // bytes to IDB and strips them, so the index blob holds only light metadata.
         if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(index), meta.id)) {
-            console.warn('[ProjectRepository] localStorage quota exceeded — project index not saved (eviction exhausted)');
+            // §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — a project that never
+            // reaches the index is a project the user can never open again.
+            return _indexWriteFailed('ProjectRepository');
         }
+        return _writeOk();
     }
 
     /**
@@ -565,7 +662,7 @@ export class LocalProjectRepository implements IProjectRepository {
      * (their stores are removed here); Tier-1 reclamation frees redundant IDB-backed
      * duplicates first, so the single write succeeds whenever the migrated index fits.
      */
-    saveProjectsBatch(upserts: ProjectMeta[], deleteIds: readonly string[] = []): void {
+    saveProjectsBatch(upserts: ProjectMeta[], deleteIds: readonly string[] = []): StorageWriteOutcome {
         const index = this.listAllProjectsUnfiltered();
         const posById = new Map<string, number>();
         index.forEach((m, i) => posById.set(m.id, i));
@@ -598,8 +695,9 @@ export class LocalProjectRepository implements IProjectRepository {
         // reclamation drops IDB-backed duplicates with zero loss before any Tier-2
         // eviction is considered.
         if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(toWrite), null)) {
-            console.warn('[ProjectRepository] localStorage quota exceeded — project index not saved (eviction exhausted)');
+            return _indexWriteFailed('ProjectRepository');
         }
+        return _writeOk();
     }
 
     deleteProject(id: string): void {
@@ -671,8 +769,13 @@ export interface IVersionRepository {
      * Phase 2: Atomically write a new version + update the project index in a
      * single coordinated call, eliminating the window where the two writes could
      * diverge (version written but index not updated, or vice versa).
+     *
+     * §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — returns a
+     * {@link StorageWriteOutcome}. When `indexPersisted` is false the caller MUST
+     * NOT report the save as successful: the version body is durable but the
+     * project row that makes it findable is not (P8 — surface it to the user).
      */
-    saveVersionWithMeta(projectId: string, version: VersionRecord, meta: ProjectMeta): void;
+    saveVersionWithMeta(projectId: string, version: VersionRecord, meta: ProjectMeta): StorageWriteOutcome;
     /**
      * §FIX-PROJECT-DUPLICATE-OPEN (L-81) — deep-copy a source project's local
      * version history under a new project id so a duplicate opens with the
@@ -756,7 +859,7 @@ export class LocalVersionRepository implements IVersionRepository {
      * Phase 2: Coordinated write — version + project index in one call.
      * Reduces the risk of the two writes diverging on quota errors.
      */
-    saveVersionWithMeta(projectId: string, version: VersionRecord, meta: ProjectMeta): void {
+    saveVersionWithMeta(projectId: string, version: VersionRecord, meta: ProjectMeta): StorageWriteOutcome {
         const versions = this.getVersions(projectId);
         const existingIdx = versions.findIndex(v => v.id === version.id);
         if (existingIdx >= 0) {
@@ -786,8 +889,11 @@ export class LocalVersionRepository implements IVersionRepository {
         // and strips them so the index stays lightweight (and the thumbnail write
         // can never block this version+meta save).
         if (!_setItemWithEviction(STORAGE_INDEX_KEY, _serializeIndex(index), projectId)) {
-            console.warn('[VersionRepository] Quota exceeded — project meta index not updated (eviction exhausted)');
+            // §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — PROPAGATE. The caller
+            // (PlatformSaveController) must not print "Version saved" after this.
+            return _indexWriteFailed('VersionRepository');
         }
+        return _writeOk();
     }
 
     /**

@@ -37,6 +37,10 @@ import { buildCurtainSubElementPanel } from './CurtainSubElementPanel';
 import { CurtainSubElement } from '@pryzm/geometry-curtain-wall';
 import { PANEL_STYLES } from './PropertyPanelTheme';
 import { panelManager } from '../PanelManager';
+// §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — panel position/size are UI
+// CHROME. They must never throw into the app and must never compete with project
+// data for the storage budget; on quota the preference is simply dropped.
+import { readUiPreference, writeUiPreference } from '../uiPrefStorage';
 import { appendRoomPropertySection } from '../property-inspector/RoomPropertySection';
 import { ViewPropertiesSection } from './ViewPropertiesSection';
 import { AnnotationElement } from '@pryzm/plugin-annotations';
@@ -142,7 +146,7 @@ export class PropertyPanel {
      * localStorage key: 'pryzm-pp-pos'
      */
     private _initPosition(): void {
-        const saved = localStorage.getItem('bim-pp-pos');
+        const saved = readUiPreference('bim-pp-pos');
         if (saved) {
             try {
                 const { x, y } = JSON.parse(saved) as { x: number; y: number };
@@ -257,7 +261,10 @@ export class PropertyPanel {
             document.removeEventListener('mouseup', onMouseUp);
             if (!this._preDrawMode) {
                 const rect = this.element.getBoundingClientRect();
-                localStorage.setItem('bim-pp-pos', JSON.stringify({ x: rect.left, y: rect.top }));
+                // §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — this bare setItem
+                // threw an UNCAUGHT QuotaExceededError out of the mouseup handler once
+                // the origin filled. A panel position is decoration: drop it on quota.
+                writeUiPreference('bim-pp-pos', JSON.stringify({ x: rect.left, y: rect.top }));
             }
         };
 
@@ -298,7 +305,7 @@ export class PropertyPanel {
      */
     private _initSize(): void {
         try {
-            const raw = localStorage.getItem('pryzm-pp-size');
+            const raw = readUiPreference('pryzm-pp-size');
             if (!raw) return;
             const { w, h } = JSON.parse(raw) as { w?: number; h?: number };
             const MIN_W = 220; const MAX_W = 560;
@@ -316,14 +323,12 @@ export class PropertyPanel {
         } catch { /* malformed — ignore */ }
     }
 
-    /** Persist current user-set width / height to localStorage. */
+    /** Persist current user-set width / height. UI chrome — dropped on quota (L-269). */
     private _savePanelSize(): void {
-        try {
-            const obj: { w?: number; h?: number } = {};
-            if (this._userW !== null) obj.w = this._userW;
-            if (this._userH !== null) obj.h = this._userH;
-            localStorage.setItem('pryzm-pp-size', JSON.stringify(obj));
-        } catch { /* ignore */ }
+        const obj: { w?: number; h?: number } = {};
+        if (this._userW !== null) obj.w = this._userW;
+        if (this._userH !== null) obj.h = this._userH;
+        writeUiPreference('pryzm-pp-size', JSON.stringify(obj));
     }
 
     /**

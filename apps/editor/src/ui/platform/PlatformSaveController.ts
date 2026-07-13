@@ -16,8 +16,13 @@
  *   §01 §2.1 — No direct store mutation; reads via ctx.saveAdapter.serialize().
  */
 
-import { projectRepository, versionRepository } from './ProjectRepository';
+import { projectRepository, versionRepository, reclaimRedundantLocalStorage } from './ProjectRepository';
 import type { ProjectMeta } from './ProjectRepository';
+import {
+    measureLocalStorageUsage,
+    formatStorageUsageReport,
+    largestStorageConsumer,
+} from './StorageQuotaDiagnostics';
 import { SaveOrchestrator } from './SaveOrchestrator';
 import { ServerSyncQueue } from './ServerSyncQueue';
 import { apiFetch } from '@pryzm/core-app-model';
@@ -284,7 +289,7 @@ export class PlatformSaveController {
                 cdeSummary,
             };
 
-            versionRepository.saveVersionWithMeta(this.ctx.projectId, version, meta);
+            const outcome = versionRepository.saveVersionWithMeta(this.ctx.projectId, version, meta);
 
             // Upload thumbnail to server so all sessions see the preview without
             // having to open the model first (Contract §13 thumbnail server-sync addendum).
@@ -298,7 +303,20 @@ export class PlatformSaveController {
             this.markCleanLabel(label, serialisedHash);
 
             this.ctx.ownSyncedVersionIds.add(version.id);
+            // Enqueue for the SERVER regardless — the server copy is the durable
+            // authority and is the recovery path out of a full local origin.
             this.syncQueue.enqueue(version, this.ctx.projectId);
+
+            // §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — THE FALSE-SUCCESS GATE.
+            // The version body reached IndexedDB, but if the project meta index did not
+            // persist then this project is not listed on this device: its versions are
+            // ORPHANS the user can neither find nor restore. Reporting "Version saved"
+            // here — as we used to, unconditionally — tells the user their work is safe
+            // while the thing that makes it findable did not persist. P8: surface it.
+            if (!outcome.indexPersisted) {
+                this._reportStorageQuotaFailure(label);
+                return;
+            }
 
             if (!isAutoSave) {
                 showToast(`✓ Saved: ${label}`, 'success');
@@ -521,6 +539,112 @@ export class PlatformSaveController {
      * Shows a one-per-session warning banner so the user knows their data is
      * only in the browser and prompts them to sign in if unauthenticated.
      */
+    /**
+     * §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — the user-resolvable surface
+     * for a TERMINAL local-storage failure (P8).
+     *
+     * Called when `saveVersionWithMeta` reports that the project meta index did not
+     * persist. The save is NOT reported as successful. Instead the user is told the
+     * truth — their latest version exists but is not listed, and will not survive a
+     * reload as a findable version — and is handed two real actions:
+     *
+     *   • Export project — a durable copy off this device, immediately.
+     *   • Free up space  — reclaim the localStorage this app can safely reclaim, and
+     *                      NAME the subsystem that is actually filling the origin
+     *                      when it cannot (never a dead end, never a guess).
+     *
+     * The banner is raised once per session (terminal state), not once per autosave:
+     * "eviction exhausted" is not a warning to be re-emitted every 30 seconds.
+     */
+    private _reportStorageQuotaFailure(label: string): void {
+        console.error(
+            `[PlatformSaveController] Version "${label}" was NOT fully saved — browser storage is full. ` +
+            'The snapshot is in IndexedDB but the project index could not be updated, so this version ' +
+            'is not listed and may not be restorable. Export the project or free up space.',
+        );
+
+        if (document.getElementById('plat-storage-quota-banner')) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'plat-storage-quota-banner';
+        banner.style.cssText = [
+            'position:fixed', 'bottom:0', 'left:0', 'right:0',
+            'background:#c0392b', 'color:#fff',
+            'padding:10px 16px', 'display:flex',
+            'align-items:center', 'justify-content:space-between',
+            'font-size:13px', 'font-family:var(--app-font,sans-serif)',
+            'z-index:10001', 'gap:12px',
+            'box-shadow:0 -2px 8px rgba(0,0,0,0.3)',
+        ].join(';');
+
+        const msgEl = document.createElement('span');
+        msgEl.textContent =
+            '⚠ Browser storage is full. Your latest version was written, but the project index could NOT be ' +
+            'updated — this version may not appear in your history after a reload.';
+
+        const actions = document.createElement('span');
+        actions.style.cssText = 'display:flex;gap:8px;flex-shrink:0;align-items:center';
+
+        const btnStyle = 'background:#fff;color:#c0392b;border:none;border-radius:3px;padding:5px 10px;'
+            + 'cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap';
+
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = 'Export project';
+        exportBtn.style.cssText = btnStyle;
+        exportBtn.title = 'Download a durable copy of this project right now';
+        exportBtn.onclick = () => this.exportCurrentProject(banner);
+
+        const freeBtn = document.createElement('button');
+        freeBtn.textContent = 'Free up space';
+        freeBtn.style.cssText = btnStyle;
+        freeBtn.title = 'Reclaim redundant local storage and report what is filling it';
+        freeBtn.onclick = () => this._freeUpStorage(banner);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = 'background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0';
+        closeBtn.title = 'Dismiss';
+        closeBtn.onclick = () => banner.remove();
+
+        actions.append(exportBtn, freeBtn, closeBtn);
+        banner.append(msgEl, actions);
+        document.body.appendChild(banner);
+    }
+
+    /**
+     * §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE — the "free up space" action.
+     *
+     * Reclaims the ONLY key family this app can drop with provably zero data loss
+     * (legacy `bim-project-<id>-versions` blobs already durable in IndexedDB). When
+     * that frees nothing, the origin is being filled by something else — so we NAME
+     * the heaviest consumer instead of pretending the safety valve did something.
+     * That report is the honest answer to "why is the quota exhausted?".
+     */
+    private _freeUpStorage(banner: HTMLElement): void {
+        const before = measureLocalStorageUsage();
+        const freed = reclaimRedundantLocalStorage();
+        console.warn('[PlatformSaveController] Storage report at quota failure:\n' + formatStorageUsageReport(before));
+
+        if (freed.bytesFreed > 0) {
+            showToast(
+                `Freed ${(freed.bytesFreed / 1024).toFixed(0)} KB of redundant local storage — saving again now.`,
+                'success', 5000,
+            );
+            banner.remove();
+            // The next save re-attempts the index write; a success clears the terminal state.
+            this.saveVersionInternal('Auto-save', true);
+            return;
+        }
+
+        const hog = largestStorageConsumer(before);
+        showToast(
+            hog
+                ? `Nothing safe to reclaim. "${hog.family}" is using ${(hog.bytes / 1024 / 1024).toFixed(2)} MB of browser storage — export your project and clear site data.`
+                : 'Nothing safe to reclaim — export your project and clear site data for this site.',
+            'error', 9000,
+        );
+    }
+
     private _handleServerSaveRejected(status: number, body: Record<string, unknown>): void {
         const plan = body?.plan as string | undefined;
         const errorMsg = body?.error as string | undefined;

@@ -59,8 +59,13 @@ import {
     LocalProjectRepository,
     type ProjectMeta,
 } from '../src/ui/platform/ProjectRepository.js';
+// §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — the quota terminal state is a
+// module-level latch (it must not re-raise per autosave). Clear it between tests.
+import { resetStorageQuotaTerminal } from '../src/ui/platform/StorageQuotaDiagnostics.js';
 
 const INDEX_KEY = 'bim-projects-index';
+
+beforeEach(() => { resetStorageQuotaTerminal(); });
 
 // Byte-budgeted mock localStorage. Returns the raw setItem spy so callers can count
 // index writes. Throws a real QuotaExceededError when a setItem would exceed budget.
@@ -167,14 +172,19 @@ describe('§FIX-LOCALSTORAGE-QUOTA-RESIDUAL — Tier-1 reclaims IDB-backed dupli
     });
 });
 
-describe('§FIX-LOCALSTORAGE-QUOTA-RESIDUAL — graceful degrade: ONE warn, no data loss', () => {
-    it('emits a single warning and preserves prior data when nothing safe is reclaimable', () => {
+describe('§FIX-LOCALSTORAGE-QUOTA-RESIDUAL — graceful degrade: ONE loud failure, no data loss', () => {
+    it('fails LOUDLY once, returns ok:false, and preserves prior data when nothing safe is reclaimable', () => {
         // The real founder residual: localStorage is full of bloat ProjectRepository
         // does NOT own and must never delete — a legacy inline underlay RASTER
         // (`pryzm.floorPlanUnderlay.v2.*`, owned by UnderlayPersistence per Contract
         // §06 §7 single-writer). No `bim-project-*-versions` stores exist, so Tier-2
         // has nothing to evict, and the raster is not an IDB duplicate, so Tier-1
         // cannot touch it. The batch write must fail LOUDLY-ONCE, not spam per project.
+        //
+        // §FIX-STORAGE-QUOTA-SILENT-INDEX-FAILURE (L-269) — this failure used to be a
+        // `console.warn` and a `void` return, so callers could (and did) report success
+        // afterwards. It is now an `console.error` + a structured `ok:false` outcome that
+        // the caller MUST honour. P8: a data-losing persistence failure reaches the user.
         const B = 6_000;
         const { store } = installBudgetedLocalStorage(B);
         const priorIndex = JSON.stringify([meta('proj-current', 1)]);
@@ -182,21 +192,27 @@ describe('§FIX-LOCALSTORAGE-QUOTA-RESIDUAL — graceful degrade: ONE warn, no d
         const RASTER = 'z'.repeat(5_700);
         store.set('pryzm.floorPlanUnderlay.v2.proj-current', RASTER); // foreign, un-reclaimable
 
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
         const repo = new LocalProjectRepository();
 
         // Growing the index (a long-id second project) can no longer fit, and no safe
         // reclamation exists.
-        repo.saveProjectsBatch([
+        const outcome = repo.saveProjectsBatch([
             meta('proj-current', 2),
             meta('proj-with-a-very-long-identifier-to-force-index-growth-0123456789', 3),
         ]);
 
-        // Exactly ONE quota warning — never a per-project spam loop.
-        const quotaWarns = warn.mock.calls.filter(
-            ([m]) => typeof m === 'string' && m.includes('project index not saved'),
+        // The failure is PROPAGATED, not swallowed.
+        expect(outcome.ok).toBe(false);
+        expect(outcome.indexPersisted).toBe(false);
+        // Exactly ONE quota error — never a per-project spam loop.
+        const quotaErrors = error.mock.calls.filter(
+            ([m]) => typeof m === 'string' && m.includes('QUOTA EXHAUSTED'),
         );
-        expect(quotaWarns.length).toBe(1);
+        expect(quotaErrors.length).toBe(1);
+        // The diagnostic names the REAL hog — the foreign underlay raster, not the
+        // version history (which lives in IndexedDB and costs localStorage nothing).
+        expect(outcome.usage?.families[0].family).toBe('pryzm.floorPlanUnderlay');
         // No silent data loss: the foreign raster (another module's data) is untouched,
         // and the previously-persisted index is still intact after the failed write.
         expect(store.get('pryzm.floorPlanUnderlay.v2.proj-current')).toBe(RASTER);
