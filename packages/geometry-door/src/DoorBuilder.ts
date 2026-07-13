@@ -13,6 +13,15 @@ import { DoorOpening } from './DoorTypes';
 import { WallStore } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
+// §FEAT-DOOR-3D-LOD (L-266) — the 3D door is a DetailLevel consumer, through the SAME
+// resolver the plan symbol uses. ADR-121 §4.3: "One resolver, three consumers — there
+// must not be a resolveElevationDetailLevel." `vd-sys-3d-1` is a real ViewDefinition
+// (DefaultViewsManager) carrying a live `output.detailLevel`, so this is a genuine
+// resolution — C09 element/type/category override → the 3D view's own setting → default.
+import {
+    resolveEffectiveDetailLevel, DEFAULT_3D_VIEW_ID, storeEventBus,
+    type DetailLevel,
+} from '@pryzm/core-app-model';
 import { vgGovernanceStore, VGStyle } from '@pryzm/visibility';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
@@ -112,6 +121,10 @@ export class DoorBuilder {
     /** Per-door cloned materials to dispose on rebuild/remove */
     private doorMaterials: Map<string, THREE.Material[]> = new Map();
     private unsubscribe: (() => void) | null = null;
+    /** §FEAT-DOOR-3D-LOD (L-266) — StoreEventBus disposer for the 3D-view intent watch. */
+    private _unsubscribeViews: (() => void) | null = null;
+    /** The Detail Level each door's CURRENT mesh was built at — the rebuild trigger. */
+    private _builtLod = new Map<string, DetailLevel>();
 
     // ── C11 §2 step 3: FrameScheduler adaptive drain ──────────────────────────
     /** Pending door builds keyed by id — later update wins (dedup). */
@@ -140,7 +153,38 @@ export class DoorBuilder {
             }
             if (event === 'remove') this.dispose(door.id);
         });
+
+        // §FEAT-DOOR-3D-LOD (L-266) — DETAIL LEVEL IS INTENT, AND INTENT IS LIVE.
+        //
+        // The Detail Level of the 3D view is a P7 visibility INTENT: it lives on the
+        // ViewDefinition (the properties-panel dropdown) and in the C09 override layer.
+        // A consumer that reads it once at build time and never again is not a consumer —
+        // it is a snapshot. So the builder listens for changes to the 3D ViewDefinition
+        // and rebuilds ONLY the doors whose RESOLVED level actually moved (the cache
+        // below), which makes a no-op view edit free and a real one immediate.
+        this._unsubscribeViews = storeEventBus.subscribe((e) => {
+            if (e.elementType !== 'view-definition' || e.elementId !== DEFAULT_3D_VIEW_ID) return;
+            for (const door of doorStore.getAll()) {
+                if (this._lodFor(door) !== this._builtLod.get(door.id)) this._enqueue(door, undefined);
+            }
+        });
         console.log('[DoorBuilder] activated');
+    }
+
+    /**
+     * The effective Detail Level for this door IN THE 3D VIEW.
+     *
+     * ADR-121 §4.3 — ONE resolver, three consumers. This is the same
+     * `resolveEffectiveDetailLevel` the plan symbol calls; the door owns none of the
+     * precedence (C09 element → element-type → category override → the 3D view's own
+     * `output.detailLevel` → the L0 default). There is deliberately no private
+     * `detailed` flag and no `resolve3dDetailLevel`.
+     */
+    private _lodFor(door: DoorOpening): DetailLevel {
+        return resolveEffectiveDetailLevel(door.id, DEFAULT_3D_VIEW_ID, {
+            elementType: 'door',
+            category:    'door',
+        });
     }
 
     /**
@@ -203,6 +247,8 @@ export class DoorBuilder {
 
         this.unsubscribe?.();
         this.unsubscribe = null;
+        this._unsubscribeViews?.();
+        this._unsubscribeViews = null;
         // Dispose all groups
         for (const id of [...this.doorGroups.keys()]) {
             this.dispose(id);
@@ -341,7 +387,12 @@ export class DoorBuilder {
 
         // Use wall thickness so the frame fully spans the void (no exposed cut edges).
         const frameDepth = (wallData.thickness ?? 0.2) + 0.02;
-        const mats = this.buildVisuals(door, group, frameDepth, vgStyle);
+        // §FEAT-DOOR-3D-LOD (L-266) — ask the SHARED resolver what detail this door is
+        // wanted at in the 3D view, and remember it so a later intent change can trigger
+        // exactly the rebuilds it affects (and no others).
+        const lod = this._lodFor(door);
+        this._builtLod.set(door.id, lod);
+        const mats = this.buildVisuals(door, group, frameDepth, vgStyle, lod);
         this.doorMaterials.set(door.id, mats);
         this.positionGroup(door, group, wallData);
         group.traverse(obj => {
@@ -442,8 +493,31 @@ export class DoorBuilder {
      *
      * @param wallFrameDepth - actual depth to use (wall.thickness + 0.02) so the
      *   frame fully covers the void opening and no raw cut edges are visible.
+     * @param lod - §FEAT-DOOR-3D-LOD (L-266) the effective Detail Level for this door in
+     *   the 3D view, from the SHARED resolver. THE 3D DOOR IS NOW A REAL LOD CONSUMER —
+     *   ADR-121's matrix found door×3D and door×elevation discriminating detail level in
+     *   ZERO cells ("built plan-first, never carried across"). The tiers, per ADR-121 §4.2:
+     *
+     *     coarse (100) — the silhouette: frame posts + head + a plain leaf slab. No
+     *                    ironmongery, no reveals, no panelisation. This is the massing door.
+     *     medium (200) — + hinges, handle, glazing rows / battens / sidelight: THE STANDARD
+     *                    DOOR, i.e. exactly what shipped before this change (so no view can
+     *                    regress today's model).
+     *     fine   (300) — + the frame REBATE (planted stop), the leaf's RAIL-AND-STILE panel
+     *                    reveal, and an ESCUTCHEON on BOTH faces behind the lever. The
+     *                    founder's elevation reference, and every dimension of it derived
+     *                    from `resolveDoorDimensions` + the system type (ADR-121 §4.4).
+     *
+     *   Elevation views project these meshes, so an elevation inherits this articulation
+     *   directly — no second symbol engine, per ADR-121 §4.3.
      */
-    private buildVisuals(door: DoorOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle): THREE.Material[] {
+    private buildVisuals(
+        door: DoorOpening,
+        group: THREE.Group,
+        wallFrameDepth?: number,
+        vgStyle?: VGStyle,
+        lod: DetailLevel = 'fine',
+    ): THREE.Material[] {
         const mats: THREE.Material[] = [];
         // §FIX-DOOR-PREVIEW-EXACT (L-127) — width/height are the authoritative void
         // dims (they must match the wall cut, so read them from the record), but
@@ -480,8 +554,14 @@ export class DoorBuilder {
             : undefined;
         // A type is "glazed" when it declares partial glazing OR carries explicit
         // glass segment rows. A VG opacity override forces solid (selection/ghost).
+        // §FEAT-DOOR-3D-LOD (L-266) — the tier gates. COARSE is the massing door: a
+        // silhouette. It draws no ironmongery and no internal articulation, so glazing
+        // rows, battens and panelisation all collapse to the plain leaf slab.
+        const isCoarse = lod === 'coarse';
+        const isFine   = lod === 'fine';
+
         const glassSegments = (sysType?.defaultSegments ?? []).filter(s => s.type === 'glass');
-        const typeIsGlazed = !!sysType && opacityFactor >= 1 &&
+        const typeIsGlazed = !isCoarse && !!sysType && opacityFactor >= 1 &&
             (sysType.glazingOpacity < 1 || glassSegments.length > 0);
 
         // §ENTRANCE-LEAF-VERTICAL (founder 2026-06-22) — the modern entrance type
@@ -490,7 +570,7 @@ export class DoorBuilder {
         // that leaf as VERTICAL timber battens (the photographed front-door look),
         // not the horizontal slats used for glazed-leaf panel rows. Only applies
         // when the type is NOT glazed (no leaf glass) and no VG override forces solid.
-        const wantsVerticalSlatLeaf = !!sysType && !typeIsGlazed && opacityFactor >= 1 &&
+        const wantsVerticalSlatLeaf = !isCoarse && !!sysType && !typeIsGlazed && opacityFactor >= 1 &&
             !!sysType.sidelight && door.doorType !== 'double';
 
         // ── Frame ──────────────────────────────────────────────────────────
@@ -512,6 +592,30 @@ export class DoorBuilder {
         const leafThickness = dims.leafThickness;
         const innerW = w - 2 * ft;
         const innerH = h - ft;   // from floor/threshold to underside of head bar
+
+        // ── FINE (LOD 300) — the frame REBATE (planted stop) ────────────────
+        //
+        // §FEAT-DOOR-3D-LOD (L-266). The founder's elevation reference shows *"a frame with
+        // a visible rebate"* — the bead the leaf shuts against. Until now the 3D frame was
+        // three plain boxes, so in 3D AND in every elevation the leaf met the frame with no
+        // shadow line at all. The stop is a real member: it stands proud of the reveal by
+        // `stopProj` and runs from the leaf's back face to the frame's back face, so the
+        // leaf seats into a genuine rebate.
+        //
+        // NO LITERALS (ADR-121 §4.4): the projection is a fraction of the frame's own face
+        // width, and the depth is what is LEFT of the frame depth once the leaf's real
+        // thickness is taken out — both are the record's numbers, so a chunkier door type
+        // yields a chunkier rebate.
+        if (isFine) {
+            const stopProj  = ft / 3;                                        // into the opening
+            const stopDepth = Math.max(leafThickness / 2, fd / 2 - leafThickness / 2);
+            const stopZ     = leafThickness / 2 + stopDepth / 2;             // behind the leaf
+            // Jamb stops (both posts), running the full clear height.
+            addBox(group, frameMat, stopProj, innerH, stopDepth, -innerW / 2 + stopProj / 2, -ft / 2, stopZ);
+            addBox(group, frameMat, stopProj, innerH, stopDepth,  innerW / 2 - stopProj / 2, -ft / 2, stopZ);
+            // Head stop, spanning the clear width.
+            addBox(group, frameMat, innerW, stopProj, stopDepth, 0, innerH / 2 - ft / 2 - stopProj / 2, stopZ);
+        }
 
         // Leaf y-centre is ft/2 below group centre (head bar takes ft at top, no bottom frame)
         const leafFront = leafThickness / 2;
@@ -558,15 +662,18 @@ export class DoorBuilder {
             addBox(group, frameMat, centerMullionW, innerH, fd, 0, -ft / 2, 0);
 
             // Hinges: left leaf hinged on left outer post, right leaf on right outer post
+            // §FEAT-DOOR-3D-LOD (L-266) — no ironmongery on the massing (coarse) door.
             const leftHingeX  = -(w / 2 - ft / 2);
             const rightHingeX =  (w / 2 - ft / 2);
-            for (const hy of hingeY) {
-                addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, leftHingeX,  hy, 0);
-                addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, rightHingeX, hy, 0);
+            if (!isCoarse) {
+                for (const hy of hingeY) {
+                    addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, leftHingeX,  hy, 0);
+                    addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, rightHingeX, hy, 0);
+                }
             }
 
             // Handles: on the meeting edges of each leaf (action side, facing center)
-            if (door.handle) {
+            if (door.handle && !isCoarse) {
                 const handleMat = makeMat('#b0b0b0', 0.15, 0.9);
                 mats.push(handleMat);
                 const localY = door.handleHeight - h / 2;
@@ -650,8 +757,58 @@ export class DoorBuilder {
                     addBox(group, leafMat, battenW, innerH, leafThickness, bCX, leafCY, 0, 'doorLeaf');
                     bLeft += battenW + gap;
                 }
+            } else if (isFine) {
+                // ── FINE (LOD 300) — RAIL-AND-STILE LEAF (the founder's elevation) ──
+                //
+                // §FEAT-DOOR-3D-LOD (L-266). His reference elevation shows *"a leaf with a
+                // panel/rail reveal"*. The solid leaf was ONE BOX: in elevation it projected
+                // as a bare rectangle at every detail level. It is now built the way a door
+                // actually is — two stiles, a top rail, a bottom rail, and a RECESSED PANEL
+                // between them, so the reveal reads as a shadow line in 3D and as a real
+                // line in every elevation.
+                //
+                // WHERE THE PANELISATION COMES FROM: the system type's OWN `defaultSegments`
+                // rows (the same field the glazed path already uses to divide the leaf) —
+                // NOT a second field and NOT an invented count. A type with no segments gets
+                // one panel. Stile/rail widths are multiples of the type's `frameThickness`
+                // and the recess is a fraction of its real `leafThickness`, so every line
+                // moves with the record (ADR-121 §4.4).
+                const stileW      = 2 * ft;                    // side stiles
+                const railH       = 2 * ft;                    // top rail
+                const bottomRailH = 3 * ft;                    // bottom rail — always deeper
+                const panelT      = leafThickness / 2;         // recessed → a reveal both faces
+                const rows        = (sysType?.defaultSegments ?? []).filter(s => s.type !== 'glass');
+                const rowCount    = Math.max(1, rows.length);
+                const midRailH    = railH;
+
+                const leafTop = leafCY + innerH / 2;
+                const leafBot = leafCY - innerH / 2;
+                const lx = singleLeafX;
+
+                // Stiles — full height, both edges.
+                addBox(group, leafMat, stileW, innerH, leafThickness, lx - singleLeafW / 2 + stileW / 2, leafCY, 0, 'doorLeaf');
+                addBox(group, leafMat, stileW, innerH, leafThickness, lx + singleLeafW / 2 - stileW / 2, leafCY, 0, 'doorLeaf');
+                // Top + bottom rails — between the stiles.
+                const railW = singleLeafW - 2 * stileW;
+                addBox(group, leafMat, railW, railH,       leafThickness, lx, leafTop - railH / 2,       0, 'doorLeaf');
+                addBox(group, leafMat, railW, bottomRailH, leafThickness, lx, leafBot + bottomRailH / 2, 0, 'doorLeaf');
+
+                // Panels + intermediate rails, one per type segment row.
+                const panelZoneH = innerH - railH - bottomRailH - midRailH * (rowCount - 1);
+                const totalRatio = rows.reduce((a, r) => a + r.heightRatio, 0) || 1;
+                let cursorTop = leafTop - railH;
+                for (let i = 0; i < rowCount; i++) {
+                    const share  = rows.length > 0 ? (rows[i]!.heightRatio / totalRatio) : 1;
+                    const panelH = panelZoneH * share;
+                    addBox(group, leafMat, railW, panelH, panelT, lx, cursorTop - panelH / 2, 0, 'doorLeaf');
+                    cursorTop -= panelH;
+                    if (i < rowCount - 1) {
+                        addBox(group, leafMat, railW, midRailH, leafThickness, lx, cursorTop - midRailH / 2, 0, 'doorLeaf');
+                        cursorTop -= midRailH;
+                    }
+                }
             } else {
-                // Non-glazed type (or VG override) — one opaque leaf, original behaviour.
+                // Coarse / medium — one opaque leaf slab (the pre-L-266 behaviour).
                 addBox(group, leafMat, singleLeafW, innerH, leafThickness, singleLeafX, leafCY, 0, 'doorLeaf');
             }
 
@@ -670,15 +827,18 @@ export class DoorBuilder {
             }
 
             // Hinges on the configured side (hinge against the leaf's outer post).
+            // §FEAT-DOOR-3D-LOD (L-266) — ironmongery is not part of the massing door.
             const hingeX = door.hingesSide === 'left'
                 ? singleLeafX - singleLeafW / 2 + 0.015
                 : singleLeafX + singleLeafW / 2 - 0.015;
-            for (const hy of hingeY) {
-                addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, hingeX, hy, 0);
+            if (!isCoarse) {
+                for (const hy of hingeY) {
+                    addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, hingeX, hy, 0);
+                }
             }
 
             // Handle
-            if (door.handle) {
+            if (door.handle && !isCoarse) {
                 const handleMat = makeMat('#b0b0b0', 0.15, 0.9);
                 mats.push(handleMat);
 
@@ -699,10 +859,34 @@ export class DoorBuilder {
                     addBox(group, handleMat, 0.02, 0.02, 0.05, handleEdgeX, leafCY + barLen / 2 - 0.04, leafFront + 0.025, 'doorHandle');
                     addBox(group, handleMat, 0.02, 0.02, 0.05, handleEdgeX, leafCY - barLen / 2 + 0.04, leafFront + 0.025, 'doorHandle');
                 } else {
-                    // Backplate
-                    addBox(group, handleMat, 0.04, 0.15, 0.01, handleEdgeX, localY, leafFront + 0.005, 'doorHandle');
-                    // Grip (lever, roughly horizontal)
-                    addBox(group, handleMat, 0.015, 0.10, 0.015, handleEdgeX - 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
+                    // ── LEVER + ESCUTCHEON ──────────────────────────────────────
+                    //
+                    // §FEAT-DOOR-3D-LOD (L-266). The founder, red arrow on the handle:
+                    // *"the LOD and quality of the handle — honestly not being enough."*
+                    // It was a backplate and a stub, on ONE FACE — so from the other side
+                    // (and in half of all elevations) the door had NO HANDLE AT ALL.
+                    //
+                    // Now: an ESCUTCHEON (rose) with the lever growing out of it, on BOTH
+                    // faces, at LOD 300; a plain lever + backplate at LOD 200. Every
+                    // dimension is a multiple of the type's REAL `leafThickness` (`lt`), so
+                    // the ironmongery scales with the door instead of being a fixed glyph.
+                    const lt = leafThickness;
+                    const roseW = lt, roseH = 4 * lt, roseD = lt / 4;
+                    const leverW = lt / 2, leverH = 2.5 * lt, leverD = lt / 2;
+                    const leverReach = 1.5 * lt;      // how far the lever runs back along the leaf
+                    const leverRise  = lt;            // lever sits just above the spindle
+                    // The lever points back TOWARD the hinge — the handing comes from the
+                    // record: a handle on the RIGHT edge has its hinge on the left, so the
+                    // lever runs −X, and vice versa.
+                    const leverDir = door.handleSide === 'right' ? -1 : +1;
+                    for (const face of (isFine ? [+1, -1] : [+1])) {
+                        const z0 = face * leafFront;
+                        addBox(group, handleMat, roseW, roseH, roseD,
+                               handleEdgeX, localY, z0 + face * (roseD / 2), 'doorHandle');
+                        addBox(group, handleMat, leverW, leverH, leverD,
+                               handleEdgeX + leverDir * leverReach, localY + leverRise,
+                               z0 + face * (roseD + leverD / 2), 'doorHandle');
+                    }
                 }
             }
         }
