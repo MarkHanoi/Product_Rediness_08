@@ -91,6 +91,28 @@ export class WallLayerPlanSymbolBuilder {
         const lineSegs = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x000000 }));
         lineSegs.updateWorldMatrix(true, false);
         const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegs, drawing);
+
+        // §FIX-PLAN-AWALL-LAYER-FALLBACK (L-241/L-252 lineage) — CREATE THE LAYER BEFORE
+        // DRAWING INTO IT. The founder's console repeats, on every re-projection:
+        //
+        //     [TechnicalDrawing] Layer "A-WALL" does not exist. Falling back to "0".
+        //
+        // We were adding layered-wall lines to a layer we never created. OBC then silently
+        // dumps them on layer "0" — and layer "0" carries NO pen weight, NO colour and NO
+        // visibility-graphics override. So every layered wall's plan linework was drawn
+        // OUTSIDE the ISO-13567 layer system: no cut/projection lineweight hierarchy, no VG
+        // styling, no poché association. That is a silent, drawing-wide correctness bug, and
+        // it is exactly the kind of thing that makes a plan "read flat" no matter how good the
+        // symbols are — the pen table (Contract-23) never gets a chance to apply.
+        //
+        // The projector creates the SUB-layers (`A-WALL:cut`, `A-WALL:proj`) for its own
+        // linework, but nothing creates the BASE `A-WALL` layer that this builder targets.
+        // `layers.create()` is idempotent, so ensuring it here is safe on every path and
+        // cannot double-create. The VG applicator's "applied=12/14 layers" (vs 14/14) in the
+        // founder's log is the same fact seen from the other end: two layers it expected to
+        // style did not exist.
+        drawing.layers.create(WALL_LAYER);
+
         drawing.addProjectionLines(projected, WALL_LAYER);
     }
 }
