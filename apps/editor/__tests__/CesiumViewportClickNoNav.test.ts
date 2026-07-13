@@ -27,8 +27,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Minimal `cesium` stub. Only the symbols `setupSelectionHandler` touches are
 // provided. `ScreenSpaceEventHandler` is a no-op ctor — the test overrides
 // `this.handler` on the stub so it can capture the registered callback instead.
-class FakeModel {}
-class FakeTileFeature {}
+// §GATE-TEST-ESTATE-NOT-A-CI-GATE (L-247, group E) — this file did not fail an assertion,
+// it failed to LOAD: "error when mocking a module … no top level variables inside vi.mock
+// factory". `vi.mock` is HOISTED to the top of the file, above these two class declarations,
+// so the factory closed over bindings that were still in their temporal dead zone.
+//
+// `vi.hoisted` is the sanctioned fix: it runs BEFORE the hoisted `vi.mock`, so the classes
+// exist by the time the factory refers to them — while still being importable by the test
+// body below (FakeModel is constructed in the click assertion). Declaring them inside the
+// factory would satisfy the hoisting rule but leave the test body unable to reach them.
+const { FakeModel, FakeTileFeature } = vi.hoisted(() => ({
+    FakeModel: class FakeModel {},
+    FakeTileFeature: class FakeTileFeature {},
+}));
+
 vi.mock('cesium', () => ({
   Ion: { defaultAccessToken: '' },
   ScreenSpaceEventHandler: class {},
