@@ -438,16 +438,33 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
 
         // §FEAT-PLACEMENT-SPACEBAR-ROTATE — screen-space rotation of the dashed
         // footprint about the cursor so the preview reads at the SPACE-chosen
-        // orientation. Plan view maps +worldX→+screenX and +worldZ→+screenY
-        // (see _drawCornerSofaPreview.toScreen); a THREE Y-Euler of +θ (applied
-        // to the committed mesh via §FT-FURNITURE) rotates the top-down symbol
-        // clockwise by θ on screen, so we rotate the canvas by +θ. Only the
-        // geometry is rotated — the label + bottom-left hint stay upright.
+        // orientation. Only the geometry is rotated — the label + bottom-left hint
+        // stay upright.
+        //
+        // §FIX-PLAN-PREVIEW-YAW-SIGN (L-267) — THIS USED TO BE `ctx.rotate(rot)`, and
+        // the comment above it asserted that "a THREE Y-Euler of +θ rotates the top-down
+        // symbol CLOCKWISE by θ on screen". That is backwards, and the preview therefore
+        // spun the OPPOSITE WAY to the element it was previewing. Derivation:
+        //
+        //   • Plan maps +worldX → +screenX and +worldZ → +screenY (DOWN) —
+        //     `PlanViewCanvas.worldToScreen`, plan branch: sy ∝ (worldV − camTarget.z).
+        //   • THREE `Matrix4.makeRotationY(θ)` maps local +X → world (cosθ, 0, −sinθ);
+        //     at θ=+90° that is −Z, i.e. screen-RIGHT → screen-UP: COUNTER-clockwise.
+        //   • `ctx.rotate(+θ)` on a y-down canvas is CLOCKWISE.
+        //
+        // So the committed element (whose plan symbol the *PlanSymbolBuilders render
+        // through a real THREE Y-Euler matrix) turned counter-clockwise while this ghost
+        // turned clockwise. It survived review because the common preview is a CENTRED
+        // RECTANGLE and a 90° step of a rectangle looks identical either way — the defect
+        // is only visible on the asymmetric symbols (`_drawKitchenPreview`'s true L/U
+        // linework, `_drawCornerSofaPreview`'s L outline), where the ghost mirrored the
+        // run about the cursor. Negating the angle makes ghost ≡ placed for every symbol.
+        // Pinned by __tests__/planRotateParity.spec.ts ("preview yaw sign").
         const rot = this._rotation.rotationY();
         ctx.save();
         if (rot !== 0) {
             ctx.translate(sx, sy);
-            ctx.rotate(rot);
+            ctx.rotate(-rot);
             ctx.translate(-sx, -sy);
         }
 

@@ -226,18 +226,7 @@ export class ContextualEditBar {
                 shortcut:    'R',
                 variant:     'default',
                 action:      () => {
-                    // Import Overlay — Revit-style 3-point reference rotate.
-                    // Pivot → reference → target. Mirrors the underlay Scale flow.
-                    if (this._elementType === 'floor_plan_underlay') {
-                        const ut = window.floorPlanUnderlayTool ?? null; // TODO(E.floor.X): replace with runtime.tools.floorPlanUnderlay — Phase E.floor.X
-                        this._setActiveOp('rotate');
-                        window.runtime?.events?.emit('underlay:reference-rotate-activate', { underlayTool: ut }); // F.events.13
-                        console.log('[ContextualEditBar] Underlay reference rotate activated');
-                        return;
-                    }
-                    const tc = window.transformControls; // TODO(D.4): replace with runtime.scene.transformControls — Phase D.4
-                    if (tc?.setMode) tc.setMode('rotate');
-                    console.log('[ContextualEditBar] Rotate → rotate');
+                    this._activateRotateToolForContext();
                 },
             },
             {
@@ -585,9 +574,13 @@ export class ContextualEditBar {
 
             switch (e.key.toUpperCase()) {
                 // (M handled above via two-key chord)
+                // §FIX-PLAN-ROTATE-PARITY (L-267) — `R` used to hard-wire the 3-D gizmo
+                // (`tc.setMode('rotate')`), so in plan view the shortcut was inert. It now
+                // goes through the SAME view-context router the button uses, exactly as
+                // the `MV` chord does for Move.
                 case 'R': {
-                    const tc = window.transformControls; // TODO(D.4): replace with runtime.scene.transformControls — Phase D.4
-                    if (tc?.setMode) { tc.setMode('rotate'); console.log('[ContextualEditBar] R → Rotate'); }
+                    this._activateRotateToolForContext();
+                    console.log('[ContextualEditBar] R → Rotate');
                     break;
                 }
                 // Delete
@@ -707,6 +700,10 @@ export class ContextualEditBar {
             copy:           this._tools.copyPasteTool,
             scale:          this._tools.scaleTool,
             align:          { cancel: () => this._activatePlanTool('none') }, // §FIX-PLAN-ELEMENT-TOOL-PARITY (L-95): deactivate on whichever plan surface is active
+            // §FIX-PLAN-ROTATE-PARITY (L-267) — Escape must retire the plan rotate tool on
+            // whichever plan surface is active (same shape as `align` above). Without this
+            // entry the tool would stay armed after Esc and keep eating clicks.
+            rotate:         { cancel: () => this._activatePlanTool('none') },
             offset:         this._tools.offsetTool,
             'reference-edit': this._tools.referenceEditTool,
         };
@@ -800,6 +797,50 @@ export class ContextualEditBar {
             if (tc?.setMode) {
                 tc.setMode('translate');
                 console.log('[ContextualEditBar] Move → 3-D translate (no plan overlay)');
+            }
+        }
+    }
+
+    /**
+     * §FIX-PLAN-ROTATE-PARITY (L-267, Gate G7) — activates the Rotate tool appropriate
+     * for the current viewing context, exactly as `_activateMoveToolForContext()` has
+     * always done for Move.
+     *
+     * THE BUG THIS CLOSES. Move, Align and Copy all routed through `_activatePlanTool()`
+     * (the view-context router, §FIX-PLAN-ELEMENT-TOOL-PARITY / L-95). Rotate did NOT —
+     * it jumped straight to `transformControls.setMode('rotate')`, the 3-D gizmo, which
+     * is attached to the 3-D canvas and is inert while a plan surface is up. So in plan
+     * view the Rotate button and the `R` key were visible, capability-gated ON, and
+     * silently did nothing — for EVERY rotatable element type, not just the wardrobe the
+     * founder happened to be holding. The plan view simply had no rotate.
+     *
+     * Now:
+     *   Plan / Elevation / Section (main overlay OR split pane): the 'rotate'
+     *     PlanToolHandler — two-click reference → target, dispatching the SAME command
+     *     the 3-D gizmo dispatches (see `elementYawRotate.ts`).
+     *   3-D viewport (no plan surface attached): the TransformControls rotate gizmo,
+     *     unchanged.
+     *   Underlay: unchanged 3-point reference rotate.
+     */
+    private _activateRotateToolForContext(): void {
+        // Import Overlay — Revit-style 3-point reference rotate. Pivot → reference →
+        // target. Mirrors the underlay Scale flow. (Unchanged behaviour.)
+        if (this._elementType === 'floor_plan_underlay') {
+            const ut = window.floorPlanUnderlayTool ?? null; // TODO(E.floor.X): replace with runtime.tools.floorPlanUnderlay — Phase E.floor.X
+            this._setActiveOp('rotate');
+            window.runtime?.events?.emit('underlay:reference-rotate-activate', { underlayTool: ut }); // F.events.13
+            console.log('[ContextualEditBar] Underlay reference rotate activated');
+            return;
+        }
+
+        if (this._activatePlanTool('rotate')) {
+            this._setActiveOp('rotate');
+            console.log('[ContextualEditBar] Rotate → plan-view rotate tool (R) — active plan surface');
+        } else {
+            const tc = window.transformControls; // TODO(D.4): replace with runtime.scene.transformControls — Phase D.4
+            if (tc?.setMode) {
+                tc.setMode('rotate');
+                console.log('[ContextualEditBar] Rotate → 3-D rotate gizmo (no plan overlay)');
             }
         }
     }

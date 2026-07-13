@@ -50,6 +50,7 @@ import { GridPlanToolHandler }         from './GridPlanToolHandler';
 import { SectionPlanToolHandler }      from './SectionPlanToolHandler';
 import { ElevationPlanToolHandler }    from './ElevationPlanToolHandler';
 import { MovePlanToolHandler }         from './MovePlanToolHandler';
+import { RotatePlanToolHandler }       from './RotatePlanToolHandler';
 import { AlignPlanToolHandler }        from './AlignPlanToolHandler';
 import { CopyPlanToolHandler }         from './CopyPlanToolHandler';
 import {
@@ -79,7 +80,7 @@ export const PLAN_TOOL_KEYS = [
     'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
     'furniture', 'lighting', 'plumbing', 'opening', 'grid', 'section-mark',
-    'elevation-mark', 'move', 'align', 'copy-place', 'text-note', 'element-tag',
+    'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
     'door-tag', 'window-tag', 'angular-dimension', 'radius-dimension',
     'diameter-dimension', 'slope-dimension', 'spot-elevation', 'keynote',
     'level-tag', 'grid-bubble', 'revision-cloud', 'callout-detail', 'north-arrow',
@@ -123,6 +124,14 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 'elevation-mark':     new ElevationPlanToolHandler(),
                 // ── Edit-in-place tools (Contracts 34 / 35) ──────────────────────────
                 'move':               new MovePlanToolHandler(),
+                // §FIX-PLAN-ROTATE-PARITY (L-267, Gate G7) — the plan view had a MOVE
+                // tool but no ROTATE tool, for ANY element type. ContextualEditBar's
+                // Rotate button and `R` key jumped straight to the 3-D gizmo, which is
+                // inert while a plan surface is up: the control looked enabled and did
+                // nothing. Registering it HERE (rather than teaching one element's tool
+                // to rotate itself) means both the main plan overlay and the split-view
+                // pane get it by construction — the L-73 parity guarantee.
+                'rotate':             new RotatePlanToolHandler(),
                 'align':              new AlignPlanToolHandler(),
                 'copy-place':         new CopyPlanToolHandler(),
                 // ── Annotation tools ─────────────────────────────────────────────────
