@@ -30,6 +30,7 @@ Everything in this dossier serves that thesis.
 | **06** | [The Python / FastAPI / CadQuery gap](./06-PYTHON-FASTAPI-CADQUERY.md) | Your real weakness. Close it enough to be credible, and be honest about the rest. |
 | **07** | [Coding-session drills](./07-CODING-DRILLS.md) | What to be able to type from memory. |
 | **08** | [Stories & questions](./08-STORIES-AND-QUESTIONS.md) | STAR-format war stories; what to ask them. |
+| **09** | [**Deep Q&A on your work**](./09-DEEP-QA-ON-YOUR-WORK.md) | **Every question they can ask about PRYZM, and the answer.** Most of the hour will be this. |
 
 Companion one-pager (skimmable during the call): the published cheat sheet artifact.
 
