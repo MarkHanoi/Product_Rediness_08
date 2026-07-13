@@ -22,11 +22,26 @@
 name: CI
 
 on:
-  # §A.10.i (2026-06-05) — run on PRs + manual ONLY, NOT on every push to `main`,
-  # to conserve GitHub Actions minutes (this suite includes a ~20-min docker-image
-  # build). Direct pushes to `main` no longer auto-run CI; run it deliberately via
-  # the Actions tab → Run workflow, or it gates a PR. Doc-only changes are
-  # path-ignored either way.
+  # §A.10.i (2026-06-05) — PRs + manual only, to conserve Actions minutes (this suite
+  # includes a ~20-min docker-image build).
+  #
+  # §GATE-TEST-ESTATE-NOT-A-CI-GATE phase 0.5f (L-247, 2026-07-13) — PUSH TO `main` NOW
+  # RUNS CI TOO, because a gate that never fires is not a gate.
+  #
+  # The founder's actual workflow is push-straight-to-`main` — every fix in the launch
+  # audit has shipped that way. So a CI that only triggers on `pull_request` was, in
+  # practice, never running: the unit suite could be as red as it liked and nothing said
+  # so. That is precisely how L-248 (a two-clock animation defect) and L-249 (live climate
+  # normals that could NEVER load) survived in `main` with their own guards failing.
+  #
+  # THE ACTIONS BILL IS RESPECTED, DELIBERATELY. Pushing to `main` runs only the CHEAP,
+  # high-signal gates — lint, isolation, command-manager, server tests, unit tests, ga-gate,
+  # build. The two EXPENSIVE jobs (the ~20-min `docker-image` Fly-parity build and the
+  # Playwright `a11y` run) stay PR-only via an `if:` on the job itself. Doc-only pushes are
+  # path-ignored, so writing the audit costs nothing.
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
   pull_request:
     branches: [main]
     paths-ignore: ['docs/**', '**/*.md', '.claude/**']
@@ -211,6 +226,8 @@ jobs:
       - run: pnpm run check:app-shell-csp
 
   a11y:
+    # §0.5f (L-247) — EXPENSIVE. Stays PR-only so a push to `main` runs only the cheap gates.
+    if: github.event_name == 'pull_request'
     name: Accessibility (axe-core WCAG 2.2 AA — REPORT-ONLY / advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -284,6 +301,8 @@ jobs:
           if-no-files-found: ignore
 
   docker-image:
+    # §0.5f (L-247) — EXPENSIVE. Stays PR-only so a push to `main` runs only the cheap gates.
+    if: github.event_name == 'pull_request'
     name: Fly image — build + boot smoke (Dockerfile parity, A.17.x.11)
     runs-on: ubuntu-latest
     timeout-minutes: 30
