@@ -92,6 +92,9 @@ export class PropertyInspector {
     ) {
         this.runtime = runtime;
         this.element = document.createElement('div');
+        // §FEAT-PROPERTY-PANEL-CARD-LAYOUT (L-276) — the hook the card stylesheet is
+        // scoped to. Scoped deliberately: these rules must never leak into other panels.
+        this.element.classList.add('property-inspector');
         this.wallStore = wallStore || window.wallStore || null; // TODO(E.wall.S): replace with runtime.stores.wall — Phase E.wall.S
         this.setupStyles();
         this.createReusableElements();
@@ -233,24 +236,226 @@ export class PropertyInspector {
     }
 
     private setupStyles() {
+        // ── §FEAT-PROPERTY-PANEL-CARD-LAYOUT (L-276) ─────────────────────────────
+        //
+        // THE FOUNDER, with the Autodesk Forma inspector as the reference:
+        //   "Redesign the properties panel — more elegant, more simple and minimalist,
+        //    yet more modern. Each SECTION is an individual component; BETWEEN them is
+        //    TRANSPARENT; although everything as a whole is the panel."
+        //
+        // That sentence is the whole spec, and it INVERTS what we had. Before: ONE heavy
+        // opaque slab (white card, 1px border, 24px shadow, 1rem padding) with grey-tinted
+        // sections stamped INSIDE it — the container was the object and the sections were
+        // decoration on it.
+        //
+        // Forma's model is the opposite, and it is why it reads as calm: THE PANEL IS NOT
+        // A SURFACE. It is a transparent COLUMN — a layout, nothing more. Each section is
+        // an autonomous card that floats on the scene, and the gaps between them are the
+        // scene itself showing through. Depth comes from the CARDS, never from the frame.
+        //
+        // So the container loses everything that made it an object: no background, no
+        // border, no shadow, no padding. It keeps only what a column needs — position,
+        // width, scroll, and the GAP that separates its children. The chrome moves to
+        // `.pi-section` (see the stylesheet below), where each card carries its own
+        // surface, radius and shadow.
+        //
+        // Consequence worth stating, because it is the point rather than a side effect:
+        // remove a section and nothing is left behind — no empty framed void, just scene.
         this.element.style.cssText = `
             position: fixed;
             top: 12px;
             right: 60px;
             width: 320px;
             max-height: calc(100vh - 24px);
-            background: var(--app-panel-bg,#fff);
             color: var(--app-text,#333);
-            padding: 1rem;
             font-family: var(--app-font);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
             display: none;
+            flex-direction: column;
+            gap: 10px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
             z-index: 1000;
             overflow-y: auto;
+            overflow-x: hidden;
             pointer-events: auto;
+            scrollbar-width: thin;
         `;
+
+        this._injectCardStyles();
+    }
+
+    /**
+     * §FEAT-PROPERTY-PANEL-CARD-LAYOUT (L-276) — the card chrome.
+     *
+     * Injected once, and deliberately scoped to `.property-inspector` so it cannot leak
+     * into the rest of the app. Every rule here exists to move the "surface" from the
+     * CONTAINER to the SECTION, which is the founder's entire brief.
+     *
+     * `!important` is used ONLY where a rule must beat a pre-existing INLINE style set by
+     * the legacy section builders (e.g. `container.style.background = '#f1f3f5'`). That is
+     * the one thing inline styles win by default, and rewriting ~15 call sites to remove
+     * their inline chrome would be a far riskier change than overriding it in one place.
+     * When those builders are migrated, the `!important`s here should go with them.
+     */
+    private _injectCardStyles(): void {
+        const ID = 'pi-card-styles';
+        if (document.getElementById(ID)) return;
+
+        const style = document.createElement('style');
+        style.id = ID;
+        style.textContent = `
+            /* Each section is an AUTONOMOUS CARD. The panel is only the column it sits in. */
+            .property-inspector .pi-section {
+                background: var(--app-card-bg, rgba(255,255,255,0.92)) !important;
+                -webkit-backdrop-filter: blur(12px);
+                backdrop-filter: blur(12px);
+                border: 1px solid rgba(0,0,0,0.06);
+                border-radius: 14px;
+                padding: 14px 14px 12px !important;
+                margin: 0 !important;          /* the COLUMN owns the spacing, not the card */
+                box-shadow: 0 1px 2px rgba(16,24,40,0.04),
+                            0 6px 16px rgba(16,24,40,0.08);
+                transition: box-shadow .18s ease, transform .18s ease;
+            }
+
+            /* A card lifts on hover — the only motion in the panel, and it is a hint that
+               the card is the unit you interact with, not the frame around it. */
+            .property-inspector .pi-section:hover {
+                box-shadow: 0 1px 2px rgba(16,24,40,0.05),
+                            0 10px 24px rgba(16,24,40,0.10);
+            }
+
+            /* Section titles: quiet. Minimalism here is not decoration — a loud label on
+               every card would re-create the visual noise the founder is asking us to
+               remove. Uppercase + tracking gives hierarchy WITHOUT weight or colour. */
+            .property-inspector .pi-section > .pi-label:first-child,
+            .property-inspector .pi-section-title {
+                font-size: 10.5px;
+                font-weight: 600 !important;
+                letter-spacing: .07em;
+                text-transform: uppercase;
+                color: var(--app-text-muted, #667085);
+                margin-bottom: 10px !important;
+            }
+
+            /* Inputs: flat, borderless until touched. The field IS the value; the box is
+               only summoned when the user engages with it. */
+            .property-inspector .pi-input,
+            .property-inspector input[type="text"],
+            .property-inspector input[type="number"],
+            .property-inspector select {
+                width: 100%;
+                box-sizing: border-box;
+                background: var(--app-input-bg, rgba(16,24,40,0.03));
+                border: 1px solid transparent !important;
+                border-radius: 8px;
+                padding: 7px 9px;
+                font: inherit;
+                font-size: 12.5px;
+                color: var(--app-text, #101828);
+                transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+            }
+            .property-inspector .pi-input:hover,
+            .property-inspector select:hover {
+                background: var(--app-input-bg-hover, rgba(16,24,40,0.055));
+            }
+            .property-inspector .pi-input:focus,
+            .property-inspector input:focus,
+            .property-inspector select:focus {
+                outline: none;
+                background: #fff;
+                border-color: var(--pryzm-purple, #6600FF) !important;
+                box-shadow: 0 0 0 3px rgba(102,0,255,0.12);
+            }
+
+            /* Rows: label left, value right. Reading a property should be one glance. */
+            .property-inspector .pi-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                padding: 3px 0;
+            }
+            .property-inspector .pi-row > label,
+            .property-inspector .pi-row > .pi-label {
+                flex: 0 0 auto;
+                font-size: 12px;
+                color: var(--app-text-muted, #667085);
+                text-transform: none;
+                letter-spacing: 0;
+                font-weight: 400;
+            }
+
+            /* THE HEADER IS A CARD TOO — but a QUIET one.
+               It was a saturated purple gradient slab, and it dominated a panel whose job
+               is to show the user their data. PRYZM's purple is a BRAND accent, not a
+               background: it now appears as a 3px identity rail on the leading edge and in
+               the type name, and nowhere else. The card carries the element's identity;
+               it does not shout it. (Brand: white + #6600FF, never black.) */
+            .property-inspector .pi-header {
+                background: var(--app-card-bg, rgba(255,255,255,0.92)) !important;
+                -webkit-backdrop-filter: blur(12px);
+                backdrop-filter: blur(12px);
+                color: var(--app-text, #101828) !important;
+                border: 1px solid rgba(0,0,0,0.06);
+                border-left: 3px solid var(--pryzm-purple, #6600FF);
+                border-radius: 14px;
+                padding: 12px 14px !important;
+                margin: 0 !important;
+                box-shadow: 0 1px 2px rgba(16,24,40,0.04),
+                            0 6px 16px rgba(16,24,40,0.08);
+            }
+            /* Anything the old header painted white-on-purple must now read on white. */
+            .property-inspector .pi-header * { color: inherit !important; }
+
+            /* Apply: the one deliberate accent in the panel. One action, one colour. */
+            .property-inspector button.pi-apply,
+            .property-inspector > button {
+                background: var(--pryzm-purple, #6600FF) !important;
+                color: #fff !important;
+                border: none;
+                border-radius: 10px;
+                padding: 9px 14px;
+                font: inherit;
+                font-weight: 600;
+                font-size: 12.5px;
+                cursor: pointer;
+                box-shadow: 0 2px 8px rgba(102,0,255,0.22);
+                transition: filter .15s ease, transform .06s ease;
+            }
+            .property-inspector button.pi-apply:hover,
+            .property-inspector > button:hover { filter: brightness(1.08); }
+            .property-inspector button.pi-apply:active,
+            .property-inspector > button:active { transform: translateY(1px); }
+
+            /* The scene shows through the gaps — so the scrollbar must not draw a rail. */
+            .property-inspector::-webkit-scrollbar { width: 6px; }
+            .property-inspector::-webkit-scrollbar-track { background: transparent; }
+            .property-inspector::-webkit-scrollbar-thumb {
+                background: rgba(16,24,40,0.16);
+                border-radius: 3px;
+            }
+            .property-inspector::-webkit-scrollbar-thumb:hover { background: rgba(16,24,40,0.28); }
+
+            @media (prefers-color-scheme: dark) {
+                .property-inspector .pi-section {
+                    background: var(--app-card-bg, rgba(28,30,36,0.92)) !important;
+                    border-color: rgba(255,255,255,0.07);
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.30),
+                                0 6px 16px rgba(0,0,0,0.34);
+                }
+                .property-inspector .pi-input,
+                .property-inspector select {
+                    background: rgba(255,255,255,0.05);
+                    color: #e7e9ee;
+                }
+                .property-inspector .pi-input:focus,
+                .property-inspector select:focus { background: rgba(255,255,255,0.09); }
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     /**
@@ -1153,7 +1358,12 @@ export class PropertyInspector {
         };
         this.element.appendChild(applyBtn);
 
-        this.element.style.display = 'block';
+        // §FEAT-PROPERTY-PANEL-CARD-LAYOUT (L-276) — FLEX, not BLOCK. The transparent
+        // gap between the cards is the whole point of the founder's brief ("between them
+        // is transparent"), and `display:block` would collapse it: the column's `gap`
+        // only applies to a flex/grid container. A one-word regression here silently
+        // returns the panel to a single stacked slab.
+        this.element.style.display = 'flex';
         // Wave 6 Phase B real binding — panel mount activation.
         // Called at the end of update() so selectedObject is already set.
         // Idempotent — safe to call even if the inspector was already visible.
