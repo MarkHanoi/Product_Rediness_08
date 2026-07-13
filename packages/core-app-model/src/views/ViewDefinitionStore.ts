@@ -284,6 +284,34 @@ class ViewDefinitionStoreImpl {
     }
 
     /**
+     * §VIEW-UNDO-SPATIAL-MERGE-RESIDUE (G8) — REPLACES the whole spatial context.
+     *
+     * `update({ spatial })` MERGES (`{ ...view.spatial, ...patch.spatial }`), which is
+     * right for a forward patch but WRONG for a restore: a key the forward patch ADDED
+     * (e.g. `cropRegion` / `sectionVolume` / `sectionPlane` on the first elevation
+     * scope-box drag) is absent from the pre-command snapshot, so the merge cannot
+     * remove it and it SURVIVES THE UNDO — the elevation stays scoped after Ctrl+Z.
+     *
+     * This method is the replace-semantics sibling of setCrop / setOutput / setViewRange:
+     * whatever is passed becomes the ENTIRE spatial context. `UpdateViewDefinitionCommand.undo()`
+     * (packages/command-registry) must call THIS instead of `update({ spatial: snap.spatial })`
+     * to restore a view exactly. Pinned by the `it.fails` guard in
+     * apps/editor/__tests__/viewBusLifecycle.test.ts, which turns RED the moment that lands.
+     *
+     * Pass null to clear the spatial context entirely.
+     */
+    setSpatial(viewId: string, spatial: ViewSpatialContext | null): boolean {
+        const view = this._views.get(viewId);
+        if (!view) return false;
+        view.spatial             = spatial ? structuredClone(spatial) : {};
+        view.metadata.modifiedAt = Date.now();
+        view.metadata.version   += 1;
+        storeEventBus.emit({ elementType: 'view-definition', elementId: viewId, operation: 'update', timestamp: Date.now() });
+        this.dispatch('vd:view-updated', { viewId });
+        return true;
+    }
+
+    /**
      * Sets or clears the view range for a plan view.
      * Pass null to remove view range (plan engine uses project-level defaults).
      */

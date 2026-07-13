@@ -5,6 +5,7 @@ import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three'
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
+import { resolveWindowDimensions } from './WindowDimensions';
 import { WindowOpening } from './WindowTypes';
 import { WallStore } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -71,18 +72,25 @@ function makeMat(color: string, roughness = 0.5, metalness = 0, transparent = fa
 // against the wall void) — applying it to the thin glass pane causes shading
 // artefacts. depthWrite is OFF so the glass blends correctly with what's behind.
 const GLASS_TINT = '#cdd9de'; // subtle blue-grey, far less saturated than 'lightblue'
-function makeGlassMat(opacity: number, side: THREE.Side = THREE.DoubleSide): THREE.MeshPhysicalMaterial {
+/**
+ * §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — `glazingThickness` is now a real, resolved
+ * dimension (`resolveWindowDimensions`), not the hard-coded 6 mm literal this material
+ * and the pane geometry each carried separately. The material's `thickness` (the
+ * refraction depth) and the pane's extruded depth are THE SAME NUMBER, and it is the
+ * same number the plan symbol draws its double-line glazing at.
+ */
+function makeGlassMat(opacity: number, glazingThickness: number, side: THREE.Side = THREE.DoubleSide): THREE.MeshPhysicalMaterial {
     const op = Math.max(0, Math.min(1, opacity));
     return new THREE.MeshPhysicalMaterial({
         color: GLASS_TINT,
         roughness: 0.08,
         metalness: 0,
-        transmission: 0.9,      // physical glass refraction — the see-through driver
-        ior: 1.5,               // glass index of refraction
-        thickness: 0.006,       // matches the pane geometry depth
+        transmission: 0.9,          // physical glass refraction — the see-through driver
+        ior: 1.5,                   // glass index of refraction
+        thickness: glazingThickness, // matches the pane geometry depth exactly
         transparent: true,
-        opacity: op,            // fallback tint strength when transmission is unsupported
-        depthWrite: false,      // glass must not occlude geometry behind it
+        opacity: op,                // fallback tint strength when transmission is unsupported
+        depthWrite: false,          // glass must not occlude geometry behind it
         side,
     });
 }
@@ -205,12 +213,16 @@ export class WindowBuilder {
         return mat;
     }
 
-    /** §INSTANCE-WINDOWS — shared glass material for (levelId, opacity). */
-    private _sharedGlassMaterial(levelId: string, opacity: number): THREE.MeshPhysicalMaterial {
-        const key = `${levelId}|${opacity.toFixed(3)}`;
+    /**
+     * §INSTANCE-WINDOWS — shared glass material for (levelId, opacity, glazingThickness).
+     * §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the glazing thickness is part of the key:
+     * two window types with different sealed units must not share one glass material.
+     */
+    private _sharedGlassMaterial(levelId: string, opacity: number, glazingThickness: number): THREE.MeshPhysicalMaterial {
+        const key = `${levelId}|${opacity.toFixed(3)}|g${glazingThickness.toFixed(4)}`;
         let mat = this._sharedGlassMats.get(key);
         if (!mat) {
-            mat = makeGlassMat(opacity, THREE.DoubleSide);
+            mat = makeGlassMat(opacity, glazingThickness, THREE.DoubleSide);
             this._sharedGlassMats.set(key, mat);
         }
         return mat;
@@ -694,6 +706,11 @@ export class WindowBuilder {
         const { width: w, height: h, frameThickness: ft } = win;
         // Use the wall-derived depth when provided so the frame spans the full void.
         const fd = wallFrameDepth ?? win.frameDepth;
+        // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) / L-127 — the SAME dimension authority
+        // the plan symbol reads (record → system type → canonical defaults). The glazing
+        // thickness and the sill overhang used to be literals here (0.006 and 0.04); they
+        // are dimensions, and a dimension has exactly one source.
+        const dims = resolveWindowDimensions(win);
 
         // §WIN-AUDIT-2026 W5 — apply VG governance overrides on top of the
         // window's stored colours / opacity. Frame colour falls back to the
@@ -711,7 +728,7 @@ export class WindowBuilder {
         const frameMat = this._sharedFrameMaterial(levelId, frameColor, frameTransparent, frameOpacity);
         // A.21.D40 #4 — believable transparent glass (physical transmission), not
         // an opaque light-blue panel. See makeGlassMat above.
-        const glassMat = this._sharedGlassMaterial(levelId, glassOpacity);
+        const glassMat = this._sharedGlassMaterial(levelId, glassOpacity, dims.glazingThickness);
         mats.push(frameMat, glassMat);
 
         // ── Outer Frame ────────────────────────────────────────────────────
@@ -793,7 +810,10 @@ export class WindowBuilder {
                 const paneCX = colX + cw / 2;
                 const paneCY = rowY + rh / 2;
 
-                addBox(group, glassMat, Math.max(paneW, 0.01), Math.max(paneH, 0.01), 0.006, paneCX, paneCY, 0);
+                // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the pane is extruded at the
+                // window's REAL glazing thickness (the sealed unit), which is exactly
+                // what the plan symbol draws as its thin double line.
+                addBox(group, glassMat, Math.max(paneW, 0.01), Math.max(paneH, 0.01), dims.glazingThickness, paneCX, paneCY, 0);
 
                 rowY += rh;
             }
@@ -809,7 +829,10 @@ export class WindowBuilder {
             // Sill protrudes from bottom of window toward exterior (positive Z in group space)
             addBox(
                 group, sillMat,
-                w + 0.04,                // slightly wider than frame
+                // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the board overhangs each jamb by
+                // the RESOLVED `sillOverhang` (was a bare `+ 0.04`). The plan sill line is
+                // drawn to the same overhang, so the symbol and the built board agree.
+                w + 2 * dims.sillOverhang,
                 win.sillThickness,
                 fd + win.sillDepth,
                 0,

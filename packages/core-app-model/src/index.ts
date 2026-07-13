@@ -494,6 +494,10 @@ export { PlanView2DCreationMode, planView2DCreationMode } from './views/PlanView
 export { ViewportThumbnailRenderer, viewportThumbnailRenderer } from './views/ViewportThumbnailRenderer.js';
 export { PlanViewVisibilityCuller } from './views/PlanViewVisibilityCuller.js';
 export { DEFAULT_3D_VIEW_ID, DEFAULT_PLAN_VIEW_ID, initDefaultViewsManager } from './views/DefaultViewsManager.js';
+// §FIX-VIEW-DELETE-ORPHANS (G8) — per-view dependent state dies with its view (and
+// is re-instated when DeleteViewDefinitionCommand.undo() restores it).
+export { initViewDeletionCascade } from './views/ViewDeletionCascade.js';
+export type { ViewDependentState } from './views/ViewDeletionCascade.js';
 export type { PlanWorldToScreen, PlanViewAnnotationRenderOptions } from './views/PlanViewAnnotationRenderer.js';
 export { DRAGGABLE_ANNOTATION_TYPES, PlanViewAnnotationRenderer, planViewAnnotationRenderer } from './views/PlanViewAnnotationRenderer.js';
 export type { OrthographicViewDirection, OrthographicViewConfig, EmptySceneConfig } from './views/PlanViewService.js';

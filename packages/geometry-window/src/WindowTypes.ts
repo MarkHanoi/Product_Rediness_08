@@ -39,6 +39,16 @@ export const WindowOpeningSchema = z.object({
     frameDepth:     z.number().positive().default(0.07),
     frameColor:     z.string().default('#e8e8e8'),
 
+    // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the two dimensions an LOD-300 plan
+    // symbol needs and the record did not carry. OPTIONAL (no default) so existing
+    // persisted windows are untouched: `resolveWindowDimensions()` then falls
+    // through to the selected WindowSystemType's `dimensions` block, and finally to
+    // DEFAULT_WINDOW_DIMENSIONS. L-127 — the symbol NEVER invents these numbers.
+    /** Glazing unit thickness (m) — drawn as the thin double line in plan. */
+    glazingThickness: z.number().positive().optional(),
+    /** Jamb rebate / check depth (m) — the frame pocket that captures the glazing. */
+    rebateDepth:      z.number().nonnegative().optional(),
+
     // Glazing grid — adopted from Pascal WindowNode (gold standard)
     // [0.5, 0.5] = two equal panes, [1] = single pane
     columnRatios:           z.array(z.number().positive()).min(1).default([1]),

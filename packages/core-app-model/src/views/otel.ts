@@ -54,3 +54,26 @@ export function emitViewProjectionEvent(verb: string, attrs: Attributes): void {
     span.setStatus({ code: SpanStatusCode.OK });
     span.end();
 }
+
+/**
+ * §FIX-VIEW-DELETE-ORPHANS (G8) — P8 span wrapper for view-lifecycle work that has a
+ * body (unlike the two fire-and-done emitters above): the span ends when `fn` returns,
+ * and a throw is recorded on the span before it propagates.
+ *
+ * @param name  — span name, e.g. `'view.purgeDependentState'` (emitted as `pryzm.<name>`)
+ * @param attrs — span attributes
+ * @param fn    — the work to trace; its return value is passed through unchanged
+ */
+export function withViewSpan<T>(name: string, attrs: Attributes, fn: () => T): T {
+    const span = TRACER.startSpan(`pryzm.${name}`, { attributes: attrs });
+    try {
+        const result = fn();
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
+    } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error)?.message });
+        throw err;
+    } finally {
+        span.end();
+    }
+}

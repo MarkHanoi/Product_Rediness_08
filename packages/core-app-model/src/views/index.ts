@@ -165,6 +165,13 @@ export {
     DEFAULT_3D_VIEW_ID, DEFAULT_PLAN_VIEW_ID, initDefaultViewsManager,
 } from './DefaultViewsManager.js';
 
+// §FIX-VIEW-DELETE-ORPHANS (G8) — per-view dependent state dies with its view and
+// comes back with it on undo.
+export {
+    initViewDeletionCascade, purgeViewDependentState, restoreViewDependentState,
+} from './ViewDeletionCascade.js';
+export type { ViewDependentState } from './ViewDeletionCascade.js';
+
 // ── Sprint B P9-W8B (2026-05-10) — PlanViewAnnotationRenderer + PlanViewService ─
 
 export type { PlanWorldToScreen, PlanViewAnnotationRenderOptions } from './PlanViewAnnotationRenderer.js';

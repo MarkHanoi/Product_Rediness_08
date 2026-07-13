@@ -31,6 +31,36 @@ export interface WindowFinishLayer {
     description?: string;
 }
 
+// ─── Type dimensions ───────────────────────────────────────────────────────────
+/**
+ * §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the TYPE's standard dimensions.
+ *
+ * Mirrors `DoorSystemType.dimensions`. A window instance may override any of these
+ * on its own record; when it does not, `resolveWindowDimensions()` reads them from
+ * here, and only then from `DEFAULT_WINDOW_DIMENSIONS`. This is the plumbing that
+ * lets a symbol be dimensionally true (L-127) without a single literal in the
+ * symbol builder: a slim Crittal steel frame and a fat uPVC frame draw differently
+ * because their TYPE says so, not because the drawing code guessed.
+ *
+ * All values in metres; every field optional (an omitted field falls through).
+ */
+export interface WindowTypeDimensions {
+    /** Frame member face width — how far the frame reaches into the opening. */
+    frameThickness?: number;
+    /** Frame member depth across the wall reveal. */
+    frameDepth?: number;
+    /** Glazing unit thickness (e.g. 0.024 for a 4-16-4 sealed unit). */
+    glazingThickness?: number;
+    /** Jamb rebate / check depth — the pocket that captures the glazing. */
+    rebateDepth?: number;
+    /** Sill board projection beyond the wall face. */
+    sillDepth?: number;
+    /** Sill board thickness (vertical). */
+    sillThickness?: number;
+    /** Sill board overhang past each jamb. */
+    sillOverhang?: number;
+}
+
 // ─── WindowSystemType ──────────────────────────────────────────────────────────
 export interface WindowSystemType {
     id: string;
@@ -48,6 +78,13 @@ export interface WindowSystemType {
     defaultColumnRatios?: number[];
     /** Default row ratios */
     defaultRowRatios?: number[];
+    /**
+     * §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the type's standard dimensions.
+     * Consumed by `resolveWindowDimensions()` when the instance record does not
+     * carry the field itself. Absent on the built-in presets → they resolve to
+     * `DEFAULT_WINDOW_DIMENSIONS`, i.e. unchanged behaviour.
+     */
+    dimensions?: WindowTypeDimensions;
     tags?: string[];
     ifcTypeName?: string;
     metadata: { createdAt: number; modifiedAt: number; createdBy: string; version: number };

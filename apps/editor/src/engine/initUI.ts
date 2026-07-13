@@ -65,7 +65,7 @@ import { semanticIndex }         from '@pryzm/core-app-model';
 // DOC-5.4 — IFC Pset adapter (exposed on window so IFC loaders can call ifcPsetAdapter.ingest())
 import { ifcPsetAdapter }        from '@pryzm/core-app-model';
 import { viewDefinitionStore }   from '@pryzm/core-app-model';
-import { initDefaultViewsManager }from '@pryzm/core-app-model';
+import { initDefaultViewsManager, initViewDeletionCascade }from '@pryzm/core-app-model';
 import { visibilityRuleEngine }  from '@pryzm/core-app-model';
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
@@ -617,6 +617,12 @@ export async function initUI(p: UIParams): Promise<void> {
 
     // System default views — "{3D}" and "Ground Floor" — always present.
     initDefaultViewsManager();
+
+    // §FIX-VIEW-DELETE-ORPHANS (G8) — per-view state (visibility-intent instance) is
+    // purged WITH its view and re-instated when DeleteViewDefinitionCommand.undo()
+    // restores it. Without this, every deleted view left an unreachable orphan in the
+    // SERIALISED project snapshot (ProjectSerializer §viewIntentInstances) forever.
+    initViewDeletionCascade();
 
     // ── Phase C — Visibility Rule Engine ─────────────────────────────────────
     window.visibilityRuleEngine = visibilityRuleEngine;

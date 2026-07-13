@@ -8,6 +8,14 @@
 export * from './WindowTypes';
 export * from './WindowStore';
 export * from './WindowSystemTypeStore';
+// §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the ONE window dimension authority
+// (record → system type → canonical defaults). L-127: no builder invents a dimension.
+export {
+    resolveWindowDimensions,
+    DEFAULT_WINDOW_DIMENSIONS,
+    type ResolvedWindowDimensions,
+    type WindowDimensionSource,
+} from './WindowDimensions';
 export { WindowBuilder } from './WindowBuilder';
 export { WindowDependencyTracker } from './WindowDependencyTracker';
 export { WindowLevelCleanupHandler } from './WindowLevelCleanupHandler';

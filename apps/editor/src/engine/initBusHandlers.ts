@@ -667,11 +667,37 @@ export function initBusHandlers(
         },
 
         // ── E.5.4: view-definition bridges ─────────────────────────────────
+        // §FIX-VIEW-UPDATE-PAYLOAD-KEY (G8, V1-audit §3.5) — this bridge read ONLY
+        // `cmd.updates`, but the payload DECLARED in packages/command-bus/src/commands.ts
+        // is `{ viewId, patch }`, and that is what ViewPropertiesPanel._updateViewDef
+        // sends. So every property-panel edit — RENAME, discipline, purpose, phase
+        // filter, description — built `new UpdateViewDefinitionCommand(viewId, undefined)`,
+        // whose canExecute() does `Object.keys(this.patch)` → TypeError → swallowed by
+        // this bridge's own try/catch. Renaming a view from the properties panel was a
+        // SILENT NO-OP. (This bridge, not plugins/view's UpdateViewDefinitionHandler, is
+        // the live handler: initBusHandlers runs BEFORE registerViewHandlers and the bus
+        // is first-registration-wins.)
+        //
+        // `patch` is canonical (it matches the declared payload). `updates` is kept
+        // because the §PERF-ELEV-CROP-DRAG-FLOW (L-222) scope-drag commit in
+        // PlanViewInteraction sends it — that ONE command carrying BOTH spatial and crop
+        // (one undo entry) is the invariant L-222 established and must stay intact.
+        // Pinned by apps/editor/__tests__/viewBusLifecycle.test.ts.
         {
             type: 'view.updateDefinition',
             stores: [] as const,
-            validate: (cmd) => (!cmd.viewId ? 'viewId is required' : null),
-            fn: (cmd) => { _cmExec(new UpdateViewDefinitionCommand(cmd.viewId, cmd.updates)); },
+            validate: (cmd) => {
+                if (!cmd.viewId) return 'viewId is required';
+                const patch = (cmd as any).patch ?? (cmd as any).updates;
+                if (!patch || typeof patch !== 'object' || Object.keys(patch).length === 0) {
+                    return 'patch (or legacy `updates`) must contain at least one field';
+                }
+                return null;
+            },
+            fn: (cmd) => {
+                const patch = (cmd as any).patch ?? (cmd as any).updates;
+                _cmExec(new UpdateViewDefinitionCommand(cmd.viewId, patch));
+            },
         },
         {
             type: 'view.setCrop',
