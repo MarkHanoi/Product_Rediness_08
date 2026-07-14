@@ -18,7 +18,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 
 import { UpdateHandrailCommand }             from '@pryzm/command-registry';
 // §FEAT-UNIFORM-MATERIAL-COMMAND (L-08) — one uniform material-set dispatch surface.
-import { dispatchSetMaterial } from './MaterialDispatch';
+import { dispatchSetMaterial, materialUnsupportedReason } from './MaterialDispatch';
 
 /** Normalise a colour token to `#rrggbb`. Mirrors the inline colorMap used later
  *  in this file so the uniform material dispatch below emits a valid hex string. */
@@ -291,6 +291,21 @@ export function applyChanges(ctx: ApplyContext): void {
                 materialId: matId,
                 materialColor: normColor,
             });
+            if (!dispatched) {
+                // §FIX-MATERIAL-DEAD-DISPATCH (G7) — the families whose material CANNOT be
+                // committed to the geometry record today (their only command writes a
+                // detached plugin DTO store, or no command exists at all) must SAY SO. The
+                // inspector has already repainted the THREE mesh live, so without this the
+                // user sees the new material, saves, reloads — and it is gone.
+                const reason = materialUnsupportedReason(normalizedType);
+                if (reason) {
+                    console.warn(`[PropertyInspectorApply] material not applied to ${normalizedType}: ${reason}`);
+                    window.runtime?.events?.emit('pryzm:toast', {
+                        message: `Material changes aren't saved for ${normalizedType} yet.`,
+                        severity: 'info',
+                    });
+                }
+            }
             if (dispatched) {
                 delete updates.materialColor;
                 delete updates.materialId;
