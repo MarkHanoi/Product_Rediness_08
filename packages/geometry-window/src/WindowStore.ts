@@ -75,6 +75,37 @@ export class WindowStore {
         storeEventBus.emit({ elementId: id, elementType: 'window', operation: 'update', timestamp: Date.now() });
     }
 
+    /**
+     * §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) — AUTHORITATIVE FULL REPLACEMENT.
+     * The mirror of `DoorStore.replace()`; see that method for the rationale. `update()`
+     * merges and therefore cannot UNSET a field, so it cannot reverse a migration that
+     * STAMPED `systemTypeId` / `frameFinish` / `columnRatios` onto an untyped record.
+     * Identity (`id` / `wallId` / `openingId`) is pinned from the live record; the same
+     * `'update'` event is emitted, so builders rebuild.
+     */
+    replace(record: WindowOpening): void {
+        const existing = this.windows.get(record.id);
+        if (!existing) throw new Error(`[WindowStore.replace] Window not found: ${record.id}`);
+        const authoritative = {
+            ...record,
+            id:        existing.id,
+            wallId:    existing.wallId,
+            openingId: existing.openingId,
+        };
+        const result = WindowOpeningSchema.safeParse(authoritative);
+        if (!result.success) {
+            const flat = result.error.flatten();
+            const fieldSummary = Object.entries(flat.fieldErrors)
+                .map(([k, v]) => `${k}: ${v?.join(', ')}`)
+                .join('; ');
+            throw new Error(`[WindowStore.replace] Validation failed — ${fieldSummary || result.error.message}`);
+        }
+        const frozen = Object.freeze({ ...result.data });
+        this.windows.set(frozen.id, frozen);
+        this.notify('update', frozen, existing);
+        storeEventBus.emit({ elementId: frozen.id, elementType: 'window', operation: 'update', timestamp: Date.now() });
+    }
+
     remove(id: string): void {
         const existing = this.windows.get(id);
         if (!existing) return; // idempotent

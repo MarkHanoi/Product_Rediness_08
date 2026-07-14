@@ -331,6 +331,12 @@ export * from './walls/UpdateWallLayersCommand';
 export * from './walls/UpdateWallSystemTypeCommand';
 export * from './walls/wallSnapshotUtils';
 
+// ─── Migrations ───────────────────────────────────────────────────────────
+// §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) — a creation-path fix is only HALF a
+// fix; the records the broken path already wrote need a MIGRATION, and migrations are
+// commands (C03/C16 — one batch = one undo entry).
+export * from './migrations/BackfillHostedElementTypesCommand';
+
 // ─── Windows ──────────────────────────────────────────────────────────────
 export * from './windows/CenterWindowInWallCommand';
 export * from './windows/CreateWindowInAllWindowsCommand';

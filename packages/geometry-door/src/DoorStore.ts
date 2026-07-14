@@ -91,6 +91,44 @@ export class DoorStore {
         storeEventBus.emit({ elementId: id, elementType: 'door', operation: 'update', timestamp: Date.now() });
     }
 
+    /**
+     * §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) — AUTHORITATIVE FULL REPLACEMENT.
+     *
+     * `update()` MERGES a patch, so it can set a field but never UNSET one. A migration
+     * must be exactly reversible (C03 §4.5 — undo restores the prior state, not an
+     * approximation of it): undoing the hosted-element type backfill has to take
+     * `systemTypeId` / `frameFinish` / `leafFinish` / `finishMaterial` back OFF the
+     * record, which a merge cannot express. `replace()` writes the snapshot verbatim.
+     *
+     * Identity is still pinned (`id` / `wallId` / `openingId` come from the LIVE record,
+     * never from the argument), and the wall index is kept in lock-step, so the store's
+     * invariants hold exactly as they do for `update()`. It emits the same `'update'`
+     * event, so builders rebuild the mesh — the replacement is a normal edit to every
+     * downstream consumer.
+     */
+    replace(record: DoorOpening): void {
+        const existing = this.doors.get(record.id);
+        if (!existing) throw new Error(`[DoorStore.replace] Door not found: ${record.id}`);
+        const authoritative = {
+            ...record,
+            id:        existing.id,
+            wallId:    existing.wallId,
+            openingId: existing.openingId,
+        };
+        const result = DoorOpeningSchema.safeParse(authoritative);
+        if (!result.success) {
+            const flat = result.error.flatten();
+            const fieldSummary = Object.entries(flat.fieldErrors)
+                .map(([k, v]) => `${k}: ${v?.join(', ')}`)
+                .join('; ');
+            throw new Error(`[DoorStore.replace] Validation failed — ${fieldSummary || result.error.message}`);
+        }
+        const frozen = Object.freeze({ ...result.data });
+        this.doors.set(frozen.id, frozen);
+        this.notify('update', frozen, existing);
+        storeEventBus.emit({ elementId: frozen.id, elementType: 'door', operation: 'update', timestamp: Date.now() });
+    }
+
     remove(id: string): void {
         const existing = this.doors.get(id);
         if (!existing) return; // idempotent

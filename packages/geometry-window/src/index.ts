@@ -37,6 +37,17 @@ export {
     type BuildWindowOpeningInput,
     type BuildWindowStoreRecordInput,
 } from './WindowOpeningFactory';
+// ── §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) ─────────────────────────────
+// The MIGRATION half of the parity fix: a creation-path fix does not heal the
+// records the broken path already wrote. Pure planner; applied by
+// `BackfillHostedElementTypesCommand` (C03/C16 — migrations are commands).
+export {
+    planWindowTypeBackfill,
+    resolveDefaultWindowSystemTypeId,
+    isWindowUntyped,
+    type WindowTypeBackfillPlan,
+    type WindowTypeBackfillEntry,
+} from './WindowTypeBackfill';
 export { WindowBuilder } from './WindowBuilder';
 export { WindowDependencyTracker } from './WindowDependencyTracker';
 export { WindowLevelCleanupHandler } from './WindowLevelCleanupHandler';

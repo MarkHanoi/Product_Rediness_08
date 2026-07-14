@@ -73,6 +73,11 @@ export enum CommandType {
     CREATE_WINDOWS_ON_WALLS = 'CREATE_WINDOWS_ON_WALLS',
     // SPEC-SEMANTIC §10 #7/#9/#10 — doors between adjacent rooms (SL-2 consumer, hosted C15).
     CREATE_DOORS_BETWEEN_ADJACENT_ROOMS = 'CREATE_DOORS_BETWEEN_ADJACENT_ROOMS',
+    // §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) — a MIGRATION, and migrations are
+    // commands (C03/C16): assign the catalogue default type to every door/window whose
+    // record was written by a creation path that predates the type chokepoint. ONE
+    // undo entry; user-invoked (it changes the drawing), never automatic on load.
+    BACKFILL_HOSTED_ELEMENT_TYPES = 'BACKFILL_HOSTED_ELEMENT_TYPES',
     CREATE_CURTAIN_WALLS_ON_ALL_SLABS = 'CREATE_CURTAIN_WALLS_ON_ALL_SLABS',
     CREATE_ROOF = 'CREATE_ROOF',
     UPDATE_ROOF = 'UPDATE_ROOF',

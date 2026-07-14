@@ -31,6 +31,17 @@ export {
     type BuildDoorOpeningInput,
     type BuildDoorStoreRecordInput,
 } from './DoorOpeningFactory';
+// ── §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) ─────────────────────────────
+// The MIGRATION half of the parity fix: converging the creation paths does NOT heal
+// the records the broken path already wrote. Pure planner; applied by
+// `BackfillHostedElementTypesCommand` (C03/C16 — migrations are commands).
+export {
+    planDoorTypeBackfill,
+    resolveDefaultDoorSystemTypeId,
+    isDoorUntyped,
+    type DoorTypeBackfillPlan,
+    type HostedTypeBackfillEntry,
+} from './DoorTypeBackfill';
 export { DoorBuilder } from './DoorBuilder';
 export { DoorDependencyTracker } from './DoorDependencyTracker';
 export { DoorLevelCleanupHandler } from './DoorLevelCleanupHandler';

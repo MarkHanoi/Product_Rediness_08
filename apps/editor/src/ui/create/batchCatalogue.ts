@@ -40,7 +40,15 @@ import {
     CreateLightingByRoomCommand,
     CreateWindowsOnWallsCommand,
     CreateDoorsBetweenAdjacentRoomsCommand,
+    // §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) — the MIGRATION command (C03/C16).
+    BackfillHostedElementTypesCommand,
 } from '@pryzm/command-registry';
+// L-274 — the precondition needs to know whether any untyped record EXISTS. Both
+// planners are PURE reads of the two element stores (no mutation, no `window.*`), and
+// they are the SAME planners the command applies, so the panel gate and the migration
+// can never disagree about what is pending.
+import { doorStore, planDoorTypeBackfill } from '@pryzm/geometry-door';
+import { windowStore, planWindowTypeBackfill } from '@pryzm/geometry-window';
 
 /** The phase currently shipped. Entries with `phase > SHIPPED_PHASE` render disabled (CB-4). */
 export const SHIPPED_PHASE = 1 as const;
@@ -413,6 +421,37 @@ export const BATCH_CATALOGUE: BatchCatalogEntry[] = [
             xOrigin: 0,
             yOrigin: 0,
         }),
+    },
+
+    // ── Project › Maintenance ────────────────────────────────────────────────
+    {
+        // §FIX-UNTYPED-HOSTED-ELEMENT-BACKFILL (L-274) — THE OTHER HALF OF A
+        // CREATION-PATH FIX. Converging the door/window creation paths (L-260 A / L-266)
+        // did NOT heal the records the broken paths had already written: a hosted-element
+        // record with no `systemTypeId` still resolves DEFAULT frame/leaf sections, no
+        // glazing segments, no pane division (i.e. no mullion) and schema-default grey
+        // finishes — it is a DIFFERENT element, drawn correctly, forever.
+        //
+        // IT IS DELIBERATELY A BUTTON, NOT A BOOT STEP. The migration CHANGES WHAT THE
+        // DRAWING LOOKS LIKE, so the architect runs it knowingly, sees the report of what
+        // moved, and takes it back with ONE Ctrl-Z (C16: one batch = one undo entry).
+        catalogId: 'maintenance.backfill-hosted-element-types',
+        discipline: 'Project', system: 'Maintenance',
+        label: 'Assign a type to untyped doors & windows',
+        prompt: 'Assign the catalogue default system type to every door and window whose record carries none',
+        icon: 'material-symbols:build', scope: 'project', phase: 1, status: 'live',
+        precondition: () => {
+            const doors = planDoorTypeBackfill(doorStore.getAll());
+            const windows = planWindowTypeBackfill(windowStore.getAll());
+            if (doors.blockedReason && windows.blockedReason) {
+                return { ok: false, reason: 'The door/window catalogue has no resolvable default type' };
+            }
+            const pending = doors.entries.length + windows.entries.length;
+            return pending > 0
+                ? OK
+                : { ok: false, reason: 'Every door and window already carries a system type' };
+        },
+        build: () => new BackfillHostedElementTypesCommand(),
     },
 ];
 
