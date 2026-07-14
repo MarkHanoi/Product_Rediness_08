@@ -67,6 +67,11 @@ import { windowPlanSymbolBuilder } from '@pryzm/geometry-window';
 // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — internal layer-boundary lines for LAYERED walls in
 // plan (the wall's OUTER footprint is already projected; this adds the core+finish lines).
 import { wallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.6 — the wall's ISO 13567 / Revit
+// FUNCTION (envelope vs. partition). geometry-wall owns the wall semantics; core-app-model owns
+// the pen. This service is the ONE place the fact crosses from the model into the drawing.
+import { resolveWallFunctionById, wallSystemTypeStore } from '@pryzm/geometry-wall';
+import { storeRegistry, ELEMENT_FUNCTION_KEY, type ElementFunction } from '@pryzm/core-app-model';
 // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221) — plumbing fixtures (toilet/sink/bath/shower/
 // bidet/urinal/accessory) carry `skipInPlan`+`skipInElevation` on their meshes so the dense
 // LOD400 edge-dump is suppressed in the 2D views; these builders inject the clean AEC symbol
@@ -2222,6 +2227,29 @@ export class EdgeProjectorService {
                 // A-1: element UUID stamped by NativeElementMeshExporter.exportForView()
                 const elementUUID = group.userData.elementUUID as string | undefined;
 
+                // ═══ §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.6 ═══
+                //
+                // The element TYPE's ISO 13567 / Revit FUNCTION, resolved ONCE per element and
+                // stamped onto every sub-layer it emits (below, in `addProjectedLayer`). The
+                // canvas reads the stamp and gives the envelope a heavier pen than the
+                // partitions — the founder's ask, and the one thing that lets the eye find the
+                // building in a plan.
+                //
+                // Resolved from the wall's TYPE — never from `wall.thickness`. A 300 mm acoustic
+                // partition is INTERIOR and a thin infill panel is EXTERIOR; thickness is a
+                // coincidence of construction, function is the drawing fact (see
+                // geometry-wall/WallFunction.ts). A wall whose type declares no function (the
+                // default "Monolithic" type) resolves `null` ⇒ UNMODULATED ⇒ exactly the pen it
+                // has today. Undeclared is an answer, not a gap to fill with a guess.
+                const _elementFunction: ElementFunction | null = elementUUID
+                    ? resolveWallFunctionById(
+                        (storeRegistry.getStoreForType('wall') as
+                            { getById?: (id: string) => { systemTypeId?: string } | undefined } | undefined)
+                            ?.getById?.(elementUUID)?.systemTypeId,
+                        (id) => wallSystemTypeStore.getById(id),
+                    )
+                    : null;
+
                 // §C.3 — Cache gate: skip the expensive traverse + EdgesGeometry +
                 // toDrawingSpace pipeline when the element hasn't changed since the
                 // last projection.  Cache key: (elementUUID, viewId, version,
@@ -2271,6 +2299,14 @@ export class EdgeProjectorService {
                             // §FEAT-WALL-POCHE-FILL-BY-INTENT (L-261) — replay the poché identity
                             // too, or a cached layered wall would lose its per-layer tones.
                             if (cached.userData) Object.assign(hitLines.userData, cached.userData);
+                            // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — stamp the function on
+                            // the REPLAY path too. It is resolved fresh from the store each
+                            // projection (it is not geometry, so it is deliberately NOT cached:
+                            // a user who changes a wall's TYPE must see the pen change without a
+                            // geometry version bump). A cache hit that dropped the stamp would
+                            // silently un-modulate the pen — and only for elements that had NOT
+                            // changed, which is the hardest possible bug to see.
+                            if (_elementFunction) hitLines.userData[ELEMENT_FUNCTION_KEY] = _elementFunction;
                             if (elementUUID) {
                                 hitLines.userData.elementUUID = elementUUID;
                                 registerSegmentUUID(drawing, hitLines, elementUUID);
@@ -2657,6 +2693,16 @@ export class EdgeProjectorService {
                         if (elementUUID) {
                             projected.userData.elementUUID = elementUUID;
                             registerSegmentUUID(drawing, projected, elementUUID);
+                        }
+                        // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the element TYPE's function
+                        // travels to the canvas on the SAME transport `elementUUID` and
+                        // VIEW_DEPTH_KEY already use: `userData` on the projected LineSegments.
+                        // It therefore survives toDrawingSpace, the drawing cache and the DXF/PDF
+                        // exporters with no new channel. `PlanViewCanvas` reads it back through
+                        // `elementFunctionFrom()` and passes it to `resolveStyle()` as the third
+                        // pen axis. An unstamped element is unmodulated — see the resolution above.
+                        if (_elementFunction) {
+                            projected.userData[ELEMENT_FUNCTION_KEY] = _elementFunction;
                         }
                         // §C.3.4 — Capture projected geometry into cache collector AFTER
                         // all suppressors run (so stale un-suppressed geometry is never cached).

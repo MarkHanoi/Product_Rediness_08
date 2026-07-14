@@ -46,6 +46,18 @@ export {
     categoryFromFlags,
 } from './PenWeightTable.js';
 
+// ── §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.6, the third pen axis ──
+export type { ElementFunction } from './ElementFunction.js';
+export {
+    ELEMENT_FUNCTIONS,
+    ELEMENT_FUNCTION_KEY,
+    FUNCTION_WEIGHT_SCALE,
+    functionWeightScale,
+    penWidthScale,
+    FUNCTION_MODULATED_ZONES,
+    elementFunctionFrom,
+} from './ElementFunction.js';
+
 // ── §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — C09 §4.6, the four zones ───────
 export type { DrawingZone, OcclusionDisposition } from './DrawingZone.js';
 export {

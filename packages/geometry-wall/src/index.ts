@@ -11,6 +11,11 @@
 export * from './WallTypes';
 export * from './WallDataSchema';
 
+// ── §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the wall's ISO 13567 / Revit FUNCTION ──
+// The drawing layer weights the pen by it, so the eye can find the building's envelope.
+// It is a property of the TYPE (declared), never of the wall's thickness (inferred).
+export * from './WallFunction';
+
 // ── ADR-057 P1 (OI-053h) — rebuild delta classifier (openings-only fast path) ─
 export * from './WallDeltaClassifier';
 export * from './errors';

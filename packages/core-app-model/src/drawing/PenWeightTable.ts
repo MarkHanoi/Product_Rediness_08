@@ -53,6 +53,13 @@ export interface PenStyle {
 import { type DrawingZone, type PenZone, penZoneOf, drawingZoneFromLayerName } from './DrawingZone';
 export type { PenZone };
 
+/**
+ * §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the THIRD axis. See `ElementFunction.ts`.
+ * The table below is keyed (zone × category); FUNCTION is a MODULATION applied on top of it,
+ * so the locked Contract-23 §8 values remain literally the values in this file.
+ */
+import { type ElementFunction, penWidthScale } from './ElementFunction';
+
 // ─── Internal builder ────────────────────────────────────────────────────────
 
 function pen(
@@ -200,20 +207,54 @@ export const FALLBACK_PEN: PenStyle = pen(0.18, '#000000');
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Look up the pen style for a (zone × category) pair.
+ * Look up the pen style for a (zone × category × function) triple.
  *
- * Returns the system default for that pair, or FALLBACK_PEN when no entry
- * is defined for the combination.
+ * Returns the system default for that combination, or FALLBACK_PEN when no entry
+ * is defined for the (zone × category) pair.
  *
  * This function is the ONLY entry point for pen resolution in Canvas2D renders.
  * It does NOT apply GraphicsRules overrides — use GraphicsRulesEngine.resolveStyle()
- * for the full rules + override pipeline (available in a later sprint).
+ * for the full rules + override pipeline.
  *
- * @param zone      VRZone classification: 'CUT' | 'PROJECTION' | 'BEYOND' | 'HIDDEN'
- * @param category  Element category string, e.g. 'wall', 'door', 'slab'
+ * ═══ §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — THE FUNCTION AXIS ═══
+ *
+ * `elementFunction` scales the entry's `widthMm` (see `ElementFunction.FUNCTION_WEIGHT_SCALE`).
+ * It is applied EXACTLY ONCE per resolution, and `GraphicsRulesEngine.resolveStyle()` applies
+ * it at the END of its rule chain — NOT by passing it here. Both would double-scale, and the
+ * chain-end application is the correct one: FUNCTION must modulate whatever width the intent /
+ * view / element chain resolved, not just the table's base value, or a user who re-weights the
+ * `wall` category would silently lose the envelope hierarchy again. Guarded:
+ * `resolveStyle(z, c, {elementFunction: f})` ≡ `resolvePen(z, c, f)` when no rule overrides
+ * the width. Callers that legitimately want the raw TABLE answer — the DXF/PDF pen exporters,
+ * and the guards — pass it here.
+ *
+ * *** THE FALLBACK IS NOT MODULATED. *** A (zone × category) pair with no locked entry has no
+ * locked LADDER to preserve (`FALLBACK_PEN` 0.18 mm is heavier than several categories' real
+ * PROJECTION pens, so scaling it could invert a ladder that was never authored). No entry, no
+ * modulation: the fallback stays the fallback.
+ *
+ * @param zone             VRZone classification: 'CUT' | 'PROJECTION' | 'BEYOND' | 'HIDDEN'
+ * @param category         Element category string, e.g. 'wall', 'door', 'slab'
+ * @param elementFunction  ISO 13567 / Revit function of the element's TYPE, when the model
+ *                         knows it. `undefined` ⇒ unmodulated ⇒ the pre-L-285 pen, exactly.
  */
-export function resolvePen(zone: PenZone, category: string): PenStyle {
-    return SYSTEM_PEN_TABLE[zone]?.[category] ?? FALLBACK_PEN;
+export function resolvePen(
+    zone: PenZone,
+    category: string,
+    elementFunction?: ElementFunction | null,
+): PenStyle {
+    const base = SYSTEM_PEN_TABLE[zone]?.[category];
+    if (!base) return FALLBACK_PEN;
+
+    // Only the HIERARCHY zones (CUT, PROJECTION) are modulated — never the DE-EMPHASIS zones
+    // (BEYOND, HIDDEN), which share a base width and would have their ladder INVERTED by it.
+    // See `ElementFunction.FUNCTION_MODULATED_ZONES`.
+    const scale = penWidthScale(zone, elementFunction);
+    // Hot path: the overwhelmingly common case is an unmodulated pen. Return the table's own
+    // frozen-by-convention object rather than allocating a copy per segment.
+    if (scale === 1) return base;
+
+    return { ...base, widthMm: base.widthMm * scale };
 }
 
 /**

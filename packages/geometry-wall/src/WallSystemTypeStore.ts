@@ -15,6 +15,9 @@
 
 import { WallLayer } from './WallTypes';
 import { storeEventBus } from '@pryzm/core-app-model';
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — type-only import: erased at compile, so it adds
+// no runtime edge to the core-app-model ↔ geometry-* cycle.
+import type { WallFunction } from './WallFunction';
 
 // ─── WallSystemType (defined here, re-exported from WallTypes) ──────────────
 // Declared as a plain interface with totalThickness as a regular field.
@@ -28,6 +31,22 @@ export interface WallSystemType {
     totalThickness: number;
     createdAt: number;
     modifiedAt: number;
+
+    /**
+     * §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the ISO 13567 / IFC / Revit **FUNCTION** of
+     * this wall type: is it part of the building ENVELOPE, or does it subdivide the inside?
+     *
+     * A property of the TYPE, exactly as `IfcWallTypeEnum` and Revit's "Function" parameter
+     * model it — NOT of the instance, and above all NOT of its thickness (a 300 mm acoustic
+     * partition is INTERIOR; a thin infill panel is EXTERIOR). The drawing layer reads it to
+     * weight the pen, so the eye can find the envelope in plan and elevation.
+     *
+     * OPTIONAL, and `undefined` is a real answer meaning **"this type does not say"** — it is
+     * NOT a synonym for `'interior'`. An undeclared type (e.g. "Monolithic (Default)", which is
+     * what a user draws with until they pick one) is drawn UNMODULATED: exactly the pen it has
+     * today. See `WallFunction.ts`; nothing may default this field.
+     */
+    function?: WallFunction;
 }
 
 // ─── BUILT-IN PRESETS ─────────────────────────────────────────────────────────
@@ -35,17 +54,27 @@ export interface WallSystemType {
 // stored alongside them in the same map.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Factory — computes totalThickness so literal objects satisfy WallSystemType. */
+/**
+ * Factory — computes totalThickness so literal objects satisfy WallSystemType.
+ *
+ * §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — `fn` is the type's DECLARED envelope function.
+ * It is the LAST parameter and OPTIONAL on purpose: omitting it is a real, meaningful answer
+ * ("this type does not say"), and the drawing then leaves the pen unmodulated. It is NOT
+ * derivable from `layers` — `wt-interior-partition` below has a `finish-exterior` LAYER (its
+ * outer plaster face) and is nonetheless an INTERIOR WALL. Layer function ≠ wall function.
+ */
 function makeBuiltIn(
     id: string,
     name: string,
     description: string,
-    layers: WallLayer[]
+    layers: WallLayer[],
+    fn?: WallFunction
 ): WallSystemType {
     return {
         id, name, description, layers,
         totalThickness: parseFloat(layers.reduce((s, l) => s + l.thickness, 0).toFixed(6)),
-        createdAt: 0, modifiedAt: 0
+        createdAt: 0, modifiedAt: 0,
+        ...(fn ? { function: fn } : {}),
     };
 }
 
@@ -55,6 +84,13 @@ const BUILTIN_TYPES: WallSystemType[] = [
         [
             { name: 'Wall Body', thickness: 1.0, function: 'structure', materialColor: '#d4c5b0' }
         ]
+        // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — NO DECLARED FUNCTION, DELIBERATELY.
+        // "Monolithic (Default)" is the generic wall a user draws with before choosing a type;
+        // it is used for shells and partitions alike, so it genuinely does not know whether it
+        // is envelope or not. Guessing here (say, defaulting to 'exterior') would re-weight
+        // every wall in every drawing the founder has already made. Undeclared ⇒ unmodulated
+        // ⇒ exactly the L-277 pen. The drawing tells him which wall is the building the moment
+        // he picks a type that says so — and not one moment sooner.
     ),
     makeBuiltIn('wt-interior-partition', 'Interior – Partition 100mm',
         'Lightweight interior partition: plaster / stud / plaster.',
@@ -62,7 +98,11 @@ const BUILTIN_TYPES: WallSystemType[] = [
             { name: 'Plaster (Inner)',  thickness: 0.012, function: 'finish-interior', materialColor: '#f0ece4' },
             { name: 'Stud / Cavity',   thickness: 0.076, function: 'structure',        materialColor: '#d4b896' },
             { name: 'Plaster (Outer)', thickness: 0.012, function: 'finish-exterior',  materialColor: '#f0ece4' }
-        ]
+        ],
+        // NOTE the layer directly above: its LAYER function is 'finish-exterior', and this wall
+        // is nonetheless INTERIOR. This one line is why the wall function is DECLARED and never
+        // sniffed from the layer stack (L-285).
+        'interior',
     ),
     makeBuiltIn('wt-exterior-brick', 'Exterior – Brick 300mm',
         'Cavity brick wall: brick / insulation / blockwork / plaster.',
@@ -72,7 +112,8 @@ const BUILTIN_TYPES: WallSystemType[] = [
             { name: 'Insulation',      thickness: 0.060, function: 'insulation',      materialColor: '#f5e07a' },
             { name: 'Concrete Block',  thickness: 0.140, function: 'structure',       materialColor: '#a0a0a0' },
             { name: 'Internal Render', thickness: 0.015, function: 'finish-interior', materialColor: '#f0ece4' }
-        ]
+        ],
+        'exterior',
     ),
     makeBuiltIn('wt-exterior-concrete', 'Exterior – Concrete 250mm',
         'Insulated concrete wall: render / insulation / concrete / plaster.',
@@ -81,7 +122,8 @@ const BUILTIN_TYPES: WallSystemType[] = [
             { name: 'Insulation',      thickness: 0.080, function: 'insulation',      materialColor: '#f5e07a' },
             { name: 'Concrete',        thickness: 0.200, function: 'structure',       materialColor: '#909090' },
             { name: 'Plaster',         thickness: 0.012, function: 'finish-interior', materialColor: '#f0ece4' }
-        ]
+        ],
+        'exterior',
     ),
     makeBuiltIn('wt-exposed-precast-hipster-concrete', 'Exposed Precast – Hipster Concrete 290mm',
         'Architectural exposed precast concrete wall with sealed board-marked face, insulation backing, and clean interior skim.',
@@ -90,7 +132,10 @@ const BUILTIN_TYPES: WallSystemType[] = [
             { name: 'Precast Concrete Panel',           thickness: 0.200, function: 'structure',       materialId: 'concrete-precast',       materialColor: '#d0d0ca' },
             { name: 'Mineral Wool Acoustic Backing',    thickness: 0.050, function: 'insulation',      materialId: 'insulation-mineral-wool', materialColor: '#f0d080' },
             { name: 'Interior Skim Plaster',            thickness: 0.015, function: 'finish-interior', materialId: 'gypsum-skim',            materialColor: '#f5f5f0' }
-        ]
+        ],
+        // 290 mm — and EXTERIOR. Thickness would have got this one right by luck; the 300 mm
+        // acoustic partition it is nearly as thick as, it would have got wrong. (L-285)
+        'exterior',
     ),
     makeBuiltIn('wt-exposed-stone', 'Exposed Stone – Feature Wall 350mm',
         'High-graphic exposed stone assembly with a textured stone face, drained cavity, blockwork backup, insulation, and plaster finish.',
@@ -100,7 +145,10 @@ const BUILTIN_TYPES: WallSystemType[] = [
             { name: 'Dense Blockwork Backup',   thickness: 0.140, function: 'structure',       materialId: 'blockwork-dense',        materialColor: '#a0a09a' },
             { name: 'Mineral Wool Insulation',  thickness: 0.080, function: 'insulation',      materialId: 'insulation-mineral-wool', materialColor: '#f0d080' },
             { name: 'Interior Plaster Skim',    thickness: 0.015, function: 'finish-interior', materialId: 'gypsum-skim',            materialColor: '#f5f5f0' }
-        ]
+        ],
+        // "Feature Wall" by NAME, envelope by ASSEMBLY (stone face → drained cavity → backup →
+        // insulation → interior skim). The assembly is what it does; the name is marketing.
+        'exterior',
     ),
     makeBuiltIn('wt-exposed-wooden-frames', 'Wooden Frames – Exposed Timber 296mm',
         'Exposed timber-frame wall with oak rainscreen, engineered timber structure, insulated cavity, sheathing, and plywood interior lining.',
@@ -111,7 +159,8 @@ const BUILTIN_TYPES: WallSystemType[] = [
             { name: 'Mineral Wool Between Frames',  thickness: 0.090, function: 'insulation',      materialId: 'insulation-mineral-wool', materialColor: '#f0d080' },
             { name: 'OSB Sheathing',                thickness: 0.018, function: 'substrate',       materialId: 'timber-osb',           materialColor: '#c89d5f' },
             { name: 'Birch Plywood Interior Lining', thickness: 0.018, function: 'finish-interior', materialId: 'timber-plywood',       materialColor: '#e0c890' }
-        ]
+        ],
+        'exterior',
     ),
     makeBuiltIn('wt-timber-frame', 'Timber Frame – 200mm',
         'Timber stud frame with insulation and sheeting.',
@@ -121,7 +170,9 @@ const BUILTIN_TYPES: WallSystemType[] = [
             { name: 'Timber Frame',      thickness: 0.140, function: 'structure',        materialColor: '#c8a55a' },
             { name: 'Insulation',        thickness: 0.060, function: 'insulation',       materialColor: '#f5e07a' },
             { name: 'Plasterboard',      thickness: 0.013, function: 'finish-interior',  materialColor: '#f0ece4' }
-        ]
+        ],
+        // Cladding → breather membrane → frame → insulation → plasterboard: an envelope build-up.
+        'exterior',
     ),
 ];
 

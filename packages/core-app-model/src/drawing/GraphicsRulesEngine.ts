@@ -19,6 +19,8 @@
  */
 
 import { type PenStyle, type PenZone, resolvePen } from './PenWeightTable';
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.6 — the third pen axis.
+import { type ElementFunction, penWidthScale } from './ElementFunction';
 import { styleResolverCacheKey } from './DrawingConstants';
 import { resolveIntentPenStyle } from '../presentation/IntentRuleResolver';
 import { visibilityIntentStore } from '../presentation/VisibilityIntentStore';
@@ -38,6 +40,13 @@ export interface StyleResolverContext {
     elementId?: string;
     intentInstanceId?: string;
     viewType?: string;
+    /**
+     * §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the element TYPE's ISO 13567 / Revit
+     * function ('exterior' | 'interior'), when the model knows it. Stamped on the projected
+     * `LineSegments.userData` by `EdgeProjectorService` and read back by `PlanViewCanvas`.
+     * Omitted / null ⇒ unmodulated ⇒ the pre-L-285 pen, exactly.
+     */
+    elementFunction?: ElementFunction | null;
 }
 
 export interface GraphicsRule {
@@ -130,10 +139,14 @@ export class GraphicsRulesEngine {
         category: string,
         ctx:      StyleResolverContext = {},
     ): PenStyle {
+        // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the function is part of the pen's
+        // IDENTITY, so it MUST be part of the cache key. Omitting it would serve the first
+        // wall's pen to every wall in the view (the cache is keyed per element only when an
+        // elementId is supplied — walls in the generic path share the '' element key).
         const cacheKey = styleResolverCacheKey(
             ctx.elementId ?? '',
             ctx.viewId    ?? '',
-            `${zone}:${category}:${ctx.intentInstanceId ?? ''}:${ctx.viewType ?? ''}`,
+            `${zone}:${category}:${ctx.intentInstanceId ?? ''}:${ctx.viewType ?? ''}:${ctx.elementFunction ?? ''}`,
         );
 
         const cached = this._cache.get(cacheKey);
@@ -145,7 +158,7 @@ export class GraphicsRulesEngine {
         ];
 
         if (matching.length === 0) {
-            const base = resolvePen(zone, category);
+            const base = resolvePen(zone, category, ctx.elementFunction);
             this._cacheSet(cacheKey, base);
             return base;
         }
@@ -160,6 +173,35 @@ export class GraphicsRulesEngine {
             if (s.dashPx  !== undefined) resolved.dashPx  = s.dashPx;
             if (s.opacity !== undefined) resolved.opacity  = s.opacity;
         }
+
+        // ═══ §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — THE MODULATION IS APPLIED LAST ═══
+        //
+        // NOT by passing `ctx.elementFunction` into `resolvePen()` above. Two reasons, and the
+        // first one is a bug this project has already shipped twice:
+        //
+        //  1. **THE INTENT CHAIN WOULD ERASE IT.** `_intentRules()` ALWAYS contributes a rule
+        //     (priority 1000) whose `widthMm` is the intent's own seeded width — so ANY value
+        //     the table put in `resolved.widthMm` is unconditionally overwritten by the loop
+        //     above. That is EXACTLY how L-277's `hidden` pen was nearly lost (a correct table
+        //     entry, a correct occlusion, and nothing on screen — see VisibilityIntentDefaults'
+        //     header) and how L-241's lineweight hierarchy WAS lost. A new axis fed into the
+        //     BASE of a chain that always overwrites the base is a no-op with a test that
+        //     passes. VERIFY AT THE OUTCOME: the outcome is this function's return value.
+        //
+        //  2. It is also what the axis MEANS. FUNCTION modulates *within* a zone (C09 §4.6.6):
+        //     it must scale whatever the intent/view/element chain resolved, so a user who
+        //     re-weights the `wall` category still gets his envelope drawn heavier than his
+        //     partitions. A base-only application would give that user a flat drawing again.
+        //
+        // The zone ladder survives because the scale is ≤ 1 and every CUT entry outweighs every
+        // PROJECTION entry by more than the scale ratio — asserted, across ALL functions, in
+        // DrawingZone.test.ts. FUNCTION modulates within a zone; it NEVER reorders zones.
+        //
+        // `penWidthScale` (not `functionWeightScale`) — it gates on the ZONE. FUNCTION modulates
+        // the HIERARCHY zones (CUT, PROJECTION) only; BEYOND and HIDDEN are de-emphasis zones
+        // that share a base width, and modulating one of them inverts the bottom of the ladder.
+        const _fnScale = penWidthScale(zone, ctx.elementFunction);
+        if (_fnScale !== 1) resolved.widthMm *= _fnScale;
 
         this._cacheSet(cacheKey, resolved);
         return resolved;

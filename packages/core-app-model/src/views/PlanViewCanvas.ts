@@ -17,6 +17,9 @@ import { resolveViewScope } from './ViewScope';
 import { categoryFromFlags } from '../drawing/PenWeightTable';
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
 import { drawingZoneFromLayerName, penZoneOf } from '../drawing/DrawingZone';
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.6 — the third pen axis. The projector
+// stamps the element TYPE's function on the projected LineSegments; this is where it is read.
+import { elementFunctionFrom, ELEMENT_FUNCTION_KEY } from '../drawing/ElementFunction';
 import type { PenStyle } from '../drawing/PenWeightTable';
 import { SCREEN_PX_PER_MM } from '../drawing/DrawingConstants';
 // Contract 23 §7 — GraphicsRulesEngine: resolveStyle() replaces direct resolvePen() calls
@@ -33,8 +36,8 @@ import type { PipelineResult } from '../drawing/DrawingPipelineTypes';
 import {
     renderSymbol,
     symbolicRuleForLayer,
-    elementTypeForSymbolLayer,
     type SymbolSegment,
+    type SymbolPen,
 } from '../drawing/SymbolicRuleRenderer';
 // Contract 25a Phase 3 — HatchPatternLibrary for intent-based fill rendering
 import { getHatchPattern } from '../drawing/HatchPatternLibrary';
@@ -327,10 +330,17 @@ export class PlanViewCanvas {
             const _penZone     = penZoneOf(_zone);
             const _penCategory = categoryFromFlags({ isWall, isDoor, isSlab, isCol, isStair, isRoof, isCeiling, isFurniture, isHandrail, isWindow });
             const _elementId   = child.userData?.elementUUID as string | undefined;
+            // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the THIRD pen axis, read from the
+            // stamp `EdgeProjectorService` put on this LineSegments. It is the element TYPE's
+            // ISO 13567 / Revit FUNCTION — never its thickness (a 300 mm acoustic partition is
+            // INTERIOR; a thin infill panel is EXTERIOR). An unstamped element resolves `null`
+            // and is unmodulated, i.e. draws exactly as it did before L-285.
+            const _elementFunction = elementFunctionFrom(child.userData?.[ELEMENT_FUNCTION_KEY]);
             const _pen = graphicsRulesEngine.resolveStyle(_penZone, _penCategory, {
                 viewId:    viewId,
                 elementId: _elementId,
                 viewType:  viewDef.viewType,
+                elementFunction: _elementFunction,
             });
 
             ctx.strokeStyle = vgEdge ?? _pen.color;
@@ -377,62 +387,73 @@ export class PlanViewCanvas {
             ctx.miterLimit = 4;
 
             // ── Phase 3 — Symbolic rendering for door/window in plan view ────────
+            //
             // For elements with a registered symbolic rule (A-DOOR → 'plan-door-swing',
-            // A-GLAZ → 'plan-window-cased'), resolve intent appearance and delegate
-            // to SymbolicRuleRenderer instead of the generic beginPath/stroke path.
-            // This applies intent-derived line weight, colour, opacity and dash pattern
-            // per Contract 25a §3.4.
+            // A-GLAZ → 'plan-window-cased'), delegate the STROKE to SymbolicRuleRenderer
+            // (Contract 25a §3.4) instead of the generic beginPath/stroke below.
+            //
+            // ═══ §FIX-WINDOW-PLAN-FRAME-THICKNESS (L-280) — THE PEN-TABLE BYPASS, CLOSED ═══
+            //
+            // THIS BLOCK USED TO BE A SECOND PEN AUTHORITY. It called `resolveIntentStyle(…,
+            // 'projection', …)` — the state HARD-CODED — and handed the resulting appearance to
+            // `renderSymbol`, which stroked `appearance.line.weight` straight onto the context,
+            // OVERWRITING the `_pen` resolved 40 lines above. Two things died there:
+            //
+            //   • THE ZONE. `symbolicRuleForLayer()` declines `-CUT` and `-BEYOND`, so the
+            //     layers that reached here were `-PROJ` … **and `A-DOOR-HIDDEN` / `A-GLAZ-HIDDEN`
+            //     — the layers `applyOcclusion()` DEMOTES onto.** An occluded door frame was
+            //     painted SOLID at PROJECTION weight. L-277 named the `hidden` zone, produced it
+            //     and gave it a dashed pen; this line then flattened it back to `projection` for
+            //     doors and windows, the only two types with symbols. The founder's own
+            //     hierarchy, undone at the last mile.
+            //
+            //   • THE RULE CHAIN. `resolveIntentStyle` is the INTENT tier ALONE (priority 1000).
+            //     `graphicsRulesEngine.resolveStyle()` runs that same tier and then layers the
+            //     VIEW (9000) and ELEMENT (10000) overrides on top — and it is, per Contract-23
+            //     §7.1, THE ONLY SANCTIONED STYLE ENTRY POINT. So per-view and per-element pen
+            //     overrides, the VG governance weight factor and the VG edge colour applied to
+            //     every line in the drawing EXCEPT door and window symbols.
+            //
+            // FIX: there is now ONE pen. `_pen` — resolved above from this segment's REAL zone,
+            // through the full chain, with the L-285 function axis — is composed with the VG
+            // factor and the hairline EXACTLY as the generic path composes it (the identical
+            // `_penPx * _vgFactor` and `dashPx * hairline` expressions, computed once, above),
+            // and handed to the symbol renderer as a finished `SymbolPen`. The renderer can no
+            // longer re-decide a weight: it is no longer given the means to.
             const _symbolicRule = symbolicRuleForLayer(layerTag, viewDef.viewType ?? '');
             const count = posAttr.count;
 
             if (_symbolicRule) {
-                // Resolve intent-derived ElementStateAppearance for this element type.
-                const _symElemType = elementTypeForSymbolLayer(layerTag) ?? _penCategory;
-                const _symInstance = viewIntentInstanceStore.get(viewId);
-                const _symIntentId = _symInstance?.intentId ?? getDefaultSystemIntentId();
-                const _symIntent   = visibilityIntentStore.get(_symIntentId);
+                // Collect screen-space segments for this LineSegments child.
+                const _segs: SymbolSegment[] = [];
+                for (let i = 0; i < count - 1; i += 2) {
+                    let _shv1: { h: number; vert: number };
+                    let _shv2: { h: number; vert: number };
+                    if (this._sectionFlipV) {
+                        _shv1 = { h: posAttr.getX(i),     vert: -posAttr.getZ(i)     };
+                        _shv2 = { h: posAttr.getX(i + 1), vert: -posAttr.getZ(i + 1) };
+                    } else {
+                        const _sv1 = _tmpV1.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i)).applyMatrix4(mat);
+                        const _sv2 = _tmpV2.set(posAttr.getX(i + 1), posAttr.getY(i + 1), posAttr.getZ(i + 1)).applyMatrix4(mat);
+                        _shv1 = this._vertexToHV(_sv1);
+                        _shv2 = this._vertexToHV(_sv2);
+                    }
+                    const _sp1 = this.worldToScreen(_shv1.h, _shv1.vert);
+                    const _sp2 = this.worldToScreen(_shv2.h, _shv2.vert);
+                    _segs.push({ x1: _sp1.sx, y1: _sp1.sy, x2: _sp2.sx, y2: _sp2.sy });
+                }
 
-                if (_symIntent) {
-                    const _virtInstance = _symInstance ?? {
-                        id: `default-${viewId}`,
-                        viewId,
-                        intentId: _symIntentId,
-                        localOverrides: { visibilityOverrides: [], graphicOverrides: [], isolateActive: false },
-                        createdAt: '',
-                        updatedAt: '',
+                if (_segs.length > 0) {
+                    // The pen the canvas ALREADY resolved — the same values it just wrote onto
+                    // the context for the generic path. One resolution, one authority.
+                    const _symPen: SymbolPen = {
+                        widthPx: ctx.lineWidth,
+                        color:   vgEdge ?? _pen.color,
+                        dashPx:  _pen.dashPx ? _pen.dashPx.map(v => v * hairline) : null,
+                        opacity: _pen.opacity,
                     };
-                    const _symAppearance = resolveIntentStyle(
-                        _virtInstance,
-                        _symIntent,
-                        _symElemType,
-                        'projection',
-                        viewDef.viewType ?? 'plan',
-                        { elementType: _symElemType, category: _symElemType, elementId: _elementId },
-                    );
-
-                    // Collect screen-space segments for this LineSegments child.
-                    const _segs: SymbolSegment[] = [];
-                    for (let i = 0; i < count - 1; i += 2) {
-                        let _shv1: { h: number; vert: number };
-                        let _shv2: { h: number; vert: number };
-                        if (this._sectionFlipV) {
-                            _shv1 = { h: posAttr.getX(i),     vert: -posAttr.getZ(i)     };
-                            _shv2 = { h: posAttr.getX(i + 1), vert: -posAttr.getZ(i + 1) };
-                        } else {
-                            const _sv1 = _tmpV1.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i)).applyMatrix4(mat);
-                            const _sv2 = _tmpV2.set(posAttr.getX(i + 1), posAttr.getY(i + 1), posAttr.getZ(i + 1)).applyMatrix4(mat);
-                            _shv1 = this._vertexToHV(_sv1);
-                            _shv2 = this._vertexToHV(_sv2);
-                        }
-                        const _sp1 = this.worldToScreen(_shv1.h, _shv1.vert);
-                        const _sp2 = this.worldToScreen(_shv2.h, _shv2.vert);
-                        _segs.push({ x1: _sp1.sx, y1: _sp1.sy, x2: _sp2.sx, y2: _sp2.sy });
-                    }
-
-                    if (_segs.length > 0) {
-                        renderSymbol(ctx, _symbolicRule, _segs, _symAppearance, hairline);
-                        return; // Skip generic rendering for this symbolic element
-                    }
+                    renderSymbol(ctx, _symbolicRule, _segs, _symPen);
+                    return; // Skip generic rendering for this symbolic element
                 }
             }
 

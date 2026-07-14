@@ -40,6 +40,21 @@ export type {
 export type { PenStyle, PenZone } from './drawing/PenWeightTable.js';
 export { FALLBACK_PEN, resolvePen, penZoneFromLayerName, drawingZoneFromLayer, categoryFromFlags } from './drawing/PenWeightTable.js';
 
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.6, the pen's THIRD axis. FUNCTION
+// modulates the weight WITHIN a zone (an interior CUT wall is lighter than an exterior CUT
+// wall — and STILL heavier than any PROJECTION line). It is the element TYPE's ISO 13567 /
+// Revit function, NEVER its thickness. `geometry-wall` owns the wall half (`WallFunction.ts`).
+export type { ElementFunction } from './drawing/ElementFunction.js';
+export {
+    ELEMENT_FUNCTIONS,
+    ELEMENT_FUNCTION_KEY,
+    FUNCTION_WEIGHT_SCALE,
+    functionWeightScale,
+    penWidthScale,
+    FUNCTION_MODULATED_ZONES,
+    elementFunctionFrom,
+} from './drawing/ElementFunction.js';
+
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — C09 §4.6, the four drawing zones. ONLY `hidden`
 // dashes. `penZoneFromFlags(isCut, isBeyond)` is DELETED: two booleans cannot express four
 // zones, so HIDDEN was structurally unreachable at the one place that paints a line.
