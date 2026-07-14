@@ -32,7 +32,13 @@ export interface LayerLineOpening {
 
 export interface LayerLineWall {
     readonly baseLine: ReadonlyArray<{ readonly x: number; readonly y?: number; readonly z: number }>;
-    readonly layers?: ReadonlyArray<{ readonly thickness: number }>;
+    /**
+     * The stored construction assembly. `function` is read ONLY by
+     * `computeWallLayerInsulationHatch` (§FEAT-WALL-PLAN-LOD, L-286) — the LOD-300
+     * hatch is a property of the layer's stored FUNCTION, never of its index or its
+     * name (C09 §4.6.3: the regions and their tones derive from the stored record).
+     */
+    readonly layers?: ReadonlyArray<{ readonly thickness: number; readonly function?: string }>;
     readonly openings?: ReadonlyArray<LayerLineOpening>;
     /** Presence marks a curved wall — skipped (handled separately). */
     readonly curve?: unknown;
@@ -64,15 +70,9 @@ export function computeWallLayerLines(
     const layers = wall.layers;
     if (!layers || layers.length < 2) return [];      // plain / single-layer → outer footprint only
     if (wall.curve) return [];                         // curved layered walls: separate path
-    const bl = wall.baseLine;
-    if (!bl || bl.length < 2 || !bl[0] || !bl[1]) return [];
-
-    const sx = bl[0].x, sz = bl[0].z;
-    const dxRaw = bl[1].x - sx, dzRaw = bl[1].z - sz;
-    const len = Math.hypot(dxRaw, dzRaw);
-    if (len < EPS) return [];
-    const dx = dxRaw / len, dz = dzRaw / len;          // unit wall direction
-    const ox = -dz, oz = dx;                           // outward normal = (−dir.z, +dir.x)
+    const basis = wallPlanBasis(wall);
+    if (!basis) return [];
+    const { sx, sz, dx, dz, ox, oz, len } = basis;
 
     const total = layers.reduce((s, l) => s + (l.thickness > 0 ? l.thickness : 0), 0);
     if (total < EPS) return [];
@@ -85,19 +85,9 @@ export function computeWallLayerLines(
         boundaries.push(cursor);
     }
 
-    // Opening zones (along-wall [min,max]) whose void straddles the cut plane.
-    const zones: Array<{ min: number; max: number }> = [];
-    for (const op of wall.openings ?? []) {
-        const w = Number(op.width), off = Number(op.offset);
-        const sill = Number(op.sillHeight) || 0, h = Number(op.height);
-        if (!Number.isFinite(w) || !Number.isFinite(off) || !Number.isFinite(h) || w <= 0 || h <= 0) continue;
-        // Strictly inside the opening (5 cm tolerance) — matches EdgeProjectorService.
-        if (cutRelToBase <= sill + CUT_MARGIN_M || cutRelToBase >= sill + h - CUT_MARGIN_M) continue;
-        const min = Math.max(0, Math.min(len, off));
-        const max = Math.max(0, Math.min(len, off + w));
-        if (max - min > EPS) zones.push({ min, max });
-    }
-    const keptIntervals = subtractZones(len, zones);
+    // Opening zones (along-wall [min,max]) whose void straddles the cut plane —
+    // strictly inside the opening (5 cm tolerance), matching EdgeProjectorService.
+    const keptIntervals = subtractZones(len, openingZones(wall, cutRelToBase, len));
 
     const segs: LayerLineSeg[] = [];
     for (const offset of boundaries) {
@@ -112,6 +102,115 @@ export function computeWallLayerLines(
         }
     }
     return segs;
+}
+
+/**
+ * §FEAT-WALL-PLAN-LOD (L-286) — the LOD-300 addition for a wall in plan: the
+ * INSULATION HATCH, one stroke set per stored layer whose `function` is 'insulation'.
+ *
+ * WHY THIS, AND WHY IT IS NOT INVENTED
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ADR-121 §4.2 defines LOD 300 as "full construction detail … every dimension read
+ * from the element's record", and names the **insulation hatch** explicitly among the
+ * additions. The wall record already carries the assembly (`wall.layers`) and each
+ * layer already carries its `function` (`WallLayerFunction`, one of which is
+ * 'insulation') — the same field `resolveWallLayerPocheFill` tones the poché from.
+ * So the hatch asks the RECORD which bands are insulation; it never counts layers,
+ * never matches a name, and never types a dimension:
+ *
+ *   • WHICH bands  → `layer.function === 'insulation'`   (stored)
+ *   • band extent  → the layer's own `thickness` at its own cursor offset (stored,
+ *                     identical to the offsets `computeWallLayerLines` and the 3D
+ *                     `WallFragmentBuilder` use — so hatch, boundary line and 3D
+ *                     layer cannot drift apart)
+ *   • stroke pitch → the band's own thickness. A 45° stroke across a band of
+ *                     thickness t, repeated every t, is the ISO convention AND is
+ *                     scale-free: it is the only pitch derivable from the record.
+ *
+ * STRICT SUPERSET (ADR-121 §4.2 invariant): the hatch is drawn INSIDE the bands the
+ * LOD-200 boundary lines already bound. It ADDS strokes; it moves and removes nothing.
+ *
+ * Openings: hatched exactly where the boundary lines survive (`subtractZones`), so a
+ * door void is not hatched — the insulation is not there.
+ *
+ * @param wall          The wall record (baseline + layers + openings).
+ * @param cutRelToBase  Plan cut height above the wall base (m).
+ */
+export function computeWallLayerInsulationHatch(
+    wall: LayerLineWall,
+    cutRelToBase: number,
+): LayerLineSeg[] {
+    const layers = wall.layers;
+    if (!layers || layers.length < 2) return [];
+    if (wall.curve) return [];
+    const basis = wallPlanBasis(wall);
+    if (!basis) return [];
+    const { sx, sz, dx, dz, ox, oz, len } = basis;
+
+    const total = layers.reduce((s, l) => s + (l.thickness > 0 ? l.thickness : 0), 0);
+    if (total < EPS) return [];
+
+    const keptIntervals = subtractZones(len, openingZones(wall, cutRelToBase, len));
+
+    const segs: LayerLineSeg[] = [];
+    let cursor = -total / 2;
+    for (const layer of layers) {
+        const t = Math.max(0, layer.thickness);
+        const near = cursor;
+        cursor += t;
+        if (layer.function !== 'insulation' || t < EPS) continue;
+        const far = cursor;
+
+        // World point at (along, offset) in the wall's plan frame.
+        const at = (along: number, offset: number): [number, number] => [
+            sx + dx * along + ox * offset,
+            sz + dz * along + oz * offset,
+        ];
+
+        for (const [a, b] of keptIntervals) {
+            // 45° strokes: run `t` along the wall while crossing the band's `t` depth.
+            // Pitch = t. Only whole strokes are emitted, so no stroke escapes the band
+            // or the kept interval — the hatch never draws where the wall is not.
+            for (let s = a; s + t <= b + EPS; s += t) {
+                const [ax, az] = at(s, near);
+                const [bx, bz] = at(s + t, far);
+                segs.push({ ax, az, bx, bz, offset: (near + far) / 2 });
+            }
+        }
+    }
+    return segs;
+}
+
+/** Shared plan basis for a wall — start point, unit direction, outward normal, length. */
+function wallPlanBasis(wall: LayerLineWall):
+    { sx: number; sz: number; dx: number; dz: number; ox: number; oz: number; len: number } | null {
+    const bl = wall.baseLine;
+    if (!bl || bl.length < 2 || !bl[0] || !bl[1]) return null;
+    const sx = bl[0].x, sz = bl[0].z;
+    const dxRaw = bl[1].x - sx, dzRaw = bl[1].z - sz;
+    const len = Math.hypot(dxRaw, dzRaw);
+    if (len < EPS) return null;
+    const dx = dxRaw / len, dz = dzRaw / len;
+    return { sx, sz, dx, dz, ox: -dz, oz: dx, len };
+}
+
+/** Along-wall [min,max] zones of the openings whose void straddles the cut plane. */
+function openingZones(
+    wall: LayerLineWall,
+    cutRelToBase: number,
+    len: number,
+): Array<{ min: number; max: number }> {
+    const zones: Array<{ min: number; max: number }> = [];
+    for (const op of wall.openings ?? []) {
+        const w = Number(op.width), off = Number(op.offset);
+        const sill = Number(op.sillHeight) || 0, h = Number(op.height);
+        if (!Number.isFinite(w) || !Number.isFinite(off) || !Number.isFinite(h) || w <= 0 || h <= 0) continue;
+        if (cutRelToBase <= sill + CUT_MARGIN_M || cutRelToBase >= sill + h - CUT_MARGIN_M) continue;
+        const min = Math.max(0, Math.min(len, off));
+        const max = Math.max(0, Math.min(len, off + w));
+        if (max - min > EPS) zones.push({ min, max });
+    }
+    return zones;
 }
 
 /** Complement of merged `zones` within [0, len] → the kept sub-intervals. Pure. */
