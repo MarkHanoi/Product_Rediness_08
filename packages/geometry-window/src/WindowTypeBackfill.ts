@@ -48,7 +48,12 @@ const INSTANCE_FIELDS: ReadonlySet<string> = new Set([
     'id', 'openingId', 'wallId',
     'offset', 'width', 'height', 'sillHeight',
     'frameThickness', 'frameDepth', 'glazingThickness', 'rebateDepth',
-    'sashThickness', 'sashDepth', 'mullionThickness',
+    'sashThickness', 'sashDepth',
+    // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the pane grid is INSTANCE truth: an architect
+    // who set a 3-pane window must not have it migrated back to the type's default grid.
+    // (This slot said `mullionThickness` — a field that no longer exists on any window
+    // record, so the backfill was protecting nothing.)
+    'columnRatios', 'rowRatios', 'columnDividerThickness', 'rowDividerThickness',
     'windowType',
     'mark',
 ]);

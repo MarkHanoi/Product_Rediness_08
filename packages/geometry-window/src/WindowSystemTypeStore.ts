@@ -82,8 +82,19 @@ export interface WindowTypeDimensions {
     glazingThickness?: number;
     /** Jamb rebate / check depth — the pocket that captures the glazing. */
     rebateDepth?: number;
-    /** Mullion / meeting-stile member face width (the centre post between panes). */
-    mullionThickness?: number;
+    /**
+     * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — MULLION / meeting-stile member face width
+     * (the centre post between panes), and its horizontal counterpart the TRANSOM.
+     *
+     * NOTE THE NAMES. These are the `WindowOpening` record's OWN field names, so the
+     * resolution chain record → systemType → default reads ONE dimension under ONE name
+     * the whole way down. The slot here was previously called `mullionThickness` — a
+     * SECOND name for `columnDividerThickness`, which is the field `WindowBuilder`
+     * actually extrudes its mullions from. Nothing ever set it, so nothing ever read a
+     * type's mullion; a catalogue author could not state one. Now they can.
+     */
+    columnDividerThickness?: number;
+    rowDividerThickness?: number;
     /** Sill board projection beyond the wall face. */
     sillDepth?: number;
     /** Sill board thickness (vertical). */

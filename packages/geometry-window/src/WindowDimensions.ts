@@ -154,7 +154,32 @@ export const DEFAULT_WINDOW_DIMENSIONS = Object.freeze({
     sashDepth:        0.045,
     glazingThickness: 0.024,
     rebateDepth:      0.015,
-    mullionThickness: 0.056,
+    // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — THE MULLION HAS EXACTLY ONE NAME.
+    //
+    // These are the `WindowOpeningSchema` defaults for the record's OWN
+    // `columnDividerThickness` / `rowDividerThickness` / `columnRatios` fields, so a
+    // typeless window resolves to precisely what the schema would have defaulted it to.
+    //
+    // The dead `mullionThickness: 0.056` that used to sit here was the residue of a
+    // REVERTED second source of truth (see `columnDividerThickness` on
+    // `ResolvedWindowDimensions`). The revert was left half-done: the field was
+    // removed from the resolver's RETURN but not from this table, not from
+    // `WindowDimensionSource`, and not from `WindowOpeningData` — which is why
+    // `@pryzm/geometry-window` did not typecheck. One field, one owner, one name.
+    columnDividerThickness: 0.03,
+    rowDividerThickness:    0.03,
+    columnRatios:           Object.freeze([1]) as readonly number[],
+    /**
+     * THE DOUBLE-WINDOW MEETING-STILE MINIMUM (60 mm).
+     *
+     * Two sashes MEET at a `double` window's centre post, so that member carries two
+     * frame sections, not one — it cannot be as slim as an intermediate glazing bar.
+     * This rule previously lived as the bare literal `0.06` inside `WindowBuilder`
+     * (`Math.max(win.columnDividerThickness, 0.06)`), where the PLAN SYMBOL could not
+     * see it: the 3D window grew a 60 mm mullion and the symbol drew a 30 mm one.
+     * Resolving it HERE is what makes the two agree by construction (L-127).
+     */
+    doubleMeetingStileMin: 0.06,
     sill:             true,
     sillDepth:        0.08,
     sillThickness:    0.03,
@@ -194,7 +219,15 @@ export interface WindowDimensionSource {
     sashDepth?: number;
     glazingThickness?: number;
     rebateDepth?: number;
-    mullionThickness?: number;
+    /**
+     * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the record's OWN divider fields. There is
+     * deliberately NO `mullionThickness` here: `WindowBuilder` extrudes its mullions from
+     * `columnDividerThickness` + `columnRatios`, so those are the fields the resolver — and
+     * therefore the plan symbol — must read. A second name for one dimension is L-127.
+     */
+    columnDividerThickness?: number;
+    rowDividerThickness?: number;
+    columnRatios?: readonly number[];
     sill?: boolean;
     sillDepth?: number;
     sillThickness?: number;
@@ -249,8 +282,38 @@ export function resolveWindowDimensions(win: WindowDimensionSource): ResolvedWin
                             : DEFAULT_WINDOW_DIMENSIONS.doubleWidth))
                     : (_num(d?.width) ?? DEFAULT_WINDOW_DIMENSIONS.singleWidth));
 
+            // ── THE PANE GRID AND ITS DIVIDERS (§FEAT-WINDOW-CUT-ZONE-AND-LOD, L-278) ──
+            //
+            // THIS BLOCK IS THE WHOLE MULLION STORY, AND IT LIVES HERE SO THERE IS ONE OF IT.
+            //
+            // The pane grid says WHETHER a mullion exists ([1] → none; [0.5,0.5] → one on the
+            // centreline); `columnDividerThickness` says HOW WIDE it is when one does. The
+            // symbol must NEVER draw a mullion because it felt like one (L-127).
+            //
+            // DW-11: a `double` window is a BIM classification, not a ratio — it always has two
+            // sashes meeting on a structural centre post, whatever the record's grid says. That
+            // override, and the 60 mm meeting-stile minimum below it, previously lived ONLY in
+            // `WindowBuilder`, so the 3D window and the plan symbol disagreed about the mullion
+            // by 30 mm. Both now read the same resolved answer.
+            const colRatios: readonly number[] = isDouble
+                ? [0.5, 0.5]
+                : (win.columnRatios?.length ? win.columnRatios : (type?.defaultColumnRatios?.length
+                    ? type.defaultColumnRatios
+                    : DEFAULT_WINDOW_DIMENSIONS.columnRatios));
+
+            const baseCdt = _num(win.columnDividerThickness)
+                ?? _num(d?.columnDividerThickness)
+                ?? DEFAULT_WINDOW_DIMENSIONS.columnDividerThickness;
+
             const resolved: ResolvedWindowDimensions = {
                 width,
+                columnRatios:           [...colRatios],
+                columnDividerThickness: isDouble
+                    ? Math.max(baseCdt, DEFAULT_WINDOW_DIMENSIONS.doubleMeetingStileMin)
+                    : baseCdt,
+                rowDividerThickness:    _num(win.rowDividerThickness)
+                    ?? _num(d?.rowDividerThickness)
+                    ?? DEFAULT_WINDOW_DIMENSIONS.rowDividerThickness,
                 height:           _num(win.height)           ?? _num(d?.height)           ?? DEFAULT_WINDOW_DIMENSIONS.height,
                 sillHeight:       _num(win.sillHeight)       ?? _num(d?.sillHeight)       ?? DEFAULT_WINDOW_DIMENSIONS.sillHeight,
                 frameThickness:   _num(win.frameThickness)   ?? _num(d?.frameThickness)   ?? DEFAULT_WINDOW_DIMENSIONS.frameThickness,
@@ -259,12 +322,6 @@ export function resolveWindowDimensions(win: WindowDimensionSource): ResolvedWin
                 sashDepth:        _num(win.sashDepth)        ?? _num(d?.sashDepth)        ?? DEFAULT_WINDOW_DIMENSIONS.sashDepth,
                 glazingThickness: _num(win.glazingThickness) ?? _num(d?.glazingThickness) ?? DEFAULT_WINDOW_DIMENSIONS.glazingThickness,
                 rebateDepth:      _num(win.rebateDepth)      ?? _num(d?.rebateDepth)      ?? DEFAULT_WINDOW_DIMENSIONS.rebateDepth,
-                // §L-266 — NO `mullionThickness` HERE, DELIBERATELY. See the note above:
-                // the mullion is drawn by `WindowBuilder` from the record's EXISTING
-                // `columnDividerThickness` + `columnRatios` (widened to ≥60 mm for a
-                // double). Resolving a SECOND mullion field here would hand the plan
-                // symbol a number the 3D builder never reads — the very drift this
-                // ticket exists to kill. One field, one owner.
                 sill:             win.sill ?? DEFAULT_WINDOW_DIMENSIONS.sill,
                 sillDepth:        _num(win.sillDepth)        ?? _num(d?.sillDepth)        ?? DEFAULT_WINDOW_DIMENSIONS.sillDepth,
                 sillThickness:    _num(win.sillThickness)    ?? _num(d?.sillThickness)    ?? DEFAULT_WINDOW_DIMENSIONS.sillThickness,
@@ -276,6 +333,10 @@ export function resolveWindowDimensions(win: WindowDimensionSource): ResolvedWin
             span.setAttribute('pryzm.window.width', resolved.width);
             span.setAttribute('pryzm.window.frameThickness', resolved.frameThickness);
             span.setAttribute('pryzm.window.glazingThickness', resolved.glazingThickness);
+            // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the mullion is observable: `panes` says
+            // whether one exists at all, `columnDividerThickness` how wide it is.
+            span.setAttribute('pryzm.window.panes', resolved.columnRatios.length);
+            span.setAttribute('pryzm.window.columnDividerThickness', resolved.columnDividerThickness);
             span.setAttribute('pryzm.window.resolvedFromType', d !== undefined);
             span.end();
             return resolved;

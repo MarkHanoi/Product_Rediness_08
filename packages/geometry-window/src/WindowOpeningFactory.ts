@@ -88,14 +88,26 @@ export interface WindowOpeningData {
     readonly glazingThickness: number;
     readonly rebateDepth: number;
     /**
-     * §L-266 — the sash and mullion sections the LOD-300 symbol articulates the frame
-     * with. They are persisted ON THE RECORD because the symbol must DERIVE them, never
-     * invent them: a symbol builder that types a dimension is the bug at higher
-     * resolution (L-127).
+     * §L-266 — the sash sections the LOD-300 symbol articulates the frame with. They are
+     * persisted ON THE RECORD because the symbol must DERIVE them, never invent them: a
+     * symbol builder that types a dimension is the bug at higher resolution (L-127).
      */
     readonly sashThickness: number;
     readonly sashDepth: number;
-    readonly mullionThickness: number;
+    /**
+     * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — THE MULLION, UNDER ITS ONE REAL NAME.
+     *
+     * This slot used to be `readonly mullionThickness: number` — a second source of truth
+     * for a dimension the record already carried, invented by an earlier draft of L-266
+     * and then reverted. THE REVERT WAS HALF-DONE: `buildWindowOpening` stopped WRITING
+     * the field but the interface still REQUIRED it, so `@pryzm/geometry-window` has not
+     * typechecked since (TS2741). It is now the record's own `columnDividerThickness` +
+     * `columnRatios` — the fields `WindowBuilder` actually extrudes mullions from, and
+     * therefore the only ones the plan symbol may read.
+     */
+    readonly columnDividerThickness: number;
+    readonly rowDividerThickness: number;
+    readonly columnRatios: readonly number[];
 }
 
 export interface BuildWindowOpeningInput {
@@ -159,9 +171,14 @@ export function buildWindowOpening(input: BuildWindowOpeningInput): WindowOpenin
                 rebateDepth:      dims.rebateDepth,
                 sashThickness:    dims.sashThickness,
                 sashDepth:        dims.sashDepth,
-                // §L-266 — mullionThickness intentionally NOT written. The mullion is
-                // drawn from the record's columnDividerThickness + columnRatios (the
-                // fields WindowBuilder actually reads); a second field here would drift.
+                // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — PERSIST THE PANE GRID AND ITS
+                // DIVIDERS. `columnRatios` is what says whether a mullion exists at all;
+                // `columnDividerThickness` how wide it is (already widened to the 60 mm
+                // meeting-stile minimum for a `double` by the resolver, so the 3D window and
+                // the plan symbol cannot land on different mullions).
+                columnDividerThickness: dims.columnDividerThickness,
+                rowDividerThickness:    dims.rowDividerThickness,
+                columnRatios:           [...dims.columnRatios],
             };
 
             span.setAttribute('pryzm.window.systemTypeId', systemTypeId);
@@ -238,7 +255,12 @@ export function buildWindowStoreRecord(input: BuildWindowStoreRecordInput): Reco
                 rebateDepth:      typeof o.rebateDepth      === 'number' ? o.rebateDepth      : undefined,
                 sashThickness:    typeof o.sashThickness    === 'number' ? o.sashThickness    : undefined,
                 sashDepth:        typeof o.sashDepth        === 'number' ? o.sashDepth        : undefined,
-                mullionThickness: typeof o.mullionThickness === 'number' ? o.mullionThickness : undefined,
+                // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the mullion's real fields. `o` is a
+                // persisted/replayed opening, so its own grid WINS (a user may have set a
+                // 3-pane window); otherwise the resolver falls to the type, then the default.
+                columnDividerThickness: typeof o.columnDividerThickness === 'number' ? o.columnDividerThickness : undefined,
+                rowDividerThickness:    typeof o.rowDividerThickness    === 'number' ? o.rowDividerThickness    : undefined,
+                columnRatios:           Array.isArray(o.columnRatios) ? (o.columnRatios as number[]) : undefined,
             });
 
             const record: Record<string, unknown> = {
@@ -261,9 +283,16 @@ export function buildWindowStoreRecord(input: BuildWindowStoreRecordInput): Reco
                 rebateDepth:      dims.rebateDepth,
                 sashThickness:    dims.sashThickness,
                 sashDepth:        dims.sashDepth,
-                // §L-266 — mullionThickness intentionally NOT written. The mullion is
-                // drawn from the record's columnDividerThickness + columnRatios (the
-                // fields WindowBuilder actually reads); a second field here would drift.
+                // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — THE MULLION REACHES THE SYMBOL.
+                //
+                // `WindowPlanSymbolBuilder` draws from the STORE RECORD. Resolving the pane
+                // grid perfectly and then not writing it here would be the L-05 disease
+                // (geometry computed and thrown away) — the symbol would fall back to the
+                // schema default `[1]` and a DOUBLE window would draw with NO meeting stile
+                // while the 3D window grew one. Write it where the symbol reads it.
+                columnDividerThickness: dims.columnDividerThickness,
+                rowDividerThickness:    dims.rowDividerThickness,
+                columnRatios:           [...dims.columnRatios],
             };
 
             const mark = (input.mark && String(input.mark).trim())
@@ -277,13 +306,12 @@ export function buildWindowStoreRecord(input: BuildWindowStoreRecordInput): Reco
                 record.frameColor     = sysType.frameFinish.materialColor;
                 record.glassOpacity   = sysType.glazingOpacity;
                 record.finishMaterial = sysType.frameFinish.name;
-                // The PANE GRID — this is what says WHETHER there is a mullion at all.
-                // The symbol must never draw one because it felt like it (L-127): a
-                // 1-pane window has none, a 2-pane window has one. `mullionThickness`
-                // only says HOW WIDE it is when the record says one exists.
-                if (sysType.defaultColumnRatios?.length) {
-                    record.columnRatios = [...sysType.defaultColumnRatios];
-                }
+                // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — `columnRatios` is DELIBERATELY NOT
+                // re-assigned from the type here: `resolveWindowDimensions()` already folded
+                // `sysType.defaultColumnRatios` into `dims.columnRatios` above, AND applied
+                // the DW-11 double-window override on top of it. Re-applying the type's raw
+                // default here would silently UNDO that override and hand a `double` window a
+                // single pane — the exact class of bug this ticket exists to kill.
                 if (sysType.defaultRowRatios?.length) {
                     record.rowRatios = [...sysType.defaultRowRatios];
                 }
