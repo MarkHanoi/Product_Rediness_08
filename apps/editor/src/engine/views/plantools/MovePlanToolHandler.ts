@@ -15,7 +15,13 @@
  * Hosted elements (doors/windows): delta is projected onto the host wall
  *   direction; the offset is clamped to keep the opening inside the wall.
  *
- * All other elements: free XZ translation.
+ * All other elements: free XZ translation, built by the ONE shared translate
+ *   definition — `@app/engine/transforms/elementMove` (§FIX-PLAN-MOVE-PARITY, Gate G7).
+ *   That module emits the EXACT command + payload `registerTransformDragHandler` (the
+ *   3-D gizmo) dispatches on drag-end, so a plan move and a 3-D move of the same element
+ *   produce an identical record mutation AND an identical undo entry (C16). This handler
+ *   no longer authors per-type mutations: stair and plumbing moved in 3-D but hit the old
+ *   `default:` branch here — Move was enabled and inert for them, the L-267 shape.
  *
  * Architecture rules (Contract 21 §4):
  *   - All commands fired via commandManager
@@ -25,6 +31,10 @@
  */
 
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
+import {
+    buildMoveCommand,
+    MOVE_UNSUPPORTED_REASON,
+} from '@app/engine/transforms/elementMove';
 // [F-1.2] R2/R3 dual-write — commandManager is authoritative for WallRebuildCoordinator.
 
 const GRID_SNAP_M = 0.05; // 50 mm grid snap
@@ -214,24 +224,90 @@ export class MovePlanToolHandler implements PlanToolHandler {
         }
         const id   = this._targetId!;
         const type = this._targetType!;
+
+        // Wall and the hosted openings keep element-specific paths — but the SAME
+        // commands the 3-D gizmo dispatches (see elementMove.ts module header for why):
+        //   wall   → needs §WALL-MOVE-CARRY-NEIGHBOURS (a naive translate is re-snapped
+        //            back by WallJoinResolver, so the corner must travel with it).
+        //   hosted → the delta is PROJECTED onto the host wall and committed as an
+        //            `offset` (C15); it needs the HOST record, not just the element.
         switch (type) {
-            case 'wall':        this._moveWall(id, dx, dz);         break;
-            case 'curtain-wall':
-            case 'curtainwall': this._moveCurtainWall(id, dx, dz);  break;
-            case 'door':        this._moveHosted(id, 'door',   dx, dz); break;
-            case 'window':      this._moveHosted(id, 'window', dx, dz); break;
-            case 'column':      this._moveColumn(id, dx, dz);       break;
-            case 'slab':        this._moveSlab(id, dx, dz);         break;
-            case 'floor':       this._moveFloor(id, dx, dz);        break;
-            case 'ceiling':     this._moveCeiling(id, dx, dz);      break;
-            case 'beam':        this._moveBeam(id, dx, dz);         break;
-            case 'furniture':   this._moveFurniture(id, dx, dz);    break;
-            case 'room':        this._moveRoom(id, dx, dz);         break;
-            case 'roof':        this._moveRoof(id, dx, dz);         break;
-            default:
-                console.warn('[MoveTool] No move implementation for element type:', type);
-                break;
+            case 'wall':   this._moveWall(id, dx, dz);               return;
+            case 'door':   this._moveHosted(id, 'door',   dx, dz);   return;
+            case 'window': this._moveHosted(id, 'window', dx, dz);   return;
         }
+
+        // §FIX-PLAN-MOVE-PARITY (G7) — every other family goes through the ONE shared
+        // translate definition, which emits the exact command + payload the 3-D gizmo
+        // commits on drag-end. No bespoke mutation is authored here — that is what keeps
+        // plan ≡ 3D (and what closes the stair / plumbing plan-move holes: both moved in
+        // 3-D and hit `default:` here, so the Move button was enabled and inert).
+        const record = this._record(type, id);
+        if (!record) {
+            console.warn('[MoveTool] Record not found for', type, id);
+            return;
+        }
+
+        const cmd = buildMoveCommand(type, record, dx, dz);
+        if (!cmd) {
+            // Be LOUD, never inert. An enabled button that does nothing is worse than a
+            // missing one (the L-267 lesson) — say WHY, and say it in the UI.
+            const reason = MOVE_UNSUPPORTED_REASON[type];
+            console.warn(
+                reason
+                    ? `[MoveTool] "${type}" cannot be moved yet — ${reason}`
+                    : `[MoveTool] No move implementation for element type: ${type}`,
+            );
+            window.runtime?.events?.emit('pryzm:toast', {
+                message: `Move is not available for ${type} yet.`,
+                severity: 'info',
+            });
+            return;
+        }
+
+        const bus = this._ctx?.runtime?.bus ?? window.runtime?.bus;
+        if (!bus) { console.warn('[MoveTool] No command bus — move dropped'); return; }
+
+        bus.executeCommand(cmd.type, cmd.payload)?.catch((e: unknown) => {
+            console.error(`[MoveTool] ${cmd.type} failed:`, e);
+            window.runtime?.events?.emit('pryzm:toast', {
+                message: `Couldn't move the ${type} — ${e instanceof Error ? e.message : String(e)}`,
+                severity: 'error',
+            });
+        });
+        console.log('[MoveTool]', type, 'moved:', id, `Δ(${dx.toFixed(3)}, ${dz.toFixed(3)})`, '→', cmd.type);
+    }
+
+    /**
+     * The live geometry-store record for `id`. These are the SAME stores the 3-D drag
+     * handler reads its pre-move pose from, so the payload the shared builder produces
+     * from them is identical on both surfaces.
+     */
+    private _record(type: string, id: string): unknown | null {
+        const stores: Record<string, unknown> = {
+            'curtain-wall':  window.curtainWallStore, // TODO(TASK-08)
+            curtainwall:     window.curtainWallStore, // TODO(TASK-08)
+            column:          window.columnStore,      // TODO(TASK-08)
+            beam:            window.beamStore,        // TODO(TASK-08)
+            floor:           window.floorStore,       // TODO(TASK-08)
+            ceiling:         window.ceilingStore,     // TODO(TASK-08)
+            roof:            window.roofStore,        // TODO(TASK-08)
+            furniture:       window.furnitureStore,   // TODO(TASK-08)
+            plumbing:        window.plumbingStore,    // TODO(TASK-08)
+            plumbingfixture: window.plumbingStore,    // TODO(TASK-08)
+            stair:           window.stairStore,       // TODO(TASK-08)
+            stairs:          window.stairStore,       // TODO(TASK-08)
+            room:            window.roomStore,        // TODO(TASK-08)
+        };
+        const s = stores[type] as
+            | { get?: (id: string) => unknown; getById?: (id: string) => unknown }
+            | undefined;
+        const rec = s?.get?.(id) ?? s?.getById?.(id) ?? null;
+        // `stair.move` is DELTA-based (§STAIR-3D-MOVE): the 3-D gizmo dispatches it from
+        // `userData.id` alone and never reads the store. Mirror that exactly so the plan
+        // move cannot be blocked by a store-lookup shape the 3-D path never needed.
+        if (!rec && (type === 'stair' || type === 'stairs')) return { id };
+        return rec;
     }
 
     // ── Wall ─────────────────────────────────────────────────────────────────
@@ -361,24 +437,6 @@ export class MovePlanToolHandler implements PlanToolHandler {
         }
     }
 
-    // ── Curtain wall ──────────────────────────────────────────────────────────
-
-    private async _moveCurtainWall(id: string, dx: number, dz: number): Promise<void> {
-        const cs = window.curtainWallStore; // TODO(TASK-08)
-        if (!cs) { console.warn('[MoveTool] No curtainWallStore'); return; }
-        const cw = cs.getById?.(id) ?? cs.get?.(id);
-        if (!cw) { console.warn('[MoveTool] CurtainWall not found:', id); return; }
-
-        const prev = cw.baseLine as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
-        const next: [typeof prev[0], typeof prev[1]] = [
-            { x: prev[0].x + dx, y: prev[0].y, z: prev[0].z + dz },
-            { x: prev[1].x + dx, y: prev[1].y, z: prev[1].z + dz },
-        ];
-
-        window.runtime?.bus?.executeCommand('wall.updateCurtainWall', { id, updates: { baseLine: next } })?.catch((e: unknown) => console.error('[MoveTool] wall.updateCurtainWall failed:', e));
-        console.log('[MoveTool] CurtainWall moved:', id);
-    }
-
     // ── Hosted elements (door / window) ───────────────────────────────────────
 
     private async _moveHosted(
@@ -417,152 +475,6 @@ export class MovePlanToolHandler implements PlanToolHandler {
             window.runtime?.bus?.executeCommand('window.setOffset', { windowId: id, newOffset, prevOffset })?.catch((e: unknown) => console.error('[MoveTool] window.setOffset failed:', e));
         }
         console.log('[MoveTool]', kind, 'moved — offset', prevOffset.toFixed(3), '→', newOffset.toFixed(3));
-    }
-
-    // ── Column ───────────────────────────────────────────────────────────────
-
-    private async _moveColumn(id: string, dx: number, dz: number): Promise<void> {
-        const cs = window.columnStore; // TODO(TASK-08)
-        if (!cs) { console.warn('[MoveTool] No columnStore'); return; }
-        const col = cs.get?.(id) ?? cs.getById?.(id);
-        if (!col) { console.warn('[MoveTool] Column not found:', id); return; }
-
-        const pos = col.position as { x: number; y: number; z: number };
-        window.runtime?.bus?.executeCommand('column.update', { id, updates: { position: { x: pos.x + dx, y: pos.y, z: pos.z + dz } } })?.catch((e: unknown) => console.error('[MoveTool] column.update failed:', e));
-        console.log('[MoveTool] Column moved:', id);
-    }
-
-    // ── Slab ─────────────────────────────────────────────────────────────────
-
-    private async _moveSlab(id: string, dx: number, dz: number): Promise<void> {
-        const ss = window.slabStore; // TODO(TASK-08)
-        if (!ss) { console.warn('[MoveTool] No slabStore'); return; }
-        const slab = ss.getById?.(id) ?? ss.get?.(id);
-        if (!slab) { console.warn('[MoveTool] Slab not found:', id); return; }
-
-        // Slab polygon uses {x, y} where y = world Z
-        const poly = (slab.polygon as { x: number; y: number }[]);
-        const newPoly = poly.map(pt => ({ x: pt.x + dx, y: pt.y + dz }));
-
-        window.runtime?.bus?.executeCommand('slab.updatePolygon', { slabId: id, polygon: newPoly, holes: slab.holes })?.catch((e: unknown) => console.error('[MoveTool] slab.updatePolygon failed:', e));
-        console.log('[MoveTool] Slab moved:', id);
-    }
-
-    // ── Floor ─────────────────────────────────────────────────────────────────
-
-    private async _moveFloor(id: string, dx: number, dz: number): Promise<void> {
-        const fs = window.floorStore; // TODO(TASK-08)
-        if (!fs) { console.warn('[MoveTool] No floorStore'); return; }
-        const floor = fs.getById?.(id) ?? fs.get?.(id);
-        if (!floor) { console.warn('[MoveTool] Floor not found:', id); return; }
-
-        const poly = (floor.boundary?.polygon ?? floor.polygon ?? floor.points ?? []) as { x: number; y?: number; z?: number }[];
-        const newPoly = poly.map((pt: { x: number; y?: number; z?: number }) => ({ x: pt.x + dx, z: (pt.z ?? pt.y ?? 0) + dz }));
-        window.runtime?.bus?.executeCommand('floor.update', { floorId: id, updates: { boundary: { ...floor.boundary, polygon: newPoly } } })?.catch((e: unknown) => console.error('[MoveTool] floor.update failed:', e));
-        console.log('[MoveTool] Floor moved:', id);
-    }
-
-    // ── Ceiling ───────────────────────────────────────────────────────────────
-
-    private async _moveCeiling(id: string, dx: number, dz: number): Promise<void> {
-        const cs = window.ceilingStore; // TODO(TASK-08)
-        if (!cs) { console.warn('[MoveTool] No ceilingStore'); return; }
-        const ceiling = cs.getById?.(id) ?? cs.get?.(id);
-        if (!ceiling) { console.warn('[MoveTool] Ceiling not found:', id); return; }
-
-        const poly = (ceiling.boundary?.polygon ?? ceiling.polygon ?? ceiling.points ?? []) as { x: number; y?: number; z?: number }[];
-        const newPoly = poly.map((pt: { x: number; y?: number; z?: number }) => ({ x: pt.x + dx, z: (pt.z ?? pt.y ?? 0) + dz }));
-
-        window.runtime?.bus?.executeCommand('ceiling.update', { ceilingId: id, updates: { boundary: { ...ceiling.boundary, polygon: newPoly } } })?.catch((e: unknown) => console.error('[MoveTool] ceiling.update failed:', e));
-        console.log('[MoveTool] Ceiling moved:', id);
-    }
-
-    // ── Beam ──────────────────────────────────────────────────────────────────
-
-    private async _moveBeam(id: string, dx: number, dz: number): Promise<void> {
-        const bs = window.beamStore; // TODO(TASK-08)
-        if (!bs) { console.warn('[MoveTool] No beamStore'); return; }
-        const beam = bs.get?.(id) ?? bs.getById?.(id);
-        if (!beam) { console.warn('[MoveTool] Beam not found:', id); return; }
-
-        const sp = beam.startPoint as { x: number; y: number; z: number };
-        const ep = beam.endPoint   as { x: number; y: number; z: number };
-
-        window.runtime?.bus?.executeCommand('beam.update', {
-            beamId: id,
-            updates: {
-                startPoint: { x: sp.x + dx, y: sp.y, z: sp.z + dz },
-                endPoint:   { x: ep.x + dx, y: ep.y, z: ep.z + dz },
-            },
-        })?.catch((e: unknown) => console.error('[MoveTool] beam.update failed:', e));
-        console.log('[MoveTool] Beam moved:', id);
-    }
-
-    // ── Furniture ─────────────────────────────────────────────────────────────
-
-    private async _moveFurniture(id: string, dx: number, dz: number): Promise<void> {
-        const fs = window.furnitureStore; // TODO(TASK-08)
-        if (!fs) { console.warn('[MoveTool] No furnitureStore'); return; }
-        const item = fs.get?.(id) ?? fs.getById?.(id);
-        if (!item) { console.warn('[MoveTool] Furniture not found:', id); return; }
-
-        const pos = item.position as { x: number; y: number; z: number };
-        window.runtime?.bus?.executeCommand('furniture.updateParameters', { id, position: { x: pos.x + dx, y: pos.y, z: pos.z + dz } })?.catch((e: unknown) => console.error('[MoveTool] furniture.updateParameters failed:', e));
-        console.log('[MoveTool] Furniture moved:', id);
-    }
-
-    // ── Room ──────────────────────────────────────────────────────────────────
-
-    private async _moveRoom(id: string, dx: number, dz: number): Promise<void> {
-        const rs = window.roomStore; // TODO(TASK-08)
-        if (!rs) { console.warn('[MoveTool] No roomStore'); return; }
-        const room = rs.getById?.(id) ?? rs.get?.(id);
-        if (!room) { console.warn('[MoveTool] Room not found:', id); return; }
-
-        const boundary = room.boundary;
-        if (!boundary?.polygon?.length) { console.warn('[MoveTool] Room has no boundary polygon'); return; }
-
-        const newPoly = boundary.polygon.map((v: { x: number; z: number }) => ({
-            x: v.x + dx,
-            z: v.z + dz,
-        }));
-
-        const newBoundary = {
-            ...boundary,
-            polygon: newPoly,
-            centroid: {
-                x: (boundary.centroid?.x ?? 0) + dx,
-                z: (boundary.centroid?.z ?? 0) + dz,
-            },
-        };
-
-        window.runtime?.bus?.executeCommand('room.updateBoundary', { id, boundary: newBoundary, boundingWallIds: room.boundingWallIds ?? [] })?.catch((e: unknown) => console.error('[MoveTool] room.updateBoundary failed:', e));
-        console.log('[MoveTool] Room moved:', id);
-    }
-
-    // ── Roof ──────────────────────────────────────────────────────────────────
-    // RoofFootprint uses [number, number] pairs (NOT {x, z} objects), so we
-    // translate the polygon vertices and centroid in tuple form before
-    // dispatching UpdateRoofCommand.
-    private async _moveRoof(id: string, dx: number, dz: number): Promise<void> {
-        const rs = window.roofStore; // TODO(TASK-08)
-        if (!rs) { console.warn('[MoveTool] No roofStore'); return; }
-        const roof = rs.getById?.(id) ?? rs.get?.(id);
-        if (!roof) { console.warn('[MoveTool] Roof not found:', id); return; }
-
-        const fp = roof.footprint;
-        if (!fp?.polygon?.length) { console.warn('[MoveTool] Roof has no footprint polygon'); return; }
-
-        const newPolygon: [number, number][] = fp.polygon.map(
-            (pt: [number, number]) => [pt[0] + dx, pt[1] + dz] as [number, number]
-        );
-        const newCentroid: [number, number] = [
-            (fp.centroid?.[0] ?? 0) + dx,
-            (fp.centroid?.[1] ?? 0) + dz,
-        ];
-
-        window.runtime?.bus?.executeCommand('roof.update', { id, updates: { footprint: { polygon: newPolygon, centroid: newCentroid } } })?.catch((e: unknown) => console.error('[MoveTool] roof.update failed:', e));
-        console.log('[MoveTool] Roof moved:', id, `Δ(${dx.toFixed(3)}, ${dz.toFixed(3)})`);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
