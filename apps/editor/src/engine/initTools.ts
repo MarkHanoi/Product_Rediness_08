@@ -44,7 +44,7 @@ import { SlabTool } from '@pryzm/geometry-slab';
 import { CeilingTool } from '@pryzm/geometry-slab';
 import { FloorTool } from '@pryzm/geometry-slab';
 import { SlabDimensionsEditor } from '@app/ui/property-panel/SlabDimensionsEditor';
-import { ElementCreationModal } from '@app/ui/ElementCreationModal';
+import { ElementCreationModal, getFloorFinishCreationModal } from '@app/ui/ElementCreationModal';
 import { PlumbingTool } from '@pryzm/geometry-plumbing';
 import { FurnitureTool } from '@pryzm/geometry-furniture';
 import { LightingTool } from '@pryzm/geometry-lighting';
@@ -90,6 +90,12 @@ import { RoomBoundingLineTool } from '@pryzm/geometry-wall';
 // ── Singleton imports (module-level stores / services) ────────────────────────
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
+// §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the ONE documented floor-finish defaults, so the
+// bus→legacy mirror below cannot invent a third set of numbers (it used to: `?? 0` / `?? 0.075`).
+import {
+    DEFAULT_FLOOR_FINISH_BASE_OFFSET_M,
+    DEFAULT_FLOOR_FINISH_THICKNESS_M,
+} from '@pryzm/core-app-model/stores';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { constraintStore } from '@pryzm/plugin-annotations';
 import { constraintSolver } from '@pryzm/plugin-annotations';
@@ -470,7 +476,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     window.ceilingTool = ceilingTool;
 
     // ── FloorTool ─────────────────────────────────────────────────────────────
-    const floorCreationModal = new ElementCreationModal();
+    // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the SHARED floor-finish modal instance.
+    // `FloorPlanToolHandler` shows this SAME instance from the plan path, so the parameter
+    // surface (finish type · assembly thickness · BASE OFFSET = the FFL elevation) is one
+    // dialogue, not two that must be kept in step by hand.
+    const floorCreationModal = getFloorFinishCreationModal();
     const floorTool = new FloorTool(world, components, {
         getCommandManager: () => commandManagerRef.current,
         getFloorStore: () => floorStore,
@@ -1659,8 +1669,20 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     floorNumber: `F.${floorCount.toString().padStart(2, '0')}`,
                     boundary: {
                         polygon:           ev.polygon,
-                        baseOffset:        ev.baseOffset ?? 0,
-                        thickness:         ev.thickness ?? 0.075,
+                        // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — these two `??` arms were
+                        // LITERALS (`?? 0` and `?? 0.075`), and they are why the founder's
+                        // plan-drawn finish LOOKED wrong: this mirror feeds the legacy FloorStore
+                        // that FloorPanelBuilder actually MESHES (`worldY_top = levelElevation +
+                        // boundary.baseOffset`), so a plan `floor.create` that omitted the fields
+                        // was rendered 75 mm thick sitting ON the level datum — while the plugin
+                        // FloorStore's own `resolveFinishSeating` had seated the SAME floor at
+                        // 15 mm / 75 mm. Three layers, three different defaults, one element.
+                        //
+                        // Both creation paths now send a COMPLETE record, so neither arm can fire;
+                        // they resolve from the ONE documented default if a legacy or AI-authored
+                        // payload ever omits them. No literal survives here.
+                        baseOffset:        ev.baseOffset ?? DEFAULT_FLOOR_FINISH_BASE_OFFSET_M,
+                        thickness:         ev.thickness  ?? DEFAULT_FLOOR_FINISH_THICKNESS_M,
                         detectionMethod:   'manual-polygon',
                     },
                     systemTypeId:   ev.systemTypeId,

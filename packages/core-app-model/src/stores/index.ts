@@ -64,6 +64,20 @@ export {
 export { FloorStore } from './FloorStore.js';
 export { FloorSystemTypeStore, floorSystemTypeStore } from './FloorSystemTypeStore.js';
 
+// §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — THE floor-finish creation chokepoint.
+// One store for the architect's choice + one resolver for the concrete record, read by
+// BOTH the 3D FloorTool and the plan FloorPlanToolHandler (C11 §3 — parity by construction).
+export type {
+    FloorToolConfig, ResolvedFloorFinish, FloorSystemTypeLookup,
+} from './FloorToolConfigStore.js';
+export {
+    DEFAULT_FLOOR_TOOL_CONFIG,
+    DEFAULT_FLOOR_FINISH_BASE_OFFSET_M,
+    DEFAULT_FLOOR_FINISH_THICKNESS_M,
+    getFloorToolConfig, setFloorToolConfig, resetFloorToolConfig,
+    resolveFloorFinish,
+} from './FloorToolConfigStore.js';
+
 export type {
     HandrailRailLayer, HandrailData, HandrailFragment,
 } from './HandrailTypes.js';

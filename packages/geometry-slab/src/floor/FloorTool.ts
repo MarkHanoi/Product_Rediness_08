@@ -27,10 +27,17 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { CreateFloorCommand } from '@pryzm/command-registry';
-import { FloorVertex, FloorToolState, FloorLayer } from '@pryzm/core-app-model/stores';
+import { FloorVertex, FloorToolState } from '@pryzm/core-app-model/stores';
 import { computeFloorArea as computeArea } from '@pryzm/core-app-model/stores';
 import { projectContext } from '@pryzm/core-app-model';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
+// §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the ONE floor-finish chokepoint. The 3D tool
+// no longer holds the architect's choice in its own `_pending*` fields (fields the plan path
+// could never see); it WRITES the choice here and RESOLVES the concrete record here, exactly
+// as `FloorPlanToolHandler` does. See FloorToolConfigStore's header for the disease + cure.
+import {
+  getFloorToolConfig, setFloorToolConfig, resolveFloorFinish,
+} from '@pryzm/core-app-model/stores';
 
 export interface FloorCreationParams {
   kind: 'floor';
@@ -114,15 +121,15 @@ export class FloorTool {
   // second click commits an axis-aligned 4-vertex rectangle.
   private _rectAnchor: FloorVertex | null = null;
 
-  // Pending floor parameters (set by property panel before activation)
-  private _pendingSystemTypeId: string | undefined;
-  // Room linkage — set when AUTO_FROM_ROOM detects a room or when draw polygon overlaps a room
-  private _pendingHostRoomId: string | undefined;
-  // §FIX-FLOOR-FINISH-DEFAULT-THICKNESS (L-14) — base offset (FFL build-up height) and finish
-  // thickness are INDEPENDENT defaults: baseOffset = where the FFL sits (75 mm build-up),
-  // thickness = the real applied-finish layer (15 mm). Both remain user-editable via the modal.
-  private _pendingBaseOffset = DEFAULT_FLOOR_FINISH_BASE_OFFSET_M;   // FFL offset above level datum (metres)
-  private _pendingThickness  = DEFAULT_FLOOR_FINISH_THICKNESS_M;     // Applied-finish thickness (metres) — independent of FFL offset
+  // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the finish TYPE, THICKNESS and BASE OFFSET
+  // are NO LONGER instance fields of this tool. They were the three fields the PLAN path
+  // could not see (it has no FloorTool instance), so it dropped all three and let three
+  // different downstream defaults invent them. They now live in the ONE `FloorToolConfigStore`
+  // BELOW the tools, and this tool RESOLVES them through `resolveFloorFinish()` — the same
+  // store and the same resolver `FloorPlanToolHandler` reads. Parity by construction (C11 §3).
+  //
+  // What legitimately remains per-GESTURE (not per-architect-choice) is the host linkage:
+  private _pendingHostRoomId: string | undefined;   // set by AUTO_FROM_ROOM / centroid autodetect
   private _pendingHostSlabId: string | undefined;
 
   // Preview scene objects
@@ -201,19 +208,44 @@ export class FloorTool {
     console.log('[FloorTool] setDrawingMode →', mode);
   }
 
+  /**
+   * §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the architect's chosen finish, and the
+   * resolved record it implies, read from the ONE store below the tools. Every dimension
+   * this tool draws or commits comes from here; there is no `_pending*` field left to drift.
+   */
+  private _finish() {
+    return resolveFloorFinish();
+  }
+
   setPendingSystemType(id: string | undefined): void {
-    this._pendingSystemTypeId = id;
+    // `undefined` from the picker means "— Plain Floor —", an explicit choice, so it is
+    // forwarded as `''` (the store's clear token) rather than as a no-op patch.
+    setFloorToolConfig({ systemTypeId: id ?? '' });
   }
 
   /**
    * §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — alias for setPendingSystemType.
    * BimService.activateFloorTool() and the create-panel FloorModePicker both call
    * `setSystemTypeId(id)`; that method did not exist, so the mode-picker's finish
-   * selection never reached the tool. This makes the pre-selection stick (and pre-fills
-   * the creation-panel dropdown default), while the modal remains the confirm surface.
+   * selection never reached the tool.
+   *
+   * §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — it now writes to the shared
+   * `FloorToolConfigStore`, so the plan handler sees the SAME choice. Before this, the
+   * FloorModePicker's finish dropdown wrote to THIS instance only, which is why a plan user
+   * who picked "Porcelain Tile" got an untyped, layerless floor: the plan handler had no
+   * FloorTool instance to read.
    */
   setSystemTypeId(id: string | undefined): void {
-    this._pendingSystemTypeId = id;
+    setFloorToolConfig({ systemTypeId: id ?? '' });
+  }
+
+  /**
+   * The architect's chosen finish type — read by `PropertyPanelPreDraw.showFloorPreDraw()`,
+   * which called `floorTool.getSystemTypeId?.()` against a method that DID NOT EXIST (so the
+   * pre-draw panel always opened on "— Plain Floor —", whatever the user had picked).
+   */
+  getSystemTypeId(): string | undefined {
+    return getFloorToolConfig().systemTypeId;
   }
 
   /**
@@ -232,11 +264,11 @@ export class FloorTool {
   }
 
   setPendingBaseOffset(offset: number): void {
-    if (offset >= 0) this._pendingBaseOffset = offset;
+    setFloorToolConfig({ baseOffsetM: offset });
   }
 
   setPendingThickness(t: number): void {
-    if (t > 0) this._pendingThickness = t;
+    setFloorToolConfig({ thicknessM: t });
   }
 
   setPendingHostSlabId(slabId: string | undefined): void {
@@ -257,7 +289,7 @@ export class FloorTool {
     } else {
       this._createPreviewObjects();
       this._attachListeners();
-      console.log('[FloorTool] Activated.', { mode: this._drawingMode, ffl: this._levelElevation + this._pendingBaseOffset });
+      console.log('[FloorTool] Activated.', { mode: this._drawingMode, ffl: this._levelElevation + this._finish().baseOffsetM });
     }
     this._showHUD();
   }
@@ -492,19 +524,23 @@ export class FloorTool {
     this._deps.openCreationModal?.({
       params: {
         kind: 'floor',
-        thickness:  this._pendingThickness,
-        baseOffset: this._pendingBaseOffset,
-        systemTypeId: this._pendingSystemTypeId,
+        thickness:  this._finish().thicknessM,
+        baseOffset: this._finish().baseOffsetM,
+        systemTypeId: this._finish().systemTypeId,
       },
       polygonArea: area,
       systemTypes: this._resolveFloorTypeOptions(),
       onConfirm: (params) => {
         if (params.kind === 'floor') {
-          this._pendingThickness  = params.thickness;
-          this._pendingBaseOffset = params.baseOffset;
-          // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105) — carry the chosen finish into the
-          // create payload; _createFloor resolves its layer snapshot from this id.
-          this._pendingSystemTypeId = params.systemTypeId;
+          // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the modal is ONE UI that FEEDS the
+          // shared config store; it is not itself the source of truth. `_createFloor` then
+          // re-resolves from the store, so a floor committed from 3D and a floor committed
+          // from the plan modal cannot differ.
+          setFloorToolConfig({
+            thicknessM:   params.thickness,
+            baseOffsetM:  params.baseOffset,
+            systemTypeId: params.systemTypeId ?? '',
+          });
         }
         // DRAW mode — the polygon is the user's stated geometry: stored verbatim (L-240 P3).
         this._createFloor(polygon, 'explicit-polygon');
@@ -577,26 +613,29 @@ export class FloorTool {
     const floorId = crypto.randomUUID();
     const ifcGuid = crypto.randomUUID();
 
-    // Resolve layers snapshot from the selected system type, so the element stores
-    // its own immutable layer list (type edits won't retroactively change existing floors).
-    let resolvedLayers: FloorLayer[] | undefined;
-    if (this._pendingSystemTypeId) {
-      const typeStore = (this._deps.getFloorSystemTypeStore?.() as any) ?? floorSystemTypeStore;
-      const sysType = typeStore.getById?.(this._pendingSystemTypeId);
-      if (sysType?.layers?.length) {
-        resolvedLayers = structuredClone(sysType.layers) as FloorLayer[];
-      }
-    }
+    // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — THE ONE RESOLUTION. Type, layers snapshot,
+    // thickness and base offset (the FFL elevation) all come out of `resolveFloorFinish()`,
+    // the same call `FloorPlanToolHandler` makes. The layer-snapshot walk that used to live
+    // here (typeStore → getById → structuredClone) was a hand-copy the plan path never had;
+    // it now lives INSIDE the resolver, so both paths get the identical immutable snapshot
+    // (a later edit of the TYPE must not retroactively rewrite placed floors).
+    //
+    // NO LITERAL DIMENSION IS PERMITTED IN THIS METHOD — a number typed here is, by
+    // definition, a number the other creation path cannot see. That is the bug (C11 §3).
+    const finish = resolveFloorFinish(
+      undefined,
+      (this._deps.getFloorSystemTypeStore?.() as any) ?? floorSystemTypeStore,
+    );
 
     const cmd = new CreateFloorCommand({
       floorId,
       ifcGuid,
       polygon,
-      baseOffset: this._pendingBaseOffset,
-      thickness: this._pendingThickness,
+      baseOffset: finish.baseOffsetM,
+      thickness: finish.thicknessM,
       levelId,
-      systemTypeId: this._pendingSystemTypeId,
-      layers: resolvedLayers,
+      systemTypeId: finish.systemTypeId,
+      layers: finish.layers,
       hostSlabId: this._pendingHostSlabId,
       hostRoomId: this._pendingHostRoomId,
       boundarySource,   // §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240)
@@ -657,7 +696,7 @@ export class FloorTool {
   }
 
   private _updatePreviewObjects(): void {
-    const ffl = this._levelElevation + this._pendingBaseOffset;
+    const ffl = this._levelElevation + this._finish().baseOffsetM;
     const previewY = ffl + 0.005; // 5mm above FFL so it's visible
     const cursor = this._snappedCursorPos;
 
@@ -747,7 +786,7 @@ export class FloorTool {
 
   private _addVertexMarker(pt: FloorVertex): void {
     const scene = this._world.scene.three as THREE.Scene;
-    const markerY = this._levelElevation + this._pendingBaseOffset + 0.01;
+    const markerY = this._levelElevation + this._finish().baseOffsetM + 0.01;
     const geo = new THREE.SphereGeometry(0.07, 12, 12);
     const mat = new THREE.MeshBasicMaterial({ color: FLOOR_PREVIEW_COLOR, depthTest: false });
     const marker = new THREE.Mesh(geo, mat);
@@ -878,7 +917,7 @@ export class FloorTool {
       raycaster.setFromCamera(mouseVec, this._world.camera.three as THREE.PerspectiveCamera);
 
       // Raycast at FFL elevation
-      const groundY = this._levelElevation + this._pendingBaseOffset;
+      const groundY = this._levelElevation + this._finish().baseOffsetM;
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -groundY);
       const target = new THREE.Vector3();
       raycaster.ray.intersectPlane(plane, target);
@@ -948,17 +987,21 @@ export class FloorTool {
       this._deps.openCreationModal?.({
         params: {
           kind: 'floor',
-          thickness:  this._pendingThickness,
-          baseOffset: this._pendingBaseOffset,
-          systemTypeId: this._pendingSystemTypeId,
+          thickness:  this._finish().thicknessM,
+          baseOffset: this._finish().baseOffsetM,
+          systemTypeId: this._finish().systemTypeId,
         },
         polygonArea,
         systemTypes: this._resolveFloorTypeOptions(),
         onConfirm: (params) => {
           if (params.kind === 'floor') {
-            this._pendingThickness  = params.thickness;
-            this._pendingBaseOffset = params.baseOffset;
-            this._pendingSystemTypeId = params.systemTypeId; // §FEAT-FLOOR-CREATE-TYPE-PICKER (L-105)
+            // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — see _commitPolygon: the modal feeds
+            // the ONE store; the record is re-resolved from it at commit.
+            setFloorToolConfig({
+              thicknessM:   params.thickness,
+              baseOffsetM:  params.baseOffset,
+              systemTypeId: params.systemTypeId ?? '',
+            });
           }
           // §FIX-FLOOR-FINISH-INNER-FACE-ALL-PATHS (L-240) — `polygon` is the ROOM BOUNDARY
           // ring, which runs along the wall CENTRELINES. Declare that to the chokepoint;

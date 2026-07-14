@@ -18,6 +18,7 @@ import type { CommandManager }    from '@pryzm/command-registry';
 import type { WallStore } from '@pryzm/geometry-wall';
 import type { StairToolConfig } from '@pryzm/geometry-stair';
 import type { DoorToolConfig } from '@pryzm/geometry-door';
+import type { FloorToolConfig } from '@pryzm/core-app-model/stores';
 import type { PryzmRuntime }     from '@pryzm/runtime-composer/types';
 
 /**
@@ -129,6 +130,30 @@ export interface PlanToolDrawContext {
      * `getDoorToolConfig()` — the SAME store, never a `window.*` global (P4).
      */
     readonly doorConfig?: DoorToolConfig;
+
+    /**
+     * §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the architect's resolved FLOOR-FINISH
+     * configuration (finish TYPE · assembly THICKNESS · BASE OFFSET, i.e. the FFL elevation),
+     * injected by the overlay from the single `FloorToolConfigStore` chokepoint in
+     * `@pryzm/core-app-model/stores`.
+     *
+     * THE EIGHTH INSTANCE OF THE SAME DEFECT, AND THE SAME CURE.
+     *
+     * The founder: *"Floor finish creation in PLAN VIEW (auto) doesn't bring the UI modal that
+     * is required and IS WORKING on 3D VIEW — which provides the ELEVATION LEVEL of the floor
+     * finish."* The missing modal was the symptom; the missing RECORD was the defect. The plan
+     * handler dispatched `floor.create` with polygon + levelId and nothing else, so the finish
+     * type, its layer snapshot, its thickness and its elevation were all re-invented by three
+     * different downstream defaults — and the one the MESH builder read (`?? 0.075` / `?? 0` in
+     * the initTools bus→legacy mirror) was the one nobody had chosen.
+     *
+     * Same lineage, same fix as the two slots above: the choice is resolved ONCE, BELOW the
+     * tools; the 3D tool, the plan handler, batch generators and the AI all inherit it.
+     *
+     * Optional so a handler constructed without a context still falls back to
+     * `getFloorToolConfig()` — the SAME store, never a `window.*` global (P4).
+     */
+    readonly floorConfig?: FloorToolConfig;
 }
 
 /**

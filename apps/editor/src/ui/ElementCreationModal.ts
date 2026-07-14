@@ -344,6 +344,32 @@ function _collectParams(
   }
 }
 
+/**
+ * §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — THE ONE floor-finish parameter surface.
+ *
+ * The founder: *"Floor finish creation in PLAN VIEW (auto) doesn't bring the UI modal that is
+ * required and IS WORKING on 3D VIEW — which provides the ELEVATION LEVEL of the floor finish."*
+ *
+ * The 3D `FloorTool` received an `ElementCreationModal` instance through its deps
+ * (`initTools`); the plan `FloorPlanToolHandler` has no deps object and no FloorTool, so it
+ * had no modal — and, worse, no way to reach the *same* one. It therefore committed without
+ * ever asking for the base offset (the FFL elevation), the thickness or the finish type.
+ *
+ * This accessor is the one instance BOTH paths show, so there is exactly one floor-finish
+ * parameter dialogue in the product. It is deliberately NOT a general "modal registry" — the
+ * ceiling keeps its own instance, because the ceiling's parity is a separate question with a
+ * separate answer.
+ *
+ * (The modal is only the UI. The RECORD is resolved below it, in `FloorToolConfigStore` —
+ * which is why a future plan-native inline prompt could replace this dialogue on the plan
+ * path without either path's record changing by one byte.)
+ */
+let _floorFinishModal: ElementCreationModal | null = null;
+export function getFloorFinishCreationModal(): ElementCreationModal {
+  _floorFinishModal ??= new ElementCreationModal();
+  return _floorFinishModal;
+}
+
 function _readValue(input: HTMLInputElement | null, fallback: number): number {
   if (!input) return fallback;
   const v = parseFloat(input.value);

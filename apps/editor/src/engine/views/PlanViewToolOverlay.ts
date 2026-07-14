@@ -31,6 +31,8 @@ import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './plantoo
 import { viewPlaneFromDefinition }   from '@pryzm/core-app-model';
 import { AddLevelCommand }           from '@pryzm/command-registry';
 import { getStairToolConfig }        from '@pryzm/geometry-stair';
+// §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the ONE floor-finish config chokepoint.
+import { getFloorToolConfig } from '@pryzm/core-app-model/stores';
 import { trace }                     from '@opentelemetry/api';
 
 // §FIX-PLAN-WALLTOOL-ARM-ON-ACTIVATE (L-66) — P8: one OTel span per new exported entry point.
@@ -448,6 +450,14 @@ export class PlanViewToolOverlay {
             // (so plan-drawn stairs silently lost the chosen shape/width/type) and
             // which was a live P4 violation.
             stairConfig:       getStairToolConfig(),
+            // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — inject the architect's resolved
+            // floor-finish config (finish TYPE · assembly THICKNESS · BASE OFFSET = the FFL
+            // elevation) from the single FloorToolConfigStore chokepoint, so the plan floor
+            // tool reads exactly what the 3D FloorTool reads. Without this the plan path had no
+            // access to the choice at all — the FloorModePicker's finish dropdown writes
+            // `floorTool.setSystemTypeId()`, a 3D-tool instance field, and the plan handler has
+            // no FloorTool instance to read it from.
+            floorConfig:       getFloorToolConfig(),
         };
     }
 
