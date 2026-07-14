@@ -15,6 +15,31 @@ plan turns these into phased work. **Nothing is dropped.**
 Verdict legend: **OK** (verified working) · **GAP** (works but diverges/incomplete) · **BROKEN** (reproduced
 defect) · **N/V** (needs source verification — file cited).
 
+### L-L — ON A SHARED CHECKOUT, `git stash` IS AS DANGEROUS AS `git add -A`. IT IS A WHOLE-TREE OPERATION WEARING A PATH-SCOPED MASK.
+
+Two agents hit this within an hour, independently:
+
+* One ran `git stash push -- apps/editor/src …` — a **path-scoped** stash, which looks safe — to
+  prove some failures were pre-existing. It **stashed four other agents' in-flight files**, and the
+  pop then conflicted. Everything was recovered (each file restored from the stash object, the newer
+  worktree version kept where it had moved on, every agent's diff verified back) — **barely**.
+* Another had its edits to a contended file **rolled back by an external write**, and caught it only
+  because it **re-grepped the file** instead of trusting that its edit had stuck.
+
+**THE RULES, now standing:**
+- **NEVER** run `git stash`, `git checkout -- .`, `git reset --hard`, or any blanket tree operation.
+  Other agents' uncommitted work lives in this tree. A blanket op destroys it.
+- Commit with **explicit pathspecs only**: `git commit -m "…" -- <paths>` (see **L-I**).
+- `git status --short` before every commit. Anything staged you did not stage is a **STOP**.
+- **After editing a contended file, RE-GREP IT** to confirm your change survived, before building on it.
+- **Commit early.** An uncommitted file is a file another agent can destroy.
+
+This is the sibling of **L-I**. L-I: a *commit* silently takes what you did not stage. L-L: a *stash*
+silently takes what you did not touch. **Both are whole-tree operations that look scoped — and on a
+shared checkout, "looks scoped" is the trap.**
+
+---
+
 ### L-J — A GUARD THAT **CANNOT FAIL** IS NOT A GUARD. PROVE YOUR TEST CAN GO RED.
 
 I briefed an agent on the overall-dimension bug (L-281) with what I thought was the sharp
