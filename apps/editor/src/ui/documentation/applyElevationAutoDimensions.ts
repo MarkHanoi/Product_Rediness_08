@@ -62,6 +62,8 @@ import { createId } from '@pryzm/schemas';
 import { normalizeDetailLevel, DEFAULT_DETAIL_LEVEL, type DetailLevel } from '@pryzm/schemas/view/detail-level';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { commitAnnotationSet } from './commitAnnotationSet.js';
+// §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the identity a live reconcile refreshes in place.
+import { AUTO_KEY_PARAM } from './dimensionIdentity.js';
 
 /** View types whose canvas draws in the VERTICAL projected plane. */
 const ELEVATION_VIEW_TYPES: ReadonlySet<string> = new Set([
@@ -271,7 +273,20 @@ export function elevationSegmentToAnnotation(
       offset: seg.offsetH,
       measurementNormal: { x: 0, y: 1, z: 0 },
     },
-    { unit: 'mm', autoMode: 'elevation', rule: seg.rule, referenceIds: [...seg.referenceIds] },
+    {
+      unit: 'mm',
+      autoMode: 'elevation',
+      rule: seg.rule,
+      referenceIds: [...seg.referenceIds],
+      // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — IDENTITY. An elevation dim is still anchored
+      // to POINTS (its datums are scalars, not element geometry — see elevation/types.ts), so
+      // its identity cannot come from element refs. It comes from the RULE + the model records
+      // it measures (`referenceIds`, the provenance the engine already carries) + its station.
+      // That is stable across a regeneration, which is what makes the reconcile idempotent
+      // here too — without it, every flush would delete and recreate the whole elevation set
+      // and take the user's drags with it.
+      [AUTO_KEY_PARAM]: `${seg.rule}#${[...seg.referenceIds].sort().join(',')}#v@${seg.h.toFixed(3)}`,
+    },
   );
 }
 
@@ -325,7 +340,15 @@ export function elevationHSegmentToAnnotation(
       offset: seg.offsetV,
       measurementNormal,
     },
-    { unit: 'mm', autoMode: 'elevation', rule: seg.rule, referenceIds: [...seg.referenceIds] },
+    {
+      unit: 'mm',
+      autoMode: 'elevation',
+      rule: seg.rule,
+      referenceIds: [...seg.referenceIds],
+      // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — identity: rule + measured records + the
+      // horizontal span it covers (a chain interval IS its two stations).
+      [AUTO_KEY_PARAM]: `${seg.rule}#${[...seg.referenceIds].sort().join(',')}#h@${seg.h1.toFixed(3)}-${seg.h2.toFixed(3)}`,
+    },
   );
 }
 

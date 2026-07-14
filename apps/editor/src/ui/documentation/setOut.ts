@@ -43,6 +43,8 @@ import { viewDefinitionStore, viewDependencyTracker } from '@pryzm/core-app-mode
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { autoTagView, resolveAutoTagProjection } from './autoTagActiveView.js';
 import { resolveViewFacadeFrame, selectFacadeWalls } from './facadeSelection.js';
+// §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the dimension half of the same reconcile.
+import { reconcileDimensionSet } from './reconcileDimensions.js';
 
 interface Vec3Like { x: number; y: number; z: number }
 interface OpeningRecord { id?: string; elementId?: string }
@@ -159,7 +161,14 @@ export function reconcileSetOutView(runtime: PryzmRuntime, viewId: string): numb
   if (resolveAutoTagProjection(def.viewType) === 'unsupported') return 0;
 
   const visible = visibleElementIds(viewId);
-  return autoTagView(runtime, def, { visibleIds: visible, quiet: true });
+  const tags = autoTagView(runtime, def, { visibleIds: visible, quiet: true });
+  // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the SECOND half. The founder's flow is "place a
+  // door → it is TAGGED and DIMENSIONED"; tags alone were half a feature. Same trigger, same
+  // VISIBLE set (so a crop change re-derives both), same four decisions, same one-undo commit.
+  // Dimensions are REFRESHED IN PLACE, never destroyed and reborn, so the user's dragged
+  // offsets survive a model edit (dimensionIdentity.ts).
+  const dims = reconcileDimensionSet(runtime, def, visible);
+  return tags + dims;
 }
 
 /**

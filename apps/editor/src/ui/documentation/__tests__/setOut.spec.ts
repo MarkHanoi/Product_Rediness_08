@@ -82,7 +82,15 @@ beforeEach(() => {
   w.runtime = { bus: { ringBuffer: { push: () => {} } } };
 });
 
-const tagIds = () => annotationStore.getByView('v1').map((a) => a.parameters.elementId as string).sort();
+// §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — this file's guards are the TAG guards. Since the
+// reconcile now derives DIMENSIONS too, the helper must name the tags explicitly rather than
+// sweeping up every annotation in the view (a dimension has no `elementId` parameter).
+const TAG_TYPES = new Set(['door-tag', 'window-tag', 'wall-tag', 'room-tag']);
+const tagIds = () => annotationStore.getByView('v1')
+  .filter((a) => TAG_TYPES.has(a.type))
+  .map((a) => a.parameters.elementId as string)
+  .filter(Boolean)
+  .sort();
 
 describe('Set Out is a VIEW INTENT, not a mode flag (P7 / C09)', () => {
   it('is opt-in: a view with no opinion is not live', () => {
@@ -194,11 +202,13 @@ describe('a driven edit TERMINATES — one edit, one mutation, one reconcile, se
       writes.push(reconcileSetOutView(runtime, 'v1'));
     }
 
-    // The tags were already correct (the elements did not change identity — they MOVED), so
-    // even the first pump writes nothing: the annotations follow the model by REFERENCE
-    // (L-287), not by regeneration. And every subsequent pump is silent.
-    expect(writes.every((w) => w === 0)).toBe(true);
-    // The set is still exactly the visible set — the move did not orphan or duplicate anything.
+    // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the FIRST pump may write (the wall got longer,
+    // so its DIMENSIONS re-derive: that is the feature). What termination requires is that it
+    // then SETTLES: every subsequent pump writes NOTHING. A reconcile that kept writing would
+    // be re-dirtying the model through its own output, and the editor would spin.
+    expect(writes.slice(1).every((w) => w === 0)).toBe(true);
+    // The TAG set is still exactly the visible set — the move orphaned nothing and duplicated
+    // nothing (the elements MOVED; they did not change identity).
     expect(new Set(tagIds())).toEqual(new Set([...visibleElementIds('v1')!]));
   });
 

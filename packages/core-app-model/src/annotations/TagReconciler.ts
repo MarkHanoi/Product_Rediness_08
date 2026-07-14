@@ -102,7 +102,10 @@ export interface TagTargetLike {
     readonly targetId: string;
 }
 
-export interface TagReconciliation<T extends TagTargetLike> {
+// §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — no longer constrained to `TagTargetLike`. The
+// reconciler is generic over IDENTITY now, and a dimension's identity is not "the element I
+// name" (see reconcileAnnotationSet). The four decisions never depended on the constraint.
+export interface TagReconciliation<T> {
     /** Live elements with no tag yet → CREATE one each. */
     readonly toCreate: readonly T[];
     /** Live elements whose kept tag has drifted → UPDATE it in place. */
@@ -160,19 +163,65 @@ export function reconcileTagSet<T extends TagTargetLike>(
     args: ReconcileTagSetArgs<T>,
 ): TagReconciliation<T> {
     const { category, existing, live, needsRefresh } = args;
+    // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — tags are the KEYED reconciler with a
+    // particular key: "the element I name". Everything below is the generic engine.
+    return reconcileAnnotationSet<T>({
+        annotationType: TAG_ANNOTATION_TYPE[category],
+        existing,
+        live,
+        keyOfExisting: (a) => readTagTargetId(category, a.parameters),
+        keyOfLive: (t) => t.targetId,
+        needsRefresh,
+    });
+}
+
+/**
+ * §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — THE FOUR DECISIONS, OVER ANY KEY.
+ *
+ * WHY THIS EXISTS, AND WHY IT IS NOT A SECOND RECONCILER.
+ *
+ * `reconcileTagSet` made ONE assumption beyond the four decisions: that an annotation's
+ * IDENTITY is "the element it names" — one tag per element. That is true of a tag and FALSE
+ * of a dimension: a wall carries many dimensions, and a dimension is identified by the
+ * (rule + reference-pair) it measures, not by a single element.
+ *
+ * So the four decisions were right and the KEY was wrong. The engine is generalised over the
+ * key rather than copied: tags pass "the element id", dimensions pass "the rule + refs
+ * signature", and BOTH get the same create / refresh / dedupe / un-orphan lifecycle, the same
+ * idempotence, and the same proof. A second reconciler would have been a second set of four
+ * decisions to keep in step — which is the disease this whole engine exists to cure.
+ *
+ * IDENTITY IS WHAT MAKES THE USER'S DRAG SURVIVE. An annotation whose key still matches is
+ * REFRESHED IN PLACE — it keeps its id, and therefore its presentation (its dragged offset,
+ * its moved label). It is never destroyed and reborn. Delete-and-recreate would pass every
+ * other test on the list and fail the only one that matters to an architect.
+ */
+export function reconcileAnnotationSet<T>(args: {
+    /** Only annotations of this type participate (others in the view are untouched). */
+    readonly annotationType: string;
+    readonly existing: readonly ExistingTagLike[];
+    readonly live: readonly T[];
+    /** The identity of an EXISTING annotation. `undefined` ⇒ not ours; never touched. */
+    readonly keyOfExisting: (a: ExistingTagLike) => string | undefined;
+    /** The identity of a LIVE candidate. */
+    readonly keyOfLive: (t: T) => string;
+    readonly needsRefresh?: (
+        parameters: Readonly<Record<string, unknown>> | undefined,
+        target: T,
+    ) => boolean;
+}): TagReconciliation<T> {
+    const { annotationType, existing, live, keyOfExisting, keyOfLive, needsRefresh } = args;
 
     return withAutoTagSpan('reconcile', (span): TagReconciliation<T> => {
-        const annotationType = TAG_ANNOTATION_TYPE[category];
-
         const liveById = new Map<string, T>();
-        for (const el of live) liveById.set(el.targetId, el);
+        for (const el of live) liveById.set(keyOfLive(el), el);
 
-        // Group this category's existing tags by the element they point at.
+        // Group this type's existing annotations by IDENTITY.
         const tagsByTarget = new Map<string, ExistingTagLike[]>();
         for (const tag of existing) {
             if (tag.type !== annotationType) continue;
-            const targetId = readTagTargetId(category, tag.parameters);
-            if (!targetId) continue;   // untargeted tag — user free-text; never touched
+            const targetId = keyOfExisting(tag);
+            if (!targetId) continue;   // not ours (hand-authored / untargeted) — never touched
             const bucket = tagsByTarget.get(targetId);
             if (bucket) bucket.push(tag);
             else tagsByTarget.set(targetId, [tag]);
@@ -187,23 +236,24 @@ export function reconcileTagSet<T extends TagTargetLike>(
         for (const [targetId, tags] of tagsByTarget) {
             const target = liveById.get(targetId);
             if (!target) {
-                // 4. the element is gone → every tag on it is an orphan.
+                // 4. the thing it measured/named is gone → every annotation on it is an orphan.
                 for (const t of tags) orphanTagIds.push(t.id);
                 continue;
             }
             tagged.add(targetId);
             // 3. keep the first, delete the rest.
             for (let i = 1; i < tags.length; i++) duplicateTagIds.push(tags[i]!.id);
-            // 2. refresh the kept tag only when it has actually drifted.
+            // 2. refresh the kept one IN PLACE only when it has actually drifted — it keeps its
+            //    id, and with it the user's presentation.
             const kept = tags[0]!;
             if (needsRefresh?.(kept.parameters, target)) toRefresh.push({ tagId: kept.id, target });
             else unchangedCount++;
         }
 
-        // 1. every live element with no tag.
-        const toCreate = live.filter((el) => !tagged.has(el.targetId));
+        // 1. every live element with no annotation of this type.
+        const toCreate = live.filter((el) => !tagged.has(keyOfLive(el)));
 
-        span.setAttribute('pryzm.autotag.category', category);
+        span.setAttribute('pryzm.autotag.annotation_type', annotationType);
         span.setAttribute('pryzm.autotag.live_count', live.length);
         span.setAttribute('pryzm.autotag.create_count', toCreate.length);
         span.setAttribute('pryzm.autotag.refresh_count', toRefresh.length);

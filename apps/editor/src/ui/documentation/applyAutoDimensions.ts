@@ -68,6 +68,9 @@ import { commitAnnotationSet } from './commitAnnotationSet.js';
 // which is what made every auto-dimension in the product non-associative: move a wall and
 // the dim kept its old position AND its old number. See dimensionReferences.ts.
 import { toStableReferences, type DimElementKind } from './dimensionReferences.js';
+// §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — a dimension's IDENTITY (rule + references), so a
+// live reconcile refreshes it IN PLACE and the user's dragged offset survives.
+import { AUTO_KEY_PARAM, dimensionIdentity } from './dimensionIdentity.js';
 
 // View types whose canvas draws annotations/dimensions in plan projection.
 const PLAN_VIEW_TYPES: ReadonlySet<string> = new Set(['plan', 'ceiling-plan', 'structural-plan']);
@@ -383,7 +386,16 @@ export function dimensionStringsToLinearDimAnnotations(
         geometry2D,
         // The record SAYS what it is. An associative dim re-derives; a baked one is a
         // snapshot — and the difference must be visible in the data, not inferred from it.
-        { unit: 'mm', associative: !!stable },
+        {
+          unit: 'mm',
+          associative: !!stable,
+          autoMode: 'set-out',
+          // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the dimension's IDENTITY: the rule + the
+          // references it measures. This is what lets a live reconcile REFRESH it in place
+          // instead of destroying and reborning it — and therefore what lets the user's
+          // dragged offset survive a model edit. See dimensionIdentity.ts.
+          [AUTO_KEY_PARAM]: dimensionIdentity(references, 'set-out'),
+        },
       );
     })
     // Drop degenerate zero-length segments (mirrors the manual tool's A≈B guard).

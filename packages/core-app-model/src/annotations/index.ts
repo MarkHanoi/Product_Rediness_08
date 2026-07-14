@@ -6,6 +6,10 @@
 
 export {
     reconcileTagSet,
+    // §FEAT-SET-OUT-LIVE-DIMENSIONS (L-286b) — the SAME four decisions, over any identity.
+    // Tags key on "the element I name"; dimensions key on "the rule + references I measure".
+    // One engine, one proof, one idempotence.
+    reconcileAnnotationSet,
     readTagTargetId,
     tagTargetKey,
     TAG_ANNOTATION_TYPE,
