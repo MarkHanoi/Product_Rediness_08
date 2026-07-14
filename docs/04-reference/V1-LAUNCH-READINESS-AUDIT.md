@@ -40,6 +40,39 @@ shared checkout, "looks scoped" is the trap.**
 
 ---
 
+### L-M — WHEN EVERY TEST PASSES BUT ONE, **THAT ONE IS THE DESIGN**. FIND IT BEFORE YOU BUILD.
+
+Making dimensions live in a Set Out view has an obvious wrong implementation — **delete every
+dimension and rebuild the set from scratch**. It is simpler, and it is what most people would write.
+
+**It passes almost every test you would think to write:**
+- *"add a door → it gains a dimension"* — ✅ passes.
+- *"delete a window → its dimension goes, no orphan"* — ✅ passes.
+- *"change the crop → the set matches the visible set"* — ✅ passes.
+- *"the chain still partitions the façade"* — ✅ passes.
+- *"run the reconcile twice → nothing changes"* — ✅ **passes too**, unless you additionally assert
+  that the annotation **IDs** are unchanged.
+
+**And it is catastrophically wrong**, because a rebuilt annotation is reborn with a new id — and the
+user's `offset` and `screenOverride` live **on the record**. So **every dimension line the architect
+dragged into place is silently wiped on every model edit.**
+
+**The ONE test that discriminates:** *drag a dimension, then edit the model → the drag survives* (same
+id, `offset` and `screenOverride` byte-identical). A delete-and-rebuild fails there, **and nowhere
+else**.
+
+**THE RULE: when you can name a wrong implementation that passes your whole suite, you have not yet
+written the guard that matters.** Do not go looking for it afterwards — *derive the design from it*.
+Here, the founder's own requirement (*"the user's placement must survive"*) **forced** the identity
+model: presentation lives on the record ⇒ a regeneration must be a **reconcile**, never a
+delete-and-recreate. **The discriminating test WAS the architecture.**
+
+This is the sharpest form of **L-J** (*a guard that cannot fail is not a guard*): here the guards
+*could* fail — they just could not fail **on the bug that mattered**. A suite that is green against
+the wrong implementation is not a suite, it is a decoration.
+
+---
+
 ### L-J — A GUARD THAT **CANNOT FAIL** IS NOT A GUARD. PROVE YOUR TEST CAN GO RED.
 
 I briefed an agent on the overall-dimension bug (L-281) with what I thought was the sharp
