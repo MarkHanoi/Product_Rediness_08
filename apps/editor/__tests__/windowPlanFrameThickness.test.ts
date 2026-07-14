@@ -134,6 +134,112 @@ describe('§FIX-WINDOW-PLAN-FRAME-THICKNESS (L-280) — the plan frame band is a
         expect(measuredBand).toBeCloseTo(0.025, 9);
     });
 
+    // ── §FIX-WINDOW-SYMBOL-FRAME-BRIDGE (L-289) — C09 §4.6.4c ────────────────────
+    //
+    // THE ACTUAL CAUSE, after my PEN hypothesis was REFUTED by the drawing agent
+    // (`symbolicRuleForLayer()` returns null for any `:cut` layer, so the window's CUT
+    // frame never entered the symbolic path — it got the full 0.35 mm CUT pen all along).
+    //
+    // The symbol was closing itself into a RECTANGLE by running the frame's wall-face CUT
+    // lines ACROSS THE FULL OPENING WIDTH — i.e. across the glazing. A heavy CUT line
+    // along the wall face across the glass ASSERTS A SOLID THAT IS NOT THERE, so the
+    // window read as one continuous band of full wall thickness. A window in plan reads
+    // `frame | glazing | frame`.
+    //
+    // THE FRAME WIDTH WAS NEVER WRONG (measured above) AND IS NOT TOUCHED.
+
+    /** Cut segments as (start, end) pairs in symbol-local (s = along wall, n = across). */
+    function cutSegments(win: Record<string, unknown>, lod = 'fine') {
+        const centreX = (win.offset as number) + (win.width as number) / 2;
+        const geo = (windowPlanSymbolBuilder as unknown as {
+            _computeSymbolGeometry(w: unknown, wall: unknown, lod: string): { cut: never; proj: never } | null;
+        })._computeSymbolGeometry(win, WALL, lod);
+        const pts = readSegments(geo!.cut, centreX);
+        const segs: Array<{ a: { s: number; n: number }; b: { s: number; n: number } }> = [];
+        for (let i = 0; i < pts.length - 1; i += 2) segs.push({ a: pts[i]!, b: pts[i + 1]! });
+        return segs;
+    }
+
+    it('L-289: NO CUT segment spans the glazing — the window is frame | glazing | frame', () => {
+        for (const lod of ['coarse', 'medium', 'fine']) {
+            const win = makeWindow();
+            const dims = resolveWindowDimensions(win as never);
+            const halfW = (win.width as number) / 2;
+            const clearHalf = halfW - dims.frameThickness;   // the frame's inner face
+            const EPS = 1e-6;
+
+            for (const { a, b } of cutSegments(win, lod)) {
+                // (1) No cut segment may cross the centre of the opening — that is the
+                //     glazing zone, and the cut plane does not slice the void.
+                const crossesCentre = Math.sign(a.s) * Math.sign(b.s) < 0;
+                expect(crossesCentre, `[${lod}] cut segment spans the opening centre`).toBe(false);
+
+                // (2) Every cut vertex lives ON a frame member: |s| ≥ the frame's inner
+                //     face. Anything inboard of that is a solid the cut plane never met.
+                //     (The rebate pocket at clearHalf+rebate is OUTBOARD of it, so it passes.)
+                for (const p of [a, b]) {
+                    expect(
+                        Math.abs(p.s) + EPS,
+                        `[${lod}] cut vertex at s=${p.s} lies inside the glazing band`,
+                    ).toBeGreaterThanOrEqual(clearHalf);
+                }
+            }
+        }
+    });
+
+    it('L-289: the JAMB SEAM REMAINS CLOSED — the frame face line starts ON the void edge', () => {
+        // THE ONE REAL RISK of deleting the bridge. The host wall's plan face lines are
+        // clipped at the opening's VOID EDGES; the symbol must put linework exactly there,
+        // on BOTH wall faces, or a gap opens between the wall line and the frame.
+        const win = makeWindow();
+        const dims = resolveWindowDimensions(win as never);
+        const halfW = (win.width as number) / 2;
+        const clearHalf = halfW - dims.frameThickness;
+        const halfThk = WALL_THICKNESS / 2;
+        const EPS = 1e-6;
+
+        const segs = cutSegments(win, 'fine');
+        const near = (v: number, t: number) => Math.abs(v - t) < EPS;
+
+        for (const sign of [-1, 1]) {
+            for (const n of [-halfThk, +halfThk]) {
+                // (a) A vertex sits exactly on the void edge at this wall face — the point
+                //     the wall's clipped face line terminates on.
+                const onVoidEdge = segs.some(({ a, b }) =>
+                    [a, b].some(p => near(p.s, sign * halfW) && near(p.n, n)));
+                expect(onVoidEdge, `no cut vertex on void edge s=${sign * halfW}, n=${n}`).toBe(true);
+
+                // (b) …and it is the END of the frame's FACE LINE, which runs inward along
+                //     the wall face to the frame's inner face. Wall → frame is continuous.
+                const faceLine = segs.some(({ a, b }) =>
+                    near(a.n, n) && near(b.n, n) &&
+                    ((near(a.s, sign * halfW) && near(b.s, sign * clearHalf)) ||
+                     (near(b.s, sign * halfW) && near(a.s, sign * clearHalf))));
+                expect(faceLine, `frame face line missing at n=${n}, side=${sign}`).toBe(true);
+            }
+        }
+
+        // And the jamb tick still bridges the full reveal AT the void edge, so the two wall
+        // face lines are tied together there (the seam is closed across the wall, too).
+        for (const sign of [-1, 1]) {
+            const tick = segs.some(({ a, b }) =>
+                near(a.s, sign * halfW) && near(b.s, sign * halfW) &&
+                near(Math.abs(a.n - b.n), WALL_THICKNESS));
+            expect(tick, `jamb tick missing at void edge side=${sign}`).toBe(true);
+        }
+    });
+
+    it('L-289: the degenerate case (frame ≥ half the opening) still draws the full-width face line', () => {
+        // There, the cut IS solid frame all the way across — no glazing band exists to
+        // cross, so the full-width line is the HONEST reading, not the bug.
+        const win = { ...makeWindow(), frameThickness: 0.8 };   // ≥ halfW (0.6)
+        const halfW = (win.width as number) / 2;
+        const segs = cutSegments(win, 'fine');
+        const spans = segs.some(({ a, b }) =>
+            Math.abs(a.n - b.n) < 1e-6 && Math.abs(Math.abs(a.s - b.s) - 2 * halfW) < 1e-6);
+        expect(spans).toBe(true);
+    });
+
     it('NO literal thickness survives in the symbol builder (the bug WAS literals — forbid them)', () => {
         // Same source-level assertion pattern as windowCreationParity P-4.
         const src = readFileSync(SYMBOL_SRC, 'utf8');

@@ -274,13 +274,44 @@ export class WindowPlanSymbolBuilder {
         // two jamb ticks sit on the opening VOID EDGES (∓halfW from centre = offset
         // and offset+width along the wall). That is precisely where
         // `_suppressPlanViewOpeningLines` clips the host wall's plan face lines, so
-        // the wall lines close onto the frame with no seam. The two frame face lines
-        // then bridge the void at ±halfThk, sealing the reveal into a rectangle.
+        // the wall lines close onto the frame with no seam.
         for (const sign of [-1, 1]) {
             cutSeg(at(sign * halfW, -halfThk), at(sign * halfW, +halfThk));
         }
-        for (const n of [-halfThk, +halfThk]) {
-            cutSeg(at(-halfW, n), at(+halfW, n));
+
+        // ── §FIX-WINDOW-SYMBOL-FRAME-BRIDGE (L-289) — C09 §4.6.4c ────────────
+        //
+        // A WINDOW IN PLAN READS `frame | glazing | frame`, NOT A SOLID SLAB.
+        //
+        // These wall-face lines USED TO BRIDGE THE FULL OPENING WIDTH
+        // (`cutSeg(at(-halfW, n), at(+halfW, n))`), sealing the symbol into a
+        // rectangle. But the plan cut plane slices the frame MEMBERS and the
+        // GLAZING — it does NOT slice the void between them. A heavy CUT line run
+        // along the wall face ACROSS THE GLASS ASSERTS A SOLID THAT IS NOT THERE,
+        // so the window read as ONE CONTINUOUS BAND OF FULL WALL THICKNESS — a
+        // solid slab — instead of two members with glass between them. That is
+        // exactly the founder's "the frame in plan view is much thicker than in
+        // reality", and it was NEVER the frame's WIDTH: that was measured
+        // dimensionally exact (L-280) and is deliberately left untouched here.
+        //
+        // The face lines now span ONLY THE FRAME MEMBERS — void edge → inner face,
+        // i.e. exactly `frameThickness` each side — and the glazing zone carries
+        // GLAZING LINES ONLY. The jamb seam stays closed because the host wall's
+        // own face lines are clipped at the VOID EDGES, which is where the jamb
+        // ticks above stand: wall → jamb tick → frame face line is continuous.
+        if (framed) {
+            for (const sign of [-1, 1]) {
+                for (const n of [-halfThk, +halfThk]) {
+                    cutSeg(at(sign * halfW, n), at(sign * clearHalf, n));
+                }
+            }
+        } else {
+            // DEGENERATE ONLY (`frameThickness ≥ halfWidth`): there are no distinct
+            // members and no glazing band to cross, so the full-width face line is
+            // the honest reading — the cut IS solid frame all the way across.
+            for (const n of [-halfThk, +halfThk]) {
+                cutSeg(at(-halfW, n), at(+halfW, n));
+            }
         }
 
         // ── 2. THE FRAME BLOCK (medium + fine) ───────────────────────────────
