@@ -59,8 +59,27 @@ const DEFAULT_CATEGORIES: Readonly<Record<TagProjection, readonly TagCategory[]>
     elevation: ['door', 'window', 'wall'],
 });
 
-/** The founder's reference convention: bubbles/diamonds carry the TYPE mark. */
-export const DEFAULT_TAG_MARK_SOURCE: TagMarkSource = 'type';
+/**
+ * §FIX-TAG-CONTENT-MARK-ONLY (L-291c) — A TAG DISPLAYS THE MARK. NOTHING ELSE.
+ *
+ * The default was 'type', so a window tag read "Timber Casement" while the wall tag read
+ * "WA-00-005". That is why the circle dwarfed the diamond — and shrinking the bubble without
+ * fixing the CONTENT would only have clipped the text.
+ *
+ * But the real argument is not cosmetic, it is what a tag IS:
+ *   • the MARK is the JOIN to the schedule (C28 — the door/window schedule joins on
+ *     `element.mark`; I proved that in L-265);
+ *   • "Timber Casement, 1200×1200" is what the SCHEDULE SAYS when you look that mark up.
+ *     Printing it in the bubble DUPLICATES THE SCHEDULE ONTO THE DRAWING — which is precisely
+ *     what tags exist to avoid, and precisely how a drawing drifts from its model;
+ *   • a tag carrying a TYPE NAME must be re-typeset every time the type is renamed. A tag
+ *     carrying a MARK never is.
+ *
+ * The type name remains available THROUGH INTENT (`output.tagMarkSource = 'type'`, P7/C09) for
+ * the view that genuinely wants it. It is simply not the default, and the default is what the
+ * architect sees.
+ */
+export const DEFAULT_TAG_MARK_SOURCE: TagMarkSource = 'instance';
 
 /**
  * Resolve the view's auto-tag intent.

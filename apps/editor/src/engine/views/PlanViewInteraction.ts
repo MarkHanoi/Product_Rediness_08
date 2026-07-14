@@ -429,7 +429,13 @@ export class PlanViewInteraction {
                 // not); a tag's bubble moves while its leader anchor stays on the element.
                 // `references` are not written here at ALL — not by convention, but because
                 // the patch type has no field for them.
-                const patch = planAnnotationDrag(ann, drag.origGeometry2D, dWorldX, dWorldZ);
+                // §FIX-TAG-DRAG-2D (L-291c) — hand the drag the VIEW'S PLANE. `screenToWorld`
+                // reports (H, V) in plan-named slots, so a consumer that assumes `plan` writes
+                // world Z when the user drags UP an elevation. It is published now, so nobody
+                // has to assume.
+                const patch = planAnnotationDrag(
+                    ann, drag.origGeometry2D, dWorldX, dWorldZ, this._planCanvas.viewPlaneFrame(),
+                );
                 if (patch) {
                     // Live preview only (ephemeral until mouseup commits the command).
                     const g = ann.geometry2D;
@@ -650,6 +656,7 @@ export class PlanViewInteraction {
                     drag.origGeometry2D,
                     endWorld.worldX - startWorld2.worldX,
                     endWorld.worldZ - startWorld2.worldZ,
+                    planCanvas2!.viewPlaneFrame(),
                 );
 
                 // Restore the pre-drag state so the command captures the correct prevSnapshot.

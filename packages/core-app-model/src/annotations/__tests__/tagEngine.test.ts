@@ -212,9 +212,14 @@ describe('auto-tag intent', () => {
         expect(resolveAutoTagIntent('elevation', undefined, undefined).categories).toEqual(['door', 'window', 'wall']);
     });
 
-    it('defaults to the TYPE mark — the reference-drawing convention', () => {
-        expect(resolveAutoTagIntent('plan', undefined, undefined).markSource).toBe('type');
-        expect(resolveAutoTagIntent('plan', undefined, 'instance').markSource).toBe('instance');
+    it('defaults to the INSTANCE mark — the CODE, which is the schedule join (L-291c)', () => {
+        // §FIX-TAG-CONTENT-MARK-ONLY — the default was 'type', so a window tag read "Timber
+        // Casement" while the wall tag read "WA-00-005". The type name is what the SCHEDULE
+        // says when you look the mark up (C28); printing it in the bubble duplicates the
+        // schedule onto the drawing. The mark is what a tag IS.
+        expect(resolveAutoTagIntent('plan', undefined, undefined).markSource).toBe('instance');
+        // …and the type name remains available THROUGH INTENT (P7), for the view that wants it.
+        expect(resolveAutoTagIntent('plan', undefined, 'type').markSource).toBe('type');
     });
 
     it('an explicit view switch removes a defaulted category and adds a non-defaulted one', () => {

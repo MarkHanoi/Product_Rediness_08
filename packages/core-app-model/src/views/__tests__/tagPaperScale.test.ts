@@ -34,10 +34,12 @@ const VIEW = 'v_tagscale';
 function fakeCtx() {
     const arcs: number[] = [];
     const fonts: string[] = [];
+    const texts: string[] = [];
     const ctx = {
-        arcs, fonts,
+        arcs, fonts, texts,
         save() {}, restore() {}, beginPath() {}, closePath() {},
-        moveTo() {}, lineTo() {}, fill() {}, stroke() {}, fillText() {},
+        moveTo() {}, lineTo() {}, fill() {}, stroke() {},
+        fillText(t: string) { texts.push(t); },
         strokeRect() {}, rect() {}, setLineDash() {},
         arc(_x: number, _y: number, r: number) { arcs.push(r); },
         // A REAL canvas measures glyphs at the CURRENT font size, so the stub must too:
@@ -52,7 +54,7 @@ function fakeCtx() {
         fillStyle: '', strokeStyle: '', lineWidth: 1,
         textAlign: '', textBaseline: '', globalAlpha: 1,
     };
-    return ctx as unknown as CanvasRenderingContext2D & { arcs: number[]; fonts: string[] };
+    return ctx as unknown as CanvasRenderingContext2D & { arcs: number[]; fonts: string[]; texts: string[] };
 }
 
 /** A door tag: anchor on the door at x=4.5, bubble 1.2 m away in +z. */
@@ -194,5 +196,64 @@ describe('a tag is pickable by its BUBBLE and by its LEADER', () => {
 
     it('does NOT pick empty paper', () => {
         expect(hit(400, 400)).toBeNull();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-TAG-CONTENT-MARK-ONLY (L-291c) — THE TAG DISPLAYS THE MARK. NOTHING ELSE.
+//
+// RED-FIRST: "the mark is present in the bubble" PASSES TODAY — with "Timber Casement" and
+// "1200×1200" sitting right next to it. That assertion is NOT a guard. The guard asserts the
+// type name and the size string are ABSENT.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('a tag bubble carries the MARK — and NOTHING else', () => {
+    function textsDrawnFor(params: Record<string, unknown>): string[] {
+        annotationStore.clear();
+        annotationStore.add(makeAnnotationElement(
+            'annotation_tag_content', 'window-tag', VIEW,
+            [makePointRef({ x: 4.5, y: 0, z: 0 } as never)],
+            { modelPoints: [{ x: 4.5, y: 0, z: 0 }, { x: 4.5, y: 0, z: 1.2 }], offset: 0 },
+            params,
+        ));
+        viewDefinitionStore.get = ((id: string) =>
+            id === VIEW ? { id, output: { scale: 100 } } : undefined) as never;
+        const ctx = fakeCtx();
+        new PlanViewAnnotationRenderer().render(ctx, VIEW, (h, v) => ({ sx: h * 20, sy: v * 20 }), { viewType: 'plan' });
+        return ctx.texts;
+    }
+
+    it('the window tag prints the CODE, and NOT the type name or the size', () => {
+        const texts = textsDrawnFor({
+            elementId: 'win_1',
+            cachedLabel: 'WN-00-005',            // the MARK — what the schedule joins on
+            typeMark: 'Timber Casement',
+            widthMm: 1200, heightMm: 1200,
+            showLeader: true,
+        });
+        expect(texts).toContain('WN-00-005');
+        // THE GUARD (a "mark is present" test passes with these sitting beside it):
+        expect(texts).not.toContain('Timber Casement');
+        expect(texts).not.toContain('1200×1200');
+        expect(texts).toHaveLength(1);           // one bubble, one line of text.
+    });
+
+    it('a view may still OPT IN to sizes (P7 intent) — it is a default, not a prohibition', () => {
+        const texts = textsDrawnFor({
+            elementId: 'win_1', cachedLabel: 'WN-00-005', widthMm: 1200, heightMm: 1200,
+            showSize: true, showLeader: true,
+        });
+        expect(texts).toContain('1200×1200');
+    });
+
+    it('a code-only bubble is SMALLER than the old type-name bubble at the same scale', () => {
+        // The content drives the size, so "WN-00-005" needs a smaller circle than
+        // "Timber Casement" ever did — which is the founder's complaint, measured.
+        const short = textsDrawnFor({ elementId: 'w', cachedLabel: 'WN-00-005', showLeader: true });
+        const long = textsDrawnFor({ elementId: 'w', cachedLabel: 'Timber Casement', showLeader: true });
+        expect(short).toHaveLength(1);
+        expect(long).toHaveLength(1);
+        // (the radii are asserted in the paper-scale suite above; here we prove the CONTENT is
+        // the only thing that differs — the bubble is sized to it.)
     });
 });

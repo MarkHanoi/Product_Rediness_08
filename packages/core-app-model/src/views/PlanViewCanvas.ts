@@ -212,6 +212,27 @@ export class PlanViewCanvas {
         this._hWorldSign = hSign;
     }
 
+    /**
+     * §FIX-TAG-DRAG-2D (L-291c) — the canvas's (H, V) PLANE, published.
+     *
+     * `screenToWorld()` returns its result in `{worldX, worldZ}` — PLAN names for what are, in
+     * a vertical view, the H and V axes. Anything that consumes a screen DELTA and writes a
+     * world point must therefore know which plane it is in, or it will silently write the plan
+     * axes: that is exactly how the tag drag came to move a tag in world Z (the invisible depth
+     * axis) when the user dragged it UP an elevation, leaving world Y — the axis they could
+     * see — untouched. The plane is not a secret; it is published here so no consumer has to
+     * assume `plan` and be wrong.
+     */
+    viewPlaneFrame(): { isVertical: boolean; hWorldAxis: 'x' | 'z'; hSign: 1 | -1 } {
+        return {
+            isVertical: this._viewType === 'section'
+                || this._viewType === 'elevation'
+                || this._viewType === 'building-elevation',
+            hWorldAxis: this._hWorldAxis,
+            hSign: this._hWorldSign,
+        };
+    }
+
     private _vertexToHV(v: THREE.Vector3): { h: number; vert: number } {
         return {
             h:    this._worldPointToCanvasH(v.x, v.z),

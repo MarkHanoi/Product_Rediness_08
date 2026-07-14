@@ -46,14 +46,25 @@ export const DEFAULT_SCALE_DENOMINATOR = 100;
  * and there must never be one anywhere downstream.
  */
 export const TAG_PAPER_MM = Object.freeze({
-    /** Radius of the door/window bubble (⌀ 7 mm — the drafting-standard tag circle). */
-    bubbleRadiusMm: 3.5,
-    /** Height of the mark text inside the symbol. */
-    markTextMm: 2.5,
-    /** Height of the secondary W×H text under the divider. */
-    sizeTextMm: 1.8,
+    /**
+     * §FIX-TAG-CONTENT-MARK-ONLY (L-291c) — the MINIMUM radius of the door/window bubble.
+     *
+     * A MINIMUM, not a fixed size: the symbol is sized to its CONTENT plus `padMm`, and this is
+     * the floor below which a very short mark ("D1") would still not shrink. Hardcoding a
+     * radius is what forces either a clipped mark or an oversized bubble; measuring the content
+     * lets a code-only tag be as small as its code and a longer mark still fit.
+     *
+     * ~70 % of the previous 3.5 mm, per the founder ("even smaller than the wall tag"), which
+     * a code-only tag reaches naturally now that it no longer carries a type name.
+     */
+    bubbleRadiusMm: 2.4,
+    /** Height of the mark text inside the symbol. The circle and the diamond SHARE it, so the
+     *  two read as one family rather than two unrelated glyphs. */
+    markTextMm: 1.8,
+    /** Height of the secondary W×H text — drawn ONLY when a view explicitly asks for it. */
+    sizeTextMm: 1.4,
     /** Padding between the text run and the symbol edge. */
-    padMm: 1.0,
+    padMm: 0.8,
     /** Radius of the dot drawn where the leader touches the element. */
     leaderDotMm: 0.6,
     /** Room-tag name text height. */

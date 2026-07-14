@@ -1290,10 +1290,20 @@ export class PlanViewAnnotationRenderer {
         const lineColor  = isSelected ? ANNOT_SEL_COLOR : (style.lineColor ?? symbol.defaultLineColor);
         const textColor  = isSelected ? ANNOT_SEL_COLOR : (style.textColor ?? symbol.defaultLineColor);
 
-        // Size string e.g. "900×2100" — from the tag's REAL stored dimensions (mm).
+        // §FIX-TAG-CONTENT-MARK-ONLY (L-291c) — A TAG DISPLAYS THE MARK. NOTHING ELSE.
+        //
+        // The bubble used to print "1200×1200" under the type name. Those dimensions are what
+        // the SCHEDULE says when you look the mark up (C28) — printing them here DUPLICATES THE
+        // SCHEDULE ONTO THE DRAWING, which is how a drawing drifts from its model, and it is
+        // why the circle dwarfed the wall diamond. The record still CARRIES the sizes (they are
+        // true, and the panel reads them); the drawing simply does not repeat them.
+        //
+        // A view that genuinely wants sizes on the face of the drawing opts in — `showSize`,
+        // an INTENT (P7), not a default.
+        const showSize = ann.parameters.showSize === true;
         const wMm = ann.parameters.widthMm  as number | undefined;
         const hMm = ann.parameters.heightMm as number | undefined;
-        const hasSize = (wMm != null && wMm > 0) || (hMm != null && hMm > 0);
+        const hasSize = showSize && ((wMm != null && wMm > 0) || (hMm != null && hMm > 0));
         const sizeStr = hasSize ? `${Math.round(wMm ?? 0)}×${Math.round(hMm ?? 0)}` : '';
 
         // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — EVERY size below is a PAPER

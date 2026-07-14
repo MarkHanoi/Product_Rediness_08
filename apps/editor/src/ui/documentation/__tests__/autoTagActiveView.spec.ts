@@ -157,17 +157,29 @@ describe('autoTagActiveView — plan', () => {
     expect((wallTags[0]!.parameters as Record<string, unknown>).elementId).toBe('wall_1');
   });
 
-  it('displays the TYPE mark and CARRIES the instance mark — the schedule join holds (C28)', () => {
+  it('displays the MARK (the CODE) by default — and carries the type mark too (C28)', () => {
+    // §FIX-TAG-CONTENT-MARK-ONLY (L-291c) — the default is now the INSTANCE MARK, because the
+    // mark is the JOIN to the schedule and the type name is what the schedule SAYS when you
+    // look that mark up. Printing the type name in the bubble duplicates the schedule onto the
+    // drawing (and is why the window bubble dwarfed the wall diamond).
     autoTagActiveView(runtime);
 
     const door = tagsOfType('door-tag')[0]!.parameters as Record<string, unknown>;
-    expect(door.cachedLabel).toBe('Solid Timber');   // the view's intent: type marks
-    expect(door.mark).toBe('DO-00-001');             // …and the instance mark rides along
+    expect(door.cachedLabel).toBe('DO-00-001');      // the CODE — what the schedule joins on
+    expect(door.typeMark).toBe('Solid Timber');      // …carried in the record, not on the face
     expect(door.elementId).toBe('door_1');
 
     const wall = tagsOfType('wall-tag')[0]!.parameters as Record<string, unknown>;
-    expect(wall.cachedLabel).toBe('WallA');
-    expect(wall.mark).toBe('WA-00-001');
+    expect(wall.cachedLabel).toBe('WA-00-001');
+    expect(wall.typeMark).toBe('WallA');
+  });
+
+  it('a view may still ask for the TYPE name — it is an INTENT (P7), not a prohibition', () => {
+    VIEW_DEF = { ...PLAN_VIEW, output: { tagMarkSource: 'type' } };
+    autoTagActiveView(runtime);
+    const door = tagsOfType('door-tag')[0]!.parameters as Record<string, unknown>;
+    expect(door.cachedLabel).toBe('Solid Timber');
+    expect(door.mark).toBe('DO-00-001');             // …and the join still rides along
   });
 
   it('honours the VIEW INTENT (P7/C09): a view that wants no wall tags gets none', () => {
@@ -181,7 +193,7 @@ describe('autoTagActiveView — plan', () => {
     VIEW_DEF = { ...PLAN_VIEW, output: { tagMarkSource: 'instance' } };
     autoTagActiveView(runtime);
     const door = tagsOfType('door-tag')[0]!.parameters as Record<string, unknown>;
-    expect(door.cachedLabel).toBe('DO-00-001');
+    expect(door.cachedLabel).toBe('DO-00-001');   // …which is now also the DEFAULT.
   });
 
   it('anchors the tag ON the element with a LEADER to the symbol', () => {
@@ -307,7 +319,7 @@ describe('autoTagActiveView — elevation', () => {
     expect(wallTags).toHaveLength(2);
     expect(wallTags.map((t) => (t.parameters as Record<string, unknown>).elementId).sort())
       .toEqual(['wall_1', 'wall_2']);
-    expect((wallTags[0]!.parameters as Record<string, unknown>).cachedLabel).toBe('WallA');
+    expect((wallTags[0]!.parameters as Record<string, unknown>).cachedLabel).toBe('WA-00-001');
   });
 
   it('IS IDEMPOTENT in elevation too', () => {

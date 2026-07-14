@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { makeAnnotationElement, makePointRef, resolveReferenceToPoint } from '@pryzm/plugin-annotations';
 import { toStableReference, toStableReferences } from '../dimensionReferences';
-import { planAnnotationDrag, dimOffsetAxis, isMeasuredAnnotation } from '../annotationDragIntent';
+import { planAnnotationDrag, dimOffsetAxis, isMeasuredAnnotation, PLAN_FRAME } from '../annotationDragIntent';
 
 // A 10 m wall along +X, 0.2 m thick, with a 1 m door whose LEFT EDGE is at 4 m.
 const WALL = {
@@ -159,5 +159,78 @@ describe('a drag is a PRESENTATION edit — it moves the LINE, never the measure
   it('knows which annotations are MEASUREMENTS (their points are a cache, not a position)', () => {
     expect(isMeasuredAnnotation('linear-dim')).toBe(true);
     expect(isMeasuredAnnotation('door-tag')).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-TAG-DRAG-2D (L-291c) — A TAG BUBBLE IS A FREE 2-D PLACEMENT.
+//
+// The founder: "they only move left or right — it would be great if they would move up and
+// down." The RECORD always supported it (`screenOverride` is {x,y}; a symbol point is a full
+// world point). The DRAG HANDLER was writing the PLAN axes and leaving world Y hardcoded — so
+// in an ELEVATION a vertical drag wrote world Z (the invisible depth axis) and the bubble
+// refused to climb.
+//
+// RED-FIRST: a test that drags HORIZONTALLY passes TODAY — that is the vacuous-guard trap the
+// coordinator named. So every assertion below drags DIAGONALLY and asserts BOTH axes move.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('a tag drags freely in the VIEW\'S plane — both axes, both projections', () => {
+  const tag = () => makeAnnotationElement(
+    'annotation_t2', 'door-tag', 'v1',
+    [makePointRef({ x: 4.5, y: 1.05, z: 0 } as never)],
+    {
+      modelPoints: [
+        { x: 4.5, y: 1.05, z: 0 },     // the leader ANCHOR, on the door
+        { x: 4.5, y: 2.80, z: 0 },     // the bubble
+      ],
+      offset: 0,
+    },
+    { elementId: 'door_1', cachedLabel: 'D-01', showLeader: true },
+  );
+
+  it('PLAN — a DIAGONAL drag moves the bubble on BOTH plan axes (X and Z)', () => {
+    const t = tag();
+    const patch = planAnnotationDrag(t, t.geometry2D, 2, 3, PLAN_FRAME)!;
+    expect(patch.symbolPoint).toEqual({ x: 6.5, y: 2.8, z: 3 });   // x AND z moved
+  });
+
+  it('*** ELEVATION — a DIAGONAL drag moves the bubble UP (world Y), not into the depth ***', () => {
+    const t = tag();
+    const frame = { isVertical: true, hWorldAxis: 'x' as const, hSign: 1 as const };
+    const patch = planAnnotationDrag(t, t.geometry2D, 2, 3, frame)!;
+
+    // THE GUARD: the vertical component lands on world Y — the axis the user can SEE.
+    expect(patch.symbolPoint!.y).toBeCloseTo(2.8 + 3, 9);
+    expect(patch.symbolPoint!.x).toBeCloseTo(4.5 + 2, 9);
+    // …and it does NOT land on world Z, which was the bug: the tag slid sideways only, while
+    // its "vertical" motion vanished into the depth axis nobody can see in an elevation.
+    expect(patch.symbolPoint!.z).toBeCloseTo(0, 9);
+  });
+
+  it('ELEVATION on the OTHER horizontal axis — H is world Z, V is still world Y', () => {
+    const t = tag();
+    const frame = { isVertical: true, hWorldAxis: 'z' as const, hSign: 1 as const };
+    const patch = planAnnotationDrag(t, t.geometry2D, 2, 3, frame)!;
+    expect(patch.symbolPoint).toEqual({ x: 4.5, y: 5.8, z: 2 });
+  });
+
+  it('the LEADER ANCHOR never moves — the drag cannot reach a reference (L-287)', () => {
+    const t = tag();
+    const frame = { isVertical: true, hWorldAxis: 'x' as const, hSign: 1 as const };
+    const patch = planAnnotationDrag(t, t.geometry2D, 2, 3, frame)!;
+    // The patch carries ONLY the symbol. modelPoints[0] — the point ON THE DOOR — is not in it,
+    // and there is no field through which it could be. The leader simply STRETCHES.
+    expect(Object.keys(patch)).toEqual(['symbolPoint']);
+    expect(t.geometry2D.modelPoints[0]).toEqual({ x: 4.5, y: 1.05, z: 0 });
+  });
+
+  it('a DIMENSION is still 1-D — its line moves perpendicular to what it measures, and nowhere else', () => {
+    // The two presentation models are genuinely different, and this is the one that must NOT
+    // become free: a dim line that drifts along its own measurement axis is just wrong.
+    const d = dim(0.5);
+    const patch = planAnnotationDrag(d, d.geometry2D, 5, 2, PLAN_FRAME)!;
+    expect(Object.keys(patch)).toEqual(['offset']);
+    expect(patch.offset).toBeCloseTo(0.5 + 2, 9);   // only the perpendicular component
   });
 });

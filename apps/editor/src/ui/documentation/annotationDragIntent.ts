@@ -69,21 +69,70 @@ export function dimOffsetAxis(ann: AnnotationElement): Vec2 | null {
 export function planAnnotationDrag(
   ann: AnnotationElement,
   origGeometry2D: AnnotationElement['geometry2D'],
-  dWorldX: number,
-  dWorldZ: number,
+  dH: number,
+  dV: number,
+  frame: ViewPlaneFrame = PLAN_FRAME,
 ): AnnotationPresentationPatch | null {
   if (isMeasuredAnnotation(ann.type)) {
     const axis = dimOffsetAxis(ann);
     if (!axis) return null;
     // Signed component of the drag along the offset axis — "forward and backward".
-    const delta = dWorldX * axis.x + dWorldZ * axis.z;
+    // A DIMENSION genuinely is 1-D in its presentation: its line moves perpendicular to what
+    // it measures, and nowhere else. That is correct, and it stays.
+    const delta = dH * axis.x + dV * axis.z;
     return { offset: (origGeometry2D.offset ?? 0) + delta };
   }
 
   const pts = origGeometry2D.modelPoints ?? [];
   const symbol = pts.length >= 2 ? pts[pts.length - 1] : pts[0];
   if (!symbol) return null;
-  return {
-    symbolPoint: { x: symbol.x + dWorldX, y: symbol.y, z: symbol.z + dWorldZ },
-  };
+
+  // §FIX-TAG-DRAG-2D (L-291c) — A TAG BUBBLE IS A FREE 2-D PLACEMENT, IN THE VIEW'S OWN PLANE.
+  //
+  // The founder: "they only move left or right — it would be great if they would move up and
+  // down." The RECORD was never the constraint; this function was. It used to write
+  //     { x: symbol.x + dWorldX, y: symbol.y, z: symbol.z + dWorldZ }
+  // — i.e. it moved the bubble in the PLAN axes and left world Y HARDCODED. In a plan that is
+  // right by coincidence (screen = XZ). In an ELEVATION the screen's vertical axis IS world Y,
+  // so dragging a tag upward wrote world Z — the DEPTH axis, invisible in that view — and the
+  // bubble slid sideways and refused to climb. The plan-first disease, in the drag handler.
+  //
+  // The delta now travels the view's plane, exactly as the renderer projects through it: V is
+  // world Y in a vertical view, world Z in a plan. Nothing about the leader changes — its
+  // anchor (`modelPoints[0]`) is on the ELEMENT and this patch cannot reach it (L-287), so the
+  // leader simply STRETCHES to wherever the bubble now is.
+  return { symbolPoint: offsetInPlane(symbol, dH, dV, frame) };
+}
+
+/** The view's (H, V) plane — the same one `ViewPlane`/`PlanViewCanvas` already speak. */
+export interface ViewPlaneFrame {
+  readonly isVertical: boolean;
+  readonly hWorldAxis: 'x' | 'z';
+  readonly hSign: 1 | -1;
+}
+
+/** A plan: H = world X, V = world Z. The default, and now an EXPLICIT one. */
+export const PLAN_FRAME: ViewPlaneFrame = { isVertical: false, hWorldAxis: 'x', hSign: 1 };
+
+/**
+ * Move a world point by a screen-plane delta, IN THE VIEW'S PLANE.
+ *
+ * PURE + exported, so "a diagonal drag moves both axes, in either projection" is a unit test
+ * rather than a hope.
+ */
+export function offsetInPlane(
+  p: { x: number; y: number; z: number },
+  dH: number,
+  dV: number,
+  frame: ViewPlaneFrame,
+): { x: number; y: number; z: number } {
+  if (!frame.isVertical) {
+    // PLAN: H = X, V = Z. (Depth — world Y — is not a thing you can drag on a plan.)
+    return { x: p.x + dH, y: p.y, z: p.z + dV };
+  }
+  // ELEVATION / SECTION: V is world Y (height). H is the view's horizontal world axis, which
+  // `screenToWorld` already reports in the canvas's own H slot — so it needs no re-signing here.
+  return frame.hWorldAxis === 'x'
+    ? { x: p.x + dH, y: p.y + dV, z: p.z }
+    : { x: p.x, y: p.y + dV, z: p.z + dH };
 }
