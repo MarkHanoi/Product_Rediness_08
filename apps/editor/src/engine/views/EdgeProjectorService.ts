@@ -67,7 +67,7 @@ import { windowPlanSymbolBuilder } from '@pryzm/geometry-window';
 // §FIX-PLAN-LAYERED-WALL-SYMBOL (L-62) — internal layer-boundary lines for LAYERED walls in
 // plan (the wall's OUTER footprint is already projected; this adds the core+finish lines).
 import { wallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
-// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.6 — the wall's ISO 13567 / Revit
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the wall's ISO 13567 / Revit
 // FUNCTION (envelope vs. partition). geometry-wall owns the wall semantics; core-app-model owns
 // the pen. This service is the ONE place the fact crosses from the model into the drawing.
 import { resolveWallFunctionById, wallSystemTypeStore } from '@pryzm/geometry-wall';
@@ -786,7 +786,7 @@ function _suppressWallOpeningSeams(
 /**
  * §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — DOES *THIS SOLID* MEET THE PLAN CUT PLANE?
  *
- * The plan half of the granularity rule (C09 §4.6.6). The answer depends on the mesh's OWN
+ * The plan half of the granularity rule (C09 §4.6.4a). The answer depends on the mesh's OWN
  * world AABB and on NOTHING ELSE — not on its parent group, not on what it hosts, not on
  * what hosts it. Identical straddle test to `buildPlanCutSectionGeometry`'s cheap reject, so
  * the CUT LINEWORK and the CUT FACE can never disagree about whether a solid is cut.
@@ -1229,7 +1229,7 @@ function getMeshWorldAABB(mesh: THREE.Mesh): THREE.Box3 | null {
  * — always, by construction — within 15 cm of the WALL FACE. The wall's entire front
  * silhouette, INCLUDING the jamb and head edges bounding the opening, flipped to `:cut` in the
  * same frame the door did. It read exactly like host→hosted propagation. It is not: it is a
- * classifier asking *"is this edge NEAR the plane?"* when the only legal question (C09 §4.6.6)
+ * classifier asking *"is this edge NEAR the plane?"* when the only legal question (C09 §4.6.4a)
  * is *"does THIS SOLID intersect the plane?"*
  *
  * `solidIntersectsCutPlane` is that question's answer, supplied by the caller from THAT SOLID's
@@ -2227,7 +2227,7 @@ export class EdgeProjectorService {
                 // A-1: element UUID stamped by NativeElementMeshExporter.exportForView()
                 const elementUUID = group.userData.elementUUID as string | undefined;
 
-                // ═══ §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.6 ═══
+                // ═══ §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.4a ═══
                 //
                 // The element TYPE's ISO 13567 / Revit FUNCTION, resolved ONCE per element and
                 // stamped onto every sub-layer it emits (below, in `addProjectedLayer`). The
@@ -2347,7 +2347,7 @@ export class EdgeProjectorService {
                 // classified as one blob, so the cut/projection question was answered for a
                 // BAG OF SOLIDS rather than for a solid. `solidIsCut` is computed from THAT
                 // MESH's world AABB against THAT VIEW's plane and from nothing else — not from
-                // its parent group, not from what it hosts, not from what hosts it (C09 §4.6.6).
+                // its parent group, not from what it hosts, not from what hosts it (C09 §4.6.4a).
                 const perElemLayerGeos = new Map<string, EdgeGeoPart[]>();
                 const perElemLayerCutGeos = new Map<string, CutSectionPart[]>();
 

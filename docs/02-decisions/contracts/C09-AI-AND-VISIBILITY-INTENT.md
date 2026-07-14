@@ -372,6 +372,126 @@ plan.
   dash is an ISO 128-24 *category* convention, not a hidden-line reading. `DATUM_CATEGORIES`
   enumerates them; the merge-blocking ladder guard skips exactly those three and no others.
 
+**§4.6.4a — THE FUNCTION AXIS: `pen = f(ZONE, CATEGORY, FUNCTION)`** *(added by L-285,
+§FEAT-PEN-WEIGHT-BY-WALL-FUNCTION; normative)*
+
+§4.6.4 says a cut wall outweighs a projected wall. It does not say **which wall is the
+building**. A 100 mm partition and a 300 mm shell draw with the same pen, and the eye cannot
+find the envelope. The pen therefore takes a third axis — exactly what ISO 13567
+sub-categorisation and Revit's subcategory line weights exist for:
+
+| function | meaning | weight scale |
+|---|---|---|
+| `exterior` | part of the building **ENVELOPE** — it separates inside from outside | **1.00** (the datum) |
+| `interior` | it subdivides the inside — a partition, **however thick** | **0.70** |
+| *(undeclared)* | the model does not say | **1.00 — unmodulated** |
+
+**(a) THE FUNCTION IS NOT THE THICKNESS.** Keying the pen off `wall.thickness` is the obvious
+implementation and it is **in breach**: a 300 mm ACOUSTIC or PARTY wall is INTERIOR and would
+draw as heavy as the shell — leaving the envelope unreadable in precisely the buildings (flats,
+hotels) where finding it matters most — and a thin EXTERIOR infill panel would vanish. Thickness
+is a coincidence of construction; **FUNCTION is the drawing fact.** It is **DECLARED on the
+element's TYPE** (`WallSystemType.function`, as IFC's `IfcWallTypeEnum` and Revit's *Function*
+parameter model it) and MUST NOT be inferred from geometry.
+
+**(b) NOR FROM THE LAYER STACK.** `WallLayer.function` is a *layer* function, not a *wall*
+function: the built-in `wt-interior-partition` has a layer whose function is literally
+`finish-exterior` (its outer plaster face). Sniffing for one would classify a partition as
+envelope — the defect this rule exists to prevent, reintroduced by its own fix.
+
+**(c) THE ZONE LADDER IS SACRED.** FUNCTION modulates **within** a zone; it **NEVER** reorders
+zones. Both halves are normative and both are guarded:
+
+> `weight(CUT, ·, interior) < weight(CUT, ·, exterior)` — the new fact; **AND**
+> `weight(CUT, ·, ANY fn) > weight(PROJECTION, ·, ANY fn)` — §4.6.4, still strictly true.
+
+An interior CUT wall (0.50 × 0.70 = **0.35 mm**, an existing ISO line-group width) is lighter
+than an exterior CUT wall and **still heavier than any projection line**. A guard that asserts
+only the modulation silently undoes L-277.
+
+**(d) ONLY THE HIERARCHY ZONES ARE MODULATED — `CUT` and `PROJECTION`.** `BEYOND` and `HIDDEN`
+are **de-emphasis** zones: their pen says *"this is background — read past it"*, not *"how
+important is this"*, and whether a faint grey background line is envelope or partition is not a
+question the drawing asks. It is also a **ladder invariant**: since L-277 those two zones carry
+the SAME base width (0.09 mm — they differ by DASH, not by weight), so modulating one puts an
+interior BEYOND (0.063) *under* an exterior HIDDEN (0.09) and **inverts the bottom of the
+§4.6.4 ladder**. The merge-blocking guard caught exactly this on the feature's first run.
+
+**(e) UNDECLARED IS AN ANSWER, NOT A GAP.** An element whose type declares no function — the
+default "Monolithic" wall type, which is what a user draws with until they choose one — is
+**UNMODULATED**: bit-identical to its pre-L-285 pen. There is no default-guess branch, so no
+existing drawing silently re-weights and no wall is promoted to "envelope" because a heuristic
+liked its thickness.
+
+**(f) THE MODULATION IS APPLIED AT THE END OF THE RULE CHAIN.** `GraphicsRulesEngine.
+resolveStyle()` applies it **after** the intent/view/element tiers, never by seeding
+`resolvePen()`'s base value. `_intentRules()` **always** contributes a `widthMm` at priority
+1000, so anything written into the base is unconditionally overwritten downstream — an axis fed
+into the base is a **no-op with a green unit test**, which is the precise mechanism that nearly
+cost L-277 its `hidden` pen. It is also what the axis *means*: FUNCTION must scale whatever the
+chain resolved, so a user who re-weights the `wall` category still gets his envelope drawn
+heavier than his partitions.
+
+*Types:* `packages/core-app-model/src/drawing/ElementFunction.ts` (the drawing half — the axis,
+the scale, the modulated-zone set) and `packages/geometry-wall/src/WallFunction.ts` (the wall
+half — what the wall's type declares). The boundary is deliberate: **FUNCTION is a wall-domain
+fact; the PEN is a drawing fact.** `EdgeProjectorService` is the one place the fact crosses,
+stamping it on the projected `LineSegments.userData` (`ELEMENT_FUNCTION_KEY`) — the same
+transport `elementUUID` and `VIEW_DEPTH_KEY` already use.
+
+**§4.6.4b — THE PEN TABLE IS THE *ONLY* PEN AUTHORITY, INCLUDING FOR SYMBOLS** *(added by
+L-280, §FIX-WINDOW-PLAN-FRAME-THICKNESS; normative)*
+
+A **symbolic renderer** (door swing, window cased opening — Contract-25a §3.4) dispatches
+**SYMBOL GEOMETRY**. It MUST NOT resolve a pen. Every line in a drawing — symbol or not —
+takes the pen that `graphicsRulesEngine.resolveStyle(zone, category, { …, elementFunction })`
+returns for **the segment's own zone**, composed with the VG factor and the hairline **once**,
+by the canvas.
+
+*The defect this closes.* `PlanViewCanvas` resolved the pen correctly and then, for door and
+window symbols, discarded it: it re-resolved an appearance via `resolveIntentStyle(…,
+'projection', …)` — **the state hard-coded** — and `SymbolicRuleRenderer` stroked
+`appearance.line.weight` over the top. Consequences, both shipped:
+
+- **The zone was discarded for the only two element types that have symbols.**
+  `symbolicRuleForLayer()` declines `-CUT` and `-BEYOND`, so what reached the symbolic path was
+  `-PROJ` **and `A-DOOR-HIDDEN` / `A-GLAZ-HIDDEN` — the layers `applyOcclusion()` demotes onto**
+  (§4.6.5). An OCCLUDED door frame painted **SOLID, at the PROJECTION weight**. L-277 named the
+  `hidden` zone, produced it and priced it; this flattened all three back to `projection`.
+- **The rule chain was skipped.** `resolveIntentStyle` is the INTENT tier alone (priority 1000);
+  `resolveStyle()` runs that tier **and then** the VIEW (9000) and ELEMENT (10000) tiers and the
+  VG weight factor. Per-element pen overrides therefore reached every line in the drawing
+  **except** door and window symbols.
+- …and consequently **no new pen axis could ever reach a symbol** — §4.6.4a would have been
+  built, tested at the seam, and been invisible on screen for hosted elements. L-280 and L-285
+  were **one bug**.
+
+**A symbol renderer MUST receive a fully-resolved, screen-space pen (`SymbolPen`) and MUST NOT
+import the pen table, the intent resolver, or `SCREEN_PX_PER_MM`.** It cannot re-decide a weight
+if it is not given the means to.
+
+**§4.6.4c — A WINDOW IN PLAN READS `frame | glazing | frame`, NOT A SOLID SLAB** *(L-280,
+drawing convention; normative for plan symbols)*
+
+The plan cut plane slices a window's **frame members** and its **glazing** (they are solids at
+sill+ height — §4.6.1a). It does **not** slice the void between them. Therefore:
+
+- the frame's **wall-face lines are CUT linework and MUST span only the frame members**
+  (`±halfWidth → ±(halfWidth − frameThickness)` each side);
+- they **MUST NOT be bridged across the full opening width**. A heavy CUT line drawn along the
+  wall face *across the glazing* asserts a solid that is not there, and closes the symbol into a
+  rectangle: the window then reads as **one continuous band of the full wall thickness** — a
+  solid slab — instead of two members with glass between them. That is what the founder sees.
+- The jamb seam is *already* sealed without the bridge: the host wall's face lines are clipped
+  at the opening's **void edges** (`_suppressPlanViewOpeningLines`), which is exactly where the
+  frame's jamb ticks stand, so wall → frame is continuous and the glazing zone carries **glazing
+  lines only**.
+
+*(Implementation note: the bridging lines live in `WindowPlanSymbolBuilder._computeSymbolGeometry`
+— the `for (const n of [-halfThk, +halfThk]) cutSeg(at(-halfW, n), at(+halfW, n))` pair. The full
+bridge remains correct **only** in the degenerate `!framed` case, where `frameThickness ≥
+halfWidth` and there are no distinct members to draw.)*
+
 **§4.6.5 — Occlusion is ONE engine, three consumers.** There MUST NOT be a second occluder
 implementation per view type. The single entry point is
 **`applyOcclusion(drawing, { disposition, minProjectionOccluderDepth })`**

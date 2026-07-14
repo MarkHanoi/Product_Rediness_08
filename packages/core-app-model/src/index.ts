@@ -40,7 +40,7 @@ export type {
 export type { PenStyle, PenZone } from './drawing/PenWeightTable.js';
 export { FALLBACK_PEN, resolvePen, penZoneFromLayerName, drawingZoneFromLayer, categoryFromFlags } from './drawing/PenWeightTable.js';
 
-// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.6, the pen's THIRD axis. FUNCTION
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.4a, the pen's THIRD axis. FUNCTION
 // modulates the weight WITHIN a zone (an interior CUT wall is lighter than an exterior CUT
 // wall — and STILL heavier than any PROJECTION line). It is the element TYPE's ISO 13567 /
 // Revit function, NEVER its thickness. `geometry-wall` owns the wall half (`WallFunction.ts`).

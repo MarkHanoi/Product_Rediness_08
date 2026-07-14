@@ -17,7 +17,7 @@ import { resolveViewScope } from './ViewScope';
 import { categoryFromFlags } from '../drawing/PenWeightTable';
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
 import { drawingZoneFromLayerName, penZoneOf } from '../drawing/DrawingZone';
-// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.6 — the third pen axis. The projector
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the third pen axis. The projector
 // stamps the element TYPE's function on the projected LineSegments; this is where it is read.
 import { elementFunctionFrom, ELEMENT_FUNCTION_KEY } from '../drawing/ElementFunction';
 import type { PenStyle } from '../drawing/PenWeightTable';

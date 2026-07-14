@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  *
  * §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) + §FIX-WINDOW-PLAN-FRAME-THICKNESS (L-280, the
- * rendering half) — C09 §4.6.4 / §4.6.6, Contract-23 §7.1 + §8.
+ * rendering half) — C09 §4.6.4 / §4.6.4a, Contract-23 §7.1 + §8.
  *
  * ═══ WHY THESE TWO TICKETS ARE ONE TEST FILE ═══
  *

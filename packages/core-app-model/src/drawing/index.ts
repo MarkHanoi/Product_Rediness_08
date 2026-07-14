@@ -46,7 +46,7 @@ export {
     categoryFromFlags,
 } from './PenWeightTable.js';
 
-// ── §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.6, the third pen axis ──
+// ── §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.4a, the third pen axis ──
 export type { ElementFunction } from './ElementFunction.js';
 export {
     ELEMENT_FUNCTIONS,

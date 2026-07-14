@@ -19,7 +19,7 @@
  */
 
 import { type PenStyle, type PenZone, resolvePen } from './PenWeightTable';
-// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.6 — the third pen axis.
+// §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the third pen axis.
 import { type ElementFunction, penWidthScale } from './ElementFunction';
 import { styleResolverCacheKey } from './DrawingConstants';
 import { resolveIntentPenStyle } from '../presentation/IntentRuleResolver';
@@ -188,7 +188,7 @@ export class GraphicsRulesEngine {
         //     BASE of a chain that always overwrites the base is a no-op with a test that
         //     passes. VERIFY AT THE OUTCOME: the outcome is this function's return value.
         //
-        //  2. It is also what the axis MEANS. FUNCTION modulates *within* a zone (C09 §4.6.6):
+        //  2. It is also what the axis MEANS. FUNCTION modulates *within* a zone (C09 §4.6.4a):
         //     it must scale whatever the intent/view/element chain resolved, so a user who
         //     re-weights the `wall` category still gets his envelope drawn heavier than his
         //     partitions. A base-only application would give that user a flat drawing again.

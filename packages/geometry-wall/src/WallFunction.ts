@@ -42,7 +42,7 @@
  * "envelope" because a heuristic liked its thickness.
  *
  * Contract compliance:
- *   C09 §4.6.6     — the Function axis of the pen table (drawing half: `ElementFunction.ts`)
+ *   C09 §4.6.4a     — the Function axis of the pen table (drawing half: `ElementFunction.ts`)
  *   Contract §03-1.3 — WallSystemType is the project-level wall TYPE resource; this is a
  *                      property OF THE TYPE, exactly as IFC and Revit model it
  *   P8             — pure, deterministic, allocation-free store read on the projection path;

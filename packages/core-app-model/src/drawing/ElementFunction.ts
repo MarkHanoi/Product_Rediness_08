@@ -1,7 +1,7 @@
 /**
  * ElementFunction — §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285)
  *
- * THE THIRD AXIS OF THE PEN TABLE (C09 §4.6.6 / Contract-23 §8).
+ * THE THIRD AXIS OF THE PEN TABLE (C09 §4.6.4a / Contract-23 §8).
  *
  * L-277 shipped `pen = f(ZONE, CATEGORY)`. That is enough to say "a cut wall is heavier
  * than a projected wall". It is NOT enough to say **which wall is the building**.
@@ -56,7 +56,7 @@
  * blow the C10 perf budget.
  *
  * Contract compliance:
- *   C09 §4.6.6     — the Function axis (this file is its type)
+ *   C09 §4.6.4a     — the Function axis (this file is its type)
  *   Contract-23 §8 — `resolvePen(zone, category, function?)` consumes `ElementFunction`
  *   P5/§05         — pure data classifier: no DOM, no THREE, no I/O, no store reads
  *   P7             — the function→weight scale is VIEW INTENT, overridable through the
@@ -87,7 +87,7 @@ export const ELEMENT_FUNCTIONS: readonly ElementFunction[] = Object.freeze([
     'exterior', 'interior',
 ] as const);
 
-// ─── The modulation (C09 §4.6.6) ──────────────────────────────────────────────
+// ─── The modulation (C09 §4.6.4a) ──────────────────────────────────────────────
 
 /**
  * The weight multiplier each function applies to its (zone × category) pen.
@@ -118,7 +118,7 @@ export function functionWeightScale(fn: ElementFunction | null | undefined): num
     return fn ? FUNCTION_WEIGHT_SCALE[fn] : 1;
 }
 
-// ─── WHICH ZONES THE FUNCTION MODULATES (C09 §4.6.6) ──────────────────────────
+// ─── WHICH ZONES THE FUNCTION MODULATES (C09 §4.6.4a) ──────────────────────────
 
 /**
  * **THE FUNCTION MODULATES `CUT` AND `PROJECTION`. IT DOES NOT TOUCH `BEYOND` OR `HIDDEN`.**
