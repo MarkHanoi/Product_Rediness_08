@@ -20,6 +20,29 @@ import { UpdateHandrailCommand }             from '@pryzm/command-registry';
 // §FEAT-UNIFORM-MATERIAL-COMMAND (L-08) — one uniform material-set dispatch surface.
 import { dispatchSetMaterial, materialUnsupportedReason } from './MaterialDispatch';
 
+/**
+ * §FIX-COMMAND-REJECTION-SURFACED (Gate G7, P8 / C11 §5) — a rejected command must SURFACE.
+ *
+ * Every dispatch in this file used to end in `.catch(e => console.error(...))`. That is how
+ * `wall.setColor` stayed broken: it was rejected at `canExecute` (it sent `{ wallId }` while
+ * the handler that claimed the type required `{ id }`), the rejection went to a console
+ * nobody reads, and the inspector's live mesh repaint told the user it had worked. The
+ * command system said NO and nobody heard it — the L-214 / L-218 / L-220 defect class.
+ *
+ * Now every failure reaches the user on the same `pryzm:toast` channel the 3-D drag path
+ * uses. Best-effort: a missing toast bus must never mask the underlying error.
+ */
+function surfaceCommandFailure(noun: string, commandType: string, e: unknown): void {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[PropertyInspectorApply] ${commandType} failed:`, e);
+    try {
+        window.runtime?.events?.emit('pryzm:toast', {
+            message: `Couldn't update the ${noun} — ${msg}`,
+            severity: 'error',
+        });
+    } catch { /* toast bus optional */ }
+}
+
 /** Normalise a colour token to `#rrggbb`. Mirrors the inline colorMap used later
  *  in this file so the uniform material dispatch below emits a valid hex string. */
 function normalizeHexColor(raw: string): string {
@@ -490,31 +513,48 @@ export function applyChanges(ctx: ApplyContext): void {
         console.log("[WARDROBE TRACE] INSPECTOR DISPATCH:", { id: d.id, ...updates });
     }
 
+    // §FIX-MATERIAL-REACHES-RECORD (Gate G7) — slab DIMENSIONS.
+    //
+    // The material fields are already gone by here: dispatchSetMaterial above now has a live
+    // slab route (`slab.updateDimensions` → UpdateSlabDimensionsCommand → geometry slabStore)
+    // and strips them on success. What remains is width/depth/thickness — which used to ride
+    // the SAME dead command. `slab.update` is claimed by the plugin UpdateSlabHandler, which
+    // `produceCommand`s against the DETACHED plugin DTO store (a fresh `new SlabStore()` from
+    // PluginRegistry): nothing in production reads it and no committer bridges it back. So
+    // slab dimensions were dead for exactly the same reason slab material was. Same bridge,
+    // same command — UpdateSlabDimensionsCommand owns width/depth/thickness AND the material
+    // fields (UpdateSlabCommand deliberately THROWS on them).
     if (type === 'slab' && (updates.width !== undefined || updates.depth !== undefined || updates.thickness !== undefined || updates.materialColor !== undefined || updates.materialId !== undefined)) {
-        const payload: any = { id: d.id, ...updates };
-        const colorInput = ctx.element.querySelector('[data-key="materialColor"]') as HTMLInputElement;
-        if (colorInput) payload.materialColor = colorInput.value;
-        console.log("COMMAND PAYLOAD:", payload);
-        window.runtime?.bus?.executeCommand('slab.update', payload)
-            ?.catch((e: unknown) => console.error('[PropertyInspectorApply] slab.update failed:', e));
+        const payload: any = { slabId: elementId };
+        if (updates.width     !== undefined) payload.width     = Number(updates.width);
+        if (updates.depth     !== undefined) payload.depth     = Number(updates.depth);
+        if (updates.thickness !== undefined) payload.thickness = Number(updates.thickness);
+        // Only present if dispatchSetMaterial did NOT already claim them (it returns false
+        // when there is nothing to apply) — never dispatch the same field twice (C16).
+        if (updates.materialColor !== undefined) payload.materialColor = updates.materialColor;
+        if (updates.materialId    !== undefined) payload.materialId    = updates.materialId;
+        window.runtime?.bus?.executeCommand('slab.updateDimensions', payload)
+            ?.catch((e: unknown) => surfaceCommandFailure('slab', 'slab.updateDimensions', e));
         ctx.callbacks.onUnselect();
         ctx.element.style.display = 'none';
         return;
     }
-    if (type === 'wall' && (updates.height !== undefined || updates.thickness !== undefined || updates.materialColor !== undefined || updates.materialId !== undefined)) {
-        const hasDimensionChange = updates.height !== undefined || updates.thickness !== undefined;
-        const hasColorChange = updates.materialColor !== undefined || updates.materialId !== undefined;
-        if (hasColorChange) {
-            window.runtime?.bus?.executeCommand('wall.setColor', { wallId: elementId, materialColor: updates.materialColor, materialId: updates.materialId ?? null })
-                ?.catch((e: unknown) => console.error('[PropertyInspectorApply] wall.setColor failed:', e));
-        }
-        if (hasDimensionChange) {
-            window.runtime?.bus?.executeCommand('wall.updateDimensions', { wallId: elementId, height: Number(updates.height ?? d.height), thickness: Number(updates.thickness ?? d.thickness) })
-                ?.catch((e: unknown) => console.error('[PropertyInspectorApply] wall.updateDimensions failed:', e));
-            ctx.callbacks.onUnselect();
-            ctx.element.style.display = 'none';
-            return;
-        }
+    if (type === 'wall' && (updates.height !== undefined || updates.thickness !== undefined)) {
+        // §FIX-MATERIAL-REACHES-RECORD (Gate G7) — the `wall.setColor` dispatch that used to
+        // live here is GONE. It sent `{ wallId }` while the plugin SetWallColor handler it
+        // resolved to requires `{ id }`, so it was REJECTED at canExecute — and the rejection
+        // was eaten by a `.catch(console.error)`. Even had the payload matched, that handler
+        // writes the DETACHED plugin wall store, which no builder, plan projector or
+        // persistence path reads. Wall material now goes through dispatchSetMaterial above →
+        // `wall.updateColor` → UpdateWallColorCommand → geometry wallStore.updateWall().
+        // ONE path, and it reaches the record.
+        window.runtime?.bus?.executeCommand('wall.updateDimensions', { wallId: elementId, height: Number(updates.height ?? d.height), thickness: Number(updates.thickness ?? d.thickness) })
+            ?.catch((e: unknown) => surfaceCommandFailure('wall', 'wall.updateDimensions', e));
+        ctx.callbacks.onUnselect();
+        ctx.element.style.display = 'none';
+        return;
+    } else if (type === 'wall') {
+        // Material-only change: dispatchSetMaterial already committed it.
         ctx.callbacks.onUnselect();
         ctx.element.style.display = 'none';
         return;
@@ -522,12 +562,12 @@ export function applyChanges(ctx: ApplyContext): void {
         if (updates.width !== undefined) window.runtime?.bus?.executeCommand('window.setSize', { windowId: elementId, width: updates.width })?.catch((e: unknown) => console.error('[PropertyInspectorApply] window.setSize (width) failed:', e));
         if (updates.height !== undefined) window.runtime?.bus?.executeCommand('window.setSize', { windowId: elementId, height: updates.height })?.catch((e: unknown) => console.error('[PropertyInspectorApply] window.setSize (height) failed:', e));
         if (updates.sillHeight !== undefined) window.runtime?.bus?.executeCommand('window.setSillHeight', { windowId: elementId, sillHeight: updates.sillHeight })?.catch((e: unknown) => console.error('[PropertyInspectorApply] window.setSillHeight failed:', e));
-        if (ctx.pendingFrameColor !== undefined) window.runtime?.bus?.executeCommand('window.setFrameColor', { windowId: elementId, frameColor: ctx.pendingFrameColor })?.catch((e: unknown) => console.error('[PropertyInspectorApply] window.setFrameColor failed:', e));
+        if (ctx.pendingFrameColor !== undefined) window.runtime?.bus?.executeCommand('window.setFrameColor', { windowId: elementId, frameColor: ctx.pendingFrameColor })?.catch((e: unknown) => surfaceCommandFailure('window', 'window.setFrameColor', e));
     } else if (type === 'door') {
         if (updates.width !== undefined) window.runtime?.bus?.executeCommand('door.setWidth', { doorId: elementId, width: updates.width })?.catch((e: unknown) => console.error('[PropertyInspectorApply] door.setWidth failed:', e));
         if (updates.height !== undefined) window.runtime?.bus?.executeCommand('door.setHeight', { doorId: elementId, height: updates.height })?.catch((e: unknown) => console.error('[PropertyInspectorApply] door.setHeight failed:', e));
         if (updates.sillHeight !== undefined) window.runtime?.bus?.executeCommand('door.setSillHeight', { doorId: elementId, sillHeight: updates.sillHeight })?.catch((e: unknown) => console.error('[PropertyInspectorApply] door.setSillHeight failed:', e));
-        if (ctx.pendingFrameColor !== undefined) window.runtime?.bus?.executeCommand('door.setFrameColor', { doorId: elementId, frameColor: ctx.pendingFrameColor })?.catch((e: unknown) => console.error('[PropertyInspectorApply] door.setFrameColor failed:', e));
+        if (ctx.pendingFrameColor !== undefined) window.runtime?.bus?.executeCommand('door.setFrameColor', { doorId: elementId, frameColor: ctx.pendingFrameColor })?.catch((e: unknown) => surfaceCommandFailure('door', 'door.setFrameColor', e));
         // TASK-04: swing via the same bus-primary pattern (C15 §8.1 — no legacy wallStore
         // update needed from this code path; the committer handles geometry rebuild).
         if (updates.swing !== undefined) window.runtime?.bus?.executeCommand('door.setSwing', { doorId: elementId, swing: updates.swing })?.catch((e: unknown) => console.error('[PropertyInspectorApply] door.setSwing failed:', e));

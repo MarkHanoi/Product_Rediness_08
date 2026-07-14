@@ -2,6 +2,13 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { dispatchTyped, type CommandRegistry } from '@pryzm/command-bus';
 import type { TransformControllerSet } from './initTransformControllers';
+// §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the SHARED "translate an element by (dx,dz)"
+// definition (the same one MovePlanToolHandler calls). The slab + handrail 3-D branches
+// build their payload with it rather than re-authoring one, so a plan move and a gizmo move
+// of the same element produce a byte-identical record mutation AND a byte-identical undo
+// entry (C11 no new representation; C16 one gesture = one undo entry, on BOTH surfaces).
+// Pinned by views/plantools/__tests__/planMoveParity.spec.ts.
+import { buildMoveCommand } from './transforms/elementMove';
 
 /**
  * §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT (L-220) — typed drag-command dispatch that
@@ -49,11 +56,20 @@ interface DragHandlerDeps extends TransformControllerSet {
  *   that Ctrl+Z (which already falls back to commandManager.undo() per the
  *   OI-034 fix in initUI.ts) correctly reverts the move.
  *
- *   Stair and handrail have no positional payload in their Update commands
- *   (position is implicit in their flight/path geometry, not a top-level
- *   field). A drag attempt on those types is detected, a store-rebuild event
- *   is dispatched to snap the mesh back to its canonical position, and a
- *   console warning guides the user to the Plan View move tool.
+ *   §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — this header used to say: "Stair and
+ *   handrail have no positional payload in their Update commands (position is
+ *   implicit in their flight/path geometry, not a top-level field)… a console
+ *   warning guides the user to the Plan View move tool." All of that is now
+ *   obsolete, and the handrail half of it was never true:
+ *     • stair    — moves via `stair.move` (a world delta, §STAIR-3D-MOVE).
+ *     • handrail — `HandrailData.baseLine` is a two-point LINE, not "path points".
+ *                  `UpdateHandrailCommand` simply never carried the field; it does
+ *                  now, via `handrail.moveBaseLine`.
+ *     • slab     — had no branch here at all; now moves via `slab.movePolygon`.
+ *   And the advice to "use the Plan View move tool" pointed at a tool that had
+ *   never implemented either — a lie that survived because nothing tested it.
+ *   All three now commit through the SHARED `buildMoveCommand` definition, so the
+ *   plan and 3-D surfaces cannot diverge (planMoveParity.spec.ts).
  *
  * Contract compliance:
  *   §07-BIM-SECURITY-CONTRACT C03 — no direct mesh/Three.js state commits
@@ -557,19 +573,89 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                 }
             }
 
-            // ── Handrail / railing — graceful degradation ────────────────────
-            // OI-039: UpdateHandrailCommand has no positional payload — handrail
-            // geometry is defined by path points, not a top-level position vector.
-            // Snapping the mesh back prevents a visual glitch. Direct users to
-            // the Plan View move tool.
+            // ── Slab — 3D-gizmo move (§FIX-MOVE-SLAB-AND-HANDRAIL, Gate G7) ──
+            // Slab had NO 3-D branch at all, while ElementCapabilities gates its Move
+            // button ON — so the gizmo appeared, dragged, and snapped back on the next
+            // rebuild with nothing committed. (The plan Move tool was equally inert: it
+            // dispatched into `slab.updatePolygon`, claimed by a plugin handler writing a
+            // DETACHED DTO store.) A DOUBLE LIE, now closed on both surfaces.
+            //
+            // The slab root pivots at the polygon CENTROID (SlabFragmentBuilder
+            // `root.position.set(pivotX, worldY, pivotZ)`) — same anchoring as floor — so
+            // the drag delta is obj.position − centroid. The PAYLOAD is then built by the
+            // SHARED `buildMoveCommand`, so the plan tool and the gizmo emit a byte-identical
+            // command (C11: one definition of "translate a slab"; C16: one gesture, one undo).
+            if (elemType === 'slab' && obj.userData?.id) {
+                const id = obj.userData.id as string;
+                const ss = window.slabStore; // TODO(TASK-08)
+                const slab = (ss as any)?.getById?.(id) ?? (ss as any)?.get?.(id);
+                // SlabData.polygon is `{x,y}[]` where `y` MAPS TO WORLD Z.
+                const poly = (slab?.polygon ?? []) as Array<{ x: number; y: number }>;
+                if (poly.length >= 3) {
+                    const n = poly.length;
+                    const cx = poly.reduce((s, p) => s + p.x, 0) / n;
+                    const cz = poly.reduce((s, p) => s + p.y, 0) / n;
+                    const dx = obj.position.x - cx;
+                    const dz = obj.position.z - cz;
+                    if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                        const cmd = buildMoveCommand('slab', slab, dx, dz);
+                        if (cmd) {
+                            dragDispatch('slab.movePolygon', cmd.payload as CommandRegistry['slab.movePolygon']);
+                            const captured = obj;
+                            const sched = getFrameScheduler();
+                            sched.scheduleOnce('drag-slab-rehighlight-1', () => {
+                                sched.scheduleOnce('drag-slab-rehighlight-2', () => {
+                                    if (selectionManager.selectedObject === captured) {
+                                        selectionManager.applyHighlight(captured);
+                                    }
+                                });
+                            });
+                        }
+                    }
+                }
+            }
+
+            // ── Handrail / railing — 3D-gizmo move (§FIX-MOVE-SLAB-AND-HANDRAIL, G7) ──
+            // This branch used to REFUSE the drag: "handrail geometry is defined by path
+            // points … use the Plan View move tool instead" — and then snap the mesh back.
+            // Both halves were wrong. The Plan View move tool NEVER IMPLEMENTED handrail
+            // move, so the advice pointed at a second dead end (a DOUBLE LIE); and the
+            // premise was false — `HandrailData.baseLine: [Point3D, Point3D]` is a two-point
+            // LINE, the same shape as beam and curtain-wall. `UpdateHandrailCommand` (which
+            // owns the geometry handrailStore) simply never carried a positional field. It
+            // does now, and `handrail.moveBaseLine` bridges to it.
+            //
+            // The handrail root sits at baseLine[0] (HandrailFragmentBuilder
+            // `root.position.set(start.x, worldY, start.z)`), so the delta is
+            // obj.position − start. Payload built by the SHARED definition, as above.
             if ((elemType === 'handrail' || elemType === 'railing') && obj.userData?.id) {
                 const id = obj.userData.id as string;
-                console.warn(
-                    `[registerTransformDragHandler] 3D-gizmo move on handrail "${id}" is not supported ` +
-                    `— handrail geometry is defined by path points. Use the Plan View move tool instead. ` +
-                    `Dispatching rebuild event to snap mesh back.`
-                );
-                window.runtime?.events?.emit('bim-railing-updated', { id }); // F.events.15
+                const hs = window.handrailStore; // TODO(TASK-08)
+                const rail = (hs as any)?.getById?.(id) ?? (hs as any)?.get?.(id);
+                const start = rail?.baseLine?.[0] as { x: number; z: number } | undefined;
+                if (start && Number.isFinite(start.x) && Number.isFinite(start.z)) {
+                    const dx = obj.position.x - start.x;
+                    const dz = obj.position.z - start.z;
+                    if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                        const cmd = buildMoveCommand('handrail', rail, dx, dz);
+                        if (cmd) {
+                            dragDispatch('handrail.moveBaseLine', cmd.payload as CommandRegistry['handrail.moveBaseLine']);
+                            const captured = obj;
+                            const sched = getFrameScheduler();
+                            sched.scheduleOnce('drag-handrail-rehighlight-1', () => {
+                                sched.scheduleOnce('drag-handrail-rehighlight-2', () => {
+                                    if (selectionManager.selectedObject === captured) {
+                                        selectionManager.applyHighlight(captured);
+                                    }
+                                });
+                            });
+                        }
+                    }
+                } else {
+                    // No usable baseline on the record — snap back rather than commit a NaN.
+                    console.warn(`[registerTransformDragHandler] handrail "${id}" has no baseLine — move not committed.`);
+                    window.runtime?.events?.emit('bim-railing-updated', { id }); // F.events.15
+                }
             }
 
             levelPlaneConstraint.enforce();

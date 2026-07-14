@@ -17,6 +17,20 @@ import {
   ChangeFurnitureTypeCommand,
   UpdateWallSystemTypeCommand,
   MovePlumbingCommand,
+  // §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the two remaining "double lie" Move buttons
+  // (enabled on BOTH surfaces, inert on BOTH). Both legacy commands own the GEOMETRY store
+  // (window.slabStore / window.handrailStore) that the fragment builders, the 2-D plan
+  // projector, the IFC exporter and persistence read; only the bus route was missing.
+  UpdateSlabPolygonCommand,
+  UpdateHandrailCommand,
+  // §FIX-MATERIAL-REACHES-RECORD (Gate G7) — the legacy commands that own the geometry
+  // stores for the families whose Material control was still dead (slab / wall / door /
+  // window / handrail). Each was verified END TO END before being routed here: the record
+  // carries the field, the command writes it to the geometry store, and the BUILDER READS IT.
+  UpdateSlabDimensionsCommand,
+  UpdateWallColorCommand,
+  UpdateDoorFrameColorCommand,
+  UpdateWindowFrameColorCommand,
   SetDoorOffsetCommand,
   SetWindowOffsetCommand,
   UpdateRoomBoundaryCommand,
@@ -412,6 +426,177 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.to ? 'to is required' : null)),
             fn: (cmd) => { _cmExec(new MovePlumbingCommand({ id: cmd.id, to: cmd.to })); },
+        },
+
+        // ── §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the last two lying Move buttons ──
+        //
+        // Both slab and handrail/railing were DOUBLE LIES: the Move button was
+        // capability-gated ON in BOTH the 3-D gizmo and the Plan View Move tool, and
+        // committed nothing on EITHER. Both are closed here with the L-220
+        // `plumbing.moveFixture` pattern — a DISTINCT bus type that the plugin handler
+        // cannot shadow, bridged to the legacy command that owns the GEOMETRY store.
+        //
+        // MEASURED AT THE RECORD, not at the dispatch (the whole point of G7):
+        //   slab      polygon → UpdateSlabPolygonCommand → ctx.stores.slabStore.update()
+        //             → `bim-slab-updated` → SlabFragmentBuilder rebuild + plan + persist.
+        //             `slab.updatePolygon` and `slab.update` are BOTH claimed by plugin
+        //             handlers that `produceCommand` against the DETACHED plugin DTO store
+        //             (`ctx.stores.slab` — a fresh `new SlabStore()` from PluginRegistry),
+        //             which nothing in production reads and no committer bridges back. So
+        //             the type here MUST be a name they do not own: `slab.movePolygon`.
+        //   handrail  baseLine → UpdateHandrailCommand → ctx.stores.handrailStore.update()
+        //             → HandrailFragmentBuilder. The 3-D gizmo used to REFUSE this drag
+        //             ("handrail geometry is defined by path points — use the Plan View
+        //             move tool") and the plan tool never implemented it. The claim was
+        //             also FALSE: `HandrailData.baseLine: [Point3D, Point3D]` is a line.
+        //
+        // Both opt into the ring-buffer undo timeline (L-72) so ONE gesture = ONE undo
+        // entry (C16) on BOTH surfaces — the plan tool and the 3-D gizmo send the same
+        // payload, built by the single `elementMove.ts` definition.
+        {
+            type: 'slab.movePolygon',
+            stores: ['slab'] as const,
+            validate: (cmd) => (
+                !cmd.slabId                                   ? 'slabId is required' :
+                !Array.isArray(cmd.polygon) || cmd.polygon.length < 3
+                    ? 'polygon must have at least 3 points'   :
+                null
+            ),
+            fn: (cmd) => {
+                _cmExec(new UpdateSlabPolygonCommand({
+                    slabId:  cmd.slabId,
+                    polygon: cmd.polygon,
+                    // Omit `holes` entirely when the mover sent none — the command PRESERVES
+                    // the slab's existing holes on omission, but would REPLACE them with []
+                    // if we passed an empty array (silently deleting every opening).
+                    ...(cmd.holes !== undefined ? { holes: cmd.holes } : {}),
+                }));
+            },
+            undoPatch: (cmd) => (cmd._recordUndo
+                ? _movePatchPair(cmd.slabId, cmd._prev, {
+                    polygon: cmd.polygon,
+                    ...(cmd.holes !== undefined ? { holes: cmd.holes } : {}),
+                })
+                : null),
+        },
+        {
+            type: 'handrail.moveBaseLine',
+            stores: ['handrail'] as const,
+            validate: (cmd) => (
+                !cmd.id                                              ? 'id is required' :
+                !Array.isArray(cmd.baseLine) || cmd.baseLine.length !== 2
+                    ? 'baseLine must be exactly two {x,y,z} points'  :
+                null
+            ),
+            fn: (cmd) => { _cmExec(new UpdateHandrailCommand({ id: cmd.id, baseLine: cmd.baseLine })); },
+            undoPatch: (cmd) => (cmd._recordUndo
+                ? _movePatchPair(cmd.id, cmd._prev, { baseLine: cmd.baseLine })
+                : null),
+        },
+
+        // ── §FIX-MATERIAL-REACHES-RECORD (Gate G7) — the Material control, ON THE RECORD ──
+        //
+        // §FIX-MATERIAL-DEAD-DISPATCH established the root cause: every `<family>.setMaterial`
+        // command is handled by a plugin handler that `produceCommand`s against the plugin's
+        // DTO store — a FRESH `new SlabStore()` / `new WallStore()` built by PluginRegistry,
+        // NOT the geometry store the fragment builders, the 2-D plan projector, the IFC
+        // exporter and persistence read. Nothing bridges plugin-store UPDATES back (initTools
+        // mirrors `<family>.created` ONLY; composeRuntime registers ZERO committers). And the
+        // property inspector repainted the THREE mesh live — so the founder picked a material,
+        // SAW IT CHANGE, saved, reloaded, and it was gone. UI vs RECORD: strictly worse than
+        // the eight PLAN-vs-3D instances, because the feedback loop tells you it worked.
+        //
+        // That fix routed column/ceiling/floor/roof/curtain-wall/furniture to their legacy
+        // `<family>.update` bridges. These five close the REST — each verified END TO END
+        // (the record carries the field → the command writes the GEOMETRY store → the BUILDER
+        // READS IT), each under a DISTINCT type the plugin handler cannot shadow:
+        //
+        //   wall.updateColor      → UpdateWallColorCommand      → wallStore.updateWall()
+        //        WallFragmentBuilder reads `materialId` (library lookup) + `materialColor`.
+        //        NOT `wall.setColor`: the plugin SetWallColor handler claims it, wants { id }
+        //        while the panel sent { wallId } → REJECTED at canExecute → swallowed by a
+        //        `.catch(console.error)`. The command system said no and nobody heard it.
+        //   slab.updateDimensions → UpdateSlabDimensionsCommand → slabStore.update()
+        //        SlabFragmentBuilder reads `data.materialId` + `data.materialColor`.
+        //        (UpdateSlabCommand THROWS on these fields by design — UpdateSlabDimensions
+        //        is the command that owns them.) NOT `slab.setMaterial`/`slab.update`.
+        //   door.setFrameColor    → UpdateDoorFrameColorCommand → wallStore.updateDoor()
+        //   window.setFrameColor  → UpdateWindowFrameColorCommand → wallStore.updateWindow()
+        //        NO HANDLER EXISTED FOR EITHER, anywhere on the bus, though the panel has
+        //        always dispatched them. Both legacy commands write BOTH stores the builders
+        //        read (the wall's opening render-map AND the door/window store). The panel's
+        //        existing payload keys are already correct — no rename needed.
+        //   handrail.updateColor  → UpdateHandrailCommand       → handrailStore.update()
+        //        HandrailFragmentBuilder reads `materialColor`. It does NOT read
+        //        `materialId` — so MaterialDispatch does not SEND one for handrails and
+        //        DECLARES that gap instead of writing a field nothing renders.
+        {
+            type: 'wall.updateColor',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.wallId ? 'wallId is required' :
+                (cmd.materialColor === undefined && cmd.materialId === undefined)
+                    ? 'materialColor or materialId is required' :
+                null
+            ),
+            fn: (cmd) => {
+                _cmExec(new UpdateWallColorCommand({
+                    wallId:        cmd.wallId,
+                    materialColor: cmd.materialColor,
+                    materialId:    cmd.materialId,
+                }));
+            },
+        },
+        {
+            type: 'slab.updateDimensions',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.slabId ? 'slabId is required' :
+                (cmd.width === undefined && cmd.depth === undefined && cmd.thickness === undefined &&
+                 cmd.materialColor === undefined && cmd.materialId === undefined)
+                    ? 'at least one of width/depth/thickness/materialColor/materialId is required' :
+                null
+            ),
+            fn: (cmd) => {
+                _cmExec(new UpdateSlabDimensionsCommand({
+                    slabId:        cmd.slabId,
+                    width:         cmd.width,
+                    depth:         cmd.depth,
+                    thickness:     cmd.thickness,
+                    materialColor: cmd.materialColor,
+                    materialId:    cmd.materialId,
+                }));
+            },
+        },
+        {
+            type: 'door.setFrameColor',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.doorId     ? 'doorId is required'     :
+                !cmd.frameColor ? 'frameColor is required' :
+                null
+            ),
+            fn: (cmd) => { _cmExec(new UpdateDoorFrameColorCommand(cmd.doorId, cmd.frameColor)); },
+        },
+        {
+            type: 'window.setFrameColor',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.windowId   ? 'windowId is required'   :
+                !cmd.frameColor ? 'frameColor is required' :
+                null
+            ),
+            fn: (cmd) => { _cmExec(new UpdateWindowFrameColorCommand(cmd.windowId, cmd.frameColor)); },
+        },
+        {
+            type: 'handrail.updateColor',
+            stores: [] as const,
+            validate: (cmd) => (
+                !cmd.id            ? 'id is required'            :
+                !cmd.materialColor ? 'materialColor is required' :
+                null
+            ),
+            fn: (cmd) => { _cmExec(new UpdateHandrailCommand({ id: cmd.id, materialColor: cmd.materialColor })); },
         },
 
         // ── §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105) — uniform "change element type" ──
@@ -1147,10 +1332,33 @@ export function initBusHandlers(
                         } catch (e) {
                             console.error(`[initBusHandlers] ${spec.type} undoPatch failed:`, e);
                         }
+                        // §FIX-COMMAND-REJECTION-SURFACED (Gate G7, P8 / C11 §5) — NEVER
+                        // SWALLOW A FAILURE.
+                        //
+                        // This catch used to `console.error` and RETURN AS IF THE COMMAND HAD
+                        // SUCCEEDED. That is exactly how `wall.setColor` survived: the command
+                        // system said no (canExecute reject / a throw in the legacy command),
+                        // the promise resolved anyway, and the only trace was a console line
+                        // nobody reads — while the inspector's live mesh repaint told the user
+                        // it had worked. Every lying button in this gate is downstream of a
+                        // failure that was observed and discarded.
+                        //
+                        // Now: surface it to the user (the `pryzm:toast` channel the 3-D drag
+                        // path already uses) AND re-throw, so the bus rejects the promise and
+                        // the caller's own error path runs. A command that cannot execute must
+                        // SURFACE — never `console.error` into the void.
                         try {
                             spec.fn(cmd);
                         } catch (e) {
+                            const msg = e instanceof Error ? e.message : String(e);
                             console.error(`[initBusHandlers] ${spec.type} bridge failed:`, e);
+                            try {
+                                window.runtime?.events?.emit('pryzm:toast', {
+                                    message: `Couldn't apply ${spec.type} — ${msg}`,
+                                    severity: 'error',
+                                });
+                            } catch { /* toast bus optional — never mask the original error */ }
+                            throw e;
                         }
                         return patches ?? { forward: [], inverse: [] };
                     });

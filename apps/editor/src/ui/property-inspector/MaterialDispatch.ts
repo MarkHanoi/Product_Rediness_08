@@ -59,6 +59,18 @@ interface FamilyMaterialRoute {
   readonly supportsColor: boolean;
   /** The record field a colour override is written to (`materialColor` unless noted). */
   readonly colorField?: string;
+  /**
+   * §FIX-MATERIAL-REACHES-RECORD (Gate G7) — whether the family's BUILDER actually
+   * RESOLVES a catalogue `materialId` (a material-library lookup), as opposed to only
+   * honouring a raw colour override.
+   *
+   * Defaults to `true`. Set `false` ONLY for a family whose builder was READ and found not
+   * to look the id up (handrail, door, window). For those, `dispatchSetMaterial` does NOT
+   * send a `materialId` — writing a field the builder never reads would put a value on the
+   * record that silently does nothing, which is the same lie one layer down. The reason is
+   * declared in `MATERIAL_ID_UNSUPPORTED_REASON` so the caller can SURFACE it.
+   */
+  readonly supportsMaterialId?: boolean;
 }
 
 /**
@@ -109,6 +121,36 @@ const MATERIAL_ROUTES: Readonly<Record<string, FamilyMaterialRoute>> = {
   // Furniture: `furniture.updateParameters` bridges to UpdateFurnitureParametersCommand
   // (geometry furnitureStore → bim-furniture-updated). Its colour field is `color`.
   furniture:   { command: 'furniture.updateParameters',  idField: 'id',     shape: 'flat', supportsColor: true, colorField: 'color' },
+
+  // ── §FIX-MATERIAL-REACHES-RECORD (Gate G7) — new legacy bus bridges ───────────
+  // Each was verified END TO END before being routed here: the RECORD carries the field,
+  // the legacy command writes it to the GEOMETRY store, and the BUILDER READS IT. All five
+  // use a DISTINCT bus type the plugin `<family>.setMaterial` handler cannot shadow (the
+  // L-220 `plumbing.moveFixture` pattern) — see initBusHandlers for the per-family proof.
+
+  // wall → UpdateWallColorCommand → wallStore.updateWall(); WallFragmentBuilder resolves
+  // `materialId` against the material library AND honours `materialColor`. The id field is
+  // `wallId` — which is what PropertyInspectorApply always sent; the plugin `wall.setColor`
+  // handler that shadowed this wanted `{ id }`, so the panel's command was rejected at
+  // canExecute and the rejection was swallowed.
+  wall:        { command: 'wall.updateColor',            idField: 'wallId', shape: 'flat', supportsColor: true },
+
+  // slab → UpdateSlabDimensionsCommand → slabStore.update(); SlabFragmentBuilder reads
+  // `data.materialId` (library) + `data.materialColor`. (UpdateSlabCommand deliberately
+  // THROWS on these fields — UpdateSlabDimensionsCommand is their owner.)
+  slab:        { command: 'slab.updateDimensions',       idField: 'slabId', shape: 'flat', supportsColor: true },
+
+  // door / window are DELIBERATELY ABSENT from this table — see MATERIAL_UNSUPPORTED_REASON.
+  // Their frame colour is owned by the inspector's dedicated Frame Colour control, which
+  // dispatches `door.setFrameColor` / `window.setFrameColor` (bridged to the legacy commands
+  // by G7 — before that, NO handler was registered for either, anywhere). Routing the
+  // generic Material dropdown to the SAME command would fire it twice for one gesture: two
+  // commands, two undo entries, one user action — a C16 violation. One control, one command.
+
+  // handrail → UpdateHandrailCommand → handrailStore.update(); HandrailFragmentBuilder
+  // reads `handrail.materialColor`. It does NOT read `materialId` (no library lookup
+  // exists for handrails), so we do not write one — declared, not silently dropped.
+  handrail:    { command: 'handrail.updateColor',        idField: 'id',     shape: 'flat', supportsColor: true, supportsMaterialId: false },
 };
 
 /**
@@ -118,16 +160,36 @@ const MATERIAL_ROUTES: Readonly<Record<string, FamilyMaterialRoute>> = {
  * instead of dispatching a command whose only effect is a detached-store patch.
  */
 export const MATERIAL_UNSUPPORTED_REASON: Readonly<Record<string, string>> = {
-  slab:       'slab.setMaterial / slab.update are both claimed by plugin handlers that write the DETACHED plugin DTO store; the geometry slabStore (which the builder + plan read) is never touched. Needs a legacy bridge (the L-220 plumbing.moveFixture pattern).',
-  wall:       'wall.setColor is a plugin handler on the detached plugin wall store — AND PropertyInspectorApply dispatches it with { wallId } while the handler requires { id }, so it is rejected at canExecute before it can even do nothing. Needs a legacy bridge to the geometry wallStore.',
-  beam:       'BeamData carries `material?: string`, not materialId/materialColor — nothing to write and nothing the builder would read.',
-  stair:      'stair.setMaterial writes the detached plugin stair store; StairData has no material field the builder reads.',
-  handrail:   'handrail.setMaterial writes the detached plugin handrail store; no geometry material field.',
-  plumbing:   'plumbing.setMaterial writes the detached plugin plumbing store (the same store L-220 already caught for plumbing.move).',
-  lighting:   'lighting.setMaterial writes the detached plugin lighting store.',
-  structural: 'structural.setMaterial writes the detached plugin structural store.',
-  door:       'Door/window frame colour dispatches door.setFrameColor / window.setFrameColor — commands for which NO handler is registered anywhere on the bus.',
-  window:     'Door/window frame colour dispatches door.setFrameColor / window.setFrameColor — commands for which NO handler is registered anywhere on the bus.',
+  // §FIX-MATERIAL-REACHES-RECORD (Gate G7) — these reasons are now MEASURED AT THE BUILDER,
+  // not inferred from the bus. The previous entries blamed "the detached plugin store" for
+  // all of them; that was true of the DISPATCH but WRONG about the underlying cause for
+  // these five. Each of them has a legacy command that DOES reach the geometry store — and
+  // routing to it would STILL have changed nothing, because the geometry record has no
+  // material field the builder reads, or the builder ignores the one it has. Bridging them
+  // would have produced a record that carries a material and a mesh that never shows it:
+  // the same lie, one layer deeper, and much harder to see.
+  beam:       'The beam builder HARDCODES its material: BeamFragmentBuilder picks between two module-scoped shared materials (_steelMat / _concreteMat) from `sectionType`, and never reads `beam.material`. BeamData has no materialId/materialColor at all. A per-beam colour needs the builder to stop sharing those singletons — tracked under Gate G7.',
+  stair:      'StairData has no materialId/materialColor. Its only material field is `properties.material`, a fixed ENUM (concrete|steel|timber|marble|glass|composite) resolved to a preset by StairMaterialResolver — not a catalogue id and not a hex colour, so the inspector Material/Colour control cannot express it. (Separately: the resolver has no preset for timber/glass/composite, which silently fall back to grey.) Needs an enum picker, not a material dropdown — tracked under Gate G7.',
+  plumbing:   'The plumbing builder honours `data.color` for the BATH fixture only (createBathMesh). Sink, toilet, urinal, bidet, shower and accessory meshes hardcode their ceramic/chrome colours and never receive one. Applying a material would work on one fixture type in six and silently do nothing on the rest — tracked under Gate G7.',
+  lighting:   'LightingData has NO materialId/materialColor. Colour lives in the per-fixture parameter blocks (downlightParams.color, pendantParams.shadeColor, emission.color, …) — a different field name per fixture type. There is nothing for a single Material control to write; it needs a per-fixture-part colour UI — tracked under Gate G7.',
+  structural: 'There is no structural runtime family: `schemas/elements/Structural.ts` defines the element (with a materialId) but NO structuralStore, NO builder and NO command exist anywhere. It is schema-only. The real structural element is `column`, which has a full, live material path.',
+  // Openings are NOT dead — but they are not driven by the GENERIC Material dropdown.
+  door:       'A door\'s finish comes from its SYSTEM TYPE (C15), not from the generic Material dropdown. Its frame colour has its own control, which dispatches door.setFrameColor → UpdateDoorFrameColorCommand → wallStore.updateDoor + doorStore (bridged under Gate G7 — before that NO handler was registered for it anywhere, so the colour repainted the mesh and evaporated on reload). Use Frame Colour, or change the door type.',
+  window:     'A window\'s finish comes from its SYSTEM TYPE (C15), not from the generic Material dropdown. Its frame colour has its own control, which dispatches window.setFrameColor → UpdateWindowFrameColorCommand → wallStore.updateWindow + windowStore (bridged under Gate G7 — before that NO handler was registered for it anywhere). Use Frame Colour, or change the window type. NOTE: WindowBuilder lets `frameFinish.materialColor` WIN over `frameColor`, so a window carrying a frameFinish will keep showing the finish colour.',
+};
+
+/**
+ * §FIX-MATERIAL-REACHES-RECORD (Gate G7) — families whose material COLOUR commits to the
+ * record and renders, but whose builder does NOT resolve a catalogue `materialId`.
+ *
+ * These are NOT unsupported — a colour override works end to end. But selecting a
+ * *catalogue material* would write an id that the builder never looks up, so the mesh would
+ * not change. `dispatchSetMaterial` therefore omits `materialId` for them, and the caller
+ * SURFACES this when the user picks a catalogue material (rather than writing a dead field
+ * and letting the live mesh repaint imply success — the exact shape of the G7 defect).
+ */
+export const MATERIAL_ID_UNSUPPORTED_REASON: Readonly<Record<string, string>> = {
+  handrail: 'Handrail colour is applied, but HandrailFragmentBuilder has no material-library lookup — it reads only `materialColor`. Pick a colour override instead of a catalogue material.',
 };
 
 /** Type aliases → canonical family key. */
@@ -172,6 +234,25 @@ export function materialUnsupportedReason(elementType: string | undefined | null
 }
 
 /**
+ * Why a CATALOGUE MATERIAL (as opposed to a raw colour override) cannot be applied to this
+ * element type — or `undefined` when it can. The caller SURFACES this when the user picks a
+ * material from the library for a colour-only family (handrail / door / window frame).
+ *
+ * A material id that the builder never resolves is a field that does nothing: the record
+ * would carry it, the mesh would not show it, and the inspector's live repaint would imply
+ * it had worked. That is the Gate-G7 defect one layer down — so we refuse and say why.
+ */
+export function materialIdUnsupportedReason(elementType: string | undefined | null): string | undefined {
+  if (!elementType) return undefined;
+  const key = String(elementType).toLowerCase();
+  const canonical = TYPE_ALIASES[key] ?? key;
+  // Only meaningful for a family that HAS a live route — an unsupported family is covered
+  // by MATERIAL_UNSUPPORTED_REASON.
+  if (!MATERIAL_ROUTES[canonical]) return undefined;
+  return MATERIAL_ID_UNSUPPORTED_REASON[canonical];
+}
+
+/**
  * Dispatch a material/finish change for a single element through its family's
  * `<family>.setMaterial` command.
  *
@@ -195,7 +276,12 @@ export function dispatchSetMaterial(
   // The material fields, in the family's own vocabulary.
   const fields: Record<string, unknown> = {};
   let willSend = false;
-  if (input.materialId !== undefined) {
+  // §FIX-MATERIAL-REACHES-RECORD (G7) — only send a catalogue `materialId` to a family whose
+  // BUILDER resolves one. For handrail / door / window the builder reads a raw colour and
+  // never looks the id up, so writing it would put a dead field on the record while the
+  // inspector's live mesh repaint implied it had applied. Surfaced via
+  // `materialIdUnsupportedReason`, never silently written.
+  if (input.materialId !== undefined && route.supportsMaterialId !== false) {
     fields.materialId = input.materialId;
     willSend = true;
   }
@@ -213,10 +299,27 @@ export function dispatchSetMaterial(
       ? { [route.idField]: elementId, updates: fields }
       : { [route.idField]: elementId, ...fields };
 
-  bus.executeCommand(route.command, payload)?.catch((e: unknown) =>
-    console.error(`[MaterialDispatch] ${route.command} failed:`, e),
-  );
+  // §FIX-COMMAND-REJECTION-SURFACED (Gate G7, P8) — a rejected command must SURFACE.
+  //
+  // This used to be a bare `.catch(console.error)`. That is precisely how `wall.setColor`
+  // stayed broken for so long: it was rejected at `canExecute` (payload `{ wallId }` vs the
+  // handler's required `{ id }`), the rejection was written to a console nobody reads, and
+  // the inspector's live mesh repaint told the user it had worked. The command system said
+  // NO and nobody heard it — the L-214 / L-218 / L-220 class.
+  bus.executeCommand(route.command, payload)?.catch((e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[MaterialDispatch] ${route.command} failed:`, e);
+    emitToast(`Couldn't apply the material — ${msg}`, 'error');
+  });
   return true;
+}
+
+/** Best-effort user-facing surface. Never throws (a failed toast must not mask the error). */
+function emitToast(message: string, severity: 'info' | 'error'): void {
+  try {
+    (globalThis as { runtime?: { events?: { emit(t: string, p: unknown): void } } })
+      .runtime?.events?.emit('pryzm:toast', { message, severity });
+  } catch { /* toast bus optional */ }
 }
 
 /**

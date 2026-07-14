@@ -1,5 +1,5 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { HandrailData } from '@pryzm/core-app-model';
+import { HandrailData, Point3D } from '@pryzm/core-app-model';
 import { serializeHandrailSnapshot, deserializeHandrailSnapshot } from '@pryzm/core-app-model';
 
 export interface UpdateHandrailPayload {
@@ -10,6 +10,22 @@ export interface UpdateHandrailPayload {
     baseOffset?: number;
     fillType?: string;
     railProfile?: string;
+    /**
+     * §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the handrail's two-point baseline.
+     *
+     * This is what made handrail MOVE a "double lie" (enabled + inert on BOTH surfaces):
+     * the 3-D gizmo refused the drag with "handrail geometry is defined by path points —
+     * use the Plan View move tool", the Plan View move tool never implemented it, and the
+     * claim itself was false. `HandrailData.baseLine` is `[Point3D, Point3D]` — a LINE, the
+     * same shape as beam and curtain-wall. This command owns the GEOMETRY `handrailStore`
+     * (the one HandrailFragmentBuilder + the plan projector + persistence read), so it is
+     * the right place for the positional field; it simply never carried one.
+     *
+     * Bus route: `handrail.moveBaseLine` (initBusHandlers) — a DISTINCT type, per the L-220
+     * `plumbing.moveFixture` precedent, so no plugin handler on a detached DTO store can
+     * shadow it.
+     */
+    baseLine?: [Point3D, Point3D];
 }
 
 export class UpdateHandrailCommand implements Command {
@@ -34,6 +50,20 @@ export class UpdateHandrailCommand implements Command {
             }
         }
 
+        // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — reject a malformed baseline LOUDLY rather than
+        // writing NaN endpoints into the geometry store (which renders as an invisible or
+        // exploded rail with no error anywhere).
+        const bl = this.payload.baseLine;
+        if (bl !== undefined) {
+            const ok = Array.isArray(bl) && bl.length === 2 && bl.every(
+                (p) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z),
+            );
+            if (!ok) return { ok: false, reason: 'baseLine must be exactly two finite {x,y,z} points' };
+            if (Math.hypot(bl[1].x - bl[0].x, bl[1].z - bl[0].z) < 1e-6) {
+                return { ok: false, reason: 'baseLine endpoints are coincident — the handrail would be degenerate' };
+            }
+        }
+
         return { ok: true };
     }
 
@@ -51,6 +81,15 @@ export class UpdateHandrailCommand implements Command {
         if (this.payload.baseOffset   !== undefined) updates.baseOffset   = this.payload.baseOffset;
         if (this.payload.fillType     !== undefined) updates.fillType     = this.payload.fillType as any;
         if (this.payload.railProfile  !== undefined) updates.railProfile  = this.payload.railProfile as any;
+        // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — deep-clone: the store keeps the reference, and a
+        // shared array would let a later caller mutate the committed record in place (and
+        // would make the ring-buffer inverse patch restore the NEW endpoints — a no-op undo).
+        if (this.payload.baseLine !== undefined) {
+            updates.baseLine = [
+                { ...this.payload.baseLine[0] },
+                { ...this.payload.baseLine[1] },
+            ];
+        }
 
         store.update(this.payload.id, updates);
 

@@ -298,6 +298,11 @@ export class MovePlanToolHandler implements PlanToolHandler {
             stair:           window.stairStore,       // TODO(TASK-08)
             stairs:          window.stairStore,       // TODO(TASK-08)
             room:            window.roomStore,        // TODO(TASK-08)
+            // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — the GEOMETRY stores (the same ones the 3-D
+            // drag handler reads its pre-move pose from), NOT the detached plugin DTO stores.
+            slab:            window.slabStore,        // TODO(TASK-08)
+            handrail:        window.handrailStore,    // TODO(TASK-08)
+            railing:         window.handrailStore,    // TODO(TASK-08)
         };
         const s = stores[type] as
             | { get?: (id: string) => unknown; getById?: (id: string) => unknown }

@@ -51,23 +51,34 @@
  *                   `offset` (C15). It needs the host wall record, not just the element,
  *                   so it stays in the handler (`door.setOffset` / `window.setOffset` —
  *                   the same commands `HostedElementDragController` commits).
- *   • slab        — MOVE IS DEAD ON BOTH SURFACES. `slab.updatePolygon` is claimed by the
- *                   plugin `UpdateSlabPolygonHandler`, which `produceCommand`s against the
- *                   DETACHED plugin DTO store (`ctx.stores.slab`) — a different object from
- *                   the geometry `window.slabStore` that the builders, the plan projector
- *                   and persistence read, and no committer is registered in production to
- *                   bridge it. The 3-D gizmo has no slab branch at all. Making slab move
- *                   requires a legacy bus bridge to `UpdateSlabPolygonCommand` (the
- *                   §FIX-TRANSFORM-DRAG-PAYLOAD-AUDIT / L-220 `plumbing.moveFixture`
- *                   pattern: a DISTINCT type that the plugin handler cannot shadow).
- *                   Until that bridge lands, the Move tool must SAY SO rather than
- *                   dispatch into the void.
- *   • handrail /  — `UpdateHandrailCommand` carries no positional payload (the geometry is
- *     railing       path points) and no handrail command is registered on the bus at all.
- *                   The 3-D gizmo already refuses the drag and tells the user to
- *                   "use the Plan View move tool" — a tool which never implemented it.
  *   • lighting    — no move command exists on any surface (and `ElementCapabilities` does
  *                   not declare 'move' for it, so at least no button lies).
+ *
+ * ## §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the last two lying Move buttons
+ *
+ * Slab and handrail/railing used to be listed above as "cannot move". Both were DOUBLE
+ * LIES (enabled on BOTH surfaces, inert on BOTH), and both are now closed — because the
+ * commands that own the GEOMETRY store already existed; only the bus route was missing.
+ *
+ *   • slab     — `slab.updatePolygon` is claimed by the plugin `UpdateSlabPolygonHandler`,
+ *                which `produceCommand`s against the DETACHED plugin DTO store
+ *                (`ctx.stores.slab`) — a different object from the geometry
+ *                `window.slabStore` the builders, the plan projector and persistence read,
+ *                with no committer registered in production to bridge it. Meanwhile the
+ *                LEGACY `UpdateSlabPolygonCommand` (marked "orphaned") writes
+ *                `ctx.stores.slabStore` — the real one. So the fix is the L-220
+ *                `plumbing.moveFixture` pattern exactly: a DISTINCT bus type the plugin
+ *                handler cannot shadow — `slab.movePolygon` — bridged to the legacy
+ *                command. The 3-D gizmo gained the matching branch.
+ *                NOTE: a translate does not change the slab's AABB, so `width`/`depth`
+ *                (which UpdateSlabPolygonCommand keeps in sync) are translation-invariant
+ *                and the polygon-only inverse patch is exactly right.
+ *   • handrail — the standing comment ("handrail geometry is defined by path points") was
+ *     / railing  simply WRONG. `HandrailData.baseLine: [Point3D, Point3D]` — it is a LINE
+ *                family, the same shape as beam and curtain-wall, and a translate is just
+ *                both endpoints + the same delta. `UpdateHandrailCommand` (geometry
+ *                `handrailStore`) had no `baseLine` field in its payload; it does now.
+ *                Bus type: `handrail.moveBaseLine` (nothing else claims `handrail.*`).
  *
  * Layer: L5 (`apps/editor`). Pure: no DOM, no `window`, no THREE. Spans are emitted by
  * the bus at dispatch (P8), exactly as for `buildYawRotateCommand`.
@@ -105,6 +116,14 @@ export const MOVE_COMMAND_BY_TYPE = {
     stair:         'stair.move',
     stairs:        'stair.move',
     room:          'room.updateBoundary',
+    // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — L-220 pattern: a DISTINCT bus type the plugin
+    // handler cannot shadow, bridged to the legacy command that owns the geometry store.
+    // `slab.updatePolygon` / `slab.update` are claimed by plugin handlers on the detached
+    // DTO store; `slab.movePolygon` is ours → UpdateSlabPolygonCommand → window.slabStore.
+    slab:          'slab.movePolygon',
+    // Handrail is a LINE family (baseLine: [Point3D, Point3D]) — not "path points".
+    handrail:      'handrail.moveBaseLine',
+    railing:       'handrail.moveBaseLine',
 } as const satisfies Readonly<Record<string, string>>;
 
 export type MovableType = keyof typeof MOVE_COMMAND_BY_TYPE;
@@ -116,9 +135,6 @@ export type MovableType = keyof typeof MOVE_COMMAND_BY_TYPE;
  * whole point: a button that is enabled and does nothing is worse than a missing button.
  */
 export const MOVE_UNSUPPORTED_REASON: Readonly<Record<string, string>> = {
-    slab:     'Slab move needs a geometry-store bridge for its polygon update (the bus command is claimed by a detached plugin store) — tracked under Gate G7.',
-    handrail: 'Handrail geometry is defined by path points and no positional command is registered — tracked under Gate G7.',
-    railing:  'Railing geometry is defined by path points and no positional command is registered — tracked under Gate G7.',
     lighting: 'Lighting fixtures have no move command on any surface yet — tracked under Gate G7.',
 };
 
@@ -297,6 +313,34 @@ export function buildMoveCommand(
         };
     }
 
+    if (type === 'handrail' || type === 'railing') {
+        // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — handrail is a LINE family. The long-standing
+        // claim that "handrail geometry is defined by path points" (in both the 3-D drag
+        // handler's refusal message and this module's own header) was simply FALSE:
+        // `HandrailData.baseLine: [Point3D, Point3D]`. A translate is both endpoints + the
+        // same delta — identical in shape to beam and curtain-wall above.
+        const bl = r.baseLine;
+        if (!isFiniteVec(bl?.[0]) || !isFiniteVec(bl?.[1])) return null;
+        const [a, b] = bl as [Vec3Like, Vec3Like];
+        return {
+            type: 'handrail.moveBaseLine',
+            payload: {
+                id,
+                baseLine: [
+                    { x: a.x + dx, y: a.y, z: a.z + dz },
+                    { x: b.x + dx, y: b.y, z: b.z + dz },
+                ],
+                _recordUndo: true,
+                _prev: {
+                    baseLine: [
+                        { x: a.x, y: a.y, z: a.z },
+                        { x: b.x, y: b.y, z: b.z },
+                    ],
+                },
+            },
+        };
+    }
+
     // ── Area families — translate every polygon vertex ───────────────────────────
     if (type === 'floor' || type === 'ceiling') {
         const poly = (r.boundary?.polygon ?? r.polygon ?? []) as PolyPt[];
@@ -321,6 +365,36 @@ export function buildMoveCommand(
                 updates:   { boundary: { ...r.boundary, polygon: next } },
             },
         };
+    }
+
+    if (type === 'slab') {
+        // §FIX-MOVE-SLAB-AND-HANDRAIL (G7). `SlabData.polygon` is `{ x, y }[]` where `y`
+        // MAPS TO WORLD Z (the 2-D slab convention, see UpdateSlabPolygonCommand's payload
+        // doc) — so the Z delta is applied to `y`. `translatePolygon` already reads that
+        // shape defensively: a point with no `z` is treated as XZ-in-XY.
+        //
+        // HOLES TRAVEL WITH THE RING. A hole is stored in the SAME world frame as the outer
+        // boundary (not as an offset from it), and UpdateSlabPolygonCommand only preserves
+        // the existing holes when `holes` is OMITTED — so translating the ring and leaving
+        // the holes behind would slide the openings across the slab. They move by the same
+        // delta, and the inverse patch restores both.
+        const poly = (r.polygon ?? []) as PolyPt[];
+        if (poly.length < 3) return null;
+        const holes = (record as { holes?: PolyPt[][] }).holes;
+        const payload: Record<string, unknown> = {
+            slabId:      id,
+            polygon:     translatePolygon(poly, dx, dz),
+            _recordUndo: true,
+            // A translate is AABB-invariant, so `width`/`depth` (which the command keeps in
+            // sync with the polygon) do not change — a polygon+holes inverse patch fully
+            // restores the pre-move slab.
+            _prev:       { polygon: clonePolygon(poly) },
+        };
+        if (holes?.length) {
+            payload.holes = holes.map((h) => translatePolygon(h, dx, dz));
+            (payload._prev as Record<string, unknown>).holes = holes.map(clonePolygon);
+        }
+        return { type: 'slab.movePolygon', payload };
     }
 
     if (type === 'roof') {

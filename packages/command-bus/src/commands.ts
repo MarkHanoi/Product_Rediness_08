@@ -645,6 +645,25 @@ export type OpeningMutationCommands = {
      *  Inline literal union mirrors DoorSwing from plugin-sdk — no cross-package
      *  import needed here; the handler validates the value at runtime. */
     'door.setSwing':              { doorId: string; swing: 'left-in' | 'left-out' | 'right-in' | 'right-out' | 'sliding' };
+
+    /**
+     * §FIX-MATERIAL-REACHES-RECORD (Gate G7) — door/window FRAME COLOUR.
+     *
+     * `PropertyInspectorApply` has always dispatched these two — and NO HANDLER WAS
+     * REGISTERED FOR EITHER, anywhere on the bus. The dispatch rejected with "no handler
+     * registered", and the rejection went into a `.catch(console.error)`. Meanwhile the
+     * inspector repainted the mesh live, so the frame colour LOOKED applied until reload.
+     *
+     * Bridged in `initBusHandlers` to the legacy `UpdateDoorFrameColorCommand` /
+     * `UpdateWindowFrameColorCommand`, which write BOTH geometry stores the builders read
+     * (`wallStore.updateDoor`/`updateWindow` — the opening render map — AND
+     * `doorStore`/`windowStore`). DoorBuilder reads `door.frameColor`; WindowBuilder reads
+     * it via `_resolveFrameColor`.
+     *
+     * The payload keys are exactly what the panel already sends — no rename, no mismatch.
+     */
+    'door.setFrameColor':         { doorId: string; frameColor: string };
+    'window.setFrameColor':       { windowId: string; frameColor: string };
 };
 
 /** Slab mutation payloads — P6 */
@@ -652,6 +671,73 @@ export type SlabMutationCommands = {
     'slab.update':        { id: string; [k: string]: unknown };
     'slab.updatePolygon': { slabId: string; polygon: Array<{ x: number; y: number }>; clearSketch?: boolean };
     'slab.updateLayers':  { slabId: string; systemTypeId?: string; layers?: unknown[]; thickness?: number };
+
+    /**
+     * §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — TRANSLATE a placed slab.
+     *
+     * A DISTINCT type from `slab.updatePolygon` ON PURPOSE (the L-220
+     * `plumbing.moveFixture` precedent). `slab.updatePolygon` AND `slab.update` are both
+     * claimed by plugin handlers that `produceCommand` against the DETACHED plugin DTO
+     * store (`ctx.stores.slab` — a fresh `new SlabStore()` from PluginRegistry), which
+     * nothing in production reads and no committer bridges back. This type is bridged in
+     * `initBusHandlers` to the legacy `UpdateSlabPolygonCommand`, which writes the GEOMETRY
+     * `slabStore` that SlabFragmentBuilder, the 2-D plan projector, the IFC exporter and
+     * persistence actually read. Both the 3-D gizmo and the Plan View Move tool send it,
+     * built by the single `elementMove.ts` definition.
+     *
+     * Points are `{ x, y }` where `y` MAPS TO WORLD Z (the 2-D slab convention).
+     * `holes` travel with the ring; OMIT the key to preserve the slab's existing holes
+     * (passing `[]` would DELETE them).
+     */
+    'slab.movePolygon':   {
+        slabId: string;
+        polygon: Array<{ x: number; y: number }>;
+        holes?: Array<Array<{ x: number; y: number }>>;
+        _recordUndo?: boolean;
+        _prev?: { polygon: Array<{ x: number; y: number }>; holes?: Array<Array<{ x: number; y: number }>> };
+    };
+
+    /**
+     * §FIX-MATERIAL-REACHES-RECORD (Gate G7) — slab dimensions + material, ON THE RECORD.
+     *
+     * Bridged to the legacy `UpdateSlabDimensionsCommand` (→ geometry `slabStore.update` →
+     * `bim-slab-updated` → SlabFragmentBuilder, which READS `data.materialId` and
+     * `data.materialColor`). `slab.setMaterial` and `slab.update` are plugin handlers on
+     * the detached DTO store — the property panel used to dispatch `slab.update`, so every
+     * slab material change repainted the mesh, looked applied, and evaporated on reload.
+     */
+    'slab.updateDimensions': {
+        slabId: string;
+        width?: number;
+        depth?: number;
+        thickness?: number;
+        materialId?: string;
+        materialColor?: string;
+    };
+};
+
+/**
+ * §FIX-MOVE-SLAB-AND-HANDRAIL / §FIX-MATERIAL-REACHES-RECORD (Gate G7) — handrail.
+ *
+ * Nothing else on the bus claims `handrail.*`; both types bridge to the legacy
+ * `UpdateHandrailCommand`, which owns the geometry `handrailStore`.
+ *
+ * `moveBaseLine`: handrail is a LINE family — `HandrailData.baseLine: [Point3D, Point3D]`.
+ * The 3-D gizmo used to REFUSE the drag ("handrail geometry is defined by path points —
+ * use the Plan View move tool") and the Plan View move tool never implemented it. The
+ * claim was also false.
+ */
+export type HandrailMutationCommands = {
+    'handrail.moveBaseLine': {
+        id: string;
+        baseLine: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
+        _recordUndo?: boolean;
+        _prev?: { baseLine: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }] };
+    };
+    /** Colour only: HandrailFragmentBuilder reads `materialColor`; it does NOT read
+     *  `materialId` (no material-library lookup exists for handrails). See
+     *  MATERIAL_ID_UNSUPPORTED_REASON in MaterialDispatch — declared, not silently dropped. */
+    'handrail.updateColor':  { id: string; materialColor: string };
 };
 
 /** Ceiling mutation payloads — TASK-12 */
@@ -692,6 +778,23 @@ export type RoomMutationCommands = {
     'room.setMaterial':     { roomId: string; materialId?: string; materialColor?: string };
     'room.setHeightOffset': { roomId: string; heightOffset: number };
     'room.updateFinishes':  { roomId: string; finishes: Record<string, unknown> };
+
+    /**
+     * §FIX-PLAN-MOVE-PARITY / Gate G7 §6 — TRANSLATE a room's boundary.
+     *
+     * This command was DISPATCHED (by the Plan View Move tool, via the shared
+     * `elementMove.ts` table) and bridged in `initBusHandlers` to the legacy
+     * `UpdateRoomBoundaryCommand` — but it was ABSENT from this registry, so it was the one
+     * move verb that got NO compile-time payload check. `dispatchTyped` could not protect
+     * it, and a `{ roomId }`-vs-`{ id }` slip (the L-214/218/220 payload-mismatch class that
+     * killed `wall.setColor`) would have failed `canExecute` at runtime and been swallowed.
+     * Typed now: the bridge requires `id`.
+     */
+    'room.updateBoundary':  {
+        id: string;
+        boundary: { polygon: Array<{ x: number; z: number }>; centroid?: { x: number; z: number }; [k: string]: unknown };
+        boundingWallIds?: string[];
+    };
 };
 
 /** D-α-2 (BIM 2/3 §6 Workstream D) — apartment-parameter mutation payloads.
@@ -733,6 +836,22 @@ export type WallMutationCommands = {
     'wall.updateDimensions':  { wallId: string; height?: number; thickness?: number };
     'wall.updateLayers':      { wallId: string; layers: unknown[] };
     'wall.updateCurtainWall': { id: string; updates: Record<string, unknown> };
+
+    /**
+     * §FIX-MATERIAL-REACHES-RECORD (Gate G7) — WALL material/colour, ON THE RECORD.
+     *
+     * A DISTINCT type from `wall.setColor`, which is claimed by the plugin `SetWallColor`
+     * handler on the DETACHED plugin DTO store. That handler ALSO required `{ id }` while
+     * `PropertyInspectorApply` dispatched `{ wallId }` — so wall material was REJECTED at
+     * `canExecute` and the rejection was eaten by a `.catch(console.error)`. The command
+     * system said NO and nobody heard it (the L-214/218/220 class).
+     *
+     * Bridged in `initBusHandlers` to the legacy `UpdateWallColorCommand` → geometry
+     * `wallStore.updateWall()` → `bim-wall-updated` → WallFragmentBuilder, which READS
+     * `wall.materialId` (material-library lookup) and `wall.materialColor`.
+     * `wallId` is the id field — matching what the panel already sends.
+     */
+    'wall.updateColor':       { wallId: string; materialColor?: string; materialId?: string | null };
 };
 
 /** Stair/beam plan execution payloads — P10 */
@@ -1178,6 +1297,8 @@ export type CommandRegistry =
     & FurnitureMutationCommands
     & RoomMutationCommands
     & WallMutationCommands
+    // §FIX-MOVE-SLAB-AND-HANDRAIL / §FIX-MATERIAL-REACHES-RECORD (Gate G7).
+    & HandrailMutationCommands
     // D-α-2 (BIM 2/3) — L0 parameter mutation verbs.
     & ApartmentParameterMutationCommands
     & PlanMutationCommands
