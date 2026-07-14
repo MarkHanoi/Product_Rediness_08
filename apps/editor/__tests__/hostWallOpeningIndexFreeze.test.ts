@@ -188,18 +188,46 @@ function makeBuilderStub() {
 const fakeScene = { add() { /* noop */ }, remove() { /* noop */ } };
 
 let _seq = 0;
-function mkWall(bl: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }]): WallData {
+
+/** A real hosted door: the `wall.openings` record the coordinator's opening paths read. */
+interface TestOpening {
+    id: string;
+    elementId: string;
+    type: 'door';
+    offset: number;
+    width: number;
+    height: number;
+    sillHeight: number;
+}
+function mkDoorOpening(idx: number): TestOpening {
+    return { id: `op_hd_${idx}`, elementId: `hd_${idx}`, type: 'door', offset: 1.5, width: 0.9, height: 2.1, sillHeight: 0 };
+}
+
+// §L-250 — THE FIXTURE MUST ACTUALLY HOST AN OPENING.
+//
+// This suite is named for, and guards, the hosted-opening freeze path — yet every wall
+// it built carried `openings: []`. A wall with no opening never enters
+// `resolveOpeningRenderMap`, never takes the hole-extrude branch, and never exercises
+// the openings-membership leg of `classifyWallDelta`. The suite was therefore green by
+// construction and COULD NOT FAIL on the founder's actual scenario ("move a wall that
+// HOSTS A DOOR"). A guard that cannot fail is not a guard. `mkWall` now takes the
+// openings it is supposed to be guarding, and Part 3 passes a real one.
+function mkWall(
+    bl: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }],
+    openings: TestOpening[] = [],
+): WallData {
     return {
         id: `wm_${_seq++}`,
         type: 'wall',
         levelId: LEVEL_ID,
         properties: { mark: `WA-${_seq.toString().padStart(3, '0')}` },
-        childrenIds: [],
+        // The WallStore schema enforces childrenIds ⊇ openings[*].elementId.
+        childrenIds: openings.map(o => o.elementId),
         baseLine: [{ ...bl[0] }, { ...bl[1] }],
         height: 3,
         thickness: 0.2,
         baseOffset: 0,
-        openings: [],
+        openings,
         metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'test', version: 1 },
     } as unknown as WallData;
 }
@@ -246,8 +274,10 @@ describe('§FIX-HOSTWALL-MOVE-COALESCE — one wall move → one redetect commit
             world: { camera: { three: null }, renderer: { three: { domElement: undefined } }, scene: { three: fakeScene } },
         });
 
-        // Two walls; wall A hosts the door(s), wall B is an unrelated neighbour.
-        const wallA = mkWall([{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }]);
+        // Two walls; wall A GENUINELY HOSTS A DOOR (§L-250 — it previously hosted none,
+        // so this suite could not fail on the very scenario it is named for), wall B is
+        // an unrelated neighbour.
+        const wallA = mkWall([{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }], [mkDoorOpening(1)]);
         const wallB = mkWall([{ x: 10, y: 0, z: 0 }, { x: 14, y: 0, z: 0 }]);
         store.add({ ...wallA });
         store.add({ ...wallB });

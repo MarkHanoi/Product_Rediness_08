@@ -154,6 +154,18 @@ function buildPlate(store: WallStore, rooms: number, doorEvery: number): { wallI
     return { wallIds, doorWallIds };
 }
 
+/**
+ * Zero EVERY counter. This exists as a named helper because forgetting ONE of them is
+ * how this harness first "found" a doubled commit barrier that did not exist: the
+ * initial plate build legitimately emits one `bim-wall-mutation-committed`, and a
+ * per-gesture count that was never zeroed reads 1 + 1 = 2 and looks like a
+ * door-conditional defect. Reset all, or measure nothing.
+ */
+function resetCounters(c: Counters): void {
+    c.buildWall = 0; c.updateWall = 0; c.removeWall = 0;
+    c.doorReanchor = 0; c.committed = 0; c.flushes = 0;
+}
+
 interface Harness {
     store: WallStore;
     coord: WallRebuildCoordinator;
@@ -277,10 +289,13 @@ describe('§DIAG-L250 — moving a wall that HOSTS A DOOR must TERMINATE and sta
     });
 
     // ── (1) TERMINATION — the property the user actually cares about ──────────
+    // A cost test cannot see a hang. These two can: they pump frames ONE AT A TIME and
+    // only declare victory when the flush has stopped re-arming for six consecutive
+    // frames. A non-terminating gesture exhausts the 400-frame cap and reds.
     it('TERMINATES: drag-commit of a door-bearing wall settles (the flush stops re-arming)', () => {
         const h = setup(3, 4);            // 3×3 rooms = 24 walls, every 4th hosts a door
         h.pumpUntilQuiet();               // drain the initial build
-        h.counters.flushes = 0; h.counters.buildWall = 0; h.counters.updateWall = 0; h.counters.doorReanchor = 0;
+        resetCounters(h.counters);
 
         dragCommit(h.store, h.doorWallIds[0], 0.35, 0);
         const r = h.pumpUntilQuiet();
@@ -290,12 +305,16 @@ describe('§DIAG-L250 — moving a wall that HOSTS A DOOR must TERMINATE and sta
             `buildWall=${h.counters.buildWall} updateWall=${h.counters.updateWall} doorReanchor=${h.counters.doorReanchor} committed=${h.counters.committed}`);
 
         expect(r.settled).toBe(true);
+        // ONE gesture ⇒ ONE commit barrier. `bim-wall-mutation-committed` is what drives
+        // room re-detection AND plan re-projection over the whole storey; a second emit
+        // silently doubles that entire downstream cascade. Pin it at one.
+        expect(h.counters.committed).toBe(1);
     });
 
     it('TERMINATES: property-panel Length edit of a door-bearing wall settles', () => {
         const h = setup(3, 4);
         h.pumpUntilQuiet();
-        h.counters.flushes = 0; h.counters.buildWall = 0; h.counters.updateWall = 0; h.counters.doorReanchor = 0;
+        resetCounters(h.counters);
 
         lengthEdit(h.store, h.doorWallIds[0], 3.4);   // shrink 5.0 → 3.4: destroys a corner junction
         const r = h.pumpUntilQuiet();
@@ -305,13 +324,18 @@ describe('§DIAG-L250 — moving a wall that HOSTS A DOOR must TERMINATE and sta
             `buildWall=${h.counters.buildWall} updateWall=${h.counters.updateWall} doorReanchor=${h.counters.doorReanchor} committed=${h.counters.committed}`);
 
         expect(r.settled).toBe(true);
+        expect(h.counters.committed).toBe(1);
     });
 
     // ── (2) BLAST RADIUS — bounded, and INDEPENDENT of the level's element count ──
+    // This is the assertion that would catch case (b): a BOUNDED-BUT-ENORMOUS rebuild
+    // (a whole-level re-extrude per hosted opening). It is stated in COUNTS, and — the
+    // load-bearing part — as INDEPENDENCE FROM LEVEL SIZE, so it cannot be satisfied by
+    // a level that merely happens to be small.
     it('BOUNDED: the builder work for one door-wall move does not scale with the level size', () => {
         const small = setup(2, 3);         // 12 walls
         small.pumpUntilQuiet();
-        small.counters.buildWall = 0; small.counters.updateWall = 0; small.counters.doorReanchor = 0; small.counters.flushes = 0;
+        resetCounters(small.counters);
         dragCommit(small.store, small.doorWallIds[0], 0.35, 0);
         const rs = small.pumpUntilQuiet();
         const smallBuilds = small.counters.buildWall + small.counters.updateWall;
@@ -323,20 +347,68 @@ describe('§DIAG-L250 — moving a wall that HOSTS A DOOR must TERMINATE and sta
 
         const big = setup(6, 3);           // 84 walls — 7× the plate
         big.pumpUntilQuiet();
-        big.counters.buildWall = 0; big.counters.updateWall = 0; big.counters.doorReanchor = 0; big.counters.flushes = 0;
+        resetCounters(big.counters);
         dragCommit(big.store, big.doorWallIds[0], 0.35, 0);
         const rb = big.pumpUntilQuiet();
         const bigBuilds = big.counters.buildWall + big.counters.updateWall;
         const bigWalls = big.wallIds.length;
 
         // eslint-disable-next-line no-console
-        console.log(`[L250] BLAST small: walls=${smallWalls} settled=${rs.settled} flushes=${rs.flushes} builds=${smallBuilds} doorReanchor=${small.counters.doorReanchor}`);
+        console.log(`[L250] BLAST small: walls=${smallWalls} settled=${rs.settled} flushes=${rs.flushes} builds=${smallBuilds} doorReanchor=${small.counters.doorReanchor} committed=${small.counters.committed}`);
         // eslint-disable-next-line no-console
-        console.log(`[L250] BLAST big:   walls=${bigWalls} settled=${rb.settled} flushes=${rb.flushes} builds=${bigBuilds} doorReanchor=${big.counters.doorReanchor}`);
+        console.log(`[L250] BLAST big:   walls=${bigWalls} settled=${rb.settled} flushes=${rb.flushes} builds=${bigBuilds} doorReanchor=${big.counters.doorReanchor} committed=${big.counters.committed}`);
 
         expect(rs.settled).toBe(true);
         expect(rb.settled).toBe(true);
-        // O(affected), not O(level): a 7× bigger plate must not cost ~7× the builds.
-        expect(bigBuilds).toBeLessThan(smallBuilds * 3);
+
+        // The plate grew 7×. The work for ONE wall move must NOT grow with it.
+        // Stated as independence, not as a magic constant: the big plate may not cost
+        // more than the small one by more than a small additive slack (junction
+        // neighbours), and certainly not proportionally.
+        expect(bigBuilds).toBeLessThanOrEqual(smallBuilds + 2);
+        expect(bigBuilds).toBeLessThan(bigWalls / 4);
+
+        // Same for the hosted-child re-anchor: O(walls actually rebuilt), not O(level).
+        expect(big.counters.doorReanchor).toBeLessThanOrEqual(small.counters.doorReanchor + 2);
+
+        // And one gesture is still one downstream cascade on the big plate.
+        expect(rb.flushes).toBe(1);
+        expect(big.counters.committed).toBe(1);
+    });
+
+    // ── (3) THE GUARD ABOVE CAN ACTUALLY FAIL ─────────────────────────────────
+    // A guard that cannot fail is not a guard (Lesson L-J). The blast-radius test only
+    // means something if an O(level) rebuild would RED it. The coordinator ships a
+    // documented escape hatch — `__pryzmWallIncrementalRebuild = false` (:210-213) —
+    // that restores the pre-L-234 UNCONDITIONAL `buildWall` for every wall the resolver
+    // adjusted. That is precisely case (b): a bounded-but-enormous whole-level rebuild.
+    //
+    // Turning it off here re-creates the defect on demand and shows the numbers the
+    // guard is watching for. This pins the BEFORE column so the O(level) cliff can never
+    // silently return, and proves the AFTER column is not vacuously green.
+    it('RED-FIRST: with the incremental gate OFF the rebuild IS O(level) — so the guard has teeth', () => {
+        const g = globalThis as unknown as { __pryzmWallIncrementalRebuild?: boolean };
+        g.__pryzmWallIncrementalRebuild = false;
+        try {
+            const h = setup(6, 3);          // 84 walls
+            h.pumpUntilQuiet();
+            resetCounters(h.counters);
+            dragCommit(h.store, h.doorWallIds[0], 0.35, 0);
+            const r = h.pumpUntilQuiet();
+            const builds = h.counters.buildWall + h.counters.updateWall;
+
+            // eslint-disable-next-line no-console
+            console.log(`[L250] RED-FIRST (gate OFF): walls=${h.wallIds.length} settled=${r.settled} flushes=${r.flushes} builds=${builds} doorReanchor=${h.counters.doorReanchor}`);
+
+            // The cliff: one wall move re-extrudes ~every wall on the plate.
+            expect(builds).toBeGreaterThan(h.wallIds.length / 2);
+            // …and it would BREAK the bound the guard above asserts — which is the point.
+            expect(builds).toBeGreaterThan(1 + 2);
+            // Note it STILL terminates. Case (b) is slow, not hung — which is exactly why
+            // a termination test alone could never have found it, and why both assertions exist.
+            expect(r.settled).toBe(true);
+        } finally {
+            delete g.__pryzmWallIncrementalRebuild;
+        }
     });
 });
