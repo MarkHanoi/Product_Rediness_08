@@ -95,7 +95,13 @@ import type {
   ElevAutoDimSnapshot,
   ElevDimRule,
   ElevDimSegment,
+  ElevHDimRule,
+  ElevHDimSegment,
 } from './types.js';
+// §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the TIER model is L-281's, imported rather
+// than re-derived. The horizontal stack below a façade obeys the same rule as the stack
+// outside a plan: rank → tier, line = footprint edge + gap·(tier+1), overall outermost.
+import { tierOfRank, tierMagnitudeM } from '../tiers.js';
 
 // ── Defaults (documented above; never magic at a call site) ─────────────────
 
@@ -123,6 +129,23 @@ export const ELEVATION_RULES_BY_DETAIL_LEVEL: Readonly<
   fine:   ['overall-height', 'floor-to-floor', 'opening-sill', 'opening-head'],
 };
 
+/**
+ * §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the HORIZONTAL rule set's LOD gate.
+ *
+ * The same P7/C09 gate as its vertical twin, on the axis L-263 never built. A `coarse`
+ * elevation carries the façade LENGTH and nothing else; `medium`/`fine` add the station
+ * chain (end distance · opening width · gap · opening width · end distance), which is the
+ * single chain that answers ALL of "widths, spacing, distance to the ends" — because they
+ * are not three rules, they are three consecutive intervals of one chain.
+ */
+export const ELEVATION_H_RULES_BY_DETAIL_LEVEL: Readonly<
+  Record<DetailLevel, readonly ElevHDimRule[]>
+> = {
+  coarse: ['facade-overall'],
+  medium: ['facade-overall', 'facade-chain'],
+  fine:   ['facade-overall', 'facade-chain'],
+};
+
 /** Result of {@link planElevationAutoDimensions}. */
 export interface ElevAutoDimResult {
   /**
@@ -139,6 +162,14 @@ export interface ElevAutoDimResult {
    * against element geometry and nothing is lost.
    */
   readonly segments: readonly ElevDimSegment[];
+  /**
+   * §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the HORIZONTAL segments, in the same view
+   * (H, V) space. A SEPARATE array rather than a mixed one with an `axis` discriminant,
+   * because the executor turns them into world points by a DIFFERENT inversion (their
+   * measured points share a V and vary in H; the vertical ones share an H and vary in V)
+   * — and a union that both branches must narrow is a union that one branch will forget.
+   */
+  readonly hSegments: readonly ElevHDimSegment[];
   readonly report: AutoDimReport;
 }
 
@@ -188,6 +219,7 @@ export function planElevationAutoDimensions(
       return {
         strings: [],
         segments: [],
+        hSegments: [],
         report: emptyReport(snapshot, warnings, skipped),
       };
     }
@@ -335,6 +367,94 @@ export function planElevationAutoDimensions(
       }
     }
 
+    // ── §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — THE OTHER CHAIN ─────────────
+    //
+    // Everything above measures world-Y. NOTHING measured along the façade — which is why
+    // the founder's elevation had perfect sills and heads and not one width. The horizontal
+    // set is planned here, in the SAME (H, V) space, and its lines stack BELOW the façade
+    // so they can never cross the silhouette.
+    //
+    // The TIER model is L-281's, imported rather than re-derived: rank → tier (the overall
+    // outermost), line = façade base − gap·(tier+1). The measured points sit ON the base
+    // datum (clearance 0 — the base IS the bbox edge on that side), so `tierMagnitudeM`
+    // reduces to exactly that. One placement rule for both engines.
+    const hEnabled = new Set<ElevHDimRule>(ELEVATION_H_RULES_BY_DETAIL_LEVEL[detailLevel]);
+    const hSegments: ElevHDimSegment[] = [];
+    const tierGap = options.tierGapM ?? stackSpacing;
+    const baseV = snapshot.baseElevation;
+    /** The dim line for a horizontal tier: below the façade base, one gap per tier. */
+    const belowLineV = (rank: number): number =>
+      baseV - tierMagnitudeM(0, tierOfRank(rank), tierGap);
+
+    const emitH = (
+      rule: ElevHDimRule,
+      h1: number,
+      h2: number,
+      rank: number,
+      referenceIds: readonly string[],
+      label?: string,
+    ): void => {
+      const value = h2 - h1;
+      if (!Number.isFinite(value) || value < minSegment) {
+        skipped.push({
+          id: referenceIds[0] ?? rule,
+          reason: `${rule}: horizontal span ${value.toFixed(4)} m below minSegmentM (${minSegment} m)`,
+        });
+        return;
+      }
+      const lineV = belowLineV(rank);
+      hSegments.push({
+        id: idFactory(),
+        rule,
+        v: baseV,
+        lineV,
+        offsetV: lineV - baseV,   // what you ADD to the measured point to reach the line
+        h1,
+        h2,
+        valueM: value,            // L-127: derived, always.
+        rank,
+        rowIndex: tierOfRank(rank),
+        side: -1,                 // below the façade
+        referenceIds,
+        ...(label !== undefined ? { label } : {}),
+      });
+    };
+
+    // EH-1 — the whole façade length. The outermost horizontal tier.
+    if (hEnabled.has('facade-overall')) {
+      emitH('facade-overall', snapshot.hMin, snapshot.hMax, 1, [], 'façade');
+    }
+
+    // EH-2 — the STATION CHAIN. End distance · width · gap · width · end distance, as the
+    // consecutive intervals of one ordered walk across the façade. This is why "widths",
+    // "spacing" and "distance to the ends" are ONE rule and not three: they are the same
+    // chain read at different pairs of stations, and planning them separately is how a
+    // chain acquires gaps and overlaps.
+    if (hEnabled.has('facade-chain')) {
+      const ordered = [...snapshot.openings].sort((a, b) => a.hMin - b.hMin || a.hMax - b.hMax || (a.id < b.id ? -1 : 1));
+      interface Station { h: number; ids: readonly string[] }
+      const stations: Station[] = [{ h: snapshot.hMin, ids: [] }];
+      for (const o of ordered) {
+        stations.push({ h: o.hMin, ids: [o.id] });
+        stations.push({ h: o.hMax, ids: [o.id] });
+      }
+      stations.push({ h: snapshot.hMax, ids: [] });
+
+      for (let i = 0; i + 1 < stations.length; i++) {
+        const a = stations[i]!;
+        const b = stations[i + 1]!;
+        const ids = [...new Set([...a.ids, ...b.ids])];
+        // An interval whose two stations belong to the SAME opening is that opening's
+        // WIDTH; otherwise it is a gap or an end distance. The label says which, so the
+        // drawing is readable and the report is honest.
+        const sameOpening = a.ids.length === 1 && b.ids.length === 1 && a.ids[0] === b.ids[0];
+        const label = sameOpening ? 'width' : (a.ids.length === 0 || b.ids.length === 0 ? 'end' : 'gap');
+        emitH('facade-chain', a.h, b.h, 2, ids, label);
+      }
+    }
+
+    span.setAttribute('pryzm.autodim.h_string_count', hSegments.length);
+
     // The overall height must equal the sum of the floor-to-floor chain — the
     // classic closure check. If it does not, the model's datums disagree with its
     // envelope and the drawing would lie; say so rather than paper over it.
@@ -364,6 +484,7 @@ export function planElevationAutoDimensions(
     return {
       strings,
       segments,
+      hSegments,
       report: {
         coverage: {
           wallCount: 0, // an elevation measures datums, not wall runs

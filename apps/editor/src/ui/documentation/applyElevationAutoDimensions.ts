@@ -49,10 +49,14 @@ import * as THREE from '@pryzm/renderer-three/three';
 import {
   planElevationAutoDimensions,
   withAutoDimSpan,
+  // §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the tier gap is a PAPER constant through the
+  // view's scale (C24), shared with the plan executor (L-281). The engine never guesses mm.
+  tierGapWorldM,
   type ElevAutoDimLevel,
   type ElevAutoDimOpening,
   type ElevAutoDimSnapshot,
   type ElevDimSegment,
+  type ElevHDimSegment,
 } from '@pryzm/auto-dimension';
 import { createId } from '@pryzm/schemas';
 import { normalizeDetailLevel, DEFAULT_DETAIL_LEVEL, type DetailLevel } from '@pryzm/schemas/view/detail-level';
@@ -272,6 +276,60 @@ export function elevationSegmentToAnnotation(
 }
 
 /**
+ * §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — PURE: one HORIZONTAL segment (view H/V) back
+ * into a world-space `'linear-dim'` AnnotationElement.
+ *
+ * The mirror of `elevationSegmentToAnnotation`, and deliberately its sibling rather than a
+ * branch inside it: the two invert (H, V) → world DIFFERENTLY. A vertical segment's two
+ * points share an H and vary in V; a horizontal segment's share a V (the façade base) and
+ * vary in H. Sharing one function would have meant a discriminant that the next author
+ * forgets to narrow.
+ *
+ * `measurementNormal` is the view's own H axis IN WORLD TERMS (`hSign · world[hWorldAxis]`).
+ * The renderer projects it through `_ptH`/`_ptV` to (mnH = 1, mnV = 0), so the §DIM-ORTHO
+ * branch draws a clean HORIZONTAL measure and labels it with the H extent — the same
+ * mechanism the vertical rules use with world-up, and no new renderer code.
+ */
+export function elevationHSegmentToAnnotation(
+  seg: ElevHDimSegment,
+  frame: { hWorldAxis: 'x' | 'z'; hSign: 1 | -1 },
+  facadeDepth: number,
+  ownerViewId: string,
+): ReturnType<typeof makeAnnotationElement> {
+  const at = (h: number): { x: number; y: number; z: number } => {
+    const worldH = h * frame.hSign;   // hSign is ±1 — its own inverse
+    return frame.hWorldAxis === 'x'
+      ? { x: worldH, y: seg.v, z: facadeDepth }
+      : { x: facadeDepth, y: seg.v, z: worldH };
+  };
+  const pA = at(seg.h1);
+  const pB = at(seg.h2);
+  const vA = new THREE.Vector3(pA.x, pA.y, pA.z);
+  const vB = new THREE.Vector3(pB.x, pB.y, pB.z);
+
+  // The world direction that projects onto the view's +H axis.
+  const measurementNormal = frame.hWorldAxis === 'x'
+    ? { x: frame.hSign, y: 0, z: 0 }
+    : { x: 0, y: 0, z: frame.hSign };
+
+  return makeAnnotationElement(
+    createId('annotation'),
+    'linear-dim',
+    ownerViewId,
+    [makePointRef(vA), makePointRef(vB)],
+    {
+      modelPoints: [pA, pB],
+      // Signed world-metre offset from the measured geometry to the dim line, along the
+      // view's V axis. NEGATIVE — the horizontal stack sits BELOW the façade, so a
+      // horizontal dimension can never cross the building silhouette.
+      offset: seg.offsetV,
+      measurementNormal,
+    },
+    { unit: 'mm', autoMode: 'elevation', rule: seg.rule, referenceIds: [...seg.referenceIds] },
+  );
+}
+
+/**
  * Auto-dimension the active ELEVATION view: plan the vertical dimension set
  * (overall height / floor-to-floor + level datums / typical opening sill + head,
  * gated by the view's detail level) and create it as ONE undoable batch.
@@ -316,25 +374,50 @@ export function applyElevationAutoDimensions(runtime: PryzmRuntime): number {
       }
       span.setAttribute('pryzm.autodim.wall_count', built.facadeWallIds.length);
 
-      const { segments, report } = planElevationAutoDimensions(built.snapshot, { viewId, detailLevel });
-      span.setAttribute('pryzm.autodim.string_count', segments.length);
-      span.setAttribute('pryzm.autodim.error_count', report.warnings.length);
-      if (segments.length === 0) { toast('Auto-Dimension: nothing to dimension on this elevation.', 'info'); return 0; }
+      // §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the tier gap for the horizontal stack is
+      // the VIEW's, not the engine's: a PAPER constant through the drawing scale (C24),
+      // exactly as the plan executor resolves it (L-281).
+      const viewOut = (viewDef as { output?: { scale?: number; customScale?: number } }).output;
+      const tierGapM = tierGapWorldM(viewOut?.customScale ?? viewOut?.scale ?? 100);
 
-      const annotations = segments.map((s) =>
-        elevationSegmentToAnnotation(s, frame, built.facadeDepth, viewId),
-      );
+      const { segments, hSegments, report } = planElevationAutoDimensions(built.snapshot, {
+        viewId,
+        detailLevel,
+        tierGapM,
+      });
+      span.setAttribute('pryzm.autodim.string_count', segments.length + hSegments.length);
+      span.setAttribute('pryzm.autodim.error_count', report.warnings.length);
+      if (segments.length === 0 && hSegments.length === 0) {
+        toast('Auto-Dimension: nothing to dimension on this elevation.', 'info');
+        return 0;
+      }
+
+      // §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — AN ELEVATION SET IS TWO CHAINS.
+      // The vertical rules (sill/head/floor-to-floor/overall height) and the horizontal
+      // ones (façade length, opening widths, gaps, end distances) are both emitted here, in
+      // ONE undoable set. Emitting only the vertical half is what shipped in L-263, and it
+      // is why the founder's elevation had no widths at all.
+      const annotations = [
+        ...segments.map((s) => elevationSegmentToAnnotation(s, frame, built.facadeDepth, viewId)),
+        ...hSegments.map((s) => elevationHSegmentToAnnotation(s, frame, built.facadeDepth, viewId)),
+      ];
 
       if (!commitAnnotationSet(annotations, [...new Set(levels.map((l) => l.id))])) {
         toast('Auto-Dimension: command system not ready — try again.', 'error');
         return 0;
       }
 
+      // §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — REPORT BOTH AXES. The old message named
+      // only the vertical rules, which is how a set that was missing half its dimensions
+      // still read as a success.
       const openingDims = segments.filter((s) => s.rule.startsWith('opening')).length;
+      const widthDims = hSegments.filter((s) => s.label === 'width').length;
       toast(
         `Auto-Dimension: ${annotations.length} elevation dimension(s) — ` +
-        `overall height, ${segments.filter((s) => s.rule === 'floor-to-floor').length} floor-to-floor, ` +
-        `${openingDims} opening. (Detail level: ${detailLevel}.)`,
+        `${segments.length} vertical (overall height, ` +
+        `${segments.filter((s) => s.rule === 'floor-to-floor').length} floor-to-floor, ${openingDims} opening), ` +
+        `${hSegments.length} horizontal (façade length, ${widthDims} opening width(s), spacing). ` +
+        `(Detail level: ${detailLevel}.)`,
         'success',
       );
       if (report.warnings.length > 0) {

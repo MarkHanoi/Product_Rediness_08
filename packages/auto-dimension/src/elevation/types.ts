@@ -123,9 +123,82 @@ export interface ElevAutoDimOptions {
   readonly minSegmentM?: number;
   /** Datums within this band are treated as coincident. Metres. */
   readonly snapEpsilonM?: number;
+  /**
+   * §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the TIER GAP for the horizontal stack below
+   * the façade, world metres. Same meaning, same provenance as the plan engine's
+   * `AutoDimOptions.tierGapM` (L-281): a PAPER constant (C24) converted through the VIEW's
+   * drawing scale by `tierGapWorldM(scale)`, supplied by the executor. The engine never
+   * invents a millimetre value.
+   */
+  readonly tierGapM?: number;
 }
 
 // ── Output ──────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — THE OTHER HALF OF THE ELEVATION SET
+// ─────────────────────────────────────────────────────────────────────────────
+// AN ELEVATION DIMENSION SET IS TWO CHAINS, NOT ONE. L-263 built the genuinely-new
+// VERTICAL rule set (sill / head / floor-to-floor / overall height) and left the
+// horizontal axis IMPLICIT — and implicit means ABSENT. The founder's elevation came
+// back with correct vertical chains and NOT ONE horizontal dimension: no opening widths,
+// no spacing between openings, no distance to the façade ends, no overall façade length.
+//
+// The horizontal chain is NOT the plan chain rotated. It measures ALONG THE FAÇADE PLANE,
+// in the view's own H axis — the same H the vertical rules already station themselves at
+// (`ViewPlane.hWorldAxis` × `hSign`). There is no second notion of "along": the snapshot
+// is already in (H, V), and this axis is the H it was always expressed in.
+//
+// Its dim lines are stacked BELOW the façade (V descending), so a horizontal dimension can
+// never cross the building silhouette — the same rule L-281 established for plan, applied
+// to the axis it was always meant to cover.
+
+/** The normative rule that produced a HORIZONTAL segment. */
+export type ElevHDimRule =
+  | 'facade-overall'   // EH-1: hMin → hMax, the whole façade length (outermost tier)
+  | 'facade-chain';    // EH-2: the station chain — end · width · gap · width · end
+
+/**
+ * A resolved HORIZONTAL elevation dimension in view (H, V) space.
+ *
+ * The mirror of `ElevDimSegment`, on the other axis: the two MEASURED points are
+ * `(h1, v)` and `(h2, v)` — both at the same vertical station `v` (the façade BASE datum,
+ * so the witness lines drop from the base down to the dim line) — and the dim LINE is
+ * drawn at `lineV`, below the building.
+ *
+ * `offsetV = lineV − v` is the signed perpendicular offset the renderer consumes. NOTE the
+ * sign convention is the mirror of `ElevDimSegment.offsetH` (`h − lineH`) and that is not
+ * an inconsistency to be tidied away: it is dictated by the renderer, which offsets a dim
+ * line along `leftPerp(measurementDir)`. For a VERTICAL measure that perpendicular is −H;
+ * for a HORIZONTAL one it is +V. Each field is defined as "what you add to the measured
+ * point to reach the line", which is the only definition that survives contact with the
+ * renderer.
+ */
+export interface ElevHDimSegment {
+  readonly id: string;
+  readonly rule: ElevHDimRule;
+  /** Vertical station of the two measured points, metres (world-Y) — the façade base. */
+  readonly v: number;
+  /** Vertical station of the dimension LINE, metres (world-Y). Below the façade. */
+  readonly lineV: number;
+  /** Signed perpendicular offset from geometry to dim line (`lineV − v`), metres. */
+  readonly offsetV: number;
+  /** Left measured station, metres (view H). */
+  readonly h1: number;
+  /** Right measured station, metres (view H). `h2 > h1`. */
+  readonly h2: number;
+  /** The measured value, metres. Always `h2 − h1` — derived, never a literal. */
+  readonly valueM: number;
+  /** Documentation rank (1 = overall façade … 2 = chain). */
+  readonly rank: number;
+  /** Outward stack row (the TIER, from the L-281 model). */
+  readonly rowIndex: number;
+  /** −1 → the dim line is BELOW the façade. (+1 reserved for an above-façade stack.) */
+  readonly side: 1 | -1;
+  /** Model records this segment measures (openings). L-127 provenance. */
+  readonly referenceIds: readonly string[];
+  readonly label?: string;
+}
 
 /** The normative rule that produced a segment — see `ELEVATION_RULE_SET`. */
 export type ElevDimRule =

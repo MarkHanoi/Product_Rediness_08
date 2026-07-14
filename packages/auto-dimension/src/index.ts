@@ -77,6 +77,10 @@ export type { BuildingFootprint, BuildingPartition } from './buildings.js';
 export {
   planElevationAutoDimensions,
   ELEVATION_RULES_BY_DETAIL_LEVEL,
+  // §FIX-ELEVATION-HORIZONTAL-CHAIN (L-283) — the HORIZONTAL rule set's LOD gate. An
+  // elevation dimension set is TWO chains; L-263 shipped one and left the other implicit,
+  // and implicit meant absent.
+  ELEVATION_H_RULES_BY_DETAIL_LEVEL,
   type ElevAutoDimResult,
 } from './elevation/planElevationAutoDimensions.js';
 export type {
@@ -86,5 +90,7 @@ export type {
   ElevAutoDimOpening,
   ElevDimSegment,
   ElevDimRule,
+  ElevHDimSegment,
+  ElevHDimRule,
   ElevTopDatumKind,
 } from './elevation/types.js';
