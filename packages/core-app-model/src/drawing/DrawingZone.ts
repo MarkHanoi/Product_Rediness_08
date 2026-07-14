@@ -189,6 +189,67 @@ export function zoneDashesByDefault(zone: DrawingZone): boolean {
     return zone === 'hidden';
 }
 
+// ─── The two dashes, and why they must differ (C09 §4.6.4d) ──────────────────
+
+/**
+ * §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) — **THE TWO DE-EMPHASIS ZONES MUST BE TELLABLE APART.**
+ *
+ * The founder has asked for `beyond` to draw DASHED in elevation and section (plan keeps it
+ * solid). That is legitimate — it is the override clause his own spec carries (*"never dashed,
+ * **unless explicitly overridden**"*), expressed as per-view-type INTENT (`ViewScope`) rather
+ * than as an `if (isElevation)` in a builder. It does **not** re-open L-277: that bug was
+ * dashing by DISTANCE — far-but-VISIBLE geometry dashed because depth and occlusion shared one
+ * bucket — and it stays fixed.
+ *
+ * *** BUT: `BEYOND` AND `HIDDEN` CARRY THE SAME WIDTH (0.09 mm). THEY DIFFER BY *DASH*, NOT BY
+ * *WEIGHT*. *** So the naive `dash = true` on beyond ships a drawing that **GAINED A DASH AND
+ * LOST A DISTINCTION**: a stair's lower run (beyond) would read identically to a pipe behind a
+ * wall (hidden), in exactly the views he asked for. They must be separated BEFORE beyond dashes.
+ *
+ * ═══ THE AXIS IS THE DASH PATTERN. IT IS NOT THE WEIGHT. ═══
+ *
+ * WEIGHT WAS THE OBVIOUS CHOICE AND IT IS **PROVABLY INVISIBLE** — measured, not guessed, in
+ * §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288): both pens sit at 0.09 mm ≈ 0.34 CSS px, which is
+ * **one device pixel** at the canvas's backing scale — i.e. exactly ON the raster floor. Any
+ * width difference between them is *sub-pixel by construction*: the eye cannot receive it, and
+ * making `hidden` thinner would additionally force `MIN_LEGIBLE_BACKING_SCALE` from 3 to 4
+ * (it is derived from the thinnest pen), i.e. pay a 16/9× fill-rate cost for a difference nobody
+ * can see. A distinction the raster destroys is not a distinction.
+ *
+ * THE DASH PERIOD IS MULTI-PIXEL AND SURVIVES EVERYTHING. `[8,4]` vs `[4,3]` is 12 CSS px of
+ * period against 7 — visible at 1×, visible on a projector, and exact in print. It is also the
+ * standard drafting distinction (ISO 128-24: a LONG dash for a member behind the plane; a fine
+ * SHORT dash for hidden detail), which is why every draughtsman already reads it correctly.
+ */
+export const BEYOND_DASH_PX: readonly number[] = Object.freeze([8, 4]);
+
+/** The hidden-line dash (ISO 128-24 type F). Short, fine — deliberately NOT {@link BEYOND_DASH_PX}. */
+export const HIDDEN_DASH_PX: readonly number[] = Object.freeze([4, 3]);
+
+/**
+ * The two de-emphasis dashes are DIFFERENT — asserted here as a type-level fact so the guard
+ * cannot be satisfied by a coincidence. If someone "tidies" one of them into the other, a
+ * stair's lower run and a pipe behind a wall become the same line, and the merge-blocking L-290
+ * guard goes red.
+ */
+export function beyondAndHiddenAreDistinguishable(): boolean {
+    return BEYOND_DASH_PX.length !== HIDDEN_DASH_PX.length
+        || BEYOND_DASH_PX.some((v, i) => v !== HIDDEN_DASH_PX[i]);
+}
+
+/**
+ * How a view draws the `beyond` zone. **A per-view-type default carried as DATA on `ViewScope`**
+ * (the `occlusionDisposition` precedent, L-279), overridable per view (P7) — never a `viewType
+ * ===` branch inside a renderer.
+ *
+ *   • `'solid'`  — PLAN. The founder's stair: its lower run is DELIBERATELY SHOWN, and it is not
+ *     behind anything. Unchanged by L-290, and asserted explicitly, because a fix here that
+ *     silently dashed plan would re-open the exact bug L-277 closed.
+ *   • `'dashed'` — ELEVATION and SECTION, drawn with {@link BEYOND_DASH_PX} (the LONG dash), so
+ *     it stays distinct from `hidden`'s short dash.
+ */
+export type BeyondLineStyle = 'solid' | 'dashed';
+
 /**
  * DATUM categories — grids, levels and annotation.
  *

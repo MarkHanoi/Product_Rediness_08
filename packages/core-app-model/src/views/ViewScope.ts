@@ -36,7 +36,7 @@
 
 import type { ViewType } from './ViewDefinitionTypes';
 import { PLAN_VIEW_TYPES } from './ViewDefinitionTypes';
-import type { OcclusionDisposition } from '../drawing/DrawingZone';
+import type { OcclusionDisposition, BeyondLineStyle } from '../drawing/DrawingZone';
 
 export interface ViewScope {
     /** Solid cut fills (poché) are rendered for this view. */
@@ -71,6 +71,31 @@ export interface ViewScope {
      * already honours whatever it is handed; only the user-facing switch is missing.)
      */
     occlusionDisposition: OcclusionDisposition;
+
+    /**
+     * §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) / C09 §4.6.4d — how this view draws the `beyond`
+     * zone: geometry PAST the cut plane that is DELIBERATELY SHOWN.
+     *
+     *   • `'solid'`  — PLAN. The founder's canonical case: a stair's lower run is shown, lighter,
+     *     and it is NOT behind anything. **Unchanged by L-290 and asserted explicitly** — a fix
+     *     that silently dashed plan would re-open the exact bug L-277 closed.
+     *   • `'dashed'` — ELEVATION and SECTION, at the founder's explicit instruction. This is the
+     *     override clause his own spec carries (*"never dashed, unless explicitly overridden"*),
+     *     and it lives HERE — as per-view-type INTENT DATA on the one classifier every consumer
+     *     already reads — rather than as an `if (isElevation)` inside a renderer. Same shape,
+     *     same file, same reasoning as `occlusionDisposition` above (L-279).
+     *
+     * IT DOES NOT RE-OPEN L-277. That bug was dashing by DISTANCE: far-but-VISIBLE geometry drawn
+     * as if something were in front of it, because depth and occlusion shared one bucket. The
+     * buckets are still separate; this is a deliberate, view-scoped STYLE, chosen by the user.
+     *
+     * *** AND IT IS ONLY SAFE BECAUSE `beyond` AND `hidden` ARE NOW TELLABLE APART. *** They carry
+     * the SAME WIDTH (0.09 mm) and differ by DASH — so `beyond` dashes with the LONG
+     * `BEYOND_DASH_PX` [8,4] and `hidden` keeps the fine `HIDDEN_DASH_PX` [4,3]. Dash it without
+     * that separation and the drawing GAINS A DASH AND LOSES A DISTINCTION: a stair's lower run
+     * would read exactly like a pipe behind a wall, in precisely the views he asked for.
+     */
+    beyondLineStyle: BeyondLineStyle;
 }
 
 /** Plan-family view types for scope purposes — PLAN_VIEW_TYPES plus `detail`
@@ -85,18 +110,26 @@ const _ELEVATION_SCOPE: ViewScope = Object.freeze({
     // L-190: set-back geometry on a façade reads DASHED, not deleted — the viewer wants to
     // see the recessed wing behind the front plane.
     occlusionDisposition: 'demote' as const,
+    // L-290 (founder, explicit): an elevation's receding geometry reads DASHED.
+    beyondLineStyle: 'dashed' as const,
 });
 const _SECTION_SCOPE: ViewScope = Object.freeze({
     poche: true, cut: true, depthProjected: true, planFamily: false,
     occlusionDisposition: 'remove' as const,
+    // L-290 (founder, explicit): a section's geometry behind the cut plane reads DASHED.
+    beyondLineStyle: 'dashed' as const,
 });
 const _PLAN_SCOPE: ViewScope = Object.freeze({
     poche: true, cut: true, depthProjected: false, planFamily: true,
     occlusionDisposition: 'remove' as const,
+    // L-290: PLAN KEEPS BEYOND SOLID. The founder's stair — its lower run is DELIBERATELY SHOWN
+    // and is not behind anything. This line is L-277, and L-290 must not touch it.
+    beyondLineStyle: 'solid' as const,
 });
 const _NON_TECHNICAL_SCOPE: ViewScope = Object.freeze({
     poche: false, cut: false, depthProjected: false, planFamily: false,
     occlusionDisposition: 'remove' as const,
+    beyondLineStyle: 'solid' as const,
 });
 
 /**
@@ -143,4 +176,28 @@ export function resolveOcclusionDisposition(
     scope: ViewScope,
 ): OcclusionDisposition {
     return viewOutput?.occlusionDisposition ?? scope.occlusionDisposition;
+}
+
+/**
+ * §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) — resolve how a SPECIFIC view draws the `beyond` zone.
+ *
+ * PRECEDENCE — instance beats type beats default, the SAME shape as `resolveOcclusionDisposition`
+ * above (and `resolveWindowDimensions` / `resolveEffectiveDetailLevel` before it). This is not a
+ * new mechanism; L-279 built the channel and L-290 reuses it, which is the whole point:
+ *
+ *     the VIEW's own `output.beyondLineStyle`   (an explicit act of intent, P7)
+ *       → the view TYPE's default on `ViewScope` (elevation/section 'dashed', plan 'solid')
+ *
+ * `undefined` on the view means "I have no opinion", and the only correct reading of that is to
+ * inherit the type default — so a view nobody has touched behaves exactly as its type says.
+ *
+ * This function is the ONE place the choice is made. A renderer that reads
+ * `scope.beyondLineStyle` directly silently ignores the per-view override, and the user's
+ * setting becomes a lie.
+ */
+export function resolveBeyondLineStyle(
+    viewOutput: { beyondLineStyle?: BeyondLineStyle } | undefined,
+    scope: ViewScope,
+): BeyondLineStyle {
+    return viewOutput?.beyondLineStyle ?? scope.beyondLineStyle;
 }

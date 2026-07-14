@@ -84,7 +84,7 @@ function strokesAtDpr(
         imageSmoothingEnabled: true,
         setTransform() {}, save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {},
         closePath() {}, fill() {}, fillRect() {}, fillText() {}, clip() {}, rect() {}, arc() {},
-        drawImage() {}, createPattern: () => null, translate() {}, scale() {},
+        drawImage() {}, createPattern: (): null => null, translate() {}, scale() {},
         setLineDash(d: number[]) { dash = d ?? []; },
         getLineDash() { return dash; },
         stroke() {

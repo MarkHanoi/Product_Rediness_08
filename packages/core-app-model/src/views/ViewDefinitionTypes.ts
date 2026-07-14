@@ -26,7 +26,7 @@ import type { DetailLevel } from '@pryzm/schemas/view/detail-level';
 // §FEAT-VIEW-OCCLUSION-DISPOSITION (L-279) — the ONE definition of what happens to an
 // occluded line. Imported, never re-declared: a second copy of this union is exactly how
 // `mullionThickness` became a second source of truth for the door mullion this morning.
-import type { OcclusionDisposition } from '../drawing/DrawingZone';
+import type { OcclusionDisposition, BeyondLineStyle } from '../drawing/DrawingZone';
 
 /** Re-exported so consumers of the view types get the enum from one place. */
 export type { DetailLevel };
@@ -261,6 +261,17 @@ export interface ViewOutputSettings {
      * not a global toggle, and not a hack in the projector.
      */
     occlusionDisposition?: OcclusionDisposition;
+
+    /**
+     * §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) / C09 §4.6.4d — how THIS view draws the `beyond`
+     * zone (geometry past the cut plane that is deliberately shown).
+     *
+     * `undefined` ⇒ inherit the view TYPE's default from `ViewScope` (elevation and section
+     * 'dashed', plan 'solid'). Setting it is an explicit act of INTENT (P7) — the founder's own
+     * *"unless explicitly overridden"* clause, and the reason the dash is DATA here rather than
+     * an `if (isElevation)` in a renderer. Resolved ONLY through `resolveBeyondLineStyle()`.
+     */
+    beyondLineStyle?: BeyondLineStyle;
 
     /**
      * Drawing scale as a ratio denominator (e.g. 100 = 1:100, 50 = 1:50).

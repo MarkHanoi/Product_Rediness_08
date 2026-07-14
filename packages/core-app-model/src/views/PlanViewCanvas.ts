@@ -12,11 +12,11 @@ import type { ViewDefinition, ViewCropSettings } from './ViewDefinitionTypes';
 import { viewDefinitionStore } from './ViewDefinitionStore';
 // §FIX-ELEVATION-POCHE (L-119) — poché (solid cut fills) is a CUT-view concept.
 // ViewScope.poche is false for elevation/3d, so the façade is never painted black.
-import { resolveViewScope } from './ViewScope';
+import { resolveViewScope, resolveBeyondLineStyle } from './ViewScope';
 // Contract 23 §8 — pen weight table (zone/category helpers)
 import { categoryFromFlags } from '../drawing/PenWeightTable';
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
-import { drawingZoneFromLayerName, penZoneOf } from '../drawing/DrawingZone';
+import { drawingZoneFromLayerName, penZoneOf, BEYOND_DASH_PX } from '../drawing/DrawingZone';
 // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the third pen axis. The projector
 // stamps the element TYPE's function on the projected LineSegments; this is where it is read.
 import { elementFunctionFrom, ELEMENT_FUNCTION_KEY } from '../drawing/ElementFunction';
@@ -284,6 +284,13 @@ export class PlanViewCanvas {
         const hairline = minStrokePx(scale);
         const dashPxScale = dashScale(window.devicePixelRatio);
 
+        // §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) / C09 §4.6.4d — how THIS view draws the `beyond`
+        // zone. Resolved ONCE, here, through the one resolver (the view's own override beats its
+        // TYPE's default — elevation/section 'dashed', plan 'solid'), and handed to the pen engine
+        // as a resolved ANSWER. The canvas must not ask "is this an elevation?" and neither must
+        // the engine: that scattered `viewType ===` branching is exactly what ViewScope abolished.
+        const _beyondLineStyle = resolveBeyondLineStyle(viewDef.output, resolveViewScope(this._viewType));
+
         // §FIX-ELEVATION-POCHE (L-119) — only CUT-family views (plan / section) get
         // poché solid fills. Elevations are pure line drawings; running the poché pass
         // for them painted every façade cut layer solid black over the linework.
@@ -359,6 +366,7 @@ export class PlanViewCanvas {
                 elementId: _elementId,
                 viewType:  viewDef.viewType,
                 elementFunction: _elementFunction,
+                beyondLineStyle: _beyondLineStyle,
             });
 
             ctx.strokeStyle = vgEdge ?? _pen.color;
@@ -1649,6 +1657,13 @@ export class PlanViewCanvas {
         const hairline = minStrokePx(scale);
         const dashPxScale = dashScale(window.devicePixelRatio);
 
+        // §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) / C09 §4.6.4d — how THIS view draws the `beyond`
+        // zone. Resolved ONCE, here, through the one resolver (the view's own override beats its
+        // TYPE's default — elevation/section 'dashed', plan 'solid'), and handed to the pen engine
+        // as a resolved ANSWER. The canvas must not ask "is this an elevation?" and neither must
+        // the engine: that scattered `viewType ===` branching is exactly what ViewScope abolished.
+        const _beyondLineStyle = resolveBeyondLineStyle(viewDef.output, resolveViewScope(this._viewType));
+
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         ctx.imageSmoothingEnabled = true;
         ctx.fillStyle = '#ffffff';
@@ -1724,10 +1739,28 @@ export class PlanViewCanvas {
             const p1 = this.worldToScreen(edge.h0, edge.v0);
             const p2 = this.worldToScreen(edge.h1, edge.v1);
 
+            // §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) — the BEYOND dash is VIEW INTENT, and the
+            // WORKER CANNOT KNOW IT: it resolves its pens from (zone × category) alone and has no
+            // `ViewDefinition`, so it can never answer "does THIS view dash its beyond zone?".
+            // The view-scoped decision is therefore applied HERE, on the same resolved answer the
+            // main path uses, from the SAME `BEYOND_DASH_PX` constant — so a stair's lower run in
+            // an elevation reads identically whether the drawing came back through the worker or
+            // not. A fix applied to one of two identical paths is not a fix (L-288 taught this
+            // file that twice).
+            //
+            // (The deeper issue — that the worker resolves pens through its OWN mini rules engine
+            // rather than `graphicsRulesEngine.resolveStyle()` — is a PRE-EXISTING divergence from
+            // Contract-23 §7.1, the same class of defect as L-280's symbol renderer. It also means
+            // the L-285 function axis does not reach this path. Recorded, not smuggled into this
+            // ticket: it needs the worker message protocol to carry the view's intent.)
+            const _edgeDash = (edge.zone === 'BEYOND' && _beyondLineStyle === 'dashed')
+                ? [...BEYOND_DASH_PX]
+                : edge.dashPx;
+
             ctx.strokeStyle = edge.color;
             ctx.lineWidth   = Math.max(hairline, edge.widthMm * SCREEN_PX_PER_MM);
             ctx.globalAlpha = edge.opacity;
-            ctx.setLineDash(edge.dashPx ? edge.dashPx.map(v => v * dashPxScale) : []);
+            ctx.setLineDash(_edgeDash ? _edgeDash.map(v => v * dashPxScale) : []);
 
             ctx.beginPath();
             ctx.moveTo(p1.sx, p1.sy);

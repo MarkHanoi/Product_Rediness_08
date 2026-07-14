@@ -70,7 +70,10 @@ export {
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — C09 §4.6, the four drawing zones. ONLY `hidden`
 // dashes. `penZoneFromFlags(isCut, isBeyond)` is DELETED: two booleans cannot express four
 // zones, so HIDDEN was structurally unreachable at the one place that paints a line.
-export type { DrawingZone, OcclusionDisposition } from './drawing/DrawingZone.js';
+export type { DrawingZone, OcclusionDisposition, BeyondLineStyle } from './drawing/DrawingZone.js';
+// §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) — the two de-emphasis dashes. They MUST differ:
+// beyond and hidden share a WIDTH, so the DASH is the only axis that can tell them apart.
+export { BEYOND_DASH_PX, HIDDEN_DASH_PX, beyondAndHiddenAreDistinguishable } from './drawing/DrawingZone.js';
 export {
     DRAWING_ZONES,
     DATUM_CATEGORIES,
@@ -272,7 +275,7 @@ export {
     ALL_VIEW_TYPES, PLAN_VIEW_TYPES, VIEW_PROJECTION_DIRECTIONS,
 } from './views/ViewDefinitionTypes.js';
 // §FIX-ELEVATION-POCHE / §FIX-ELEVATION-SCOPE (L-119 / L-120 P4) — unified view scope.
-export { resolveViewScope, resolveOcclusionDisposition } from './views/ViewScope.js';
+export { resolveViewScope, resolveOcclusionDisposition, resolveBeyondLineStyle } from './views/ViewScope.js';
 export type { ViewScope } from './views/ViewScope.js';
 
 // ── BimKernel + SpatialAuthority (P9-W2 2026-05-10) ────────────────────────

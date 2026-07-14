@@ -71,7 +71,10 @@ export {
 } from './ElementFunction.js';
 
 // ── §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — C09 §4.6, the four zones ───────
-export type { DrawingZone, OcclusionDisposition } from './DrawingZone.js';
+export type { DrawingZone, OcclusionDisposition, BeyondLineStyle } from './DrawingZone.js';
+// §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) — the two de-emphasis dashes. They MUST differ:
+// beyond and hidden share a WIDTH, so the DASH is the only axis that can tell them apart.
+export { BEYOND_DASH_PX, HIDDEN_DASH_PX, beyondAndHiddenAreDistinguishable } from './DrawingZone.js';
 export {
     DRAWING_ZONES,
     DATUM_CATEGORIES,

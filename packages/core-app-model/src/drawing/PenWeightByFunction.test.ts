@@ -68,7 +68,7 @@ function recordingCtx(): { ctx: CanvasRenderingContext2D; strokes: Stroke[] } {
         lineCap: 'butt', lineJoin: 'miter', miterLimit: 10, imageSmoothingEnabled: true,
         setTransform() {}, save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {},
         closePath() {}, fill() {}, fillRect() {}, fillText() {}, clip() {}, rect() {},
-        arc() {}, drawImage() {}, createPattern: () => null, translate() {}, scale() {},
+        arc() {}, drawImage() {}, createPattern: (): null => null, translate() {}, scale() {},
         setLineDash(d: number[]) { dash = d ?? []; },
         getLineDash() { return dash; },
         stroke() {

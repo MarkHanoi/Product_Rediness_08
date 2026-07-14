@@ -21,6 +21,10 @@
 import { type PenStyle, type PenZone, resolvePen } from './PenWeightTable';
 // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the third pen axis.
 import { type ElementFunction, penWidthScale } from './ElementFunction';
+// §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) / C09 §4.6.4d — the BEYOND zone's per-view dash. The
+// LONG dash, deliberately distinct from HIDDEN's short one: they share a WIDTH, so the dash is
+// the ONLY axis that can tell them apart (measured — see DrawingZone.BEYOND_DASH_PX).
+import { type BeyondLineStyle, BEYOND_DASH_PX } from './DrawingZone';
 import { styleResolverCacheKey } from './DrawingConstants';
 import { resolveIntentPenStyle } from '../presentation/IntentRuleResolver';
 import { visibilityIntentStore } from '../presentation/VisibilityIntentStore';
@@ -47,6 +51,18 @@ export interface StyleResolverContext {
      * Omitted / null ⇒ unmodulated ⇒ the pre-L-285 pen, exactly.
      */
     elementFunction?: ElementFunction | null;
+
+    /**
+     * §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) — how THIS VIEW draws the `beyond` zone, ALREADY
+     * RESOLVED by the caller through `resolveViewScope()` + `resolveBeyondLineStyle()` (the view's
+     * own override beats its type's default, P7).
+     *
+     * It arrives as a RESOLVED ANSWER, not as a viewType the engine would have to interpret. The
+     * engine must never re-derive "is this an elevation?" — that is precisely the scattered
+     * `viewType ===` branching `ViewScope` exists to abolish, and a second copy of the rule is a
+     * second place for it to drift.
+     */
+    beyondLineStyle?: BeyondLineStyle;
 }
 
 export interface GraphicsRule {
@@ -146,7 +162,7 @@ export class GraphicsRulesEngine {
         const cacheKey = styleResolverCacheKey(
             ctx.elementId ?? '',
             ctx.viewId    ?? '',
-            `${zone}:${category}:${ctx.intentInstanceId ?? ''}:${ctx.viewType ?? ''}:${ctx.elementFunction ?? ''}`,
+            `${zone}:${category}:${ctx.intentInstanceId ?? ''}:${ctx.viewType ?? ''}:${ctx.elementFunction ?? ''}:${ctx.beyondLineStyle ?? ''}`,
         );
 
         const cached = this._cache.get(cacheKey);
@@ -154,6 +170,7 @@ export class GraphicsRulesEngine {
 
         const matching = [
             ...this._intentRules(zone, category, ctx),
+            ...this._beyondDashRules(zone, ctx),
             ...this._rules.filter(r => this._matches(r, zone, category, ctx)),
         ];
 
@@ -224,6 +241,34 @@ export class GraphicsRulesEngine {
         if (rule.priority === RULE_PRIORITY_VIEW    && !ctx.viewId)    return false;
         if (rule.priority === RULE_PRIORITY_ELEMENT && !ctx.elementId) return false;
         return true;
+    }
+
+    /**
+     * §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) — the VIEW-TYPE tier of the BEYOND dash.
+     *
+     * The founder asked for `beyond` to draw DASHED in elevation and section, SOLID in plan. That
+     * is the override clause his own spec carries (*"never dashed, unless explicitly
+     * overridden"*), and C09 §4.6.4 stays literally true: the PEN TABLE still says `beyond` is
+     * SOLID, and no dash arrives from a code branch. It arrives from VIEW INTENT — resolved by
+     * the caller through `ViewScope` + the view's own override — which is exactly what P7 means.
+     *
+     * PRIORITY: `RULE_PRIORITY_VIEW_TYPE_MODIFIER` (5000). Deliberately ABOVE the intent tier
+     * (1000), which seeds `beyond` as solid from the table and would otherwise erase this — the
+     * same "the intent chain always overwrites the base" trap that nearly cost L-277 its hidden
+     * pen and that L-285's function axis had to be applied at chain-END to survive. And
+     * deliberately BELOW the VIEW (9000) and ELEMENT (10000) tiers, so a user who explicitly
+     * styles this zone still wins. A view-type DEFAULT must never outrank a user's decision.
+     *
+     * `hidden` is untouched — it keeps `HIDDEN_DASH_PX` from the table. That is the whole safety
+     * property: dashing `beyond` with the SAME dash would gain a dash and LOSE A DISTINCTION.
+     */
+    private _beyondDashRules(zone: PenZone, ctx: StyleResolverContext): GraphicsRule[] {
+        if (zone !== 'BEYOND' || ctx.beyondLineStyle !== 'dashed') return [];
+        return [{
+            priority: RULE_PRIORITY_VIEW_TYPE_MODIFIER,
+            zone,
+            style: { dashPx: [...BEYOND_DASH_PX] },
+        }];
     }
 
     private _intentRules(zone: PenZone, category: string, ctx: StyleResolverContext): GraphicsRule[] {

@@ -50,7 +50,7 @@ export interface PenStyle {
  * Re-exported here so every existing `import { PenZone } from './PenWeightTable'` keeps
  * working while there remains exactly ONE declaration of the four zones.
  */
-import { type DrawingZone, type PenZone, penZoneOf, drawingZoneFromLayerName } from './DrawingZone';
+import { type DrawingZone, type PenZone, penZoneOf, drawingZoneFromLayerName, HIDDEN_DASH_PX } from './DrawingZone';
 export type { PenZone };
 
 /**
@@ -180,19 +180,19 @@ const SYSTEM_PEN_TABLE: Partial<Record<PenZone, Partial<Record<string, PenStyle>
     //    THE ONLY ZONE THAT DASHES BY DEFAULT. Thin, no fill. Produced ONLY by the
     //    occlusion engine (`applyOcclusion`), NEVER by a depth/distance test.
     HIDDEN: {
-        wall:       pen(0.09, '#6b7280', [4, 3], 0.55),
-        slab:       pen(0.09, '#6b7280', [4, 3], 0.55),
-        column:     pen(0.09, '#6b7280', [4, 3], 0.55),
-        structural: pen(0.09, '#6b7280', [4, 3], 0.55),
-        beam:       pen(0.09, '#6b7280', [4, 3], 0.55),
-        door:       pen(0.09, '#6b7280', [4, 3], 0.55),
-        window:     pen(0.09, '#6b7280', [4, 3], 0.55),
-        stair:      pen(0.09, '#6b7280', [4, 3], 0.55),
-        roof:       pen(0.09, '#6b7280', [4, 3], 0.55),
-        ceiling:    pen(0.09, '#6b7280', [4, 3], 0.55),
-        furniture:  pen(0.09, '#6b7280', [4, 3], 0.55),
-        lighting:   pen(0.09, '#6b7280', [4, 3], 0.55),
-        plumbing:   pen(0.09, '#6b7280', [4, 3], 0.55),
+        wall:       pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        slab:       pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        column:     pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        structural: pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        beam:       pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        door:       pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        window:     pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        stair:      pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        roof:       pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        ceiling:    pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        furniture:  pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        lighting:   pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
+        plumbing:   pen(0.09, '#6b7280', [...HIDDEN_DASH_PX], 0.55),
     },
 };
 
