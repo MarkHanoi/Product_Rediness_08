@@ -55,3 +55,15 @@ export {
 } from './AutoTagIntent.js';
 
 export { withAutoTagSpan, _resetAutoTagTracerCache, type AutoTagStage } from './tracing.js';
+
+// §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — a tag's SIZE is a property of the PAPER.
+// The same rule as the dimension tier gap (L-281's `tierGapWorldM`), stated once so a tag
+// and a dimension can never disagree about what a millimetre of sheet is worth.
+export {
+    TAG_PAPER_MM,
+    DEFAULT_SCALE_DENOMINATOR,
+    paperMmToWorldM,
+    paperMmToPx,
+    resolveScaleDenominator,
+    pxPerWorldMetre,
+} from './paperScale.js';

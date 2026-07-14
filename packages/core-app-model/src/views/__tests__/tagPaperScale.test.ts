@@ -1,0 +1,198 @@
+/**
+ * @vitest-environment happy-dom
+ *
+ * §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — PAPER SIZE, AND A PICK CORRIDOR.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * DOES THIS GUARD DISCRIMINATE THE BUG? (the equidistant-square question)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The bug: the bubble was a FIXED SCREEN SIZE (`const r = 16`). So before asserting
+ * anything, ask what the OLD code would score:
+ *
+ *   • "the bubble is the same PAPER size at 1:50 and 1:100" — the old code PASSES this
+ *     vacuously (a fixed pixel radius is the same at every scale). USELESS ALONE.
+ *   • "the bubble's WORLD size at 1:50 is HALF its world size at 1:100" — the old code
+ *     FAILS: its world size is identical at both (it never looked at the scale). ✅
+ *   • "the bubble's SCREEN size DOUBLES when the zoom doubles" — the old code FAILS: its
+ *     screen size is constant under zoom, which is precisely why it swallowed the plan. ✅
+ *
+ * So the last two are the guard, and the first is only meaningful ALONGSIDE them. A test
+ * that a square would also pass is not a test.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { annotationStore, makeAnnotationElement, makePointRef } from '@pryzm/plugin-annotations';
+import { PlanViewAnnotationRenderer } from '../PlanViewAnnotationRenderer';
+import { viewDefinitionStore } from '../ViewDefinitionStore';
+import { TAG_PAPER_MM, paperMmToWorldM, paperMmToPx } from '../../annotations/paperScale';
+
+const VIEW = 'v_tagscale';
+
+/** A canvas stub that records the radius of every arc (the bubble) it is asked to draw. */
+function fakeCtx() {
+    const arcs: number[] = [];
+    const fonts: string[] = [];
+    const ctx = {
+        arcs, fonts,
+        save() {}, restore() {}, beginPath() {}, closePath() {},
+        moveTo() {}, lineTo() {}, fill() {}, stroke() {}, fillText() {},
+        strokeRect() {}, rect() {}, setLineDash() {},
+        arc(_x: number, _y: number, r: number) { arcs.push(r); },
+        // A REAL canvas measures glyphs at the CURRENT font size, so the stub must too:
+        // the text run is itself paper-scaled, and a stub that returns a fixed width would
+        // quietly break the very proportionality under test.
+        measureText(t: string) {
+            const px = Number(/(\d+(?:\.\d+)?)px/.exec(this.font as string)?.[1] ?? 10);
+            return { width: t.length * px * 0.55 };
+        },
+        set font(v: string) { fonts.push(v); },
+        get font() { return fonts[fonts.length - 1] ?? ''; },
+        fillStyle: '', strokeStyle: '', lineWidth: 1,
+        textAlign: '', textBaseline: '', globalAlpha: 1,
+    };
+    return ctx as unknown as CanvasRenderingContext2D & { arcs: number[]; fonts: string[] };
+}
+
+/** A door tag: anchor on the door at x=4.5, bubble 1.2 m away in +z. */
+function addDoorTag(): void {
+    annotationStore.add(makeAnnotationElement(
+        'annotation_tag_1', 'door-tag', VIEW,
+        [makePointRef({ x: 4.5, y: 0, z: 0 } as never)],
+        { modelPoints: [{ x: 4.5, y: 0, z: 0 }, { x: 4.5, y: 0, z: 1.2 }], offset: 0 },
+        { elementId: 'door_1', cachedLabel: 'D1', showLeader: true },
+    ));
+}
+
+/** Render at a given view scale + zoom, and return the bubble radius the canvas was given. */
+function bubbleRadiusPx(scaleDenominator: number, pxPerWorldM: number): number {
+    viewDefinitionStore.get = ((id: string) =>
+        id === VIEW ? { id, output: { scale: scaleDenominator } } : undefined) as never;
+    const renderer = new PlanViewAnnotationRenderer();
+    const ctx = fakeCtx();
+    const w2s = (h: number, v: number) => ({ sx: h * pxPerWorldM, sy: v * pxPerWorldM });
+    renderer.render(ctx, VIEW, w2s, { viewType: 'plan' });
+    // The largest arc drawn is the bubble (the leader dot is far smaller).
+    return Math.max(...ctx.arcs);
+}
+
+beforeEach(() => {
+    annotationStore.clear();
+    addDoorTag();
+});
+
+// ── The pure rule ───────────────────────────────────────────────────────────
+
+describe('paper millimetres are the only unit a tag is sized in (C24)', () => {
+    it('a paper mm buys HALF the world at 1:50 that it buys at 1:100', () => {
+        expect(paperMmToWorldM(3.5, 100)).toBeCloseTo(0.35, 9);
+        expect(paperMmToWorldM(3.5, 50)).toBeCloseTo(0.175, 9);
+        expect(paperMmToWorldM(3.5, 200)).toBeCloseTo(0.7, 9);
+    });
+
+    it('screen pixels = paper × view scale × zoom — both transforms, in order', () => {
+        // 3.5 mm @ 1:100 = 0.35 m; at 20 px/m that is 7 px.
+        expect(paperMmToPx(3.5, 100, 20)).toBeCloseTo(7, 9);
+        // Halve the scale → half the world size → half the pixels (at the same zoom).
+        expect(paperMmToPx(3.5, 50, 20)).toBeCloseTo(3.5, 9);
+        // Double the zoom → double the pixels (at the same scale).
+        expect(paperMmToPx(3.5, 100, 40)).toBeCloseTo(14, 9);
+    });
+});
+
+// ── The rendered outcome (this is where the old code fails) ─────────────────
+
+describe('the bubble is a PAPER size — the assertions the old code FAILS', () => {
+    it('its WORLD size at 1:50 is HALF its world size at 1:100', () => {
+        const zoom = 20;                                   // px per world metre, held fixed
+        const r100 = bubbleRadiusPx(100, zoom) / zoom;     // → world metres
+        const r50 = bubbleRadiusPx(50, zoom) / zoom;
+
+        expect(r50).toBeCloseTo(r100 / 2, 6);
+        // THE DISCRIMINATOR: the old fixed-pixel bubble had the SAME world size at both
+        // scales (it never consulted the view). If this ever passes with r50 === r100, the
+        // fix has been reverted and the guard must scream.
+        expect(r50).not.toBeCloseTo(r100, 3);
+    });
+
+    it('its PAPER size is IDENTICAL at 1:50 and 1:100 (the founder\'s actual request)', () => {
+        const zoom = 20;
+        const paper100 = (bubbleRadiusPx(100, zoom) / zoom) / paperMmToWorldM(1, 100);
+        const paper50 = (bubbleRadiusPx(50, zoom) / zoom) / paperMmToWorldM(1, 50);
+        expect(paper50).toBeCloseTo(paper100, 6);
+        expect(paper100).toBeGreaterThanOrEqual(TAG_PAPER_MM.bubbleRadiusMm - 1e-6);
+    });
+
+    it('it GROWS WITH ZOOM in pixels — i.e. it holds still against the BUILDING', () => {
+        const near = bubbleRadiusPx(100, 40);   // zoomed in
+        const far = bubbleRadiusPx(100, 20);    // zoomed out
+
+        expect(near).toBeCloseTo(far * 2, 6);
+        // THE DISCRIMINATOR: the old bubble was a CONSTANT number of pixels at every zoom —
+        // so as the building shrank away it swallowed the plan ("the size of a room"). If
+        // the screen radius ever stops tracking the zoom, that is the bug, exactly.
+        expect(near).not.toBeCloseTo(far, 3);
+    });
+
+    it('zooming does NOT change the tag\'s paper size (scale ≠ zoom)', () => {
+        const paperAt = (zoom: number) => (bubbleRadiusPx(100, zoom) / zoom) / paperMmToWorldM(1, 100);
+        expect(paperAt(10)).toBeCloseTo(paperAt(80), 6);   // 8× the zoom, same sheet
+    });
+});
+
+// ── No literals (the bug WAS a literal, so the test FORBIDS literals) ───────
+
+describe('no pixel/world literal survives in the tag renderer', () => {
+    it('the tag symbol is sized only from TAG_PAPER_MM, never from a bare number', () => {
+        const src = readFileSync(
+            resolve(process.cwd(), 'src/views/PlanViewAnnotationRenderer.ts'),
+            'utf8',
+        );
+        const body = src.slice(
+            src.indexOf('private _renderMarkedTag('),
+            src.indexOf('/** Door tag'),
+        );
+        expect(body.length).toBeGreaterThan(100);          // we really did find the function
+
+        // The exact literals that caused the bug must not come back.
+        expect(body).not.toMatch(/const\s+rBase\s*=\s*sizeStr\s*\?\s*16\s*:\s*13/);
+        expect(body).not.toMatch(/mmToPx\(/);              // screen-mm — the wrong transform
+        // Every size in the symbol comes from the paper table.
+        expect(body).toContain('TAG_PAPER_MM.bubbleRadiusMm');
+        expect(body).toContain('TAG_PAPER_MM.markTextMm');
+        expect(body).toContain('this._paperPx(');
+    });
+});
+
+// ── Selectability: the bubble AND the leader ────────────────────────────────
+
+describe('a tag is pickable by its BUBBLE and by its LEADER', () => {
+    const zoom = 20;
+    const w2s = (h: number, v: number) => ({ sx: h * zoom, sy: v * zoom });
+
+    function hit(sx: number, sy: number): string | null {
+        viewDefinitionStore.get = ((id: string) =>
+            id === VIEW ? { id, output: { scale: 100 } } : undefined) as never;
+        const renderer = new PlanViewAnnotationRenderer();
+        return renderer.hitTestAnnotation(VIEW, sx, sy, w2s, 4);
+    }
+
+    it('picks the BUBBLE — which the old hit-test could not do at all', () => {
+        // The bubble sits at world (4.5, z=1.2) → screen (90, 24).
+        expect(hit(90, 24)).toBe('annotation_tag_1');
+    });
+
+    it('picks the LEADER — a hairline, the same problem dimensions had (L-256)', () => {
+        // Mid-leader: world (4.5, z=0.6) → screen (90, 12). Not on the bubble, not on the dot.
+        expect(hit(90, 12)).toBe('annotation_tag_1');
+    });
+
+    it('still picks the ANCHOR on the element', () => {
+        expect(hit(90, 0)).toBe('annotation_tag_1');
+    });
+
+    it('does NOT pick empty paper', () => {
+        expect(hit(400, 400)).toBeNull();
+    });
+});

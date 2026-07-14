@@ -29,6 +29,15 @@ import {
 import { formatDimension } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore } from './ViewDefinitionStore';
 import type { ViewDefinition } from './ViewDefinitionTypes';
+// §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — a tag's size is PAPER, scaled by the
+// view (C24). The same mechanism as the dimension tier gap (L-281); tags never got it.
+import {
+    TAG_PAPER_MM,
+    DEFAULT_SCALE_DENOMINATOR,
+    paperMmToPx,
+    resolveScaleDenominator,
+    pxPerWorldMetre,
+} from '../annotations/paperScale';
 // Contract 23 §7 — GraphicsRulesEngine integration for annotation pen resolution
 import { graphicsRulesEngine } from '../drawing/GraphicsRulesEngine';
 import type { PenStyle } from '../drawing/PenWeightTable';
@@ -137,6 +146,17 @@ export const DRAGGABLE_ANNOTATION_TYPES = new Set<string>([
  * present in older documents.
  */
 const LINEAR_DIM_TYPES = new Set<string>(['linear-dim', 'linear-dimension']);
+
+/**
+ * §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — the LEADER'D tags: annotations drawn as
+ * a SYMBOL at one end of a LEADER whose other end sits on the element. They are picked on
+ * the symbol AND on the leader (a hairline is as hard to hit as a dimension line was —
+ * L-256), never on the anchor alone.
+ *
+ * `room-tag` is deliberately absent: it has no leader (it sits at the room centroid), so it
+ * is a point annotation and the point branch is correct for it.
+ */
+const TAG_TYPES = new Set<string>(['door-tag', 'window-tag', 'wall-tag', 'tag', 'keynote']);
 
 /**
  * §FIX-ELEV-MARK-CROP-DISCOVERABLE (L-154) — the four grabbable crop/scope handles
@@ -296,6 +316,26 @@ export class PlanViewAnnotationRenderer {
         return w2s(p.h, p.v);
     }
 
+    // ── §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — PAPER, NOT PIXELS ─────
+    //
+    // A tag's size is a property of the SHEET. It used to be a property of the SCREEN
+    // (`const r = 16` — a fixed pixel radius), which is invariant under zoom: zoom out and
+    // the building shrinks while the bubble does not, until the bubble is the size of a
+    // room. The size now travels the full path — paper mm ─(× view scale)→ world m ─(× zoom)
+    // → screen px — so a tag holds a CONSTANT SIZE RELATIVE TO THE BUILDING at every zoom,
+    // and a 1:50 sheet draws it at half the world size of a 1:100 sheet. Both are the same
+    // size on paper, which is the only place a tag's size is defined.
+
+    /** The view's drawing-scale denominator, refreshed each render pass. */
+    private _scaleDenominator: number = DEFAULT_SCALE_DENOMINATOR;
+    /** Pixels per world metre — the canvas ZOOM, derived from the same w2s the geometry uses. */
+    private _pxPerWorldM = 0;
+
+    /** Convert a PAPER millimetre to screen pixels for the current view + zoom. */
+    private _paperPx(mm: number): number {
+        return paperMmToPx(mm, this._scaleDenominator, this._pxPerWorldM);
+    }
+
     /**
      * §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — set the projection used by BOTH
      * `render()` and `hitTestAnnotation()`.
@@ -352,6 +392,15 @@ export class PlanViewAnnotationRenderer {
             'annotation',
             { viewId, viewType: options.viewType ?? this._viewType },
         );
+
+        // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — resolve the two transforms a
+        // paper-space annotation must travel through, ONCE per pass:
+        //   • the VIEW's drawing scale  (how many world metres one sheet millimetre buys)
+        //   • the canvas ZOOM           (how many screen pixels one world metre buys),
+        //     derived from the SAME worldToScreen the geometry is drawn with, so a tag can
+        //     never be scaled by a transform that disagrees with the one on screen.
+        this._scaleDenominator = resolveScaleDenominator(viewDefinitionStore.get(viewId)?.output);
+        this._pxPerWorldM = pxPerWorldMetre(worldToScreen);
 
         this._renderedElevAnchors.clear();
 
@@ -509,6 +558,14 @@ export class PlanViewAnnotationRenderer {
         worldToScreen: PlanWorldToScreen,
         thresholdPx = 12,
     ): string | null {
+        // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — the pick corridor is sized in the
+        // SAME paper millimetres the symbol is drawn in, so it must resolve the SAME two
+        // transforms. Resolved here rather than inherited from the last render pass: the
+        // hit-test may run for a canvas that did not paint last (split view), and a corridor
+        // computed from another canvas's zoom is a corridor in the wrong place.
+        this._scaleDenominator = resolveScaleDenominator(viewDefinitionStore.get(viewId)?.output);
+        this._pxPerWorldM = pxPerWorldMetre(worldToScreen);
+
         const annotations = this._dedupeRoomTags(annotationStore.getByView(viewId));
 
         // ── Elevation marks: quadrant-aware hit test ───────────────────────────
@@ -616,11 +673,46 @@ export class PlanViewAnnotationRenderer {
                     const sB = worldToScreen(pB.h, pB.v);
                     if (distanceToSegment(sx, sy, sA.sx, sA.sy, sB.sx, sB.sy) <= thresholdPx + 4) return ann.id;
                 }
+            } else if (TAG_TYPES.has(ann.type) && pts.length >= 2) {
+                // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — PICK WHAT THE USER SEES.
+                //
+                // A leader'd tag is TWO things on screen: the SYMBOL (the bubble/diamond, at
+                // modelPoints[1]) and the LEADER (the hairline from the element to it). The
+                // old branch tested ONLY `references[0].cachedPosition` — the leader ANCHOR,
+                // i.e. the dot ON THE ELEMENT — so clicking the bubble itself selected
+                // nothing, and the leader was unpickable. It also projected as (x, z), the
+                // hardcoded PLAN mapping, while the render path now projects through
+                // `_project` (L-265): in an elevation the hit-test was looking somewhere the
+                // tag is not. Both halves are fixed here, and both use the SAME projection
+                // the renderer draws with — a pick corridor that disagrees with the drawing
+                // is a lie about what you can click.
+                //
+                // The corridor is PAPER-sized (like the symbol itself), plus the caller's
+                // pixel threshold: a hairline leader needs the same generosity the dimension
+                // pick corridor got in L-256, or a tag is "fairly hard" to select for exactly
+                // the same reason a dimension was.
+                const anchor = this._w2sModel(worldToScreen, pts[0]!);
+                const symbol = ann.geometry2D.screenOverride
+                    ? { sx: ann.geometry2D.screenOverride.x, sy: ann.geometry2D.screenOverride.y }
+                    : this._w2sModel(worldToScreen, pts[pts.length - 1]!);
+
+                const bubblePx = this._paperPx(TAG_PAPER_MM.bubbleRadiusMm);
+                const tolPx = this._paperPx(TAG_PAPER_MM.pickToleranceMm) + thresholdPx;
+
+                // (1) the SYMBOL — a generous disc around the bubble/diamond.
+                if (Math.hypot(sx - symbol.sx, sy - symbol.sy) <= bubblePx + tolPx) return ann.id;
+                // (2) the LEADER — the corridor along the line from the element to the symbol.
+                if (distanceToSegment(sx, sy, anchor.sx, anchor.sy, symbol.sx, symbol.sy) <= tolPx) {
+                    return ann.id;
+                }
+                // (3) the ANCHOR dot on the element (unchanged behaviour — still pickable).
+                if (Math.hypot(sx - anchor.sx, sy - anchor.sy) <= tolPx) return ann.id;
             } else {
-                // Point-based: check first anchor with a generous radius
+                // Point-based (room tag, text note, north arrow…): one point, and it IS where
+                // the annotation is drawn. Projected view-aware, for the same reason as above.
                 const pt = ann.references[0]?.cachedPosition ?? pts[0];
                 if (!pt) continue;
-                const { sx: ax, sy: ay } = worldToScreen(pt.x, pt.z);
+                const { sx: ax, sy: ay } = this._w2sModel(worldToScreen, pt);
                 if (Math.hypot(sx - ax, sy - ay) <= thresholdPx + 8) return ann.id;
             }
         }
@@ -1104,11 +1196,12 @@ export class PlanViewAnnotationRenderer {
             }
         }
 
-        const textPx = Math.max(8, mmToPx(style.textSizeMm));
+        // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — PAPER, not pixels (see _paperPx).
+        const textPx = this._paperPx(TAG_PAPER_MM.markTextMm);
         ctx.save();
         ctx.font = `${textPx}px ${FONT}`;
         const metrics = ctx.measureText(label);
-        const pad = 4;
+        const pad = this._paperPx(TAG_PAPER_MM.padMm);
         const bw = metrics.width + pad * 2;
         const bh = textPx + pad * 2;
 
@@ -1203,18 +1296,27 @@ export class PlanViewAnnotationRenderer {
         const hasSize = (wMm != null && wMm > 0) || (hMm != null && hMm > 0);
         const sizeStr = hasSize ? `${Math.round(wMm ?? 0)}×${Math.round(hMm ?? 0)}` : '';
 
-        const markPx = Math.max(7, mmToPx(style.textSizeMm) * 0.9);
-        const sizePx = Math.max(6, markPx * 0.8);
+        // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — EVERY size below is a PAPER
+        // millimetre carried through the view's scale and the canvas zoom. There is no
+        // pixel literal and no world literal left in this function: the previous
+        // `const r = sizeStr ? 16 : 13` was a fixed SCREEN radius, which is exactly why the
+        // bubble stayed put while the building shrank away underneath it.
+        const markPx = this._paperPx(TAG_PAPER_MM.markTextMm);
+        const sizePx = this._paperPx(TAG_PAPER_MM.sizeTextMm);
+        const padPx = this._paperPx(TAG_PAPER_MM.padMm);
+        const dotPx = this._paperPx(TAG_PAPER_MM.leaderDotMm);
 
         ctx.save();
         ctx.font = `bold ${markPx}px ${FONT}`;
         // The symbol must CONTAIN the mark — a wall type name ("Concrete 200") is far
-        // wider than a door number, so the radius is measured, never assumed.
+        // wider than a door number — so the radius is MEASURED against the (already
+        // paper-scaled) glyph run, never assumed. Because the text is paper-scaled, so is
+        // the radius that wraps it: the symbol grows with its content, on paper, at any zoom.
         const textW = ctx.measureText(mark).width;
-        const rBase = sizeStr ? 16 : 13;
+        const rBase = this._paperPx(TAG_PAPER_MM.bubbleRadiusMm);
         const r = symbol.shape === 'diamond'
-            ? Math.max(rBase, textW * 0.75 + 6)
-            : Math.max(rBase, textW / 2 + 5);
+            ? Math.max(rBase, textW * 0.75 + padPx)
+            : Math.max(rBase, textW / 2 + padPx);
 
         // Leader line + dot on the element
         if (ann.parameters.showLeader !== false) {
@@ -1231,7 +1333,7 @@ export class PlanViewAnnotationRenderer {
                 ctx.stroke();
                 ctx.fillStyle = lineColor;
                 ctx.beginPath();
-                ctx.arc(leaderSx, leaderSy, 2.5, 0, Math.PI * 2);
+                ctx.arc(leaderSx, leaderSy, dotPx, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
@@ -1242,8 +1344,10 @@ export class PlanViewAnnotationRenderer {
         ctx.fillStyle = symbol.fillColor;
         ctx.beginPath();
         if (symbol.shape === 'diamond') {
-            const rh = r;                 // half-width
-            const rv = Math.max(11, r * 0.62); // half-height — a flatter, drawing-standard diamond
+            const rh = r;                                      // half-width
+            // Half-height — a flatter, drawing-standard diamond. Proportional to the (paper-
+            // scaled) half-width, with a PAPER floor: no pixel literal survives here either.
+            const rv = Math.max(this._paperPx(TAG_PAPER_MM.bubbleRadiusMm) * 0.8, r * 0.62);
             ctx.moveTo(bx, by - rv);
             ctx.lineTo(bx + rh, by);
             ctx.lineTo(bx, by + rv);
@@ -1346,7 +1450,8 @@ export class PlanViewAnnotationRenderer {
 
         // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — view-aware projection (see _w2sModel).
         const { sx, sy } = this._w2sModel(w2s, pt);
-        const textPx = Math.max(8, mmToPx(style.textSizeMm));
+        // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — a room name is paper text too.
+        const textPx = this._paperPx(TAG_PAPER_MM.roomNameMm);
         const isSelected = this._getSelectedAnnotationId() === ann.id;
 
         ctx.save();
