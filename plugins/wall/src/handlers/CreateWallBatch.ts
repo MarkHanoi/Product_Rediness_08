@@ -39,7 +39,7 @@ import {
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
 import type { CreateWallPayload } from './CreateWall.js';
-import { resolveWallSystemType } from './resolveWallSystemType.js';
+import { resolveWallSystemType } from '../resolveWallSystemType.js';
 
 export interface CreateWallBatchPayload {
   /** One spec per wall to create.  Must be a non-empty array. */

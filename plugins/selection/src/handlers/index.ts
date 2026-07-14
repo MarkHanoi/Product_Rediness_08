@@ -11,7 +11,7 @@ import {
   selectionClipboard,
   type SelectionClipboard,
   type SelectionPastePort,
-} from './clipboard.js';
+} from '../clipboard.js';
 
 export {
   SelectSelectionHandler,
@@ -25,7 +25,7 @@ export {
   selectionClipboard,
   SelectionClipboard,
   DEFAULT_PASTE_OFFSET,
-} from './clipboard.js';
+} from '../clipboard.js';
 export type {
   SelectPayload,
   DeselectPayload,
@@ -39,7 +39,7 @@ export type {
   SelectionPastePort,
   PasteOffset,
   PasteResult,
-} from './clipboard.js';
+} from '../clipboard.js';
 
 /** Stable command-type strings — useful for routing the command bus
  *  to the correct undo behaviour. */

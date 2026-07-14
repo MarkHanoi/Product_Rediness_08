@@ -29,7 +29,7 @@ import {
 } from '../errors.js';
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
-import { resolveWallSystemType } from './resolveWallSystemType.js';
+import { resolveWallSystemType } from '../resolveWallSystemType.js';
 
 export interface CreateWallBetweenMarksPayload {
   readonly levelId: string;

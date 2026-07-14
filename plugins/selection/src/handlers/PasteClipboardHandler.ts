@@ -32,7 +32,7 @@ import {
   type SelectionClipboard,
   type SelectionPastePort,
   type PasteOffset,
-} from './clipboard.js';
+} from '../clipboard.js';
 
 export type PasteClipboardPayload = Record<string, never>;
 

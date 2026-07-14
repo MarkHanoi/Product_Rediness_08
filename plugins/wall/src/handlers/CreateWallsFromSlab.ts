@@ -40,7 +40,7 @@ import { Wall, createId } from '@pryzm/plugin-sdk';
 import { WallSchemaError, WallSystemTypeNotFoundError } from '../errors.js';
 import type { WallData, WallsState } from '../store.js';
 import type { WallSystemTypeStore } from '../system-type-store.js';
-import { resolveWallSystemType } from './resolveWallSystemType.js';
+import { resolveWallSystemType } from '../resolveWallSystemType.js';
 
 export interface CreateWallsFromSlabPayload {
   readonly levelId: string;

@@ -27,8 +27,8 @@
 //
 // PURITY: no I/O, no THREE, no DOM. The catalogue is injected.
 
-import type { WallSystemTypeStore } from '../system-type-store.js';
-import type { WallData } from '../store.js';
+import type { WallSystemTypeStore } from './system-type-store.js';
+import type { WallData } from './store.js';
 
 /** The two intrinsic fields a wall system type contributes to an instance. */
 export interface ResolvedWallSystemType {
