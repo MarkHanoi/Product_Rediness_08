@@ -20,6 +20,7 @@ import { ulid } from 'ulid';
 import { withSpan } from './otel.js';
 import { RingBufferUndoStack } from '@pryzm/runtime-undo-stack'; // Sprint A31 — C03 §4.1
 import { toJsonPointer } from './PatchSnapshot.js';               // Sprint A31 — Immer→JSON Pointer
+import type { Patch } from 'immer';   // §L-292: multi-store envelope store-key strip
 import type {
   AnyStores,
   AuditDefaults,
@@ -315,6 +316,22 @@ export class CommandBus {
           }
         }
 
+        // §FEAT-SWIMMING-POOL-ELEMENT (L-292, ADR-0124 §5) — the multi-store branch
+        // ROUTES by `path[0] === storeKey` and then STRIPS that key, because the
+        // consumer of a per-store envelope is `attachStores` → `Store.applyPatch()`,
+        // which expects STORE-RELATIVE paths (`[elementId, ...field]`) — exactly what
+        // the single-store branch below hands it, since `produceCommand` is already
+        // store-relative.
+        //
+        // Leaving the key on would make every op look like a field-write on an element
+        // literally named "wall"/"slab", nesting the whole store one level deep. The
+        // FLAT `record.forward` / `record.inverse` arrays KEEP the prefix — the ring
+        // buffer needs it to route at Ctrl+Z time (`applyRingBufferSide`, which strips
+        // it symmetrically), and the §U-B6 guard above reads it too.
+        //
+        // Dead until L-292: no bus handler had ever declared two stores.
+        const stripStoreKey = (p: Patch): Patch => ({ ...p, path: p.path.slice(1) });
+
         const patches: PatchSnapshotEntry[] = stores.length === 0
           ? []
           : stores.length === 1
@@ -326,8 +343,8 @@ export class CommandBus {
             }]
           : stores.map(storeKey => ({
               storeKey,
-              forwardPatches: result.forward.filter(p => String(p.path[0]) === storeKey),
-              inversePatches: result.inverse.filter(p => String(p.path[0]) === storeKey),
+              forwardPatches: result.forward.filter(p => String(p.path[0]) === storeKey).map(stripStoreKey),
+              inversePatches: result.inverse.filter(p => String(p.path[0]) === storeKey).map(stripStoreKey),
               capturedAt,
             }));
 

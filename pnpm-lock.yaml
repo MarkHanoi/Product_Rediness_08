@@ -3794,6 +3794,25 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
+  plugins/pool:
+    dependencies:
+      '@pryzm/geometry-pool':
+        specifier: workspace:*
+        version: link:../../packages/geometry-pool
+      '@pryzm/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      immer:
+        specifier: ^10.1.1
+        version: 10.2.0
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@24.12.2)(happy-dom@15.11.7)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.21.0)(yaml@2.8.3)
+
   plugins/render:
     devDependencies:
       typescript:

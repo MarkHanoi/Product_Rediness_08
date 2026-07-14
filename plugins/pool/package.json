@@ -1,0 +1,31 @@
+{
+  "name": "@pryzm/plugin-pool",
+  "version": "0.1.0",
+  "description": "PRYZM — Swimming-pool plugin (L-292 / ADR-0124). A pool is an ASSEMBLY, not a primitive: pool.create composes a HOLE in the host slab + N pool WALLS (real Wall records, negative baseOffset) + a pool FLOOR (a real Slab) + the WATER, in ONE undo entry via produceMultiStoreCommand. pool.delete removes all of it AND heals the hole. Geometry math lives in @pryzm/geometry-pool (pure).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/geometry-pool": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "immer": "^10.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  }
+}
