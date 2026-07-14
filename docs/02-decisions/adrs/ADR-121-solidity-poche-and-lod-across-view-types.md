@@ -113,7 +113,7 @@ solid the cut plane straddles* and let the AABB straddle-reject do its job.
 | Element | plan 100 | plan 200 | plan 300 | elev 100/200/300 | sec 100/200/300 |
 |---|---|---|---|---|---|
 | **door** | ✅ jamb ticks + single-line leaf | ✅ + jamb lining profile + true leaf + arc | ✅ + rebate, lever **+ escutcheon**, closed-leaf ghost | ✅ **(L-266)** massing / +panelisation / +rebate, rail-and-stile leaf, escutcheon — the 3D mesh is the LOD consumer and elevation projects it | ✗ identical |
-| **window** | ✅ | ✅ | ◐ mirrors the door (L-254); **frame/sash/mullion articulation NOT derived from the record** (L-266) | ✗ identical | ✗ identical |
+| **window** | ✅ | ✅ | ✅ **(L-278)** + jamb rebate, **MULLION/meeting-stile from the record's own `columnRatios` + `columnDividerThickness`**, glazing broken at the post | ✅ **(L-278)** massing / +pane grid + sill / +**SASH** + glazing bead — the 3D mesh is the LOD consumer and elevation projects it | ✗ identical |
 | **wall** | ✗ | ✗ | ✗ layer lines always drawn | ✗ | ✗ |
 | **column** | ✗ | ✗ | ✗ | ✗ | ✗ |
 | **stair** | ✗ (no plan symbol at all — raw mesh edges) | ✗ | ✗ | ✗ | ✗ |
@@ -132,6 +132,41 @@ Restated the way it will be seen: **a sheet at 1:200 and a sheet at 1:50 are the
 at two scales.** That is not a drawing set.
 
 **And ELEVATION and SECTION consume detail level in ZERO cells.** Not partially. Zero.
+
+> **UPDATE (L-278, §FEAT-WINDOW-CUT-ZONE-AND-LOD).** The WINDOW row is closed the same way,
+> so the count is **6 of 42**. Three findings are worth carrying, and the first is a
+> **refutation of the ticket that commissioned it**:
+>
+> **(a) THE WINDOW WAS BRIEFED AS "THE OPPOSITE OF THE DOOR", AND IT IS NOT.** The brief ran:
+> *a door is `skipInPlan` because at 1.2 m a door opening is EMPTY; a window is the opposite —
+> the plane cuts its frame and glazing, so tagging it `skipInPlan` would DELETE the very lines
+> that make it a window; therefore the window's MESH must contribute CUT and suppress
+> PROJECTION.* **The premise is true and the conclusion is false.** The plane really does cut
+> the frame, the mullion and the glazing — **but those cut lines do not come from the mesh.**
+> They are authored, at the real dimensions, from the real record, by `WindowPlanSymbolBuilder`,
+> which `EdgeProjectorService` injects into every plan (Phase 6), and which L-280 measured as
+> dimensionally EXACT. So the mesh does not ADD the window's cut section — it **DUPLICATES** it
+> from a second, un-LOD'd, un-penned source, and dumps on top of it the members a plan must not
+> show at all (the head bar at ~2.2 m, the transoms, every pane outline). **`skipInPlan` is
+> therefore right for the window too, and Contract 48 §5 is the RULE, not a door-shaped
+> exception.** What is genuinely different about the window is not WHETHER it skips — it is
+> **WHAT ITS SYMBOL MUST CONTAIN**: a true CUT SECTION PROFILE, because the plane passes through
+> real members. That is where the work belongs, and that is where it was done.
+>
+> **(b) A "SECOND SOURCE OF TRUTH" REVERT THAT IS ONLY HALF DONE LEAVES THE PACKAGE RED.** An
+> earlier draft of L-266 invented a `mullionThickness` field and it was rightly reverted — the
+> record already carried `columnDividerThickness`. But the revert removed the field from the
+> resolver's RETURN while leaving it REQUIRED on `WindowOpeningData`, and left the resolver's
+> declared type promising three fields its body never returned. **`@pryzm/geometry-window` had
+> not typechecked since.** A revert is a refactor and needs the same green bar as the thing it
+> reverts.
+>
+> **(c) THE DOUBLE-WINDOW MEETING STILE WAS A LITERAL IN THE 3D BUILDER, SO THE PLAN DISAGREED
+> WITH THE MODEL.** `Math.max(cdt, 0.06)` lived inside `WindowBuilder`, invisible to the symbol
+> — so a `double` grew a 60 mm stile in 3D and drew a 30 mm one in plan. It (and the divider
+> depth ratio, likewise a bare `fd * 0.5`) now resolve in `resolveWindowDimensions()`. **A rule
+> that lives in ONE consumer of a shared dimension is a drift waiting to happen** — §4.4 said
+> this about symbol builders; it is equally true of the 3D builder.
 
 > **UPDATE (L-266, §FEAT-DOOR-3D-LOD).** The door row is closed: door×3D and door×elevation
 > are now real consumers, so the count is **4 of 42**, and elevation is no longer zero. It was
@@ -229,10 +264,16 @@ will disagree with the 3D geometry the moment anyone edits the record.
    every furniture family should be audited for the same double-draw.** **(b) A per-part ROLE
    allowlist in the projector is a bug generator** (the door had three, and the head bar was the
    part nobody had thought of) — the tag belongs on the builder, not the allowlist.
-   **WINDOW: still open** — frame/sash/mullion articulation is not yet derived from the record,
-   and its 3D/elevation cells are still ✗. Note the window is NOT the same case as the door in
-   plan: a window's frame and glazing ARE cut by the plan plane, so its spanning lines are real
-   cut geometry and must stay.
+   ~~**WINDOW: still open**~~ **WINDOW: DONE** (L-278, §FEAT-WINDOW-CUT-ZONE-AND-LOD). The
+   mullion/meeting-stile now derives from the record's own `columnRatios` +
+   `columnDividerThickness` (no new field), the glazing breaks at the post, and the 3D/elevation
+   cells are closed with a sash + glazing bead at LOD-300.
+   **AND THE CAVEAT PRINTED HERE WAS WRONG, WHICH IS WHY IT IS LEFT VISIBLE:** it read *"the
+   window is NOT the same case as the door in plan: a window's frame and glazing ARE cut by the
+   plan plane, so its spanning lines are real cut geometry and must stay."* The first clause is
+   true; **the inference is not.** Those cut lines are drawn by `WindowPlanSymbolBuilder`, not by
+   the mesh — so the mesh's edges are a DUPLICATE of the symbol, not the source of it, and the
+   window takes `skipInPlan` exactly as the door does. See the L-278 update in §3.3.
 2. **Section/plan projection occluders** — give `removeHiddenLines` a depth-ordered PROJECTION
    occluder so a near solid hides a far one, and make the disposition (`remove` | `demote`) an
    intent property. This is the "one engine, three consumers" of C09 §4.6.5.

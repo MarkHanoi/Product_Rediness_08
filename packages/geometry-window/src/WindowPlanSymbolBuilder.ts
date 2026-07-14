@@ -73,7 +73,7 @@ import { resolveEffectiveDetailLevel, type DetailLevel } from '@pryzm/core-app-m
 import { vgGovernanceStore } from '@pryzm/visibility';
 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) / L-127 — the ONE dimension authority the
 // 3D builder also reads, so plan symbol ≡ placed window.
-import { resolveWindowDimensions } from './WindowDimensions';
+import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
 
 const WINDOW_LAYER = 'A-GLAZ';
 /**
@@ -324,22 +324,93 @@ export class WindowPlanSymbolBuilder {
             }
         }
 
-        // ── 4. THE GLAZING (every LOD; thin pen) ─────────────────────────────
+        // ── 4. THE MULLIONS / MEETING STILES (medium + fine; cut pen) ────────
+        //
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278). THE MULLION IS THE MEMBER THAT PROVES THE
+        // WINDOW IS CUT, NOT SKIPPED. The plan plane passes straight THROUGH it, so it is a
+        // genuine CUT solid — a post section interrupting the glazing — and the founder's
+        // LOD-300 reference names it explicitly (*"mullion/meeting-stile at the centre"*).
+        //
+        // WHETHER there is a mullion at all is NOT a draughting choice: it is what the pane
+        // grid says. `columnRatios = [1]` → a single pane → NO post, and drawing one anyway
+        // would be L-127 (a symbol inventing a member the element does not have).
+        // `[0.5, 0.5]` → one post on the centreline. HOW WIDE it is is
+        // `columnDividerThickness` — already widened to the 60 mm meeting-stile minimum for a
+        // `double` by `resolveWindowDimensions()`, so this post and the one `WindowBuilder`
+        // extrudes are THE SAME POST. No new field: both numbers were already on the record.
+        //
+        // The post's DEPTH across the reveal is `dividerDepthRatio` of the frame reveal — the
+        // ratio `WindowBuilder` has always extruded its dividers at (`fd * 0.5`), which was an
+        // unnamed literal there and therefore invisible here. It is now named once, in
+        // DEFAULT_WINDOW_DIMENSIONS, and read by both.
+        const ratios   = dims.columnRatios.length > 0 ? dims.columnRatios : [1];
+        const ratioSum = ratios.reduce((s, r) => s + r, 0) || 1;
+        const cdt      = Math.max(0, dims.columnDividerThickness);
+        const mullionHalfDepth = (wallThickness * DEFAULT_WINDOW_DIMENSIONS.dividerDepthRatio) / 2;
+
+        // The pane boundaries, in the SAME frame `WindowBuilder` divides its inner width in:
+        // the clear opening between the frame's inner faces, split by the pane ratios.
+        const innerSpan = 2 * clearHalf;
+        const boundaries: number[] = [];
+        if (framed && innerSpan > 0) {
+            let s = -clearHalf;
+            for (let c = 0; c < ratios.length - 1; c++) {
+                s += ((ratios[c] ?? 0) / ratioSum) * innerSpan;
+                boundaries.push(s);
+            }
+        }
+
+        const drawMullions = (lod === 'medium' || lod === 'fine') && cdt > 0;
+        if (drawMullions) {
+            for (const s of boundaries) {
+                const sL = s - cdt / 2;
+                const sR = s + cdt / 2;
+                // The post in section: a closed rectangle interrupting the glazing band.
+                cutSeg(at(sL, -mullionHalfDepth), at(sR, -mullionHalfDepth));
+                cutSeg(at(sL, +mullionHalfDepth), at(sR, +mullionHalfDepth));
+                cutSeg(at(sL, -mullionHalfDepth), at(sL, +mullionHalfDepth));
+                cutSeg(at(sR, -mullionHalfDepth), at(sR, +mullionHalfDepth));
+            }
+        }
+
+        // ── 5. THE GLAZING (every LOD; thin pen) ─────────────────────────────
         //
         // coarse       — ONE line on the glazing centreline (LOD 100).
         // medium/fine  — a TRUE DOUBLE LINE at the real `glazingThickness`, i.e. the
         //                two glazing faces at n = ∓glazingThickness/2.
         // The SPAN is the same at every LOD (`glazHalf`, glass captured in the
         // rebate) — only the line count changes.
-        if (lod === 'coarse' || glazThick <= 0) {
-            projSeg(at(-glazHalf, 0), at(+glazHalf, 0));
+        //
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — BUT THE GLASS DOES NOT CROSS THE POST.
+        // Where the pane grid puts a mullion, the glazing is BROKEN at the post's faces and
+        // resumes on the far side: a single-pane window is one run (byte-identical to what
+        // shipped), a two-pane window is two. Running the glazing line straight through its
+        // own meeting stile is exactly the *"flat stack of parallel lines"* the founder
+        // reported — the glass is not there, the post is.
+        const glazRuns: Array<[number, number]> = [];
+        if (drawMullions && boundaries.length > 0) {
+            let from = -glazHalf;
+            for (const s of boundaries) {
+                glazRuns.push([from, s - cdt / 2]);
+                from = s + cdt / 2;
+            }
+            glazRuns.push([from, +glazHalf]);
         } else {
-            for (const n of [-halfGlaz, +halfGlaz]) {
-                projSeg(at(-glazHalf, n), at(+glazHalf, n));
+            glazRuns.push([-glazHalf, +glazHalf]);
+        }
+
+        for (const [a, b] of glazRuns) {
+            if (b - a <= 0) continue;   // a post wider than its own pane: draw no glass
+            if (lod === 'coarse' || glazThick <= 0) {
+                projSeg(at(a, 0), at(b, 0));
+            } else {
+                for (const n of [-halfGlaz, +halfGlaz]) {
+                    projSeg(at(a, n), at(b, n));
+                }
             }
         }
 
-        // ── 5. THE SILL / BOARD (fine only; thin pen) ────────────────────────
+        // ── 6. THE SILL / BOARD (fine only; thin pen) ────────────────────────
         //
         // The sill board projects `sillDepth` beyond the wall face and overhangs each
         // jamb by `sillOverhang` — the same dimensions the 3D WindowBuilder extrudes

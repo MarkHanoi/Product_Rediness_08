@@ -5,11 +5,21 @@ import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three'
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
-import { resolveWindowDimensions } from './WindowDimensions';
+import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
 import { WindowOpening } from './WindowTypes';
 import { WallStore } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
+// §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the 3D window is a DetailLevel consumer, through
+// the SAME resolver the plan symbol calls. ADR-121 §4.3: "One resolver, three consumers —
+// NOT a second symbol engine per view type… There must not be a `resolveElevationDetailLevel`."
+// An ELEVATION is a projection of these meshes, so the mesh gains the articulation and the
+// elevation inherits it. `vd-sys-3d-1` is a real ViewDefinition (DefaultViewsManager) carrying
+// a live `output.detailLevel`, so this is genuine view INTENT (C09/P7) — never a private flag.
+import {
+    resolveEffectiveDetailLevel, DEFAULT_3D_VIEW_ID, storeEventBus,
+    type DetailLevel,
+} from '@pryzm/core-app-model';
 import { vgGovernanceStore, VGStyle } from '@pryzm/visibility';
 // §INSTANCE-WINDOWS (2026-07-01) — GPU instancing over the SAME shared
 // InstancedElementRenderer walls/columns/beams use, plus its default-off flag.
@@ -36,14 +46,35 @@ const _bus = new DOMEventBus();
 const _unitBox = new THREE.BoxGeometry(1, 1, 1);
 
 // ── Helper: add a BoxGeometry mesh to parent ────────────────────────────────
+/**
+ * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — every sub-box now names its ROLE.
+ *
+ * The role is what lets the LOD guards state their claims in GEOMETRY rather than in prose
+ * ("`fine` adds a SASH", not "`fine` has more meshes"), and it is what the plan projector's
+ * generic gate reads alongside `skipInPlan`. It is NOT a per-part allowlist: the plan skip is
+ * applied to EVERY window mesh uniformly (see `rebuild`), which is precisely the lesson
+ * ADR-121 §5.2 drew from the door — *"a per-part ROLE allowlist in the projector is a bug
+ * generator… the tag belongs on the builder, not the allowlist."*
+ */
+type WindowPartRole =
+    | 'windowFrame'     // the outer frame members (head, cill, jambs)
+    | 'windowMullion'   // vertical column divider — the meeting stile between panes
+    | 'windowTransom'   // horizontal row divider
+    | 'windowSash'      // the openable leaf frame captured inside the outer frame (fine)
+    | 'windowBead'      // the glazing bead / rebate stop that captures the sealed unit (fine)
+    | 'windowGlazing'   // a glass pane
+    | 'windowSill';     // the sill board
+
 function addBox(
     parent: THREE.Object3D,
     material: THREE.Material,
     w: number, h: number, d: number,
-    x: number, y: number, z: number
+    x: number, y: number, z: number,
+    role: WindowPartRole,
 ): void {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     mesh.position.set(x, y, z);
+    mesh.userData.role = role;
     parent.add(mesh);
 }
 
@@ -133,6 +164,10 @@ export class WindowBuilder {
     /** Per-window cloned materials to dispose on rebuild/remove */
     private windowMaterials: Map<string, THREE.Material[]> = new Map();
     private unsubscribe: (() => void) | null = null;
+    /** §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — StoreEventBus disposer for the 3D-view intent watch. */
+    private _unsubscribeViews: (() => void) | null = null;
+    /** The tier each window was last BUILT at, so a view-intent change rebuilds only what moved. */
+    private _builtLod = new Map<string, DetailLevel>();
 
     // §INSTANCE-WINDOWS (2026-07-01) — SHARED window material cache.
     //
@@ -237,7 +272,37 @@ export class WindowBuilder {
             if (event === 'add' || event === 'update') this._enqueue(win, prev);
             if (event === 'remove') this.dispose(win.id);
         });
+
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — DETAIL LEVEL IS INTENT, AND INTENT IS LIVE.
+        //
+        // The Detail Level of the 3D view is a P7 visibility INTENT: it lives on the
+        // ViewDefinition (the properties-panel dropdown) and in the C09 override layer. A
+        // consumer that reads it once at build time and never again is not a consumer — it is
+        // a snapshot. So the builder watches the 3D ViewDefinition and rebuilds ONLY the
+        // windows whose RESOLVED tier actually moved, which makes a no-op view edit free.
+        this._unsubscribeViews = storeEventBus.subscribe((e) => {
+            if (e.elementType !== 'view-definition' || e.elementId !== DEFAULT_3D_VIEW_ID) return;
+            for (const win of windowStore.getAll()) {
+                if (this._lodFor(win) !== this._builtLod.get(win.id)) this._enqueue(win, undefined);
+            }
+        });
         console.log('[WindowBuilder] activated');
+    }
+
+    /**
+     * The effective Detail Level for this window IN THE 3D VIEW.
+     *
+     * ADR-121 §4.3 — ONE resolver, three consumers. This is the same
+     * `resolveEffectiveDetailLevel` the plan symbol calls; the window owns NONE of the
+     * precedence (C09: element override → element-type override → category override → the 3D
+     * view's own `output.detailLevel` → the L0 default). There is deliberately no private
+     * `detailed` flag and no `resolve3dDetailLevel` — the LOD is the VIEW'S decision.
+     */
+    private _lodFor(win: WindowOpening): DetailLevel {
+        return resolveEffectiveDetailLevel(win.id, DEFAULT_3D_VIEW_ID, {
+            elementType: 'window',
+            category:    'window',
+        });
     }
 
     /**
@@ -344,6 +409,10 @@ export class WindowBuilder {
 
         this.unsubscribe?.();
         this.unsubscribe = null;
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — drop the 3D-view intent watch too.
+        this._unsubscribeViews?.();
+        this._unsubscribeViews = null;
+        this._builtLod.clear();
         for (const id of [...this.windowGroups.keys()]) {
             this.dispose(id);
         }
@@ -479,7 +548,12 @@ export class WindowBuilder {
 
         // Use wall thickness so the frame fully spans the void (no exposed cut edges).
         const frameDepth = (wallData.thickness ?? 0.2) + 0.02;
-        const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default');
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — ask the SHARED resolver what detail this
+        // window is wanted at in the 3D view, and remember it so a later intent change can
+        // trigger exactly the rebuilds it affects (and no others).
+        const lod = this._lodFor(win);
+        this._builtLod.set(win.id, lod);
+        const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default', lod);
         this.windowMaterials.set(win.id, mats);
         this.positionGroup(win, group, wallData);
 
@@ -506,8 +580,53 @@ export class WindowBuilder {
                     parentId: win.id,
                     wallId: win.wallId,
                     levelId: wallData.levelId,
-                    role: 'geometry',
+                    role: (obj.userData?.role as string | undefined) ?? 'geometry',
                     selectable: false,
+                    /**
+                     * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — IN PLAN, THE WINDOW IS ITS SYMBOL.
+                     *
+                     * ─────────────────────────────────────────────────────────────────────
+                     * THIS TAG WAS BRIEFED TO ME AS A BUG, AND THE BRIEF WAS WRONG. The
+                     * reasoning it was refuted with is recorded here, because the argument is
+                     * seductive and someone will make it again:
+                     *
+                     *   *"A door is `skipInPlan` because at 1.2 m a door opening is EMPTY. A
+                     *   WINDOW IS THE OPPOSITE: the cut plane passes THROUGH its frame and
+                     *   glazing, so those spanning lines are REAL CUT GEOMETRY. Tagging a
+                     *   window `skipInPlan` would DELETE THE VERY LINES THAT MAKE IT A WINDOW."*
+                     *
+                     * The premise is true — the plane really does cut the frame, the sash, the
+                     * mullion and the glazing. **The conclusion does not follow, because those
+                     * cut lines DO NOT COME FROM THIS MESH.** They are authored, at the real
+                     * dimensions, from the real record, by `WindowPlanSymbolBuilder` — which
+                     * `EdgeProjectorService` injects into every plan (Phase 6). It draws the
+                     * jamb ticks on the void edges, the two frame face lines, the rebate step,
+                     * the sash, the meeting stile and the double-line glazing at its true
+                     * `glazingThickness`. L-280 MEASURED that symbol's frame band and found it
+                     * DIMENSIONALLY EXACT (0.050 m band == 0.050 m record `frameThickness`).
+                     *
+                     * So the mesh does not ADD the window's cut section — it DUPLICATES it,
+                     * from a second, un-LOD'd, un-penned source that can disagree with the
+                     * first. And on top of the duplicate it dumps the members the plan must
+                     * NOT show at all: the HEAD BAR at ~2.2 m (above the cut plane), the row
+                     * transoms, the upper opening lights and every glass pane's outline — each
+                     * projected as a flat rectangle straight across the symbol. That is
+                     * verbatim the door's disease (L-266), and `skipInPlan` is verbatim its
+                     * cure. Contract 48 §5 is the RULE, not a door-shaped exception:
+                     * **AN ELEMENT WITH A PLAN SYMBOL DOES NOT ALSO EMIT ITS MESH EDGES IN PLAN.**
+                     *
+                     * WHAT IS GENUINELY DIFFERENT ABOUT THE WINDOW is not whether it skips —
+                     * it is WHAT ITS SYMBOL MUST CONTAIN. A door's symbol is a void, a leaf and
+                     * an arc; nothing sits at the cut plane. A window's symbol must carry a
+                     * true CUT SECTION PROFILE, because the plane really does pass through the
+                     * members. That is the work, and it was done where it belongs — in the
+                     * SYMBOL (see `WindowPlanSymbolBuilder`, §4/§5: the sash and the mullion,
+                     * derived from `sashThickness` + `columnDividerThickness` + `columnRatios`).
+                     * The guard `WindowMeshSkipInPlan.test.ts` asserts BOTH halves: the mesh is
+                     * silent, AND the symbol still carries the cut lines — so this tag can
+                     * never be used to quietly delete the window.
+                     */
+                    skipInPlan: true,
                 });
             }
         });
@@ -701,7 +820,28 @@ export class WindowBuilder {
         return (typeof explicit === 'string' && explicit.length > 0) ? explicit : SENTINEL;
     }
 
-    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle, levelId = 'default'): THREE.Material[] {
+    /**
+     * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — THE WINDOW ROW OF ADR-121'S LOD MATRIX.
+     *
+     * The window's 3D + elevation cells were ✗. They are the door's row again (L-266), and it
+     * is the template: same shared `resolveEffectiveDetailLevel`, LOD-300 ⊃ 200 ⊃ 100, and the
+     * ELEVATION INHERITS BY PROJECTING THE MESH (ADR-121 §4.3 — no second symbol engine).
+     *
+     *   coarse 100 — the MASSING window: the outer frame + ONE glazing plane. No dividers, no
+     *                sash, no bead, no sill. A silhouette and its opening extents.
+     *   medium 200 — TODAY'S WINDOW, exactly: frame + mullions/transoms + per-cell panes +
+     *                sill. This tier is pinned by a guard so no view setting can ever REGRESS
+     *                the model that currently ships.
+     *   fine   300 — + the SASH (the openable leaf frame captured inside the outer frame) and
+     *                the GLAZING BEAD standing in the frame REBATE — the founder's reference
+     *                window read as a REAL multi-line profile: outer frame, sash,
+     *                mullion/meeting-stile, glazing line.
+     *
+     * EVERY DIMENSION COMES FROM `resolveWindowDimensions()` (record → systemType → canonical
+     * default). There is not one literal below. A richer HARDCODED window would be the same
+     * bug at higher resolution (ADR-121 §4.4).
+     */
+    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle, levelId = 'default', lod: DetailLevel = 'fine'): THREE.Material[] {
         const mats: THREE.Material[] = [];
         const { width: w, height: h, frameThickness: ft } = win;
         // Use the wall-derived depth when provided so the frame spans the full void.
@@ -731,66 +871,84 @@ export class WindowBuilder {
         const glassMat = this._sharedGlassMaterial(levelId, glassOpacity, dims.glazingThickness);
         mats.push(frameMat, glassMat);
 
-        // ── Outer Frame ────────────────────────────────────────────────────
+        // ── Outer Frame (EVERY LOD — it is the window's silhouette) ────────
         // Top bar
-        addBox(group, frameMat, w, ft, fd, 0,  h / 2 - ft / 2, 0);
+        addBox(group, frameMat, w, ft, fd, 0,  h / 2 - ft / 2, 0, 'windowFrame');
         // Bottom bar
-        addBox(group, frameMat, w, ft, fd, 0, -h / 2 + ft / 2, 0);
+        addBox(group, frameMat, w, ft, fd, 0, -h / 2 + ft / 2, 0, 'windowFrame');
         // Left bar (between top and bottom)
         const sideH = h - 2 * ft;
-        addBox(group, frameMat, ft, sideH, fd, -(w / 2 - ft / 2), 0, 0);
+        addBox(group, frameMat, ft, sideH, fd, -(w / 2 - ft / 2), 0, 0, 'windowFrame');
         // Right bar
-        addBox(group, frameMat, ft, sideH, fd,  (w / 2 - ft / 2), 0, 0);
+        addBox(group, frameMat, ft, sideH, fd,  (w / 2 - ft / 2), 0, 0, 'windowFrame');
 
         // ── Glazing area ───────────────────────────────────────────────────
         // Inner area available for glass and dividers
         const innerW = w - 2 * ft;
         const innerH = h - 2 * ft;
 
-        // DW-11 FIX: double window — force two equal columns with a structural center
-        // mullion so the geometry reflects the BIM classification.  The user-defined
-        // columnRatios still apply when windowType === 'single'.
-        const effectiveColRatios = win.windowType === 'double' ? [1, 1] : win.columnRatios;
-        // Use a thicker center divider (structural mullion) for double windows.
-        const effectiveCdt = win.windowType === 'double'
-            ? Math.max(win.columnDividerThickness, 0.06)
-            : win.columnDividerThickness;
+        // ── COARSE (LOD 100) — THE MASSING WINDOW ──────────────────────────
+        //
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278). ADR-121 §4.2 defines the tier, and the tier
+        // definition is a DEFINITION, not a per-element opinion: at LOD 100 an element is its
+        // *"silhouette + opening extents. No frame/sash, no reveals, no panelisation."* So the
+        // massing window is the outer frame and ONE sheet of glass — no dividers, no sash, no
+        // bead, no sill board. It exits here; every richer tier falls through and ADDS.
+        if (lod === 'coarse') {
+            addBox(
+                group, glassMat,
+                Math.max(innerW, 0.01), Math.max(innerH, 0.01), dims.glazingThickness,
+                0, 0, 0, 'windowGlazing',
+            );
+            return mats;
+        }
 
-        const colWidths = ratioWidths(innerW, effectiveColRatios);
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — THE PANE GRID AND ITS MULLION, RESOLVED.
+        //
+        // The DW-11 double-window override (a `double` ALWAYS has two sashes on a structural
+        // centre post) and the 60 mm meeting-stile minimum used to live HERE, as
+        // `Math.max(win.columnDividerThickness, 0.06)` — a literal, and invisible to the plan
+        // symbol, which therefore drew a 30 mm mullion under a 60 mm one. Both rules now live
+        // in `resolveWindowDimensions()`, so the 3D window and the symbol read ONE answer.
+        const colWidths  = ratioWidths(innerW, [...dims.columnRatios]);
         const rowHeights = ratioWidths(innerH, win.rowRatios);
 
-        const cdt = effectiveCdt;
-        const rdt = win.rowDividerThickness;
+        const cdt = dims.columnDividerThickness;
+        const rdt = dims.rowDividerThickness;
         const nCols = colWidths.length;
         const nRows = rowHeights.length;
+        // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the divider's depth in the reveal. This was
+        // the bare literal `fd * 0.5`, invisible to the plan symbol, which therefore could not
+        // draw the post's section at the depth it is really built at. One name, both consumers.
+        const dividerDepth = fd * DEFAULT_WINDOW_DIMENSIONS.dividerDepthRatio;
 
-        // Column dividers (vertical) — between columns, full inner height
+        // Column dividers (vertical) — the MULLIONS / meeting stiles, between columns.
         let colX = -innerW / 2;
         for (let c = 0; c < nCols; c++) {
-            colX += colWidths[c];
+            colX += colWidths[c] ?? 0;
             if (c < nCols - 1) {
-                addBox(group, frameMat, cdt, innerH, fd * 0.5, colX - cdt / 2, 0, 0);
+                addBox(group, frameMat, cdt, innerH, dividerDepth, colX - cdt / 2, 0, 0, 'windowMullion');
             }
         }
 
-        // Row dividers (horizontal) — per column to avoid intersection with col dividers
+        // Row dividers (horizontal) — the TRANSOMS, per column to avoid intersecting the mullions.
         colX = -innerW / 2;
         for (let c = 0; c < nCols; c++) {
-            const cw = colWidths[c];
+            const cw = colWidths[c] ?? 0;
             let rowY = -innerH / 2;
             for (let r = 0; r < nRows; r++) {
-                rowY += rowHeights[r];
+                rowY += rowHeights[r] ?? 0;
                 if (r < nRows - 1) {
-                    addBox(group, frameMat, cw, rdt, fd * 0.5, colX + cw / 2, rowY - rdt / 2, 0);
+                    addBox(group, frameMat, cw, rdt, dividerDepth, colX + cw / 2, rowY - rdt / 2, 0, 'windowTransom');
                 }
             }
             colX += cw;
         }
 
-        // Glass panes (per cell)
+        // Glass panes (per cell) — plus, at FINE, the sash and the glazing bead that frame it.
         colX = -innerW / 2;
         for (let c = 0; c < nCols; c++) {
-            const cw = colWidths[c];
+            const cw = colWidths[c] ?? 0;
             // Subtract column divider space on each side of this column
             const paneW = c === 0
                 ? cw - (nCols > 1 ? cdt / 2 : 0)
@@ -800,7 +958,7 @@ export class WindowBuilder {
 
             let rowY = -innerH / 2;
             for (let r = 0; r < nRows; r++) {
-                const rh = rowHeights[r];
+                const rh = rowHeights[r] ?? 0;
                 const paneH = r === 0
                     ? rh - (nRows > 1 ? rdt / 2 : 0)
                     : r === nRows - 1
@@ -810,17 +968,61 @@ export class WindowBuilder {
                 const paneCX = colX + cw / 2;
                 const paneCY = rowY + rh / 2;
 
+                const cellW = Math.max(paneW, 0.01);
+                const cellH = Math.max(paneH, 0.01);
+
+                // ── FINE (LOD 300) — THE SASH AND THE GLAZING BEAD ─────────────
+                //
+                // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278). The founder's LOD-300 reference draws
+                // the window as a REAL multi-line profile — outer frame, SASH, meeting stile,
+                // glazing line — *"not a stack of arbitrary offsets."* The SASH is the openable
+                // leaf frame captured inside the outer frame; the BEAD is the fillet standing in
+                // the frame's REBATE that actually holds the sealed unit in. Both are members
+                // the record can name (`sashThickness`/`sashDepth`, `rebateDepth`), so both are
+                // DERIVED — the glass is then reduced to the clear sight line inside the sash,
+                // which is what makes the frame read as a profile rather than a flat band.
+                let glassW = cellW;
+                let glassH = cellH;
+
+                if (lod === 'fine') {
+                    const st = Math.min(dims.sashThickness, cellW / 2, cellH / 2);
+                    if (st > 0) {
+                        const sd = Math.min(dims.sashDepth, fd);
+                        // The four sash members, mitred around the cell.
+                        addBox(group, frameMat, cellW, st, sd, paneCX, paneCY + cellH / 2 - st / 2, 0, 'windowSash');
+                        addBox(group, frameMat, cellW, st, sd, paneCX, paneCY - cellH / 2 + st / 2, 0, 'windowSash');
+                        const sashSideH = Math.max(cellH - 2 * st, 0.001);
+                        addBox(group, frameMat, st, sashSideH, sd, paneCX - cellW / 2 + st / 2, paneCY, 0, 'windowSash');
+                        addBox(group, frameMat, st, sashSideH, sd, paneCX + cellW / 2 - st / 2, paneCY, 0, 'windowSash');
+
+                        // The glass now sits in the sash's clear sight line…
+                        glassW = Math.max(cellW - 2 * st, 0.01);
+                        glassH = Math.max(cellH - 2 * st, 0.01);
+
+                        // …captured by the BEAD, which stands proud of the glazing plane by the
+                        // rebate depth. It is clamped to the sash member that contains it — a
+                        // bead can never be deeper than its own frame (the same clamp the plan
+                        // symbol applies to the rebate).
+                        const bead = Math.min(dims.rebateDepth, st);
+                        if (bead > 0) {
+                            const beadZ = dims.glazingThickness / 2 + bead / 2;
+                            addBox(group, frameMat, glassW, bead, bead, paneCX, paneCY + glassH / 2 - bead / 2, beadZ, 'windowBead');
+                            addBox(group, frameMat, glassW, bead, bead, paneCX, paneCY - glassH / 2 + bead / 2, beadZ, 'windowBead');
+                        }
+                    }
+                }
+
                 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the pane is extruded at the
                 // window's REAL glazing thickness (the sealed unit), which is exactly
                 // what the plan symbol draws as its thin double line.
-                addBox(group, glassMat, Math.max(paneW, 0.01), Math.max(paneH, 0.01), dims.glazingThickness, paneCX, paneCY, 0);
+                addBox(group, glassMat, glassW, glassH, dims.glazingThickness, paneCX, paneCY, 0, 'windowGlazing');
 
                 rowY += rh;
             }
             colX += cw;
         }
 
-        // ── Sill ───────────────────────────────────────────────────────────
+        // ── Sill (medium + fine) ───────────────────────────────────────────
         if (win.sill && win.sillDepth > 0 && win.sillThickness > 0) {
             // §INSTANCE-WINDOWS — sill mirrors the frame colour (roughness 0.7),
             // resolved from the SHARED cache so it coalesces across storeys too.
@@ -837,7 +1039,8 @@ export class WindowBuilder {
                 fd + win.sillDepth,
                 0,
                 -h / 2 + win.sillThickness / 2,
-                win.sillDepth / 2        // protrudes out from wall face
+                win.sillDepth / 2,       // protrudes out from wall face
+                'windowSill',
             );
         }
 

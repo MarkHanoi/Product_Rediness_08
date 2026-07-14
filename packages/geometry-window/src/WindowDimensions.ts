@@ -180,6 +180,17 @@ export const DEFAULT_WINDOW_DIMENSIONS = Object.freeze({
      * Resolving it HERE is what makes the two agree by construction (L-127).
      */
     doubleMeetingStileMin: 0.06,
+    /**
+     * THE DIVIDER DEPTH, as a fraction of the frame reveal.
+     *
+     * A mullion / transom does not span the full wall reveal the way the outer frame does —
+     * it is a slimmer member set within it. `WindowBuilder` has always extruded its dividers
+     * at `fd * 0.5`, where the `0.5` was an UNNAMED LITERAL inside the 3D builder and was
+     * therefore invisible to `WindowPlanSymbolBuilder` — which consequently could not draw
+     * the post's section at the depth the post is actually built at. Naming it here (rather
+     * than adding a record field for something no user sets) gives both consumers one number.
+     */
+    dividerDepthRatio: 0.5,
     sill:             true,
     sillDepth:        0.08,
     sillThickness:    0.03,
