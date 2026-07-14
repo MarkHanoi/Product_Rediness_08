@@ -1817,6 +1817,206 @@ export function planFacadeSampling(input: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272, founder 2026-07-13) — the façade drape must
+// RECONSTRUCT the sun field the way the ground drape does, and over ONE field per envelope
+// PLANE (not one per ring edge).
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// MEASURED (head-less repro of a 34×18 m, 33 m tower + OSM context, the founder's "Real"
+// model class — see the L-272 report). Same engine, same ramp, same frame:
+//
+//                     compute lattice   DISPLAY        upsample    texel-to-texel |Δ|   |Laplacian|
+//   GROUND  (good)    7.1 m cells       0.94 m/texel   7.5×        0.135/255            0.044/255
+//   FAÇADE  (bad)     1.20 m nodes      1.00 m/texel   1.17×       1.122/255  (8.3×)    0.502/255 (11.4×)
+//
+// So texels/m was ALREADY at parity (1.00 vs 0.94 m/texel) — a "density floor in metres"
+// would have changed NOTHING — and the normalisation was ALREADY global (`normalizeFacadeStudy`,
+// one divisor). What differs is the RECONSTRUCTION. A sun-hours sample is a BINARY lit/blocked
+// raycast summed over N sun times, so the field is quantised in steps of 1/N; L-227 then divides
+// the wall field by its realised max (~0.57) to fill the ramp, STRETCHING that quantum to ~2.7%
+// of the ramp (the ground keeps ~1.5%). The ground never SHOWS its quantum: it paints a 7.1 m
+// field at 0.94 m/texel, so every step is spread across ~7 texels and reads as a gradient. The
+// façade painted its 1.2 m field at 1.0 m/texel — essentially 1 : 1 — so every single sun-sample
+// flip became a one-texel step. That is the blotch: an ESTIMATOR-VARIANCE artefact rendered at
+// its own Nyquist, not a coarse or mis-coloured field.
+//
+// FIX — two pure pieces, both DISPLAY-side (the BVH evaluator stays byte-identical, ADR-0110):
+//   1. `smoothFacadeField` — a hole-aware separable Gaussian RECONSTRUCTION KERNEL over the face
+//      lattice, its σ stated in METRES. This is not a cosmetic blur: the displayed value at a
+//      texel becomes the field's local AREA MEAN — exactly what the ground's bilinear-from-7.1 m
+//      reconstruction already computes implicitly — which suppresses the binary-sample variance
+//      (∝ 1/σ) while leaving the physical gradient intact (measured: σ = 2 m cuts the blotch
+//      Laplacian 3.1× and costs 2.5% of the field's P95−P05 contrast). σ ≪ the ground's ~7 m
+//      effective support, so the façade still RESOLVES MORE real detail than the ground does.
+//   2. `mergeCollinearFacadeEdges` — merge consecutive COPLANAR ring edges into ONE panel, so a
+//      plane of the envelope carries ONE continuous lattice that the drape merely SAMPLES. A wall
+//      traced as N collinear edges (`reconstructPerimeterRing` on a 192-wall model emits them)
+//      previously became N independent lattices + N atlas cells + N kernel supports → a seam at
+//      every internal vertex. Merged, the ramp is EXACTLY continuous across those seams, while a
+//      REAL corner (where the normal flips and the field is physically discontinuous) still ends
+//      the panel and stays crisp. Fewer, longer faces also shrink the shader's nearest-face
+//      Voronoi error and the atlas budget.
+// Display density (`DRAPE_TEXELS_PER_M`) is raised in step so the reconstruction is actually
+// resolved on screen rather than re-aliased by a 1 m texel.
+
+/** Default façade reconstruction kernel σ (metres). Stated in METRES so a 1 m pier and a 30 m
+ *  wall get the SAME physical reconstruction. Well below the ground heatmap's ~7 m effective
+ *  reconstruction support, so the façade retains MORE genuine detail than the ground while its
+ *  displayed noise floor drops below it. §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272). */
+export const FACADE_RECON_SIGMA_M = 2;
+
+/**
+ * §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — reconstruct a façade intensity lattice with a
+ * hole-aware separable GAUSSIAN whose σ is given in LATTICE NODES (the caller converts from
+ * metres: `σ_m / spacing_m`). PURE + deterministic.
+ *
+ * Each output node is the field's local area mean — the same estimator the ground heatmap gets
+ * for free from its coarse (7.1 m) compute lattice — which removes the binary sun-sample
+ * quantisation variance that the façade's fine (1.2 m) lattice otherwise renders at 1 : 1.
+ * Nulls (holes) neither contribute nor are filled: a hole stays a hole (the drape/rasteriser owns
+ * hole policy), and a node's kernel renormalises over its VALID neighbours only, so the field
+ * never darkens toward a hole. Edges clamp (the panel boundary IS a physical discontinuity at a
+ * building corner — see `mergeCollinearFacadeEdges`, which guarantees the boundary is a real
+ * corner and not an arbitrary ring-edge split).
+ *
+ * @param intensities row-major `nU·nV` (index `v*nU + u`, v0 = BOTTOM), 0..1 or null.
+ * @param nU          lattice nodes along the face (≥2).
+ * @param nV          lattice nodes up the face (≥2).
+ * @param sigmaNodes  kernel σ in lattice nodes. ≤0 → returned unchanged (no-op).
+ */
+export function smoothFacadeField(
+    intensities: ReadonlyArray<number | null>,
+    nU: number,
+    nV: number,
+    sigmaNodes: number,
+): Array<number | null> {
+    const lu = Math.max(2, Math.floor(nU));
+    const lv = Math.max(2, Math.floor(nV));
+    const src0 = intensities.slice(0, lu * lv) as Array<number | null>;
+    if (!(sigmaNodes > 0) || src0.length < lu * lv) return src0.slice();
+
+    const radius = Math.max(1, Math.ceil(sigmaNodes * 2.5));
+    const kern: number[] = [];
+    for (let i = -radius; i <= radius; i++) kern.push(Math.exp(-(i * i) / (2 * sigmaNodes * sigmaNodes)));
+
+    const pass = (src: ReadonlyArray<number | null>, horizontal: boolean): Array<number | null> => {
+        const out: Array<number | null> = new Array<number | null>(lu * lv).fill(null);
+        for (let v = 0; v < lv; v++) {
+            for (let u = 0; u < lu; u++) {
+                const k0 = v * lu + u;
+                const self = src[k0];
+                if (self == null || !Number.isFinite(self)) continue;   // hole stays a hole
+                let acc = 0, wsum = 0;
+                for (let i = -radius; i <= radius; i++) {
+                    const uu = horizontal ? Math.min(lu - 1, Math.max(0, u + i)) : u;   // clamp = real corner
+                    const vv = horizontal ? v : Math.min(lv - 1, Math.max(0, v + i));
+                    const val = src[vv * lu + uu];
+                    if (val == null || !Number.isFinite(val)) continue;
+                    const w = kern[i + radius]!;
+                    acc += val * w; wsum += w;
+                }
+                out[k0] = wsum > 0 ? Math.max(0, Math.min(1, acc / wsum)) : self;
+            }
+        }
+        return out;
+    };
+    return pass(pass(src0, true), false);
+}
+
+/** One merged COPLANAR panel of the envelope: the run's baseline endpoints (metric XZ,
+ *  east = x, north = z) and how many ring edges it absorbed. §FIX-FACADE-ANALYSIS-DRAPE-QUALITY. */
+export interface FacadePanel {
+    readonly ax: number;
+    readonly az: number;
+    readonly bx: number;
+    readonly bz: number;
+    /** Ring edges merged into this panel (1 = an unmerged edge). Diagnostic / span. */
+    readonly edgeCount: number;
+}
+
+/**
+ * §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — collapse consecutive COLLINEAR ring edges into ONE
+ * façade panel, so each PLANE of the envelope is one continuous field the drape samples, rather
+ * than N independent per-edge studies stapled together (which seam at every internal vertex — the
+ * founder's "patchwork"). PURE + deterministic.
+ *
+ * Two consecutive edges merge when their along-directions agree to within `tolDeg` AND the next
+ * vertex lies (within `tolM`) on the running panel's line — so a genuine corner, however shallow,
+ * always ENDS a panel: at a corner the outward normal flips and the sun field is physically
+ * discontinuous, and that discontinuity must stay crisp. The ring is rotated to start at a real
+ * corner first, so the wrap-around run (last edge → first edge) merges too. A perfectly circular
+ * (all-corner) ring is returned unchanged — one panel per edge.
+ *
+ * @param ring    the closed exterior ring (metric XZ, ≥3 pts).
+ * @param tolDeg  max direction change to still count as coplanar (default 1.5°).
+ * @param tolM    max perpendicular deviation from the panel line (default 0.05 m).
+ */
+export function mergeCollinearFacadeEdges(
+    ring: ReadonlyArray<Pt>,
+    tolDeg = 1.5,
+    tolM = 0.05,
+): FacadePanel[] {
+    const n = ring.length;
+    if (n < 3) return [];
+    const dirOf = (i: number): { x: number; z: number; len: number } => {
+        const a = ring[i]!, b = ring[(i + 1) % n]!;
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const len = Math.hypot(dx, dz);
+        return len < 1e-6 ? { x: 0, z: 0, len: 0 } : { x: dx / len, z: dz / len, len };
+    };
+    const cosTol = Math.cos((Math.max(0, tolDeg) * Math.PI) / 180);
+
+    // A vertex is a REAL corner when the incoming and outgoing edge directions diverge > tolDeg.
+    const isCorner = (i: number): boolean => {
+        const prev = dirOf((i - 1 + n) % n), cur = dirOf(i);
+        if (prev.len === 0 || cur.len === 0) return true;
+        return prev.x * cur.x + prev.z * cur.z < cosTol;
+    };
+    // Rotate the walk to start AT a corner so the wrap-around run merges into one panel.
+    let start = 0;
+    for (let i = 0; i < n; i++) { if (isCorner(i)) { start = i; break; } }
+    if (!isCorner(start)) {
+        // No corner at all (a degenerate/near-circular ring) — every edge is its own panel.
+        return ring.map((a, i) => {
+            const b = ring[(i + 1) % n]!;
+            return { ax: a.x, az: a.z, bx: b.x, bz: b.z, edgeCount: 1 };
+        });
+    }
+
+    const panels: FacadePanel[] = [];
+    let anchor = ring[start]!;
+    let dir = dirOf(start);
+    let edges = 0;
+    for (let k = 0; k < n; k++) {
+        const i = (start + k) % n;
+        const a = ring[i]!;
+        const e = dirOf(i);
+        if (e.len === 0) continue;                                     // degenerate edge — skip
+        if (edges === 0) { anchor = a; dir = e; edges = 1; continue; }
+        // Coplanar with the running panel? (direction agrees AND `a` is on the panel line)
+        const perpDist = Math.abs((a.x - anchor.x) * -dir.z + (a.z - anchor.z) * dir.x);
+        const aligned = dir.x * e.x + dir.z * e.z >= cosTol && perpDist <= tolM;
+        if (aligned) { edges++; continue; }
+        // Close the running panel at this vertex and start a new one.
+        panels.push({ ax: anchor.x, az: anchor.z, bx: a.x, bz: a.z, edgeCount: edges });
+        anchor = a; dir = e; edges = 1;
+    }
+    if (edges > 0) {
+        const endVertex = ring[start]!;                                // the walk closes on the start
+        panels.push({ ax: anchor.x, az: anchor.z, bx: endVertex.x, bz: endVertex.z, edgeCount: edges });
+    }
+
+    try {
+        console.debug(
+            `[span][fix-facade-analysis-drape-quality] merged ${n} ring edge(s) → ${panels.length} coplanar ` +
+            `panel(s) (max run ${panels.reduce((m, p) => Math.max(m, p.edgeCount), 0)} edge(s)).`,
+        );
+    } catch { /* headless — span best-effort */ }
+
+    return panels;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — drape the sun-hours
 // study onto the REAL placed GLB model, not a separate translucent envelope prism.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1903,12 +2103,22 @@ export interface RealModelSunDrape {
     readonly wallLitTexels: number;
 }
 
-/** Per-face atlas cell + roof texture sizing. Target ~1 m/texel to MATCH the ground
- *  sun-hours heatmap (`sunHours heatmap: smooth texture … ≈0.9 m/texel`), capped so the
- *  packed atlas stays inside the WebGL max-texture-size / device-loss budget (A.24). */
-const DRAPE_ROOF_SIZE = 128;
-const DRAPE_TEXELS_PER_M = 1;        // ~1 m/texel — matches the ground heatmap resolution
-const DRAPE_CAP_CELL_W = 256;        // along-face texel cap per face cell
+/** Per-face atlas cell + roof texture sizing, capped so the packed atlas stays inside the WebGL
+ *  max-texture-size / device-loss budget (A.24, L-231).
+ *
+ *  §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272): the old target was ~1 texel/m, chosen to "match"
+ *  the ground heatmap's ~0.9 m/texel. MEASURED, that parity was exactly the bug: the ground paints
+ *  a 7.1 m compute field at 0.94 m/texel (a 7.5× upsample, so its binary-raycast quantum is spread
+ *  over ~7 texels and reads as a gradient), whereas the façade painted a 1.2 m compute field at
+ *  1.0 m/texel — a 1.17× upsample, i.e. the raw field at its own Nyquist, so every single
+ *  sun-sample flip became a one-texel step (8.3× the ground's texel-to-texel |Δ|, 11.4× its
+ *  Laplacian). The DISPLAY must therefore be several times FINER than the compute lattice, exactly
+ *  as the ground's is; 4 texels/m over a 1.2 m lattice restores a ~4.8× upsample. A CPU bilinear
+ *  resample + one GPU upload, so the finer atlas costs almost nothing (and the caps below still
+ *  bound the GPU footprint). */
+const DRAPE_ROOF_SIZE = 256;
+const DRAPE_TEXELS_PER_M = 4;        // 0.25 m/texel — DISPLAY resolves the reconstruction (L-272)
+const DRAPE_CAP_CELL_W = 512;        // along-face texel cap per face cell
 const DRAPE_CAP_CELL_H = 512;        // height texel cap per face cell
 const DRAPE_CAP_ATLAS_W = 4096;      // faceCount·cellW cap (safe WebGL max-texture-size bound)
 /** Face-table columns: 2 texels/face — endpoint A, endpoint B (each E,N as 16-bit rel centroid). */
@@ -2080,10 +2290,16 @@ export function buildRealModelSunDrape(input: {
     }
 
     try {
+        // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — state the DISPLAY density in m/texel so it is
+        // directly comparable to the ground heatmap's benchmark line (`~0.9 m/texel`).
+        const mPerTexelU = maxFaceW > 0 ? maxFaceW / Math.max(1, cellW) : 0;
+        const mPerTexelV = H / Math.max(1, cellH);
         console.debug(
             `[span][forma-facade-real-drape] §FIX-FORMA-FACADE-ANALYSIS-QUALITY-PER-FACE wall atlas ${wallW}×${wallH} ` +
             `(${faceCount} face cell(s) ${cellW}×${cellH}, ${wallLitTexels} lit${atlasWCapped ? `, ATLAS-W CAPPED @${DRAPE_CAP_ATLAS_W}` : ''}) + ` +
-            `roof ${roofW}×${roofH}, H ${H.toFixed(1)} m.`,
+            `roof ${roofW}×${roofH}, H ${H.toFixed(1)} m — ` +
+            `~${mPerTexelU.toFixed(2)} m/texel along (widest face ${maxFaceW.toFixed(1)} m), ` +
+            `~${mPerTexelV.toFixed(2)} m/texel up [ground benchmark ≈0.9 m/texel].`,
         );
     } catch { /* headless — span best-effort */ }
 

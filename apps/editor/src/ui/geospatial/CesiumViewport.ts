@@ -105,6 +105,14 @@ import {
     // walls-with-openings, not a solid perimeter prism. + §PERF-SUNHOURS-WORKER probe type
     // (the raycast itself runs in the worker via computeSunIntensitiesForProbes).
     facadeOpeningUvRects,
+    // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272, founder 2026-07-13) — the façade drape must
+    // RECONSTRUCT the field the way the ground drape does (a kernel stated in METRES over a
+    // display several times finer than the compute lattice), and over ONE field per envelope
+    // PLANE (consecutive collinear ring edges merged into one panel) so a wall traced as N
+    // edges yields ONE continuous ramp instead of N seamed studies.
+    smoothFacadeField,
+    mergeCollinearFacadeEdges,
+    FACADE_RECON_SIGMA_M,
     // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — build the WALL
     // (cylindrical) + ROOF (top-down) sun-hours lookup textures a Cesium CustomShader
     // drapes onto the REAL placed GLB model, replacing the separate envelope-prism paint.
@@ -5607,15 +5615,28 @@ export class CesiumViewport {
     // study paints in BOTH Real and Massing fidelity modes (formaLastMassingInput persists
     // in both — it's the massing fallback under the real model). The old code used ONLY
     // `input.boundary`, which is null whenever no parcel ring was drawn (the founder's
-    // "no building footprint — skipping" log), so sun-on-façade never painted:
-    //   1. the drawn parcel boundary (input.boundary), if present;
-    //   2. else the massing wall-loop perimeter reconstructed from the authored walls
-    //      (reconstructPerimeterRing — the SAME single-polygon silhouette the shell
-    //      extrusion uses, so it matches the building exactly);
-    //   3. else the ground-storey FLOOR-SLAB outer ring (a generated building always
-    //      authors a floor plate whose outer ring IS the shell footprint);
-    //   4. else a square about the massing centroid (formaMassingOrigin) so an
-    //      already-placed building without a traceable loop still gets a study.
+    // "no building footprint — skipping" log), so sun-on-façade never painted.
+    //
+    // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — the ORDER was wrong, and on the founder's own
+    // flow (location → DRAW THE SITE BOUNDARY → generate) it was catastrophically wrong.
+    // `input.boundary` is the drawn **PARCEL** ring (see `renderFormaMassing`: "Parcel boundary
+    // ring in scene-XZ metres, or null when not drawn") — it is the SITE, not the building. Taking
+    // it first meant the façade study's faces were the PARCEL EDGES: the sun lattice was evaluated
+    // on a phantom envelope standing out at the plot line (with the real building sitting INSIDE it
+    // as an occluder, self-shadowing the phantom), no authored opening could project onto any face
+    // (they are metres away → `facadeOpeningUvRects` returns none), and the shader then draped that
+    // phantom study onto the real GLB by nearest-face projection — smearing a study of a plot
+    // boundary across a building's walls. The DESIGNED BUILDING's envelope is its WALL LOOP; the
+    // parcel is only a last-ditch stand-in when there is no authored geometry at all:
+    //   1. the massing wall-loop perimeter reconstructed from the authored walls
+    //      (reconstructPerimeterRing — the SAME single-polygon silhouette the shell extrusion
+    //      uses, so the study faces ARE the building's real exterior wall lines);
+    //   2. else the ground-storey FLOOR-SLAB outer ring (a generated building always authors a
+    //      floor plate whose outer ring IS the shell footprint);
+    //   3. else the drawn parcel boundary (massing-only preview with no authored walls/slabs —
+    //      the plot is then the only silhouette we have, and it is flagged as such below);
+    //   4. else a square about the massing centroid (formaMassingOrigin) so an already-placed
+    //      building without a traceable loop still gets a study.
     // scene-XZ → the metric Pt convention (x = east, z = north): east = x, north = −z.
     const input = this.formaLastMassingInput;
     const sceneRingToMetric = (
@@ -5624,11 +5645,7 @@ export class CesiumViewport {
 
     let ring: { x: number; z: number }[] | null = null;
     let ringSource = '';
-    if (input?.boundary && input.boundary.length >= 3) {
-      ring = sceneRingToMetric(input.boundary);
-      ringSource = 'parcel-boundary';
-    }
-    if (!ring && input) {
+    if (input) {
       // The authored walls include the perimeter shell; reconstructPerimeterRing traces
       // the outer boundary loop (interior partitions branch off + are not followed).
       const wallRing = this.reconstructPerimeterRing(input.walls);
@@ -5637,6 +5654,10 @@ export class CesiumViewport {
     if (!ring && input) {
       const slabRing = this.slabRingForBand(input.slabs ?? [], 0);
       if (slabRing && slabRing.length >= 3) { ring = sceneRingToMetric(slabRing); ringSource = 'floor-slab'; }
+    }
+    if (!ring && input?.boundary && input.boundary.length >= 3) {
+      ring = sceneRingToMetric(input.boundary);
+      ringSource = 'parcel-boundary';
     }
     if (!ring) {
       // Last resort: a square about the placed massing centroid (already ENU metres —
@@ -5657,6 +5678,13 @@ export class CesiumViewport {
       return;
     }
     console.log(`[CesiumViewport][forma-facade] §FORMA-FACADE-FOOTPRINT-FIX footprint from ${ringSource} (${ring.length} pts).`);
+    // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — ENVELOPE-ONLY drape (see `applyRealModelSunDrape`).
+    // The inner band is only meaningful when the ring IS the building's own wall line; on a parcel
+    // ring or a centroid square, "inside the ring" says nothing about "inside the building", so the
+    // test is disabled (0) rather than guessed. 0.75 m ≈ a generous exterior-wall thickness + reveal:
+    // a fragment deeper than that BEHIND its wall line is interior structure seen through a punched
+    // opening, not façade.
+    const facadeInnerBandM = ringSource === 'wall-loop' || ringSource === 'floor-slab' ? 0.75 : 0;
     // §FORMA-FULL-HEIGHT (founder 2026-07-01, ADR-0095) — Building top height = the
     // tallest storey band's base + height (the roof level). Because the massing shell is
     // now TILED to the full building height (tileBandsToFullHeight above publishes the
@@ -5760,9 +5788,18 @@ export class CesiumViewport {
     const enuLocal = (e: number, n: number, u: number): Cesium.Cartesian3 =>
       Cesium.Matrix4.multiplyByPoint(enu, new Cesium.Cartesian3(e, n, u), new Cesium.Cartesian3());
 
+    // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — the drape's faces are the envelope's COPLANAR
+    // PANELS, not the raw ring edges. `reconstructPerimeterRing` on a real 192-wall model emits
+    // several collinear edges along a single physical wall; one lattice + one atlas cell + one
+    // reconstruction kernel PER EDGE therefore seamed the study at every internal vertex (the
+    // founder's "patchwork"). Merging collinear runs gives ONE continuous field per envelope plane
+    // that the drape merely SAMPLES — exactly continuous across those seams — while a REAL corner
+    // (normal flips ⇒ the sun field is physically discontinuous) still ends a panel and stays crisp.
+    const panels = mergeCollinearFacadeEdges(ring);
     const faceJobs: FaceJob[] = [];
-    for (let i = 0; i < ring.length; i++) {
-      const a = ring[i]!; const b = ring[(i + 1) % ring.length]!;
+    for (let i = 0; i < panels.length; i++) {
+      const p = panels[i]!;
+      const a = { x: p.ax, z: p.az }; const b = { x: p.bx, z: p.bz };
       const dx = b.x - a.x, dz = b.z - a.z;
       const segLen = Math.hypot(dx, dz);
       if (segLen < 1e-3) continue;
@@ -5873,6 +5910,30 @@ export class CesiumViewport {
         const normed = normalizeFacadeStudy(faceJobs.map((j) => j.intensities), roofInts);
         for (let fi = 0; fi < faceJobs.length; fi++) faceJobs[fi]!.intensities = normed.walls[fi]!;
         for (let i = 0; i < roofInts.length; i++) roofInts[i] = normed.roof[i] ?? null;
+
+        // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272, founder 2026-07-13) — RECONSTRUCT the field
+        // before it is draped. MEASURED root of the "terrible" façade (head-less repro, same engine
+        // + ramp + frame as the ground): the ground paints a 7.1 m compute field at 0.94 m/texel —
+        // a 7.5× upsample, so the binary lit/blocked sun-sample quantum (1/N) is spread over ~7
+        // texels and reads as a gradient — while the façade painted its 1.2 m field at 1.0 m/texel,
+        // a 1.17× upsample, i.e. the RAW field at its own Nyquist, with L-227's wall-max normalise
+        // STRETCHING that quantum to ~2.7% of the ramp. Result: every single sun-sample flip became
+        // a one-texel step — 8.3× the ground's texel-to-texel |Δ| and 11.4× its Laplacian (the
+        // blotch). It was never the lattice density (texels/m was already at parity) and never the
+        // normalisation (already global, one divisor).
+        // The kernel is stated in METRES, so a 1 m pier and a 30 m wall are reconstructed at the
+        // SAME physical fidelity, and each displayed texel becomes the field's local AREA MEAN —
+        // precisely the estimator the ground gets for free from its coarse lattice. σ = 2 m sits far
+        // below the ground's ~7 m effective reconstruction support, so the façade still resolves MORE
+        // genuine detail than the ground while its noise floor drops below it (measured: blotch
+        // Laplacian −3.1×, field P95−P05 contrast −2.5%). The BVH intensities are untouched
+        // (ADR-0110) — this is DISPLAY reconstruction, one field, both drapes.
+        const sigmaNodes = FACADE_RECON_SIGMA_M / Math.max(0.1, LATTICE_SPACING_M);
+        for (const job of faceJobs) {
+          job.intensities = smoothFacadeField(job.intensities, job.nU, job.nV, sigmaNodes);
+        }
+        const roofSmoothed = smoothFacadeField(roofInts, roofNU, roofNV, sigmaNodes);
+        for (let i = 0; i < roofInts.length; i++) roofInts[i] = roofSmoothed[i] ?? null;
       }
       // §FIX-FACADE-ANALYSIS-ON-REAL-MODEL (L-177, founder-escalated) — when the REAL
       // full-fidelity GLB is placed, DRAPE the sun-hours result onto ITS OWN faces via a
@@ -5904,7 +5965,7 @@ export class CesiumViewport {
             // reads boldly on its own; drop the boost so façade + ground are one scale.
             vivid: false, alpha: 1,
           });
-          if (this.applyRealModelSunDrape(drape)) {
+          if (this.applyRealModelSunDrape(drape, facadeInnerBandM)) {
             this.facadeDrapingRealModel = true;
             // Keep the REAL model VISIBLE — the analysis now lives on its own faces, so
             // never suppress it (the old path hid it behind the envelope prism).
@@ -5919,6 +5980,7 @@ export class CesiumViewport {
                 `${faceJobs.length} face(s), ${holes} opening(s), H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}). ` +
                 `No envelope prism painted; no angular wrap.`,
             );
+            this.logFacadeDrapeQuality(faceJobs, ring.length, drape.cellW, drape.cellH, heightM, LATTICE_SPACING_M);
             return;
           }
           console.warn('[CesiumViewport][forma-facade] real-model drape unavailable (no CustomShader / 2D ctx) — envelope-prism fallback.');
@@ -5984,7 +6046,56 @@ export class CesiumViewport {
           `${nodes.length} lattice node(s), ${openingHoles} real opening hole(s) from ${metricOpenings.length} authored, ` +
           `H ${heightM.toFixed(1)} m, day ${this.siteMetricSunDay}).`,
       );
+      // The polygon-envelope tier rasterises each face at FACADE_TEXTURE_MAX (≤256 per axis), so
+      // its m/texel differs from the atlas tier's — pass 0 for the cell dims to say "polygon tier".
+      this.logFacadeDrapeQuality(faceJobs, ring.length, 0, 0, heightM, LATTICE_SPACING_M);
     });
+  }
+
+  /**
+   * §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — print the façade study's equivalent of the ground
+   * heatmap's benchmark line (`sunHours heatmap: smooth texture 512×512 (~0.9 m/texel) from
+   * 1623/1623 cell(s)`), so the two drapes of the ONE field are directly comparable on screen:
+   * DISPLAY m/texel, the compute lattice's samples-per-face (min/median/max — a narrow pier and a
+   * long wall must be sampled at the same texels/m), the drape face count vs the raw ring-edge
+   * count (how many coplanar edges merged into one continuous panel field), the reconstruction
+   * kernel, and the normalisation SCOPE (global — one divisor for the whole envelope, never
+   * per-face). This log line is the instrument the L-272 fix was measured with; keep it.
+   */
+  private logFacadeDrapeQuality(
+    faceJobs: ReadonlyArray<{ nU: number; nV: number; segLen: number }>,
+    ringEdgeCount: number,
+    cellW: number,
+    cellH: number,
+    heightM: number,
+    latticeSpacingM: number,
+  ): void {
+    if (faceJobs.length === 0) return;
+    const perFace = faceJobs.map((j) => j.nU * j.nV).sort((a, b) => a - b);
+    const med = perFace[Math.floor(perFace.length / 2)]!;
+    const maxFaceW = faceJobs.reduce((m, j) => Math.max(m, j.segLen), 0);
+    const atlas = cellW > 0 && cellH > 0;
+    // Atlas tier: one uniformly-sized cell per face, sized from the WIDEST face → that face is the
+    // worst case. Polygon tier: each face gets its OWN aspect-fitted texture capped per axis at
+    // FACADE_TEXTURE_MAX (256) — mirror `rasterizeFacadeSunTexture`'s sizing exactly so the number
+    // printed is the number rendered.
+    let texU = cellW, texV = cellH;
+    if (!atlas) {
+      const a = Math.max(0.05, Math.min(20, maxFaceW / Math.max(1e-3, heightM)));
+      texU = Math.max(4, Math.min(256, Math.round(a >= 1 ? 256 : 256 * a)));
+      texV = Math.max(4, Math.min(256, Math.round(a >= 1 ? 256 / a : 256)));
+    }
+    const mPerTexelU = maxFaceW / Math.max(1, texU);
+    const mPerTexelV = heightM / Math.max(1, texV);
+    console.log(
+      `[CesiumViewport][forma-facade] §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) ${atlas ? 'REAL-MODEL ATLAS' : 'POLYGON-ENVELOPE'} drape: ` +
+        `~${mPerTexelU.toFixed(2)} m/texel along × ~${mPerTexelV.toFixed(2)} m/texel up ` +
+        `[ground benchmark ≈0.9 m/texel] from a ${latticeSpacingM.toFixed(2)} m compute lattice ` +
+        `(upsample ≈${(latticeSpacingM / Math.max(0.01, mPerTexelU)).toFixed(1)}×; the ground's is ≈7.5×); ` +
+        `samples/face min ${perFace[0]} · median ${med} · max ${perFace[perFace.length - 1]}; ` +
+        `${faceJobs.length} coplanar panel(s) merged from ${ringEdgeCount} ring edge(s); ` +
+        `reconstruction σ ${FACADE_RECON_SIGMA_M.toFixed(1)} m; normalisation GLOBAL (one divisor, whole envelope).`,
+    );
   }
 
   /** §FORMA-FACADE-SMOOTH — wrap a rasterised façade texture in a Cesium
@@ -6021,12 +6132,27 @@ export class CesiumViewport {
    * colours should render"). A.24 Presentation tier: ONE shader + three small texture uploads,
    * no per-frame work — inside the device-loss budget.
    *
+   * §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — DRAPE ONLY THE ENVELOPE. The GLB is the whole
+   * BIM model, and the shader coloured EVERY fragment of it — including the interior partitions
+   * that the punched window/door voids expose. A sun-hours value on an interior wall is
+   * meaningless noise, and it was being painted in the same vivid ramp as the façade, so every
+   * opening framed a patch of fake analysis. The wall branch now takes the SIGNED plan distance
+   * from the fragment to its nearest envelope panel (outward positive — the panel's outward
+   * normal is resolved from the footprint centroid, the same star-shaped assumption the whole
+   * drape already makes) and renders anything deeper than `innerBandM` BEHIND the envelope line
+   * as neutral un-analysed structure instead of study colour. Protrusions (balconies, loggias,
+   * reveals) are on the OUTWARD side and keep their analysis; nothing is discarded, so the fix
+   * can never remove geometry. `innerBandM = 0` disables the test — the caller passes 0 whenever
+   * the footprint ring is NOT the building's own wall line (a drawn parcel boundary or the
+   * massing-centroid square), because then "inside the ring" says nothing about "inside the
+   * building".
+   *
    * The lookup textures are uploaded straight from the drape's RGBA typed arrays (no DOM canvas),
    * so this works head-lessly. The FACE TABLE is NEAREST-filtered (its bytes are 16-bit
    * fixed-point endpoints, not colours — must not be interpolated). Returns false if CustomShader
    * is unavailable in this Cesium build (caller falls back to the per-face polygon envelope).
    */
-  private applyRealModelSunDrape(drape: RealModelSunDrape): boolean {
+  private applyRealModelSunDrape(drape: RealModelSunDrape, innerBandM = 0): boolean {
     const model = this.realModelOnForma;
     if (!model || model.isDestroyed()) return false;
     if (typeof Cesium.CustomShader !== 'function') return false;
@@ -6061,6 +6187,8 @@ export class CesiumViewport {
           u_pryzmFaceCount: { type: Cesium.UniformType.FLOAT, value: Math.max(0, drape.faceCount) },
           u_pryzmCellW: { type: Cesium.UniformType.FLOAT, value: Math.max(1, drape.cellW) },
           u_pryzmEncRange: { type: Cesium.UniformType.FLOAT, value: Math.max(1, drape.encodeRange) },
+          // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — envelope-only drape. 0 = test disabled.
+          u_pryzmInnerBand: { type: Cesium.UniformType.FLOAT, value: Math.max(0, innerBandM) },
         },
         fragmentShaderText: [
           '#define PRYZM_MAX_FACES 128',
@@ -6086,6 +6214,9 @@ export class CesiumViewport {
           '    float bestD = 1.0e20;',
           '    int bestIdx = -1;',
           '    float bestW = 0.0;',
+          // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — SIGNED plan distance to the winning panel
+          // (outward positive) so an INTERIOR fragment can be told from an envelope one.
+          '    float bestSigned = 0.0;',
           '    for (int i = 0; i < PRYZM_MAX_FACES; i++) {',
           '      if (i >= count) { break; }',
           '      float fy = (float(i) + 0.5) / float(count);',
@@ -6101,9 +6232,23 @@ export class CesiumViewport {
           '      float w = clamp(along / L, 0.0, 1.0);',
           '      vec2 nearest = a + ud * (w * L);',
           '      float d = distance(frag, nearest);',
-          '      if (d < bestD) { bestD = d; bestIdx = i; bestW = w; }',
+          // Outward normal of this panel: the perpendicular that points AWAY from the footprint
+          // centroid (frag/a/b are already centroid-relative) — the same rule the CPU lattice uses.
+          '      vec2 nrm = vec2(-ud.y, ud.x);',
+          '      if (dot(nrm, (a + b) * 0.5) < 0.0) { nrm = -nrm; }',
+          '      if (d < bestD) { bestD = d; bestIdx = i; bestW = w; bestSigned = dot(frag - a, nrm); }',
           '    }',
           '    if (bestIdx < 0) { discard; }',
+          // ENVELOPE-ONLY: a fragment further than `innerBand` BEHIND its nearest envelope panel is
+          // interior structure (a partition, a core wall) exposed through a punched opening — it is
+          // not part of the façade study, so it renders as neutral un-analysed material rather than
+          // fake sun data. Protrusions (balconies/reveals) sit on the OUTWARD side and are kept.
+          // Nothing is discarded here, so this can never remove geometry.
+          '    if (u_pryzmInnerBand > 0.0 && bestSigned < -u_pryzmInnerBand) {',
+          '      material.diffuse = vec3(0.72);',
+          '      material.alpha = 1.0;',
+          '      return;',
+          '    }',
           '    float vFrac = clamp(upM / max(u_pryzmHeight, 0.001), 0.0, 1.0);',
           // Atlas cell U with a half-texel inset so LINEAR filtering never bleeds across faces.
           '    float halfTexel = 0.5 / max(u_pryzmCellW, 1.0);',
