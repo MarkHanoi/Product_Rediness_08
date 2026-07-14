@@ -244,6 +244,22 @@ interface CachedProjectionLayer {
     readonly userData?: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — the projected edges of ONE SOLID, carrying
+ * THAT SOLID's own cut verdict.
+ *
+ * The projector merges an element's meshes per ISO layer before classifying them. That merge
+ * is a PERFORMANCE decision and it must not be a SEMANTIC one: the cut/projection question is
+ * asked of a SOLID, so the answer is recorded here, per mesh, *before* the merge, and the
+ * merge is then done per (layer × verdict). Two solids of one element with different verdicts
+ * produce two emissions, exactly as two elements would.
+ */
+interface EdgeGeoPart {
+    readonly geo: THREE.BufferGeometry;
+    /** Does THIS solid's own geometry intersect the view's cut plane? Nothing else may set it. */
+    readonly solidIsCut: boolean;
+}
+
 interface CutSectionPart {
     readonly geo: THREE.BufferGeometry;
     readonly pocheLayer?: {
@@ -763,13 +779,61 @@ function _suppressWallOpeningSeams(
 }
 
 /**
+ * §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — DOES *THIS SOLID* MEET THE PLAN CUT PLANE?
+ *
+ * The plan half of the granularity rule (C09 §4.6.6). The answer depends on the mesh's OWN
+ * world AABB and on NOTHING ELSE — not on its parent group, not on what it hosts, not on
+ * what hosts it. Identical straddle test to `buildPlanCutSectionGeometry`'s cheap reject, so
+ * the CUT LINEWORK and the CUT FACE can never disagree about whether a solid is cut.
+ */
+export function solidIntersectsPlanCutPlane(
+    mesh: THREE.Mesh,
+    cutPlaneY: number,
+    epsilon: number = TRIANGLE_PLANE_EPSILON,
+): boolean {
+    const worldBox = getMeshWorldAABB(mesh);
+    if (!worldBox) return false;
+    return !(worldBox.min.y > cutPlaneY - epsilon || worldBox.max.y < cutPlaneY + epsilon);
+}
+
+/**
+ * §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — DOES *THIS SOLID* MEET THE SECTION/ELEVATION
+ * DEPTH PLANE?
+ *
+ * The depth half of the same rule. Same predicate `buildMeshPlaneIntersectionGeometry` uses
+ * for its cheap reject, exported so the LINEWORK classifier is gated on exactly the fact the
+ * FACE builder is gated on.
+ */
+export function solidIntersectsDepthPlane(
+    mesh: THREE.Mesh,
+    viewDef: ViewDefinition,
+    projectionDirection: THREE.Vector3,
+    nearDepth: number = 0,
+    epsilon: number = TRIANGLE_PLANE_EPSILON,
+): boolean {
+    const worldBox = getMeshWorldAABB(mesh);
+    if (!worldBox) return false;
+    const { normal, constant } = resolveSectionDepthPlane(viewDef, projectionDirection);
+    const signedDepthFactor = normal.dot(projectionDirection) >= 0 ? 1 : -1;
+    return worldAABBIntersectsDepthPlane(worldBox, normal, constant, signedDepthFactor, nearDepth, epsilon);
+}
+
+/**
  * DOC-4.2 — Splits a THREE.BufferGeometry (LineSegments, world-space Y) into
  * two geometries: segments whose vertices straddle the cut plane elevation, and
  * segments that lie entirely above it (projection lines).
  *
+ * §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — `solidIntersectsCutPlane` IS THE GATE.
+ * `|y − cutPlaneY| ≤ epsilon` is a PROXIMITY test, and proximity is not intersection: a
+ * solid whose edge merely lies NEAR the plane (a window head transom 6 cm above a 1.2 m cut)
+ * is NOT cut, and must never be given cut graphics. The caller passes THAT SOLID's own
+ * straddle verdict (`solidIntersectsPlanCutPlane`); when it is `false` the `cut` bucket is
+ * unreachable and every segment falls to `projection` / `beyond` on its own merits.
+ *
  * @param srcGeo     World-space EdgesGeometry with baked matrixWorld.
  * @param cutPlaneY  World-space Y elevation of the section cut plane.
  * @param epsilon    Tolerance in metres (default: CUT_LINE_EPSILON).
+ * @param solidIntersectsCutPlane  Whether the SOLID these edges came from meets the plane.
  */
 export function classifyByVertexY(
     srcGeo:     THREE.BufferGeometry,
@@ -777,6 +841,7 @@ export function classifyByVertexY(
     floorY:     number | null = null,
     epsilon:    number = CUT_LINE_EPSILON,
     belowY:     number | null = null,
+    solidIntersectsCutPlane: boolean = true,
 ): { cutGeo: THREE.BufferGeometry | null; projGeo: THREE.BufferGeometry | null; beyondGeo: THREE.BufferGeometry | null } {
     const posAttr = srcGeo.getAttribute('position') as THREE.BufferAttribute | undefined;
     if (!posAttr) return { cutGeo: null, projGeo: null, beyondGeo: null };
@@ -790,9 +855,9 @@ export function classifyByVertexY(
         const y0 = posAttr.getY(i);
         const y1 = posAttr.getY(i + 1);
         const avgY = (y0 + y1) / 2;
-        const isCut =
+        const isCut = solidIntersectsCutPlane && (
             Math.abs(y0 - cutPlaneY) <= epsilon ||
-            Math.abs(y1 - cutPlaneY) <= epsilon;
+            Math.abs(y1 - cutPlaneY) <= epsilon);
         // A segment whose average Y sits below the level floor is storey-below
         // reference linework. It belongs on the :beyond layer ONLY when an active
         // beyond zone exists (belowY = floorY − belowLevelDepth). §VIEW-RANGE-BELOW
@@ -1138,7 +1203,38 @@ function getMeshWorldAABB(mesh: THREE.Mesh): THREE.Box3 | null {
     return localBox.clone().applyMatrix4(mesh.matrixWorld);
 }
 
-function classifyByProjectionDepth(
+/**
+ * Depth-band classifier for section / elevation views.
+ *
+ * §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — **THE BUG THIS PARAMETER KILLS.**
+ *
+ * The cut test used to read:
+ *
+ *     crossesCutPlane = |d0 − near| ≤ CUT_LINE_EPSILON      // 15 CENTIMETRES
+ *                    || |d1 − near| ≤ CUT_LINE_EPSILON
+ *                    || (d0 − near)·(d1 − near) < 0          // ← the only honest term
+ *
+ * The first two terms are a PROXIMITY test, and `CUT_LINE_EPSILON` (0.15 m) is the PLAN
+ * classifier's vertex-Y tolerance — "generous enough to capture wall top/bottom edge
+ * artefacts". Reused on the DEPTH axis it is 15 cm of pure slop, and it meant **a solid the
+ * plane NEVER ENTERED was given CUT graphics because its face happened to lie near the plane.**
+ *
+ * That is the founder's L-282 report. A hosted door's frame / architrave / leaf stands a few
+ * CENTIMETRES PROUD of its host wall's face, so the depth plane that first touches the DOOR is
+ * — always, by construction — within 15 cm of the WALL FACE. The wall's entire front
+ * silhouette, INCLUDING the jamb and head edges bounding the opening, flipped to `:cut` in the
+ * same frame the door did. It read exactly like host→hosted propagation. It is not: it is a
+ * classifier asking *"is this edge NEAR the plane?"* when the only legal question (C09 §4.6.6)
+ * is *"does THIS SOLID intersect the plane?"*
+ *
+ * `solidIntersectsCutPlane` is that question's answer, supplied by the caller from THAT SOLID's
+ * own geometry (`solidIntersectsDepthPlane`). When it is `false` the `cut` bucket is
+ * unreachable and every segment falls to `projection` / `beyond` on its own depth.
+ *
+ * Exported for the L-282 guard test: the door-CUT / wall-PROJECTION case is the whole ticket
+ * and it must be assertable.
+ */
+export function classifyByProjectionDepth(
     srcGeo: THREE.BufferGeometry,
     viewDef: ViewDefinition,
     projectionDirection: THREE.Vector3,
@@ -1147,6 +1243,7 @@ function classifyByProjectionDepth(
     nearDepth: number = 0,
     sectionBox: SectionVolumeBox | null = null,
     epsilon: number = CUT_LINE_EPSILON,
+    solidIntersectsCutPlane: boolean = true,
 ): {
     cutGeo: THREE.BufferGeometry | null;
     projGeo: THREE.BufferGeometry | null;
@@ -1179,10 +1276,13 @@ function classifyByProjectionDepth(
         const avgDepth = (d0 + d1) / 2;
         if (avgDepth < nearDepth - epsilon || avgDepth > farClipDepth + epsilon) continue;
 
-        const crossesCutPlane =
+        // §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — gated on THE SOLID's own intersection
+        // with the plane. Proximity (`|d − near| ≤ epsilon`) may only REFINE which of a CUT
+        // solid's edges are the cut ones; it may never PROMOTE an un-intersected solid.
+        const crossesCutPlane = solidIntersectsCutPlane && (
             Math.abs(d0 - nearDepth) <= epsilon ||
             Math.abs(d1 - nearDepth) <= epsilon ||
-            ((d0 - nearDepth) * (d1 - nearDepth) < 0);
+            ((d0 - nearDepth) * (d1 - nearDepth) < 0));
         const target = crossesCutPlane
             ? cutPositions
             : avgDepth > projectionDepth
@@ -1201,7 +1301,15 @@ function classifyByProjectionDepth(
     };
 }
 
-function buildMeshPlaneIntersectionGeometry(
+/**
+ * The CUT FACE of one solid in a section/elevation: `mesh ∩ depth plane`.
+ *
+ * §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — this was ALWAYS per-solid (its cheap reject is
+ * the mesh's own world AABB against the plane), which is why an un-intersected wall never had
+ * a cut FACE even while its edges were being drawn with cut graphics. Exported so the guard
+ * test can assert the corollary directly: *no cut faces, ever, on a PROJECTION wall.*
+ */
+export function buildMeshPlaneIntersectionGeometry(
     mesh: THREE.Mesh,
     viewDef: ViewDefinition,
     projectionDirection: THREE.Vector3,
@@ -2197,7 +2305,14 @@ export class EdgeProjectorService {
                 let __diag_mesh_count = 0;
 
                 // Collect EdgesGeometry instances per ISO layer for this element only.
-                const perElemLayerGeos = new Map<string, THREE.BufferGeometry[]>();
+                //
+                // §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — EACH ENTRY CARRIES ITS OWN
+                // SOLID'S CUT VERDICT. The edges of every mesh used to be MERGED per layer and
+                // classified as one blob, so the cut/projection question was answered for a
+                // BAG OF SOLIDS rather than for a solid. `solidIsCut` is computed from THAT
+                // MESH's world AABB against THAT VIEW's plane and from nothing else — not from
+                // its parent group, not from what it hosts, not from what hosts it (C09 §4.6.6).
+                const perElemLayerGeos = new Map<string, EdgeGeoPart[]>();
                 const perElemLayerCutGeos = new Map<string, CutSectionPart[]>();
 
                 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — nearest depth of this element along
@@ -2325,8 +2440,22 @@ export class EdgeProjectorService {
                             __diag_mesh_count++;
                             __diag_edge_count += __edge_verts;
                             edgesGeo.applyMatrix4(mesh.matrixWorld);
+
+                            // §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — THE GRANULARITY GATE.
+                            //
+                            // THE ONLY DETERMINANT OF CUT vs PROJECTION IS WHETHER *THIS SPECIFIC
+                            // SOLID* INTERSECTS THE PLANE. Asked here, per mesh, before the merge
+                            // that used to destroy the distinction — and answered from the mesh's
+                            // own geometry, so a hosted door standing 3 cm proud of its host wall
+                            // can no longer drag the wall into the cut zone with it.
+                            const solidIsCut =
+                                isPlanView && cutPlaneY !== null
+                                    ? solidIntersectsPlanCutPlane(mesh, cutPlaneY)
+                                    : sectionDepthBands !== null
+                                        ? solidIntersectsDepthPlane(mesh, viewDef, direction, near)
+                                        : false;
                             if (!perElemLayerGeos.has(layerName)) perElemLayerGeos.set(layerName, []);
-                            perElemLayerGeos.get(layerName)!.push(edgesGeo);
+                            perElemLayerGeos.get(layerName)!.push({ geo: edgesGeo, solidIsCut });
                             // §FIX-PLAN-DOOR-CUTS-WALL (L-246) — TRUE plan cut for walls.
                             // The wall's section AT the cut plane, so the `:cut` layer (and
                             // therefore the poché fill stitched from it) contains only the
@@ -2401,29 +2530,42 @@ export class EdgeProjectorService {
                 try {
 
                 for (const layerName of layerNames) {
-                    const geos = perElemLayerGeos.get(layerName) ?? [];
+                    const parts = perElemLayerGeos.get(layerName) ?? [];
+                    const geos = parts.map(p => p.geo);
                     const meshCutGeos = perElemLayerCutGeos.get(layerName) ?? [];
                     if (geos.length === 0 && meshCutGeos.length === 0) continue;
 
                     // Merge all EdgesGeometries for this (element, layer) pair.
                     // §DIAG-EPS-03: mergeGeometries cost — O(total vertices) across all geos.
-                    let mergedGeo: THREE.BufferGeometry | null = null;
+                    //
+                    // §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — MERGE PER (LAYER × CUT VERDICT).
+                    // The merge is a performance optimisation, and it must not decide anything.
+                    // Merging a wall's solids together with a hosted solid that DOES meet the plane
+                    // hands the classifier a bag of geometry with one shared verdict — which is
+                    // precisely how "the door is cut" became "the wall is cut". Two buckets, two
+                    // classifications, two independent answers.
                     const __t_merge_start = performance.now();
-                    if (geos.length === 1) {
-                        mergedGeo = geos[0];
-                        tempGeosToDispose.push(geos[0]);
-                    } else if (geos.length > 1) {
-                        const m = mergeGeometries(geos, false);
-                        mergedGeo = m ?? geos[0];
-                        for (const g of geos) tempGeosToDispose.push(g);
+                    const mergeParts = (list: THREE.BufferGeometry[]): THREE.BufferGeometry | null => {
+                        if (list.length === 0) return null;
+                        if (list.length === 1) {
+                            tempGeosToDispose.push(list[0]);
+                            return list[0];
+                        }
+                        const m = mergeGeometries(list, false);
+                        for (const g of list) tempGeosToDispose.push(g);
                         if (m) tempGeosToDispose.push(m);
-                    }
+                        return m ?? list[0];
+                    };
+                    const mergedGeo         = mergeParts(parts.filter(p => p.solidIsCut).map(p => p.geo));
+                    const mergedProjOnlyGeo = mergeParts(parts.filter(p => !p.solidIsCut).map(p => p.geo));
                     const __t_merge_done = performance.now();
-                    const __merged_verts = mergedGeo?.getAttribute('position')?.count ?? 0;
+                    const __merged_verts = (mergedGeo?.getAttribute('position')?.count ?? 0)
+                        + (mergedProjOnlyGeo?.getAttribute('position')?.count ?? 0);
                     if (EPS_VERBOSE) {
                         console.log(
                             `[EdgeProjectorService] §DIAG-EPS-03 mergeGeometries ` +
                             `layer=${layerName} geoCount=${geos.length} ` +
+                            `cutEligibleSolids=${parts.filter(p => p.solidIsCut).length} ` +
                             `mergedVerts=${__merged_verts} mergeMs=${(__t_merge_done - __t_merge_start).toFixed(1)}ms`
                         );
                     }
@@ -2581,22 +2723,33 @@ export class EdgeProjectorService {
 
                     if (cutPlaneY !== null) {
                         emitCutSections(meshCutGeos);
-                        const { cutGeo, projGeo, beyondGeo } = mergedGeo
-                            ? classifyByVertexY(mergedGeo, cutPlaneY, planFloorY, CUT_LINE_EPSILON, planBelowY)
-                            : { cutGeo: null, projGeo: null, beyondGeo: null };
-                        if (cutGeo) {
-                            addProjectedLayer(cutGeo, _layerCut(layerName));
-                            tempGeosToDispose.push(cutGeo);
-                        }
-                        if (projGeo) {
-                            addProjectedLayer(projGeo, _layerProj(layerName));
-                            tempGeosToDispose.push(projGeo);
-                        }
-                        if (beyondGeo) {
-                            drawing.layers.create(_layerBeyond(layerName));
-                            addProjectedLayer(beyondGeo, _layerBeyond(layerName));
-                            tempGeosToDispose.push(beyondGeo);
-                        }
+                        // §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — TWO BUCKETS, TWO VERDICTS.
+                        // The cut-eligible solids may produce `:cut`; the rest CANNOT, however
+                        // close to the plane they happen to lie.
+                        const emitBands = (
+                            geo: THREE.BufferGeometry | null,
+                            solidIsCut: boolean,
+                        ): void => {
+                            if (!geo) return;
+                            const { cutGeo, projGeo, beyondGeo } = classifyByVertexY(
+                                geo, cutPlaneY, planFloorY, CUT_LINE_EPSILON, planBelowY, solidIsCut,
+                            );
+                            if (cutGeo) {
+                                addProjectedLayer(cutGeo, _layerCut(layerName));
+                                tempGeosToDispose.push(cutGeo);
+                            }
+                            if (projGeo) {
+                                addProjectedLayer(projGeo, _layerProj(layerName));
+                                tempGeosToDispose.push(projGeo);
+                            }
+                            if (beyondGeo) {
+                                drawing.layers.create(_layerBeyond(layerName));
+                                addProjectedLayer(beyondGeo, _layerBeyond(layerName));
+                                tempGeosToDispose.push(beyondGeo);
+                            }
+                        };
+                        emitBands(mergedGeo, true);
+                        emitBands(mergedProjOnlyGeo, false);
                     } else if (sectionDepthBands) {
                         // §FIX-ELEVATION-POCHE (L-119) — UNIFIED section/elevation depth
                         // classification, keyed on ViewScope instead of the old
@@ -2614,25 +2767,42 @@ export class EdgeProjectorService {
                         //                            poché pass paint the whole façade solid
                         //                            black (L-119) and mis-count the layers.
                         const cutParts: CutSectionPart[] = [...meshCutGeos];
-                        let projGeo: THREE.BufferGeometry | null = null;
-                        let beyondGeo: THREE.BufferGeometry | null = null;
-                        if (mergedGeo) {
+                        const projGeos: THREE.BufferGeometry[] = [];
+                        const beyondGeos: THREE.BufferGeometry[] = [];
+                        // §FIX-PER-SOLID-ZONE-CLASSIFICATION (L-282) — classify EACH bucket on its
+                        // OWN solids' verdict. `solidIsCut=false` makes the cut band unreachable,
+                        // so a wall whose face merely sits within CUT_LINE_EPSILON of the depth
+                        // plane — which is ALWAYS the case the instant the plane reaches a door
+                        // hosted in it — stays PROJECTION. Its opening's jamb and head edges are
+                        // wall edges: they stay PROJECTION with it, and NO cut edge, NO cut face
+                        // and NO opening-cut linework is emitted for that wall.
+                        for (const [geo, solidIsCut] of [
+                            [mergedGeo, true] as const,
+                            [mergedProjOnlyGeo, false] as const,
+                        ]) {
+                            if (!geo) continue;
                             const classified = classifyByProjectionDepth(
-                                mergedGeo,
+                                geo,
                                 viewDef,
                                 direction,
                                 sectionDepthBands.projectionDepth,
                                 sectionDepthBands.farClipDepth,
                                 near,
                                 sectionVolumeBox,
+                                CUT_LINE_EPSILON,
+                                solidIsCut,
                             );
                             if (classified.cutGeo) {
                                 cutParts.push({ geo: classified.cutGeo });
                                 tempGeosToDispose.push(classified.cutGeo);
                             }
-                            projGeo = classified.projGeo;
-                            beyondGeo = classified.beyondGeo;
+                            if (classified.projGeo) projGeos.push(classified.projGeo);
+                            if (classified.beyondGeo) beyondGeos.push(classified.beyondGeo);
                         }
+                        const projGeo   = projGeos.length   > 1 ? concatLineGeometries(projGeos)   : (projGeos[0]   ?? null);
+                        const beyondGeo = beyondGeos.length > 1 ? concatLineGeometries(beyondGeos) : (beyondGeos[0] ?? null);
+                        if (projGeos.length > 1)   for (const g of projGeos)   tempGeosToDispose.push(g);
+                        if (beyondGeos.length > 1) for (const g of beyondGeos) tempGeosToDispose.push(g);
 
                         if (viewScope.cut) {
                             // SECTION — route the cut band to `:cut`.
@@ -2681,8 +2851,13 @@ export class EdgeProjectorService {
                                 tempGeosToDispose.push(beyondGeo);
                             }
                         }
-                    } else if (mergedGeo) {
-                        addProjectedLayer(mergedGeo, layerName);
+                    } else {
+                        // No cut plane and no depth bands (e.g. a raw 3D projection): there is no
+                        // plane, so NO solid can be cut — every mesh landed in the projection-only
+                        // bucket. Emit both anyway so the branch cannot silently drop linework if
+                        // a future view type starts populating the cut-eligible bucket.
+                        if (mergedGeo) addProjectedLayer(mergedGeo, layerName);
+                        if (mergedProjOnlyGeo) addProjectedLayer(mergedProjOnlyGeo, layerName);
                     }
 
                     totalLayerCount++;

@@ -254,8 +254,9 @@ everything far away. Distance and occlusion merged into one bucket, and the buck
 **A ZONE THAT CANNOT BE NAMED CANNOT BE STYLED CORRECTLY, AND THAT IS EXACTLY HOW `projection`
 ENDED UP DASHED.**
 
-**§4.6.1 — Zone assignment.** The zone is a property of the (element, view) pair, derived from
-geometry — never a per-element flag:
+**§4.6.1 — Zone assignment.** The zone is a property of the **(SOLID, view)** pair, derived from
+geometry — never a per-element flag, and never a property of the (element, view) pair (see
+§4.6.1a, which corrects that earlier wording in place):
 
 | View type | CUT | PROJECTION | BEYOND | HIDDEN |
 |---|---|---|---|---|
@@ -269,6 +270,65 @@ first three columns are **depth/range** classifications and produce **only** SOL
 
 `ViewScope` (`packages/core-app-model/src/views/ViewScope.ts`) is the ONE encoding of this
 table. `viewPlane.isVertical` is the only legitimate difference between the three consumers.
+
+---
+
+**§4.6.1a — THE GRANULARITY RULE: CLASSIFICATION IS PER SOLID, NEVER PER HIERARCHY**
+*(normative, added by L-282 / §FIX-PER-SOLID-ZONE-CLASSIFICATION; the founder's words are the
+spec)*
+
+> *"Classification is performed **PER GEOMETRY**, not per element hierarchy.*
+> *`wallClass = classify(wallSolid)` and `doorClass = classify(doorSolid)` are **completely
+> independent**. `Wall → Door` does **NOT** mean `Door == Cut ⇒ Wall == Cut`. **No logic of the
+> form `if (door.isCut()) wall.setCut(true)` — or any equivalent — may exist.** Host/hosted,
+> parent/child, assembly members and family instances must **NEVER** inherit or propagate
+> visibility state. **The ONLY determinant of CUT vs PROJECTION is whether THAT SPECIFIC SOLID
+> intersects the cut plane.***"
+
+Normatively:
+
+1. **The unit of classification is the RENDERABLE SOLID** (a mesh), not the element, not the
+   group, not the host tree. `for each renderableSolid: zone = classify(solid, view)`. A wall
+   segmented into `WallPart` / `WallLayer` meshes is N solids, and each is classified on its own
+   geometry.
+2. **The predicate is INTERSECTION, not PROXIMITY.** A solid is CUT **iff its own geometry
+   intersects the plane**. A tolerance may only refine *which of a cut solid's edges* are the cut
+   ones; **it may never promote an un-intersected solid into the cut zone.** (`solidIntersectsPlanCutPlane`
+   / `solidIntersectsDepthPlane` in `EdgeProjectorService` are the ONE encoding of this predicate,
+   and they are the same predicate the cut-FACE builder uses, so linework and poché can never
+   disagree about whether a solid is cut.)
+3. **A merge is a performance decision and MUST NOT be a semantic one.** The projector merges an
+   element's edge geometries per ISO layer before classifying. That merge must be done per
+   **(layer × cut verdict)**: merging an un-intersected wall's solids together with a hosted solid
+   that *does* meet the plane hands the classifier a bag of geometry with one shared answer — and
+   that is exactly how "the door is cut" became "the wall is cut".
+4. **THE COROLLARY — THE OPENING IS NOT A CUT UNLESS THE WALL IS CUT.** The edges bounding a
+   hosted opening (jambs, head, sill) are edges of the **WALL's** solid and belong to the **WALL's
+   cut representation**. If the wall is PROJECTION, then for that wall the view MUST NOT render
+   cut edges around the opening, MUST NOT render cut faces, MUST NOT switch it to cut graphics,
+   and MUST NOT expose opening edges that exist only in the cut representation. **The wall renders
+   exactly like any other projection wall.** This is the half that gets missed; it is asserted
+   explicitly in the guard.
+5. **THE MODEL HIERARCHY STAYS — IT IS THE DRAWING THAT MUST STOP READING IT.** C15's host
+   relationship is real and load-bearing for **GEOMETRY** (an opening *is* a void in a wall, and
+   that void is why the wall's cut section is interrupted at the opening BY CONSTRUCTION, §4.6.2).
+   What is forbidden is the **DRAWING layer inferring a ZONE from it.** A host relationship is a
+   MODEL fact and never a DRAWING fact.
+
+**Why this is the third instance of one disease.** L-275 resolved a wall's ISO layer from a
+case-sensitive TYPE NAME rather than from the element; L-266 emitted a door's 3D MESH EDGES
+alongside its own plan SYMBOL; L-282 inferred a zone from proximity to a plane rather than from
+the solid. **All three are a decision taken at the wrong level of the hierarchy.** Naming the
+pattern is half the fix.
+
+**Guard (merge-blocking):** `apps/editor/__tests__/perSolidZoneClassification.test.ts` —
+a door whose solid intersects the plane while its host wall's solid does NOT ⇒ **door = CUT,
+wall = PROJECTION**, and the wall emits **no cut edges, no cut faces, no opening-cut edges**;
+then the converse — push the plane INTO the wall ⇒ **both** CUT. *A test that only checks the
+second case passed before the fix and proves nothing*, so the first case is asserted first and
+the pre-fix (ungated) behaviour is pinned alongside it, to keep the guard from going vacuous.
+
+---
 
 **§4.6.2 — CUT ⇒ POCHÉ.** A cut solid is a **filled region**, not an outline. The fill is a
 per-(category × zone) graphic property of the intent — exactly like a pen weight — resolved
@@ -382,9 +442,14 @@ solid occludes" rule has a catastrophic degenerate case in plan:
   linework;
 - a plain cut solid yields exactly ONE filled region; a layered cut solid yields exactly N,
   where N is its **stored** layer count;
-- no poché colour, pen weight, **or dash array** literal appears in any builder.
+- no poché colour, pen weight, **or dash array** literal appears in any builder;
+- **(§4.6.1a, L-282)** a hosted solid that meets the plane while its HOST's solid does not ⇒
+  **hosted = CUT, host = PROJECTION**, and the host emits **no cut edges, no cut faces and no
+  opening-cut edges**; the converse (plane pushed INTO the host) ⇒ **both** CUT. **A guard that
+  asserts only the converse is vacuous** — it passed before the fix.
 
 *Guarded by* `packages/core-app-model/src/drawing/DrawingZone.test.ts` (20 assertions),
+`apps/editor/__tests__/perSolidZoneClassification.test.ts` (§4.6.1a, 11 assertions),
 `HiddenLineRemoval.planPoche.test.ts`, `HiddenLineRemoval.elevationOcclusion.test.ts`.
 
 **§4.6.7 — Open cells (recorded, not faked).**
