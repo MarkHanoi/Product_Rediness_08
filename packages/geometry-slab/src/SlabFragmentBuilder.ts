@@ -4,6 +4,16 @@ import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { SlabData } from './SlabTypes';
 import { BimManager } from '@pryzm/core-app-model';
+// §FEAT-SLAB-LOD (L-286) — the SLAB row of ADR-121's LOD matrix. The slab's LOD consumer
+// is the MESH, because a slab has no plan symbol: in plan it lies BELOW the cut plane
+// (ADR-121 §3.1, "— (below cut)"), and its section and elevation are PROJECTIONS OF THIS
+// MESH. ADR-121 §4.3: "One resolver, three consumers — NOT a second symbol engine per view
+// type." So the mesh gains (or loses) the assembly and section/elevation/3D inherit it,
+// through the SAME `resolveEffectiveDetailLevel` the door, window and wall rows call.
+import {
+    resolveEffectiveDetailLevel, DEFAULT_3D_VIEW_ID, storeEventBus,
+    type DetailLevel,
+} from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { HostReferenceEdge, SketchLoop } from './SketchTypes';
 import { WallFaceResolver } from './WallFaceResolver';
@@ -135,10 +145,31 @@ export class SlabFragmentBuilder {
     /** Slab data buffered while paused — transferred to _pendingBuilds on resume. */
     private _pausedBuilds: SlabData[] = [];
 
+    /**
+     * §FEAT-SLAB-LOD (L-286) — the last data + the tier each live slab was BUILT at.
+     *
+     * The Detail Level is a P7 visibility INTENT that lives on the ViewDefinition and in
+     * the C09 override layer, so it MOVES while the model stands still. A builder that
+     * reads it once at build time and never again is not a consumer — it is a snapshot,
+     * and a snapshot is exactly the defect ADR-121 was written about ("change the detail
+     * level and NOTHING happens"). These two maps let the view-definition subscription
+     * below rebuild ONLY the slabs whose RESOLVED tier actually moved, so a no-op view
+     * edit is free and a real one is immediate. (DoorBuilder, §FEAT-DOOR-3D-LOD.)
+     */
+    private _builtLod  = new Map<string, DetailLevel>();
+    private _builtData = new Map<string, SlabData>();
+    private _unsubscribeViews: (() => void) | null = null;
+
     constructor(scene: THREE.Scene, bimManager?: BimManager, deps: SlabBuilderDeps = {}) {
         this.scene = scene;
         this.bimManager = bimManager ?? null;
         this._deps = deps;
+        this._unsubscribeViews = storeEventBus.subscribe((e) => {
+            if (e.elementType !== 'view-definition' || e.elementId !== DEFAULT_3D_VIEW_ID) return;
+            for (const [id, data] of this._builtData) {
+                if (this._lodFor(data) !== this._builtLod.get(id)) this.updateSlab(data);
+            }
+        });
         // FIX-5: Removed window.slabBuilder = this;
         // Self-registration on window is the EngineBootstrap's responsibility.
         // Assigning window.slabBuilder here coupled the builder to the global
@@ -430,8 +461,34 @@ export class SlabFragmentBuilder {
         const childOffsetX = data.position.x - pivotX;
         const childOffsetZ = data.position.z - pivotZ;
 
-        if (Array.isArray(data.layers) && data.layers.length > 1) {
+        // §FEAT-SLAB-LOD (L-286) — the tier, from the ONE shared resolver. Recorded so
+        // the view-definition subscription can tell a real change from a no-op.
+        const lod = this._lodFor(data);
+        this._builtLod.set(data.id, lod);
+        this._builtData.set(data.id, data);
+
+        // ADR-121 §4.2, section-100: "cut outline + poché as ONE region. NO LAYER BUILD-UP."
+        // A slab at LOD 100 is one solid at its REAL total thickness (`data.thickness` is
+        // already the sum of the stored layers — the same number the layered path walks
+        // down from), so the tier changes the ARTICULATION and never a DIMENSION (L-127):
+        // the top face, the soffit and the outline are in the same place at every tier.
+        const showAssembly = lod !== 'coarse';
+
+        if (Array.isArray(data.layers) && data.layers.length > 1 && showAssembly) {
             // ── Layered slab: stack one sub-mesh per layer ─────────────────────
+            // ADR-121 §4.2, section-200: "poché per stored layer, principal build-up
+            // lines, floor/ceiling assembly." This is EXACTLY what shipped before this
+            // change, so LOD 200 is PINNED: no view setting can regress today's model.
+            //
+            // LOD 300 (`fine`) DRAWS THE SAME ASSEMBLY, AND THAT IS RECORDED, NOT FAKED.
+            // §4.2's further section-300 additions — insulation hatch, fixings, junction
+            // detail — are NOT in the slab record: `SlabLayer` carries {name, thickness,
+            // function, materialColor} and nothing else, and a hatch is not a mesh in any
+            // case (it would need a SECTION SYMBOL BUILDER, which nothing has — ADR-121
+            // §5.2 item 5). Inventing a fixing the record does not know about is the exact
+            // trap §4.4 names: "a richer HARDCODED glyph is the same bug at higher
+            // resolution." So for a slab, LOD 300 ⊇ LOD 200 WITH EQUALITY, and the empty
+            // cell stays visible in the matrix instead of being papered over.
             // Layers are ordered top-to-bottom (Revit convention).
             // Y=0 is the slab bottom; Y=totalThickness is the top.
             let yOffset = data.thickness; // start at the top face
@@ -482,8 +539,43 @@ export class SlabFragmentBuilder {
         root.position.set(pivotX, worldY, pivotZ);
     }
 
+    /**
+     * §FEAT-SLAB-LOD (L-286) — the effective Detail Level for this slab IN THE 3D VIEW.
+     *
+     * ADR-121 §4.3 — ONE resolver, three consumers. This is the same
+     * `resolveEffectiveDetailLevel` the wall/door/window plan symbols call; the slab owns
+     * none of the precedence (C09 element → element-type → category override → the 3D
+     * view's own `output.detailLevel` → the L0 default). There is deliberately no private
+     * `detailed` flag and no `resolveSlabDetailLevel`.
+     *
+     * WHY `DEFAULT_3D_VIEW_ID` AND NOT THE SECTION'S OWN ID: the section and the elevation
+     * are PROJECTIONS of this mesh — one mesh, many views — so the mesh can only carry one
+     * tier, and the 3D ViewDefinition is the one that owns the model's articulation. This
+     * is the same compromise the door and window rows made (ADR-121 §4.3), and its
+     * consequence (a SECTION view's own dial cannot re-articulate the mesh) is recorded in
+     * the matrix rather than hidden behind a second resolver.
+     */
+    private _lodFor(data: SlabData): DetailLevel {
+        return resolveEffectiveDetailLevel(data.id, DEFAULT_3D_VIEW_ID, {
+            elementType: 'slab',
+            category:    'slab',
+        });
+    }
+
     getRootById(id: string): THREE.Group | undefined {
         return this.slabRoots.get(id);
+    }
+
+    /**
+     * §FEAT-SLAB-LOD (L-286) — release the view-definition subscription.
+     *
+     * The builder is an application singleton, so in production this runs at teardown;
+     * a test that constructs several builders calls it so the detail-level listeners do
+     * not accumulate across cases.
+     */
+    dispose(): void {
+        this._unsubscribeViews?.();
+        this._unsubscribeViews = null;
     }
 
     removeSlab(id: string): void {
@@ -494,6 +586,10 @@ export class SlabFragmentBuilder {
         // producing a ghost mesh that persists until the next full scene rebuild.
         this._pendingBuilds = this._pendingBuilds.filter(b => b.id !== id);
         this._pausedBuilds = this._pausedBuilds.filter(b => b.id !== id);
+        // §FEAT-SLAB-LOD (L-286) — a removed slab must not be resurrected by a later
+        // detail-level change: drop it from the rebuild-on-intent-change bookkeeping.
+        this._builtLod.delete(id);
+        this._builtData.delete(id);
 
         const root = this.slabRoots.get(id);
         if (root) {

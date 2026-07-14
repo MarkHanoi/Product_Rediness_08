@@ -34,14 +34,62 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import type { ViewDefinition } from '@pryzm/core-app-model';
+// §FEAT-COLUMN-PLAN-LOD (L-286) — the column row of ADR-121's LOD matrix. ONE shared
+// resolver (ADR-121 §4.3), the same one the door, window and wall rows call. No private
+// `detailed` flag, no `resolveColumnDetailLevel`.
+import { resolveEffectiveDetailLevel, type DetailLevel } from '@pryzm/core-app-model';
 import type { ColumnData } from './ColumnTypes';
 import { SteelProfileLibrary } from '@pryzm/plugin-structural';
+import {
+    computeColumnSectionPolygon, computeSectionHatch, polygonEdges,
+    type Pt, type Seg,
+} from './ColumnSectionGeometry';
 
 /** ISO 13567 DXF layer for structural column symbols. */
 const COLUMN_LAYER = 'S-COLS';
 
 /** Extension of crosshair arm beyond the column face (metres). */
 const EXTENSION = 0.15;
+
+/**
+ * §FEAT-COLUMN-PLAN-LOD (L-286) — WHAT EACH TIER EMITS.
+ *
+ *   'coarse' LOD 100 — the column's TRUE cut SECTION OUTLINE, and nothing else. ADR-121
+ *                      §4.2, plan-100: "the element's footprint/extent … NO INTERNAL
+ *                      ARTICULATION." The crosshair is a dimensioning aid, not the column.
+ *   'medium' LOD 200 — + the CROSSHAIR centrelines. This is EXACTLY what shipped before
+ *                      this change, so LOD 200 is PINNED: no view setting can regress
+ *                      today's drawing.
+ *   'fine'   LOD 300 — + the MATERIAL HATCH filling the cut section (ADR-121 §4.2 names
+ *                      the material hatch; C09 §4.6.2 makes a CUT solid a FILLED REGION,
+ *                      not an outline). Clipped to the REAL section, so a UC's web notches
+ *                      stay empty — there is no steel there.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * AN ARCHITECTURAL CHOICE I REFUSED TO MAKE SILENTLY — READ THIS BEFORE "FIXING" COARSE.
+ *
+ * The ticket that commissioned this row said: *"COLUMN: coarse = a single rectangle; fine
+ * = the real section profile from its type."* For a rectangular concrete column those two
+ * are THE SAME POLYGON and there is no tension. **For a STEEL UC/UB there is, and it is
+ * not resolvable inside this builder:**
+ *
+ *   ADR-121 §4.2 invariant — "LOD 300 emits a strict superset of LOD 200's geometry, and
+ *   LOD 200 of LOD 100's. **A tier may never REMOVE a line another tier draws.**"
+ *
+ * A bounding RECTANGLE at LOD 100 draws two full-depth side lines at x = ±B/2. The
+ * I-section at LOD 200 does NOT contain them — it returns into the web. So "coarse = a
+ * rectangle" would make LOD 200 DELETE two lines LOD 100 drew, which is precisely the
+ * invariant the founder asked to be guarded. The two instructions cannot both hold.
+ *
+ * This builder therefore draws the TRUE section at every tier (for the common rectangular
+ * column that IS "a single rectangle", which is what the ticket was after), and the
+ * genuine question — *should LOD 100 be allowed to SUBSTITUTE a massing envelope for the
+ * true section, rather than merely subtract detail from it?* — is escalated, not decided
+ * here. It is a change to the MEANING OF LOD 100 across every element family (a coarse
+ * stair would become its bounding box too), so it belongs in ADR-121 §4.2, not in a column.
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ */
+type ColumnPlanLod = DetailLevel;
 
 interface MinColumnStore {
     getAll(): ColumnData[];
@@ -102,14 +150,15 @@ export class ColumnPlanSymbolBuilder {
         let injectedCount = 0;
 
         for (const col of columns) {
-            const isSteelSection = (col.profile === 'UC' || col.profile === 'UB') && !!col.steelProfileName;
-
-            if (isSteelSection) {
-                this._injectSteelSymbol(drawing, col);
-            } else {
-                this._injectConcreteSymbol(drawing, col);
-            }
-
+            // §FEAT-COLUMN-PLAN-LOD (L-286) — ask the SHARED resolver, per column, which
+            // tier this view wants. The precedence (C09 element → element-type → category
+            // override → the view's own `output.detailLevel` → the L0 default) lives in
+            // `resolveEffectiveDetailLevel`; the column owns none of it.
+            const lod: ColumnPlanLod = resolveEffectiveDetailLevel(col.id, viewDef.id, {
+                elementType: 'column',
+                category:    'column',
+            });
+            this._injectColumnSymbol(drawing, col, lod);
             injectedCount++;
         }
 
@@ -124,87 +173,63 @@ export class ColumnPlanSymbolBuilder {
     // ── Private helpers ────────────────────────────────────────────────────────
 
     /**
-     * Steel column: draw the 12-point I-section outline + crosshair.
+     * ONE symbol path for EVERY column — steel, rectangular or circular — because the
+     * SHAPE is a question for the RECORD, not for a branch in a builder. (The two paths
+     * this replaces had drifted: the concrete one drew `width × depth` corners for a
+     * 'circular' profile too, so a Ø300 column printed as a 300 mm SQUARE.)
+     *
+     * The tier decides HOW MUCH of the section is draughted — never WHERE it is (L-127):
+     * the outline is byte-identical at coarse, medium and fine.
      */
-    private _injectSteelSymbol(drawing: OBC.TechnicalDrawing, col: ColumnData): void {
-        const profile = SteelProfileLibrary.get(col.steelProfileName!);
-        if (!profile) {
-            this._injectConcreteSymbol(drawing, col);
-            return;
-        }
-
-        const { D, B, t, T } = SteelProfileLibrary.toMetres(profile);
-        const hw = B / 2;
-        const hd = D / 2;
-        const ht = t / 2;
-        const wh = hd - T;
-
-        // 12-point I-section in local XY (X = B-dir, Z = D-dir for world XZ)
-        const local: Array<[number, number]> = [
-            [-hw, -hd], [ hw, -hd], [ hw, -wh],
-            [ ht, -wh], [ ht,  wh], [ hw,  wh],
-            [ hw,  hd], [-hw,  hd], [-hw,  wh],
-            [-ht,  wh], [-ht, -wh], [-hw, -wh],
-        ];
+    private _injectColumnSymbol(
+        drawing: OBC.TechnicalDrawing,
+        col: ColumnData,
+        lod: ColumnPlanLod,
+    ): void {
+        const steel = this._steelSectionOf(col);
+        const poly: Pt[] = computeColumnSectionPolygon(col, steel);
+        if (poly.length < 3) return;
 
         const worldY = col.position.y + col.height * 0.5;
-        const cos = Math.cos(col.rotation);
-        const sin = Math.sin(col.rotation);
+        const emit = (segs: readonly Seg[]): void => {
+            const positions: number[] = [];
+            for (const s of segs) positions.push(s.ax, worldY, s.az, s.bx, worldY, s.bz);
+            this._injectLineSegments(drawing, positions, worldY);
+        };
 
-        // World XZ points (rotated)
-        const pts3D = local.map(([lx, lz]) => new THREE.Vector3(
-            col.position.x + lx * cos - lz * sin,
-            worldY,
-            col.position.z + lx * sin + lz * cos,
-        ));
+        // ── LOD 100+ — the true cut section outline. ──────────────────────────────
+        emit(polygonEdges(poly));
+        if (lod === 'coarse') return;
 
-        // Outline: 12 line segments forming closed I-shape
-        const outlinePositions: number[] = [];
-        for (let i = 0; i < pts3D.length; i++) {
-            const a = pts3D[i];
-            const b = pts3D[(i + 1) % pts3D.length];
-            outlinePositions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+        // ── LOD 200+ — the crosshair centrelines (the drawing that ships today). ──
+        // Arms reach EXTENSION beyond the section's own half-extents, so the aid scales
+        // with the column instead of with a magic length.
+        let hx = 0, hz = 0;
+        for (const p of poly) {
+            hx = Math.max(hx, Math.abs(p.x - col.position.x));
+            hz = Math.max(hz, Math.abs(p.z - col.position.z));
         }
+        this._injectCrosshair(drawing, col.position.x, col.position.z, worldY,
+                              hx + EXTENSION, hz + EXTENSION);
+        if (lod !== 'fine') return;
 
-        this._injectLineSegments(drawing, outlinePositions, worldY);
-
-        // Crosshair at centroid
-        this._injectCrosshair(drawing, col.position.x, col.position.z, worldY, hw + EXTENSION, hd + EXTENSION);
+        // ── LOD 300 — the material hatch, clipped to the REAL section. ────────────
+        // The pitch is a RATIO OF THE COLUMN'S OWN MINOR DIMENSION (ADR-121 §4.4: no
+        // literal dimension in a symbol), so a 200 mm column and a 900 mm column both
+        // read as hatched rather than as "four strokes" and "a solid black blob".
+        const minor = Math.max(1e-4, steel ? Math.min(steel.B, steel.D)
+                                           : Math.min(2 * hx, 2 * hz));
+        emit(computeSectionHatch(poly, minor / 4));
     }
 
-    /**
-     * Concrete column: draw rectangle outline + crosshair.
-     */
-    private _injectConcreteSymbol(drawing: OBC.TechnicalDrawing, col: ColumnData): void {
-        const cx = col.position.x;
-        const cz = col.position.z;
-        const worldY = col.position.y + col.height * 0.5;
-        const hw = (col.width ?? 0.3) / 2;
-        const hd = (col.depth ?? 0.3) / 2;
-        const cos = Math.cos(col.rotation ?? 0);
-        const sin = Math.sin(col.rotation ?? 0);
-
-        const corners: Array<[number, number]> = [
-            [-hw, -hd], [ hw, -hd], [ hw,  hd], [-hw,  hd],
-        ];
-
-        const pts3D = corners.map(([lx, lz]) => new THREE.Vector3(
-            cx + lx * cos - lz * sin,
-            worldY,
-            cz + lx * sin + lz * cos,
-        ));
-
-        const outlinePositions: number[] = [];
-        for (let i = 0; i < pts3D.length; i++) {
-            const a = pts3D[i];
-            const b = pts3D[(i + 1) % pts3D.length];
-            outlinePositions.push(a.x, a.y, a.z, b.x, b.y, b.z);
-        }
-
-        this._injectLineSegments(drawing, outlinePositions, worldY);
-
-        const halfLen = Math.max(hw, hd) + EXTENSION;
-        this._injectCrosshair(drawing, cx, cz, worldY, halfLen, halfLen);
+    /** The steel section, in metres — or null when the record does not describe one. */
+    private _steelSectionOf(col: ColumnData): { D: number; B: number; t: number; T: number } | null {
+        if (col.profile !== 'UC' && col.profile !== 'UB') return null;
+        if (!col.steelProfileName) return null;
+        const profile = SteelProfileLibrary.get(col.steelProfileName);
+        if (!profile) return null;      // unknown name → the record's rectangular fallback
+        const { D, B, t, T } = SteelProfileLibrary.toMetres(profile);
+        return { D, B, t, T };
     }
 
     private _injectCrosshair(
