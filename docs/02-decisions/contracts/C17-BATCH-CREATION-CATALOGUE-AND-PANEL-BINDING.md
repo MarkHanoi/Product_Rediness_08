@@ -143,7 +143,7 @@ Columns: **Path** = `Discipline › System › ⚡Batch › label`. **Prompt** =
 - **CB-4** **Feasibility gating.** If a row's `phase` exceeds the shipped phase, the leaf renders **disabled** with a tooltip "Coming in Phase N — needs <semantic layer>". It MUST NOT be hidden (discoverability) and MUST NOT dispatch.
 - **CB-5** **Level gating.** Batch leaves obey the existing `hasLevels` gate (CreatePanelLayout disables creation when no levels exist) and any scope-specific precondition (e.g. on-all-slabs disabled with reason when no slabs exist), surfaced as a tooltip — never a silent no-op.
 - **CB-6** **Scope-resolution lives in the command, not the panel.** The panel passes only the scope id + minimal payload; the command resolves targets/levels per §3 (single source of truth; AI and panel share it).
-- **CB-7** **Preview/affordance.** Where a batch produces a previewable result, it uses unified PRYZM purple (§41). Long batches show the BatchLoadingIndicator (C11 §6.6).
+- **CB-7** **Preview/affordance.** Where a batch produces a previewable result, it uses unified PRYZM purple (§41). Long batches show the shared loading overlay (C11 §6.6 — one surface, N producers).
 - **CB-8** **One prompt string.** The leaf `label` and the AI prompt for the same `catalogId` are the **same string** (§6). No divergent wording between panel and AI.
 
 ---

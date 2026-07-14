@@ -10,7 +10,7 @@
  *
  * Why this module (and not a new bespoke overlay framework):
  *   - It REUSES the shared PRYZM brand spinner `createPryzmLogoSpinner('lg')`
- *     (the SAME CSS 3-D pyramid shown by EngineLoadingOverlay + BatchLoadingIndicator).
+ *     (the SAME CSS 3-D pyramid shown by EngineLoadingOverlay + LoadingOverlayView).
  *     There is no new spinner/animation system here.
  *   - The spin runs on the CSS compositor thread, so it stays visually alive even
  *     while the main thread is blocked by GPU pipeline (re)compilation during the
@@ -60,7 +60,7 @@ function _ensureStyles(): void {
     const style = document.createElement('style');
     style.id = STYLE_ID;
     // §LOADING-WHITE-BACKDROP palette — a soft WHITE, see-through frosted scrim
-    // (matches BatchLoadingIndicator) so the scene reads faintly behind, on the
+    // (matches LoadingOverlayView) so the scene reads faintly behind, on the
     // PRYZM white+purple brand. No dark/black field.
     style.textContent = `
         #${OVERLAY_ID} {

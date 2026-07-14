@@ -556,23 +556,65 @@ Every command handler MUST open a span at entry and close it at exit:
 
 ---
 
-### §6.6 — Batch progress UX (BatchLoadingIndicator)
+### §6.6 — The loading overlay: ONE surface, N producers (§FEAT-VIEW-ACTIVATION-LOADING-OVERLAY, L-270)
 
-When `BatchCoordinator.runBatch()` is active, the platform MUST show a non-blocking visual indicator so the user knows the batch is in progress and does not interpret the slower frame rate as a crash.
+Whenever the platform is doing work the user must wait for — a `BatchCoordinator.runBatch()`
+generation, **or** a Cesium view activation ("3D globe" / "3D Site") — it MUST show **the same**
+loading overlay, and MUST NOT let the user act on the half-assembled result underneath it.
+
+There is exactly **ONE** overlay surface. Producers register with it; they do not fork it.
+(Superseded the "BatchLoadingIndicator" of Sprint A37, which was a single-producer component —
+the exact defect L-270 was raised for.)
 
 **Contract invariants:**
 
-- `BatchCoordinator` MUST expose `setBatchLifecycleCallbacks(onStart, onEnd)` — a public method that wires two fire-and-forget callbacks. Errors in callbacks MUST be caught; indicator failures MUST NOT interrupt batch coordination or store mutations.
-- `onStart(elementCount: number)` MUST be called at the end of `_setupBatch()`, after all pause controls are armed and before any geometry is scheduled. `elementCount` is the estimated total (same value passed to `runBatch opts.totalElementCount`).
-- `onEnd()` MUST be called in **three** places: (1) `_executeFinalSweep()` `onComplete` — normal happy path, after `_isBatching = false`; (2) `runBatch()` error catch block — batch aborted by exception; (3) `forceReset()` — project switch while a batch was mid-flight, BEFORE `_isBatching = false` (guards against stuck indicator on project switch).
-- The indicator implementation MUST use `getFrameScheduler().addTickListener(key, tick, 'overlay')` for its animation — MUST NOT call `requestAnimationFrame()` directly (P3 single-rAF-owner rule, C04 §3).
-- The indicator MUST be positioned as an overlay element (fixed positioning, z-index in the overlay layer) and MUST NOT intercept pointer events (`pointer-events: none`).
-- The indicator animation key MUST be unique and not collide with existing keys (`'engine-loading-pyramid'`, `'engine-loading-progress'`). Reference implementation uses `'pryzm-batch-indicator-pyramid'`.
+- **CI-1 (one surface).** There MUST be exactly one loading-overlay surface
+  (`LoadingOverlayView`), arbitrated by `LoadingOverlayController`. Any new long operation that
+  needs a loading screen MUST register as a **producer** (`controller.begin(id, …)` →
+  `session.end()`); adding a second overlay component is a contract violation.
+- **CI-2 (ref-counted).** The overlay is visible while ≥ 1 session is open. One producer ending
+  MUST NOT dismiss an overlay another producer still holds (e.g. a batch that runs during a
+  globe activation).
+- **CI-3 (dismiss on a REAL signal, never a timer).** A session MUST end on a genuine terminal
+  event of the work it represents. For the batch that is the post-GPU-compile `onEnd()`; for a
+  Cesium view activation it is the chain *viewer ready → tiles streamed → content placed →
+  **ground datum settled*** (the L-259 seat-and-reveal terminal, C12 §1.4). A timed dismissal
+  while the scene is still streaming is a LIE and is forbidden.
+- **CI-4 (input gate).** While the overlay is up, the scene underneath MUST NOT be navigable:
+  the backdrop is `pointer-events: all` **and** the view producer disables the Cesium camera
+  controller (`setNavigationEnabled(false)`). The gate MUST be released on **every** exit path —
+  ready, failure, or cancellation.
+- **CI-5 (never hang).** If a readiness signal never arrives, the overlay MUST enter its ERROR
+  state with escape actions ("Try again" / "Continue anyway"). Detection MUST be a **progress-
+  freeze** watchdog (nothing advanced for N s), never a fixed deadline race — a fixed deadline
+  fails a slow-but-healthy load and passes a frozen one (§LOAD-TIMEOUT-PROGRESS, G2/0.3a).
+- **CI-6 (real progress).** The bar MUST be driven by a real signal where one exists — the
+  fragment-builder drain frames for a batch (`built`/`remaining`), Cesium's own pending/
+  processing tile counters for a view activation — never by an elapsed-time guess.
+- **CI-7 (LONGTASK-proof animation).** The overlay's animation MUST be compositor-driven CSS.
+  It MUST NOT use `requestAnimationFrame` (P3, C04 §3) **nor** a frame-scheduler tick: the
+  overlay is shown precisely during the 100 ms–20 s main-thread LONGTASKs (geometry drain,
+  WebGPU PSO compile, Cesium tile upload) that would freeze any main-thread animation.
+  (This supersedes the Sprint-A37 `addTickListener('overlay')` rule — §FIX-PYRAMID-ANIM.)
+- **CI-8 (batch lifecycle).** `BatchCoordinator` MUST expose `setBatchLifecycleCallbacks(onStart,
+  onEnd)`; errors in callbacks MUST be caught — an overlay failure MUST NOT interrupt batch
+  coordination or store mutations. `onStart(elementCount)` fires at the end of `_setupBatch()`;
+  `onEnd()` fires in **three** places: (1) `_executeFinalSweep()` `onComplete`; (2) the
+  `runBatch()` error catch; (3) `forceReset()` (project switch mid-batch).
 
 **Reference implementation:**
-- `BatchCoordinator`: `src/engine/subsystems/core/batch/BatchCoordinator.ts` — `_onBatchStart`, `_onBatchEnd`, `setBatchLifecycleCallbacks()` (Sprint A37)
-- `BatchLoadingIndicator`: `src/ui/overlays/BatchLoadingIndicator.ts` — 424-line self-contained DOM component; pyramid animation; purple gradient bar; fade in/out (Sprint A37)
-- Wired at: `src/engine/engineLauncher.ts` — after `batchCoordinator.inject()` (Sprint A37)
+- `LoadingOverlayView`: `apps/editor/src/ui/overlays/LoadingOverlayView.ts` — the ONE surface
+  (frosted white backdrop, CSS 3-D prism, absolute progress ratio, error state).
+- `LoadingOverlayController`: `apps/editor/src/ui/overlays/LoadingOverlayController.ts` — the
+  ref-counted producer registry.
+- `loadingProgress.ts` — pure progress maths (batch accumulation, view-activation stage plan,
+  tile-stream ratio, stall verdict).
+- Producer #1 (batch): `apps/editor/src/engine/initBatchLifecycle.ts`.
+- Producer #2 (view activation): `apps/editor/src/ui/geospatial/viewActivationLoading.ts`,
+  driven from `GISAreaLayout` (`applyResultView('3D')` → globe, `engageFormaCesium` → 3D Site);
+  its readiness signals are `CesiumViewport.whenReady()`, `.onTileLoadProgress()` /
+  `.sampleTileLoadProgress()`, `.whenGroundSettled()` and `.setNavigationEnabled()`.
+- Guards: `apps/editor/__tests__/viewActivationLoadingOverlay.test.ts`.
 
 ```ts
 const span = runtime.tracer.startSpan('wall.create.handler');

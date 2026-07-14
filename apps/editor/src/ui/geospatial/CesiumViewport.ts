@@ -245,6 +245,32 @@ const SITE_ARRIVAL_HIGH_ALT_M = 9000;
 const CESIUM_Z = 15;
 
 /**
+ * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the GROUND-SETTLE readiness signal, i.e.
+ * the L-259 (§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF) seat-and-reveal outcome, made public.
+ *
+ * `settled` is TRUE once the async ground clamp has REACHED A TERMINAL — either the datum was
+ * MEASURED (`source` = photoreal-tile-clamp / tileset-bounding-sphere / ellipsoid-flat-ground)
+ * or the viewport explicitly gave up and revealed the building anyway with a loud warning
+ * (`source` = 'unresolved'). It is FALSE only when the viewport was torn down before the clamp
+ * terminated — the consumer must treat that as a FAILURE, never as "wait forever".
+ */
+export interface GroundSettleSignal {
+  readonly settled: boolean;
+  readonly source: GlobeGroundAnchor['source'];
+  readonly baseHeightM: number;
+}
+
+/** §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — Cesium's OWN tile-streaming counters. */
+export interface TileLoadProgress {
+  /** Tile/imagery requests in flight (network). */
+  readonly pending: number;
+  /** Tiles downloaded but not yet processed/uploaded to the GPU. */
+  readonly processing: number;
+  /** TRUE when Cesium reports nothing outstanding for the current view. */
+  readonly tilesLoaded: boolean;
+}
+
+/**
  * FORMA.2 — Forma-style "massing study" palette (SPEC-FORMA-SITE-VIEW.md §2 / §9).
  * This is the analysis-canvas palette, deliberately distinct from PRYZM chrome
  * (white + #6600FF). Single source of truth for the Cesium Forma render mode.
@@ -617,6 +643,29 @@ export class CesiumViewport {
   private globeBuildingHiddenForGround = false;
   /** L-259 — the tileset load-event hook is attached at most once per tileset. */
   private photorealTilesLoadedHookAttached = false;
+
+  // ── §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the GROUND-SETTLE readiness signal ──
+  //
+  // The view-activation loading overlay must dismiss on a REAL signal, never a timer. The
+  // signal ALREADY EXISTS: L-259 built the whole "is the ground datum known?" machinery
+  // (resolveGlobeGroundAnchor → decideGroundAnchorAction → seat-and-reveal / hold-hidden-
+  // retry / reveal-unknown-datum-warn). We EXPOSE it rather than invent a second notion.
+  //
+  // Every TERMINAL of both clamp paths (photoreal tile clamp AND bare terrain clamp) funnels
+  // through `reframeAfterBaseSettle()` — seat-and-reveal, base-unchanged, centroid-unchanged,
+  // retries-exhausted, and the crash-guard catch. `hold-hidden-retry` deliberately does NOT
+  // reach it (the tiles are still streaming — that is exactly when the overlay must stay up).
+  // So `reframeAfterBaseSettle` IS the settle chokepoint, and we notify from there.
+  //
+  // NOT EVERY path reaches it: a superseded placement token or a viewer torn down mid-await
+  // bails silently. That is precisely why the CONSUMER runs a progress-stall watchdog and can
+  // fail visibly — a readiness signal that never arrives must never trap the user.
+  /** True while an async ground clamp is in flight for the current placement. */
+  private groundClampInFlight = false;
+  /** Callers awaiting the ground-settle signal (drained on settle, and on dispose). */
+  private groundSettleWaiters: Array<(s: GroundSettleSignal) => void> = [];
+  /** Last globe-tile queue length reported by Cesium's own tileLoadProgressEvent. */
+  private lastGlobeTileQueue = 0;
   /** The (lat,lon) the terrain height was last sampled at — so a live-update
    *  only re-samples terrain when the centroid actually moves (SPEC §4.6 /
    *  task #2 "re-clamp terrain only when the centroid changes"). */
@@ -854,6 +903,152 @@ export class CesiumViewport {
     // container intercepting pointer events / painting over the BIM view at mount.
     this.container.style.display = "none";
     this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
+  }
+
+  /**
+   * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — resolves once the async GROUND CLAMP for
+   * the placement currently in flight has reached a TERMINAL (§FIX-CESIUM-GLOBE-ELEVATION-
+   * AND-GEOREF / L-259: seat-and-reveal, or the explicit give-up). This is the signal the
+   * "3D globe" / "3D Site" loading overlay dismisses on — the building is anchored on ground
+   * that has actually been MEASURED, which is exactly what L-259 proved you cannot assume.
+   *
+   * Resolves IMMEDIATELY when no clamp is in flight (nothing to wait for). Callers must
+   * therefore issue the placement FIRST, then await this. `settled:false` means the viewport
+   * was torn down mid-clamp — a FAILURE, to be surfaced, never waited on.
+   */
+  public whenGroundSettled(): Promise<GroundSettleSignal> {
+    if (!this.groundClampInFlight) return Promise.resolve(this.groundSettleSnapshot());
+    return new Promise<GroundSettleSignal>((resolve) => {
+      this.groundSettleWaiters.push(resolve);
+    });
+  }
+
+  /**
+   * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — subscribe to Cesium's OWN tile-streaming
+   * counters, so the loading overlay's progress bar advances on REAL data (tiles actually
+   * downloaded / uploaded) rather than an indeterminate crawl. Emits an immediate snapshot,
+   * then on every tile-load progress event from the globe surface and the photoreal tileset.
+   * Returns an unsubscribe. Fully guarded: an old Cesium build without one of these events
+   * simply contributes nothing (the consumer degrades to indeterminate, never to a lie).
+   */
+  public onTileLoadProgress(cb: (p: TileLoadProgress) => void): () => void {
+    const disposers: Array<() => void> = [];
+    const emit = (): void => {
+      try { cb(this.tileLoadSnapshot()); } catch { /* a listener must never break Cesium */ }
+    };
+    try {
+      const ev = this.viewer?.scene?.globe?.tileLoadProgressEvent as
+        | { addEventListener?: (cb: (queued: number) => void) => (() => void) | undefined }
+        | undefined;
+      const off = ev?.addEventListener?.((queued: number) => {
+        this.lastGlobeTileQueue = Number.isFinite(queued) ? Math.max(0, queued) : 0;
+        emit();
+      });
+      if (typeof off === 'function') disposers.push(off);
+    } catch { /* no globe tile event on this build */ }
+    try {
+      const ts = this.photorealTileset as unknown as {
+        loadProgress?: { addEventListener?: (cb: () => void) => (() => void) | undefined };
+        allTilesLoaded?: { addEventListener?: (cb: () => void) => (() => void) | undefined };
+      } | null;
+      const offA = ts?.loadProgress?.addEventListener?.(() => emit());
+      if (typeof offA === 'function') disposers.push(offA);
+      const offB = ts?.allTilesLoaded?.addEventListener?.(() => emit());
+      if (typeof offB === 'function') disposers.push(offB);
+    } catch { /* no tileset (Forma study / keyless) — globe events alone */ }
+    emit();
+    return () => {
+      for (const d of disposers) {
+        try { d(); } catch { /* best-effort */ }
+      }
+    };
+  }
+
+  /**
+   * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — a SYNCHRONOUS poll of the same tile
+   * counters `onTileLoadProgress` streams. Necessary because the viewer runs with
+   * `requestRenderMode: true`: on a quiescent scene Cesium stops rendering, so tile-progress
+   * EVENTS go quiet and an event-only readiness gate would wait for an event that never comes.
+   * The counters themselves are plain synchronous reads.
+   */
+  public sampleTileLoadProgress(): TileLoadProgress {
+    return this.tileLoadSnapshot();
+  }
+
+  /**
+   * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — THE INPUT GATE. The founder's requirement
+   * is not cosmetic: "ONLY when everything is loaded and ready can the user jump in and
+   * navigate". The overlay's backdrop already blocks pointer events by z-order, but a z-order
+   * gate is a rendering accident, not a contract — so we ALSO disable Cesium's own camera
+   * controller for the duration. Idempotent + guarded.
+   */
+  public setNavigationEnabled(on: boolean): void {
+    try {
+      const controller = this.viewer?.scene?.screenSpaceCameraController;
+      if (!controller) return;
+      controller.enableInputs = on;
+    } catch { /* viewer torn down — nothing to gate */ }
+  }
+
+  /** L-270 — the ground-settle state RIGHT NOW (no clamp in flight → this is terminal). */
+  private groundSettleSnapshot(): GroundSettleSignal {
+    return {
+      settled: true,
+      source: this.globeGroundSource,
+      baseHeightM: this.formaTerrainBaseHeight,
+    };
+  }
+
+  /** L-270 — snapshot Cesium's own tile counters (photoreal tileset + globe surface queue). */
+  private tileLoadSnapshot(): TileLoadProgress {
+    let pending = this.lastGlobeTileQueue;
+    let processing = 0;
+    try {
+      // `statistics` is present on every shipping Cesium3DTileset but is not in the bundled
+      // .d.ts — feature-detect through unknown rather than pin a typings version.
+      const stats = (this.photorealTileset as unknown as {
+        statistics?: { numberOfPendingRequests?: number; numberOfTilesProcessing?: number };
+      } | null)?.statistics;
+      if (stats) {
+        pending += Math.max(0, stats.numberOfPendingRequests ?? 0);
+        processing += Math.max(0, stats.numberOfTilesProcessing ?? 0);
+      }
+    } catch { /* tileset gone */ }
+    let globeLoaded = true;
+    try {
+      const g = this.viewer?.scene?.globe as { tilesLoaded?: boolean } | undefined;
+      // `globe.show === false` in Forma mode → its tiles are irrelevant, treat as loaded.
+      const globeShown = this.viewer?.scene?.globe?.show !== false;
+      globeLoaded = !globeShown || (g?.tilesLoaded ?? true);
+    } catch { /* viewer gone */ }
+    let tilesetLoaded = true;
+    try {
+      const ts = this.photorealTileset as unknown as { tilesLoaded?: boolean } | null;
+      tilesetLoaded = ts?.tilesLoaded ?? true;
+    } catch { /* tileset gone */ }
+    return {
+      pending,
+      processing,
+      tilesLoaded: pending === 0 && processing === 0 && globeLoaded && tilesetLoaded,
+    };
+  }
+
+  /**
+   * L-270 — drain the ground-settle waiters. Called from `reframeAfterBaseSettle()` (the
+   * chokepoint EVERY clamp terminal funnels through) and from `dispose()` (where the answer
+   * is an honest `settled:false` — the consumer surfaces an error instead of hanging).
+   */
+  private notifyGroundSettled(settled: boolean): void {
+    this.groundClampInFlight = false;
+    const waiters = this.groundSettleWaiters;
+    if (waiters.length === 0) return;
+    this.groundSettleWaiters = [];
+    const snapshot: GroundSettleSignal = settled
+      ? this.groundSettleSnapshot()
+      : { settled: false, source: this.globeGroundSource, baseHeightM: this.formaTerrainBaseHeight };
+    for (const resolve of waiters) {
+      try { resolve(snapshot); } catch { /* a waiter must never break the clamp */ }
+    }
   }
 
   /**
@@ -3484,6 +3679,13 @@ export class CesiumViewport {
     // re-samples + re-places ONLY if the centroid has moved since the last clamp
     // (task #2). Never blocks the placement above (the toggle stays responsive).
     if (!input._skipTerrainClamp) {
+      // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — an async ground clamp is about to
+      // start. ARM the settle signal so `whenGroundSettled()` (awaited by the view-activation
+      // loading overlay) blocks until this clamp reaches a terminal, instead of resolving
+      // instantly against the stale previous state. Every terminal — seat-and-reveal,
+      // base-unchanged, centroid-unchanged, retries-exhausted, crash-guard catch — funnels
+      // through `reframeAfterBaseSettle()`, which drains the waiters.
+      this.groundClampInFlight = true;
       if (input.keepPhotoreal) {
         // §A.21.D40#3 — on the PHOTOREAL "3D globe" the visible ground is the
         // Google 3D-Tiles MESH, not the terrain provider (which is the keyless
@@ -4463,6 +4665,15 @@ export class CesiumViewport {
    * No-op when nothing armed it (re-place passes, or a base that didn't change).
    */
   private reframeAfterBaseSettle(): void {
+    // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — THE SETTLE CHOKEPOINT. Every terminal
+    // of BOTH clamp paths calls this method (seat-and-reveal, base-unchanged, centroid-
+    // unchanged-resolved, retries-exhausted, no-terrain-provider, and the crash-guard catch),
+    // and `hold-hidden-retry` deliberately does NOT — it is still streaming. So this is the
+    // one honest place to say "the ground datum has settled". Notified BEFORE the early
+    // `!preset` return, because whether a corrective re-frame was ARMED is a camera concern
+    // and has nothing to do with whether the datum settled.
+    this.notifyGroundSettled(true);
+
     const preset = this.formaReframeOnBaseSettle;
     if (!preset) return;
     this.formaReframeOnBaseSettle = null; // consume the arm regardless of outcome
@@ -8416,6 +8627,12 @@ export class CesiumViewport {
   public dispose(): void {
     console.log("Disposing Cesium...");
 
+    // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — NEVER HANG. A viewport torn down
+    // mid-clamp means the ground-settle signal will never arrive. Say so honestly
+    // (`settled:false`) so the loading overlay surfaces a failure with an escape, instead of
+    // leaving the user behind an eternal spinner (L-250: a hang is invisible to a cost test).
+    try { this.notifyGroundSettled(false); } catch { /* best-effort */ }
+
     // §CESIUM-PERF-METRIC-TEXTURE-CACHE — release the cached heatmap textures so a
     // disposed viewport doesn't retain their raster buffers.
     try { this.siteMetricTextureCache.clear(); } catch { /* ignore */ }
@@ -8544,6 +8761,8 @@ export class CesiumViewport {
     // Reset the ready signal so a re-mount (project switch) re-arms whenReady().
     this.isReady = false;
     this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
+    // L-270 — a re-mounted viewport streams its tiles again from zero.
+    this.lastGlobeTileQueue = 0;
 
     // GIS-CESIUM-ZRAISE — if the viewport is disposed while still visible, make
     // sure the BIM canvases we hid in setVisible(true) are restored, or the BIM

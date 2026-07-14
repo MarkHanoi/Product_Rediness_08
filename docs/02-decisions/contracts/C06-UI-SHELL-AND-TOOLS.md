@@ -269,7 +269,8 @@ Files touched Phase 1: `apps/editor/src/ui/layout/zLayers.ts` (new SSOT),
 - **Phase 2 — Overlays/modals/toasts tier** (highest literals, clearest mapping):
   IFC import/export/report overlays (`z:999999`, `initUI.ts`), import-mode dialog
   (`z:200000`), `EngineLoadingOverlay` (`z:99999`), `appToast` (`z:99999`),
-  `earlyAccessBanner` (`z:99999`), `RendererSwapOverlay`, `BatchLoadingIndicator`,
+  `earlyAccessBanner` (`z:99999`), `RendererSwapOverlay`, `LoadingOverlayView`
+  (the ONE loading overlay — batch generation AND 3D-globe/3D-Site activation; C11 §6.6),
   `operationOverlay` → `modal` / `toast` / `loadingOverlay` / `critical`.
 - **Phase 3 — Platform shell chrome:** `platformToolbar` (`9000/9900/9101/8900`),
   `contextualEditBar` (`8990/9100`), `leftNavRail` (`9999`), `workspaceModeBar`

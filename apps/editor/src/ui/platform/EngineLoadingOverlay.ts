@@ -17,7 +17,7 @@
  * The CSS compositor thread drives the spin animation independently of JS,
  * so it is guaranteed to keep flowing even when the main thread is blocked
  * for multiple seconds.  The prism is geometrically identical to the one
- * shown in `BatchLoadingIndicator`, satisfying the "same logo everywhere"
+ * shown in `LoadingOverlayView`, satisfying the "same logo everywhere"
  * design requirement.
  *
  * Progress bar + stage-label rotation still run through the FrameScheduler

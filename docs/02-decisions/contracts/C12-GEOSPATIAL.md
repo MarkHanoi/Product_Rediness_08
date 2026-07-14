@@ -49,6 +49,41 @@
 
 ---
 
+### §1.4 The ONE Datum Boundary — vertical anchoring on the globe
+
+*(Ratified from §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF / L-259, which the implementation has
+cited as "C12 §1.4" since 2026-07-12; written into the contract here. Extended by
+§FEAT-VIEW-ACTIVATION-LOADING-OVERLAY / L-270 with the READINESS clause.)*
+
+**The defect this closes.** A building was anchored on the photoreal globe at height `0` before
+any ground measurement existed. `0` is the **WGS-84 ellipsoid** — not sea level, and not the
+photoreal tile surface (the geoid separation is ≈ **+49 m** in the Balearics). The building was
+therefore buried ~50 m underground, *intermittently* — a warm tile cache won the race, a cold
+one lost it. **"The base is 0" and "the ground is unknown" were indistinguishable.**
+
+- **MUST**: Every vertical anchor MUST resolve to an explicit ground **anchor** that is either
+  **RESOLVED** (with its `source` recorded: `photoreal-tile-clamp` | `tileset-bounding-sphere` |
+  `ellipsoid-flat-ground`) or **UNRESOLVED**. There is deliberately **no numeric fallback**: a
+  fabricated `0` while photoreal tiles are the visible ground is forbidden.
+- **MUST**: While the datum is UNRESOLVED and photoreal tiles are the visible ground, the
+  building MUST be **held hidden** and the measurement retried (driven by the tileset's own
+  load events, not a blind timer). A building you cannot see yet is honest; a building 50 m
+  under the street is a georeferencing lie.
+- **MUST**: When the retry budget is exhausted, the building MUST be revealed at the last-known
+  base **and the failure logged loudly** (`source: 'unresolved'`). Never silent.
+- **MUST (readiness, L-270)**: The terminal of that clamp — seat-and-reveal, or the explicit
+  give-up — is the platform's **ground-settle readiness signal**
+  (`CesiumViewport.whenGroundSettled()`). Anything that must not act on an unanchored model
+  MUST consume THAT signal rather than invent its own notion of "the terrain is probably ready
+  by now". The 3D-globe / 3D-Site loading overlay dismisses on it and gates scene input until
+  it arrives (C11 §6.6, CI-3/CI-4). A viewport torn down mid-clamp MUST report `settled: false`
+  so consumers fail visibly instead of waiting forever.
+- **Reference**: `apps/editor/src/ui/geospatial/globeGroundAnchor.ts` (pure:
+  `resolveGlobeGroundAnchor`, `decideGroundAnchorAction`), `CesiumViewport`
+  (`clampToPhotorealTilesThenReplace`, `reframeAfterBaseSettle` = the settle chokepoint).
+
+---
+
 ## §2 — Logarithmic Depth Buffer
 
 **MUST**: The Three.js renderer MUST use a logarithmic depth buffer when any loaded model spans more than **500 m** in any axis (detected from the scene bounding box after import).

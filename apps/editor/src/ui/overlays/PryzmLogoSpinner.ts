@@ -8,7 +8,7 @@
  *     thread, which continues running even when the main JS thread is blocked
  *     by LONGTASKs (WebGPU PSO compilation, geometry builds, IFC parsing, etc.)
  *   - A single shared factory ensures the EngineLoadingOverlay and the
- *     BatchLoadingIndicator show an *identical* prism — one source of truth.
+ *     LoadingOverlayView show an *identical* prism — one source of truth.
  *   - No engine imports. Complies with C01 §2 (Layer Isolation).
  *
  * CSS 3-D pyramid geometry (square-base, 4 triangular faces):
@@ -48,7 +48,7 @@
  *   The factory returns the wrapper element.
  *
  * Usage:
- *   const spinner = createPryzmLogoSpinner('sm');   // BatchLoadingIndicator
+ *   const spinner = createPryzmLogoSpinner('sm');   // LoadingOverlayView
  *   const spinner = createPryzmLogoSpinner('lg');   // EngineLoadingOverlay
  *   container.appendChild(spinner);
  *   // No teardown needed — CSS animations stop when the element leaves the DOM.

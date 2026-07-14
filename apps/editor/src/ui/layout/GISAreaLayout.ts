@@ -27,6 +27,13 @@ import {
 import { buildSiteGisContextRaster } from '../../engine/buildSiteGisContextRaster';
 import { createPlanCanvasUnderlayFromSiteOverlay } from '../../engine/createSiteOverlayUnderlay';
 import { computeGisContextUnderlayRotationZ } from '../site/overlay/siteGisContextGeometry';
+// §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the "3D globe" / "3D Site" activations are
+// now PRODUCERS of the SAME loading overlay the batch coordinator uses (one overlay, N
+// producers — LoadingOverlayController). The overlay dismisses on the REAL readiness chain
+// (viewer → tiles → content placed → L-259 ground seat-and-reveal), gates scene input until
+// then, and fails visibly (never hangs) if a signal never arrives.
+import { beginViewActivationLoading, type ViewActivationHandle, type ViewActivationTarget } from '../geospatial/viewActivationLoading';
+import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -54,6 +61,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // (avoids a double-place / fighting Forma mode). Direct entries (nav-rail GIS button,
     // onboarding pryzmToggleGIS) leave it false → the branch restores the modern real model.
     let gisReactivationSelfPlaceSuppressed = false;
+    // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the in-flight "3D globe" / "3D Site"
+    // activation (at most one). Holds the shared loading overlay open + the scene input gated
+    // until its readiness chain completes; cancelled when the user leaves for another view.
+    let activeViewActivation: ViewActivationHandle | null = null;
     // A.8.a/A.8.c — GIS site-authoring surfaces, created when Cesium mounts.
     let geocodeBox: import('../site/siteGeocodeSearchBox').SiteGeocodeSearchBox | null = null;
     let boundaryTool: import('../geospatial/SiteBoundaryDrawTool').SiteBoundaryDrawTool | null = null;
@@ -347,6 +358,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         } else {
             console.log("GIS: Deactivating geospatial view (preserving state)");
 
+            // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the user left the Cesium view
+            // while it was still loading. Cancel the activation so the overlay comes down and
+            // the input gate lifts; never leave a dismissed view holding the screen hostage.
+            activeViewActivation?.cancel('GIS deactivated');
+
             // A.8.c — abort any in-progress boundary draw when leaving GIS.
             boundaryTool?.cancel();
             // A.8.a — hide the geocode search box overlay so it doesn't float over
@@ -609,6 +625,62 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
 
+    /**
+     * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — open a loading session on the SHARED
+     * overlay for a Cesium view activation and GATE the scene until it is genuinely ready.
+     *
+     * The signals port is bound LATE (each closure reads the live `cesiumViewport`), because
+     * `toggleGIS(true)` constructs the viewport asynchronously — the producer subscribes to the
+     * tile counters only after `whenViewerReady()` resolves.
+     *
+     * Everything the producer waits on is a REAL signal that already existed:
+     *   • whenReady()            — the viewer is mounted (already used by awaitCesiumReady).
+     *   • onTileLoadProgress()   — Cesium's own pending/processing tile counters.
+     *   • whenGroundSettled()    — the L-259 (§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF) ground
+     *                              seat-and-reveal terminal: the building is anchored on ground
+     *                              that has been MEASURED. That is the whole point — L-259 was
+     *                              caused by acting BEFORE that signal.
+     */
+    const startViewActivationLoading = (
+        target: ViewActivationTarget,
+        retry: () => void,
+    ): ViewActivationHandle => {
+        // Rapid view switching must never stack overlays — supersede the previous activation.
+        activeViewActivation?.cancel('superseded by a new view activation');
+        const handle = beginViewActivationLoading({
+            target,
+            overlay: getLoadingOverlay(),
+            onRetry: retry,
+            signals: {
+                whenViewerReady: () => awaitCesiumReady(),
+                onTileLoadProgress: (cb) =>
+                    (cesiumViewport?.onTileLoadProgress?.(cb) as (() => void) | undefined) ??
+                    (() => { /* old build / no viewer — the poll below still drives the bar */ }),
+                sampleTileLoadProgress: () =>
+                    cesiumViewport?.sampleTileLoadProgress?.() ??
+                    { pending: 0, processing: 0, tilesLoaded: true },
+                whenGroundSettled: () =>
+                    cesiumViewport?.whenGroundSettled?.() ??
+                    Promise.resolve({ settled: true, source: 'no-viewport', baseHeightM: 0 }),
+                setNavigationEnabled: (on: boolean) => { cesiumViewport?.setNavigationEnabled?.(on); },
+            },
+        });
+        activeViewActivation = handle;
+        void handle.done.then(() => {
+            if (activeViewActivation === handle) activeViewActivation = null;
+        });
+        return handle;
+    };
+
+    /**
+     * L-270 — register an in-flight content placement (the GLB export + Cesium primitive load)
+     * with the active view activation, so the overlay stays up until the building has ACTUALLY
+     * landed on the globe/site — not merely until the massing call returned.
+     */
+    const trackViewActivationPlacement = (p: Promise<unknown>): void => {
+        activeViewActivation?.trackPlacement(p);
+    };
+
     const applyResultView = async (mode: '2D' | '3D'): Promise<void> => {
         // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — choosing a top-level 2D/3D segment
         // leaves the Forma "3D Site" view, so tear down its secondary sub-bar (no-op
@@ -617,17 +689,33 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         resultViewMode = mode;
         activeSegment = mode;
         if (mode === '3D') {
+            // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the founder's "3D globe" takes
+            // seconds (Cesium mount → photoreal tile streaming → GLB export → the L-259 ground
+            // clamp) and used to show NOTHING while the user could already fly a half-assembled
+            // scene. Put the SHARED overlay up NOW (synchronously, before any await) and gate
+            // input until the readiness chain completes.
+            const activation = startViewActivationLoading('globe', () => { void applyResultView('3D'); });
             // Show the Cesium globe with the site context and frame the plot.
             // §FIX-GISLAYOUT-…-GLOBE-REENTRY (L-193, Symptom B) — this orchestrator drives its
-            // OWN placement below (setTimeout → restorePhotorealGlobeContent), so suppress the
-            // synchronous re-activation-branch placement to avoid a double-place. toggleGIS runs
-            // the re-activation branch SYNCHRONOUSLY, so the flag is only live for that tick.
+            // OWN placement below (restorePhotorealGlobeContent), so suppress the synchronous
+            // re-activation-branch placement to avoid a double-place. toggleGIS runs the
+            // re-activation branch SYNCHRONOUSLY, so the flag is only live for that tick.
             gisReactivationSelfPlaceSuppressed = true;
             try { toggleGIS(true); } finally { gisReactivationSelfPlaceSuppressed = false; }
-            // toggleGIS mounts Cesium async on first use; give it a beat, then frame + place.
-            // On FIRST mount the re-activation branch does NOT run (first-mount branch), so this
+            // toggleGIS mounts Cesium async on first use. L-270 — await the viewer's REAL ready
+            // signal (awaitCesiumReady) instead of the old fixed 350 ms guess, which on a cold
+            // mount fired BEFORE the viewport existed → renderBuildingOnGlobe no-oped and the
+            // globe opened empty. On FIRST mount the re-activation branch does NOT run, so this
             // is the sole placement path there; on a re-entry the branch was suppressed above.
-            setTimeout(() => { restorePhotorealGlobeContent(); }, 350);
+            void awaitCesiumReady()
+                .then(() => {
+                    restorePhotorealGlobeContent();
+                    // The ground clamp is now armed → it is safe to await whenGroundSettled().
+                    activation.contentIssued();
+                })
+                .catch((err: unknown) => {
+                    activation.fail(`The 3D globe failed to open: ${String((err as Error)?.message ?? err)}`);
+                });
         } else {
             // O.7.2.b — '2D' now means the BIM DUAL-PANE (LEFT 3D · RIGHT plan), the
             // founder-specified post-generate landing, not the Cesium globe.
@@ -1640,7 +1728,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // (establishes the terrain clamp + storey-band floor selector). Best-effort,
         // off the critical path (deferred), cache-gated by geometry signature.
         if (formaBuildingFidelity === 'real') {
-            void placeRealModelOnForma({ lat: origin.lat, lon: origin.lon });
+            // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the GLB export + primitive load is
+            // part of "everything is loaded": register it with the in-flight activation so the
+            // overlay does not lift while the real house is still being serialised.
+            trackViewActivationPlacement(placeRealModelOnForma({ lat: origin.lat, lon: origin.lon }));
         }
     };
 
@@ -1716,7 +1807,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // the renderer-agnostic glTF bridge across the WebGPU(BIM)↔WebGL(Cesium)
             // split. Best-effort + deferred slightly so the async tile clamp has a
             // chance to seat `formaTerrainBaseHeight` before we read it for the model.
-            void placeRealModelOnGlobe(origin);
+            // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — registered with the in-flight
+            // globe activation: the overlay stays up until the real model has actually landed.
+            trackViewActivationPlacement(placeRealModelOnGlobe(origin));
         } catch (err) {
             console.warn('[gis][globe] renderBuildingOnGlobe failed (non-fatal):', err);
         }
@@ -2112,6 +2205,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const engageFormaCesium = (preset: 'oblique' | 'plan'): void => {
         const targetMode: FormaViewMode = preset === 'plan' ? 'plan' : '3d';
         console.log(`[gis][forma] activating ${targetMode === 'plan' ? 'Plan (plan-oblique)' : '3D (NW oblique)'} → forcing Forma massing mode.`);
+        // §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — the SHARED overlay goes up NOW
+        // (synchronously, before the async mount), and the scene input stays gated until the
+        // massing + real model are placed AND the terrain clamp has settled.
+        const activation = startViewActivationLoading('site', () => engageFormaCesium(preset));
         // §FIX-GISLAYOUT-…-GLOBE-REENTRY (L-193, Symptom B) — entering the Forma "3D Site"
         // study self-places via renderFormaMassing (after awaitCesiumReady); suppress the
         // synchronous re-activation-branch globe placement so it never fights Forma mode.
@@ -2124,6 +2221,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // Re-check: the user may have flipped to another mode while we waited.
             if (formaViewMode !== targetMode) {
                 console.log('[gis][forma] Cesium activation aborted — user switched mode while Cesium mounted.');
+                activation.cancel('user switched mode while Cesium mounted');
                 return;
             }
             // FORCE Forma mode even when a Cesium token IS present: these buttons
@@ -2134,8 +2232,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             renderFormaMassing(true, preset);
             // FORMA.5 — bring up the sun/shadow/climate/wind analysis chrome.
             mountFormaAnalysis();
+            // L-270 — the placement is issued and the terrain clamp is armed; the overlay may
+            // now await the ground-settle signal (and any real-model export it registered).
+            activation.contentIssued();
         }).catch((err: unknown) => {
             console.error('[gis][forma] Cesium activation failed:', err);
+            activation.fail(`The 3D Site view failed to open: ${String((err as Error)?.message ?? err)}`);
         });
     };
 
