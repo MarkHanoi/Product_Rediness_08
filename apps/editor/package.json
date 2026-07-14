@@ -54,6 +54,7 @@
     "@pryzm/plugin-handrail": "workspace:*",
     "@pryzm/plugin-plumbing": "workspace:*",
     "@pryzm/plugin-roof": "workspace:*",
+    "@pryzm/plugin-pool": "workspace:*",
     "@pryzm/plugin-rooms": "workspace:*",
     "@pryzm/plugin-selection": "workspace:*",
     "@pryzm/plugin-slab": "workspace:*",

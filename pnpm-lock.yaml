@@ -999,6 +999,9 @@ importers:
       '@pryzm/plugin-plumbing':
         specifier: workspace:*
         version: link:../../plugins/plumbing
+      '@pryzm/plugin-pool':
+        specifier: workspace:*
+        version: link:../../plugins/pool
       '@pryzm/plugin-roof':
         specifier: workspace:*
         version: link:../../plugins/roof

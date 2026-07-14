@@ -98,6 +98,8 @@ Fixed in this pass: the resolver now re-exports the L0 constant.
 | **stair** | ✗ | ✗ | ✗ | ✗ | ◐ | ✗ | ✅ | ✅ |
 | **roof** | ✗ | ✗ | ✗ | ✗ | ◐ | ✗ | ✅ | ✅ |
 | **door / window** | — (void, by construction) | ✅ (`A-DOOR-CUT`) | ✅ | ✗ | ✗ | ✗ | ✅ | ✅ |
+| **pool** (walls) **(L-292)** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **water** **(L-292)** | ✗ (hatch is the convention) | — (not a solid) | — (never occludes) | ✗ (filled region) | — | — | ✗ | ✗ |
 | **furniture / plumbing / lighting** | — | — | ✗ | — | ✗ | ✗ | ◐ plumbing only | ✅ |
 
 **Read the column, not the row.** `plan: CUT poché` is now real for walls only because a wall
@@ -115,6 +117,7 @@ solid the cut plane straddles* and let the AABB straddle-reject do its job.
 | **door** | ✅ jamb ticks + single-line leaf | ✅ + jamb lining profile + true leaf + arc | ✅ + rebate, lever **+ escutcheon**, closed-leaf ghost | ✅ **(L-266)** massing / +panelisation / +rebate, rail-and-stile leaf, escutcheon — the 3D mesh is the LOD consumer and elevation projects it | ✗ identical |
 | **window** | ✅ | ✅ | ✅ **(L-278)** + jamb rebate, **MULLION/meeting-stile from the record's own `columnRatios` + `columnDividerThickness`**, glazing broken at the post | ✅ **(L-278)** massing / +pane grid + sill / +**SASH** + glazing bead — the 3D mesh is the LOD consumer and elevation projects it | ✗ identical |
 | **wall** | ✗ | ✗ | ✗ layer lines always drawn | ✗ | ✗ |
+| **pool / water (L-292)** | ✗ | ✗ | ✗ | ✗ | ✗ |
 | **column** | ✗ | ✗ | ✗ | ✗ | ✗ |
 | **stair** | ✗ (no plan symbol at all — raw mesh edges) | ✗ | ✗ | ✗ | ✗ |
 | **furniture** (6 builders) | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -127,6 +130,28 @@ solid the cut plane straddles* and let the AABB straddle-reject do its job.
 There are **14 element families × 3 view types = 42 (element × view-type) pairs**, each with 3
 LOD tiers. **Exactly 2 pairs discriminate the detail level at all** — door×plan and
 window×plan. **40 of 42 pairs (95%) draw identically at LOD 100, 200 and 300.**
+
+> **UPDATE (L-292, §FEAT-SWIMMING-POOL-ELEMENT).** Two families join the matrix — **pool**
+> and **water** — so the denominator is now **16 × 3 = 48 pairs**. Both rows are written
+> **`✗` across the board, deliberately and honestly**: the pool's records and its undo are
+> real, but **its geometry does not yet reach any view**, and it has no plan symbol, no
+> section symbol and no water mesh. Per §5.3, that is exactly how an unfinished capability
+> is supposed to enter this document — as a *written* empty cell, not a 43rd silent one.
+>
+> Two things about the pool's future rows are worth fixing now, while the reasoning is fresh:
+>
+> **(a) THE POOL WALLS ARE THE FIRST CUT SOLID THAT THE PLAN PLANE DOES NOT CUT.** A pool
+> wall lives *below* the level datum (`baseOffset = −depth`, height = depth), so the 1.2 m
+> plan cut plane **passes clean over it**. It is not a CUT element in plan — it is a
+> **BEYOND / below-cut** element, like the slab. The plan convention for a pool is therefore
+> **not poché**: it is the outline of the void plus a **water hatch**, with the pool walls read
+> as edges below. Anyone closing this row by copying the wall's `A-WALL:cut` treatment will
+> produce a wall that is poché'd where the plane never touched it. **This is the one element
+> where "walls are cut in plan" is false.**
+>
+> **(b) WATER IS NEVER AN OCCLUDER AND NEVER A CUT SOLID.** It is a filled region in section
+> and a hatch in plan (hence the `—` cells above, which mean *not applicable*, not *missing*).
+> Feeding it to `HiddenLineRemoval` as a solid would have it hide the pool floor beneath it.
 
 Restated the way it will be seen: **a sheet at 1:200 and a sheet at 1:50 are the same drawing
 at two scales.** That is not a drawing set.

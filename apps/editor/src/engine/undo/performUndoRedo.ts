@@ -131,6 +131,14 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
       lighting:       w.lightingStore,
       grid:           w.gridStore,        grids:        w.gridStore,
       annotation:     w.annotationStore,  annotations:  w.annotationStore,
+      // §FEAT-SWIMMING-POOL-ELEMENT (L-292 / ADR-0124). `pool.create` declares FOUR
+      // affectedStores — ['pool','wall','slab','water'] — and `_covered()` requires
+      // EVERY one to have an adapter before the ring-buffer cursor is stepped. Omit
+      // either of these two and a pool undo silently falls through to commandManager
+      // ("history empty") — the identical bug walls and curtain walls each shipped
+      // once (OI-054). `wall` and `slab` are already above; these complete the set.
+      pool:           w.poolStore,        pools:        w.poolStore,
+      water:          w.waterStore,       waters:       w.waterStore,
     }),
     // NOTE: door / window / level are intentionally ABSENT. With the `_covered`
     // pre-check, a store key missing from this map is "not covered" → performUndo

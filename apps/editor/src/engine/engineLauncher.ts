@@ -48,6 +48,8 @@ import { registerWallPerfBench } from './WallPerfBench';
 import { registerWallHandlers } from '@pryzm/plugin-wall';
 import { registerRoomHandlers } from '@pryzm/plugin-rooms';
 import { registerSlabHandlers } from '@pryzm/plugin-slab';
+// §FEAT-SWIMMING-POOL-ELEMENT (L-292 / ADR-0124) — the pool ASSEMBLY commands.
+import { registerPoolHandlers } from '@pryzm/plugin-pool';
 import { registerCurtainWallHandlers } from '@pryzm/plugin-curtain-wall';
 import { registerCeilingHandlers } from '@pryzm/plugin-ceiling';
 import { registerRoofHandlers } from '@pryzm/plugin-roof';
@@ -476,6 +478,12 @@ export async function bootstrap(
         catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerRoomHandlers failed (non-fatal):', e?.message ?? e); }
         try { registerSlabHandlers(_bus); console.log('[EngineBootstrap] F-1.3: slab handlers registered.'); }
         catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerSlabHandlers failed (non-fatal):', e?.message ?? e); }
+        // §FEAT-SWIMMING-POOL-ELEMENT (L-292, ADR-0124) — pool.create / pool.delete. A pool is an
+        // ASSEMBLY: ONE dispatch writes the pool + N walls + the floor slab + the water AND cuts the
+        // hole in the host slab, in ONE undo entry (C16 §8.6 B-6). Registered AFTER slab because the
+        // pool's canExecute reads the host slab from ctx.stores.slab.
+        try { registerPoolHandlers(_bus); console.log('[EngineBootstrap] F-1.3: pool handlers registered.'); }
+        catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerPoolHandlers failed (non-fatal):', e?.message ?? e); }
         try { registerCurtainWallHandlers(_bus); console.log('[EngineBootstrap] F-1.3: curtain-wall handlers registered.'); }
         catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerCurtainWallHandlers failed (non-fatal):', e?.message ?? e); }
         // §P3.2-CL (IMPL-PLAN-2026-05-17): ceiling handlers — fixes previously broken ceiling.create path.
