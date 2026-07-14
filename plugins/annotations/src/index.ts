@@ -187,6 +187,13 @@ export { CreateAnnotationCommand } from './commands/CreateAnnotationCommand.js';
 export { CreateManyAnnotationsCommand } from './commands/CreateManyAnnotationsCommand.js';
 export { DeleteAnnotationCommand } from './commands/DeleteAnnotationCommand.js';
 export { UpdateAnnotationCommand } from './commands/UpdateAnnotationCommand.js';
+// §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — the PRESENTATION-only edit path. A drag must
+// move the dim LINE (offset) or a tag's bubble — never what the annotation measures. The
+// guarantee is structural: this command has no `references` field.
+export {
+    UpdateAnnotationPresentationCommand,
+    type AnnotationPresentationPatch,
+} from './commands/UpdateAnnotationPresentationCommand.js';
 export { LockAnnotationCommand, type LockAnnotationOptions } from './commands/LockAnnotationCommand.js';
 export { UpdateConstraintCommand } from './commands/UpdateConstraintCommand.js';
 export { CreateSectionMarkCommand, type CreateSectionMarkParams } from './commands/CreateSectionMarkCommand.js';

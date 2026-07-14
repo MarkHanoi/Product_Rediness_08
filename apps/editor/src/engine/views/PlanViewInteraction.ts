@@ -37,7 +37,13 @@ import type { ViewDefinition, ViewSectionVolume, ViewCropSettings } from '@pryzm
 // schedule, workbench …) react.  Previously this surface only dispatched the raw
 // pryzm-element-selected event, which bypassed SelectionManager entirely.
 import { selectionBus } from '@pryzm/core-app-model';
-import { UpdateAnnotationCommand } from '@pryzm/command-registry';
+// §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — `UpdateAnnotationCommand` is deliberately NO
+// LONGER imported here. The annotation drag was its only caller in this file, and that call
+// is exactly the bug: it could write `references`. The drag now goes through the
+// presentation-only command, and the general-purpose one is out of the drag path's reach.
+// A drag is a PRESENTATION edit. The planner is pure (see annotationDragIntent.ts).
+import { UpdateAnnotationPresentationCommand } from '@pryzm/plugin-annotations';
+import { planAnnotationDrag } from '@app/ui/documentation/annotationDragIntent';
 import { DRAGGABLE_ANNOTATION_TYPES } from '@pryzm/core-app-model';
 
 /**
@@ -409,21 +415,38 @@ export class PlanViewInteraction {
             const dWorldZ = curWorld.worldZ - startWorld.worldZ;
             const ann = annotationStore.getById(drag.annotationId);
             if (ann) {
-                // Move ALL model points by the same delta so multi-point annotations
-                // (matchline, revision-cloud, linear-dimension, etc.) move as a unit.
-                const origPts = drag.origGeometry2D.modelPoints ?? [];
-                const movedPts = origPts.length > 0
-                    ? origPts.map(p => ({ x: p.x + dWorldX, y: p.y, z: p.z + dWorldZ }))
-                    : [{ x: drag.startWorldX + dWorldX, y: 0, z: drag.startWorldZ + dWorldZ }];
-                // Direct store update for live preview (no command — ephemeral until mouseup).
-                annotationStore.update({
-                    id: drag.annotationId,
-                    geometry2D: { ...ann.geometry2D, modelPoints: movedPts },
-                    references: ann.references.map((r, i) => {
-                        const mp = movedPts[i] ?? movedPts[0];
-                        return { ...r, cachedPosition: mp ?? r.cachedPosition };
-                    }),
-                });
+                // §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — A DRAG IS A PRESENTATION EDIT.
+                //
+                // This used to translate EVERY model point by the drag delta and then stamp
+                // the moved point into `references[i].cachedPosition` — i.e. a gesture that
+                // means "move this out of my way" silently changed WHAT THE DIMENSION
+                // MEASURED. For an associative dim the dependency graph re-resolves the
+                // reference on its next flush and snaps it back (the drag looks ignored);
+                // for a baked one it sticks, and the drawing now lies about the building.
+                //
+                // A drag now produces a PRESENTATION patch and nothing else: a dimension
+                // gets a new perpendicular `offset` (the line moves, the measured points do
+                // not); a tag's bubble moves while its leader anchor stays on the element.
+                // `references` are not written here at ALL — not by convention, but because
+                // the patch type has no field for them.
+                const patch = planAnnotationDrag(ann, drag.origGeometry2D, dWorldX, dWorldZ);
+                if (patch) {
+                    // Live preview only (ephemeral until mouseup commits the command).
+                    const g = ann.geometry2D;
+                    const nextPts = (drag.origGeometry2D.modelPoints ?? []).map(p => ({ ...p }));
+                    if (patch.symbolPoint) {
+                        const idx = nextPts.length >= 2 ? nextPts.length - 1 : 0;
+                        if (nextPts.length > 0) nextPts[idx] = { ...patch.symbolPoint };
+                    }
+                    annotationStore.update({
+                        id: drag.annotationId,
+                        geometry2D: {
+                            ...g,
+                            modelPoints: nextPts,
+                            ...(patch.offset !== undefined ? { offset: patch.offset } : {}),
+                        },
+                    });
+                }
             }
             return;
         }
@@ -610,32 +633,40 @@ export class PlanViewInteraction {
 
             const ann = annotationStore.getById(drag.annotationId);
             if (ann) {
-                // Capture final position from the live-preview store state
-                const finalGeometry2D = { ...ann.geometry2D, modelPoints: ann.geometry2D.modelPoints?.map(p => ({ ...p })) ?? [] };
-                const finalReferences = ann.references.map(r => ({
-                    ...r,
-                    cachedPosition: r.cachedPosition ? { ...r.cachedPosition } : undefined,
-                }));
+                // §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — commit the PRESENTATION patch.
+                //
+                // The final patch is re-planned from the ORIGINAL geometry and the total
+                // drag delta (rather than read back out of the live-preview store), so the
+                // committed value is a pure function of the gesture — and so the command
+                // physically cannot carry a reference edit: `UpdateAnnotationPresentationCommand`
+                // takes {offset, screenOverride, symbolPoint} and nothing else.
+                const canvas2 = this._canvas;
+                const planCanvas2 = this._planCanvas;
+                const rect2 = canvas2!.getBoundingClientRect();
+                const endWorld = planCanvas2!.screenToWorld(e.clientX - rect2.left, e.clientY - rect2.top);
+                const startWorld2 = planCanvas2!.screenToWorld(drag.startSx, drag.startSy);
+                const patch = planAnnotationDrag(
+                    ann,
+                    drag.origGeometry2D,
+                    endWorld.worldX - startWorld2.worldX,
+                    endWorld.worldZ - startWorld2.worldZ,
+                );
 
-                // Restore original in the store so UpdateAnnotationCommand captures
-                // the correct prevSnapshot (the pre-drag position).
+                // Restore the pre-drag state so the command captures the correct prevSnapshot.
                 annotationStore.update({
                     id: drag.annotationId,
                     geometry2D: drag.origGeometry2D,
                     references: drag.origReferences,
                 });
 
-                // Commit final position through the command bus (undoable).
-                // [P6-E.5.2] Migrated: window.commandManager → runtime.bus (01-BIM-ENGINE-CORE-CONTRACT §1).
-                // Note: { source: 'HUMAN_DIRECT' } logged; embed in UpdateAnnotationCommand ctor per TODO(E.5.x).
-                const _annotCmd = new UpdateAnnotationCommand(drag.annotationId, {
-                    geometry2D: finalGeometry2D,
-                    references: finalReferences,
-                });
-                if (window.runtime?.bus) {
-                    console.log('[PlanViewInteraction] dispatch source: HUMAN_DIRECT — TODO(E.5.x): embed in ctor');
+                if (patch && window.runtime?.bus) {
+                    const _annotCmd = new UpdateAnnotationPresentationCommand(drag.annotationId, patch);
                     window.runtime.bus.executeCommand(_annotCmd.type, _annotCmd);
-                    console.log('[PlanViewInteraction] Annotation moved:', drag.annotationId);
+                    console.log(
+                        '[PlanViewInteraction] Annotation presentation updated (references untouched):',
+                        drag.annotationId,
+                        patch.offset !== undefined ? `offset=${patch.offset.toFixed(3)}m` : 'symbol moved',
+                    );
                 }
 
                 // Keep annotation selected after move

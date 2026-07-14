@@ -352,8 +352,25 @@ function resolveHostedOpeningPoint(opening: any, wall: any, ref: StableReference
     if (len < 0.001) return null;
     dir.divideScalar(len);
 
+    // §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — THE STORE OFFSET IS THE LEFT EDGE.
+    //
+    // This resolver read `opening.offset` as the opening's CENTRE (`offset + width·h`
+    // with h ∈ {−0.5, 0, +0.5}). Project-wide, §OPENING-OFFSET-LEFTEDGE-UNIFY says it is
+    // the LEFT EDGE of the span [offset, offset+width] — the same convention
+    // `buildEvalSnapshot` converts from (L-180: the geometry-kernel evaluator wants the
+    // centre, so the executor adds width/2) and the same one edge-projection and poche
+    // cut voids by. So every anchor resolved here landed HALF A WIDTH to the left: the
+    // 'left' anchor sat half a width outside the jamb, and 'center' sat ON the left jamb.
+    //
+    // It went unnoticed because nothing in the product resolved an OPENING reference yet —
+    // the auto-dimension executor baked point refs instead (the bug L-287 exists to fix).
+    // The moment the producer emits real opening references, this is the code that decides
+    // where the witness line lands. Convert the left edge to the centre HERE, once:
+    //     centre = offset + width/2   →   anchor = centre + width·h
+    const width = opening.width ?? 0;
     const axis = openingCodeToAxis(ref.index);
-    const along = (opening.offset ?? len * 0.5) + (opening.width ?? 0) * axis.h;
+    const centreAlong = (opening.offset ?? len * 0.5 - width / 2) + width / 2;
+    const along = centreAlong + width * axis.h;
     const y = axis.v === 'top'
         ? s.y + (opening.sillHeight ?? 0) + (opening.height ?? 0)
         : axis.v === 'sill'

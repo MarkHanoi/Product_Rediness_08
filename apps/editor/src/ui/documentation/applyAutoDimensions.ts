@@ -63,6 +63,11 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 // §FEAT-AUTO-DIMENSION-ELEVATION-VIEWS (L-263) — the SHARED commit + ONE-undo path.
 import { commitAnnotationSet } from './commitAnnotationSet.js';
+// §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — the engine's {elementId, anchor} → a LIVE
+// StableReference. This executor USED to collapse that plan into `makePointRef(...)`,
+// which is what made every auto-dimension in the product non-associative: move a wall and
+// the dim kept its old position AND its old number. See dimensionReferences.ts.
+import { toStableReferences, type DimElementKind } from './dimensionReferences.js';
 
 // View types whose canvas draws annotations/dimensions in plan projection.
 const PLAN_VIEW_TYPES: ReadonlySet<string> = new Set(['plan', 'ceiling-plan', 'structural-plan']);
@@ -201,6 +206,18 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
       span.setAttribute('pryzm.autodim.annotation_count', annotations.length);
       if (annotations.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }
 
+      // §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — SAY when a dim is NOT associative.
+      // A baked dim is indistinguishable from a live one on screen; that silence is exactly
+      // how the entire product came to be non-associative without anyone noticing.
+      const associative = annotations.filter((a) => a.parameters.associative === true).length;
+      span.setAttribute('pryzm.autodim.associative_count', associative);
+      if (associative < annotations.length) {
+        console.warn(
+          `[auto-dimension] ${annotations.length - associative} of ${annotations.length} dimension(s) ` +
+          'could not be anchored to an element and are BAKED — they will NOT follow the model.',
+        );
+      }
+
       // ── §FIX-AUTODIM-SUBSYSTEM-STORE-SINK (ADR-0119): write the FULL elements to
       //    the SUBSYSTEM annotationStore the renderer reads, via ONE composite
       //    CommandManager command (P6 — command-path mutation) inside one
@@ -288,6 +305,15 @@ export function dimensionStringsToLinearDimAnnotations(
 
   const evaluated = evaluateDimensions(segStrings, evalSnapshot, { unit: 'mm', decimalPlaces: 0 });
 
+  // §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — which element family each id belongs to,
+  // taken from the SAME snapshot the evaluator used, so the reference and the evaluated
+  // point can never disagree about what is being measured.
+  const kindOf = (id: string): DimElementKind | undefined =>
+    evalSnapshot.walls.has(id) ? 'wall'
+      : evalSnapshot.doors.has(id) ? 'door'
+        : evalSnapshot.windows.has(id) ? 'window'
+          : undefined;
+
   return segStrings
     .map((seg, i) => {
       const ev = evaluated[i]!;
@@ -321,13 +347,43 @@ export function dimensionStringsToLinearDimAnnotations(
         offset: seg.offsetMm / MM_PER_M,
         ...(measurementNormal ? { measurementNormal } : {}),
       };
+      // §FIX-DIM-ASSOCIATIVE-REFERENCES (L-287) — EMIT THE REFERENCE THE ENGINE COMPUTED.
+      //
+      // The engine already knows this string measures "the left jamb of door_7 to the end
+      // of wall_3". Collapsing that into two `makePointRef(...)` — a random UUID with the
+      // position baked into `cachedPosition` — is what made every auto-dimension in the
+      // product non-associative: a point ref resolves to its OWN cache, so the dependency
+      // graph can never move it and never orphans it. Move the wall, and the dim keeps its
+      // old position AND its old number: a lie a builder would build from.
+      //
+      // Element refs are re-resolved from the LIVE stores by AnnotationDependencyGraph on
+      // every model change (`resolveReferenceToPoint`), so the witness lines follow the
+      // wall and the VALUE is re-derived (L-127 — never read back from a cache).
+      //
+      // `cachedPosition` is seeded with the evaluated point so the FIRST paint is right
+      // before the graph's first flush; from then on the graph owns it. When an anchor has
+      // no unambiguous StableReference we fall back to a point ref for THAT string and SAY
+      // SO (the executor reports the count) — we never invent the reference a point
+      // "probably" meant.
+      const stable = toStableReferences(seg.references, kindOf);
+      const references = stable
+        ? stable.map((r, k) => ({
+            ...r,
+            cachedPosition: k === 0
+              ? { x: vA.x, y: vA.y, z: vA.z }
+              : { x: vB.x, y: vB.y, z: vB.z },
+          }))
+        : [makePointRef(vA), makePointRef(vB)];
+
       return makeAnnotationElement(
         createId('annotation'),
         'linear-dim',
         ownerViewId,
-        [makePointRef(vA), makePointRef(vB)],
+        references,
         geometry2D,
-        { unit: 'mm' },
+        // The record SAYS what it is. An associative dim re-derives; a baked one is a
+        // snapshot — and the difference must be visible in the data, not inferred from it.
+        { unit: 'mm', associative: !!stable },
       );
     })
     // Drop degenerate zero-length segments (mirrors the manual tool's A≈B guard).
