@@ -372,6 +372,80 @@ plan.
   dash is an ISO 128-24 *category* convention, not a hidden-line reading. `DATUM_CATEGORIES`
   enumerates them; the merge-blocking ladder guard skips exactly those three and no others.
 
+**§4.6.4d — THE `beyond` DASH IS PER-VIEW-TYPE INTENT — AND `beyond` MUST BE TELLABLE FROM
+`hidden` BEFORE IT DASHES** *(added by L-290, §FEAT-BEYOND-DASH-IN-ELEVATION; normative)*
+
+The founder's decision, and it is the **override clause §4.6.4 already carries** (*"never dashed
+… unless explicitly overridden"*):
+
+| view type | `beyond` draws |
+|---|---|
+| **elevation**, **section** | **DASHED**, with the LONG `BEYOND_DASH_PX` `[8,4]` |
+| **plan** (and the whole plan family) | **SOLID**, lighter — *unchanged* |
+
+**THIS DOES NOT RE-OPEN L-277.** That bug was **dashing by DISTANCE** — far-but-VISIBLE geometry
+drawn as if something were in front of it, because depth and occlusion shared one bucket. The
+buckets remain separate; `hidden` is still produced ONLY by `applyOcclusion` (§4.6.5). This is a
+deliberate, view-scoped STYLE, chosen by the user.
+
+**(a) SEPARATE `beyond` FROM `hidden` *BEFORE* DASHING `beyond`.** They carry the **SAME WIDTH**
+(0.09 mm — since L-277 they differ by DASH, not by weight). Dash `beyond` with `hidden`'s dash and
+the drawing **GAINS A DASH AND LOSES A DISTINCTION**: a stair's lower run reads identically to a
+pipe behind a wall, in exactly the views the founder asked for.
+
+**(b) THE AXIS IS THE DASH PATTERN, NOT THE WEIGHT — and that is a MEASUREMENT.** Both pens are
+≈ **one device pixel** at the canvas's backing scale (§4.6.4e / L-288 measured it), so any WIDTH
+difference between them is **sub-pixel by construction** — the eye cannot receive it, and making
+`hidden` thinner would additionally drag `MIN_LEGIBLE_BACKING_SCALE` from 3 to 4 (it is derived
+from the thinnest pen) for a difference nobody can see. The dash PERIOD is multi-pixel: `[8,4]`
+(12 px) against `[4,3]` (7 px) survives a 1× projector and is exact in print. It is also the
+standard drafting distinction (ISO 128-24: a LONG dash for a member behind the plane; a fine
+SHORT dash for hidden detail). **A distinction the raster destroys is not a distinction.**
+
+**(c) IT IS DATA, NOT A BRANCH.** `ViewScope.beyondLineStyle` carries the per-view-type default
+and `ViewDefinition.output.beyondLineStyle` overrides it per view — the **same channel and the
+same precedence** as `occlusionDisposition` (§4.6.5 / L-279): *instance beats type beats default*,
+resolved ONLY through `resolveBeyondLineStyle()`. An `if (isElevation)` inside a renderer is in
+breach. **The PEN TABLE still says `beyond` is SOLID** — §4.6.4 stays literally true: no dash
+arrives by DEFAULT from a code branch; it arrives from VIEW INTENT (P7). The engine applies it at
+`RULE_PRIORITY_VIEW_TYPE_MODIFIER` (5000): above the intent tier (which seeds `beyond` solid and
+would otherwise erase it), below the VIEW and ELEMENT tiers (so a user's explicit style wins).
+
+**(d) DASHING CHANGES STYLE, NEVER RANK.** `weight(CUT) > weight(PROJECTION) > weight(BEYOND)`
+remains strict in every view type.
+
+**§4.6.4e — THE LADDER MUST BE STRICT *ON SCREEN*, NOT MERELY IN MILLIMETRES** *(added by L-288,
+§FIX-PLAN-CANVAS-HAIRLINE-FLOOR; normative)*
+
+A pen hierarchy the user cannot SEE is not a hierarchy. `PlanViewCanvas` floored every stroke at
+`max(0.5, 1/dpr)` = **1.0 CSS px at `devicePixelRatio` 1**, and at 96 DPI that is above four of
+the table's pens at once:
+
+    wall PROJECTION 0.25 mm → 0.945 px · door PROJECTION 0.18 → 0.680
+    ceiling PROJECTION 0.13 → 0.491   · any BEYOND 0.09 → 0.340      ⇒ ALL clamped to 1 px
+
+So on a 1× display — most laptops, most projectors — the **entire PROJECTION tier and the whole
+BEYOND tier rendered at ONE uniform width**, and with them §4.6.4a's function axis. The drawing
+had a hierarchy; the screen did not.
+
+**(a) THE PENS ARE CORRECT — THE RASTERISER WAS NOT. IT IS FORBIDDEN TO "FIX" THIS BY INFLATING
+THE PEN TABLE.** The hierarchy is already right in EXPORT (at `EXPORT_DPI` those pens are 2.95 px
+and 2.07 px), and that is the proof the pens were never the bug. Fattening them to clear a screen
+floor would CORRUPT the export.
+
+**(b) THE CANVAS RENDERS AT A BACKING SCALE SUFFICIENT TO DRAW THE TABLE.**
+`MIN_LEGIBLE_BACKING_SCALE = ceil(1 / (thinnestPenMm × SCREEN_PX_PER_MM))` — **DERIVED by scanning
+the pen table**, never typed, so a finer pen added tomorrow raises the scale with it. Bounded by
+`MAX_BACKING_SCALE = 4`, the budget the product has always spent on high-DPI machines.
+
+**(c) THE STROKE FLOOR IS ONE DEVICE PIXEL** — the thinnest mark the rasteriser can physically
+make — and it is **not** the dash scale. Conflating the two (as the old `hairline` did) is why the
+defect could not be fixed in place: dash *periods* are multi-pixel, were never clamped, and must
+keep following the DISPLAY's ratio.
+
+**(d) GUARD IT IN DEVICE PIXELS.** A guard written in millimetres passes on the broken product —
+the millimetres were always right. That is the entire nature of this defect.
+
 **§4.6.4a — THE FUNCTION AXIS: `pen = f(ZONE, CATEGORY, FUNCTION)`** *(added by L-285,
 §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION; normative)*
 
