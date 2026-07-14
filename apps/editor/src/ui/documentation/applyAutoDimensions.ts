@@ -49,6 +49,7 @@ import {
 import {
   planAutoDimensions,
   cardinalMeasurementAxis,
+  tierGapWorldM,
   type AutoDimSnapshot,
   type AutoDimWall,
 } from '@pryzm/auto-dimension';
@@ -171,7 +172,23 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
 
       const snapshot: AutoDimSnapshot = { walls: engineWalls };
       const viewId = `plan-${level.id}`;
-      const { strings, report } = planAutoDimensions(snapshot, { viewId, levelId: level.id });
+
+      // §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the TIER GAP is a PAPER constant
+      // (C24), and only the VIEW can turn it into world metres. The engine must never
+      // invent a millimetre value: 0.5 m of gap reads correctly at 1:100 and is absurd at
+      // 1:20. Resolve the view's drawing scale (`output.customScale` wins over
+      // `output.scale`, per ViewOutputSettings) and hand the engine world metres.
+      const viewOut = (viewDefinitionStore.get(activeViewId) as
+        | { output?: { scale?: number; customScale?: number } }
+        | undefined)?.output;
+      const scaleDenominator = viewOut?.customScale ?? viewOut?.scale ?? 100;
+      const tierGapM = tierGapWorldM(scaleDenominator);
+
+      const { strings, report } = planAutoDimensions(snapshot, {
+        viewId,
+        levelId: level.id,
+        tierGapM,
+      });
       span.setAttribute('pryzm.autodim.string_count', strings.length);
       span.setAttribute('pryzm.autodim.error_count', report.warnings.length);
       if (strings.length === 0) { toast('Auto-Dimension: nothing to dimension yet.', 'info'); return 0; }

@@ -21,6 +21,10 @@ import type { PlacedString, ValidationWarning, AutoDimWall } from './types.js';
 // (the barrel `segmentsCross` opens a span per call; this loop must not).
 import { segmentsCrossImpl } from './geometry.js';
 import { dedupKey } from './planners.js';
+// §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the ONE dim-line position formula,
+// shared with the serialiser so the crossing scan can never again probe a different line
+// than the one that gets drawn.
+import { tierMagnitudeM } from './tiers.js';
 
 const SPAN_EPS_M = 0.001;      // exact-span dedupe tolerance
 const MAX_ROWS = 8;            // bounded bump / push depth (§1.5)
@@ -69,8 +73,13 @@ export function resolveConflicts(
   placed: readonly PlacedString[],
   walls: readonly AutoDimWall[],
   minSegmentM: number,
-  stackWorldBaseM: number,
-  stackWorldSpacingM: number,
+  // §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — ONE gap, the tier gap. The old
+  // (base, spacing) pair described a stack that grew outward from each string's own
+  // reference line; the tier model grows outward from the FOOTPRINT, so a single scale-
+  // aware gap is all there is. `stackWorldBaseM` is gone from this signature because
+  // keeping it would have let the crossing scan probe a different line than the one the
+  // serialiser emits — which is precisely the class of bug this ticket is about.
+  tierGapM: number,
 ): ConflictResult {
   const notes: ValidationWarning[] = [];
   const skipped: { id: string; reason: string }[] = [];
@@ -140,9 +149,23 @@ export function resolveConflicts(
   }
 
   // ── 4. geometry-crossing resolution (push out; keep + note if unavoidable) ───
-  // World dim-line position uses a modest world stack scale (the emitted offset
-  // is sheet-mm, §SPIKE §8) so a genuine transverse crossing can be detected and
-  // pushed clear. Collinear walls (the wall a dim measures) never count.
+  //
+  // §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — THIS SCAN WAS PROBING A LINE THE
+  // RENDERER NEVER DRAWS, which is why it never caught the overall running through the
+  // plate. It anchored at `Math.max(p1, p2)` on the perpendicular axis; the renderer
+  // anchors the dim line at the FIRST REFERENCE POINT (`_renderLinearDim` offsets refA
+  // and projects refB onto the axis through it). On a rectangle the two agree (both
+  // corners share the perpendicular coordinate). On an L-plate the overall's two extreme
+  // corners do NOT: the check probed the outer corner (clear — "no crossing!") while the
+  // renderer drew through the inner one (straight across the building). A guard that
+  // checks a different line than the one you draw is not a guard.
+  //
+  // It now probes `p1 + n · tierMagnitude(clearance, ring, gap)` — the EXACT expression
+  // the serialiser emits as `offsetMm` (planAutoDimensions.serialize). One formula, one
+  // line, one truth. With the tier model the scan should now find nothing to push for a
+  // cardinal string (the tier already clears the footprint bbox); it stays because it is
+  // the thing that would TELL US if that ever stopped being true, and because angled
+  // ('aligned') strings and the no-perimeter fallback have no bbox to be outside of.
   const wallSegs = walls.map((w) => ({ a: w.a, b: w.b }));
   for (const p of [...live].sort((a, b) => (sortKey(withRow(a)) < sortKey(withRow(b)) ? -1 : 1))) {
     const lo = Math.min(
@@ -153,19 +176,11 @@ export function resolveConflicts(
       p.orientation === 'horizontal' ? p.p1.x : p.p1.z,
       p.orientation === 'horizontal' ? p.p2.x : p.p2.z,
     );
-    const anchor = p.orientation === 'horizontal'
-      ? Math.max(p.p1.z, p.p2.z)
-      : Math.max(p.p1.x, p.p2.x);
-    // §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD (L-191): the dim line's ACTUAL world
-    // position is `anchor + outwardNormal[perpAxis] · magnitude` — the same place
-    // the plan renderer draws it (`leftPerp(measurementDir) · side` == the outward
-    // normal by construction, placement.ts). The former `anchor + side · magnitude`
-    // assumed a world-+axis offset and so probed the WRONG side for vertical runs
-    // (side is now leftPerp-signed, not +x-signed). Use the outward normal so the
-    // crossing scan checks exactly where the dim is rendered.
+    // The perpendicular coordinate of the point the dim line is drawn THROUGH: p1.
+    const anchor = p.orientation === 'horizontal' ? p.p1.z : p.p1.x;
     const perpComp = p.orientation === 'horizontal' ? p.outwardNormal.z : p.outwardNormal.x;
     const crossesAt = (row: number): boolean => {
-      const pos = anchor + perpComp * (stackWorldBaseM + row * stackWorldSpacingM);
+      const pos = anchor + perpComp * tierMagnitudeM(p.clearanceM, row, tierGapM);
       const q1 = p.orientation === 'horizontal' ? { x: lo, z: pos } : { x: pos, z: lo };
       const q2 = p.orientation === 'horizontal' ? { x: hi, z: pos } : { x: pos, z: hi };
       for (const s of wallSegs) if (segmentsCrossImpl(q1, q2, s.a, s.b)) return true;

@@ -77,8 +77,23 @@ export interface AutoDimOptions {
    * World-metre outward distance added per stack row — drives both the crossing
    * check and the emitted `offsetMm` so exterior chains stack progressively
    * further out than opening/location dims and never overlap.
+   *
+   * @deprecated §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — superseded by
+   * `tierGapM`, which is the same idea measured from the FOOTPRINT instead of from each
+   * string's own reference line. Still honoured as the tier gap when `tierGapM` is absent,
+   * so existing callers keep their spacing.
    */
   readonly stackWorldSpacingM?: number;
+  /**
+   * §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the world-metre gap between
+   * dimension TIERS (and the gap between the innermost tier and the footprint).
+   *
+   * NOT a literal, and not the engine's to invent: it is a PAPER constant (C24 — how far
+   * apart two dim lines should look on the printed sheet) converted through the VIEW's
+   * drawing scale by `tierGapWorldM(scaleDenominator)`. The executor resolves it from the
+   * active view and passes it in; the engine never guesses a millimetre value.
+   */
+  readonly tierGapM?: number;
 }
 
 // ── Engine-internal types (pure) ────────────────────────────────────────────
@@ -143,6 +158,27 @@ export interface PlacedString extends PlannedString {
   readonly labelHalfM: number;
   /** Stack-group key `orientation|side|bucket` (strings that share a datum line). */
   readonly groupKey: string;
+  /**
+   * §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — world metres from `p1` to the
+   * FOOTPRINT BBOX along `outwardNormal`: the distance this dim line must travel simply
+   * to CLEAR the building before any tier gap is added.
+   *
+   * This is the field that makes rule (a) ("never across the plate") hold on an L-shaped
+   * plan. It is 0 for a string whose p1 already sits on the bbox boundary (an ordinary
+   * façade chain) and LARGE for the overall on an L-plate, whose reference corner sits
+   * mid-plate. Without it the standoff was measured from the string's own reference line,
+   * which on a rectangle coincides with the footprint edge BY LUCK — and nowhere else.
+   */
+  readonly clearanceM: number;
+  /**
+   * §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — which BUILDING's footprint this
+   * string was placed against (L-268 `BuildingFootprint.id`). Two buildings = two
+   * independent tier stacks, and the "no dim line crosses the plate" guard must test each
+   * string against ITS OWN plate: building A's dimension legitimately sits outside A, and
+   * checking it against B's polygon would be a false alarm. Absent for the per-wall
+   * fallback (no perimeter, no footprint).
+   */
+  readonly buildingId?: string;
 }
 
 // ── Result ──────────────────────────────────────────────────────────────────

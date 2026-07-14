@@ -13,6 +13,11 @@
 import type { PlannedString, PlacedString } from './types.js';
 import { type PtXZ, sub, unit, leftPerp, dot } from './geometry.js';
 import { withAutoDimSpan } from './tracing.js';
+// §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the TIER model. Placement no longer
+// measures a string's standoff from its own reference line; it measures it from the
+// BUILDING'S FOOTPRINT, which is the only reference that is outside the building on an
+// L-shaped or notched plate. See tiers.ts for why the old one only worked on rectangles.
+import { type FootprintBBox, bboxClearance, tierOfRank } from './tiers.js';
 
 const BUCKET_EPS_M = 0.05; // datum-line bucket (strings within 50 mm share a stack)
 const DEFAULT_LABEL_CHAR_WIDTH_M = 0.15;
@@ -130,33 +135,80 @@ function labelHalf(p: PlannedString, charWidthM: number): number {
 }
 
 /**
- * Assign the outward side + compact stack rows to every planned string
- * (Stage 6). Strings that share a datum line (same orientation, side, and
- * quantised anchor coordinate) form one stack; within a stack rows are packed
- * inner→outer by DESCENDING rank so location dims sit nearest the wall and the
- * overall sits furthest out.
+ * §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the outward normal of a dim line,
+ * CARDINAL for a cardinal string, oriented away from the building.
+ *
+ * Two things are fixed here relative to `outwardNormalImpl`:
+ *
+ * 1. THE OVERALL'S NORMAL WAS DIAGONAL. `outwardNormalImpl(p1, p2, …)` derives the
+ *    normal from the p1→p2 direction. For a chain that is the façade direction, so the
+ *    normal is cardinal. But the OVERALL's two references are the two EXTREME perimeter
+ *    corners, which on an L-plan are DIAGONAL to each other — so its "outward normal"
+ *    came out diagonal, while the renderer draws the line along `leftPerp(measurementDir)`
+ *    (cardinal, from the stamped measurementNormal). The engine was reasoning about a
+ *    line the renderer never draws. The normal is now always taken from the MEASUREMENT
+ *    direction, which is what the renderer actually uses.
+ *
+ * 2. THE SIGN IS TAKEN AT p1, NOT AT THE MIDPOINT. The renderer draws the dim line
+ *    through the FIRST reference point (`_renderLinearDim` offsets `refA`), so the side
+ *    that matters is p1's. For a façade chain p1 and the midpoint lie on the same line,
+ *    so this is identical to the old rule (L-191 behaviour preserved); for the overall
+ *    the midpoint IS ≈ the centroid, where the old sign test was degenerate.
+ */
+export function cardinalOutwardNormal(p: PlannedString, centroid: PtXZ | null): PtXZ {
+  const dir = measurementDir(p);
+  let n = leftPerp(dir);
+  if (n.x === 0 && n.z === 0) n = { x: 0, z: 1 };
+  if (!centroid) return n;
+  const away = sub(p.p1, centroid);
+  const d = dot(n, away);
+  if (d < 0) return { x: -n.x, z: -n.z };
+  if (d === 0) {
+    // p1 sits exactly on the centroid's axis — canonical negative side (deterministic).
+    return (n.x > 0 || (n.x === 0 && n.z > 0)) ? { x: -n.x, z: -n.z } : n;
+  }
+  return n;
+}
+
+/**
+ * Assign the outward side, the TIER, and the footprint CLEARANCE to every planned
+ * string (Stage 6).
+ *
+ * §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — what changed, and why it is not a nudge:
+ *
+ *   BEFORE: `rowIndex` was a per-stack-group index derived from rank, and the standoff was
+ *           `stackBase + row · spacing` measured FROM THE STRING'S OWN REFERENCE LINE. On an
+ *           L-shaped plate the overall's reference point sits mid-plate, so its line was
+ *           drawn 0.5 m from the middle of the building — straight across the plan.
+ *   NOW:    `rowIndex` is the string's TIER (openings → chain → OVERALL outermost, one
+ *           global rule, tiers.ts) and it carries `clearanceM`, the distance from p1 to the
+ *           FOOTPRINT BBOX along its outward normal. The rendered standoff becomes
+ *           `clearance + gap·(tier+1)` (see `tierMagnitudeM`), so every tier lands OUTSIDE
+ *           the footprint and outside the tier within it — on a rectangle, an L, a notch or
+ *           a courtyard alike.
+ *
+ * Stage 7 still pushes `rowIndex` outward to resolve label overlaps and residual
+ * crossings; a push is simply "one more gap out", which composes with the tier.
+ *
+ * @param bbox the building's footprint bounds. Null for the per-wall fallback (no closed
+ *             perimeter) — clearance is then 0 and the tier gap alone applies, which is
+ *             the old behaviour for the only case that has no footprint to be outside of.
  */
 export function placeStrings(
   planned: readonly PlannedString[],
   centroid: PtXZ | null,
   charWidthM: number = DEFAULT_LABEL_CHAR_WIDTH_M,
+  bbox: FootprintBBox | null = null,
+  buildingId?: string,
 ): PlacedString[] {
-  // 1. Side + group key per string.
-  const placed: PlacedString[] = planned.map((p) => {
+  return planned.map((p) => {
     const coord = anchorCoord(p);
-    // §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD (L-191, C56 AutoDimension / L-155): the
-    // signed `offset` is applied by the plan renderer along `leftPerp(measurementDir)`
-    // (`_renderLinearDim` lines 558-566), NOT the world +axis. Choose `side` so that
-    // `leftPerp(measurementDir) · side` == the TRUE outward normal (the perpendicular
-    // pointing AWAY from the shell centroid) — then EVERY perimeter chain + its L-155
-    // world standoff lands OUTSIDE the shell (bottom→below, top→above, left→left,
-    // right→right, and the correct outward side of any angled/L run). The former
-    // `coord >= centroidCoord` rule was a world-+axis convention: it agrees with the
-    // renderer for horizontal runs (leftPerp(+X)=+Z=+axis) but is INVERTED for
-    // vertical runs (leftPerp(+Z)=−X), so left/right chains were drawn INWARD. `|dot|`
-    // is 1 for cardinal runs → deterministic; the tie branch cannot arise for a real
-    // perimeter run. No perimeter (per-wall fallback, centroid null) → default +1.
-    const outN = outwardNormalImpl(p.p1, p.p2, centroid);
+    // §FIX-AUTODIM-PERIMETER-ALWAYS-OUTWARD (L-191): the signed `offset` is applied by
+    // the plan renderer along `leftPerp(measurementDir)`, NOT the world +axis. Choose
+    // `side` so `leftPerp(measurementDir) · side` == the TRUE outward normal — then every
+    // chain lands OUTSIDE the shell (bottom→below, top→above, left→left, right→right).
+    // No perimeter (per-wall fallback, centroid null) → default +1.
+    const outN = cardinalOutwardNormal(p, centroid);
     const rPerp = leftPerp(measurementDir(p));
     const side: 1 | -1 = centroid === null ? 1 : (dot(rPerp, outN) >= 0 ? 1 : -1);
     const bucket = Math.round(coord / BUCKET_EPS_M);
@@ -168,23 +220,11 @@ export function placeStrings(
       labelCentre: labelCentre(p),
       labelHalfM: labelHalf(p, charWidthM),
       groupKey,
-      rowIndex: 0,
+      // The TIER is the row: rule (b) — openings innermost, the OVERALL outermost.
+      rowIndex: tierOfRank(p.rank),
+      // The distance this string must travel just to CLEAR the plate: rule (a).
+      clearanceM: bbox ? bboxClearance(p.p1, outN, bbox) : 0,
+      ...(buildingId ? { buildingId } : {}),
     };
   });
-
-  // 2. Compact rows per stack group (descending rank → inner rows).
-  const groups = new Map<string, PlacedString[]>();
-  for (const p of placed) {
-    const g = groups.get(p.groupKey);
-    if (g) g.push(p); else groups.set(p.groupKey, [p]);
-  }
-  const out: PlacedString[] = [];
-  for (const key of [...groups.keys()].sort()) {
-    const group = groups.get(key)!;
-    const ranksDesc = [...new Set(group.map((p) => p.rank))].sort((a, b) => b - a);
-    const rankToRow = new Map<number, number>();
-    ranksDesc.forEach((r, i) => rankToRow.set(r, i));
-    for (const p of group) out.push({ ...p, rowIndex: rankToRow.get(p.rank)! });
-  }
-  return out;
 }

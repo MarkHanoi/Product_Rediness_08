@@ -14,8 +14,28 @@ export {
 } from './planAutoDimensions.js';
 export { withAutoDimSpan, _resetTracerCache, type AutoDimStage } from './tracing.js';
 // Pure placement helpers exposed for deterministic unit tests (§SPIKE §8/§13).
-export { polygonCentroid, outwardNormal } from './placement.js';
+export { polygonCentroid, outwardNormal, cardinalOutwardNormal } from './placement.js';
 export { segmentsCross } from './geometry.js';
+
+// §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — THE TIER MODEL.
+//
+// Exported because the tier gap is NOT the engine's to invent: it is a PAPER constant
+// (C24) that only the VIEW can turn into world metres, so the L5 executor calls
+// `tierGapWorldM(view.scale)` and passes the result in as `AutoDimOptions.tierGapM`. The
+// guard (`detectFootprintCrossings`) is exported for the same reason it exists: an
+// L-shaped plate must be assertable — a rectangle passes this rule by luck.
+export {
+  tierGapWorldM,
+  tierOfRank,
+  bboxOf,
+  bboxClearance,
+  tierMagnitudeM,
+  TIER_BY_RANK,
+  OVERALL_TIER,
+  DEFAULT_TIER_GAP_PAPER_MM,
+  type FootprintBBox,
+} from './tiers.js';
+export { detectFootprintCrossings } from './planAutoDimensions.js';
 // §FIX-AUTODIM-ORTHO-COMPLETE-CHAINS (L-147, C56 §1.3 DI-7) — the orthogonal-only
 // invariant helper the L5 executor consumes to render cardinal dims axis-aligned.
 export { cardinalMeasurementAxis } from './planners.js';

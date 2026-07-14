@@ -15,7 +15,7 @@ import type {
   AutoDimSnapshot, AutoDimOptions, AutoDimResult, AutoDimReport,
   AutoDimWall, PlannedString, PlacedString, WallRun, DimNode, ValidationWarning, TickRef,
 } from './types.js';
-import type { PtXZ } from './geometry.js';
+import { segmentsCrossImpl, type PtXZ } from './geometry.js';
 import { partitionBuildings, type BuildingFootprint } from './buildings.js';
 import { openingsOnRun, type RunOpening } from './openings.js';
 import {
@@ -24,11 +24,18 @@ import {
 import { placeStrings, polygonCentroidImpl } from './placement.js';
 import { resolveConflicts } from './conflicts.js';
 import { withAutoDimSpan } from './tracing.js';
+// §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the tier model (tiers.ts).
+import { bboxOf, tierMagnitudeM, type FootprintBBox } from './tiers.js';
 
 const DEFAULT_SNAP_EPS_M = 0.20;
 const DEFAULT_MIN_SEGMENT_M = 0.05;
-const DEFAULT_STACK_WORLD_BASE_M = 0.5;
-const DEFAULT_STACK_WORLD_SPACING_M = 0.5;
+/**
+ * @deprecated §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the tier gap replaces the
+ * (base, spacing) pair. Kept as the DEFAULT tier gap so a caller that passes neither
+ * `tierGapM` nor `stackWorldSpacingM` keeps the spacing it has today (0.5 m ≈ 5 mm on a
+ * 1:100 sheet). The executor now passes a scale-derived gap, so this is a floor, not a rule.
+ */
+const DEFAULT_TIER_GAP_M = 0.5;
 const MM_PER_M = 1000;
 
 /**
@@ -50,6 +57,63 @@ type Building = BuildingFootprint;
 function makeMonotonicIdFactory(): () => string {
   let n = 0;
   return () => `dim-auto-${(++n).toString().padStart(6, '0')}`;
+}
+
+/**
+ * §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the ONE gap the tier model uses.
+ *
+ * Precedence: the view-scale-derived `tierGapM` (what the executor now passes, C24) →
+ * the legacy `stackWorldSpacingM` (so an existing caller keeps its spacing) → the default.
+ * Resolved in exactly one place so the serialiser and the Stage-7 crossing scan cannot
+ * drift apart.
+ */
+function resolveTierGapM(opts: AutoDimOptions): number {
+  const g = opts.tierGapM ?? opts.stackWorldSpacingM ?? DEFAULT_TIER_GAP_M;
+  return Number.isFinite(g) && g > 0 ? g : DEFAULT_TIER_GAP_M;
+}
+
+/**
+ * §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — RULE (a), CHECKED AT THE OUTCOME.
+ *
+ * "A dimension line NEVER crosses the thing it measures." This is the guard the founder
+ * asked for, and it is deliberately written against the FOOTPRINT POLYGON, not the bbox:
+ * a bbox test would pass an L-shaped plate whose dim line runs through the notch, which
+ * is exactly the class of near-miss that let this ship. It also re-derives the dim line
+ * from the SAME `tierMagnitudeM` the serialiser emits, so it cannot vacuously pass by
+ * checking a line nobody draws (the defect in the old Stage-7 scan).
+ *
+ * Exported + pure so an L-shaped plate can be asserted directly in a unit test.
+ */
+export function detectFootprintCrossings(
+  placed: readonly PlacedString[],
+  polygon: readonly PtXZ[],
+  tierGapM: number,
+): ValidationWarning[] {
+  if (polygon.length < 3) return [];
+  const out: ValidationWarning[] = [];
+  const edges: { a: PtXZ; b: PtXZ }[] = polygon.map((a, i) => ({ a, b: polygon[(i + 1) % polygon.length]! }));
+
+  for (const p of placed) {
+    if (p.orientation !== 'horizontal' && p.orientation !== 'vertical') continue;
+    const horizontal = p.orientation === 'horizontal';
+    const lo = Math.min(horizontal ? p.p1.x : p.p1.z, horizontal ? p.p2.x : p.p2.z);
+    const hi = Math.max(horizontal ? p.p1.x : p.p1.z, horizontal ? p.p2.x : p.p2.z);
+    const anchor = horizontal ? p.p1.z : p.p1.x;
+    const perpComp = horizontal ? p.outwardNormal.z : p.outwardNormal.x;
+    const pos = anchor + perpComp * tierMagnitudeM(p.clearanceM, p.rowIndex, tierGapM);
+    const q1 = horizontal ? { x: lo, z: pos } : { x: pos, z: lo };
+    const q2 = horizontal ? { x: hi, z: pos } : { x: pos, z: hi };
+    for (const e of edges) {
+      if (segmentsCrossImpl(q1, q2, e.a, e.b)) {
+        out.push({
+          code: 'geometry-crossing',
+          detail: `${p.kind} ${p.axisId} crosses the footprint at ${horizontal ? 'z' : 'x'}=${pos.toFixed(3)}`,
+        });
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 /** Canonical wall sort (§SPIKE §14.1): (minX, minZ, id) — total order, id tiebreak. */
@@ -111,10 +175,18 @@ function serialize(
   // §SPIKE §8) and `rowIndex` (progressive outward stacking — location dims nearest
   // the wall, the overall furthest out, so exterior chains never overlap opening
   // dims) are BOTH preserved; only the magnitude/scale changes.
-  const worldBaseM = opts.stackWorldBaseM ?? DEFAULT_STACK_WORLD_BASE_M;
-  const worldSpacingM = opts.stackWorldSpacingM ?? DEFAULT_STACK_WORLD_SPACING_M;
+  // §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — the standoff is measured from the
+  // FOOTPRINT, not from the string's own reference line:
+  //     magnitude = clearance(p1 → footprint bbox, along the outward normal)
+  //               + gap · (tier + 1)
+  // `clearance` is 0 for an ordinary façade chain (its p1 IS on the bbox edge) — so those
+  // dims land exactly where they do today — and LARGE for the overall on an L-plate, whose
+  // reference corner sits mid-plate. That single term is the whole fix, and it is the same
+  // term the Stage-7 crossing scan probes with (`tierMagnitudeM`), so the guard and the
+  // drawing can never disagree again.
+  const gapM = resolveTierGapM(opts);
   return ordered.map((p) => {
-    const magnitudeM = worldBaseM + p.rowIndex * worldSpacingM;
+    const magnitudeM = tierMagnitudeM(p.clearanceM, p.rowIndex, gapM);
     const offsetMm = p.side * magnitudeM * MM_PER_M;
     return DimensionStringSchema.parse({
       id: idFactory(),
@@ -395,7 +467,7 @@ export function planAutoDimensions(
       };
 
       if (!hasPerimeter || runs.length === 0) {
-        return [{ polygon: [] as PtXZ[], list: dedupe(planPerWallFallback(walls, minSeg)) }];
+        return [{ id: undefined as string | undefined, polygon: [] as PtXZ[], list: dedupe(planPerWallFallback(walls, minSeg)) }];
       }
 
       return buildings.map((b) => {
@@ -407,42 +479,62 @@ export function planAutoDimensions(
           list.push(...planOpeningChain(run, ops, minSeg));
           list.push(...planOpeningLocations(run, ops, minSeg));
         }
-        return { polygon: b.perimPolygon, list: dedupe(list) };
+        return { id: b.id as string | undefined, polygon: b.perimPolygon, list: dedupe(list) };
       });
     });
 
-    // ── Stage 6: true outward-side placement + row stacking, PER BUILDING ────
+    // ── Stage 6: true outward-side placement + TIER assignment, PER BUILDING ─
     //
     // The outward side is chosen relative to the building's OWN centroid (§SPIKE §8), so
     // each building's dim stack is pushed away from ITS footprint. A centroid averaged
     // over two buildings would sit in the gap between them and push building A's
     // dimensions straight into building B.
+    //
+    // §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — each building also brings its OWN
+    // footprint BBOX, and every string's standoff is measured from THAT (not from its own
+    // reference line). Two buildings ⇒ two independent tier stacks, each clear of its own
+    // plate: the bbox is per-building for exactly the reason the centroid is.
+    const gapM = resolveTierGapM(opts);
+    const bboxByBuilding: (FootprintBBox | null)[] = plannedByBuilding.map(({ polygon }) =>
+      polygon.length >= 3 ? bboxOf(polygon) : null,
+    );
     const placed = withAutoDimSpan('place', () =>
-      plannedByBuilding.flatMap(({ polygon, list }) =>
+      plannedByBuilding.flatMap(({ polygon, list, id }, i) =>
         placeStrings(
           list,
           polygon.length >= 3 ? polygonCentroidImpl(polygon) : null,
           opts.labelCharWidthM,
+          bboxByBuilding[i] ?? null,
+          id,
         ),
       ),
     );
 
     // ── Stage 7: conflict detection + resolution (deterministic) ────────────
     const { placed: resolved, notes, skipped } = withAutoDimSpan('conflict', () =>
-      resolveConflicts(
-        placed,
-        walls,
-        minSeg,
-        opts.stackWorldBaseM ?? DEFAULT_STACK_WORLD_BASE_M,
-        opts.stackWorldSpacingM ?? DEFAULT_STACK_WORLD_SPACING_M,
-      ),
+      resolveConflicts(placed, walls, minSeg, gapM),
     );
 
     // Serialize (deterministic id order).
     const strings = serialize(resolved, opts, idFactory);
 
     // ── Stage 8: QA (post-resolution validation notes) ──────────────────────
-    const warnings = withAutoDimSpan('qa', () => runQA(snapshot, perimNodes, resolved, runs, hasPerimeter, minSeg, notes));
+    const warnings = withAutoDimSpan('qa', () => {
+      const w = runQA(snapshot, perimNodes, resolved, runs, hasPerimeter, minSeg, notes);
+      // §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST (L-281) — RULE (a) checked against the
+      // FOOTPRINT POLYGON of each building, at the position the string will actually be
+      // DRAWN. Not the bbox: a bbox test passes an L-plate whose dim line runs through the
+      // notch. Each building is tested against its OWN plate (a dim outside building A
+      // that "crosses" distant building B's polygon is not a defect of A).
+      if (hasPerimeter) {
+        for (const b of buildings) {
+          const mine = resolved.filter((p) => p.buildingId === b.id);
+          if (mine.length === 0) continue;
+          w.push(...detectFootprintCrossings(mine, b.perimPolygon, gapM));
+        }
+      }
+      return w;
+    });
 
     const openingCount = snapshot.walls.reduce((s, w) => s + w.openings.length, 0);
     const dimensioned = new Set<string>();
