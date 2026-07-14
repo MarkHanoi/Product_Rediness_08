@@ -15,6 +15,50 @@ plan turns these into phased work. **Nothing is dropped.**
 Verdict legend: **OK** (verified working) · **GAP** (works but diverges/incomplete) · **BROKEN** (reproduced
 defect) · **N/V** (needs source verification — file cited).
 
+### L-J — A GUARD THAT **CANNOT FAIL** IS NOT A GUARD. PROVE YOUR TEST CAN GO RED.
+
+I briefed an agent on the overall-dimension bug (L-281) with what I thought was the sharp
+instruction: *"guard it on an L-SHAPED plate — his exact case is L-shaped, and A RECTANGLE
+WOULD PASS BY LUCK."*
+
+**The agent measured it and refuted me: AN L PASSES BY LUCK TOO.** Every extreme node of an
+L **is** a bbox corner, so the overall never crosses the plate. The min-X node of an L is
+`(0,0)` — clearance zero, no crossing. My "sharp" guard was **unfalsifiable**: it would have
+gone green on a broken product and I would have shipped it believing it was proved.
+
+The defect needs an extreme node that is **NOT a bbox corner** — a **stepped / T / U** plate.
+The suite now **reproduces the crossing on a T** (the vertical overall drawn straight across
+the plate — the founder's exact line), then proves the fix, and keeps the L as a *regression*
+case **with a comment saying why it is not a proof**.
+
+**THE RULE: before you trust a guard, MAKE IT GO RED.** Break the product deliberately and
+watch the test fail. A test that has never failed has never tested anything — and the more
+confident the brief that specified it, the more dangerous it is.
+
+This is L-C's twin. L-C says: *when a test is red, ask whether the TEST or the PRODUCT is
+wrong.* L-J says: *when a test is GREEN, ask whether it COULD have been red.*
+
+---
+
+### L-K — CHECK THE INSTRUCTION AGAINST THE MODEL, NOT AGAINST THE INSTRUCTOR.
+
+In the same session I briefed the auto-tag agent to display **`ElementCode`** as the tag mark
+— I had seen `WA-00-001` in the founder's inspector and assumed it was the source.
+
+**It is not.** `ElementCode` mints a *different*, dash-free identifier (`WA001`). The mark the
+founder sees comes from `MarkGenerator` (`element.mark`) — **and the door/window SCHEDULE JOINS
+ON `element.mark`.**
+
+Had the agent complied with my brief, **every tag in the product would have failed to join its
+schedule (C28)** — the tag would have looked perfect and been useless, which is this codebase's
+signature failure. It checked the model instead of obeying me, and said so.
+
+**THE RULE: an instruction from the orchestrator is a HYPOTHESIS, not a fact.** If the code
+disagrees with the brief, THE BRIEF IS WRONG — say so, in writing. Every agent brief on this
+project now carries that line, and it has paid for itself twice today.
+
+---
+
 ### L-I — `git commit` COMMITS THE **INDEX**, NOT YOUR ARGUMENTS. IN A SHARED CHECKOUT, THAT SHIPS OTHER PEOPLE'S HALF-DONE WORK.
 
 **I broke `main` with a DOCS commit.** I ran `git add docs/04-reference/ && git commit` — scoped, careful, docs only. But a live agent had **staged** `packages/core-app-model/src/index.ts` (its new barrel exports), and **`git commit` commits the whole index**, not just the paths I passed to `git add`. So my "docs" commit silently carried that file, and `main` spent ~20 minutes **re-exporting `./drawing/DrawingZone.js` with the file absent** — a broken build on the founder's deploy branch.
