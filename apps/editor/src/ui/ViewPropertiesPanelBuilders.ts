@@ -13,6 +13,12 @@ import { renderDivergedBanner, shouldShowDivergedBanner, dismissDivergedBanner }
 import { ICON_PENCIL, ICON_INTENT, makeIcon } from './icons/ViewerIconSet';
 import { computeViewRangeDefaults } from '@pryzm/core-app-model';
 import type { Level } from '@pryzm/core-app-model';
+// §FIX-SAVED-VIEW-STUCK-ON-MEDIUM (L-289) — the L0 schema owns the enum AND its default (P5).
+// The panel MUST NOT re-declare either; it only has to SHOW them.
+import { DEFAULT_DETAIL_LEVEL, type DetailLevel } from '@pryzm/schemas/view/detail-level';
+
+/** Detail Level → the LOD number the founder and the contracts both speak (ADR-121 §4.2). */
+const LOD_OF: Readonly<Record<DetailLevel, string>> = { coarse: '100', medium: '200', fine: '300' };
 
 export interface VisIntentHost {
     runtime: any;
@@ -208,6 +214,8 @@ export function buildVisibilityIntentSection(host: VisIntentHost, def: ViewDefin
 
 export interface OutputSectionHost {
     _fireSetViewOutput(viewId: string, output: ViewOutputSettings | null): void;
+    /** §FEAT-SET-OUT-INTENT (L-289) — write `ViewDefinition.setOut` (live documentation). */
+    _fireSetViewSetOut(viewId: string, setOut: { live: boolean } | null): void;
     onSceneBgChange: ((colorHex: string) => void) | undefined;
     _vppSection(title: string, content: HTMLElement, collapsed?: boolean): HTMLElement;
 }
@@ -261,11 +269,45 @@ export function buildOutputSection(host: OutputSectionHost, def: ViewDefinition)
     dlSelect.addEventListener('change', () => {
         const val = dlSelect.value as ViewOutputSettings['detailLevel'] | undefined;
         const patch: ViewOutputSettings = { ...o };
-        if (val) patch.detailLevel = val;
-        else delete patch.detailLevel;
+        // §FIX-VIEW-OUTPUT-NO-BRIDGE (L-289) — EXPLICIT `undefined`, never `delete`.
+        // `_fireSetViewOutput` now routes through `view.updateDefinition`, whose store write
+        // MERGES the output patch (`{...view.output, ...patch.output}`). A DELETED key is simply
+        // absent from the spread, so the OLD value survives the merge and "(inherit)" would be a
+        // no-op. An explicit `undefined` is present in the spread and overwrites it.
+        patch.detailLevel = val || undefined;
         host._fireSetViewOutput(def.id, patch);
     });
     content.appendChild(dlSelect);
+
+    // ── Detail Level — THE STATE, MADE VISIBLE (§FIX-SAVED-VIEW-STUCK-ON-MEDIUM, L-289) ──
+    //
+    // `DEFAULT_DETAIL_LEVEL` was raised 'medium' → 'fine' (L-252), but a view SAVED BEFORE that
+    // keeps its stored 'medium' — deliberately: raising a default must never silently rewrite
+    // drawings the user has already made. The consequence is invisible and brutal: an existing
+    // project's plan shows NO LOD-300 detail (no door rebate, no lever, no window mullion) and
+    // NOTHING ON SCREEN SAYS WHY.
+    //
+    // The honest fix is NOT to migrate his data — it is to make the state legible and let him
+    // choose. This line says what the view is on, and, when that differs from the project
+    // default, says so and why.
+    const stored = o.detailLevel;
+    const note = document.createElement('div');
+    note.className = 'vpp-label';
+    note.style.cssText = 'grid-column:1/-1;font-size:0.68rem;line-height:1.35;opacity:0.75;margin:-2px 0 4px;';
+    if (stored === undefined) {
+        note.textContent = `Inheriting the project default — ${DEFAULT_DETAIL_LEVEL} (LOD ${LOD_OF[DEFAULT_DETAIL_LEVEL]}).`;
+    } else if (stored === DEFAULT_DETAIL_LEVEL) {
+        note.textContent = `This view is set to ${stored} (LOD ${LOD_OF[stored]}) — the project default.`;
+    } else {
+        note.style.opacity = '1';
+        note.style.color   = '#6600FF';   // PRYZM purple — this is a state the user must SEE.
+        note.textContent =
+            `This view is stored on ${stored} (LOD ${LOD_OF[stored]}). The project default is now ` +
+            `${DEFAULT_DETAIL_LEVEL} (LOD ${LOD_OF[DEFAULT_DETAIL_LEVEL]}) — views saved earlier keep ` +
+            `their own setting, so construction detail (door rebate + hardware, window mullion) is ` +
+            `NOT drawn until you choose Fine.`;
+    }
+    content.appendChild(note);
 
     // ── Visual Style ─────────────────────────────────────────────────────
     const vsLabel = document.createElement('div');
@@ -293,8 +335,7 @@ export function buildOutputSection(host: OutputSectionHost, def: ViewDefinition)
     vsSelect.addEventListener('change', () => {
         const val = vsSelect.value as ViewOutputSettings['visualStyle'] | undefined;
         const patch: ViewOutputSettings = { ...o };
-        if (val) patch.visualStyle = val;
-        else delete patch.visualStyle;
+        patch.visualStyle = val || undefined;   // §FIX-VIEW-OUTPUT-NO-BRIDGE — see Detail Level
         host._fireSetViewOutput(def.id, patch);
     });
     content.appendChild(vsSelect);
@@ -323,11 +364,38 @@ export function buildOutputSection(host: OutputSectionHost, def: ViewDefinition)
     dmSelect.addEventListener('change', () => {
         const val = dmSelect.value as ViewOutputSettings['displayModel'] | undefined;
         const patch: ViewOutputSettings = { ...o };
-        if (val) patch.displayModel = val;
-        else delete patch.displayModel;
+        patch.displayModel = val || undefined;   // §FIX-VIEW-OUTPUT-NO-BRIDGE — see Detail Level
         host._fireSetViewOutput(def.id, patch);
     });
     content.appendChild(dmSelect);
+
+    // ── Live documentation (Set Out) ──────────────────────────── [L-289] ──
+    //
+    // The "Set Out — Live Documentation" INTENT is the one-click door (pick it from the
+    // Visibility Intent dropdown and the view is documented, at LOD-300, and stays that way).
+    // This checkbox is the SECOND door, and it is the honest minimum: a user who has bound
+    // "Architectural Documentation" and then decides they want live docs must still be able to
+    // reach `setOut.live` WITHOUT rebinding their intent and losing its graphics.
+    //
+    // One field, one authority: both doors write `ViewDefinition.setOut`, which
+    // `setOutIntentOf()` is the sole reader of.
+    const soLabel = document.createElement('div');
+    soLabel.className   = 'vpp-label';
+    soLabel.textContent = 'Live documentation';
+    soLabel.title =
+        'Set Out — re-derive this view\'s tags AND dimensions whenever the model changes. ' +
+        'Works in plan and elevation.';
+    content.appendChild(soLabel);
+
+    const soCheck = document.createElement('input');
+    soCheck.type    = 'checkbox';
+    soCheck.style.justifySelf = 'end';
+    soCheck.checked = def.setOut?.live === true;
+    soCheck.setAttribute('aria-label', 'Live documentation (Set Out)');
+    soCheck.addEventListener('change', () => {
+        host._fireSetViewSetOut(def.id, soCheck.checked ? { live: true } : null);
+    });
+    content.appendChild(soCheck);
 
     // ── Shadows ──────────────────────────────────────────────────────────
     const shadowLabel = document.createElement('div');

@@ -192,6 +192,15 @@ class ViewDefinitionStoreImpl {
         annotationOverrides?: Partial<AnnotationVisibilitySettings> | null;
         titleOnSheet?:  string | null;
         subDiscipline?: string | null;
+        /**
+         * §FEAT-SET-OUT-INTENT (L-289) — the Set-Out intent (live documentation).
+         *
+         * It was declared on `ViewDefinition` (§13a, L-286) and read by `setOutIntentOf()`,
+         * but `update()` never carried it — so `view.updateDefinition`, the ONE view-mutation
+         * bridge the properties panel actually reaches, silently DROPPED it. A field with a
+         * reader, no writer and no error is indistinguishable from a feature that does not exist.
+         */
+        setOut?: { live: boolean } | null;
     }): boolean {
         const view = this._views.get(viewId);
         if (!view) return false;
@@ -248,6 +257,11 @@ class ViewDefinitionStoreImpl {
         if ((patch as any).purpose !== undefined) {
             (view as any).purpose = (patch as any).purpose === null ? undefined : (patch as any).purpose;
         }
+        // §FEAT-SET-OUT-INTENT (L-289) — REPLACE semantics (the block is a single opinion,
+        // not a bag of fields to merge). `null` clears it ⇒ the view is no longer live.
+        if (patch.setOut !== undefined) {
+            view.setOut = patch.setOut === null ? undefined : { ...patch.setOut };
+        }
 
         view.metadata.modifiedAt = Date.now();
         view.metadata.version   += 1;
@@ -280,6 +294,25 @@ class ViewDefinitionStoreImpl {
         if (oldDrawingScale !== this._drawingScaleOf(view.output)) {
             this.dispatch('vd:drawing-scale-changed', { viewId });
         }
+        return true;
+    }
+
+    /**
+     * §FEAT-SET-OUT-INTENT (L-289) — sets or clears the view's Set-Out intent.
+     *
+     * The replace-semantics sibling of `setOutput` / `setViewRange` / `setCrop`. Pass null to
+     * clear (the view stops re-deriving its documentation). Read back by `setOutIntentOf()`
+     * (`apps/editor/src/ui/documentation/setOut.ts`), which is the ONE authority on
+     * "is this view live?" — this method does not duplicate that decision, it only stores it.
+     */
+    setSetOut(viewId: string, setOut: { live: boolean } | null): boolean {
+        const view = this._views.get(viewId);
+        if (!view) return false;
+        view.setOut              = setOut ? { ...setOut } : undefined;
+        view.metadata.modifiedAt = Date.now();
+        view.metadata.version   += 1;
+        storeEventBus.emit({ elementType: 'view-definition', elementId: viewId, operation: 'update', timestamp: Date.now() });
+        this.dispatch('vd:view-updated', { viewId });
         return true;
     }
 

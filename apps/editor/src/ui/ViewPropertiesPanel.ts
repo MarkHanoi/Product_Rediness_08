@@ -734,6 +734,7 @@ export class ViewPropertiesPanel {
     private _buildOutputSection(def: ViewDefinition): HTMLElement {
         return buildOutputSection({
             _fireSetViewOutput: (id, output) => this._fireSetViewOutput(id, output),
+            _fireSetViewSetOut: (id, setOut) => this._fireSetViewSetOut(id, setOut),
             onSceneBgChange: this.onSceneBgChange,
             _vppSection: (t, c, col) => this._vppSection(t, c, col),
         }, def);
@@ -920,10 +921,49 @@ export class ViewPropertiesPanel {
     // ── Phase VI Command Fire Helpers ─────────────────────────────────────────
     // §01 §2 — All mutations go through CommandManager; no direct store calls.
 
+    /**
+     * §FIX-VIEW-OUTPUT-NO-BRIDGE (L-289) — THE DETAIL LEVEL DROPDOWN WAS A SILENT NO-OP.
+     *
+     * This fired `view.setOutput`. **Nothing in the editor handles `view.setOutput`.**
+     * `initBusHandlers()` bridges `view.setCrop`, `view.updateDefinition`, `view.createDefinition`
+     * … but NOT `view.setOutput` — and it registers BEFORE `registerViewHandlers()`, so the type
+     * fell through to `plugins/view`'s `SetViewOutputHandler`, whose `canExecute()` asks
+     * `ctx.stores.view.getState().has(viewId)`. `stores.view` is the `@pryzm/view-state`
+     * `ViewRegistry` that `bootstrap.everything` builds — a store the founder's ViewDefinitions
+     * are NEVER written into (they live in core-app-model's `viewDefinitionStore`, which every
+     * reader — including `resolveEffectiveDetailLevel` — actually reads). So `has()` was always
+     * false, the bus rejected the command, and the rejection was swallowed by the `.catch(() => {})`
+     * that used to sit on this line.
+     *
+     * Net effect: **Scale, Detail Level, Visual Style, Display Model and Shadows did nothing.**
+     * Every unit test stayed green, because they all assert at `resolveEffectiveDetailLevel()` —
+     * a seam BELOW the break. This is the same class of defect as the pen that was resolved
+     * through the full Contract-23 chain and then thrown away in `PlanViewCanvas`.
+     *
+     * The fix routes through `view.updateDefinition` — the bridge that IS registered, IS the live
+     * handler, writes the real `viewDefinitionStore`, and yields ONE undo entry. NOTE the merge
+     * semantics this implies for clearing a field: see `buildOutputSection`.
+     *
+     * The missing `view.setOutput` bridge is reported separately — `initBusHandlers.ts` is owned
+     * by another agent this week and racing it would be worse than routing around it.
+     */
     private _fireSetViewOutput(viewId: string, output: ViewOutputSettings | null): void {
-        // Phase F-1.1: SetViewOutputHandler is now a full state-mutating bus handler.
-        // commandManager.execute() dual-write removed.
-        window.runtime?.bus?.executeCommand('view.setOutput', { viewId, output: output as Record<string, unknown> | null }).catch(() => {});
+        window.runtime?.bus
+            ?.executeCommand('view.updateDefinition', { viewId, patch: { output } })
+            .catch((e: unknown) => console.error('[ViewPropertiesPanel] view.setOutput failed:', e));
+    }
+
+    /**
+     * §FEAT-SET-OUT-INTENT (L-289) — write the view's Set-Out intent (live documentation).
+     *
+     * `setOut` is read by `setOutIntentOf()` and gates the whole L-286 reconcile engine (tags AND
+     * dimensions, plan AND elevation). It had a reader and NO WRITER — the engine was complete and
+     * unreachable. Rides the same `view.updateDefinition` bridge, so it is one undo entry.
+     */
+    private _fireSetViewSetOut(viewId: string, setOut: { live: boolean } | null): void {
+        window.runtime?.bus
+            ?.executeCommand('view.updateDefinition', { viewId, patch: { setOut } })
+            .catch((e: unknown) => console.error('[ViewPropertiesPanel] view.setOut failed:', e));
     }
 
     private _fireSetViewRange(viewId: string, viewRange: import('@pryzm/core-app-model').ViewRangeSettings | null): void {

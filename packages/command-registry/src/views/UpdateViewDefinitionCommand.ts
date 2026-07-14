@@ -37,6 +37,19 @@ export interface UpdateViewDefinitionPatch {
      * Pass `null` to clear crop, `undefined` (omit) to leave crop untouched.
      */
     crop?:         ViewCropSettings | null;
+    /**
+     * §FIX-VIEW-OUTPUT-NO-BRIDGE (L-289) — scale / detailLevel / visualStyle / displayModel /
+     * shadows. `viewDefinitionStore.update()` has always applied `patch.output` (MERGE
+     * semantics); it simply was not DECLARED here, because the properties panel used to fire
+     * `view.setOutput` — a command type NOTHING in the editor handles, so every Output-section
+     * edit was a silent no-op. The panel now routes here. Pass `null` to clear output entirely.
+     */
+    output?:       ViewDefinition['output'] | null;
+    /**
+     * §FEAT-SET-OUT-INTENT (L-289) — live documentation. REPLACE semantics.
+     * Pass `null` to make the view no longer live.
+     */
+    setOut?:       ViewDefinition['setOut'] | null;
 }
 
 export class UpdateViewDefinitionCommand implements Command {
@@ -91,7 +104,23 @@ export class UpdateViewDefinitionCommand implements Command {
             // clobbers an unrelated crop. `snap.crop` is the crop as it was at
             // execute() time (i.e. before this command applied `patch.crop`).
             ...(this.patch.crop !== undefined ? { crop: snap.crop ?? null } : {}),
+            // §FIX-VIEW-OUTPUT-NO-BRIDGE / §FEAT-SET-OUT-INTENT (L-289) — same conditional rule
+            // as `crop`, and for the same reason: restore ONLY what this command actually
+            // patched, so an unrelated update never clobbers a field it did not touch.
+            //
+            // `output` must be restored with REPLACE semantics, not merge. `update()` merges
+            // output (`{...view.output, ...patch.output}`), so handing it the snapshot object
+            // would leave any key the forward patch ADDED still present — the exact
+            // §VIEW-UNDO-SPATIAL-MERGE-RESIDUE (G8) defect, one field over. Clearing to `null`
+            // first makes the restore a true replace.
+            ...(this.patch.output !== undefined ? { output: null } : {}),
+            ...(this.patch.setOut !== undefined ? { setOut: snap.setOut ?? null } : {}),
         } as any);
+        // The replace half of the output restore — `update()` merges, so the clear above and
+        // this write cannot be one call.
+        if (this.patch.output !== undefined && snap.output) {
+            viewDefinitionStore.setOutput(this.viewId, snap.output);
+        }
         return { success: ok, affectedElementIds: [this.viewId] };
     }
 

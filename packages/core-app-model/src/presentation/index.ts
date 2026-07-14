@@ -29,6 +29,8 @@ export type {
     OverrideLayer,
     PlanViewRangeDefaults,
     ViewIntentInstance,
+    // §FEAT-SET-OUT-INTENT (L-289) — the documentation half of an intent.
+    DocumentationIntent,
 } from './VisibilityIntentTypes.js';
 
 export { EMPTY_OVERRIDE_LAYER } from './VisibilityIntentTypes.js';

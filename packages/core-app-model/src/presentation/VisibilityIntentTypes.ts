@@ -395,6 +395,31 @@ export interface PurposeModifier {
  * data at startup and are never written to the database. User intents are
  * persisted in the `visibility_intents` PostgreSQL table.
  */
+/**
+ * §FEAT-SET-OUT-INTENT (L-289) — the documentation defaults an intent seeds onto a view.
+ *
+ * Every field is OPTIONAL and every field is a DEFAULT: `AssignViewIntentCommand` writes it
+ * onto the ViewDefinition when the intent is bound, and the ViewDefinition remains the single
+ * read authority thereafter. An intent with no `documentation` block changes nothing about the
+ * view's documentation state — which is why the four pre-existing system intents are unaffected.
+ */
+export interface DocumentationIntent {
+    /**
+     * The Detail Level (LOD 100/200/300) this intent wants — seeds
+     * `ViewDefinition.output.detailLevel`, the tier-4 input to `resolveEffectiveDetailLevel`.
+     *
+     * A set-out drawing is the DETAILED one: 'fine' is what makes the door's rebate + lever and
+     * the window's mullion appear at all (they are the LOD-300 branches of the symbol builders,
+     * shipped since L-241/L-278 and gated behind exactly this enum).
+     */
+    readonly detailLevel?: DetailLevel;
+    /**
+     * Seeds `ViewDefinition.setOut.live` — the view re-derives its tags AND dimensions on every
+     * model change (`registerSetOut` → `reconcileSetOutView`, plan AND elevation).
+     */
+    readonly setOutLive?: boolean;
+}
+
 export interface VisibilityIntent {
     /** Stable UUID — never changes after creation. */
     id:          string;
@@ -467,6 +492,33 @@ export interface VisibilityIntent {
      * System intents set this to 1.20 m (architectural convention).
      */
     planViewRange?: PlanViewRangeDefaults;
+    /**
+     * §FEAT-SET-OUT-INTENT (L-289) — THE DOCUMENTATION HALF OF AN INTENT.
+     *
+     * The four original system intents are VISIBILITY intents: they answer "which
+     * categories are shown, and with what pen?". They say nothing about whether the
+     * view is DOCUMENTED — tagged, dimensioned, and kept true as the model changes.
+     *
+     * So PRYZM shipped a complete live-documentation engine (L-286: `registerSetOut`
+     * → `reconcileSetOutView` → tags AND dimensions, plan AND elevation) behind a bare
+     * boolean on the ViewDefinition (`setOut.live`) that NO UI COULD REACH. A capability
+     * that exists, is correct, and is unreachable is the L-267 Rotate-button defect.
+     *
+     * This block is the door. It is DATA carried on the intent (P7/C09) — never a code
+     * branch. There is no `if (isSetOut)` anywhere: `AssignViewIntentCommand` stamps
+     * whatever `documentation` block the bound intent carries onto the view, and the four
+     * original intents carry none, so they are byte-for-byte unchanged.
+     *
+     * WHY IT IS STAMPED ONTO THE VIEW AND NOT READ THROUGH THE INTENT AT RENDER TIME:
+     * the two consumers already exist and already have exactly ONE authority each —
+     * `resolveEffectiveDetailLevel` reads `ViewDefinition.output.detailLevel`, and
+     * `setOutIntentOf` reads `ViewDefinition.setOut`. Teaching each of them to ALSO
+     * consult the bound intent would put two authorities over one pixel — the precise
+     * collision `DetailLevelResolver`'s header was written to prevent. The intent supplies
+     * the DEFAULTS; the view remains the single authority. The user can still override any
+     * of them afterwards from the properties panel, and that override survives.
+     */
+    documentation?: DocumentationIntent;
     /**
      * Stage P0 (Master Implementation Plan Wave 1) — View Template absorption.
      *
