@@ -486,8 +486,11 @@ export class DoorPlanSymbolBuilder {
             // ─────────────────────────────────────────────────────────────────
             const leafLength = Math.max(0.05, (width - 2 * frameThick) / 2);
 
-            const leftHinge  = centre.clone().addScaledVector(dir, -clearHalf);
-            const rightHinge = centre.clone().addScaledVector(dir, +clearHalf);
+            // §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — THE HINGE IS ON THE
+            // WALL FACE. See `_hingeAtWallFace`: both leaves of a double door pivot on
+            // the same face line, so the pair reads as one opening.
+            const leftHinge  = this._hingeAtWallFace(centre, dir, -clearHalf, swingDir, halfThk);
+            const rightHinge = this._hingeAtWallFace(centre, dir, +clearHalf, swingDir, halfThk);
 
             const leaves: Array<{ hinge: THREE.Vector3; panelDir: THREE.Vector3 }> = [
                 { hinge: leftHinge,  panelDir: dir.clone() },
@@ -496,7 +499,7 @@ export class DoorPlanSymbolBuilder {
 
             for (const { hinge, panelDir } of leaves) {
                 this._addLeaf(hinge, panelDir, swingDir, leafLength, leafThick, hasHandle, lod,
-                              cutPositions, projPositions, ghostPositions, leftNormal);
+                              cutPositions, projPositions, ghostPositions);
             }
         } else {
             // ── Single door ──────────────────────────────────────────────────
@@ -506,12 +509,17 @@ export class DoorPlanSymbolBuilder {
                 ? dir.clone().negate()
                 : dir.clone();
 
-            const hingePoint = (door.hingesSide === 'right')
-                ? centre.clone().addScaledVector(dir, +clearHalf)
-                : centre.clone().addScaledVector(dir, -clearHalf);
+            // §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — THE HINGE IS ON THE
+            // WALL FACE, NOT THE WALL CENTRELINE. Derived from the OPENING (the void
+            // edge → the jamb) and the host wall's own reveal — never invented.
+            const hingePoint = this._hingeAtWallFace(
+                centre, dir,
+                (door.hingesSide === 'right') ? +clearHalf : -clearHalf,
+                swingDir, halfThk,
+            );
 
             this._addLeaf(hingePoint, panelDir, swingDir, leafLength, leafThick, hasHandle, lod,
-                          cutPositions, projPositions, ghostPositions, leftNormal);
+                          cutPositions, projPositions, ghostPositions);
         }
 
         // §FIX-DOOR-PLAN-SYMBOL-PURITY (L-266) — the THRESHOLD LINE IS GONE. It ran
@@ -533,6 +541,51 @@ export class DoorPlanSymbolBuilder {
         if (ghostGeo) ghostGeo.setAttribute('position', new THREE.Float32BufferAttribute(ghostPositions, 3));
 
         return { cut: cutGeo, proj: projGeo, ghost: ghostGeo };
+    }
+
+    /**
+     * §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — THE ONE HINGE POINT.
+     *
+     * THE ARC'S CENTRE **IS** THE HINGE, so there may be exactly ONE definition of it.
+     * This is that definition; `_addLeaf` derives the leaf, the arc AND the closed-leaf
+     * ghost from the single point it returns, so they cannot drift apart (compute them
+     * independently and the drawing lies about the clearance an architect reads off it).
+     *
+     * WHERE THE HINGE IS, AND WHY IT MOVED:
+     *
+     * It was `centre ± dir·clearHalf` — a point ON THE WALL CENTRELINE. The founder:
+     * *"make the door LEAF aligned with the SLAB LINE"* — the open leaf's hinge edge
+     * floated half a wall thickness BEHIND the wall face, buried inside the wall. That
+     * is not a cosmetic offset: A DOOR PIVOTS ON ITS LINING, AT THE FACE IT IS HUNG ON.
+     * A hinge on the centreline puts the swing arc's centre half a wall inside the wall,
+     * so EVERY clearance read off that arc is wrong by up to half the wall thickness.
+     * L-127: the swing arc is a DIMENSION, not a decoration.
+     *
+     * The point is derived, never typed:
+     *   • ALONG the wall  — the jamb, i.e. the opening's void edge pulled in by the
+     *     lining (`clearHalf` = halfWidth − frameThickness). The void edges come from
+     *     the opening record (C15 §2), so the hinge sits on the real jamb.
+     *   • ACROSS the wall — the wall FACE on the SWING side (`swingDir · halfThickness`),
+     *     from the host wall's own thickness. The leaf is hung on the face it opens
+     *     towards, so the open leaf projects OUT of the wall from that face line, and
+     *     the closed-leaf ghost lies flush behind it.
+     *
+     * @param centre        Opening centre on the wall baseline.
+     * @param dir           Unit vector along the wall baseline.
+     * @param alongOffset   Signed distance from `centre` to the hinge jamb (±clearHalf).
+     * @param swingDir      Unit vector across the wall, pointing the way the door opens.
+     * @param halfThickness Half the HOST WALL's thickness — the reveal to its face.
+     */
+    private _hingeAtWallFace(
+        centre: THREE.Vector3,
+        dir: THREE.Vector3,
+        alongOffset: number,
+        swingDir: THREE.Vector3,
+        halfThickness: number,
+    ): THREE.Vector3 {
+        return centre.clone()
+            .addScaledVector(dir, alongOffset)
+            .addScaledVector(swingDir, halfThickness);
     }
 
     /**
@@ -563,7 +616,6 @@ export class DoorPlanSymbolBuilder {
      * @param leafThick  Full leaf thickness (from the door type).
      * @param hasHandle  The RECORD's `handle` flag — gates the LOD-300 ironmongery.
      * @param lod        Effective detail level for this door in this view.
-     * @param leftNormal Wall left-normal — the closed leaf's thickness runs across it.
      */
     private _addLeaf(
         hinge: THREE.Vector3,
@@ -576,7 +628,6 @@ export class DoorPlanSymbolBuilder {
         cutPositions: number[],
         projPositions: number[],
         ghostPositions: number[],
-        leftNormal: THREE.Vector3,
     ): void {
         const cutSeg = (a: THREE.Vector3, b: THREE.Vector3): void => {
             cutPositions.push(a.x, 0, a.z, b.x, 0, b.z);
@@ -651,33 +702,60 @@ export class DoorPlanSymbolBuilder {
         // resolution*). It is skipped on a leaf too narrow to carry it (so a slim leaf
         // never draws hardware over its own tip) and on a door whose record says it has
         // no handle.
+        // §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — A LEVER, NOT A CROSSBAR.
+        //
+        // The superseded block looped over BOTH leaf faces — `[[0, -1], [leafThick, +1]]`
+        // — drawing a rose + a perpendicular lever on each. Two levers, one per face,
+        // projecting in OPPOSITE directions from a common centreline, is a symmetric
+        // PLUS SIGN: the founder read it as a T-bar / crossbar, and he was right. It is
+        // also wrong as ironmongery: a lever handle is a single L on ONE face.
+        //
+        // What is drawn now, on ONE face, at the LATCH end:
+        //
+        //        leaf face │
+        //                  ├──────┐  escutcheon plate (stands `roseProj` proud)
+        //                  │      │
+        //                  │      │  lever — perpendicular, off the plate's LATCH end,
+        //                  │      ╵  so plate + lever read as an OFFSET L, never a T.
+        //
+        // WHICH FACE — DERIVED, NOT PICKED. The leaf is drawn OPEN at 90°, so the
+        // rotation panelDir → swingDir carries the CLOSED leaf's swing-side face onto
+        // the face whose outward normal is −panelDir. That is the face a person walking
+        // through the door (into the swing) actually reaches for, so the lever goes
+        // there. Flip the swing and the handle flips with it, because both come from
+        // `swingDir` — one source.
+        //
+        // EVERY dimension is still a multiple of the REAL `leafThickness` resolved from
+        // the door type (ADR-121 §4.4): no literal is typed here.
         if (lod === 'fine' && hasHandle) {
             const setBack   = 3 * leafThick;         // latch edge → handle centreline
             const leverLen  = 2 * leafThick;         // lever projection from the face
-            const roseHalf  = leafThick;             // half the rose's along-leaf length
-            const roseProj  = leafThick / 2;         // how far the rose stands proud
+            const roseHalf  = leafThick;             // half the escutcheon's along-leaf length
+            const roseProj  = leafThick / 2;         // how far the escutcheon stands proud
             if (leafLength > setBack + roseHalf) {
-                const base = hinge.clone().addScaledVector(swingDir, leafLength - setBack);
-                // face = 0 (hinge-side face) and face = leafThick (opposite face);
-                // `out` is the outward normal of that face, along ∓panelDir.
-                for (const [faceOffset, outSign] of [[0, -1], [leafThick, +1]] as const) {
-                    const c = base.clone().addScaledVector(panelDir, faceOffset);
-                    const along = (t: number) => c.clone().addScaledVector(swingDir, t);
-                    const out   = (p: THREE.Vector3, d: number) =>
-                        p.clone().addScaledVector(panelDir, outSign * d);
-                    // Rose — two cheeks off the leaf face + the back plate joining them.
-                    const cheekA0 = along(-roseHalf);
-                    const cheekB0 = along(+roseHalf);
-                    const cheekA1 = out(cheekA0, roseProj);
-                    const cheekB1 = out(cheekB0, roseProj);
-                    projSeg(cheekA0.x, cheekA0.z, cheekA1.x, cheekA1.z);
-                    projSeg(cheekB0.x, cheekB0.z, cheekB1.x, cheekB1.z);
-                    projSeg(cheekA1.x, cheekA1.z, cheekB1.x, cheekB1.z);
-                    // Lever — out of the rose's face, perpendicular to the leaf.
-                    const lever0 = out(c, roseProj);
-                    const lever1 = out(c, roseProj + leverLen);
-                    projSeg(lever0.x, lever0.z, lever1.x, lever1.z);
-                }
+                // The handle sits at the LATCH end — `setBack` back from the free edge,
+                // i.e. as far from the hinge as the door's own leaf thickness allows.
+                const c = hinge.clone().addScaledVector(swingDir, leafLength - setBack);
+                const along = (t: number) => c.clone().addScaledVector(swingDir, t);
+                // ONE face: outward normal −panelDir (the swing-side face when closed).
+                const out = (p: THREE.Vector3, d: number) =>
+                    p.clone().addScaledVector(panelDir, -d);
+
+                // Escutcheon plate — two cheeks off the leaf face + the plate joining them.
+                const cheekA0 = along(-roseHalf);          // hinge-ward cheek
+                const cheekB0 = along(+roseHalf);          // latch-ward cheek
+                const cheekA1 = out(cheekA0, roseProj);
+                const cheekB1 = out(cheekB0, roseProj);
+                projSeg(cheekA0.x, cheekA0.z, cheekA1.x, cheekA1.z);
+                projSeg(cheekB0.x, cheekB0.z, cheekB1.x, cheekB1.z);
+                projSeg(cheekA1.x, cheekA1.z, cheekB1.x, cheekB1.z);
+
+                // The LEVER — perpendicular to the leaf, off the plate's LATCH-ward end
+                // (not its centre): plate + lever = an offset L. A lever grown from the
+                // centre of the plate is a T, which is the glyph this fix removes.
+                const lever0 = cheekB1.clone();
+                const lever1 = out(cheekB0, roseProj + leverLen);
+                projSeg(lever0.x, lever0.z, lever1.x, lever1.z);
             }
         }
 
@@ -696,11 +774,18 @@ export class DoorPlanSymbolBuilder {
         // the `A-DOOR-BEYOND` sub-layer and the pen table resolves BEYOND × door to the
         // grey dashed reference pen. No hex literal is authored here.
         if (lod === 'fine') {
-            const half = leafThick / 2;
-            const g = (t: number, n: number): THREE.Vector3 =>
-                hinge.clone().addScaledVector(panelDir, t).addScaledVector(leftNormal, n);
-            const q0 = g(0, -half), q1 = g(leafLength, -half);
-            const q2 = g(leafLength, +half), q3 = g(0, +half);
+            // §FIX-DOOR-SYMBOL-HANDLE-AND-LEAF-ALIGNMENT (L-284) — THE GHOST HANGS ON THE
+            // SAME HINGE. It used to be centred on the wall CENTRELINE (`leftNormal · ±half`)
+            // while the open leaf pivoted there too; now that the hinge is ON THE WALL FACE,
+            // a centreline ghost would straddle the face — half the closed leaf sticking out
+            // of the wall. A door hung on a face closes flush BEHIND that face, against the
+            // stop: from the hinge, the leaf's thickness runs INTO the reveal, i.e. along
+            // −swingDir. Its latch edge then lands exactly on the arc's t=0 end, which is the
+            // geometric statement the ghost exists to make.
+            const g = (t: number, u: number): THREE.Vector3 =>
+                hinge.clone().addScaledVector(panelDir, t).addScaledVector(swingDir, -u);
+            const q0 = g(0, 0), q1 = g(leafLength, 0);
+            const q2 = g(leafLength, leafThick), q3 = g(0, leafThick);
             const ghostSeg = (a: THREE.Vector3, b: THREE.Vector3): void => {
                 ghostPositions.push(a.x, 0, a.z, b.x, 0, b.z);
             };
