@@ -58,8 +58,10 @@ import {
 import {
     AnnotationPanelHost,
     showLinearDimension as _showLinearDimension,
+    showTag as _showTag,
     showGrid as _showGrid,
 } from './PropertyPanelAnnotations';
+import type { TagRecord } from './tagSelectionPanel';
 import { _enrichFromStores } from './PropertyPanelStoreEnricher';
 import {
     ElementRenderHost,
@@ -1010,6 +1012,17 @@ export class PropertyPanel {
     public showLinearDimension(ann: AnnotationElement, commandManager?: any, selectedWallId?: string): void {
         const cmdMgr = commandManager ?? this._commandManager;
         _showLinearDimension(this._asAnnotationHost(), cmdMgr, ann, selectedWallId);
+    }
+
+    /**
+     * §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — the TAG properties panel.
+     *
+     * A tag is a first-class selectable element (the founder: "once selected the properties
+     * panel should show its properties, as when a door is selected"). Rendered FROM ITS RECORD;
+     * its mark is EDITABLE and writes `element.mark` — and therefore the schedule (C28).
+     */
+    public showTag(record: TagRecord, ann: AnnotationElement): void {
+        _showTag(this._asAnnotationHost(), record, ann);
     }
 
     /**

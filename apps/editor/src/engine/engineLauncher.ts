@@ -14,6 +14,7 @@ import { STANDARD_MATERIAL_LIBRARY, VisualStyle } from '@pryzm/core-app-model/ma
 import { undoManager } from '@pryzm/command-registry';
 import { PropertyPanelAdapter } from '@app/ui/property-panel/PropertyPanelAdapter';
 import { openDimensionPropertiesOnSelect } from '@app/ui/property-panel/dimensionSelectionPanel';
+import { openTagPropertiesOnSelect } from '@app/ui/property-panel/tagSelectionPanel';
 import { ViewPropertiesPanel } from '@app/ui/ViewPropertiesPanel';
 import { workspaceController } from '@app/ui/WorkspaceController';
 import { SceneTheme } from '@pryzm/core-app-model';
@@ -356,6 +357,15 @@ export async function bootstrap(
             openDimensionPropertiesOnSelect(detail, {
                 getAnnotationById: (id) => annotationStore.getById(id),
                 getSelectedElementId: () => window.projectContext?.selectedElementId,
+                panel: inspector,
+            });
+            // §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — the TAG leg of the same
+            // selection→panel seam. A tag is a first-class selectable element: selecting one
+            // opens its Properties Panel, rendered FROM ITS RECORD, exactly as a door does.
+            // Skips anything that is not a mark-bearing tag, so the dimension path and normal
+            // BIM selection are untouched.
+            openTagPropertiesOnSelect(detail, {
+                getAnnotationById: (id) => annotationStore.getById(id),
                 panel: inspector,
             });
         });

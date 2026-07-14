@@ -18,6 +18,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { PropertyPanel } from './PropertyPanel';
 import { AnnotationElement } from '@pryzm/plugin-annotations';
+// §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — the tag panel's record type.
+import type { TagRecord } from './tagSelectionPanel';
 
 export interface PropertyPanelAdapterOptions {
     onUnselect?: () => void;
@@ -143,6 +145,15 @@ export class PropertyPanelAdapter {
      */
     public showLinearDimension(ann: AnnotationElement, selectedWallId?: string): void {
         this.panel.showLinearDimension(ann, undefined, selectedWallId);
+    }
+
+    /**
+     * §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — open the TAG properties panel.
+     * Delegates to PropertyPanel.showTag(). Satisfies `TagPanelLike` so
+     * `openTagPropertiesOnSelect` can drive it from the selection event.
+     */
+    public showTag(record: TagRecord, ann: AnnotationElement): void {
+        this.panel.showTag(record, ann);
     }
 
     /**

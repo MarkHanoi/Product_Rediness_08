@@ -157,3 +157,61 @@ describe('the four guards', () => {
     expect(annotationStore.getByView('v1').map((a) => a.id).sort()).toEqual(snapshot);
   });
 });
+
+// ── §FIX-DIMENSION-DRIVES-MODEL (L-291b) — THE EDIT MUST TERMINATE ──────────
+//
+// Driving the model fires ViewDependencyTracker → the Set-Out reconcile (L-286) → which
+// re-derives the annotations, including the one that was just edited. If that reconcile could
+// itself dirty the model, the edit would re-enter itself and the editor would spin.
+//
+// Termination is not asserted by hoping: it is PUMPED until quiet (the L-250 harness pattern),
+// and the number of writes per pump is counted. RED-FIRST: a reconcile that wrote on every
+// pump — the re-entry bug — would make `writesOnPump(2)` non-zero, and this test fails.
+describe('a driven edit TERMINATES — one edit, one mutation, one reconcile, settled', () => {
+  it('converges: the model change reconciles ONCE and then writes nothing, forever', () => {
+    // Settle the view first (the state before the user edits anything).
+    reconcileSetOutView(runtime, 'v1');
+    expect(reconcileSetOutView(runtime, 'v1')).toBe(0);   // already quiet
+
+    // THE MODEL CHANGES — as a driven dimension edit changes it (the wall moved, and its
+    // hosted door came with it). This is the ONE mutation the gesture is allowed to make.
+    WALLS = [
+      {
+        id: 'wall_1', levelId: 'L0', height: 3, systemTypeId: 'wst', properties: { mark: 'WA-00-001' },
+        baseLine: [{ x: 0, y: 0, z: 0 }, { x: 12, y: 0, z: 0 }],   // 10 m → 12 m
+        openings: [DOOR, WIN],
+      },
+      {
+        id: 'wall_far', levelId: 'L0', height: 3, systemTypeId: 'wst', properties: { mark: 'WA-00-002' },
+        baseLine: [{ x: 30, y: 0, z: 40 }, { x: 40, y: 0, z: 40 }],
+        openings: [],
+      },
+    ];
+
+    // Pump the reconcile until quiet, counting the writes each pass makes.
+    const writes: number[] = [];
+    for (let pump = 0; pump < 5; pump++) {
+      writes.push(reconcileSetOutView(runtime, 'v1'));
+    }
+
+    // The tags were already correct (the elements did not change identity — they MOVED), so
+    // even the first pump writes nothing: the annotations follow the model by REFERENCE
+    // (L-287), not by regeneration. And every subsequent pump is silent.
+    expect(writes.every((w) => w === 0)).toBe(true);
+    // The set is still exactly the visible set — the move did not orphan or duplicate anything.
+    expect(new Set(tagIds())).toEqual(new Set([...visibleElementIds('v1')!]));
+  });
+
+  it('a model change that ADDS an element reconciles ONCE, then settles', () => {
+    reconcileSetOutView(runtime, 'v1');
+    WALLS = walls([DOOR, WIN, { ...DOOR, elementId: 'door_9', offset: 1, mark: 'DO-00-009' }]);
+
+    const first = reconcileSetOutView(runtime, 'v1');
+    const second = reconcileSetOutView(runtime, 'v1');
+    const third = reconcileSetOutView(runtime, 'v1');
+
+    expect(first).toBe(1);      // ONE reconcile does the work…
+    expect(second).toBe(0);     // …and it is settled immediately after.
+    expect(third).toBe(0);      // No oscillation. No re-entry.
+  });
+});

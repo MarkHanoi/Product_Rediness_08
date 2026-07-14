@@ -18,6 +18,12 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { AnnotationElement } from '@pryzm/plugin-annotations';
 import { UpdateGridCommand } from '@pryzm/command-registry';
 import { RemoveGridCommand } from '@pryzm/command-registry';
+// §FIX-DIMENSION-DRIVES-MODEL (L-291b, ADR-122 = OPTION A) — the PURE rule that decides which
+// element moves, by how much, and WHY IT CANNOT. Not a branch inside a click handler.
+import { resolveDimensionDrive } from '@app/ui/documentation/driveDimension';
+// §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — the tag panel renders from the RECORD, and
+// its mark edit writes the MODEL (element.mark → the schedule, C28). See tagSelectionPanel.ts.
+import { applyTagMarkEdit, type TagRecord } from '@app/ui/property-panel/tagSelectionPanel';
 
 /**
  * Minimal interface that PropertyPanel exposes to the annotation renderers.
@@ -76,16 +82,16 @@ export function showLinearDimension(
     const refs = ann.references;
     let measuredDistM = 0;
     let hasDist = false;
-    let measureDirX = 0, measureDirZ = 0;
+    // §FIX-DIMENSION-DRIVES-MODEL (L-291b) — the measurement AXIS is no longer computed here.
+    // The drive's axis, its sign and its choice of element all live in the pure, unit-tested
+    // `resolveDimensionDrive`; duplicating the axis maths in this click handler is how the two
+    // would drift apart.
     if (refs.length >= 2) {
         const pA = refs[0].cachedPosition ?? ann.geometry2D.modelPoints?.[0];
         const pB = refs[1].cachedPosition ?? ann.geometry2D.modelPoints?.[1];
         if (pA && pB) {
             const mn = ann.geometry2D.measurementNormal;
             if (mn && (Math.abs(mn.x) > 0.001 || Math.abs(mn.z) > 0.001)) {
-                const len = Math.hypot(mn.x, mn.z);
-                measureDirX = mn.x / len;
-                measureDirZ = mn.z / len;
                 measuredDistM = Math.abs((pB.x - pA.x) * mn.x + (pB.z - pA.z) * mn.z);
             } else {
                 const dx = pB.x - pA.x, dy = pB.y - pA.y, dz = pB.z - pA.z;
@@ -95,11 +101,18 @@ export function showLinearDimension(
         }
     }
 
-    // ── Determine if drive-dimension is available ─────────────────────────
-    const drivableRef = selectedWallId
-        ? refs.find(r => r.elementId === selectedWallId && r.elementType === 'wall')
-        : undefined;
-    const canDriveWall = Boolean(drivableRef && hasDist && (measureDirX !== 0 || measureDirZ !== 0));
+    // ── §FIX-DIMENSION-DRIVES-MODEL (L-291b, ADR-122 = OPTION A) ──────────────
+    //
+    // AN EDITED DIMENSION MOVES THE BUILDING. The old gate required the user to ALSO have
+    // the wall selected in 3D (`selectedWallId`), which is why almost nobody ever saw this
+    // button — and which no AUTO-dimension could satisfy at all, because auto-dims carried
+    // baked point refs until L-287. Both blockers are gone: the drive is offered whenever the
+    // dimension REFERENCES a movable wall, and WHICH wall moves is decided by a stated rule
+    // (`resolveDimensionDrive`), not by what happens to be selected.
+    //
+    // A dimension that cannot drive still says WHY, in the panel — it never falls back to
+    // editing the text, because that is the option ADR-122 explicitly rejected.
+    const canDriveWall = hasDist && refs.some(r => r.elementType === 'wall');
 
     // ── Shared helpers ────────────────────────────────────────────────────
     const mkSection = (stepNum: string, title: string): HTMLDivElement => {
@@ -216,41 +229,70 @@ export function showLinearDimension(
             applyDriveBtn.className = 'gpp-apply-btn';
             applyDriveBtn.style.cssText += ';margin-top:8px;grid-column:1/span 2;font-size:10px;padding:7px;';
             applyDriveBtn.textContent = 'MOVE WALL';
+
+            /** Surface a failure IN THE PANEL, and leave the model untouched. */
+            const fail = (message: string): void => {
+                driveHint.textContent = message;
+                driveHint.style.color = '#e53935';
+                // The panel STAYS OPEN. The old code called host.hide() unconditionally, so a
+                // rejected drive looked exactly like a successful one — the L-214/218/220 class
+                // (canExecute rejects, console.error eats it, the user believes it worked).
+            };
+
             applyDriveBtn.addEventListener('click', () => {
-                if (!cmdMgr || !selectedWallId) return;
                 const rawVal = parseFloat(driveInp.value);
-                if (isNaN(rawVal) || rawVal <= 0) {
-                    driveHint.textContent = 'Enter a positive distance';
-                    driveHint.style.color = '#e53935';
-                    return;
-                }
                 const targetM = unit === 'cm' ? rawVal / 100
                     : unit === 'm' ? rawVal
                     : rawVal / 1000;
-                const delta = targetM - measuredDistM;
 
-                const wallStore = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
-                const wall = wallStore?.getById?.(selectedWallId);
-                if (!wall?.baseLine) {
-                    console.warn('[PropertyPanel] Cannot drive dimension: wall not found');
-                    return;
-                }
+                // §FIX-DIMENSION-DRIVES-MODEL (L-291b) — the RULE decides which wall moves, and
+                // it is a pure, unit-tested function (`resolveDimensionDrive`), not a branch
+                // buried in a click handler. It also decides when the answer is "it cannot".
+                const wallStore = window.wallStore; // TODO(E.wall.S): legacy wallStore
+                const drive = resolveDimensionDrive(ann, targetM, {
+                    selectedElementId: selectedWallId ?? null,
+                    getWall: (id) => wallStore?.getById?.(id) as never,
+                });
 
-                const isRefB = refs[1]?.elementId === selectedWallId;
-                const sign = isRefB ? 1 : -1;
-                const moveX = sign * delta * measureDirX;
-                const moveZ = sign * delta * measureDirZ;
+                if (!drive.ok) { fail(drive.message); return; }
 
-                const bl = wall.baseLine;
-                window.runtime?.bus?.executeCommand('wall.updateBaseline', {
-                    wallId: selectedWallId,
+                const bus = window.runtime?.bus;
+                if (!bus) { fail('Command system not ready — try again.'); return; }
+
+                // THE SAME COMMAND THE DRAG DISPATCHES (`wall.updateBaseline`): junction
+                // re-solve, hosted-opening re-anchoring and rebuild-with-voids all behave
+                // exactly as they do when the user drags this wall. Not a second mutation path.
+                // `_recordUndo` + `prevBaseLine` mirror the drag-END, so the whole move is ONE
+                // ring-buffer undo entry (C16) and Ctrl-Z puts the wall back.
+                Promise.resolve(bus.executeCommand('wall.updateBaseline', {
+                    wallId: drive.wallId,
                     newBaseLine: [
-                        new THREE.Vector3(bl[0].x + moveX, bl[0].y, bl[0].z + moveZ),
-                        new THREE.Vector3(bl[1].x + moveX, bl[1].y, bl[1].z + moveZ),
+                        new THREE.Vector3(drive.newBaseLine[0].x, drive.newBaseLine[0].y, drive.newBaseLine[0].z),
+                        new THREE.Vector3(drive.newBaseLine[1].x, drive.newBaseLine[1].y, drive.newBaseLine[1].z),
                     ],
-                })?.catch((e: unknown) => console.warn('[PropertyPanel] wall.updateBaseline failed:', e));
-                console.log('[PropertyPanel] Drive-dimension: moved wall', selectedWallId, 'by', delta.toFixed(4), 'm');
-                host.hide();
+                    prevBaseLine: [
+                        new THREE.Vector3(drive.prevBaseLine[0].x, drive.prevBaseLine[0].y, drive.prevBaseLine[0].z),
+                        new THREE.Vector3(drive.prevBaseLine[1].x, drive.prevBaseLine[1].y, drive.prevBaseLine[1].z),
+                    ],
+                    _recordUndo: true,
+                }))
+                    .then((res: unknown) => {
+                        // A REJECTED command must reach the USER. It used to reach the console.
+                        const r = res as { success?: boolean; error?: string; reason?: string } | undefined;
+                        if (r && r.success === false) {
+                            fail(r.error ?? r.reason ?? 'The model rejected this change.');
+                            return;
+                        }
+                        console.log(
+                            '[PropertyPanel] §FIX-DIMENSION-DRIVES-MODEL: moved wall', drive.wallId,
+                            'by', drive.deltaM.toFixed(4), 'm — the dimension now reads',
+                            targetM, 'because the MODEL says so.',
+                        );
+                        host.hide();
+                    })
+                    .catch((e: unknown) => {
+                        fail(e instanceof Error ? e.message : 'The model rejected this change.');
+                    });
             });
             bd1.appendChild(applyDriveBtn);
         } else {
@@ -576,6 +618,113 @@ export function showGrid(
     actionsRow.appendChild(pinBtn);
 
     body.appendChild(actionsRow);
+    host.element.appendChild(body);
+    host.makeVisible();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291) — THE TAG PROPERTIES PANEL
+//
+// RECORD → PICK → PANEL. The record was fixed in L-287, the pick corridor in L-291; this is
+// the last leg. Everything below is rendered FROM THE RECORD — the element it names, its
+// instance mark, its type mark. Nothing is read back out of the label, because the label is
+// a readout, not a source.
+//
+// THE MARK IS EDITABLE, AND IT WRITES THE MODEL (ADR-0123 + ADR-122 = Option A):
+//     AN EDITED ANNOTATION WRITES TO THE MODEL. NEVER TO THE DRAWING.
+// Editing it dispatches `element.updateParameters` — the ELEMENT command path — so
+// `element.mark` changes, and the door/window SCHEDULE (which joins on exactly that field,
+// C28) changes with it. The tag's own label is NOT written: it re-derives on the next
+// reconcile (L-265/L-286). If this code ever writes `cachedLabel`, the coherence rule is
+// broken and the drawing has become a second source of truth.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function showTag(
+    host: AnnotationPanelHost,
+    record: TagRecord,
+    ann: AnnotationElement,
+): void {
+    host.prepareForAnnotation({ elementId: ann.id, elementType: `annotation-${ann.type}` });
+
+    const header = document.createElement('div');
+    header.className = 'gpp-header';
+    const badge = document.createElement('div');
+    badge.className = 'gpp-badge';
+    badge.textContent = `${record.category.toUpperCase()} TAG`;
+    header.appendChild(badge);
+    header.appendChild(host.buildCloseBtn());
+    host.element.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'gpp-body';
+
+    const row = (label: string, node: HTMLElement): void => {
+        const l = document.createElement('div');
+        l.className = 'gpp-prop-label';
+        l.textContent = label;
+        body.appendChild(l);
+        body.appendChild(node);
+    };
+    const ro = (text: string): HTMLDivElement => {
+        const el = document.createElement('div');
+        el.className = 'gpp-prop-value-ro';
+        el.textContent = text || '—';
+        return el;
+    };
+
+    // ── What this tag NAMES (from the record — the join, C28).
+    row('Element', ro(record.targetElementId.slice(0, 12)));
+    row('Type', ro(record.typeMark ?? '—'));
+
+    // ── The MARK — editable. This writes element.mark, and therefore the schedule.
+    const markInp = document.createElement('input');
+    markInp.type = 'text';
+    markInp.className = 'gpp-input';
+    markInp.value = record.mark ?? '';
+    markInp.placeholder = 'e.g. D-01';
+    markInp.title = 'Editing this changes the ELEMENT\'s mark — and the schedule with it.';
+    row('Mark', markInp);
+
+    const hint = document.createElement('div');
+    hint.className = 'gpp-error-row';
+    hint.style.cssText = 'grid-column:1/span 2;font-size:9px;color:#8B5CF6;margin-top:-4px;';
+    hint.textContent = 'The mark is the key the schedule joins on. Editing it updates the model.';
+    body.appendChild(hint);
+
+    const fail = (message: string): void => {
+        hint.textContent = message;
+        hint.style.color = '#e53935';
+    };
+
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'gpp-apply-btn';
+    applyBtn.style.cssText += ';margin-top:8px;grid-column:1/span 2;font-size:10px;padding:7px;';
+    applyBtn.textContent = 'APPLY MARK';
+    applyBtn.addEventListener('click', () => {
+        void applyTagMarkEdit(record, markInp.value, {
+            updateElementMark: (elementId, mark) => {
+                const bus = window.runtime?.bus;
+                if (!bus) throw new Error('Command system not ready — try again.');
+                // A WALL carries its mark under `properties` (Contract §03-1.7); a door/window
+                // carries it at the top level (DW-12). Resolved from the RECORD's category, not
+                // guessed from the shape of whatever the store happens to return.
+                const parameters = record.category === 'wall'
+                    ? { properties: { ...(window.wallStore?.getById?.(elementId)?.properties ?? {}), mark } }
+                    : { mark };
+                return Promise.resolve(bus.executeCommand('element.updateParameters', {
+                    elementId,
+                    elementType: record.category,
+                    parameters,
+                }));
+            },
+        }).then((res) => {
+            if (!res.ok) { fail(res.message ?? 'The model rejected this mark.'); return; }
+            hint.textContent = 'Mark updated — the schedule now reads it too.';
+            hint.style.color = '#8B5CF6';
+        });
+    });
+    body.appendChild(applyBtn);
+
     host.element.appendChild(body);
     host.makeVisible();
 }
