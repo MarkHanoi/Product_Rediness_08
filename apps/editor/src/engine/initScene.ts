@@ -125,6 +125,9 @@ import { viewRenderCache } from '@pryzm/core-app-model';
 import { levelClipPlaneCache } from '@pryzm/core-app-model';
 import { stairPlanSymbolRegistry } from '@pryzm/scene-committer';
 import { RoomTagAutoPopulator } from '@pryzm/room-topology';
+// §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — a live Set-Out view re-derives its annotation
+// set whenever the model changes, using the SAME idempotent reconciler as the button.
+import { registerSetOut } from '@app/ui/documentation/setOut';
 import { instancedElementRenderer } from '@pryzm/core-app-model/rendering';
 // §PERF instrumentation (L-02/L-03) — gated behind globalThis.__pryzmPerfTrace.
 import { perfTraceOn, perfTime, perfLog, perfDump } from '@pryzm/core-app-model/rendering';
@@ -708,6 +711,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         if (!viewDef.spatial.levelId) return;
         roomTagAutoPopulator.populate(viewDef);
     });
+
+    // ── §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — bind Set Out to the change
+    //    detection that ALREADY EXISTS. `registerSetOut` subscribes to
+    //    ViewDependencyTracker's dirty-view signal and re-runs the SAME idempotent
+    //    reconciler the Auto-tag button uses, scoped to what each live view SHOWS.
+    //    No second change detector, no second tag engine.
+    if (window.runtime) {
+        registerSetOut(window.runtime as Parameters<typeof registerSetOut>[0]);
+    }
 
     // ── Context + BimManager ──────────────────────────────────────────────────
     // §01 §2.1 SINGLETON FIX: Reuse the module-level singleton instead of creating

@@ -292,25 +292,51 @@ function tagNeedsRefresh(
  * P8 — rides the `pryzm.autotag.apply` executor-boundary span.
  */
 export function autoTagActiveView(runtime: PryzmRuntime): number {
-  const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void =>
-    runtime.events?.emit('pryzm:toast', { message, severity });
+  const w = window as unknown as WindowWithStores;
+  const viewId = w.viewController?.currentViewDefinitionId ?? undefined;
+  const viewDef = viewId ? viewDefinitionStore.get(viewId) : undefined;
+  if (!viewDef || resolveAutoTagProjection(viewDef.viewType) === 'unsupported') {
+    runtime.events?.emit('pryzm:toast', {
+      message: viewDef?.viewType === 'section'
+        ? 'Auto-Tag: sections are not supported yet — open a plan or an elevation.'
+        : 'Auto-Tag: open a plan or an elevation view first.',
+      severity: 'warn',
+    });
+    return 0;
+  }
+  return autoTagView(runtime, viewDef);
+}
+
+/**
+ * §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — auto-tag a GIVEN view, not just the active one.
+ *
+ * The button (`autoTagActiveView`) and the LIVE Set-Out reconcile are the same operation on
+ * different triggers, so they are the same function. A second "live tagger" would be a
+ * second tag engine wearing a new hat — the exact thing L-265 exists to prevent.
+ *
+ * @param visibleIds  §L-286 — VISIBILITY IS THE INPUT, NOT THE MODEL. When supplied, only
+ *                    elements the VIEW SHOWS are tagged, and a tag on an element the view no
+ *                    longer shows (crop changed, view depth changed) is an ORPHAN and is
+ *                    removed. Reconciling against what the LEVEL contains instead would
+ *                    leave an orphan on every crop change. Omitted (the button) ⇒ the whole
+ *                    level, which is what the user asked for by pressing it.
+ * @param quiet       suppress toasts (a live reconcile must not shout on every keystroke).
+ */
+export function autoTagView(
+  runtime: PryzmRuntime,
+  viewDef: NonNullable<ReturnType<typeof viewDefinitionStore.get>>,
+  options: { visibleIds?: ReadonlySet<string>; quiet?: boolean } = {},
+): number {
+  const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
+    if (!options.quiet) runtime.events?.emit('pryzm:toast', { message, severity });
+  };
 
   return withAutoTagSpan('apply', (span): number => {
     try {
       const w = window as unknown as WindowWithStores;
-      const viewId = w.viewController?.currentViewDefinitionId ?? undefined;
-      const viewDef = viewId ? viewDefinitionStore.get(viewId) : undefined;
-      const projection = resolveAutoTagProjection(viewDef?.viewType);
-
-      if (!viewId || !viewDef || projection === 'unsupported') {
-        toast(
-          viewDef?.viewType === 'section'
-            ? 'Auto-Tag: sections are not supported yet — open a plan or an elevation.'
-            : 'Auto-Tag: open a plan or an elevation view first.',
-          'warn',
-        );
-        return 0;
-      }
+      const viewId = viewDef.id;
+      const projection = resolveAutoTagProjection(viewDef.viewType);
+      if (projection === 'unsupported') return 0;
 
       // ── VIEW INTENT (P7 / C09): the view says WHICH categories and WHICH mark.
       const intent = resolveAutoTagIntent(
@@ -377,7 +403,19 @@ export function autoTagActiveView(runtime: PryzmRuntime): number {
         });
       }
 
-      span.setAttribute('pryzm.autotag.target_count', targets.length);
+      // ── §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — VISIBILITY IS THE INPUT.
+      //
+      // A tag documents what the DRAWING SHOWS, not what the level contains. Crop the view,
+      // or pull its depth in, and an element that is no longer drawn must lose its tag —
+      // otherwise every crop change leaves an orphan pointing at nothing. Filtering the
+      // LIVE set here (rather than filtering the tags afterwards) is what makes that fall
+      // out of the reconciler for free: an element that is not in `live` and still has a
+      // tag IS an orphan, by the same rule that removes a tag for a deleted element. One
+      // rule, two causes.
+      const visible = options.visibleIds;
+      const scoped = visible ? targets.filter((t) => visible.has(t.targetId)) : targets;
+      span.setAttribute('pryzm.autotag.target_count', scoped.length);
+      span.setAttribute('pryzm.autotag.visibility_scoped', !!visible);
 
       // ── Reconcile — the SAME lifecycle the room populator runs, per category.
       const annotationStore = w.annotationStore;
@@ -390,7 +428,7 @@ export function autoTagActiveView(runtime: PryzmRuntime): number {
       let unchanged = 0;
 
       for (const category of intent.categories) {
-        const live = targets.filter((t) => t.category === category);
+        const live = scoped.filter((t) => t.category === category);
         const result = reconcileTagSet<TagTarget>({
           category,
           existing,
@@ -409,7 +447,7 @@ export function autoTagActiveView(runtime: PryzmRuntime): number {
         .map((id) => annotationStore.getById(id))
         .filter((a): a is AnnotationElement => !!a);
 
-      const levelIds = [...new Set(targets.map((t) => t.levelId).filter((l): l is string => !!l))];
+      const levelIds = [...new Set(scoped.map((t) => t.levelId).filter((l): l is string => !!l))];
 
       if (created.length > 0 || removed.length > 0) {
         if (!commitAnnotationSet(created, levelIds, removed)) {
@@ -445,7 +483,7 @@ export function autoTagActiveView(runtime: PryzmRuntime): number {
 
       if (created.length === 0 && toRefresh.length === 0 && removed.length === 0) {
         toast(
-          targets.length === 0
+          scoped.length === 0
             ? 'Auto-Tag: nothing to tag in this view.'
             : `Auto-Tag: already up to date — ${unchanged} tag(s).`,
           'info',
@@ -466,7 +504,7 @@ export function autoTagActiveView(runtime: PryzmRuntime): number {
       console.log(
         `[auto-tag] §FEAT-AUTO-TAG-BATCH-EXECUTOR viewId=${viewId} projection=${projection}: ` +
         `${created.length} created, ${toRefresh.length} refreshed, ${removed.length} removed, ` +
-        `${unchanged} unchanged out of ${targets.length} live element(s).`,
+        `${unchanged} unchanged out of ${scoped.length} live element(s).`,
       );
       return created.length;
     } catch (e) {

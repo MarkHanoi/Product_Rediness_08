@@ -214,6 +214,35 @@ export class ViewDependencyTracker {
         ((viewId: string, gen: number, graftElementIds?: ReadonlySet<string>) => Promise<void>)
         | null = null;
 
+    // ── §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — the dirty-view SIGNAL ─────────
+    //
+    // `onReprojectionNeeded` is a single OWNED callback (the view controller's) — it decides
+    // how a view is re-drawn, and it must stay singular. Set Out does not want to re-draw
+    // anything; it wants to KNOW which views changed so it can re-derive their annotations.
+    // Those are different concerns, so this is a separate, MULTI-subscriber signal rather
+    // than a second owner of the first one.
+
+    private _viewsFlushedListeners = new Set<(viewIds: readonly string[]) => void>();
+
+    /**
+     * Subscribe to "these views were dirtied by a model edit and are being re-projected".
+     * Returns an unsubscribe function. Listeners are notified, never awaited: this is the
+     * hot path, and a documentation reconcile must not be able to stall a re-projection.
+     */
+    onViewsFlushed(listener: (viewIds: readonly string[]) => void): () => void {
+        this._viewsFlushedListeners.add(listener);
+        return () => { this._viewsFlushedListeners.delete(listener); };
+    }
+
+    /** Fan out the dirty-view set. A throwing listener can never break the flush. */
+    private _notifyViewsFlushed(viewIds: readonly string[]): void {
+        if (this._viewsFlushedListeners.size === 0 || viewIds.length === 0) return;
+        for (const listener of this._viewsFlushedListeners) {
+            try { listener(viewIds); }
+            catch (e) { console.error('[ViewDependencyTracker] onViewsFlushed listener failed:', e); }
+        }
+    }
+
     // ── DOC-1.5e — Dual-layer compositing status ──────────────────────────────
 
     /**
@@ -739,6 +768,16 @@ export class ViewDependencyTracker {
             }
             return;
         }
+
+        // §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — TELL THE SUBSCRIBERS WHICH VIEWS CHANGED.
+        //
+        // Set Out re-derives a live view's annotation set on every model change. It needs
+        // exactly ONE thing that this class already computes and nobody else does: the set of
+        // views a model edit dirtied. Publishing it is what stops a second change-detector
+        // being written somewhere else — and a second detector would inevitably drift from
+        // this one. Observers are notified, never consulted: a throwing subscriber cannot
+        // break a re-projection.
+        this._notifyViewsFlushed(activeToFlush);
 
         console.log(
             `[ViewDependencyTracker] flush — ${activeToFlush.length} active dirty view(s): ` +

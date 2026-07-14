@@ -723,6 +723,25 @@ export interface ViewDefinition {
      */
     sectionBox?: ViewSectionBox;
 
+    // ── 13a. Set Out (live documentation) ────────────── [L-286 / P7 / C09] ──
+    /**
+     * §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — SET OUT IS A VIEW INTENT, NOT A MODE FLAG.
+     *
+     * A Set-Out view keeps its annotation set TRUE: when the model changes, the view's tags
+     * (and, as they land, its dimensions) are RE-DERIVED against what the view SHOWS. It is
+     * a property of the VIEW — carried by a view template like any other intent (P7/C09) —
+     * because "this drawing is a live set-out drawing" is a documentation decision, not a
+     * global editor mode. Plan AND elevation from day one.
+     *
+     * Undefined ⇒ not live (opt-in). See ADR-0121 for the undo rule: a reconcile caused by a
+     * MODEL edit is a re-derivation (suppressed from undo); a reconcile the USER asks for
+     * (the Auto-tag button) is one batch = one undo.
+     */
+    setOut?: {
+        /** Re-derive this view's annotation set whenever the model changes. */
+        live: boolean;
+    };
+
     // ── 14. AI / LLM ─────────────────────────────────────────────── [B+VI] ──
     /** AI-authored human-readable description of this view's purpose. [B] */
     intent?: string;
