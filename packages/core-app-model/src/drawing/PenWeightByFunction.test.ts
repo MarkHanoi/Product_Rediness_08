@@ -134,6 +134,41 @@ function renderPlan(viewId: string, drawing: { three: THREE.Group }): Stroke[] {
     return strokes;
 }
 
+/**
+ * The same render, framed as an ELEVATION.
+ *
+ * The founder's ask is *"in plan view — but also in elevation"*, and an elevation is a DIFFERENT
+ * code path through the very same `render()`: `_sectionFlipV` is on, the vertical axis is world
+ * Y, and — the part that matters here — an elevation **cuts nothing** (`ViewScope.cut === false`),
+ * so its walls arrive in the **PROJECTION** zone, not CUT. If the function axis modulated only
+ * the CUT zone, plan would be right and elevation would be flat, and half the ticket would be
+ * silently unshipped. That is exactly why PROJECTION is a modulated zone (C09 §4.6.4a(d)).
+ */
+function renderElevation(viewId: string, drawing: { three: THREE.Group }, dpr = 1): Stroke[] {
+    viewDefinitionStore.reset();
+    viewDefinitionStore.create({ id: viewId, name: 'South Elevation', viewType: 'elevation' });
+    viewTechnicalDrawingCache.set(viewId, drawing as never);
+
+    const { ctx, strokes } = recordingCtx();
+    const canvas = {
+        getContext: () => ctx,
+        width: 0, height: 0, clientWidth: 800, clientHeight: 600,
+    } as unknown as HTMLCanvasElement;
+
+    const prevDpr = window.devicePixelRatio;
+    Object.defineProperty(window, 'devicePixelRatio', { value: dpr, configurable: true });
+    try {
+        const pvc = new PlanViewCanvas(canvas, { gridVisible: false });
+        pvc.setViewType('elevation');
+        pvc.setSectionAxes('x', true, 1);
+        pvc.setSize(800, 600);
+        pvc.render(viewDefinitionStore.get(viewId)!);
+    } finally {
+        Object.defineProperty(window, 'devicePixelRatio', { value: prevDpr, configurable: true });
+    }
+    return strokes;
+}
+
 beforeEach(() => {
     // The engine caches (elementId, viewId, zone:category:…:function) → pen. A stale cache would
     // let one test's override leak into the next, so start every test from a cold engine.
@@ -277,6 +312,62 @@ describe('§FEAT-PEN-WEIGHT-BY-WALL-FUNCTION — THE OUTCOME: the weight reaches
         ]));
         const [intCut, extProj] = strokes;
         expect(intCut!.lineWidth).toBeGreaterThan(extProj!.lineWidth);
+    });
+
+    it('"…BUT ALSO IN ELEVATION": an elevation CUTS NOTHING, so its walls are PROJECTION — and the axis still reaches them', () => {
+        // The other half of the founder's sentence, and a genuinely different code path: an
+        // elevation's walls never enter the CUT zone at all (ViewScope.cut === false). Modulate
+        // only CUT and this test is the one that tells you — which is why PROJECTION is a
+        // modulated zone and BEYOND/HIDDEN are not (C09 §4.6.4a(d)).
+        const strokes = renderElevation('v-fn-elev', drawingWith([
+            { layer: 'A-WALL:proj', fn: 'exterior' },
+            { layer: 'A-WALL:proj', fn: 'interior' },
+        ]), 2);
+
+        expect(strokes).toHaveLength(2);
+        const [ext, int] = strokes;
+        expect(int!.lineWidth, 'the partition must draw lighter than the shell IN ELEVATION TOO')
+            .toBeLessThan(ext!.lineWidth);
+        expect(ext!.lineWidth).toBeCloseTo(0.25 * SCREEN_PX_PER_MM, 4);
+        expect(int!.lineWidth).toBeCloseTo(0.25 * 0.70 * SCREEN_PX_PER_MM, 4);
+    });
+
+    it('*** PRE-EXISTING, NOT L-285: at devicePixelRatio 1 the HAIRLINE FLOOR flattens the ENTIRE projection ladder ***', () => {
+        // THIS TEST RECORDS A DEFECT. It is not a success case, and it is deliberately not
+        // hidden behind the dpr-2 case above.
+        //
+        // `PlanViewCanvas` floors every stroke at `hairline = max(0.5, 1/dpr)` — 1.0 px at
+        // dpr 1 — so ANY pen below ~0.265 mm is clamped to exactly 1 px. At dpr 1 that swallows:
+        //
+        //     wall   PROJECTION  0.25  mm → 0.945 px → 1 px
+        //     door   PROJECTION  0.18  mm → 0.680 px → 1 px
+        //     ceiling PROJECTION 0.13  mm → 0.491 px → 1 px
+        //     …and therefore the L-285 interior modulation of any of them.
+        //
+        // So on a 1× display the whole PROJECTION hierarchy — not merely the function axis —
+        // renders at ONE uniform width. That is a PRE-EXISTING property of the hairline policy
+        // (it predates L-285 and is the same class as the L-241 defect), it is what every CAD
+        // package does on screen while printing correctly, and EXPORT is unaffected: at
+        // EXPORT_DPI the same pens are 2.95 px and 2.07 px — clearly distinct.
+        //
+        // It is asserted here so that (a) it is a KNOWN, MEASURED fact rather than a surprise
+        // the founder reports as "your feature does nothing in elevation", and (b) the day
+        // someone revisits the hairline policy, this test goes red and tells them what changed.
+        const flat = renderElevation('v-fn-elev-1x', drawingWith([
+            { layer: 'A-WALL:proj', fn: 'exterior' },
+            { layer: 'A-WALL:proj', fn: 'interior' },
+        ]), 1);
+        expect(flat[0]!.lineWidth).toBe(1);
+        expect(flat[1]!.lineWidth).toBe(1);   // ← the modulation is REAL but SUB-HAIRLINE here
+
+        // …and the pen the canvas RESOLVED is still correctly modulated — the loss is purely the
+        // screen-space floor, not the pen. (Which is why CUT, at 0.50/0.35 mm, is visible at 1×:
+        // see the founder's-ask test above, which runs at dpr 1 and passes.)
+        expect(
+            graphicsRulesEngine.resolveStyle('PROJECTION', 'wall', { viewType: 'elevation', elementFunction: 'interior' }).widthMm,
+        ).toBeLessThan(
+            graphicsRulesEngine.resolveStyle('PROJECTION', 'wall', { viewType: 'elevation', elementFunction: 'exterior' }).widthMm,
+        );
     });
 
     it('an UNSTAMPED wall renders at EXACTLY the pre-L-285 weight — no silent re-weighting of existing drawings', () => {
