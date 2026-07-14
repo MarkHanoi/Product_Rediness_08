@@ -33,7 +33,9 @@ import {
     routeFor,
     hasMaterialCommand,
     materialUnsupportedReason,
+    materialIdUnsupportedReason,
     MATERIAL_UNSUPPORTED_REASON,
+    MATERIAL_ID_UNSUPPORTED_REASON,
 } from '../src/ui/property-inspector/MaterialDispatch';
 
 interface Call { type: string; payload: any }
@@ -69,6 +71,31 @@ const LIVE_COMMANDS = new Set([
     'wall.updateCurtainWall',
     'room.setMaterial',
     'furniture.updateParameters',
+    // §FIX-MATERIAL-REACHES-RECORD (G7) — new legacy bus bridges. Each verified END TO END:
+    //   wall.updateColor      → UpdateWallColorCommand      → wallStore.updateWall()
+    //                           WallFragmentBuilder resolves materialId + materialColor.
+    //   slab.updateDimensions → UpdateSlabDimensionsCommand → slabStore.update()
+    //                           SlabFragmentBuilder reads data.materialId + data.materialColor.
+    //   handrail.updateColor  → UpdateHandrailCommand       → handrailStore.update()
+    //                           HandrailFragmentBuilder reads materialColor.
+    'wall.updateColor',
+    'slab.updateDimensions',
+    'handrail.updateColor',
+]);
+
+/**
+ * Bus types CLAIMED by a plugin handler that `produceCommand`s against the DETACHED plugin
+ * DTO store (a fresh `new SlabStore()` / `new WallStore()` from PluginRegistry). Registration
+ * is FIRST-WINS, so routing a family to one of these means the command is shadowed and the
+ * mutation lands in a store nothing reads — while the inspector's live mesh repaint tells
+ * the user it worked. This is the disease. No route may name one of these, ever.
+ */
+const SHADOWED_BY_DETACHED_PLUGIN_STORE = new Set([
+    'wall.setColor',        // plugins/wall SetWallColor  — ALSO required { id } vs the panel's { wallId }
+    'slab.setMaterial',     // plugins/slab SetSlabMaterial
+    'slab.update',          // plugins/slab UpdateSlab
+    'slab.updatePolygon',   // plugins/slab UpdateSlabPolygon
+    'plumbing.move',        // the L-220 original
 ]);
 
 describe('MaterialDispatch — every route must reach the geometry record (G7)', () => {
@@ -141,10 +168,88 @@ describe('MaterialDispatch — every route must reach the geometry record (G7)',
         });
     });
 
+    // ── §FIX-MATERIAL-REACHES-RECORD (G7) — the families that now REACH the record ───
+    it('NO route may name a bus type claimed by a detached-plugin-store handler', () => {
+        // The L-220 rule, as an assertion. This is not vacuous: re-point wall to
+        // `wall.setColor` (what the panel actually dispatched before G7) and it goes RED.
+        for (const f of ['slab', 'wall', 'handrail', 'ceiling', 'roof', 'floor', 'column',
+                         'curtainwall', 'furniture', 'room']) {
+            const cmd = routeFor(f)?.command;
+            if (!cmd) continue;
+            expect(
+                SHADOWED_BY_DETACHED_PLUGIN_STORE.has(cmd),
+                `"${f}" routes material to "${cmd}", which a PLUGIN handler already claims. Bus ` +
+                `registration is first-wins, so the legacy bridge is SHADOWED and the material ` +
+                `lands in a detached DTO store nobody reads — while the inspector repaints the ` +
+                `mesh live and the user believes it worked. Use a DISTINCT type (L-220).`,
+            ).toBe(false);
+        }
+    });
+
+    it('wall: routes to the geometry-store command, with the id field the panel actually sends', () => {
+        // The wall bug in one assertion. `wall.setColor` was dispatched with { wallId } while
+        // the plugin handler that claimed it required { id } → rejected at canExecute →
+        // swallowed. UpdateWallColorInput takes `wallId`, so the panel was right all along;
+        // the ROUTE was wrong.
+        const { runtime, calls } = makeRuntime();
+        const ok = dispatchSetMaterial(runtime, 'wall', 'w1', { materialId: 'brick', materialColor: '#aa3311' });
+        expect(ok).toBe(true);
+        expect(calls[0]).toEqual({
+            type: 'wall.updateColor',
+            payload: { wallId: 'w1', materialId: 'brick', materialColor: '#aa3311' },
+        });
+    });
+
+    it('slab: routes to UpdateSlabDimensionsCommand — the command that OWNS the material fields', () => {
+        // Not `slab.update`: UpdateSlabCommand deliberately THROWS on materialId/materialColor
+        // ("MUST be mutated via UpdateSlabDimensionsCommand"), and the `slab.update` BUS type
+        // is claimed by a plugin handler on the detached store anyway.
+        const { runtime, calls } = makeRuntime();
+        const ok = dispatchSetMaterial(runtime, 'slab', 's1', { materialId: 'concrete', materialColor: '#9a9a9a' });
+        expect(ok).toBe(true);
+        expect(calls[0]).toEqual({
+            type: 'slab.updateDimensions',
+            payload: { slabId: 's1', materialId: 'concrete', materialColor: '#9a9a9a' },
+        });
+    });
+
+    it('handrail: colour reaches the record; a catalogue materialId is NOT written, and says why', () => {
+        // HandrailFragmentBuilder reads `materialColor` and has NO material-library lookup.
+        // Writing a materialId the builder never resolves would put a dead field on the record
+        // while the live mesh repaint implied success — the G7 defect one layer down.
+        //
+        // The bug this catches scores ZERO, not 1.000: if `supportsMaterialId: false` is
+        // dropped, `materialId` appears in the payload and this goes RED.
+        const { runtime, calls } = makeRuntime();
+        const ok = dispatchSetMaterial(runtime, 'handrail', 'h1', { materialId: 'oak', materialColor: '#8b5a2b' });
+        expect(ok).toBe(true);
+        expect(calls[0]).toEqual({
+            type: 'handrail.updateColor',
+            payload: { id: 'h1', materialColor: '#8b5a2b' },
+        });
+        expect(calls[0]!.payload).not.toHaveProperty('materialId');
+        expect(materialIdUnsupportedReason('handrail')).toBeTruthy();
+    });
+
+    it('a colour-only family refuses a materialId-ONLY change rather than pretending', () => {
+        // Nothing renderable to write → no dispatch at all, so the caller surfaces the gap.
+        const { runtime, calls } = makeRuntime();
+        expect(dispatchSetMaterial(runtime, 'handrail', 'h1', { materialId: 'oak' })).toBe(false);
+        expect(calls).toHaveLength(0);
+    });
+
+    it('materialIdUnsupportedReason only speaks for families that HAVE a live route', () => {
+        // A family with no route at all is covered by MATERIAL_UNSUPPORTED_REASON; reporting
+        // both would be contradictory advice.
+        expect(materialIdUnsupportedReason('beam')).toBeUndefined();
+        expect(materialIdUnsupportedReason('column')).toBeUndefined(); // full support
+        expect(Object.keys(MATERIAL_ID_UNSUPPORTED_REASON).sort()).toEqual(['handrail']);
+    });
+
     // ── The families that CANNOT commit a material — declared, not dispatched ─────
     it('returns false for every family with no live material path, and says why', () => {
         const { runtime, calls } = makeRuntime();
-        for (const f of ['slab', 'wall', 'beam', 'stair', 'handrail', 'plumbing', 'lighting', 'structural', 'door', 'window']) {
+        for (const f of ['beam', 'stair', 'plumbing', 'lighting', 'structural', 'door', 'window']) {
             expect(dispatchSetMaterial(runtime, f, `${f}-1`, { materialId: 'm', materialColor: '#123456' })).toBe(false);
             expect(hasMaterialCommand(f)).toBe(false);
             expect(materialUnsupportedReason(f), `${f} must declare WHY it cannot apply a material`).toBeTruthy();
@@ -153,9 +258,54 @@ describe('MaterialDispatch — every route must reach the geometry record (G7)',
     });
 
     it('the unsupported list is the honest, complete G7 material gap', () => {
+        // §FIX-MATERIAL-REACHES-RECORD — slab, wall and handrail are GONE from this list
+        // (they reach the record now). door/window remain, but for a DIFFERENT and honest
+        // reason: their frame colour has its own control (door.setFrameColor /
+        // window.setFrameColor — now bridged; NO handler existed for either before G7), and
+        // routing the generic Material dropdown at the same command would fire it twice for
+        // one gesture (two undo entries — a C16 violation).
         expect(Object.keys(MATERIAL_UNSUPPORTED_REASON).sort()).toEqual(
-            ['beam', 'door', 'handrail', 'lighting', 'plumbing', 'slab', 'stair', 'structural', 'wall', 'window'],
+            ['beam', 'door', 'lighting', 'plumbing', 'stair', 'structural', 'window'],
         );
+    });
+
+    it('a "cannot render it" reason is MEASURED AT THE BUILDER, not guessed at the bus', () => {
+        // The pre-G7 reasons all blamed "the detached plugin store". For these five that was
+        // true of the DISPATCH but WRONG about the cause: each HAS a legacy command that
+        // reaches the geometry store, and bridging it would STILL have shown nothing, because
+        // the record has no material field the builder reads (or the builder ignores the one
+        // it has). Bridging them would have produced a record carrying a material and a mesh
+        // that never shows it — the same lie, one layer deeper and much harder to see.
+        //
+        // So: a reason of this kind must name the RECORD or the BUILDER. A reason that names
+        // only the bus is a reason nobody verified — which is precisely how this defect
+        // survived a 100%-green suite.
+        const CANNOT_RENDER = ['beam', 'stair', 'plumbing', 'lighting', 'structural'];
+        const BUILDER_WORDS = /builder|hardcode|record|enum|schema-only|materialid|materialcolor/i;
+        for (const family of CANNOT_RENDER) {
+            const reason = MATERIAL_UNSUPPORTED_REASON[family]!;
+            expect(reason, `${family} must declare a reason`).toBeTruthy();
+            expect(
+                BUILDER_WORDS.test(reason),
+                `The reason given for "${family}" does not mention the RECORD or the BUILDER — ` +
+                `so it was measured at the dispatch. Read the builder, then write the reason.`,
+            ).toBe(true);
+        }
+    });
+
+    it('door/window declare the RIGHT CONTROL — their gap is a different kind, not a dead builder', () => {
+        // door/window are NOT "the builder can't render it" (both builders read frameColor).
+        // Their reason is that the GENERIC Material dropdown is the wrong control: an opening's
+        // finish comes from its SYSTEM TYPE (C15), and its frame colour has a dedicated control
+        // that dispatches door.setFrameColor / window.setFrameColor — commands for which NO
+        // handler was registered anywhere on the bus before G7. So the reason must point the
+        // user AT the working control, not just say "no".
+        for (const f of ['door', 'window']) {
+            const reason = MATERIAL_UNSUPPORTED_REASON[f]!;
+            expect(reason).toMatch(/frame colour|framecolor|setFrameColor/i);
+            expect(reason, `${f} must point at the system type (C15), the real source of its finish`)
+                .toMatch(/system type/i);
+        }
     });
 
     // ── Facade behaviour (unchanged contract) ────────────────────────────────────
@@ -164,6 +314,26 @@ describe('MaterialDispatch — every route must reach the geometry record (G7)',
         expect(materialUnsupportedReason('stairs')).toBeTruthy();
         expect(routeFor('corner_wardrobe')?.command).toBe('furniture.updateParameters');
         expect(routeFor('curtain-wall')?.command).toBe('wall.updateCurtainWall');
+    });
+
+    it('every element family the inspector can show is either WIRED or DECLARED — never silent', () => {
+        // The no-lying-buttons invariant, as one assertion. A family that is neither routed
+        // nor declared shows a Material control that dispatches nothing and says nothing.
+        const INSPECTOR_FAMILIES = [
+            'slab', 'wall', 'beam', 'stair', 'handrail', 'plumbing', 'lighting', 'structural',
+            'door', 'window', 'ceiling', 'floor', 'roof', 'column', 'curtainwall', 'furniture', 'room',
+        ];
+        for (const f of INSPECTOR_FAMILIES) {
+            const wired    = hasMaterialCommand(f);
+            const declared = materialUnsupportedReason(f) !== undefined;
+            expect(
+                wired || declared,
+                `"${f}" has neither a live material route nor a declared reason. Its Material ` +
+                `control is enabled and inert — a button that lies (the L-267 lesson).`,
+            ).toBe(true);
+            // …and never BOTH: a family that works must not also claim it cannot.
+            expect(wired && declared, `"${f}" is both wired AND declared unsupported.`).toBe(false);
+        }
     });
 
     it('is a no-op with no runtime/bus, and when there is nothing to apply', () => {
@@ -181,11 +351,17 @@ describe('MaterialDispatch — every route must reach the geometry record (G7)',
             [
                 { id: 'ce1', type: 'ceiling' },
                 { id: 'c1', type: 'column' },
-                { id: 's1', type: 'slab' },   // no live path → not counted, not dispatched
+                // §FIX-MATERIAL-REACHES-RECORD (G7): slab has a LIVE path now — it counts.
+                { id: 's1', type: 'slab' },
+                // beam still cannot render a material (its builder hardcodes two shared
+                // materials) → not counted, not dispatched, declared instead.
+                { id: 'b1', type: 'beam' },
             ],
             { materialId: 'm', materialColor: '#0a0b0c' },
         );
-        expect(n).toBe(2);
-        expect(calls.map(c => c.type)).toEqual(['ceiling.update', 'column.update']);
+        expect(n).toBe(3);
+        expect(calls.map(c => c.type)).toEqual([
+            'ceiling.update', 'column.update', 'slab.updateDimensions',
+        ]);
     });
 });

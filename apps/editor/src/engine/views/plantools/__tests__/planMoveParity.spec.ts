@@ -57,16 +57,38 @@ function threeDDispatchedTypes(): string[] {
     return [...DRAG_HANDLER_SRC.matchAll(/dragDispatch\(\s*'([^']+)'/g)].map((m) => m[1]!);
 }
 
-/** Does the 3-D branch that dispatches `type` opt into ring-buffer undo capture? */
+/**
+ * Does the 3-D branch that dispatches `type` opt into ring-buffer undo capture?
+ *
+ * Two ways a branch can qualify, and the second is STRONGER than the first:
+ *
+ *   1. It writes `_recordUndo` into an INLINE payload literal (column / beam / floor / …).
+ *      We read the argument list of the `dragDispatch` call to find it.
+ *   2. §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — it builds its payload with the SHARED
+ *      `buildMoveCommand()`, the very function the plan tool calls. Then undo capture is
+ *      identical to the plan surface BY CONSTRUCTION — it is literally the same object —
+ *      so there is nothing left to diverge. (The `buildMoveCommand(...)` call sits ABOVE
+ *      the `dragDispatch`, so we look BACKWARD to the top of the enclosing `if (elemType`
+ *      branch, not forward into the payload.)
+ *
+ * Neither path is a free pass: a branch that does neither returns false, and the parity
+ * assertion then fails against the plan payload — which is exactly what we want.
+ */
 function threeDRecordsUndo(type: string): boolean {
     const start = DRAG_HANDLER_SRC.indexOf(`dragDispatch('${type}'`);
     if (start < 0) return false;
-    // The payload literal is the argument list of this call — bounded by the next
-    // dragDispatch (or 600 chars, whichever is nearer). Every payload in that file is
-    // well under 600 chars.
+
+    // (1) Inline literal: the payload is the argument list of this call — bounded by the
+    // next dragDispatch (or 600 chars, whichever is nearer). Every inline payload in that
+    // file is well under 600 chars.
     const nextCall = DRAG_HANDLER_SRC.indexOf('dragDispatch(', start + 10);
     const end = nextCall < 0 ? start + 600 : Math.min(nextCall, start + 600);
-    return DRAG_HANDLER_SRC.slice(start, end).includes('_recordUndo');
+    if (DRAG_HANDLER_SRC.slice(start, end).includes('_recordUndo')) return true;
+
+    // (2) Shared builder: scan back to the head of the enclosing element branch.
+    const branchStart = DRAG_HANDLER_SRC.lastIndexOf('if (elemType', start);
+    if (branchStart < 0) return false;
+    return DRAG_HANDLER_SRC.slice(branchStart, start).includes('buildMoveCommand(');
 }
 
 describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)', () => {
@@ -109,6 +131,54 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             expect(moveCommandFor('wall')).toBe('wall.updateBaseline');
             expect(moveCommandFor('door')).toBe('door.setOffset');
             expect(moveCommandFor('window')).toBe('window.setOffset');
+
+            // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — the two families that were enabled and inert
+            // on BOTH surfaces. Each must now name an UN-SHADOWED bus type AND have a real
+            // 3-D branch. Before the fix: slab had no `dragDispatch` at all, and handrail's
+            // branch only `console.warn`ed and emitted a snap-back event — so both `toContain`
+            // assertions below fail RED on the pre-fix file.
+            expect(moveCommandFor('slab')).toBe('slab.movePolygon');
+            expect(DRAG_HANDLER_SRC).toContain("dragDispatch('slab.movePolygon'");
+
+            expect(moveCommandFor('handrail')).toBe('handrail.moveBaseLine');
+            expect(moveCommandFor('railing')).toBe('handrail.moveBaseLine');
+            expect(DRAG_HANDLER_SRC).toContain("dragDispatch('handrail.moveBaseLine'");
+        });
+
+        it('the two new bridges use a type NO plugin handler claims (the L-220 rule)', () => {
+            // The whole point of the L-220 `plumbing.moveFixture` precedent: the plugin
+            // handlers (`slab.updatePolygon`, `slab.update`, `slab.setMaterial`,
+            // `wall.setColor`) `produceCommand` against a DETACHED plugin DTO store. Bridging
+            // to the legacy geometry command under one of THEIR type names would be shadowed
+            // — first registration wins — and the move would land in the dead store again.
+            //
+            // This assertion is NOT vacuous: swap `slab.movePolygon` back to
+            // `slab.updatePolygon` (the name the pre-fix plan tool actually dispatched) and
+            // it goes red.
+            const SHADOWED_BY_PLUGIN_HANDLERS = [
+                'slab.updatePolygon', 'slab.update', 'slab.setMaterial',
+                'wall.setColor', 'plumbing.move',
+            ];
+            for (const cmd of Object.values(MOVE_COMMAND_BY_TYPE)) {
+                expect(
+                    SHADOWED_BY_PLUGIN_HANDLERS.includes(cmd),
+                    `A move routes to "${cmd}" — a bus type CLAIMED by a plugin handler that writes ` +
+                    `the DETACHED plugin DTO store. It will be shadowed (first registration wins) and ` +
+                    `the move will never reach the geometry record. Use a DISTINCT type bridged to the ` +
+                    `legacy command (the L-220 plumbing.moveFixture pattern).`,
+                ).toBe(false);
+            }
+        });
+
+        it('the handrail 3-D branch no longer REFUSES the drag', () => {
+            // The pre-fix branch told the user to "use the Plan View move tool" — a tool that
+            // had never implemented handrail move. A double lie: two surfaces, each pointing
+            // at the other. If that text ever comes back, so has the lie.
+            expect(
+                DRAG_HANDLER_SRC.includes('Use the Plan View move tool instead'),
+                'The 3-D handrail branch is refusing the drag again and redirecting the user to the ' +
+                'Plan View move tool. HandrailData.baseLine is a two-point LINE — it moves.',
+            ).toBe(false);
         });
     });
 
@@ -123,6 +193,9 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             { type: 'roof',      record: { id: 'r1', footprint: { polygon: [[0, 0], [2, 0], [2, 2]], centroid: [1, 1] } } },
             { type: 'plumbing',  record: { id: 'p1', position: { x: 1, y: 0, z: 2 } } },
             { type: 'stair',     record: { id: 's1' } },
+            // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — both now move on BOTH surfaces.
+            { type: 'slab',      record: { id: 'sl1', polygon: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }] } },
+            { type: 'handrail',  record: { id: 'h1', baseLine: [{ x: 0, y: 1, z: 0 }, { x: 3, y: 1, z: 0 }] } },
         ];
 
         for (const { type, record } of bothSurfaces) {
@@ -253,6 +326,77 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             });
         });
 
+        // ── §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the last two lying Move buttons ──
+        it('slab: every polygon vertex translates — and Z lands on `y` (the 2-D slab convention)', () => {
+            // SlabData.polygon is `{x,y}[]` where `y` MAPS TO WORLD Z. Getting that wrong
+            // would move the slab along the wrong axis — so pin the AXIS, not just "it moved".
+            const poly = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }, { x: 0, y: 3 }];
+            const cmd = buildMoveCommand('slab', { id: 'sl1', polygon: poly }, 2, -1);
+            expect(cmd!.type).toBe('slab.movePolygon');
+            expect(cmd!.payload.slabId).toBe('sl1');
+            expect(cmd!.payload.polygon).toEqual([
+                { x: 2, y: -1 }, { x: 6, y: -1 }, { x: 6, y: 2 }, { x: 2, y: 2 },
+            ]);
+            // The pre-move polygon must be a DEEP clone — the store mutates in place, and a
+            // shared reference would make the inverse patch restore the NEW vertices (i.e.
+            // undo would be a silent no-op — the L-72 defect).
+            const prev = (cmd!.payload._prev as { polygon: Array<{ x: number; y: number }> }).polygon;
+            expect(prev).toEqual(poly);
+            expect(prev[0]).not.toBe(poly[0]);
+            // A translate is AABB-invariant, so the command's width/depth stay correct and
+            // must NOT be re-sent (a second representation of the same fact — C11).
+            expect(cmd!.payload).not.toHaveProperty('width');
+            expect(cmd!.payload).not.toHaveProperty('depth');
+        });
+
+        it('slab: HOLES travel with the ring — a hole left behind would slide across the slab', () => {
+            // Holes are stored in the same WORLD frame as the outer ring, not as an offset
+            // from it. UpdateSlabPolygonCommand preserves existing holes only when `holes` is
+            // OMITTED — so translating the ring while omitting the holes would leave the
+            // openings where they were. This assertion fails if the holes are dropped, and it
+            // fails if they are passed through untranslated.
+            const holes = [[{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }]];
+            const cmd = buildMoveCommand(
+                'slab',
+                { id: 'sl1', polygon: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }], holes },
+                10, 20,
+            );
+            expect(cmd!.payload.holes).toEqual([[{ x: 11, y: 21 }, { x: 12, y: 21 }, { x: 12, y: 22 }]]);
+            expect((cmd!.payload._prev as { holes: unknown }).holes).toEqual(holes);
+        });
+
+        it('slab: a slab with NO holes omits the key entirely (passing [] would DELETE them)', () => {
+            const cmd = buildMoveCommand('slab', { id: 'sl1', polygon: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }] }, 1, 1);
+            expect(Object.prototype.hasOwnProperty.call(cmd!.payload, 'holes')).toBe(false);
+        });
+
+        it('handrail: both baseLine endpoints travel (it is a LINE, not "path points")', () => {
+            // The premise that killed this for a year — "handrail geometry is defined by path
+            // points" — was false. HandrailData.baseLine is [Point3D, Point3D].
+            const cmd = buildMoveCommand(
+                'handrail',
+                { id: 'h1', baseLine: [{ x: 0, y: 1, z: 0 }, { x: 3, y: 1, z: 4 }] },
+                1, -2,
+            );
+            expect(cmd!.type).toBe('handrail.moveBaseLine');
+            expect(cmd!.payload.baseLine).toEqual([
+                { x: 1, y: 1, z: -2 }, { x: 4, y: 1, z: 2 },
+            ]);
+            // Length preserved (a translate, not a stretch) — and Y is untouched.
+            const [a, b] = cmd!.payload.baseLine as Array<{ x: number; y: number; z: number }>;
+            expect(Math.hypot(b.x - a.x, b.z - a.z)).toBeCloseTo(5);
+            expect(a.y).toBe(1);
+            expect(b.y).toBe(1);
+            expect((cmd!.payload._prev as { baseLine: unknown }).baseLine).toEqual([
+                { x: 0, y: 1, z: 0 }, { x: 3, y: 1, z: 4 },
+            ]);
+        });
+
+        it('railing is an alias of handrail — the same command, the same payload', () => {
+            const rec = { id: 'h1', baseLine: [{ x: 0, y: 1, z: 0 }, { x: 3, y: 1, z: 0 }] };
+            expect(buildMoveCommand('railing', rec, 1, 1)).toEqual(buildMoveCommand('handrail', rec, 1, 1));
+        });
+
         it('a zero delta, a non-finite delta, or a missing record is a no-op — never a dispatch', () => {
             expect(buildMoveCommand('column', { id: 'c1', position: { x: 0, y: 0, z: 0 } }, 0, 0)).toBeNull();
             expect(buildMoveCommand('column', { id: 'c1', position: { x: 0, y: 0, z: 0 } }, NaN, 1)).toBeNull();
@@ -293,13 +437,13 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
         });
 
         it('records the families that CANNOT move yet, so the gap is visible rather than silent', () => {
-            // These are the honest G7 gaps. If one of them gets wired, delete its entry —
-            // the previous assertion then requires a real command for it.
-            expect(Object.keys(MOVE_UNSUPPORTED_REASON).sort()).toEqual(
-                ['handrail', 'lighting', 'railing', 'slab'],
-            );
-            expect(canMove('slab')).toBe(false);
-            expect(canMove('handrail')).toBe(false);
+            // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — slab, handrail and railing are GONE from this
+            // list: they are wired now, on both surfaces. `lighting` is the last honest gap
+            // (and ElementCapabilities declares no ops for it, so no button lies).
+            expect(Object.keys(MOVE_UNSUPPORTED_REASON).sort()).toEqual(['lighting']);
+            expect(canMove('slab')).toBe(true);
+            expect(canMove('handrail')).toBe(true);
+            expect(canMove('railing')).toBe(true);
         });
     });
 });
