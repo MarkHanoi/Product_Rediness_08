@@ -196,6 +196,28 @@ const SYSTEM_PEN_TABLE: Partial<Record<PenZone, Partial<Record<string, PenStyle>
     },
 };
 
+// ─── The thinnest pen the table can produce ──────────────────────────────────
+
+/**
+ * §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — the LIGHTEST width in the locked table (mm).
+ *
+ * DERIVED by scanning the table, never re-typed. It is the input to
+ * `CanvasRenderScale.MIN_LEGIBLE_BACKING_SCALE`: the screen must have enough device pixels to
+ * render THIS pen without clamping, or every pen at or below it collapses onto the raster floor
+ * and the whole C09 §4.6.4 ladder flattens. Deriving it means the day someone adds a finer pen
+ * to the table, the canvas's backing scale follows it automatically — a hand-typed constant here
+ * would silently re-introduce L-288 for exactly the new pen that motivated the change.
+ */
+export const THINNEST_SYSTEM_PEN_MM: number = (() => {
+    let min = Infinity;
+    for (const byCategory of Object.values(SYSTEM_PEN_TABLE)) {
+        for (const style of Object.values(byCategory ?? {})) {
+            if (style && style.widthMm > 0) min = Math.min(min, style.widthMm);
+        }
+    }
+    return Number.isFinite(min) ? min : 0.13;
+})();
+
 // ─── Fallback ────────────────────────────────────────────────────────────────
 
 /**

@@ -22,6 +22,10 @@ import { drawingZoneFromLayerName, penZoneOf } from '../drawing/DrawingZone';
 import { elementFunctionFrom, ELEMENT_FUNCTION_KEY } from '../drawing/ElementFunction';
 import type { PenStyle } from '../drawing/PenWeightTable';
 import { SCREEN_PX_PER_MM } from '../drawing/DrawingConstants';
+// §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — the backing store must have enough DEVICE PIXELS to
+// draw the pen table's thinnest pen, or every pen at or below the raster floor collapses onto it
+// and the C09 §4.6.4 ladder is invisible on screen. The PENS ARE CORRECT; the rasteriser was not.
+import { resolveCanvasRenderScale, minStrokePx, dashScale } from '../drawing/CanvasRenderScale';
 // Contract 23 §7 — GraphicsRulesEngine: resolveStyle() replaces direct resolvePen() calls
 import { graphicsRulesEngine } from '../drawing/GraphicsRulesEngine';
 // Contract 23 §3 (Day 3-4) — centralised poche fill table
@@ -53,7 +57,12 @@ import { renderLightingSymbols } from './symbols/LightingPlanSymbolRenderer';
 export const DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM = 30;
 export const MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM = 3;
 
-const MAX_PLAN_VIEW_CANVAS_DPR = 4;
+// §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — `MAX_PLAN_VIEW_CANVAS_DPR = 4` LIVED HERE. It is now
+// `MAX_BACKING_SCALE` in `drawing/CanvasRenderScale.ts`, beside the floor it bounds and beside
+// the pen table it is derived against. It is the SAME NUMBER and the same policy: this canvas has
+// always been allowed to rasterise at 4×. Two call sites in this file (`render()` and the
+// worker-result renderer) each re-derived the scale AND the floor from `devicePixelRatio`, and
+// each got the floor wrong in the same way. There is now ONE resolver, and nobody re-derives it.
 
 const ISO_LAYER_TO_VG_CATEGORY: Readonly<Record<string, string>> = {
     'A-WALL': 'wall',
@@ -232,9 +241,11 @@ export class PlanViewCanvas {
 
         this.setSize(w, h);
 
-        const dpr = Math.min(window.devicePixelRatio, MAX_PLAN_VIEW_CANVAS_DPR);
+        // §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — render into a backing store big enough to
+        // DRAW the pen table, not merely big enough to match the display. See CanvasRenderScale.
+        const scale = resolveCanvasRenderScale(window.devicePixelRatio);
         const ctx = this._ctx;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
         ctx.imageSmoothingEnabled = true;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, w, h);
@@ -264,7 +275,14 @@ export class PlanViewCanvas {
             return;
         }
 
-        const hairline = Math.max(0.5, 1 / Math.max(dpr, 1));
+        // §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — `hairline` used to mean TWO things at once
+        // (the minimum stroke width AND the dash-pattern scale), which is why the flattened
+        // ladder could not be fixed in place. They are now separate and answer to different
+        // things: the stroke floor is ONE DEVICE PIXEL of the BACKING STORE (the thinnest mark
+        // the rasteriser can physically make); the dash scale still follows the DISPLAY's ratio,
+        // exactly as before, so every dash in the drawing looks identical to yesterday's.
+        const hairline = minStrokePx(scale);
+        const dashPxScale = dashScale(window.devicePixelRatio);
 
         // §FIX-ELEVATION-POCHE (L-119) — only CUT-family views (plan / section) get
         // poché solid fills. Elevations are pure line drawings; running the poché pass
@@ -345,7 +363,7 @@ export class PlanViewCanvas {
 
             ctx.strokeStyle = vgEdge ?? _pen.color;
             ctx.globalAlpha = _pen.opacity;
-            ctx.setLineDash(_pen.dashPx ? _pen.dashPx.map(v => v * hairline) : []);
+            ctx.setLineDash(_pen.dashPx ? _pen.dashPx.map(v => v * dashPxScale) : []);
 
             // ── §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P5 — LINEWEIGHT HIERARCHY ──
             //
@@ -416,8 +434,8 @@ export class PlanViewCanvas {
             //
             // FIX: there is now ONE pen. `_pen` — resolved above from this segment's REAL zone,
             // through the full chain, with the L-285 function axis — is composed with the VG
-            // factor and the hairline EXACTLY as the generic path composes it (the identical
-            // `_penPx * _vgFactor` and `dashPx * hairline` expressions, computed once, above),
+            // factor and the stroke floor EXACTLY as the generic path composes it (the identical
+            // `_penPx * _vgFactor` and `dashPx * dashPxScale` expressions, computed once, above),
             // and handed to the symbol renderer as a finished `SymbolPen`. The renderer can no
             // longer re-decide a weight: it is no longer given the means to.
             const _symbolicRule = symbolicRuleForLayer(layerTag, viewDef.viewType ?? '');
@@ -449,7 +467,7 @@ export class PlanViewCanvas {
                     const _symPen: SymbolPen = {
                         widthPx: ctx.lineWidth,
                         color:   vgEdge ?? _pen.color,
-                        dashPx:  _pen.dashPx ? _pen.dashPx.map(v => v * hairline) : null,
+                        dashPx:  _pen.dashPx ? _pen.dashPx.map(v => v * dashPxScale) : null,
                         opacity: _pen.opacity,
                     };
                     renderSymbol(ctx, _symbolicRule, _segs, _symPen);
@@ -1525,9 +1543,11 @@ export class PlanViewCanvas {
         // 0×0. (Was Math.max(0, …).)
         this._cssW = Math.max(1, Math.round(w));
         this._cssH = Math.max(1, Math.round(h));
-        const dpr = Math.min(window.devicePixelRatio, MAX_PLAN_VIEW_CANVAS_DPR);
-        const pw = Math.round(this._cssW * dpr);
-        const ph = Math.round(this._cssH * dpr);
+        // §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — the BACKING STORE and the render TRANSFORM
+        // must use the SAME scale, or every stroke is drawn at the wrong size. One resolver.
+        const scale = resolveCanvasRenderScale(window.devicePixelRatio);
+        const pw = Math.round(this._cssW * scale);
+        const ph = Math.round(this._cssH * scale);
         if (this._canvas.width !== pw) this._canvas.width = pw;
         if (this._canvas.height !== ph) this._canvas.height = ph;
     }
@@ -1620,11 +1640,16 @@ export class PlanViewCanvas {
 
         this.setSize(w, h);
 
-        const dpr     = Math.min(window.devicePixelRatio, MAX_PLAN_VIEW_CANVAS_DPR);
-        const ctx     = this._ctx;
-        const hairline = Math.max(0.5, 1 / Math.max(dpr, 1));
+        // §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — the SECOND stroke path in this file (the
+        // worker-pipeline result renderer). It had the SAME 1-px floor and would have kept the
+        // ladder flat for every drawing that came back through the worker — a fix applied to one
+        // of two identical paths is not a fix.
+        const scale    = resolveCanvasRenderScale(window.devicePixelRatio);
+        const ctx      = this._ctx;
+        const hairline = minStrokePx(scale);
+        const dashPxScale = dashScale(window.devicePixelRatio);
 
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
         ctx.imageSmoothingEnabled = true;
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, w, h);
@@ -1702,7 +1727,7 @@ export class PlanViewCanvas {
             ctx.strokeStyle = edge.color;
             ctx.lineWidth   = Math.max(hairline, edge.widthMm * SCREEN_PX_PER_MM);
             ctx.globalAlpha = edge.opacity;
-            ctx.setLineDash(edge.dashPx ? edge.dashPx.map(v => v * hairline) : []);
+            ctx.setLineDash(edge.dashPx ? edge.dashPx.map(v => v * dashPxScale) : []);
 
             ctx.beginPath();
             ctx.moveTo(p1.sx, p1.sy);

@@ -35,6 +35,8 @@ import { graphicsRulesEngine } from './GraphicsRulesEngine';
 import { ELEMENT_FUNCTIONS, ELEMENT_FUNCTION_KEY, functionWeightScale } from './ElementFunction';
 import { DRAWING_ZONES, penZoneOf } from './DrawingZone';
 import { SCREEN_PX_PER_MM } from './DrawingConstants';
+// §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — the real stroke floor, from the real resolver.
+import { minStrokePx, resolveCanvasRenderScale } from './CanvasRenderScale';
 import { PlanViewCanvas } from '../views/PlanViewCanvas';
 import { viewDefinitionStore } from '../views/ViewDefinitionStore';
 import { viewTechnicalDrawingCache } from '../views/ViewTechnicalDrawingCache';
@@ -105,12 +107,15 @@ function drawingWith(
 }
 
 /**
- * The canvas's own hairline floor: `max(0.5, 1 / dpr)` (PlanViewCanvas.render). Under happy-dom
- * `devicePixelRatio` is 1, so it is 1 px — and the BEYOND/HIDDEN pens (0.09 mm ≈ 0.34 px) are
- * CLAMPED to it. Any assertion on a de-emphasis pen's pixel width must respect the clamp or it
- * is asserting a number the canvas can never produce.
+ * The canvas's stroke floor, in CSS px.
+ *
+ * §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288): this used to be `max(0.5, 1/dpr)` — 1.0 CSS px at
+ * dpr 1 — which CLAMPED every pen below ~0.265 mm (the whole BEYOND/HIDDEN tier, and most of
+ * PROJECTION) onto one width. It is now ONE DEVICE PIXEL of the backing store, and the backing
+ * store is scaled so the table's thinnest pen still lands above it. Derived from the same
+ * resolver the canvas uses, so this test can never drift from the product's real floor.
  */
-const HAIRLINE = Math.max(0.5, 1 / Math.max(window.devicePixelRatio || 1, 1));
+const HAIRLINE = minStrokePx(resolveCanvasRenderScale(window.devicePixelRatio));
 
 /** Render one plan view over the given drawing and return every stroke it painted. */
 function renderPlan(viewId: string, drawing: { three: THREE.Group }): Stroke[] {
@@ -332,37 +337,31 @@ describe('§FEAT-PEN-WEIGHT-BY-WALL-FUNCTION — THE OUTCOME: the weight reaches
         expect(int!.lineWidth).toBeCloseTo(0.25 * 0.70 * SCREEN_PX_PER_MM, 4);
     });
 
-    it('*** PRE-EXISTING, NOT L-285: at devicePixelRatio 1 the HAIRLINE FLOOR flattens the ENTIRE projection ladder ***', () => {
-        // THIS TEST RECORDS A DEFECT. It is not a success case, and it is deliberately not
-        // hidden behind the dpr-2 case above.
+    it('…and at devicePixelRatio 1 TOO — the raster floor that used to flatten this is FIXED (L-288)', () => {
+        // ═══ THIS TEST USED TO ASSERT THE OPPOSITE, AND THAT IS WHY L-288 EXISTS. ═══
         //
-        // `PlanViewCanvas` floors every stroke at `hairline = max(0.5, 1/dpr)` — 1.0 px at
-        // dpr 1 — so ANY pen below ~0.265 mm is clamped to exactly 1 px. At dpr 1 that swallows:
+        // When L-285 landed, this test RECORDED A DEFECT rather than hiding it: at dpr 1 the
+        // canvas floored every stroke at 1 CSS px, so wall PROJECTION (0.25 mm → 0.945 px), door
+        // PROJECTION (0.18 → 0.680) and ceiling PROJECTION (0.13 → 0.491) ALL clamped to exactly
+        // 1 px — and with them the entire interior/exterior modulation, in elevation, on most
+        // laptops and most projectors. The pens were right; the RASTERISER was wrong.
         //
-        //     wall   PROJECTION  0.25  mm → 0.945 px → 1 px
-        //     door   PROJECTION  0.18  mm → 0.680 px → 1 px
-        //     ceiling PROJECTION 0.13  mm → 0.491 px → 1 px
-        //     …and therefore the L-285 interior modulation of any of them.
-        //
-        // So on a 1× display the whole PROJECTION hierarchy — not merely the function axis —
-        // renders at ONE uniform width. That is a PRE-EXISTING property of the hairline policy
-        // (it predates L-285 and is the same class as the L-241 defect), it is what every CAD
-        // package does on screen while printing correctly, and EXPORT is unaffected: at
-        // EXPORT_DPI the same pens are 2.95 px and 2.07 px — clearly distinct.
-        //
-        // It is asserted here so that (a) it is a KNOWN, MEASURED fact rather than a surprise
-        // the founder reports as "your feature does nothing in elevation", and (b) the day
-        // someone revisits the hairline policy, this test goes red and tells them what changed.
-        const flat = renderElevation('v-fn-elev-1x', drawingWith([
+        // §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) fixed the rasteriser (NOT the pens — the export
+        // was always correct). This test now asserts the fix from the other side: the modulation
+        // that was measurably invisible at 1× is measurably VISIBLE at 1×. The full device-pixel
+        // ladder lives in `CanvasHairlineFloor.test.ts`.
+        const at1x = renderElevation('v-fn-elev-1x', drawingWith([
             { layer: 'A-WALL:proj', fn: 'exterior' },
             { layer: 'A-WALL:proj', fn: 'interior' },
         ]), 1);
-        expect(flat[0]!.lineWidth).toBe(1);
-        expect(flat[1]!.lineWidth).toBe(1);   // ← the modulation is REAL but SUB-HAIRLINE here
+        expect(at1x[1]!.lineWidth, 'the interior wall must be thinner ON A 1x SCREEN')
+            .toBeLessThan(at1x[0]!.lineWidth);
+        expect(at1x[0]!.lineWidth).toBeCloseTo(0.25 * SCREEN_PX_PER_MM, 4);
+        expect(at1x[1]!.lineWidth).toBeCloseTo(0.175 * SCREEN_PX_PER_MM, 4);
 
-        // …and the pen the canvas RESOLVED is still correctly modulated — the loss is purely the
-        // screen-space floor, not the pen. (Which is why CUT, at 0.50/0.35 mm, is visible at 1×:
-        // see the founder's-ask test above, which runs at dpr 1 and passes.)
+        // …and the pen the canvas RESOLVED was always correctly modulated — the loss had been
+        // purely in the screen-space floor, never in the pen. Pinned, so the two can never be
+        // confused again.
         expect(
             graphicsRulesEngine.resolveStyle('PROJECTION', 'wall', { viewType: 'elevation', elementFunction: 'interior' }).widthMm,
         ).toBeLessThan(

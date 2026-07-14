@@ -46,6 +46,18 @@ export {
     categoryFromFlags,
 } from './PenWeightTable.js';
 
+// §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — the screen must have the DEVICE PIXELS to draw
+// the pen table. The pens are correct (export proves it); the rasteriser's 1-px floor was
+// flattening every pen below ~0.265 mm onto one width. The PEN TABLE IS NOT TOUCHED.
+export {
+    MAX_BACKING_SCALE,
+    MIN_LEGIBLE_BACKING_SCALE,
+    resolveCanvasRenderScale,
+    minStrokePx,
+    dashScale,
+} from './CanvasRenderScale.js';
+export { THINNEST_SYSTEM_PEN_MM } from './PenWeightTable.js';
+
 // ── §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — C09 §4.6.4a, the third pen axis ──
 export type { ElementFunction } from './ElementFunction.js';
 export {
