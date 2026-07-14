@@ -133,6 +133,10 @@ export {
   CommandBusError,
   produceCommand,
   produceWithPatchesPerStore,
+  // §FEAT-SWIMMING-POOL-ELEMENT (L-292) — the ONE chokepoint for a bus command
+  // that spans several element families in ONE undo entry (C16 §8.6 B-6).
+  // See the routing-convention header in command-bus/src/produceCommand.ts.
+  produceMultiStoreCommand,
   PatchEmitter,
   UndoStack,
   CascadeRunner,

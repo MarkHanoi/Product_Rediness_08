@@ -37,7 +37,7 @@ export type {
 } from './types.js';
 
 export { CommandBus, CommandBusError } from './CommandBus.js';
-export { produceCommand, produceWithPatchesPerStore } from './produceCommand.js';
+export { produceCommand, produceWithPatchesPerStore, produceMultiStoreCommand } from './produceCommand.js';
 export { PatchEmitter } from './PatchEmitter.js';
 export type { EmitterListener } from './PatchEmitter.js';
 export { createEventLogPersistor } from './EventLogPersistor.js';

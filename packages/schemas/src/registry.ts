@@ -24,6 +24,9 @@ import { Structural } from './elements/Structural.js';
 import { Lighting } from './elements/Lighting.js';
 import { Plumbing } from './elements/Plumbing.js';
 import { ProjectOrigin } from './elements/ProjectOrigin.js';
+// §FEAT-SWIMMING-POOL-ELEMENT (L-292) — the pool ASSEMBLY parent + its water. ADR-0124.
+import { Pool } from './elements/Pool.js';
+import { Water } from './elements/Water.js';
 
 /**
  * The element schemas, addressable by element-type discriminator.
@@ -56,6 +59,8 @@ export const SCHEMA_REGISTRY = {
   lighting: Lighting,
   plumbing: Plumbing,
   projectOrigin: ProjectOrigin,
+  pool: Pool,
+  water: Water,
 } as const;
 
 export type SchemaRegistry = typeof SCHEMA_REGISTRY;

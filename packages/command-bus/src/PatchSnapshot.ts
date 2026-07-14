@@ -304,12 +304,31 @@ export function applyRingBufferSide(
   };
 
   if (affectedStores.length === 1) {
-    // Single-store: all ops belong to the one affected store.
+    // Single-store: all ops belong to the one affected store, and their paths are
+    // already store-relative (`[elementId, ...field]`) — hand them over untouched.
     applyOne(affectedStores[0]!, patches);
   } else {
-    // Multi-store: route each op to the store whose key matches path[0].
+    // ── Multi-store (§FEAT-SWIMMING-POOL-ELEMENT, L-292; ADR-0124 §5) ──────────
+    // Route each op to the store whose key matches path[0] — the convention the
+    // CommandBus §U-B6 guard enforces and `produceMultiStoreCommand()` produces.
+    //
+    // **THEN STRIP THE STORE KEY.** The store adapters on the other side of
+    // `applyPatch` (apps/editor `elementUndoStoreAdapter`) read `path[0]` as the
+    // ELEMENT ID and `path[1]` as the FIELD — exactly the store-relative shape the
+    // single-store branch above hands them. Passing the routed ops through with the
+    // store key still on the front made every op look like a field-write on an
+    // element literally named "wall"/"slab", i.e. silent garbage.
+    //
+    // Before L-292 this branch was DEAD (no bus handler had ever declared two
+    // stores — every real multi-store command in the tree is a legacy Path-A
+    // `Command` with snapshot undo), so the defect had never been observed. It is
+    // fixed here rather than worked around in the pool, because a pool-shaped
+    // workaround would have left the next multi-store command to fall into the
+    // same hole. Single-store commands are untouched by this change.
     for (const storeKey of affectedStores) {
-      const storePatch = patches.filter(p => String(p.path[0]) === storeKey) as typeof patches;
+      const storePatch = patches
+        .filter(p => String(p.path[0]) === storeKey)
+        .map(p => ({ ...p, path: p.path.slice(1) })) as typeof patches;
       if (storePatch.length > 0) applyOne(storeKey, storePatch);
     }
   }

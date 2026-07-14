@@ -67,3 +67,11 @@ export { SlabLevelCleanupHandler } from './SlabLevelCleanupHandler';
 // CommandManagerRef is already exported via SlabLevelCleanupHandler (same interface shape).
 export { SlabDependencyTracker } from './SlabDependencyTracker';
 export { SlabWallConnectivityService } from './SlabWallConnectivityService';
+
+// ── §FEAT-SWIMMING-POOL-ELEMENT (L-292, ADR-0124 §5) — ADDITIVE ──────────────
+// The L1 ⇄ LEGACY coordinate contract for a slab hole. There are TWO `holes`
+// fields with the same name in DIFFERENT coordinate spaces (L1 Vec3 y=elevation
+// vs legacy {x,y} y=worldZ) and only the legacy one renders. Any code moving a
+// hole loop across that seam MUST route through here — see SlabHoleCoords.ts.
+export type { L1HoleVertex, LegacyHoleVertex } from './SlabHoleCoords';
+export { l1HolesToLegacy, legacyHolesToL1 } from './SlabHoleCoords';

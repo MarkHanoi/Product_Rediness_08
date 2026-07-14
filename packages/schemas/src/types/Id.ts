@@ -39,6 +39,18 @@ export type StructuralId  = Id<'structural'>;
 export type LightingId    = Id<'lighting'>;
 export type PlumbingId    = Id<'plumbing'>;
 /**
+ * §FEAT-SWIMMING-POOL-ELEMENT (L-292) — the swimming-pool ASSEMBLY parent.
+ * A pool OWNS its parts (walls, floor slab, water) through the L0
+ * `parentId`/`childrenIds` fields; it carries no geometry of its own. ADR-0124.
+ */
+export type PoolId        = Id<'pool'>;
+/**
+ * §FEAT-SWIMMING-POOL-ELEMENT (L-292) — a body of water held by a pool.
+ * Its OWN family (not a blue slab) because its quantity is a VOLUME and its
+ * surface level is independent of the pool floor. ADR-0124 §4.
+ */
+export type WaterId       = Id<'water'>;
+/**
  * §FEAT-PROJECT-ORIGIN (L-109) — the singleton Project Origin / Base Point.
  * One per project; the always-on blue-sphere coordination datum whose position
  * IS the shared-coordinate origin (C19 §1.3 LTP-ENU / ADR-0115 project base point).
@@ -90,6 +102,8 @@ export type ElementType =
   | 'lighting'
   | 'plumbing'
   | 'projectOrigin'
+  | 'pool'
+  | 'water'
   | 'opening'
   | 'floor'
   | 'section';
@@ -101,6 +115,7 @@ export type AnyElementId =
   | RoomId | FurnitureId | AnnotationId | DimensionId | SheetId
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId | ProjectOriginId
+  | PoolId | WaterId
   | OpeningId | FloorId | SectionId;
 
 /** Map element-type discriminator → typed ID. */
@@ -130,6 +145,8 @@ export type IdFor<T extends ElementType> =
   T extends 'lighting'    ? LightingId    :
   T extends 'plumbing'    ? PlumbingId    :
   T extends 'projectOrigin' ? ProjectOriginId :
+  T extends 'pool'        ? PoolId        :
+  T extends 'water'       ? WaterId       :
   T extends 'opening'     ? OpeningId     :
   T extends 'floor'       ? FloorId       :
   T extends 'section'    ? SectionId     :

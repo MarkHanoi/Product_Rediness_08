@@ -10,6 +10,96 @@ import { produceWithPatches, type Draft, type Patch } from 'immer';
 import type { StoreId } from './types.js';
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * MULTI-STORE COMMANDS — THE ROUTING CONVENTION, AND WHY THIS HELPER EXISTS
+ * ═══════════════════════════════════════════════════════════════════════════
+ * (§FEAT-SWIMMING-POOL-ELEMENT, L-292 — see ADR-0124 §5.)
+ *
+ * A command whose `affectedStores` has MORE THAN ONE key has its patches routed
+ * to stores **by `path[0]`**. Both routers say so, in the same words:
+ *
+ *   CommandBus.ts:327   `forwardPatches: result.forward.filter(p => String(p.path[0]) === storeKey)`
+ *   PatchSnapshot.ts    `patches.filter(p => String(p.path[0]) === storeKey)`   (applyRingBufferSide)
+ *
+ * and the §U-B6 guard (CommandBus.ts:303) hard-errors a multi-store handler whose
+ * `path[0]` is not a declared store key.
+ *
+ * **THEREFORE A MULTI-STORE HANDLER MUST EMIT STORE-KEY-PREFIXED PATHS:**
+ *
+ *     path = [storeKey, elementId, ...field]        NOT  [elementId, ...field]
+ *
+ * `produceWithPatchesPerStore()` below does NOT do this — its paths are
+ * store-RELATIVE, as its own docstring says. That makes it unusable for a
+ * multi-store command: its patches route to nothing, `applyRingBufferSide`
+ * applies zero stores, and Ctrl+Z silently falls through to `commandManager`,
+ * which has never heard of the command. **Undo does nothing, and says nothing.**
+ *
+ * That trap was never sprung because, until the pool, NO bus handler had ever
+ * declared two stores (every real multi-store command in the tree is a legacy
+ * Path-A `Command` with snapshot undo). The multi-store branch was dead code.
+ *
+ * `produceMultiStoreCommand()` is the ONE chokepoint that gets it right. Use it
+ * for every multi-store bus command; do not hand-roll the prefixing.
+ */
+
+/** Prefix an Immer patch's path with its owning store key (the routing convention). */
+function _prefixWithStore(storeKey: StoreId, p: Patch): Patch {
+  return { ...p, path: [storeKey, ...p.path] };
+}
+
+/**
+ * Run one recipe per store and return a SINGLE flat forward/inverse patch pair
+ * whose paths are store-key-prefixed, plus the per-store next states.
+ *
+ * This is what buys **"one gesture = ONE undo entry"** for a command that spans
+ * several element families (C16 §8.6 B-6): one dispatch → one `HandlerResult` →
+ * one `PatchPair` → one ring-buffer entry → one Ctrl+Z.
+ *
+ * The returned `forward`/`inverse` go straight into `HandlerResult`; `nextStates`
+ * is already keyed by store id. Declare EVERY key you pass here in the handler's
+ * `affectedStores`, in any order — routing is by key, not by position.
+ *
+ * Example — a pool creates walls, a floor slab and water, and cuts a hole in the
+ * host slab, in ONE undoable entry:
+ * ```ts
+ * const out = produceMultiStoreCommand(
+ *   { pool: ctx.stores.pool, wall: ctx.stores.wall, slab: ctx.stores.slab, water: ctx.stores.water },
+ *   {
+ *     pool:  d => { d[poolId] = poolRecord; },
+ *     wall:  d => { for (const w of walls) d[w.id] = w; },
+ *     slab:  d => { d[floor.id] = floor; d[hostId]!.holes = [...d[hostId]!.holes, holeLoop]; },
+ *     water: d => { d[water.id] = water; },
+ *   },
+ * );
+ * return { forward: out.forward, inverse: out.inverse, nextStates: out.nextStates };
+ * ```
+ */
+export function produceMultiStoreCommand<TStores extends Record<StoreId, unknown>>(
+  stores: TStores,
+  recipes: { [K in keyof TStores]: (draft: Draft<TStores[K]>) => void },
+): {
+  readonly nextStates: { [K in keyof TStores]: TStores[K] };
+  readonly forward: readonly Patch[];
+  readonly inverse: readonly Patch[];
+} {
+  const nextStates = {} as { [K in keyof TStores]: TStores[K] };
+  const forward: Patch[] = [];
+  const inverse: Patch[] = [];
+
+  for (const key of Object.keys(stores) as (keyof TStores & StoreId)[]) {
+    const [next, fwd, inv] = produceWithPatches(stores[key], (draft) => {
+      recipes[key](draft as Draft<TStores[typeof key]>);
+    });
+    nextStates[key] = next as TStores[typeof key];
+    // The prefix IS the routing key. Without it these patches reach no store.
+    for (const p of fwd) forward.push(_prefixWithStore(key, p));
+    for (const p of inv) inverse.push(_prefixWithStore(key, p));
+  }
+
+  return { nextStates, forward, inverse };
+}
+
+/**
  * Run `recipe` against `base` in an Immer draft and return the next state
  * plus the forward + inverse patch arrays.  The handler returns these
  * patches verbatim in its `HandlerResult`.
