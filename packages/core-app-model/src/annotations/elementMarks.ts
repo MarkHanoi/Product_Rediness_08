@@ -8,9 +8,18 @@
 // the tag and the schedule MUST resolve the mark the same way, from the same record.
 // If the tag says "DO001" and the schedule says "DO-00-001", the drawing is a lie.
 //
-// So this file is the ONE resolver, and BOTH `ScheduleExtractor` and the auto-tag
-// executor call it. It resolves from the element's REAL RECORD — never a literal,
-// never a positional index.
+// So this resolver reads THE FIELD THE SCHEDULE ALREADY JOINS ON: `ScheduleExtractor`
+// keys the Doors/Windows schedules on `doorStore.getById(id)?.mark` — the MarkGenerator
+// mark stored on the element — and every other category on `properties.mark`. This file
+// resolves exactly those, from the element's REAL RECORD, so the join holds.
+//
+// OPEN (recorded, not papered over): when an element has NO stored mark,
+// `ScheduleExtractor` still falls back to a POSITIONAL `D-001` derived from the array
+// index, while a tag falls back to the (stable) ElementCode. Two different fallbacks =
+// two different keys for an unmarked element. The right fix is for ScheduleExtractor to
+// call `resolveInstanceMark()` too and drop the positional fallback — a schedules-side
+// change, deliberately not smuggled into the tag ticket. In practice the command path
+// stamps a mark at creation, so the fallback is unreachable for command-created elements.
 //
 // TWO MARKS, NOT ONE — and the brief's premise was half right
 // ─────────────────────────────────────────────────────────────────────────────
