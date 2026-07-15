@@ -248,7 +248,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         console.log("GIS: Cesium viewer mounted successfully");
                         const viewer = cesiumViewport.getViewer();
                         if (viewer) {
-                            bridge = new CesiumThreeBridge(viewer, props.world);
+                            // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — wire the bridge to the
+                            // OWNER via a provider, not a captured viewer. A WebGPU device-loss
+                            // recovery disposes+recreates CesiumViewport's viewer; the provider
+                            // re-reads the CURRENT one on every activate() so the bridge never
+                            // binds to (and reads `.scene` off) a disposed viewer.
+                            bridge = new CesiumThreeBridge(() => cesiumViewport?.getViewer() ?? null, props.world);
                             bridge.activate();
 
                             // Set anchor for Sydney Opera House (Default)
@@ -352,7 +357,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     }
                 }
                 if (bridge) {
-                    bridge.activate();
+                    // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — after a device-loss recovery the
+                    // bridge re-acquires the CURRENT viewer; if none is live (viewer missing /
+                    // mid-recreate) activate() throws by design. SURFACE that to the loading
+                    // overlay's "Try again" instead of letting the unhandled throw hang the
+                    // overlay for 25s at stage "content".
+                    try {
+                        bridge.activate();
+                    } catch (err) {
+                        console.error('[gis] §FIX-GLOBE-ACTIVATE-STALE-VIEWER re-activation could not bind the bridge to a live viewer:', err);
+                        activeViewActivation?.fail(
+                            `The 3D globe could not reopen after a graphics reset: ${String((err as Error)?.message ?? err)}`,
+                        );
+                    }
                 }
             }
         } else {

@@ -173,6 +173,11 @@ export function beginViewActivationLoading(
 
     const finish = (reason: string, ready: boolean): void => {
         if (finished) return;
+        // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — once a failure is SURFACED (the ERROR state
+        // owns the overlay via "Try again"/"Continue anyway"), a late readiness signal must NOT
+        // silently ready-dismiss it and pretend the view is live. The user's own action drives
+        // dismissal from here (those actions call finish with ready=false, still allowed).
+        if (failed && ready) return;
         finished = true;
         try { unsubscribeTiles?.(); } catch { /* best-effort */ }
         unsubscribeTiles = null;

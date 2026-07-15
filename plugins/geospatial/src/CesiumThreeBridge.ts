@@ -17,8 +17,21 @@
 import * as Cesium from "cesium";
 import * as THREE from "@pryzm/renderer-three/three";
 
+/**
+ * §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — the bridge is wired to the CesiumViewport (the
+ * single viewer owner) either by a live `Viewer` (legacy) OR — preferred — a PROVIDER that
+ * re-reads the owner's CURRENT viewer on demand. A provider is what makes activation survive a
+ * WebGPU device-loss cascade: CesiumViewport disposes+recreates its viewer during recovery, and
+ * a value captured at construction then points at the DESTROYED viewer (whose `.scene` getter
+ * throws). Passing `() => cesiumViewport.getViewer()` lets the bridge re-acquire the new viewer.
+ */
+export type CesiumViewerRef = Cesium.Viewer | (() => Cesium.Viewer | null | undefined);
+
 export class CesiumThreeBridge {
-  private cesiumViewer: Cesium.Viewer;
+  /** Re-reads the CURRENT viewer from the single owner (never a stale captured ref). */
+  private viewerProvider: () => Cesium.Viewer | null | undefined;
+  /** The viewer bound for the ACTIVE session — set by `activate()` from `viewerProvider`. */
+  private cesiumViewer: Cesium.Viewer | null = null;
   private threeCamera: THREE.PerspectiveCamera;
   private threeScene: THREE.Scene;
   private postRenderCallback?: () => void;
@@ -28,10 +41,12 @@ export class CesiumThreeBridge {
   private anchorECEF?: Cesium.Cartesian3;
 
   constructor(
-    cesiumViewer: Cesium.Viewer,
+    viewerRef: CesiumViewerRef,
     threeWorld: any
   ) {
-    this.cesiumViewer = cesiumViewer;
+    // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — normalise to a provider so the bridge ALWAYS
+    // re-acquires the live viewer on activate. A raw Viewer is wrapped for backward compatibility.
+    this.viewerProvider = typeof viewerRef === "function" ? viewerRef : () => viewerRef;
     this.threeCamera = threeWorld.camera.three;
     this.threeScene = threeWorld.scene.three;
 
@@ -85,8 +100,50 @@ export class CesiumThreeBridge {
     console.log("🌍 ENU transform applied to GIS BIM root");
   }
 
+  /**
+   * §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — resolve the CURRENT, live, scene-bearing viewer
+   * from the owner. Returns null when no usable viewer exists (missing, or DESTROYED by a
+   * device-loss recovery). Probes `.scene` defensively: on a torn-down Cesium `Viewer` the
+   * `scene` getter reads `_cesiumWidget.scene` off `undefined` and throws — the exact
+   * "Cannot read properties of undefined (reading 'scene')" crash this fix targets.
+   */
+  private resolveLiveViewer(): Cesium.Viewer | null {
+    let viewer: Cesium.Viewer | null | undefined;
+    try {
+      viewer = this.viewerProvider();
+    } catch {
+      return null;
+    }
+    if (!viewer) return null;
+    try {
+      if (viewer.isDestroyed()) return null;
+    } catch {
+      return null;
+    }
+    try {
+      if (!viewer.scene) return null;
+    } catch {
+      return null;
+    }
+    return viewer;
+  }
+
   public activate() {
     console.log("CesiumThreeBridge ACTIVATED");
+
+    // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — bind to the LIVE viewer, re-acquired from the
+    // owner on every activate. After a WebGPU device-loss cascade CesiumViewport disposes and
+    // recreates its viewer; reading `.scene` off the old (disposed) reference throws an unhandled
+    // TypeError that hangs the view-activation overlay for 25s. Fail FAST + LOUD instead so the
+    // caller (GISAreaLayout) can surface the loading overlay's "Try again".
+    const viewer = this.resolveLiveViewer();
+    if (!viewer) {
+      throw new Error(
+        "CesiumThreeBridge.activate: no live Cesium viewer/scene available " +
+        "(viewer missing or disposed by device-loss recovery — retry activation)."
+      );
+    }
+    this.cesiumViewer = viewer;
 
     // Disable Three.js interaction while in GIS mode
     const anyCamera = this.threeCamera as any;
@@ -94,11 +151,18 @@ export class CesiumThreeBridge {
       anyCamera.controls.enabled = false;
     }
 
+    // Idempotent: drop any prior post-render listener before re-adding so a re-activate
+    // (or an activate after a viewer swap) never double-syncs the camera.
+    if (this.postRenderCallback) {
+      try {
+        viewer.scene.postRender.removeEventListener(this.postRenderCallback);
+      } catch { /* prior viewer already gone */ }
+    }
     this.postRenderCallback = () => {
       this.syncCamera();
     };
 
-    this.cesiumViewer.scene.postRender.addEventListener(
+    viewer.scene.postRender.addEventListener(
       this.postRenderCallback
     );
 
@@ -113,9 +177,12 @@ export class CesiumThreeBridge {
   };
 
   private syncCamera() {
-    const cesiumCamera = this.cesiumViewer.camera;
+    // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — the post-render callback only fires for the
+    // viewer it was registered on, but guard anyway so a viewer disposed mid-frame degrades to
+    // a no-op instead of throwing inside Cesium's render loop.
+    const cesiumCamera = this.cesiumViewer?.camera;
 
-    if (!this.anchorECEF) return;
+    if (!this.anchorECEF || !cesiumCamera) return;
 
     // 1️⃣ Get ENU frame at anchor
     const enuTransform = Cesium.Transforms.eastNorthUpToFixedFrame(
@@ -183,9 +250,13 @@ export class CesiumThreeBridge {
     console.log("CesiumThreeBridge DEACTIVATED");
 
     if (this.postRenderCallback) {
-      this.cesiumViewer.scene.postRender.removeEventListener(
-        this.postRenderCallback
-      );
+      // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — the bound viewer may already be disposed
+      // (device-loss recovery). Guard + try/catch so teardown never throws on a dead viewer.
+      try {
+        this.cesiumViewer?.scene?.postRender?.removeEventListener(
+          this.postRenderCallback
+        );
+      } catch { /* viewer already disposed */ }
     }
 
     // Restore objects from GIS root back to scene
@@ -204,9 +275,13 @@ export class CesiumThreeBridge {
     console.log("CesiumThreeBridge DISPOSED");
 
     if (this.postRenderCallback) {
-      this.cesiumViewer.scene.postRender.removeEventListener(
-        this.postRenderCallback
-      );
+      // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — the bound viewer may already be disposed
+      // (device-loss recovery). Guard + try/catch so teardown never throws on a dead viewer.
+      try {
+        this.cesiumViewer?.scene?.postRender?.removeEventListener(
+          this.postRenderCallback
+        );
+      } catch { /* viewer already disposed */ }
     }
 
     // Restore objects from GIS root back to scene
