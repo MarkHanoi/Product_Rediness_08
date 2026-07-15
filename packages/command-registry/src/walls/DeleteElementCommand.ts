@@ -28,7 +28,13 @@ interface NeighbourBaselineSnapshot {
 }
 
 export class DeleteElementCommand implements Command {
-    readonly affectedStores = ["wall", "slab", "column", "curtainWall", "furniture", "handrail", "roof", "floor", "ceiling", "beam", "plumbing", "stair", "level"] as const;
+    // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308): "window" and "door" are now declared.
+    // Deleting a hosted window/door mutates the external windowStore/doorStore
+    // singletons (so their builders dispose the 3D frame+glazing mesh) — the scope
+    // must say so. Their absence was the smoking gun: the command removed the wall
+    // opening but never touched the external store, so WindowBuilder/DoorBuilder
+    // never received a 'remove' event and the mesh floated on the healed wall.
+    readonly affectedStores = ["wall", "slab", "column", "curtainWall", "furniture", "handrail", "roof", "floor", "ceiling", "beam", "plumbing", "stair", "level", "window", "door"] as const;
     id = crypto.randomUUID();
     type = CommandType.DELETE_ELEMENT;
     timestamp = Date.now();
@@ -190,6 +196,13 @@ export class DeleteElementCommand implements Command {
             this.deletedData = { ...windowElement };
             this.elementType = 'window';
 
+            // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308): capture the EXTERNAL windowStore
+            // record before removal so undo restores the exact typed window (all its
+            // frame/glazing/system-type fields), not a lossy reconstruction. This is the
+            // record WindowBuilder renders from — restoring it re-creates the 3D mesh.
+            const winStoreRecord = windowStore.getById(id);
+            if (winStoreRecord) this.deletedData.windowStoreRecord = { ...winStoreRecord };
+
             const wallId = windowElement.wallId;
             const wall = wallStore.getById(wallId);
             if (wall && wall.openings) {
@@ -202,6 +215,14 @@ export class DeleteElementCommand implements Command {
             wallStore.removeWindow(id);
             // §3.5 FIX: Unregister from elementRegistry (moved from WallStore.removeOpening()).
             elementRegistry.unregister(id);
+            // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308): free the EXTERNAL windowStore
+            // singleton too. wallStore.removeWindow() only cleans the wall's internal
+            // window map + re-cuts the void; it never reaches windowStore, so
+            // WindowBuilder (a pure windowStore subscriber) never receives a 'remove'
+            // event and its 3D frame+glazing group survives on the now-solid wall.
+            // This mirrors the wall-delete CASCADE branch above and the create path
+            // (CreateWallOpeningCommand's dual-store write). remove() is idempotent.
+            windowStore.remove(id);
             // wallStore.removeWindow() → removeOpening() → emit('update') fires the Store Event Bus
             // → subscriber in main.ts → wallFragmentBuilder.updateWall(). No direct builder call needed.
 
@@ -213,6 +234,11 @@ export class DeleteElementCommand implements Command {
         if (doorElement) {
             this.deletedData = { ...doorElement };
             this.elementType = 'door';
+
+            // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308) — door counterpart: capture the
+            // external doorStore record so undo restores the exact typed door.
+            const doorStoreRecord = doorStore.getById(id);
+            if (doorStoreRecord) this.deletedData.doorStoreRecord = { ...doorStoreRecord };
 
             const wallId = doorElement.wallId;
             const wall = wallStore.getById(wallId);
@@ -226,6 +252,12 @@ export class DeleteElementCommand implements Command {
             wallStore.removeDoor(id);
             // §3.5 FIX: Unregister from elementRegistry (moved from WallStore.removeOpening()).
             elementRegistry.unregister(id);
+            // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308) — door counterpart of the window
+            // fix above: free the external doorStore singleton so DoorBuilder (a pure
+            // doorStore subscriber) receives a 'remove' event and disposes the leaf +
+            // frame mesh. Without this the door delete healed the wall but orphaned the
+            // 3D leaf/frame — the same defect the window had. remove() is idempotent.
+            doorStore.remove(id);
             // wallStore.removeDoor() → removeOpening() → emit('update') fires the Store Event Bus
             // → subscriber in main.ts → wallFragmentBuilder.updateWall(). No direct builder call needed.
 
@@ -609,6 +641,14 @@ export class DeleteElementCommand implements Command {
                         this.deletedData.openingDescriptor
                     );
                 }
+                // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308): restore the external windowStore
+                // record so WindowBuilder fires 'add' and REBUILDS the 3D frame+glazing
+                // mesh. execute() called windowStore.remove(id); a single Ctrl-Z must undo
+                // BOTH the opening removal and the mesh disposal. Mirrors the wall-branch
+                // undo's dual-store restore. Guard against a duplicate on redo re-entry.
+                if (this.deletedData.windowStoreRecord && !windowStore.has(this.deletedData.id)) {
+                    try { windowStore.add(this.deletedData.windowStoreRecord); } catch (_) {}
+                }
                 break;
             case 'door':
                 stores.wallStore.addDoor(this.deletedData);
@@ -621,6 +661,11 @@ export class DeleteElementCommand implements Command {
                         this.deletedData.wallId,
                         this.deletedData.openingDescriptor
                     );
+                }
+                // §FIX-WINDOW-DELETE-LEAVES-MESH (L-308) — door counterpart: restore the
+                // external doorStore record so DoorBuilder rebuilds the leaf+frame mesh.
+                if (this.deletedData.doorStoreRecord && !doorStore.has(this.deletedData.id)) {
+                    try { doorStore.add(this.deletedData.doorStoreRecord); } catch (_) {}
                 }
                 break;
             case 'window-orphan': {
