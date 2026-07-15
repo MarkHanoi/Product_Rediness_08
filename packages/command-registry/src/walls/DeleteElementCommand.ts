@@ -3,15 +3,13 @@ import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { serializeWallSnapshot, deserializeWallSnapshot } from './wallSnapshotUtils';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
-import type { StairData } from '@pryzm/geometry-stair';
-import type { StairRailingConfig } from '@pryzm/geometry-stair';
-import type { StairLandingEntity } from '@pryzm/geometry-stair';
 import type { FurnitureData } from '@pryzm/geometry-furniture';
 import type { WallBaseline } from '@pryzm/geometry-wall';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 // C2 §SLAB-SYSTEM-AUDIT-2026: Slab branch is now delegated to the dedicated command.
 import { DeleteSlabCommand } from '../slabs/DeleteSlabCommand';
 import { DeleteColumnCommand } from '../columns/DeleteColumnCommand';
+import { DeleteStairCommand } from '../stair/DeleteStairCommand';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -40,9 +38,9 @@ export class DeleteElementCommand implements Command {
 
     private deletedData?: any;
     private elementType?: string;
-    // Stair-specific captured state (sub-elements live in separate stores)
-    private _stairRailingSnapshots: StairRailingConfig[] = [];
-    private _stairLandingSnapshots: StairLandingEntity[] = [];
+    // §FIX-STAIR-DELETE-LEAVES-HOLE (L-298): stair state (snapshot, railings, landings
+    // AND the auto-opening heal) now lives in the DeleteStairCommand delegate — see
+    // _stairDelegate below. The former inline _stairRailing/_stairLanding snapshots are gone.
     // Furniture-specific captured state (associated children e.g. dining chairs)
     private _furnitureChildren: FurnitureData[] = [];
     // §UNDO-AUDIT-2026 §01-§2.3 — wall-branch only; populated by execute() when
@@ -64,6 +62,15 @@ export class DeleteElementCommand implements Command {
      * the store, leaving all three side effects in their (incorrect) state.
      */
     private _columnDelegate: DeleteColumnCommand | null = null;
+    /**
+     * §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — the stair branch now delegates to
+     * DeleteStairCommand so that the auto-opening heal (remove the slab hole on
+     * delete, restore it on undo) lives in ONE place and both delete paths — the
+     * generic delete key AND the dedicated command — behave identically. Mirrors the
+     * slab (_slabDelegate) and column (_columnDelegate) delegation above; before this,
+     * this inline stair branch left the stair's opening in the floor forever.
+     */
+    private _stairDelegate: DeleteStairCommand | null = null;
 
     constructor(private elementId: string) {
         this.targetIds = [elementId];
@@ -462,40 +469,17 @@ export class DeleteElementCommand implements Command {
             return { success: true, affectedElementIds: [id] };
         }
 
-        // 14. Stairs — full snapshot incl. railings & landings (mirrors DeleteStairCommand)
+        // 14. Stairs — delegate to the dedicated command so the auto-opening heal
+        // (§FIX-STAIR-DELETE-LEAVES-HOLE, L-298) — remove the stair's slab hole on
+        // delete and restore it on undo — happens in ONE place. Mirrors the slab and
+        // column branches above. Previously this inline branch removed the stair but
+        // NOT its opening, leaving the void in the floor forever.
         const stair = ctx.stores.stairStore?.getById?.(id);
         if (stair) {
-            this.deletedData = structuredClone(stair as StairData);
             this.elementType = 'stair';
-
-            if (ctx.stores.stairRailingStore) {
-                this._stairRailingSnapshots = ctx.stores.stairRailingStore
-                    .getByStairId(id)
-                    .map((r: StairRailingConfig) => structuredClone(r));
-            }
-            if (ctx.stores.stairLandingStore) {
-                this._stairLandingSnapshots = ctx.stores.stairLandingStore
-                    .getByStairId(id)
-                    .map((l: StairLandingEntity) => structuredClone(l));
-            }
-
-            // Remove sub-elements first so their builders clean up before the parent.
-            ctx.stores.stairRailingStore?.removeByStairId(id);
-            ctx.stores.stairLandingStore?.removeByStairId(id);
-            // §WALL-AUDIT-2026-W2: ctx.bimManager is non-optional in CommandContext;
-            // window.bimManager fallback removed.
-            const bimMgr = ctx.bimManager;
-            this._stairRailingSnapshots.forEach(r => {
-                try { bimMgr?.unregisterElement?.(r.id); } catch (_) {}
-                try { elementRegistry.unregister(r.id); } catch (_) {}
-            });
-
-            ctx.stores.stairStore.remove(id);
-            try { bimMgr?.unregisterElement?.(id); } catch (_) {}
-            try { elementRegistry.unregister(id); } catch (_) {}
-
-            _bus.emit('ai-model-update', {}); // F.events.17
-            return { success: true, affectedElementIds: [id] };
+            const delegate = new DeleteStairCommand({ stairId: id });
+            this._stairDelegate = delegate;
+            return delegate.execute(ctx);
         }
 
         return { success: false, affectedElementIds: [], info: ['Element not found in any store'] };
@@ -504,7 +488,7 @@ export class DeleteElementCommand implements Command {
     undo(ctx: CommandContext): CommandResult {
         // OI-041: slab and column execute() immediately delegate — this.deletedData is never
         // set in those branches; the guard must also accept a live delegate as proof of execute().
-        if (!this.deletedData && !this._slabDelegate && !this._columnDelegate) {
+        if (!this.deletedData && !this._slabDelegate && !this._columnDelegate && !this._stairDelegate) {
             throw new Error("Undo called before execute");
         }
         const stores = ctx.stores;
@@ -836,32 +820,15 @@ export class DeleteElementCommand implements Command {
                 try { elementRegistry.registerSemantic(snap.id, 'plumbing-fixture' as any); } catch (_) {}
                 break;
             }
-            case 'stair': {
-                const snapshot = this.deletedData as StairData;
-                // §WALL-AUDIT-2026-W2: ctx.bimManager is non-optional in CommandContext;
-            // window.bimManager fallback removed.
-            const bimMgr = ctx.bimManager;
-                try { bimMgr?.registerElement?.(snapshot.id, snapshot.baseLevelId); } catch (_) {}
-                try { elementRegistry.registerSemantic(snapshot.id, 'stair'); } catch (_) {}
-
-                ctx.stores.stairStore.restoreSnapshot(snapshot);
-
-                this._stairRailingSnapshots.forEach(r => {
-                    try { bimMgr?.registerElement?.(r.id, snapshot.baseLevelId); } catch (_) {}
-                    try { elementRegistry.registerSemantic(r.id, 'stair-railing'); } catch (_) {}
-                    ctx.stores.stairRailingStore?.add(r);
-                });
-                this._stairLandingSnapshots.forEach(l => {
-                    // OI-040: landings were store-only; add bimManager + elementRegistry
-                    // re-registration to match the railing treatment above.
-                    try { bimMgr?.registerElement?.(l.id, snapshot.baseLevelId); } catch (_) {}
-                    try { elementRegistry.registerSemantic(l.id, 'stair-landing' as any); } catch (_) {}
-                    ctx.stores.stairLandingStore?.add(l);
-                });
-
-                _bus.emit('ai-model-update', {}); // F.events.17
+            case 'stair':
+                // §FIX-STAIR-DELETE-LEAVES-HOLE (L-298): forward to the DeleteStairCommand
+                // delegate so the stair, its railings/landings AND its auto-opening hole
+                // are all restored as one unit — a single Ctrl-Z reopens exactly what the
+                // delete removed. Mirrors the slab/column delegate forwarding above.
+                if (this._stairDelegate) {
+                    return this._stairDelegate.undo(ctx);
+                }
                 break;
-            }
         }
         return { success: true, affectedElementIds: [this.elementId] };
     }

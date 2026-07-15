@@ -12,6 +12,7 @@ import { semanticGraphManager } from '@pryzm/core-app-model';
 import { computeStairFootprintRect, worldXZToSlabLocal } from '@pryzm/geometry-stair';
 import { LevelTraversalPolicy } from '@pryzm/geometry-stair';
 import type { OpeningData } from '@pryzm/core-app-model';
+import { stairAutoOpeningId } from './stairOpeningId';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -451,7 +452,9 @@ export class CreateStairCommand implements Command {
         }
 
         const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
-        const openingId = `opening-stair-${this.createdStairId}`;
+        // §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — id via the shared convention so
+        // DeleteStairCommand can find and heal this exact opening on a straight delete.
+        const openingId = stairAutoOpeningId(this.createdStairId!);
 
         const opening: OpeningData = {
             id: openingId,
