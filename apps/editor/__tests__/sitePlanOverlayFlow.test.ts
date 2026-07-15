@@ -274,6 +274,78 @@ describe('(B) FINISH — the flow owns its terminal transition (no wizard requir
     });
 });
 
+describe('(C) L-311 — Finish opens the editor even if the underlay creation HANGS', () => {
+    // The L-258 landing module + tests shipped, but the ONE host-wiring line in
+    // SiteBoundaryMap2D (`onPlacementCommitted → onSitePlanPlacementCommitted`) was left
+    // uncommitted, so on prod Finish emitted into an empty bus and nothing happened. This guards
+    // the SECOND way Finish could still "do nothing": a hung underlay decode blocking the await
+    // that precedes the terminal landing. The bounded race must let the landing run regardless.
+    function installHooks() {
+        const hooks = {
+            closeMap: vi.fn(),
+            activateBimView: vi.fn(async () => {}),
+            toggleGIS: vi.fn(),
+            splitActivate: vi.fn(),
+            zoomToFit: vi.fn(async () => {}),
+        };
+        const w = window as unknown as Record<string, unknown>;
+        w['pryzmCloseBoundaryMap2D'] = hooks.closeMap;
+        w['pryzmActivateBimView'] = hooks.activateBimView;
+        w['pryzmToggleGIS'] = hooks.toggleGIS;
+        w['splitViewManager'] = { isActive: false, activate: hooks.splitActivate };
+        w['viewController'] = { zoomToFit: hooks.zoomToFit };
+        return hooks;
+    }
+
+    it('a HUNG onEnterCanvas cannot stall Finish — the 3D + split landing still runs (bounded)', async () => {
+        const hooks = installHooks();
+        const map = new FakeMap();
+        parent = document.createElement('div');
+        document.body.appendChild(parent);
+
+        // onEnterCanvas NEVER resolves — a stuck texture decode. Before the L-311 bound, the
+        // `await onEnterCanvas` inside commitProjectNorth would hang here forever and the landing
+        // below would never be reached. THAT is the founder's "Finish does nothing".
+        const onEnterHang = vi.fn(() => new Promise<void>(() => { /* never resolves */ }));
+        let finishThrew: unknown = null;
+
+        handle = mountSitePlanOverlayController({
+            map: map as unknown as import('maplibre-gl').Map,
+            parent,
+            getOrigin: () => ORIGIN,
+            projectId: PROJ,
+            onCommitProjectNorth: () => { /* no-op */ },
+            // The REAL host wiring SiteBoundaryMap2D uses: Finish → onSitePlanPlacementCommitted
+            // → land in 3D + split (driven with a runtime whose bus has no subscribers).
+            onPlacementCommitted: () => { void onSitePlanPlacementCommitted({ events: { emit: () => {} } }); },
+            onEnterCanvas: onEnterHang,
+            enterCanvasTimeoutMs: 20,
+        });
+        const panel = handle.element;
+
+        await uploadViaPanel(panel);
+        try {
+            findButton(panel, 'Finish').click();
+        } catch (err) {
+            finishThrew = err;
+        }
+
+        // Give the bounded race (20 ms) + the landing microtasks time to complete.
+        await new Promise((r) => setTimeout(r, 80));
+
+        // TEETH — this discriminates "Finish OPENED the editor" from "Finish merely RAN":
+        //  • the underlay creation was invoked AND never resolved …
+        expect(onEnterHang).toHaveBeenCalledTimes(1);
+        //  • … yet (1) the click did not throw, (2) the 3D view was activated, and
+        //    (3) the split view opened — i.e. the user actually landed in the editor.
+        expect(finishThrew).toBeNull();
+        expect(hooks.closeMap).toHaveBeenCalledTimes(1);
+        expect(hooks.activateBimView).toHaveBeenCalledWith('3D'); // (2) 3D view
+        expect(hooks.splitActivate).toHaveBeenCalledTimes(1);      // (3) split view
+        expect(handle!.phase()).toBe('finished');
+    });
+});
+
 describe('end-to-end: locate → upload → place → finish', () => {
     it('drives the whole flow and ends committed, in the 3D + plan split view', async () => {
         const hooks = (() => {

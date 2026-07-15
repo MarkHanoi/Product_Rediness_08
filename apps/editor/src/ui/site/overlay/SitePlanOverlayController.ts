@@ -95,6 +95,14 @@ export interface SitePlanOverlayControllerInit {
      * FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline. Absent ⇒ no canvas underlay is created.
      */
     readonly onEnterCanvas?: (params: EnterCanvasUnderlayParams) => void | Promise<void>;
+    /**
+     * §FIX-IMPORT-FINISH-OPENS-EDITOR (L-311) — upper bound (ms) on the `onEnterCanvas`
+     * (underlay-creation) await inside the "✓ Finish" commit BEFORE the terminal landing
+     * (`onPlacementCommitted` → 3D + split view) proceeds regardless. Guards against a hung
+     * texture decode leaving the user stranded on the map ("Finish does nothing"). Defaults to
+     * 8000 ms. A normal creation resolves well under it; this is a safety net + a test seam.
+     */
+    readonly enterCanvasTimeoutMs?: number;
 }
 
 /** §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — the plan-canvas underlay params handed to the
@@ -168,6 +176,8 @@ export function mountSitePlanOverlayController(
     const onCommitProjectNorth = init.onCommitProjectNorth;
     const onPlacementCommitted = init.onPlacementCommitted;
     const onEnterCanvas = init.onEnterCanvas;
+    // §FIX-IMPORT-FINISH-OPENS-EDITOR (L-311) — bound the underlay-creation await (see below).
+    const enterCanvasTimeoutMs = init.enterCanvasTimeoutMs ?? 8000;
     const toast: ToastFn = init.toast ?? (() => { /* no-op */ });
 
     // §FIX-SITE-OVERLAY-RENDER-AND-FLOW — resolve the geo-anchor for the overlay. Prefer
@@ -389,7 +399,7 @@ export function mountSitePlanOverlayController(
         // empty scene and the founder saw "nothing".
         try {
             const placement = computePlanUnderlayPlacement(state.transform);
-            await onEnterCanvas?.({
+            const entering = onEnterCanvas?.({
                 dataUrl: state.dataUrl,
                 fileName: state.fileName,
                 widthPx: state.transform.widthPx,
@@ -399,13 +409,32 @@ export function mountSitePlanOverlayController(
                 positionNorth: placement.positionNorth,
                 rotationZ: placement.rotationZ,
             });
+            // §FIX-IMPORT-FINISH-OPENS-EDITOR (L-311) — BOUND this await. The terminal landing
+            // (onPlacementCommitted → 3D + split view) runs AFTER it, so an unbounded await on a
+            // hung texture decode would strand the user on the map forever — the founder's "Finish
+            // does nothing". Race the creation against a timeout: a normal creation resolves first;
+            // a stuck one degrades to "enter the editor now, the plan repaints when it arrives".
+            if (entering && typeof (entering as PromiseLike<unknown>).then === 'function') {
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                await Promise.race([
+                    Promise.resolve(entering).finally(() => { if (timer) clearTimeout(timer); }),
+                    new Promise<void>((resolve) => { timer = setTimeout(resolve, enterCanvasTimeoutMs); }),
+                ]);
+            }
         } catch (err) {
-            console.warn('[site-overlay] onEnterCanvas threw (non-fatal):', err);
+            // §FIX-IMPORT-FINISH-OPENS-EDITOR (L-311) — SURFACE the failure (a toast), never
+            // swallow it silently. The plan could not be dropped on the canvas, but we still fall
+            // through to the landing so the user is taken into the editor rather than stranded.
+            console.warn('[site-overlay] onEnterCanvas failed:', err);
+            toast('Could not place the plan on the canvas — opening the editor without it.', 'error');
         }
 
         // §FIX-SITE-OVERLAY-IMPORT-TERMINAL — the commit is the terminal "proceed" action:
         // tell the host to land in the canvas (dispose the wizard, close the map, frame the
         // plan). Guarded so a throwing host never blocks the (already-applied) placement.
+        // §FIX-IMPORT-FINISH-OPENS-EDITOR (L-311) — this sits OUTSIDE the onEnterCanvas try/catch
+        // AND past the bounded race, so the 3D + split-view landing can never be gated on the
+        // underlay creation succeeding OR resolving.
         try {
             onPlacementCommitted?.();
         } catch (err) {

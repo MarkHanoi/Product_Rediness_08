@@ -94,6 +94,9 @@ import {
 // §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — drop the calibrated plan into the editor canvas
 // as a live underlay (reuses the FloorPlanUnderlayTool + CREATE_UNDERLAY pipeline).
 import { createPlanCanvasUnderlayFromSiteOverlay } from '../../engine/createSiteOverlayUnderlay.js';
+// §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 B) — the flow's own terminal
+// "Finish → 3D + plan split view" transition (previously owned ONLY by the onboarding wizard).
+import { onSitePlanPlacementCommitted } from '../site/overlay/enterCanvasWithSitePlan.js';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
  *  8° ORTHO_SNAP_TOLERANCE_DEG, too tight to hit by hand now the lock is default-on). */
@@ -372,6 +375,11 @@ export function mountSiteBoundaryMap2D(
     // ── §SITE-PLAN-OVERLAY — "Overlay plan/PDF" entry button ─────────────────────
     // Opens the file picker on the site-plan overlay controller (mounted on map load).
     // Brand white + #6600FF. Sits under the basemap toggle, left of the panel.
+    // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — this IS "the site overlay
+    // button that is already there" (founder). It is the user's OPT-IN into the upload, and it
+    // is now shown in EVERY mode (including overlay-only): the picker no longer auto-fires on
+    // mode entry, so the user first navigates to their site, THEN presses this. It is no longer
+    // a duplicate of an auto-opened picker (the L-77 reason it was hidden) — it is the entry.
     const overlayBtn = document.createElement('button');
     overlayBtn.type = 'button';
     overlayBtn.textContent = '📄 Overlay plan / PDF';
@@ -391,10 +399,6 @@ export function mountSiteBoundaryMap2D(
         boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
     } satisfies Partial<CSSStyleDeclaration>);
     overlayBtn.addEventListener('click', () => overlayController?.promptUpload());
-    // §FIX-SITE-OVERLAY-DOUBLE-PANEL (L-77) — in overlay-only import mode this map button is a
-    // DUPLICATE uploader: the picker auto-opens on entry and the overlay panel carries its own
-    // "Upload plan / PDF" button. Hiding it kills the "second PDF-select menu" the founder saw.
-    if (opts.overlayOnly) overlayBtn.style.display = 'none';
     overlay.appendChild(overlayBtn);
 
     // ── §BND-MODE-STRIP — boundary-draw MODE toolbar (mirrors WallDrawingHUD) ────
@@ -1635,8 +1639,17 @@ export function mountSiteBoundaryMap2D(
                 // wizard's "proceed" action. Emit an event the onboarding listens for to
                 // advance Step 2 → the boundary-trace / plot step (L-38: a geolocated plan
                 // is a valid located plot — no mandatory boundary trace to move forward).
+                // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 B) — THE FLOW OWNS ITS OWN
+                // TERMINAL TRANSITION. Emitting the event alone was the bug: its ONLY subscriber
+                // was an ephemeral listener inside the onboarding wizard's overlay branch, so
+                // every other entry into this panel (the always-on Plan + Site (GIS) launcher —
+                // C06 §7 — the map's "Overlay plan / PDF" button, or a re-entry on an already
+                // onboarded project) pressed "✓ Finish", created the underlay… and fired the
+                // event into an EMPTY BUS. The user stayed on the map. We still emit (the
+                // onboarding wizard listens so it can dispose itself), and then we perform the
+                // landing ourselves — idempotent, so the two callers land ONCE.
                 onPlacementCommitted: () => {
-                    try { (runtime ?? null)?.events?.emit('site.overlay-placement-committed', {}); } catch { /* non-fatal */ }
+                    void onSitePlanPlacementCommitted(runtime ?? null);
                 },
                 // §FEAT-SITE-OVERLAY-PLAN-UNDERLAY (L-71) — drop the calibrated plan into the
                 // editor canvas as a live underlay (correct location + size, axis-aligned to
