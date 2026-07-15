@@ -1666,6 +1666,42 @@ export class RenderPipelineManager implements IViewSwitchListener {
     onProjectSwitch(): void {
         console.log('[RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter');
         this._retryCount = 0;
+
+        // §FIX-PROJECT-SWITCH-GPU-STATE-NOT-RESET (L-316) — a project-switch is a
+        // RECONSTRUCTION BOUNDARY, not just a data reset. The DATA isolates clean
+        // (ProjectIsolationAudit ✓), but the RENDER GPU state does not: the old
+        // project's teardown leaves two render-side faults the outline/ retry reset
+        // below does NOT touch —
+        //
+        //   • "Destroyed texture [ShadowDepthTexture] used in a submit" (WebGPU) —
+        //     core-app-model disposes the OUTGOING project's shadow depth texture
+        //     while a submit that still references it is in flight (the same
+        //     mid-submit-dispose race as §SHADOW-DEVICE-LOSS-FIX / L-303, now fired
+        //     by project-switch).
+        //   • "Framebuffer is incomplete: Attachment has zero size" — the render
+        //     targets are not reallocated to the incoming viewport size.
+        //
+        // Reuse the EXISTING proven reconstruction machinery rather than inventing a
+        // parallel one:
+        //   1. _reconcileRenderSize() — one-shot: reallocate the color targets AND
+        //      the shared depth attachment to the CURRENT canvas size so no pass
+        //      begins with a zero-size / mismatched attachment (the same single-
+        //      source-of-truth sizing as L-312A; one-shot here — a switch keeps the
+        //      SAME renderer, so the per-frame arm is unnecessary).
+        //   2. scheduleShadowRebuild() — routes the shadow-pass reconstruction
+        //      through the guarded cycle that PAUSES WebGPU submits and FREEZES the
+        //      shadow map for the whole async rebuild, then thaws DEFERRED past the
+        //      in-flight submit (_begin/_endShadowRebuildGuard + §#47 in-flight
+        //      coalescing). While submits are paused the outgoing project's shadow
+        //      texture can be disposed with NO submit referencing it, and the
+        //      rebuilt pipeline compiles against the incoming project's fresh shadow
+        //      handles — closing the "used in a submit" crash at its source instead
+        //      of swallowing the validation error. No-op on the WebGL path
+        //      (webGpuActive false); the size reconcile above still heals its
+        //      zero-size framebuffer.
+        this._reconcileRenderSize();
+        this.scheduleShadowRebuild();
+
         // §OI-053d — pipeline built once/tab; switch re-points outline arrays only.
         // If the outline GPU instances already exist (2nd+ open in this tab), we do
         // NOT dispose them or rebuild the SSGI/outline node graph — that teardown was
