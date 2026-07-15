@@ -24,6 +24,8 @@ import { registerSegmentUUID } from '@pryzm/core-app-model';
 // section AND elevation. `VIEW_DEPTH_KEY` is the userData key this projector stamps with each
 // element's nearest depth along the view direction so the engine can order occluders.
 import { applyOcclusion, VIEW_DEPTH_KEY } from '@pryzm/core-app-model';
+// §FIX-VG-HYPHEN-FORM-LAYERS (L-293) — the ONE zone-qualified layer-name authority.
+import { layerForZone } from '@pryzm/core-app-model';
 // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — P8 span for the incremental graft path.
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import type * as FRAGS from '@thatopen/fragments';
@@ -347,6 +349,18 @@ const CUT_ELIGIBLE_PLAN_LAYERS: ReadonlySet<string> = new Set([
     'A-ROOF',  // a roof crossing the cut plane (a low eaves, a dormer cheek) is cut
 ]);
 
+// §FIX-VG-HYPHEN-FORM-LAYERS (L-293) — THESE THREE MEMOISERS CONCATENATED THEIR OWN NAMES.
+//
+// They are only a string-interning CACHE (a hot-path allocation win — see _LAYER_*_NAME above),
+// but they were also, quietly, a THIRD place that decided what a zone layer is CALLED. That is
+// how two spellings of one layer survive: not by anyone deciding to fork, but by three modules
+// each building the name themselves. `layerForZone()` (DrawingZone.ts) is now the ONE authority;
+// these memoise ITS answer instead of re-deriving it. The cache stays, the decision moves.
+//
+// Pinned by the static guard in
+// core-app-model/src/drawing/__tests__/vgCategoryOffRemovesSymbols.test.ts, which fails on any
+// new `${…}:cut` concatenation or hardcoded 'A-XXX-CUT' literal anywhere in the source tree.
+// It caught exactly this function the first time it ran.
 (function _preinternLayerNames() {
     const known = [
         'A-WALL', 'A-FLOR', 'A-CEIL', 'A-COLS', 'A-BEAM',
@@ -354,25 +368,25 @@ const CUT_ELIGIBLE_PLAN_LAYERS: ReadonlySet<string> = new Set([
         'A-PLMB', 'projection-visible',
     ];
     for (const ln of known) {
-        _LAYER_CUT_NAME.set(ln,    `${ln}:cut`);
-        _LAYER_PROJ_NAME.set(ln,   `${ln}:proj`);
-        _LAYER_BEYOND_NAME.set(ln, `${ln}:beyond`);
+        _LAYER_CUT_NAME.set(ln,    layerForZone(ln, 'cut'));
+        _LAYER_PROJ_NAME.set(ln,   layerForZone(ln, 'projection'));
+        _LAYER_BEYOND_NAME.set(ln, layerForZone(ln, 'beyond'));
     }
 })();
 
 function _layerCut(ln: string): string {
     let v = _LAYER_CUT_NAME.get(ln);
-    if (!v) { v = `${ln}:cut`;    _LAYER_CUT_NAME.set(ln, v); }
+    if (!v) { v = layerForZone(ln, 'cut');        _LAYER_CUT_NAME.set(ln, v); }
     return v;
 }
 function _layerProj(ln: string): string {
     let v = _LAYER_PROJ_NAME.get(ln);
-    if (!v) { v = `${ln}:proj`;   _LAYER_PROJ_NAME.set(ln, v); }
+    if (!v) { v = layerForZone(ln, 'projection'); _LAYER_PROJ_NAME.set(ln, v); }
     return v;
 }
 function _layerBeyond(ln: string): string {
     let v = _LAYER_BEYOND_NAME.get(ln);
-    if (!v) { v = `${ln}:beyond`; _LAYER_BEYOND_NAME.set(ln, v); }
+    if (!v) { v = layerForZone(ln, 'beyond');     _LAYER_BEYOND_NAME.set(ln, v); }
     return v;
 }
 
@@ -965,7 +979,39 @@ function resolveSectionDepthPlane(
     };
 }
 
-function resolveSectionVolumeBox(
+/**
+ * §FIX-ELEVATION-VERTICAL-CROP (L-302) — the SPATIAL vertical extent of an elevation, from the
+ * LEVEL STACK.
+ *
+ * The union of every level band in the model: [min level.elevation, max (level.elevation +
+ * level.height)]. This is the C24 SPATIAL crop (a 3-D section-volume extent) — NOT the C24.1
+ * PAPER crop (a 2-D window on a sheet). A building elevation spans the FULL building height by
+ * default (Revit/ArchiCAD/Vectorworks all do this); a single-storey default is simply wrong for
+ * a documentation elevation.
+ *
+ * Resolved live from BimManager on every call (§02 §1.2 — never cached), so the bound tracks a
+ * changed `level.elevation`/`level.height` and a moved elevation origin (L-305) with no baked
+ * storey-height literal (L-127). Returns null when there is no level stack to derive from, in
+ * which case the caller keeps the legacy per-volume band.
+ */
+function _levelStackVerticalBounds(bimManager?: BimManager): { min: number; max: number } | null {
+    if (!bimManager) return null;
+    const levels = bimManager.getLevels?.() ?? [];
+    if (!levels.length) return null;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const lvl of levels) {
+        const elev = Number((lvl as { elevation?: number }).elevation);
+        if (!Number.isFinite(elev)) continue;
+        const rawH = Number((lvl as { height?: number }).height);
+        const h = Number.isFinite(rawH) && rawH > 0 ? rawH : DEFAULT_FAR_OFFSET;
+        min = Math.min(min, elev);
+        max = Math.max(max, elev + h);
+    }
+    return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null;
+}
+
+export function resolveSectionVolumeBox(
     viewDef: ViewDefinition,
     projectionDirection: THREE.Vector3,
     farClipDepth: number,
@@ -981,24 +1027,57 @@ function resolveSectionVolumeBox(
         forward.normalize();
         const right = new THREE.Vector3(-forward.z, 0, forward.x).normalize();
         const width = Math.max(0.01, Number(explicit.width) || 0.01);
-        const height = Math.max(0.01, Number(explicit.height) || 0.01);
+        const legacyHeight = Math.max(0.01, Number(explicit.height) || 0.01);
         const near = Math.max(0, Number(explicit.near) || 0);
         const far = Math.max(near, Number(explicit.far) || farClipDepth);
+
+        // §FIX-ELEVATION-VERTICAL-CROP (L-302) — VERTICAL EXTENT (C24 SPATIAL, 3-D).
+        //
+        // The vertical bounds are NO LONGER `origin.y .. origin.y + sectionVolume.height`. That
+        // stored `height` was frozen to ONE STOREY at creation (CreateElevationMarkCommand /
+        // DefaultViewsManager), so a two-storey house's elevation clipped level 2 away at the
+        // mesh-drop gate (`sectionBoxIntersectsWorldAABB`) — level 2 was never projected.
+        //
+        // Instead: the DEFAULT extent is the full building height from the level stack, and the
+        // EDITABLE override is `crop.region[1]` — the exact field the elevation-view top/bottom
+        // edge drag already writes (PlanViewCanvas.cropFromHandleDrag, "crop.region[1] === world
+        // Y"). The explicit branch previously IGNORED that field (only the fallback branch read
+        // it), which is why dragging the top edge revealed nothing — a lying handle (L-267).
+        //
+        // Distinguishing an explicit user crop from the untouched creation artefact: the frozen
+        // creation value equals the one-storey band `[origin.y, origin.y + legacyHeight]`. When
+        // `crop.region[1]` DEVIATES from that band the user has dragged → honour it; otherwise it
+        // is superseded by the full-height default. This closes the clip AND the lying handle in
+        // one path, reading the same override the handle writes.
+        const oneStoreyBottom = origin.y;
+        const oneStoreyTop = origin.y + legacyHeight;
+        const stack = _levelStackVerticalBounds(bimManager);
+        const defaultMinY = stack ? stack.min : oneStoreyBottom;
+        const defaultMaxY = stack ? stack.max : oneStoreyTop;
+        const cropMinV = viewDef.crop?.region?.min?.[1];
+        const cropMaxV = viewDef.crop?.region?.max?.[1];
+        const VTOL = 0.02;
+        const userSetBottom = Number.isFinite(cropMinV) && Math.abs((cropMinV as number) - oneStoreyBottom) > VTOL;
+        const userSetTop = Number.isFinite(cropMaxV) && Math.abs((cropMaxV as number) - oneStoreyTop) > VTOL;
+        let minY = userSetBottom ? (cropMinV as number) : defaultMinY;
+        let maxY = userSetTop ? (cropMaxV as number) : defaultMaxY;
+        if (minY > maxY) [minY, maxY] = [maxY, minY];
+
         return {
             origin,
             direction: forward.clone(),
             right,
             forward,
             width,
-            height,
+            height: Math.max(0.01, maxY - minY),
             near,
             far,
             minRight: -width / 2,
             maxRight: width / 2,
             minDepth: near,
             maxDepth: far,
-            minY: origin.y,
-            maxY: origin.y + height,
+            minY,
+            maxY,
         };
     }
 
@@ -1147,7 +1226,7 @@ function triangleIntersectsSectionBox(
         clipSegmentToSectionBox(c, a, box, epsilon) !== null;
 }
 
-function sectionBoxIntersectsWorldAABB(box: SectionVolumeBox, aabb: THREE.Box3, epsilon = 1e-5): boolean {
+export function sectionBoxIntersectsWorldAABB(box: SectionVolumeBox, aabb: THREE.Box3, epsilon = 1e-5): boolean {
     if (aabb.isEmpty()) return false;
     let minRight = Infinity;
     let maxRight = -Infinity;
@@ -1570,7 +1649,7 @@ export interface ClipRange {
     far:  number;
 }
 
-interface SectionVolumeBox {
+export interface SectionVolumeBox {
     origin: THREE.Vector3;
     direction: THREE.Vector3;
     right: THREE.Vector3;
