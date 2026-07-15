@@ -1397,13 +1397,24 @@ export class PlanViewInteraction {
 
         if (!final) {
             // L-222 live preview — direct view + annotation writes, no command / no undo entry.
-            viewDefinitionStore.update(viewDef.id, { spatial: nextSpatial });
-            if (nextCrop !== viewDef.crop) viewDefinitionStore.setCrop(viewDef.id, nextCrop);
+            //
+            // §FIX-SCOPE-OVERLAY-FOLLOWS-ORIGIN (L-306) — WRITE ORDER IS LOAD-BEARING. The
+            // dashed plan scope box derives from the section volume (the VIEW) while the mark's
+            // circle glyph derives from the annotation's model points. If the VIEW is written
+            // first, an overlay repaint fired by `vd:view-updated` paints the box at its new
+            // origin with the glyph still at the old one — the box leads the glyph for the whole
+            // drag (the "goes off" detach). Writing the ANNOTATION FIRST, then the view, mirrors
+            // MoveMarkOriginCommand's commit order so the view event that drives the repaint
+            // always sees the glyph already moved — box and glyph translate in lock-step, every
+            // frame. (Both sources are pure functions of the same origin delta, so the committed
+            // state was already rigid; this only closes the intra-frame preview skew.)
             annotationStore.update({
                 id: drag.annotationId,
                 geometry2D: { ...ann.geometry2D, modelPoints: nextModelPoints },
                 ...(nextPosition ? { parameters: { ...ann.parameters, position: nextPosition } } : {}),
             });
+            viewDefinitionStore.update(viewDef.id, { spatial: nextSpatial });
+            if (nextCrop !== viewDef.crop) viewDefinitionStore.setCrop(viewDef.id, nextCrop);
             return;
         }
 

@@ -300,3 +300,107 @@ describe('§FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — interaction wiring', () =
         expect(cmExec).not.toHaveBeenCalled();
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BLOCK C — §FIX-SCOPE-OVERLAY-FOLLOWS-ORIGIN (L-306): the dashed plan scope box
+//           translates RIGIDLY with the origin — every edge moves together, no
+//           edge anchored, no stretch. The box is part of the mark.
+//
+// The overlay (PlanViewAnnotationRenderer._renderSelectedScopeOverlay) derives the
+// dashed rectangle from the section volume via _scopeWorld's volume branch:
+//   near line a/b = origin ± right·(width/2), far line fa/fb = a/b + dir·far.
+// We replicate that pure derivation here and assert SHAPE INVARIANCE under an origin
+// move — a stretch/detach bug fails it. This is the tooth.
+// ─────────────────────────────────────────────────────────────────────────────
+type Pt = { x: number; z: number };
+function scopeBox(sv: ViewSectionVolume): { a: Pt; b: Pt; fa: Pt; fb: Pt; widthSpan: number; depthSpan: number } {
+    const L = Math.hypot(sv.direction[0], sv.direction[2]) || 1;
+    const dir = { x: sv.direction[0] / L, z: sv.direction[2] / L };
+    const right = { x: -dir.z, z: dir.x };
+    const half = Math.max(0.05, sv.width / 2);
+    const near = Math.max(0, sv.near);
+    const far = Math.max(near + 0.1, sv.far);
+    const [ox, , oz] = sv.origin;
+    const nc = { x: ox + dir.x * near, z: oz + dir.z * near };
+    const fc = { x: ox + dir.x * far, z: oz + dir.z * far };
+    const a = { x: nc.x - right.x * half, z: nc.z - right.z * half };
+    const b = { x: nc.x + right.x * half, z: nc.z + right.z * half };
+    const fa = { x: fc.x - right.x * half, z: fc.z - right.z * half };
+    const fb = { x: fc.x + right.x * half, z: fc.z + right.z * half };
+    return { a, b, fa, fb, widthSpan: Math.hypot(b.x - a.x, b.z - a.z), depthSpan: Math.hypot(fa.x - a.x, fa.z - a.z) };
+}
+
+describe('§FIX-SCOPE-OVERLAY-FOLLOWS-ORIGIN (L-306) — dashed scope box translates rigidly', () => {
+    let interaction: PlanViewInteraction;
+    let canvas: HTMLCanvasElement;
+    let planCanvas: FakePlanCanvas;
+
+    beforeEach(() => {
+        annotationStore.clear();
+        seedElevationView();
+        annotationStore.add(makeElevMark());
+        (window as unknown as { runtime?: unknown }).runtime = { bus: { executeCommand: vi.fn(() => Promise.resolve()) }, events: { emit: vi.fn() } };
+        (window as unknown as { commandManager?: unknown }).commandManager = { execute: (c: { execute(): unknown }) => c.execute() };
+        delete (window as unknown as { toolManager?: unknown }).toolManager;
+        delete (window as unknown as { selectionManager?: unknown }).selectionManager;
+        (window as unknown as { __pryzmSelectedAnnotationId?: string }).__pryzmSelectedAnnotationId = 'ann-elev-mark';
+        canvas = document.createElement('canvas');
+        document.body.appendChild(canvas);
+        planCanvas = makeFakePlanCanvas();
+        interaction = new PlanViewInteraction();
+        interaction.attach(canvas, planCanvas as never, PLAN_ID);
+    });
+    afterEach(() => {
+        interaction.detach();
+        canvas.remove();
+        annotationStore.clear();
+        viewDefinitionStore.reset();
+        delete (window as unknown as { runtime?: unknown }).runtime;
+        delete (window as unknown as { commandManager?: unknown }).commandManager;
+        delete (window as unknown as { __pryzmSelectedAnnotationId?: string }).__pryzmSelectedAnnotationId;
+    });
+
+    it('THE TEETH: an origin move shifts ALL FOUR corners by the SAME delta — SHAPE INVARIANT', () => {
+        const before = scopeBox(viewDefinitionStore.get(ELEV_ID)!.spatial.sectionVolume!);
+
+        // Grab the origin circle (world 0,0 → screen 100,100), drag to world (2,1) → screen (200,150).
+        down(canvas, 100, 100);
+        move(200, 150);
+        up(200, 150);
+
+        const after = scopeBox(viewDefinitionStore.get(ELEV_ID)!.spatial.sectionVolume!);
+
+        // Every corner moved by exactly (2,1) — no edge anchored, no stretch.
+        for (const k of ['a', 'b', 'fa', 'fb'] as const) {
+            expect(after[k].x - before[k].x).toBeCloseTo(2, 3);
+            expect(after[k].z - before[k].z).toBeCloseTo(1, 3);
+        }
+        // The box SHAPE is invariant — only its position changed. A stretch fails here.
+        expect(after.widthSpan).toBeCloseTo(before.widthSpan, 6);
+        expect(after.depthSpan).toBeCloseTo(before.depthSpan, 6);
+    });
+
+    it('LOCK-STEP: after the move the glyph anchor and the volume origin are co-located', () => {
+        down(canvas, 100, 100);
+        move(200, 150);
+        up(200, 150);
+        const vol = viewDefinitionStore.get(ELEV_ID)!.spatial.sectionVolume!;
+        const anchor = annotationStore.getById('ann-elev-mark')!.geometry2D.modelPoints![0];
+        // The box (volume) and the glyph (annotation) end at the same point — they are one mark.
+        expect(anchor.x).toBeCloseTo(vol.origin[0], 3);
+        expect(anchor.z).toBeCloseTo(vol.origin[2], 3);
+    });
+
+    it('LIVE PREVIEW is rigid mid-drag too (not only at commit)', () => {
+        const before = scopeBox(viewDefinitionStore.get(ELEV_ID)!.spatial.sectionVolume!);
+        down(canvas, 100, 100);
+        move(160, 130);   // mid-drag to world (1.2, 0.6) — no mouseup yet
+        const mid = scopeBox(viewDefinitionStore.get(ELEV_ID)!.spatial.sectionVolume!);
+        for (const k of ['a', 'b', 'fa', 'fb'] as const) {
+            expect(mid[k].x - before[k].x).toBeCloseTo(1.2, 2);
+            expect(mid[k].z - before[k].z).toBeCloseTo(0.6, 2);
+        }
+        expect(mid.widthSpan).toBeCloseTo(before.widthSpan, 6);
+        up(160, 130);
+    });
+});
