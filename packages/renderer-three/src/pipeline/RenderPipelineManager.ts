@@ -59,7 +59,7 @@
 import * as THREE from '../three-re-export';
 import { createScenePass, MRT_OUTPUT } from './ScenePass';
 import { createZonePass } from './ZonePass';
-import { createBackgroundUniform } from './BackgroundUniform';
+import { createBackgroundUniform, LIGHT_BG_HEX, DARK_BG_HEX } from './BackgroundUniform';
 import type { PassNode, TSLNode } from '../tsl-types';
 import type { BackgroundUniform, BgTheme } from './BackgroundUniform';
 import { DOMEventBus } from '@pryzm/event-bus';
@@ -294,6 +294,27 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private readonly _sizeProbe = new THREE.Vector2();
 
     /**
+     * §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE (L-317) — the OPAQUE background colour
+     * the WebGL2 lightweight overlay clears to each frame.
+     *
+     * On the WebGL2 (webgl-fallback) backend the PRYZM overlay used to clear to
+     * TRANSPARENT (`setClearAlpha(0)`) so the CSS/OBC layer below showed through the
+     * background pixels. But in Phase 5 the OBC base canvas underneath is silenced and
+     * frozen — and during a camera rotation it re-composites its LAST frame under the
+     * moving transparent overlay, so BOTH the frozen base and the live overlay draw the
+     * SAME geometry at two different camera states → the founder's doubled walls /
+     * offset roof (which "settles once motion stops", i.e. when the two cameras
+     * re-converge). The per-frame OBC base clear alone did not reliably kill it.
+     *
+     * Fix: render the overlay OPAQUE (clear alpha 1) to the theme background colour, so
+     * the overlay is the SOLE visible surface — the base cannot composite through it at
+     * ALL. Same final look (the bg colour is the same white/navy the WebGPU pipeline
+     * blends to), minus the doubling. WebGL2 lightweight path ONLY — the native-WebGPU
+     * TSL path (which owns its own transparent presence-alpha compositing) is untouched.
+     */
+    private readonly _lightweightBgColor = new THREE.Color(LIGHT_BG_HEX);
+
+    /**
      * §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — arm the per-frame render-size
      * reconcile. OFF by default so a HEALTHY session (never a device loss) pays
      * ZERO cost — no per-frame `clientWidth` read (which can force a layout reflow).
@@ -407,6 +428,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // identity change". P2/ADR-0111: timing flags only, no dispose, no mapSize change.
         this._applyShadowEnabledState();
         this._applyShadowFreezeState();
+
+        // §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE (L-317) — seed the opaque overlay
+        // background from the current theme so the WebGL2 lightweight path clears to the
+        // right colour (white in light mode, deep navy at night) on its very first frame.
+        this._lightweightBgColor.set(initialTheme === 'dark' ? DARK_BG_HEX : LIGHT_BG_HEX);
 
         const isWebGPU = RenderPipelineManager.isRealWebGPUBackend(renderer, backendIsWebGPU);
 
@@ -599,7 +625,15 @@ export class RenderPipelineManager implements IViewSwitchListener {
                     catch { /* base-clear is best-effort; overlay render proceeds */ }
                 }
                 this._assertLightweightFrameTarget(renderer);
-                (renderer as any).setClearAlpha?.(0);
+                // §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE (L-317) — render the overlay
+                // OPAQUE (clear alpha 1) to the theme background so the silenced OBC base
+                // canvas underneath can NEVER composite through transparent background
+                // pixels. That cross-layer bleed was the doubled/offset geometry on
+                // rotate: the frozen base + the live overlay drew the same geometry at two
+                // camera states. An opaque overlay is the sole visible surface, so the
+                // doubling is impossible regardless of what the base does. Was
+                // setClearAlpha(0) (transparent) — the exact channel the base bled through.
+                (renderer as any).setClearColor?.(this._lightweightBgColor, 1);
                 renderer.render(scene, camera);
             } catch (err: unknown) {
                 console.error(
@@ -790,6 +824,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     setTheme(theme: BgTheme): void {
         this._backgroundUniform?.setTheme(theme);
+        // §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE (L-317) — keep the WebGL2 opaque-overlay
+        // background in sync with the theme (the WebGPU path animates via the uniform;
+        // the lightweight path snaps to this colour on the next frame).
+        this._lightweightBgColor.set(theme === 'dark' ? DARK_BG_HEX : LIGHT_BG_HEX);
     }
 
     /**
@@ -800,6 +838,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     setColor(hex: string): void {
         this._backgroundUniform?.setColor(hex);
+        // §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE (L-317) — a custom scene-background
+        // colour must also drive the WebGL2 opaque overlay clear. Guard bad hex so a
+        // parse failure never throws on the render path.
+        try { this._lightweightBgColor.set(hex); } catch { /* ignore invalid hex */ }
     }
 
     /**
