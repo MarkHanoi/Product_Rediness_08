@@ -164,6 +164,56 @@ describe('reconcileTagSet — one lifecycle, every category', () => {
     });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-ROOM-TAG-NOT-MOVABLE (L-309) — A RE-PROJECTION RECONCILES A ROOM TAG, NEVER REBUILDS IT.
+//
+// The founder drags a room tag; on the NEXT plan projection `RoomTagAutoPopulator.populate()`
+// runs and finds the room's label/area drifted (e.g. a REDETECT_ROOMS renamed it). The whole
+// point of reconcile-not-rebuild (L-286b) is that the tag is REFRESHED IN PLACE — it keeps its
+// id, so its presentation record (the dragged `modelPoints[0]`) is left untouched and ONLY the
+// reference-derived parameters change. A rebuild — delete the tag, mint a fresh one at the
+// centroid — would pass "a room tag still exists after populate" and yet WIPE the drag.
+//
+// THE TOOTH, stated so it cannot be softened: id-STABILITY is what carries the drag. Asserting
+// "a room tag exists afterwards" is vacuous — a rebuild satisfies it. The discriminator is that
+// the SAME id is REFRESHED (never orphaned + recreated with a new id). That is the one thing a
+// delete-and-recreate fails, and it is the property the populator's refresh (which patches only
+// `parameters`, never `geometry2D`) relies on to preserve the founder's drag.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('§FIX-ROOM-TAG-NOT-MOVABLE — a drifted room tag survives populate by being refreshed IN PLACE', () => {
+    it('a renamed room REFRESHES its tag (same id) — it is NOT orphaned + recreated', () => {
+        const dragged = tag('rt_dragged', 'room-tag', { roomId: 'r1', cachedLabel: 'Room' });
+        const r = reconcileTagSet<{ targetId: string; name: string }>({
+            category: 'room',
+            existing: [dragged],
+            live: [{ targetId: 'r1', name: 'Kitchen' }],          // REDETECT_ROOMS renamed it
+            needsRefresh: (p, t) => p?.cachedLabel !== t.name,    // the label drifted
+        });
+        // Refreshed IN PLACE — the SAME id survives, and with it the tag's dragged presentation.
+        expect(r.toRefresh.map((x) => x.tagId)).toEqual(['rt_dragged']);
+        // THE TOOTH: a rebuild would surface it as an ORPHAN and a fresh CREATE (new id) — which
+        // is exactly how the drag would be lost. reconcile does neither.
+        expect(r.orphanTagIds).toEqual([]);
+        expect(r.toCreate).toEqual([]);
+        expect(r.duplicateTagIds).toEqual([]);
+    });
+
+    it('a settled room tag is a NO-OP — populate writes nothing, so a drag cannot even be churned', () => {
+        const dragged = tag('rt_dragged', 'room-tag', { roomId: 'r1', cachedLabel: 'Kitchen' });
+        const r = reconcileTagSet<{ targetId: string; name: string }>({
+            category: 'room',
+            existing: [dragged],
+            live: [{ targetId: 'r1', name: 'Kitchen' }],          // unchanged
+            needsRefresh: (p, t) => p?.cachedLabel !== t.name,
+        });
+        expect(r.toRefresh).toEqual([]);
+        expect(r.unchangedCount).toBe(1);
+        expect(r.toCreate).toEqual([]);
+        expect(r.orphanTagIds).toEqual([]);
+    });
+});
+
 // ── 2. The mark comes from the element's REAL record ─────────────────────────
 
 describe('element marks — the tag is the schedule join (C28)', () => {

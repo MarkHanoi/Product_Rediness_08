@@ -257,3 +257,81 @@ describe('a tag bubble carries the MARK — and NOTHING else', () => {
         // the only thing that differs — the bubble is sized to it.)
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-ROOM-TAG-NOT-MOVABLE (L-309) — A DRAGGED ROOM TAG IS DRAWN AND PICKED AT THE DROP,
+// NOT BACK AT THE CENTROID.
+//
+// A room tag has no leader: its single model point IS where it is drawn, and a drag writes
+// that point (`UpdateAnnotationPresentationCommand` → `modelPoints[0]`, L-287). The render and
+// the point hit-test used to prefer `references[0].cachedPosition` — the room CENTROID, which
+// the point-ref caches forever — so a dragged room tag was PAINTED back at the centroid and
+// was only GRABBABLE there. The founder's "I can't move room tags": the drag committed, and
+// the drawing threw it away on the next projection.
+//
+// RED-FIRST / THE DISCRIMINATOR: "the tag is pickable at the centroid" PASSES on the broken
+// build (that is where it always was) — a vacuous guard, the bug's own disguise. The tooth is
+// that after the drag the tag is pickable AT THE DROP and NOT at the centroid. Reverting the
+// fix (reference-first) flips BOTH assertions and nothing else.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('a room tag is drawn and picked at its PRESENTATION point, not its centroid', () => {
+    const zoom = 20;
+    const w2s = (h: number, v: number) => ({ sx: h * zoom, sy: v * zoom });
+
+    // Born at the centroid: modelPoints[0] === references[0].cachedPosition === (5, 3).
+    // Then DRAGGED — exactly as UpdateAnnotationPresentationCommand commits it: the presentation
+    // point (modelPoints[0]) moves to (9, 7); the reference (the centroid) is never touched.
+    const CENTROID = { x: 5, y: 0, z: 3 };
+    const DROP = { x: 9, y: 0, z: 7 };
+
+    function addRoomTag(modelPt: { x: number; y: number; z: number }): void {
+        annotationStore.clear();
+        annotationStore.add(makeAnnotationElement(
+            'annotation_room_1', 'room-tag', VIEW,
+            [makePointRef(CENTROID as never)],                 // reference = the room centroid
+            { modelPoints: [modelPt], offset: 0 },             // presentation = where it is drawn
+            { roomId: 'room_1', roomName: 'Kitchen', area: 12.3, cachedLabel: 'Kitchen' },
+        ));
+    }
+
+    function hit(sx: number, sy: number): string | null {
+        viewDefinitionStore.get = ((id: string) =>
+            id === VIEW ? { id, output: { scale: 100 } } : undefined) as never;
+        return new PlanViewAnnotationRenderer().hitTestAnnotation(VIEW, sx, sy, w2s, 6);
+    }
+
+    it('an UN-dragged room tag is picked at the centroid (the regression fence — nothing changed for it)', () => {
+        addRoomTag(CENTROID);
+        expect(hit(CENTROID.x * zoom, CENTROID.z * zoom)).toBe('annotation_room_1');
+    });
+
+    it('*** a DRAGGED room tag is picked AT THE DROP — where the founder let go ***', () => {
+        addRoomTag(DROP);                                      // modelPoints[0] moved by the drag
+        expect(hit(DROP.x * zoom, DROP.z * zoom)).toBe('annotation_room_1');
+    });
+
+    it('*** THE TOOTH: a dragged room tag is NO LONGER at the centroid (reference-first FAILS here) ***', () => {
+        addRoomTag(DROP);
+        // The old build painted and picked the bubble back at the centroid via
+        // references[0].cachedPosition, discarding the drag. If this ever finds the tag at the
+        // centroid again, the presentation/reference split has been reverted.
+        expect(hit(CENTROID.x * zoom, CENTROID.z * zoom)).toBeNull();
+    });
+
+    it('the drawn text sits at the DROP, not the centroid — render agrees with pick', () => {
+        addRoomTag(DROP);
+        const drawnAt: Array<{ x: number; y: number }> = [];
+        const ctx = fakeCtx();
+        const origFillText = ctx.fillText.bind(ctx);
+        // Capture the screen position each text run is drawn at.
+        (ctx as unknown as { fillText: (t: string, x: number, y: number) => void }).fillText =
+            (t: string, x: number, y: number) => { drawnAt.push({ x, y }); origFillText(t); };
+        viewDefinitionStore.get = ((id: string) =>
+            id === VIEW ? { id, output: { scale: 100 } } : undefined) as never;
+        new PlanViewAnnotationRenderer().render(ctx, VIEW, w2s, { viewType: 'plan' });
+        // The room name is drawn centred on the DROP (9,7)→(180,140), never the centroid (100,60).
+        expect(drawnAt.some(p => Math.abs(p.x - DROP.x * zoom) < 1)).toBe(true);
+        expect(drawnAt.every(p => Math.abs(p.x - CENTROID.x * zoom) > 1)).toBe(true);
+    });
+});

@@ -710,7 +710,17 @@ export class PlanViewAnnotationRenderer {
             } else {
                 // Point-based (room tag, text note, north arrow…): one point, and it IS where
                 // the annotation is drawn. Projected view-aware, for the same reason as above.
-                const pt = ann.references[0]?.cachedPosition ?? pts[0];
+                //
+                // §FIX-ROOM-TAG-NOT-MOVABLE (L-309) — a ROOM TAG is picked where it is DRAWN: at
+                // its PRESENTATION point (`modelPoints[0]`, where a drag writes — L-287), not at
+                // its reference (the room centroid, which the point-ref caches forever). Without
+                // this, a dragged room tag rendered at the drop point yet stayed grabbable only
+                // back at the centroid — pick and paint would disagree, which is the L-256/L-291
+                // lesson: a pick corridor that lies about where you can click. Other point types
+                // (which track an element through their reference) keep reference-first.
+                const pt = ann.type === 'room-tag'
+                    ? (pts[0] ?? ann.references[0]?.cachedPosition)
+                    : (ann.references[0]?.cachedPosition ?? pts[0]);
                 if (!pt) continue;
                 const { sx: ax, sy: ay } = this._w2sModel(worldToScreen, pt);
                 if (Math.hypot(sx - ax, sy - ay) <= thresholdPx + 8) return ann.id;
@@ -1455,7 +1465,17 @@ export class PlanViewAnnotationRenderer {
         const name = (ann.parameters.roomName ?? ann.parameters.name ?? '') as string;
         const area = ann.parameters.area as number | undefined;
 
-        const pt = ann.references[0]?.cachedPosition ?? ann.geometry2D.modelPoints?.[0];
+        // §FIX-ROOM-TAG-NOT-MOVABLE (L-309) — A ROOM TAG IS DRAWN AT ITS PRESENTATION POINT.
+        //
+        // A room tag has no leader (see TAG_TYPES): its single model point IS where it is
+        // drawn, and a DRAG writes that point (`UpdateAnnotationPresentationCommand` stamps the
+        // dragged position into `modelPoints[0]`, L-287). `references[0].cachedPosition` is the
+        // room CENTROID — the reference anchor the tag is born on. Preferring it, as this used
+        // to, redrew the bubble back at the centroid on every projection, so the founder's drag
+        // was invisible and "snapped back". Presentation wins; the centroid is only the fallback
+        // for a tag the user has never moved (at creation the two are identical, so an un-dragged
+        // tag is byte-for-byte unchanged). The hit-test resolves the same way — pick what is drawn.
+        const pt = ann.geometry2D.modelPoints?.[0] ?? ann.references[0]?.cachedPosition;
         if (!pt) return;
 
         // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — view-aware projection (see _w2sModel).
