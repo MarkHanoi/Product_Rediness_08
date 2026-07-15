@@ -2391,11 +2391,44 @@ export class RenderPipelineManager implements IViewSwitchListener {
      *
      * @param isOrtho  true when the new camera is orthographic.
      */
-    private async _rebuildPipelineGraphOnly(isOrtho: boolean): Promise<void> {
+    private async _rebuildPipelineGraphOnly(isOrtho: boolean, _deferAttempt = 0): Promise<void> {
         if (!this._scene || !this._camera || !this._renderer) return;
         if (!this._scenePass || !this._zonePass) {
             // Passes not yet created (first bind not done) — fall through to full rebuild.
             await this._fullRebuild();
+            return;
+        }
+
+        // ── §FIX-PROJECTION-TOGGLE-STALE-GRAPH (L-301) — RECONCILE the compile camera
+        //    against the SINGLE projection authority (`_uIsOrthographic`) BEFORE building.
+        //
+        // ROOT of the demo-critical `PIPELINE_FAILURE reason="Cannot read properties of
+        // undefined (reading 'replace')"` on elevation/plan → 3D:
+        //
+        //   `notifyProjectionToggle(false)` writes the authority uniform SYNCHRONOUSLY
+        //   (`_uIsOrthographic.value = 0.0` = perspective). But OBC's OrthoPerspectiveCamera
+        //   flips `world.camera.three` to Perspective ASYNCHRONOUSLY — so at the moment the
+        //   window 'view-activated' event fires `updateCamera()`, the live camera object is
+        //   STILL orthographic (see the FIX-3 note in `updateCamera`). `updateCamera` bound
+        //   that still-orthographic camera onto `this._camera` + the PassNodes, and we would
+        //   then compile the new `RenderPipeline` against it. three's WGSL program assembly
+        //   walks camera-projection-type-dependent nodes (e.g. ViewportDepthNode branches on
+        //   `camera.isPerspectiveCamera`); compiled against a camera whose projection flags
+        //   are mid-flip (neither cleanly perspective nor the type the authority declares) a
+        //   camera-dependent node resolves an undefined shader string/type and three throws
+        //   `.replace(undefined)` on the first `rp.render()`. The full backend swap "fixed"
+        //   it only because its complete pass reconstruction ran LATER, once the perspective
+        //   camera had settled.
+        //
+        // TWO SOURCES OF TRUTH: the uniform (`_uIsOrthographic`, correct/forward-written) and
+        // the camera object bound to the passes (stale, lagging OBC's async flip). This guard
+        // makes the uniform the ONLY authority: we refuse to compile against a camera whose
+        // live projection contradicts it, and instead DEFER one tick until OBC's in-place
+        // mutation (C04 note: OBC mutates the SAME camera object in place) lands the intended
+        // projection. This preserves the fast path — no pass reconstruction, no SSGI recompile
+        // — it only withholds the compile from a mid-transition camera.
+        if (!this._compileCameraMatchesProjectionAuthority()) {
+            this._deferGraphRebuildUntilCameraSettles(isOrtho, _deferAttempt);
             return;
         }
 
@@ -2444,9 +2477,114 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._phase = this._outlinesActive ? 'phase4' : 'phase2';
         this._emitState();
         console.log(
+            // §FIX-PROJECTION-TOGGLE-STALE-GRAPH (L-301) — was a HARDCODED "orthographic"
+            // that lied on every perspective return (the log the founder saw contradicting
+            // `updateCamera`'s "perspective"). Report the ACTUAL projection the graph was
+            // built for, taken from the same authority the compile-camera guard just enforced.
             `[RenderPipelineManager] _rebuildPipelineGraphOnly: Phase 2 graph built ` +
-            `for orthographic camera (no pass reconstruction, no SSGI).`
+            `for ${isOrtho ? 'orthographic' : 'perspective'} camera (no pass reconstruction, no SSGI).`
         );
+    }
+
+    /**
+     * §FIX-PROJECTION-TOGGLE-STALE-GRAPH (L-301) — RED-first guard predicate.
+     *
+     * ONE SOURCE OF TRUTH: the projection uniform `_uIsOrthographic`, written
+     * synchronously by `notifyProjectionToggle()` before the view switch fires, is
+     * the authority. This returns `true` iff the camera the pipeline will compile
+     * against (`this._camera`, already bound onto the PassNodes by `updateCamera`
+     * Guard 2) presents the SAME projection that authority declares.
+     *
+     * Returns `false` — the stale-camera read this whole fix exists to catch — when:
+     *   - authority says PERSPECTIVE (`value === 0.0`) but the live camera is not
+     *     perspective (still orthographic mid-flip, or type flags momentarily
+     *     undefined), or
+     *   - authority says ORTHOGRAPHIC (`value === 1.0`) but the live camera is not
+     *     orthographic.
+     *
+     * A camera that is NEITHER (both flags falsy — the true mid-transition instant)
+     * also contradicts the authority and returns `false`: it is not YET the
+     * projection the authority declares, so compiling against it is exactly the
+     * `.replace(undefined)` hazard.
+     *
+     * When TSL is not loaded (`_uIsOrthographic` null) there is no authority to
+     * contradict, so it returns `true` and the caller proceeds (the graph-only path
+     * already falls back to a full rebuild when TSL is absent).
+     *
+     * @internal exported semantics pinned by unit test — this predicate is the
+     * assertion with teeth against the stale-camera read.
+     */
+    private _compileCameraMatchesProjectionAuthority(): boolean {
+        if (!this._uIsOrthographic) return true;
+        const authorityIsOrtho = this._uIsOrthographic.value === 1.0;
+        const cam = this._camera as unknown as {
+            isPerspectiveCamera?: boolean;
+            isOrthographicCamera?: boolean;
+        } | null;
+        const camIsPerspective  = cam?.isPerspectiveCamera === true;
+        const camIsOrthographic = cam?.isOrthographicCamera === true;
+        return authorityIsOrtho ? camIsOrthographic : camIsPerspective;
+    }
+
+    /**
+     * §FIX-PROJECTION-TOGGLE-STALE-GRAPH (L-301) — maximum times we re-check the
+     * live camera before falling back to a full rebuild. Each deferral is a single
+     * macrotask (~0 ms); OBC's in-place projection flip settles within a tick, so on
+     * the happy path this bounds at one short deferral, NOT a pass reconstruction.
+     * The full-rebuild fallback exists only for a pathological camera that never
+     * catches up (it reconstructs the passes against whatever camera is then live).
+     */
+    private static readonly _MAX_PROJECTION_SETTLE_DEFERS = 8;
+
+    /**
+     * §FIX-PROJECTION-TOGGLE-STALE-GRAPH (L-301) — DEFER the fast-path graph rebuild
+     * one macrotask so OBC's asynchronous, in-place projection flip can land on the
+     * (same-reference) camera object before we compile against it. Re-invokes
+     * `_rebuildPipelineGraphOnly` — whose guard re-checks the authority — up to
+     * {@link _MAX_PROJECTION_SETTLE_DEFERS} times, then falls back to a full rebuild.
+     *
+     * This is the companion to {@link _compileCameraMatchesProjectionAuthority}: the
+     * guard decides "not yet", this schedules the retry. It keeps the fast path
+     * (no pass reconstruction, no SSGI recompile) on every normal switch — it only
+     * withholds the compile from a mid-transition camera for a tick.
+     */
+    private _deferGraphRebuildUntilCameraSettles(isOrtho: boolean, attempt: number): void {
+        const authorityIsOrtho = this._uIsOrthographic ? this._uIsOrthographic.value === 1.0 : isOrtho;
+        const cam = this._camera as unknown as {
+            isPerspectiveCamera?: boolean;
+            isOrthographicCamera?: boolean;
+        } | null;
+
+        if (attempt >= RenderPipelineManager._MAX_PROJECTION_SETTLE_DEFERS) {
+            console.warn(
+                `[RenderPipelineManager] §FIX-PROJECTION-TOGGLE-STALE-GRAPH (L-301) — the ` +
+                `pipeline-bound camera never reconciled with the projection authority after ` +
+                `${attempt} deferrals (authority=${authorityIsOrtho ? 'ortho' : 'persp'}, ` +
+                `camera.isPerspectiveCamera=${String(cam?.isPerspectiveCamera)}, ` +
+                `camera.isOrthographicCamera=${String(cam?.isOrthographicCamera)}). ` +
+                `Falling back to a FULL rebuild (reconstructs passes against the live camera).`,
+            );
+            this._fullRebuild().catch((err: unknown) => {
+                console.error(
+                    '[RenderPipelineManager] §FIX-PROJECTION-TOGGLE-STALE-GRAPH full-rebuild fallback failed:',
+                    err instanceof Error ? err.message : err,
+                );
+            });
+            return;
+        }
+
+        console.warn(
+            `[RenderPipelineManager] §FIX-PROJECTION-TOGGLE-STALE-GRAPH (L-301) — DEFERRING ` +
+            `graph rebuild: the pipeline-bound camera has not caught up to the projection ` +
+            `authority (authority=${authorityIsOrtho ? 'ortho' : 'persp'}, ` +
+            `camera.isPerspectiveCamera=${String(cam?.isPerspectiveCamera)}, ` +
+            `camera.isOrthographicCamera=${String(cam?.isOrthographicCamera)}). NOT compiling ` +
+            `against a mid-transition camera (attempt ${attempt + 1}/` +
+            `${RenderPipelineManager._MAX_PROJECTION_SETTLE_DEFERS}).`,
+        );
+        setTimeout(() => {
+            void this._rebuildPipelineGraphOnly(isOrtho, attempt + 1);
+        }, 0);
     }
 
     /**
