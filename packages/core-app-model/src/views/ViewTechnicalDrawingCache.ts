@@ -501,6 +501,29 @@ export class ViewTechnicalDrawingCache {
         // (non-annotation) store event below and re-projects exactly once.
         if (event.elementType.startsWith('annotation:')) return;
 
+        // §FIX-SPLIT-VIEW-PERF-SAFE (L-315, spike L-307 Fix 2) — ROOM DECOUPLING.
+        //
+        // A room contributes ZERO linework to the EdgeProjectorService
+        // TechnicalDrawing (C24 / C24.1 — a room is a semantic/overlay concept,
+        // NOT plan drawing geometry). Room boundaries and room-tags are painted
+        // as a SEPARATE overlay by `planViewAnnotationRenderer` on each
+        // PlanViewManager frame tick, reading the live room/annotation stores by
+        // viewId — so a room mutation needs no cache invalidation.
+        //
+        // `room` is NOT in `PLAN_INCREMENTAL_SAFE_TYPES`, so WITHOUT this skip
+        // every room write (create / update / REDETECT_ROOMS) fell through to
+        // `markDirty` + `vd:projection-stale` below and forced a FULL whole-view
+        // re-projection. During a single Canvas2D gesture the uncoordinated
+        // `REDETECT_ROOMS` re-fires per-room `roomStore` writes, each triggering
+        // another discarded full pass (L-307: 3-4 projections/gesture). In SPLIT
+        // VIEW the plan pane is always live, so every one of those passes runs
+        // HiddenLineRemoval over all occluders + re-injects every symbol builder
+        // alongside the 3D render. Cutting the room edge here removes 1-2 of the
+        // redundant passes per gesture with no visible change — the overlay
+        // already reflects the room on the next frame. Mirrors the `annotation:*`
+        // cut directly above. (C04 projection invalidation; P3 single rAF.)
+        if (event.elementType === 'room') return;
+
         this.markDirty(event.elementId);
 
         // §PLAN-VIEW-REFRESH (Apr 2026)
