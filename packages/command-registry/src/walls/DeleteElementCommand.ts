@@ -10,8 +10,6 @@ import { semanticGraphManager } from '@pryzm/core-app-model';
 import { DeleteSlabCommand } from '../slabs/DeleteSlabCommand';
 import { DeleteColumnCommand } from '../columns/DeleteColumnCommand';
 import { DeleteStairCommand } from '../stair/DeleteStairCommand';
-import { DOMEventBus } from '@pryzm/event-bus';
-const _bus = new DOMEventBus();
 
 /**
  * §UNDO-AUDIT-2026 §01-§2.3 — Per-neighbour pre-delete baseline snapshot.
