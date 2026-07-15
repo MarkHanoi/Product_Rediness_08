@@ -73,6 +73,10 @@ import {
 // stashes the furnish context here; Command 2 reads it. Optionally furnish inline (preview toggle).
 import { setOfficeFurnishContext, type OfficeFurnishContext } from './officeBuildContext.js';
 import { furnishOfficeInterior } from './officeFurnish.js';
+// §FIX-OFFICE-ENVELOPE-NOT-DISPOSED (L-321) — after the detailed tower lands, pin the 3D view to
+// full detail so the massing-LOD "grey envelope" (LevelScoped3DCullingService auto-escalates a tall
+// heavy model to 'massing') is turned OFF and the detailed floors are the only geometry shown.
+import { showOfficeFullDetail } from './officeShowFullDetail.js';
 // ── §OFFICE-PERIMETER-GLAZING (founder 2026-06-30) — curtain glazing per segment ──────
 //
 // The founder's rule: the circular office tower reads as a GLASS CURTAIN-WALL tower —
@@ -583,6 +587,18 @@ export class OfficeBuildingExecutor {
             `circulation-first floor. Run "Furnish Office" to add furniture.`,
             'success',
         );
+
+        // §FIX-OFFICE-ENVELOPE-NOT-DISPOSED (L-321) — the founder's "solid grey envelope over the
+        // tower" is the §FIX-HEAVY-SCENE-MASSING-LOD massing LOD: a ≥15-storey / ≥1000-element tower
+        // AUTO-ESCALATES to 'massing', so every out-of-scope storey renders as an opaque grey block
+        // and only the active level ±1 stay detailed (the top storey the last AddLevelCommand
+        // activated — exactly the founder's screenshot). It is NOT an undisposed generator element:
+        // this executor emits only real geometry; resi/house never show it because they are low-rise
+        // (below the threshold), so there is nothing for them to "dispose". The office is just the one
+        // typology tall + heavy enough to trip it. The user generated a DETAILED building to SEE it, so
+        // pin the 3D view to full detail (reversible via the "3D detail" control).
+        showOfficeFullDetail();
+
         return { storeyCount, slabCount, wallCount, stairCount, liftCount };
     }
 
