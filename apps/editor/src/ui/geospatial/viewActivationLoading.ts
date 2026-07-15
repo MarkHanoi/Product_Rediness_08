@@ -358,3 +358,45 @@ export function beginViewActivationLoading(
         done,
     };
 }
+
+/**
+ * §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — run a view-activation ENTRY step (open the globe /
+ * open the 3D Site) so that any error it throws OR rejects with is CONTAINED to the GIS surface:
+ * logged, surfaced on the in-editor "Try again" overlay via `onFail`, and NEVER re-propagated.
+ *
+ * WHY THIS EXISTS: the globe/site activation is triggered from `void applyResultView(...)` /
+ * sync click handlers. An error that escapes there becomes an unhandled window `error` /
+ * `unhandledrejection`. The editor's ViewportCrashGuard treats GPU/render-keyword unhandled
+ * errors as a viewport crash and shows the SceneCrashFallback, whose "Back to projects" link
+ * (`<a href="/">`) FULL-RELOADS the app to the project hub (/projects) — ejecting the founder
+ * from the editor mid-session (recurrent L-318). A stale/gpu-adjacent Cesium activation error
+ * must instead stay put and offer retry. This helper is the single containment boundary.
+ *
+ * Always resolves (never rejects), so callers can `void containViewActivation(...)` safely with
+ * no risk of an unhandled rejection leaking to the global crash guard.
+ *
+ * @param step   The activation to run (sync or async). Its throw/rejection is caught here.
+ * @param onFail Surface the failure in-editor (typically `activeViewActivation?.fail(msg)`).
+ * @param label  Human-readable prefix for the surfaced message.
+ */
+export async function containViewActivation(
+    step: () => void | Promise<void>,
+    onFail: (message: string) => void,
+    label = 'The 3D view failed to open',
+): Promise<void> {
+    try {
+        await step();
+    } catch (err) {
+        const message = `${label}: ${String((err as Error)?.message ?? err)}`;
+        console.error(
+            '[viewActivationLoading] §FIX-GLOBE-CLICK-NAVIGATES-OUT contained a view-activation error ' +
+            '(kept IN-editor — no navigate-out, no reload):',
+            err,
+        );
+        try {
+            onFail(message);
+        } catch (e) {
+            console.error('[viewActivationLoading] §FIX-GLOBE-CLICK-NAVIGATES-OUT onFail handler threw (ignored):', e);
+        }
+    }
+}

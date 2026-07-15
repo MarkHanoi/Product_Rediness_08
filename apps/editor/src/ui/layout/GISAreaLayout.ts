@@ -32,7 +32,7 @@ import { computeGisContextUnderlayRotationZ } from '../site/overlay/siteGisConte
 // producers — LoadingOverlayController). The overlay dismisses on the REAL readiness chain
 // (viewer → tiles → content placed → L-259 ground seat-and-reveal), gates scene input until
 // then, and fails visibly (never hangs) if a signal never arrives.
-import { beginViewActivationLoading, type ViewActivationHandle, type ViewActivationTarget } from '../geospatial/viewActivationLoading';
+import { beginViewActivationLoading, containViewActivation, type ViewActivationHandle, type ViewActivationTarget } from '../geospatial/viewActivationLoading';
 import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
 
 export interface GISCallbacks {
@@ -323,6 +323,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 console.log("GIS: Re-activating existing Cesium viewer");
                 // A.8.a — re-show the geocode search box overlay with the GIS view.
                 if (geocodeBox) geocodeBox.element.style.display = '';
+                // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — the DIRECT re-entry path (nav-rail GIS
+                // button / window.pryzmToggleGIS) has no orchestrator try/catch around it, so a
+                // synchronous throw here (setVisible / restorePhotorealGlobeContent) would escape as
+                // an uncaught error the ViewportCrashGuard does not net → router navigate-out/reload.
+                // Contain the whole re-entry placement: log + surface in-editor retry, never propagate.
+                try {
                 if (cesiumViewport) {
                     detachBimGizmoForGis();
                     cesiumViewport.setVisible(true);
@@ -344,10 +350,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     });
                     if (reactivation === 'legacy-gltf-resync') {
                         // 🔄 SYNC UPDATE (legacy placeBimOnEarth path) — no camera fly.
+                        // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — this detached promise had NO .catch;
+                        // a rejected GLB export / loadBimGltf became an unhandled rejection. Contain it.
                         import('@pryzm/file-format').then(async ({ exportFragmentsToGLB }) => {
                             const url = await exportFragmentsToGLB(props.world.scene.three as any);
                             await cesiumViewport.loadBimGltf(url, {}, 1.0, false);
                             console.log("GIS: Sync update completed (no camera fly)");
+                        }).catch((err: unknown) => {
+                            console.error('[gis] §FIX-GLOBE-CLICK-NAVIGATES-OUT legacy GLB re-sync failed — contained (globe stays open):', err);
                         });
                     } else if (reactivation === 'restore-real-model') {
                         console.log('[gis] §FIX-GISLAYOUT-…-GLOBE-REENTRY: direct globe re-entry — re-placing the real model + reframing (idempotent).');
@@ -355,6 +365,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     } else {
                         console.log('[gis] §FIX-GISLAYOUT-…-GLOBE-REENTRY: re-activation placement suppressed (orchestrator self-places).');
                     }
+                }
+                } catch (err) {
+                    console.error('[gis] §FIX-GLOBE-CLICK-NAVIGATES-OUT re-entry placement threw — contained (kept in-editor):', err);
+                    activeViewActivation?.fail(`The 3D globe failed to reopen: ${String((err as Error)?.message ?? err)}`);
                 }
                 if (bridge) {
                     // §FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — after a device-loss recovery the
@@ -711,14 +725,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // clamp) and used to show NOTHING while the user could already fly a half-assembled
             // scene. Put the SHARED overlay up NOW (synchronously, before any await) and gate
             // input until the readiness chain completes.
-            const activation = startViewActivationLoading('globe', () => { void applyResultView('3D'); });
+            const activation = startViewActivationLoading('globe', () => {
+                // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — the retry re-runs the globe activation;
+                // contain any throw/rejection so a failing retry never escapes as an unhandled
+                // rejection (which the ViewportCrashGuard does NOT catch → ejects the user to /projects).
+                void containViewActivation(() => applyResultView('3D'), (m) => activeViewActivation?.fail(m), 'The 3D globe failed to open');
+            });
             // Show the Cesium globe with the site context and frame the plot.
             // §FIX-GISLAYOUT-…-GLOBE-REENTRY (L-193, Symptom B) — this orchestrator drives its
             // OWN placement below (restorePhotorealGlobeContent), so suppress the synchronous
             // re-activation-branch placement to avoid a double-place. toggleGIS runs the
             // re-activation branch SYNCHRONOUSLY, so the flag is only live for that tick.
             gisReactivationSelfPlaceSuppressed = true;
-            try { toggleGIS(true); } finally { gisReactivationSelfPlaceSuppressed = false; }
+            try {
+                toggleGIS(true);
+            } catch (err) {
+                // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — a SYNCHRONOUS throw from toggleGIS must NOT
+                // escape this void-ed async call as an unhandled rejection. The ViewportCrashGuard only
+                // swallows GPU/render-keyword unhandled errors; a Cesium/GIS activation error slips its
+                // net and propagates to the router/global handler that navigates to /projects (or hard-
+                // reloads) — ejecting the founder from the editor. Keep it IN-editor: surface L-313 retry.
+                console.error('[gis] §FIX-GLOBE-CLICK-NAVIGATES-OUT globe toggleGIS threw — contained (in-editor retry):', err);
+                activation.fail(`The 3D globe failed to open: ${String((err as Error)?.message ?? err)}`);
+            } finally {
+                gisReactivationSelfPlaceSuppressed = false;
+            }
             // toggleGIS mounts Cesium async on first use. L-270 — await the viewer's REAL ready
             // signal (awaitCesiumReady) instead of the old fixed 350 ms guess, which on a cold
             // mount fired BEFORE the viewport existed → renderBuildingOnGlobe no-oped and the
@@ -792,7 +823,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             } satisfies Partial<CSSStyleDeclaration>);
             b.addEventListener('mouseenter', () => { if (activeSegment !== mode) b.style.background = '#f4f0ff'; });
             b.addEventListener('mouseleave', () => { if (activeSegment !== mode) b.style.background = 'transparent'; });
-            b.addEventListener('click', () => { void applyResultView(mode); });
+            // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — the "3D globe" segment click. Contain any
+            // throw/rejection so a globe-activation failure surfaces the in-editor retry overlay and
+            // NEVER escapes as an unhandled rejection to the crash-guard-blind router navigate-out.
+            b.addEventListener('click', () => {
+                void containViewActivation(() => applyResultView(mode), (m) => activeViewActivation?.fail(m), 'The 3D view failed to open');
+            });
             return b;
         };
         btn2dRef = mkBtn('2D', '◧ 3D + plan');
@@ -959,7 +995,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         closeBoundaryMap2D();
         mountResultToggleBar();
         console.log(`[gis] showSiteResultView: landing on "${initial}".`);
-        void applyResultView(initial);
+        // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — onboarding "Generate" landing; contain any
+        // activation failure so it surfaces in-editor retry rather than ejecting the user to /projects.
+        void containViewActivation(() => applyResultView(initial), (m) => activeViewActivation?.fail(m), 'The 3D view failed to open');
     };
 
     // O.7.2 — window-hook handoff for the onboarding generate-finish step (same idiom
@@ -1857,7 +1895,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         try { cesiumViewport?.armGlobeReframeOnBaseSettle?.('oblique'); }
         catch (e) { console.warn('[gis] 3D globe: armGlobeReframeOnBaseSettle failed (non-fatal):', e); }
         placeBuildingOnGlobe();
-        void reframeSiteIn3D();
+        // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — reframeSiteIn3D is a DETACHED promise; without a
+        // .catch a rejected camera fly / getCesium becomes an unhandled rejection that can eject the
+        // user. Contain it (the camera framing is best-effort — the globe stays open regardless).
+        void reframeSiteIn3D().catch((err: unknown) => {
+            console.error('[gis] §FIX-GLOBE-CLICK-NAVIGATES-OUT reframeSiteIn3D failed — contained (globe stays open):', err);
+        });
     };
 
     // §A.21.D49 — export the live BIM scene to GLB and place it as the REAL detailed
@@ -2230,7 +2273,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // study self-places via renderFormaMassing (after awaitCesiumReady); suppress the
         // synchronous re-activation-branch globe placement so it never fights Forma mode.
         gisReactivationSelfPlaceSuppressed = true;
-        try { toggleGIS(true); } finally { gisReactivationSelfPlaceSuppressed = false; }
+        try {
+            toggleGIS(true);
+        } catch (err) {
+            // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — contain a synchronous toggleGIS throw so a
+            // "3D Site" activation failure stays IN-editor with retry, never escaping to the crash
+            // guard's blind spot → router navigate-out / reload.
+            console.error('[gis][forma] §FIX-GLOBE-CLICK-NAVIGATES-OUT Forma toggleGIS threw — contained (in-editor retry):', err);
+            activation.fail(`The 3D Site view failed to open: ${String((err as Error)?.message ?? err)}`);
+        } finally {
+            gisReactivationSelfPlaceSuppressed = false;
+        }
         // Force Forma look NOW (idempotent) so even an already-mounted viewer
         // (with a Cesium token → otherwise photoreal) flips to the massing study.
         window.pryzmSetCesiumFormaMode?.(true);
