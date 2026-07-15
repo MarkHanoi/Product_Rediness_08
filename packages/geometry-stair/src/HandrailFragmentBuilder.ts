@@ -1,4 +1,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep-dispose so the
+// `usedTimes` device-loss throw (L-303 family) can never abort a handrail
+// teardown mid-traverse and leak the root into the next project.
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 import { HandrailData } from '@pryzm/core-app-model/stores';
 import { BimManager } from '@pryzm/core-app-model';
 import { elementRegistry, StoreType } from '@pryzm/core-app-model/element-registry';
@@ -92,17 +96,29 @@ export class HandrailFragmentBuilder {
         elementRegistry.unregister(id);
     }
 
+    /**
+     * §FIX-BUILDER-ISOLATION-LEAK (L-320) — dispose EVERY handrail root this builder
+     * owns and clear its registry, so a project switch cannot leave stale handrail
+     * geometry in the scene. Called from the project-isolation teardown
+     * (`bim-project-cleared` in initTools) alongside the WallFragmentBuilder.
+     *
+     * This is the C13 GEOMETRY-side isolation, complementing the data-side
+     * ProjectIsolationAudit: the per-element `bim-handrail-removed` path can abort
+     * mid-teardown on the WebGPU `usedTimes` device-loss throw (L-303 family),
+     * leaving roots behind — this sweep cleans up whatever survived, WebGPU-safe
+     * (disposeRoot routes through safeDisposeObject3D, so it never re-throws).
+     */
+    dispose(): void {
+        for (const id of Array.from(this.handrailRoots.keys())) {
+            this.removeHandrail(id);
+        }
+        this.handrailRoots.clear();
+        this._instanceIds.clear();
+    }
+
     private disposeRoot(root: THREE.Group): void {
-        root.traverse(obj => {
-            if (obj instanceof THREE.Mesh) {
-                obj.geometry.dispose();
-                if (Array.isArray(obj.material)) {
-                    obj.material.forEach((m: THREE.Material) => m.dispose());
-                } else if (obj.material) {
-                    (obj.material as THREE.Material).dispose();
-                }
-            }
-        });
+        // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep dispose.
+        safeDisposeObject3D(root);
         root.clear();
     }
 

@@ -4,6 +4,10 @@ import { StairRailingStore } from './StairRailingStore';
 import { StairStore } from './StairStore';
 import { StairData } from './StairTypes';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep-dispose so the
+// `usedTimes` device-loss throw (L-303 family) can never abort a railing teardown
+// mid-traverse and leak the group into the next project.
+import { safeDisposeObject3D } from '@pryzm/renderer-three';
 // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-RAIL-INSTANCING) — optional
 // GPU-instancing bridge. Mirrors ColumnFragmentBuilder / BeamFragmentBuilder: when
 // injected AND the `__pryzmElementInstancingV1` flag is on, the REPEATED vertical
@@ -1113,15 +1117,33 @@ export class StairRailingBuilder {
         const group = this.meshGroups.get(railingId);
         if (group) {
             this.scene?.remove(group);
-            group.traverse(child => {
-                if (child instanceof THREE.Mesh) {
-                    child.geometry.dispose();
-                    if (child.material instanceof THREE.Material) child.material.dispose();
-                }
-            });
+            // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep dispose.
+            // A raw geometry/material.dispose() can throw the `usedTimes`
+            // device-loss TypeError (L-303 family); before this, that throw aborted
+            // the teardown and left the railing group in the scene on project
+            // switch (the founder-seen leak).
+            safeDisposeObject3D(group);
             this.meshGroups.delete(railingId);
             elementRegistry.unregisterRoot(railingId);
         }
+    }
+
+    /**
+     * §FIX-BUILDER-ISOLATION-LEAK (L-320) — dispose EVERY stair-railing group this
+     * builder owns and clear its registry, so a project switch cannot leave stale
+     * railing geometry in the scene. Called from the project-isolation teardown
+     * (`bim-project-cleared` in initTools) alongside the WallFragmentBuilder.
+     *
+     * C13 GEOMETRY-side isolation, complementing the data-side ProjectIsolationAudit.
+     * WebGPU-safe: removeRailing routes disposal through safeDisposeObject3D, so the
+     * `usedTimes` throw (L-303 family) can never abort the sweep.
+     */
+    dispose(): void {
+        for (const id of Array.from(this.meshGroups.keys())) {
+            this.removeRailing(id);
+        }
+        this.meshGroups.clear();
+        this._instanceIds.clear();
     }
 
     setScene(scene: THREE.Scene): void {

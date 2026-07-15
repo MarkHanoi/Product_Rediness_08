@@ -18,6 +18,10 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe disposal helpers so the
+// `usedTimes` device-loss throw (L-303 family) can never abort removeFloor() /
+// dispose() mid-teardown and leave a floor-finish root leaked in the scene.
+import { safeDisposeGeometry, safeDisposeMaterials } from '@pryzm/renderer-three';
 import { FloorData, FloorServiceHole, FloorVertex } from '@pryzm/core-app-model/stores';
 import { computeFloorArea as computeArea, computeFloorBoundingBox as computeBoundingBox, ensureFloorCCW as ensureCCW,  } from '@pryzm/core-app-model/stores';
 import { resolveFloorColor, resolveLayerColor,  } from '@pryzm/core-app-model/stores';
@@ -419,18 +423,16 @@ export class FloorPanelBuilder {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   private _disposeObject(obj: THREE.Object3D): void {
-    if ((obj as THREE.Mesh).isMesh) {
-      const mesh = obj as THREE.Mesh;
-      mesh.geometry?.dispose();
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach(m => m.dispose());
-      } else {
-        (mesh.material as THREE.Material)?.dispose();
-      }
-    } else if ((obj as THREE.LineSegments).isLine) {
-      const line = obj as THREE.LineSegments;
-      line.geometry?.dispose();
-      (line.material as THREE.Material)?.dispose();
+    // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — route through the WebGPU-safe
+    // helpers. A raw geometry/material.dispose() can throw the `usedTimes`
+    // device-loss TypeError (L-303 family); if that fired inside removeFloor()'s
+    // child loop it aborted the teardown, leaving the floor root in the scene and
+    // in _floorRoots — the founder-seen leak on project switch. safeDispose*
+    // swallows ONLY that throw so the sweep always completes.
+    const geoObj = obj as THREE.Mesh | THREE.LineSegments;
+    if ((geoObj as THREE.Mesh).isMesh || (geoObj as THREE.LineSegments).isLine) {
+      safeDisposeGeometry(geoObj.geometry);
+      safeDisposeMaterials((geoObj as { material?: THREE.Material | THREE.Material[] }).material);
     }
   }
 }

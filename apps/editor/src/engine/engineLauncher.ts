@@ -270,6 +270,9 @@ export async function bootstrap(
         gridStore, wallSystemTypeStore, slabSystemTypeStore,
         slabBuilder, plumbingBuilder, doorBuilder, windowBuilder,
         furnitureBuilder, stairMeshBuilder,
+        // §FIX-BUILDER-ISOLATION-LEAK (L-320) — thread the floor/handrail/stair-railing
+        // builders so initTools can dispose them on project switch (bim-project-cleared).
+        floorBuilder, handrailBuilder, stairRailingBuilder,
     } = await initBuilders({ scene: world.scene.three as THREE.Scene, bimManager, projectContext });
     bimManager.setRoofStore(roofStore);
     bimManager.setGridStore(gridStore); // OI-044: inject GridStore into BimManager
@@ -300,6 +303,7 @@ export async function bootstrap(
         roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
         wallSystemTypeStore, slabSystemTypeStore, ceilingStore, floorStore, roomStore,
         slabBuilder, plumbingBuilder, furnitureBuilder, stairMeshBuilder,
+        floorBuilder, handrailBuilder, stairRailingBuilder,
     });
     window.bimWorld = world;
     inspector.setRoofStore(roofStore);

@@ -105,8 +105,13 @@ import { viewDefinitionStore, storeEventBus, viewDependencyTracker } from '@pryz
 import { elementRegistry } from '@pryzm/core-app-model/element-registry'; // §FIX-CATCHUP-DUPLICATE-CREATE (L-18)
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
-import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
-import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
+// §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the bus/plan bridge no longer
+// resolves system types itself (that hand-rolled resolution is precisely what diverged
+// from the 3D path). It builds the store record at the ONE chokepoint per element, so
+// the `*SystemTypeStore` reads that used to live here are gone with it.
+import { doorStore, buildDoorStoreRecord } from '@pryzm/geometry-door';
+import { windowStore, buildWindowStoreRecord } from '@pryzm/geometry-window';
+import { generateMark } from '@pryzm/core-app-model';
 import { roomGraphService, roomQueryService, roomValidationService, roomTypeInferenceEngine, facadeOrientationService } from '@pryzm/spatial-index';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { temporalGraphManager } from '@pryzm/core-app-model';
@@ -195,6 +200,12 @@ export interface ToolsParams {
     plumbingBuilder: any;
     furnitureBuilder: any;
     stairMeshBuilder: any;
+    // §FIX-BUILDER-ISOLATION-LEAK (L-320) — builders that add geometry to the scene
+    // and must be disposed on project switch (bim-project-cleared) like the wall
+    // builder, else their meshes bleed into the next project.
+    floorBuilder: any;
+    handrailBuilder: any;
+    stairRailingBuilder: any;
 }
 
 export interface ToolsResult {
@@ -245,6 +256,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
         wallSystemTypeStore, slabSystemTypeStore, ceilingStore, floorStore, roomStore,
         slabBuilder, plumbingBuilder, furnitureBuilder, stairMeshBuilder,
+        floorBuilder, handrailBuilder, stairRailingBuilder,
     } = p;
 
     // ── SelectionManager ─────────────────────────────────────────────────────
@@ -1082,51 +1094,41 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             //   §P2.3               — opening bridge extended to include element-store mirroring.
             if (type === 'door' && !doorStore.has(elementId)) {
                 try {
-                    // §DOOR-WINDOW-PLAN-FRAME (DAILY-USE 2026-05-21) — resolve
-                    // systemTypeId into frameColor / leafColor / frameFinish /
-                    // leafFinish so DoorBuilder.buildVisuals (DoorBuilder.ts:379-380)
-                    // sees the architect's chosen finish. Without this the
-                    // plan-tool path created a door with systemTypeId set but
-                    // frameColor/leafColor undefined → builder fell back to
-                    // hard-coded defaults → "timber door rendered without
-                    // materials." Mirrors CreateWallOpeningCommand.ts:104-134
-                    // which already does this resolution for the legacy 3D
-                    // path; this bridge replicates it for the plan-tool path.
-                    const sysTypeId = typeof o.systemTypeId === 'string' && o.systemTypeId.length > 0
-                        ? o.systemTypeId : undefined;
-                    const doorSysType = sysTypeId ? doorSystemTypeStore.getById(sysTypeId) : undefined;
-                    doorStore.add({
-                        id:           elementId,
-                        openingId:    id,
-                        wallId:       ev.wallId,
-                        offset,
-                        width,
-                        height,
-                        sillHeight,
-                        doorType:     (o.doorType === 'double' ? 'double' : 'single'),
-                        // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — carry the SPACE-chosen
-                        // swing/hand from the opening onto the DoorStore record so
-                        // DoorPlanSymbolBuilder draws the arc + leaf at the previewed
-                        // configuration. Omitted → DoorOpeningSchema defaults (left /
-                        // inward), preserving prior behaviour for pre-L-92 callers.
-                        ...(o.hingesSide === 'left' || o.hingesSide === 'right'
-                            ? { hingesSide: o.hingesSide as 'left' | 'right' } : {}),
-                        ...(o.swingDirection === 'inward' || o.swingDirection === 'outward'
-                            ? { swingDirection: o.swingDirection as 'inward' | 'outward' } : {}),
-                        ...(sysTypeId    ? { systemTypeId: sysTypeId } : {}),
-                        ...(doorSysType  ? {
-                            frameFinish: { ...doorSysType.frameFinish },
-                            leafFinish:  { ...doorSysType.leafFinish },
-                            frameColor:  doorSysType.frameFinish.materialColor,
-                            leafColor:   doorSysType.leafFinish.materialColor,
-                        } : {}),
-                    } as Parameters<typeof doorStore.add>[0]);
+                    // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — THE PLAN/BUS HALF
+                    // OF THE RECORD SEAM.
+                    //
+                    // This block used to hand-roll the DoorStore record from its own object
+                    // literal, in parallel with a SECOND literal inside
+                    // CreateWallOpeningCommand (the 3D path). The two had drifted:
+                    //   • this one omitted `mark` entirely        → blank door schedule,
+                    //   • this one omitted `finishMaterial`       → blank room schedule,
+                    //   • this one spread `systemTypeId` CONDITIONALLY, so an opening that
+                    //     arrived without one produced a TYPELESS door → the plan symbol's
+                    //     `resolveDoorDimensions(undefined, …)` fell back to DEFAULT frame /
+                    //     leaf thickness → a different clearHalf → a different leaf length
+                    //     and hinge point → A VISIBLY DIFFERENT DOOR ON THE SAME WALL.
+                    //   • NEITHER literal persisted frameThickness / frameDepth /
+                    //     leafThickness, even though `buildDoorOpening` had just resolved
+                    //     all three — computed, then thrown away.
+                    //
+                    // L-260 A wrote `buildDoorStoreRecord()` to end this and then never
+                    // called it from anywhere, which is why the founder still saw the defect
+                    // after it was declared fixed. Both paths now go through it (C11 §3), so
+                    // the two records are byte-identical BY CONSTRUCTION.
+                    //
+                    // Mark generation is injected (only the app has the level context).
+                    doorStore.add(buildDoorStoreRecord({
+                        opening: { ...o, id, elementId, offset, width, height, sillHeight },
+                        wallId:  ev.wallId,
+                        mark:    typeof o.mark === 'string' ? o.mark : undefined,
+                        resolveMark: () => generateMark('door', _legacyWall?.levelId ?? '', {
+                            getLevels:            () => bimManager.getLevels(),
+                            countElementsOnLevel: () => doorStore.getAll().length,
+                        }),
+                    }) as Parameters<typeof doorStore.add>[0]);
                     console.log(
-                        '[initTools] §P2.3-DOOR: door mirrored to DoorStore — ' +
-                        'swing arc will render id=' + elementId +
-                        ' systemTypeId=' + (sysTypeId ?? 'default') +
-                        ' frameColor=' + (doorSysType?.frameFinish?.materialColor ?? '<default>') +
-                        ' leafColor=' + (doorSysType?.leafFinish?.materialColor ?? '<default>'),
+                        '[initTools] §P2.3-DOOR: door mirrored to DoorStore via the ONE ' +
+                        'buildDoorStoreRecord chokepoint — id=' + elementId,
                     );
                 } catch (err) {
                     console.error('[initTools] §P2.3-DOOR: doorStore.add failed (non-fatal) — swing arc symbol will be absent:', err);
@@ -1137,54 +1139,40 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // windowStore.getAll() and will skip any window not present in the store.
             if (type === 'window' && !windowStore.has(elementId)) {
                 try {
-                    // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — a plan-created window MUST
-                    // carry its system type's frame finish into the WindowStore, or
-                    // WindowBuilder.buildVisuals falls back to the WindowOpening schema
-                    // default frameColor '#e8e8e8' (light grey) → "timber window placed
-                    // in plan renders grey, the same window placed in 3D is correct."
+                    // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — THE WINDOW-PARITY
+                    // BREAK, KILLED AT THE RECORD.
                     //
-                    // ROOT CAUSE: the old code only stamped frameFinish/frameColor WHEN
-                    // the opening carried a systemTypeId. When the plan tool's systemTypeId
-                    // was missing for any reason, the window arrived with neither field →
-                    // schema-default grey. The 3D path always passes the WindowTool's
-                    // systemTypeId, so it never hit this.
+                    // The superseded code resolved the window's type HERE, with a fallback
+                    // chain the 3D path knew nothing about:
+                    //     opening.systemTypeId
+                    //       ?? (window.windowTool as any).systemTypeId     ← a P4 global read
+                    //       ?? 'wt-single-pane'                            ← INVENTED HERE
+                    // while the 3D `WindowTool` defaulted to 'wt-timber-casement'. So the SAME
+                    // ribbon selection produced a SINGLE PANE in plan and a TIMBER CASEMENT in
+                    // 3D — a different frame finish, a different pane grid (a mullion, or
+                    // none) and therefore a DIFFERENT PLAN SYMBOL and a different 3D object.
+                    // That is the founder's "window parity not correct", exactly.
                     //
-                    // FIX: resolve a type with explicit fallbacks so the entry is NEVER
-                    // grey and reflects the architect's selection:
-                    //   1) the systemTypeId carried on the opening (the plan tool's choice),
-                    //   2) the LIVE WindowTool selection (the SAME source the 3D placement
-                    //      path uses — set by PropertyPanelPreDraw on type selection), so a
-                    //      window placed in plan inherits the type last chosen in 3D,
-                    //   3) the catalogue default — last resort so a window always has a
-                    //      real material. Then ALWAYS stamp systemTypeId + frameFinish +
-                    //      frameColor from the resolved type.
-                    const fromOpening = typeof o.systemTypeId === 'string' && o.systemTypeId.length > 0
-                        ? o.systemTypeId : undefined;
-                    const fromTool = (window.windowTool as { systemTypeId?: string } | undefined)?.systemTypeId;
-                    const resolvedTypeId =
-                        (fromOpening && windowSystemTypeStore.getById(fromOpening) ? fromOpening : undefined) ??
-                        (fromTool    && windowSystemTypeStore.getById(fromTool)    ? fromTool    : undefined) ??
-                        'wt-single-pane';
-                    const winSysType = windowSystemTypeStore.getById(resolvedTypeId);
-                    windowStore.add({
-                        id:           elementId,
-                        openingId:    id,
-                        wallId:       ev.wallId,
-                        offset,
-                        width,
-                        height,
-                        sillHeight,
-                        systemTypeId: resolvedTypeId,
-                        ...(winSysType  ? {
-                            frameFinish: { ...winSysType.frameFinish },
-                            frameColor:  winSysType.frameFinish.materialColor,
-                        } : {}),
-                    } as Parameters<typeof windowStore.add>[0]);
+                    // It also dropped `windowType`, `mark`, `finishMaterial`, `glassOpacity`
+                    // and `columnRatios`/`rowRatios` — and `columnRatios` is what says WHETHER
+                    // the window has a mullion at all, so a plan-created window could not draw
+                    // one even in principle.
+                    //
+                    // `buildWindowStoreRecord()` now resolves all of it from the ONE
+                    // `WindowToolConfigStore` — the same store the 3D `WindowTool` reads
+                    // through its accessors — so neither path can invent a type (C11 §3, C15).
+                    windowStore.add(buildWindowStoreRecord({
+                        opening: { ...o, id, elementId, offset, width, height, sillHeight },
+                        wallId:  ev.wallId,
+                        mark:    typeof o.mark === 'string' ? o.mark : undefined,
+                        resolveMark: () => generateMark('window', _legacyWall?.levelId ?? '', {
+                            getLevels:            () => bimManager.getLevels(),
+                            countElementsOnLevel: () => windowStore.getAll().length,
+                        }),
+                    }) as Parameters<typeof windowStore.add>[0]);
                     console.log(
-                        '[initTools] §P2.3-WIN/MAT: window mirrored to WindowStore id=' + elementId +
-                        ' systemTypeId=' + resolvedTypeId +
-                        ' (opening=' + (fromOpening ?? '∅') + ' tool=' + (fromTool ?? '∅') + ')' +
-                        ' frameColor=' + (winSysType?.frameFinish?.materialColor ?? '<none>'),
+                        '[initTools] §P2.3-WIN/MAT: window mirrored to WindowStore via the ONE ' +
+                        'buildWindowStoreRecord chokepoint — id=' + elementId,
                     );
                 } catch (err) {
                     console.error('[initTools] §P2.3-WIN: windowStore.add failed (non-fatal) — window frame symbol will be absent:', err);
@@ -2235,6 +2223,37 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         // + elementRegistry.unregisterRoot() + geometry/material disposal.
         wallTool.getFragmentBuilder().dispose();
         console.log('[ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.');
+
+        // §FIX-BUILDER-ISOLATION-LEAK (L-320): the FLOOR-FINISH, HANDRAIL, and
+        // STAIR-RAILING builders were OMITTED from this teardown. Like the wall
+        // builder, their scene meshes can survive ClearProjectCommand — the
+        // per-element `bim-*-removed` path fires during the clear but aborts
+        // mid-teardown when the WebGPU `usedTimes` device-loss throw fires (L-303
+        // family), leaving roots in the scene AND in the builder's registry Map. So
+        // floor finishes + railings from the PRIOR project bled into the next one.
+        // Dispose each here, WebGPU-safe (every dispose() routes through
+        // safeDisposeObject3D and clears its Map), mirroring the wall builder. This
+        // is the C13 GEOMETRY-side isolation, complementing the data-side
+        // ProjectIsolationAudit. Each guarded independently so one failure cannot
+        // stop the others.
+        try {
+            floorBuilder?.dispose?.();
+            console.log('[ProjectIsolation] FloorPanelBuilder disposed — scene cleared of floor-finish geometry.');
+        } catch (e) {
+            console.warn('[ProjectIsolation] FloorPanelBuilder dispose failed (non-fatal):', e);
+        }
+        try {
+            handrailBuilder?.dispose?.();
+            console.log('[ProjectIsolation] HandrailFragmentBuilder disposed — scene cleared of handrail geometry.');
+        } catch (e) {
+            console.warn('[ProjectIsolation] HandrailFragmentBuilder dispose failed (non-fatal):', e);
+        }
+        try {
+            stairRailingBuilder?.dispose?.();
+            console.log('[ProjectIsolation] StairRailingBuilder disposed — scene cleared of stair-railing geometry.');
+        } catch (e) {
+            console.warn('[ProjectIsolation] StairRailingBuilder dispose failed (non-fatal):', e);
+        }
 
         roomGraphService.invalidateAll();
         semanticGraphManager.clear();
