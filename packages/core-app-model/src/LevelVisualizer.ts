@@ -40,6 +40,45 @@ const GAP_SIZE  = 0.6;
 const LINE_OPACITY_ACTIVE   = 0.95;
 const LINE_OPACITY_INACTIVE = 0.60;
 
+// ── Deferred GPU disposal (§FIX-LEVEL-DISPOSE-MID-SUBMIT / L-303) ─────────────
+
+/**
+ * Run a GPU `dispose` callback AFTER the current frame's submit completes —
+ * NEVER synchronously mid-submit.
+ *
+ * §FIX-LEVEL-DISPOSE-MID-SUBMIT (L-303): calling THREE `geometry.dispose()` /
+ * `material.dispose()` synchronously while a level is torn down (on
+ * `UPDATE_LEVEL`) destroys a GPU resource while an in-flight command buffer
+ * still references it. Under the WebGPU backend this surfaces as
+ * `Cannot read properties of undefined (reading 'usedTimes')` (the backend
+ * entry is already gone) and the `Destroyed texture [ShadowDepthTexture] used
+ * in a submit` device-loss cascade. Deferring the `.dispose()` to the next
+ * macrotask lets the current call stack unwind and the pending submit settle
+ * before the GPU resource is released.
+ *
+ * This is the SAME disease and the SAME mechanism as the shipped
+ * §SHADOW-DISPOSE-DEFER / §SHADOW-DEVICE-LOSS-FIX
+ * (`ShadowQualityUpgrader._deferReleaseShadowMap`, a `setTimeout(0)` deferral)
+ * — but that one is a private static tied to `LightShadow`. This is the same
+ * concept spelled ONCE as a reusable, backend-agnostic helper: any disposer
+ * can hand its GPU release here, and the shadow code COULD adopt it too (not
+ * refactored in this pass — see L-303 report).
+ *
+ * Guarantees the founder called out:
+ *   - BOUNDED + GUARANTEED: fires on the very next macrotask (post-submit),
+ *     not "on idle / eventually". No leak — the release always runs.
+ *   - Correct on BOTH backends: on WebGL an extra macrotask before dispose is
+ *     harmless; on WebGPU it is what avoids the mid-submit destroy.
+ *
+ * @param dispose - releases the GPU resources; invoked exactly once, guarded so
+ *                  an already-reclaimed resource cannot throw.
+ */
+export function deferDisposePastSubmit(dispose: () => void): void {
+    setTimeout(() => {
+        try { dispose(); } catch { /* already reclaimed — safe to ignore */ }
+    }, 0);
+}
+
 // ── LevelVisualizer ─────────────────────────────────────────────────────────
 
 export class LevelVisualizer {
@@ -282,13 +321,18 @@ export class LevelVisualizer {
         const stored = group.userData._levelSnapshot as Level | undefined;
         if (stored) {
             const color = this._levelColor(stored, this._indexOf(id), isActive);
-            // Remove old sprites
+            // Remove old sprites. §FIX-LEVEL-DISPOSE-MID-SUBMIT (L-303) — detach
+            // NOW, defer the GPU dispose past the current submit (same mid-submit
+            // race as _disposeLevel; this fires on setActiveLevel).
             const oldSprites = group.children.filter(c => c instanceof THREE.Sprite);
             oldSprites.forEach(s => {
                 const mat = (s as THREE.Sprite).material as THREE.SpriteMaterial;
-                mat.map?.dispose();
-                mat.dispose();
+                const map = mat.map;
                 group.remove(s);
+                deferDisposePastSubmit(() => {
+                    map?.dispose();
+                    mat.dispose();
+                });
             });
             // Add new sprites
             const headX = this._makeLevelHead(stored, color, isActive);
@@ -308,18 +352,41 @@ export class LevelVisualizer {
         const group = this.levelGroups.get(id);
         if (!group) return;
 
+        // §FIX-LEVEL-DISPOSE-MID-SUBMIT (L-303) — detach + drop references NOW so
+        // the group renders no more and no future submit reads it, but DEFER the
+        // GPU `.dispose()` past the current frame's submit. Disposing geometry /
+        // material synchronously here (mid `UPDATE_LEVEL` teardown) destroys a GPU
+        // resource an in-flight WebGPU command buffer still references → the
+        // `usedTimes` crash / "Destroyed texture used in a submit" device loss.
+        this.levelLinesGroup.remove(group);
+        this.levelGroups.delete(id);
+
+        // Snapshot every GPU resource up-front (synchronously, while the graph is
+        // intact) so the deferred callback holds direct references and does not
+        // re-traverse a mutated tree.
+        const releases: Array<() => void> = [];
         group.traverse(obj => {
             if (obj instanceof THREE.Line) {
-                obj.geometry.dispose();
-                (obj.material as THREE.Material).dispose();
+                const geometry = obj.geometry;
+                const material = obj.material as THREE.Material;
+                releases.push(() => {
+                    geometry.dispose();
+                    material.dispose();
+                });
             } else if (obj instanceof THREE.Sprite) {
                 const mat = obj.material as THREE.SpriteMaterial;
-                mat.map?.dispose();
-                mat.dispose();
+                const map = mat.map;
+                releases.push(() => {
+                    map?.dispose();
+                    mat.dispose();
+                });
             }
         });
 
-        this.levelLinesGroup.remove(group);
-        this.levelGroups.delete(id);
+        if (releases.length > 0) {
+            deferDisposePastSubmit(() => {
+                for (const release of releases) release();
+            });
+        }
     }
 }
