@@ -68,6 +68,9 @@ function rpmRenderReady(renderer: any) {
   rpm._renderer          = renderer;
   rpm._backgroundUniform = { tick: () => {} };
   rpm._renderPipeline    = { render: () => { order.push('render'); } };
+  // The per-frame reconcile is armed only after a device-loss recovery (healthy
+  // sessions pay nothing). These render()-path tests model the post-recovery state.
+  rpm._renderSizeReconcileArmed = true;
   return { rpm, order };
 }
 
@@ -113,6 +116,18 @@ describe('RenderPipelineManager — render-size reconcile (§FIX-RENDER-RECOVERY
     rpm.render(0.016);
 
     expect(renderer.__setSizeCalls).toEqual([]); // left at the last good size
+  });
+
+  it('does NOT reconcile in a HEALTHY session (arm is OFF until a recovery) — zero per-frame cost', () => {
+    // Drifted size, but no recovery has happened → the per-frame reconcile is disarmed.
+    const renderer = fakeWebGpuRendererWithSize({ currentW: 1145, currentH: 915, liveW: 632, liveH: 915 });
+    const { rpm } = rpmRenderReady(renderer);
+    rpm._renderSizeReconcileArmed = false; // healthy session — never armed
+
+    rpm.render(0.016);
+
+    // No clientWidth-driven setSize: healthy sessions keep the app's own resize path.
+    expect(renderer.__setSizeCalls).toEqual([]);
   });
 
   it('_reconcileRenderSize returns true on drift and false when consistent', () => {

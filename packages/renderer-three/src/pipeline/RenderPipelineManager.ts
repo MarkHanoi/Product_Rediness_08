@@ -293,6 +293,21 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private readonly _sizeProbe = new THREE.Vector2();
 
+    /**
+     * §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — arm the per-frame render-size
+     * reconcile. OFF by default so a HEALTHY session (never a device loss) pays
+     * ZERO cost — no per-frame `clientWidth` read (which can force a layout reflow).
+     *
+     * It is armed permanently once {@link recoverPipeline} runs, because that is the
+     * only situation the reconcile guards: after a device-loss the app recreates the
+     * renderer but its resize closure still references the PRE-recovery renderer, so
+     * the fresh renderer never receives a `setSize()` from the app again this session
+     * — a later split-view resize would otherwise re-open the depth/color mismatch
+     * flood forever. Before any recovery the app's own resize path is intact, so the
+     * safety net is unnecessary.
+     */
+    private _renderSizeReconcileArmed = false;
+
     // ── Status ──────────────────────────────────────────────────────────────
 
     get status(): PipelineStatus {
@@ -633,7 +648,8 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // the app's own resize path misses when its resize closure still points at the
         // pre-recovery renderer. Cheap: a compare per frame; a setSize only on genuine
         // drift (rare). Placed before the pass is encoded so the fix lands this frame.
-        this._reconcileRenderSize();
+        // Armed only after a device-loss recovery so healthy sessions pay nothing.
+        if (this._renderSizeReconcileArmed) this._reconcileRenderSize();
 
         const rp = this._renderPipeline as any;
         try {
@@ -2408,7 +2424,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // device-loss window the color and shared depth attachments would otherwise
         // begin the next pass at mismatched sizes. Reconcile to the LIVE canvas size
         // NOW (belt-and-suspenders alongside the per-frame reconcile in render()) so
-        // recovery lands consistent even before the first submitted frame.
+        // recovery lands consistent even before the first submitted frame. Also ARM
+        // the per-frame reconcile for the rest of the session: the app's resize closure
+        // now points at the dead pre-recovery renderer, so this manager becomes the sole
+        // guarantor that color and depth stay the same size on every future resize.
+        this._renderSizeReconcileArmed = true;
         this._reconcileRenderSize();
 
         // Lightweight WebGL path (no real WebGPU backend): nothing more to do.
