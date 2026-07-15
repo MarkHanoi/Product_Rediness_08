@@ -286,6 +286,13 @@ export class RenderPipelineManager implements IViewSwitchListener {
     /** Optional state-change callback for UI sync. */
     onStateChange?: (status: PipelineStatus) => void;
 
+    /**
+     * §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — reusable size-probe so the
+     * per-frame render-size reconcile ({@link _reconcileRenderSize}) allocates
+     * nothing on the hot path.
+     */
+    private readonly _sizeProbe = new THREE.Vector2();
+
     // ── Status ──────────────────────────────────────────────────────────────
 
     get status(): PipelineStatus {
@@ -616,6 +623,18 @@ export class RenderPipelineManager implements IViewSwitchListener {
             return;
         }
 
+        // §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — NEVER begin a WebGPU render
+        // pass with a depth attachment whose size differs from the color base plane.
+        // Reconcile the renderer backing-store size to the LIVE canvas size FIRST, so
+        // the color targets and the shared "depthBuffer" depth attachment both
+        // reallocate from ONE source of truth. This closes the post-device-loss +
+        // split-view flood ("depth stencil attachment size (1145×915) does not match
+        // the other attachments' base plane (632×915)" → every submit rejected) that
+        // the app's own resize path misses when its resize closure still points at the
+        // pre-recovery renderer. Cheap: a compare per frame; a setSize only on genuine
+        // drift (rare). Placed before the pass is encoded so the fix lands this frame.
+        this._reconcileRenderSize();
+
         const rp = this._renderPipeline as any;
         try {
             // Do NOT render outlines while a view switch is in progress.
@@ -674,6 +693,79 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 this._emitState();
             }
         }
+    }
+
+    /**
+     * §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — reconcile the renderer's
+     * backing-store size with the LIVE canvas CSS size so the color targets AND
+     * the shared default-framebuffer depth attachment (THREE names it
+     * `"depthBuffer"`) always reallocate from ONE size read.
+     *
+     * ROOT CAUSE this closes — the post-device-loss depth/color size-mismatch flood:
+     *
+     *   The depth stencil attachment [TextureView of Texture "depthBuffer"] size
+     *   (width: 1145, height: 915) does not match the size of the other
+     *   attachments' base plane (width: 632, height: 915)
+     *     → [Invalid CommandBuffer] … While calling [Queue].Submit()
+     *
+     * On a WebGPU device-loss the app RECREATES the renderer and sizes it ONCE, at
+     * recovery time, to the canvas's then-current CSS size (WebGPURendererAdapter.
+     * create → setSize(clientWidth, clientHeight)). If a viewport resize — classically
+     * dragging the SPLIT-VIEW divider, which narrows the 3D pane to 632 / 417 / 1152 px
+     * — lands DURING the ~2 s device-loss window (or the split layout reflows AFTER
+     * recovery, when the app's resize closure still references the pre-recovery
+     * renderer), the fresh renderer never gets re-sized. Its color backbuffer and the
+     * shared depth attachment then derive from two different size reads: the depth
+     * buffer is NOT resized to match the split-view color attachments. Every render
+     * pass is invalid and every submit rejected — a PERMANENT flood, not a one-frame
+     * transient (the render loop keeps submitting at the inconsistent size forever).
+     *
+     * FIX (single source of truth for pass size — NOT a validation silence): re-read
+     * the LIVE canvas size and re-apply {@link THREE.WebGLRenderer.setSize}. THREE's
+     * setSize cascades to BOTH the color targets and (via getDrawingBufferSize →
+     * getDepthBuffer) the shared `depthBuffer`, so both reallocate from ONE read and
+     * can no longer disagree. `updateStyle=false` keeps the canvas CSS (width:100% of
+     * its container) untouched — we only correct the backing store. No-op in the common
+     * case (sizes already consistent) and when the canvas is detached / zero-sized.
+     *
+     * @returns true if a corrective setSize was issued (i.e. drift was found).
+     */
+    private _reconcileRenderSize(): boolean {
+        const renderer = this._renderer as unknown as {
+            domElement?: { clientWidth?: number; clientHeight?: number };
+            getSize?: (t: THREE.Vector2) => THREE.Vector2;
+            setSize?: (w: number, h: number, updateStyle?: boolean) => void;
+        } | null;
+        if (!renderer || typeof renderer.setSize !== 'function' || typeof renderer.getSize !== 'function') {
+            return false;
+        }
+
+        const el = renderer.domElement;
+        const w = el?.clientWidth ?? 0;
+        const h = el?.clientHeight ?? 0;
+        // Detached / not-yet-laid-out canvas (0×0): resizing to zero would itself
+        // produce the "Attachment has zero size" GL error — leave the last good size.
+        if (w <= 0 || h <= 0) return false;
+
+        const cur = renderer.getSize(this._sizeProbe);
+        // Already consistent — the overwhelming common case. No churn, no realloc.
+        if (cur.x === w && cur.y === h) return false;
+
+        console.warn(
+            `[RenderPipelineManager] §FIX-RENDER-RECOVERY-DEPTH render-size drift ${cur.x}×${cur.y} → ${w}×${h} ` +
+            '— re-applying setSize so the color targets and the shared depthBuffer reallocate together ' +
+            '(closes the post-device-loss / split-view depth-attachment size-mismatch flood).',
+        );
+        try {
+            renderer.setSize(w, h, false);
+        } catch (err: unknown) {
+            console.warn(
+                '[RenderPipelineManager] §FIX-RENDER-RECOVERY-DEPTH setSize during reconcile failed (non-fatal):',
+                err instanceof Error ? err.message : err,
+            );
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -2310,6 +2402,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
             }
             throw err;
         }
+
+        // §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — the fresh renderer was sized
+        // ONCE at create time; if a split-view / viewport resize landed during the
+        // device-loss window the color and shared depth attachments would otherwise
+        // begin the next pass at mismatched sizes. Reconcile to the LIVE canvas size
+        // NOW (belt-and-suspenders alongside the per-frame reconcile in render()) so
+        // recovery lands consistent even before the first submitted frame.
+        this._reconcileRenderSize();
 
         // Lightweight WebGL path (no real WebGPU backend): nothing more to do.
         if (!this._webGpuActive) return this._phase;
