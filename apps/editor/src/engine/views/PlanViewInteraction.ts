@@ -45,6 +45,10 @@ import { selectionBus } from '@pryzm/core-app-model';
 import { UpdateAnnotationPresentationCommand } from '@pryzm/plugin-annotations';
 import { planAnnotationDrag } from '@app/ui/documentation/annotationDragIntent';
 import { DRAGGABLE_ANNOTATION_TYPES } from '@pryzm/core-app-model';
+// §FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — the ONE compound command that translates a
+// mark's origin across BOTH stores (annotation glyph + linked-view volume) as a single
+// undo entry. See MoveMarkOriginCommand for the C16 rationale.
+import { MoveMarkOriginCommand } from './MoveMarkOriginCommand';
 
 /**
  * Hover-highlight radius (separate from snap radius — hover is tighter so the
@@ -88,7 +92,26 @@ export class PlanViewInteraction {
     // must not round-trip the command bus 12×/s). On pointer-UP the store is restored to
     // this pre-drag snapshot and the FINAL value is committed through ONE command, so the
     // gesture leaves exactly one undo entry that restores the pre-drag state.
-    private _scopeDrag: { annotationId: string; linkedViewId: string; handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane'; lastUpdate: number; preSpatial: ViewDefinition['spatial']; preCrop: ViewCropSettings | undefined } | null = null;
+    // §FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — 'origin' is a fifth grab: a TRANSLATE
+    // handle on the mark's circle glyph. Unlike the four resize handles it moves the whole
+    // mark (glyph + linked-view volume) and therefore also snapshots the pre-drag annotation
+    // and a jump-free grab reference (`originGrab`).
+    private _scopeDrag: {
+        annotationId: string;
+        linkedViewId: string;
+        handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane' | 'origin';
+        lastUpdate: number;
+        preSpatial: ViewDefinition['spatial'];
+        preCrop: ViewCropSettings | undefined;
+        originGrab?: {
+            startOriginX: number;
+            startOriginZ: number;
+            startCursorX: number;
+            startCursorZ: number;
+            preModelPoints: { x: number; y: number; z: number }[];
+            prePosition?: { x: number; y: number; z: number };
+        };
+    } | null = null;
     // §FIX-ELEVATION-CROP-EXTEND (L-175) — resize the crop rectangle by dragging its
     // corner handles while IN a section/elevation view (parity with the plan-view
     // scope-box resize). §PERF-ELEV-CROP-DRAG-FLOW (L-222): live preview writes the store
@@ -230,6 +253,49 @@ export class PlanViewInteraction {
         // mark are hit-tested BEFORE the mark body, with a comfortable grab tolerance,
         // so a handle drag never falls through to body-select/navigate.
         const scopeHit = this._planCanvas.hitTestScopeHandle(sx, sy, SCOPE_HANDLE_GRAB_PX);
+
+        // §FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — grab the ORIGIN circle to TRANSLATE the
+        // whole mark. It takes precedence over `cut-plane` (which the renderer returns for the
+        // near line that runs through the anchor) and over body-select/navigate, but the four
+        // explicit resize handles still win (they sit away from the circle). L-267: this grab
+        // WRITES — the drag moves both the glyph and the linked-view volume; it is not a
+        // rubber band. Guarded RED by the L-305 tests.
+        const isResizeHit = scopeHit && (
+            scopeHit.handle === 'depth' ||
+            scopeHit.handle === 'width-left' ||
+            scopeHit.handle === 'width-right'
+        );
+        const originHit = isResizeHit ? null : this._hitTestMarkOrigin(sx, sy);
+        if (originHit) {
+            const scopeDef = viewDefinitionStore.get(originHit.linkedViewId);
+            const ann = annotationStore.getById(originHit.annotationId);
+            const down = this._planCanvas.screenToWorld(sx, sy);
+            this._scopeDrag = {
+                annotationId: originHit.annotationId,
+                linkedViewId: originHit.linkedViewId,
+                handle: 'origin',
+                lastUpdate: 0,
+                preSpatial: scopeDef ? { ...scopeDef.spatial } : ({} as ViewDefinition['spatial']),
+                preCrop: scopeDef?.crop,
+                originGrab: {
+                    startOriginX: originHit.originX,
+                    startOriginZ: originHit.originZ,
+                    startCursorX: down.worldX,
+                    startCursorZ: down.worldZ,
+                    preModelPoints: (ann?.geometry2D.modelPoints ?? []).map(p => ({ ...p })),
+                    prePosition: ann?.parameters?.position
+                        ? { ...(ann.parameters.position as { x: number; y: number; z: number }) }
+                        : undefined,
+                },
+            };
+            this._isDragging = true;
+            this._canvas.style.cursor = 'grabbing';
+            (e as any).__pryzmToolHandled = true;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
         if (scopeHit) {
             // §PERF-ELEV-CROP-DRAG-FLOW (L-222) — snapshot the pre-drag spatial + crop so
             // the pointer-up commit produces ONE undo entry that restores this state.
@@ -497,6 +563,19 @@ export class PlanViewInteraction {
         }
         if (nextScopeHandle) {
             this._canvas.style.cursor = this._scopeCursor(nextScopeHandle);
+            if (this._hoveredElementId !== null) {
+                this._hoveredElementId = null;
+                this._planCanvas.setHoveredElementId(null);
+            }
+            this._planCanvas.clearSnapIndicator();
+            return;
+        }
+
+        // §FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — origin-circle hover affordance. The four
+        // resize handles above win; the circle glyph reads as a grab target (move cursor) so
+        // the translate gesture is discoverable without a renderer change.
+        if (!toolActiveForScope && this._hitTestMarkOrigin(sx, sy)) {
+            this._canvas.style.cursor = 'grab';
             if (this._hoveredElementId !== null) {
                 this._hoveredElementId = null;
                 this._planCanvas.setHoveredElementId(null);
@@ -1127,6 +1206,9 @@ export class PlanViewInteraction {
 
     private _applyScopeDragFromPointer(e: MouseEvent, final: boolean): void {
         if (!this._scopeDrag || !this._canvas || !this._planCanvas) return;
+        // §FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — the origin grab is a whole-mark translate
+        // that also moves the annotation glyph, so it has its own apply/commit path.
+        if (this._scopeDrag.handle === 'origin') { this._applyOriginDragFromPointer(e, final); return; }
         const now = performance.now();
         if (!final && now - this._scopeDrag.lastUpdate < 80) return;
         this._scopeDrag.lastUpdate = now;
@@ -1236,6 +1318,128 @@ export class PlanViewInteraction {
     }
 
     /**
+     * §FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — TRANSLATE the whole mark by its origin glyph.
+     *
+     * PURE TRANSLATION: only the origin point moves. `direction`, `near`/`far`, `width` and
+     * `height` are read from the (invariant) volume and copied through unchanged; everything
+     * that is a pure function of the origin — the derived cropRegion, the sectionPlane
+     * constant, the crop's absolute world-H window, and the annotation's model points — moves
+     * by the same delta. The delta is measured from the pointer-DOWN cursor position so the
+     * grab is jump-free regardless of where in the circle it was picked up.
+     *
+     * Live preview writes view + annotation state directly (L-222 — no undo spam). On commit
+     * the pre-drag state is restored and a single MoveMarkOriginCommand is dispatched, so the
+     * glyph and the linked-view volume move together as ONE undo entry (C16).
+     */
+    private _applyOriginDragFromPointer(e: MouseEvent, final: boolean): void {
+        const drag = this._scopeDrag;
+        if (!drag || drag.handle !== 'origin' || !drag.originGrab || !this._canvas || !this._planCanvas) return;
+        const now = performance.now();
+        if (!final && now - drag.lastUpdate < 40) return;
+        drag.lastUpdate = now;
+
+        const ann = annotationStore.getById(drag.annotationId);
+        const viewDef = viewDefinitionStore.get(drag.linkedViewId);
+        if (!ann || !viewDef) return;
+        const volume = this._resolveSectionVolumeForDrag(ann, viewDef);
+        if (!volume) return;
+
+        const rect = this._canvas.getBoundingClientRect();
+        const p = this._planCanvas.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const g = drag.originGrab;
+
+        // Jump-free absolute translation: newOrigin = grabbedOrigin + (cursor − grabbedCursor).
+        const newOriginX = Number((g.startOriginX + (p.worldX - g.startCursorX)).toFixed(3));
+        const newOriginZ = Number((g.startOriginZ + (p.worldZ - g.startCursorZ)).toFixed(3));
+        const dX = newOriginX - g.startOriginX;
+        const dZ = newOriginZ - g.startOriginZ;
+
+        const nextVolume: ViewSectionVolume = {
+            ...volume,
+            origin: [newOriginX, volume.origin[1], newOriginZ],
+        };
+        const nextCropRegion = this._cropRegionFromSectionVolume(nextVolume);
+        const dir = this._normalize2({ x: volume.direction[0], z: volume.direction[2] });
+        const nextSectionPlane = {
+            normal: [dir.x, 0, dir.z] as [number, number, number],
+            constant: -(dir.x * newOriginX + dir.z * newOriginZ),
+        };
+
+        // The crop's horizontal window is stored as ABSOLUTE world-H, so it shifts by the
+        // origin's component on the H axis. The vertical window and farClip are invariant.
+        const hAxisIsX = Math.abs(dir.z) >= Math.abs(dir.x);
+        const shiftH = hAxisIsX ? dX : dZ;
+        const baseCrop = drag.preCrop;
+        let nextCrop: ViewCropSettings | null = viewDef.crop ?? null;
+        if (baseCrop?.region) {
+            nextCrop = {
+                ...baseCrop,
+                region: {
+                    min: [Number((baseCrop.region.min[0] + shiftH).toFixed(3)), baseCrop.region.min[1]],
+                    max: [Number((baseCrop.region.max[0] + shiftH).toFixed(3)), baseCrop.region.max[1]],
+                },
+            };
+        }
+
+        // Translate the annotation glyph (all model points) + parameters.position by the delta.
+        const nextModelPoints = g.preModelPoints.map(pt => ({
+            x: Number((pt.x + dX).toFixed(3)), y: pt.y, z: Number((pt.z + dZ).toFixed(3)),
+        }));
+        const nextPosition = g.prePosition
+            ? { x: Number((g.prePosition.x + dX).toFixed(3)), y: g.prePosition.y, z: Number((g.prePosition.z + dZ).toFixed(3)) }
+            : undefined;
+
+        const nextSpatial = {
+            sectionVolume: nextVolume,
+            cropRegion: nextCropRegion,
+            sectionPlane: nextSectionPlane,
+        };
+
+        if (!final) {
+            // L-222 live preview — direct view + annotation writes, no command / no undo entry.
+            viewDefinitionStore.update(viewDef.id, { spatial: nextSpatial });
+            if (nextCrop !== viewDef.crop) viewDefinitionStore.setCrop(viewDef.id, nextCrop);
+            annotationStore.update({
+                id: drag.annotationId,
+                geometry2D: { ...ann.geometry2D, modelPoints: nextModelPoints },
+                ...(nextPosition ? { parameters: { ...ann.parameters, position: nextPosition } } : {}),
+            });
+            return;
+        }
+
+        // COMMIT — restore the pre-drag view + annotation state, then dispatch ONE compound
+        // command carrying the final translate. The restore and the command run in the same
+        // synchronous tick, so the coalesced reprojection renders once at the final position.
+        viewDefinitionStore.setSpatial(viewDef.id, drag.preSpatial);
+        viewDefinitionStore.setCrop(viewDef.id, drag.preCrop ?? null);
+        annotationStore.update({
+            id: drag.annotationId,
+            geometry2D: { ...ann.geometry2D, modelPoints: g.preModelPoints.map(pt => ({ ...pt })) },
+            ...(g.prePosition ? { parameters: { ...ann.parameters, position: { ...g.prePosition } } } : {}),
+        });
+
+        // No-op guard: a click that didn't move the origin must not push an undo entry.
+        if (Math.abs(dX) < 1e-4 && Math.abs(dZ) < 1e-4) return;
+
+        const cm = (window as unknown as { commandManager?: { execute(cmd: unknown): void } }).commandManager;
+        const cmd = new MoveMarkOriginCommand({
+            annotationId: drag.annotationId,
+            viewId: viewDef.id,
+            nextModelPoints,
+            nextPosition,
+            nextSectionVolume: nextVolume,
+            nextCropRegion,
+            nextSectionPlane,
+            nextCrop,
+        });
+        if (cm) {
+            cm.execute(cmd);
+        } else {
+            console.warn('[PlanViewInteraction] §FIX-ELEVATION-MARK-MOVE-ORIGIN: commandManager unavailable — origin move not committed to undo history.');
+        }
+    }
+
+    /**
      * §FIX-ELEVATION-CROP-EXTEND (L-175) — apply an in-progress crop-boundary
      * corner drag while in a section/elevation view. The crop-region math (screen →
      * canvas-H/canvas-V → stored `crop.region`, respecting the elevation projection
@@ -1285,10 +1489,47 @@ export class PlanViewInteraction {
      * crop handle: depth extends front-to-back (ns), width extends side-to-side (ew),
      * and the cut-plane slides the whole cut line (move).
      */
-    private _scopeCursor(handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane'): string {
+    private _scopeCursor(handle: 'depth' | 'width-left' | 'width-right' | 'cut-plane' | 'origin'): string {
+        if (handle === 'origin') return 'grabbing';
         if (handle === 'cut-plane') return 'move';
         if (handle === 'depth') return 'ns-resize';
         return 'ew-resize';
+    }
+
+    /**
+     * §FIX-ELEVATION-MARK-MOVE-ORIGIN (L-305) — the selected mark's ORIGIN glyph in screen
+     * space, or null. In-fence hit-test (mirrors PlanViewAnnotationRenderer's selection gate)
+     * so the origin grab needs no renderer change. Only elevation marks expose a translatable
+     * circle glyph today; the drag/commit code below is type-agnostic.
+     */
+    private _hitTestMarkOrigin(sx: number, sy: number): { annotationId: string; linkedViewId: string; originX: number; originZ: number } | null {
+        if (!this._planCanvas) return null;
+        if (window.toolManager?.isAnyToolActive?.()) return null;
+        const selectedId = this._selectedAnnotationId();
+        if (!selectedId) return null;
+        const ann = annotationStore.getById(selectedId);
+        if (!ann || ann.type !== 'elevation-mark') return null;
+        const linkedViewId = ann.parameters?.linkedViewId as string | undefined;
+        if (!linkedViewId) return null;
+        const anchor = ann.geometry2D.modelPoints?.[0];
+        if (!anchor) return null;
+        const s = this._planCanvas.worldToScreen(anchor.x, anchor.z);
+        // The drawn circle glyph is R=17 px (PlanViewAnnotationRenderer); use it as the grab
+        // radius so the whole visible circle is a move target (L-154 discoverable affordance).
+        if (Math.hypot(sx - s.sx, sy - s.sy) > 17) return null;
+        return { annotationId: ann.id, linkedViewId, originX: anchor.x, originZ: anchor.z };
+    }
+
+    /** Mirrors PlanViewAnnotationRenderer._getSelectedAnnotationId (in-fence copy). */
+    private _selectedAnnotationId(): string | null {
+        const sel = (window.selectionManager as { selectedObject?: { userData?: Record<string, unknown> } } | undefined)?.selectedObject?.userData;
+        return (
+            (sel?.annotationId as string | undefined) ??
+            (sel?.id as string | undefined) ??
+            (sel?.elementId as string | undefined) ??
+            (window.__pryzmSelectedAnnotationId as string | undefined) ??
+            null
+        );
     }
 
     private _resolveSectionVolumeForDrag(ann: AnnotationElement, viewDef: ViewDefinition): ViewSectionVolume | null {
