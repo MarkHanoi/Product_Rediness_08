@@ -62,6 +62,22 @@ export type ViewActivationTarget = 'globe' | 'site';
 export interface ViewActivationSignals {
     /** CesiumViewport.whenReady() — resolves when the viewer is mounted. */
     whenViewerReady(): Promise<void>;
+    /**
+     * §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327) — is a REAL tile/terrain provider
+     * attached that will ACTUALLY stream tiles? On a keyless-ellipsoid flat-ground Forma study
+     * the globe surface is hidden and no photoreal 3D tileset is attached, so tiles NEVER stream
+     * and gating readiness on the tile counters would sit until the 25 s stall watchdog fires a
+     * bogus "map tiles stopped streaming" error on a view that is already ready. This is the ONE
+     * new signal the (Cesium-free, C01 §2) state machine needs to distinguish "tiles still
+     * loading" from "there will never be tiles" — it stays Cesium-free because the fact arrives
+     * through this injected port, wired from `CesiumViewport.hasRealTileProvider()`.
+     *
+     * OPTIONAL + default-safe: when a producer does not implement it (older wiring) OR the probe
+     * throws, the state machine assumes a provider IS present and preserves the tiles gate +
+     * stall watchdog exactly as before. Only a definitive `false` skips the gate (P1: the skip is
+     * driven by a real injected signal, never a hardcoded "Forma is always keyless" assumption).
+     */
+    hasRealTileProvider?(): boolean;
     /** CesiumViewport.onTileLoadProgress() — real tile counters; returns an unsubscribe. */
     onTileLoadProgress(cb: (p: TileStreamSnapshot) => void): () => void;
     /** CesiumViewport.sampleTileLoadProgress() — a synchronous poll of the same counters. */
@@ -98,6 +114,21 @@ const TITLES: Record<ViewActivationTarget, string> = {
     globe: 'Opening the 3D globe',
     site: 'Opening the 3D Site',
 };
+
+/**
+ * §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327) — resolve whether the tiles stage should
+ * be gated on real streaming. DEFAULT-SAFE: an unimplemented port method or a throwing probe
+ * both return `true` (preserve the tiles gate + stall watchdog). Only a live viewport's explicit
+ * `false` (keyless flat-ground study, no provider) skips the gate.
+ */
+function tileProviderAttached(signals: ViewActivationSignals): boolean {
+    if (typeof signals.hasRealTileProvider !== 'function') return true;
+    try {
+        return signals.hasRealTileProvider();
+    } catch {
+        return true;
+    }
+}
 
 export interface ViewActivationLoadingOptions {
     readonly target: ViewActivationTarget;
@@ -284,9 +315,24 @@ export function beginViewActivationLoading(
             advance('tiles', 0);
 
             // 2. TILES — a REAL streaming ratio from Cesium's own counters.
-            await waitForTiles();
-            if (finished) return;
-            currentNote = '';
+            //    §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327): a keyless-ellipsoid
+            //    flat-ground Forma study has NO tile/terrain provider (globe hidden, no photoreal
+            //    tileset), so `tilesLoaded && outstanding===0` never becomes true and the stall
+            //    watchdog would trip at 25 s with "the map tiles have stopped streaming" on a view
+            //    that is actually ready. Skip the gate when the injected port reports no real
+            //    provider is attached — but ONLY on that definitive signal, so when a provider IS
+            //    attached and streaming genuinely stalls, the watchdog still surfaces the retry (P4).
+            if (tileProviderAttached(signals)) {
+                await waitForTiles();
+                if (finished) return;
+                currentNote = '';
+            } else {
+                console.log(
+                    `[viewActivationLoading] §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE ${target} — ` +
+                    'no real tile provider attached (keyless flat-ground study); skipping the tiles ' +
+                    'gate (tiles will never stream) and advancing straight to content.',
+                );
+            }
             advance('tiles', 1);
 
             // 3. CONTENT — the massing + real-model placement issued by the orchestrator.

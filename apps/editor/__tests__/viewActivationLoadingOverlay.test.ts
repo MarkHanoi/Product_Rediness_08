@@ -76,11 +76,16 @@ function makeSignals(overrides: Partial<{
     viewerReady: Promise<void>;
     groundSettled: Promise<{ settled: boolean; source: string; baseHeightM: number }>;
     tiles: () => typeof TILES_DONE;
+    /** §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327) — omit → provider IS attached (default
+     *  true: the tiles gate is preserved, matching the pre-L-327 behaviour every other test relies
+     *  on). Pass `() => false` to model a keyless flat-ground Forma study with no tile provider. */
+    hasRealTileProvider: () => boolean;
 }> = {}) {
     const navCalls: boolean[] = [];
     let emit: ((p: { pending: number; processing: number; tilesLoaded: boolean }) => void) | null = null;
     const signals = {
         whenViewerReady: () => overrides.viewerReady ?? Promise.resolve(),
+        hasRealTileProvider: () => (overrides.hasRealTileProvider ? overrides.hasRealTileProvider() : true),
         onTileLoadProgress: (cb: (p: { pending: number; processing: number; tilesLoaded: boolean }) => void) => {
             emit = cb;
             return () => { emit = null; };
@@ -296,6 +301,70 @@ describe('L-270 · view activation — dismiss on the REAL readiness signal', ()
         state.error?.actions[0].onClick();
         expect(onRetry).toHaveBeenCalledTimes(1);
         expect(overlay.isBlocking()).toBe(false); // the failed session is gone before the retry
+        await handle.done;
+    });
+
+    it('L-327: a keyless flat-ground study (no tile provider) reaches READY without a tiles stall', async () => {
+        // §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE — the Forma keyless ellipsoid never streams
+        // tiles (`tilesLoaded` stays false forever). Pre-fix, the tiles gate sat until the 25 s
+        // stall watchdog and showed "the map tiles have stopped streaming". With the provider
+        // signal reporting FALSE, the tiles stage is skipped and readiness completes on the ground
+        // settle — no error, ever, no matter how long we wait.
+        const { surface, state } = makeFakeSurface();
+        const overlay = new LoadingOverlayController(() => surface);
+        const clock = makeClock();
+        const NEVER_LOADS = { pending: 0, processing: 0, tilesLoaded: false };
+        const { signals, navCalls } = makeSignals({
+            tiles: () => NEVER_LOADS,
+            hasRealTileProvider: () => false,
+        });
+
+        const handle = beginViewActivationLoading({
+            target: 'site', signals, overlay, onRetry: () => {},
+            now: clock.now, setInterval: clock.setInterval, clearInterval: clock.clearInterval,
+            stallMs: 25_000,
+        });
+        handle.contentIssued();
+        await flush();
+
+        // Readiness completed (ground settled) even though tiles never loaded.
+        expect(state.error).toBeNull();
+        expect(state.visible).toBe(false);
+        expect(navCalls.at(-1)).toBe(true); // input released — the view is ready
+
+        // And no late tiles-stall error appears however long we sit past the stall window.
+        clock.advance(60_000);
+        expect(state.error).toBeNull();
+        await handle.done;
+    });
+
+    it('L-327 P4: with a real provider, a genuine tiles stall STILL surfaces the retry', async () => {
+        // The safety net must stay honest for the case it was built for: a real provider attached,
+        // streaming genuinely frozen (outstanding never drains) → the 25 s progress-freeze detector
+        // still fails visibly with the tiles-specific message + escapes.
+        const { surface, state } = makeFakeSurface();
+        const overlay = new LoadingOverlayController(() => surface);
+        const clock = makeClock();
+        const FROZEN = { pending: 5, processing: 0, tilesLoaded: false };
+        const { signals } = makeSignals({
+            tiles: () => FROZEN,
+            hasRealTileProvider: () => true,
+            groundSettled: new Promise(() => { /* never — the chain never gets past tiles */ }),
+        });
+
+        const handle = beginViewActivationLoading({
+            target: 'globe', signals, overlay, onRetry: () => {},
+            now: clock.now, setInterval: clock.setInterval, clearInterval: clock.clearInterval,
+            stallMs: 25_000,
+        });
+        handle.contentIssued();
+        await flush();
+
+        clock.advance(30_000); // 30 s frozen at the tiles stage
+        expect(state.error).not.toBeNull();
+        expect(state.error?.message).toMatch(/map tiles have stopped streaming/i);
+        expect(state.error?.actions.map((a) => a.label)).toEqual(['Try again', 'Continue anyway']);
+        state.error?.actions[1].onClick();
         await handle.done;
     });
 

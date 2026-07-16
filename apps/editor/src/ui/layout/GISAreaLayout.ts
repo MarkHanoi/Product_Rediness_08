@@ -684,6 +684,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             onRetry: retry,
             signals: {
                 whenViewerReady: () => awaitCesiumReady(),
+                // §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327) — tell the (Cesium-free)
+                // readiness state machine whether tiles will EVER stream. A keyless flat-ground
+                // Forma study has no provider → the tiles gate is skipped instead of stalling for
+                // 25 s. Bound late like the other closures (reads the live viewport). Null viewport
+                // → false (skip): there is no viewer to stream tiles, so gating would only hang.
+                hasRealTileProvider: () => cesiumViewport?.hasRealTileProvider?.() ?? false,
                 onTileLoadProgress: (cb) =>
                     (cesiumViewport?.onTileLoadProgress?.(cb) as (() => void) | undefined) ??
                     (() => { /* old build / no viewer — the poll below still drives the bar */ }),

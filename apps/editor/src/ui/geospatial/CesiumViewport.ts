@@ -976,6 +976,35 @@ export class CesiumViewport {
   }
 
   /**
+   * §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327) — does this viewport have a REAL tile /
+   * terrain provider that will actually STREAM tiles? The view-activation loading overlay gates
+   * its `tiles` stage on Cesium's streaming counters reaching zero; on a keyless-ellipsoid
+   * flat-ground Forma study the globe surface is HIDDEN (`globe.show === false`) and no photoreal
+   * 3D tileset is attached ("no real terrain provider attached (keyless ellipsoid ground)"), so
+   * tiles NEVER stream and the gate would sit until the 25 s stall watchdog fires a bogus "map
+   * tiles stopped streaming" error on a view that is already ready.
+   *
+   * This lets the (Cesium-free, C01 §2) readiness state machine SKIP the tiles gate on that path
+   * via the injected `ViewActivationSignals` port — WITHOUT importing Cesium. Returns TRUE when a
+   * real streaming source exists:
+   *   • an active photoreal 3D tileset (`photorealTilesActive`), OR
+   *   • the globe surface shown (`globe.show !== false`) → imagery/terrain tiles stream.
+   * Consistent with `tileLoadSnapshot()`, which treats a hidden globe as "tiles irrelevant".
+   *
+   * Span-free (a synchronous state read polled by the readiness chain — no async/IO; the P8 span
+   * mandate targets new exported MODULE functions, not hot UI class getters).
+   */
+  public hasRealTileProvider(): boolean {
+    try {
+      if (this.photorealTilesActive) return true;
+      const globe = this.viewer?.scene?.globe as { show?: boolean } | undefined;
+      return !!globe && globe.show !== false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY (L-270) — THE INPUT GATE. The founder's requirement
    * is not cosmetic: "ONLY when everything is loaded and ready can the user jump in and
    * navigate". The overlay's backdrop already blocks pointer events by z-order, but a z-order
