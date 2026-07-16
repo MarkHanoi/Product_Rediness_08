@@ -32,10 +32,17 @@ import { CesiumViewport } from '../src/ui/geospatial/CesiumViewport';
 const proto = CesiumViewport.prototype as unknown as {
   _awaitRendererLive: (maxWaitMs: number) => Promise<void>;
   installContextLossGuard: () => void;
+  recoverFromGpuReset: (source: string) => Promise<void>;
+  _rendererRecoveryTerminal: () => boolean;
 };
 
 function recoveringFlag(v: boolean | undefined): void {
   (globalThis as unknown as { __pryzmRendererRecovering?: boolean }).__pryzmRendererRecovering = v;
+}
+
+function terminalFlag(v: boolean | undefined): void {
+  (globalThis as unknown as { __pryzmRendererTerminalReloadRequired?: boolean })
+    .__pryzmRendererTerminalReloadRequired = v;
 }
 
 describe('§FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE — globe activation gate (B1)', () => {
@@ -133,5 +140,44 @@ describe('§FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE — Cesium context-loss recove
     stub.contextLossSub!();
     expect(canvas.count('webglcontextlost')).toBe(0);
     expect(canvas.count('webglcontextrestored')).toBe(0);
+  });
+});
+
+describe('§SS-FIX-RECOVERY-LOOP-TERMINAL-STATE (L-324 P4) — Cesium re-mount gated on the terminal state', () => {
+  afterEach(() => terminalFlag(undefined));
+
+  /** A minimal `this` for `recoverFromGpuReset` — spies for the GL-touching steps. */
+  function makeRecoveryStub() {
+    return {
+      gpuRecoveryInFlight: false,
+      // The real terminal probe (reads globalThis.__pryzmRendererTerminalReloadRequired).
+      _rendererRecoveryTerminal: proto._rendererRecoveryTerminal,
+      _awaitRendererLive: vi.fn(() => Promise.resolve()),
+      dispose: vi.fn(),
+      mount: vi.fn(() => Promise.resolve()),
+      setVisible: vi.fn(),
+      container: { firstChild: null },
+    };
+  }
+
+  it('SKIPS the Cesium re-mount (no dispose / no mount) when renderer recovery is TERMINAL', async () => {
+    // The browser has blocked all page GL contexts — a re-mount would only spend another
+    // context-creation attempt against the blocked page and keep the "RECOVERING…" cascade alive.
+    terminalFlag(true);
+    const stub = makeRecoveryStub();
+    await proto.recoverFromGpuReset.call(stub, 'webglcontextrestored');
+    expect(stub.dispose).not.toHaveBeenCalled();
+    expect(stub.mount).not.toHaveBeenCalled();
+    expect(stub._awaitRendererLive).not.toHaveBeenCalled();
+    expect(stub.gpuRecoveryInFlight).toBe(false); // never even entered the recovery body
+  });
+
+  it('re-mounts normally when the renderer is NOT terminal (nothing regresses)', async () => {
+    terminalFlag(false);
+    const stub = makeRecoveryStub();
+    await proto.recoverFromGpuReset.call(stub, 'webglcontextrestored');
+    expect(stub.dispose).toHaveBeenCalledTimes(1);
+    expect(stub.mount).toHaveBeenCalledTimes(1);
+    expect(stub.setVisible).toHaveBeenCalledWith(true);
   });
 });

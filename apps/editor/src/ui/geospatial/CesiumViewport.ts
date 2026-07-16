@@ -2650,6 +2650,25 @@ export class CesiumViewport {
    * so a stuck flag can never permanently block the globe. Resolves immediately when the flag is
    * already clear — the overwhelmingly common path.
    */
+  /**
+   * §SS-FIX-RECOVERY-LOOP-TERMINAL-STATE (L-324 P4) — TRUE once the BIM renderer's device-loss
+   * recovery has hit its TERMINAL cap: the browser has blocked all page GL contexts ("Web page
+   * caused context loss and was blocked"), so no fresh WebGPU/WebGL context can be acquired. The
+   * render agent (L-324 P3, `createRenderer.ts`) owns SETTING `globalThis.
+   * __pryzmRendererTerminalReloadRequired` when the device-loss cap trips into that blocked state;
+   * Cesium only READS it (never sets it) to gate its own re-mount. Defensive + additive: absent/
+   * false → the normal recovery path runs, so nothing regresses. Mirrors the existing
+   * `__pryzmRendererRecovering` read in `_awaitRendererLive`.
+   */
+  private _rendererRecoveryTerminal(): boolean {
+    try {
+      return (globalThis as unknown as { __pryzmRendererTerminalReloadRequired?: boolean })
+        .__pryzmRendererTerminalReloadRequired === true;
+    } catch {
+      return false;
+    }
+  }
+
   private async _awaitRendererLive(maxWaitMs: number): Promise<void> {
     const recovering = () =>
       (globalThis as unknown as { __pryzmRendererRecovering?: boolean }).__pryzmRendererRecovering === true;
@@ -2711,10 +2730,31 @@ export class CesiumViewport {
    */
   private async recoverFromGpuReset(source: string): Promise<void> {
     if (this.gpuRecoveryInFlight) return;
+    // §SS-FIX-RECOVERY-LOOP-TERMINAL-STATE (L-324 P4) — do NOT attempt a fresh WebGL context for
+    // Cesium while the renderer's device-loss recovery has hit its TERMINAL cap. Once the browser
+    // reports "Web page caused context loss and was blocked" the render agent (L-324 P3) sets the
+    // terminal flag; re-mounting Cesium here would spend one more context-creation attempt against
+    // an already-blocked page, deepening the block and keeping the "RECOVERING RENDERER…" cascade
+    // alive with no exit. Skip the re-mount and leave the honest reload CTA in place.
+    if (this._rendererRecoveryTerminal()) {
+      console.error(
+        `[CesiumViewport] §SS-FIX-RECOVERY-LOOP-TERMINAL-STATE (L-324) renderer recovery is TERMINAL ` +
+        `(page GL contexts blocked) — SKIPPING Cesium re-mount after ${source} (a reload is required).`,
+      );
+      return;
+    }
     this.gpuRecoveryInFlight = true;
     console.warn(`[CesiumViewport] §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE recovering Cesium after ${source} …`);
     try {
       await this._awaitRendererLive(12_000);
+      // The renderer may have gone terminal DURING the settle wait — re-check before touching GL.
+      if (this._rendererRecoveryTerminal()) {
+        console.error(
+          '[CesiumViewport] §SS-FIX-RECOVERY-LOOP-TERMINAL-STATE (L-324) renderer went TERMINAL ' +
+          'during the recovery wait — aborting Cesium re-mount (a reload is required).',
+        );
+        return;
+      }
       try { this.dispose(); } catch (e) { console.warn('[CesiumViewport] recovery dispose failed:', e); }
       // Clear any residual child nodes so the re-mount does not stack internal containers.
       try { while (this.container.firstChild) this.container.removeChild(this.container.firstChild); }
