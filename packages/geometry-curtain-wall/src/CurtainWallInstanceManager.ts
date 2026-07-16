@@ -75,15 +75,33 @@ export class CurtainWallInstanceManager {
     private readonly _panelGeoCache = new Map<string, THREE.BoxGeometry>();
 
     /**
-     * §B.1 — Panel material cache.
-     * Key: `${panelType}:${color}:${opacity.toFixed(3)}`
+     * §B.1 / §INSTANCE-MAT-SHARE (L-312B) — Panel material cache.
+     * Key: `${panelType}:${color}:${opacity.toFixed(3)}` — material-defining props ONLY.
      * Value: MeshStandardMaterial with the panel type's canonical defaults.
      *
      * Stamped with mat.userData.sharedMaterial = true so CurtainWallBuilder._disposeChildren
      * skips disposal on wall rebuild. Cache owns the materials until disposeCache() runs.
      *
-     * Previous: 588 fresh MeshStandardMaterial allocations per 294-wall batch.
-     * After:    2–4 allocations total — one per distinct (panelType, thickness) combination.
+     * §L-312B ROOT-CAUSE FIX (PSO compile storm):
+     *   The key MUST NOT include `panelThickness`. Thickness is a GEOMETRY property
+     *   (it sizes the unit BoxGeometry's Z depth) and has ZERO effect on the compiled
+     *   material / shader / GPU pipeline-state-object (PSO). Two glass panels of
+     *   thickness 0.02 and 0.0201 are byte-identical materials that compile to the
+     *   SAME PSO. Embedding thickness in the material key fragmented the cache across
+     *   every wall whose thickness differed by even float noise, minting one fresh
+     *   material (⇒ one fresh PSO compile) PER curtain wall — a facade of thousands of
+     *   panels compiled thousands of near-identical pipelines in one flush and the
+     *   WebGPU device was lost (memory webgpu-heavy-scene-crash-and-instancing).
+     *   Keyed purely on the material-defining props (all derived from panelType),
+     *   ALL same-type panels across ALL walls now share ONE material ⇒ ONE PSO.
+     *   Geometry legitimately stays thickness-keyed in {@link _panelGeoCache}; geometry
+     *   size variation does NOT trigger a PSO recompile (same vertex-attribute layout +
+     *   same material = same pipeline), so the storm is eliminated.
+     *
+     * Previous: 588 fresh MeshStandardMaterial allocations per 294-wall batch, and
+     *           one fresh material PER wall whenever panelThickness varied.
+     * After:    one allocation per distinct panelType, shared across ALL walls and
+     *           ALL thicknesses in the batch.
      */
     private readonly _panelMatCache = new Map<string, THREE.MeshStandardMaterial>();
 
@@ -107,21 +125,34 @@ export class CurtainWallInstanceManager {
     }
 
     /**
-     * §B.1.2 — Resolve a MeshStandardMaterial from the cache.
+     * §B.1.2 / §INSTANCE-MAT-SHARE (L-312B) — Resolve a MeshStandardMaterial from the cache.
      *
      * Key is `${panelType}:${color}:${opacity.toFixed(3)}` — each canonical panel type
      * has fixed defaults from PANEL_TYPE_DEFAULTS, so the type alone encodes all
      * material properties. Including color and opacity guards against future per-type
      * overrides without requiring a cache key change.
+     *
+     * §L-312B — the key deliberately EXCLUDES panelThickness. Thickness sizes the
+     * geometry, not the material/shader/PSO; embedding it fragmented this cache and
+     * caused a PSO compile storm on heavy facades (see {@link _panelMatCache}).
      * Callers MUST stamp instancedMesh.userData.sharedMaterial = true so
      * _disposeChildren does not free the cache-owned material on rebuild.
+     *
+     * The cache OWNS every material it mints (C13 isolation): materials live until
+     * {@link disposeCache} runs on builder teardown / project switch — never disposed
+     * per-wall, because a single shared material backs many walls.
      */
-    private _getPanelMaterial(panelType: PanelType, panelThickness: number): THREE.MeshStandardMaterial {
+    private _panelMaterialKey(panelType: PanelType): string {
         const defaults = PANEL_TYPE_DEFAULTS[panelType];
         const colorStr = typeof defaults.color === 'number'
             ? defaults.color.toString(16).padStart(6, '0')
             : String(defaults.color);
-        const key = `${panelType}:${colorStr}:${defaults.opacity.toFixed(3)}:${panelThickness.toFixed(4)}`;
+        return `${panelType}:${colorStr}:${defaults.opacity.toFixed(3)}`;
+    }
+
+    private _getPanelMaterial(panelType: PanelType): THREE.MeshStandardMaterial {
+        const defaults = PANEL_TYPE_DEFAULTS[panelType];
+        const key = this._panelMaterialKey(panelType);
         let mat = this._panelMatCache.get(key);
         if (!mat) {
             mat = new THREE.MeshStandardMaterial({
@@ -233,16 +264,10 @@ export class CurtainWallInstanceManager {
                 __im_geo_alloc_count++;
             }
 
-            const matWasHit = (() => {
-                const defaults = PANEL_TYPE_DEFAULTS[panelType];
-                const colorStr = typeof defaults.color === 'number'
-                    ? defaults.color.toString(16).padStart(6, '0')
-                    : String(defaults.color);
-                return this._panelMatCache.has(
-                    `${panelType}:${colorStr}:${defaults.opacity.toFixed(3)}:${panelThickness.toFixed(4)}`
-                );
-            })();
-            const mat = this._getPanelMaterial(panelType, panelThickness);
+            // §L-312B — material key is panelType-derived ONLY (no thickness), so the
+            // material (and its PSO) is shared across every wall of this panel type.
+            const matWasHit = this._panelMatCache.has(this._panelMaterialKey(panelType));
+            const mat = this._getPanelMaterial(panelType);
             if (!matWasHit) {
                 __im_mat_alloc_count++;
             }
