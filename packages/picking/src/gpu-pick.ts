@@ -243,6 +243,20 @@ export class GpuPickStrategy implements PickStrategy {
   // have moved since the last pick).
   private _lastRegistrySig = '';
 
+  // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, C04) — the GPU device
+  // generation the current render targets + pick-clone GPU uploads were built
+  // under (from renderer.contextGeneration).  -1 = nothing built yet.  When the
+  // renderer reports a HIGHER generation (a device-loss + recovery happened),
+  // every cached GPU resource is bound to the superseded device, so the next
+  // pick tears them ALL down and rebuilds against the live device before reading.
+  private _deviceGeneration = -1;
+
+  // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329) — count of device-loss
+  // recoveries this strategy has self-healed through.  Pure observability: it is
+  // stamped onto every pick / pickRect span (P8) so a stuck-selection report can
+  // be correlated with the GPU recovery that triggered the rebuild.
+  private _deviceRecoveryCount = 0;
+
   constructor(opts: GpuPickOptions = {}) {
     // Auto-size only when NEITHER dimension is supplied.  Production
     // (resolvePickStrategy → new GpuPickStrategy({})) auto-sizes to the
@@ -345,6 +359,9 @@ export class GpuPickStrategy implements PickStrategy {
         span.setAttribute('result.found', result !== null);
         if (result !== null) span.setAttribute('result.elementKind', result.elementKind);
         span.setAttribute('duration_ms', Number(dur.toFixed(3)));
+        // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P8) — surface how many
+        // GPU device-loss recoveries this pick path has self-healed through.
+        span.setAttribute('picking.deviceRecoveries', this._deviceRecoveryCount);
         return result;
       },
     );
@@ -366,19 +383,40 @@ export class GpuPickStrategy implements PickStrategy {
         const dur = performance.now() - t0;
         span.setAttribute('result.count', results.length);
         span.setAttribute('duration_ms', Number(dur.toFixed(3)));
+        // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P8).
+        span.setAttribute('picking.deviceRecoveries', this._deviceRecoveryCount);
         return results;
       },
     );
   }
 
   dispose(): void {
+    this._teardownEntries();
+    this._teardownTargets();
+    this.pickScene.clear();
+  }
+
+  // ---- private --------------------------------------------------------
+
+  /**
+   * §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P1/P3) — remove every pick
+   * clone from the pick scene, dispose its material, and reset all id-registration
+   * bookkeeping (entries, instanced-group entries, indexToId, free-list, slot
+   * counter, registry signature).
+   *
+   * Shared by `dispose()` (full teardown) and the device-loss recovery path
+   * (`_reconcileDeviceGeneration`).  After this runs, the NEXT `syncPickScene`
+   * rebuilds every entry from the registry from scratch — re-establishing the
+   * per-element AND per-instance id registrations the GPU readback depends on
+   * (P3), against the live GPU device.
+   */
+  private _teardownEntries(): void {
     for (const [, entry] of this.entries) {
+      this.pickScene.remove(entry.clone);
+      for (const c of entry.additionalClones) this.pickScene.remove(c);
       entry.material.dispose();
-      for (const c of entry.additionalClones) {
-        this.pickScene.remove(c);
-      }
     }
-    // §SELECT-INSTANCED-PICK (FIX #1) — tear down instanced-group pick clones.
+    // §SELECT-INSTANCED-PICK (FIX #1) — tear down instanced-group pick clones too.
     for (const [, entry] of this.instancedGroupEntries) {
       this.pickScene.remove(entry.clone);
       entry.material.dispose();
@@ -386,17 +424,68 @@ export class GpuPickStrategy implements PickStrategy {
     this.instancedGroupEntries.clear();
     this.entries.clear();
     this.indexToId.clear();
-    this.renderTarget = null;
-    this.depthTarget = null;
-    this.pickScene.clear();
-    this.nextSlot = 1;
-    // HIGH-7: clear the free-list on full teardown; nextSlot resets to 1
-    // so all slot IDs restart from scratch on the next session.
+    // HIGH-7: reset the free-list + slot counter so all slot IDs restart from 1.
     this._freeSlots.length = 0;
+    this.nextSlot = 1;
     this._lastRegistrySig = '';
   }
 
-  // ---- private --------------------------------------------------------
+  /**
+   * §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P1) — dispose (guarded, so the
+   * fake render targets used in tests are safe) and drop the id + depth render
+   * targets so the `ensure*Target` helpers reallocate them against the live GPU
+   * device on the next pick.
+   */
+  private _teardownTargets(): void {
+    (this.renderTarget as { dispose?: () => void } | null)?.dispose?.();
+    (this.depthTarget as { dispose?: () => void } | null)?.dispose?.();
+    this.renderTarget = null;
+    this.depthTarget = null;
+  }
+
+  /**
+   * §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P1/P2/P3 — C04) — detect a GPU
+   * device-loss + recovery and rebuild all stale pick GPU state before reading.
+   *
+   * ROOT (founder, "seen many times"): a WebGPU device loss (ShadowDepthTexture
+   * mid-submit → `WebGPU Device Lost` → zero-size framebuffer flood → context
+   * lost/restored) leaves the pick render target — and the per-element id
+   * registrations the readback depends on — bound to the SUPERSEDED GPU device.
+   * Every subsequent `readPixels` returns all-zero, so every pick resolves to
+   * nothing and the user can no longer select anything in 3D.  Picking was never
+   * rebuilt on recovery.
+   *
+   * The renderer surfaces a monotonically increasing `contextGeneration` (bumped
+   * once per device loss + recovery — fed by the app's existing device-loss
+   * counter, P2).  When it advances past the generation the current targets +
+   * clones were built under, EVERY cached GPU resource is stale: we tear down the
+   * render targets (rebuilt lazily by `ensure*Target`) AND the pick entries
+   * (rebuilt by the next `syncPickScene`, re-establishing id registrations for
+   * instanced AND non-instanced elements — P3).  Idempotent and self-contained:
+   * it depends only on a counter read at pick time, never on cross-subsystem
+   * event wiring that can silently fail to fire.
+   *
+   * `contextGeneration` absent (fakes / headless) → treated as a single
+   * never-lost device (generation 0); the FIRST pick records it with no teardown.
+   * The complementary structural guard in `ensureRenderTarget` catches a
+   * zero-size / invalidated target even when no generation signal is available.
+   */
+  private _reconcileDeviceGeneration(renderer: GpuPickRenderer): void {
+    const gen = renderer.contextGeneration ?? 0;
+    if (gen === this._deviceGeneration) return;
+    const firstEver = this._deviceGeneration === -1;
+    this._deviceGeneration = gen;
+    if (firstEver) return; // nothing built under a prior device — no stale state.
+    // A genuine device-loss recovery (generation advanced): rebuild everything.
+    this._deviceRecoveryCount += 1;
+    console.warn(
+      `[GpuPick] §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS device generation advanced to ${gen} ` +
+      `(recovery #${this._deviceRecoveryCount}) — rebuilding pick targets + id registrations so ` +
+      'selection survives the GPU device-loss.',
+    );
+    this._teardownEntries();
+    this._teardownTargets();
+  }
 
   /**
    * HIGH-7: Allocate a pick slot index, reusing freed slots before
@@ -412,6 +501,9 @@ export class GpuPickStrategy implements PickStrategy {
 
   private pickInternal(point: Point2D, ctx: PickContext, opts?: PickOptions): PickResult | null {
     if (!ctx.renderer || !ctx.scene) return null;
+    // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P1/P2/P3) — heal stale GPU
+    // state from a device-loss recovery BEFORE syncing / rendering the pick.
+    this._reconcileDeviceGeneration(ctx.renderer);
     this._syncTargetSize(ctx);
     this.syncPickScene(ctx.elementRegistry);
     const rt = this.ensureRenderTarget(ctx.renderer);
@@ -493,6 +585,8 @@ export class GpuPickStrategy implements PickStrategy {
   private pickRectInternal(rect: Rect2D, ctx: PickContext): readonly PickResult[] {
     if (!ctx.renderer || !ctx.scene) return [];
     if (rect.w <= 0 || rect.h <= 0) return [];
+    // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329) — same self-heal as pick().
+    this._reconcileDeviceGeneration(ctx.renderer);
     this._syncTargetSize(ctx);
     this.syncPickScene(ctx.elementRegistry);
     const rt = this.ensureRenderTarget(ctx.renderer);
@@ -673,13 +767,26 @@ export class GpuPickStrategy implements PickStrategy {
   }
 
   private ensureRenderTarget(renderer: GpuPickRenderer): THREE.WebGLRenderTarget {
-    if (this.renderTarget !== null) return this.renderTarget;
+    // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P1) — a cached target that
+    // has been invalidated to zero size (the "Framebuffer is incomplete:
+    // Attachment has zero size" flood a device loss produces) must be rebuilt
+    // before we render into it, otherwise every readback is all-zero and no pick
+    // resolves. This structural guard is self-contained: it heals even when the
+    // renderer reports no `contextGeneration` (e.g. a bare WebGL context loss).
+    if (this.renderTarget !== null && isRenderTargetHealthy(this.renderTarget)) {
+      return this.renderTarget;
+    }
+    (this.renderTarget as { dispose?: () => void } | null)?.dispose?.();
     this.renderTarget = renderer.createRenderTarget(this.targetWidth, this.targetHeight);
     return this.renderTarget;
   }
 
   private ensureDepthTarget(renderer: GpuPickRenderer): THREE.WebGLRenderTarget {
-    if (this.depthTarget !== null) return this.depthTarget;
+    // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P1) — same structural heal.
+    if (this.depthTarget !== null && isRenderTargetHealthy(this.depthTarget)) {
+      return this.depthTarget;
+    }
+    (this.depthTarget as { dispose?: () => void } | null)?.dispose?.();
     this.depthTarget = renderer.createRenderTarget(this.targetWidth, this.targetHeight);
     return this.depthTarget;
   }
@@ -1234,6 +1341,28 @@ export class GpuPickStrategy implements PickStrategy {
     this._freeSlots.push(entry.slotIndex);
     this.entries.delete(id);
   }
+}
+
+// ---------------------------------------------------------------------------
+// §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329) — render-target health check
+// ---------------------------------------------------------------------------
+
+/**
+ * True iff `rt` is a structurally usable render target: a non-zero width AND
+ * height.  A device loss invalidates the framebuffer to zero size (the
+ * "Framebuffer is incomplete: Attachment has zero size" flood), so a cached
+ * zero-size target must be rebuilt before the next readback or every pick reads
+ * all-zero and resolves to nothing.
+ *
+ * Fakes / headless render targets that omit numeric `width`/`height` are treated
+ * as healthy (there is no size to invalidate) so unit tests and non-WebGL paths
+ * are unaffected.
+ */
+function isRenderTargetHealthy(rt: THREE.WebGLRenderTarget): boolean {
+  const w = (rt as { width?: number }).width;
+  const h = (rt as { height?: number }).height;
+  if (typeof w !== 'number' || typeof h !== 'number') return true;
+  return w > 0 && h > 0;
 }
 
 // ---------------------------------------------------------------------------

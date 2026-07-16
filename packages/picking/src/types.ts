@@ -137,6 +137,19 @@ export interface GpuPickRenderer {
   /** Allocate / reallocate a render target.  Tests return a fake. */
   createRenderTarget(width: number, height: number): THREE.WebGLRenderTarget;
   /**
+   * §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, C04) — a monotonically
+   * increasing counter bumped every time the underlying GPU device / context is
+   * lost and recreated (WebGPU `device.lost` → recovery, or a WebGL
+   * `webglcontextrestored`).  `gpu-pick` records the generation its cached pick
+   * render targets + per-element id registrations were built under and, when the
+   * counter advances, rebuilds them BEFORE the next readback — otherwise the
+   * cached targets are bound to the superseded device and every `readPixels`
+   * returns all-zero ("Framebuffer is incomplete: Attachment has zero size"),
+   * so every pick resolves to nothing and the user "can no longer select".
+   * Optional: fakes / headless callers omit it and are treated as a single,
+   * never-lost device (generation 0). */
+  readonly contextGeneration?: number;
+  /**
    * §SELECT-PICK-RESOLUTION — the GPU's max single-texture dimension
    * (`gl.getParameter(MAX_TEXTURE_SIZE)`, surfaced by THREE as
    * `renderer.capabilities.maxTextureSize`).  Used as the ONLY hard cap on the

@@ -501,6 +501,22 @@ export class SelectionManager implements ISelectionManager {
                 return (renderer as { capabilities?: { maxTextureSize?: number } })
                     .capabilities?.maxTextureSize ?? 4096;
             },
+            // §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329, P2 — C04) — feed the
+            // GPU-pick strategy the app's EXISTING device-loss counter so it can
+            // self-heal after a WebGPU device loss + recovery. createRenderer.ts
+            // bumps `globalThis.__pryzmDeviceLossCount` once per recovered device
+            // (the ShadowDepthTexture-mid-submit → Device Lost → zero-size
+            // framebuffer cascade the founder saw). GpuPickStrategy records the
+            // generation its pick render target + per-element id registrations were
+            // built under and, when this advances, rebuilds them against the live
+            // device BEFORE the next readback — so 3D selection keeps working
+            // instead of silently returning nothing forever. Read fresh on every
+            // pick (this adapter is rebuilt per-pick); no edit to the renderer
+            // subsystem (RenderPipelineManager / createRenderer) required.
+            get contextGeneration() {
+                return (globalThis as { __pryzmDeviceLossCount?: number })
+                    .__pryzmDeviceLossCount ?? 0;
+            },
             renderToTarget(
                 scene: THREE.Scene,
                 camera: THREE.Camera,

@@ -692,6 +692,233 @@ describe('GpuPickStrategy generation guard (§SELECT-INSTANCED-PICK FIX #4)', ()
 });
 
 // ---------------------------------------------------------------------------
+// §SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS (L-329) — a WebGPU device-loss +
+// recovery must NOT leave picking permanently dead. After the device is
+// recreated the cached pick render target (and per-element id registrations) is
+// bound to the SUPERSEDED device → every readPixels reads all-zero → no pick
+// resolves. The strategy must self-heal: rebuild the target + re-register
+// pickables on the next pick so selection keeps working.
+// ---------------------------------------------------------------------------
+
+interface StampedRT {
+  width: number;
+  height: number;
+  /** The device generation this target was allocated under. */
+  deviceId: number;
+  disposed: boolean;
+  dispose(): void;
+}
+
+/**
+ * A fake renderer that faithfully models a GPU device loss:
+ *   • every render target is stamped with the CURRENT deviceId at allocation;
+ *   • `readPixels` on a target whose deviceId != the live deviceId returns
+ *     all-zero (the "Attachment has zero size" readback flood after a loss);
+ *   • `loseDevice()` bumps the live deviceId AND `contextGeneration` — exactly
+ *     what the app's device-loss counter does on recovery.
+ *
+ * So a pick over slot-1 colour resolves to the element ONLY while the strategy
+ * reads from a CURRENT-generation target. Keep reading a superseded one → null.
+ */
+function makeRecoverableFakeRenderer(width: number, height: number): {
+  renderer: GpuPickRenderer;
+  setPixels(fill: (x: number, y: number) => readonly [number, number, number, number]): void;
+  loseDevice(): void;
+  targets: StampedRT[];
+  liveDeviceId(): number;
+} {
+  let deviceId = 0;
+  const state = { contextGeneration: 0 };
+  const pixels = new Uint8Array(width * height * 4);
+  const targets: StampedRT[] = [];
+
+  const renderer: GpuPickRenderer = {
+    width,
+    height,
+    get contextGeneration() {
+      return state.contextGeneration;
+    },
+    renderToTarget(_scene, _cam, _target, _override) {
+      // No-op; pixel store is pre-loaded by the test.
+    },
+    readPixels(target, x, y, w, h, buffer) {
+      const rt = target as unknown as StampedRT;
+      const stale = rt.deviceId !== deviceId; // superseded device → zero-size readback
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          const srcIdx = ((y + dy) * width + (x + dx)) * 4;
+          const dstIdx = (dy * w + dx) * 4;
+          buffer[dstIdx + 0] = stale ? 0 : pixels[srcIdx + 0] ?? 0;
+          buffer[dstIdx + 1] = stale ? 0 : pixels[srcIdx + 1] ?? 0;
+          buffer[dstIdx + 2] = stale ? 0 : pixels[srcIdx + 2] ?? 0;
+          buffer[dstIdx + 3] = stale ? 0 : pixels[srcIdx + 3] ?? 0;
+        }
+      }
+    },
+    createRenderTarget(w, h) {
+      const rt: StampedRT = {
+        width: w,
+        height: h,
+        deviceId,
+        disposed: false,
+        dispose() {
+          this.disposed = true;
+        },
+      };
+      targets.push(rt);
+      return rt as unknown as THREE.WebGLRenderTarget;
+    },
+  };
+
+  function setPixels(fill: (x: number, y: number) => readonly [number, number, number, number]) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const [r, g, b, a] = fill(x, y);
+        const idx = (y * width + x) * 4;
+        pixels[idx + 0] = r;
+        pixels[idx + 1] = g;
+        pixels[idx + 2] = b;
+        pixels[idx + 3] = a;
+      }
+    }
+  }
+
+  return {
+    renderer,
+    setPixels,
+    loseDevice() {
+      deviceId += 1;
+      state.contextGeneration += 1;
+    },
+    targets,
+    liveDeviceId: () => deviceId,
+  };
+}
+
+describe('GpuPickStrategy survives device-loss (§SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS, L-329)', () => {
+  it('after a device-loss + recovery a click still resolves the element (P1/P2/P3)', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const mesh = makeMesh();
+    const registry = fakeRegistry([{ id: 'wall-1', kind: 'wall', mesh }]);
+    const fake = makeRecoverableFakeRenderer(4, 4);
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      scene: new THREE.Scene(),
+      renderer: fake.renderer,
+    };
+
+    // Healthy device: slot-1 colour resolves to wall-1.
+    strategy.pick({ x: 50, y: 50 }, ctx); // assigns slot 1 + builds the target
+    const [r, g, b, a] = encodeIndexToRGBA(1);
+    fake.setPixels(() => [r, g, b, a]);
+    expect(strategy.pick({ x: 50, y: 50 }, ctx)!.elementId).toBe('wall-1');
+
+    // Device loss + recovery — the cached target is now bound to the superseded
+    // device. WITHOUT the fix the strategy keeps reading it → all-zero → null
+    // (selection permanently dead). WITH the fix it detects the new generation,
+    // rebuilds the target + re-registers the pickable, and selection survives.
+    fake.loseDevice();
+
+    const afterRecovery = strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(afterRecovery).not.toBeNull();
+    expect(afterRecovery!.elementId).toBe('wall-1');
+
+    // The target the pick read from was rebuilt against the LIVE device.
+    const liveTargetsUsed = fake.targets.filter(
+      (t) => t.deviceId === fake.liveDeviceId() && !t.disposed,
+    );
+    expect(liveTargetsUsed.length).toBeGreaterThan(0);
+    // The recovery is observable on the pick span attribute path.
+    expect((strategy as unknown as { _deviceRecoveryCount: number })._deviceRecoveryCount).toBe(1);
+  });
+
+  it('rebuilds a zero-size / invalidated target with NO generation signal (self-contained P1)', () => {
+    // The durable, event-free heal: even when the renderer reports no
+    // contextGeneration, a cached target invalidated to zero size must be rebuilt.
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const mesh = makeMesh();
+    const registry = fakeRegistry([{ id: 'wall-1', kind: 'wall', mesh }]);
+
+    // Fake with NO contextGeneration; createRenderTarget returns fresh objects so
+    // the rebuilt target is distinct from the zeroed one.
+    const store = new Uint8Array(4 * 4 * 4);
+    const live = { rt: null as unknown as { width: number; height: number } | null };
+    const renderer: GpuPickRenderer = {
+      width: 4,
+      height: 4,
+      renderToTarget() {},
+      readPixels(target, x, y, w, h, buffer) {
+        const rt = target as unknown as { width: number; height: number };
+        const stale = rt.width === 0 || rt.height === 0; // zero-size → all-zero readback
+        for (let dy = 0; dy < h; dy++) {
+          for (let dx = 0; dx < w; dx++) {
+            const srcIdx = ((y + dy) * 4 + (x + dx)) * 4;
+            const dstIdx = (dy * w + dx) * 4;
+            buffer[dstIdx + 0] = stale ? 0 : store[srcIdx + 0] ?? 0;
+            buffer[dstIdx + 1] = stale ? 0 : store[srcIdx + 1] ?? 0;
+            buffer[dstIdx + 2] = stale ? 0 : store[srcIdx + 2] ?? 0;
+            buffer[dstIdx + 3] = stale ? 0 : store[srcIdx + 3] ?? 0;
+          }
+        }
+      },
+      createRenderTarget(w, h) {
+        const rt = { width: w, height: h };
+        live.rt = rt;
+        return rt as unknown as THREE.WebGLRenderTarget;
+      },
+    };
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      scene: new THREE.Scene(),
+      renderer,
+    };
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    const [r, g, b, a] = encodeIndexToRGBA(1);
+    for (let i = 0; i < 4 * 4; i++) {
+      store[i * 4 + 0] = r; store[i * 4 + 1] = g; store[i * 4 + 2] = b; store[i * 4 + 3] = a;
+    }
+    expect(strategy.pick({ x: 50, y: 50 }, ctx)!.elementId).toBe('wall-1');
+
+    // Invalidate the cached target to zero size (what a device loss does to the
+    // framebuffer attachment). Without the structural heal the strategy keeps
+    // reading the zeroed target → null forever.
+    live.rt!.width = 0;
+    live.rt!.height = 0;
+
+    const afterHeal = strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(afterHeal).not.toBeNull();
+    expect(afterHeal!.elementId).toBe('wall-1');
+    // A fresh, non-zero target was allocated.
+    expect(live.rt!.width).toBeGreaterThan(0);
+  });
+
+  it('does not count the FIRST pick as a recovery (no false teardown on cold start)', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const mesh = makeMesh();
+    const registry = fakeRegistry([{ id: 'wall-1', kind: 'wall', mesh }]);
+    const fake = makeRecoverableFakeRenderer(4, 4);
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      scene: new THREE.Scene(),
+      renderer: fake.renderer,
+    };
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect((strategy as unknown as { _deviceRecoveryCount: number })._deviceRecoveryCount).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §SELECT-PICK-RESOLUTION — pure target-size computation
 // (viewport×dpr, clamped to GPU maxTextureSize; NOT a fixed 1280)
 // ---------------------------------------------------------------------------
