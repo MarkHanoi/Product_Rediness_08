@@ -77,6 +77,9 @@ import { furnishOfficeInterior } from './officeFurnish.js';
 // full detail so the massing-LOD "grey envelope" (LevelScoped3DCullingService auto-escalates a tall
 // heavy model to 'massing') is turned OFF and the detailed floors are the only geometry shown.
 import { showOfficeFullDetail } from './officeShowFullDetail.js';
+// §FIX-OFFICE-MISSING-PER-STOREY-SLABS (L-322) — a visible full-disc FLOOR PLATE on every storey the
+// detailed per-room finish pass does not cover, so the tower is not a hollow glass shell. PURE spec math.
+import { buildStoreyFloorPlates } from './officeStoreyFloors.js';
 // ── §OFFICE-PERIMETER-GLAZING (founder 2026-06-30) — curtain glazing per segment ──────
 //
 // The founder's rule: the circular office tower reads as a GLASS CURTAIN-WALL tower —
@@ -523,6 +526,14 @@ export class OfficeBuildingExecutor {
         // "Room 00-NNN") + lay the floor finishes (cut over the open stairwell), mirroring the
         // residential building's graph-authoritative room + CreateFloorCommand finish passes.
         this._nameAndFinishFloors(cm, corePlan, floorArch, detailedIndices, levelIdByIndex, floorToFloorM, discRadiusM, coreRadiusM, facadeColor);
+
+        // §FIX-OFFICE-MISSING-PER-STOREY-SLABS (L-322) — the tower read as a HOLLOW glass shell because
+        // a visible FINISHED floor was laid on ONLY the first detailed storey (`_nameAndFinishFloors`);
+        // every other storey had just the bare structural slab, which doesn't read as a floor through
+        // the curtain wall. Lay a full-disc FLOOR PLATE on every OTHER storey via the same proven
+        // `CreateFloorCommand` path (mirrors the residential building's per-level public-floor finish),
+        // cut over each storey's open-stair voids. Deferred so the structural slabs/walls have settled.
+        this._finishStoreyFloors(cm, disc, levelIdByIndex, detailedIndices);
 
         // §OFFICE-ARCH-FURNISH-SPLIT — stash the furnish context so Command 2 (Furnish Office) can
         // populate THIS architecture without regenerating it (SPEC §1). No furniture is emitted here.
@@ -1320,6 +1331,64 @@ export class OfficeBuildingExecutor {
                 console.log(`[office-building] §OFFICE-CORE-WELLPROPORTIONED — named ${rooms.length} room(s) + laid ${laid} floor finish(es) on ${levelId} (voids cut over open stairs)`);
             } catch (e) { console.warn('[office-building] §OFFICE-CORE-WELLPROPORTIONED name+finish batch failed (non-fatal):', e); }
         }, 800);
+    }
+
+    /**
+     * §FIX-OFFICE-MISSING-PER-STOREY-SLABS (L-322) — lay a full-disc FLOOR PLATE on every storey the
+     * detailed per-room finish pass (`_nameAndFinishFloors`, which only finishes the first detailed
+     * level) does NOT cover, so the tower is not a hollow glass shell of bare structural slabs. Uses
+     * the SAME `CreateFloorCommand` path that already renders the L0 finishes (the proven floor
+     * builder), mirroring `ResidentialBuildingExecutor._finishPublicFloors`' per-level public floor.
+     * Each plate is CUT over that storey's recorded stairwell voids so an open stair is never floored
+     * over. Deferred + one batch (façade/structure has settled; floors don't change room topology).
+     * The plate math is PURE (`buildStoreyFloorPlates`); this only stamps ids + dispatches. Never
+     * throws.
+     */
+    private _finishStoreyFloors(
+        cm: CommandManagerLike,
+        disc: readonly Pt2[],
+        levelIdByIndex: Map<number, string>,
+        detailedIndices: readonly number[],
+    ): void {
+        const plates = buildStoreyFloorPlates({
+            disc,
+            levelIdByIndex,
+            detailedIndices,
+            stairVoidsFor: (levelId) => getStairVoidsForLevel(levelId),
+        });
+        if (plates.length === 0) return;
+        // A structural-slab tone (exposed screed) so each plate reads as a real floor, distinct from
+        // the carpet-tile office finish on the detailed plan floor.
+        const STRUCTURAL_FLOOR = { color: '#a9a7a2', pattern: 'seamless' as const, name: 'Concrete Floor Slab' };
+        const levelIds = [...new Set(plates.map((p) => p.levelId))];
+        deferWork(() => {
+            try {
+                let laid = 0;
+                batchCoordinator.runBatch(() => {
+                    for (const plate of plates) {
+                        if (plate.polygon.length < 3) continue;
+                        const holes = plate.holes.map((h) => ({
+                            id: createId('opening'), elementId: createId('opening'),
+                            subType: 'floor-hatch', shape: 'polygon',
+                            polygon: h.map((p) => ({ x: p.x, z: p.z })), label: 'Stairwell void',
+                        }));
+                        try {
+                            cm.execute?.(new CreateFloorCommand({
+                                floorId: createId('floor'),
+                                ifcGuid: createId('floor'),
+                                polygon: plate.polygon.map((p) => ({ x: p.x, z: p.z })),
+                                levelId: plate.levelId,
+                                label: 'Floor Slab',
+                                finishSpec: { finishColor: STRUCTURAL_FLOOR.color, finishPattern: STRUCTURAL_FLOOR.pattern, materialName: STRUCTURAL_FLOOR.name, exposedScreed: true },
+                                ...(holes.length > 0 ? { serviceHoles: holes as never } : {}),
+                            }), { source: 'OFFICE_PIPELINE_STOREY_FLOOR' });
+                            laid++;
+                        } catch (e) { console.warn('[office-building] §FIX-OFFICE-MISSING-PER-STOREY-SLABS floor plate failed on', plate.levelId, '(non-fatal):', e); }
+                    }
+                }, { levelIds, totalElementCount: plates.length, skipRedetectRooms: true, skipPbrUpgrade: true });
+                console.log(`[office-building] §FIX-OFFICE-MISSING-PER-STOREY-SLABS — laid ${laid} full-storey floor plate(s) across ${levelIds.length} storey(s) (every storey now has a visible floor, not a hollow shell)`);
+            } catch (e) { console.warn('[office-building] §FIX-OFFICE-MISSING-PER-STOREY-SLABS storey-floor batch failed (non-fatal):', e); }
+        }, 900);
     }
 
     /** Push the four edges of an axis-aligned rectangle room as room-bounding lines. */
