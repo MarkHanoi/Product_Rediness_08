@@ -39,7 +39,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { initProjectOrigin } from './initProjectOrigin'; // §FEAT-PROJECT-ORIGIN (L-109)
+import { initProjectOrigin, reseatProjectOrigin } from './initProjectOrigin'; // §FEAT-PROJECT-ORIGIN (L-109); §L-325 render-side origin re-seat
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import * as OBC from '@thatopen/components';
 import * as OBCF from '@thatopen/components-front';
@@ -107,6 +107,7 @@ import { toolInteractionRef } from '@pryzm/core-app-model';
 import { viewDependencyTracker } from '@pryzm/core-app-model';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
+import { elementRegistry } from '@pryzm/core-app-model/element-registry'; // §L-325 render/projection-registry isolation teardown
 // Phase 6 — EdgeProjectorService is lazy-loaded. The module is ~1 870 LOC and
 // transitively pulls 11 plan-symbol builders + the OBC EdgeProjector +
 // TechnicalDrawings APIs into the static graph. Plan / section / elevation
@@ -1243,6 +1244,72 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     window.addEventListener('bim-project-cleared', () => {
         viewDependencyTracker.clear();
         viewTechnicalDrawingCache.clear();
+        // §L-325 (C13 render/projection isolation — L-316 / L-320 lineage) —
+        // ClearProjectCommand emits `bim-project-cleared` right after
+        // `elementRegistry.clear()`. But `clear()` deliberately does NOT fire the
+        // onUnregister listeners (see ElementRegistry.clear() doc), so the two
+        // render/projection caches that are pruned ONLY via those listeners survive
+        // the data-side teardown: NativeElementMeshExporter's proxy-descriptor cache
+        // (constructor-wired onUnregister) and FrustumCullingService's validated-bounds
+        // WeakSet + pending audit. Purge them here — the render-layer companion to the
+        // command's data-side clear — so a project reload/version-restore on the SAME
+        // project (which fires bim-project-cleared but not pryzm-project-switch) never
+        // re-projects the previous element set.
+        try { nativeElementMeshExporter.clearCache(); } catch (e) { console.warn('[initScene] §L-325 NME.clearCache (bim-project-cleared) failed:', e); }
+        try { frustumCullingService.reset(); } catch (e) { console.warn('[initScene] §L-325 FrustumCulling.reset (bim-project-cleared) failed:', e); }
+    });
+
+    // §L-325 (C13 §3.10 render side) — RENDER-SIDE ISOLATION DEV-ASSERT. The data-side
+    // ProjectIsolationAudit compares the live STORES + scene against the loaded snapshot's
+    // expected id set (`__pryzmLoadedProjectExpectation`). It does NOT inspect the
+    // render/projection registries — so the exact leak reported here (elementRegistry
+    // holding 117 roots while the snapshot declared 10) sails past it as "loaded clean".
+    // This tripwire mirrors that audit on the render side: on every project load it flags
+    // any `elementRegistry` root whose id is NOT in the just-loaded project's expected set
+    // (a foreign root carried over from the previous project). It fails LOUDLY (a
+    // `[C13 VIOLATION]` error + a `pryzm-render-registry-isolation-leak` event) so
+    // 117 ≠ 10 can never again pass silently. Derived/unknown-expectation loads are
+    // skipped to keep the false-positive rate at zero (same policy as the data-side audit).
+    window.runtime?.events?.on('pryzm-project-loaded', (payload: unknown) => { // F.events.9
+        const detail = (payload as { projectId?: string; empty?: boolean } | undefined) ?? {};
+        const projectId = detail.projectId ?? '<unknown>';
+        // Defer one frame so any load-tail root registration has settled.
+        getFrameScheduler().scheduleOnce('l325-render-registry-audit', () => {
+            try {
+                const exp = (globalThis as unknown as {
+                    __pryzmLoadedProjectExpectation?: { projectId: string; elementIds: string[] };
+                }).__pryzmLoadedProjectExpectation;
+                // Expectation unknown for this project (a load path that bypassed
+                // ProjectLoader) → skip the id-based check (zero false positives). An
+                // empty-flagged load has a well-defined expectation: nothing.
+                let expected: Set<string> | null = null;
+                if (exp && exp.projectId === projectId && Array.isArray(exp.elementIds)) {
+                    expected = new Set(exp.elementIds);
+                } else if (detail.empty === true) {
+                    expected = new Set<string>();
+                }
+                if (!expected) return;
+                const roots = elementRegistry.getAllRoots();
+                const foreign = roots.filter(r => !expected!.has(r.id)).map(r => r.id);
+                if (foreign.length === 0) {
+                    console.log(`[L325-RenderRegistryAudit] ✓ project ${projectId} — elementRegistry holds ${roots.length} root(s), all in the loaded snapshot (${expected.size} expected)`);
+                    return;
+                }
+                console.error(
+                    `[C13 VIOLATION] §L-325 render-registry isolation leak on load of ${projectId}: ` +
+                    `elementRegistry holds ${roots.length} root(s) but the snapshot declared ${expected.size} — ` +
+                    `${foreign.length} FOREIGN root(s) from a prior project (NME/culling will re-project them):`,
+                    foreign.slice(0, 20),
+                );
+                try {
+                    window.dispatchEvent(new CustomEvent('pryzm-render-registry-isolation-leak', {
+                        detail: { projectId, registryRootCount: roots.length, expectedCount: expected.size, foreignIds: foreign.slice(0, 50) },
+                    }));
+                } catch { /* DOM dispatch must never throw past this guard */ }
+            } catch (e) {
+                console.warn('[initScene] §L-325 render-registry audit failed (non-fatal):', e);
+            }
+        }, 'post-render');
     });
 
     // Levels and grids are hidden by default — users can enable them via the
@@ -2819,6 +2886,30 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // The edgeProjectorService facade forwards to the real service if it
             // has already been lazy-loaded; otherwise this is a safe no-op.
             try { (edgeProjectorService as any).clearCwProjectionCache?.(); } catch { /* best effort */ }
+
+            // §L-325 (C13 render/projection isolation — L-316 / L-320 lineage) —
+            // RENDER-SIDE TEARDOWN CHOKEPOINT. `pryzm-project-switch` is emitted by
+            // PlatformShell.setProjectContext on EVERY project-entry path (new / create /
+            // switch / import) BEFORE the incoming project hydrates — the single reliable
+            // render-side trigger (C13 §3.7), the sibling to ClearProjectCommand's
+            // data-side teardown (P1: one path, not per-entry-point).
+            //
+            // The reported leak: a project entered after the 40-storey office left
+            // `elementRegistry` holding the tower's 117 roots (new snapshot = 10) — NME
+            // exported all 117 and FrustumCullingService audited 878 elements while the
+            // 3D scene was empty. The data-load teardown (ClearProjectCommand) either did
+            // not stick or was repopulated under the coupled L-324 renderer recovery. This
+            // switch fires regardless, so purge the render/projection registries here as
+            // the isolation belt (P4 — robust to a mid-recovery renderer where the load
+            // path is skipped/corrupted). All calls are idempotent + non-throwing.
+            try { elementRegistry.clear(); } catch (e) { console.warn('[initScene] §L-325 elementRegistry.clear failed:', e); }
+            try { nativeElementMeshExporter.clearCache(); } catch (e) { console.warn('[initScene] §L-325 NME.clearCache failed:', e); }
+            try { frustumCullingService.reset(); } catch (e) { console.warn('[initScene] §L-325 FrustumCulling.reset failed:', e); }
+            try { viewTechnicalDrawingCache.clear(); } catch (e) { console.warn('[initScene] §L-325 VTDC.clear failed:', e); }
+            // P3 — re-seat the always-on ProjectOrigin blue-sphere datum into the CURRENT
+            // live scene (robust to an L-324 renderer live-swap that replaced world.scene)
+            // so the incoming project always renders its origin marker.
+            try { reseatProjectOrigin(world.scene.three as THREE.Scene); } catch (e) { console.warn('[initScene] §L-325 reseatProjectOrigin failed:', e); }
 
             // Mount freeze-frame overlay on the viewport container.
             // Skip if the full-screen EngineLoadingOverlay is already covering

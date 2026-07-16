@@ -164,6 +164,27 @@ export class FrustumCullingService {
     }
 
     /**
+     * §L-325 (C13 render isolation — L-316 / L-320 lineage) — project-switch teardown.
+     *
+     * Cancels any pending debounced audit (so a scheduled audit queued against
+     * Project A's scene can never fire once Project B's geometry begins mounting) and
+     * drops the validated-bounds cache (so no Project A `BufferGeometry` reference is
+     * held across the switch). `_scene` is intentionally left intact — initScene owns
+     * the scene reference and re-points it via `setScene()` only on a renderer swap;
+     * the culling audit is re-armed by the incoming project's geometry events.
+     *
+     * Idempotent and non-throwing — safe to call from the teardown chokepoint on
+     * every project entry (new / create / switch / import), including cold boot.
+     */
+    reset(): void {
+        if (this._debounceTimer !== null) {
+            clearTimeout(this._debounceTimer);
+            this._debounceTimer = null;
+        }
+        this._validBoundsCache = new WeakSet<THREE.BufferGeometry>();
+    }
+
+    /**
      * PERF-AUDIT-2026 P5: Remove a geometry from the valid-bounds WeakSet.
      *
      * Call this when a builder replaces the geometry buffer on an existing mesh

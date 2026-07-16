@@ -19,11 +19,12 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { projectOriginStore } from '@pryzm/stores';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
-import { initProjectOrigin } from '../src/engine/initProjectOrigin';
+import { initProjectOrigin, reseatProjectOrigin } from '../src/engine/initProjectOrigin';
 
 // Minimal THREE-free scene stub — ProjectOriginMarker.attach() only calls add()/remove().
 function makeFakeScene(): any {
-    return { add: () => { /* noop */ }, remove: () => { /* noop */ } };
+    const added: unknown[] = [];
+    return { add: (o: unknown) => { added.push(o); }, remove: () => { /* noop */ }, __added: added };
 }
 
 // Minimal runtime event bus so `window.runtime?.events?.on/emit` is live at the
@@ -95,5 +96,28 @@ describe('§FIX-PROJECT-2ND-OPEN-ISOLATION — project-origin datum isolation (L
             expect(o.visible, `switch #${i} must re-show the datum`).toBe(true);
             expect(o.position).toEqual({ x: 0, y: 0, z: 0 });
         }
+    });
+});
+
+describe('§L-325 — reseatProjectOrigin re-seats the datum into the CURRENT live scene', () => {
+    it('re-seeds a dirtied datum to a pristine, visible origin', () => {
+        projectOriginStore.setVisible(false);
+        projectOriginStore.setPosition({ x: 9, y: 0, z: -4 });
+
+        reseatProjectOrigin(makeFakeScene());
+
+        const o = projectOriginStore.getOrigin();
+        expect(o.visible).toBe(true);
+        expect(o.position).toEqual({ x: 0, y: 0, z: 0 });
+    });
+
+    it('re-attaches the marker to a NEW scene (robust to an L-324 renderer live-swap)', () => {
+        // Simulate the renderer recovery / live-swap: world.scene is replaced with a
+        // fresh scene. The boot-captured scene would leave the marker on a dead graph;
+        // reseatProjectOrigin re-attaches to whatever scene the incoming project renders
+        // into, so the blue-sphere datum is present on the new project.
+        const swappedScene = makeFakeScene();
+        reseatProjectOrigin(swappedScene);
+        expect(swappedScene.__added.length, 'marker must be add()-ed to the swapped scene').toBeGreaterThan(0);
     });
 });

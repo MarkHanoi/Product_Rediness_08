@@ -171,6 +171,40 @@ export class NativeElementMeshExporter {
         this._bimManager = bimManager;
     }
 
+    /**
+     * §L-325 (C13 render/projection isolation — L-316 / L-320 lineage) — purge the
+     * ENTIRE proxy-descriptor cache and the per-view capacity ledger on a project
+     * teardown.
+     *
+     * WHY THIS EXISTS (the concrete leak): the per-element eviction wired in the
+     * constructor fires ONLY from `elementRegistry.onUnregister(...)`, but
+     * `ElementRegistry.clear()` (the ClearProjectCommand teardown) deletes both maps
+     * WITHOUT firing the unregister listeners (see ElementRegistry.clear() doc). So on
+     * a project switch the previous project's `NMEProxyDescriptor[]` entries stay
+     * resident, and the next `exportForView()` re-emits Project A's proxies into
+     * Project B's plan / elevation projection (the founder-reported "new project
+     * exports 117 elements while its snapshot has 10"). The C13 teardown chokepoint
+     * calls this so the cache never outlives the project that populated it.
+     *
+     * Geometry/material are NOT disposed here — descriptors hold SHARED refs owned by
+     * the live scene builders (same contract as `_evictLRU`); the builders' own
+     * dispose path (L-320) frees the GPU resources.
+     */
+    clearCache(): void {
+        const purged = this._proxyCache.size;
+        this._proxyCache.clear();
+        this._viewDesiredCap.clear();
+        this._maxCacheEntries = NativeElementMeshExporter.BASE_CACHE_ENTRIES;
+        if (purged > 0) {
+            console.log(`[NativeElementMeshExporter] §L-325 clearCache — purged ${purged} proxy cache entr${purged === 1 ? 'y' : 'ies'} (project teardown)`);
+        }
+    }
+
+    /** §L-325 — diagnostic: current proxy-cache entry count (isolation-audit read). */
+    get cacheSize(): number {
+        return this._proxyCache.size;
+    }
+
     exportForView(viewDef: ViewDefinition): THREE.Group[] {
         const levelId = viewDef.spatial?.levelId;
 

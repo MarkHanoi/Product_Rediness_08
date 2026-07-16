@@ -132,3 +132,47 @@ export function initProjectOrigin(scene: THREE.Scene): ProjectOriginMarker {
     console.log('[initProjectOrigin] §FEAT-PROJECT-ORIGIN blue-sphere datum marker attached (always-on); §FIX-PROJECT-2ND-OPEN-ISOLATION project-switch reset wired.');
     return _marker;
 }
+
+/**
+ * §L-325 (C13 render/projection isolation — L-316 / L-320 lineage) — re-seat the
+ * always-on ProjectOrigin marker into the CURRENT live scene on a project teardown.
+ *
+ * The `pryzm-project-switch` re-establishment inside {@link initProjectOrigin}
+ * re-attaches to the `scene` CAPTURED at boot. When an L-324 renderer recovery /
+ * live-swap replaces `world.scene`, that captured scene is a torn-down orphan, so the
+ * marker re-attaches to a dead graph and the blue sphere never appears on the new
+ * project (the founder-reported "no ProjectOrigin sphere on the 2nd project"). Routing
+ * origin reconstruction through the render-side teardown chokepoint — which passes the
+ * FRESH `world.scene.three` — guarantees the datum is re-seeded + the marker is
+ * present in whatever scene the incoming project actually renders into.
+ *
+ * Idempotent: `reset()` re-seeds the datum at world origin (visible), `attach()`
+ * early-returns when the scene is unchanged. Safe to call on every project entry.
+ *
+ * P8 — emits the `pryzm.project-origin.reseat` OTel span (no-op when no tracer).
+ *
+ * @param scene The live scene the incoming project renders into (`world.scene.three`).
+ */
+export function reseatProjectOrigin(scene: THREE.Scene): void {
+    const span = (window as unknown as {
+        runtime?: { tracer?: { startSpan?: (n: string) => { setAttributes?: (a: Record<string, unknown>) => void; end?: () => void } } };
+    }).runtime?.tracer?.startSpan?.('pryzm.project-origin.reseat') ?? null;
+    try {
+        try { projectOriginStore.reset(); } catch { /* store disposed — non-fatal */ }
+        if (!_marker) {
+            _marker = new ProjectOriginMarker({ id: PROJECT_ORIGIN_ID });
+        }
+        _marker.attach(scene);
+        const o = projectOriginStore.getOrigin();
+        _marker.setPosition(o.position.x, o.position.y, o.position.z);
+        _marker.setEnabled(o.visible);
+        span?.setAttributes?.({
+            'pryzm.project_origin.visible': o.visible,
+            'pryzm.project_origin.reattached': true,
+        });
+    } catch (e) {
+        console.warn('[initProjectOrigin] §L-325 reseatProjectOrigin failed (non-fatal):', e);
+    } finally {
+        span?.end?.();
+    }
+}
