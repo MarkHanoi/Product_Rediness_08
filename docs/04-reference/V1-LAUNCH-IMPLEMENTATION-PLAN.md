@@ -2837,3 +2837,70 @@ window where the 3D builder reads a field that isn't populated yet.
 
 **Contract mapping:** **C11** (one element ⇒ one creation pipeline), **C03** (schema — `layers` is
 domain state), **P1** (composition root — the registration facade), L-41 + L-211 lineage.
+
+
+---
+
+## L-323 — "3D Site" (Forma) view slow to generate: single-export + context cache + readiness gate
+
+**Reported:** founder, 2026-07-16 (23-storey office GIS). **Severity:** MEDIUM (entry latency; the view is sound once generated). **Owner queue:** GIS / geospatial agent. **Audit row:** L-323.
+
+**Root (all confirmed in code):**
+1. The model is serialised to a ~40 MB GLB **twice** per GIS session — the photoreal globe path (`GISAreaLayout.ts:1952`, real materials) and the Forma "3D Site" path (`GISAreaLayout.ts:2111`, `{ formaWhite: true }`) hold **separate** signature caches and produce differently-tinted output, so the 1523-root geometry walk runs twice. The geometry walk is byte-identical; only the material tint differs. **The tint was baked into a GLB-export option by ADR-0093 — a presentation concern forcing a second serialisation.**
+2. Overpass context over-fetch: ~13,974 footprints fetched/parsed to render 900 (`§FEAT-FORMA-CONTEXT-EXTENT-LOD` caps the *render*, not the *fetch*); roads + water re-fetched, no cache across globe↔forma re-entry.
+3. The 25 s "tiles" stall: readiness gates on `snap.tilesLoaded && outstanding === 0` (`viewActivationLoading.ts:251`), but a keyless-ellipsoid flat-ground Forma study never finishes tile streaming → the overlay sits until the stall timeout.
+
+**Contract mapping:** **C06** (GIS surface), **ADR-0093** (forma-white model — conflict-resolution: presentation ≠ data), **P7** (presentation intent ≠ data), **C04** (scheduling), `§FEAT-VIEW-ACTIVATION-LOADING-OVERLAY`.
+
+| Phase | Work |
+|---|---|
+| **P1** | **Single export (the architectural fix).** Move the Forma-white tint OUT of `exportFragmentsToGLB`'s options and onto the **Cesium primitive at placement** — a view-side material override (ADR-0093 says the white model is Forma-VIEW-ONLY; P7: it is presentation, not data). One signature-keyed export then serves both the globe and the Forma study. |
+| **P2** | **Shared context cache + fetch cap.** Cap the Overpass **fetch** (not just the render) to the LOD extent; hold one signature-keyed context cache (buildings/roads/water) reused across globe↔forma re-entry. |
+| **P3** | **Readiness gate.** On a keyless / no-terrain flat-ground study, resolve `waitForTiles()` immediately when no real tile provider is attached — do not gate readiness on tile streaming that will never complete. |
+| **P4** | **Guards.** A single GIS session showing BOTH globe and Forma performs exactly **one** `exportFragmentsToGLB`; Overpass fetch count ≤ rendered-footprint cap; the flat-ground Forma study reports READY with no tiles stall. |
+
+**Why this ordering:** P1 is the biggest lever and the one true architectural change (presentation off the data path); P2/P3 are latency + false-wait removal layered on top. `SS-FIX-FORMA-SITE-SINGLE-EXPORT-AND-CONTEXT-CACHE`.
+
+---
+
+## L-324 — Device-loss recovery loop has no terminal state → stuck "RECOVERING RENDERER…" hang
+
+**Reported:** founder, 2026-07-16 (recurrent). **Severity:** CRITICAL (strands the viewport). **Owner queue:** render-crash agent (L-301 / L-312 family). **Audit row:** L-324. **Demo mitigation (no code):** stay on WebGL from the start and do not toggle the backend — the trigger is the live WebGL→WebGPU swap on the heavy office.
+
+**Root (chain from the log):** the live backend swap is itself the device-loss trigger on the heavy office; the Cesium cascade re-mounts mid-recovery and fails, spending context-creation attempts; the 2/2 device-loss cap trips into WebGL2 safe-mode, but the browser has already blocked all page GL contexts (`Web page caused context loss and was blocked`), so the safety net cannot acquire a context either; the swap rolls back but the **"RECOVERING RENDERER…" overlay is never dismissed** — no terminal state.
+
+**Contract mapping:** **C04** (scheduling), **P2** (single THREE owner), **P3** (single rAF), same family as **L-301 / L-303 / L-312**. This is the **terminal form of the L-312 device-loss family** — L-312B (PSO storm) is the frequency root; this item adds the swap-as-trigger and the no-exit overlay.
+
+| Phase | Work |
+|---|---|
+| **P1** | **Frequency root (= L-312B).** Share curtain-wall materials per (level, kind) via `§INSTANCE-MAT-SHARE`; wrap the CW batch in `rpm.setSuspended()` so the ~9k window-class draws do not mint thousands of PSOs in one flush. Device loss stops happening at the source. |
+| **P2** | **Swap is a reconstruction boundary.** The live backend swap must fully quiesce + dispose the OLD device before creating the new one — never two live GPU devices overlapping. Block the swap outright while a device-loss recovery is in flight. |
+| **P3** | **Recovery must have a terminal state.** Once the browser reports `Web page caused context loss and was blocked`, STOP all context-creation attempts (WebGPU AND WebGL) and surface one honest "reload required" CTA — never an infinite "RECOVERING RENDERER…" overlay. Fix the 2/2 cap to account for the WebGL2 fallback also being blocked. |
+| **P4** | **Cesium re-mount gating.** Do not attempt a fresh WebGL context for Cesium while the page is in the blocked/terminal state; skip re-mount when renderer recovery has hit its terminal cap. |
+| **P5** | **Guards.** (1) A live backend swap on the heavy office never overlaps two GPU devices; (2) after the browser blocks contexts, the overlay resolves to a single reload CTA within one recovery cycle — never hangs; (3) Cesium does not re-mount during a blocked/terminal recovery. |
+
+**Why this ordering:** P1 removes the cause (device loss on this scene); P2–P4 harden the boundary and the recovery so that when a loss *does* happen, it degrades gracefully or terminates honestly rather than thrashing the page into a permanent block. `SS-FIX-RECOVERY-LOOP-TERMINAL-STATE`.
+
+
+---
+
+## L-325 — Project isolation: projection/culling registries + ProjectOrigin not reset on new-project entry
+
+**Reported:** founder, 2026-07-16 (recurrent). **Severity:** CRITICAL (a fresh project is unusable: empty 3D, no origin, ghost plan symbols). **Owner queue:** isolation / render agent (C13 family, L-316 / L-320 lineage). **Audit row:** L-325. **Demo mitigation (no code):** reload the page between projects; do not create a new project immediately after a render-recovery event (L-324).
+
+**Root (confirmed in code + log):** the new project's snapshot has **10 elements**, but `NativeElementMeshExporter` (`NativeElementMeshExporter.ts:254`, iterating `elementRegistry.getAllRoots()`) exports **117**, and `FrustumCullingService` audits **878 elements / 1672 meshes** — the office tower is still resident in the global `elementRegistry`. The 3D **scene root was cleared** (empty view, no ProjectOrigin blue sphere) but the **element/projection registries were not**, and the new project's 3D geometry + origin were never rebuilt. `ClearProjectCommand.ts:81` *does* call `elementRegistry.clear()`, so the explicit Clear path is correct — the **"new project" entry path bypasses that chokepoint** (or repopulates after it). Strongly coupled to **L-324**: this occurred immediately after the recovery-render meltdown; a new project built against a torn/blocked renderer skips or corrupts the full teardown + reconstruction.
+
+**The architectural framing:** C13 isolation has **two domains** — (a) the **data stores**, already audited clean by `ProjectIsolationAudit`; and (b) the **render/projection registries** (`elementRegistry`, `FrustumCullingService`, `NativeElementMeshExporter` proxy cache, `EdgeProjectorService` cache, `ViewTechnicalDrawingCache`) **plus** the 3D scene root and the ProjectOrigin. The new-project path resets (a) and the 3D scene root, but not (b) — so plan projection + culling still see the old project while 3D is empty. This is the same lineage as L-316 (project-switch GPU reset) and L-320 (builder disposal); L-325 extends the isolation chokepoint to the **projection/culling registries** and the **ProjectOrigin reconstruction**.
+
+**Contract mapping:** **C13** (project lifecycle + isolation — render/projection side), **P1** (single composition root — one teardown path, not per-entry-point), lineage L-316 / L-320. Governing doc: `docs/02-decisions/contracts/C13-PROJECT-LIFECYCLE-AND-ISOLATION.md`.
+
+| Phase | Work |
+|---|---|
+| **P1** | **One teardown chokepoint for every project-entry path.** New / create / switch / import must all route through the **same** C13 teardown that `ClearProjectCommand` runs — no entry point tears down "its own way" (P1). Identify the bypassing new-project path and fold it in. |
+| **P2** | **Purge the render/projection registries in that chokepoint** (not just the data stores): `elementRegistry.clear()`, `FrustumCullingService` registry reset, `NativeElementMeshExporter` proxy cache, `EdgeProjectorService` cache, `ViewTechnicalDrawingCache.clear()`. |
+| **P3** | **Re-seat the ProjectOrigin** in the new 3D scene (the blue sphere) — the intent is already covered by `projectOriginIsolation.test.ts`; find why it does not fire on this path and route origin reconstruction through the chokepoint. |
+| **P4** | **Robust to a mid-recovery renderer (L-324).** Sequence: teardown → renderer settle → reconstruct → origin. Never build the new project against a blocked / recovering GPU device. Gate new-project creation until the renderer is live. |
+| **P5** | **Dev-assert / gate (render-side isolation audit).** After a project switch, assert `elementRegistry` root-count == the new snapshot's element-count — 117 ≠ 10 must fail loudly, mirroring `ProjectIsolationAudit` but on the render/projection side. Extend `check-project-isolation` / the GA-gate accordingly. |
+| **P6** | **Guards.** Creating a new project after any prior project leaves `elementRegistry` / culling / NME / EdgeProjector / technical-drawing holding **exactly** the new project's elements; the ProjectOrigin renders; the 3D view shows the new geometry; plan view shows **no** reminiscence symbols. |
+
+**Why this ordering:** P1 before P2 — there must be a single path to attach the purge to; attaching purges to a bypassed path fixes nothing. P4 encodes the L-324 coupling so the two render-family bugs are fixed coherently rather than papering over each other. P5 makes the invariant self-enforcing so this class of leak cannot silently return. `SS-FIX-PROJECT-ISOLATION-PROJECTION-REGISTRIES`.
