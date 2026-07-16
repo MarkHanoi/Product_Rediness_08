@@ -113,6 +113,13 @@ const BACKEND_PREF_KEY = 'pryzm.renderer.backend';
 const MAX_WEBGPU_DEVICE_LOSSES = 2;
 let _webgpuDeviceLossCount = 0;
 
+// §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE — true ONLY while the device-loss recovery is
+// executing its OWN recursive createRenderer() rebuild. Lets the top-of-createRenderer
+// reconstruction-boundary guard tell the recovery's legitimate rebuild apart from an EXTERNAL
+// caller (a live backend swap) trying to build a renderer mid-recovery — which must be blocked
+// so two GPU devices / reconstruction boundaries never overlap.
+let _recoveryRecursionInProgress = false;
+
 interface DeviceLossGlobals {
     __pryzmDeviceLossRecoveryCap?: boolean;
     __pryzmRenderSafeMode?: boolean;
@@ -123,12 +130,62 @@ interface DeviceLossGlobals {
     // GPU process is mid-reset makes Cesium's first shader compile fail ("Compile log: null")
     // → its dead-end "Rendering has stopped" panel. Gating until this clears avoids that.
     __pryzmRendererRecovering?: boolean;
+    // §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE — set true once the browser has BLOCKED all
+    // page GL contexts (WebGPU AND the WebGL2 fallback). A single TERMINAL state: every further
+    // context-creation attempt is refused and the user must reload. Read by createRenderer() and
+    // the device.lost handler to STOP the recovery loop, and surfaced to the user as a reload CTA.
+    __pryzmRendererTerminalReloadRequired?: boolean;
 }
 function _deviceLossGlobals(): DeviceLossGlobals {
     return globalThis as unknown as DeviceLossGlobals;
 }
 function _isDeviceLossCapEnabled(): boolean {
     return _deviceLossGlobals().__pryzmDeviceLossRecoveryCap !== false;
+}
+
+// ── §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE: terminal "reload required" state ──────
+
+/** True once the browser has blocked all GL contexts and no further recovery is possible. */
+function _isRendererTerminal(): boolean {
+    return _deviceLossGlobals().__pryzmRendererTerminalReloadRequired === true;
+}
+
+/**
+ * §L-324 — does this error indicate the browser has BLOCKED GL context creation?
+ *
+ * After the device-loss recovery thrashes context creation, Chrome blocks all page GL
+ * contexts ("Web page caused context loss and was blocked"); RendererHandleFactory then
+ * throws "no GPU renderer available … / context could not be created". Either signal means
+ * no context of ANY backend can be acquired — the terminal condition.
+ */
+function _isContextBlockedError(err: unknown): boolean {
+    const msg = (err instanceof Error ? err.message : String(err ?? '')).toLowerCase();
+    return (
+        msg.includes('context loss and was blocked') ||
+        msg.includes('was blocked') ||
+        msg.includes('no gpu renderer') ||
+        msg.includes('context could not be created')
+    );
+}
+
+/**
+ * §L-324 — enter the single TERMINAL "reload required" state.
+ *
+ * STOPS all further context-creation attempts (the flag is checked at the top of
+ * createRenderer() and at the device.lost handler entry) and surfaces one honest reload CTA
+ * on the shared brand overlay instead of an infinite "Recovering renderer…" spinner.
+ * Idempotent. Best-effort overlay (no-op with no DOM, e.g. under unit tests).
+ */
+function _enterTerminalReloadState(reason: string): void {
+    if (_isRendererTerminal()) return;
+    _deviceLossGlobals().__pryzmRendererTerminalReloadRequired = true;
+    console.error(
+        `[createRenderer] §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE — ${reason}. The browser has ` +
+        `blocked all page GL contexts; STOPPING every further WebGPU/WebGL context-creation attempt and ` +
+        `surfacing a single "reload required" state (never an infinite recovery overlay).`,
+    );
+    try { showRendererSwapOverlay('Renderer unavailable — please reload the page'); }
+    catch { /* overlay is best-effort (no DOM in tests) */ }
 }
 
 /**
@@ -194,6 +251,29 @@ export async function createRenderer(
     canvas: HTMLCanvasElement,
     backendOverride?: RendererBackendPreference,
 ): Promise<RendererResult> {
+    // ── §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE — reconstruction-boundary guards ──
+    // (1) Terminal state: once the browser has blocked ALL page GL contexts, refuse every
+    //     new renderer build — the next attempt would only deepen the block. The user must
+    //     reload; the reload CTA is already shown.
+    if (_isRendererTerminal()) {
+        throw new Error(
+            '[createRenderer] §L-324 renderer is in the terminal "reload required" state ' +
+            '(the browser blocked all GL contexts) — refusing to create a new renderer. Reload the page.',
+        );
+    }
+    // (2) A live backend swap must NOT build a renderer while a device-loss recovery is in
+    //     flight — two overlapping GPU devices / reconstruction boundaries is the L-324 trigger.
+    //     The recovery's OWN recursive rebuild sets _recoveryRecursionInProgress, so it is let
+    //     through; any EXTERNAL caller (the swap) is blocked and should roll back to the live
+    //     renderer, which recovery will settle.
+    if (_deviceLossGlobals().__pryzmRendererRecovering === true && !_recoveryRecursionInProgress) {
+        throw new Error(
+            '[createRenderer] §L-324 a WebGPU device-loss recovery is in flight — refusing to build a ' +
+            'new renderer for a concurrent live backend swap (the swap is a reconstruction boundary and ' +
+            'must not overlap recovery). The caller should roll back; recovery will settle the viewport.',
+        );
+    }
+
     // ── User backend preference (corner toggle, §PERF-WEBGPU-FRAGMENT) ────
     // 'webgl' resolves to the WebGL2 backend (high limits, modern resource
     // management — via WebGPURenderer's forceWebGL), falling back to plain
@@ -268,6 +348,18 @@ export async function createRenderer(
                     );
 
                     if (info.reason === 'destroyed') return;
+
+                    // §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE — if we have already reached the
+                    // terminal "reload required" state, do NOT attempt any further recovery: another
+                    // context-creation attempt would only deepen the browser's block. The reload CTA
+                    // is already shown; the loop stops here.
+                    if (_isRendererTerminal()) {
+                        console.error(
+                            '[createRenderer] §L-324 WebGPU device lost while already in the terminal ' +
+                            'reload-required state — no further recovery attempted (reload the page).',
+                        );
+                        return;
+                    }
 
                     // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — mark the renderer as
                     // recovering so CesiumViewport.mount() GATES globe activation until the
@@ -347,7 +439,16 @@ export async function createRenderer(
                         // the thrash loop ends, while the user's stored preference is untouched.
                         const _recoveryOverride: RendererBackendPreference | undefined =
                             _deviceLossGlobals().__pryzmRenderSafeMode === true ? 'webgl' : undefined;
-                        const newResult = await createRenderer(canvas, _recoveryOverride);
+                        // §L-324 — mark this as the recovery's OWN rebuild so the top-of-
+                        // createRenderer reconstruction-boundary guard lets it through (only an
+                        // EXTERNAL swap build is blocked). Always cleared, even on throw.
+                        _recoveryRecursionInProgress = true;
+                        let newResult: RendererResult;
+                        try {
+                            newResult = await createRenderer(canvas, _recoveryOverride);
+                        } finally {
+                            _recoveryRecursionInProgress = false;
+                        }
                         window.pryzmRenderer = newResult.renderer;
 
                         // §FIX-HEAVY-SCENE-3D-SCALABILITY (L-139) — once in safe-mode,
@@ -420,11 +521,32 @@ export async function createRenderer(
                         }
                     } catch (err) {
                         console.error('[createRenderer] WebGPU recovery failed:', err);
+                        // §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE — the "2/2 cap accounts for the
+                        // WebGL2 fallback ALSO being blocked" fix. The cap already dropped us to the
+                        // WebGL2 safe-mode rebuild; if THAT rebuild also failed to acquire a context
+                        // (or the error reports the browser blocked contexts), BOTH backends are
+                        // exhausted — there is nowhere left to go. Enter the terminal state so we STOP
+                        // retrying instead of thrashing context creation into a permanent block.
+                        if (_isContextBlockedError(err) || _deviceLossGlobals().__pryzmRenderSafeMode === true) {
+                            _enterTerminalReloadState(
+                                _deviceLossGlobals().__pryzmRenderSafeMode === true
+                                    ? 'the WebGL2 safe-mode recovery also failed to acquire a context'
+                                    : 'context creation was blocked by the browser during recovery',
+                            );
+                        }
                     } finally {
                         // §FEAT-SWAP-LOADING-OVERLAY (L-141) — guaranteed hide once
                         // recovery settles on EVERY path (rebound, safe-mode, or a
                         // thrown recovery error). Paired with the show() above.
                         hideRendererSwapOverlay();
+                        // §L-324 — but if recovery ended in the terminal state, re-assert the single
+                        // honest reload CTA (the hide above released the recovery-spinner holder). It
+                        // stays up instead of an infinite "Recovering renderer…" overlay so the user
+                        // knows to reload.
+                        if (_isRendererTerminal()) {
+                            try { showRendererSwapOverlay('Renderer unavailable — please reload the page'); }
+                            catch { /* best-effort */ }
+                        }
                         // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — recovery has
                         // settled: the renderer is rebound (or degraded to safe-mode, or the
                         // attempt failed). Clear the gate so a queued Cesium activation may
