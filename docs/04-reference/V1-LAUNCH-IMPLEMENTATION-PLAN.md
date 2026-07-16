@@ -2926,3 +2926,24 @@ domain state), **P1** (composition root — the registration facade), L-41 + L-2
 | **P4** | **Guards.** A light-theme heavy scene (office/resi batch) shows a WHITE viewport background on BOTH the WebGPU pipeline AND the WebGL2 fallback backend; dark theme yields #0a0f2c on both. |
 
 **Why this ordering:** P1 first — the fix differs entirely depending on whether the grey is the fallback clear or a dropped environment; do not guess. P2/P3 restore the invariant on the confirmed path. Note the coupling: L-312B (stop the heavy batch from losing the device) prevents the drop to fallback in the first place — but the fallback must be white regardless, so this is fixed independently. `SS-FIX-WEBGL-FALLBACK-WHITE-BACKGROUND`.
+
+
+---
+
+## L-327 — Forma "3D Site" tiles-readiness false-wait on keyless ground (the visible "taking too long" error)
+
+**Reported:** founder, 2026-07-16 (2nd report — Barcelona resi). **Severity:** HIGH (demo-blocking, recurrent). **Owner queue:** GIS / geospatial agent (with L-323). **Audit row:** L-327. **Parent:** L-323 (this is the shippable quick-win extracted from L-323 cause #3 — smaller + safer than the export-dedup / context-cache refactor, and the piece the founder actually sees).
+
+**Root:** the view-activation readiness chain gates the `tiles` stage on `snap.tilesLoaded && outstanding === 0` (`viewActivationLoading.ts:251`), but the Forma flat-ground study runs on a **keyless ellipsoid with no tile/terrain provider** (`terrain clamp degraded — no real terrain provider attached`). Tiles never stream → the stage never advances → the stall watchdog trips at 25 s and shows the founder "The map tiles have stopped streaming." The `ViewActivationSignals` port (`viewActivationLoading.ts:62`) has **no signal for whether a real tile provider is attached**, so the state machine cannot distinguish "tiles still loading" from "there will never be tiles." **Second symptom, same root:** context buildings did not load (roads + parks did) — consistent with context-building fetch being **sequenced behind the tiles-ready gate that never fires**; buildings appear only "sometime after."
+
+**Contract mapping:** **C06** (GIS surface); **C01 §2** — the loading state machine is deliberately Cesium-free (all signals arrive through the injected `ViewActivationSignals` port), so the fix must extend the **port**, not import Cesium into the state machine; **§FEAT-VIEW-ACTIVATION-LOADING-OVERLAY**; **L-259** seat-and-reveal. Child of L-323.
+
+| Phase | Work |
+|---|---|
+| **P1** | **Extend the port (C01 §2-safe).** Add `hasRealTileProvider(): boolean` to `ViewActivationSignals` (or a `providerPresent` flag on `TileStreamSnapshot`) — the state machine stays Cesium-free but can now know when tiles can never stream. Wire it from `CesiumViewport` (it already logs "no real terrain provider attached"). |
+| **P2** | **Skip / immediately-resolve the `tiles` stage** when no real tile provider is attached — `waitForTiles()` resolves at once on a keyless flat-ground Forma study instead of waiting 25 s for a stream that will never begin. |
+| **P3** | **Decouple context-building load from the tiles gate.** Context buildings (+ roads/parks) must fetch on their own schedule, never chained behind tile readiness. Confirm the current sequencing; parallelise + cap per L-323 cause #2. |
+| **P4** | **Preserve the genuine stall watchdog.** When a real tile provider IS attached and streaming genuinely stalls, the 25 s progress-freeze detector must still surface "Try again" — do not blanket-disable it. |
+| **P5** | **Guards.** A keyless-ground Forma "3D Site" reaches READY with no 25 s tiles-stall and no error dialog; context buildings render without waiting on tile readiness; with a real tile provider attached, a genuine streaming stall still surfaces the retry. Unit-test via the existing Cesium-free `viewActivationLoadingOverlay.test.ts` seam. |
+
+**Why this ordering:** P1 before P2 — the skip must be driven by a real injected signal, not a hardcoded assumption that Forma is always keyless (a real provider may be attached later). P3 addresses the founder's "buildings didn't load" as the same root rather than a separate fetch bug. P4 keeps the safety net honest for the case it was built for. `SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE`.
