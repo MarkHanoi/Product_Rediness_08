@@ -2969,3 +2969,27 @@ domain state), **P1** (composition root — the registration facade), L-41 + L-2
 | **P4** | **Guards.** Creating an elevation view on a trivial scene issues no submit against a zero-size framebuffer, produces no "Attachment has zero size" GL error, and does not lose the WebGPU device; the elevation renders correctly on first layout. Add a unit/integration test on the split-pane sizing lifecycle. |
 
 **Why this ordering:** P1 is the minimal change that stops the device loss (gate the submit); P2 removes the root condition (no zero-size target ever created), so P1's gate becomes a belt-and-braces safety net rather than the sole defence. P3 verifies the shader errors were downstream so we don't chase a phantom link bug. `SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET`.
+
+
+---
+
+## L-329 — Element selection dies after a device-loss: make GPU picking survive recovery (DEDICATED agent)
+
+**Reported:** founder, 2026-07-16 ("seen many times"). **Severity:** HIGH (editor becomes unusable mid-session — you can no longer select anything in 3D). **Owner queue:** DEDICATED selection-recovery agent (picking subsystem only, founder-requested). **Audit row:** L-329.
+
+**Root:** 3D element selection uses **GPU id-picking** (`packages/picking/src/gpu-pick.ts`, `§SELECT-PICK-RESOLUTION` — a viewport-sized pick render target + search radius). The trigger in the log is the ShadowDepthTexture-mid-submit family (`Destroyed texture "ShadowDepthTexture" used in a submit` — §SHADOW-DISPOSE-DEFER) → `WebGPU Device Lost` → zero-size framebuffer flood → context lost/restored. After the device is recreated, **the pick render target (and/or the per-element id registrations the pick reads) is stale / zero-size / bound to the superseded GPU device**, so every pick returns nothing and the user "cannot select elements anymore." Picking is never rebuilt on recovery.
+
+**Relationship to the render family:** this is the **selection-side victim** of the L-312 / L-324 device-loss family. Those agents stop the device loss at its source; **L-329 makes selection survive a loss if one still happens.** The two are complementary and independently valuable — L-329 is fenced entirely to the picking subsystem so it can land in parallel without touching `RenderPipelineManager` (render agent) or `initTools.ts` (isolation agent).
+
+**Contract mapping:** **C04** (rendering/scheduling), **P1** (composition root — the picking slot is wired via `buildPickingSlot` / `composeRuntime`, not ad hoc), **P8** (OTel span — `packages/picking/src/otel.ts` already exists; any new exported fn adds one). Device-loss family L-312 / L-324; memories: gpu-pick-resolution-and-highlight, 3d-selection-instanced-gpu-pick-gap, null-at-mount-runtime-event-race (§SHADOW-DISPOSE-DEFER).
+
+**Fence:** `packages/picking/src/**`, `packages/picking/__tests__/**`, `packages/input-host/src/SelectionManager.ts` (+ tests), `packages/runtime-composer/src/buildPickingSlot.ts`. MUST NOT touch `RenderPipelineManager.ts`, `createRenderer.ts`, `initTools.ts`, `ProjectLifecycleController.ts`, or geospatial (owned by the other four agents).
+
+| Phase | Work |
+|---|---|
+| **P1** | **Self-healing pick target (primary, self-contained).** At pick time, detect an invalid / zero-size / stale-device GPU-pick render target and rebuild it before reading. Picking becomes idempotently recoverable with no dependency on cross-subsystem event wiring. This is the durable fix and it lives entirely in `gpu-pick.ts` / the picking slot. |
+| **P2** | **Recovery-aware (secondary).** Locate the existing device-loss/recovery signal (grep — do NOT edit RenderPipelineManager) and, from within the picking slot / SelectionManager, re-create the pick target + re-register pickables when it fires. Belt-and-braces with P1. |
+| **P3** | **Verify id-registration survives.** Instanced walls have per-instance ids but no group `userData.id` (memory 3d-selection-instanced-gpu-pick-gap) — ensure recovery re-establishes the id registrations the GPU pick depends on, for instanced and non-instanced elements alike. |
+| **P4** | **Guards.** After a simulated WebGPU device loss + recovery, a click on a wall/window/door in 3D still selects it (GPU pick returns the correct id); the pick target is rebuilt (non-zero size, current device); there is no permanent selection-dead state. Red-before/green-after test in `packages/picking/__tests__/`. |
+
+**Why this ordering:** P1 first because a self-healing pick path is robust regardless of whether a recovery event is emitted or wired correctly — it cannot silently fail the way an event subscription can. P2 makes recovery proactive (rebuild before the next click rather than on it). P3 guards the subtle instanced-id gap that a naive target-rebuild would miss. `SS-FIX-SELECTION-SURVIVES-DEVICE-LOSS`.
