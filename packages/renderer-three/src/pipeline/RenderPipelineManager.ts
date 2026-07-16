@@ -601,6 +601,21 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     render(delta = 0.016): void {
+        // ── §L-328 SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET (P1) ─────────
+        // NEVER submit a render pass against a zero-size / incomplete framebuffer.
+        // Creating a documentation view (elevation) spins up a split pane whose render
+        // target is momentarily 0×0 before its container is laid out; the engine keeps
+        // submitting against that incomplete framebuffer → "Framebuffer is incomplete:
+        // Attachment has zero size" → a shader-VALIDATE_STATUS burst → WebGPU device loss,
+        // on a trivial 53-mesh scene. The existing _reconcileRenderSize() 0×0 early-return
+        // (line ~798) only skips the RESIZE — it does NOT suppress the SUBMIT. This gate
+        // skips the submit ENTIRELY (both the lightweight WebGL2 path below and the WebGPU
+        // pass) until the pane reports a non-zero measured backing-store size; the pass
+        // resumes automatically once layout lands. This is the single change that stops the
+        // device loss. C04 §2 (the frame owner owns the submit); P3 (the single rAF still
+        // ticks, it simply skips this frame's submit). Reflow-free — see helper.
+        if (this._isRenderTargetZeroSize()) return;
+
         // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────────
         // Lightweight WebGL2 path: the TSL pipeline is OFF (_webGpuActive=false)
         // but this manager owns the sole render in Phase 5. Drive a plain scene
@@ -780,6 +795,44 @@ export class RenderPipelineManager implements IViewSwitchListener {
      *
      * @returns true if a corrective setSize was issued (i.e. drift was found).
      */
+    /**
+     * §L-328 SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET (P1) — is the active render
+     * target / canvas backing store zero-size (so a submitted pass would draw against an
+     * incomplete framebuffer)?
+     *
+     * Keyed on the renderer's DRAWING-BUFFER / backing-store size
+     * (getDrawingBufferSize → getSize → canvas.width/height) — that IS the dimension the
+     * render-target attachments are allocated from, so a 0 here is exactly the
+     * "Attachment has zero size" condition. Deliberately NOT `clientWidth`/`clientHeight`:
+     * reading those forces a layout reflow every frame (see the `_renderSizeReconcileArmed`
+     * note); the backing-store reads here are plain property/getter reads with no reflow, so
+     * this is safe to run on EVERY frame of a healthy session. Returns false when no renderer
+     * is bound (the caller's own null guards then apply) or the size cannot be read.
+     */
+    private _isRenderTargetZeroSize(): boolean {
+        const r = this._renderer as unknown as {
+            getDrawingBufferSize?: (t: THREE.Vector2) => THREE.Vector2;
+            getSize?: (t: THREE.Vector2) => THREE.Vector2;
+            domElement?: { width?: number; height?: number };
+        } | null;
+        if (!r) return false;
+        try {
+            const read =
+                typeof r.getDrawingBufferSize === 'function' ? r.getDrawingBufferSize.bind(r)
+                : typeof r.getSize === 'function' ? r.getSize.bind(r)
+                : null;
+            if (read) {
+                const s = read(this._sizeProbe);
+                if (!s || s.x <= 0 || s.y <= 0) return true;
+            }
+        } catch {
+            /* fall through to the canvas backing-store read */
+        }
+        const el = r.domElement;
+        if (el && ((el.width ?? 1) <= 0 || (el.height ?? 1) <= 0)) return true;
+        return false;
+    }
+
     private _reconcileRenderSize(): boolean {
         const renderer = this._renderer as unknown as {
             domElement?: { clientWidth?: number; clientHeight?: number };
@@ -2509,8 +2562,25 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._renderSizeReconcileArmed = true;
         this._reconcileRenderSize();
 
-        // Lightweight WebGL path (no real WebGPU backend): nothing more to do.
-        if (!this._webGpuActive) return this._phase;
+        // ── §L-326 SS-FIX-WEBGL-FALLBACK-WHITE-BACKGROUND ────────────────────
+        // Lightweight WebGL path (no real WebGPU backend). A device-loss recovery (or a
+        // live backend swap) that LANDS on the WebGL2 fallback backend must drive the
+        // lightweight per-frame render so render()'s opaque theme-bg clear (the
+        // §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE / L-317 `setClearColor(_lightweightBgColor, 1)`)
+        // actually paints LIGHT_BG_HEX (white) / DARK_BG_HEX (navy). Without this the fallback
+        // renderer keeps the TRANSPARENT clear primed at boot for the WebGPU-TSL path
+        // (initScene `setClearColor(0x000000, 0)`), and the grey container shows through as a
+        // GREY viewport — the founder's grey background after the office/resi batch tripped the
+        // device-loss cascade into webgl-fallback. The BOOT path already wires this
+        // (initScene §PERF-WEBGL2-RENDER-ON-MOVE); the device-loss RECOVERY path
+        // (createRenderer.ts → recoverPipeline) previously returned here without it. This is
+        // L-317's opaque-overlay invariant extended one path further, to the FULL fallback
+        // backend (not just render-on-move). Idempotent: the live-swap caller re-asserts the
+        // same flag right after, and setLightweightWebGlRender() no-ops when already active.
+        if (!this._webGpuActive) {
+            this.setLightweightWebGlRender(true);
+            return this._phase;
+        }
 
         if (restorePostFx) {
             try {
