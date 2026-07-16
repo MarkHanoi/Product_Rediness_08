@@ -2947,3 +2947,25 @@ domain state), **P1** (composition root — the registration facade), L-41 + L-2
 | **P5** | **Guards.** A keyless-ground Forma "3D Site" reaches READY with no 25 s tiles-stall and no error dialog; context buildings render without waiting on tile readiness; with a real tile provider attached, a genuine streaming stall still surfaces the retry. Unit-test via the existing Cesium-free `viewActivationLoadingOverlay.test.ts` seam. |
 
 **Why this ordering:** P1 before P2 — the skip must be driven by a real injected signal, not a hardcoded assumption that Forma is always keyless (a real provider may be attached later). P3 addresses the founder's "buildings didn't load" as the same root rather than a separate fetch bug. P4 keeps the safety net honest for the case it was built for. `SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE`.
+
+
+---
+
+## L-328 — Elevation-view creation loses the GPU device via a zero-size render target
+
+**Reported:** founder, 2026-07-16 ("just creating a simple elevation view" — a trivial 53-mesh scene). **Severity:** HIGH (elevations are a core documentation workflow; device loss on a basic action). **Owner queue:** render agent (L-312 / L-324 device-loss family + L-312A / L-317 render-size family). **Audit row:** L-328.
+
+**Root (confirmed in code + log):** creating the elevation view spins up a split-pane render target **before its pane has a measured size (0×0)**. The engine keeps submitting against that incomplete framebuffer → `Framebuffer is incomplete: Attachment has zero size` (glClear/glDrawElements/glDrawArrays/glBlitFramebuffer) → a shader-VALIDATE_STATUS burst on five material types with empty info logs (context going down mid-validate) → `WebGPU Device Lost` → the full recovery cascade, until `_reconcileRenderSize` catches up at 807×976 (the split pane finally laid out). The existing zero-size guard (`RenderPipelineManager.ts:798`, `if (w<=0||h<=0) return false`) only skips the **resize** — it does **not** suppress the **render submit**, so the loop draws against the incomplete framebuffer and the driver kills the device.
+
+**The architectural framing:** two established families intersect here — the **render-size** family (L-312A `_reconcileRenderSize`, L-317 opaque overlay) and the **device-loss** family (L-312 / L-324). The new facet is the **trigger**: a lightweight, common documentation action (create elevation), not a heavy PSO storm. The durable invariant: **never submit a render pass against a zero-size / incomplete framebuffer**, and **never allocate a view's render target before its container has a non-zero measured size**.
+
+**Contract mapping:** **C04** (scheduling / rendering), **C24 / C24.1** (documentation views — the elevation surface), **P2** (single THREE owner), **P3** (single rAF). Lineage: L-312A, L-317, L-312, L-324.
+
+| Phase | Work |
+|---|---|
+| **P1** | **Suppress the render submit while the target is zero-size.** Pair the `_reconcileRenderSize` 0×0 early-return with a render-pass GATE that skips the submit entirely until the pane reports a non-zero measured size. Never submit against an incomplete framebuffer — this is the single change that stops the device loss. |
+| **P2** | **Defer render-target allocation for a newly-created view / split pane** until its container reports non-zero `clientWidth/clientHeight` (ResizeObserver or first-laid-out frame). A zero-size attachment is then never created in the first place. |
+| **P3** | **Confirm the shader-VALIDATE burst is symptom, not cause** (empty info log points to the context already going down from the incomplete-framebuffer submit). If confirmed, P1+P2 remove it; if a genuine link failure remains, investigate the material recompile on view switch separately. |
+| **P4** | **Guards.** Creating an elevation view on a trivial scene issues no submit against a zero-size framebuffer, produces no "Attachment has zero size" GL error, and does not lose the WebGPU device; the elevation renders correctly on first layout. Add a unit/integration test on the split-pane sizing lifecycle. |
+
+**Why this ordering:** P1 is the minimal change that stops the device loss (gate the submit); P2 removes the root condition (no zero-size target ever created), so P1's gate becomes a belt-and-braces safety net rather than the sole defence. P3 verifies the shader errors were downstream so we don't chase a phantom link bug. `SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET`.
