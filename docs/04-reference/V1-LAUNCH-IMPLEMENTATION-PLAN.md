@@ -2904,3 +2904,25 @@ domain state), **P1** (composition root — the registration facade), L-41 + L-2
 | **P6** | **Guards.** Creating a new project after any prior project leaves `elementRegistry` / culling / NME / EdgeProjector / technical-drawing holding **exactly** the new project's elements; the ProjectOrigin renders; the 3D view shows the new geometry; plan view shows **no** reminiscence symbols. |
 
 **Why this ordering:** P1 before P2 — there must be a single path to attach the purge to; attaching purges to a bypassed path fixes nothing. P4 encodes the L-324 coupling so the two render-family bugs are fixed coherently rather than papering over each other. P5 makes the invariant self-enforcing so this class of leak cannot silently return. `SS-FIX-PROJECT-ISOLATION-PROJECTION-REGISTRIES`.
+
+
+---
+
+## L-326 — Grey viewport background on heavy batch scenes: WebGL2 fallback never paints the white
+
+**Reported:** founder, 2026-07-16 (after office + residential batch generation). **Severity:** MEDIUM (cosmetic; brand — the model renders fine). **Owner queue:** render agent (L-317 / L-312 family). **Audit row:** L-326.
+
+**Root (confirmed in code + screenshot):** the white viewport background is painted by the **WebGPU TSL background uniform** (`BackgroundUniform.ts:42`, `LIGHT_BG_HEX='#ffffff'`). On WebGPU, `RenderPipelineManager` deliberately nulls `scene.three.background` (`:1779`) and clears transparent (`:1783`) so the TSL uniform owns the fill. The office/residential batch trips the device-loss cascade (L-312 / L-324 family) into the **WebGL2 fallback backend** (GPU bar: `webgl-fallback`), where the TSL pipeline does not run — so nothing paints the white and the transparent clear over the grey container shows through as grey. The opaque white-fill exists (`:636`, `setClearColor(_lightweightBgColor, 1)`) but only on the `§PERF-WEBGL2-RENDER-ON-MOVE` lightweight path (disabled here), not the full fallback backend.
+
+**The architectural framing:** the background is a **WebGPU-TSL-owned** concern; L-317 already established that *every non-WebGPU render path must independently paint the theme background opaque* (it fixed the lightweight WebGL2 overlay). L-326 is the same invariant, one path further: the **full WebGL2 fallback backend** was missed. Brand mandate: unified PRYZM white + purple, no grey/black backgrounds.
+
+**Contract mapping:** **C04** (scheduling/rendering), **P2** (single THREE owner — renderer-three), lineage L-317 (WebGL2 opaque) + L-312 / L-324 (device-loss cascade that drops to the fallback). Brand: preview-color-unified-purple, onboarding brand (white + #6600FF).
+
+| Phase | Work |
+|---|---|
+| **P1** | **Confirm the active path.** Full WebGL2 fallback backend clear vs `SceneQualityTier` `performance`-tier environment/IBL drop. The screenshot's `webgl-fallback` points at the former; rule the latter in or out before touching code. |
+| **P2** | **The WebGL2 fallback backend paints `LIGHT_BG_HEX` opaque.** Either `setClearColor(_lightweightBgColor, 1)` with an opaque white fill on the full fallback render, or keep the TSL-null contract but guarantee the fallback clears to opaque white. Mirror L-317's opaque-overlay fix for the full fallback, not just render-on-move. |
+| **P3** | **Theme-aware.** White in light theme, `DARK_BG_HEX` (#0a0f2c) in dark — reuse `_lightweightBgColor`, which already tracks theme (`:435` / `:830`). |
+| **P4** | **Guards.** A light-theme heavy scene (office/resi batch) shows a WHITE viewport background on BOTH the WebGPU pipeline AND the WebGL2 fallback backend; dark theme yields #0a0f2c on both. |
+
+**Why this ordering:** P1 first — the fix differs entirely depending on whether the grey is the fallback clear or a dropped environment; do not guess. P2/P3 restore the invariant on the confirmed path. Note the coupling: L-312B (stop the heavy batch from losing the device) prevents the drop to fallback in the first place — but the fallback must be white regardless, so this is fixed independently. `SS-FIX-WEBGL-FALLBACK-WHITE-BACKGROUND`.
