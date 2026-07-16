@@ -36,6 +36,13 @@ export interface ContextWaterCollection {
 }
 
 const cache = new Map<string, ContextWaterCollection>();
+/**
+ * §L-323 FIX B (SS-FIX-FORMA-SITE-SINGLE-EXPORT-AND-CONTEXT-CACHE) — per-bbox IN-FLIGHT promise
+ * cache, mirroring the buildings loader. Concurrent consumers of the SAME bbox (3D Forma context +
+ * 2D map context, or a rapid globe↔forma re-entry) share the ONE pending Overpass request instead
+ * of racing a duplicate POST against the public mirrors' 429 rate limiter.
+ */
+const inFlight = new Map<string, Promise<ContextWaterCollection>>();
 let warnedOnce = false;
 
 function bboxKey(b: Bbox): string { return 'water:' + b.map((n) => n.toFixed(4)).join(','); }
@@ -342,7 +349,22 @@ export async function fetchContextWater(
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
+    // §L-323 FIX B — share ONE in-flight request per bbox across concurrent consumers.
+    const pending = inFlight.get(key);
+    if (pending) return pending;
+    const p = fetchWaterForBbox(bbox, key, signal).finally(() => { inFlight.delete(key); });
+    inFlight.set(key, p);
+    return p;
+}
 
+/**
+ * §L-323 FIX B — the actual Overpass fetch for ONE bbox (same-origin proxy → direct-mirror
+ * fallback), shared via the `inFlight` map so concurrent callers dedupe to one request. Populates
+ * the in-memory `cache` on success. NEVER throws — any failure resolves to an empty collection.
+ */
+async function fetchWaterForBbox(
+    bbox: Bbox, key: string, signal?: AbortSignal,
+): Promise<ContextWaterCollection> {
     const query = overpassWaterQuery(bbox);
 
     // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the

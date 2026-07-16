@@ -33,6 +33,14 @@ export interface ContextRoadCollection {
 const PEDESTRIAN = new Set(['footway', 'path', 'steps', 'cycleway', 'pedestrian', 'track']);
 
 const cache = new Map<string, ContextRoadCollection>();
+/**
+ * §L-323 FIX B (SS-FIX-FORMA-SITE-SINGLE-EXPORT-AND-CONTEXT-CACHE) — per-bbox IN-FLIGHT promise
+ * cache, mirroring the buildings loader. Two consumers requesting the SAME bbox while a fetch is
+ * still running (e.g. the 3D Forma context + the 2D map context, or a rapid globe↔forma re-entry)
+ * share the ONE pending Overpass request instead of racing a duplicate POST that only feeds the
+ * public mirrors' 429 rate limiter.
+ */
+const inFlight = new Map<string, Promise<ContextRoadCollection>>();
 let warnedOnce = false;
 
 function bboxKey(b: Bbox): string { return 'roads:' + b.map((n) => n.toFixed(4)).join(','); }
@@ -80,7 +88,22 @@ export async function fetchContextRoads(
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
+    // §L-323 FIX B — share ONE in-flight request per bbox across concurrent consumers.
+    const pending = inFlight.get(key);
+    if (pending) return pending;
+    const p = fetchRoadsForBbox(bbox, key, signal).finally(() => { inFlight.delete(key); });
+    inFlight.set(key, p);
+    return p;
+}
 
+/**
+ * §L-323 FIX B — the actual Overpass fetch for ONE bbox (same-origin proxy → direct-mirror
+ * fallback), shared via the `inFlight` map so concurrent callers dedupe to one request. Populates
+ * the in-memory `cache` on success. NEVER throws — any failure resolves to an empty collection.
+ */
+async function fetchRoadsForBbox(
+    bbox: Bbox, key: string, signal?: AbortSignal,
+): Promise<ContextRoadCollection> {
     const query = overpassRoadQuery(bbox);
 
     // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the
