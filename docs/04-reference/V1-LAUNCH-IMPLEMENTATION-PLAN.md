@@ -3545,6 +3545,24 @@ Links: L-379, L-379a–d; ties L-374g/L-374d. Owner UNASSIGNED. Target: beta (P0
 **Effort:** ~5–7 dev-weeks to ONE working pilot (Barcelona: parcel-click → envelope in plan). +2–3 wk per municipality; +1–1.5 wk per new-country parcel source. The long tail is **zoning curation**, not code. **September:** this is post-launch strategic — build after the launch-blocking backlog; nothing here touches L-334/360/335/361/372/377.
 Links: L-380, L-380a–e. Owner UNASSIGNED. Target TBD. **Awaiting founder sign-off: (1) V1-pillar vs Phase-B; (2) Terrara buy-vs-build.**
 
+## L-381 — Element-creation pipeline unification (bring every element to the walls/curtain-walls gold standard)
+**Severity:** P2 (architecture / consistency tech-debt; NOT launch-blocking — generation works post-L-376d). **Queue:** pipeline / tech-debt. **Contracts:** C11 §2/§5/§11, C16 §3.2/§8, ADR-0055. Full audit + matrix: docs/04-reference/ELEMENT-PIPELINE-SOUNDNESS-AUDIT.md. **Status: OPEN — plan authored, not started.**
+
+> **Gold standard (target for every element).** Bus `*.batch.create` handler + `CommandEventBridge` one-`*.created`-per-element fan-out + initTools render bridge (mirror to legacy store/builder) + one batch command per level in the executors. Reference impl = Wall + Curtain-Wall. **Undo is already uniform** (L-376d §GEN-UNDO-COALESCE coalesces all legacy creates to one entry) — so this migration is purely RENDER-PATH consistency + true bus batching, done PER-ELEMENT behind a geometry-identical + one-undo verify gate. **CRITICAL ordering (the L-376d lesson): the render bridge MUST land BEFORE the batch handler is dispatched, else the element stops rendering.** Incrementally launch-safe.
+
+| Phase | Sub-phase | Work | Effort | Dep | Verify gate |
+|---|---|---|---|---|---|
+| **P1 — Stairs + Lifts (L-381a, highest value)** | 1.1 | Resolve the silent-stub trap: **register the real `registerStairHandlers()`** (the complete tested set incl. `CreateStairBatchHandler`) at the composition root, OR delete the dead no-op stub (initBusHandlers.ts:159). **[human decision]** | S | none | `stair.batch.create` is real, not a no-op. |
+| | 1.2 | Add the stair render bridge (CEB `stair.created` + initTools mirror) so bus-created stairs render — BEFORE routing dispatch to the bus. Cover stair-railing + stair-landing sub-elements. | M | 1.1 | Bus-created stair renders identically (geometry + railings + landings). |
+| | 1.3 | Give **lift/verticalCirculation** a bus surface (batch command + handler + render bridge — none exists today). | M | none | Bus-created lift renders identically. |
+| | 1.4 | Route the resi/office/house executors to the stair/lift bus batch commands (one per level). | S | 1.2/1.3 | Office 78 stairs + 80 lifts via bus; identical building + rooms + one undo. |
+| **P2 — Roof/Floor batch fan-out + executor convergence (L-381b)** | 2.1 | Point the executors at the gold slab/CW batch commands they currently bypass; add batch fan-out to roof (near-gold). | S | none | Slab/roof via gold batch; identical geometry. |
+| | 2.2 | Floor batch fan-out (full floor dual-command retirement, C11 §5.4.3, DEFERRED — blocked on plugin-store residency). | — | deferred | (post-launch) |
+| **P3 — Handrail/Lighting + doc-sync (L-381c)** | 3.1 | Add batch fan-out to handrail + lighting; **correct the STALE C11 §11 element matrix** (Handrail/Furniture rows say LEGACY-ONLY but were bridged §7.0). | S | none | C11 §11 matrix matches code; handrail/lighting batched. |
+
+**Per-element verify gate (every migration):** generate resi + office → identical building geometry + rooms + railings/landings, ONE undo unit, no render regression. Incrementally launch-safe; touches NONE of persistence/collab/WebGPU/gen-perf. **Human decisions:** (a) register-real-handlers vs delete-dead-stub for stairs; (b) lift as first-class bus element (scope); (c) room-bounding-line bus-ify vs treat as derived; (d) floor dual-command retirement (deferred).
+Links: L-381, L-381a–c. Owner UNASSIGNED. Target TBD. Governance: C11/C16 Known-Debt note (dead registerStairHandlers + lift-no-bus-surface).
+
 ## L-375a — Wire CRDT applier through the composition root
 **Severity:** P2 (collab correctness + P1/P4 regression). **Queue:** runtime-composer/command-bus. **Contracts:** C08 §3.1, G3-T2; P1, P4. **Root:** composed runtime (composeRuntime.ts:1463-1548) has no `inner` property; engineLauncher.ts:825 `(runtime as any).inner.bus` is always undefined. **Fix:** wire setCrdtApplier inside composeRuntime() (owns inner.bus) OR add typed bus.setCrdtApplier slot; remove the any reach-through; fix stale marker tests/e2e/crdt-batch-conflict.spec.ts:15. **Status: OPEN.**
 
