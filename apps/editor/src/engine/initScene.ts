@@ -79,6 +79,7 @@ import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
 import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
 import { probeRendererBackend, createRenderer, setRendererBackendPreference, getRendererBackendPreference } from '../rendering/createRenderer';
 import type { RendererBackendPreference } from '../rendering/createRenderer';
+import { maybeAutoSwitchToWebGLForHeavyScene } from '../rendering/autoWebGLHeavyScene';
 // ADR-0077 (§RENDERER-LIVE-SWAP) — OTel span for the live backend swap (C01 P8).
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 // §PERF-WEBGPU-FRAGMENT / ADR-0076 — user-facing GPU backend corner toggle.
@@ -2367,6 +2368,19 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 }
             } catch (tierErr) {
                 console.warn('[initScene] §PERF-WEBGPU-FRAGMENT per-event tier apply error:', tierErr);
+            }
+            // §AUTO-WEBGL-HEAVY (ADR-0267, L-362) — the residential-building pipeline adds its
+            // geometry OUTSIDE batchCoordinator batches, so its heaviness only ever surfaces on
+            // THIS per-add tier pass (the batch GPU-compile-start hook never fires for it). As the
+            // scene crosses the device-loss-risk threshold, proactively live-swap Auto→WebGL once
+            // (before the WebGPU PSO storm that TDRs the device on some GPUs, L-361). No-op on
+            // light scenes / explicit backends / non-WebGPU / after the first swap. Rendering is
+            // live here (no batch suppress), so this is an ordinary live swap — the same path the
+            // corner toggle uses. Best-effort.
+            try {
+                maybeAutoSwitchToWebGLForHeavyScene(scene, `tier:${reason}`);
+            } catch (autoWebGlErr) {
+                console.warn('[initScene] §AUTO-WEBGL-HEAVY guard error (non-fatal):', autoWebGlErr);
             }
             // §REVERT-SHADOW-TO-KNOWN-GOOD (L-205) — no WebGPU ScenePass rebuild is triggered
             // on new geometry, here or anywhere. The first-caster rebuild seam was reverted:

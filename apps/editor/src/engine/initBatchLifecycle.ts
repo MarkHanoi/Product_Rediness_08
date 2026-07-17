@@ -2,6 +2,7 @@ import { InstancedMeshCoalescer } from '@pryzm/scene-committer';
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { unifiedFrameLoop } from '@pryzm/core-app-model';
 import { getLoadingOverlay, type LoadingSession } from '@app/ui/overlays/LoadingOverlayController';
+import { maybeAutoSwitchToWebGLForHeavyScene } from '@app/rendering/autoWebGLHeavyScene';
 import {
     accumulateBatchProgress,
     batchPhaseLabel,
@@ -108,6 +109,19 @@ export function initBatchLifecycle(params: { world: any }): void {
         });
 
         batchCoordinator.setGpuCompileStartCallback(() => {
+            // §AUTO-WEBGL-HEAVY (ADR-0267, L-362) — the batch geometry is now fully in the
+            // scene and rendering is still SUPPRESSED (this fires BEFORE endBatchRenderSuppress),
+            // so this is the LAST moment before the heavy WebGPU PSO-compile storm that TDRs the
+            // device on some GPUs (L-361). If the scene is device-loss-risk AND the backend is in
+            // Auto mode on a real WebGPU device, proactively live-swap to WebGL now — the swap's
+            // synchronous prefix stops the rAF loop before any further WebGPU frame renders, so
+            // the PSO storm never reaches the doomed device. No-op on light scenes / explicit
+            // backends / non-WebGPU / after the first swap. Best-effort — never disrupt the batch.
+            try {
+                maybeAutoSwitchToWebGLForHeavyScene(world?.scene?.three, 'gpu-compile-start');
+            } catch (e) {
+                console.warn('[initBatchLifecycle] §AUTO-WEBGL-HEAVY guard error (non-fatal):', e);
+            }
             // §FIX-GPU-COMPILE-LABEL — say what is happening on the LAST painted frame before
             // the WebGPU PSO LONGTASK blocks the main thread.
             try {

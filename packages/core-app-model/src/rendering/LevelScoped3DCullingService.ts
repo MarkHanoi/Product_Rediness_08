@@ -169,8 +169,15 @@ const HUGE_MODEL_ELEMENT_THRESHOLD = 4000;
 /**
  * True when a model is at genuine device-loss-risk scale and the service should
  * auto-escalate to massing LOD. A modest building returns false → full detail (L-164).
+ *
+ * EXPORTED as the single source of truth for the "heavy / device-loss-risk scene"
+ * signal. Besides this service's massing auto-escalation, the Auto-mode proactive
+ * WebGL fallback (ADR-0267, §AUTO-WEBGL-HEAVY, L-362) reuses this EXACT predicate so
+ * the two never disagree on what "heavy" means. Callers MUST feed it the same
+ * top-level-element count semantics this file uses (see {@link LevelScoped3DCullingService}
+ * `_elementCount`) so the thresholds stay calibrated.
  */
-function isHeavyModel(levelCount: number, elementCount: number): boolean {
+export function isHeavyModel(levelCount: number, elementCount: number): boolean {
     return (
         (levelCount >= HEAVY_MODEL_LEVEL_THRESHOLD && elementCount >= HEAVY_MODEL_ELEMENT_THRESHOLD) ||
         elementCount >= HUGE_MODEL_ELEMENT_THRESHOLD

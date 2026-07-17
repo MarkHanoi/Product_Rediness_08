@@ -3298,3 +3298,18 @@ Gates the L-353 / L-355 / L-356 downstream work. No target date tied to launch.
 | **P3 — Graceful terminal (keep)** | §GPU-DISABLED-GRACEFUL-BOOT overlay already correct; a page refresh does NOT clear the browser GPU lock — only a full browser restart. | Correct as-is |
 | **Follow-up (out of this fence)** | `GLBExporter.getGlass()` (`transmission:0.85`) also lacks the finite clamp — OFFLINE export path, not the live WebGPU renderer, so no device-loss during editing. Route through `transmissionSafe()` when file-format is next touched. Also: consolidate `ClearcoatMaterialUpgrader`'s private `FINITE_ATTENUATION_DISTANCE` onto the shared constant. | Backlog |
 | **Workaround (now)** | WebGL backend for batch generation on this Windows box — but a full browser CLOSE is required first if a prior WebGPU crash already locked the tab's GPU (§L-324 terminal state). | — |
+
+## L-362 — Auto-WebGL fallback for heavy scenes (Auto backend mode) — SS-AUTO-WEBGL-FALLBACK-HEAVY-SCENES
+**Severity:** P0 mitigation (for L-361). **Queue:** render/renderer-three. **Contracts:** C04 §1.4, C10. **Decision:** ADR-0267. **Reuses:** ADR-0077 live-swap + ADR-0076 toggle. **Complements:** ADR-0089 recovery. **Status: IMPLEMENTED — awaiting live WebGPU confirmation.**
+
+> **Approach.** Founder-approved: stop sending heavy scenes to WebGPU on hardware that TDRs on the heavy PSO storm (L-361) instead of chasing per-trigger seeds. Change ONLY the adaptive **Auto** mode; explicit WebGPU / WebGL are always respected; the reactive device-loss recovery (ADR-0089) stays as the net.
+
+| Phase | Work | Status |
+|---|---|---|
+| **P1 — Shared heuristic** | Export `isHeavyModel(levelCount, elementCount)` from `LevelScoped3DCullingService` (≥ 15 levels AND ≥ 1000 elems, OR ≥ 4000 elems) as the single source of truth for "device-loss-risk", reused verbatim by the swap guard. | **DONE** |
+| **P2 — Proactive swap guard** | New `apps/editor/src/rendering/autoWebGLHeavyScene.ts` → `maybeAutoSwitchToWebGLForHeavyScene(scene, reason)`: gates Auto-only + real-WebGPU (`status.webGpuActive`) + `isHeavyModel` + once-per-session (module guard set before the async swap, mirrored to `globalThis.__pryzmAutoSwappedToWebGL`), then fires the existing `window.pryzmSwapRendererBackend('webgl')`. P8 span `pryzm.renderer.auto-webgl-heavy`. | **DONE** |
+| **P3 — Batched hook (proactive)** | Call the guard from `BatchCoordinator.setGpuCompileStartCallback` (`initBatchLifecycle.ts`) — fires with the scene fully populated but BEFORE `endBatchRenderSuppress` / any render; the swap's synchronous loop-stop beats the WebGPU PSO storm. Covers office / apartment / CW / slab. | **DONE** |
+| **P4 — Non-batched hook** | Call the guard from `runTierPbrPass` (`initScene.ts`) — the residential-building pipeline adds geometry outside batches, so its heaviness only surfaces on the per-add tier pass (an ordinary live swap; rendering is live). | **DONE** |
+| **P5 — Explicit-override respect** | `pref === 'webgpu'` on a heavy scene logs a one-time "respecting override, NOT switching" warning and never swaps. `pref === 'webgl'` / WebGL2-fallback → no-op. | **DONE** |
+| **P6 — Docs** | ADR-0267; C04 §1.4 Known-behavior amendment; L-362 audit + this plan entry. | **DONE** |
+| **Verify (live)** | Founder's WebGPU box: Auto + heavy resi/office batch → one `§AUTO-WEBGL-HEAVY` swap → renders clean on WebGL; explicit WebGPU → override honoured (may still device-loss → recovery net); light scene → stays WebGPU. **Not marked Fixed until confirmed.** | Pending |
