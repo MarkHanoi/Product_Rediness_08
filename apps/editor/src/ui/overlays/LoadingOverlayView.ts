@@ -23,6 +23,17 @@
  *     producer can supply just as honestly. Behaviour for the batch is unchanged.
  *   • The phase→label map is BATCH vocabulary; it moved to `loadingProgress.ts`.
  *
+ * §L-385 UNIFIED-LOADING-AESTHETIC (2026-07-17) — the founder asked for ONE calm,
+ * brand-forward loading look everywhere: the ROTATING PRYZM PRISM floating directly
+ * over the translucent backdrop with just text beneath it — the exact aesthetic already
+ * shipped by RendererSwapOverlay / EngineLoadingOverlay (and the crash-recovery flow).
+ * The frosted WHITE CARD + the grey placeholder TILE that used to box the prism are
+ * gone. NOTHING about the state machine changed — this is a pure VISUAL-CHROME swap on
+ * the ONE surface, so every producer (batch, view-activation, building-generation)
+ * inherits the new look automatically. The prism now reads on its own because the
+ * backdrop is the same translucent-white scrim RendererSwapOverlay floats it on (the
+ * grey tile only existed to give a white prism contrast on a solid-white card).
+ *
  * WHAT STAYED (hard-won, do not regress):
  *   • §FIX-PYRAMID-ANIM / §PRYZM-LOGO-SPINNER — a CSS 3-D prism (compositor thread),
  *     never frozen by the 100 ms–20 s main-thread LONGTASKs a batch or a Cesium tile
@@ -388,7 +399,11 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 pointer-events: all;
             }
 
-            /* Centered card — sits above the backdrop */
+            /* §L-385 — NO CARD. A transparent, centered COLUMN that floats the rotating
+               prism directly over the translucent backdrop with the text beneath it,
+               matching RendererSwapOverlay / EngineLoadingOverlay. The fixed-centre
+               position + the scale/opacity entrance-and-exit transitions are unchanged
+               (show()/hide() still drive transform: translate(-50%,-50%) scale(...)). */
             .pryzm-loading-overlay {
                 position: fixed;
                 top: 50%;
@@ -397,54 +412,50 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 z-index: 88888;
                 display: none;
                 opacity: 0;
+                flex-direction: column;
                 align-items: center;
-                gap: 22px;
-                padding: 26px 32px;
-                background: #ffffff;
-                border-radius: 20px;
-                box-shadow:
-                    0 12px 56px rgba(10, 6, 30, 0.24),
-                    0 2px 10px rgba(10, 6, 30, 0.12),
-                    inset 0 0 0 1px rgba(10, 6, 30, 0.05);
+                justify-content: center;
+                gap: 0;
+                padding: 0;
+                background: transparent;
+                border-radius: 0;
+                box-shadow: none;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                              Helvetica, Arial, sans-serif;
                 user-select: none;
                 pointer-events: none;
+                text-align: center;
                 transition:
                     opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1),
                     transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-                min-width: 340px;
-                max-width: 440px;
+                width: min(440px, 86vw);
             }
 
-            /* A very light NEUTRAL tile so the WHITE-faced prism reads on the white card. */
+            /* §L-385 — the prism floats free (grey placeholder tile removed); scaled up
+               for hero presence over the scrim, its own purple drop-shadow (baked into
+               the shared spinner) gives it lift on the translucent-white backdrop. */
             .pryzm-loading-overlay__spinner {
                 flex-shrink: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 74px;
-                height: 74px;
-                border-radius: 16px;
-                background:
-                    radial-gradient(ellipse at 32% 30%, #f6f7f9 0%, transparent 62%),
-                    #e4e6ec;
-                box-shadow: inset 0 0 0 1px rgba(10, 6, 30, 0.05);
-                filter: drop-shadow(0 2px 6px rgba(10, 6, 30, 0.12));
+                transform: scale(1.85);
+                transform-origin: center center;
+                margin-bottom: 46px;
+                overflow: visible;
             }
 
             .pryzm-loading-overlay__text {
                 display: flex;
                 flex-direction: column;
-                gap: 6px;
-                flex: 1;
+                align-items: center;
+                gap: 7px;
+                width: 100%;
                 min-width: 0;
             }
             .pryzm-loading-overlay__title {
-                font-size: 15px;
+                font-size: 16px;
                 font-weight: 700;
-                color: #0a0616;
+                color: #1a1130;
                 letter-spacing: -0.01em;
+                max-width: 100%;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -454,11 +465,12 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 font-weight: 500;
                 color: #5a5f70;
                 letter-spacing: 0.005em;
+                max-width: 100%;
             }
             .pryzm-loading-overlay__note {
                 font-size: 11px;
                 font-weight: 500;
-                color: #9095a8;
+                color: #8b7fb0;
                 letter-spacing: 0.04em;
                 min-height: 13px;
                 font-variant-numeric: tabular-nums;
@@ -467,21 +479,23 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                margin-top: 6px;
+                margin-top: 16px;
+                width: min(240px, 62vw);
             }
+            /* §LOADING-REAL-PROGRESS — thin brand-purple bar (was neutral grey). */
             .pryzm-loading-overlay__track {
                 flex: 1;
-                height: 4px;
-                background: rgba(10, 6, 30, 0.08);
+                height: 3px;
+                background: rgba(102, 0, 255, 0.14);
                 border-radius: 999px;
                 overflow: hidden;
             }
             .pryzm-loading-overlay__bar {
                 height: 100%;
                 width: 0%;
-                background: linear-gradient(90deg, #6b7080 0%, #3a3e4a 100%);
+                background: linear-gradient(90deg, #8B5CF6 0%, #6600FF 100%);
                 border-radius: inherit;
-                box-shadow: 0 0 6px rgba(10, 6, 30, 0.18);
+                box-shadow: 0 0 8px rgba(102, 0, 255, 0.40);
             }
             .pryzm-loading-overlay__pct {
                 flex-shrink: 0;
@@ -489,7 +503,7 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 text-align: right;
                 font-size: 11px;
                 font-weight: 600;
-                color: #5a5f70;
+                color: #6600FF;
                 letter-spacing: 0.02em;
                 font-variant-numeric: tabular-nums;
             }
@@ -504,7 +518,8 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             .pryzm-loading-overlay__actions {
                 display: none;
                 gap: 8px;
-                margin-top: 10px;
+                margin-top: 18px;
+                justify-content: center;
             }
             .pryzm-loading-overlay__btn {
                 appearance: none;
