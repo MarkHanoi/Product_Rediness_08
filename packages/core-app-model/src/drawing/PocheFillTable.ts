@@ -190,7 +190,7 @@ export function wallLayerPocheToneFactor(
     layerFunction: string | undefined | null,
     tieOrdinal = 0,
 ): number {
-    const base = (layerFunction && WALL_LAYER_POCHE_TONE_FACTOR[layerFunction])
+    const base = (layerFunction ? WALL_LAYER_POCHE_TONE_FACTOR[layerFunction] : undefined)
         ?? WALL_LAYER_POCHE_TONE_FALLBACK;
     return _clamp(base * (1 - TIE_STEP * tieOrdinal), MIN_FACTOR, MAX_FACTOR);
 }

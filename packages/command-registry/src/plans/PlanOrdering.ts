@@ -9,7 +9,9 @@ import { CommandProposal, CommandType } from '../types';
  * 4. Deletions last (ensure refs remain valid during plan)
  */
 export class PlanOrdering {
-    private static readonly TYPE_PRIORITY: Record<CommandType, number> = {
+    // Partial: not every CommandType needs an explicit priority — the consumer
+    // (sortSteps) falls back to 999 for any unlisted type (see `?? 999` below).
+    private static readonly TYPE_PRIORITY: Partial<Record<CommandType, number>> = {
         [CommandType.CREATE_LEVEL]: 10,
         [CommandType.CREATE_GRID]: 11,
         [CommandType.CREATE_GRID_SYSTEM]: 11,
