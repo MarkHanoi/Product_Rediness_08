@@ -3570,6 +3570,19 @@ Links: L-381, L-381a–c. Owner UNASSIGNED. Target TBD. Governance: C11/C16 Know
 - **Ties:** L-380 (C57/C58 parcel/zoning), L-374 (C12-CONTEXT-ENGINE, terrain L-374b, LOD2 L-374c). **Human decisions: engineering-context-vs-Forma-abstract default; PostGIS GPLv2 sign-off; serve-in-house scope; tyler license.**
 Links: L-383, L-383a–e; ties L-380, L-374. Owner UNASSIGNED. Target TBD.
 
+## L-384 — Onboarding boundary-draw needs undo/redo/ESC/BACK + step-progress affordances (forward-compatible with parcel-select)
+**Severity:** P1 (UX, primary onboarding path). **Queue:** geospatial / site-authoring UX. **Contracts:** C06 §7 (UI/launcher); C18/C19 (site); **coverage gap — no contract governs onboarding step-machine UX** (log to MISSING-CONTRACTS). **Cross-ref:** ties L-380/L-383 parcel-select (shared affordances). **Status: OPEN — routed to Pipeline B worktree.**
+
+> **Approach.** The site-authoring step (draw boundary today; parcel-SELECT tomorrow) must expose consistent edit affordances: **ESC to cancel the in-progress draw, BACK to the previous onboarding step, undo/redo of boundary vertices, and re-draw** (re-arm the draw after a committed boundary). The boundary is currently a C19 §1.4 immutable one-shot (`siteSetParcelBoundary`) — re-draw needs a clean re-arm/clear path (clear the committed boundary → re-enter draw), NOT a mutation of the immutable one. Build the affordances on the shared site-authoring step so the parcel-SELECT flow reuses them (one edit surface, two input modes: draw | select). Restore the "step N/4" progress indicator. Correct fix = the onboarding step-machine + `SiteBoundaryMap2D` gain a proper edit/undo/back state (UI layer only — no server/schema); the shortcut (a lone "clear" button) is NOT recommended because it doesn't give BACK/step-navigation or reuse for parcel-select.
+
+| Phase | Work | Effort | Verify gate |
+|---|---|---|---|
+| 1 | ESC cancels in-progress draw; re-arm draw after a committed boundary (clear → re-enter, respecting the C19 one-shot immutability via a clear-then-recreate path). | S | Mis-drawn boundary can be cleared + re-drawn without abandoning the flow. |
+| 2 | BACK button on each onboarding step (draw → back to location; generate-config → back to draw); restore the "step N/4" progress affordance. | S | User can step backward through onboarding; progress shown. |
+| 3 | Undo/redo of boundary vertices during draw (Ctrl+Z/Y or on-screen). | S | Vertex undo/redo works during draw. |
+| 4 | Structure the step so parcel-SELECT (L-380 P1) plugs in as a second input MODE sharing the same edit/undo/back surface. | S | Select-mode (when built) reuses the affordances; no one-off. |
+Links: L-384; ties L-380/L-383. Owner UNASSIGNED. Target TBD. Route: Pipeline B (site-authoring worktree).
+
 ## L-375a — Wire CRDT applier through the composition root
 **Severity:** P2 (collab correctness + P1/P4 regression). **Queue:** runtime-composer/command-bus. **Contracts:** C08 §3.1, G3-T2; P1, P4. **Root:** composed runtime (composeRuntime.ts:1463-1548) has no `inner` property; engineLauncher.ts:825 `(runtime as any).inner.bus` is always undefined. **Fix:** wire setCrdtApplier inside composeRuntime() (owns inner.bus) OR add typed bus.setCrdtApplier slot; remove the any reach-through; fix stale marker tests/e2e/crdt-batch-conflict.spec.ts:15. **Status: OPEN.**
 
