@@ -1382,6 +1382,23 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         inner.bus.setRingBuffer(rb);
       },
       /**
+       * L-375a (G3-T2 wiring fix) — forward the CRDT applier to the underlying
+       * CommandBus (`inner.bus`, the single composition-root-owned instance).
+       *
+       * `inner` is a compose-local const and is deliberately NOT placed on the
+       * runtime handle, so the app layer cannot (and must not) reach `inner.bus`
+       * directly. The prior code did `(runtime as any).inner.bus.setCrdtApplier`
+       * which always read `undefined` (no `inner` on the handle) and silently
+       * skipped wiring — leaving real-time replication (C08 §3.1 / G3-T2) off.
+       * This typed forwarder is the P1/P4-clean seam: the composition root owns
+       * the bus, and the app calls a typed method on the public surface.
+       */
+      setCrdtApplier(
+        fn: (type: string, payload: Record<string, unknown>) => void,
+      ): void {
+        inner.bus.setCrdtApplier(fn);
+      },
+      /**
        * §U-B1 (DAILY-USE-AUDIT 2026-05-20) — clear BOTH undo stacks. Called by
        * `ProjectLifecycleController` on project switch and by `ProjectLoader`
        * after `commandManager.clearHistory()` on project load. Without this,

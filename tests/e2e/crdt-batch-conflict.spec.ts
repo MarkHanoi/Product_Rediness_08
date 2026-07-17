@@ -12,7 +12,13 @@
 //
 // G3 task map (reference for completeness):
 //   G3-T1: isBatchBlackoutActive observable (YjsDocAdapter — ✅ code)
-//   G3-T2: CRDT applier wired to CommandBus setCrdtApplier (✅ engineLauncher.ts L388)
+//   G3-T2: CRDT applier wired to CommandBus setCrdtApplier via the typed
+//          composition-root bus surface — `runtime.bus.setCrdtApplier(...)`
+//          in engineLauncher.ts `wireCollaborationCRDT` (see the `setCrdtApplier`
+//          call in that closure, ~L825). L-375a fixed the prior broken wiring:
+//          it reached `(runtime as any).inner.bus`, which is always `undefined`
+//          (the composed handle has no `inner` field), so the applier was never
+//          attached and CommandBus._crdtApplier stayed null. (✅ code)
 //   G3-T3: _detectBatchConflicts wired to onBatchWindowClose callback (✅ YjsDocAdapter.ts L681)
 //   G3-T4: BatchPatchCompactor snapshot in PatchSnapshot.ts (✅ code)
 //   G3-T5: THIS FILE — E2E verification of the live wired path.

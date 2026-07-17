@@ -3412,6 +3412,27 @@ export interface PryzmRuntime {
     readonly ringBuffer: RingBufferUndoStack | null;
     setRingBuffer(rb: RingBufferUndoStack): void;
     /**
+     * L-375a (G3-T2 wiring fix) — attach the CRDT applier to the underlying
+     * CommandBus through the composition root's public bus surface.
+     *
+     * The applier closure (`(type, payload) => yjsDocAdapter.applyCommand(...)`)
+     * genuinely depends on an app-layer object: the `YjsDocAdapter` is
+     * constructed at boot in `engineLauncher.ts` from `window.currentProjectId`
+     * and registered on the `batchCoordinator`, neither of which exists at
+     * `composeRuntime()` time. This typed setter forwards to
+     * `CommandBus.setCrdtApplier()` so the app can wire it WITHOUT reaching into
+     * runtime internals (previously `(runtime as any).inner.bus`, a P4 violation
+     * that always read `undefined` because the handle has no `inner` field).
+     *
+     * Mirrors `setRingBuffer` above (lazy post-construction wiring). Null-safe:
+     * until this is called `CommandBus._crdtApplier` stays null and solo editing
+     * is unaffected (C08 §3.1 — CRDT wiring is additive, never load-bearing for
+     * local execution).
+     */
+    setCrdtApplier(
+      fn: (type: string, payload: Record<string, unknown>) => void,
+    ): void;
+    /**
      * §U-B1 (DAILY-USE-AUDIT 2026-05-20) — wipe BOTH the RingBufferUndoStack
      * and the legacy command-bus UndoStack. Called by `ProjectLifecycleController`
      * on project switch and by `ProjectLoader` after `commandManager.clearHistory()`

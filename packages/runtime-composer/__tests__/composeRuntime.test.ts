@@ -138,6 +138,7 @@ async function stubBootstrapFn(_opts: { audit: RuntimeAudit }): Promise<{
       registry: new Map<string, unknown>(),
       patches: { subscribe: vi.fn(() => () => undefined) },
       setRingBuffer: vi.fn(),
+      setCrdtApplier: vi.fn(),
       get ringBuffer() { return null; },
       fetchStores: vi.fn(() => ({})),
     },
@@ -231,5 +232,81 @@ describe('composeRuntime() — composition root (W8-D6)', () => {
   // ── Test 5 ──────────────────────────────────────────────────────────────
   it('tools.activeToolId is null before any tool activation', () => {
     expect(runtime.tools.activeToolId).toBeNull();
+  });
+});
+
+// ── §4 L-375a — CRDT applier wiring seam (G3-T2, C08 §3.1) ────────────────
+//
+// Regression guard for L-375a: the composition root exposes a TYPED
+// `runtime.bus.setCrdtApplier(fn)` that forwards to the underlying CommandBus
+// (`inner.bus.setCrdtApplier`). The app layer (engineLauncher.ts) wires the
+// YjsDocAdapter applier through this seam — no `(runtime as any).inner.bus`
+// reach-through (the old broken path always read `undefined` because the
+// composed handle has no `inner` field, so the applier was never attached and
+// real-time replication was silently off).
+describe('composeRuntime() — CRDT applier wiring seam (L-375a)', () => {
+  it('runtime.bus.setCrdtApplier forwards to the underlying CommandBus setCrdtApplier', async () => {
+    // A bootstrapFn whose inner bus spy we can inspect after composition.
+    const innerSetCrdtApplier = vi.fn();
+    async function capturingBootstrapFn(_opts: {
+      audit: RuntimeAudit;
+    }): Promise<{
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      bus: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      host: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      viewRegistry: any;
+      tearDown(): void;
+    }> {
+      const { ViewRegistry } = await import('@pryzm/view-state');
+      return {
+        bus: {
+          executeCommand: vi.fn(() => undefined),
+          register: vi.fn(() => undefined),
+          registry: new Map<string, unknown>(),
+          patches: { subscribe: vi.fn(() => () => undefined) },
+          setRingBuffer: vi.fn(),
+          setCrdtApplier: innerSetCrdtApplier,
+          get ringBuffer() { return null; },
+          fetchStores: vi.fn(() => ({})),
+        },
+        host: { register: vi.fn(), commit: vi.fn() },
+        viewRegistry: new ViewRegistry(),
+        tearDown: vi.fn(),
+      };
+    }
+
+    const runtime = await composeRuntime({
+      audit: AUDIT,
+      bootstrapFn: capturingBootstrapFn,
+    });
+
+    // The typed public method exists on the bus slot (no `as any` needed).
+    expect(typeof runtime.bus.setCrdtApplier).toBe('function');
+
+    // Calling it forwards the exact applier fn to the inner CommandBus.
+    const applier = (
+      _type: string,
+      _payload: Record<string, unknown>,
+    ): void => undefined;
+    runtime.bus.setCrdtApplier(applier);
+
+    expect(innerSetCrdtApplier).toHaveBeenCalledTimes(1);
+    expect(innerSetCrdtApplier).toHaveBeenCalledWith(applier);
+
+    runtime.tearDown();
+  });
+
+  it('the runtime handle exposes NO `inner` field (the old any.inner.bus reach is impossible)', async () => {
+    const runtime = await composeRuntime({
+      audit: AUDIT,
+      bootstrapFn: stubBootstrapFn,
+    });
+    // L-375a root cause: `inner` is a compose-local const, never placed on the
+    // handle. Asserting its absence prevents any future reintroduction of the
+    // `(runtime as any).inner.bus` reach-through (P4).
+    expect((runtime as unknown as { inner?: unknown }).inner).toBeUndefined();
+    runtime.tearDown();
   });
 });

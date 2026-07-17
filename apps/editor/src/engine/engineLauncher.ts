@@ -818,19 +818,26 @@ export async function bootstrap(
             (window as { currentProjectId?: string }).currentProjectId ?? 'pryzm-project',
         );
         batchCoordinator.registerYjsDocAdapter(_yjsDocAdapter);
-        // runtime.inner.bus is the CommandBus instance (types.ts Slot 3).
-        // The PryzmRuntime public interface narrows bus to { executeCommand, register,
-        // registry } — cast through `any` to reach the full CommandBus API without
-        // widening the public contract (same pattern as setRingBuffer in composeRuntime).
-        const _innerBus = (runtime as any)?.inner?.bus; // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (_innerBus && typeof _innerBus.setCrdtApplier === 'function') {
-            _innerBus.setCrdtApplier(
+        // L-375a — wire the CRDT applier through the composition root's typed
+        // public bus surface (`runtime.bus.setCrdtApplier`), which forwards to
+        // the underlying CommandBus instance owned by composeRuntime (P1).
+        //
+        // The previous code reached `(runtime as any).inner.bus` — a P4 violation
+        // that ALSO never worked: the composed runtime handle has no `inner`
+        // field (`inner` is a compose-local const), so the read was always
+        // `undefined`, the warn below fired every boot, and `setCrdtApplier` was
+        // never called → CommandBus._crdtApplier stayed null → real-time
+        // replication (C08 §3.1 / G3-T2) was silently off for multi-user edits.
+        // Solo editing was unaffected then and remains unaffected now (the
+        // applier is null-safe; this only ADDS the remote-replication leg).
+        if (runtime && typeof runtime.bus.setCrdtApplier === 'function') {
+            runtime.bus.setCrdtApplier(
                 (type: string, payload: Record<string, unknown>) =>
                     _yjsDocAdapter.applyCommand(type, payload),
             );
             console.log('[EngineBootstrap] G3-T2: CRDT applier wired → YjsDocAdapter');
         } else {
-            console.warn('[EngineBootstrap] G3-T2: runtime.inner.bus not accessible — CRDT applier not wired');
+            console.warn('[EngineBootstrap] G3-T2: runtime.bus.setCrdtApplier not accessible — CRDT applier not wired');
         }
 
         // ── §S-B1 (DAILY-USE-AUDIT 2026-05-20) — wire P8 conflict-disclosure UI ──
