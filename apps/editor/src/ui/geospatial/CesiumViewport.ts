@@ -1011,6 +1011,16 @@ export class CesiumViewport {
    */
   public hasRealTileProvider(): boolean {
     try {
+      // §L-371 — Forma massing mode ALWAYS renders its own flat neutral ground (keyless
+      // ellipsoid, imagery layer hidden, no photoreal/terrain tileset streaming), so tiles
+      // NEVER reach "loaded" here. This MUST be checked FIRST: a prior globe view leaves
+      // `photorealTilesActive === true` (it is not reset on Forma re-entry), and the old order
+      // returned that stale `true` before considering the mode → the readiness tiles-gate stayed
+      // armed and stalled 25 s with a bogus "map tiles stopped streaming" on a Forma study that
+      // is actually ready (the intermittent L-371 false-timeout; skips correctly only when the
+      // probe happened to run with the stale flag already cleared). Forma mode is the
+      // authoritative "there will never be streaming tiles" signal.
+      if (this.formaMode) return false;
       if (this.photorealTilesActive) return true;
       const globe = this.viewer?.scene?.globe as { show?: boolean } | undefined;
       return !!globe && globe.show !== false;

@@ -1427,15 +1427,28 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * `THREE.TSL: Invalid generated code, expected a "float"` still fires during
      * `_renderTransparents` PSO compile → WebGPU device loss. That is the transmission NODE GRAPH
      * itself generating invalid WGSL on three r183's WebGPU backend, independent of the floats.
-     * Removing `transmission` removes the node entirely (kept visibly glassy via opacity). WebGL
-     * never runs the TSL path, so `_webGpuActive` gates this off there — WebGL keeps refractive
-     * glass. `needsUpdate` forces the node material to rebuild WITHOUT the transmission node.
+     * Removing `transmission` removes the node entirely (kept visibly glassy via opacity).
+     * `needsUpdate` forces the node material to rebuild WITHOUT the transmission node.
      * Runs at every batch boundary so glass minted during a sub-batch is caught before the next
      * post-batch render. Idempotent (transmission already 0 → skipped).
+     *
+     * §L-361-FALLBACK-STILL-TSL (L-372) — the gate is the renderer CLASS, not `_webGpuActive`.
+     * A `WebGPURenderer` with `forceWebGL2` (backend 'webgl-fallback', the Auto-WebGL heavy-scene
+     * target) has `_webGpuActive===false` yet STILL node-compiles every material through the same
+     * TSL builder on its WebGL2 backend — so the transmission node (and its "expected a float"
+     * seed) survives the swap. Gating on `isWebGPURenderer` runs the neutralizer on BOTH the native
+     * WebGPU backend and the WebGL2-backed fallback (both node-compile), and correctly SKIPS a
+     * classic `THREE.WebGLRenderer` (backend 'webgl-only'), which has no node graph and keeps full
+     * refractive glass.
      */
     private _neutralizeTransmissionForWebGPU(): void {
         try {
-            if (!this._webGpuActive || !this._scene) return;
+            // Fire whenever the renderer node-compiles (native WebGPU OR WebGL2-backed
+            // WebGPURenderer). A plain THREE.WebGLRenderer (isWebGPURenderer falsy) has no TSL
+            // node graph → skip, keeping refractive glass.
+            const rendererNodeCompiles =
+                (this._renderer as { isWebGPURenderer?: boolean } | null)?.isWebGPURenderer === true;
+            if (!rendererNodeCompiles || !this._scene) return;
             const seen = new Set<string>();
             let neutralized = 0;
             this._scene.traverse((obj) => {
@@ -1459,8 +1472,9 @@ export class RenderPipelineManager implements IViewSwitchListener {
             if (neutralized > 0) {
                 console.warn(
                     `[RenderPipelineManager] §L-361-WEBGPU-TRANSMISSION-GUARD neutralized ${neutralized} ` +
-                    `transmission material(s) → opacity glass on WebGPU (transmission TSL node is the ` +
-                    `"expected a float" device-loss seed). WebGL keeps refractive glass.`,
+                    `transmission material(s) → opacity glass on the node-compiling renderer (native ` +
+                    `WebGPU or WebGL2-backed fallback — both emit the transmission TSL node, the ` +
+                    `"expected a float" device-loss seed). Classic WebGLRenderer keeps refractive glass.`,
                 );
             }
         } catch (err: unknown) {

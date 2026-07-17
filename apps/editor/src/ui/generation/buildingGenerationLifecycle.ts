@@ -78,6 +78,9 @@ class GenerationOverlayLease {
     private capTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly onBatchStart: () => void;
     private readonly onBatchEnd: () => void;
+    /** §GEN-SHADOW-SUPPRESS (L-372) — release handle for the whole-generation shadow-pass
+     *  suppression pushed in the constructor; called in release(). Idempotent + exception-safe. */
+    private shadowRelease: (() => void) | null = null;
 
     constructor(title: string, label: string) {
         // §GEN-LOG-GATING (L-369, 2026-07-17) — publish a process-wide "a building generation
@@ -89,6 +92,28 @@ class GenerationOverlayLease {
         // wasteful per-sub-batch auto-redetects. Cleared in release(), which then fires ONE
         // final redetect sweep.
         (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive = true;
+
+        // §GEN-SHADOW-SUPPRESS (L-372) — suppress the shadow PASS for the WHOLE generation via
+        // the single-owner ref-counted latch (RenderPipelineManager, the sole writer of
+        // renderer.shadowMap.enabled — P2). This removes the per-frame shadow-MAP render from the
+        // generation hot loop and defers the one shadow (re)compile until AFTER the scene settles.
+        // It is the founder's "WebGPU still doing shades = slow" cost: on the heavy-scene Auto-WebGL
+        // fallback the renderer is a WebGPURenderer(forceWebGL2) that STILL drives shadows through
+        // its TSL shadow-node graph, so the map-render is real work every frame during generation.
+        // Backend-agnostic (shadowMap.enabled exists on WebGPURenderer AND classic WebGLRenderer).
+        // Composes with the batch-scoped 'batch' suppression but spans the ENTIRE lifecycle (incl.
+        // the non-batched glass/PBR tail), so shadows re-enable ONCE at the end, not per sub-batch.
+        // Exception-safe: the release handle is idempotent and is called in release() (which has a
+        // hard-cap backstop), so it can never strand shadows OFF (the L-205 leak class).
+        try {
+            this.shadowRelease =
+                (window.renderPipelineManager as unknown as
+                    { pushShadowPassDisabled?(reason: string): () => void } | undefined
+                )?.pushShadowPassDisabled?.('building-generation') ?? null;
+        } catch (e) {
+            console.warn('[buildingGenerationLifecycle] could not suppress shadows for generation (non-fatal):', e);
+            this.shadowRelease = null;
+        }
 
         // ONE outer session held for the whole generation. Opened FIRST, so the overlay's
         // ref-count never drops to zero as per-sub-batch sessions layer on top and end.
@@ -162,6 +187,13 @@ class GenerationOverlayLease {
         try { this.session?.end(); } catch { /* overlay teardown must never throw upward */ }
         this.session = null;
         if (_current === this) _current = null;
+
+        // §GEN-SHADOW-SUPPRESS (L-372) — generation done: pop the whole-generation shadow-pass
+        // suppression. The latch re-enables shadows ONLY if no other reason (batch/ifc) still
+        // holds AND the user's preference allows — and asks for exactly ONE settled depth render.
+        // Idempotent + exception-safe; never throws upward.
+        try { this.shadowRelease?.(); } catch { /* shadow re-enable must never break teardown */ }
+        this.shadowRelease = null;
 
         // §GEN-LOG-GATING / §GEN-SINGLE-REDETECT (L-369) — the generation is done: clear the
         // process-wide flag so live-edit logging + the RoomTopologyObserver auto-redetect

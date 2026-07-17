@@ -165,6 +165,21 @@ Net: on real WebGPU, transmission glass is neutralized before **any** render tha
 transmission node graph — on both the batched path (unchanged) and the non-batched resi/office path
 (new). WebGL is untouched (`_webGpuActive` gate) and keeps refractive glass.
 
+> **CORRECTION §Fix-5 (2026-07-17, L-372) — the "`_webGpuActive` gate / WebGL untouched" premise
+> above is WRONG for the `webgl-fallback` backend.** The Auto-WebGL swap does NOT drop to a classic
+> `THREE.WebGLRenderer`; it builds a `WebGPURenderer({ forceWebGL2:true })` (backend `webgl-fallback`)
+> that STILL node-compiles every material through the TSL builder on its WebGL2 backend — so the
+> transmission node (and its `expected a "float"` seed) IS emitted there, yet `_webGpuActive===false`
+> on that backend made the neutralizer SKIP it → the flash survived the swap. The gate is now
+> `isWebGPURenderer` (fires on native WebGPU AND the WebGL2-backed fallback — both node-compile) and
+> correctly SKIPS a genuine classic `THREE.WebGLRenderer` (backend `webgl-only`, no node graph → keeps
+> refractive glass). This corrects the same false "`webgl-fallback` = no TSL" premise carried in
+> **ADR-0077**. The COMPLETE fix (route heavy-gen to `webgl-only` = zero node compile) is the L-372
+> Batch 2 follow-up. Also under L-372: shadows are suppressed across the whole generation via the
+> single-owner latch (`pushShadowPassDisabled('building-generation')`) so the shadow-node graph is not
+> rendered per-frame on the hot generation loop (backend-agnostic; the founder's "WebGPU doing shades
+> = slow" cost). See L-372 in the launch audit + implementation plan.
+
 ## Amendment §Fix-3 (2026-07-17, L-366) — heavy scenes fall back to WebGL even under an EXPLICIT WebGPU pin
 
 **Why.** A live run opened a **29-level / 2,115-element / ~12,700-mesh** office tower on an explicit
