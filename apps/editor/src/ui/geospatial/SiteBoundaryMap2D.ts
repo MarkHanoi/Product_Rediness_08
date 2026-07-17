@@ -409,8 +409,13 @@ export function mountSiteBoundaryMap2D(
     interToggle.className = 'pryzm-gis-interaction-toggle';
     Object.assign(interToggle.style, {
         position: 'absolute',
-        top: '12px',
-        left: '12px',
+        // §FIX-PARCEL-TOGGLE-CLIP (L-384 follow-up) — the segmented control lived at
+        // left:12px, directly UNDER the root-level PRYZM logo tile + nav rail (z 9999),
+        // which clipped the "Select parcel" half behind the logo so the parcel entry
+        // point was invisible and the user never left DRAW mode. Drop it a row and clear
+        // the left chrome so BOTH segments are fully visible and clickable.
+        top: '64px',
+        left: '64px',
         zIndex: '22',
         display: 'flex',
         gap: '0',
