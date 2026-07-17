@@ -3491,6 +3491,19 @@ Full context: L-377 audit row. **UNVERIFIED — investigation dispatched.** Buil
 - [ ] **P2 — 86s DependencyResolver CASCADE:** investigate whether the semantic-graph cascade can be deferred/batched/suppressed during generation (like the redetect + log gates).
 Links: L-377, ties L-369, L-372, ADR-0069. Owner UNASSIGNED. Target TBD.
 
+## L-378 — Auto-frame the BIM 3D scene when returning from Forma (stop the stale globe-scale camera restore)
+**Severity:** P2 (view/camera UX). **Queue:** view-switching / camera-state. **Cross-ref:** L-370 (globe framing — DISTINCT). **Status: OPEN — queued behind L-377.**
+
+> **Root cause (live log).** `ViewController._activate3DView → MultiViewCameraManager.restoreSlot("perspective")` restores a perspective slot saved WHILE the Cesium/Forma camera was globe-scale (`pos(-1.67M, 0.66M, -12.48M)`, target ~(17,9,9)), so the BIM camera is ~12.5M units out → building is a speck → user must manually zoom. The existing `§3D-FRAME-ON-VIEW-SWITCH` auto-frame hook doesn't win on the GIS-return path.
+
+| Phase | Work | Status |
+|---|---|---|
+| **P1 — Root-cause the save/restore** | Confirm `ViewCameraStateStore.save("3D")` persists the globe-scale pose during the Cesium session and `restoreSlot("perspective")` replays it on return; confirm why §3D-FRAME-ON-VIEW-SWITCH doesn't fire/loses. | Pending |
+| **P2 — Correct fix** | On the GIS/Forma→3D transition: either (a) INVALIDATE the perspective slot when it was saved during a Cesium/globe session (a globe-scale pose is not a valid BIM camera), OR (b) fire the existing §3D-FRAME-ON-VIEW-SWITCH auto-frame on the GIS-return path. Reuse the existing framing hook — no one-off. | Pending |
+| **P3 — Guard** | Normal in-editor 3D↔plan toggles still restore the user's last BIM camera (do NOT unconditionally zoomToAll every activation). | Pending |
+| **P4 — Verify (live)** | Forma → 3D+Plan lands framed on the building, NO manual zoom; in-editor toggles unaffected. Not marked Fixed until confirmed. | Pending |
+Links: L-378, ties L-370. Owner UNASSIGNED. Target TBD.
+
 ## L-375a — Wire CRDT applier through the composition root
 **Severity:** P2 (collab correctness + P1/P4 regression). **Queue:** runtime-composer/command-bus. **Contracts:** C08 §3.1, G3-T2; P1, P4. **Root:** composed runtime (composeRuntime.ts:1463-1548) has no `inner` property; engineLauncher.ts:825 `(runtime as any).inner.bus` is always undefined. **Fix:** wire setCrdtApplier inside composeRuntime() (owns inner.bus) OR add typed bus.setCrdtApplier slot; remove the any reach-through; fix stale marker tests/e2e/crdt-batch-conflict.spec.ts:15. **Status: OPEN.**
 
