@@ -1392,6 +1392,62 @@ export class RenderPipelineManager implements IViewSwitchListener {
         if (disabled) this._shadowSuppressions.set(reason, 1);
         else this._shadowSuppressions.delete(reason);
         this._applyShadowEnabledState();
+        // §L-361-WEBGPU-TRANSMISSION-GUARD — batch start is the moment just before the resi-batch
+        // PSO compile that device-loses on WebGPU. On the real WebGPU backend, neutralize the
+        // transmission-glass node graph (the "expected a float" TSL device-loss seed) so the node
+        // material rebuilds WITHOUT the transmission node before the next post-batch render.
+        if (disabled && reason === 'batch') this._neutralizeTransmissionForWebGPU();
+    }
+
+    /**
+     * §L-361-WEBGPU-TRANSMISSION-GUARD — on the REAL WebGPU backend, fall physical glass back
+     * to plain opacity glass (`transmission = 0`) so the MeshPhysicalNodeMaterial transmission/
+     * refraction TSL node graph is never emitted.
+     *
+     * The live §L-361-DIAG proved the crash is NOT a non-finite material float — every glass
+     * scalar (transmission/thickness/ior/attenuationDistance/dispersion) is finite, yet
+     * `THREE.TSL: Invalid generated code, expected a "float"` still fires during
+     * `_renderTransparents` PSO compile → WebGPU device loss. That is the transmission NODE GRAPH
+     * itself generating invalid WGSL on three r183's WebGPU backend, independent of the floats.
+     * Removing `transmission` removes the node entirely (kept visibly glassy via opacity). WebGL
+     * never runs the TSL path, so `_webGpuActive` gates this off there — WebGL keeps refractive
+     * glass. `needsUpdate` forces the node material to rebuild WITHOUT the transmission node.
+     * Runs at every batch boundary so glass minted during a sub-batch is caught before the next
+     * post-batch render. Idempotent (transmission already 0 → skipped).
+     */
+    private _neutralizeTransmissionForWebGPU(): void {
+        try {
+            if (!this._webGpuActive || !this._scene) return;
+            const seen = new Set<string>();
+            let neutralized = 0;
+            this._scene.traverse((obj) => {
+                const rawMat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+                if (!rawMat) return;
+                const mats = Array.isArray(rawMat) ? rawMat : [rawMat];
+                for (const m of mats) {
+                    if (!(m instanceof THREE.MeshPhysicalMaterial) || seen.has(m.uuid)) continue;
+                    seen.add(m.uuid);
+                    const mm = m as unknown as { transmission?: number; opacity?: number; transparent?: boolean; needsUpdate?: boolean };
+                    if (typeof mm.transmission === 'number' && mm.transmission > 0) {
+                        mm.transmission = 0;
+                        mm.transparent = true;
+                        // keep it readably glassy — a fully-opaque pane reads as solid
+                        if (typeof mm.opacity !== 'number' || mm.opacity >= 0.95) mm.opacity = 0.5;
+                        mm.needsUpdate = true;
+                        neutralized++;
+                    }
+                }
+            });
+            if (neutralized > 0) {
+                console.warn(
+                    `[RenderPipelineManager] §L-361-WEBGPU-TRANSMISSION-GUARD neutralized ${neutralized} ` +
+                    `transmission material(s) → opacity glass on WebGPU (transmission TSL node is the ` +
+                    `"expected a float" device-loss seed). WebGL keeps refractive glass.`,
+                );
+            }
+        } catch (err: unknown) {
+            console.warn('[RenderPipelineManager] §L-361-WEBGPU-TRANSMISSION-GUARD failed (non-fatal):', err instanceof Error ? err.message : err);
+        }
     }
 
     /**
@@ -2053,6 +2109,22 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
     // ── Private: TSL loading ──────────────────────────────────────────────
 
+    /**
+     * §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS (L-319) — whether `three/tsl` has finished
+     * loading (`globalThis.__PRYZM_TSL__` present). Every pipeline builder that calls
+     * `createScenePass` / `createZonePass` (which THROW when the TSL module is absent) MUST
+     * gate on this. `bind()` sets `_webGpuActive = true` and awaits `_loadTSL()` in that order,
+     * so there is a real window where the manager is "WebGPU active" but TSL is not yet loaded.
+     * A batch's `autoEnablePerf → _setSsgi → _fullRebuild` (or a `scheduleShadowRebuild`) landing
+     * in that window would call `createScenePass()` before `initTSL()` and throw an UNHANDLED
+     * render rejection — the exact class that escapes the ViewportCrashGuard on the globe path
+     * and ejects the user (L-318). Gating defers the (non-load-bearing) perf-mode rebuild until
+     * `bind()` builds the pipeline once TSL is ready.
+     */
+    private get _tslLoaded(): boolean {
+        return !!(globalThis as any).__PRYZM_TSL__;
+    }
+
     private async _loadTSL(): Promise<void> {
         if ((globalThis as any).__PRYZM_TSL__) return;
         const tsl = await import('three/tsl');
@@ -2076,6 +2148,13 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private async _buildPipeline(): Promise<void> {
         if (!this._scene || !this._camera || !this._renderer) return;
+        // §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS (L-319) — never call createScenePass()
+        // before initTSL() has resolved (it throws). bind() awaits _loadTSL() before its own
+        // _buildPipeline() call, so this only ever short-circuits an EARLY external trigger.
+        if (!this._tslLoaded) {
+            console.warn('[RenderPipelineManager] §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS _buildPipeline deferred — TSL not loaded yet.');
+            return;
+        }
 
         const { RenderPipeline } = await import('three/webgpu') as any;
         const tsl = (globalThis as any).__PRYZM_TSL__;
@@ -2153,6 +2232,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private async _buildPhase3Pipeline(ao: TSLNode, gi: TSLNode): Promise<void> {
         if (!this._scene || !this._camera || !this._renderer || !this._scenePass || !this._zonePass) return;
+        // §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS (L-319) — the phase-3 path can rebuild the
+        // scene pass (createScenePass) when SSGI/TRAA are inactive; guard against a pre-initTSL call.
+        if (!this._tslLoaded) {
+            console.warn('[RenderPipelineManager] §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS _buildPhase3Pipeline deferred — TSL not loaded yet.');
+            return;
+        }
 
         const { RenderPipeline } = await import('three/webgpu') as any;
         const tsl = (globalThis as any).__PRYZM_TSL__;
@@ -2883,6 +2968,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private async _fullRebuild(): Promise<void> {
         if (!this._scene || !this._camera || !this._renderer) return;
+        // §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS (L-319) — THE fix site for the founder's
+        // unhandled render rejection. `_setSsgi → _fullRebuild` fires from a batch's
+        // autoEnablePerf, which can arrive in the window between bind() setting _webGpuActive
+        // and _loadTSL() resolving. createScenePass() below throws when TSL is absent → an
+        // unhandled promise rejection in the render context. Deferring is safe: bind()'s
+        // _buildPipeline() runs once TSL loads and re-applies _ssgiActive intent.
+        if (!this._tslLoaded) {
+            console.warn('[RenderPipelineManager] §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS _fullRebuild deferred — initTSL() has not completed (createScenePass would throw).');
+            return;
+        }
 
         // §FIX-WEBGPU-INVALID-PIPELINE-MRT (L-253) — the G-buffer (diffuseColor/normal/velocity)
         // exists ONLY for SSGI and TRAA. Declaring those targets when nothing reads them made

@@ -3313,3 +3313,28 @@ Gates the L-353 / L-355 / L-356 downstream work. No target date tied to launch.
 | **P5 — Explicit-override respect** | `pref === 'webgpu'` on a heavy scene logs a one-time "respecting override, NOT switching" warning and never swaps. `pref === 'webgl'` / WebGL2-fallback → no-op. | **DONE** |
 | **P6 — Docs** | ADR-0267; C04 §1.4 Known-behavior amendment; L-362 audit + this plan entry. | **DONE** |
 | **Verify (live)** | Founder's WebGPU box: Auto + heavy resi/office batch → one `§AUTO-WEBGL-HEAVY` swap → renders clean on WebGL; explicit WebGPU → override honoured (may still device-loss → recovery net); light scene → stays WebGPU. **Not marked Fixed until confirmed.** | Pending |
+
+## L-363 — Re-apply L-319 TSL-init guard (ScenePass-TSL-not-loaded on batch autoEnablePerf) — SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS-REAPPLY
+**Severity:** P0 (light-scene WebGPU path). **Queue:** render/renderer-three. **Contracts:** C04 §1.4. **Cross-ref:** ADR-0267 (Auto-WebGL). **Status: RE-APPLIED — awaiting live WebGPU confirmation.**
+
+> **Approach.** The #1110 rollback (base `26a165bd`) removed the L-319 guard (originally in `ec36b556`, co-bundled with L-314 + L-331). Re-apply ONLY the L-319 slice so a batch's `autoEnablePerf → _setSsgi → _fullRebuild → createScenePass()` landing in the `bind()` window (`_webGpuActive = true` set before `_loadTSL()` resolves) no longer throws the "TSL module not loaded" loop. This hardens the NON-swapped light-scene WebGPU path — Auto-WebGL (L-362/ADR-0267) only diverts HEAVY scenes to WebGL, so light WebGPU scenes still hit this path. **L-314 first-load-shadow-reattach stays ABSENT** (it caused the WebGPU shadow-rebuild device-loss regression).
+
+| Phase | Work | Status |
+|---|---|---|
+| **P1 — TSL-loaded predicate** | Add `_tslLoaded` getter (`!!globalThis.__PRYZM_TSL__`) to `RenderPipelineManager.ts`. | **DONE** |
+| **P2 — Guard every createScenePass caller** | Short-circuit `_buildPipeline` / `_buildPhase3Pipeline` / `_fullRebuild` with a warn when `!_tslLoaded`. `bind()` still awaits `_loadTSL()` before its own `_buildPipeline()`, so the guard only defers an EARLY external trigger until TSL resolves. | **DONE** |
+| **P3 — L-314 stays absent** | Verified NO `_maybeReattachFirstLoadShadow` / `_firstLoadShadowReattachPending` / `FIRST-LOAD-SHADOW-REATTACH` code re-introduced. | **DONE** |
+| **Verify (types)** | renderer-three typecheck 0, root tsc `--skipLibCheck --noEmit` 0. | **DONE** |
+| **Verify (live)** | Founder's WebGPU box: batch resi-gen on a light WebGPU scene no longer spams `[ScenePass] TSL module not loaded`. **Not marked Fixed until confirmed.** | Pending |
+
+## L-364 — Re-apply §L-361-WEBGPU-TRANSMISSION-GUARD (transmission-glass expected-float on WebGPU) — SS-FIX-L361-WEBGPU-TRANSMISSION-GUARD-REAPPLY
+**Severity:** P0 (light-scene WebGPU path). **Queue:** render/renderer-three. **Contracts:** C04 §1.4. **Cross-ref:** ADR-0267 (Auto-WebGL). **Status: RE-APPLIED — awaiting live WebGPU confirmation.**
+
+> **Approach.** The #1110 rollback removed the transmission guard (originally in `715a222d`). Re-apply the `_neutralizeTransmissionForWebGPU()` method + its `setShadowPassDisabled` hook so the transmission-glass `MeshPhysicalNodeMaterial` node graph (which emits invalid WGSL on three r183's WebGPU backend during `_renderTransparents` PSO compile → device loss, independent of finite floats) is never emitted on real WebGPU. Hardens the same NON-swapped light-scene WebGPU path as L-363. The co-bundled `_diagScanTransmissionFloats` diagnostic and the L-314-tied REGRESSION-GATE were SKIPPED (L-314 is absent here).
+
+| Phase | Work | Status |
+|---|---|---|
+| **P1 — Transmission neutralizer** | Add `_neutralizeTransmissionForWebGPU()`: on `_webGpuActive` only, traverse the scene, set `transmission = 0` + `transparent = true` + opacity fallback (0.5 if opaque) + `needsUpdate` on every `MeshPhysicalMaterial` with `transmission > 0`. Idempotent; best-effort (never throws into the pipeline). | **DONE** |
+| **P2 — Batch-boundary hook** | Call it from `setShadowPassDisabled(reason, disabled)` when `disabled && reason === 'batch'` — the moment just before the resi-batch PSO compile. WebGL is untouched (gated on `_webGpuActive`) and keeps full refractive glass. | **DONE** |
+| **Verify (types)** | renderer-three typecheck 0, root tsc `--skipLibCheck --noEmit` 0. | **DONE** |
+| **Verify (live)** | Founder's WebGPU box: batch resi-gen on a light WebGPU scene no longer emits `THREE.TSL: Invalid generated code, expected a 'float'` in `_renderTransparents`. **Not marked Fixed until confirmed.** | Pending |
