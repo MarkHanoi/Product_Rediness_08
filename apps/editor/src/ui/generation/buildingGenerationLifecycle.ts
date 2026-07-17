@@ -93,6 +93,23 @@ class GenerationOverlayLease {
         // final redetect sweep.
         (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive = true;
 
+        // §GEN-UNDO-COALESCE (L-376d / L-375d) — open the legacy CommandManager's generation undo
+        // batch for the WHOLE generation. While open, every legacy `commandManager.execute(...)` a
+        // generator runs (stairs, lifts, slabs, floors, roofs, rooms, room-bounding lines, handrails,
+        // furniture…) SKIPS its per-command `createSnapshot()` (the batch is atomic like PROJECT_LOAD —
+        // this kills the O(N·M) `structuredClone` tail the stair scope ["stair","opening","slab"] paid
+        // as the slab store grew) and is ACCUMULATED into ONE composite undo entry flushed in release()
+        // (C16 §8.6 — the whole generation becomes ONE undo unit; closes L-376f). Walls are already
+        // coalesced to one `wall.batch.create` per level on the bus (L-131). Best-effort + optional-
+        // chained: if the commandManager is not yet ready the generation just falls back to the
+        // per-command snapshot + push (correct, only slower). The matching release lives in release().
+        try {
+            (window as unknown as { commandManager?: { beginGenerationBatch?(): void } })
+                .commandManager?.beginGenerationBatch?.();
+        } catch (e) {
+            console.warn('[buildingGenerationLifecycle] could not open the generation undo batch (non-fatal):', e);
+        }
+
         // §GEN-SHADOW-SUPPRESS (L-372) — suppress the shadow PASS for the WHOLE generation via
         // the single-owner ref-counted latch (RenderPipelineManager, the sole writer of
         // renderer.shadowMap.enabled — P2). This removes the per-frame shadow-MAP render from the
@@ -204,6 +221,18 @@ class GenerationOverlayLease {
         // `ReDetectRoomsCommand`s the executors run (e.g. house pre-naming) bypass the observer
         // and are unaffected either way.
         (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive = false;
+
+        // §GEN-UNDO-COALESCE (L-376d / L-375d) — generation done: close the CommandManager's
+        // generation undo batch, flushing every accumulated legacy create into ONE composite undo
+        // entry (opened in the constructor). Idempotent + exception-safe: a generation that ran no
+        // legacy commands, or a commandManager that never opened the batch, flushes nothing.
+        try {
+            (window as unknown as { commandManager?: { endGenerationBatch?(): number } })
+                .commandManager?.endGenerationBatch?.();
+        } catch (e) {
+            console.warn('[buildingGenerationLifecycle] could not close the generation undo batch (non-fatal):', e);
+        }
+
         try {
             (window as unknown as { roomTopologyObserver?: { scheduleRedetectAllLevels?: () => void } })
                 .roomTopologyObserver?.scheduleRedetectAllLevels?.();

@@ -337,6 +337,14 @@ export enum CommandType {
     // Clone all elements on a source level to one or more target levels.
     // Duplicates: walls (+ openings), slabs, columns, furniture.
     DUPLICATE_FLOOR_PLAN              = 'DUPLICATE_FLOOR_PLAN',
+
+    // ── Composite (L-376d / L-375d) ──────────────────────────────────────────
+    // A single undo-stack entry that wraps an ordered list of already-executed
+    // child commands. Minted by CommandManager.endGenerationBatch() so a whole
+    // building generation (hundreds of legacy cm.execute() creates) collapses to
+    // ONE undo unit (C16 §8.6). undo() reverses the children in reverse order;
+    // execute() (redo) re-runs them in order.
+    COMPOSITE                         = 'COMPOSITE',
 }
 
 export interface CommandValidationResult {

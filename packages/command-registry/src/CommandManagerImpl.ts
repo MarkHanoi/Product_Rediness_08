@@ -1,5 +1,6 @@
 import { enablePatches } from 'immer';
 import { Command, CommandResult, CommandContext } from './types';
+import { CompositeCommand } from './composite/CompositeCommand';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 
@@ -56,6 +57,27 @@ export class CommandManager {
 
     // FIX 1: Persistent callback list instead of a single ad-hoc registration
     private commandExecutedCallbacks: CommandExecutedCallback[] = [];
+
+    // ------------------------------------------------------------------
+    // §GEN-UNDO-COALESCE (L-376d / L-375d) — generation undo batch.
+    //
+    // While OPEN (between beginGenerationBatch() and endGenerationBatch(),
+    // bracketed by buildingGenerationLifecycle across a WHOLE resi/office/house
+    // generation), execute():
+    //   • SKIPS the per-command `createSnapshot()` (the batch is atomic — a
+    //     failed generation discards the whole building — exactly the reason the
+    //     PROJECT_LOAD fast path already skips it; this kills the O(N·M)
+    //     structuredClone tail the stair scope ["stair","opening","slab"] paid as
+    //     the slab store grew), and
+    //   • ACCUMULATES each undoable command instead of pushing it to `history`,
+    //     so the whole generation collapses to ONE CompositeCommand undo entry at
+    //     endGenerationBatch() (C16 §8.6 — "one gesture = one undo unit"; closes
+    //     L-376f). Non-undoable / REMOTE / PROJECT_LOAD commands are gated exactly
+    //     as in the normal path, so they never enter the composite.
+    // null = no generation in flight → every command behaves byte-identically to
+    // before (single snapshot + single history push).
+    // ------------------------------------------------------------------
+    private _genBatch: { command: Command, metadata: CommandMetadata }[] | null = null;
 
     constructor(context: CommandContext) {
         // Ensure stores are available in context stores from window if needed
@@ -114,6 +136,14 @@ export class CommandManager {
         const isGen = (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive === true;
         const skipLog = isLoad || isGen;
 
+        // §GEN-UNDO-COALESCE (L-376d / L-375d) — inside an explicit generation batch the
+        // per-command snapshot is skipped (the batch is atomic like PROJECT_LOAD) and undoable
+        // commands are accumulated into ONE composite entry instead of pushed individually. The
+        // scope is the explicit `_genBatch` (opened by buildingGenerationLifecycle), NOT the ambient
+        // `isGen` flag — so if the batch was never opened (e.g. commandManager not ready at lease
+        // construction) execute() safely falls back to the per-command snapshot + push.
+        const inGenBatch = this._genBatch !== null;
+
         if (!skipLog) {
             console.log(`[CommandManager] EXECUTE: ${command.type}`);
         }
@@ -126,12 +156,10 @@ export class CommandManager {
         // BEGIN TRANSACTION SNAPSHOT — Contract 01 §2.2
         // Scoped to command.affectedStores when declared; falls back to all stores
         // for commands that have not yet been migrated (backward-compatible).
-        // Skipped during PROJECT_LOAD — see fast-path comment above.
+        // Skipped during PROJECT_LOAD (atomic load) AND during a generation batch
+        // (§GEN-UNDO-COALESCE — atomic generation; kills the O(N·M) structuredClone tail).
         let snapshot: Record<string, any[]> | null = null;
-        if (!isLoad) {
-            // The snapshot itself is REQUIRED during generation (a failed command must roll back),
-            // so it is still taken here — only the per-command log line is gated (see §GEN-LOG-GATING
-            // above): `skipLog` covers both PROJECT_LOAD and the building-generation flood.
+        if (!isLoad && !inGenBatch) {
             const __t_snapshot_start = performance.now();
             snapshot = this.createSnapshot(command);
             if (!skipLog) {
@@ -163,8 +191,14 @@ export class CommandManager {
             // a project is a rehydration, not a user action, so the undo stack must
             // be empty after the load completes.
             if (!command.nonUndoable && metadata.source !== 'REMOTE' && !isLoad) {
-                this.history.push({ command, metadata });
-                this.redoStack = [];
+                if (inGenBatch) {
+                    // §GEN-UNDO-COALESCE — accumulate for one composite entry at
+                    // endGenerationBatch() instead of pushing per command.
+                    this._genBatch!.push({ command, metadata });
+                } else {
+                    this.history.push({ command, metadata });
+                    this.redoStack = [];
+                }
             }
 
             // FIX 1: Notify all post-command subscribers
@@ -488,6 +522,53 @@ export class CommandManager {
     clearHistory(): void {
         this.history = [];
         this.redoStack = [];
+    }
+
+    // ------------------------------------------------------------------
+    // §GEN-UNDO-COALESCE (L-376d / L-375d) — generation undo-batch scope.
+    // Bracketed by buildingGenerationLifecycle around a whole resi/office/house
+    // generation. See the `_genBatch` field doc + execute() for the semantics.
+    // ------------------------------------------------------------------
+
+    /**
+     * Open a generation undo batch. While open, execute() skips the per-command
+     * snapshot (atomic generation — kills the O(N·M) `structuredClone` tail) and
+     * accumulates undoable commands instead of pushing them, so the whole
+     * generation collapses to ONE undo entry at endGenerationBatch().
+     *
+     * Idempotent: a begin while one is already open is a no-op (generations do
+     * not nest in practice; the lifecycle reuses the in-flight lease).
+     */
+    beginGenerationBatch(): void {
+        if (this._genBatch !== null) return;
+        this._genBatch = [];
+    }
+
+    /** True while a generation undo batch is open (test / diagnostic seam). */
+    get isGenerationBatchOpen(): boolean {
+        return this._genBatch !== null;
+    }
+
+    /**
+     * Close the generation undo batch: wrap every accumulated child command in
+     * ONE {@link CompositeCommand} and push it as a single undo-stack entry
+     * (C16 §8.6). A generation that accumulated nothing pushes nothing. Always
+     * safe to call (idempotent when no batch is open).
+     *
+     * @returns the number of child commands coalesced (0 when nothing was open
+     *          or nothing accumulated).
+     */
+    endGenerationBatch(): number {
+        const batch = this._genBatch;
+        this._genBatch = null;
+        if (!batch || batch.length === 0) return 0;
+        const composite = new CompositeCommand(batch.map(b => b.command), 'Generate building');
+        // The generation is a single HUMAN-initiated action → HUMAN_DIRECT so it
+        // is a normal undoable entry (never REMOTE / PROJECT_LOAD).
+        this.history.push({ command: composite, metadata: { source: 'HUMAN_DIRECT' } });
+        this.redoStack = [];
+        console.log(`[CommandManager] §GEN-UNDO-COALESCE — collapsed ${batch.length} generation command(s) into ONE undo entry`);
+        return batch.length;
     }
 
     /**

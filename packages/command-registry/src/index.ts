@@ -10,6 +10,7 @@ export * from './CommandManagerImpl';
 export { CommandProposalFactory } from './CommandProposalFactory';
 export * from './CommandProposalStore';
 export * from './PatchSnapshot';
+export * from './composite/CompositeCommand';
 export * from './TagElementCommand';
 export * from './UpdateElementMarkCommand';
 
