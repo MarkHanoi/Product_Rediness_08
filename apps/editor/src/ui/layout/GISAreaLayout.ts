@@ -72,7 +72,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
     // retained for the console fallback (pryzmStartBoundaryDraw3D) only.
-    let map2dHandle: { dispose: () => void } | null = null;
+    let map2dHandle: { dispose: () => void; rearm: () => void } | null = null;
     // A.8.c.f.2 (defect 1) — remember the LAST geocoded result so the 2D map can
     // fit its exact bbox (the Site location store keeps only lat/lon — the bbox is
     // otherwise lost, leaving the 2D map at a coarse point zoom). Set in the
@@ -164,6 +164,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.log('[gis] map2d: closeBoundaryMap2D() — tearing down the cream plan map at generate-time.');
             map2dHandle.dispose();
             map2dHandle = null;
+        }
+    };
+
+    // §L-384 — RE-DRAW after a committed boundary. The 2D map stays mounted post-commit
+    // (O.7.2.b); this asks it to CLEAR the immutable C19 §1.4 boundary (via site.replace)
+    // and re-arm the draw so the user can author a new plot. No-op if the map isn't open.
+    const rearmBoundaryDraw = (): void => {
+        if (map2dHandle) {
+            console.log('[gis] §L-384 rearmBoundaryDraw() — clear committed boundary + re-arm draw.');
+            map2dHandle.rearm();
         }
     };
 
@@ -1016,6 +1026,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // also calls closeBoundaryMap2D() so the map is gone before the result view
     // mounts. Idempotent + double-dispose safe.
     window.pryzmCloseBoundaryMap2D = () => closeBoundaryMap2D();
+    // §L-384 — RE-DRAW hook: the onboarding "← Back to drawing" action clears the
+    // committed (immutable) boundary + re-arms the live 2D map for a fresh draw.
+    window.pryzmRearmBoundaryDraw = () => rearmBoundaryDraw();
 
     // O.2 — onboarding step-controller GIS-activation handoff. The guided
     // first-run flow (OnboardingStepController) has no clean runtime hook to

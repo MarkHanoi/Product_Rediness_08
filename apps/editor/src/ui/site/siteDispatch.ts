@@ -22,6 +22,7 @@ import {
     siteCreate,
     siteUpdateLocation,
     siteSetParcelBoundary,
+    siteReplace,
     type SiteModelStore,
 } from '@pryzm/stores';
 import type { ParcelEdgeClassification, SiteModel } from '@pryzm/schemas';
@@ -407,6 +408,51 @@ export function dispatchSiteLocation(
     setLtpOriginIfSafe(ctx, location.latitude, location.longitude);
     console.log('[gis] site.location-changed', locRes.event);
     ctx.rt.events?.emit('site.location-changed', locRes.event);
+    return true;
+}
+
+/**
+ * §L-384 — CLEAR the committed parcel boundary so the user can RE-DRAW (or re-select
+ * a parcel). The C19 §1.4 parcel polygon is IMMUTABLE one-shot: `site.setParcelBoundary`
+ * rejects a second call with `parcel-already-set` and explicitly directs callers to
+ * `site.replace`. So re-draw is a clean CLEAR-then-recreate — never a mutation of the
+ * immutable polygon: this replaces the Site with an identical model whose parcel
+ * boundary is emptied (the same valid "no boundary yet" state a freshly-created Site
+ * has), via the C19 §4.1 `site.replace` command (single-undo, keeps id/projectId).
+ *
+ * Does NOT emit `site.parcel-boundary-set` (the onboarding flow subscribes to it for
+ * ADVANCING — re-emitting would wrongly push the wizard to the confirm step). The store
+ * mutation from `site.replace` fires the SiteModelStore's own coarse `subscribe`
+ * notification, which `ParcelBoundarySceneRenderer` uses to re-read the now-empty store
+ * and drop the stale 3D outline. Returns true when the Site is left with no boundary
+ * (either it was cleared, or there was nothing to clear).
+ */
+export function dispatchClearParcelBoundary(ctx: SiteContext): boolean {
+    const site = ctx.store.getSite();
+    if (!site) {
+        console.warn('[gis] §L-384 dispatchClearParcelBoundary: no Site — nothing to clear.');
+        return false;
+    }
+    const hadBoundary = (site.parcel?.boundary?.polygon?.length ?? 0) >= 1;
+    if (!hadBoundary) return true; // already empty — a fresh draw can commit directly
+
+    const replacement = {
+        ...site,
+        parcel: {
+            ...site.parcel,
+            boundary: { polygon: [], edgeClassifications: [] },
+            area: 0,
+        },
+    };
+    const res = siteReplace({ siteId: site.id, replacement }, ctx.store);
+    if (!res.ok) {
+        console.error('[gis] §L-384 site.replace (clear boundary) rejected:', res.reason, res.message);
+        ctx.toast(`Couldn’t clear the boundary to re-draw: ${res.message}`, 'error');
+        return false;
+    }
+    // `siteReplace` set() already fired the SiteModelStore's coarse `subscribe`
+    // notification — the ParcelBoundarySceneRenderer clears its stale outline off that.
+    console.log('[gis] §L-384 parcel boundary cleared via site.replace — ready to re-draw.');
     return true;
 }
 
