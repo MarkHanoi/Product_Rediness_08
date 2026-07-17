@@ -91,6 +91,10 @@ import { CreateBeamCommand } from '@pryzm/command-registry';
 import { CreateCurtainWallCommand } from '@pryzm/command-registry';
 import { CreateRoofCommand } from '@pryzm/command-registry';
 import { CreateFurnitureCommand } from '@pryzm/command-registry';
+// §FIX-PERSIST-AI-ELEMENT (L-85 follow-up) — route ai_element furniture back
+// through its own command so aiElementConfig (the entire procedural geometry)
+// round-trips instead of being dropped by CreateFurnitureCommand.
+import { CreateAIElementCommand, buildAIElementRestorePayload } from '@pryzm/command-registry';
 import { CreateHandrailCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 import { CreateLightingCommand } from '@pryzm/command-registry'; // §PERSIST-LIGHTING
@@ -994,7 +998,16 @@ export class ProjectLoader {
             console.log(`[ProjectLoader] Loading ${snapshot.furniture.length} furniture items`);
             for (const f of snapshot.furniture) {
                 try {
-                    const cmd = new CreateFurnitureCommand({
+                    // §FIX-PERSIST-AI-ELEMENT (L-85 follow-up) — an ai_element's
+                    // geometry lives ENTIRELY in aiElementConfig, which only
+                    // CreateAIElementCommand rebuilds. Route those records to it so
+                    // the config round-trips instead of vanishing; a malformed
+                    // ai_element (no config) returns null and falls through to the
+                    // ordinary furniture restore below (byte-identical to pre-fix).
+                    const aiPayload = buildAIElementRestorePayload(f);
+                    const cmd = aiPayload
+                        ? new CreateAIElementCommand(aiPayload)
+                        : new CreateFurnitureCommand({
                         id: f.id,
                         furnitureType: f.furnitureType,
                         position: f.position,
