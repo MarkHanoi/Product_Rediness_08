@@ -16,7 +16,7 @@
 
 1. One prompt — *"generate 3 interior layouts for this apartment shell"* — produces 3 validated, scored options; the user picks one; PRYZM builds it in <2 s, fully undoable.
 2. **Capstone, not a piece.** It composes the per-element pieces (the catalogue's small commands) + the SL services. It is the 50+1 prompt: feasible only once the shell-analysis (SL-3) and hosted-opening (C15) building blocks exist — which they now do (Phase 3 ✅).
-3. **Two-phase, never auto-mutate.** Generation is read-only + proposes; nothing touches the model until the user confirms an option (SPEC-07 §4, ADR-014). Step 11 of the handler is explicit: *do NOT execute any wall.create/door.create yet.*
+3. **Two-phase, never auto-mutate.** Generation is read-only + proposes; nothing touches the model until the user confirms an option (SPEC-07 §4, ADR-0214). Step 11 of the handler is explicit: *do NOT execute any wall.create/door.create yet.*
 
 ## §2 — Two-phase architecture
 
@@ -186,7 +186,7 @@ On `apartment.layout-options-ready`: a modal with `count` cards, each: a **2D pl
 
 ## §14 — P1–P8 compliance
 
-- **P1** runtime via composeRuntime; **P2** no THREE outside renderer-three (analysis is pure coords); **P3** thumbnails + builds via FrameScheduler; **P4** events via runtime.events, no `window as any`; **P5** schemas pure (L0); **P6** all mutation through commandBus (Phase B only); **P7** n/a; **P8** OTel span (§4.1) + every new exported fn ≥1 span. Generation is read-only (ADR-014); execution is one batch (C16 §8).
+- **P1** runtime via composeRuntime; **P2** no THREE outside renderer-three (analysis is pure coords); **P3** thumbnails + builds via FrameScheduler; **P4** events via runtime.events, no `window as any`; **P5** schemas pure (L0); **P6** all mutation through commandBus (Phase B only); **P7** n/a; **P8** OTel span (§4.1) + every new exported fn ≥1 span. Generation is read-only (ADR-0214); execution is one batch (C16 §8).
 
 ## §15 — Dependencies (the "small pieces") + what's NEW
 
@@ -213,7 +213,7 @@ On `apartment.layout-options-ready`: a modal with `count` cards, each: a **2D pl
 | **A7** ✅ | `CfWorkerRelay` (`createCfWorkerRelay(url=/api/anthropic/v1/messages)`) — maps RelayRequest → the Anthropic `/v1/messages` body the server proxy (server.js:782 → CF Worker/Anthropic) expects, parses content+usage, computes `costUsd` via `@pryzm/ai-cost` `computeCostUSD` (the proxy returns Anthropic unchanged). Editor binding swapped to it. Loud-fail-soft → rejected generation on AI error, never fabricated. 6 tests. | real generations through the live relay ✅ |
 | **A8** ✅ (offline engine) | **Deterministic D-TGL fallback** — the full offline generative engine, governed by **SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE** (P1→P9, 72 tests). When the AI is unavailable (no key / 401 / 500 / all-invalid) and the fallback is opted-in, `generate.ts` runs `generateDeterministicLayouts` (rectilinear dissection → bubble graph → squarified subdivision → walls/doors → persistent semantic `LayoutGraph` → Space-Syntax-weighted deterministic Pareto rank → geometry emission) producing the **same `ScoredLayoutOption` shape** as the AI path, so the §11 modal + A6 executor are unchanged. The editor binding enables it (`proceduralFallback: true`), so the feature always delivers a real, architecturally-sound layout instead of rejecting. Replaces the old strip-slicer (kept only as a last-resort net). | offline relay → real ranked layouts; deterministic; same shape as AI path ✅ |
 
-**STATUS — COMPLETE (2026-05-25).** All of A1–A7 landed across the `feat/daily-use-and-production-readiness-2026-05-20` branch (~110 tests; editor typecheck EXIT=0; xss + ai-host-lazy gates green). The capstone is live end-to-end: **AI panel → "Generate apartment layout (AI)" → server-relay generation → §11 modal (ranked/scored cards) → "Use this layout" → one undoable batch (walls + hosted doors) → rooms auto-redetect.** Architecturally sound: read-only Phase A (ADR-014); P6 (all mutation via the command bus); P3 (no rAF — SVG thumbnails + runBatch own scheduling); lazy K3-A (ai-host dynamic-imported; zero first-paint bytes); P8 (the run is spanned at the plane boundary `pryzm.ai.workflow.generative`); dep-clean layering (the P1 root + ai-host never import the editor's stores/services — those accessors are injected from L5).
+**STATUS — COMPLETE (2026-05-25).** All of A1–A7 landed across the `feat/daily-use-and-production-readiness-2026-05-20` branch (~110 tests; editor typecheck EXIT=0; xss + ai-host-lazy gates green). The capstone is live end-to-end: **AI panel → "Generate apartment layout (AI)" → server-relay generation → §11 modal (ranked/scored cards) → "Use this layout" → one undoable batch (walls + hosted doors) → rooms auto-redetect.** Architecturally sound: read-only Phase A (ADR-0214); P6 (all mutation via the command bus); P3 (no rAF — SVG thumbnails + runBatch own scheduling); lazy K3-A (ai-host dynamic-imported; zero first-paint bytes); P8 (the run is spanned at the plane boundary `pryzm.ai.workflow.generative`); dep-clean layering (the P1 root + ai-host never import the editor's stores/services — those accessors are injected from L5).
 
 ## §17 — Cross-references
 

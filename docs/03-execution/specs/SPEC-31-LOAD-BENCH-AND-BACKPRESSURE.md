@@ -8,9 +8,9 @@
 | Owner | Architecture lead + Bake-worker lead + AI-host lead |
 | Closes | Founder robustness amendment 2026-04-27: (a) the missing end-to-end batch-creation bench; (b) under-specified AI-batch back-pressure curve; (c) too-late production-scale fixture validation (S69) |
 | Phases | 1B (originating bench scaffold), 1D (bake worker), 2A (rooms/structural batch creates), 2B (plan-view bench coupling), 2C (sheet/schedule), 2D (AI host + back-pressure), 3A (full AI), 3D (largest-fixture re-validation) |
-| Replaces / extends | SPEC-30 §2 (plan-view perf budget); ADR-005 §39 (worker-pool first-paint priority); ADR-010 (bake debounce) — none replaced; this SPEC adds end-to-end and back-pressure bindings on top |
+| Replaces / extends | SPEC-30 §2 (plan-view perf budget); ADR-0205 §39 (worker-pool first-paint priority); ADR-0210 (bake debounce) — none replaced; this SPEC adds end-to-end and back-pressure bindings on top |
 
-> The 250 ms coalescing window (`[strategic ADR-010]`), the worker-pool policy (`[strategic ADR-005]`), and the persistence-operational ADR (`[strategic ADR-013]`) define the *mechanism* by which batch creation, project open, and AI commit avoid main-thread freeze. This SPEC is the *binding contract* that proves they actually do, with three deliverables: an end-to-end batch-creation bench (§2), a back-pressure curve for AI emission into the bake queue (§3), and a phased schedule for the 10K-wall × 50-level fixture (§4) so quadratic regressions cannot hide for six months.
+> The 250 ms coalescing window (`[strategic ADR-0210]`), the worker-pool policy (`[strategic ADR-0205]`), and the persistence-operational ADR (`[strategic ADR-0213]`) define the *mechanism* by which batch creation, project open, and AI commit avoid main-thread freeze. This SPEC is the *binding contract* that proves they actually do, with three deliverables: an end-to-end batch-creation bench (§2), a back-pressure curve for AI emission into the bake queue (§3), and a phased schedule for the 10K-wall × 50-level fixture (§4) so quadratic regressions cannot hide for six months.
 
 ---
 
@@ -20,7 +20,7 @@ The 2026-04-27 founder review of GAP-REVIEW §243 + the "180-element batch creat
 
 1. **No end-to-end bench** measures wall-clock from "user pointer-up that emits N events" to "last bake chunk on screen." `produce-wall.bench.ts` covers per-element kernel cost. `bake-incremental.bench.ts` covers a single edit. `commit-100-cubes` covers the committer. `idle-cpu` covers the renderer. **Nothing covers the composition.** A regression that adds 100 ms per element through the committer→coalesce→bake→upload chain would pass every existing bench and still produce a 30-second freeze on the user's 12 × 15 wall array.
 
-2. **AI-batch back-pressure is implicit, not contractual.** ADR-010 §46 says "hard cap 1500 ms prevents indefinite starvation during sustained AI batches." ADR-005 §44 caps server worker_threads at `min(8, max(2, cpus-1))`. BullMQ has built-in back-pressure on queue depth. None of these compose into a documented, testable, version-pinned contract: "if the bake queue depth exceeds N, the AI host pauses emission for M ms." Without that contract, the AI floor-plan import path (S50) and the AI generative path (S51) can each, independently, blow the queue.
+2. **AI-batch back-pressure is implicit, not contractual.** ADR-0210 §46 says "hard cap 1500 ms prevents indefinite starvation during sustained AI batches." ADR-0205 §44 caps server worker_threads at `min(8, max(2, cpus-1))`. BullMQ has built-in back-pressure on queue depth. None of these compose into a documented, testable, version-pinned contract: "if the bake queue depth exceeds N, the AI host pauses emission for M ms." Without that contract, the AI floor-plan import path (S50) and the AI generative path (S51) can each, independently, blow the queue.
 
 3. **Production-scale fixture only at S69.** `08-VISION.md §6` and PHASE-3D `§S69` validate the 10K-wall × 50-level largest fixture only at month 35, six months after the AI layer ships at S50–S54 and four months after the marketplace opens at S62. A quadratic regression introduced at S43 (CRDT bridge) or S50 (AI batching) will not be caught by the existing fixtures (5K elements / "torture" tier in SPEC-30 is 4× smaller than production scale on the wall axis and 10× smaller on the level axis). This is six months of compounded risk.
 
@@ -49,14 +49,14 @@ The bench records each phase as a separate OTel span and asserts the per-phase b
 | Span | Phase | Per-phase budget at the **180-element** workload |
 |---|---|---|
 | `pryzm.tool.commit-batch` | Tool emits N events | < 50 ms |
-| `pryzm.command-bus.execute-batch` | N command-bus dispatches (per-tick batched per `[strategic ADR-010]` §44) | < 200 ms |
+| `pryzm.command-bus.execute-batch` | N command-bus dispatches (per-tick batched per `[strategic ADR-0210]` §44) | < 200 ms |
 | `pryzm.kernel.produce-batch` | Worker pool produces N geometries (4 workers in parallel) | < 1.5 s |
 | `pryzm.committer.commit-batch` | Per-tick committer publishes to scene-cache | < 200 ms (across 2–3 ticks, ≤ 8 ms per tick per `commit-100-cubes` gate) |
 | `pryzm.bake.coalesce` | 250 ms trailing-edge debounce + chunk dirty-set union | exactly 250 ms (debounce) + < 10 ms (union compute) |
 | `pryzm.bake.chunk` | Bake worker re-bakes K chunks (typically K ∈ [1, 4] for contiguous arrays) | < 600 ms p95 per chunk in parallel |
 | `pryzm.persistence.chunk.write` | R2 write per chunk | < 200 ms p95 |
 | `pryzm.loader.chunk.fetch` | Loader retrieves chunks (in-memory cache hit on local) | < 50 ms |
-| `pryzm.renderer.upload-chunk` | Time-sliced upload, max 1/frame per ADR-010 §64 | < K * 16.67 ms |
+| `pryzm.renderer.upload-chunk` | Time-sliced upload, max 1/frame per ADR-0210 §64 | < K * 16.67 ms |
 
 **Sum check**: Σ(phases) ≤ workload gate; if any phase exceeds its share, `apps/bench/scripts/check-regression.mjs` reports the offending span explicitly.
 
@@ -81,9 +81,9 @@ for (const tier of ["tiny", "small", "founder", "medium", "large"] as const) {
 
 ### §2.4 Where the bench runs and gates
 
-- **Browser tier** — runs in headless Chromium (Playwright). Hard-fails CI if any tier exceeds its gate by > 10% on calibrated CI hardware (ADR-007 §3 calibration tier).
+- **Browser tier** — runs in headless Chromium (Playwright). Hard-fails CI if any tier exceeds its gate by > 10% on calibrated CI hardware (ADR-0207 §3 calibration tier).
 - **Node tier** — runs the same scenario through `@pryzm/headless` against the in-process bake worker. Hard-fails CI on the same gates. The Node and browser p95 must agree within 30%; divergence > 30% indicates one path lost a worker hop or a transferable.
-- **Replit-dev tier** — runs warn-only (Replit hardware is uncalibrated; gates flip to error only on calibrated CI per ADR-007 §3).
+- **Replit-dev tier** — runs warn-only (Replit hardware is uncalibrated; gates flip to error only on calibrated CI per ADR-0207 §3).
 
 ### §2.5 Activation schedule (warn → error)
 
@@ -114,7 +114,7 @@ for (const tier of ["tiny", "small", "founder", "medium", "large"] as const) {
 The AI host (`packages/ai-host/AiHost.ts`, S47) emits commands into the command bus. The command bus issues bake jobs to the bake worker via the coalescer (`apps/bake-worker/src/coalescing/CoalesceWindow.ts`, S21). Without back-pressure, an AI floor-plan import producing 1,000 wall events can:
 
 - Saturate the bake queue (BullMQ default max-jobs = 1024; depth > 200 produces R2 write tail of 30 s+).
-- Starve human-edit jobs (which share the same queue under per-project concurrency = 1 per `[strategic ADR-013]` §75).
+- Starve human-edit jobs (which share the same queue under per-project concurrency = 1 per `[strategic ADR-0213]` §75).
 - Trigger the 1500 ms hard cap on every batch boundary, defeating the 250 ms coalesce.
 
 This SPEC pins a **stepped emission curve** between the AI host and the bake queue.
@@ -132,9 +132,9 @@ Hysteresis matters: emission resumes at depth ≤ 30 (not ≤ 50) to avoid oscil
 
 ### §3.3 Composition with the 250 ms coalesce
 
-The coalescer windows incoming events at 250 ms per chunk per `[strategic ADR-010]`. The back-pressure curve operates on the *bake queue* (post-coalesce). A 1,000-wall AI batch typically coalesces into ~40–80 chunk jobs (assuming ~15–25 walls per spatial chunk per ADR-010 §58). The "soft pause" threshold (50 jobs) is therefore reached on AI batches > ~1,250 walls — which is where the user-visible queue tail starts to matter. The threshold is tunable per the §3.5 calibration sprint.
+The coalescer windows incoming events at 250 ms per chunk per `[strategic ADR-0210]`. The back-pressure curve operates on the *bake queue* (post-coalesce). A 1,000-wall AI batch typically coalesces into ~40–80 chunk jobs (assuming ~15–25 walls per spatial chunk per ADR-0210 §58). The "soft pause" threshold (50 jobs) is therefore reached on AI batches > ~1,250 walls — which is where the user-visible queue tail starts to matter. The threshold is tunable per the §3.5 calibration sprint.
 
-### §3.4 The AI-batch boundary (composes with ADR-010 §48)
+### §3.4 The AI-batch boundary (composes with ADR-0210 §48)
 
 The AI host wraps every model invocation in a **batch envelope**:
 
@@ -150,7 +150,7 @@ interface AiBatch {
 }
 ```
 
-The committer waits for `batchId` close + 250 ms before scheduling the affected chunks (ADR-010 §48). Combined with §3.2: the queue depth never crosses the soft-pause line during normal floor-plan import; only adversarial or massive-batch cases hit the hard pause.
+The committer waits for `batchId` close + 250 ms before scheduling the affected chunks (ADR-0210 §48). Combined with §3.2: the queue depth never crosses the soft-pause line during normal floor-plan import; only adversarial or massive-batch cases hit the hard pause.
 
 ### §3.5 Calibration
 
@@ -166,7 +166,7 @@ The thresholds (20 / 50 / 100, hysteresis at 30) are **defaults**. They are pinn
 - Throwing 429 from the bake worker to the AI host. The AI host is the gate; the bake worker is the consumer.
 - Pausing emission without a hysteresis band. (Causes oscillation under sustained load.)
 - Allowing the AI host to bypass the curve "for floor-plan import only." Every AI invocation goes through the same curve.
-- Allowing per-project concurrency > 1 in the bake queue to "absorb" AI bursts. Per-project concurrency stays at 1 per `[strategic ADR-013]` §75.
+- Allowing per-project concurrency > 1 in the bake queue to "absorb" AI bursts. Per-project concurrency stays at 1 per `[strategic ADR-0213]` §75.
 
 ---
 
@@ -213,11 +213,11 @@ The fixture is generated by `apps/bench/scripts/generate-largest-fixture.ts` fro
 
 - Substituting a smaller fixture and extrapolating. (The fixture must be physically run; extrapolation hides log-log curves.)
 - Skipping the M12 / M24 checkpoints because they're warn-only. Warn-only means "does not block PR merge"; it does NOT mean "may be skipped." The bench must run and the report must be filed in `apps/bench/reports/M{N}-{phase}-largest.md`.
-- Running the fixture only on the founder's M-class hardware. The CI calibration tier per ADR-007 §3 is the binding measurement.
+- Running the fixture only on the founder's M-class hardware. The CI calibration tier per ADR-0207 §3 is the binding measurement.
 
 ---
 
-## §5 OTel spans this SPEC adds (per `[strategic ADR-007]`)
+## §5 OTel spans this SPEC adds (per `[strategic ADR-0207]`)
 
 - `pryzm.bench.batch-create-e2e` — input `(tier, eventCount)`; output `(totalMs, perSpanMs[], gateResult)`.
 - `pryzm.ai.emission.policy-transition` — input `(fromPolicy, toPolicy, queueDepth)`; output `(durationMs)`.
@@ -230,12 +230,12 @@ Every span carries the standard PRYZM 2 attributes per SPEC-10: `pryzm.project.i
 
 ## §6 Cross-references
 
-- `[strategic ADR-005]` worker-pool policy — defines the parallelism budget that §2 measures.
-- `[strategic ADR-007]` telemetry backend — defines the calibration tier that §2.5 references.
-- `[strategic ADR-010]` bake debounce — defines the 250 ms coalescing window that §2 and §3 sit on top of.
-- `[strategic ADR-013]` persistence operational — defines per-project concurrency = 1 that §3 respects.
-- `[strategic ADR-014]` AI L7.5 operational — defines the AI host that §3 binds.
-- `[strategic ADR-018]` capacity cut list — §4.2 M12 / M24 checkpoints are NOT cut candidates (they are deferred to warn-only, not removed).
+- `[strategic ADR-0205]` worker-pool policy — defines the parallelism budget that §2 measures.
+- `[strategic ADR-0207]` telemetry backend — defines the calibration tier that §2.5 references.
+- `[strategic ADR-0210]` bake debounce — defines the 250 ms coalescing window that §2 and §3 sit on top of.
+- `[strategic ADR-0213]` persistence operational — defines per-project concurrency = 1 that §3 respects.
+- `[strategic ADR-0214]` AI L7.5 operational — defines the AI host that §3 binds.
+- `[strategic ADR-0218]` capacity cut list — §4.2 M12 / M24 checkpoints are NOT cut candidates (they are deferred to warn-only, not removed).
 - `SPEC-02` persistence — §6.4 tier-streamed bake; §7 `.pryzm` ZIP format that §4.3 uses.
 - `SPEC-07` AI layer — §X AI host emission contract that §3 extends.
 - `SPEC-10` observability — span naming that §5 follows.

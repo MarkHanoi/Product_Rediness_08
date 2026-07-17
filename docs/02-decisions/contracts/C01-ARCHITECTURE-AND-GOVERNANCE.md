@@ -77,7 +77,7 @@ L0    packages/schemas/                — Zod schemas; foundation for all layer
 | L6 | `plugin-sdk` v1.0.0-rc.1 | 2,067 |
 | L7 | 46 plugins | 58,424 |
 
-**54 packages, 12 apps, 46 plugins.** The per-file inventory is the canonical source of truth: `reference/architecture-detail/02-FILE-STRUCTURE.md`.
+**54 packages, 12 apps, 46 plugins.** The per-file inventory is the canonical source of truth: `reference/architecture-detail/02-file-structure.md`.
 
 ---
 

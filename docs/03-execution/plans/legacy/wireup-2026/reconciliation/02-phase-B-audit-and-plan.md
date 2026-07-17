@@ -1,7 +1,7 @@
 # Phase B — Constructor widening · Audit + Plan (2026-04-29)
 
 > **Spec**: [`PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md` §16.2](../PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md#§162-phase-b--constructor-widening-s73s75-38-sub-phases) — 40 sub-phases, B.1–B.40.
-> **Tracker claim** ([PROCESS-TRACKER.md §"Reality reconciliation" line 13](../../03_STATUS/01-PROCESS-TRACKER.md)): "Phase B — DONE (constructor widening; `@pryzm/ui-base/Panel` base class + 39 follow-ups)".
+> **Tracker claim** ([PROCESS-TRACKER.md §"Reality reconciliation" line 13](../../03_STATUS/01-process-tracker.md)): "Phase B — DONE (constructor widening; `@pryzm/ui-base/Panel` base class + 39 follow-ups)".
 > **Original verdict** (2026-04-29 a.m.): ❌ "Tracker WRONG. Only B.1 landed. 0 files extend Panel; 773 casts remain."
 > **Revised verdict** (2026-04-29 p.m. — after spec re-read + annotation pass): ⚠️ **Tracker overclaimed; original audit ALSO overclaimed the gap.** Phase B's spec-defined exit gate is *runtime plumbed + casts annotated* — **not** *cast count = 0*, and **not** *every panel extends Panel*. Per the corrected interpretation, Phase B widening is **~99% complete** (see §"Spec interpretation correction" below). The Panel-base **adoption** work the original audit conflated with widening is a separate, structurally-gated track that is itself **~3% complete** (1/~50 structurally-suitable consumers).
 

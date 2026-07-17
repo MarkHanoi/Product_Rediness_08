@@ -267,7 +267,7 @@ AI panel: "Generate apartment layout (AI)"
        8. ONE undo entry; rooms auto-redetect
 ```
 
-- **Read-only generate, explicit execute** (ADR-014): the model is never mutated
+- **Read-only generate, explicit execute** (ADR-0214): the model is never mutated
   until you pick an option.
 - **All building goes through the command bus** (principle P6), as one
   `BatchCoordinator.runBatch` → a single undo unit.

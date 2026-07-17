@@ -2,7 +2,7 @@
 
 > Status: **v0 — shipped in S21 (Q4 M10–M12)**.
 > Spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` lines 615–885.
-> Strategic ADRs implemented: `[ADR-003] storage driver isolation`, `[ADR-005] worker-pool sizing`, `[ADR-010] 250 ms bake debounce`.
+> Strategic ADRs implemented: `[ADR-0203] storage driver isolation`, `[ADR-0205] worker-pool sizing`, `[ADR-0210] 250 ms bake debounce`.
 
 The **bake worker** receives event batches from the sync server, replays them
 in a headless geometry session, and emits content-addressed `.glb` chunks to
@@ -19,7 +19,7 @@ and is the first deployment of `@pryzm/headless` in a server-side context.
 │  /enqueue-event-batch   │ ─────► │  POST /enqueue     │
 └─────────────────────────┘        │                    │
                                    │  CoalesceWindow    │ ◄── 250 ms debounce
-                                   │     (per-level)    │     [ADR-010]
+                                   │     (per-level)    │     [ADR-0210]
                                    │         ↓          │
                                    │  BakeQueue         │ ◄── BullMQ (S22 D2)
                                    │     (in-memory)    │     in-memory by default
@@ -29,12 +29,12 @@ and is the first deployment of `@pryzm/headless` in a server-side context.
                                    │  • replay events   │
                                    │  • produceWall…    │
                                    │  • ChunkWriter     │
-                                   │  • storage.put()   │ ◄── ADR-003 driver
+                                   │  • storage.put()   │ ◄── ADR-0203 driver
                                    │  • signed URL      │
                                    └────────────────────┘
 ```
 
-### Worker-pool sizing — `[strategic ADR-005]`
+### Worker-pool sizing — `[strategic ADR-0205]`
 - Default: `os.cpus().length - 1` (clamped to `≥ 1`).  One core is reserved
   for the BullMQ main loop / Express request handlers.
 - Override: `defaultConcurrency()` exported from
@@ -89,7 +89,7 @@ and removes the warning.
 
 ---
 
-## 4.  Storage driver — `[strategic ADR-003]`
+## 4.  Storage driver — `[strategic ADR-0203]`
 
 The bake worker imports `@pryzm/storage-driver` only — it never references
 `@aws-sdk/client-s3`, R2 SDKs, or any cloud-specific surface directly.  This
@@ -116,7 +116,7 @@ R2 driver requires (when in use):
 
 ---
 
-## 5.  Coalescing — `[strategic ADR-010]`
+## 5.  Coalescing — `[strategic ADR-0210]`
 
 * **Window**: 250 ms trailing-edge debounce per `(projectId, levelId)` key.
   See `apps/bake-worker/src/coalescing/CoalesceWindow.ts` and the
@@ -182,7 +182,7 @@ Pricing (`R2_PRICING` const in the same file):
 
 100 jobs / hour ≈ 100 Class B ops / hour ≈ **$2.59 / month** in op fees
 (compared to ≥ $30 / month savings vs S3 egress) — comfortably inside the
-`[strategic ADR-018]` cut-list pricing envelope.
+`[strategic ADR-0218]` cut-list pricing envelope.
 
 ---
 
@@ -241,7 +241,7 @@ exit criteria depend on them.
 ## 11.  Boundary lint
 
 `@pryzm/bake-worker` may import from:
-* `@pryzm/storage-driver`     (driver isolation — ADR-003)
+* `@pryzm/storage-driver`     (driver isolation — ADR-0203)
 * `@pryzm/persistence-client` (ChunkWriter only)
 * `@pryzm/command-bus`        (CommandBus + PatchEmitter)
 * `@pryzm/geometry-kernel`    (produceWall + NO_JOINS)

@@ -25,7 +25,7 @@ Format: **entity** → today / M18 / M24 / M36 / migration sprint(s).
 | `pryzm_users` (profile, hashed pwd, plan, stripe_customer_id) | Replit PG OR Supabase | **Supabase only** | Supabase | Supabase + read-replica |
 | OAuth tokens (Google, Microsoft) | Supabase `oauth_tokens` | Supabase `oauth_tokens` | Supabase `oauth_tokens` | Supabase `oauth_tokens` (encrypted at rest) |
 | Sessions (JWT — stateless) | none (in cookie) | none (in cookie) | none (in cookie) | none (in cookie) |
-| **SAML/SCIM** mappings | n/a | n/a | n/a | Supabase `enterprise_idp` (per `[strategic ADR-021]`) |
+| **SAML/SCIM** mappings | n/a | n/a | n/a | Supabase `enterprise_idp` (per `[strategic ADR-0221]`) |
 
 **Migration sprint:** S43 — Replit PG → Supabase production cutover. After S43 the fallback path remains in code (dev convenience) but production health-check fails fast if `SUPABASE_URL` missing.
 
@@ -96,7 +96,7 @@ Format: **entity** → today / M18 / M24 / M36 / migration sprint(s).
 | Stripe webhooks | Supabase `webhooks` (queue) | Supabase `webhooks` | Supabase `webhooks` | Supabase `webhooks` (with replay) |
 | Invoice attachments | Stripe | Stripe | Stripe | Stripe + R2 archive |
 
-### §1.9 Telemetry & observability (per `[strategic ADR-007]`)
+### §1.9 Telemetry & observability (per `[strategic ADR-0207]`)
 
 | Stream | Today | M18 | M24 | M36 |
 |---|---|---|---|---|
@@ -105,7 +105,7 @@ Format: **entity** → today / M18 / M24 / M36 / migration sprint(s).
 | Frontend Web Vitals | not yet | OTel via web-vitals lib | OTel | OTel |
 | AI cost metric | not yet | Honeycomb `pryzm.ai.cost.usd` | Honeycomb | Honeycomb |
 
-### §1.10 SOC2 evidence (per `[strategic ADR-021]`)
+### §1.10 SOC2 evidence (per `[strategic ADR-0221]`)
 
 | Evidence kind | Today | M18 | M24 | M36 |
 |---|---|---|---|---|
@@ -135,11 +135,11 @@ Every row in §1 has **one** owning store. Caches (in-memory, Redis) are explici
 ### §3.2 Migration is forward-only
 Schema migrations live under `packages/file-format/migrations/` (per SPEC-02 §4) and `infra/db/migrations/`. Both are forward-only; rollback is via PITR (Supabase) plus event-log replay.
 
-### §3.3 PII & residency (per `[strategic ADR-021]`)
+### §3.3 PII & residency (per `[strategic ADR-0221]`)
 Every entity row containing PII (users, billing) is **regional-pinned** at M36. Project content + R2 chunks follow the workspace's pinned region.
 
 ### §3.4 Backup verification
-Quarterly automated restore-into-staging + checksum, per ADR-013 + this SPEC. Bench `apps/bench/restore-verify.ts` runs nightly (S55+).
+Quarterly automated restore-into-staging + checksum, per ADR-0213 + this SPEC. Bench `apps/bench/restore-verify.ts` runs nightly (S55+).
 
 ---
 
@@ -161,12 +161,12 @@ Quarterly automated restore-into-staging + checksum, per ADR-013 + this SPEC. Be
 | S43 | Supabase production cutover; health-check live; auto-fallback gated by NODE_ENV. |
 | S45 | `project_command_log` deleted (post Yjs verification). |
 | S55 | Backup verification bench live. |
-| S70 | Multi-region prep (Tier-2 cuttable per ADR-018 T2.6). |
+| S70 | Multi-region prep (Tier-2 cuttable per ADR-0218 T2.6). |
 | S72 (M36 GA) | Map fully realised; `pnpm spec:audit-storage` is error level. |
 
 ---
 
 ## §6 Cross-references
-- ADR-002 sync; ADR-003 R2; ADR-005 Redis/BullMQ; ADR-013 persistence ops; ADR-018 cut list (T2.6); ADR-021 enterprise/data residency.
+- ADR-0202 sync; ADR-0203 R2; ADR-0205 Redis/BullMQ; ADR-0213 persistence ops; ADR-0218 cut list (T2.6); ADR-0221 enterprise/data residency.
 - SPEC-02 persistence; SPEC-03 sync; SPEC-08 security; SPEC-15 deployment topology; SPEC-27 migration & rollback; SPEC-28 AI cost model.
 - Phase docs: PHASE-2D §3 cutover plan; PHASE-3D §5 SOC2 evidence.

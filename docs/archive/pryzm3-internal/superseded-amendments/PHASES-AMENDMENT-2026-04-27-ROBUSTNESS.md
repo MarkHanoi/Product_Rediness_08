@@ -69,7 +69,7 @@
 
 **Insertion at S22 exit criteria**:
 
-> Add bullet: `[ ] SPEC-31 §4.2 M12 largest-fixture checkpoint report filed (warn-only; per ADR-018 NOT a cut candidate).`
+> Add bullet: `[ ] SPEC-31 §4.2 M12 largest-fixture checkpoint report filed (warn-only; per ADR-0218 NOT a cut candidate).`
 
 ### §2.4 PHASE-2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md
 
@@ -108,16 +108,16 @@
 
 **Insertion at §2 S43 exit criteria** (the new sprint-detail bullets):
 
-> - `[ ] SPEC-31 §3 back-pressure thresholds wired in `AiHost.ts` (interface only; AI host stays empty per ADR-014 lazy bootstrap).`
+> - `[ ] SPEC-31 §3 back-pressure thresholds wired in `AiHost.ts` (interface only; AI host stays empty per ADR-0214 lazy bootstrap).`
 > - `[ ] SPEC-31 §3 OTel spans (`pryzm.ai.emission.policy-transition`, `pryzm.bake.queue.depth`) emitted under `ai-batch-emission.bench.ts`.`
-> - `[ ] SPEC-31 §4 M24 largest-fixture checkpoint report filed (warn-only; full pipeline + chaos harness; per ADR-018 NOT a cut candidate).`
+> - `[ ] SPEC-31 §4 M24 largest-fixture checkpoint report filed (warn-only; full pipeline + chaos harness; per ADR-0218 NOT a cut candidate).`
 
 ### §2.6 PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md
 
 **Insertion at S47 (AI host lazy bootstrap) deliverables**:
 
 ```
-- AI host bootstrap composes with SPEC-31 §3 back-pressure curve. End-to-end span trace verified in Honeycomb (or equivalent per ADR-007).
+- AI host bootstrap composes with SPEC-31 §3 back-pressure curve. End-to-end span trace verified in Honeycomb (or equivalent per ADR-0207).
 ```
 
 **Insertion at S50 (AI floor-plan import) deliverables**:
@@ -151,7 +151,7 @@
 
 ```
 - [ ] **W-3-1** SPEC-31 §2 `batch-create-e2e.bench.ts` skeleton lands at S07 D5; `tiny` + `founder` workloads warn-only. Owner: Track B.
-- [ ] **W-3-2** SPEC-31 §3 back-pressure curve interface in `packages/ai-host/AiHost.ts` lands at S43 D5 (AI host stays empty per ADR-014). Owner: Track A.
+- [ ] **W-3-2** SPEC-31 §3 back-pressure curve interface in `packages/ai-host/AiHost.ts` lands at S43 D5 (AI host stays empty per ADR-0214). Owner: Track A.
 - [ ] **W-3-3** SPEC-31 §4 `tests/fixtures/largest.pryzm` generator lands at S22 D1; M12 checkpoint report filed at S22 D9. Owner: Track A.
 ```
 
@@ -159,23 +159,23 @@
 
 ## §4 ADR cross-cuts
 
-### §4.1 ADR-005 (worker-pool policy) — annotate
+### §4.1 ADR-0205 (worker-pool policy) — annotate
 
-> Add cross-reference at ADR-005 §39 (first-paint priority): `See SPEC-31 §2 for the end-to-end bench that validates first-paint priority composes with the committer + bake worker.`
+> Add cross-reference at ADR-0205 §39 (first-paint priority): `See SPEC-31 §2 for the end-to-end bench that validates first-paint priority composes with the committer + bake worker.`
 
-### §4.2 ADR-010 (bake debounce) — annotate
+### §4.2 ADR-0210 (bake debounce) — annotate
 
-> Add cross-reference at ADR-010 §46 (1500 ms hard cap): `See SPEC-31 §3 for the AI emission curve that prevents the hard cap from firing on every batch boundary.`
+> Add cross-reference at ADR-0210 §46 (1500 ms hard cap): `See SPEC-31 §3 for the AI emission curve that prevents the hard cap from firing on every batch boundary.`
 
-> Add cross-reference at ADR-010 §111 (S43 AI batch boundary integration): `Composes with SPEC-31 §3 four-step back-pressure curve (full / soft-pause / hard-pause / reject + hysteresis at 30).`
+> Add cross-reference at ADR-0210 §111 (S43 AI batch boundary integration): `Composes with SPEC-31 §3 four-step back-pressure curve (full / soft-pause / hard-pause / reject + hysteresis at 30).`
 
-### §4.3 ADR-013 (persistence operational) — annotate
+### §4.3 ADR-0213 (persistence operational) — annotate
 
-> Add cross-reference at ADR-013 §75 (per-project queue concurrency = 1): `SPEC-31 §3 hard-pause threshold (depth 51–100) is the upstream gate that prevents per-project concurrency = 1 from producing 30 s+ tails under AI batch load.`
+> Add cross-reference at ADR-0213 §75 (per-project queue concurrency = 1): `SPEC-31 §3 hard-pause threshold (depth 51–100) is the upstream gate that prevents per-project concurrency = 1 from producing 30 s+ tails under AI batch load.`
 
-### §4.4 ADR-018 (capacity cut list) — clarify
+### §4.4 ADR-0218 (capacity cut list) — clarify
 
-> Add explicit row to ADR-018 cut-list table: `SPEC-31 §4 M12 + M24 + M27.5 checkpoints are NOT cut candidates. They may be deferred from "error" to "warn-only" but MAY NOT be skipped or removed. The fixture run + report file is mandatory.`
+> Add explicit row to ADR-0218 cut-list table: `SPEC-31 §4 M12 + M24 + M27.5 checkpoints are NOT cut candidates. They may be deferred from "error" to "warn-only" but MAY NOT be skipped or removed. The fixture run + report file is mandatory.`
 
 ---
 

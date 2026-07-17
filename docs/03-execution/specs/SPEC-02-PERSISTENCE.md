@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B2` |
 | Phases | 1A (event log), 1D (.pryzm v1, bake), 2D (sync hardening), 3D (GA hardening) |
-| Required ADRs | ADR-013 (persistence operational semantics) |
+| Required ADRs | ADR-0213 (persistence operational semantics) |
 
 > L0 is the durable substrate. Three artefacts: the **event log** (append-only, MessagePack, source of truth), the **chunk store** (per-element baked `glb`s on R2), and the **`.pryzm` ZIP** (portable file format = the union of both). This spec defines compaction, schema migration, idempotency, multi-region consistency, and the streaming-read protocol.
 
@@ -274,5 +274,5 @@ A loader streaming from HTTP:
 - Layer placement: `08-VISION §4` (L0).
 - Wire format: `CONFLICT-ANALYSIS.md §3.4`.
 - Phase deliverables: `phases/PHASE-1A` (event log), `phases/PHASE-1D` (.pryzm v1, bake worker).
-- ADR: `adrs/ADR-013-persistence-operational.md`.
-- Open conflict (Y.Doc bridge): `CONFLICT-ANALYSIS.md §6.1` and ADR-002.
+- ADR: `adrs/ADR-0213-persistence-operational.md`.
+- Open conflict (Y.Doc bridge): `CONFLICT-ANALYSIS.md §6.1` and ADR-0202.

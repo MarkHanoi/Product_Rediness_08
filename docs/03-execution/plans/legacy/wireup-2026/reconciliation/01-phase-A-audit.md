@@ -1,7 +1,7 @@
 # Phase A — Composition root binding · Audit (2026-04-29)
 
 > **Spec**: [`PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md` §16.1](../PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md#§161-phase-a--composition-root-s73-7-sub-phases)
-> **Tracker claim** ([PROCESS-TRACKER.md §3 line 132+](../../03_STATUS/01-PROCESS-TRACKER.md)): Phase A 7/7 ✓ landed S73-WIRE D2.
+> **Tracker claim** ([PROCESS-TRACKER.md §3 line 132+](../../03_STATUS/01-process-tracker.md)): Phase A 7/7 ✓ landed S73-WIRE D2.
 > **Verdict**: ✅ **Tracker correct.** Phase A is functionally landed.
 
 ## Per-sub-phase verification

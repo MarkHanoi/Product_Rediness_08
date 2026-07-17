@@ -2,7 +2,7 @@
 # PRYZM3 — 2026-05-18
 **Status:** COMPLETE — all 14 tasks verified implemented; build gates clean as of 2026-05-19  
 **Supersedes:** `ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18.md` (F1–F7 only; this plan is the full replacement)  
-**Contract refs:** C11 §5.2, C14 §3, C15 §8 §8.1, C20 §3, ADR-002 §2, P3, P4, P6  
+**Contract refs:** C11 §5.2, C14 §3, C15 §8 §8.1, C20 §3, ADR-0202 §2, P3, P4, P6  
 **Audit source:** `ELEMENT-FUNCTIONAL-AUDIT-FULL-2026-05-18.md`  
 **Verified by:** Exhaustive source read — 25 parallel explorer agents, 8 targeted grep/bash sweeps
 
@@ -162,7 +162,7 @@ Delete commands: All delete commands (`DeleteSlabCommand.ts`, `DeleteColumnComma
 ### TASK-01: Fix all batch create CEB payloads — emit per-element events
 **Bug:** BUG-1  
 **Severity:** 🔴 Critical  
-**Contract compliance:** C11 §5.2 (typed domain events after mutation); C14 §3 LP-05 (no new `window.dispatchEvent` — use `runtime.events.emit`); ADR-002 §2 (enrichment point is CEB, not handlers)
+**Contract compliance:** C11 §5.2 (typed domain events after mutation); C14 §3 LP-05 (no new `window.dispatchEvent` — use `runtime.events.emit`); ADR-0202 §2 (enrichment point is CEB, not handlers)
 
 **Architectural pattern:** Path B — Bus → CEB enrichment → `runtime.events.emit` per element → initTools subscriber → legacy store → DOM event → FragmentBuilder
 
@@ -193,7 +193,7 @@ The `initTools.ts` subscribers for `wall.created` (L814), `slab.created` (L1119)
 
 **Fix strategy:**
 
-**Layer:** L3 (`packages/runtime-composer/src/CommandEventBridge.ts`) — this is the sole correct enrichment point per ADR-002 §2. No changes to handlers (L7) or initTools subscribers (L5).
+**Layer:** L3 (`packages/runtime-composer/src/CommandEventBridge.ts`) — this is the sole correct enrichment point per ADR-0202 §2. No changes to handlers (L7) or initTools subscribers (L5).
 
 **Step 1 — Wall batch (`wall.batch.create`, L104–119):**  
 Re-type `p` as `{ walls?: Array<WallSpec>; levelId?: string }` where `WallSpec` is the validated record shape already placed into payload by `CreateWallBatch.ts`. For each element in `p.walls ?? []`, emit one `wall.created` event with the same fields as the single-create case (wallId, baseLine, height, thickness, baseOffset, systemTypeId, ifcGuid). The existing initTools L814 subscriber handles each event without modification.
@@ -248,7 +248,7 @@ A batch create of N walls/slabs/beams/columns/curtain walls/ceilings produces N 
 ### TASK-02: Fix curtain wall single create — add grid config to CEB payload
 **Bug:** BUG-1a (ASSUMED-D confirmed)  
 **Severity:** 🔴 Critical  
-**Contract compliance:** C11 §5.2; C14 §3 LP-05; ADR-002 §2
+**Contract compliance:** C11 §5.2; C14 §3 LP-05; ADR-0202 §2
 
 **Architectural pattern:** Path B — CEB enrichment of `curtainwall.create` case
 
@@ -285,7 +285,7 @@ When TASK-01 iterates batch elements, each element in `p.curtainWalls` must also
 **Files NOT to change (and why):**
 - `packages/geometry-curtain-wall/src/CurtainWallStore.ts` — add() interface is correct; the fix is in what we pass to it, not how it processes the data
 - `packages/geometry-curtain-wall/src/CurtainWallBuilder.ts` — `migrateToGridSystem()` fallback logic is correct; the bug is upstream in the payload, not the builder
-- `plugins/curtain-wall/src/handlers/CreateCurtainWallHandler.ts` — handler is architecturally correct; do not modify handlers per ADR-002 §2
+- `plugins/curtain-wall/src/handlers/CreateCurtainWallHandler.ts` — handler is architecturally correct; do not modify handlers per ADR-0202 §2
 
 **Verification steps:**
 1. `grep -n "gridXSpacing\|gridYSpacing\|gridSystem" apps/editor/src/engine/initTools.ts` — must return hits in the `curtain-wall.created` subscriber block after fix
@@ -305,7 +305,7 @@ A curtain wall created via single or batch command produces a visible mesh with 
 ### TASK-03: Fix stair railing — add stairId validation and null guard
 **Bug:** BUG-2  
 **Severity:** 🟠 High  
-**Contract compliance:** C11 §5.2 (validate domain invariants before store mutation); ADR-002 §2 (canExecute is the correct validation point)
+**Contract compliance:** C11 §5.2 (validate domain invariants before store mutation); ADR-0202 §2 (canExecute is the correct validation point)
 
 **Architectural pattern:** Path C — Legacy CommandManager bridge via `CreateStairRailing.ts`
 
@@ -1115,7 +1115,7 @@ This plan is **COMPLETE** when ALL of the following are true:
 | C14 §3 LP-05 | Use `runtime.events.emit()` — no new `window.dispatchEvent(new CustomEvent(...))` in `apps/` or `packages/` | All tasks |
 | C15 §8.1 | Door and window changes MUST update BOTH Immer store AND legacy `wallStore.updateDoor()`/`updateWindow()` | TASK-04 |
 | C20 §3 | Ring Buffer is the single undo stack. Bridge handlers must produce real Immer patches, not empty `{ forward: [], inverse: [] }`. | TASK-07 |
-| ADR-002 §2 | Handlers (L7) are pure. Event enrichment happens ONLY in CEB (L3). Do not add `runtime.events.emit()` to handlers. | TASK-01, TASK-02, TASK-05, TASK-12 |
+| ADR-0202 §2 | Handlers (L7) are pure. Event enrichment happens ONLY in CEB (L3). Do not add `runtime.events.emit()` to handlers. | TASK-01, TASK-02, TASK-05, TASK-12 |
 | P3 | Only `packages/runtime-composer/src/scheduler.ts` calls `requestAnimationFrame`. Geometry builds MUST be scheduled, not synchronous inline. | TASK-01 (per-element emit volume), TASK-04 (door mesh rebuild) |
 | P4 | No new `(window as any)` in `packages/`. Existing sites in `apps/` tracked under RISK-2. | All tasks |
 | P6 | Commands are the only mutation path. No direct store writes from UI handlers. | TASK-04, TASK-07, TASK-12 |

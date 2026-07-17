@@ -8,7 +8,7 @@
 | Status | Accepted |
 | Date | 2026-07-02 |
 | Owner | Hosted openings + wall rebuild (`packages/geometry-door`, `packages/geometry-window`, `apps/editor/src/engine/WallRebuildCoordinator.ts`) |
-| Builds on | ADR-057 (openings-only fast path) · ADR-061 (§PERF-WALL-DRAG-DEFER) · C15 (hosted element contract) |
+| Builds on | ADR-0257 (openings-only fast path) · ADR-0261 (§PERF-WALL-DRAG-DEFER) · C15 (hosted element contract) |
 | Governs | The CRITICAL "move a wall that hosts a door → whole app freezes" hang |
 | Tags | §FIX-HOSTWALL-DOOR-INDEX · §FIX-HOSTWALL-MOVE-COALESCE |
 | Contracts | P2 (no THREE outside renderer-three — unchanged) · P3 (no new rAF — builds still drain on the frame scheduler) · P6 (mutations still via commands; only the store's own bookkeeping changed) · 8-layer import rule respected (stores stay L-low) |
@@ -60,7 +60,7 @@ its current host wall). Empty buckets are pruned so `getIdsByWallId` of an unrel
 ### §FIX-HOSTWALL-MOVE-COALESCE — one redetect per move (verified, not re-plumbed)
 
 A wall move already coalesces to **one** `_flush` per gizmo drag: `_scheduleFlush` defers the heavy
-whole-level flush while `window.__wallDragInProgress` is set (ADR-061), and the drag-end commit
+whole-level flush while `window.__wallDragInProgress` is set (ADR-0261), and the drag-end commit
 clears the flag *before* dispatching the single `wall.updateBaseline`, so that commit's store
 mutation takes the one immediate scheduled flush. `_flush` runs `WallJoinResolver.resolveLevel`
 once per affected level and emits `bim-wall-mutation-committed` once — the signal that drives room
@@ -73,7 +73,7 @@ unbounded scan, now removed.
 
 - The wall-move freeze is removed at its dominant cost centre with a contained, O(1)-amortised
   bookkeeping change in two stores. No behavioural/visual change: `getByWallId` returns the same
-  records; `rebuildForWall` enqueues the same doors; the openings-only fast path (ADR-057), the
+  records; `rebuildForWall` enqueues the same doors; the openings-only fast path (ADR-0257), the
   body-only `_rebuildWallBodies` (D40/D61), §POST-RESOLVE-PRESERVE, and instanced walls are all
   untouched.
 - The index adds one `Set` insert/delete per opening add/remove — negligible, and it makes every

@@ -8,7 +8,7 @@
 | Owner | Architecture lead + Enterprise lead |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S75 D5 |
-| References | `13-AEC-WISHLIST-SUPPLEMENT.md` §1 #2; `[strategic ADR-037]` |
+| References | `13-AEC-WISHLIST-SUPPLEMENT.md` §1 #2; `[strategic ADR-0237]` |
 
 ---
 
@@ -48,7 +48,7 @@ In `hybrid` mode:
 - Chunk store + IFC + materials: customer-owned bucket (customer-credentialed pre-signed URLs minted by sync server). **Never copied to PRYZM cloud.**
 - Browser fetches chunks directly from customer bucket via pre-signed URLs.
 
-### §2.4 Default per `[strategic ADR-037]`
+### §2.4 Default per `[strategic ADR-0237]`
 
 Default mode = `cloud-region` with `region` auto-selected from inferred locale. Authors can downgrade to `cloud-public` or upgrade to `hybrid` / `local-only` / `self-host`. Region change requires re-pack + transfer; UI warns about transit time.
 
@@ -90,8 +90,8 @@ apps/sync-server-helm/   ← extends S67 self-host chart with hybrid-mode config
 
 ## §7 Cross-references
 
-- `[strategic ADR-037]` sovereignty default
-- `[strategic ADR-038]` BYOK key custody
+- `[strategic ADR-0237]` sovereignty default
+- `[strategic ADR-0238]` BYOK key custody
 - SPEC-15 health checks (per-region readiness)
 - SPEC-24 storage map (per-region table registration)
 - SPEC-27 backups + DR (per-region restore)

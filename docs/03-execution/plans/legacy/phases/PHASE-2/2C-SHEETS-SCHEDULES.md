@@ -22,7 +22,7 @@
 
 ## §0 Reading Conventions
 
-**Export worker pattern**: S40 introduces a new server-side worker (`apps/export-worker`) that follows the same BullMQ + `worker_threads` pattern as the bake worker (Phase 1D S21). The same ADR-005 (Worker pool policy) applies. Any new server-side worker added in Phase 2 must follow ADR-005 — no exceptions.
+**Export worker pattern**: S40 introduces a new server-side worker (`apps/export-worker`) that follows the same BullMQ + `worker_threads` pattern as the bake worker (Phase 1D S21). The same ADR-0205 (Worker pool policy) applies. Any new server-side worker added in Phase 2 must follow ADR-0205 — no exceptions.
 
 **Schedule formula semantics**: the formula evaluator is a pure function operating on snapshot data. It does NOT re-execute when element stores change — instead, the schedule view subscribes to element stores and calls `evaluateFormulas(snapshot)` on every dirty signal. This is the same demand-driven pattern as the geometry producers.
 
@@ -61,8 +61,8 @@
 
 | Item | Sprint |
 |---|---|
-| ADR-026 — Export worker architecture (BullMQ, headless rasterise, pdf-lib) | S40 D1 |
-| ADR-027 — Schedule formula DSL semantics | S41 D1 |
+| ADR-0226 — Export worker architecture (BullMQ, headless rasterise, pdf-lib) | S40 D1 |
+| ADR-0227 — Schedule formula DSL semantics | S41 D1 |
 | 2C demo recording (8-min screencast) | S42 D9 |
 | `apps/bench/reports/M21-2C.md` | S42 D9 |
 
@@ -560,7 +560,7 @@ PDF export is the moment the documentation pipeline is real. Until S40, all the 
 
 **The technical challenge**: PDF export requires rendering every sheet at **print resolution** (300 DPI). A standard A1 sheet at 300 DPI = `(841 × 594 mm) × (300/25.4 px/mm)` = 9,921 × 7,016 px = ~70 MP per sheet. This is not renderable in the browser's main thread (too much memory, too long). The export worker (a Node process) must render each sheet offscreen at full resolution and assemble the PDF using `pdf-lib`.
 
-**ADR-026 decision**: the export worker renders sheets using `node-canvas` (Cairo-backed Canvas2D, exactly API-compatible with browser Canvas2D). The same `SheetEditorHost.render()` code path runs in Node as in the browser. This is possible **because** we chose Canvas2D instead of WebGL for sheets — WebGL cannot run in Node without additional GPU mocking.
+**ADR-0226 decision**: the export worker renders sheets using `node-canvas` (Cairo-backed Canvas2D, exactly API-compatible with browser Canvas2D). The same `SheetEditorHost.render()` code path runs in Node as in the browser. This is possible **because** we chose Canvas2D instead of WebGL for sheets — WebGL cannot run in Node without additional GPU mocking.
 
 ---
 
@@ -692,7 +692,7 @@ export async function processExportJob(job: PdfExportJob, r2: R2Storage): Promis
 
 #### D1 — Kickoff (30 min)
 
-- A: present ADR-026. Key decisions: `node-canvas` for headless rendering (agreed); `pdf-lib` for PDF assembly (agreed over `pdfmake` because `pdf-lib` supports image embedding from `Uint8Array` directly); BullMQ reuse from bake worker (agreed).
+- A: present ADR-0226. Key decisions: `node-canvas` for headless rendering (agreed); `pdf-lib` for PDF assembly (agreed over `pdfmake` because `pdf-lib` supports image embedding from `Uint8Array` directly); BullMQ reuse from bake worker (agreed).
 - B: confirm the `SheetEditorHostNode` abstraction — the browser `SheetEditorHost` must be refactored so the rendering logic is in a `renderSheetToContext(ctx, sheet)` function usable from both browser and Node.
 - Both: agree the `renderSheetToContext` refactor is a D2 joint task before any PDF export code is written.
 
@@ -714,7 +714,7 @@ export async function processExportJob(job: PdfExportJob, r2: R2Storage): Promis
 - [ ] PDF opens correctly in Acrobat: correct page count, correct page sizes, bookmarks present.
 - [ ] Viewports render at correct scale (visual inspection + scale bar verification).
 - [ ] Title block metadata fields all populated correctly.
-- [ ] ADR-026 merged.
+- [ ] ADR-0226 merged.
 - [ ] `apps/export-worker/` starts cleanly with `docker-compose up`.
 - [ ] OTel spans covering the full export pipeline.
 
@@ -731,7 +731,7 @@ export async function processExportJob(job: PdfExportJob, r2: R2Storage): Promis
 
 Schedules are the tabular counterpart to drawings — they quantify and categorise BIM elements into tables (door schedule, wall schedule, room schedule). PRYZM 2's schedule system is driven by a pure formula evaluator that computes schedule rows from the live element store state. This makes schedules **reactive** — add a new door → the door schedule automatically gains a new row. Delete a wall type → the wall schedule removes its row.
 
-**ADR-027 — Schedule Formula DSL semantics**:
+**ADR-0227 — Schedule Formula DSL semantics**:
 - Formulas operate on **snapshot data** (the stores' current state at the time of evaluation).
 - There is no incremental update — the full schedule is re-evaluated on every dirty signal. For typical projects (< 500 elements of any type), this is < 5 ms.
 - For large projects (> 2,000 elements of one type), incremental evaluation becomes necessary. The architecture supports this via a `memoize(rowId, hash)` wrapper, but it is not activated until Phase 3 performance hardening.
@@ -902,7 +902,7 @@ export class ScheduleView {
 - [ ] 6 schedule handlers: `CreateSchedule`, `DeleteSchedule`, `AddColumn`, `RemoveColumn`, `SetGroupBy`, `SetFilter`.
 - [ ] Sort by any column (ascending/descending).
 - [ ] Circular reference detected and shown as `#CIRCULAR` cell value.
-- [ ] ADR-027 merged.
+- [ ] ADR-0227 merged.
 
 ---
 
@@ -1036,8 +1036,8 @@ export async function scheduleToXLSX(schedule: ScheduleDto, rows: ScheduleRow[])
 
 | ID | Subject | Key Decision | Sprint |
 |---|---|---|---|
-| ADR-026 | Export worker architecture | BullMQ + `node-canvas` headless rasterise; `pdf-lib` assembly; same CanvasHost render function as browser | S40 |
-| ADR-027 | Schedule formula DSL | Hand-rolled recursive descent parser (no `eval()`); snapshot-based evaluation; `memoize` hook deferred to Phase 3 | S41 |
+| ADR-0226 | Export worker architecture | BullMQ + `node-canvas` headless rasterise; `pdf-lib` assembly; same CanvasHost render function as browser | S40 |
+| ADR-0227 | Schedule formula DSL | Hand-rolled recursive descent parser (no `eval()`); snapshot-based evaluation; `memoize` hook deferred to Phase 3 | S41 |
 
 ### §3.2 CI Gates
 
@@ -1091,22 +1091,22 @@ export async function scheduleToXLSX(schedule: ScheduleDto, rows: ScheduleRow[])
 
 ## §Gap-Closure Subphase (added 2026-04-27 per `GAP-REVIEW-2026-04-27.md`)
 
-Phase 2C is where SPEC-29 (Vector Primitives), ADR-027 (Schedule Formula Library), and the per-family Step-9 of SPEC-21 all converge. The PDF backend lights up here.
+Phase 2C is where SPEC-29 (Vector Primitives), ADR-0227 (Schedule Formula Library), and the per-family Step-9 of SPEC-21 all converge. The PDF backend lights up here.
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S37** | PDF backend MVP per SPEC-29 §4.3 (native `packages/drawing-pdf/`, no SVG round-trip). Equivalence gate green for SVG↔Canvas2D↔PDF. Quarterly `three` upgrade window per ADR-025 Part B. Strangler-fig: `src/commands/` MERGE-class regression suite green; legacy classes deleted per SPEC-27 §4.3. | SPEC-29 §4.3 |
-| **S38** | `apps/sync-server` Reserved VM provisioned per SPEC-15 §2.1; Upstash Redis live; staging traffic routed. Schedule producer lit; first 14 formulas (the Tier-1-survivable subset per ADR-027 Part C) shipped; first family schedules lit. AI per-call cap + daily-user budget enforced per SPEC-28 §4. `authz.can` performance test (p95 < 5 ms cached) per ADR-028 Part D. | SPEC-15, ADR-027, SPEC-28 |
-| **S39** | Schedule producer for all 18 families end-to-end. Formula library completeness checked against SPEC-29 §6 + ADR-027 §A.1. | SPEC-29 §6, ADR-027 |
+| **S37** | PDF backend MVP per SPEC-29 §4.3 (native `packages/drawing-pdf/`, no SVG round-trip). Equivalence gate green for SVG↔Canvas2D↔PDF. Quarterly `three` upgrade window per ADR-0225 Part B. Strangler-fig: `src/commands/` MERGE-class regression suite green; legacy classes deleted per SPEC-27 §4.3. | SPEC-29 §4.3 |
+| **S38** | `apps/sync-server` Reserved VM provisioned per SPEC-15 §2.1; Upstash Redis live; staging traffic routed. Schedule producer lit; first 14 formulas (the Tier-1-survivable subset per ADR-0227 Part C) shipped; first family schedules lit. AI per-call cap + daily-user budget enforced per SPEC-28 §4. `authz.can` performance test (p95 < 5 ms cached) per ADR-0228 Part D. | SPEC-15, ADR-0227, SPEC-28 |
+| **S39** | Schedule producer for all 18 families end-to-end. Formula library completeness checked against SPEC-29 §6 + ADR-0227 §A.1. | SPEC-29 §6, ADR-0227 |
 | **S40** | Schedule columns hardened per SPEC-21 Step 9 across all 18 families. Title block templates land per SPEC-29 §7. | SPEC-21 Step 9, SPEC-29 §7 |
-| **S41** | Remaining 10 formulas shipped per ADR-027 §A.1. Sheet pipeline end-to-end; multi-page schedules; revision clouds. | ADR-027 |
+| **S41** | Remaining 10 formulas shipped per ADR-0227 §A.1. Sheet pipeline end-to-end; multi-page schedules; revision clouds. | ADR-0227 |
 | **S42** | Phase 2C end-to-end bench: 100-page A1 sheet set < 8 s on bake-worker per SPEC-15 §8. SPEC-29 §6 schedule integration green for all 18 families. | SPEC-15 §8 |
 
 ### Updated bench gates (this phase)
 The S42 bench gate (existing) now also asserts:
 - `pnpm bench pdf-export-large` green (100-page A1 < 8 s).
 - `pnpm test packages/drawing-pdf` green (PDF backend equivalence per SPEC-29 §4.5).
-- `pnpm bench schedule-formulas` covers all 24 formulas per ADR-027 §A.1.
+- `pnpm bench schedule-formulas` covers all 24 formulas per ADR-0227 §A.1.
 - All 18 families ship a `defaultScheduleColumns` per SPEC-21 Step 9.
 
 ### Updated entry/exit criteria

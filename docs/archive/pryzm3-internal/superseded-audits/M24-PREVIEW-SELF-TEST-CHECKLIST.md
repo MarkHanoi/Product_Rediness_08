@@ -82,7 +82,7 @@ The two valid PRYZM 2 URLs at M24 are:
 - `/?pryzm2=1` → Project Hub.
 - `/?pryzm2=1&project=<id>` → opens that project in the full editor.
 
-Optional renderer overrides (per ADR-007):
+Optional renderer overrides (per ADR-0207):
 
 - `&mode=webgpu` → force WebGPU.
 - `&mode=webgl2` → force WebGL2.
@@ -201,7 +201,7 @@ In tab A, switch to plan view, pick the wall tool. Within one frame, in tab B (i
 - [ ] When user A selects an element, the selection echoes in tab B's peer state.
 - [ ] When user A switches view, the cursor disappears from tab B's old view and reappears in the new one within one frame (per `[ADR 0025-multi-view-sync]`).
 
-Throttle check: open DevTools → Network → WS frames in tab B. Awareness payloads should average **< 5 KB/s** (per `[strategic ADR-018]` T1.8 cap).
+Throttle check: open DevTools → Network → WS frames in tab B. Awareness payloads should average **< 5 KB/s** (per `[strategic ADR-0218]` T1.8 cap).
 
 ### §4.3 Sync latency (S43)
 
@@ -281,7 +281,7 @@ Per Phase 2D §6 "What Phase 2D Explicitly Did NOT Do":
 | Full AI workflows (CV, generative, rules, voice) beyond mock | S49–S52 (Phase 3A) |
 | Public AI API | S53 (Phase 3A) |
 | IFC, DXF, Rhino import/export plugins | S55–S57 (Phase 3B) |
-| Component editor migration | v2 backlog (cut per `[strategic ADR-018]` T2.2) |
+| Component editor migration | v2 backlog (cut per `[strategic ADR-0218]` T2.2) |
 | BCF round-trip | Phase 3B |
 | Plugin SDK 1.0 publish | Phase 3C |
 | Marketplace | Phase 3C |

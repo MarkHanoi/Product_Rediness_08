@@ -1,7 +1,7 @@
 # PRYZM — Master Architecture, Capabilities & Track File
 
 > **Stamp**: 2026-06-01 · **Status**: SYNTHESIS — orchestrator's audit
-> **Derived from**: full read of `docs/01-strategy/product-vision.md` · `01-VISION.md` · `02-ARCHITECTURE.md` · `docs/02-decisions/contracts/README.md` + all C01–C30 · all top-level PRYZM3 plans · 4 parallel reconnaissance sweeps over `packages/` (78) · `plugins/` (47) · `apps/` (13) + `server/` + `src/`.
+> **Derived from**: full read of `docs/01-strategy/STR-02-product-vision.md` · `01-VISION.md` · `02-ARCHITECTURE.md` · `docs/02-decisions/contracts/README.md` + all C01–C30 · all top-level PRYZM3 plans · 4 parallel reconnaissance sweeps over `packages/` (78) · `plugins/` (47) · `apps/` (13) + `server/` + `src/`.
 > **Authority below**: `00-PRODUCT-VISION` > `01-VISION` > `02-ARCHITECTURE` > C-contracts > ADRs > SPECs. This doc is a NAVIGATION + SYNTHESIS layer, not a contract.
 > **Why this exists**: a single map of what PRYZM is today, where every piece of code lives, and what's still on the road. Built so future sessions don't reinvent existing systems.
 
@@ -480,7 +480,7 @@ Every capability the platform exposes today. Status column: ✅ live · 🟨 par
 | Capability | Status | Where |
 |---|---|---|
 | AI command engine (NL → design action) | ✅ | `packages/ai-host` |
-| AI host with lazy load (L7.5 promotion per ADR-014) | ✅ | `packages/ai-host` + `apps/ai-worker` |
+| AI host with lazy load (L7.5 promotion per ADR-0214) | ✅ | `packages/ai-host` + `apps/ai-worker` |
 | **Apartment generation single-unit (D-TGL)** — pure deterministic engine | ✅ | `packages/ai-host/src/workflows/apartmentLayout/` |
 | **Multi-apartment floor plate generation** | 🟨 | Specced in `apartment-cognition-stack` (Phase 11); engine work pending |
 | **Furniture placement engine (D-FLE)** — door-vector-aware | ✅ | `packages/ai-host/src/workflows/furnishLayout/` |
@@ -749,9 +749,9 @@ Two prior near-misses in this session were caught:
 
 Read these in this exact order:
 
-1. `docs/01-strategy/product-vision.md` — north star, business intent
-2. `docs/01-strategy/engineering-vision.md` — P1-P8 + D1-D13 + 17 NFTs + 5 customer archetypes
-3. `docs/01-strategy/architecture.md` — 9-layer model, lint matrix, composition root, convergence booleans
+1. `docs/01-strategy/STR-02-product-vision.md` — north star, business intent
+2. `docs/01-strategy/STR-03-engineering-vision.md` — P1-P8 + D1-D13 + 17 NFTs + 5 customer archetypes
+3. `docs/01-strategy/STR-04-architecture.md` — 9-layer model, lint matrix, composition root, convergence booleans
 4. `docs/02-decisions/contracts/README.md` — contract suite map + conflict resolution order
 5. Specific C-contract relevant to the work
 6. **This file** (`MASTER-ARCHITECTURE-AND-CAPABILITIES-2026-06-01.md`) — folder map + capabilities + goals

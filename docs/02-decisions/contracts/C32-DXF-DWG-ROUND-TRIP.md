@@ -206,13 +206,13 @@ On export, the writer emits `$INSUNITS = 4` (mm) unless the source declared a di
 
 ### §1.12 — DXF/DWG paths NEVER mutate the PRYZM store directly
 
-Per [P6](../../01-strategy/engineering-vision.md), the DXF/DWG importer/exporter MUST NOT call `store.setState()` directly. All mutations route through the command bus via `dxf.import` / `dwg.import` (which internally call `commandBus.dispatch(CreateElement)` per parsed entity, batched per [C17 Batch creation](C17-BATCH-CREATE-CATALOGUE.md)).
+Per [P6](../../01-strategy/STR-03-engineering-vision.md), the DXF/DWG importer/exporter MUST NOT call `store.setState()` directly. All mutations route through the command bus via `dxf.import` / `dwg.import` (which internally call `commandBus.dispatch(CreateElement)` per parsed entity, batched per [C17 Batch creation](C17-BATCH-CREATE-CATALOGUE.md)).
 
 CI gate: `tools/ga-gate/check-commandmanager.ts` (existing — extended) — flags any direct store mutation in `plugins/dxf/src/`.
 
 ### §1.13 — DXF/DWG paths are P2-clean — no THREE import
 
-Per [P2](../../01-strategy/engineering-vision.md), `plugins/dxf/src/` MUST NOT `import * as THREE`. All geometry conversion uses `packages/geometry-kernel/` primitives (Vector2 / Vector3 / Box2 / Polyline). The 3D scene is materialised by the standard element-creation pipeline ([C11](C11-ELEMENT-CREATION-PIPELINE.md)), not by the DXF plugin.
+Per [P2](../../01-strategy/STR-03-engineering-vision.md), `plugins/dxf/src/` MUST NOT `import * as THREE`. All geometry conversion uses `packages/geometry-kernel/` primitives (Vector2 / Vector3 / Box2 / Polyline). The 3D scene is materialised by the standard element-creation pipeline ([C11](C11-ELEMENT-CREATION-PIPELINE.md)), not by the DXF plugin.
 
 CI gate: existing `tools/ga-gate/check-three-import-boundary.ts` extends to `plugins/dxf/`.
 

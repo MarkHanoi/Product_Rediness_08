@@ -18,9 +18,9 @@
 | 5 | WebGPU compute investigation report | ⏸ Deferred | Research-only; report scoped at S66 D8 — see §D2 | n/a |
 | 6 | PDF-to-BIM pricing finalised; cost ceilings enforced | ⏸ Partial | Cost-meter primitive + budget pre-flight at `AiInvokePort`; PDF-to-BIM specific pricing table is S66 — see §D3 | n/a |
 | 7 | Workspace Admin AI Spend view (SPEC-28 §9) | ✅ Delivered | `packages/ai-spend/` + `apps/api-gateway/src/routes/admin.ts` + ADR-0043 | 28 (ai-spend) + 14 (admin route) |
-| 8 | Enterprise admin UI for plan/role overrides (ADR-028 Part E) | ✅ Delivered (API surface) | `packages/admin-overrides/` + `apps/api-gateway/src/routes/admin.ts` + ADR-0045 §A-D | 19 (overrides) + admin route |
-| 9 | Formula library extraction (ADR-027) | ✅ Delivered | `packages/formula-library/` + `apps/api-gateway/src/routes/formulas.ts` + ADR-0044 | 35 (formula) + 5 (route) |
-| 10 | View+project lifecycle events deleted (ADR-030 Part D) | ⏸ Deferred (HARD OWNER assigned) | K3-A risk; deletion deferred to S66 D1 with a kill-switch metric per ADR-0045 §E | n/a |
+| 8 | Enterprise admin UI for plan/role overrides (ADR-0228 Part E) | ✅ Delivered (API surface) | `packages/admin-overrides/` + `apps/api-gateway/src/routes/admin.ts` + ADR-0045 §A-D | 19 (overrides) + admin route |
+| 9 | Formula library extraction (ADR-0227) | ✅ Delivered | `packages/formula-library/` + `apps/api-gateway/src/routes/formulas.ts` + ADR-0044 | 35 (formula) + 5 (route) |
+| 10 | View+project lifecycle events deleted (ADR-0230 Part D) | ⏸ Deferred (HARD OWNER assigned) | K3-A risk; deletion deferred to S66 D1 with a kill-switch metric per ADR-0045 §E | n/a |
 
 ## Aggregate verification
 
@@ -44,7 +44,7 @@ Pre-existing failing workflows (`audit-log-middleware`, `ifc-export-tier1`, `pry
 
 ## Architecture summary
 
-The api-gateway adopts the marketplace-api (S64 D1) pattern verbatim: Express 5, pluggable auth-shim (default test shim trusts `X-Test-Subject` / `X-Test-Scopes` / `X-Test-Roles` / `X-Test-Tier` headers), per-app `RateLimitRegistry` for read+write isolated buckets per ADR-018, and pluggable ports for everything that touches I/O (`ProjectExportPort`, `ProjectImportPort`, `AiInvokePort`, `WsEventBus`). In-memory implementations live in `src/ports.ts`; production wiring at S65 D9 swaps in `@pryzm/file-format` adapters and the sync-server WS bus.
+The api-gateway adopts the marketplace-api (S64 D1) pattern verbatim: Express 5, pluggable auth-shim (default test shim trusts `X-Test-Subject` / `X-Test-Scopes` / `X-Test-Roles` / `X-Test-Tier` headers), per-app `RateLimitRegistry` for read+write isolated buckets per ADR-0218, and pluggable ports for everything that touches I/O (`ProjectExportPort`, `ProjectImportPort`, `AiInvokePort`, `WsEventBus`). In-memory implementations live in `src/ports.ts`; production wiring at S65 D9 swaps in `@pryzm/file-format` adapters and the sync-server WS bus.
 
 Five new ADRs pin every composition decision:
 
@@ -66,8 +66,8 @@ The OpenAPI YAML at `packages/api-spec/openapi.yaml` is extended with 13 new pat
 |---|---|---|---|
 | D1 | PDF backend large-sheet bench tuning | Carry-over from S58 baseline | Existing baseline meets the < 8 s budget; no S65 regression to fix |
 | D2 | WebGPU compute investigation report | S66 D8 | Research-only per phase-doc; produces a recommendation, not code |
-| D3 | PDF-to-BIM pricing table finalisation | S66 (ADR-031 amendment) | Needs telemetry from S65 D9 demo first |
-| D4 | View+project lifecycle event deletion (ADR-030 Part D) | **S66 D1 (HARD OWNER)** | K3-A high-risk; subscribers in S64 marketplace-api + S62 plugin-sdk must migrate first per ADR-0045 §E |
+| D3 | PDF-to-BIM pricing table finalisation | S66 (ADR-0231 amendment) | Needs telemetry from S65 D9 demo first |
+| D4 | View+project lifecycle event deletion (ADR-0230 Part D) | **S66 D1 (HARD OWNER)** | K3-A high-risk; subscribers in S64 marketplace-api + S62 plugin-sdk must migrate first per ADR-0045 §E |
 | D5 | Real OAuth2 PKCE wiring against `auth.pryzm.com` | S65 D9 demo | Default test shim satisfies the API contract; production adapter swap is a one-line `authShim` injection |
 | D6 | Postgres `AiSpendStore` adapter | S66 | In-memory store satisfies the API contract; persistence is orthogonal |
 | D7 | Postgres `OverrideStore` adapter | S66 | Same rationale as D6 |

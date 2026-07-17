@@ -310,7 +310,7 @@ By Phase 3 nothing about the architecture should be in flux. Every sprint adds c
 - `packages/plugin-sdk/sandbox.ts` — Web Worker isolated; postMessage host bridge; CSP rules.
 - `packages/plugin-sdk/lifecycle.ts` — `onInstall`, `onActivate`, `onDeactivate`, `onUninstall`.
 - `packages/plugin-sdk/dev/` — `pryzm dev` CLI that watches plugin source and hot-reloads in < 500 ms.
-- ADR-009 (plugin sandbox) re-validated against final implementation.
+- ADR-0209 (plugin sandbox) re-validated against final implementation.
 - `apps/bench/plugin-install.ts` — < 2 s plugin install + first invocation.
 
 **Daily**: D1 manifest + permissions schema; D2 sandbox model (Worker + postMessage); D3 lifecycle hooks; D4 host bridge API surface; D5 `pryzm dev` hot-reload tooling; D6 sample external plugin built end-to-end (founder simulating external dev); D7 perf bench; D8 lint+security review; D9 demo; D10 buffer.
@@ -420,7 +420,7 @@ By Phase 3 nothing about the architecture should be in flux. Every sprint adds c
 
 **Deliverables**:
 - Third-party pen test contract + report.
-- CSP audit: report at `docs/04-reference/security/csp-audit-2026-Q4.md`; restrictive CSP default for SaaS deployment.
+- CSP audit: report at `docs/04-reference/security/csp-audit-2026-q4.md`; restrictive CSP default for SaaS deployment.
 - Plugin sandbox audit: independent confirmation no escapes.
 - RLS audit on Postgres: every table has policy; verified test queries.
 - OAuth2 review: PKCE flow correct; token expiry + refresh handled.
@@ -553,7 +553,7 @@ By Phase 3 nothing about the architecture should be in flux. Every sprint adds c
 | ID | Risk | Likelihood | Impact | Mitigation | Touch sprint |
 |---|---|---|---|---|---|
 | R3-01 | Legacy deletion (S61) breaks production via missed import | Medium | High | Full visual + e2e regression sweep; canary deploy to 5% beta first; fix-forward | S61 |
-| R3-02 | Plugin sandbox escape post-publish | Low | Critical | ADR-009 + S62 sandbox audit + S68 pen test; bug bounty post-GA | S62, S68 |
+| R3-02 | Plugin sandbox escape post-publish | Low | Critical | ADR-0209 + S62 sandbox audit + S68 pen test; bug bounty post-GA | S62, S68 |
 | R3-03 | Public API abuse (excessive rate, scrape) | Medium | Medium | Rate limits + per-key quotas + abuse detection in S65; ban list operational | S65 |
 | R3-04 | Self-host install fails on common Linux distros | Medium | High | Test matrix across Ubuntu/Debian/RHEL/Rocky + ARM64 in S67 | S67 |
 | R3-05 | Pen test reveals critical issue | Medium | Critical | S68 has Days 1–7 reserved; S69 has buffer; if blocking, delay GA by 1 month | S68 |
@@ -615,7 +615,7 @@ These are deliberately deferred to post-GA so the M36 launch is achievable:
 
 - **Native mobile authoring app** (NG4 in `08-VISION.md`).
 - **CFD / FEM / energy simulation in-editor** (NG3) — these are post-GA plugins.
-- **IFC 4.3 advanced features** (per ADR-008).
+- **IFC 4.3 advanced features** (per ADR-0208).
 - **Single-binary self-host** (after Docker Compose path stable).
 - **Multi-region SaaS deployment** (US/EU/APAC failover).
 - **SOC 2 / ISO 27001 certification** (post-GA, ~6 months).
@@ -659,66 +659,66 @@ The post-GA roadmap is the next book.
 
 ## §Gap-Closure Subphase — Phase 3 (S49–S72; added 2026-04-27 per `GAP-REVIEW-2026-04-27.md`)
 
-Phase 3 is GA. Every gap-closure work item below is binding; misses cascade into M36 slip and ADR-018 cut decisions.
+Phase 3 is GA. Every gap-closure work item below is binding; misses cascade into M36 slip and ADR-0218 cut decisions.
 
 ### §3A — Phase 3A (S49–S54)
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S49** | Full L7.5 architectural promotion per SPEC-07 + SPEC-28; cost telemetry → Honeycomb live; ADR-029 (PDF-to-BIM Scope) ratified; SPEC-31 (PDF-to-BIM Pipeline) outline drafted; fixture corpus collection begins. Capacity-cut Tier-1 checkpoint per ADR-018 (T1.7 + T1.8 added per gap review). | SPEC-07, SPEC-28, ADR-029 |
-| **S50** | SPEC-31 published; PDF parsing + page classification lit per ADR-029 Part A. | ADR-029 |
+| **S49** | Full L7.5 architectural promotion per SPEC-07 + SPEC-28; cost telemetry → Honeycomb live; ADR-0229 (PDF-to-BIM Scope) ratified; SPEC-31 (PDF-to-BIM Pipeline) outline drafted; fixture corpus collection begins. Capacity-cut Tier-1 checkpoint per ADR-0218 (T1.7 + T1.8 added per gap review). | SPEC-07, SPEC-28, ADR-0229 |
+| **S50** | SPEC-31 published; PDF parsing + page classification lit per ADR-0229 Part A. | ADR-0229 |
 | **S51** | AI plan-view critique surface lit per SPEC-28 §3 + SPEC-07 §3 (proposal queue with full UI). | SPEC-07, SPEC-28 |
 | **S52** | AI generate-3-options surface lit; cost guardrails verified at $0.18/call ceiling per SPEC-28 §3. | SPEC-28 |
 | **S53** | Visibility-Intent migration retro per SPEC-30 §6 — confirm legacy 11-wave is no longer the primary path; only `featureFlags.legacy_vi_fallback` retains it. | SPEC-30 §6 |
-| **S54** | Component editor (D10 loadable families) **deferred per ADR-018 T2.2** — confirmed dropped from Phase 3A; v2 backlog item. | ADR-018 T2.2 |
+| **S54** | Component editor (D10 loadable families) **deferred per ADR-0218 T2.2** — confirmed dropped from Phase 3A; v2 backlog item. | ADR-0218 T2.2 |
 
 ### §3B — Phase 3B (S55–S60)
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S55** | **OBC removed from editor bundle** per SPEC-12 §5; `src/import/ifc/` migrated to `plugins/ifc-import/`; OBC library-mount entry deleted per ADR-023. Bundle size budget verified per SPEC-12 §7. PDF-to-BIM wall extraction lit per ADR-029. Print-canvas backend lit per SPEC-29 §4.4. Backup verification bench live per SPEC-24 §3.4. | SPEC-12, ADR-023, ADR-029 |
-| **S56** | `packages/ui/` design tokens + primitives lit per ADR-026; half of `src/styles/` migrated. | ADR-026 |
-| **S57** | Audit-log schema lit per ADR-021 + ADR-028 Part G; SOC2 evidence pipeline begins. | ADR-021, ADR-028 |
-| **S58** | **Legacy 11-wave Visibility-Gate engine deleted** per SPEC-27 §4.3 + SPEC-30 §6.2. PDF-to-BIM door/window symbol matching lit per ADR-029. | SPEC-27, SPEC-30, ADR-029 |
-| **S59** | DXF / SVG export per ADR-018 T2.1 — decide v1 ship-or-defer based on Phase 2 velocity. | ADR-018 T2.1 |
-| **S60** | PDF-to-BIM confidence model + review queue UI lit per ADR-029 Part A. Idle-CPU bench audit per ADR-023 Part F. Reserved VM capacity review per ADR-022 Part D — possible second VM for >2k concurrent users per SPEC-15 §2.2.1. | ADR-022, ADR-023, ADR-029 |
+| **S55** | **OBC removed from editor bundle** per SPEC-12 §5; `src/import/ifc/` migrated to `plugins/ifc-import/`; OBC library-mount entry deleted per ADR-0223. Bundle size budget verified per SPEC-12 §7. PDF-to-BIM wall extraction lit per ADR-0229. Print-canvas backend lit per SPEC-29 §4.4. Backup verification bench live per SPEC-24 §3.4. | SPEC-12, ADR-0223, ADR-0229 |
+| **S56** | `packages/ui/` design tokens + primitives lit per ADR-0226; half of `src/styles/` migrated. | ADR-0226 |
+| **S57** | Audit-log schema lit per ADR-0221 + ADR-0228 Part G; SOC2 evidence pipeline begins. | ADR-0221, ADR-0228 |
+| **S58** | **Legacy 11-wave Visibility-Gate engine deleted** per SPEC-27 §4.3 + SPEC-30 §6.2. PDF-to-BIM door/window symbol matching lit per ADR-0229. | SPEC-27, SPEC-30, ADR-0229 |
+| **S59** | DXF / SVG export per ADR-0218 T2.1 — decide v1 ship-or-defer based on Phase 2 velocity. | ADR-0218 T2.1 |
+| **S60** | PDF-to-BIM confidence model + review queue UI lit per ADR-0229 Part A. Idle-CPU bench audit per ADR-0223 Part F. Reserved VM capacity review per ADR-0222 Part D — possible second VM for >2k concurrent users per SPEC-15 §2.2.1. | ADR-0222, ADR-0223, ADR-0229 |
 
 ### §3C — Phase 3C (S61–S66)
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
 | **S61** | **`src/engine/EngineBootstrap.ts` deleted** per SPEC-27 §4.3; `apps/editor/src/main.ts` is the new composition root. The hardest deletion. | SPEC-27 §4.3 |
-| **S62** | PDF-to-BIM fixture corpus parity testing; accuracy bar measurement per ADR-029 Part E. WebGPU readiness re-evaluated per ADR-025 Part C. | ADR-029, ADR-025 |
+| **S62** | PDF-to-BIM fixture corpus parity testing; accuracy bar measurement per ADR-0229 Part E. WebGPU readiness re-evaluated per ADR-0225 Part C. | ADR-0229, ADR-0225 |
 | **S63** | Public API draft published; OpenAPI schema for `.pryzm` import / export per SPEC-26 §8. | SPEC-26 §8 |
-| **S64** | `packages/ui/` migration covers all editor panels; `src/styles/panels/` 80% migrated. | ADR-026 |
-| **S65** | Public REST `import` / `export.pryzm` endpoints lit per SPEC-26 §11. PDF backend large-sheet bench < 8 s green per SPEC-29 §9. WebGPU compute investigation for post-GA SPEC-30 acceleration. PDF-to-BIM pricing finalised; cost ceilings enforced per ADR-029 Part C. Workspace Admin AI Spend view shipped per SPEC-28 §9. Enterprise admin UI for plan/role overrides per ADR-028 Part E. Formula library extraction for plugin SDK exposure (read-only) per ADR-027. View+project lifecycle events deleted per ADR-030 Part D. | SPEC-26, SPEC-28, SPEC-29, SPEC-30, ADR-026, ADR-027, ADR-028, ADR-029, ADR-030 |
-| **S66** | `src/styles/` deletion completes per ADR-026 + SPEC-27. Public API beta opens. | ADR-026 |
+| **S64** | `packages/ui/` migration covers all editor panels; `src/styles/panels/` 80% migrated. | ADR-0226 |
+| **S65** | Public REST `import` / `export.pryzm` endpoints lit per SPEC-26 §11. PDF backend large-sheet bench < 8 s green per SPEC-29 §9. WebGPU compute investigation for post-GA SPEC-30 acceleration. PDF-to-BIM pricing finalised; cost ceilings enforced per ADR-0229 Part C. Workspace Admin AI Spend view shipped per SPEC-28 §9. Enterprise admin UI for plan/role overrides per ADR-0228 Part E. Formula library extraction for plugin SDK exposure (read-only) per ADR-0227. View+project lifecycle events deleted per ADR-0230 Part D. | SPEC-26, SPEC-28, SPEC-29, SPEC-30, ADR-0226, ADR-0227, ADR-0228, ADR-0229, ADR-0230 |
+| **S66** | `src/styles/` deletion completes per ADR-0226 + SPEC-27. Public API beta opens. | ADR-0226 |
 
 ### §3D — Phase 3D (S67–S72, GA)
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S67** | Multi-region prep — Tier-2 cuttable per ADR-018 T2.6; if not cut, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1. | ADR-018, SPEC-15, SPEC-24 |
-| **S68** | SOC2 quarterly access-review automation per SPEC-24 §1.10. SAML / SCIM mappings table per ADR-021 + SPEC-24 §1.1. | ADR-021, SPEC-24 |
+| **S67** | Multi-region prep — Tier-2 cuttable per ADR-0218 T2.6; if not cut, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1. | ADR-0218, SPEC-15, SPEC-24 |
+| **S68** | SOC2 quarterly access-review automation per SPEC-24 §1.10. SAML / SCIM mappings table per ADR-0221 + SPEC-24 §1.1. | ADR-0221, SPEC-24 |
 | **S69** | DR drill: rollback runbook tested in last DR drill per SPEC-27 §9. | SPEC-27 |
-| **S70** | Self-host docker-compose published per SPEC-15 §7. Self-host migration tooling published per SPEC-27 §7. PDF-to-BIM public preview launch per ADR-029. Self-host BYO-key safety cap enforced per SPEC-28 §11. Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-030 Part D. | SPEC-15, SPEC-27, SPEC-28, ADR-029, ADR-030 |
+| **S70** | Self-host docker-compose published per SPEC-15 §7. Self-host migration tooling published per SPEC-27 §7. PDF-to-BIM public preview launch per ADR-0229. Self-host BYO-key safety cap enforced per SPEC-28 §11. Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-0230 Part D. | SPEC-15, SPEC-27, SPEC-28, ADR-0229, ADR-0230 |
 | **S71** | Final hardening; all SPEC §11 Phase rollout items checked. Format v1 frozen per SPEC-26. | all SPECs |
-| **S72** (GA) | All targets green: SPEC-15 §8 perf; SPEC-30 §2 all four tiers; SPEC-26 round-trip; ADR-022 single-frame-owner; ADR-026 zero `react` symbols in editor bundle; ADR-027 formula library frozen at v1; ADR-028 SOC2 evidence audit-trail captured; ADR-029 accuracy bar measured; ADR-030 `plugins/lifecycle/` GA-shipped. PDF-to-BIM ships under "preview" or full label per ADR-029 Part E gate. | all |
+| **S72** (GA) | All targets green: SPEC-15 §8 perf; SPEC-30 §2 all four tiers; SPEC-26 round-trip; ADR-0222 single-frame-owner; ADR-0226 zero `react` symbols in editor bundle; ADR-0227 formula library frozen at v1; ADR-0228 SOC2 evidence audit-trail captured; ADR-0229 accuracy bar measured; ADR-0230 `plugins/lifecycle/` GA-shipped. PDF-to-BIM ships under "preview" or full label per ADR-0229 Part E gate. | all |
 
 ### Updated bench gates (Phase 3, GA)
 The S72 GA gate (existing) now also asserts:
 - `pnpm bench all` green at SPEC §11 Phase rollout requirements for every SPEC.
-- `pnpm bench single-frame-owner-audit` green per ADR-023 Part F.
-- `pnpm bench webgpu-feature-readiness` green if WebGPU is the default per ADR-025 Part C.
-- Editor production bundle has zero `react` symbols (build-time gate per ADR-026 Part C).
+- `pnpm bench single-frame-owner-audit` green per ADR-0223 Part F.
+- `pnpm bench webgpu-feature-readiness` green if WebGPU is the default per ADR-0225 Part C.
+- Editor production bundle has zero `react` symbols (build-time gate per ADR-0226 Part C).
 - All SPEC-30 §2 four tiers green.
-- SOC2 evidence pipeline produces quarterly auto-reports per ADR-021 + ADR-028 Part G.
+- SOC2 evidence pipeline produces quarterly auto-reports per ADR-0221 + ADR-0228 Part G.
 
 ### Updated GA exit criteria
 GA ships only when **all** of:
 1. M24 beta gate items elapsed cleanly.
 2. Phase 3 rollout above complete.
-3. ADR-018 Tier-1 + Tier-2 capacity cuts decided and reflected in scope.
+3. ADR-0218 Tier-1 + Tier-2 capacity cuts decided and reflected in scope.
 4. Legacy `src/engine/`, `src/lifecycle/`, `src/styles/`, `src/visibility/` all deleted.
 5. `pnpm bench all` green for two consecutive weeks.
 

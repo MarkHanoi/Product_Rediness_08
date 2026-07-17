@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B3` |
 | Phases | 1D (single-user + shared cursors), 2D (true CRDT), 3D (hardening) |
-| Required ADRs | ADR-002 (CRDT/event-log bridge), ADR-019 (soft-lock semantics) |
+| Required ADRs | ADR-0202 (CRDT/event-log bridge), ADR-0219 (soft-lock semantics) |
 
 > L3 is the hardest CS in the rebuild. No published BIM tool runs Yjs as the sole conflict resolver for parametric geometry. This spec defines exactly what Yjs is responsible for, what it is **not** responsible for, and how concurrent BIM operations converge.
 
@@ -56,7 +56,7 @@ Y.Doc(projectId)
 
 ---
 
-## §3 The translator (L2 ↔ L3) — closes the §6.1 ADR-002 question
+## §3 The translator (L2 ↔ L3) — closes the §6.1 ADR-0202 question
 
 ### §3.1 Outbound: command → Y.Doc mutation
 ```ts
@@ -96,12 +96,12 @@ export function yDocUpdateToCommand(update: Uint8Array, doc: Y.Doc): PryzmEvent[
 - **Wire format on disk and on the public API:** PRYZM events (MessagePack).
 - The two formats are connected by the translator and never directly mixed.
 
-### §3.5 ADR-002 disposition
-ADR-002 ratifies §3.1–§3.4 above. The translator is owned by `packages/sync/`. It must ship by S05 (Phase 1A close) for Yjs scaffolding; full bidirectional support by S43 (Phase 2D start).
+### §3.5 ADR-0202 disposition
+ADR-0202 ratifies §3.1–§3.4 above. The translator is owned by `packages/sync/`. It must ship by S05 (Phase 1A close) for Yjs scaffolding; full bidirectional support by S43 (Phase 2D start).
 
 ---
 
-## §4 Soft locks (closes B3 gap "TTL spec missing"; ADR-019)
+## §4 Soft locks (closes B3 gap "TTL spec missing"; ADR-0219)
 
 ### §4.1 Lock record
 
@@ -270,8 +270,8 @@ LWW is the **stop-gap** until S43. The contract supersession of Contract 07 LWW 
 ---
 
 ## §11 Cross-references
-- Wire-format conflict and the original ADR-002 problem: `CONFLICT-ANALYSIS.md §3.3`, §6.1.
-- Soft-lock open question: `CONFLICT-ANALYSIS.md §6.8` (now closed by §4 here + ADR-019).
+- Wire-format conflict and the original ADR-0202 problem: `CONFLICT-ANALYSIS.md §3.3`, §6.1.
+- Soft-lock open question: `CONFLICT-ANALYSIS.md §6.8` (now closed by §4 here + ADR-0219).
 - Layer placement: `08-VISION §4` (L3).
 - Phase deliverables: `phases/PHASE-2-MIGRATION-MULTIUSER-M13-M24.md` §5 (2D).
-- ADRs: `adrs/ADR-002-crdt-event-log-bridge.md`, `adrs/ADR-019-soft-lock-semantics.md`.
+- ADRs: `adrs/ADR-0202-crdt-event-log-bridge.md`, `adrs/ADR-0219-soft-lock-semantics.md`.

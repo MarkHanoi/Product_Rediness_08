@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B1` |
 | Phases | 1A (rails), 1B (wall), 1C (families), 2A (rooms/levels) |
-| Required ADRs | ADR-020 (kernel robustness budget), ADR-024 (constraint solver) |
+| Required ADRs | ADR-0220 (kernel robustness budget), ADR-0224 (constraint solver) |
 
 > The geometry kernel is `packages/geometry-kernel/`. It is **pure**: no THREE, no DOM, no I/O, no globals. Inputs are typed DTOs; outputs are `BufferGeometryDescriptor`s and analytic data. This spec defines what the kernel must guarantee, what it must not assume, and how robustness is measured.
 
@@ -17,7 +17,7 @@
 ## §1 Layer placement & purity
 
 - Located at `packages/geometry-kernel/`. No transitive THREE imports — enforced by `forbiddenDependencies` lint (S01) and a CI test that runs `tsc --noEmit` against a Node-only tsconfig with no DOM lib.
-- Only allowed deps: `gl-matrix`, `manifold-3d` (or replacement per ADR-020), `earcut`, internal `packages/schemas/`, internal `packages/ids/`.
+- Only allowed deps: `gl-matrix`, `manifold-3d` (or replacement per ADR-0220), `earcut`, internal `packages/schemas/`, internal `packages/ids/`.
 - All exported functions are pure (no side effects, no mutable globals, no `Date.now()`, no `Math.random()`). Determinism is required: same input → same output, byte-identical, across Node and browser.
 - Errors are `Result<T, KernelError>` not thrown exceptions. Throwing is reserved for invariant violations that must crash the worker.
 
@@ -49,7 +49,7 @@ The L1 store carries the analytic representation. The display representation is 
 
 ---
 
-## §3 Robustness budget (closes B1 gap "no robustness contract"; ADR-020)
+## §3 Robustness budget (closes B1 gap "no robustness contract"; ADR-0220)
 
 The kernel commits to surviving the following input space:
 
@@ -74,7 +74,7 @@ A property-test suite at `packages/geometry-kernel/__tests__/robustness/` runs *
 - `coplanar-boolean.spec.ts` — generate two boxes sharing a face exactly; assert union has no T-junctions and no internal faces.
 - `degenerate-edge.spec.ts` — generate inputs with edges in (0, ε); assert kernel collapses them, never crashes.
 
-### §3.2 The CSG library decision (ADR-020)
+### §3.2 The CSG library decision (ADR-0220)
 **Default:** `manifold-3d` (Apache-2.0, manifold-by-construction, exact predicates option). Reasons:
 - Manifold-by-construction guarantees no T-junctions or non-manifold output.
 - Web-native (WASM build).
@@ -91,7 +91,7 @@ A property-test suite at `packages/geometry-kernel/__tests__/robustness/` runs *
 
 ---
 
-## §4 Constraint solver (closes B1 gap "no constraint solver"; ADR-024)
+## §4 Constraint solver (closes B1 gap "no constraint solver"; ADR-0224)
 
 Required for D10 (in-editor parametric component authoring / Family Editor).
 
@@ -100,7 +100,7 @@ Required for D10 (in-editor parametric component authoring / Family Editor).
 - **Phase 2A (S25–S30):** Light, per-element parametric expressions (length = a + b, angle = 90°). No multi-body solver.
 - **Phase 3A (S49–S54):** Full 2D constraint solver in the Component Editor.
 
-### §4.2 Solver choice (ADR-024)
+### §4.2 Solver choice (ADR-0224)
 - **Default:** `planegcs` (port of FreeCAD's solver, MIT, 2D, web-native).
 - **Backup:** SolveSpace WASM build (more capable, GPL — license blocker for proprietary distribution).
 - **Surface:** `packages/constraint-solver/` exposes `solve(constraints: ConstraintSet, vars: VarMap): Result<VarMap, SolverError>`.
@@ -192,4 +192,4 @@ These are gate-level numbers for M36 GA. Phase 1B (wall end-to-end) commits only
 - Phase 1B wall walkthrough: `phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md`.
 - Phase 1A rails: `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md`.
 - Conflict mapping: `CONFLICT-ANALYSIS.md §3.5`.
-- ADR ledger: `adrs/ADR-020-kernel-robustness.md`, `adrs/ADR-024-constraint-solver.md`.
+- ADR ledger: `adrs/ADR-0220-kernel-robustness.md`, `adrs/ADR-0224-constraint-solver.md`.

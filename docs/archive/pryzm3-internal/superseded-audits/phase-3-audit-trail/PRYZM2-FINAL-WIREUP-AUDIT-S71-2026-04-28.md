@@ -184,7 +184,7 @@ const { mountEditor } = await import('@pryzm/editor');
 const handle = mountEditor({
   container: document.body,
   audit: { actorId: 'local', projectId, clientId: __clientId },
-  // mode is no longer passed — the renderer auto-detects per ADR-007
+  // mode is no longer passed — the renderer auto-detects per ADR-0207
   // unless `?mode=` is set, in which case mountEditor reads it from URL.
 });
 const runtime = await new Promise<EverythingRuntime>((resolve, reject) => {
@@ -224,7 +224,7 @@ W2). No persistence (see W3). But the engine is alive.
 today.
 
 **Why missing:** the chrome was de-scoped in M22 (per
-`ADR-018-capacity-cut-list.md` Tier-2) on the assumption that the
+`ADR-0218-capacity-cut-list.md` Tier-2) on the assumption that the
 PRYZM 1 chrome would be reused via `legacy-shim` until S65, and
 that S65 would deliver the per-plugin sidebar contributions which
 would then assemble into a full chrome. Per the ADR list, S65
@@ -392,7 +392,7 @@ deletion gates (SPEC-27 §4.2):
    `src/main.ts:215`).
 3. Two consecutive sprints with zero `git blame` activity on the
    zone. **Not yet open** for any zone.
-4. ADR-018 hasn't fired Tier-3 T3.5 (date slip) in the meantime. ✓.
+4. ADR-0218 hasn't fired Tier-3 T3.5 (date slip) in the meantime. ✓.
 
 **Earliest deletion:** S70 D8 for `src/engine/` (per
 `PHASE-3D-Q4-M34-M36-HARDENING-GA.md` §S70). The other four zones

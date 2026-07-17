@@ -18,7 +18,7 @@ Browser matrix — tests/browser-matrix/ package with Playwright config (5 brows
 WCAG 2.2 AA — packages/wcag-audit/ (11 cases), packages/ui/src/a11y/ tokens (8 cases), index.html patched with skip-link + landmark + meta description + audit-quality title, formal audit doc at docs/accessibility/wcag-2.2-aa-audit-2026-04-28.md
 BYO-key safety cap — CostMeter.selfHostMode + selfHostPerCallCapUsd ($25 default), env-resolved by AiHost (7 cases)
 Migration tooling — pryzm install/upgrade/rollback in @pryzm/cli with hermetic test harness (12 cases)
-PDF preview gate — evaluatePreviewGate(metrics) per ADR-029 Part E thresholds + decision doc shipping under 'preview' label (12 cases)
+PDF preview gate — evaluatePreviewGate(metrics) per ADR-0229 Part E thresholds + decision doc shipping under 'preview' label (12 cases)
 Self-host publish manifest — RELEASE-NOTES-2.0.0.md + version.json + scripts/publish-prep.sh + README "S70 D8 cookbook"
 src/lifecycle/ deletion — full delete + Pryzm1SunsetBanner re-homed to apps/editor/src/sunset/ + persistence-side tombstone field for forward-compat + filesystem guard (2 cases)
 PROCESS-TRACKER S70 row flipped to [~] with detailed closure note matching S67/S68 prose pattern

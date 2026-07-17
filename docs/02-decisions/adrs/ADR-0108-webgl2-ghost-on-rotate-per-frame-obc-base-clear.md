@@ -6,7 +6,7 @@
 - **Affects:** `RenderPipelineManager` (lightweight WebGL render path),
   `apps/editor/src/engine/initScene.ts` (OBC base-clear closure + boot/live-swap wiring).
 - **References:** [C04](../contracts/C04-RENDERING-AND-SCHEDULING.md) (single THREE owner P2,
-  single rAF P3), [ADR-061](./ADR-061-webgl2-render-on-move-and-wall-drag-defer.md)
+  single rAF P3), [ADR-0261](./ADR-0261-webgl2-render-on-move-and-wall-drag-defer.md)
   (`§PERF-WEBGL2-RENDER-ON-MOVE` — the continuous per-frame WebGL2 repaint this defect rides on),
   [ADR-0076] (`§PERF-WEBGPU-FRAGMENT` — WebGL default + backend toggle),
   [ADR-0077] (`§RENDERER-LIVE-SWAP` — live backend swap).
@@ -28,7 +28,7 @@ Phase 5 uses **two stacked canvases**:
    pixels.
 
 `§FIX-OBC-BASE-STALE-COMPOSITE` clears the OBC base **once** at activate / live-swap, on the
-assumption that a silenced renderer stays clear forever. That holds at rest. But once ADR-061's
+assumption that a silenced renderer stays clear forever. That holds at rest. But once ADR-0261's
 `§PERF-WEBGL2-RENDER-ON-MOVE` drives a **continuous per-frame** overlay repaint during orbit/pan/zoom,
 the OBC base buffer (`preserveDrawingBuffer: false`) can **re-present stale content** frame-to-frame
 (driver-dependent buffer re-presentation for a non-preserved, non-redrawn context). The old geometry
@@ -37,7 +37,7 @@ then shows **through** the transparent overlay while the overlay paints the **ne
 trail. It "settles" when motion stops because the loop idles and the last overlay frame lands over a
 base that is no longer being re-presented in motion.
 
-This is the WebGL2-only companion to ADR-061: the render-on-move fix made the overlay repaint every
+This is the WebGL2-only companion to ADR-0261: the render-on-move fix made the overlay repaint every
 frame, but nothing kept the **base underneath it** clean every frame.
 
 ## Decision
@@ -72,7 +72,7 @@ reuses the **existing** `clearObcBaseFramebuffer` seam rather than adding a para
 - **Give the overlay an opaque clear (paint a background so the base never shows through).** Rejected:
   the overlay is intentionally transparent so VPT/bloom modes and the OBC canvas can co-exist; an
   opaque overlay would break those modes.
-- **Revive OBC's own render loop on the webgl-fallback path.** Rejected for the same reason as ADR-061:
+- **Revive OBC's own render loop on the webgl-fallback path.** Rejected for the same reason as ADR-0261:
   in Phase 5 OBC is deliberately silenced (its WebGL shadow-map render destroys PRYZM shadow textures
   mid-submit). The PRYZM path must own the paint.
 - **Clear the base only on `beginMotion`/`controlstart` (once per drag).** Rejected: the stale buffer

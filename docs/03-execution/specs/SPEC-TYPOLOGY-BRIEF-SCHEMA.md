@@ -43,7 +43,7 @@ The structured `Brief` flows: RAC brief step → `pryzm:onboarding-brief-ready` 
 - This **SPEC** is the design of record.
 - **Contract:** extend the typology-manifest contract (C16/C17 command-authoring + the TypologyManifest schema contract) with a normative `briefSchema` section, OR add a short `C5x` if a new contract is warranted.
 - **ADR:** an ADR records the decision "briefs are typology-declared, not UI-hard-coded" (supersedes the free-text brief).
-- **Strategy:** `product-vision.md` already says site-first, typology-agnostic; the brief schema is the typed front door to each typology pack.
+- **Strategy:** `STR-02-product-vision.md` already says site-first, typology-agnostic; the brief schema is the typed front door to each typology pack.
 
 ## §7 — Implementation phases (tracker O.12.a–O.12.d)
 

@@ -8,13 +8,13 @@
 | Owner | Render lead (post-acquisition per Phase 5 §4.5) |
 | Phase | Phase 5 (M43–M48) |
 | Sprint | S91–S92 |
-| References | `12-` §4; `[strategic ADR-040]` |
+| References | `12-` §4; `[strategic ADR-0240]` |
 
 ---
 
 ## §1 Why this SPEC exists
 
-No web BIM tool ships true path-traced rendering. Pascal has SSGI (real-time approximation). Lumion ($3K/seat) and Enscape ($1K/seat) own the BIM-to-render market with Windows desktop apps. PRYZM 2 ships **server-side path-traced rendering** integrated into the model + sheet pipeline. Per `[strategic ADR-040]` first engine = Cycles (Blender), with Mitsuba 3 as research second.
+No web BIM tool ships true path-traced rendering. Pascal has SSGI (real-time approximation). Lumion ($3K/seat) and Enscape ($1K/seat) own the BIM-to-render market with Windows desktop apps. PRYZM 2 ships **server-side path-traced rendering** integrated into the model + sheet pipeline. Per `[strategic ADR-0240]` first engine = Cycles (Blender), with Mitsuba 3 as research second.
 
 ## §2 The contract (binding)
 
@@ -36,9 +36,9 @@ interface RenderRequest {
 
 Frame deduplication by content hash (project state + camera + render params). Cache hit returns existing R2 URL instantly. Cache miss queues a render job in dedicated `apps/render-worker` pod (separate from `apps/bake-worker`).
 
-### §2.3 Engine selection per `[strategic ADR-040]`
+### §2.3 Engine selection per `[strategic ADR-0240]`
 
-ADR-040 ratifies: **Cycles only** at Phase 5 ship. Mitsuba 3 evaluated in S91 spike; if >2× quality at <2× cost, layer in. LuxCore explicitly out of scope.
+ADR-0240 ratifies: **Cycles only** at Phase 5 ship. Mitsuba 3 evaluated in S91 spike; if >2× quality at <2× cost, layer in. LuxCore explicitly out of scope.
 
 ### §2.4 Preset library
 
@@ -52,10 +52,10 @@ Sheet engine (S37–S38 GA) gains a `render-cell` shape that embeds the URL of a
 
 | Sprint | Deliverable |
 |---|---|
-| S91 D1 | SPEC-44 lands; ADR-040 ratified; `apps/render-worker/` skeleton; Cycles in headless Node via `bpy` Docker |
+| S91 D1 | SPEC-44 lands; ADR-0240 ratified; `apps/render-worker/` skeleton; Cycles in headless Node via `bpy` Docker |
 | S91 D3 | first photorealistic render < 2 min on M-instance |
 | S91 D5 | per-frame R2 cache; content-hash dedup |
-| S91 D7 | Mitsuba 3 spike; ADR-040 confirms or amends |
+| S91 D7 | Mitsuba 3 spike; ADR-0240 confirms or amends |
 | S91 D9 | bench: 1920×1080 256 samples < 2 min |
 | S92 D1 | preset library (interior / exterior / aerial / dawn / dusk / night) |
 | S92 D3 | batch-render queue (overnight render of 50 views) |
@@ -71,7 +71,7 @@ Sheet engine (S37–S38 GA) gains a `render-cell` shape that embeds the URL of a
 | 3840×2160 / 512 samples / exterior preset | < 8 min on M-instance |
 | Cache-hit response | < 100 ms |
 | Batch-render 50 views overnight | < 2 hours |
-| Concurrent render jobs per worker pod | 4 (per ADR-005 worker-pool extension) |
+| Concurrent render jobs per worker pod | 4 (per ADR-0205 worker-pool extension) |
 
 ## §5 Anti-patterns
 
@@ -81,9 +81,9 @@ Sheet engine (S37–S38 GA) gains a `render-cell` shape that embeds the URL of a
 
 ## §6 Cross-references
 
-- ADR-005 worker pool (extended for render-worker pod)
-- ADR-010 bake debounce
-- ADR-040 engine selection
+- ADR-0205 worker pool (extended for render-worker pod)
+- ADR-0210 bake debounce
+- ADR-0240 engine selection
 - SPEC-31 §3 AI back-pressure (render queue inherits curve)
 - SPEC-41 4D MP4 export (uses render-worker)
 - SPEC-58 outcome pricing (per render metering)

@@ -1,6 +1,6 @@
 # View State Architecture
 
-> Companion: `docs/02-decisions/adrs/0016-view-state-command-driven.md`
+> Companion: `docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md`
 > Phase: 1C · Sprint S17 · Owner: A
 
 ## Summary
@@ -60,7 +60,7 @@ user click / test
       → SwitchViewHandler.execute    — emits replace patch on active-view store
       → bus commit → ActiveViewStore updated
   → app layer calls ViewController.switchTo(viewId)
-      → scheduler.beginMotion()      — suppresses IdleAccumulator (ADR-014)
+      → scheduler.beginMotion()      — suppresses IdleAccumulator (ADR-0214)
       → addTickListener 'pre-render' — cubic-eased lerp per frame
       → on t=1: scheduler.endMotion() + activeViewStore.setActive(viewId)
       → span pryzm.view.switch ends

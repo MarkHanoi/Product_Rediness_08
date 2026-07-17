@@ -3,7 +3,7 @@
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
 > 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-0201]`..`[strategic ADR-0224]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
 > 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
 > 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
@@ -13,24 +13,24 @@
 >
 > | §4.1 heading | Code-level slug | Sprint |
 > |---|---|---|
-> | ADR-017 — `.pryzm` ZIP format v1 spec | `docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` | S20 |
-> | ADR-018 — Tier-streamed loader strategy | `docs/02-decisions/adrs/0018-tier-streamed-loader.md` | S23 |
-> | ADR-019 — Sync-server linearisation (LWW until 2D CRDT) | `docs/02-decisions/adrs/0019-sync-server-linearisation.md` | S22 |
+> | ADR-0217 — `.pryzm` ZIP format v1 spec | `docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` | S20 |
+> | ADR-0218 — Tier-streamed loader strategy | `docs/02-decisions/adrs/0018-tier-streamed-loader.md` | S23 |
+> | ADR-0219 — Sync-server linearisation (LWW until 2D CRDT) | `docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` | S22 |
 >
-> **Pre-existing strategic ADRs invoked** (no new sprint-scoped ADR is created in S21; the §4.1 entry "`[strategic ADR-010]` — Bake coalescing window" is **superseded** by `[strategic ADR-010]` 250 ms bake debounce, which is canonical):
+> **Pre-existing strategic ADRs invoked** (no new sprint-scoped ADR is created in S21; the §4.1 entry "`[strategic ADR-0210]` — Bake coalescing window" is **superseded** by `[strategic ADR-0210]` 250 ms bake debounce, which is canonical):
 >
 > | Strategic ADR | Sprint(s) | What it governs |
 > |---|---|---|
-> | `[strategic ADR-002]` Yjs CRDT | Phase 2D (S43+) only | mentioned in S22 as "future work" |
-> | `[strategic ADR-003]` Storage driver isolation | S19, S21 | every R2/MinIO call goes through `packages/storage-driver/` |
-> | `[strategic ADR-004]` MessagePack codec | S20, S22 | wire format for events |
-> | `[strategic ADR-005]` Worker-thread pool sizing | S21 | `os.cpus().length - 1` |
-> | `[strategic ADR-010]` 250 ms bake debounce | S21 (canonical) | the coalescing window — replaces the old "`[strategic ADR-010]`" stub |
-> | `[strategic ADR-018]` Capacity cut-list | All | scope-cut order under capacity pressure |
+> | `[strategic ADR-0202]` Yjs CRDT | Phase 2D (S43+) only | mentioned in S22 as "future work" |
+> | `[strategic ADR-0203]` Storage driver isolation | S19, S21 | every R2/MinIO call goes through `packages/storage-driver/` |
+> | `[strategic ADR-0204]` MessagePack codec | S20, S22 | wire format for events |
+> | `[strategic ADR-0205]` Worker-thread pool sizing | S21 | `os.cpus().length - 1` |
+> | `[strategic ADR-0210]` 250 ms bake debounce | S21 (canonical) | the coalescing window — replaces the old "`[strategic ADR-0210]`" stub |
+> | `[strategic ADR-0218]` Capacity cut-list | All | scope-cut order under capacity pressure |
 >
 > **Numbering collision notes.**
-> 1. Phase 1C drafted `code-level ADR 0017-headless-package-surface.md`. Phase 1D's `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` (`.pryzm` ZIP format v1) is a different decision; when both files materialize one will need a disambiguating slug (e.g., `0017a-...`).
-> 2. The strategic series has both `[strategic ADR-018]` (capacity cut-list) and `[strategic ADR-019]` (cost & pricing). Phase 1D's sprint-scoped `0018-tier-streamed-loader.md` and `0019-sync-server-linearisation.md` live in the `docs/02-decisions/adrs/` namespace and do not collide with the strategic numbering — they collide only when text refers to "`code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md`" or "`code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md`" without qualification, which is exactly why the `[strategic …]` vs `code-level …` convention exists.
+> 1. Phase 1C drafted `code-level ADR ADR-0017-headless-package-surface.md`. Phase 1D's `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` (`.pryzm` ZIP format v1) is a different decision; when both files materialize one will need a disambiguating slug (e.g., `0017a-...`).
+> 2. The strategic series has both `[strategic ADR-0218]` (capacity cut-list) and `[strategic ADR-0219]` (cost & pricing). Phase 1D's sprint-scoped `0018-tier-streamed-loader.md` and `ADR-0019-sync-server-linearisation.md` live in the `docs/02-decisions/adrs/` namespace and do not collide with the strategic numbering — they collide only when text refers to "`code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md`" or "`code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md`" without qualification, which is exactly why the `[strategic …]` vs `code-level …` convention exists.
 
 **§0.x SPECs binding Phase 1D**
 
@@ -42,7 +42,7 @@
 
 **§0.y Capacity envelope**
 
-> **Capacity envelope (`[strategic ADR-018]`).** Phase 1D accepts the 6-sprint scope, with the M12 Alpha Gate as the hard exit. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/`code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md`-capacity-cut-list.md` is the ratified order. The first cut available in 1D is the Ed25519 signature in `.pryzm` v1 (already opt-in / off by default per S20 D5 decision); the second is reducing the tier-streamed loader to 2 tiers (manifest + visible-level only) and deferring background tier to Phase 2A. Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
+> **Capacity envelope (`[strategic ADR-0218]`).** Phase 1D accepts the 6-sprint scope, with the M12 Alpha Gate as the hard exit. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/`code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md`-capacity-cut-list.md` is the ratified order. The first cut available in 1D is the Ed25519 signature in `.pryzm` v1 (already opt-in / off by default per S20 D5 decision); the second is reducing the tier-streamed loader to 2 tiers (manifest + visible-level only) and deferring background tier to Phase 2A. Defer items per the `[strategic ADR-0218]` ranking — never improvise scope reductions.
 ## Q4 · Months 10–12 · Sprints S19–S24
 
 > **Strategic anchor**: This document is subordinate to `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → this file.
@@ -125,7 +125,7 @@ Responsible for: `apps/bake-worker` (BullMQ consumer, `worker_threads`, `gltf-tr
 | `apps/bake-worker/index.ts` | S21 | BullMQ + Express |
 | `apps/bake-worker/jobs/RebakeChunkJob.ts` | S21 | `@pryzm/geometry-kernel` + `gltf-transform` |
 | `apps/bake-worker/storage/r2.ts` | S21 | Cloudflare R2 env-vars |
-| `apps/bake-worker/coalescing/CoalesceWindow.ts` | S21 | `[strategic ADR-010]` |
+| `apps/bake-worker/coalescing/CoalesceWindow.ts` | S21 | `[strategic ADR-0210]` |
 | `apps/bench/bake-incremental.ts` | S21 | Bake worker + R2 live |
 | `packages/persistence-client/loader.ts` | S23 | `code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md` + Manifest + ChunkReader |
 | Loader ↔ FrameScheduler integration | S23 | S15 FrameScheduler |
@@ -139,10 +139,10 @@ Responsible for: `apps/bake-worker` (BullMQ consumer, `worker_threads`, `gltf-tr
 |---|---|---|
 | Chunk format interface spec (A and B must agree before S21) | S19 D5 | Joint |
 | `RebakeChunkJob` payload schema | S21 D1 | Joint |
-| `[strategic ADR-010]` — Bake coalescing window (250 ms) | S21 D1 | F decides; B drafts |
+| `[strategic ADR-0210]` — Bake coalescing window (250 ms) | S21 D1 | F decides; B drafts |
 | `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` — `.pryzm` format v1 spec | S20 D1 | F decides; A drafts |
 | `code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md` — Tier-streamed loader strategy (3 tiers, priorities, eviction) | S23 D1 | F decides; B drafts |
-| `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` — Sync-server linearisation (LWW until 2D CRDT) | S22 D1 | F decides; A drafts |
+| `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` — Sync-server linearisation (LWW until 2D CRDT) | S22 D1 | F decides; A drafts |
 | `apps/editor/src/bootstrap.ts` final integration (data half + render half) | S24 D2–D4 | Joint paired |
 | Alpha demo recording (10-min screencast) | S24 D7 | Joint |
 | `apps/bench/reports/M12-alpha.md` | S24 D6 | Joint |
@@ -155,7 +155,7 @@ Responsible for: `apps/bake-worker` (BullMQ consumer, `worker_threads`, `gltf-tr
 
 ### S19 — Chunked Binary Persistence
 
-> **Storage abstraction (`[strategic ADR-003]`)**: every R2 call MUST go through `packages/storage-driver/` (with R2 and MinIO drivers behind the same interface). No direct `@aws-sdk/client-s3` import outside the driver. Lint: `tools/lint-storage-driver-isolation.ts` (PR-blocking).
+> **Storage abstraction (`[strategic ADR-0203]`)**: every R2 call MUST go through `packages/storage-driver/` (with R2 and MinIO drivers behind the same interface). No direct `@aws-sdk/client-s3` import outside the driver. Lint: `tools/lint-storage-driver-isolation.ts` (PR-blocking).
 **Weeks 37–38 (Month 10)**
 
 ---
@@ -588,16 +588,16 @@ export async function migrate(manifest: { schemaVersion: number }, zip: JSZip): 
 |---|---|---|
 | D2 | Implement `packages/file-format/pack.ts` per spec. Test with small fixture: pack → file on disk (< 5 s). | Sketch `apps/bake-worker/` directory layout: `index.ts` (Express + BullMQ), `jobs/` (job handlers), `storage/` (R2), `coalescing/` (250 ms window), `producers/` (re-uses `@pryzm/geometry-kernel` directly). |
 | D3 | Implement `packages/file-format/unpack.ts` — parse ZIP, validate manifest via Zod, verify Ed25519 signature if present, apply migrations, return typed result. | Bake job protocol design — `RebakeChunkJob` payload shape: `{ projectId, levelId, eventBatch: CommandEvent[], previousChunkHash: string | null }`. Draft in `apps/bake-worker/jobs/RebakeChunkJob.ts`. |
-| D4 | Implement `packages/file-format/migrations/index.ts` — framework + v0→v1 stub. | BullMQ topology: one queue `bake-jobs`, FIFO within a project, different projects can run concurrently (one `worker_threads` pool per CPU core). `[strategic ADR-010]` draft (coalescing window). |
+| D4 | Implement `packages/file-format/migrations/index.ts` — framework + v0→v1 stub. | BullMQ topology: one queue `bake-jobs`, FIFO within a project, different projects can run concurrently (one `worker_threads` pool per CPU core). `[strategic ADR-0210]` draft (coalescing window). |
 | D5 | **Mid-sprint sync (1 h)** — paired session: A walks through unpack → migrate → validate flow. B confirms bake worker output (S21) will be unpack-compatible. Final `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` decisions: batch size 1000 events, SHA-256 hash filenames, Ed25519 optional (off by default in Phase 1, opt-in). | Same session — B presents BullMQ queue topology decision; F approves or adjusts. |
 | D6 | `packages/file-format/__tests__/round-trip.test.ts` — pack → unpack → verify identical events, identical chunks (byte-by-byte), manifest fields preserved. Both small and medium fixtures tested. | R2 storage design: content-addressed path `r2://pryzm-chunks/<hash>.glb`; signed GET URL TTL = 1 hour (configurable); presigned PUT URL TTL = 5 minutes (for bake worker upload). |
 | D7 | Implement CLI `pryzm-cli pack <project> -o <file.pryzm>` and `pryzm-cli unpack <file.pryzm> -o <dir>`. Both use the same `pack.ts`/`unpack.ts` as the browser editor. | Documentation `docs/04-reference/architecture-detail/bake-worker.md` (design section; implementation in S21). Includes: job lifecycle diagram, coalescing logic, R2 storage layout. |
-| D8 | `docs/04-reference/file-formats/pryzm-binary.md` — complete v1 spec document (ZIP layout, manifest schema, event batch format, signature scheme, migration contract). Bench `apps/bench/pack-unpack.ts` — pack < 5 s, unpack < 3 s on medium fixture. | `[strategic ADR-010]` finalised draft — coalescing window = 250 ms with per-project FIFO queue. Bench skeleton for `apps/bench/bake-incremental.ts` (full impl S21). |
+| D8 | `docs/04-reference/file-formats/pryzm-binary.md` — complete v1 spec document (ZIP layout, manifest schema, event batch format, signature scheme, migration contract). Bench `apps/bench/pack-unpack.ts` — pack < 5 s, unpack < 3 s on medium fixture. | `[strategic ADR-0210]` finalised draft — coalescing window = 250 ms with per-project FIFO queue. Bench skeleton for `apps/bench/bake-incremental.ts` (full impl S21). |
 
 #### D9 — Sprint Demo + Retro
 
 - A demos: `pryzm-cli pack medium-fixture -o medium.pryzm` → file on disk → inspect ZIP contents with `unzip -l` (events, chunks, manifest visible) → `pryzm-cli unpack medium.pryzm -o recovered/` → open recovered project in `?pryzm2=1` → byte-identical to original.
-- B demos: bake worker directory layout + `[strategic ADR-010]` walkthrough; R2 storage diagram; `RebakeChunkJob` payload schema signed off.
+- B demos: bake worker directory layout + `[strategic ADR-0210]` walkthrough; R2 storage diagram; `RebakeChunkJob` payload schema signed off.
 - Retro: was the 1000-event batch size right? How large was the medium fixture `.pryzm` file? (Target: < 5 MB for medium — if larger, investigate which chunks dominate.)
 
 #### S20 Exit Criteria
@@ -614,11 +614,11 @@ export async function migrate(manifest: { schemaVersion: number }, zip: JSZip): 
 
 ### S21 — Bake Worker (Server-Side) v0
 
-> **Worker pool topology (`[strategic ADR-005]`)**: server-side bake worker uses BullMQ + `worker_threads` pool sized at `os.cpus().length - 1`. The pool sizing is canonical; per-job concurrency is a queue-level concern.
+> **Worker pool topology (`[strategic ADR-0205]`)**: server-side bake worker uses BullMQ + `worker_threads` pool sized at `os.cpus().length - 1`. The pool sizing is canonical; per-job concurrency is a queue-level concern.
 >
-> **Storage driver (`[strategic ADR-003]`)**: bake worker writes chunks via the storage driver. R2 in PRYZM-hosted; MinIO in self-host. The driver is the only abstraction the bake worker sees.
+> **Storage driver (`[strategic ADR-0203]`)**: bake worker writes chunks via the storage driver. R2 in PRYZM-hosted; MinIO in self-host. The driver is the only abstraction the bake worker sees.
 >
-> **Coalescing window**: the 250 ms coalescing window in S21 is the implementation of `[strategic ADR-010]` (250 ms bake debounce per SPEC-02 §5). No separate code-level ADR is created in this sprint; the sprint output is the implementation log against the strategic ADR.
+> **Coalescing window**: the 250 ms coalescing window in S21 is the implementation of `[strategic ADR-0210]` (250 ms bake debounce per SPEC-02 §5). No separate code-level ADR is created in this sprint; the sprint output is the implementation log against the strategic ADR.
 
 **Weeks 41–42 (Month 11)**
 
@@ -632,7 +632,7 @@ The bake worker is also the **first deployment of `@pryzm/headless` in a real pr
 
 **The three hardest problems in S21**:
 
-1. **Coalescing window correctness**: the 250 ms coalescing window (`[strategic ADR-010]`) must prevent thundering-herd bake jobs when a user makes rapid edits (e.g. 20 wall move operations in 2 seconds). But it must not delay a bake by more than 250 ms + bake duration. The coalescing logic is deceptively tricky — see implementation detail below.
+1. **Coalescing window correctness**: the 250 ms coalescing window (`[strategic ADR-0210]`) must prevent thundering-herd bake jobs when a user makes rapid edits (e.g. 20 wall move operations in 2 seconds). But it must not delay a bake by more than 250 ms + bake duration. The coalescing logic is deceptively tricky — see implementation detail below.
 
 2. **`worker_threads` pool management**: each geometry producer call can take 20–200 ms of CPU. The pool must prevent N concurrent bake jobs from saturating all CPU cores. The policy (one worker thread per CPU core, minus 1 for the main BullMQ process) must be configurable per deployment — a 1-vCPU Replit container behaves very differently from a 16-vCPU production VM.
 
@@ -845,7 +845,7 @@ export async function processRebakeJob(job: RebakeChunkJob, r2: R2Storage): Prom
 
 #### D1 — Kickoff (30 min)
 
-- B presents `[strategic ADR-010]` draft — coalescing window = 250 ms; one BullMQ queue per project; concurrency = CPU count - 1. F decides.
+- B presents `[strategic ADR-0210]` draft — coalescing window = 250 ms; one BullMQ queue per project; concurrency = CPU count - 1. F decides.
 - A confirms the sync server (S22) will call `POST /enqueue` on the bake worker whenever an event is linearised. This is the integration interface between S21 (B) and S22 (A).
 - Both: confirm `RebakeChunkJob` payload schema is stable (signed off at S20 D5 — any change now requires F's decision).
 - F explicitly reviews K1D-2: if bake incremental > 30 s on production-scale data at end of S21, halt 1D.
@@ -876,10 +876,10 @@ export async function processRebakeJob(job: RebakeChunkJob, r2: R2Storage): Prom
 - [ ] OTel spans `pryzm.bake.enqueue`, `pryzm.bake.chunk`, `pryzm.bake.r2-upload` visible in Honeycomb.
 - [ ] Per-event R2 cost audited and documented.
 - [ ] `apps/bake-worker/` starts cleanly with `docker-compose up` or `node dist/index.js`.
-- [ ] `[strategic ADR-010]` (250 ms bake debounce) implementation log linked from the strategic ADR appendix; no separate phase-doc ADR is created.
-- [ ] `[strategic ADR-005]` `worker_threads` pool sizing (`os.cpus().length - 1`) verified.
-- [ ] `[strategic ADR-003]` storage driver isolation lint green.
-- [ ] Per-event bake cost telemetry stream live (`bake.event.cost`); used to validate `[strategic ADR-018]` cut-list pricing assumptions.
+- [ ] `[strategic ADR-0210]` (250 ms bake debounce) implementation log linked from the strategic ADR appendix; no separate phase-doc ADR is created.
+- [ ] `[strategic ADR-0205]` `worker_threads` pool sizing (`os.cpus().length - 1`) verified.
+- [ ] `[strategic ADR-0203]` storage driver isolation lint green.
+- [ ] Per-event bake cost telemetry stream live (`bake.event.cost`); used to validate `[strategic ADR-0218]` cut-list pricing assumptions.
 
 **Kill-switch K1D-2**: if incremental re-bake > 30 s on production-scale data (5K-wall fixture, single level of 250 walls) — **halt 1D forward work**. Investigate: (1) is `createHeadlessSession()` slow? (2) is `loadFromChunk` re-parsing the full chunk? (3) is the geometry producer O(N²) for a dense level? Do not proceed to S22 until < 1.5 s is confirmed on the production-scale fixture.
 
@@ -887,7 +887,7 @@ export async function processRebakeJob(job: RebakeChunkJob, r2: R2Storage): Prom
 
 ### S22 — `apps/sync-server` Skeleton + Event Linearisation
 
-> **Note on CRDT.** S22 ships the sync server *skeleton* (single-tab event durability) only. The full Yjs CRDT bridge (`[strategic ADR-002]`) lands in Phase 2D (S43). S22's wire-format is JSON; MessagePack (`[strategic ADR-004]`) is the wire format from S04 already, and the sync server adopts it for the event-log channel by S22 close.
+> **Note on CRDT.** S22 ships the sync server *skeleton* (single-tab event durability) only. The full Yjs CRDT bridge (`[strategic ADR-0202]`) lands in Phase 2D (S43). S22's wire-format is JSON; MessagePack (`[strategic ADR-0204]`) is the wire format from S04 already, and the sync server adopts it for the event-log channel by S22 close.
 **Weeks 43–44 (Month 11)**
 
 ---
@@ -898,7 +898,7 @@ The sync server is the **collaboration backbone** of PRYZM 2. In Phase 1D, it do
 
 **Why LWW is acceptable in Phase 1D**: the alpha demo target is "two browser tabs see each other's events" — not "two tabs editing simultaneously with conflict-free merge". LWW with sequences gives enough consistency for the demo, for internal testing, and for the three CDE legacy commands that need to fold into the sync protocol. Phase 2D (M22–M24) upgrades to Yjs CRDT.
 
-**`code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` (Sync-server linearisation)** must explicitly document this limitation and the upgrade path to Yjs, so no engineer is surprised by the LWW semantics during the Phase 1D alpha and no customer is put on the LWW server without knowing its limits.
+**`code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` (Sync-server linearisation)** must explicitly document this limitation and the upgrade path to Yjs, so no engineer is surprised by the LWW semantics during the Phase 1D alpha and no customer is put on the LWW server without knowing its limits.
 
 ---
 
@@ -1039,13 +1039,13 @@ export class SessionManager {
 
 **Memory model**: in Phase 1D, all sessions are in-memory in the sync-server process. This means horizontal scaling (multiple sync-server instances) is not supported in Phase 1D — one instance only. Phase 2D's Yjs integration will require a shared state store (Redis Pub/Sub for broadcast), enabling multi-instance horizontal scaling.
 
-**Auth model**: Phase 1D auth is minimal — the client sends a `userId` on connect, and the server accepts it. No JWT verification, no role check. Full auth (JWT + Supabase RLS) lands in Phase 3C. Document this explicitly in `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` to prevent alpha users from connecting without auth being enforced.
+**Auth model**: Phase 1D auth is minimal — the client sends a `userId` on connect, and the server accepts it. No JWT verification, no role check. Full auth (JWT + Supabase RLS) lands in Phase 3C. Document this explicitly in `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` to prevent alpha users from connecting without auth being enforced.
 
 ---
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` draft — LWW with sequence numbers; per-project advisory lock; no CRDT until 2D; explicit list of what LWW breaks (concurrent same-element edits). F decides.
+- A presents `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` draft — LWW with sequence numbers; per-project advisory lock; no CRDT until 2D; explicit list of what LWW breaks (concurrent same-element edits). F decides.
 - B prepares for S23 tier-streamed loader — reviews `code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md` draft (to be presented S23 D1).
 - Confirm: sync server runs on port 4000 in dev (bake worker on port 4001; editor on port 5000). All configurable via env vars.
 
@@ -1065,7 +1065,7 @@ export class SessionManager {
 
 - A demos: two browser tabs side-by-side — tab A draws 5 walls, tab B sees each appear as it's drawn; LWW demonstrated (draw wall in both tabs simultaneously — last one wins); sync-roundtrip bench < 250 ms on localhost.
 - B demos: bake worker under 60 s burst load — < 1.5 s avg confirmed; `code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md` decision summary.
-- Retro: does the LWW behaviour in the demo look acceptable for an alpha? Is there any case where users would lose data unacceptably? If yes, document in `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md`'s "known limitations" section.
+- Retro: does the LWW behaviour in the demo look acceptable for an alpha? Is there any case where users would lose data unacceptably? If yes, document in `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md`'s "known limitations" section.
 
 #### S22 Exit Criteria
 
@@ -1075,7 +1075,7 @@ export class SessionManager {
 - [ ] `apps/bench/sync-roundtrip.ts` < 250 ms p95 on localhost.
 - [ ] 3 CDE legacy commands folded into new protocol (parity with PRYZM 1 CDE).
 - [ ] Reconnect + re-subscribe works: close tab → reopen → events from `lastSeq + 1` loaded.
-- [ ] `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` merged.
 
 ---
 
@@ -1575,10 +1575,10 @@ Committed to `docs/05-guides/developer/demos/M12-alpha.mp4`. Every timestamp is 
 
 | ID | Subject | Key Decision | Owner | Sprint |
 |---|---|---|---|---|
-| `[strategic ADR-010]` | Bake coalescing window | 250 ms window; per-project FIFO BullMQ queue; SIGTERM flush; ULID sort | B (F decides) | S21 |
+| `[strategic ADR-0210]` | Bake coalescing window | 250 ms window; per-project FIFO BullMQ queue; SIGTERM flush; ULID sort | B (F decides) | S21 |
 | `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` | `.pryzm` format v1 spec | ZIP layout; content-addressed chunks; 1000-event batches; Ed25519 optional; migration framework | A (F decides) | S20 |
 | `code-level ADR docs/02-decisions/adrs/0018-tier-streamed-loader.md` | Tier-streamed loader strategy | 3 tiers; FrameScheduler background priority; LRU 200 MB eviction; history on demand in 500-event pages | B (F decides) | S23 |
-| `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` | Sync-server linearisation (LWW until 2D CRDT) | Postgres advisory lock per project; per-project monotonic sequences; LWW; explicit limitations documented; upgrade path to Yjs in 2D | A (F decides) | S22 |
+| `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` | Sync-server linearisation (LWW until 2D CRDT) | Postgres advisory lock per project; per-project monotonic sequences; LWW; explicit limitations documented; upgrade path to Yjs in 2D | A (F decides) | S22 |
 
 ### §4.2 CI Gates Added in 1D
 
@@ -1647,8 +1647,8 @@ Committed to `docs/05-guides/developer/demos/M12-alpha.mp4`. Every timestamp is 
 | **R1D-04** | Bake worker OOM (geometry producer builds large intermediate arrays for dense levels) | Medium | High | Pre-allocate `Float32Array` in producers (established in S14 Stair producer); run bake worker with `--max-old-space-size=1024`; profile heap at S21 D5 | S21 | Bake worker OOM on large fixture |
 | **R1D-05** | R2 outage or credential misconfiguration blocks S21 | Low | High | Use local-file transport for CI (not R2); R2 only for integration tests; S3-compatible interface allows MinIO fallback for self-host | S21 | Any R2 connectivity failure in CI |
 | **R1D-06** | BullMQ Redis dependency adds operational complexity for self-host | Medium | Medium | Document Redis requirement in self-host guide; provide `docker-compose.yml` with Redis included; consider in-process BullMQ alternative for single-instance deploys | S21 | Self-host guide review |
-| **R1D-07** | Sync server advisory lock becomes a bottleneck at high event rate (> 10 events/s per project) | Low | Medium | At 10 events/s: lock held < 1 ms per event → < 1% contention. At 100 events/s: investigate Postgres sequence per project as alternative. Coalescing window (`[strategic ADR-010]`) reduces effective rate | S22 | Sync-roundtrip bench > 250 ms under load |
-| **R1D-08** | LWW data loss in alpha testing (two users overwrite each other) | Medium | Medium | `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` explicitly documents the limitation; alpha build shows "Multi-user caution" banner when > 1 user connected; CRDT in 2D removes this | S22 | Any alpha user reports data loss |
+| **R1D-07** | Sync server advisory lock becomes a bottleneck at high event rate (> 10 events/s per project) | Low | Medium | At 10 events/s: lock held < 1 ms per event → < 1% contention. At 100 events/s: investigate Postgres sequence per project as alternative. Coalescing window (`[strategic ADR-0210]`) reduces effective rate | S22 | Sync-roundtrip bench > 250 ms under load |
+| **R1D-08** | LWW data loss in alpha testing (two users overwrite each other) | Medium | Medium | `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` explicitly documents the limitation; alpha build shows "Multi-user caution" banner when > 1 user connected; CRDT in 2D removes this | S22 | Any alpha user reports data loss |
 | **R1D-09** | Tier-streamed loader misses < 3 s on large fixture | Medium | High | D5 measurement in S23 (not D9 — leaves 4 days to fix); primary knobs: move Draco decode off main thread, batch `SceneCommitter.commit()` across frames | S23 | > 4 s at D5 → halt |
 | **R1D-10** | S24 integration reveals a show-stopper incompatibility between systems | Medium | Critical | D5 paired session (4 h, F + A + B) explicitly designed to surface this; any incompatibility found in D5 has 3 days (D6–D8) to be fixed before demo | S24 | Any system incompatibility at D5 |
 | **R1D-11** | Headless K1-B re-fires under final integration (bake worker introduces a THREE import) | Low | Critical | S24 D2 audit: run `pryzm-no-three-in-kernel` lint on `@pryzm/headless` + bake worker dependency graph; if it fires, halt | S24 | Lint failure → halt immediately |
@@ -1712,7 +1712,7 @@ This checklist must be **entirely green** on M13 D1 (S25 kickoff), after the fou
 
 For architectural honesty — these items are deferred by design, not oversight:
 
-- **No CRDT.** The sync server uses last-writer-wins with sequence guarantees. Full Yjs-based CRDT (conflict-free merge of concurrent geometry edits) lands in Phase 2D (S43–S44). `code-level ADR docs/02-decisions/adrs/0019-sync-server-linearisation.md` documents this limitation and the upgrade path explicitly.
+- **No CRDT.** The sync server uses last-writer-wins with sequence guarantees. Full Yjs-based CRDT (conflict-free merge of concurrent geometry edits) lands in Phase 2D (S43–S44). `code-level ADR docs/02-decisions/adrs/ADR-0019-sync-server-linearisation.md` documents this limitation and the upgrade path explicitly.
 - **No conflict resolution UI.** The conflict inbox (shows conflicting edits for user resolution) requires CRDT to identify conflicts. It lands in Phase 2D.
 - **No production R2 deployment.** S21's R2 wiring uses dev credentials and a dev bucket. Production deployment infrastructure (terraform, IAM, CDN config, multi-region) lands in Phase 3D.
 - **No customer migration.** No PRYZM 1 paying customer is migrated to PRYZM 2 in M12. The v0 → v1 migration script stub (S20) raises a clear "use the importer plugin" error. Full PRYZM 1 import lands in Phase 3D.

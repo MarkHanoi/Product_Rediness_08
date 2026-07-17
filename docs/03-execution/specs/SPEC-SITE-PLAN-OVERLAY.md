@@ -6,7 +6,7 @@
 | Version | 1.0 |
 | Date | 2026-06-26 |
 | Owner | Site-first onboarding + geospatial UI |
-| ADR | [ADR-059](../../02-decisions/adrs/ADR-059-site-plan-overlay.md) |
+| ADR | [ADR-0259](../../02-decisions/adrs/ADR-0259-site-plan-overlay.md) |
 | Contracts | [C19](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md), [C12](../../02-decisions/contracts/C12-GEOSPATIAL.md), [C18 §41](../../02-decisions/contracts/C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md) |
 | Companion SPECs | [SPEC-FORMA-SITE-VIEW](./SPEC-FORMA-SITE-VIEW.md) (the 2D draw surface), [SPEC-45-PDF-TO-BIM-PIPELINE](./SPEC-45-PDF-TO-BIM-PIPELINE.md) (the future auto-extraction phase) |
 | Module | `apps/editor/src/ui/site/overlay/` |

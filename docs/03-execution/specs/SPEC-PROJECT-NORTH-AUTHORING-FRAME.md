@@ -2,7 +2,7 @@
 
 - **Status:** Draft → implementing (2026-06-11)
 - **Owner:** generative layout (D-TGL house + apartment)
-- **Governs:** the §PROJECT-NORTH fix from [ADR-0070](../../02-decisions/adrs/0070-project-north-vs-true-north-authoring-frame.md)
+- **Governs:** the §PROJECT-NORTH fix from [ADR-0070](../../02-decisions/adrs/ADR-0070-project-north-vs-true-north-authoring-frame.md)
 - **Contracts:** [C12-GEOSPATIAL](../../02-decisions/contracts/C12-GEOSPATIAL.md) · [C19-SITE-MODEL-AND-PARCEL](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md)
 
 ## 1. Problem (one sentence)

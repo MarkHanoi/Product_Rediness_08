@@ -2,7 +2,7 @@
 
 > **Stamp**: 2026-05-03 · **Status**: CANONICAL  
 > **Scope**: `packages/persistence-client/` (L4), `packages/file-format/` (L5), project lifecycle, project isolation, render gallery storage, and server-side PostgreSQL routing.  
-> **References**: [ADR-003] object storage, [ADR-004] wire format, [SPEC-26] `.pryzm` file format, [ADR-017] `.pryzm-family` format.  
+> **References**: [ADR-0203] object storage, [ADR-0204] wire format, [SPEC-26] `.pryzm` file format, [ADR-0217] `.pryzm-family` format.  
 > **Changelog**: 2026-05-03 — added §1.3 server-side pgClient routing invariant (`DATABASE_URL` before `SUPABASE_DB_URL`); added §1.3.1 FK-removal invariant (`projects_owner_id_fkey` dropped in mixed-auth deployments); §1.4 renumbered from §1.3.
 
 ---
@@ -221,7 +221,7 @@ New projects MUST be created server-side (POST `/api/projects`) before the clien
 
 ---
 
-## §4 — The `.pryzm-family` File Format (SPEC-26, ADR-017)
+## §4 — The `.pryzm-family` File Format (SPEC-26, ADR-0217)
 
 `.pryzm-family` files define reusable parametric component families (the equivalent of Revit families). They:
 - Are valid `.pryzm` files with `metadata.json.type = "family"`.

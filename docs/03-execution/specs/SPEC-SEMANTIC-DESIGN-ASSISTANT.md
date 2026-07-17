@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Governed by | **C16** (Command Authoring Protocol — every capability ships as a §5-compliant, level-oriented, semantic-first command) · **C17** (batch catalogue + panel binding) |
 | Cross-refs | C09 (AI & Visibility Intent), C11 (Element Creation Pipeline), SPEC-07 (AI Layer L7.5), SPEC-28 (AI cost), SPEC-46 (Plan Critique), SPEC-47 (Generate-3-Options), SPEC-06 (Rooms & Levels) |
-| Required ADRs | ADR-014 (AI L7.5). **No new `packages/semantic-model` package** — the v0.1 assumption was wrong: SL-1/SL-2 already live in `packages/spatial-index` (§3.1). SL-3/SL-4/SL-5 extend `spatial-index`. |
+| Required ADRs | ADR-0214 (AI L7.5). **No new `packages/semantic-model` package** — the v0.1 assumption was wrong: SL-1/SL-2 already live in `packages/spatial-index` (§3.1). SL-3/SL-4/SL-5 extend `spatial-index`. |
 
 > **v0.2 revision (2026-05-25):** an AS-IS audit (§3.1) found the room-semantic substrate is **already substantially built** in `packages/spatial-index` — `RoomTypeInferenceEngine` (SL-1), `RoomGraphService` (SL-2), `RoomQueryService`, `RoomValidationService`. v0.1 incorrectly proposed a greenfield `packages/semantic-model`. This revision corrects §3/§5 to **reuse** those services; the genuine gaps are SL-3 (façade), SL-4 (fire compartments), SL-5 (furniture placement), the **apply-inferred-type-as-tag** flow, and the per-room/façade/compartment **consuming batch commands**.
 

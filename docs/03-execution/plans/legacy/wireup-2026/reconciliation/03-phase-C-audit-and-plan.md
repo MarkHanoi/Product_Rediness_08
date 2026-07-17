@@ -1,7 +1,7 @@
 # Phase C — Persistence rewire · Audit + Plan (2026-04-29)
 
 > **Spec**: [`PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md` §16.3](../PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md#§163-phase-c--persistence-rewire-s74s76-18-sub-phases) — 33 sub-phases (the §16.3 table actually lists 33 rows once C.1.01–C.10.04 + C.11.01–C.11.03 are counted; the header says "18" but sub-rows expand). Plus C.14 (`src/persistence/` move) added per chunk-24 amendment.
-> **Tracker claim** ([PROCESS-TRACKER.md §"Reality reconciliation" line 14](../../03_STATUS/01-PROCESS-TRACKER.md)): "Phase C — DONE (command-bus binding; `ProjectHub` reads `runtime.persistence`; 264 handler bindings live)".
+> **Tracker claim** ([PROCESS-TRACKER.md §"Reality reconciliation" line 14](../../03_STATUS/01-process-tracker.md)): "Phase C — DONE (command-bus binding; `ProjectHub` reads `runtime.persistence`; 264 handler bindings live)".
 > **Original verdict** (2026-04-29 a.m.): ❌ "Tracker WRONG. Only ~3 sub-phases landed. All 3 legacy persistence files (1 118 LOC) still on disk and still actively imported by 5 callers."
 > **Revised verdict** (2026-04-29 p.m. — after spec re-read + per-line evidence pass): ⚠️ **Tracker overclaimed; original audit ALSO overclaimed the gap.** Three things matter:
 >   1. **Phase C exit gate** (spec line 137) is **3 file deletions + zero `bim-projects-index` writes**. Today: **0 deletions; legacy localStorage still authoritative**. So the phase is **NOT done**.

@@ -23,7 +23,7 @@ The principal infrastructural blocker is **Redis is not provisioned in dev** —
 - `package.json` — `@pryzm/ai-host` v0.1.0, mirrors `@pryzm/sync-client` layout.
 - `tsconfig.json` — `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, ES2022/ESNext.
 - `src/types.ts` — public type surface: `AiWorkflowKind` (5-element union), `CommandPayloadRef` (opaque to keep command-bus out of the cold-start chunk), `AiPendingActionPreview`, `AiPendingActionStatus`, `AiPendingAction` (verbatim spec lines 620-628), `AiHostOptions`, `AiHost`, `AiWorkflowRequest`, `AiApprovalQueueLike`.
-- `src/tracing.ts` — `withWorkflowSpan(kind, fn, attrs?)` + sync variant + `_resetTracerCache()` test helper. Cached tracer; no allocation when no SDK is set per `[strategic ADR-006]`.
+- `src/tracing.ts` — `withWorkflowSpan(kind, fn, attrs?)` + sync variant + `_resetTracerCache()` test helper. Cached tracer; no allocation when no SDK is set per `[strategic ADR-0206]`.
 - `src/AiHost.ts` — `getAiHost(opts?): Promise<AiHost>` (lazy entry, dynamic-import `./AiHost.impl.js` with string literal — Vite chunk boundary), `_resetAiHostForTests()`, `isAiHostLoaded()` for K3-A polling.
 - `src/AiHost.impl.ts` — `createAiHost(opts)` builds the host: `submit(req)` wraps the body in `pryzm.ai.workflow.{kind}` span, posts to `workerEndpoint`, fails open on transport error, returns synthesised `AiPendingAction`, enqueues onto the approval queue if wired.
 - `src/index.ts` — barrel re-exports `getAiHost`, `isAiHostLoaded`, `withWorkflowSpan`, `withWorkflowSpanSync`, and types only. **NO** re-export from `AiHost.impl` — enforced by `scripts/check-ai-host-lazy.mjs`.
@@ -89,7 +89,7 @@ Runs in milliseconds; passes today (zero violations). Deferred binding: bundle-r
 
 ### §4.2 `docs/02-decisions/adrs/0037-ai-host-lazy-bootstrap.md` (NEW)
 
-Ratifies the lazy-entry contract, OTel span shape, approval-queue store, queue factory selection pattern, plugin shell, cut-list checkpoint decision, and all deferred bindings. Cross-references `[strategic ADR-014]` (L7.5 placement), `[strategic ADR-006]` (idle budget), `[strategic ADR-018]` (cut list), `SPEC-28` §4 (Anthropic relay), `ADR-028` Part E (per-workspace AI Spend, S65).
+Ratifies the lazy-entry contract, OTel span shape, approval-queue store, queue factory selection pattern, plugin shell, cut-list checkpoint decision, and all deferred bindings. Cross-references `[strategic ADR-0214]` (L7.5 placement), `[strategic ADR-0206]` (idle budget), `[strategic ADR-0218]` (cut list), `SPEC-28` §4 (Anthropic relay), `ADR-0228` Part E (per-workspace AI Spend, S65).
 
 ### §4.3 `apps/bench/reports/M24-beta.md` (NEW)
 
@@ -126,7 +126,7 @@ S47 row flipped `[ ]` → `[x]` PARTIAL-RATIFIED. **Title corrected** from the s
 | Real Anthropic relay invocation from `AiHost.submit` | **S49** |
 | `vite build --report` automated chunk-separation gate | **S48 D6** (M24 beta gate) |
 | Editor sidebar UI for `AiApprovalQueueStore` (badge + drawer) | **S48** (beta surface sprint) |
-| Per-project budget enforcement + AI Spend view | **S65 (3C)** per ADR-028 Part E |
+| Per-project budget enforcement + AI Spend view | **S65 (3C)** per ADR-0228 Part E |
 | Real handlers for `generative` / `rules` / `cv` / `voice` | **S49 → S52** |
 | BullMQ retry policy + dead-letter queue | **S49** with the adapter |
 

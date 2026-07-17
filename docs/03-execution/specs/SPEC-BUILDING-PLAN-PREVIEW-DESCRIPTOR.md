@@ -6,7 +6,7 @@
 | Version | 1.0 |
 | Date | 2026-06-26 |
 | Owner | Editor onboarding/generate modals |
-| ADR | [ADR-058](../../02-decisions/adrs/ADR-058-modular-building-plan-preview.md) |
+| ADR | [ADR-0258](../../02-decisions/adrs/ADR-0258-modular-building-plan-preview.md) |
 | Contracts | [C50](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md), [C20](../../02-decisions/contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md), [C18 §41](../../02-decisions/contracts/C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md) |
 | Module | `apps/editor/src/ui/preview-kit/` |
 
@@ -22,7 +22,7 @@ This spec governs the **building-level** plan preview shown in a typology's gene
 modal: the whole-plate top-down drawing of the footprint outline, the unit/room cells tiling it,
 the circulation bands, and the vertical core. It does **not** govern the **room-level** unit
 thumbnail (`apartment-layout/layoutThumbnail.ts`), which is a finer-granularity drawing of a
-single unit/storey's rooms/walls/doors/windows and keeps its own renderer (ADR-058 §D3).
+single unit/storey's rooms/walls/doors/windows and keeps its own renderer (ADR-0258 §D3).
 
 ## §2 The descriptor — `BuildingPlanDescriptor`
 

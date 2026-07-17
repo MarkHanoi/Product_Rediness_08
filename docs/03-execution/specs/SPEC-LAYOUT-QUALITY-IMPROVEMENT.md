@@ -77,4 +77,4 @@ New `tryDoubleLoadedCarve`: corridor runs CENTRALLY along the longer axis; publi
 `windowEmission/`, `objectives.ts` (20 axes), the Pareto ranker, `weldPartitionsToShell.ts`, `storeyAllocation.ts`, `houseEnvelope.ts`.
 
 ## Per-phase documentation
-After each phase: update `SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md` (what/why/§-tag/invariant note) + the `LAYOUT-GENERATION-ALGORITHM.md` Appendix A (§-tag glossary) + Appendix B (recently-changed). New §-tags: `§ADJACENCY-SORT`, `§MASTER-SURPLUS`, `§CORRIDOR-FACE-HINT`, `§STAIR-HEAD-AXIS`, `§DOUBLE-LOADED-PARTI`, `§HALL-ENTRANCE-FACE`.
+After each phase: update `SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md` (what/why/§-tag/invariant note) + the `layout-generation-algorithm.md` Appendix A (§-tag glossary) + Appendix B (recently-changed). New §-tags: `§ADJACENCY-SORT`, `§MASTER-SURPLUS`, `§CORRIDOR-FACE-HINT`, `§STAIR-HEAD-AXIS`, `§DOUBLE-LOADED-PARTI`, `§HALL-ENTRANCE-FACE`.

@@ -1,9 +1,11 @@
 # Missing Contracts — Enterprise BIM/AEC Gap Audit
 
-> **Stamp**: 2026-06-01 · **Status**: ACTIVE TRACKER
+> **Stamp**: 2026-06-01 · **Status**: AUTHORED 2026-07-16 — all 18 proposed gaps (C18–C49) now EXIST AS CONTRACT FILES (the full C01–C56 suite is present). See the [C00 contract index](./contracts/README.md). This doc is retained as the historical gap analysis; the live contract inventory is the C00 index, not this file.
+>
+> ⚠️ **"Authored" ≠ "implemented" (corrected 2026-07-16, L-343).** The earlier "RESOLVED / all built" wording was misleading: writing a contract file is not building the feature. Several of these contracts remain **DRAFT with unbuilt code** — notably **C22** (Privacy/PII), **C48** (Backup/DR), and **C49** — whose implementation paths are entirely "(to be created)". Do NOT read this doc as feature-complete. Per-contract implementation status (DRAFT / CANONICAL / **ACTIVE**) lives in the [C00 index](./contracts/README.md) status vocabulary.
 > **Scope**: identify every binding rule an enterprise BIM/AEC SaaS must codify · compare to the current contract suite · propose the gaps.
 > **Method**: walked the Autodesk Forma + Revit + ArchiCAD + Stripe + Linear · checked against PRYZM's current 30 ratified contracts (C00–C18 + C24–C30 + draft C31) · cross-referenced with planning docs.
-> **Result**: 18 contract gaps identified across 5 categories. Numbering proposed.
+> **Result**: 18 contract gaps identified across 5 categories. Numbering proposed. **All 18 subsequently created (C19–C49 + C32–C49) — see C00 index.**
 
 ---
 
@@ -200,3 +202,39 @@ When all 49 contracts (C00–C30 + C19–C23 + C31 + C32–C49) are CANONICAL an
 This audit is not a one-shot. As new domains emerge (e.g. embodied carbon, generative envelope design, AR/VR walkthrough), new contracts are needed. Append to §3 with a proposed CNN.
 
 When a proposed contract is RATIFIED, its row in §3 moves to §1 of this doc and the contract list above grows.
+
+
+---
+
+## GAP (added 2026-07-16, via L-352) — Project-hub / dashboard hydration is un-contracted
+**Discovered by:** L-352 (projects-hub stale-flash on first paint).
+**The gap:** No contract or spec governs the **project hub's hydration / first-paint CORRECTNESS**. C02 §2/§115 covers boot stages + skeleton removal; C10 §1 NFT-1 covers first-paint TIMING (<2.5 s) — but **nothing requires the hub's first paint to render correct (non-stale) content, persist thumbnails, or reconcile the server list IN PLACE** rather than via a full-swap re-render. There is also no `SPEC-*` for the ProjectHub/dashboard surface at all (grep: none found).
+**Proposed resolution (needs founder/architect decision):** EITHER add a hub-hydration clause to **C02** (first paint on the hub route MUST render last-known-good cached content + reconcile server diffs in place; no flash-of-stale), OR author a dedicated **SPEC-PROJECT-HUB** covering the hub's data hydration, thumbnail persistence, and reconcile discipline. Until then the behavior is un-governed and each render path invents its own.
+
+
+---
+
+## GAP (added 2026-07-16, via L-353) — Reality-capture / Gaussian-Splat assets are un-contracted
+**Discovered by:** L-353 (Gaussian Splatting product-strategy review).
+**The gap:** PRYZM has geospatial + Cesium + site-analysis capability and existing spikes (`spike-gaussian-splatting-photoreal-3d.md`, `spike-genrecon`) + a pluggable geodata provider (ADR-0065), but **no contract governs reality-capture assets** (point clouds, photogrammetry meshes, Gaussian Splats) as first-class GEOREFERENCED PROJECT ASSETS: their persistence/versioning (C05-adjacent), render path + budget (C04/C10 — a splat scene is millions of gaussians vs the 10k-element budget), isolation (C13), and how they overlay BIM/GIS. Each capture type would otherwise invent its own asset model.
+**Proposed resolution (post-V1, needs founder/architect decision):** author a **C-REALITY-CAPTURE-ASSETS** contract (or extend the geospatial-foundation contract set) covering reality-capture asset lifecycle, render-through-renderer-three (P2), streaming/tiling + perf budget, georeferencing, and BIM/GIS overlay — BEFORE Gaussian Splatting (or any capture type) ships as a core capability. Sequenced by the L-353 research recommendation.
+
+
+---
+
+## GAP (added 2026-07-16, via L-354) — Analysis-layer provenance/confidence is un-contracted
+**Discovered by:** L-354. **The gap:** no contract governs what METADATA every site-analysis layer must carry (source, method measured/simulated/interpolated/estimated, spatial+temporal resolution, accuracy, units, confidence, decision-grade vs indicative). C21 covers climate ingestion + ADR-0074 covers real solar, but wind/temperature/population have no provenance/confidence requirement — so undefensible numbers can be shown as if authoritative. **Proposed:** an analysis-provenance clause (extend C21 or SPEC-GEODATA-ANALYTICAL-LAYERS) mandating per-layer metadata + honest decision-grade-vs-indicative labeling in the UI.
+
+## GAP (added 2026-07-16, via L-355) — Provider-agnostic Context Engine is un-contracted
+**Discovered by:** L-355. **The gap:** contextual GIS data (terrain, imagery, buildings, vegetation, roads) is fetched ad-hoc (OSM via Overpass, Cesium tiles) with no provider-agnostic contract, no fidelity-tier definition (LOD1 vs LOD2/3, DEM/DTM/DSM), and no perf budget for context streaming — and the Forma 'real model' path re-exports a 71 MB GLB per activation (C10 heavy-scene risk). **Proposed:** a **C-CONTEXT-ENGINE** contract defining Terrain/Imagery/Building/Vegetation/Road provider interfaces (extending ADR-0065), fidelity tiers, streaming/tiling + perf budget (C10), render-through-renderer-three (P2), and EPSG georeferencing — before context fidelity is upgraded. Adjacent to the L-353 reality-capture-assets gap.
+
+
+## GAP (added 2026-07-16, via L-357) — GIS-maturity target + coordinate-system authority are un-contracted
+**Discovered by:** L-357 (Canvas GIS-awareness review). **The gap:** no contract defines (a) PRYZM's target GIS-awareness maturity (Level 0-5) or whether Cesium is essential vs optional, and (b) the COORDINATE-SYSTEM AUTHORITY — how local engineering coords, projected coords, WGS84, ECEF and ENU relate, and whether PRYZM operates in a local tangent plane while storing a global georef. The Cesium path already does LTP-ENU/ECEF georef ad-hoc, but it is not contracted, so a native-Three.js GIS engine would have no authoritative coordinate model to build on. **Proposed:** fold into the **C-CONTEXT-ENGINE** contract (L-355) a coordinate-authority clause + a GIS-maturity target, decided by the L-357 architecture review. Parent to the L-353/L-355 gaps.
+
+
+---
+
+## GAP CONSOLIDATION (2026-07-16, via L-359) — name it C-CONTEXT-ENGINE
+**Discovered by:** L-357 spike; **consolidates** the two earlier notes filed via L-355 ("Provider-agnostic Context Engine un-contracted") and L-357 ("GIS-maturity target + coordinate-system authority un-contracted"). Those two are the SAME gap; this entry names the single contract to author.
+**The contract to author — C-CONTEXT-ENGINE (P3 backlog, NO launch pressure):** owns (a) the coordinate authority (LTP-ENU local tangent plane + stored global georef), (b) GIS fidelity tiers (LOD1/LOD2/3, DEM/DTM/DSM), (c) the ADR-0065-aligned provider model (Terrain/Imagery/Building/Vegetation/Road), (d) the provenance/credibility bar (L-354), and (e) a context-streaming perf budget + a view-activation NFT (the C10 gap surfaced by L-358). Documentation only — implementation is the spike's Phases 1–4, out of scope here. This gap gates L-353/L-355/L-356.

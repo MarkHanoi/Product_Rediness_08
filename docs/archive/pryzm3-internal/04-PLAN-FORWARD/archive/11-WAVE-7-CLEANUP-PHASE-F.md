@@ -352,7 +352,7 @@ export interface PluginManifest {
 S84-WIRE deliverables:
 - `packages/plugin-sdk/` skeleton with the v0.1 surface
 - `packages/headless/` skeleton (Node.js entry point that calls `composeRuntime()` without a renderer)
-- ADR-045 (Plugin SDK versioning policy) authored and ratified
+- ADR-0245 (Plugin SDK versioning policy) authored and ratified
 
 ### Build-out (S85-S86-WIRE)
 
@@ -376,7 +376,7 @@ S87-WIRE deliverables:
 
 | Sprint | Week | WS-A focus | WS-B focus | WS-C focus | **Status** |
 |---|---|---|---|---|---|
-| S84-WIRE | 13–14 | Cast 670 → 200 | PropertyPanel split | SDK v0.1 surface; ADR-045 | WS-A ✅ · WS-B ✅ PropertyPanel (1,057 LOC) · WS-C ❌ |
+| S84-WIRE | 13–14 | Cast 670 → 200 | PropertyPanel split | SDK v0.1 surface; ADR-0245 | WS-A ✅ · WS-B ✅ PropertyPanel (1,057 LOC) · WS-C ❌ |
 | S85-WIRE | 15–16 | Cast 200 → 40 + rAF 68 → 1 | SheetEditor + PropertyInspector splits | BCF plugin migrates to SDK | WS-A cast ✅ rAF ✅ · WS-B ✅ SheetEditor (1,086 LOC) + PropertyInspector (1,171 LOC — WS-B gate CLOSED 2026-05-03) · WS-C ❌ |
 | S86-WIRE | 17–18 | EngineBootstrap shim deleted | initUI.ts deleted; composeRuntime audit | Marketplace skeleton; SPEC-09 amend | WS-A ✅ · WS-B initUI ✅ composeRuntime ❌ · WS-C ❌ |
 | S87-WIRE | 19–20 | Legacy `src/<35 folders>` deleted | Final file-size audit | `@pryzm/sdk@0.1.0` + `@pryzm/headless@0.1.0` published | WS-A ⚠ 31/35 · WS-B ✅ 0 files >1200 LOC (exit gate CLOSED 2026-05-03) · WS-C ❌ |

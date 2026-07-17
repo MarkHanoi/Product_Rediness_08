@@ -1389,18 +1389,18 @@ Each is a 1-page Architecture Decision Record committed to `docs/00_NEW_ARCHITEC
 
 | # | Title | Question | Recommended | Owner |
 |---|---|---|---|---|
-| ADR-001 | Pascal adoption strategy | A fork / B patterns / C viewer-only / D none | **B** (per `03-PASCAL-EDITOR-ANALYSIS.md`) | L |
-| ADR-002 | CRDT choice | Yjs / Automerge / centralised OT | **Yjs** | L |
-| ADR-003 | Object storage | R2 / B2 / S3 | **R2** for prod, MinIO for self-host | L |
-| ADR-004 | Wire format | MessagePack / CBOR / FlatBuffers | **MessagePack (msgpackr)** | S1 |
-| ADR-005 | Worker pool size policy | Fixed / dynamic / per-task | **Dynamic = `hardwareConcurrency - 1`, min 2 max 8** | S1 |
-| ADR-006 | Render mode default | WebGPU / WebGL2 | **WebGL2 default for v1, WebGPU opt-in; flip in v2** | S1 |
-| ADR-007 | Telemetry backend | Honeycomb / self-hosted Tempo / both | **Both — self-host primary, Honeycomb option for hosted customers** | L |
-| ADR-008 | IFC parity scope for v1 | All IFC4 / structural only / negotiated subset | **Existing PRYZM corpus** (see existing IFC plan doc) | S2 |
-| ADR-009 | Plugin sandbox model | iframe / Web Worker / VM / process | **iframe with postMessage RPC** | S1 |
-| ADR-010 | Bake debounce window | 100 / 500 / 2000 ms | **500 ms with override per command** | S2 |
-| ADR-011 | Element-permission granularity | Per-node / per-type / per-zone | **Per-node, with role inheritance** | L |
-| ADR-012 | Self-host minimum requirements | Containers / VM-only / cloud-only | **Docker Compose for SMB; Helm chart for enterprise** | L |
+| ADR-0201 | Pascal adoption strategy | A fork / B patterns / C viewer-only / D none | **B** (per `03-PASCAL-EDITOR-ANALYSIS.md`) | L |
+| ADR-0202 | CRDT choice | Yjs / Automerge / centralised OT | **Yjs** | L |
+| ADR-0203 | Object storage | R2 / B2 / S3 | **R2** for prod, MinIO for self-host | L |
+| ADR-0204 | Wire format | MessagePack / CBOR / FlatBuffers | **MessagePack (msgpackr)** | S1 |
+| ADR-0205 | Worker pool size policy | Fixed / dynamic / per-task | **Dynamic = `hardwareConcurrency - 1`, min 2 max 8** | S1 |
+| ADR-0206 | Render mode default | WebGPU / WebGL2 | **WebGL2 default for v1, WebGPU opt-in; flip in v2** | S1 |
+| ADR-0207 | Telemetry backend | Honeycomb / self-hosted Tempo / both | **Both — self-host primary, Honeycomb option for hosted customers** | L |
+| ADR-0208 | IFC parity scope for v1 | All IFC4 / structural only / negotiated subset | **Existing PRYZM corpus** (see existing IFC plan doc) | S2 |
+| ADR-0209 | Plugin sandbox model | iframe / Web Worker / VM / process | **iframe with postMessage RPC** | S1 |
+| ADR-0210 | Bake debounce window | 100 / 500 / 2000 ms | **500 ms with override per command** | S2 |
+| ADR-0211 | Element-permission granularity | Per-node / per-type / per-zone | **Per-node, with role inheritance** | L |
+| ADR-0212 | Self-host minimum requirements | Containers / VM-only / cloud-only | **Docker Compose for SMB; Helm chart for enterprise** | L |
 
 All ADRs reviewed and merged before Sprint 1 begins. Any later contradiction requires a superseding ADR.
 

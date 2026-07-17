@@ -410,7 +410,7 @@ Alternative: **bootstrap with revenue + small bridge ($500K)** — extends timel
 | **PRYZM 3 customer churn during δ migration** | Medium | Revenue dip at GA; trust damaged | 90-day dual-run; lifetime PRYZM 4 access for PRYZM 3 customers; white-glove migration; founder-authored letter |
 | **WebGPU adoption stalls** | Low (2027) | Renderer v2 needs WebGL2 fallback path (already planned) | Fallback path is mandatory in §5.2 |
 | **Spatial computing market doesn't materialize** | Medium | Spatial shell has no users at GA | Spatial is opt-in; web shell remains canonical; spatial investment is bounded to γ.10 (one engineer-quarter) |
-| **AI provider costs spiral** | Medium | Operating margin compressed | ADR-014 already mandates AI cost ceilings; multi-provider abstraction (Vercel AI SDK) lets us swap; user-BYOK option for power users |
+| **AI provider costs spiral** | Medium | Operating margin compressed | ADR-0214 already mandates AI cost ceilings; multi-provider abstraction (Vercel AI SDK) lets us swap; user-BYOK option for power users |
 | **Architectural lessons-learned override expectations** | Low-Medium | Some PRYZM 4 design decisions need revisiting | β allows ADR amendments through β.5; vertical slice (β.8) is the early-warning system |
 | **Founder burnout** | Medium-High | Project stalls | Hire COO/CTO equivalent at Σ.exit; founder transitions to Product role; 4-week vacation mandatory at γ.exit |
 | **Competitor (Speckle, Dalux, Snaptrude) ships first** | Medium | PRYZM 4 differentiation eroded | Differentiation is multi-shell + AI substrate + spatial — none of these competitors ship all three; double down on PDF-to-BIM + AI substrate as unique moats |

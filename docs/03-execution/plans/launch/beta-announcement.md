@@ -67,7 +67,7 @@ We'll reach out individually as cohort slots open. The first 25 practitioners ar
 We're being deliberate about scope:
 
 * **Not a Revit replacement** for production drawing sets in the beta window. Schedules + sheets + section views work, but tolerance for production-paper edge cases is what the beta itself surfaces.
-* **Not auto-applying AI.** Every AI workflow flows through the approval queue. If a workflow's estimated cost crosses a threshold (per [strategic ADR-028](../../architecture/adr/0028-ai-cost-budget.md)) it requires explicit approval.
+* **Not auto-applying AI.** Every AI workflow flows through the approval queue. If a workflow's estimated cost crosses a threshold (per [strategic ADR-0228](../../architecture/adr/0028-ai-cost-budget.md)) it requires explicit approval.
 * **Not pretending to be free.** The beta is free; pricing tiers + per-project AI budget enforcement land at the next milestone (S65). We'll tell beta participants the pricing thinking openly as it firms up.
 
 ## §6 — Friday digest

@@ -1853,13 +1853,13 @@ design decisions that must be made NOW (in ADRs) to avoid structural technical d
 
 | Task | Description | Status | Sprint | ADR | Blocker | Done-when |
 |:----:|-------------|:------:|:------:|:---:|---------|-----------|
-| **J.1** | InstancedMesh post-batch coalescing — merge same-material CWs across levels | 🔄 IN PROGRESS | QTR | ADR-046 | — | ADR-046 approved; prototype merged |
-| **J.2** | Web Worker geometry build — `CurtainWallBuilder` on OffscreenCanvas Worker | 🔄 IN PROGRESS | QTR | ADR-047 | — | ADR-047 approved; prototype merged |
-| **J.3** | Virtualized ElementStore + spatial streaming — LRU 50k cap, stream from DB | 🔄 IN PROGRESS | QTR | ADR-048 | — | ADR-048 approved; prototype merged |
-| **J.4** | Y.Doc-per-level collaboration split — independent Y.Doc per level | 🔄 IN PROGRESS | QTR | ADR-049 | — | ADR-049 approved; prototype merged |
-| **J.5** | AI response cache by content hash — 7-day TTL keyed by PDF page hash | 🔄 IN PROGRESS | QTR | ADR-050 | — | ADR-050 approved; prototype merged |
+| **J.1** | InstancedMesh post-batch coalescing — merge same-material CWs across levels | 🔄 IN PROGRESS | QTR | ADR-0246 | — | ADR-0246 approved; prototype merged |
+| **J.2** | Web Worker geometry build — `CurtainWallBuilder` on OffscreenCanvas Worker | 🔄 IN PROGRESS | QTR | ADR-0247 | — | ADR-0247 approved; prototype merged |
+| **J.3** | Virtualized ElementStore + spatial streaming — LRU 50k cap, stream from DB | 🔄 IN PROGRESS | QTR | ADR-0248 | — | ADR-0248 approved; prototype merged |
+| **J.4** | Y.Doc-per-level collaboration split — independent Y.Doc per level | 🔄 IN PROGRESS | QTR | ADR-0249 | — | ADR-0249 approved; prototype merged |
+| **J.5** | AI response cache by content hash — 7-day TTL keyed by PDF page hash | 🔄 IN PROGRESS | QTR | ADR-0250 | — | ADR-0250 approved; prototype merged |
 
-> **Phase J gate**: ADR-046 through ADR-050 must be approved before any 1M-element architectural change begins. (Note: ADR numbers 039–045 were already taken by pre-existing decisions; renumbered to 046–050 on 2026-05-08.)
+> **Phase J gate**: ADR-0246 through ADR-0250 must be approved before any 1M-element architectural change begins. (Note: ADR numbers 039–045 were already taken by pre-existing decisions; renumbered to 046–050 on 2026-05-08.)
 
 ---
 
@@ -1870,7 +1870,7 @@ geometry count from O(n) to O(materialTypes) ≈ 50 geometries. Already partiall
 for CW elements (InstancedMesh per panel type). Extension: after batch completion, coalesce all
 same-material CW elements across levels into a single InstancedMesh per material.
 
-**ADR required**: ADR-046: InstancedMesh Coalescing Strategy for Batch Element Creation.
+**ADR required**: ADR-0246: InstancedMesh Coalescing Strategy for Batch Element Creation.
 
 ---
 
@@ -1883,7 +1883,7 @@ violations from geometry build. Main thread receives only the final `ArrayBuffer
 **Note**: Phase F.2 (resume → adaptive drain) is the immediate fix for the current LONGTASKs.
 Phase J.2 is the long-term fix that makes geometry build frame-budget-proof at any scale.
 
-**ADR required**: ADR-047: Web Worker Geometry Build Pipeline.
+**ADR required**: ADR-0247: Web Worker Geometry Build Pipeline.
 
 ---
 
@@ -1893,7 +1893,7 @@ Phase J.2 is the long-term fix that makes geometry build frame-budget-proof at a
 per mutation. Virtualized store: cap in-memory element count at 50,000; evict by LRU + spatial
 distance from camera; stream from PostgreSQL/Supabase via `persistence-client`.
 
-**ADR required**: ADR-048: Virtualized ElementStore with Spatial Streaming.
+**ADR required**: ADR-0248: Virtualized ElementStore with Spatial Streaming.
 
 ---
 
@@ -1903,7 +1903,7 @@ distance from camera; stream from PostgreSQL/Supabase via `persistence-client`.
 Y.Doc-per-level: each level's CRDT document independently syncable. Late joiners load only
 visible levels. Server assembles full project from sub-documents.
 
-**ADR required**: ADR-049: Y.Doc-per-Level Collaboration Architecture.
+**ADR required**: ADR-0249: Y.Doc-per-Level Collaboration Architecture.
 
 ---
 
@@ -1913,7 +1913,7 @@ visible levels. Server assembles full project from sub-documents.
 by content hash of PDF page(s) in `packages/ai-host/`. Cache stored in PostgreSQL with 7-day TTL.
 Quota enforcement gates only the LLM call (not the batch): batch is always deterministic.
 
-**ADR required**: ADR-050: AI Response Caching by Content Hash.
+**ADR required**: ADR-0250: AI Response Caching by Content Hash.
 
 ---
 

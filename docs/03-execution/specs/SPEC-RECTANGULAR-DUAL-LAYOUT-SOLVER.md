@@ -5,7 +5,7 @@
 | Status | **DRAFT — normative target.** Documentation-complete; not yet implemented. |
 | Version | 0.1 (2026-06-08) |
 | Owner | Computational design / layout engine |
-| Governed by | [C53 §3/§12 D2](../../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) · [ADR-0062 D2](../../02-decisions/adrs/0062-layout-engine-deterministic-graph-solver.md) · [SPEC-TGL](SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md) (the engine it upgrades) · ADR-0061 (determinism) |
+| Governed by | [C53 §3/§12 D2](../../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) · [ADR-0062 D2](../../02-decisions/adrs/ADR-0062-layout-engine-deterministic-graph-solver.md) · [SPEC-TGL](SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md) (the engine it upgrades) · ADR-0061 (determinism) |
 | Hard constraints | **Deterministic** (byte-identical), **synchronous in-browser < 2 s**, **no `Math.random`**, **pure** (L2 of `packages/geometry-kernel` or `packages/ai-host` tgl), **graph-edge ⇒ shared-wall guaranteed by construction**. |
 
 > **Why this SPEC exists.** PRYZM's current Tier-4 solver (`subdivideWithReport` → `tryCarveCorridor`

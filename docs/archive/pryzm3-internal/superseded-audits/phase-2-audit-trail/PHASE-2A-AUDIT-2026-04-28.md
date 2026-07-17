@@ -22,7 +22,7 @@ This document is the **per-exit-criterion** record of what shipped, what didn't,
 
 **Phase 2A score: 100/100.**
 
-The `code-level ADR-022/024/025` slugs in the spec resolved during execution to the actually-shipped slugs `0022-room-boundary-detection.md`, `0027-furniture-multi-representation.md`, and `0028-plan-view-canvas-architecture.md` (per ADR-0030 §2.1 numbering reconciliation). Every sprint-scoped ADR the spec listed exists and is merged.
+The `code-level ADR-0222/024/025` slugs in the spec resolved during execution to the actually-shipped slugs `0022-room-boundary-detection.md`, `0027-furniture-multi-representation.md`, and `0028-plan-view-canvas-architecture.md` (per ADR-0030 §2.1 numbering reconciliation). Every sprint-scoped ADR the spec listed exists and is merged.
 
 ---
 
@@ -38,7 +38,7 @@ The `code-level ADR-022/024/025` slugs in the spec resolved during execution to 
 | Code-level `ADR 0022 — Room boundary detection strategy` (Option A topological, half-edge flood-fill) | `docs/02-decisions/adrs/0022-room-boundary-detection.md` | DONE |
 | Light expression evaluator (`length = a + b`, `angle = 90°`) per SPEC-01 §4.1 | `packages/expr-eval/src/{parser,evaluator}.ts` | `packages/expr-eval/__tests__/eval.test.ts` | DONE |
 | Family/type/instance schemas per SPEC-05 §1.2 | `packages/types-schema/space.ts` | DONE |
-| `IfcSpace` mapping per SPEC-05 §5 | covered by schema layer (full IFC export deferred to Phase 3B per `[strategic ADR-008]`) | DEFERRED-by-design |
+| `IfcSpace` mapping per SPEC-05 §5 | covered by schema layer (full IFC export deferred to Phase 3B per `[strategic ADR-0208]`) | DEFERRED-by-design |
 
 **Note**: the spec asked for "20-case parity fixture < 0.1 % area error vs PRYZM 1". The Shoelace implementation in `packages/geometry-kernel/src/utils/area.ts` is byte-equivalent to the PRYZM 1 reference; per-fixture parity numbers are recorded in handler tests. A standalone `__configs__/rooms-parity.json` fixture set is **OPEN** as a Phase 3 polish item (room area is exercised by every handler test that places a room, so the gate is materially closed).
 
@@ -109,10 +109,10 @@ The `code-level ADR-022/024/025` slugs in the spec resolved during execution to 
 
 | Spec exit gate | Code | Verdict |
 |---|---|---|
-| `packages/geometry-kernel/src/edge-projection.ts` (pure) | `packages/geometry-kernel/src/edge-projection.ts` (Cut/Beyond/Hidden/Symbolic classifier per `[strategic ADR-016]`) | DONE |
+| `packages/geometry-kernel/src/edge-projection.ts` (pure) | `packages/geometry-kernel/src/edge-projection.ts` (Cut/Beyond/Hidden/Symbolic classifier per `[strategic ADR-0216]`) | DONE |
 | `packages/geometry-kernel/src/poche.ts` (pure) | `packages/geometry-kernel/src/poche.ts` | DONE |
 | Headless byte-identity tests (Node + browser) | `packages/geometry-kernel/__tests__/` (snap fixtures) | DONE |
-| `packages/drawing-primitives/` MVP per SPEC-04 + `[strategic ADR-016]` | `packages/drawing-primitives/src/{types,classifier-to-primitives,index}.ts` + `backends/{canvas2d,svg,pdf,print-canvas}.ts` | DONE |
+| `packages/drawing-primitives/` MVP per SPEC-04 + `[strategic ADR-0216]` | `packages/drawing-primitives/src/{types,classifier-to-primitives,index}.ts` + `backends/{canvas2d,svg,pdf,print-canvas}.ts` | DONE |
 | Code-level `ADR 0029 — Vector primitives & backends` | `docs/02-decisions/adrs/0029-vector-primitives-and-backends.md` | DONE |
 | Hidden-line classifier (kernel-pure) | `packages/geometry-kernel/src/hidden-line/` | DONE |
 | Sub-phase 2A demo recording (8-min screencast, S30 D9) | OUT OF SCOPE — recording asset, not code | DEFERRED (non-blocker) |
@@ -132,7 +132,7 @@ The bench infrastructure for the M15-2A baseline is in place (`apps/bench/src/be
 | `ADR 0024 — Furniture multi-representation model` (S27) | renumbered to `docs/02-decisions/adrs/0027-furniture-multi-representation.md` per ADR-0030 §2.1 | DONE |
 | `ADR 0025 — Plan view canvas architecture` (S29) | renumbered to `docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md` per ADR-0030 §2.1 | DONE |
 
-Numbering reconciliation is documented in the spec's **Numbering note (updated 2026-04-27)** and again in `ADR-0030 §2.1`. There is no ADR-022/024/025 collision in the as-shipped tree.
+Numbering reconciliation is documented in the spec's **Numbering note (updated 2026-04-27)** and again in `ADR-0030 §2.1`. There is no ADR-0222/024/025 collision in the as-shipped tree.
 
 ### §7.2 SPECs Bound to Phase 2A
 
@@ -140,7 +140,7 @@ Numbering reconciliation is documented in the spec's **Numbering note (updated 2
 |---|---|---|
 | SPEC-01 (Light parametric expressions) | §3 robustness; §4.1 expressions | DONE — `packages/expr-eval/` lives |
 | SPEC-04 (Drawing primitives) | §1, §2 vector primitives | DONE — `packages/drawing-primitives/` MVP shipped |
-| SPEC-05 (Family/type/instance) | Rooms/spaces; §1.2 hierarchy | DONE for the 6 Phase-2A families; loadable-family authoring deferred to Phase 3A per `[strategic ADR-024]` |
+| SPEC-05 (Family/type/instance) | Rooms/spaces; §1.2 hierarchy | DONE for the 6 Phase-2A families; loadable-family authoring deferred to Phase 3A per `[strategic ADR-0224]` |
 | SPEC-10 (Plugin manifest + capability surface) | All Phase 2A plugins | DONE |
 
 ### §7.3 OTel Spans Added in 2A
@@ -158,9 +158,9 @@ Numbering reconciliation is documented in the spec's **Numbering note (updated 2
 
 ---
 
-## §8 Capacity Cut-List Status (per `[strategic ADR-018]`)
+## §8 Capacity Cut-List Status (per `[strategic ADR-0218]`)
 
-The spec earmarked dimensions polish (S29) and poche fill quality bar (S30) as the most likely cuts. **Neither cut was taken** — both shipped at full quality. No `[strategic ADR-018]` cuts fired in 2A.
+The spec earmarked dimensions polish (S29) and poche fill quality bar (S30) as the most likely cuts. **Neither cut was taken** — both shipped at full quality. No `[strategic ADR-0218]` cuts fired in 2A.
 
 ---
 
@@ -171,10 +171,10 @@ These items are spec'd by §S25/§S30 / §0 but do **not** block Phase 2A exit:
 | Deferred item | Why deferred | Re-eval trigger |
 |---|---|---|
 | 20-case room parity fixture as a standalone `__configs__/rooms-parity.json` | Per-handler test coverage exercises the same Shoelace path; consolidating into a single fixture is bookkeeping. | Phase 3 polish pass |
-| `IfcSpace` round-trip export | Full IFC export is Phase 3B per `[strategic ADR-008]`. Schema mapping is in place. | Phase 3B (S62-ish) |
+| `IfcSpace` round-trip export | Full IFC export is Phase 3B per `[strategic ADR-0208]`. Schema mapping is in place. | Phase 3B (S62-ish) |
 | 8-minute Phase 2A demo recording | Recording asset, not code. Phase-1 demo recording is the user-facing artifact for the alpha; 2A's contribution will be folded into the M24 beta launch screencast. | M24 beta launch demo |
 | `apps/bench/reports/M15-2A-baseline.md` | All bench files are in place; the report .md is bookkeeping. | S31-bis bench-reports sweep |
-| Loadable-family authoring (Component Editor) | Phase 3A per `[strategic ADR-024]` (constraint solver). | Phase 3A (S52) |
+| Loadable-family authoring (Component Editor) | Phase 3A per `[strategic ADR-0224]` (constraint solver). | Phase 3A (S52) |
 
 ---
 

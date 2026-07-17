@@ -1,6 +1,6 @@
 # Camera Architecture
 
-> Phase: 1C · Sprint S17 · Related: `docs/04-reference/architecture-detail/view-state.md`, ADR-016
+> Phase: 1C · Sprint S17 · Related: `docs/04-reference/architecture-detail/view-state.md`, ADR-0216
 
 ## Overview
 
@@ -74,7 +74,7 @@ function easeCubicInOut(t: number): number {
 Produces smooth acceleration and deceleration. `t` is clamped to `[0, 1]` via
 `Math.min(1, elapsed / duration)`.
 
-## IdleAccumulator interplay (ADR-014)
+## IdleAccumulator interplay (ADR-0214)
 
 `beginMotion()` puts the `FrameScheduler` into motion mode, which:
 - Prevents the `IdleAccumulator` from counting TRAA / SSGI convergence frames.

@@ -2,7 +2,7 @@
 
 > **Stamp**: 2026-05-02 · **Refreshed**: 2026-06-01 (counts) · **Status**: CANONICAL  
 > **Scope**: `packages/plugin-sdk/` (L8, the public facade), `plugins/*` (L9, **47 plugins**), the plugin sandbox, Ed25519 signing, and `marketplace.pryzm.app`.  
-> **References**: [ADR-009] plugin sandbox, [SPEC-09] marketplace, [ADR-001] Pascal architecture.  
+> **References**: [ADR-0209] plugin sandbox, [SPEC-09] marketplace, [ADR-0201] Pascal architecture.  
 > **Phase gate**: Phase F cannot start until ≥ 6/9 convergence booleans are true (C01 §4).
 
 ---

@@ -7,7 +7,7 @@
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
 > 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-0201]`..`[strategic ADR-0224]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
 > 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
 > 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
@@ -17,11 +17,11 @@
 >
 > | §6 heading | Code-level slug | Sprint |
 > |---|---|---|
-> | ADR-022 — Room boundary detection strategy | `docs/02-decisions/adrs/0022-room-boundary-detection.md` | S25 |
-> | ADR-024 — Furniture multi-representation model | `docs/02-decisions/adrs/0024-furniture-multi-representation.md` | S27 |
-> | ADR-025 — Plan view canvas architecture | `docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md` | S29 |
+> | ADR-0222 — Room boundary detection strategy | `docs/02-decisions/adrs/ADR-0022-room-boundary-detection.md` | S25 |
+> | ADR-0224 — Furniture multi-representation model | `docs/02-decisions/adrs/0024-furniture-multi-representation.md` | S27 |
+> | ADR-0225 — Plan view canvas architecture | `docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md` | S29 |
 >
-> **Numbering note (updated 2026-04-27).** The planned numbers (ADR-020/021/022) were predicted before Phase 2A started; ADRs 0020 and 0021 were already reserved by Phase 1D deliverables, and the actual Phase 2A ADRs were assigned as 0022, 0024, and 0025. All references in this document use the actual file paths above.
+> **Numbering note (updated 2026-04-27).** The planned numbers (ADR-0220/021/022) were predicted before Phase 2A started; ADRs 0020 and 0021 were already reserved by Phase 1D deliverables, and the actual Phase 2A ADRs were assigned as 0022, 0024, and 0025. All references in this document use the actual file paths above.
 
 **SPECs binding Phase 2A**
 
@@ -34,7 +34,7 @@
 
 **Capacity envelope**
 
-> **Capacity envelope (`[strategic ADR-018]`).** Phase 2A accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-018-capacity-cut-list.md` is the ratified order; in 2A the most likely cuts are the dimensions polish work (S29) and the poche fill quality bar at S30 (raise from "pixel-perfect" to "within hatch alignment tolerance"). Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
+> **Capacity envelope (`[strategic ADR-0218]`).** Phase 2A accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-0218-capacity-cut-list.md` is the ratified order; in 2A the most likely cuts are the dimensions polish work (S29) and the poche fill quality bar at S30 (raise from "pixel-perfect" to "within hatch alignment tolerance"). Defer items per the `[strategic ADR-0218]` ranking — never improvise scope reductions.
 
 ---
 
@@ -51,10 +51,10 @@
 2. **Edge projection + poche fill (S30)** — these are the pure math foundations that 2B's plan view depends on. Getting them wrong means 2B is built on a broken base. Getting them right and headless-tested means 2B's risks reduce to rendering and UX, not math.
 
 > **Two new strategic gates land in 2A:**
-> 1. **Drawing engine foundation (`[strategic ADR-016]`)** — `packages/drawing-primitives/` lands at S30, ahead of Phase 2B. The `edge-projection.ts` and `poche.ts` modules referenced in 2A's track-A allocation are now subordinate to the SPEC-04 vector primitive model. Edge projection is **classifier** (Cut/Beyond/Hidden/Symbolic), not a primitive emitter; the primitive emission lives in `packages/drawing-primitives/`.
-> 2. **Light parametric expressions (`[strategic ADR-024]` §Phase-2A)** — the small expression evaluator (`length = a + b`, `angle = 90°`) lands at S25 onward as a SPEC-01 §4.1 deliverable. **No constraint solver** is introduced in 2A; the solver is Phase 3A.
+> 1. **Drawing engine foundation (`[strategic ADR-0216]`)** — `packages/drawing-primitives/` lands at S30, ahead of Phase 2B. The `edge-projection.ts` and `poche.ts` modules referenced in 2A's track-A allocation are now subordinate to the SPEC-04 vector primitive model. Edge projection is **classifier** (Cut/Beyond/Hidden/Symbolic), not a primitive emitter; the primitive emission lives in `packages/drawing-primitives/`.
+> 2. **Light parametric expressions (`[strategic ADR-0224]` §Phase-2A)** — the small expression evaluator (`length = a + b`, `angle = 90°`) lands at S25 onward as a SPEC-01 §4.1 deliverable. **No constraint solver** is introduced in 2A; the solver is Phase 3A.
 
-> **Family count revision (per `[strategic ADR-017]` and SPEC-05 §1.2):** Phase 2A's "six new families" (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) are reaffirmed, but their *types* must conform to SPEC-05's family/type/instance hierarchy from S25 onward. Loadable-family authoring (the Component Editor) is Phase 3A and depends on `[strategic ADR-024]` (constraint solver).
+> **Family count revision (per `[strategic ADR-0217]` and SPEC-05 §1.2):** Phase 2A's "six new families" (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) are reaffirmed, but their *types* must conform to SPEC-05's family/type/instance hierarchy from S25 onward. Loadable-family authoring (the Component Editor) is Phase 3A and depends on `[strategic ADR-0224]` (constraint solver).
 
 ---
 
@@ -103,9 +103,9 @@ Phase 2A continues the Track A (logic-heavy, headless-compatible) vs Track B (sc
 
 | Item | Sprint |
 |---|---|
-| ADR-020 — Room boundary detection strategy | S25 D1 |
-| ADR-021 — Furniture multi-representation model | S27 D1 |
-| ADR-022 — Plan view canvas architecture | S29 D1 |
+| ADR-0220 — Room boundary detection strategy | S25 D1 |
+| ADR-0221 — Furniture multi-representation model | S27 D1 |
+| ADR-0222 — Plan view canvas architecture | S29 D1 |
 | Sub-phase 2A demo recording (8-min screencast) | S30 D9 |
 | `apps/bench/reports/M15-2A-baseline.md` | S30 D9 |
 
@@ -118,9 +118,9 @@ Phase 2A continues the Track A (logic-heavy, headless-compatible) vs Track B (sc
 ### S25 — Rooms (Boundary Detection, Area, Naming)
 
 > **Sprint anchors (added 2026-04-27):**
-> - **Family schema (`[strategic ADR-017]` + SPEC-05 §1.2):** Room/Space schemas land in `packages/types-schema/space.ts` per SPEC-05's family/type/instance hierarchy.
-> - **IFC mapping (`[strategic ADR-008]` + SPEC-05 §5):** Room types map to `IfcSpace` per SPEC-05 §5; full IFC export is Phase 3B.
-> - **Light expressions (`[strategic ADR-024]` §Phase-2A + SPEC-01 §4.1):** the `packages/expr-eval/` light expression evaluator (`length = a + b`, `angle = 90°`) lands here. **No constraint solver in 2A.**
+> - **Family schema (`[strategic ADR-0217]` + SPEC-05 §1.2):** Room/Space schemas land in `packages/types-schema/space.ts` per SPEC-05's family/type/instance hierarchy.
+> - **IFC mapping (`[strategic ADR-0208]` + SPEC-05 §5):** Room types map to `IfcSpace` per SPEC-05 §5; full IFC export is Phase 3B.
+> - **Light expressions (`[strategic ADR-0224]` §Phase-2A + SPEC-01 §4.1):** the `packages/expr-eval/` light expression evaluator (`length = a + b`, `angle = 90°`) lands here. **No constraint solver in 2A.**
 **Weeks 49–50 (Month 13)**
 
 ---
@@ -138,7 +138,7 @@ Getting rooms right now, with correct boundary detection and area calculation, p
 
 ---
 
-#### Implementation Detail — Room Boundary Detection (`code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md`)
+#### Implementation Detail — Room Boundary Detection (`code-level ADR docs/02-decisions/adrs/ADR-0022-room-boundary-detection.md`)
 
 The boundary detection algorithm is the hardest part of S25. There are two candidate approaches, and F must decide at D1:
 
@@ -209,7 +209,7 @@ export function produceRoomGeometry(dto: RoomDto, ctx: ProducerContext): Geometr
 
 **Option B — Ray-casting grid scan**: simpler to implement, fails on non-convex rooms, L-shaped rooms, and rooms with wall openings. Not recommended — do not use.
 
-**`code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` decision**: Option A (topological) is the correct approach. Document: "Room boundary detection uses half-edge graph flood-fill from seed point. The algorithm is O(walls) per room. For projects with > 500 walls per level, detect > 100 ms boundary detection time and switch to spatial indexing (R-tree of wall AABBs)."
+**`code-level ADR docs/02-decisions/adrs/ADR-0022-room-boundary-detection.md` decision**: Option A (topological) is the correct approach. Document: "Room boundary detection uses half-edge graph flood-fill from seed point. The algorithm is O(walls) per room. For projects with > 500 walls per level, detect > 100 ms boundary detection time and switch to spatial indexing (R-tree of wall AABBs)."
 
 ---
 
@@ -323,7 +323,7 @@ export class RoomCommitter implements PrimitiveCommitter<RoomDto> {
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` draft — topological flood-fill approach. F decides.
+- A presents `code-level ADR docs/02-decisions/adrs/ADR-0022-room-boundary-detection.md` draft — topological flood-fill approach. F decides.
 - B confirms the room committer's `renderOrder = -1` approach for transparency (rooms render behind walls in 3D).
 - Agree: the 20 parity-case fixture is extracted from real PRYZM 1 projects, not synthetic. Types of rooms covered: rectangular, L-shaped, with openings, with curved walls, multi-level (same boundary, different heights), rooms with island obstacles.
 
@@ -348,7 +348,7 @@ export class RoomCommitter implements PrimitiveCommitter<RoomDto> {
 #### S25 Exit Criteria
 
 - [ ] `Room` / `Space` family schemas in `packages/types-schema/space.ts` per SPEC-05 §1.2.
-- [ ] Room types map to `IfcSpace` per SPEC-05 §5 + `[strategic ADR-008]`.
+- [ ] Room types map to `IfcSpace` per SPEC-05 §5 + `[strategic ADR-0208]`.
 - [ ] Light expression evaluator (`packages/expr-eval/`) lands per SPEC-01 §4.1; supports `length = a + b`, `angle = 90°`. **No constraint solver.**
 
 - [ ] Room boundary detection functional for rectangular, L-shaped, openings, curved-wall variants.
@@ -356,7 +356,7 @@ export class RoomCommitter implements PrimitiveCommitter<RoomDto> {
 - [ ] 20-case parity fixture green: `tests/parity/rooms/`.
 - [ ] Wall edit → room boundary and area recompute automatically.
 - [ ] OTel `pryzm.command.room.create`, `pryzm.geometry.produce.room` spans visible.
-- [ ] `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/ADR-0022-room-boundary-detection.md` merged.
 - [ ] `plugins/rooms/README.md` committed.
 
 **Kill-switch K2A-S25**: if the topological flood-fill algorithm fails to produce correct boundaries for more than 3 of the 20 parity cases by D5, and the failures involve structural edge cases (not just implementation bugs), escalate: consider a simplified boundary detection (convex hull of wall inner faces) as a temporary Phase 2 approach, with the full topological algorithm deferred to Phase 3A. Document the limitation: "rooms with non-convex boundaries or island obstacles not supported in Phase 2."
@@ -756,7 +756,7 @@ export const ProjectListStore: DomainStore<ProjectListState, ProjectListEvent> =
 
 ### S29 — Dimensions + Plan-View Foundation
 
-> **Plan-view substrate (`[strategic ADR-016]`)** — S29 must produce the first `Primitive[]` stream from the kernel through `packages/drawing-primitives/` to a Canvas2D back-end. The `(ViewDef, sceneRevision) → Primitive[]` purity contract per SPEC-04 §6 begins here. Visual-diff harness extension required.
+> **Plan-view substrate (`[strategic ADR-0216]`)** — S29 must produce the first `Primitive[]` stream from the kernel through `packages/drawing-primitives/` to a Canvas2D back-end. The `(ViewDef, sceneRevision) → Primitive[]` purity contract per SPEC-04 §6 begins here. Visual-diff harness extension required.
 **Weeks 57–58 (Month 15)**
 
 ---
@@ -914,9 +914,9 @@ export class PlanViewCanvasHost extends CanvasHost {
 
 ### S30 — Edge Projection + Poche Fill (Pure)
 
-> **Edge projection placement (`[strategic ADR-016]`)** — `packages/geometry-kernel/edge-projection/` is the **classifier** producing `ClassifiedPrimitive[]`. Primitive emission lives downstream in `packages/drawing-primitives/`. The "pure-and-headless-tested" requirement per the original sprint goal is preserved.
+> **Edge projection placement (`[strategic ADR-0216]`)** — `packages/geometry-kernel/edge-projection/` is the **classifier** producing `ClassifiedPrimitive[]`. Primitive emission lives downstream in `packages/drawing-primitives/`. The "pure-and-headless-tested" requirement per the original sprint goal is preserved.
 >
-> **WebGPU compute path (`[strategic ADR-006]`)** — projection has a WebGPU compute-shader fast path with a CPU fallback; both paths must produce byte-identical output. CPU fallback is the Node target; the WebGPU path is browser-only.
+> **WebGPU compute path (`[strategic ADR-0206]`)** — projection has a WebGPU compute-shader fast path with a CPU fallback; both paths must produce byte-identical output. CPU fallback is the Node target; the WebGPU path is browser-only.
 **Weeks 59–60 (Month 15)**
 
 ---
@@ -1026,7 +1026,7 @@ Scene 4 (2 min): CI bench dashboard updated — all 18 element families green. O
 
 #### S30 Exit Criteria (= Sub-Phase 2A Exit)
 
-- [ ] Visual-diff CI gate covers the `edge-projection` output for 12 reference scenes (warning-level at S30; error-level at S36 per `[strategic ADR-006]` Phase rollout).
+- [ ] Visual-diff CI gate covers the `edge-projection` output for 12 reference scenes (warning-level at S30; error-level at S36 per `[strategic ADR-0206]` Phase rollout).
 - [ ] Hatch alignment in poche fill follows the *element's local coordinate system*, never the view origin (per SPEC-04 §2.3).
 
 - [ ] `edge-projection.ts` and `poche.ts` both pure — zero THREE imports, zero DOM access.
@@ -1046,7 +1046,7 @@ Scene 4 (2 min): CI bench dashboard updated — all 18 element families green. O
 
 | ID | Subject | Key Decision | Sprint |
 |---|---|---|---|
-| `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` | Room boundary detection | Topological half-edge flood-fill; `emptyGeometryIR` for unenclosed seeds; re-queue on wall dirty | S25 |
+| `code-level ADR docs/02-decisions/adrs/ADR-0022-room-boundary-detection.md` | Room boundary detection | Topological half-edge flood-fill; `emptyGeometryIR` for unenclosed seeds; re-queue on wall dirty | S25 |
 | `code-level ADR docs/02-decisions/adrs/0024-furniture-multi-representation.md` | Furniture multi-representation | 5 LOD levels (R0–R4); auto-LOD by camera distance; `ephemeral: true` for `SetActiveLod` events | S27 |
 | `code-level ADR docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md` | Plan view canvas architecture | Vanilla `CanvasHost` subclass; 2D HTML Canvas API; `FrameScheduler` dirty-flag driven; NO THREE in plan view | S29 |
 
@@ -1113,7 +1113,7 @@ Scene 4 (2 min): CI bench dashboard updated — all 18 element families green. O
 
 ## §Gap-Closure Note (2026-04-27)
 
-**Phase 2A holds no gap-closure work.** Phase 2A is in active development against the existing `§1`–`§5` plan; introducing new SPEC/ADR ratification or reverse-doc work mid-sprint here is forbidden. All gap-closure work surfaced by `GAP-REVIEW-2026-04-27.md` — SPEC-13/15/21/24/26/27/28/29/30 ratification, ADR-022/023/025/026/028/030 ratification, reverse-doc of Phase-1 + Phase-2A in-flight envelopes, service-role-key removal, BullMQ sweep, `02-decisions/contracts/` archival, drawing-primitives MVP, ESLint rule promotion to error, and the 5-operation Canvas2D pre-port — is **deferred to Phase 2B (S31)** and lives in `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §Gap-Closure Subphase.
+**Phase 2A holds no gap-closure work.** Phase 2A is in active development against the existing `§1`–`§5` plan; introducing new SPEC/ADR ratification or reverse-doc work mid-sprint here is forbidden. All gap-closure work surfaced by `GAP-REVIEW-2026-04-27.md` — SPEC-13/15/21/24/26/27/28/29/30 ratification, ADR-0222/023/025/026/028/030 ratification, reverse-doc of Phase-1 + Phase-2A in-flight envelopes, service-role-key removal, BullMQ sweep, `02-decisions/contracts/` archival, drawing-primitives MVP, ESLint rule promotion to error, and the 5-operation Canvas2D pre-port — is **deferred to Phase 2B (S31)** and lives in `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §Gap-Closure Subphase.
 
 The new families being built in this phase (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) follow the existing element recipe documented in code; their context envelopes will be reverse-documented in Phase 2B per SPEC-13 §3 + SPEC-21 Step 2 (the same pattern that closed the Phase 1 envelopes).
 

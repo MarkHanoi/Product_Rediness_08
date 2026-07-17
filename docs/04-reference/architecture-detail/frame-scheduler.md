@@ -1,7 +1,7 @@
 # L5 frame-scheduler — API reference
 
 > Status: API frozen at S02 (data-structure skeleton only).  S03 adds
-> `requestAnimationFrame` + idle-continuation pump per ADR-006.
+> `requestAnimationFrame` + idle-continuation pump per ADR-0206.
 >
 > Owner package: `packages/frame-scheduler/`.
 
@@ -47,7 +47,7 @@ result.drained;                      // FrameRequest[] in priority order
 result.remaining;                    // count not drained
 
 // `drainSync(maxLanes)` allows the rAF pump to drain only some lanes
-// (e.g. skip 'idle' when the budget is exhausted per ADR-006).
+// (e.g. skip 'idle' when the budget is exhausted per ADR-0206).
 scheduler.drainSync(['interaction', 'background']);
 
 // 4. Reset — used by the project loader (S04 clear-on-load).
@@ -62,7 +62,7 @@ drains first.  Inside a lane: FIFO by ULID.
 | Lane          | When to use |
 |---------------|-------------|
 | `interaction` | Pointer/keyboard input, camera tween, gizmo follow, every-frame work that must paint within 16 ms. |
-| `idle`        | TRAA, BVH refit, SSGI accumulation — eligible only inside the idle budget (ADR-006). |
+| `idle`        | TRAA, BVH refit, SSGI accumulation — eligible only inside the idle budget (ADR-0206). |
 | `background`  | Bake-worker progress UI, telemetry flush. |
 
 ### Render-phase ordering (`TickPriority`)
@@ -90,7 +90,7 @@ Each `drainSync()` opens a `pryzm.frame.tick` span with attributes
 - `pryzm.frame.dirty_count` (size of the dirty set)
 
 S03 will add `pryzm.frame.duration_ms` plus per-lane drain counts and
-the idle-budget attributes from ADR-006.
+the idle-budget attributes from ADR-0206.
 
 ## What S02 does NOT include
 
@@ -122,8 +122,8 @@ packages/frame-scheduler/
 
 ## References
 
-- `docs/02-decisions/adrs/0003-frame-scheduler-priority-vs-deadline.md`
-- `docs/02-decisions/adrs/0006-idle-continuation-budget.md`
+- `docs/02-decisions/adrs/ADR-0003-frame-scheduler-priority-vs-deadline.md`
+- `docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md`
 - `tools/eslint-plugin-pryzm/src/rules/no-raf.js`
 - `tools/scripts/check-raf-count.mjs` (rAF-count snapshot-diff for src/)
 - `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md` §S02 / §S03

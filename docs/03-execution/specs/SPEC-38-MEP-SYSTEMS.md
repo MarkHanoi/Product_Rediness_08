@@ -8,7 +8,7 @@
 | Owner | Architecture lead + MEP domain expert (hire by S77) |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S78–S80 |
-| References | `12-` §3.3; `[strategic ADR-033]` |
+| References | `12-` §3.3; `[strategic ADR-0233]` |
 
 ---
 
@@ -32,7 +32,7 @@ The Augmenta / Swapp pattern (AEC Magazine): AI auto-routes MEP. SPEC-38 ships t
 
 ### §2.2 System network model
 
-Each system is a directed graph of elements. Per `[strategic ADR-033]`, propagation algorithm = **graph traversal** (not constraint solver):
+Each system is a directed graph of elements. Per `[strategic ADR-0233]`, propagation algorithm = **graph traversal** (not constraint solver):
 
 ```ts
 interface MepSystem {
@@ -53,7 +53,7 @@ System inheritance: when a duct is connected to a parent system, it inherits sys
 
 ### §2.3 Sizing engine
 
-Per system type, a sizing function: `(graph, designConditions) → SizingResult[]`. Runs in worker pool (per ADR-005). Results stored on element parameters; visible in schedule (per ADR-027 formulas) and in 3D view (size badges via plan-view from S31).
+Per system type, a sizing function: `(graph, designConditions) → SizingResult[]`. Runs in worker pool (per ADR-0205). Results stored on element parameters; visible in schedule (per ADR-0227 formulas) and in 3D view (size badges via plan-view from S31).
 
 ## §3 Architecture
 
@@ -79,7 +79,7 @@ packages/mep-shared/
 
 | Sprint | Deliverable |
 |---|---|
-| S78 D1 | `plugins/mep-hvac/` skeleton; ADR-033 ratified; duct geometry (3 shapes) |
+| S78 D1 | `plugins/mep-hvac/` skeleton; ADR-0233 ratified; duct geometry (3 shapes) |
 | S78 D3 | fitting library (10 fittings) + system graph + ASHRAE 1.A sizing v1 |
 | S78 D5 | equipment connection (AHU + VAV + Diffuser + Return); system inheritance |
 | S78 D7 | HVAC system viewer UI (colour-coding + flow arrows + sizing badges) |
@@ -108,16 +108,16 @@ packages/mep-shared/
 
 ## §6 Anti-patterns forbidden
 
-- Sizing in the main thread (must be worker-pool per ADR-005).
+- Sizing in the main thread (must be worker-pool per ADR-0205).
 - Storing computed sizing results inside the system graph node (re-derive on demand to avoid stale state).
 - Coupling system propagation to bake worker (system propagation is pure kernel; bake is downstream).
 - Hard-coding US-only standards. Each plugin ships ≥ 2 standards (US + UK/EU/SG).
 
 ## §7 Cross-references
 
-- `[strategic ADR-033]` propagation algorithm
-- ADR-005 worker pool
-- ADR-010 bake debounce (system re-bake coalesces with model bake)
+- `[strategic ADR-0233]` propagation algorithm
+- ADR-0205 worker pool
+- ADR-0210 bake debounce (system re-bake coalesces with model bake)
 - SPEC-31 §2 (MEP element families included in mixed batch bench at S30)
 - SPEC-37 federated clash (MEP rules)
 - SPEC-43 sustainability (MEP energy → operational carbon)

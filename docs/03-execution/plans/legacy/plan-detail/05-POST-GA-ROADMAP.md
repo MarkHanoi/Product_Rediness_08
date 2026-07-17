@@ -18,7 +18,7 @@
 
 - **Sprint numbering continues**: M36 closes at S72 D9 (per PHASE-3D §S72). Post-GA sprints continue at **S73**. Each post-GA quarter holds 12 sprints (S73–S84 = M37–M42, etc.).
 - **SPEC numbering continues**: SPECs 01–31 are pre-GA. SPECs introduced in this document run **SPEC-32 through SPEC-50**. Each SPEC referenced below is a normative deliverable; the SPEC file itself is created at the sprint cited in the §"SPEC creation" column.
-- **ADR numbering continues**: strategic ADRs 001–030 are pre-GA. Post-GA strategic ADRs run **ADR-031 through ADR-080**.
+- **ADR numbering continues**: strategic ADRs 001–030 are pre-GA. Post-GA strategic ADRs run **ADR-0231 through ADR-080**.
 - **Family count**: M36 GA ships 18 element families. This roadmap adds 14 more (taking the total to 32) plus 9 system families (HVAC, electrical, plumbing-system, sprinkler, gas, drainage, communications, security, vertical-transport).
 - **Citation format**: `[strategic ADR-NNN]` for strategic ADRs; `SPEC-NN §X.Y` for specs; sprint-scoped ADRs at `docs/02-decisions/adrs/NNNN-*.md` cited as `[ADR NNNN-slug]`.
 
@@ -74,7 +74,7 @@ BIM 3.0 is not yet a contractual standard. It is the convergence of seven trends
 | BIM 2.0 contractual deliverable | PRYZM 2 M36 GA status | Gap to close |
 |---|---|---|
 | Federated CDE with ISO 19650 status codes (S0–S7) and suitability | partial (`apps/sync-server` is collaboration, not CDE) | Phase 4 §3 |
-| IFC4 read+write + buildingSMART certification (Reference View + Design Transfer View) | shipped (`[strategic ADR-008]`); no certification | Phase 4 §4 |
+| IFC4 read+write + buildingSMART certification (Reference View + Design Transfer View) | shipped (`[strategic ADR-0208]`); no certification | Phase 4 §4 |
 | COBie 2.4 export (17 sheets) | not shipped | Phase 4 §5 |
 | Federated clash detection (architectural ↔ structural ↔ MEP) | not shipped | Phase 4 §6 |
 | MEP system networks (HVAC ducts, electrical conduits, plumbing systems with flow direction, sizing, system inheritance) | partial — fixtures only at S25–S27; no system propagation | Phase 4 §7 |
@@ -125,34 +125,34 @@ This is the gap PRYZM must close to define BIM 3.0 the way Revit defined BIM 1.0
 
 | ADR | Decision | Sprint |
 |---|---|---|
-| ADR-031 | CDE storage topology — does the CDE share the L0 event log + R2 chunk store, or is it a separate Postgres + R2 namespace? | S73 D1 |
-| ADR-032 | Clash classification rule language — DSL vs Python-in-sandbox vs SPARQL | S76 D1 |
-| ADR-033 | MEP system propagation algorithm — graph traversal vs constraint solver | S78 D1 |
-| ADR-034 | COBie mapping policy when an element has no required Pset value — fallback to type vs error vs synthesised | S75 D1 |
-| ADR-035 | buildingSMART certification scope — Reference View only vs RV + Design Transfer View vs RV + DTV + Coordination View 2.0 | S73 D1 |
+| ADR-0231 | CDE storage topology — does the CDE share the L0 event log + R2 chunk store, or is it a separate Postgres + R2 namespace? | S73 D1 |
+| ADR-0232 | Clash classification rule language — DSL vs Python-in-sandbox vs SPARQL | S76 D1 |
+| ADR-0233 | MEP system propagation algorithm — graph traversal vs constraint solver | S78 D1 |
+| ADR-0234 | COBie mapping policy when an element has no required Pset value — fallback to type vs error vs synthesised | S75 D1 |
+| ADR-0235 | buildingSMART certification scope — Reference View only vs RV + Design Transfer View vs RV + DTV + Coordination View 2.0 | S73 D1 |
 
 ### §3.3 Sprint-by-sprint detail
 
 #### S73 — CDE foundations + IFC certification kickoff
-- **Track A**: `apps/cde/` skeleton (Express + Postgres tables `cde_states`, `cde_revisions`, `cde_suitability`); ISO 19650 status state machine (S0 Work In Progress → S1 Suitable for Coordination → S2 Suitable for Information → S3 Suitable for Review and Comment → S4 Suitable for Stage Approval → S5 Suitable for Construction → S6 As Constructed → S7 Suitable for Asset Management); SPEC-32 lands; ADR-031 + ADR-035 lands.
+- **Track A**: `apps/cde/` skeleton (Express + Postgres tables `cde_states`, `cde_revisions`, `cde_suitability`); ISO 19650 status state machine (S0 Work In Progress → S1 Suitable for Coordination → S2 Suitable for Information → S3 Suitable for Review and Comment → S4 Suitable for Stage Approval → S5 Suitable for Construction → S6 As Constructed → S7 Suitable for Asset Management); SPEC-32 lands; ADR-0231 + ADR-0235 lands.
 - **Track B**: CDE UI in `apps/editor/src/cde/`; status badges per project; revision history viewer; submit-for-approval flow; reviewer comment threads.
 - **Joint**: buildingSMART certification submission package starts (test fixtures, official IFC4 RV + DTV import suite execution; gap report filed).
 - **Bench**: `apps/bench/src/benches/cde-status-transition.bench.ts` — 1,000 status transitions/s p95 < 10 ms.
 - **Exit**: `[ ]` PRYZM 2 projects can be submitted for review and pass through S0 → S5 with full audit trail; IFC4 RV import pass rate ≥ 95% on buildingSMART fixtures.
 
 #### S74 — CDE comment threads + version control + tag-based release
-- **Track A**: `cde_comments`, `cde_tags`, `cde_releases` tables; tag-based release semantics (immutable hash, signed by issuer); per-issuer signing keys (per `[strategic ADR-021]`).
+- **Track A**: `cde_comments`, `cde_tags`, `cde_releases` tables; tag-based release semantics (immutable hash, signed by issuer); per-issuer signing keys (per `[strategic ADR-0221]`).
 - **Track B**: comment-on-element overlay in canvas; release history sidebar; "compare two releases" diff view (re-uses S31 plan-view rendering).
 - **Bench**: `cde-release-diff.bench.ts` — 10K-element project release diff < 5 s p95.
 
 #### S75 — COBie 2.4 export + mapping editor
-- **Track A**: SPEC-33 lands; ADR-034 lands; `packages/cobie-mapper/` with the 17 COBie sheets (Contact, Facility, Floor, Space, Zone, Type, Component, System, Assembly, Connection, Spare, Resource, Job, Document, Attribute, Coordinate, Issue); per-family parameter mapping config.
+- **Track A**: SPEC-33 lands; ADR-0234 lands; `packages/cobie-mapper/` with the 17 COBie sheets (Contact, Facility, Floor, Space, Zone, Type, Component, System, Assembly, Connection, Spare, Resource, Job, Document, Attribute, Coordinate, Issue); per-family parameter mapping config.
 - **Track B**: COBie mapping editor UI (`plugins/cobie-mapper-ui/`) — per-family table view of which IFC Pset/parameter feeds which COBie column; live preview of generated COBie.xlsx and COBie.csv.
 - **Bench**: `cobie-export.bench.ts` — 5K-element project COBie export < 30 s p95; output file passes the official COBie validator (NIBS).
 - **Exit**: `[ ]` 5K-element project produces a valid COBie 2.4 .xlsx that opens in NIBS COBie Toolkit without errors.
 
 #### S76 — Federated clash detection (architectural pass)
-- **Track A**: SPEC-34 lands; ADR-032 lands; `apps/clash-engine/` skeleton (Node, headless, BVH-accelerated using `@pryzm/picking` extracted into a shared lib); rule DSL v1 (hard / soft / clearance / penetration); first 20 rules (column-vs-wall, beam-vs-duct stub, slab-vs-pipe stub, etc.).
+- **Track A**: SPEC-34 lands; ADR-0232 lands; `apps/clash-engine/` skeleton (Node, headless, BVH-accelerated using `@pryzm/picking` extracted into a shared lib); rule DSL v1 (hard / soft / clearance / penetration); first 20 rules (column-vs-wall, beam-vs-duct stub, slab-vs-pipe stub, etc.).
 - **Track B**: clash result browser UI — list, filter by rule, group by element, status (open / approved / rejected / resolved), screenshot capture.
 - **Bench**: `clash-engine.bench.ts` — 10K-element federation clash run < 60 s p95.
 
@@ -162,10 +162,10 @@ This is the gap PRYZM must close to define BIM 3.0 the way Revit defined BIM 1.0
 - **Bench**: `clash-engine-large.bench.ts` — 50K-element federation (3 disciplines) clash run < 5 minutes p95.
 
 #### S78 — MEP HVAC (ducts + system networks)
-- **Track A**: SPEC-35 lands; ADR-033 lands; `plugins/mep-hvac/` (store, handlers, producer, committer, tool); duct geometry (rectangular + round + flat-oval); system inheritance graph; sizing engine v1 (ASHRAE 1.A constant-friction); equipment connection (AHU, VAV, diffuser, return); fitting library (elbow, tee, transition, reducer, takeoff).
+- **Track A**: SPEC-35 lands; ADR-0233 lands; `plugins/mep-hvac/` (store, handlers, producer, committer, tool); duct geometry (rectangular + round + flat-oval); system inheritance graph; sizing engine v1 (ASHRAE 1.A constant-friction); equipment connection (AHU, VAV, diffuser, return); fitting library (elbow, tee, transition, reducer, takeoff).
 - **Track B**: HVAC system viewer (system colour-coding, flow-direction arrows, sizing badges); HVAC system panel (per-system supply/return/exhaust mode, design conditions).
 - **Bench**: `produce-hvac-system.bench.ts` — 200-fitting HVAC system bake < 1.5 s p95.
-- **Joint**: ADR-033 confirms graph-traversal algorithm; sprint-scoped ADR `0040-hvac-sizing-engine.md`.
+- **Joint**: ADR-0233 confirms graph-traversal algorithm; sprint-scoped ADR `0040-hvac-sizing-engine.md`.
 
 #### S79 — MEP Electrical (circuits + panel schedules)
 - **Track A**: `plugins/mep-electrical/` (store, handlers, producer, committer, tool); cable tray + conduit geometry; circuit logic (panel → circuit → device); panel-schedule generation (NEC + IEC standards optional); load calculation v1.
@@ -210,7 +210,7 @@ This is the gap PRYZM must close to define BIM 3.0 the way Revit defined BIM 1.0
 
 Per K3-F: > 10% regression on any of the above halts forward Phase 4 work.
 
-### §3.5 Phase 4 capacity envelope and cut list (per `[strategic ADR-018]` extension)
+### §3.5 Phase 4 capacity envelope and cut list (per `[strategic ADR-0218]` extension)
 
 12 sprints. Cut order if behind by > 3 sprints at S78 D9 retro:
 1. Soft Landings v1 (S82) → defer to Phase 5.
@@ -239,24 +239,24 @@ The non-negotiable items at Phase 4 exit: CDE (S73–S74), COBie (S75), federate
 
 | ADR | Decision | Sprint |
 |---|---|---|
-| ADR-036 | Analysis bridge data contract — IFC4 + JSON-LD vs gbXML vs custom MessagePack | S87 D1 |
-| ADR-037 | Render-worker engine selection — Cycles only vs Cycles + Mitsuba (research) vs Cycles + LuxCore | S91 D1 |
-| ADR-038 | Cost rate library plug-in model — bring-your-own vs marketplace verified vs both | S93 D1 |
-| ADR-039 | 4D simulation playback — server-side video render vs client-side timeline replay | S86 D1 |
+| ADR-0236 | Analysis bridge data contract — IFC4 + JSON-LD vs gbXML vs custom MessagePack | S87 D1 |
+| ADR-0237 | Render-worker engine selection — Cycles only vs Cycles + Mitsuba (research) vs Cycles + LuxCore | S91 D1 |
+| ADR-0238 | Cost rate library plug-in model — bring-your-own vs marketplace verified vs both | S93 D1 |
+| ADR-0239 | 4D simulation playback — server-side video render vs client-side timeline replay | S86 D1 |
 
 ### §4.3 Sprint-by-sprint (compressed view)
 
 | Sprint | Theme | Key deliverables |
 |---|---|---|
 | S85 | 4D programme link + Gantt sheets | SPEC-38; programme link finalised; Gantt sheet template; per-element programme-id; multi-programme support |
-| S86 | 4D simulation viewer | ADR-039; time-slider; element appearance/disappearance per programme; export-to-MP4 (server) |
-| S87 | Analysis bridge protocol | SPEC-39; ADR-036; `packages/analysis-bridge/` with the uniform contract; first integration: Karamba3D (structural) |
+| S86 | 4D simulation viewer | ADR-0239; time-slider; element appearance/disappearance per programme; export-to-MP4 (server) |
+| S87 | Analysis bridge protocol | SPEC-39; ADR-0236; `packages/analysis-bridge/` with the uniform contract; first integration: Karamba3D (structural) |
 | S88 | OpenSees + Code_Aster bridges (structural FEA) | OpenSees Tcl-script generation + result import (.out parsing); Code_Aster MED-format I/O |
 | S89 | EnergyPlus bridge (energy + thermal) | gbXML export from PRYZM 2 model; EnergyPlus runner in Docker on bake-worker pod; result overlay (heatmap on elements) |
 | S90 | Radiance + DIVA bridges (lighting + daylight) | Radiance .rad export; HDR result import; daylight-factor overlay |
-| S91 | Cloud-baked rendering | SPEC-40; ADR-037; `apps/render-worker/` Cycles integration; first photorealistic render < 2 min on M instance |
+| S91 | Cloud-baked rendering | SPEC-40; ADR-0237; `apps/render-worker/` Cycles integration; first photorealistic render < 2 min on M instance |
 | S92 | Render UI + presets | preset library (interior / exterior / aerial / dawn / dusk); batch-render queue; per-frame R2 cache; render-history viewer |
-| S93 | 5D cost — NBS Chorus + RICS NRM2 | SPEC-41; ADR-038; `packages/qs-integration/`; NBS Chorus REST integration; NRM2-keyed take-off rules |
+| S93 | 5D cost — NBS Chorus + RICS NRM2 | SPEC-41; ADR-0238; `packages/qs-integration/`; NBS Chorus REST integration; NRM2-keyed take-off rules |
 | S94 | 5D cost — Uniclass mapping + per-element BoQ | element-to-Uniclass-2015 mapping table; per-element BoQ row generation; cost view (sheet template) |
 | S95 | Acoustic + CFD bridge skeletons | OpenFOAM CFD bridge stub (research); acoustic bridge stub (Olive Tree Lab Suite optional integration) |
 | S96 | Phase 5 closeout: 5-engine integrated demo | one project, one PRYZM 2 model, 5 analysis engines (Karamba3D + EnergyPlus + Radiance + Cycles + NBS Chorus) producing 5 outputs in parallel; 8-min demo screencast |
@@ -300,23 +300,23 @@ These three are sequenced — Pascal first (M44), render company second (M46), c
 
 | ADR | Decision | Sprint |
 |---|---|---|
-| ADR-040 | Triple-store implementation — Apache Jena (Java sidecar) vs Oxigraph (Rust, embeddable) vs custom Postgres-on-Apache-AGE | S97 D1 |
-| ADR-041 | SPARQL endpoint authn — anonymous public read vs project-token vs OAuth2-bearer | S98 D1 |
-| ADR-042 | IDS authoring UX — visual rule editor vs YAML editor vs both | S99 D1 |
-| ADR-043 | bSDD sync policy — pull on edit vs nightly mirror vs hybrid with cache | S104 D1 |
+| ADR-0240 | Triple-store implementation — Apache Jena (Java sidecar) vs Oxigraph (Rust, embeddable) vs custom Postgres-on-Apache-AGE | S97 D1 |
+| ADR-0241 | SPARQL endpoint authn — anonymous public read vs project-token vs OAuth2-bearer | S98 D1 |
+| ADR-0242 | IDS authoring UX — visual rule editor vs YAML editor vs both | S99 D1 |
+| ADR-0243 | bSDD sync policy — pull on edit vs nightly mirror vs hybrid with cache | S104 D1 |
 
 ### §5.3 Sprint-by-sprint (compressed)
 
 | Sprint | Theme | Key deliverables |
 |---|---|---|
-| S97 | Linked-data layer foundation | SPEC-42; ADR-040 (Oxigraph Rust embeddable chosen unless ADR overturns); `packages/linked-data/` triple store wrapping Postgres; W3C LBD + BOT + DICOM imports |
-| S98 | SPARQL endpoint per project | ADR-041; `apps/sparql/` Express + Oxigraph; per-project endpoint at `https://{project}.pryzm.app/sparql`; rate-limited; OTel-instrumented |
-| S99 | IDS 1.0 reader + validator | SPEC-43; ADR-042; `packages/ids-engine/` reads buildingSMART IDS XML; validates project against IDS specifications; produces violation report with element pointers |
+| S97 | Linked-data layer foundation | SPEC-42; ADR-0240 (Oxigraph Rust embeddable chosen unless ADR overturns); `packages/linked-data/` triple store wrapping Postgres; W3C LBD + BOT + DICOM imports |
+| S98 | SPARQL endpoint per project | ADR-0241; `apps/sparql/` Express + Oxigraph; per-project endpoint at `https://{project}.pryzm.app/sparql`; rate-limited; OTel-instrumented |
+| S99 | IDS 1.0 reader + validator | SPEC-43; ADR-0242; `packages/ids-engine/` reads buildingSMART IDS XML; validates project against IDS specifications; produces violation report with element pointers |
 | S100 | IDS authoring UI | visual IDS editor (`plugins/ids-author/`) — drag-drop entity / Pset / property selectors; live-preview validation against current model |
 | S101 | ICDD container support | SPEC-44; `packages/icdd-container/` reads + writes `.icdd` files (ZIP + RDF index + linked documents); used as the export bundle for federated handover |
 | S102 | ICDD viewer + linked-document overlay | UI: ICDD container viewer; linked-document graph (which doc references which IFC element); cross-document navigation |
 | S103 | LBD + BOT enrichment of PRYZM model | every PRYZM 2 element automatically emitted to the triple store as RDF (BOT:Building, BOT:Storey, BOT:Space, LBD:Wall, etc.); change-driven update via committer hook |
-| S104 | bSDD integration — read | SPEC-45; ADR-043; pull bSDD vocabularies; map PRYZM 2 properties to bSDD GUIDs; multilingual property labels |
+| S104 | bSDD integration — read | SPEC-45; ADR-0243; pull bSDD vocabularies; map PRYZM 2 properties to bSDD GUIDs; multilingual property labels |
 | S105 | bSDD integration — write + jurisdiction packs | ship 10 jurisdiction packs (UK / DE / FR / NL / SG / AU / US-IBC / SA / AE / BR); per-jurisdiction property requirements gate |
 | S106 | Linked-data query UI for non-developers | "Show me all walls > 4m thick on level 3" → SPARQL behind the scenes; saved-query library; LLM-assisted query authoring |
 | S107 | Federation across N projects via SPARQL | cross-project SPARQL queries (with OAuth2 cross-project consent); use case: "across all my firm's projects, what's the average wall thickness for fire-rated partitions?" |
@@ -509,10 +509,10 @@ The bootstrapped path is feasible if Phase 4 hits $5M ARR by M42 — which depen
 - `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §17 — pre-GA decision table; this roadmap continues the same conventions.
 - `04-PRODUCTION-PARITY.md` §6 — definition of production-ready that M36 GA satisfies; Phase 4–8 each define their own definition-of-done in their respective §3.4 / §4.4 / §5.4 / §6.3 / §7.5.
 - SPEC-31 §4 — large-fixture checkpoints; Phase 4 §3.4 + Phase 6 §5.4 + Phase 8 §7.5 each add new checkpoints to extend SPEC-31's schedule.
-- `[strategic ADR-008]` IFC scope — Phase 4 §3.1 SPEC-37 extends this to certification.
-- `[strategic ADR-014]` AI L7.5 operational — Phase 7 §6.1 SPEC-46 extends from element creator to design partner.
-- `[strategic ADR-018]` capacity cut list — Phase 4 §3.5 + Phase 5 §4.4 + each subsequent phase define their own cut list using the same ranking discipline.
-- `[strategic ADR-024]` constraint solver — Phase 7 §6.1 SPEC-46 design partner depends on this for constraint propagation.
+- `[strategic ADR-0208]` IFC scope — Phase 4 §3.1 SPEC-37 extends this to certification.
+- `[strategic ADR-0214]` AI L7.5 operational — Phase 7 §6.1 SPEC-46 extends from element creator to design partner.
+- `[strategic ADR-0218]` capacity cut list — Phase 4 §3.5 + Phase 5 §4.4 + each subsequent phase define their own cut list using the same ranking discipline.
+- `[strategic ADR-0224]` constraint solver — Phase 7 §6.1 SPEC-46 design partner depends on this for constraint propagation.
 
 ---
 
@@ -521,7 +521,7 @@ The bootstrapped path is feasible if Phase 4 hits $5M ARR by M42 — which depen
 This roadmap (12-BIM-2-AND-3-POST-GA-ROADMAP.md) is **complete** when:
 
 1. SPEC-32 through SPEC-50 (19 SPECs) are written and shipped at the sprints cited in §3 / §4 / §5 / §6 / §7.
-2. ADR-031 through ADR-080 are ratified (ADR-031 to ADR-043 are explicitly named here; the remainder are reserved for sprint-scoped decisions discovered during execution).
+2. ADR-0231 through ADR-080 are ratified (ADR-0231 to ADR-0243 are explicitly named here; the remainder are reserved for sprint-scoped decisions discovered during execution).
 3. Phase 4 NFT targets (§3.4) GREEN by M42; M42 demo recorded.
 4. Phase 5 NFT targets (§4.4) GREEN by M48; 5-engine integration demo recorded.
 5. Phase 6 NFT targets (§5.4) GREEN by M54; first commercial linked-data BIM customer in production.

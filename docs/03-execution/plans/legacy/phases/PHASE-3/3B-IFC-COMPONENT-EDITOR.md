@@ -309,7 +309,7 @@ export interface FamilyParameter {
   kind: 'type' | 'instance';
   dataType: 'length' | 'angle' | 'area' | 'volume' | 'number' | 'text' | 'boolean' | 'material';
   defaultValue: string | number | boolean;
-  expression?: string;    // e.g. "Width / 2" — evaluated by ADR-027 evaluator
+  expression?: string;    // e.g. "Width / 2" — evaluated by ADR-0227 evaluator
   isExposed: boolean;     // visible in main editor inspector when element is placed
   unit?: string;          // mm, m, deg, m², m³ — display unit
   ifc?: {
@@ -442,7 +442,7 @@ export class ParameterTable {
 - IFC import: all 12 Tier 1 element types import with `ifc.*` metadata preserved
 - `IFCMetaStore.get(elementId).globalId` matches the source IFC file
 - `IFCMetaStore.get(elementId).psets` contains all Psets from source (verified on 5 fixtures)
-- Element Creator: parameter table functional; expressions evaluated correctly via ADR-027 evaluator
+- Element Creator: parameter table functional; expressions evaluated correctly via ADR-0227 evaluator
 - Expression test: `Width / 2` with `Width=900` → evaluates to `450` in 3D preview
 - CI Gate G12 lit: IFC round-trip test on 5 fixtures (Pset preservation)
 

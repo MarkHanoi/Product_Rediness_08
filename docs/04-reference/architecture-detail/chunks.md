@@ -6,7 +6,7 @@
 | Date | 2026-04-27 |
 | Phase | 1D (Q4) |
 | Spec | `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §S19 |
-| Strategic ADRs | ADR-003 (object storage), ADR-013 (persistence operational) |
+| Strategic ADRs | ADR-0203 (object storage), ADR-0213 (persistence operational) |
 | Spec | `docs/03-execution/specs/SPEC-02-PERSISTENCE.md` |
 
 ---
@@ -74,7 +74,7 @@ Both Draco and Meshopt ship as WASM (Draco ≈ 600 KB encoder, Meshopt ≈ 200 K
 
 ## Storage Backends
 
-S19 writes chunks into **IndexedDB** alongside the event log (a new object store, `chunks`, with key = SHA-256 hex).  S21 introduces the storage driver abstraction (ADR-003): the bake worker writes to **R2** (PRYZM-hosted) or **MinIO** (self-host).  The driver interface lives in `packages/object-store/` (created in S21).
+S19 writes chunks into **IndexedDB** alongside the event log (a new object store, `chunks`, with key = SHA-256 hex).  S21 introduces the storage driver abstraction (ADR-0203): the bake worker writes to **R2** (PRYZM-hosted) or **MinIO** (self-host).  The driver interface lives in `packages/object-store/` (created in S21).
 
 S19 design choice: the IndexedDB chunk store is intentionally NOT pluggable yet — exposing the storage driver too early would over-fit the API to the S19 single-writer use case.  The driver lands when there are two writers (editor + bake worker), in S21.
 

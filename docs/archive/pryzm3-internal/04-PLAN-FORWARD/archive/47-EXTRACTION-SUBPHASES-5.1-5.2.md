@@ -5708,7 +5708,7 @@ src/engine/subsystems/ai/  (40 .ts files + 2 .md files + subdirs) ✅ DELETED
 
 ### §16.0 — Sprint Objective
 
-Relocate `src/engine/subsystems/curtainwalls/__tests__/` (2 test files + `vitest.config.ts`) to `packages/geometry-curtain-wall/__tests__/`. The `curtainwalls/` subdirectory contained NO non-test source files — only the ADR-047 Task 4.2 test suite verifying `GeometryWorkerPool` resilience and pure-math geometry computation. These tests belong with the `@pryzm/geometry-curtain-wall` package.
+Relocate `src/engine/subsystems/curtainwalls/__tests__/` (2 test files + `vitest.config.ts`) to `packages/geometry-curtain-wall/__tests__/`. The `curtainwalls/` subdirectory contained NO non-test source files — only the ADR-0247 Task 4.2 test suite verifying `GeometryWorkerPool` resilience and pure-math geometry computation. These tests belong with the `@pryzm/geometry-curtain-wall` package.
 
 ### §16.1 — Pre-flight Audit
 

@@ -56,7 +56,7 @@ AND ( default_runtime == composeRuntime() )       // single composition root
 AND ( docs_reference_to_PRYZM_1_or_2 == 0 )       // historical-only mentions
 AND ( pnpm ga-gate == "green" )                   // 12 verification groups pass
 AND ( workflows_green == workflows_total )        // every CI workflow green
-AND ( customer_migration_complete == true )       // ADR-044 fully executed
+AND ( customer_migration_complete == true )       // ADR-0244 fully executed
 ```
 
 The **moment all nine become true at the same git SHA**, PRYZM 3 exists. The previous SHA was "PRYZM 1 + PRYZM 2 strangler-fig". This SHA is "PRYZM 3". The transition is atomic from the user's point of view: when they reload the preview, they're using PRYZM 3.
@@ -231,8 +231,8 @@ This checklist runs as a single CI job (`pnpm pryzm-3-day-1`) in the S87-WIRE D-
 
 ### Customer state
 
-- [ ] ADR-044 (customer migration) fully executed: every PRYZM 1 user has either migrated to PRYZM 3 or been notified of the read-only window per the ratified policy
-- [ ] PRYZM 1 read-only access window opened (per the migration policy ratified in ADR-044)
+- [ ] ADR-0244 (customer migration) fully executed: every PRYZM 1 user has either migrated to PRYZM 3 or been notified of the read-only window per the ratified policy
+- [ ] PRYZM 1 read-only access window opened (per the migration policy ratified in ADR-0244)
 - [ ] No open support ticket cites a regression vs the previous SHA
 - [ ] Marketing site updated: no mention of "PRYZM 1" or "PRYZM 2" — only "PRYZM" (or whatever brand-side replacement applies)
 
@@ -287,7 +287,7 @@ After PRYZM 3 day 1, the following workflows simplify because the dual-edition c
 
 | If today's date is… | The current state is… | What the user sees | What the engineer does |
 |---|---|---|---|
-| Now (S72 D0) | Pre-convergence — pre-GA hardening + wireup planning | white UI on PRYZM 1 legacy default; `?pryzm2=1` opt-in | Author ADR-041..044; plan S73-WIRE D1 doc-PRs |
+| Now (S72 D0) | Pre-convergence — pre-GA hardening + wireup planning | white UI on PRYZM 1 legacy default; `?pryzm2=1` opt-in | Author ADR-0241..044; plan S73-WIRE D1 doc-PRs |
 | S73-WIRE D1 → end of Phase D | Convergence in progress — Phase A→D | white UI on legacy default; `?pryzm2=1` increasingly rich | Wire stores · view-state · selection · commands · persistence · sync |
 | End of Phase E (S80) | Feature parity reached on new path | white UI on legacy default; `?pryzm2=1` matches feature for feature | Wire all 13 element families |
 | End of Phase F (S81) | New path superior (AI, visibility) | `?pryzm2=1` is the strictly better experience | Bind AI plugins, visibility waves, view plugins |
@@ -308,7 +308,7 @@ After PRYZM 3 day 1, the following workflows simplify because the dual-edition c
 
 4. **By the end of Phase G (S84 D9)**, the legacy code is physically deleted. The bundle shrinks by ~30%. The legacy URL flag returns 404. From the user's point of view, the page just loads faster.
 
-5. **At the end of Phase H (S87 D-last)**, the cleanup PR sweep happens: docs renamed, "PRYZM 1" / "PRYZM 2" strings deleted, feature flag removed, ADR-044 customer migration completed. The acceptance checklist in §6 must all be ticked. The single command in §7 must return green.
+5. **At the end of Phase H (S87 D-last)**, the cleanup PR sweep happens: docs renamed, "PRYZM 1" / "PRYZM 2" strings deleted, feature flag removed, ADR-0244 customer migration completed. The acceptance checklist in §6 must all be ticked. The single command in §7 must return green.
 
 6. **That moment is PRYZM 3 day 1.** From that day forward there is exactly one product, one codebase, one corpus, one composition root, one runtime, one preview. The previous editions exist only in `docs/archive/` as historical record.
 

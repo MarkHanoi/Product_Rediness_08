@@ -163,7 +163,7 @@ All SDKs are `@types`-included; everything compiles to ESM only; no CommonJS.
 - v1 = a **plugin registry + install UX** + 5–10 first-party plugins + 1–2 launch partners (commitments-in-hand basis).
 - The full marketplace ecosystem (rev share, certified-publisher program, billing splits) is **post-GA**.
 
-If 5–10 launch partners are not signed by S60, the v1 marketplace is **scope-cut to first-party-only** and the third-party SDK ships as a public-but-unmarketed surface (developers can build but no in-product discovery yet). This is the cut-list line in ADR-018.
+If 5–10 launch partners are not signed by S60, the v1 marketplace is **scope-cut to first-party-only** and the third-party SDK ships as a public-but-unmarketed surface (developers can build but no in-product discovery yet). This is the cut-list line in ADR-0218.
 
 ### §7.2 v1 first-party plugins (M36 GA)
 - `@pryzm/element-truss`
@@ -216,5 +216,5 @@ If 5–10 launch partners are not signed by S60, the v1 marketplace is **scope-c
 - Layer placement: `08-VISION §4` (L6).
 - AI plugin specifics: SPEC-07.
 - Phase deliverables: `phases/PHASE-1A` (host), `phases/PHASE-1B` (wall as plugin), `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §4 (3C marketplace).
-- Cut-list: ADR-018 marketplace-vs-first-party scope cut.
+- Cut-list: ADR-0218 marketplace-vs-first-party scope cut.
 - Differentiator: D4 (`08-VISION §5`).

@@ -1,7 +1,7 @@
 # ADR-0087 — Door-rescue post-pass: the generator-side maximum-circulation guarantee + modal readout
 
 - **Status:** ACCEPTED (2026-06-30) — IMPLEMENTED. Realises the generator lever SPEC'd (staged) in
-  ADR-062 / SPEC-CIRCULATION-GRAPH §9.4.
+  ADR-0262 / SPEC-CIRCULATION-GRAPH §9.4.
 - **Owner:** circulation engine (`packages/ai-host/src/workflows/apartmentLayout/tgl`) +
   apartment/house/resi modals (`apps/editor/src/ui`).
 - **Affects:**
@@ -13,15 +13,15 @@
     `apps/editor/src/ui/residential-building/{residentialCardModel,residentialModalHtml}.ts` — the
     "Circulation NN%" chip.
   - `apps/editor/__tests__/layoutCardModel.test.ts` — `circulationPct` cases.
-- **References:** [SPEC-CIRCULATION-GRAPH PART 9](../../03_PRYZM3/SPEC-CIRCULATION-GRAPH.md)
-  (§9.3 modal readout SHIPPED, §9.5 door-rescue SHIPPED), ADR-062 (doors as first-class graph
+- **References:** [SPEC-CIRCULATION-GRAPH PART 9](../../03-execution/specs/SPEC-CIRCULATION-GRAPH.md)
+  (§9.3 modal readout SHIPPED, §9.5 door-rescue SHIPPED), ADR-0262 (doors as first-class graph
   entities + `computeCirculationReachability`), ADR-0061 (pure-predicate / no-span precedent —
   `unreachableHabitableRoomIds`, `servedThroughPrivateRoomIds`), `§BATH-CORRIDOR-ONLY`,
   `§WETROOM-PUBLIC-DOOR`, `§HALL-NOT-WETROOM-ONLY`, `§CIRCULATION-REROUTE`.
 
 ## Context
 
-ADR-062 added door NODES to the living graph and the pure `computeCirculationReachability(option)`
+ADR-0262 added door NODES to the living graph and the pure `computeCirculationReachability(option)`
 predicate (`fraction === 1` ⟺ every habitable room is reachable through a PATH OF DOORS from the
 entrance = MAXIMUM circulation), and SPEC'd — but did not implement — the generator-side GUARANTEE
 that the chosen winner reaches `fraction === 1` across typologies, plus surfacing the circulation %

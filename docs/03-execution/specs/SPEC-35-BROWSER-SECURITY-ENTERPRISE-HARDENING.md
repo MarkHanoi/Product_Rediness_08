@@ -4,11 +4,11 @@
 |---|---|
 | Status | Active — normative |
 | Version | 1.0 |
-| Date | 2026-04-27 (CSP/plugin origins reconciled to `pryzm.so` 2026-06-03 per ADR-055/C51) |
+| Date | 2026-04-27 (CSP/plugin origins reconciled to `pryzm.so` 2026-06-03 per ADR-0255/C51) |
 | Owner | Security lead + Architecture lead |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S76 D5 + S82 |
-| References | `13-AEC-WISHLIST-SUPPLEMENT.md` §1 #3; `[strategic ADR-038]` |
+| References | `13-AEC-WISHLIST-SUPPLEMENT.md` §1 #3; `[strategic ADR-0238]` |
 
 ---
 
@@ -28,13 +28,13 @@ PRYZM 2 GA ships generic security (S65 in Phase 3D — pen test, RLS audit, plug
 
 ## §2 The contract (binding)
 
-### §2.1 BYOK (Bring Your Own Key) per `[strategic ADR-038]`
+### §2.1 BYOK (Bring Your Own Key) per `[strategic ADR-0238]`
 
 - Per-tenant data encryption key (DEK) wrapped by customer-controlled key encryption key (KEK).
 - KEK custody options: **AWS KMS / Azure Key Vault / GCP KMS / on-prem HSM (PKCS#11 via cloud HSM bridge)**.
 - Customer can rotate KEK any time; PRYZM re-wraps DEK transparently within 5 minutes.
 - Customer can **revoke** KEK; revocation deletes the wrapped DEK on the same hour, all customer data becomes ciphertext-only within < 1h, full crypto-erase within 24h.
-- ADR-038 ratifies: ship KMS-backed by default; HSM-backed as enterprise tier; both available per customer.
+- ADR-0238 ratifies: ship KMS-backed by default; HSM-backed as enterprise tier; both available per customer.
 
 ### §2.2 Browser security primitives
 
@@ -80,7 +80,7 @@ S62 ships plugin sandbox via Web Worker. SPEC-35 adds:
 packages/encryption/      ← BYOK-aware envelope crypto; KEK adapters (AWS / Azure / GCP / PKCS#11)
 packages/audit-evidence/  ← evidence-row emitter; integration with Drata/Vanta
 infra/headers/            ← per-deployment CSP / COOP / COEP enforcement
-infra/csp-reporter/       ← CSP violation telemetry → Honeycomb (per ADR-007)
+infra/csp-reporter/       ← CSP violation telemetry → Honeycomb (per ADR-0207)
 plugins-marketplace/sigstore/ ← per-plugin signature verification at install
 ```
 
@@ -119,7 +119,7 @@ plugins-marketplace/sigstore/ ← per-plugin signature verification at install
 
 ## §7 Cross-references
 
-- `[strategic ADR-038]` BYOK key custody
+- `[strategic ADR-0238]` BYOK key custody
 - SPEC-21 RLS + permission model
 - SPEC-24 storage map (encryption-at-rest applied per table)
 - SPEC-34 hybrid sovereignty (BYOK is mandatory for hybrid mode)

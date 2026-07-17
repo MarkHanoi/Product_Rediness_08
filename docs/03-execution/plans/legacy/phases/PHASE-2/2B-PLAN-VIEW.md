@@ -7,7 +7,7 @@
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
 > 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-0201]`..`[strategic ADR-0224]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
 > 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
 > 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
@@ -17,11 +17,11 @@
 >
 > | §3 heading | Code-level slug | Sprint | Subordinate to |
 > |---|---|---|---|
-> | ADR-023 — Plan view renderer architecture (Canvas2D, dirty flags, no THREE) | `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` | S31 | `[strategic ADR-016]` (drawing engine) |
-> | ADR-024 — Section view cut algorithm | `docs/02-decisions/adrs/0024-section-cut-algorithm.md` | S35 | SPEC-04 §section-cut |
-> | ADR-025 — Multi-view sync strategy | `docs/02-decisions/adrs/0025-multi-view-sync.md` | S36 | SPEC-04 §1 |
+> | ADR-0223 — Plan view renderer architecture (Canvas2D, dirty flags, no THREE) | `docs/02-decisions/adrs/ADR-0023-plan-view-canvas2d-renderer.md` | S31 | `[strategic ADR-0216]` (drawing engine) |
+> | ADR-0224 — Section view cut algorithm | `docs/02-decisions/adrs/0024-section-cut-algorithm.md` | S35 | SPEC-04 §section-cut |
+> | ADR-0225 — Multi-view sync strategy | `docs/02-decisions/adrs/0025-multi-view-sync.md` | S36 | SPEC-04 §1 |
 >
-> **Numbering collision notes.** The strategic series has `[strategic ADR-024]` (constraint solver). Phase 2B's sprint-scoped `0024-section-cut-algorithm.md` lives in the `docs/02-decisions/adrs/` namespace and does not collide with the strategic numbering — they collide only when text refers to "ADR-024" without qualification, which is exactly why the `[strategic …]` vs `code-level …` convention exists. The strategic ADR-024's "Naming note" already documents this historical collision.
+> **Numbering collision notes.** The strategic series has `[strategic ADR-0224]` (constraint solver). Phase 2B's sprint-scoped `0024-section-cut-algorithm.md` lives in the `docs/02-decisions/adrs/` namespace and does not collide with the strategic numbering — they collide only when text refers to "ADR-0224" without qualification, which is exactly why the `[strategic …]` vs `code-level …` convention exists. The strategic ADR-0224's "Naming note" already documents this historical collision.
 
 **SPECs binding Phase 2B**
 
@@ -33,7 +33,7 @@
 
 **Capacity envelope**
 
-> **Capacity envelope (`[strategic ADR-018]`).** Phase 2B accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-018-capacity-cut-list.md` is the ratified order; in 2B the most likely cuts are the multi-view sync polish (S36) and section-view far-projection depth complexity (S35). Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
+> **Capacity envelope (`[strategic ADR-0218]`).** Phase 2B accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-0218-capacity-cut-list.md` is the ratified order; in 2B the most likely cuts are the multi-view sync polish (S36) and section-view far-projection depth complexity (S35). Defer items per the `[strategic ADR-0218]` ranking — never improvise scope reductions.
 
 ---
 
@@ -105,8 +105,8 @@ Track A and Track B must coordinate tightly in 2B — plan view does not cleanly
 
 | Item | Sprint |
 |---|---|
-| Code-level `0023-plan-view-canvas2d-renderer.md` — Plan view renderer architecture (Canvas2D, dirty flags, no THREE); **subordinate to `[strategic ADR-016]`** | S31 D1 |
-| Code-level `0024-section-cut-algorithm.md` — Section view cut algorithm. **Note**: `[strategic ADR-024]` is the *constraint solver*; the section-cut decision is the sprint-scoped 0024 file in `docs/02-decisions/adrs/`. | S35 D1 |
+| Code-level `ADR-0023-plan-view-canvas2d-renderer.md` — Plan view renderer architecture (Canvas2D, dirty flags, no THREE); **subordinate to `[strategic ADR-0216]`** | S31 D1 |
+| Code-level `0024-section-cut-algorithm.md` — Section view cut algorithm. **Note**: `[strategic ADR-0224]` is the *constraint solver*; the section-cut decision is the sprint-scoped 0024 file in `docs/02-decisions/adrs/`. | S35 D1 |
 | Code-level `0025-multi-view-sync.md` — Multi-view sync strategy | S36 D1 |
 | `featureFlags.plan_view_v2` flag — operational from D1 S31 | S31 D1 |
 | 2B demo recording (10-min screencast) | S36 D9 |
@@ -356,9 +356,9 @@ export class PlanCamera {
 
 #### D1 — Kickoff (30 min)
 
-- F finalises code-level `0023-plan-view-canvas2d-renderer.md` — "Plan view renderer: Canvas2D back-end of the SPEC-04 vector primitive model per `[strategic ADR-016]` (drawing engine architecture); dirty-flag driven, `FrameScheduler` owns the single render call, no THREE, coordinate system convention (world XZ → canvas xy with Z-flip)."
+- F finalises code-level `ADR-0023-plan-view-canvas2d-renderer.md` — "Plan view renderer: Canvas2D back-end of the SPEC-04 vector primitive model per `[strategic ADR-0216]` (drawing engine architecture); dirty-flag driven, `FrameScheduler` owns the single render call, no THREE, coordinate system convention (world XZ → canvas xy with Z-flip)."
 
-> **Architectural anchor (`[strategic ADR-016]`)**: the plan-view renderer is one of three back-ends of the SPEC-04 vector primitive model. The other two (SVG, PDF) ship in S31 (SVG) and S33 (PDF). This sprint's deliverable is *only* the Canvas2D back-end; the SVG/PDF back-ends consume the same `Primitive[]` stream produced upstream. Per the parity contract, all three back-ends MUST agree pixel-for-pixel where it matters and dimensionally exact where it matters more (per SPEC-04 §1).
+> **Architectural anchor (`[strategic ADR-0216]`)**: the plan-view renderer is one of three back-ends of the SPEC-04 vector primitive model. The other two (SVG, PDF) ship in S31 (SVG) and S33 (PDF). This sprint's deliverable is *only* the Canvas2D back-end; the SVG/PDF back-ends consume the same `Primitive[]` stream produced upstream. Per the parity contract, all three back-ends MUST agree pixel-for-pixel where it matters and dimensionally exact where it matters more (per SPEC-04 §1).
 - Activate `featureFlags.plan_view_v2` in the manifest: any project can toggle it off to fall back to PRYZM 1 plan view. This is critical — it means 2B can be iterated openly without risking existing projects.
 - B: set up visual-diff CI harness (Playwright screenshot comparison) against PRYZM 1 plan view reference images in `tests/visual-diff/plan-view/`. Tolerance: 10 px for this sprint.
 
@@ -387,7 +387,7 @@ export class PlanCamera {
 - [ ] `featureFlags.plan_view_v2` toggle works without crash.
 - [ ] Visual-diff: geometry cases < 10 px.
 - [ ] `apps/bench/orbit-fps-plan.ts` > 55 fps p95.
-- [ ] ADR-023 merged.
+- [ ] ADR-0223 merged.
 
 **Kill-switch K2B-1**: if visual diff > 20 px at D5 and the cause is structural (coordinate convention error or edge-projection algorithm), halt S31. Fix before continuing. A > 20 px at D5 means the foundation is wrong and S32 will compound the error.
 
@@ -864,7 +864,7 @@ Section view is conceptually simpler than plan view — it is a vertical cut rat
 
 Code-level ADR `0024-section-cut-algorithm.md` defines the section cut algorithm. The key decision is the **cut-vs-projection distinction**: elements whose AABB intersects the section line's vertical plane within the cut depth `d` are "cut elements" (shown with poche fill at the cut face). Elements whose AABB is within the far-projection depth `D > d` are "projected elements" (shown as outline only, at reduced line weight). Elements outside `D` are not shown.
 
-> **Naming clarification.** `[strategic ADR-024]` is the *constraint solver* (`docs/02-decisions/adrs/ADR-024-constraint-solver.md`). The section-cut decision documented in this sprint is the sprint-scoped `docs/02-decisions/adrs/0024-section-cut-algorithm.md`. Both files exist; the strategic ADR-024's "Naming note" already documents the historical collision.
+> **Naming clarification.** `[strategic ADR-0224]` is the *constraint solver* (`docs/02-decisions/adrs/ADR-0224-constraint-solver.md`). The section-cut decision documented in this sprint is the sprint-scoped `docs/02-decisions/adrs/0024-section-cut-algorithm.md`. Both files exist; the strategic ADR-0224's "Naming note" already documents the historical collision.
 
 ---
 
@@ -924,7 +924,7 @@ export function computeSectionCut(
 - [ ] `section-cut.ts` is pure — runs in Node test.
 - [ ] Pan/zoom works in section view.
 - [ ] Visual diff vs PRYZM 1 section view: < 5 px (tolerance tightens in S36).
-- [ ] ADR-024 merged.
+- [ ] ADR-0224 merged.
 
 **Kill-switch K2B-3**: if section view visual diff > 10 px after full implementation (not just skeleton), and the cause is in the `intersectWithPlane` algorithm for complex geometry (curved walls, stepped slabs), extend S35 by 3 days. Do not ship a section view with > 10 px visual error to the M24 beta.
 
@@ -1052,8 +1052,8 @@ Timestamped script:
 
 | ID | Subject | Key Decision | Sprint |
 |---|---|---|---|
-| Code-level `0023-plan-view-canvas2d-renderer.md` (subordinate to `[strategic ADR-016]`) | Plan view renderer architecture | Canvas2D back-end of SPEC-04 vector primitive model, no THREE, FrameScheduler dirty-flag, world XZ → canvas xy with Z-flip | S31 |
-| Code-level `0024-section-cut-algorithm.md` (distinct from `[strategic ADR-024]` constraint solver) | Section view cut algorithm | Cut depth / far projection depth; cut elements = poche fill; projected elements = outline at 50% line weight | S35 |
+| Code-level `ADR-0023-plan-view-canvas2d-renderer.md` (subordinate to `[strategic ADR-0216]`) | Plan view renderer architecture | Canvas2D back-end of SPEC-04 vector primitive model, no THREE, FrameScheduler dirty-flag, world XZ → canvas xy with Z-flip | S31 |
+| Code-level `0024-section-cut-algorithm.md` (distinct from `[strategic ADR-0224]` constraint solver) | Section view cut algorithm | Cut depth / far projection depth; cut elements = poche fill; projected elements = outline at 50% line weight | S35 |
 | Code-level `0025-multi-view-sync.md` | Multi-view sync strategy | `ViewSync` subscribes all views to all element stores; `FrameScheduler.requestFrame` is the propagation mechanism; no inter-view message passing | S36 |
 
 ### §3.2 CI Gates Added in 2B
@@ -1111,33 +1111,33 @@ Timestamped script:
 
 ## §Gap-Closure Subphase (added 2026-04-27 per `GAP-REVIEW-2026-04-27.md`; expanded 2026-04-27 to absorb all Phase-2A gap-closure)
 
-Phase 2B is the highest-slip-risk phase, and **per the 2026-04-27 directive Phase 2A holds no gap-closure work** (Phase 2A is in active development; mid-flight new-work injection forbidden). All ratification, reverse-doc, security cleanup, drawing-primitives MVP, ESLint rule promotion, and the Canvas2D pre-port that originally targeted S25–S30.10 are now absorbed into S31 of this phase, with the original 2B plan-view work continuing S32–S36. **S31 is now an unusually heavy sprint**; its slip risk is the single largest in Phase 2 and is mitigated by ADR-018 Tier-1 cuts T1.7 (PDF-to-BIM degradation, ~1 sprint S55) and T1.8 (formula library 24→14, ~1 sprint S41), either of which buys the calendar back if S31 overruns. The pre-port itself (5 hot ops on Canvas2D) remains a non-negotiable correctness gate per SPEC-30 §5.
+Phase 2B is the highest-slip-risk phase, and **per the 2026-04-27 directive Phase 2A holds no gap-closure work** (Phase 2A is in active development; mid-flight new-work injection forbidden). All ratification, reverse-doc, security cleanup, drawing-primitives MVP, ESLint rule promotion, and the Canvas2D pre-port that originally targeted S25–S30.10 are now absorbed into S31 of this phase, with the original 2B plan-view work continuing S32–S36. **S31 is now an unusually heavy sprint**; its slip risk is the single largest in Phase 2 and is mitigated by ADR-0218 Tier-1 cuts T1.7 (PDF-to-BIM degradation, ~1 sprint S55) and T1.8 (formula library 24→14, ~1 sprint S41), either of which buys the calendar back if S31 overruns. The pre-port itself (5 hot ops on Canvas2D) remains a non-negotiable correctness gate per SPEC-30 §5.
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S31** (heavy ratification + pre-port + reverse-doc) | **All displaced Phase-2A items + pre-port:** (a) SPEC-13/15/21/24/26/27/28/29/30 published as standing references; (b) ADR-022/023/025/026/028/030 ratified; ESLint rules `pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples`, `pryzm/no-circular` lit at **warning** level; (c) reverse-document envelopes for the 12 Phase-1 GREEN families + the 6 Phase-2A in-flight families (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) per SPEC-13 §3 + SPEC-21 Step 2; (d) service-role-key removal from `server.js` per SPEC-08 §6 + ADR-028 Part F; CI gate `pnpm spec:audit-secrets` lit; service-token issuer in gateway; (e) BullMQ scheduled sweep replaces probabilistic `project_command_log` cleanup per SPEC-24 §1.3; (f) `02-decisions/contracts/` archived per SPEC-27 §5; (g) drawing-primitives schemas + Zod + SVG MVP per SPEC-29 §9; (h) `plugins/lifecycle/` skeleton + first three cross-family rules per ADR-030 Part D; (i) plugin data sandbox path reserved in `.pryzm` per SPEC-26 §11; (j) **the pre-port: rewrite the 5 highest-traffic plan-view operations (selection, drag, snap, pan, zoom) on the new Canvas2D backend per SPEC-30 §5; each must pass the SPEC-30 §2 Medium tier perf budget**; (k) Cesium mount becomes lazy + disposable per ADR-023 Part C. | gap review §6, §10, §11, §13, §22.3, §27, §29 #10–22 |
-| **S32** | Legacy 11-wave Visibility-Intent adapter lit (`packages/visibility/legacy-adapter.ts`); new resolver per SPEC-30 §3.1 begins. ESLint rules `pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples` promoted from warning to **error** per ADRs 022/023/025/026 Phase rollout. RLS policies generator lit per ADR-028 Part E. | SPEC-30 §6, ADR-023, ADR-028 |
+| **S31** (heavy ratification + pre-port + reverse-doc) | **All displaced Phase-2A items + pre-port:** (a) SPEC-13/15/21/24/26/27/28/29/30 published as standing references; (b) ADR-0222/023/025/026/028/030 ratified; ESLint rules `pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples`, `pryzm/no-circular` lit at **warning** level; (c) reverse-document envelopes for the 12 Phase-1 GREEN families + the 6 Phase-2A in-flight families (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) per SPEC-13 §3 + SPEC-21 Step 2; (d) service-role-key removal from `server.js` per SPEC-08 §6 + ADR-0228 Part F; CI gate `pnpm spec:audit-secrets` lit; service-token issuer in gateway; (e) BullMQ scheduled sweep replaces probabilistic `project_command_log` cleanup per SPEC-24 §1.3; (f) `02-decisions/contracts/` archived per SPEC-27 §5; (g) drawing-primitives schemas + Zod + SVG MVP per SPEC-29 §9; (h) `plugins/lifecycle/` skeleton + first three cross-family rules per ADR-0230 Part D; (i) plugin data sandbox path reserved in `.pryzm` per SPEC-26 §11; (j) **the pre-port: rewrite the 5 highest-traffic plan-view operations (selection, drag, snap, pan, zoom) on the new Canvas2D backend per SPEC-30 §5; each must pass the SPEC-30 §2 Medium tier perf budget**; (k) Cesium mount becomes lazy + disposable per ADR-0223 Part C. | gap review §6, §10, §11, §13, §22.3, §27, §29 #10–22 |
+| **S32** | Legacy 11-wave Visibility-Intent adapter lit (`packages/visibility/legacy-adapter.ts`); new resolver per SPEC-30 §3.1 begins. ESLint rules `pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples` promoted from warning to **error** per ADRs 022/023/025/026 Phase rollout. RLS policies generator lit per ADR-0228 Part E. | SPEC-30 §6, ADR-0223, ADR-0228 |
 | **S33** | New resolver parity-tested vs legacy on the SPEC-11 fixture corpus. Canvas2D backend (overlays) per SPEC-29 §4.2 lit; plan-view consumes `VectorPrimitiveSet`. AI proposal queue lit (`Supabase ai_proposals` per SPEC-24 §1.6, SPEC-28 §5). | SPEC-30, SPEC-29 §4.2, SPEC-28 §5 |
 | **S34** | Switch primary to new resolver; legacy retained as feature flag fallback. Symbol layer integration; SPEC-29 §1 backend equivalence gate green at SPEC-30 §2 Medium tier. Plan-symbol producers (`plugins/<family>/plan-symbol.ts`) for all 18 families landed per SPEC-21 Step 8. | SPEC-21 Step 8, SPEC-29 §4.5 |
-| **S35** | Hidden-line classifier integrated per SPEC-30 §3.2; perf bench Large tier passes. WebGL2 implementation; WebGPU compute deferred per ADR-025 Part E. | SPEC-30 §2 Large, ADR-025 |
+| **S35** | Hidden-line classifier integrated per SPEC-30 §3.2; perf bench Large tier passes. WebGL2 implementation; WebGPU compute deferred per ADR-0225 Part E. | SPEC-30 §2 Large, ADR-0225 |
 | **S36** | Multi-view sync per SPEC-30 §7; perf bench Torture tier passes. SPEC-29 SVG↔Canvas2D equivalence gate green on full fixture corpus. | SPEC-30 §2 Torture |
 
 ### Updated bench gates (this phase)
 The S36 bench gate (existing) now also asserts:
 - `pnpm bench plan-view-perf` green at all four tiers per SPEC-30 §2.
 - `pnpm test packages/visibility/incremental` green (SPEC-30 §7).
-- `pnpm bench idle-cpu` shows ≤ ADR-023 §C target idle fps when each library is mounted.
+- `pnpm bench idle-cpu` shows ≤ ADR-0223 §C target idle fps when each library is mounted.
 - SVG / Canvas2D / PDF equivalence gate green per SPEC-29 §4.5.
 - `pnpm test packages/schemas/__tests__/contexts/*.stability.test.ts` green (envelope stability per SPEC-13 §6).
 - `pnpm spec:audit-secrets` green (no service-role keys).
-- `pnpm spec:dep-pin three` green (three.js exact pin per ADR-025).
+- `pnpm spec:dep-pin three` green (three.js exact pin per ADR-0225).
 - `pnpm test packages/file-format/migrations` green (file-format migrators per SPEC-26 §6).
 
 ### Updated entry/exit criteria
 Entry requires Phase 2A's existing exit criteria (no gap-closure prerequisite — Phase 2A held no gap-closure work). Exit to Phase 2C requires: (a) SPEC-30 §2 Torture tier (50,000 elements, 15 fps min) green; (b) SPEC-13/15/21/24/26/27/28/29/30 published; (c) ADRs 022–030 ratified; (d) S31 pre-port green at SPEC-30 §2 Medium tier — **non-negotiable**; (e) `pnpm spec:audit-secrets` and `pnpm spec:dep-pin three` green.
 
 ### Schedule risk acknowledgement
-S31 is the heaviest sprint of the 36-month plan. If it slips by more than 1 sprint, **K1-2B fires** per ADR-018 T3.5 and the relief valves are ADR-018 T1.7 (PDF-to-BIM degradation at S55) and T1.8 (formula library 24→14 at S41). The expected absorption: 1-sprint S31 overrun, 1 sprint reclaimed at T1.8, net schedule unchanged at Phase 2C entry.
+S31 is the heaviest sprint of the 36-month plan. If it slips by more than 1 sprint, **K1-2B fires** per ADR-0218 T3.5 and the relief valves are ADR-0218 T1.7 (PDF-to-BIM degradation at S55) and T1.8 (formula library 24→14 at S41). The expected absorption: 1-sprint S31 overrun, 1 sprint reclaimed at T1.8, net schedule unchanged at Phase 2C entry.
 
 ---
 

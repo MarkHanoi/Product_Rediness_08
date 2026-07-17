@@ -84,7 +84,7 @@ Every architecture diagram in `01-TARGET §1`, `08-VISION §4`, `09-AS-IS-VS-TO-
 
 The conflict analysis (`CONFLICT-ANALYSIS §3.5`) says "renderer is owned by `packages/renderer/` directly." The codebase says four owners. There is no migration plan that names which one wins. `phases/PHASE-1A` says `packages/render-runtime/` is the boot entry but the editor still imports from `src/rendering/` today.
 
-**Fix**: declare the One Renderer in an ADR (call it ADR-022) before any new committer code is merged. Likely answer: `packages/renderer/` is the device (WebGPU/WebGL), `packages/render-runtime/` is the scheduler+committer host, both `src/render/` and `src/rendering/` are scheduled for deletion in S55.
+**Fix**: declare the One Renderer in an ADR (call it ADR-0222) before any new committer code is merged. Likely answer: `packages/renderer/` is the device (WebGPU/WebGL), `packages/render-runtime/` is the scheduler+committer host, both `src/render/` and `src/rendering/` are scheduled for deletion in S55.
 
 ### 3.5 🟠 G — The 8-layer model has no story for *cross-cutting concerns*
 Examples: i18n, theming, accessibility, error reporting, feature flags, telemetry breadcrumbs, undo-stack visibility in the UI. None of these fit cleanly into one layer. Forma and Qonic both have a "platform services" cross-cut. PRYZM 2 has `packages/` for some (`packages/ids/` is hinted), but no contract says where i18n lives, where flags live, where the error boundary owns the recovery action.
@@ -107,7 +107,7 @@ Examples: i18n, theming, accessibility, error reporting, feature flags, telemetr
 - Inter-service auth (mTLS? signed JWT?)
 - Service discovery / DNS / port assignments
 - Failure-isolation policy (if `bake-worker` dies, does the editor degrade gracefully?)
-- Local-dev `docker-compose` for the full stack (ADR-012 promises it but no compose file is in the repo)
+- Local-dev `docker-compose` for the full stack (ADR-0212 promises it but no compose file is in the repo)
 
 This is the kind of detail Forma and Qonic have *because* they were built by a team that had operated production systems. PRYZM 2 will hit this on **day 1** of multi-process work and there will be no design.
 
@@ -166,13 +166,13 @@ The actual server contains active code paths for: `[server] Anthropic model id: 
 ### 6.1 🔴 M — Backend tech-stack is not chosen
 The corpus says: Yjs server, Express, BullMQ, Postgres + R2, MessagePack, OTel. The actual `server.js` uses: Express 4 + Socket.io + `pg`. There is no:
 - Decision on **Yjs server framework** (`y-websocket`? `hocuspocus`? in-house?). `SPEC-03-SYNC-CRDT` says Yjs but does not name the server runtime.
-- Decision on **BullMQ host** (Redis required — Replit has no managed Redis; ADR-005 says "BullMQ" but doesn't say where Redis lives).
+- Decision on **BullMQ host** (Redis required — Replit has no managed Redis; ADR-0205 says "BullMQ" but doesn't say where Redis lives).
 - Decision on **bake-worker process model** (Node? Bun? Deno? `SPEC-02-PERSISTENCE` is silent).
 - Decision on **AI worker isolation** (separate process? same Node? `SPEC-07-AI-LAYER` doesn't say).
 
 You're moving from a `server.js` monolith to **at least four** server processes with no ADRs naming the runtime, the host platform, the deployment story.
 
-**Fix**: ADR-022 backend runtime topology (Node 20 vs 22, Yjs server choice, BullMQ-Redis story for Replit Deployments specifically, IPC vs HTTP between workers). **Before S04**.
+**Fix**: ADR-0222 backend runtime topology (Node 20 vs 22, Yjs server choice, BullMQ-Redis story for Replit Deployments specifically, IPC vs HTTP between workers). **Before S04**.
 
 ### 6.2 🔴 G — Replit Deployments is the implicit production target — but the docs assume R2 + Cloudflare Workers
 `apps/sync-server`, `apps/bake-worker`, `apps/ai-worker` deployed where? Replit Reserved-VM? Replit Autoscale? AWS? Self-hosted only? The `.replit` deployment block uses `autoscale`. Autoscale **does not support background workers** — only request/response. The bake worker and the Yjs WebSocket server cannot run on autoscale. There is **no deployment plan that matches the architecture**.
@@ -227,7 +227,7 @@ Webhooks are how you become an enterprise platform. Public webhook subscriptions
 
 The lint rule (`eslint-plugin-pryzm-no-raf`) will catch user-code violations but not library-internal `requestAnimationFrame`. The "idle CPU < 2%" target is unachievable while these libraries are loaded, even if zero PRYZM code calls rAF.
 
-**Fix**: `ADR-023 — Library rAF Quarantine`: when Cesium / pathtracer / OBC are mounted, idle CPU target is "as low as the library allows." Document the regression. Lazy-mount these libraries so idle CPU is 0 fps when they are not in use.
+**Fix**: `ADR-0223 — Library rAF Quarantine`: when Cesium / pathtracer / OBC are mounted, idle CPU target is "as low as the library allows." Document the regression. Lazy-mount these libraries so idle CPU is 0 fps when they are not in use.
 
 ### 7.3 🟠 G — No memory budgets
 The corpus has frame-time and load-time budgets but **no memory budget**. PRYZM 1 routinely hits 2 GB of heap on large projects. The pure kernel running in workers will multiply the scene memory by `workerCount + 1`. There is no spec for: heap ceiling per worker, GC strategy for chunk caches, eviction policy, behaviour on Safari (4 GB tab limit).
@@ -240,7 +240,7 @@ The corpus has frame-time and load-time budgets but **no memory budget**. PRYZM 
 **Fix**: ship `tools/load-bench/` as the literal first deliverable of S01, before any boundaries lint.
 
 ### 7.5 🟠 G — No performance plan for the **bake worker**
-A 10,000-wall edit produces *N* chunks to rebake. `ADR-010` says 250 ms debounce per chunk. But:
+A 10,000-wall edit produces *N* chunks to rebake. `ADR-0210` says 250 ms debounce per chunk. But:
 - Cold bake of a 10k-element project on first import — how long?
 - Concurrent users editing different chunks — bake worker concurrency? BullMQ priority?
 - Bake failure → fallback to client bake — under what threshold?
@@ -304,10 +304,10 @@ Element delete in Revit cascades through hosts, openings, schedules, sheets, vie
 ### 9.1 🔴 M — The persistence stack uses **three** databases and the choice is undocumented at a top level
 - **Replit Postgres** (`pgClient.js`) — current default for users, projects, members, audit log.
 - **Supabase Postgres** (`supabaseClient.js`) — production target per the banner; falls back to Replit if `SUPABASE_SERVICE_ROLE_KEY` is missing.
-- **R2 / S3** (`ADR-003`) — for chunked geometry.
+- **R2 / S3** (`ADR-0203`) — for chunked geometry.
 
 Plus implied:
-- **Redis** for BullMQ (ADR-005) — never named, never hosted.
+- **Redis** for BullMQ (ADR-0205) — never named, never hosted.
 - **IndexedDB** for offline (mentioned in `02-ORCHESTRATION §6 Phase 6`).
 - **(Optional) Y.Doc on disk** somewhere — if Yjs awareness is durable.
 
@@ -334,13 +334,13 @@ The README and binding hierarchy say *"`.pryzm` file-format spec → 08-VISION �
 **Fix**: write `SPEC-26-PRYZM-FILE-FORMAT.md` *now*. This is the single highest-leverage document in the corpus and it is missing.
 
 ### 9.4 🟠 M — `manifold-3d` is in dependencies but `three-bvh-csg` is the named CSG library in the corpus
-`package.json` lists both. `ADR-020` mentions `manifold-3d` as a default. `CRITICAL-REVIEW §B1` flags `three-bvh-csg` as unsuitable for production BIM. Either you have already silently switched to manifold-3d (in which case the docs are stale), or you have two CSG libraries in the bundle (in which case the bundle budget is doomed).
+`package.json` lists both. `ADR-0220` mentions `manifold-3d` as a default. `CRITICAL-REVIEW §B1` flags `three-bvh-csg` as unsuitable for production BIM. Either you have already silently switched to manifold-3d (in which case the docs are stale), or you have two CSG libraries in the bundle (in which case the bundle budget is doomed).
 
-**Fix**: pick one in an ADR (likely ADR-020 amendment). Document the migration of any code on the wrong library.
+**Fix**: pick one in an ADR (likely ADR-0220 amendment). Document the migration of any code on the wrong library.
 
 ### 9.5 🟠 G — IFC, DXF, Rhino, PDF — no import file-format compatibility matrix
 Dependencies include `web-ifc 0.0.77`, `dxf 5.3.1`, `rhino3dm 8.17.0`, `pdfjs-dist 5.6.205`. The corpus says these become plugins (S55). It does not say:
-- Which IFC schema versions are supported (IFC2x3? IFC4? IFC4.3?). `ADR-008` says IFC4 building elements only — does that include or exclude IFC4.0 files?
+- Which IFC schema versions are supported (IFC2x3? IFC4? IFC4.3?). `ADR-0208` says IFC4 building elements only — does that include or exclude IFC4.0 files?
 - DXF: which AutoCAD versions / R-codes?
 - Rhino: which rhino3dm versions?
 - PDF: pdf.js is for raster; vector-extract for plan import is different — which?
@@ -362,7 +362,7 @@ PRYZM 1 has a `thumbnail` system today. The new format specifies a `thumbnails/`
 ## 10. Gaps on **tech-stack**
 
 ### 10.1 🔴 M — Node version mismatch
-`package.json` engines mention `node: '>=22.0.0'` for `camera-controls` but the project runs on Node 20 (Replit default). `npm install` already warns. `ADR-022` (which I am proposing in §6.1) needs to pick Node 20 or 22 once and for all.
+`package.json` engines mention `node: '>=22.0.0'` for `camera-controls` but the project runs on Node 20 (Replit default). `npm install` already warns. `ADR-0222` (which I am proposing in §6.1) needs to pick Node 20 or 22 once and for all.
 
 **Fix**: pin Node version in `.nvmrc` / `engines` and update `.replit` modules. Either upgrade to 22 or downgrade `camera-controls` to a version that supports Node 20.
 
@@ -389,9 +389,9 @@ The CI gate is the architecture (per `08-VISION §3` and `CRITICAL-REVIEW §A9`)
 **Fix**: add to `08-VISION §4` a one-liner: *"The authoritative version of this layer model is `eslint.config.js` — if the diagram and the lint disagree, the lint wins."*
 
 ### 10.6 🟠 G — Deps for Yjs, msgpackr, BullMQ, OTel are missing
-`package.json` shows `@msgpack/msgpack` (not `msgpackr`, which is faster and is what `ADR-004` assumes). No `yjs`, no `bullmq`, no `@opentelemetry/sdk-node`. The corpus assumes these are present; the codebase shows they are not.
+`package.json` shows `@msgpack/msgpack` (not `msgpackr`, which is faster and is what `ADR-0204` assumes). No `yjs`, no `bullmq`, no `@opentelemetry/sdk-node`. The corpus assumes these are present; the codebase shows they are not.
 
-**Fix**: install the chosen wire-format library (`msgpackr` per ADR-004, or amend ADR-004 to `@msgpack/msgpack`), Yjs, BullMQ, OTel SDK as part of S01 deliverables.
+**Fix**: install the chosen wire-format library (`msgpackr` per ADR-0204, or amend ADR-0204 to `@msgpack/msgpack`), Yjs, BullMQ, OTel SDK as part of S01 deliverables.
 
 ### 10.7 🟡 G — `@thatopen/components` (OBC) is at the root of dependencies and pulls in a huge transitive graph
 `@thatopen/components`, `@thatopen/components-front`, `@thatopen/fragments`, `@thatopen/ui`, `@thatopen/ui-obc` — five OBC packages. The plan says they survive only inside `plugins/ifc-import/`. They are at the root today and contribute a large fraction of the bundle. The "demote OBC" sprint is S55. **For 18 months, every page load is paying for OBC.**
@@ -408,12 +408,12 @@ A pure-JS alternative (`bcryptjs`) is more reliable in cloud environments. Margi
 ## 11. Gaps on **rendering strategy**
 
 ### 11.1 🔴 G — Three rendering backends, two committers, no orchestrator
-`packages/renderer/` claims dual WebGPU/WebGL2 (`ADR-006`). `apps/viewer/` may use a different code path. `src/render/` and `src/rendering/` are legacy. **Pathtracer** (`three-gpu-pathtracer`) is in dependencies for photorealistic. **OBC** has its own renderer. **Cesium** has its own. There is no document that says: *for any given scene, which backend is active, who decides, who switches, who flushes, who tears down*.
+`packages/renderer/` claims dual WebGPU/WebGL2 (`ADR-0206`). `apps/viewer/` may use a different code path. `src/render/` and `src/rendering/` are legacy. **Pathtracer** (`three-gpu-pathtracer`) is in dependencies for photorealistic. **OBC** has its own renderer. **Cesium** has its own. There is no document that says: *for any given scene, which backend is active, who decides, who switches, who flushes, who tears down*.
 
 **Fix**: `SPEC-27-RENDER-ORCHESTRATION.md`. Define the matrix: viewport mode (3D / plan / section / sheet / panorama / pathtraced) × backend (WebGPU / WebGL2 / Canvas2D / Cesium / pathtracer) × who owns the canvas.
 
 ### 11.2 🔴 G — No "render mode contract" for what changes when WebGPU is unavailable
-`ADR-006` says WebGPU when available, WebGL2 fallback. `SPEC-12-BUNDLE-SPLITTING §risks` mentions parity CI gate. But what *user-visible* features change between backends? Pathtracing? Edge rendering? Shadows? Bloom? Hatching? The contract should name the per-feature parity guarantee.
+`ADR-0206` says WebGPU when available, WebGL2 fallback. `SPEC-12-BUNDLE-SPLITTING §risks` mentions parity CI gate. But what *user-visible* features change between backends? Pathtracing? Edge rendering? Shadows? Bloom? Hatching? The contract should name the per-feature parity guarantee.
 
 **Fix**: a per-feature parity matrix in `SPEC-04-DRAWING-ENGINE` and a separate one in `SPEC-27` (above).
 
@@ -508,7 +508,7 @@ A BIM platform must be explicit about: linear units (mm? in? site units?), angle
 **Fix**: `SPEC-33-UNITS-AND-LOCALE.md`.
 
 ### 13.6 🟢 G — Error taxonomy
-`ADR-020` mentions "structured errors not crashes." There is no error taxonomy (which errors are user-facing? which are dev-only? which trigger telemetry? which cause a project to be marked corrupt?).
+`ADR-0220` mentions "structured errors not crashes." There is no error taxonomy (which errors are user-facing? which are dev-only? which trigger telemetry? which cause a project to be marked corrupt?).
 
 **Fix**: a one-page error taxonomy in `SPEC-10-OBSERVABILITY`.
 
@@ -669,7 +669,7 @@ Per `package.json` `test:pryzm1`. No `tests/pryzm2/` for the new architecture. T
 
 1. **Write `SPEC-26-PRYZM-FILE-FORMAT.md`.** Highest-priority binding document, missing entirely. Without it, every persistence/sync/bake spec is approximate.
 2. **Pick the deployment topology** (Replit Autoscale + Reserved VM + Upstash Redis + R2 vs alternatives). Document in `SPEC-15-DEPLOYMENT-TOPOLOGY.md`. Without it, no `apps/*` server can be designed correctly.
-3. **Ratify ADR-002 (CRDT/event-log bridge)** with code-level interfaces. Stop S01 work on the wire format until it lands.
+3. **Ratify ADR-0202 (CRDT/event-log bridge)** with code-level interfaces. Stop S01 work on the wire format until it lands.
 4. **Produce a single-page database/storage map** (`SPEC-24-DATA-STORE-MAP.md`). One row per entity, four columns (today / M12 / M24 / M36 / migration sprint).
 5. **Resolve the React-in-bundle question** with a one-line ADR amendment. Either React is forbidden in `apps/editor/` (lint enforced) or the bundle target is wrong.
 6. **Move `02-ORCHESTRATION.md` and `05-IMPLEMENTATION-PLAN.md` to `archive/`.** Prune the README's "Read in order."
@@ -678,7 +678,7 @@ Per `package.json` `test:pryzm1`. No `tests/pryzm2/` for the new architecture. T
 9. **Write `SPEC-13-CONTEXT-ENVELOPES.md`** before the wall producer (S07). Defines `WallContext`, `DoorContext`, `SlabContext` so the kernel stays pure.
 10. **Write `SPEC-21-ELEMENT-CREATION-PROTOCOL.md`** so every element family in Phase 1B–2A follows the same recipe.
 11. **Write `SPEC-29-VECTOR-PRIMITIVES.md`** + a working SVG and native-PDF backend, before any sheet/schedule code in Phase 2C.
-12. **Re-cost the 36-month plan** for solo + Agent (real numbers) and publish the **named cut list** of what gets dropped at velocity slip 20% / 40% / 60% (ADR-018 has the slot; the table is empty).
+12. **Re-cost the 36-month plan** for solo + Agent (real numbers) and publish the **named cut list** of what gets dropped at velocity slip 20% / 40% / 60% (ADR-0218 has the slot; the table is empty).
 
 ---
 
@@ -706,41 +706,41 @@ Be ruthless about deleting documents that the new ones supersede. The discipline
 
 For each ADR I report: **status** (Accepted / Proposed / Stale), **what it locks**, **what it leaves open**, **where it conflicts** with another ADR, SPEC, or vision doc.
 
-### 20.1 🟢 ADR-001 — Pascal adoption
+### 20.1 🟢 ADR-0201 — Pascal adoption
 - **Status:** Accepted. Reference editor is `/editor` (Pascal Editor) for *terminology and visual hierarchy*, not a code dependency.
 - **Locks:** the visual reference. **Open:** none material.
 - **Conflicts:** none. Part I §5.3 is correct as amended.
 
-### 20.2 🔴 ADR-002 — CRDT / event-log bridge
-- **Status:** Accepted (`adrs/ADR-002-crdt-event-log-bridge.md`). The bridge is **two byte streams**: durable event log (Postgres, ULID-ordered, source of truth) + Yjs CRDT (replay buffer for fast presence/typing).
+### 20.2 🔴 ADR-0202 — CRDT / event-log bridge
+- **Status:** Accepted (`adrs/ADR-0202-crdt-event-log-bridge.md`). The bridge is **two byte streams**: durable event log (Postgres, ULID-ordered, source of truth) + Yjs CRDT (replay buffer for fast presence/typing).
 - **Locks:** Y.Doc is *reconstructed* from event log on session start (`SPEC-03:93–100`). `applyCommandToYDoc` and `yDocUpdateToCommand` are the two translator boundaries.
 - **Open:** the *failure modes* — what happens when (a) Yjs update arrives but event-log write fails, (b) event-log write succeeds but Yjs broadcast drops, (c) two clients diverge by >5s of lag, (d) the snapshot compaction (>500k events / >1GB, `SPEC-02:64–77`) collides with an in-flight session.
 - **Conflicts:**
-  - **🔴 vs `08-VISION §4 P4`** ("single source of truth"). Two byte streams with translation glue is *de facto* two sources. The vision says "the event log is the truth, Y.Doc is a cache" but ADR-002 doesn't enforce this — `yDocUpdateToCommand` is bidirectional.
-  - **🟠 vs ADR-019 (soft-lock semantics).** Soft locks have TTLs of 60s/30s/120s/600s (`SPEC-03:123`). If the event log crashes during a 600s AI-batch lock and Yjs has the lock recorded but no durable evidence, locks survive longer than the system's idea of "I am alive."
+  - **🔴 vs `08-VISION §4 P4`** ("single source of truth"). Two byte streams with translation glue is *de facto* two sources. The vision says "the event log is the truth, Y.Doc is a cache" but ADR-0202 doesn't enforce this — `yDocUpdateToCommand` is bidirectional.
+  - **🟠 vs ADR-0219 (soft-lock semantics).** Soft locks have TTLs of 60s/30s/120s/600s (`SPEC-03:123`). If the event log crashes during a 600s AI-batch lock and Yjs has the lock recorded but no durable evidence, locks survive longer than the system's idea of "I am alive."
 - **Verdict:** the highest-risk distributed-systems decision in the project. Needs a **failure-mode test matrix** in `SPEC-11-TESTING` and a **chaos test suite** before S43 (Yjs sprint).
 
-### 20.3 🟡 ADR-003 — Object storage (R2 + MinIO)
+### 20.3 🟡 ADR-0203 — Object storage (R2 + MinIO)
 - **Status:** Accepted. Cloudflare R2 for managed cloud, MinIO for self-hosted.
 - **Locks:** S3-compatible API surface so client code is identical.
 - **Open:** **R2 ↔ Postgres consistency** — partially answered by `SPEC-02:130–134` (event log is master; on R2 lag, fall back to client-side baking via the kernel). Not yet answered: **what is the SLA for R2 → loader cache hit on a cold session?** `08-VISION §6` says "first useful triangle ≤ 800ms"; if a cold load includes an R2 round-trip + Draco decompress + kernel fallback rebake, that budget is unrealistic on a typical residential network.
 - **Conflicts:**
   - **🟠 vs `08-VISION §6`** cold-load budget (800ms). Needs measured baseline before S20.
 
-### 20.4 🟢 ADR-004 — Wire format (MessagePack)
+### 20.4 🟢 ADR-0204 — Wire format (MessagePack)
 - **Status:** Accepted. MessagePack for command payloads, Protobuf considered and rejected (toolchain weight).
 - **Locks:** binary command transport.
 - **Open:** schema evolution policy (does MessagePack tag every field? what's the migration story for command shape changes?). Touched by `packages/file-format/migrations/` (`SPEC-02:100–116`) but not bound to wire format.
 - **Conflicts:** none material.
 
-### 20.5 🟠 ADR-005 — Worker pool policy
+### 20.5 🟠 ADR-0205 — Worker pool policy
 - **Status:** Accepted. **BullMQ on Redis + Node `worker_threads`** for the bake worker.
 - **Locks:** queue topology, worker isolation model.
 - **Open:** **worker thread vs separate process** — Node `worker_threads` share heap pages with the parent, so a kernel OOM in a bake job kills the whole worker process. For 100MB+ models with manifold-3d CSG, this is non-trivial.
 - **Conflicts:**
-  - **🟠 vs ADR-009 (plugin sandbox).** Plugins run in a Web Worker on the client; bake jobs run in `worker_threads` on the server. Two different isolation models for "untrusted code that does geometry." Plugins eventually run on the server too (per `SPEC-09:79`), at which point we either add Node worker isolation for plugins or accept that server-side plugins are fully trusted.
+  - **🟠 vs ADR-0209 (plugin sandbox).** Plugins run in a Web Worker on the client; bake jobs run in `worker_threads` on the server. Two different isolation models for "untrusted code that does geometry." Plugins eventually run on the server too (per `SPEC-09:79`), at which point we either add Node worker isolation for plugins or accept that server-side plugins are fully trusted.
 
-### 20.6 🟡 ADR-006 — Default render mode (WebGPU primary, WebGL2 fallback)
+### 20.6 🟡 ADR-0206 — Default render mode (WebGPU primary, WebGL2 fallback)
 - **Status:** Accepted, **strategic**, requires spike at S06 per `PHASE-1A`.
 - **Locks:** WebGPU is the target; WebGL2 is the fallback for older browsers.
 - **Open:** **what triggers fallback?** Detection-only (no `navigator.gpu`)? Performance-based (FPS < 30 for N seconds)? Per-feature (e.g., compute-shader edge projection only on WebGPU)?
@@ -748,108 +748,108 @@ For each ADR I report: **status** (Accepted / Proposed / Stale), **what it locks
   - **🟡 vs current code.** `src/core/` references `WebGLRenderer` paths only (Three.js classic). No WebGPU shim exists. The S06 spike is therefore not a *spike* — it's a *port*.
   - **🟡 vs `node_modules/three` version pin.** WebGPURenderer is in `three/examples/jsm/renderers/webgpu/` and was unstable through r161; we need to pin Three to a known-WebGPU-stable version (r170+) and verify drei/fiber compatibility. No ADR records the pin.
 
-### 20.7 🟠 ADR-007 — Telemetry backend (Tempo + Honeycomb dual-export)
+### 20.7 🟠 ADR-0207 — Telemetry backend (Tempo + Honeycomb dual-export)
 - **Status:** Accepted.
 - **Locks:** OpenTelemetry SDK in client and server, dual-export to managed (Honeycomb) and self-hosted (Tempo).
 - **Open:** **cost.** Honeycomb's pricing scales with event volume; with `SPEC-10:34–38` defining 100% sampling for L0 spans + 100% error sampling for L1, the bill at GA scale (10k DAU × 100 spans/session × 30 days) is non-trivial. The 7-day retention assumption (`SPEC-10:87`) is hopeful, not budgeted.
-- **Conflicts:** **🟡 vs ADR-018 (capacity cut-list).** ADR-018 has an empty cut table; observability cost belongs in the cut hierarchy.
+- **Conflicts:** **🟡 vs ADR-0218 (capacity cut-list).** ADR-0218 has an empty cut table; observability cost belongs in the cut hierarchy.
 
-### 20.8 🟠 ADR-008 — IFC scope
+### 20.8 🟠 ADR-0208 — IFC scope
 - **Status:** Accepted, ringfenced.
 - **Locks:** IFC2x3 + IFC4 import/export only; no IFC4.3, no IDS, no BCF in the core. `@thatopen/components` and `web-ifc` are explicitly **lazy-loaded plugins** (`SPEC-12:37–43`).
 - **Open:** **IDS validation** is a real-world enterprise requirement and is left to "post-GA" (`SPEC-08` doesn't even mention it).
 - **Conflicts:**
   - **🟠 vs `09-AS-IS-VS-TO-BE §8.x`** which lists IFC mapping for Walls, Doors, Windows, Slabs, Roofs as in-scope for Phase 1B–1C type catalog (`SPEC-05:170–194`). Phase 1 therefore needs IFC entity definitions even if the importer is lazy. The dependency is one-way (we need entity *names* and Pset shapes for type catalog) but isn't documented.
 
-### 20.9 🟠 ADR-009 — Plugin sandbox
+### 20.9 🟠 ADR-0209 — Plugin sandbox
 - **Status:** Accepted.
 - **Locks:** Web Worker isolation for 3rd-party plugins; "fast-path" main-thread for first-party plugins (`SPEC-09:79, 103`).
 - **Open:** **first-party / 3rd-party trust boundary.** Who decides? Is it a manifest field or a signing key? `SPEC-09` shows a `kind` field but not a signing scheme.
 - **Conflicts:**
-  - **🔴 vs SPEC-09 manifest schema.** `permissions: read/write/ui/network` is binary; there's no granularity for *which entities* a plugin can write. A plugin with `write` can mutate Walls and AI proposals indistinguishably. ADR-011 (permission granularity) was supposed to resolve this — see 20.11.
+  - **🔴 vs SPEC-09 manifest schema.** `permissions: read/write/ui/network` is binary; there's no granularity for *which entities* a plugin can write. A plugin with `write` can mutate Walls and AI proposals indistinguishably. ADR-0211 (permission granularity) was supposed to resolve this — see 20.11.
 
-### 20.10 🟡 ADR-010 — Bake debounce
+### 20.10 🟡 ADR-0210 — Bake debounce
 - **Status:** Accepted.
 - **Locks:** debounce window (~500ms) before bake worker enqueues.
 - **Open:** **multi-user debounce.** With 5 users editing concurrently, the debounce window is per-user or per-project? If per-user, baking thrashes; if per-project, last-writer-wins on the bake input. `SPEC-03` says event log is ordered, so per-project debounce is implicit, but the ADR doesn't say.
 
-### 20.11 🔴 ADR-011 — Permission granularity
+### 20.11 🔴 ADR-0211 — Permission granularity
 - **Status:** Accepted, but the granularity it locks is **role-based**, not entity-based. The matrix in `SPEC-08:73–86` has Owner/Admin/Editor/Reviewer/Viewer × Action.
 - **Locks:** RBAC per workspace.
 - **Open:** **per-element / per-discipline / per-level permissions** — the kind real BIM teams need ("the structural engineer cannot modify finishes; the MEP engineer cannot modify structural"). `SPEC-06:109–115` defines discipline-scoped levels but doesn't tie them to permissions.
 - **Conflicts:**
-  - **🔴 vs ADR-009.** Plugin permissions are coarse (`read/write/ui/network`), workspace permissions are role-based, AI permissions are queue-based. **Three different permission models** with no unified `Authority` table.
+  - **🔴 vs ADR-0209.** Plugin permissions are coarse (`read/write/ui/network`), workspace permissions are role-based, AI permissions are queue-based. **Three different permission models** with no unified `Authority` table.
 
-### 20.12 🟢 ADR-012 — Self-host minimums
+### 20.12 🟢 ADR-0212 — Self-host minimums
 - **Status:** Accepted.
 - **Locks:** Postgres ≥ 14, Redis ≥ 7, MinIO ≥ 2024.x, Node ≥ 20.
 - **Conflicts:** **🟠 vs `package.json`.** `engines` field declares `node >= 20.0.0`; `camera-controls@^2.10.0` requires Node ≥ 22.0.0 per its `package.json`. This is an *active* peer-dep mismatch, not a future risk. (Per Part I §6.4.)
 
-### 20.13 🟡 ADR-013 — Persistence operational
+### 20.13 🟡 ADR-0213 — Persistence operational
 - **Status:** Accepted.
 - **Locks:** PITR enabled, snapshot strategy (every 500k events / 1GB), per-tenant DB schema namespacing.
 - **Open:** **backup verification cadence.** Not specified; "test restore once a quarter" or "weekly automated restore + checksum" is a 10× difference in cost and confidence.
 
-### 20.14 🟠 ADR-014 — AI L7.5 operational
+### 20.14 🟠 ADR-0214 — AI L7.5 operational
 - **Status:** Accepted.
 - **Locks:** L7.5 layer with its own approval queue (`SPEC-07:96–121`); model pinned to exact version + system-prompt SHA (`SPEC-07:139–143`); per-actor / per-plugin / per-project budgets (`SPEC-07:175–189`).
 - **Open:** **what happens when a pinned model is deprecated by the vendor.** Anthropic / OpenAI deprecate models on ~6-month cycles; the ADR doesn't define the migration path (re-pin? re-test all proposals? freeze user workflows?).
 - **Conflicts:**
   - **🔴 vs `08-VISION §1`** which says "AI from day one." Master plan (`10-MASTER-PLAN:36`) defers L7.5 architectural integration to **Month 25** (Phase 3A). Day-one AI is therefore scaffolded (some `/api/ai/*` routes exist in `server.js`) but not architecturally first-class until Phase 3.
 
-### 20.15 🟡 ADR-015 — Visibility-Intent placement
+### 20.15 🟡 ADR-0215 — Visibility-Intent placement
 - **Status:** Accepted.
 - **Locks:** Visibility-Intent moves from L7 (presentation) to its own plugin under `plugins/visibility-intent` (per src/visibility audit).
 - **Open:** **migration of the 11-wave VG → Intent system.** PHASE-2B carries the 11-wave system over while refactoring the plan-view canvas host (the highest-risk sub-project per `10-MASTER-PLAN:30`).
 - **Conflicts:**
   - **🟠 vs `src/migration/VGToIntentMigration.ts`.** A migration already exists in legacy code. Is it still authoritative, or does the plugin re-implement? The phase docs say "port"; the audit says "REFACTOR INTO `plugins/visibility-intent`." Resolve before S31.
 
-### 20.16 🟡 ADR-016 — Drawing engine architecture
+### 20.16 🟡 ADR-0216 — Drawing engine architecture
 - **Status:** Accepted.
 - **Locks:** vector-first (Lines / Polylines / Arcs / Polygons / Text / Symbols, `SPEC-04:42–50`), ISO-13567 stroke styles, hidden-line classification (Cut / Beyond / Hidden / Symbolic, `SPEC-04:142–155`).
 - **Open:** **performance budget for hidden-line on a 100-room model.** Hidden-line is O(n²) naively; even with BVH it's 30–500ms per view. `SPEC-04` doesn't pin a budget.
 - **Conflicts:**
   - **🟠 vs `08-VISION §6`** ("first useful triangle 800ms" — applies to 3D, but plan-view first-paint isn't budgeted at all in the vision). Need a `08-VISION §6.x` plan-view subsection.
 
-### 20.17 🟡 ADR-017 — Type catalog scope
+### 20.17 🟡 ADR-0217 — Type catalog scope
 - **Status:** Accepted.
 - **Locks:** System families (Wall/Floor/Roof/Stair) and Loadable families (Door/Window/Furniture); inheritance order `instance.parameters[k] ?? type[k] ?? family.defaults[k]` (`SPEC-05:75`).
 - **Open:** **Curtain Wall mullions.** Listed as post-GA in `SPEC-05:258`, but `09-AS-IS-VS-TO-BE` claims curtain wall is in Phase 1B (already shipped per re-audit). This is a definitional gap: the curtain-wall *element family* is implemented; the curtain-wall *type system* (custom mullion profiles, panel patterns) is post-GA. Document the difference in `SPEC-05`.
 
-### 20.18 🟢 ADR-018 — Capacity cut-list
+### 20.18 🟢 ADR-0218 — Capacity cut-list
 - **Status:** Accepted, **table empty.**
 - **Locks:** the *slot* for the named cut list at velocity slip 20% / 40% / 60%.
 - **Open:** literally everything. Until this table is populated, "we will cut scope" is decorative.
 - **Action:** mandatory population before S07 (start of Phase 1B). See Part I §18 item 12.
 
-### 20.19 🟡 ADR-019 — Soft-lock semantics
+### 20.19 🟡 ADR-0219 — Soft-lock semantics
 - **Status:** Accepted.
 - **Locks:** TTLs (edit 60s / transform 30s / parametric 120s / AI batch 600s, `SPEC-03:123`); `LockRecord` shape with `expiresAt`, `ownerActorId`, `reason`.
 - **Open:** **lock escalation / steal.** What if an admin needs to break a 600s AI-batch lock? `LockRecord` doesn't expose a `force_release` action or audit trail.
-- **Conflicts:** **🟠 vs ADR-002** (see 20.2 — TTL vs durable evidence of liveness).
+- **Conflicts:** **🟠 vs ADR-0202** (see 20.2 — TTL vs durable evidence of liveness).
 
-### 20.20 🟡 ADR-020 — Kernel robustness
+### 20.20 🟡 ADR-0220 — Kernel robustness
 - **Status:** Accepted.
 - **Locks:** coordinates ±10km, feature size 0.1mm, snap epsilon 0.5mm, angular tolerance 0.001°, max 2M vertices/mesh (`SPEC-01:57–68`); manifold-3d for CSG (exact predicates).
 - **Open:** **what happens at the boundary** — a 12km building (rare but real, e.g., airport terminal) fails the 10km bound. No graceful degradation defined.
 - **Conflicts:** none material.
 
-### 20.21 🔴 ADR-021 — Enterprise security & data residency
+### 20.21 🔴 ADR-0221 — Enterprise security & data residency
 - **Status:** Accepted.
 - **Locks:** SAML 2.0, OIDC, SCIM 2.0 (`SPEC-08:47, 132–136`); EU-West and US-East data residency with tenant pinning (`SPEC-08:190–197`); WebAuthn deferred to Phase 3D (`SPEC-08:57`); explicit service-role-key removal (`SPEC-08:119`).
-- **Open:** **SOC2 Type II audit budget.** ADR mentions ~$30k. That's the audit fee; it does not include the engineering cost of evidence collection (3–6 person-months across logging, access reviews, change management, vendor management). For a solo founder, this is a quarter of the year. ADR-018's empty cut list does not yet say "drop SOC2 if velocity slips 40%."
+- **Open:** **SOC2 Type II audit budget.** ADR mentions ~$30k. That's the audit fee; it does not include the engineering cost of evidence collection (3–6 person-months across logging, access reviews, change management, vendor management). For a solo founder, this is a quarter of the year. ADR-0218's empty cut list does not yet say "drop SOC2 if velocity slips 40%."
 - **Conflicts:**
   - **🔴 vs solo-founder reality.** SOC2 + SCIM + SAML + dual-region residency is a 2–4 FTE compliance program, not an afterthought.
   - **🟠 vs `SPEC-08:119` "service-role-key removal."** Current `server.js` uses Supabase service role keys (per repo grep). Removal is a non-trivial refactor of every server-side data path.
 
-### 20.22 🟠 ADR-024 — Constraint solver
+### 20.22 🟠 ADR-0224 — Constraint solver
 - **Status:** Accepted.
 - **Locks:** **planegcs** (the JS port of OpenCascade's GCS) for 2D geometric constraints.
 - **Open:** **3D constraints, surface tangency, non-linear constraints** — all explicitly out of scope post-GA (`SPEC-01:118–121`). Stair geometry is constraint-heavy in 3D.
 - **Conflicts:**
   - **🟠 vs PHASE-1C stair sprint (S14).** PHASE-1C plans "Stair producer first impl (straight, L, U) in 7 days" without 3D constraints. Stairs are *exactly* the case where 3D constraints help (riser/tread/landing/nosing relationships). Either stairs are simpler than PRYZM 1's stair (which uses `src/constraints/StairConstraintEngine.ts`, 1,078 LOC supporting it) or the 7-day estimate is wrong.
 
-### 20.23 🔴 ADR-022 / ADR-023 / ADR-027 — **MISSING**
+### 20.23 🔴 ADR-0222 / ADR-0223 / ADR-0227 — **MISSING**
 - **Referenced by:** various SPEC and PHASE docs (per Part I §15.1).
 - **Status:** **No file in `adrs/`.** Not present, not stub, not "TODO."
 - **Impact:** any sprint that depends on these is unstarted by definition. The audit in `PHASE-1-RE-AUDIT-2026-04-27.md` does not flag the missing ADRs because Phase 1 sprints (S01–S24) do not reference them; Phase 2 sprints will.
@@ -866,7 +866,7 @@ For each ADR I report: **status** (Accepted / Proposed / Stale), **what it locks
 For each present SPEC: **lock-in statements**, **hand-waved bits**, **contradictions**, **silently-required dependency packages.**
 
 ### 21.1 🟡 SPEC-01 — Geometry Kernel
-- **Concrete:** `BufferGeometryDescriptor` outputs; `Result<T, KernelError>`; `forbiddenDependencies` lint enforces purity (no THREE, no DOM, no I/O); analytic vs display split (centerline/axis vs swept solid, `SPEC-01:30–34`); robustness budget (see ADR-020); manifold-3d for CSG; planegcs for 2D constraints.
+- **Concrete:** `BufferGeometryDescriptor` outputs; `Result<T, KernelError>`; `forbiddenDependencies` lint enforces purity (no THREE, no DOM, no I/O); analytic vs display split (centerline/axis vs swept solid, `SPEC-01:30–34`); robustness budget (see ADR-0220); manifold-3d for CSG; planegcs for 2D constraints.
 - **Hand-waved:** NURBS / b-rep "kernel-swap path Phase 3+" (`SPEC-01:86`); 3D constraints, surface tangency, non-linear post-GA (`SPEC-01:118–121`).
 - **Conflicts:** none directly; aligns with `08-VISION §3 P1`.
 - **Silently-required packages:** `packages/ids/`, `packages/scene-cache/` (referenced at `SPEC-01:20, 48` but **not yet scaffolded** per the dull-leafbird audit). Phase 1 cannot ship without them.
@@ -880,7 +880,7 @@ For each present SPEC: **lock-in statements**, **hand-waved bits**, **contradict
 ### 21.3 🟠 SPEC-03 — Sync-CRDT
 - **Concrete:** L2↔L3 translator pair (`applyCommandToYDoc`, `yDocUpdateToCommand`, `SPEC-03:64–85`); soft-lock TTLs (60/30/120/600s, `SPEC-03:123`); event-log bridge confirmed (`SPEC-03:93–100`).
 - **Hand-waved:** "merge log queryable by the AI" (`SPEC-03:187`) — table is defined but the AI query interface isn't.
-- **Conflicts:** see ADR-002 forensics (20.2).
+- **Conflicts:** see ADR-0202 forensics (20.2).
 - **Risk:** the translator pair is the single highest-stakes interface in the codebase. Bug here = data loss or session divergence. Needs property-based testing (fast-check in `SPEC-11`) **plus** chaos testing **plus** a lock-step replay harness against PRYZM 1's command log. None of those harnesses exist yet.
 
 ### 21.4 🟡 SPEC-04 — Drawing Engine
@@ -892,7 +892,7 @@ For each present SPEC: **lock-in statements**, **hand-waved bits**, **contradict
 ### 21.5 🟡 SPEC-05 — Type Catalog
 - **Concrete:** System vs Loadable family split; inheritance order; `WallTypeSchema` / `WallInstanceSchema` / `WallLayerSchema` (Zod, `SPEC-05:49–103`); IFC Pset mapping.
 - **Hand-waved:** Curtain Wall custom mullion profiles post-GA (`SPEC-05:258`); MEP families Phase 3+ (`SPEC-05:259`).
-- **Conflicts:** see ADR-017 (20.17) — the family-vs-type split is real but undocumented at the audit level.
+- **Conflicts:** see ADR-0217 (20.17) — the family-vs-type split is real but undocumented at the audit level.
 - **Silently-required packages:** `packages/material-library/`, `packages/types-schema/`.
 
 ### 21.6 🟡 SPEC-06 — Rooms & Levels
@@ -904,7 +904,7 @@ For each present SPEC: **lock-in statements**, **hand-waved bits**, **contradict
 - **Concrete:** approval queue (`actor_kind='ai'`, `SPEC-07:96–121`); model pinning (exact version + prompt SHA); cost guardrails (per-actor/plugin/project, `SPEC-07:175–189`).
 - **Hand-waved:** multi-modal photo-to-BIM Phase 3+ (`SPEC-07:249`).
 - **Conflicts:**
-  - **🟠 vs `08-VISION §1`** — see ADR-014 (20.14): "AI day one" vs L7.5 architectural integration M25.
+  - **🟠 vs `08-VISION §1`** — see ADR-0214 (20.14): "AI day one" vs L7.5 architectural integration M25.
   - **🔴 vs missing `SPEC-28-AI-COST-MODEL.md`.** The guardrails table refers to budgets but no SPEC defines *what the budgets are* in dollars per token per tier. Without it, cost guardrails are a placeholder.
 
 ### 21.8 🟠 SPEC-08 — Security & Collab
@@ -912,17 +912,17 @@ For each present SPEC: **lock-in statements**, **hand-waved bits**, **contradict
 - **Hand-waved:** WebAuthn / passkeys Phase 3D (`SPEC-08:57`).
 - **Conflicts:**
   - **🔴 vs current `server.js`.** Multiple endpoints use Supabase service-role keys (per repo grep). Removal is mandatory but not scheduled.
-  - **🔴 vs ADR-021.** SOC2 Type II is an ADR-level commitment but `SPEC-08` does not enumerate the controls (access reviews, change management, vendor management, incident response). Without them, the SOC2 sprint cannot start.
+  - **🔴 vs ADR-0221.** SOC2 Type II is an ADR-level commitment but `SPEC-08` does not enumerate the controls (access reviews, change management, vendor management, incident response). Without them, the SOC2 sprint cannot start.
 
 ### 21.9 🟡 SPEC-09 — Plugin SDK
 - **Concrete:** manifest schema (`id`, `kind`, `permissions`, `extension_points`, `entry`, `SPEC-09:39–70`); Web Worker sandbox for 3rd-party; main-thread fast-path for first-party.
 - **Hand-waved:** marketplace revenue model post-GA (`SPEC-09:194`); full marketplace ecosystem post-GA (`SPEC-09:164`).
-- **Conflicts:** see ADR-009 (20.9), ADR-011 (20.11).
+- **Conflicts:** see ADR-0209 (20.9), ADR-0211 (20.11).
 - **Honest commitment:** explicit downgrade of marketplace if launch partners aren't signed (`SPEC-09:160–167`). This is the *kind of discipline the rest of the corpus needs more of.*
 
 ### 21.10 🟡 SPEC-10 — Observability
 - **Concrete:** span hierarchy (L0 100% / L1 100% errors + 1% success / L2 0.1% / L3 metric-only, `SPEC-10:34–38`); metric names (`pryzm.editor.fps`, `pryzm.sync.broadcast.lag_ms`, `pryzm.ai.cost.usd`, `SPEC-10:121–131`); 7-day retention for L2 traces (`SPEC-10:87`).
-- **Hand-waved:** retention is hopeful, not budgeted (see ADR-007 / 20.7).
+- **Hand-waved:** retention is hopeful, not budgeted (see ADR-0207 / 20.7).
 - **Conflicts:** none.
 
 ### 21.11 🟢 SPEC-11 — Testing
@@ -941,15 +941,15 @@ For each present SPEC: **lock-in statements**, **hand-waved bits**, **contradict
 | # | A says... | B says... | Severity | Resolution sprint |
 |---|-----------|-----------|----------|-------------------|
 | C1 | `08-VISION §1` "AI day one" | `SPEC-07` + `10-MASTER-PLAN:36` L7.5 in M25 | 🟠 | Amend `08-VISION` |
-| C2 | `ADR-002` two byte streams | `08-VISION §4 P4` single source | 🔴 | Land `SPEC-13` |
+| C2 | `ADR-0202` two byte streams | `08-VISION §4 P4` single source | 🔴 | Land `SPEC-13` |
 | C3 | `SPEC-12` lazy IFC | `09-AS-IS-VS-TO-BE §8.x` IFC for type catalog | 🟠 | Cite IFC entity defs only |
 | C4 | `SPEC-05:258` mullions post-GA | `09-AS-IS-VS-TO-BE` curtain wall in P1B | 🟡 | Disambiguate family vs type |
-| C5 | `SPEC-09` permissions | `ADR-011` permission granularity | 🔴 | Unify in `SPEC-13` |
+| C5 | `SPEC-09` permissions | `ADR-0211` permission granularity | 🔴 | Unify in `SPEC-13` |
 | C6 | `SPEC-04:196` MEP/Struct docs post-GA | `09-AS-IS-VS-TO-BE` Pascal parity in P2C | 🟠 | Honest README update |
 | C7 | `SPEC-08:119` service-role-key removal | `server.js` uses service-role keys | 🔴 | Sprint S26 |
 | C8 | `SPEC-01:57–68` ±10km bound | airport-scale buildings | 🟢 | Document boundary |
 | C9 | `SPEC-11` chaos suite | `apps/chaos/` doesn't exist | 🟠 | Sprint S43 prereq |
-| C10 | `SPEC-06` discipline-scoped levels | `ADR-011` RBAC only | 🟠 | Unify in `SPEC-13` |
+| C10 | `SPEC-06` discipline-scoped levels | `ADR-0211` RBAC only | 🟠 | Unify in `SPEC-13` |
 
 ---
 
@@ -976,7 +976,7 @@ The phase-level explorer surfaced four findings that change the timeline picture
 - **Recommendation:** schedule a 2-week pre-sprint (S30.5) to rewrite the *highest-traffic* 5 plan-view operations (selection, drag, snap, pan, zoom) on the new canvas host first, and only then port the VI engine. A "one big refactor" approach to a 54-file system at this complexity is the path to a 6-month slip.
 
 ### 22.4 🟠 PHASE-2D — "Yjs sync server + chaos suite + multi-user UAT in 6 weeks (S43–S48)"
-- This is when ADR-002's distributed-systems decisions become *real*.
+- This is when ADR-0202's distributed-systems decisions become *real*.
 - The translator pair (`applyCommandToYDoc`, `yDocUpdateToCommand`) is the single highest-stakes interface in the project.
 - Six weeks to write it, harness it, chaos-test it, run 5+ user UAT, ship beta. The chaos harness alone (`apps/chaos/` doesn't exist yet) is 3–4 weeks of work.
 - **Recommendation:** start `apps/chaos/` in S07 (Phase 1B), in parallel with the wall sprint. The harness is independent of which element it tests.
@@ -994,7 +994,7 @@ The phase-level explorer surfaced four findings that change the timeline picture
 ### 22.7 The 24-month dual-run question
 - `10-MASTER-PLAN:10` says "PRYZM 1 ships at every step" (12-month dual-run for Phase 1).
 - `10-MASTER-PLAN:39` says "Legacy deletion" in S61 (M21) — which means PRYZM 1 is *deleted* between Phase 2 ending (M24) and Phase 3 starting (M25). That's a 3-month overlap, not 24.
-- **Risk:** if Phase 2 slips (it will), the dual-run window collapses to zero. PRYZM 1 must be deletable on a *date*, not a *sprint*, with a real cut date documented. ADR-018's empty cut list owes this answer too.
+- **Risk:** if Phase 2 slips (it will), the dual-run window collapses to zero. PRYZM 1 must be deletable on a *date*, not a *sprint*, with a real cut date documented. ADR-0218's empty cut list owes this answer too.
 
 ---
 
@@ -1005,7 +1005,7 @@ The dull-leafbird explorer mapped every subdir to a target layer + status. Here 
 ### 23.1 🔴 `src/lifecycle/` (1,097 LOC) — orphan with no architectural home
 - **Subsystem:** Facility Management / Post-Occupancy. `LifecycleStateManager.ts`, `PostOccupancyPanel.ts`, `MaintenanceRecord.ts`.
 - **Mapping:** **NONE in the L0–L7.5 model.** Not in `08-VISION`, not in `09-AS-IS-VS-TO-BE`, not in any SPEC.
-- **Status:** production code with no destination. Either it's a strategic differentiator that needs `plugins/lifecycle` (and a SPEC), or it's a Phase 3+ deferral that needs explicit "we are dropping this" wording in ADR-018.
+- **Status:** production code with no destination. Either it's a strategic differentiator that needs `plugins/lifecycle` (and a SPEC), or it's a Phase 3+ deferral that needs explicit "we are dropping this" wording in ADR-0218.
 - **Action:** decision required before S07.
 
 ### 23.2 🔴 `src/commands/` (34,023 LOC, ~264 command classes)
@@ -1062,7 +1062,7 @@ The effective-triceratops explorer mapped all routes. Here are the **non-obvious
 ### 24.1 🟠 The "no formal cron" finding
 - `server.js` has no scheduled tasks. Cleanup of `project_command_log` records older than 24h happens **probabilistically** on every `command-executed` event with **2% probability**.
 - **Math:** 2% × N events/day = expected cleanup runs/day. For a quiet project (50 events/day), that's 1 cleanup/day on average — fine. For a busy project (5,000 events/day), that's 100 cleanup runs/day — N+1 query storm.
-- **Action:** replace with a real cron (BullMQ scheduled job per ADR-005).
+- **Action:** replace with a real cron (BullMQ scheduled job per ADR-0205).
 
 ### 24.2 🔴 Three different auth implementations
 1. Custom JWT (bcrypt + `SESSION_SECRET`).
@@ -1071,19 +1071,19 @@ The effective-triceratops explorer mapped all routes. Here are the **non-obvious
 4. (And the SAML/OIDC future from `SPEC-08` makes 4.)
 - They share `req.auth` populated by `authMiddleware` but the *issuance* paths are independent.
 - **Risk:** session fixation across auth methods, account-takeover via OAuth → custom JWT bridge if the email match isn't strict.
-- **Action:** security audit of the auth surface before SOC2. ADR-021's $30k budget assumes the audit is *clean*; if it surfaces a real vuln, the audit fails.
+- **Action:** security audit of the auth surface before SOC2. ADR-0221's $30k budget assumes the audit is *clean*; if it surfaces a real vuln, the audit fails.
 
 ### 24.3 🟠 `command-executed` socket event is a relay, not a sync engine
 - The current Socket.io topology: client emits `command-executed` → server rebroadcasts as `remote-command` to other clients in the project room.
 - **No conflict resolution.** Two clients can emit conflicting commands; both apply locally and the server fan-outs both. Whichever arrives first "wins" on each remote client. This is not CRDT semantics; it's last-writer-wins-per-client-arrival-order.
-- **In ADR-002 architecture**, this gets replaced wholesale by Yjs, with the event log as durability. But until S43 ships, the legacy relay is the production sync mechanism. **Any multi-user beta on the current relay is likely to produce data loss.**
+- **In ADR-0202 architecture**, this gets replaced wholesale by Yjs, with the event log as durability. But until S43 ships, the legacy relay is the production sync mechanism. **Any multi-user beta on the current relay is likely to produce data loss.**
 - **Action:** disable multi-user in production until S43, OR add server-side ordering (single ULID generator, write-then-broadcast).
 
 ### 24.4 🟠 The `/api/ai/*` routes are scaffolded, not L7.5
 - 6 AI routes exist: voice, ambient, room finishes, room programme, room adjacency, plus `/api/ai/voice/parse`.
 - They route to either Anthropic directly or via Cloudflare Worker (`CF_WORKER_URL`).
 - **Missing:** the approval queue from `SPEC-07:96–121`. None of these routes write to a queue; they call out, get a response, return it. There is no human-in-the-loop step.
-- **Conclusion:** "AI day one" is true at the *route* level, but `08-VISION §5`'s L7.5 layer (approval queue, model pinning, budget enforcement) is not implemented. ADR-014's pinning + budget + queue all live in the future.
+- **Conclusion:** "AI day one" is true at the *route* level, but `08-VISION §5`'s L7.5 layer (approval queue, model pinning, budget enforcement) is not implemented. ADR-0214's pinning + budget + queue all live in the future.
 
 ### 24.5 🟠 Stripe + Supabase + Replit Postgres = three data stores in flight
 - Subscription state lives in Stripe (truth) + replicated to `pryzm_users.plan` + cached in some routes' decision logic.
@@ -1187,20 +1187,20 @@ You are building this on Replit. The corpus assumes generic cloud (R2, MinIO, Bu
 
 Ranked by *what kills the project if not fixed*. Severity tags as before.
 
-1. 🔴 **ADR-002 two-byte-stream design (event log + Yjs).** Single highest-risk distributed-systems decision. No chaos suite yet (`apps/chaos/` doesn't exist). Failure here = data loss in beta.
+1. 🔴 **ADR-0202 two-byte-stream design (event log + Yjs).** Single highest-risk distributed-systems decision. No chaos suite yet (`apps/chaos/` doesn't exist). Failure here = data loss in beta.
 2. 🔴 **No `SPEC-26 PRYZM File Format`.** 80+ references, 0 specification.
-3. 🔴 **Permission model is three different things** (RBAC / plugin manifest / AI queue). No unified `Authority` table. ADR-011 + ADR-009 + SPEC-07 don't agree.
+3. 🔴 **Permission model is three different things** (RBAC / plugin manifest / AI queue). No unified `Authority` table. ADR-0211 + ADR-0209 + SPEC-07 don't agree.
 4. 🔴 **`server.js` uses Supabase service-role keys.** SPEC-08:119 mandates removal. Not scheduled.
 5. 🔴 **PDF-to-BIM (`src/ai/PdfToBimConstraints.ts`) is the moat but has no SPEC.** L7.5's marquee feature is unspecified.
 6. 🔴 **`src/lifecycle/` (1,097 LOC production code) has no architectural home.**
 7. 🔴 **PHASE-2B "54 files in 3 sprints"** is the project's most likely slip. No mitigation plan beyond a feature flag.
-8. 🔴 **Missing ADR-022, ADR-023, ADR-027.** Referenced but not written.
+8. 🔴 **Missing ADR-0222, ADR-0223, ADR-0227.** Referenced but not written.
 9. 🔴 **Current `command-executed` socket relay has no conflict resolution.** Last-writer-per-arrival-order. Multi-user beta on this is dangerous.
 10. 🟠 **No deployment-topology SPEC.** Replit Autoscale vs Reserved VM choice is unresolved.
 11. 🟠 **No `apps/chaos/` harness yet.** Phase 2D depends on it; should start in Phase 1B.
 12. 🟠 **React 19 in `package.json` vs vanilla-TS bundle decision.** `src/styles/` is 30,977 LOC of vanilla TS.
 13. 🟠 **Node 20 vs `camera-controls@2.x` requires Node 22.** Active peer-dep mismatch.
-14. 🟠 **Three.js version not pinned to a WebGPU-stable release** (ADR-006 needs an addendum).
+14. 🟠 **Three.js version not pinned to a WebGPU-stable release** (ADR-0206 needs an addendum).
 15. 🟠 **`replit.md` is 422k chars.** Unusable as onboarding doc.
 16. 🟠 **`attached_assets/` 84k files in repo.** Slows everything; SOC2 audit finding.
 17. 🟠 **AI day-one vs L7.5 in M25** contradiction (`08-VISION §1` vs `10-MASTER-PLAN:36`).
@@ -1209,7 +1209,7 @@ Ranked by *what kills the project if not fixed*. Severity tags as before.
 20. 🟠 **SPEC-04 hidden-line on a 100-room model has no perf budget.**
 21. 🟠 **Three auth implementations** (custom JWT + Google OAuth + Microsoft OAuth + future SAML/OIDC). Cross-implementation security audit pending.
 22. 🟡 **2% probabilistic cleanup of `project_command_log`** — replace with a real cron.
-23. 🟡 **ADR-018 capacity-cut-list table is empty.** "We will cut scope" is decorative until populated.
+23. 🟡 **ADR-0218 capacity-cut-list table is empty.** "We will cut scope" is decorative until populated.
 24. 🟡 **Stripe + Supabase + Replit Postgres** triple-store with no migration story.
 25. 🟡 **`02-decisions/contracts/` legacy folder** still referenced by `PHASE-2A`. Either port content into SPECs or archive with pointers.
 
@@ -1223,14 +1223,14 @@ Part I's verdict was sharp but partially miscalibrated by the audit-vs-reality g
 - The vision (`08-VISION`) is one of the most disciplined I've reviewed.
 - `CONFLICT-ANALYSIS.md` is *self-aware* in a way most architecture docs aren't.
 - Phase 1 is genuinely closed at the foundation tier (12 element families, 163 fixtures, 18 bench gates, boundary lint).
-- ADR-002 + SPEC-02 + SPEC-03 *together* form a coherent two-byte-stream design — the gap was that ADR-002 alone read as a contradiction; reading the trio resolved it.
+- ADR-0202 + SPEC-02 + SPEC-03 *together* form a coherent two-byte-stream design — the gap was that ADR-0202 alone read as a contradiction; reading the trio resolved it.
 - SPEC-09's honest commitment ("downgrade marketplace if launch partners aren't signed") is the discipline the rest of the corpus needs more of.
 
 ### 30.2 What is dangerous
 - The **plan-view migration (PHASE-2B)** is the project's single most likely slip.
 - The **Yjs sync server (PHASE-2D)** is the project's single most likely *data-loss* event.
 - The **8 missing SPECs** (especially SPEC-26 file format, SPEC-13 context envelopes, SPEC-15 deployment) compound risk across the entire Phase 2.
-- The **three permission models** (ADR-009 / ADR-011 / SPEC-07) need unification *before* SOC2.
+- The **three permission models** (ADR-0209 / ADR-0211 / SPEC-07) need unification *before* SOC2.
 - The **PDF-to-BIM moat** has no SPEC.
 - The **legacy debt** (`replit.md` 422k, `attached_assets/` 84k, dead contracts in `02-decisions/contracts/`, three parallel renderers) needs a deletion sprint, not a "later."
 
@@ -1238,19 +1238,19 @@ Part I's verdict was sharp but partially miscalibrated by the audit-vs-reality g
 - "9 element families in 12 weeks" *delivered as audited GREEN* either means feature gaps are masked by fixture coverage, or the recipe truly worked. **Most likely:** somewhere between the two — the recipe worked and there are real gaps. Random-fuzzing against PRYZM 1 sessions will tell.
 - "Stair producer in 7 days" is implausible at PRYZM 1's depth. If the audit says GREEN, the implementation is thinner.
 - "Plan view in 3 sprints" is implausible. Plan a 5–6 sprint window or accept a slip.
-- "SOC2 + SAML + SCIM + dual-region residency for solo founder + Agent" is implausible at the timeline implied by ADR-021. Cut at least two.
+- "SOC2 + SAML + SCIM + dual-region residency for solo founder + Agent" is implausible at the timeline implied by ADR-0221. Cut at least two.
 
 ### 30.4 The two paths forward
 
-**Path A — discipline scope to capacity.** Cut the cut-list (ADR-018) to a real list this week. Drop SOC2 to year 2. Drop dual-region to year 2. Drop the marketplace to v2. Drop multi-modal photo-to-BIM to year 2. Spend the saved capacity on the 8 missing SPECs and the chaos harness. **Probability of GA in 36 months: 60%.**
+**Path A — discipline scope to capacity.** Cut the cut-list (ADR-0218) to a real list this week. Drop SOC2 to year 2. Drop dual-region to year 2. Drop the marketplace to v2. Drop multi-modal photo-to-BIM to year 2. Spend the saved capacity on the 8 missing SPECs and the chaos harness. **Probability of GA in 36 months: 60%.**
 
-**Path B — keep the vision, accept the timeline slip.** Plan honestly for 48 months instead of 36. Use the extra year to make ADR-002 (sync) and PHASE-2B (plan view) properly hardened. **Probability of GA in 48 months: 75%.**
+**Path B — keep the vision, accept the timeline slip.** Plan honestly for 48 months instead of 36. Use the extra year to make ADR-0202 (sync) and PHASE-2B (plan view) properly hardened. **Probability of GA in 48 months: 75%.**
 
 **Path C (the trap) — keep both vision and timeline.** Ship something at M36 that fails its own quality bar (CI green but real-world brittle). **Probability of a real GA in 36 months: 15%; probability of customer churn in M37: high.**
 
 ### 30.5 The single highest-leverage action this week
-**Populate ADR-018 and write SPEC-26 + SPEC-15 + SPEC-13.**
-- ADR-018 forces the cut-list conversation.
+**Populate ADR-0218 and write SPEC-26 + SPEC-15 + SPEC-13.**
+- ADR-0218 forces the cut-list conversation.
 - SPEC-26 unblocks every persistence/sync/bake decision downstream.
 - SPEC-15 unblocks every server-architecture decision.
 - SPEC-13 unblocks the wall sprint S07 (the multiplier).

@@ -31,7 +31,7 @@ The 36-month build retrospective is at
 
 ## What ships under "preview" at GA
 
-PDF-to-BIM ships under the `'preview'` label per [ADR-029 Part E](https://github.com/pryzm/pryzm/blob/main/docs/02-decisions/adrs/0029-pdf-to-bim-preview.md).
+PDF-to-BIM ships under the `'preview'` label per [ADR-0229 Part E](https://github.com/pryzm/pryzm/blob/main/docs/02-decisions/adrs/0029-pdf-to-bim-preview.md).
 The accuracy thresholds are documented; we hold the gate at preview
 until the SPEC-45 reference corpus is measured. Customers can flip
 the label to `'full'` in their own deployments by running
@@ -39,7 +39,7 @@ the label to `'full'` in their own deployments by running
 
 ## What we cut from M36
 
-The cut-list discipline (`[strategic ADR-018]` Tier-1 + Tier-2)
+The cut-list discipline (`[strategic ADR-0218]` Tier-1 + Tier-2)
 absorbed six cuts over the build. The big ones at GA:
 
 - **DXF/SVG export** — PDF export covers the 2D handoff workflow; DXF

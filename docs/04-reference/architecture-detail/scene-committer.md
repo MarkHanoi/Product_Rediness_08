@@ -6,7 +6,7 @@
 > Owner package: `packages/scene-committer/`.
 >
 > Source spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S04 Track B (lines 442-469).
-> Interface ratification: ADR-005.
+> Interface ratification: ADR-0205.
 
 ## The wall around THREE
 
@@ -193,8 +193,8 @@ expectations on every PR).
 
 ## References
 
-- ADR-005 — interface ratification.
+- ADR-0205 — interface ratification.
 - `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md` — §S04 Track B (lines 442-469).
 - `packages/scene-committer/src/{types,SceneRegistry,MaterialPool,CommitterHost,otel}.ts`.
 - `packages/scene-committer/__tests__/cube-committer-e2e.test.ts` — copy-paste committer template.
-- ADR-003 (frame-scheduler) — explains the commit pump that S05 wires onto the host.
+- ADR-0203 (frame-scheduler) — explains the commit pump that S05 wires onto the host.

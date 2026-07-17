@@ -2,8 +2,8 @@
 
 > **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H2 sibling (3-year)
 > **Authority**: this doc owns **the multi-typology generative-AI vision** — the expansion from apartment-layout (the current proof) to **N typologies** (gym, pharmacy, car park, office, hospital, school, retail, hotel, lab, library, museum, restaurant, warehouse, …) covering the entire architectural built-environment market.
-> **Strategic source**: [product-vision §5 user journey Step 2](../../01-strategy/product-vision.md) — the RAC chatbot asks "what project type?" and routes to a typology-specific pipeline. The platform's value is breadth across typologies × depth per typology.
-> **Companion**: [platform-strategy.md](../../01-strategy/platform-strategy.md) — the marketplace is the ecosystem mechanism for typology expansion.
+> **Strategic source**: [product-vision §5 user journey Step 2](../../01-strategy/STR-02-product-vision.md) — the RAC chatbot asks "what project type?" and routes to a typology-specific pipeline. The platform's value is breadth across typologies × depth per typology.
+> **Companion**: [STR-10-platform-strategy.md](../../01-strategy/STR-10-platform-strategy.md) — the marketplace is the ecosystem mechanism for typology expansion.
 
 ---
 
@@ -11,7 +11,7 @@
 
 PRYZM's apartment-layout AI workflow is **proof of concept**. It works because we built:
 - A 14-room-type constraint database (`programRules.ts`)
-- A 7-layer cognition stack ([site-and-cognition §3](../../01-strategy/site-and-cognition-strategy.md))
+- A 7-layer cognition stack ([site-and-cognition §3](../../01-strategy/STR-12-site-and-cognition-strategy.md))
 - 4 deterministic engines (D-TGL apartment · D-FLE furniture · D-LE lighting · D-CE ceiling)
 - 1 LLM-routed workflow (apartmentLayout) + 1 deterministic fallback
 - The Inspect/Data/Sheet stack that downstream consumes the result
@@ -30,7 +30,7 @@ For an enterprise BIM/AEC platform serving thousands of practising architects:
 
 ## §2 — The RAC chatbot routing flow
 
-The user-side experience (per [product-vision §5](../../01-strategy/product-vision.md)):
+The user-side experience (per [product-vision §5](../../01-strategy/STR-02-product-vision.md)):
 
 ```
 User signs up / logs in
@@ -135,7 +135,7 @@ my-typology-pack.pryzm-typology    (ZIP container)
 └─ signing/                         ← Ed25519 signature
 ```
 
-The pack registers via the family-platform infrastructure already in code (`packages/family-loader/`, `packages/family-runtime/`). Per [platform-strategy §3.2](../../01-strategy/platform-strategy.md), this is **content not code** — a typology pack can be authored without TypeScript skills (the JSON files cover 80% of customisation; AI workflow code is optional).
+The pack registers via the family-platform infrastructure already in code (`packages/family-loader/`, `packages/family-runtime/`). Per [platform-strategy §3.2](../../01-strategy/STR-10-platform-strategy.md), this is **content not code** — a typology pack can be authored without TypeScript skills (the JSON files cover 80% of customisation; AI workflow code is optional).
 
 ### §4.1 — TypologyManifest schema
 
@@ -162,7 +162,7 @@ interface TypologyManifest {
 
 ### §4.2 — The TypologyRegistry slot
 
-The `PryzmRuntime` (per [architecture.md §3](../../01-strategy/architecture.md)) gains a new slot:
+The `PryzmRuntime` (per [STR-04-architecture.md §3](../../01-strategy/STR-04-architecture.md)) gains a new slot:
 
 ```ts
 readonly typologyRegistry: TypologyRegistryStore;
@@ -279,7 +279,7 @@ At steady state, a 6-person engineering team + 1 architect-consultant per typolo
 
 ## §8 — Marketplace as the typology-expansion engine
 
-Beyond the 25-typology PRYZM-first-party curated core, **the long tail is community-authored**. Per [platform-strategy §3.2 + §3.3](../../01-strategy/platform-strategy.md), typology packs follow the same marketplace economics as plugins:
+Beyond the 25-typology PRYZM-first-party curated core, **the long tail is community-authored**. Per [platform-strategy §3.2 + §3.3](../../01-strategy/STR-10-platform-strategy.md), typology packs follow the same marketplace economics as plugins:
 
 - **70 / 30 split** between author and PRYZM (per [C40 §1.1](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md))
 - **Curated category** review per [C40 §1.11](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md) (typology packs claim regulatory compliance — they pass through curation, not open publish)
@@ -291,7 +291,7 @@ Beyond the 25-typology PRYZM-first-party curated core, **the long tail is commun
 - ~50 PRYZM-first-party typology packs (curated; included in plan tiers)
 - ~200 community-authored typology packs (regional variants + niche typologies)
 - ~£50–500/year per pack (subscription)
-- Top 10 marketplace authors earning > £20k/year each (per [platform-strategy §11](../../01-strategy/platform-strategy.md) target)
+- Top 10 marketplace authors earning > £20k/year each (per [platform-strategy §11](../../01-strategy/STR-10-platform-strategy.md) target)
 
 ---
 
@@ -366,9 +366,9 @@ The role × typology combinations matter: an architect designing a hospital sees
 
 | Doc | Relationship |
 |---|---|
-| [product-vision.md §5](../../01-strategy/product-vision.md) | The user journey that this roadmap operationalises |
-| [platform-strategy.md](../../01-strategy/platform-strategy.md) | Typology packs follow the marketplace economics |
-| [site-and-cognition-strategy.md](../../01-strategy/site-and-cognition-strategy.md) | The 7-layer cognition stack each typology validates against |
+| [STR-02-product-vision.md §5](../../01-strategy/STR-02-product-vision.md) | The user journey that this roadmap operationalises |
+| [STR-10-platform-strategy.md](../../01-strategy/STR-10-platform-strategy.md) | Typology packs follow the marketplace economics |
+| [STR-12-site-and-cognition-strategy.md](../../01-strategy/STR-12-site-and-cognition-strategy.md) | The 7-layer cognition stack each typology validates against |
 | [cadence-and-planning-system.md](./cadence-and-planning-system.md) | This roadmap is H2 sibling; phases trace to H2 phase roadmaps |
 | [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) | Phase 1 typology deliverables |
 | [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md) | Phase 2 typology deliverables |

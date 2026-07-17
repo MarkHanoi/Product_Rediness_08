@@ -8,7 +8,7 @@ relatedDocs:
   - docs/archive/pryzm3-internal/08-VISION.md
   - docs/03-execution/plans/legacy/phases/audits/PRYZM2-FINAL-WIREUP-AUDIT-S71-2026-04-28.md
   - docs/03-execution/specs/SPEC-27-MIGRATION-ROLLBACK.md
-  - docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md
+  - docs/02-decisions/adrs/ADR-0031-s61-staged-legacy-deletion.md
   - apps/editor/migrations/sunset-pryzm1.md
   - apps/editor/src/bootstrap.everything.ts
   - apps/editor/src/bootstrap.render.everything.ts
@@ -185,7 +185,7 @@ async function boot(): Promise<void> {
     sync:        { url: location.origin.replace(/^http/, 'ws') + '/ws' },
     ai:          { enabled: true },
     audit:       { actorId: 'platform-shell', clientId: crypto.randomUUID() },
-    rendererMode: 'auto',                    // ADR-007 — WebGPU first, WebGL2 fallback
+    rendererMode: 'auto',                    // ADR-0207 — WebGPU first, WebGL2 fallback
   });
   PlatformRouter.start(runtime);             // see §3.4 — runtime threads everywhere
 }
@@ -660,7 +660,7 @@ Sprints are 2 weeks each. Two engineers in parallel from Phase B onward (Phase A
 | **I7** | `SUPABASE_SERVICE_ROLE_KEY` not set | S71 W5-b | Adopted unchanged; required for Phase C production rollout. |
 | **I8** | `pryzm-vi-parity`, `pryzm-persistence`, `audit-log-middleware` workflows red | S71 W5-c | Adopted unchanged; must close before GA gate at end of Phase H. |
 | **I9** | `apps/editor/migrations/sunset-pryzm1.md` lists `src/styles/` for S65 deletion | document conflict | Amended in Phase G to mark `src/styles/` and `src/ui/` as KEEP. |
-| **I10** | `ADR-026 §4.3` mandates `src/styles/` migration into `packages/ui/` | ADR conflict | Phase H lands ADR-026-A "UI preservation override". |
+| **I10** | `ADR-0226 §4.3` mandates `src/styles/` migration into `packages/ui/` | ADR conflict | Phase H lands ADR-0226-A "UI preservation override". |
 | **I11** | `src/engine/EngineBootstrap.ts` and `src/engine/subsystems/` still wire ~250 `(window as any)` writes | architecture audit | Deleted in Phase D. |
 | **I12** | The bundle currently ships ~150K LOC of legacy `src/elements/`, `src/commands/`, `src/core/` | architecture audit | Deleted in Phases E + G. |
 | **I13** | `src/ui/platform/ProjectRepository.ts` writes to localStorage in parallel with the new event log → divergence | architecture audit | Deleted in Phase C; one-shot migrator imports any local-only state. |

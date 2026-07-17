@@ -1,7 +1,7 @@
 # PRYZM — Annual Plan 2026
 
 > **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H3 — annual
-> **Reconciled 2026-06-03** to ADR-055/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired; C19 Site substrate shipped).
+> **Reconciled 2026-06-03** to ADR-0255/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired; C19 Site substrate shipped).
 > **Window**: 2026 calendar year. **Year status**: H1 2026 (Jan–Jun) is closed; H2 2026 (Jul–Dec) is the active commitment.
 > **Authority**: this doc owns **2026 calendar-year commitments** broken into quarters. Update at the end of each quarter (Q3 close → Q4 refresh; Q4 close → 2027 annual draft).
 > **Foundation above**: [vision-2030.md](./vision-2030.md) → [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) (Phase 1 = H2 2026 + first half of H1 2027).
@@ -17,7 +17,7 @@
 | Documentation restructure | 3-layer pyramid (01-strategy / 02-decisions / 03-execution); 547 files migrated; per-folder READMEs |
 | Contract suite | C01–C18 ratified CANONICAL; C19–C49 authored as DRAFT (49 contracts total) |
 | Strategy expansion | 8 new strategy docs (manifesto · positioning · personas · GTM · platform · site-cognition · operating · risks) |
-| Code-grounded audit | architecture.md + engineering-vision.md + product-vision.md rewritten from full code audit; architecture-breakdown.md refreshed |
+| Code-grounded audit | STR-04-architecture.md + STR-03-engineering-vision.md + STR-02-product-vision.md rewritten from full code audit; STR-05-architecture-breakdown.md refreshed |
 | Apartment layout | shipped end-to-end (#51 closed) — RAC chatbot → site → AI generate → IFC export |
 | Plugin SDK | v1.0.0 locally complete; `pryzm dev` CLI + iframe sandbox + Ed25519 + bSDD lookup all shipped |
 | Family Platform | full P0 infrastructure (family-{instance,loader,runtime} + 7 schema packages + component-editor) |
@@ -32,7 +32,7 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 | Typology pipeline | TypologyPipelineRouter + apartment refactored as pack + house typology shipped |
 | Site substrate | C19 + C21 contracts ratified CANONICAL; site authoring UI live; climate ingestion live |
 | Marketplace go-live | `marketplace.pryzm.so` DNS + TLS; `@pryzm/sdk` npm publish; first 5 PRYZM-first-party plugins listed |
-| Brand + domain | Apex/app split per ADR-055/C51 — `pryzm.so` apex (static marketing, Cloudflare Pages) + `app.pryzm.so` editor (Fly.io, EU `fra`); `pryzm.app` aspiration retired |
+| Brand + domain | Apex/app split per ADR-0255/C51 — `pryzm.so` apex (static marketing, Cloudflare Pages) + `app.pryzm.so` editor (Fly.io, EU `fra`); `pryzm.app` aspiration retired |
 | Enterprise readiness foundation | C22 PII + C23 provenance + first DR drill |
 | First paying customers | First 50 paying via Solo + Studio PLG (target $1500 MRR) |
 
@@ -42,7 +42,7 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 
 ### §2.1 — Q3 2026 (Jul–Sep)
 
-**Theme**: TypologyPipeline foundations + marketplace go-live + apex/app split (ADR-055/C51). Detailed in [quarterly-2026-Q3.md](./quarterly-2026-Q3.md).
+**Theme**: TypologyPipeline foundations + marketplace go-live + apex/app split (ADR-0255/C51). Detailed in [quarterly-2026-q3.md](./quarterly-2026-q3.md).
 
 | Epic | Owner | Sprints | Cites |
 |---|---|---|---|
@@ -53,7 +53,7 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 | C21 Climate ingestion (EPW + NOAA) | Engineer 2 | S3–S6 | [Phase 1 §4.3](./roadmap-phase-1-alpha.md) |
 | `pnpm publish @pryzm/sdk` (OI-011) + DNS marketplace.pryzm.so (OI-013) | Founder + ops | S1 | [Phase 1 §5](./roadmap-phase-1-alpha.md) |
 | First 5 marketplace plugins published | Dev-rel + Engineer 3 | S2–S6 | [Phase 1 §5](./roadmap-phase-1-alpha.md) |
-| Apex/app split (ADR-055/C51) + landing from editor `LandingPage.ts` | Designer 2 + Marketing | S1–S5 | [Phase 1 §8](./roadmap-phase-1-alpha.md) |
+| Apex/app split (ADR-0255/C51) + landing from editor `LandingPage.ts` | Designer 2 + Marketing | S1–S5 | [Phase 1 §8](./roadmap-phase-1-alpha.md) |
 | C50 typology pipeline contract DRAFT | Architect 1 | S2 | [Phase 1 §3.1.7](./roadmap-phase-1-alpha.md) |
 | C22 PII + C23 provenance partial ratification | Engineer 4 | S4–S6 | [Phase 1 §7.1, §7.2](./roadmap-phase-1-alpha.md) |
 
@@ -64,11 +64,11 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 - Site substrate C19 ratified
 - npm @pryzm/sdk published
 - marketplace.pryzm.so live with 5 plugins
-- apex/app split live (ADR-055/C51): `pryzm.so` apex + `app.pryzm.so` editor
+- apex/app split live (ADR-0255/C51): `pryzm.so` apex + `app.pryzm.so` editor
 
 ### §2.2 — Q4 2026 (Oct–Dec)
 
-**Theme**: House + Small-Office typologies ship · Enterprise readiness foundation · first paying customers. Detailed in [quarterly-2026-Q4.md](./quarterly-2026-Q4.md).
+**Theme**: House + Small-Office typologies ship · Enterprise readiness foundation · first paying customers. Detailed in [quarterly-2026-q4.md](./quarterly-2026-q4.md).
 
 | Epic | Owner | Sprints | Cites |
 |---|---|---|---|
@@ -96,7 +96,7 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 
 ### §3.1 — Team shape (H2 2026)
 
-Per [operating-principles §4.1](../../01-strategy/operating-principles.md):
+Per [operating-principles §4.1](../../01-strategy/STR-06-operating-principles.md):
 
 | Role | Count | Focus |
 |---|---|---|
@@ -247,10 +247,10 @@ Annual-2027 plan will be authored at end of 2026 Q4. Phase 1 closes in 2026 Q4 �
 | [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) | This year delivers the back half of Phase 1 |
 | [typology-expansion-roadmap.md](./typology-expansion-roadmap.md) | 3 typologies ship in 2026 |
 | [roadmap-enterprise-delivery.md](./roadmap-enterprise-delivery.md) | Customer-delivery sequence for 2026 |
-| [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) | Q3 sprint-level detail |
-| [quarterly-2026-Q4.md](./quarterly-2026-Q4.md) | Q4 sprint-level detail |
+| [quarterly-2026-q3.md](./quarterly-2026-q3.md) | Q3 sprint-level detail |
+| [quarterly-2026-q4.md](./quarterly-2026-q4.md) | Q4 sprint-level detail |
 | [cadence-and-planning-system.md](./cadence-and-planning-system.md) | This is H3; quarterly is H4 derivative |
 
 ---
 
-*End — PRYZM Annual Plan 2026, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
+*End — PRYZM Annual Plan 2026, 2026-06-03 (reconciled to ADR-0255/C51) — CANONICAL.*

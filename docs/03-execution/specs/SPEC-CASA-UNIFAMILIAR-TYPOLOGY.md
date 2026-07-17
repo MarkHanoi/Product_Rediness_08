@@ -7,10 +7,10 @@ auto-placement, and editor wiring.
 **Tracker:** `A.21` (decomposed into `A.21.a … A.21.x` — see §10).
 
 **Conflict-resolution order (strongest first):**
-[product-vision §5](../../01-strategy/product-vision.md) →
-[architecture](../../01-strategy/architecture.md) →
+[product-vision §5](../../01-strategy/STR-02-product-vision.md) →
+[architecture](../../01-strategy/STR-04-architecture.md) →
 [C50-TYPOLOGY-PIPELINE](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md) →
-[ADR-0056 typology-declared brief](../../02-decisions/adrs/0056-typology-declared-brief.md) →
+[ADR-0056 typology-declared brief](../../02-decisions/adrs/ADR-0056-typology-declared-brief.md) →
 [typology-expansion-roadmap §5](../plans/typology-expansion-roadmap.md) → this SPEC.
 
 Sibling references: [SPEC-APARTMENT-LAYOUT-GENERATOR](./SPEC-APARTMENT-LAYOUT-GENERATOR.md),

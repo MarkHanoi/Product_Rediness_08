@@ -6,7 +6,7 @@
 | Version | 0.1 |
 | Date | 2026-04-28 |
 | Owner | AI-host lead + Architecture lead + Product (PDF-to-BIM moat) |
-| Closes | ADR-029 §Part D (the SPEC pointer) — publishes the engineering counterpart to ADR-029's scope ratification |
+| Closes | ADR-0229 §Part D (the SPEC pointer) — publishes the engineering counterpart to ADR-0229's scope ratification |
 | Phases | 3A (S50 outline + page classification + floorplan segmentation), 3A (S55 wall vectorization), 3A (S58 door/window matching), 3A (S60 confidence model + review queue) |
 | Replaces / extends | None — net-new SPEC. Companion to `SPEC-07` (AI Layer), `SPEC-26 §2` (file format `imports/`), `SPEC-28 §3` (cost model), `SPEC-29 §3.5` (vector primitives — symbol library) |
 
@@ -14,21 +14,21 @@
 
 ## §0 Numbering note
 
-ADR-029 §Part D and `phases/PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md` §S50 line 277 both refer to this SPEC as **"SPEC-31 PDF-to-BIM Pipeline"**. The number SPEC-31 was claimed first by `SPEC-31-LOAD-BENCH-AND-BACKPRESSURE.md` (2026-04-27 founder robustness amendment) before this document was drafted; rather than renumber the load-bench SPEC mid-cycle, the PDF-to-BIM pipeline publishes as **SPEC-45**. ADR-029 §Part D is updated in parallel to point at this number. All other phase doc references to "SPEC-31 PDF-to-BIM" should be read as SPEC-45.
+ADR-0229 §Part D and `phases/PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md` §S50 line 277 both refer to this SPEC as **"SPEC-31 PDF-to-BIM Pipeline"**. The number SPEC-31 was claimed first by `SPEC-31-LOAD-BENCH-AND-BACKPRESSURE.md` (2026-04-27 founder robustness amendment) before this document was drafted; rather than renumber the load-bench SPEC mid-cycle, the PDF-to-BIM pipeline publishes as **SPEC-45**. ADR-0229 §Part D is updated in parallel to point at this number. All other phase doc references to "SPEC-31 PDF-to-BIM" should be read as SPEC-45.
 
 ---
 
 ## §1 Goals & non-goals
 
-Refer ADR-029 (Accepted, 2026-04-27) for the full scope ratification. In summary:
+Refer ADR-0229 (Accepted, 2026-04-27) for the full scope ratification. In summary:
 
 **Goals (v1, GA):**
 - A single-flow extraction: contractor uploads a PDF set → PRYZM produces a draft 3D model with walls + doors + windows + slabs at LOD 200 + a confidence-tagged review queue.
 - 5 element families (wall, door, window, slab — plus the implicit "page" classification family).
 - Per-element confidence tagging + reviewer-driven approve / edit / reject.
-- Cost: per-page ≤ $0.05 (this SPEC §3); per-extraction hard cap $10 (Personal/Team) per ADR-029 §Part C.
+- Cost: per-page ≤ $0.05 (this SPEC §3); per-extraction hard cap $10 (Personal/Team) per ADR-0229 §Part C.
 
-**Non-goals at GA (per ADR-029 §Part B):**
+**Non-goals at GA (per ADR-0229 §Part B):**
 - MEP, annotation, schedule, multi-PDF reconciliation, photogrammetry — all post-GA.
 - Free-tier access — Personal+ only.
 
@@ -43,8 +43,8 @@ The pipeline is **monotonic** — each stage consumes the previous stage's outpu
 Input: one rasterised PDF page (200 DPI default) + optional title-block metadata.
 Output: `{ kind: 'plan' | 'section' | 'elevation' | 'detail' | 'schedule' | 'titleblock' | 'other', confidence: 0..1, rationale? }`.
 Threshold: only pages classified `plan` with `confidence ≥ 0.7` enter §2.2 at S50; the threshold is an SPEC-45 §2.1 parameter and may relax once the confidence model lands at §2.5.
-Implementation: `apps/ai-worker/src/cv/page-classification.ts` (mock at S50 — deterministic from page metadata; live Vision call lands at S52 per ADR-029 phase rollout).
-Accuracy bar (per ADR-029 §Part E): ≥ 90% top-1 accuracy on the SPEC-45 fixture corpus.
+Implementation: `apps/ai-worker/src/cv/page-classification.ts` (mock at S50 — deterministic from page metadata; live Vision call lands at S52 per ADR-0229 phase rollout).
+Accuracy bar (per ADR-0229 §Part E): ≥ 90% top-1 accuracy on the SPEC-45 fixture corpus.
 
 ### §2.2 Floor-plan segmentation — **S50 (this sprint)**
 
@@ -56,14 +56,14 @@ Output is uploaded to R2 (per §4) at `cv/masks/<pageId>-<token>.bin`; URL is th
 ### §2.3 Wall vectorization — **S55**
 
 Input: `BinaryMask`.
-Output: ordered polylines per ADR-029 Part A "wall extraction" — hidden-line de-projection + AI symbol recognition for cut walls.
-Acceptance bar (per ADR-029 §Part E): precision ≥ 0.85, recall ≥ 0.75.
+Output: ordered polylines per ADR-0229 Part A "wall extraction" — hidden-line de-projection + AI symbol recognition for cut walls.
+Acceptance bar (per ADR-0229 §Part E): precision ≥ 0.85, recall ≥ 0.75.
 
 ### §2.4 Door / window symbol matching — **S58**
 
 Input: `BinaryMask` + a vector polyline set from §2.3 + the symbol library per `SPEC-29 §3.5`.
 Output: `Door` and `Window` element instances at LOD 200 with a host wall reference.
-Acceptance bar (per ADR-029 §Part E): precision ≥ 0.80.
+Acceptance bar (per ADR-0229 §Part E): precision ≥ 0.80.
 
 ### §2.5 Confidence scoring — **S60**
 
@@ -79,7 +79,7 @@ Output: AI approval-queue entries per `AiPendingAction`, one per element batch; 
 
 ## §3 Cost model — per-page ≤ $0.05
 
-Per ADR-029 §Part C the average drawing set is 15 pages at $1.50–$3.00 (≈$0.10–$0.20 per page). SPEC-45 tightens that to **per-page ≤ $0.05** for the S50 segmentation surface, with the per-extraction hard cap of $10 (Personal/Team) layered on top via the workspace cost ceiling per `SPEC-28 §3`.
+Per ADR-0229 §Part C the average drawing set is 15 pages at $1.50–$3.00 (≈$0.10–$0.20 per page). SPEC-45 tightens that to **per-page ≤ $0.05** for the S50 segmentation surface, with the per-extraction hard cap of $10 (Personal/Team) layered on top via the workspace cost ceiling per `SPEC-28 §3`.
 
 Cost composition per page (S50):
 - Page classification: ~$0.02 (Vision call deferred to S52; mock $0.0).
@@ -137,9 +137,9 @@ Each stage that mutates project state (§2.3 wall vectorization onward) emits on
 
 ---
 
-## §7 Public-preview gating per ADR-029 Part E
+## §7 Public-preview gating per ADR-0229 Part E
 
-If the v1 accuracy bar is missed on the SPEC-45 fixture corpus, the feature ships behind a `"PDF-to-BIM (preview)"` label per ADR-029 §Part E. The feature flag `pdf_to_bim_preview` (added to `packages/feature-flags`) governs:
+If the v1 accuracy bar is missed on the SPEC-45 fixture corpus, the feature ships behind a `"PDF-to-BIM (preview)"` label per ADR-0229 §Part E. The feature flag `pdf_to_bim_preview` (added to `packages/feature-flags`) governs:
 - Command-palette visibility of `ai.pdf-to-bim.import`.
 - Marketing copy ("Preview" badge in the workspace header when the flag is on).
 - Per-project upload limits (5 sets / month while in preview).
@@ -162,7 +162,7 @@ Per-stage OTel surfaces under the `pryzm.ai.pdf` namespace:
 
 ## §9 Cross-references
 
-- ADR-029 — PDF-to-BIM Scope (the moat).
+- ADR-0229 — PDF-to-BIM Scope (the moat).
 - SPEC-07 — AI Layer (§3 — AI plane vs command bus).
 - SPEC-15 — Deployment Topology (§2.4 — worker pool placement).
 - SPEC-24 — Data Store Map (§1.5 — `pdf_jobs` table).

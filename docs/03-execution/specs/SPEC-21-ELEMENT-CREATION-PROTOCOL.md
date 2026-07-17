@@ -40,7 +40,7 @@ Each step has an explicit deliverable, owner, exit gate, and test fixture. Steps
 - **Deliverable:** `packages/geometry-kernel/<family>/producer.ts` exporting `produce(ctx: <Family>Context): Result<BufferGeometryDescriptor, KernelError>`.
 - **Owner:** Track A.
 - **Exit gate:** ESLint `pryzm/no-impure-context` green; `pnpm test packages/geometry-kernel/<family>` green; **byte-identity test passes between Node and browser-worker invocations on identical fixtures**.
-- **Fixture:** 5 fixtures (basic, edge, degenerate, max-complexity, regression). Per ADR-020 robustness budget.
+- **Fixture:** 5 fixtures (basic, edge, degenerate, max-complexity, regression). Per ADR-0220 robustness budget.
 
 ### Step 5 — Committer
 - **Deliverable:** `plugins/<family>/committer.ts` consuming the L1 store + invoking step-4 producer + writing to scene-cache.
@@ -67,7 +67,7 @@ Each step has an explicit deliverable, owner, exit gate, and test fixture. Steps
 - **Fixture:** 1 plan-symbol golden per family.
 - **Note:** Phase 1 GREEN families had this implicitly. Phase 2A families build per the existing 2A plan; plan-symbol producers + reverse-documentation of Step-2 envelopes for all 18 families land in Phase 2B at S31 → S34 (Step 8 producers per the PHASE-2B §Gap-Closure subphase).
 
-### Step 9 — Schedule columns (per SPEC-29 §6, ADR-027)
+### Step 9 — Schedule columns (per SPEC-29 §6, ADR-0227)
 - **Deliverable:** `plugins/<family>/schedule.ts` exporting `defaultScheduleColumns: ScheduleColumnSpec[]` and `scheduleFormulaSet: ScheduleFormulaRef[]`.
 - **Owner:** Track A (Phase 2C onward).
 - **Exit gate:** `apps/headless schedule --family=<family>` outputs CSV with default columns.
@@ -81,7 +81,7 @@ For Phase 1 (already done): all 9 steps complete for 12 families. The audit's 16
 
 **Phase 2A is in active development per its existing plan** (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions). Per the 2026-04-27 directive Phase 2A holds no gap-closure work; the 6 new families build through Steps 1–6 implicitly during 2A, and **Steps 7 (IFC) + 8 (plan symbols) + Step-2 envelope reverse-doc all land in Phase 2B at S31 → S34** per the PHASE-2B §Gap-Closure subphase.
 
-If any single family takes > 5 sprint-days for Steps 1–6, K1-C kill-switch fires (per `[strategic ADR-018]` and PHASE-2A §1.1). The pattern is wrong; halt and diagnose.
+If any single family takes > 5 sprint-days for Steps 1–6, K1-C kill-switch fires (per `[strategic ADR-0218]` and PHASE-2A §1.1). The pattern is wrong; halt and diagnose.
 
 ---
 
@@ -158,7 +158,7 @@ CI runs `pnpm test:family <family>` which validates each step's gate against thi
 - Envelope shapes: SPEC-13.
 - Producer purity: SPEC-01 §1.
 - Type catalog: SPEC-05 §1, §3.
-- IFC mapping table: SPEC-05 §4 + `[strategic ADR-008]`.
+- IFC mapping table: SPEC-05 §4 + `[strategic ADR-0208]`.
 - Plan symbol production: SPEC-30 §4.
-- Schedule formula library: SPEC-29 §6 + `[strategic ADR-027]`.
+- Schedule formula library: SPEC-29 §6 + `[strategic ADR-0227]`.
 - Bench gate: PHASE-1B §10 (Wall recipe canonical), PHASE-2A §6 (multiplier reaffirmed).

@@ -82,7 +82,7 @@ When you close a beta issue:
 Issues labelled `triage:wontfix-beta` are reviewed at the Phase 3
 kick-off and either:
 
-* Promoted to a backlog entry in `docs/archive/pryzm3-internal/reference/status-detail/01-PROCESS-TRACKER.md` §Phase 3, or
+* Promoted to a backlog entry in `docs/archive/pryzm3-internal/reference/status-detail/01-process-tracker.md` §Phase 3, or
 * Closed with rationale + a link to the related ADR.
 
 This is the bound channel that turns beta feedback into roadmap input.

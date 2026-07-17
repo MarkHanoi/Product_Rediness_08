@@ -2,7 +2,7 @@
 
 **Sprint introduced**: PRYZM 2 Phase 3D · S68 D9
 **Spec ref**: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D9 — "demo + secret-rotation playbook."
-**Strategic anchor**: SPEC-24 §1.10 (SOC2 access-review automation); `[strategic ADR-018]` (deployment topology).
+**Strategic anchor**: SPEC-24 §1.10 (SOC2 access-review automation); `[strategic ADR-0218]` (deployment topology).
 
 ---
 
@@ -143,4 +143,4 @@ First drill: scheduled S68 D10 (buffer day) on the dev environment for items 1 +
 ---
 
 **Authored by**: sprint-S68 (2026-04-28)
-**Companion docs**: `docs/04-reference/security/oauth2-review-2026-Q4.md`, `docs/04-reference/security/saml-scim-mappings.md`, `docs/04-reference/security/scans-2026-Q4-baseline.md`.
+**Companion docs**: `docs/04-reference/security/oauth2-review-2026-q4.md`, `docs/04-reference/security/saml-scim-mappings.md`, `docs/04-reference/security/scans-2026-q4-baseline.md`.

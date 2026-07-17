@@ -85,7 +85,7 @@ Every requirement in the ad, mapped to something you can **point at**. All file 
 
 - ✅ **`manifold-3d` (WASM)** — union/subtract/intersect, lazily imported (~600 KB). `packages/geometry-kernel/src/csg/KernelCSG.ts`
 - ✅ **Kernel producers**: extrude, revolve, sweep, loft, boolean, section-cut, hidden-line — all THREE-free and worker-runnable. `packages/geometry-kernel/src/producers/`
-- ✅ **A robustness contract** (ADR-020): typed `Result.err(KernelError.NonManifold)` instead of crashes, and **property tests** — two walls at θ ∈ [1°,179°], t ∈ [50,600] mm must be manifold with area within 1% of analytic — **as a merge gate**.
+- ✅ **A robustness contract** (ADR-0220): typed `Result.err(KernelError.NonManifold)` instead of crashes, and **property tests** — two walls at θ ∈ [1°,179°], t ∈ [50,600] mm must be manifold with area within 1% of analytic — **as a merge gate**.
 - ✅ **Interop**: IFC4X3 export + import, DXF, glTF/GLB, PDF→BIM.
 - ⚠️ **OpenCASCADE**: a *documented reserved swap path* for NURBS/B-rep. **No dependency exists. Never claim it.**
 

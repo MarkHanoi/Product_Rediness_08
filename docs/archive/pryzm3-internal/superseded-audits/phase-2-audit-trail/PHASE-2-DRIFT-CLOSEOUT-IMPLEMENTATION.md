@@ -15,7 +15,7 @@
 | 3 | 2B | ADR-0036 covers Visibility-Intent waves 1–5; w06–w11 also shipped, but unratified | ~30 min | Low (doc) |
 | 4 | 2C | Schedule formula DSL ships 12 of 24 planned functions | ~3–4 h **or** scope-cut ADR | Medium |
 | 5 | 2C | `apps/cli` has no `schedule-export` subcommand | ~2 h **or** scope-cut ADR | Low |
-| 6 | 2C | Spec references export-worker ADR-026; code & runbook reference ADR-039 | ~15 min (doc cross-ref) | Low |
+| 6 | 2C | Spec references export-worker ADR-0226; code & runbook reference ADR-0239 | ~15 min (doc cross-ref) | Low |
 | 7 | 2D | `audit-log-middleware` workflow fails at startup (vitest not resolved) | ~30 min | Low |
 | 8 | 2D | Add explicit M24 beta gate closure block to release runbook (parity with Item 1D-3) | ~1 h | Low |
 
@@ -290,9 +290,9 @@ Add a "CLI export" row to the gates table once the test runs in CI.
 ## Item 6 — Export-worker ADR cross-reference (Phase 2C / docs only)
 
 ### Observation
-- Phase 2C spec references **ADR-026** for the export-worker architecture.
-- The actual ADR in code is **ADR-039** (`docs/02-decisions/adrs/0039-export-worker-architecture.md`), which decided to defer the standalone server-side worker and instead consolidate into in-browser orchestration plus the bake worker for heavy jobs.
-- ADR-026 in the strategic series (`docs/00_NEW_ARCHITECTURE/adrs/`) is a different ADR (ui-binding-vanilla-ts).
+- Phase 2C spec references **ADR-0226** for the export-worker architecture.
+- The actual ADR in code is **ADR-0239** (`docs/02-decisions/adrs/0039-export-worker-architecture.md`), which decided to defer the standalone server-side worker and instead consolidate into in-browser orchestration plus the bake worker for heavy jobs.
+- ADR-0226 in the strategic series (`docs/00_NEW_ARCHITECTURE/adrs/`) is a different ADR (ui-binding-vanilla-ts).
 
 ### Decision
 **Add an explicit cross-reference note to both files; do not renumber.**
@@ -302,18 +302,18 @@ Add a "CLI export" row to the gates table once the test runs in CI.
 #### 6.1 — Patch the spec
 **File:** `docs/00_NEW_ARCHITECTURE/phases/PHASE-2C-Q3-M19-M21-SHEETS-SCHEDULES.md`
 
-Find the two references to "ADR-026" in the export-worker context and replace with:
-> ADR-039 (`docs/02-decisions/adrs/0039-export-worker-architecture.md`). The original strategic spike was ADR-026; the code-level decision was renumbered when the worker scope was reduced.
+Find the two references to "ADR-0226" in the export-worker context and replace with:
+> ADR-0239 (`docs/02-decisions/adrs/0039-export-worker-architecture.md`). The original strategic spike was ADR-0226; the code-level decision was renumbered when the worker scope was reduced.
 
-#### 6.2 — Patch ADR-039
+#### 6.2 — Patch ADR-0239
 **File:** `docs/02-decisions/adrs/0039-export-worker-architecture.md`
 
 Add a top-of-file note:
-> Supersedes the original "ADR-026 export-worker" spike; renumbered when the standalone worker scope was deferred.
+> Supersedes the original "ADR-0226 export-worker" spike; renumbered when the standalone worker scope was deferred.
 
 #### 6.3 — Acceptance
-- No more grep-hits for "ADR-026" in the export-worker context.
-- ADR-039 carries the supersession note.
+- No more grep-hits for "ADR-0226" in the export-worker context.
+- ADR-0239 carries the supersession note.
 
 **Owner:** Phase 2C steward. **Effort:** ~15 min.
 
@@ -425,7 +425,7 @@ Phase 2 is closed when **all** of the following are true on `main`:
 3. **Item 3:** ADR-0041 exists ratifying waves 6–11; ADR-0036 footer cross-links it; `check-adr-code-drift.mjs` enforces wave-doc parity.
 4. **Item 4:** All 24 schedule formula functions implemented and tested; ADR-0032 catalogue lists all 24; CI drift script enforces parity.
 5. **Item 5:** `pryzm-cli schedule-export` works for CSV / XLSX / PDF; e2e test green; M21-2C bench report has the new gate row.
-6. **Item 6:** Phase 2C spec and ADR-039 cross-reference each other; no stale ADR-026 mentions in export-worker context.
+6. **Item 6:** Phase 2C spec and ADR-0239 cross-reference each other; no stale ADR-0226 mentions in export-worker context.
 7. **Item 7:** All 11 test workflows reach a terminal state without hanging on `npx` prompts (migrated to `pnpm --filter`).
 8. **Item 8:** `release.sh beta --confirm-beta` succeeds against staging; `M24-beta.md` has a populated "Gate Closure Evidence" section.
 
@@ -440,6 +440,6 @@ The following were **considered and explicitly excluded** from this document bec
 - Phase 2A — Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions, drawing-primitives, plan-view foundation, M15-2A bench baseline. **All present.**
 - Phase 2B — PlanViewCanvasHost, PlanViewRenderer, PlanCamera, hit-test, annotation pipeline, auto-dimensions, view templates, override store, section-view producer + host, kill-switches K2B-1..K2B-4. **All present.**
 - Phase 2C — Sheets foundation, title blocks, viewports, all 10 sheet widget types, schedules engine, formula evaluator core (parser + 12 functions), CSV/XLSX/PDF exporters, M21-2C bench baseline. **All present.**
-- Phase 2D — sync-client, event bridge (ADR-0033), chaos harness, awareness with 5 KB/s throttle (ADR-0034), multiplayer cursors / peer list / view chips, soft locks (ADR-019/0035), lock UI badges, M24 beta bench report, audit-log middleware code (the workflow that runs it is the only issue, addressed in Item 7). **All present.**
+- Phase 2D — sync-client, event bridge (ADR-0033), chaos harness, awareness with 5 KB/s throttle (ADR-0034), multiplayer cursors / peer list / view chips, soft locks (ADR-0219/0035), lock UI badges, M24 beta bench report, audit-log middleware code (the workflow that runs it is the only issue, addressed in Item 7). **All present.**
 
 No code changes are required for any of the items in this "out of scope" list.

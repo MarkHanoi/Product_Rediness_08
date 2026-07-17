@@ -7,7 +7,7 @@
 > **Why this matters**: §5 of the original plan lists ~150K LOC of deletions, but `src/ui/` files import from **23 distinct legacy folders** today — and the §5 list only addresses 6 of them (`engine`, `elements`, `commands`, `core`, `ai`, `services`). The other 17 folders are unaddressed. Until they are, Phase G ("delete legacy") cannot land cleanly because UI compile errors will block PRs.
 
 > **Status updates since this chunk was authored** (per [Chunk 26 §26.11](./26-plan-self-corrections.md#§2611--amendment-k--chunks-24--25-status-updates-from-on-disk-reality)):
-> 1. **ADR-041, 042, 043** — were proposed by §24.4 and listed as pending; **all three are now ratified on disk**. The §24.4 "default if no ADR" rows can be dropped — the ratified decisions stand.
+> 1. **ADR-0241, 042, 043** — were proposed by §24.4 and listed as pending; **all three are now ratified on disk**. The §24.4 "default if no ADR" rows can be dropped — the ratified decisions stand.
 > 2. **Top-level `src/` count**: §24.0 says "36 folders"; the §24.1 Tier A+B+C+D table sums to **35** (correct). Disk today is **35**. The "36" is a doc-only typo.
 > 3. **Tier D `ui/` row** says 221 files; live count is **220** (one file removed since chunk authoring). Will be made parametric per [Chunk 26 §26.3](./26-plan-self-corrections.md#§263--amendment-c--hard-coded-numbers-go-parametric).
 > 4. **G-prefix additions in §24.5** are now folded into [chunk 19's banner](./19-subphases-G-H-catchall.md) per [Chunk 26 §26.4](./26-plan-self-corrections.md#§264--amendment-d--32-new-sub-phases-are-orphaned-from-their-phase-chunks) (Option (b)).
@@ -111,7 +111,7 @@ These don't show in the UI-imports scoreboard (UI doesn't import them) but they 
 | `structural/` | 2 | `plugins/structural` (already exists) + `packages/geometry-kernel` | **G.24** | `LoadPathGraph.ts` + `index.ts`. |
 | `migration/` | 2 | `packages/legacy-shim` (already exists) | **G.25** | `VGToIntentMigration.ts`, `ViewTemplateToIntentMigration.ts`. One-time data migrators — fold into legacy-shim then delete. |
 | `collaboration/` | 2 | `packages/sync-client` + `plugins/multiplayer` | **G.26** | `CommandRegistry.ts` + `RemoteCommandDispatcher.ts`. Already covered by Phase C.10–C.13 wireup; just needs explicit deletion ID. |
-| `constraints/` | 2 | `packages/constraint-solver` (already exists) | **G.27** | `ConstraintEngine.ts` + `StairConstraintEngine.ts`. Covered by SPEC-48 + ADR-024. |
+| `constraints/` | 2 | `packages/constraint-solver` (already exists) | **G.27** | `ConstraintEngine.ts` + `StairConstraintEngine.ts`. Covered by SPEC-48 + ADR-0224. |
 | `history/` | 1 | `packages/persistence-client.eventLog.undoRedo` | covered by Phase C deletion of `UndoManager.ts` (already in §5) | covered-S72 |
 | `render/` | 1 | `packages/render-runtime` (already exists) | **G.28** | `PhysicsOverlayRenderer.ts` only. Move with `physics/` decision (G.18). |
 | `visibility/` | 1 | `packages/visibility` (already exists) | **G.29** | `VGGovernanceStore.ts` only. Already covered by Phase F.8 wireup; needs explicit deletion ID. |
@@ -183,13 +183,13 @@ The replacement footprint under `packages/` + `plugins/` does not grow — these
 
 ## §24.4  Decisions deferred (need ADR before sub-phase ships)
 
-Three rows in §24.1 require explicit decisions before their sub-phase can ship. Track them as new ADRs (numbered following ADR-040):
+Three rows in §24.1 require explicit decisions before their sub-phase can ship. Track them as new ADRs (numbered following ADR-0240):
 
 | Decision | Owner | Default if no ADR | New ADR ID |
 |---|---|---|---|
-| Where `src/portfolio/PortfolioSemanticGraph.ts` lives long-term — `packages/stores` as a portfolio aggregate, or `apps/marketplace-api`, or new `packages/portfolio` | Architecture | `packages/stores.portfolio` aggregate | **ADR-041** |
-| Whether `src/physics/` ships as a runtime artefact or stays dev-only (Vision D7 says headless excludes physics; this is debug-only today) | Architecture | dev-only `apps/bench/physics-overlay/`; not in production bundle | **ADR-042** |
-| Whether `src/utils/*` is migrated to a new `packages/utils` or kept inline in the consumers (most are tiny) | Architecture | keep inline; do not create `packages/utils` | **ADR-043** |
+| Where `src/portfolio/PortfolioSemanticGraph.ts` lives long-term — `packages/stores` as a portfolio aggregate, or `apps/marketplace-api`, or new `packages/portfolio` | Architecture | `packages/stores.portfolio` aggregate | **ADR-0241** |
+| Whether `src/physics/` ships as a runtime artefact or stays dev-only (Vision D7 says headless excludes physics; this is debug-only today) | Architecture | dev-only `apps/bench/physics-overlay/`; not in production bundle | **ADR-0242** |
+| Whether `src/utils/*` is migrated to a new `packages/utils` or kept inline in the consumers (most are tiny) | Architecture | keep inline; do not create `packages/utils` | **ADR-0243** |
 
 ---
 
@@ -214,8 +214,8 @@ Three rows in §24.1 require explicit decisions before their sub-phase can ship.
 | **G.14** | G | Delete `src/rendering/` | S83 |
 | **G.15** | G | Delete `src/cde/` | S83 |
 | **G.16** | G | Delete `src/export/` (glb + ifc + sheets exporters) | S83 |
-| **G.17** | G | Delete `src/portfolio/` (per ADR-041) | S84 |
-| **G.18** | G | Delete `src/physics/` (per ADR-042) | S84 |
+| **G.17** | G | Delete `src/portfolio/` (per ADR-0241) | S84 |
+| **G.18** | G | Delete `src/physics/` (per ADR-0242) | S84 |
 | **G.19** | G | Delete `src/geospatial/` (move to `packages/geospatial`) | S84 |
 | **G.20** | G | Delete `src/api/` (rewrite UI imports) | S84 |
 | **G.21** | G | Delete `src/snapping/` | S84 |
@@ -240,7 +240,7 @@ Three rows in §24.1 require explicit decisions before their sub-phase can ship.
 
 [`19-subphases-G-H-catchall.md`](./19-subphases-G-H-catchall.md) defines G.1–G.9. Append the new IDs from §24.5; **G entry gate** stays "Phase F complete (every UI gesture has a typed runtime call site)"; **G exit gate** is amended to:
 
-> Every legacy `src/` directory listed in §24.1 Tier A + Tier B + Tier C is removed from disk. The only `src/` directories remaining are: `ui/`, `styles/`, `utils/` (per ADR-043), `types/`, `dev/`, `main.ts`, `browser-entry.tsx`, `browser.css`, `familyCreatorPlaceholder.ts`. Total `find src -name '*.ts' -o -name '*.tsx' | wc -l` drops from 1,287 (S72 D0) to ≈ 230 (UI-only + utils + types).
+> Every legacy `src/` directory listed in §24.1 Tier A + Tier B + Tier C is removed from disk. The only `src/` directories remaining are: `ui/`, `styles/`, `utils/` (per ADR-0243), `types/`, `dev/`, `main.ts`, `browser-entry.tsx`, `browser.css`, `familyCreatorPlaceholder.ts`. Total `find src -name '*.ts' -o -name '*.tsx' | wc -l` drops from 1,287 (S72 D0) to ≈ 230 (UI-only + utils + types).
 
 ---
 

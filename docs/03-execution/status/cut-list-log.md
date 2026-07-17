@@ -1,12 +1,12 @@
-# Cut-List Log — `[strategic ADR-018]` Tier-1 + Tier-2 Final State at GA
+# Cut-List Log — `[strategic ADR-0218]` Tier-1 + Tier-2 Final State at GA
 
 **Date opened**: 2026-04-29 (S72 D5)
 **Owner**: Architecture lead
-**Source**: `[strategic ADR-018]` Tier-1 + Tier-2 cut-list discipline; per-sprint cut decisions S31 → S72
+**Source**: `[strategic ADR-0218]` Tier-1 + Tier-2 cut-list discipline; per-sprint cut decisions S31 → S72
 
 This document is the canonical consolidated cut-list-log referenced
 by ADR-0054 §F. Each row records the cut ID, the description, the
-default open/closed state at the time of `[strategic ADR-018]`
+default open/closed state at the time of `[strategic ADR-0218]`
 authoring, the final decision at GA, the sprint+day the decision
 was taken, and the reversal cost.
 
@@ -26,7 +26,7 @@ This is one of the load-bearing process commitments documented in
 
 ---
 
-## §2 Tier-2 cuts (per `[strategic ADR-018]` §2 + S59 D7 review)
+## §2 Tier-2 cuts (per `[strategic ADR-0218]` §2 + S59 D7 review)
 
 | Cut ID | Description | Default | Final state at GA | Decision sprint+day | Reversal cost | Notes |
 |---|---|---|---|---|---|---|
@@ -39,10 +39,10 @@ This is one of the load-bearing process commitments documented in
 
 ---
 
-## §3 In-flight cut decisions S55–S72 (sprint-audit-deferred items not in `[strategic ADR-018]`)
+## §3 In-flight cut decisions S55–S72 (sprint-audit-deferred items not in `[strategic ADR-0218]`)
 
 These are items that S55–S72 audits explicitly deferred but were not
-part of the original `[strategic ADR-018]` Tier-1/Tier-2 cut list.
+part of the original `[strategic ADR-0218]` Tier-1/Tier-2 cut list.
 They are documented here for completeness so the GA cut-list final
 state is one canonical place.
 
@@ -52,7 +52,7 @@ state is one canonical place.
 | Fresh-VM `docker-compose up` matrix verified across distros | deferred (operator-side) | S67 D6 | Post-GA when Docker host + VM matrix available |
 | `docker compose config` daemon validation lint | deferred (operator-side) | S67 D8 | Post-GA when Docker daemon available |
 | sync-server + bake-worker `/health` route wiring | deferred (S67 follow-up) | S67 D2 caveat | S67 close or S68 D7 |
-| Independent third-party plugin sandbox audit | deferred (external) | S68 D4 | External vendor; lands as §4.4 of `docs/04-reference/security/plugin-sandbox-audit-2026-Q4.md` when received |
+| Independent third-party plugin sandbox audit | deferred (external) | S68 D4 | External vendor; lands as §4.4 of `docs/04-reference/security/plugin-sandbox-audit-2026-q4.md` when received |
 | RLS per-table policy migrations + verified test queries | partial — gap accepted at S68 close; fix at S69 D6 | S68 D5 | Live Postgres dependency |
 | OAuth2 production resource server wiring | deferred | S68 D6 | S70 D8 carry-forward |
 | SAML / SCIM runtime adapter | deferred (mappings as contract) | S68 D6 | S70 D8 carry-forward |
@@ -85,7 +85,7 @@ state is one canonical place.
 
 ## §4 Cut-list discipline post-mortem (excerpted from `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §3)
 
-> *"`[strategic ADR-018]` Tier-1 + Tier-2 absorbed 6 cuts (T1.1 + T2.1 +
+> *"`[strategic ADR-0218]` Tier-1 + Tier-2 absorbed 6 cuts (T1.1 + T2.1 +
 > T2.2 + T2.3 + T2.4 + multi-region) without one schedule slip. Each
 > cut had a pre-declared reversal cost; that pre-declaration removed
 > the meeting overhead at cut-time."*
@@ -105,7 +105,7 @@ cut by post-LAUNCH customer signal:
 
 ## §5 Cross-references
 
-- `[strategic ADR-018]` Tier-1 + Tier-2 cut-list discipline (the original list)
+- `[strategic ADR-0218]` Tier-1 + Tier-2 cut-list discipline (the original list)
 - ADR-0049 (S67 D9 multi-region cut decision)
 - ADR-0054 §F (this log's anchor)
 - `apps/bench/reports/M30-3B.md` §1 (T2.1 DXF/SVG decision)

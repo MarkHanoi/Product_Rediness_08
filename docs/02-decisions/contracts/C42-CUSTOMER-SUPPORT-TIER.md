@@ -79,7 +79,7 @@ Spans MUST open at the public boundary of `packages/support/`. SEV-1 events doub
 
 ### §1.7 — Every SEV-1 has a post-mortem within 5 business days
 
-Every SEV-1 ticket triggers a post-mortem (PMI = Post-Mortem-Initiative) document written to `docs/04-incidents/YYYY-MM-DD-<short>-PMI.md` within 5 business days of resolution. The PMI carries: timeline · impact · root cause · 5-whys · remediation actions · customer comms log · what-went-well / what-went-wrong. The PMI follows [C31](C31-DOCUMENTATION-AUTHORING-PROTOCOL.md) authoring rules.
+Every SEV-1 ticket triggers a post-mortem (PMI = Post-Mortem-Initiative) document written to `docs/04-reference/runbooks/incidents/YYYY-MM-DD-<short>-PMI.md` within 5 business days of resolution. The PMI carries: timeline · impact · root cause · 5-whys · remediation actions · customer comms log · what-went-well / what-went-wrong. The PMI follows [C31](C31-DOCUMENTATION-AUTHORING-PROTOCOL.md) authoring rules.
 
 Aggregate SEV-1 metrics (count, MTTR, repeat-causes) ship in the monthly trust-report (public, redacted per §1.10).
 
@@ -183,7 +183,7 @@ L0-pure. No I/O, no THREE, no DOM.
 | `RefundOrCredit.reason` | `length >= 16` after trim (per §1.14 + [C39](C39-PRICING-AND-PLAN-TIERS.md) override convention) |
 | `RefundOrCredit.amountCents` | `integer > 0` |
 | `CSATResult.score` | `1 <= n <= 5` |
-| `PMI.fileLocation` | matches `docs/04-incidents/YYYY-MM-DD-[a-z0-9-]+-PMI\.md` |
+| `PMI.fileLocation` | matches `docs/04-reference/runbooks/incidents/YYYY-MM-DD-[a-z0-9-]+-PMI\.md` |
 
 ### §2.4 — Foreign keys
 
@@ -285,7 +285,7 @@ All commands route through `commandBus` per P6 + [C16](C16-COMMAND-AUTHORING-PRO
 | `support.requestBreakGlass` | Open a BreakGlassSession with justification + duration + scope |
 | `support.closeBreakGlass` | Explicitly close a break-glass session (auto-close at expiry otherwise) |
 | `support.escalateToEngineering` | Move to `waiting_on_engineering`; pages on-call engineer |
-| `support.draftPMI` | Initiate PMI doc for a resolved SEV-1; writes to `docs/04-incidents/` |
+| `support.draftPMI` | Initiate PMI doc for a resolved SEV-1; writes to `docs/04-reference/runbooks/incidents/` |
 | `support.publishPMI` | Finalise PMI + (if customer opt-in) make public link |
 
 ### §4.3 — Manager-facing
@@ -400,7 +400,7 @@ WCAG 2.2 AA per [C43](C43-ACCESSIBILITY.md) — every CTA reachable by keyboard;
 | `check-sev1-pmi-deadline` | scheduled job + alert | Every resolved SEV-1 has a published PMI within 5 business days; misses alert head-of-support |
 | `check-breakglass-rate-limit` | runtime — boundary | Per-agent max 5 active break-glass sessions enforced (per §1.5) |
 | `check-no-orphan-tickets` | scheduled job + alert | Tickets in `assigned` state for > 30 min with no agent activity escalate to manager (per §1.4) |
-| `check-pmi-naming` | extends `check-doc-naming.ts` | PMI files match `docs/04-incidents/YYYY-MM-DD-<short>-PMI.md` (per §2.3) |
+| `check-pmi-naming` | extends `check-doc-naming.ts` | PMI files match `docs/04-reference/runbooks/incidents/YYYY-MM-DD-<short>-PMI.md` (per §2.3) |
 | `check-discipline-neutral-support` | manual review | SLAs + tooling do not differentiate by customer discipline or jurisdiction (per §1.13) |
 | `check-no-direct-store-write` | eslint rule | UI code under `apps/admin-tools/src/support/` MUST NOT import `SupportTicketStore` directly for mutation; only via `commandBus` (per P6) |
 
@@ -534,7 +534,7 @@ Per [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) test convention. Every state transi
 3. **AI helper depth**. The KB AI helper today is conceptual; how deeply should it integrate with the editor (e.g. can it execute a workflow on the user's behalf)? Trade-off: power vs. risk of AI doing the wrong thing on a live project.
 4. **Refund authority thresholds**. £200 / £1k / unlimited are starting numbers. With real ticket volume + abuse data we'll likely adjust. Open: should the thresholds be regional (e.g. lower in markets with lower median ticket size)?
 5. **CSAT response-rate boost**. 30 % target is industry-typical but feels low. Tactics: in-product reminders, lower-friction survey UI, mid-resolution checks. Trade-off: customer-pestering vs. data quality. Defer to a CSAT-focused experiment.
-6. **PMI publication policy**. §1.7 says PMIs go to `docs/04-incidents/` with [C31](C31-DOCUMENTATION-AUTHORING-PROTOCOL.md) format. Some PMIs may carry customer-specific detail that can't be public. Process: redact + publish redacted version + keep internal version private. Per-PMI customer-consent step?
+6. **PMI publication policy**. §1.7 says PMIs go to `docs/04-reference/runbooks/incidents/` with [C31](C31-DOCUMENTATION-AUTHORING-PROTOCOL.md) format. Some PMIs may carry customer-specific detail that can't be public. Process: redact + publish redacted version + keep internal version private. Per-PMI customer-consent step?
 7. **Break-glass duration default**. §1.5 says 60 min default, 240 max. Most break-glass investigations finish in < 30 min; should the default be 30? More aggressive auto-close reduces accidental-leak risk but may interrupt agents mid-investigation. Operational data needed.
 8. **Agent skill model**. Today an agent is "all-purpose"; auto-assignment doesn't differentiate. As specialisations emerge (IFC expert · AI expert · billing expert · enterprise account expert) a skills field on `Agent` will start to matter for routing. Currently `Agent.skills` exists in schema but is unused by `auto-assign`.
 

@@ -47,14 +47,14 @@ the GA marketing page.
 - **Files:** `packages/drawing-primitives/src/backends/pdf.ts`,
   `packages/drawing-primitives/__tests__/pdf-backend.test.ts`,
   `packages/drawing-primitives/package.json` (add `pdf-lib` dep per
-  ADR-040).
+  ADR-0240).
 - **Steps:**
   1. Replace the `throw new BackendNotImplementedError(this.id, 'S37')`
      body with a real `pdf-lib` renderer that maps the unified
      primitive surface (`Stroke`, `Fill`, `Text`, `Path`, `Image`)
      into pdf-lib calls.
   2. Implement font subsetting for the four built-in title-block
-     fonts (carry the choice from ADR-040 §2).
+     fonts (carry the choice from ADR-0240 §2).
   3. Write `pdf-backend.test.ts` covering: single-page A1, A1+A3
      mixed, 5-sheet set, schedule snapshot widget. Assert (a) file
      opens via `pdf-lib`'s reload path; (b) byte count is < 50 KB
@@ -257,7 +257,7 @@ the GA marketing page.
   throttle → workflow goes red.
 - **Effort:** 1 day.
 
-### S29-T11  Lifecycle subsystem dissolution check (ADR-030)
+### S29-T11  Lifecycle subsystem dissolution check (ADR-0230)
 - **Blocked by:** none.
 - **Owner:** platform.
 - **Steps:**
@@ -383,9 +383,9 @@ the GA marketing page.
 
 | Ticket | Belongs in | One-liner |
 | ------ | ---------- | --------- |
-| **OOB-F** | Phase 3A | Schedule DSL parser (ADR-027 Part D) — when 24 builtins prove insufficient. |
+| **OOB-F** | Phase 3A | Schedule DSL parser (ADR-0227 Part D) — when 24 builtins prove insufficient. |
 | **OOB-G** | Phase 3B | Force-directed label placement (SPEC-04 §8.2). |
-| **OOB-H** | Phase 4 | CDE module activation (SPEC-32 / ADR-031). |
+| **OOB-H** | Phase 4 | CDE module activation (SPEC-32 / ADR-0231). |
 | **OOB-I** | Phase 3C | Default-route flip from PRYZM-1 → PRYZM-2 at S61 (already on the master plan; carry forward as a tracking ticket so the S30 cookie workaround is retired cleanly). |
 | **OOB-J** | Phase 3B | 4D/5D extensions (SPEC-41) for Gantt sheets and BoQ formulas. |
 

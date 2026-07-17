@@ -8,7 +8,7 @@
 | Owner | Architecture lead + Geometry kernel lead |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S76–S77 |
-| References | `12-` §3; `[strategic ADR-032]` |
+| References | `12-` §3; `[strategic ADR-0232]` |
 
 ---
 
@@ -28,9 +28,9 @@ Federated clash detection (architectural ↔ structural ↔ MEP ↔ civil) is th
 | **penetration** | Element penetrates another (legal: e.g. duct through wall, with sleeve) | auto-resolve if matching penetration record exists |
 | **duplicate** | Same element instanced twice in federation | auto-resolve |
 
-### §2.2 Rule DSL per `[strategic ADR-032]`
+### §2.2 Rule DSL per `[strategic ADR-0232]`
 
-ADR-032 ratifies a JSON-schema-typed declarative DSL (not Python sandbox; not SPARQL). Example:
+ADR-0232 ratifies a JSON-schema-typed declarative DSL (not Python sandbox; not SPARQL). Example:
 
 ```json
 {
@@ -71,7 +71,7 @@ plugins/clash-browser/    ← UI list + filter + group + status + screenshot cap
 
 | Sprint | Deliverable |
 |---|---|
-| S76 D1 | `apps/clash-engine/` skeleton + ADR-032 ratified |
+| S76 D1 | `apps/clash-engine/` skeleton + ADR-0232 ratified |
 | S76 D3 | `Federator` unions N chunks; BVH on union |
 | S76 D5 | first 20 rules (arch-only); `RuleEngine` evaluator |
 | S76 D7 | `clash-browser` UI — list + filter + screenshot |
@@ -97,12 +97,12 @@ plugins/clash-browser/    ← UI list + filter + group + status + screenshot cap
 
 - Re-running the full clash on every CRDT op. Re-clash is per CDE release transition + on-demand.
 - Storing clash results in the model CRDT (clashes are derived; storing them couples derived state to mutable state).
-- Allowing rules in arbitrary code (sandbox escape risk; ADR-032 mandates declarative DSL).
+- Allowing rules in arbitrary code (sandbox escape risk; ADR-0232 mandates declarative DSL).
 - Skipping the duplicate-detection pre-pass (federated models often double-count instances).
 
 ## §7 Cross-references
 
-- `[strategic ADR-032]` rule language
+- `[strategic ADR-0232]` rule language
 - SPEC-13 visibility (clash overlay rendered through visibility-intent)
 - SPEC-31 §3 AI back-pressure (auto-classifier rate-limited)
 - SPEC-32 CDE (state-triggered re-clash)

@@ -64,8 +64,8 @@ docs/03-execution/plans/
 ├─ annual-2026.md                           ← H3 — this year
 ├─ annual-2027.md                           ← H3 — next year (future, not yet authored)
 │
-├─ quarterly-2026-Q3.md                     ← H4 — current quarter
-├─ quarterly-2026-Q4.md                     ← H4 — next quarter
+├─ quarterly-2026-q3.md                     ← H4 — current quarter
+├─ quarterly-2026-q4.md                     ← H4 — next quarter
 ├─ quarterly-2027-Q1.md                     ← H4 — quarter after (future, not yet authored)
 │
 ├─ legacy/superseded-2026-06-01/master-implementation-plan-2026-05-31.md       ← legacy synthesis; kept for archeology
@@ -110,7 +110,7 @@ The most common authoring confusion. Resolved:
 | "Phase 1 closes when X, Y, Z ship" — exit criteria | H2 `roadmap-phase-1-alpha.md` |
 | "Phase 1 closure decision was made on date D" — gate decision | **ADR** (`02-decisions/adrs/ADR-NNN-phase-1-exit.md`) |
 | "We are shipping the Inspect tree in Q3" — annual commitment | H3 `annual-2026.md` |
-| "Q3 Sprint 5 delivers Inspect tree v1.0 + Cost panel beta" — sprint scope | H4 `quarterly-2026-Q3.md` |
+| "Q3 Sprint 5 delivers Inspect tree v1.0 + Cost panel beta" — sprint scope | H4 `quarterly-2026-q3.md` |
 | "Sprint 5 ticket #142: implement IsolationAnimator.fadeOut" — ticket | H5 sprint doc + linked GitHub issue |
 | "Wire-format for Sheet revisions" — algorithm + format | **SPEC** (`03-execution/specs/SPEC-NN-DRAWING-SET.md`) |
 | "Drawing set revision tracking is binding" — rule that downstream MUST follow | **CONTRACT** (`02-decisions/contracts/C30-DRAWING-SET-MANAGEMENT.md`) |
@@ -146,7 +146,7 @@ A critical separation often missed:
 
 Why the split: customers can't consume capability as fast as engineering ships it. Enterprise customers need pilots, security review, training, change management. A capability that ships in Q3 may only land in production for Customer A in Q1 next year. The two sequences must NEVER be conflated — doing so leads to public roadmap commitments engineering can't keep, or internal velocity that customers can't absorb.
 
-Per [go-to-market §2](../../01-strategy/go-to-market.md): the customer-side cycles vary by tier (PLG: instant; Mid-firm: 60-120 days; Enterprise: 6-9 months). The build cycle is uniform.
+Per [go-to-market §2](../../01-strategy/STR-08-go-to-market.md): the customer-side cycles vary by tier (PLG: instant; Mid-firm: 60-120 days; Enterprise: 6-9 months). The build cycle is uniform.
 
 ---
 
@@ -185,12 +185,12 @@ The lifecycle of any plan in this system:
 | [typology-expansion-roadmap.md](./typology-expansion-roadmap.md) | H2 sibling — the multi-typology AI generative pipeline expansion |
 | [roadmap-enterprise-delivery.md](./roadmap-enterprise-delivery.md) | H2 sibling — customer onboarding for 1000s |
 | [annual-2026.md](./annual-2026.md) | H3 — current-year commitments |
-| [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) | H4 — current quarter |
+| [quarterly-2026-q3.md](./quarterly-2026-q3.md) | H4 — current quarter |
 | [legacy/superseded-2026-06-01/master-implementation-plan-2026-05-31.md](./legacy/superseded-2026-06-01/master-implementation-plan-2026-05-31.md) | Legacy synthesis (pre-2026-06-01) — kept for archeology; not current |
-| [../../01-strategy/product-vision.md](../../01-strategy/product-vision.md) | Strategy upstream (what + why) |
-| [../../01-strategy/architecture.md](../../01-strategy/architecture.md) | System shape |
-| [../../02-decisions/contracts/](../../02-decisions/contracts/) | 51 binding contracts (C01–C51; C51 = apex/app split per ADR-055) |
+| [../../01-strategy/STR-02-product-vision.md](../../01-strategy/STR-02-product-vision.md) | Strategy upstream (what + why) |
+| [../../01-strategy/STR-04-architecture.md](../../01-strategy/STR-04-architecture.md) | System shape |
+| [../../02-decisions/contracts/](../../02-decisions/contracts/) | 51 binding contracts (C01–C51; C51 = apex/app split per ADR-0255) |
 
 ---
 
-*End — PRYZM Planning System & Cadence, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
+*End — PRYZM Planning System & Cadence, 2026-06-03 (reconciled to ADR-0255/C51) — CANONICAL.*

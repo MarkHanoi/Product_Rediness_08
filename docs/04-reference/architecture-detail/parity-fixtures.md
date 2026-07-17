@@ -153,6 +153,6 @@ gate documented as a follow-up)".
 
 ## 7. References
 
-- ADR-009 — `docs/02-decisions/adrs/0009-producer-pure-function-signature.md`
+- ADR-0209 — `docs/02-decisions/adrs/ADR-0009-producer-pure-function-signature.md`
 - S08 spec — `docs/03-execution/plans/legacy/phases/PHASE-1/1B-Q2-M4-M6-WALL-END-TO-END.md`
 - Element recipe — `docs/04-reference/architecture-detail/element-recipe.md`

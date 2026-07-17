@@ -22,16 +22,16 @@ file path or grep result you can reproduce. It is a companion to
 | **Phase 2A — non-element completion (M13–M15)** | **A−** | `rooms`, `structural`, `lighting`, `plumbing`, `furniture`, `dimensions`, `plan-view` plugins present with handlers + tools; multi-LOD furniture committers present; the literal "PRYZM 1 → v2" migration is **explicitly stubbed to Phase 3D** (`MigrationStubError`) — per spec, not a drift. |
 | **Phase 2B — plan view (M16–M18)** | **A−** | `PlanViewRenderer`, `CanvasHost`, `view-template-bridge`, `style-resolver`, `section-cut-producer`, `SectionViewCanvasHost`, auto-dim wiring tests all real. Visibility-Intent has all 11 waves shipped (vs spec 5 — early per ADR-0041). Visual-diff Playwright harness is a **gated skeleton** (`PRYZM_VISUAL_DIFF_PLAYWRIGHT=1`), not yet a CI gate. |
 | **Phase 2C — sheets / schedules (M19–M21)** | **C+** | Sheets has all 10 widget types ✅; schedules has CSV / XLSX / PDF export files ✅; BUT (a) formula library ships **12 of 24** mandated formulas (drift-closeout item still open), and (b) the PDF backend in `drawing-primitives` is a `throw new BackendNotImplementedError(this.id, 'S37')` stub — so the M20 acceptance "5-sheet PDF set < 30 s, vector not raster" **cannot pass**. |
-| **Phase 2D — sync / awareness / beta (M22–M24)** | **B+** | Real Yjs CRDT (`import * as Y from 'yjs'`, `Y.Doc`, `YMap`); translator round-trip test exists (`event-bridge-roundtrip.test.ts`); soft-locks (ADR-019) implemented client and server (`PgSoftLockStore`, `Sweeper`, `soft-locks.sql`, advisory locks); AI host with three real workflows (`Generate3Options`, `PlanCritique`, `VoiceCommand`); BUT Supabase cutover (M22) **deferred** → `restore-verify` bench is a skeleton, AI back-pressure curve from SPEC-31 is **not implemented**, SPEC-08 role matrix at L2/L3 is **not present** (`api-rbac` is a smaller OAuth2-scope concern only). |
-| **ADR-002 (translator)** | **A−** | `packages/sync-client/src/event-bridge.ts` is the translator; `__tests__/event-bridge-roundtrip.test.ts` provides the property test. |
-| **ADR-019 (soft-locks)** | **A** | `LockManager.acquire/extend/release`, `LockConflictError` (409), `LockTransportError`; server uses Postgres advisory locks via `PgSoftLockStore` with a `Sweeper` for TTL expiry. |
-| **ADR-027 (24 schedule formulas)** | **D** | Library catalog enumerates 12 (`Sum`, `Average`, `Minimum`, `Maximum`, `Count`, `Distance 1-D`, `Rect area`, `Rect perimeter`, `Ratio`, `Clamp`, `Lerp`, `Round`). 12 mandated by drift-closeout still missing (Math, Stats, Logic, Date). |
-| **ADR-040 (CSV/XLSX/PDF schedule export)** | **B−** | `plugins/schedules/src/export/{csv,xlsx,pdf,index}.ts` present; PDF path inevitably lands on the backend stub. CSV/XLSX likely real; needs a parity check. |
+| **Phase 2D — sync / awareness / beta (M22–M24)** | **B+** | Real Yjs CRDT (`import * as Y from 'yjs'`, `Y.Doc`, `YMap`); translator round-trip test exists (`event-bridge-roundtrip.test.ts`); soft-locks (ADR-0219) implemented client and server (`PgSoftLockStore`, `Sweeper`, `soft-locks.sql`, advisory locks); AI host with three real workflows (`Generate3Options`, `PlanCritique`, `VoiceCommand`); BUT Supabase cutover (M22) **deferred** → `restore-verify` bench is a skeleton, AI back-pressure curve from SPEC-31 is **not implemented**, SPEC-08 role matrix at L2/L3 is **not present** (`api-rbac` is a smaller OAuth2-scope concern only). |
+| **ADR-0202 (translator)** | **A−** | `packages/sync-client/src/event-bridge.ts` is the translator; `__tests__/event-bridge-roundtrip.test.ts` provides the property test. |
+| **ADR-0219 (soft-locks)** | **A** | `LockManager.acquire/extend/release`, `LockConflictError` (409), `LockTransportError`; server uses Postgres advisory locks via `PgSoftLockStore` with a `Sweeper` for TTL expiry. |
+| **ADR-0227 (24 schedule formulas)** | **D** | Library catalog enumerates 12 (`Sum`, `Average`, `Minimum`, `Maximum`, `Count`, `Distance 1-D`, `Rect area`, `Rect perimeter`, `Ratio`, `Clamp`, `Lerp`, `Round`). 12 mandated by drift-closeout still missing (Math, Stats, Logic, Date). |
+| **ADR-0240 (CSV/XLSX/PDF schedule export)** | **B−** | `plugins/schedules/src/export/{csv,xlsx,pdf,index}.ts` present; PDF path inevitably lands on the backend stub. CSV/XLSX likely real; needs a parity check. |
 | **SPEC-08 (5-role permission matrix at L2/L3)** | **F** | `packages/api-rbac` is *only* the public-API OAuth2 scope catalogue (3 scopes: `project:read`, `project:write`, `ai:invoke`). The Owner/Admin/Editor/Limited/Reviewer matrix is not anywhere on disk. |
 | **SPEC-13 (context envelopes for kernel producers)** | **D** | `packages/schemas/src/contexts/` does not exist. ESLint rule `pryzm/no-impure-context` not seen in eslint.config.js. |
 | **SPEC-30 (5 Canvas2D ops + plan-view perf)** | **B** | The 5 ops exist via `PlanViewCanvasHost` + drawing primitives; `apps/bench/src/benches/visual-diff-plan.bench.ts` is a skeleton, not a Playwright run. |
 | **SPEC-31 (AI back-pressure 20/50/100)** | **F** | No `soft-pause`, `hard-pause`, `reject` thresholds anywhere in `packages/ai-host/src/`. The `restore-verify` bench is also skeleton — explicitly deferred per ADR-0034. |
-| **SPEC-32 (CDE module)** | **N/A — deferred** | `apps/sync-server/src/cde/index.ts` exists as a placeholder; module is Phase 4 per ADR-031. |
+| **SPEC-32 (CDE module)** | **N/A — deferred** | `apps/sync-server/src/cde/index.ts` exists as a placeholder; module is Phase 4 per ADR-0231. |
 | **Strangler-fig honesty** | **C+** | Same gap surfaced in Phase 1 audit: default `npm run dev` serves PRYZM 1 marketing landing; `?pryzm2=1` flip is the kill-switch through end of Phase 2D — and is documented openly in `M24-PREVIEW-SELF-TEST-CHECKLIST`. The gap is documented but no CI step exercises the flag. |
 
 **Bottom line.** Phase 2 has shipped **substantively more code** than
@@ -128,7 +128,7 @@ sprint. Item 4 is environment-bound and is the genuine M24 ship gate.
 | Check | Status | Evidence |
 | ----- | ------ | -------- |
 | Yjs CRDT real (not stubbed) | ✅ | `packages/sync-client/src/SyncClient.ts:22  import * as Y from 'yjs'`; `:59  this.doc = opts.doc ?? new Y.Doc();`. |
-| Translator round-trip test (ADR-002) | ✅ | `packages/sync-client/__tests__/event-bridge-roundtrip.test.ts`. |
+| Translator round-trip test (ADR-0202) | ✅ | `packages/sync-client/__tests__/event-bridge-roundtrip.test.ts`. |
 | Causal chaos harness | ✅ | `packages/sync-client/__tests__/_chaos/PeerHarness.ts` + `__tests__/chaos.test.ts`. |
 | **Supabase cutover** | ❌ **deferred** | `apps/bench/src/benches/restore-verify.bench.ts` opens with: *"The full restore-verify pipeline requires Supabase + a backup-restore API + an ephemeral PG instance to restore into. None of those are provisioned yet (`SUPABASE_URL` is not set; Supabase cutover is the S43 D9 milestone)."* |
 | **5-role authz at L2 + L3 (SPEC-08)** | ❌ | `packages/api-rbac/src/index.ts` ships only the public-API **OAuth2 scope** catalogue (3 scopes). Owner/Admin/Editor/Limited/Reviewer matrix at the command-bus + lock layer is missing. |
@@ -138,7 +138,7 @@ sprint. Item 4 is environment-bound and is the genuine M24 ship gate.
 | Check | Status |
 | ----- | ------ |
 | `plugins/multiplayer` | ✅ |
-| Soft locks (ADR-019) — client | ✅ `packages/sync-client/src/locks.ts` defines `LockConflictError` (409), `LockTransportError`, lease-id / extend-margin-ms semantics. |
+| Soft locks (ADR-0219) — client | ✅ `packages/sync-client/src/locks.ts` defines `LockConflictError` (409), `LockTransportError`, lease-id / extend-margin-ms semantics. |
 | Soft locks — server | ✅ `apps/sync-server/src/locks/{PgSoftLockStore, InMemorySoftLockStore, Sweeper, handlers, soft-locks.sql, types}`. Postgres advisory locks. |
 | Awareness < 5 KB/s per peer | ⚠ no awareness-bandwidth bench discovered. |
 | **VI Waves 1–5** spec; **all 11 shipped** | ✅ early — `packages/visibility/src/waves/{w01-level-scope … w11-ghost-layer}` all present. Drift-closeout: ADR-0041 ratifies the early shipment. |
@@ -161,13 +161,13 @@ sprint. Item 4 is environment-bound and is the genuine M24 ship gate.
 
 | Anchor | Status | Evidence |
 | ------ | ------ | -------- |
-| **ADR-002** translator | ✅ | `event-bridge.ts` + `event-bridge-roundtrip.test.ts`. |
-| **ADR-016** drawing engine (Canvas2D / SVG / PDF unified) | ⚠ | unified primitive surface ✅ (`drawing-primitives`); only Canvas2D backend implemented; SVG (S55) and PDF (S37) throw. |
-| **ADR-019** soft-lock semantics | ✅ | client + server complete. |
-| **ADR-027** 24 schedule formulas | ❌ | 12 of 24. |
-| **ADR-030** lifecycle dissolution | ⚠ | not deeply audited here. Worth a separate grep for residual `src/lifecycle/` legacy. |
-| **ADR-031 / SPEC-32** CDE | N/A | deferred to Phase 4. Placeholder file fine. |
-| **ADR-040** CSV/XLSX/PDF exports, no native bindings | ⚠ | files present; `xlsx` and `pdf-lib` import audit not performed. |
+| **ADR-0202** translator | ✅ | `event-bridge.ts` + `event-bridge-roundtrip.test.ts`. |
+| **ADR-0216** drawing engine (Canvas2D / SVG / PDF unified) | ⚠ | unified primitive surface ✅ (`drawing-primitives`); only Canvas2D backend implemented; SVG (S55) and PDF (S37) throw. |
+| **ADR-0219** soft-lock semantics | ✅ | client + server complete. |
+| **ADR-0227** 24 schedule formulas | ❌ | 12 of 24. |
+| **ADR-0230** lifecycle dissolution | ⚠ | not deeply audited here. Worth a separate grep for residual `src/lifecycle/` legacy. |
+| **ADR-0231 / SPEC-32** CDE | N/A | deferred to Phase 4. Placeholder file fine. |
+| **ADR-0240** CSV/XLSX/PDF exports, no native bindings | ⚠ | files present; `xlsx` and `pdf-lib` import audit not performed. |
 | **SPEC-03** sync / CRDT | ✅ structurally | the chaos harness + translator round-trip cover most of the spec. The 100-edit converge < 5 s gate is not benched here. |
 | **SPEC-04** drawing-engine equivalence test (Canvas2D vs SVG vs PDF, ≤ 0.5 % pixel variance) | ❌ | no equivalence test exists; can't, while two backends are stubs. |
 | **SPEC-08** 5-role RBAC at L2/L3 | ❌ | not implemented. `api-rbac` is a different concern (OAuth2 scopes for the public REST API). |
@@ -239,7 +239,7 @@ render(): never {
 Until this lands, sheet export, schedule PDF export, and the
 SPEC-04 equivalence test are all blocked. Of all Phase-2 gaps,
 **this single file is the highest-leverage fix**. Recommend
-`pdf-lib` as the implementation library (per ADR-040) and a parity
+`pdf-lib` as the implementation library (per ADR-0240) and a parity
 fixture set in `tests/visual-diff/sheets/`.
 
 ### 5.2 The schedule formula library is at 50 %
@@ -313,7 +313,7 @@ a small project that's 25 KB/s — fine. With 50 it's 250 KB/s —
 gets close to mobile-tether limits. Worth a `awareness-bandwidth.bench.ts`
 that asserts the budget and fails CI on regression before GA.
 
-### 5.10 Lifecycle subsystem dissolution (ADR-030)
+### 5.10 Lifecycle subsystem dissolution (ADR-0230)
 
 The ADR mandates deletion of `src/lifecycle/` after the
 cross-family invariants move to `plugins/lifecycle/` + command-bus
@@ -324,7 +324,7 @@ legacy remains; if it does, file the deletion ticket.
 
 ## 6. Concrete next-actions list (ordered by impact / effort)
 
-1. **Implement `packages/drawing-primitives/src/backends/pdf.ts`** with `pdf-lib` (ADR-040). *2–3 days.* Unblocks M20 acceptance and the SPEC-04 equivalence test.
+1. **Implement `packages/drawing-primitives/src/backends/pdf.ts`** with `pdf-lib` (ADR-0240). *2–3 days.* Unblocks M20 acceptance and the SPEC-04 equivalence test.
 2. **Close formula library 12 → 24** by porting the missing twelve into `packages/formula-library/src/builtins.ts`. *1.5 days.* Closes the only Phase-2C drift-closeout item still open.
 3. **Wire AI back-pressure curve** in `AiHost.impl.ts` per SPEC-31. *1 day.* Unblocks safe Beta cohort scaling.
 4. **Restart `audit-log-middleware`, `pryzm-persistence`, `pryzm-vi-parity` workflows** (carried from Phase-1 audit). *5 minutes.*

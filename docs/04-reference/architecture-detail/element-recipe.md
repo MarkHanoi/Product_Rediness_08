@@ -25,7 +25,7 @@ Before writing a single file, confirm:
    (true for all 20 families since S01).
 2. The element's **typed-id brand** exists — `IdFor<'door'>`, `IdFor<'slab'>`,
    etc. — in `packages/schemas/src/types/Id.ts`.
-3. The triage **ADR** for this family is **Accepted** (`adr/0008-wall-handler-triage.md`
+3. The triage **ADR** for this family is **Accepted** (`adr/ADR-0008-wall-handler-triage.md`
    for wall, `0010` for door, `0011` for curtain-wall). The ADR pins the
    command-handler triage (e.g. wall: 22 → 14, in three waves). No code
    lands until the ADR is Accepted.
@@ -112,7 +112,7 @@ export class <Family>Store extends Store<<Family>Data> {
 can `instanceof <Family>SystemError` test the entire family. Each
 subclass has a stable `name` for log filtering. **Do not** dispatch a
 DOM event from the constructor — error fan-out belongs to L7 (DOM-free
-per ADR-002 §3).
+per ADR-0202 §3).
 
 Mandatory subclasses:
 
@@ -325,7 +325,7 @@ landing point — the recipe is intentionally headless-only at S07.
 
 ## 12. Process-tracker
 
-After landing, append a row to `docs/03-execution/status/legacy-status-detail/01-PROCESS-TRACKER.md`
+After landing, append a row to `docs/03-execution/status/legacy-status-detail/01-process-tracker.md`
 under the appropriate sprint section. Mark `[x]` only when:
 
 1. `npm run build` is green from a clean checkout.
@@ -356,17 +356,17 @@ The full v1 worked example, file-by-file:
 * `plugins/wall/__tests__/{store,system-type-store,handlers,baseline-fixtures}.test.ts`
 * `tests/fixtures/pryzm-1/wall/{create,delete,move,dimensions,color}.json`
 * `apps/bench/src/benches/wall-handlers.bench.ts`
-* `docs/02-decisions/adrs/0008-wall-handler-triage.md`
+* `docs/02-decisions/adrs/ADR-0008-wall-handler-triage.md`
 
 ---
 
-## Appendix B — porting a producer (added S08, ADR-009)
+## Appendix B — porting a producer (added S08, ADR-0209)
 
 S08 landed the **first** kernel producer (`produceWall`).  This appendix
 captures the porting recipe so the next family-agent (door, window,
 slab, …) can reproduce the same shape without re-deriving the rules.
 
-### B.1 Producer signature (frozen by ADR-009)
+### B.1 Producer signature (frozen by ADR-0209)
 
 ```ts
 export type Producer<TDto> = (

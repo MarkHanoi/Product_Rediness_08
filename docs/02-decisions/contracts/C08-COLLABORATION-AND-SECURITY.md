@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: CANONICAL — **Wave A19 amendment applied**  
 > **Scope**: CRDT real-time sync, explicit conflict resolution, JWT authentication, permission model, rate limiting, CORS, and ISO 19650 project roles.  
 > **Key principles**: P8 (sync conflicts explicit).  
-> **References**: [ADR-002] CRDT bridge, [SPEC-03] sync, [ADR-019] soft-locks, [ADR-037/038] sovereignty/BYOK, [SPEC-34/35] enterprise security.
+> **References**: [ADR-0202] CRDT bridge, [SPEC-03] sync, [ADR-0219] soft-locks, [ADR-0237/038] sovereignty/BYOK, [SPEC-34/35] enterprise security.
 
 ---
 
@@ -18,10 +18,10 @@ PRYZM uses **custom JWT/bcrypt authentication** issued by the server. It does NO
 - Token lifetime: 7 days (configurable via `SESSION_SECRET_TTL`).
 - Tokens are sent as `Authorization: Bearer <token>` on every API request.
 
-**Mixed-backend deployment note ([ADR-045]):** In the standard Replit deployment, user-identity records (`pryzm_users` rows, owner seeding) are stored in and read from **Supabase via the service-role REST API** (`server/supabaseClient.js`). Project data (projects, versions, members) is stored in **Replit PG** (`server/pgClient.js`). PRYZM does NOT use Supabase Auth's JWT issuance — it issues its own tokens regardless of which backend is active. Consequences:
+**Mixed-backend deployment note ([ADR-0245]):** In the standard Replit deployment, user-identity records (`pryzm_users` rows, owner seeding) are stored in and read from **Supabase via the service-role REST API** (`server/supabaseClient.js`). Project data (projects, versions, members) is stored in **Replit PG** (`server/pgClient.js`). PRYZM does NOT use Supabase Auth's JWT issuance — it issues its own tokens regardless of which backend is active. Consequences:
 - `projects.owner_id` MUST NOT have a FK constraint referencing `pryzm_users(id)` in Replit PG (Replit PG's `pryzm_users` is empty in this deployment — see C05 §1.3.1).
 - All server-side user lookups MUST go through `getSupabaseClient()`, never through `pgClient.query()` against `pryzm_users`.
-- See [ADR-045] for the full split and future migration path.
+- See [ADR-0245] for the full split and future migration path.
 
 ### §1.2 — Auth middleware contract
 
@@ -145,4 +145,4 @@ For C4 enterprise customers (Differentiator D6):
 - EU-region customers default to an EU Supabase project (`SUPABASE_URL` pointing to EU endpoint).
 - Customer-managed keys (BYOK) are supported via `SUPABASE_SERVICE_ROLE_KEY` set by the customer.
 - Self-host deployments (Differentiator D7) use `DATABASE_URL` pointing to the customer's PostgreSQL instance.
-- References: [ADR-037] sovereignty, [ADR-038] BYOK, [SPEC-34] data residency, [SPEC-35] enterprise security.
+- References: [ADR-0237] sovereignty, [ADR-0238] BYOK, [SPEC-34] data residency, [SPEC-35] enterprise security.

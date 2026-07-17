@@ -1544,7 +1544,7 @@ export class ComponentPreview {
     });
 
     // CRITICAL: FrameScheduler owns the render loop — not a free-running rAF.
-    // This satisfies ADR-023 (library rAF quarantine).
+    // This satisfies ADR-0223 (library rAF quarantine).
     this.scheduler = new FrameScheduler();
     this.scheduler.onFrame('component-preview', this.render.bind(this), 'interactive');
 

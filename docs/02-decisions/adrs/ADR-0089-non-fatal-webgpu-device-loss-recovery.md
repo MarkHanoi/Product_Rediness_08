@@ -6,7 +6,7 @@
 | Date | 2026-06-30 |
 | Owner | Render pipeline (`packages/renderer-three` · `apps/editor` createRenderer / initScene) |
 | Tag | §RPM-RECOVERY-DOWNGRADE |
-| Builds on | §I2 / §FIX-DISPOSE-USEDTIMES (dispose-time device-loss family), §PERF-WEBGL2-NO-TSL, ADR-061 (lightweight WebGL render), ADR-0077 (§RENDERER-LIVE-SWAP) |
+| Builds on | §I2 / §FIX-DISPOSE-USEDTIMES (dispose-time device-loss family), §PERF-WEBGL2-NO-TSL, ADR-0261 (lightweight WebGL render), ADR-0077 (§RENDERER-LIVE-SWAP) |
 | Contracts | C04 (rendering/scheduling), P3 (single rAF), P8 (≥1 span / exported fn) |
 
 ## Context
@@ -89,7 +89,7 @@ pipeline). On a real WebGPU backend that compiles cleanly, behaviour is unchange
 ## Alternatives considered
 
 - **Hard reload on device loss.** Loses unsaved in-memory state and bounces the founder to the hub
-  — the very failure mode ADR-061 / §VCG-CONSECUTIVE-FRAME-GUARD already fight. Rejected.
+  — the very failure mode ADR-0261 / §VCG-CONSECUTIVE-FRAME-GUARD already fight. Rejected.
 - **Pre-compile the heavy pipeline before swapping.** THREE compiles lazily at first `render()`;
   there is no reliable pre-warm that distinguishes "will compile" from "will fail" on a recovered
   device without actually rendering. Downgrade-on-failure is the robust fallback.

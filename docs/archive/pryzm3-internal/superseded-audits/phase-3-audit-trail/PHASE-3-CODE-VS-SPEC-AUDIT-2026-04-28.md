@@ -126,10 +126,10 @@ What this audit catches that no other document does:
   test suite passes** (14/14). The workflow's last-known status appears
   to be stale at the workflow-runner level; the underlying code is green.
   This is a workflows-pane reporting hazard, not a code defect.
-* **`ADR-038-byok-key-custody.md`, `ADR-039-export-worker-architecture.md`,
-  and `ADR-040-schedule-export-formats.md` exist** in
+* **`ADR-0238-byok-key-custody.md`, `ADR-0239-export-worker-architecture.md`,
+  and `ADR-0240-schedule-export-formats.md` exist** in
   `docs/00_NEW_ARCHITECTURE/adrs/` (the *strategic* ADR series) — meaning
-  the Phase-2 audit's HIGH-3 finding ("ADR-039 referenced but not
+  the Phase-2 audit's HIGH-3 finding ("ADR-0239 referenced but not
   authored") was incorrect: the ADR exists, in the strategic series, not
   the sprint-scoped series at `docs/02-decisions/adrs/`. The Phase-3 audit
   flags the **dual-ADR-series numbering hazard** itself as a separate
@@ -202,18 +202,18 @@ confirms:
 
 | ADR | Title | Sprint | Status |
 |---|---|---|---|
-| ADR-029 | PDF-to-BIM Scope | 3A · S49 D6+D7 | **EXISTS** (`ADR-029-pdf-to-bim-scope.md`). Spec §S49 D7 (line 205) requires *"ratification meeting + signature"* — file presence is necessary but not sufficient evidence. |
-| ADR-030 | Lifecycle Subsystem Placement | (carryover) | EXISTS. |
-| ADR-031 | CDE Storage Topology | (carryover) | EXISTS. |
-| ADR-032 | Clash Rule Language | (carryover) | EXISTS. |
-| ADR-033 | MEP Propagation Graph Traversal | (carryover) | EXISTS. |
-| ADR-034 | COBIE Fallback Policy | (carryover) | EXISTS. |
-| ADR-035 | buildingSMART Cert Scope | (carryover) | EXISTS. |
-| ADR-036 | Stakeholder Review Pricing | (carryover) | EXISTS. |
-| ADR-037 | Sovereignty Default Cloud Region | (carryover) | EXISTS. |
-| ADR-038 | BYOK Key Custody | (carryover) | EXISTS — Phase-2 audit was wrong to flag missing. |
-| ADR-039 | Export-Worker Architecture | (carryover) | EXISTS — Phase-2 audit was wrong to flag missing. |
-| ADR-040 | Schedule Export Formats | (carryover) | EXISTS — Phase-2 audit was wrong to flag missing. |
+| ADR-0229 | PDF-to-BIM Scope | 3A · S49 D6+D7 | **EXISTS** (`ADR-0229-pdf-to-bim-scope.md`). Spec §S49 D7 (line 205) requires *"ratification meeting + signature"* — file presence is necessary but not sufficient evidence. |
+| ADR-0230 | Lifecycle Subsystem Placement | (carryover) | EXISTS. |
+| ADR-0231 | CDE Storage Topology | (carryover) | EXISTS. |
+| ADR-0232 | Clash Rule Language | (carryover) | EXISTS. |
+| ADR-0233 | MEP Propagation Graph Traversal | (carryover) | EXISTS. |
+| ADR-0234 | COBIE Fallback Policy | (carryover) | EXISTS. |
+| ADR-0235 | buildingSMART Cert Scope | (carryover) | EXISTS. |
+| ADR-0236 | Stakeholder Review Pricing | (carryover) | EXISTS. |
+| ADR-0237 | Sovereignty Default Cloud Region | (carryover) | EXISTS. |
+| ADR-0238 | BYOK Key Custody | (carryover) | EXISTS — Phase-2 audit was wrong to flag missing. |
+| ADR-0239 | Export-Worker Architecture | (carryover) | EXISTS — Phase-2 audit was wrong to flag missing. |
+| ADR-0240 | Schedule Export Formats | (carryover) | EXISTS — Phase-2 audit was wrong to flag missing. |
 | (also) | `M28-IFC-IMPORT-PIPELINE.md` | 3B · S55 | EXISTS — supplementary spec note in the `adrs/` dir (irregular placement). |
 
 ### 1.5 SPECs added or extended during Phase 3
@@ -287,7 +287,7 @@ The `pdf-stage3-pure` workflow currently masks the real
 | Report | Sprint | Status |
 |---|---|---|
 | `M27-3A.md` | spec §S54 D6 | **DOES NOT EXIST** |
-| `M30-3B.md` | spec line 487 D7 / §6 D6 | **EXISTS** — but marked `DRAFT (S59 D1 — full report drafts at S60 D6)`. Substantive: documents T2.1 DXF/SVG defer (founder + agent ratified), T2.2-T2.6 Tier-2 cut-list re-confirmations, BCF S59 surface deliverables, reversal triggers, and references to `[strategic ADR-018]`. |
+| `M30-3B.md` | spec line 487 D7 / §6 D6 | **EXISTS** — but marked `DRAFT (S59 D1 — full report drafts at S60 D6)`. Substantive: documents T2.1 DXF/SVG defer (founder + agent ratified), T2.2-T2.6 Tier-2 cut-list re-confirmations, BCF S59 surface deliverables, reversal triggers, and references to `[strategic ADR-0218]`. |
 | (any 3A demo recording) | spec §S54 D5 | **DOES NOT EXIST** anywhere in repo |
 
 ### 1.9 Revit add-in (S57+)
@@ -426,7 +426,7 @@ preserves the entire `ifc.*` namespace on the PRYZM side: GlobalId,
 typeName, name, description, objectType, all Psets (walked via
 `IfcRelDefinesByProperties`), all `IfcElementQuantity`,
 materialLayerSetSource. Tier-2 proxy support shipped (`tier2-proxy.test.ts`
-9 tests) for the read-only IFC 4.3 proxies per ADR-008.
+9 tests) for the read-only IFC 4.3 proxies per ADR-0208.
 
 ### W-11. IFC Pset/Quantity inspector (S57)
 
@@ -482,7 +482,7 @@ Despite being marked DRAFT, the report contains real analysis: the T2.1
 defer decision is justified with five concrete inputs (Phase-2 velocity,
 beta-cohort demand, DXF-import ship status, existing 2D export coverage,
 cut-list carry); reversal trigger documented; cross-references to
-`[strategic ADR-018]` row T2.1 and risk register row R3B-06. The
+`[strategic ADR-0218]` row T2.1 and risk register row R3B-06. The
 discipline of *recording* the founder + agent decision rather than
 silently dropping the work is exactly the discipline the audit framework
 asks for.
@@ -885,16 +885,16 @@ the middleware shape; the table/S3/report layers are not in
 
 Two parallel ADR series both contain entries numbered `0029`:
 
-* `docs/00_NEW_ARCHITECTURE/adrs/ADR-029-pdf-to-bim-scope.md` — the
+* `docs/00_NEW_ARCHITECTURE/adrs/ADR-0229-pdf-to-bim-scope.md` — the
   *strategic* ADR series (referenced in phase docs as `[strategic
-  ADR-029]`).
+  ADR-0229]`).
 * `docs/02-decisions/adrs/0029-vector-primitives-and-backends.md` — the
   *sprint-scoped* ADR series (referenced in phase docs as `[ADR
   0029-vector-primitives-and-backends]`).
 
 The Phase-3 phase docs distinguish them with `[strategic …]` vs
 `[ADR NNNN-slug]` syntax, but the Phase-2 audit (HIGH-3) confused them.
-The risk is real: a future contributor adding `ADR-029` to either series
+The risk is real: a future contributor adding `ADR-0229` to either series
 could believe they are extending the document already there. The
 phase-doc convention is correct; the directory structure is the hazard.
 
@@ -1126,7 +1126,7 @@ change in 2027 will be caught only by the Revit-cohort beta user.
 | 10-min 3A demo recording | S54 D5 | Absent (HIGH-5) | 0/10 |
 | `M27-3A.md` published | S54 D6 | Absent (CRIT-4) | 0/10 |
 | Beta bug-fix lane S49–S52 exit | line 193 | No evidence (DB-7) | 4/10 |
-| ADR-029 ratified | S49 D7 | File exists; meeting/signature unverifiable from filesystem | 7/10 |
+| ADR-0229 ratified | S49 D7 | File exists; meeting/signature unverifiable from filesystem | 7/10 |
 
 **Weighted score**: drop-in average across the 19 items × 1 weight: ~6.4/10
 = **64/100**. Adjusting upward for the over-delivered visibility wave
@@ -1197,7 +1197,7 @@ marketplace) from the average; the remaining 25 items average **7.6/10
    test that exercises the legacy path under flag-on. **~3 h** (CRIT-3).
 4. **Author `apps/bench/reports/M27-3A.md`** with: bench-script run
    results (verify scripts exist first per R-9), per-sprint exit
-   confirmations, P0/P1 bug counts from beta lane, ADR-029 ratification
+   confirmations, P0/P1 bug counts from beta lane, ADR-0229 ratification
    timestamp. **~4 h** (CRIT-4).
 5. **Capture the 10-min 3A demo screencast** of the full
    PDF→Critique→Generate-3-Options→Voice→Approve pipeline.

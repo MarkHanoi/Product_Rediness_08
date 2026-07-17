@@ -3,22 +3,22 @@
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
 > 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-0201]`..`[strategic ADR-0224]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
 > 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
 > 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
 > Where this phase document conflicts with any of the above, the higher-precedence document wins. **ADR citations**: bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `02-decisions/adrs/`, or fully-qualified `code-level ADR docs/02-decisions/adrs/NNNN-<slug>.md` for sprint-scoped decisions.
 >
-> **`code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md`..017 in this document.** Phase 1C introduces **four sprint-scoped ADRs** whose canonical text lives in §6 below. They map to the following code-level slugs:
+> **`code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md`..017 in this document.** Phase 1C introduces **four sprint-scoped ADRs** whose canonical text lives in §6 below. They map to the following code-level slugs:
 >
 > | §6 heading | Code-level slug |
 > |---|---|
-> | ADR-014 — TRAA / SSGI idle-continuation budget | `docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` |
-> | ADR-015 — Picking strategy: gpu-pick + BVH fallback | `docs/02-decisions/adrs/0015-picking-strategy.md` |
-> | ADR-016 — View state command-driven model | `docs/02-decisions/adrs/0016-view-state-command-driven.md` |
-> | ADR-017 — `@pryzm/headless` package surface | `docs/02-decisions/adrs/0017-headless-package-surface.md` |
+> | ADR-0214 — TRAA / SSGI idle-continuation budget | `docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` |
+> | ADR-0215 — Picking strategy: gpu-pick + BVH fallback | `docs/02-decisions/adrs/ADR-0015-picking-strategy.md` |
+> | ADR-0216 — View state command-driven model | `docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` |
+> | ADR-0217 — `@pryzm/headless` package surface | `docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` |
 >
-> **Numbering collision note.** Phase 1B drafted `code-level ADR 0014-persistence-snapshot-threshold.md` (only if S09 needed it). Phase 1C's `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` (TRAA / SSGI) is a different decision; when both files materialize in `docs/02-decisions/adrs/`, one will need a disambiguating slug (e.g. `0014a-...` or shift one up the sequence).
+> **Numbering collision note.** Phase 1B drafted `code-level ADR 0014-persistence-snapshot-threshold.md` (only if S09 needed it). Phase 1C's `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` (TRAA / SSGI) is a different decision; when both files materialize in `docs/02-decisions/adrs/`, one will need a disambiguating slug (e.g. `0014a-...` or shift one up the sequence).
 
 > **Sub-phase goal**: by end of M9 the **12 element families** are end-to-end (the 9 from 1B + Stairs, Handrails, Ceilings); the renderer is hardened for production with post-FX, TRAA, SSGI all under scheduler control; selection / picking works across every element; view-state foundations exist; **`@pryzm/headless` runs in Node and produces a valid wall+slab project**. The kernel-purity claim is mechanically verified for the first time outside lint.
 >
@@ -40,7 +40,7 @@ Same as 1A/1B: 2 agents (A, B) + Founder (F). 1 sprint = 10 working days. D1 kic
 
 In 1A and 1B the cleavage was data-vs-render. In 1C the work is more diverse: element completion, renderer hardening, view-state, selection, headless. We pivot to a **systems-vs-elements** split.
 
-### §1.x Type catalog hardening (`[strategic ADR-017]`)
+### §1.x Type catalog hardening (`[strategic ADR-0217]`)
 
 Phase 1C is the sprint block where SPEC-05 lands in earnest. By S18 close:
 
@@ -59,7 +59,7 @@ Phase 1C is the sprint block where SPEC-05 lands in earnest. By S18 close:
 
 ### §1.z Capacity envelope
 
-> **Capacity envelope (`[strategic ADR-018]`).** Phase 1C accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-018-capacity-cut-list.md` is the ratified order. Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
+> **Capacity envelope (`[strategic ADR-0218]`).** Phase 1C accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-0218-capacity-cut-list.md` is the ratified order. Defer items per the `[strategic ADR-0218]` ranking — never improvise scope reductions.
 
 ### Track A — Systems & Headless (Agent A owns)
 
@@ -100,10 +100,10 @@ L5 post-FX, idle-budget tuning, the 3 remaining elements (Stair, Handrail, Ceili
 
 | Item | Sprint | Sync mechanism |
 |---|---|---|
-| `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` (TRAA / SSGI under idle-continuation budget) | S15 D1 | F-driven; B drafts |
-| `code-level ADR docs/02-decisions/adrs/0015-picking-strategy.md` (Picking strategy: gpu-pick default, BVH fallback) | S16 D1 | F-driven; A drafts |
-| `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` (View state model: command-driven view switch) | S17 D1 | F-driven; A drafts |
-| `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` (Headless package surface — what does `@pryzm/headless` export?) | S18 D1 | F-driven; A drafts |
+| `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` (TRAA / SSGI under idle-continuation budget) | S15 D1 | F-driven; B drafts |
+| `code-level ADR docs/02-decisions/adrs/ADR-0015-picking-strategy.md` (Picking strategy: gpu-pick default, BVH fallback) | S16 D1 | F-driven; A drafts |
+| `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` (View state model: command-driven view switch) | S17 D1 | F-driven; A drafts |
+| `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` (Headless package surface — what does `@pryzm/headless` export?) | S18 D1 | F-driven; A drafts |
 | Sub-phase 1C demo recording | S18 D9 | Joint |
 
 ---
@@ -114,7 +114,7 @@ L5 post-FX, idle-budget tuning, the 3 remaining elements (Stair, Handrail, Ceili
 
 ### S13 — Curtain Wall completion + producer perf tune (Weeks 25–26, M7)
 
-**Joint goal**: all curtain-wall handlers operational (12 PRYZM 1 commands → 9 final per `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`); producer p95 < 50 ms for typical façade; orbit-fps with 50-panel façade > 55 fps.
+**Joint goal**: all curtain-wall handlers operational (12 PRYZM 1 commands → 9 final per `code-level ADR docs/02-decisions/adrs/ADR-0011-curtain-wall-triage-and-producer-split.md`); producer p95 < 50 ms for typical façade; orbit-fps with 50-panel façade > 55 fps.
 
 #### D1 — Kickoff (30 min)
 
@@ -125,7 +125,7 @@ L5 post-FX, idle-budget tuning, the 3 remaining elements (Stair, Handrail, Ceili
 
 | Day | Agent A (Track A — CW handlers + intent) | Agent B (Track B — CW committer perf + Stair prep) |
 |---|---|---|
-| D2 | Implement remaining CW handlers per `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` — focus on `AddPanel`, `RemovePanel`, `SwapPanel`, `SetMullionType`, `RotatePanel`. | CW committer profile: identify hot path (typically per-panel material instantiation). Move panel materials to `MaterialPool` cache. |
+| D2 | Implement remaining CW handlers per `code-level ADR docs/02-decisions/adrs/ADR-0011-curtain-wall-triage-and-producer-split.md` — focus on `AddPanel`, `RemovePanel`, `SwapPanel`, `SetMullionType`, `RotatePanel`. | CW committer profile: identify hot path (typically per-panel material instantiation). Move panel materials to `MaterialPool` cache. |
 | D3 | Implement `plugins/curtain-wall/intent.ts` — resolves which panel a click/edit targets in a multi-panel façade. | Re-run `produce-cw.ts` bench — target < 50 ms p95. Tune producer (likely: vector-math hot path). |
 | D4 | Extract 25-case parity fixture `tests/parity/curtain-wall/` from real PRYZM 1 façades. | Bench `apps/bench/orbit-fps.ts` re-run with 50-panel façade — target > 55 fps p95. |
 | D5 | **Mid-sprint sync (1 h)** — paired session: validate CW handlers + intent + parity. | Same paired session — start Stair store/handler design (lands in S14). |
@@ -143,8 +143,8 @@ L5 post-FX, idle-budget tuning, the 3 remaining elements (Stair, Handrail, Ceili
 
 - [ ] `Curtain Wall` family schema complete in `packages/types-schema/curtain-wall.ts` (per SPEC-05 §1.2).
 - [ ] Built-in curtain-wall types declared in `packages/types-builtin/curtain-wall/` (count per SPEC-05 §7).
-- [ ] Property-test for the curtain-wall family in `packages/geometry-kernel/__tests__/robustness/curtain-wall.spec.ts` green (per `[strategic ADR-020]`).
-- [ ] OTel coverage lint passes per P8 (`[strategic ADR-007]`).
+- [ ] Property-test for the curtain-wall family in `packages/geometry-kernel/__tests__/robustness/curtain-wall.spec.ts` green (per `[strategic ADR-0220]`).
+- [ ] OTel coverage lint passes per P8 (`[strategic ADR-0207]`).
 
 #### S13 exit criteria
 
@@ -156,7 +156,7 @@ L5 post-FX, idle-budget tuning, the 3 remaining elements (Stair, Handrail, Ceili
 #### S13 typed contracts introduced
 
 ```ts
-// plugins/curtain-wall/intent.ts — S13-T2 (~280 LOC; mirrors WallIntentResolver shape from `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`)
+// plugins/curtain-wall/intent.ts — S13-T2 (~280 LOC; mirrors WallIntentResolver shape from `code-level ADR docs/02-decisions/adrs/ADR-0013-intent-resolver.md`)
 export interface CurtainWallIntentResolver {
   // Which panel (cell) does this 2D screen-projected point hit? Pure DTO/grid math; no THREE.Raycaster.
   resolvePanelCell(cwId: CurtainWallId, projectedPoint: Point2D): { row: number; col: number } | null;
@@ -202,7 +202,7 @@ export const addPanelHandler: Handler<AddPanelCommand> = {
 //   `{kind:'glass',color,opacity,ior}` so 50 identical panels share 1 THREE material.
 //   Pre-S13: 50 panels = 50 materials = 50 draw calls; post-S13: 50 panels = 1 material = 1 draw call.
 interface CWSceneEntry {
-  mesh: THREE.Mesh;                              // single mesh, multi-group per `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`
+  mesh: THREE.Mesh;                              // single mesh, multi-group per `code-level ADR docs/02-decisions/adrs/ADR-0011-curtain-wall-triage-and-producer-split.md`
   panelMaterialHandles: Map<PanelTypeId, MaterialHandle>;  // pooled; refcount-managed
   mullionMaterialHandle: MaterialHandle;
   transomMaterialHandle: MaterialHandle;
@@ -300,8 +300,8 @@ function rebindPanelMaterials(entry: CWSceneEntry, cw: CurtainWallData, ctx: Com
 
 - [ ] `Stair`, `Handrail`, and `Ceiling` family schemas complete in `packages/types-schema/{stair,handrail,ceiling}.ts` (per SPEC-05 §1.2).
 - [ ] Built-in types declared in `packages/types-builtin/{stair,handrail,ceiling}/` (counts per SPEC-05 §7 — 4 stairs, 2 railings, 2 ceilings minimum).
-- [ ] Property-tests for each family in `packages/geometry-kernel/__tests__/robustness/{stair,handrail,ceiling}.spec.ts` green (per `[strategic ADR-020]`).
-- [ ] OTel coverage lint passes per P8 (`[strategic ADR-007]`).
+- [ ] Property-tests for each family in `packages/geometry-kernel/__tests__/robustness/{stair,handrail,ceiling}.spec.ts` green (per `[strategic ADR-0220]`).
+- [ ] OTel coverage lint passes per P8 (`[strategic ADR-0207]`).
 
 #### S14 exit criteria
 
@@ -358,7 +358,7 @@ export interface CeilingData { /* DTO */ }
 export const produceCeiling: (dto: CeilingData) => BufferGeometryDescriptor;
 //   Planar polygon triangulation (earcut.js, BSD) + optional bulkhead offset extrusion.
 
-// plugins/cross/stair-handrail.ts — S14-T6 (cascade rule per `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`)
+// plugins/cross/stair-handrail.ts — S14-T6 (cascade rule per `code-level ADR docs/02-decisions/adrs/ADR-0012-cross-element-cascade-rule-registration.md`)
 export const stairHandrailCascadeRule: CascadeRule<'stair.path'> = {
   key: 'stair.path',
   resolveAffected(stairId, ctx) {
@@ -369,7 +369,7 @@ export const stairHandrailCascadeRule: CascadeRule<'stair.path'> = {
 
 #### S14 key pseudocode — Stair-Handrail coupling via CascadeRunner (no inline subscribers)
 
-The naïve approach to "handrail follows stair" is to give the handrail committer a `stairStore.subscribeDirty` callback that re-builds the handrail whenever the stair changes. This works but spreads coupling logic across plugins. The architecturally correct approach uses 1B's `CascadeRunner` (`code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`): the cross-package `plugins/cross/stair-handrail.ts` registers a cascade rule, and the runner synthesises a `RecomputeHandrail` command whenever any `Move/SetTreadCount/SetRiserHeight/SetWidth` stair handler dispatches.
+The naïve approach to "handrail follows stair" is to give the handrail committer a `stairStore.subscribeDirty` callback that re-builds the handrail whenever the stair changes. This works but spreads coupling logic across plugins. The architecturally correct approach uses 1B's `CascadeRunner` (`code-level ADR docs/02-decisions/adrs/ADR-0012-cross-element-cascade-rule-registration.md`): the cross-package `plugins/cross/stair-handrail.ts` registers a cascade rule, and the runner synthesises a `RecomputeHandrail` command whenever any `Move/SetTreadCount/SetRiserHeight/SetWidth` stair handler dispatches.
 
 ```ts
 // packages/command-bus/cascade.ts — runner (existing 1B infra) processes stair.path key
@@ -427,7 +427,7 @@ The naïve approach to "handrail follows stair" is to give the handrail committe
 
 #### D1 — Kickoff (30 min)
 
-- B presents `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` draft (idle-continuation N-frame budget per pass: TRAA = 16 frames, SSGI = 32 frames, bloom = 0 — bloom is one-shot).
+- B presents `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` draft (idle-continuation N-frame budget per pass: TRAA = 16 frames, SSGI = 32 frames, bloom = 0 — bloom is one-shot).
 - A presents `apps/bench/load-medium.ts` skeleton — full-fixture cold-load bench will be tuned in 1D.
 
 #### D2–D8 parallel work
@@ -435,9 +435,9 @@ The naïve approach to "handrail follows stair" is to give the handrail committe
 | Day | Agent A (Track A — load-medium bench + headless prep) | Agent B (Track B — post-FX implementation) |
 |---|---|---|
 | D2 | Build `tests/fixtures/medium-project.pryzm-stub.json` — 500 walls × 5 levels. Wire `apps/bench/load-medium.ts`; baseline before tier-streaming (target full < 4 s, first interactive < 1.5 s — full target hit in S23). | Implement `packages/renderer/passes/Bloom.ts` — single-pass, no idle accumulation. Wire to scheduler. |
-| D3 | Headless package design — what surface does `@pryzm/headless` expose? `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` draft. | Implement `packages/renderer/passes/TRAA.ts` — temporal reprojection. Wire to scheduler with idle-continuation. |
+| D3 | Headless package design — what surface does `@pryzm/headless` expose? `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` draft. | Implement `packages/renderer/passes/TRAA.ts` — temporal reprojection. Wire to scheduler with idle-continuation. |
 | D4 | Mock headless test in `apps/headless/__tests__/skeleton.test.ts` — runs `command-bus` + `geometry-kernel` + `persistence-client (in-memory)` in Node. Validates kernel-purity claim. | Implement `packages/renderer/passes/SSGI.ts` — screen-space global illumination. Wire to scheduler. |
-| D5 | **Mid-sprint sync (1 h)** — A confirms scheduler API supports per-pass priorities; B confirms idle-continuation budget composable across multiple passes. | Implement `packages/renderer/IdleAccumulator.ts` — bounded N-frame budget across multiple accumulation passes; respects `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` budgets. |
+| D5 | **Mid-sprint sync (1 h)** — A confirms scheduler API supports per-pass priorities; B confirms idle-continuation budget composable across multiple passes. | Implement `packages/renderer/IdleAccumulator.ts` — bounded N-frame budget across multiple accumulation passes; respects `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` budgets. |
 | D6 | Stand up `apps/headless/index.ts` skeleton — Node entry; wires packages; CLI not yet. | Wire bench `apps/bench/idle-cpu.ts` re-run with full post-FX active — must still hit < 2% on idle. |
 | D7 | Headless DSL: `pryzm-cli new-project` and `pryzm-cli add-wall` design. | Wire bench `apps/bench/orbit-fps.ts` re-run with full post-FX — must still hit > 55 fps p95. |
 | D8 | `apps/bench/load-medium.ts` first numbers committed in `baseline.json`. | Bench `apps/bench/render-pass-cost.ts` — per-pass cost breakdown. Visual-diff test vs PRYZM 1 reference renders. |
@@ -446,12 +446,12 @@ The naïve approach to "handrail follows stair" is to give the handrail committe
 
 - B demos: scene with bloom + TRAA + SSGI; idle CPU still < 2% in DevTools; orbit > 55 fps; per-pass OTel breakdown.
 - A demos: medium-fixture bench numbers (pre-streaming baseline); headless skeleton runs in Node.
-- Retro: `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` budgets right? TRAA jitter visible?
+- Retro: `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` budgets right? TRAA jitter visible?
 
 #### S15 exit criteria — extra (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md §3.4`)
 
-- [ ] OTel coverage lint passes per P8 (`[strategic ADR-007]`) for all post-FX passes added (TRAA, SSGI, bloom).
-- [ ] Renderer-side property tests for accumulation determinism green per `[strategic ADR-020]` (idle-continuation pass produces identical Float32Array across two runs from the same seed).
+- [ ] OTel coverage lint passes per P8 (`[strategic ADR-0207]`) for all post-FX passes added (TRAA, SSGI, bloom).
+- [ ] Renderer-side property tests for accumulation determinism green per `[strategic ADR-0220]` (idle-continuation pass produces identical Float32Array across two runs from the same seed).
 - [ ] Property/types: any new render-pass schema landed in `packages/types-schema/` is complete per SPEC-05 §1.2 (n/a for purely runtime passes).
 
 #### S15 exit criteria
@@ -460,7 +460,7 @@ The naïve approach to "handrail follows stair" is to give the handrail committe
 - [ ] Idle CPU < 2% with full post-FX active (CI gate).
 - [ ] Orbit fps > 55 p95 with full post-FX (CI gate).
 - [ ] Per-pass OTel spans (`pryzm.render.bloom`, `pryzm.render.traa`, `pryzm.render.ssgi`) in Honeycomb.
-- [ ] `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` merged.
 
 **K1A-1-revisit**: idle-CPU gate held under post-FX. If not, this is the hardening sprint to fix it before 1D.
 
@@ -471,7 +471,7 @@ The naïve approach to "handrail follows stair" is to give the handrail committe
 export interface RenderPass {
   readonly id: string;                                       // 'bloom' | 'traa' | 'ssgi' | ...
   readonly priority: TickPriority;                           // 'render' | 'post-render' (1A S03)
-  readonly idleBudgetFrames: number;                         // 0 = one-shot; >0 = N-frame accumulation per `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md`
+  readonly idleBudgetFrames: number;                         // 0 = one-shot; >0 = N-frame accumulation per `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md`
   setup(ctx: RenderContext): void;
   // Returns true when pass output is fully converged (idle-continuation can stop calling).
   render(ctx: RenderContext, dt: number, frameIndex: number): boolean;
@@ -491,7 +491,7 @@ export class BloomPass implements RenderPass {
 export class TRAAPass implements RenderPass {
   readonly id = 'traa';
   readonly priority: TickPriority = 'post-render';
-  readonly idleBudgetFrames = 16;                             // converges in 16 frames per `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md`
+  readonly idleBudgetFrames = 16;                             // converges in 16 frames per `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md`
   // Implementation: per-frame jittered camera; reproject prev frame; reject by motion vector + depth.
 }
 
@@ -499,7 +499,7 @@ export class TRAAPass implements RenderPass {
 export class SSGIPass implements RenderPass {
   readonly id = 'ssgi';
   readonly priority: TickPriority = 'render';                 // before post-FX composite
-  readonly idleBudgetFrames = 32;                             // converges in 32 frames per `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md`
+  readonly idleBudgetFrames = 32;                             // converges in 32 frames per `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md`
   // Implementation: hi-Z trace; cosine-weighted sample; temporal accumulation reusing TRAA's history buffer.
 }
 
@@ -582,7 +582,7 @@ class IdleAccumulator {
 | Day | Files added | Files modified | Tests passing |
 |---|---|---|---|
 | D2 | `tests/fixtures/medium-project.pryzm-stub.json` (500 walls × 5 levels), `apps/bench/load-medium.ts`, `packages/renderer/passes/Bloom.ts` | `bootstrap.render.ts` registers BloomPass | `+Bloom (3/3)` |
-| D3 | `packages/renderer/passes/TRAA.ts`, `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` draft (headless surface) | (none) | `+TRAA (3/3)` |
+| D3 | `packages/renderer/passes/TRAA.ts`, `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` draft (headless surface) | (none) | `+TRAA (3/3)` |
 | D4 | `packages/renderer/passes/SSGI.ts`, `apps/headless/__tests__/skeleton.test.ts` | (none) | `+SSGI (3/3); +headless skeleton (3/3 — kernel-purity verified mock)` |
 | D5 | `packages/renderer/IdleAccumulator.ts` (paired session) | `FrameScheduler.idleContinuation()` integration | `+IdleAccumulator (4/4)` |
 | D6 | `apps/headless/index.ts` skeleton (Node entry) | `apps/bench/idle-cpu.ts` re-run wired | idle-CPU 1.7% ✓ |
@@ -597,7 +597,7 @@ class IdleAccumulator {
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/02-decisions/adrs/0015-picking-strategy.md` draft (gpu-pick default, BVH-pick fallback) — F decides.
+- A presents `code-level ADR docs/02-decisions/adrs/ADR-0015-picking-strategy.md` draft (gpu-pick default, BVH-pick fallback) — F decides.
 - B confirms `plugins/wall/selection-highlight.ts` (from S09) refactors cleanly into shared `packages/render-runtime/highlight.ts`.
 
 #### D2–D8 parallel work
@@ -620,8 +620,8 @@ class IdleAccumulator {
 
 #### S16 exit criteria — extra (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md §3.4`)
 
-- [ ] OTel coverage lint passes per P8 (`[strategic ADR-007]`) for `pick.gpu`, `pick.bvh`, and `pick.fallback` spans.
-- [ ] Robustness property-tests for picking landed in `packages/geometry-kernel/__tests__/robustness/picking.spec.ts` green per `[strategic ADR-020]` (random-camera × random-mesh fixture; pick result deterministic across runs).
+- [ ] OTel coverage lint passes per P8 (`[strategic ADR-0207]`) for `pick.gpu`, `pick.bvh`, and `pick.fallback` spans.
+- [ ] Robustness property-tests for picking landed in `packages/geometry-kernel/__tests__/robustness/picking.spec.ts` green per `[strategic ADR-0220]` (random-camera × random-mesh fixture; pick result deterministic across runs).
 
 #### S16 exit criteria
 
@@ -630,7 +630,7 @@ class IdleAccumulator {
 - [ ] Box-select skeleton in place (full UX deferred to 2C).
 - [ ] OTel `pryzm.picking.pick` span visible.
 - [ ] Selection works across all 12 element families.
-- [ ] `code-level ADR docs/02-decisions/adrs/0015-picking-strategy.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/ADR-0015-picking-strategy.md` merged.
 
 #### S16 typed contracts introduced
 
@@ -779,7 +779,7 @@ pick(screenPoint: Point2D, ctx: PickContext): PickResult | null {
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` draft (view state as command-driven; views are first-class citizens in the event log).
+- A presents `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` draft (view state as command-driven; views are first-class citizens in the event log).
 - B sketches camera-controller refactor — current camera lives in renderer; needs to read from `ActiveViewStore`.
 
 #### D2–D8 parallel work
@@ -803,19 +803,19 @@ pick(screenPoint: Point2D, ctx: PickContext): PickResult | null {
 #### S17 exit criteria — extra (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md §3.4`)
 
 - [ ] `View` schema complete in `packages/view-state/ViewDefinition.ts` (Zod) — treated as a SPEC-05-style typed entity per SPEC-05 §1.2 conventions.
-- [ ] OTel coverage lint passes per P8 (`[strategic ADR-007]`) for `view.switch`, `view.create`, `view.delete`.
+- [ ] OTel coverage lint passes per P8 (`[strategic ADR-0207]`) for `view.switch`, `view.create`, `view.delete`.
 
 #### S17 exit criteria
 
 - [ ] Switching views via command updates camera and re-renders.
 - [ ] Views persist via S04 event log.
 - [ ] OTel `pryzm.view.switch` span < 200 ms p95.
-- [ ] `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` merged.
 
 #### S17 typed contracts introduced
 
 ```ts
-// packages/view-state/ViewDefinition.ts — Zod schema; `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` frozen
+// packages/view-state/ViewDefinition.ts — Zod schema; `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` frozen
 export const ViewDefinitionSchema = z.object({
   id: z.string().brand<'ViewId'>(),
   name: z.string(),
@@ -924,7 +924,7 @@ async switchTo(viewId: ViewId): Promise<void> {
 
 | Day | Files added | Files modified | Tests passing |
 |---|---|---|---|
-| D2 | `packages/view-state/ViewDefinition.ts`, `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` draft | `packages/renderer/CameraController.ts` reads ActiveViewStore | `+ViewDefinition (3/3)` |
+| D2 | `packages/view-state/ViewDefinition.ts`, `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` draft | `packages/renderer/CameraController.ts` reads ActiveViewStore | `+ViewDefinition (3/3)` |
 | D3 | `packages/view-state/ViewRegistry.ts`; `packages/view-state/ViewController.ts` (animation impl) | (none) | `+ViewRegistry (3/3); +animation (mocked) (3/3)` |
 | D4 | `packages/stores/ActiveViewStore.ts`; integration tests `view-state/integration/switch.test.ts` | `bootstrap.render.ts` registers ActiveViewStore + ViewRegistry | `+ActiveViewStore (2/2); +switch e2e (1/1)` |
 | D5 | (joint paired session — confirm camera doesn't fight scheduler) | `IdleAccumulator.onMotionStart()` gets called by `scheduler.beginMotion()` | (no merge) |
@@ -940,7 +940,7 @@ async switchTo(viewId: ViewId): Promise<void> {
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` (headless package surface). F decides minimal CLI: `new-project`, `add-wall`, `add-slab`, `export-pryzm`.
+- A presents `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` (headless package surface). F decides minimal CLI: `new-project`, `add-wall`, `add-slab`, `export-pryzm`.
 - B confirms `apps/bench/load-medium.ts` baseline updated with all S15+ improvements.
 
 #### D2–D8 parallel work
@@ -973,8 +973,8 @@ async switchTo(viewId: ViewId): Promise<void> {
 #### S18 exit criteria — extra (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md §3.4`)
 
 - [ ] Type catalog hardening complete per §1.x: all 8 system family schemas in `packages/types-schema/`; built-in catalog populated to M36 ship-with-product list per SPEC-05 §7; type-completeness lint PR-blocking.
-- [ ] OTel coverage lint passes per P8 (`[strategic ADR-007]`) for the headless package's CLI spans.
-- [ ] Headless determinism: same `.pryzm` input → byte-identical Float32Array geometry across two `@pryzm/headless` runs (per `[strategic ADR-020]`).
+- [ ] OTel coverage lint passes per P8 (`[strategic ADR-0207]`) for the headless package's CLI spans.
+- [ ] Headless determinism: same `.pryzm` input → byte-identical Float32Array geometry across two `@pryzm/headless` runs (per `[strategic ADR-0220]`).
 
 #### S18 exit criteria (= sub-phase 1C exit)
 
@@ -984,7 +984,7 @@ async switchTo(viewId: ViewId): Promise<void> {
 - [ ] All 12 element families end-to-end with parity, picking, view-state.
 - [ ] All 1A-1C bench targets green on dashboard.
 - [ ] Renderer hardening complete: idle CPU < 2% + orbit > 55 fps with full post-FX.
-- [ ] `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` merged.
 
 #### S18 typed contracts introduced
 
@@ -1123,10 +1123,10 @@ describe('K1-B kernel purity (mechanical verification)', () => {
 
 | ID | Subject | Owner | Sprint |
 |---|---|---|---|
-| `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` | TRAA / SSGI idle-continuation budgets | B | S15 |
-| `code-level ADR docs/02-decisions/adrs/0015-picking-strategy.md` | Picking strategy (gpu-pick + BVH fallback) | A | S16 |
-| `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` | View state command-driven model | A | S17 |
-| `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` | Headless package surface | A | S18 |
+| `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` | TRAA / SSGI idle-continuation budgets | B | S15 |
+| `code-level ADR docs/02-decisions/adrs/ADR-0015-picking-strategy.md` | Picking strategy (gpu-pick + BVH fallback) | A | S16 |
+| `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` | View state command-driven model | A | S17 |
+| `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` | Headless package surface | A | S18 |
 
 ### §3.2 CI gates added in 1C
 
@@ -1156,11 +1156,11 @@ describe('K1-B kernel purity (mechanical verification)', () => {
 
 | ID | Risk | Likelihood | Impact | Mitigation | Trigger |
 |---|---|---|---|---|---|
-| R1C-01 | Idle CPU bench fails under post-FX (TRAA jitter, SSGI accumulation) | Medium | High | `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` budgets tunable; S15 D7 budget audit; fallback: reduce SSGI budget | S15 |
-| R1C-02 | gpu-pick fragile on Linux WebGL2 | Medium | Medium | BVH fallback (`code-level ADR docs/02-decisions/adrs/0015-picking-strategy.md`); CI tests both | S16 |
+| R1C-01 | Idle CPU bench fails under post-FX (TRAA jitter, SSGI accumulation) | Medium | High | `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` budgets tunable; S15 D7 budget audit; fallback: reduce SSGI budget | S15 |
+| R1C-02 | gpu-pick fragile on Linux WebGL2 | Medium | Medium | BVH fallback (`code-level ADR docs/02-decisions/adrs/ADR-0015-picking-strategy.md`); CI tests both | S16 |
 | R1C-03 | Headless reveals kernel impurity | Low (we lint) | Critical | S15 D4 mock test; S18 D8 full integration; halt 1D entry if K1-B fires | S18 |
 | R1C-04 | Stair-Handrail coupling pattern doesn't generalise | Low | Low | Pattern documented in `docs/04-reference/architecture-detail/element-coupling.md`; reusable | S14 |
-| R1C-05 | View state model insufficient for plan/section in 2A/2B | Medium | Medium | `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` explicitly extensible; F reviews 2A plan against ADR before 2A starts | S17 |
+| R1C-05 | View state model insufficient for plan/section in 2A/2B | Medium | Medium | `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` explicitly extensible; F reviews 2A plan against ADR before 2A starts | S17 |
 | R1C-06 | Bench dashboard becomes stale because nobody reads it | High | Medium | Sprint demos always show dashboard; F reads it before approving merges | S18+ |
 | R1C-07 | Selection event volume dominates event log | Low | Medium | Selection events tagged `ephemeral: true` — pruned at session end | S16 |
 
@@ -1192,7 +1192,7 @@ describe('K1-B kernel purity (mechanical verification)', () => {
 
 The four ADRs below are drafted on each sprint's D1 by the listed owner and merged on D8 unless deferred. They all live in `docs/04-reference/architecture-detail/adrs/` (one file per ADR). Reproduced here in full so this phase doc is self-contained for downstream consumers (1D + 2A planning).
 
-### §6.1 ADR-014 — TRAA / SSGI under idle-continuation budget (S15)
+### §6.1 ADR-0214 — TRAA / SSGI under idle-continuation budget (S15)
 
 **Status**: Proposed (draft S15 D1) → Accepted (target S15 D8). Owner: B.
 
@@ -1216,7 +1216,7 @@ The four ADRs below are drafted on each sprint's D1 by the listed owner and merg
 
 **Alternatives rejected.** (a) Adaptive budget driven by per-frame variance — deferred (complexity-vs-need). (b) Always-render for N frames regardless of pass — rejected (idle CPU overshoots).
 
-### §6.2 ADR-015 — Picking strategy: gpu-pick default, BVH fallback (S16)
+### §6.2 ADR-0215 — Picking strategy: gpu-pick default, BVH fallback (S16)
 
 **Status**: Proposed (draft S16 D1) → Accepted (target S16 D8). Owner: A.
 
@@ -1237,7 +1237,7 @@ The four ADRs below are drafted on each sprint's D1 by the listed owner and merg
 
 **Alternatives rejected.** (a) gpu-pick only — fails on Linux (R1C-02). (b) BVH only — wastes CPU on the 95% of users with working WebGL2.
 
-### §6.3 ADR-016 — View state model: command-driven view switch (S17)
+### §6.3 ADR-0216 — View state model: command-driven view switch (S17)
 
 **Status**: Proposed (draft S17 D1) → Accepted (target S17 D8). Owner: A.
 
@@ -1260,7 +1260,7 @@ The four ADRs below are drafted on each sprint's D1 by the listed owner and merg
 
 **Alternatives rejected.** (a) Ad-hoc camera controller calls (PRYZM 1 status quo) — non-persistent, non-undoable. (b) Views as plain JS objects in a singleton — bypass event log; forfeits replay/audit.
 
-### §6.4 ADR-017 — `@pryzm/headless` package surface (S18)
+### §6.4 ADR-0217 — `@pryzm/headless` package surface (S18)
 
 **Status**: Proposed (draft S18 D1) → Accepted (target S18 D8). Owner: A.
 
@@ -1487,7 +1487,7 @@ This phase doc is consistent with `05-IMPLEMENTATION-PLAN.md`, `08-VISION.md`, `
 ### §10.2 Deltas vs `05-IMPLEMENTATION-PLAN.md`
 
 - **§13 hot path**: 05 enumerates the canonical 7-stage hot path (intent → command → handler → store → cascade → committer → render). 1C S13 extends with the curtain-wall-specific material-pool dedup at the committer stage; 1C S15 inserts the post-FX/IdleAccumulator stage between render and screen. Both extensions are consistent with the canonical pipeline; neither adds new stages.
-- **ADR numbering**: `05-IMPLEMENTATION-PLAN.md` reserves the `[strategic ADR-001]`..`[strategic ADR-012]` range for cross-cutting architectural decisions (Pascal, CRDT, storage, etc.); the *phase docs* (1A..1D) use a separate, sequential code-level ADR series for sprint-scoped decisions (slugged `0001-...`..`00NN-...` under `docs/02-decisions/adrs/`). To avoid collision with 1B's sprint-scoped series (the §6/§7 headings `ADR-008..013`, post rev-3, mapped to slugs `0008-wall-handler-triage` through `0013-intent-resolver`), 1C now uses **the §6 headings `ADR-014..017`** (mapped to slugs `0014-traa-ssgi-idle-budget` through `0017-headless-package-surface` per the §0 mapping table). This delta is recorded in §6 above; the cross-cutting strategic ADRs are unaffected.
+- **ADR numbering**: `05-IMPLEMENTATION-PLAN.md` reserves the `[strategic ADR-0201]`..`[strategic ADR-0212]` range for cross-cutting architectural decisions (Pascal, CRDT, storage, etc.); the *phase docs* (1A..1D) use a separate, sequential code-level ADR series for sprint-scoped decisions (slugged `0001-...`..`00NN-...` under `docs/02-decisions/adrs/`). To avoid collision with 1B's sprint-scoped series (the §6/§7 headings `ADR-0208..013`, post rev-3, mapped to slugs `0008-wall-handler-triage` through `0013-intent-resolver`), 1C now uses **the §6 headings `ADR-0214..017`** (mapped to slugs `0014-traa-ssgi-idle-budget` through `0017-headless-package-surface` per the §0 mapping table). This delta is recorded in §6 above; the cross-cutting strategic ADRs are unaffected.
 - **"4-week phase" granularity in 05**: 1C breaks each phase into six 2-week sprints (S13..S18). 05 lists phase milestones; 1C lists sprint milestones. Sprint structure is finer-grained than the canonical doc but does not contradict it.
 
 ### §10.3 Deltas vs `01-TARGET-ARCHITECTURE.md`
@@ -1513,12 +1513,12 @@ Each sprint's D1 kickoff assumes the following reading. Reading is light (≤ 30
 
 | Sprint | Agent A reads | Agent B reads | Joint reads |
 |---|---|---|---|
-| S13 | 1B S07 (curtain wall skeleton); `plugins/curtain-wall/*` | 1A S05 (`MaterialPool`); 1B `apps/bench/produce-cw.bench.ts` baseline | `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` (multi-group meshes); §6.1 `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` budget rationale (preview) |
+| S13 | 1B S07 (curtain wall skeleton); `plugins/curtain-wall/*` | 1A S05 (`MaterialPool`); 1B `apps/bench/produce-cw.bench.ts` baseline | `code-level ADR docs/02-decisions/adrs/ADR-0011-curtain-wall-triage-and-producer-split.md` (multi-group meshes); §6.1 `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` budget rationale (preview) |
 | S14 | 1B S08 (`CascadeRunner`); `docs/04-reference/architecture-detail/element-coupling.md` (draft seed); `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` (producer purity) | 1A S04 producer/committer pattern; `packages/geometry-kernel/producers/_internal/` shared helpers | §6 ADR catalog headers |
-| S15 | (handoff D2 only) | THREE.EffectComposer source; existing PRYZM 1 post-FX in `src/core/rendering/`; `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` §6.1 | `code-level ADR docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` §6.1; `08-VISION.md` D5 |
-| S16 | three-mesh-bvh README; PRYZM 1 picking module in `src/core/picking/`; `code-level ADR docs/02-decisions/adrs/0015-picking-strategy.md` §6.2 | (S16 handoff D5+ only) | `code-level ADR docs/02-decisions/adrs/0015-picking-strategy.md` §6.2; `01-TARGET-ARCHITECTURE.md` L4 picking |
-| S17 | `packages/renderer/CameraController.ts`; `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` §6.3; 2A draft outline (where multi-view extends) | (S17 D5+ only) | `code-level ADR docs/02-decisions/adrs/0016-view-state-command-driven.md` §6.3; FrameScheduler motion API (1A S03) |
-| S18 | `packages/persistence-client/InMemoryAdapter.ts`; `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` §6.4; 1B S08 lint config | `apps/bench/reports/` schema (1B-2025); dashboard wireframe in `docs/03-execution/status/sprints/S18-dashboard.md` | `code-level ADR docs/02-decisions/adrs/0017-headless-package-surface.md` §6.4; **K1-B in 08-VISION** |
+| S15 | (handoff D2 only) | THREE.EffectComposer source; existing PRYZM 1 post-FX in `src/core/rendering/`; `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` §6.1 | `code-level ADR docs/02-decisions/adrs/ADR-0014-traa-ssgi-idle-budget.md` §6.1; `08-VISION.md` D5 |
+| S16 | three-mesh-bvh README; PRYZM 1 picking module in `src/core/picking/`; `code-level ADR docs/02-decisions/adrs/ADR-0015-picking-strategy.md` §6.2 | (S16 handoff D5+ only) | `code-level ADR docs/02-decisions/adrs/ADR-0015-picking-strategy.md` §6.2; `01-TARGET-ARCHITECTURE.md` L4 picking |
+| S17 | `packages/renderer/CameraController.ts`; `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` §6.3; 2A draft outline (where multi-view extends) | (S17 D5+ only) | `code-level ADR docs/02-decisions/adrs/ADR-0016-view-state-command-driven.md` §6.3; FrameScheduler motion API (1A S03) |
+| S18 | `packages/persistence-client/InMemoryAdapter.ts`; `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` §6.4; 1B S08 lint config | `apps/bench/reports/` schema (1B-2025); dashboard wireframe in `docs/03-execution/status/sprints/S18-dashboard.md` | `code-level ADR docs/02-decisions/adrs/ADR-0017-headless-package-surface.md` §6.4; **K1-B in 08-VISION** |
 
 ---
 
@@ -1551,9 +1551,9 @@ Status: `[x]` landed 2026-04-27.
 
 ### W-1B — Handler correctness errata
 
-**W-1B-1** — `MoveWallHandler` façade over `TransformWallHandler` (ADR-008 errata).
+**W-1B-1** — `MoveWallHandler` façade over `TransformWallHandler` (ADR-0208 errata).
 
-The S07-T5 implementation of `plugins/wall/src/handlers/MoveWall.ts` duplicated all validation logic (finite-vec3 check, same-y check, planar-length guard) that was later consolidated into `TransformWallHandler` (S10-T1, ADR-008 §"Wave 3"). This creates a dual-maintenance burden and a silent divergence risk.
+The S07-T5 implementation of `plugins/wall/src/handlers/MoveWall.ts` duplicated all validation logic (finite-vec3 check, same-y check, planar-length guard) that was later consolidated into `TransformWallHandler` (S10-T1, ADR-0208 §"Wave 3"). This creates a dual-maintenance burden and a silent divergence risk.
 
 Resolution: `MoveWall.ts` is rewritten as a ≤ 40-line facade:
 
@@ -1681,7 +1681,7 @@ Status: `[x]` landed 2026-04-27.
 | Rev | Date | Author | Change | Lines |
 |---|---|---|---|---|
 | rev-1 | 2026-04-26 | Founder + Architecture lead | Initial 1C phase doc, structure §0-§5, S13-S18 skeletons. | ~378 |
-| **rev-2** | **2026-04-26** | **Architecture lead** | **Book-quality expansion: per-sprint typed contracts + key pseudocode + test catalog + OTel spans + daily artifact log for S13-S18; appendices §6 (the §6.1–§6.4 `ADR-014..017` headings full text — mapped to slugs `0014-traa-ssgi-idle-budget` through `0017-headless-package-surface`) + §7 (perf budgets) + §8 (OTel catalog) + §9 (contracts inventory) + §10 (delta from canonical) + §11 (reading list) + §12 (this log); ADRs renumbered 012-015 → 014-017 to avoid collision with 1B rev-3's sprint-scoped `ADR-008..013` series.** | **~1700** |
+| **rev-2** | **2026-04-26** | **Architecture lead** | **Book-quality expansion: per-sprint typed contracts + key pseudocode + test catalog + OTel spans + daily artifact log for S13-S18; appendices §6 (the §6.1–§6.4 `ADR-0214..017` headings full text — mapped to slugs `0014-traa-ssgi-idle-budget` through `0017-headless-package-surface`) + §7 (perf budgets) + §8 (OTel catalog) + §9 (contracts inventory) + §10 (delta from canonical) + §11 (reading list) + §12 (this log); ADRs renumbered 012-015 → 014-017 to avoid collision with 1B rev-3's sprint-scoped `ADR-0208..013` series.** | **~1700** |
 | **rev-3** | **2026-04-27** | **Architecture lead** | **Appended §13 Completion Worklist W-1 (7 parallel-safe items W-1A-1, W-1B-1, W-1C-2 through W-1C-5, W-1C-8): ESLint rule unit test, MoveWall façade errata, 6-family disk-based parity suites + fixture indexes, curtain-wall 8→25 fixtures, stair/handrail/ceiling top-ups, roof skylight schema + 3 handlers, view-state-2a contract test. All items landed and marked `[x]` in `PROCESS-TRACKER.md`.** | **+~120 lines** |
 
 *Last updated: 2026-04-27 (rev-3). Owner: Founder + Architecture lead. Conflicts resolution order: `06+.pryzm spec` > `08-VISION.md` > `10-MASTER-IMPLEMENTATION-PLAN-36M.md` + this PHASE doc > `05-IMPLEMENTATION-PLAN.md` > `01-TARGET-ARCHITECTURE.md`. Companion: `phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` (predecessor, rev-3), `phases/PHASE-1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` (successor).*

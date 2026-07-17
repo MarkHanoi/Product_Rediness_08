@@ -1,13 +1,13 @@
 # SPEC — Access Graph & Spatial Grammar (residential generative layout)
 
 > **Status**: DRAFT (normative once ratified). **Date**: 2026-06-10.
-> **Governed by**: [ADR-0066 — Access-Graph-First Generative Layout Doctrine](../../02-decisions/adrs/0066-access-graph-first-generative-layout-doctrine.md)
+> **Governed by**: [ADR-0066 — Access-Graph-First Generative Layout Doctrine](../../02-decisions/adrs/ADR-0066-access-graph-first-generative-layout-doctrine.md)
 > · [C53 — Generative Layout Engine Architecture](../../02-decisions/contracts/C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) (§1 topology-before-geometry)
 > · [C52 — Editable Building Graph](../../02-decisions/contracts/C52-EDITABLE-BUILDING-GRAPH.md).
 > **Companion specs**: [SPEC-ARCHITECTURAL-PROGRAM-RULES](./SPEC-ARCHITECTURAL-PROGRAM-RULES.md) (the room DB)
 > · [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](./SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md) (the P1→P9 pipeline)
 > · [SPEC-CASA-UNIFAMILIAR-TYPOLOGY](./SPEC-CASA-UNIFAMILIAR-TYPOLOGY.md) (the multi-storey house).
-> **Reference**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/LAYOUT-GENERATION-ALGORITHM.md) (engine walkthrough, file:line).
+> **Reference**: [LAYOUT-GENERATION-ALGORITHM](../../04-reference/layout-generation-algorithm.md) (engine walkthrough, file:line).
 > **Tracker**: master-execution-tracker §47.
 
 This SPEC is the normative companion to ADR-0066. It is written as an **honest ledger**: each rule is

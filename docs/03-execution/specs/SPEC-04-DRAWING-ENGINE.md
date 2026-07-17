@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B4` |
 | Phases | 2B (plan view rebuild), 2C (sheets/schedules), 3B (export pipeline) |
-| Required ADRs | ADR-016 (drawing-engine architecture) |
+| Required ADRs | ADR-0216 (drawing-engine architecture) |
 
 > The drawing engine is what wins or loses D8 (desktop-CAD documentation parity). This spec defines the vector primitive layer, the three back-ends (Canvas2D for screen, SVG for in-browser export, native PDF for high-fidelity print), the view template / view-range / view-filter model, hidden-line classification, and the label-placement strategy.
 
@@ -32,7 +32,7 @@
 - **View definition** carries the camera + clip + scale + view template + filters + per-element overrides.
 - **Renderers** are plug-replaceable; same primitives → three outputs.
 
-ADR-016 ratifies this architecture before S29.
+ADR-0216 ratifies this architecture before S29.
 
 ---
 
@@ -314,5 +314,5 @@ Filters compose: order matters (top filter wins). UX: drag-to-reorder; per-view 
 - Layer placement: `08-VISION §4` (L5 renderer + L4 kernel).
 - Conflict mapping: `CONFLICT-ANALYSIS.md §3.10`, §3.11.
 - Phase deliverables: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md`, `phases/PHASE-2C-Q3-M19-M21-SHEETS-SCHEDULES.md`.
-- ADR: `adrs/ADR-016-drawing-engine-architecture.md`.
-- Visibility-Intent rule matrix: legacy `02-decisions/contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` is the *what*; placement of those rules into the new layer model is owned by ADR-015.
+- ADR: `adrs/ADR-0216-drawing-engine-architecture.md`.
+- Visibility-Intent rule matrix: legacy `02-decisions/contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` is the *what*; placement of those rules into the new layer model is owned by ADR-0215.

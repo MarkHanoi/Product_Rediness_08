@@ -1,6 +1,7 @@
 # C19 — Site Model & Parcel
 
-> **Stamp**: 2026-06-01 · **Status**: DRAFT
+> **Stamp**: 2026-06-01 · **Ratified**: 2026-07-16 · **Status**: CANONICAL
+> _Ratified DRAFT→CANONICAL 2026-07-16 (founder-approved sweep): full C31 anatomy present (§1 Invariants … §9 "What is NOT"), and the Site/Parcel subsystem is implemented (`SiteModelStore` + `ParcelBoundarySchema` confirmed real)._
 > **Scope**: governs the **Site / Parcel / BuildingFootprint / ContextBuilding** schemas, runtime stores, command surface, UI surface, and IFC mapping. Companion to [C12](./C12-GEOSPATIAL.md) (which owns coordinate transforms only) — C19 owns the Site as a domain element above C12's CRS substrate.
 > **Depends on**: [C03](./C03-SCHEMAS-COMMANDS-AND-STATE.md), [C12](./C12-GEOSPATIAL.md), [C13](./C13-PROJECT-LIFECYCLE-AND-ISOLATION.md), [C11](./C11-ELEMENT-CREATION-PIPELINE.md), [C16](./C16-COMMAND-AUTHORING-PROTOCOL.md).
 > **Downstream**: [C20 Building & Apartment Aggregates](./C20-BUILDING-AND-APARTMENT-AGGREGATES.md) (proposed — consumes the Site as the outermost element); [C21 Climate Ingestion](./C21-CLIMATE-INGESTION.md) (proposed — populates `SiteModel.climate` cache); [C22 Privacy & PII Tier](./C22-PRIVACY-AND-PII-TIER.md) (proposed — gates `SiteModel.location` storage); [C23 Provenance & AI Audit](./C23-PROVENANCE-AND-AI-AUDIT.md) (proposed — every site-derived datum carries provenance); [C25 IFC Export](./C25-IFC-EXPORT-PRODUCTION.md) §1.4 (`IfcSite` already shipped at α-1 against this schema); apartment-layout AI workflows (climate-aware after C21 ratifies); the `apps/editor/src/ui/site/` authoring surface (PG0.7 deliverable).

@@ -626,13 +626,13 @@ The `(window as any)` casts are at 0 non-shim (already closed). The Phase E rema
 ---
 
 ## §6 — Phase 4: 1M-Element Performance Foundations (Phase J)  
-**Horizon**: 3–6 sprints. In progress (5 ADRs authored in Sprint 5). Implements ADR-046 through ADR-050.
+**Horizon**: 3–6 sprints. In progress (5 ADRs authored in Sprint 5). Implements ADR-0246 through ADR-0250.
 
 This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time collaboration at scale), and the NFT 4 (60 FPS at 500k+ elements) gap. The 5 ADRs from Sprint 5 are the architectural designs; this phase implements them.
 
 ---
 
-### Task 4.1 — InstancedMesh coalescing post-batch (ADR-046 · C04 §3.5)
+### Task 4.1 — InstancedMesh coalescing post-batch (ADR-0246 · C04 §3.5)
 
 **Status**: ✅ DONE — 2026-05-09. `InstancedMeshCoalescer.ts` implemented (465 LOC) at `packages/scene-committer/src/`; exported from `packages/scene-committer/src/index.ts`; wired into `src/engine/engineLauncher.ts` via `batchCoordinator.setBatchLifecycleCallbacks()` (onBatchStart snapshots pre-batch IM UUIDs; onBatchEnd schedules coalescing at `'post-render'` priority via `getFrameScheduler().scheduleOnce()`). Draw-call arithmetic: 5 levels × 3 material types = **15 merged draw calls** ✓ (from 150 source draw calls per 10 walls/level). `GpuPickStrategy` (`packages/picking/src/gpu-pick.ts`) handles coalesced IMs: `collectInstancedMeshes()` traverses hidden source IMs; per-instance pick clones created for each; `resolveInstanceToElementId()` maps instance index → ElementId. `decoalesce()` handles undo path: restores source IM visibility, rebuilds or destroys merged IM. rAF-gate fix: comment on line 23 rewritten to remove `requestAnimationFrame(` literal (was triggering `check-raf-count.ts` hard-fail). Unit test: `packages/scene-committer/__tests__/InstancedMeshCoalescer.test.ts` (7 specs: coalesce merge, resolveInstanceToElementId, isMergedMesh, decoalesce-rebuild, decoalesce-destroy, single-source no-op, pre-existing IMs not re-coalesced). `pnpm tsc --noEmit` → 0 errors ✅. All 11 GA gates green ✅.
 
@@ -640,7 +640,7 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 **Contract**: C04 §3.5 (LOD system) — the scene-committer provides the 3-tier LOD system. InstancedMesh coalescing is a Layer 1 scene optimization that feeds into the committer's commit path.
 
-**Implementation** (per ADR-046):
+**Implementation** (per ADR-0246):
 
 1. Create `packages/scene-committer/src/InstancedMeshCoalescer.ts`:
    - Maintain `Map<string, InstancedMesh>` keyed on `${levelId}:${materialType}`.
@@ -662,15 +662,15 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 ---
 
-### Task 4.2 — Web-worker geometry pipeline (ADR-047 · C04 §2.3 · C11 §6.1)
+### Task 4.2 — Web-worker geometry pipeline (ADR-0247 · C04 §2.3 · C11 §6.1)
 
-**Status**: ✅ DONE — 2026-05-09 (resilience fix §4.2-ROBUST-FALLBACK applied 2026-05-09). All five ADR-047 implementation points are complete: (1) `apps/editor/src/workers/geometry.worker.ts` (full worker — `buildBoxGeom` + `writeTranslationMatrix` + `processRequest` — P2 compliant: no THREE import, pure typed-array math; zero-copy transfer list; **try/catch around processRequest posts error-result on failure**); (2) `src/engine/subsystems/curtainwalls/GeometryWorkerTypes.ts` (shared types: `SerializableCell`, `BoxGeomArrays`, `GeometryWorkerRequest`, `GeometryWorkerResult` — no THREE; **`error?: string` optional field added**); (3) `src/engine/subsystems/curtainwalls/GeometryWorkerPool.ts` (round-robin pool of 2 workers, `MAX_INFLIGHT_PER_WORKER=8` back-pressure, OTel `geo-worker.dispatch` spans, `localStorage` size override, graceful `terminate()`; **§4.2-ROBUST-FALLBACK: `dead` flag + `allDead` fast-reject + `messageerror` handler + `DISPATCH_TIMEOUT_MS=10_000` per-request timeout + `settled` guard to prevent double-reject + `clearTimeout` in terminate**); (4) `CurtainWallBuilder._buildOrOffload()` + `_submitToWorker()` + `_onWorkerResult()` + `_drainMainThreadWork()` + `_applyWorkerResult()` + `_checkBatchDrainSignal()` (full async pipeline: main-thread sync work ≤1 ms → worker computes typed arrays → `_onWorkerResult` pushes to `_pendingMainThreadWork` → FrameScheduler `'pre-render'` drain reconstructs THREE objects + `group.add()`); (5) fallback: `hasPanelOverrides` → synchronous `build()` path; worker failure / error-result / timeout → `build()` fallback; pool-spawn failure → graceful warn + sync build. P3: no new rAF owners. P2: no THREE import in worker. Unit tests: `src/engine/subsystems/curtainwalls/__tests__/geometry-worker-math.test.ts` (10 specs: array lengths, normals, UVs, index bounds, matrix layout, mullion distributions) + `src/engine/subsystems/curtainwalls/__tests__/GeometryWorkerPool.test.ts` (**23 specs**: pool size, round-robin, resolve, stale-response, terminate, localStorage config; **+12 resilience specs**: dead-worker/error, dead-worker/messageerror, all-dead fast-reject, post-death routing to live worker, error-result rejection, error-result worker-still-alive, timeout fires, timeout cleared on normal response, timeout cleared on error-result, two concurrent timeouts, messageerror fast-reject). `pnpm tsc --noEmit` → 0 errors ✅. All 11 GA gates green ✅. ADR-047 promoted to Accepted ✅.
+**Status**: ✅ DONE — 2026-05-09 (resilience fix §4.2-ROBUST-FALLBACK applied 2026-05-09). All five ADR-0247 implementation points are complete: (1) `apps/editor/src/workers/geometry.worker.ts` (full worker — `buildBoxGeom` + `writeTranslationMatrix` + `processRequest` — P2 compliant: no THREE import, pure typed-array math; zero-copy transfer list; **try/catch around processRequest posts error-result on failure**); (2) `src/engine/subsystems/curtainwalls/GeometryWorkerTypes.ts` (shared types: `SerializableCell`, `BoxGeomArrays`, `GeometryWorkerRequest`, `GeometryWorkerResult` — no THREE; **`error?: string` optional field added**); (3) `src/engine/subsystems/curtainwalls/GeometryWorkerPool.ts` (round-robin pool of 2 workers, `MAX_INFLIGHT_PER_WORKER=8` back-pressure, OTel `geo-worker.dispatch` spans, `localStorage` size override, graceful `terminate()`; **§4.2-ROBUST-FALLBACK: `dead` flag + `allDead` fast-reject + `messageerror` handler + `DISPATCH_TIMEOUT_MS=10_000` per-request timeout + `settled` guard to prevent double-reject + `clearTimeout` in terminate**); (4) `CurtainWallBuilder._buildOrOffload()` + `_submitToWorker()` + `_onWorkerResult()` + `_drainMainThreadWork()` + `_applyWorkerResult()` + `_checkBatchDrainSignal()` (full async pipeline: main-thread sync work ≤1 ms → worker computes typed arrays → `_onWorkerResult` pushes to `_pendingMainThreadWork` → FrameScheduler `'pre-render'` drain reconstructs THREE objects + `group.add()`); (5) fallback: `hasPanelOverrides` → synchronous `build()` path; worker failure / error-result / timeout → `build()` fallback; pool-spawn failure → graceful warn + sync build. P3: no new rAF owners. P2: no THREE import in worker. Unit tests: `src/engine/subsystems/curtainwalls/__tests__/geometry-worker-math.test.ts` (10 specs: array lengths, normals, UVs, index bounds, matrix layout, mullion distributions) + `src/engine/subsystems/curtainwalls/__tests__/GeometryWorkerPool.test.ts` (**23 specs**: pool size, round-robin, resolve, stale-response, terminate, localStorage config; **+12 resilience specs**: dead-worker/error, dead-worker/messageerror, all-dead fast-reject, post-death routing to live worker, error-result rejection, error-result worker-still-alive, timeout fires, timeout cleared on normal response, timeout cleared on error-result, two concurrent timeouts, messageerror fast-reject). `pnpm tsc --noEmit` → 0 errors ✅. All 11 GA gates green ✅. ADR-0247 promoted to Accepted ✅.
 
 **Why**: `CurtainWallBuilder._buildOne()` runs on the main thread, consuming frame budget. For large batches, geometry calculation blocks the main thread for the duration of the build drain cycle.
 
 **Contract**: C11 §6.1 — "Geometry build MUST NOT block the main thread for > 16 ms per element for a single wall." C04 §2.3 — `scene.add()` stays main thread. The `FrameScheduler` 'pre-render' drain is main-thread; only the geometry computation can move to a worker.
 
-**Implementation** (per ADR-047):
+**Implementation** (per ADR-0247):
 
 1. Create `apps/editor/src/workers/geometry.worker.ts`:
    - Accepts typed-array input (vertex positions, normals, UVs, indices as `Float32Array`, `Uint16Array`).
@@ -691,7 +691,7 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 ---
 
-### Task 4.3 — Virtualized ElementStore with spatial LRU (ADR-048 · C03 §3)
+### Task 4.3 — Virtualized ElementStore with spatial LRU (ADR-0248 · C03 §3)
 
 **Status**: ✅ DONE — 2026-05-09
 
@@ -699,7 +699,7 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 **Contract**: C03 §3.1 — "Stores are Zustand slices composed in `packages/stores/`. They use Immer for draft-based mutations." C03 §3.3 — `ElementStore` is owned by `packages/stores/`.
 
-**Implementation** (per ADR-048):
+**Implementation** (per ADR-0248):
 
 1. `packages/stores/src/LRUElementMap.ts`:
    - `LRUMap<string, Element>` capped at 50,000 entries per store (configurable).
@@ -724,7 +724,7 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 ---
 
-### Task 4.4 — Y.Doc-per-level CRDT split (ADR-049 · C08 §3)
+### Task 4.4 — Y.Doc-per-level CRDT split (ADR-0249 · C08 §3)
 
 **Status**: ✅ DONE (2026-05-09 · process tracker rev 38)
 
@@ -732,7 +732,7 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 **Contract**: C08 §3.1 — "`sync-client` maintains a Yjs document per project via `YjsDocAdapter`." The amendment extends this to "per level."
 
-**Implementation** (per ADR-049):
+**Implementation** (per ADR-0249):
 
 1. `packages/sync-client/src/YjsDocAdapter.ts`:
    - Replace `_doc: Y.Doc` with `_levelDocs: Map<levelId, Y.Doc>`.
@@ -752,7 +752,7 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 ---
 
-### Task 4.5 — AI response cache (ADR-050 · C09 §2.3)
+### Task 4.5 — AI response cache (ADR-0250 · C09 §2.3)
 
 **Status**: DONE
 
@@ -760,7 +760,7 @@ This phase addresses the differentiators D1 (IFC round-trip), D3 (real-time coll
 
 **Contract**: C09 §2.3 — "`enforceAIQuota(userId, tokens)` MUST be called before any AI call." The cache sits before the quota check for cache hits; the quota is not charged on a cache hit.
 
-**Implementation** (per ADR-050):
+**Implementation** (per ADR-0250):
 
 1. Create DB table `ai_response_cache`:
    ```sql

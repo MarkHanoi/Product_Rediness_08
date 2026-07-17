@@ -100,18 +100,18 @@ Before a single line of PRYZM 2 production code is written, **12 ADRs are merged
 
 | ADR | Decision | Default (per Context.md) | Spike required? |
 |-----|---|---|:---:|
-| ADR-001 | Pascal adoption strategy | **B** — adopt patterns + rules, no fork | No |
-| ADR-002 | CRDT choice | **Yjs** (over Automerge / centralised OT) | **1-week prototype** |
-| ADR-003 | Object storage backend | **Cloudflare R2** (cheapest egress) | No |
-| ADR-004 | Wire format | **MessagePack** (over JSON / Protobuf / FlatBuffers) | No |
-| ADR-005 | Worker pool policy | **Browser**: Web Worker per task, max 4 concurrent. **Server**: BullMQ + Node `worker_threads`, R2-backed durable queue. | No |
-| ADR-006 | Default render mode | **WebGPU when available, WebGL2 fallback**. Visual diff CI gate enforces parity. | **3-day spike** |
-| ADR-007 | Telemetry backend | **OTel SDK + self-hostable Tempo + Honeycomb dev account** | No |
-| ADR-008 | IFC scope | Read+write Pset round-trip; defer IFC4.3 advanced for post-GA | No |
-| ADR-009 | Plugin sandbox model | **Web Worker isolation + postMessage bridge + CSP** | **5-day spike** |
-| ADR-010 | Bake debounce policy | Per-element edit triggers per-chunk re-bake; 250 ms coalescing window | No |
-| ADR-011 | Permission granularity | Project-, view-, element-class- (not per-element instance for v1) | No |
-| ADR-012 | Self-host minimums | `docker-compose up` deploys editor + sync-server + bake-worker + Postgres + R2-compatible (MinIO bundled). Single-binary later. | No |
+| ADR-0201 | Pascal adoption strategy | **B** — adopt patterns + rules, no fork | No |
+| ADR-0202 | CRDT choice | **Yjs** (over Automerge / centralised OT) | **1-week prototype** |
+| ADR-0203 | Object storage backend | **Cloudflare R2** (cheapest egress) | No |
+| ADR-0204 | Wire format | **MessagePack** (over JSON / Protobuf / FlatBuffers) | No |
+| ADR-0205 | Worker pool policy | **Browser**: Web Worker per task, max 4 concurrent. **Server**: BullMQ + Node `worker_threads`, R2-backed durable queue. | No |
+| ADR-0206 | Default render mode | **WebGPU when available, WebGL2 fallback**. Visual diff CI gate enforces parity. | **3-day spike** |
+| ADR-0207 | Telemetry backend | **OTel SDK + self-hostable Tempo + Honeycomb dev account** | No |
+| ADR-0208 | IFC scope | Read+write Pset round-trip; defer IFC4.3 advanced for post-GA | No |
+| ADR-0209 | Plugin sandbox model | **Web Worker isolation + postMessage bridge + CSP** | **5-day spike** |
+| ADR-0210 | Bake debounce policy | Per-element edit triggers per-chunk re-bake; 250 ms coalescing window | No |
+| ADR-0211 | Permission granularity | Project-, view-, element-class- (not per-element instance for v1) | No |
+| ADR-0212 | Self-host minimums | `docker-compose up` deploys editor + sync-server + bake-worker + Postgres + R2-compatible (MinIO bundled). Single-binary later. | No |
 
 ### §3.2 Pre-flight scaffolding deliverables
 
@@ -135,38 +135,38 @@ Before a single line of PRYZM 2 production code is written, **12 ADRs are merged
 ### §3.4 Pre-flight exit criteria (gate to S01)
 
 - All 12 ADRs merged (or explicitly deferred to a sprint with date).
-- Three spikes completed (ADR-002 Yjs, ADR-006 WebGPU, ADR-009 plugin sandbox); each produces a 1-page report linked from its ADR.
+- Three spikes completed (ADR-0202 Yjs, ADR-0206 WebGPU, ADR-0209 plugin sandbox); each produces a 1-page report linked from its ADR.
 - `pnpm i && pnpm build && pnpm test` passes on a fresh clone.
 - All baseline benches captured in `baseline.json` and PR'd.
 - `09-AS-IS-VS-TO-BE.md` reviewed and signed off.
 
 ### §3.5 Strategic and gap-closure ADRs (added during Phase 1 + post Phase-1 audit)
 
-The 12 Pre-flight ADRs above are the **starting** decision set. Nine more strategic ADRs were merged across Phase 1 as the architecture deepened (`ADR-013` … `ADR-021`). The Phase-1 GREEN re-audit (2026-04-27) and the corpus gap review (`GAP-REVIEW-2026-04-27.md`) identified eight additional decisions that needed ADRs to keep Phase 2 + Phase 3 work unambiguous; they are merged at the start of Phase 2A (S25):
+The 12 Pre-flight ADRs above are the **starting** decision set. Nine more strategic ADRs were merged across Phase 1 as the architecture deepened (`ADR-0213` … `ADR-0221`). The Phase-1 GREEN re-audit (2026-04-27) and the corpus gap review (`GAP-REVIEW-2026-04-27.md`) identified eight additional decisions that needed ADRs to keep Phase 2 + Phase 3 work unambiguous; they are merged at the start of Phase 2A (S25):
 
 | ADR | Title | Closes (gap review §) | Merged at sprint |
 |-----|---|---|---|
-| ADR-013 | Stripe-mediated entitlements | §15 (cost model context) | S07 |
-| ADR-014 | Honeycomb / Tempo OTel pipeline | §29 #5 | S07 |
-| ADR-015 | Per-element bake debounce policy | §22 (perf) | S08 |
-| ADR-016 | View-state package as the multi-view authority | §29 #4 | S17 |
-| ADR-017 | First-party catalog inventory | §29 #2 | S20 |
-| ADR-018 | Capacity cut list (velocity-slip triage) | (own ADR) — extended 2026-04-27 with T1.7 + T1.8 | S22 |
-| ADR-019 | Soft-locks via Postgres | §29 #6 | S22 |
-| ADR-020 | Robustness budget per geometry kernel op | §29 #1 | S23 |
-| ADR-021 | SOC2 evidence pipeline | §29 #7 | S24 |
-| **ADR-022** | **Renderer topology + backend runtime** | **§6.1, §13, §29 #10–13** | **S31** |
-| **ADR-023** | **Library rAF quarantine** | **§6.1, §29 #11** | **S31** |
-| **ADR-025** | **three.js version pin & WebGPU path** | **§29 #16** | **S31** |
-| **ADR-026** | **UI binding: vanilla TS (Path A confirmed)** | **§29 #18** | **S31** |
-| **ADR-027** | **Schedule formula library scope** | **§10, §29 #19** | **S35** |
-| **ADR-028** | **Authority unification (one permission model)** | **§29 #21–22** | **S31 → S32** |
-| **ADR-029** | **PDF-to-BIM scope (the moat)** | **§21.5, §29 #25** | **S49** |
-| **ADR-030** | **Lifecycle subsystem placement** | **§29 #14** | **S31** |
+| ADR-0213 | Stripe-mediated entitlements | §15 (cost model context) | S07 |
+| ADR-0214 | Honeycomb / Tempo OTel pipeline | §29 #5 | S07 |
+| ADR-0215 | Per-element bake debounce policy | §22 (perf) | S08 |
+| ADR-0216 | View-state package as the multi-view authority | §29 #4 | S17 |
+| ADR-0217 | First-party catalog inventory | §29 #2 | S20 |
+| ADR-0218 | Capacity cut list (velocity-slip triage) | (own ADR) — extended 2026-04-27 with T1.7 + T1.8 | S22 |
+| ADR-0219 | Soft-locks via Postgres | §29 #6 | S22 |
+| ADR-0220 | Robustness budget per geometry kernel op | §29 #1 | S23 |
+| ADR-0221 | SOC2 evidence pipeline | §29 #7 | S24 |
+| **ADR-0222** | **Renderer topology + backend runtime** | **§6.1, §13, §29 #10–13** | **S31** |
+| **ADR-0223** | **Library rAF quarantine** | **§6.1, §29 #11** | **S31** |
+| **ADR-0225** | **three.js version pin & WebGPU path** | **§29 #16** | **S31** |
+| **ADR-0226** | **UI binding: vanilla TS (Path A confirmed)** | **§29 #18** | **S31** |
+| **ADR-0227** | **Schedule formula library scope** | **§10, §29 #19** | **S35** |
+| **ADR-0228** | **Authority unification (one permission model)** | **§29 #21–22** | **S31 → S32** |
+| **ADR-0229** | **PDF-to-BIM scope (the moat)** | **§21.5, §29 #25** | **S49** |
+| **ADR-0230** | **Lifecycle subsystem placement** | **§29 #14** | **S31** |
 
 > **Note (2026-04-27 directive):** The 8 gap-closure ADRs above were originally scheduled to merge at S25 (Phase 2A start). Per the founder's directive that Phase 2A is in active development and holds no gap-closure work, all eight have been deferred to **S31 (Phase 2B start)**. See PHASE-2B-Q2-M16-M18-PLAN-VIEW.md §Gap-Closure Subphase for the absorbed schedule and the schedule risk acknowledgement.
 
-(ADR-024 is reserved for a future strategic decision and intentionally skipped to keep slot continuity.)
+(ADR-0224 is reserved for a future strategic decision and intentionally skipped to keep slot continuity.)
 
 Each post-Pre-flight ADR has its own `Phase rollout` section; cross-phase scheduling is summarised in the per-phase `§Gap-Closure Subphase` blocks. The single consolidated index of "what closes which gap" lives in `11-GAP-CLOSURE-PLAN.md`.
 
@@ -182,7 +182,7 @@ The corpus gap review surfaced 9 missing SPECs and 8 missing ADRs. Rather than c
 | Phase 2D | S43–S48 | `phases/PHASE-2-MIGRATION-MULTIUSER-M13-M24.md` §Gap-Closure |
 | Phase 3A–3D | S49–S72 | `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §Gap-Closure |
 
-The single largest risk-reducer added by the gap review is the **S31 plan-view pre-port** (per SPEC-30 §5): the 5 highest-traffic plan-view operations (selection, drag, snap, pan, zoom) are rewritten on the new Canvas2D backend before the 11-wave VI engine port begins, derisking Phase 2B (the highest-slip-risk phase). **S31 is the heaviest sprint of the 36-month plan**; its slip risk is mitigated by ADR-018 Tier-1 cuts T1.7 (PDF-to-BIM degradation) and T1.8 (formula library 24→14), either of which buys back a sprint of calendar.
+The single largest risk-reducer added by the gap review is the **S31 plan-view pre-port** (per SPEC-30 §5): the 5 highest-traffic plan-view operations (selection, drag, snap, pan, zoom) are rewritten on the new Canvas2D backend before the 11-wave VI engine port begins, derisking Phase 2B (the highest-slip-risk phase). **S31 is the heaviest sprint of the 36-month plan**; its slip risk is mitigated by ADR-0218 Tier-1 cuts T1.7 (PDF-to-BIM degradation) and T1.8 (formula library 24→14), either of which buys back a sprint of calendar.
 
 ---
 
@@ -512,12 +512,12 @@ A condensed reference: every sprint, one line.
 | ID | Risk | Likelihood | Impact | Mitigation | Owner sprint |
 |---|---|---|---|---|---|
 | R-01 | Solo + Agent velocity insufficient for 36 months | Medium | High | Feature freeze on PRYZM 1 (confirmed); strict adherence to ADR cadence; willingness to drop one of D2/D8/D9/D10 at M18 if behind by > 3 sprints | Continuous |
-| R-02 | CRDT (Yjs) merge edge case loses data on multi-user element edit | Medium | Critical | ADR-002 spike pre-S01; chaos-test harness in S43; per-project kill-switch flag retained until M30 | S43, S48 |
+| R-02 | CRDT (Yjs) merge edge case loses data on multi-user element edit | Medium | Critical | ADR-0202 spike pre-S01; chaos-test harness in S43; per-project kill-switch flag retained until M30 | S43, S48 |
 | R-03 | Plan-view migration overruns | High | High | Both senior-level focus during 2B; daily visual diff; per-project fall-back flag retained until M24 | S31–S36 |
 | R-04 | Bake worker $/project unviable | Low | High | Cost bench in S21; aggressive coalescing; tiered bake (per-element vs per-level vs per-project); soft-cap per project | S21 |
 | R-05 | OBC removal breaks IFC import | Medium | Medium | IFC-import plugin parity tests against `tests/ifc/` 50-file fixture; no OBC removed from main bundle until plugin proven | S55, S61 |
 | R-06 | `.pryzm` v1 forward-compat needed before v2 spec done | Low | High | Migration framework in S20; migrations live forever; CI test exercises v1→v2 round-trip every PR | S20 |
-| R-07 | Plugin sandbox escapes | Low | Critical | ADR-009 spike pre-S01; pen test in S68; CSP + Worker isolation; review every plugin permission change | S62, S68 |
+| R-07 | Plugin sandbox escapes | Low | Critical | ADR-0209 spike pre-S01; pen test in S68; CSP + Worker isolation; review every plugin permission change | S62, S68 |
 | R-08 | WebGPU regressions on Safari | Medium | Medium | WebGL2 fallback always present; visual-diff CI in 3 browsers; test on physical iPad in S70 | S15, S70 |
 | R-09 | Beta users find a "show-stopper" UX gap | Medium | Medium | M24 beta is private (50 invited); 4-week bug-fix sprint S49 reserved for response | S48–S49 |
 | R-10 | Founder burnout | Medium | High | Sprint buffer (Day 11–14); explicit "do nothing" weeks at end of M12 / M24 / M36; weekly 1-on-1 with mentor | Continuous |

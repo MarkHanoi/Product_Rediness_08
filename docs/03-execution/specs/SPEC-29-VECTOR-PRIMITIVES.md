@@ -179,14 +179,14 @@ Performance budget per SPEC-30 §2.
 
 Schedules are vector primitives at heart: tables are `LinePrim` borders + `TextPrim` cells. The schedule producer:
 - Accepts `ScheduleContext` (per SPEC-13 §5.4).
-- Resolves formulas via the **Schedule Formula Library** (per ADR-027).
+- Resolves formulas via the **Schedule Formula Library** (per ADR-0227).
 - Emits `VectorPrimitiveSet` per page.
 - Pages flow into Sheets per `SheetContext`.
 
 ### §6.1 Formula library scope
 - Built-in formulas: `count`, `sum`, `avg`, `min`, `max`, `area_total`, `volume_total`, `perimeter_total`, `cost_total` (with unit cost lookup).
 - Per-family default columns map declared in `plugins/<family>/schedule.ts` (per SPEC-21 Step 9).
-- User-authored formula DSL deferred per ADR-027 + ADR-018 T1.3 (reduces to library-only at Tier-1 cut).
+- User-authored formula DSL deferred per ADR-0227 + ADR-0218 T1.3 (reduces to library-only at Tier-1 cut).
 
 ---
 
@@ -239,11 +239,11 @@ interface TitleBlockField {
 | S41–S42 | sheet pipeline end-to-end; multi-page schedules; revision clouds. |
 | S55 | print-canvas backend lit (browser print preview). |
 | S65 | PDF backend optimisations; large-sheet bench < 8 s. |
-| S72 (M36 GA) | all backends GA; ADR-018 T1.5 (no in-browser PDF) decided per slip. |
+| S72 (M36 GA) | all backends GA; ADR-0218 T1.5 (no in-browser PDF) decided per slip. |
 
 ---
 
 ## §10 Cross-references
-- ADR-016 drawing engine architecture; ADR-018 cut list (T1.3 formula DSL, T1.5 PDF surface); ADR-027 schedule formula scope.
+- ADR-0216 drawing engine architecture; ADR-0218 cut list (T1.3 formula DSL, T1.5 PDF surface); ADR-0227 schedule formula scope.
 - SPEC-04 drawing engine (architecture & styles); SPEC-13 envelopes; SPEC-21 element creation Steps 8–9; SPEC-30 plan-view perf.
 - Phase docs: PHASE-2A §6.5 drawing foundations; PHASE-2B §3 plan-view; PHASE-2C §2 sheets, §4 schedules.

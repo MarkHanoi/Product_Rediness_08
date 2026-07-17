@@ -67,7 +67,7 @@ M24 ─┘                                                  ★ M24 BETA GATE
 ### §1.5 The two sub-phases that scare us
 
 - **2B (Plan view)** — 54 files in PRYZM 1, the 11-wave Visibility-Intent UI, Contract 44 plan-vs-SVP gaps. If anything in Phase 2 overruns, it will be 2B. Built-in mitigation: per-project fall-back flag `featureFlags.plan_view_v2` retained until M24.
-- **2D (Yjs CRDT)** — the highest-impact failure mode. Same-element concurrent edit producing data loss in any beta project triggers an immediate kill-switch. `[strategic ADR-002]` (CRDT + event log bridge) was the framing decision; the Yjs spike pre-S01 was its first mitigation; chaos-test harness in S43 is the second.
+- **2D (Yjs CRDT)** — the highest-impact failure mode. Same-element concurrent edit producing data loss in any beta project triggers an immediate kill-switch. `[strategic ADR-0202]` (CRDT + event log bridge) was the framing decision; the Yjs spike pre-S01 was its first mitigation; chaos-test harness in S43 is the second.
 
 ---
 
@@ -404,7 +404,7 @@ M24 ─┘                                                  ★ M24 BETA GATE
 
 **Exit**: two tabs converge after 100 random edits in < 5 s; sync latency < 250 ms p95 for single-edit propagation; chaos-test invariants assert.
 
-**Risk (R-02 in master)**: CRDT merge edge cases — mitigated by chaos test harness + `[strategic ADR-002]` spike artifacts (CRDT + event log bridge per SPEC-03 §3).
+**Risk (R-02 in master)**: CRDT merge edge cases — mitigated by chaos test harness + `[strategic ADR-0202]` spike artifacts (CRDT + event log bridge per SPEC-03 §3).
 
 ---
 
@@ -529,7 +529,7 @@ M24 ─┘                                                  ★ M24 BETA GATE
 | ID | Risk | Likelihood | Impact | Mitigation | Touch sprint |
 |---|---|---|---|---|---|
 | R2-01 | Plan view migration overruns 2B | High | High | Both senior-level focus; daily visual diff; per-project fall-back flag retained until M24 | S31–S36 |
-| R2-02 | Yjs CRDT loses data on multi-user same-element edit | Medium | Critical | `[strategic ADR-002]` CRDT spike pre-S01 (per SPEC-03 §3 + §6); chaos test harness in S43; halt + root-cause if any beta user reports loss | S43, S48 |
+| R2-02 | Yjs CRDT loses data on multi-user same-element edit | Medium | Critical | `[strategic ADR-0202]` CRDT spike pre-S01 (per SPEC-03 §3 + §6); chaos test harness in S43; halt + root-cause if any beta user reports loss | S43, S48 |
 | R2-03 | Plan-view visual diff > 2 px on parity set | Medium | Medium | Visual-diff CI gate in S32; tighten progressively; allow 5 px in S31 → 2 px by S36 | S32, S33, S36 |
 | R2-04 | PDF export slow on large drawing sets | Low | Medium | `apps/export-worker` background processing; progress UI; off-screen canvas rasterise | S40 |
 | R2-05 | Schedule formula evaluator inconsistent with PRYZM 1 | Medium | Low | 20-case parity fixture in S41; keep evaluator pure for unit testing | S41 |
@@ -624,18 +624,18 @@ Phase 2D is the production-cutover phase: Yjs goes live, Supabase becomes the pr
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S43** | **Production cutover Replit-PG → Supabase** per SPEC-27 §3 with the 14-day rollback window. Sync server Yjs running on Reserved VM per SPEC-15 §2.2. Production health-check fails fast if `SUPABASE_URL` missing per SPEC-15 §4. AI per-project budget enforced per SPEC-28 §4; UI surfaces shipped per SPEC-28 §9. `authz.can` in every gateway route per ADR-028 Part F. Instantiation hooks deleted from `src/lifecycle/`; replacements in per-family plugins per ADR-030 Part D. | SPEC-15, SPEC-24, SPEC-27 §3, SPEC-28, ADR-028 |
+| **S43** | **Production cutover Replit-PG → Supabase** per SPEC-27 §3 with the 14-day rollback window. Sync server Yjs running on Reserved VM per SPEC-15 §2.2. Production health-check fails fast if `SUPABASE_URL` missing per SPEC-15 §4. AI per-project budget enforced per SPEC-28 §4; UI surfaces shipped per SPEC-28 §9. `authz.can` in every gateway route per ADR-0228 Part F. Instantiation hooks deleted from `src/lifecycle/`; replacements in per-family plugins per ADR-0230 Part D. | SPEC-15, SPEC-24, SPEC-27 §3, SPEC-28, ADR-0228 |
 | **S44** | Backup verification (nightly restore-into-fresh + checksum) lit per SPEC-24 §3.4. AI usage telemetry → Honeycomb metric `pryzm.ai.cost.usd` live per SPEC-28 §5.3. | SPEC-24, SPEC-28 §5.3 |
 | **S45** | After 14-day verification clean: **`project_command_log` deleted**; Replit PG production data deleted; auto-fallback in `server.js` becomes dev-only (`NODE_ENV !== 'production'`). `src/snapping/` deleted; lives in `packages/picking/`. | SPEC-24 §1.3, SPEC-27 §4.3 |
-| **S46** | `apps/bench/restore-verify.ts` nightly + alerting per SPEC-24 §3.4. Soft-locks (`Postgres soft_locks` table) lit per ADR-019 + SPEC-24 §1.3. | ADR-019, SPEC-24 §1.3 |
-| **S47** | Beta closes; Phase 2 retro; Phase 3 plan refreshed against any drift. Capacity-cut Tier checkpoint per ADR-018 — decide whether T1.x are needed. | ADR-018 |
-| **S48** | Phase 2 GA-rehearsal bench: `pnpm bench all` green; backup-restore drill green; AI cost dashboard signed off; SOC2-evidence collection plan ratified. | ADR-021, SPEC-24 §1.10 |
+| **S46** | `apps/bench/restore-verify.ts` nightly + alerting per SPEC-24 §3.4. Soft-locks (`Postgres soft_locks` table) lit per ADR-0219 + SPEC-24 §1.3. | ADR-0219, SPEC-24 §1.3 |
+| **S47** | Beta closes; Phase 2 retro; Phase 3 plan refreshed against any drift. Capacity-cut Tier checkpoint per ADR-0218 — decide whether T1.x are needed. | ADR-0218 |
+| **S48** | Phase 2 GA-rehearsal bench: `pnpm bench all` green; backup-restore drill green; AI cost dashboard signed off; SOC2-evidence collection plan ratified. | ADR-0221, SPEC-24 §1.10 |
 
 ### Updated bench gates (this phase, M24 beta gate)
 The M24 beta gate (existing) now also asserts:
 - `pnpm bench restore-verify` green (Supabase PITR → fresh checksum match).
 - `pnpm spec:audit-storage` green (per SPEC-24 §4 — no production code creates a table not in the map).
-- `pnpm bench yjs-collab` shows ≤ 250 ms broadcast lag p95 at 50 concurrent users per ADR-019 + SPEC-15 §8.
+- `pnpm bench yjs-collab` shows ≤ 250 ms broadcast lag p95 at 50 concurrent users per ADR-0219 + SPEC-15 §8.
 - AI cost dashboard reflects live `ai_usage` rows; pre-call cap rejection works.
 - All references to `service_role` Supabase keys removed from production routes.
 

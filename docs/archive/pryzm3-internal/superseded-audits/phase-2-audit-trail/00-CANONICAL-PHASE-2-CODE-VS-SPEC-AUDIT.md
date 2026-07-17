@@ -60,7 +60,7 @@ What this audit catches that the team's own audits did not, or under-stated:
    *"chaos test harness is the gate that lets us sleep at night through
    Phase 3"*. It is missing.
 6. **`apps/export-worker/` does not exist**. Phase 2C spec line 39 lists
-   it as an S40 deliverable; the team's 2C audit deferred it to "ADR-039".
+   it as an S40 deliverable; the team's 2C audit deferred it to "ADR-0239".
    The actual `apps/` directory contains: `ai-worker, bake-worker, bench,
    cli, component-editor, editor, headless, sync-server`. No export-worker.
 7. **Section view is genuinely a shell** — 3 files, 221 LOC total, zero
@@ -314,7 +314,7 @@ string literal. `AiHost.impl.ts` contains the full implementation.
 `scripts/check-ai-host-lazy.mjs` is the static guard. Comment header in
 `AiHost.impl.ts`: *"NO module under apps/editor (or any L7-or-below code)
 may import this file directly."* This is the K3-A bundle gate from
-`[strategic ADR-014]`. The pattern is implemented exactly as specified.
+`[strategic ADR-0214]`. The pattern is implemented exactly as specified.
 
 ### W-12. AI workflows — 3 workflow shells
 
@@ -431,11 +431,11 @@ plain Canvas2D, or (b) amend ADR-0023 to acknowledge the dependency.
 component-editor, editor, headless, sync-server`. No `export-worker`.
 
 Phase 2C spec line 39 (S40 deliverable): *`apps/export-worker/` skeleton
-+ PDF job*. ADR-026 in the Phase 2C joint deliverables table explicitly
++ PDF job*. ADR-0226 in the Phase 2C joint deliverables table explicitly
 calls for "Export worker architecture (BullMQ, headless rasterise,
 pdf-lib)".
 
-The PHASE-2C-AUDIT acknowledges this as deferred to "ADR-039" (which
+The PHASE-2C-AUDIT acknowledges this as deferred to "ADR-0239" (which
 this auditor could not locate in the ADR directory — see L-3 below).
 The deferral rationale is "raster path TBD pending true server worker"
 — but the spec named the worker as the M24 beta-launch infrastructure
@@ -493,7 +493,7 @@ ts` returns exactly **one** match: a comment in
 middleware (S43 D7 server-side concern)"*.
 
 Phase 2D spec line 49: *`authz.can` middleware in every gateway route
-(per [strategic ADR-011])* — S43 D7 deliverable.
+(per [strategic ADR-0211])* — S43 D7 deliverable.
 
 `apps/sync-server/src/index.ts` comment: *"auth model: client passes
 clientId + userId; server trusts. Full JWT lands in Phase 3C."*
@@ -501,7 +501,7 @@ clientId + userId; server trusts. Full JWT lands in Phase 3C."*
 **Why critical**: a multi-user beta with shared projects but no authz
 check is a data-integrity hole. Any client that can enumerate
 `projectId`s can append events to projects it has no permission to
-edit. ADR-028 Part F + `[strategic ADR-011]` make this an S43 contract.
+edit. ADR-0228 Part F + `[strategic ADR-0211]` make this an S43 contract.
 It is not implemented and is explicitly deferred to Phase 3C in the
 sync-server's own header comment. The Phase 2D self-audit score does
 not surface this.
@@ -648,9 +648,9 @@ does not work end-to-end.
 
 #### H-4. `bake-worker` debounce window — 250 ms not verified
 
-**Evidence**: `[strategic ADR-010]` mandates 250 ms coalescing window.
+**Evidence**: `[strategic ADR-0210]` mandates 250 ms coalescing window.
 Phase 2D spec line 50: *"`apps/bake-worker` debounce window pinned at
-250 ms per [strategic ADR-010]"* (S43 deliverable). No `rg "250" apps/
+250 ms per [strategic ADR-0210]"* (S43 deliverable). No `rg "250" apps/
 bake-worker/` proof was performed during this audit.
 
 **Why HIGH not CRITICAL**: defensible to leave at 500 ms in dev, but
@@ -786,16 +786,16 @@ M15-2A.script.md` etc.). PHASE-2C-AUDIT § Deferred mentions *"the
 recorded 8-min screencast"*. Same pattern as W-14 in the Phase-1 close
 plan (founder rest week task).
 
-#### L-3. ADR-039 referenced but not present
+#### L-3. ADR-0239 referenced but not present
 
-PHASE-2C-AUDIT references *"ADR-039 (raster path TBD pending true server
-worker)"*. `ls docs/02-decisions/adrs/` ends at 0037. ADR-039 is
+PHASE-2C-AUDIT references *"ADR-0239 (raster path TBD pending true server
+worker)"*. `ls docs/02-decisions/adrs/` ends at 0037. ADR-0239 is
 referenced as the rationale for deferring `apps/export-worker` and does
 not exist on disk.
 
-#### L-4. ADR-040 referenced but not present
+#### L-4. ADR-0240 referenced but not present
 
-PHASE-2C-AUDIT line for S42: *"ADR-040, bench, OTel spans"*. Same
+PHASE-2C-AUDIT line for S42: *"ADR-0240, bench, OTel spans"*. Same
 problem: ADR ends at 0037, no 0040 file present.
 
 #### L-5. The "PARTIAL-RATIFIED 100/100" pattern conflates SHIPPED with CLOSED
@@ -848,7 +848,7 @@ table gives each binding a code-grounded risk score.
 | D7 | AiPlane batch test green | needs `@pryzm/ai-cost` resolution fix | C-6 above | MEDIUM (1-line `package.json` fix) |
 | D8 | `apps/ai-worker/` BullMQ live | S49+ when Redis lands | ADR-0037 | MEDIUM (acceptable for beta cohort) |
 | D9 | Section view full feature | S37/S38 (already passed without continuation) | C-3 above | **HIGH** — the spec sub-phase that was supposed to fill section view ran on a different topic |
-| D10 | `apps/export-worker/` | "ADR-039" (which does not exist on disk) | C-2, L-3 | **HIGH** — this is one of the M24 named infra items |
+| D10 | `apps/export-worker/` | "ADR-0239" (which does not exist on disk) | C-2, L-3 | **HIGH** — this is one of the M24 named infra items |
 | D11 | `authz.can` middleware in sync-server | "Phase 3C" per sync-server header comment | C-4 | **HIGH** — the spec says S43 D7, not Phase 3C |
 | D12 | Chaos test harness | not bound to anything | C-5 | **HIGH** — the spec self-cites this as the "sleep at night" gate |
 | D13 | Plan-view fallback flag wiring | NOT bound; flag declared without consumer | H-1 | MEDIUM |

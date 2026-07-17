@@ -8,7 +8,7 @@
 | Owner | Standards lead |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S75 |
-| References | `12-` §3; `[strategic ADR-034]`; SPEC-32 |
+| References | `12-` §3; `[strategic ADR-0234]`; SPEC-32 |
 
 ---
 
@@ -53,14 +53,14 @@ Per ISO 19650, COBie drops happen at PIM stages (PIM = Project Information Model
 
 Each CDE state transition (SPEC-32) at S2/S3/S4/S6 auto-triggers a COBie generation job and stores result at `cde_revisions.cobie_artifact_url`.
 
-### §2.4 Fallback policy per `[strategic ADR-034]`
+### §2.4 Fallback policy per `[strategic ADR-0234]`
 
 When a required Pset/parameter is missing on an element:
 - Type-level fallback: read from element type if present.
 - Synthesised: marked with `[SYNTHESISED]` prefix in the value cell + a warning row in the `Issue` sheet.
 - Hard error: only for invariant fields (Component.Name, Component.Space).
 
-Per ADR-034 default = synthesise + Issue row (fail-soft); hard-error mode is per-project opt-in for high-stakes deliverables.
+Per ADR-0234 default = synthesise + Issue row (fail-soft); hard-error mode is per-project opt-in for high-stakes deliverables.
 
 ## §3 Architecture
 
@@ -106,7 +106,7 @@ apps/editor/src/cobie/
 
 ## §7 Cross-references
 
-- `[strategic ADR-034]` mapping fallback policy
+- `[strategic ADR-0234]` mapping fallback policy
 - SPEC-08 IFC (parameter source)
 - SPEC-32 CDE (state-triggered exports)
 - SPEC-39 EIR/BEP (specifies which COBie drops are required)

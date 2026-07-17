@@ -8,7 +8,7 @@
 | Owner | Founder + Architecture lead |
 | Predecessor | `PHASE-3A-Q1-M25-M27-VI-AI-ELEMENT-CREATOR.md` (closed) |
 | Successor | `PHASE-3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` (kicks off after this rewrite lands at S52 close) |
-| Related | `SPEC-FAMILY-EDITOR.md`, `SPEC-05-TYPE-CATALOG.md`, `SPEC-26-PRYZM-FILE-FORMAT.md`, `SPEC-48-CONSTRAINT-SOLVER.md`, `SPEC-09-PLUGIN-SDK.md`, `ADR-014`, `ADR-017`, `ADR-024`, `ADR-026`, `ADR-027`, `ADR-028`, `11-ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md` |
+| Related | `SPEC-FAMILY-EDITOR.md`, `SPEC-05-TYPE-CATALOG.md`, `SPEC-26-PRYZM-FILE-FORMAT.md`, `SPEC-48-CONSTRAINT-SOLVER.md`, `SPEC-09-PLUGIN-SDK.md`, `ADR-0214`, `ADR-0217`, `ADR-0224`, `ADR-0226`, `ADR-0227`, `ADR-0228`, `11-ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md` |
 | Replaces | All of `src/component-editor/**` (8 files, 1,176 LoC) and `src/ui/component-editor/**` (8 files, ~547 LoC) — 1,723 LoC of prototype code is deleted before any rewrite work begins. |
 | Cost posture | Expensive on purpose. No shortcuts. Build it once, build it right. |
 | Post-S59 review | A deep, honest review of this plan AND the implementation it produced is recorded at [`audits/PHASE-3B-FAMILY-CREATOR-DEEP-REVIEW-2026-04-28.md`](../audits/PHASE-3B-FAMILY-CREATOR-DEEP-REVIEW-2026-04-28.md). The review supersedes the per-sprint audit blocks under §19 and reframes the §22.1 carry-forward list. **Read the deep review before starting S60.** |
@@ -57,19 +57,19 @@ Total: **16 files, ~1,723 LoC**, all destined for deletion.
 | 1 | Uses `(window as any)` for cross-module state | `EditorWorkspace.ts:42, 188, 301`; `ComponentEditor.ts:55` | Rule P6 — no `window`-mounted globals |
 | 2 | Workspace owns its own `requestAnimationFrame` loop instead of joining the global frame scheduler | `EditorWorkspace.ts:114-138` | Rule P3 — single `rafScheduler` per app |
 | 3 | Tools mutate the document directly, bypassing the command bus | `SketchToolEnhanced.ts:88, 142`; `DimensionTool.ts:37` | Rule P4 — every mutation through `@pryzm/command-bus` |
-| 4 | `UndoManager.ts` is a 28-line in-memory stack, **not** the project undo bus — undo here cannot be reconciled with main-editor undo | `UndoManager.ts` whole file | Rule P4 + ADR-014 (batch undo) |
+| 4 | `UndoManager.ts` is a 28-line in-memory stack, **not** the project undo bus — undo here cannot be reconciled with main-editor undo | `UndoManager.ts` whole file | Rule P4 + ADR-0214 (batch undo) |
 | 5 | Geometry is a hardcoded `Box(width × depth × height)` — no real extrude / sweep / revolve, no profile concept | `EditorWorkspace.ts:367-401` | Spec-FAMILY-EDITOR §4.4 (the entire 3D op model) |
-| 6 | No constraint solver wired in. The "MockSolver" import is commented out. Sketch points float free. | `SketchToolEnhanced.ts:11` (commented import) | SPEC-48, ADR-024 |
+| 6 | No constraint solver wired in. The "MockSolver" import is commented out. Sketch points float free. | `SketchToolEnhanced.ts:11` (commented import) | SPEC-48, ADR-0224 |
 | 7 | Document types are duplicated locally (`types.ts:7-118`) instead of imported from `packages/file-format/` | `types.ts` whole file | DRY + SPEC-26 single source of truth |
 | 8 | No persistence wiring — `Save` writes to `localStorage` as a single JSON blob, no event log, no migration story | `ComponentEditor.ts:62-71` | Rule P7 + SPEC-02 |
 | 9 | THREE.js is imported by tools, ribbon code, and view controls — committer boundary is shattered | `ViewControls.ts:4`; `SketchToolEnhanced.ts:6`; `Ribbon.ts:9` | Rule P2 — only `*Committer.ts` may import THREE |
 | 10 | No OTel spans anywhere in the editor | search `pryzm.component.*` returns 0 hits in this dir | Rule P8 + SPEC-10 |
-| 11 | UI uses ad-hoc `innerHTML` strings with no escaping; `ElementTree.ts:34` interpolates user-typed names directly | `ElementTree.ts:30-38`; `PropertiesPalette.ts:62` | XSS class — security baseline ADR-021 |
+| 11 | UI uses ad-hoc `innerHTML` strings with no escaping; `ElementTree.ts:34` interpolates user-typed names directly | `ElementTree.ts:30-38`; `PropertiesPalette.ts:62` | XSS class — security baseline ADR-0221 |
 | 12 | No keyboard shortcut layer; no focus management; no a11y at all | grep `aria-` returns 0 | SPEC-FAMILY-EDITOR §9 (a11y), GA gate |
-| 13 | "Load into project" emits a raw DOM event the main editor listens for via `window.addEventListener`. No type-safe contract. | `ComponentEditor.ts:55` | Rule P4 + ADR-028 (authority unification) |
+| 13 | "Load into project" emits a raw DOM event the main editor listens for via `window.addEventListener`. No type-safe contract. | `ComponentEditor.ts:55` | Rule P4 + ADR-0228 (authority unification) |
 | 14 | No tests. Zero. | `find . -name '*component-editor*' -path '*test*'` → empty | SPEC-11 baseline |
 | 15 | No code-splitting boundary — the editor's entire surface area, including THREE, is currently top-level imported by `src/main.ts` | `src/main.ts` lazy-import audit fails | K3-A enforcer (covers it next sprint) |
-| 16 | Ribbon `CreateTab.ts` mixes panel layout with tool activation logic; ~50% of the file is ad-hoc DOM | `CreateTab.ts:30-180` | ADR-026 (vanilla-TS, but with the prescribed `bind()` helpers) |
+| 16 | Ribbon `CreateTab.ts` mixes panel layout with tool activation logic; ~50% of the file is ad-hoc DOM | `CreateTab.ts:30-180` | ADR-0226 (vanilla-TS, but with the prescribed `bind()` helpers) |
 | 17 | Application menu uses a hardcoded list of file paths in `~/Desktop/...` style — Linux-only assumption | `ApplicationMenu.ts:18-29` | Cross-platform baseline |
 | 18 | Status bar polls `setInterval` every 250 ms instead of subscribing to store deltas | `StatusBar.ts:14-22` | Rule P3 + perf budget |
 
@@ -193,7 +193,7 @@ apps/component-editor/
 │  │  ├─ StatusBar.ts                — solver status, dirty flag, units
 │  │  └─ ApplicationMenu.ts          — file / publish menus
 │  ├─ ai/
-│  │  ├─ aiHostBridge.ts             — connects to L7.5 AI host (ADR-014)
+│  │  ├─ aiHostBridge.ts             — connects to L7.5 AI host (ADR-0214)
 │  │  └─ approvalQueue.ts            — pending AI batches
 │  ├─ persistence/
 │  │  ├─ eventLogWriter.ts           — patch stream → event log
@@ -437,7 +437,7 @@ Booleans use `manifold-3d` (WASM) — already pinned in PRYZM 1; we reuse the pa
 packages/family-runtime/src/
 ├─ expression/
 │  ├─ tokenizer.ts
-│  ├─ parser.ts             — produces an AST; ADR-027
+│  ├─ parser.ts             — produces an AST; ADR-0227
 │  ├─ evaluator.ts          — pure, sandboxed; no global access, no I/O
 │  ├─ functions.ts          — min, max, if, sin, cos, sqrt, abs, round
 │  └─ unit-coercion.ts      — auto-coerce mm ↔ m where a length parameter is used
@@ -674,7 +674,7 @@ Every budget is asserted in CI on a tracked benchmarking corpus; regressions fai
 The Family Creator exposes its command surface to the AI host as a set of typed tools (Zod-derived). The AI may call:
 
 - Any read tool (`getProfile`, `listParameters`, `getType`).
-- Any write tool, but writes go through the normal command bus and inherit batch-undo (ADR-014, S54).
+- Any write tool, but writes go through the normal command bus and inherit batch-undo (ADR-0214, S54).
 - The AI **cannot** mutate the open `.pryzm-family` directly; every mutation produces a command that the user can preview in the approval queue.
 
 ### §16.2 Approval queue
@@ -813,7 +813,7 @@ Deliverables:
 
 Deliverables:
 - L7.5 AI host bridge + tool registry + approval queue mounted.
-- ADR-014 batch-undo wired through the family editor's command bus.
+- ADR-0214 batch-undo wired through the family editor's command bus.
 - AI replay test corpus added (10 prompts → 10 expected command sequences).
 - `pryzm.family.ai.batchExecute` span live.
 
@@ -822,7 +822,7 @@ Deliverables:
 > | # | Deliverable | Status | Evidence |
 > |---|---|---|---|
 > | 1 | L7.5 AI host bridge + tool registry + approval queue mounted in the family editor | ❌ Not started | `apps/component-editor/src/ai/` does not exist. The L7.5 host (`packages/ai-host/`) and `apps/ai-worker/` themselves exist from earlier phase work but have no consumer in the family editor. |
-> | 2 | ADR-014 batch-undo wired through the family editor's command bus | ❌ Not started — and blocked | Depends on the family-editor command bus that S52 item 7 has not delivered. `rg 'batchExecute\|batch-undo\|BatchUndo'` returns zero matches in `apps/component-editor`. |
+> | 2 | ADR-0214 batch-undo wired through the family editor's command bus | ❌ Not started — and blocked | Depends on the family-editor command bus that S52 item 7 has not delivered. `rg 'batchExecute\|batch-undo\|BatchUndo'` returns zero matches in `apps/component-editor`. |
 > | 3 | AI replay test corpus (10 prompts → 10 expected command sequences) | ❌ Not started | No `__tests__/ai-replay/` or equivalent fixture directory anywhere in the family editor or related packages. |
 > | 4 | `pryzm.family.ai.batchExecute` span live | ❌ Not started | Subset of the same OTel gap noted under S52 item 7. |
 >

@@ -117,7 +117,7 @@ CI gate: the existing `scripts/ci-check-spans.ts` ([C10 §2.3](./C10-PERFORMANCE
 
 ### §1.8 — Customer-facing export of provenance MUST be available per project
 
-Per the **P8 audit principle** in [engineering-vision.md](../../01-strategy/engineering-vision.md) — every public function is observable — every project owner MUST be able to export their project's full AI provenance graph in two formats:
+Per the **P8 audit principle** in [STR-03-engineering-vision.md](../../01-strategy/STR-03-engineering-vision.md) — every public function is observable — every project owner MUST be able to export their project's full AI provenance graph in two formats:
 
 - **PDF audit report** — human-readable, signed by the project owner's account email, dated at export time, page-numbered. Suitable for handing to a regulator or external auditor.
 - **JSON dump** — machine-readable `ProvenanceExport` (§2.5) bundle suitable for ingestion into customer-side compliance tooling.

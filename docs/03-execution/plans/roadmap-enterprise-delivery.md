@@ -1,10 +1,10 @@
 # PRYZM — Roadmap Enterprise Delivery
 
 > **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H2 sibling
-> **Reconciled 2026-06-03** to ADR-055/C51 (`pryzm.so` canonical; `pryzm.app` retired).
+> **Reconciled 2026-06-03** to ADR-0255/C51 (`pryzm.so` canonical; `pryzm.app` retired).
 > **Authority**: this doc owns **how PRYZM delivers to paying customers at scale** — the customer-side sequence (typically 2–4 quarters behind the engineering build sequence). Customer onboarding, pilot motions, training, change-management, success measurement, all per-tier.
 > **Companion to**: [roadmap-phase-{1,2,3}.md](./roadmap-phase-1-alpha.md) — those are the BUILD sequence; this is the DELIVERY sequence.
-> **Foundation above**: [go-to-market.md](../../01-strategy/go-to-market.md) (the strategic GTM frame) → this doc operationalises.
+> **Foundation above**: [STR-08-go-to-market.md](../../01-strategy/STR-08-go-to-market.md) (the strategic GTM frame) → this doc operationalises.
 
 ---
 
@@ -12,7 +12,7 @@
 
 A capability that engineering ships in Q3 2026 may only land in production for **Customer A** in Q1 2027 — three quarters later. This is not a defect; it is the structural reality of:
 
-- **Enterprise procurement cycles** (6–9 months per [go-to-market §2.3](../../01-strategy/go-to-market.md))
+- **Enterprise procurement cycles** (6–9 months per [go-to-market §2.3](../../01-strategy/STR-08-go-to-market.md))
 - **Pilot evaluation periods** (30 days for Mid-firm; 60–120 days for larger)
 - **Change-management lead times** (rolling a new tool out to 100+ architects requires training + onboarding + workflow rewriting)
 - **Security + legal review** (SOC 2 evidence, MSA negotiation, DPA, sovereignty annex)
@@ -25,11 +25,11 @@ This doc records the **customer delivery sequence** — what's available to whic
 
 ## §2 — The four customer tiers — onboarding shapes
 
-Per [personas.md](../../01-strategy/personas.md) + [C39 Pricing Plan Tiers](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md):
+Per [STR-09-personas.md](../../01-strategy/STR-09-personas.md) + [C39 Pricing Plan Tiers](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md):
 
 | Tier | Customers (Phase 3 target) | Onboarding shape | Time to value |
 |---|---|---|---|
-| **C1 Solo** | ~4000 | Self-serve PLG; 14-day trial | < 30 minutes (per [go-to-market §2.1](../../01-strategy/go-to-market.md)) |
+| **C1 Solo** | ~4000 | Self-serve PLG; 14-day trial | < 30 minutes (per [go-to-market §2.1](../../01-strategy/STR-08-go-to-market.md)) |
 | **C2 Studio (2–10 seats)** | ~700 | Self-serve PLG + opt-in CSM call | < 1 week |
 | **C3 Mid-firm (11–50 seats)** | ~200 | Assisted sales + 30-day evaluation + named CSM | 60–120 days |
 | **C4 Enterprise (50+ seats)** | ~30 | Contract-based procurement + pilot + change-management + named CSM | 6–9 months |
@@ -64,7 +64,7 @@ The most volume; the simplest motion.
 | First IFC export → day-14 conversion (Solo plan with PM) | 35 % | 45 % |
 | Conversion → 12-mo retention | 75 % | 80 % |
 
-Per [go-to-market §6](../../01-strategy/go-to-market.md), Phase 3 NRR target for Solo > 98 %.
+Per [go-to-market §6](../../01-strategy/STR-08-go-to-market.md), Phase 3 NRR target for Solo > 98 %.
 
 ---
 
@@ -88,7 +88,7 @@ A studio customer starts as a Solo customer (one founder signs up); the platform
 |---|---|---|
 | Solo → Studio conversion (within 90 days of adding 2nd seat) | 60 % | 75 % |
 | Studio 12-mo retention | 80 % | 90 % |
-| Studio 24-mo NRR (per [go-to-market §7.1](../../01-strategy/go-to-market.md)) | > 120 % | > 130 % |
+| Studio 24-mo NRR (per [go-to-market §7.1](../../01-strategy/STR-08-go-to-market.md)) | > 120 % | > 130 % |
 
 ---
 
@@ -199,7 +199,7 @@ A first Enterprise customer typically lands with **one team or division**. The e
 | Multi-office | 18-month milestone | +500 seats; multi-region |
 | Strategic partner | 24-month milestone | Featured case study; joint marketing |
 
-NRR target for Enterprise per [go-to-market §7.1](../../01-strategy/go-to-market.md): 24-mo > 140 %.
+NRR target for Enterprise per [go-to-market §7.1](../../01-strategy/STR-08-go-to-market.md): 24-mo > 140 %.
 
 ---
 
@@ -271,8 +271,8 @@ Each customer is a separate sales motion led by the founder + account exec. Cust
 
 | Doc | Relationship |
 |---|---|
-| [go-to-market.md](../../01-strategy/go-to-market.md) | The strategic GTM that this doc operationalises |
-| [personas.md](../../01-strategy/personas.md) | The 5 archetypes (C1–C5) that this doc onboards |
+| [STR-08-go-to-market.md](../../01-strategy/STR-08-go-to-market.md) | The strategic GTM that this doc operationalises |
+| [STR-09-personas.md](../../01-strategy/STR-09-personas.md) | The 5 archetypes (C1–C5) that this doc onboards |
 | [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) | Phase 1 BUILD; this doc = Phase 1 DELIVERY |
 | [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md) | Phase 2 BUILD; this doc = Phase 2 DELIVERY |
 | [roadmap-phase-3-ga.md](./roadmap-phase-3-ga.md) | Phase 3 BUILD; this doc = Phase 3 DELIVERY |
@@ -282,4 +282,4 @@ Each customer is a separate sales motion led by the founder + account exec. Cust
 
 ---
 
-*End — PRYZM Roadmap Enterprise Delivery, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
+*End — PRYZM Roadmap Enterprise Delivery, 2026-06-03 (reconciled to ADR-0255/C51) — CANONICAL.*

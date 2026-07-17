@@ -130,7 +130,7 @@ C13 identifies a concrete bug: after an AI batch on Project A, opening Project B
 
 **Status: IMPLEMENTED ✅**
 
-`packages/file-format/src/` has canonical JSON, schema, pack/unpack, family format, migrations directory, and zip-deterministic utilities. All compiled JS + `.d.ts` files co-located (pre-built). The `.pryzm` and `.pryzm-family` formats are implemented per ADR-004 and ADR-017.
+`packages/file-format/src/` has canonical JSON, schema, pack/unpack, family format, migrations directory, and zip-deterministic utilities. All compiled JS + `.d.ts` files co-located (pre-built). The `.pryzm` and `.pryzm-family` formats are implemented per ADR-0204 and ADR-0217.
 
 ---
 

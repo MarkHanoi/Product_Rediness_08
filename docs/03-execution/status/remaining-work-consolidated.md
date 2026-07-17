@@ -1,5 +1,10 @@
 # PRYZM 3 — Consolidated Remaining Work (2026-05-29)
 
+> **Status**: SUPERSEDED 2026-07-16 by the live V1 launch trackers — the active remaining-work SSOT is now
+> [`04-reference/V1-LAUNCH-READINESS-AUDIT.md`](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md) (the L-NNN issue log)
+> + [`04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md`](../../04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md) (the phased fix plan).
+> This 2026-05-29 snapshot is retained for historical traceability only; do not add new items here.
+
 **This document supersedes** (sources archived to `archive/`):
 
 - `DAILY-USE-AUDIT-2026-05-20.md` + `DAILY-USE-FIX-LOG-2026-05-20.md`
@@ -105,7 +110,7 @@ Open question (§9 of source doc): if HiddenLineRemoval becomes the new bottlene
 - **OI-009** `engineLauncher.ts` bundle 4.3 MB — P3.
 - **OI-050** CustomEvent migration — 598 total remaining. Last sub-completed = `F.events.19`. Gate #17 packages ratchet: `input-host` 41, `core-app-model` 35, `ai-host` 22, `runtime-composer` 1 comment. Gate #21 apps ratchet: 28 deep DOM-only.
 - **OI-053** Project create + open slow — (a) eliminate double handler reg (Round 52 interim), (b) profile/rAF-slice 844 ms + 1008 ms blocks, (c) defer DataWorkbench / Portfolio / AI panels off cold-boot, (d) RenderPipelineManager phase-ramp churn, (e) project-create latency review.
-- **OI-054** Hosted door/window two-part undo (followup-a); cross-stack redo ordering / ADR-051 single-store end-state (followup-b).
+- **OI-054** Hosted door/window two-part undo (followup-a); cross-stack redo ordering / ADR-0251 single-store end-state (followup-b).
 - **OI-056** Auto-zoom on first plan-view element creation — queued 2026-05-24.
 - **OI-057** Post-batch wall-join: sound but timing-implicit + no test; plugin-store keeps pre-miter baselines — backlogged.
 - **OI-058** Scene Registry (pascalorg pattern) to replace `scene.traverse` for visibility/selection — highest-value architectural key, open.

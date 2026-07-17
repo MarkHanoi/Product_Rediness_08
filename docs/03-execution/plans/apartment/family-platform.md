@@ -184,7 +184,7 @@ The current F-tier §0.1 ladder is a **furniture-specific contract**. Generalisi
 | 8 | Plan-view projection cache entry | every visible element kind |
 | 9 | Snapshot round-trip | every element kind that persists |
 | 10 | CRDT replication | every element kind in shared projects |
-| 11 | ADR-051 single-store undo | every mutating element kind |
+| 11 | ADR-0251 single-store undo | every mutating element kind |
 | 12 | IFC export mapping | every element kind that exports |
 | 13 | Selection + hover behaviour | every visible element kind |
 | 14 | Visibility intent rules | every element kind in views |

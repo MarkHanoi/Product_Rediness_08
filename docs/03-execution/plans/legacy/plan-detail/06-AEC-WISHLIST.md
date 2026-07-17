@@ -61,30 +61,30 @@
 
 ---
 
-## §3 Final strategic ADR numbering (ADR-031 through ADR-050)
+## §3 Final strategic ADR numbering (ADR-0231 through ADR-0250)
 
 | ADR | Decision | Phase |
 |---|---|---|
-| ADR-031 | CDE storage topology — share L0 vs separate Postgres+R2 namespace | 4 |
-| ADR-032 | Clash classification rule language — DSL vs Python sandbox vs SPARQL | 4 |
-| ADR-033 | MEP system propagation algorithm — graph traversal vs constraint solver | 4 |
-| ADR-034 | COBie mapping fallback policy on missing required Pset | 4 |
-| ADR-035 | buildingSMART certification scope — RV vs RV+DTV vs RV+DTV+CV2.0 | 4 |
-| ADR-036 | **Stakeholder review pricing — free viewer per project vs metered** | 4 |
-| ADR-037 | **Hybrid data sovereignty default — cloud-default vs local-default** | 4 |
-| ADR-038 | **Enterprise BYOK key custody — KMS-backed vs HSM-backed vs both** | 4 |
-| ADR-039 | Analysis bridge data contract — IFC4+JSON-LD vs gbXML vs MessagePack | 5 |
-| ADR-040 | Render-worker engine selection — Cycles only vs +Mitsuba vs +LuxCore | 5 |
-| ADR-041 | Cost rate library plug-in model — BYO vs marketplace verified vs both | 5 |
-| ADR-042 | 4D simulation playback — server-side video render vs client-side replay | 5 |
-| ADR-043 | **LCA database — open EC3+ICE vs commercial One Click LCA partnership** | 5 |
-| ADR-044 | **DfMA fabrication output — IFC4-Precast vs LandXML-CAM vs vendor-direct** | 5 |
-| ADR-045 | **ConTech integration topology — direct API per vendor vs unified ConnectorHub** | 5 |
-| ADR-046 | Triple-store implementation — Apache Jena vs Oxigraph vs Postgres-AGE | 6 |
-| ADR-047 | SPARQL endpoint authn — anonymous public read vs project-token vs OAuth2 | 6 |
-| ADR-048 | IDS authoring UX — visual editor vs YAML vs both | 6 |
-| ADR-049 | bSDD sync policy — pull-on-edit vs nightly mirror vs hybrid | 6 |
-| ADR-050 | AI design partner constraint propagation — declarative vs imperative vs hybrid | 7 |
+| ADR-0231 | CDE storage topology — share L0 vs separate Postgres+R2 namespace | 4 |
+| ADR-0232 | Clash classification rule language — DSL vs Python sandbox vs SPARQL | 4 |
+| ADR-0233 | MEP system propagation algorithm — graph traversal vs constraint solver | 4 |
+| ADR-0234 | COBie mapping fallback policy on missing required Pset | 4 |
+| ADR-0235 | buildingSMART certification scope — RV vs RV+DTV vs RV+DTV+CV2.0 | 4 |
+| ADR-0236 | **Stakeholder review pricing — free viewer per project vs metered** | 4 |
+| ADR-0237 | **Hybrid data sovereignty default — cloud-default vs local-default** | 4 |
+| ADR-0238 | **Enterprise BYOK key custody — KMS-backed vs HSM-backed vs both** | 4 |
+| ADR-0239 | Analysis bridge data contract — IFC4+JSON-LD vs gbXML vs MessagePack | 5 |
+| ADR-0240 | Render-worker engine selection — Cycles only vs +Mitsuba vs +LuxCore | 5 |
+| ADR-0241 | Cost rate library plug-in model — BYO vs marketplace verified vs both | 5 |
+| ADR-0242 | 4D simulation playback — server-side video render vs client-side replay | 5 |
+| ADR-0243 | **LCA database — open EC3+ICE vs commercial One Click LCA partnership** | 5 |
+| ADR-0244 | **DfMA fabrication output — IFC4-Precast vs LandXML-CAM vs vendor-direct** | 5 |
+| ADR-0245 | **ConTech integration topology — direct API per vendor vs unified ConnectorHub** | 5 |
+| ADR-0246 | Triple-store implementation — Apache Jena vs Oxigraph vs Postgres-AGE | 6 |
+| ADR-0247 | SPARQL endpoint authn — anonymous public read vs project-token vs OAuth2 | 6 |
+| ADR-0248 | IDS authoring UX — visual editor vs YAML vs both | 6 |
+| ADR-0249 | bSDD sync policy — pull-on-edit vs nightly mirror vs hybrid | 6 |
+| ADR-0250 | AI design partner constraint propagation — declarative vs imperative vs hybrid | 7 |
 
 ---
 

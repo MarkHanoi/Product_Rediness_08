@@ -1,7 +1,7 @@
 # C14 — Legacy Elimination & PRYZM3 Architecture Enforcement
 
 > **Stamp**: 2026-05-16 · **Status**: CANONICAL  
-> **Authority**: Supersedes all pre-PRYZM3 architectural norms documented in `docs/02-decisions/contracts/archive/superseded-pryzm1-pryzm2/`. Cross-references `docs/01-strategy/architecture.md` as the normative source of truth.  
+> **Authority**: Supersedes all pre-PRYZM3 architectural norms documented in `docs/02-decisions/contracts/archive/superseded-pryzm1-pryzm2/`. Cross-references `docs/01-strategy/STR-04-architecture.md` as the normative source of truth.  
 > **Scope**: `packages/`, `plugins/`, `scripts/`, and `tools/ga-gate/` — every file in those three directories. `apps/editor/src/` legacy patterns are governed by C03 §4.3 (undo dual-path) and C06 §4.3 (gizmo drag-end); those are not repeated here.  
 > **Audit baseline**: Deep scan executed 2026-05-16; counts refreshed 2026-06-01 covering all `.ts` / `.tsx` files in `packages/` (**79 packages**), `plugins/` (**47 plugins**), `scripts/` (~50 scripts), `tools/ga-gate/` (**21 gates**).
 
@@ -23,7 +23,7 @@ The rule of thumb: **existing legacy code is technical debt with a migration mil
 
 ## §2 — The PRYZM3 Architecture Requirements
 
-The following requirements are derived from `docs/01-strategy/engineering-vision.md`, `02-ARCHITECTURE.md`, and the C01–C13 contract suite. They apply to all packages, plugins, and scripts.
+The following requirements are derived from `docs/01-strategy/STR-03-engineering-vision.md`, `02-ARCHITECTURE.md`, and the C01–C13 contract suite. They apply to all packages, plugins, and scripts.
 
 ### §2.1 — Command dispatch (P6)
 
@@ -506,7 +506,7 @@ The following table maps each legacy-pattern category to the PRYZM3 migration ph
 | **E.ifc** | LP-03, LP-10 | Inject `CommandBus` into `IfcConversionContext`; replace `commandManager:any` in 9 IFC converters | Phase E.5.x |
 | **D.4** | LP-01, LP-08 | `window.bimManager` → `runtime.scene.*`; inject runtime into `AIReadModel` constructor | PRYZM3 runtime composed (already done) |
 | **F.ai** | LP-05 (ai-host) | Replace `window.dispatchEvent(new CustomEvent('ai-proposal-added'))` with `runtime.events.emit('ai.proposalAdded')` in QueryEngine.ts | Phase E.5.x + structured AI events spec |
-| **G3-T2** | LP-05 (StoreEventBus) | Replace `StoreEventBus` batch coordination with Yjs per-level `Y.Doc` boundary | Yjs per-level split (ADR-049 — already implemented) |
+| **G3-T2** | LP-05 (StoreEventBus) | Replace `StoreEventBus` batch coordination with Yjs per-level `Y.Doc` boundary | Yjs per-level split (ADR-0249 — already implemented) |
 | **Wave 12** | LP-09 | Delete `packages/legacy-shim/` | Phase E close (no importers already confirmed) |
 
 ---

@@ -22,7 +22,7 @@ async function boot(): Promise<void> {
     sync:        { url: location.origin.replace(/^http/, 'ws') + '/ws' },
     ai:          { enabled: true },
     audit:       { actorId: 'platform-shell', clientId: crypto.randomUUID() },
-    rendererMode: 'auto',                    // ADR-007 — WebGPU first, WebGL2 fallback
+    rendererMode: 'auto',                    // ADR-0207 — WebGPU first, WebGL2 fallback
   });
   PlatformRouter.start(runtime);             // see §3.4 — runtime threads everywhere
 }

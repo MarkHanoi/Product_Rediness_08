@@ -1,7 +1,7 @@
 # SPEC-46 — Plan Critique Workflow
 
 **Status**: Accepted (S51, 2026-04-28)
-**Companions**: SPEC-28 (AI cost telemetry), SPEC-07 (visibility-state contract), [strategic ADR-014] (L7.5 AI host)
+**Companions**: SPEC-28 (AI cost telemetry), SPEC-07 (visibility-state contract), [strategic ADR-0214] (L7.5 AI host)
 **Phase doc**: `phases/PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md` §S51 (lines 322-403)
 
 ---
@@ -118,7 +118,7 @@ Per-call cost is recorded into `pryzm.ai.cost.usd` (counter) + `pryzm.ai.cost.us
 - **SPEC-28** §3 — per-call ceiling + monthly budget enforcement.
 - **SPEC-28** §5.1 — `ai_usage` table schema.
 - **SPEC-07** §3 — visibility-state contract (`VisibilityState` shape).
-- **[strategic ADR-014]** — AI plane runs at L7.5 outside the renderer's idle budget.
+- **[strategic ADR-0214]** — AI plane runs at L7.5 outside the renderer's idle budget.
 - **PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE** §S51 — sprint scope + exit criteria.
 - **SPEC-45** §6 — approval-queue gating (PDF-to-BIM uses the same queue contract).
 - **packages/ai-host/src/workflows/PlanCritique.ts** — implementation.

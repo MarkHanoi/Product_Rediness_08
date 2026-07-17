@@ -3,7 +3,7 @@
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
 > 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (ADR-001..ADR-024 of the strategic series).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (ADR-0201..ADR-0224 of the strategic series).
 > 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
 > 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
@@ -66,7 +66,7 @@ These four files in `src/` are the most dangerous for the 1A team because they l
 | File | LOC | Why it looks like the answer | Why it isn't (and what 1A must do differently) |
 |---|---|---|---|
 | `src/core/rendering/UnifiedFrameLoop.ts` | 402 | Already exports `TickPriority`, `TickListener`, `addTickListener()` with idempotent registration. Already drives a single `requestAnimationFrame` for OBC + PASCAL. Already exposes `start() / stop() / beginViewSwitch() / endViewSwitch()`. **This is essentially the frame-scheduler API.** | Two callbacks (`setObcRenderCallback`, `setPascalRenderCallback`) are baked in — the PRYZM 1 dual-renderer assumption. PRYZM 2 has a single render path. The **right move**: copy the `TickPriority` + `TickListener` shapes verbatim into `packages/frame-scheduler/`, drop the OBC/PASCAL specifics, add `markDirty(reason) / requestFrame(reason, priority)`. Document as "absorbed from `UnifiedFrameLoop.ts`" so the lineage is explicit. **`code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md` must cite this file.** |
-| `src/core/rendering/FrameCoordinator.ts` | ~250 | Already implements `markDirty(pass \| 'all', reason)`, `shouldRenderPass(pass)`, per-pass grace-frame counter (default 6, wired to `tickFrame()`), debug stats. **This is the dirty-flag mechanism PRYZM 2 needs.** | The per-pass enum is closed (`'ssgi' \| 'traa' \| 'outline' \| 'bloom'`). PRYZM 2's scheduler must accept arbitrary `string` keys (one per registered subsystem). The 6-frame grace constant is good — keep it; `code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md` ratifies 30 frames for idle continuation, not the per-pass grace which stays at 6. |
+| `src/core/rendering/FrameCoordinator.ts` | ~250 | Already implements `markDirty(pass \| 'all', reason)`, `shouldRenderPass(pass)`, per-pass grace-frame counter (default 6, wired to `tickFrame()`), debug stats. **This is the dirty-flag mechanism PRYZM 2 needs.** | The per-pass enum is closed (`'ssgi' \| 'traa' \| 'outline' \| 'bloom'`). PRYZM 2's scheduler must accept arbitrary `string` keys (one per registered subsystem). The 6-frame grace constant is good — keep it; `code-level ADR docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md` ratifies 30 frames for idle continuation, not the per-pass grace which stays at 6. |
 | `src/commands/PatchSnapshot.ts` | 293 | Already imports `produceWithPatches, applyPatches, enablePatches, type Patch` from immer. Already defines `PatchSnapshotEntry { storeKey, forwardPatches, inversePatches, capturedAt }`. Already defines `SnapshotCompletenessSpec` with the `_renderVersion` / `_sourceBaseLine` field allow-list. **This is the data model PRYZM 2's UndoStack uses.** | Per its own header: "exercises zero runtime code paths until a follow-up commit (Phase 9-extension after the Contract 01 §3 amendment) wires CommandManager to the patch path". **Phase 9-extension never landed.** PRYZM 2 in S02 *is* the missing wiring. Copy the `PatchSnapshotEntry` shape into `packages/command-bus/types.ts` verbatim. |
 | `src/core/StoreEventBus.ts` | ~600 | Already provides nesting-safe `batch<T>(fn): T` with try/finally. Documents "No Event Drops" as a non-negotiable. Already uses depth-counter (`_batchDepth: number`) not a boolean flag. **This is the transactional-commit primitive PRYZM 2 needs.** | The event shape `StoreChangeEvent { elementId, elementType, operation, timestamp }` is too narrow for patches (no `forwardPatches` / `inversePatches`). PRYZM 2's command-bus emits a richer envelope. Borrow the depth-counter idea + the "no drops" contract verbatim. |
 
@@ -96,7 +96,7 @@ These four files in `src/` are the most dangerous for the 1A team because they l
 |---|---|---|---|---|
 | **Plan-tool handlers** (`src/core/views/plantools/*`) | 16 | 78 | `MovePlanToolHandler.ts:23` documents the convention as "**Architecture rules (Contract 21 §4): All commands fired via `(window as any).commandManager`**". The plan-tool layer is *deliberately* wired through window globals as a contracted bridge to the CAD-style 2D layer. | **Untouched in 1A.** Plan tools live entirely in `src/`. PRYZM 2 in 1A renders only a 3D cube; no 2D plan editing surface exists yet. |
 | **Plantool + Bench debt** (worst single file) | `MovePlanToolHandler.ts` | 20 | Single file holds the most casts. | Targeted in Phase 1C / 1D, not 1A. |
-| **CommandManager bootstrap fallbacks** | `src/commands/CommandManager.ts` | 3 | `CommandManager` constructor (lines 38–47) contains: `if (!context.stores.curtainWallStore && (window as any).curtainWallStore) { context.stores.curtainWallStore = (window as any).curtainWallStore; }` — three identical fallbacks for `curtainWallStore`, `plumbingStore`, `furnitureStore`. **These exist precisely because the DI through `CommandContext.stores` did not land cleanly for those three stores.** | **Lesson encoded in `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`**: PRYZM 2's `CommandHandler<T>` signature must take `HandlerContext` *by parameter*, never look at globals. The bus throws synchronously if any required store is missing — no silent window fallback. |
+| **CommandManager bootstrap fallbacks** | `src/commands/CommandManager.ts` | 3 | `CommandManager` constructor (lines 38–47) contains: `if (!context.stores.curtainWallStore && (window as any).curtainWallStore) { context.stores.curtainWallStore = (window as any).curtainWallStore; }` — three identical fallbacks for `curtainWallStore`, `plumbingStore`, `furnitureStore`. **These exist precisely because the DI through `CommandContext.stores` did not land cleanly for those three stores.** | **Lesson encoded in `code-level ADR docs/02-decisions/adrs/ADR-0002-command-handler-signature.md`**: PRYZM 2's `CommandHandler<T>` signature must take `HandlerContext` *by parameter*, never look at globals. The bus throws synchronously if any required store is missing — no silent window fallback. |
 | **Render pipeline** | `src/rendering/createRenderer.ts`, `src/rendering/pipeline/RenderPipelineManager.ts` | 5 | THREE renderer + camera handed back through window for tools to grab. | Untouched. |
 | **Everything else** | ~300 files | ~1,975 | Cross-cutting handoffs — services, lifecycle panels, IFC import, dev overlays, debug. | Untouched in 1A; tracked in `07-EXECUTION-PLAYBOOK.md §8` for systematic deletion across Years 2–3. |
 
@@ -186,13 +186,13 @@ L5 + L7 render half + tooling/CI.
 | `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json` | S01 D1 | F (after both agents propose) |
 | `eslint.config.js` boundaries matrix | S01 D2 | F |
 | `code-level ADR docs/02-decisions/adrs/0001-typed-id-brand.md` (typed-ID brand strategy) | S01 D3 | F (drafted by A) |
-| `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` (command handler signature) | S02 D1 | F (drafted by A) |
+| `code-level ADR docs/02-decisions/adrs/ADR-0002-command-handler-signature.md` (command handler signature) | S02 D1 | F (drafted by A) |
 | `code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md` (scheduler API: `priority` queue-class vs `TickPriority` render-phase + absorption from `UnifiedFrameLoop.ts`) | S03 D1 | F (drafted by B, A reviews) |
-| `[strategic ADR-004]` ratifies (MessagePack codec choice — the prior phase-doc `ADR-004` stub is deleted; bench numbers from S03-T8 spike attach to the strategic ADR's "Phase rollout S04") | S04 D2 | F (drafted by A) |
-| `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md` (`PrimitiveCommitter` interface) | S05 D2 | F (drafted by B, A reviews) |
-| `code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md` (idle-continuation N-frame budget; relation to FrameCoordinator's 6-frame per-pass grace) | S03 D3 | F (drafted by B) |
-| `[strategic ADR-006]` ratifies (WebGPU/WebGL2 dual-mode — the prior phase-doc `ADR-007` stub is deleted; CI matrix wiring documented in the strategic ADR's "Phase rollout S04/S08") | S06 D1 | F (drafted by B) |
-| `[strategic ADR-009]` ratifies (Web Worker plugin sandbox model — 5-day pre-S01 spike output linked from `02-decisions/adrs/ADR-009-plugin-sandbox.md`) | S01 D1–D5 spike | F (drafted by A+B paired) |
+| `[strategic ADR-0204]` ratifies (MessagePack codec choice — the prior phase-doc `ADR-0204` stub is deleted; bench numbers from S03-T8 spike attach to the strategic ADR's "Phase rollout S04") | S04 D2 | F (drafted by A) |
+| `code-level ADR docs/02-decisions/adrs/ADR-0005-primitive-committer-interface.md` (`PrimitiveCommitter` interface) | S05 D2 | F (drafted by B, A reviews) |
+| `code-level ADR docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md` (idle-continuation N-frame budget; relation to FrameCoordinator's 6-frame per-pass grace) | S03 D3 | F (drafted by B) |
+| `[strategic ADR-0206]` ratifies (WebGPU/WebGL2 dual-mode — the prior phase-doc `ADR-0207` stub is deleted; CI matrix wiring documented in the strategic ADR's "Phase rollout S04/S08") | S06 D1 | F (drafted by B) |
+| `[strategic ADR-0209]` ratifies (Web Worker plugin sandbox model — 5-day pre-S01 spike output linked from `02-decisions/adrs/ADR-0209-plugin-sandbox.md`) | S01 D1–D5 spike | F (drafted by A+B paired) |
 | `apps/editor/src/bootstrap.ts` final | S06 D5 | F (paired session A+B) |
 
 ---
@@ -229,8 +229,8 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 - **S01-T7 — Bench harness (D6, Agent B)**: `apps/bench/` skeleton + `baseline.json` empty file. Vitest + custom timing wrapper + `pnpm -r bench:baseline` script. `docs/04-reference/architecture-detail/bench-harness.md` (S02 fills it in).
 - **S01-T8 — Round-trip + typed-ID tests (D7, Agent A + B)**: `packages/schemas/__tests__/round-trip.test.ts` — every schema parses → serialises (JSON for now; MessagePack lands S04) → re-parses with byte equality. `packages/schemas/__tests__/typed-id.test.ts` — compile-time test that `WallId` cannot be passed where `SlabId` is expected (uses `// @ts-expect-error` directive). **Validation against PRYZM 1**: extract one wall snapshot from a saved PRYZM-1 project (`tests/fixtures/pryzm-1-snapshots/wall-sample.json`) and assert the new `Wall.parse()` accepts it.
 - **S01-T9 — Bundle-size baseline + CI green (D8, both)**: `packages/protocol` size measured (target `< 50 KB raw, < 15 KB gzip`). Bundle-size CI gate set as **warn-only** in S01 (becomes hard-fail S06). First PR-level CI green on a clean clone.
-- **S01-T0 (NEW, added 2026-04-27) — Plugin sandbox spike (D1–D5, F + A + B paired)**: 5-day measurement of postMessage RPC cost on the target plugin shapes (per `[strategic ADR-009]` Phase rollout S01). Output: 1-page report linked from `docs/02-decisions/adrs/ADR-009-plugin-sandbox.md`. Runs **in parallel** with S01-T1..T9; the spike does not block the monorepo bootstrap.
-- **S01-T1' (NEW, added 2026-04-27) — OTel SDK wrapper lands (D2–D8, Agent A)**: `packages/otel/` per `[strategic ADR-007]`. First spans emitted from `packages/wire/`. Honeycomb dev account wired in S02. Labelled `T1'` (T-one-prime) to disambiguate from the existing S01-T1 monorepo bootstrap, which retains its number; both run in parallel D2–D8.
+- **S01-T0 (NEW, added 2026-04-27) — Plugin sandbox spike (D1–D5, F + A + B paired)**: 5-day measurement of postMessage RPC cost on the target plugin shapes (per `[strategic ADR-0209]` Phase rollout S01). Output: 1-page report linked from `docs/02-decisions/adrs/ADR-0209-plugin-sandbox.md`. Runs **in parallel** with S01-T1..T9; the spike does not block the monorepo bootstrap.
+- **S01-T1' (NEW, added 2026-04-27) — OTel SDK wrapper lands (D2–D8, Agent A)**: `packages/otel/` per `[strategic ADR-0207]`. First spans emitted from `packages/wire/`. Honeycomb dev account wired in S02. Labelled `T1'` (T-one-prime) to disambiguate from the existing S01-T1 monorepo bootstrap, which retains its number; both run in parallel D2–D8.
 
 #### D1 — Kickoff (45 min, F + A + B)
 
@@ -304,10 +304,10 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 
 #### Sub-phases
 
-- **S02-T1 — `CommandHandler<T>` + `HandlerContext` (D2, Agent A)**: implement in `packages/command-bus/`. Signature (`code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`): `interface CommandHandler<TCmd, TStores> { canExecute(ctx: HandlerContext<TStores>, cmd: TCmd): ValidationResult; execute(ctx: HandlerContext<TStores>, cmd: TCmd): Promise<CommandResult>; readonly affectedStores: readonly (keyof TStores)[]; }`. **Critical**: `HandlerContext` is passed *only* by parameter — no `(window as any)` fallback. The bus throws synchronously if a required store key is missing from the context.
+- **S02-T1 — `CommandHandler<T>` + `HandlerContext` (D2, Agent A)**: implement in `packages/command-bus/`. Signature (`code-level ADR docs/02-decisions/adrs/ADR-0002-command-handler-signature.md`): `interface CommandHandler<TCmd, TStores> { canExecute(ctx: HandlerContext<TStores>, cmd: TCmd): ValidationResult; execute(ctx: HandlerContext<TStores>, cmd: TCmd): Promise<CommandResult>; readonly affectedStores: readonly (keyof TStores)[]; }`. **Critical**: `HandlerContext` is passed *only* by parameter — no `(window as any)` fallback. The bus throws synchronously if a required store key is missing from the context.
 - **S02-T2 — `CommandBus.executeCommand` + handler registry (D2, Agent A)**: registry keyed by `cmd.type: CommandType`. OTel span `pryzm.command.execute` wraps every dispatch.
 - **S02-T3 — Immer patches + `produceWithPatches` wrapper (D3, Agent A)**: `enablePatches()` is already idempotent (called in 3 PRYZM-1 places); call once in `command-bus/index.ts`. Implement `produceWithPatchesPerStore(stores, recipe)` that produces forward+inverse patches per affected store. Fixture handler: `MoveCubeCommand`.
-- **S02-T4 — `PatchEmitter` design + ULID + audit metadata (D4, Agent A)**: emitter shape `{ commandId: ULID, actorId, projectId, clientId, timestamp, patches: PatchSnapshotEntry[] }`. ULID via `ulid` package (S01 added the dep). MessagePack codec choice → `[strategic ADR-004]` in S04 (**S02 ships JSON-only; codec swap is a single-file change later**).
+- **S02-T4 — `PatchEmitter` design + ULID + audit metadata (D4, Agent A)**: emitter shape `{ commandId: ULID, actorId, projectId, clientId, timestamp, patches: PatchSnapshotEntry[] }`. ULID via `ulid` package (S01 added the dep). MessagePack codec choice → `[strategic ADR-0204]` in S04 (**S02 ships JSON-only; codec swap is a single-file change later**).
 - **S02-T5 — `UndoStack` (D5, Agent A)**: bounded size 100 (matches PRYZM 1's `CommandManager.history` cap). Apply inverse patches in reverse order on undo. **Cleared on `LOAD_PROJECT`** (matches PRYZM 1 contract — `clearHistory()` after load).
 - **S02-T6 — `pryzm-affected-stores-required` real rule (D3, Agent B)**: AST walker — looks for missing `affectedStores` field on classes implementing `CommandHandler` (or extending the legacy `Command` interface, in `pryzm2/` mode only). Test against the S01 fixtures.
 - **S02-T7 — `FrameScheduler.requestFrame(reason, priority)` API (D2, Agent B)**: pure data structure spike (no rAF integration). Priority enum: `'interaction' | 'idle' | 'background'` (`code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md` ratifies). **Borrow**: copy `TickPriority = 'pre-render' | 'render' | 'post-render' | 'overlay'` from `UnifiedFrameLoop.ts` lines 95–98 into `packages/frame-scheduler/types.ts` — this is the *render-phase ordering*; `priority` (interaction/idle/background) is the *queue-class*.
@@ -317,7 +317,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` draft (command handler signature, citing `CommandManager.ts:30–60` for the legacy `Command` shape and lines 38–47 for the window-fallback antipattern that this ADR explicitly outlaws). F decides.
+- A presents `code-level ADR docs/02-decisions/adrs/ADR-0002-command-handler-signature.md` draft (command handler signature, citing `CommandManager.ts:30–60` for the legacy `Command` shape and lines 38–47 for the window-fallback antipattern that this ADR explicitly outlaws). F decides.
 - B presents `code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md` draft (scheduler `priority` vs `deadline` API, citing `UnifiedFrameLoop.ts:95–98` `TickPriority` for render-phase ordering vs `priority` for queue-class). F decides.
 - Both agree on the OTel span naming convention (`pryzm.<layer>.<verb>`) — F locks it.
 
@@ -327,7 +327,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 |---|---|---|
 | D2 | **S02-T1 + S02-T2**. `CommandHandler<T>` + `HandlerContext` types. `CommandBus.executeCommand` + registry. OTel `pryzm.command.execute` wrap. | **S02-T7**. `FrameScheduler.requestFrame(reason, priority)` API spike (pure data structure, no rAF). |
 | D3 | **S02-T3**. Immer + `enablePatches()` + `produceWithPatchesPerStore` wrapper. Fixture `MoveCubeCommand`. | **S02-T6**. `pryzm-affected-stores-required` real rule (AST walker). Test against fixtures. |
-| D4 | **S02-T4**. `PatchEmitter` design (JSON; MessagePack S04). ULID. Audit metadata. | **S02-T9**. `pryzm-no-raf` real rule (AST walker; warn-mode for `src/**`). `code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md` draft (30 frames). |
+| D4 | **S02-T4**. `PatchEmitter` design (JSON; MessagePack S04). ULID. Audit metadata. | **S02-T9**. `pryzm-no-raf` real rule (AST walker; warn-mode for `src/**`). `code-level ADR docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md` draft (30 frames). |
 | D5 | **S02-T5**. `UndoStack` (bounded 100, `LOAD_PROJECT` clears). **D5 sync (1 h)** with B: confirm scheduler API and command bus play well together (handlers don't call scheduler directly; they emit events that `markDirty` downstream). | **S02-T8**. `FrameScheduler.markDirty(reason) / isDirty()` + dirty-flag set. OTel `pryzm.frame.tick` span. Bench `apps/bench/idle-cpu.ts` skeleton. |
 | D6 | End-to-end test: `MoveCubeCommand` registry → execute → patches → emitter → JSON bytes → undo round-trip. | **S02-T10**. Bench `apps/bench/cmd-execute-latency.ts` < 1 ms target. Wire to CI; warn-only. |
 | D7 | `affected-stores-required` lint integration test (a fixture with missing `affectedStores` fails CI). | `pryzm-no-raf` lint integration test against fixture. |
@@ -355,7 +355,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 - [ ] `affected-stores-required` lint blocks PRs with missing declarations in `pryzm2/`.
 - [ ] `pryzm-no-raf` lint blocks `requestAnimationFrame(` outside scheduler in `pryzm2/`; warns in `src/` and snapshot-diffs the count.
 - [ ] OTel spans `pryzm.command.execute` visible in Honeycomb dev (or noop-exporter logs in dev if the secret is unset).
-- [ ] `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`, `code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md`, and `code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/ADR-0002-command-handler-signature.md`, `code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md`, and `code-level ADR docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md` merged.
 - [ ] PRYZM 1 still boots; rAF count in `src/` unchanged.
 
 ---
@@ -377,14 +377,14 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 #### Sub-phases
 
 - **S03-T1 — Real rAF wiring (D2, Agent B)**: `FrameScheduler` owns the actual `requestAnimationFrame` loop. Priority queue (interaction > idle > background). `cancelFrame(token)`. The implementation pattern follows `UnifiedFrameLoop._tick` (lines 280–360 in PRYZM 1) but for a single render path, no OBC/PASCAL split.
-- **S03-T2 — `IdleContinuation` (D3, Agent B)**: bounded N-frame budget after motion stops. **N = 30 frames** (`code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md`). Wire OTel `pryzm.frame.idle-continuation` event. Distinct from `FrameCoordinator`'s 6-frame per-pass grace — that lives in the future committer; this lives in the scheduler.
-- **S03-T2a (NEW, added 2026-04-27) — Browser worker pool cap (D3, Agent B)**: the frame scheduler must enforce a **hard cap of 4** browser Web Workers per `[strategic ADR-005]` (worker pool policy). The scheduler refuses to spawn a 5th and surfaces a structured error (`worker.pool.exhausted`). Document the cap in `packages/frame-scheduler/README.md` and test with a fixture that requests 5 workers and asserts the 5th is rejected.
+- **S03-T2 — `IdleContinuation` (D3, Agent B)**: bounded N-frame budget after motion stops. **N = 30 frames** (`code-level ADR docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md`). Wire OTel `pryzm.frame.idle-continuation` event. Distinct from `FrameCoordinator`'s 6-frame per-pass grace — that lives in the future committer; this lives in the scheduler.
+- **S03-T2a (NEW, added 2026-04-27) — Browser worker pool cap (D3, Agent B)**: the frame scheduler must enforce a **hard cap of 4** browser Web Workers per `[strategic ADR-0205]` (worker pool policy). The scheduler refuses to spawn a 5th and surfaces a structured error (`worker.pool.exhausted`). Document the cap in `packages/frame-scheduler/README.md` and test with a fixture that requests 5 workers and asserts the 5th is rejected.
 - **S03-T3 — Bouncing-cube demo (D4, Agent B)**: scene driven only by scheduler — interaction triggers `markDirty('user-input')`, idle goes to 0 fps after the 30-frame continuation. DevTools profile captured. **The cube is rendered with raw THREE inside `apps/bench/`** (not yet via the committer — that lands S05).
 - **S03-T4 — `apps/bench/idle-cpu.ts` real impl (D5, Agent B)**: drives the bouncing cube for 30 s; samples CPU via `performance.measure`; reports p50/p95/p99. Baseline captured in `baseline.json`. Target < 2% CPU when scene idle. **CI gate hard-fails > 2.5%.**
 - **S03-T5 — Scheduler audit (D7, Agent B)**: confirm zero `requestAnimationFrame(` in `pryzm2/packages/**` outside `packages/frame-scheduler/src/**`. The lint rule from S02 enforces it; this sub-phase is the manual sanity check.
 - **S03-T6 — `EventLog` interface design (D2, Agent A)**: pluggable `Backend` interface (`InMemoryBackend`, `IndexedDbBackend`). `EventLog.append(event) → Promise<void>`, `EventLog.replay(fromSeq) → AsyncIterable<Event>`, `EventLog.checkpoint(seq) → Promise<void>`. Document in `docs/04-reference/architecture-detail/persistence-design.md`.
 - **S03-T7 — `InMemoryBackend` (D3, Agent A)**: used by tests + Node headless. Round-trip 1K events sanity check.
-- **S03-T8 — MessagePack codec spike (D4, Agent A)**: encode 1K sample events with `@msgpack/msgpack`, `msgpack-lite`, `notepack.io`. Measure: bytes-per-event avg, encoding speed, decoding speed, bundle size of the codec. Output to `[strategic ADR-004]` (the existing strategic ADR's "Phase rollout S04" section receives the bench numbers; no new sprint-scoped ADR is created). **Target: avg < 200 bytes per command event.**
+- **S03-T8 — MessagePack codec spike (D4, Agent A)**: encode 1K sample events with `@msgpack/msgpack`, `msgpack-lite`, `notepack.io`. Measure: bytes-per-event avg, encoding speed, decoding speed, bundle size of the codec. Output to `[strategic ADR-0204]` (the existing strategic ADR's "Phase rollout S04" section receives the bench numbers; no new sprint-scoped ADR is created). **Target: avg < 200 bytes per command event.**
 - **S03-T9 — `IndexedDbBackend` sketch (D6, Agent A)**: `idb` wrapper. Single-writer queue design (mitigates R1A-06: "concurrent writes corrupt the IndexedDB transaction"). Full impl S04.
 
 #### D1 — Kickoff (30 min)
@@ -417,7 +417,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 | `requestAnimationFrame` is throttled to 1 Hz when the tab is hidden | `idle-cpu.ts` bench misreports because the bench window is backgrounded | Bench harness sets `document.visibilityState === 'visible'` precondition; CI runs in a foregrounded headless Chromium. |
 | The 30-frame idle budget hides genuine idle-CPU regressions | Subsystem mistakenly calls `markDirty` every tick; CPU stays at 100% but it "looks intentional" | OTel `pryzm.frame.tick` span includes `dirtyReasons: string[]`. CI bench reports unique `dirtyReasons` per second; > 1 unique reason on an "idle" scene is a warn. |
 | Two scheduler instances coexist (PRYZM 1's `UnifiedFrameLoop` + PRYZM 2's `FrameScheduler`) double-tax CPU when both load | Hello-cube demo CPU is 4% (2% PRYZM 1 + 2% PRYZM 2) | The `?pryzm2=1` flag is **mutually exclusive** with PRYZM-1 boot. `apps/editor/index.html` either dynamic-imports `EngineBootstrap.ts` (legacy) OR `pryzm2/bootstrap.ts` (new), never both. |
-| MessagePack codec choice has unforeseen size regression | One codec is fast but encodes 30% larger | `[strategic ADR-004]` (its Phase rollout S04 section) ratifies based on actual bench numbers from S03-T8; if all three fail < 200 B/event, target is relaxed to < 250 B and tracked. |
+| MessagePack codec choice has unforeseen size regression | One codec is fast but encodes 30% larger | `[strategic ADR-0204]` (its Phase rollout S04 section) ratifies based on actual bench numbers from S03-T8; if all three fail < 200 B/event, target is relaxed to < 250 B and tracked. |
 | `IndexedDB` writes are non-blocking but order-sensitive | Two `append()` calls land out of order; replay diverges | Single-writer queue design (S03-T9): `append()` returns a promise that resolves only when the prior append's transaction commits. Tested S04. |
 
 #### S03 exit criteria
@@ -426,7 +426,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 - [ ] Bouncing-cube demo: 60 fps interaction, 0 fps idle (DevTools profile attached to PR).
 - [ ] `pryzm-no-raf` lint hard-fails on any fixture rAF in `pryzm2/` outside scheduler.
 - [ ] OTel spans `pryzm.frame.tick`, `pryzm.frame.idle-continuation` visible in Honeycomb (or noop logs).
-- [ ] `[strategic ADR-004]` codec choice ratified (Phase rollout S04 section updated); bench numbers attached to the strategic ADR.
+- [ ] `[strategic ADR-0204]` codec choice ratified (Phase rollout S04 section updated); bench numbers attached to the strategic ADR.
 - [ ] PRYZM 1 still ships unchanged.
 
 ---
@@ -452,7 +452,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 - **S04-T3 — Wire `EventLog` into `command-bus.PatchEmitter` (D4, Agent A)**: end-to-end: command → patches → event → log. Each event is `{ commandId: ULID, seq: number, version: number, patches: PatchSnapshotEntry[], audit: { actorId, projectId, clientId, timestamp } }`.
 - **S04-T4 — `apps/bench/save-edit.ts` (D6, Agent A)**: measure single-event append p95. Target `< 10 ms`. **CI hard-fails > 12 ms.**
 - **S04-T5 — Causal-order tests (D7, Agent A)**: events with same wall-clock timestamp are ordered by `seq`. Large-volume tests (10K events). Per-event size: < 200 bytes typical (CI report).
-- **S04-T6 — `PrimitiveCommitter<TStore>` interface (D2, Agent B)**: signature (`code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md`): `interface PrimitiveCommitter<TStore, TElement extends Object3D = Object3D> { onAdd(id: Id, dto: TStore[Id]): TElement; onUpdate(id: Id, dto: TStore[Id], obj: TElement): void; onRemove(id: Id, obj: TElement): void; onDispose(): void; }`. Lock the API — every plugin's `committer.ts` will implement this.
+- **S04-T6 — `PrimitiveCommitter<TStore>` interface (D2, Agent B)**: signature (`code-level ADR docs/02-decisions/adrs/ADR-0005-primitive-committer-interface.md`): `interface PrimitiveCommitter<TStore, TElement extends Object3D = Object3D> { onAdd(id: Id, dto: TStore[Id]): TElement; onUpdate(id: Id, dto: TStore[Id], obj: TElement): void; onRemove(id: Id, obj: TElement): void; onDispose(): void; }`. Lock the API — every plugin's `committer.ts` will implement this.
 - **S04-T7 — `SceneRegistry` (D3, Agent B)**: `Map<ElementId, THREE.Object3D>` — O(1) `add/remove/get/updateTransform`.
 - **S04-T8 — `MaterialPool` skeleton (D4, Agent B)**: shared materials by hash, ref-counting (`acquire(hash) / releaseRef(hash)`).
 - **S04-T9 — `CubeStore` + `CubeCommitter` end-to-end test (D5, Agent B)**: uses A's event log → store apply → committer → THREE mesh.
@@ -460,8 +460,8 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 
 #### D1 — Kickoff (30 min)
 
-- A presents the `[strategic ADR-004]` Phase-rollout-S04 update (MessagePack codec choice — final, with S03-T8 bench numbers attached). F decides.
-- B presents `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md` draft (`PrimitiveCommitter<TStore>` interface signature). A reviews for store-pattern alignment.
+- A presents the `[strategic ADR-0204]` Phase-rollout-S04 update (MessagePack codec choice — final, with S03-T8 bench numbers attached). F decides.
+- B presents `code-level ADR docs/02-decisions/adrs/ADR-0005-primitive-committer-interface.md` draft (`PrimitiveCommitter<TStore>` interface signature). A reviews for store-pattern alignment.
 
 #### D2–D8 parallel work
 
@@ -488,7 +488,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 | Concurrent writes corrupt IndexedDB transaction | Reload mid-write loses last 5 events | Single-writer queue (S03-T9 design); transaction-safety tests in S04-T2 deliberately interleave appends and reloads. |
 | Replay diverges due to non-determinism | Event log says "create wall A", but on replay `WallStore.add` runs in a different order than originally | Each event carries `seq: number`; replay is strict sequential; PRYZM 2 stores' `applyPatch` is pure (no side effects to other stores). |
 | `idb` wrapper bundle adds 20 KB to initial load | Bundle-size gate triggers in S06 | `packages/persistence-client/` is dynamic-imported by `bootstrap.ts` only when a project is opened (mirrors PRYZM 1's deferred `EngineBootstrap` pattern). |
-| `PrimitiveCommitter` interface locks too early; the wall plugin in S07 needs a different shape | S08 has to ADR an interface change | S04 D5 paired session walks through CubeCommitter and one wall-shaped pseudo-committer; if `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md` cannot satisfy a wall-shape, that ADR is delayed to S05. |
+| `PrimitiveCommitter` interface locks too early; the wall plugin in S07 needs a different shape | S08 has to ADR an interface change | S04 D5 paired session walks through CubeCommitter and one wall-shaped pseudo-committer; if `code-level ADR docs/02-decisions/adrs/ADR-0005-primitive-committer-interface.md` cannot satisfy a wall-shape, that ADR is delayed to S05. |
 | Material-pool ref-counting has a leak under churn | 1K material acquire/release leaves N residuals | `acquire()` returns a `Disposable` (per-call ref-count token), not raw access; the test in S05-T4 cycles 1K times and asserts `pool.size() === 1`. |
 
 #### S04 exit criteria
@@ -497,7 +497,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 - [ ] `save-edit.ts` bench: < 10 ms p95 single-event append.
 - [ ] IndexedDB backend survives page reload + replays correctly.
 - [ ] Per-event size: < 200 bytes typical, < 2 KB worst-case.
-- [ ] `PrimitiveCommitter` interface locked; `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md` merged.
+- [ ] `PrimitiveCommitter` interface locked; `code-level ADR docs/02-decisions/adrs/ADR-0005-primitive-committer-interface.md` merged.
 - [ ] PRYZM 1 still ships unchanged.
 
 ---
@@ -524,7 +524,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 - **S05-T4 — `SceneCommitter.bindStore<T>(store, committer)` (D2, Agent B)**: wires patch application to committer dispatch. The committer receives `{ added: T[], updated: T[], removed: Id[] }` per tick.
 - **S05-T5 — Patch dispatcher with batching (D3, Agent B)**: groups adds/removes/updates per tick. Calls `MaterialPool.releaseRef()` on `onRemove`. Coalesces multiple updates to the same id within one batch.
 - **S05-T6 — `MaterialPool` dispose paths + GPU-leak assertion (D4, Agent B)**: end-of-test memory delta < 5 MB after 1K acquire/release cycles. Tested with `(performance as any).memory` (Chromium-only, gated).
-- **S05-T7 — Visual smoke test (D5, Agent B)**: 100 cubes added, transformed, removed — no leak, no flicker. **Validation against `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md`**: confirms `CubeCommitter` works against the locked `SceneCommitter`.
+- **S05-T7 — Visual smoke test (D5, Agent B)**: 100 cubes added, transformed, removed — no leak, no flicker. **Validation against `code-level ADR docs/02-decisions/adrs/ADR-0005-primitive-committer-interface.md`**: confirms `CubeCommitter` works against the locked `SceneCommitter`.
 - **S05-T8 — Bootstrap data half (D6, Agent A)**: start `apps/editor/src/bootstrap.ts` data half — wires `protocol`, `command-bus`, `persistence-client`, `stores`. Render half S06.
 - **S05-T9 — Bench full pipeline (D7, Agent A)**: `apps/bench/cmd-execute-latency.ts` re-run with full pipeline (handler → patch → store → committer → scene). Target < 5 ms p95 (excludes render).
 - **S05-T10 — Make `pryzm-no-three-outside-committer` an error (D7, Agent B)**: switch from warn to error in `pryzm2/`. Allowlist: `packages/scene-committer/**`, `packages/renderer/**`, `plugins/*/committer.ts`. **`src/` mode stays warn-only with snapshot diff.**
@@ -590,8 +590,8 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 
 #### Sub-phases
 
-- **S06-T1 — `Renderer.init(canvas, mode)` (D2, Agent B)**: auto-detect WebGPU vs WebGL2. `[strategic ADR-006]` fallback path. `mode: 'auto' | 'webgpu' | 'webgl2'`.
-- **S06-T1a (NEW, added 2026-04-27) — Visual-diff CI gate at warning level (D7, Agent B)**: per `[strategic ADR-006]` Phase rollout S08. The 24-scene corpus is **not** required at S06; warning-level on a 4-scene smoke set is the S06 deliverable. The corpus expands to 24 scenes in Phase 1B / S08 when the wall plugin lands. Labelled `S06-T1a` to disambiguate from the existing S06-T2 (`CameraController`).
+- **S06-T1 — `Renderer.init(canvas, mode)` (D2, Agent B)**: auto-detect WebGPU vs WebGL2. `[strategic ADR-0206]` fallback path. `mode: 'auto' | 'webgpu' | 'webgl2'`.
+- **S06-T1a (NEW, added 2026-04-27) — Visual-diff CI gate at warning level (D7, Agent B)**: per `[strategic ADR-0206]` Phase rollout S08. The 24-scene corpus is **not** required at S06; warning-level on a 4-scene smoke set is the S06 deliverable. The corpus expands to 24 scenes in Phase 1B / S08 when the wall plugin lands. Labelled `S06-T1a` to disambiguate from the existing S06-T2 (`CameraController`).
 - **S06-T2 — `CameraController` (D3, Agent B)**: vanilla orbit camera; pointer + wheel; calls `scheduler.markDirty('camera')` on input.
 - **S06-T3 — `ClearPass` + `MeshPass` (D4, Agent B)**: minimal forward pipeline. One mesh renders.
 - **S06-T4 — Bench `apps/bench/save-reload.ts` (D2, Agent A)**: full reload round-trip (events replay → store rebuilt → committer fires → scene rendered). Target reload of 100-event project < 500 ms.
@@ -604,7 +604,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 
 #### D1 — Kickoff (30 min)
 
-- B presents `[strategic ADR-006]` (WebGPU/WebGL2 dual-mode strategy — there is no sprint-scoped ADR; the strategic ADR-006 is the authority) — F decides default = `'auto'`.
+- B presents `[strategic ADR-0206]` (WebGPU/WebGL2 dual-mode strategy — there is no sprint-scoped ADR; the strategic ADR-0206 is the authority) — F decides default = `'auto'`.
 - A + B agree on the `apps/editor/src/bootstrap.ts` final integration shape — paired session at D5.
 
 #### D2–D8 parallel work
@@ -640,7 +640,7 @@ Each sprint has the same structure: **goal**, **existing-code touchpoints** (wha
 
 | Potential blocker | How it manifests | Pre-mitigation |
 |---|---|---|
-| WebGPU is unavailable on the dev box (Chromium / Linux) | S06 D2 `Renderer.init({ mode: 'auto' })` falls back to WebGL2 every time; the `webgpu` mode is never exercised | `[strategic ADR-006]` mandates **two CI matrices** (per SPEC-04 visual-diff parity gate): `mode=webgpu` (Chrome stable headless) and `mode=webgl2` (Chrome stable headless). The visual-diff parity gate runs both. If WebGPU still fails post-S06, K1A-3 trips. |
+| WebGPU is unavailable on the dev box (Chromium / Linux) | S06 D2 `Renderer.init({ mode: 'auto' })` falls back to WebGL2 every time; the `webgpu` mode is never exercised | `[strategic ADR-0206]` mandates **two CI matrices** (per SPEC-04 visual-diff parity gate): `mode=webgpu` (Chrome stable headless) and `mode=webgl2` (Chrome stable headless). The visual-diff parity gate runs both. If WebGPU still fails post-S06, K1A-3 trips. |
 | The bundle-size gate exceeds 1.8 MB | Initial bundle is 2.1 MB because OBC is dynamic-imported but `three` is static | Bundle audit at D7: confirm `three` is the only static dep > 200 KB; everything else (`@msgpack/msgpack`, `idb`, `ulid`, `immer`, `zod`) is dynamic-imported behind `?pryzm2=1`. **PRYZM 1 default URL** still ships its own bundle from `src/main.ts`; the gate measures only the `?pryzm2=1` entry chunk. |
 | Two URL flags coexist messily (`?pryzm1=1` for legacy debug + `?pryzm2=1` for new) | `apps/editor/index.html` has 4 boot paths, prone to drift | The flag is **single-valued**: `?pryzm2=1` selects PRYZM 2; everything else is PRYZM 1 (default). No `?pryzm1=` flag. |
 | Visual-diff parity > 2 px due to font-rendering differences between WebGPU and WebGL2 | The Hello Cube has no text but the canvas has a 1-line OTel overlay | The visual-diff test masks the OTel overlay region (top 24 px of the canvas); fonts only re-enter the diff in 1B when text labels appear. |
@@ -673,14 +673,14 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 | ID | Subject | Owner | Sprint | Cites PRYZM-1 evidence at |
 |---|---|---|---|---|
 | `code-level ADR docs/02-decisions/adrs/0001-typed-id-brand.md` | Typed-ID brand strategy | A | S01 | `CreateWallCommand.ts:32` (`crypto.randomUUID()`), `WallStore.ts:78` (`Map<string, WallData>`) |
-| `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` | Command handler signature | A | S02 | `CommandManager.ts:30–60` (legacy `Command` shape), `CommandManager.ts:38–47` (window-fallback antipattern), `CreateWallCommand.ts:60` (`affectedStores` precedent) |
+| `code-level ADR docs/02-decisions/adrs/ADR-0002-command-handler-signature.md` | Command handler signature | A | S02 | `CommandManager.ts:30–60` (legacy `Command` shape), `CommandManager.ts:38–47` (window-fallback antipattern), `CreateWallCommand.ts:60` (`affectedStores` precedent) |
 | `code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md` | Scheduler API (`priority` queue-class vs `TickPriority` render-phase) | B | S02 | `UnifiedFrameLoop.ts:95–98` (`TickPriority` enum), `UnifiedFrameLoop.ts:130–230` (addTickListener API) |
-| `[strategic ADR-004]` (ratifies; prior phase-doc `ADR-004` stub deleted) | MessagePack codec choice | A | S04 | (greenfield — bench numbers from S03-T8 spike attach to the strategic ADR's "Phase rollout S04") |
-| `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md` | `PrimitiveCommitter<TStore>` interface | B | S04 | `WallFragmentBuilder.ts` lifecycle (add/update/remove/dispose), `StoreEventBus.batch()` for transactional commits |
-| `code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md` | Idle-continuation N-frame budget (30) vs per-pass grace (6) | B | S03 | `FrameCoordinator.ts` (existing 6-frame per-pass grace) |
-| `[strategic ADR-006]` (ratifies; prior phase-doc `ADR-007` stub deleted) | WebGPU/WebGL2 dual-mode | B | S06 | (greenfield — `@webgpu/types` already in deps but unused; CI matrix per SPEC-04 visual-diff parity gate) |
-| `[strategic ADR-007]` (ratifies; new in this revision) | OTel SDK wrapper / telemetry backend | A | S01 | (greenfield — `packages/otel/` lands S01-T1 NEW; first spans from `packages/wire/`) |
-| `[strategic ADR-009]` (ratifies; new in this revision) | Web Worker plugin sandbox | A+B | S01 spike | (greenfield — 5-day pre-S01 postMessage RPC measurement, output linked from `[strategic ADR-009]`) |
+| `[strategic ADR-0204]` (ratifies; prior phase-doc `ADR-0204` stub deleted) | MessagePack codec choice | A | S04 | (greenfield — bench numbers from S03-T8 spike attach to the strategic ADR's "Phase rollout S04") |
+| `code-level ADR docs/02-decisions/adrs/ADR-0005-primitive-committer-interface.md` | `PrimitiveCommitter<TStore>` interface | B | S04 | `WallFragmentBuilder.ts` lifecycle (add/update/remove/dispose), `StoreEventBus.batch()` for transactional commits |
+| `code-level ADR docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md` | Idle-continuation N-frame budget (30) vs per-pass grace (6) | B | S03 | `FrameCoordinator.ts` (existing 6-frame per-pass grace) |
+| `[strategic ADR-0206]` (ratifies; prior phase-doc `ADR-0207` stub deleted) | WebGPU/WebGL2 dual-mode | B | S06 | (greenfield — `@webgpu/types` already in deps but unused; CI matrix per SPEC-04 visual-diff parity gate) |
+| `[strategic ADR-0207]` (ratifies; new in this revision) | OTel SDK wrapper / telemetry backend | A | S01 | (greenfield — `packages/otel/` lands S01-T1 NEW; first spans from `packages/wire/`) |
+| `[strategic ADR-0209]` (ratifies; new in this revision) | Web Worker plugin sandbox | A+B | S01 spike | (greenfield — 5-day pre-S01 postMessage RPC measurement, output linked from `[strategic ADR-0209]`) |
 
 ### §4.2 CI gates active by M3
 
@@ -716,7 +716,7 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 
 ## §5 Risk & contingency (1A-specific, expanded)
 
-> **Velocity-slip cut list.** Every M-gate in this phase is governed by `[strategic ADR-018]` — the standing capacity cut list. The phase-specific risks below are *additional* to the cuts already enumerated in `[strategic ADR-018]` §Tier-1, §Tier-2, §Tier-3. If actual velocity at the M3 gate is amber/red, cuts are applied in order from `[strategic ADR-018]` before phase-specific mitigations.
+> **Velocity-slip cut list.** Every M-gate in this phase is governed by `[strategic ADR-0218]` — the standing capacity cut list. The phase-specific risks below are *additional* to the cuts already enumerated in `[strategic ADR-0218]` §Tier-1, §Tier-2, §Tier-3. If actual velocity at the M3 gate is amber/red, cuts are applied in order from `[strategic ADR-0218]` before phase-specific mitigations.
 
 | ID | Risk | Likelihood | Impact | Mitigation | Trigger sprint |
 |---|---|---|---|---|---|
@@ -724,7 +724,7 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 | R1A-02 | ESLint custom rule false-positives slow PRs | Medium | Low | Each rule ships with test fixtures + suppression escape hatch only via ADR | S02–S05 |
 | R1A-03 | WebGPU instability on Linux dev box | Medium | Medium | WebGL2 fallback present from S06 D2; CI matrix forces both | S06 |
 | R1A-04 | Idle CPU > 2% under post-FX | High in S15, low in S03 | Medium | S03 baseline excludes post-FX (no post-FX exists in PRYZM 2 yet); S15 hardens | S03 / S15 |
-| R1A-05 | MessagePack codec choice has unforeseen size regression | Low | Low | `[strategic ADR-004]` has size benchmarks against 3 alternatives | S04 |
+| R1A-05 | MessagePack codec choice has unforeseen size regression | Low | Low | `[strategic ADR-0204]` has size benchmarks against 3 alternatives | S04 |
 | R1A-06 | Schema fixture extraction misses edge cases | Medium | High in S10 | S01 D6 round-trip tests + S10 parity fixtures | S01 / S10 |
 | R1A-07 | Agent A or Agent B blocked > 4 h on D2–D4 unable to escalate | Low | Medium | F is on-call M–F 9–6; standing 09:00 daily check-in | every sprint |
 | R1A-08 | A & B drift on OTel span naming convention | Low | Low | F locks naming on S02 D1; rename script in `tools/scripts/` | S02 |
@@ -735,7 +735,7 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 | R1A-13 | `WallTypes.ts` imports THREE.js; the canonical `Wall.ts` schema cannot reuse it | High (already known) | Low (mitigation is clear) | `Wall.ts` is written from scratch using `WallDataSchema.ts` as a structural reference. The S01 D7 round-trip test against a real PRYZM-1 fixture catches structural drift. | S01 |
 | R1A-14 | `ProjectSerializer` already has `MigrationEngine` for snapshot-version bumps; the new event log needs its own migration story | Low | Medium | Each event carries `version: number`. S04 D7 includes a forward-compat replay test (replay v1 events on a v2 reader). | S04 |
 | R1A-15 | 24/53 rAF call sites are in UI code (panels, transitions, debounced repaints); the lint rule can't blanket-ban | High | Low | `pryzm-no-raf` is `pryzm2/` mode error, `src/` mode warn-only with **count-snapshot-diff** ("did the count of rAF call sites in `src/` increase?"). New `src/` rAF sites are blocked at PR time. | S03 |
-| R1A-16 | The `CommandContext.stores` interface in `src/commands/types.ts` has 18+ hard-coded store fields; PRYZM 2's `HandlerContext<TStores>` must NOT mirror this | Low (in 1A) | High (in 1B if mirrored) | `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` makes `HandlerContext<TStores>` generic over the actual stores the handler declares (per the `affectedStores` field), not a fixed interface. | S02 |
+| R1A-16 | The `CommandContext.stores` interface in `src/commands/types.ts` has 18+ hard-coded store fields; PRYZM 2's `HandlerContext<TStores>` must NOT mirror this | Low (in 1A) | High (in 1B if mirrored) | `code-level ADR docs/02-decisions/adrs/ADR-0002-command-handler-signature.md` makes `HandlerContext<TStores>` generic over the actual stores the handler declares (per the `affectedStores` field), not a fixed interface. | S02 |
 | R1A-17 | The 250+ `CommandType` enum is a hard-coded global; PRYZM 2's command bus dispatches by `cmd.type` and is tempted to copy the enum | Medium | Medium | The PRYZM-2 `CommandBus` keys the registry by *string* (`'wall.create' \| 'cube.move' \| ...` — namespaced). No global enum. Each plugin owns its own command-type strings. | S02 |
 | R1A-18 | The existing `enablePatches()` is called in 3 places in PRYZM 1; calling it a 4th time in `command-bus/index.ts` could cause double-registration warnings | Low | Low | `enablePatches()` is idempotent per immer's contract; the PRYZM-1 places already prove this. `PatchSnapshot.ts:54` documents it: "calling it again is idempotent". | S02 |
 
@@ -743,7 +743,7 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 
 - **K1A-1** — If end of S03 idle CPU > 4%, halt. Spend up to 2 weeks tuning scheduler. Do not begin S04.
 - **K1A-2** — If end of S05 the cube committer cannot dispose materials cleanly (memory delta > 50 MB after 1K cycles), halt. Refactor `MaterialPool` before S06.
-- **K1A-3** — If end of S06 the dual-mode visual-diff > 5 px, halt. Investigate; do not enter 1B. `[strategic ADR-006]` is *not* amended — the dual-path is canonical and stays through GA per `[strategic ADR-006]` §Phase-rollout. Instead, the WebGPU CI matrix is moved to **allowed-flake** while the underlying issue is investigated; the WebGL2 matrix remains a hard-fail gate. The dual-mode visual-diff parity gate stays in place but at the next-tier threshold (warning above 2 px, hard-fail above 8 px) until the root cause is identified and fixed.
+- **K1A-3** — If end of S06 the dual-mode visual-diff > 5 px, halt. Investigate; do not enter 1B. `[strategic ADR-0206]` is *not* amended — the dual-path is canonical and stays through GA per `[strategic ADR-0206]` §Phase-rollout. Instead, the WebGPU CI matrix is moved to **allowed-flake** while the underlying issue is investigated; the WebGL2 matrix remains a hard-fail gate. The dual-mode visual-diff parity gate stays in place but at the next-tier threshold (warning above 2 px, hard-fail above 8 px) until the root cause is identified and fixed.
 - **K1A-4** (NEW) — If at any point in 1A a PR touches a `src/**` file outside `tests/fixtures/pryzm-1-snapshots/`, the PR is rejected. PRYZM 1 must remain bit-for-bit unchanged across 1A. The only exception is documentation under `docs/`.
 
 ---
@@ -767,7 +767,7 @@ This table is the canonical answer to "what spec covers this sprint?" If a sprin
 ## §6 1A → 1B handoff checklist (must be true on M3 morning)
 
 - [ ] All S06 exit criteria green (= sub-phase 1A exit).
-- [ ] All 1A ADRs merged (per §4.1 final summary table): the 5 sprint-scoped code-level ADRs (`0001-typed-id-brand`, `0002-command-handler-signature`, `0003-scheduler-priority-vs-tickpriority`, `0005-primitive-committer-interface`, `0006-idle-continuation-budget`) **and** the 4 strategic ADRs ratified during 1A (`[strategic ADR-004]` MessagePack codec, `[strategic ADR-006]` WebGPU/WebGL2 dual-mode, `[strategic ADR-007]` OTel telemetry backend, `[strategic ADR-009]` plugin sandbox).
+- [ ] All 1A ADRs merged (per §4.1 final summary table): the 5 sprint-scoped code-level ADRs (`0001-typed-id-brand`, `0002-command-handler-signature`, `0003-scheduler-priority-vs-tickpriority`, `0005-primitive-committer-interface`, `0006-idle-continuation-budget`) **and** the 4 strategic ADRs ratified during 1A (`[strategic ADR-0204]` MessagePack codec, `[strategic ADR-0206]` WebGPU/WebGL2 dual-mode, `[strategic ADR-0207]` OTel telemetry backend, `[strategic ADR-0209]` plugin sandbox).
 - [ ] All 12 CI gates green and PR-blocking (or warn-only per §4.2).
 - [ ] `apps/editor/src/bootstrap.{data,render}.ts` ready to accept first plugin (`plugins/wall/` lands in S07).
 - [ ] `PrimitiveCommitter<TStore>` interface frozen — no further changes without an ADR.

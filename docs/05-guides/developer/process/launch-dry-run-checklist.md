@@ -51,7 +51,7 @@
 - [ ] AI workflow submission lands in the approval queue with a preview + a cost estimate.
 - [ ] Approve commits via the command bus; the resulting geometry is sync-broadcast.
 - [ ] Reject removes the row; no side effects on the model.
-- [ ] Per-project budget enforcement returns the expected error when over-budget (per ADR-028 §4).
+- [ ] Per-project budget enforcement returns the expected error when over-budget (per ADR-0228 §4).
 
 ## §6 — Crash + observability
 

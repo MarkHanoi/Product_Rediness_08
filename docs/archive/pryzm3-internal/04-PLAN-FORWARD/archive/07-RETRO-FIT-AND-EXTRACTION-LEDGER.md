@@ -35,8 +35,8 @@ These were unaddressed by the original §5 list. `chunks/24 §24.5` adds 31 new 
 | `rendering/` | `runtime.scene.renderer.presets` + `plugins/lighting` | **B.9** | **G.14** | B.9 → S75-WIRE; G.14 → S83-WIRE |
 | `cde/` | `runtime.cde.structuredName` (`packages/api-spec`) | (covered by F.11.3) | **G.15** | S83-WIRE |
 | `export/` (glb+ifc+sheets+rationale) | `runtime.export.*` | **B.10** | **G.16** | B.10 → S75-WIRE; G.16 → S83-WIRE |
-| `portfolio/` | `packages/stores.portfolio` (per ADR-041) | (none — direct deletion) | **G.17** | S84-WIRE |
-| `physics/` (dev-only per ADR-042) | dev-only `apps/bench/physics-overlay/` | (covered by F.12.2 dev) | **G.18** | S84-WIRE |
+| `portfolio/` | `packages/stores.portfolio` (per ADR-0241) | (none — direct deletion) | **G.17** | S84-WIRE |
+| `physics/` (dev-only per ADR-0242) | dev-only `apps/bench/physics-overlay/` | (covered by F.12.2 dev) | **G.18** | S84-WIRE |
 | `geospatial/` | new `packages/geospatial` (Cesium bridge) | (covered by F.11.4) | **G.19** | S84-WIRE |
 | `api/` (`apiFetch.ts`) | `runtime.persistence.client.fetch` | (covered by F.6.5) | **G.20** | S84-WIRE |
 | `persistence/` (`UnderlayPersistence.ts`) | `runtime.persistence.underlay` | **C.14** | **G.33** | C.14 → S76-WIRE; G.33 → S82-WIRE D9 |
@@ -50,7 +50,7 @@ These were unaddressed by the original §5 list. `chunks/24 §24.5` adds 31 new 
 | Item | Why it stays | GA-cut allowlist? |
 |---|---|---|
 | `src/styles/` (44 CSS) | white UI's CSS (Vision §6, Discipline Rule 7) | ✅ |
-| `src/utils/` (7 helpers; per ADR-043 stays inline) | low-risk, no UI breakage | ✅ |
+| `src/utils/` (7 helpers; per ADR-0243 stays inline) | low-risk, no UI breakage | ✅ |
 | `src/types/` (`three-addons.d.ts`) | TypeScript ambient declarations | ✅ |
 | `src/dev/` (`WallPerfBench.ts`) | dev-only | ✅ |
 | `src/ui/` (220 files) | the white UI — the entire wireup target | ✅ |
@@ -82,9 +82,9 @@ Source: `chunks/26 §26.1, §26.5, §26.6, §26.7, §26.8, §26.9, §26.10, §26
 | **Z.11–Z.15** | Five workflow greens — one per currently-red workflow: `ifc-export-tier1`, `ifc-import-tier2`, `ifc-inspector-pset-editor`, `pryzm-vi-parity`, `rhino-import-3dm`. Either fix or quarantine with explicit `expected_failure: true` flag + linked tracking issue | S77-WIRE D6–D8 | TODO (note: the 5 reds are documented npx-cold-start false-positives per `03-CURRENT-STATE.md §10`; Z.11–Z.15 either resolves the cold-start flake or quarantines per workflow) |
 | **Z.16** | Banner PR — prepend the `chunks/24 §24.5` + `chunks/25 §25.8` + `chunks/26 §26.6` "Additions since this chunk was sliced" banner to chunks 14, 15, 19 (per `chunks/26 §26.4` Option (b)) | S77-WIRE D6 | TODO |
 | **Z.17** | Retire the re-slice script (`chunks/23 §23.12`); declare chunks 01–22 canonical; banner the monolith as DEPRECATED (per `chunks/26 §26.7` Option (b)) | S77-WIRE D8 | TODO |
-| **Z.18** | Update `chunks/24 §24.4` — drop "default if no ADR" rows; replace with the as-ratified decision of ADR-041, ADR-042, ADR-043, ADR-044 (all four now on disk) | S77-WIRE D9 | TODO |
+| **Z.18** | Update `chunks/24 §24.4` — drop "default if no ADR" rows; replace with the as-ratified decision of ADR-0241, ADR-0242, ADR-0243, ADR-0244 (all four now on disk) | S77-WIRE D9 | TODO |
 | **Z.19** | One-shot historical migration — rewrite the chunk 14–19 banner (from Z.16) to add a parenthetical `(=S<NN>-WIRE)` next to every bare `S73…S87` reference (per `chunks/26 §26.9`) | S77-WIRE D8 | TODO |
-| **Z.20** | Status updates from on-disk reality (per `chunks/26 §26.11`): refresh chunks 24/25 ADR-041/042/043/044 rows; bump "44 ratified ADRs"; fix "36 → 35" `src/` top-dir count; bump "44/38/12" → "≥ 46/≥ 38/≥ 12" with `≥` semantics | S77-WIRE D9 | TODO |
+| **Z.20** | Status updates from on-disk reality (per `chunks/26 §26.11`): refresh chunks 24/25 ADR-0241/042/043/044 rows; bump "44 ratified ADRs"; fix "36 → 35" `src/` top-dir count; bump "44/38/12" → "≥ 46/≥ 38/≥ 12" with `≥` semantics | S77-WIRE D9 | TODO |
 
 ### §2.1 — C exit gate (extended by Z.*)
 

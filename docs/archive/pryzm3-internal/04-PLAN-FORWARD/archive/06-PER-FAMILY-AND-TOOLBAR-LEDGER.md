@@ -214,7 +214,7 @@ Source: `chunks/18 §18.11–18.12`. Catches the remaining UI surfaces not cover
 | Sub-phase | Surface | `runtime.*` | Sprint |
 |---|---|---|---|
 | **F.12.1** | Modal dialogs (confirm-delete, name-input, choose-template, etc.) | `runtime.bus.executeCommand` per modal action | S87-WIRE |
-| **F.12.2** | Dev-only PhysicsOverlayRenderer (dev-only per ADR-042) | `runtime.physics` (dev build only) | S87-WIRE (dev build) |
+| **F.12.2** | Dev-only PhysicsOverlayRenderer (dev-only per ADR-0242) | `runtime.physics` (dev build only) | S87-WIRE (dev build) |
 | **F.12.3** | Cross-family aggregator surfaces (structural load-path overlay) | `runtime.structural.loadPath$` (from `plugins/structural`) | S87-WIRE |
 
 ---

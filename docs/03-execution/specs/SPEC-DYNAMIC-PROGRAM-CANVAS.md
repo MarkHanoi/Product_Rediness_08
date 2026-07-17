@@ -14,15 +14,15 @@ layout engine **instantly** on every edit. The canvas is the single editable sou
 intent*; the plan and graph are **derived projections** that update in lock-step.
 
 **Conflict-resolution order (strongest first):**
-[product-vision](../../01-strategy/product-vision.md) →
-[architecture](../../01-strategy/architecture.md) →
+[product-vision](../../01-strategy/STR-02-product-vision.md) →
+[architecture](../../01-strategy/STR-04-architecture.md) →
 [C50-TYPOLOGY-PIPELINE](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md) →
 [C52-EDITABLE-BUILDING-GRAPH](../../02-decisions/contracts/C52-EDITABLE-BUILDING-GRAPH.md) →
-[ADR-0069 — dynamic program canvas as primary authoring surface](../../02-decisions/adrs/0069-dynamic-program-canvas-as-primary-authoring-surface.md) →
-[ADR-0061 building-graph bidirectional edit](../../02-decisions/adrs/0061-building-graph-bidirectional-edit-substrate.md) →
-[ADR-0058 unified building graph](../../02-decisions/adrs/0058-unified-building-graph.md) →
-[ADR-0067 graph-IR / intent-first BIM 3.0](../../02-decisions/adrs/0067-graph-ir-intent-first-building-graph-bim3.md) →
-[ADR-0056 typology-declared brief](../../02-decisions/adrs/0056-typology-declared-brief.md) →
+[ADR-0069 — dynamic program canvas as primary authoring surface](../../02-decisions/adrs/ADR-0069-dynamic-program-canvas-as-primary-authoring-surface.md) →
+[ADR-0061 building-graph bidirectional edit](../../02-decisions/adrs/ADR-0061-building-graph-bidirectional-edit-substrate.md) →
+[ADR-0058 unified building graph](../../02-decisions/adrs/ADR-0058-unified-building-graph.md) →
+[ADR-0067 graph-IR / intent-first BIM 3.0](../../02-decisions/adrs/ADR-0067-graph-ir-intent-first-building-graph-bim3.md) →
+[ADR-0056 typology-declared brief](../../02-decisions/adrs/ADR-0056-typology-declared-brief.md) →
 this SPEC.
 
 **Sibling references:**
@@ -370,7 +370,7 @@ The canvas is bound by **C52 §1 + ADR-0061** verbatim:
 
 | Phase | Scope | Acceptance |
 |---|---|---|
-| **Phase 0 — spike** | One storey lane of draggable rounded cards beside one live plan; resize a card → `roomAreasByName` → synchronous regenerate → plan + cards refresh. See `SPIKE-DYNAMIC-PROGRAM-CANVAS.md`. | A bedroom card resized larger → the plan's bedroom polygon grows on the next regenerate, within ~120 ms, with no geometry-store write. |
+| **Phase 0 — spike** | One storey lane of draggable rounded cards beside one live plan; resize a card → `roomAreasByName` → synchronous regenerate → plan + cards refresh. See `spike-dynamic-program-canvas.md`. | A bedroom card resized larger → the plan's bedroom polygon grows on the next regenerate, within ~120 ms, with no geometry-store write. |
 | **Phase 1 — card grid + live regen** | Full per-storey lanes; add room (R3); resize (R4); global sliders (R7); plan + graph panes per storey, refreshed in lock-step. | Edit any card or slider → all panes refresh from one regenerate; un-edited canvas reproduces the byte-identical baseline. |
 | **Phase 2 — cross-storey drag + add-level** | Drag a card between lanes → `roomFloorByName` (R5); `⊕ Add/remove level` → `storeyCount` (R6); cross-floor whole-house graph pane. | A bedroom dragged ground→first appears upstairs after regenerate; +1 level adds a lane and re-allocates the program; drag-back clears the override. |
 | **Phase 3 — replace the brief panel** | Dock the canvas in the [tools] area (R2); migrate `BriefSchema` fields into the canvas header; remove `BriefSchemaForm` from onboarding; onboarding opens the canvas seeded from the typology default brief (R9). | New-project onboarding shows the canvas, not the Project Brief form; the modal program form is gone or reduced to confirm-only. |

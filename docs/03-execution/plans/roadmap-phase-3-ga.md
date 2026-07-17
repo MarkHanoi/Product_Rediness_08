@@ -15,7 +15,7 @@ Phase 3 closes when **all** of these hold:
 |---|---|---|
 | **E1** | **25 typologies** shipped (per [typology-expansion §5](./typology-expansion-roadmap.md)) | Reference projects × 5 per typology; nightly playwright |
 | **E2** | **4 regions live** (EU + US + AP + UK) per [C49](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) — same-sovereignty failover tested in each | Quarterly DR drills passing |
-| **E3** | **30+ Enterprise customers** (per [personas C4](../../01-strategy/personas.md)) | Stripe MRR Enterprise tier > $500,000 |
+| **E3** | **30+ Enterprise customers** (per [personas C4](../../01-strategy/STR-09-personas.md)) | Stripe MRR Enterprise tier > $500,000 |
 | **E4** | **5,000 paying customers** total | Stripe MRR > $300,000 |
 | **E5** | **200 active marketplace developers** + **2,000 artefacts** | Marketplace dashboard |
 | **E6** | **30 % of revenue from marketplace-adjacent products** | Finance dashboard |
@@ -103,11 +103,11 @@ Each typology delivers the standard pack surface (per [typology-expansion §9](.
 
 | # | Deliverable | Cites |
 |---|---|---|
-| 5.1 | L6 behavioural simulation: pedestrian flow + occupancy patterns | [site-and-cognition §3.4](../../01-strategy/site-and-cognition-strategy.md) |
-| 5.2 | L6 evacuation simulation (basic) | [site-and-cognition §3.4](../../01-strategy/site-and-cognition-strategy.md) |
+| 5.1 | L6 behavioural simulation: pedestrian flow + occupancy patterns | [site-and-cognition §3.4](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
+| 5.2 | L6 evacuation simulation (basic) | [site-and-cognition §3.4](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
 | 5.3 | L7 typology priors expand to all 25 PRYZM-curated typologies | [typology §6](./typology-expansion-roadmap.md) |
 | 5.4 | L7 community-authored typology priors framework (marketplace authors extend the cognition stack) | NEW |
-| 5.5 | Constraint DB expansion: 250 → 1000 rules code-enforced | [site-and-cognition §6](../../01-strategy/site-and-cognition-strategy.md) |
+| 5.5 | Constraint DB expansion: 250 → 1000 rules code-enforced | [site-and-cognition §6](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
 | 5.6 | Constraint DB versioning + per-jurisdiction variants (UK / EU / US / JP regulatory packs) | [C34](../../02-decisions/contracts/C34-PRINT-AND-DRAWING-STANDARDS.md) + [C49](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
 
 ---
@@ -183,13 +183,13 @@ Each typology delivers the standard pack surface (per [typology-expansion §9](.
 
 | # | Deliverable | Cites |
 |---|---|---|
-| 8.1 | Plugin author annual conference (first edition) | [platform-strategy §10.3](../../01-strategy/platform-strategy.md) |
+| 8.1 | Plugin author annual conference (first edition) | [platform-strategy §10.3](../../01-strategy/STR-10-platform-strategy.md) |
 | 8.2 | Plugin-author monthly newsletter scaled to 500+ authors | NEW |
 | 8.3 | Established-developer programme: 50+ developers qualified | [C40 §1.10](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md) |
 | 8.4 | Marketplace API for partners (programmatic publish) | [C07] |
 | 8.5 | Plugin author premium tier (revenue share modifier for top contributors) | NEW |
-| 8.6 | Marketplace-acquisitions framework (bring strategic plugins under PRYZM-first-party umbrella) | [platform-strategy §10.3](../../01-strategy/platform-strategy.md) |
-| 8.7 | Open governance: plugin-affecting contract changes go through public comment period | [platform-strategy §10.3](../../01-strategy/platform-strategy.md) |
+| 8.6 | Marketplace-acquisitions framework (bring strategic plugins under PRYZM-first-party umbrella) | [platform-strategy §10.3](../../01-strategy/STR-10-platform-strategy.md) |
+| 8.7 | Open governance: plugin-affecting contract changes go through public comment period | [platform-strategy §10.3](../../01-strategy/STR-10-platform-strategy.md) |
 | 8.8 | Marketplace contributes 30 % of PRYZM ARR | E6 verification |
 
 ---
@@ -198,14 +198,14 @@ Each typology delivers the standard pack surface (per [typology-expansion §9](.
 
 | # | Deliverable | Cites |
 |---|---|---|
-| 9.1 | 30+ Enterprise customers signed | per [go-to-market §2.3](../../01-strategy/go-to-market.md) |
+| 9.1 | 30+ Enterprise customers signed | per [go-to-market §2.3](../../01-strategy/STR-08-go-to-market.md) |
 | 9.2 | ISO 19650 Phase 2 (production-phase) audit pass | [C30](../../02-decisions/contracts/C30-DRAWING-SET-MANAGEMENT.md) |
 | 9.3 | ISO 19650 Phase 3 (completion-phase + handover) audit pass | [C35](../../02-decisions/contracts/C35-COBIE-FM-HANDOVER.md) |
 | 9.4 | SOC 2 Type II annual re-audit | [C22](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) |
 | 9.5 | First defence/intelligence customer (self-host required) | [C49 §1.6](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
 | 9.6 | First government procurement win (UK Cabinet Office or US GSA) | [vision-2030 §1](./vision-2030.md) |
 | 9.7 | Multi-tenant + multi-org per Enterprise customer (organisations hosting multiple jurisdictions) | NEW |
-| 9.8 | Customer success organisation scaled (regional CSMs) | [go-to-market §8.3](../../01-strategy/go-to-market.md) |
+| 9.8 | Customer success organisation scaled (regional CSMs) | [go-to-market §8.3](../../01-strategy/STR-08-go-to-market.md) |
 | 9.9 | Reference customer programme: 10 named Enterprise customers in case studies | Marketing |
 
 ---
@@ -214,7 +214,7 @@ Each typology delivers the standard pack surface (per [typology-expansion §9](.
 
 | # | Deliverable | Cites |
 |---|---|---|
-| 10.1 | REST API: `GET /api/v1/cognition/site/{id}` returns structured site knowledge | [site-and-cognition §3.4](../../01-strategy/site-and-cognition-strategy.md) |
+| 10.1 | REST API: `GET /api/v1/cognition/site/{id}` returns structured site knowledge | [site-and-cognition §3.4](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
 | 10.2 | REST API: `GET /api/v1/cognition/building/{id}` returns hierarchy + relationships | [C20](../../02-decisions/contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md) |
 | 10.3 | REST API: `GET /api/v1/cognition/room/{id}` returns typology + adjacencies + constraints | [C19 + C20 + C27] |
 | 10.4 | OpenAPI 3.1 spec published (extends existing `packages/api-spec/`) | NEW |
@@ -286,7 +286,7 @@ Phase 3 ends with **~53 contracts** (49 + 4 new).
 |---|---|---|---|---|
 | R1 | Revit round-trip 100-project test fails on edge cases | Medium | High | 6-month pre-Phase work; per-project triage |
 | R2 | Three regions launching simultaneously stretches ops capacity | High | Medium | Sequenced (US → AP → UK over 12 months) |
-| R3 | Enterprise customer-acquisition slower than target | High | High | Sales team scaled (per [go-to-market §8.3](../../01-strategy/go-to-market.md)); pricing experiments |
+| R3 | Enterprise customer-acquisition slower than target | High | High | Sales team scaled (per [go-to-market §8.3](../../01-strategy/STR-08-go-to-market.md)); pricing experiments |
 | R4 | Marketplace developer churn at scale | Medium | Medium | Per [C40 §10.4](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md) — established-developer rewards + featured placement |
 | R5 | L6 behavioural simulation depth becomes a separate product | Medium | Low | Bound the scope; sketch-level only; round-trip to specialists |
 | R6 | DXF/DWG (ODA license) commercial terms change | Low | High | Annual contract renewal; alternate library evaluation |

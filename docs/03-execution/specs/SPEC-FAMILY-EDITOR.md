@@ -6,7 +6,7 @@
 | Version | 1.0 |
 | Date | 2026-04-28 |
 | Owner | Architecture lead |
-| Related specs | `SPEC-05-TYPE-CATALOG.md` (parameter model), `SPEC-01` (geometry kernel + constraint solver), `ADR-014` (AI host & approval queue), `ADR-017` (type catalog scope), `ADR-027` (parameter expression evaluator) |
+| Related specs | `SPEC-05-TYPE-CATALOG.md` (parameter model), `SPEC-01` (geometry kernel + constraint solver), `ADR-0214` (AI host & approval queue), `ADR-0217` (type catalog scope), `ADR-0227` (parameter expression evaluator) |
 | Phase deliverables | `phases/PHASE-3A-Q1-M25-M27-VI-AI-ELEMENT-CREATOR.md` (D10 — sketcher + first author flow), `phases/PHASE-3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` (S55 parameter table & expressions, S59 marketplace) |
 | Sprint owners | **S52 D10** (real solver + sketcher canvas), **S55** (parameter table + expressions + IFC binding), **S58** (component editor as separate SPA in `apps/component-editor`), **S59** (`.pryzm-family` marketplace publish flow) |
 | Existing code | `src/component-editor/` (78-line bootstrap + 528-line workspace prototype with Three.js + `@thatopen/ui`), `packages/types-builtin/` (system-family starter catalog), `packages/constraint-solver/` (mock — real `planegcs` WASM lands at S52) |
@@ -101,7 +101,7 @@ The editor itself is **L7 / chrome** — it is a React-free DOM app that talks t
 | Layer | What the family editor uses |
 |---|---|
 | L1 — Stores | A scoped `familyDocumentStore` that holds the in-progress profiles, constraints, parameters, types, and material slots. One store per open family document. |
-| L2 — Command bus | Every author action (`addLine`, `addConstraint`, `bindParameter`, `extrude`, `addType`) goes through `@pryzm/command-bus` so undo/redo, audit, and AI batch-undo (see ADR-014 + S54) come for free. |
+| L2 — Command bus | Every author action (`addLine`, `addConstraint`, `bindParameter`, `extrude`, `addType`) goes through `@pryzm/command-bus` so undo/redo, audit, and AI batch-undo (see ADR-0214 + S54) come for free. |
 | L3 — Persistence | The store's patch stream is written into the family document via the same event-log machinery the main project uses; on save, it serialises to `.pryzm-family`. |
 | L4 — Geometry kernel | `produceExtrude / produceSweep / produceLoft / produceRevolve` (added at S52 alongside the sketcher) are pure descriptor producers, just like `produceWall`. |
 | L4.5 — Constraint solver | `@pryzm/constraint-solver` wraps `planegcs` WASM (S52). The sketcher sends `{ entities, constraints }` to the solver and receives back resolved point positions; rendering is decoupled from solving. |
@@ -142,7 +142,7 @@ Two flavours:
 | `Horizontal(L)` / `Vertical(L)` | |
 | `OnPlane(p, refPlane)` | |
 
-`expr` is a string in the parameter expression DSL (ADR-027): literals, `+ - * /`, `min`, `max`, `if`, `sin`, `cos`, plus references to declared parameters by name. The evaluator is sandboxed (no global access, no I/O) and runs deterministic.
+`expr` is a string in the parameter expression DSL (ADR-0227): literals, `+ - * /`, `min`, `max`, `if`, `sin`, `cos`, plus references to declared parameters by name. The evaluator is sandboxed (no global access, no I/O) and runs deterministic.
 
 ### §4.3 The constraint solver loop
 
@@ -383,7 +383,7 @@ This is enough for internal demos. **It is not the production family editor.**
 | Deliverable | File |
 |---|---|
 | `ParameterTable` panel (the table sketched in `apps/component-editor/src/panels/parameters.ts`) | `apps/component-editor/src/panels/parameters.ts` |
-| Expression evaluator (ADR-027) | `packages/family-format/src/expression-evaluator.ts` |
+| Expression evaluator (ADR-0227) | `packages/family-format/src/expression-evaluator.ts` |
 | Pset binding UI in the parameter inspector | `apps/component-editor/src/panels/parameters.ts` |
 | `.pryzm-family` v1 reader/writer + Zod schema | `packages/family-format/src/{reader,writer,schema}.ts` |
 | Determinism parity gate | `packages/family-format/__tests__/round-trip.test.ts` |
@@ -443,7 +443,7 @@ If a request lands inside one of these rows, the answer is "yes, in Phase 4+", n
 | `family.file.write` | `(path, profileCount, solidCount, typeCount)` | `(byteLength, durationMs)` |
 | `family.marketplace.publish` | `(familyId, schemaHash)` | `(httpStatus, durationMs)` |
 
-All spans inherit the `pryzm.family.*` prefix and follow the same envelope as the AI host's `pryzm.ai.*` spans (ADR-014).
+All spans inherit the `pryzm.family.*` prefix and follow the same envelope as the AI host's `pryzm.ai.*` spans (ADR-0214).
 
 ---
 
@@ -457,4 +457,4 @@ All spans inherit the `pryzm.family.*` prefix and follow the same envelope as th
 - IFC binding & round-trip: `phases/PHASE-3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md §1.3, §3`.
 - AI batched-undo (which this editor inherits for free): `packages/ai-host/src/AiPlane.ts` (S54 D1).
 - Constraint solver porter: `packages/constraint-solver/` (real planegcs binding lands at S52).
-- ADRs: `ADR-014` (AI host), `ADR-017` (type catalog scope), `ADR-027` (parameter expression evaluator).
+- ADRs: `ADR-0214` (AI host), `ADR-0217` (type catalog scope), `ADR-0227` (parameter expression evaluator).

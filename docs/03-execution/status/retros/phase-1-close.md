@@ -3,7 +3,7 @@
 **Phase**: 1 (Foundation, M1–M12, S01–S24)
 **Closed**: 2026-04-27
 **Bench report**: [`apps/bench/reports/M12-alpha.md`](../../apps/bench/reports/M12-alpha.md)
-**Process tracker**: [`docs/03-execution/status/legacy-status-detail/01-PROCESS-TRACKER.md`](../04-reference/status-detail/01-PROCESS-TRACKER.md) §1
+**Process tracker**: [`docs/03-execution/status/legacy-status-detail/01-process-tracker.md`](../04-reference/status-detail/01-process-tracker.md) §1
 **Phase doc index**: `docs/03-execution/plans/legacy/phases/PHASE-1{A,B,C,D}-*.md`
 
 ---

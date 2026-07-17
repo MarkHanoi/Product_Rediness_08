@@ -1,7 +1,7 @@
 # SPEC-48 — Constraint Solver
 
 **Status**: Active (S52 §4.1 — porter contract + MockSolver landed; real planegcs WASM lands at S53 D1).
-**Cross-refs**: ADR-029 (PDF-to-BIM scope), `phases/PHASE-3A-Q1-M25-M27-VI-AI-ELEMENT-CREATOR.md` §4.1 (lines 1106-1294), §4 exit criteria (lines 1486-1490).
+**Cross-refs**: ADR-0229 (PDF-to-BIM scope), `phases/PHASE-3A-Q1-M25-M27-VI-AI-ELEMENT-CREATOR.md` §4.1 (lines 1106-1294), §4 exit criteria (lines 1486-1490).
 
 ## §1 — Goals
 
@@ -97,7 +97,7 @@ Emitted by the Web Worker entry — wraps each `solve()` / `diagnose()` call in 
 
 ## §7 — Cross-refs
 
-- **ADR-029 Part B** — PDF-to-BIM Stage 4 review queue uses the same solver for downstream consistency checks (S60).
+- **ADR-0229 Part B** — PDF-to-BIM Stage 4 review queue uses the same solver for downstream consistency checks (S60).
 - **SPEC-45** — vectorisation pipeline. Stage 2 wall classifier (S51) + Stage 2 openings (S52 §4.2) feed entities into the sketcher.
 - **VI-AI-ELEMENT-CREATOR.md §4.1** — primary spec source.
 - **VI-AI-ELEMENT-CREATOR.md §5** — sketcher canvas in `apps/component-editor` (lands S53 alongside the real planegcs adapter).

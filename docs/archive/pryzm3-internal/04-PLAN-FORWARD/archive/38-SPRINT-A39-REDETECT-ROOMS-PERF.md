@@ -172,8 +172,8 @@ wire encoding.
 | All batch commands on runtime.bus | 100% — legacy `commandManager.execute()` removed | E.5.x P2 full migration |
 | `rooms.redetect` handler | Executes `RoomDetectionEngine` directly in `@pryzm/plugin-rooms` | Phase F plugin-rooms producer |
 | Immer `produceWithPatches` | All handlers produce `(forward, inverse)` patch pairs | `CommandBus.buildContext` injects Immer draft |
-| MessagePack + ULID | All `EventRecord` payloads MessagePack-encoded; `id` fields are ULIDs | ADR-001 §4 wire encoding |
-| Yjs cross-tab | Shared `Y.Doc`; one `Y.Map` per store; CRDT merge on reconnect | ADR-002 §5 |
+| MessagePack + ULID | All `EventRecord` payloads MessagePack-encoded; `id` fields are ULIDs | ADR-0201 §4 wire encoding |
+| Yjs cross-tab | Shared `Y.Doc`; one `Y.Map` per store; CRDT merge on reconnect | ADR-0202 §5 |
 | CI gate | `tsc --strict`, `eslint --max-warnings 0`, `vitest --coverage 80%` | GitHub Actions matrix |
 
 ---

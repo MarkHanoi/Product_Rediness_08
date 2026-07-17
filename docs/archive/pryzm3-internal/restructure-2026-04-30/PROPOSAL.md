@@ -82,7 +82,7 @@ docs/archive/pryzm3-internal/
 │   └── 02-LATEST-PHASES-AUDIT.md          # ← was 0_PHASES-A-F-MISSING-ITEMS-2026-04-29.md (the most recent deep audit)
 │
 ├── adrs/                                  # 45 ADRs — UNCHANGED in place
-│   └── ADR-001…ADR-044, M28-IFC-IMPORT-PIPELINE.md
+│   └── ADR-0201…ADR-0244, M28-IFC-IMPORT-PIPELINE.md
 │
 ├── specs/                                 # 40 SPECs — UNCHANGED in place
 │   └── SPEC-01…SPEC-48, SPEC-FAMILY-EDITOR.md

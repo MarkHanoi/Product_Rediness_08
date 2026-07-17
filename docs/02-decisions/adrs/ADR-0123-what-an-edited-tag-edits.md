@@ -1,10 +1,10 @@
-# ADR-0123 — What does an edited TAG edit? (and the coherence rule it shares with ADR-122)
+# ADR-0123 — What does an edited TAG edit? (and the coherence rule it shares with ADR-0266)
 
-- **Status:** **PROPOSED — the tag half is decided here; it is BINDING ONLY TOGETHER WITH ADR-122.**
+- **Status:** **PROPOSED — the tag half is decided here; it is BINDING ONLY TOGETHER WITH ADR-0266.**
 - **Date:** 2026-07-14
 - **Tag:** §FEAT-TAG-PAPER-SCALE-AND-SELECTABILITY (L-291)
 - **Contracts:** C03 (annotation is an element), C16 (edit = command), C24 (paper/scale), C28 (schedules)
-- **Siblings:** ADR-0121 (associativity + presentation split), **ADR-122 (does an edited DIMENSION
+- **Siblings:** ADR-0121 (associativity + presentation split), **ADR-0266 (does an edited DIMENSION
   drive the model or override the text?) — PROPOSED, awaiting the founder**
 
 ---
@@ -57,25 +57,25 @@ not meet**, which is precisely the L-287 split doing its job.
 A product in which an edited *tag* drives the model but an edited *dimension* silently overrides its
 text (or the reverse) is **incoherent**, and the user discovers it the hard way — on site.
 
-So ADR-122's open question is constrained by this one:
+So ADR-0266's open question is constrained by this one:
 
-- If ADR-122 decides **dimensions DRIVE the model** → fully coherent with this ADR. Both write model.
-- If ADR-122 decides **dimensions may OVERRIDE** → then an override is a **deliberate, flagged,
-  exceptional escape hatch** (ADR-122 already proposes `isOverride` / `isFlagged` and refusing to
+- If ADR-0266 decides **dimensions DRIVE the model** → fully coherent with this ADR. Both write model.
+- If ADR-0266 decides **dimensions may OVERRIDE** → then an override is a **deliberate, flagged,
+  exceptional escape hatch** (ADR-0266 already proposes `isOverride` / `isFlagged` and refusing to
   issue a sheet carrying an unflagged one). In that world, **tags still do not get one**: the
   justification for a dimension override (you cannot always move a building to fix a number) **does
   not exist for a mark**, which is a text field that can simply be corrected.
 - What is **forbidden in every world**: an *unflagged* override on either. A drawing that quietly
   disagrees with its model is the product failing at its only job.
 
-**These two ADRs must be accepted together.** I am not implementing the tag text edit until ADR-122 is
+**These two ADRs must be accepted together.** I am not implementing the tag text edit until ADR-0266 is
 resolved, because implementing half of a coherence rule is how the incoherence gets shipped.
 
 ## 4. Consequences
 
 - **Now (L-291):** tags are paper-scaled, selectable (bubble **and** leader), and draggable —
   presentation only, references untouched (L-287). The property panel renders **from the record**.
-- **On ADR-122's resolution:** the tag's mark field becomes editable in that panel, writing
+- **On ADR-0266's resolution:** the tag's mark field becomes editable in that panel, writing
   `element.mark` through an element command. The schedule follows in the same breath because it reads
   the same field.
 - **Never:** a `tag.overrideText` parameter. If one appears in a diff, this ADR was not read.

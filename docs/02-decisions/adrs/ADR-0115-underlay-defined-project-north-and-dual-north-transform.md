@@ -63,9 +63,9 @@
   branches. (Superseding the L-58 flow-completion behaviour of routing to the generate-confirm
   step; the typed `site.overlay-placement-committed` event is retained but now terminal.)
 - **Related / composes with:**
-  [ADR-0070 Project North vs True North authoring frame](0070-project-north-vs-true-north-authoring-frame.md)
+  [ADR-0070 Project North vs True North authoring frame](ADR-0070-project-north-vs-true-north-authoring-frame.md)
   (extends — gives θ a first-class *UI source*),
-  [ADR-059 Georeferenced site-plan overlay](ADR-059-site-plan-overlay.md) (extends — the
+  [ADR-0259 Georeferenced site-plan overlay](ADR-0259-site-plan-overlay.md) (extends — the
   overlay's placement now *defines* project north),
   [C19-SITE-MODEL-AND-PARCEL](../contracts/C19-SITE-MODEL-AND-PARCEL.md) (§1.3 LTP-ENU
   origin = the project base point; `SiteLocation.trueNorth` = θ),
@@ -73,7 +73,7 @@
   C04 (view / scheduling — additive, behind the north model),
   [SPEC-SITE-PLAN-OVERLAY](../../03-execution/specs/SPEC-SITE-PLAN-OVERLAY.md),
   [SPEC-PROJECT-NORTH-AUTHORING-FRAME](../../03-execution/specs/SPEC-PROJECT-NORTH-AUTHORING-FRAME.md).
-- **Does NOT supersede** ADR-0070 or ADR-059; it composes with both.
+- **Does NOT supersede** ADR-0070 or ADR-0259; it composes with both.
 
 ## Context
 
@@ -97,7 +97,7 @@ What already existed (verified in code):
   *derived from the drawn boundary's principal axis* (`deriveProjectNorthFrame`,
   `principalAxisDeg`) — it had **no UI source**. Model A (store in project-north, carry a
   Project Base Point + angle to true north) was explicitly deferred.
-- **ADR-059** shipped a georeferenced overlay on the MapLibre 2D site map with live
+- **ADR-0259** shipped a georeferenced overlay on the MapLibre 2D site map with live
   move/rotate/scale/opacity/lock + 2-point calibration + per-project persistence, plus a
   THREE plan-view underlay (`FloorPlanUnderlayTool` in `@pryzm/input-host`) that already
   supports drag-move, `rotateBy`, `applyScale`, and lock. The overlay's placement
@@ -192,7 +192,7 @@ site. Fix (additive):
 - **Positive:** the underlay's interactive rotation now *has meaning* (defines project
   north); the plan is orthogonal to the underlay while the globe is geolocated + true-north,
   through ONE tested rigid transform; θ round-trips exactly; θ = 0 is byte-identical; the 3D
-  site/globe view is always one click away. Reuses the ADR-059 overlay, the C19 site model +
+  site/globe view is always one click away. Reuses the ADR-0259 overlay, the C19 site model +
   command path, and the existing Forma/Cesium view — **no parallel subsystem** (P1). MapLibre
   + raw math only, no `import * as THREE` added (P2); no new rAF (P3); no `(window as any)`
   (P4 — typed `pryzmEnterSiteView`); no schema change (P5 — θ on the existing
@@ -226,7 +226,7 @@ site. Fix (additive):
    `SiteLocation.trueNorth`; feed θ into the Forma massing placement so the model rotates to
    true north on the globe (the transform primitive is ready).
 3. ~~**Persist the underlay raster beyond localStorage** (large data URLs) — carried over from
-   ADR-059.~~ **DONE (2026-07-03, L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** The site-plan
+   ADR-0259.~~ **DONE (2026-07-03, L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** The site-plan
    overlay raster now lives in IndexedDB (`SiteOverlayRasterStore`, per-project, mirroring the
    L-45 floor-plan `UnderlayRasterStore`); localStorage keeps only lean metadata
    (`writePersistedOverlay` strips the raster; `readPersistedOverlayMetadata` tolerates its

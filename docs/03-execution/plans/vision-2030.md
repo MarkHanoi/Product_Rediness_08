@@ -1,9 +1,9 @@
 # PRYZM — Implementation Vision 2030
 
 > **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H1 — 5-year
-> **Reconciled 2026-06-03** to ADR-055/C51 (contract count refreshed to 51).
-> **Authority**: this doc owns **the 5-year capability vision** — what PRYZM looks like in 2030. It is the longest-arc planning doc in the system. Update yearly (or on a major strategic pivot per [risks-and-assumptions.md](../../01-strategy/risks-and-assumptions.md)).
-> **Foundation above**: [manifesto.md](../../01-strategy/manifesto.md) · [product-vision.md](../../01-strategy/product-vision.md) · [positioning.md](../../01-strategy/positioning.md)
+> **Reconciled 2026-06-03** to ADR-0255/C51 (contract count refreshed to 51).
+> **Authority**: this doc owns **the 5-year capability vision** — what PRYZM looks like in 2030. It is the longest-arc planning doc in the system. Update yearly (or on a major strategic pivot per [STR-15-risks-and-assumptions.md](../../01-strategy/STR-15-risks-and-assumptions.md)).
+> **Foundation above**: [STR-01-manifesto.md](../../01-strategy/STR-01-manifesto.md) · [STR-02-product-vision.md](../../01-strategy/STR-02-product-vision.md) · [STR-07-positioning.md](../../01-strategy/STR-07-positioning.md)
 > **Downstream**: [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) (Phase 1) · [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md) (Phase 2) · [roadmap-phase-3-ga.md](./roadmap-phase-3-ga.md) (Phase 3)
 
 ---
@@ -41,7 +41,7 @@ This is the headline differentiator vs Revit / Archicad. Their tools support all
 
 ### T2 — Cognition substrate maturity
 
-The 7-layer cognition stack (per [site-and-cognition-strategy.md §3](../../01-strategy/site-and-cognition-strategy.md)) is **fully implemented**:
+The 7-layer cognition stack (per [STR-12-site-and-cognition-strategy.md §3](../../01-strategy/STR-12-site-and-cognition-strategy.md)) is **fully implemented**:
 
 | Layer | 2030 state |
 |---|---|
@@ -69,16 +69,16 @@ The **multi-region** topology is live: 4 production regions (EU Frankfurt + US V
 
 ### T4 — Two-sided platform flywheel
 
-The marketplace (per [platform-strategy.md](../../01-strategy/platform-strategy.md)) is the structural moat. By 2030:
+The marketplace (per [STR-10-platform-strategy.md](../../01-strategy/STR-10-platform-strategy.md)) is the structural moat. By 2030:
 
 - ~2,000 published artefacts (plugins + family packs + typology packs + pricing catalogues + drawing-standard packs + locale packs + rules packs)
-- ~500 active developers earning > $500/month (top decile > $80,000/year per [platform-strategy §11](../../01-strategy/platform-strategy.md))
+- ~500 active developers earning > $500/month (top decile > $80,000/year per [platform-strategy §11](../../01-strategy/STR-10-platform-strategy.md))
 - 30 % of PRYZM revenue from marketplace-adjacent products (premium tier features that gate marketplace usage; featured placements; revenue share)
 - **Marketplace = the moat** — Autodesk + Archicad cannot replicate this without rebuilding their substrate
 
 ### T5 — Honest performance at scale
 
-The 17 headline NFTs (per [engineering-vision §5](../../01-strategy/engineering-vision.md)) hold at 10× the 2026 scale:
+The 17 headline NFTs (per [engineering-vision §5](../../01-strategy/STR-03-engineering-vision.md)) hold at 10× the 2026 scale:
 
 | NFT | 2026 target | 2030 target |
 |---|---|---|
@@ -95,7 +95,7 @@ The 17 headline NFTs (per [engineering-vision §5](../../01-strategy/engineering
 
 ## §3 — The seven strategic bets
 
-These are the named bets. Failure of any of them re-shapes the strategy (per [risks-and-assumptions.md §2](../../01-strategy/risks-and-assumptions.md)).
+These are the named bets. Failure of any of them re-shapes the strategy (per [STR-15-risks-and-assumptions.md §2](../../01-strategy/STR-15-risks-and-assumptions.md)).
 
 | # | Bet | What it asserts | What success looks like in 2030 |
 |---|---|---|---|
@@ -113,7 +113,7 @@ These are the named bets. Failure of any of them re-shapes the strategy (per [ri
 
 We will not have built:
 
-- **A construction-phase tool** (per [engineering-vision §8](../../01-strategy/engineering-vision.md)). Procore / PlanGrid own that market. PRYZM exports COBie + IFC + drawing sets; the construction side consumes.
+- **A construction-phase tool** (per [engineering-vision §8](../../01-strategy/STR-03-engineering-vision.md)). Procore / PlanGrid own that market. PRYZM exports COBie + IFC + drawing sets; the construction side consumes.
 - **A facility-management primary tool**. Archibus / Maximo own that. PRYZM exports the asset register; FM tools consume.
 - **A 4D scheduling / 5D cost primary tool**. Synchro / Asta / CostX own those. PRYZM exports per [C37](../../02-decisions/contracts/C37-SCHEDULE-4D.md) + [C38](../../02-decisions/contracts/C38-COST-5D.md).
 - **A structural analysis solver**. Tekla / ETABS / SAP own that. PRYZM round-trips via IFC.
@@ -122,7 +122,7 @@ We will not have built:
 - **Native desktop / mobile applications**. Browser-only per [C44](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md) + [C45](../../02-decisions/contracts/C45-BROWSER-AND-DEVICE-MATRIX.md). PWA install is the closest we ship.
 - **A consumer / homeowner-only tool**. We serve C1 (Solo) which includes some self-builders but the brand voice is professional.
 
-The discipline of saying no is the same as Year 1 (per [positioning §6](../../01-strategy/positioning.md)). Not all of these change in 5 years.
+The discipline of saying no is the same as Year 1 (per [positioning §6](../../01-strategy/STR-07-positioning.md)). Not all of these change in 5 years.
 
 ---
 
@@ -142,7 +142,7 @@ The discipline of saying no is the same as Year 1 (per [positioning §6](../../0
 | Plugin SDK NPM version | v1.0.0 (pending publish) | v3.x stable |
 | Enterprise customers | 0–2 | ~80 |
 
-Capital + ownership structure: organic growth path (per [operating-principles §10](../../01-strategy/operating-principles.md) — no M&A; no fundraising on a calendar). Series A + Series B by 2028; Series C optional by 2030.
+Capital + ownership structure: organic growth path (per [operating-principles §10](../../01-strategy/STR-06-operating-principles.md) — no M&A; no fundraising on a calendar). Series A + Series B by 2028; Series C optional by 2030.
 
 ---
 
@@ -176,7 +176,7 @@ Strategy is what you say no to. The major trade-offs the 2030 vision commits to:
 | Curated quality | Marketplace volume at expense of quality |
 | Architect-first product | Generic-AEC product that's mediocre for everyone |
 | Honest perf + accessibility | Marketing-grade demo numbers + ship-with-aspirational compliance |
-| Slow team growth (per [operating-principles O8](../../01-strategy/operating-principles.md)) | VC-financialised hyper-growth team that dilutes the bar |
+| Slow team growth (per [operating-principles O8](../../01-strategy/STR-06-operating-principles.md)) | VC-financialised hyper-growth team that dilutes the bar |
 | Revenue from architect subscriptions + marketplace | Acquisition-funded GMV growth at unit-economics expense |
 
 These trade-offs are visible in every phase plan; every backlog item is reviewed against them.
@@ -189,7 +189,7 @@ The vision rejects one failure mode explicitly: **becoming a generic browser-BIM
 
 A team that built browser-native BIM + collaboration + AI without the contracts + substrate + typology pipeline + marketplace would land in that bucket. The category is crowded with attempts (Motif, Qonic, Pascal, an Autodesk-acquired startup). The differentiator must be the **substrate × marketplace × multi-typology × honest-performance × sovereignty** combination — none in isolation; all in concert.
 
-Per [positioning §4.4](../../01-strategy/positioning.md) — we do NOT defend on geometry-kernel sophistication, viewport polish, or single-feature differentiation. The 5-year vision is the *combination* moat compounding.
+Per [positioning §4.4](../../01-strategy/STR-07-positioning.md) — we do NOT defend on geometry-kernel sophistication, viewport polish, or single-feature differentiation. The 5-year vision is the *combination* moat compounding.
 
 ---
 
@@ -198,7 +198,7 @@ Per [positioning §4.4](../../01-strategy/positioning.md) — we do NOT defend o
 Trigger conditions:
 
 - **Annual yearly review** — once per calendar year (typically January); the team re-reads + revises
-- **Strategic pivot** — if a [risks-and-assumptions §2](../../01-strategy/risks-and-assumptions.md) "core thesis bet" is partly invalidated → emergency rewrite + ADR
+- **Strategic pivot** — if a [risks-and-assumptions §2](../../01-strategy/STR-15-risks-and-assumptions.md) "core thesis bet" is partly invalidated → emergency rewrite + ADR
 - **Acquisition or major partnership** — if PRYZM acquires a competitor or signs a strategic partnership materially changing market position
 - **Regulatory shift** — if a new compliance regime (EU AI Act extension, ISO 19650-3 mandatory, etc.) materially changes the enterprise gate
 
@@ -210,19 +210,19 @@ The doc is **PR'd + reviewed** by the founder + the senior engineering team + th
 
 | Doc | Relationship |
 |---|---|
-| [manifesto.md](../../01-strategy/manifesto.md) | The brand voice this vision honours |
-| [product-vision.md](../../01-strategy/product-vision.md) | Product north star + user journey |
-| [positioning.md](../../01-strategy/positioning.md) | Competitive landscape + moats this vision sustains |
-| [platform-strategy.md](../../01-strategy/platform-strategy.md) | Marketplace flywheel — T4 |
-| [site-and-cognition-strategy.md](../../01-strategy/site-and-cognition-strategy.md) | Cognition substrate — T2 |
-| [risks-and-assumptions.md](../../01-strategy/risks-and-assumptions.md) | Bets B1–B7 traceable to risk register |
+| [STR-01-manifesto.md](../../01-strategy/STR-01-manifesto.md) | The brand voice this vision honours |
+| [STR-02-product-vision.md](../../01-strategy/STR-02-product-vision.md) | Product north star + user journey |
+| [STR-07-positioning.md](../../01-strategy/STR-07-positioning.md) | Competitive landscape + moats this vision sustains |
+| [STR-10-platform-strategy.md](../../01-strategy/STR-10-platform-strategy.md) | Marketplace flywheel — T4 |
+| [STR-12-site-and-cognition-strategy.md](../../01-strategy/STR-12-site-and-cognition-strategy.md) | Cognition substrate — T2 |
+| [STR-15-risks-and-assumptions.md](../../01-strategy/STR-15-risks-and-assumptions.md) | Bets B1–B7 traceable to risk register |
 | [cadence-and-planning-system.md](./cadence-and-planning-system.md) | This doc is H1; phase roadmaps are H2 derivatives |
 | [typology-expansion-roadmap.md](./typology-expansion-roadmap.md) | T1 detailed |
 | [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) | Phase 1 derivative |
 | [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md) | Phase 2 derivative |
 | [roadmap-phase-3-ga.md](./roadmap-phase-3-ga.md) | Phase 3 derivative |
-| [../../02-decisions/contracts/README.md](../../02-decisions/contracts/README.md) | 51 binding contracts the vision conforms to (C01–C51; C51 = apex/app split per ADR-055) |
+| [../../02-decisions/contracts/README.md](../../02-decisions/contracts/README.md) | 51 binding contracts the vision conforms to (C01–C51; C51 = apex/app split per ADR-0255) |
 
 ---
 
-*End — PRYZM Implementation Vision 2030, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
+*End — PRYZM Implementation Vision 2030, 2026-06-03 (reconciled to ADR-0255/C51) — CANONICAL.*

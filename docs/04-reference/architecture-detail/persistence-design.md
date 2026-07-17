@@ -1,7 +1,7 @@
 # L0 persistence-client — S03 design doc
 
 > Status: design ratified at S03; full IndexedDB implementation lands in
-> S04 alongside ADR-004 (codec choice).
+> S04 alongside ADR-0204 (codec choice).
 >
 > Owner package: `packages/persistence-client/`.
 >
@@ -103,7 +103,7 @@ requires:
 | Backend            | Status (S03) | When to use |
 |--------------------|--------------|-------------|
 | `InMemoryBackend`  | full impl    | Unit tests; codec spike; future S20+ replay tools. |
-| `IndexedDbBackend` | sketch       | Browser persistence. Schema frozen; `idb` calls wired; ratified S04 alongside ADR-004. |
+| `IndexedDbBackend` | sketch       | Browser persistence. Schema frozen; `idb` calls wired; ratified S04 alongside ADR-0204. |
 
 ### IndexedDB schema (frozen at S03)
 
@@ -143,12 +143,12 @@ promise.  This is belt-and-braces:
 | Codec         | name        | Use                                |
 |---------------|-------------|-----------------------------------|
 | `JsonCodec`   | `'json'`    | Comparison rung, transparent dump. |
-| `MsgpackCodec`| `'msgpack'` | Wire format candidate (ADR-004).   |
+| `MsgpackCodec`| `'msgpack'` | Wire format candidate (ADR-0204).   |
 
 The `Codec` interface is symmetric `encode` / `decode` over
 `PersistedEvent`.  S03 ships JSON + MessagePack; the `apps/bench/src/benches/codec-spike.bench.ts`
 benchmark records bytes-per-event, encode speed, and decode speed for
-the ADR-004 draft.  S04 ratifies the choice and wires the chosen codec
+the ADR-0204 draft.  S04 ratifies the choice and wires the chosen codec
 into `IndexedDbBackend` (encoding to a `Uint8Array` column instead of
 storing the structured-clone `PersistedEvent` directly).
 

@@ -1,7 +1,7 @@
 # PRYZM — Roadmap Phase 2: Beta (6–18 months)
 
 > **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H2 — phase roadmap
-> **Reconciled 2026-06-03** to ADR-055/C51 (`pryzm.so` canonical; `pryzm.app` retired).
+> **Reconciled 2026-06-03** to ADR-0255/C51 (`pryzm.so` canonical; `pryzm.app` retired).
 > **Window**: 2027-01-01 → 2028-06-30 (~18 months, ~36 sprints of 2 weeks)
 > **Authority**: this doc owns **the Phase 2 delivery list** — platform breadth + 10+ typologies + first Enterprise pilots + marketplace flywheel. Sits between [Phase 1 Alpha](./roadmap-phase-1-alpha.md) and [Phase 3 GA](./roadmap-phase-3-ga.md).
 > **Foundation above**: [vision-2030.md](./vision-2030.md) themes T1–T5 → Phase 2 is months 7–24 of the arc.
@@ -15,7 +15,7 @@ Phase 2 closes when **all** of these hold:
 | # | Criterion | Verification |
 |---|---|---|
 | **E1** | **10 typologies** shipped (apartment + house + small-office + 7 more per [typology-expansion §5](./typology-expansion-roadmap.md)) | Reference projects × 5 per typology; nightly playwright |
-| **E2** | **First 5 Enterprise customers** signed (≥ 50 seats each; per [personas C4](../../01-strategy/personas.md)) | Stripe MRR > $50,000 from Enterprise tier |
+| **E2** | **First 5 Enterprise customers** signed (≥ 50 seats each; per [personas C4](../../01-strategy/STR-09-personas.md)) | Stripe MRR > $50,000 from Enterprise tier |
 | **E3** | **500 paying customers** total across Solo + Studio + Mid-firm + Enterprise | Stripe MRR > $35,000 |
 | **E4** | **100 active marketplace developers** (≥ 1 sale in trailing 90 days) | Marketplace dashboard |
 | **E5** | **500 marketplace artefacts** published | Marketplace dashboard |
@@ -46,7 +46,7 @@ Closure recorded via **ADR-NNN-phase-2-exit-beta.md** (immutable).
 | **B11** | **Sovereignty + BYOK for Enterprise** | ~10 wk |
 | **B12** | **Schedules + Data Panel automation** evolution | ~8 wk |
 
-**Total capacity required**: ~223 effective dev-weeks. Phase 2 = 18 months. Team grows from ~13 (Phase 1) → ~30 (Phase 2) per [go-to-market §8.2](../../01-strategy/go-to-market.md).
+**Total capacity required**: ~223 effective dev-weeks. Phase 2 = 18 months. Team grows from ~13 (Phase 1) → ~30 (Phase 2) per [go-to-market §8.2](../../01-strategy/STR-08-go-to-market.md).
 
 ---
 
@@ -93,7 +93,7 @@ Each typology delivers the standard surface (per [typology-expansion §9](./typo
 
 ## §4 — Bucket B2: Sheet + PDF + Drawing Set (~32 wk)
 
-The "publication-grade output" deliverable for D11 (per [engineering-vision §4](../../01-strategy/engineering-vision.md)).
+The "publication-grade output" deliverable for D11 (per [engineering-vision §4](../../01-strategy/STR-03-engineering-vision.md)).
 
 ### §4.1 — C24 Sheet Composition Engine (~14 wk)
 
@@ -169,12 +169,12 @@ The "publication-grade output" deliverable for D11 (per [engineering-vision §4]
 
 | # | Deliverable | Cites |
 |---|---|---|
-| 6.1 | Developer relations hire (full-time) | [platform-strategy §10.2](../../01-strategy/platform-strategy.md) |
-| 6.2 | First plugin-developer hackathon (1 in 2027 Q2) | [platform-strategy §10.2](../../01-strategy/platform-strategy.md) |
+| 6.1 | Developer relations hire (full-time) | [platform-strategy §10.2](../../01-strategy/STR-10-platform-strategy.md) |
+| 6.2 | First plugin-developer hackathon (1 in 2027 Q2) | [platform-strategy §10.2](../../01-strategy/STR-10-platform-strategy.md) |
 | 6.3 | Marketplace editorial featured-placement (weekly curated picks) | [C40 §1.10](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md) |
 | 6.4 | First 10 typology packs community-authored (alongside 4 PRYZM-first-party Q2 typologies) | [typology §8](./typology-expansion-roadmap.md) |
 | 6.5 | Family-platform expansion: more sketcher tools in component-editor | [C07] |
-| 6.6 | Plugin-author monthly newsletter | [platform-strategy §10.2](../../01-strategy/platform-strategy.md) |
+| 6.6 | Plugin-author monthly newsletter | [platform-strategy §10.2](../../01-strategy/STR-10-platform-strategy.md) |
 | 6.7 | Multi-language SDK docs (en + de + fr) | [C46](../../02-decisions/contracts/C46-I18N-AND-L10N.md) |
 | 6.8 | Established-developer programme (per [C40 §1.10](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md)) — first 10 qualifying | NEW |
 
@@ -186,7 +186,7 @@ The "publication-grade output" deliverable for D11 (per [engineering-vision §4]
 
 | # | Deliverable | Detail |
 |---|---|---|
-| 7.1 | Account executive hire | per [go-to-market §8.2](../../01-strategy/go-to-market.md) |
+| 7.1 | Account executive hire | per [go-to-market §8.2](../../01-strategy/STR-08-go-to-market.md) |
 | 7.2 | SOC 2 Type II audit prep + audit run | External auditor (Drata, Vanta, Strike Graph or similar); 6-month observation period |
 | 7.3 | SAML SSO implementation (Okta · Azure AD · Google Workspace) | Currently NOT shipped — Phase 2 deliverable |
 | 7.4 | Password reset flow + multi-factor auth (TOTP) | Currently NOT shipped |
@@ -194,7 +194,7 @@ The "publication-grade output" deliverable for D11 (per [engineering-vision §4]
 | 7.6 | Custom Enterprise contract templates (legal team) | per [C49 §1.5](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) Enterprise data-residency clause |
 | 7.7 | Named CSM SLA for Enterprise tier | per [C42 §1.1](../../02-decisions/contracts/C42-CUSTOMER-SUPPORT-TIER.md) |
 | 7.8 | Custom-CRS surface (Enterprise customers bring their own coordinate system) | extends [C12](../../02-decisions/contracts/C12-GEOSPATIAL.md) |
-| 7.9 | First 5 Enterprise customers onboarded | Sales motion per [go-to-market §2.3](../../01-strategy/go-to-market.md) |
+| 7.9 | First 5 Enterprise customers onboarded | Sales motion per [go-to-market §2.3](../../01-strategy/STR-08-go-to-market.md) |
 
 ---
 
@@ -217,9 +217,9 @@ The "publication-grade output" deliverable for D11 (per [engineering-vision §4]
 
 | # | Deliverable | Cites |
 |---|---|---|
-| 9.1 | Daylight full simulation (vs the rule-checker shipped in Phase 1) — Radiance integration or custom | [site-and-cognition §3.4](../../01-strategy/site-and-cognition-strategy.md) |
-| 9.2 | Acoustic separation validator (sound transmission between rooms) | [site-and-cognition §3.4](../../01-strategy/site-and-cognition-strategy.md) |
-| 9.3 | Sightline / visual-connectivity analysis | [site-and-cognition §3.4](../../01-strategy/site-and-cognition-strategy.md) |
+| 9.1 | Daylight full simulation (vs the rule-checker shipped in Phase 1) — Radiance integration or custom | [site-and-cognition §3.4](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
+| 9.2 | Acoustic separation validator (sound transmission between rooms) | [site-and-cognition §3.4](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
+| 9.3 | Sightline / visual-connectivity analysis | [site-and-cognition §3.4](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
 | 9.4 | Thermal-comfort heuristics (Q1 first slice) | [C21] |
 | 9.5 | L7 typology priors expand to 10 typologies (apartment + 9 more) | [typology §6](./typology-expansion-roadmap.md) |
 | 9.6 | Constraint-violation visualisation in inspect tree with severity colours | [C27 §5](../../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md) |
@@ -352,4 +352,4 @@ Building on Phase 1 deliverables:
 
 ---
 
-*End — PRYZM Roadmap Phase 2: Beta, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
+*End — PRYZM Roadmap Phase 2: Beta, 2026-06-03 (reconciled to ADR-0255/C51) — CANONICAL.*

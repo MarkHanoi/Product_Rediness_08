@@ -32,7 +32,7 @@ Floor as of the date of this audit (post-Phase-A, post-Phase-B, mid-Phase-C):
 | `apps/` count | 12 | **12** | 0 | stable |
 | `rAF` callers outside `packages/frame-scheduler/` | (no number published) | **89** | — | should fall to 0 by H.2 |
 | `document.createElement('canvas')` outside `packages/renderer/` | (no number published) | **47** | — | should fall to 0 by H.3 |
-| ADR files on disk | 40 ratified + 4 proposed (24+25) | **44 on disk** | 4 ratified | ADR-041–044 already authored |
+| ADR files on disk | 40 ratified + 4 proposed (24+25) | **44 on disk** | 4 ratified | ADR-0241–044 already authored |
 | SPEC files on disk | 39 | **40** | +1 (`SPEC-FAMILY-EDITOR.md` plus 39 numbered) | stable |
 | Top-level `src/` directories | 36 (00-INDEX) / 35 (chunk 24 table sum) | **35** | chunk 24 table is correct; 00-INDEX off-by-one | doc-only fix |
 | Workflow CI green-rate | (assumed 100% at S73) | **4/9 green** | — | 5 reds block H.10 GA gate |
@@ -216,11 +216,11 @@ Today's top offenders (sample):
 - `packages/renderer/` — multiple rAF in compositor (legitimate? — rule says only `frame-scheduler` may; renderer must dispatch via scheduler)
 - `packages/sync-client/` — rAF in heartbeat (must move to `frame-scheduler.tickAfter`)
 - `src/engine/` — rAF in legacy main loop (deleted in G — already in scope)
-- `apps/editor/` — rAF in dev mode hot-reload (legitimate? — likely needs ADR-023 quarantine annotation)
+- `apps/editor/` — rAF in dev mode hot-reload (legitimate? — likely needs ADR-0223 quarantine annotation)
 
 **Amendment**: append §23.11.1 (rAF per-folder table) and §23.11.2 (canvas per-folder table) to chunk 23, with each row carrying:
 - Current count
-- Target (0 unless ADR-023 quarantine carve-out)
+- Target (0 unless ADR-0223 quarantine carve-out)
 - Sub-phase ID that drives it to 0
 - ADR carve-out reference (if applicable)
 
@@ -280,9 +280,9 @@ Lands as **`Z.17`** in S77 D8.
 | Issue | Location | Amendment |
 |---|---|---|
 | `src/persistence/` deletion has no G.NN | chunk 24 §24.5 only has C.14 (move) | Add **`G.33`** (delete `src/persistence/` after C.14 move lands and verifies). Lands in **S82 D9** (last day of Phase G). |
-| G.32 (PRYZM 1 lights-out) is just an ID | chunk 25 §25.8.1 | Enumerate sub-items: **G.32.1** DNS cutover · **G.32.2** PRYZM 1 billing terminate · **G.32.3** auth-flag flip (PRYZM 1 read-only) · **G.32.4** customer data export endpoint live · **G.32.5** PRYZM 1 → PRYZM 2 migration runbook (per ADR-044) · **G.32.6** founder-authored customer comms send · **G.32.7** PRYZM 1 OTel tags marked deprecated · **G.32.8** PRYZM 1 marketplace catalog frozen · **G.32.9** read-only window calendar started (per ADR-044). Lands across **S84 D1–D9**. |
-| ADR-041/042/043 "default if no ADR" path not gated | chunk 24 §24.4 | Already moot — ADR-041, 042, 043, 044 are all on disk now (§26.0). Drop the "default if no ADR" rows; replace with the **as-ratified decision** of each ADR. Lands as a single doc-PR (`Z.18`). |
-| ADR-044 "latest sprint" impossible | chunk 25 §25.8.1 says S22 (M11); we are at S76 (M37) | Re-derive: ADR-044 must land **before G.32.6** (customer comms send) — practically S82 D5 to give 4 days for review. |
+| G.32 (PRYZM 1 lights-out) is just an ID | chunk 25 §25.8.1 | Enumerate sub-items: **G.32.1** DNS cutover · **G.32.2** PRYZM 1 billing terminate · **G.32.3** auth-flag flip (PRYZM 1 read-only) · **G.32.4** customer data export endpoint live · **G.32.5** PRYZM 1 → PRYZM 2 migration runbook (per ADR-0244) · **G.32.6** founder-authored customer comms send · **G.32.7** PRYZM 1 OTel tags marked deprecated · **G.32.8** PRYZM 1 marketplace catalog frozen · **G.32.9** read-only window calendar started (per ADR-0244). Lands across **S84 D1–D9**. |
+| ADR-0241/042/043 "default if no ADR" path not gated | chunk 24 §24.4 | Already moot — ADR-0241, 042, 043, 044 are all on disk now (§26.0). Drop the "default if no ADR" rows; replace with the **as-ratified decision** of each ADR. Lands as a single doc-PR (`Z.18`). |
+| ADR-0244 "latest sprint" impossible | chunk 25 §25.8.1 says S22 (M11); we are at S76 (M37) | Re-derive: ADR-0244 must land **before G.32.6** (customer comms send) — practically S82 D5 to give 4 days for review. |
 | Phase G exit gate file count | chunk 24 §24.6 says "≈ 230" | Make parametric: read `wireup-floor.json.src_ts_files` ≤ 230. |
 
 ---
@@ -357,10 +357,10 @@ Three rows in chunks 24 + 25 are now stale and contradict the disk. Doc-only fix
 
 | Stale claim | Where | Reality | Fix |
 |---|---|---|---|
-| ADR-041 "MISSING — proposed by Chunk 24 §24.4" | chunk 25 §25.2 line 111 | `docs/02-decisions/adrs/ADR-041-portfolio-aggregate-placement.md` exists | Update row to ✓ on disk; copy ratified decision into chunk 24 §24.4 |
-| ADR-042 "MISSING" | chunk 25 §25.2 line 112 | `ADR-042-physics-runtime-vs-dev-only.md` exists | Same |
-| ADR-043 "MISSING" | chunk 25 §25.2 line 113 | `ADR-043-utils-inline-vs-package.md` exists | Same |
-| ADR-044 "MISSING — proposed by THIS chunk §25.5" | chunk 25 §25.2 line 114 | `ADR-044-customer-migration-pryzm1-to-pryzm2.md` exists | Same |
+| ADR-0241 "MISSING — proposed by Chunk 24 §24.4" | chunk 25 §25.2 line 111 | `docs/02-decisions/adrs/ADR-0241-portfolio-aggregate-placement.md` exists | Update row to ✓ on disk; copy ratified decision into chunk 24 §24.4 |
+| ADR-0242 "MISSING" | chunk 25 §25.2 line 112 | `ADR-0242-physics-runtime-vs-dev-only.md` exists | Same |
+| ADR-0243 "MISSING" | chunk 25 §25.2 line 113 | `ADR-0243-utils-inline-vs-package.md` exists | Same |
+| ADR-0244 "MISSING — proposed by THIS chunk §25.5" | chunk 25 §25.2 line 114 | `ADR-0244-customer-migration-pryzm1-to-pryzm2.md` exists | Same |
 | "40 ratified ADRs + 4 proposed" | chunk 25 §25.2 result line | 44 on disk | Update count |
 | "36 top-level src/ folders" | chunk 24 §24.0 + 00-INDEX | 35 on disk; chunk 24 table sums to 35 (00-INDEX off-by-one) | Update both to 35 |
 | "769 cast sites" | chunk 23 §23.11 + chunk 01 §1.2 | 764 on disk | Replace with `${FLOOR.ui_cast_sites}` token (parametric per §26.3) |
@@ -413,7 +413,7 @@ Chunks 24 + 25 closed the **coverage** holes (every `src/` folder accounted for;
 3. **Numeric floors go parametric** via `wireup-floor.json` — every literal in chunks 23/24/25 either becomes a token or a direction. The chunk 25 §25.8.3 `=` semantic becomes `≥`/`≤`.
 4. **Chunks 14–19 get a 4-line banner** pointing at chunks 24 + 25 + 26 for the 33 sub-phases added since the slice. Slice contract (§23.12) preserved by retiring the re-slice script (Option b §26.7).
 5. **Phase C exit gate** is now the right-sized gate (it was Phase A's missed gate); 5 red workflows must be green or carve-out before D opens.
-6. **G.33 added** for `src/persistence/` deletion. **G.32 enumerated** into 9 sub-items. **ADR-041–044** are already on disk; chunk 25's "MISSING" rows updated.
+6. **G.33 added** for `src/persistence/` deletion. **G.32 enumerated** into 9 sub-items. **ADR-0241–044** are already on disk; chunk 25's "MISSING" rows updated.
 7. **§23.13 runtime smoke test** added to `pnpm ga-gate` so the gate proves runtime correctness, not just static cleanliness.
 8. **`H.5.1` commit-msg hook** prevents the S73-WIRE / S73-PG4 disambiguation from silently regressing.
 

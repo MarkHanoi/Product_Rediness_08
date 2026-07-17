@@ -1,7 +1,7 @@
 # C53 — Generative Layout Engine Architecture
 
 > **Stamp**: 2026-06-08 · **Status**: CANONICAL (DRAFT — ratifying the AS-IS→TO-BE architecture)
-> **Authority**: `01-strategy/product-vision.md` and `01-strategy/architecture.md` supersede this
+> **Authority**: `01-strategy/STR-02-product-vision.md` and `01-strategy/STR-04-architecture.md` supersede this
 > contract on conflict; this contract supersedes the SPECs it governs.
 > **Scope**: the architecture, layering, determinism, data contracts, variant strategy, scoring, and
 > the UI-intent boundary of PRYZM's **deterministic generative residential layout engine** — and the
@@ -16,7 +16,7 @@
 [C16](C16-COMMAND-AUTHORING-PROTOCOL.md) · [C19](C19-SITE-MODEL-AND-PARCEL.md) (SiteContext) ·
 [C21](C21-CLIMATE-INGESTION.md) · [C50](C50-TYPOLOGY-PIPELINE.md) · [C52](C52-EDITABLE-BUILDING-GRAPH.md)
 (editable graph) · ADR-0061 (determinism substrate) · ADR-0055 (wall-junction resolver).
-**Strategy:** [GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY](../../01-strategy/GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY.md).
+**Strategy:** [GENERATIVE-LAYOUT-WORLD-MODEL-STRATEGY](../../01-strategy/STR-13-generative-layout-world-model-strategy.md).
 
 ---
 
@@ -264,7 +264,7 @@ architecture + contracts".)
 
 ---
 
-## §12 — Ratified refinements (binding; per [ADR-0062](../adrs/0062-layout-engine-deterministic-graph-solver.md))
+## §12 — Ratified refinements (binding; per [ADR-0062](../adrs/ADR-0062-layout-engine-deterministic-graph-solver.md))
 
 Two independent expert architecture audits (2026-06-08) ratified §§1–11 and sharpened seven points.
 These are now **binding amendments** to this contract (full rationale in ADR-0062):
@@ -334,7 +334,7 @@ the two concretizations already in flight; §13.B below is the binding gap-lever
    area-proportional position (the corridor is the first split — public|private; the stair is a
    polygon cell placed where the access graph requires, NOT a keep-out rect). This is the prerequisite
    for correct circulation on L/T/U/rotated parcels. (See the "OPEN ARCHITECTURE PROBLEM" §13 of
-   LAYOUT-GENERATION-ALGORITHM.md.)
+   layout-generation-algorithm.md.)
 5. **Multi-objective optimisation with architectural intelligence** — optimise architecturally
    meaningful, *interdependent* dimensions (spatial quality: daylight depth, proportion, view,
    sequence; environmental: solar gain, cross-ventilation, thermal mass, overheating; functional:

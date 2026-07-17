@@ -1,23 +1,23 @@
 # C52 — Editable Building Graph (bidirectional edit substrate)
 
-> **Stamp**: 2026-06-08 · **Status**: CANONICAL (ratified 2026-06-08 via [ADR-0061](../adrs/0061-building-graph-bidirectional-edit-substrate.md))
-> **Authority**: this contract is the **normative form** of [ADR-0061](../adrs/0061-building-graph-bidirectional-edit-substrate.md). When ADR-0061 and this contract disagree, **this contract wins** (per the conflict-resolution hierarchy in [CLAUDE.md](../../../CLAUDE.md) + [README.md](./README.md): contract suite > ADR).
+> **Stamp**: 2026-06-08 · **Status**: CANONICAL (ratified 2026-06-08 via [ADR-0061](../adrs/ADR-0061-building-graph-bidirectional-edit-substrate.md))
+> **Authority**: this contract is the **normative form** of [ADR-0061](../adrs/ADR-0061-building-graph-bidirectional-edit-substrate.md). When ADR-0061 and this contract disagree, **this contract wins** (per the conflict-resolution hierarchy in [CLAUDE.md](../../../CLAUDE.md) + [README.md](./README.md): contract suite > ADR).
 > **Scope**: governs the **Living Building Graph as an editable Inspect surface** (tracker **A.26**, the founder's "BIM 2.0/3.0" differentiator). Codifies WHICH graph-node attributes are editable, the per-node-override → existing-engine-re-run write-path, the baseline-identity invariant (an un-edited graph ⇒ byte-identical layout), the inverse projection (regenerated layout → UBG rebuild → graph), and the P6 mutation discipline. The sibling-by-design of [C20](./C20-BUILDING-AND-APARTMENT-AGGREGATES.md) (the read-only aggregate hierarchy this contract makes editable) + [C50](./C50-TYPOLOGY-PIPELINE.md) (the deterministic engine the edits re-run).
-> **Constraint reference**: [ADR-0058](../adrs/0058-unified-building-graph.md) (UBG — specialised graphs are projections of one node/edge model) · [ADR-0060](../adrs/0060-living-design-parameters.md) (Living Design Parameters bind to the existing substrate, not a parallel scorer — the GLOBAL-slider sibling of this PER-NODE decision) · [C09](./C09-AI-AND-VISIBILITY-INTENT.md) §2.4 (in-process AI plane) · [C50](./C50-TYPOLOGY-PIPELINE.md) (Stage-4 generative engine) · [SPEC-LIVING-BUILDING-GRAPH](../../03-execution/specs/SPEC-LIVING-BUILDING-GRAPH.md) · [SPEC-LIVING-DESIGN-PARAMETERS](../../03-execution/specs/SPEC-LIVING-DESIGN-PARAMETERS.md) · [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](../../03-execution/specs/SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md).
+> **Constraint reference**: [ADR-0058](../adrs/ADR-0058-unified-building-graph.md) (UBG — specialised graphs are projections of one node/edge model) · [ADR-0060](../adrs/ADR-0060-living-design-parameters.md) (Living Design Parameters bind to the existing substrate, not a parallel scorer — the GLOBAL-slider sibling of this PER-NODE decision) · [C09](./C09-AI-AND-VISIBILITY-INTENT.md) §2.4 (in-process AI plane) · [C50](./C50-TYPOLOGY-PIPELINE.md) (Stage-4 generative engine) · [SPEC-LIVING-BUILDING-GRAPH](../../03-execution/specs/SPEC-LIVING-BUILDING-GRAPH.md) · [SPEC-LIVING-DESIGN-PARAMETERS](../../03-execution/specs/SPEC-LIVING-DESIGN-PARAMETERS.md) · [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](../../03-execution/specs/SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md).
 > **Owner**: Generative design · `@MarkHanoi`.
-> **Parent ADR**: [ADR-0061](../adrs/0061-building-graph-bidirectional-edit-substrate.md) (ratified 2026-06-08).
+> **Parent ADR**: [ADR-0061](../adrs/ADR-0061-building-graph-bidirectional-edit-substrate.md) (ratified 2026-06-08).
 
 ---
 
 ## §1 — The architectural invariant
 
-The Unified Building Graph (UBG, [ADR-0058](../adrs/0058-unified-building-graph.md)) is a **read-only projection** of the model: the specialised graphs (room topology, semantic graph, sightline/bubble graph) are projected into one queryable node/edge model that the Living Graph overlay renders and interrogates. C52 makes that graph **bidirectional**:
+The Unified Building Graph (UBG, [ADR-0058](../adrs/ADR-0058-unified-building-graph.md)) is a **read-only projection** of the model: the specialised graphs (room topology, semantic graph, sightline/bubble graph) are projected into one queryable node/edge model that the Living Graph overlay renders and interrogates. C52 makes that graph **bidirectional**:
 
 **A graph-node edit produces a structured, PER-NODE layout-constraint delta that re-runs the EXISTING deterministic layout engine through the EXISTING generate trigger; the regenerated layout is re-projected back into the graph. The graph never mutates the model directly and never forks the engine.**
 
 The graph is the **cause** (the user's intent), the deterministic engine is the **mechanism**, the model is the **effect**. There is exactly one engine, one scorer, one mutation path — the edit is just another input to the already-tested engine.
 
-This is the per-node analogue of [ADR-0060](../adrs/0060-living-design-parameters.md)'s GLOBAL sliders: where a slider re-weights an engine input for the whole layout, a node edit overrides an engine input for one room. Both seams are the same: write a session stash → `gatherLayoutPayload` merges it into the program → the existing `triggerApartmentLayout` re-runs `generateDeterministicLayouts`.
+This is the per-node analogue of [ADR-0060](../adrs/ADR-0060-living-design-parameters.md)'s GLOBAL sliders: where a slider re-weights an engine input for the whole layout, a node edit overrides an engine input for one room. Both seams are the same: write a session stash → `gatherLayoutPayload` merges it into the program → the existing `triggerApartmentLayout` re-runs `generateDeterministicLayouts`.
 
 ---
 
@@ -42,7 +42,7 @@ A re-type (E2) re-types an **existing** room slot — it never adds, removes, or
 
 ### §2.2 — The Dynamic Program Canvas is the canvas-driven authoring surface for this family (ADR-0069)
 
-The per-node-override family (E1–E4) + the cross-storey move are authored, as of 2026-06-10, on the **Dynamic Program Canvas** ([ADR-0069](../adrs/0069-dynamic-program-canvas-as-primary-authoring-surface.md) / [SPEC-DYNAMIC-PROGRAM-CANVAS](../../03-execution/specs/SPEC-DYNAMIC-PROGRAM-CANVAS.md)) — a **single, pre-execution, three-pane panel** (plan LEFT · graph CENTER · tools RIGHT) where the user manipulates the program **before** geometry is committed to the main canvas. The canvas is a spatial UI over **exactly this contract's write-path** — it adds **no** new mutation mechanism (it would otherwise be the §3.4 parallel-mutator trap). The mapping:
+The per-node-override family (E1–E4) + the cross-storey move are authored, as of 2026-06-10, on the **Dynamic Program Canvas** ([ADR-0069](../adrs/ADR-0069-dynamic-program-canvas-as-primary-authoring-surface.md) / [SPEC-DYNAMIC-PROGRAM-CANVAS](../../03-execution/specs/SPEC-DYNAMIC-PROGRAM-CANVAS.md)) — a **single, pre-execution, three-pane panel** (plan LEFT · graph CENTER · tools RIGHT) where the user manipulates the program **before** geometry is committed to the main canvas. The canvas is a spatial UI over **exactly this contract's write-path** — it adds **no** new mutation mechanism (it would otherwise be the §3.4 parallel-mutator trap). The mapping:
 
 | Canvas interaction (SPEC) | This contract's seam |
 |---|---|

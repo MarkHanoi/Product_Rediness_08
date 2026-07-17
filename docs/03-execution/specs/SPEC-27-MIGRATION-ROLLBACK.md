@@ -53,13 +53,13 @@ Each is forward-only by default; rollback paths are defined per kind below.
 ## §3 The Replit-PG → Supabase cutover (S43, the big one)
 
 ### §3.1 Pre-cutover (S38–S42)
-1. Provision Supabase production project (EU-West first; US-East at S70 per ADR-018).
+1. Provision Supabase production project (EU-West first; US-East at S70 per ADR-0218).
 2. Run all schema migrations against Supabase.
 3. Configure `SUPABASE_DB_URL` for staging; run staging on Supabase for ≥2 weeks (S40–S42).
 4. Backup verification: nightly restore-into-fresh + checksum (S41).
 
 ### §3.2 Cutover day (S43 day 1)
-1. Maintenance window announced 7 days in advance to all users (per ADR-021 customer-comms).
+1. Maintenance window announced 7 days in advance to all users (per ADR-0221 customer-comms).
 2. Read-only mode toggled in `apps/api-gateway` (gates writes; reads still served from Replit PG).
 3. `pnpm migrate-pg --src=replit --dst=supabase --batch=10000 --resume` runs:
    - Tables migrated in dependency order: `pryzm_users` → `projects` → `project_versions` → `project_command_log` → `visibility_intents` → `template_registry` → `webhooks`.
@@ -87,7 +87,7 @@ Each is forward-only by default; rollback paths are defined per kind below.
 |---|---|---|---|
 | `src/core/` | 76,188 | sources Phase 1 packages | split into 5 packages by S35 |
 | `src/commands/` | 34,023 | 169 PORTed; 47 MERGEd; 13 DROPped; 35 LIFTed | complete by S37 |
-| `src/styles/` | 30,977 | UI behemoth | refactored into `packages/ui/` + per-plugin panels per ADR-026 |
+| `src/styles/` | 30,977 | UI behemoth | refactored into `packages/ui/` + per-plugin panels per ADR-0226 |
 | `src/ai/` | 15,104 | scaffolded `/api/ai/*` | full L7.5 lift by S52 |
 | `src/engine/` | 11,960 | `EngineBootstrap` retained | deleted at S61 |
 
@@ -97,7 +97,7 @@ A zone is deleted only when **all** of:
 1. Replacement code green-tested (CI + parity fixtures).
 2. No `import` from any active code references the zone (`pnpm boundary-check` clean).
 3. Two consecutive sprints with zero `git blame` activity on the zone.
-4. ADR-018 hasn't fired Tier-3 T3.5 (date slip) in the meantime.
+4. ADR-0218 hasn't fired Tier-3 T3.5 (date slip) in the meantime.
 
 ### §4.3 Sprint schedule
 - S31 — `src/collaboration/` deleted (replaced by Yjs in S43; pre-deletion via dead-code gate at S31).
@@ -110,13 +110,13 @@ A zone is deleted only when **all** of:
 - S58 — `src/visibility/` + 11-wave VG migrated to `plugins/visibility-intent/`.
 - S61 — **`src/engine/EngineBootstrap.ts` deleted**; `apps/editor/src/main.ts` is the new composition root.
 - S65 — `src/styles/panels/` migrated to `packages/ui/` panels.
-- S70 — `src/lifecycle/` either ported to `plugins/lifecycle/` or deleted (per ADR-030).
+- S70 — `src/lifecycle/` either ported to `plugins/lifecycle/` or deleted (per ADR-0230).
 
 ### §4.4 Strangler-fig discipline
 - Both old and new code paths present until the deletion gate passes.
 - A feature flag (`featureFlags.<zone>_v2`) routes between them.
 - A weekly metric (`pryzm.legacy.zone.<zone>.import_count`) tracks remaining importers.
-- ADR-018 cut list T2.x can defer a deletion to v2 if velocity slips, but the path stays strangler-fig (no big-bang deletes).
+- ADR-0218 cut list T2.x can defer a deletion to v2 if velocity slips, but the path stays strangler-fig (no big-bang deletes).
 
 ---
 
@@ -129,14 +129,14 @@ Per gap review §27, the legacy `02-decisions/contracts/` folder is referenced b
 | Contract | Action | Target |
 |---|---|---|
 | `01-EVENT-LOG-CONTRACT.md` | merge into SPEC-02 | DELETE |
-| `02-COMMAND-PROTOCOL.md` | merge into SPEC-03 §3 + ADR-002 | DELETE |
+| `02-COMMAND-PROTOCOL.md` | merge into SPEC-03 §3 + ADR-0202 | DELETE |
 | `03-BIM-SEMANTIC-MODEL-CONTRACT.md` | merge into SPEC-05 + SPEC-06 | DELETE |
 | `04-AI-CONTRACT.md` | already declared dead in SPEC-07:13 | DELETE |
-| `05-MULTI-USER-CONTRACT.md` | merge into SPEC-03 + ADR-019 | DELETE |
+| `05-MULTI-USER-CONTRACT.md` | merge into SPEC-03 + ADR-0219 | DELETE |
 | `06-PLUGIN-SDK-CONTRACT.md` | merge into SPEC-09 | DELETE |
 | `07-OBSERVABILITY-CONTRACT.md` | merge into SPEC-10 | DELETE |
 | `08-PERSISTENCE-CONTRACT.md` | merge into SPEC-02 | DELETE |
-| `09-RENDERER-CONTRACT.md` | merge into ADR-022 + SPEC-12 | DELETE |
+| `09-RENDERER-CONTRACT.md` | merge into ADR-0222 + SPEC-12 | DELETE |
 | `10-DRAWING-CONTRACT.md` | merge into SPEC-04 + SPEC-29 | DELETE |
 | `18-BUNDLE-CHUNK-SPLITTING-CONTRACT.md` | already extended by SPEC-12 | DELETE |
 | (any others) | review case-by-case | move to `archive/02-decisions/contracts/` |
@@ -215,6 +215,6 @@ Per gap review §27, the legacy `02-decisions/contracts/` folder is referenced b
 ---
 
 ## §10 Cross-references
-- ADR-002 sync; ADR-013 persistence ops; ADR-018 cut list (codebase deletion deferrals); ADR-021 enterprise (rollback windows).
+- ADR-0202 sync; ADR-0213 persistence ops; ADR-0218 cut list (codebase deletion deferrals); ADR-0221 enterprise (rollback windows).
 - SPEC-02 persistence; SPEC-08 security; SPEC-15 deployment; SPEC-24 data store map; SPEC-26 file format.
 - Phase docs: PHASE-2A §6 strangler-fig; PHASE-2D §3 cutover; PHASE-3B §4 OBC removal; PHASE-3D §6 self-host.

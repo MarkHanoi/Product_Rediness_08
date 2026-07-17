@@ -7,7 +7,7 @@
 > **Authority**: subordinate to the SPEC and ADR series. Conflict precedence: `specs/SPEC-*` → `adrs/ADR-*` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → phase docs → `12-BIM-2-AND-3-POST-GA-ROADMAP.md` → `03-PASCAL-EDITOR-ANALYSIS.md` → this document. This file is **strategic / explanatory**, not contractual.
 >
 > **Cross-references**:
-> - `[strategic ADR-008]` IFC scope (PRYZM 2's binding contract).
+> - `[strategic ADR-0208]` IFC scope (PRYZM 2's binding contract).
 > - `SPEC-40` buildingSMART IFC4 certification (RV + DTV).
 > - `M28-IFC-IMPORT-PIPELINE.md` (the pipeline this comparison is rooted in).
 > - `03-PASCAL-EDITOR-ANALYSIS.md` (the Pascal-specific verdict).
@@ -18,7 +18,7 @@
 
 ## §0 Methodology + caveats
 
-The PRYZM 2 column is sourced from binding internal docs: `[strategic ADR-008]`, `SPEC-12`, `SPEC-26`, `SPEC-40`, `07-EXECUTION-PLAYBOOK §14`, and `M28-IFC-IMPORT-PIPELINE.md`. It is the post-S55 (M28) reality plus the post-S58 (M29) export reality plus the post-S84 (M42) certified reality.
+The PRYZM 2 column is sourced from binding internal docs: `[strategic ADR-0208]`, `SPEC-12`, `SPEC-26`, `SPEC-40`, `07-EXECUTION-PLAYBOOK §14`, and `M28-IFC-IMPORT-PIPELINE.md`. It is the post-S55 (M28) reality plus the post-S58 (M29) export reality plus the post-S84 (M42) certified reality.
 
 The competitor columns are sourced from public product documentation, public-facing demos, open-source repositories, and 2025–2026 conference talks (RTC Europe, AU, AEC Magazine reviews). They are the best-effort summary of public knowledge as of 2026-04-28; some closed-source products may have non-public capabilities not captured here. Where evidence is uncertain, the cell carries a **(?)**. Where a product made an explicit roadmap commitment but has not yet shipped, the cell carries a **(announced)** marker.
 
@@ -101,7 +101,7 @@ PRYZM 2 ties Bonsai for best-in-class on this row, and beats it on every web-nat
 
 The single most under-served customer pain in the BIM industry. Every customer has a story about losing parameters on Revit↔IFC round-trip.
 
-- **PRYZM 2** — ADR-008 §Property-set round-trip is binding: ≥ 95% of instance properties round-trip at GA, 100% at S84 (cert). Custom Psets preserved as `_ifcCustom` bag; export round-trips byte-equal. The cert programme (SPEC-40) makes this auditable.
+- **PRYZM 2** — ADR-0208 §Property-set round-trip is binding: ≥ 95% of instance properties round-trip at GA, 100% at S84 (cert). Custom Psets preserved as `_ifcCustom` bag; export round-trips byte-equal. The cert programme (SPEC-40) makes this auditable.
 - **Pascal** — uses ifcopenshell-style fidelity for Psets they read; preservation on export is good.
 - **Forma** — Psets are preserved on the round-trip *through Autodesk's cloud*; the editor itself does not surface every Pset.
 - **Qonic** — strong Pset story (it's their pitch). Generally faithful.
@@ -113,7 +113,7 @@ This is PRYZM 2's clearest commercial wedge against Revit. The slogan: *"Your Ps
 
 ### §2.5 Geometry round-trip fidelity
 
-- **PRYZM 2** — SweptSolid for parametric families on write; MappedRepresentation for type-instanced; Brep fallback for booleaned results. Analytic representations written for walls and slabs (ADR-008 §Geometry §Write). 100% geometry round-trip target by S84.
+- **PRYZM 2** — SweptSolid for parametric families on write; MappedRepresentation for type-instanced; Brep fallback for booleaned results. Analytic representations written for walls and slabs (ADR-0208 §Geometry §Write). 100% geometry round-trip target by S84.
 - **Pascal** — depends on OBC; generally faithful for simple geometry, weaker for booleaned results.
 - **Forma** — geometry is preserved through Autodesk's pipeline.
 - **Qonic** — strong; they edit native IFC representations.
@@ -174,7 +174,7 @@ The slogan: *"PRYZM 2 is the only product where two architects can edit the same
 
 ### §2.11 Self-host
 
-- **PRYZM 2** — Phase 3D self-host docker-compose (per `[strategic ADR-012]` minimums + SPEC-15 §7) ships at S70. Editor + gateway + sync-server + bake-worker + ai-worker + ifc-worker + Postgres + Redis + MinIO.
+- **PRYZM 2** — Phase 3D self-host docker-compose (per `[strategic ADR-0212]` minimums + SPEC-15 §7) ships at S70. Editor + gateway + sync-server + bake-worker + ai-worker + ifc-worker + Postgres + Redis + MinIO.
 - **Pascal** — it's a public MIT repo; it's already self-hosted by definition.
 - **Bonsai** — it's a Blender plugin; trivially self-hosted.
 - **Forma / Qonic / Motif / Revit** — closed cloud or closed desktop; no self-host.
@@ -188,7 +188,7 @@ The slogan: *"PRYZM 2 is the only product where two architects can edit the same
 
 ### §2.13 IFC4.3 alignment / road / rail
 
-- **PRYZM 2** — out of v1 scope (ADR-008 §Out of v1 scope). Phase 7 (M40+) per `12-BIM-2-AND-3-POST-GA-ROADMAP.md`. **Deliberate concession** — building-oriented v1.
+- **PRYZM 2** — out of v1 scope (ADR-0208 §Out of v1 scope). Phase 7 (M40+) per `12-BIM-2-AND-3-POST-GA-ROADMAP.md`. **Deliberate concession** — building-oriented v1.
 - **Qonic** — IFC4.3 announced.
 - **Revit** — partial.
 - **Bonsai** — community ifcopenshell can read IFC4.3.
@@ -223,7 +223,7 @@ These are the rows where PRYZM 2 is the **only** product with a credible answer 
 2. **IFC4.3 alignment / road / rail** — building-oriented v1; civil/infra is Phase 7 (M40+).
 3. **MEP / structural-analytical IFC** — Phase 3+ marketplace plugins, not v1.
 4. **BCF (BIM Collaboration Format)** — Phase 3B+ (S58 backlog).
-5. **Coordination View 2.0 certification** — out of scope (deprecated by buildingSMART in favour of DTV per `[strategic ADR-035]`).
+5. **Coordination View 2.0 certification** — out of scope (deprecated by buildingSMART in favour of DTV per `[strategic ADR-0235]`).
 6. **Firefox / Safari / Edge** — Chromium-only until S70 (Phase 3D).
 
 ---
@@ -250,7 +250,7 @@ These are the rows where PRYZM 2 is the **only** product with a credible answer 
 This document is updated whenever:
 
 - A competitor ships a feature that changes a row (e.g. Forma adds IFC editing).
-- A PRYZM 2 commitment in `[strategic ADR-008]`, `SPEC-40`, or `M28-IFC-IMPORT-PIPELINE.md` slips a phase.
+- A PRYZM 2 commitment in `[strategic ADR-0208]`, `SPEC-40`, or `M28-IFC-IMPORT-PIPELINE.md` slips a phase.
 - A new credible competitor enters the BIM authoring market.
 
 Owner reviews quarterly at minimum. The matrix in §1 is the canonical "where do we stand" snapshot for board updates.

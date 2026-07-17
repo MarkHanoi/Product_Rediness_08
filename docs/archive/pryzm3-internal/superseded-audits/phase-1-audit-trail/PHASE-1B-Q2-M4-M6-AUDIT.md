@@ -36,7 +36,7 @@ Every plugin under `plugins/` has the canonical seven-file layout:
 | grid | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | curtain-wall | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-`plugins/cross/` contains `index.ts` + `slab-wall.ts` per ADR-012.
+`plugins/cross/` contains `index.ts` + `slab-wall.ts` per ADR-0212.
 
 ### 2.2 Handler triage (counts vs spec)
 
@@ -56,7 +56,7 @@ Total handlers across the 9 plugins: **66**.
 
 ### 2.3 Geometry-kernel producers (S08 / S10 / S11 / S12)
 
-All nine producers exist under `packages/geometry-kernel/src/producers/`, all use the canonical signature `(dto, joinData, worldY) => BufferGeometryDescriptor` (ADR-009), and all are THREE-free (lint-enforced).
+All nine producers exist under `packages/geometry-kernel/src/producers/`, all use the canonical signature `(dto, joinData, worldY) => BufferGeometryDescriptor` (ADR-0209), and all are THREE-free (lint-enforced).
 
 ```
 producers/
@@ -68,15 +68,15 @@ producers/
 ```
 
 Linear-structural shared producer per spec mitigation §S12 blocker row 4 ✓.
-Curtain-wall sub-producer split (panels / mullions / transoms / merge) per ADR-011 ✓.
+Curtain-wall sub-producer split (panels / mullions / transoms / merge) per ADR-0211 ✓.
 
 ### 2.4 Cross-cutting infrastructure
 
 | Concern | Spec ref | Status |
 |---|---|---|
 | `CascadeRunner` (Kahn BFS, depth=16, OTel `cascade.cycle.dropped`) | S10 typed contracts L1059 | `packages/command-bus/src/cascade.ts` ✓ |
-| `plugins/cross/slab-wall.ts` cascade rule | S12-T6, ADR-010 | ✓ (covers `slab.move`, `slab.setBaseOffset`, `slab.setThickness`) |
-| Wall intent resolver (THREE-free port) | ADR-013 | `plugins/wall/src/intent.ts` ✓ |
+| `plugins/cross/slab-wall.ts` cascade rule | S12-T6, ADR-0210 | ✓ (covers `slab.move`, `slab.setBaseOffset`, `slab.setThickness`) |
+| Wall intent resolver (THREE-free port) | ADR-0213 | `plugins/wall/src/intent.ts` ✓ |
 | `MaterialPool` content-hashed cross-family dedup | S12 blocker row 5 | `packages/scene-committer/src/MaterialPool.ts` ✓ — hash is opaque string supplied by caller; cross-family dedup is correct by construction |
 | Producer purity lint (`pryzm/no-three-in-kernel`) | S07-T3, K1B-2 | `tools/eslint-plugin-pryzm/src/rules/no-three-in-kernel.js` ✓ + real-enforcement test in `packages/geometry-kernel/__tests__/lint-fixture.test.ts` |
 | Headless / browser-worker runners | S08 D2 | `packages/geometry-kernel/src/runners/{headless-runner,node-worker,browser-worker-runner,worker-entry}.ts` ✓ |
@@ -131,7 +131,7 @@ These items are listed in `§S12 exit criteria` (spec lines 1551–1575) and are
 
 Existing: `produce-wall.bench.ts`, `produce-roof.bench.ts`.
 
-Spec demands (line 1517): `apps/bench/produce-{slab,curtain-wall,grid,column,beam}.bench.ts each p95 < 50 ms (CW < 80 ms acceptable per ADR-011)`. S11 exit criterion (line 1313) additionally requires `produce-{door,window,roof}.bench.ts`.
+Spec demands (line 1517): `apps/bench/produce-{slab,curtain-wall,grid,column,beam}.bench.ts each p95 < 50 ms (CW < 80 ms acceptable per ADR-0211)`. S11 exit criterion (line 1313) additionally requires `produce-{door,window,roof}.bench.ts`.
 
 **Missing:** `produce-door.bench.ts`, `produce-window.bench.ts`, `produce-slab.bench.ts`, `produce-curtain-wall.bench.ts`, `produce-grid.bench.ts`, `produce-column.bench.ts`, `produce-beam.bench.ts` — **7 bench files**.
 
@@ -198,12 +198,12 @@ Spec lines 593 + 1592 (R1B-02 mitigation): byte-bisection utility that finds the
 
 | Sprint | Theme | Status |
 |---|---|---|
-| S07 | Wall plugin scaffold + handler triage | **GREEN** — 16 handlers, ADR-008 merged, kernel lint enforced. Missing: `pryzm-store-single-channel` lint. |
+| S07 | Wall plugin scaffold + handler triage | **GREEN** — 16 handlers, ADR-0208 merged, kernel lint enforced. Missing: `pryzm-store-single-channel` lint. |
 | S08 | Wall producer + 30 parity fixtures + `produce-wall` bench | **GREEN** — 30/30 fixtures green, bench in place. Missing: `apps/dev/buffer-diff.ts`. |
 | S09 | Wall committer + tool + cold-load + orbit-fps + bootstrap dev-handle | **AMBER** — committer/tool/load-small/orbit benches all in. Missing: Playwright integration suite, ADR-0014 disposition note. |
-| S10 | Roof producer + intent resolver + cascade infra | **GREEN** — roof producer + 20/20 fixtures + cascade.ts + ADR-013. |
+| S10 | Roof producer + intent resolver + cascade infra | **GREEN** — roof producer + 20/20 fixtures + cascade.ts + ADR-0213. |
 | S11 | Door + Window + Roof plugins | **AMBER** — handlers + producers + committers + tools all done. Missing: door/window parity-fixture configs (15 + 12), per-element benches (3), Playwright suites. Roof handler set short by 3. |
-| S12 | Slab + Grid + Column + Beam + Curtain-Wall + cross + bootstrap registration | **AMBER** — plugins complete with correct handler counts, ADR-010/011/012 merged, slab-wall cascade rule live. Missing: editor bootstrap registration of 8 plugins, parity fixtures for 5 elements (63 total), per-element benches (5), mixed-scene integration test, Playwright suites. |
+| S12 | Slab + Grid + Column + Beam + Curtain-Wall + cross + bootstrap registration | **AMBER** — plugins complete with correct handler counts, ADR-0210/011/012 merged, slab-wall cascade rule live. Missing: editor bootstrap registration of 8 plugins, parity fixtures for 5 elements (63 total), per-element benches (5), mixed-scene integration test, Playwright suites. |
 
 ---
 
@@ -218,7 +218,7 @@ The smallest set of work that flips the §S12 exit criteria from RED to GREEN, i
 5. **Playwright integration suites** (§3.1.5) — depends on (1); add Playwright to dev deps + `playwright.config.ts`.
 6. **`pryzm-store-single-channel` lint** (§3.2.1) — guards against R1B-09 regression.
 7. **`apps/dev/buffer-diff.ts`** (§3.2.2) — debugging affordance for (2).
-8. **Roof handler completeness** (§3.3) — add `AddSkylight` / `RemoveSkylight` / `JoinRoofs` OR amend ADR-008 to defer them.
+8. **Roof handler completeness** (§3.3) — add `AddSkylight` / `RemoveSkylight` / `JoinRoofs` OR amend ADR-0208 to defer them.
 9. **ADR-0014 disposition** (§3.3) — one-paragraph note in §S09 close-out, marking it formally not-needed.
 
 Items 1–5 are the §S12 exit-criteria lift. Items 6–9 are spec hygiene.

@@ -1,5 +1,7 @@
 # Operational runbooks
 
+> ⚠️ **REALITY CHECK (2026-07-16, L-349):** this runbook references `pryzm-ops`, a cold backup tier, and/or automated restore tooling that **does not exist yet** (tracked as **L-344 / C48**). Today PRYZM has NO automated backup, PITR, cold tier, or DR restore — `DELETE` is permanent. Treat the recovery steps below as the *target* C48 design, **not live procedure**. For what actually works today, see [RUNBOOK-ACCIDENTAL-DELETE.md §0](RUNBOOK-ACCIDENTAL-DELETE.md).
+
 > **Stamp**: 2026-06-02 · **Status**: DRAFT
 > **Authority**: [C48 §1.10](../../02-decisions/contracts/C48-BACKUP-AND-DR.md) (DR runbooks) + [C08 §6](../../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md) (security runbooks).
 > **Tracker**: A.35 (Phase A · Sprint 10) — per-failure-mode runbooks.

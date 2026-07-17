@@ -8,7 +8,7 @@ embedded — from this README.
 
 ## M9 — Phase 1C exit (`M9-1C-headless`)
 
-- **Spec / script**: [`M9-1C-headless.script.md`](./M9-1C-headless.script.md)
+- **Spec / script**: [`m9-1c-headless.script.md`](./m9-1c-headless.script.md)
   — copy-pasteable commands, captions, and acceptance checks.
 - **Recording status**: ⏳ *pending capture*. The placeholder URLs that
   previously pointed at `demos.pryzm.app` and a `pryzm-app/pryzm-2-demos`
@@ -33,7 +33,7 @@ embedded — from this README.
 
 ## M12 — Phase 1D alpha gate (`M12-alpha`)
 
-See `M12-alpha.script.md` (already present) — full alpha demo recorded for
+See `m12-alpha.script.md` (already present) — full alpha demo recorded for
 the gate sign-off.
 
 ---

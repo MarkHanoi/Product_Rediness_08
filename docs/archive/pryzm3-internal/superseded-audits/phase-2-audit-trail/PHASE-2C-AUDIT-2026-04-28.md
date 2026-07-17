@@ -16,9 +16,9 @@ This document is the **per-exit-criterion** record of what shipped, what didn't,
 | S37 — Sheets foundation | [x] | DONE — all 4 exit gates met | 100 % |
 | S38 — Title blocks + viewports | [x] | DONE — 3 templates, scale labels, viewport D&D | 100 % |
 | S39 — 10 widget types | [x] | DONE — all 10 widget files present + tested | 100 % |
-| S40 — Book export (PDF) | [x] | DONE — `book-exporter.ts` orchestrator + tests; raster path TBD pending true server worker (deferred per ADR-039) | 100 % |
+| S40 — Book export (PDF) | [x] | DONE — `book-exporter.ts` orchestrator + tests; raster path TBD pending true server worker (deferred per ADR-0239) | 100 % |
 | S41 — Schedules engine + formula DSL | [x] | DONE — 6 handlers, formula DSL, evaluator, ScheduleStore, table view; 114 tests | 100 % |
-| S42 — CSV / XLSX / PDF export | [ ] → [x] | DONE — 4 export modules, 57 new tests, ADR-040, bench, OTel spans | 100 % |
+| S42 — CSV / XLSX / PDF export | [ ] → [x] | DONE — 4 export modules, 57 new tests, ADR-0240, bench, OTel spans | 100 % |
 
 **Phase 2C score: 100/100.**
 
@@ -79,9 +79,9 @@ Plus `widget-tool-palette.ts`, `widgets/registry.ts`, and `widgets/base.ts` infr
 | `BookExporter` library-agnostic orchestrator | `plugins/sheets/src/book/book-exporter.ts` | DONE |
 | Sheet-book PDF tests | `plugins/sheets/__tests__/book-exporter.test.ts`, `book.test.ts` | DONE |
 | 5-sheet PDF export < 30 s gate | Achieved by composite renderer tests (raster path uses host's render fn) | DONE |
-| ADR-026 "Export worker architecture" | Spec misnumbered — actual ADR-026 is `ui-binding-vanilla-ts`. Carried forward as **ADR-039** in this audit (next free number) | DONE |
+| ADR-0226 "Export worker architecture" | Spec misnumbered — actual ADR-0226 is `ui-binding-vanilla-ts`. Carried forward as **ADR-0239** in this audit (next free number) | DONE |
 
-**Note**: the spec called for `apps/export-worker/` (BullMQ + worker_threads) as a separate app. We have shipped the orchestrator (Layer-2 of ADR-039) but not the queue process. See §"Deferred" below.
+**Note**: the spec called for `apps/export-worker/` (BullMQ + worker_threads) as a separate app. We have shipped the orchestrator (Layer-2 of ADR-0239) but not the queue process. See §"Deferred" below.
 
 ---
 
@@ -96,7 +96,7 @@ Plus `widget-tool-palette.ts`, `widgets/registry.ts`, and `widgets/base.ts` infr
 | Per-cell error isolation (`#ERR`, `#UNDEF`) | `evaluate-schedule.ts` | `__tests__/evaluate-schedule.test.ts` | DONE |
 | Sort + groupBy + filter pipeline | `evaluate-schedule.ts` + `sort.ts` | covered | DONE |
 | Snapshot-based reactive table view | `view.ts` | covered | DONE |
-| ADR-027 — Schedule formula library | `docs/00_NEW_ARCHITECTURE/adrs/ADR-027-schedule-formula-library.md` | DONE |
+| ADR-0227 — Schedule formula library | `docs/00_NEW_ARCHITECTURE/adrs/ADR-0227-schedule-formula-library.md` | DONE |
 | 114 unit tests across plugin | `plugins/schedules/__tests__/` (9 pre-S42 files) | DONE |
 
 ---
@@ -117,8 +117,8 @@ This is the sprint that closed in this audit cycle.
 
 **Cross-cutting deliverables also closed in this cycle**:
 
-- ADR-039 — Export Worker Architecture (retroactive S40, written in this cycle to close the spec's "ADR-026 export worker" line — that number was reused for `ui-binding-vanilla-ts` so the next free number was used).
-- ADR-040 — Schedule Export Formats (S42, this cycle).
+- ADR-0239 — Export Worker Architecture (retroactive S40, written in this cycle to close the spec's "ADR-0226 export worker" line — that number was reused for `ui-binding-vanilla-ts` so the next free number was used).
+- ADR-0240 — Schedule Export Formats (S42, this cycle).
 - 4 OTel spans added: `pryzm.schedule.export.{csv,xlsx,pdf}`, `pryzm.schedule.import.csv`. `withScheduleSpan` is now async-thenable-aware to support the XLSX/PDF code paths.
 
 ---
@@ -129,9 +129,9 @@ This is the sprint that closed in this audit cycle.
 
 | ADR (per spec) | Actual status | Notes |
 |---|---|---|
-| ADR-026 — Export worker architecture | **Re-numbered as ADR-039** (this cycle) | Spec was authored before ADR-026 was reused for `ui-binding-vanilla-ts`; preserves intent under next free number |
-| ADR-027 — Schedule formula DSL | EXISTS — `ADR-027-schedule-formula-library.md` | DONE |
-| ADR-040 — Schedule Export Formats | EXISTS (this cycle) | Closes S42 — added beyond spec for completeness |
+| ADR-0226 — Export worker architecture | **Re-numbered as ADR-0239** (this cycle) | Spec was authored before ADR-0226 was reused for `ui-binding-vanilla-ts`; preserves intent under next free number |
+| ADR-0227 — Schedule formula DSL | EXISTS — `ADR-0227-schedule-formula-library.md` | DONE |
+| ADR-0240 — Schedule Export Formats | EXISTS (this cycle) | Closes S42 — added beyond spec for completeness |
 
 ### §7.2 CI Gates
 
@@ -173,15 +173,15 @@ This is the sprint that closed in this audit cycle.
 | S37 | `packages/drawing-pdf/` native PDF backend per SPEC-29 §4.3 | NOT IMPLEMENTED AS SEPARATE PACKAGE | The native vector PDF backend is implemented inside `plugins/schedules/src/export/pdf.ts` via `pdf-lib` (no SVG round-trip). The `packages/drawing-pdf/` separation is a code-organisation refinement that does not change behaviour. **Tracked as Phase 3 cleanup.** |
 | S37 | Strangler-fig: legacy classes deleted | OUT OF SCOPE — there are no legacy `SheetEditorPanel.ts` files in this codebase | DONE BY ABSENCE |
 | S38 | `apps/sync-server` Reserved VM provisioned | OUT OF SCOPE FOR PHASE 2C — this is infra, not code | DEFERRED to 2D (spec §S43) |
-| S38 | First 14 formulas (Tier-1-survivable subset per ADR-027 Part C) | DONE — formula-evaluator covers SUM, COUNT, AVG, MIN, MAX, IF, AND, OR, NOT, =, ≠, <, ≤, > | DONE |
+| S38 | First 14 formulas (Tier-1-survivable subset per ADR-0227 Part C) | DONE — formula-evaluator covers SUM, COUNT, AVG, MIN, MAX, IF, AND, OR, NOT, =, ≠, <, ≤, > | DONE |
 | S38 | AI per-call cap + `authz.can` perf | OUT OF SCOPE FOR 2C | DEFERRED to phases that own those subsystems |
 | S39 | Schedule producer for all 18 families end-to-end | NOT VERIFIED — schedule fixtures cover doors; family-by-family producers belong to Track A (`packages/stores/`) | DEFERRED — not a 2C blocker; tracked as Phase 3 polish |
 | S40 | Title-block templates per SPEC-29 §7 | DONE — `plugins/sheets/src/title-block.ts` |
 | S40 | Schedule columns hardened per SPEC-21 Step 9 across 18 families | DEFERRED to Phase 3 (per-family scope, not pipeline scope) |
-| S41 | Remaining 10 formulas per ADR-027 §A.1 | OPEN — not all 24 formulas verified; 14 ship green | DEFERRED to S43 |
+| S41 | Remaining 10 formulas per ADR-0227 §A.1 | OPEN — not all 24 formulas verified; 14 ship green | DEFERRED to S43 |
 | S41 | Multi-page schedules | DONE — PDF export pages headers correctly |
 | S41 | Revision clouds | DEFERRED — widget concept; tracked as S43 follow-up |
-| S42 | 100-page A1 sheet set < 8 s on bake-worker (SPEC-15 §8) | DEFERRED — requires server-worker (see ADR-039 §3) |
+| S42 | 100-page A1 sheet set < 8 s on bake-worker (SPEC-15 §8) | DEFERRED — requires server-worker (see ADR-0239 §3) |
 | S42 | SPEC-29 §6 schedule integration green for all 18 families | DEFERRED to Phase 3 |
 
 The deferments above are **Gap-Closure overlay** items, not core 2C exit criteria. The core exit criteria (spec lines 1021-1029, §5) are 100 % green.
@@ -190,14 +190,14 @@ The deferments above are **Gap-Closure overlay** items, not core 2C exit criteri
 
 ## §9 Deferred (with explicit rationale)
 
-These items are spec'd by §0 / §S40 / §5 but do **not** block Phase 2C exit per ADR-039 (which formally records the deferment):
+These items are spec'd by §0 / §S40 / §5 but do **not** block Phase 2C exit per ADR-0239 (which formally records the deferment):
 
 | Deferred item | Why deferred | Re-eval trigger |
 |---|---|---|
 | `apps/export-worker/` BullMQ worker | All exit-gate budgets met by in-browser pipeline. Adding a queue + Redis + worker process now is premature operational surface for a feature whose first 25 beta users will export from the editor. | Beta cohort exports stress the in-browser pipeline (S48+) |
 | 8-minute 2C demo screencast | Recording asset, not code. Will be produced once the editor's S43 sheet/schedule UI polish lands. | S43 demo recording session |
 | `packages/drawing-pdf/` separation | Logical partitioning of the existing PDF code into its own package. Behaviour-equivalent — pdf-lib already does the vector work. | Phase 3 code-org cleanup pass |
-| 100-page A1 sheet set bench (< 8 s) | Requires server-worker (see ADR-039); the in-browser path is bounded by main-thread chunking. | When export-worker spins up |
+| 100-page A1 sheet set bench (< 8 s) | Requires server-worker (see ADR-0239); the in-browser path is bounded by main-thread chunking. | When export-worker spins up |
 | 18-family schedule fixtures | Per-family scope (Phase 3 polish); not a documentation-pipeline blocker | Phase 3 family completion sweep |
 | All 24 formulas vs 14 shipped | The 14 cover every SUM/COUNT/IF/comparison case; the remaining 10 are convenience aliases (ROUND, FLOOR, …). | S43 formula completeness pass |
 

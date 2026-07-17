@@ -3,7 +3,7 @@
 
 > **Authority**. Subordinate to: SPECs 32–40 → strategic ADRs 031–038 → `13-AEC-WISHLIST-SUPPLEMENT.md` → `12-BIM-2-AND-3-POST-GA-ROADMAP.md` → this phase doc.
 >
-> **Coalescing-window invariant**: 250 ms per ADR-010 (unchanged from pre-GA).
+> **Coalescing-window invariant**: 250 ms per ADR-0210 (unchanged from pre-GA).
 
 ---
 
@@ -65,14 +65,14 @@ ADR citation: `[strategic ADR-NNN]` for ADRs 001–050; `[ADR NNNN-slug]` for sp
 
 | Item | Sprint |
 |---|---|
-| ADR-031 ratified | S73 D1 |
-| ADR-035 ratified (cert scope) | S73 D1 |
-| ADR-032 ratified (clash DSL) | S76 D1 |
-| ADR-033 ratified (MEP propagation) | S78 D1 |
-| ADR-034 ratified (COBie fallback) | S75 D1 |
-| ADR-036 ratified (reviewer pricing) | S74 D1 |
-| ADR-037 ratified (sovereignty default) | S75 D1 |
-| ADR-038 ratified (BYOK custody) | S76 D1 |
+| ADR-0231 ratified | S73 D1 |
+| ADR-0235 ratified (cert scope) | S73 D1 |
+| ADR-0232 ratified (clash DSL) | S76 D1 |
+| ADR-0233 ratified (MEP propagation) | S78 D1 |
+| ADR-0234 ratified (COBie fallback) | S75 D1 |
+| ADR-0236 ratified (reviewer pricing) | S74 D1 |
+| ADR-0237 ratified (sovereignty default) | S75 D1 |
+| ADR-0238 ratified (BYOK custody) | S76 D1 |
 | Independent buildingSMART lab engaged | S79 D1 |
 | Annual pen-test + remediation | S82 |
 | SPEC-31 §4 Phase-4 largest-fixture re-bench | S84 |
@@ -84,25 +84,25 @@ ADR citation: `[strategic ADR-NNN]` for ADRs 001–050; `[ADR NNNN-slug]` for sp
 ## §2 Sprint-by-Sprint Detail
 
 ### S73 — CDE foundations + IFC certification kickoff
-- **Track A**: SPEC-32 lands; ADR-031 + ADR-035 ratified; `apps/cde/` skeleton; 6 tables; state machine S0→S5 happy path; revision signer (extends ADR-021 keys). buildingSMART self-test starts on official RV fixture set.
+- **Track A**: SPEC-32 lands; ADR-0231 + ADR-0235 ratified; `apps/cde/` skeleton; 6 tables; state machine S0→S5 happy path; revision signer (extends ADR-0221 keys). buildingSMART self-test starts on official RV fixture set.
 - **Track B**: CDE UI in `apps/editor/src/cde/`; status badges; revision history viewer; submit-for-approval flow.
 - **Bench**: `cde-status-transition.bench.ts` — 1,000 transitions/s, p95 < 10 ms.
 - **Exit**: `[ ]` SPEC-32 §2.1 state machine ships; `[ ]` IFC4 RV pass rate ≥ 90% (target 100% by S84).
 
 ### S74 — CDE comments + tags + Stakeholder Review Wedge (SPEC-33)
-- **Track A**: SPEC-33 lands; ADR-036 ratified; `cde_comments` + `cde_tags` + `cde_releases` tables; tag-based release semantics.
+- **Track A**: SPEC-33 lands; ADR-0236 ratified; `cde_comments` + `cde_tags` + `cde_releases` tables; tag-based release semantics.
 - **Track B**: `apps/viewer/` skeleton (read-only); `plugins/redline/` strokes + area marks + text marks; `plugins/review-vote/` approve/reject/revise UI; reviewer magic-link flow.
 - **Bench**: `cde-release-diff.bench.ts` — 10K-element release diff < 5 s p95; `viewer-cold-load.bench.ts` — < 2 s p95.
 - **Exit**: `[ ]` reviewer can open published release, redline, vote on revision; `[ ]` author sees rollup.
 
 ### S75 — COBie + Hybrid Sovereignty
-- **Track A**: SPEC-36 + SPEC-34 land; ADR-034 + ADR-037 ratified; COBie xlsx generator + 18 family mappings + NIBS validator integration; `packages/sovereignty/` + first 3 regional clusters (UK + EU-FR + US-East); CDE-state hook auto-triggers COBie generation.
+- **Track A**: SPEC-36 + SPEC-34 land; ADR-0234 + ADR-0237 ratified; COBie xlsx generator + 18 family mappings + NIBS validator integration; `packages/sovereignty/` + first 3 regional clusters (UK + EU-FR + US-East); CDE-state hook auto-triggers COBie generation.
 - **Track B**: COBie mapping editor UI + live preview; sovereignty mode selector UI; region picker.
 - **Bench**: `cobie-export.bench.ts` — 5K-element < 30 s p95, NIBS validator pass.
 - **Exit**: `[ ]` 5K project produces valid COBie .xlsx; `[ ]` 3 regional clusters serving traffic; `[ ]` per-region sync latency < 250 ms.
 
 ### S76 — Browser Security + Federated Clash (architectural)
-- **Track A**: SPEC-35 + SPEC-37 land; ADR-032 + ADR-038 ratified; `packages/encryption/` envelope crypto + AWS KMS adapter; `apps/clash-engine/` skeleton + Federator + 20 architectural rules.
+- **Track A**: SPEC-35 + SPEC-37 land; ADR-0232 + ADR-0238 ratified; `packages/encryption/` envelope crypto + AWS KMS adapter; `apps/clash-engine/` skeleton + Federator + 20 architectural rules.
 - **Track B**: strict CSP / COOP / COEP rolled to staging in report-only mode for 7 days; clash-browser UI v1 (list + filter + screenshot).
 - **Bench**: `clash-engine.bench.ts` — 10K-element clash < 60 s p95.
 - **Exit**: `[ ]` BYOK working with AWS KMS; `[ ]` CSP report-only deployed; `[ ]` 10K clash green.
@@ -114,7 +114,7 @@ ADR citation: `[strategic ADR-NNN]` for ADRs 001–050; `[ADR NNNN-slug]` for sp
 - **Exit**: `[ ]` 50K 3-discipline clash green; `[ ]` AI emission stays within SPEC-31 §3 curve.
 
 ### S78 — MEP HVAC
-- **Track A**: SPEC-38 lands; ADR-033 ratified; `plugins/mep-hvac/` (store, handlers, producer, committer, tool); duct geometry; system graph; ASHRAE 1.A sizing v1; equipment connection (AHU + VAV + Diffuser + Return); fitting library.
+- **Track A**: SPEC-38 lands; ADR-0233 ratified; `plugins/mep-hvac/` (store, handlers, producer, committer, tool); duct geometry; system graph; ASHRAE 1.A sizing v1; equipment connection (AHU + VAV + Diffuser + Return); fitting library.
 - **Track B**: HVAC system viewer (colour + flow arrows + sizing badges); HVAC system panel.
 - **Bench**: `produce-hvac-system.bench.ts` — 200-fitting < 1.5 s p95.
 - **Exit**: `[ ]` user creates supply-air system from AHU through 200 fittings to diffuser, sized correctly.
@@ -177,7 +177,7 @@ K3-F: > 10% regression on any of the above halts forward Phase 4 work.
 
 ---
 
-## §4 Phase 4 Cut List (per `[strategic ADR-018]` extension)
+## §4 Phase 4 Cut List (per `[strategic ADR-0218]` extension)
 
 12 sprints. Cut order if behind by > 3 sprints at S78 D9 retro:
 

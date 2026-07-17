@@ -1,11 +1,47 @@
 # Runbook — Accidental project / data delete
 
-> **Stamp**: 2026-06-02 · **Status**: DRAFT
+> **Stamp**: 2026-07-16 · **Status**: DRAFT — ⚠️ PARTLY ASPIRATIONAL (read the reality banner below)
 > **Authority**: [C48 §1.10](../../02-decisions/contracts/C48-BACKUP-AND-DR.md), fourth of four failure-mode runbooks per A.35.
-> **SLA**: 30 days for self-service trash recovery; older requires support intervention.
-> **Owner**: customer success (CS) lead; SRE escalation only for outside-trash-window cases.
+> **Owner**: customer success (CS) lead; SRE escalation for log correlation.
 
 ---
+
+> # ⚠️ REALITY CHECK (2026-07-16, L-349) — READ BEFORE FOLLOWING ANY STEP BELOW
+>
+> **The trash UI, cold-tier retention, and the `pryzm-ops restore-cold` CLI described in §3 DO NOT EXIST YET.** They are the *target* C48 design (tracked as **L-344**), not shipped tooling. **Today, `DELETE /api/projects/:id` (`server.js`) is a PERMANENT, immediate cascade delete** — there is no `deleted_at` column, no trash, no soft-delete, and no cold backup to restore from (confirmed: `dbMigrate.js` has no soft-delete column; `pryzm-ops` exists only in docs). **A CS rep who follows §3.1–§3.3 will promise a recovery that is impossible.** Use **§0 (the real procedure)** until L-344 ships the tooling and this banner is removed.
+
+---
+
+## §0 — REAL procedure today (what actually works)
+
+**Deletes are permanent.** The only recoverable state comes from version history a client still holds, or a customer-held export:
+
+1. **Ask if the project is still open in a browser tab — and tell them NOT to close it.** Version snapshots are written to the browser's IndexedDB (`VersionRepository`, ~2 MB compressed per version) and synced to the server as project versions. If the delete removed the server project but a client still holds the live session, that client can re-save the project to recreate it. This is the single most likely recovery path — act on it first, before the tab closes.
+2. **Get the `errorId`.** The `DELETE /api/projects/:id` response and the delete-path logs carry an `errorId` correlation key. Capture it from the customer or the logs so SRE can correlate the exact delete event (actor, timestamp, cascade scope) in the server logs — this establishes what happened even when the data itself is unrecoverable.
+3. **Check for a partial/failed delete.** `DELETE` cascades (`ON DELETE CASCADE`), so once the project row is gone its `project_versions` are gone too. Server-side version history only helps if the delete was *partial* (row survived). Have SRE check whether the row still exists before promising anything.
+4. **Customer-held `.pryzm` exports are the ONLY durable archive today.** If the customer exported a `.pryzm` file, import it to recreate the project.
+5. **If none of the above apply, the data is GONE.** Communicate honestly (§0.1). Do not promise a restore.
+
+### §0.1 — Honest customer comms (today)
+
+> "I'm very sorry — deleting a project in PRYZM is currently permanent and immediate; we don't yet have a trash or a backup restore. **If you still have the project open in a browser tab, please keep it open** and I'll help you re-save it right now. If you previously exported a `.pryzm` file, we can import that. Otherwise, I'm afraid we can't recover it. We're actively building trash + backup restore so this can't happen again."
+
+**Do NOT** tell a customer to "check Settings → Trash" or promise a 30/90/365-day restore — none of that exists yet.
+
+### §0.2 — The prevention that is actually the priority
+
+Until restore tooling ships (L-344), the highest-value real work is **prevention**, not recovery:
+
+- A **confirm-before-delete** gate (single project) and the existing **bulk-delete auto-escalation** (>10 projects in 5 min, §2) are cheap and high-value.
+- Encourage customers to keep **`.pryzm` exports** as their durable archive.
+
+---
+
+# ═══════════════════════════════════════════════════════════════
+# TARGET STATE (C48 — NOT YET BUILT — do NOT follow as live procedure)
+# ═══════════════════════════════════════════════════════════════
+
+_Everything below describes the INTENDED C48 design (trash UI, cold-tier retention, `pryzm-ops restore-cold`). It is retained as the specification for **L-344** (build soft-delete + trash + restore). **It is NOT live.** When L-344 ships the tooling, delete the reality banner above and promote these sections back to the live procedure._
 
 ## §1 — When this runbook applies
 
@@ -32,7 +68,7 @@ The 30-day window is the self-service trash retention. The 90-day window is the 
 
 ---
 
-## §3 — Procedure
+## §3 — Procedure (TARGET STATE — not built)
 
 ### §3.1 — Customer self-service (default path)
 
@@ -97,7 +133,7 @@ Do NOT promise to "look harder" — the retention is honest, not negotiable.
 
 ---
 
-## §4 — Common pitfalls
+## §4 — Common pitfalls (TARGET STATE)
 
 ### §4.1 — Don't restore over a more-recent legitimate edit
 
@@ -113,7 +149,7 @@ The note field on every restore is queried in the quarterly audit. "Restored on 
 
 ---
 
-## §5 — Verification — DID we hit the SLA?
+## §5 — Verification — DID we hit the SLA? (TARGET STATE)
 
 | Sub-case | SLA | Pass criteria |
 |---|---|---|
@@ -131,7 +167,7 @@ The bulk-delete (>10 projects in 5 min) auto-escalation is the ONE accidental-de
 
 1. Was it actually accidental? (Or a misconfigured automation?)
 2. Did the customer's UI surface a confirmation BEFORE the bulk action?
-3. Should we add a "you're about to delete N projects — confirm" gate?
+3. Should we add a "you're about to delete N projects — confirm" gate? **(Real near-term priority — see §0.2.)**
 
 Single-project accidental deletes don't get post-incident reviews unless they uncovered something unusual.
 
@@ -148,4 +184,4 @@ Single-project accidental deletes don't get post-incident reviews unless they un
 
 ## §8 — Drill cadence
 
-This runbook is NOT drilled formally — it's exercised in production every week through normal customer support volume. The quarterly review of the runbook checks: (a) any SLA misses since last review, (b) any new edge cases, (c) any tier-retention policy changes that need to be reflected in §3.4.
+This runbook is NOT drilled formally. **Note (L-349):** the "exercised in production every week" claim assumes a working restore path — until L-344 ships, §0 is the only exercisable procedure. The quarterly review checks: (a) any real §0 recovery attempts + outcomes, (b) progress on L-344 (trash/backup), (c) any tier-retention policy changes for when §3.4 becomes live.

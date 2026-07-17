@@ -481,7 +481,7 @@ Room boundaries are derived geometrically from walls, slabs, and ceiling element
 
 **AS-IS mechanism (canonical as of 2026-05-19)**
 
-Room redetection uses a CustomEvent bridge (`pryzm-bus-rooms-redetect`) as a transitional L4→L7 escape hatch (ADR-002 §3.D). The `RedetectRoomsHandler.execute()` dispatches this CustomEvent; the listener in `engineLauncher.ts` calls `commandManager.execute(new ReDetectRoomsCommand(...))` to run detection.
+Room redetection uses a CustomEvent bridge (`pryzm-bus-rooms-redetect`) as a transitional L4→L7 escape hatch (ADR-0202 §3.D). The `RedetectRoomsHandler.execute()` dispatches this CustomEvent; the listener in `engineLauncher.ts` calls `commandManager.execute(new ReDetectRoomsCommand(...))` to run detection.
 
 ```ts
 // AS-IS: RedetectRooms.ts — handler dispatches CustomEvent
@@ -820,7 +820,7 @@ pnpm run ci:check-spans                                        # → 0 missing s
 | Performance NFTs (16ms budget, plan-view 100ms) | `C10-PERFORMANCE-AND-OBSERVABILITY.md` |
 | Full 214-site migration plan (P1–P11) | `docs/archive/pryzm3-internal/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md` |
 | Wall/curtain-wall/room hot path task (file 32) | `docs/archive/pryzm3-internal/04-PLAN-FORWARD/32-TASK-WALL-CURTAINWALL-CMD-BUS-AUDIT.md` |
-| Layer boundary matrix (handler package placement) | `C01-ARCHITECTURE-AND-GOVERNANCE.md §2`, `docs/01-strategy/architecture.md §2` |
+| Layer boundary matrix (handler package placement) | `C01-ARCHITECTURE-AND-GOVERNANCE.md §2`, `docs/01-strategy/STR-04-architecture.md §2` |
 | `BatchCoordinator` source | `src/engine/subsystems/core/batch/BatchCoordinator.ts` |
 | `WallTool` E-bus.1 deprecation notice | `src/engine/subsystems/walls/WallTool.ts:34–55` |
 | Live LONGTASK evidence diary entry | `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10 2026-05-03d` |

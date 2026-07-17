@@ -26,8 +26,8 @@
 > * **K1B-4 honored throughout** — `git diff --stat HEAD -- src/elements/walls/
 >   src/commands/walls/` is empty.
 > * **Tracker update** — `docs/00_NEW_ARCHITECTURE/PROCESS-TRACKER.md` now
->   marks S07/S08/S10 as `[x]`, ADR-008/009 as `[x] Accepted`, and adds new
->   rows for ADR-012/013. Numbering note added there explaining the
+>   marks S07/S08/S10 as `[x]`, ADR-0208/009 as `[x] Accepted`, and adds new
+>   rows for ADR-0212/013. Numbering note added there explaining the
 >   future-strategic ADR shift documented in
 >   `phases/PHASES-UPDATE-PLAN-2026-04-27.md`.
 >
@@ -67,7 +67,7 @@ The S07/S08 audit below is grounded specifically in PHASE-1B §S07 (lines 200–
 | Spec deliverable (PHASE-1B §S07) | Artifact in repo | Status |
 | --- | --- | --- |
 | `plugins/wall/store.ts` — `WallStore extends Store<WallDto>` | `plugins/wall/store.ts` | ✓ Present |
-| `plugins/wall/system-type-store.ts` — catalogue, project-level, NOT in patch-routing registry | `plugins/wall/system-type-store.ts` | ✓ Present, ADR-008 §3.D referenced in header |
+| `plugins/wall/system-type-store.ts` — catalogue, project-level, NOT in patch-routing registry | `plugins/wall/system-type-store.ts` | ✓ Present, ADR-0208 §3.D referenced in header |
 | `plugins/wall/errors.ts` — typed plugin error class | `plugins/wall/errors.ts` | ✓ Present |
 | 5 handlers, each its own file: `CreateWall`, `DeleteWall`, `MoveWall`, `SetWallDimensions`, `SetWallColor` | All 5 files in `plugins/wall/handlers/` | ✓ Present |
 | Per-handler unit tests (gate + happy + invariant + idempotency where applicable) | `plugins/wall/__tests__/handlers/*.test.ts` | ✓ Present |
@@ -75,14 +75,14 @@ The S07/S08 audit below is grounded specifically in PHASE-1B §S07 (lines 200–
 | `packages/geometry-kernel/` package scaffold (types only at S07; producers land at S08) | `packages/geometry-kernel/` exists; `src/types/{BufferGeometryDescriptor,JoinData}.ts` only | ✓ Correct scope — producers correctly empty per §S07-vs-S08 split |
 | `pryzm-no-three-in-kernel` ESLint rule — REAL enforcement, not a stub | `tools/eslint-rules/pryzm-no-three-in-kernel.js` + fixture + test | ✓ Present, real enforcement (test asserts both fail and pass cases) |
 | `packages/stores/SelectionStore.ts` — selection model on the L1 axis | `packages/stores/src/SelectionStore.ts` | ✓ Present |
-| ADR-008 — wall handler triage policy (Accepted) | `docs/02-decisions/adrs/0008-wall-handler-triage.md` | ✓ Present, status `Accepted` |
+| ADR-0208 — wall handler triage policy (Accepted) | `docs/02-decisions/adrs/0008-wall-handler-triage.md` | ✓ Present, status `Accepted` |
 | `docs/04-reference/architecture-detail/element-recipe.md` v1 — the per-element template all future plugins follow | `docs/04-reference/architecture-detail/element-recipe.md` | ✓ Present |
 | 5 baseline parity fixtures from PRYZM 1 (`create`, `delete`, `move`, `dimensions`, `color`) | `tests/fixtures/pryzm-1/wall/{create,delete,move,dimensions,color}.json` | ✓ All 5 present |
 
 ### 2.2 Spec invariants verified
 
 - **K1B-4 kill-switch (no edits to PRYZM 1 wall code).** `git status` shows zero modifications under `src/elements/walls/**` or `src/commands/walls/**`. Confirmed.
-- **`WallSystemTypeStore` lives OUTSIDE the patch-routing registry** (per ADR-008 §3.D — catalogue is project-level config, not undo-able element state). Confirmed in `bootstrap.data.ts` lines 50–58: `wallStore` goes into `stores`, `wallSystemTypes` is exposed alongside but is not handed to `attachStores`.
+- **`WallSystemTypeStore` lives OUTSIDE the patch-routing registry** (per ADR-0208 §3.D — catalogue is project-level config, not undo-able element state). Confirmed in `bootstrap.data.ts` lines 50–58: `wallStore` goes into `stores`, `wallSystemTypes` is exposed alongside but is not handed to `attachStores`.
 - **`systemTypeId` validation lives at the handler gate**, not inside `produceCommand`. Confirmed in `CreateWallCommand.canExecute()` — rejects unknown system-type IDs before the patch producer ever runs.
 - **PRYZM-2 dev handle** (`globalThis.__pryzm2DevHandle`) installed only in browser, detached on `tearDown()`. Confirmed in `bootstrap.data.ts` lines 26–30 and the matching unit test.
 
@@ -107,7 +107,7 @@ The S07/S08 audit below is grounded specifically in PHASE-1B §S07 (lines 200–
 | `packages/geometry-kernel/src/assertValidDescriptor.ts` — invariant guard reused by every producer | **MISSING** |
 | `apps/bench/produce-wall.bench.ts` — vitest-bench harness, baseline budget recorded | **MISSING** |
 | 30 PRYZM-1-vs-PRYZM-2 parity snapshots under `tests/fixtures/pryzm-1/wall/parity/` | **MISSING** (5 baseline command fixtures from S07 exist; the 30 producer-output snapshots are S08 work) |
-| ADR-009 — geometry kernel boundary contract | **MISSING** |
+| ADR-0209 — geometry kernel boundary contract | **MISSING** |
 
 ### 3.2 What IS present from the producer side
 
@@ -115,7 +115,7 @@ Only the **types** layer (`BufferGeometryDescriptor`, `JoinData`) is scaffolded.
 
 ### 3.3 No-shortcuts confirmation
 
-The empty `producers/` directory and missing ADR-009 are the absence of work, not stubs of work. Specifically:
+The empty `producers/` directory and missing ADR-0209 are the absence of work, not stubs of work. Specifically:
 
 - No placeholder `produceWallGeometry` returning a hand-coded box. Confirmed.
 - No `xxx as never` or `// TODO: implement` lying about behaviour in the kernel package. Confirmed.
@@ -175,7 +175,7 @@ The matching stale lockfile entries under `packages/scene-committer/node_modules
 
 **Root cause.** Two distinct concepts were sharing a single type:
 
-1. **`AuditMetadata`** — the record that travels with each emitted event. `timestamp` is the moment that command was executed, generated **by the bus** at `executeCommand` (per ADR-002 §4 and `CommandBus.buildContext` lines 122–125).
+1. **`AuditMetadata`** — the record that travels with each emitted event. `timestamp` is the moment that command was executed, generated **by the bus** at `executeCommand` (per ADR-0202 §4 and `CommandBus.buildContext` lines 122–125).
 2. **The audit-defaults a caller hands to the bus once at boot** — actor/project/client only. There is no single timestamp that could honestly cover every command emitted over the lifetime of the runtime; the bus must stamp per-command.
 
 The bus internally already used `Pick<AuditMetadata, 'actorId' | 'projectId' | 'clientId'>`, but `BootstrapOptions.audit` and `HelloCubeBootOptions.audit` were typed as the full `AuditMetadata`, leaking a contract requirement (`timestamp`) up to callers who are architecturally not allowed to satisfy it.
@@ -192,7 +192,7 @@ The bus internally already used `Pick<AuditMetadata, 'actorId' | 'projectId' | '
  * itself per command at `executeCommand` (`CommandBus.buildContext`),
  * so callers MUST NOT supply it (a single timestamp at boot would lie
  * about every subsequent command's start time, and per-command stamping
- * is the contract recorded in ADR-002 §4).
+ * is the contract recorded in ADR-0202 §4).
  */
 export type AuditDefaults = Pick<
   AuditMetadata,
@@ -235,4 +235,4 @@ Workflow `Start application` restarted clean on port 5000; renderer holding 144 
 - It did **not** start S08. The S08 gap analysis above is a description of work outstanding, not a plan to do it in this session.
 - It did **not** modify any file under `src/elements/walls/**` or `src/commands/walls/**` (kill-switch K1B-4 honoured).
 - It did **not** delete or rewrite any S07 artifact.
-- It did **not** introduce any new ADR. Any S08 scoping work — including ADR-009 — is left for the S08 session.
+- It did **not** introduce any new ADR. Any S08 scoping work — including ADR-0209 — is left for the S08 session.

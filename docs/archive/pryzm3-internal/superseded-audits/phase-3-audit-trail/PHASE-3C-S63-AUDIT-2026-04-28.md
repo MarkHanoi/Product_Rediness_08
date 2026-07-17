@@ -1,9 +1,9 @@
 # PHASE 3C — S63 Closure Audit (2026-04-28)
 
 > Sprint S63 — Plugin SDK Docs Site + Public API Draft + OAuth2 PKCE +
-> RBAC + Rate-Limit per ADR-018 (D1-D9 actionable)
+> RBAC + Rate-Limit per ADR-0218 (D1-D9 actionable)
 > Audit reference for the PROCESS-TRACKER.md row flip from `[ ]` → `[✓]`.
-> Authority: phase-doc-1 §3 + phase-doc-2 §S63 + ADR-0039 + ADR-018.
+> Authority: phase-doc-1 §3 + phase-doc-2 §S63 + ADR-0039 + ADR-0218.
 
 ## §1 Sprint goal vs reality
 
@@ -11,7 +11,7 @@
 `docs.pryzm.com/plugin-sdk/` (Astro Starlight, twelve sidebar entries
 across three sections); phase-doc-2 §S63 prescribes "Public API Draft
 Published + OpenAPI Schema" at `packages/api-spec/openapi.yaml` with
-OAuth2 PKCE scaffolding, rate-limit policy per ADR-018, and version
+OAuth2 PKCE scaffolding, rate-limit policy per ADR-0218, and version
 pinned to `1.0.0-draft`. The two are reconciled in [ADR-0039](../../../architecture/adr/0039-s63-public-api-openapi-schema-and-docs-site.md): both deliverable streams land at S63.
 
 **Reality at close**: every D-day deliverable D1-D9 is in repo with
@@ -32,7 +32,7 @@ work is owned by S64. The S63 row is corrected in this commit.
 | **D2** | **Plugin SDK docs content (7 pages)** | **`apps/docs-site/src/content/docs/plugin-sdk/{getting-started,manifest,permissions,sandbox,host-api,examples,distribution}.md`** | **✓ landed (this audit)** |
 | **D2-D3** | **`@pryzm/oauth2-pkce` package — RFC 7636 helpers + token-exchange** | **`packages/oauth2-pkce/{src,_tests_,package.json}`** | **✓ landed (this audit)** |
 | **D3** | **`@pryzm/api-rbac` package — scope catalogue + middleware** | **`packages/api-rbac/{src,_tests_,package.json}`** | **✓ landed (this audit)** |
-| **D4** | **`@pryzm/rate-limit` package — token-bucket + ADR-018 presets** | **`packages/rate-limit/{src,_tests_,package.json}`** | **✓ landed (this audit)** |
+| **D4** | **`@pryzm/rate-limit` package — token-bucket + ADR-0218 presets** | **`packages/rate-limit/{src,_tests_,package.json}`** | **✓ landed (this audit)** |
 | **D5** | **Wall Counter tutorial (extended walk-through in getting-started.md)** | **`apps/docs-site/src/content/docs/plugin-sdk/getting-started.md`** | **✓ landed (this audit) — 7-step end-to-end walkthrough** |
 | **D5-D6** | **AI Plugin tutorial (in `examples.md` + linked `examples/ai-workflow-plugin/`)** | **`apps/docs-site/src/content/docs/plugin-sdk/examples.md` §"ai-workflow-plugin"** | **✓ landed (this audit)** |
 | **D7-D8** | **OpenAPI smoke test (round-trip + endpoint-presence + scope-parity)** | **`packages/api-spec/__tests__/openapi-smoke.test.ts`** | **✓ landed (this audit)** |
@@ -80,7 +80,7 @@ packages/api-spec/__tests__/openapi-spec.test.ts                 (D1)   22/22 ca
 packages/api-spec/__tests__/openapi-smoke.test.ts                NEW     9/9  cases green (round-trip + endpoint-presence + scope-parity vs api-rbac)
 packages/oauth2-pkce/__tests__/pkce.test.ts                       NEW    30/30 cases green (RFC 7636 §4.1 + §4.2 + §4.5; RFC 6749 §4.1.3 + §6; RFC 7636 Appendix B vector)
 packages/api-rbac/__tests__/rbac.test.ts                          NEW    32/32 cases green (catalogue parity, parseScopeString RFC 6749 §3.3, hasAllScopes, requireScopes middleware RFC 6750 §3.1)
-packages/rate-limit/__tests__/rate-limit.test.ts                  NEW    26/26 cases green (TokenBucket lazy-refill, ADR-018 presets 60r/m + 20w/m, RateLimitRegistry per-subject isolation, rateLimit middleware 429+Retry-After)
+packages/rate-limit/__tests__/rate-limit.test.ts                  NEW    26/26 cases green (TokenBucket lazy-refill, ADR-0218 presets 60r/m + 20w/m, RateLimitRegistry per-subject isolation, rateLimit middleware 429+Retry-After)
                                                                           ─────────
                                                                          119 cases green (97 NEW + 22 regression)
 ```
@@ -101,7 +101,7 @@ S63 row flips from `[ ]` → `[✓]`. The closure annotation cross-references
 this audit and §3 deferred items. The row TITLE is corrected from the
 stale "Plugin marketplace + revenue share" (which was the pre-2026-04-27
 phase-doc title) to the spec-authoritative "Plugin SDK Docs Site +
-Public API Draft + OAuth2 PKCE + RBAC + Rate-Limit (ADR-018)".
+Public API Draft + OAuth2 PKCE + RBAC + Rate-Limit (ADR-0218)".
 
 ## §6 Cross-references
 

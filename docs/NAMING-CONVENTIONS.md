@@ -45,6 +45,24 @@ The codebase has ~3000 references to "PRYZM 3" / "PRYZM3" / "pryzm3" across docs
 
 ## §2 — Document identifiers
 
+### §2.0 — The ONE canonical filename code per doc type (authoritative)
+
+This table is the single source of truth for how every doc under `docs/` is named. Every file MUST match the pattern for the folder it lives in. `README.md` is the one universal exception (every folder has one; it is the folder index).
+
+| Doc type | Folder(s) | Canonical filename code | Example |
+|---|---|---|---|
+| **Contract** | `02-decisions/contracts/` | `CNN-UPPERCASE-HYPHENATED.md` (2-digit; `C24.1` sub-numbers allowed) | `C03-SCHEMAS-COMMANDS-AND-STATE.md` |
+| **ADR** | `02-decisions/adrs/` | `ADR-NNNN-kebab-title.md` (always `ADR-` prefix, 4-digit zero-padded, lowercase-kebab slug) | `ADR-0100-circulation-metric-honesty.md` |
+| **Spec (numbered)** | `03-execution/specs/` | `SPEC-NN-UPPERCASE-HYPHENATED.md` | `SPEC-01-GEOMETRY-KERNEL.md` |
+| **Spec (special)** | `03-execution/specs/` | `SPEC-UPPERCASE-HYPHENATED.md` (no number) | `SPEC-APARTMENT-LAYOUT-GENERATOR.md` |
+| **Strategy** | `01-strategy/` | `STR-NN-kebab-title.md` (2-digit ordinal by the 01-strategy/README authority/reading order — higher authority = lower number) | `STR-02-product-vision.md` |
+| **Plan** | `03-execution/plans/` | `kebab-case.md` (topic; no number) | `master-execution-tracker.md` |
+| **Status / analysis / spike / queue** | `03-execution/{status,analysis,spikes,queue}/` | `kebab-case.md`; dated snapshots `kebab-topic-YYYY-MM-DD.md` | `house-gen-audit-2026-06-21.md` |
+| **Reference** | `04-reference/` (+ subdirs) | `kebab-case.md` | `pryzm-binary.md` |
+| **Guide** | `05-guides/` (+ audience subdirs) | `kebab-case.md` | `apartment-layout.md` |
+
+**Enforcement (2026-07-16):** the strategy layer was assigned `STR-01…STR-15` codes (per the 01-strategy/README reading order); the 86 bare/uppercase-slug ADRs were unified to `ADR-NNNN-kebab`; and the `03-execution/{analysis,spikes,queue,status}` + `04-reference/*` + `05-guides/*` working-doc areas were swept to lowercase-kebab. **ADR renumber COMPLETE 2026-07-16:** all 66 formerly-3-digit ADRs are now `ADR-NNNN` (strategic 001–064 → `ADR-0201–0264`; engineering 121/122 → `ADR-0265/0266`); **zero 3-digit ADRs remain.** **Still flagged for sign-off:** the `04-reference/audit/` stale subtree, the `RUNBOOK-*` prefix, root-meta docs, and `archive/**` (immutable — historical archeology per C31 §3.4).
+
 ### §2.1 — Contracts
 
 | Format | Example | Authority |
@@ -52,18 +70,23 @@ The codebase has ~3000 references to "PRYZM 3" / "PRYZM3" / "pryzm3" across docs
 | `CNN-<HYPHENATED-TITLE>.md` | `C03-SCHEMAS-COMMANDS-AND-STATE.md` | uppercase title, kebab-separated |
 | `README.md` | The contracts/README.md is the C00 index | special-case |
 
-- Numbering is monotonic 01–99. Currently used: C00–C18, C24–C30. Gaps (C19–C23) are reserved; do not fill ad-hoc.
+- Numbering is monotonic 01–99. Currently used: **C01–C56 (contiguous, no gaps) + C24.1 + the C00 index** (as of 2026-07-16). New contracts take the next free number (C57+); do not reuse or fill sub-numbers ad-hoc.
 - Title is UPPERCASE-HYPHENATED in the filename so they sort + grep cleanly.
 - Once RATIFIED, the filename is sealed. Don't rename.
 
 ### §2.2 — ADRs
 
-| Format | Example | Era |
-|---|---|---|
-| `NNNN-<lowercase-slug>.md` | `0001-typed-id-brand-strategy.md` | code-level (4-digit, 0001–0099+) |
-| `ADR-NNN-<lowercase-slug>.md` | `ADR-014-l7-5-promotion.md` | strategic (3-digit, 001–099+) |
+**Canonical (target) format — the ONLY scheme going forward:** `ADR-NNNN-lowercase-kebab-slug.md` (always the `ADR-` prefix, always 4-digit zero-padded, lowercase-kebab title). Example: `ADR-0100-circulation-metric-honesty.md`. New ADRs take the next free 4-digit number.
 
-Going forward (2026-06-01+), use the **4-digit `NNNN-*.md`** format starting at the next free number above both series.
+**Historical origin (UNIFIED 2026-07-16) — there is now exactly ONE ADR scheme.** Three formats formerly coexisted; all are now `ADR-NNNN-kebab`:
+
+| Former format | Resolution | Count |
+|---|---|---|
+| `NNNN-<slug>.md` (bare 4-digit, code-level series) | prefixed → `ADR-0001–0086` | ~86 (0001–0086, gaps) |
+| `ADR-NNN-<slug>.md` (3-digit, strategic series) | **renumbered → `ADR-0201–0264`** (order-preserving) | 64 (001–064) |
+| `ADR-NNNN-<slug>.md` (already canonical) | unchanged | ~46 (0072+, 0087–0129) |
+
+> ✅ **RESOLVED (founder-approved, 2026-07-16).** The bare code-level series (`0001–0086`) and the strategic 3-digit series (`001–064`) had independently reused the same numbers (naive zero-padding of `ADR-052` → `ADR-0052` collided with the bare `ADR-0052` file — ~60 collisions). The 64 strategic ADRs were **renumbered into the non-colliding `ADR-0201–0264` band** (order-preserving; all citations across `docs/**` rewritten in one integrity-checked pass — 0 leftover old tokens). Unifying complete: new ADRs take the next free 4-digit number. **Fully unified 2026-07-16:** the engineering ADRs formerly numbered `ADR-121` / `ADR-122` were also renumbered (→ `ADR-0265` / `ADR-0266`), so **zero 3-digit ADRs remain — the ADR tree is uniform `ADR-NNNN`.** **One open follow-up:** code-side comments/config still cite old strategic numbers (`ADR-005/007/029/049/052/055`) — a comments-only sweep (no runtime impact). Tracked in [docs-audit-findings-2026-07-16 §NAMING-COMPLIANCE](./03-execution/status/docs-audit-findings-2026-07-16.md).
 
 ### §2.3 — Specs
 
@@ -129,10 +152,10 @@ The apartment-generation workstream uses several intersecting identifier systems
 
 | Range | Meaning | Example | Authority doc |
 |---|---|---|---|
-| `P1–P8` | Architectural Principles | "P3 — single rAF" | engineering-vision.md §2 |
-| `D1–D13` | Differentiators | "D5 AI as first-class layer" | engineering-vision.md §4 |
-| `C01–C30` | Contracts | "C09 AI & Visibility Intent" | contracts/README.md |
-| `ADR-NNN` / `NNNN-` | Architecture Decision Records | "ADR-014 L7.5 promotion" | adrs/README.md |
+| `P1–P8` | Architectural Principles | "P3 — single rAF" | STR-03-engineering-vision.md §2 |
+| `D1–D13` | Differentiators | "D5 AI as first-class layer" | STR-03-engineering-vision.md §4 |
+| `C01–C56` | Contracts | "C09 AI & Visibility Intent" | contracts/README.md |
+| `ADR-NNN` / `NNNN-` | Architecture Decision Records | "ADR-0214 L7.5 promotion" | adrs/README.md |
 | `SPEC-NN` | Specs | "SPEC-26 .pryzm file format" | specs/README.md |
 | `Z.N` | Apartment plan tiers | "Z.10 Tier 9 — Activity Systems" | apartment/furniture-and-activity.md §0.0 |
 | **`Cog-LN`** | Apartment cognition stack layers | "Cog-L3 Semantic Topology" | apartment/cognition-stack.md — disambiguated from architectural L0-L9 |
@@ -152,7 +175,7 @@ The apartment-generation workstream uses several intersecting identifier systems
 - "L3 — State" → architectural layer 3 (packages/stores)
 - "Cog-L3 — Semantic Topology" → cognition stack layer 3 (EdgeType + bubbleGraph)
 
-Files in `apartment/cognition-stack.md` use the `L1–L7` notation in their own context (cognition); files in `01-strategy/architecture.md` use `L0–L9` for system layers. When citing across domains, prefix.
+Files in `apartment/cognition-stack.md` use the `L1–L7` notation in their own context (cognition); files in `01-strategy/STR-04-architecture.md` use `L0–L9` for system layers. When citing across domains, prefix.
 
 ## §5 — Date stamps
 

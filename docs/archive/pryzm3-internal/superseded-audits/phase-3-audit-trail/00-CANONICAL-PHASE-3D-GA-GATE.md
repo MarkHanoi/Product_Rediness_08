@@ -80,7 +80,7 @@ S67 (6/10 landed) and S70 (T001–T009 of T010 landed).
 
 | # | Exit criterion (verbatim) | Status | Evidence |
 |---|----------------------------|--------|----------|
-| 1 | Every D1–D10 differentiator delivered | ⚠ partial | M30/M33/M36 cumulative scoreboard in `apps/bench/reports/M36-GA.md` §6; component editor real-time co-presence deferred per `[strategic ADR-018]` T2.2 (single-author at GA). |
+| 1 | Every D1–D10 differentiator delivered | ⚠ partial | M30/M33/M36 cumulative scoreboard in `apps/bench/reports/M36-GA.md` §6; component editor real-time co-presence deferred per `[strategic ADR-0218]` T2.2 (single-author at GA). |
 | 2 | Plugin SDK 1.0 + marketplace + ≥30 first-party + ≥5 third-party | ⚠ partial | First-party ≥30 (per plugins/ tree); third-party count operator-side at GA. |
 | 3 | Public REST + WS + headless + AI APIs documented + rate-limited + OAuth2 | ✅ | api-gateway 175 tests green (M33 §M33); OAuth2 PKCE primitive at S68 D6; production wiring at S70 D8 carry-forward. |
 | 4 | Self-host fresh `docker-compose up` < 10 min on Linux x86 + ARM | ⏸ deferred | All artefacts present (S67); first-run on operator host (S67 D6 carry-forward). |
@@ -99,7 +99,7 @@ S67 (6/10 landed) and S70 (T001–T009 of T010 landed).
 |---|----------------|--------|----------|
 | 8 | All legacy deleted (`src/legacy/` empty) | ✅ (PRYZM 2 trees) | `src/legacy` + `src/lifecycle` absent. `src/visibility/VGGovernanceStore.ts` is honest carry-forward (kill-switched PRYZM 1; deletion post-sunset per `docs/03-execution/plans/pryzm-1-sunset.md` §3). Asserted by `tests/ga-gate/__tests__/architectural-invariants.test.ts`. |
 | 9 | 0 `(window as any)` sites repo-wide | ✅ (PRYZM 2 trees) | Asserted for `apps/{api-gateway,sync-server,bake-worker}/src` by `architectural-invariants.test.ts`. PRYZM 1 `src/` count = 80+ occurrences (kill-switched; documented carry-forward; deletion post-sunset). |
-| 10 | 0 non-scheduler rAF | ✅ | Single-frame-owner audit (ADR-0023 Part F + ADR-022) + `pnpm bench single-frame-owner-audit` green per M33 §M33 close. |
+| 10 | 0 non-scheduler rAF | ✅ | Single-frame-owner audit (ADR-0023 Part F + ADR-0222) + `pnpm bench single-frame-owner-audit` green per M33 §M33 close. |
 | 11 | 0 THREE imports outside committers | ✅ | Asserted for `plugins/*` by `architectural-invariants.test.ts`. |
 | 12 | 100 % OTel coverage on hot paths | ⚠ partial | OTel scaffolding lands per S65 D7 + S68 D7. End-to-end coverage measurement is operator-side (live alert verification). |
 
@@ -119,11 +119,11 @@ S67 (6/10 landed) and S70 (T001–T009 of T010 landed).
 | # | Exit criterion | Status |
 |---|----------------|--------|
 | 19 | `pnpm bench all` green at SPEC §11 Phase rollout requirements | ⚠ partial — see M36-GA §2 |
-| 20 | `pnpm bench single-frame-owner-audit` green per ADR-023 Part F | ✅ |
-| 21 | `pnpm bench webgpu-feature-readiness` green if WebGPU is default per `[strategic ADR-025]` Part C | n/a — WebGPU is feature-detected fallback, not default |
-| 22 | Editor production bundle has zero `react` symbols (build-time gate per `[strategic ADR-026]` Part C) | ✅ at deps level (`apps/editor/package.json` declares no react/react-dom); bytecode scan operator-side |
+| 20 | `pnpm bench single-frame-owner-audit` green per ADR-0223 Part F | ✅ |
+| 21 | `pnpm bench webgpu-feature-readiness` green if WebGPU is default per `[strategic ADR-0225]` Part C | n/a — WebGPU is feature-detected fallback, not default |
+| 22 | Editor production bundle has zero `react` symbols (build-time gate per `[strategic ADR-0226]` Part C) | ✅ at deps level (`apps/editor/package.json` declares no react/react-dom); bytecode scan operator-side |
 | 23 | All SPEC-30 §2 four tiers green | ✅ |
-| 24 | SOC2 evidence pipeline produces quarterly auto-reports per `[strategic ADR-021]` + ADR-028 Part G | ⚠ partial — adapter exists since S57 D7; quarterly auto-report cadence operator-side |
+| 24 | SOC2 evidence pipeline produces quarterly auto-reports per `[strategic ADR-0221]` + ADR-0228 Part G | ⚠ partial — adapter exists since S57 D7; quarterly auto-report cadence operator-side |
 
 ### §3 Business
 
@@ -279,7 +279,7 @@ sprint+day reversal triggers, not "shipped but red".
 | Cold-load NFT baseline promotion (3 rows) | mechanical `pnpm bench && pnpm bench:baseline` |
 | `undo-single.bench.ts` | post-GA bench addition |
 | `src/` PRYZM 1 tree deletion | post 90-day sunset window |
-| Component editor real-time co-presence | post-GA per `[strategic ADR-018]` T2.2 |
+| Component editor real-time co-presence | post-GA per `[strategic ADR-0218]` T2.2 |
 
 ---
 

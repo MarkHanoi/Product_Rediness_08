@@ -5,11 +5,11 @@
 - **Status:** Accepted (2026-07-02)
 - **Layer:** L5 metric (`apps/editor/src/ui/apartment-layout/layoutBubbleGraph.ts`) + L2 engine
   (`packages/ai-host/src/workflows/apartmentLayout/tgl/emitGeometry.ts`, `wallsAndDoors.ts`).
-- **Governs:** `docs/03_PRYZM3/SPEC-CIRCULATION-GRAPH.md` §9.2–9.5 (the door-aware circulation
+- **Governs:** `docs/03-execution/specs/SPEC-CIRCULATION-GRAPH.md` §9.2–9.5 (the door-aware circulation
   reachability metric + the generator's MAXIMUM-circulation guarantee).
 - **Relates to:** ADR-0087 (`§DOOR-RESCUE-REACH`), ADR-0072 (corridor-spine on fragmented
-  plates), ADR-062 (doors as circulation-graph entities); analysis
-  `HOUSE-CIRCULATION-SEALED-ROOMS-2026-06-20.md`.
+  plates), ADR-0262 (doors as circulation-graph entities); analysis
+  `house-circulation-sealed-rooms-2026-06-20.md`.
 
 ## Context
 

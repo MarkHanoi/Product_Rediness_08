@@ -17,7 +17,7 @@ This folder contains the audit, vision, target architecture, As-Is/To-Be compari
 1. **[00-AUDIT.md](../superseded-audits/00-AUDIT.md)** — current-state ground truth. Six structural failure modes with file:line evidence.
 2. **[01-TARGET-ARCHITECTURE.md](../../01_ARCHITECTURE/01-LAYERS-AND-PRINCIPLES.md)** — initial 7-layer sketch (now superseded by `08` §4 with L7.5 added).
 3. **[02-ORCHESTRATION.md](02-ORCHESTRATION.md)** — high-level rollout (now superseded by `10`).
-4. **[03-PASCAL-EDITOR-ANALYSIS.md](../../01_ARCHITECTURE/04-PASCAL-REFERENCE.md)** — Pascal as reference. Strategy B confirmed (`10` Pre-flight ADR-001).
+4. **[03-PASCAL-EDITOR-ANALYSIS.md](../../01_ARCHITECTURE/04-PASCAL-REFERENCE.md)** — Pascal as reference. Strategy B confirmed (`10` Pre-flight ADR-0201).
 5. **[04-PRODUCTION-PARITY.md](04-PRODUCTION-PARITY.md)** — initial Forma/Qonic/Motif matrix (now expanded to 50 capabilities + Pascal in `09` §8).
 6. **[05-IMPLEMENTATION-PLAN.md](05-IMPLEMENTATION-PLAN.md)** — first 20-sprint plan (superseded by `10`'s 72 sprints, but TS interfaces and DB schema remain canonical reference).
 7. **[06-PRYZM-IDENTITY-AND-RECOUNT.md](../../00_VISION/01-IDENTITY.md)** — the recount (390K LOC, 2,078 globals, etc.). Identity preserved in `08` §2.
@@ -70,24 +70,24 @@ Phases 2 and 3 are in progress against `10-MASTER-IMPLEMENTATION-PLAN-36M.md` an
 | **29** | **Vector primitives + PDF backend** | `specs/SPEC-29-VECTOR-PRIMITIVES-PDF.md` | **gap review §22.4** |
 | **30** | **Plan-view performance budget** | `specs/SPEC-30-PLAN-VIEW-PERF.md` | **gap review §22.3** |
 
-(SPEC-31 PDF-to-BIM Pipeline lands at S50 per ADR-029.)
+(SPEC-31 PDF-to-BIM Pipeline lands at S50 per ADR-0229.)
 
 ## ADRs (binding decisions)
 
-The 12 Pre-flight ADRs (`ADR-001` … `ADR-012`) are listed in `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §3.1; the 9 strategic ADRs (`ADR-013` … `ADR-021`) drove the broader architecture decisions; the **9 gap-closure ADRs added 2026-04-27 are below**:
+The 12 Pre-flight ADRs (`ADR-0201` … `ADR-0212`) are listed in `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §3.1; the 9 strategic ADRs (`ADR-0213` … `ADR-0221`) drove the broader architecture decisions; the **9 gap-closure ADRs added 2026-04-27 are below**:
 
 | # | Title | File |
 |---|---|---|
-| **022** | Renderer topology + backend runtime | `adrs/ADR-022-renderer-topology-backend-runtime.md` |
-| **023** | Library rAF quarantine | `adrs/ADR-023-library-raf-quarantine.md` |
-| **025** | Three.js version pin & WebGPU path | `adrs/ADR-025-three-js-pin.md` |
-| **026** | UI binding: vanilla TS | `adrs/ADR-026-ui-binding-vanilla-ts.md` |
-| **027** | Schedule formula library scope | `adrs/ADR-027-schedule-formula-library.md` |
-| **028** | Authority unification | `adrs/ADR-028-authority-unification.md` |
-| **029** | PDF-to-BIM scope (the moat) | `adrs/ADR-029-pdf-to-bim-scope.md` |
-| **030** | Lifecycle subsystem placement | `adrs/ADR-030-lifecycle-subsystem-placement.md` |
+| **022** | Renderer topology + backend runtime | `adrs/ADR-0222-renderer-topology-backend-runtime.md` |
+| **023** | Library rAF quarantine | `adrs/ADR-0223-library-raf-quarantine.md` |
+| **025** | Three.js version pin & WebGPU path | `adrs/ADR-0225-three-js-pin.md` |
+| **026** | UI binding: vanilla TS | `adrs/ADR-0226-ui-binding-vanilla-ts.md` |
+| **027** | Schedule formula library scope | `adrs/ADR-0227-schedule-formula-library.md` |
+| **028** | Authority unification | `adrs/ADR-0228-authority-unification.md` |
+| **029** | PDF-to-BIM scope (the moat) | `adrs/ADR-0229-pdf-to-bim-scope.md` |
+| **030** | Lifecycle subsystem placement | `adrs/ADR-0230-lifecycle-subsystem-placement.md` |
 
-ADR-018 (capacity cut list) was extended at the same time with two new Tier-1 cuttable items (T1.7 PDF-to-BIM tier degradation; T1.8 schedule formula library reduction).
+ADR-0218 (capacity cut list) was extended at the same time with two new Tier-1 cuttable items (T1.7 PDF-to-BIM tier degradation; T1.8 schedule formula library reduction).
 
 ## Quick navigation by question
 

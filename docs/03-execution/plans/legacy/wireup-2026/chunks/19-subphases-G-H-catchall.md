@@ -7,8 +7,8 @@
 > **Phase G — additional deletions** (was 9, now **24 sub-phases**):
 > - **G.10–G.31** (22 deletions) — see [Chunk 24 §24.5](./24-pryzm1-src-coverage-audit.md#§245--new-sub-phases-summary-what-to-add-to-§16). One PR per legacy folder: `src/tools/`, `src/monetization/`, `src/import/`, `src/generative/`, `src/rendering/`, `src/cde/`, `src/export/`, `src/portfolio/`, `src/physics/`, `src/geospatial/`, `src/api/`, `src/snapping/`, `src/spatial/`, `src/topology/`, `src/structural/`, `src/migration/`, `src/collaboration/`, `src/constraints/`, `src/history/`, `src/render/`, `src/visibility/`, `src/furniture/`, `src/features/`. Each waits on the corresponding migration sub-phase from Phases B/C/D/E.
 > - **G.32** — PRYZM 1 lights-out. Surfaced by [Chunk 25 §25.5](./25-architecture-docs-cross-alignment.md) (customer migration story). [Chunk 26 §26.8](./26-plan-self-corrections.md#§268--amendment-h--missing-deletion-ids-and-unspecified-checklists) enumerates 9 sub-items:
->   - **G.32.1** DNS cutover · **G.32.2** PRYZM 1 billing terminate · **G.32.3** auth-flag flip (PRYZM 1 read-only) · **G.32.4** customer data export endpoint live · **G.32.5** PRYZM 1 → PRYZM 2 migration runbook (per ADR-044) · **G.32.6** founder-authored customer comms send · **G.32.7** PRYZM 1 OTel tags marked deprecated · **G.32.8** PRYZM 1 marketplace catalog frozen · **G.32.9** read-only window calendar started.
->   - Lands across **S84-WIRE D1–D9**. ADR-044 must land **before G.32.6** (revised from chunk 25's impossible "S22").
+>   - **G.32.1** DNS cutover · **G.32.2** PRYZM 1 billing terminate · **G.32.3** auth-flag flip (PRYZM 1 read-only) · **G.32.4** customer data export endpoint live · **G.32.5** PRYZM 1 → PRYZM 2 migration runbook (per ADR-0244) · **G.32.6** founder-authored customer comms send · **G.32.7** PRYZM 1 OTel tags marked deprecated · **G.32.8** PRYZM 1 marketplace catalog frozen · **G.32.9** read-only window calendar started.
+>   - Lands across **S84-WIRE D1–D9**. ADR-0244 must land **before G.32.6** (revised from chunk 25's impossible "S22").
 > - **G.33** — DELETE `src/persistence/` after **C.14** move lands and verifies. See [Chunk 26 §26.8](./26-plan-self-corrections.md#§268--amendment-h--missing-deletion-ids-and-unspecified-checklists). Lands in **S82-WIRE D9** (last day of Phase G).
 >
 > **Phase H — additional lock-in** (was 7 lint+bench flips, now **8**):
@@ -111,7 +111,7 @@ These six gates together make it physically impossible for legacy code to surviv
 >
 > - **S82** (Phase G window): `G.10` `src/tools/` · `G.11` `src/monetization/`
 > - **S83**: `G.12` `src/import/` · `G.13` `src/generative/` · `G.14` `src/rendering/` · `G.15` `src/cde/` · `G.16` `src/export/`
-> - **S84**: `G.17` `src/portfolio/` (per ADR-041) · `G.18` `src/physics/` (per ADR-042) · `G.19` `src/geospatial/` · `G.20` `src/api/` · `G.21` `src/snapping/` · `G.22` `src/spatial/` · `G.23` `src/topology/` · `G.24` `src/structural/` + `src/elements/structural/` · `G.25` `src/migration/` · `G.26` `src/collaboration/` · `G.27` `src/constraints/` · `G.28` `src/render/` · `G.29` `src/visibility/` · `G.30` `src/furniture/` shim · `G.31` `src/features/` shim
+> - **S84**: `G.17` `src/portfolio/` (per ADR-0241) · `G.18` `src/physics/` (per ADR-0242) · `G.19` `src/geospatial/` · `G.20` `src/api/` · `G.21` `src/snapping/` · `G.22` `src/spatial/` · `G.23` `src/topology/` · `G.24` `src/structural/` + `src/elements/structural/` · `G.25` `src/migration/` · `G.26` `src/collaboration/` · `G.27` `src/constraints/` · `G.28` `src/render/` · `G.29` `src/visibility/` · `G.30` `src/furniture/` shim · `G.31` `src/features/` shim
 >
 > Each new ID is bound to a Phase B widening or Phase E migration sub-phase that lands the wire first (see §24.5). Phase H gains a final allowlist check (see §24.7) that asserts only `ui/`, `styles/`, `utils/`, `types/`, `dev/` and four root files remain under `src/` at GA.
 

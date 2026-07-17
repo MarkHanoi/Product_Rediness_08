@@ -115,4 +115,4 @@ Phase F is **enormous** (95 sub-phases). Don't try to land it in one go. **F.1.0
 
 - Spec: [`PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md`](../PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md), [`15-subphases-E-families.md`](../PRYZM2-WIREUP-PLAN-S72/15-subphases-E-families.md), [`16-subphases-F1-toolbars.md`](../PRYZM2-WIREUP-PLAN-S72/16-subphases-F1-toolbars.md), [`17-subphases-F2-F5.md`](../PRYZM2-WIREUP-PLAN-S72/17-subphases-F2-F5.md), [`18-subphases-F6-F12.md`](../PRYZM2-WIREUP-PLAN-S72/18-subphases-F6-F12.md)
 - Adjacent live ledgers: [`PRYZM2-WIREUP-PLAN-S72/27-phase-H-extraction-ledger.md`](../PRYZM2-WIREUP-PLAN-S72/27-phase-H-extraction-ledger.md), [`PRYZM2-WIREUP-PLAN-S72/28-commandManager-execute-migration.md`](../PRYZM2-WIREUP-PLAN-S72/28-commandManager-execute-migration.md)
-- Live tracker: [`PROCESS-TRACKER.md`](../../03_STATUS/01-PROCESS-TRACKER.md)
+- Live tracker: [`PROCESS-TRACKER.md`](../../03_STATUS/01-process-tracker.md)

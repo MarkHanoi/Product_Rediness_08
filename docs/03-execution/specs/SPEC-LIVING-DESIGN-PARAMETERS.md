@@ -11,11 +11,11 @@ LIVE" capability the founder asked for (2026-06-05).
 `A.25.1 … A.25.4` — see §8).
 
 **Conflict-resolution order (strongest first):**
-[product-vision §5](../../01-strategy/product-vision.md) →
-[architecture](../../01-strategy/architecture.md) →
+[product-vision §5](../../01-strategy/STR-02-product-vision.md) →
+[architecture](../../01-strategy/STR-04-architecture.md) →
 [C50-TYPOLOGY-PIPELINE](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md) →
-[ADR-0056 typology-declared brief](../../02-decisions/adrs/0056-typology-declared-brief.md) →
-[ADR-0060 living design parameters](../../02-decisions/adrs/0060-living-design-parameters.md) →
+[ADR-0056 typology-declared brief](../../02-decisions/adrs/ADR-0056-typology-declared-brief.md) →
+[ADR-0060 living design parameters](../../02-decisions/adrs/ADR-0060-living-design-parameters.md) →
 this SPEC.
 
 Sibling references:

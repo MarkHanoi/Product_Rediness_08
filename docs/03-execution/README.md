@@ -53,8 +53,8 @@ If a status disagrees with everything: it's a status — describe what's actuall
 | Doc | Horizon | Purpose |
 |---|---|---|
 | [plans/annual-2026.md](./plans/annual-2026.md) | H3 — 2026 | This year's commitments by quarter |
-| [plans/quarterly-2026-Q3.md](./plans/quarterly-2026-Q3.md) | H4 — current quarter | Sprint-level deliverables Jul–Sep |
-| [plans/quarterly-2026-Q4.md](./plans/quarterly-2026-Q4.md) | H4 — next quarter | Sprint-level deliverables Oct–Dec |
+| [plans/quarterly-2026-q3.md](./plans/quarterly-2026-q3.md) | H4 — current quarter | Sprint-level deliverables Jul–Sep |
+| [plans/quarterly-2026-q4.md](./plans/quarterly-2026-q4.md) | H4 — next quarter | Sprint-level deliverables Oct–Dec |
 
 ### §3.4 — Workstream-specific + legacy
 
@@ -110,7 +110,7 @@ Documents that describe **what is actually true today**. Always stamped with a d
 ### For new plans
 
 1. Plans aren't numbered — they're named by topic + horizon (kebab-case, lowercase)
-2. **Window-scoped** for time-bounded: `quarterly-2026-Q3.md`, `annual-2026.md`
+2. **Window-scoped** for time-bounded: `quarterly-2026-q3.md`, `annual-2026.md`
 3. **Topic-scoped** for cross-cutting: `typology-expansion-roadmap.md`
 4. Stamp date inside the doc body (NOT in filename — filenames are stable; dates change)
 5. Add to [plans/README.md](./plans/README.md) §2 index
@@ -132,7 +132,7 @@ If you've never planned PRYZM work before:
 3. [plans/vision-2030.md](./plans/vision-2030.md) — 15 min — the 5-year arc
 4. [plans/typology-expansion-roadmap.md](./plans/typology-expansion-roadmap.md) — 15 min — the multi-typology product vision
 5. [plans/roadmap-phase-1-alpha.md](./plans/roadmap-phase-1-alpha.md) — 25 min — Phase A full detail
-6. [plans/quarterly-2026-Q3.md](./plans/quarterly-2026-Q3.md) — 15 min — current sprint deliverables
+6. [plans/quarterly-2026-q3.md](./plans/quarterly-2026-q3.md) — 15 min — current sprint deliverables
 7. [plans/roadmap-enterprise-delivery.md](./plans/roadmap-enterprise-delivery.md) — 15 min — customer-delivery cadence
 8. [specs/README.md](./specs/README.md) — index of 56 normative specs
 9. [status/autonomous-session-runs-log.md](./status/autonomous-session-runs-log.md) — what changed in recent agent sessions

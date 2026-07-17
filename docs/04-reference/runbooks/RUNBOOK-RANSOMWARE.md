@@ -1,5 +1,7 @@
 # Runbook — Ransomware / encrypted-payload attack
 
+> ⚠️ **REALITY CHECK (2026-07-16, L-349):** this runbook references `pryzm-ops`, a cold backup tier, and/or automated restore tooling that **does not exist yet** (tracked as **L-344 / C48**). Today PRYZM has NO automated backup, PITR, cold tier, or DR restore — `DELETE` is permanent. Treat the recovery steps below as the *target* C48 design, **not live procedure**. For what actually works today, see [RUNBOOK-ACCIDENTAL-DELETE.md §0](RUNBOOK-ACCIDENTAL-DELETE.md).
+
 > **Stamp**: 2026-06-02 · **Status**: DRAFT
 > **Authority**: [C48 §1.10](../../02-decisions/contracts/C48-BACKUP-AND-DR.md), third of four failure-mode runbooks per A.35.
 > **SLA**: 24 hours from incident-declared to customer-restored. Last-known-good is 5 min before the encrypted-payload event ([C48 §1.5](../../02-decisions/contracts/C48-BACKUP-AND-DR.md)).

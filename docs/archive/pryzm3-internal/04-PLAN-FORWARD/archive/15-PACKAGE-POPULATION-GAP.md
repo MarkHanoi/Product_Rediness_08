@@ -1,7 +1,7 @@
 # 11 — Package Population Gap & Extended Waves 8–20 (CONSOLIDATED MASTER PLAN)
 
 > **Stamp**: 2026-04-30 PM-late · **Status**: NORMATIVE — this is the SINGLE SOURCE OF TRUTH for getting from today (Wave 7 close, week 20) to FULL Phase-1/2/3-consumption day-1 (Wave 20 close, week 74). Sections §0.5, §0.6, §0.7 below are preserved as historical record of the four daily corrections. **§0.0 (next) is the canonical clean plan.** When §0.0 conflicts with §0.5/§0.6/§0.7, **§0.0 wins.**
-> **Anchored to**: `../03-CURRENT-STATE.md §1` (live verifiers) + `§14` (Round-3 deep audit) + `§15` (Round-4 deep audit) + `§15.16` (S98-WIRE full 54-package inventory), `../02-ARCHITECTURE.md §1` (layer table), `../reference/specs/SPEC-01..SPEC-12` (40 specs), `../reference/adrs/ADR-001..ADR-024` (44 strategic ADRs), `../reference/phases/` (12 phase docs).
+> **Anchored to**: `../03-CURRENT-STATE.md §1` (live verifiers) + `§14` (Round-3 deep audit) + `§15` (Round-4 deep audit) + `§15.16` (S98-WIRE full 54-package inventory), `../02-ARCHITECTURE.md §1` (layer table), `../reference/specs/SPEC-01..SPEC-12` (40 specs), `../reference/adrs/ADR-0201..ADR-0224` (44 strategic ADRs), `../reference/phases/` (12 phase docs).
 > **⚠ TRACKER RULE**: Editing this file — especially §0.0.4 wave ledger or §0.0.3 day-1 ladder — update `../00-PROCESS-TRACKER.md` §3/§4/§7 in the same commit.
 > **Dependency map**: `16-PACKAGE-DEPENDENCY-MAP.md` — canonical inter-package import graph verified 2026-05-01. Supersedes any import-graph claims in §0.0 below whenever they conflict.
 > **Package count correction (S98-WIRE, 2026-05-01)**: §0.0.2 table shows `packages/ count = 49`. Actual verified count is **54** — Wave 8 added `@pryzm/snapping` (32 LOC) and `@pryzm/spatial-index` (88 LOC); the deep-audit uncovered 3 additional packages that the original count missed (`@pryzm/legacy-shim`, `@pryzm/render-runtime`, `@pryzm/ai-cost`). The §0.0.2 table number is historically accurate for Wave 7 close; the authoritative current count is in `03-CURRENT-STATE.md §15.16`.
@@ -241,7 +241,7 @@ R-16 (Round-3): Plugin-SDK codemod (Wave 20) must preserve type narrowness — n
 R-17 (Round-3): 3 NEW packages don't exist (snapping, spatial-index, expanded physics-host) — Wave 8 must extend creation to 5 packages, not 3.
 **R-18 (Round-4)**: Recipe-completion for plan-view/bcf/ifc-export/multiplayer/cross is more than wireup — it's NEW CODE for stores + tools + intents per plugin. Wave 11 must absorb ~1,500-3,000 LOC of new plugin code per plugin, not just import-rewriting.
 **R-19 (Round-4)**: 11 zero-test packages including the central `runtime-composer` (845 LOC) means a regression in composeRuntime() during any wave will be invisible until manual smoke. Wave 13 test drive must be FRONT-LOADED (move runtime-composer test creation to Wave 8 D2 alongside citation-rot fix).
-**R-20 (Round-4)**: Citation rot is 51 occurrences across 12 phase docs — when Wave 16+ engineers grep for SPEC-04 or strategic ADR-018 they'll find broken links. Codemod must run BEFORE Wave 9 starts (Wave 8 D1).
+**R-20 (Round-4)**: Citation rot is 51 occurrences across 12 phase docs — when Wave 16+ engineers grep for SPEC-04 or strategic ADR-0218 they'll find broken links. Codemod must run BEFORE Wave 9 starts (Wave 8 D1).
 
 ### §0.0.12 — The seven founder questions, FINAL answer (after all four rounds)
 

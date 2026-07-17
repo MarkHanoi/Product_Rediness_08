@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B8` |
 | Phases | 1A (RLS hardening), 1D (M12 alpha gate), 2D (M24 beta + permission matrix), 3D (M36 GA + SSO/SCIM/audit log streaming for C3) |
-| Required ADRs | ADR-021 (enterprise security & data residency) |
+| Required ADRs | ADR-0221 (enterprise security & data residency) |
 
 > The Contract 07 supersession bisected security (kept) from collaboration (replaced by Yjs). This spec defines what survives, what's added for C3 (large enterprise), the role/permission matrix that today's permission model lacks, audit-log streaming, and the threat model.
 
@@ -256,4 +256,4 @@ See SPEC-07 §6 for the dollar budgets and accounting.
 - Sync interaction: SPEC-03.
 - AI cost guardrails: SPEC-07 §6.
 - Phase deliverables: across all phases; key gates at M12, M24, M36.
-- ADR: `adrs/ADR-021-enterprise-security-data-residency.md`.
+- ADR: `adrs/ADR-0221-enterprise-security-data-residency.md`.

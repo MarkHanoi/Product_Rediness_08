@@ -10,13 +10,13 @@ that **re-renders LIVE** when the user changes a **brief slider** OR edits the *
 (room area / type) — debounced re-run of the existing deterministic engine.
 
 **Conflict-resolution order (strongest first):**
-[product-vision](../../01-strategy/product-vision.md) →
-[architecture](../../01-strategy/architecture.md) →
+[product-vision](../../01-strategy/STR-02-product-vision.md) →
+[architecture](../../01-strategy/STR-04-architecture.md) →
 [C52-EDITABLE-BUILDING-GRAPH](../../02-decisions/contracts/C52-EDITABLE-BUILDING-GRAPH.md) →
 [C50-TYPOLOGY-PIPELINE](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md) →
-[ADR-0061 building-graph bidirectional edit](../../02-decisions/adrs/0061-building-graph-bidirectional-edit-substrate.md) →
-[ADR-0060 living design parameters](../../02-decisions/adrs/0060-living-design-parameters.md) →
-[ADR-0056 typology-declared brief](../../02-decisions/adrs/0056-typology-declared-brief.md) →
+[ADR-0061 building-graph bidirectional edit](../../02-decisions/adrs/ADR-0061-building-graph-bidirectional-edit-substrate.md) →
+[ADR-0060 living design parameters](../../02-decisions/adrs/ADR-0060-living-design-parameters.md) →
+[ADR-0056 typology-declared brief](../../02-decisions/adrs/ADR-0056-typology-declared-brief.md) →
 this SPEC.
 
 Sibling references:
@@ -107,7 +107,7 @@ change needed; the best option already sorts first.
    `generateHouseLayoutOptions(...)` synchronously against the cached `_regen.shell` and calls
    `modal.refresh(variants)` (`:240`).
 
-This is the GLOBAL-slider seam of [ADR-0060](../../02-decisions/adrs/0060-living-design-parameters.md):
+This is the GLOBAL-slider seam of [ADR-0060](../../02-decisions/adrs/ADR-0060-living-design-parameters.md):
 the house engine is an **offline deterministic L2 call** (no async relay), so the re-run is
 synchronous and fast — **this is why the house live-edit can be even simpler than the apartment's.**
 We REUSE this loop verbatim; the work is to (a) collapse the refresh to one card, (b) add the graph,
@@ -188,7 +188,7 @@ visibility" size:
 The form already carries the 4 ScoringWeights sliders (`WEIGHT_SLIDERS`, `houseModalHtml.ts:61`).
 This SPEC adds the **brief-numeric** controls as sliders/steppers (Floors 1–3, Bedrooms 0–5,
 Bathrooms 1–3 — already number inputs at `:88-93`) and, where a typology brief schema is declared
-([ADR-0056](../../02-decisions/adrs/0056-typology-declared-brief.md) / SPEC-TYPOLOGY-BRIEF-SCHEMA),
+([ADR-0056](../../02-decisions/adrs/ADR-0056-typology-declared-brief.md) / SPEC-TYPOLOGY-BRIEF-SCHEMA),
 seeds them from `activeBrief` (`apps/editor/src/ui/apartment-layout/activeBrief.ts`,
 `getActiveBriefMetadata`) so the modal and the onboarding RAC agree (O.12). All wiring already
 exists — `_readFormState` (`HouseLayoutModal.ts:227`) reads them; no new read path.

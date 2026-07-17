@@ -116,7 +116,7 @@ Store subscribers (React hooks or `useEffect` watchers) MUST:
 > (undo button no-op'd plan-view elements) was a **trigger divergence**, not a broken applicator:
 > the button consulted only `commandManager` while plan elements live only in the ring buffer
 > (§4.7 root cause). §4.4's three-store reality still holds and the adapter bridges it; the
-> store-unification end-state is ADR-051 (U-7). Read §4.5 + §4.6 before touching any undo code.
+> store-unification end-state is ADR-0251 (U-7). Read §4.5 + §4.6 before touching any undo code.
 
 ### §4.1 — Scope
 
@@ -228,7 +228,7 @@ shadow-dropped legacy command used to do.
 > Records with no `applyPatch`**, and even if they had one they are the **L1** store, not the
 > mesh-driving legacy store (§4.4). `runtime.undoStack` is therefore non-functional for patch
 > apply and is **not** an undo trigger. `performUndoRedo` is the path; `runtime.undoStack` is
-> retired-in-place (the ADR-051 end-state folds the L1/legacy split away — U-7).
+> retired-in-place (the ADR-0251 end-state folds the L1/legacy split away — U-7).
 
 ### §4.6 — Binding invariants (robust undo)
 
@@ -251,7 +251,7 @@ shadow-dropped legacy command used to do.
   (`bus.clearUndoStacks()` + `commandManager.clearHistory()` per C13) so cross-project Ctrl+Z is
   a no-op.
 - **U-7 (target)** The store a patch targets MUST be the store that renders the element, so an
-  inverse patch reverts both data and mesh in one apply (ADR-051 / TASK-08). Until then, the
+  inverse patch reverts both data and mesh in one apply (ADR-0251 / TASK-08). Until then, the
   adapter bridges L1-shaped patches onto the mesh-driving legacy store.
 - **U-8 (dual-dispatch shadow-drop)** The 8 legacy 3D tools that DUAL-DISPATCH (WallTool, Slab,
   Roof, Furniture, Plumbing, Stair, Handrail, Beam — `bus.executeCommand` AND
@@ -319,12 +319,12 @@ secondary; all three are now closed by the unification:
    for its children (the §P2.3 bridge only mirrors on create). The opening-level undo (B5) is done.
 2. **Cross-stack ordering.** The two stacks have independent cursors; `performRedo` mirrors the
    last undo's stack (`_lastSource`) which covers "undo N then redo N (same stack)" but a
-   *mixed* undo sequence can mis-route. Single-timeline ordering is the ADR-051 end-state.
+   *mixed* undo sequence can mis-route. Single-timeline ordering is the ADR-0251 end-state.
 3. **L1 / Immer store divergence.** Adapter undo reverts the legacy (mesh + serialization) store
    but not the L1 Immer store. Harmless today (serialization reads the legacy store — same as the
    pre-existing 3D `CreateWallCommand.undo` behaviour), removed by U-7 store unification.
 
-**Resolution — ADR-051** (`reference/adrs/ADR-051-undo-single-source-of-truth.md`): adopt the
+**Resolution — ADR-0251** (`reference/adrs/ADR-0251-undo-single-source-of-truth.md`): adopt the
 pascalorg-aligned model — one source-of-truth store, the mesh + plan **derived** from it via a
 dirty-diff subscription, and patch-inverse undo through the single `performUndoRedo` apply path
 (Path A retired, dual-dispatch removed). Migration is **incremental per element type, live-gated**

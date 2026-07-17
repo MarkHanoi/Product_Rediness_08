@@ -65,9 +65,9 @@ you can put on the website.
   `plugins/*/package.json` that lists `three` or `@types/three`.
 - **Steps:**
   1. Decide pinned version. Recommendation: the highest `0.183.x`
-     already in tree (`0.183.2`) — minimises blast radius vs ADR-025's
+     already in tree (`0.183.2`) — minimises blast radius vs ADR-0225's
      stated `r169` (which is now ~12 months old). Either:
-     - Update ADR-025 to ratify `0.183.2`, or
+     - Update ADR-0225 to ratify `0.183.2`, or
      - Downgrade to exactly `0.169.0` (heavier; will surface
        compatibility breaks in `@thatopen/*`).
   2. Replace every `^0.183.x` / `^0.169.x` with the bare version
@@ -182,13 +182,13 @@ you can put on the website.
 ### S26-T07  Reconcile msgpack vs msgpackr
 - **Blocked by:** none.
 - **Owner:** persistence / sync.
-- **Files:** ADR-004 (amendment), `packages/persistence-client/src/codecs/`,
+- **Files:** ADR-0204 (amendment), `packages/persistence-client/src/codecs/`,
   `packages/wire/` (if it lands), `packages/sync-client/`.
 - **Decision sub-ticket S26-T07a (1 day):**
   - Bench `@msgpack/msgpack` vs `msgpackr` on the canonical event
     stream from S26-T05. If `msgpackr` with pre-registered structures
     is ≥ 30% smaller on median event size, migrate. Otherwise amend
-    ADR-004 to ratify `@msgpack/msgpack` and document why.
+    ADR-0204 to ratify `@msgpack/msgpack` and document why.
 - **Migration sub-ticket S26-T07b (3 days, only if migration wins):**
   1. Add `msgpackr` dep; create `MsgpackrCodec.ts`.
   2. Pre-register every command/patch shape in
@@ -197,7 +197,7 @@ you can put on the website.
      CI for two weeks; assert byte-stable round-trip on a corpus of
      10 k events.
   4. Flip the default; deprecate `MsgpackCodec` after one release.
-- **Acceptance:** ADR-004 is current; codec choice is bench-justified.
+- **Acceptance:** ADR-0204 is current; codec choice is bench-justified.
 - **Effort:** 1 day decision + 0–3 days migration.
 
 ### S26-T08  Publish the M12 alpha-gate recording
@@ -224,7 +224,7 @@ you can put on the website.
 ### S26 exit gate (this is M12 ALPHA GATE GREEN)
 - 12 `canonical.json` fixtures present and verified.
 - 5 perf gates fail CI on regression.
-- ADR-004 codec decision ratified.
+- ADR-0204 codec decision ratified.
 - `M12-alpha-gate` recording committed and CI-protected.
 
 ---
@@ -335,9 +335,9 @@ belong in Phase 1 acceptance:
 
 | Ticket | Belongs in | One-liner |
 | ------ | ---------- | --------- |
-| **OOB-A** | Phase 1.5 (between S27 and Phase 2A) | Soft-lock service (ADR-019) so the alpha multi-user demo is safe. ~3 days. |
-| **OOB-B** | Phase 2C scoping | `fast-check` property tests for kernel wall miters and slab booleans (ADR-020). ~2 days when scheduled. |
-| **OOB-C** | Phase 2D scoping | Translator round-trip identity tests for event-log ↔ Yjs (ADR-002). ~2 days. |
+| **OOB-A** | Phase 1.5 (between S27 and Phase 2A) | Soft-lock service (ADR-0219) so the alpha multi-user demo is safe. ~3 days. |
+| **OOB-B** | Phase 2C scoping | `fast-check` property tests for kernel wall miters and slab booleans (ADR-0220). ~2 days when scheduled. |
+| **OOB-C** | Phase 2D scoping | Translator round-trip identity tests for event-log ↔ Yjs (ADR-0202). ~2 days. |
 | **OOB-D** | DevRel, anytime | "Bring your own AI" toggle: make `CF_WORKER_URL` an explicit non-default; document OpenAI / Anthropic direct-key path for self-hosters. ~1 day. |
 | **OOB-E** | Phase 2C kickoff | Vector-primitives parity bench so SPEC-04/29 PDF backend inherits a baseline. ~2 days. |
 
@@ -347,7 +347,7 @@ belong in Phase 1 acceptance:
 
 | Risk | Likelihood | Impact | Mitigation |
 | ---- | ---------- | ------ | ---------- |
-| Pinning `three` breaks `@thatopen/*` | Medium | High | Bench the chosen pin in S25-T03 sub-ticket on day 1; if it breaks, raise ADR-025 amendment same day. |
+| Pinning `three` breaks `@thatopen/*` | Medium | High | Bench the chosen pin in S25-T03 sub-ticket on day 1; if it breaks, raise ADR-0225 amendment same day. |
 | `canonical.json` freeze surfaces non-determinism | High (first time always does) | Medium | Allocate half-day buffer per plugin; document each non-determinism in `packages/geometry-kernel/DETERMINISM.md`. |
 | Perf gates fail on CI runners (slower than dev hardware) | High | Low | Express thresholds in "frames per p50/p95", not absolute ms; calibrate against the CI runner once and freeze. |
 | `docker compose` self-host hits Postgres-on-arm64 / x86 mismatch | Medium | Low | Use multi-arch base images; document supported architectures in README. |

@@ -256,8 +256,8 @@ Strategy A (full fork) would compress further but commits the team to React 19 +
 Two ADRs to write before Phase 0
 If you agree with this read, the next concrete deliverables are two short Architecture Decision Records:
 
-ADR-001 — CRDT choice: Yjs vs Automerge vs centralised OT. I'd argue Yjs based on awareness protocol maturity, but it deserves the formal write-up.
-ADR-002 — Pascal adoption strategy: A vs B vs C vs D, with the gates each implies.
+ADR-0201 — CRDT choice: Yjs vs Automerge vs centralised OT. I'd argue Yjs based on awareness protocol maturity, but it deserves the formal write-up.
+ADR-0202 — Pascal adoption strategy: A vs B vs C vs D, with the gates each implies.
 I can write both ADRs now, or sketch the concrete produceWallGeometry() interface so Phase 2's worker spike has a typed contract to bite into. Which would help more?
 
 
@@ -325,7 +325,7 @@ Three things to flag about the plan itself:
 
 40 weeks is the optimistic line for 2 seniors + a lead. Realistic ceiling is 18–24 calendar months. The plan names this in 02-ORCHESTRATION.md §1; I didn't sand it off in the master plan.
 Bake-worker economics are the most under-validated assumption. The plan budgets 4 weeks (sprint 9) and a kill-switch ("if a single wall edit takes > 30 s, halt and fix before continuing"). If a team has never built a bake pipeline, expect this to slip.
-The 12 ADRs are not optional. They look small, but each represents a fork in the architecture. ADR-001 (Pascal strategy), ADR-002 (CRDT), and ADR-009 (plugin sandbox) in particular need real spike work, not gut-feel decisions, before sprint 1.
+The 12 ADRs are not optional. They look small, but each represents a fork in the architecture. ADR-0201 (Pascal strategy), ADR-0202 (CRDT), and ADR-0209 (plugin sandbox) in particular need real spike work, not gut-feel decisions, before sprint 1.
 Next concrete step
 I can now do one of the following — your call:
 
@@ -687,5 +687,5 @@ If you confirm, I will produce these in docs/00_NEW_ARCHITECTURE/:
 11	FILE-FORMAT-AND-API.md	.pryzm ZIP container spec + public REST/WS/headless/AI API surface + webhooks
 12	36-MONTH-MASTER-PLAN.md	The single-source-of-truth 36-month plan: 6 phases × sub-phases × 70 sprints × deliverables × exit criteria × kill-switches × demos
 13	RACI-AND-HIRING.md	4→11 FTE hiring sequence with month/role/why; RACI per layer; on-call rota
-adrs/ADR-001 … ADR-012	The 12 ADRs that must be merged before Sprint 1 (Pascal strategy, CRDT, object storage, wire format, worker pool, render mode, telemetry, IFC scope, plugin sandbox, bake debounce, permissions, self-host minimums)
+adrs/ADR-0201 … ADR-0212	The 12 ADRs that must be merged before Sprint 1 (Pascal strategy, CRDT, object storage, wire format, worker pool, render mode, telemetry, IFC scope, plugin sandbox, bake debounce, permissions, self-host minimums)
 That's roughly 6,000–8,000 additional lines on top of the existing 5,500 — bringing the architecture set to a complete operational specification.

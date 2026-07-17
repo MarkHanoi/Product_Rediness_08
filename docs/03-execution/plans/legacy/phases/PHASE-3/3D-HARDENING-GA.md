@@ -5,7 +5,7 @@
 >
 > **Strategic anchor**: `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §6 → `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §5 → this file.
 >
-> **Coalescing-window invariant**: every reference to bake/event coalescing means **250 ms** per `[strategic ADR-010]`.
+> **Coalescing-window invariant**: every reference to bake/event coalescing means **250 ms** per `[strategic ADR-0210]`.
 
 ---
 
@@ -30,7 +30,7 @@
 
 **GA-gate invariant**: every M36 GA gate criterion in §5 must be GREEN before launch on S72 D7. Yellow on any criterion delays launch by 1 week minimum.
 
-**Cut-list invariant**: per `[strategic ADR-018]` T2.6 multi-region prep is cuttable; if not cut, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1 in S67. Default cut for M36; if reverted, cost = 2 sprints (i.e., GA slips to ~M38).
+**Cut-list invariant**: per `[strategic ADR-0218]` T2.6 multi-region prep is cuttable; if not cut, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1 in S67. Default cut for M36; if reverted, cost = 2 sprints (i.e., GA slips to ~M38).
 
 ---
 
@@ -41,15 +41,15 @@
 | Item | Sprint |
 |---|---|
 | `pryzm-selfhost/docker-compose.yml` deploys editor + sync-server + bake-worker + Postgres + MinIO in < 10 min | S67 |
-| Multi-region prep — Tier-2 cuttable per `[strategic ADR-018]` T2.6 | S67 |
+| Multi-region prep — Tier-2 cuttable per `[strategic ADR-0218]` T2.6 | S67 |
 | Third-party pen test contract + report | S68 |
-| CSP audit: report at `docs/04-reference/security/csp-audit-2026-Q4.md` | S68 |
+| CSP audit: report at `docs/04-reference/security/csp-audit-2026-q4.md` | S68 |
 | Plugin sandbox audit (independent confirmation no escapes) | S68 |
 | RLS audit on Postgres: every table has policy | S68 |
 | OAuth2 review: PKCE flow correct; token expiry + refresh handled | S68 |
 | `runDependencyAudit`, `runSastScan`, `runHoundDogScan` all clean | S68 |
 | SOC2 quarterly access-review automation per SPEC-24 §1.10 | S68 |
-| SAML / SCIM mappings table per `[strategic ADR-021]` + SPEC-24 §1.1 | S68 |
+| SAML / SCIM mappings table per `[strategic ADR-0221]` + SPEC-24 §1.1 | S68 |
 | Full bench suite re-run on baseline + production-scale fixtures | S69 |
 | 10K wall × 50 level fixture (`tests/fixtures/largest.pryzm`) | S69 |
 | `apps/bench/largest-model.ts` confirms < target | S69 |
@@ -66,9 +66,9 @@
 | WCAG 2.2 AA audit + remediations | S70 |
 | Self-host docker-compose published per SPEC-15 §7 | S70 |
 | Self-host migration tooling published per SPEC-27 §7 | S70 |
-| PDF-to-BIM public preview launch per `[strategic ADR-029]` | S70 |
+| PDF-to-BIM public preview launch per `[strategic ADR-0229]` | S70 |
 | Self-host BYO-key safety cap enforced per SPEC-28 §11 | S70 |
-| Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-030 Part D | S70 |
+| Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-0230 Part D | S70 |
 | `pryzm.com` marketing site + pricing + Stripe checkout | S71 |
 | `docs.pryzm.com` consolidation complete | S71 |
 | 5-min demo video + 5 case studies | S71 |
@@ -101,13 +101,13 @@
 
 #### Context and Why This Matters
 
-Per the master plan and ADR-012 (self-host minimums), D3 (open self-host) is a binding GA requirement. Customer C3 (large enterprise IT) cannot adopt without this; without C3 adoption the post-GA ARR ramp slips by ~2 quarters.
+Per the master plan and ADR-0212 (self-host minimums), D3 (open self-host) is a binding GA requirement. Customer C3 (large enterprise IT) cannot adopt without this; without C3 adoption the post-GA ARR ramp slips by ~2 quarters.
 
 The Docker Compose stack provisions **everything**: Postgres + MinIO + sync-server + bake-worker + editor (served by api-gateway) + an entry script that initialises schema + creates the first admin user. Per SPEC-15 §7 the `install.sh` one-shot installer wraps the whole flow.
 
 ARM64 + x86_64 multi-arch images ship from S67 D5 onward.
 
-Multi-region decision: per `[strategic ADR-018]` T2.6 default cut for M36; if reverted, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1.
+Multi-region decision: per `[strategic ADR-0218]` T2.6 default cut for M36; if reverted, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1.
 
 ---
 
@@ -219,7 +219,7 @@ echo "Default admin credentials in .secrets/admin.txt"
 - **D6**: fresh-VM install test (Ubuntu, Debian, RHEL); install-time bench.
 - **D7**: docs at `docs.pryzm.com/selfhost/`.
 - **D8**: lint.
-- **D9**: multi-region decision per `[strategic ADR-018]` T2.6.
+- **D9**: multi-region decision per `[strategic ADR-0218]` T2.6.
 - **D10**: demo + buffer.
 
 ---
@@ -241,14 +241,14 @@ echo "Default admin credentials in .secrets/admin.txt"
 
 S68 is the security gate of Phase 3D. A third-party pen test runs S68 D1–D2; remediations S68 D3–D8. Per K3-E if a critical finding lacks a 7-day fix path, GA delays by 1 month and the pen test re-runs.
 
-SOC2 quarterly access-review automation per SPEC-24 §1.10 lights up; SAML / SCIM mappings table per `[strategic ADR-021]` + SPEC-24 §1.1 lit for enterprise SSO.
+SOC2 quarterly access-review automation per SPEC-24 §1.10 lights up; SAML / SCIM mappings table per `[strategic ADR-0221]` + SPEC-24 §1.1 lit for enterprise SSO.
 
 ---
 
 #### Daily Plan
 
 - **D1–D2**: pen test (external; founder coordinates).
-- **D3**: CSP audit + remediation (CSP report at `docs/04-reference/security/csp-audit-2026-Q4.md`).
+- **D3**: CSP audit + remediation (CSP report at `docs/04-reference/security/csp-audit-2026-q4.md`).
 - **D4**: sandbox audit (independent confirmation no escapes).
 - **D5**: RLS audit on Postgres: every table has policy; verified test queries.
 - **D6**: OAuth2 review: PKCE flow correct; token expiry + refresh handled.
@@ -314,9 +314,9 @@ DR drill: rollback runbook tested in last DR drill per SPEC-27 §9.
 
 S70 closes the open browser-matrix gap: Chrome 130+, Firefox 132+, Safari 18.4+ (Mac + iPad review mode), Edge — full test suite passes. WCAG 2.2 AA audit complete on critical paths.
 
-Self-host docker-compose **publishes** per SPEC-15 §7. Self-host migration tooling **publishes** per SPEC-27 §7. PDF-to-BIM **public preview launch** per `[strategic ADR-029]` (gating decision per ADR-029 Part E). Self-host BYO-key safety cap enforced per SPEC-28 §11.
+Self-host docker-compose **publishes** per SPEC-15 §7. Self-host migration tooling **publishes** per SPEC-27 §7. PDF-to-BIM **public preview launch** per `[strategic ADR-0229]` (gating decision per ADR-0229 Part E). Self-host BYO-key safety cap enforced per SPEC-28 §11.
 
-Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-030 Part D — the descriptor-driven hooks from S65 are now the sole lifecycle path.
+Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-0230 Part D — the descriptor-driven hooks from S65 are now the sole lifecycle path.
 
 ---
 
@@ -422,7 +422,7 @@ PRYZM 2.0.0 tagged. Public launch. Press. Monitoring. Support workflow live. GA 
 ### Functional
 
 - Every D1–D10 differentiator delivered.
-- Every element family + documentation pipeline + multi-user + AI + IFC/DXF/Rhino + component editor (deferred per `[strategic ADR-018]` T2.2 to v2 backlog) functional.
+- Every element family + documentation pipeline + multi-user + AI + IFC/DXF/Rhino + component editor (deferred per `[strategic ADR-0218]` T2.2 to v2 backlog) functional.
 - Plugin SDK 1.0 + marketplace + ≥ 30 first-party plugins + ≥ 5 third-party plugins.
 - Public REST + WS + headless + AI APIs documented + rate-limited + OAuth2-authenticated.
 - Self-host: fresh `docker-compose up` deploys in < 10 minutes (Linux x86 + ARM).
@@ -453,11 +453,11 @@ PRYZM 2.0.0 tagged. Public launch. Press. Monitoring. Support workflow live. GA 
 ### Bench (added per gap review; consolidated from PHASE-3-COMPLETION-GA §Gap-Closure)
 
 - `pnpm bench all` green at SPEC §11 Phase rollout requirements for every SPEC.
-- `pnpm bench single-frame-owner-audit` green per ADR-023 Part F.
-- `pnpm bench webgpu-feature-readiness` green if WebGPU is the default per `[strategic ADR-025]` Part C.
-- Editor production bundle has zero `react` symbols (build-time gate per `[strategic ADR-026]` Part C).
+- `pnpm bench single-frame-owner-audit` green per ADR-0223 Part F.
+- `pnpm bench webgpu-feature-readiness` green if WebGPU is the default per `[strategic ADR-0225]` Part C.
+- Editor production bundle has zero `react` symbols (build-time gate per `[strategic ADR-0226]` Part C).
 - All SPEC-30 §2 four tiers green.
-- SOC2 evidence pipeline produces quarterly auto-reports per `[strategic ADR-021]` + ADR-028 Part G.
+- SOC2 evidence pipeline produces quarterly auto-reports per `[strategic ADR-0221]` + ADR-0228 Part G.
 
 ### GA exit (consolidated)
 
@@ -465,7 +465,7 @@ GA ships only when **all** of:
 
 1. M24 beta gate items elapsed cleanly.
 2. Phase 3 rollout above complete.
-3. `[strategic ADR-018]` Tier-1 + Tier-2 capacity cuts decided and reflected in scope.
+3. `[strategic ADR-0218]` Tier-1 + Tier-2 capacity cuts decided and reflected in scope.
 4. Legacy `src/engine/`, `src/lifecycle/`, `src/styles/`, `src/visibility/` all deleted.
 5. `pnpm bench all` green for two consecutive weeks.
 
@@ -498,7 +498,7 @@ GA ships only when **all** of:
 | R3D-04 | 10K-wall fixture exposes new perf cliff | Medium | High | S69 perf hunting sprint; if missed, scope down largest-fixture target with disclosed ceiling | S69 |
 | R3D-05 | Founder burnout in final stretch | High | High | 1-week mandatory rest after S60 (M30); GA launch on a non-Friday; stakeholder support escalation routes ready | M30, M36 |
 | R3D-06 | DR drill exposes runbook gap | Medium | High | S69 D6 dedicated to DR drill; remediation immediate; gate on green-on-redo | S69 |
-| R3D-07 | PDF-to-BIM accuracy bar not met for preview launch | Medium | Medium | Preview gating per `[strategic ADR-029]` Part E; if not met, preview defers to post-GA | S70 |
+| R3D-07 | PDF-to-BIM accuracy bar not met for preview launch | Medium | Medium | Preview gating per `[strategic ADR-0229]` Part E; if not met, preview defers to post-GA | S70 |
 | R3D-08 | Multi-region cut reverted late | Low | High | S67 D9 decision; reversal cost = 2 sprints (i.e., GA slips ~M38) | S67 |
 | R3D-09 | Marketing site / pricing config error at launch | Low | Medium | Launch dry-run S71 D8; checkout end-to-end test on staging | S71 |
 | R3D-10 | First-48-hour traffic exceeds CDN capacity | Medium | Medium | Pre-warm CDN; status page for graceful degradation | S72 |
@@ -510,7 +510,7 @@ GA ships only when **all** of:
 - **K3D-A** (= K3-E) — If at S68 (M35) pen test reveals critical-severity finding without 7-day fix path, delay GA by 1 month and re-run pen test.
 - **K3D-B** (= K3-F) — If at S69 (M35) regression > 10% on any NFT target, halt forward 3D work; root-cause + fix; re-bench.
 - **K3D-C** (= K3-G) — If at S70 (M35–M36) any browser fails the full test suite, halt GA marketing; either fix or publicly document the unsupported browser.
-- **K3D-D** — If at S70 PDF-to-BIM accuracy bar (per `[strategic ADR-029]` Part E) is not met, defer public preview to post-GA; ship under "preview" or full label per ADR-029 Part E gate.
+- **K3D-D** — If at S70 PDF-to-BIM accuracy bar (per `[strategic ADR-0229]` Part E) is not met, defer public preview to post-GA; ship under "preview" or full label per ADR-0229 Part E gate.
 
 ---
 
@@ -518,12 +518,12 @@ GA ships only when **all** of:
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S67** | Multi-region prep — Tier-2 cuttable per `[strategic ADR-018]` T2.6; if not cut, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1. | `[strategic ADR-018]`, SPEC-15, SPEC-24 |
-| **S68** | SOC2 quarterly access-review automation per SPEC-24 §1.10. SAML / SCIM mappings table per `[strategic ADR-021]` + SPEC-24 §1.1. | `[strategic ADR-021]`, SPEC-24 |
+| **S67** | Multi-region prep — Tier-2 cuttable per `[strategic ADR-0218]` T2.6; if not cut, EU-West + US-East regional Supabase primaries provisioned per SPEC-24 §1.3 + SPEC-15 §3.1. | `[strategic ADR-0218]`, SPEC-15, SPEC-24 |
+| **S68** | SOC2 quarterly access-review automation per SPEC-24 §1.10. SAML / SCIM mappings table per `[strategic ADR-0221]` + SPEC-24 §1.1. | `[strategic ADR-0221]`, SPEC-24 |
 | **S69** | DR drill: rollback runbook tested in last DR drill per SPEC-27 §9. | SPEC-27 |
-| **S70** | Self-host docker-compose published per SPEC-15 §7. Self-host migration tooling published per SPEC-27 §7. PDF-to-BIM public preview launch per `[strategic ADR-029]`. Self-host BYO-key safety cap enforced per SPEC-28 §11. Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-030 Part D. | SPEC-15, SPEC-27, SPEC-28, `[strategic ADR-029]`, ADR-030 |
+| **S70** | Self-host docker-compose published per SPEC-15 §7. Self-host migration tooling published per SPEC-27 §7. PDF-to-BIM public preview launch per `[strategic ADR-0229]`. Self-host BYO-key safety cap enforced per SPEC-28 §11. Legacy `src/lifecycle/` **deleted** per SPEC-27 §4.3 + ADR-0230 Part D. | SPEC-15, SPEC-27, SPEC-28, `[strategic ADR-0229]`, ADR-0230 |
 | **S71** | Final hardening; all SPEC §11 Phase rollout items checked. Format v1 frozen per SPEC-26. | all SPECs |
-| **S72** (GA) | All targets green: SPEC-15 §8 perf; SPEC-30 §2 all four tiers; SPEC-26 round-trip; ADR-022 single-frame-owner; `[strategic ADR-026]` zero `react` symbols in editor bundle; ADR-027 formula library frozen at v1; ADR-028 SOC2 evidence audit-trail captured; `[strategic ADR-029]` accuracy bar measured; ADR-030 `plugins/lifecycle/` GA-shipped. PDF-to-BIM ships under "preview" or full label per `[strategic ADR-029]` Part E gate. | all |
+| **S72** (GA) | All targets green: SPEC-15 §8 perf; SPEC-30 §2 all four tiers; SPEC-26 round-trip; ADR-0222 single-frame-owner; `[strategic ADR-0226]` zero `react` symbols in editor bundle; ADR-0227 formula library frozen at v1; ADR-0228 SOC2 evidence audit-trail captured; `[strategic ADR-0229]` accuracy bar measured; ADR-0230 `plugins/lifecycle/` GA-shipped. PDF-to-BIM ships under "preview" or full label per `[strategic ADR-0229]` Part E gate. | all |
 
 ---
 
@@ -533,12 +533,12 @@ These are deliberately deferred to post-GA so the M36 launch is achievable:
 
 - **Native mobile authoring app** (NG4 in `08-VISION.md`).
 - **CFD / FEM / energy simulation in-editor** (NG3) — these are post-GA plugins.
-- **IFC 4.3 advanced features** (per `[strategic ADR-008]`).
+- **IFC 4.3 advanced features** (per `[strategic ADR-0208]`).
 - **Single-binary self-host** (after Docker Compose path stable).
 - **Multi-region SaaS deployment** (US/EU/APAC failover).
 - **SOC 2 / ISO 27001 certification** (post-GA, ~6 months).
 - **AI plugin marketplace tier** (revenue-share for AI workflow authors).
-- **Real-time co-presence in component editor** (component editor is single-author at GA — and per `[strategic ADR-018]` T2.2 deferred to v2 backlog).
+- **Real-time co-presence in component editor** (component editor is single-author at GA — and per `[strategic ADR-0218]` T2.2 deferred to v2 backlog).
 - **PRYZM 1 → PRYZM 2 batch migration tool** (S72 ships per-project migration; batch tool in 90-day window).
 
 ---

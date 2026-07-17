@@ -35,7 +35,7 @@ These issues must be fixed within the following constraints:
 | Contract / Principle | Relevance |
 |----------------------|-----------|
 | **C11 §5.2** — typed domain events MUST flow through `runtime.events` | F1, F2, F3, F4: bridge pattern |
-| **ADR-002 §2** — handlers are pure; no direct `runtime.events` calls from L4 handlers | F1, F2: `CommandEventBridge` is the correct enrichment point |
+| **ADR-0202 §2** — handlers are pure; no direct `runtime.events` calls from L4 handlers | F1, F2: `CommandEventBridge` is the correct enrichment point |
 | **C14 §3** — legacy stores are transitional; the bus+bridge pattern is the correct migration path | F1, F2, F3, F4 |
 | **C15 §8** — hosted-element dual-store rule; doors/windows must follow parent wall baseline | F6 |
 | **C15 §13** — dispatch resilience; bus failures must log loudly, not swallow silently | F1–F4 |
@@ -296,4 +296,4 @@ This plan is **COMPLETE** when:
 
 ---
 
-*Last updated: 2026-05-18 | Author: PRYZM Agent | Contract refs: C11, C14, C15, ADR-002, P6, §WALL-DEEP-2026*
+*Last updated: 2026-05-18 | Author: PRYZM Agent | Contract refs: C11, C14, C15, ADR-0202, P6, §WALL-DEEP-2026*

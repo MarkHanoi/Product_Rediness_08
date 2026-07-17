@@ -12,13 +12,13 @@ Every binding architectural decision in PRYZM. Once a contract or ADR is merged,
 |---|---|---|
 | [contracts/](./contracts/) | The 30 binding contracts — C00–C30. The "law of the land." | `CNN` (zero-padded) |
 | [adrs/](./adrs/) | ~55 Architecture Decision Records. Per-decision rationale that supports the contracts. | `ADR-NNNN` (4-digit, zero-padded) — strategic ADRs are `ADR-NNN` (3-digit) and live in this folder too |
-| [principles/](./principles/) | P1–P8 expansions — one file per principle (placeholder; principles are defined in [../01-strategy/engineering-vision.md §2](../01-strategy/engineering-vision.md) for now). | `P-N` |
+| [principles/](./principles/) | P1–P8 expansions — one file per principle (placeholder; principles are defined in [../01-strategy/STR-03-engineering-vision.md §2](../01-strategy/STR-03-engineering-vision.md) for now). | `P-N` |
 
 ## §2 — Authority order
 
 1. **Contracts (C-numbered)** — binding rules. Code that disagrees is wrong.
 2. **ADRs (ADR-numbered)** — rationale + decision history. A contract may cite an ADR as its justification; if the ADR is superseded, the contract clause should be updated in the next contract revision.
-3. **Principles (P-numbered)** — the P1–P8 engineering charter from [01-strategy/engineering-vision.md](../01-strategy/engineering-vision.md). Wins over contracts on conflict.
+3. **Principles (P-numbered)** — the P1–P8 engineering charter from [01-strategy/STR-03-engineering-vision.md](../01-strategy/STR-03-engineering-vision.md). Wins over contracts on conflict.
 
 ## §3 — Lifecycle
 
@@ -49,7 +49,7 @@ CI gate: any edit to a RATIFIED file fails unless the diff is a `Status: SUPERSE
 | A binding rule that everyone downstream must obey | **Contract (CNN)** | [contracts/](./contracts/) |
 | Why a specific clause in a contract is what it is | **ADR (ADR-NNNN)** | [adrs/](./adrs/) |
 | A trade-off you considered and rejected | **ADR** (Status: REJECTED) | [adrs/](./adrs/) |
-| A binding architectural commitment (lint-gateable) | **Principle (PN)** — only with leadership approval | [01-strategy/engineering-vision.md](../01-strategy/engineering-vision.md) |
+| A binding architectural commitment (lint-gateable) | **Principle (PN)** — only with leadership approval | [01-strategy/STR-03-engineering-vision.md](../01-strategy/STR-03-engineering-vision.md) |
 | A specific implementation choice that supports a contract | **Spec (SPEC-NN)** — not here; goes to [03-execution/specs/](../03-execution/specs/) | execution/specs |
 
 ## §6 — Indexes

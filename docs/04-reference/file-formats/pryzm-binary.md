@@ -6,7 +6,7 @@
 | **Status** | Stable for Phase 1 alpha |
 | **Reference impl.** | [`packages/file-format/`](../../packages/file-format) |
 | **CLI** | [`apps/cli/`](../../apps/cli) (`pryzm-cli pack/unpack/inspect`) |
-| **ADR** | [ADR-0018](../architecture/adr/0018-pryzm-zip-format-v1.md) |
+| **ADR** | [ADR-0018](../architecture/adr/ADR-0018-pryzm-zip-format-v1.md) |
 | **Phase doc** | [`PHASE-1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`](../archive/pryzm3-internal/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md) §S20 |
 
 This document is the **byte-level** spec of the `.pryzm` container.  It
@@ -120,7 +120,7 @@ Each batch file is the [MessagePack](https://msgpack.org/) encoding of
 an array of `PersistedEvent` records.  The encoding uses the standard
 MessagePack codec (no custom extensions); event payloads MAY contain
 the aliased-keys extension defined by the persistence-client codec
-(ADR-004).
+(ADR-0204).
 
 ### 3.1 `PersistedEvent` shape
 

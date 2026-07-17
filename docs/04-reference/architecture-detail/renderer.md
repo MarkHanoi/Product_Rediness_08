@@ -2,7 +2,7 @@
 
 > S06 Track B deliverable.  Spec:
 > `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md` §S06 (lines 555–701);
-> ADR-007 (`docs/02-decisions/adrs/0007-webgpu-webgl2-dual-mode.md`).
+> ADR-0207 (`docs/02-decisions/adrs/ADR-0007-webgpu-webgl2-dual-mode.md`).
 
 The renderer is **L5/L7** in the layered stack — the only package
 allowed to import `three` outside `@pryzm/scene-committer` and the
@@ -13,7 +13,7 @@ explicitly allowlisted boot file `apps/editor/src/bootstrap.render.ts`
 
 1. **Single, narrow surface.**  `Renderer.init(canvas, opts)` →
    `{ scene, camera, render(), attachTo(scheduler), dispose() }`.
-2. **Dual-mode** (`webgpu` | `webgl2`) — auto-detected per ADR-007.
+2. **Dual-mode** (`webgpu` | `webgl2`) — auto-detected per ADR-0207.
    Both modes route through `THREE.WebGLRenderer` in 1A; the `'webgpu'`
    tag is a *contract surface* for 1B's `THREE.WebGPURenderer` swap.
 3. **Forward-only, no post-FX.**  Single-mesh `MeshPass` + a clearing
@@ -28,7 +28,7 @@ explicitly allowlisted boot file `apps/editor/src/bootstrap.render.ts`
 ```
 packages/renderer/
   src/
-    Renderer.ts             — boot, mode-resolution table (ADR-007),
+    Renderer.ts             — boot, mode-resolution table (ADR-0207),
                               dispose, attachTo(scheduler).
     CameraController.ts     — vanilla orbit + pan + wheel; calls
                               scheduler.markDirty('camera') on input.
@@ -44,7 +44,7 @@ packages/renderer/
     Pipeline.test.ts        — Pipeline + ClearPass + MeshPass.
 ```
 
-## Mode resolution (ADR-007)
+## Mode resolution (ADR-0207)
 
 | Requested | `navigator.gpu` / `gpuProvider` | Adapter request | Resolved mode |
 |---|---|---|---|

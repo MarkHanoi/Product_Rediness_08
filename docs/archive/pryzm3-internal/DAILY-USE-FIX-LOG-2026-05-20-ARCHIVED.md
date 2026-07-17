@@ -4,7 +4,7 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
-## ✅ APPLIED — Round 55 (2026-05-24: ADR-051 per-type undo rollout — undo+redo for ALL geometry element types)
+## ✅ APPLIED — Round 55 (2026-05-24: ADR-0251 per-type undo rollout — undo+redo for ALL geometry element types)
 
 ### Scope
 Generalised the wall undo slice to **every geometry element type** (architect: "we want undo for all elements"). Store-surface analysis confirmed all element stores share `add` + `remove` (CurtainWall also `delete`) + an existence check (`getById`/`get`) + `update`.
@@ -12,10 +12,10 @@ Generalised the wall undo slice to **every geometry element type** (architect: "
 ### Change
 - `apps/editor/src/engine/undo/wallUndoStoreAdapter.ts` → **renamed/generalised** to `elementUndoStoreAdapter.ts`: a **duck-typed** `applyPatch` adapter over the legacy-store mutator union (drives the mesh); inverse `remove`→`remove`/`delete` (undo), forward `add`→`add` (redo), field→`update`; **never throws** (C03 §4.6 U-4). New `adaptElementStoreMap()` wraps a whole `{key→store}` map.
 - Wired into **all 4** hand-rolled undo/redo sites (`initUI._buildRingBufferStoreMap`, `BimService._buildStoreMap`, `NavigationAreaLayout`, `DockingLayout`) for **wall, slab, room, curtain-wall, furniture, column, beam, stair, handrail, roof, floor, ceiling, plumbing** (+ plural aliases).
-- **Excluded → left RAW (B3 fallback to `commandManager.undo()`):** `door`/`window` (HOSTED — undo must also remove the wall opening; two-part undo = next ADR-051 slice) and `level` (Path-A).
+- **Excluded → left RAW (B3 fallback to `commandManager.undo()`):** `door`/`window` (HOSTED — undo must also remove the wall opening; two-part undo = next ADR-0251 slice) and `level` (Path-A).
 
 ### Verification
-`apps/editor/__tests__/elementUndoStoreAdapter.test.ts` **7/7** (undo via `remove()`; undo via `delete()`+`get()` variant; redo via `add()`; round-trip on both store shapes; field replace; idempotent/never-throw incl. method-less store; `adaptElementStoreMap` wrapping). Editor typecheck clean for all 5 touched files (only the pre-existing `window.*` TS2339 baseline). **Live-verify pending** (architect): draw each element type in plan/3D → Ctrl+Z reverts data+mesh, Ctrl+Y re-adds. **Contract:** ADR-051 (per-type rollout), C03 §4.7 B1+B2. Client edit → browser refresh.
+`apps/editor/__tests__/elementUndoStoreAdapter.test.ts` **7/7** (undo via `remove()`; undo via `delete()`+`get()` variant; redo via `add()`; round-trip on both store shapes; field replace; idempotent/never-throw incl. method-less store; `adaptElementStoreMap` wrapping). Editor typecheck clean for all 5 touched files (only the pre-existing `window.*` TS2339 baseline). **Live-verify pending** (architect): draw each element type in plan/3D → Ctrl+Z reverts data+mesh, Ctrl+Y re-adds. **Contract:** ADR-0251 (per-type rollout), C03 §4.7 B1+B2. Client edit → browser refresh.
 
 ---
 
@@ -2608,7 +2608,7 @@ CommandBus ring buffer. Plan-view creation is **bus-only** (every `PlanToolHandl
 `runtime.bus.executeCommand`), so a plan wall lives ONLY in the ring buffer → "history empty".
 3D tools **dual-dispatch** (`WallTool` also runs `commandManager.execute(CreateWallCommand)`),
 so a 3D wall WAS in `commandManager.history` → the button undid it. The keyboard handler already
-did ring-buffer-first (and the §ADR-051 adapter on it was correct), so undo "worked" via keyboard
+did ring-buffer-first (and the §ADR-0251 adapter on it was correct), so undo "worked" via keyboard
 but the architect was clicking the button. All my prior `[Undo-DIAG]`/`[elementUndoStoreAdapter]`
 diagnostics never fired because the button path never reached them.
 
@@ -2627,7 +2627,7 @@ cleanup the shadow-dropped command did → no registration leak); temp DIAG log 
 
 **Docs:** C03 §4.5 (single path) / §4.6 (U-5 redefined to `performUndoRedo`, new U-8) / §4.7
 (rewritten — B1/B2/B3 closed; follow-ups = hosted door/window two-part undo, cross-stack redo
-ordering, L1/legacy single store) + ADR-051 "Interim shipped" + master status OI-054 + this round.
+ordering, L1/legacy single store) + ADR-0251 "Interim shipped" + master status OI-054 + this round.
 
 **Gates:** `@pryzm/editor` typecheck **0 errors**; `@pryzm/command-registry` clean in
 `CommandManagerImpl.ts` (pre-existing plugin TS debt unrelated). Unit tests **12/12**:
@@ -2657,7 +2657,7 @@ adapter, so a future spelling drift fails CI. Documented C03 §4.8 table.
 **Gates:** editor typecheck 0 errors; `performUndoRedo.test.ts` **6/6** (5 routing + 1 coverage) +
 adapter 7/7. **Live-confirmed (architect):** plan-view curtain-wall UNDO works; wall undo+redo works.
 **Open follow-ups (do NOT regress):** hosted door/window standalone two-part undo; section/structural
-(no window store) on cm fallback; cross-stack redo ordering; ADR-051 single-store end-state.
+(no window store) on cm fallback; cross-stack redo ordering; ADR-0251 single-store end-state.
 
 ## Round 58 — OI-054 redo: curtain-wall "redo did nothing" → REDO-SHAPE-FIX (2026-05-24)
 

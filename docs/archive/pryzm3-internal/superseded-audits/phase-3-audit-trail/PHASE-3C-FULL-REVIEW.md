@@ -30,7 +30,7 @@ into S67+.
 2. **api-gateway webhooks routes** — 6 admin-gated routes under
    `/v1/admin/webhooks/*` (catalog, list, create, get, set-active,
    delete, test-fire).  Workspace-scoped, secret-once-on-create,
-   admin-role + `project:write` gated, rate-limited per ADR-018.
+   admin-role + `project:write` gated, rate-limited per ADR-0218.
 3. **OpenAPI 3.1 spec** — 6 new path operations + 2 new schemas;
    SHA-256 byte-pin re-pinned.
 4. **`apps/headless` publish prep** — metadata landed (engines, bin,

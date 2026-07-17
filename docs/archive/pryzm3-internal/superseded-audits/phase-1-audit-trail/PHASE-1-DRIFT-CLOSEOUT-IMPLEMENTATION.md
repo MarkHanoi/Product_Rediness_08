@@ -73,16 +73,16 @@ Confirm `BulkSetWallVisualsHandler` is exported and registered. (Spot-check duri
 
 ---
 
-## Item 2 — Built-in type catalogue gap (Phase 1C / ADR-017)
+## Item 2 — Built-in type catalogue gap (Phase 1C / ADR-0217)
 
 ### Observation
 - `packages/types-builtin/src/` currently ships only **7** family folders: `ceiling, curtain-wall, door, handrail, roof, stair, window`.
 - The 12 element families implemented in `plugins/*` and `packages/geometry-kernel/src/producers/*` are: the 7 above **+ column, beam, slab, furniture, grid, plumbing, lighting, structural**.
 - `packages/types-builtin/package.json` only declares `exports` paths for door / window / roof / curtain-wall.
-- ADR `docs/00_NEW_ARCHITECTURE/adrs/ADR-017-type-catalog-scope.md` is the source of truth for what belongs in this package.
+- ADR `docs/00_NEW_ARCHITECTURE/adrs/ADR-0217-type-catalog-scope.md` is the source of truth for what belongs in this package.
 
 ### Decision
-**Split the gap. Backfill the 4 elements that benefit from a v1 starter set; explicitly defer the other 4 in ADR-017.**
+**Split the gap. Backfill the 4 elements that benefit from a v1 starter set; explicitly defer the other 4 in ADR-0217.**
 
 | Family | Action | Reason |
 |---|---|---|
@@ -90,10 +90,10 @@ Confirm `BulkSetWallVisualsHandler` is exported and registered. (Spot-check duri
 | `beam` | **Backfill** v1 starter | Discrete catalogue: rectangular, I-section, channel — mirrors PRYZM 1 beam types. |
 | `slab` | **Backfill** v1 starter | Layered assembly catalogue (concrete, composite, hollow-core) consistent with `roof`. |
 | `furniture` | **Backfill** v1 starter | The plugin already ships GLB packs; needs a typed registry to keep the picker honest. |
-| `grid` | **Defer in ADR-017** | Project-instance configuration; no industry-standard discrete types. |
-| `plumbing` | **Defer in ADR-017** | Routing primitive; types belong in MEP catalogue (Phase 4 BIM-2). |
-| `lighting` | **Defer in ADR-017** | Photometric/IES catalogue is out-of-scope for built-in types (vendor data). |
-| `structural` | **Defer in ADR-017** | Analytical model; types live in the structural plugin's own analytical schema. |
+| `grid` | **Defer in ADR-0217** | Project-instance configuration; no industry-standard discrete types. |
+| `plumbing` | **Defer in ADR-0217** | Routing primitive; types belong in MEP catalogue (Phase 4 BIM-2). |
+| `lighting` | **Defer in ADR-0217** | Photometric/IES catalogue is out-of-scope for built-in types (vendor data). |
+| `structural` | **Defer in ADR-0217** | Analytical model; types live in the structural plugin's own analytical schema. |
 
 ### Required changes
 
@@ -110,7 +110,7 @@ Use `packages/types-builtin/src/door/index.ts` as the canonical template (file s
 
 All 4 files follow the same conventions as the existing 7:
 - Pure data, no Zod.
-- Header comment cites `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` and ADR-017.
+- Header comment cites `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` and ADR-0217.
 - `Object.freeze` the array exports.
 - Include a default colour appropriate to the family.
 
@@ -169,8 +169,8 @@ For each plugin, replace any inline default with the catalogue lookup (one-line 
 | `plugins/slab` | `plugins/slab/src/store.ts` | Same pattern with `DEFAULT_SLAB_TYPE_ID`. |
 | `plugins/furniture` | `plugins/furniture/src/store.ts` | Same pattern with `DEFAULT_FURNITURE_TYPE_ID`. Reconcile against the existing GLB picker so the catalogue is the single source. |
 
-#### 2.4 — Update ADR-017
-**File:** `docs/00_NEW_ARCHITECTURE/adrs/ADR-017-type-catalog-scope.md`
+#### 2.4 — Update ADR-0217
+**File:** `docs/00_NEW_ARCHITECTURE/adrs/ADR-0217-type-catalog-scope.md`
 
 Add (or amend) two sections:
 
@@ -276,7 +276,7 @@ Phase 1 is closed when **all** of the following are true on `main`:
 2. `pnpm --filter @pryzm/types-builtin run typecheck && pnpm --filter @pryzm/types-builtin test` exits 0.
 3. `editor/tooling/release/release.sh alpha --confirm-alpha` succeeds end-to-end against staging, with `scripts/check-otel-emission.mjs` returning a real span.
 4. ADR-0008 header carries the 22→15 amendment note.
-5. ADR-017 lists the 11 in-scope and 4 deferred families with rationale.
+5. ADR-0217 lists the 11 in-scope and 4 deferred families with rationale.
 6. `apps/bench/reports/M12-alpha.md` has a populated "Gate Closure Evidence" section.
 
 Total estimated effort: **~5 h of engineering work** + the deploy-day video recording.

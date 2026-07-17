@@ -516,7 +516,7 @@ private _detectBatchConflicts(info: BatchWindowCloseInfo): void {
 }
 ```
 
-**Y.Doc-per-level split (ADR-049)**:
+**Y.Doc-per-level split (ADR-0249)**:
 `_levelDocs: Map<levelId, Y.Doc>` + coordination doc. Feature gated behind `PRYZM_YDOC_PER_LEVEL=true`.
 
 ### Production deployment gap (code-confirmed)
@@ -820,7 +820,7 @@ Original scores from `06-SENIOR-ARCHITECT-AUDIT.md` (2026-05-03), updated with c
 | Rendering | 7/10 | LODManager confirmed in `packages/scene-committer/`; GPU pick depth readback confirmed; G1/G2 fixes confirmed. Gap: WebGPU mobile fallback not wired. Extra packages `render-pipeline`, `render-runtime` not documented — may address some gaps. |
 | IFC & Open BIM | 7/10 | IFC4X3Exporter real implementation confirmed; IFCParseWorker confirmed. Gap: no buildingSMART CI validation; no federated models. |
 | Geospatial | 5/10 | LTPENURebase.ts confirmed (double-precision). `plugins/geospatial/` promoted. Gap: no 3D Tiles, no GIS formats. Score unchanged. |
-| Threading & compute | 7/10 | Geometry worker (ADR-047) confirmed in `CurtainWallBuilder.ts`. Constraint solver worker confirmed. Gap: no SAB zero-copy. |
+| Threading & compute | 7/10 | Geometry worker (ADR-0247) confirmed in `CurtainWallBuilder.ts`. Constraint solver worker confirmed. Gap: no SAB zero-copy. |
 | Persistence | 7/10 | Sprint S140 all 17 gaps confirmed in server.js. Two IndexedDBStore.ts implementations confirmed. Gap: no incremental snapshot storage. |
 | State management | 7/10 | `packages/runtime-undo-stack/` + `UndoStack` confirmed. `check-ctrl-z-wired.ts` gate exits 0. |
 | Collaboration | 8/10 | G3 all 4 tasks confirmed in YjsDocAdapter. Y.Doc-per-level confirmed. Gap: production Yjs server pending. |

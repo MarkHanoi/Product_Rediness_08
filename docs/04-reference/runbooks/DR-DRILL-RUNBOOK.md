@@ -1,5 +1,48 @@
 # Disaster Recovery Drill Runbook
 
+> ⚠️ **REALITY CHECK (2026-07-16, L-349):** this runbook references `pryzm-ops`, a cold backup tier, and/or automated restore tooling that **does not exist yet** (tracked as **L-344 / C48**). Today PRYZM has NO automated backup, PITR, cold tier, or DR restore — `DELETE` is permanent. Treat the recovery steps below as the *target* C48 design, **not live procedure**. For what actually works today, see [RUNBOOK-ACCIDENTAL-DELETE.md §0](RUNBOOK-ACCIDENTAL-DELETE.md).
+
+## §0 — REAL restore drill you can run TODAY (L-344 — the one proven restore)
+
+> Everything from §1 down is the *aspirational* PRYZM-2 DR design (`pryzm-ops`, event-log replay, multi-region). **This §0 is the procedure that works against the ACTUAL production stack (Fly-hosted Postgres) with the tools that exist today (`pg_dump`/`pg_restore`).** Per L-344 the goal is NOT full automation before launch — it is **ONE real, manually-tested restore proven to work**, timed against the RTO. Run it once, record it in `incidents/`, and you have a defensible answer to "can you restore a lost project?".
+
+### §0.1 — Take a backup (what's actually running is ad-hoc pg_dump)
+Prereqs: `pg_dump`/`pg_restore` (Postgres client tools), the production `DATABASE_URL` (Fly Postgres — read it from `fly secrets`/the Fly dashboard; **never commit it**), and a **scratch** database to restore INTO (a second Fly Postgres, a local Postgres, or a fresh DB on the cluster).
+
+```bash
+# 1. Snapshot production. custom format = selectively restorable. Run from a trusted ops box.
+pg_dump "$PROD_DATABASE_URL" --format=custom --no-owner --no-privileges \
+  --file="pryzm-$(date +%Y%m%d-%H%M).dump"
+# Record byte size + wall-clock — this is your RPO evidence.
+```
+
+### §0.2 — Restore into a SCRATCH database (never over prod)
+```bash
+# 2. Restore into an EMPTY scratch DB. --clean --if-exists makes it repeatable.
+pg_restore --clean --if-exists --no-owner --no-privileges \
+  --dbname="$SCRATCH_DATABASE_URL" "pryzm-YYYYMMDD-HHMM.dump"
+# Time this end-to-end — it is your RTO evidence vs the §2 target.
+```
+
+### §0.3 — VERIFY the restore works (not just "no error")
+```bash
+# 3a. Row-level proof: a known project + its versions are present and non-empty.
+psql "$SCRATCH_DATABASE_URL" -c \
+  "select id, name, owner_id, created_at from projects order by created_at desc limit 5;"
+psql "$SCRATCH_DATABASE_URL" -c \
+  "select project_id, count(*) versions, max(created_at) latest \
+     from project_versions group by project_id order by latest desc limit 5;"
+```
+Then the REAL proof: point a local/staging PRYZM at `$SCRATCH_DATABASE_URL` (set `DATABASE_URL`, boot the server, sign in as the project owner) and **open the restored project** — confirm the BIM + site load, matching what was there. A restore that "completes" but whose project won't open is a **FAILED** drill.
+
+### §0.4 — Record it (this record IS the deliverable)
+File `incidents/YYYY-MM-DD-restore-drill.md` with: dump size, backup wall-clock (RPO), restore wall-clock (RTO vs §2), the verify-query output, whether the project opened, and any gaps. That record is the "one proven restore" the launch needs (closes the executable half of L-344).
+
+### §0.5 — What this does NOT give you (honest scope)
+No automated schedule, no PITR, no cold tier, no self-service trash — those are L-344/C48, post-launch. A manual `pg_dump` is only as fresh as the last run, so until L-344 automates it: schedule a recurring manual dump (even a weekly ops-box cron) and keep the dumps **off** the prod box (object storage / a second region).
+
+---
+
 **Sprint**: PRYZM 2 Phase 3D · S69 D6
 **Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 D6 (line 292) — "DR drill execution (rollback runbook test)"; exit-criterion (line 304) — "DR drill green; rollback runbook validated."
 **Failure-mode source**: `docs/03-execution/specs/SPEC-27-MIGRATION-ROLLBACK.md` §8 (the four migration failure modes) + §9 (DR drill cadence).
@@ -23,7 +66,7 @@ The runbook covers:
 
 It explicitly does **not** cover:
 
-- Region-failover drills (deferred per `0049-s67-multi-region-cut-decision.md` to post-GA when the second region exists).
+- Region-failover drills (deferred per `ADR-0049-s67-multi-region-cut-decision.md` to post-GA when the second region exists).
 - Full point-in-time restore from S3-backed Postgres snapshots (deferred to S70 D8 self-host-publish day; this runbook references the procedure but does not executable it).
 - Customer-facing comms procedures (owned by the GA marketing playbook in S71).
 
@@ -295,7 +338,7 @@ Per real-incident (NOT cadence drill):
 ## §11 What this runbook does NOT claim
 
 - It does **not** claim a real production drill has been executed at S69 close — drill #0 is the runbook authoring itself; drill #1 is scheduled S70 D8 (the first time the self-host live-Postgres path is operator-touchable in this sprint cadence).
-- It does **not** cover region-failover (deferred per `0049-s67-multi-region-cut-decision.md`).
+- It does **not** cover region-failover (deferred per `ADR-0049-s67-multi-region-cut-decision.md`).
 - It does **not** cover full WAL-archive PITR — §3.5 documents the procedure but ADR-0049 §F admits WAL archiving is not yet wired (M37+ post-GA).
 - It does **not** replace the SOC2 §1.10 quarterly secret-rotation drill (`docs/04-reference/security/secret-rotation-playbook.md` §5) — that drill runs on the same cadence but covers different artifacts.
 - It does **not** include a customer-comms script — that lives in the S71 marketing playbook.

@@ -169,7 +169,7 @@ The user-facing public surface after GA:
 2. **`@pryzm/headless`** — npm package, runtime without UI. Today: stub. Phase F.45 publishes.
 3. **REST + WebSocket APIs** — `/api/v1/*` and `/ws/v1/*`. Today: stub server. Phase F.55 lands.
 4. **`.pryzm-family` file format** — Phase 3B sprint S55–S59. SPEC-26 normative.
-5. **IFC Tier 1 round-trip** — Phase 3B sprint S55–S58. ADR-039, SPEC-12 normative.
+5. **IFC Tier 1 round-trip** — Phase 3B sprint S55–S58. ADR-0239, SPEC-12 normative.
 6. **Marketplace** — `marketplace.pryzm.app`. Phase F.80 deliverable. Today: domain registered, no surface.
 
 The full Phase F sub-phase list (195 items) is in `wireup-S72/chunks/16-subphases-F1-toolbars.md` through `chunks/18-subphases-F6-F12.md` and the dedicated phase plan `phases/PHASE-3/3C-PLUGIN-SDK-MARKETPLACE.md`.
@@ -201,7 +201,7 @@ The "L6 subset" means the SDK facade re-exports a curated subset, not the full s
 - **Not the live status.** That's `03_STATUS/00-CURRENT-STATE-AUDIT.md` + `03_STATUS/01-PROCESS-TRACKER.md`.
 - **Not the file inventory.** That's `02-FILE-STRUCTURE.md` (per-file breakdown of all 49 packages).
 - **Not the per-package spec.** That's `specs/SPEC-01.md` through `specs/SPEC-48.md`.
-- **Not the per-decision rationale.** That's `adrs/ADR-001.md` through `adrs/ADR-044.md`.
+- **Not the per-decision rationale.** That's `adrs/ADR-0201.md` through `adrs/ADR-0244.md`.
 
 This document is the **shape of the system + the binding rules + the lint gates**. Kept short on purpose.
 

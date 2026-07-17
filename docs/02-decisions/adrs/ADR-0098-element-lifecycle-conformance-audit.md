@@ -4,7 +4,7 @@
 > `docs/archive/pryzm3-internal/ELEMENT-OPERATIONS-AUDIT-2026-05-17.md` (now ~7 weeks stale) against HEAD.
 > **Governance note**: Project rules forbid new `*-AUDIT.md` derivative docs. This audit is therefore recorded
 > as a canonical ADR. The remediation backlog it produces lives in
-> `docs/04-reference/ELEMENT-LIFECYCLE-REMEDIATION-PLAN.md`.
+> `docs/04-reference/element-lifecycle-remediation-plan.md`.
 > **Authoritative contracts referenced**: C03 (schemas/commands/state), C04 (rendering/scheduling),
 > C10 (performance/observability), C11 (element-creation pipeline), C15 (hosted-element contract),
 > C16 (command-authoring protocol), C18 (element preview visual contract).
@@ -125,7 +125,7 @@ uniformly commanded).
 
 - **C15 §3 + §9 / C10** — a single-element edit must rebuild only that element and emit a duration span.
   F1/F3 violate this: bound the re-anchor scan (wall→openings index), keep the openings-only/body-only fast
-  path (ADR-057) for host moves, and coalesce redetect + plan re-projection to one settle.
+  path (ADR-0257) for host moves, and coalesce redetect + plan re-projection to one settle.
 - **C04** — F2/F7: per-move rendering must start from a clean buffer (WebGL2) and post-load work must yield.
 - **C15 §11/§12 / C06** — F4: selection must resolve the id under the exact cursor pixel first.
 - **C11/C16 / C03** — F5/F8: introduce a uniform **transform** command family (`Move`/`Rotate`) or document
@@ -141,7 +141,7 @@ uniformly commanded).
 2. Treat **F1, F2** as ship-blockers (freezes) — fix first; **F3–F7** as the next wave; **F5/F6/F8** as an
    architectural workstream (uniform transform + materials command families).
 3. Produce a prioritized, milestone-based remediation plan at
-   `docs/04-reference/ELEMENT-LIFECYCLE-REMEDIATION-PLAN.md` with acceptance criteria + regression tests per item.
+   `docs/04-reference/element-lifecycle-remediation-plan.md` with acceptance criteria + regression tests per item.
 4. Every fix carries a `§`-tag and, where it changes a contract, a superseding ADR — never a new audit doc.
 
 ## 7. Consequences

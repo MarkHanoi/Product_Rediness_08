@@ -1,4 +1,4 @@
-# ADR-049 — Y.Doc-per-level CRDT Split
+# ADR-0249 — Y.Doc-per-level CRDT Split
 
 **Status**: Accepted (2026-05-09)
 **Supersedes**: C08 §3.1 (single Y.Doc per project — Phase 2D original contract)
@@ -109,8 +109,8 @@ Per-level mode MUST NOT be enabled in production until `seqNo` cross-level order
 
 ## Related
 
-- ADR-048 — Virtualized ElementStore with spatial LRU (Task 4.3)
-- ADR-050 — AI response cache (Task 4.5, next)
+- ADR-0248 — Virtualized ElementStore with spatial LRU (Task 4.3)
+- ADR-0250 — AI response cache (Task 4.5, next)
 - C08 §3.1 — original CRDT contract (Phase 2D)
 - NFT 7 — CRDT merge < 80 ms p95 for 2 concurrent users
 - NFT 8 — Conflict surface < 1 s

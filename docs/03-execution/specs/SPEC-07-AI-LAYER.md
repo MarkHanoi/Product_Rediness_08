@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B7` |
 | Phases | 1A (host scaffold), 1A close (first plugin), 1D (approval queue), 2D (inline AI in collab), 3A (full L7.5 surface), 3C (public AI API, marketplace) |
-| Required ADRs | ADR-014 (AI L7.5 operational semantics) |
+| Required ADRs | ADR-0214 (AI L7.5 operational semantics) |
 
 > AI is the moat. This spec defines the L7.5 surface — how plugins read state, how they propose mutations, the approval queue, prompt/version pinning for reproducibility, cost guardrails, and headless AI access. The "Phase-4 gated" model from Contract 04 is dead (see CONFLICT-ANALYSIS §3.6).
 
@@ -254,6 +254,6 @@ For on-prem deployments (D7 enterprise variant), the AI worker can be configured
 - Layer placement: `08-VISION §4` (L7.5).
 - Conflict mapping: `CONFLICT-ANALYSIS.md §3.6`.
 - Phase deliverables: `phases/PHASE-1A` (host), `phases/PHASE-1D` (approval queue UI), `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §2 (3A AI), §4 (3C public API).
-- ADR: `adrs/ADR-014-ai-l75-operational.md`.
+- ADR: `adrs/ADR-0214-ai-l75-operational.md`.
 - Sync interaction: SPEC-03 §4.6 (ai-batch lock).
 - Cost / security: SPEC-08 §6 (rate limiting + budgets).

@@ -131,7 +131,7 @@ Each NEW RENDERABLE FURNITURE TYPE (F1.x) MUST close every row below before the 
 | 8 | Plan-view projection cache entry (16/18 already covered) | C11 §6 / `PLAN-VIEW-…-ARCHIVED` archive | `packages/core-app-model/src/views/ViewRenderCache.ts` |
 | 9 | **Snapshot save/load** round-trip | C05 §1.2.2 | `packages/persistence-client/src/snapshot/*` — driven by Zod schema (row 1) |
 | 10 | **CRDT replication** (Yjs) | C08 §2 | inherited from `furniture.create` registration if the command is on the bus (row 7) |
-| 11 | **ADR-051 single-store undo** (P6 + ADR-051) | C03 §4.5 | inherited from `furnitureStore` if the command takes that path |
+| 11 | **ADR-0251 single-store undo** (P6 + ADR-0251) | C03 §4.5 | inherited from `furnitureStore` if the command takes that path |
 | 12 | **IFC export** mapping (IfcFurniture predefined type) | C12 §3 | `packages/file-format/src/ifc/IfcFurnitureWriter.ts` |
 | 13 | **Selection + hover** behaviour | C06 §5 | `packages/picking/`, no per-kind code needed if it uses standard furniture pipeline |
 | 14 | **Visibility intent** rules (P7) | C09 §4 | `packages/visibility/src/intents/`, inherits furniture defaults unless explicitly overridden |
@@ -423,7 +423,7 @@ For one new `FurnitureType` (e.g. `desk`):
 | .g | Plan-view projection cache entry (per `PLAN-VIEW-…-ARCHIVED` policy — version-stamp + LRU) | `core-app-model/src/views/ViewRenderCache.ts` | 0.25 day |
 | .h | Persistence: Zod parse → snapshot round-trip test (write + read + assert) | `persistence-client/src/snapshot/` + per-test | 0.25 day |
 | .i | CRDT: `furniture.create` already on the bus inherits Yjs replication — verify with a happy-path test (existing furniture path) | `persistence-client/__tests__/` | 0.25 day |
-| .j | ADR-051 single-store undo: verify via `furnitureStore` — usually inherited; assert with a per-type undo + redo test | `__tests__/` | 0.25 day |
+| .j | ADR-0251 single-store undo: verify via `furnitureStore` — usually inherited; assert with a per-type undo + redo test | `__tests__/` | 0.25 day |
 | .k | IFC export: `IfcFurnitureWriter` predefined-type mapping + round-trip test | `file-format/src/ifc/IfcFurnitureWriter.ts` + `__tests__/` | 0.5 day |
 | .l | Visibility intent default + tests | `packages/visibility/src/intents/` | 0.25 day |
 | .m | OpenTelemetry span at the create boundary | builder or command handler | 0.1 day |

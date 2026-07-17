@@ -224,7 +224,7 @@ Per `01-VISION.md §6` (C5 archetype): **30/70 revenue share** via `marketplace.
 // - Stripe collects the payment
 // - 70% automatically transferred to developer's Connect account
 // - 30% retained by PRYZM marketplace
-// Per ADR-009 (plugin sandbox) + SPEC-09 (marketplace contract)
+// Per ADR-0209 (plugin sandbox) + SPEC-09 (marketplace contract)
 ```
 
 ---

@@ -3,7 +3,7 @@
 - **Status:** proposed (2026-05-27)
 - **Owner:** wall geometry (`@pryzm/geometry-wall`)
 - **Supersedes:** ADR-0055 §P4 — splits into P4a / P4b / P4c.
-- **Depends on:** [ADR-0055](ADR-0055-WALL-JUNCTION-PASCAL-STYLE.md) §P1–§P3b (shipped, default-ON 2026-05-27).
+- **Depends on:** [ADR-0055](ADR-0055-wall-junction-pascal-style.md) §P1–§P3b (shipped, default-ON 2026-05-27).
 
 ## Why an addendum
 

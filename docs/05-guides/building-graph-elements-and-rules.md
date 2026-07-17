@@ -4,8 +4,8 @@
 > **elements** (nodes) are, what its **relationships** (edges) are, and what **rules**
 > govern them — for both users reading the living view and developers extending it.
 
-**Governance:** [ADR-0058 — Unified Building Graph](../02-decisions/adrs/0058-unified-building-graph.md)
-· [Strategy: PRYZM Building Graph & Relational-AI Foundation](../01-strategy/PRYZM-BUILDING-GRAPH-AND-RELATIONAL-AI-FOUNDATION.md)
+**Governance:** [ADR-0058 — Unified Building Graph](../02-decisions/adrs/ADR-0058-unified-building-graph.md)
+· [Strategy: PRYZM Building Graph & Relational-AI Foundation](../01-strategy/STR-14-pryzm-building-graph-and-relational-ai-foundation.md)
 
 ---
 

@@ -27,7 +27,7 @@ round-trip guarantees, an IFC/DXF/Rhino interop tier, a PDF-to-BIM
 posture.
 
 The journey is **on plan**. The original 36-month estimate (M01 → M36)
-held; the cut-list discipline (`[strategic ADR-018]` Tier-1 + Tier-2)
+held; the cut-list discipline (`[strategic ADR-0218]` Tier-1 + Tier-2)
 absorbed scope volatility into pre-declared deferrals rather than
 schedule slip. Two cuts (T2.1 DXF/SVG export at S59, T2.2 component
 editor marketplace richness at S54) and the ADR-0049 multi-region
@@ -71,14 +71,14 @@ Each row below cites the original phase doc + the closing audit.
 
 ### Phase 3A (M25–M27, S49–S54) — AI + PDF Refresh
 
-- **Plan**: AI integrations (BYO-key gated + budgeted), PDF-to-BIM v1 (preview label per ADR-029 Part E).
+- **Plan**: AI integrations (BYO-key gated + budgeted), PDF-to-BIM v1 (preview label per ADR-0229 Part E).
 - **Did**: shipped. PDF-to-BIM landed under "preview" label and stayed there at GA (per S72 D5 re-evaluation in M36-GA §3). The SPEC-45 fixture corpus measurement was the single biggest "we deferred this honestly" call — the gate primitive (`evaluatePreviewGate`) is in `apps/ai-worker/src/pdf-to-bim/preview-gate.ts` and the SPEC-45 corpus measurement is the operator-side reversal trigger.
 - **Stress points**: BYO-key budget enforcement bug at S52 D4 — the per-call ceiling was checking against monthly cap, not per-call cap. Caught by the cost-meter integration test before any user impact. Fixed S52 D4 + retroactive bench at S52 D5.
 
 ### Phase 3B (M28–M30, S55–S60) — Plugins + IFC + DXF + Rhino
 
 - **Plan**: IFC import + IFC export + DXF import + DXF export + Rhino import + BCF round-trip + component editor v1.
-- **Did**: shipped. IFC import + export + DXF import + Rhino import + BCF round-trip all landed by M30 D6 per `apps/bench/reports/M30-3B.md`. **DXF/SVG export was cut at S59 D1** per `[strategic ADR-018]` T2.1 — zero beta-cohort demand + PDF export already covers the 2D-handoff workflow.
+- **Did**: shipped. IFC import + export + DXF import + Rhino import + BCF round-trip all landed by M30 D6 per `apps/bench/reports/M30-3B.md`. **DXF/SVG export was cut at S59 D1** per `[strategic ADR-0218]` T2.1 — zero beta-cohort demand + PDF export already covers the 2D-handoff workflow.
 - **Stress points**:
   - S55 D9 component-editor v1 ship was the longest single sprint of the year (full 10 days, no buffer used). The .pryzm-family v1 round-trip + parameter table + expression DSL + IFC Pset binding all converged on D9 close.
   - The Tier-2 cut at S54 ("defer further marketplace richness for component editor") freed M30 from a likely 2-sprint slip.
@@ -104,7 +104,7 @@ Each row below cites the original phase doc + the closing audit.
 
 ## §3 What worked (process-level)
 
-1. **Cut-list discipline**. `[strategic ADR-018]` Tier-1 + Tier-2 absorbed 6 cuts (T1.1 + T2.1 + T2.2 + T2.3 + T2.4 + multi-region) without one schedule slip. Each cut had a pre-declared reversal cost; that pre-declaration removed the meeting overhead at cut-time.
+1. **Cut-list discipline**. `[strategic ADR-0218]` Tier-1 + Tier-2 absorbed 6 cuts (T1.1 + T2.1 + T2.2 + T2.3 + T2.4 + multi-region) without one schedule slip. Each cut had a pre-declared reversal cost; that pre-declaration removed the meeting overhead at cut-time.
 2. **Two-column closure scoring** (introduced by W-17 of the Phase-2 close plan, 2026-04-28). Raw % vs Closure % made it impossible to over-claim — every sprint audit since S55 has used it.
 3. **D-day-actionable partial close** as the recurring close pattern. Sprint S55–S72 all used the same shape: artefacts land in-repo with green vitest evidence; live-runtime gates are named carry-forwards. The pattern is faster than waiting for green CI on environments we don't own.
 4. **Kill-switches as architectural commitments**. K3-A through K3-G + K3D-A through K3D-D were the spine of the GA gate. Every one had a defined "halt forward work" trigger; one (K3-F at S71 re-bench) was checked and not tripped.
@@ -121,7 +121,7 @@ Each row below cites the original phase doc + the closing audit.
 4. **`pryzm-vi-parity` workflow stale failure**. Existing-code surface; `npx vitest run` passes, the workflow runner shows "failed" — visibility regression in the workflow status pane. Tracked since S68 close notes; not fixed at GA.
 5. **`packages/persistence-client/__tests__/file-system-backend.test.ts`** failures (8 of 144 tests in that file) — `FileSystemBackend is not a constructor`. Existing-code constructor-export issue under `packages/persistence-client`; not regressed by the S70 lifecycle-tombstone edits but not fixed at GA either. Post-GA roadmap item.
 6. **No `undo-single.bench.ts`**. The §6 NFT row 9 is a documented gap; `cmd-execute-latency.bench.ts` is the proxy. Should have been a Phase-1 deliverable.
-7. **Multi-region cut at S67 D9**. The right call (`[strategic ADR-018]` T2.6, 5 documented reasons), but EU residency questions from sales took more cycles than anticipated to triage; the self-host playbook (`docs/03-execution/plans/pryzm-1-sunset.md` companion + `docs.pryzm.com/selfhost/`) absorbed most of them. Lesson: when cutting a region story, draft the residency Q&A in the same ADR.
+7. **Multi-region cut at S67 D9**. The right call (`[strategic ADR-0218]` T2.6, 5 documented reasons), but EU residency questions from sales took more cycles than anticipated to triage; the self-host playbook (`docs/03-execution/plans/pryzm-1-sunset.md` companion + `docs.pryzm.com/selfhost/`) absorbed most of them. Lesson: when cutting a region story, draft the residency Q&A in the same ADR.
 
 ---
 
@@ -157,7 +157,7 @@ For the per-sprint detail see each sprint's audit.
 | 23| `.replit` workflow registry stale-stub cleanup (5 orphans)                 | platform issue    | Operator-side `.replit` edit to drop orphans, then re-register `s70-d8-test-suites` workflow  |
 | 24| SPEC-45 PDF-fixture-corpus measurement (50 real PDF sets)                  | post-GA           | `evaluatePreviewGate(realMetrics)` flips `PDF_TO_BIM_RELEASE_LABEL` from `'preview'` → `'full'` |
 | 25| `src/` PRYZM 1 tree deletion                                               | sunset-window-end | After 90-day sunset window per `docs/03-execution/plans/pryzm-1-sunset.md` §3                         |
-| 26| Component editor real-time co-presence                                     | post-GA           | `[strategic ADR-018]` T2.2 deferred to v2 backlog                                             |
+| 26| Component editor real-time co-presence                                     | post-GA           | `[strategic ADR-0218]` T2.2 deferred to v2 backlog                                             |
 
 ---
 
@@ -188,7 +188,7 @@ For the per-sprint detail see each sprint's audit.
 5. "What this audit does NOT claim" sections. They're the cheapest way to keep the trust boundary explicit.
 6. Honest carry-forward registers, named by sprint+day. The M36-GA report's §5 + this post-mortem's §5 are the same shape because the format scales.
 7. Kill-switches as architectural commitments. Every one with a halt-trigger and a re-entry plan.
-8. The "preview" → "full" label gate (ADR-029 Part E) is the single best example of a feature that ships honestly without being silently incomplete.
+8. The "preview" → "full" label gate (ADR-0229 Part E) is the single best example of a feature that ships honestly without being silently incomplete.
 
 ---
 
@@ -203,6 +203,6 @@ For the per-sprint detail see each sprint's audit.
 ---
 
 *Authored 2026-04-29 at S72 D10. Companion docs: `apps/bench/reports/M36-GA.md`,
-`docs/02-decisions/adrs/0054-s72-m36-ga-launch-gate.md`,
+`docs/02-decisions/adrs/ADR-0054-s72-m36-ga-launch-gate.md`,
 `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md`,
 `docs/03-execution/plans/post-ga-roadmap.md`.*

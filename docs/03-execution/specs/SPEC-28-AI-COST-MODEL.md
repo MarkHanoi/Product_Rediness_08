@@ -194,8 +194,8 @@ When AI proposes (e.g. "rename 5 walls" or "rotate this room") and human approve
 ---
 
 ## §12 Cross-references
-- ADR-014 AI L7.5 operational (the operational model).
-- ADR-018 cut list — T3.1 reduces L7.5 to "critic-only" if velocity slips, which mostly preserves cost model.
+- ADR-0214 AI L7.5 operational (the operational model).
+- ADR-0218 cut list — T3.1 reduces L7.5 to "critic-only" if velocity slips, which mostly preserves cost model.
 - SPEC-07 AI Layer (approval queue, model pinning).
 - SPEC-08 §4 plan-tier alignment.
 - SPEC-10 observability (cost metric).

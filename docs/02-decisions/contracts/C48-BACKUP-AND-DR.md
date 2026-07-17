@@ -4,7 +4,7 @@
 > **Scope**: governs the **backup + disaster-recovery surface** — what data is backed up, how often, where it is stored, how long it is retained, the recovery-time-objective (RTO) and recovery-point-objective (RPO) targets per data class, the per-customer self-serve version-history surface, the DR-drill cadence, the runbooks for every failure mode (DB corruption · region outage · ransomware · accidental delete · malicious insider · cascade failure), the cross-region replication policy, and the customer communication during incidents. **A backup nobody can restore is not a backup** — every retention policy is paired with an end-to-end restore test that runs on the same cadence as the backup itself.
 > **Depends on**: [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md) (file-format the backup is composed of), [C08](C08-COLLABORATION-AND-SECURITY.md) (encryption at rest of backups), [C10](C10-PERFORMANCE-AND-OBSERVABILITY.md) (DR metrics dashboards), [C13](C13-PROJECT-LIFECYCLE-AND-ISOLATION.md) (project retention windows + 90-day export grace), [C22](C22-PRIVACY-AND-PII-TIER.md) (per-tier retention; PII tier retention is shorter than project tier per GDPR), [C41](C41-TELEMETRY-AND-ANALYTICS.md) (telemetry retention tiers + cold-tier backup), [C47](C47-FILE-FORMAT-VERSIONING.md) (pre-migration originals preserved in backup), [C49](C49-MULTI-REGION-AND-SOVEREIGNTY.md) (cross-region replication policy).
 > **Sibling**: [C49](C49-MULTI-REGION-AND-SOVEREIGNTY.md).
-> **Downstream**: customer-facing "Version History" + "Restore" surfaces · ops runbook library at `docs/04-incidents/runbooks/` · DR-drill schedule + report · accountancy / audit evidence of compliant retention · the trust-page DR section.
+> **Downstream**: customer-facing "Version History" + "Restore" surfaces · ops runbook library at `docs/04-reference/runbooks/` · DR-drill schedule + report · accountancy / audit evidence of compliant retention · the trust-page DR section.
 > **Key principles**: **P8** (every backup run + every restore + every drill emits a span), **P5** (backup-record schemas L0-pure), **P6** (admin-side restore operations via commandBus), **P0.3** (plugin-data backup is included by default; plugin-specific exclusions explicit + announced).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §14 (Phase 6.4 operational)](../03-execution/plans/master-implementation-plan.md).
 > **Audit-source**: [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
@@ -115,7 +115,7 @@ A nightly job samples 0.1 % of backups + verifies their checksum + signature. In
 
 ### §1.10 — Per-failure-mode runbooks
 
-For each high-priority failure mode, a runbook exists in `docs/04-incidents/runbooks/`:
+For each high-priority failure mode, a runbook exists in `docs/04-reference/runbooks/`:
 
 - **DB primary failure** — failover to read replica + promote; SLA 30 min
 - **Region full outage** — failover to secondary region; SLA 4 h
@@ -136,7 +136,7 @@ Once a quarter, the team runs a full DR drill:
 - Failover to the secondary region per the runbook
 - Restore a representative customer set (~10 customers across plan tiers)
 - Verify customer access + data integrity
-- Document timing vs. RTO targets in `docs/04-incidents/drills/YYYY-QN-DR-DRILL.md`
+- Document timing vs. RTO targets in `docs/04-reference/runbooks/drills/YYYY-QN-DR-DRILL.md`
 - Iterate: any RTO miss → updated runbook + retest
 
 The drill is announced internally; not announced to customers (avoiding false-alarm fatigue). Findings + improvements are published in the quarterly trust-report.

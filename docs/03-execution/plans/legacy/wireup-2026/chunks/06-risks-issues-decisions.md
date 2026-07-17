@@ -39,7 +39,7 @@
 | **I7** | `SUPABASE_SERVICE_ROLE_KEY` not set | S71 W5-b | Adopted unchanged; required for Phase C production rollout. |
 | **I8** | `pryzm-vi-parity`, `pryzm-persistence`, `audit-log-middleware` workflows red | S71 W5-c | Adopted unchanged; must close before GA gate at end of Phase H. |
 | **I9** | `apps/editor/migrations/sunset-pryzm1.md` lists `src/styles/` for S65 deletion | document conflict | Amended in Phase G to mark `src/styles/` and `src/ui/` as KEEP. |
-| **I10** | `ADR-026 §4.3` mandates `src/styles/` migration into `packages/ui/` | ADR conflict | Phase H lands ADR-026-A "UI preservation override". |
+| **I10** | `ADR-0226 §4.3` mandates `src/styles/` migration into `packages/ui/` | ADR conflict | Phase H lands ADR-0226-A "UI preservation override". |
 | **I11** | `src/engine/EngineBootstrap.ts` and `src/engine/subsystems/` still wire ~250 `(window as any)` writes | architecture audit | Deleted in Phase D. |
 | **I12** | The bundle currently ships ~150K LOC of legacy `src/elements/`, `src/commands/`, `src/core/` | architecture audit | Deleted in Phases E + G. |
 | **I13** | `src/ui/platform/ProjectRepository.ts` writes to localStorage in parallel with the new event log → divergence | architecture audit | Deleted in Phase C; one-shot migrator imports any local-only state. |

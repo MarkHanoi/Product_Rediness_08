@@ -1,9 +1,9 @@
 # PRYZM — Roadmap Phase 1: Alpha (0–6 months)
 
 > **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H2 — phase roadmap
-> **Reconciled 2026-06-03** to ADR-055/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired; Astro `docs-site` deleted; C19 Site substrate shipped).
+> **Reconciled 2026-06-03** to ADR-0255/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired; Astro `docs-site` deleted; C19 Site substrate shipped).
 > **Window**: 2026-06-01 → 2026-12-31 (~6 months, ~13 sprints of 2 weeks)
-> **Authority**: this doc owns **the exhaustive Phase 1 delivery list** — every capability that ships, every contract gap that closes, every typology that lands, every infrastructure piece. Below this doc is [annual-2026.md](./annual-2026.md) (this year's split across quarters) and [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) / Q4.
+> **Authority**: this doc owns **the exhaustive Phase 1 delivery list** — every capability that ships, every contract gap that closes, every typology that lands, every infrastructure piece. Below this doc is [annual-2026.md](./annual-2026.md) (this year's split across quarters) and [quarterly-2026-q3.md](./quarterly-2026-q3.md) / Q4.
 > **Foundation above**: [vision-2030.md](./vision-2030.md) (5-year vision) → this doc is the first 6 months of that arc.
 
 ---
@@ -19,9 +19,9 @@ Phase 1 closes when **all** of these are simultaneously true:
 | **E3** | **Plugin SDK published** to npm (`@pryzm/sdk` v1.0.x) | `npm view @pryzm/sdk version` returns 1.0.x; CHANGELOG.md current |
 | **E4** | **Headless package published** (`@pryzm/headless` v1.0.0) | `npm view @pryzm/headless version` returns 1.0.0 |
 | **E5** | **Marketplace live** at `marketplace.pryzm.so` (DNS + TLS + first 5 PRYZM-first-party plugins listed) | https check; first plugin install end-to-end |
-| **E6** | **Apex/app split live** per [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md) / [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md): `pryzm.so` apex (static marketing on Cloudflare Pages) + `app.pryzm.so` editor (Fly.io, EU `fra`) | `curl -I https://pryzm.so/` 200 pre-rendered; `curl -I https://app.pryzm.so/` 200 from `fra`; apex→app deep-link resolves |
+| **E6** | **Apex/app split live** per [ADR-0255](../../02-decisions/adrs/ADR-0255-one-pryzm-cloudflare-supabase.md) / [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md): `pryzm.so` apex (static marketing on Cloudflare Pages) + `app.pryzm.so` editor (Fly.io, EU `fra`) | `curl -I https://pryzm.so/` 200 pre-rendered; `curl -I https://app.pryzm.so/` 200 from `fra`; apex→app deep-link resolves |
 | **E7** | **Cold-boot NFT** holds at < 2.5 s on M1 + Chrome (`apps/bench/src/benches/cold-boot.bench.ts`) | CI baseline green for 4 consecutive weeks |
-| **E8** | **First 50 paying customers** via Solo + Studio PLG (per [go-to-market §2.1](../../01-strategy/go-to-market.md)) | Stripe MRR > $1500 |
+| **E8** | **First 50 paying customers** via Solo + Studio PLG (per [go-to-market §2.1](../../01-strategy/STR-08-go-to-market.md)) | Stripe MRR > $1500 |
 | **E9** | **All 21 CI gates** stable for 4 consecutive weeks; no soft-fail tripwires ratchet up | CI dashboard |
 | **E10** | **Site substrate v1** shipped per [C19](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md) — Site as first-class element | Site shows in inspect tree; saves to .pryzm; round-trips through IFC4X3 `IfcSite` |
 
@@ -40,7 +40,7 @@ Every deliverable in Phase 1 traces to one of these 8 buckets:
 | **B3** | **Plugin SDK + Marketplace go-live** | npm publish · DNS + TLS · curation queue · first plugins | ~6 wk |
 | **B4** | **Family Platform polish + first community packs** | family-marketplace UX · Ed25519 verification UX · first 3 community-authored family packs | ~5 wk |
 | **B5** | **Enterprise readiness (compliance + SOC 2 prep)** | C22 PII tier · C23 provenance · C43 accessibility audit prep · C48 backup + DR runbooks | ~9 wk |
-| **B6** | **PRYZM brand + apex/app split** | apex/app split per ADR-055/C51 (`pryzm.so` apex + `app.pryzm.so` editor) · landing page from editor `LandingPage.ts` · brand-voice content sweep · pricing page from `@pryzm/entitlements` | ~4 wk |
+| **B6** | **PRYZM brand + apex/app split** | apex/app split per ADR-0255/C51 (`pryzm.so` apex + `app.pryzm.so` editor) · landing page from editor `LandingPage.ts` · brand-voice content sweep · pricing page from `@pryzm/entitlements` | ~4 wk |
 | **B7** | **IFC + Revit interchange polish** | IFC4X3 Pset coverage gap-fill · Revit IFC variant exporter · 10-project reference suite | ~6 wk |
 | **B8** | **Cognition substrate L1–L4 hardening** | Constraint DB expand 248→350 enforced rules · daylight rule-checker · perceptual L5 first slice | ~7 wk |
 
@@ -60,7 +60,7 @@ The headline deliverable for Phase 1. Detailed in [typology-expansion-roadmap.md
 | 1.2 | `packages/schemas/src/typology/manifest.ts` — TypologyManifest schema | NEW | 0.5 | [typology §4.1](./typology-expansion-roadmap.md) |
 | 1.3 | `TypologyRegistryStore` slot in `composeRuntime()` | extend runtime-composer | 0.5 | [C02](../../02-decisions/contracts/C02-COMPOSITION-ROOT-AND-BOOT.md) |
 | 1.4 | `TypologyPipelineRouter.dispatch(typologyId, role, site, brief)` | NEW in typology-pipeline | 1.0 | [typology §4.3](./typology-expansion-roadmap.md) |
-| 1.5 | `RACChatbot` UI in `apps/editor/src/ui/onboarding/RACChatbot.tsx` | NEW | 1.0 | [product-vision §5 Step 2](../../01-strategy/product-vision.md) |
+| 1.5 | `RACChatbot` UI in `apps/editor/src/ui/onboarding/RACChatbot.tsx` | NEW | 1.0 | [product-vision §5 Step 2](../../01-strategy/STR-02-product-vision.md) |
 | 1.6 | `TypologyPicker` UI with 10-category card grid in `apps/editor/src/ui/onboarding/TypologyPicker.tsx` | NEW | 0.5 | [typology §3](./typology-expansion-roadmap.md) |
 | 1.7 | **Author C50 — Typology Pipeline Contract (DRAFT)** | NEW contract | 0.5 | [typology §10](./typology-expansion-roadmap.md) |
 | 1.8 | Per-role intent matrix (`intentMatrix.ts`) covering 8 roles × 25 typologies | NEW | 0.5 | [typology §11](./typology-expansion-roadmap.md) |
@@ -105,7 +105,7 @@ The headline deliverable for Phase 1. Detailed in [typology-expansion-roadmap.md
 
 ## §4 — Bucket B2: Site substrate (C19) + Climate (C21) (~10 wk)
 
-Per [site-and-cognition-strategy §2.4](../../01-strategy/site-and-cognition-strategy.md). The PG0 work track.
+Per [site-and-cognition-strategy §2.4](../../01-strategy/STR-12-site-and-cognition-strategy.md). The PG0 work track.
 
 ### §4.1 — Site element schemas + stores (~3 wk)
 
@@ -114,7 +114,7 @@ Per [site-and-cognition-strategy §2.4](../../01-strategy/site-and-cognition-str
 | 2.1 | `packages/schemas/src/site/` — Site · Parcel · Footprint · ContextBuilding · Setback · ZoningOverlay | [C19 §2](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md) |
 | 2.2 | `SiteStore` in `packages/stores/` — reactive site state with adjacencies to BuildingStore | [C19 §3](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md) |
 | 2.3 | `site.*` commands per C16 — `site.set` / `site.updateParcel` / `site.setContextBuildings` / `site.applyZoning` | [C16](../../02-decisions/contracts/C16-COMMAND-AUTHORING-PROTOCOL.md) |
-| 2.4 | `apps/editor/src/ui/site/` — Site authoring UI with the cream/light Cesium aesthetic (per product-vision §5 Step 3) | [product-vision §5](../../01-strategy/product-vision.md) |
+| 2.4 | `apps/editor/src/ui/site/` — Site authoring UI with the cream/light Cesium aesthetic (per product-vision §5 Step 3) | [product-vision §5](../../01-strategy/STR-02-product-vision.md) |
 | 2.5 | IFC4X3 `IfcSite` round-trip through `plugins/ifc-export/` + `plugins/ifc-import/` | [C25](../../02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md) |
 
 ### §4.2 — Building + Apartment aggregates (C20) (~3 wk)
@@ -161,7 +161,7 @@ Closes E3, E5, OI-011, OI-013.
 
 ### §5.1 — Acceptance criteria
 
-- Developer signs up + completes tax-form + publishes first plugin in < 30 minutes (per [platform-strategy §11](../../01-strategy/platform-strategy.md) target)
+- Developer signs up + completes tax-form + publishes first plugin in < 30 minutes (per [platform-strategy §11](../../01-strategy/STR-10-platform-strategy.md) target)
 - Customer installs plugin in < 5 seconds (per NFT target)
 - Marketplace catalogue has ≥ 50 artefacts at Phase 1 close (mix of plugins + family packs + typology packs)
 - Stripe Connect payout cycle runs once successfully (test mode)
@@ -223,14 +223,14 @@ Phase 1 doesn't ship full Enterprise — but lays the foundation for first Enter
 
 ## §8 — Bucket B6: Brand + apex/app split (~4 wk)
 
-Per [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md) / [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md): `pryzm.so` is the canonical apex (static pre-rendered marketing on Cloudflare Pages); `app.pryzm.so` is the editor app (Fly.io, EU `fra`). The old `pryzm.app` cutover is **retired**.
+Per [ADR-0255](../../02-decisions/adrs/ADR-0255-one-pryzm-cloudflare-supabase.md) / [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md): `pryzm.so` is the canonical apex (static pre-rendered marketing on Cloudflare Pages); `app.pryzm.so` is the editor app (Fly.io, EU `fra`). The old `pryzm.app` cutover is **retired**.
 
 | # | Deliverable | Detail |
 |---|---|---|
 | 6.1 | `pryzm.so` apex DNS + TLS (Cloudflare Pages) + `app.pryzm.so` → Fly `fra` | Cloudflare + Fly cert (C51 §4) |
-| 6.2 | Landing page from the editor's `apps/editor/src/ui/platform/LandingPage.ts` (apex pre-renders the same component source) per [manifesto §5 brand voice](../../01-strategy/manifesto.md) | Curated + plain-spoken + aspirational |
+| 6.2 | Landing page from the editor's `apps/editor/src/ui/platform/LandingPage.ts` (apex pre-renders the same component source) per [manifesto §5 brand voice](../../01-strategy/STR-01-manifesto.md) | Curated + plain-spoken + aspirational |
 | 6.3 | Pricing page reads live from the entitlement registry (per [C39 §1.13](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md)) | `apps/editor/src/ui/platform/PricingPage.ts` reads `@pryzm/entitlements`; consumed by both the apex prerender and the in-app router |
-| 6.4 | Customer-facing copy sweep — every visible string passes the [manifesto §5 voice filter](../../01-strategy/manifesto.md) | Audit |
+| 6.4 | Customer-facing copy sweep — every visible string passes the [manifesto §5 voice filter](../../01-strategy/STR-01-manifesto.md) | Audit |
 | 6.5 | `pryzm.so/manifesto`, `/about`, `/trust`, `/accessibility`, `/supported-browsers`, `/vpat`, `/dr-status`, `/pricing` all live | Marketing |
 | 6.6 | `app.pryzm.so` 301-redirects marketing routes (`/pricing`, `/manifesto`, `/trust`) to the `pryzm.so` apex (per C51 §3.2.1) | Edge redirect |
 
@@ -253,10 +253,10 @@ Per [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md) 
 
 | # | Deliverable | Cites |
 |---|---|---|
-| 8.1 | Constraint DB expansion: 102 of 248 spec rules → 200 of 248 code-enforced | [site-and-cognition §6](../../01-strategy/site-and-cognition-strategy.md) |
+| 8.1 | Constraint DB expansion: 102 of 248 spec rules → 200 of 248 code-enforced | [site-and-cognition §6](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
 | 8.2 | L5 daylight rule-checker (mandatory window per room) | [C21] + apartment-layout |
-| 8.3 | L5 perceptual evaluator: corridor width + sightline + room aspect ratio scoring | [site-and-cognition §3.4](../../01-strategy/site-and-cognition-strategy.md) |
-| 8.4 | L3 semantic-topology expansion: adjacency permission matrix completion + privacy gradient enforcement | [site-and-cognition §3](../../01-strategy/site-and-cognition-strategy.md) |
+| 8.3 | L5 perceptual evaluator: corridor width + sightline + room aspect ratio scoring | [site-and-cognition §3.4](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
+| 8.4 | L3 semantic-topology expansion: adjacency permission matrix completion + privacy gradient enforcement | [site-and-cognition §3](../../01-strategy/STR-12-site-and-cognition-strategy.md) |
 | 8.5 | Constraint-validation UI: violations highlighted in inspect tree with rule reference | [C27 §5](../../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md) |
 
 ---
@@ -285,7 +285,7 @@ Phase 1 closes the following contract gaps (per the C01–C49 suite). Listed by 
 | C16 Command Authoring | Canonical | site.* + typology.* commands authored per C16 | §3, §4 |
 | C17 Batch Creation Catalogue | Canonical | Per-typology batch entries (e.g. "house.batch.create-from-brief") | §3.3–4 |
 | C18 Element Preview Visual | Canonical | No change | — |
-| **C19 Site Model & Parcel** | Substrate **SHIPPED** — `SiteModelStore` + `ParcelBoundarySchema` + `site.create`/`site.setParcelBoundary` wired into `composeRuntime` (A.7.a/b/c.1) | Ratify CANONICAL; remaining gap is the L5 dispatch adapter + GIS UI (see [PIPELINE-RAC-TO-SITE-TO-DESIGN](./PIPELINE-RAC-TO-SITE-TO-DESIGN-2026-06-03.md)) | §4.1 |
+| **C19 Site Model & Parcel** | Substrate **SHIPPED** — `SiteModelStore` + `ParcelBoundarySchema` + `site.create`/`site.setParcelBoundary` wired into `composeRuntime` (A.7.a/b/c.1) | Ratify CANONICAL; remaining gap is the L5 dispatch adapter + GIS UI (see [PIPELINE-RAC-TO-SITE-TO-DESIGN](./pipeline-rac-to-site-to-design-2026-06-03.md)) | §4.1 |
 | **C20 Building + Apartment Aggregates** | DRAFT | **CANONICAL** (ratify on §4.2 ship) | §4.2 |
 | **C21 Climate Ingestion** | DRAFT | **CANONICAL** (ratify on §4.3 ship) | §4.3 |
 | **C22 Privacy + PII Tier** | DRAFT | Partial ratification — DSAR endpoints + tier surface live | §7.1 |
@@ -317,9 +317,9 @@ Phase 1 closes the following contract gaps (per the C01–C49 suite). Listed by 
 | C48 Backup + DR | DRAFT | Partial — runbooks + first DR drill | §7.4 |
 | C49 Multi-Region | DRAFT | No Phase 1 work (Phase 3 — region launches) | — |
 | **C50 Typology Pipeline** | NEW (this phase) | DRAFT authored + first 3 typology packs live | §3.1.7 |
-| **C51 Apex/App Deployment Split** | CANONICAL (normative form of [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md)) — `pryzm.so` apex + `app.pryzm.so` editor; DNS map §4 + route table §5 + build contract §6 + CI gates §7 | apex/app split deployed; 5 of 7 §7 gates live | §8 |
+| **C51 Apex/App Deployment Split** | CANONICAL (normative form of [ADR-0255](../../02-decisions/adrs/ADR-0255-one-pryzm-cloudflare-supabase.md)) — `pryzm.so` apex + `app.pryzm.so` editor; DNS map §4 + route table §5 + build contract §6 + CI gates §7 | apex/app split deployed; 5 of 7 §7 gates live | §8 |
 
-**Summary**: 25 contracts touched in Phase 1 (3 to CANONICAL: C19/C20/C21; 11 partial ratifications; 1 NEW DRAFT: C50; 1 NEW CANONICAL: C51). The apex/app split (B6) is governed by [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md) + [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md); auth migration by [ADR-056](../../02-decisions/adrs/ADR-056-supabase-auth-migration.md) (Supabase, Phase A.5).
+**Summary**: 25 contracts touched in Phase 1 (3 to CANONICAL: C19/C20/C21; 11 partial ratifications; 1 NEW DRAFT: C50; 1 NEW CANONICAL: C51). The apex/app split (B6) is governed by [ADR-0255](../../02-decisions/adrs/ADR-0255-one-pryzm-cloudflare-supabase.md) + [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md); auth migration by [ADR-0256](../../02-decisions/adrs/ADR-0256-supabase-auth-migration.md) (Supabase, Phase A.5).
 
 ---
 
@@ -336,13 +336,13 @@ Phase 1 closes the following contract gaps (per the C01–C49 suite). Listed by 
 | B7 IFC + Revit polish | Engineer 5 | Architect 1 (BIM standards) | — | |
 | B8 Cognition substrate | Engineer 6 + Architect 1 + Architect 2 | | | The asymmetric asset |
 
-Team size required: ~6 engineers + ~2 architect-consultants + ~2 designer-engineers + ~1 dev-rel + ~1 content writer + ~1 security consultant = ~13 people. Per [operating-principles §4.1](../../01-strategy/operating-principles.md), this is a stretch for Year 1; some roles are part-time.
+Team size required: ~6 engineers + ~2 architect-consultants + ~2 designer-engineers + ~1 dev-rel + ~1 content writer + ~1 security consultant = ~13 people. Per [operating-principles §4.1](../../01-strategy/STR-06-operating-principles.md), this is a stretch for Year 1; some roles are part-time.
 
 ---
 
 ## §13 — Risk + dependency register
 
-Key Phase 1 risks (mitigation traces to [risks-and-assumptions §3–§5](../../01-strategy/risks-and-assumptions.md)):
+Key Phase 1 risks (mitigation traces to [risks-and-assumptions §3–§5](../../01-strategy/STR-15-risks-and-assumptions.md)):
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
@@ -366,7 +366,7 @@ Key Phase 1 risks (mitigation traces to [risks-and-assumptions §3–§5](../../
 | B3 SDK + Marketplace | `npm view @pryzm/sdk` returns 1.0.x; `marketplace.pryzm.so` resolves; first plugin install succeeds; first developer payout test runs |
 | B4 Family Platform | First 3 community-authored family packs live; component-editor publishes packs end-to-end |
 | B5 Enterprise readiness | DSAR export + erasure paths live; provenance graph queryable; axe-core CI green; first DR drill complete |
-| B6 Brand + apex/app split | apex/app split live per ADR-055/C51 (`pryzm.so` apex + `app.pryzm.so` editor); landing page + pricing page + all marketing surfaces refreshed |
+| B6 Brand + apex/app split | apex/app split live per ADR-0255/C51 (`pryzm.so` apex + `app.pryzm.so` editor); landing page + pricing page + all marketing surfaces refreshed |
 | B7 IFC + Revit polish | 10-project reference suite passes nightly; IFC4X3-RV variant exports work; PSet coverage 100 % for shipped element types |
 | B8 Cognition | 200 of 248 spec rules code-enforced; L5 daylight + perceptual validators live; constraint-violation UI in inspect tree |
 
@@ -391,12 +391,12 @@ Phase 1 outputs that Phase 2 builds on:
 | [vision-2030.md](./vision-2030.md) | This phase is the first 6 months of the 5-year arc |
 | [typology-expansion-roadmap.md](./typology-expansion-roadmap.md) | Phase 1 ships the first 3 typologies + the pipeline infrastructure |
 | [annual-2026.md](./annual-2026.md) | Phase 1 = 2026 H2 (Jul–Dec) at the yearly horizon |
-| [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) | Phase 1 first half (Q3) |
-| [quarterly-2026-Q4.md](./quarterly-2026-Q4.md) | Phase 1 second half (Q4) |
+| [quarterly-2026-q3.md](./quarterly-2026-q3.md) | Phase 1 first half (Q3) |
+| [quarterly-2026-q4.md](./quarterly-2026-q4.md) | Phase 1 second half (Q4) |
 | [cadence-and-planning-system.md](./cadence-and-planning-system.md) | This is H2; quarterly is H4 derivative |
 | [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md) | Next phase |
 | [roadmap-enterprise-delivery.md](./roadmap-enterprise-delivery.md) | Customer delivery sequence (lags this build sequence by ~2 quarters) |
 
 ---
 
-*End — PRYZM Roadmap Phase 1: Alpha, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
+*End — PRYZM Roadmap Phase 1: Alpha, 2026-06-03 (reconciled to ADR-0255/C51) — CANONICAL.*

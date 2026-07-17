@@ -5,7 +5,7 @@
 >
 > **Strategic anchor**: `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §5 → `phases/PHASE-2-MIGRATION-MULTIUSER-M13-M24.md` §5 → this file.
 >
-> **Coalescing-window invariant**: every reference to bake/event coalescing in this doc means **250 ms** per `[strategic ADR-010]`. Any doc still saying 500 ms is stale.
+> **Coalescing-window invariant**: every reference to bake/event coalescing in this doc means **250 ms** per `[strategic ADR-0210]`. Any doc still saying 500 ms is stale.
 
 ---
 
@@ -13,16 +13,16 @@
 
 **Sub-phase goal**: turn on production-grade real-time multi-user. By M24 morning, 25 invited beta users open shared projects across two browser tabs, edits propagate within 250 ms p95, soft locks prevent same-element data loss, AI host is lazy-loaded with an approval-queue UI, and the storage substrate has been **cut over** from Replit-PG to Supabase with the 14-day rollback window successfully elapsed.
 
-**Why 2D is the highest-impact-failure phase of Phase 2**: same-element concurrent edit producing data loss on a beta project is the single worst outcome on the whole 36-month plan. Phase 1 proved the foundation worked; Phase 2A/2B/2C extended it; Phase 2D bets the architecture in front of real users. `[strategic ADR-002]` (CRDT + event log bridge per SPEC-03 §3) was the framing decision; the Yjs spike pre-S01 was its first mitigation; the chaos-test harness in S43, the 14-day Supabase burn-in per SPEC-27 §3.1, and the soft-lock contract per `[strategic ADR-019]` are the second, third and fourth.
+**Why 2D is the highest-impact-failure phase of Phase 2**: same-element concurrent edit producing data loss on a beta project is the single worst outcome on the whole 36-month plan. Phase 1 proved the foundation worked; Phase 2A/2B/2C extended it; Phase 2D bets the architecture in front of real users. `[strategic ADR-0202]` (CRDT + event log bridge per SPEC-03 §3) was the framing decision; the Yjs spike pre-S01 was its first mitigation; the chaos-test harness in S43, the 14-day Supabase burn-in per SPEC-27 §3.1, and the soft-lock contract per `[strategic ADR-0219]` are the second, third and fourth.
 
 **The four hardest problems in 2D**:
 
 1. **CRDT ↔ event-log bridge correctness** (S43) — the bidirectional bridge between command-bus events and Yjs map operations must be **byte-deterministic** and **causally consistent**. Per SPEC-03 §3 the event log remains the durable source of truth; Yjs is the convergence transport. The chaos-test harness must demonstrate convergence under 100 random edits across N tabs in < 5 s.
 2. **Production cutover Replit-PG → Supabase** (S43–S45) — per SPEC-27 §3 with the 14-day rollback window. Health checks fail-fast if `SUPABASE_URL` missing per SPEC-15 §4. Zero-data-loss is the contract, not an aspiration.
-3. **Soft-lock semantics** (S45) — per `[strategic ADR-019]` + SPEC-24 §1.3. TTL default 30 s, server-side lease tracking in Postgres `soft_locks` table, conflict-rejection path with friendly error UI. Must compose correctly with Yjs awareness (the lock holder is broadcast as awareness state, not as a separate channel).
-4. **Permission matrix in every gateway route** (S43) — per `[strategic ADR-011]` + ADR-028 Part F. `authz.can(actor, action, resource)` is a single-source check before any state-mutating handler.
+3. **Soft-lock semantics** (S45) — per `[strategic ADR-0219]` + SPEC-24 §1.3. TTL default 30 s, server-side lease tracking in Postgres `soft_locks` table, conflict-rejection path with friendly error UI. Must compose correctly with Yjs awareness (the lock holder is broadcast as awareness state, not as a separate channel).
+4. **Permission matrix in every gateway route** (S43) — per `[strategic ADR-0211]` + ADR-0228 Part F. `authz.can(actor, action, resource)` is a single-source check before any state-mutating handler.
 
-**Cut-list discipline**: every sprint in 2D respects `[strategic ADR-018]` (capacity cut list). T1.7 + T1.8 are added per the gap review and are checkpointed at S47 retro. If a Tier-1 cut is required to land M24 cleanly, it is a documented decision, not a slip.
+**Cut-list discipline**: every sprint in 2D respects `[strategic ADR-0218]` (capacity cut list). T1.7 + T1.8 are added per the gap review and are checkpointed at S47 retro. If a Tier-1 cut is required to land M24 cleanly, it is a documented decision, not a slip.
 
 ---
 
@@ -46,12 +46,12 @@
 |---|---|
 | `apps/sync-server` Yjs protocol extension (`y-websocket`-style) | S43 |
 | Production cutover Replit-PG → Supabase (per SPEC-27 §3) | S43 |
-| `authz.can` middleware in every gateway route (per `[strategic ADR-011]`) | S43 |
-| `apps/bake-worker` debounce window pinned at 250 ms per `[strategic ADR-010]` | S43 |
+| `authz.can` middleware in every gateway route (per `[strategic ADR-0211]`) | S43 |
+| `apps/bake-worker` debounce window pinned at 250 ms per `[strategic ADR-0210]` | S43 |
 | Backup verification job (nightly restore-into-fresh + checksum) per SPEC-24 §3.4 | S44 |
 | `project_command_log` table delete + Replit PG production data delete | S45 |
-| Soft-lock server state in Postgres `soft_locks` table per `[strategic ADR-019]` | S45 |
-| `packages/ai-host/AiHost.ts` lazy bootstrap (per `[strategic ADR-014]`) | S47 |
+| Soft-lock server state in Postgres `soft_locks` table per `[strategic ADR-0219]` | S45 |
+| `packages/ai-host/AiHost.ts` lazy bootstrap (per `[strategic ADR-0214]`) | S47 |
 | `apps/ai-worker/` BullMQ skeleton | S47 |
 | Production OTel dashboards + crash reporting (Sentry-equivalent) | S48 |
 
@@ -78,7 +78,7 @@
 |---|---|
 | Sprint-scoped `[ADR 0019-sync-server-linearisation]` (refresh) | S43 D1 |
 | Sprint-scoped `[ADR 0025-multi-view-sync]` re-cite from S36 | S44 D1 |
-| Cut-list checkpoint per `[strategic ADR-018]` T1.7 + T1.8 | S47 D9 |
+| Cut-list checkpoint per `[strategic ADR-0218]` T1.7 + T1.8 | S47 D9 |
 | 2D demo recording (8-min screencast) | S48 D7 |
 | `apps/bench/reports/M24-beta.md` | S48 D6 |
 
@@ -99,7 +99,7 @@ S43 is the single most consequential sprint in Phase 2. Three irreversible thing
 
 1. **Yjs goes live as the convergence transport** between editor instances. The command-bus event becomes the unit of replication; the event log remains the durable source of truth (per SPEC-03 §3).
 2. **Storage cuts over from Replit-PG to Supabase** per SPEC-27 §3 with a 14-day rollback window. Both stores run in parallel during the window; the source of truth for *new writes* moves to Supabase on D5; reads continue to fall back to Replit-PG until the window elapses.
-3. **`authz.can` is enforced in every gateway route** per `[strategic ADR-011]` + ADR-028 Part F. Before this sprint, multi-user routes assumed authenticated = authorized. After this sprint, every state-mutating handler resolves a permission tuple.
+3. **`authz.can` is enforced in every gateway route** per `[strategic ADR-0211]` + ADR-0228 Part F. Before this sprint, multi-user routes assumed authenticated = authorized. After this sprint, every state-mutating handler resolves a permission tuple.
 
 The chaos-test harness is the gate that lets us sleep at night through Phase 3.
 
@@ -232,7 +232,7 @@ The 14-day window is calendar time; deletion of `project_command_log` and Replit
 
 ---
 
-#### `[strategic ADR-018]` capacity-cut checkpoint
+#### `[strategic ADR-0218]` capacity-cut checkpoint
 
 T1.7 and T1.8 are **added** to the cut list per the gap review:
 
@@ -252,7 +252,7 @@ If both cuts hold, M24 lands clean. If either is reverted, the cost is two sprin
 - **D5**: chaos test harness scaffolding + `SUPABASE_URL` hard-required.
 - **D6**: 100-edit convergence test + perf bench (`apps/bench/sync-latency.ts`).
 - **D7**: `authz.can` rollout to every gateway route + per-route audit.
-- **D8**: bake-worker debounce pinned at 250 ms per `[strategic ADR-010]` + lint.
+- **D8**: bake-worker debounce pinned at 250 ms per `[strategic ADR-0210]` + lint.
 - **D9**: demo + cutover D5 milestone (primary write path on Supabase).
 - **D10**: buffer.
 
@@ -312,7 +312,7 @@ export class PryzmAwareness {
     });
   }
 
-  // Throttled to ≤ 5 KB/s per peer per ADR-018 T1.8 budget.
+  // Throttled to ≤ 5 KB/s per peer per ADR-0218 T1.8 budget.
   // Cursor updates are coalesced at 50 ms; selection updates immediate;
   // tool changes immediate; heldLocks updated only on lock state change.
 }
@@ -384,7 +384,7 @@ This is the gate that proves the rollback window is real, not theoretical.
 
 #### Context and Why This Matters
 
-The soft-lock contract per `[strategic ADR-019]` is the bridge between CRDT eventual consistency and BIM's "no two designers should be editing the same wall simultaneously" reality. Locks are advisory (peers respect them) but server-enforced via the `soft_locks` Postgres table per SPEC-24 §1.3 — a peer that violates the lock has its command rejected at the gateway.
+The soft-lock contract per `[strategic ADR-0219]` is the bridge between CRDT eventual consistency and BIM's "no two designers should be editing the same wall simultaneously" reality. Locks are advisory (peers respect them) but server-enforced via the `soft_locks` Postgres table per SPEC-24 §1.3 — a peer that violates the lock has its command rejected at the gateway.
 
 S45 D5 also marks the **point of no return** on the cutover: `project_command_log` is deleted; Replit PG production data is deleted; the auto-fallback in `server.js` becomes dev-only (`NODE_ENV !== 'production'`).
 
@@ -578,7 +578,7 @@ The 11-wave system encodes 7 years of edge-case bug fixes that no PR description
 
 #### Context and Why This Matters
 
-The AI subsystem in PRYZM 1 is 31 files of LLM orchestration, CV pipeline, generative workflows, rules engine, and voice input. Per `[strategic ADR-014]` (AI L7.5 operational placement) the AI host runs at architectural layer L7.5 — above the editor shell (L7), below the user (L8). It must be **lazy-loaded**: zero AI overhead on cold start, zero AI bytes in the editor's initial bundle, AI host imported only on first invocation.
+The AI subsystem in PRYZM 1 is 31 files of LLM orchestration, CV pipeline, generative workflows, rules engine, and voice input. Per `[strategic ADR-0214]` (AI L7.5 operational placement) the AI host runs at architectural layer L7.5 — above the editor shell (L7), below the user (L8). It must be **lazy-loaded**: zero AI overhead on cold start, zero AI bytes in the editor's initial bundle, AI host imported only on first invocation.
 
 S47 lands the skeleton + the approval-queue contract. Full L7.5 promotion happens in S49 (3A); CV pipeline in S50; generative workflows in S51–S52.
 
@@ -628,16 +628,16 @@ export interface AiPendingAction {
 }
 
 export class AiApprovalQueueStore {
-  // Per SPEC-28 §4 + ADR-028 Part E:
+  // Per SPEC-28 §4 + ADR-0228 Part E:
   //  - per-project budget enforced server-side
   //  - per-workspace AI Spend view shipped separately at S65 (3C)
-  //  - workspace-admin override for plan/role per ADR-028 Part E (S65)
+  //  - workspace-admin override for plan/role per ADR-0228 Part E (S65)
 }
 ```
 
 ---
 
-#### `[strategic ADR-018]` Tier-1 cut-list checkpoint
+#### `[strategic ADR-0218]` Tier-1 cut-list checkpoint
 
 S47 D9 retro decides whether any of the following Tier-1 cuts are required to land M24 cleanly:
 
@@ -686,7 +686,7 @@ Founder + agent decide jointly. The decision is recorded in `apps/bench/reports/
 
 S48 is the M24 BETA GATE — the contract on which the next 12 months of Phase 3 depend. 25 invited beta users open shared projects on the new stack with multi-user collab, plan view + section view + sheets + schedules + PDF export functional, AI host lazy-loaded with approval queue, sync latency < 250 ms p95, crash-free session rate > 95%.
 
-Per SPEC-15 §8 + `[strategic ADR-019]` + SPEC-24 §1.10, the M24 beta gate **also asserts** the following bench gates — the existing list is augmented per the Gap-Closure subphase:
+Per SPEC-15 §8 + `[strategic ADR-0219]` + SPEC-24 §1.10, the M24 beta gate **also asserts** the following bench gates — the existing list is augmented per the Gap-Closure subphase:
 
 - `pnpm bench restore-verify` green (Supabase PITR → fresh checksum match).
 - `pnpm spec:audit-storage` green (no production code creates a table not in the map).
@@ -784,7 +784,7 @@ This mix exercises the stack along every dimension the M36 GA matrix cares about
 
 | ID | Risk | Likelihood | Impact | Mitigation | Touch sprint |
 |---|---|---|---|---|---|
-| R2D-01 | Yjs CRDT loses data on multi-user same-element edit | Medium | Critical | `[strategic ADR-002]` spike; chaos test harness in S43; halt + root-cause if any beta user reports loss | S43, S48 |
+| R2D-01 | Yjs CRDT loses data on multi-user same-element edit | Medium | Critical | `[strategic ADR-0202]` spike; chaos test harness in S43; halt + root-cause if any beta user reports loss | S43, S48 |
 | R2D-02 | Cutover D5 reveals data divergence between Replit-PG and Supabase | Medium | Critical | Read-your-writes job runs nightly from D3; D5 deletion gated on 14 consecutive nights green | S43, S45 |
 | R2D-03 | Soft-lock TTL races produce phantom locks | Medium | High | TTL sweeper every 5 s; lease-ID validation; e2e 3-user test in S45 | S45 |
 | R2D-04 | Awareness traffic exceeds 5 KB/s/peer cap | Low | Medium | Throttle in S44; perf measurement at sprint exit; cut to compaction is T1.8 (default cut) | S44 |
@@ -813,12 +813,12 @@ This consolidates the Gap-Closure entries from the umbrella `PHASE-2-MIGRATION-M
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S43** | Production cutover Replit-PG → Supabase per SPEC-27 §3 with the 14-day rollback window. Sync server Yjs running on Reserved VM per SPEC-15 §2.2. Production health-check fails fast if `SUPABASE_URL` missing per SPEC-15 §4. AI per-project budget enforced per SPEC-28 §4; UI surfaces shipped per SPEC-28 §9. `authz.can` in every gateway route per ADR-028 Part F. Instantiation hooks deleted from `src/lifecycle/`; replacements in per-family plugins per ADR-030 Part D. Bake-worker debounce window pinned at 250 ms per `[strategic ADR-010]`. | SPEC-15, SPEC-24, SPEC-27 §3, SPEC-28, ADR-028, `[strategic ADR-010]` |
+| **S43** | Production cutover Replit-PG → Supabase per SPEC-27 §3 with the 14-day rollback window. Sync server Yjs running on Reserved VM per SPEC-15 §2.2. Production health-check fails fast if `SUPABASE_URL` missing per SPEC-15 §4. AI per-project budget enforced per SPEC-28 §4; UI surfaces shipped per SPEC-28 §9. `authz.can` in every gateway route per ADR-0228 Part F. Instantiation hooks deleted from `src/lifecycle/`; replacements in per-family plugins per ADR-0230 Part D. Bake-worker debounce window pinned at 250 ms per `[strategic ADR-0210]`. | SPEC-15, SPEC-24, SPEC-27 §3, SPEC-28, ADR-0228, `[strategic ADR-0210]` |
 | **S44** | Backup verification (nightly restore-into-fresh + checksum) lit per SPEC-24 §3.4. AI usage telemetry → Honeycomb metric `pryzm.ai.cost.usd` live per SPEC-28 §5.3. | SPEC-24, SPEC-28 §5.3 |
 | **S45** | After 14-day verification clean: `project_command_log` deleted; Replit PG production data deleted; auto-fallback in `server.js` becomes dev-only (`NODE_ENV !== 'production'`). `src/snapping/` deleted; lives in `packages/picking/`. | SPEC-24 §1.3, SPEC-27 §4.3 |
-| **S46** | `apps/bench/restore-verify.ts` nightly + alerting per SPEC-24 §3.4. Soft-locks (`Postgres soft_locks` table) lit per `[strategic ADR-019]` + SPEC-24 §1.3. | `[strategic ADR-019]`, SPEC-24 §1.3 |
-| **S47** | Beta closes; Phase 2 retro; Phase 3 plan refreshed against any drift. Capacity-cut Tier checkpoint per `[strategic ADR-018]` — decide whether T1.x are needed. | `[strategic ADR-018]` |
-| **S48** | Phase 2 GA-rehearsal bench: `pnpm bench all` green; backup-restore drill green; AI cost dashboard signed off; SOC2-evidence collection plan ratified. | `[strategic ADR-021]`, SPEC-24 §1.10 |
+| **S46** | `apps/bench/restore-verify.ts` nightly + alerting per SPEC-24 §3.4. Soft-locks (`Postgres soft_locks` table) lit per `[strategic ADR-0219]` + SPEC-24 §1.3. | `[strategic ADR-0219]`, SPEC-24 §1.3 |
+| **S47** | Beta closes; Phase 2 retro; Phase 3 plan refreshed against any drift. Capacity-cut Tier checkpoint per `[strategic ADR-0218]` — decide whether T1.x are needed. | `[strategic ADR-0218]` |
+| **S48** | Phase 2 GA-rehearsal bench: `pnpm bench all` green; backup-restore drill green; AI cost dashboard signed off; SOC2-evidence collection plan ratified. | `[strategic ADR-0221]`, SPEC-24 §1.10 |
 
 ---
 
@@ -830,7 +830,7 @@ For honesty about scope and to set Phase 3 expectations:
 - Full AI workflows (CV pipeline, generative, rules, voice) still in PRYZM 1 (S49–S52).
 - No public AI API yet (S53).
 - No IFC, DXF, Rhino plugins yet (S55–S57).
-- No component editor migration (deferred per `[strategic ADR-018]` T2.2 — v2 backlog).
+- No component editor migration (deferred per `[strategic ADR-0218]` T2.2 — v2 backlog).
 - No BCF round-trip (Phase 3B).
 - PropertyPanel + PropertyInspector still 5,500+ LOC each in legacy.
 - No plugin SDK 1.0 publish; layer boundaries enforced but no external developer surface.
@@ -838,7 +838,7 @@ For honesty about scope and to set Phase 3 expectations:
 - `@pryzm/headless` still internal; not on public npm.
 - No self-host packaging.
 - Browser matrix: Chromium-only confirmed; Firefox + Safari + Edge come in S70.
-- Multi-region sync replication NOT delivered (cut per `[strategic ADR-018]` T1.7).
+- Multi-region sync replication NOT delivered (cut per `[strategic ADR-0218]` T1.7).
 
 ---
 

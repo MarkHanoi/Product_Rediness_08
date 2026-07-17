@@ -34,8 +34,8 @@ A doc that fits NONE of these categories does not get written. Open an ADR if th
 | Top-level navigation README | `README.md` (in every folder) | `docs/01-strategy/README.md` |
 | Contract | `CNN-<UPPERCASE-HYPHENATED-TITLE>.md` | `C03-SCHEMAS-COMMANDS-AND-STATE.md` |
 | ADR (new — 2026-06-01+) | `ADR-NNNN-<lowercase-kebab-slug>.md` starting at NNNN ≥ 0100 | `ADR-0100-docs-restructure.md` |
-| ADR (legacy sprint) | `NNNN-<lowercase-kebab-slug>.md` (sealed — no new files in this format) | `0001-typed-id-brand-strategy.md` |
-| ADR (legacy strategic) | `ADR-NNN-<lowercase-kebab-slug>.md` (sealed — no new files in this format) | `ADR-014-l7-5-promotion.md` |
+| ADR (legacy sprint) | `NNNN-<lowercase-kebab-slug>.md` (sealed — no new files in this format) | `ADR-0001-typed-id-brand-strategy.md` |
+| ADR (legacy strategic) | `ADR-NNN-<lowercase-kebab-slug>.md` (sealed — no new files in this format) | `ADR-0214-l7-5-promotion.md` |
 | Spec (numbered) | `SPEC-NN-<UPPERCASE-HYPHENATED-TITLE>.md` | `SPEC-01-GEOMETRY-KERNEL.md` |
 | Spec (special-named) | `SPEC-<UPPERCASE-HYPHENATED-TOPIC>.md` | `SPEC-APARTMENT-LAYOUT-GENERATOR.md` |
 | Plan | `<lowercase-kebab-topic>.md` (no number, no date) | `master-implementation-plan.md` |
@@ -90,9 +90,9 @@ CI gates: `check-adr-immutability.ts` · `check-contract-immutability.ts` · `ch
 
 When two docs disagree, the higher-authority doc wins (per [`docs/README.md §3`](../../README.md)):
 
-1. `01-strategy/product-vision.md`
-2. `01-strategy/engineering-vision.md`
-3. `01-strategy/architecture.md`
+1. `01-strategy/STR-02-product-vision.md`
+2. `01-strategy/STR-03-engineering-vision.md`
+3. `01-strategy/STR-04-architecture.md`
 4. `02-decisions/contracts/CNN-*.md`
 5. `02-decisions/adrs/ADR-*.md`
 6. `03-execution/specs/SPEC-*.md`
@@ -158,7 +158,7 @@ CI gate: `check-pryzm-brand.ts` (planned) — flags `PRYZM 3` / `PRYZM3` / `pryz
 
 ### §1.12 — Every public function has documentation
 
-Per [P8](../../01-strategy/engineering-vision.md) (every public function must add ≥ 1 OpenTelemetry span), this contract adds: every public exported function MUST have a JSDoc comment of at least one line:
+Per [P8](../../01-strategy/STR-03-engineering-vision.md) (every public function must add ≥ 1 OpenTelemetry span), this contract adds: every public exported function MUST have a JSDoc comment of at least one line:
 
 ```typescript
 /** Returns the per-element isolation override map for a given selection. */

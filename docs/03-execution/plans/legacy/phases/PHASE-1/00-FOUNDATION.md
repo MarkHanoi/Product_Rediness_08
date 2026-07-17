@@ -3,7 +3,7 @@
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
 > 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (ADR-001..ADR-024 of the strategic series).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (ADR-0201..ADR-0224 of the strategic series).
 > 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
 > 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
@@ -34,8 +34,8 @@ A "spine" is the minimum slice through every architectural layer that proves the
 - L6 — Plugin host: deferred to Phase 3C, but layer boundaries enforced from S01.
 - L7 — Presentation: vanilla TS, scene-committer the only THREE bridge.
 - L7.5 — AI Operations: deferred to Phase 3A.
-- **Robustness budget — `[strategic ADR-020]`** (geometry-kernel robustness budget) gates S07 onward. The wall miter property test (`packages/geometry-kernel/__tests__/robustness/wall-join.spec.ts`) must pass at PR-merge from S08 onward.
-- **Type catalog — `[strategic ADR-017]`**: by S11 the `Wall` family schema must be complete in `packages/types-schema/`. The legacy 271-line Contract-17 is **DEPRECATED**.
+- **Robustness budget — `[strategic ADR-0220]`** (geometry-kernel robustness budget) gates S07 onward. The wall miter property test (`packages/geometry-kernel/__tests__/robustness/wall-join.spec.ts`) must pass at PR-merge from S08 onward.
+- **Type catalog — `[strategic ADR-0217]`**: by S11 the `Wall` family schema must be complete in `packages/types-schema/`. The legacy 271-line Contract-17 is **DEPRECATED**.
 
 ### §1.2 What Phase 1 deliberately does NOT do
 
@@ -43,9 +43,9 @@ To make 12 months tractable for a solo founder + Replit Agent, these are out-of-
 
 | Deferred | When |
 |---|---|
-| Constraint solver (loadable family parametric authoring) | Phase 3A — `[strategic ADR-024]` |
-| Per-element ACLs (per-instance permissions) | Out of v1 — `[strategic ADR-011]` |
-| Helm chart / single-binary self-host | Post-GA — `[strategic ADR-012]` |
+| Constraint solver (loadable family parametric authoring) | Phase 3A — `[strategic ADR-0224]` |
+| Per-element ACLs (per-instance permissions) | Out of v1 — `[strategic ADR-0211]` |
+| Helm chart / single-binary self-host | Post-GA — `[strategic ADR-0212]` |
 | Rooms, Structural, MEP, Furniture | Phase 2A |
 | Plan view, Section view, Dimensions, Annotations | Phase 2A–2B |
 | Sheets, Schedules, Title blocks, PDF export | Phase 2C |
@@ -475,7 +475,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 
 **Exit**: post-FX visually correct (visual-diff vs PRYZM 1 reference); idle CPU green; orbit fps green; OTel spans tag each pass.
 
-**Risk**: TRAA jitter under idle-continuation — mitigated by 30-frame budget chosen in code-level ADR `docs/02-decisions/adrs/0006-idle-continuation-budget.md`, re-validated here. (Distinct from `[strategic ADR-006]` which is render mode.)
+**Risk**: TRAA jitter under idle-continuation — mitigated by 30-frame budget chosen in code-level ADR `docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md`, re-validated here. (Distinct from `[strategic ADR-0206]` which is render mode.)
 
 ---
 
@@ -570,10 +570,10 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 - `apps/bake-worker/` — Express + BullMQ + Node `worker_threads` + `gltf-transform`.
 - `apps/bake-worker/jobs/RebakeChunkJob.ts` — runs the same producer (P1 holds, kernel pure) in Node.
 - `apps/bake-worker/storage/r2.ts` — Cloudflare R2 upload; signed URL distribution.
-- `[strategic ADR-010]` (250 ms bake debounce) implemented per SPEC-02 §5.
+- `[strategic ADR-0210]` (250 ms bake debounce) implemented per SPEC-02 §5.
 - `apps/bench/bake-incremental.ts` wired.
 
-**Exit**: single wall edit triggers per-chunk re-bake; chunk available at signed R2 URL in < 1.5 s; OTel spans visible; per-event cost measured (initial baseline; `[strategic ADR-010]` §pricing-audit per SPEC-02 §5.3).
+**Exit**: single wall edit triggers per-chunk re-bake; chunk available at signed R2 URL in < 1.5 s; OTel spans visible; per-event cost measured (initial baseline; `[strategic ADR-0210]` §pricing-audit per SPEC-02 §5.3).
 
 **Risk**: per-event $ cost too high — mitigated by coalescing window + tiered bake (R-04 in master plan risk register).
 
@@ -638,15 +638,15 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 
 ## §6 Phase 1 risk register (specific to M1–M12)
 
-> **Velocity-slip cut list.** The M12 alpha gate is governed by `[strategic ADR-018]` — the standing capacity cut list. The phase-specific risks below are *additional* to the cuts already enumerated in `[strategic ADR-018]` §Tier-1, §Tier-2, §Tier-3. If actual velocity at the gate is amber/red, cuts are applied in order from `[strategic ADR-018]` before phase-specific mitigations.
+> **Velocity-slip cut list.** The M12 alpha gate is governed by `[strategic ADR-0218]` — the standing capacity cut list. The phase-specific risks below are *additional* to the cuts already enumerated in `[strategic ADR-0218]` §Tier-1, §Tier-2, §Tier-3. If actual velocity at the gate is amber/red, cuts are applied in order from `[strategic ADR-0218]` before phase-specific mitigations.
 
 | ID | Risk | Likelihood | Impact | Mitigation | Touch sprint |
 |---|---|---|---|---|---|
 | R1-01 | Wall pattern doesn't multiply cleanly to other elements | Medium | High | S11 is the multiplier-validation sprint; if Door takes > 4 days, halt and refactor producer interface in S12 buffer | S11 |
 | R1-02 | `@pryzm/headless` reveals kernel impurity (THREE / DOM / React leak) | Medium | Critical | `pryzm-no-three-in-kernel` lint rule active from S08; Node test runs in CI from S08 onward | S08, S18 |
-| R1-03 | Bake worker per-event cost makes self-host pricing unviable | Low | High | Coalescing window in `[strategic ADR-010]` + S21 cost bench; tiered bake fallback documented | S21 |
+| R1-03 | Bake worker per-event cost makes self-host pricing unviable | Low | High | Coalescing window in `[strategic ADR-0210]` + S21 cost bench; tiered bake fallback documented | S21 |
 | R1-04 | Tier-streamed load misses < 3 s on large fixture | Medium | High | S19 chunk format tunable; S23 has 1 sprint of buffer absorbed in 1D for re-tuning | S19, S23 |
-| R1-05 | Frame scheduler API insufficient for TRAA/SSGI accumulation | Medium | Medium | S15 is the hardening sprint; idle-continuation budget chosen in code-level ADR `docs/02-decisions/adrs/0006-idle-continuation-budget.md` | S15 |
+| R1-05 | Frame scheduler API insufficient for TRAA/SSGI accumulation | Medium | Medium | S15 is the hardening sprint; idle-continuation budget chosen in code-level ADR `docs/02-decisions/adrs/ADR-0006-idle-continuation-budget.md` | S15 |
 | R1-06 | IndexedDB transactions stall under burst writes | Low | Medium | S04 single-writer queue; bench in `save-edit.ts` simulates burst | S04 |
 | R1-07 | Solo + Agent velocity insufficient (1A overruns) | Medium | High | 4-week extension authorised before entering 1B; do not start 1B with broken 1A | End-1A |
 | R1-08 | WebGPU instability blocks bench numbers | Medium | Medium | WebGL2 fallback always present; visual-diff parity gate in S06 | S06, S15 |
@@ -691,10 +691,10 @@ For convenience, all M12 acceptance items in one place:
 - Zero THREE imports outside committers.
 - All boundary lint rules active and PR-blocking.
 - 100% commands declare `affectedStores`.
-- `[strategic ADR-018]` cut-list reviewed at the M12 gate; if amber/red, Tier-1 cuts applied before declaring M12 green.
-- `[strategic ADR-020]` property-test suite green across the 12 element families (wall, slab, roof, column, beam, door, window, stair, railing, curtain wall + the 2 added in Phase 1C).
-- `[strategic ADR-007]` (OTel + Tempo + Honeycomb) — Tempo prod instance live in EU-W and US-E.
-- `[strategic ADR-017]` type-completeness lint PR-blocking from S11; M12 ship-with-product type catalog populated to the Phase 1 milestone count per SPEC-05 §7.
+- `[strategic ADR-0218]` cut-list reviewed at the M12 gate; if amber/red, Tier-1 cuts applied before declaring M12 green.
+- `[strategic ADR-0220]` property-test suite green across the 12 element families (wall, slab, roof, column, beam, door, window, stair, railing, curtain wall + the 2 added in Phase 1C).
+- `[strategic ADR-0207]` (OTel + Tempo + Honeycomb) — Tempo prod instance live in EU-W and US-E.
+- `[strategic ADR-0217]` type-completeness lint PR-blocking from S11; M12 ship-with-product type catalog populated to the Phase 1 milestone count per SPEC-05 §7.
 
 ### Persistence + portability
 - `.pryzm` v1 round-trips losslessly on all three fixtures.

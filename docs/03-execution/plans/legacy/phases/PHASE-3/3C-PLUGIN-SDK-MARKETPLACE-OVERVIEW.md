@@ -5,7 +5,7 @@
 >
 > **Strategic anchor**: `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §6 → `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §4 → this file.
 >
-> **Coalescing-window invariant**: every reference to bake/event coalescing means **250 ms** per `[strategic ADR-010]`.
+> **Coalescing-window invariant**: every reference to bake/event coalescing means **250 ms** per `[strategic ADR-0210]`.
 
 ---
 
@@ -19,8 +19,8 @@
 
 1. **`src/engine/EngineBootstrap.ts` deletion** (S61) — the new composition root is `apps/editor/src/main.ts`; every bootstrap call must be migrated. K3-A applies.
 2. **Plugin SDK 1.0 publish** (S62) — the SDK must lock the descriptor schema, the host contract, the lifecycle hooks, and the type signatures *for v1*. A breaking change post-publish costs two minor versions; v2 is post-GA.
-3. **Marketplace + signed plugins** (S64) — Ed25519 signing + revocation list + signing key in HSM-equivalent per S62 D8 + S64 D5. Per [strategic ADR-009] the plugin sandbox audit at S62 must pass before marketplace opens.
-4. **Public REST + WS API rate-limiting** (S65) — per [strategic ADR-018] quotas, OAuth2 PKCE, abuse-detection. Cost-of-abuse must be < 1% of revenue at expected scale; per K3-D if p95 > 500 ms for reads, halt API publish.
+3. **Marketplace + signed plugins** (S64) — Ed25519 signing + revocation list + signing key in HSM-equivalent per S62 D8 + S64 D5. Per [strategic ADR-0209] the plugin sandbox audit at S62 must pass before marketplace opens.
+4. **Public REST + WS API rate-limiting** (S65) — per [strategic ADR-0218] quotas, OAuth2 PKCE, abuse-detection. Cost-of-abuse must be < 1% of revenue at expected scale; per K3-D if p95 > 500 ms for reads, halt API publish.
 
 ---
 
@@ -30,7 +30,7 @@
 
 **Public-surface invariant**: every public surface (REST, WS, headless, AI, marketplace, descriptor schema) ships with versioned semver, published OpenAPI/JSON-schema, and a deprecation policy of "1 year minimum" before removal in a major.
 
-**Headless-Node parity invariant**: per `[strategic ADR-005]` and `[ADR 0017-headless-package-surface]`, every public API path that is reachable from the editor must also be reachable from `@pryzm/headless` running in Node — no DOM, no THREE, no React.
+**Headless-Node parity invariant**: per `[strategic ADR-0205]` and `[ADR 0017-headless-package-surface]`, every public API path that is reachable from the editor must also be reachable from `@pryzm/headless` running in Node — no DOM, no THREE, no React.
 
 ---
 
@@ -42,7 +42,7 @@
 |---|---|
 | `src/engine/EngineBootstrap.ts` **deleted** per SPEC-27 §4.3; `apps/editor/src/main.ts` is new composition root | S61 |
 | Plugin SDK 1.0 publish (`@pryzm/plugin-sdk@1.0.0`) | S62 |
-| Plugin sandbox audit per [strategic ADR-009] (third-party) | S62 |
+| Plugin sandbox audit per [strategic ADR-0209] (third-party) | S62 |
 | Public API draft published; OpenAPI schema for `.pryzm` import/export per SPEC-26 §8 | S63 |
 | Public REST `import` / `export.pryzm` endpoints lit per SPEC-26 §11 | S65 |
 | AI public API (read-only L7.5 surface) | S65 |
@@ -59,15 +59,15 @@
 | 30 first-party plugins seeded into marketplace | S64 |
 | 5 third-party invitation cohort | S64 |
 | `packages/ui/` migration covers all editor panels; `src/styles/panels/` 80% migrated | S64 |
-| `src/styles/` deletion completes per `[strategic ADR-026]` + SPEC-27 | S66 |
+| `src/styles/` deletion completes per `[strategic ADR-0226]` + SPEC-27 | S66 |
 | Public API beta opens | S66 |
-| Enterprise admin UI for plan/role overrides per [strategic ADR-028] Part E | S65 |
-| Formula library extraction for plugin SDK exposure (read-only) per [strategic ADR-027] | S65 |
-| View+project lifecycle events deleted per [strategic ADR-030] Part D | S65 |
+| Enterprise admin UI for plan/role overrides per [strategic ADR-0228] Part E | S65 |
+| Formula library extraction for plugin SDK exposure (read-only) per [strategic ADR-0227] | S65 |
+| View+project lifecycle events deleted per [strategic ADR-0230] Part D | S65 |
 | Documentation site `docs.pryzm.com` consolidation begins | S66 |
 | PDF backend large-sheet bench < 8 s green per SPEC-29 §9 | S65 |
 | WebGPU compute investigation for post-GA SPEC-30 acceleration | S65 |
-| PDF-to-BIM pricing finalised; cost ceilings enforced per [strategic ADR-029] Part C | S65 |
+| PDF-to-BIM pricing finalised; cost ceilings enforced per [strategic ADR-0229] Part C | S65 |
 
 ### Joint Deliverables
 
@@ -346,7 +346,7 @@ components:
 - **D1**: OpenAPI schema draft.
 - **D2**: OAuth2 PKCE flow scaffolding.
 - **D3**: scope definitions + RBAC mapping.
-- **D4**: rate-limit policy draft (per `[strategic ADR-018]`).
+- **D4**: rate-limit policy draft (per `[strategic ADR-0218]`).
 - **D5**: API gateway scaffolding.
 - **D6**: smoke test against draft endpoints.
 - **D7**: docs scaffolding at `docs.pryzm.com/api/`.
@@ -371,7 +371,7 @@ components:
 
 #### Context and Why This Matters
 
-The marketplace is **the** platform-level visibility surface for third-party plugins. Per [strategic ADR-009] the marketplace ships with: signed plugins (Ed25519), revocation list, per-plugin install scoping (workspace, project, user), versioning + deprecation policy, security sandbox audit references.
+The marketplace is **the** platform-level visibility surface for third-party plugins. Per [strategic ADR-0209] the marketplace ships with: signed plugins (Ed25519), revocation list, per-plugin install scoping (workspace, project, user), versioning + deprecation policy, security sandbox audit references.
 
 30 first-party plugins seed the marketplace — these are the bundled plugins from PRYZM 2 surfaced as discoverable items (walls, slabs, doors, ifc-import, ai-floorplan, etc.) with download analytics.
 
@@ -462,11 +462,11 @@ K3-D applies: if public API p95 > 500 ms for reads at S65 D8, halt API publish; 
 3. **AI public API** (read-only L7.5 surface): list workflows, describe workflows, invoke (rate-limited, OAuth2-scoped).
 4. **PDF backend large-sheet bench < 8 s green** per SPEC-29 §9.
 5. **WebGPU compute investigation** for post-GA SPEC-30 acceleration (research only).
-6. **PDF-to-BIM pricing finalised**; cost ceilings enforced per [strategic ADR-029] Part C.
+6. **PDF-to-BIM pricing finalised**; cost ceilings enforced per [strategic ADR-0229] Part C.
 7. **Workspace Admin AI Spend view** per SPEC-28 §9 (per-workspace dashboard surfacing `pryzm.ai.cost.usd` aggregations).
-8. **Enterprise admin UI for plan/role overrides** per [strategic ADR-028] Part E.
-9. **Formula library extraction** for plugin SDK exposure (read-only) per [strategic ADR-027].
-10. **View+project lifecycle events deleted** per [strategic ADR-030] Part D — replaced with descriptor-driven hooks.
+8. **Enterprise admin UI for plan/role overrides** per [strategic ADR-0228] Part E.
+9. **Formula library extraction** for plugin SDK exposure (read-only) per [strategic ADR-0227].
+10. **View+project lifecycle events deleted** per [strategic ADR-0230] Part D — replaced with descriptor-driven hooks.
 
 ---
 
@@ -493,7 +493,7 @@ K3-D applies: if public API p95 > 500 ms for reads at S65 D8, halt API publish; 
 - Public-API p95 < 200 ms (read), < 500 ms (write); throughput at least 1000 req/min/endpoint.
 - AI Spend view live for workspace admins.
 - PDF backend large-sheet bench < 8 s.
-- View+project lifecycle events deleted; [strategic ADR-030] Part D contract met.
+- View+project lifecycle events deleted; [strategic ADR-0230] Part D contract met.
 
 ---
 
@@ -504,7 +504,7 @@ K3-D applies: if public API p95 > 500 ms for reads at S65 D8, halt API publish; 
 
 #### Context and Why This Matters
 
-S66 wraps Phase 3C. `src/styles/` is **deleted** per `[strategic ADR-026]` + SPEC-27 — the design system migration completes; every editor panel now consumes `packages/ui/` primitives + tokens.
+S66 wraps Phase 3C. `src/styles/` is **deleted** per `[strategic ADR-0226]` + SPEC-27 — the design system migration completes; every editor panel now consumes `packages/ui/` primitives + tokens.
 
 Public API beta opens to the broader community (not just beta cohort). `@pryzm/headless@1.0.0` ships on npm with the same descriptor-driven plugin discovery as the editor. Documentation site `docs.pryzm.com/{plugin-sdk,api,headless,file-format}` consolidates into a single navigable source-of-truth.
 
@@ -540,7 +540,7 @@ Public API beta opens to the broader community (not just beta cohort). `@pryzm/h
 | ID | Risk | Likelihood | Impact | Mitigation | Touch sprint |
 |---|---|---|---|---|---|
 | R3C-01 | Composition-root deletion (S61) breaks production | Medium | High | Full visual + e2e regression sweep; canary deploy 5% beta first; fix-forward | S61 |
-| R3C-02 | Plugin sandbox escape post-publish | Low | Critical | [strategic ADR-009] + S62 sandbox audit + S68 pen test; bug bounty post-GA | S62, S68 |
+| R3C-02 | Plugin sandbox escape post-publish | Low | Critical | [strategic ADR-0209] + S62 sandbox audit + S68 pen test; bug bounty post-GA | S62, S68 |
 | R3C-03 | Public API abuse (excessive rate, scrape) | Medium | Medium | Rate limits + per-key quotas + abuse detection in S65; ban list operational | S65 |
 | R3C-04 | Marketplace plugin signing weakness | Low | Critical | Ed25519 + revocation list; signing key in HSM-equivalent | S64 |
 | R3C-05 | AI API costs unviable at scale | Medium | Medium | Per-key quotas + tier pricing in S53; usage caps; user-bring-your-own-key for heavy AI | S53, S65 |
@@ -566,11 +566,11 @@ Public API beta opens to the broader community (not just beta cohort). `@pryzm/h
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
 | **S61** | `src/engine/EngineBootstrap.ts` **deleted** per SPEC-27 §4.3; `apps/editor/src/main.ts` is the new composition root. The hardest deletion. | SPEC-27 §4.3 |
-| **S62** | PDF-to-BIM fixture corpus parity testing; accuracy bar measurement per `[strategic ADR-029]` Part E. WebGPU readiness re-evaluated per `[strategic ADR-025]` Part C. SDK 1.0 publish + sandbox audit. | `[strategic ADR-029]`, `[strategic ADR-025]`, [strategic ADR-009] |
+| **S62** | PDF-to-BIM fixture corpus parity testing; accuracy bar measurement per `[strategic ADR-0229]` Part E. WebGPU readiness re-evaluated per `[strategic ADR-0225]` Part C. SDK 1.0 publish + sandbox audit. | `[strategic ADR-0229]`, `[strategic ADR-0225]`, [strategic ADR-0209] |
 | **S63** | Public API draft published; OpenAPI schema for `.pryzm` import/export per SPEC-26 §8. | SPEC-26 §8 |
-| **S64** | `packages/ui/` migration covers all editor panels; `src/styles/panels/` 80% migrated. Marketplace + signing live. | `[strategic ADR-026]`, [strategic ADR-009] |
-| **S65** | Public REST `import` / `export.pryzm` endpoints lit per SPEC-26 §11. PDF backend large-sheet bench < 8 s green per SPEC-29 §9. WebGPU compute investigation for post-GA SPEC-30 acceleration. PDF-to-BIM pricing finalised; cost ceilings enforced per `[strategic ADR-029]` Part C. Workspace Admin AI Spend view shipped per SPEC-28 §9. Enterprise admin UI for plan/role overrides per [strategic ADR-028] Part E. Formula library extraction for plugin SDK exposure (read-only) per [strategic ADR-027]. View+project lifecycle events deleted per [strategic ADR-030] Part D. | SPEC-26, SPEC-28, SPEC-29, SPEC-30, `[strategic ADR-026]`, [strategic ADR-027], [strategic ADR-028], `[strategic ADR-029]`, [strategic ADR-030] |
-| **S66** | `src/styles/` deletion completes per `[strategic ADR-026]` + SPEC-27. Public API beta opens. Headless npm published. | `[strategic ADR-026]`, SPEC-26 |
+| **S64** | `packages/ui/` migration covers all editor panels; `src/styles/panels/` 80% migrated. Marketplace + signing live. | `[strategic ADR-0226]`, [strategic ADR-0209] |
+| **S65** | Public REST `import` / `export.pryzm` endpoints lit per SPEC-26 §11. PDF backend large-sheet bench < 8 s green per SPEC-29 §9. WebGPU compute investigation for post-GA SPEC-30 acceleration. PDF-to-BIM pricing finalised; cost ceilings enforced per `[strategic ADR-0229]` Part C. Workspace Admin AI Spend view shipped per SPEC-28 §9. Enterprise admin UI for plan/role overrides per [strategic ADR-0228] Part E. Formula library extraction for plugin SDK exposure (read-only) per [strategic ADR-0227]. View+project lifecycle events deleted per [strategic ADR-0230] Part D. | SPEC-26, SPEC-28, SPEC-29, SPEC-30, `[strategic ADR-0226]`, [strategic ADR-0227], [strategic ADR-0228], `[strategic ADR-0229]`, [strategic ADR-0230] |
+| **S66** | `src/styles/` deletion completes per `[strategic ADR-0226]` + SPEC-27. Public API beta opens. Headless npm published. | `[strategic ADR-0226]`, SPEC-26 |
 
 ---
 
@@ -582,7 +582,7 @@ Public API beta opens to the broader community (not just beta cohort). `@pryzm/h
 - WCAG 2.2 AA (Phase 3D).
 - Marketing site + GA launch (Phase 3D).
 - PDF-to-BIM public preview (S70).
-- Multi-region sync replication (cut per `[strategic ADR-018]` T1.7).
+- Multi-region sync replication (cut per `[strategic ADR-0218]` T1.7).
 
 ---
 

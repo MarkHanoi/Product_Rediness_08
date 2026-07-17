@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `GAP-REVIEW-2026-04-27.md §10, §29 #2` (.pryzm referenced 80+ times, 0 specification) |
 | Phases | 1D (alpha format land), 2A (round-trip), 2D (sync-aware), 3D (GA frozen) |
-| Replaces / extends | the textual references in `08-VISION.md`, `[strategic ADR-002]`, `SPEC-02 §6`, `10-MASTER…` §3 |
+| Replaces / extends | the textual references in `08-VISION.md`, `[strategic ADR-0202]`, `SPEC-02 §6`, `10-MASTER…` §3 |
 
 > **The `.pryzm` file is the single portable artefact for a PRYZM project.** It is the upload, the share, the export, the headless-CLI input, the offline backup, and the self-host hand-off. This SPEC defines its byte layout, manifest, version-evolution rules, and CI gates. Every persistence / sync / bake / IFC decision downstream depends on it.
 
@@ -151,7 +151,7 @@ Records are length-prefixed (4-byte big-endian uint32). Reader streams; never lo
 ## §5 Chunk format (`chunks/**/*.glb`)
 
 - **Container:** glTF 2.0 binary (`.glb`).
-- **Mesh compression:** Draco level 7 (per `[strategic ADR-003]` reasoning: best size/decode balance at the editor's mesh density).
+- **Mesh compression:** Draco level 7 (per `[strategic ADR-0203]` reasoning: best size/decode balance at the editor's mesh density).
 - **Texture compression:** KTX2 / Basis where used.
 - **Naming:** `<level>_<family>_<contentHash>.glb` where `<contentHash>` is the first 12 chars of SHA-256 of the chunk's input envelope set. This makes chunks **content-addressable**: same input → same chunk → CDN cacheability.
 - **LOD policy:** lod0 (visible-on-paint), lod1 (after-paint within frustum), lod2 (zoomed-out / far-frustum). Per SPEC-12 §9.
@@ -254,6 +254,6 @@ The reader returns `Result<PryzmArchive, PryzmReadError>`; never throws on parse
 ---
 
 ## §12 Cross-references
-- ADR-002 sync (event log byte format upstream); ADR-003 R2 (chunk store); ADR-004 wire format (MessagePack); ADR-008 IFC scope; ADR-018 cut list (T1.5 PDF export); ADR-022 backend runtime topology.
+- ADR-0202 sync (event log byte format upstream); ADR-0203 R2 (chunk store); ADR-0204 wire format (MessagePack); ADR-0208 IFC scope; ADR-0218 cut list (T1.5 PDF export); ADR-0222 backend runtime topology.
 - SPEC-02 persistence (event log shape, compaction); SPEC-03 sync (translator round-trip); SPEC-09 plugin SDK (data sandbox); SPEC-12 bundle splitting (LOD chunking); SPEC-15 deployment (R2 hosting); SPEC-27 migration & rollback.
 - Phase docs: PHASE-1D §4 alpha format; PHASE-2A §3 imports; PHASE-3D §6 GA freeze.

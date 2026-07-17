@@ -1,6 +1,6 @@
 # PRYZM — Documentation
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL (top-level navigation)
+> **Stamp**: 2026-07-16 · **Status**: CANONICAL (top-level navigation) · _counts + links refreshed 2026-07-16_
 >
 > Pattern: how Stripe / Linear / Autodesk / Forma organise internal engineering knowledge.
 
@@ -47,19 +47,20 @@ This is the **engineering documentation** root for PRYZM. End-user product docs 
 | Folder | Owns | Cadence | Audience |
 |---|---|---|---|
 | [01-strategy/](./01-strategy/) | Product vision · engineering vision · system architecture · business strategy | Quarterly+ | Leadership · architects |
-| [02-decisions/](./02-decisions/) | Contracts (C00–C30) · ADRs (~55) · Principles (P1–P8) | Per-decision; immutable once written | Engineers · reviewers |
-| [03-execution/](./03-execution/) | Specs (~56) · implementation plans · live status logs | Daily–weekly | Engineers · PMs |
-| [04-reference/](./04-reference/) | API · glossary · file formats · architecture detail · NFT benches | Per-release | Engineers · plugin authors |
+| [02-decisions/](./02-decisions/) | Contracts (**C01–C56**, 57 files) · ADRs (**196**) · Principles (P1–P8) | Per-decision; immutable once written | Engineers · reviewers |
+| [03-execution/](./03-execution/) | Specs (**~82**) · plans · status · analysis · queue · spikes | Daily–weekly | Engineers · PMs |
+| [04-reference/](./04-reference/) | **V1-launch tracker** (readiness audit + implementation plan) · file-formats · architecture-detail · observability · runbooks · security · glossary | Per-release + live launch tracking | Engineers · plugin authors |
 | [05-guides/](./05-guides/) | User · developer · enterprise · plugin-author guides | Per-feature | End users · onboarding |
+| [interview/](./interview/) | Interview-prep working material (Morfis / three.js / kernels / drills) — **not** part of the canonical pyramid | Ad-hoc | Personal |
 | [archive/](./archive/) | PRYZM 1+2 inheritance · superseded plans · dead audits | One-way only | Historical reference |
 
 ## §3 — Authority hierarchy (conflict resolution)
 
 Strongest → weakest. When two docs disagree, the higher-authority doc wins:
 
-1. [01-strategy/product-vision.md](./01-strategy/product-vision.md) — product + business vision
-2. [01-strategy/engineering-vision.md](./01-strategy/engineering-vision.md) — P1–P8 principles + D1–D13 differentiators
-3. [01-strategy/architecture.md](./01-strategy/architecture.md) — system shape + lint gates + convergence booleans
+1. [01-strategy/STR-02-product-vision.md](./01-strategy/STR-02-product-vision.md) — product + business vision
+2. [01-strategy/STR-03-engineering-vision.md](./01-strategy/STR-03-engineering-vision.md) — P1–P8 principles + D1–D13 differentiators
+3. [01-strategy/STR-04-architecture.md](./01-strategy/STR-04-architecture.md) — system shape + lint gates + convergence booleans
 4. [02-decisions/contracts/](./02-decisions/contracts/) — C00–C30 binding contracts
 5. [02-decisions/adrs/](./02-decisions/adrs/) — per-decision rationale
 6. [03-execution/specs/](./03-execution/specs/) — per-system normative specs
@@ -90,8 +91,9 @@ If code disagrees with a contract, **the code is wrong** — fix it or raise an 
 - **Index of contracts**: [02-decisions/contracts/README.md](./02-decisions/contracts/README.md) (C00-INDEX)
 - **Index of ADRs**: [02-decisions/adrs/README.md](./02-decisions/adrs/README.md)
 - **Index of specs**: [03-execution/specs/README.md](./03-execution/specs/README.md)
-- **Master implementation plan**: [03-execution/plans/master-implementation-plan.md](./03-execution/plans/master-implementation-plan.md)
-- **Master architecture + capabilities (this session's audit)**: [03-execution/plans/master-architecture-and-capabilities.md](./03-execution/plans/master-architecture-and-capabilities.md)
+- **Master execution tracker**: [03-execution/plans/master-execution-tracker.md](./03-execution/plans/master-execution-tracker.md)
+- **V1 launch readiness audit** (live bug/issue log, L-NNN — the active tracker): [04-reference/V1-LAUNCH-READINESS-AUDIT.md](./04-reference/V1-LAUNCH-READINESS-AUDIT.md)
+- **V1 launch implementation plan** (phased fixes per L-NNN): [04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md](./04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md)
 - **Autonomous-session runs log**: [03-execution/status/autonomous-session-runs-log.md](./03-execution/status/autonomous-session-runs-log.md)
 - **Naming conventions** (binding for every doc + code identifier): [NAMING-CONVENTIONS.md](./NAMING-CONVENTIONS.md)
 - **Documentation authoring contract** (anatomy + immutability + style): [02-decisions/contracts/C31-DOCUMENTATION-AUTHORING-PROTOCOL.md](./02-decisions/contracts/C31-DOCUMENTATION-AUTHORING-PROTOCOL.md)
@@ -108,4 +110,6 @@ The migration ran in 3 phases:
 - **Phase 2** (follow-on) — reference/ADRs/specs/architecture-detail moved under their pyramid layers.
 - **Phase 3** (follow-on) — topic-dirs (architecture/ Analysis/ EdgesLines/ marketing/ mobile/ post-mortems/ retros/ etc.) audited → reference/ or archive/.
 
-See [MIGRATION-FILE-MAP.md](./MIGRATION-FILE-MAP.md) for the full before/after path mapping.
+The full before/after path mapping (`MIGRATION-FILE-MAP.md`) was a transient migration artifact and is no longer kept at the docs root.
+
+**Migration status (2026-07-16):** Phases 1–3 complete. The former `03_PRYZM3/` working area was folded into the pyramid on 2026-07-16 — its 11 files moved to `03-execution/specs/` (SPEC-CIRCULATION-GRAPH, SPEC-3D-ANALYTICS-FIXES-AND-OVERLAYS), `03-execution/plans/` (climate/GIS/microclimate), `03-execution/analysis/` (execution-engine render-defects audit), `03-execution/spikes/` (balcony · corridor-spine · roof-garden · true-north), and `04-reference/` (PRYZM-3D-GEOSPATIAL-CAPABILITIES) — and the empty directory was removed. The only working area still outside the canonical pyramid is [`interview/`](./interview/) (personal interview-prep material, out of engineering-docs scope). Note also that CLAUDE.md still points the conflict-resolution order at the pre-migration paths (`docs/03_PRYZM3/01-VISION.md` → `02-ARCHITECTURE.md`); those now live at [`01-strategy/`](./01-strategy/) (`STR-02-product-vision.md` → `STR-03-engineering-vision.md` → `STR-04-architecture.md`) per §3 above.

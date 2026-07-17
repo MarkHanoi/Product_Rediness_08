@@ -1,6 +1,7 @@
 # C21 — Climate Ingestion
 
-> **Stamp**: 2026-06-01 · **Status**: DRAFT
+> **Stamp**: 2026-06-01 · **Ratified**: 2026-07-16 · **Status**: CANONICAL
+> _Ratified DRAFT→CANONICAL 2026-07-16 (founder-approved sweep): full C31 anatomy present (§1 Invariants … §9 "What is NOT" + §10 Solar Exposure), and climate ingestion + solar/sun-hours analysis are implemented (`@pryzm/solar-analysis`, ADR-0074)._
 > **Scope**: how PRYZM ingests, normalises, caches, and serves climate data (EPW · NOAA · solar position · wind · temperature) to every site-aware workflow; sister contract to [C12 Geospatial](./C12-GEOSPATIAL.md) (coordinate substrate) and the future [C19 Site Model](./C19-SITE-MODEL-AND-PARCEL.md) (parcel + jurisdiction).
 > **Depends on**: [C03 Schemas, Commands & State](./C03-SCHEMAS-COMMANDS-AND-STATE.md) · [C09 AI & Visibility Intent](./C09-AI-AND-VISIBILITY-INTENT.md) · [C10 Performance & Observability](./C10-PERFORMANCE-AND-OBSERVABILITY.md) · [C12 Geospatial](./C12-GEOSPATIAL.md) · [C16 Command Authoring Protocol](./C16-COMMAND-AUTHORING-PROTOCOL.md)
 > **Downstream**: `packages/climate-host/` (new), `packages/ai-host/src/workflows/apartmentLayout/environment/`, every Cognition-Stack L1 environmental engine, every site-aware AI workflow (apartment / facade / lighting / massing / MEP), the IFC `IfcSite` exporter, and the future Inspect / Schedule surfaces that quote heating-load / daylight-autonomy figures.
@@ -707,7 +708,7 @@ This contract (C21) is initially DRAFT; it ratchets to CANONICAL after:
 
 ## §10 — Solar Exposure & Sun-Hours Analysis
 
-> Added 2026-06-16 per [ADR-0074](../adrs/0074-gpu-solar-sun-hours-environmental-analysis.md). Sister derived-analysis section to [C54 In-Browser Wind CFD](./C54-IN-BROWSER-WIND-CFD.md) (ADR-0064) — both carve a per-surface environmental analysis out of a C21/C19 substrate rather than minting a fresh contract.
+> Added 2026-06-16 per [ADR-0074](../adrs/ADR-0074-gpu-solar-sun-hours-environmental-analysis.md). Sister derived-analysis section to [C54 In-Browser Wind CFD](./C54-IN-BROWSER-WIND-CFD.md) (ADR-0064) — both carve a per-surface environmental analysis out of a C21/C19 substrate rather than minting a fresh contract.
 
 Per-surface **solar exposure / sun-hours** — "how many hours does *this* roof facet / *this* façade panel actually see the sun across the analysis window, accounting for self-shadowing and neighbours" — and its irradiance-weighted sibling are a **DERIVED CONSUMER** of C21's solar substrate. They are governed HERE, as a normative section, NOT as a new contract. This mirrors how ADR-0064's wind-CFD invariants live in [C54](./C54-IN-BROWSER-WIND-CFD.md) (consuming C21's wind rose) rather than re-deciding C21, and it is the direct application of the §1.10 "consumer derives discipline-specific quantities" pattern: solar POSITION (§1.3) and irradiance MAGNITUDE (§2.2) already belong to C21, so per-surface exposure extends C21 rather than forking solar ownership.
 
@@ -763,7 +764,7 @@ This is the same split C54 §1.8 enforces for the CFD solver (pure low-layer com
 ### §10.7 — Determinism + honesty (BETA + fallback tiering)
 
 - **Determinism.** A run is reproducible per the tuple `(site lat/lon, date-range, sun-step, mesh, climate dataset version)` — re-running the same configuration yields the same per-surface field (GPU floating-point reduction order is the only permitted variance source, as in C54 §1.3). This lets a result be audited (the future C23 Provenance) and fed deterministically to the layout / AI engines.
-- **Honesty + fallback.** The GPU occlusion + heatmap pass is **BETA**. Following [ADR-0007](../adrs/0007-webgpu-webgl2-dual-mode.md) (WebGPU/WebGL2 dual-mode) and the C54 §1.1 / §1.2 honesty + graceful-fallback discipline: the WebGPU compute-accumulation path MUST detect device availability and degrade gracefully — a WebGL2 additive-render fallback, and below that a CPU path — never crashing the frame loop; every surface that presents a result MUST carry a visible **BETA** label, and an indicative geometric sun-hours figure MUST NOT be presented as a certified solar/energy analysis. Absolute irradiance MUST additionally carry its climate-data tier (§10.4). This is the C54 / ADR-0064 beta-honesty rule carried into C21 §10.
+- **Honesty + fallback.** The GPU occlusion + heatmap pass is **BETA**. Following [ADR-0007](../adrs/ADR-0007-webgpu-webgl2-dual-mode.md) (WebGPU/WebGL2 dual-mode) and the C54 §1.1 / §1.2 honesty + graceful-fallback discipline: the WebGPU compute-accumulation path MUST detect device availability and degrade gracefully — a WebGL2 additive-render fallback, and below that a CPU path — never crashing the frame loop; every surface that presents a result MUST carry a visible **BETA** label, and an indicative geometric sun-hours figure MUST NOT be presented as a certified solar/energy analysis. Absolute irradiance MUST additionally carry its climate-data tier (§10.4). This is the C54 / ADR-0064 beta-honesty rule carried into C21 §10.
 
 ### §10.8 — Read-only / overlay-only + an OTel span per run (P8)
 
@@ -788,10 +789,10 @@ Implementation is the next step (a `accumulateRoomHeatGain(surfaces, rooms, glaz
 
 | Ref | Relationship |
 |---|---|
-| [ADR-0074](../adrs/0074-gpu-solar-sun-hours-environmental-analysis.md) | The decision record this section contract-izes (GPU sun-hours, real model geometry, heatmap). |
-| [ADR-0064](../adrs/0064-in-browser-wind-cfd-webgpu-lbm.md) / [C54](./C54-IN-BROWSER-WIND-CFD.md) | Sister env-sim: client-side WebGPU analysis over a C21/C19 substrate; source of the BETA-honesty + graceful-fallback + single-THREE-owner patterns reused here. |
-| [ADR-0007](../adrs/0007-webgpu-webgl2-dual-mode.md) | WebGPU/WebGL2 dual-mode — the rendering substrate + fallback tiering cited in §10.7. |
-| [ADR-0070](../adrs/0070-project-north-vs-true-north-authoring-frame.md) | Project-North → True-North rotation that aligns the model frame to the compass the sun is computed in (§10.1). |
+| [ADR-0074](../adrs/ADR-0074-gpu-solar-sun-hours-environmental-analysis.md) | The decision record this section contract-izes (GPU sun-hours, real model geometry, heatmap). |
+| [ADR-0064](../adrs/ADR-0064-in-browser-wind-cfd-webgpu-lbm.md) / [C54](./C54-IN-BROWSER-WIND-CFD.md) | Sister env-sim: client-side WebGPU analysis over a C21/C19 substrate; source of the BETA-honesty + graceful-fallback + single-THREE-owner patterns reused here. |
+| [ADR-0007](../adrs/ADR-0007-webgpu-webgl2-dual-mode.md) | WebGPU/WebGL2 dual-mode — the rendering substrate + fallback tiering cited in §10.7. |
+| [ADR-0070](../adrs/ADR-0070-project-north-vs-true-north-authoring-frame.md) | Project-North → True-North rotation that aligns the model frame to the compass the sun is computed in (§10.1). |
 | [C12 Geospatial](./C12-GEOSPATIAL.md) | lat/lon → LTP-ENU scene frame + orientation (§10.1). |
 | [C04 Rendering & Scheduling](./C04-RENDERING-AND-SCHEDULING.md) | THREE / rAF ownership for the GPU pass (§10.6, P2). |
 | C21 §1.3, §2.2, §3.3, §1.10, §5.3 | The substrate this section derives from (computed solar position; EPW irradiance; `SolarPathReader`; consumer-derives pattern; climate-quality gate). |

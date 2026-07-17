@@ -223,7 +223,7 @@ function firstMesh(obj: THREE.Object3D | null): THREE.Mesh | null {
 
 **Problem A — multi-face Groups:** A wall element is a Group: `[frameMesh, faceMesh, edgeFillMesh, …]`. The DFS visits `frameMesh` first (or whatever THREE adds first). If the user clicks on the wall face, `firstMesh` returns `frameMesh` (which may be a 1px-wide box) and the raycast misses entirely.
 
-**Problem B — InstancedMesh cast:** `THREE.InstancedMesh extends THREE.Mesh`. `instanceof THREE.Mesh` is `true` for an InstancedMesh. After ADR-046 coalescing, curtain-wall panels that have NOT been merged into the global IM still appear as hidden InstancedMeshes in the Group. `firstMesh()` may return one of these InstancedMeshes. The BVH is then built for `instancedMesh.geometry` (the raw panel geometry, NOT accounting for per-instance matrices), and `raycaster.intersectObject(instancedMesh, false)` uses THREE's built-in InstancedMesh raycast (not BVH-accelerated, because BVH patches `Mesh.prototype.raycast` but InstancedMesh overrides `raycast` and doesn't invoke `super`). All instances thus appear at the origin of the IM — picks in world-space panel positions will miss.
+**Problem B — InstancedMesh cast:** `THREE.InstancedMesh extends THREE.Mesh`. `instanceof THREE.Mesh` is `true` for an InstancedMesh. After ADR-0246 coalescing, curtain-wall panels that have NOT been merged into the global IM still appear as hidden InstancedMeshes in the Group. `firstMesh()` may return one of these InstancedMeshes. The BVH is then built for `instancedMesh.geometry` (the raw panel geometry, NOT accounting for per-instance matrices), and `raycaster.intersectObject(instancedMesh, false)` uses THREE's built-in InstancedMesh raycast (not BVH-accelerated, because BVH patches `Mesh.prototype.raycast` but InstancedMesh overrides `raycast` and doesn't invoke `super`). All instances thus appear at the origin of the IM — picks in world-space panel positions will miss.
 
 **Fix:** Explicitly exclude InstancedMesh in `firstMesh` and add a separate `InstancedMesh` raycast path:
 ```ts
@@ -480,7 +480,7 @@ This is the render-synchronisation manifestation of HIGH-2. The pick RT is sized
 | C04 §3.2 | Depth-sorted pickRect results | ✅ OK | `results.sort((a,b) => a.distance - b.distance)` |
 | C11 §3.2 | Tools dispatch via `commandBus.dispatch` with `{source:'user'}` | ❌ MISSING | Legacy `executeCommand` used, no source tag |
 | C11 §3.3 | Dispatch on `pointerup`, not `pointerdown` | ❌ BROKEN | `pointerdown` fires dispatch — orbit breaks selection |
-| ADR-046 | InstancedMesh pick resolution | ✅ OK | `syncPickScene` handles hidden IMs with per-instance world-space clones |
+| ADR-0246 | InstancedMesh pick resolution | ✅ OK | `syncPickScene` handles hidden IMs with per-instance world-space clones |
 | ADR-0015 | Boot-time gpu→bvh fallback | ✅ OK | `resolvePickStrategy` + OTel span |
 
 ---

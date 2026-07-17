@@ -127,7 +127,7 @@ Implementation:
 - Each operation gets its own bench (`plan-view-select.ts`, ...).
 - Each operation passes the §2 budget at the Medium tier before the VI port begins.
 
-If any of the 5 misses budget after 2 weeks, K1-2B fires (per ADR-018 T3.5 — date slip option).
+If any of the 5 misses budget after 2 weeks, K1-2B fires (per ADR-0218 T3.5 — date slip option).
 
 Only after the 5 are green does the **VI engine port** begin (S32–S34). The legacy 11-wave system is reused via an adapter (`packages/visibility/legacy-adapter.ts`) until the new resolver hits parity, then the legacy is deleted at S58 per SPEC-27 §4.3.
 
@@ -174,7 +174,7 @@ When two views are open (e.g. plan + section), edits in one must propagate to th
 
 - Plan view → PDF backend (per SPEC-29 §4.3) for sheet export.
 - Print preview → print-canvas backend (per SPEC-29 §4.4).
-- Export-vector to DXF / SVG (Phase 3B per ADR-018 T2.1; if cut, DXF moves to plugin).
+- Export-vector to DXF / SVG (Phase 3B per ADR-0218 T2.1; if cut, DXF moves to plugin).
 
 ---
 
@@ -204,6 +204,6 @@ When two views are open (e.g. plan + section), edits in one must propagate to th
 ---
 
 ## §11 Cross-references
-- ADR-015 visibility-intent placement; ADR-016 drawing engine; ADR-018 cut list (T3.5 date slip if pre-port misses); ADR-022 backend runtime.
+- ADR-0215 visibility-intent placement; ADR-0216 drawing engine; ADR-0218 cut list (T3.5 date slip if pre-port misses); ADR-0222 backend runtime.
 - SPEC-04 drawing engine; SPEC-11 testing (visual gate); SPEC-13 envelopes; SPEC-21 element protocol Step 8 (plan symbols); SPEC-29 vector primitives.
 - Phase docs: **PHASE-2A §6.4–§6.5 (foundations); PHASE-2B (the primary phase doc, pre-ported by this SPEC); PHASE-3A §3 visibility-intent migration**.

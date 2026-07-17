@@ -26,9 +26,9 @@ file path or grep result you can reproduce.
 | Persistence + file format (M10, M12)       | **A−** | `packages/file-format` ships pack/unpack + deterministic ZIP; msgpack codec present; chunked GLB pipeline present. |
 | Bake / sync (M11)                          | **B**  | `apps/bake-worker` and `apps/sync-server` exist; not provably wired into the live `Start application` workflow (legacy PRYZM-1 server runs by default). |
 | Headless alpha (M9)                        | **A−** | `apps/headless` has CLI with `addWall`, `addSlab`, `exportPryzm`, `newProject`, plus 6 test files. |
-| ADR-025 (three.js pin)                     | **D**  | Three pinned to **^0.183.2** at root; lock contains **0.173, 0.176, 0.183** simultaneously. ADR mandates exact pin, no caret. |
-| ADR-026 (React-free editor)                | **B**  | `apps/editor` (the PRYZM-2 surface) is React-free in source and deps. The legacy root `src/` still uses React (2 files) — only acceptable while PRYZM-1 is the default served bundle. |
-| ADR-028 (no `service_role` in app code)    | **A**  | Only 2 hits, both in `apps/bench`/`reports`. No production code leak. |
+| ADR-0225 (three.js pin)                     | **D**  | Three pinned to **^0.183.2** at root; lock contains **0.173, 0.176, 0.183** simultaneously. ADR mandates exact pin, no caret. |
+| ADR-0226 (React-free editor)                | **B**  | `apps/editor` (the PRYZM-2 surface) is React-free in source and deps. The legacy root `src/` still uses React (2 files) — only acceptable while PRYZM-1 is the default served bundle. |
+| ADR-0228 (no `service_role` in app code)    | **A**  | Only 2 hits, both in `apps/bench`/`reports`. No production code leak. |
 | Validation / CI hygiene                    | **C**  | 3 of 14 declared validation workflows fail because of stale path references / missing fallbacks. `bake-worker-test-geometry` workflow points at `packages/bake-worker` which **does not exist** (it's `apps/bake-worker`); the failure is masked by `|| echo`. |
 | Strangler-fig honesty                      | **C+** | The default `npm run dev` still serves PRYZM-1 (`server.js` + root `vite.config.ts` + root `src/`). The Phase-2 surface lives behind `apps/editor/vite.pryzm2.config.ts` and the `?pryzm2=1` route — fine by design, but the alpha gate has not been demonstrated against the live workflow. |
 
@@ -146,7 +146,7 @@ the `exportPryzm` command path exists.
 | ----- | ------ |
 | `packages/persistence-client/codecs/` (msgpack family) | ✅ `MsgpackCodec.ts`, `MsgpackAliasedCodec.ts`. |
 | Draco/Meshopt round-trip test | ⚠ verify `__tests__/draco-roundtrip.test.ts` — not surfaced in any wired workflow. |
-| Content-addressed chunk SHA-256 | ⚠ implied by ADR-013; verify file naming under `chunks/<projectId>/<elementId>/<hash>.glb` in code. |
+| Content-addressed chunk SHA-256 | ⚠ implied by ADR-0213; verify file naming under `chunks/<projectId>/<elementId>/<hash>.glb` in code. |
 
 ### M11 — Server bake + sync linearisation
 
@@ -154,7 +154,7 @@ the `exportPryzm` command path exists.
 | ----- | ------ |
 | `apps/bake-worker/` | ✅ present. |
 | `apps/sync-server/` | ✅ present. |
-| 250 ms coalesce window (ADR-010) | ⚠ verify in `apps/bake-worker/src/` — not grep-confirmed in this audit. |
+| 250 ms coalesce window (ADR-0210) | ⚠ verify in `apps/bake-worker/src/` — not grep-confirmed in this audit. |
 | Round-trip < 50 ms bench | ❌ not wired. |
 | Validation workflow `bake-worker-test-geometry` | ❌ **broken**: `.replit:114` runs `cd packages/bake-worker` — that path does not exist (the package is `apps/bake-worker`). The `|| echo "deferred"` swallows the error. |
 
@@ -185,19 +185,19 @@ the `exportPryzm` command path exists.
 
 | Anchor | Status | Evidence |
 | ------ | ------ | -------- |
-| **ADR-001** Pascal patterns, no copy-paste | ✅ implied by file structure |
-| **ADR-002** Dual-stream event-log + Yjs | ⚠ `packages/sync-client` exists; translator round-trip test not seen |
-| **ADR-004** msgpackr deterministic wire | ⚠ codec is `@msgpack/msgpack`, **not** `msgpackr` — verify whether ADR-004 was amended (msgpackr vs msgpack-javascript matters for performance and pre-registered structures). **Likely drift.** |
-| **ADR-005** browser worker pool ≤ 4 | ⚠ no `packages/worker-pool-browser` discovered (the spec name); unclear which package owns this — possibly merged. |
-| **ADR-006** WebGPU first, GL2 fallback, SSIM ≥ 0.998 gate | ⚠ `packages/renderer` present; visual-diff CI gate not visible |
-| **ADR-010** 250 ms bake debounce | ⚠ structurally present; constant not grepped in bake-worker source |
-| **ADR-013** event-log + R2 chunks | ✅ structurally; manifest naming convention not grep-confirmed |
-| **ADR-020** kernel robustness budget | ⚠ kernel uses `manifold-3d` (root dep); `fast-check` property tests not wired in CI |
-| **ADR-022** Node 20 LTS pin | ⚠ root `engines.node` is `>=20.0.0 <23.0.0` (correct band) but env runs Node 24 in some shells; one transitive `camera-controls@3.1.2` requires Node ≥ 22 — engine drift to fix. |
-| **ADR-023** library rAF quarantine | ✅ `packages/legacy-shim` carries the carve-out; ESLint exception scoped to it. |
-| **ADR-025** three.js exact pin | ❌ root spec is `^0.183.2`; lock has **three @ 0.173.0, 0.176.0, 0.183.2** simultaneously. ADR explicitly forbids `^`/`~`. **Critical.** |
-| **ADR-026** React-free editor bundle | ✅ for `apps/editor` (no react in deps, no react imports in `src/`); ❌ for the legacy `src/` (still 2 React files), which is what `vite.config.ts` and `server.js` actually serve today. |
-| **ADR-028** no `service_role` in app code | ✅ only 2 hits, both in benches/reports. |
+| **ADR-0201** Pascal patterns, no copy-paste | ✅ implied by file structure |
+| **ADR-0202** Dual-stream event-log + Yjs | ⚠ `packages/sync-client` exists; translator round-trip test not seen |
+| **ADR-0204** msgpackr deterministic wire | ⚠ codec is `@msgpack/msgpack`, **not** `msgpackr` — verify whether ADR-0204 was amended (msgpackr vs msgpack-javascript matters for performance and pre-registered structures). **Likely drift.** |
+| **ADR-0205** browser worker pool ≤ 4 | ⚠ no `packages/worker-pool-browser` discovered (the spec name); unclear which package owns this — possibly merged. |
+| **ADR-0206** WebGPU first, GL2 fallback, SSIM ≥ 0.998 gate | ⚠ `packages/renderer` present; visual-diff CI gate not visible |
+| **ADR-0210** 250 ms bake debounce | ⚠ structurally present; constant not grepped in bake-worker source |
+| **ADR-0213** event-log + R2 chunks | ✅ structurally; manifest naming convention not grep-confirmed |
+| **ADR-0220** kernel robustness budget | ⚠ kernel uses `manifold-3d` (root dep); `fast-check` property tests not wired in CI |
+| **ADR-0222** Node 20 LTS pin | ⚠ root `engines.node` is `>=20.0.0 <23.0.0` (correct band) but env runs Node 24 in some shells; one transitive `camera-controls@3.1.2` requires Node ≥ 22 — engine drift to fix. |
+| **ADR-0223** library rAF quarantine | ✅ `packages/legacy-shim` carries the carve-out; ESLint exception scoped to it. |
+| **ADR-0225** three.js exact pin | ❌ root spec is `^0.183.2`; lock has **three @ 0.173.0, 0.176.0, 0.183.2** simultaneously. ADR explicitly forbids `^`/`~`. **Critical.** |
+| **ADR-0226** React-free editor bundle | ✅ for `apps/editor` (no react in deps, no react imports in `src/`); ❌ for the legacy `src/` (still 2 React files), which is what `vite.config.ts` and `server.js` actually serve today. |
+| **ADR-0228** no `service_role` in app code | ✅ only 2 hits, both in benches/reports. |
 | **SPEC-01** geometry-kernel separation | ✅ |
 | **SPEC-02** `.pryzm` zip + manifest-first | ✅ `zip-deterministic.ts` + `canonical-json.ts` present. |
 | **SPEC-10** OTel L0–L3 spans | ⚠ `packages/observability` not present under that name; `@opentelemetry/api` is a root dep but no per-layer span audit. |
@@ -266,7 +266,7 @@ are framed against the SPEC/ADR set and current public competitors
 ### 6.1 Determinism & file-format trust (the silent killer)
 
 - **Multiple `three` versions in `pnpm-lock.yaml` (0.173, 0.176, 0.183)
-  destroy the visual-diff guarantee** ADR-006 and ADR-025 are built
+  destroy the visual-diff guarantee** ADR-0206 and ADR-0225 are built
   on. A single floating dep can change frustum culling or material
   serialisation between developer machines and break "open the same
   `.pryzm`, get the same render".
@@ -281,7 +281,7 @@ are framed against the SPEC/ADR set and current public competitors
   **Fix**: 1 PR per family adding `__fixtures__/canonical.json` +
   `__tests__/canonical.test.ts` that re-bakes and diffs.
 
-- **msgpack vs msgpackr.** ADR-004 names `msgpackr` for its pre-
+- **msgpack vs msgpackr.** ADR-0204 names `msgpackr` for its pre-
   registered struct path (≤ 256 B median per event). The codec in
   use is `@msgpack/msgpack`, which does not have struct registration.
   This will show up at scale in event-log size and in cross-language
@@ -316,7 +316,7 @@ publicly publish their cold-load numbers; Pryzm should too.
 ### 6.4 Sync, locks, presence
 
 - Phase-1 ratifies LWW linearisation only; full Yjs is Phase-2D. That
-  is correct per spec — but the **soft-lock semantics** (ADR-019) are
+  is correct per spec — but the **soft-lock semantics** (ADR-0219) are
   what protect users from each other in the alpha. Without them, the
   first multi-user demo will produce data loss. Worth a Phase-1.5
   patch that ships the lock service and a "you are editing this"
@@ -325,7 +325,7 @@ publicly publish their cold-load numbers; Pryzm should too.
 ### 6.5 IFC round-trip credibility
 
 - `plugins/ifc-import/export/inspector` exist and use `@thatopen/*`.
-  **buildingSMART certification (ADR-035, SPEC-40) is Phase-3B.**
+  **buildingSMART certification (ADR-0235, SPEC-40) is Phase-3B.**
   However, for "best-in-class browser BIM authoring" credibility
   *now*, you want a published IFC4 round-trip self-test on every PR
   (open IFC4 sample files, export, diff entity counts and pset
@@ -352,7 +352,7 @@ publicly publish their cold-load numbers; Pryzm should too.
 
 ### 6.8 Geometry kernel robustness at scale
 
-- `manifold-3d` is in deps; ADR-020 mandates `fast-check` property
+- `manifold-3d` is in deps; ADR-0220 mandates `fast-check` property
   tests for wall miters and slab booleans. The tests are not visible
   in any wired workflow. A failing CI gate on 1000 randomised wall
   joins is a much stronger acceptance signal than the existing

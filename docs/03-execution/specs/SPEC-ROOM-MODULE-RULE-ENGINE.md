@@ -1,7 +1,7 @@
 # SPEC — Room-and-Module Rule Engine (kitchen reference, per-room general)
 
 - **Status:** Draft → scaffolding (2026-06-11)
-- **Governs:** [ADR-0071](../../02-decisions/adrs/0071-room-and-module-rule-engine.md)
+- **Governs:** [ADR-0071](../../02-decisions/adrs/ADR-0071-room-and-module-rule-engine.md)
 - **Extends:** SPEC-FURNITURE-LAYOUT-ENGINE (D-FLE) · SPEC-ARCHITECTURAL-PROGRAM-RULES (`programRules.ts`)
 - **Consolidates:** SPEC-KITCHEN-WARDROBE-APPLIANCES, SPEC-KITCHEN-WARDROBE-WALL-DRIVEN
 - **Source corpus:** the founder's 2026-06-11 kitchen rule specification (~300–500 rules) — captured below.

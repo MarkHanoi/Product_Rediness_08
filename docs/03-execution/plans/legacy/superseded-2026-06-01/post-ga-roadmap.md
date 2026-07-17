@@ -34,7 +34,7 @@ seed list from phase-doc §7 + the carry-forward register.
 | # | Item | Source |
 |---|---|---|
 | 9 | **Multi-region SaaS deployment (US/EU/APAC failover)** | phase-doc §7; ADR-0049 cut at S67 D9; reversal cost = 2 sprints |
-| 10 | **SOC 2 / ISO 27001 certification** | phase-doc §7; depends on quarterly drill cadence (item 5) + auto-report (per `[strategic ADR-021]` + ADR-028 Part G) |
+| 10 | **SOC 2 / ISO 27001 certification** | phase-doc §7; depends on quarterly drill cadence (item 5) + auto-report (per `[strategic ADR-0221]` + ADR-0228 Part G) |
 | 11 | Cold-load NFT baseline promotion (3 rows: small / medium / large) | M36-GA §1 row 1–3 partial; mechanical step `pnpm bench && pnpm bench:baseline` per S71 §6 |
 | 12 | `orbit-fps` real-browser p95 baseline | M36-GA §1 row 6 partial; depends on isolated CI runner per ADR-0053 §A |
 | 13 | Precision-budget tightening from trailing-7-run baseline | ADR-0051 §A formula; reversal trigger on isolated CI runner |
@@ -55,9 +55,9 @@ seed list from phase-doc §7 + the carry-forward register.
 
 | # | Item | Source |
 |---|---|---|
-| 24 | **IFC 4.3 advanced features** | phase-doc §7; per `[strategic ADR-008]` |
+| 24 | **IFC 4.3 advanced features** | phase-doc §7; per `[strategic ADR-0208]` |
 | 25 | **Single-binary self-host** (after Docker Compose path stable) | phase-doc §7 |
-| 26 | **Real-time co-presence in component editor** | phase-doc §7; `[strategic ADR-018]` T2.2 deferred to v2 backlog |
+| 26 | **Real-time co-presence in component editor** | phase-doc §7; `[strategic ADR-0218]` T2.2 deferred to v2 backlog |
 | 27 | `undo-single.bench.ts` dedicated bench | M36-GA §1 row 9 gap; closes the §6 NFT row 9 documented gap |
 | 28 | `src/` PRYZM 1 tree deletion (post 90-day sunset window) | `docs/03-execution/plans/pryzm-1-sunset.md` §3; mechanical once sunset closes |
 | 29 | Format v2 freeze planning | post-GA after format v1 frozen at S71b D7 |
@@ -100,7 +100,7 @@ during S55–S72 and should continue post-GA:
 - `phases/PHASE-3D-Q4-M34-M36-HARDENING-GA.md` §7 (Post-GA Roadmap Seeds) + §8 (Handoff Checklist)
 - `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §5 (carry-forward register, 26 items deduplicated)
 - `apps/bench/reports/M36-GA.md` §5 (operator-side carry-forward register)
-- `docs/02-decisions/adrs/0054-s72-m36-ga-launch-gate.md` §G (consolidated)
+- `docs/02-decisions/adrs/ADR-0054-s72-m36-ga-launch-gate.md` §G (consolidated)
 - `docs/03-execution/plans/pryzm-1-sunset.md` (sunset schedule)
 - `docs/03-execution/status/cut-list-log.md` (Tier-1 + Tier-2 final state)
 - `docs/05-guides/enterprise/operations/status-page-and-on-call.md` (S72 D3 runbook)

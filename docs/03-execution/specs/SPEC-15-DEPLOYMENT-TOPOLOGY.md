@@ -69,7 +69,7 @@ Stateless consumers. BullMQ already provides job-level reliability (Redis as the
 | Replit Hosted (dev / preview) | Replit Postgres | development & preview environments |
 | Replit Hosted (production) | **Supabase** | PITR, replication, mature backup story |
 | PRYZM Cloud | Supabase Enterprise (regional) | EU-West + US-East per `SPEC-08` |
-| Self-host | Customer Postgres ≥ 14 | per `[strategic ADR-012]` |
+| Self-host | Customer Postgres ≥ 14 | per `[strategic ADR-0212]` |
 
 **Migration path Replit Postgres → Supabase**: at production cutover, run `pnpm migrate-pg` (one-shot dump → restore). Documented in SPEC-27.
 
@@ -77,9 +77,9 @@ Stateless consumers. BullMQ already provides job-level reliability (Redis as the
 
 | Surface | Provider | Notes |
 |---|---|---|
-| Replit Hosted | **Cloudflare R2** | per `[strategic ADR-003]`; cheapest egress |
+| Replit Hosted | **Cloudflare R2** | per `[strategic ADR-0203]`; cheapest egress |
 | PRYZM Cloud | Cloudflare R2 (regional buckets) | per-tenant prefix; lifecycle policies |
-| Self-host | MinIO (bundled in compose) | per `[strategic ADR-012]` |
+| Self-host | MinIO (bundled in compose) | per `[strategic ADR-0212]` |
 
 R2 is **never accessed directly from the browser**. Signed URLs are issued by `apps/api-gateway` (read) and `apps/bake-worker` (write).
 
@@ -89,9 +89,9 @@ R2 is **never accessed directly from the browser**. Signed URLs are issued by `a
 |---|---|---|
 | Replit Hosted | **Upstash Redis** | TLS, per-tenant DB |
 | PRYZM Cloud | Upstash or Redis Cloud | regional |
-| Self-host | Bundled Redis 7 | per ADR-012 |
+| Self-host | Bundled Redis 7 | per ADR-0212 |
 
-Redis is the queue for BullMQ (`[strategic ADR-005]`). Not used as a session store. Not used as a cache (we have scene-cache packages).
+Redis is the queue for BullMQ (`[strategic ADR-0205]`). Not used as a session store. Not used as a cache (we have scene-cache packages).
 
 ### §3.4 Anthropic / OpenAI
 
@@ -143,7 +143,7 @@ This satisfies the SPEC-08 §6 demand for service-role-key removal: server-inter
 | `SESSION_SECRET` | yes | JWT signing (rotate annually with rolling key versioning) |
 | `ANTHROPIC_API_KEY` or `CF_WORKER_URL` | yes | AI routes |
 | `OAUTH_GOOGLE_*` / `OAUTH_MICROSOFT_*` | optional | OAuth |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | yes | observability (per `[strategic ADR-007]`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | yes | observability (per `[strategic ADR-0207]`) |
 | `HONEYCOMB_API_KEY` | optional | dual-export |
 
 The full list is canonicalised in `apps/api-gateway/src/config/env.ts` with Zod validation; missing required vars fail boot.
@@ -167,7 +167,7 @@ services:
   pryzm-minio:         # MinIO (S3-compatible)
 ```
 
-Per `[strategic ADR-012]` minimums. Single-binary self-host is **post-GA** (per ADR-018 cut list).
+Per `[strategic ADR-0212]` minimums. Single-binary self-host is **post-GA** (per ADR-0218 cut list).
 
 ---
 
@@ -176,16 +176,16 @@ Per `[strategic ADR-012]` minimums. Single-binary self-host is **post-GA** (per 
 | Surface | Target | Measurement |
 |---|---|---|
 | `apps/api-gateway` | p95 < 100 ms for non-list reads | OTel histogram |
-| `apps/sync-server` | 50 concurrent users / project, < 250 ms broadcast lag p95 | per `[strategic ADR-019]` & SPEC-03 |
+| `apps/sync-server` | 50 concurrent users / project, < 250 ms broadcast lag p95 | per `[strategic ADR-0219]` & SPEC-03 |
 | `apps/bake-worker` | bake job p95 < 30 s for medium project | SPEC-02 §6 |
 | `apps/ai-worker` | p95 < 5 s for `/api/ai/voice/parse`, p95 < 30 s for room programme | SPEC-07 §4 |
 | `apps/editor` cold load | TTFP < 800 ms (small project) | SPEC-12 §8 |
 
 ---
 
-## §9 Capacity-cut interactions (per ADR-018)
+## §9 Capacity-cut interactions (per ADR-0218)
 
-If velocity slips and ADR-018 Tier-2 fires, this SPEC adjusts:
+If velocity slips and ADR-0218 Tier-2 fires, this SPEC adjusts:
 - T2.6 (single-region residency) → drop EU-West Reserved VM; PRYZM Cloud is single-region.
 - T2.5 (online-install only) → drop air-gap support from compose; pull from registry only.
 
@@ -206,6 +206,6 @@ If velocity slips and ADR-018 Tier-2 fires, this SPEC adjusts:
 ---
 
 ## §11 Cross-references
-- ADR-002 sync architecture; ADR-003 R2; ADR-005 BullMQ; ADR-007 OTel; ADR-012 self-host minimums; ADR-018 cut list; ADR-021 enterprise security; ADR-022 backend runtime topology (this SPEC's compendium ADR).
+- ADR-0202 sync architecture; ADR-0203 R2; ADR-0205 BullMQ; ADR-0207 OTel; ADR-0212 self-host minimums; ADR-0218 cut list; ADR-0221 enterprise security; ADR-0222 backend runtime topology (this SPEC's compendium ADR).
 - SPEC-02 persistence; SPEC-03 sync; SPEC-08 security; SPEC-12 bundle; SPEC-24 data store map; SPEC-27 migration & rollback.
 - Phase docs: PHASE-2D §6 deployment cutover; PHASE-3C §4 public API; PHASE-3D §3 self-host.

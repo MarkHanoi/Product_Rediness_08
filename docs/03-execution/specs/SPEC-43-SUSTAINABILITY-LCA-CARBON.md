@@ -8,7 +8,7 @@
 | Owner | Sustainability lead (hire by S87) + Standards lead |
 | Phase | Phase 5 (M43–M48) |
 | Sprint | S88–S89 |
-| References | `13-AEC-WISHLIST-SUPPLEMENT.md` §1 #4; `[strategic ADR-043]`; SPEC-42 |
+| References | `13-AEC-WISHLIST-SUPPLEMENT.md` §1 #4; `[strategic ADR-0243]`; SPEC-42 |
 
 ---
 
@@ -18,7 +18,7 @@ AEC Magazine wishlist: *"Greater emphasis on sustainability, resilience, and lif
 
 The UK Net Zero target (2050), EU EPBD (Energy Performance of Buildings Directive 2024 recast), Singapore BCA Green Mark, USGBC LEED v5, BRE BREEAM 2025, ILFI Living Building Challenge, RIBA 2030 Climate Challenge, AIA 2030 Commitment all require **whole-life carbon (WLC)** reporting on every project. WLC = embodied carbon (cradle-to-gate A1–A3 + transport A4 + construction A5) + operational (B6 energy, B7 water) + end-of-life (C1–C4) + module D (recovery / reuse / recycling). 
 
-Today this is a separate tool (One Click LCA, EC3, OneClick alternatives). PRYZM 2 ships **first-class WLC** built into the model + schedule + cost view. Per `[strategic ADR-043]` we use **open EC3 + ICE databases** by default; commercial One Click LCA partnership available as enterprise add-on.
+Today this is a separate tool (One Click LCA, EC3, OneClick alternatives). PRYZM 2 ships **first-class WLC** built into the model + schedule + cost view. Per `[strategic ADR-0243]` we use **open EC3 + ICE databases** by default; commercial One Click LCA partnership available as enterprise add-on.
 
 ## §2 The contract (binding)
 
@@ -48,12 +48,12 @@ Today this is a separate tool (One Click LCA, EC3, OneClick alternatives). PRYZM
 
 - **EC3** (Embodied Carbon in Construction Calculator, free, ~50,000 EPDs) — default; pulled nightly into local cache.
 - **ICE database** (Inventory of Carbon and Energy, University of Bath, free) — default for generic materials.
-- **One Click LCA partnership** — enterprise tier (per ADR-043).
+- **One Click LCA partnership** — enterprise tier (per ADR-0243).
 - **Custom EPD upload** — per-project user-uploaded EPDs (`.json` or PDF with structured front-matter).
 
 ### §2.3 Per-element carbon factor
 
-Element schedule (extends ADR-027 formulas) gains columns:
+Element schedule (extends ADR-0227 formulas) gains columns:
 - `MaterialEPDRef` — link to EPD database row.
 - `EmbodiedCarbonA1A3` — kgCO2e / unit (computed from EPD).
 - `EmbodiedCarbonTotal` — × quantity.
@@ -94,9 +94,9 @@ apps/editor/src/sustainability/
 
 | Sprint | Deliverable |
 |---|---|
-| S88 D1 | SPEC-43 lands; ADR-043 ratified (EC3 + ICE default); `packages/sustainability/` skeleton |
+| S88 D1 | SPEC-43 lands; ADR-0243 ratified (EC3 + ICE default); `packages/sustainability/` skeleton |
 | S88 D3 | EC3 adapter; nightly EPD cache; ICE generic-material defaults |
-| S88 D5 | per-element schedule columns (extends ADR-027); per-element carbon |
+| S88 D5 | per-element schedule columns (extends ADR-0227); per-element carbon |
 | S88 D7 | WLC dashboard UI; project-level summary |
 | S88 D9 | bench: 10K-element WLC < 30 s p95 |
 | S89 D1 | Operational bridge (consumes SPEC-42 EnergyPlus output for B6) |
@@ -125,8 +125,8 @@ apps/editor/src/sustainability/
 
 ## §7 Cross-references
 
-- ADR-027 schedule formulas
-- ADR-043 EPD database choice
+- ADR-0227 schedule formulas
+- ADR-0243 EPD database choice
 - SPEC-42 analysis bridges (EnergyPlus for B6)
 - SPEC-45 5D cost (carbon + cost views composable)
 - SPEC-46 DfMA (off-site fab reduces A4 + A5)

@@ -1,7 +1,7 @@
 # Phase E — Per-family element migration · Audit + Plan (2026-04-29, REVISION 3)
 
 > **Spec**: [`PRYZM2-WIREUP-PLAN-S72/15-subphases-E-families.md` §16.5](../PRYZM2-WIREUP-PLAN-S72/15-subphases-E-families.md) — 18 sub-phases (E.1–E.17 + E.6.0 scaffold).
-> **Tracker claim** ([PROCESS-TRACKER.md §3 line 194+](../../03_STATUS/01-PROCESS-TRACKER.md)): *"Phase E gesture routing landed for 15/18 families. Bus dispatch ALL queued. Legacy deletion ALL queued."*
+> **Tracker claim** ([PROCESS-TRACKER.md §3 line 194+](../../03_STATUS/01-process-tracker.md)): *"Phase E gesture routing landed for 15/18 families. Bus dispatch ALL queued. Legacy deletion ALL queued."*
 > **Verdict (REVISION 3)**: ⚠️ The tracker's framing is closer to ground truth than either of the prior revisions reported, but it conceals **two distinct, separately-actionable blockers**:
 > 1. ❌ A **one-line wiring gap** (`Layout.ts:1551` does not thread `runtime` into `ToolsPanelController`), which makes the 20 already-registered routing activators dead in production today.
 > 2. ❌ A **registry gap** (`apps/editor/src/PluginRegistry.ts` enumerates only **12 of the 17 existing plugin scaffolds**), which means 5 plugins that already ship handler sets and bus dispatch (`furniture`, `plumbing`, `rooms`, `structural`, `dimensions`/`lighting`/`annotations` companions) are **never wired into the runtime command bus** even though they look complete on disk.

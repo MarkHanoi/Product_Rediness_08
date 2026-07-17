@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `GAP-REVIEW-2026-04-27.md §10, §29 #2` (missing pure-input definition for kernel producers) |
 | Phases | 1B (Wall recipe — historical reference), 2A (rooms/structural/MEP/furniture/dimensions), 2B (plan view), 2C (sheets) |
-| Replaces / extends | `[strategic ADR-002]` boundary; SPEC-01 §2 |
+| Replaces / extends | `[strategic ADR-0202]` boundary; SPEC-01 §2 |
 
 > Every producer in `packages/geometry-kernel/` accepts a **Context Envelope**: a fully-resolved, side-effect-free, JSON-serialisable struct that contains *exactly* what that producer needs to deterministically generate its output. No hidden state, no implicit globals, no THREE references, no I/O. The envelope is the kernel's single source of input truth and the boundary that lets the same producer run identically in `apps/editor/` (browser worker), `apps/bake-worker/` (Node), and `apps/headless/` (CLI).
 
@@ -189,7 +189,7 @@ interface PlanViewContext extends BaseContext {
 - `sheetSize: SheetSize` (A0–A4, ANSI A–E, custom), `titleBlock: TitleBlockRef`, `viewports: ViewportEnvelope[]`, `revisionTable: RevisionEntry[]`, `paperUnits: 'mm'|'in'`.
 
 ### §5.4 ScheduleContext
-- `family: 'schedule'`, `targetFamily: ElementFamily`, `columns: ScheduleColumnEnvelope[]`, `filters: ScheduleFilter[]`, `groupBy: ColumnId[]`, `sortBy: ColumnId[]`, `formulas: ScheduleFormulaRef[]` (per ADR-027).
+- `family: 'schedule'`, `targetFamily: ElementFamily`, `columns: ScheduleColumnEnvelope[]`, `filters: ScheduleFilter[]`, `groupBy: ColumnId[]`, `sortBy: ColumnId[]`, `formulas: ScheduleFormulaRef[]` (per ADR-0227).
 
 ---
 
@@ -246,9 +246,9 @@ Phase 1's 12 families already follow this pattern in spirit. SPEC-13 codifies it
 
 ## §10 Cross-references
 - Pure-kernel mandate: SPEC-01 §1, SPEC-01 §3.
-- Two byte streams: `[strategic ADR-002]`.
+- Two byte streams: `[strategic ADR-0202]`.
 - Type catalog → envelope merge: SPEC-05 §3 (inheritance order).
 - Discipline-scoped levels: SPEC-06 §4.
 - Plan-view envelope detail: SPEC-30.
-- Schedule formula references: SPEC-29 §6, ADR-027.
+- Schedule formula references: SPEC-29 §6, ADR-0227.
 - Phase doc binding: PHASE-2A §1 (track A producers), PHASE-2B §3, PHASE-2C §2.

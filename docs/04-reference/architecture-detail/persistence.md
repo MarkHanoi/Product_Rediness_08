@@ -1,7 +1,7 @@
 # L0 persistence-client — S04 implementation
 
 > Status: shipped at S04. Companion to `persistence-design.md` (S03
-> design ratification) and ADR-004 (codec choice + byte budget).
+> design ratification) and ADR-0204 (codec choice + byte budget).
 >
 > Owner package: `packages/persistence-client/`.
 >
@@ -17,7 +17,7 @@ the stack can plug into.** Three things landed:
 1. **`attachEventLog(emitter, log)`** — the bus → log glue that was
    previously hand-rolled in tests now lives in the package.
 2. **`MsgpackAliasedCodec`** (codec name `msgpack-v2`) — closes the
-   ADR-004 byte budget at **194.55 B/event** (target < 200) on the
+   ADR-0204 byte budget at **194.55 B/event** (target < 200) on the
    canonical `wall.create` fixture.
 3. **OTel `pryzm.persistence.append` span** + per-event-size CI report.
 
@@ -37,7 +37,7 @@ import {
   IndexedDbBackend,
   JsonCodec,
   MsgpackCodec,           // legacy v1 — kept for compatibility & A/B
-  MsgpackAliasedCodec,    // v2, ADR-004 byte-budget closure (default)
+  MsgpackAliasedCodec,    // v2, ADR-0204 byte-budget closure (default)
   attachEventLog,         // bus → log glue
   type Backend,
   type Codec,
@@ -91,7 +91,7 @@ function attachEventLog(
 
 ## `MsgpackAliasedCodec` — closing the byte budget
 
-ADR-004 owed the < 200 B/event target for `wall.create`-class commands.
+ADR-0204 owed the < 200 B/event target for `wall.create`-class commands.
 S04 ships `MsgpackAliasedCodec` (codec name on the wire: `msgpack-v2`)
 with **five orthogonal optimisations**, each justified inline in
 `packages/persistence-client/src/codecs/MsgpackAliasedCodec.ts`:
@@ -123,7 +123,7 @@ across all three codecs).
   development databases) decode through `MsgpackCodec` unchanged.
 - The codec is selected by the `EventLog` constructor; nothing in the
   L0 backend or L2 emitter knows about the alias map. Future codec
-  iterations are still a one-file change (per ADR-004).
+  iterations are still a one-file change (per ADR-0204).
 
 ## OTel `pryzm.persistence.append`
 
@@ -147,7 +147,7 @@ persisted→committed pipeline.
 
 The L0 module imports `@opentelemetry/api` directly; it does NOT
 depend on `@pryzm/command-bus` for the tracer helper (keeps L0 free of
-L2 imports per ADR-002).
+L2 imports per ADR-0202).
 
 ## Bench gates (S04-T4)
 
@@ -162,7 +162,7 @@ Two bench files cover the persistence path:
     bytes/event for json, msgpack-v1, msgpack-v2 (CI artefact).
 - **`apps/bench/src/benches/codec-spike.bench.ts`** — extended to
   exercise the v2 codec encode/decode at the same 1K-event sample size
-  used by the S03 spike (numbers in ADR-004).
+  used by the S03 spike (numbers in ADR-0204).
 
 ## Causal-ordering tests (S04-T5)
 

@@ -68,7 +68,7 @@ Every "today" claim is grounded in the exact recount captured in `06-PRYZM-IDENT
 | Conflict resolution | Last write wins (silent data loss) | CRDT merge for shape data; structured 3-way for parameters; lock-respecting for concurrent edits |
 | Reconnect | Not handled cleanly | Yjs auto-resync from offline buffer; events replayed in causal order |
 | Latency target | n/a | **< 250 ms p95** for same-second multi-user edit propagation (`apps/bench/sync-latency.ts`) |
-| ADR | None | **ADR-002 — CRDT choice (Yjs vs Automerge vs centralised OT)** — required pre-Sprint S01 |
+| ADR | None | **ADR-0202 — CRDT choice (Yjs vs Automerge vs centralised OT)** — required pre-Sprint S01 |
 
 ### L4 — Geometry Kernel
 
@@ -109,7 +109,7 @@ Every "today" claim is grounded in the exact recount captured in `06-PRYZM-IDENT
 | Marketplace | n/a | `marketplace.pryzm.com` — published Sprint S64 |
 | Hot reload (dev) | n/a | `pryzm dev` reloads plugin in **< 500 ms** (D6) |
 | OBC | Permeates 91 import sites in core | Demoted to `plugins/ifc-import/` only — viewer build excludes OBC entirely |
-| ADR | n/a | **ADR-009 — Plugin sandbox model** — required pre-Sprint S01 |
+| ADR | n/a | **ADR-0209 — Plugin sandbox model** — required pre-Sprint S01 |
 
 ### L7 — Presentation (vanilla TS)
 

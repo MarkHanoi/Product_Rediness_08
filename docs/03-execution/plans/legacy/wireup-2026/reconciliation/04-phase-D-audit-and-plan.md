@@ -1,7 +1,7 @@
 # Phase D — Engine consolidation · Audit + Plan (2026-04-29, **revised p.m.**)
 
 > **Spec**: [`PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md` §16.4](../PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md#§164-phase-d--engine-consolidation-s75s77-14-sub-phases) — 14 sub-phases, D.1–D.14.
-> **Tracker claim** ([PROCESS-TRACKER.md §3 line 186+](../../03_STATUS/01-PROCESS-TRACKER.md)): D.1 ✓, D.2 ✓, D.3–D.14 queued.
+> **Tracker claim** ([PROCESS-TRACKER.md §3 line 186+](../../03_STATUS/01-process-tracker.md)): D.1 ✓, D.2 ✓, D.3–D.14 queued.
 > **Original verdict** (a.m.): "⚠️ Tracker partly correct. D.1+D.2 confirmed. **Bonus**: D.6+D.7+D.8 partially landed. The 2 035-LOC `EngineBootstrap.ts` (D.4) is the boulder."
 > **Revised verdict** (p.m. — after evidence pass): ⚠️ **Tracker partly correct, but the original audit ALSO got several gradings wrong.** Scoring summary:
 >   - **D.1, D.2**: ✓ (confirmed in `src/main.ts` headers; kill-switch comment block at `:39–43` documents "removed").

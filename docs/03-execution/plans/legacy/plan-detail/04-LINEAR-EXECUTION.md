@@ -166,7 +166,7 @@ Verifier: ~173 000 LOC retired; cast count → 0; `pnpm ga-gate` 5 ESLint rules 
 
 Verifier: `pnpm ga-gate` exit 0; `tsc --build` produces composite
 output across all packages; runtime smoke test green; customer migration
-runner ratified per ADR-044. **PRYZM 2 wireup is COMPLETE**, PRYZM 3
+runner ratified per ADR-0244. **PRYZM 2 wireup is COMPLETE**, PRYZM 3
 day 1 begins.
 
 ---
@@ -921,8 +921,8 @@ post-wave numbers.
 | **G.14** | DELETE `src/rendering/` | ⛔ | W6 |
 | **G.15** | DELETE `src/cde/` | ⛔ | W6 |
 | **G.16** | DELETE `src/export/` (glb+ifc+sheets exporters) | ⛔ | W6 |
-| **G.17** | DELETE `src/portfolio/` (per ADR-041) | ⛔ | W6 |
-| **G.18** | DELETE `src/physics/` (per ADR-042) | ⛔ | W6 |
+| **G.17** | DELETE `src/portfolio/` (per ADR-0241) | ⛔ | W6 |
+| **G.18** | DELETE `src/physics/` (per ADR-0242) | ⛔ | W6 |
 | **G.19** | DELETE `src/geospatial/` (move to `packages/geospatial`) | ⛔ | W6 |
 | **G.20** | DELETE `src/api/` (rewrite UI imports) | ⛔ | W6 |
 | **G.21** | DELETE `src/snapping/` (overlap with `packages/picking`) | ⛔ | W6 |
@@ -946,8 +946,8 @@ post-wave numbers.
 | **G.32.2** | PRYZM 1 billing terminate | ⛔ | W6 |
 | **G.32.3** | Auth-flag flip (PRYZM 1 read-only) | ⛔ | W6 |
 | **G.32.4** | Customer data export endpoint live | ⛔ | W6 |
-| **G.32.5** | PRYZM 1 → PRYZM 2 migration runbook (per ADR-044) | ⛔ | W6 |
-| **G.32.6** | Founder-authored customer comms send (must follow G.32.5 / ADR-044) | ⛔ | W6 |
+| **G.32.5** | PRYZM 1 → PRYZM 2 migration runbook (per ADR-0244) | ⛔ | W6 |
+| **G.32.6** | Founder-authored customer comms send (must follow G.32.5 / ADR-0244) | ⛔ | W6 |
 | **G.32.7** | PRYZM 1 OTel tags marked deprecated | ⛔ | W6 |
 | **G.32.8** | PRYZM 1 marketplace catalog frozen | ⛔ | W6 |
 | **G.32.9** | Read-only window calendar started | ⛔ | W6 |
@@ -1003,7 +1003,7 @@ post-wave numbers.
 | **Z.11** | Re-derive 00-INDEX `220 files` + `44 packages` literals from floor file (per chunk 26 §26.3) | ⛔ | W6 |
 | **Z.12** | Per-folder rAF drilldown table (per chunk 26 §26.5) | ⛔ | W6 |
 | **Z.13** | Per-folder canvas-create drilldown table (per chunk 26 §26.5) | ⛔ | W6 |
-| **Z.14** | ADR-044 ratification (PRYZM 1 → PRYZM 2 migration runbook) — must land before G.32.6 | ⛔ | W6 |
+| **Z.14** | ADR-0244 ratification (PRYZM 1 → PRYZM 2 migration runbook) — must land before G.32.6 | ⛔ | W6 |
 | **Z.15** | Runtime smoke test added to `pnpm ga-gate` as §23.13 (per chunk 26 §26.10) | ⛔ | W6 |
 | **Z.16** | Cross-doc invariants check added to `pnpm ga-gate` as §23.x (per chunk 25 §25.8.3) | ⛔ | W6 |
 | **Z.17** | Re-slice chunks 14–19 retirement (banner approach formalized; chunk-25 §25.7 retire the slice contract) | ⛔ | W6 |

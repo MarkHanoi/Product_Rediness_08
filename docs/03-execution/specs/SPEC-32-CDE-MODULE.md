@@ -8,7 +8,7 @@
 | Owner | Architecture lead + Standards lead |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S73–S74 |
-| References | `12-BIM-2-AND-3-POST-GA-ROADMAP.md` §3; `[strategic ADR-031]`; `[strategic ADR-021]` |
+| References | `12-BIM-2-AND-3-POST-GA-ROADMAP.md` §3; `[strategic ADR-0231]`; `[strategic ADR-0221]` |
 
 ---
 
@@ -37,7 +37,7 @@ Suitability codes (independent axis): A1 (issued for acceptance), B1 (partial si
 
 ### §2.2 Approval workflow
 
-Every transition emits a signed `cde_revision` row. Per `[strategic ADR-021]` each issuer has a key pair; signature covers `(projectId, fromState, toState, contentHash, timestamp, issuerId)`. Reviewer comments live in `cde_comments` linked by revision id.
+Every transition emits a signed `cde_revision` row. Per `[strategic ADR-0221]` each issuer has a key pair; signature covers `(projectId, fromState, toState, contentHash, timestamp, issuerId)`. Reviewer comments live in `cde_comments` linked by revision id.
 
 ### §2.3 Tables (Postgres)
 
@@ -52,7 +52,7 @@ cde_releases       (id, project_id, tag_id, signed_zip_hash, created_at) -- pack
 
 ### §2.4 Storage topology
 
-Per `[strategic ADR-031]`: **CDE shares the L0 event log** (events + chunks live in the same Postgres + R2 namespace as the active project; revisions are immutable references to event-log positions). Rationale: zero-copy revisions, no double-write cost, single backup story.
+Per `[strategic ADR-0231]`: **CDE shares the L0 event log** (events + chunks live in the same Postgres + R2 namespace as the active project; revisions are immutable references to event-log positions). Rationale: zero-copy revisions, no double-write cost, single backup story.
 
 ## §3 Architecture
 
@@ -73,8 +73,8 @@ Per `[strategic ADR-031]`: **CDE shares the L0 event log** (events + chunks live
 
 | Sprint | Deliverable |
 |---|---|
-| S73 D1 | `apps/cde/` skeleton + 6 tables + state machine + ADR-031 ratified |
-| S73 D5 | revision signer + signature verification (extends ADR-021 keys) |
+| S73 D1 | `apps/cde/` skeleton + 6 tables + state machine + ADR-0231 ratified |
+| S73 D5 | revision signer + signature verification (extends ADR-0221 keys) |
 | S73 D9 | per-state UI badges in `apps/editor/src/cde/` + S0 → S5 happy path |
 | S74 D1 | `cde_comments` + reviewer comment threads + element-anchored comments |
 | S74 D5 | `cde_tags` + `cde_releases` + immutable signed-pack export |
@@ -99,8 +99,8 @@ Per `[strategic ADR-031]`: **CDE shares the L0 event log** (events + chunks live
 
 ## §7 Cross-references
 
-- `[strategic ADR-031]` CDE storage topology
-- `[strategic ADR-021]` per-issuer signing keys
+- `[strategic ADR-0231]` CDE storage topology
+- `[strategic ADR-0221]` per-issuer signing keys
 - SPEC-15 health checks
 - SPEC-24 storage map
 - SPEC-27 backups + DR

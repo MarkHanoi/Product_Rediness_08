@@ -1189,7 +1189,7 @@ The plan is wrong if these pivots fail. Each is a checkpoint where the lead must
 | Month | Pivot question | If "no" |
 |---|---|---|
 | 3 | Does walls work end-to-end on the new architecture, with parity vs legacy and ≥ 30% cold-load improvement? | Halt. Revisit `01-TARGET-ARCHITECTURE.md`. Likely 1 month of architecture rework. |
-| 6 | Does multi-user awareness work for 3 users at < 100 ms? | Halt. Revisit ADR-002 (Yjs choice). |
+| 6 | Does multi-user awareness work for 3 users at < 100 ms? | Halt. Revisit ADR-0202 (Yjs choice). |
 | 9 | Does the bake worker re-bake a chunk in < 2 s? | Halt. Revisit chunking strategy. |
 | 12 | Internal alpha: 5 users, real residential project, 7 days zero P0 — yes? | Slip beta by one quarter. Spend Q1 of Year 2 on hardening. |
 | 18 | Plan view + sheet + schedule pipeline ported with parity? | Slip beta by another quarter. This is the riskiest sub-project. |

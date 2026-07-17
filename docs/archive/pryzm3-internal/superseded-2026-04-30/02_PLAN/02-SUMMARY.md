@@ -36,20 +36,20 @@ PRYZM 1 ships at every step (strangler-fig — 02-ORCHESTRATION §1) ───�
 | Q | Months | Sprints | Phase | What lands | Exit gate |
 |---|---|---|---|---|---|
 | Q1 | M1–M3 | S01–S06 | **PHASE-1A — Skeleton rails** | composition root v0 · 5 ref Cmds (level/wall create/update/delete + transaction.commit) · OTel + perf budgets · `pnpm ga-gate` v0 · feature flags | K1A-1..3 green; load-bench baseline |
-| Q2 | M4–M6 | S07–S12 | **PHASE-1B — Headless geometry + walls** | `packages/geometry-kernel` v1 · `produceWallGeometry()` pure · worker pool · scene-committer v0 · frame-scheduler v0 (ADR-023 single rAF) | walls render new path · ≥30% cold-load improvement |
-| Q3 | M7–M9 | S13–S18 | **PHASE-1C — Persistence + sync** | `.pryzm` format v1 (ADR-004) · IndexedDB event log · Yjs CRDT bridge (ADR-002) · soft-locks (ADR-019) · sync-server alpha | medium fixture cold-load < 3 s |
-| Q4 | M10–M12 | S19–S24 | **PHASE-1D — Bake worker + Alpha** | `apps/bake-worker` · R2 chunks (ADR-003) · 11-wave VI engine (ADR-015) · alpha onboarding · ADR-018 T1 cuts | **ALPHA gate** — 25 design-partner projects open daily |
-| Q5 | M13–M15 | S25–S30 | **PHASE-2A — All element families part 1** | wall · slab · roof · beam · column (5/13) · type-catalog (ADR-017) · constraint solver scaffolding | 5/13 families parity-verified vs PRYZM 1 |
+| Q2 | M4–M6 | S07–S12 | **PHASE-1B — Headless geometry + walls** | `packages/geometry-kernel` v1 · `produceWallGeometry()` pure · worker pool · scene-committer v0 · frame-scheduler v0 (ADR-0223 single rAF) | walls render new path · ≥30% cold-load improvement |
+| Q3 | M7–M9 | S13–S18 | **PHASE-1C — Persistence + sync** | `.pryzm` format v1 (ADR-0204) · IndexedDB event log · Yjs CRDT bridge (ADR-0202) · soft-locks (ADR-0219) · sync-server alpha | medium fixture cold-load < 3 s |
+| Q4 | M10–M12 | S19–S24 | **PHASE-1D — Bake worker + Alpha** | `apps/bake-worker` · R2 chunks (ADR-0203) · 11-wave VI engine (ADR-0215) · alpha onboarding · ADR-0218 T1 cuts | **ALPHA gate** — 25 design-partner projects open daily |
+| Q5 | M13–M15 | S25–S30 | **PHASE-2A — All element families part 1** | wall · slab · roof · beam · column (5/13) · type-catalog (ADR-0217) · constraint solver scaffolding | 5/13 families parity-verified vs PRYZM 1 |
 | Q6 | M16–M18 | S31–S33 | **PHASE-2A — All element families part 2** | door · window · stair · curtain-wall · ceiling · handrail · furniture (12/13) · multi-rep furniture (sofa case) | 12/13 ship; floor scaffolded at sub-phase **E.6.0** |
-| Q6 | M16–M18 | S34–S36 | **PHASE-2B — IFC import + export** | `plugins/ifc-import` Tier-2 (read PSets) · `plugins/ifc-export` Tier-1 (write PSets) · ADR-008 round-trip | IFC import → export → import preserves all PSets |
-| Q7 | M19–M21 | S37–S42 | **PHASE-3A — Drawing engine + AI L7.5** | `packages/drawing-primitives` (ADR-016) · `packages/ai-host` (ADR-014) · 5 AI plugins · approval queue · cost meter · BYOK (ADR-038) | AI propose-approve-apply round-trip; cost ≤ budget |
-| Q8 | M22–M24 | S43–S48 | **PHASE-3A — Beta + soft-locks GA** | enterprise SSO/SCIM (ADR-021) · audit-log streaming · multi-region (ADR-037) · soft-lock GA · `apps/marketplace-*` v0 | **BETA gate** — 100 paying tenants, soft-locks zero data loss |
-| Q9 | M25–M27 | S49–S54 | **PHASE-3B — PDF-to-BIM (the moat)** | `packages/pdf-to-bim` (SPEC-45 + ADR-029) · workflow-paged scope per ADR-018 T1.7 cut list | PDF round-trip on 10 fixture drawings |
+| Q6 | M16–M18 | S34–S36 | **PHASE-2B — IFC import + export** | `plugins/ifc-import` Tier-2 (read PSets) · `plugins/ifc-export` Tier-1 (write PSets) · ADR-0208 round-trip | IFC import → export → import preserves all PSets |
+| Q7 | M19–M21 | S37–S42 | **PHASE-3A — Drawing engine + AI L7.5** | `packages/drawing-primitives` (ADR-0216) · `packages/ai-host` (ADR-0214) · 5 AI plugins · approval queue · cost meter · BYOK (ADR-0238) | AI propose-approve-apply round-trip; cost ≤ budget |
+| Q8 | M22–M24 | S43–S48 | **PHASE-3A — Beta + soft-locks GA** | enterprise SSO/SCIM (ADR-0221) · audit-log streaming · multi-region (ADR-0237) · soft-lock GA · `apps/marketplace-*` v0 | **BETA gate** — 100 paying tenants, soft-locks zero data loss |
+| Q9 | M25–M27 | S49–S54 | **PHASE-3B — PDF-to-BIM (the moat)** | `packages/pdf-to-bim` (SPEC-45 + ADR-0229) · workflow-paged scope per ADR-0218 T1.7 cut list | PDF round-trip on 10 fixture drawings |
 | Q10 | M28–M30 | S55–S60 | **PHASE-3B — IFC4 cert + Component editor** | buildingSMART IFC4 cert prep (SPEC-40) · `apps/component-editor` quality gates · plan critique (SPEC-46) · generate-3 (SPEC-47) | family-editor-quality-gates green; cert dry run |
-| Q11 | M31–M33 | S61–S66 | **PHASE-3C — Constraint solver + lifecycle** | `packages/constraint-solver` (SPEC-48 + ADR-024) · lifecycle subsystem (ADR-030) · schedule formulas full (SPEC-27) | constraints converge < 50 ms p95 medium scene |
+| Q11 | M31–M33 | S61–S66 | **PHASE-3C — Constraint solver + lifecycle** | `packages/constraint-solver` (SPEC-48 + ADR-0224) · lifecycle subsystem (ADR-0230) · schedule formulas full (SPEC-27) | constraints converge < 50 ms p95 medium scene |
 | Q12 | M34–M36 | S67–S72 | **PHASE-3D — GA hardening** | enterprise hardening (SPEC-35) · WCAG AA pass (`packages/wcag-audit`) · docs site GA · pricing live · stakeholder review (SPEC-33) | **GA gate** — `pnpm ga-gate` green on all 12 checks |
 
-**ADR-018 cut list** is the safety valve for Q1–Q12: T1.1..T1.8 may be cut at any phase gate to buy back a sprint. T1.7 (PDF-to-BIM expanded scope) and T1.8 (constraint solver hardening) each buy a full sprint of calendar.
+**ADR-0218 cut list** is the safety valve for Q1–Q12: T1.1..T1.8 may be cut at any phase gate to buy back a sprint. T1.7 (PDF-to-BIM expanded scope) and T1.8 (constraint solver hardening) each buy a full sprint of calendar.
 
 ---
 
@@ -78,7 +78,7 @@ PRYZM 1 ships at every step (strangler-fig — 02-ORCHESTRATION §1) ───�
 
 | Phase | Months | Sprints | Theme | Specs · ADRs |
 |---|---|---|---|---|
-| **Phase 4** | M37–M40 | S73-PG4..S84-PG4 | CDE · clash · MEP · COBie · IFC4 cert delivery | SPEC-32, 36, 37, 38, 39, 40 · ADR-031..035 |
+| **Phase 4** | M37–M40 | S73-PG4..S84-PG4 | CDE · clash · MEP · COBie · IFC4 cert delivery | SPEC-32, 36, 37, 38, 39, 40 · ADR-0231..035 |
 | **Phase 5** | M41–M48 | S85-PG5..S96-PG5 | Sheets / schedules 4D / 5D extensions · analysis bridges · sustainability LCA | SPEC-41, 42, 43 |
 | **Phase 6** | M49–M56 | S97-PG6..S108-PG6 | Cloud baked rendering · multi-region GA · marketplace v2 | SPEC-44 |
 | **Phase 7** | M57–M64 | S109-PG7..S132-PG7 | (reserved — SPEC-49 placeholder per `12-BIM-2-AND-3 §0`) | TBD |
@@ -169,7 +169,7 @@ M1   ──────  M12  ──────  M24  ──────  M36  
                                        grows to 11 FTE
 ```
 
-ADR-018 cut list owns the slip-risk: any phase gate may invoke T1.1..T1.8 cuts to preserve calendar.
+ADR-0218 cut list owns the slip-risk: any phase gate may invoke T1.1..T1.8 cuts to preserve calendar.
 
 ---
 

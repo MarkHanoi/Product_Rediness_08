@@ -687,7 +687,7 @@ Each of the 12 family plugins exposes `runtime.<family>.*` (creation, modificati
 | `runtime.{ifc,dxf,rhino}.import` | per-format plugin | ImportManager panel | Wave 7 F.10 |
 | `runtime.cde.structuredName` | `api-spec` | SheetEditor, ProjectBrowser | Wave 7 F.11 |
 | `runtime.geospatial` | `geospatial` (new package, G.19) | GeospatialPanel | Wave 7 F.11 |
-| `runtime.physics` | `physics-overlay` (dev-only per ADR-042) | DebugOverlay only | dev-only — out of GA scope |
+| `runtime.physics` | `physics-overlay` (dev-only per ADR-0242) | DebugOverlay only | dev-only — out of GA scope |
 | `runtime.toast` | `runtime-composer` (toast bus) | every command-result handler | Wave 5 F.6.4 |
 | `runtime.audit` / `runtime.cost` / `runtime.spend` | `audit-log` / `ai-spend` | OwnerSettingsPanel + Wave 16 codemod targets | **Wave 16 (caller-side migration)** |
 

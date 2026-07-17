@@ -1,7 +1,7 @@
 # Tier-Streamed Loader
 
 > **Status:** Implemented in S23 (PHASE-1D §S23, lines 1082-1260).
-> **ADR:** [0020 — Tier-Streamed Loader](./adr/0020-tier-streamed-loader.md).
+> **ADR:** [0020 — Tier-Streamed Loader](./adr/ADR-0020-tier-streamed-loader.md).
 > **Source:** `packages/persistence-client/src/loader/`.
 > **Public surface:** `import { TierStreamedLoader } from '@pryzm/persistence-client'`.
 

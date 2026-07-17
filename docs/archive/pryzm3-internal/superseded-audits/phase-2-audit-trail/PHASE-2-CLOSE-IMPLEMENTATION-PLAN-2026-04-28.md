@@ -588,7 +588,7 @@ M24 beta gates light up only after this lands.**
 
 | File | Change |
 |---|---|
-| **Operational** | Provision Supabase project; configure region us-east-1 (R2 colocation per ADR-016). |
+| **Operational** | Provision Supabase project; configure region us-east-1 (R2 colocation per ADR-0216). |
 | **Secrets** | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — set via the Replit secrets panel. **Do NOT commit.** |
 | `apps/sync-server/src/eventLog/createEventLog.ts` | Confirm Supabase PG connection string parsing matches the existing PG path. Default `SYNC_EVENT_LOG=pg` when `SUPABASE_URL` is set. |
 | `apps/sync-server/src/locks/createSoftLockStore.ts` | Same — default to PG when Supabase is configured. |
@@ -744,7 +744,7 @@ revert to ignoring it.
 
 `ls apps/` does not contain `export-worker/`. Phase 2C spec line 39
 (S40 deliverable) called for it. The team's 2C audit deferred it to
-"ADR-039" which does not exist on disk. PDF export currently runs
+"ADR-0239" which does not exist on disk. PDF export currently runs
 in-process; M24's documentation pipeline contract requires server-side
 export for production load patterns.
 
@@ -1009,7 +1009,7 @@ revert to none. UX degrades but no errors.
 
 #### Why this exists
 
-`[strategic ADR-010]` mandates 250 ms coalescing window. Phase 2D spec
+`[strategic ADR-0210]` mandates 250 ms coalescing window. Phase 2D spec
 line 50 (S43): *"`apps/bake-worker` debounce window pinned at 250 ms"*.
 This audit did not verify the actual constant — it is a 5-minute check
 that should be done explicitly.
@@ -1018,7 +1018,7 @@ that should be done explicitly.
 
 | File | Change |
 |---|---|
-| `apps/bake-worker/src/queue.ts` (or wherever debounce is configured) | Verify constant is 250. If 500, change to 250 + add a comment citing ADR-010. |
+| `apps/bake-worker/src/queue.ts` (or wherever debounce is configured) | Verify constant is 250. If 500, change to 250 + add a comment citing ADR-0210. |
 | `apps/bake-worker/__tests__/debounce.test.ts` | NEW (if absent) — fire 5 events 50 ms apart, assert exactly 1 bake invocation after 250 ms. |
 | `docs/02-decisions/adrs/0010` (if exists) | Verify cited correctly. |
 
@@ -1293,7 +1293,7 @@ Remove the script + CI step. ADR-0036 amendment can stay independently.
 
 #### Why this exists
 
-PHASE-2C-AUDIT references ADR-039 + ADR-040 by name; the ADR directory
+PHASE-2C-AUDIT references ADR-0239 + ADR-0240 by name; the ADR directory
 ends at 0037. Three ADRs need to exist to back the work in W-03 + W-08
 + schedule export.
 

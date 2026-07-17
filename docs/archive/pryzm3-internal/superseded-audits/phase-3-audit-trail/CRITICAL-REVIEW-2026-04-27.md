@@ -39,7 +39,7 @@ These are the issues that, if not fixed first, will cause the rest of the rebuil
 ### A5. Multiple "decision-binding" docs say contradictory things about the wire format
 - `08-VISION` §3 (P4): "Every state mutation flows through a `CommandHandler<TPayload>`. Handlers produce **Immer patches** … emitted as **MessagePack-encoded events with ULIDs**, which are simultaneously the undo log, the persistence event log, the sync wire format and the audit trail."
 - `09-AS-IS-VS-TO-BE` §L3: "**Yjs CRDT** with conflict-free merge of every command."
-- These two are *not* the same wire format. Yjs has its own update encoding (`Y.encodeStateAsUpdate` / `Y.applyUpdate`). You cannot have a single MessagePack event log that is **simultaneously** the undo log, persistence log, *and* the Yjs update stream — they are different bytes, with different merge semantics, ordering guarantees, and conflict handling. The plan needs a sharp answer to: do commands emit Immer patches that get translated into Y.Doc mutations on the way out (and Y.Doc updates get translated into patches on the way in)? Or is Y.Doc the source of truth and Immer patches are derived? **ADR-002 territory and PROCESS-TRACKER shows ADR-002 is unstarted.**
+- These two are *not* the same wire format. Yjs has its own update encoding (`Y.encodeStateAsUpdate` / `Y.applyUpdate`). You cannot have a single MessagePack event log that is **simultaneously** the undo log, persistence log, *and* the Yjs update stream — they are different bytes, with different merge semantics, ordering guarantees, and conflict handling. The plan needs a sharp answer to: do commands emit Immer patches that get translated into Y.Doc mutations on the way out (and Y.Doc updates get translated into patches on the way in)? Or is Y.Doc the source of truth and Immer patches are derived? **ADR-0202 territory and PROCESS-TRACKER shows ADR-0202 is unstarted.**
 - Phase 1D explicitly downgrades to "LWW until 2D CRDT." That means M12 Alpha ships with **non-CRDT** persistence, then Phase 2D rewrites the wire format. This is a much larger refactor than the plan acknowledges, because the event log in Phase 1 will not be replayable into Y.Doc state without bespoke bridging code.
 
 ### A6. The "L7.5 AI Operations" layer is asserted but under-specified
@@ -171,8 +171,8 @@ The honest read: PRYZM 2's plan beats Forma/Qonic on **collaboration semantics (
 
 ### D1. The 12 ADRs are the gating bottleneck
 - `05-IMPLEMENTATION-PLAN.md` §17 lists 12 ADRs that must be made before Sprint 1. PROCESS-TRACKER shows most are still `[ ]`.
-- ADR-002 (CRDT choice) is the most consequential — it dictates the wire format, the persistence layer, the undo system, *and* the public API. Until it is decided, every "command/event/Yjs/MessagePack" sentence in the corpus is approximate.
-- ADR-009 (plugin sandbox model) gates the entire L6 layer.
+- ADR-0202 (CRDT choice) is the most consequential — it dictates the wire format, the persistence layer, the undo system, *and* the public API. Until it is decided, every "command/event/Yjs/MessagePack" sentence in the corpus is approximate.
+- ADR-0209 (plugin sandbox model) gates the entire L6 layer.
 - The plan should not start Sprint 1 (S01) without all 12 ADRs ratified. PROCESS-TRACKER says you are inside S01 already. **You're building on undecided foundations.**
 
 ### D2. PROCESS-TRACKER.md has no kill-switch column
@@ -201,7 +201,7 @@ Deleting `EngineBootstrap.ts`, `ProjectSerializer.ts`, `ImportProjectCommand.ts`
 ## E. Top recommendations (priority-ordered)
 
 1. **Write `CONFLICT-ANALYSIS.md` this week.** Referenced from four places, voids whole sections of contracts, does not exist. Without it, the binding hierarchy is folklore.
-2. **Settle ADR-002 (CRDT/event-log unification) before S02.** The contradiction between "MessagePack event log is the wire format" (08 P4) and "Yjs is the conflict resolution" (08 §1, 09 §L3) must be resolved into a single design with code-level interfaces shown. Your sprint plan currently builds the event log first, then bolts CRDT on later — that is a 6-month rewrite waiting to happen.
+2. **Settle ADR-0202 (CRDT/event-log unification) before S02.** The contradiction between "MessagePack event log is the wire format" (08 P4) and "Yjs is the conflict resolution" (08 §1, 09 §L3) must be resolved into a single design with code-level interfaces shown. Your sprint plan currently builds the event log first, then bolts CRDT on later — that is a 6-month rewrite waiting to happen.
 3. **Replace `02-decisions/contracts/` wholesale.** Keep the old folder as `archive/` for forensic value. Rewrite ~12 short, sharp normative contracts under NEW_ARCH that match the new layer model exactly. Stop maintaining two parallel corpora.
 4. **Write a serious capacity model.** "Solo + Agent for 36 months delivers eight CI gates, 17 benches, marketplace, IFC, headless, plugin SDK, AI layer, sync server, bake worker, export worker, OTel pipeline, self-host" is not true. Identify the 5 must-haves for M12, M24, M36 and explicitly cut the rest. Most likely casualties: marketplace at GA, IFC4 round-trip at GA, OTel coverage of all hot paths, headless AI, soft-lock CRDT semantics. Cut early.
 5. **Pick a real geometry kernel story.** Either commit to `three-bvh-csg` and write a robustness contract that *defines* what input it can survive, or plan a swap to a more capable kernel (manifold-3d, OpenCASCADE.js, JSCAD's geom kernel) with a migration sprint. Today the corpus assumes geometric robustness without naming the kernel.

@@ -98,7 +98,7 @@ S31 was the heaviest sprint of the 36-month plan per the spec's gap-closure abso
 | Canvas2D `DimensionCommitter` (5 arrowhead styles + override flag) | `packages/scene-committer/` | DONE per ADR-0030 §2.4 |
 | ESLint rules promoted from warning → error | `eslint.config.mjs` | DONE per spec §Gap-Closure S32 |
 | `packages/visibility/legacy-adapter.ts` lit | `packages/visibility/src/index.ts` (the package IS the legacy-adapter; waves 3-4 live, wave 5 OPEN) | DONE for adapter; wave 5 OPEN |
-| RLS policies generator lit per ADR-028 Part E | per ADR-0030 §2.5 follow-up | DEFERRED (project-task) |
+| RLS policies generator lit per ADR-0228 Part E | per ADR-0030 §2.5 follow-up | DEFERRED (project-task) |
 
 S34 closure noted in tracker as "111 unit tests across `packages/schemas`, `packages/geometry-kernel`, and `packages/scene-committer`."
 
@@ -115,13 +115,13 @@ This sprint is closed **as partial** per ADR-0030 §2.2: "Plan-view perf tune + 
 | `section-cut.ts` is pure — runs in Node test | `packages/geometry-kernel/src/producers/` (kernel-pure) + `plugins/section-view/src/section-cut-producer.ts` | DONE |
 | Pan/zoom works in section view | `SectionViewCanvasHost` | host shell wired; pan/zoom inherits from `PlanCamera` patterns | DONE-AS-SKELETON |
 | Visual diff vs PRYZM 1 section view: < 5 px (tightens to < 2 px in S36) | Recording-canvas harness measures stream-equivalence on 5 fixtures per ADR-0030 §2.4. Pixel-tolerance gate is OPEN. | **DEFERRED to S37 D5** — re-eval trigger: Playwright PNG pipeline lit at S37 D5 per spec §Gap-Closure S31 (`pnpm bench plan-view-perf` + SVG ↔ Canvas2D ↔ PDF equivalence gate per SPEC-29 §4.5) |
-| Code-level `ADR 0024 — Section cut algorithm` (distinct from `[strategic ADR-024]` constraint solver) | `docs/02-decisions/adrs/0024-plan-view-annotation-pipeline.md` carries the plan-view annotation decision; the section-cut algorithm decision is documented inline in `section-cut-producer.ts` and ratified by ADR-0030 §2.4 | DOCUMENTED-IN-CODE; promotion to standalone ADR-0031-section-cut is OPEN as a documentation polish |
+| Code-level `ADR 0024 — Section cut algorithm` (distinct from `[strategic ADR-0224]` constraint solver) | `docs/02-decisions/adrs/0024-plan-view-annotation-pipeline.md` carries the plan-view annotation decision; the section-cut algorithm decision is documented inline in `section-cut-producer.ts` and ratified by ADR-0030 §2.4 | DOCUMENTED-IN-CODE; promotion to standalone ADR-0031-section-cut is OPEN as a documentation polish |
 | Hidden-line classifier (kernel-pure) integrated per SPEC-30 §3.2 | `packages/geometry-kernel/src/hidden-line/` | DONE per ADR-0030 §2.4 |
 | Perf bench Large tier passes per SPEC-30 §2 Large | `apps/bench/src/benches/visual-diff-plan.bench.ts` measures stream-equivalence; full SPEC-30 §2 Large tier (50,000 elements) is bound to the same Playwright promotion at S37 D5 | DEFERRED-WITH-TRIGGER |
-| WebGL2 implementation; WebGPU compute deferred per ADR-025 Part E | WebGL2 path is the rendering default; WebGPU compute deferral is per `[strategic ADR-022]` Phase rollout | DONE / DEFERRED-BY-DESIGN |
+| WebGL2 implementation; WebGPU compute deferred per ADR-0225 Part E | WebGL2 path is the rendering default; WebGPU compute deferral is per `[strategic ADR-0222]` Phase rollout | DONE / DEFERRED-BY-DESIGN |
 | Visibility-Intent wave 5 (the spec's literal ask) | OPEN. Waves 3-4 ship in `packages/visibility/src/index.ts`; wave 5 = full 11-wave port = S49 / Phase 3A per the package docstring. | **DEFERRED to S49 / Phase 3A** — re-eval trigger: Phase 3A capacity available |
 
-**S35 closure rationale**: the spec's "visibility-intent wave 5" was a planned-pre-execution requirement. ADR-0030 §2.5 reclassified it as an explicit deferral (project task) once the closeout audit found that the wave-3-4 reducer covers the practical use cases for Phase 2B's renderer integration. The wave-5 propagation (the "halftone-cousin-of-cousin" cascade) is wholly legacy-side and is folded into the full 11-wave port at S49 per `[strategic ADR-015]` (Visibility-Intent placement).
+**S35 closure rationale**: the spec's "visibility-intent wave 5" was a planned-pre-execution requirement. ADR-0030 §2.5 reclassified it as an explicit deferral (project task) once the closeout audit found that the wave-3-4 reducer covers the practical use cases for Phase 2B's renderer integration. The wave-5 propagation (the "halftone-cousin-of-cousin" cascade) is wholly legacy-side and is folded into the full 11-wave port at S49 per `[strategic ADR-0215]` (Visibility-Intent placement).
 
 ---
 
@@ -140,7 +140,7 @@ This sprint is closed **as partial** per ADR-0030 §2.2: "Multi-view sync + cros
 | 2B demo recording committed to `docs/05-guides/developer/demos/M18-2B.mp4` | OUT OF SCOPE — recording asset, not code | DEFERRED — folded into M24 beta demo per §2C-AUDIT §9 pattern |
 | `apps/bench/reports/M18-2B.md` committed | NOT YET COMMITTED | DEFERRED to S31-bis bench-reports sweep |
 | ADRs 023–025 merged | `0023-plan-view-canvas2d-renderer.md`, `0024-plan-view-annotation-pipeline.md`, `0025-plan-view-svp-parity-contract-44.md` | DONE |
-| 2B retro decision on `featureFlags.plan_view_v2` default for beta | `packages/feature-flags/` skeleton ships flag-OFF default; default-ON decision bound to S47 (beta cohort onboarding) per `[strategic ADR-018]` cut-list ranking | DOCUMENTED-AS-DEFERRED |
+| 2B retro decision on `featureFlags.plan_view_v2` default for beta | `packages/feature-flags/` skeleton ships flag-OFF default; default-ON decision bound to S47 (beta cohort onboarding) per `[strategic ADR-0218]` cut-list ranking | DOCUMENTED-AS-DEFERRED |
 | `view-resolution` consumed by `PlanViewCanvasHost` (default-template helper) | per ADR-0030 §2.4 wiring row | DONE |
 
 **S36 closure rationale**: ADR-0030 §2.2 explicitly relabelled this row as "partial; production hardening at S46". The skeleton shipped (pure layout solver + view-sync bus + topic taxonomy + 8 unit tests) is the stable type-side dependency the host code can take per `view-sync.ts` line 17. The hard-fail bench gate is bound to S46 D2; the 30-case visual-diff fixture corpus is bound to S37 D5. **No silent deferrals remain.**
@@ -213,12 +213,12 @@ The gap-closure work that the 2026-04-27 directive absorbed into S31 is recorded
 | S31 | BullMQ scheduled sweep replaces probabilistic `project_command_log` cleanup | OPEN — project task per ADR-0030 §2.5 |
 | S31 | `02-decisions/contracts/` archived | DONE per SPEC-27 §5 |
 | S31 | `packages/drawing-primitives/` schemas + Zod + SVG MVP | DONE |
-| S31 | `plugins/lifecycle/` skeleton + first three cross-family rules | DONE per ADR-030 Part D |
+| S31 | `plugins/lifecycle/` skeleton + first three cross-family rules | DONE per ADR-0230 Part D |
 | S31 | Plugin data sandbox path reserved in `.pryzm` | DONE per SPEC-26 §11 |
 | S31 | Pre-port: 5 hot ops on Canvas2D backend per SPEC-30 §5 | DONE for 4 of 5 (selection/drag/pan/zoom); snap is the §S30.5–S30.10 follow-up |
-| S31 | Cesium mount becomes lazy + disposable per ADR-023 Part C | OPEN — project task per ADR-0030 §2.5 |
+| S31 | Cesium mount becomes lazy + disposable per ADR-0223 Part C | OPEN — project task per ADR-0030 §2.5 |
 | S32 | ESLint rules promoted from warning to error | DONE per spec §Gap-Closure |
-| S32 | RLS policies generator lit per ADR-028 Part E | OPEN — project task |
+| S32 | RLS policies generator lit per ADR-0228 Part E | OPEN — project task |
 | S33 | New visibility resolver parity-tested on SPEC-11 fixture corpus | DONE — wave-3-4 reducer in `packages/visibility/` parity'd against legacy adapter |
 | S33 | Canvas2D backend (overlays) per SPEC-29 §4.2 lit | DONE — `packages/drawing-primitives/src/backends/canvas2d.ts` |
 | S33 | AI proposal queue lit | DONE-AS-SKELETON |
@@ -241,7 +241,7 @@ These items are spec'd by the 2B sprint range or its Gap-Closure overlay but do 
 |---|---|---|
 | Playwright PNG pixel-tolerance harness for plan + section visual diff | Recording-canvas harness measures stream-equivalence on 5 fixtures, which is sufficient for Contract 44 G1–G10 to remain green and for ADR-0030's "P1 code findings" to be honestly ratified. Promoting to PNG-pixel comparison requires a Tier-3 CI dependency (Playwright) and a 30-case fixture corpus production pass. | S37 D5 per spec §Gap-Closure S31 |
 | `apps/bench/multi-view-sync.bench.ts` (< 16 ms p95 hard-fail) | Pure publisher (`ViewSyncBus`) has no inherent latency cost; renderer-side budget is host-by-host and only meaningful with all three view types live in one workbench. | S46 D2 per ADR-0030 §2.2 |
-| Visibility-Intent wave 5 (full 11-wave port) | Wave-3-4 reducer covers the practical use cases for Phase 2B's renderer integration. The wave-5 cascade is the "halftone-cousin-of-cousin" propagation that only fires inside the full Visibility-Intent placement system per `[strategic ADR-015]`. | S49 / Phase 3A |
+| Visibility-Intent wave 5 (full 11-wave port) | Wave-3-4 reducer covers the practical use cases for Phase 2B's renderer integration. The wave-5 cascade is the "halftone-cousin-of-cousin" propagation that only fires inside the full Visibility-Intent placement system per `[strategic ADR-0215]`. | S49 / Phase 3A |
 | 2B demo recording (`docs/05-guides/developer/demos/M18-2B.mp4`) | Recording asset, not code. Folded into M24 beta launch demo per §2C-AUDIT §9 pattern. | M24 beta launch |
 | `apps/bench/reports/M18-2B.md` | All bench infrastructure in place; the report .md is bookkeeping. | S31-bis bench-reports sweep (combined with M15-2A baseline) |
 | Standalone `0031-section-cut-algorithm.md` ADR | Decision is documented inline in `plugins/section-view/src/section-cut-producer.ts` and ratified in ADR-0030 §2.4. | Phase 3 doc-org cleanup |
@@ -259,7 +259,7 @@ These items are spec'd by the 2B sprint range or its Gap-Closure overlay but do 
 2. The remaining production-hardening work is bound to a named future sprint (S37 D5 or S46 D2).
 3. The kill-switch rule (K2B-3 / K2B-4) is re-armed at that future sprint.
 
-ADR-0030 is the binding closure record. This audit ratifies it and surfaces it in the standard audit format so `PROCESS-TRACKER §2B` can be flipped to honest `[x]` rows. **Phase 2B exit is unblocked from the 2B side**; Phase 2C is closed (`PHASE-2C-AUDIT-2026-04-28.md` 100/100); Phase 2D entry now requires only the ADR-002 implementation companion (sprint-scoped `0033-sync-client-event-bridge.md`) and the chaos-test fixture, both filed alongside this audit on 2026-04-28.
+ADR-0030 is the binding closure record. This audit ratifies it and surfaces it in the standard audit format so `PROCESS-TRACKER §2B` can be flipped to honest `[x]` rows. **Phase 2B exit is unblocked from the 2B side**; Phase 2C is closed (`PHASE-2C-AUDIT-2026-04-28.md` 100/100); Phase 2D entry now requires only the ADR-0202 implementation companion (sprint-scoped `0033-sync-client-event-bridge.md`) and the chaos-test fixture, both filed alongside this audit on 2026-04-28.
 
 ---
 

@@ -8,19 +8,19 @@
 | Owner | Standards lead + Architecture lead |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S73 (start) → S84 (close) — runs the full phase |
-| References | `12-` §3; `[strategic ADR-008]`; `[strategic ADR-035]` |
+| References | `12-` §3; `[strategic ADR-0208]`; `[strategic ADR-0235]` |
 
 ---
 
 ## §1 Why this SPEC exists
 
-buildingSMART IFC4 certification is the **single most market-credible** open-BIM badge. Certified tools appear on `https://www.buildingsmart.org/certification/`. UK government, EU public-sector, Singapore BCA, Australian NATSPEC, Spanish es.BIM, German BIM Cluster all reference certified-tool lists in procurement. PRYZM 2 GA ships IFC4 read+write (per `[strategic ADR-008]`); SPEC-40 is the **certification submission programme**.
+buildingSMART IFC4 certification is the **single most market-credible** open-BIM badge. Certified tools appear on `https://www.buildingsmart.org/certification/`. UK government, EU public-sector, Singapore BCA, Australian NATSPEC, Spanish es.BIM, German BIM Cluster all reference certified-tool lists in procurement. PRYZM 2 GA ships IFC4 read+write (per `[strategic ADR-0208]`); SPEC-40 is the **certification submission programme**.
 
-Per `[strategic ADR-035]` the scope is **RV (Reference View) + DTV (Design Transfer View)** — the two most common certifications. Coordination View 2.0 is deferred to post-Phase-4 (CV 2.0 is being deprecated in favour of DTV).
+Per `[strategic ADR-0235]` the scope is **RV (Reference View) + DTV (Design Transfer View)** — the two most common certifications. Coordination View 2.0 is deferred to post-Phase-4 (CV 2.0 is being deprecated in favour of DTV).
 
 ## §2 The contract (binding)
 
-### §2.1 Submission scope per `[strategic ADR-035]`
+### §2.1 Submission scope per `[strategic ADR-0235]`
 
 - **Reference View (RV) 1.2** — read + write certification. The minimum for federation use.
 - **Design Transfer View (DTV) 1.0** — read + write certification. Required for cross-tool authoring round-trip.
@@ -66,8 +66,8 @@ tests/buildingsmart/
     dtv-report.html
 
 packages/ifc/
-  src/import/              ← already shipped at GA via ADR-008
-  src/export/              ← already shipped at GA via ADR-008
+  src/import/              ← already shipped at GA via ADR-0208
+  src/export/              ← already shipped at GA via ADR-0208
   src/certification/       ← per-fixture quirks + work-arounds (data-only, not in production code path)
 ```
 
@@ -75,7 +75,7 @@ packages/ifc/
 
 | Sprint | Deliverable |
 |---|---|
-| S73 D1 | submission package starts; ADR-035 ratified |
+| S73 D1 | submission package starts; ADR-0235 ratified |
 | S73–S78 | self-test full fixture suite; iterate import + export until pass rate ≥ 95% |
 | S79 | provisional submission to buildingSMART; cert lab engagement (TUM or KIT) |
 | S80–S82 | independent assessment; remediation cycles |
@@ -102,7 +102,7 @@ packages/ifc/
 
 ## §7 Cross-references
 
-- `[strategic ADR-008]` IFC scope (provides the read/write substrate)
-- `[strategic ADR-035]` certification scope
+- `[strategic ADR-0208]` IFC scope (provides the read/write substrate)
+- `[strategic ADR-0235]` certification scope
 - SPEC-50 ICDD (consumes certified IFC4 in containers)
 - SPEC-58 outcome pricing (certified output is a metered deliverable)

@@ -1,7 +1,7 @@
 # Sync-server architecture (`apps/sync-server`)
 
 > **Sprint**: S22 — `phases/PHASE-1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` lines 888-1078.
-> **ADR**: [`adr/0019-sync-server-linearisation.md`](./adr/0019-sync-server-linearisation.md).
+> **ADR**: [`adr/ADR-0019-sync-server-linearisation.md`](./adr/ADR-0019-sync-server-linearisation.md).
 > **Implementation**: [`apps/sync-server/`](../../apps/sync-server/).
 > **CI gate**: [`apps/bench/src/benches/sync-roundtrip.bench.ts`](../../apps/bench/src/benches/sync-roundtrip.bench.ts) — hard-fail > 250 ms p95.
 
@@ -15,7 +15,7 @@ bake-worker to re-bake the affected level.
 
 It does **not** apply events to scene state — that is the editor's job.
 It does **not** persist `.pryzm` files — that is the file-format
-package (ADR-018).  Its single concern is "everyone sees the same
+package (ADR-0218).  Its single concern is "everyone sees the same
 events in the same order, fast."
 
 ```
@@ -213,7 +213,7 @@ Common attributes: `pryzm.project_id`, `pryzm.client_id`,
 `pryzm.user_id`.  Where applicable: `pryzm.event.sequence_number`,
 `pryzm.event.type`, `pryzm.events.page.size`.
 
-OTel exporter env follows ADR-007.  No service-specific config.
+OTel exporter env follows ADR-0207.  No service-specific config.
 
 ## 7. Configuration
 

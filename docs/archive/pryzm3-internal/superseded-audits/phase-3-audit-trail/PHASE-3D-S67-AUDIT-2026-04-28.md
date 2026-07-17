@@ -67,7 +67,7 @@ replit.md                                         — S67 entry added under "Rec
   mirrors `apps/marketplace-api/migrations/0001_marketplace_plugins.sql`
   for self-host bootstrap (drift check added at S68 D7 lint).
 - **ADR-0049** (Multi-Region Cut Decision): cut multi-region for M36 GA
-  per `[strategic ADR-018]` T2.6.  Five reasons documented; `PRYZM_REGION`
+  per `[strategic ADR-0218]` T2.6.  Five reasons documented; `PRYZM_REGION`
   env var reserved for post-GA reactivation.  Reversal cost = 2 sprints
   (GA would slip to ~M38 if reverted now).
 
@@ -134,7 +134,7 @@ strengthen the S67 close:
 
 - Phase doc: `docs/00_NEW_ARCHITECTURE/phases/PHASE-3D-Q4-M34-M36-HARDENING-GA.md` §S67
 - Process tracker: `docs/00_NEW_ARCHITECTURE/PROCESS-TRACKER.md` §3D row S67
-- Strategic ADR: `[strategic ADR-018]` T2.6 (multi-region cuttable)
+- Strategic ADR: `[strategic ADR-0218]` T2.6 (multi-region cuttable)
 - Specs: SPEC-15 §7 (self-host), SPEC-15 §3.1 + SPEC-24 §1.3 (regional primaries)
 - Sprint ADRs: ADR-0048 (compose stack), ADR-0049 (multi-region cut)
 - Prior S64 marketplace work consumed by `init-db/02-marketplace.sql`:

@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Phase | Phase 5 (M43–M48) |
 | Sprint | S87–S90 |
-| References | `12-` §4; `13-` §2; `[strategic ADR-039]` |
+| References | `12-` §4; `13-` §2; `[strategic ADR-0239]` |
 
 ---
 
@@ -34,16 +34,16 @@ interface AnalysisBridge {
 }
 ```
 
-### §2.2 Data contract per `[strategic ADR-039]`
+### §2.2 Data contract per `[strategic ADR-0239]`
 
-ADR-039 ratifies: **IFC4 + JSON-LD** as the universal export format. Engine-specific formats (gbXML for energy, MED for Code_Aster) are produced by the per-engine adapter from the IFC4 + JSON-LD canonical.
+ADR-0239 ratifies: **IFC4 + JSON-LD** as the universal export format. Engine-specific formats (gbXML for energy, MED for Code_Aster) are produced by the per-engine adapter from the IFC4 + JSON-LD canonical.
 
 ### §2.3 Run lifecycle
 
 1. User clicks "Run analysis" on a project at CDE state ≥ S2.
 2. Bridge `prepare()` produces `EngineInput`.
-3. Bridge `invoke()` queues a job in `apps/bake-worker` (extends ADR-005 worker pool).
-4. Engine runs in Docker on bake-worker pod (or dedicated analysis-worker pod for heavy runs per Phase 5 §4 ADR-040).
+3. Bridge `invoke()` queues a job in `apps/bake-worker` (extends ADR-0205 worker pool).
+4. Engine runs in Docker on bake-worker pod (or dedicated analysis-worker pod for heavy runs per Phase 5 §4 ADR-0240).
 5. Bridge `fetchResult()` retrieves output.
 6. Bridge `overlayToPryzm()` produces a per-element overlay map.
 7. Overlay rendered via SPEC-13 visibility-intent layer.
@@ -62,7 +62,7 @@ ADR-039 ratifies: **IFC4 + JSON-LD** as the universal export format. Engine-spec
 
 | Sprint | Deliverable |
 |---|---|
-| S87 D1 | SPEC-42 lands; ADR-039 ratified; `packages/analysis-bridge/` skeleton + uniform contract |
+| S87 D1 | SPEC-42 lands; ADR-0239 ratified; `packages/analysis-bridge/` skeleton + uniform contract |
 | S87 D5 | Karamba3D adapter + first end-to-end run on 100-element model |
 | S87 D9 | result overlay UI (heatmap on elements via visibility-intent) |
 | S88 D5 | OpenSees adapter (TCL script generator + `.out` parser) |
@@ -83,8 +83,8 @@ ADR-039 ratifies: **IFC4 + JSON-LD** as the universal export format. Engine-spec
 
 ## §5 Cross-references
 
-- ADR-039 data contract
-- ADR-005 worker pool
+- ADR-0239 data contract
+- ADR-0205 worker pool
 - SPEC-13 visibility-intent (overlay rendering)
 - SPEC-43 sustainability (consumes EnergyPlus output for operational carbon)
 - SPEC-44 cloud-baked rendering (shares analysis-worker pod infra)

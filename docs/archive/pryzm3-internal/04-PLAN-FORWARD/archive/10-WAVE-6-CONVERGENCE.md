@@ -323,7 +323,7 @@ But the convergence rule is "6 of 9 user-visible booleans **on track**", measure
 The day after Wave 6 closes (Monday week-13), the Phase F program can begin. Specifically:
 
 1. **`packages/plugin-sdk/` skeleton** — the 195-sub-phase work from `reference/phases/PHASE-3/3C-PLUGIN-SDK-MARKETPLACE.md`.
-2. **`packages/headless/` skeleton** — the headless runtime per ADR-022.
+2. **`packages/headless/` skeleton** — the headless runtime per ADR-0222.
 3. **Marketplace domain registration** — `marketplace.pryzm.app`.
 4. **First plugin developer onboarding** — internal team migrates the BCF plugin (currently L7 importing L0-L4 directly; transitional allowlist) to use only L6 SDK.
 

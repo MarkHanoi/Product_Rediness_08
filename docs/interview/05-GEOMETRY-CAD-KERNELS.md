@@ -39,7 +39,7 @@ You have the substance. **State it precisely — precision is the whole point wi
 
 ### The honest line about OpenCASCADE
 
-> ⚠️ **There is no OpenCASCADE dependency in PRYZM.** ADR-020 records it as a *reserved kernel-swap path* — "manifold-3d is the default CSG library; OpenCASCADE.js is reserved for the kernel-swap path" — for NURBS/B-rep authoring if the component editor ever needs it.
+> ⚠️ **There is no OpenCASCADE dependency in PRYZM.** ADR-0220 records it as a *reserved kernel-swap path* — "manifold-3d is the default CSG library; OpenCASCADE.js is reserved for the kernel-swap path" — for NURBS/B-rep authoring if the component editor ever needs it.
 
 **Say exactly this:**
 > *"I use manifold-3d, not OCC — I picked it for manifold-by-construction guarantees, and because it's a clean WASM boundary I can run in a worker. OCC.js is written into our ADR as the swap path if we need true NURBS/B-rep. So I know the trade-off well; I haven't shipped OCC."*
@@ -50,7 +50,7 @@ That is a **better** answer than a bluffed "yes." It shows you chose a kernel fo
 
 ## A kernel that returns errors instead of crashing
 
-**ADR-020 — the robustness contract.** This is a genuinely senior artefact, and worth describing:
+**ADR-0220 — the robustness contract.** This is a genuinely senior artefact, and worth describing:
 
 - An explicit **input budget** (what geometry the kernel promises to handle).
 - **Typed failures**: `Result.err(KernelError.NonManifold)` — the kernel *returns* an error; it never throws into the render loop.

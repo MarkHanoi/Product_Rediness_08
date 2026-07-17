@@ -123,7 +123,7 @@ The `05-guides/user/` folder has 1 file (`apartment-layout.md`). For an enterpri
 The `05-guides/developer/` folder has process + demos. Missing:
 
 - [ ] `getting-started.md` — clone, install, run dev server
-- [ ] `architecture-walkthrough.md` — the 9-layer model in practice (companion to architecture.md)
+- [ ] `architecture-walkthrough.md` — the 9-layer model in practice (companion to STR-04-architecture.md)
 - [ ] `add-a-new-command.md` — C16 cookbook (citing handlers, batch, undo, plan-view)
 - [ ] `add-a-new-element-type.md` — C11 + C15 cookbook (the §11 obligation matrix)
 - [ ] `add-a-new-contract.md` — when + how + numbering

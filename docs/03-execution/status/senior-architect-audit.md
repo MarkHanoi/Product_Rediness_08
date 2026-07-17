@@ -148,7 +148,7 @@
 
 **Local persistence strategy**: `localStorage` for user preferences (`packages/runtime-composer/src/UserPreferences.ts`). `GeometryCacheStore.ts` in `src/engine/subsystems/core/persistence/` caches geometry. **No IndexedDB, OPFS, or SQLite WASM** found — the app has no offline-capable local model store. All project data is server-round-trip on every open.
 
-**Server-side storage**: PostgreSQL + Supabase. Project snapshots are stored as JSONB in `project_versions.snapshot` (full model serialization). `ifcStorageService.js` stores IFC binary blobs with a `file_data` column and a `storage_path` for the Supabase Storage bucket (`ifc-uploads`). `renderService.js` stores render gallery metadata. `storage-driver` package (`packages/storage-driver/`) abstracts object storage with InMemory/MinIO/R2 adapters (ADR-003) for worker-produced content-addressed geometry chunks.
+**Server-side storage**: PostgreSQL + Supabase. Project snapshots are stored as JSONB in `project_versions.snapshot` (full model serialization). `ifcStorageService.js` stores IFC binary blobs with a `file_data` column and a `storage_path` for the Supabase Storage bucket (`ifc-uploads`). `renderService.js` stores render gallery metadata. `storage-driver` package (`packages/storage-driver/`) abstracts object storage with InMemory/MinIO/R2 adapters (ADR-0203) for worker-produced content-addressed geometry chunks.
 
 **Byte-range / streaming**: `SnapshotStreaming.ts` exists in `src/engine/subsystems/core/persistence/`, indicating the design intent. `ProjectLoader.ts` (1,526 LOC) is the main loading coordinator. No confirmed `Range` header usage on the HTTP layer for partial chunk streaming.
 
@@ -233,7 +233,7 @@
 
 **CI/CD**: No GitHub Actions workflow YAML files found (`.github/` contains only `ISSUE_TEMPLATE/` and `workflows/` directory appears empty of YAML). **Replit Deployments is the CI/CD mechanism.** Turborepo (`turbo.json`) defines `build`, `test:ci`, `lint` tasks with caching. The 5 GA gate scripts in `tools/ga-gate/` are the CI hard-fail guards, but they are not wired to automated branch protection or pre-merge checks — they run as workflow tasks, not as PR-blocking gates.
 
-**Automated model processing**: `apps/bake-worker/` — receives command event batches, runs geometry producers in `worker_threads`, writes content-addressed chunks to the storage driver (ADR-005, 250ms coalescing window, ADR-010). This is the server-side geometry bake pipeline. No automated IFC validation on upload confirmed.
+**Automated model processing**: `apps/bake-worker/` — receives command event batches, runs geometry producers in `worker_threads`, writes content-addressed chunks to the storage driver (ADR-0205, 250ms coalescing window, ADR-0210). This is the server-side geometry bake pipeline. No automated IFC validation on upload confirmed.
 
 **Background jobs**:
 - `apps/bake-worker/` — geometry bake (running ✅)

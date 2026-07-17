@@ -1,6 +1,7 @@
 # C20 — Building & Apartment Aggregates
 
-> **Stamp**: 2026-06-01 · **Status**: DRAFT
+> **Stamp**: 2026-06-01 · **Ratified**: 2026-07-16 · **Status**: CANONICAL
+> _Ratified DRAFT→CANONICAL 2026-07-16 (founder-approved sweep): full C31 anatomy present (§1 Invariants … §9 "What is NOT"), scoped to the implemented single-Building / single-Level apartment hierarchy (multi-Building → future C20.1, multi-Level → C20.2)._
 > **Scope**: the architectural aggregation hierarchy — Building → Level → Apartment → Room — its schemas, stores, commands, and invariants. Wraps [C13 Project Lifecycle & Isolation](./C13-PROJECT-LIFECYCLE-AND-ISOLATION.md) with the architectural hierarchy and provides the data model that [C27 BIM 3.0 Inspect](./C27-BIM3-INSPECT-MODEL.md) visualises.
 > **Depends on**: [C03 Schemas, Commands & State](./C03-SCHEMAS-COMMANDS-AND-STATE.md) · [C11 Element Creation Pipeline](./C11-ELEMENT-CREATION-PIPELINE.md) · [C13 Project Lifecycle](./C13-PROJECT-LIFECYCLE-AND-ISOLATION.md) · [C16 Command Authoring Protocol](./C16-COMMAND-AUTHORING-PROTOCOL.md) · [C19 Site Model & Parcel](./C19-SITE-MODEL-AND-PARCEL.md) (sibling — Site sits one level above Building).
 > **Downstream**: [C27 BIM 3.0 Inspect](./C27-BIM3-INSPECT-MODEL.md) (tree view) · [C28 Data Panel & Automation](./C28-DATA-PANEL-AND-AUTOMATION.md) (panels A–F edit the aggregate parameters) · [C25 IFC Export](./C25-IFC-EXPORT-PRODUCTION.md) (IfcBuilding / IfcBuildingStorey / IfcSpatialZone mapping) · the apartment-layout workflow ([SPEC-APARTMENT-LAYOUT-GENERATOR](../../03-execution/specs/SPEC-APARTMENT-LAYOUT-GENERATOR.md)) and every downstream furniture / lighting / ceiling engine.
@@ -25,7 +26,7 @@ The single-Building constraint is enforced by `BuildingStore.size() ≤ 1` at ev
 
 Every `Level` (also called Storey, per IFC IfcBuildingStorey) **MUST** belong to exactly one Building. Within a Building:
 
-- Each Level **MUST** have a unique `id` (a typed `LevelId` brand per [ADR-0001](../adrs/0001-typed-id-brand-strategy.md)).
+- Each Level **MUST** have a unique `id` (a typed `LevelId` brand per [ADR-0001](../adrs/ADR-0001-typed-id-brand-strategy.md)).
 - Each Level **MUST** have a unique `levelNumber` (signed integer; ground = `0`, basement = `-1, -2, …`, upper floors = `1, 2, …`).
 - Each Level **MUST** have a finite `elevation` (metres above project origin Y-plane).
 - The `elevation` ordering **MUST** be monotonically increasing in `levelNumber`: if `Lᵢ.levelNumber < Lⱼ.levelNumber`, then `Lᵢ.elevation < Lⱼ.elevation`.
@@ -88,7 +89,7 @@ Spans are emitted at the command-handler boundary, not inside the store. This ke
 
 ### §1.8 — Aggregate ids are typed brands
 
-Per [ADR-0001](../adrs/0001-typed-id-brand-strategy.md), every aggregate id **MUST** be a TypeScript branded string type. The four brands are:
+Per [ADR-0001](../adrs/ADR-0001-typed-id-brand-strategy.md), every aggregate id **MUST** be a TypeScript branded string type. The four brands are:
 
 ```typescript
 type BuildingId   = string & { readonly __brand: 'BuildingId' };
@@ -134,7 +135,7 @@ This invariant prevents two well-known classes of bug: stale parent arrays after
 
 The `ApartmentParametersStore` (D-α-1, BIM 2/3) is the **upstream** node. The `RoomParametersStore` is **downstream** of it. The propagation engine (§1.5) flows changes from apartment → room → derived geometry, never the reverse.
 
-Therefore: editing `ApartmentParameters.bedrooms = 3` **MAY** add or remove `RoomParameters` rows. Editing a single `RoomParameters.areaM2` **MUST NOT** silently mutate `ApartmentParameters.shellAreaM2` — area mismatches at the apartment scale surface as a validator failure (D2.4 envelope validator) and a user-resolvable conflict per [P8](../../01-strategy/engineering-vision.md). The user adjudicates.
+Therefore: editing `ApartmentParameters.bedrooms = 3` **MAY** add or remove `RoomParameters` rows. Editing a single `RoomParameters.areaM2` **MUST NOT** silently mutate `ApartmentParameters.shellAreaM2` — area mismatches at the apartment scale surface as a validator failure (D2.4 envelope validator) and a user-resolvable conflict per [P8](../../01-strategy/STR-03-engineering-vision.md). The user adjudicates.
 
 ### §1.13 — Project-isolation: aggregate stores are project-scoped
 
@@ -420,7 +421,7 @@ Every aggregate mutation is a command on the bus (§1.6). The command names foll
 
 ### §4.5 — Authoring discipline (cross-link to C16)
 
-Every aggregate command **MUST** follow C16 §3 (verb-first naming), §4 (payload schema validation at the boundary), §5 (idempotency for re-entry), and §6 (undoability via ADR-051 single-store undo). The four aggregate stores are first-class undo participants — undoing an `apartment.create` removes the apartment AND its parameters row in one ring-buffer step.
+Every aggregate command **MUST** follow C16 §3 (verb-first naming), §4 (payload schema validation at the boundary), §5 (idempotency for re-entry), and §6 (undoability via ADR-0251 single-store undo). The four aggregate stores are first-class undo participants — undoing an `apartment.create` removes the apartment AND its parameters row in one ring-buffer step.
 
 ---
 

@@ -119,7 +119,7 @@ Eight layers (numbered for life), with THREE confined to **L5 renderer + scene-c
 
 **Why it matters:** if commands continue to call stores directly, the event log is a derived bystander instead of the source of truth — and every "save", "undo", "sync", "audit" guarantee built on top of it is unenforceable.
 
-**Open question (see §6.1):** the relationship between *Immer patches* and *Yjs updates* is not yet decided. ADR-002 must close it before S02. For now: handlers emit Immer patches; the patch-to-Yjs translator is owned by L3 (Sprint S05 per `phases/PHASE-1A`).
+**Open question (see §6.1):** the relationship between *Immer patches* and *Yjs updates* is not yet decided. ADR-0202 must close it before S02. For now: handlers emit Immer patches; the patch-to-Yjs translator is owned by L3 (Sprint S05 per `phases/PHASE-1A`).
 
 **Do today:**
 - Every new command handler declares `affectedStores: readonly StoreId[]` (lint will fail without it from S01).
@@ -147,7 +147,7 @@ Eight layers (numbered for life), with THREE confined to **L5 renderer + scene-c
 
 **Why it matters:** LWW silently loses data. PRYZM 2's D1 ("real-time multi-user *geometry* collaboration with awareness, soft locks, conflict-free merge") is the single largest competitive lead-on vs Forma; LWW would forfeit it.
 
-**Open question (see §6.1):** the bridge between Immer patches (P4) and Y.Doc updates is undecided. ADR-002 owns this.
+**Open question (see §6.1):** the bridge between Immer patches (P4) and Y.Doc updates is undecided. ADR-0202 owns this.
 
 **Do today:**
 - Do not write any new code that depends on Socket.io JSON serialisation of commands.
@@ -177,7 +177,7 @@ Eight layers (numbered for life), with THREE confined to **L5 renderer + scene-c
 
 **Why it matters:** the entire persistence contract (Contract 09 Parts A–D) is built around a JSON-snapshot model that is `O(project)` to write, single-threaded to read, and unstreamed. NEW_ARCH's load targets (< 800 ms small / < 1.5 s medium / < 3 s large) cannot be hit with that model.
 
-**Open question (see §6.2):** event-log compaction policy, schema-migration of event payloads (`Wall.v1` → `Wall.v2`), bake-worker idempotency, and R2/Postgres consistency window are all unspecified. These need a single ADR (call it ADR-013) before S08.
+**Open question (see §6.2):** event-log compaction policy, schema-migration of event payloads (`Wall.v1` → `Wall.v2`), bake-worker idempotency, and R2/Postgres consistency window are all unspecified. These need a single ADR (call it ADR-0213) before S08.
 
 **Do today:**
 - No new code may call `JSON.stringify` on a project snapshot. (Lint gate in S01.)
@@ -231,7 +231,7 @@ Eight layers (numbered for life), with THREE confined to **L5 renderer + scene-c
 
 **Why it matters:** the existing 31-file AI subsystem (`FloorPlanAIFactory`, `GenerativeDesignAdvisor`, `RoomAIAssistant`, `VoiceSpatialInterface`, `RuleEngine`, `SemanticQueryEngine`, `PdfToBimConstraints`, `DoorGapInpainter`, `WallCandidateScorer`, `WallIntersectionResolver`, …) is the **moat** PRYZM has. Gating it behind three other phases (per Contract 04) would forfeit that moat for 18 months. The whole reason for L7.5 is to refuse that gating.
 
-**Open question (see §6.4):** the AI approval queue's interaction with CRDT ordering, prompt/version pinning for reproducibility, cost guardrails, and headless AI access for `@pryzm/headless` are all unspecified. These need an ADR (call it ADR-014) before S30.
+**Open question (see §6.4):** the AI approval queue's interaction with CRDT ordering, prompt/version pinning for reproducibility, cost guardrails, and headless AI access for `@pryzm/headless` are all unspecified. These need an ADR (call it ADR-0214) before S30.
 
 **Do today:**
 - Do not gate AI work behind Phase 2/3.
@@ -327,9 +327,9 @@ Eight layers (numbered for life), with THREE confined to **L5 renderer + scene-c
 - **Material swap / edge style** = side-effect → `plugins/<elem>/committer.ts`.
 - **Per-pass dirty flags** = renderer concern → `packages/renderer/`.
 
-**Open question (see §6.5):** the actual classification is a Phase 2A ADR (call it ADR-015). Contract 12 stays intact as the reference rule matrix; the *placement* of those rules into the new layer model is the open work.
+**Open question (see §6.5):** the actual classification is a Phase 2A ADR (call it ADR-0215). Contract 12 stays intact as the reference rule matrix; the *placement* of those rules into the new layer model is the open work.
 
-**Do today:** treat Contract 12's rules as the *what*. The *where* is decided per ADR-015 before any visibility-intent code is touched in S29.
+**Do today:** treat Contract 12's rules as the *what*. The *where* is decided per ADR-0215 before any visibility-intent code is touched in S29.
 
 ---
 
@@ -346,7 +346,7 @@ Eight layers (numbered for life), with THREE confined to **L5 renderer + scene-c
 
 **Conflict:** matching Revit at the documentation level (D8) is not achievable with a Canvas2D rasteriser. Real CAD documentation requires anti-aliased vector primitives with consistent stroke ordering, dash phase preservation, hatch alignment, and PDF/SVG/DXF-faithful export. None of that comes from Canvas2D for free.
 
-**Open question (see §6.6):** the drawing-engine architecture for Phase 2B / 3 needs an ADR (call it ADR-016) before S29. Likely answer: a vector-primitive layer (`packages/drawing-primitives/`) feeds three back-ends — Canvas2D for screen, SVG for in-browser export, native PDF writer for high-fidelity print.
+**Open question (see §6.6):** the drawing-engine architecture for Phase 2B / 3 needs an ADR (call it ADR-0216) before S29. Likely answer: a vector-primitive layer (`packages/drawing-primitives/`) feeds three back-ends — Canvas2D for screen, SVG for in-browser export, native PDF writer for high-fidelity print.
 
 **Do today:** treat Contract 10 Part C and Contract 11 Part B as the *current* implementation, not the *target*. Don't extend Canvas2D-only assumptions in new code.
 
@@ -367,7 +367,7 @@ Eight layers (numbered for life), with THREE confined to **L5 renderer + scene-c
 
 **Do today:** do not write code against the current 271-line type-catalog contract. Wait for the rewrite (slated **before S11**).
 
-**Open question (see §6.7):** the rewrite is owned by an open ADR (call it ADR-017). Without it, every element family added in Phase 1C bakes in a thin model that everything else has to work around forever.
+**Open question (see §6.7):** the rewrite is owned by an open ADR (call it ADR-0217). Without it, every element family added in Phase 1C bakes in a thin model that everything else has to work around forever.
 
 ---
 
@@ -389,12 +389,12 @@ One row per contract. Read across: status, what's voided, what survives, the §3
 | 09 | `09-PERSISTENCE-CONTRACT.md` | 🔴 SUPERSEDED — REWRITE | Part A (full-snapshot save); Part B (Supabase BLOB column for the snapshot); Part C (snapshot-load flow); Phase-5 dual-canvas WebGPU framing where it asserts OBC owns the renderer. | Part D (project isolation rules — `ProjectScopeRegistry`, 48 scopes); Postgres RLS rules; Supabase RPC patterns. | §3.4, §3.5, §3.9 | Persistence client (`packages/persistence-client/`) ships **S04–S08**. Bake worker **S08**. `.pryzm` ZIP v1 **S22** (M12 Alpha). `ProjectSerializer.ts` deleted **S61**. |
 | 10 | `10-DUAL-CANVAS-SPLIT-VIEW-AND-PLAN-VIEW-CONTRACT.md` | 🔴 SUPERSEDED — REWRITE | Part A (dual-canvas Phase-5 model with OBC owning the WebGL scene); any clause that asserts OBC ownership of the renderer. | Part B (Split View pane semantics, view-type dropdown, secondary-pane rules); Part C (Canvas2D plan view structure — until vector pipeline lands); Part D (`PlanToolHandler` modularization). | §3.5, §3.9, §3.11 | Renderer extraction from OBC **S15–S17**. Vector drawing pipeline **S29–S33**. Old dual-canvas Phase-5 path deleted **S55**. |
 | 11 | `11-SECTION-ELEVATION-AND-DRAWING-ENGINE-CONTRACT.md` | 🟠 PARTIALLY SUPERSEDED — REIMPLEMENT AS L4 PLUGIN | Heavy OBC dependency (`TechnicalDrawings.create(world)`, OBC `Clipper`, OBC `EdgeProjector`); THREE-layer constants (`DOCUMENTATION_LAYER`, `PLAN_SYMBOL_LAYER`, `BIM_LAYER`) used outside the committer; module-level singleton `ViewTechnicalDrawingCache`. | ISO-13567 layer-mapping rules; semantic projection contract (which elements project to which view types); the *output shape* (vector edges + classified symbols + ISO layer assignment). | §3.5, §3.9, §3.11 | Native edge projection in `packages/geometry-kernel/edge-projection.ts` **S29–S31**. View-keyed L3 projection cache **S30**. OBC removal from drawing engine **S33**. |
-| 12 | `12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` | 🟢 SURVIVES (rule matrix verbatim) — *but the placement is open* | None of the *rules*. The *implementation locations* are not yet decided (see §3.10). | All Cut/Beyond/Hidden/Projection rules; override-layer precedence; `StyleResolutionCache` as a concept (re-implemented per ADR-015). | §3.5, §3.10 | ADR-015 owns the L4/L5/L7 split — required before **S29**. |
+| 12 | `12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` | 🟢 SURVIVES (rule matrix verbatim) — *but the placement is open* | None of the *rules*. The *implementation locations* are not yet decided (see §3.10). | All Cut/Beyond/Hidden/Projection rules; override-layer precedence; `StyleResolutionCache` as a concept (re-implemented per ADR-0215). | §3.5, §3.10 | ADR-0215 owns the L4/L5/L7 split — required before **S29**. |
 | 13 | `13-ELEMENT-CREATION-CONTRACT.md` | 🟠 PARTIALLY SUPERSEDED — REWRITE HANDLER-BY-HANDLER DURING PHASE 2 | Every `Create*Command` built on top of `CommandManager` + Immer `produce()`; any clause invoking `wallStore.add()`/`doorStore.add()` etc. directly from a Command; any builder code that mutates `THREE.*` from a Command. | Element parameter schemas (per type: Wall / Slab / Column / Beam / Door / Window / …); validation tables and value ranges; UX flows for placement (click-click for walls, polygon for slabs, point-and-rotate for furniture, …); snap targets and pre-placement preview semantics. | §3.2, §3.5 | Handler rewrites land per element family in Phase 2A (doors/windows S11; columns/beams S12; roofs S11–S12; curtain walls S13–S15; stairs/handrails/ceilings S14; rooms S25). |
 | 14 | `14-EDITING-TOOLS-GRID-AND-SNAP-CONTRACT.md` | 🟢 SURVIVES (light edits) | None core. Grid renderer must call `scheduler.requestFrame('grid')`. | All snap surfaces (perpendicular, midpoint, intersection, extension, parallel); grid model; tool state machines (Move / Copy / Align / Rotate). | §3.7, §3.8 | Edit in place across **S08–S14**. |
 | 15 | `15-IMPORT-CONTRACT.md` | 🟢 SURVIVES — but moves to plugin | None of the *rules*. The *location* moves: import code lives under `plugins/ifc-import/` and `plugins/dwg-import/`. | All IFC4 mapping rules; DWG/DXF entity-to-PRYZM-element mapping; Import Manager UX. | §3.9 | Plugin extraction lands **S55** (with OBC removal). IFC4 round-trip parity targeted **M36 GA** (no bSI cert in scope; see `09-AS-IS §C` matrix). |
 | 16 | `16-SHEET-EDITOR-AND-EXPORT-CONTRACT.md` | 🟢 SURVIVES — but moves to plugin | The 2,919-LOC monolithic `SheetEditorPanel.ts` decomposition is structural, not contractual. | All sheet model rules; title-block model; viewport rules; export targets (PDF/PNG/DXF). | §3.8 | Decomposition + plugin extraction **S37–S42**. |
-| 17 | `17-ELEMENT-TYPES-AND-MATERIALS-CONTRACT.md` | 🟢 SURVIVES nominally — **scope inversion required** (see §3.12) | The *narrowness* — Material persistence "Future Work"; layer→WebGPU resolver "still planned"; type-catalog inheritance absent. | The 271 lines that are present (basic type/material model). | §3.12 | Rewrite required **before S11** under ADR-017. Without the rewrite, every element family in Phase 1C bakes in a thin model. |
+| 17 | `17-ELEMENT-TYPES-AND-MATERIALS-CONTRACT.md` | 🟢 SURVIVES nominally — **scope inversion required** (see §3.12) | The *narrowness* — Material persistence "Future Work"; layer→WebGPU resolver "still planned"; type-catalog inheritance absent. | The 271 lines that are present (basic type/material model). | §3.12 | Rewrite required **before S11** under ADR-0217. Without the rewrite, every element family in Phase 1C bakes in a thin model. |
 | 18 | `18-BUNDLE-CHUNK-SPLITTING-CONTRACT.md` | 🟢 SURVIVES (delivery story changes) | Step-3 (`web-ifc` defer) status as "blocked" — the *blocker* is OBC's static import of web-ifc, not the contract. | All chunk-splitting rules; pre-load / on-demand / lazy / never categories; Cesium lazy load. | §3.9 | OBC removed from editor bundle **S55** unblocks Step 3. < 1.8 MB gzip target **M36 GA**. |
 
 ### §4.1 Contracts referenced from contract supersession banners but not above
@@ -442,7 +442,7 @@ The sprint IDs are taken from `10-MASTER-IMPLEMENTATION-PLAN-36M.md` and the per
 | **S20** | Phase 1D | Selection bus extracted as L5 service. AI approval queue UI ships. `EngineBootstrap.ts` and `initUI.ts` split (delete in S61/S62). | §3.6, §3.8 |
 | **S22** | M12 Alpha | `.pryzm` ZIP v1 ships. Single-user with shared cursors. **LWW remains** until S48 (per `phases/PHASE-1D`). | §3.4 (file format), §3.3 (interim) |
 | **S25** | Phase 2A | Rooms (single-level only). Multi-level rooms deferred to Phase 3. | (related to §3.12) |
-| **S29–S33** | Phase 2B | Native edge projection. Plan view rebuilt. ADR-015 (visibility-intent placement), ADR-016 (drawing-engine architecture) ratified. | §3.10, §3.11 |
+| **S29–S33** | Phase 2B | Native edge projection. Plan view rebuilt. ADR-0215 (visibility-intent placement), ADR-0216 (drawing-engine architecture) ratified. | §3.10, §3.11 |
 | **S33** | Phase 2B | OBC fully removed from drawing engine. | §3.9 |
 | **S37–S42** | Phase 2C | Sheet editor decomposed and lifted to plugin. | §3.8 |
 | **S48** | M24 Beta | Yjs CRDT replaces LWW. Public WS API. Soft locks with TTL. | §3.3 |
@@ -484,9 +484,9 @@ These are not conflicts between contracts and NEW_ARCH (those are §3). These ar
 
 These are not the same byte stream. Yjs has its own update encoding (`Y.encodeStateAsUpdate` / `Y.applyUpdate`).
 
-**Required ADR (ADR-002):** define the bridge. Most likely answer: handlers emit Immer patches that an L3 translator turns into Y.Doc mutations on the way out, and Y.Doc updates back into Immer patches on the way in. The patch stream is the canonical undo/audit log; the Y.Doc update stream is the canonical sync-wire/CRDT layer; they are kept in sync by a single translator owned by L3.
+**Required ADR (ADR-0202):** define the bridge. Most likely answer: handlers emit Immer patches that an L3 translator turns into Y.Doc mutations on the way out, and Y.Doc updates back into Immer patches on the way in. The patch stream is the canonical undo/audit log; the Y.Doc update stream is the canonical sync-wire/CRDT layer; they are kept in sync by a single translator owned by L3.
 
-**Until ADR-002 is ratified:** Phase 1 ships the patch/event-log path with LWW. Phase 2D introduces the translator and Y.Doc state. **Do not write code that assumes both paths are the same bytes.**
+**Until ADR-0202 is ratified:** Phase 1 ships the patch/event-log path with LWW. Phase 2D introduces the translator and Y.Doc state. **Do not write code that assumes both paths are the same bytes.**
 
 ### §6.2 Persistence — undefined operational semantics
 
@@ -495,13 +495,13 @@ These are not the same byte stream. Yjs has its own update encoding (`Y.encodeSt
 - Bake-worker idempotency / partial-failure recovery.
 - R2 ↔ Postgres consistency window.
 
-**Required ADR (ADR-013):** before S08.
+**Required ADR (ADR-0213):** before S08.
 
 ### §6.3 Solo founder + Replit Agent capacity vs scope
 
 `08-VISION §6` lists 17 bench gates plus 8 CI gates plus marketplace plus IFC plus headless plus AI layer plus sync server plus bake worker plus OTel pipeline plus self-host. `10-MASTER` is calibrated for solo + agent; `07-EXECUTION-PLAYBOOK` was calibrated for 4 → 11 FTE. The capacity model is missing.
 
-**Required ADR (ADR-018):** named cut list for what gets dropped at velocity slip of 20% / 40% / 60%. See `CRITICAL-REVIEW-2026-04-27.md §A4` and §E4 for context.
+**Required ADR (ADR-0218):** named cut list for what gets dropped at velocity slip of 20% / 40% / 60%. See `CRITICAL-REVIEW-2026-04-27.md §A4` and §E4 for context.
 
 ### §6.4 AI layer (L7.5) — undefined operational semantics
 
@@ -511,31 +511,31 @@ These are not the same byte stream. Yjs has its own update encoding (`Y.encodeSt
 - Headless `@pryzm/headless` AI access (cannot embed LLM keys).
 - Boundaries-lint rule for L7.5: may it import L4 directly, or only via L2?
 
-**Required ADR (ADR-014):** before S30.
+**Required ADR (ADR-0214):** before S30.
 
 ### §6.5 Visibility-Intent — "preserved verbatim" placement
 
-See §3.10. **Required ADR (ADR-015):** before S29.
+See §3.10. **Required ADR (ADR-0215):** before S29.
 
 ### §6.6 Drawing-engine architecture for D8 parity
 
-See §3.11. **Required ADR (ADR-016):** before S29. Vector primitives → three back-ends (Canvas2D/SVG/PDF) is a likely shape.
+See §3.11. **Required ADR (ADR-0216):** before S29. Vector primitives → three back-ends (Canvas2D/SVG/PDF) is a likely shape.
 
 ### §6.7 Type catalog scope
 
-See §3.12. **Required ADR (ADR-017):** before S11. Without it, every element family in Phase 1C bakes in a thin model.
+See §3.12. **Required ADR (ADR-0217):** before S11. Without it, every element family in Phase 1C bakes in a thin model.
 
 ### §6.8 Multi-user soft-lock semantics
 
 `09-AS-IS §L3` references "Per-element soft lock with TTL; visible in awareness." But there is no spec for: who can grant a lock; UX on lock-expiry mid-edit; conflict when two users grab within milliseconds; whether a lock blocks the AI approval queue; whether a guest editor can lock a structural wall.
 
-**Required ADR (ADR-019):** before S48 (M24 Beta).
+**Required ADR (ADR-0219):** before S48 (M24 Beta).
 
 ### §6.9 Geometry kernel robustness budget
 
 `08-VISION §6` mentions the 10,000-walls bench but does not define the geometric robustness contract (coordinate range, minimum feature size, snapping at the kernel level, behaviour on coplanar / degenerate / non-manifold input). `three-bvh-csg` is the named CSG library; its robustness limits are real.
 
-**Required ADR (ADR-020):** before S07 (start of Phase 1B wall producer/committer).
+**Required ADR (ADR-0220):** before S07 (start of Phase 1B wall producer/committer).
 
 ### §6.10 Customer migration story (PRYZM 1 → PRYZM 2)
 
@@ -545,7 +545,7 @@ Not in the plan. See `CRITICAL-REVIEW-2026-04-27.md §D3`. **Required customer-m
 
 `08-VISION §8` names C3 (large enterprise / firm IT). The corpus has no SSO / SCIM / audit-log streaming / tenant-scoped keys / RLS-per-project / OAuth scopes / MFA. Contract 07 Part A still leaks Supabase service-role-key behaviour.
 
-**Required ADR (ADR-021) + threat model:** before any C3 sales conversation; latest before S40 if C3 is a Beta target.
+**Required ADR (ADR-0221) + threat model:** before any C3 sales conversation; latest before S40 if C3 is a Beta target.
 
 ---
 
@@ -560,7 +560,7 @@ Add a row to §3 or §4 (or both) **in the same PR that introduces or discovers*
 Three sources, in expected frequency order:
 1. **A NEW_ARCH revision** that overrules a previously-surviving contract clause. (Highest source.)
 2. **A new contract being drafted** that turns out to overlap an existing one or contradict NEW_ARCH.
-3. **A previously-ratified ADR getting amended** (e.g. ADR-002 changes the wire format).
+3. **A previously-ratified ADR getting amended** (e.g. ADR-0202 changes the wire format).
 
 In all three cases: update §3 (if it's a new conflict class) or §4 (if it's a new contract row), and the relevant per-file supersession banner.
 

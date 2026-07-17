@@ -1,7 +1,7 @@
 # MASTER — Residential Layout Algorithm, Engine & Orchestration (the unifying ruler)
 
 > **Stamp:** 2026-06-08 · **Status:** LIVING INDEX (orchestration spine + gap map + diagnostic surface)
-> **Authority:** sits BELOW `01-strategy/product-vision.md` → `01-strategy/architecture.md` → the
+> **Authority:** sits BELOW `01-strategy/STR-02-product-vision.md` → `01-strategy/STR-04-architecture.md` → the
 > **C-contracts** → **ADRs** → the per-capability **SPECs**, per [specs/README](README.md) and
 > [C01 §governance](../../02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md). It is an
 > **INDEX/ORCHESTRATION doc**: it does **not** supersede the per-stage specs below — it unifies them,
@@ -19,7 +19,7 @@ specific doc for the stage you're touching.
 | Concern | Owning doc | This master's role |
 |---|---|---|
 | **Engine internals** (P1–P9, 8 strategies, Pareto, determinism) | [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md) | index §3 → defers detail |
-| **Code walkthrough** (source-grounded, file:line) | [LAYOUT-GENERATION-ALGORITHM](../../04-reference/LAYOUT-GENERATION-ALGORITHM.md) | index §1/§4 → defers detail |
+| **Code walkthrough** (source-grounded, file:line) | [LAYOUT-GENERATION-ALGORITHM](../../04-reference/layout-generation-algorithm.md) | index §1/§4 → defers detail |
 | **Apartment AI workflow** (generate→preview→execute) | [SPEC-APARTMENT-LAYOUT-GENERATOR](SPEC-APARTMENT-LAYOUT-GENERATOR.md) | index §1 (stages 1,7,9) |
 | **Per-room rationale + room×element matrix** | [apartment/driving-principles](../plans/apartment/driving-principles.md) | index §2/§6 (relationships) |
 | **Constraint DB** (DB-001…DB-248, the minima) | [SPEC-LAYOUT-CONSTRAINT-DATABASE](SPEC-LAYOUT-CONSTRAINT-DATABASE.md) | index §3.4/§6 |
@@ -40,10 +40,10 @@ aggregates) · [C21](../../02-decisions/contracts/C21-CLIMATE-INGESTION.md) (cli
 [C50](../../02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md) (typology pipeline) ·
 [C52](../../02-decisions/contracts/C52-EDITABLE-BUILDING-GRAPH.md) (editable building graph) ·
 [C03](../../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) (schemas/commands/state).
-**Governing ADRs:** [ADR-0055/0055A](../../02-decisions/adrs/ADR-0055-WALL-JUNCTION-PASCAL-STYLE.md)
-(wall-junction resolver) · [ADR-0061](../../02-decisions/adrs/0061-building-graph-bidirectional-edit-substrate.md)
-(graph substrate + determinism) · [ADR-0022](../../02-decisions/adrs/0022-room-boundary-detection.md)
-(room detection) · [ADR-057](../../02-decisions/adrs/ADR-057-realtime-geometry-and-view-interactivity.md)
+**Governing ADRs:** [ADR-0055/0055A](../../02-decisions/adrs/ADR-0055-wall-junction-pascal-style.md)
+(wall-junction resolver) · [ADR-0061](../../02-decisions/adrs/ADR-0061-building-graph-bidirectional-edit-substrate.md)
+(graph substrate + determinism) · [ADR-0022](../../02-decisions/adrs/ADR-0022-room-boundary-detection.md)
+(room detection) · [ADR-0257](../../02-decisions/adrs/ADR-0257-realtime-geometry-and-view-interactivity.md)
 (realtime geometry). **The 8 principles (P1–P8, C01) bind every code change here** — notably P6
 (commands-only mutation), P8 (spans on new exported fns), and the ADR-0061 determinism invariant.
 
@@ -84,7 +84,7 @@ Each row: **stage → module → input → output**. `§DIAG-*` = the console ta
 | 8 | **Emit geometry** | `tgl/emitGeometry.ts` + `windowEmission/*` + `entranceDoor.ts` | placements → wall/door/window/boundary commands | `§DIAG-WIN` / `§DIAG-DOORS` |
 | 9 | **Build (editor)** | `house-layout/HouseLayoutExecutor.ts` | commands → `wall.batch.create` etc. | `§DIAG-ROOMS` |
 | 9a | · Perimeter | ground = pre-drawn shell + `_weldGroundPartitions`; upper = `_buildPerimeterShell` | — | — |
-| 9b | · Wall mitre ([ADR-0055/0055A](../../02-decisions/adrs/ADR-0055-WALL-JUNCTION-PASCAL-STYLE.md)) | `geometry-wall/WallJoinResolver.ts` `resolveLevel` | walls → mitred baselines (trim/extend) | `§MULTI-CLUSTER` |
+| 9b | · Wall mitre ([ADR-0055/0055A](../../02-decisions/adrs/ADR-0055-wall-junction-pascal-style.md)) | `geometry-wall/WallJoinResolver.ts` `resolveLevel` | walls → mitred baselines (trim/extend) | `§MULTI-CLUSTER` |
 | 9c | · Openings | `_finishOpenings` → `CreateWallOpeningsBatchCommand` (+ `§DOOR-LIVE-CLAMP`) | doors/windows punched into walls | — |
 | 10 | **Room detection** | `RoomDetectionEngine` | closed wall loops → detected Rooms (named, coloured) | — |
 | 11 | **Post-gen chain** | `house-postgen` | per storey → name rooms → floor + ceiling → furnish → light; + stair, voids, roof, floor-plan views | — |

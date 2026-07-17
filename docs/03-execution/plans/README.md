@@ -42,8 +42,8 @@ PRYZM uses a **5-horizon planning system** (H1 5-year vision → H5 sprint). All
 
 | Plan | Window | Purpose |
 |---|---|---|
-| [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) | Jul–Sep 2026 | Current quarter — TypologyPipeline foundations + marketplace go-live + brand cutover |
-| [quarterly-2026-Q4.md](./quarterly-2026-Q4.md) | Oct–Dec 2026 | Next quarter — House + Office typologies + Phase 1 exit |
+| [quarterly-2026-q3.md](./quarterly-2026-q3.md) | Jul–Sep 2026 | Current quarter — TypologyPipeline foundations + marketplace go-live + brand cutover |
+| [quarterly-2026-q4.md](./quarterly-2026-q4.md) | Oct–Dec 2026 | Next quarter — House + Office typologies + Phase 1 exit |
 
 (quarterly-YYYY-Qn.md drafted at sprint S4 of the prior quarter)
 
@@ -77,7 +77,7 @@ If you've never planned PRYZM work before:
 2. [vision-2030.md](./vision-2030.md) — 15 min — the 5-year capability themes
 3. [typology-expansion-roadmap.md](./typology-expansion-roadmap.md) — 15 min — the multi-typology product vision
 4. [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) — 25 min — what we're building NOW
-5. [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) — 15 min — current sprint deliverables
+5. [quarterly-2026-q3.md](./quarterly-2026-q3.md) — 15 min — current sprint deliverables
 6. [roadmap-enterprise-delivery.md](./roadmap-enterprise-delivery.md) — 15 min — customer-delivery cadence
 
 Total: ~95 min to internalise PRYZM planning.
@@ -91,7 +91,7 @@ Total: ~95 min to internalise PRYZM planning.
 - **Kebab-case lowercase**: `my-new-plan.md`
 - **No date in filename**: stamp the date inside the doc body (the doc evolves; filename is stable)
 - **Topic-scoped** for cross-cutting plans (`typology-expansion-roadmap.md`)
-- **Window-scoped** for time-bounded plans (`quarterly-2026-Q3.md`, `annual-2026.md`)
+- **Window-scoped** for time-bounded plans (`quarterly-2026-q3.md`, `annual-2026.md`)
 
 ### Header
 
@@ -155,7 +155,7 @@ The most common authoring confusion. Resolved per [cadence-and-planning-system �
 | "Phase 1 closes when X, Y, Z ship" — exit criteria | **plan** ([roadmap-phase-1-alpha.md §1](./roadmap-phase-1-alpha.md)) |
 | "Phase 1 closure decision was made on date D" — gate decision | **ADR** (`02-decisions/adrs/ADR-NNN-phase-1-exit.md`) |
 | "We are shipping the Inspect tree in Q3" — annual commitment | **plan** ([annual-2026.md](./annual-2026.md)) |
-| "Q3 Sprint 5 delivers Inspect tree v1.0" — sprint scope | **plan** ([quarterly-2026-Q3.md](./quarterly-2026-Q3.md)) |
+| "Q3 Sprint 5 delivers Inspect tree v1.0" — sprint scope | **plan** ([quarterly-2026-q3.md](./quarterly-2026-q3.md)) |
 | "We chose tagged-PDF over PDF/UA-2" — decision | **ADR** |
 | "Customer X is onboarding in Q3 with 50 seats" — customer milestone | **plan** ([roadmap-enterprise-delivery.md](./roadmap-enterprise-delivery.md)) |
 | "Wire-format for Sheet revisions" — algorithm + format | **spec** (`03-execution/specs/SPEC-NN-*.md`) |

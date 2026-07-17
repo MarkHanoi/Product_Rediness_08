@@ -1,7 +1,7 @@
 # SPEC-47 — Generate-3-Options Workflow
 
 **Status**: Active (S52 D1 — landed).
-**Cross-refs**: SPEC-28 (Cost Meter), SPEC-46 (Plan Critique Workflow), [strategic ADR-014] (AI plane at L7.5), `phases/PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md` §S52 (lines 407-462).
+**Cross-refs**: SPEC-28 (Cost Meter), SPEC-46 (Plan Critique Workflow), [strategic ADR-0214] (AI plane at L7.5), `phases/PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md` §S52 (lines 407-462).
 
 ## §1 — Goals
 
@@ -72,7 +72,7 @@ The parent span carries the total fan-out cost in `actualCostUsd` (or `0` on ref
 
 - **SPEC-28** — cost meter, per-call ceiling, monthly budget. Refund method is the S52 addition; see CostMeter.refund().
 - **SPEC-46** — Plan Critique Workflow. Same factory pattern; PlanCritique is `kind: 'rules'` (zero-command), Generate-3-Options is `kind: 'generative'` (commands flow through bus on approval).
-- **[strategic ADR-014]** — generative workflows DO mutate state on approval. Generate-3-Options is the first generative workflow; the contract is exercised end-to-end.
+- **[strategic ADR-0214]** — generative workflows DO mutate state on approval. Generate-3-Options is the first generative workflow; the contract is exercised end-to-end.
 - **PHASE-3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md §S52** — landing sprint.
 - **PHASE-3A-Q1-M25-M27-VI-AI-ELEMENT-CREATOR.md** — companion track ships the constraint solver (SPEC-48) used by the sketcher's downstream construction-geometry tools.
 

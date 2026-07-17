@@ -3,16 +3,16 @@
 > Part of [PRYZM2-WIREUP-PLAN-S72](./00-INDEX.md). New deliverable, second-tier audit (Chunk 24 covers per-folder; this chunk covers per-doc).
 
 > **Status updates since this chunk was authored** (per [Chunk 26 §26.11](./26-plan-self-corrections.md#§2611--amendment-k--chunks-24--25-status-updates-from-on-disk-reality)):
-> 1. **ADR-041, 042, 043, 044** — §25.2 marks all four as "MISSING — proposed by Chunk 24 / by THIS chunk". **All four are now ratified on disk**:
->    - `docs/02-decisions/adrs/ADR-041-portfolio-aggregate-placement.md`
->    - `docs/02-decisions/adrs/ADR-042-physics-runtime-vs-dev-only.md`
->    - `docs/02-decisions/adrs/ADR-043-utils-inline-vs-package.md`
->    - `docs/02-decisions/adrs/ADR-044-customer-migration-pryzm1-to-pryzm2.md`
+> 1. **ADR-0241, 042, 043, 044** — §25.2 marks all four as "MISSING — proposed by Chunk 24 / by THIS chunk". **All four are now ratified on disk**:
+>    - `docs/02-decisions/adrs/ADR-0241-portfolio-aggregate-placement.md`
+>    - `docs/02-decisions/adrs/ADR-0242-physics-runtime-vs-dev-only.md`
+>    - `docs/02-decisions/adrs/ADR-0243-utils-inline-vs-package.md`
+>    - `docs/02-decisions/adrs/ADR-0244-customer-migration-pryzm1-to-pryzm2.md`
 > 2. **ADR count** — §25.2 says "40 ratified + 4 proposed = 44 queued". Live count: **44 ratified on disk**. Update the result line to drop "queued" wording.
 > 3. **SPEC count** — §25.3 says "39 SPECs". Live count: **40** (39 numbered + `SPEC-FAMILY-EDITOR.md`).
 > 4. **Package/plugin/app count** — §25.4 says "44 packages / 38 plugins / 12 apps". Live count: **46 / 38 / 12**. Per [Chunk 26 §26.3](./26-plan-self-corrections.md#§263--amendment-c--hard-coded-numbers-go-parametric), this is now read parametrically with `≥` semantics.
 > 5. **§25.8.3 verification block** — uses `=` semantics which fails any time a package is added. Per [Chunk 26 §26.3](./26-plan-self-corrections.md#§263--amendment-c--hard-coded-numbers-go-parametric), replaced with `≥`/`≤` against `.local/state/replit/agent/wireup-floor.json`.
-> 6. **ADR-044 sprint** — §25.8.1 says "land by S22 (M11)". This is impossible (we are at S76, M37). Per [Chunk 26 §26.8](./26-plan-self-corrections.md#§268--amendment-h--missing-deletion-ids-and-unspecified-checklists), re-derived to "before **G.32.6** customer comms send" — practically S82-WIRE D5.
+> 6. **ADR-0244 sprint** — §25.8.1 says "land by S22 (M11)". This is impossible (we are at S76, M37). Per [Chunk 26 §26.8](./26-plan-self-corrections.md#§268--amendment-h--missing-deletion-ids-and-unspecified-checklists), re-derived to "before **G.32.6** customer comms send" — practically S82-WIRE D5.
 > 7. **G.32 enumeration** — §25.8.1 declares G.32 as a single sub-phase. Per [Chunk 26 §26.8](./26-plan-self-corrections.md#§268--amendment-h--missing-deletion-ids-and-unspecified-checklists), enumerated into 9 sub-items G.32.1–G.32.9 spanning S84-WIRE D1–D9.
 > 8. **Sprint-ID rename via doc-edits only** — §25.7 proposes `S73-WIRE…S87-WIRE` via 7 doc PRs but provides no enforcement. Per [Chunk 26 §26.9](./26-plan-self-corrections.md#§269--amendment-i--sprint-id-lint-enforcement-missing), **H.5.1** commit-msg hook lands the lint rule.
 >
@@ -41,7 +41,7 @@ Per `06-PRYZM-IDENTITY-AND-RECOUNT.md` §0 and `00-INDEX.md` §"Single source of
        ↓
 00-AUDIT · 01-TARGET-ARCH · 02-ORCHESTRATION · 03-PASCAL · 04-PROD-PARITY · 05-IMPL-PLAN · 07-PLAYBOOK · 09-AS-IS-VS-TO-BE · 11-GAP-CLOSURE · 11-FILE-STRUCTURE · CONFLICT-ANALYSIS
        ↓
-adrs/ADR-001 … ADR-040 · specs/SPEC-01 … SPEC-48
+adrs/ADR-0201 … ADR-0240 · specs/SPEC-01 … SPEC-48
        ↓
 audits/* and phases/audits/* (this folder, including chunks 01–24, 25)
        ↓
@@ -59,7 +59,7 @@ The wireup-plan **monolith** at `../PRYZM2-ENTERPRISE-WIREUP-PLAN-S72.md` is the
 | 1 | `00-AUDIT.md` | 619 | Tier 5 (supporting) | ✓ Chunk 24 pass | Chunk 04 deletions; Chunk 06 risks | **CONSISTENT** — the 6-layer→8-layer revision is reflected in §3.1 of CONFLICT-ANALYSIS and Chunk 02 runtime architecture. |
 | 2 | `01-TARGET-ARCHITECTURE.md` | 532 | Tier 5 | ✓ Chunk 24 pass | Chunk 02 runtime arch | **CONSISTENT** — 8-layer model L0–L7.5 matches Chunk 02 `composeRuntime()` + `PryzmRuntime` typed handle. |
 | 3 | `02-ORCHESTRATION.md` | 510 | Tier 5 | ✓ Chunk 24 pass | Chunk 03 phases overview; Chunk 14 phase A | **CONSISTENT** — composition root contract matches Chunk 14 §16.1 (Phase A). |
-| 4 | `03-PASCAL-EDITOR-ANALYSIS.md` | 383 | Tier 5 | ✗ skim only (not normative) | ADR-001 (Pascal Strategy B) | **CONSISTENT** — ADR-001 ratified Strategy B (adopt patterns, no fork); 03 doc is reference reading, not binding. |
+| 4 | `03-PASCAL-EDITOR-ANALYSIS.md` | 383 | Tier 5 | ✗ skim only (not normative) | ADR-0201 (Pascal Strategy B) | **CONSISTENT** — ADR-0201 ratified Strategy B (adopt patterns, no fork); 03 doc is reference reading, not binding. |
 | 5 | `04-PRODUCTION-PARITY.md` | 488 | Tier 5 | ✓ Chunk 24 pass | Chunk 12 UI perf benches; Chunk 13 vision conformance | **CONSISTENT** — 17 NFT bench targets reproduced verbatim in Chunk 12 §13. |
 | 6 | `05-IMPLEMENTATION-PLAN.md` | 1,514 | **SUPERSEDED by 10-MASTER** | ✗ skim only | n/a | **SUPERSEDED** — `05` was the original 4-FTE plan; `10-MASTER` rewrote it for solo-founder + Replit Agent. Per 10-MASTER §2 explicit. No conflict to resolve, but `05-IMPLEMENTATION-PLAN.md` should carry a banner pointing to `10-MASTER`. **NEW finding — see §25.4**. |
 | 7 | `06-PRYZM-IDENTITY-AND-RECOUNT.md` | 390 | **Tier 1 — non-negotiable** | ✓ Chunk 24 pass | Chunk 01 objective; Chunk 13 conformance | **CONSISTENT** — every identity claim (V-I verbatim, multi-rep furniture, StructuredName, soft-locks, sofa case, plan critique, generate-3, PDF-to-BIM, constraint solver) maps to a sub-phase ID — see §25.5 below for the line-by-line check. |
@@ -82,50 +82,50 @@ The wireup-plan **monolith** at `../PRYZM2-ENTERPRISE-WIREUP-PLAN-S72.md` is the
 
 ```
 docs/02-decisions/adrs/
-  ADR-001  Pascal adoption (Strategy B)             ✓ on disk
-  ADR-002  CRDT ↔ event-log bridge                  ✓ on disk    closes CONFLICT §6.1
-  ADR-003  Object storage backend (R2)              ✓ on disk
-  ADR-004  Wire format (MessagePack)                ✓ on disk
-  ADR-005  Worker pool policy                       ✓ on disk
-  ADR-006  Default render mode (WebGPU/WebGL2)      ✓ on disk
-  ADR-007  Telemetry backend (OTel + Tempo)         ✓ on disk
-  ADR-008  IFC scope (read+write Pset round-trip)   ✓ on disk
-  ADR-009  Plugin sandbox model                     ✓ on disk
-  ADR-010  Bake debounce (per-element, 250 ms)      ✓ on disk
-  ADR-011  Permission granularity                   ✓ on disk
-  ADR-012  Self-host minimums (docker-compose)      ✓ on disk
-  ADR-013  Persistence operational                  ✓ on disk    closes CONFLICT §6.2
-  ADR-014  AI L7.5 operational                      ✓ on disk    closes CONFLICT §6.4
-  ADR-015  Visibility-Intent placement              ✓ on disk    closes CONFLICT §6.5 + §3.10
-  ADR-016  Drawing-engine architecture              ✓ on disk    closes CONFLICT §6.6 + §3.11
-  ADR-017  Type-catalog scope                       ✓ on disk    closes CONFLICT §6.7 + §3.12
-  ADR-018  Capacity cut-list (T1.1–T1.8)            ✓ on disk    closes CONFLICT §6.3
-  ADR-019  Soft-lock semantics                      ✓ on disk    closes CONFLICT §6.8
-  ADR-020  Geometry-kernel robustness budget        ✓ on disk    closes CONFLICT §6.9
-  ADR-021  Enterprise security & data residency    ✓ on disk    closes CONFLICT §6.11
-  ADR-022  Renderer topology + backend runtime      ✓ on disk
-  ADR-023  Library rAF quarantine                   ✓ on disk
-  ADR-024  Constraint solver                        ✓ on disk
-  ADR-025  three.js version pin & WebGPU path       ✓ on disk
-  ADR-026  UI binding: vanilla TS (Path A)          ✓ on disk
-  ADR-027  Schedule formula library scope           ✓ on disk
-  ADR-028  Authority unification                    ✓ on disk
-  ADR-029  PDF-to-BIM scope (the moat)              ✓ on disk
-  ADR-030  Lifecycle subsystem placement            ✓ on disk
-  ADR-031  CDE storage topology                     ✓ on disk    Phase-4 (post-GA)
-  ADR-032  Clash-rule language                      ✓ on disk    Phase-4 (post-GA)
-  ADR-033  MEP propagation (graph traversal)        ✓ on disk    Phase-4 (post-GA)
-  ADR-034  COBie fallback policy                    ✓ on disk    Phase-4 (post-GA)
-  ADR-035  buildingSMART cert scope                 ✓ on disk    Phase-4 (post-GA)
-  ADR-036  Stakeholder-review pricing               ✓ on disk
-  ADR-037  Sovereignty default cloud region         ✓ on disk
-  ADR-038  BYOK key custody                         ✓ on disk
-  ADR-039  Export-worker architecture               ✓ on disk
-  ADR-040  Schedule export formats                  ✓ on disk
-  ADR-041  Portfolio aggregate placement            ✗ MISSING    proposed by Chunk 24 §24.4
-  ADR-042  src/physics dev-only vs runtime          ✗ MISSING    proposed by Chunk 24 §24.4
-  ADR-043  src/utils inline vs packages/utils       ✗ MISSING    proposed by Chunk 24 §24.4
-  ADR-044  Customer migration (PRYZM 1 → PRYZM 2)   ✗ MISSING    proposed by THIS chunk §25.5
+  ADR-0201  Pascal adoption (Strategy B)             ✓ on disk
+  ADR-0202  CRDT ↔ event-log bridge                  ✓ on disk    closes CONFLICT §6.1
+  ADR-0203  Object storage backend (R2)              ✓ on disk
+  ADR-0204  Wire format (MessagePack)                ✓ on disk
+  ADR-0205  Worker pool policy                       ✓ on disk
+  ADR-0206  Default render mode (WebGPU/WebGL2)      ✓ on disk
+  ADR-0207  Telemetry backend (OTel + Tempo)         ✓ on disk
+  ADR-0208  IFC scope (read+write Pset round-trip)   ✓ on disk
+  ADR-0209  Plugin sandbox model                     ✓ on disk
+  ADR-0210  Bake debounce (per-element, 250 ms)      ✓ on disk
+  ADR-0211  Permission granularity                   ✓ on disk
+  ADR-0212  Self-host minimums (docker-compose)      ✓ on disk
+  ADR-0213  Persistence operational                  ✓ on disk    closes CONFLICT §6.2
+  ADR-0214  AI L7.5 operational                      ✓ on disk    closes CONFLICT §6.4
+  ADR-0215  Visibility-Intent placement              ✓ on disk    closes CONFLICT §6.5 + §3.10
+  ADR-0216  Drawing-engine architecture              ✓ on disk    closes CONFLICT §6.6 + §3.11
+  ADR-0217  Type-catalog scope                       ✓ on disk    closes CONFLICT §6.7 + §3.12
+  ADR-0218  Capacity cut-list (T1.1–T1.8)            ✓ on disk    closes CONFLICT §6.3
+  ADR-0219  Soft-lock semantics                      ✓ on disk    closes CONFLICT §6.8
+  ADR-0220  Geometry-kernel robustness budget        ✓ on disk    closes CONFLICT §6.9
+  ADR-0221  Enterprise security & data residency    ✓ on disk    closes CONFLICT §6.11
+  ADR-0222  Renderer topology + backend runtime      ✓ on disk
+  ADR-0223  Library rAF quarantine                   ✓ on disk
+  ADR-0224  Constraint solver                        ✓ on disk
+  ADR-0225  three.js version pin & WebGPU path       ✓ on disk
+  ADR-0226  UI binding: vanilla TS (Path A)          ✓ on disk
+  ADR-0227  Schedule formula library scope           ✓ on disk
+  ADR-0228  Authority unification                    ✓ on disk
+  ADR-0229  PDF-to-BIM scope (the moat)              ✓ on disk
+  ADR-0230  Lifecycle subsystem placement            ✓ on disk
+  ADR-0231  CDE storage topology                     ✓ on disk    Phase-4 (post-GA)
+  ADR-0232  Clash-rule language                      ✓ on disk    Phase-4 (post-GA)
+  ADR-0233  MEP propagation (graph traversal)        ✓ on disk    Phase-4 (post-GA)
+  ADR-0234  COBie fallback policy                    ✓ on disk    Phase-4 (post-GA)
+  ADR-0235  buildingSMART cert scope                 ✓ on disk    Phase-4 (post-GA)
+  ADR-0236  Stakeholder-review pricing               ✓ on disk
+  ADR-0237  Sovereignty default cloud region         ✓ on disk
+  ADR-0238  BYOK key custody                         ✓ on disk
+  ADR-0239  Export-worker architecture               ✓ on disk
+  ADR-0240  Schedule export formats                  ✓ on disk
+  ADR-0241  Portfolio aggregate placement            ✗ MISSING    proposed by Chunk 24 §24.4
+  ADR-0242  src/physics dev-only vs runtime          ✗ MISSING    proposed by Chunk 24 §24.4
+  ADR-0243  src/utils inline vs packages/utils       ✗ MISSING    proposed by Chunk 24 §24.4
+  ADR-0244  Customer migration (PRYZM 1 → PRYZM 2)   ✗ MISSING    proposed by THIS chunk §25.5
   M28-IFC-IMPORT-PIPELINE.md                        ✓ on disk    (special, not numbered)
 ```
 
@@ -254,22 +254,22 @@ All 6 are first-class deliverables in `08-VISION §5 D7` (`@pryzm/headless`), `0
 | 06 § | Identity claim | Implementation | Sub-phase ID | Status |
 |---|---|---|---|---|
 | §1 | The white UI is non-negotiable | `src/ui/` (220 files) — 0 pixel changes | Chunk 05 §6 | **CONSISTENT** |
-| §1 | Visibility-Intent system **preserved verbatim** | `packages/visibility/` + 11-wave engine; ADR-015 owns L4/L5/L7 split | Chunk 18 §16.6.8 (F.8 — 13 sub-phases) | **CONSISTENT** — but watch out: "verbatim" means *behaviour-verbatim*, not *file-verbatim*; the implementation is split across 3 layers per ADR-015, and that split is the resolution to CONFLICT §3.10. |
+| §1 | Visibility-Intent system **preserved verbatim** | `packages/visibility/` + 11-wave engine; ADR-0215 owns L4/L5/L7 split | Chunk 18 §16.6.8 (F.8 — 13 sub-phases) | **CONSISTENT** — but watch out: "verbatim" means *behaviour-verbatim*, not *file-verbatim*; the implementation is split across 3 layers per ADR-0215, and that split is the resolution to CONFLICT §3.10. |
 | §1 | Multi-representation furniture (sofa case Contract 48) | `plugins/furniture/` with R3/R4/R5 producers | S27 (Phase 2A) | **CONSISTENT** |
-| §1 | StructuredName / CDE codec | `packages/api-spec` + Phase-4 `apps/cde/` (post-GA) | Chunk 24 G.15 (deletion); SPEC-32 + ADR-031 (post-GA full module) | **CONSISTENT — pre-GA stub, full module post-GA** |
-| §1 | Per-element soft-locks | `packages/sync-client` + ADR-019 + Postgres TTL | S22, S48 (Beta gate) | **CONSISTENT** |
+| §1 | StructuredName / CDE codec | `packages/api-spec` + Phase-4 `apps/cde/` (post-GA) | Chunk 24 G.15 (deletion); SPEC-32 + ADR-0231 (post-GA full module) | **CONSISTENT — pre-GA stub, full module post-GA** |
+| §1 | Per-element soft-locks | `packages/sync-client` + ADR-0219 + Postgres TTL | S22, S48 (Beta gate) | **CONSISTENT** |
 | §1 | Plan critique workflow | `plugins/ai-rules` + SPEC-46 | F.7.* (chunk 18 §16.6.7) | **CONSISTENT** |
 | §1 | Generate-3-options workflow | `plugins/ai-generative` + SPEC-47 | F.7.* (chunk 18 §16.6.7) | **CONSISTENT** |
-| §1 | PDF-to-BIM (the moat) | `packages/pdf-to-bim` + SPEC-45 + ADR-029 | S49 + Phase 3 | **CONSISTENT — moat is at risk per ADR-018 T1.7 cut list** |
-| §1 | Constraint solver | `packages/constraint-solver` + SPEC-48 + ADR-024 | S65 (Phase 3D) | **CONSISTENT** |
+| §1 | PDF-to-BIM (the moat) | `packages/pdf-to-bim` + SPEC-45 + ADR-0229 | S49 + Phase 3 | **CONSISTENT — moat is at risk per ADR-0218 T1.7 cut list** |
+| §1 | Constraint solver | `packages/constraint-solver` + SPEC-48 + ADR-0224 | S65 (Phase 3D) | **CONSISTENT** |
 | §2 | Component-editor sub-app | `apps/component-editor/` + `family-editor-quality-gates` workflow | `phases/PHASE-3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` S58–S62 | **CONSISTENT — but missing from FILE-STRUCTURE-BREAKDOWN; see §25.4** |
 | §3.1 | Strangler-fig migration (PRYZM 1 ships at every step) | `?pryzm2=1` flag from S06 onward | Phase A (S73) composes runtime; Phase G (S82–S84) deletes legacy | **CONSISTENT** |
 | §3.2 | AI is L7.5 (above L5–L7) | `packages/ai-host` + `apps/ai-worker` + 5 AI plugins | F.7.* | **CONSISTENT — 37 src/ai/ files migrated, see Chunk 24 Tier A row 5** |
 | §3.3 | Repository structure update | `apps/component-editor`, `apps/headless`, `apps/cli`, `apps/marketplace-*` | Chunk 02 §3 + this chunk §25.4 | **CONSISTENT once §25.4 doc-drift is fixed** |
 | §3.4 | Lint-enforced zero `(window as any)`, zero non-scheduler `requestAnimationFrame` | Custom ESLint rules `pryzm-no-window-any`, `pryzm-no-raf` | M12 alpha gate (`10-MASTER §4.4 1D exit`); Phase H (chunk 19) lock-in | **CONSISTENT — 769 cast sites in src/ui/ → 0 by Phase G; remaining ~1,309 outside src/ui/ are deleted with their owning directories per Chunk 24** |
-| §4 | Customer migration story (PRYZM 1 users → PRYZM 2) | **NONE** — no SPEC, no ADR, no sub-phase | — | **GAP — closed by NEW ADR-044 in §25.8** |
+| §4 | Customer migration story (PRYZM 1 users → PRYZM 2) | **NONE** — no SPEC, no ADR, no sub-phase | — | **GAP — closed by NEW ADR-0244 in §25.8** |
 
-**Result**: 14 of 15 identity claims have a wired sub-phase. **One gap**: customer-migration story (CONFLICT-ANALYSIS §6.10). This audit adds **ADR-044 — Customer migration** to the queue (see §25.8).
+**Result**: 14 of 15 identity claims have a wired sub-phase. **One gap**: customer-migration story (CONFLICT-ANALYSIS §6.10). This audit adds **ADR-0244 — Customer migration** to the queue (see §25.8).
 
 ---
 
@@ -323,7 +323,7 @@ This is recorded as a **doc-only edit** to:
 
 Building on Chunk 24's 31 new sub-phases + 3 new ADRs, this chunk adds:
 
-### §25.8.1  ADR-044 — Customer migration (PRYZM 1 → PRYZM 2)
+### §25.8.1  ADR-0244 — Customer migration (PRYZM 1 → PRYZM 2)
 
 | Field | Value |
 |---|---|
@@ -355,7 +355,7 @@ Append to `pnpm ga-gate` (`23-verification-scripts.md`) a new check group `§23.
 ```bash
 # §23.x  ADR coverage: every CONFLICT §6 entry has an ADR
 ADR_COUNT=$(ls docs/02-decisions/adrs/ADR-*.md | wc -l)
-EXPECTED_ADR_MIN=44     # 40 ratified + ADR-041..044 from chunks 24+25
+EXPECTED_ADR_MIN=44     # 40 ratified + ADR-0241..044 from chunks 24+25
 [ "$ADR_COUNT" -ge "$EXPECTED_ADR_MIN" ] || { echo "FAIL: only $ADR_COUNT ADRs, expected ≥ $EXPECTED_ADR_MIN"; exit 1; }
 
 # §23.x  No SUPERSEDED doc is referenced as authoritative outside the supersession map
@@ -386,19 +386,19 @@ This is the GA-gate check that `archive/pryzm3-internal/` documentation has not 
 
 | §6.# | Contradiction | Owner ADR | Status | Latest sprint |
 |---|---|---|---|---|
-| §6.1 | MessagePack event log vs Yjs CRDT | ADR-002 | ✓ ratified | S08 |
-| §6.2 | Persistence operational semantics (compaction, migration, idempotency, R2↔PG window) | ADR-013 | ✓ ratified | S07 |
-| §6.3 | Solo founder + Replit Agent capacity vs scope | ADR-018 | ✓ ratified — extended 2026-04-27 with T1.7+T1.8 | S22 |
-| §6.4 | AI L7.5 operational semantics (approval queue × CRDT, prompt pinning, quotas, headless AI keys) | ADR-014 | ✓ ratified | S07 |
-| §6.5 | Visibility-Intent placement (L4/L5/L7 split) | ADR-015 | ✓ ratified | S17 |
-| §6.6 | Drawing-engine architecture (vector primitives × Canvas2D/SVG/PDF back-ends) | ADR-016 | ✓ ratified | S31 |
-| §6.7 | Type-catalog scope (system vs loadable family, type vs instance params, IFC mapping) | ADR-017 | ✓ ratified | S20 |
-| §6.8 | Multi-user soft-lock semantics (TTL, blast radius, AI queue interaction) | ADR-019 | ✓ ratified | S22 |
-| §6.9 | Geometry-kernel robustness budget | ADR-020 | ✓ ratified | S23 |
-| §6.10 | **Customer migration story** | **ADR-044 (proposed by §25.8.1)** | **✗ MISSING — closed by this chunk** | **S22 (latest)** |
-| §6.11 | Enterprise security & data residency (SSO, SCIM, audit-log streaming, MFA) | ADR-021 | ✓ ratified | S24 |
+| §6.1 | MessagePack event log vs Yjs CRDT | ADR-0202 | ✓ ratified | S08 |
+| §6.2 | Persistence operational semantics (compaction, migration, idempotency, R2↔PG window) | ADR-0213 | ✓ ratified | S07 |
+| §6.3 | Solo founder + Replit Agent capacity vs scope | ADR-0218 | ✓ ratified — extended 2026-04-27 with T1.7+T1.8 | S22 |
+| §6.4 | AI L7.5 operational semantics (approval queue × CRDT, prompt pinning, quotas, headless AI keys) | ADR-0214 | ✓ ratified | S07 |
+| §6.5 | Visibility-Intent placement (L4/L5/L7 split) | ADR-0215 | ✓ ratified | S17 |
+| §6.6 | Drawing-engine architecture (vector primitives × Canvas2D/SVG/PDF back-ends) | ADR-0216 | ✓ ratified | S31 |
+| §6.7 | Type-catalog scope (system vs loadable family, type vs instance params, IFC mapping) | ADR-0217 | ✓ ratified | S20 |
+| §6.8 | Multi-user soft-lock semantics (TTL, blast radius, AI queue interaction) | ADR-0219 | ✓ ratified | S22 |
+| §6.9 | Geometry-kernel robustness budget | ADR-0220 | ✓ ratified | S23 |
+| §6.10 | **Customer migration story** | **ADR-0244 (proposed by §25.8.1)** | **✗ MISSING — closed by this chunk** | **S22 (latest)** |
+| §6.11 | Enterprise security & data residency (SSO, SCIM, audit-log streaming, MFA) | ADR-0221 | ✓ ratified | S24 |
 
-**Result**: 10/11 already closed; **1 closure added by this chunk (§6.10 → ADR-044)**. The CONFLICT-ANALYSIS §6 set is now 11/11 owned.
+**Result**: 10/11 already closed; **1 closure added by this chunk (§6.10 → ADR-0244)**. The CONFLICT-ANALYSIS §6 set is now 11/11 owned.
 
 ---
 
@@ -426,9 +426,9 @@ The schedule envelope is unchanged — all chunk-25 deliverables land in **S73 D
 Chunk 24 proved every Pryzm 1 `src/` *folder* is tackled (31 new sub-phases). **This chunk proves every Pryzm 1 / NEW_ARCHITECTURE *document* is tackled** by:
 
 1. Walking all 17 root entries under `docs/archive/pryzm3-internal/` — finding **6 doc gaps** (2 SUPERSEDED-without-banner, 1 STALE, 1 DRIFTED, 1 DUPLICATE, 1 MISSING) and proposing 7 doc-PRs that close them on S73 D1.
-2. Auditing all 41 ADRs against the 11 open §6 contradictions in CONFLICT-ANALYSIS — finding **1 missing ADR (customer migration)** and proposing **ADR-044**.
+2. Auditing all 41 ADRs against the 11 open §6 contradictions in CONFLICT-ANALYSIS — finding **1 missing ADR (customer migration)** and proposing **ADR-0244**.
 3. Auditing all 39 SPECs vs the 50 named in `12-BIM-2-AND-3` — finding **7 numbering holes** (intentional reservation, no action).
-4. Walking the 15 identity claims in `06-PRYZM-IDENTITY-AND-RECOUNT.md` line by line — confirming **14/15 wired**, **1 customer-migration gap** (closed by ADR-044).
+4. Walking the 15 identity claims in `06-PRYZM-IDENTITY-AND-RECOUNT.md` line by line — confirming **14/15 wired**, **1 customer-migration gap** (closed by ADR-0244).
 5. Reconciling `11-GAP-CLOSURE-PLAN.md` (which claimed 85 closed) against Chunk 24's additional 17 — proposing the §3.6 update that lifts the count to 102.
 6. Surfacing the **sprint-ID collision** between the post-S72 wireup window (S73–S87) and the post-GA roadmap Phase 4 (also S73+) — proposing a two-track numbering scheme (`S73-WIRE` vs `S73-PG4`).
 7. Adding a `§23.x — Cross-doc invariants` block to `pnpm ga-gate` so doc-drift is caught by CI from S73 onward.

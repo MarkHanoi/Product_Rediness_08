@@ -136,7 +136,7 @@ Every pool dimension resolves through **exactly one** chokepoint, `resolvePoolDi
 
 `POOL_DIMENSION_DEFAULTS` is the **only** place in the tree where a pool dimension may be written as a number, and every value in it is justified (a default nobody can justify is a literal wearing a hat). Dimensional fields on the `Pool` record are **optional** — "unset" is a first-class state meaning *resolve me* — so a `.default()` in L0 cannot destroy the systemType tier.
 
-Enforced at SOURCE level by `poolNoLiterals.test.ts`: the founder's `1.2` appears **exactly once** in `@pryzm/geometry-pool`, in the default table. ADR-121 §4.4 states the law this implements: *a richer hardcoded glyph is the same bug at higher resolution.*
+Enforced at SOURCE level by `poolNoLiterals.test.ts`: the founder's `1.2` appears **exactly once** in `@pryzm/geometry-pool`, in the default table. ADR-0265 §4.4 states the law this implements: *a richer hardcoded glyph is the same bug at higher resolution.*
 
 ---
 
@@ -156,4 +156,4 @@ The ticket says *"produces EXACTLY FOUR elements"*. **It produces four PART KIND
 
 ### 8.3 Open — the render bridge (C11 §11.2 steps 2–5)
 
-The record reaches the store and the undo ring; **it does not yet reach the mesh.** A new element type needs a `CommandEventBridge` case, an `initTools` bridge into the legacy stores, `GEOMETRY_ELEMENT_TYPES` membership, and a `water` mesh in the renderer. Until those land, the pool is correct and invisible — and *correct geometry that reaches nothing, declared fixed* is the exact failure this project has spent a week naming. **It is called out here rather than left as an empty cell.** Tracked in the L-292 report and in ADR-121 §3 (the pool's LOD row is written and honest: it is `✗` where it is absent).
+The record reaches the store and the undo ring; **it does not yet reach the mesh.** A new element type needs a `CommandEventBridge` case, an `initTools` bridge into the legacy stores, `GEOMETRY_ELEMENT_TYPES` membership, and a `water` mesh in the renderer. Until those land, the pool is correct and invisible — and *correct geometry that reaches nothing, declared fixed* is the exact failure this project has spent a week naming. **It is called out here rather than left as an empty cell.** Tracked in the L-292 report and in ADR-0265 §3 (the pool's LOD row is written and honest: it is `✗` where it is absent).

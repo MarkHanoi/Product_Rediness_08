@@ -88,7 +88,7 @@
 
 1. Wall plugin with **14 handlers** (`Create`, `Delete`, `Move`, `SetWallColor`, `SetWallDimensions`, plus 9 from S10: `TransformWall` (5-into-1), `JoinWall`, `CutWall`, `SetWallSystemType`, `SetWallLayers`, `BulkSetWallVisuals`, `CreateWallOpening`, `CreateWallBetweenMarks`, `CreateWallsFromSlab`, `ChangeWallLevel`).
 2. `WallCommitter` (descriptor → Mesh, MaterialPool dedupe, selection-highlight via outline).
-3. `WallTool` with Straight + Arc + Polyline modes; intent resolver with the priority table from ADR-013.
+3. `WallTool` with Straight + Arc + Polyline modes; intent resolver with the priority table from ADR-0213.
 4. `WallOccupancyStore`.
 5. **30-case parity test** — `tests/parity/wall/` — vs PRYZM 1.
 6. `CascadeRunner` lifted out of the wall command into `packages/command-bus/cascade.ts`, with cycle-drop and depth limit (16).
@@ -149,7 +149,7 @@
 
 1. **All 12 element families end-to-end with parity, picking, view-state.**
 2. Renderer hardened with TRAA + SSGI + Bloom + IdleAccumulator under per-pass idle budget; idle CPU < 2.5%, orbit fps > 50 p95.
-3. Picking with `gpu-pick` default + `BvhPickStrategy` fallback resolved at boot (ADR-015); < 12 ms p95 single-point latency on 1000 elements.
+3. Picking with `gpu-pick` default + `BvhPickStrategy` fallback resolved at boot (ADR-0215); < 12 ms p95 single-point latency on 1000 elements.
 4. View state as first-class persistent entities; `view.create/.delete/.rename/.switch/.updateCamera` handlers; switch < 250 ms p95; motion suppression vs IdleAccumulator wired.
 5. `apps/headless` Node CLI with `new-project`, `add-wall`, `add-slab`, `export-pryzm`; **K1-B kernel-purity test runs in Node** (no THREE / DOM in `require.cache`).
 6. Cross-element coupling registered through `CascadeRunner`: at minimum slab→walls and stair→handrail.
@@ -195,7 +195,7 @@
 | ClearPass + MeshPass | `passes/{ClearPass,MeshPass}.ts` | ✅ |
 | Pipeline | `passes/Pipeline.ts` + `__tests__/Pipeline.test.ts` | ✅ |
 | IdleAccumulator | `packages/renderer/src/IdleAccumulator.ts` + `__tests__/IdleAccumulator.test.ts` | ✅ |
-| ADR-014 TRAA/SSGI idle budget | `0014-traa-ssgi-idle-budget.md` | ✅ |
+| ADR-0214 TRAA/SSGI idle budget | `0014-traa-ssgi-idle-budget.md` | ✅ |
 | Bench `idle-cpu` | `apps/bench/src/benches/idle-cpu.bench.ts` | ✅ wired |
 | Bench `render-pass-cost` | `apps/bench/src/benches/render-pass-cost.bench.ts` | ✅ wired |
 
@@ -211,7 +211,7 @@ Renderer hardening is structurally complete. Whether the idle-CPU < 2.5% and orb
 | `PickStrategy` interface | `packages/picking/src/types.ts` | ✅ |
 | OTel surface | `packages/picking/src/otel.ts` | ✅ |
 | Bench `picking-latency` | `apps/bench/src/benches/picking-latency.bench.ts` | ✅ |
-| ADR-015 picking strategy | `0015-picking-strategy.md` | ✅ |
+| ADR-0215 picking strategy | `0015-picking-strategy.md` | ✅ |
 
 Picking is structurally complete and well-isolated.
 
@@ -226,7 +226,7 @@ Picking is structurally complete and well-isolated.
 | `ActiveViewStore` | `packages/stores/src/ActiveViewStore.ts` | ✅ |
 | `view` plugin handlers | `plugins/view/src/handlers/{CreateView,DeleteView,RenameView,SwitchView,UpdateViewCamera}.ts` (5 handlers) | ✅ exact match |
 | Bench `view-switch` | `apps/bench/src/benches/view-switch.bench.ts` | ✅ |
-| ADR-016 view-state command-driven | `0016-view-state-command-driven.md` | ✅ |
+| ADR-0216 view-state command-driven | `0016-view-state-command-driven.md` | ✅ |
 
 View state is structurally complete and matches the spec's typed contracts.
 
@@ -249,7 +249,7 @@ The two coupling rules called out by the spec (slab→walls, stair→handrail) a
 | 4 CLI commands | `commands/{newProject,addWall,addSlab,exportPryzm}.ts` (exact spec match) | ✅ |
 | Dependency-cruiser config (forbid THREE / renderer / DOM) | `apps/headless/.dependency-cruiser.cjs` | ✅ |
 | K1-B verification test | `apps/headless/__tests__/headless-node.test.ts` (also `headless-s18.test.ts`, `strict-mode.test.ts`, `cli-parsers.test.ts`, `skeleton.test.ts`) | ✅ |
-| ADR-017 headless package surface | `0017-headless-package-surface.md` | ✅ |
+| ADR-0217 headless package surface | `0017-headless-package-surface.md` | ✅ |
 
 The headless track is the strongest of 1C. It directly targets the architecture's central claim (kernel runs in Node) and has an explicit test for it.
 
@@ -302,7 +302,7 @@ In priority order:
 
 **G-1C-2 (CRITICAL) — Editor wires only the wall plugin.** No `bootstrapWithEverything()`, no plugin-registry pattern, no application code path that lights up the 11 non-wall plugins in `apps/editor`. Anyone running the editor sees the wall demo. This contradicts the central claim of 1C and means the sub-phase has not exited.
 
-**G-1C-3 (HIGH) — Curtain-wall parity 8 of 25.** The plugin with the most operations (13 handlers, panel grid, mullions, transoms) is parity-tested at 32% of spec budget. Curtain-walls were called out specifically by ADR-011 and the S13 spec as needing wall-grade fixture density.
+**G-1C-3 (HIGH) — Curtain-wall parity 8 of 25.** The plugin with the most operations (13 handlers, panel grid, mullions, transoms) is parity-tested at 32% of spec budget. Curtain-walls were called out specifically by ADR-0211 and the S13 spec as needing wall-grade fixture density.
 
 **G-1C-4 (HIGH) — Roof handlers 8 of 10.** Missing `AddSkylight`, `RemoveSkylight`, `JoinRoofs`. Producer is complete, so this is operator-layer work, not geometry work.
 
@@ -321,9 +321,9 @@ In priority order:
 Where 1C delivered, it delivered well:
 
 - **Plugin shape uniformity.** Every plugin follows the wall pattern: `committer/`, `handlers/`, `intent.ts`, `store.ts`, `tool.ts`, `errors.ts`. The cost-of-adding-a-new-element-family is now genuinely low. This is what the spec's "K1-C velocity multiplier" required and it has been delivered.
-- **Renderer pass surface.** `Bloom.ts`, `TRAA.ts`, `SSGI.ts`, `IdleAccumulator.ts` are isolated, individually unit-tested, and honour the `idleBudgetFrames` contract from ADR-014. The pipeline is composable in the way the architecture wanted.
-- **Picking dual-strategy resolver.** `PickStrategyResolver.ts` does the boot probe per ADR-015 and falls back to BVH on Linux WebGL2 driver corner cases. The interface is clean, the two strategies are independently testable, and the selection contract (`pick`, `pickRect`) is symmetric across both.
-- **View-state design.** `ViewController.ts` honours the motion-suppression contract — `scheduler.beginMotion()` on switch, `endMotion()` on completion, no fight with `IdleAccumulator`. This is exactly the integration ADR-016 demanded.
+- **Renderer pass surface.** `Bloom.ts`, `TRAA.ts`, `SSGI.ts`, `IdleAccumulator.ts` are isolated, individually unit-tested, and honour the `idleBudgetFrames` contract from ADR-0214. The pipeline is composable in the way the architecture wanted.
+- **Picking dual-strategy resolver.** `PickStrategyResolver.ts` does the boot probe per ADR-0215 and falls back to BVH on Linux WebGL2 driver corner cases. The interface is clean, the two strategies are independently testable, and the selection contract (`pick`, `pickRect`) is symmetric across both.
+- **View-state design.** `ViewController.ts` honours the motion-suppression contract — `scheduler.beginMotion()` on switch, `endMotion()` on completion, no fight with `IdleAccumulator`. This is exactly the integration ADR-0216 demanded.
 - **Headless K1-B test.** `apps/headless/__tests__/headless-node.test.ts` audits `require.cache` for THREE / `@pryzm/renderer` / `@pryzm/render-runtime` after running the full pipeline. This is the right shape of test for the right shape of claim. The dependency-cruiser config (`apps/headless/.dependency-cruiser.cjs`) provides the static guard; the test provides the dynamic guard.
 - **Cascade reuse.** `plugins/cross/src/{slab-wall,stair-handrail}.ts` use the existing `CascadeRunner` rather than introducing a parallel mechanism. The 1B infrastructure is paying its second dividend in 1C — the architecture is cohering.
 
@@ -355,11 +355,11 @@ The agents wrote scaffolding faithfully and then under-delivered on the data tho
 ### §4.4 Two ADR numbering drifts to flag
 
 - 1B spec mentions `code-level ADR docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` (S09 D4 contingency); 1C spec uses `0014-traa-ssgi-idle-budget.md`. Same number, different topic. Only the 1C version exists. Persistence-snapshot threshold logic is folded elsewhere; the dropped ADR is informational, not architectural.
-- All ADR files use a single `0001..0017` sequence in `docs/00_NEW_ARCHITECTURE/code-level-adrs/`. The strategic ADRs in `adrs/` use `ADR-001..ADR-024` (different scheme; different scope). The cross-references inside source files (e.g., "see ADR-008 §3.D" in `bootstrap.data.ts`) are unambiguous because the contexts don't overlap.
+- All ADR files use a single `0001..0017` sequence in `docs/00_NEW_ARCHITECTURE/code-level-adrs/`. The strategic ADRs in `adrs/` use `ADR-0201..ADR-0224` (different scheme; different scope). The cross-references inside source files (e.g., "see ADR-0208 §3.D" in `bootstrap.data.ts`) are unambiguous because the contexts don't overlap.
 
-### §4.5 The strategic ADR-018, ADR-019, ADR-020, ADR-021, ADR-024 are present without a 1A–1C touchpoint
+### §4.5 The strategic ADR-0218, ADR-0219, ADR-0220, ADR-0221, ADR-0224 are present without a 1A–1C touchpoint
 
-`docs/00_NEW_ARCHITECTURE/adrs/ADR-018-capacity-cut-list.md`, `ADR-019-soft-lock-semantics.md`, `ADR-020-kernel-robustness.md`, `ADR-021-enterprise-security-data-residency.md`, `ADR-024-constraint-solver.md` exist and are consistent with the master plan but address concerns that land in 1D/2A/2B. Their presence here is forward-staging, not technical debt.
+`docs/00_NEW_ARCHITECTURE/adrs/ADR-0218-capacity-cut-list.md`, `ADR-0219-soft-lock-semantics.md`, `ADR-0220-kernel-robustness.md`, `ADR-0221-enterprise-security-data-residency.md`, `ADR-0224-constraint-solver.md` exist and are consistent with the master plan but address concerns that land in 1D/2A/2B. Their presence here is forward-staging, not technical debt.
 
 ---
 

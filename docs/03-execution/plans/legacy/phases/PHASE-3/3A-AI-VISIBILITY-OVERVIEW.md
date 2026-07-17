@@ -5,7 +5,7 @@
 >
 > **Strategic anchor**: `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §6 → `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §2 → this file.
 >
-> **Coalescing-window invariant**: every reference to bake/event coalescing in this doc means **250 ms** per `[strategic ADR-010]`.
+> **Coalescing-window invariant**: every reference to bake/event coalescing in this doc means **250 ms** per `[strategic ADR-0210]`.
 
 ---
 
@@ -13,14 +13,14 @@
 
 **Sub-phase goal**: complete the AI subsystem decomposition (the 31-file moat finishes its move from PRYZM 1 to L7.5), finish the Visibility-Intent system (waves 6–11), open beta-feedback fix lanes, ratify the PDF-to-BIM scope and pipeline, and stand up the full AI workflow surface (plan-view critique + generate-3-options) with cost guardrails enforced at $0.18/call ceiling per SPEC-28 §3.
 
-**Why 3A is the most narrative-heavy quarter of Phase 3**: of the seven D1–D7 differentiators, three (D2 multi-user, D5 AI workflows, D7 visibility) are simultaneously alive in this quarter for the first time. Beta users see the AI proposal queue light up with real CV pipeline output, the voice command surface comes online, and the visibility system gets the discretion-side primitives that make complex projects manageable. PDF-to-BIM (per `[strategic ADR-029]` ratified S49) starts its long road to public preview at S70.
+**Why 3A is the most narrative-heavy quarter of Phase 3**: of the seven D1–D7 differentiators, three (D2 multi-user, D5 AI workflows, D7 visibility) are simultaneously alive in this quarter for the first time. Beta users see the AI proposal queue light up with real CV pipeline output, the voice command surface comes online, and the visibility system gets the discretion-side primitives that make complex projects manageable. PDF-to-BIM (per `[strategic ADR-0229]` ratified S49) starts its long road to public preview at S70.
 
 **The four hardest problems in 3A**:
 
 1. **AI workflow correctness on real beta data** (S50–S52) — beta users feeding the CV pipeline real floor plans expose corner cases no synthetic fixture caught. The approval queue must surface these gracefully, never silently mutate state.
 2. **Visibility-Intent waves 6–11 — the user-discretion side** (S53) — overrides, isolation, hide-element, view-state save/restore. These are the waves where users *expect* state to follow them across views; getting the cross-view propagation right while respecting `[ADR 0025-multi-view-sync]` is subtle.
 3. **L7.5 architectural promotion** (S49) — the AI host moves from "lazy-loaded module in `apps/editor`" to "first-class L7.5 plane with its own bus" per SPEC-07 + SPEC-28. This unblocks public AI APIs in S53 and the third-party AI plugins in 3B.
-4. **PDF-to-BIM pipeline ratification** (S49–S52) — `[strategic ADR-029]` Part A ships PDF parsing + page classification (S50) → wall extraction (S55) → door/window symbol matching (S58) → confidence model + review queue (S60). 3A only opens the road; the public preview is S70.
+4. **PDF-to-BIM pipeline ratification** (S49–S52) — `[strategic ADR-0229]` Part A ships PDF parsing + page classification (S50) → wall extraction (S55) → door/window symbol matching (S58) → confidence model + review queue (S60). 3A only opens the road; the public preview is S70.
 
 **Cost-guardrail discipline**: per SPEC-28 §3 every AI workflow has a $0.18/call ceiling and a per-project monthly budget. Pre-call rejection is the gate; post-call telemetry is the audit trail. No workflow ships in 3A without both.
 
@@ -34,9 +34,9 @@
 
 **Visibility-Intent invariant**: every wave is a **pure function** of `(ctx) => result` per the canonical pattern from S46. Wave order is fixed; the first wave to return `{ visible: false }` short-circuits.
 
-**AI invariant**: every workflow that mutates state goes through the approval queue. The queue is the single integration point with the command bus per `[strategic ADR-014]`. There is no "auto-apply" path in 3A; auto-apply is a v2 backlog item.
+**AI invariant**: every workflow that mutates state goes through the approval queue. The queue is the single integration point with the command bus per `[strategic ADR-0214]`. There is no "auto-apply" path in 3A; auto-apply is a v2 backlog item.
 
-**PDF-to-BIM invariant**: per `[strategic ADR-029]` the pipeline emits **proposals**, not commits. Every door, window, and wall extracted from a PDF lands in the AI approval queue with a confidence score; user accepts/edits/rejects.
+**PDF-to-BIM invariant**: per `[strategic ADR-0229]` the pipeline emits **proposals**, not commits. Every door, window, and wall extracted from a PDF lands in the AI approval queue with a confidence score; user accepts/edits/rejects.
 
 ---
 
@@ -48,14 +48,14 @@
 |---|---|
 | Full L7.5 architectural promotion per SPEC-07 + SPEC-28 | S49 |
 | Cost telemetry → Honeycomb live | S49 |
-| `[strategic ADR-029]` (PDF-to-BIM Scope) ratified | S49 |
+| `[strategic ADR-0229]` (PDF-to-BIM Scope) ratified | S49 |
 | `apps/ai-worker/cv/floorplan-segmentation.ts` (CV pipeline core) | S50 |
-| `apps/ai-worker/cv/page-classification.ts` per ADR-029 Part A | S50 |
+| `apps/ai-worker/cv/page-classification.ts` per ADR-0229 Part A | S50 |
 | SPEC-31 (PDF-to-BIM Pipeline) outline drafted + published | S50 |
 | AI plan-view critique surface lit per SPEC-28 §3 + SPEC-07 §3 | S51 |
 | AI generate-3-options surface lit per SPEC-28 §3 | S52 |
 | Cost guardrails verified at $0.18/call ceiling | S52 |
-| Voice command surface (lazy-loaded) per `[strategic ADR-014]` | S52 |
+| Voice command surface (lazy-loaded) per `[strategic ADR-0214]` | S52 |
 
 ### Track B — Visibility-Intent waves 6–11, beta bug-fix, AI UI (Agent B)
 
@@ -66,7 +66,7 @@
 | Visibility-Intent migration retro per SPEC-30 §6 | S53 |
 | `featureFlags.legacy_vi_fallback` becomes opt-in only | S53 |
 | Approval queue UI rich-state (preview thumbnails, cost line items) | S51–S52 |
-| Component editor (D10 loadable families) — **deferred per `[strategic ADR-018]` T2.2** | S54 |
+| Component editor (D10 loadable families) — **deferred per `[strategic ADR-0218]` T2.2** | S54 |
 | `apps/bench/ai-cost.ts` and `apps/bench/visibility-correctness.ts` | S54 |
 
 ### Joint Deliverables
@@ -74,7 +74,7 @@
 | Item | Sprint |
 |---|---|
 | Sprint-scoped `[ADR 0014-traa-ssgi-idle-budget]` (refresh) for AI idle budget | S49 D1 |
-| `[strategic ADR-018]` Tier-1 checkpoint (T1.7 + T1.8 added per gap review) | S49 D9 |
+| `[strategic ADR-0218]` Tier-1 checkpoint (T1.7 + T1.8 added per gap review) | S49 D9 |
 | 3A demo recording (10-min screencast) | S54 D9 |
 | `apps/bench/reports/M27-3A.md` | S54 D9 |
 
@@ -84,7 +84,7 @@
 
 ---
 
-### S49 — AI L7.5 Promotion + Cost Telemetry + ADR-029 Ratification + Beta Bug-Fix Buffer Opens
+### S49 — AI L7.5 Promotion + Cost Telemetry + ADR-0229 Ratification + Beta Bug-Fix Buffer Opens
 **Weeks 97–98 (Month 25)**
 
 ---
@@ -93,7 +93,7 @@
 
 S49 is the second-order kickoff sprint of Phase 3. The lazy-loaded AI host from S47 graduates to a **first-class L7.5 architectural plane** with its own bus, its own observability prefix, and its own descriptor schema for plugin discovery. Per SPEC-07 §3 the AI host gains a public contract that the public AI API in S53 will surface as REST/WS.
 
-`[strategic ADR-029]` (PDF-to-BIM Scope) is **ratified** this sprint — the founder + architect signature is the gate that unlocks SPEC-31 drafting (S50). The decision to scope PDF-to-BIM to "wall extraction + door/window symbol matching + manual review queue" (vs. "full IFC reconstruction") is the discipline test of Phase 3A.
+`[strategic ADR-0229]` (PDF-to-BIM Scope) is **ratified** this sprint — the founder + architect signature is the gate that unlocks SPEC-31 drafting (S50). The decision to scope PDF-to-BIM to "wall extraction + door/window symbol matching + manual review queue" (vs. "full IFC reconstruction") is the discipline test of Phase 3A.
 
 The 4-week beta bug-fix lane runs S49–S52: every P0/P1 from the M24 beta gets a fix-first treatment.
 
@@ -132,7 +132,7 @@ export class AiPlane {
 }
 ```
 
-**The L7.5 layer** sits above L7 (editor shell) and below L8 (the user). Per SPEC-07 §3 + ADR-014, the plane has its own message bus so AI workflows do not pollute the command bus's event log with intermediate proposals — only **approved** workflow outputs commit through the command bus.
+**The L7.5 layer** sits above L7 (editor shell) and below L8 (the user). Per SPEC-07 §3 + ADR-0214, the plane has its own message bus so AI workflows do not pollute the command bus's event log with intermediate proposals — only **approved** workflow outputs commit through the command bus.
 
 ---
 
@@ -170,14 +170,14 @@ export class CostMeter {
 
 ---
 
-#### `[strategic ADR-029]` Ratification — PDF-to-BIM Scope
+#### `[strategic ADR-0229]` Ratification — PDF-to-BIM Scope
 
 Founder + architect sign off the following scope decisions on S49 D7:
 
 1. **Input**: PDFs (single-page or multi-page) of building floor plans. No CAD-vector PDFs, no scanned hand-drawings (v2 backlog).
 2. **Output**: proposed walls (polylines) + proposed doors + proposed windows, all landed in the AI approval queue with a confidence score.
 3. **Out of scope**: stairs, MEP, dimensions, annotations (v2 backlog).
-4. **Public preview**: S70 (Phase 3D). Public preview gating per ADR-029 Part E (accuracy bar).
+4. **Public preview**: S70 (Phase 3D). Public preview gating per ADR-0229 Part E (accuracy bar).
 5. **Cost ceiling**: per-page cost at $0.05 max (well under the $0.18 per-call ceiling).
 6. **Confidence model** (S60): per-element confidence in [0, 1]; review queue surfaces all elements with confidence < 0.85.
 
@@ -201,8 +201,8 @@ The lane is a parallel track running alongside the main Phase 3A work:
 - **D3**: pre-call budget check + per-project budget resolver.
 - **D4**: ai_usage table + insert path + nightly aggregation.
 - **D5**: lazy-load verification re-run (no AI bytes in editor first paint).
-- **D6**: ADR-029 draft circulated.
-- **D7**: ADR-029 ratification meeting + signature.
+- **D6**: ADR-0229 draft circulated.
+- **D7**: ADR-0229 ratification meeting + signature.
 - **D8**: lint + perf bench (`apps/bench/ai-cost.ts`).
 - **D9**: cut-list checkpoint + retro.
 - **D10**: buffer + beta bug-fix lane standup launch.
@@ -214,7 +214,7 @@ The lane is a parallel track running alongside the main Phase 3A work:
 - AiPlane is the only path AI workflows take to the command bus.
 - CostMeter rejects pre-call when budget exceeded; rejection is surfaced in approval queue.
 - Honeycomb shows `pryzm.ai.cost.usd` metric live.
-- `[strategic ADR-029]` ratified + committed.
+- `[strategic ADR-0229]` ratified + committed.
 - Beta bug-fix lane open with daily standup.
 
 ---
@@ -228,7 +228,7 @@ The lane is a parallel track running alongside the main Phase 3A work:
 
 S50 puts real CV pipeline output in front of beta users for the first time. The CV pipeline (`apps/ai-worker/cv/`) is a heavy compute path that runs on a separate worker pool (BullMQ + GPU workers if available, CPU fallback otherwise per SPEC-15 §2.4). The first workflow to use it is **floorplan segmentation** — given a PDF page of a floor plan, identify regions corresponding to walls.
 
-SPEC-31 (PDF-to-BIM Pipeline) is **published** this sprint as the engineering counterpart to ADR-029. Where ADR-029 sets scope and accuracy bar, SPEC-31 sets the pipeline stages: page classification → segmentation → vectorization → element extraction → confidence scoring → review queue.
+SPEC-31 (PDF-to-BIM Pipeline) is **published** this sprint as the engineering counterpart to ADR-0229. Where ADR-0229 sets scope and accuracy bar, SPEC-31 sets the pipeline stages: page classification → segmentation → vectorization → element extraction → confidence scoring → review queue.
 
 ---
 
@@ -248,7 +248,7 @@ export async function processFloorplanSegmentation(job: Job<FloorplanSegJob>) {
   const start = performance.now();
 
   // Page classification: is this a floor plan vs elevation vs section vs detail?
-  // ADR-029 Part A: only floor-plan pages enter the wall-extraction stage.
+  // ADR-0229 Part A: only floor-plan pages enter the wall-extraction stage.
   const cls = await classifyPage(pdfPage);
   if (cls.kind !== 'floor-plan' || cls.confidence < 0.7) {
     return { status: 'skipped', reason: `page classified ${cls.kind} @ ${cls.confidence}` };
@@ -276,7 +276,7 @@ export async function processFloorplanSegmentation(job: Job<FloorplanSegJob>) {
 ```text
 SPEC-31 — PDF-to-BIM Pipeline (publishes S50 D5)
 
-§1 Goals & non-goals (refer ADR-029)
+§1 Goals & non-goals (refer ADR-0229)
 §2 Pipeline stages
    §2.1 Page classification         (S50)
    §2.2 Floor-plan segmentation     (S50)
@@ -288,7 +288,7 @@ SPEC-31 — PDF-to-BIM Pipeline (publishes S50 D5)
 §4 Worker placement — GPU preferred, CPU fallback
 §5 Persistence — ai_usage rows; pdf_jobs table per SPEC-24 §1.5
 §6 Approval queue integration
-§7 Public-preview gating per ADR-029 Part E
+§7 Public-preview gating per ADR-0229 Part E
 §8 Telemetry (`pryzm.ai.pdf.{stage}`)
 ```
 
@@ -413,7 +413,7 @@ export async function planCritique(ctx: WorkflowCtx): Promise<CritiqueResult> {
 
 Generate-3-options is the workflow that turns AI from "advisor" into "co-author". User selects a region in plan view; AI proposes three alternative arrangements (e.g., three different bathroom layouts); user picks one to commit. Per SPEC-28 §3 the workflow caps at $0.18/call (the per-call ceiling) — three options at ~$0.05 each plus orchestration overhead.
 
-Voice command surface (lazy-loaded per `[strategic ADR-014]`) opens a thin command-bus integration: voice → Whisper transcription → command-palette match → execute. No state mutation without confirmation.
+Voice command surface (lazy-loaded per `[strategic ADR-0214]`) opens a thin command-bus integration: voice → Whisper transcription → command-palette match → execute. No state mutation without confirmation.
 
 Cost guardrails are **verified end-to-end** this sprint: pre-call rejection works, monthly budget enforcement works, per-call ceiling enforcement works, and the AI Spend dashboard reflects live `ai_usage` rows.
 
@@ -589,7 +589,7 @@ Sign-off requires Y to all 5.
 
 #### Context and Why This Matters
 
-S54 is the sub-phase 3A wrap. Per `[strategic ADR-018]` T2.2, the component editor (D10 loadable families) is **deferred** from Phase 3A — confirmed dropped per gap review and moved to v2 backlog. The decision is recorded in `apps/bench/reports/M27-3A.md`.
+S54 is the sub-phase 3A wrap. Per `[strategic ADR-0218]` T2.2, the component editor (D10 loadable families) is **deferred** from Phase 3A — confirmed dropped per gap review and moved to v2 backlog. The decision is recorded in `apps/bench/reports/M27-3A.md`.
 
 The remainder of S54 is dedicated to the comprehensive bench run, the 3A demo, and the founder-rest gate before S55.
 
@@ -631,7 +631,7 @@ The remainder of S54 is dedicated to the comprehensive bench run, the 3A demo, a
 | R3A-03 | Generate-3-options exceeds $0.18 ceiling on fan-out | Medium | High | Post-fan-out verification + refund per S52 D3 | S52 |
 | R3A-04 | Visibility-Intent wave-ordering bug surfaces in waves 6–11 | Medium | Medium | Per-wave parity tests; retro question 4 in S53 D9 | S53 |
 | R3A-05 | Beta bug-fix lane runs over 4 weeks | Medium | High | Daily standup; if not closing by S52 D5, escalate to founder + cut features from S54 | S49–S52 |
-| R3A-06 | PDF-to-BIM accuracy unacceptable on real-beta data | High | Medium | Confidence model + review queue (S60); preview gating per ADR-029 Part E (S70) | S50, S60 |
+| R3A-06 | PDF-to-BIM accuracy unacceptable on real-beta data | High | Medium | Confidence model + review queue (S60); preview gating per ADR-0229 Part E (S70) | S50, S60 |
 | R3A-07 | Voice command surface bloats first-paint bundle | Low | High | K3-A kill-switch; build-report verification at S52 D5 | S52 |
 | R3A-08 | Public AI API draft surfaces design issue requiring rework | Medium | Medium | Draft only; formalisation at S65; 3A draft is non-committal | S53 |
 | R3A-09 | Component editor deferral creates user-visible gap | Medium | Medium | Communication plan with beta cohort at S54 D8 | S54 |
@@ -652,19 +652,19 @@ The remainder of S54 is dedicated to the comprehensive bench run, the 3A demo, a
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S49** | Full L7.5 architectural promotion per SPEC-07 + SPEC-28; cost telemetry → Honeycomb live; `[strategic ADR-029]` (PDF-to-BIM Scope) ratified; SPEC-31 (PDF-to-BIM Pipeline) outline drafted; fixture corpus collection begins. Capacity-cut Tier-1 checkpoint per `[strategic ADR-018]` (T1.7 + T1.8 added per gap review). | SPEC-07, SPEC-28, `[strategic ADR-029]` |
-| **S50** | SPEC-31 published; PDF parsing + page classification lit per `[strategic ADR-029]` Part A. | `[strategic ADR-029]` |
+| **S49** | Full L7.5 architectural promotion per SPEC-07 + SPEC-28; cost telemetry → Honeycomb live; `[strategic ADR-0229]` (PDF-to-BIM Scope) ratified; SPEC-31 (PDF-to-BIM Pipeline) outline drafted; fixture corpus collection begins. Capacity-cut Tier-1 checkpoint per `[strategic ADR-0218]` (T1.7 + T1.8 added per gap review). | SPEC-07, SPEC-28, `[strategic ADR-0229]` |
+| **S50** | SPEC-31 published; PDF parsing + page classification lit per `[strategic ADR-0229]` Part A. | `[strategic ADR-0229]` |
 | **S51** | AI plan-view critique surface lit per SPEC-28 §3 + SPEC-07 §3 (proposal queue with full UI). | SPEC-07, SPEC-28 |
 | **S52** | AI generate-3-options surface lit; cost guardrails verified at $0.18/call ceiling per SPEC-28 §3. Voice command surface lit, verified separate chunk. | SPEC-28 |
 | **S53** | Visibility-Intent migration retro per SPEC-30 §6 — confirm legacy 11-wave is no longer the primary path; only `featureFlags.legacy_vi_fallback` retains it. Public AI API draft. | SPEC-30 §6 |
-| **S54** | Component editor (D10 loadable families) **deferred per `[strategic ADR-018]` T2.2** — confirmed dropped from Phase 3A; v2 backlog item. | `[strategic ADR-018]` T2.2 |
+| **S54** | Component editor (D10 loadable families) **deferred per `[strategic ADR-0218]` T2.2** — confirmed dropped from Phase 3A; v2 backlog item. | `[strategic ADR-0218]` T2.2 |
 
 ---
 
 ## §6 What Phase 3A Explicitly Did NOT Do
 
 - IFC, DXF, Rhino plugins (Phase 3B).
-- Component editor migration (deferred per `[strategic ADR-018]` T2.2 — v2 backlog).
+- Component editor migration (deferred per `[strategic ADR-0218]` T2.2 — v2 backlog).
 - BCF round-trip (Phase 3B).
 - PropertyPanel + PropertyInspector decomposition (Phase 3B).
 - Plugin SDK 1.0 publish (Phase 3C).
@@ -673,7 +673,7 @@ The remainder of S54 is dedicated to the comprehensive bench run, the 3A demo, a
 - Headless npm publish (Phase 3C).
 - Self-host packaging (Phase 3D).
 - PDF-to-BIM public preview (S70, Phase 3D).
-- Multi-region sync replication (cut per `[strategic ADR-018]` T1.7).
+- Multi-region sync replication (cut per `[strategic ADR-0218]` T1.7).
 
 ---
 

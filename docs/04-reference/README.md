@@ -51,5 +51,5 @@ Material that's stable, exact, and fact-based. Not strategic, not bound, not sta
 ## §4 — Cross-links
 
 - API reference (auto-generated): [apps/docs-site/](../../apps/docs-site/)
-- Architecture overview: [../01-strategy/architecture.md](../01-strategy/architecture.md)
+- Architecture overview: [../01-strategy/STR-04-architecture.md](../01-strategy/STR-04-architecture.md)
 - Contract suite: [../02-decisions/contracts/](../02-decisions/contracts/)
