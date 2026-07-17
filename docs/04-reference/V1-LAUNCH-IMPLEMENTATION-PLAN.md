@@ -3338,3 +3338,17 @@ Gates the L-353 / L-355 / L-356 downstream work. No target date tied to launch.
 | **P2 — Batch-boundary hook** | Call it from `setShadowPassDisabled(reason, disabled)` when `disabled && reason === 'batch'` — the moment just before the resi-batch PSO compile. WebGL is untouched (gated on `_webGpuActive`) and keeps full refractive glass. | **DONE** |
 | **Verify (types)** | renderer-three typecheck 0, root tsc `--skipLibCheck --noEmit` 0. | **DONE** |
 | **Verify (live)** | Founder's WebGPU box: batch resi-gen on a light WebGPU scene no longer emits `THREE.TSL: Invalid generated code, expected a 'float'` in `_renderTransparents`. **Not marked Fixed until confirmed.** | Pending |
+
+## L-365 — Map verified Cesium 3D-Tiles globe placement into ADR + contract + spec — SS-MAP-CESIUM-3DTILES-GLOBE-PLACEMENT-BASELINE
+**Severity:** DOCS / governance (VERIFIED-WORKING baseline, not a defect). **Queue:** docs / geospatial. **Contracts:** C12 §7 [new] + §1.4. **Decision:** ADR-0268 [new]. **Spec:** SPEC-FORMA-SITE-VIEW §11 [new]. **Baseline:** `snapshot-cesium-3d-globe-working-2026-07-17`. **Status: DOCUMENTED — behavior VERIFIED WORKING live on Fly (2026-07-17).**
+
+> **Approach.** The photoreal 3D-Tiles building placement is confirmed sound end-to-end on Fly (anchor = LTP-ENU origin at LAT 40.420070/LON -3.705955, anchor↔LTP 0.0 m; base 706.90 m ELLIPSOIDAL via photoreal-tile-clamp; seat-and-reveal; §FORMA-FULL-HEIGHT full tower; CesiumThreeBridge camera-only coexistence). This item pins that known-good behavior into the canonical governance docs so it stays permanent + regression-testable against the snapshot tag. DOCS ONLY — no code changed.
+
+| Phase | Work | Status |
+|---|---|---|
+| **P1 — ADR** | New `ADR-0268-cesium-3d-tiles-georeferenced-building-placement.md`: the georeferenced-placement decision (D1 LTP-ENU anchor · D2 photoreal-tile-clamp datum · D3 seat-and-reveal · D4 §FORMA-FULL-HEIGHT · D5 CesiumThreeBridge coexistence · D6 frame-once) with Context/Decision/Consequences/Alternatives, §-tags + file:line, baseline tag. | **DONE** |
+| **P2 — Contract** | C12 §7 (new normative section) — the georeferencing invariant (anchor == LTP-ENU origin; ground datum via photoreal-tile-clamp when no terrain provider; seat-and-reveal ordering; base height ELLIPSOIDAL WGS-84 not AMSL; full-height massing; camera-only coexistence; frame-once). Marked **Known-good ACTIVE** with live evidence; links ADR-0268. §6 history row added. | **DONE** |
+| **P3 — Spec** | SPEC-FORMA-SITE-VIEW §11 — the step-by-step reproducible globe placement pipeline (activate → CesiumThreeBridge → GLB export → renderRealModelOnGlobe → photoreal-tile-clamp datum → seat-and-reveal → full-height → frame → anchor-evidence log) + the verified-good baseline table. | **DONE** |
+| **P4 — Audit** | L-365 logged in V1-LAUNCH-READINESS-AUDIT §2 as VERIFIED WORKING (snapshot tag + live-run evidence). | **DONE** |
+| **P5 — Index** | C00 contract README C12 row updated to note §7 + ADR-0268. | **DONE** |
+| **Verify** | DOCS deliverable — behavior already confirmed working live by the founder; no live re-run required. Regression baseline = snapshot `snapshot-cesium-3d-globe-working-2026-07-17`. | **DONE** |

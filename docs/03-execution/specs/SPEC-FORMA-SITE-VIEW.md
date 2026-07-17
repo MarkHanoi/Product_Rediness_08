@@ -225,3 +225,84 @@ Blender) does not apply — the look is produced by `CesiumViewport`.
 Still open (deferred): per-mass use-classification from the BIM model (mixed-use
 buildings get multiple coloured masses), and the first-activation Cesium-vs-2D
 timing (a node may show only the 2D plan on the very first globe click).
+
+## §11 — Georeferenced building placement on the photoreal 3D-Tiles globe (verified pipeline)
+
+> **Status:** VERIFIED WORKING live on Fly (`pryzm.fly.dev`, 2026-07-17). Baseline tag
+> `snapshot-cesium-3d-globe-working-2026-07-17`. Governed by **[C12 §7](../../02-decisions/contracts/C12-GEOSPATIAL.md)** +
+> **[ADR-0268](../../02-decisions/adrs/ADR-0268-cesium-3d-tiles-georeferenced-building-placement.md)**; extends §1.4 of C12.
+> Audit evidence: **[V1-LAUNCH-READINESS-AUDIT L-365](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md)**.
+
+This §11 documents the step-by-step pipeline that places an authored PRYZM building onto the Google
+Photorealistic 3D-Tiles globe so it stands at its exact real-world location, seated on the tile ground, at
+full height. It is reproducible from the cited code. Unlike the Forma flat-ground massing study (§2, §10), the
+globe path KEEPS the photoreal imagery/tiles/sky (`keepPhotoreal`) so the building sits inside the real city.
+
+### §11.1 — The distinction: two representations, one anchor
+
+- **Massing (pastel/white blocks):** `renderFormaMassing({ keepPhotoreal: true })`
+  (`CesiumViewport.ts:3021`) — per-storey 4-vertex perimeter prisms from the floor-slab rings, plus slabs,
+  roof, opening insets and stair volumes.
+- **Real detailed model (full-fidelity BIM):** `renderRealModelOnGlobe` (`CesiumViewport.ts:7530`) — the live
+  BIM THREE scene serialised to GLB and loaded as a native `Cesium.Model` primitive, replacing the massing.
+
+Both anchor identically: ONE `eastNorthUpToFixedFrame` at the LTP-ENU site origin, seated at the tile-clamped
+base height. When the real model succeeds, `removeFormaMassingPolygons` drops the massing blocks (§A.21.D49).
+
+### §11.2 — The pipeline (in order)
+
+1. **Activate the globe view.** `keepPhotoreal` keeps imagery/tiles/sky; shadows are turned ON so the building
+   grounds itself on the tiles (`renderFormaMassing:3033`). Cesium's native SunLight is retained (authentic
+   sun direction), no DirectionalLight override.
+2. **CesiumThreeBridge (camera/scene only).** `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts` —
+   `setAnchor(cartesian)` re-parents BIM objects under a `GIS_BIM_ROOT` group and applies the
+   `eastNorthUpToFixedFrame` ENU transform to that root (floating-origin anchor). It shares only the THREE
+   **camera + scene**, NOT the GPUDevice or canvas — so the WebGPU-BIM ↔ WebGL-Cesium split is not crossed here.
+3. **GLB export.** The live BIM scene is serialised to GLB (`exportFragmentsToGLB`, real meshes + materials;
+   cached by building signature per L-358) and its object URL handed to `renderRealModelOnGlobe`.
+4. **`renderRealModelOnGlobe` — place the primitive.** Compute the anchor position
+   `Cartesian3.fromDegrees(originLon, originLat, baseHeight)` at the LTP-ENU origin; build the model matrix with
+   `eastNorthUpToFixedFrame`; load via `Cesium.Model.fromGltfAsync({ upAxis: Y, forwardAxis: X })`
+   (`§GLOBE-HEADING-90` — the ENU mapping east = x, north = −z, up = y matches the massing, true-north-aligned).
+   A placement token (`§CESIUM-REALMODEL-TOKEN`) drops a stale build if a newer toggle superseded it during the
+   async parse.
+5. **Ground datum via photoreal-tile-clamp (§1.4 / L-259).** `resolveGlobeGroundAnchor`
+   (`globeGroundAnchor.ts:141`) resolves the base from tile-surface height picks:
+   `reduceTileGroundHeight` = `min(footprint + street-ring samples) − seatEpsilon` (`source:
+   'photoreal-tile-clamp'`), with the placed model excluded from the raycast so it never samples its own roof
+   (ADR-0095 creep-up fix). No tiles ⇒ ellipsoid IS the ground (`ellipsoid-flat-ground`, 0). Nothing measured
+   yet ⇒ **UNRESOLVED** (`heightM: null` — never a fabricated 0). All heights ELLIPSOIDAL WGS-84. The base is
+   **re-evaluated AFTER the async GLB parse** (`§FIX-GLOBE-REAL-MODEL-UNDERGROUND-CLAMP` / L-198) so a clamp
+   that settles during parse (e.g. 0 → 706.9 m) re-seats the primitive instead of burying it.
+6. **Seat-and-reveal (L-259).** `decideGroundAnchorAction` returns `hold-hidden-retry` while UNRESOLVED (model
+   added with `show = false`, `globeBuildingHiddenForGround = true`), `seat-and-reveal` on a measured datum
+   (`revealGlobeBuildingForGround` shows it), or `reveal-unknown-datum-warn` when the `retriesLeft` budget is
+   spent (reveal + loud warning). Retries are driven by the tileset's load events, not a blind timer. The
+   terminal is `CesiumViewport.whenGroundSettled()`, consumed by `viewActivationLoading.ts` to dismiss the
+   loading overlay and gate input.
+7. **Full-height massing (§FORMA-FULL-HEIGHT).** For a perf-capped tower, `resolveFullBuildingHeight`
+   (`:8035`) takes the MAX over override / band-top / slab tops / roof tops / model sphere, and
+   `tileBandsToFullHeight` (`:8081`) stacks per-storey footprint prisms to that height so the shell + façade
+   span the whole tower (not a single ~19.5 m stub).
+8. **Frame once (§GLOBE-FIT-BUILDING / §GLOBE-FRAME-NO-JUMP).** After the base settles,
+   `flyToModelBoundingSphere` (`:4836`) frames the whole building via `flyToBoundingSphere` (~2.5× radius);
+   `reframeAfterBaseSettle` re-frames once after settle, guarded against fighting user camera control or an
+   invalid (NaN) target.
+9. **Anchor evidence log.** `logGlobeAnchorEvidence` (`:4391`) prints the anchor lat/lon, both origin
+   authorities + their separation (`originSeparationMeters`, `georefOriginsDiverge` — defect ii), tile/datum
+   state, the height + datum used (defect i), and the ECEF re-projected back to lat/lon/height — so either
+   defect is self-evident in the console.
+
+### §11.3 — Verified-good baseline (live Fly run, 2026-07-17)
+
+| Property | Value |
+|---|---|
+| Anchor (LTP-ENU origin) | LAT **40.420070**, LON **-3.705955** (anchor↔LTP **0.0 m**) |
+| Ground datum | `photoreal-tile-clamp` → base **706.90 m ELLIPSOIDAL** (WGS-84, not AMSL); tile mesh IS the ground (no terrain provider) |
+| Seat-and-reveal | held hidden until datum resolved, then revealed (L-259; `retriesLeft` countdown; §A.21.D49) |
+| Massing | full tower height (§FORMA-FULL-HEIGHT); per-storey 4-vertex perimeter prisms + slabs/roof + **214** opening insets + **5** stair volumes |
+| Framing | `flyToBoundingSphere` (§GLOBE-FIT-BUILDING) + re-frame once after settle (§GLOBE-FRAME-NO-JUMP) |
+| Coexistence | `CesiumThreeBridge` shares only THREE camera/scene (NOT GPUDevice/canvas) + `§RENDERER-LIVE-SWAP`; Cesium is its own WebGL viewer above the BIM overlay |
+
+This is the reproducible pipeline; any regression is measured against the snapshot tag
+`snapshot-cesium-3d-globe-working-2026-07-17`.

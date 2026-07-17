@@ -129,8 +129,59 @@ Cross-package dependency direction: `renderer-three` ← `geospatial` ← `plugi
 
 ---
 
+### §7 — Georeferenced building placement on the photoreal 3D-Tiles globe (Known-good ACTIVE)
+
+*(Ratified 2026-07-17 from [ADR-0268](../adrs/ADR-0268-cesium-3d-tiles-georeferenced-building-placement.md).
+This §7 is the normative invariant for placing an authored building on the Google Photorealistic 3D-Tiles
+"3D globe" / "3D Site" view. Extends §1.4 (the vertical datum boundary) with the horizontal-anchor, massing,
+and coexistence invariants. **Status: Known-good ACTIVE behavior** — verified WORKING live on Fly, 2026-07-17,
+baseline tag `snapshot-cesium-3d-globe-working-2026-07-17`; the live-run evidence is logged as
+[V1-LAUNCH-READINESS-AUDIT L-365](../../04-reference/V1-LAUNCH-READINESS-AUDIT.md).)*
+
+- **MUST (horizontal anchor = LTP-ENU origin).** A building placed on the globe MUST be anchored via ONE
+  `eastNorthUpToFixedFrame` at the **LTP-ENU origin** (`getCurrentSiteOrigin()`) — the frame the boundary and
+  every wall's scene-XZ are baked in — **NOT** at the geocoded address (`siteModelStore.getLocation()`). The
+  address is instrumentation only; the anchor↔LTP and LTP↔address separations MUST be measured
+  (`originSeparationMeters`) and logged at placement (`logGlobeAnchorEvidence`). Verified live: anchor↔LTP =
+  **0.0 m** at LAT 40.420070, LON -3.705955.
+- **MUST (ground datum via photoreal-tile-clamp when no terrain provider).** When photoreal tiles are the
+  visible ground and no terrain provider is used, the vertical datum MUST resolve off the **tile mesh**:
+  `min(footprint + street-ring picks) − seatEpsilon` with the placed model **excluded** from the raycast
+  (`source: 'photoreal-tile-clamp'`), falling back to the tileset bounding-sphere ground, else UNRESOLVED.
+  When no tiles are shown the ellipsoid IS the ground (`source: 'ellipsoid-flat-ground'`, height 0). Verified
+  live: base **706.90 m** via `photoreal-tile-clamp` (the tile mesh IS the ground).
+- **MUST (base height is ELLIPSOIDAL WGS-84, not AMSL).** Every base height handed to Cesium's placement APIs
+  is ELLIPSOIDAL WGS-84 (`GroundDatum = 'ellipsoidal-wgs84'`), never orthometric / mean-sea-level. A fabricated
+  `0` while photoreal tiles are the visible ground is forbidden (§1.4).
+- **MUST (seat-and-reveal ordering).** While the datum is UNRESOLVED, the building MUST be **held HIDDEN** and
+  retried on the tileset's load events (a `retriesLeft` countdown), then **revealed** on `seat-and-reveal`; a
+  spent retry budget reveals at the last-known base with a loud `unresolved` warning. This terminal is the
+  ground-settle readiness signal `CesiumViewport.whenGroundSettled()` (§1.4 readiness clause, §A.21.D49).
+- **MUST (full-height massing).** A perf-capped tall tower whose authored bands collapse to a single ground
+  band MUST be extruded to the resolved full building height (`§FORMA-FULL-HEIGHT`:
+  `resolveFullBuildingHeight` MAX over override / band-top / slab tops / roof tops / model sphere, then
+  `tileBandsToFullHeight` stacks per-storey footprint prisms) so it reads at true scale in context.
+- **MUST (renderer coexistence — share the camera, not the device).** The placed detailed model is a native
+  `Cesium.Model` glTF scene primitive (`§A.21.D49` `renderRealModelOnGlobe`), depth-tested against the tiles
+  by Cesium; `CesiumThreeBridge` shares only the THREE camera/scene (ENU floating-origin re-parent), **never**
+  the GPUDevice or canvas. Cesium is its own WebGL viewer above the BIM overlay; composes with
+  `§RENDERER-LIVE-SWAP`. The glTF axis convention is pinned (`§GLOBE-HEADING-90`: `upAxis: Y`, `forwardAxis: X`)
+  so the ENU mapping matches the massing's (east = x, north = −z, up = y) and the model is true-north-aligned.
+- **MUST (frame once, no jump).** After the base settles, frame the building once via `flyToBoundingSphere`
+  (`§GLOBE-FIT-BUILDING`), re-framing only after settle and never fighting user camera control or an invalid
+  target (`§GLOBE-FRAME-NO-JUMP`).
+- **Reference (read-only):** `apps/editor/src/ui/geospatial/globeGroundAnchor.ts` (pure decisions),
+  `CesiumViewport` (`renderRealModelOnGlobe:7530`, `renderFormaMassing:3021`, `resolveFullBuildingHeight:8035`,
+  `tileBandsToFullHeight:8081`, `holdGlobeBuildingForUnresolvedGround:4340`, `revealGlobeBuildingForGround:4352`,
+  `logGlobeAnchorEvidence:4391`), `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts`. Pipeline spec:
+  [SPEC-FORMA-SITE-VIEW §11](../../03-execution/specs/SPEC-FORMA-SITE-VIEW.md).
+
+---
+
 ## §6 — Contract History
 
 | Date | Change |
 |---|---|
 | 2026-05-03 | Initial contract created — Wave A17 geospatial track (A17-T1). |
+| 2026-07-12 | §1.4 The ONE Datum Boundary added (ratified from §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF / L-259). |
+| 2026-07-17 | §7 Georeferenced building placement on the photoreal 3D-Tiles globe added (Known-good ACTIVE; ADR-0268; baseline `snapshot-cesium-3d-globe-working-2026-07-17`; evidence L-365). |
