@@ -386,7 +386,10 @@ declare global {
          * Typed here so the toggle needs no `(window as any)` (P4).
          */
         pryzmSwapRendererBackend:
-            | ((pref: 'auto' | 'webgpu' | 'webgl') => Promise<boolean>)
+            // §L-372 Batch 2 / L-382 — 'webgl-classic' is a PROGRAMMATIC heavy-gen target
+            // (a classic THREE.WebGLRenderer → backend 'webgl-only'); the corner toggle
+            // only ever sends 'auto'|'webgpu'|'webgl'.
+            | ((pref: 'auto' | 'webgpu' | 'webgl' | 'webgl-classic') => Promise<boolean>)
             | undefined;
         obcRendererCanvas: HTMLCanvasElement | undefined;
         renderPipelineManager:

@@ -90,8 +90,18 @@ export interface RendererResult {
  *                 (founder decision, 2026-06-25): the per-element fragment engine
  *                 suits WebGL's cheap-draw model; WebGPU only wins once instancing /
  *                 material-sharing land, and WebGL renders the full building cleanly.
+ *  - `'webgl-classic'` — §L-372 Batch 2 / L-382 — a PROGRAMMATIC (not user-toggle)
+ *                 target that routes DIRECTLY to a genuine classic `THREE.WebGLRenderer`
+ *                 (backend `'webgl-only'`), bypassing the WebGPURenderer(forceWebGL2)
+ *                 that `'webgl'` resolves to. The forceWebGL2 path still node-compiles
+ *                 every material's shader lazily via TSL ("Compiling GPU shaders"); the
+ *                 classic renderer uses stock GLSL with NO TSL/node compile, so it kills
+ *                 that compile tail during heavy building generation. Used only by the
+ *                 heavy-gen swap (`autoWebGLHeavyScene`); `getRendererBackendPreference`
+ *                 never round-trips it (a persisted copy degrades to `'webgl'`), so the
+ *                 corner toggle stays a 3-state control.
  */
-export type RendererBackendPreference = 'auto' | 'webgpu' | 'webgl';
+export type RendererBackendPreference = 'auto' | 'webgpu' | 'webgl' | 'webgl-classic';
 
 const BACKEND_PREF_KEY = 'pryzm.renderer.backend';
 
@@ -232,6 +242,25 @@ export function resolveEffectiveBackendPreference(
     return override ?? getRendererBackendPreference();
 }
 
+/**
+ * §L-372 Batch 2 / L-382 — decide whether a live-swap result on the classic
+ * `'webgl-only'` backend is a FAILURE that must roll back.
+ *
+ * A `'webgl-only'` result is a failure ONLY when webgl-only was NOT the intended
+ * target: for an `'auto'`/`'webgpu'`/`'webgl'` swap it means the WebGPURenderer
+ * construction failed, so the swap rolls back to the previous renderer (unchanged
+ * pre-L372B behaviour). When the swap DELIBERATELY targeted the classic renderer
+ * (`'webgl-classic'`, the heavy-generation path), `'webgl-only'` is the intended
+ * SUCCESS and must NOT be rejected. Extracted as a pure predicate so the Phase-5
+ * swap guard is unit-testable.
+ */
+export function isUnintendedWebglOnlySwap(
+    resultBackend: RendererBackend,
+    intendedClassicWebGL: boolean,
+): boolean {
+    return resultBackend === 'webgl-only' && !intendedClassicWebGL;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 /**
@@ -286,7 +315,14 @@ export async function createRenderer(
     // device-loss safe-mode recovery) forces the backend for THIS call only, WITHOUT
     // persisting it, so the user's stored preference is never silently flip-flopped.
     const pref = resolveEffectiveBackendPreference(backendOverride);
-    const forceWebGL = pref === 'webgl';
+    // §L-372 Batch 2 / L-382 — 'webgl-classic' routes DIRECTLY to a genuine classic
+    // THREE.WebGLRenderer (backend 'webgl-only', no TSL/node compile). It shares the
+    // forceWebGL entry (skip the WebGPU adapter), plus a dedicated flag telling the
+    // factory to try the classic adapter FIRST and only fall back to the
+    // WebGPURenderer(forceWebGL2) 'webgl-fallback' path if classic construction fails
+    // (the guarded fallback = today's behaviour). 'webgl' keeps its exact meaning.
+    const preferClassicWebGL = pref === 'webgl-classic';
+    const forceWebGL = pref === 'webgl' || preferClassicWebGL;
 
     // §PERF-WEBGPU-FRAGMENT — make the boot backend DECISION observable so a
     // "why webgpu on a fresh profile?" is self-explanatory in the console:
@@ -295,7 +331,10 @@ export async function createRenderer(
     //     (NOT an independent default — there is one renderer-creation path).
     console.log(
         `[createRenderer] §PERF-WEBGPU-FRAGMENT resolvedPreference=${pref} ` +
-        `(forceWebGL=${forceWebGL}${backendOverride ? `, session-override=${backendOverride}` : ''}) — ${forceWebGL
+        `(forceWebGL=${forceWebGL}, preferClassicWebGL=${preferClassicWebGL}` +
+        `${backendOverride ? `, session-override=${backendOverride}` : ''}) — ${preferClassicWebGL
+            ? 'resolving to CLASSIC THREE.WebGLRenderer (backend webgl-only; no TSL/node compile — §L-372B/L-382), guarded-fallback to WebGL2 if classic construction fails'
+            : forceWebGL
             ? 'resolving to WebGL2 backend (high limits; tier keeps post-FX off on heavy scenes)'
             : "using WebGPU-first chain (this value was explicitly persisted by the backend toggle; clear it or pick 'WebGL' to get the WebGL default)"}`,
     );
@@ -306,7 +345,7 @@ export async function createRenderer(
     //   2. WebGPURenderer with WebGL2 backend        → type='webgl2'
     //   3. Plain THREE.WebGLRenderer (last resort)   → type='webgl2'
     // And logs `[renderer-three] backend: webgpu|webgl2|webgl1`.
-    const handle = await RendererHandleFactory.create(canvas, forceWebGL);
+    const handle = await RendererHandleFactory.create(canvas, forceWebGL, preferClassicWebGL);
 
     // ── Extract the underlying THREE.WebGLRenderer ────────────────────────
     // Backward-compat: initScene.ts passes the raw THREE.WebGLRenderer to
@@ -578,7 +617,10 @@ export async function createRenderer(
     // fallback' and the TSL post-FX pipeline (SSGI/outlines/shadows) stays OFF. Say so
     // plainly so "are we actually on WebGPU?" is answerable from the console; the GPU
     // badge already shows "· webgl-fallback" (never a fake "· webgpu").
-    if (backend === 'webgl-fallback' && pref !== 'webgl') {
+    // §L-372 Batch 2 — a 'webgl-classic' request that lands on 'webgl-fallback' means
+    // the guarded fallback fired (classic construction failed); it is NOT a "no native
+    // WebGPU" surprise, so suppress the WebGPU-fallback warning for it too.
+    if (backend === 'webgl-fallback' && pref !== 'webgl' && pref !== 'webgl-classic') {
         console.warn(
             `[createRenderer] §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION requested backend "${pref}" but this ` +
             `device exposes NO native WebGPU adapter — resolved to the WebGL2 fallback (backend=` +

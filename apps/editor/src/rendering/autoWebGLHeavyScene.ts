@@ -319,13 +319,22 @@ function fireSwapToWebGL(
             `WebGPU→WebGL to avoid heavy-scene device loss.`,
         );
     }
-    // Fire the existing live backend swap (persists 'webgl' + rebinds in place, no
-    // reload). Deliberately NOT awaited: the caller (a generation-start hook, a batch
-    // GPU-compile-start hook, or a per-add tier pass) must not block on the rebuild. The
-    // swap's synchronous prefix (stop the rAF loop + dispose the old pipeline) runs before
-    // this call returns, so no further WebGPU frame renders — the PSO storm never reaches
-    // the doomed device.
-    void swap('webgl')
+    // §L-372 Batch 2 / L-382 — fire the live backend swap to the CLASSIC target
+    // ('webgl-classic' → a genuine THREE.WebGLRenderer, backend 'webgl-only'), NOT the
+    // WebGPURenderer(forceWebGL2) 'webgl' path. The forceWebGL2 path is still a
+    // WebGPURenderer whose TSL node system lazily node-compiles every material's shader
+    // per deferred sub-batch AND during navigation ("Finishing up — Compiling GPU
+    // shaders", the founder's L-382 symptom); routing heavy generation to the classic
+    // renderer uses stock GLSL with NO TSL/node compile, so that tail disappears.
+    // The material-safety audit confirmed the generated scene is 100% classic materials,
+    // so it renders correctly (walls/slabs/glass/stairs/furniture + WebGLShadowMap
+    // shadows) on the classic renderer. Deliberately NOT awaited: the caller (a
+    // generation-start hook, a batch GPU-compile-start hook, or a per-add tier pass) must
+    // not block on the rebuild. The swap's synchronous prefix (stop the rAF loop + dispose
+    // the old pipeline) runs before this call returns, so no further WebGPU frame renders —
+    // the PSO storm never reaches the doomed device. If classic construction/wiring fails,
+    // the swap's guarded fallback lands on 'webgl-fallback' (today's behaviour), never dead.
+    void swap('webgl-classic')
         .then((ok) => {
             span.setAttribute('pryzm.renderer.auto-webgl.swapped', ok);
             span.setStatus({ code: ok ? SpanStatusCode.OK : SpanStatusCode.ERROR });

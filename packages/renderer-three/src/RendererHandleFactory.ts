@@ -129,10 +129,54 @@ export class RendererHandleFactory {
    *   user's stability escape hatch — a simple, very stable forward render with
    *   no TSL post-FX. 'auto' / 'webgpu' leave the normal chain unchanged.
    *
+   * @param preferClassicWebGL  §L-372 Batch 2 / L-382 — when true (heavy building
+   *   generation swap, pref='webgl-classic'), build a genuine classic
+   *   THREE.WebGLRenderer (WebGLRendererAdapter → 'webgl-only') FIRST, BYPASSING the
+   *   WebGPURenderer(forceWebGL2) path. That forceWebGL2 path is a WebGPURenderer
+   *   whose TSL node system still lazily node-compiles every material's shader
+   *   ("Compiling GPU shaders" — the L-382 symptom); the classic renderer uses stock
+   *   GLSL with NO TSL/node compile, killing that tail. If classic construction fails
+   *   we fall through to the normal forceWebGL2 chain below (guarded fallback = the
+   *   pre-L372B 'webgl-fallback' behaviour), so this never white-screens.
+   *   Only meaningful when `forceWebGL` is also true.
+   *
    * @throws {Error} only when truly no GPU is available (neither WebGPU nor WebGL2).
    *   In practice this only occurs in truly headless CI environments.
    */
-  static async create(canvas: HTMLCanvasElement, forceWebGL = false): Promise<RendererHandle> {
+  static async create(
+    canvas: HTMLCanvasElement,
+    forceWebGL = false,
+    preferClassicWebGL = false,
+  ): Promise<RendererHandle> {
+    // ── §L-372 Batch 2 / L-382: deliberate CLASSIC THREE.WebGLRenderer target ──
+    // Heavy building generation asks for a genuine classic renderer so the scene
+    // renders on stock GLSL (no TSL node-compile → no "Compiling GPU shaders"). The
+    // canvas here is FRESH (the swap mints a new overlay canvas; boot uses a fresh
+    // webgpuCanvas), so it holds no context yet — construct the plain WebGLRenderer
+    // on it directly (no taint). On ANY construction failure, fall through to the
+    // forceWebGL2 chain below → 'webgl-fallback' (today's behaviour) — never a dead
+    // viewport. Guarded fallback is MANDATORY here (core render init, high blast radius).
+    if (forceWebGL && preferClassicWebGL) {
+      try {
+        const classic = new WebGLRendererAdapter(canvas, {
+          antialias: true,
+          preserveDrawingBuffer: true,
+        });
+        console.log(
+          '[renderer-three] backend: webgl1 (§L-372B classic THREE.WebGLRenderer — deliberate ' +
+          'webgl-only heavy-gen target; NO TSL/node compile, no "Compiling GPU shaders")',
+        );
+        return classic;
+      } catch (err) {
+        console.warn(
+          '[renderer-three] §L-372B classic THREE.WebGLRenderer construction failed — falling back ' +
+          'to the WebGPURenderer(forceWebGL2) WebGL2 path (webgl-fallback; guarded fallback = today\'s behaviour):',
+          err instanceof Error ? err.message : err,
+        );
+        // fall through to the forceWebGL2 chain below.
+      }
+    }
+
     // ── User escape hatch: forced WebGL — resolve to WebGL2, NOT plain WebGL1 ──
     // §PERF-WEBGPU-FRAGMENT / ADR-0076 (founder blocker 2026-06-25):
     //   The old short-circuit returned the plain THREE.WebGLRenderer last-resort
