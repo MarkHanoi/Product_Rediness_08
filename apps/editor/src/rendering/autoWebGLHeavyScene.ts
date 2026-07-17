@@ -23,17 +23,27 @@
  *
  * ## Gating (all must hold before a swap fires)
  *
- *   1. **Auto mode only.** An explicit 'webgpu' pick is a user override we RESPECT
- *      (keep WebGPU, log once, never swap). The unset default is 'webgl'
- *      (§PERF-WEBGPU-FRAGMENT), so only a user who explicitly chose 'auto' can reach
- *      the swap. Light scenes on 'auto' keep WebGPU (nicer glass gloss).
+ *   1. **Not an explicit WebGL pick.** BOTH 'auto' AND explicit 'webgpu' can reach the
+ *      swap (§Fix-3 / L-366): on this hardware a device-loss-risk scene is a near-certain
+ *      WebGPU crash, so it must fall back to WebGL even under an explicit WebGPU pin — the
+ *      pin is honoured only for LIGHT scenes (which never trip Gate 3). Only an explicit
+ *      'webgl' pick short-circuits (already the safe path). The explicit-'webgpu' path logs
+ *      a distinct one-time warning + how to force WebGPU back; 'auto' logs the plain swap.
+ *      (Superseded the original "explicit WebGPU is always respected on heavy scenes".)
  *   2. **Real WebGPU backend only.** `renderPipelineManager.status.webGpuActive`
  *      (set from `RenderPipelineManager.isRealWebGPUBackend()`). On the WebGL2 fallback
  *      there is no WebGPU device to lose — nothing to do.
- *   3. **Device-loss-risk heuristic tripped.** REUSES the EXACT
- *      {@link isHeavyModel} predicate from LevelScoped3DCullingService (≥ 15 levels
- *      AND ≥ 1000 elements, OR ≥ 4000 elements), fed the same top-level-element count
- *      semantics, so the two subsystems never disagree on "heavy".
+ *   3. **Device-loss-risk-for-WebGPU-swap heuristic tripped.** Uses a DEDICATED,
+ *      much lower threshold than the massing-LOD system's {@link isHeavyModel}
+ *      (ADR-0267 §Fix-1 / L-366): a swap fires when the scene has **≥ 400 BIM elements
+ *      OR ≥ 1000 meshes**. This is deliberately far below the LOD massing gate (≥ 15
+ *      levels AND ≥ 1000 elems, OR ≥ 4000 elems) because a NORMAL building generation —
+ *      a ~6-storey / ~1,300-element / ~1,645-mesh residential block — reliably
+ *      device-losses WebGPU on the affected hardware yet never trips isHeavyModel, so
+ *      the reused gate let it stay on WebGPU and crash (L-361). A single manual room /
+ *      element edit (< ~100 elements, < ~1000 meshes) stays well under both arms, so
+ *      trivial edits never force a swap. The LOD system keeps its own higher
+ *      isHeavyModel gate untouched — the two thresholds are intentionally decoupled.
  *   4. **Once per session.** A module-scoped guard (mirrored to globalThis for
  *      observability + cross-re-eval idempotency). Set BEFORE the async swap so the
  *      two call-sites (batch GPU-compile-start + per-add tier pass) can never
@@ -50,17 +60,48 @@
  */
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
-import { isHeavyModel } from '@pryzm/core-app-model/rendering';
 import { getRendererBackendPreference, type RendererBackendPreference } from './createRenderer';
 
 const TRACER = trace.getTracer('pryzm-engine');
 
-// ── Once-per-session guards ─────────────────────────────────────────────────
+// ── §AUTO-WEBGL-HEAVY dedicated swap threshold (ADR-0267 §Fix-1 / L-366) ─────
+// A DEDICATED device-loss-risk threshold for the WebGPU→WebGL swap decision,
+// intentionally DECOUPLED from LevelScoped3DCullingService.isHeavyModel. That
+// predicate is owned by the massing-LOD system and must stay HIGH (≥ 15 levels AND
+// ≥ 1000 elems, OR ≥ 4000 elems) so it never massing-shades a modest building — but
+// the WebGPU swap must fire far EARLIER: on the affected hardware a normal building
+// generation (~6 storeys / ~1,300 elements / ~1,645 meshes) reliably TDRs the WebGPU
+// device, and that scene is nowhere near isHeavyModel, so reusing it left the building
+// on WebGPU to crash (L-361). We swap when the scene crosses EITHER arm:
+//   • ≥ 400 top-level BIM elements — a whole building is several hundred+ elements;
+//     a single room / manual edit is < ~100, so trivial edits never trip it.
+//   • ≥ 1000 meshes — the count SceneQualityTier already computes. Building geometry
+//     explodes to > 1000 sub-meshes (openings, finishes, frames) well before it
+//     reaches 400 COUNTED top-level roots, so this arm catches heavy scenes whose
+//     geometry arrives with sparse top-level userData ids (the resi/office path).
+const SWAP_ELEMENT_THRESHOLD = 400;
+const SWAP_MESH_THRESHOLD = 1000;
+
+/**
+ * The dedicated swap-decision predicate (see the threshold note above) — NOT
+ * isHeavyModel. Either arm tripping means "proactively drop to WebGL before the PSO
+ * storm". `sceneMeshCount` is optional: callers that already have a live mesh count
+ * (the initScene tier pass) thread it; callers that don't (the batch hook) rely on the
+ * element arm alone.
+ */
+function isSwapWorthyHeavyScene(elementCount: number, sceneMeshCount: number | undefined): boolean {
+    if (elementCount >= SWAP_ELEMENT_THRESHOLD) return true;
+    if (typeof sceneMeshCount === 'number' && sceneMeshCount >= SWAP_MESH_THRESHOLD) return true;
+    return false;
+}
+
+// ── Once-per-session guard ──────────────────────────────────────────────────
 // Module-scoped, mirrored to globalThis so a module re-evaluation (HMR / test)
-// cannot re-arm an already-fired swap. `_explicitWarnDone` throttles the
-// respected-override warning to once.
+// cannot re-arm an already-fired swap. §Fix-3 (L-366) folded the former
+// explicit-pin "respect the override" path into the swap, so the separate
+// `_explicitWarnDone` throttle is gone — the once-per-session `_autoSwapDone`
+// guard already fires the swap (and its warning) exactly once.
 let _autoSwapDone = false;
-let _explicitWarnDone = false;
 
 // ── Typed global access (P4 — no `window as any`) ───────────────────────────
 
@@ -87,8 +128,8 @@ function G(): AutoWebGLGlobals {
 
 /**
  * Count top-level BIM element roots — a verbatim mirror of
- * `LevelScoped3DCullingService._elementCount`, so {@link isHeavyModel} sees the
- * SAME element count both subsystems calibrate their thresholds against.
+ * `LevelScoped3DCullingService._elementCount`, so this element count matches the
+ * one the culling/LOD subsystem calibrates its own thresholds against.
  */
 function countElements(scene: SceneLike): number {
     let count = 0;
@@ -121,18 +162,24 @@ export function hasAutoSwitchedToWebGL(): boolean {
  *
  * @param scene  the live THREE.Scene (structural), from the caller (initScene owns THREE).
  * @param reason short tag for the log/span (e.g. `'gpu-compile-start'`, `'tier:add:bim-wall-added'`).
+ * @param sceneMeshCount optional live scene mesh count (the initScene tier pass already
+ *   computes it); feeds the ≥ 1000-mesh swap arm. Omit on callers without a mesh count —
+ *   the ≥ 400-element arm still applies.
  */
 export function maybeAutoSwitchToWebGLForHeavyScene(
     scene: SceneLike | null | undefined,
     reason: string,
+    sceneMeshCount?: number,
 ): void {
     // Gate 4 (cheapest) — once per session.
     if (hasAutoSwitchedToWebGL()) return;
     if (!scene) return;
 
-    // Gate 1 — Auto mode only. 'webgl' is already the safe path; 'webgpu' is a
-    // respected override handled below (only after we know the scene is heavy, so the
-    // warning is meaningful).
+    // Gate 1 — not an explicit WebGL pick. 'webgl' is already the safe path (nothing to
+    // do). BOTH 'auto' AND explicit 'webgpu' proceed: §Fix-3 (L-366) — a device-loss-risk
+    // scene on this hardware is a near-guaranteed WebGPU crash, so it must fall back to
+    // WebGL even under an explicit WebGPU pin. Light scenes still fully honour an explicit
+    // WebGPU pick (they never reach Gate 3). The two prefs differ ONLY in the warning text.
     const pref = getRendererBackendPreference();
     if (pref === 'webgl') return;
 
@@ -140,29 +187,19 @@ export function maybeAutoSwitchToWebGLForHeavyScene(
     // device to lose. (undefined = RPM not yet bound → not real WebGPU yet → skip.)
     if (G().renderPipelineManager?.status?.webGpuActive !== true) return;
 
-    // Gate 3 — device-loss-risk heuristic (REUSED verbatim from the culling service).
+    // Gate 3 — DEDICATED device-loss-risk-for-WebGPU-swap heuristic (ADR-0267 §Fix-1 /
+    // L-366). NOT isHeavyModel — a much lower, swap-specific threshold (see the note at
+    // SWAP_ELEMENT_THRESHOLD) so a normal building generation trips it but a manual edit
+    // does not. `levelCount` is retained purely for the log/span below.
     const levelCount = G().bimManager?.getLevels?.().length ?? 0;
     const elementCount = countElements(scene);
-    if (!isHeavyModel(levelCount, elementCount)) return;
+    if (!isSwapWorthyHeavyScene(elementCount, sceneMeshCount)) return;
 
-    // Heavy scene on a real WebGPU device.
-    if (pref === 'webgpu') {
-        // Explicit user override wins — keep WebGPU, warn ONCE (the device-loss
-        // recovery safe-mode remains the fallback if the GPU is then lost).
-        if (!_explicitWarnDone) {
-            _explicitWarnDone = true;
-            console.warn(
-                `[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — scene is device-loss-risk ` +
-                `(${elementCount} elems / ${levelCount} levels; reason=${reason}) but the backend is ` +
-                `EXPLICITLY pinned to WebGPU — respecting the override, NOT switching. If the GPU is ` +
-                `lost the device-loss recovery safe-mode is the net. Pick 'Auto' to allow the ` +
-                `proactive WebGL swap on heavy scenes.`,
-            );
-        }
-        return;
-    }
-
-    // pref === 'auto' → proactively swap to WebGL, once.
+    // Heavy scene on a real WebGPU device → proactively swap to WebGL, once — for BOTH
+    // 'auto' AND explicit 'webgpu' (§Fix-3, L-366). An explicit pin no longer keeps a
+    // device-loss-risk scene on WebGPU (the old behaviour reliably crashed on this
+    // hardware); the pin is honoured only for LIGHT scenes, which never reach here.
+    const explicitPin = pref === 'webgpu';
     const swap = G().pryzmSwapRendererBackend;
     if (typeof swap !== 'function') {
         // The live-swap entry point (initScene §RENDERER-LIVE-SWAP) is not registered
@@ -180,14 +217,26 @@ export function maybeAutoSwitchToWebGLForHeavyScene(
         attributes: {
             'pryzm.renderer.auto-webgl.reason': reason,
             'pryzm.renderer.auto-webgl.elements': elementCount,
+            'pryzm.renderer.auto-webgl.meshes': sceneMeshCount ?? -1,
             'pryzm.renderer.auto-webgl.levels': levelCount,
+            'pryzm.renderer.auto-webgl.explicit-pin': explicitPin,
         },
     });
-    console.warn(
-        `[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — scene is device-loss-risk ` +
-        `(${elementCount} elems / ${levelCount} levels; reason=${reason}); Auto mode switching ` +
-        `WebGPU→WebGL to avoid heavy-scene device loss. (Explicit WebGPU selection would override this.)`,
-    );
+    if (explicitPin) {
+        // §Fix-3 (L-366) — heavy scene under an EXPLICIT WebGPU pin: swap anyway (stability),
+        // and tell the user clearly + how to force WebGPU back.
+        console.warn(
+            `[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — device-loss-risk scene ` +
+            `(${elementCount} elems / ${sceneMeshCount ?? '?'} meshes / ${levelCount} levels; reason=${reason}); ` +
+            `switched WebGPU→WebGL for stability despite the explicit WebGPU pin. Re-pick WebGPU to override.`,
+        );
+    } else {
+        console.warn(
+            `[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — scene is device-loss-risk ` +
+            `(${elementCount} elems / ${sceneMeshCount ?? '?'} meshes / ${levelCount} levels; reason=${reason}); Auto mode switching ` +
+            `WebGPU→WebGL to avoid heavy-scene device loss.`,
+        );
+    }
     // Fire the existing live backend swap (persists 'webgl' + rebinds in place, no
     // reload). Deliberately NOT awaited: the caller (a batch GPU-compile-start hook or
     // a per-add tier pass) must not block on the rebuild. The swap's synchronous

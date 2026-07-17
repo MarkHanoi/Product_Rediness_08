@@ -392,6 +392,11 @@ declare global {
         renderPipelineManager:
             | {
                 onProjectSwitch?: () => void;
+                // §L-361-WEBGPU-TRANSMISSION-GUARD (ADR-0267 §Fix-2 / L-366) — neutralize
+                // transmission glass on the NON-batched geometry-add path (resi/office
+                // generators add glass outside batchCoordinator batches, so the batch-only
+                // neutralizer never fired for them). Real-WebGPU-gated + idempotent; no-op on WebGL.
+                neutralizeTransmissionForWebGPU?: () => void;
                 // §PERF-WEBGPU-FRAGMENT / ADR-0076 — TRAA toggle driven by the render
                 // quality tier (Axis 1). Both are async + idempotent + no-op on WebGL.
                 activateTRAA?: () => Promise<void>;

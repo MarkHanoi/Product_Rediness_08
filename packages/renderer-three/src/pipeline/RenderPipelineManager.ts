@@ -1400,6 +1400,24 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     /**
+     * §L-361-WEBGPU-TRANSMISSION-GUARD (Fix 2, L-366) — PUBLIC entry point so the
+     * NON-batched geometry-add path can neutralize transmission glass too.
+     *
+     * ROOT CAUSE this closes: the private neutralizer had ONE caller —
+     * {@link setShadowPassDisabled}('batch', true) — which BatchCoordinator invokes ONLY
+     * during a batchCoordinator batch. The residential / office generators add their glass
+     * OUTSIDE batches (the same reason the Auto-WebGL swap needs a non-batched hook), so on
+     * that path the neutralizer NEVER ran: the MeshPhysicalNodeMaterial transmission node
+     * graph reached the first post-generation WebGPU render un-neutralized and device-lost
+     * with `THREE.TSL: Invalid generated code, expected a "float"`. Exposing this lets the
+     * same non-batched seam the swap uses (initScene runTierPbrPass) disarm the transmission
+     * node BEFORE that first render. Real-WebGPU-gated + idempotent inside; no-op on WebGL.
+     */
+    neutralizeTransmissionForWebGPU(): void {
+        this._neutralizeTransmissionForWebGPU();
+    }
+
+    /**
      * §L-361-WEBGPU-TRANSMISSION-GUARD — on the REAL WebGPU backend, fall physical glass back
      * to plain opacity glass (`transmission = 0`) so the MeshPhysicalNodeMaterial transmission/
      * refraction TSL node graph is never emitted.

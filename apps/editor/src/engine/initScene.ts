@@ -2342,8 +2342,10 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // outside batchCoordinator batches, so the post-batch callback alone
             // could leave the tier stuck at cold-start. applyTierForMeshCount
             // ALWAYS logs (observable) and only re-applies on a real tier change.
+            // Hoisted to the pass scope so the §AUTO-WEBGL-HEAVY swap below can read the
+            // live mesh count (feeds the dedicated ≥ 1000-mesh swap arm, ADR-0267 §Fix-1).
+            let meshCount = 0;
             try {
-                let meshCount = 0;
                 const countMeshes = (): void => {
                     meshCount = 0;
                     scene.traverse((obj) => {
@@ -2378,9 +2380,26 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // live here (no batch suppress), so this is an ordinary live swap — the same path the
             // corner toggle uses. Best-effort.
             try {
-                maybeAutoSwitchToWebGLForHeavyScene(scene, `tier:${reason}`);
+                // Thread the live scene mesh count (already counted above) so the swap's
+                // dedicated ≥ 1000-mesh arm (ADR-0267 §Fix-1 / L-366) can trip on a
+                // ~1,645-mesh building whose top-level element roots stay under 400.
+                maybeAutoSwitchToWebGLForHeavyScene(scene, `tier:${reason}`, meshCount);
             } catch (autoWebGlErr) {
                 console.warn('[initScene] §AUTO-WEBGL-HEAVY guard error (non-fatal):', autoWebGlErr);
+            }
+            // §L-361-WEBGPU-TRANSMISSION-GUARD (ADR-0267 §Fix-2 / L-366) — the residential /
+            // office generators add glass OUTSIDE batchCoordinator batches, so
+            // BatchCoordinator's setShadowPassDisabled('batch', true) — the ONLY caller of the
+            // transmission neutralizer — never fires for them, leaving the transmission-glass
+            // TSL node graph to compile on the first WebGPU render and device-loss ("expected a
+            // float", L-361). Neutralize transmission glass on THIS non-batched geometry-add
+            // hook too (the same seam the Auto-swap uses), BEFORE the next render that would
+            // compile the node. Real-WebGPU-gated + idempotent inside the RPM method; a cheap
+            // no-op on WebGL and on an explicit-WebGL backend. Best-effort.
+            try {
+                window.renderPipelineManager?.neutralizeTransmissionForWebGPU?.();
+            } catch (txErr) {
+                console.warn('[initScene] §L-361-WEBGPU-TRANSMISSION-GUARD non-batched neutralize error (non-fatal):', txErr);
             }
             // §REVERT-SHADOW-TO-KNOWN-GOOD (L-205) — no WebGPU ScenePass rebuild is triggered
             // on new geometry, here or anywhere. The first-caster rebuild seam was reverted:
