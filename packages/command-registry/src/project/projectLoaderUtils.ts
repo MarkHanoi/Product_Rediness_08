@@ -14,6 +14,7 @@ import { RoofType, RoofFootprint } from '@pryzm/geometry-roof';
 // geometry/barrel graph into the pure-helper module, keeping these unit-testable
 // without standing up the runtime).
 import type { CreateFurniturePayload } from '../furniture/CreateFurnitureCommand';
+import type { CreateAIElementPayload } from '../furniture/CreateAIElementCommand';
 import type { CreateLightingPayload } from '../lighting/CreateLightingCommand';
 
 /**
@@ -245,6 +246,53 @@ export function buildFurnitureRestorePayload(f: any): CreateFurniturePayload {
         wardrobeCabinetConfig: f.wardrobeCabinetConfig,
         furnitureCategory:     f.furnitureCategory,
         metadata:              f.metadata,
+    };
+}
+
+/**
+ * §FIX-PERSIST-AI-ELEMENT (L-85 follow-up) — map a serialised `ai_element`
+ * furniture record to a `CreateAIElementCommand` payload, or `null` when the
+ * record is NOT an ai_element (or is missing the load-bearing keys) so the
+ * caller falls back to the ordinary `CreateFurnitureCommand` path.
+ *
+ * ROOT CAUSE this fixes (same silent-drop CLASS as kitchen/wardrobe, L-85): an
+ * `ai_element` is a fully-procedural mesh whose geometry is defined ENTIRELY by
+ * its `aiElementConfig` (components + parameters). It is CREATED via
+ * `CreateAIElementCommand` (which stores `aiElementConfig` on the `FurnitureData`)
+ * and SERIALISED by `ProjectSerializer.serializeFurniture` (which persists
+ * `aiElementConfig`). But BOTH restore paths — the default-on `ImportProjectCommand`
+ * fast path AND the legacy `ProjectLoader` — replayed EVERY furniture record
+ * through `CreateFurnitureCommand`, whose payload has no `aiElementConfig` field
+ * and which rebuilds a generic primitive from `width/length/height`. So an
+ * `ai_element` came back on reopen with NO config → the FurnitureFragmentBuilder
+ * had nothing to build → the element rendered empty / vanished (Contract 13 §2:
+ * every parametric input that drives geometry MUST round-trip). Routing the
+ * record back through `CreateAIElementCommand` restores the config verbatim.
+ *
+ * Pure + exported (mirrors `buildFurnitureRestorePayload` /
+ * `buildLightingRestorePayload`) so the mapping is unit-testable without the
+ * command pipeline. Returns `null` (not a throw) so a non-ai_element record, or a
+ * malformed one, transparently falls back to the ordinary furniture restore
+ * rather than being dropped.
+ */
+export function buildAIElementRestorePayload(f: any): CreateAIElementPayload | null {
+    if (!f || typeof f !== 'object') return null;
+    if (f.furnitureType !== 'ai_element') return null;
+    // The config IS the element — without it there is nothing to restore, so let
+    // the caller fall back to the generic furniture path (byte-identical to the
+    // pre-fix behaviour for that one malformed record) rather than dispatching a
+    // doomed CreateAIElementCommand.
+    if (!f.aiElementConfig || typeof f.aiElementConfig !== 'object') return null;
+    if (!f.id || !f.levelId || !f.position) return null;
+    return {
+        id:              f.id,
+        levelId:         f.levelId,
+        baseOffset:      f.baseOffset ?? 0,
+        position:        f.position,
+        rotation:        f.rotation ?? { x: 0, y: 0, z: 0 },
+        material:        f.material ?? 'wood',
+        color:           f.color,
+        aiElementConfig: f.aiElementConfig,
     };
 }
 

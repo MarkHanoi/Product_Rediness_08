@@ -83,6 +83,7 @@ import {
     dropDegeneratePolygonRecords,
     ceilingRestoreBoundaryFields,
     buildFurnitureRestorePayload,
+    buildAIElementRestorePayload,
     buildLightingRestorePayload,
 } from './projectLoaderUtils';
 import { ClearProjectCommand } from './ClearProjectCommand';
@@ -104,6 +105,13 @@ import { CreateCeilingCommand } from '../ceilings/CreateCeilingCommand';
 import { CreateFloorCommand } from '../floors/CreateFloorCommand';
 import { CreateStairCommand } from '../stair/CreateStairCommand';
 import { CreateFurnitureCommand } from '../furniture/CreateFurnitureCommand';
+// §FIX-PERSIST-AI-ELEMENT (L-85 follow-up) — ai_element furniture is a procedural
+// mesh defined ENTIRELY by aiElementConfig and CREATED via CreateAIElementCommand.
+// Replaying it through CreateFurnitureCommand (which has no aiElementConfig field)
+// dropped the config → the element rendered empty / vanished on reopen (same
+// silent-drop class as kitchen/wardrobe). Route ai_element records back through
+// their own command so the config round-trips.
+import { CreateAIElementCommand } from '../furniture/CreateAIElementCommand';
 // §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — lighting fixtures are cleared
 // by ClearProjectCommand (LightingStore is scope-registered) but were NEVER
 // restored on the default-on fast load path (only the legacy ProjectLoader Step
@@ -701,11 +709,19 @@ export class ImportProjectCommand implements Command {
             for (const f of snapshot.furniture) {
                 if (++_furnChunk >= CHUNK) { _furnChunk = 0; yield; }
                 try {
-                    // §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — single-source
-                    // the payload mapping (incl. the kitchen/wardrobe RUN configs
-                    // that FurnitureFactory requires; Contract 13 §2) so it is
-                    // byte-faithful and unit-testable.
-                    const cmd = new CreateFurnitureCommand(buildFurnitureRestorePayload(f));
+                    // §FIX-PERSIST-AI-ELEMENT (L-85 follow-up) — an ai_element's
+                    // geometry lives ENTIRELY in aiElementConfig, which only
+                    // CreateAIElementCommand rebuilds. Route those records to it so
+                    // the config round-trips; every other furniture record (incl.
+                    // the kitchen/wardrobe RUN configs FurnitureFactory requires,
+                    // Contract 13 §2) goes through the byte-faithful, unit-tested
+                    // furniture payload as before. A malformed ai_element (no
+                    // config) returns null → falls back to the generic path
+                    // (byte-identical to the pre-fix behaviour for that record).
+                    const aiPayload = buildAIElementRestorePayload(f);
+                    const cmd = aiPayload
+                        ? new CreateAIElementCommand(aiPayload)
+                        : new CreateFurnitureCommand(buildFurnitureRestorePayload(f));
                     const r = runSub(cmd);
                     r.success ? stats.loaded++ : recordFail(`Furniture ${f.id}`, r);
                 } catch (e) {
