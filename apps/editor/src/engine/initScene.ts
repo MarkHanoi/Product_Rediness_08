@@ -1760,27 +1760,30 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             rendererResult = await createRenderer(webgpuCanvas);
         }
 
-        // §L-372 Batch 2 / L-382 — ALL THREE backends are now first-class PRYZM-driven
-        // Phase-5 paths. Only a native 'webgpu' backend runs the TSL pipeline; BOTH WebGL
-        // backends run the lightweight per-frame render path (wired below):
+        // Guard: only hand Phase 5 control to a renderer that can run the TSL pipeline.
+        // createRenderer() now always tries WebGPURenderer first (WebGPU or WebGL2 backend).
+        // Only falls back to a plain THREE.WebGLRenderer (backend='webgl-only') when
+        // WebGPURenderer itself fails catastrophically — that renderer cannot drive the
+        // TSL pipeline, so we abort Phase 5 and keep OBC in control.
         //
-        // 'webgpu'         → native WebGPU backend — full TSL pipeline.
-        // 'webgl-fallback' → WebGPURenderer with WebGL2 backend — TSL OFF, lightweight path.
-        // 'webgl-only'     → classic THREE.WebGLRenderer — TSL OFF, lightweight path.
+        // 'webgpu'         → native WebGPU backend — full TSL pipeline ✓
+        // 'webgl-fallback' → WebGPURenderer with WebGL2 backend — TSL via GLSL ✓
+        // 'webgl-only'     → plain THREE.WebGLRenderer — no TSL pipeline ✗
         //
-        // Previously 'webgl-only' aborted Phase 5 back to OBC. That is now lifted: the
-        // classic renderer is a proven classic-material path (§L-372B material-safety
-        // audit) and PRYZM owns it via the lightweight branch, exactly like
-        // 'webgl-fallback'. GUARDED FALLBACK is preserved: if ANY of the webgl-only
-        // Phase-5 wiring below throws, the enclosing `catch (phase5Err)` cleanly reverts
-        // to the OBC WebGL renderer (undoes the pre-lock) — so a wiring failure lands on
-        // today's OBC fallback, never a dead viewport. (backendIsRealWebGPU is false for
-        // BOTH WebGL backends, so bind() never node-compiles TSL — no "Compiling GPU shaders".)
-        if (rendererResult.backend === 'webgl-only') {
-            console.log(
-                '[initScene] §L-372B/L-382 Phase 5 — classic webgl-only backend accepted as a ' +
-                'PRYZM-driven lightweight Phase-5 path (no TSL, no "Compiling GPU shaders"). ' +
-                'OBC remains the guarded fallback if the wiring below throws.',
+        // §L-372 Batch 2 / L-382 — this BOOT abort is intentionally LEFT AS-IS (zero
+        // boot-behavior change): a catastrophic WebGPURenderer boot failure still falls to
+        // OBC exactly as today. The heavy-generation classic-renderer route is driven
+        // ENTIRELY through the live-swap path (§RENDERER-LIVE-SWAP below), which builds the
+        // classic renderer via `createRenderer(newCanvas, 'webgl-classic')` and rebinds in
+        // place — it never re-enters this boot Phase-5 block, so re-asserting this abort
+        // does not affect the L-372/L-382 fix.
+        const isWebGPUCapable = rendererResult.backend !== 'webgl-only';
+
+        if (!isWebGPUCapable) {
+            webgpuCanvas.remove();
+            throw new Error(
+                `[initScene] Phase 5 abort — renderer backend is ` +
+                `'${rendererResult.backend}' (WebGL2 required for TSL pipeline). OBC renderer retained.`,
             );
         }
 
@@ -2813,18 +2816,20 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         if (renderPipelineManager.status.webGpuActive) {
             await renderPipelineManager.activateOutlines();
             console.log('[initScene] TSL pipeline at Phase 4 (Outlines only). SSGI + TRAA OFF by default (user-opt-in).');
-        } else if (isPhase5Active && (pryzmRendererBackend === 'webgl-fallback' || pryzmRendererBackend === 'webgl-only')) {
+        } else if (isPhase5Active && pryzmRendererBackend === 'webgl-fallback') {
             // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────
-            // §L-372 Batch 2 / L-382 — extended to 'webgl-only' (classic THREE.WebGLRenderer):
-            // BOTH WebGL backends run TSL-OFF, so both need this lightweight per-frame path.
+            // §L-372 Batch 2 / L-382 — the BOOT path stays 'webgl-fallback'-only (zero
+            // boot-behavior change): boot can never resolve to 'webgl-only' (the Phase-5
+            // abort above rejects it), so a 'webgl-only' arm here would be dead. The
+            // classic 'webgl-only' backend gets its lightweight per-frame wiring at the
+            // live-swap seam instead (§RENDERER-LIVE-SWAP below).
             //
             // Phase 5 is active (PRYZM owns the sole renderer, OBC is MANUAL +
             // silenced + `updateIfManualMode` was removed) but the resolved
-            // backend is a WebGL backend (the WebGL2 backend of a forced-WebGL
-            // WebGPURenderer, OR the classic webgl-only renderer), so the TSL
-            // pipeline is OFF and renderPipelineManager.render() would no-op.
-            // With nothing driving a per-frame paint, the viewport froze during
-            // orbit/pan/zoom and only repainted once motion stopped.
+            // backend is the WebGL2 backend of a forced-WebGL WebGPURenderer, so
+            // the TSL pipeline is OFF and renderPipelineManager.render() would
+            // no-op. With nothing driving a per-frame paint, the viewport froze
+            // during orbit/pan/zoom and only repainted once motion stopped.
             //
             // Enable the lightweight WebGL render path so the existing pascal
             // callback (called once per rAF by the single FrameScheduler loop —
@@ -2847,8 +2852,8 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true),
             );
             console.log(
-                `[initScene] §PERF-WEBGL2-RENDER-ON-MOVE — lightweight per-frame WebGL render enabled ` +
-                `(${pryzmRendererBackend} backend; continuous repaint during camera movement). ` +
+                '[initScene] §PERF-WEBGL2-RENDER-ON-MOVE — lightweight per-frame WebGL render enabled ' +
+                '(webgl-fallback backend; continuous repaint during camera movement). ' +
                 '§FIX-WEBGL2-GHOST-ON-ROTATE per-frame OBC base clear armed.',
             );
         }
