@@ -3563,6 +3563,13 @@ Links: L-380, L-380a–e. Owner UNASSIGNED. Target TBD. **Awaiting founder sign-
 **Per-element verify gate (every migration):** generate resi + office → identical building geometry + rooms + railings/landings, ONE undo unit, no render regression. Incrementally launch-safe; touches NONE of persistence/collab/WebGPU/gen-perf. **Human decisions:** (a) register-real-handlers vs delete-dead-stub for stairs; (b) lift as first-class bus element (scope); (c) room-bounding-line bus-ify vs treat as derived; (d) floor dual-command retirement (deferred).
 Links: L-381, L-381a–c. Owner UNASSIGNED. Target TBD. Governance: C11/C16 Known-Debt note (dead registerStairHandlers + lift-no-bus-surface).
 
+## L-383 — Denmark geospatial reference implementation (unifies L-380 parcel/zoning + L-374 3D context)
+**Severity:** P2 / HIGH strategic-technical. **Queue:** geospatial + devops. **Full phased plan (DK-0..DK-5, effort/deps/verify per phase) + per-tool integration verdicts + the GeoJSON-canonical data flow are in docs/04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md §7/§8** (extends, does NOT duplicate, the L-380 P0–P5 + L-374 Phase-1/4 phases). **Status: OPEN — validated, plan authored, not started.**
+- **Canonical:** GDAL(offline)/proj4js(edge) → GeoJSON/WGS84; DK adapter quartet (Matriklen parcels + Plandata.dk zoning + Danmark-i-3D LOD2 + DHM terrain) feeds both the 2D MapLibre map and the Cesium 3D view.
+- **L-383e (deploy, decision):** native binaries OFFLINE-baked (one-shot Docker job → object storage), NOT in the Fly app image; app image gains only the pure-Node `parcelZoningProxy.js` + server-side Datafordeler key.
+- **Ties:** L-380 (C57/C58 parcel/zoning), L-374 (C12-CONTEXT-ENGINE, terrain L-374b, LOD2 L-374c). **Human decisions: engineering-context-vs-Forma-abstract default; PostGIS GPLv2 sign-off; serve-in-house scope; tyler license.**
+Links: L-383, L-383a–e; ties L-380, L-374. Owner UNASSIGNED. Target TBD.
+
 ## L-375a — Wire CRDT applier through the composition root
 **Severity:** P2 (collab correctness + P1/P4 regression). **Queue:** runtime-composer/command-bus. **Contracts:** C08 §3.1, G3-T2; P1, P4. **Root:** composed runtime (composeRuntime.ts:1463-1548) has no `inner` property; engineLauncher.ts:825 `(runtime as any).inner.bus` is always undefined. **Fix:** wire setCrdtApplier inside composeRuntime() (owns inner.bus) OR add typed bus.setCrdtApplier slot; remove the any reach-through; fix stale marker tests/e2e/crdt-batch-conflict.spec.ts:15. **Status: OPEN.**
 
