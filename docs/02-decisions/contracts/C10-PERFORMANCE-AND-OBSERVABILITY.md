@@ -148,3 +148,33 @@ The DR runbook is in `docs/04-reference/runbooks/DR-DRILL-RUNBOOK.md`. The runbo
 | DR drill cadence | Quarterly |
 
 The last DR drill MUST be logged in `03-CURRENT-STATE.md §11` with its date and outcome.
+
+---
+
+## §7 — Generation performance (log-gating + rebuild-budget + single-redetect)
+
+A "building generation" (residential / office / house) is a KNOWN-heavy, multi-sub-batch
+operation that authors 500+ elements in one shot. Three rules keep it fast (L-369):
+
+1. **Hot per-element debug logs MUST be gated on a bulk-path flag.** A `console.log` on the
+   main thread blocks it (severely so with DevTools open). Per-element / per-opening /
+   per-finish loggers on the generation hot path (`[BimManager] Registered element`,
+   `[WallOccupancyStore] canPlace OK`, `[RoomFinishSyncService] Synced/Propagated`,
+   `[WallFragmentBuilder] RAF_DRAIN`) MUST be suppressed while a project load
+   (`globalThis.__pryzmProjectLoadActive`) OR a building generation
+   (`globalThis.__pryzmBuildingGenActive`, set by `buildingGenerationLifecycle`) is in flight.
+   Interactive edits (neither flag set) still log; per-sub-batch SUMMARY lines are kept. New
+   hot-path loggers MUST follow this gate.
+
+2. **Deferred rebuild budgets MAY go high during a batch drain.** Renders are suppressed for the
+   whole batch drain, so a drain frame is pure geometry cost. `WallFragmentBuilder` raises its
+   per-frame floor (32) and cap (64) during a batch drain, with a `frameMs` back-off bounding a
+   single frame. (SlabFragmentBuilder / CurtainWallBuilder MAY adopt the same batch-floor
+   pattern — tracked as an L-369 follow-up.)
+
+3. **Room re-detection MUST NOT run per-sub-batch during a generation.** The
+   `RoomTopologyObserver` suppresses its AUTO-redetects while `__pryzmBuildingGenActive` (mirrors
+   the existing `isBatching` guard); room identity during generation comes from the executors'
+   graph rooms (`BatchCreateRoomsCommand`, ADR-0069) + their explicit `ReDetectRoomsCommand`s
+   (which bypass the observer). `buildingGenerationLifecycle.release()` fires exactly ONE
+   `scheduleRedetectAllLevels` sweep at the true end (a no-op on graph-authoritative levels).

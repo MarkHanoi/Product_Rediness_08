@@ -63,6 +63,14 @@ const SOFT_COALESCE_MS = 300;
 const NOPROGRESS_MAX = 6;
 const NOPROGRESS_WINDOW_MS = 1_000;
 
+/** §GEN-SINGLE-REDETECT (L-369, 2026-07-17) — true while a resi/office/house generation is in
+ *  flight (`globalThis.__pryzmBuildingGenActive`, set by buildingGenerationLifecycle). Read
+ *  without importing the L5 lifecycle module — the same globalThis-flag seam this file already
+ *  uses for `window.__wallDragInProgress`. */
+function __pryzmBuildingGenActive(): boolean {
+  return (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive === true;
+}
+
 export class RoomTopologyObserver {
   readonly debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** §WS-2.B — per-level soft-coalesce timer for the
@@ -360,6 +368,19 @@ export class RoomTopologyObserver {
       console.debug(`[RoomTopologyObserver] suppressed (level=${levelId}, reason=isBatching, source=schedule)`);
       return;
     }
+    // §GEN-SINGLE-REDETECT (L-369, 2026-07-17) — while a building generation is in flight,
+    // suppress observer-driven AUTO-redetects entirely. A resi/office/house generation runs a
+    // long tail of sub-batches (openings, floors, ceilings, finishes, furnish, lighting); each
+    // sub-batch END fired one auto-redetect per level BETWEEN batches, all against
+    // graph-authoritative levels or unchanged geometry — pure waste that tripped the
+    // no-progress circuit-breaker dozens of times. Room identity during generation comes from
+    // the executors' graph rooms + their explicit `ReDetectRoomsCommand`s (which bypass this
+    // observer). buildingGenerationLifecycle.release() fires ONE final redetect sweep at the
+    // true end. A live user edit (flag cleared) is unaffected.
+    if (__pryzmBuildingGenActive()) {
+      console.debug(`[RoomTopologyObserver] suppressed (level=${levelId}, reason=building-generation, source=schedule) — §GEN-SINGLE-REDETECT`);
+      return;
+    }
 
     if (debounceMs === CW_DEBOUNCE_MS && CurtainWallBuilder.isPlacementModeActive) {
       this._pendingPlacementLevels.add(levelId);
@@ -454,6 +475,15 @@ export class RoomTopologyObserver {
     // at this method's entry guarantees every redetect path honours it.
     if (this.paused) {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (paused, level=${levelId})`);
+      return;
+    }
+    // §GEN-SINGLE-REDETECT (L-369) — execution-chokepoint mirror of the scheduler guard. FOUR
+    // paths reach here without passing `_scheduleRedetect` (the WallStore debounce timer, the
+    // forced-fire branch, the committed-event soft-coalesce timer, scheduleRedetectAllLevels).
+    // While a building generation is in flight, drop them all — the final release() sweep and
+    // the executors' explicit redetects (which bypass this observer) own room detection.
+    if (__pryzmBuildingGenActive()) {
+      console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=building-generation) — §GEN-SINGLE-REDETECT`);
       return;
     }
     // §FIX-WALLMOVE-REDETECT-DEFER — execution-chokepoint guard. INVARIANT: no

@@ -17,6 +17,19 @@ export interface RoomFinishSyncDeps {
   getCeilingStore: () => any;
 }
 
+/**
+ * §GEN-LOG-GATING (L-369, 2026-07-17) — true while a project load or a building generation is
+ * in flight. During a resi/office/house generation the finish chain fires one
+ * `bim-room-updated` per room and this observer then logs one line PER synced floor/ceiling
+ * element plus a per-room summary — hundreds of main-thread-blocking `console.log`s. The
+ * per-element lines are gated behind this on those bulk paths; interactive finish edits still
+ * log so a designer can see propagation happening.
+ */
+function __pryzmGenOrLoadActive(): boolean {
+  const g = globalThis as unknown as { __pryzmProjectLoadActive?: boolean; __pryzmBuildingGenActive?: boolean };
+  return g.__pryzmProjectLoadActive === true || g.__pryzmBuildingGenActive === true;
+}
+
 export class RoomFinishSyncService {
   private _deps: RoomFinishSyncDeps;
   private _handler: ((e: Event) => void) | null = null;
@@ -70,9 +83,11 @@ export class RoomFinishSyncService {
         };
         floorStore.update(floor.id, { finishSpec: updatedFinishSpec });
         synced++;
-        console.log(
-          `[RoomFinishSyncService] Synced floor ${floor.id} → material: "${floorFinishes.materialName}", colour: ${floorFinishes.materialColor}`
-        );
+        if (!__pryzmGenOrLoadActive()) {
+          console.log(
+            `[RoomFinishSyncService] Synced floor ${floor.id} → material: "${floorFinishes.materialName}", colour: ${floorFinishes.materialColor}`
+          );
+        }
       }
     }
 
@@ -87,13 +102,15 @@ export class RoomFinishSyncService {
         };
         ceilingStore.update(ceiling.id, { finishSpec: updatedFinishSpec });
         synced++;
-        console.log(
-          `[RoomFinishSyncService] Synced ceiling ${ceiling.id} → material: "${ceilingFinishes.materialName}", colour: ${ceilingFinishes.materialColor}`
-        );
+        if (!__pryzmGenOrLoadActive()) {
+          console.log(
+            `[RoomFinishSyncService] Synced ceiling ${ceiling.id} → material: "${ceilingFinishes.materialName}", colour: ${ceilingFinishes.materialColor}`
+          );
+        }
       }
     }
 
-    if (synced > 0) {
+    if (synced > 0 && !__pryzmGenOrLoadActive()) {
       console.log(`[RoomFinishSyncService] Propagated room "${roomId}" finishes to ${synced} element(s).`);
     }
   }

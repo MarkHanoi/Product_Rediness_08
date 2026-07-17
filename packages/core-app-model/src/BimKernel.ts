@@ -26,7 +26,14 @@ import { elementRegistry } from './ElementRegistry';
  * in finally, so live-edit logging is unchanged.
  */
 function __pryzmLoadActive(): boolean {
-    return (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive === true;
+    // §GEN-LOG-GATING (L-369, 2026-07-17) — also suppress on the building-generation path
+    // (`__pryzmBuildingGenActive`, set by buildingGenerationLifecycle). A resi/office/house
+    // generation registers 500+ elements in one shot; the per-element register/unregister
+    // log below then floods the console (each `console.log` blocks the main thread with
+    // DevTools open). The elements are machine-authored, so the per-element line is pure
+    // noise there — exactly like a known-good project restore. Live edits still log normally.
+    const g = globalThis as unknown as { __pryzmProjectLoadActive?: boolean; __pryzmBuildingGenActive?: boolean };
+    return g.__pryzmProjectLoadActive === true || g.__pryzmBuildingGenActive === true;
 }
 
 export interface Level {

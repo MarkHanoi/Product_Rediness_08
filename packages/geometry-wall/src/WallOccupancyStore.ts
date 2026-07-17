@@ -48,7 +48,13 @@ import { WallData, Opening } from './WallTypes';
  * unaffected and still log normally.
  */
 function __pryzmLoadActive(): boolean {
-    return (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive === true;
+    // §GEN-LOG-GATING (L-369, 2026-07-17) — also suppress on the building-generation path
+    // (`__pryzmBuildingGenActive`, set by buildingGenerationLifecycle). A resi/office/house
+    // generation runs canPlace() once per opening (hundreds), so the success log below floods
+    // the console during generation exactly as it does on a bulk restore — pure noise, since
+    // every opening was validated when the generator authored it. Live edits still log.
+    const g = globalThis as unknown as { __pryzmProjectLoadActive?: boolean; __pryzmBuildingGenActive?: boolean };
+    return g.__pryzmProjectLoadActive === true || g.__pryzmBuildingGenActive === true;
 }
 
 // ─── Public types ─────────────────────────────────────────────────────────────

@@ -80,6 +80,16 @@ class GenerationOverlayLease {
     private readonly onBatchEnd: () => void;
 
     constructor(title: string, label: string) {
+        // §GEN-LOG-GATING (L-369, 2026-07-17) — publish a process-wide "a building generation
+        // is in flight" flag for the WHOLE generation (all sub-batches). Lower layers read it
+        // via `globalThis.__pryzmBuildingGenActive` (no import — mirrors
+        // `__pryzmProjectLoadActive`) to gate their hot per-element debug logs
+        // (BimManager register/unregister, WallOccupancyStore canPlace, RoomFinishSyncService
+        // sync/propagate, WallFragmentBuilder RAF_DRAIN) and to suppress the RoomTopologyObserver's
+        // wasteful per-sub-batch auto-redetects. Cleared in release(), which then fires ONE
+        // final redetect sweep.
+        (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive = true;
+
         // ONE outer session held for the whole generation. Opened FIRST, so the overlay's
         // ref-count never drops to zero as per-sub-batch sessions layer on top and end.
         try {
@@ -152,6 +162,22 @@ class GenerationOverlayLease {
         try { this.session?.end(); } catch { /* overlay teardown must never throw upward */ }
         this.session = null;
         if (_current === this) _current = null;
+
+        // §GEN-LOG-GATING / §GEN-SINGLE-REDETECT (L-369) — the generation is done: clear the
+        // process-wide flag so live-edit logging + the RoomTopologyObserver auto-redetect
+        // resume, then fire ONE final redetect sweep. Graph-authoritative levels (all the
+        // executors mark theirs) are suppressed inside `scheduleRedetectAllLevels`, so on a
+        // normal generation this is a no-op safety net; for any non-graph level it recovers the
+        // single end-of-generation redetect that was suppressed during the run. Explicit
+        // `ReDetectRoomsCommand`s the executors run (e.g. house pre-naming) bypass the observer
+        // and are unaffected either way.
+        (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive = false;
+        try {
+            (window as unknown as { roomTopologyObserver?: { scheduleRedetectAllLevels?: () => void } })
+                .roomTopologyObserver?.scheduleRedetectAllLevels?.();
+        } catch (e) {
+            console.warn('[buildingGenerationLifecycle] end-of-generation redetect sweep failed (non-fatal):', e);
+        }
     }
 }
 

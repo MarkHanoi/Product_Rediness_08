@@ -58,6 +58,19 @@ import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-sched
 import { batchCoordinator } from '@pryzm/core-app-model';
 
 /**
+ * §GEN-LOG-GATING (L-369, 2026-07-17) — true while a project restore replays the Create*
+ * commands (`__pryzmProjectLoadActive`, ProjectLoader) OR a building generation is in flight
+ * (`__pryzmBuildingGenActive`, buildingGenerationLifecycle). The per-frame RAF_DRAIN log
+ * below is hot on both paths (fresh string interpolation every drain frame); it is pure
+ * noise there and a real main-thread drain with DevTools open. Interactive edits (neither
+ * flag set) still log normally.
+ */
+function __pryzmGenOrLoadActive(): boolean {
+    const g = globalThis as unknown as { __pryzmProjectLoadActive?: boolean; __pryzmBuildingGenActive?: boolean };
+    return g.__pryzmProjectLoadActive === true || g.__pryzmBuildingGenActive === true;
+}
+
+/**
  * 23-L2 Phase 3: Captures every argument needed to replay an updateWall() call
  * from the deferred rAF drain queue. Newer args for the same wall.id always win
  * (deduplication in updateWall() dispatcher).
@@ -282,7 +295,20 @@ export class WallFragmentBuilder {
      */
     private static readonly MAX_BUILDS_PER_FRAME = 15;
     /** Hard ceiling for the adaptive budget (render is suppressed, so we can go high). */
-    private static readonly MAX_ADAPTIVE_CAP = 40;
+    private static readonly MAX_ADAPTIVE_CAP = 64;
+    /**
+     * §PERF-WALL-DRAIN-BATCH-BUDGET (L-369, 2026-07-17) — during a batch generation
+     * (residential / office / house) OBC renders are suppressed for the whole drain, so a
+     * drain frame is PURE geometry cost. A 6-storey resi building is ~192 structural walls;
+     * at the old ~16 walls/frame that is ~12 frames just to drain walls. Give batch drains a
+     * much higher per-frame FLOOR (applied before the splice so it takes effect on the very
+     * first frame) and a bigger adaptive ramp step, so the queue drains in a handful of
+     * frames. The frameMs > 20 back-off below still protects against an unexpectedly heavy
+     * frame, and MAX_ADAPTIVE_CAP bounds a single frame. Interactive (non-batch) edits keep
+     * the conservative 15-wall floor + ±1 ramp.
+     */
+    private static readonly BATCH_MIN_BUILDS_PER_FRAME = 32;
+    private static readonly BATCH_RAMP_STEP = 8;
     /** Adaptive per-frame wall count — starts at MAX_BUILDS_PER_FRAME, adjusts each frame. */
     private _buildsPerFrame = WallFragmentBuilder.MAX_BUILDS_PER_FRAME;
     /**
@@ -512,6 +538,13 @@ export class WallFragmentBuilder {
      */
     private _drainBuildQueue(): void {
         this._rafHandle = null;
+        // §PERF-WALL-DRAIN-BATCH-BUDGET (L-369) — raise the per-frame FLOOR for batch drains
+        // BEFORE the splice so the very first frame already builds a big chunk. Renders are
+        // suppressed during a batch drain, so a frame is pure geometry and can safely go high.
+        const __isBatchDrain = batchCoordinator.isBatching;
+        if (__isBatchDrain && this._buildsPerFrame < WallFragmentBuilder.BATCH_MIN_BUILDS_PER_FRAME) {
+            this._buildsPerFrame = WallFragmentBuilder.BATCH_MIN_BUILDS_PER_FRAME;
+        }
         const __t_drain_start = performance.now();
         const __queue_before = this._pendingBuilds.length;
         const batch = this._pendingBuilds.splice(0, this._buildsPerFrame);
@@ -528,15 +561,25 @@ export class WallFragmentBuilder {
         // during batch drain so frameMs is pure geometry cost.  Scale up aggressively
         // when frames are cheap; throttle only if geometry is unexpectedly slow.
         if (frameMs < 8 && this._buildsPerFrame < WallFragmentBuilder.MAX_ADAPTIVE_CAP) {
-            this._buildsPerFrame++;
+            // §PERF-WALL-DRAIN-BATCH-BUDGET (L-369) — ramp up faster during a batch drain so
+            // the budget reaches the cap in a few cheap frames instead of ~25.
+            this._buildsPerFrame = Math.min(
+                WallFragmentBuilder.MAX_ADAPTIVE_CAP,
+                this._buildsPerFrame + (__isBatchDrain ? WallFragmentBuilder.BATCH_RAMP_STEP : 1),
+            );
         } else if (frameMs > 20 && this._buildsPerFrame > 5) {
             this._buildsPerFrame--;
         }
 
-        console.log(
-            `[WallFragmentBuilder] RAF_DRAIN built=${batch.length} remaining=${this._pendingBuilds.length} ` +
-            `queueBefore=${__queue_before} frameMs=${frameMs.toFixed(1)}ms nextBudget=${this._buildsPerFrame} isBatch=${batchCoordinator.isBatching}`
-        );
+        // §GEN-LOG-GATING (L-369) — the per-frame drain line is hot during a batch generation
+        // (fires every frame with fresh string interpolation). Suppress it while a project
+        // load or a building generation is in flight; keep it for interactive edits.
+        if (!__pryzmGenOrLoadActive()) {
+            console.log(
+                `[WallFragmentBuilder] RAF_DRAIN built=${batch.length} remaining=${this._pendingBuilds.length} ` +
+                `queueBefore=${__queue_before} frameMs=${frameMs.toFixed(1)}ms nextBudget=${this._buildsPerFrame} isBatch=${batchCoordinator.isBatching}`
+            );
+        }
         // §LOADING-REAL-PROGRESS (2026-07-01) — feed the loading overlay the REAL live
         // drain progress (built this frame + still-queued) so it shows the true
         // cumulative element count and a bar driven by the actual build ratio, not a
