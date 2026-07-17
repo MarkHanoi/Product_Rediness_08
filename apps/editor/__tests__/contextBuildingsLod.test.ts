@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
     ringCentroidLonLat,
     selectFarRingFootprints,
+    selectNearFootprints,
     type ContextBuildingFeature,
 } from '../src/ui/geospatial/contextBuildings';
 
@@ -70,5 +71,36 @@ describe('§FEAT-FORMA-CONTEXT-EXTENT-LOD selectFarRingFootprints', () => {
         // Nearest-first: osmId 2 (closest) then 3.
         expect(kept.map((f) => f.properties.osmId)).toEqual([2, 3]);
         expect(kept[0]!.properties.distM!).toBeLessThan(kept[1]!.properties.distM!);
+    });
+});
+
+describe('§PERF-CTX-SINGLE-FETCH selectNearFootprints (single-fetch split)', () => {
+    it('keeps only footprints whose centroid falls inside the near bbox', () => {
+        const inner = feat(1, 0.001, 0.001);   // inside near bbox
+        const outer = feat(2, 0.012, 0.0);      // outside near bbox
+        const near = selectNearFootprints({ farFeatures: [inner, outer], nearBbox: NEAR_BBOX });
+        expect(near.map((f) => f.properties.osmId)).toEqual([1]);
+    });
+
+    it('is the exact COMPLEMENT of selectFarRingFootprints — near+far partition with no overlap/gap', () => {
+        // A far-extent collection: two inside the near bbox, two outside.
+        const full = [
+            feat(1, 0.001, 0.001),  // near
+            feat(2, -0.004, 0.003), // near
+            feat(3, 0.012, 0.0),    // far
+            feat(4, 0.0, 0.014),    // far
+        ];
+        const near = selectNearFootprints({ farFeatures: full, nearBbox: NEAR_BBOX });
+        const nearIds = new Set(near.map((f) => f.properties.osmId));
+        const far = selectFarRingFootprints({
+            farFeatures: full, centerLat: 0, centerLon: 0,
+            nearBbox: NEAR_BBOX, nearOsmIds: nearIds,
+        });
+        const farIds = far.map((f) => f.properties.osmId);
+        expect([...nearIds].sort()).toEqual([1, 2]);
+        expect(farIds.sort()).toEqual([3, 4]);
+        // No footprint appears in both, and together they cover every input exactly once.
+        expect(farIds.some((id) => nearIds.has(id))).toBe(false);
+        expect(near.length + far.length).toBe(full.length);
     });
 });

@@ -6,11 +6,10 @@ import * as Cesium from "cesium";
 // footprints + heights). Used to surround the proposed massing with real buildings
 // that cast shadows (Forma/Archistar-style context). Same data path as the 2D map.
 import {
-    fetchContextBuildings,
-    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — the wider annulus fetch, rendered as flat
-    // low-poly shadowless blocks (nearest-N capped) so the neighbourhood extends without
-    // the naïve-radius shadow/geometry perf cliff.
-    fetchContextBuildingsFarRing,
+    // §PERF-CTX-SINGLE-FETCH (L-368) — ONE far-extent Overpass fetch returns { near, far }
+    // (near = extruded+shadows, far = §FEAT-FORMA-CONTEXT-EXTENT-LOD flat/low-poly shadowless,
+    // nearest-N capped) split client-side, so the far ring never waits on a second network hop.
+    fetchContextBuildingsNearAndFar,
     CONTEXT_BBOX_HALF_DEG,
     type ContextBuildingCollection,
 } from "./contextBuildings";
@@ -843,9 +842,6 @@ export class CesiumViewport {
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
    *  load / dispose so a stale response can't repaint the wrong site). */
   private contextBuildingsAbort: AbortController | null = null;
-  /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — abort handle for the in-flight FAR-ring
-   *  (annulus) fetch, cancelled independently of the near ring on a newer load / dispose. */
-  private contextBuildingsFarAbort: AbortController | null = null;
   /** One-time guard so the "context buildings unavailable" warning logs once. */
   private contextBuildingsWarned = false;
   /** §A.21.D-GLOBE (2026-06-05) — debounce handle for the pan-driven context-building
@@ -5184,14 +5180,21 @@ export class CesiumViewport {
     this.contextBuildingsAbort = new AbortController();
     const signal = this.contextBuildingsAbort.signal;
 
-    let collection: ContextBuildingCollection;
+    // §PERF-CTX-SINGLE-FETCH (L-368) — ONE far-extent Overpass fetch; near + far split
+    // client-side. `near` is rendered immediately (below); `far` is rendered right after
+    // from the SAME data with no second network hop (was a gated fire-and-forget fetch).
+    let near: ContextBuildingCollection;
+    let far: ContextBuildingCollection;
     try {
-      collection = await fetchContextBuildings(lat, lon, signal);
+      const split = await fetchContextBuildingsNearAndFar(lat, lon, signal);
+      near = split.near;
+      far = split.far;
     } catch (e) {
-      // fetchContextBuildings never throws, but be defensive.
+      // fetchContextBuildingsNearAndFar never throws, but be defensive.
       this.warnContextOnce('fetch threw — no context buildings: ' + String(e));
       return;
     }
+    const collection = near;
     // A newer load (or dispose) superseded us.
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -5279,35 +5282,29 @@ export class CesiumViewport {
         `around LAT ${lat} LON ${lon} (base ${base.toFixed(1)} m, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
     );
 
-    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — PROGRESSIVE: the near ring (above) is now on
-    // screen; fetch + draw the wider FAR ring as flat/low-poly SHADOWLESS blocks (nearest-N
-    // capped) so the neighbourhood extends without blocking the immediate context and
-    // without the naïve-radius shadow/geometry perf cliff. Fire-and-forget; never throws.
-    const nearOsmIds = new Set<number>(collection.features.map((f) => f.properties.osmId));
-    void this.loadContextBuildingsFarRing(lat, lon, nearOsmIds, viewer);
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) / §PERF-CTX-SINGLE-FETCH (L-368) — the near ring
+    // (above) is now on screen; draw the wider FAR ring as flat/low-poly SHADOWLESS blocks
+    // (nearest-N capped) so the neighbourhood extends without the naïve-radius shadow/geometry
+    // perf cliff. The far set was split from the SAME single fetch — no second network hop, so
+    // this renders immediately from `far` rather than gating on a separate Overpass round-trip.
+    this.renderContextBuildingsFarRing(far, lat, lon, viewer);
   }
 
   /**
-   * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187, founder-approved) — draw the wider FAR ring of
-   * context footprints as FLAT low-poly blocks with SHADOWS OFF. This is the distance-based
-   * LOD tier: the near ring (loadContextBuildings) stays extruded + shadow-casting; the far
-   * annulus is nearest-N capped (fetchContextBuildingsFarRing) and rendered cheaply so the
-   * shadow + geometry budget stays bounded (A.24 / device-loss). Additive to the near set
-   * (shares `contextBuildingEntities`, so clearContextBuildings drops both). Never throws.
+   * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187, founder-approved) / §PERF-CTX-SINGLE-FETCH (L-368) —
+   * draw the wider FAR ring of context footprints as FLAT low-poly blocks with SHADOWS OFF.
+   * This is the distance-based LOD tier: the near ring (loadContextBuildings) stays extruded +
+   * shadow-casting; the far annulus is nearest-N capped and rendered cheaply so the shadow +
+   * geometry budget stays bounded (A.24 / device-loss). RENDER-ONLY: the `far` collection was
+   * already split from the SAME single far-extent fetch in loadContextBuildings — there is NO
+   * separate network round-trip here any more. Additive to the near set (shares
+   * `contextBuildingEntities`, so clearContextBuildings drops both). Never throws.
    */
-  private async loadContextBuildingsFarRing(
-    lat: number, lon: number, nearOsmIds: ReadonlySet<number>, viewer: Cesium.Viewer,
-  ): Promise<void> {
+  private renderContextBuildingsFarRing(
+    far: ContextBuildingCollection, lat: number, lon: number, viewer: Cesium.Viewer,
+  ): void {
     if (!this.viewer || this.viewer !== viewer) return;
-    this.contextBuildingsFarAbort?.abort();
-    this.contextBuildingsFarAbort = new AbortController();
-    const signal = this.contextBuildingsFarAbort.signal;
-
-    let far: ContextBuildingCollection;
-    try { far = await fetchContextBuildingsFarRing(lat, lon, nearOsmIds, signal); }
-    catch { return; }
     // A newer near/far load or a dispose superseded us, or the site moved.
-    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
     if (!this.contextBuildingsAt
       || Math.abs(this.contextBuildingsAt.lat - lat) > 1e-9
       || Math.abs(this.contextBuildingsAt.lon - lon) > 1e-9) return;
@@ -5409,10 +5406,9 @@ export class CesiumViewport {
 
   /** MAP-DATA-OVERTURE — remove all context-building entities (idempotent). */
   public clearContextBuildings(): void {
-    // §FEAT-FORMA-CONTEXT-EXTENT-LOD — cancel any in-flight far-ring fetch so a stale
-    // response can't repaint far blocks after the near set was cleared.
-    this.contextBuildingsFarAbort?.abort();
-    this.contextBuildingsFarAbort = null;
+    // §PERF-CTX-SINGLE-FETCH (L-368) — the far ring no longer has its own fetch/abort (it is
+    // split from the single near+far fetch cancelled via `contextBuildingsAbort`), so there is
+    // nothing extra to abort here.
     const viewer = this.viewer;
     if (viewer) {
       for (const ent of this.contextBuildingEntities) {

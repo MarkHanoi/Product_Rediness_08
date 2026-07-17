@@ -480,22 +480,14 @@ export async function fetchContextBuildings(
     lon: number,
     signal?: AbortSignal,
 ): Promise<ContextBuildingCollection> {
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
-        return emptyContextCollection();
-    }
-    // §A.21.D54 — try the primary (wider neighbourhood) bbox first; if it comes back
-    // EMPTY (dense urban tile timed out, mirror rate-limited, or genuinely sparse)
-    // retry once at the narrower fallback extent so the Forma study still gets the
-    // immediate context rather than nothing. The narrow retry is cheap + has its own
-    // cache key, so a re-visit hits the cache directly.
-    const primary = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG), signal);
-    if (primary.features.length > 0 || signal?.aborted) return primary;
-
-    console.warn(
-        '[gis] context buildings: wide bbox returned 0 footprints — retrying the ' +
-            'narrower fallback extent (the immediate neighbourhood).',
-    );
-    return fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FALLBACK_HALF_DEG), signal);
+    // §PERF-CTX-SINGLE-FETCH (L-368) — the near set is a SUBSET of the far collection, so
+    // this now delegates to the ONE far-extent fetch (`fetchContextBuildingsNearAndFar`) and
+    // returns its NEAR half. The old wide-first→(0→narrow) serial pair is gone: it awaited a
+    // 0.008° tile, and only on a transient 0 awaited the 0.005° fallback — a wasted serial
+    // round-trip that recurred every visit (empty results are never cached). Callers that also
+    // want the far ring read `.far` from `fetchContextBuildingsNearAndFar` (no second network
+    // hop). The 2D map + this near-only path share the single far-extent cache key.
+    return (await fetchContextBuildingsNearAndFar(lat, lon, signal)).near;
 }
 
 /**
@@ -743,39 +735,100 @@ export function selectFarRingFootprints(input: {
 }
 
 /**
- * §FEAT-FORMA-CONTEXT-EXTENT-LOD — fetch the FAR-ring (annulus) context footprints around a
- * site: everything inside the wider `CONTEXT_BBOX_FAR_HALF_DEG` bbox that is NOT already in
- * the near bbox, nearest-N capped. Reuses the SAME keyless Overpass mirror machinery + cache
- * as `fetchContextBuildings` (via `fetchForBbox`). Progressive by design: the caller renders
- * the near ring first, then awaits this for the far ring, so the immediate neighbourhood is
- * never blocked on the wider fetch. NEVER throws — any failure resolves to an EMPTY collection.
- *
- * @param nearOsmIds osm ids already drawn in the near ring (dedup) — pass an empty set if none.
+ * §PERF-CTX-SINGLE-FETCH (L-368) — pick the NEAR footprints from a single far-extent fetch:
+ * those whose centroid falls INSIDE the near bbox. This is the exact COMPLEMENT of
+ * `selectFarRingFootprints` (which keeps only centroids OUTSIDE the near bbox), so near + far
+ * partition the far collection with no overlap and no gap — a footprint is drawn once, either
+ * extruded+shadowed (near) or flat/shadowless (far). PURE + testable. Never throws.
  */
-export async function fetchContextBuildingsFarRing(
+export function selectNearFootprints(input: {
+    readonly farFeatures: readonly ContextBuildingFeature[];
+    readonly nearBbox: Bbox;
+}): ContextBuildingFeature[] {
+    const [w, s, e, n] = input.nearBbox;
+    const near: ContextBuildingFeature[] = [];
+    for (const f of input.farFeatures) {
+        const [clon, clat] = ringCentroidLonLat(f);
+        if (clon >= w && clon <= e && clat >= s && clat <= n) near.push(f);
+    }
+    return near;
+}
+
+/** §PERF-CTX-SINGLE-FETCH (L-368) — the near + far context sets, split from ONE fetch. */
+export interface ContextBuildingsNearFar {
+    /** Near ring: rendered extruded + shadow-casting (drawn first). */
+    readonly near: ContextBuildingCollection;
+    /** Far ring: flat/low-poly, shadows OFF, nearest-N capped, tagged `ring:'far'`. */
+    readonly far: ContextBuildingCollection;
+}
+
+/**
+ * §PERF-CTX-SINGLE-FETCH (L-368, closes the C12 context-fetch-latency gap) — fetch ALL context
+ * footprints in ONE Overpass query at the FAR extent (`CONTEXT_BBOX_FAR_HALF_DEG`, a strict
+ * superset of the near tile) and split near/far CLIENT-SIDE. This collapses the previous THREE
+ * serial round-trips (wide 0.008 → narrow 0.005 fallback → far 0.016) into a single network hop:
+ *
+ *   • NEAR  = footprints whose centroid falls in the near bbox (`CONTEXT_BBOX_HALF_DEG`) —
+ *             `selectNearFootprints`; rendered extruded + shadows by the caller.
+ *   • FAR   = superset minus near disc, deduped, nearest-first, capped `CONTEXT_FAR_MAX_BUILDINGS`
+ *             — `selectFarRingFootprints`; rendered flat/shadowless by the caller.
+ *
+ * The single far-extent query is non-empty → CACHEABLE, so a repeat visit hits the persistent
+ * localStorage cache (`contextBuildingsCache.ts`) and skips Overpass entirely; and near + far
+ * derive from the SAME data with NO second network hop. Preserves the in-flight dedup +
+ * mirror-race (`§SITE-METRIC-OVERPASS-PARALLEL`), gentle-mirror throttle
+ * (`§OVERPASS-GENTLE-MIRRORS` ADR-0087/88) and proxy cache — all via `fetchForBbox`.
+ *
+ * SAFETY FALLBACK: if the single far fetch returns 0 (genuinely empty area OR a transient
+ * far-fetch failure), fall back ONCE to the narrow extent — never the old wide-first storm.
+ * The far ring stays empty in that case. NEVER throws; honours the abort signal throughout.
+ */
+export async function fetchContextBuildingsNearAndFar(
     lat: number,
     lon: number,
-    nearOsmIds: ReadonlySet<number>,
     signal?: AbortSignal,
     cap: number = CONTEXT_FAR_MAX_BUILDINGS,
-): Promise<ContextBuildingCollection> {
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
-        return emptyContextCollection();
+): Promise<ContextBuildingsNearFar> {
+    const empty: ContextBuildingsNearFar = {
+        near: emptyContextCollection(),
+        far: emptyContextCollection(),
+    };
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return empty;
+
+    // THE single network hop — one far-extent query; near + far are derived from it below.
+    const full = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+    if (signal?.aborted) return empty;
+
+    if (full.features.length === 0) {
+        // Genuinely empty far tile (or a transient far-fetch failure). Fall back ONCE to the
+        // narrow extent so the immediate neighbourhood still renders — do NOT reintroduce the
+        // old wide-first serial storm. The far ring stays empty; the narrow result is the near.
+        console.warn(
+            '[gis] context buildings: far-extent fetch returned 0 footprints — falling back once ' +
+                'to the narrow extent (immediate neighbourhood only).',
+        );
+        const narrow = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FALLBACK_HALF_DEG), signal);
+        if (signal?.aborted) return empty;
+        return { near: narrow, far: emptyContextCollection() };
     }
-    const far = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
-    if (signal?.aborted) return emptyContextCollection();
+
     const nearBbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
-    const features = selectFarRingFootprints({
-        farFeatures: far.features,
+    const nearFeatures = selectNearFootprints({ farFeatures: full.features, nearBbox });
+    const nearOsmIds = new Set<number>(nearFeatures.map((f) => f.properties.osmId));
+    const farFeatures = selectFarRingFootprints({
+        farFeatures: full.features,
         centerLat: lat, centerLon: lon,
         nearBbox, nearOsmIds, cap,
     });
     console.log(
-        `[gis] §FEAT-FORMA-CONTEXT-EXTENT-LOD far-ring: ${features.length} flat/shadowless ` +
-            `footprint(s) kept (of ${far.features.length} in the ${CONTEXT_BBOX_FAR_HALF_DEG}° bbox, ` +
-            `cap ${cap}, nearest-first).`,
+        `[gis] §PERF-CTX-SINGLE-FETCH near+far from ONE ${CONTEXT_BBOX_FAR_HALF_DEG}° fetch: ` +
+            `${nearFeatures.length} near (extruded+shadows) + ${farFeatures.length} far ` +
+            `(flat/shadowless, cap ${cap}) of ${full.features.length} footprint(s).`,
     );
-    return { type: 'FeatureCollection', features };
+    return {
+        near: { type: 'FeatureCollection', features: nearFeatures },
+        far: { type: 'FeatureCollection', features: farFeatures },
+    };
 }
 
 /** Test/diagnostic helper — clears the per-bbox cache (memory + in-flight) and

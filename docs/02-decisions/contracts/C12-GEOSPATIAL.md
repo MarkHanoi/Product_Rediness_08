@@ -178,6 +178,38 @@ baseline tag `snapshot-cesium-3d-globe-working-2026-07-17`; the live-run evidenc
 
 ---
 
+## §8 — Context-building fetch strategy — ONE far-extent Overpass query (§PERF-CTX-SINGLE-FETCH, L-368)
+
+The surrounding OSM context buildings (2D map fill + Forma 3D near ring + far LOD ring) are fetched
+from keyless Overpass with **exactly ONE network query per site**, at the FAR extent
+(`CONTEXT_BBOX_FAR_HALF_DEG = 0.016°`). The near ring (`CONTEXT_BBOX_HALF_DEG = 0.008°`) is a
+**subset** of that superset, so both rings are derived CLIENT-SIDE from the single response —
+never by a second fetch:
+
+- **NEAR** (extruded + shadow-casting) = footprints whose centroid falls inside the near bbox
+  (`selectNearFootprints`).
+- **FAR** (flat/low-poly, shadows OFF, nearest-N capped `CONTEXT_FAR_MAX_BUILDINGS = 900`) =
+  superset minus the near disc, deduped by osmId, nearest-first (`selectFarRingFootprints`,
+  §FEAT-FORMA-CONTEXT-EXTENT-LOD / L-187). Near ∪ Far is the exact complement — no overlap, no gap.
+
+**Latency rule (this was previously ungoverned).** No context-building code path may issue a WIDE
+query first and a NARROW query as a serial fallback purely to guard against a transient empty
+result: empty Overpass results are never cached (client persist guard + server `MISS-EMPTY`), so a
+wide-first-0 pattern re-pays that wasted round-trip on **every** visit. The ONLY permitted second
+fetch is a **single** narrow-extent (`CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005°`) fallback taken
+**once** when the far-extent query genuinely returns 0 (sparse/empty area) — never a wide-first
+storm. The single far-extent query is non-empty → cacheable, so a repeat visit hits the persistent
+localStorage cache (L-273) and skips Overpass entirely; **cache keys per site = 1** (was up to 3).
+
+Preserved invariants: the in-flight per-bbox dedup (§SITE-METRIC-OVERPASS-PARALLEL / L-323), the
+gentle-mirror concurrency + 429 back-off (§OVERPASS-GENTLE-MIRRORS / **ADR-0088**), the same-origin
+`/api/overpass` proxy cache, and the far-ring LOD render budget (cap / flat / shadows-off). Entry
+points: `fetchContextBuildingsNearAndFar` (near+far split) and `fetchContextBuildings` (delegates to
+`.near`) in `apps/editor/src/ui/geospatial/contextBuildings.ts`; consumed by
+`CesiumViewport.loadContextBuildings` + `renderContextBuildingsFarRing` and `SiteBoundaryMap2D`.
+
+---
+
 ## §6 — Contract History
 
 | Date | Change |
@@ -185,3 +217,4 @@ baseline tag `snapshot-cesium-3d-globe-working-2026-07-17`; the live-run evidenc
 | 2026-05-03 | Initial contract created — Wave A17 geospatial track (A17-T1). |
 | 2026-07-12 | §1.4 The ONE Datum Boundary added (ratified from §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF / L-259). |
 | 2026-07-17 | §7 Georeferenced building placement on the photoreal 3D-Tiles globe added (Known-good ACTIVE; ADR-0268; baseline `snapshot-cesium-3d-globe-working-2026-07-17`; evidence L-365). |
+| 2026-07-17 | §8 Context-building fetch strategy added — ONE far-extent Overpass query, near+far split client-side (§PERF-CTX-SINGLE-FETCH; L-368; closes the previously-ungoverned context-fetch-latency gap). |
