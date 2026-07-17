@@ -16,6 +16,18 @@ import { stairAutoOpeningId } from './stairOpeningId';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
+/** §GEN-LOG-GATING (L-375b, 2026-07-17) — true while a building generation (or a project load)
+ *  is in flight (`globalThis.__pryzmBuildingGenActive` / `__pryzmProjectLoadActive`, set by
+ *  buildingGenerationLifecycle / ProjectLoader). CreateStairCommand's diagnostic logs below dump
+ *  the full store-key list + the levels array on EVERY stair; a resi/office/house generation
+ *  creates one stair per storey, so during generation those lines are pure main-thread-blocking
+ *  console noise. Gate them off during generation/load; live user edits still log for debugging.
+ *  Read via `globalThis` (no import) — the same seam BimKernel / WallOccupancyStore use for L-369. */
+function __pryzmGenOrLoadActive(): boolean {
+    const g = globalThis as unknown as { __pryzmProjectLoadActive?: boolean; __pryzmBuildingGenActive?: boolean };
+    return g.__pryzmProjectLoadActive === true || g.__pryzmBuildingGenActive === true;
+}
+
 export interface CreateStairInput {
     baseLevelId: string;
     topLevelId: string;
@@ -118,9 +130,11 @@ export class CreateStairCommand implements Command {
         const warnings: string[] = [];
         const { wallStore, stairStore } = ctx.stores;
 
-        console.log('[CreateStairCommand.canExecute] ctx.stores:', Object.keys(ctx.stores));
         const levels = wallStore.getLevels();
-        console.log('[CreateStairCommand.canExecute] levels:', levels);
+        if (!__pryzmGenOrLoadActive()) {
+            console.log('[CreateStairCommand.canExecute] ctx.stores:', Object.keys(ctx.stores));
+            console.log('[CreateStairCommand.canExecute] levels:', levels);
+        }
 
         if (baseLevelId === this.input.topLevelId) {
             blockingIssues.push('Base level and top level cannot be the same');
@@ -382,7 +396,7 @@ export class CreateStairCommand implements Command {
 
         this.proposeRailings(stair);
 
-        console.log(`[CreateStairCommand] Created stair ${stairId} (${this.input.shape}) from ${baseLevelId} to ${this.input.topLevelId}`);
+        if (!__pryzmGenOrLoadActive()) console.log(`[CreateStairCommand] Created stair ${stairId} (${this.input.shape}) from ${baseLevelId} to ${this.input.topLevelId}`);
 
         return {
             success: true,
@@ -407,7 +421,7 @@ export class CreateStairCommand implements Command {
         const slabStore = stores.slabStore;
         const openingStore = stores.openingStore;
         if (!slabStore || !openingStore) {
-            console.log('[CreateStairCommand] Auto-opening skipped: slabStore/openingStore not available');
+            if (!__pryzmGenOrLoadActive()) console.log('[CreateStairCommand] Auto-opening skipped: slabStore/openingStore not available');
             return;
         }
 
@@ -418,7 +432,7 @@ export class CreateStairCommand implements Command {
             (s: any) => s.levelId === this.input.topLevelId
         );
         if (candidates.length === 0) {
-            console.log(
+            if (!__pryzmGenOrLoadActive()) console.log(
                 `[CreateStairCommand] Auto-opening skipped: no slab on top level "${this.input.topLevelId}"`
             );
             return;
@@ -480,7 +494,7 @@ export class CreateStairCommand implements Command {
         this.createdOpeningId = openingId;
         this.createdOpeningHostSlabId = host.id;
 
-        console.log(
+        if (!__pryzmGenOrLoadActive()) console.log(
             `[CreateStairCommand] Auto-opening ${openingId} created on slab ${host.id} ` +
             `(top level "${this.input.topLevelId}")`
         );

@@ -104,7 +104,17 @@ export class CommandManager {
         // element semantics.
         const isLoad = metadata.source === 'PROJECT_LOAD';
 
-        if (!isLoad) {
+        // §GEN-LOG-GATING (L-376e / L-375c, 2026-07-17) — a resi/office/house generation drives
+        // hundreds of commands (per-wall REDETECT_ROOMS, openings, finishes) through this method;
+        // the EXECUTE + snapshot logs below then flood DevTools and block the main thread (each
+        // console.log is synchronous with DevTools open) for the whole "finishing up" phase. Extend
+        // the PROJECT_LOAD fast-path to ALSO skip the two log lines while
+        // `globalThis.__pryzmBuildingGenActive` is set (buildingGenerationLifecycle). LOGGING ONLY:
+        // the snapshot / undo / history behaviour is unchanged — only the console.log is skipped.
+        const isGen = (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive === true;
+        const skipLog = isLoad || isGen;
+
+        if (!skipLog) {
             console.log(`[CommandManager] EXECUTE: ${command.type}`);
         }
 
@@ -119,11 +129,16 @@ export class CommandManager {
         // Skipped during PROJECT_LOAD — see fast-path comment above.
         let snapshot: Record<string, any[]> | null = null;
         if (!isLoad) {
+            // The snapshot itself is REQUIRED during generation (a failed command must roll back),
+            // so it is still taken here — only the per-command log line is gated (see §GEN-LOG-GATING
+            // above): `skipLog` covers both PROJECT_LOAD and the building-generation flood.
             const __t_snapshot_start = performance.now();
             snapshot = this.createSnapshot(command);
-            const __t_snap_elapsed = (performance.now() - __t_snapshot_start).toFixed(1);
-            const __t_scope = command.affectedStores ? command.affectedStores.join(',') : 'ALL(legacy)';
-            console.log(`[CommandManager] snapshot commandType="${(command as any).constructor?.name ?? 'unknown'}" scope=[${__t_scope}] elapsed=${__t_snap_elapsed}ms`);
+            if (!skipLog) {
+                const __t_snap_elapsed = (performance.now() - __t_snapshot_start).toFixed(1);
+                const __t_scope = command.affectedStores ? command.affectedStores.join(',') : 'ALL(legacy)';
+                console.log(`[CommandManager] snapshot commandType="${(command as any).constructor?.name ?? 'unknown'}" scope=[${__t_scope}] elapsed=${__t_snap_elapsed}ms`);
+            }
         }
 
         try {
