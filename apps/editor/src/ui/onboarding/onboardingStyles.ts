@@ -705,6 +705,8 @@ export const ONBOARDING_STYLES = `
 }
 .os-onboarding-overlay--confirm .os-confirm-actions {
   display: flex;
+  /* §L-384 — wrap so the added "← Back" button never overflows the docked banner. */
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin-top: 0.3rem;
 }

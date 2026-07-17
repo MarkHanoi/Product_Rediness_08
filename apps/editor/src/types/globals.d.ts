@@ -229,6 +229,10 @@ declare global {
          *  onboarding "Generate" action). Idempotent + double-dispose safe. Registered
          *  by GISAreaLayout. */
         pryzmCloseBoundaryMap2D?: () => void;
+        /** §L-384 — RE-DRAW after a committed boundary: clears the immutable C19 §1.4
+         *  boundary (site.replace) and re-arms the still-mounted 2D map for a fresh draw.
+         *  Called by the onboarding "← Back to drawing" action. Registered by GISAreaLayout. */
+        pryzmRearmBoundaryDraw?: () => void;
         /** O.2 — activate/deactivate the GIS (Cesium) view programmatically. The
          *  onboarding step controller's "Draw it on the map" path calls this to
          *  mount + activate GIS before `pryzmStartBoundaryDraw`. Mirrors the GIS

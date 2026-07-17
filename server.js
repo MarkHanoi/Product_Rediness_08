@@ -45,6 +45,8 @@ import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server
 import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
 // §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
+// §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
+import { CATASTRO_PARCEL_PATH, catastroParcelHandler } from './server/parcelZoningProxy.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -355,6 +357,18 @@ app.post(LEADS_PATH, leadsBodyParser, leadsHandler);
 // already covers it (no CSP change). Never crashes: all-mirrors-failed → 200
 // { elements: [] } so the client's non-fatal "no context" path still works.
 app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
+
+// §PARCEL-PROXY (L-380 P0) — same-origin Catastro cadastral-parcel proxy + SHARED
+// server-side cache for the "select a real parcel" map mode. Public + unauthenticated
+// (cadastral geometry is public gov data, not user-specific). GET /api/catastro/parcel
+// ?lon=&lat= → the server reverse-geocodes the click to a referencia catastral (OVC
+// Consulta_RCCOOR_Distancia, keyless), then fetches the parcel polygon (INSPIRE WFS
+// GetParcel by REFCAT — the WFS has no BBOX), NORMALISES GML → a WGS84 lat/lon ring,
+// and caches by refcat (7-day TTL, bounded) so repeat clicks / demo reloads are instant
+// and gentle on the shared gov endpoints. apiLimiter (60 req/min/IP) guards abuse.
+// Same-origin → connect-src 'self' already covers it (NO CSP change). Never crashes:
+// no parcel / upstream failure → 200 { parcel: null } so the client falls back to draw.
+app.get(CATASTRO_PARCEL_PATH, apiLimiter, catastroParcelHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}

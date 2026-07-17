@@ -92,6 +92,14 @@ export class ParcelBoundarySceneRenderer {
         // `EventSubscription` is callable as its own unsubscribe.
         this.disposers.push(() => sub());
 
+        // §L-384 — a `site.replace` (e.g. CLEAR-then-redraw of the immutable C19 §1.4
+        // boundary) empties the store WITHOUT a `site.parcel-boundary-set` event (which
+        // would advance the onboarding flow). Subscribe to the store's own coarse
+        // mutation notification so the outline re-reads the now-empty store + clears.
+        // Idempotent: refresh() rebuilds only when the polygon is present + ≥3 vertices.
+        const storeSub = runtime.siteModelStore?.subscribe?.(() => this.refresh());
+        if (storeSub) this.disposers.push(storeSub);
+
         // Project-switch reset — clear the outline alongside the stores so a
         // Project A parcel never renders against Project B (C19 §1.13).
         projectScopeRegistry.register({

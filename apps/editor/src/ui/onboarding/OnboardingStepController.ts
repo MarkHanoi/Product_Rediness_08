@@ -60,7 +60,7 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { createSiteFromRect } from '../site/createSiteFromRect.js';
-import { resolveSiteContext, ensureSite, dispatchSiteLocation } from '../site/siteDispatch.js';
+import { resolveSiteContext, ensureSite, dispatchSiteLocation, dispatchClearParcelBoundary } from '../site/siteDispatch.js';
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
@@ -176,6 +176,10 @@ export class OnboardingStepController {
 
     /** Disposers for in-flight listeners/timers so dispose() is leak-free. */
     private cleanups: Array<() => void> = [];
+
+    /** §L-384 — the draw-commit wait (boundary-set listener + watchdog) disposer, tracked
+     *  separately so BACK / re-draw can cancel JUST it without tearing down drag/resize. */
+    private drawWaitCleanup: (() => void) | null = null;
 
     constructor(opts: OnboardingStepControllerOptions) {
         this.runtime = opts.runtime;
@@ -610,34 +614,7 @@ export class OnboardingStepController {
         // 2) Arm the boundary-set listener + watchdog BEFORE starting the draw so
         //    we never miss the commit event.
         this.renderDrawingStep();
-
-        let settled = false;
-        const finish = (source: 'drawn' | 'watchdog'): void => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            if (source === 'watchdog') {
-                // O.7.1: a timed-out draw must NOT silently generate. Author a
-                // default plot so there's something to generate from + visible, then
-                // surface the confirm step so the user still CHOOSES.
-                console.warn('[onboarding-step] draw watchdog fired (60 s) — falling back to a default plot, then asking before generate.');
-                this.toast('No boundary drawn — using a default plot.', 'info');
-                void this.fallbackDefaultRectToConfirm('watchdog');
-            } else {
-                // O.7.1: keep the drawn boundary visible on the map + ASK before
-                // generating (typology→AI dispatch). Do NOT auto-generate.
-                console.log('[onboarding-step] boundary committed — keeping it visible + asking before generate.');
-                this.renderGenerateConfirmStep('drawn');
-            }
-        };
-
-        const sub = this.runtime.events?.on('site.parcel-boundary-set', () => finish('drawn'));
-        const watchdog = setTimeout(() => finish('watchdog'), DRAW_WATCHDOG_MS);
-        const cleanup = (): void => {
-            try { sub?.dispose(); } catch { /* ignore */ }
-            clearTimeout(watchdog);
-        };
-        this.addCleanup(cleanup);
+        this.armBoundaryCommitWait();
 
         // 3) Activate GIS + start the draw tool via the window-hook handoff.
         try {
@@ -674,6 +651,73 @@ export class OnboardingStepController {
         } catch (err) {
             console.warn('[onboarding-step] §GIS-HANDOFF threw — relying on watchdog:', err);
         }
+    }
+
+    /**
+     * §L-384 — arm the "boundary committed" wait: a `site.parcel-boundary-set` listener
+     * + a watchdog. On commit → the Confirm step; on timeout → a default plot + Confirm.
+     * Tracked in `this.drawWaitCleanup` so BACK / re-draw can cancel JUST this wait (not
+     * the overlay's drag/resize cleanups). Re-armable — cancels any prior wait first, so
+     * the confirm-step "← Back to drawing" re-draw can re-enter cleanly without double-firing.
+     */
+    private armBoundaryCommitWait(): void {
+        // Cancel any prior wait so a re-arm (BACK → re-draw) never double-fires.
+        this.drawWaitCleanup?.();
+        this.drawWaitCleanup = null;
+
+        let settled = false;
+        const finish = (source: 'drawn' | 'watchdog'): void => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (source === 'watchdog') {
+                // O.7.1: a timed-out draw must NOT silently generate. Author a default
+                // plot so there's something to generate from + visible, then ASK.
+                console.warn('[onboarding-step] draw watchdog fired (60 s) — falling back to a default plot, then asking before generate.');
+                this.toast('No boundary drawn — using a default plot.', 'info');
+                void this.fallbackDefaultRectToConfirm('watchdog');
+            } else {
+                // O.7.1: keep the drawn boundary visible on the map + ASK before generate.
+                console.log('[onboarding-step] boundary committed — keeping it visible + asking before generate.');
+                this.renderGenerateConfirmStep('drawn');
+            }
+        };
+        const sub = this.runtime.events?.on('site.parcel-boundary-set', () => finish('drawn'));
+        const watchdog = setTimeout(() => finish('watchdog'), DRAW_WATCHDOG_MS);
+        const cleanup = (): void => {
+            try { sub?.dispose(); } catch { /* ignore */ }
+            clearTimeout(watchdog);
+        };
+        this.drawWaitCleanup = cleanup;
+        this.addCleanup(cleanup);
+    }
+
+    /**
+     * §L-384 — BACK out of the Confirm / Program step. The committed parcel boundary is
+     * a C19 §1.4 IMMUTABLE one-shot, so "go back and change the plot" is a CLEAR-then-
+     * recreate, never a mutation:
+     *  - DRAWN plot: the live 2D map is still mounted (O.7.2.b) → `pryzmRearmBoundaryDraw`
+     *    clears the boundary (site.replace) + re-arms the draw; we re-enter the draw wait.
+     *  - DEFAULT plot (no live map): clear the boundary via the dispatch + return to the
+     *    plot-choice step so the user can pick another method.
+     */
+    private backFromConfirm(source: 'drawn' | 'default-plot'): void {
+        this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+        this.overlay?.classList.remove('os-onboarding-overlay--resi');
+        const w = window as unknown as { pryzmRearmBoundaryDraw?: () => void };
+        if (source === 'drawn' && typeof w.pryzmRearmBoundaryDraw === 'function') {
+            console.log('[onboarding-step] §L-384 confirm → BACK to drawing (clear + re-arm the live map).');
+            try { w.pryzmRearmBoundaryDraw(); } catch { /* ignore */ }
+            this.renderDrawingStep();
+            this.armBoundaryCommitWait();
+            return;
+        }
+        console.log('[onboarding-step] §L-384 confirm → BACK to plot choice (clear boundary via dispatch).');
+        try {
+            const ctx = resolveSiteContext(this.runtime);
+            if (ctx) dispatchClearParcelBoundary(ctx);
+        } catch (e) { console.warn('[onboarding-step] §L-384 backFromConfirm clear failed (non-fatal):', e); }
+        this.renderSiteStep();
     }
 
     /**
@@ -866,7 +910,7 @@ export class OnboardingStepController {
      * a slim instruction banner docked to the bottom edge (`--drawing` presentation,
      * no backdrop, pointer-events fall through to the map — see CSS). We keep just
      * the one-line instruction + the "Skip drawing" escape hatch, inline in the
-     * banner. The step chip ("STEP 2 OF 3 · DRAW YOUR PLOT") stays in the header.
+     * banner. The step chip ("Step 2 of 4 · Draw your plot") stays in the header.
      */
     private renderDrawingStep(): void {
         this.setDrawingPresentation(true);
@@ -875,11 +919,22 @@ export class OnboardingStepController {
 
         const hint = document.createElement('p');
         hint.className = 'os-hint os-draw-instruction';
-        hint.textContent = 'Click each corner · double-click or Enter to close · Esc to cancel';
+        // §L-384 — advertise the new edit affordances (undo/redo + Esc-clear) inline.
+        hint.textContent = 'Click each corner · Ctrl+Z undo · double-click or Enter to close · Esc clears';
         body.appendChild(hint);
 
         const footer = document.createElement('div');
         footer.className = 'os-footer';
+
+        // §L-384 — BACK to the plot-choice step. Tears the draw map down cleanly and
+        // cancels JUST the draw-commit wait (not the overlay's drag/resize cleanups).
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'os-btn os-btn--ghost';
+        back.setAttribute('data-testid', 'onboarding-draw-back');
+        back.textContent = '← Back';
+        footer.appendChild(back);
+
         const useDefault = document.createElement('button');
         useDefault.type = 'button';
         useDefault.className = 'os-btn os-btn--ghost';
@@ -887,6 +942,18 @@ export class OnboardingStepController {
         useDefault.textContent = 'Skip drawing — use a default plot';
         footer.appendChild(useDefault);
         body.appendChild(footer);
+
+        back.addEventListener('click', () => {
+            console.log('[onboarding-step] §L-384 draw → BACK to plot choice.');
+            // Cancel the draw-commit wait so it can't fire the confirm after we leave.
+            try { this.drawWaitCleanup?.(); } catch { /* ignore */ }
+            this.drawWaitCleanup = null;
+            // Tear down the live 2D draw map + any in-flight boundary tool.
+            const w = window as unknown as { pryzmCloseBoundaryMap2D?: () => void; pryzmCancelBoundaryDraw?: () => void };
+            try { w.pryzmCancelBoundaryDraw?.(); } catch { /* ignore */ }
+            try { w.pryzmCloseBoundaryMap2D?.(); } catch { /* ignore */ }
+            this.renderSiteStep();
+        });
 
         useDefault.addEventListener('click', () => {
             console.log('[onboarding-step] user opted out of drawing — default plot, then ask before generate.');
@@ -981,6 +1048,16 @@ export class OnboardingStepController {
         notNow.setAttribute('data-testid', 'onboarding-confirm-notnow');
         notNow.textContent = `Not now — I'll design it myself`;
 
+        // §L-384 — BACK: return to re-draw (drawn) / plot choice (default), clearing the
+        // immutable C19 boundary first (clear-then-recreate, never a mutation).
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'os-btn os-btn--ghost';
+        back.setAttribute('data-testid', 'onboarding-confirm-back');
+        back.textContent = source === 'drawn' ? '← Back to drawing' : '← Back';
+        back.addEventListener('click', () => this.backFromConfirm(source));
+
+        actions.appendChild(back);
         actions.appendChild(generate);
         actions.appendChild(notNow);
         body.appendChild(actions);
@@ -1240,6 +1317,14 @@ export class OnboardingStepController {
         notNow.className = 'os-btn os-btn--ghost';
         notNow.setAttribute('data-testid', 'onboarding-resi-notnow');
         notNow.textContent = `Not now — I'll design it myself`;
+        // §L-384 — BACK to re-draw / plot choice (clear-then-recreate of the C19 boundary).
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'os-btn os-btn--ghost';
+        back.setAttribute('data-testid', 'onboarding-resi-back');
+        back.textContent = source === 'drawn' ? '← Back to drawing' : '← Back';
+        back.addEventListener('click', () => this.backFromConfirm(source));
+        actions.appendChild(back);
         actions.appendChild(generate);
         actions.appendChild(notNow);
         form.appendChild(actions);
@@ -1720,6 +1805,14 @@ export class OnboardingStepController {
         notNow.className = 'os-btn os-btn--ghost';
         notNow.setAttribute('data-testid', 'onboarding-office-notnow');
         notNow.textContent = `Not now — I'll design it myself`;
+        // §L-384 — BACK to re-draw / plot choice (clear-then-recreate of the C19 boundary).
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'os-btn os-btn--ghost';
+        back.setAttribute('data-testid', 'onboarding-office-back');
+        back.textContent = source === 'drawn' ? '← Back to drawing' : '← Back';
+        back.addEventListener('click', () => this.backFromConfirm(source));
+        actions.appendChild(back);
         actions.appendChild(generate); actions.appendChild(notNow);
         form.appendChild(actions);
 

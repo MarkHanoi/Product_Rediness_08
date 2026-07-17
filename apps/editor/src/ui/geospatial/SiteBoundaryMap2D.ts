@@ -49,7 +49,7 @@ import {
     latLonToSceneXZ,
     type LatLon,
 } from '../site/boundaryProjection.js';
-import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth } from '../site/siteDispatch.js';
+import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary } from '../site/siteDispatch.js';
 import {
     buildFormaMap2DStyle,
     buildSatelliteStyle,
@@ -97,6 +97,13 @@ import { createPlanCanvasUnderlayFromSiteOverlay } from '../../engine/createSite
 // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 B) — the flow's own terminal
 // "Finish → 3D + plan split view" transition (previously owned ONLY by the onboarding wizard).
 import { onSitePlanPlacementCommitted } from '../site/overlay/enterCanvasWithSitePlan.js';
+// §PARCEL-SELECT (L-380 P1 / L-384) — provider-agnostic "select a real cadastral parcel"
+// data layer. The selected parcel commits through the SAME buildBoundaryFromLatLonRing →
+// dispatchParcelBoundary path a DRAWN boundary uses. When NO provider is supplied the
+// select mode renders an honest "connecting to cadastral data" placeholder card (the UI
+// is complete + demoable ahead of the data wiring); when a provider IS supplied (Catastro)
+// it fetches the real parcel. `dispatchClearParcelBoundary` powers the C19 §1.4-safe redraw.
+import type { ParcelFeature, ParcelProvider } from '../site/parcel/index.js';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
  *  8° ORTHO_SNAP_TOLERANCE_DEG, too tight to hit by hand now the lock is default-on). */
@@ -124,6 +131,15 @@ const VERTEX_LAYER = 'pryzm-boundary-vertices';
 // land. Threshold is in screen pixels so it feels constant at every zoom.
 const SNAP_SOURCE = 'pryzm-boundary-snap';
 const SNAP_LAYER = 'pryzm-boundary-snap-indicator';
+
+// ── §PARCEL-SELECT (L-380 P1) — real-cadastral-parcel highlight ────────────────
+// In "Select parcel" mode a map click fetches the REAL parcel under the cursor and
+// paints it in PRYZM violet (#6600FF) — an 8% fill + a solid violet outline —
+// distinct from the DRAW tool's dashed-green boundary. Its own geojson source so it
+// survives a basemap swap (re-added in installRingLayers).
+const PARCEL_SELECT_SOURCE = 'pryzm-parcel-select';
+const PARCEL_SELECT_FILL_LAYER = 'pryzm-parcel-select-fill';
+const PARCEL_SELECT_LINE_LAYER = 'pryzm-parcel-select-line';
 /** Snap activation radius in screen pixels (founder: "snap in corners"). */
 const SNAP_PX = 12;
 /** Half-size (px) of the queryRenderedFeatures box around the cursor — cheap. */
@@ -238,6 +254,14 @@ export interface SiteBoundaryMap2DOptions {
      * generate coupling entirely. The other branches (draw-plot) are unaffected (default false).
      */
     readonly overlayOnly?: boolean;
+    /**
+     * §PARCEL-SELECT (L-380 P1) — the parcel data source for the "Select parcel"
+     * map mode. Defaults to `defaultParcelProvider` (Barcelona / Catastro). Injectable
+     * so tests / future jurisdictions (ÖREB, Plandata) swap the source without
+     * touching this component. The "Select parcel" mode is OPT-IN this phase; DRAW
+     * stays the default mode (the default-mode question is a founder decision).
+     */
+    readonly parcelProvider?: ParcelProvider;
 }
 
 /**
@@ -252,8 +276,12 @@ export interface SiteBoundaryMap2DOptions {
  */
 export function mountSiteBoundaryMap2D(
     opts: SiteBoundaryMap2DOptions,
-): { dispose: () => void; readonly element: HTMLElement } {
+): { dispose: () => void; rearm: () => void; readonly element: HTMLElement } {
     const { parent, runtime, getOrigin, onClose, onCommit } = opts;
+    // §PARCEL-SELECT (L-380 P1 / L-384) — the parcel data source for the "Select parcel"
+    // mode. NULL = data not wired for this deployment → the select UI is fully built but
+    // renders an honest "connecting to cadastral data" placeholder card (draw still works).
+    const parcelProvider: ParcelProvider | null = opts.parcelProvider ?? null;
 
     // ── Overlay shell ─────────────────────────────────────────────────────────
     const overlay = document.createElement('div');
@@ -371,6 +399,129 @@ export function mountSiteBoundaryMap2D(
     toggle.appendChild(mapBtn);
     toggle.appendChild(satBtn);
     overlay.appendChild(toggle);
+
+    // ── §PARCEL-SELECT (L-380 P1) — "Select parcel / Draw boundary" mode toggle ──
+    // Top-left segmented control (brand white + #6600FF). DRAW is the DEFAULT mode
+    // (the select mode is OPT-IN this phase — the default-mode question is a founder
+    // decision, not silently changed here). In SELECT mode a map click fetches the
+    // REAL cadastral parcel; in DRAW mode the existing Rectangle/Linear/… tools run.
+    const interToggle = document.createElement('div');
+    interToggle.className = 'pryzm-gis-interaction-toggle';
+    Object.assign(interToggle.style, {
+        position: 'absolute',
+        top: '12px',
+        left: '12px',
+        zIndex: '22',
+        display: 'flex',
+        gap: '0',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: `1px solid ${VIOLET}`,
+        background: 'rgba(255,255,255,0.92)',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+        font: '12px/1 system-ui, sans-serif',
+    } satisfies Partial<CSSStyleDeclaration>);
+    function makeInterBtn(label: string, mode: 'select' | 'draw'): HTMLButtonElement {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.dataset['inter'] = mode;
+        b.setAttribute('data-testid', `parcel-${mode}-mode-btn`);
+        b.setAttribute('aria-label', `${label} mode`);
+        Object.assign(b.style, {
+            border: 'none',
+            padding: '7px 12px',
+            cursor: 'pointer',
+            background: 'transparent',
+            color: '#2a2438',
+            font: 'inherit',
+            fontWeight: '600',
+        } satisfies Partial<CSSStyleDeclaration>);
+        b.addEventListener('click', () => setInteractionMode(mode));
+        return b;
+    }
+    const selectModeBtn = makeInterBtn('Select parcel', 'select');
+    const drawModeBtn = makeInterBtn('Draw boundary', 'draw');
+    interToggle.appendChild(selectModeBtn);
+    interToggle.appendChild(drawModeBtn);
+    // Not applicable in overlay-only mode (no boundary/parcel there).
+    if (opts.overlayOnly) interToggle.style.display = 'none';
+    overlay.appendChild(interToggle);
+
+    // ── §PARCEL-SELECT — the parcel info card (ref / address / area + actions) ────
+    // Hidden until a parcel is selected. Brand white + #6600FF. Shows the factual
+    // cadastral data (L-373: factual PARCEL geometry — no estimated-data badge needed
+    // yet; the zoning/envelope estimate arrives in P2/P3) + a source attribution, and
+    // commits the ring through the EXISTING draw→commit path via "Use this parcel".
+    const parcelCard = document.createElement('div');
+    parcelCard.className = 'pryzm-gis-parcel-card';
+    parcelCard.setAttribute('data-testid', 'parcel-info-card');
+    Object.assign(parcelCard.style, {
+        position: 'absolute',
+        top: '92px',
+        right: '12px',
+        zIndex: '22',
+        width: '244px',
+        display: 'none',
+        flexDirection: 'column',
+        gap: '8px',
+        padding: '14px 16px',
+        borderRadius: '12px',
+        border: `1px solid ${VIOLET}`,
+        background: 'rgba(255,255,255,0.97)',
+        color: '#2a2438',
+        font: '13px/1.45 system-ui, sans-serif',
+        boxShadow: '0 4px 18px rgba(60,52,40,0.22)',
+    } satisfies Partial<CSSStyleDeclaration>);
+    overlay.appendChild(parcelCard);
+
+    // ── §L-384 — undo / redo vertex affordance (bottom-left pill) ────────────────
+    // Ctrl+Z / Ctrl+Y also drive these (keyListener). Shown only for the vertex-by-
+    // vertex polygon modes (rectangle/circle/ellipse commit in two clicks). Disabled
+    // states mirror availability so the affordance is never a dead button.
+    const editBar = document.createElement('div');
+    editBar.className = 'pryzm-gis-undo-redo';
+    Object.assign(editBar.style, {
+        position: 'absolute', bottom: '18px', left: '12px', zIndex: '22',
+        display: 'none', gap: '0', borderRadius: '8px', overflow: 'hidden',
+        border: `1px solid ${VIOLET}`, background: 'rgba(255,255,255,0.92)',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)', font: '14px/1 system-ui, sans-serif',
+    } satisfies Partial<CSSStyleDeclaration>);
+    function makeEditBtn(glyph: string, label: string, testid: string): HTMLButtonElement {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = glyph; b.title = label;
+        b.setAttribute('aria-label', label); b.setAttribute('data-testid', testid);
+        Object.assign(b.style, {
+            border: 'none', padding: '7px 12px', cursor: 'pointer', background: 'transparent',
+            color: VIOLET, font: 'inherit', fontWeight: '700',
+        } satisfies Partial<CSSStyleDeclaration>);
+        return b;
+    }
+    const undoBtn = makeEditBtn('↶', 'Undo last corner (Ctrl+Z)', 'boundary-undo-btn');
+    const redoBtn = makeEditBtn('↷', 'Redo corner (Ctrl+Y)', 'boundary-redo-btn');
+    undoBtn.addEventListener('click', () => undoVertex());
+    redoBtn.addEventListener('click', () => redoVertex());
+    editBar.appendChild(undoBtn);
+    editBar.appendChild(redoBtn);
+    if (opts.overlayOnly) editBar.style.display = 'none';
+    overlay.appendChild(editBar);
+
+    // ── §L-384 — "Redraw boundary" (shown after a committed boundary) ────────────
+    // The C19 §1.4 boundary is an immutable one-shot; this triggers the CLEAR-then-
+    // recreate path (dispatchClearParcelBoundary → re-arm the draw), NOT a mutation.
+    const redrawBtn = document.createElement('button');
+    redrawBtn.type = 'button';
+    redrawBtn.textContent = '↺ Redraw boundary';
+    redrawBtn.setAttribute('data-testid', 'boundary-redraw-btn');
+    Object.assign(redrawBtn.style, {
+        position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)',
+        zIndex: '23', display: 'none', padding: '8px 16px', borderRadius: '20px',
+        border: `1px solid ${VIOLET}`, background: VIOLET, color: '#ffffff', cursor: 'pointer',
+        font: '600 13px/1 system-ui, sans-serif', boxShadow: '0 2px 10px rgba(60,52,40,0.22)',
+    } satisfies Partial<CSSStyleDeclaration>);
+    redrawBtn.addEventListener('click', () => rearmDraw());
+    if (opts.overlayOnly) redrawBtn.style.display = 'none';
+    overlay.appendChild(redrawBtn);
 
     // ── §SITE-PLAN-OVERLAY — "Overlay plan/PDF" entry button ─────────────────────
     // Opens the file picker on the site-plan overlay controller (mounted on map load).
@@ -564,6 +715,19 @@ export function mountSiteBoundaryMap2D(
     // which fragments the stair carve and forces room drops (§FEASIBILITY-ALLOC). The user
     // can uncheck the toggle for a genuinely non-rectilinear site.
     let orthoEnabled = true;
+
+    // §PARCEL-SELECT (L-380 P1) — interaction mode. DRAW is the default (the select
+    // mode is opt-in this phase). In 'select', map clicks fetch the real cadastral
+    // parcel instead of adding draw vertices.
+    let interactionMode: 'draw' | 'select' = 'draw';
+    // The currently highlighted parcel (null = none selected). Committed via "Use this parcel".
+    let selectedParcel: ParcelFeature | null = null;
+    // Guards against overlapping fetches while one click's parcel is still loading.
+    let parcelFetchInFlight = false;
+
+    // §L-384 — vertex redo stack (polygon draw): vertices removed by undo, restored by
+    // redo. Any NEW vertex placement clears it (standard undo/redo semantics).
+    const redoStack: LatLon[] = [];
 
     // A.21.D9 — pooled HTML markers for the edge-dimension labels. Index 0..n-1
     // are the PLACED edges (vertex i → i+1, wrapping); the last marker (when a
@@ -759,11 +923,292 @@ export function mountSiteBoundaryMap2D(
                 'circle-stroke-width': 2.5,
             },
         });
+        // §PARCEL-SELECT (L-380 P1) — the selected real-parcel highlight (violet fill
+        // + solid violet outline). Empty until a parcel is selected; re-added here so
+        // it survives a basemap swap, then repainted from `selectedParcel`.
+        map.addSource(PARCEL_SELECT_SOURCE, { type: 'geojson', data: emptyFC() });
+        map.addLayer({
+            id: PARCEL_SELECT_FILL_LAYER,
+            type: 'fill',
+            source: PARCEL_SELECT_SOURCE,
+            paint: { 'fill-color': VIOLET, 'fill-opacity': 0.10 },
+        });
+        map.addLayer({
+            id: PARCEL_SELECT_LINE_LAYER,
+            type: 'line',
+            source: PARCEL_SELECT_SOURCE,
+            paint: { 'line-color': VIOLET, 'line-width': 2.5 },
+        });
+        refreshParcelHighlight();
     }
 
     /** An empty FeatureCollection (the snap indicator's resting state). */
     function emptyFC(): GeoJSON.FeatureCollection {
         return { type: 'FeatureCollection', features: [] };
+    }
+
+    // ── §PARCEL-SELECT (L-380 P1) — real-parcel selection ──────────────────────
+
+    /** Push the selected parcel's ring (or nothing) into the violet highlight source. */
+    function refreshParcelHighlight(): void {
+        const src = map.getSource(PARCEL_SELECT_SOURCE) as GeoJSONSource | undefined;
+        if (!src) return;
+        if (!selectedParcel || selectedParcel.ring.length < 3) { src.setData(emptyFC()); return; }
+        const coords = selectedParcel.ring.map((p) => [p.lon, p.lat] as [number, number]);
+        src.setData({
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                properties: {},
+            }],
+        });
+    }
+
+    /** Hide + empty the parcel info card. */
+    function hideParcelCard(): void {
+        parcelCard.style.display = 'none';
+        parcelCard.replaceChildren();
+    }
+
+    /** Render the parcel info card (ref / address / area + source + actions). */
+    function showParcelCard(parcel: ParcelFeature): void {
+        parcelCard.replaceChildren();
+        const title = document.createElement('div');
+        title.textContent = 'PARCEL';
+        Object.assign(title.style, {
+            font: '700 11px/1 system-ui, sans-serif', letterSpacing: '0.08em',
+            color: VIOLET, textTransform: 'uppercase',
+        } satisfies Partial<CSSStyleDeclaration>);
+        parcelCard.appendChild(title);
+
+        const row = (label: string, value: string): HTMLDivElement => {
+            const r = document.createElement('div');
+            r.style.display = 'flex';
+            r.style.gap = '8px';
+            const l = document.createElement('span');
+            l.textContent = label;
+            Object.assign(l.style, { color: '#6b647a', minWidth: '46px', flex: '0 0 auto' } satisfies Partial<CSSStyleDeclaration>);
+            const v = document.createElement('span');
+            v.textContent = value;
+            v.style.fontWeight = '600';
+            v.style.wordBreak = 'break-word';
+            r.appendChild(l); r.appendChild(v);
+            return r;
+        };
+        parcelCard.appendChild(row('Ref', parcel.refcat));
+        if (parcel.address) parcelCard.appendChild(row('Addr', parcel.address));
+        parcelCard.appendChild(row('Area', `${parcel.areaM2.toFixed(0)} m²`));
+
+        // Zoning class is P2/P3 (Zoning Rules Engine) — honestly marked pending here.
+        parcelCard.appendChild(row('Zone', 'pending (P2)'));
+
+        // Source attribution (L-373 provenance — factual cadastral geometry).
+        const src = document.createElement('div');
+        src.textContent = `Source: ${parcelProvider?.label ?? 'cadastral data'}`;
+        Object.assign(src.style, {
+            font: '11px/1.3 system-ui, sans-serif', color: '#8a8398',
+            borderTop: '1px solid rgba(102,0,255,0.15)', paddingTop: '7px', marginTop: '2px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        parcelCard.appendChild(src);
+
+        const useBtn = document.createElement('button');
+        useBtn.type = 'button';
+        useBtn.textContent = 'Use this parcel  →';
+        useBtn.setAttribute('data-testid', 'parcel-use-btn');
+        Object.assign(useBtn.style, {
+            marginTop: '4px', padding: '9px 12px', borderRadius: '8px', border: 'none',
+            background: VIOLET, color: '#ffffff', cursor: 'pointer',
+            font: '600 13px/1 system-ui, sans-serif',
+        } satisfies Partial<CSSStyleDeclaration>);
+        useBtn.addEventListener('click', () => useSelectedParcel());
+        parcelCard.appendChild(useBtn);
+
+        const drawInstead = document.createElement('button');
+        drawInstead.type = 'button';
+        drawInstead.textContent = 'Draw instead';
+        Object.assign(drawInstead.style, {
+            padding: '7px 12px', borderRadius: '8px', border: `1px solid ${VIOLET}`,
+            background: 'transparent', color: VIOLET, cursor: 'pointer',
+            font: '600 12px/1 system-ui, sans-serif',
+        } satisfies Partial<CSSStyleDeclaration>);
+        drawInstead.addEventListener('click', () => setInteractionMode('draw'));
+        parcelCard.appendChild(drawInstead);
+
+        parcelCard.style.display = 'flex';
+    }
+
+    /**
+     * §L-384 — the honest "cadastral data not wired yet" card. The parcel-select UI is
+     * FULLY built + demoable ahead of the live data: this shows a clearly-marked
+     * placeholder (sample referencia / area / zoning) + a prominent "connecting to
+     * cadastral data" banner, disables "Use this parcel" (nothing real to commit), and
+     * offers "Draw instead" so the user is never trapped. When the parcel provider is
+     * supplied (L-380), `showParcelCard` renders the REAL parcel instead of this.
+     */
+    function showStubParcelCard(): void {
+        parcelCard.replaceChildren();
+        const title = document.createElement('div');
+        title.textContent = 'PARCEL';
+        Object.assign(title.style, {
+            font: '700 11px/1 system-ui, sans-serif', letterSpacing: '0.08em',
+            color: VIOLET, textTransform: 'uppercase',
+        } satisfies Partial<CSSStyleDeclaration>);
+        parcelCard.appendChild(title);
+
+        const banner = document.createElement('div');
+        banner.textContent = '⚠ Connecting to cadastral data — sample values';
+        Object.assign(banner.style, {
+            font: '600 11px/1.3 system-ui, sans-serif', color: '#8a5a00',
+            background: 'rgba(255,176,32,0.14)', border: '1px solid rgba(255,176,32,0.5)',
+            borderRadius: '6px', padding: '5px 8px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        parcelCard.appendChild(banner);
+
+        const row = (label: string, value: string): HTMLDivElement => {
+            const r = document.createElement('div');
+            r.style.display = 'flex'; r.style.gap = '8px'; r.style.opacity = '0.7';
+            const l = document.createElement('span');
+            l.textContent = label;
+            Object.assign(l.style, { color: '#6b647a', minWidth: '46px', flex: '0 0 auto' } satisfies Partial<CSSStyleDeclaration>);
+            const v = document.createElement('span');
+            v.textContent = value; v.style.fontWeight = '600';
+            r.appendChild(l); r.appendChild(v);
+            return r;
+        };
+        parcelCard.appendChild(row('Ref', '—— sample ——'));
+        parcelCard.appendChild(row('Area', '≈ 500 m²'));
+        parcelCard.appendChild(row('Zone', 'pending (P2)'));
+
+        const useBtn = document.createElement('button');
+        useBtn.type = 'button';
+        useBtn.textContent = 'Use this parcel  →';
+        useBtn.setAttribute('data-testid', 'parcel-use-btn');
+        useBtn.disabled = true;
+        Object.assign(useBtn.style, {
+            marginTop: '4px', padding: '9px 12px', borderRadius: '8px', border: 'none',
+            background: 'rgba(102,0,255,0.35)', color: '#ffffff', cursor: 'not-allowed',
+            font: '600 13px/1 system-ui, sans-serif',
+        } satisfies Partial<CSSStyleDeclaration>);
+        useBtn.title = 'Available once cadastral data is connected — draw instead for now';
+        parcelCard.appendChild(useBtn);
+
+        const drawInstead = document.createElement('button');
+        drawInstead.type = 'button';
+        drawInstead.textContent = 'Draw instead';
+        Object.assign(drawInstead.style, {
+            padding: '7px 12px', borderRadius: '8px', border: `1px solid ${VIOLET}`,
+            background: 'transparent', color: VIOLET, cursor: 'pointer',
+            font: '600 12px/1 system-ui, sans-serif',
+        } satisfies Partial<CSSStyleDeclaration>);
+        drawInstead.addEventListener('click', () => setInteractionMode('draw'));
+        parcelCard.appendChild(drawInstead);
+
+        parcelCard.style.display = 'flex';
+        chip.textContent = 'Parcel select is connecting to cadastral data — draw instead for now · Esc to cancel';
+    }
+
+    /** Highlight the active interaction-mode segment (violet). */
+    function paintInteractionToggle(): void {
+        for (const b of [selectModeBtn, drawModeBtn]) {
+            const active = b.dataset['inter'] === interactionMode;
+            b.style.background = active ? VIOLET : 'transparent';
+            b.style.color = active ? '#ffffff' : '#2a2438';
+            b.setAttribute('aria-pressed', String(active));
+        }
+    }
+
+    /**
+     * Switch between DRAW and SELECT interaction modes. DRAW restores the draw-mode
+     * strip + instruction; SELECT hides them, clears any in-progress draw, and arms
+     * the parcel picker. Clears the parcel highlight/card when leaving SELECT.
+     */
+    function setInteractionMode(next: 'draw' | 'select'): void {
+        if (disposed || committed || next === interactionMode) return;
+        interactionMode = next;
+        // Clear any in-progress draw so the two modes never bleed.
+        rectCornerA = null; circleCentre = null; ellipseCentre = null;
+        vertices.length = 0; snapTarget = null; cursorLL = null;
+        try { refreshRing(); } catch { /* style may be swapping */ }
+        try { refreshSnapIndicator(); } catch { /* ignore */ }
+        try { refreshDimLabels(); } catch { /* ignore */ }
+        try { refreshRadiusLabel(); } catch { /* ignore */ }
+
+        if (next === 'select') {
+            modeBar.style.display = 'none';
+            chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
+        } else {
+            // Back to DRAW — drop the parcel highlight + card.
+            selectedParcel = null;
+            try { refreshParcelHighlight(); } catch { /* ignore */ }
+            hideParcelCard();
+            if (!opts.overlayOnly) modeBar.style.display = '';
+            refreshModeChrome();
+        }
+        paintInteractionToggle();
+        refreshEditBar();
+        try { map.getCanvas().style.cursor = next === 'select' ? 'crosshair' : ''; } catch { /* ignore */ }
+        console.log(`[gis] map2d: interaction mode → ${next}`);
+    }
+
+    /**
+     * §PARCEL-SELECT — on a click in SELECT mode, fetch the real parcel under the
+     * cursor via the provider (same-origin proxy) and render its violet highlight +
+     * info card. A miss shows a clean "no parcel here" toast and does NOT break the
+     * draw path. Guarded against overlapping fetches + teardown.
+     */
+    function handleParcelSelectClick(e: MapMouseEvent): void {
+        if (disposed || committed || parcelFetchInFlight) return;
+        const { lng, lat } = e.lngLat;
+        // §L-384 — DATA NOT WIRED for this deployment: render the honest placeholder card
+        // (the full select UI is present + demoable; the real fetch lands with the parcel
+        // provider, L-380 P0/P1). Never a silent no-op — the user sees exactly what's pending.
+        if (!parcelProvider) { showStubParcelCard(); return; }
+        parcelFetchInFlight = true;
+        chip.textContent = 'Fetching parcel…';
+        try { map.getCanvas().style.cursor = 'progress'; } catch { /* ignore */ }
+        void parcelProvider.fetchParcelAtPoint(lng, lat).then((parcel) => {
+            parcelFetchInFlight = false;
+            if (disposed || committed || interactionMode !== 'select') return;
+            try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* ignore */ }
+            if (!parcel) {
+                selectedParcel = null;
+                refreshParcelHighlight();
+                hideParcelCard();
+                chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
+                toast('No parcel found here — try again or draw manually.', 'info');
+                return;
+            }
+            selectedParcel = parcel;
+            refreshParcelHighlight();
+            showParcelCard(parcel);
+            chip.textContent = 'Review the parcel, then “Use this parcel” · Esc to cancel';
+        }).catch((err) => {
+            parcelFetchInFlight = false;
+            console.warn('[gis] parcel fetch failed (non-fatal):', err);
+            if (!disposed) toast('Parcel lookup failed — try again or draw manually.', 'error');
+        });
+    }
+
+    /**
+     * §PARCEL-SELECT — commit the selected parcel as the site boundary through the
+     * EXACT path a DRAWN boundary uses: load the ring into `vertices` and call
+     * `commit()` (buildBoundaryFromLatLonRing → dispatchSiteLocation? → dispatchParcelBoundary
+     * → site.parcel-boundary-set). No one-off path — generation consumes it unchanged.
+     */
+    function useSelectedParcel(): void {
+        if (disposed || committed || !selectedParcel) return;
+        const ring = selectedParcel.ring;
+        if (ring.length < 3) { toast('Selected parcel has no usable boundary.', 'error'); return; }
+        vertices.length = 0;
+        for (const p of ring) vertices.push({ lat: p.lat, lon: p.lon });
+        // Drop the violet parcel highlight — the committed boundary now renders through
+        // the normal green ring path, identical to a drawn boundary.
+        selectedParcel = null;
+        try { refreshParcelHighlight(); } catch { /* ignore */ }
+        hideParcelCard();
+        refreshRing();
+        commit();
     }
 
     // ── MAP-DATA-OVERTURE — load richer OSM/Overture footprints for the centre. ──
@@ -1073,6 +1518,9 @@ export function mountSiteBoundaryMap2D(
         // captured its points. The overlay's own map-click listener still fires and records
         // the points; we simply don't add vertices / commit here for the duration.
         if (overlayController?.isCalibrating?.()) return;
+        // §PARCEL-SELECT (L-380 P1) — in SELECT mode a click fetches the real parcel
+        // instead of adding a draw vertex. The draw tools below never run in this mode.
+        if (interactionMode === 'select') { handleParcelSelectClick(e); return; }
         // Ignore the click that ends a vertex-drag.
         if (draggingIdx !== null) return;
         // A.8.c.g — commit the snapped position when a snap is active, else raw.
@@ -1175,6 +1623,9 @@ export function mountSiteBoundaryMap2D(
 
         // Polygon mode (legacy): each click adds a vertex.
         vertices.push({ lat, lon });
+        // §L-384 — a new vertex invalidates the redo stack; refresh the undo/redo pill.
+        redoStack.length = 0;
+        refreshEditBar();
         // Clear the snap so it doesn't linger over the just-placed vertex.
         snapTarget = null;
         refreshSnapIndicator();
@@ -1287,15 +1738,32 @@ export function mountSiteBoundaryMap2D(
     }
 
     const keyListener = (ev: KeyboardEvent): void => {
-        if (disposed || committed) return;
+        if (disposed) return;
         // Ignore shortcuts while typing in a field (e.g. the geocode box).
         const t = ev.target as HTMLElement | null;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+
+        // §L-384 — after a COMMITTED boundary the map is frozen (O.7.2.b) but still
+        // mounted; ESC = RE-DRAW (clear-then-recreate of the immutable C19 §1.4 boundary)
+        // so a mis-drawn plot is never a dead end. All other keys are inert while frozen.
+        if (committed) {
+            if (ev.key === 'Escape') { ev.preventDefault(); rearmDraw(); }
+            return;
+        }
+
         // §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — OVERLAY-ONLY
-        // mode: the boundary draw tool is disarmed, so Enter (commit-loop) and the
-        // R/L/O/C/I/E mode-switch keys must be inert. Escape still tears the map down
-        // (handled by the branch below), so it deliberately falls through.
+        // mode: the boundary draw tool is disarmed, so Enter (commit-loop), undo/redo and
+        // the R/L/O/C/I/E mode-switch keys must be inert. Escape still tears the map down.
         if (opts.overlayOnly && ev.key !== 'Escape') return;
+
+        // §L-384 — Ctrl/Cmd+Z undoes the last polygon vertex; Ctrl/Cmd+Y (or Ctrl+Shift+Z)
+        // redoes it. Reuses the editor's undo/redo key convention (initUI.ts:2914+).
+        if ((ev.ctrlKey || ev.metaKey) && !ev.altKey) {
+            const k = ev.key.toLowerCase();
+            if (k === 'z' && !ev.shiftKey) { ev.preventDefault(); undoVertex(); return; }
+            if (k === 'y' || (k === 'z' && ev.shiftKey)) { ev.preventDefault(); redoVertex(); return; }
+        }
+
         if (ev.key === 'Enter') {
             ev.preventDefault();
             // §RECT-BOUNDARY / §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — Enter is a
@@ -1305,12 +1773,20 @@ export function mountSiteBoundaryMap2D(
             commit();
         } else if (ev.key === 'Escape') {
             ev.preventDefault();
-            cancel();
+            // §L-384 — ESC first CLEARS an in-progress draw (stay on the map so the user
+            // can restart cleanly); a second ESC with nothing drawn cancels the surface.
+            if (clearInProgressDraw()) {
+                toast('Draw cleared — click to start again.', 'info');
+            } else {
+                cancel();
+            }
             return;
         }
         // §BND-MODE-STRIP — single-key mode shortcuts (R/L/O/C), mirroring the wall
         // HUD. Plain keys only (no modifier) so they don't clash with browser combos.
         if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+        // §PARCEL-SELECT — the draw-mode letter shortcuts don't apply in SELECT mode.
+        if (interactionMode === 'select') return;
         const mode: BoundaryDrawMode | undefined = {
             r: 'rectangle', l: 'linear', o: 'orthogonal', c: 'curved', i: 'circle', e: 'ellipse',
         }[ev.key.toLowerCase()] as BoundaryDrawMode | undefined;
@@ -1448,12 +1924,16 @@ export function mountSiteBoundaryMap2D(
         try { refreshRadiusLabel(); } catch { /* ignore */ }
         paintModeStrip();
         refreshModeChrome();
+        redoStack.length = 0;
+        refreshEditBar();
         console.log(`[gis] map2d: draw mode → ${next} (geometry=${drawMode}, ortho=${orthoEnabled})`);
     }
     // Initial paint — Rectangle is the default (founder "for now"); the strip's key
     // shortcuts (R/L/O/C) are handled by the overlay key listener (keyListener).
     paintModeStrip();
     refreshModeChrome();
+    // §PARCEL-SELECT — DRAW is the default interaction mode (select is opt-in this phase).
+    paintInteractionToggle();
 
     // ── Commit / cancel ───────────────────────────────────────────────────────
 
@@ -1465,6 +1945,117 @@ export function mountSiteBoundaryMap2D(
      * boundary stay rendered so the "Generate with AI?" confirm step appears over a
      * live cream plan map. Idempotent.
      */
+    // ── §L-384 — vertex undo/redo + ESC-clear + re-draw after commit ─────────────
+
+    /** Show/enable the undo/redo pill for the vertex-by-vertex (polygon) draw modes. */
+    function refreshEditBar(): void {
+        const usable = !committed && !opts.overlayOnly && interactionMode === 'draw' && drawMode === 'polygon';
+        editBar.style.display = usable ? 'flex' : 'none';
+        const setEnabled = (b: HTMLButtonElement, on: boolean): void => {
+            b.disabled = !on;
+            b.style.opacity = on ? '1' : '0.35';
+            b.style.cursor = on ? 'pointer' : 'not-allowed';
+        };
+        setEnabled(undoBtn, usable && vertices.length > 0);
+        setEnabled(redoBtn, usable && redoStack.length > 0);
+    }
+
+    /** Undo the last placed polygon vertex (onto the redo stack). */
+    function undoVertex(): void {
+        if (committed || drawMode !== 'polygon' || vertices.length === 0) return;
+        const v = vertices.pop()!;
+        redoStack.push(v);
+        snapTarget = null;
+        try { refreshSnapIndicator(); } catch { /* ignore */ }
+        refreshRing();
+        refreshEditBar();
+        console.log(`[gis] §L-384 undo vertex → ${vertices.length} left`);
+    }
+
+    /** Redo the last undone polygon vertex. */
+    function redoVertex(): void {
+        if (committed || drawMode !== 'polygon' || redoStack.length === 0) return;
+        vertices.push(redoStack.pop()!);
+        refreshRing();
+        refreshEditBar();
+        console.log(`[gis] §L-384 redo vertex → ${vertices.length} placed`);
+    }
+
+    /**
+     * §L-384 — ESC while drawing: clear the IN-PROGRESS draw (all placed vertices +
+     * any rectangle/circle/ellipse anchor) WITHOUT tearing down the map, so the user
+     * can restart cleanly. Returns true when there was something to clear.
+     */
+    function clearInProgressDraw(): boolean {
+        const had = vertices.length > 0 || rectCornerA !== null || circleCentre !== null || ellipseCentre !== null;
+        vertices.length = 0;
+        rectCornerA = null; circleCentre = null; ellipseCentre = null;
+        redoStack.length = 0;
+        snapTarget = null; cursorLL = null;
+        try { refreshRing(); } catch { /* ignore */ }
+        try { refreshSnapIndicator(); } catch { /* ignore */ }
+        try { refreshDimLabels(); } catch { /* ignore */ }
+        try { refreshRadiusLabel(); } catch { /* ignore */ }
+        refreshEditBar();
+        return had;
+    }
+
+    /** Attach the map draw interaction handlers (idempotent-ish; used at load + re-arm). */
+    function attachDrawHandlers(): void {
+        map.on('click', onClick);
+        map.on('dblclick', onDblClick);
+        map.on('mousedown', VERTEX_LAYER, onMouseDownVertex);
+        map.on('mousemove', onMouseMove);
+        map.on('mouseup', onMouseUp);
+        map.on('mouseenter', VERTEX_LAYER, () => { map.getCanvas().style.cursor = 'grab'; });
+        map.on('mouseleave', VERTEX_LAYER, () => { if (draggingIdx === null) map.getCanvas().style.cursor = ''; });
+    }
+
+    /**
+     * §L-384 — RE-DRAW after a committed boundary. The C19 §1.4 parcel polygon is an
+     * IMMUTABLE one-shot, so this does a clean CLEAR-then-recreate: it dispatches
+     * `site.replace` (via dispatchClearParcelBoundary) to empty the committed boundary,
+     * then un-freezes THIS live map (O.7.2.b kept it mounted) — re-attaching the draw
+     * handlers + restoring the chrome so a fresh boundary can be authored + committed.
+     * NEVER mutates the immutable polygon. Idempotent-safe.
+     */
+    function rearmDraw(): void {
+        if (disposed) return;
+        // 1) Clear the committed C19 boundary through the canonical site.replace path.
+        try {
+            const ctx = resolveSiteContext(runtime);
+            if (ctx) dispatchClearParcelBoundary(ctx);
+        } catch (e) { console.warn('[gis] §L-384 rearmDraw: clear failed (non-fatal):', e); }
+
+        // 2) Un-freeze the map + reset all draw state.
+        committed = false;
+        vertices.length = 0;
+        rectCornerA = null; circleCentre = null; ellipseCentre = null;
+        redoStack.length = 0;
+        snapTarget = null; cursorLL = null;
+        selectedParcel = null;
+
+        // 3) Restore chrome.
+        redrawBtn.style.display = 'none';
+        chip.style.display = '';
+        closeBtn.style.display = '';
+        if (!opts.overlayOnly && interactionMode === 'draw') modeBar.style.display = '';
+        if (!opts.overlayOnly) interToggle.style.display = '';
+        try { refreshRing(); } catch { /* ignore */ }
+        try { refreshSnapIndicator(); } catch { /* ignore */ }
+        try { refreshParcelHighlight(); } catch { /* ignore */ }
+        try { refreshDimLabels(); } catch { /* ignore */ }
+        hideParcelCard();
+        refreshModeChrome();
+        refreshEditBar();
+
+        // 4) Re-attach the draw interaction + key listener (freezeDraw detached them).
+        if (!opts.overlayOnly) attachDrawHandlers();
+        window.removeEventListener('keydown', keyListener); // avoid a double bind
+        window.addEventListener('keydown', keyListener);
+        console.log('[gis] §L-384 draw re-armed after clear — ready to author a new boundary.');
+    }
+
     function freezeDraw(): void {
         if (committed) return;
         committed = true;
@@ -1496,7 +2087,14 @@ export function mountSiteBoundaryMap2D(
         closeBtn.style.display = 'none';
         // §BND-MODE-STRIP — the mode toolbar is a draw-only affordance; remove it on commit.
         modeBar.style.display = 'none';
-        console.log('[gis] map2d: boundary committed — draw frozen, cream map + boundary kept alive (dispose deferred to generate-time).');
+        // §PARCEL-SELECT — the select/draw toggle + parcel card are pre-commit affordances.
+        interToggle.style.display = 'none';
+        hideParcelCard();
+        // §L-384 — the undo/redo pill is a draw affordance; drop it. Offer RE-DRAW instead
+        // (clear-then-recreate of the immutable C19 boundary) so a mis-drawn plot isn't a trap.
+        editBar.style.display = 'none';
+        if (!opts.overlayOnly) redrawBtn.style.display = 'block';
+        console.log('[gis] map2d: boundary committed — draw frozen, cream map + boundary kept alive (dispose deferred to generate-time); Redraw available (§L-384).');
     }
 
     function commit(): void {
@@ -1601,15 +2199,11 @@ export function mountSiteBoundaryMap2D(
         // "Generate with AI?" confirm can ever be triggered from this map. (onClick also
         // early-returns on overlayOnly as belt-and-braces.) The draw-plot branch attaches as before.
         if (!opts.overlayOnly) {
-            map.on('click', onClick);
-            map.on('dblclick', onDblClick);
-            map.on('mousedown', VERTEX_LAYER, onMouseDownVertex);
-            map.on('mousemove', onMouseMove);
-            map.on('mouseup', onMouseUp);
-            // Hover affordance over vertices.
-            map.on('mouseenter', VERTEX_LAYER, () => { map.getCanvas().style.cursor = 'grab'; });
-            map.on('mouseleave', VERTEX_LAYER, () => { if (draggingIdx === null) map.getCanvas().style.cursor = ''; });
+            // §L-384 — factored so the RE-DRAW path (rearmDraw) can re-attach after a freeze.
+            attachDrawHandlers();
         }
+        // §L-384 — reflect the initial undo/redo affordance state (draw + polygon mode).
+        refreshEditBar();
         // MAP-DATA-OVERTURE — populate context footprints now + on every pan/zoom.
         loadContextBuildings(true);
         map.on('moveend', () => loadContextBuildings(false));
@@ -1671,7 +2265,7 @@ export function mountSiteBoundaryMap2D(
         console.log('[gis] map2d: ready — Forma minimal-vector boundary-draw map mounted');
     });
 
-    return { element: overlay, dispose };
+    return { element: overlay, dispose, rearm: rearmDraw };
 }
 
 /** Absolute shoelace area of an XZ ring (m²) — for the commit toast. */

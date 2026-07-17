@@ -8,6 +8,11 @@ import type { UIProps } from '../Layout';
 import { launcherRailStyle } from './zLayers';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
+// §PARCEL-SELECT (L-380 P1) — the real cadastral parcel data source for the map's
+// "Select parcel" mode (Barcelona / Catastro pilot, via the same-origin proxy). With
+// this wired the select mode fetches REAL parcels; where no parcel exists / outside
+// the provider's coverage the map falls back to the honest "no parcel — draw" state.
+import { defaultParcelProvider } from '../site/parcel';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
 // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193) — PURE view-switch
@@ -72,7 +77,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
     // retained for the console fallback (pryzmStartBoundaryDraw3D) only.
-    let map2dHandle: { dispose: () => void } | null = null;
+    let map2dHandle: { dispose: () => void; rearm: () => void } | null = null;
     // A.8.c.f.2 (defect 1) — remember the LAST geocoded result so the 2D map can
     // fit its exact bbox (the Site location store keeps only lat/lon — the bbox is
     // otherwise lost, leaving the 2D map at a coarse point zoom). Set in the
@@ -130,6 +135,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // for the PDF/image import path: the draw tool is disarmed (no boundary, no
                 // generate), only the site-plan overlay panel + calibration are live.
                 overlayOnly: drawOpts?.overlayOnly ?? false,
+                // §PARCEL-SELECT (L-380 P1) — wire the real Catastro parcel provider so the
+                // map's "Select parcel" mode fetches REAL cadastral geometry (Barcelona pilot).
+                // Outside coverage the map degrades to the honest "no parcel — draw" state.
+                parcelProvider: defaultParcelProvider,
                 // O.7.2.b — CANCEL (Esc / ×) disposes the map → drop the handle.
                 onClose: () => { map2dHandle = null; },
                 // O.7.2.b — COMMIT does NOT dispose: the cream map + boundary stay
@@ -164,6 +173,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.log('[gis] map2d: closeBoundaryMap2D() — tearing down the cream plan map at generate-time.');
             map2dHandle.dispose();
             map2dHandle = null;
+        }
+    };
+
+    // §L-384 — RE-DRAW after a committed boundary. The 2D map stays mounted post-commit
+    // (O.7.2.b); this asks it to CLEAR the immutable C19 §1.4 boundary (via site.replace)
+    // and re-arm the draw so the user can author a new plot. No-op if the map isn't open.
+    const rearmBoundaryDraw = (): void => {
+        if (map2dHandle) {
+            console.log('[gis] §L-384 rearmBoundaryDraw() — clear committed boundary + re-arm draw.');
+            map2dHandle.rearm();
         }
     };
 
@@ -1016,6 +1035,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // also calls closeBoundaryMap2D() so the map is gone before the result view
     // mounts. Idempotent + double-dispose safe.
     window.pryzmCloseBoundaryMap2D = () => closeBoundaryMap2D();
+    // §L-384 — RE-DRAW hook: the onboarding "← Back to drawing" action clears the
+    // committed (immutable) boundary + re-arms the live 2D map for a fresh draw.
+    window.pryzmRearmBoundaryDraw = () => rearmBoundaryDraw();
 
     // O.2 — onboarding step-controller GIS-activation handoff. The guided
     // first-run flow (OnboardingStepController) has no clean runtime hook to
