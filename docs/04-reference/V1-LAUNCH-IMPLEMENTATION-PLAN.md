@@ -3451,3 +3451,21 @@ Gates the L-353 / L-355 / L-356 downstream work. No target date tied to launch.
 | **P4 — Docs** | ADR-0267 §Fix-2 / ADR-0077 false-premise correction note; L-372 audit row + this plan entry. | **DONE** |
 | **Batch 2 (separate, tracked)** | The COMPLETE fix = route heavy-gen to a classic `THREE.WebGLRenderer` (`webgl-only`, zero node compile). Material-safety audit confirmed the live generated scene is 100% classic materials (zero node materials / element-level TSL), so it is materially safe (LOW–MEDIUM risk). Needs: lift the `initScene.ts:1772` Phase-5 `webgl-only` abort, extend the `initScene.ts:2811` lightweight per-frame render to `webgl-only`, and a guarded fallback to `webgl-fallback` (worst-case = today). | Planned |
 | **Verify (live)** | Founder's WebGPU-box run: after the swap, NO `expected a "float"` flash; `§L-361-WEBGPU-TRANSMISSION-GUARD neutralized …` now also fires on `webgl-fallback`; shadows do not re-render per frame during generation and reappear correctly at the end; generation materially faster. **Not marked Fixed until confirmed.** | Pending |
+
+### L-373 — 3D Site Analysis credibility & provenance hardening (geospatial/climate)
+Phase mapping (see docs/04-reference/3D-SITE-ANALYSIS-AUDIT.md §G):
+- **Phase 0 (days, P1 — covers L-373a):** Fidelity badge (Measured/Simulated/Estimated/Indicative) + absolute-vs-relative legend disclosure with real numeric min/max + provenance & fetch-date on every heatmap. Rename bare "Lawson" until CFD backs it. Add CI gate `check-siteanalysis-fidelity-label.ts` mirroring C54 `check-windcfd-beta-label.ts`. Touches: FormaSiteAnalysisControls.ts (legend/caption), siteMetricLegend. No new data.
+- **Phase 1 (weeks):** Terrain-aware sun occlusion (Cesium/LiDAR DTM); ERA5-Land base temp/wind as a C21 provider tier; C22 PII `dataTier` tag on Population; national-census provider for Population where available. Reuse siteRealData cache pattern.
+- **Phase 2 (1–2 quarters):** Ship C54 WebGPU-LBM wind CFD (ADR-0064 / SPEC-WIND-CFD-LBM) as primary wind field; annual solar radiation + kWh/m² + PV (PVGIS/NSRDB) on the existing sun pass; satellite-LST UHI + UTCI/PET comfort.
+- **Phase 3 (2+ quarters):** Build the C55 pluggable-provider geodata subsystem (ADR-0065) and land compliance/constraint layers (Daylight/overshadowing compliance, Noise, Flood, Planning controls, View corridors, BNG, Stormwater), feeding suitability/keep-out into the existing SPEC-ENVIRONMENTAL-DESIGN-DRIVERS consumer (C55 §1.8).
+Links: L-373, L-373a. Owner UNASSIGNED. Target TBD. Deps: C54, C55, C21, C22/C23.
+
+### L-374 — Forma "3D Site" production-readiness + provider-agnostic Context Engine (geospatial)
+Full audit + roadmap: docs/04-reference/FORMA-CONTEXT-ENGINE-AUDIT.md. **CONFLICT for human decision:** "engineering-grade context" (terrain+ortho+LOD2+trees) opposes the Forma abstract-flat-massing NON-GOAL (SPEC-FORMA §2/§8) — founder must decide whether "3D Site" becomes one richer view or two distinct views; and Google 3D Tiles ToS restricts derivative/offline use (licensing decision).
+- [ ] **Phase 0 (L-374a, P1):** GLB export off critical path (worker/idle) + Draco; cross-view geometry-signature cache (fix view-mode-keyed re-export); seat-once (no place-at-0-then-re-place); defer non-critical context. Add C10 view-activation budget (<~2s first-interactive). SUBSUMES L-355/356/358. Effort M. Dep: none.
+- [ ] **Phase 1 (L-374b):** attach TerrainProvider (Cesium ion/Copernicus); wire sampleTerrainMostDetailed clamp. Effort M. Dep: none.
+- [ ] **Phase 2 (L-374e):** orthophoto ImageryLayer draping over terrain. Effort S. Dep: Phase 1.
+- [ ] **Phase 3 (L-374f):** extract @pryzm/context-engine provider interfaces + refactor context loaders behind adapters. Effort L. Dep: none (enables Ph4/5).
+- [ ] **Phase 4 (L-374c):** Overture + Cityweft/Google-3D-Tiles BuildingProvider adapters; 3D-Tiles hand-off; OSM LOD1 fallback. Effort L. Dep: Phase 3.
+- [ ] **Phase 5 (L-374d):** VegetationProvider — instanced tree impostors. Effort M. Dep: Phase 3.
+Links: L-374, L-374a..f. Owner UNASSIGNED. Target TBD. Deps: C12-CONTEXT-ENGINE (new), C10 budget, ADR-0065 pattern.
