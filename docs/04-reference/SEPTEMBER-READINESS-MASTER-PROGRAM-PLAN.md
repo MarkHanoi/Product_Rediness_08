@@ -5,6 +5,12 @@
 > **Author**: cross-pipeline program review (workload / critical-path / leverage pass).
 > **Founder intent**: *"everything in place by September, we will work day and night, make it work, architecturally
 > sound, no shortcuts, review how to leverage the work and where everything should be done between the pipelines."*
+> **Founder directive (2026-07-17, this revision)**: *fit FULL Archistar parity — Denmark + Switzerland + Spain — into
+> the September pipeline; do NOT cut DK/CH/ES.* This plan is re-shaped from a one-engineer / cut-scope reading to a
+> **full-scope-fitted-via-parallel-execution** reading: work is done by many worktree-isolated agents concurrently, so
+> wall-clock is bounded by the **critical path (the irreducibly-serial engine core)**, not the *sum* of dev-weeks. The
+> fit verdict, critical path, parallelization map, and week-by-week schedule below are rewritten accordingly; the
+> inventory, leverage map, risk register, and work-item deltas are preserved and reconciled to the new shape.
 > **Governance posture**: launch-readiness/program deliverable, NOT a `*-AUDIT.md` contract-derivative. References the
 > canonical C-contracts and the L-NNN issue log; authors none; flags conflicts; resolves none. Proposes work-item
 > deltas (§8) — LISTED here for the orchestrator to transcribe into `V1-LAUNCH-READINESS-AUDIT.md` /
@@ -19,52 +25,83 @@
 
 ## §1 — Executive summary & honest fit verdict
 
-**Verdict: FITS-WITH-NAMED-CUTS.** "Day and night" can put a *credible, architecturally-sound* September surface on
-`pryzm.fly.dev` — **but only if "everything" is defined honestly.** The full literal ask (all P0/P1 launch blockers
-**and** full Archistar-parity compliance across Denmark + Spain + Switzerland **and** verified IFC/DXF/Rhino interop, in
-7–8 weeks) **does not fit** and cannot be made to fit by adding people, because the two decisive chains are *serial* and
-partly *human-ratification-latency-bound*, not merely dev-day-bound. Compliance-to-parity alone is estimated at
-**~8–11 focused dev-weeks for one engineer on Denmark only** (Archistar audit §5.4) — that single number already
-exceeds the calendar before a single launch blocker is touched.
+**Verdict: FITS — full DK/CH/ES scope — under parallel execution, PROVIDED (a) the L-391/L-397 ratification gates are
+decided in week 1, (b) the September fidelity cut is accepted as DK full-fidelity + ES-and-CH shipped "estimated —
+flagged" (C58's mandatory confidence label), and (c) every merge is test- and tsc-gated.** The earlier
+"FITS-WITH-NAMED-CUTS" reading assumed **one engineer working serially** — under which Denmark alone is ~8–11 focused
+dev-weeks (Archistar §5.4) and the *sum* of both pipelines overruns the calendar before a blocker is touched. **That
+assumption does not hold for this execution model.** Work is done by **many worktree-isolated agents concurrently**, so
+wall-clock is bounded by the **critical path — the irreducibly-serial engine core — not the *sum* of dev-weeks.** Once
+the jurisdiction-agnostic engine is built and its interface frozen (~week 2), the jurisdictions, report, interop,
+blockers, and view/demo tracks all fan out in parallel. The dev-day sum is unchanged (§2); the calendar it occupies is
+not. This lets the FULL Archistar footprint — Denmark **and** Switzerland **and** Spain — fit September, with fidelity
+following structure where the source data is not yet machine-readable.
 
-**What fits (the honest September surface):**
+**This does NOT dissolve every constraint.** Three residuals survive parallelization and are stated plainly in §1.3:
+human ratification latency, CH/ES rule-pack fidelity, and verification load. The honest September shape is
+**parity-in-structure with fidelity following**: DK provably full-fidelity; ES/CH shipped as *structurally identical
+adapters* whose numeric packs carry the "estimated" confidence label until human-validated post-launch. We do **not**
+claim full CH/ES regulatory fidelity by September.
 
-1. **All P0/P1 launch blockers closed** — the P0 core is larger than the named list: **L-360** (checksum bricks valid
-   projects — the live data-integrity P0; L-334 already shipped), **L-361–366** (WebGPU device-loss cascade on batch AI
-   generation — today this can make *no project creatable*), **L-391** Phases 1–3 (+L-53/L-335 → make C08 ACTIVE),
-   **L-188** (GIS/site data lost on reopen — a hard prerequisite for the whole compliance pillar). Then the P1 band —
-   L-387 (deps), L-388/L-204 (green CI gate), L-393 (interop round-trip *verified*), L-394 (migration tested), L-395
-   (embed token), L-396 (durability), L-392 (observability), **L-345** (GDPR/C22 — an EU launch-blocker the Denmark
-   pillar makes unavoidable) — plus the **L-397** pricing decision (founder). **These are non-negotiable and set the
-   launch date; the formal gate is G0-CONTRACTS (C08/C10/C13/C48-min/C22-min ACTIVE).**
-2. **Compliance pillar = Denmark ONLY, end-to-end, behind a flag** — governance (L-403) → envelope solver (L-398) →
-   authoring bridge (L-401) → explain-why report + 3D volume (L-402), proven on the one jurisdiction with structured
-   zoning (Plandata.dk). This is the founder's CF-1 pillar realised as a *demonstrable, architecturally-sound wedge*:
-   parcel → zoning → buildable envelope → **a generated building that provably fits inside the envelope** → export.
-3. **Pipeline B parcel-select (Spain/Catastro) already shipped** — folded in as the input spine the envelope reuses;
-   its residual lift-to-L2 + proxy-cache hardening ride along.
+### §1.1 — Serial core (the critical path — ~4 weeks, built once)
 
-**What must be CUT or de-scoped for September (say so plainly):**
+The jurisdiction-agnostic engine, built once and reused by every jurisdiction:
 
-- **Spain compliance breadth (L-399c / B4)** — numeric rules are PDF-trapped (curated `es-barcelona` pack) and Spain
-  has *little free LOD2*, so the Spanish envelope is both lower-fidelity and lower-confidence. **Fast-follow (Q4), not
-  September.** Spain's *parcel-select authoring* demo already ships; only its *compliance* half is cut.
-- **Switzerland (L-399/L-400 CH adapters / B7)** — 26-canton PDF federation + the Terrara buy-vs-build decision (CF-2).
-  **Explicitly a later bet. Out of September.**
-- **Denmark demo-fidelity LOD2 + terrain (L-404 / B5, executes L-383a–e)** — native-binary/JVM offline-bake toolchain;
-  valuable for the *flagship* demo but decouplable. **Ship the engine in September; the cinematic LOD2 context is
-  fast-follow.** September's DK demo uses the existing Cesium/footprint context, not baked LOD2.
-- **Compliance check-back (re-validate after edits, G-ENG-5)** — Phase-B parity feature; out of September.
+- **C57/C58 finalize** (L-403) — Parcel Data Layer + Zoning Rules Engine contracts.
+- **Envelope solver** (L-398a→d) — parcel ⊖ setbacks (Turf negative buffer) → height cap → FAR → two-fidelity /
+  provenance resolution → wire to `site.updateZoning` (P6 bus).
+- **Envelope → authoring bridge** (L-401a/b/c) — thread inset + maxHeight into the generators / typology-pipeline;
+  permitted-use → brief seed; `SpatialValidator` envelope-containment.
 
-**The single most important guardrail:** the compliance pillar **must never gate GA and must never starve the P0
-blockers.** A compliance demo on top of silent element-loss (L-334) or last-write-wins collab (L-391) is not launchable
-(Archistar audit §5.2/§5.5). Compliance ships *dark, behind a flag, additively* — exactly the L-380 §12 / L-391 Phase-0
-discipline. If staffing forces a choice in any given week, **the P0 blockers win, every time.**
+**Freeze the engine interface by ~week 2** (`BuildableEnvelope` / `JurisdictionZoningContract` / `ZoningProvider`
+schemas). The freeze is the hinge: it lets Track J fan out across jurisdictions off a stable contract. This ~4-week
+serial spine — plus its two hard upstream prerequisites (L-188 site-data persistence; a healthy render surface,
+L-361–366) — is the only chain the calendar cannot compress by adding agents.
 
-**Bottom line for the founder:** you can stand up in September and truthfully say *"PRYZM authors compliant-ready
-buildings on real European parcels — and on Denmark it computes the buildable envelope from live national zoning and
-generates a building that provably fits it."* You cannot yet say *"European Archistar across DK/CH/ES."* The plan below
-gets the first claim fully in place, architecturally sound, and sequences the rest as honest fast-follow.
+### §1.2 — Parallel fan-out tracks (concurrent off the frozen engine)
+
+- **Track J — jurisdictions:** DK (Plandata structured zoning + Datafordeler/Matriklen parcels — L-399a/b, L-400b) ‖
+  ES (Catalonia MUC — L-399c) ‖ CH (cantonal — structural adapter + curated packs). Each is an adapter off the shared
+  engine; net-new packages, collision-free by construction.
+- **Track R — report:** explain-why compliance report + 3D envelope render (L-402a/b/c), reusing
+  `buildPlanGraphOverlaySvg` + `pryzmRenderFormaMassing`.
+- **Track I — interop:** IFC/DXF/Rhino round-trip harness + adversarial malformed-file cases (L-393a/b).
+- **Track B — launch blockers:** L-360 checksum, L-391 collab P1→P3, L-53 LWW, L-387 deps, L-395/L-405 security,
+  L-396 versions/durability, **L-188 (GIS/site data lost on reopen — a HARD PREREQUISITE for the compliance pillar)**.
+  Different subsystems → fully parallel to compliance.
+- **Track V — view + demo:** unified view-switcher (L-405) + Denmark LOD2 demo-fidelity (L-404 — **no longer cut**,
+  folded here).
+
+### §1.3 — Honest residuals parallelization does NOT solve (keep prominent)
+
+1. **Human RATIFICATION LATENCY.** L-391 (R-A..R-E collab infra) + L-397 (pricing) gate the launch and cannot be coded
+   around or bought down with more agents — they are calendar, not dev-days. **Front-load to weeks 1–2.**
+2. **CH/ES rule-pack FIDELITY.** Agents can *draft* rule packs, but validating 26 Swiss cantons + fragmented Spanish
+   PGOU against real regulation is human-judgment-heavy. September honest shape = **DK full-fidelity; ES + CH shipped
+   "estimated — flagged"** (C58's mandatory confidence label), hardened post-launch. This is **parity-in-structure with
+   fidelity following** — state it plainly; do **not** claim full CH/ES fidelity by September.
+3. **VERIFICATION LOAD.** The parallel code volume only stays sound if **EVERY merge is test- and tsc-gated** — root
+   `tsc --skipLibCheck` clean + the relevant suite green before each merge, no exceptions. This is an explicit **program
+   rule**, not a nicety; it is the price of trading dev-day-sum for critical-path.
+
+### §1.4 — Two corrections the plan itself surfaced (applied in this doc's narrative)
+
+- **L-334 checksum is SHIPPED**; the live P0 is **L-360**, a regression whose checksum hard-refuses valid projects
+  (bricks them). *Awaiting code verification — do not assert L-360's exact mechanism as fact until verified in code.*
+- **L-188 is a compliance PREREQUISITE**, not a generic blocker: parcel → envelope → persist is meaningless if site/GIS
+  data does not survive close+reopen. Tagged as a hard prerequisite in Track B.
+
+**The single most important guardrail (unchanged):** the compliance pillar ships **dark, behind a flag, additively** and
+**must never gate GA nor starve the P0 blockers** (Archistar §5.2/§5.5) — exactly the L-380 §12 / L-391 Phase-0
+discipline. Under parallel execution the tracks sit on disjoint subsystems, so contention is the exception; but if any
+week does force a choice, **the P0 blockers win, every time.**
+
+**Bottom line for the founder:** in September you can truthfully say *"PRYZM authors compliant-ready buildings on real
+European parcels across Denmark, Switzerland and Spain — full-fidelity on Denmark from live national zoning, and
+structurally-identical estimated envelopes (clearly labelled) on Switzerland and Spain, hardening to full fidelity
+post-launch."* The structure is full-scope DK/CH/ES parity; the fidelity is honest and labelled. The plan below puts the
+serial engine core on the critical path, fans the jurisdictions/report/interop/blockers/view tracks out off its frozen
+interface, and keeps every residual risk visible.
 
 ---
 
@@ -79,7 +116,7 @@ Pipeline tags: **A-blocker** (launch-critical data-integrity/collab/security/qua
 | Item | Title | Sev | Status (as of read) | Subsystem / files | Contract/ADR | Effort (d) | Dep |
 |---|---|---|---|---|---|---|---|
 | **L-334** | Save data-integrity — silent element-loss reported as success (quarantine + client checksum) | **P0** | **SHIPPED** (Fix 1, 2026-07-16) — but spawned the L-360 regression; **server-side checksum column deferred** | `ProjectLoader.ts`, `ProjectSerializer.ts`, `SnapshotIntegrity`/`QuarantineStore` | C05, C47 §1.6, C48-adjacent | 0 (done) + 1–2 (server col) | — |
-| **L-360** | L-334 checksum **hard-refuses valid projects (bricks them)** — codec not bit-exact (checksum pre-compression vs post-decompression) | **P0** | **OPEN — REGRESSION, FIX IN PROGRESS.** The live P0. Fix: round-trip-stable checksum + never-hard-brick (load best-effort + warn) | `SnapshotIntegrity.ts`, `ProjectSerializer.ts:978`, Msgpack/draco codecs | C05, C47 | 3–5 | L-334 |
+| **L-360** | L-334 checksum **hard-refuses valid projects (bricks them)** — codec not bit-exact (checksum pre-compression vs post-decompression) | **P0** | **OPEN — REGRESSION, FIX IN PROGRESS.** The live P0 (L-334 itself is SHIPPED). *Mechanism above is awaiting code verification — do not assert as fact until verified.* Fix: round-trip-stable checksum + never-hard-brick (load best-effort + warn) | `SnapshotIntegrity.ts`, `ProjectSerializer.ts:978`, Msgpack/draco codecs | C05, C47 | 3–5 | L-334 |
 | **L-361–366** | **WebGPU device-loss cascade on batch AI generation** — repeated GPU crash until browser disables accel → **no project creatable**; +TSL-module/`_renderTransparents` shader errors; auto-WebGL fallback not firing for real buildings | **P0** | OPEN — several "IMPLEMENTED, awaiting live WebGPU confirmation" (NOT yet Fixed) | renderer-three, RenderPipelineManager, auto-fallback | C04 §1.4, C10, ADR-0089/0094/0267/0077 | 6–12 (confirm+harden) | — |
 | **L-53** | Concurrent wall-baseline move = silent LWW (collab data loss) | **P0** (re-flagged 07-17) | GAP — needs shared CRDT id normalization; `CRDTConflictResolver` never called on baseline write | `YjsDocAdapter.applyCommand` | C08 §3.1/§3.3, P8 | 4–6 | L-391 P2 |
 | **L-335 / L-340** | Real-time collab not conflict-safe; Yjs CRDT dead-wired; C08 asserts a server-side merge the code doesn't provide | **P0/P1** | OPEN — FIX 2 decision-gated; **make C08 ACTIVE** (G0-CONTRACTS) | `YjsDocAdapter.ts:558`, C08 | C08, P8 | (rolled into L-391) | L-391 |
@@ -105,20 +142,26 @@ L-391/L-53/L-335), **C10** (L-341), **C13** (L-342), **C48-min** (L-344), **C22-
 formal expression of "collab correctness + GDPR + durability must be real before GA," and it directly couples the
 compliance pillar's EU exposure (C22) to the launch.
 
-### §2.2 — Pipeline A — compliance-authoring pillar (CF-1, September, Denmark-first)
+### §2.2 — Pipeline A — compliance-authoring pillar (CF-1, September — DK full-fidelity, ES + CH shipped "estimated — flagged")
 
 | Item | Title | Sev | Status | Subsystem / new package | Contract/ADR | Effort (d) | Dep |
 |---|---|---|---|---|---|---|---|
 | **L-403** | Governance — author C57 (Parcel Data Layer) + C58 (Zoning Rules Engine) + SPEC-PARCEL-SELECTION + SPEC-COMPLIANCE-REPORT + strategy ADR + VISION wedge | P1 (pillar) | **IN PROGRESS** — contracts-first | `docs/` C00 index, contracts, SPECs, ADRs | C57/C58 (NEW), C00, C19 §9/§10.2, STR-02/STR-12 | 5–8 | — |
 | **L-398** | Zoning Rules Engine + BuildableEnvelope solver (parcel ⊖ setbacks → inset + area×maxHeight, two-fidelity) | **P1** | OPEN — 0% built; the hardest piece | new `@pryzm/*` L2 engine; Turf dep | **C58 (NEW)**, C19 §1.4/§1.6 | 8–12 | L-403 (C58 skeleton), Turf dep |
-| **L-399** | ZoningProvider adapters + curated rule packs (DK Plandata structured + `da-*` pack; ES-Catalonia MUC = fast-follow) | **P1** | OPEN | zoning providers, `JurisdictionZoningContract` packs | C58 (NEW), L-373 | 4–7 (DK) | L-398a schemas |
-| **L-400** | Parcel Data Layer completion — lift shipped Catastro provider to `@pryzm/site-parcel-data` (L2); DkParcelProvider (Matriklen, server-side Datafordeler key) | P2 | OPEN | `apps/editor/src/ui/site/parcel/` → L2; `server/parcelZoningProxy.js` clone | **C57 (NEW)**, C12, C19 | 3–5 (DK) | L-403 (C57 skeleton) |
+| **L-399** | ZoningProvider adapters + curated rule packs — **fan-out Track J**: DK Plandata structured + `da-*` pack (full-fidelity); ES-Catalonia MUC + `es-barcelona` pack **("estimated — flagged")**; CH cantonal structural adapter + curated pack **("estimated — flagged")** | **P1** | OPEN — DK full; ES/CH structural adapters w/ estimated confidence label (C58) | zoning providers, `JurisdictionZoningContract` packs | C58 (NEW), L-373 | 4–7 (DK) + 3–5 ea (ES/CH adapters, parallel) | L-398a schemas (frozen iface) |
+| **L-400** | Parcel Data Layer completion — lift shipped Catastro provider to `@pryzm/site-parcel-data` (L2); DkParcelProvider (Matriklen, server-side Datafordeler key); ES already shipped (Catastro); CH parcel adapter (structural) | P2 | OPEN | `apps/editor/src/ui/site/parcel/` → L2; `server/parcelZoningProxy.js` clone | **C57 (NEW)**, C12, C19 | 3–5 (DK) + CH adapter (parallel) | L-403 (C57 skeleton) |
 | **L-401** | Envelope → authoring constraint bridge (inset + maxHeight + permitted-use → generators / typology-pipeline) | **P1** | OPEN | `generateResidentialFromBoundary`, `@pryzm/typology-pipeline`, house/apartment/resi generators | C19 §1.6, C50, C53 | 5–8 | L-398 |
 | **L-402** | Compliance "explain-why" report + 3D envelope volume render | **P1** | OPEN | report artefact (reuse `buildPlanGraphOverlaySvg`), Cesium/renderer 3D volume | SPEC-COMPLIANCE-REPORT (NEW), C23, L-373, C04/C18 | 5–8 | L-398 (report needs an envelope) |
-| **L-404** | Denmark demo-fidelity — LOD2 3D-Tiles + DHM terrain (executes L-383a–e) | P2 | OPEN | offline-bake toolchain (GDAL/citygml-tools/tyler/ctb); Cesium tileset+terrain seams | extends L-383; C12, C55 | M–L (offline) | independent — **CUT to fast-follow** |
+| **L-404** | Denmark demo-fidelity — LOD2 3D-Tiles + DHM terrain (executes L-383a–e) | P2 | OPEN | offline-bake toolchain (GDAL/citygml-tools/tyler/ctb); Cesium tileset+terrain seams | extends L-383; C12, C55 | M–L (offline) | independent — **folded into Track V (no longer cut); parallel to all other tracks** |
+| **L-405** | Unified view-switcher (plan / 3D / massing / site surfaces) + view-surface security hardening | P2 | OPEN — just logged (Track V) | view-state, split-view, view-switcher UI | C04/C18 | 3–5 | independent |
 
-**Compliance subtotal (September DK-only, L-403+L-398+L-399(DK)+L-400(DK)+L-401+L-402):** ~30–48 dev-days on a strict
-serial spine (see §3). This is the ~8–11 dev-week figure from the Archistar audit §5.4, expressed as a schedulable list.
+**Compliance subtotal:** the **serial engine core** (L-403 + L-398 + L-401, jurisdiction-agnostic) is ~20–32 dev-days on
+a strict serial spine (see §3) — this is the critical path. The **per-jurisdiction adapters** (L-399/L-400 for DK, ES,
+CH) and the **report** (L-402) are ~15–25 additional dev-days that **fan out in parallel off the frozen engine
+interface**, not serially added to the core. The old ~8–11 dev-week figure (Archistar §5.4) was the *one-engineer
+serial sum for Denmark alone*; under parallel execution the calendar cost is the ~4-week core plus concurrent fan-out,
+not the sum. **DK ships full-fidelity; ES + CH ship structurally-identical adapters with the C58 "estimated" confidence
+label** (§1.3-2).
 
 ### §2.3 — Pipeline B — parcel/geo (mostly shipped; residuals fold in)
 
@@ -138,67 +181,88 @@ the leverage substrate (§5), not new build.
 
 ## §3 — Dependency graph & critical path
 
+**Under parallel execution the governing quantity is the CRITICAL PATH (the serial engine core), not the dev-day sum.**
+The engine is built once; jurisdictions / report / interop / blockers / view fan out off its **frozen interface** (~wk2).
+
 ```
-                          ┌─────────────── LAUNCH SPINE (gates GA) ───────────────┐
- L-388 (green gate) ──┐   L-334 ─→ L-360 ─(reconcile R-E)─┐
- L-387 (deps) ────────┼─→                                 ├─→  L-391 P1 (deploy+auth+Fly, R-A/R-B/R-C)
- L-394/L-395/L-392 ───┘   L-85 f/u ──────────────────────┘         │
-                                                                    ▼
-                                                          L-391 P2 (authoritative, R-D)  ← also unblocks L-53
-                                                                    │
-                                                                    ▼
-                                                          L-391 P3 (two-browser E2E gate)
-                                                                    │
-                                                    ┌───────────────┴──── production flip (founder) = GA-collab
- L-397 (pricing, founder) ─→ L-396 (durability) ────┘
+                    ┌──────── SERIAL CORE = CRITICAL PATH (~4 weeks, built ONCE) ────────┐
+ PREREQ (Track B): L-188 (site data survives reopen) · render surface healthy (L-361–366)
+        │
+ L-403 (C57/C58 finalize) ─→ L-398a (schemas + Turf; ◆ FREEZE ENGINE IFACE ~wk2 ◆)
+        └─→ L-398b/c (solver: ⊖setbacks + height + FAR + two-fidelity/provenance)
+                 └─→ L-398d (wire → site.updateZoning, P6 bus)
+                          └─→ L-401a/b/c (envelope → authoring bridge + containment)  ══ engine complete ══
+                                     │
+        ══ interface frozen ~wk2  ⇒  FAN-OUT BEGINS (all tracks concurrent, disjoint subsystems) ══
+                                     │
+   ┌────────────────┬──────────────┬────────────────┬───────────────────────┬──────────────────┐
+   ▼                ▼              ▼                ▼                       ▼
+ Track J          Track R        Track I          Track B                 Track V
+ DK ‖ ES ‖ CH     report + 3D    IFC/DXF/Rhino    launch blockers         view-switch + demo
+ adapters         (L-402a/b/c)   (L-393a/b)       (L-360 · L-391 ·        (L-405 view-switcher
+ (L-399/L-400)                                    L-53 · L-387 ·          + L-404 LOD2/terrain)
+ DK full-fidelity;                                L-395/L-405-sec ·
+ ES/CH "estimated                                L-396 · L-188 prereq)
+ — flagged" (C58)
 
-                          ┌───────────── COMPLIANCE SPINE (CF-1 pillar, dark/flagged) ────────────┐
- L-188 (site data survives reopen) ═══PREREQUISITE═══▶ everything below
- L-403 (C57/C58 skeleton) ─→ L-398a (schemas+Turf) ─→ L-398b/c/d (solver) ─→ L-401 (authoring bridge) ─→ demo
-                                        │                       │
-                                        │                       └─→ L-402 (report + 3D volume; needs Forma/Cesium view L-355/L-183 healthy)
-                                        └─→ L-399 (DkZoningProvider + da-* pack)  L-400 (DkParcelProvider, key)
- (independent, CUT to fast-follow) L-404 (LOD2+terrain)   ·   L-393 (interop round-trip, independent)
-
- G0-CONTRACTS gate (blocks GA): C08 ACTIVE ⇐ L-391+L-53+L-335 · C22-min ACTIVE ⇐ L-345 (GDPR) · C48-min ⇐ L-344 · C10 ⇐ L-341 · C13 ⇐ L-342
+ LAUNCH GATE (its OWN critical path, human-latency-bound, runs concurrently in Track B):
+   L-334 (SHIPPED) → L-360 (live regression, awaiting code verify) → L-391 P1→P2→P3 → production flip (founder)
+ G0-CONTRACTS (blocks GA): C08 ⇐ L-391+L-53+L-335 · C22-min ⇐ L-345 (GDPR) · C48-min ⇐ L-344 · C10 ⇐ L-341 · C13 ⇐ L-342
 ```
 
-**Two critical paths converge on the September date — the founder's hypothesis is essentially correct, with one
-refinement:**
+**There is one serial critical path and one concurrent human-latency chain; neither is the *sum* of dev-weeks:**
 
-1. **Blocker critical path — `L-334 → L-360 → L-391 P1 → P2 → P3 → production flip`.** ~24–35 dev-days of code, **but
-   its true length is calendar-latency, not dev-days**: Phases 1–3 are strictly serial and gated by **five human/infra
-   ratification points** (R-A protocol, R-B ws-auth, R-C Fly infra + billing, R-D one-authority reconciliation, R-E Yjs
-   durability↔snapshot reconciliation) that **cannot be parallelized or bought down with more engineers**. R-E explicitly
-   couples L-391 to L-334/L-85 (a CRDT merge that drops elements must be caught by snapshot element-count
-   reconciliation). **This is the critical path for *launching at all*.**
-2. **Compliance critical path — `L-403 (C58) → L-398 solver → L-401 authoring bridge → L-402 report`.** ~23–36 dev-days
-   on a **strict serial chain** (each stage consumes the previous stage's output, and L-398/L-401/L-402 all touch the
-   same new packages, so they cannot be meaningfully parallelized across engineers). **This is the critical path for the
-   *new pillar*, and it is the longest net-new build in the program.**
+1. **The serial critical path (~4 weeks): `L-403 (C57/C58) → L-398 solver → L-401 bridge`.** This is the only chain the
+   calendar cannot compress by adding agents, because each stage consumes the previous stage's output and all touch the
+   same net-new packages. **Everything downstream of the frozen interface (~week 2) parallelizes.** Freezing
+   `BuildableEnvelope` / `JurisdictionZoningContract` / `ZoningProvider` by week 2 is the **single highest-leverage
+   scheduling act in the program** — it converts DK + ES + CH from a serial *sum* into concurrent adapters (Track J),
+   and lets Tracks R/I/V build against a stable contract.
+2. **The launch gate is a SEPARATE critical path, bounded by human latency not dev-days:** `L-360 → L-391 P1→P2→P3 →
+   production flip`, gated by **five ratification points** — R-A protocol, R-B ws-auth, R-C Fly infra + billing, R-D
+   one-authority reconciliation, R-E Yjs durability↔snapshot reconciliation — that **cannot be parallelized or bought
+   down with more engineers**. R-E couples L-391 to L-334/L-85 (a CRDT merge that drops elements must be caught by
+   snapshot element-count reconciliation). This runs concurrently with the engine core on disjoint subsystems (Track B).
+   **L-334 is SHIPPED; L-360 is the live regression on this chain** (mechanism awaiting code verification — do not assert
+   as fact until verified).
 
-**Two prerequisites gate the compliance spine before its own chain even starts:** (i) **L-188** — if GIS/site data does
-not survive a close+reopen, the entire parcel→envelope→persist loop is moot, so L-188 must close *before* the compliance
-demo is credible; (ii) the **WebGPU device-loss cluster (L-361–366)** — the 3D envelope render (L-402b) rides the same
-Forma/Cesium/renderer path that L-183 (globe crash) and L-355 (slow load) still afflict, so the render surface must be
-healthy first. Neither is on the compliance track's own critical chain, but both are hard upstream gates.
+**Two hard prerequisites gate the compliance core before its own chain starts** (both sit in Track B and must close
+early): (i) **L-188** — site/GIS data must survive close+reopen or the parcel→envelope→persist loop is moot; (ii) the
+**WebGPU device-loss cluster (L-361–366)** — the 3D envelope render (L-402b) rides the same Forma/Cesium/renderer path
+that L-183 (globe crash) and L-355 (slow load) still afflict, so the render surface must be healthy first.
 
-**The single critical path that sets the September date** is **the compliance chain `L-403 → L-398 → L-401 → L-402`**
-*if compliance stays in scope* — it is the longest serial build and it is net-new (no existing code to lean on for the
-solver itself). **The launch itself, however, is gated by the blocker chain (L-334 + L-391) regardless of compliance.**
-Refinement to the stated hypothesis: it is not "contracts → envelope → bridge" *vs* "L-391" — **both are critical, in
-different senses**: L-391 gates *whether we may launch*; the compliance chain gates *whether the CF-1 pillar is in the
-launch*. The honest consequence: **if the two chains contend for the same engineers, compliance slips first** (§1 cut
-list), because the launch cannot slip and L-391's latency floor is human-ratification-bound.
+**Refinement to the founder's original hypothesis:** it is no longer "the compliance chain *vs* L-391 — one must slip."
+Under parallel execution **both run concurrently on disjoint subsystems.** The residual serialization is not *between*
+the two chains but *within* each: the ~4-week engine core, and the human-latency L-391 ladder. The contention surface
+shrinks to two shared seams (persistence/durability, composition root), serialized per §4.2 — not a scope cut. The
+honest consequence of the old plan ("compliance slips first") is **replaced** by: full DK/CH/ES scope fits *provided*
+the fidelity cut (DK-full / ES-CH-flagged-estimated, §1.3-2) and the verification-gate rule (§1.3-3) are accepted.
 
 ---
 
 ## §4 — Parallelization & collision map (where work happens between the pipelines)
 
-**Delivery model (existing, from the implementation plan):** up to **6 agents in parallel, one issue each, in isolated
-git worktrees → merge → gate on `pryzm.fly.dev` (root `tsc --skipLibCheck --noEmit` = exit 0) → push.** This plan
-adopts it unchanged. The MEMORY mandate on multi-agent shared-tree collisions applies: **agents commit scoped CODE only;
-the orchestrator owns the master audit/plan/logs docs; explicit per-agent file fences; verify integrity before push.**
+**Delivery model (existing, from the implementation plan):** many agents in parallel, one issue each, in isolated
+git worktrees → merge → gate on `pryzm.fly.dev` (root `tsc --skipLibCheck --noEmit` = exit 0 **and** the relevant suite
+green — the §1.3-3 verification rule) → push. This plan adopts it unchanged. The MEMORY mandate on multi-agent
+shared-tree collisions applies: **agents commit scoped CODE only; the orchestrator owns the master audit/plan/logs docs;
+explicit per-agent file fences; verify integrity before push.**
+
+**Fan-out track → worktree mapping (the parallel structure from §1.2/§3).** The **serial engine core** (L-403 → L-398 →
+L-401) is built first on the critical path; once its interface freezes (~wk2) the five fan-out tracks run concurrently
+off disjoint subsystems. Each fan-out Track maps to one or more worktrees below:
+
+- **Serial core** → worktrees **T6** (governance L-403) + **T4-core** (L-398 solver) + the composition-root seam for
+  L-401 (serialized per §4.2). This is the critical path; freeze `BuildableEnvelope`/`JurisdictionZoningContract`/
+  `ZoningProvider` by ~wk2 to release the fan-out.
+- **Track J — jurisdictions** → **T4-adapters** (L-399 DK/ES/CH ZoningProviders + rule packs) + **T5** (L-400 parcel
+  adapters). DK full-fidelity; ES + CH structural adapters carrying the C58 "estimated" label.
+- **Track R — report** → **T9** (L-402 explain-why report + 3D envelope render).
+- **Track I — interop** → **T7** (L-393 round-trip harness).
+- **Track B — launch blockers** → **T1** (data integrity), **T2** (collab infra), **T3** (security/deps/privacy),
+  **T8** (render stability), including the **L-188 compliance prerequisite** (serialized into T1's persistence seam).
+- **Track V — view + demo** → **T10** (L-405 unified view-switcher + view-surface security; L-404 LOD2/terrain
+  offline-bake).
 
 ### §4.1 — Tracks that run TRULY concurrently (disjoint subsystems/files)
 
@@ -208,10 +272,13 @@ the orchestrator owns the master audit/plan/logs docs; explicit per-agent file f
 | **T2 — Collab infra** (L-391 P1) | `apps/sync-server`, `fly.toml`/`Dockerfile` (PROPOSED), `sync-client` provider seam | New service + infra; touches `engineLauncher.ts` only at the already-carved `connectCrdtProvider` seam |
 | **T3 — Security/deps/gate/privacy** (L-387/L-388/L-394/L-395/L-392/**L-345**) | lockfile, CI config, test suites, migration script, embed route, C22 privacy substrate | Cross-cutting but mostly config/test files; L-345 (GDPR) adds new privacy modules — isolated |
 | **T8 — Render stability** (L-361–366, L-183/L-355) | renderer-three, RenderPipelineManager, Forma/Cesium view | **Serialize against RenderPipelineManager owners** (per the plan, L-205 owns `§FIX-SHADOW-PASS-SINGLE-OWNER`); the 3D envelope render (L-402b) depends on this being healthy |
-| **T4 — Compliance engine** (L-398/L-399) | **new** `@pryzm/*` L2 zoning package + provider adapters | Net-new packages; imports nothing the launch touches |
-| **T5 — Parcel data layer** (L-400) | **new** `@pryzm/site-parcel-data` (L2) + `parcelZoningProxy.js` clone | Net-new package + server route; isolated |
-| **T6 — Governance** (L-403) | `docs/` contracts/SPECs/ADRs, C00 index | Docs only; **orchestrator-adjacent — serialize against the master-doc editors** |
-| **T7 — Interop** (L-393) | file-format round-trip harness | Independent test harness |
+| **T4-core — Compliance ENGINE** (L-398 solver, serial core) | **new** `@pryzm/*` L2 zoning engine package | Net-new package on the critical path; imports nothing the launch touches. Freeze its exported interface ~wk2 to release Track J |
+| **T4-adapters — Jurisdiction adapters** (L-399 DK/ES/CH, Track J) | provider adapters + `JurisdictionZoningContract` rule packs (`da-*` full · `es-*`/`ch-*` estimated) | Fan out off the frozen engine iface; **each jurisdiction is an independent adapter worktree** — DK ‖ ES ‖ CH truly concurrent |
+| **T5 — Parcel data layer** (L-400, Track J) | **new** `@pryzm/site-parcel-data` (L2) + `parcelZoningProxy.js` clone (DK Datafordeler, CH adapter) | Net-new package + server route; isolated |
+| **T6 — Governance** (L-403, serial core) | `docs/` contracts/SPECs/ADRs, C00 index | Docs only; **orchestrator-adjacent — serialize against the master-doc editors**. Gates the engine iface freeze |
+| **T7 — Interop** (L-393, Track I) | file-format round-trip harness | Independent test harness |
+| **T9 — Compliance report** (L-402, Track R) | report artefact (reuse `buildPlanGraphOverlaySvg`), Forma massing render (`pryzmRenderFormaMassing`) | Reuses shipped overlay + massing renderer; depends on a frozen `BuildableEnvelope`, not on the solver internals — fans out after ~wk2 |
+| **T10 — View + demo** (L-405/L-404, Track V) | view-switcher UI + view-state, LOD2 offline-bake toolchain, Cesium tileset/terrain | Independent UI + offline toolchain; fully parallel to compliance |
 
 ### §4.2 — SHARED-FILE hot spots that MUST serialize (no two agents at once)
 
@@ -226,9 +293,14 @@ the orchestrator owns the master audit/plan/logs docs; explicit per-agent file f
 
 ### §4.3 — Worktree-isolation strategy (recommended)
 
-- **One worktree per track T1–T7**, branched off `main` (or the current integration branch). Net-new packages (T4/T5)
-  are collision-free by construction — they add files, import nothing the launch imports, and can develop full-speed in
-  parallel from day one.
+- **One worktree per track T1–T10**, branched off `main` (or the current integration branch). Net-new packages
+  (T4-core/T4-adapters/T5/T9) are collision-free by construction — they add files, import nothing the launch imports,
+  and can develop full-speed in parallel. **Track J's three jurisdiction adapters (DK ‖ ES ‖ CH) are separate
+  worktrees** off the frozen engine iface — the fan-out that lets full DK/CH/ES scope fit the calendar.
+- **Sequencing rule for the fan-out:** the serial core (T6 governance → T4-core solver → L-401 bridge) runs first on
+  the critical path; **freeze the engine interface (`BuildableEnvelope`/`JurisdictionZoningContract`/`ZoningProvider`) by
+  ~week 2**, then release T4-adapters/T5/T9/T10 to develop against the frozen contract. Track B (blockers) and Track I
+  (interop) do not depend on the freeze and run from day one.
 - **The three shared surfaces (composition root, persistence, infra) get a single "integration" worktree** that agents
   rebase onto in sequence; no two shared-surface PRs open simultaneously.
 - **`pnpm-lock.yaml` discipline:** L-398a (Turf) and any new dep sync the lockfile in the *same* PR (MEMORY:
@@ -274,24 +346,27 @@ truly new build. This is why Denmark-end-to-end is ~30–48 dev-days and not a f
 
 ## §6 — Week-by-week schedule (~7–8 weeks to early-September)
 
-Two parallel workstreams throughout: **Blocker spine** (must-close, sets GA) and **Compliance spine** (dark/flagged,
-CF-1). Ratification gates placed where they unblock. Weeks are calendar; "day and night" compresses dev-days within a
-week but **cannot compress the serial ratification latency** — hence R-gates front-loaded.
+The **serial engine core** occupies the critical path in **weeks 1–4**; its interface **freezes at the end of week 2**,
+releasing the five fan-out tracks (**J** jurisdictions · **R** report · **I** interop · **B** blockers · **V** view+demo)
+to run concurrently. Ratification gates are **front-loaded into weeks 1–2** — "day and night" compresses dev-days within
+a week but **cannot compress serial ratification latency.** Track B (blockers) and Track I (interop) do not depend on the
+freeze and run from day one.
 
-| Week | Blocker spine (Pipeline A-blocker) | Compliance spine (A-compliance / B) | Ratification / decision gates |
+| Week | Serial engine core (CRITICAL PATH) | Parallel fan-out tracks (concurrent) | Ratification / decision gates |
 |---|---|---|---|
-| **W1 (Jul 21)** | **L-360** checksum-never-brick design + fix start (live P0); **L-361–366** WebGPU device-loss **live-confirm on real hardware**; L-388/L-204 green CI gate; L-387 dep triage. **Front-load R-A/R-B/R-C** for L-391. | L-403 finish C57/C58 skeleton + SPEC stubs; L-398a schemas (`BuildableEnvelope`/`JurisdictionZoningContract`) + Turf dep (lockfile-synced); L-400a `@pryzm/site-parcel-data` shell; **L-188 site-persistence fix (compliance prerequisite) start**. | **R-A** protocol; **R-C** Fly infra/billing; **L-397 pricing (founder)**. |
-| **W2 (Jul 28)** | L-360 landed; **L-361–366 harden/confirm**; **L-345 GDPR/C22-min** (consent + DSAR + storage routing) start; L-391 **P1** deploy sync-server + ws-auth (R-B) in **staging**. | L-398b/c ZoningRulesEngine core (parcel⊖setbacks inset + area×maxHeight) + two-fidelity resolution; L-399 DkZoningProvider (Plandata) start; **L-188 landed**. | **R-B** ws-auth model. |
-| **W3 (Aug 4)** | L-345 GDPR/C22-min continue; L-391 P1 staging two-browser smoke; L-394 migration test; L-395 embed token; L-85 carry-through follow-ups. | L-398d wire engine→`site.updateZoning`; L-399 DkZoningProvider done + `da-*` curated pack; L-400b DkParcelProvider (Datafordeler key) staging. | Datafordeler service-user **key wiring** (server-side). |
-| **W4 (Aug 11)** | L-391 **P2** make CRDT authoritative + retire silent LWW (R-D); L-85 carry-through follow-ups; L-53 unblocked by P2. | L-401 authoring bridge — thread inset+maxHeight into `generateResidentialFromBoundary`/typology-pipeline; containment assertion test. | **R-D** one-authority (socket.io demotion). |
-| **W5 (Aug 18)** | L-391 **P3** two-browser E2E gate (dropped-ws / two-users-same-element / 60s-offline); L-396 durability + DR restore drill. **R-E** Yjs↔snapshot reconciliation (ties L-334). | L-401 done; L-402 explain-why report artefact (reuse `buildPlanGraphOverlaySvg`) + provenance chips. | **R-E** durability reconciliation. |
-| **W6 (Aug 25)** | L-392 observability spans; L-393 interop round-trip harness + adversarial malformed-file; blocker regression hardening. | L-402 3D translucent envelope volume render + **CI fidelity-label gate** (L-373); Denmark end-to-end dry-run (parcel→zoning→envelope→generated building fits). | — |
-| **W7 (Sep 1)** | **Blocker close-out**: all P0/P1 green on `pryzm.fly.dev`; **G0-CONTRACTS gate ACTIVE** (C08/C10/C13/C48-min/C22-min); L-391 **production flip** after E2E gate (founder). GA-candidate. | Denmark compliance demo polish (behind flag); honest-messaging copy review. | **Production `VITE_COLLAB_CRDT=true` flip (founder)**. |
-| **W8 (Sep 8, buffer)** | Regression buffer; DR drill re-run; launch-readiness sign-off. | Flip DK compliance flag ON for demo; fast-follow backlog framing (Spain/CH/L-404). | GA sign-off. |
+| **W1 (Jul 21)** | **L-403** finish C57/C58 + SPEC stubs; **L-398a** L0 schemas (`BuildableEnvelope`/`JurisdictionZoningContract`/`ZoningProvider`) + Turf dep (lockfile-synced). Draft the engine interface. | **B:** L-360 checksum-never-brick fix start (live P0); L-361–366 WebGPU **live-confirm on real hardware**; L-388/L-204 green CI; L-387 dep triage; **L-188 site-persistence (compliance prereq) start**. **I:** L-393 round-trip harness scaffold. **V:** L-405 view-switcher start. | **Decide in week 1: R-A** protocol; **R-C** Fly infra/billing; **L-397 pricing (founder)**. |
+| **W2 (Jul 28)** | **L-398b/c** solver core (parcel⊖setbacks inset + height cap + FAR + two-fidelity/provenance). **◆ FREEZE ENGINE INTERFACE (end W2) ◆** — releases Track J/R. | **B:** L-360 landed; L-361–366 harden/confirm; **L-345 GDPR/C22-min** start; L-391 **P1** deploy sync-server + ws-auth in staging; **L-188 landed**. **I/V** continue. | **R-B** ws-auth model. (All R-gates now decided/in-flight by end W2.) |
+| **W3 (Aug 4)** | **L-398d** wire engine→`site.updateZoning`; **L-401a/b** thread inset+maxHeight into generators/typology-pipeline + permitted-use→brief seed. | **J (fan-out live):** DK L-399a/b (Plandata + `da-*` pack) ‖ ES L-399c (MUC + `es-barcelona`, *estimated*) ‖ CH structural adapter start; L-400b DkParcelProvider (Datafordeler key). **R:** L-402a report artefact start. **B:** L-345 continue; L-391 P1 smoke; L-394/L-395. | Datafordeler service-user **key wiring** (server-side). |
+| **W4 (Aug 11)** | **L-401c** envelope-containment `SpatialValidator` + containment assertion test. **Engine complete.** | **J:** DK full-fidelity end-to-end; ES/CH adapters producing *flagged-estimated* envelopes. **R:** L-402a done; L-402b 3D volume start. **B:** L-391 **P2** authoritative + retire silent LWW (R-D); L-53 unblocked. **I:** L-393 harness runs. | **R-D** one-authority (socket.io demotion). |
+| **W5 (Aug 18)** | *(core done — engineers roll into Track J/R hardening)* | **J:** DK/ES/CH confidence labels wired (L-398c). **R:** L-402b 3D envelope render + **L-402c CI fidelity-label gate** (`estimated` never authoritative, L-373). **B:** L-391 **P3** two-browser E2E gate; L-396 durability + DR drill (**R-E** ties L-334). **V:** L-405 done; L-404 LOD2 tileset bake. | **R-E** durability reconciliation. |
+| **W6 (Aug 25)** | — | **J:** DK/CH/ES per-jurisdiction end-to-end dry-run (parcel→zoning→envelope→generated building fits). **R:** report polish + per-fidelity provenance chips. **B:** L-392 observability; L-393 adversarial malformed-file; regression hardening. **V:** LOD2 demo-fidelity polish. | — |
+| **W7 (Sep 1)** | — | **B (close-out):** all P0/P1 green on `pryzm.fly.dev`; **G0-CONTRACTS ACTIVE** (C08/C10/C13/C48-min/C22-min); L-391 **production flip** after E2E gate (founder). GA-candidate. **J/R/V:** DK/CH/ES compliance demo polish behind flag; honest-messaging copy (full DK · flagged ES/CH). | **Production `VITE_COLLAB_CRDT=true` flip (founder)**. |
+| **W8 (Sep 8, buffer)** | — | Regression buffer; DR drill re-run; launch-readiness sign-off. Flip compliance flag ON for demo (DK full + ES/CH *estimated — flagged*); frame post-launch **fidelity-hardening** backlog (ES/CH rule-pack human validation, canton coverage). | GA sign-off. |
 
-**Where the pipelines meet:** the blocker spine and compliance spine share **only** the persistence/durability seam
-(L-334 ↔ L-391 R-E, W5) and the composition root (L-391 provider wiring vs L-401 generator wiring). Both are serialized
-per §4.2 into the same W4–W5 window under one integration worktree. Everything else runs on disjoint files.
+**Where the tracks meet:** the fan-out tracks run on **disjoint subsystems**; contention is confined to two shared seams
+— the persistence/durability seam (L-334 ↔ L-391 R-E, and L-188, W5) and the composition root (L-391 provider wiring vs
+L-401 generator wiring, W3–W4). Both are serialized per §4.2 under one integration worktree. Everything else — the three
+jurisdiction adapters, the report, interop, view-switcher, LOD2 bake — runs on files no other track touches.
 
 ---
 
@@ -301,14 +376,16 @@ per §4.2 into the same W4–W5 window under one integration worktree. Everythin
 |---|---|---|---|
 | **R1** | **Compliance work starves the P0 data-integrity/collab blockers.** The CF-1 pillar is exciting and net-new; the P0 blockers are unglamorous and hard. Pulling engineers to compliance slips L-334/L-391 → **no launchable product.** | **Critical** | Hard fence: **P0 blockers are non-negotiable and staffed first every week.** Compliance ships dark behind a flag and NEVER gates GA (Archistar §5.2). If W-by-W contention arises, compliance slips (§1 cut list), launch does not. Orchestrator tracks blocker burn-down as the primary metric. |
 | **R2** | **L-391 human/infra ratification latency (R-A..R-E) + L-397 pricing decision** — calendar cost not solvable by code or more people; a late R-C (Fly billing) or R-D can push the production flip past September. | **High** | **Front-load all R-gates into W1–W2** (§6). Production stays flag-OFF (socket.io) until Phase-3 E2E passes, so a late flip degrades to "collab beta" not "no launch". Founder decisions (R-C billing, L-397 pricing, production flip) surfaced W1. |
-| **R3** | **Compliance data reality** — numeric rules PDF-trapped everywhere except Denmark; Datafordeler key-gating; curation long-tail (Archistar §2). A DK-only scope that quietly assumes Spain/CH parity would be dishonest and unbuildable in September. | **High** | **September = Denmark only** (structured Plandata, least curation). `estimated-ruleset` NEVER shown authoritative (L-373 CI gate). Spain/CH explicitly cut to fast-follow (§1). Datafordeler key server-side only; keyless mirror fallback noted. |
-| **R4** | **L-360 checksum bricks valid projects** — L-334's checksum is computed pre-compression at save and verified post-decompression at load; the codec is not bit-exact, so valid projects hard-refuse to load. This is a **live P0 regression**, not hypothetical. | **Critical** | Round-trip-stable checksum + **never hard-brick** (load best-effort + warn); large-project fixture in the gate; ties L-391 R-E element-count reconciliation. |
+| **R3** | **Compliance data reality / CH-ES fidelity** — numeric rules PDF-trapped everywhere except Denmark; Datafordeler key-gating; 26-canton + fragmented-PGOU curation long-tail (Archistar §2). Shipping ES/CH as if full-fidelity would be dishonest and unbuildable in September. | **High** | **September = parity-in-STRUCTURE, fidelity following** (§1.3-2): DK full-fidelity (structured Plandata); **ES + CH ship structurally-identical adapters carrying the C58 `estimated` confidence label** — `estimated-ruleset` NEVER shown authoritative (L-373 CI gate, L-402c). Human rule-pack validation for ES/CH is the explicit post-launch fidelity-hardening backlog. Datafordeler key server-side only; keyless mirror fallback noted. **Do not claim full CH/ES fidelity by September.** |
+| **R4** | **L-360 checksum bricks valid projects** — L-334 (SHIPPED) computes the checksum pre-compression at save and verifies it post-decompression at load; the codec is reported not bit-exact, so valid projects hard-refuse to load. Flagged **live P0 regression** — but the exact mechanism is **awaiting code verification; do not assert as fact until verified in code.** | **Critical** | Round-trip-stable checksum + **never hard-brick** (load best-effort + warn); large-project fixture in the gate; ties L-391 R-E element-count reconciliation. **Verify the mechanism in code before committing to the fix shape.** |
 | **R4b** | **WebGPU device-loss (L-361–366) makes project creation itself fail** on some hardware — several fixes are "implemented, awaiting live confirmation", i.e. *unconfirmed*. If unconfirmed on the founder's Windows box, GA has no product to launch. | **Critical** | Live-confirm on real hardware early (W1–W2); WebGL is the stable demo backend on this box (MEMORY); auto-fallback must fire for real buildings. Blocks the 3D envelope render (L-402b) too. |
 | **R4c** | **GDPR/C22 (L-345) unbuilt for an EU (Denmark-first) launch** — a compliance pillar aimed at Denmark makes C22-min ACTIVE a hard G0-CONTRACTS gate; shipping EU-facing without DSAR/consent/anonymise is a legal, not just technical, blocker. | High | Scope C22-min (consent + DSAR + storage routing) into the blocker track W2–W4; do not let the compliance pillar's EU framing outrun the privacy substrate. |
 | **R5** | **Multi-agent shared-tree collisions** on composition root / persistence / master docs (MEMORY hazard). | Medium | §4.2 serialization + §4.3 worktree isolation; agents commit scoped CODE only; orchestrator owns master docs; integrity-verify before push. |
 | **R6** | **Interop (L-393) surfaces a real IFC/DXF/Rhino fidelity defect late** — round-trip is UNVERIFIED, so an unknown-unknown could appear in W6. | Medium | Run the round-trip harness **early (W6 start, not end)**; if a defect surfaces, it is a fast-follow fix, not a launch blocker (interop is P1 credibility, not P0 data-integrity). |
 | **R7** | **Fly build hard-fails on lockfile/tsc drift** from the net-new packages (MEMORY: stricter root tsc, lockfile sync). | Medium | Root `tsc --skipLibCheck` + lockfile sync in every `packages/*` PR; Turf dep synced in L-398a's own PR. |
 | **R8** | **Scope creep on the compliance report** (L-402) toward full Archistar-parity packaging. | Low-Med | SPEC-COMPLIANCE-REPORT scopes September to explain-why + provenance + 3D volume; check-back (G-ENG-5) explicitly out. |
+| **R9** | **VERIFICATION LOAD under parallel execution** — trading dev-day-sum for critical-path only stays sound if the merged code volume is actually tested; an unverified merge can silently break `main` for every downstream track. | **High** | **Program rule (§1.3-3): EVERY merge is test- AND tsc-gated** — root `tsc --skipLibCheck` clean + relevant suite green before merge, no exceptions. Orchestrator tracks a green-`main` invariant; a red merge blocks all dependent fan-out. |
+| **R10** | **Engine-interface freeze slips past week 2** — the fan-out (Track J/R) cannot start until `BuildableEnvelope`/`JurisdictionZoningContract`/`ZoningProvider` are frozen; a late freeze serializes the jurisdictions and re-creates the one-engineer overrun. | **High** | Treat the ~wk2 freeze as a hard milestone (§3, §6); scope L-398a schemas narrowly and stabilise the exported types first, iterate solver *internals* behind the frozen surface. DK/ES/CH adapters code against the contract, not the implementation. |
 
 ---
 
@@ -331,13 +408,17 @@ docs.** Each: one-line scope + contract map. (L-391 already has Phases 0–3 + R
   `anvendelse`). *(C58)*
 - **L-399b** — Curated `da-*` `JurisdictionZoningContract` pack for PDF-gap fill (mirror `rules/programRules.ts`).
   *(C58; L-373)*
-- **L-399c** — `MucZoningProvider` (Catalonia MUC zone class) + curated `es-barcelona` pack. **FAST-FOLLOW (post-Sept).**
-  *(C58)*
+- **L-399c** — `MucZoningProvider` (Catalonia MUC zone class) + curated `es-barcelona` pack. **SEPTEMBER — Track J
+  fan-out, shipped "estimated — flagged"** (C58 confidence label; numeric pack human-validated post-launch). *(C58; L-373)*
+- **L-399d** — `ChZoningProvider` (cantonal structural adapter) + curated `ch-*` pack (pilot cantons). **SEPTEMBER —
+  Track J fan-out, shipped "estimated — flagged"** (C58 confidence label; 26-canton validation is the post-launch
+  fidelity-hardening backlog). *(C58; L-373)*
 
 **L-400 → parcel data layer sub-items:**
 - **L-400a** — Lift shipped Catastro provider to `@pryzm/site-parcel-data` (L2) + `ParcelProvider` registry. *(C57; C12)*
 - **L-400b** — `DkParcelProvider` (Matriklen via server-side Datafordeler key in the proxy clone). *(C57)*
-- *(OerebParcelProvider CH — fast-follow, out of September.)*
+- **L-400c** — `ChParcelProvider` structural adapter (cantonal cadastre; parcel geometry only — the estimated zoning
+  rides L-399d). **SEPTEMBER — Track J fan-out.** *(C57)*
 
 **L-401 → authoring bridge sub-items:**
 - **L-401a** — Thread inset polygon + maxHeight into `generateResidentialFromBoundary` + the typology-pipeline
@@ -359,31 +440,54 @@ docs.** Each: one-line scope + contract map. (L-391 already has Phases 0–3 + R
 - **L-393a** — IFC/DXF/Rhino round-trip harness (import→export→re-import geometry-delta compare). *(C25/C26/C32/C33)*
 - **L-393b** — Adversarial malformed-file behaviour (crash vs silent-drop vs graceful reject). *(L-393)*
 
-**L-404** — already decomposed as L-383a–e (LOD2 3D-Tiles + DHM terrain + Matriklen keyed parcel). **CUT to fast-follow;
-schedule after the September GA.**
+**L-404** — already decomposed as L-383a–e (LOD2 3D-Tiles + DHM terrain + Matriklen keyed parcel). **SEPTEMBER — folded
+into Track V (no longer cut); runs fully parallel to all other tracks** on the offline-bake toolchain (native binaries
+stay OUT of the app image — §4.2 `fly.toml` rule). Denmark demo ships with baked LOD2 context, not just Cesium footprints.
+
+**L-405 → view + demo sub-items (Track V):**
+- **L-405a** — Unified view-switcher across plan / 3D / massing / site surfaces (single view-state authority; no parallel
+  knob per C04/C18). *(C04/C18; view-state)*
+- **L-405b** — View-surface security hardening (the security half of the `L-395/L-405-security` grouping — embed/view
+  entry hardening alongside L-395's embed-token server-side validation). *(C07 §6.1; C08)*
 
 ---
 
 ## §9 — Verdict summary (for the founder)
 
-- **Fit:** **FITS-WITH-NAMED-CUTS.** All P0/P1 launch blockers + **Denmark-only** compliance end-to-end (envelope
-  provably constrains generation) fit ~7–8 weeks of day-and-night. **Spain compliance breadth, Switzerland, and the
-  Denmark LOD2 demo-fidelity are honest fast-follow** — in scope would break the calendar and the honesty mandate.
-- **Single critical path:** the **compliance chain `L-403 (C58) → L-398 solver → L-401 bridge → L-402 report`** is the
-  longest net-new serial build and sets the pillar date; the **blocker chain `L-334/L-360 → L-391 P1→P2→P3 → flip`**
-  gates *whether we launch at all* and is bounded by human ratification latency (R-A..R-E), not dev-days. Both are
-  critical; they contend only at the persistence/composition-root seam (W4–W5) and are serialized there.
+- **Fit:** **FITS — full DK/CH/ES scope — under parallel execution, PROVIDED (a) the L-391/L-397 ratification gates are
+  decided in week 1, (b) the September fidelity cut is accepted as DK full-fidelity + ES-and-CH shipped "estimated —
+  flagged" (C58 confidence label), and (c) test-gated merges are held.** All P0/P1 launch blockers + the full Archistar
+  footprint (Denmark **and** Switzerland **and** Spain, envelope provably constrains generation) fit ~7–8 weeks —
+  because wall-clock is the **critical path (the ~4-week serial engine core), not the dev-day sum**, and the
+  jurisdictions/report/interop/blockers/view tracks fan out concurrently off the frozen engine interface. **DK/CH/ES are
+  NOT cut.** What follows structure is *fidelity*: ES + CH ship as structurally-identical adapters carrying the
+  mandatory "estimated" label, hardened to full fidelity post-launch.
+- **Serial critical path:** `L-403 (C57/C58) → L-398 solver (a→d) → L-401 authoring bridge (a→c)` — the jurisdiction-
+  agnostic engine, ~4 weeks, built once. **Freeze `BuildableEnvelope`/`JurisdictionZoningContract`/`ZoningProvider` by
+  ~week 2** — the single highest-leverage act; it releases the fan-out.
+- **Parallel fan-out tracks (off the frozen engine):** **Track J** jurisdictions (DK ‖ ES ‖ CH adapters) · **Track R**
+  explain-why report + 3D envelope render · **Track I** IFC/DXF/Rhino round-trip · **Track B** launch blockers
+  (L-360 · L-391 P1→P3 · L-53 · L-387 · L-395/L-405-sec · L-396 · **L-188 compliance prereq**) · **Track V** unified
+  view-switcher (L-405) + Denmark LOD2 demo (L-404). The launch gate `L-360 → L-391 P1→P2→P3 → flip` is its own
+  human-latency-bound critical path inside Track B, running concurrently with the engine core.
+- **Honest residuals parallelization does NOT solve:** (1) human ratification latency (R-A..R-E + L-397) — front-loaded
+  to weeks 1–2; (2) CH/ES rule-pack fidelity — DK-full / ES-CH-flagged-estimated, human validation post-launch; (3)
+  verification load — **every merge test- and tsc-gated** (program rule). Plus the two plan-surfaced corrections: **L-334
+  is SHIPPED, L-360 is the live regression** (awaiting code verification — not asserted as fact); **L-188 is a compliance
+  prerequisite**, not a generic blocker.
 - **Top 3 leverage wins:** (1) the site-commit spine (`buildBoundaryFromLatLonRing` → `site.parcel-boundary-set` +
   `site.updateZoning` + C19 `Parcel` fields) is already the wired destination — the solver plugs in with zero new
-  persistence; (2) the Catastro keyless proxy + `ParcelProvider` seam makes every jurisdiction an adapter swap; (3) the
-  shipped generators + typology-pipeline are the moat — L-401 is a thin inset+cap connector, and `@pryzm/solar-analysis`
-  is the deterministic-analysis precedent for L-398.
-- **Top 3 risks:** (1) **compliance starving the P0 blockers** → hard fence, blockers first, compliance dark/flagged;
-  (2) **the P0 surface is larger and partly *unconfirmed* than the named list** — L-360 checksum bricks valid projects
-  (live), L-361–366 WebGPU device-loss can make project creation itself fail ("implemented, awaiting live confirmation"),
-  L-345 GDPR/C22 is unbuilt for an EU pillar → confirm/close these early (W1–W2), WebGL as the stable demo backend;
-  (3) **L-391 ratification + pricing latency** (R-A..R-E, L-397) → front-load all R-gates into W1–W2, production stays
-  flag-OFF until the Phase-3 E2E gate.
+  persistence; (2) the Catastro keyless proxy + `ParcelProvider` seam makes **every jurisdiction (DK/ES/CH) an adapter
+  swap** — the mechanism that turns full-scope into a parallel fan-out; (3) the shipped generators + typology-pipeline
+  are the moat — L-401 is a thin inset+cap connector, and `@pryzm/solar-analysis` is the deterministic-analysis
+  precedent for L-398.
+- **Top 3 risks:** (1) **compliance starving the P0 blockers** → hard fence, blockers first, compliance dark/flagged
+  (contention is the exception under disjoint-subsystem parallelism); (2) **the P0 surface is larger and partly
+  *unconfirmed*** — L-360 checksum bricks valid projects (live, mechanism awaiting code verify), L-361–366 WebGPU
+  device-loss can make project creation itself fail, L-345 GDPR/C22 unbuilt for an EU pillar → confirm/close early
+  (W1–W2), WebGL as the stable demo backend; (3) **engine-interface-freeze slip + verification load** — a late freeze
+  re-serializes DK/CH/ES and an unverified merge breaks every downstream track → treat the ~wk2 freeze as a hard
+  milestone and hold the test-gated-merge rule.
 
 *End of program plan. No code was modified, no contract was flipped, no master tracker/plan was edited in producing this
 document.*
