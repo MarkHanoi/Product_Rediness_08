@@ -1,0 +1,307 @@
+# C57 — Parcel Data Layer
+
+> **Stamp**: 2026-07-17 · **Status**: DRAFT
+> _DRAFT: the subsystem is partially built (Spain/Catastro parcel-select ships; the provider abstraction is proven) but not yet lifted to its target L2 package, and this contract binds nothing until ratified. Content describes intended shape; where a slot is unbuilt it is named, not asserted-conformant._
+> **Scope**: governs the **parcel data subsystem** — the provider-agnostic ingestion of real cadastral **geometry + attributes** for a plot the user selects on the map, its canonical data model, the adapter contract (one per jurisdiction/source), the same-origin proxy + secret-handling rules, EPSG handling, coverage-miss degradation, and the hand-off of a selected parcel into [C19](./C19-SITE-MODEL-AND-PARCEL.md)'s one-shot immutable site-boundary. Companion to [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (which turns the parcel + zoning into a compliant envelope) and to [C12 Geospatial](./C12-GEOSPATIAL.md) (which owns coordinate transforms).
+> **Depends on**: [C03](./C03-SCHEMAS-COMMANDS-AND-STATE.md), [C12](./C12-GEOSPATIAL.md), [C19](./C19-SITE-MODEL-AND-PARCEL.md), [C10](./C10-PERFORMANCE-AND-OBSERVABILITY.md), [C23](./C23-PROVENANCE-AND-AI-AUDIT.md).
+> **Downstream**: [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (consumes the fetched parcel ring + jurisdiction id); [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md) (renders parcel provenance); [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed — the map interaction).
+> **Key principles**: **P5** (schemas pure — no THREE / no I/O in `packages/schemas/src/elements/site/parcel/`), **P1** (providers are wired once, not re-instantiated ad hoc), **P4** (no `(window as any)` reach-through for the fetch), **P8** (every exported provider / proxy fn opens an OTel span `pryzm.parcel.<verb>`).
+> **Strategy**: [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) (compliance-authoring pillar; Denmark-first reference, jurisdiction-agnostic core).
+> **Audit context**: [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-DATA-1..5), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/PARCEL-ZONING-FEATURE-SCOPING.md) §3/§6.1, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2/§4. This contract fills the reserved slot C19 §9 ("jurisdiction-specific building-code databases — future contract; §10.2 registry pending") jointly with C58.
+
+---
+
+## §1 — Invariants
+
+The numbered rules below are binding on every PR that touches parcel-data ingestion. Each invariant has an §1.N id usable in `TODO(C57.N)` annotations and in `check-parcel-*.ts` CI gate failure messages.
+
+### §1.1 — GeoJSON / WGS84 is the one canonical interchange
+
+Every adapter MUST normalise its source (GML, ArcGIS-JSON, Shapefile, CityJSON, native GeoJSON — in EPSG:25832 / 25830-31 / 2056 / 4258 / …) to a **WGS84 lat/lon ring** at ingest time. Nothing downstream of an adapter — the map UI, C58's rules engine, `buildBoundaryFromLatLonRing` — may see the source format or CRS.
+
+- The canonical fetched shape is `ParcelFeature` (§2.1): a WGS84 ring + cadastral attributes + provenance.
+- Reprojection to WGS84 happens **at the edge** (adapter or proxy), never deeper. This preserves C12's single-projector rule (`packages/geospatial/LTPENURebase.ts` — `proj4` is the one projector; see §1.6).
+
+**Why**: a new jurisdiction is then a new adapter emitting the same canonical GeoJSON; the core is untouched. This is the property that makes the provider abstraction scale (per the Denmark reference §4.1) — build the engine on one jurisdiction, run it on another by an adapter swap.
+
+### §1.2 — All upstream access goes through the same-origin server proxy; keys are server-side only
+
+An adapter MUST NOT fetch a government/cadastral endpoint directly from the browser. Every network call goes through the same-origin proxy (`server/parcelZoningProxy.js` — already mounted, route `/api/catastro/parcel`, `server.js:363`), which forwards once, normalises, caches, and returns same-origin JSON.
+
+- **Secrets rule (hard)**: any API key, service-user credential, or OAuth token (e.g. the Denmark **Datafordeler** service-user key — §3.2) lives **only** in server-side env / Fly secrets. It MUST NOT appear in client code, the repo, a bundled string, or a response body. The browser never sees a key; the proxy is the only key holder (mirrors how the Cesium/Google token is server-gated today).
+- The proxy is the CSP boundary: because all fetches are same-origin, no `connect-src` change is required. If a direct-fetch fallback to a gov origin is ever added, the CSP change MUST be **surfaced explicitly** in review, never made silently (per the scoping §6.4 discipline).
+- The proxy clones the `server/overpassProxy.js` template: forward-once, bounded LRU cache (parcels ~7 d TTL), non-fatal empty fallback (`{}` / `null` → client degrades to draw per §1.5).
+
+**Why**: CORS, rate-limit citizenship toward shared public endpoints, secret containment, and a single cache tier. A keyless source (Catastro) and a keyed source (Matriklen) MUST look identical to the client — the only difference is which secret the proxy holds.
+
+### §1.3 — A selected parcel commits down C19's identical one-shot immutable path
+
+A fetched `ParcelFeature.ring` is "just a pre-supplied boundary ring". It MUST commit through the **same** path a hand-drawn boundary uses — never a parallel boundary channel:
+
+```
+ParcelFeature.ring (WGS84)
+  → buildBoundaryFromLatLonRing (apps/editor/src/ui/site/boundaryProjection.ts)
+  → dispatchParcelBoundary (siteDispatch.ts) / siteSetParcelBoundary (packages/stores/src/site-commands/)
+  → site.parcel-boundary-set   (C19 §4.1, one-shot, C19 §1.4 immutable)
+```
+
+- The reverse-geocoded location (parcel centroid / click) sets the C12 LTP-ENU origin via `dispatchSiteLocation` **before** the ring projects (C19 §1.3) — so the ring lands in the correct frame.
+- Because the commit is C19 §1.4 **immutable**, re-selecting a different parcel requires `site.replace` (C19 §4.1), exactly as redrawing does. C57 introduces no new mutation of the parcel polygon.
+- The C19 `ProvenanceRecord.source` enum gains `'catastro' | 'matriklen' | 'oereb' | …` (a C19 schema extension, coordinated on ratify) so the site records which provider produced the boundary.
+
+**Why**: reuse of the proven, immutable commit seam — no second source of truth for "where the plot is," no divergence from C19's legal-boundary semantics.
+
+### §1.4 — Every fetched parcel carries provenance
+
+A `ParcelFeature` MUST carry a provenance record sufficient to reproduce and attribute it: `source` (provider id), `sourceVersion` (dataset release / capabilities version where available), `sourceCrs` (the EPSG the geometry arrived in, before edge-reprojection), `license` (SPDX id or free-form), `ingestTimestamp`, and the jurisdiction `refcat` (the source's own parcel identifier).
+
+- This populates C19 §2.6 `ProvenanceRecord` on the committed Site and is the datum [C23 Provenance & AI Audit](./C23-PROVENANCE-AND-AI-AUDIT.md) consumes and [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md) renders.
+- Provenance is not optional: an adapter that cannot state its `source` + `license` MUST NOT ship (the `check-parcel-provenance` gate, §6).
+
+**Why**: a compliance product is only trustworthy if every fetched fact is attributable to a named authority. Provenance is the substrate of the "explain-why" credibility C58/SPEC build on.
+
+### §1.5 — Coverage-miss degrades honestly to manual draw; providers never throw
+
+Cadastral coverage is partial and per-jurisdiction. A provider MUST resolve to `null` (never throw) on: no parcel at the point, an unavailable/timed-out source, a non-OK proxy response, malformed geometry, or a ring with < 3 valid vertices.
+
+- A `null` result surfaces the honest **"no parcel here — draw the boundary instead"** fallback (C19 draw path remains the universal fallback). The system never fabricates a parcel and never blocks the design loop on a coverage gap.
+- The map UI defaults to **Select parcel** mode only where the active jurisdiction has a `ParcelProvider`; otherwise it defaults to **Draw** (per SPEC-PARCEL-SELECTION §8).
+
+**Why**: honesty mandate — a missing parcel is a data-coverage fact, surfaced plainly, not an error and not a silent empty state. The live `CatastroParcelProvider` already implements exactly this (`fetchParcelAtPoint` returns `null` on every failure, never throws).
+
+### §1.6 — EPSG handling reuses the single C12 projector
+
+Adapters reproject source geometry to WGS84 using the **existing** `proj4` engine wired into `packages/geospatial/` (C12), or the server proxy's GDAL/`ogr2ogr` offline-normalise path for heavy batch conversion. No adapter may introduce a second projection library or a parallel CRS registry.
+
+- Per-source CRS (DK EPSG:25832, ES EPSG:25830/25831, CH EPSG:2056) is a property of the **adapter**, resolved at the edge; the `sourceCrs` is recorded in provenance (§1.4) but never leaks past the adapter boundary.
+- `proj4` (`^2.15.0`) is already an in-tree dependency (`packages/geospatial/package.json`) — reuse, not a new dep.
+
+**Why**: C12 owns coordinate transforms (C19 §1.3 boundary). Two projectors = two sources of truth for "where on Earth"; the single-projector rule (SPEC-FORMA §8.3) is preserved.
+
+### §1.7 — Providers are pure fetch+parse; L2 placement
+
+A `ParcelProvider` implementation is a pure fetch+parse module: **no THREE, no Cesium, no DOM, no store writes.** It takes a point (or a parcel ref), returns a `ParcelFeature | null`.
+
+- Target package: `packages/site-parcel-data/` (**L2**, proposed) — the provider interface + adapters + (with C58) the rules engine. The shipped Spain adapter currently lives at `apps/editor/src/ui/site/parcel/` (L5) as an explicitly-flagged transitional placement; it is **liftable verbatim** to L2 once a second adapter lands (its header already records this).
+- The adapter mirrors `geocodeAddress.ts`: env-overridable endpoint, same-origin, keyless-from-the-client.
+
+**Why**: purity + correct layer placement is what lets the same provider run under the editor, a headless test, or a future server-side pre-bake without a UI or renderer in scope.
+
+### §1.8 — Every exported provider / proxy fn opens an OTel span `pryzm.parcel.<verb>`
+
+Per **P8**, each exported provider method and each proxy handler opens a span in the `pryzm.parcel.*` family (e.g. `pryzm.parcel.fetchParcelAtPoint`, `pryzm.parcel.reverseGeocode`). Recommended attributes: `pryzm.parcel.provider`, `pryzm.parcel.lat/lon`, `pryzm.parcel.hit` (bool), `pryzm.parcel.refcat`, `pryzm.parcel.areaM2`, `pryzm.parcel.sourceCrs`. The live `catastroParcelProvider` already conforms.
+
+**Why**: parcel fetches hit shared public endpoints and gate a legal boundary; uniform spans make coverage-rate, latency, and error-rate observable and feed the C23 audit trail.
+
+### §1.9 — Attribution is mandatory and surfaced
+
+Every provider carries a human-facing `label` (attribution string) that MUST be shown wherever its data is displayed (info card, provenance chip). A provider whose license requires specific attribution text MUST carry that exact text.
+
+**Why**: open cadastral data (Catastro / Matriklen / geodienste) is reusable **with attribution**; honouring it is both a licence obligation and a credibility signal (C23).
+
+### §1.10 — The Parcel Data Layer owns geometry+attributes only, not zoning or the site model
+
+C57 ends at the fetched `ParcelFeature`. It MUST NOT compute setbacks, height limits, FAR, or a buildable envelope (that is [C58](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md)), and it MUST NOT own the `SiteModel` (that is [C19](./C19-SITE-MODEL-AND-PARCEL.md)).
+
+**Why**: scope discipline. C57 = "fetch the real plot". C58 = "what may be built on it". C19 = "the site element that persists". Three clean boundaries.
+
+---
+
+## §2 — Schema
+
+The schemas below live in `packages/schemas/src/elements/site/parcel/` — **pure Zod**, no THREE / DOM / I/O (per **P5**).
+
+### §2.1 — `ParcelFeature`
+
+The canonical fetched parcel. (The shipped interface in `apps/editor/src/ui/site/parcel/ParcelProvider.ts` is the seed; the L0 Zod form adds provenance fields.)
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `ring` | `LatLon[]` (WGS84, outer ring; may be open) | — | §1.1; consumed by `buildBoundaryFromLatLonRing` |
+| `refcat` | `string` | — | source's own parcel id (ES *referencia catastral*; DK `jordstykke` id; CH EGRID) |
+| `areaM2` | `number` | `0` | published area where the source supplies it; else 0 (client may derive) |
+| `address` | `string \| null` | `null` | locator string — **PII** per [C22](./C22-PRIVACY-AND-PII-TIER.md) |
+| `jurisdictionId` | `string` | — | e.g. `'es-barcelona'`, `'dk'`, `'ch-zh'` — the key C58 resolves a rule pack by |
+| `provenance` | `ParcelProvenance` (§2.2) | — | §1.4 |
+
+### §2.2 — `ParcelProvenance`
+
+Forward-compatible with C19 §2.6 `ProvenanceRecord` (the committed Site copies these into its record).
+
+| Field | Type | Notes |
+|---|---|---|
+| `source` | `string` (provider id) | `'catastro' \| 'matriklen' \| 'oereb' \| 'terrara' \| …` — extends the C19 `ProvenanceRecord.source` enum |
+| `sourceVersion` | `string \| null` | dataset release / WFS capabilities version where available |
+| `sourceCrs` | `string` | EPSG the geometry arrived in, pre-reprojection (`'EPSG:25832'`, …) |
+| `license` | `string \| null` | SPDX id or free-form; drives §1.9 attribution |
+| `ingestTimestamp` | `ISODateString` | UTC |
+
+### §2.3 — `ParcelProvider` interface
+
+The provider contract (L2). Every jurisdiction implements this once.
+
+```ts
+// packages/site-parcel-data/src/ParcelProvider.ts   (proposed L2 home)
+export interface ParcelProvider {
+  readonly id: string;              // provenance tag, e.g. 'catastro'
+  readonly label: string;           // §1.9 attribution string
+  /** Resolve the real cadastral parcel at a WGS84 point, or null on any miss.
+   *  MUST never throw (§1.5). MUST open a pryzm.parcel.* span (§1.8). */
+  fetchParcelAtPoint(lon: number, lat: number): Promise<ParcelFeature | null>;
+  /** Optional: reverse-geocode a point → parcel ref + address, where the source
+   *  requires a two-step (ref-then-geometry) flow (e.g. Catastro OVC → GetParcel). */
+  reverseGeocode?(lon: number, lat: number): Promise<{ refcat: string; address?: string | null } | null>;
+}
+```
+
+The active provider for the current pilot is a single `defaultParcelProvider` export (per `apps/editor/src/ui/site/parcel/index.ts` today) — swapping the pilot jurisdiction is a one-line change (per §1.7 the target is a registry keyed by `jurisdictionId`; see §10.1).
+
+---
+
+## §3 — Adapters, proxy & package boundaries
+
+### §3.1 — The adapter contract (one per jurisdiction/source)
+
+| Adapter | Jurisdiction | Access | CRS | Status |
+|---|---|---|---|---|
+| `CatastroParcelProvider` | Spain (Dirección General del Catastro) | **keyless** — OVC `Consulta_RCCOOR` reverse-geocode → INSPIRE WFS `cp:CadastralParcel` `GetParcel` by REFCAT (WFS has **no BBOX** — point→ref→geometry) | EPSG:4326/25830-31 | **BUILT** (`apps/editor/src/ui/site/parcel/CatastroParcelProvider.ts` + `server/parcelZoningProxy.js`) |
+| `DkParcelProvider` | Denmark (Matriklen2 `jordstykke`) | **keyed** — Datafordeler service-user API-key, **server-side only** (§1.2) | EPSG:25832 | proposed (§3.2) |
+| `OerebParcelProvider` | Switzerland (geodienste `ms:RESF` + api3.geo.admin identify → EGRID) | mostly OGD; a few cantons meter | EPSG:2056 | proposed |
+| `TerraraParcelProvider` | Switzerland (premium) | commercial (buy-vs-build — ADR-0269, UNVERIFIED API) | — | proposed / gated |
+
+Adding a jurisdiction is a new adapter + (if needed) a proxy route + a curated attribution string — **never** a core edit (§1.1).
+
+### §3.2 — The Denmark keyed-source pattern (secrets)
+
+Denmark's Matriklen requires a Datafordeler service-user API-key (free self-service registration: web-user → IT-system → service-user key). Per §1.2 the key lives **only** server-side; the proxy holds one service-user key and the browser never sees it. For the reference build, the offline pre-bake (per the Denmark reference architecture) may use the same key once, minimising runtime key traffic. This is the template for every future keyed source.
+
+### §3.3 — Package boundaries (8-layer model)
+
+| Package | Layer | Responsibility |
+|---|---|---|
+| `packages/schemas/src/elements/site/parcel/` | **L0** | `ParcelFeature` / `ParcelProvenance` Zod schemas (§2). No I/O, no THREE, no DOM. |
+| `packages/site-parcel-data/` | **L2** | `ParcelProvider` interface + adapters + jurisdiction registry (shared with C58). Pure fetch+parse. |
+| `server/parcelZoningProxy.js` | server (BFF) | forward-once + GML→GeoJSON normalise + LRU cache + non-fatal empty fallback + **server-side keys**. |
+| `packages/geospatial/` | **L2** | C12 — the single `proj4` projector reused for edge reprojection (§1.6). |
+| `apps/editor/src/ui/geospatial/` + `.../site/parcel/` | **L5** | the "Select parcel" map mode + info card; the transitional home of the shipped Spain adapter (§1.7). |
+
+Dependency direction: `apps/editor` ← `site-parcel-data` ← `schemas`; `site-parcel-data` → `geospatial` (peer L2). No reverse imports.
+
+---
+
+## §4 — Flow (no new command surface)
+
+C57 adds **no** new command. A selected parcel reuses the C19 command surface verbatim:
+
+1. `dispatchSiteLocation` → sets C12 LTP-ENU origin (C19 §1.3).
+2. `site.parcel-boundary-set` (C19 §4.1) — one-shot, immutable (C19 §1.4) — with the fetched ring.
+3. (then C58) `site.updateZoning` (C19 §4.1) — the envelope's mutable fields.
+
+The only new server surface is the proxy route(s): `/api/catastro/parcel` (shipped) and, per jurisdiction, `/api/parcel/reverse`, `/api/parcel/:ref` (proposed, per scoping §6.4). Each proxy handler opens a `pryzm.parcel.*` span (§1.8).
+
+---
+
+## §5 — UI
+
+The parcel-select interaction is specified in [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed). C57 binds only:
+
+- **§5.1 — Brand colour.** Parcel hover/select highlight uses the canonical PRYZM purple `#6600FF` per [C18](./C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md) / C19 §5.5.
+- **§5.2 — Attribution surfaced.** The provider `label` (§1.9) and the parcel `provenance` (source / license / ingest time) MUST be shown on the info card.
+- **§5.3 — Honest fallback.** A `null` fetch (§1.5) surfaces the "no parcel here — draw instead" affordance; it MUST NOT read as an error.
+- **§5.4 — Select-vs-draw default.** Select-parcel is the default mode only where the active jurisdiction has a `ParcelProvider`; Draw otherwise.
+
+---
+
+## §6 — Tests / CI gates
+
+| Gate | Path | Verifies | Ratchet |
+|---|---|---|---|
+| `check-parcel-no-direct-fetch` | `tools/ga-gate/check-parcel-no-direct-fetch.ts` | No adapter fetches a gov origin directly from client code; all go via the same-origin proxy (§1.2) | On lift to L2 |
+| `check-parcel-no-client-secret` | `tools/ga-gate/check-parcel-no-client-secret.ts` | No API key / service-user token appears in client bundles or repo (§1.2) | Now |
+| `check-parcel-provenance` | unit test in `packages/site-parcel-data/__tests__/provenance.test.ts` | Every `ParcelFeature` carries `source` + `license` + `sourceCrs` (§1.4) | On L2 |
+| `check-parcel-never-throws` | unit test | `fetchParcelAtPoint` returns `null` (never throws) on network error / non-OK / bad JSON / < 3 vertices (§1.5) | Now (Spain adapter) |
+| `check-parcel-wgs84` | unit test | Adapter output ring is WGS84 lat/lon in `[-90,90]`/`[-180,180]`; no source CRS leaks (§1.1/§1.6) | On L2 |
+| `check-parcel-otel-spans` | `tools/ga-gate/check-parcel-spans.ts` | Every exported provider/proxy fn opens `pryzm.parcel.<verb>` (§1.8) | On L2 |
+
+### §6.1 — E2E test
+
+`tests/e2e/parcel-select.spec.ts` (proposed): open a project → Site tab → Select-parcel mode → click a Barcelona plot → assert one `site.parcel-boundary-set` fires with a ring whose area ≈ Catastro `areaM2` → assert the boundary is C19 §1.4 immutable → click an unmapped point → assert the honest "draw instead" fallback (no error).
+
+---
+
+## §7 — NFT targets
+
+Per [C10](./C10-PERFORMANCE-AND-OBSERVABILITY.md).
+
+- **§7.1 — Parcel fetch < 2 s (p95).** Point → provider → `ParcelFeature` (proxy cache-cold) MUST complete < 2 s on reference hardware; cache-hit < 200 ms. Span `pryzm.parcel.fetchParcelAtPoint`.
+- **§7.2 — Proxy citizenship.** The proxy forwards each unique request **once**, serving repeats from the LRU cache (parcels ~7 d TTL) so PRYZM never re-hammers a shared public endpoint (per the `overpassProxy.js` template; scoping §6.4).
+- **§7.3 — Ring vertex budget.** A fetched ring SHOULD respect the C19 §7.3 parcel-polygon budget (≤ 50 vertices soft; hard-reject > 200) — an adapter SHOULD simplify a pathological multi-thousand-vertex cadastral polygon before commit (deterministically — §10.3).
+
+---
+
+## §8 — Migration / build sequence
+
+Per [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) §sequence (L-398 → L-404). C57's slice:
+
+1. **L-400 (partial, shipped)** — `CatastroParcelProvider` + `server/parcelZoningProxy.js` + Spain parcel-select. Already in prod (input side only).
+2. **L-400** — lift the provider layer to `packages/site-parcel-data/` (L2); land the L0 `ParcelFeature` Zod schema + provenance; extend the C19 `ProvenanceRecord.source` enum. Introduce the `jurisdictionId` registry (§10.1).
+3. **L-400** — `DkParcelProvider` (Matriklen, server-side Datafordeler key) as the Denmark-reference parcel adapter; `OerebParcelProvider` (CH EGRID) as the third.
+4. **Ratify** — DRAFT → CANONICAL once the L2 package + §6 gates are green and a second adapter (DK) is live.
+
+No behaviour change to the shipped Spain flow during the lift; the commit seam (C19) is unchanged throughout.
+
+---
+
+## §9 — What is NOT in this contract
+
+| Concern | Owner |
+|---|---|
+| Zoning fetch, buildable-envelope solving, setbacks/height/FAR | [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) |
+| Coordinate transforms (WGS84 ↔ scene, LTP-ENU, reprojection math) | [C12 Geospatial](./C12-GEOSPATIAL.md) — C57 reuses the single projector (§1.6) |
+| The persisted `SiteModel` / `Parcel` schema + the immutable commit command | [C19 Site Model & Parcel](./C19-SITE-MODEL-AND-PARCEL.md) — C57 hands a ring to `site.parcel-boundary-set` |
+| Address / land-title PII handling, residency, share-link gating | [C22 Privacy & PII Tier](./C22-PRIVACY-AND-PII-TIER.md) — C57 marks `address` PII |
+| The map interaction (select-vs-draw, hover preview, info card) | [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed) |
+| LOD2 context buildings + terrain ingestion (Cesium 3D-Tiles / quantized-mesh) | [C19 §1.8](./C19-SITE-MODEL-AND-PARCEL.md) (context snapshot) + the Denmark reference architecture (offline-bake); a future context-engine contract |
+| The compliance "explain-why" report artefact | [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md) |
+| Commercial terms / pricing of premium sources (Terrara, keyed tiers) | [C39 Pricing & Plan Tiers](./C39-PRICING-AND-PLAN-TIERS.md) + ADR-0269 buy-vs-build |
+
+---
+
+## §10 — Open design questions (pending decision)
+
+### §10.1 — pending: jurisdiction → provider registry shape
+Today `defaultParcelProvider` is a single export (one pilot jurisdiction). Multi-jurisdiction needs a registry keyed by `jurisdictionId` (resolved from the reverse-geocode result / the map location). Whether that registry is a static map, a runtime-composed registry (P1), or config-driven is undecided. Recommendation: a static keyed registry in `site-parcel-data`, resolved by the reverse-geocoded country/municipality. Pending L-400 implementation.
+
+### §10.2 — pending: hover-preview fast path
+Catastro's WFS has no BBOX; the hover preview would need the WMS `GetFeatureInfo` point path (a second upstream shape). Whether hover-preview is in the P0 UI or deferred (click-only select) is a UX decision. Pending SPEC-PARCEL-SELECTION.
+
+### §10.3 — pending: deterministic parcel simplification
+A pathological cadastral polygon (thousands of vertices) exceeds the C19 §7.3 budget. The simplification algorithm (Visvalingam-Whyatt / Douglas-Peucker) must be **deterministic** (same input → same ring) for reproducibility, but the choice is open. Mirrors C19 §10.3. Pending L1 implementation.
+
+### §10.4 — pending: serve-in-house tier (PostGIS/Martin) scope
+The Denmark reference proposes an optional PostGIS + Martin MVT tier (normalise a national dataset once, serve vector tiles) instead of per-request gov WFS hits. Whether this is in-scope for the reference or a later scale optimisation (the runtime proxy + cache suffices for the pilot) is open. Pending ADR-0269 / L-404.
+
+---
+
+## §11 — Cross-references
+
+- [C00 Index](./README.md) — register the C57 row.
+- [C03 Schemas, Commands & State](./C03-SCHEMAS-COMMANDS-AND-STATE.md) — `ParcelFeature` is an L0 pure schema.
+- [C12 Geospatial](./C12-GEOSPATIAL.md) — the single projector reused at the edge (§1.6).
+- [C19 Site Model & Parcel](./C19-SITE-MODEL-AND-PARCEL.md) — the commit seam (§1.3); the `ProvenanceRecord.source` enum extension; fills C19 §9/§10.2 jointly with C58.
+- [C22 Privacy & PII Tier](./C22-PRIVACY-AND-PII-TIER.md) — `address` PII.
+- [C23 Provenance & AI Audit](./C23-PROVENANCE-AND-AI-AUDIT.md) — consumes `ParcelProvenance`.
+- [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) — the sibling; consumes the fetched parcel.
+- [C18 Element Preview Visual Contract](./C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md) — `#6600FF` highlight.
+- [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) — the strategy decision.
+- [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed) · [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md).
+
+External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](../../04-reference/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md) (G-DATA), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/PARCEL-ZONING-FEATURE-SCOPING.md), [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md).
+
+---
+
+## §12 — Contract history
+
+| Date | Change |
+|---|---|
+| 2026-07-17 | Initial DRAFT — fills the C57 reserved slot (compliance-authoring foundation, L-398/L-400/L-403). Grounds on the shipped Spain/Catastro parcel-select + the Denmark reference. Author: compliance-authoring governance track. |
