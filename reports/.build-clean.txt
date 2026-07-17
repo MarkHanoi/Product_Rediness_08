@@ -1,0 +1,121 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> 3d-view-app@2.0.0 build
+> node scripts/check/check-project-isolation.mjs && tsc --skipLibCheck && node --max-old-space-size=6144 node_modules/vite/bin/vite.js build && node scripts/build/write-prod-shim.mjs
+
+──────────────────────────────────────────────────────────────────────────────
+C13 — Project-Isolation Guard (registry + dead-listener)
+──────────────────────────────────────────────────────────────────────────────
+Singletons serialized in ProjectSerializer.ts : 27
+Scopes registered with ProjectScopeRegistry  : 54
+Allowlisted (intentionally unregistered)     : 0
+Dead project-lifecycle DOM listeners found    : 0
+Listener migrations pending (allowlisted)    : 2
+
+✓ All serialized singletons are registered.
+✓ No dead project-lifecycle DOM listeners.
+
+✓ Project isolation is intact.
+
+vite v7.3.2 building client environment for production...
+transforming...
+[plugin vite:resolve] Module "node:module" has been externalized for browser compatibility, imported by "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/node_modules/.pnpm/manifold-3d@3.4.1_@gltf-tra_2b09e457e84e4d38586a7af5263c0d7c/node_modules/manifold-3d/manifold.js". See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+✓ 4159 modules transformed.
+Export "setPhysicsOverlayMode" of module "packages/physics-host/src/PhysicsOverlayRenderer.ts" was reexported through module "packages/physics-host/src/index.ts" while both modules are dependencies of each other and will end up in different chunks by current Rollup settings. This scenario is not well supported at the moment as it will produce a circular dependency between chunks and will likely lead to broken execution order.
+Either change the import in "apps/editor/src/ui/dataworkbench/PhysicsPanel.ts" to point directly to the exporting module or reconfigure "output.manualChunks" to ensure these modules end up in the same chunk.
+Export "initPhysicsOverlayRenderer" of module "packages/physics-host/src/PhysicsOverlayRenderer.ts" was reexported through module "packages/physics-host/src/index.ts" while both modules are dependencies of each other and will end up in different chunks by current Rollup settings. This scenario is not well supported at the moment as it will produce a circular dependency between chunks and will likely lead to broken execution order.
+Either change the import in "apps/editor/src/engine/initDataPlatform.ts" to point directly to the exporting module or reconfigure "output.manualChunks" to ensure these modules end up in the same chunk.
+Export "setPhysicsOverlayMode" of module "packages/physics-host/src/PhysicsOverlayRenderer.ts" was reexported through module "packages/physics-host/src/index.ts" while both modules are dependencies of each other and will end up in different chunks by current Rollup settings. This scenario is not well supported at the moment as it will produce a circular dependency between chunks and will likely lead to broken execution order.
+Either change the import in "apps/editor/src/engine/initDataPlatform.ts" to point directly to the exporting module or reconfigure "output.manualChunks" to ensure these modules end up in the same chunk.
+rendering chunks...
+[plugin vite:reporter] 
+(!) C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor/src/ui/property-inspector/RoomAutoOrganiser.ts is dynamically imported by C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor/src/ui/layout/CreatePanelLayout.ts, C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor/src/ui/property-inspector/RoomPropertySection.ts but also statically imported by C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor/src/ui/ai/AIPanel.ts, dynamic import will not move module into another chunk.
+
+dist/browser.html                                        0.82 kB
+dist/assets/solar.worker-DhrfGM_N.js                     6.53 kB
+dist/assets/compress.worker-CAQwIoKX.js                  7.04 kB
+dist/assets/DrawingPipelineWorker-Dzvw6xLj.js            7.42 kB
+dist/index.html                                         21.80 kB
+dist/assets/manifold-BSQAbLTO.wasm                     493.12 kB
+dist/assets/pdf.worker-B1D2UnXD.mjs                  2,161.15 kB
+dist/assets/pdf.worker-BgryrOlp.mjs                  2,209.73 kB
+dist/assets/worker-BdnO3Uop.mjs                      3,216.09 kB
+dist/assets/IFCParseWorker-BE1I6_BD.js               3,529.87 kB
+dist/assets/browser-BZVqu81I.css                         4.79 kB
+dist/assets/SiteBoundaryMap2D-DNVN2dqC.css              69.92 kB
+dist/assets/__vite-browser-external-D7Ct-6yo.js          0.13 kB
+dist/assets/familyCreatorPlaceholder-Bmzcr4nR.js         0.13 kB
+dist/assets/TRAAPass-BWpCS1f4.js                         0.48 kB
+dist/assets/modulepreload-polyfill-B5Qt9EMX.js           0.71 kB
+dist/assets/runtimeEventBridge-BuThWIBK.js               0.74 kB
+dist/assets/UiPreferences-hMt0Co0i.js                    0.82 kB
+dist/assets/rendererPrewarm-DZCC9yVL.js                  1.01 kB
+dist/assets/OutlinePass-Cx-gA8LL.js                      1.11 kB
+dist/assets/recomputeImpact-Cd8_Lev5.js                  1.45 kB
+dist/assets/SSGIPass-BWrbTpL2.js                         1.63 kB
+dist/assets/AiHost.impl-CSva6N8x.js                      1.95 kB
+dist/assets/Pryzm1SunsetBanner-1LeA70JW.js               2.12 kB
+dist/assets/familyCreatorPlaceholder-CAI1ML5p.js         2.35 kB
+dist/assets/VoiceCommand.impl-BM_zWw0q.js                2.45 kB
+dist/assets/ensureSiteClimate-BV6CiB5D.js                2.47 kB
+dist/assets/CrashReporter.impl-DXKbwZLf.js               3.03 kB
+dist/assets/gpuDisabledOverlay-BJCv5r-5.js               3.13 kB
+dist/assets/GridDrawingHUD-DttNsQ_A.js                   3.22 kB
+dist/assets/bootstrap.everything-CZ7wyzbs.js             3.49 kB
+dist/assets/index-BeeotOwK.js                            3.60 kB
+dist/assets/siteGeocodeSearchBox-g0_nUJHS.js             3.60 kB
+dist/assets/index-CUUaJ4y0.js                            5.14 kB
+dist/assets/index-B4nvS0Xf.js                            5.24 kB
+dist/assets/RevitWizardPanel-YdpeCu5k.js                 5.66 kB
+dist/assets/SiteBoundaryDrawTool-28PwHvbb.js             6.17 kB
+dist/assets/contextBuildings-DAJ7PNOO.js                 7.03 kB
+dist/assets/InteropFidelityReport-PA015J1K.js            7.55 kB
+dist/assets/performUndoRedo-CmUmH0df.js                  7.79 kB
+dist/assets/RoomPathfinderPanel-Dx2TzlDg.js              8.36 kB
+dist/assets/EvacuationSimulatorPanel-BaXsfxm5.js         9.30 kB
+dist/assets/RoomGraphPanel-D6SUPfIs.js                   9.49 kB
+dist/assets/SyncStateDetailDrawer-CW4I9bSV.js           10.17 kB
+dist/assets/ImportManagerPanel-C5YzG0Ys.js              11.09 kB
+dist/assets/index-TfM892l1.js                           16.11 kB
+dist/assets/bootstrap.render.everything-CZtH6cER.js     17.05 kB
+dist/assets/purify.es-DrLDRNlj.js                       21.84 kB
+dist/assets/index-Ws63ORvA.js                           27.29 kB
+dist/assets/PluginRegistry-DYUBQ_ZT.js                  27.38 kB
+dist/assets/siteRealData-_d6GIU-u.js                    32.35 kB
+dist/assets/index-Ck8efxpQ.js                           34.67 kB
+dist/assets/FormaSiteAnalysisControls-CCcw6D0A.js       36.72 kB
+dist/assets/VisibilityIntentPanel-ByAzKHt0.js           38.41 kB
+dist/assets/EdgeProjectorService-CdqX3UXn.js            38.79 kB
+dist/assets/manifold-Cf26px4a.js                        40.49 kB
+dist/assets/index-C-o_-EmL.js                           42.69 kB
+dist/assets/DataCommandCenter-iMjNFbj2.js               45.92 kB
+dist/assets/index-D5dTGNtz.js                           49.11 kB
+dist/assets/index-Ci0AsGD5.js                           53.80 kB
+dist/assets/vendor-three-bvh-CFiP9rYh.js                67.42 kB
+dist/assets/index.modern-ZBCp3kJU.js                    70.95 kB
+dist/assets/SheetEditorPanel-CaDAGhQr.js                82.31 kB
+dist/assets/vendor-rhino3dm-B9dtnoYy.js                 87.88 kB
+dist/assets/vendor-dxf-BC08yJoh.js                      98.58 kB
+dist/assets/PlatformShell-C9_9fVc3.js                  103.03 kB
+dist/assets/index.es-BrzgQP0y.js                       112.66 kB
+dist/assets/functions.modern-BNwlxgBN.js               114.08 kB
+dist/assets/CesiumViewport-4LK2-f-V.js                 138.40 kB
+dist/assets/vendor-pathtracer-D8S1h9ra.js              145.66 kB
+dist/assets/GenerativeDesignAdvisor-kvqwttdn.js        195.07 kB
+dist/assets/index-DxN1fv-f.js                          198.69 kB
+dist/assets/html2canvas.esm-DXEQVQnt.js                201.04 kB
+dist/assets/vendor-chart-CxR4x6W5.js                   207.48 kB
+dist/assets/browser-CpJpFeVC.js                        215.63 kB
+dist/assets/ProjectLifecycleController-c2C9Ofur.js     330.92 kB
+dist/assets/index-CXdObROR.js                          547.51 kB
+dist/assets/vendor-pdfjs-B-yXWhnR.js                   748.57 kB
+dist/assets/SiteBoundaryMap2D-DF61GFyg.js            1,100.47 kB
+dist/assets/vendor-three-nL0F7Y4L.js                 1,865.81 kB
+dist/assets/vendor-thatopen-KnogTKIt.js              1,988.17 kB
+dist/assets/main-C_OIfB7m.js                         2,450.05 kB
+dist/assets/engineLauncher-BQZgDcnT.js               3,230.49 kB
+dist/assets/domain-engine-BpHDx7nO.js                3,281.32 kB
+dist/assets/vendor-web-ifc-DPjc2peB.js               3,555.53 kB
+✓ built in 3m 16s
+[write-prod-shim] wrote C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\dist\index.cjs (658 bytes)
+BUILD DONE exit=0

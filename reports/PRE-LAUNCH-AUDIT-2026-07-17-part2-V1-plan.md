@@ -3583,17 +3583,6 @@ Links: L-383, L-383a–e; ties L-380, L-374. Owner UNASSIGNED. Target TBD.
 | 4 | Structure the step so parcel-SELECT (L-380 P1) plugs in as a second input MODE sharing the same edit/undo/back surface. | S | Select-mode (when built) reuses the affordances; no one-off. |
 Links: L-384; ties L-380/L-383. Owner UNASSIGNED. Target TBD. Route: Pipeline B (site-authoring worktree).
 
-## L-385 — Unify all loading screens to the rotating-prism + translucent-bg + text aesthetic
-**Severity:** P2 (UX consistency; founder-requested launch polish). **Queue:** UI / loading overlay. **Contracts:** C06 §7; coverage gap (loading-overlay visual spec → MISSING-CONTRACTS). **Status: OPEN.**
-> **Approach.** Change the SINGLE shared `LoadingOverlayView` presentation so every producer (batch lifecycle §L1-BATCH-PERF-MODE, view-activation L-270, building-generation lease L-367) inherits the new look — reuse the crash-fallback / `ViewportCrashGuard` rotating-PRYZM-prism + translucent-backdrop + text component/CSS. NO per-screen fork. Keep the existing progress/label/error API (title, sub-label, N-elements, %, error+actions) — only the visual chrome changes (drop the frosted card + placeholder icon; prism spins over the translucent bg, text below). Preserves L-270 readiness/error states + L-367 continuous-overlay behavior.
-
-| Phase | Work | Verify |
-|---|---|---|
-| 1 | Extract/locate the crash-fallback rotating-prism + translucent-backdrop component; make it the shared loading visual. | Prism + backdrop render standalone. |
-| 2 | Re-skin `LoadingOverlayView` to use it (title + sub-label + N-elements + % + error/actions preserved). | All producers (batch/gen/view-activation) show the new aesthetic; progress + error states intact. |
-| 3 | Remove the frosted-card + placeholder-icon chrome; verify light/dark + no layout regressions. | No visual regressions; one consistent loading look everywhere. |
-Links: L-385. Owner UNASSIGNED. Target TBD.
-
 ## L-375a — Wire CRDT applier through the composition root
 **Severity:** P2 (collab correctness + P1/P4 regression). **Queue:** runtime-composer/command-bus. **Contracts:** C08 §3.1, G3-T2; P1, P4. **Root:** composed runtime (composeRuntime.ts:1463-1548) has no `inner` property; engineLauncher.ts:825 `(runtime as any).inner.bus` is always undefined. **Fix:** wire setCrdtApplier inside composeRuntime() (owns inner.bus) OR add typed bus.setCrdtApplier slot; remove the any reach-through; fix stale marker tests/e2e/crdt-batch-conflict.spec.ts:15. **Status: OPEN.**
 
