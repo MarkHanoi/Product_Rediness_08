@@ -30,6 +30,27 @@ interface CameraState {
     zoom:     number;
 }
 
+/**
+ * §L-378 — Positions further than this from the world origin (metres) are
+ * ECEF / globe-scale, not BIM-editor-scale. The Cesium / Forma 3D-site view
+ * drives the SHARED OBC THREE camera to ECEF coordinates (Earth radius ≈ 6.37M
+ * units; observed return poses sit ~12.5M out); a local BIM scene never exceeds
+ * a few km. 1,000 km is a safe, unambiguous ceiling.
+ *
+ * Used to reject globe-scale poses on BOTH save (stop the stale '3D' pose being
+ * persisted while the globe camera is active) and restore (never replay a
+ * contaminated state against the local BIM scene — the fallback restore path
+ * when the MultiViewCameraManager perspective slot misses).
+ */
+const GLOBE_SCALE_LIMIT_M = 1_000_000;
+
+/** True when (x,y,z) is an ECEF / globe-scale position — see GLOBE_SCALE_LIMIT_M. */
+function isGlobeScalePosition(x: number, y: number, z: number): boolean {
+    return Math.abs(x) > GLOBE_SCALE_LIMIT_M
+        || Math.abs(y) > GLOBE_SCALE_LIMIT_M
+        || Math.abs(z) > GLOBE_SCALE_LIMIT_M;
+}
+
 export class ViewCameraStateStore {
     private _states = new Map<string, CameraState>();
 
@@ -44,6 +65,19 @@ export class ViewCameraStateStore {
         if (!viewKey) return;
 
         const pos = camera.three.position;
+
+        // §L-378 globe-scale guard: while the Cesium / Forma 3D-site view is active
+        // the shared OBC THREE camera sits at ECEF coordinates. Saving that under the
+        // '3D' key would make a later restore('3D') replay the globe pose against the
+        // local BIM scene. Skip the save so the last valid BIM state is preserved.
+        if (isGlobeScalePosition(pos.x, pos.y, pos.z)) {
+            console.warn(
+                `[ViewCameraStateStore] save("${viewKey}") — position is globe/ECEF-scale ` +
+                `(${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}, ${pos.z.toFixed(0)}); skipping save (L-378) ` +
+                `to preserve last valid BIM camera state`,
+            );
+            return;
+        }
 
         const controls = camera.controls as any;
         const tx: number = controls._target?.x ?? controls.target?.x ?? 0;
@@ -81,6 +115,19 @@ export class ViewCameraStateStore {
 
         const [px, py, pz] = state.position;
         const [tx, ty, tz] = state.target;
+
+        // §L-378 globe-scale guard: never replay a contaminated ECEF / globe-scale
+        // state against the local BIM scene. Drop it and report a MISS so the caller
+        // (_activate3DView) falls through to scene-bounds default framing.
+        if (isGlobeScalePosition(px, py, pz)) {
+            console.warn(
+                `[ViewCameraStateStore] restore("${viewKey}") — stored position is globe/ECEF-scale ` +
+                `(${px.toFixed(0)}, ${py.toFixed(0)}, ${pz.toFixed(0)}); dropping state and reporting ` +
+                `MISS so default framing runs (L-378)`,
+            );
+            this._states.delete(viewKey);
+            return false;
+        }
 
         camera.controls.setLookAt(px, py, pz, tx, ty, tz, false);
         console.log(

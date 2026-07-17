@@ -61,6 +61,28 @@ export interface CameraState {
 const DEFAULT_PLAN_DISTANCE = 40;   // metres above scene centre — plan view default
 const DEFAULT_3D_DISTANCE   = 60;   // metres from scene centre — 3D view default
 
+/**
+ * §L-378 — Positions further than this from the world origin (metres) are
+ * ECEF / globe-scale, not BIM-editor-scale.
+ *
+ * The Cesium / Forma 3D-site view drives the SHARED OBC THREE camera to ECEF
+ * coordinates (Earth radius ≈ 6.37M units; observed return poses sit ~12.5M out).
+ * A local BIM scene never exceeds a few km, so 1,000 km is a safe, unambiguous
+ * ceiling: every legitimate BIM camera passes, every globe pose is rejected.
+ *
+ * Used to reject globe-scale poses on BOTH save (stop the stale pose entering a
+ * slot) and restore (never replay an already-contaminated slot against the local
+ * BIM scene, which would leave the building a distant speck).
+ */
+const GLOBE_SCALE_LIMIT_M = 1_000_000;
+
+/** True when (x,y,z) is an ECEF / globe-scale position — see GLOBE_SCALE_LIMIT_M. */
+function isGlobeScalePosition(x: number, y: number, z: number): boolean {
+    return Math.abs(x) > GLOBE_SCALE_LIMIT_M
+        || Math.abs(y) > GLOBE_SCALE_LIMIT_M
+        || Math.abs(z) > GLOBE_SCALE_LIMIT_M;
+}
+
 function defaultState(): CameraState {
     return {
         position: new THREE.Vector3(),
@@ -125,6 +147,23 @@ export class MultiViewCameraManager {
                 return;
             }
 
+            // §L-378 globe-scale guard: when the Cesium / Forma 3D-site view is
+            // active it drives the SHARED OBC THREE camera to ECEF coordinates
+            // (millions of units out). On return, ViewController.deactivate() →
+            // saveSlot('perspective') would otherwise persist that globe pose, and
+            // the immediately-following restoreSlot('perspective') would replay it
+            // against the local BIM scene, leaving the building a distant speck.
+            // A camera millions of units from the origin is never a valid BIM pose,
+            // so keep the last valid slot state instead of overwriting it.
+            if (isGlobeScalePosition(p.x, p.y, p.z)) {
+                console.warn(
+                    `[MultiViewCameraManager] saveSlot("${slot}") — position is globe/ECEF-scale ` +
+                    `(${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)}); skipping save (L-378) ` +
+                    `to preserve last valid BIM camera state`,
+                );
+                return;
+            }
+
             state.position.copy(three.position);
 
             if (controls?.getTarget) {
@@ -171,6 +210,22 @@ export class MultiViewCameraManager {
             console.warn(
                 `[MultiViewCameraManager] restoreSlot("${slot}") — stored position is NaN/Infinity ` +
                 `(${sp.x}, ${sp.y}, ${sp.z}), clearing slot and falling back to default framing`,
+            );
+            this._slots[slot] = defaultState();
+            this._activeSlot = slot;
+            return false;
+        }
+
+        // §L-378 globe-scale guard: a slot contaminated with an ECEF / globe-scale
+        // pose (persisted before this guard shipped, or via any un-traced path)
+        // must never be replayed against the local BIM scene — doing so points the
+        // camera millions of units away and the building becomes a speck. Clear the
+        // slot so the caller falls back to scene-bounds default framing.
+        if (isGlobeScalePosition(sp.x, sp.y, sp.z)) {
+            console.warn(
+                `[MultiViewCameraManager] restoreSlot("${slot}") — stored position is globe/ECEF-scale ` +
+                `(${sp.x.toFixed(0)}, ${sp.y.toFixed(0)}, ${sp.z.toFixed(0)}); clearing slot and falling ` +
+                `back to default framing (L-378)`,
             );
             this._slots[slot] = defaultState();
             this._activeSlot = slot;
