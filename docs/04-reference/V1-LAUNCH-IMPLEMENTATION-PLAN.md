@@ -3469,3 +3469,18 @@ Full audit + roadmap: docs/04-reference/FORMA-CONTEXT-ENGINE-AUDIT.md. **CONFLIC
 - [ ] **Phase 4 (L-374c):** Overture + Cityweft/Google-3D-Tiles BuildingProvider adapters; 3D-Tiles hand-off; OSM LOD1 fallback. Effort L. Dep: Phase 3.
 - [ ] **Phase 5 (L-374d):** VegetationProvider — instanced tree impostors. Effort M. Dep: Phase 3.
 Links: L-374, L-374a..f. Owner UNASSIGNED. Target TBD. Deps: C12-CONTEXT-ENGINE (new), C10 budget, ADR-0065 pattern.
+
+## L-375a — Wire CRDT applier through the composition root
+**Severity:** P2 (collab correctness + P1/P4 regression). **Queue:** runtime-composer/command-bus. **Contracts:** C08 §3.1, G3-T2; P1, P4. **Root:** composed runtime (composeRuntime.ts:1463-1548) has no `inner` property; engineLauncher.ts:825 `(runtime as any).inner.bus` is always undefined. **Fix:** wire setCrdtApplier inside composeRuntime() (owns inner.bus) OR add typed bus.setCrdtApplier slot; remove the any reach-through; fix stale marker tests/e2e/crdt-batch-conflict.spec.ts:15. **Status: OPEN.**
+
+## L-375b — Gate CreateStairCommand.canExecute diagnostic dumps
+**Severity:** P2 (quick win). **Queue:** command-registry. **Fix:** gate CreateStairCommand.ts:121/:123 (+ :385/:410/:421/:436/:473/:483) behind the L-369 `__pryzmBuildingGenActive` helper (BimKernel.ts:28-37), or delete. **Status: OPEN.**
+
+## L-375c — Gate CommandManager per-command logs during building-gen
+**Severity:** P2 (quick win). **Queue:** command-registry. **Fix:** extend CommandManagerImpl.ts:105-127 log fast-path to also skip EXECUTE/snapshot log lines when `__pryzmBuildingGenActive` (keep the snapshot). **Status: OPEN.**
+
+## L-375d — Extend L-131 batch coalescing to slab/stair/lift/curtain/roof
+**Severity:** P2 (perf/arch gap). **Queue:** command-registry + editor executor + plugins/stair. **Contracts:** C16, L-131 (ADR-worthy). **Fix:** route stairs via the existing `stair.batch.create` handler (VERIFY it is registered at bootstrap — likely missing in editor app); add sibling batch commands for slab/lift/curtain-wall; one snapshot per group. **Status: OPEN.**
+
+## L-375e — Backend-correct FIRST-RENDER-POST-SUPPRESS label
+**Severity:** P3 (diagnostic). **Queue:** core-app-model/rendering. **Cross-ref:** L-372 (do not duplicate cost). **Fix:** branch UnifiedFrameLoop.ts:506 label on `isRealWebGPUBackend()`. **Status: OPEN.**
