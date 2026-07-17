@@ -15,12 +15,21 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@pryzm/core-app-model', async () => ({
+// L-388 — importing DoorPlanToolHandler pulls the geometry-door barrel, whose
+// transitive graph (system-type stores, room-topology singletons, annotations,
+// constraint-solver…) legitimately reads many core-app-model barrel exports at module
+// load (self-registration, event-bus subscription, region constraint tables). A
+// PARTIAL mock is fatal here: vitest's mock namespace THROWS on access of any export
+// the factory omits, crashing the whole graph at import. So spread the REAL barrel via
+// importOriginal (every load-time consumer gets the genuine export) and override ONLY
+// `canvasHitToWorld3D` with a deterministic plan-family mapping (worldX→x, worldZ→z),
+// which is the sole barrel dep whose value this suite needs to pin for the renderer-free
+// host-resolution assertions.
+vi.mock('@pryzm/core-app-model', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@pryzm/core-app-model')>()),
     canvasHitToWorld3D: (hit: { worldX: number; worldZ: number }) => ({
         x: hit.worldX, y: 0, z: hit.worldZ,
     }),
-    DoorPlacementFlip: (await import('../../../../../../../packages/core-app-model/src/preview/DoorPlacementFlip'))
-        .DoorPlacementFlip,
 }));
 
 import { DoorPlanToolHandler } from '../DoorPlanToolHandler';

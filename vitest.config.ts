@@ -9,9 +9,22 @@
 // Environment: happy-dom (provides DOM APIs for panel show/hide testing
 // without a real browser; lighter than jsdom).
 
+import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // §L-388 — the root vite build (vite.config.ts) defines these `@app/*` source
+  // aliases; the standalone vitest config must mirror them or any spec whose load
+  // graph reaches an `@app/...` import (e.g. PropertyPanelAnnotations →
+  // @app/ui/documentation/driveDimension) fails to resolve. Kept in lock-step with
+  // vite.config.ts `resolve.alias`.
+  resolve: {
+    alias: {
+      '@app/ui': resolve('./apps/editor/src/ui'),
+      '@app/engine': resolve('./apps/editor/src/engine'),
+      '@app/rendering': resolve('./apps/editor/src/rendering'),
+    },
+  },
   test: {
     globals: false,
     environment: 'happy-dom',
