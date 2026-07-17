@@ -68,5 +68,18 @@ export type {
 } from './YjsDocAdapter.js';
 export { CRDTConflictResolver } from './CRDTConflictResolver.js';
 export type { MergeResult } from './CRDTConflictResolver.js';
+
+// L-391 Phase 0 — real-time CRDT provider wiring (gated, default OFF).
+// NOTE: `createWebsocketProvider` (the real transport, which imports
+// `y-websocket`) is intentionally NOT re-exported here — it lives behind the
+// `@pryzm/sync-client/websocket-provider` subpath so the base barrel stays free
+// of the transport dependency and callers opt in explicitly.
+export { connectCrdtProvider } from './collabProvider.js';
+export type {
+  CollabProviderConfig,
+  CrdtProviderTarget,
+  WebsocketProviderFactory,
+  WebsocketProviderFactoryArgs,
+} from './collabProvider.js';
 export { SyncPresenceClient } from './SyncPresenceClient.js';
 export type { PresenceUser } from './SyncPresenceClient.js';

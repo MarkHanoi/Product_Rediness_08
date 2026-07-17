@@ -11,7 +11,8 @@
     "./SyncClient": "./src/SyncClient.ts",
     "./event-bridge": "./src/event-bridge.ts",
     "./awareness": "./src/awareness.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./websocket-provider": "./src/websocketProviderFactory.ts"
   },
   "files": ["src"],
   "scripts": {

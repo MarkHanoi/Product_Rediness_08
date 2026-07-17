@@ -85,7 +85,11 @@ import { initViewSetup }              from './initViewSetup';
 import { createAddFurniture }         from './initFurnitureInteraction';
 import { initWallLevelSubscribers }   from './initWallLevelSubscribers';
 import { ProjectLifecycleController } from '@pryzm/runtime-composer';
-import { YjsDocAdapter, CRDTConflictResolver } from '@pryzm/sync-client';
+import { YjsDocAdapter, CRDTConflictResolver, connectCrdtProvider } from '@pryzm/sync-client';
+import type { CollabProviderConfig } from '@pryzm/sync-client';
+// L-391 Phase 0 — the real transport lives behind a subpath so the base barrel
+// stays free of the y-websocket dependency (opt-in import).
+import { createWebsocketProvider } from '@pryzm/sync-client/websocket-provider';
 // §S-B1 (DAILY-USE-AUDIT 2026-05-20) — wire the P8 conflict-disclosure UI.
 // Both classes were already exported but `_yjsDocAdapter.onConflict(...)` was
 // never called from the editor app, so concurrent CRDT edits were silently
@@ -838,6 +842,63 @@ export async function bootstrap(
             console.log('[EngineBootstrap] G3-T2: CRDT applier wired → YjsDocAdapter');
         } else {
             console.warn('[EngineBootstrap] G3-T2: runtime.bus.setCrdtApplier not accessible — CRDT applier not wired');
+        }
+
+        // ── L-391 Phase 0 — real-time CRDT websocket provider (GATED, default OFF) ──
+        // Until L-375a the CRDT applier wrote to a purely local Y.Doc with NO
+        // network provider → the doc never received remote ops and the 3-way
+        // CRDTConflictResolver / conflict banner never fired for real multi-user
+        // edits (production collab is the socket.io last-write-wins rebroadcast).
+        // This block attaches a y-websocket WebsocketProvider to the adapter's
+        // Y.Doc so remote ops flow into `_yjsDocAdapter` and the conflict path
+        // becomes live — but ONLY when the flag is explicitly enabled AND a sync
+        // URL is configured. Both default OFF, so with no config this is a strict
+        // no-op and solo/offline editing is byte-identical to today. There is no
+        // deployed sync-server yet; turning this on is a deliberate Phase-1 step
+        // once apps/sync-server ships (see docs/04-reference/L-391-CRDT-COLLAB-PLAN.md).
+        //
+        // P1: the composition root (this bootstrap) owns the config + factory and
+        // hands them to the pure `connectCrdtProvider` seam in @pryzm/sync-client.
+        // P4: window/env reads use `as unknown as {…}` typed shims (no `as any`).
+        try {
+            const _env = import.meta.env as Record<string, string | undefined>;
+            const _win = window as unknown as {
+                __pryzmCollabCrdt?: boolean;
+                __pryzmSyncUrl?: string;
+                __pryzmAuthToken?: string;
+                currentProjectId?: string;
+            };
+            const _syncUrl = _win.__pryzmSyncUrl ?? _env['VITE_SYNC_URL'];
+            const _flagOn =
+                _win.__pryzmCollabCrdt === true || _env['VITE_COLLAB_CRDT'] === 'true';
+            const _collabConfig: CollabProviderConfig = {
+                // Master gate: OFF unless BOTH the flag is set and a URL exists.
+                enabled: _flagOn && Boolean(_syncUrl),
+                ...(_syncUrl !== undefined ? { url: _syncUrl } : {}),
+                room: _win.currentProjectId ?? 'pryzm-project',
+                ...(_win.__pryzmAuthToken !== undefined
+                    ? { authToken: _win.__pryzmAuthToken }
+                    : {}),
+            };
+            const _provider = connectCrdtProvider(
+                _yjsDocAdapter,
+                _collabConfig,
+                createWebsocketProvider,
+            );
+            if (_provider) {
+                console.log(
+                    `[EngineBootstrap] L-391: CRDT websocket provider connected ` +
+                    `room=${_collabConfig.room} url=${_syncUrl}`,
+                );
+            } else {
+                console.log(
+                    '[EngineBootstrap] L-391: CRDT websocket provider OFF (flag/url unset) — ' +
+                    'solo/socket.io path unchanged.',
+                );
+            }
+        } catch (err) {
+            // Provider wiring must never break boot — degrade to solo silently.
+            console.warn('[EngineBootstrap] L-391: CRDT provider wiring failed (non-fatal):', err);
         }
 
         // ── §S-B1 (DAILY-USE-AUDIT 2026-05-20) — wire P8 conflict-disclosure UI ──
