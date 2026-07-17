@@ -9,7 +9,7 @@
   - `apps/editor/src/ui/geospatial/CesiumViewport.ts` — the live wiring (`renderRealModelOnGlobe:7530`, `renderFormaMassing:3021`, `resolveFullBuildingHeight:8035`, `tileBandsToFullHeight:8081`, `holdGlobeBuildingForUnresolvedGround:4340`, `revealGlobeBuildingForGround:4352`, `logGlobeAnchorEvidence:4391`, `flyToModelBoundingSphere:4836`).
   - `apps/editor/src/ui/geospatial/viewActivationLoading.ts` — the anchor/ready gate (`whenGroundSettled()` consumer).
   - `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts` — the THREE↔Cesium camera/scene bridge (ENU floating-origin anchor).
-- **§-tags cited (canonical in-code anchors):** `§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF` (L-259), `photoreal-tile-clamp`, `§FORMA-FULL-HEIGHT`, `§A.21.D49`, `§GLOBE-FIT-BUILDING`, `§GLOBE-FRAME-NO-JUMP`, `§GLOBE-HEADING-90` / `§A.21.D54`.
+- **§-tags cited (canonical in-code anchors):** `§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF` (L-259), `photoreal-tile-clamp`, `§FORMA-FULL-HEIGHT`, `§A.21.D49`, `§GLOBE-FIT-BUILDING`, `§GLOBE-FRAME-NO-JUMP`, `§GLOBE-STALE-FRAME-REFRAME` (L-370), `§GLOBE-HEADING-90` / `§A.21.D54`.
 
 ---
 
@@ -112,6 +112,24 @@ After the base settles, the camera frames the placed building **once** via `flyT
 (`flyToModelBoundingSphere`, ~2.5× radius, zoom-extents), re-framing only after the datum settles
 (`reframeAfterBaseSettle`). `§GLOBE-FRAME-NO-JUMP` guards prevent a late corrective flight from fighting user
 camera control or an invalid (NaN) frame target.
+
+**Update (2026-07-17, `§GLOBE-STALE-FRAME-REFRAME` / L-370).** The "never fight user camera control" guard is
+correct only for *small* settles. In practice the initial frame is flown EARLY at the unresolved base 0
+(GISAreaLayout's `reframeSiteIn3D()` → `flyToFormaSite()`), and the tile datum can resolve LATE and lift the
+building hundreds of metres to sit on the tiles (a live trace showed a **0 → 706.9 m** jump). By the time the
+seat-and-reveal fires `performInitialReframe`, the user has usually nudged the empty base-0 view, so the
+old unconditional user-moved suppression stranded the camera pointing at bare ground where the building *was*
+— the founder had to manually zoom in to find it. The corrective re-frame is therefore now gated on the
+base-height delta, not just user interaction: `flyToFormaSite` records `formaFramedAtBaseHeight` (the base the
+current frame was flown against), and `performInitialReframe` re-frames **once, despite user movement**, when
+the resolved base differs by more than `GLOBE_STALE_FRAME_BASE_JUMP_M` (20 m) — because such a jump means the
+frame is stale regardless of interaction. Small settles (terrain jitter / progressive tile refinement, a few
+metres) still honour the user's camera control, and the fire-at-most-once latch is preserved, so re-entry to
+an already-seated model (datum already resolved → ~0 m delta) still frames correctly without yanking.
+This chooses the fallback **Option B** of the fix brief: **Option A** (defer the FIRST frame until the datum
+resolves) is structurally harder here because that early frame is orchestrated EXTERNALLY in GISAreaLayout
+(`restorePhotorealGlobeContent` → `reframeSiteIn3D`, shared with the Zoom-to-Site button and the no-massing
+fallback); B is a single-seam fix at the exact suppression point keyed to the confirmed jump.
 
 ## Consequences
 

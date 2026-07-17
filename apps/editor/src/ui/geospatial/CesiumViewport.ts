@@ -380,6 +380,18 @@ const FORMA_FLY_HEADING_DEG = 325;
 const FORMA_FLY_PITCH_DEG = -45;
 const FORMA_FLY_DURATION_S = 1.2;
 /**
+ * §GLOBE-STALE-FRAME-REFRAME (L-370) — the base-height jump (metres) above which a
+ * late ground-datum settle makes the CURRENT camera frame STALE and the one-shot
+ * corrective re-frame fires EVEN IF the user has since moved the camera. The photoreal
+ * "3D globe" frames the building EARLY at base 0, then the Google-tile ground datum
+ * resolves LATE and the building JUMPS up to sit on the tiles (e.g. 0 → ~707 m) — the
+ * old frame now points at empty ground where the building WAS, so the founder had to
+ * zoom in by hand to find it. A jump this large means the frame is stale regardless of
+ * interaction; smaller settles (terrain jitter / progressive tile refinement, a few m)
+ * still honour the user's camera control — the original §GLOBE-FRAME-NO-JUMP case.
+ */
+const GLOBE_STALE_FRAME_BASE_JUMP_M = 20;
+/**
  * FORMA-PLAN-OBLIQUE — the Autodesk-Forma "plan" preset: a near-top-down but
  * still tilted camera so the directional shadows read as the depth cue (Forma's
  * "plan" is a Cesium plan-oblique, NOT a flat map). Heading North (0°), pitch
@@ -712,6 +724,13 @@ export class CesiumViewport {
    *  late base-settle — that would override their view. Distinguished from our own
    *  flights via `formaProgrammaticFlyInFlight`. Reset on each fresh framing open. */
   private formaUserMovedCamera = false;
+  /** §GLOBE-STALE-FRAME-REFRAME (L-370) — the `formaTerrainBaseHeight` that the CURRENT
+   *  building frame was flown against (recorded by `flyToFormaSite`). Used by
+   *  `performInitialReframe` to decide whether a late ground-datum settle moved the
+   *  building so far (> `GLOBE_STALE_FRAME_BASE_JUMP_M`) that the frame is STALE and the
+   *  corrective re-frame must fire even after the user took the camera. `null` until the
+   *  first building frame; treated as "no jump" so the small-settle protection is kept. */
+  private formaFramedAtBaseHeight: number | null = null;
   /** §GLOBE-FRAME-NO-JUMP — TRUE while one of our own `flyToFormaSite/Plan` flights
    *  is in progress, so the `moveStart`/`moveEnd` camera listeners can tell our
    *  programmatic motion apart from genuine user input (only the latter sets
@@ -1981,6 +2000,8 @@ export class CesiumViewport {
     // clearing here keeps a half-finished prior run from leaking its latch across the switch.
     this.formaInitialReframeFired = false;
     this.formaUserMovedCamera = false;
+    // §GLOBE-STALE-FRAME-REFRAME (L-370) — the next building frame records its own base.
+    this.formaFramedAtBaseHeight = null;
 
     // --- Hide the photogrammetry / 3D tilesets while in Forma mode (§2). ---
     try {
@@ -4715,6 +4736,8 @@ export class CesiumViewport {
     this.formaReframeOnBaseSettle = preset;
     this.formaInitialReframeFired = false;
     this.formaUserMovedCamera = false;
+    // §GLOBE-STALE-FRAME-REFRAME (L-370) — the entry's building frame records its own base.
+    this.formaFramedAtBaseHeight = null;
   }
 
   /**
@@ -4766,14 +4789,34 @@ export class CesiumViewport {
       return;
     }
     if (this.formaUserMovedCamera) {
-      // The user has already moved the camera; honouring the late settle would
-      // override their view. Latch as fired so a later settle is also suppressed.
-      this.formaInitialReframeFired = true;
+      // §GLOBE-STALE-FRAME-REFRAME (L-370) — normally, once the user has taken the camera we
+      // do NOT re-fly them (honouring their view is the whole point of §GLOBE-FRAME-NO-JUMP).
+      // BUT on the photoreal "3D globe" the building is framed EARLY at base 0, then the
+      // Google-tile ground datum resolves LATE and the building JUMPS up to sit on the tiles
+      // (the live trace: 0 → 706.9 m). When the jump is that large the frame the user is
+      // looking at is STALE — it points at empty ground where the building WAS, hundreds of
+      // metres below the building's real seat — so suppressing the re-frame strands them and
+      // forces a manual zoom-in to find the building. Re-frame ONCE in that case, despite the
+      // user movement. Small settles (terrain jitter / progressive tile refinement, a few m)
+      // still honour the user's camera control — the original §GLOBE-FRAME-NO-JUMP case.
+      const framedBase = this.formaFramedAtBaseHeight;
+      const baseJumpM = framedBase == null ? 0 : Math.abs(this.formaTerrainBaseHeight - framedBase);
+      if (baseJumpM <= GLOBE_STALE_FRAME_BASE_JUMP_M) {
+        // The user has already moved the camera and the base barely moved; honouring the late
+        // settle would override their view. Latch as fired so a later settle is also suppressed.
+        this.formaInitialReframeFired = true;
+        console.log(
+          '[CesiumViewport][forma] §GLOBE-FRAME-NO-JUMP — base settled but the user ' +
+            'already moved the camera; suppressing the corrective re-frame.',
+        );
+        return;
+      }
       console.log(
-        '[CesiumViewport][forma] §GLOBE-FRAME-NO-JUMP — base settled but the user ' +
-          'already moved the camera; suppressing the corrective re-frame.',
+        `[CesiumViewport][forma] §GLOBE-STALE-FRAME-REFRAME (L-370) — the ground datum settled ` +
+          `${baseJumpM.toFixed(1)} m from the framed base (> ${GLOBE_STALE_FRAME_BASE_JUMP_M} m); the ` +
+          `building moved out of the current frame, so re-framing ONCE despite the user's camera move.`,
       );
-      return;
+      // fall through to the one-shot re-frame below (still fires AT MOST ONCE via the latch).
     }
     this.formaInitialReframeFired = true;
     console.log(
@@ -4903,6 +4946,11 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] flyToFormaSite: no massing placed yet — ignored.');
       return;
     }
+    // §GLOBE-STALE-FRAME-REFRAME (L-370) — record the ground base this frame is being
+    // computed against (both the bounding-sphere and √area paths below seat the camera on
+    // `formaTerrainBaseHeight`). If a late datum settle then moves the building far from
+    // here, `performInitialReframe` knows the frame is stale and re-frames despite the user.
+    this.formaFramedAtBaseHeight = this.formaTerrainBaseHeight;
     // §GLOBE-FIT-BUILDING — prefer fitting the actual building bounding sphere (whole
     // tower framed, zoom-extents) for BOTH the initial landing and Zoom-to-Site; fall
     // back to the √area altitude heuristic below only when no sphere resolves.
@@ -8771,6 +8819,8 @@ export class CesiumViewport {
     // §GLOBE-FRAME-NO-JUMP — reset the per-open framing guards for a re-mounted viewport.
     this.formaInitialReframeFired = false;
     this.formaUserMovedCamera = false;
+    // §GLOBE-STALE-FRAME-REFRAME (L-370) — the next building frame records its own base.
+    this.formaFramedAtBaseHeight = null;
     this.formaProgrammaticFlyInFlight = false;
     // FORMA.5 — drop sun observers so the scrubber UI doesn't leak across mounts.
     this.formaSunListeners.clear();

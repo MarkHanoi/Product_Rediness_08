@@ -32,6 +32,7 @@ type Stub = {
   formaInitialReframeFired: boolean;
   formaUserMovedCamera: boolean;
   formaTerrainBaseHeight: number;
+  formaFramedAtBaseHeight: number | null;
   flyToFormaSite: ReturnType<typeof vi.fn>;
   flyToFormaPlan: ReturnType<typeof vi.fn>;
   performInitialReframe: (preset: 'oblique' | 'plan', reason: string) => void;
@@ -47,6 +48,7 @@ function makeStub(over: Partial<Stub> = {}): Stub {
     formaInitialReframeFired: false,
     formaUserMovedCamera: false,
     formaTerrainBaseHeight: 382,
+    formaFramedAtBaseHeight: null,
     flyToFormaSite: vi.fn(),
     flyToFormaPlan: vi.fn(),
     ...over,
@@ -75,6 +77,36 @@ describe('§GLOBE-FRAME-NO-JUMP performInitialReframe', () => {
     expect(s.formaInitialReframeFired).toBe(true);
     s.performInitialReframe('oblique', 'later settle');
     expect(s.flyToFormaSite).not.toHaveBeenCalled();
+  });
+
+  // §GLOBE-STALE-FRAME-REFRAME (L-370) — the photoreal globe frames EARLY at base 0, then
+  // the Google-tile datum resolves LATE and the building JUMPS up ~707 m to sit on the
+  // tiles. The old frame now points at empty ground where the building WAS, so even though
+  // the user "moved" the camera (looking around the empty base-0 view), the frame is STALE
+  // and we MUST re-frame once — otherwise the founder has to zoom in by hand to find it.
+  it('DOES re-frame once when the user moved but the base jumped past the stale threshold', () => {
+    const s = makeStub({
+      formaUserMovedCamera: true,
+      formaFramedAtBaseHeight: 0, // framed at the stale base-0
+      formaTerrainBaseHeight: 706.9, // datum resolved on the tiles — a 706.9 m jump
+    });
+    s.performInitialReframe('oblique', 'tile datum settled');
+    expect(s.flyToFormaSite).toHaveBeenCalledTimes(1);
+    expect(s.formaInitialReframeFired).toBe(true);
+    // Still fires AT MOST ONCE — a further settle after the corrective frame is suppressed.
+    s.performInitialReframe('oblique', 'later settle');
+    expect(s.flyToFormaSite).toHaveBeenCalledTimes(1);
+  });
+
+  it('STILL suppresses after a user move when the base barely settled (small-settle protection)', () => {
+    const s = makeStub({
+      formaUserMovedCamera: true,
+      formaFramedAtBaseHeight: 380,
+      formaTerrainBaseHeight: 382, // a 2 m terrain-jitter settle, under the threshold
+    });
+    s.performInitialReframe('oblique', 'small terrain settle after user pan');
+    expect(s.flyToFormaSite).not.toHaveBeenCalled();
+    expect(s.formaInitialReframeFired).toBe(true);
   });
 
   it('does NOT fly when no massing origin is placed (nothing to frame)', () => {

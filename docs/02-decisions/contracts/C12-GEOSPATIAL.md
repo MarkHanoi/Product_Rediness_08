@@ -169,7 +169,15 @@ baseline tag `snapshot-cesium-3d-globe-working-2026-07-17`; the live-run evidenc
   so the ENU mapping matches the massing's (east = x, north = −z, up = y) and the model is true-north-aligned.
 - **MUST (frame once, no jump).** After the base settles, frame the building once via `flyToBoundingSphere`
   (`§GLOBE-FIT-BUILDING`), re-framing only after settle and never fighting user camera control or an invalid
-  target (`§GLOBE-FRAME-NO-JUMP`).
+  target (`§GLOBE-FRAME-NO-JUMP`). **EXCEPTION — stale-frame override (`§GLOBE-STALE-FRAME-REFRAME`, L-370):**
+  the "never fight user camera control" rule holds ONLY for small settles. Because the initial frame is flown
+  EARLY at the unresolved base 0 and the tile datum can resolve LATE and lift the building hundreds of metres
+  (live trace: 0 → 706.9 m), a base settle that moves the building more than `GLOBE_STALE_FRAME_BASE_JUMP_M`
+  (20 m) from the base the current frame was flown against (`formaFramedAtBaseHeight`) makes that frame STALE —
+  it points at empty ground where the building WAS — so the one-shot corrective re-frame MUST still fire even
+  after the user moved the camera (otherwise the user must manually zoom to find the building). The fire-at-
+  most-once latch and the small-settle user-control protection are preserved for jumps at or under the
+  threshold. Seam: `CesiumViewport.performInitialReframe`.
 - **Reference (read-only):** `apps/editor/src/ui/geospatial/globeGroundAnchor.ts` (pure decisions),
   `CesiumViewport` (`renderRealModelOnGlobe:7530`, `renderFormaMassing:3021`, `resolveFullBuildingHeight:8035`,
   `tileBandsToFullHeight:8081`, `holdGlobeBuildingForUnresolvedGround:4340`, `revealGlobeBuildingForGround:4352`,
@@ -218,3 +226,4 @@ points: `fetchContextBuildingsNearAndFar` (near+far split) and `fetchContextBuil
 | 2026-07-12 | §1.4 The ONE Datum Boundary added (ratified from §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF / L-259). |
 | 2026-07-17 | §7 Georeferenced building placement on the photoreal 3D-Tiles globe added (Known-good ACTIVE; ADR-0268; baseline `snapshot-cesium-3d-globe-working-2026-07-17`; evidence L-365). |
 | 2026-07-17 | §8 Context-building fetch strategy added — ONE far-extent Overpass query, near+far split client-side (§PERF-CTX-SINGLE-FETCH; L-368; closes the previously-ungoverned context-fetch-latency gap). |
+| 2026-07-17 | §7 "frame once, no jump" MUST refined — added the `§GLOBE-STALE-FRAME-REFRAME` (L-370) exception: a >20 m base-height jump between the early frame and the resolved datum re-frames ONCE even after user camera movement (the frame is stale), so no manual zoom is needed to find the lifted building. |
