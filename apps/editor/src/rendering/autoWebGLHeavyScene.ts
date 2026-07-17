@@ -35,16 +35,21 @@
  *
  * ## Gating (all must hold before a swap fires)
  *
- *   1. **Not an explicit WebGL pick.** BOTH 'auto' AND explicit 'webgpu' can reach the
- *      swap (§Fix-3 / L-366): on this hardware a device-loss-risk scene is a near-certain
- *      WebGPU crash, so it must fall back to WebGL even under an explicit WebGPU pin — the
- *      pin is honoured only for LIGHT scenes (which never trip Gate 3). Only an explicit
- *      'webgl' pick short-circuits (already the safe path). The explicit-'webgpu' path logs
- *      a distinct one-time warning + how to force WebGPU back; 'auto' logs the plain swap.
- *      (Superseded the original "explicit WebGPU is always respected on heavy scenes".)
- *   2. **Real WebGPU backend only.** `renderPipelineManager.status.webGpuActive`
- *      (set from `RenderPipelineManager.isRealWebGPUBackend()`). On the WebGL2 fallback
- *      there is no WebGPU device to lose — nothing to do.
+ *   1+2. **The current backend must BENEFIT from the classic-renderer swap.**
+ *      §L-372 Batch 2 follow-up (L-382) — this keys off the LIVE backend
+ *      (`window.pryzmRendererBackend`), not the persisted pref. The swap fires when the
+ *      backend is `'webgpu'` (a heavy scene is a near-certain device-loss on the affected
+ *      hardware — ADR-0267/§Fix-3/L-366) OR `'webgl-fallback'` (a `WebGPURenderer`
+ *      forceWebGL2 that STILL lazily TSL-node-compiles every material's shader per sub-batch
+ *      and during navigation — the founder's "Compiling GPU shaders" tail). It is a no-op
+ *      only when the backend is already the classic `'webgl-only'` renderer (nothing to
+ *      upgrade) or the backend is not yet resolved. This SUPERSEDES both the former
+ *      real-WebGPU-only gate AND the "explicit 'webgl' pick is already safe → skip" gate:
+ *      the founder's box boots `'webgl-fallback'` via a persisted `'webgl'` pref, so BOTH
+ *      old gates wrongly short-circuited the exact case that must upgrade to classic. The
+ *      explicit-'webgpu' path still logs a distinct one-time warning; 'auto'/'webgl' log the
+ *      plain swap.
+ *   3. **Device-loss-risk-for-WebGPU-swap heuristic tripped.** Uses a DEDICATED,
  *   3. **Device-loss-risk-for-WebGPU-swap heuristic tripped.** Uses a DEDICATED,
  *      much lower threshold than the massing-LOD system's {@link isHeavyModel}
  *      (ADR-0267 §Fix-1 / L-366): a swap fires when the scene has **≥ 400 BIM elements
@@ -130,7 +135,10 @@ interface SceneLike {
 interface AutoWebGLGlobals {
     __pryzmAutoSwappedToWebGL?: boolean;
     bimManager?: { getLevels?: () => unknown[] };
-    renderPipelineManager?: { status?: { webGpuActive?: boolean } };
+    // §L-372 Batch 2 follow-up (L-382) — the authoritative resolved backend, set by
+    // createRenderer() on every build (boot + live swap). Read to decide whether the
+    // classic-renderer swap benefits the CURRENT backend (see the Gate 1+2 note above).
+    pryzmRendererBackend?: 'webgpu' | 'webgl-fallback' | 'webgl-only';
     pryzmSwapRendererBackend?: (pref: RendererBackendPreference) => Promise<boolean>;
 }
 
@@ -153,6 +161,29 @@ function countElements(scene: SceneLike): number {
         count++;
     }
     return count;
+}
+
+/**
+ * §L-372 Batch 2 follow-up (L-382) — does the CURRENT backend benefit from upgrading to
+ * the classic `'webgl-only'` renderer?
+ *
+ *  • `'webgpu'`         → YES — a heavy scene on a real WebGPU device is a device-loss risk
+ *                         on the affected hardware (ADR-0267); swap to classic pre-empts it.
+ *  • `'webgl-fallback'` → YES — this is a `WebGPURenderer({forceWebGL2})` whose TSL node
+ *                         system STILL lazily node-compiles every material's shader per
+ *                         deferred sub-batch AND during navigation (the founder's "Finishing
+ *                         up — Compiling GPU shaders" / `WebGPU PSO compile LONGTASK`). The
+ *                         founder's box BOOTS straight into this backend (persisted `'webgl'`
+ *                         pref → `createRenderer` forceWebGL2), so it never reached a real-
+ *                         WebGPU state and the OLD real-WebGPU-only gate never let the swap
+ *                         fire. Upgrading to the classic renderer (stock GLSL, no TSL/node
+ *                         compile) kills that tail.
+ *  • `'webgl-only'`     → NO — already the classic renderer; nothing to upgrade.
+ *  • unresolved (`undefined`) → NO — the backend is not yet known; skip.
+ */
+function backendBenefitsFromClassicSwap(): boolean {
+    const backend = G().pryzmRendererBackend;
+    return backend === 'webgpu' || backend === 'webgl-fallback';
 }
 
 /**
@@ -187,17 +218,18 @@ export function maybeAutoSwitchToWebGLForHeavyScene(
     if (hasAutoSwitchedToWebGL()) return;
     if (!scene) return;
 
-    // Gate 1 — not an explicit WebGL pick. 'webgl' is already the safe path (nothing to
-    // do). BOTH 'auto' AND explicit 'webgpu' proceed: §Fix-3 (L-366) — a device-loss-risk
-    // scene on this hardware is a near-guaranteed WebGPU crash, so it must fall back to
-    // WebGL even under an explicit WebGPU pin. Light scenes still fully honour an explicit
-    // WebGPU pick (they never reach Gate 3). The two prefs differ ONLY in the warning text.
-    const pref = getRendererBackendPreference();
-    if (pref === 'webgl') return;
+    // Gate 1+2 — §L-372 Batch 2 follow-up (L-382): key off the CURRENT backend, not the
+    // persisted pref. Swap when the live backend BENEFITS from the classic renderer —
+    // 'webgpu' (device-loss risk) OR 'webgl-fallback' (still TSL-node-compiling: the
+    // founder's "Compiling GPU shaders" tail). Skip only when already on 'webgl-only'
+    // (nothing to upgrade) or the backend is unresolved. This REPLACES the former real-
+    // WebGPU-only gate AND the "explicit 'webgl' pick is already safe → skip" gate: on the
+    // founder's box the persisted pref IS 'webgl' and the backend IS 'webgl-fallback' — the
+    // exact case that must upgrade, which both old gates wrongly short-circuited.
+    if (!backendBenefitsFromClassicSwap()) return;
 
-    // Gate 2 — real WebGPU backend only. On the WebGL2 fallback there is no WebGPU
-    // device to lose. (undefined = RPM not yet bound → not real WebGPU yet → skip.)
-    if (G().renderPipelineManager?.status?.webGpuActive !== true) return;
+    // `pref` is read only for the explicit-WebGPU-pin warning wording in fireSwapToWebGL.
+    const pref = getRendererBackendPreference();
 
     // Gate 3 — DEDICATED device-loss-risk-for-WebGPU-swap heuristic (ADR-0267 §Fix-1 /
     // L-366). NOT isHeavyModel — a much lower, swap-specific threshold (see the note at
@@ -241,22 +273,27 @@ export function maybeAutoSwitchToWebGLForHeavyScene(
  * ## Gating
  *
  * Identical to the reactive path EXCEPT Gate 3 is intentionally omitted — the caller has
- * already asserted "this is a heavy building generation". Gates 1/2/4 still hold, so a
- * light scene / explicit-WebGL pick / non-WebGPU device / an already-fired swap are all
- * no-ops. Shares the once-per-session guard with the reactive path, so whichever fires
- * first wins and the other no-ops (no double swap).
+ * already asserted "this is a heavy building generation". Gates 1+2/4 still hold, so an
+ * already-classic ('webgl-only') backend / an unresolved backend / an already-fired swap
+ * are all no-ops. §L-372 Batch 2 follow-up (L-382): the swap now ALSO fires when the live
+ * backend is 'webgl-fallback' (the founder's box boots there and never had a real-WebGPU
+ * swap to trigger), not only on real 'webgpu'. Shares the once-per-session guard with the
+ * reactive path, so whichever fires first wins and the other no-ops (no double swap).
  */
 export function proactivelySwitchToWebGLForBuildingGeneration(reason: string): void {
     // Gate 4 (cheapest) — once per session (shared guard with the reactive path).
     if (hasAutoSwitchedToWebGL()) return;
-    // Gate 1 — an explicit WebGL pick is already the safe path; nothing to do.
+    // Gate 1+2 — §L-372 Batch 2 follow-up (L-382): swap when the CURRENT backend benefits
+    // from the classic renderer — 'webgpu' (device-loss risk) OR 'webgl-fallback' (still
+    // TSL-node-compiling → "Compiling GPU shaders"). Skip only when already on 'webgl-only'
+    // or the backend is unresolved. Keys off the live backend, NOT the persisted pref, so
+    // the founder's box (pref 'webgl' → backend 'webgl-fallback') now upgrades to classic.
+    if (!backendBenefitsFromClassicSwap()) return;
+    // `pref` is read only for the explicit-WebGPU-pin warning wording in fireSwapToWebGL.
     const pref = getRendererBackendPreference();
-    if (pref === 'webgl') return;
-    // Gate 2 — real WebGPU backend only. On the WebGL2 fallback there is nothing to lose.
-    if (G().renderPipelineManager?.status?.webGpuActive !== true) return;
-    // NO Gate 3 — a KNOWN multi-storey building generation is device-loss-risk by
-    // definition; the point of this entry is to swap BEFORE the geometry (and its first
-    // WebGPU render) exists, so there is nothing to count yet.
+    // NO Gate 3 — a KNOWN multi-storey building generation is heavy by definition; the
+    // point of this entry is to swap BEFORE the geometry (and its first heavy render)
+    // exists, so there is nothing to count yet.
     const levelCount = G().bimManager?.getLevels?.().length ?? 0;
     fireSwapToWebGL(reason, pref === 'webgpu', { elements: -1, meshes: -1, levels: levelCount, proactive: true });
 }
