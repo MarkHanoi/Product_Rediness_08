@@ -8,6 +8,11 @@ import type { UIProps } from '../Layout';
 import { launcherRailStyle } from './zLayers';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
+// §PARCEL-SELECT (L-380 P1) — the real cadastral parcel data source for the map's
+// "Select parcel" mode (Barcelona / Catastro pilot, via the same-origin proxy). With
+// this wired the select mode fetches REAL parcels; where no parcel exists / outside
+// the provider's coverage the map falls back to the honest "no parcel — draw" state.
+import { defaultParcelProvider } from '../site/parcel';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
 // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193) — PURE view-switch
@@ -130,6 +135,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // for the PDF/image import path: the draw tool is disarmed (no boundary, no
                 // generate), only the site-plan overlay panel + calibration are live.
                 overlayOnly: drawOpts?.overlayOnly ?? false,
+                // §PARCEL-SELECT (L-380 P1) — wire the real Catastro parcel provider so the
+                // map's "Select parcel" mode fetches REAL cadastral geometry (Barcelona pilot).
+                // Outside coverage the map degrades to the honest "no parcel — draw" state.
+                parcelProvider: defaultParcelProvider,
                 // O.7.2.b — CANCEL (Esc / ×) disposes the map → drop the handle.
                 onClose: () => { map2dHandle = null; },
                 // O.7.2.b — COMMIT does NOT dispose: the cream map + boundary stay
