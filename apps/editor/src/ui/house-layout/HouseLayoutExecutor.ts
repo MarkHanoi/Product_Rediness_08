@@ -88,6 +88,7 @@ import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 import { resolveBlindFacades } from '../apartment-layout/resolveBlindFacades.js';
 import { runHousePostGenChain } from './runHousePostGenChain.js';
+import { beginBuildingGeneration } from '../generation/buildingGenerationLifecycle.js';
 import { resetStairVoids, recordStairVoid } from './houseStairVoids.js';
 import { resetStairRects, recordStairRect } from './houseStairRects.js';
 import { resetShellWalls, recordShellWalls } from './houseShellWalls.js';
@@ -1309,6 +1310,15 @@ export class HouseLayoutExecutor {
                     );
                 }
             }
+
+            // §GEN-CONTINUOUS-OVERLAY + §AUTO-WEBGL-HEAVY-PROACTIVE (L-367) — the house build
+            // truly begins here (levels minted, layout generated; the first HEAVY structural
+            // sub-batch is about to render). Fire the proactive WebGPU→WebGL swap BEFORE it and
+            // open ONE continuous overlay held across the structural batch AND the whole
+            // post-gen finish chain (per-storey floor/ceiling/furnish/lighting). The house has a
+            // precise async terminus, so `runHousePostGenChain`'s `finally` releases it exactly
+            // (endBuildingGeneration); the batch-idle settle / cap are the safety net.
+            beginBuildingGeneration('house', { title: 'Generating your building', label: 'Building structure…' });
 
             batchCoordinator.runBatch(() => {
                 // 0. §PERIMETER-SHELL — explicit footprint perimeter for every UPPER

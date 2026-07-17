@@ -77,6 +77,7 @@ import { furnishOfficeInterior } from './officeFurnish.js';
 // full detail so the massing-LOD "grey envelope" (LevelScoped3DCullingService auto-escalates a tall
 // heavy model to 'massing') is turned OFF and the detailed floors are the only geometry shown.
 import { showOfficeFullDetail } from './officeShowFullDetail.js';
+import { beginBuildingGeneration } from '../generation/buildingGenerationLifecycle.js';
 // §FIX-OFFICE-MISSING-PER-STOREY-SLABS (L-322) — a visible full-disc FLOOR PLATE on every storey the
 // detailed per-room finish pass does not cover, so the tower is not a hollow glass shell. PURE spec math.
 import { buildStoreyFloorPlates } from './officeStoreyFloors.js';
@@ -370,6 +371,13 @@ export class OfficeBuildingExecutor {
         // §OFFICE-ENTRANCE — the ground perimeter wall ring (host for the entrance door). Captured
         // from the ground storey's ring so the deferred entrance pass can host the door.
         let groundRing: WallRing | undefined;
+
+        // §GEN-CONTINUOUS-OVERLAY + §AUTO-WEBGL-HEAVY-PROACTIVE (L-367) — the tower build
+        // truly begins here (levels minted; the first HEAVY structural sub-batch is about
+        // to render). Fire the proactive WebGPU→WebGL swap BEFORE it (a 40-storey tower is
+        // the worst WebGPU heavy-scene case) and open ONE continuous overlay held across
+        // every architecture + fit-out + furnish sub-batch (released on batch-idle settle).
+        beginBuildingGeneration('office-building', { title: 'Generating your building', label: 'Building structure…' });
 
         let slabCount = 0, wallCount = 0;
         try {

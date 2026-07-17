@@ -21,6 +21,18 @@
  * WebGPU device, it live-swaps to WebGL ONCE per session, BEFORE the heavy PSO-compile
  * that would TDR the device, and pins WebGL for the session.
  *
+ * ## Two entry points (ADR-0267 start-of-generation refinement, L-367)
+ *
+ *   • {@link maybeAutoSwitchToWebGLForHeavyScene} — REACTIVE: fires once the live scene
+ *     is measurably heavy (Gate 3). It is the fallback for scenes that become heavy
+ *     without a known building command. Because it needs geometry to exist first, it
+ *     fires MID-generation — a few WebGPU sub-batches render before it lands on WebGL.
+ *   • {@link proactivelySwitchToWebGLForBuildingGeneration} — PROACTIVE: fires at the
+ *     START of a KNOWN heavy building generation (residential / office / house), before
+ *     any geometry exists, so the WHOLE generation runs on WebGL (no TSL flash, no
+ *     PSO-compile stall). Skips Gate 3 (the caller has already asserted heaviness); all
+ *     other gates + the once-per-session guard are shared, so the two never double-swap.
+ *
  * ## Gating (all must hold before a swap fires)
  *
  *   1. **Not an explicit WebGL pick.** BOTH 'auto' AND explicit 'webgpu' can reach the
@@ -195,16 +207,77 @@ export function maybeAutoSwitchToWebGLForHeavyScene(
     const elementCount = countElements(scene);
     if (!isSwapWorthyHeavyScene(elementCount, sceneMeshCount)) return;
 
-    // Heavy scene on a real WebGPU device → proactively swap to WebGL, once — for BOTH
-    // 'auto' AND explicit 'webgpu' (§Fix-3, L-366). An explicit pin no longer keeps a
-    // device-loss-risk scene on WebGPU (the old behaviour reliably crashed on this
-    // hardware); the pin is honoured only for LIGHT scenes, which never reach here.
-    const explicitPin = pref === 'webgpu';
+    // Heavy scene on a real WebGPU device → fire the shared swap (once). §Fix-3 (L-366):
+    // BOTH 'auto' AND explicit 'webgpu' swap on a device-loss-risk scene; an explicit pin
+    // no longer keeps such a scene on WebGPU (that reliably crashed on this hardware). Only
+    // LIGHT scenes (which never reach here) still honour an explicit WebGPU pin.
+    fireSwapToWebGL(reason, pref === 'webgpu', {
+        elements: elementCount,
+        meshes: sceneMeshCount ?? -1,
+        levels: levelCount,
+        proactive: false,
+    });
+}
+
+/**
+ * §AUTO-WEBGL-HEAVY-PROACTIVE (ADR-0267 start-of-generation refinement, L-367) — swap
+ * WebGPU→WebGL at the **START** of a KNOWN heavy building generation (residential /
+ * office / house), BEFORE any of its geometry exists or is rendered on WebGPU.
+ *
+ * ## Why a second entry point
+ *
+ * {@link maybeAutoSwitchToWebGLForHeavyScene} is REACTIVE: it can only decide once the
+ * scene is already heavy (its Gate 3 counts live elements / meshes), so it fires MID-
+ * generation — after the first heavy WebGPU sub-batch has already rendered. On the
+ * affected hardware that first pass is exactly what tips the TDR: the founder saw a
+ * `THREE.TSL: Invalid generated code, expected a "float"` flash and an ~11 s
+ * `WebGPU PSO compile LONGTASK` stall BEFORE the reactive swap finally landed on WebGL.
+ *
+ * A multi-storey building generation is KNOWN to be heavy up front (that is the whole
+ * premise of ADR-0267), so we do not need to wait for the scene to prove it. This entry
+ * point is called from the building-generation lifecycle hook the moment a generation
+ * BEGINS, so the WHOLE generation runs on WebGL (no TSL flash, no PSO-compile stall).
+ *
+ * ## Gating
+ *
+ * Identical to the reactive path EXCEPT Gate 3 is intentionally omitted — the caller has
+ * already asserted "this is a heavy building generation". Gates 1/2/4 still hold, so a
+ * light scene / explicit-WebGL pick / non-WebGPU device / an already-fired swap are all
+ * no-ops. Shares the once-per-session guard with the reactive path, so whichever fires
+ * first wins and the other no-ops (no double swap).
+ */
+export function proactivelySwitchToWebGLForBuildingGeneration(reason: string): void {
+    // Gate 4 (cheapest) — once per session (shared guard with the reactive path).
+    if (hasAutoSwitchedToWebGL()) return;
+    // Gate 1 — an explicit WebGL pick is already the safe path; nothing to do.
+    const pref = getRendererBackendPreference();
+    if (pref === 'webgl') return;
+    // Gate 2 — real WebGPU backend only. On the WebGL2 fallback there is nothing to lose.
+    if (G().renderPipelineManager?.status?.webGpuActive !== true) return;
+    // NO Gate 3 — a KNOWN multi-storey building generation is device-loss-risk by
+    // definition; the point of this entry is to swap BEFORE the geometry (and its first
+    // WebGPU render) exists, so there is nothing to count yet.
+    const levelCount = G().bimManager?.getLevels?.().length ?? 0;
+    fireSwapToWebGL(reason, pref === 'webgpu', { elements: -1, meshes: -1, levels: levelCount, proactive: true });
+}
+
+/**
+ * Shared swap-firing tail for BOTH the reactive ({@link maybeAutoSwitchToWebGLForHeavyScene})
+ * and proactive ({@link proactivelySwitchToWebGLForBuildingGeneration}) paths. Sets the
+ * once-per-session guard, opens the OTel span, warns, and fires the live backend swap.
+ * `diag.proactive` only affects the log wording + the span attribute; `diag.elements` /
+ * `diag.meshes` are `-1` on the proactive path (no geometry exists yet).
+ */
+function fireSwapToWebGL(
+    reason: string,
+    explicitPin: boolean,
+    diag: { elements: number; meshes: number; levels: number; proactive: boolean },
+): void {
     const swap = G().pryzmSwapRendererBackend;
     if (typeof swap !== 'function') {
         // The live-swap entry point (initScene §RENDERER-LIVE-SWAP) is not registered
         // (no PRYZM overlay renderer / Phase-5). Leave WebGPU; the device-loss recovery
-        // remains the safety net. Do NOT set the guard — a later add may find it wired.
+        // remains the safety net. Do NOT set the guard — a later call may find it wired.
         return;
     }
 
@@ -216,33 +289,42 @@ export function maybeAutoSwitchToWebGLForHeavyScene(
     const span = TRACER.startSpan('pryzm.renderer.auto-webgl-heavy', {
         attributes: {
             'pryzm.renderer.auto-webgl.reason': reason,
-            'pryzm.renderer.auto-webgl.elements': elementCount,
-            'pryzm.renderer.auto-webgl.meshes': sceneMeshCount ?? -1,
-            'pryzm.renderer.auto-webgl.levels': levelCount,
+            'pryzm.renderer.auto-webgl.elements': diag.elements,
+            'pryzm.renderer.auto-webgl.meshes': diag.meshes,
+            'pryzm.renderer.auto-webgl.levels': diag.levels,
             'pryzm.renderer.auto-webgl.explicit-pin': explicitPin,
+            'pryzm.renderer.auto-webgl.proactive': diag.proactive,
         },
     });
-    if (explicitPin) {
+    if (diag.proactive) {
+        // §AUTO-WEBGL-HEAVY-PROACTIVE (L-367) — start-of-generation swap, before geometry.
+        console.warn(
+            `[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY-PROACTIVE — a heavy building generation is ` +
+            `starting (${diag.levels} level(s); reason=${reason}); switching WebGPU→WebGL up front ` +
+            `so the whole generation avoids the heavy-scene device loss.` +
+            (explicitPin ? ' (overrides the explicit WebGPU pin — re-pick WebGPU to override.)' : ''),
+        );
+    } else if (explicitPin) {
         // §Fix-3 (L-366) — heavy scene under an EXPLICIT WebGPU pin: swap anyway (stability),
         // and tell the user clearly + how to force WebGPU back.
         console.warn(
             `[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — device-loss-risk scene ` +
-            `(${elementCount} elems / ${sceneMeshCount ?? '?'} meshes / ${levelCount} levels; reason=${reason}); ` +
+            `(${diag.elements} elems / ${diag.meshes} meshes / ${diag.levels} levels; reason=${reason}); ` +
             `switched WebGPU→WebGL for stability despite the explicit WebGPU pin. Re-pick WebGPU to override.`,
         );
     } else {
         console.warn(
             `[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — scene is device-loss-risk ` +
-            `(${elementCount} elems / ${sceneMeshCount ?? '?'} meshes / ${levelCount} levels; reason=${reason}); Auto mode switching ` +
+            `(${diag.elements} elems / ${diag.meshes} meshes / ${diag.levels} levels; reason=${reason}); Auto mode switching ` +
             `WebGPU→WebGL to avoid heavy-scene device loss.`,
         );
     }
     // Fire the existing live backend swap (persists 'webgl' + rebinds in place, no
-    // reload). Deliberately NOT awaited: the caller (a batch GPU-compile-start hook or
-    // a per-add tier pass) must not block on the rebuild. The swap's synchronous
-    // prefix (stop the rAF loop + dispose the old pipeline) runs before this call
-    // returns, so no further WebGPU frame renders — the PSO storm never reaches the
-    // doomed device.
+    // reload). Deliberately NOT awaited: the caller (a generation-start hook, a batch
+    // GPU-compile-start hook, or a per-add tier pass) must not block on the rebuild. The
+    // swap's synchronous prefix (stop the rAF loop + dispose the old pipeline) runs before
+    // this call returns, so no further WebGPU frame renders — the PSO storm never reaches
+    // the doomed device.
     void swap('webgl')
         .then((ok) => {
             span.setAttribute('pryzm.renderer.auto-webgl.swapped', ok);

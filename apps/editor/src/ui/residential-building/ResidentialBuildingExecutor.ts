@@ -85,6 +85,7 @@ import { computeCorridorResidualRings } from './residentialCorridorResidual.js';
 // the slab void you can see through.
 import { resetStairVoids, recordStairVoid, getStairVoidsForLevel } from '../house-layout/houseStairVoids.js';
 import { resolveEntranceOnShell, type EntranceHostHit } from './groundFloorPlacement.js';
+import { beginBuildingGeneration } from '../generation/buildingGenerationLifecycle.js';
 
 const _tracer = trace.getTracer('@pryzm/editor', '0.1.0');
 
@@ -575,6 +576,16 @@ export class ResidentialBuildingExecutor {
             `[resi-building] §DIAG-GRAPH-GATE useGraphRooms=${useGraphRooms} graphRoomsEnabled=${graphRoomsEnabled} ` +
             `apartmentLevels=[${apartmentBuilds.map(b => `${b.levelId}:${b.set.roomCommands.length}`).join(', ')}]`,
         );
+
+        // §GEN-CONTINUOUS-OVERLAY + §AUTO-WEBGL-HEAVY-PROACTIVE (L-367) — the generation
+        // truly begins here: the pure pre-build is complete and the first HEAVY sub-batch
+        // (the structural walls/slabs/core) is about to render. Fire the proactive
+        // WebGPU→WebGL swap BEFORE it (so the whole build runs on WebGL — no mid-gen TSL
+        // invalid-float flash / PSO-compile stall) and open ONE continuous loading overlay
+        // held across every sub-batch + finish pass (per-level ceilings/floors/furnish/
+        // lighting), released on batch-idle settle. Replaces the per-sub-batch overlay
+        // flicker the founder saw (Preparing→Done, once per sub-batch).
+        beginBuildingGeneration('resi-building', { title: 'Generating your building', label: 'Building structure…' });
 
         // ── Structural batch: shells + cell perimeters + apartment partitions + slabs
         // + core (stairs + lift) + corridor lines → ONE undo unit.

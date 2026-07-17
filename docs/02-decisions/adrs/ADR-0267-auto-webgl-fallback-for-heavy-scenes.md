@@ -1,9 +1,11 @@
 # ADR-0267 — Auto-WebGL fallback for heavy scenes (Auto backend mode)
 
-- **Status:** ACCEPTED (2026-07-17) — IMPLEMENTED (awaiting live WebGPU confirmation before the L-362 audit row is marked Fixed). **AMENDED 2026-07-17 (§Fix-1 / §Fix-2, L-366)** — a live Fly run showed the reused `isHeavyModel` gate did NOT trip for a ~1,300-element / 6-level / ~1,645-mesh residential building, so **no swap fired** and it device-lost on WebGPU. The swap now uses a **dedicated, lower threshold** (§Fix-1) decoupled from `isHeavyModel`; the transmission guard is **hardened to the non-batched resi path** (§Fix-2). See the two amendment blocks below.
+- **Status:** ACCEPTED (2026-07-17) — IMPLEMENTED (awaiting live WebGPU confirmation before the L-362 audit row is marked Fixed). **AMENDED 2026-07-17 (§Fix-1 / §Fix-2 / §Fix-3, L-366)** — a live Fly run showed the reused `isHeavyModel` gate did NOT trip for a ~1,300-element / 6-level / ~1,645-mesh residential building, so **no swap fired** and it device-lost on WebGPU. The swap now uses a **dedicated, lower threshold** (§Fix-1) decoupled from `isHeavyModel`; the transmission guard is **hardened to the non-batched resi path** (§Fix-2); heavy scenes fall back even under an explicit WebGPU pin (§Fix-3). **AMENDED 2026-07-17 (§Fix-4, L-367)** — the L-366 threshold swap fires only once geometry EXISTS, so on a live run it fired MID-generation (the first heavy WebGPU sub-batch still rendered: TSL flash + PSO-compile stall). Added a **proactive start-of-generation swap** for KNOWN building commands (residential/office/house), fired at generation START before any geometry renders. See the amendment blocks below.
 - **Owner:** editor engine (`apps/editor/src/engine`) + renderer factory (`apps/editor/src/rendering`).
 - **Affects:**
-  - `apps/editor/src/rendering/autoWebGLHeavyScene.ts` (**new** — the proactive-swap guard),
+  - `apps/editor/src/rendering/autoWebGLHeavyScene.ts` (**new** — the reactive + proactive swap guards),
+  - `apps/editor/src/ui/generation/buildingGenerationLifecycle.ts` (**new, §Fix-4** — the start-of-generation lifecycle hook: proactive swap + one continuous loading overlay),
+  - `apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts`, `apps/editor/src/ui/office-building/OfficeBuildingExecutor.ts`, `apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts` (**§Fix-4** — call `beginBuildingGeneration(...)` at the structural-batch boundary), `apps/editor/src/ui/house-layout/runHousePostGenChain.ts` (**§Fix-4** — `endBuildingGeneration()` in `finally`),
   - `apps/editor/src/engine/initBatchLifecycle.ts` (batch GPU-compile-start hook — batched generators),
   - `apps/editor/src/engine/initScene.ts` (`runTierPbrPass` per-add tier pass — non-batched generators),
   - `packages/core-app-model/src/rendering/LevelScoped3DCullingService.ts` (`isHeavyModel` exported as the shared heuristic).
@@ -16,7 +18,10 @@
   - `§FIX-HEAVY-SCENE-3D-SCALABILITY` (L-139) — the device-loss recovery cap → WebGL safe-mode; `§FIX-MASSING-LOD-THRESHOLD-TOO-AGGRESSIVE` (L-164) — the `isHeavyModel` heuristic this ADR reuses verbatim.
   - **L-361** (the WebGPU batch-resi device-loss cascade this mitigates), **L-362** (the original
     Auto-WebGL work), **L-364** (§L-361-WEBGPU-TRANSMISSION-GUARD, hardened by §Fix-2), **L-366**
-    (the §Fix-1 / §Fix-2 / §Fix-3 amendments in this ADR).
+    (the §Fix-1 / §Fix-2 / §Fix-3 amendments in this ADR), **L-367** (the §Fix-4 start-of-generation
+    proactive swap + the one-continuous-overlay companion).
+  - `§FEAT-VIEW-ACTIVATION-LOADING-OVERLAY` (L-270) — the ref-counted loading-overlay registry the
+    §Fix-4 continuous overlay holds one outer session on.
   - `packages/renderer-three/src/pipeline/RenderPipelineManager.ts` — public
     `neutralizeTransmissionForWebGPU()` (§Fix-2); `apps/editor/src/types/globals.d.ts` — its typed
     window declaration.
@@ -184,6 +189,59 @@ on real WebGPU. This **supersedes** Decision §1's "explicit 'webgpu' pick is re
 The former separate `_explicitWarnDone` throttle is removed — the once-per-session `_autoSwapDone`
 guard now covers the single swap + warning for both prefs.
 
+## Amendment §Fix-4 (2026-07-17, L-367) — proactive START-of-generation swap (before geometry exists)
+
+**Why.** After §Fix-1 the swap DID fire, but only **mid-generation**. The threshold predicate
+(`isSwapWorthyHeavyScene`) can only trip once geometry EXISTS — element/mesh counts — so the first
+heavy WebGPU sub-batch (the structural walls/slabs/core) rendered on WebGPU **first**. On the
+founder's live Fly run that first pass still produced the lingering `THREE.TSL: Invalid generated
+code, expected a "float"` flash and an ~11 s `[UnifiedFrameLoop] FIRST-RENDER-POST-SUPPRESS
+totalSuppressedMs=11481ms — WebGPU PSO compile LONGTASK` stall, only *then* swapping to
+`WebGPU: false`. The reactive/threshold design is inherently a beat too late for a KNOWN heavy
+command: a multi-storey building generation is device-loss-risk **up front**, so there is no reason
+to wait for the scene to prove it.
+
+**Change.** Add a **proactive** entry point,
+`proactivelySwitchToWebGLForBuildingGeneration(reason)` (`autoWebGLHeavyScene.ts`), that is
+identical to the reactive path **except Gate 3 is omitted** — the caller has already asserted "this
+is a heavy building generation", so it does not wait for a live element/mesh count (there is none
+yet). Gates 1 (not explicit `webgl`), 2 (real WebGPU), and 4 (once per session) still hold, and the
+swap-firing tail is refactored into a shared `fireSwapToWebGL(reason, explicitPin, diag)` used by
+both entry points, sharing the `_autoSwapDone` guard so the proactive and reactive paths can never
+double-swap (whichever fires first wins; the other no-ops).
+
+It is called from a single lifecycle hook, `beginBuildingGeneration(reason, {title, label})`
+(**new** `apps/editor/src/ui/generation/buildingGenerationLifecycle.ts`), which each generator
+invokes at its **structural-batch boundary** — after the cheap guards (active level, command
+manager) and level minting, but **before** the first heavy sub-batch renders. So the whole
+generation runs on WebGL from the first frame: no TSL flash, no PSO-compile stall. Log to watch:
+`§AUTO-WEBGL-HEAVY-PROACTIVE — a heavy building generation is starting … switching WebGPU→WebGL up
+front`, which now **precedes** any resi/office/house geometry render (and the reactive
+`§AUTO-WEBGL-HEAVY` line should NOT appear after it).
+
+The reactive threshold path (§Fix-1, batch GPU-compile-start + `runTierPbrPass`) is **retained
+unchanged** as the fallback for scenes that become heavy **without** a known building command
+(hand-authored, imported, or future generators not yet wired to the hook). Light scenes and
+explicit-WebGL/non-WebGPU contexts are no-ops on both paths.
+
+### §Fix-4 companion — ONE continuous loading overlay for the whole generation (L-367 FIX B)
+
+The same lifecycle hook fixes a paired loading-UX defect the founder flagged on the same run: the
+frosted loading overlay (`§FEAT-VIEW-ACTIVATION-LOADING-OVERLAY`, L-270) cycled
+Preparing→Done→Preparing→Done, **once per sub-batch** (main building, per-level ceilings, lighting,
+furnish, …). Root cause: `initBatchLifecycle` opens a ref-counted `LoadingOverlayController` session
+per sub-batch and ENDS it on each drain, so the overlay's ref-count hit zero and it hid between
+sub-batches. `beginBuildingGeneration` opens **ONE outer session** held for the whole generation, so
+the ref-count never reaches zero — the per-sub-batch sessions still layer on top and drive the live
+title/progress, but the overlay stays visible continuously. It is released at the TRUE end via three
+always-armed paths (so it can NEVER get stuck): a **batch-idle SETTLE** (release once
+`pryzm-batch-ended` has drained the batch depth to zero and stayed zero for 6 s — mirrors
+SaveOrchestrator §AUTOSAVE-BATCH-SUPPRESS, bridging the inter-sub-batch gaps), an **explicit
+`endBuildingGeneration()`** in `runHousePostGenChain`'s `finally` (the house's precise async
+terminus; the settle covers resi/office and is the house safety net), and a **hard 6-minute cap**.
+NON-generation edits are untouched: a single manual batch has no lease, so it shows its own overlay
+exactly as before.
+
 ## Consequences
 
 - **Positive.** On this hardware class, a heavy building generation no longer TDRs the GPU on Auto
@@ -231,3 +289,9 @@ guard now covers the single swap + warning for both prefs.
     does not.
   - §Fix-2: non-batched resi/office glass is neutralized on the tier pass before the first WebGPU
     render (public `neutralizeTransmissionForWebGPU()`).
+  - §Fix-4: a resi/office/house generation on real WebGPU logs `§AUTO-WEBGL-HEAVY-PROACTIVE …
+    switching WebGPU→WebGL up front` BEFORE any of its geometry renders, and the reactive
+    `§AUTO-WEBGL-HEAVY` line does NOT appear afterward; the loading overlay stays up continuously
+    for the whole generation (no per-sub-batch Preparing→Done flicker) and is released on the
+    batch-idle settle / house `finally` / hard cap; a single manual batch still shows its own
+    overlay (no generation lease).

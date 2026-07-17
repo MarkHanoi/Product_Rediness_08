@@ -36,6 +36,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { triggerFloorLayout } from '../floor-layout/floorLayoutTrigger.js';
 import { beginHouseFanout, endHouseFanout } from './houseFanoutGuard.js';
+import { endBuildingGeneration } from '../generation/buildingGenerationLifecycle.js';
 
 interface ProjectContextLike { activeLevelId?: string | null }
 interface EventsLike {
@@ -296,6 +297,10 @@ export async function runHousePostGenChain(
         });
     } finally {
         endHouseFanout();
+        // §GEN-CONTINUOUS-OVERLAY (L-367) — the finish chain is the house generation's TRUE
+        // terminus, so release the ONE continuous overlay held since the structural batch
+        // began. Idempotent + no-op if already released by the batch-idle settle / cap.
+        endBuildingGeneration();
         // Restore the storey the user was on before the fan-out (default: ground).
         if (typeof originalActive === 'string' && originalActive.length > 0) setActiveLevel(originalActive);
         else setActiveLevel(unique[0]!);
