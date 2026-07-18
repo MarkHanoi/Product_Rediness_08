@@ -39,6 +39,13 @@ import { computeGisContextUnderlayRotationZ } from '../site/overlay/siteGisConte
 // then, and fails visibly (never hangs) if a signal never arrives.
 import { beginViewActivationLoading, containViewActivation, type ViewActivationHandle, type ViewActivationTarget } from '../geospatial/viewActivationLoading';
 import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
+// §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the renderer-agnostic pane
+// host: the site-authoring default lands the 2D map (LEFT) + the live 3D Site (RIGHT)
+// through the pure `assignViewToPane` model, NOT a hard-coded toggle. The single
+// Cesium viewer is RE-TARGETED into the right pane element (never cloned).
+import { mountSiteAuthoringPaneShell, type SiteAuthoringPaneShell } from '../../engine/views/SiteAuthoringPaneShell';
+import { siteAuthoringDefaultLayout, RIGHT_PANE } from '../../engine/views/paneViewModel';
+import type { PaneRendererMounter } from '../../engine/views/PaneHost';
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -78,6 +85,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
     // retained for the console fallback (pryzmStartBoundaryDraw3D) only.
     let map2dHandle: { dispose: () => void; rearm: () => void } | null = null;
+    // §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the live site-authoring
+    // split (2D map LEFT · 3D Site RIGHT). Non-null while the paned layout is active;
+    // consulted by the Forma live-update gate (a paned 3D Site is NOT `map2d`) and by
+    // the envelope facts-card host resolution so the card renders on the RIGHT pane.
+    let siteAuthoringPanes: SiteAuthoringPaneShell | null = null;
     // A.8.c.f.2 (defect 1) — remember the LAST geocoded result so the 2D map can
     // fit its exact bbox (the Site location store keeps only lat/lon — the bbox is
     // otherwise lost, leaving the 2D map at a coarse point zoom). Set in the
@@ -115,12 +127,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // A.8.c.f — open the Hektar-style 2D cream/shadow boundary-draw map overlay
     // (NOT the Cesium 3D draw). Mounts on #container; on commit/cancel it disposes
     // + closes. Lazy-imports the MapLibre chunk so it is not in the main bundle.
-    const startBoundaryDraw = (drawOpts?: { overlayOnly?: boolean }): void => {
+    const startBoundaryDraw = (drawOpts?: { overlayOnly?: boolean; parent?: HTMLElement }): void => {
         if (map2dHandle) {
             console.log('[gis] map2d already open');
             return;
         }
-        const viewport = document.getElementById('container');
+        // §L-412 (C59 Phase 1b) — the MapLibre 2D map mounts into its assigned PANE
+        // element (LEFT pane) when the site-authoring split is active, instead of the
+        // `inset:0` `#container` overlay. Falls back to `#container` for the classic
+        // single-pane launchers (unchanged behaviour).
+        const viewport = drawOpts?.parent ?? document.getElementById('container');
         if (!viewport) {
             console.error('[gis] map2d: #container not found');
             return;
@@ -169,6 +185,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // map); it is disposed ONLY here, at generate-time. Idempotent + double-dispose
     // safe (the handle's dispose() guards on `disposed`, and we null the handle).
     const closeBoundaryMap2D = (): void => {
+        // §L-412 — when the site-authoring SPLIT is live, the 2D map lives in the left
+        // pane; tearing down at generate-time means dismissing the whole split (which
+        // unmounts the map AND re-homes the single Cesium viewer back to #container).
+        if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
+            console.log('[gis] §L-412 closeBoundaryMap2D() — dismissing the site-authoring split at generate-time.');
+            unmountSiteAuthoringPanes();
+            return;
+        }
         if (map2dHandle) {
             console.log('[gis] map2d: closeBoundaryMap2D() — tearing down the cream plan map at generate-time.');
             map2dHandle.dispose();
@@ -1128,11 +1152,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return null;
     };
 
-    /** Read the committed parcel boundary ring (scene-XZ), or null. */
+    /** Read the committed parcel boundary ring (scene-XZ), or null.
+     *
+     * §L-412 Bug-2 (boundary→3D-render handoff) — resolve the C19 `SiteModelStore`
+     * the SAME way the draw/select commit does (`resolveSiteContext`:
+     * `runtime ?? window.runtime`). The boundary is committed through `siteDispatch`
+     * against `window.runtime`'s store whenever GISAreaLayout was handed a null/stale
+     * `runtime` (the `createMainLayout(props, runtime=null)` legacy boot path,
+     * Layout.ts:86/92). Reading ONLY the captured `runtime` here diverged from the
+     * store the boundary actually landed in: the ORIGIN and ENVELOPE survived (they
+     * read the `siteDispatch` module globals `getCurrentSiteOrigin` /
+     * `getLastBuildableEnvelope`, populated on the same commit), but the boundary —
+     * read straight off `runtime.siteModelStore` — came back null, so the 3D Site
+     * logged "no parcel boundary yet" even though the plot committed and the envelope
+     * computed. Resolving the store identically to the commit makes the ONE committed
+     * boundary (drawn OR selected) reach the Forma render — same C19 spine, no second
+     * store. */
     const getFormaBoundary = (): XZ[] | null => {
-        const b = (runtime?.siteModelStore as
-            | { getParcelBoundary?: () => { polygon?: ReadonlyArray<XZ> } | null }
-            | undefined)?.getParcelBoundary?.();
+        type BoundaryStore = { getParcelBoundary?: () => { polygon?: ReadonlyArray<XZ> } | null };
+        const captured = runtime?.siteModelStore as BoundaryStore | undefined;
+        const store: BoundaryStore | undefined =
+            (captured?.getParcelBoundary ? captured : undefined) ??
+            (typeof window !== 'undefined'
+                ? (window.runtime as unknown as { siteModelStore?: BoundaryStore } | undefined)?.siteModelStore
+                : undefined);
+        const b = store?.getParcelBoundary?.();
         const poly = b?.polygon;
         return poly && poly.length >= 3 ? poly.map((p) => ({ x: p.x, z: p.z })) : null;
     };
@@ -1727,9 +1771,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         };
     };
 
+    /** §L-412 (C59 Phase 1b) — the DOM host for the 3D-Site chrome (envelope card).
+     *  When the site-authoring split is live the 3D Site lives in the RIGHT pane, so
+     *  the "Estimated" facts card + toggle must render ON THAT PANE (C59 §1.3 — chrome
+     *  is scoped to its own pane), not floated over the whole `#container`. Falls back
+     *  to `#container` for the classic single-view Forma. */
+    const getForma3dHostEl = (): HTMLElement | null => {
+        if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
+            const right = siteAuthoringPanes.getPaneElement(RIGHT_PANE);
+            if (right) return right;
+        }
+        return document.getElementById('container');
+    };
+
     /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
     const refreshEnvelopePanel = (): void => {
-        const viewport = document.getElementById('container');
+        const viewport = getForma3dHostEl();
         const env = getLastBuildableEnvelope();
         // No envelope (no parcel / cleared) → drop the card entirely.
         if (!viewport || !env || env.status === 'none') {
@@ -1747,6 +1804,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 boxShadow: '0 4px 18px rgba(20,10,60,0.18)',
                 font: '500 12px/1.45 system-ui, sans-serif', color: '#2a2340',
             } satisfies Partial<CSSStyleDeclaration>);
+            viewport.appendChild(envelopePanel);
+        } else if (envelopePanel.parentElement !== viewport) {
+            // The pane host changed (split mounted / disposed) — re-home the card.
             viewport.appendChild(envelopePanel);
         }
         const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
@@ -2711,8 +2771,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // reads live state). The 2D-map mode is skipped.
     const liveUpdateFormaMassing = (source: string): void => {
         if (!cesiumViewport?.renderFormaMassing) return; // Cesium not mounted yet.
-        if (formaViewMode === 'map2d') return;            // not looking at Cesium.
-        console.log(`[gis][forma] live-update (${source}) → re-placing massing (no re-fly).`);
+        // §L-412 (C59 Phase 1b) — pane-aware gate. In the single-view world the guard
+        // skips the re-render when the user is on the 2D map (`formaViewMode==='map2d'`)
+        // because Cesium isn't visible. But in the site-authoring SPLIT the 2D map is in
+        // the LEFT pane while the 3D Site (Cesium) is LIVE in its OWN right pane — so a
+        // draw/select on the left MUST re-render the boundary + envelope on the right
+        // (the founder's live side-by-side). When the 3D Site is hosted in a pane the
+        // gate therefore fires regardless of `formaViewMode` (the paned 3D Site is NOT
+        // map2d — the pure model owns which view each pane holds).
+        const site3dPaned =
+            !!siteAuthoringPanes &&
+            !siteAuthoringPanes.isDisposed &&
+            siteAuthoringPanes.controller.hostsView('site-3d');
+        if (formaViewMode === 'map2d' && !site3dPaned) return; // not looking at Cesium.
+        console.log(
+            `[gis][forma] live-update (${source}) → re-placing massing (no re-fly)` +
+            `${site3dPaned ? ' [paned 3D Site]' : ''}.`,
+        );
         renderFormaMassing(false);
     };
 
@@ -2988,6 +3063,125 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
     mountSiteViewLauncher();
+
+    // ════════════════════════════════════════════════════════════════════════
+    // §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the site-authoring split.
+    //
+    // Lands the founder default directly: LEFT pane = the 2D site map (draw/select),
+    // RIGHT pane = the LIVE 3D Site (boundary + buildable envelope), assigned through
+    // the pure `assignViewToPane` model (`siteAuthoringDefaultLayout()`), NOT a
+    // hard-coded toggle. The SINGLE Cesium viewer is RE-TARGETED into the right pane
+    // element (`reparentContainerTo` — never cloned / never a second device); the
+    // MapLibre 2D map mounts into the left pane element. A draw/select on the LEFT
+    // re-renders the boundary + envelope LIVE on the RIGHT via the pane-aware
+    // `renderFormaMassing(false)` no-re-fly path — no "Not now → hunt the 3D button"
+    // dance. Single rAF (P3): neither renderer spins a new loop — Cesium keeps its
+    // request-render mode, the map its own; the host only re-parents + reflows.
+    // ════════════════════════════════════════════════════════════════════════
+    const mountSiteAuthoringPanes = (): void => {
+        if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
+            console.log('[gis][panes] §L-412 site-authoring split already mounted.');
+            return;
+        }
+        const container = document.getElementById('container');
+        if (!container) {
+            console.error('[gis][panes] §L-412 #container not found — cannot mount the split.');
+            return;
+        }
+        // Close any single-pane 2D-map overlay first — it re-opens INTO the left pane.
+        if (map2dHandle) { try { map2dHandle.dispose(); } catch { /* gone */ } map2dHandle = null; }
+
+        const shell = mountSiteAuthoringPaneShell({ parent: container, initialLeftFraction: 0.5 });
+        siteAuthoringPanes = shell;
+
+        // ── MapLibre mounter (LEFT pane) — the 2D draw/select surface ──
+        const mapMounter: PaneRendererMounter = {
+            rendererKind: 'maplibre',
+            mount: (paneEl) => { startBoundaryDraw({ parent: paneEl }); },
+            unmount: () => { if (map2dHandle) { try { map2dHandle.dispose(); } catch { /* gone */ } map2dHandle = null; } },
+            // MapLibre auto-reflows via its own ResizeObserver (trackResize:true).
+            resize: () => { /* auto */ },
+        };
+
+        // ── Cesium mounter (RIGHT pane) — the ONE 3D Site viewer, RE-TARGETED ──
+        const cesiumMounter: PaneRendererMounter = {
+            rendererKind: 'cesium',
+            mount: async (paneEl) => {
+                // Ensure the single Cesium viewer is constructed + visible. toggleGIS
+                // mounts it lazily into #container on first use; we then MOVE its one
+                // container node into the right pane (no second viewer). Suppress the
+                // re-activation self-place (we render our own massing below).
+                gisReactivationSelfPlaceSuppressed = true;
+                try { toggleGIS(true); }
+                catch (e) { console.error('[gis][panes] toggleGIS threw:', e); }
+                finally { gisReactivationSelfPlaceSuppressed = false; }
+                await awaitCesiumReady();
+                if (!cesiumViewport) {
+                    console.warn('[gis][panes] Cesium never constructed — right pane empty.');
+                    return;
+                }
+                // RE-TARGET the single #cesium-viewport-container into the RIGHT pane.
+                cesiumViewport.reparentContainerTo?.(paneEl);
+                cesiumViewport.setVisible?.(true);
+                cesiumViewport.reparentContainerTo?.(paneEl); // reflow now it is visible.
+                // Force the Forma massing-study look + render the boundary/envelope in
+                // place (no re-fly). The pane-aware live-update keeps it fresh on draw.
+                cesiumViewport.setFormaMode?.(true);
+                window.pryzmSetCesiumFormaMode?.(true);
+                formaViewMode = '3d';
+                renderFormaMassing(false);
+                mountFormaAnalysis();
+            },
+            unmount: () => {
+                // Re-home the single viewer back to #container + hide it (never disposed).
+                const host = document.getElementById('container');
+                if (host) { try { cesiumViewport?.reparentContainerTo?.(host); } catch { /* gone */ } }
+                try { cesiumViewport?.setVisible?.(false); } catch { /* gone */ }
+            },
+            resize: () => { try { cesiumViewport?.reflowContainer?.(); } catch { /* gone */ } },
+        };
+
+        shell.controller.registerMounter(mapMounter);
+        shell.controller.registerMounter(cesiumMounter);
+
+        // Apply the founder default THROUGH the pure model (left=2d-map, right=3d-site).
+        const layout = siteAuthoringDefaultLayout();
+        try {
+            const r = shell.controller.applyLayout(layout);
+            if (r instanceof Promise) r.catch((err) => console.error('[gis][panes] applyLayout (async) failed:', err));
+        } catch (err) {
+            console.error('[gis][panes] applyLayout failed — tearing the split down:', err);
+            unmountSiteAuthoringPanes();
+            return;
+        }
+        console.log(
+            '[gis][panes] §L-412 site-authoring split mounted — LEFT 2D map · RIGHT live 3D Site ' +
+            '(single Cesium re-targeted; envelope live on draw/select).',
+        );
+    };
+
+    /** Tear the split down: unmounts both renderers (Cesium re-homes to #container +
+     *  hides; the map disposes) and removes the pane DOM. Idempotent. */
+    const unmountSiteAuthoringPanes = (): void => {
+        if (!siteAuthoringPanes) return;
+        try { siteAuthoringPanes.dispose(); } catch (e) { console.warn('[gis][panes] dispose failed:', e); }
+        siteAuthoringPanes = null;
+        // Re-home the envelope card onto #container (getForma3dHostEl now returns it).
+        try { refreshEnvelopePanel(); } catch { /* best-effort */ }
+    };
+
+    // O.2 / §L-412 — programmatic entry to the site-authoring split. The onboarding
+    // site step + the GIS-rail launcher call this so entering the site lands directly
+    // in 2D-left / 3D-right (the "Generate house?" confirm stays a SEPARATE choice,
+    // never a blocker to seeing the site). Registered globally (typed in globals.d.ts).
+    window.pryzmMountSiteAuthoringPanes = () => {
+        try { mountSiteAuthoringPanes(); }
+        catch (e) { console.error('[gis][panes] pryzmMountSiteAuthoringPanes failed:', e); }
+    };
+    window.pryzmUnmountSiteAuthoringPanes = () => {
+        try { unmountSiteAuthoringPanes(); }
+        catch (e) { console.error('[gis][panes] pryzmUnmountSiteAuthoringPanes failed:', e); }
+    };
 
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }

@@ -233,6 +233,19 @@ declare global {
          *  boundary (site.replace) and re-arms the still-mounted 2D map for a fresh draw.
          *  Called by the onboarding "← Back to drawing" action. Registered by GISAreaLayout. */
         pryzmRearmBoundaryDraw?: () => void;
+        /** §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — mount the site-authoring
+         *  SPLIT: LEFT pane = the 2D site map (draw/select), RIGHT pane = the LIVE 3D Site
+         *  (boundary + buildable envelope). The single Cesium viewer is RE-TARGETED into
+         *  the right pane element (never cloned), and the layout is assigned through the
+         *  pure `assignViewToPane` model (`siteAuthoringDefaultLayout`), not a hard-coded
+         *  toggle. Entering the site step calls this so the user lands directly on the
+         *  side-by-side; a draw/select on the left re-renders the boundary + envelope live
+         *  on the right (no view-switch dance). Registered by GISAreaLayout. */
+        pryzmMountSiteAuthoringPanes?: () => void;
+        /** §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412) — dismiss the site-authoring split: the
+         *  2D map disposes and the single Cesium viewer re-homes to `#container` + hides
+         *  (never disposed). Idempotent. Registered by GISAreaLayout. */
+        pryzmUnmountSiteAuthoringPanes?: () => void;
         /** O.2 — activate/deactivate the GIS (Cesium) view programmatically. The
          *  onboarding step controller's "Draw it on the map" path calls this to
          *  mount + activate GIS before `pryzmStartBoundaryDraw`. Mirrors the GIS

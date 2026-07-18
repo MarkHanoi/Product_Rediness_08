@@ -8797,6 +8797,34 @@ export class CesiumViewport {
     this.forceResizeAndRender('external-reflow (multi-pane host)');
   }
 
+  /**
+   * §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — RE-TARGET the single Cesium
+   * container into an arbitrary PANE element (left/right), NEVER a second viewer.
+   * Moves the ONE `#cesium-viewport-container` DOM node under `paneEl` (a plain
+   * `appendChild` MOVES an already-parented node — it is not cloned), re-points the
+   * mount-parent reference so any later re-mount/dispose targets the pane, and reflows
+   * so the viewer re-measures the new pane's bounds.
+   *
+   * This is the seam that dissolves Cesium's `#container` hard-target (C59 §3): the
+   * `PaneHost` hands Cesium a pane to mount into instead of the whole `#container`.
+   * The container is `position:absolute; inset:0`, so it fills whatever positioned
+   * pane it is placed in — the caller must give `paneEl` `position:relative|absolute`.
+   * Idempotent: when the container already lives under `paneEl` it just reflows. Safe
+   * before the viewer exists (the container node is created in the constructor).
+   */
+  public reparentContainerTo(paneEl: HTMLElement): void {
+    if (!this.container) return;
+    if (this.container.parentElement !== paneEl) {
+      paneEl.appendChild(this.container); // moves the single node — no clone, no 2nd viewer.
+      this.parent = paneEl;               // future (re)mount + dispose target the pane.
+      console.log(
+        `[gis][cesium] §L-412 reparentContainerTo #${paneEl.id || '(no-id)'} — ` +
+        `single container re-targeted into a pane (no new viewer).`,
+      );
+    }
+    this.reflowContainer();
+  }
+
   public setVisible(visible: boolean): void {
     if (!this.container) return;
     if (visible) {

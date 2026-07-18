@@ -153,3 +153,24 @@ export function resolveHostPane(layout: PaneLayout, viewType: ViewType): PaneId 
     }
     return null;
 }
+
+/** An empty two-pane (left/right) layout — the starting point for site authoring. */
+export const EMPTY_LR_LAYOUT: PaneLayout = { [LEFT_PANE]: null, [RIGHT_PANE]: null };
+
+/**
+ * §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the canonical site-authoring
+ * default layout: **LEFT = 2D site map (draw/select) · RIGHT = live 3D Site
+ * (boundary + buildable envelope)**. Derived through the pure `assignViewToPane`
+ * algebra (NOT a hard-coded toggle), so the founder default is unit-testable and
+ * provably conflict-free (`validatePaneLayout(...).ok === true`). This is the layout
+ * the live `MultiPaneController` applies when the user enters the site step; the
+ * user can subsequently swap the 3D Site into the LEFT pane and the singleton MOVES
+ * (never clones — see `assignViewToPane`).
+ */
+export function siteAuthoringDefaultLayout(
+    registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,
+): PaneLayout {
+    let layout = assignViewToPane(EMPTY_LR_LAYOUT, LEFT_PANE, 'site-map-2d', registry);
+    layout = assignViewToPane(layout, RIGHT_PANE, 'site-3d', registry);
+    return layout;
+}

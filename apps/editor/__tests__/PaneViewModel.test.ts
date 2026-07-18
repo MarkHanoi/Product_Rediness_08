@@ -13,6 +13,7 @@ import {
     validatePaneLayout,
     panesShowingRenderer,
     resolveHostPane,
+    siteAuthoringDefaultLayout,
     type PaneLayout,
 } from '../src/engine/views/paneViewModel';
 
@@ -91,6 +92,31 @@ describe('§L-412 swapPanes — swap left ↔ right', () => {
         expect(swapped[RIGHT_PANE]).toBe('site-map-2d');
         // A swap never breaks the singleton invariant.
         expect(validatePaneLayout(swapped).ok).toBe(true);
+    });
+});
+
+describe('§L-412 siteAuthoringDefaultLayout — the Phase-1b founder default (model-derived)', () => {
+    it('is 2D map LEFT · 3D Site RIGHT, derived through assignViewToPane (not hard-coded)', () => {
+        const layout = siteAuthoringDefaultLayout();
+        expect(layout[LEFT_PANE]).toBe('site-map-2d');
+        expect(layout[RIGHT_PANE]).toBe('site-3d');
+    });
+
+    it('is conflict-free (no singleton double-mount) + resolves the hosts', () => {
+        const layout = siteAuthoringDefaultLayout();
+        expect(validatePaneLayout(layout).ok).toBe(true);
+        expect(resolveHostPane(layout, 'site-3d')).toBe(RIGHT_PANE);
+        expect(resolveHostPane(layout, 'site-map-2d')).toBe(LEFT_PANE);
+        // The single Cesium is claimed by exactly one pane (the right).
+        expect(panesShowingRenderer(layout, 'cesium')).toEqual([RIGHT_PANE]);
+    });
+
+    it('lets the user then SWAP the 3D Site into the LEFT pane — the singleton MOVES', () => {
+        const start = siteAuthoringDefaultLayout();
+        const moved = assignViewToPane(start, LEFT_PANE, 'site-3d');
+        expect(moved[LEFT_PANE]).toBe('site-3d');
+        expect(moved[RIGHT_PANE]).toBeNull(); // vacated — never two Cesium mounts.
+        expect(validatePaneLayout(moved).ok).toBe(true);
     });
 });
 

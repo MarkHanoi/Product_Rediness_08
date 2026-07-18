@@ -622,6 +622,8 @@ export class OnboardingStepController {
                 pryzmToggleGIS?: (active: boolean) => void;
                 pryzmStartBoundaryDraw?: () => void;
                 pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
+                // §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the site-authoring split.
+                pryzmMountSiteAuthoringPanes?: () => void;
             };
             // §ZOOM-TO-ADDRESS (tested defect): seed the 2D map's getMapInitial frame
             // from THIS flow's geocode result BEFORE the draw opens. The onboarding
@@ -639,15 +641,25 @@ export class OnboardingStepController {
                     ...(this.picked.bbox ? { bbox: this.picked.bbox } : {}),
                 });
             }
-            if (typeof w.pryzmToggleGIS === 'function') {
-                console.log('[onboarding-step] §GIS-HANDOFF: pryzmToggleGIS(true).');
+            // §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — PREFER the site-authoring
+            // SPLIT: it lands the user directly in 2D map LEFT · live 3D Site RIGHT, so the
+            // site + boundary + buildable envelope render on the right AS the user draws /
+            // selects on the left — no "Not now → hunt the 3D button" dance. The split's own
+            // MapLibre mounter arms the draw tool in the left pane, so `startDrawWhenReady`
+            // is NOT needed on this path. Falls back to the classic single-pane handoff
+            // (Cesium owns #container + 2D overlay) when the split entry isn't wired.
+            if (typeof w.pryzmMountSiteAuthoringPanes === 'function') {
+                console.log('[onboarding-step] §GIS-HANDOFF (L-412): mounting the site-authoring split (2D map left · live 3D Site right).');
+                w.pryzmMountSiteAuthoringPanes();
+            } else if (typeof w.pryzmToggleGIS === 'function') {
+                console.log('[onboarding-step] §GIS-HANDOFF: pryzmToggleGIS(true) (single-pane fallback).');
                 w.pryzmToggleGIS(true);
+                // The Cesium mount + boundary tool construction is async inside
+                // GISAreaLayout; poll briefly for pryzmStartBoundaryDraw, then call it.
+                this.startDrawWhenReady();
             } else {
-                console.warn('[onboarding-step] §GIS-HANDOFF: pryzmToggleGIS missing — GIS area not wired; the draw button on the GIS rail still works, watchdog will cover a no-show.');
+                console.warn('[onboarding-step] §GIS-HANDOFF: no GIS entry wired — the draw button on the GIS rail still works, watchdog will cover a no-show.');
             }
-            // The Cesium mount + boundary tool construction is async inside
-            // GISAreaLayout; poll briefly for pryzmStartBoundaryDraw, then call it.
-            this.startDrawWhenReady();
         } catch (err) {
             console.warn('[onboarding-step] §GIS-HANDOFF threw — relying on watchdog:', err);
         }
