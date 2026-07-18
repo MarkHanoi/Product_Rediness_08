@@ -3718,3 +3718,24 @@ The coarse compliance L-items (mapping-table rows L-393, L-398–L-402 above) br
 **L-393 → interop (Pipeline A Track I):**
 - **L-393a** — IFC/DXF/Rhino round-trip harness (import→export→re-import geometry-delta compare). *(C25/C26/C32/C33)*
 - **L-393b** — Adversarial malformed-file behaviour (crash vs silent-drop vs graceful reject). *(L-393)*
+
+---
+
+## L-414 — SPIKE: interrogate & manipulate BIM / IFC DATA inside the Cesium geospatial view (post-launch / research backlog — QUEUED, NOT priority, P3)
+
+**SPIKE — research-only, NOT a launch item.** Phase: **post-launch / research backlog** (alongside the L-353/L-355/L-357 geospatial-context cluster and the C-CONTEXT-ENGINE governance gap). Founder-explicit: *"Keep this as a SPIKE … QUEUED — not priority."* No implementation; docs only this pass.
+
+**The ask.** Today the Cesium / Forma 3D Site is a **passive context surface** — BIM massing + the buildable envelope are rendered as a **whole-scene glTF `Cesium.Model` blob** (`CesiumViewport.ts` `realModelOnGlobe`/`realModelOnForma`) with **no per-element feature IDs**, so `scene.pick` (`:1707`) only resolves the whole model, not an element. The founder wants a future capability to **select / query / interrogate — and eventually manipulate — the BIM / IFC data** in that view, "super-performant and flexible."
+
+**Candidate research directions** (not yet investigated — the spike's agenda; full detail in the stub `docs/03-execution/spikes/spike-bim-ifc-data-interrogation-in-cesium.md`):
+1. Per-feature metadata in the geospatial payload — **3D Tiles + `EXT_mesh_features` + `EXT_structural_metadata`** (glTF) → Cesium feature-ID picking + styling. *(replaces the opaque single-GLB)*
+2. **ThatOpen fragment IDs → Cesium feature IDs** — reuse existing per-element identity (`gpu-pick.ts` / `ProjectSerializer.ts`) as one key across the editor canvas + the Cesium surface.
+3. Streaming (3D-Tiles LOD, city-scale) vs in-memory single GLB; ties the L-355/L-358 GLB-export-perf work + the C10 budget.
+4. **Selection bridge** — a Cesium pick drives the same C27 Inspect `IsolationVisibilityIntent` (P7) / C28 Data-panel selection as an editor-canvas pick (one selection model, not a parallel one).
+5. Any "manipulate" (edit-in-Cesium) routes through the command bus (P6) + OTel spans (P8); it is a much larger scope than "interrogate" (read/select) and should be phased.
+
+**Spans layers (call out up front):** BIM data model (C03 / `packages/schemas`) + IFC/ThatOpen interop (C25/C26) + Cesium render + the bridge (C12/C55 / `CesiumViewport`) + performance (C10). Not a single-package change.
+
+**Governance — the load-bearing finding (FOUNDER DECISION, do not auto-resolve).** **No contract governs interactive BIM/IFC data interrogation inside the geospatial view.** C27/C28 cover BIM inspect + Pset data but only on the editor canvas; **C55 §1.2** frames the Cesium surface as context-only (analytical layers drape, never BIM). This is **not a present violation** (C55 §1.2 governs drape *layers*, not picking the BIM model already placed) but a **forward tension** — logged to `MISSING-CONTRACTS-AUDIT-2026-06-01.md`, cross-referenced from C55 §4 and C12. The spike must surface to the founder whether the geospatial view stays **context-only** or becomes a **first-class interactive BIM/IFC surface**; the latter needs a governing contract *before* code. Fast-vs-correct is N/A (spike).
+
+Links: L-414; ties L-353/L-355/L-356/L-357 (geospatial-context cluster) + the C-CONTEXT-ENGINE governance gap (L-359) + L-374/L-412 (context/pane view work) + C57/C58 (parcel/envelope-in-Cesium). Contracts: C12, C55 §1.2, C19, C03, C27, C28, C25, C26, C10, C04. Spike stub: `docs/03-execution/spikes/spike-bim-ifc-data-interrogation-in-cesium.md`. Queue: geospatial / context-engine (primary) + data-platform (C03/C27/C28) + interop/IFC (C25/C26 + ThatOpen). Owner UNASSIGNED. Target TBD (post-launch).
