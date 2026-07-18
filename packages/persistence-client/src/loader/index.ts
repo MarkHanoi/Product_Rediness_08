@@ -51,3 +51,13 @@ export {
   type HistorySegment,
   type LinearisedHistoryEvent,
 } from './HistoryStreamer.js';
+
+// L-334 / L-360 — save-reload content-integrity checksum (stamp at SAVE,
+// verify at LOAD → non-blocking warning, never brick). See SnapshotIntegrity.ts.
+export {
+  INTEGRITY_ALGO,
+  computeSnapshotChecksum,
+  verifySnapshotChecksum,
+  type SnapshotIntegrityMeta,
+  type ChecksumVerification,
+} from './SnapshotIntegrity.js';

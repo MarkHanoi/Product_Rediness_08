@@ -80,6 +80,12 @@ export interface ILoadResult {
     loaded: number;
     failed: number;
     errors: string[];
+    /**
+     * L-334 / L-360 — present ONLY when the whole-snapshot content checksum failed
+     * to verify. The project still LOADED (best-effort); the shell surfaces a loud,
+     * persistent integrity warning. A checksum mismatch NEVER hard-refuses a project.
+     */
+    integrity?: { ok: false; reason: string; expected?: string; actual?: string };
 }
 
 /**

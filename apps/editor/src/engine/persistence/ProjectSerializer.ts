@@ -84,6 +84,14 @@ import { annotationStore } from '@pryzm/plugin-annotations';
 import { constraintStore } from '@pryzm/plugin-annotations';
 import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
 import { obcAnnotationAdapter } from '@pryzm/plugin-annotations';
+// L-334 / L-360 — content-integrity checksum stamped into the snapshot at SAVE
+// and verified at LOAD (client-side; a server-side column is a tracked
+// follow-up). See packages/persistence-client/src/loader/SnapshotIntegrity.ts.
+import {
+    computeSnapshotChecksum,
+    INTEGRITY_ALGO,
+    type SnapshotIntegrityMeta,
+} from '@pryzm/persistence-client';
 
 export const SNAPSHOT_SCHEMA_VERSION = 5;
 
@@ -100,6 +108,13 @@ export interface ProjectSnapshot {
     projectName: string;
     projectId?: string;
     versionLabel?: string;
+    /**
+     * L-334 / L-360 — content-integrity block stamped at SAVE and verified at
+     * LOAD. Absent on legacy/pre-L-334 snapshots (treated as "no checksum", NOT
+     * corruption). Excluded (with `versionLabel`) from its own checksum, and an
+     * additive optional field — old builds ignore it, so no file-format bump.
+     */
+    integrity?: SnapshotIntegrityMeta;
     levels: any[];
     grids: any[];
     walls: any[];
@@ -956,10 +971,25 @@ export class ProjectSerializer {
             site: site ?? undefined,
         };
 
+        // L-334 / L-360 — stamp a stable content checksum into the snapshot so
+        // LOAD can detect byte-corruption / truncation of the stored blob. Computed
+        // LAST, over the fully-built snapshot with the `integrity` block AND the
+        // volatile `versionLabel` excluded (the autosave path appends versionLabel
+        // AFTER this stamp — excluding it is what stops the L-360 false-"corrupt"
+        // that bricked a valid project). Round-trips through JSON.stringify/parse
+        // unchanged, so a faithfully-saved project always re-verifies at LOAD.
+        const integrity: SnapshotIntegrityMeta = {
+            algo: INTEGRITY_ALGO,
+            checksum: computeSnapshotChecksum(snapshot),
+            schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+        };
+        snapshot.integrity = integrity;
+
         console.log(
             `[ProjectSerializer] Snapshot created: ${elementCount} elements, ` +
             `${levels.length} levels, ${walls.length} walls, ` +
-            `${slabs.length} slabs, ${furniture.length} furniture`
+            `${slabs.length} slabs, ${furniture.length} furniture ` +
+            `(integrity ${integrity.checksum})`
         );
 
         return snapshot;

@@ -51,6 +51,10 @@ import { storeEventBus } from '@pryzm/core-app-model';
 // §PERF-L03-PHASE (L-03) — gated per-phase load timing; OFF unless globalThis.__pryzmPerfTrace.
 import { perfTraceOn, perfLog } from '@pryzm/core-app-model';
 import { ProjectSnapshot } from './ProjectSerializer';
+// L-334 / L-360 — verify the content-integrity checksum at LOAD. A mismatch is a
+// NON-BLOCKING warning (load best-effort); an absent checksum (legacy snapshot)
+// verifies clean. NEVER a hard refuse on the checksum alone.
+import { verifySnapshotChecksum } from '@pryzm/persistence-client';
 import { BatchCreateRoomsCommand } from '@pryzm/command-registry';
 import { deserializeRoom } from '@pryzm/room-topology';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
@@ -233,6 +237,13 @@ export interface LoadResult {
     failed: number;
     errors: string[];
     warnings: string[];
+    /**
+     * L-334 / L-360 — set ONLY when the whole-snapshot checksum FAILED to verify.
+     * The project is STILL loaded (best-effort); this drives a loud, persistent
+     * "integrity check failed — file may be corrupted, loaded best-effort" warning
+     * in the UI. A checksum mismatch NEVER bricks the project.
+     */
+    integrity?: { ok: false; reason: string; expected?: string; actual?: string };
 }
 
 /**
@@ -322,6 +333,32 @@ export class ProjectLoader {
         const result: LoadResult = { success: false, loaded: 0, failed: 0, errors: [], warnings: [] };
 
         console.group(`[ProjectLoader] Loading "${snapshot.projectName}" (${snapshot.elementCount} elements)`);
+
+        // ── L-334 / L-360 — content-integrity check (WARN-not-BRICK) ────────────
+        // Recompute the checksum over the snapshot and compare it to the one stamped
+        // at SAVE. A mismatch means the stored bytes may have been corrupted /
+        // truncated / edited outside PRYZM. The L-360 lesson is absolute: a checksum
+        // mismatch MUST NOT refuse the project (the original L-334 did, and it bricked
+        // a valid 1009-element file). We record a NON-BLOCKING warning and fall
+        // through to a best-effort load. An absent checksum (legacy/pre-L-334
+        // snapshot) verifies clean → no warning. This check is pure + read-only.
+        try {
+            const __integrity = verifySnapshotChecksum(snapshot);
+            if (__integrity.present && !__integrity.ok) {
+                const reason =
+                    `Project integrity check failed (stored ${__integrity.expected}, computed ` +
+                    `${__integrity.actual}). The file may be corrupted or was modified outside ` +
+                    `PRYZM — loaded best-effort; please review your model and re-save.`;
+                console.error(`[ProjectLoader] §L-334 checksum mismatch — loading BEST-EFFORT (project NOT bricked): ${reason}`);
+                result.warnings.push(reason);
+                result.integrity = {
+                    ok: false, reason, expected: __integrity.expected, actual: __integrity.actual,
+                };
+            }
+        } catch (e) {
+            // The integrity check is advisory — never let it break a load.
+            console.warn('[ProjectLoader] §L-334 integrity check threw (non-fatal, ignored):', e);
+        }
 
         // ── PHASE-TIME INSTRUMENTATION (Flow 3 audit, 2026-04-30) ─────────────
         // The cold-open log of the "jk project" (192 walls × 11 levels) showed

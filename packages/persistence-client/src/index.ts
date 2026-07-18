@@ -218,6 +218,19 @@ export {
 // A17-T8 — IndexedDBStore: offline project-snapshot cache (C05 §1.2 tier 2.5).
 export { IndexedDBStore } from './IndexedDBStore.js';
 
+// L-334 / L-360 — save-reload content-integrity checksum. Stamped into the
+// snapshot at SAVE (ProjectSerializer) and re-verified at LOAD (ProjectLoader):
+// a mismatch is a non-blocking integrity WARNING (load best-effort), never a
+// brick; an absent checksum (legacy snapshots) loads clean. See
+// `./loader/SnapshotIntegrity.ts` for the determinism + no-brick rationale.
+export {
+  INTEGRITY_ALGO,
+  computeSnapshotChecksum,
+  verifySnapshotChecksum,
+  type SnapshotIntegrityMeta,
+  type ChecksumVerification,
+} from './loader/SnapshotIntegrity.js';
+
 // D.4.2 — persistence-half composition root.  Spec:
 // `04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §1` Day-7 STATUS row.
 // Mirror of `@pryzm/renderer/src/SceneBootstrap.ts` (D.4.1 Day-2).

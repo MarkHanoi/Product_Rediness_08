@@ -425,6 +425,21 @@ export class PlatformVersionController {
             } else {
                 showToast(`Load failed: ${result.errors[0] ?? 'unknown error'}`, 'error');
             }
+
+            // ── L-334 / L-360 — integrity warning, independent of drop status ──
+            // A whole-snapshot checksum mismatch does NOT hard-refuse the project
+            // (that bricked a valid 1009-element file under L-360). The project is
+            // loaded best-effort above; surface a loud, long-lived warning so possible
+            // corruption is never silently ignored — but the user is never locked out.
+            if (result.integrity && result.integrity.ok === false) {
+                console.warn('[PlatformVersionController] §L-334 integrity check failed — loaded best-effort:', result.integrity.reason);
+                showToast(
+                    `⚠ Integrity check failed — this project file may be corrupted. ` +
+                    `It was loaded best-effort; please review your model and re-save.`,
+                    'error',
+                    12000,
+                );
+            }
         } catch (err) {
             _cleanupStallWatch();
             overlay.remove();
