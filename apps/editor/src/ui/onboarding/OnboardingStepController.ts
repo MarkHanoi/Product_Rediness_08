@@ -1080,9 +1080,17 @@ export class OnboardingStepController {
             void this.generateAndFinish();
         });
         notNow.addEventListener('click', () => {
-            console.log('[onboarding-step] confirm → NOT NOW — disposing overlay, leaving boundary/site intact (no generate).');
-            this.toast('Saved your plot — generate any time from the AI panel.', 'info');
-            this.dispose();
+            // §L-424 (founder live-traced) — "I'll design it myself" must LAND THE USER IN THE
+            // PRYZM CANVAS, not just dispose the overlay (which stranded them on the 2D-map +
+            // Cesium site split — "on continue doesn't really continue to pryzm view yet").
+            // `landInCanvasWithUnderlay` runs the SAME tested transition Generate uses
+            // (close map → exit GIS / unmount the site split → BIM 3D + plan view, framed on the
+            // plot) but WITHOUT generating — so the user arrives in the editor with the parcel
+            // boundary + buildable-envelope volume already drawn as design guides
+            // (ParcelBoundarySceneRenderer, both 3D + plan), the site/boundary intact, ready to author.
+            console.log('[onboarding-step] confirm → NOT NOW — landing in the PRYZM canvas (boundary + envelope guides), no generate.');
+            this.toast('Your plot + buildable envelope are in the canvas — design away, or generate any time from the AI panel.', 'info');
+            void this.landInCanvasWithUnderlay();
         });
     }
 
@@ -1571,9 +1579,10 @@ export class OnboardingStepController {
 
         notNow.addEventListener('click', () => {
             this.overlay?.classList.remove('os-onboarding-overlay--resi');
-            console.log('[onboarding-step] residential program → NOT NOW — disposing overlay, leaving boundary/site intact.');
-            this.toast('Saved your plot — generate any time from the AI panel.', 'info');
-            this.dispose();
+            // §L-424 — land in the PRYZM canvas (boundary + envelope guides), not stranded on the site split.
+            console.log('[onboarding-step] residential program → NOT NOW — landing in the PRYZM canvas (boundary + envelope), no generate.');
+            this.toast('Your plot + buildable envelope are in the canvas — design away, or generate any time from the AI panel.', 'info');
+            void this.landInCanvasWithUnderlay();
         });
     }
 
@@ -1929,9 +1938,10 @@ export class OnboardingStepController {
         notNow.addEventListener('click', () => {
             this.overlay?.classList.remove('os-onboarding-overlay--resi');
             this.overlay?.classList.remove('os-onboarding-overlay--office');
-            console.log('[onboarding-step] §OFFICE-PREVIEW-STEP → NOT NOW — disposing overlay, leaving boundary/site intact.');
-            this.toast('Saved your plot — generate any time from the AI panel.', 'info');
-            this.dispose();
+            // §L-424 — land in the PRYZM canvas (boundary + envelope guides), not stranded on the site split.
+            console.log('[onboarding-step] §OFFICE-PREVIEW-STEP → NOT NOW — landing in the PRYZM canvas (boundary + envelope), no generate.');
+            this.toast('Your plot + buildable envelope are in the canvas — design away, or generate any time from the AI panel.', 'info');
+            void this.landInCanvasWithUnderlay();
         });
     }
 
