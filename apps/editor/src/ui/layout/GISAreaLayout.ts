@@ -2285,6 +2285,27 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // the geometry signature is unchanged (task #4 perf).
     const placeRealModelOnForma = async (origin: { lat: number; lon: number }): Promise<void> => {
         try {
+            // §FIX-EMPTY-REALMODEL-HIDES-ENVELOPE (L-423, founder live-traced) — when NOTHING
+            // is authored yet (a committed parcel + buildable envelope, but no generated/drawn
+            // building), do NOT export + place a real model. `renderRealModelOnForma` HIDES the
+            // massing study (`clearFormaMassingEntitiesOnly`), and the buildable-envelope prism
+            // lives among those massing entities — so an EMPTY real-model swap (0 walls → a
+            // 180-byte GLB with 0 roots) blanks the 3D Site: the envelope draws (`present=y`)
+            // then instantly vanishes. Keep the massing + envelope study on screen until a real
+            // building actually exists; the swap resumes automatically once walls/slabs/roofs/
+            // stairs are authored (this reader path is the SAME one the massing render uses).
+            const hasAuthoredBuilding =
+                getFormaWalls().length > 0 ||
+                getFormaSlabs().length > 0 ||
+                getFormaRoofs().length > 0 ||
+                getFormaStairs().length > 0;
+            if (!hasAuthoredBuilding) {
+                console.log(
+                    '[gis][forma6] no authored building yet — keeping the massing + buildable-envelope ' +
+                        'study visible (skipping empty real-model placement that would hide the envelope).',
+                );
+                return;
+            }
             const sig = computeBuildingSignature();
             // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193, Symptom A) — the
             // reuse-vs-re-export decision. The cache flags (formaRealPlaced / formaRealLastSig)
