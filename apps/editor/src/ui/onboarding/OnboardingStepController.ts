@@ -685,7 +685,7 @@ export class OnboardingStepController {
             if (source === 'watchdog') {
                 // O.7.1: a timed-out draw must NOT silently generate. Author a default
                 // plot so there's something to generate from + visible, then ASK.
-                console.warn('[onboarding-step] draw watchdog fired (60 s) — falling back to a default plot, then asking before generate.');
+                console.warn(`[onboarding-step] draw watchdog fired (idle ${Math.round(DRAW_WATCHDOG_MS / 1000)}s, no interaction) — falling back to a default plot, then asking before generate.`);
                 this.toast('No boundary drawn — using a default plot.', 'info');
                 void this.fallbackDefaultRectToConfirm('watchdog');
             } else {
@@ -695,10 +695,41 @@ export class OnboardingStepController {
             }
         };
         const sub = this.runtime.events?.on('site.parcel-boundary-set', () => finish('drawn'));
-        const watchdog = setTimeout(() => finish('watchdog'), DRAW_WATCHDOG_MS);
+
+        // §L-420 (founder live-traced) — ACTIVITY-AWARE watchdog. The old blind timer
+        // force-committed a default plot even while the user was actively SELECTING /
+        // REVIEWING a real parcel (Catastro review legitimately takes >60 s), then LOCKED
+        // it immutable (C19 §1.4) — hijacking the real selection and blocking the later draw
+        // ("parcel-already-set"). Now the fallback fires ONLY after a FULL idle window with
+        // NO user interaction: any pointer/keyboard activity on the page re-arms it, so an
+        // engaged user is NEVER interrupted; only a genuinely abandoned draw (someone
+        // wandered off) falls back so the flow can't hang. The explicit "Skip drawing — use
+        // a default plot" button remains the deliberate user choice.
+        let lastActivityAt = Date.now();
+        const onActivity = (): void => { lastActivityAt = Date.now(); };
+        const hasDoc = typeof document !== 'undefined';
+        if (hasDoc) {
+            document.addEventListener('pointerdown', onActivity, true);
+            document.addEventListener('keydown', onActivity, true);
+        }
+        let watchdog: ReturnType<typeof setTimeout>;
+        const armWatchdog = (): void => {
+            watchdog = setTimeout(() => {
+                if (settled) return;
+                // The user interacted within the window → defer, don't hijack an active user.
+                if (Date.now() - lastActivityAt < DRAW_WATCHDOG_MS) { armWatchdog(); return; }
+                finish('watchdog');
+            }, DRAW_WATCHDOG_MS);
+        };
+        armWatchdog();
+
         const cleanup = (): void => {
             try { sub?.dispose(); } catch { /* ignore */ }
             clearTimeout(watchdog);
+            if (hasDoc) {
+                document.removeEventListener('pointerdown', onActivity, true);
+                document.removeEventListener('keydown', onActivity, true);
+            }
         };
         this.drawWaitCleanup = cleanup;
         this.addCleanup(cleanup);
