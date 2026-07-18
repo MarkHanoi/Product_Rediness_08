@@ -1,5 +1,19 @@
 # September Readiness — Master Program Plan (cross-pipeline)
 
+> ## 📍 SINGLE SOURCE OF TRUTH — register map
+> This file is the cross-pipeline **program dashboard**. The two living sub-registers below are the authoritative
+> day-to-day trackers; this plan references them and the point-in-time evidence, and never redefines their rows.
+>
+> | Register | Role | Path |
+> |---|---|---|
+> | **V1-LAUNCH-READINESS-AUDIT** | LIVING issue register — every `L-NNN` finding + area conformance | `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` |
+> | **V1-LAUNCH-IMPLEMENTATION-PLAN** | LIVING phased plan — the same `L-NNN` items turned into phases/gates | `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` |
+> | **ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT** | compliance-pillar gap source (L-398–L-404 origin) | `docs/04-reference/ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md` |
+> | **PRE-LAUNCH-EVIDENCE** | point-in-time evidence SNAPSHOT (not living) behind L-387–L-397 + L-406–L-411 | `reports/PRE-LAUNCH-EVIDENCE-2026-07-17.md` |
+>
+> **Rule:** log/track issues in the two living registers; keep this dashboard as the cross-pipeline rollup. The
+> compliance sub-task deltas proposed in §8 are transcribed into both living registers (Pipeline A breakdown).
+
 > **Stamp**: 2026-07-17 · **Target**: early-to-mid September 2026 (~7–8 calendar weeks) · **Status**: PROGRAM PLAN
 > (no code changed, no contract flipped, no master tracker/plan edited).
 > **Author**: cross-pipeline program review (workload / critical-path / leverage pass).
