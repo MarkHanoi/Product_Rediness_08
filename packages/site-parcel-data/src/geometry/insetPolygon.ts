@@ -16,6 +16,31 @@
 //   their own inward offset — C58 can't do that with a single uniform buffer),
 //   metric-exact in scene-XZ, and adds no dependency.
 // ─────────────────────────────────────────────────────────────────────────────
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// ROBUSTNESS FOR REAL DRAWN PARCELS (L-403 — winding + non-convex hardening):
+//   The first slice offset each edge's line inward and re-intersected consecutive
+//   lines (a "miter" offset). That is exact for rectangles + convex parcels, but
+//   it was gated by degenerate heuristics that fired on ANY single reversed inset
+//   edge. Real hand-drawn parcels are IRREGULAR (non-orthogonal, mixed edge
+//   lengths, occasional shallow reflex vertices) and per-edge setbacks differ
+//   (front≠side≠rear), so a short edge flanked by larger setbacks legitimately
+//   COLLAPSES to a miter join — which the old heuristics mis-read as "the whole
+//   parcel is over-inset" → status=degenerate, inset=0 m² on a large valid plot.
+//   The result was also WINDING-DEPENDENT (CW and CCW twins of the same polygon
+//   gave different answers).
+//
+//   This implementation is winding-INDEPENDENT by construction (it canonicalises
+//   to CCW, and the offset-line intersection set is identical for either input
+//   winding) and treats a collapsed/reversed edge as a LOCAL event: it drops that
+//   edge's offset line and re-miters the neighbours (the vanished-edge miter
+//   join), instead of degenerating the whole polygon. A final self-intersection
+//   cleanup (greedy loop removal) handles narrow concavities where an inward
+//   offset would otherwise fold over itself. Genuine over-inset (setbacks consume
+//   the parcel → < 3 surviving vertices, ~0 area, or the inset escapes the
+//   parcel) is still reported as `degenerate` — but a large simple irregular
+//   polygon now yields a real inset.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import type { Pt } from '@pryzm/schemas';
 import type { ParcelEdgeClassification } from '@pryzm/schemas';
@@ -37,6 +62,8 @@ export interface InsetResult {
 }
 
 const EPS = 1e-9;
+/** Vertices closer than this (metres) are treated as coincident (1 µm). */
+const COINCIDENT_EPS = 1e-6;
 
 function sub(a: Pt, b: Pt): Pt {
     return { x: a.x - b.x, z: a.z - b.z };
@@ -60,16 +87,158 @@ function lineIntersect(p0: Pt, d0: Pt, p1: Pt, d1: Pt): Pt | null {
     return { x: p0.x + t * d0.x, z: p0.z + t * d0.z };
 }
 
+function setbackForClass(
+    cls: ParcelEdgeClassification | undefined,
+    setbacks: PerEdgeSetbacks,
+): number {
+    switch (cls) {
+        case 'front':
+            return setbacks.front;
+        case 'side':
+            return setbacks.side;
+        case 'rear':
+            return setbacks.rear;
+        default:
+            return setbacks.unclassified;
+    }
+}
+
+/**
+ * Drop consecutive coincident vertices (a Cesium close-loop duplicate, a
+ * double-tap while drawing, or two points within a micron) so no zero-length
+ * edge reaches the offset math. Keeps `edgeClassifications` aligned to the edge
+ * that SURVIVES (the edge leaving each kept vertex). Winding-preserving.
+ */
+function cleanRing(
+    polygon: ReadonlyArray<Pt>,
+    edgeClassifications: ReadonlyArray<ParcelEdgeClassification>,
+): { pts: Pt[]; cls: Array<ParcelEdgeClassification | undefined> } {
+    const pts: Pt[] = [];
+    const cls: Array<ParcelEdgeClassification | undefined> = [];
+    for (let i = 0; i < polygon.length; i++) {
+        const p = polygon[i]!;
+        const prev = pts[pts.length - 1];
+        if (prev && length(sub(p, prev)) < COINCIDENT_EPS) continue;
+        pts.push({ x: p.x, z: p.z });
+        cls.push(edgeClassifications[i]);
+    }
+    // Also fold a coincident wrap (last ≈ first).
+    while (pts.length >= 2 && length(sub(pts[pts.length - 1]!, pts[0]!)) < COINCIDENT_EPS) {
+        pts.pop();
+        cls.pop();
+    }
+    return { pts, cls };
+}
+
+interface OffsetLine {
+    readonly p: Pt; // a point on the inward-offset supporting line
+    readonly d: Pt; // unit direction of the (original) edge
+}
+
+/**
+ * Miter offset: place a new vertex at each intersection of consecutive offset
+ * lines. Parallel consecutive lines (a straight/collinear vertex) fall back to
+ * the current line's offset point. Returns one vertex per offset line.
+ */
+function miter(lines: ReadonlyArray<OffsetLine>): Pt[] {
+    const n = lines.length;
+    const out: Pt[] = new Array(n);
+    for (let j = 0; j < n; j++) {
+        const prev = lines[(j - 1 + n) % n]!;
+        const curr = lines[j]!;
+        const x = lineIntersect(prev.p, prev.d, curr.p, curr.d);
+        out[j] = x ?? { ...curr.p };
+    }
+    return out;
+}
+
+/** True iff segments a-b and c-d properly cross (interiors intersect). */
+function segmentsCross(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
+    const d1 = cross(sub(b, a), sub(c, a));
+    const d2 = cross(sub(b, a), sub(d, a));
+    const d3 = cross(sub(d, c), sub(a, c));
+    const d4 = cross(sub(d, c), sub(b, c));
+    return (d1 > EPS) !== (d2 > EPS) && (d3 > EPS) !== (d4 > EPS);
+}
+
+/** Does the closed ring self-intersect (any non-adjacent edge pair crossing)? */
+function selfIntersects(ring: ReadonlyArray<Pt>): boolean {
+    const n = ring.length;
+    for (let i = 0; i < n; i++) {
+        const a = ring[i]!;
+        const b = ring[(i + 1) % n]!;
+        for (let j = i + 1; j < n; j++) {
+            if (j === i || j === (i + 1) % n || (j + 1) % n === i) continue;
+            const c = ring[j]!;
+            const d = ring[(j + 1) % n]!;
+            if (segmentsCross(a, b, c, d)) return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Greedy loop removal for a self-intersecting offset ring. Walks the ring and,
+ * whenever the newest edge crosses an earlier kept edge, splices out the loop
+ * between them and inserts the crossing point. Keeps the outer simple boundary —
+ * removes the reversed "spikes" an inward offset folds up in narrow concavities.
+ */
+function removeSelfIntersections(ring: ReadonlyArray<Pt>): Pt[] {
+    const out: Pt[] = [];
+    for (let i = 0; i < ring.length; i++) {
+        const v = ring[i]!;
+        // Try to weld the incoming edge (out.last -> v) against earlier kept edges.
+        let welded = false;
+        for (let k = out.length - 2; k >= 0; k--) {
+            const a = out[k]!;
+            const b = out[k + 1]!;
+            const last = out[out.length - 1]!;
+            if (segmentsCross(a, b, last, v)) {
+                const x = lineIntersect(a, sub(b, a), last, sub(v, last));
+                if (x) {
+                    out.length = k + 1; // keep a..out[k]
+                    out.push(x); // the crossing point
+                    welded = true;
+                    break;
+                }
+            }
+        }
+        if (!welded) out.push({ x: v.x, z: v.z });
+    }
+    // Close-up pass: the wrap edge (out.last -> out.first) may still cross.
+    if (out.length >= 4) {
+        for (let k = 1; k < out.length - 2; k++) {
+            const a = out[k]!;
+            const b = out[k + 1]!;
+            const last = out[out.length - 1]!;
+            const first = out[0]!;
+            if (segmentsCross(a, b, last, first)) {
+                const x = lineIntersect(a, sub(b, a), last, sub(first, last));
+                if (x) {
+                    // Drop the tail loop and the head stub, seat the crossing point.
+                    const kept = out.slice(k + 1);
+                    kept.push(x);
+                    return kept;
+                }
+            }
+        }
+    }
+    return out;
+}
+
 /**
  * Inset a simple polygon by a PER-EDGE setback, keyed by each edge's
- * classification. Deterministic + metric-exact in scene-XZ metres.
+ * classification. Deterministic + metric-exact in scene-XZ metres, and
+ * WINDING-INDEPENDENT (CW and CCW inputs give the same inset area).
  *
- * Method: offset each edge's supporting line inward by its own setback, then
- * re-intersect consecutive offset lines to place the new vertices. Robust for
- * rectangular + convex parcels (the pilot case) and mild concavity. Over-inset
- * (setbacks ≥ half the parcel width, so the offset lines cross the far side) is
- * detected by a winding-sign flip or a collapsed area → `degenerate: true` with
- * an empty polygon (no crash, no self-intersecting garbage).
+ * Method: offset each edge's supporting line inward by its own setback, miter
+ * the offset lines to place vertices, iteratively collapse any edge whose inset
+ * segment REVERSES (a short edge subsumed by its neighbours' larger setbacks —
+ * a local miter join, NOT a global over-inset), then clean up any residual
+ * self-intersection from narrow concavities. Robust for rectangular, convex,
+ * and irregular non-convex parcels. Genuine over-inset (setbacks consume the
+ * parcel) collapses to < 3 vertices / ~0 area / an inset that escapes the
+ * parcel → `degenerate: true` with an empty polygon (no crash, no garbage).
  *
  * @param polygon              closed ring, ≥ 3 vertices, scene-XZ metres.
  * @param edgeClassifications  one per edge (`edge i` = `polygon[i]→polygon[i+1]`).
@@ -80,108 +249,94 @@ export function insetPolygonPerEdge(
     edgeClassifications: ReadonlyArray<ParcelEdgeClassification>,
     setbacks: PerEdgeSetbacks,
 ): InsetResult {
-    const n = polygon.length;
-    if (n < 3) return { polygon: [], degenerate: true };
+    if (polygon.length < 3) return { polygon: [], degenerate: true };
 
-    const signed = polygonSignedArea(polygon);
+    // ── 1. Clean coincident/zero-length edges (winding preserved). ───────────
+    const { pts, cls } = cleanRing(polygon, edgeClassifications);
+    if (pts.length < 3) return { polygon: [], degenerate: true };
+
+    const signed = polygonSignedArea(pts);
     if (Math.abs(signed) < EPS) return { polygon: [], degenerate: true };
-    // For CCW (signed > 0) in the (x,z) shoelace, the inward (interior) normal of
-    // a directed edge (dx,dz) is the left normal (-dz, dx); for CW, flip.
-    const ccw = signed > 0;
 
-    const setbackForEdge = (i: number): number => {
-        const cls = edgeClassifications[i] ?? 'unclassified';
-        switch (cls) {
-            case 'front':
-                return setbacks.front;
-            case 'side':
-                return setbacks.side;
-            case 'rear':
-                return setbacks.rear;
-            default:
-                return setbacks.unclassified;
-        }
-    };
+    // ── 2. Canonicalise to CCW so the inward normal + all downstream math are
+    //       orientation-independent (the L-403 winding fix). Reversing the ring
+    //       also reverses the per-edge setbacks so each stays with its edge. ──
+    let ring: Pt[] = pts;
+    let ringCls: Array<ParcelEdgeClassification | undefined> = cls;
+    if (signed < 0) {
+        // Reverse vertices; edge i of the reversed ring is original edge
+        // (n-1-i) traversed backwards, so shift the classification accordingly.
+        const n = pts.length;
+        ring = pts.slice().reverse();
+        ringCls = new Array(n);
+        for (let i = 0; i < n; i++) ringCls[i] = cls[(n - 1 - i + n) % n];
+    }
 
-    // Build each edge's inward-offset supporting line: a point on it + its dir.
-    const offsetLines: Array<{ p: Pt; d: Pt } | null> = new Array(n);
+    // ── 3. Build each edge's inward-offset supporting line. For a CCW ring the
+    //       interior lies to the LEFT of the directed edge, so the inward unit
+    //       normal of edge dir (ux,uz) is (-uz, ux). ─────────────────────────
+    const n = ring.length;
+    let lines: OffsetLine[] = [];
     for (let i = 0; i < n; i++) {
-        const a = polygon[i]!;
-        const b = polygon[(i + 1) % n]!;
+        const a = ring[i]!;
+        const b = ring[(i + 1) % n]!;
         const dir = sub(b, a);
         const len = length(dir);
-        if (len < EPS) {
-            offsetLines[i] = null; // zero-length edge — skip; handled below.
-            continue;
-        }
+        if (len < EPS) continue; // already cleaned, but stay defensive
         const ux = dir.x / len;
         const uz = dir.z / len;
-        // Inward unit normal.
-        const nx = ccw ? -uz : uz;
-        const nz = ccw ? ux : -ux;
-        const s = Math.max(0, setbackForEdge(i));
-        offsetLines[i] = {
-            p: { x: a.x + nx * s, z: a.z + nz * s },
-            d: { x: ux, z: uz },
-        };
+        const nx = -uz;
+        const nz = ux;
+        const s = Math.max(0, setbackForClass(ringCls[i], setbacks));
+        lines.push({ p: { x: a.x + nx * s, z: a.z + nz * s }, d: { x: ux, z: uz } });
+    }
+    if (lines.length < 3) return { polygon: [], degenerate: true };
+
+    // ── 4. Miter, then iteratively drop any edge whose inset segment reversed
+    //       (a collapsed/vanished edge). Removing that edge's offset line lets
+    //       its two neighbours miter directly — the correct join for a short
+    //       edge subsumed by larger setbacks. Bounded: each pass removes ≥ 1. ─
+    let out: Pt[] = miter(lines);
+    for (let guard = 0; guard < lines.length; guard++) {
+        let reversedIdx = -1;
+        for (let j = 0; j < lines.length; j++) {
+            const line = lines[j]!;
+            const a = out[j]!;
+            const b = out[(j + 1) % out.length]!;
+            const edge = sub(b, a);
+            // Reversed iff the inset segment runs opposite its parent edge dir.
+            if (edge.x * line.d.x + edge.z * line.d.z <= EPS) {
+                reversedIdx = j;
+                break;
+            }
+        }
+        if (reversedIdx < 0) break;
+        lines.splice(reversedIdx, 1);
+        if (lines.length < 3) return { polygon: [], degenerate: true };
+        out = miter(lines);
     }
 
-    // New vertex j = intersection of offset-line(edge j-1) and offset-line(edge j).
-    const out: Pt[] = [];
-    for (let j = 0; j < n; j++) {
-        const prev = offsetLines[(j - 1 + n) % n];
-        const curr = offsetLines[j];
-        if (!prev || !curr) {
-            // A degenerate edge — fall back to the current edge's offset start.
-            if (curr) out.push({ ...curr.p });
-            continue;
-        }
-        const x = lineIntersect(prev.p, prev.d, curr.p, curr.d);
-        if (!x) {
-            // Parallel consecutive edges (straight vertex): take the offset point.
-            out.push({ ...curr.p });
-        } else {
-            out.push(x);
-        }
+    // ── 5. Clean up any residual self-intersection (narrow concavities). ─────
+    if (selfIntersects(out)) {
+        out = removeSelfIntersections(out);
     }
-
     if (out.length < 3) return { polygon: [], degenerate: true };
 
-    // Over-inset detection #1 — EDGE DIRECTION PRESERVATION. Each inset edge must
-    // still run in the SAME direction as its parent edge; if an offset line
-    // crossed past the far side, that edge REVERSES (negative dot product). This
-    // is the robust catch for a symmetric over-inset (e.g. a 6 m square inset by
-    // 4 m), where the collapsed inner ring keeps the original winding + a positive
-    // area and would otherwise slip past the sign/centroid checks below.
-    for (let j = 0; j < n; j++) {
-        const line = offsetLines[j];
-        if (!line) continue;
-        const a = out[j]!;
-        const b = out[(j + 1) % n]!;
-        const edge = sub(b, a);
-        if (edge.x * line.d.x + edge.z * line.d.z <= EPS) {
-            return { polygon: [], degenerate: true };
-        }
-    }
-
-    // Over-inset detection #2 — the inset must keep the SAME winding and a
-    // positive area. A sign flip means the offset lines crossed past the far side.
+    // ── 6. Final validity gates (soundness — genuine over-inset detection). ──
     const insetSigned = polygonSignedArea(out);
-    if (Math.abs(insetSigned) < EPS) return { polygon: [], degenerate: true };
-    if (insetSigned > 0 !== ccw) return { polygon: [], degenerate: true };
+    // Collapsed area, or a flipped winding (offset lines crossed the far side).
+    if (insetSigned <= EPS) return { polygon: [], degenerate: true };
+    // The inset is an EROSION — it can never be larger than the parcel. A bigger
+    // area means the offset/cleanup produced garbage (a folded or escaped ring).
+    if (insetSigned > Math.abs(signed) + EPS) return { polygon: [], degenerate: true };
 
-    // Sanity: the inset centroid must lie inside the original parcel. This
-    // catches pathological offsets that keep winding but escape the parcel.
-    let cx = 0;
-    let cz = 0;
+    // Every inset vertex must lie inside the original parcel. This is the strict
+    // soundness gate: an inward offset stays within the parcel, so a vertex that
+    // escaped (a pathological fold on a spiky non-convex ring) is rejected rather
+    // than emitted as a wrong envelope. `pointInPolygon` treats on-boundary as
+    // inside, so a vertex seated exactly on a parcel edge still passes.
     for (const p of out) {
-        cx += p.x;
-        cz += p.z;
-    }
-    cx /= out.length;
-    cz /= out.length;
-    if (!pointInPolygon({ x: cx, z: cz }, polygon)) {
-        return { polygon: [], degenerate: true };
+        if (!pointInPolygon(p, ring)) return { polygon: [], degenerate: true };
     }
 
     return { polygon: out, degenerate: false };
