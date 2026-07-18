@@ -48,6 +48,8 @@ import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
 // §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
 import { CATASTRO_PARCEL_PATH, catastroParcelHandler } from './server/parcelZoningProxy.js';
+// §PLANDATA-ZONING-PROXY (L-399a): same-origin KEYLESS Denmark zoning proxy + cache (real DK envelope)
+import { PLANDATA_ZONING_PATH, plandataZoningHandler } from './server/plandataZoningProxy.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -370,6 +372,18 @@ app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
 // Same-origin → connect-src 'self' already covers it (NO CSP change). Never crashes:
 // no parcel / upstream failure → 200 { parcel: null } so the client falls back to draw.
 app.get(CATASTRO_PARCEL_PATH, apiLimiter, catastroParcelHandler);
+
+// §PLANDATA-ZONING-PROXY (L-399a) — same-origin KEYLESS Denmark zoning proxy for the
+// FIRST genuine-data jurisdiction of the compliance pilot (C58 §1.2 fidelity 1). Public
+// + unauthenticated (Plandata.dk plan data is open gov data). GET /api/plandata/zoning
+// ?lat=&lon= → the server queries the Plandata GeoServer WFS for the applicable plan
+// (lokalplan, else kommuneplan-ramme) at the point and returns its RAW attributes, cached
+// by coordinate (24-h TTL, bounded). The pure Danish-field → C58 ZoningRecord mapping runs
+// client-side (@pryzm/site-parcel-data). apiLimiter (60 req/min/IP) guards abuse. Same-origin
+// → connect-src 'self' already covers it (NO CSP change). Never crashes: out-of-Denmark /
+// no plan / upstream failure → 200 { zoning: null } so the client falls back to the estimated
+// default pack (the envelope is never broken).
+app.get(PLANDATA_ZONING_PATH, apiLimiter, plandataZoningHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}

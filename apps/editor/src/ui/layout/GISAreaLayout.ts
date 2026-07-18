@@ -1840,6 +1840,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 : env.status === 'degenerate'
                 ? 'no buildable area'
                 : '—';
+        // L-399a — cite the source. An estimated envelope keeps the "default rule
+        // pack" note; a real (structured) DK envelope cites Plandata.dk + its plan
+        // document (C58 §1.3 explain-why). `ordinanceRef` is the plan `doklink`.
+        const ordRef =
+            env.derivation.find((d) => typeof d.ordinanceRef === 'string' && d.ordinanceRef)?.ordinanceRef ?? null;
+        const sourceId = env.derivation[0]?.source ?? '';
+        const sourceLine =
+            env.confidence === 'estimated-ruleset'
+                ? '<span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>'
+                : sourceId === 'plandata-dk'
+                ? `<span style="color:#8a83a0;font-size:10.5px;">Source: Plandata.dk${ordRef ? ` · <a href="${ordRef}" target="_blank" rel="noopener" style="color:#6600FF;text-decoration:underline;">plan document</a>` : ''}</span>`
+                : `<span style="color:#8a83a0;font-size:10.5px;">Source: ${sourceId || 'zoning provider'}</span>`;
         const rows =
             env.status === 'degenerate'
                 ? `<div style="color:#b23b3b;font-weight:600;">Setbacks consume the whole parcel — no buildable envelope.</div>`
@@ -1853,7 +1865,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              </div>
              ${rows}
              <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
-               <span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>
+               ${sourceLine}
              </div>
              <button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${formaEnvelopeVisible ? '#6600FF' : '#ffffff'};color:${formaEnvelopeVisible ? '#ffffff' : '#6600FF'};">
                Envelope: ${formaEnvelopeVisible ? 'ON' : 'OFF'}

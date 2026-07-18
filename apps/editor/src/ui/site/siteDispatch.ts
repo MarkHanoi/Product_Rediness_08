@@ -32,7 +32,12 @@ import type {
     BuildableEnvelope,
 } from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
-import { solveEstimatedEnvelope } from '@pryzm/site-parcel-data';
+import {
+    solveEstimatedEnvelope,
+    computeBuildableEnvelope,
+    DkZoningProvider,
+    isInDenmark,
+} from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 import { trace } from '@opentelemetry/api';
 import { polygonAreaXZ } from './siteInspectorData';
@@ -540,87 +545,161 @@ export function dispatchParcelBoundary(
     console.log('[gis] site.parcel-boundary-set', boundaryRes.event, 'area(m²)=', boundaryRes.event.area);
     ctx.rt.events?.emit('site.parcel-boundary-set', boundaryRes.event);
 
-    // C58 (L-398 + L-402b) — the payoff of committing a parcel: compute the
+    // C58 (L-398 / L-399a) — the payoff of committing a parcel: compute the
     // buildable envelope and write its numeric results onto the C19 Parcel via
     // the EXISTING `site.updateZoning` command (P6 — the UI never writes zoning
-    // fields directly). Pure engine → estimated envelope → dispatch → cache.
-    applyEstimatedZoning(ctx, boundary);
+    // fields directly). Jurisdiction-selected: a plot in Denmark resolves REAL
+    // structured Plandata.dk zoning; everywhere else uses the estimated default.
+    applyZoning(ctx, boundary);
     return true;
 }
 
+type ZoningBoundary = {
+    polygon: XZPoint[];
+    edgeClassifications: ParcelEdgeClassification[];
+};
+
 /**
- * C58 §3.2 / §1.7 — run the PURE buildable-envelope solver over the just-committed
- * parcel and thread its numeric results onto the C19 Parcel via `site.updateZoning`
- * (P6). Caches the full `BuildableEnvelope` (confidence label + derivation +
- * inset ring in scene-XZ) for the Forma render + facts card, and emits
- * `site.zoning-updated`.
+ * C58 §1.5 (L-399a) — JURISDICTION SELECTION. Route the just-committed parcel to
+ * the right zoning provider: a plot whose site location is in Denmark resolves
+ * REAL structured Plandata.dk zoning (`confidence: 'structured'`); everywhere
+ * else uses the curated `estimated-default` pack (`estimated-ruleset`).
  *
- * FIRST SLICE: always the `estimated-default` rule pack → `confidence:
- * 'estimated-ruleset'` (the honest label, C58 §1.4). Real `ZoningProvider`
- * adapters (DK Plandata / ES MUC) are the L-399 track; when one lands, this
- * calls `computeBuildableEnvelope` with the fetched record + jurisdiction pack.
- * Fully guarded — never throws into the commit path.
+ * The DK path is async (same-origin proxy fetch) and best-effort: on ANY
+ * failure / no-plan it falls back to the estimated default, so the envelope is
+ * NEVER broken (C58 §1.2 fidelity-3 graceful degradation). Non-DK plots keep the
+ * exact synchronous estimated path they had before — no behaviour change.
+ *
+ * Kept deliberately minimal (another agent may touch this file): selection is a
+ * bbox predicate on the site location; the shared dispatch + estimated solve are
+ * unchanged below.
  */
-function applyEstimatedZoning(
+function applyZoning(ctx: SiteContext, boundary: ZoningBoundary): void {
+    try {
+        const loc = ctx.store.getSite()?.location;
+        if (loc && isInDenmark(loc.latitude, loc.longitude)) {
+            void applyDkZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude);
+            return;
+        }
+    } catch (e) {
+        console.warn('[gis][c58] jurisdiction selection failed (non-fatal) — using estimated default:', e);
+    }
+    applyEstimatedZoning(ctx, boundary);
+}
+
+/**
+ * L-399a — the Denmark path: fetch structured zoning from Plandata.dk (via the
+ * same-origin keyless proxy), solve a `structured` envelope, and dispatch it. On
+ * a miss / any failure, fall back to the estimated default (never a broken
+ * envelope). Fully guarded — never throws into the commit path.
+ */
+async function applyDkZoningThenFallback(
     ctx: SiteContext,
-    boundary: {
-        polygon: XZPoint[];
-        edgeClassifications: ParcelEdgeClassification[];
-    },
-): void {
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+): Promise<void> {
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
+        const record = await DkZoningProvider.fetchZoningAtPoint(lat, lon);
+        if (!record) {
+            // No usable Danish plan at this point → estimated default.
+            applyEstimatedZoning(ctx, boundary);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) return;
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack: null, // structured fields only → confidence 'structured' (C58 §1.2)
+        });
+        dispatchEnvelope(ctx, site.id, envelope, 'plandata-dk');
+        console.log(
+            `[gis][c58] DK Plandata structured zoning applied → confidence=${envelope.confidence} ` +
+                `zone=${envelope.zoneCode ?? 'n/a'} height=${envelope.maxHeight_m ?? 'n/a'}m.`,
+        );
+    } catch (e) {
+        console.warn('[gis][c58] DK zoning path failed (non-fatal) — falling back to estimated default:', e);
+        try { applyEstimatedZoning(ctx, boundary); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * C58 §3.2 / §1.7 — run the PURE estimated-default solver over the just-committed
+ * parcel (the non-DK / fallback path) and dispatch its numeric results.
+ * `confidence: 'estimated-ruleset'` (the honest label, C58 §1.4). Fully guarded.
+ */
+function applyEstimatedZoning(ctx: SiteContext, boundary: ZoningBoundary): void {
     try {
         if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
         const site = ctx.store.getSite();
         if (!site) return;
-
         const envelope = solveEstimatedEnvelope(
             boundary.polygon,
             boundary.edgeClassifications,
         );
-        _lastEnvelope = envelope;
-
-        // Read the resolved per-edge setbacks off the derivation trace (the
-        // numeric "why" entries) to patch the C19 mutable Parcel fields.
-        const setbackOf = (
-            constraint: 'setback.front' | 'setback.side' | 'setback.rear',
-        ): number | undefined => {
-            const e = envelope.derivation.find((d) => d.constraint === constraint);
-            return typeof e?.value === 'number' ? e.value : undefined;
-        };
-        const setbacks: { front?: number; side?: number; rear?: number } = {};
-        const f = setbackOf('setback.front');
-        const s = setbackOf('setback.side');
-        const r = setbackOf('setback.rear');
-        if (f !== undefined) setbacks.front = f;
-        if (s !== undefined) setbacks.side = s;
-        if (r !== undefined) setbacks.rear = r;
-
-        const res = siteUpdateZoning(
-            {
-                siteId: site.id,
-                setbacks: Object.keys(setbacks).length > 0 ? setbacks : undefined,
-                maxFAR: envelope.maxFAR,
-                maxHeight: envelope.maxHeight_m,
-                zoning: {
-                    category: envelope.zoneCode,
-                    jurisdictionRef: 'estimated-default',
-                },
-            },
-            ctx.store,
-        );
-        if (!res.ok) {
-            console.warn('[gis][c58] site.updateZoning soft-reject:', res.reason, res.message);
-            return;
-        }
-        console.log(
-            `[gis][c58] buildable envelope computed → confidence=${envelope.confidence} ` +
-                `status=${envelope.status} inset=${envelope.insetAreaM2.toFixed(1)}m² ` +
-                `height=${envelope.maxHeight_m ?? 'n/a'}m — zoning fields updated (P6).`,
-        );
-        ctx.rt.events?.emit('site.zoning-updated', res.event);
+        dispatchEnvelope(ctx, site.id, envelope, 'estimated-default');
     } catch (e) {
         // Envelope computation is best-effort site intelligence — never block the
         // parcel commit (the boundary is already set + emitted).
         console.warn('[gis][c58] buildable-envelope solve failed (non-fatal):', e);
     }
+}
+
+/**
+ * C58 §1.7 — thread a computed `BuildableEnvelope` onto the C19 Parcel via the
+ * EXISTING `site.updateZoning` command (P6), cache the full object for the Forma
+ * render + facts card, and emit `site.zoning-updated`. Shared by the DK (structured)
+ * and estimated paths — the ONLY difference between them is the envelope + the
+ * `jurisdictionRef` provenance tag.
+ */
+function dispatchEnvelope(
+    ctx: SiteContext,
+    siteId: string,
+    envelope: BuildableEnvelope,
+    jurisdictionRef: string,
+): void {
+    _lastEnvelope = envelope;
+
+    // Read the resolved per-edge setbacks off the derivation trace (the numeric
+    // "why" entries) to patch the C19 mutable Parcel fields.
+    const setbackOf = (
+        constraint: 'setback.front' | 'setback.side' | 'setback.rear',
+    ): number | undefined => {
+        const e = envelope.derivation.find((d) => d.constraint === constraint);
+        return typeof e?.value === 'number' ? e.value : undefined;
+    };
+    const setbacks: { front?: number; side?: number; rear?: number } = {};
+    const f = setbackOf('setback.front');
+    const s = setbackOf('setback.side');
+    const r = setbackOf('setback.rear');
+    if (f !== undefined) setbacks.front = f;
+    if (s !== undefined) setbacks.side = s;
+    if (r !== undefined) setbacks.rear = r;
+
+    const res = siteUpdateZoning(
+        {
+            siteId,
+            setbacks: Object.keys(setbacks).length > 0 ? setbacks : undefined,
+            maxFAR: envelope.maxFAR,
+            maxHeight: envelope.maxHeight_m,
+            zoning: {
+                category: envelope.zoneCode,
+                jurisdictionRef,
+            },
+        },
+        ctx.store,
+    );
+    if (!res.ok) {
+        console.warn('[gis][c58] site.updateZoning soft-reject:', res.reason, res.message);
+        return;
+    }
+    console.log(
+        `[gis][c58] buildable envelope computed → confidence=${envelope.confidence} ` +
+            `status=${envelope.status} inset=${envelope.insetAreaM2.toFixed(1)}m² ` +
+            `height=${envelope.maxHeight_m ?? 'n/a'}m — zoning fields updated (P6).`,
+    );
+    ctx.rt.events?.emit('site.zoning-updated', res.event);
 }

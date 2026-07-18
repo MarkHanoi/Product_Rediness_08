@@ -29,3 +29,15 @@ export {
     type PerEdgeSetbacks,
     type InsetResult,
 } from './geometry/insetPolygon.js';
+
+// ── L-399a — DK Plandata.dk zoning provider (C58 §3.1, the first real-data jurisdiction) ──
+export type { ZoningProvider, ZoningProviderDeps } from './providers/ZoningProvider.js';
+export { DkZoningProvider, PLANDATA_ZONING_PATH } from './providers/DkZoningProvider.js';
+export {
+    mapPlandataToZoningRecord,
+    classifyDanishUse,
+    type PlandataZoningResponse,
+    type PlandataLayer,
+    type MapPlandataOpts,
+} from './providers/mapPlandataToZoningRecord.js';
+export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
