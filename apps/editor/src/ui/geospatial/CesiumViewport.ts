@@ -859,6 +859,20 @@ export class CesiumViewport {
   /** Cesium entities placed for the surrounding OSM/Overture context buildings,
    *  so a refresh / location change can clear the previous set. */
   private contextBuildingEntities: Cesium.Entity[] = [];
+  /** §PLOT-CLEAR-ENVELOPE (L-418) — each PLACED context entity paired with the OSM
+   *  footprint FEATURE it was drawn from (near + far rings), so a LATER parcel commit
+   *  can RE-APPLY the plot-clear to the ALREADY-PLACED context (hide the on-plot
+   *  building) WITHOUT a context re-fetch. WHY THIS EXISTS: the placement-time filter
+   *  (loadContextBuildings) only fires when context is (re)placed; when the parcel is
+   *  committed AFTER context is already on screen — the "select a parcel from
+   *  already-loaded 3D context" flow — nothing re-filtered the existing entities, so the
+   *  opaque on-plot building stayed and OCCLUDED the translucent #6600FF buildable
+   *  envelope (founder: "the building from context data should disappear so I can see the
+   *  purple envelope"). Kept in placement order; feature refs are the SAME objects
+   *  `partitionFootprintsByParcel` returns, so reference-identity membership classifies
+   *  them (handles duplicate osmIds from multipolygon relations). Reset in
+   *  clearContextBuildings alongside `contextBuildingEntities`. */
+  private contextBuildingPlacements: Array<{ entity: Cesium.Entity; feature: ContextBuildingFeature }> = [];
   /** The (lat,lon) the context buildings were last loaded for — skip a refetch
    *  when the site hasn't moved (the loader also caches per bbox). */
   private contextBuildingsAt: { lat: number; lon: number } | null = null;
@@ -3174,6 +3188,16 @@ export class CesiumViewport {
         this.committedParcelLonLat = null;
       }
     }
+
+    // §PLOT-CLEAR-ENVELOPE (L-418) — now that the committed parcel is known, RE-APPLY the
+    // plot-clear to any context buildings that were ALREADY placed (the "select a parcel from
+    // already-loaded 3D context" flow, where context was placed while `committedParcelLonLat`
+    // was still null so nothing was suppressed). Hides the on-plot building that would
+    // otherwise OCCLUDE the translucent #6600FF buildable envelope; restores hidden entities
+    // when the parcel changed/cleared. No re-fetch — loadContextBuildings early-returns when
+    // the site hasn't moved. Fully guarded: this is at the TOP of the render pass and MUST NOT
+    // be able to blank the site (same invariant as the parcel projection above).
+    this.reapplyPlotClearToContext();
 
     const silhouetteTargets: Cesium.Entity[] = [];
 
@@ -5498,6 +5522,9 @@ export class CesiumViewport {
           },
         });
         this.contextBuildingEntities.push(ent);
+        // §PLOT-CLEAR-ENVELOPE (L-418) — pair the entity with its source footprint so a
+        // later parcel commit can re-filter this already-placed near ring without a refetch.
+        this.contextBuildingPlacements.push({ entity: ent, feature: f });
         placed++;
       } catch {
         // Skip a single malformed footprint; never break the whole load.
@@ -5539,6 +5566,57 @@ export class CesiumViewport {
     } catch (e) {
       console.warn('[CesiumViewport][forma] plot-clear filter threw — context kept unfiltered:', e);
       return { kept: [...features], removed: [] };
+    }
+  }
+
+  /**
+   * §PLOT-CLEAR-ENVELOPE (L-418) — RE-APPLY the plot-clear to the ALREADY-PLACED context
+   * building entities on a parcel commit, WITHOUT a context re-fetch.
+   *
+   * WHY: the placement-time filter (loadContextBuildings → plotClearSplit) only runs when
+   * context is (re)placed. In the "select a parcel from already-loaded 3D context" flow —
+   * or when the context loaded BEFORE the parcel was committed — the ORDER is: context
+   * placed FIRST (`committedParcelLonLat` still null → 0 removed), THEN the parcel committed
+   * in renderFormaMassing. Nothing re-filtered the existing entities, so the opaque on-plot
+   * context building stayed and OCCLUDED the translucent #6600FF buildable-envelope prism
+   * (founder: "the building from context data should disappear so I can see the purple
+   * envelope"). loadContextBuildings also EARLY-RETURNS when the site hasn't moved, so a
+   * re-fetch is neither triggered nor wanted here — we simply toggle entity visibility.
+   *
+   * This RE-RUNS the pure, unit-tested `partitionFootprintsByParcel` (via the guarded
+   * `plotClearSplit`) over the placed features and hides the on-plot ones — and RESTORES any
+   * previously-hidden entity when the parcel changed or was cleared (`committedParcelLonLat`
+   * null → nothing on-plot → everything shown). `entity.show` toggling is cheap (no geometry
+   * rebuild). It is a nice-to-have context filter: FULLY GUARDED, it must NEVER throw into
+   * the render pass (mirrors the placement-time invariant). Never throws.
+   */
+  private reapplyPlotClearToContext(): void {
+    try {
+      if (this.contextBuildingPlacements.length === 0) return; // no context on screen yet.
+      const parcel = this.committedParcelLonLat;
+      // Reference-identity set of on-plot features (the SAME objects plotClearSplit returns),
+      // so duplicate osmIds from multipolygon relations are still classified per-entity.
+      const onPlot = new Set<ContextBuildingFeature>(
+        parcel
+          ? this.plotClearSplit(this.contextBuildingPlacements.map((p) => p.feature), parcel).removed
+          : [], // no parcel committed → nothing on-plot → restore every entity below.
+      );
+      let toggled = 0;
+      for (const { entity, feature } of this.contextBuildingPlacements) {
+        const wantShow = !onPlot.has(feature);
+        if (entity.show !== wantShow) { entity.show = wantShow; toggled++; }
+      }
+      if (toggled > 0) {
+        console.log(
+          `[CesiumViewport][forma] §PLOT-CLEAR-ENVELOPE (L-418) re-filter on parcel commit — ` +
+            `${onPlot.size} on-plot context building(s) hidden so the buildable envelope reads ` +
+            `on a clear plot (${toggled} entity show-state change(s), no re-fetch).`,
+        );
+        this.viewer?.scene.requestRender();
+      }
+    } catch (e) {
+      // NICE-TO-HAVE — must never blank/strip the context. On any failure leave it as-is.
+      console.warn('[CesiumViewport][forma] §PLOT-CLEAR-ENVELOPE re-filter threw — context left as-is:', e);
     }
   }
 
@@ -5600,6 +5678,10 @@ export class CesiumViewport {
           },
         });
         this.contextBuildingEntities.push(ent);
+        // §PLOT-CLEAR-ENVELOPE (L-418) — pair the far-ring entity with its footprint too, so
+        // the re-filter also hides a far block sitting on a large committed plot (parity with
+        // the near ring, which the placement-time filter already covers for both).
+        this.contextBuildingPlacements.push({ entity: ent, feature: f });
         placed++;
       } catch { /* skip a malformed far footprint */ }
     }
@@ -5669,6 +5751,9 @@ export class CesiumViewport {
       }
     }
     this.contextBuildingEntities = [];
+    // §PLOT-CLEAR-ENVELOPE (L-418) — the entity refs are gone, so drop their footprint
+    // pairings too (they are repopulated on the next placement).
+    this.contextBuildingPlacements = [];
   }
 
   /**

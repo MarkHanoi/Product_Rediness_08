@@ -103,4 +103,28 @@ describe('§PLOT-CLEAR-ENVELOPE partitionFootprintsByParcel', () => {
         const { removed } = partitionFootprintsByParcel(features, [[0, 0], [1, 1]]);
         expect(removed).toHaveLength(0);
     });
+
+    // §PLOT-CLEAR-ENVELOPE (L-418) — the parcel-commit RE-FILTER in CesiumViewport
+    // (reapplyPlotClearToContext) classifies each already-placed context ENTITY by testing
+    // whether its paired feature is in the `removed` set via REFERENCE identity (a Set of the
+    // feature objects). That only works if partition returns the SAME feature object refs (not
+    // clones) — and it must, so duplicate osmIds from multipolygon relation members never
+    // collide. Lock that invariant here so the re-filter's Set-membership check stays sound.
+    it('returns the SAME feature object references (reference-identity, incl. duplicate osmIds)', () => {
+        const onPlotA = feat(7, square(2.17, 41.39, 0.00012));
+        const onPlotB = feat(7, square(2.1701, 41.3901, 0.0001)); // same osmId (relation member), also on-plot
+        const neighbour = feat(8, square(2.1706, 41.39, 0.0001));
+        const { kept, removed } = partitionFootprintsByParcel([onPlotA, onPlotB, neighbour], PARCEL);
+
+        // Exact object identity — the re-filter's `new Set(removed)` + `has(feature)` relies on it.
+        expect(removed).toContain(onPlotA);
+        expect(removed).toContain(onPlotB);
+        expect(kept).toContain(neighbour);
+
+        // A duplicate osmId does not smear the classification across features.
+        const removedSet = new Set(removed);
+        expect(removedSet.has(onPlotA)).toBe(true);
+        expect(removedSet.has(onPlotB)).toBe(true);
+        expect(removedSet.has(neighbour)).toBe(false);
+    });
 });
