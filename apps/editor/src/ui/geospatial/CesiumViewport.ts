@@ -15,7 +15,11 @@ import {
     // building sitting ON the committed working plot (the building the user is
     // replacing) so it can't bury the translucent #6600FF buildable-envelope volume.
     partitionFootprintsByParcel,
+    // §CTX-PAN-DEBOUNCE (L-402c) — pure gate for the pan-driven REFETCH (never gates the
+    // initial load, which is a direct loadContextBuildings call in renderFormaMassing).
+    shouldRefetchContextOnPan,
     type ContextBuildingCollection,
+    type ContextBuildingFeature,
 } from "./contextBuildings";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
@@ -3139,15 +3143,32 @@ export class CesiumViewport {
     // leaving the plot clear for the translucent #6600FF buildable-envelope study
     // volume. Captured here (not re-derived per pan) so pan-refresh + terrain-replace
     // reuse it. Cleared to null when no parcel is drawn.
-    this.committedParcelLonLat = (boundary && boundary.length >= 3)
-      ? boundary.map((p) => {
+    //
+    // §DECOUPLE-ENVELOPE-FROM-CONTEXT (L-402c fix) — GUARDED. This runs at the TOP of the
+    // render pass, BEFORE the parcel boundary + envelope + massing are drawn. An UNCAUGHT
+    // throw here (a degenerate cartesian → Cartographic.fromCartesian returning undefined →
+    // reading `.longitude` of undefined) would abort the WHOLE pass: no parcel, no envelope,
+    // no massing, no context — the "empty 3D Site". The plot-clear is a nice-to-have context
+    // filter and must NEVER be able to blank the site. On any failure → null (context stays
+    // unfiltered, everything else still renders).
+    this.committedParcelLonLat = null;
+    if (boundary && boundary.length >= 3) {
+      try {
+        const projected: Array<[number, number]> = [];
+        for (const p of boundary) {
           const carto = Cesium.Cartographic.fromCartesian(toCartesian(p.x, p.z, 0));
-          return [
+          if (!carto) continue; // center-of-ellipsoid / degenerate — skip this vertex.
+          projected.push([
             Cesium.Math.toDegrees(carto.longitude),
             Cesium.Math.toDegrees(carto.latitude),
-          ] as [number, number];
-        })
-      : null;
+          ]);
+        }
+        this.committedParcelLonLat = projected.length >= 3 ? projected : null;
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] parcel→lon/lat projection failed — plot-clear disabled:', e);
+        this.committedParcelLonLat = null;
+      }
+    }
 
     const silhouetteTargets: Cesium.Entity[] = [];
 
@@ -3791,8 +3812,19 @@ export class CesiumViewport {
         // surrounding context. Cesium clamps `polygon.outlineWidth` to 1 px on most WebGL
         // GPUs, so the prism's own outline can be lost among tall neighbours; a dedicated
         // polyline gives a reliable thick edge, and its `depthFailMaterial` draws the ring
-        // (dashed + dimmer) even where a context building would occlude it — so the study
-        // volume is never buried behind the neighbourhood. Purple stays translucent overall.
+        // (dimmer) even where a context building would occlude it — so the study volume is
+        // never buried behind the neighbourhood. Purple stays translucent overall.
+        //
+        // §ENVELOPE-BLANK-SCENE-FIX (L-402c REGRESSION ROOT CAUSE) — the depth-fail material
+        // was a `PolylineDashMaterialProperty`. A DASH material is the ONE material type not
+        // supported as a polyline depth-fail appearance in this Cesium build — it passes
+        // `entities.add()` (so the surrounding try/catch never sees it) but then FAILS when
+        // the depth-fail draw command is built inside `scene.render()`, which throws EVERY
+        // frame and blanks the ENTIRE viewer (envelope prism + parcel + massing + context all
+        // gone) — exactly the reported "empty 3D Site". Every other depth-fail polyline in
+        // this file uses a plain Color / ColorMaterialProperty / PolylineOutline (never Dash)
+        // and works. Use a plain Color depth-fail (proven safe) + `arcType: NONE` (matching
+        // the climate depth-fail polylines) so the ring can NEVER take down the render loop.
         const topRing = envelope.ring.map((p) => toCartesian(p.x, p.z, envTop));
         const topRingClosed = [...topRing, topRing[0]!];
         const capLine = viewer.entities.add({
@@ -3801,11 +3833,10 @@ export class CesiumViewport {
             positions: topRingClosed,
             width: 3,
             clampToGround: false,
+            arcType: Cesium.ArcType.NONE,
             material: Cesium.Color.fromCssColorString('#6600FF'),
-            depthFailMaterial: new Cesium.PolylineDashMaterialProperty({
-              color: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.6),
-              dashLength: 12,
-            }),
+            // Plain Color depth-fail: draws the occluded portion dimmer (see fix note above).
+            depthFailMaterial: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.6),
           },
         });
         this.formaMassingEntities.push(capLine);
@@ -3932,10 +3963,20 @@ export class CesiumViewport {
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
       } else {
-        void this.loadContextBuildings(originLat, originLon);
-        void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
-        void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
-        void this.loadContextParks(originLat, originLon);   // §FORMA-CTX-PARKS
+        // §DECOUPLE-ENVELOPE-FROM-CONTEXT (L-402c fix) — the parcel boundary, buildable
+        // envelope and massing are ALREADY drawn synchronously above; context now streams
+        // in AFTER, asynchronously (each loader is `void`-fired + guarded internally). Wrap
+        // the kickoff so that even a SYNCHRONOUS throw at call time (e.g. constructing a
+        // loader) can NEVER unwind back into renderFormaMassing and undo the just-rendered
+        // envelope/massing. A slow or failed context load must never block or blank the site.
+        try {
+          void this.loadContextBuildings(originLat, originLon);
+          void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
+          void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
+          void this.loadContextParks(originLat, originLon);   // §FORMA-CTX-PARKS
+        } catch (e) {
+          console.warn('[CesiumViewport][forma] context kickoff threw — envelope/massing kept:', e);
+        }
       }
     }
 
@@ -5412,7 +5453,7 @@ export class CesiumViewport {
     // footprints are removed). Pure decision (partitionFootprintsByParcel); no-op when
     // no parcel is committed. Applied to BOTH the near ring (here) and the far ring (below).
     const parcelLonLat = this.committedParcelLonLat;
-    const nearSplit = partitionFootprintsByParcel(collection.features, parcelLonLat);
+    const nearSplit = this.plotClearSplit(collection.features, parcelLonLat);
     if (nearSplit.removed.length > 0) {
       console.log(
         `[CesiumViewport][forma] §PLOT-CLEAR-ENVELOPE — suppressed ${nearSplit.removed.length} ` +
@@ -5480,10 +5521,29 @@ export class CesiumViewport {
     // this renders immediately from `far` rather than gating on a separate Overpass round-trip.
     // §PLOT-CLEAR-ENVELOPE — the far ring gets the SAME on-plot filter (a large plot could
     // reach a far footprint), so the plot stays clear at every LOD tier.
-    const farSplit = partitionFootprintsByParcel(far.features, parcelLonLat);
+    const farSplit = this.plotClearSplit(far.features, parcelLonLat);
     this.renderContextBuildingsFarRing(
       { type: 'FeatureCollection', features: farSplit.kept }, lat, lon, viewer,
     );
+  }
+
+  /**
+   * §DECOUPLE-ENVELOPE-FROM-CONTEXT (L-402c fix) — GUARDED wrapper around the pure
+   * `partitionFootprintsByParcel` plot-clear filter. The filter is pure + unit-tested and
+   * never throws today, but the plot-clear is a NICE-TO-HAVE — it must NEVER be able to
+   * strip (or, via an unexpected throw, blank) the context. On ANY failure fall back to
+   * keeping EVERY footprint (context intact, plot simply not cleared). Never throws.
+   */
+  private plotClearSplit(
+    features: readonly ContextBuildingFeature[],
+    parcel: Array<[number, number]> | null,
+  ): { kept: ContextBuildingFeature[]; removed: ContextBuildingFeature[] } {
+    try {
+      return partitionFootprintsByParcel(features, parcel);
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] plot-clear filter threw — context kept unfiltered:', e);
+      return { kept: [...features], removed: [] };
+    }
   }
 
   /**
@@ -5570,31 +5630,24 @@ export class CesiumViewport {
    * entities, so repeated pans never leak or stack footprints.
    */
   private maybeRefreshContextOnPan(camLat: number, camLon: number, camHeight: number): void {
-    // Feature inactive for this view (no buildings ever loaded) → do nothing.
-    if (!this.contextBuildingsAt && this.contextBuildingEntities.length === 0) return;
-    if (!Number.isFinite(camLat) || !Number.isFinite(camLon)) return;
-    if (!Number.isFinite(camHeight) || camHeight > 6000) return;
-
     // §CTX-PAN-DEBOUNCE (L-402c) — during SITE AUTHORING the camera is framed on the
     // committed plot; small pans to look around the envelope must NOT thrash the Overpass
-    // fetch (founder: "context reloads on every pan, ~3 s each"). TWO changes vs the old
-    // last-load-centre + 1100 m test:
-    //   (1) anchor the "have we left the loaded area?" test on the FIXED site origin
-    //       (`formaMassingOrigin`) when a massing is active, not the drifting last-load
-    //       centre — so panning around the framed plot never accumulates into a refetch;
-    //   (2) require the camera to leave the whole FAR-ring coverage (~1.5 km, the loaded
-    //       near+far extent) before refetching — inside it the already-loaded context
-    //       still covers the view.
+    // fetch (founder: "context reloads on every pan, ~3 s each"). The gate is a PURE decision
+    // (`shouldRefetchContextOnPan`, unit-tested) that: (1) anchors the "left the loaded area?"
+    // test on the FIXED site origin (`formaMassingOrigin`) when a massing is active — so
+    // panning around the framed plot never accumulates into a refetch; (2) requires leaving
+    // the whole FAR-ring coverage (~1.5 km); (3) enforces a hard cooldown. This governs ONLY
+    // the REPEAT refetch — the INITIAL load is a direct `loadContextBuildings` call in
+    // renderFormaMassing and is NEVER gated here, so the first frame always loads promptly.
     const anchor = this.formaMassingOrigin ?? this.contextBuildingsAt;
-    if (anchor) {
-      // Cheap planar degree distance → metres (lat ≈ 111 km/deg; lon scaled by cos).
-      const dLatM = (camLat - anchor.lat) * 111_320;
-      const dLonM = (camLon - anchor.lon) * 111_320 * Math.cos((camLat * Math.PI) / 180);
-      if (Math.hypot(dLatM, dLonM) < 1500) return; // still inside the loaded far ring — keep it.
-    }
-    // Hard cooldown: never re-pull context within 20 s of the last load, so a flurry of
-    // long pans (or a slow Overpass round-trip) can't stack repeated multi-second reloads.
-    if (Date.now() - this.contextLastLoadAtMs < 20_000) return;
+    const should = shouldRefetchContextOnPan({
+      camLat, camLon, camHeightM: camHeight,
+      anchor: anchor ? { lat: anchor.lat, lon: anchor.lon } : null,
+      hasContextLayer: !!this.contextBuildingsAt || this.contextBuildingEntities.length > 0,
+      nowMs: Date.now(),
+      lastLoadAtMs: this.contextLastLoadAtMs,
+    });
+    if (!should) return;
 
     if (this.contextPanRefreshTimer !== null) clearTimeout(this.contextPanRefreshTimer);
     this.contextPanRefreshTimer = setTimeout(() => {

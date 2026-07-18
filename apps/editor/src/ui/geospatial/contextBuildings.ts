@@ -864,6 +864,66 @@ export function partitionFootprintsByParcel(
     return { kept, removed };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §CTX-PAN-DEBOUNCE (L-402c) — PURE decision for the pan-driven context REFETCH.
+// This governs ONLY the REPEAT refetch as the camera pans; it does NOT gate the
+// INITIAL load (renderFormaMassing calls loadContextBuildings directly, ungated —
+// so the first frame always loads context promptly, the founder's "envelope first,
+// context streams in after"). Extracted PURE so the gating is unit-testable without
+// a live Cesium viewer. Never throws.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The far-ring coverage radius (~1.5 km): while the camera stays within this of the
+ *  loaded anchor, the already-loaded near+far context still covers the view. */
+export const CONTEXT_PAN_FARRING_RADIUS_M = 1500;
+/** Hard cooldown between context (re)loads so a flurry of long pans (or a slow Overpass
+ *  round-trip) can't stack repeated multi-second reloads. */
+export const CONTEXT_PAN_COOLDOWN_MS = 20_000;
+
+/**
+ * Decide whether a camera PAN should trigger a context-buildings REFETCH.
+ *
+ * Returns true ONLY when the context layer is active for this view AND the camera is
+ * low enough to care AND it has left the loaded far-ring coverage AND we are past the
+ * cooldown. IMPORTANT — this is deliberately NOT consulted for the initial load: on the
+ * first frame `lastLoadAtMs` is 0, so `now - 0` is far past the cooldown and the anchor
+ * test is the ONLY gate; but the initial load never routes through here at all (it is a
+ * direct `loadContextBuildings` call in `renderFormaMassing`), so the cooldown can never
+ * suppress the FIRST context load. PURE. Never throws.
+ */
+export function shouldRefetchContextOnPan(input: {
+    camLat: number;
+    camLon: number;
+    camHeightM: number;
+    /** The fixed site origin (preferred) or the last-load centre; null = feature inactive. */
+    anchor: { lat: number; lon: number } | null;
+    /** Is the context-buildings layer active for this view at all? */
+    hasContextLayer: boolean;
+    nowMs: number;
+    lastLoadAtMs: number;
+    farRingRadiusM?: number;
+    cooldownMs?: number;
+}): boolean {
+    const {
+        camLat, camLon, camHeightM, anchor, hasContextLayer, nowMs, lastLoadAtMs,
+        farRingRadiusM = CONTEXT_PAN_FARRING_RADIUS_M,
+        cooldownMs = CONTEXT_PAN_COOLDOWN_MS,
+    } = input;
+
+    if (!hasContextLayer) return false;                                  // feature inactive.
+    if (!Number.isFinite(camLat) || !Number.isFinite(camLon)) return false;
+    if (!Number.isFinite(camHeightM) || camHeightM > 6000) return false; // looking at the whole city.
+
+    if (anchor) {
+        // Cheap planar degree distance → metres (lat ≈ 111 km/deg; lon scaled by cos).
+        const dLatM = (camLat - anchor.lat) * 111_320;
+        const dLonM = (camLon - anchor.lon) * 111_320 * Math.cos((camLat * Math.PI) / 180);
+        if (Math.hypot(dLatM, dLonM) < farRingRadiusM) return false;     // still inside loaded ring.
+    }
+    if (nowMs - lastLoadAtMs < cooldownMs) return false;                  // cooldown.
+    return true;
+}
+
 /** §PERF-CTX-SINGLE-FETCH (L-368) — the near + far context sets, split from ONE fetch. */
 export interface ContextBuildingsNearFar {
     /** Near ring: rendered extruded + shadow-casting (drawn first). */
