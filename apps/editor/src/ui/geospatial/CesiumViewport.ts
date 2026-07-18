@@ -8783,6 +8783,20 @@ export class CesiumViewport {
     });
   }
 
+  /**
+   * §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1a) — force the viewer to
+   * re-measure its container and re-render. Used when the multi-pane `PaneHost`
+   * re-parents / re-sizes the single Cesium container into a PANE element (e.g. the
+   * RIGHT pane) OUTSIDE the setVisible flow. Cesium's request-render loop does not
+   * always re-measure the container on a pure CSS bounds / re-parent change, so this
+   * reuses the same `forceResizeAndRender` path setVisible(true) uses. Safe /
+   * idempotent (no-ops when the viewer is not live). This is the resize primitive
+   * C59 §1.3 requires for hosting the ONE Cesium viewer in an arbitrary pane.
+   */
+  public reflowContainer(): void {
+    this.forceResizeAndRender('external-reflow (multi-pane host)');
+  }
+
   public setVisible(visible: boolean): void {
     if (!this.container) return;
     if (visible) {

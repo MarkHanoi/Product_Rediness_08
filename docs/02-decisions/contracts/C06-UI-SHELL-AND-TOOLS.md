@@ -288,3 +288,26 @@ Files touched Phase 1: `apps/editor/src/ui/layout/zLayers.ts` (new SSOT),
   (kept raw in Phase 1 to preserve their intentional +1 ordering over Cesium `z:15`).
 - **Phase 7 — CesiumViewport** (`CESIUM_Z=15`) and the WebGPU overlay (`z:2`) →
   `canvas` band tokens (deferred — those files are outside the L-149 fence).
+
+---
+
+## §8 — Multi-Pane View System (view hosting) → **C59**
+
+The **view-hosting** model — how the editor splits into panes and which view (MapLibre
+2D site map · Cesium/Forma 3D Site · BIM WebGPU 3D · BIM Canvas2D plan · elevations)
+each pane renders — is governed by **[C59 — Multi-Pane View System](./C59-MULTI-PANE-VIEW-SYSTEM.md)**.
+
+C59 replaces the three historical, mutually-incompatible owners (the `SplitViewManager`
+fixed Canvas2D right pane; Cesium hard-targeting `#container`; the MapLibre `inset:0`
+overlay) with **renderer-agnostic pane hosts** fed by a **view-type registry**, so the
+user can natively assign or swap **any** view into **any** pane (L-412). Normative rules:
+
+- **Pane z-layering** stays governed by C06 §7 (`zLayers.ts` tokens; panes tile, no overlap).
+- **Single rAF (P3)** — panes subscribe to the composition-root frame bus; no pane owns a loop.
+- **Single instance per singleton renderer** — one Cesium viewer, one WebGPU device; a
+  singleton view is MOVED between panes, never cloned (C59 §2).
+- **`viewRegistry` alignment (§1)** — the C59 pane view-picker is the registry-driven
+  successor to the ad-hoc `mountResultToggleBar` switch (this is the L-405 "correct-fix").
+
+The historical **"Contract 17 §4 — split view"** referenced in
+`SplitViewManager.ts` / `initScene.ts` is subsumed by C59 (its canonical successor).
