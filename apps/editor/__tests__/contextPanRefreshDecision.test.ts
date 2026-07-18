@@ -126,11 +126,26 @@ describe('§ENVELOPE-BLANK-SCENE-FIX regression guard', () => {
         expect(dashDepthFail.test(src)).toBe(false);
     });
 
-    it('still renders the buildable-envelope top-ring pop (crisp #6600FF outline with a depth-fail)', () => {
-        // The pop must survive the fix: a dedicated top-ring polyline with a depthFailMaterial so
-        // the study volume reads above tall context.
-        expect(src).toContain('pryzm-forma-buildable-envelope-top');
-        expect(src).toMatch(/depthFailMaterial:\s*Cesium\.Color\.fromCssColorString\('#6600FF'\)/);
+    it('§ENVELOPE-VIA-MASSING — renders the envelope through the massing entity path (no separate fragile polyline)', () => {
+        // The founder's architectural fix (L-402d): the buildable envelope is ONE MORE
+        // massing volume — a single translucent #6600FF extruded polygon built exactly like
+        // the storey-band massing prisms and pushed to the SAME `formaMassingEntities`
+        // lifecycle. The old separate depth-fail TOP-RING POLYLINE (the L-402c crash source
+        // and the one-off render path) is DELETED, so no bespoke polyline can take down the
+        // render loop or leave the envelope on a path that renders nothing.
+        expect(src).toContain("name: 'pryzm-forma-buildable-envelope'");
+        // The fragile top-ring polyline is gone entirely (the only envelope-specific
+        // polyline / depth-fail construct — other climate polylines legitimately keep
+        // their own depthFailMaterial, so we scope this to the envelope block).
+        expect(src).not.toContain('pryzm-forma-buildable-envelope-top');
+        // The envelope block (from its entity name to the diagnostic log) is a single
+        // extruded polygon on the massing lifecycle, with NO polyline / depth-fail.
+        const envStart = src.indexOf("name: 'pryzm-forma-buildable-envelope'");
+        const envBlock = src.slice(envStart, envStart + 1200);
+        expect(envBlock).toMatch(/extrudedHeight:\s*envTop/);
+        expect(envBlock).toContain('this.formaMassingEntities.push(ent)');
+        expect(envBlock).not.toContain('polyline');
+        expect(envBlock).not.toContain('depthFailMaterial');
     });
 
     it('guards the parcel→lon/lat projection so a failure cannot abort the whole render pass', () => {

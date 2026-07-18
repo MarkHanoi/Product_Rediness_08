@@ -538,46 +538,78 @@ export function dispatchParcelBoundary(
         return false;
     }
     console.log('[gis] site.parcel-boundary-set', boundaryRes.event, 'area(m²)=', boundaryRes.event.area);
+
+    // C58 (L-398 + L-402b) + §ENVELOPE-VIA-MASSING (L-402d) — ORDERING FIX. Compute +
+    // cache the buildable envelope BEFORE emitting `site.parcel-boundary-set`. The Forma
+    // live-update subscribes to that event and does the FIRST (framing) render of the 3D
+    // Site; computing the envelope FIRST means its inset ring is already cached
+    // (getLastBuildableEnvelope) when that render reads it, so the purple study volume is
+    // drawn in the SAME pass as the parcel boundary — not missing on the framing pass and
+    // only appearing on a later `site.zoning-updated` re-render (which a stale-input
+    // terrain re-place could also clobber). Single producer (solveEstimatedEnvelope),
+    // one cache, consumed by BOTH the framing render and the zoning dispatch below.
+    const envelope = computeAndCacheEstimatedEnvelope(boundary);
     ctx.rt.events?.emit('site.parcel-boundary-set', boundaryRes.event);
 
-    // C58 (L-398 + L-402b) — the payoff of committing a parcel: compute the
-    // buildable envelope and write its numeric results onto the C19 Parcel via
-    // the EXISTING `site.updateZoning` command (P6 — the UI never writes zoning
-    // fields directly). Pure engine → estimated envelope → dispatch → cache.
-    applyEstimatedZoning(ctx, boundary);
+    // The payoff of committing a parcel: write the envelope's numeric results onto the
+    // C19 Parcel via the EXISTING `site.updateZoning` command (P6 — the UI never writes
+    // zoning fields directly) and emit `site.zoning-updated` (a harmless idempotent
+    // re-render that reads the SAME cached envelope).
+    applyEstimatedZoning(ctx, envelope);
     return true;
 }
 
 /**
- * C58 §3.2 / §1.7 — run the PURE buildable-envelope solver over the just-committed
- * parcel and thread its numeric results onto the C19 Parcel via `site.updateZoning`
- * (P6). Caches the full `BuildableEnvelope` (confidence label + derivation +
- * inset ring in scene-XZ) for the Forma render + facts card, and emits
- * `site.zoning-updated`.
+ * C58 §3.2 / §1.7 + §ENVELOPE-VIA-MASSING (L-402d) — THE SINGLE ENVELOPE PRODUCER.
+ * Run the PURE buildable-envelope solver over the just-committed parcel and cache the
+ * full `BuildableEnvelope` (confidence label + derivation + inset ring in scene-XZ) so
+ * BOTH renderers read ONE geometry source: the Forma/Cesium 3D Site (via
+ * `resolveFormaEnvelope`) AND the BIM three.js scene (via the site-element renderer),
+ * plus the facts card. Called BEFORE `site.parcel-boundary-set` emits so the framing
+ * render already has the ring (see `dispatchParcelBoundary`).
  *
  * FIRST SLICE: always the `estimated-default` rule pack → `confidence:
- * 'estimated-ruleset'` (the honest label, C58 §1.4). Real `ZoningProvider`
- * adapters (DK Plandata / ES MUC) are the L-399 track; when one lands, this
- * calls `computeBuildableEnvelope` with the fetched record + jurisdiction pack.
- * Fully guarded — never throws into the commit path.
+ * 'estimated-ruleset'` (the honest label, C58 §1.4). Real `ZoningProvider` adapters
+ * (DK Plandata / ES MUC) are the L-399 track; when one lands, swap `solveEstimatedEnvelope`
+ * for `computeBuildableEnvelope` with the fetched record + jurisdiction pack — the cache
+ * + both consumers are unchanged. Fully guarded — never throws into the commit path;
+ * returns the envelope (also cached) or null.
  */
-function applyEstimatedZoning(
-    ctx: SiteContext,
+function computeAndCacheEstimatedEnvelope(
     boundary: {
         polygon: XZPoint[];
         edgeClassifications: ParcelEdgeClassification[];
     },
-): void {
+): BuildableEnvelope | null {
     try {
-        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
-        const site = ctx.store.getSite();
-        if (!site) return;
-
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return null;
         const envelope = solveEstimatedEnvelope(
             boundary.polygon,
             boundary.edgeClassifications,
         );
         _lastEnvelope = envelope;
+        return envelope;
+    } catch (e) {
+        console.warn('[gis][c58] buildable-envelope solve failed (non-fatal):', e);
+        return null;
+    }
+}
+
+/**
+ * C58 §1.7 — thread the (already-computed + cached) envelope's numeric results onto the
+ * C19 Parcel via `site.updateZoning` (P6 — the UI never writes zoning fields directly)
+ * and emit `site.zoning-updated`. Takes the precomputed envelope from
+ * `computeAndCacheEstimatedEnvelope` so the geometry is produced exactly once.
+ * Fully guarded — never throws into the commit path.
+ */
+function applyEstimatedZoning(
+    ctx: SiteContext,
+    envelope: BuildableEnvelope | null,
+): void {
+    try {
+        if (!envelope) return;
+        const site = ctx.store.getSite();
+        if (!site) return;
 
         // Read the resolved per-edge setbacks off the derivation trace (the
         // numeric "why" entries) to patch the C19 mutable Parcel fields.
