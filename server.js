@@ -43,6 +43,7 @@ import { helmetMiddleware, applyEmbedHeaders } from './server/securityHeaders.js
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
 // IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
 import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
+import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
 // §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
 // §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
@@ -3978,46 +3979,23 @@ app.get('/api/projects/:id/commands', authMiddleware, async (req, res) => {
 
 // ── S04 (ADR-002, ADR-004): Event Log — audit trail for CommandBus EventRecords ──
 // Client-side EventLogPersistor POSTs each EventRecord as JSON after every
-// successful CommandBus dispatch.  Fire-and-forget — 202 is returned immediately.
-// Rate-limited by apiLimiter (60 req/min per IP).  Auth optional — actorId,
-// projectId, clientId are taken from the EventRecord body itself.
-app.post('/api/event-log', apiLimiter, async (req, res) => {
-    const body = req.body ?? {};
-    const id           = typeof body.id           === 'string' ? body.id           : `ev-${Date.now()}`;
-    const commandType  = typeof body.type         === 'string' ? body.type         : 'unknown';
-    const audit        = typeof body.audit        === 'object' && body.audit ? body.audit : {};
-    const actorId      = typeof audit.actorId     === 'string' ? audit.actorId     : 'anonymous';
-    const projectId    = typeof audit.projectId   === 'string' ? audit.projectId   : '';
-    const clientId     = typeof audit.clientId    === 'string' ? audit.clientId    : '';
-    const timestamp    = typeof audit.timestamp   === 'string' ? audit.timestamp   : new Date().toISOString();
-    const payload      = typeof body.payload      === 'object' ? body.payload      : {};
-
-    // Non-blocking insert — respond 202 Accepted immediately.
-    res.status(202).end();
-
-    (async () => {
-        try {
-            const sb = await getSupabaseClient().catch(() => null);
-            if (sb) {
-                const { error } = await sb.from('event_log').insert({
-                    id, actor_id: actorId, project_id: projectId, client_id: clientId,
-                    command_type: commandType, timestamp, payload,
-                });
-                if (error && error.code !== '42P01' && !/does not exist/i.test(error.message || '')) {
-                    console.warn(`[event-log] Supabase insert failed (non-fatal): ${error.message}`);
-                }
-                return;
-            }
-            await pgQuery(
-                `INSERT INTO event_log (id, actor_id, project_id, client_id, command_type, timestamp, payload, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-                [id, actorId, projectId, clientId, commandType, timestamp, JSON.stringify(payload)]
-            );
-        } catch (err) {
-            console.warn('[event-log] Insert failed (non-fatal):', err?.message ?? err);
-        }
-    })();
-});
+// successful CommandBus dispatch. Fire-and-forget — 202 is returned immediately,
+// then the row is persisted best-effort.
+//
+// L-406 (C08 §1.2 + §2.2): this is a mutating write attributed to a user AND a
+// project, so it REQUIRES a valid session (authMiddleware) — anonymous callers
+// get 401. Actor identity is taken from the SESSION, never from the body, and a
+// project-scoped event must pass the same `_httpRequireAccess` membership gate
+// every other project-scoped route uses. See server/eventLog.js for the full
+// rationale. Rate-limited by apiLimiter (60 req/min per IP).
+app.post(
+    EVENT_LOG_PATH,
+    apiLimiter,
+    authMiddleware,
+    makeEventLogHandler({
+        requireAccess: (userId, projectId, res) => _httpRequireAccess(userId, projectId, res),
+    }),
+);
 
 app.get('/api/projects/:id/members', authMiddleware, async (req, res) => {
     const { id } = req.params;
