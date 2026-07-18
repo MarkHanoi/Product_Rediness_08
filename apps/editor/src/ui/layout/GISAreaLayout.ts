@@ -46,6 +46,10 @@ import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
 import { mountSiteAuthoringPaneShell, type SiteAuthoringPaneShell } from '../../engine/views/SiteAuthoringPaneShell';
 import { siteAuthoringDefaultLayout, RIGHT_PANE } from '../../engine/views/paneViewModel';
 import type { PaneRendererMounter } from '../../engine/views/PaneHost';
+// §L-412 (C59) — PURE decision: should a paned 3D-Site live-update FRAME the plot
+// (first parcel commit) or re-render in place (no re-fly)? Keeps the no-jitter
+// guarantee unit-testable without a live Cesium viewer.
+import { shouldFramePanedSiteOnUpdate } from '../../engine/views/siteAuthoringPaneDecisions';
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -90,6 +94,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // consulted by the Forma live-update gate (a paned 3D Site is NOT `map2d`) and by
     // the envelope facts-card host resolution so the card renders on the RIGHT pane.
     let siteAuthoringPanes: SiteAuthoringPaneShell | null = null;
+    // §L-412 (C59, Req 2) — has the paned 3D Site been FRAMED to the committed plot yet?
+    // The pane opens zoomed out (whole-city scale); on the FIRST parcel-boundary commit
+    // we fire ONE framed render (renderFormaMassing(true) → §GLOBE-FIT-BUILDING
+    // flyToBoundingSphere) so the user sees THEIR plot + envelope, not the whole city.
+    // Reset on every (re)mount; every subsequent zoning/edit update falls back to the
+    // no-re-fly path so continuous edits never yank the camera (the no-jitter guarantee).
+    let siteAuthoringPaneFramed = false;
     // A.8.c.f.2 (defect 1) — remember the LAST geocoded result so the 2D map can
     // fit its exact bbox (the Site location store keeps only lat/lon — the bbox is
     // otherwise lost, leaving the 2D map at a coarse point zoom). Set in the
@@ -2784,6 +2795,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             !siteAuthoringPanes.isDisposed &&
             siteAuthoringPanes.controller.hostsView('site-3d');
         if (formaViewMode === 'map2d' && !site3dPaned) return; // not looking at Cesium.
+        // §L-412 (Req 2) — the FIRST parcel-boundary commit into the paned 3D Site frames
+        // the plot ONCE (the pane opens at whole-city scale). Use the existing framing
+        // primitive (renderFormaMassing(true) → §GLOBE-FIT-BUILDING flyToBoundingSphere);
+        // every subsequent update (zoning recompute, layout edits) falls back to the
+        // no-re-fly path below so continuous edits never yank the camera.
+        if (shouldFramePanedSiteOnUpdate({ source, site3dPaned, alreadyFramed: siteAuthoringPaneFramed })) {
+            siteAuthoringPaneFramed = true;
+            console.log(
+                `[gis][forma] live-update (${source}) → FIRST paned commit: framing the 3D Site to the plot (one-shot fly).`,
+            );
+            renderFormaMassing(true);
+            return;
+        }
         console.log(
             `[gis][forma] live-update (${source}) → re-placing massing (no re-fly)` +
             `${site3dPaned ? ' [paned 3D Site]' : ''}.`,
@@ -3091,6 +3115,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // Close any single-pane 2D-map overlay first — it re-opens INTO the left pane.
         if (map2dHandle) { try { map2dHandle.dispose(); } catch { /* gone */ } map2dHandle = null; }
 
+        // §L-412 (Req 1) — the site-authoring split OWNS the screen: EXACTLY two panes
+        // (2D map LEFT · 3D Site RIGHT). Suppress the legacy SplitViewManager Canvas2D
+        // plan pane's project-load AUTO-open (and deactivate it if the idle callback
+        // already opened it) so the redundant plan pane is NOT shown before any walls
+        // exist. `suppressAutoOpen()` gates only the auto-open — the plan pane re-opens
+        // for the BIM authoring stage via applyBimDualPane once site authoring ends.
+        try {
+            const svp = window.splitViewManager as
+                | { suppressAutoOpen?: () => void } | undefined;
+            svp?.suppressAutoOpen?.();
+        } catch (e) {
+            console.warn('[gis][panes] §L-412 SVP suppressAutoOpen failed (non-fatal):', e);
+        }
+        // §L-412 (Req 2) — fresh mount → the pane has not been framed yet; the first
+        // parcel commit (or an already-committed boundary below) will frame it once.
+        siteAuthoringPaneFramed = false;
+
         const shell = mountSiteAuthoringPaneShell({ parent: container, initialLeftFraction: 0.5 });
         siteAuthoringPanes = shell;
 
@@ -3129,7 +3170,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 cesiumViewport.setFormaMode?.(true);
                 window.pryzmSetCesiumFormaMode?.(true);
                 formaViewMode = '3d';
-                renderFormaMassing(false);
+                // §L-412 (Req 2) — if a boundary is ALREADY committed (re-entering site
+                // authoring with an existing plot), FRAME the pane to it ONCE now so the
+                // user lands on THEIR plot, not the whole city; otherwise render the
+                // (empty) scene in place and let the first parcel commit frame it. Either
+                // way exactly one frame — subsequent live-updates use the no-re-fly path.
+                if (!siteAuthoringPaneFramed && !!getFormaBoundary()) {
+                    siteAuthoringPaneFramed = true;
+                    renderFormaMassing(true);
+                } else {
+                    renderFormaMassing(false);
+                }
                 mountFormaAnalysis();
             },
             unmount: () => {
@@ -3166,6 +3217,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (!siteAuthoringPanes) return;
         try { siteAuthoringPanes.dispose(); } catch (e) { console.warn('[gis][panes] dispose failed:', e); }
         siteAuthoringPanes = null;
+        siteAuthoringPaneFramed = false;
+        // §L-412 (Req 1) — site authoring ended: re-allow the legacy plan pane's
+        // project-load auto-open for the BIM authoring stage (applyBimDualPane also
+        // explicitly re-activates the plan pane at generate-time). We do NOT re-open it
+        // here — only lift the suppression so the normal editor layout can return.
+        try {
+            const svp = window.splitViewManager as
+                | { allowAutoOpen?: () => void } | undefined;
+            svp?.allowAutoOpen?.();
+        } catch (e) {
+            console.warn('[gis][panes] §L-412 SVP allowAutoOpen failed (non-fatal):', e);
+        }
         // Re-home the envelope card onto #container (getForma3dHostEl now returns it).
         try { refreshEnvelopePanel(); } catch { /* best-effort */ }
     };

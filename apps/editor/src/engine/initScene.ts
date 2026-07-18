@@ -93,6 +93,9 @@ import { pascalSceneLighting } from '@pryzm/core-app-model/rendering';
 import { RealEnvironmentService } from '@pryzm/core-app-model/rendering';
 import { SceneTheme } from '@pryzm/core-app-model';
 import { SplitViewManager } from './views/SplitViewManager';
+// §L-412 (C59) — PURE decision guarding the project-load auto-open against the
+// site-authoring 2-pane split (evaluated at idle-callback FIRE time to win the race).
+import { shouldAutoOpenSplitView } from './views/siteAuthoringPaneDecisions';
 import { SceneBoundsCache } from '@pryzm/scene-committer';
 import { FrameCoordinator } from '@pryzm/core-app-model';
 import { topologySpatialIndex } from '@pryzm/room-topology';
@@ -3792,7 +3795,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // and the 2D floor plan on first open. Users may close it via the ✕ button;
         // re-opening a project always restores it to the open state.
         window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
-            if (!splitViewManager.isActive) {
+            // §L-412 (C59) — evaluate the auto-open decision at FIRE time (below), not
+            // just here at schedule time: the site-authoring 2-pane split may mount
+            // (and call suppressAutoOpen()) AFTER this idle callback is scheduled but
+            // BEFORE it runs, and the suppression must still win that race.
+            if (shouldAutoOpenSplitView(splitViewManager)) {
                 // PERF-FIX (Apr 2026): Defer the Canvas2D plan rebuild until the
                 // browser is idle. Previously this fired 400 ms after project load
                 // and blocked the main thread for ~300 ms while the rest of the
@@ -3800,6 +3807,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // a setTimeout fallback) lets first paint, camera fit and the
                 // initial WebGPU frame all complete before the SVP rebuild runs.
                 const _activate = () => {
+                    // Re-check at fire time — the site-authoring split may have
+                    // suppressed the auto-open since this was scheduled (the race).
+                    if (!shouldAutoOpenSplitView(splitViewManager)) {
+                        console.log('[initScene] Split view auto-open skipped (site-authoring split active / already open)');
+                        return;
+                    }
                     splitViewManager.activate();
                     console.log('[initScene] Split view auto-opened on project load (idle)');
                 };

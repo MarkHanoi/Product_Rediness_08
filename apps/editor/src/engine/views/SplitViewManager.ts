@@ -177,6 +177,26 @@ export class SplitViewManager implements ISplitViewManager {
 
     get isActive(): boolean { return this._active; }
 
+    // §L-412 (C59) — auto-open suppression. The site-authoring 2-pane layout (2D map
+    // LEFT · 3D Site RIGHT) OWNS the screen during SITE authoring and must show EXACTLY
+    // two panes — the legacy Canvas2D plan pane is redundant before any walls exist.
+    // While the site-authoring panes are mounted they SUPPRESS this manager's
+    // project-load auto-open (initScene). This gates ONLY the AUTO-open; an explicit
+    // `activate()` (e.g. applyBimDualPane at generate-time, once site authoring ends)
+    // still works — the plan pane is correct LATER, during BIM authoring.
+    private _autoOpenSuppressed = false;
+    /** True while the site-authoring split has suppressed the project-load auto-open. */
+    get autoOpenSuppressed(): boolean { return this._autoOpenSuppressed; }
+    /** Suppress the project-load auto-open, and deactivate the pane if it is already open. */
+    suppressAutoOpen(): void {
+        this._autoOpenSuppressed = true;
+        if (this._active) this.deactivate();
+    }
+    /** Re-allow the project-load auto-open (does NOT itself re-open the pane). */
+    allowAutoOpen(): void {
+        this._autoOpenSuppressed = false;
+    }
+
     get activeViewId(): string {
         return this._planViewId;
     }
