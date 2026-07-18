@@ -11,7 +11,9 @@ import { describe, it, expect } from 'vitest';
 import {
     shouldAutoOpenSplitView,
     shouldFramePanedSiteOnUpdate,
+    resolveLiveUpdateEventBus,
     PARCEL_BOUNDARY_SET_EVENT,
+    type LiveUpdateEventBus,
 } from '../views/siteAuthoringPaneDecisions';
 
 describe('§L-412 Req 1 — legacy plan-pane auto-open vs the site-authoring split', () => {
@@ -63,5 +65,84 @@ describe('§L-412 Req 2 — paned 3D Site frames the plot ONCE on the first comm
 
     it('does NOT frame when the 3D Site is not hosted in a pane (classic single-view)', () => {
         expect(shouldFramePanedSiteOnUpdate({ ...base, site3dPaned: false })).toBe(false);
+    });
+});
+
+describe('§L-412 root-cause — the Forma live-update bus survives a null captured runtime', () => {
+    /** A fake bus whose `on` records subscriptions + handlers and can DISPATCH them,
+     *  mirroring both the composed `runtime.events` and the `window.runtime` slot (both
+     *  return a callable disposer). */
+    interface FakeBus extends LiveUpdateEventBus {
+        events: string[];
+        emit(event: string, payload?: unknown): void;
+    }
+    const makeBus = (): FakeBus => {
+        const events: string[] = [];
+        const handlers = new Map<string, Array<(p: unknown) => void>>();
+        return {
+            events,
+            on(event: string, handler: (p: unknown) => void) {
+                events.push(event);
+                const list = handlers.get(event) ?? [];
+                list.push(handler);
+                handlers.set(event, list);
+                return () => { /* disposer */ };
+            },
+            emit(event: string, payload?: unknown) {
+                for (const h of handlers.get(event) ?? []) h(payload);
+            },
+        };
+    };
+
+    it('prefers the captured runtime bus when present', () => {
+        const captured = makeBus();
+        const windowBus = makeBus();
+        expect(resolveLiveUpdateEventBus(captured, windowBus)).toBe(captured);
+    });
+
+    it('falls back to the window.runtime bus when the captured runtime is null (LIVE boot path)', () => {
+        // createMainLayout(props, null) → mountGISArea captured runtime is null, so
+        // `runtime?.events` is undefined; the composed bus is only on window.runtime.
+        const windowBus = makeBus();
+        expect(resolveLiveUpdateEventBus(null, windowBus)).toBe(windowBus);
+        expect(resolveLiveUpdateEventBus(undefined, windowBus)).toBe(windowBus);
+    });
+
+    it('returns null only when neither bus exists (subscription genuinely cannot arm)', () => {
+        expect(resolveLiveUpdateEventBus(null, null)).toBeNull();
+        expect(resolveLiveUpdateEventBus(undefined, undefined)).toBeNull();
+    });
+
+    it('ignores a malformed bus object (no callable `on`) and uses the valid one', () => {
+        const windowBus = makeBus();
+        const brokenCaptured = {} as unknown as LiveUpdateEventBus;
+        expect(resolveLiveUpdateEventBus(brokenCaptured, windowBus)).toBe(windowBus);
+    });
+
+    it('END-TO-END: a boundary drawn AFTER the pane mounts, on the window bus, still frames + renders the envelope', () => {
+        // Repro of the founder symptom's fix: the captured runtime is null (live boot),
+        // so the live-update bus is resolved from window.runtime. When the parcel-boundary
+        // commit lands on THAT bus into a live 3D-Site pane that has not yet framed, the
+        // pure decision says FRAME — the same one-shot fly that renders the plot + envelope.
+        const captured: LiveUpdateEventBus | null = null; // createMainLayout(props, null)
+        const windowBus = makeBus();
+        const bus = resolveLiveUpdateEventBus(captured, windowBus);
+        expect(bus).toBe(windowBus);
+
+        // Simulate GISAreaLayout subscribing on the resolved bus; the fake bus records
+        // the handler, and on commit the pure decision drives the one-shot frame.
+        let framed = false;
+        bus!.on(PARCEL_BOUNDARY_SET_EVENT, () => {
+            framed = shouldFramePanedSiteOnUpdate({
+                source: PARCEL_BOUNDARY_SET_EVENT,
+                site3dPaned: true,      // hostsView('site-3d') true synchronously after applyLayout
+                alreadyFramed: false,   // pane mounted empty (boundary drawn afterwards)
+            });
+        });
+        // The subscription armed on the window bus (the crux of the fix)…
+        expect(windowBus.events).toContain(PARCEL_BOUNDARY_SET_EVENT);
+        // …and dispatching the commit into a not-yet-framed live pane frames the plot.
+        windowBus.emit(PARCEL_BOUNDARY_SET_EVENT);
+        expect(framed).toBe(true);
     });
 });

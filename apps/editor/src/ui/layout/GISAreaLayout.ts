@@ -49,7 +49,11 @@ import type { PaneRendererMounter } from '../../engine/views/PaneHost';
 // §L-412 (C59) — PURE decision: should a paned 3D-Site live-update FRAME the plot
 // (first parcel commit) or re-render in place (no re-fly)? Keeps the no-jitter
 // guarantee unit-testable without a live Cesium viewer.
-import { shouldFramePanedSiteOnUpdate } from '../../engine/views/siteAuthoringPaneDecisions';
+import {
+    shouldFramePanedSiteOnUpdate,
+    resolveLiveUpdateEventBus,
+    type LiveUpdateEventBus,
+} from '../../engine/views/siteAuthoringPaneDecisions';
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -2816,8 +2820,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     const formaLiveUpdateDisposers: Array<() => void> = [];
+    // §L-412 (root-cause) — resolve the event bus the Forma live-update listens on.
+    // The LIVE boot path hands `mountGISArea` a NULL runtime (`createMainLayout(props,
+    // null)`, initUI.ts), so `runtime?.events` is undefined and the subscription below
+    // silently never armed — a plot drawn AFTER the 3D-Site pane mounted (the onboarding
+    // draw flow) never framed the plot or rendered the buildable envelope. `window.runtime`
+    // IS published at bootstrap() start (before initUI), so fall back to it — the SAME
+    // captured-then-window resolution `getFormaBoundary` uses for the store (Bug-2).
+    const resolveFormaEvents = (): LiveUpdateEventBus | null => {
+        const captured = runtime?.events as unknown as LiveUpdateEventBus | undefined;
+        const windowBus =
+            typeof window !== 'undefined'
+                ? (window.runtime as unknown as { events?: LiveUpdateEventBus } | undefined)?.events
+                : undefined;
+        return resolveLiveUpdateEventBus(captured, windowBus);
+    };
     const subscribeFormaLiveUpdate = (): void => {
-        const events = runtime?.events;
+        const events = resolveFormaEvents();
         if (!events || formaLiveUpdateDisposers.length > 0) return;
         // §A.21.D34(d) — FURNITURE-0 TIMING FIX. The generation chain is
         // apartment → CEIL → furnish → light (see runtime types.ts +
@@ -2870,7 +2889,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             .catch((e) => console.warn('[gis] auto climate-load failed:', e));
     };
     try {
-        const csub = runtime?.events?.on('site.location-changed', () => ensureClimateNow());
+        // §L-412 (root-cause) — resolve via the window fallback too (the captured runtime
+        // is null on the live boot path), else the climate auto-load never armed either.
+        const csub = resolveFormaEvents()?.on('site.location-changed', () => ensureClimateNow());
         if (csub) formaLiveUpdateDisposers.push(() => { try { csub(); } catch { /* gone */ } });
         // If a location is already set (e.g. returning to an existing project), load now.
         const existing = getFormaOrigin();

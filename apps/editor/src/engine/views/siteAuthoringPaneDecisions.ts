@@ -61,3 +61,35 @@ export function shouldFramePanedSiteOnUpdate(input: PanedSiteFrameInput): boolea
         !input.alreadyFramed
     );
 }
+
+/** The minimal event-bus surface the Forma live-update subscription needs. Both the
+ *  composed `runtime.events` (a callable `EventSubscription`) and the `window.runtime`
+ *  slot satisfy it — `on` returns a callable disposer. */
+export interface LiveUpdateEventBus {
+    on(event: string, handler: (payload: unknown) => void): () => void;
+}
+
+/**
+ * §L-412 (root-cause) — resolve the runtime event bus the Forma live-update
+ * subscription (frame-to-plot + buildable-envelope render on `site.parcel-boundary-set`)
+ * must listen on.
+ *
+ * WHY THIS EXISTS: the LIVE boot path constructs `GISAreaLayout` via
+ * `createMainLayout(props, /* runtime *\/ null)` (initUI.ts), so the CAPTURED runtime is
+ * `null` and `runtime?.events` is `undefined`. The Forma live-update subscription then
+ * early-returned and NEVER subscribed — so a plot drawn AFTER the 3D-Site pane mounted
+ * (the onboarding draw flow) never framed the plot or rendered the purple envelope: the
+ * 3D Site stayed whole-city. The composed runtime IS reachable via the `window.runtime`
+ * slot (published at `bootstrap()` start, before `initUI` runs), so we fall back to it —
+ * the SAME captured-then-window resolution `getFormaBoundary` uses for the store (Bug-2).
+ * One C19 spine, no second bus. Pure decision (P8 span-exempt), so it is unit-testable
+ * without constructing the heavyweight Cesium/runtime singletons.
+ */
+export function resolveLiveUpdateEventBus(
+    capturedBus: LiveUpdateEventBus | null | undefined,
+    windowBus: LiveUpdateEventBus | null | undefined,
+): LiveUpdateEventBus | null {
+    if (capturedBus && typeof capturedBus.on === 'function') return capturedBus;
+    if (windowBus && typeof windowBus.on === 'function') return windowBus;
+    return null;
+}
