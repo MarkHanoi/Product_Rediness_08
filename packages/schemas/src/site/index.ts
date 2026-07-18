@@ -28,3 +28,6 @@ export * from './ContextBuilding.js';
 export * from './ProvenanceRecord.js';
 export * from './SiteModel.js';
 export * from './legacyProjectLocation.js';
+
+// C58 — zoning-rules & buildable-envelope schemas (pure L0 data shapes).
+export * from './zoning/index.js';

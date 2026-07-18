@@ -7,7 +7,7 @@ import type { UIProps } from '../Layout';
 // always-on pills under root-level chrome (toolbar 9000, nav rail 9999).
 import { launcherRailStyle } from './zLayers';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
-import { getCurrentSiteOrigin } from '../site/siteDispatch';
+import { getCurrentSiteOrigin, getLastBuildableEnvelope } from '../site/siteDispatch';
 // §PARCEL-SELECT (L-380 P1) — the real cadastral parcel data source for the map's
 // "Select parcel" mode (Barcelona / Catastro pilot, via the same-origin proxy). With
 // this wired the select mode fetches REAL parcels; where no parcel exists / outside
@@ -1704,6 +1704,99 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return out;
     };
 
+    // ════════════════════════════════════════════════════════════════════════
+    // C58 (L-402b) — buildable-envelope render + facts card + on/off toggle.
+    // The envelope is computed on `site.parcel-boundary-set` (siteDispatch) and
+    // cached; here we (a) feed its inset ring + max height into the SAME Forma
+    // render path as the parcel (SPEC §4), and (b) draw a compact "Estimated"
+    // facts card + a show/hide toggle (SPEC §2 steps 4–5). Default ON post-commit.
+    // ════════════════════════════════════════════════════════════════════════
+    let formaEnvelopeVisible = true;
+    let envelopePanel: HTMLDivElement | null = null;
+
+    /** Feed the cached envelope's inset ring + height to the render, when ON. */
+    const resolveFormaEnvelope = ():
+        | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null }
+        | null => {
+        if (!formaEnvelopeVisible) return null;
+        const env = getLastBuildableEnvelope();
+        if (!env || env.status !== 'ok' || env.insetPolygon.length < 3) return null;
+        return {
+            ring: env.insetPolygon.map((p) => ({ x: p.x, z: p.z })),
+            maxHeightM: env.maxHeight_m,
+        };
+    };
+
+    /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
+    const refreshEnvelopePanel = (): void => {
+        const viewport = document.getElementById('container');
+        const env = getLastBuildableEnvelope();
+        // No envelope (no parcel / cleared) → drop the card entirely.
+        if (!viewport || !env || env.status === 'none') {
+            if (envelopePanel?.parentElement) envelopePanel.parentElement.removeChild(envelopePanel);
+            envelopePanel = null;
+            return;
+        }
+        if (!envelopePanel) {
+            envelopePanel = document.createElement('div');
+            envelopePanel.setAttribute('data-testid', 'buildable-envelope-card');
+            Object.assign(envelopePanel.style, {
+                position: 'absolute', top: '108px', right: '16px', zIndex: '32',
+                width: '232px', padding: '12px 14px', background: '#ffffff',
+                borderRadius: '12px', border: '1px solid #ece7fb',
+                boxShadow: '0 4px 18px rgba(20,10,60,0.18)',
+                font: '500 12px/1.45 system-ui, sans-serif', color: '#2a2340',
+            } satisfies Partial<CSSStyleDeclaration>);
+            viewport.appendChild(envelopePanel);
+        }
+        const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
+            const e = env.derivation.find((d) => d.constraint === c);
+            return typeof e?.value === 'number' ? `${e.value.toFixed(1)} m` : '—';
+        };
+        const badge =
+            env.confidence === 'estimated-ruleset'
+                ? '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
+                : `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${env.confidence}</span>`;
+        const heightTxt = env.maxHeight_m !== null ? `${env.maxHeight_m.toFixed(1)} m` : '—';
+        const farTxt = env.maxFAR !== null ? env.maxFAR.toFixed(2) : '—';
+        const gfaTxt =
+            env.maxVolumeM3 !== null
+                ? `${Math.round(env.insetAreaM2).toLocaleString()} m² footprint`
+                : env.status === 'degenerate'
+                ? 'no buildable area'
+                : '—';
+        const rows =
+            env.status === 'degenerate'
+                ? `<div style="color:#b23b3b;font-weight:600;">Setbacks consume the whole parcel — no buildable envelope.</div>`
+                : `<div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Setbacks (F/S/R)</span><span style="font-weight:600;">${setback('setback.front')} / ${setback('setback.side')} / ${setback('setback.rear')}</span></div>
+                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
+                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max FAR</span><span style="font-weight:600;">${farTxt}</span></div>
+                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>`;
+        envelopePanel.innerHTML =
+            `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}
+             </div>
+             ${rows}
+             <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
+               <span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>
+             </div>
+             <button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${formaEnvelopeVisible ? '#6600FF' : '#ffffff'};color:${formaEnvelopeVisible ? '#ffffff' : '#6600FF'};">
+               Envelope: ${formaEnvelopeVisible ? 'ON' : 'OFF'}
+             </button>`;
+        const btn = envelopePanel.querySelector('[data-testid="envelope-toggle"]') as HTMLButtonElement | null;
+        if (btn) {
+            btn.onclick = () => {
+                formaEnvelopeVisible = !formaEnvelopeVisible;
+                // Re-place the massing (no re-fly) so the envelope appears/disappears.
+                if (cesiumViewport?.renderFormaMassing && formaViewMode !== 'map2d') {
+                    renderFormaMassing(false);
+                } else {
+                    refreshEnvelopePanel();
+                }
+            };
+        }
+    };
+
     /**
      * FORMA.3 — read PRYZM's authored geometry + boundary and render the white
      * massing into Cesium at the real-world site. `frame` flies the camera; the
@@ -1799,9 +1892,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             stairs,
             // §FORMA-FULL-HEIGHT-EXPLICIT — the resolved true tower height (see above).
             ...(fullBuildingHeightM > 0 ? { fullBuildingHeightM } : {}),
+            // C58 (L-402b) — the buildable-envelope study volume, when computed +
+            // toggled ON. Reuses the SAME ENU projection as `boundary` above.
+            envelope: resolveFormaEnvelope(),
             frameCentroid: frame,
             framePreset: preset,
         });
+        // C58 — refresh the envelope facts card + toggle to match this render.
+        refreshEnvelopePanel();
         // §A.21.D24 — rebuild the Floors selector from the storeys just placed.
         refreshFormaFloorSelector();
 
@@ -2634,6 +2732,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // is idempotent (clearFormaMassing first), so the extra re-renders are safe.
         for (const evt of [
             'site.parcel-boundary-set',
+            // C58 (L-402b) — re-render once the buildable envelope is computed +
+            // cached (dispatched just AFTER parcel-boundary-set). renderFormaMassing
+            // is idempotent (clearFormaMassing first), so this extra pass is safe
+            // and mirrors the furniture-timing fix below.
+            'site.zoning-updated',
             'apartment.layout-executed',
             'ceiling.layout-executed',
             'furnish.layout-executed',

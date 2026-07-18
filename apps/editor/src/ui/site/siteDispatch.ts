@@ -22,11 +22,17 @@ import {
     siteCreate,
     siteUpdateLocation,
     siteSetParcelBoundary,
+    siteUpdateZoning,
     siteReplace,
     type SiteModelStore,
 } from '@pryzm/stores';
-import type { ParcelEdgeClassification, SiteModel } from '@pryzm/schemas';
+import type {
+    ParcelEdgeClassification,
+    SiteModel,
+    BuildableEnvelope,
+} from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
+import { solveEstimatedEnvelope } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 import { trace } from '@opentelemetry/api';
 import { polygonAreaXZ } from './siteInspectorData';
@@ -70,6 +76,21 @@ let _lastSiteOrigin: { lat: number; lon: number } | null = null;
 /** §CESIUM-SITE-ORIGIN — the current site origin lat/lon, or null if none set. */
 export function getCurrentSiteOrigin(): { lat: number; lon: number } | null {
     return _lastSiteOrigin ? { ..._lastSiteOrigin } : null;
+}
+
+// ── C58 — buildable-envelope transient cache (L-398 / L-402b) ────────────────
+//
+// The computed `BuildableEnvelope` is TRANSIENT per C58 §1.7 (only the numeric
+// setback/height fields persist on the C19 Parcel via `site.updateZoning`; the
+// confidence label + derivation trace + inset ring are not persisted authored
+// data). We cache the last-computed envelope here — mirroring the `_lastSiteOrigin`
+// pattern above — so the Forma render + facts card can read the full object
+// (inset ring in scene-XZ, height, confidence, derivation) without recomputing.
+let _lastEnvelope: BuildableEnvelope | null = null;
+
+/** C58 — the last computed buildable envelope for the current parcel, or null. */
+export function getLastBuildableEnvelope(): BuildableEnvelope | null {
+    return _lastEnvelope;
 }
 
 /** Derive a Proj4 UTM string for the given longitude (zones are 6° wide). */
@@ -452,6 +473,9 @@ export function dispatchClearParcelBoundary(ctx: SiteContext): boolean {
     }
     // `siteReplace` set() already fired the SiteModelStore's coarse `subscribe`
     // notification — the ParcelBoundarySceneRenderer clears its stale outline off that.
+    // C58 — drop the cached buildable envelope so the Forma view stops drawing it
+    // (a fresh parcel selection recomputes it on the next `site.parcel-boundary-set`).
+    _lastEnvelope = null;
     console.log('[gis] §L-384 parcel boundary cleared via site.replace — ready to re-draw.');
     return true;
 }
@@ -515,5 +539,88 @@ export function dispatchParcelBoundary(
     }
     console.log('[gis] site.parcel-boundary-set', boundaryRes.event, 'area(m²)=', boundaryRes.event.area);
     ctx.rt.events?.emit('site.parcel-boundary-set', boundaryRes.event);
+
+    // C58 (L-398 + L-402b) — the payoff of committing a parcel: compute the
+    // buildable envelope and write its numeric results onto the C19 Parcel via
+    // the EXISTING `site.updateZoning` command (P6 — the UI never writes zoning
+    // fields directly). Pure engine → estimated envelope → dispatch → cache.
+    applyEstimatedZoning(ctx, boundary);
     return true;
+}
+
+/**
+ * C58 §3.2 / §1.7 — run the PURE buildable-envelope solver over the just-committed
+ * parcel and thread its numeric results onto the C19 Parcel via `site.updateZoning`
+ * (P6). Caches the full `BuildableEnvelope` (confidence label + derivation +
+ * inset ring in scene-XZ) for the Forma render + facts card, and emits
+ * `site.zoning-updated`.
+ *
+ * FIRST SLICE: always the `estimated-default` rule pack → `confidence:
+ * 'estimated-ruleset'` (the honest label, C58 §1.4). Real `ZoningProvider`
+ * adapters (DK Plandata / ES MUC) are the L-399 track; when one lands, this
+ * calls `computeBuildableEnvelope` with the fetched record + jurisdiction pack.
+ * Fully guarded — never throws into the commit path.
+ */
+function applyEstimatedZoning(
+    ctx: SiteContext,
+    boundary: {
+        polygon: XZPoint[];
+        edgeClassifications: ParcelEdgeClassification[];
+    },
+): void {
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
+        const site = ctx.store.getSite();
+        if (!site) return;
+
+        const envelope = solveEstimatedEnvelope(
+            boundary.polygon,
+            boundary.edgeClassifications,
+        );
+        _lastEnvelope = envelope;
+
+        // Read the resolved per-edge setbacks off the derivation trace (the
+        // numeric "why" entries) to patch the C19 mutable Parcel fields.
+        const setbackOf = (
+            constraint: 'setback.front' | 'setback.side' | 'setback.rear',
+        ): number | undefined => {
+            const e = envelope.derivation.find((d) => d.constraint === constraint);
+            return typeof e?.value === 'number' ? e.value : undefined;
+        };
+        const setbacks: { front?: number; side?: number; rear?: number } = {};
+        const f = setbackOf('setback.front');
+        const s = setbackOf('setback.side');
+        const r = setbackOf('setback.rear');
+        if (f !== undefined) setbacks.front = f;
+        if (s !== undefined) setbacks.side = s;
+        if (r !== undefined) setbacks.rear = r;
+
+        const res = siteUpdateZoning(
+            {
+                siteId: site.id,
+                setbacks: Object.keys(setbacks).length > 0 ? setbacks : undefined,
+                maxFAR: envelope.maxFAR,
+                maxHeight: envelope.maxHeight_m,
+                zoning: {
+                    category: envelope.zoneCode,
+                    jurisdictionRef: 'estimated-default',
+                },
+            },
+            ctx.store,
+        );
+        if (!res.ok) {
+            console.warn('[gis][c58] site.updateZoning soft-reject:', res.reason, res.message);
+            return;
+        }
+        console.log(
+            `[gis][c58] buildable envelope computed → confidence=${envelope.confidence} ` +
+                `status=${envelope.status} inset=${envelope.insetAreaM2.toFixed(1)}m² ` +
+                `height=${envelope.maxHeight_m ?? 'n/a'}m — zoning fields updated (P6).`,
+        );
+        ctx.rt.events?.emit('site.zoning-updated', res.event);
+    } catch (e) {
+        // Envelope computation is best-effort site intelligence — never block the
+        // parcel commit (the boundary is already set + emitted).
+        console.warn('[gis][c58] buildable-envelope solve failed (non-fatal):', e);
+    }
 }

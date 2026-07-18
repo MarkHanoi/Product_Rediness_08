@@ -3045,6 +3045,22 @@ export class CesiumViewport {
      * study paints across the WHOLE elevation, not just the ground ring.
      */
     fullBuildingHeightM?: number;
+    /**
+     * C58 (L-402b) — the BUILDABLE ENVELOPE study volume. When present + visible,
+     * a translucent PRYZM-purple (#6600FF) prism is extruded from the site base
+     * up to `maxHeightM`, from the setback-INSET ring (scene-XZ metres). Anchored
+     * through the SAME `toCartesian` ENU projection as the parcel boundary + the
+     * white massing (SPEC-BUILDABLE-ENVELOPE-UX §4 — no re-derivation), so the
+     * envelope base sits coincident with the inset of the drawn parcel. The parcel
+     * outline still draws on the ground so the setback gap reads. Optional — older
+     * callers omit it → unchanged behaviour.
+     */
+    envelope?: {
+      /** Setback-inset ring in scene-XZ metres (C58 BuildableEnvelope.insetPolygon). */
+      ring: ReadonlyArray<{ x: number; z: number }>;
+      /** Max height in metres (extrusion top); falls back to a nominal 9 m when null. */
+      maxHeightM: number | null;
+    } | null;
   }): void {
     const viewer = this.viewer;
     if (!viewer) {
@@ -3702,6 +3718,48 @@ export class CesiumViewport {
         areaM2 = c.area;
       } catch (e) {
         console.warn('[CesiumViewport][forma] boundary overlay failed:', e);
+      }
+    }
+
+    // ── C58 buildable-envelope study volume — translucent #6600FF prism ───────
+    // (L-402b) Extrude the setback-inset ring from the site base up to the max
+    // height, using the SAME `toCartesian` ENU projection as the parcel boundary
+    // above, so the envelope base sits coincident with the inset of the drawn
+    // parcel (SPEC-BUILDABLE-ENVELOPE-UX §4). Purple + translucent so the parcel
+    // + context read through as a study volume, not a solid building.
+    const envelope = input.envelope;
+    if (envelope && envelope.ring && envelope.ring.length >= 3) {
+      try {
+        const envTop = baseHeight +
+          (typeof envelope.maxHeightM === 'number' && envelope.maxHeightM > 0
+            ? envelope.maxHeightM
+            : 9);
+        const envBottom = baseHeight - FORMA_BASE_SINK_M; // seat below ground (no z-fight).
+        const positions = envelope.ring.map((p) => toCartesian(p.x, p.z, envBottom));
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-buildable-envelope',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: envBottom,
+            extrudedHeight: envTop,
+            // #6600FF, translucent (study volume).
+            material: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.28),
+            outline: true,
+            outlineColor: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.9),
+            outlineWidth: 1.5,
+            shadows: Cesium.ShadowMode.DISABLED,
+            perPositionHeight: false,
+            closeTop: true,
+            closeBottom: true,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        console.log(
+          `[CesiumViewport][forma] buildable envelope drawn: ${envelope.ring.length}-vertex inset, ` +
+            `top ${envTop.toFixed(1)} m (#6600FF translucent).`,
+        );
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] envelope volume failed — skipped:', e);
       }
     }
 

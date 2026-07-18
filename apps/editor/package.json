@@ -67,6 +67,7 @@
     "@pryzm/renderer": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/site-parcel-data": "workspace:*",
     "@pryzm/solar-analysis": "workspace:*",
     "@pryzm/stores": "workspace:*",
     "@pryzm/street-analytics": "workspace:*",

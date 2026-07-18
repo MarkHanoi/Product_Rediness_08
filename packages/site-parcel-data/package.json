@@ -1,0 +1,28 @@
+{
+  "name": "@pryzm/site-parcel-data",
+  "version": "0.1.0",
+  "description": "C58 — L2 pure zoning-rules engine + buildable-envelope solver (the C57/C58 shared parcel-data home). Deterministic (byte-identical output), no THREE/DOM/I-O/RNG. Resolves parcel + zoning record + curated JurisdictionZoningContract rule pack → BuildableEnvelope (per-edge setback inset in scene-XZ metres + max height/FAR + mandatory confidence label + per-constraint DerivationTrace). Ships the honest `estimated-default` rule pack; real ZoningProvider adapters (DK Plandata / ES MUC) are the L-399 track.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:ci": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/site-validators": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

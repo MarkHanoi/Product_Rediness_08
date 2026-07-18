@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore, SiteCreatedEvent, SiteLocationChangedEvent, SiteParcelBoundarySetEvent } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore, SiteCreatedEvent, SiteLocationChangedEvent, SiteParcelBoundarySetEvent, SiteZoningUpdatedEvent } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -1918,6 +1918,11 @@ export interface RuntimeEvents {
   'site.created': SiteCreatedEvent;
   'site.location-changed': SiteLocationChangedEvent;
   'site.parcel-boundary-set': SiteParcelBoundarySetEvent;
+  /** C19 §4.2 / C58 — emitted after `site.updateZoning` patches the parcel's
+   *  mutable zoning fields (setbacks / maxHeight / maxFAR / zoning). The
+   *  buildable-envelope wiring (C58 L-402b) dispatches this after the pure
+   *  envelope solve; the Site Inspector + Forma envelope card may subscribe. */
+  'site.zoning-updated': SiteZoningUpdatedEvent;
   /** §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — emitted when the user presses
    *  "✓ Use this placement" on the site-plan overlay (a georeferenced client
    *  PDF/image). The onboarding wizard listens to advance Step 2 → the
