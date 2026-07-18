@@ -182,14 +182,17 @@ export class ParcelBoundarySceneRenderer {
         });
         const loop = new THREE.Line(lineGeo, lineMat);
         loop.name = 'pryzm-parcel-boundary-loop';
-        // §PARCEL-OUTLINE-3D-HIDE (founder 2026-07-01): the violet ring floats under
-        // the generated tower/house in the pure-3D BIM model view and reads as a
-        // confusing stray circle. Tag the LINE with the SAME flag as the fill so the
-        // existing 3-D-view gate (initScene `_applyParcelFillVisibilityForView`) hides
-        // BOTH the ring and the fill in '3D', keeping the boundary visible only in the
-        // site / GIS / plan views where it is useful site context.
+        // §PARCEL-OUTLINE-SHOW-IN-3D (L-425, founder 2026-07-18) — REVERSES the earlier
+        // §PARCEL-OUTLINE-3D-HIDE. In the buildable-envelope (Pipeline B) flow the user
+        // lands in the BIM canvas with the parcel outline + envelope as CADASTRAL DESIGN
+        // REFERENCES they author within — so the founder explicitly wants the violet ring
+        // visible in the PRYZM 3D + plan views ("we need the boundaries in the pryzm
+        // views"), not just the site/GIS surface. So the LINE carries ONLY the semantic
+        // `isParcelBoundaryLine` marker and NO `isParcelBoundaryFill` hide flag → it is
+        // visible in every view. The faint translucent FILL slab keeps its own
+        // `isParcelBoundaryFill` flag (buildFill) and stays hidden in pure-3D (it read as
+        // a "grey shade beside the house", A.21.D44) — only the crisp outline shows in 3D.
         loop.userData.isParcelBoundaryLine = true;
-        loop.userData.isParcelBoundaryFill = true;
         group.add(loop);
 
         // ── Faint translucent fill ───────────────────────────────────────────
