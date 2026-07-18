@@ -14,9 +14,12 @@
 //      lands AFTER the callback was scheduled still wins the race.
 //   2. shouldFramePanedSiteOnUpdate — whether a paned 3D-Site live-update should FRAME
 //      the camera to the plot. The pane opens zoomed out (whole-city scale); the FIRST
-//      parcel-boundary commit frames it ONCE (via renderFormaMassing(true) →
-//      §GLOBE-FIT-BUILDING flyToBoundingSphere); every subsequent zoning/edit update
-//      falls back to the no-re-fly path so continuous edits never yank the camera.
+//      parcel-boundary commit frames it (via renderFormaMassing(true) →
+//      §GLOBE-FIT-BUILDING flyToBoundingSphere), AND any LATER commit whose plot centroid
+//      moved to a genuinely new location re-frames (the founder's "select a point not in
+//      the original circle" — a fresh parcel outside the framed area). In-place edits of
+//      the SAME plot (zoning recompute, layout changes, an identical re-commit) fall back
+//      to the no-re-fly path so continuous edits never yank the camera (L-416).
 
 /** The parcel-commit event that first defines the plot extent (worth framing to). */
 export const PARCEL_BOUNDARY_SET_EVENT = 'site.parcel-boundary-set';
@@ -39,27 +42,69 @@ export function shouldAutoOpenSplitView(state: SplitViewAutoOpenState): boolean 
     return !state.isActive && !state.autoOpenSuppressed;
 }
 
+/** A point in the scene's XZ ground plane (metres, LTP-local). */
+export interface XZPoint {
+    readonly x: number;
+    readonly z: number;
+}
+
+/**
+ * Default re-frame distance (metres). A newly committed parcel whose centroid is at
+ * least this far from the last-framed one counts as a NEW location worth a fresh fly; a
+ * re-commit of the SAME plot (centroid ~unchanged) stays put (no jitter). 5 m sits well
+ * above numeric noise / an identical re-commit yet below any real plot relocation.
+ */
+export const DEFAULT_PANED_REFRAME_THRESHOLD_M = 5;
+
+/**
+ * Simple average centroid of a scene-XZ ring (null if fewer than 3 points). Pure — used
+ * by the caller to derive the plot centroid from the committed boundary so the framing
+ * decision can compare "did the plot move to a new location?". A vertex average (not
+ * area-weighted) is sufficient: we only need a stable per-plot anchor to diff against.
+ */
+export function ringCentroidXZ(ring: ReadonlyArray<XZPoint> | null | undefined): XZPoint | null {
+    if (!ring || ring.length < 3) return null;
+    let sx = 0;
+    let sz = 0;
+    for (const p of ring) {
+        sx += p.x;
+        sz += p.z;
+    }
+    return { x: sx / ring.length, z: sz / ring.length };
+}
+
 export interface PanedSiteFrameInput {
     /** The live-update source event (e.g. 'site.parcel-boundary-set', 'site.zoning-updated'). */
     readonly source: string;
     /** The 3D Site (Cesium) is currently hosted in a site-authoring pane. */
     readonly site3dPaned: boolean;
-    /** The pane has already been framed to the plot once this mount. */
-    readonly alreadyFramed: boolean;
+    /** Centroid (scene-XZ) of the just-committed plot, or null if it can't be read. */
+    readonly newCentroid: XZPoint | null;
+    /** Centroid the camera was last framed to this mount, or null if never framed yet. */
+    readonly lastFramedCentroid: XZPoint | null;
+    /** Re-frame when the new centroid is ≥ this far (m) from the last-framed one. */
+    readonly reframeThresholdM?: number;
 }
 
 /**
- * Should this paned 3D-Site live-update FRAME the camera (a one-shot fly) rather than
- * re-render in place? Yes only on the FIRST parcel-boundary commit into a live pane —
- * so the user sees THEIR plot + envelope instead of the whole city. Every later update
- * (zoning recompute, layout edits) returns false → the no-re-fly path (no jitter).
+ * Should this paned 3D-Site live-update FRAME the camera (a fly) rather than re-render in
+ * place? Only on a parcel-boundary commit into a live pane, AND either (a) the pane has
+ * never been framed this mount (it opened at whole-city scale — show THEIR plot), or
+ * (b) the plot centroid moved to a genuinely NEW location beyond the re-frame threshold
+ * (a fresh parcel outside the framed area — L-416 "a point not in the original circle").
+ * An in-place re-commit of the SAME plot, and every non-boundary update (zoning recompute,
+ * layout edits), return false → the no-re-fly path (no jitter).
  */
 export function shouldFramePanedSiteOnUpdate(input: PanedSiteFrameInput): boolean {
-    return (
-        input.site3dPaned &&
-        input.source === PARCEL_BOUNDARY_SET_EVENT &&
-        !input.alreadyFramed
-    );
+    if (!input.site3dPaned || input.source !== PARCEL_BOUNDARY_SET_EVENT) return false;
+    // Never framed this mount → frame (the pane opened at whole-city scale).
+    if (!input.lastFramedCentroid) return true;
+    // Already framed once: re-frame ONLY when the plot moved to a new location.
+    if (!input.newCentroid) return false;
+    const threshold = input.reframeThresholdM ?? DEFAULT_PANED_REFRAME_THRESHOLD_M;
+    const dx = input.newCentroid.x - input.lastFramedCentroid.x;
+    const dz = input.newCentroid.z - input.lastFramedCentroid.z;
+    return Math.hypot(dx, dz) >= threshold;
 }
 
 /** The minimal event-bus surface the Forma live-update subscription needs. Both the

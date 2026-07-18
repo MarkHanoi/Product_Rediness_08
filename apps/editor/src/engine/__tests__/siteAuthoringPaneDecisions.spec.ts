@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
     shouldAutoOpenSplitView,
     shouldFramePanedSiteOnUpdate,
+    ringCentroidXZ,
     resolveLiveUpdateEventBus,
     PARCEL_BOUNDARY_SET_EVENT,
     type LiveUpdateEventBus,
@@ -47,15 +48,28 @@ describe('§L-412 Req 1 — legacy plan-pane auto-open vs the site-authoring spl
     });
 });
 
-describe('§L-412 Req 2 — paned 3D Site frames the plot ONCE on the first commit', () => {
-    const base = { source: PARCEL_BOUNDARY_SET_EVENT, site3dPaned: true, alreadyFramed: false };
+describe('§L-412 Req 2 — paned 3D Site frames the plot on the first commit', () => {
+    // Never framed yet → lastFramedCentroid is null; a fresh commit at some plot.
+    const base = {
+        source: PARCEL_BOUNDARY_SET_EVENT,
+        site3dPaned: true,
+        newCentroid: { x: 100, z: 100 },
+        lastFramedCentroid: null,
+    };
 
-    it('frames on the FIRST parcel-boundary commit into a live pane', () => {
+    it('frames on the FIRST parcel-boundary commit into a live pane (never framed yet)', () => {
         expect(shouldFramePanedSiteOnUpdate(base)).toBe(true);
     });
 
-    it('does NOT re-frame on subsequent parcel commits (already framed) — no jitter', () => {
-        expect(shouldFramePanedSiteOnUpdate({ ...base, alreadyFramed: true })).toBe(false);
+    it('does NOT re-frame when the SAME plot is re-committed (centroid unchanged) — no jitter', () => {
+        // Already framed to (100,100); a re-commit of the identical plot must not re-fly.
+        expect(
+            shouldFramePanedSiteOnUpdate({
+                ...base,
+                lastFramedCentroid: { x: 100, z: 100 },
+                newCentroid: { x: 100, z: 100 },
+            }),
+        ).toBe(false);
     });
 
     it('does NOT frame on zoning / layout edits — only the parcel-boundary commit frames', () => {
@@ -65,6 +79,52 @@ describe('§L-412 Req 2 — paned 3D Site frames the plot ONCE on the first comm
 
     it('does NOT frame when the 3D Site is not hosted in a pane (classic single-view)', () => {
         expect(shouldFramePanedSiteOnUpdate({ ...base, site3dPaned: false })).toBe(false);
+    });
+});
+
+describe('§L-416 — re-frame when a NEW parcel is chosen outside the framed area', () => {
+    const base = {
+        source: PARCEL_BOUNDARY_SET_EVENT,
+        site3dPaned: true,
+        lastFramedCentroid: { x: 0, z: 0 },
+        newCentroid: { x: 0, z: 0 },
+    };
+
+    it('RE-FRAMES when the new plot centroid moved beyond the threshold (a point not in the original circle)', () => {
+        // 50 m away → clearly a new parcel → re-fly to it.
+        expect(shouldFramePanedSiteOnUpdate({ ...base, newCentroid: { x: 50, z: 0 } })).toBe(true);
+        expect(shouldFramePanedSiteOnUpdate({ ...base, newCentroid: { x: 0, z: 40 } })).toBe(true);
+    });
+
+    it('does NOT re-frame for a tiny centroid nudge (same plot, within threshold) — no jitter', () => {
+        // < 5 m default threshold → treat as the same plot; hold the camera.
+        expect(shouldFramePanedSiteOnUpdate({ ...base, newCentroid: { x: 2, z: 2 } })).toBe(false);
+    });
+
+    it('honours a custom re-frame threshold', () => {
+        expect(
+            shouldFramePanedSiteOnUpdate({ ...base, newCentroid: { x: 8, z: 0 }, reframeThresholdM: 20 }),
+        ).toBe(false);
+        expect(
+            shouldFramePanedSiteOnUpdate({ ...base, newCentroid: { x: 25, z: 0 }, reframeThresholdM: 20 }),
+        ).toBe(true);
+    });
+
+    it('does NOT re-frame when the new centroid is unknown (null) but the pane was already framed', () => {
+        expect(shouldFramePanedSiteOnUpdate({ ...base, newCentroid: null })).toBe(false);
+    });
+});
+
+describe('§L-416 — ringCentroidXZ (plot centroid helper)', () => {
+    it('averages the ring vertices', () => {
+        expect(ringCentroidXZ([{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }]))
+            .toEqual({ x: 5, z: 5 });
+    });
+
+    it('returns null for a degenerate ring (< 3 points) or nullish input', () => {
+        expect(ringCentroidXZ([{ x: 0, z: 0 }, { x: 1, z: 1 }])).toBeNull();
+        expect(ringCentroidXZ(null)).toBeNull();
+        expect(ringCentroidXZ(undefined)).toBeNull();
     });
 });
 
@@ -135,8 +195,9 @@ describe('§L-412 root-cause — the Forma live-update bus survives a null captu
         bus!.on(PARCEL_BOUNDARY_SET_EVENT, () => {
             framed = shouldFramePanedSiteOnUpdate({
                 source: PARCEL_BOUNDARY_SET_EVENT,
-                site3dPaned: true,      // hostsView('site-3d') true synchronously after applyLayout
-                alreadyFramed: false,   // pane mounted empty (boundary drawn afterwards)
+                site3dPaned: true,          // hostsView('site-3d') true synchronously after applyLayout
+                newCentroid: { x: 10, z: 10 },
+                lastFramedCentroid: null,   // pane mounted empty (boundary drawn afterwards)
             });
         });
         // The subscription armed on the window bus (the crux of the fix)…

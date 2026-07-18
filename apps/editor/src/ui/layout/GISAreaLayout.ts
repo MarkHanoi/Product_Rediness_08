@@ -51,6 +51,7 @@ import type { PaneRendererMounter } from '../../engine/views/PaneHost';
 // guarantee unit-testable without a live Cesium viewer.
 import {
     shouldFramePanedSiteOnUpdate,
+    ringCentroidXZ,
     resolveLiveUpdateEventBus,
     type LiveUpdateEventBus,
 } from '../../engine/views/siteAuthoringPaneDecisions';
@@ -98,13 +99,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // consulted by the Forma live-update gate (a paned 3D Site is NOT `map2d`) and by
     // the envelope facts-card host resolution so the card renders on the RIGHT pane.
     let siteAuthoringPanes: SiteAuthoringPaneShell | null = null;
-    // §L-412 (C59, Req 2) — has the paned 3D Site been FRAMED to the committed plot yet?
-    // The pane opens zoomed out (whole-city scale); on the FIRST parcel-boundary commit
-    // we fire ONE framed render (renderFormaMassing(true) → §GLOBE-FIT-BUILDING
-    // flyToBoundingSphere) so the user sees THEIR plot + envelope, not the whole city.
-    // Reset on every (re)mount; every subsequent zoning/edit update falls back to the
-    // no-re-fly path so continuous edits never yank the camera (the no-jitter guarantee).
-    let siteAuthoringPaneFramed = false;
+    // §L-412 / §L-416 (C59, Req 2) — the plot CENTROID (scene-XZ) the paned 3D Site was
+    // last FRAMED to this mount, or null if never framed. The pane opens zoomed out
+    // (whole-city scale); the FIRST parcel-boundary commit frames it (renderFormaMassing(true)
+    // → §GLOBE-FIT-BUILDING flyToBoundingSphere) so the user sees THEIR plot + envelope. L-416:
+    // a LATER commit whose plot moved to a NEW location (a fresh parcel outside the framed
+    // area — "a point not in the original circle") re-frames; an in-place re-commit / zoning /
+    // layout edit falls back to the no-re-fly path (no jitter). Reset to null on every (re)mount.
+    let siteAuthoringPaneLastFramedCentroid: { x: number; z: number } | null = null;
     // A.8.c.f.2 (defect 1) — remember the LAST geocoded result so the 2D map can
     // fit its exact bbox (the Site location store keeps only lat/lon — the bbox is
     // otherwise lost, leaving the 2D map at a coarse point zoom). Set in the
@@ -2816,10 +2818,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // primitive (renderFormaMassing(true) → §GLOBE-FIT-BUILDING flyToBoundingSphere);
         // every subsequent update (zoning recompute, layout edits) falls back to the
         // no-re-fly path below so continuous edits never yank the camera.
-        if (shouldFramePanedSiteOnUpdate({ source, site3dPaned, alreadyFramed: siteAuthoringPaneFramed })) {
-            siteAuthoringPaneFramed = true;
+        // §L-416 — derive the just-committed plot centroid so the decision can tell a
+        // NEW-location parcel (re-frame) from an in-place edit of the SAME plot (no re-fly).
+        const newCentroid = ringCentroidXZ(getFormaBoundary());
+        if (
+            shouldFramePanedSiteOnUpdate({
+                source,
+                site3dPaned,
+                newCentroid,
+                lastFramedCentroid: siteAuthoringPaneLastFramedCentroid,
+            })
+        ) {
+            siteAuthoringPaneLastFramedCentroid = newCentroid ?? siteAuthoringPaneLastFramedCentroid;
             console.log(
-                `[gis][forma] live-update (${source}) → FIRST paned commit: framing the 3D Site to the plot (one-shot fly).`,
+                `[gis][forma] live-update (${source}) → paned commit at a ` +
+                `${siteAuthoringPaneLastFramedCentroid ? 'NEW plot location' : 'plot'}: ` +
+                `framing the 3D Site to the plot (one-shot fly).`,
             );
             renderFormaMassing(true);
             return;
@@ -3163,7 +3177,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         // §L-412 (Req 2) — fresh mount → the pane has not been framed yet; the first
         // parcel commit (or an already-committed boundary below) will frame it once.
-        siteAuthoringPaneFramed = false;
+        siteAuthoringPaneLastFramedCentroid = null;
 
         const shell = mountSiteAuthoringPaneShell({ parent: container, initialLeftFraction: 0.5 });
         siteAuthoringPanes = shell;
@@ -3208,8 +3222,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // user lands on THEIR plot, not the whole city; otherwise render the
                 // (empty) scene in place and let the first parcel commit frame it. Either
                 // way exactly one frame — subsequent live-updates use the no-re-fly path.
-                if (!siteAuthoringPaneFramed && !!getFormaBoundary()) {
-                    siteAuthoringPaneFramed = true;
+                const committedCentroid = ringCentroidXZ(getFormaBoundary());
+                if (siteAuthoringPaneLastFramedCentroid === null && committedCentroid) {
+                    siteAuthoringPaneLastFramedCentroid = committedCentroid;
                     renderFormaMassing(true);
                 } else {
                     renderFormaMassing(false);
@@ -3250,7 +3265,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (!siteAuthoringPanes) return;
         try { siteAuthoringPanes.dispose(); } catch (e) { console.warn('[gis][panes] dispose failed:', e); }
         siteAuthoringPanes = null;
-        siteAuthoringPaneFramed = false;
+        siteAuthoringPaneLastFramedCentroid = null;
         // §L-412 (Req 1) — site authoring ended: re-allow the legacy plan pane's
         // project-load auto-open for the BIM authoring stage (applyBimDualPane also
         // explicitly re-activates the plan pane at generate-time). We do NOT re-open it
