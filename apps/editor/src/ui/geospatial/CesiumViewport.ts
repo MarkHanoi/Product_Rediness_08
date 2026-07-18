@@ -11,6 +11,10 @@ import {
     // nearest-N capped) split client-side, so the far ring never waits on a second network hop.
     fetchContextBuildingsNearAndFar,
     CONTEXT_BBOX_HALF_DEG,
+    // §PLOT-CLEAR-ENVELOPE (L-402c) — pure filter that removes the OSM context
+    // building sitting ON the committed working plot (the building the user is
+    // replacing) so it can't bury the translucent #6600FF buildable-envelope volume.
+    partitionFootprintsByParcel,
     type ContextBuildingCollection,
 } from "./contextBuildings";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
@@ -849,6 +853,15 @@ export class CesiumViewport {
   /** The (lat,lon) the context buildings were last loaded for — skip a refetch
    *  when the site hasn't moved (the loader also caches per bbox). */
   private contextBuildingsAt: { lat: number; lon: number } | null = null;
+  /** §PLOT-CLEAR-ENVELOPE (L-402c) — the committed working-plot (parcel) boundary
+   *  projected to [lon,lat], captured on the last renderFormaMassing. loadContextBuildings
+   *  removes any OSM footprint sitting ON this plot (the building the user is replacing)
+   *  so the translucent #6600FF buildable-envelope study volume reads on a clear plot.
+   *  Null = no parcel committed → nothing suppressed (unchanged behaviour). */
+  private committedParcelLonLat: Array<[number, number]> | null = null;
+  /** §CTX-PAN-DEBOUNCE (L-402c) — epoch-ms of the last context (re)load, so a pan can't
+   *  trigger repeated multi-second Overpass reloads while the camera is framed on the plot. */
+  private contextLastLoadAtMs = 0;
   /** FORMA-CTX §22.2 — OSM road centre-line polylines (visual-only context). */
   private contextRoadEntities: Cesium.Entity[] = [];
   private contextRoadsAbort: AbortController | null = null;
@@ -3120,6 +3133,22 @@ export class CesiumViewport {
       return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
     };
 
+    // §PLOT-CLEAR-ENVELOPE (L-402c) — project the committed parcel ring to [lon,lat]
+    // ONCE (the SAME ENU frame as the OSM footprints), so loadContextBuildings can drop
+    // any context building sitting ON the plot (the building the user is replacing),
+    // leaving the plot clear for the translucent #6600FF buildable-envelope study
+    // volume. Captured here (not re-derived per pan) so pan-refresh + terrain-replace
+    // reuse it. Cleared to null when no parcel is drawn.
+    this.committedParcelLonLat = (boundary && boundary.length >= 3)
+      ? boundary.map((p) => {
+          const carto = Cesium.Cartographic.fromCartesian(toCartesian(p.x, p.z, 0));
+          return [
+            Cesium.Math.toDegrees(carto.longitude),
+            Cesium.Math.toDegrees(carto.latitude),
+          ] as [number, number];
+        })
+      : null;
+
     const silhouetteTargets: Cesium.Entity[] = [];
 
     // ── Proposed building massing (§A.21.D-FORMA — clean pastel solid) ─────────
@@ -3742,11 +3771,14 @@ export class CesiumViewport {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: envBottom,
             extrudedHeight: envTop,
-            // #6600FF, translucent (study volume).
-            material: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.28),
+            // #6600FF, translucent (study volume — reads clearly as a STUDY, not a
+            // solid building). Bumped 0.28 → 0.34 so the fill has enough presence to be
+            // legible against the grey/white context once the plot itself is cleared
+            // (§PLOT-CLEAR-ENVELOPE), without turning opaque.
+            material: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.34),
             outline: true,
-            outlineColor: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.9),
-            outlineWidth: 1.5,
+            outlineColor: Cesium.Color.fromCssColorString('#6600FF').withAlpha(1.0),
+            outlineWidth: 2,
             shadows: Cesium.ShadowMode.DISABLED,
             perPositionHeight: false,
             closeTop: true,
@@ -3754,9 +3786,32 @@ export class CesiumViewport {
           },
         });
         this.formaMassingEntities.push(ent);
+
+        // §PLOT-CLEAR-ENVELOPE — a CRISP #6600FF top-ring outline that reads ABOVE the
+        // surrounding context. Cesium clamps `polygon.outlineWidth` to 1 px on most WebGL
+        // GPUs, so the prism's own outline can be lost among tall neighbours; a dedicated
+        // polyline gives a reliable thick edge, and its `depthFailMaterial` draws the ring
+        // (dashed + dimmer) even where a context building would occlude it — so the study
+        // volume is never buried behind the neighbourhood. Purple stays translucent overall.
+        const topRing = envelope.ring.map((p) => toCartesian(p.x, p.z, envTop));
+        const topRingClosed = [...topRing, topRing[0]!];
+        const capLine = viewer.entities.add({
+          name: 'pryzm-forma-buildable-envelope-top',
+          polyline: {
+            positions: topRingClosed,
+            width: 3,
+            clampToGround: false,
+            material: Cesium.Color.fromCssColorString('#6600FF'),
+            depthFailMaterial: new Cesium.PolylineDashMaterialProperty({
+              color: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.6),
+              dashLength: 12,
+            }),
+          },
+        });
+        this.formaMassingEntities.push(capLine);
         console.log(
           `[CesiumViewport][forma] buildable envelope drawn: ${envelope.ring.length}-vertex inset, ` +
-            `top ${envTop.toFixed(1)} m (#6600FF translucent).`,
+            `top ${envTop.toFixed(1)} m (#6600FF translucent + crisp depth-fail top outline).`,
         );
       } catch (e) {
         console.warn('[CesiumViewport][forma] envelope volume failed — skipped:', e);
@@ -5291,6 +5346,10 @@ export class CesiumViewport {
       return;
     }
 
+    // §CTX-PAN-DEBOUNCE (L-402c) — stamp the load time so the pan-refresh cooldown can
+    // stop a fetch repeating within its window (counts from the moment we commit to fetch).
+    this.contextLastLoadAtMs = Date.now();
+
     // Cancel any in-flight load; start a fresh one.
     this.contextBuildingsAbort?.abort();
     this.contextBuildingsAbort = new AbortController();
@@ -5346,8 +5405,24 @@ export class CesiumViewport {
     const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill);
     const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.6);
 
+    // §PLOT-CLEAR-ENVELOPE (L-402c) — drop any OSM footprint sitting ON the committed
+    // working plot (the building the user is replacing) so the plot reads CLEAR and the
+    // translucent #6600FF buildable-envelope study volume is not buried behind it. The
+    // surrounding neighbourhood context is untouched (only substantially-on-plot
+    // footprints are removed). Pure decision (partitionFootprintsByParcel); no-op when
+    // no parcel is committed. Applied to BOTH the near ring (here) and the far ring (below).
+    const parcelLonLat = this.committedParcelLonLat;
+    const nearSplit = partitionFootprintsByParcel(collection.features, parcelLonLat);
+    if (nearSplit.removed.length > 0) {
+      console.log(
+        `[CesiumViewport][forma] §PLOT-CLEAR-ENVELOPE — suppressed ${nearSplit.removed.length} ` +
+          `on-plot context building(s) so the buildable envelope reads on a clear plot ` +
+          `(${nearSplit.kept.length} neighbourhood footprint(s) kept).`,
+      );
+    }
+
     let placed = 0;
-    for (const f of collection.features) {
+    for (const f of nearSplit.kept) {
       try {
         const ring = f.geometry.coordinates[0];
         if (!ring || ring.length < 4) continue;
@@ -5403,7 +5478,12 @@ export class CesiumViewport {
     // (nearest-N capped) so the neighbourhood extends without the naïve-radius shadow/geometry
     // perf cliff. The far set was split from the SAME single fetch — no second network hop, so
     // this renders immediately from `far` rather than gating on a separate Overpass round-trip.
-    this.renderContextBuildingsFarRing(far, lat, lon, viewer);
+    // §PLOT-CLEAR-ENVELOPE — the far ring gets the SAME on-plot filter (a large plot could
+    // reach a far footprint), so the plot stays clear at every LOD tier.
+    const farSplit = partitionFootprintsByParcel(far.features, parcelLonLat);
+    this.renderContextBuildingsFarRing(
+      { type: 'FeatureCollection', features: farSplit.kept }, lat, lon, viewer,
+    );
   }
 
   /**
@@ -5495,18 +5575,26 @@ export class CesiumViewport {
     if (!Number.isFinite(camLat) || !Number.isFinite(camLon)) return;
     if (!Number.isFinite(camHeight) || camHeight > 6000) return;
 
-    const at = this.contextBuildingsAt;
-    if (at) {
+    // §CTX-PAN-DEBOUNCE (L-402c) — during SITE AUTHORING the camera is framed on the
+    // committed plot; small pans to look around the envelope must NOT thrash the Overpass
+    // fetch (founder: "context reloads on every pan, ~3 s each"). TWO changes vs the old
+    // last-load-centre + 1100 m test:
+    //   (1) anchor the "have we left the loaded area?" test on the FIXED site origin
+    //       (`formaMassingOrigin`) when a massing is active, not the drifting last-load
+    //       centre — so panning around the framed plot never accumulates into a refetch;
+    //   (2) require the camera to leave the whole FAR-ring coverage (~1.5 km, the loaded
+    //       near+far extent) before refetching — inside it the already-loaded context
+    //       still covers the view.
+    const anchor = this.formaMassingOrigin ?? this.contextBuildingsAt;
+    if (anchor) {
       // Cheap planar degree distance → metres (lat ≈ 111 km/deg; lon scaled by cos).
-      const dLatM = (camLat - at.lat) * 111_320;
-      const dLonM = (camLon - at.lon) * 111_320 * Math.cos((camLat * Math.PI) / 180);
-      const movedM = Math.hypot(dLatM, dLonM);
-      // §A.21.D43(b) — scaled 450 → 1100 m to track the widened context bbox
-      // (CONTEXT_BBOX_HALF_DEG 0.005 → 0.0125, ~±1.4 km). Refetch only once the
-      // camera leaves the now-larger loaded footprint (still ≈⅓ of the fetch bbox)
-      // so the bigger neighbourhood isn't re-pulled on every small pan.
-      if (movedM < 1100) return; // still inside the loaded footprint — keep it.
+      const dLatM = (camLat - anchor.lat) * 111_320;
+      const dLonM = (camLon - anchor.lon) * 111_320 * Math.cos((camLat * Math.PI) / 180);
+      if (Math.hypot(dLatM, dLonM) < 1500) return; // still inside the loaded far ring — keep it.
     }
+    // Hard cooldown: never re-pull context within 20 s of the last load, so a flurry of
+    // long pans (or a slow Overpass round-trip) can't stack repeated multi-second reloads.
+    if (Date.now() - this.contextLastLoadAtMs < 20_000) return;
 
     if (this.contextPanRefreshTimer !== null) clearTimeout(this.contextPanRefreshTimer);
     this.contextPanRefreshTimer = setTimeout(() => {
@@ -5514,10 +5602,10 @@ export class CesiumViewport {
       if (!this.viewer) return;
       console.log(
         `[CesiumViewport][forma] §A.21.D-GLOBE pan-refresh — reloading context buildings ` +
-          `around LAT ${camLat.toFixed(5)} LON ${camLon.toFixed(5)} (camera moved out of the loaded area).`,
+          `around LAT ${camLat.toFixed(5)} LON ${camLon.toFixed(5)} (camera left the loaded area).`,
       );
       void this.loadContextBuildings(camLat, camLon, true);
-    }, 600);
+    }, 1200);
   }
 
   /** MAP-DATA-OVERTURE — remove all context-building entities (idempotent). */

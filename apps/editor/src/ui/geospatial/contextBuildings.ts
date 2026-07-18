@@ -754,6 +754,116 @@ export function selectNearFootprints(input: {
     return near;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §PLOT-CLEAR-ENVELOPE (L-402c) — exclude the OSM context building(s) that sit ON
+// the user's committed WORKING PLOT (the parcel) from the context set. RATIONALE:
+// (1) it is the building the user is REPLACING on their own site — it is not real
+// "context"; (2) its opaque footprint buries the translucent #6600FF buildable-
+// envelope study volume the site-authoring view exists to show (C58 / SPEC-BUILDABLE
+// -ENVELOPE-UX). PURE + unit-tested: the caller (CesiumViewport) projects the parcel
+// boundary into the SAME lon/lat frame as the OSM footprints, then these helpers
+// decide, per footprint, whether it is "on plot". CONSERVATIVE by design — only
+// footprints SUBSTANTIALLY over the plot are removed, so the surrounding
+// neighbourhood context stays intact (C55: context DRAPES around, never replaces).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A polygon ring as [x,y] pairs in ANY single consistent 2D frame. Here lon/lat
+ *  degrees — the topological inside/containment tests below are invariant to the
+ *  lon/lat axis anisotropy, so no metric projection is needed. */
+export type PlanarRing = ReadonlyArray<readonly number[]>;
+
+/** Even-odd ray-cast point-in-polygon. Treats the ring as closed (a trailing
+ *  duplicate closing vertex is harmless). PURE. Never throws. */
+export function pointInPolygon(px: number, py: number, ring: PlanarRing): boolean {
+    const n = ring.length;
+    if (n < 3) return false;
+    let inside = false;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = ring[i]![0]!, yi = ring[i]![1]!;
+        const xj = ring[j]![0]!, yj = ring[j]![1]!;
+        const denom = (yj - yi) || Number.EPSILON;
+        const intersects = (yi > py) !== (yj > py)
+            && px < ((xj - xi) * (py - yi)) / denom + xi;
+        if (intersects) inside = !inside;
+    }
+    return inside;
+}
+
+/** Arithmetic mean of a ring's vertices (drops a trailing closing duplicate). PURE. */
+export function ringCentroidXY(ring: PlanarRing): [number, number] {
+    const closed = ring.length >= 2
+        && ring[0]![0] === ring[ring.length - 1]![0]
+        && ring[0]![1] === ring[ring.length - 1]![1];
+    const n = closed ? ring.length - 1 : ring.length;
+    let x = 0, y = 0, c = 0;
+    for (let i = 0; i < n; i++) { x += ring[i]![0]!; y += ring[i]![1]!; c++; }
+    return c > 0 ? [x / c, y / c] : [0, 0];
+}
+
+/**
+ * Decide whether a context building `footprint` sits ON the working `parcel` (the
+ * committed plot) — i.e. it is the building the user is replacing and must be removed
+ * so it does not bury the buildable-envelope study volume. Both rings are in the SAME
+ * 2D frame (lon/lat). PURE + testable. Never throws.
+ *
+ * CONSERVATIVE (keep neighbourhood context intact): a footprint is "on plot" only
+ * when SUBSTANTIALLY over the parcel, not when it merely grazes the boundary line.
+ * On-plot iff ANY of:
+ *   • the footprint centroid is inside the parcel (the typical case — the plot
+ *     building sits within the drawn plot line); OR
+ *   • at least `minVertexFraction` (default ½) of its vertices are inside the parcel
+ *     (a footprint that straddles the line but lies mostly on the plot); OR
+ *   • the parcel centroid is inside the footprint (a large footprint that engulfs a
+ *     small plot).
+ * A neighbour whose corner merely clips the plot (few vertices in, centroid out) is KEPT.
+ */
+export function footprintOnParcel(
+    footprint: PlanarRing,
+    parcel: PlanarRing,
+    minVertexFraction = 0.5,
+): boolean {
+    if (parcel.length < 3 || footprint.length < 3) return false;
+    const closed = footprint.length >= 2
+        && footprint[0]![0] === footprint[footprint.length - 1]![0]
+        && footprint[0]![1] === footprint[footprint.length - 1]![1];
+    const verts = closed ? footprint.slice(0, -1) : footprint;
+    if (verts.length === 0) return false;
+
+    const [fcx, fcy] = ringCentroidXY(footprint);
+    if (pointInPolygon(fcx, fcy, parcel)) return true;
+
+    let inside = 0;
+    for (const v of verts) if (pointInPolygon(v[0]!, v[1]!, parcel)) inside++;
+    if (inside / verts.length >= minVertexFraction) return true;
+
+    const [pcx, pcy] = ringCentroidXY(parcel);
+    if (pointInPolygon(pcx, pcy, footprint)) return true;
+
+    return false;
+}
+
+/**
+ * §PLOT-CLEAR-ENVELOPE — split a footprint collection into the features to KEEP (off
+ * the plot — surrounding neighbourhood context) and those to REMOVE (on the user's
+ * committed plot). `parcel` is the plot boundary ring in the SAME lon/lat frame as the
+ * footprints (the caller projects the scene-XZ parcel once). When `parcel` is
+ * null/degenerate NOTHING is removed (unchanged behaviour). PURE. Never throws.
+ */
+export function partitionFootprintsByParcel(
+    features: readonly ContextBuildingFeature[],
+    parcel: PlanarRing | null,
+): { kept: ContextBuildingFeature[]; removed: ContextBuildingFeature[] } {
+    if (!parcel || parcel.length < 3) return { kept: [...features], removed: [] };
+    const kept: ContextBuildingFeature[] = [];
+    const removed: ContextBuildingFeature[] = [];
+    for (const f of features) {
+        const ring = f.geometry.coordinates[0];
+        if (ring && footprintOnParcel(ring, parcel)) removed.push(f);
+        else kept.push(f);
+    }
+    return { kept, removed };
+}
+
 /** §PERF-CTX-SINGLE-FETCH (L-368) — the near + far context sets, split from ONE fetch. */
 export interface ContextBuildingsNearFar {
     /** Near ring: rendered extruded + shadow-casting (drawn first). */
