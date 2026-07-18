@@ -40,6 +40,14 @@ export const ZoningRecordSchema = z.object({
     structuredFields: EnvelopeNumbersSchema.partial().default({}),
     /** Conservation / flood / heritage overlay codes. */
     overlays: z.array(z.string().min(1)).default([]),
+    /**
+     * Citation of the governing legal document for this record (C58 §1.3), when
+     * the source publishes one — e.g. the DK Plandata plan-document link
+     * (`doklink`). The engine threads this into every `DerivationEntry.ordinanceRef`
+     * for a structured record with no curated pack (where `zone.ordinanceRef` is
+     * absent). `null` = the source published no citation (never fabricated).
+     */
+    ordinanceRef: z.string().min(1).nullable().default(null),
     provenance: ZoningProvenanceSchema,
 });
 export type ZoningRecord = z.infer<typeof ZoningRecordSchema>;

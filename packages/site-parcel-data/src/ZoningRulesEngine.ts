@@ -93,7 +93,10 @@ export function computeBuildableEnvelope(
         const source = zone
             ? rulePack!.jurisdictionId
             : zoning.provenance.source;
-        const ordinanceRef = zone?.ordinanceRef ?? null;
+        // C58 §1.3 — cite the governing document. A curated pack zone's ordinanceRef
+        // wins; else a structured provider's record-level citation (DK Plandata
+        // `doklink`); else null (never fabricated).
+        const ordinanceRef = zone?.ordinanceRef ?? zoning.ordinanceRef ?? null;
 
         // ── Resolve each constraint (C58 §1.2). ──────────────────────────────
         const front = resolveNumber(

@@ -258,6 +258,24 @@ export function insetPolygonPerEdge(
     const signed = polygonSignedArea(pts);
     if (Math.abs(signed) < EPS) return { polygon: [], degenerate: true };
 
+    // ── Zero setback on every edge → the inset IS the parcel (eroding by 0 is
+    //    the identity). Short-circuit the offset/miter/soundness pipeline, whose
+    //    strict vertex-in-parcel gate treats an inset vertex sitting EXACTLY on a
+    //    parcel vertex (the 0-erosion case) as an escape → a false `degenerate`.
+    //    This is the common structured path where a plan publishes height/FAR but
+    //    NO setbacks (e.g. DK Plandata) — the buildable footprint is the whole
+    //    parcel, not "no buildable area". ─────────────────────────────────────
+    const maxSetback = Math.max(
+        0,
+        setbacks.front,
+        setbacks.side,
+        setbacks.rear,
+        setbacks.unclassified,
+    );
+    if (maxSetback <= EPS) {
+        return { polygon: pts.map((p) => ({ x: p.x, z: p.z })), degenerate: false };
+    }
+
     // ── 2. Canonicalise to CCW so the inward normal + all downstream math are
     //       orientation-independent (the L-403 winding fix). Reversing the ring
     //       also reverses the per-edge setbacks so each stays with its edge. ──
