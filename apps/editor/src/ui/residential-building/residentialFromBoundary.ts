@@ -36,6 +36,7 @@ import {
     ResidentialBuildingController,
     type ResidentialBuildingRequest,
 } from './ResidentialBuildingController.js';
+import { resolveBuildableFootprint } from '../site/siteDispatch.js';
 
 /** Footprint point (metres, plan XZ). */
 interface FootprintPoint { readonly x: number; readonly z: number }
@@ -195,9 +196,15 @@ export async function generateResidentialFromBoundary(
         }
 
         // ── Typology-agnostic site read ──────────────────────────────────────
+        // L-401 — build INSIDE the C58 buildable envelope (setbacks applied) when cached:
+        // COMPLIANT-BY-CONSTRUCTION; else the raw parcel (unchanged).
         const boundary = store.getParcelBoundary();
-        const polygon = boundary?.polygon ?? [];
-        console.log('[resi-from-boundary] parcel boundary polygon', polygon);
+        const rawPolygon = boundary?.polygon ?? [];
+        const { polygon, source } = resolveBuildableFootprint(rawPolygon);
+        console.log(
+            `[resi-from-boundary] footprint source=${source} (${polygon.length} pts) — ` +
+                `${source === 'envelope' ? 'COMPLIANT: inside the buildable envelope' : 'raw parcel (no envelope cached)'}.`,
+        );
 
         if (polygon.length < 3) {
             console.warn(`[resi-from-boundary] no usable parcel boundary (${polygon.length} pts).`);

@@ -98,6 +98,51 @@ export function getLastBuildableEnvelope(): BuildableEnvelope | null {
     return _lastEnvelope;
 }
 
+/**
+ * L-401 (design INSIDE the envelope — COMPLIANT-BY-CONSTRUCTION) — resolve the footprint a
+ * generator (apartment / house / office / residential) should build within.
+ *
+ * When a valid C58 buildable envelope is cached for the current parcel (`status: 'ok'`,
+ * inset ≥ 3 pts), returns the envelope INSET ring — the setback-reduced polygon the user
+ * may LEGALLY build within — so the generated shell sits at the setback line, not the raw
+ * lot edge: the building is authored inside the compliance envelope by construction.
+ * Otherwise falls back to the raw parcel boundary (identical to the pre-L-401 behaviour
+ * when there is no envelope, or a degenerate/estimated-off one). Also surfaces the max
+ * building height (m) the envelope permits, when known, so a generator can cap storeys
+ * (height-cap is a later slice; the footprint is the visible, high-impact one). Pure read
+ * of the transient `_lastEnvelope` cache — no I/O, no recompute.
+ */
+export function resolveBuildableFootprint(
+    parcelPolygon: ReadonlyArray<{ x: number; z: number }>,
+): { polygon: ReadonlyArray<{ x: number; z: number }>; source: 'envelope' | 'parcel'; maxHeightM: number | null } {
+    return pickBuildableFootprint(_lastEnvelope, parcelPolygon);
+}
+
+/**
+ * L-401 — the PURE decision behind `resolveBuildableFootprint` (envelope + parcel →
+ * compliant footprint), extracted so it is unit-testable without the module cache. Uses
+ * the envelope INSET ring when the envelope is valid (`status: 'ok'`, ≥ 3 pts), else the
+ * raw parcel polygon. Winding/geometry are the solver's job — this only PICKS the source.
+ */
+export function pickBuildableFootprint(
+    env: BuildableEnvelope | null,
+    parcelPolygon: ReadonlyArray<{ x: number; z: number }>,
+): { polygon: ReadonlyArray<{ x: number; z: number }>; source: 'envelope' | 'parcel'; maxHeightM: number | null } {
+    if (
+        env &&
+        env.status === 'ok' &&
+        Array.isArray(env.insetPolygon) &&
+        env.insetPolygon.length >= 3
+    ) {
+        return {
+            polygon: env.insetPolygon.map((p) => ({ x: p.x, z: p.z })),
+            source: 'envelope',
+            maxHeightM: typeof env.maxHeight_m === 'number' ? env.maxHeight_m : null,
+        };
+    }
+    return { polygon: parcelPolygon, source: 'parcel', maxHeightM: null };
+}
+
 /** Derive a Proj4 UTM string for the given longitude (zones are 6° wide). */
 function utmProj4StringForLon(lat: number, lon: number): string {
     const zone = Math.max(1, Math.min(60, Math.floor((lon + 180) / 6) + 1));

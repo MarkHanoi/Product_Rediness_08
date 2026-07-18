@@ -23,6 +23,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { generateApartmentFromScratch, type FootprintPoint } from './apartmentFromScratch.js';
 import { resolveApartmentBrief } from './briefToProgram.js';
 import { getActiveBriefMetadata } from './activeBrief.js';
+import { resolveBuildableFootprint } from '../site/siteDispatch.js';
 
 /**
  * Read the active Site's parcel boundary polygon from `runtime.siteModelStore`
@@ -61,9 +62,16 @@ export async function generateApartmentFromBoundary(
         }
 
         // ── Typology-agnostic site read ──────────────────────────────────────
+        // L-401 — build INSIDE the C58 buildable envelope (setbacks applied) when one is
+        // cached for this parcel: COMPLIANT-BY-CONSTRUCTION. `resolveBuildableFootprint`
+        // returns the envelope inset ring when valid, else the raw parcel (unchanged).
         const boundary = store.getParcelBoundary();
-        const polygon = boundary?.polygon ?? [];
-        console.log('[apartment-from-boundary] parcel boundary polygon', polygon);
+        const rawPolygon = boundary?.polygon ?? [];
+        const { polygon, source } = resolveBuildableFootprint(rawPolygon);
+        console.log(
+            `[apartment-from-boundary] footprint source=${source} (${polygon.length} pts) — ` +
+                `${source === 'envelope' ? 'COMPLIANT: inside the buildable envelope (setbacks applied)' : 'raw parcel (no envelope cached)'}.`,
+        );
 
         if (polygon.length < 3) {
             console.warn(`[apartment-from-boundary] no usable parcel boundary (${polygon.length} pts).`);

@@ -60,7 +60,7 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { createSiteFromRect } from '../site/createSiteFromRect.js';
-import { resolveSiteContext, ensureSite, dispatchSiteLocation, dispatchClearParcelBoundary } from '../site/siteDispatch.js';
+import { resolveSiteContext, ensureSite, dispatchSiteLocation, dispatchClearParcelBoundary, resolveBuildableFootprint } from '../site/siteDispatch.js';
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
@@ -2293,10 +2293,17 @@ export class OnboardingStepController {
                 return null;
             }
             const boundary = store.getParcelBoundary();
-            const polygon = boundary?.polygon ?? [];
+            // L-401 — build INSIDE the C58 buildable envelope (setbacks applied) when one is
+            // cached for this parcel: COMPLIANT-BY-CONSTRUCTION. `resolveBuildableFootprint`
+            // returns the envelope inset ring when valid, else the raw parcel (unchanged).
+            const rawPolygon = boundary?.polygon ?? [];
+            const { polygon, source } = resolveBuildableFootprint(rawPolygon);
             if (polygon.length < 3) {
                 console.warn(`[onboarding-step] §A.21.j: parcel boundary has ${polygon.length} pts (<3) — house uses its default footprint.`);
                 return null;
+            }
+            if (source === 'envelope') {
+                console.log(`[onboarding-step] §L-401: footprint = buildable-envelope inset (${polygon.length} pts) — compliant-by-construction (setbacks applied).`);
             }
             const pts: FootprintPoint[] = polygon.map((p) => ({ x: p.x, z: p.z }));
             if (pts.length >= 2) {
