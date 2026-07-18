@@ -55,6 +55,7 @@ describe('§OVERPASS-PROXY /api/overpass', () => {
             fetchImpl: ((...args: Parameters<typeof fetch>) => fake.fetch(...args)) as typeof fetch,
             mirrors: ['https://mirror-a.example/api/interpreter', 'https://mirror-b.example/api/interpreter'],
             timeoutMs: 2000,
+            backoffMs: 0, // L-422 — no real sleep between retries in tests (keep call-count assertions instant).
         });
         app.post(OVERPASS_PATH, overpassBodyParser, handler);
         const a = await listen(app);

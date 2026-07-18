@@ -51,6 +51,12 @@ export const OVERPASS_MIRRORS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass.private.coffee/api/interpreter',
+    // L-422 — additional established public mirrors so a rate-limited server IP
+    // (the founder's heavy demo testing 429s the first three) has more chances to
+    // resolve context before degrading to "no context". High-capacity + reliable.
+    'https://overpass.osm.ch/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    'https://overpass.openstreetmap.fr/api/interpreter',
 ];
 
 // ── Body parser ─────────────────────────────────────────────────────────────
@@ -78,6 +84,16 @@ export const OVERPASS_CACHE_MAX_ENTRIES = 256;
  *  server pays it ONCE for the whole fleet (result is then cached), and a slow
  *  legitimate large-city response is worth waiting for so it gets cached. */
 export const OVERPASS_UPSTREAM_TIMEOUT_MS = 20_000;
+/** L-422 — backoff before the RETRY attempt on a transient failure (429 / 504 /
+ *  network). Overpass rate-limits typically clear after a couple seconds, so a
+ *  brief pause before retrying the SAME mirror recovers context that an immediate
+ *  retry would just 429 again. Injectable (`deps.backoffMs`) so tests run instantly. */
+export const OVERPASS_RETRY_BACKOFF_MS = 1500;
+
+/** Promise-based sleep; injectable via `deps.sleepImpl` so tests don't wait. */
+function defaultSleep(ms) {
+    return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
+}
 
 /** @typedef {{ body: string, expires: number }} CacheEntry */
 /** @type {Map<string, CacheEntry>} query-hash → cached upstream JSON string. */
@@ -142,6 +158,9 @@ export async function fetchFromMirrors(query, deps = {}) {
     const fetchImpl = deps.fetchImpl || fetch;
     const mirrors = deps.mirrors || OVERPASS_MIRRORS;
     const timeoutMs = deps.timeoutMs || OVERPASS_UPSTREAM_TIMEOUT_MS;
+    // L-422 — backoff before a retry (0 disables; tests pass 0 to run instantly).
+    const backoffMs = deps.backoffMs !== undefined ? deps.backoffMs : OVERPASS_RETRY_BACKOFF_MS;
+    const sleep = deps.sleepImpl || defaultSleep;
     const body = 'data=' + encodeURIComponent(query);
 
     for (const endpoint of mirrors) {
@@ -163,8 +182,9 @@ export async function fetchFromMirrors(query, deps = {}) {
                     signal: ctrl.signal,
                 });
                 if (res.status === 429 || res.status === 504) {
-                    // Rate-limited / gateway-timeout — retry once, then next mirror.
-                    console.warn(`[overpass-proxy] ${endpoint} HTTP ${res.status} (attempt ${attempt + 1}) — ${attempt === 0 ? 'retrying' : 'next mirror'}.`);
+                    // Rate-limited / gateway-timeout — back off, retry once, then next mirror.
+                    console.warn(`[overpass-proxy] ${endpoint} HTTP ${res.status} (attempt ${attempt + 1}) — ${attempt === 0 ? `backing off ${backoffMs}ms then retrying` : 'next mirror'}.`);
+                    if (attempt === 0) { clearTimeout(timer); await sleep(backoffMs); }
                     continue;
                 }
                 if (!res.ok) {
@@ -175,8 +195,10 @@ export async function fetchFromMirrors(query, deps = {}) {
                 if (text && text.length > 0) return text;
                 break; // empty body — try the next mirror
             } catch (err) {
-                // Timeout / network / abort — retry once, then next mirror.
+                // Timeout / network / abort — back off, retry once, then next mirror.
                 console.warn(`[overpass-proxy] ${endpoint} fetch failed (attempt ${attempt + 1}): ${err?.message ?? err}`);
+                clearTimeout(timer);
+                if (attempt === 0) await sleep(backoffMs);
                 continue;
             } finally {
                 clearTimeout(timer);
