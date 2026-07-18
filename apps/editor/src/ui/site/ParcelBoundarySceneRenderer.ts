@@ -53,12 +53,17 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { EDITOR_LAYER } from '@pryzm/scene-committer';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import { getLastBuildableEnvelope } from './siteDispatch';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
 
 /** Slight +y lift (metres) so the outline never z-fights the ground grid. */
 const GROUND_Y_OFFSET = 0.02;
+
+/** §ENVELOPE-VIA-MASSING (L-402d) — the fallback envelope height (m) when the C58
+ *  envelope has no `maxHeight_m` resolved. Mirrors the Cesium side's fallback. */
+const ENVELOPE_FALLBACK_HEIGHT_M = 9;
 
 /** A 2D point on the scene ground plane (metres). Matches C19 `Pt`. */
 interface XZPoint {
@@ -192,6 +197,20 @@ export class ParcelBoundarySceneRenderer {
         const fillMesh = this.buildFill(polygon);
         if (fillMesh) group.add(fillMesh);
 
+        // ── §ENVELOPE-VIA-MASSING (L-402d) — buildable-envelope study volume ──
+        // Render the C58 buildable envelope in the BIM 3D + plan scene as a
+        // translucent extruded #6600FF volume, through the SAME three.js scene path
+        // the walls/slabs use (an ExtrudeGeometry mesh in this same non-pickable
+        // EDITOR_LAYER group). ONE geometry SOURCE — the cached `BuildableEnvelope`
+        // from `siteDispatch` (getLastBuildableEnvelope) — is consumed by BOTH this
+        // renderer AND the Cesium Forma Site (resolveFormaEnvelope), so the design
+        // scene and the context view show the identical envelope. UNLIKE the parcel
+        // ring/fill (hidden in the pure-3D BIM view), the envelope volume is site
+        // intelligence the founder wants visible IN the design scene, so it carries
+        // NO `isParcelBoundaryFill`/`isParcelBoundaryLine` hide flag.
+        const envelopeMesh = this.buildEnvelopeVolume();
+        if (envelopeMesh) group.add(envelopeMesh);
+
         // EDITOR_LAYER + non-pickable for the whole group.
         group.traverse((obj) => {
             obj.layers.set(EDITOR_LAYER);
@@ -251,6 +270,67 @@ export class ParcelBoundarySceneRenderer {
             return mesh;
         } catch (e) {
             console.warn('[ParcelBoundarySceneRenderer] fill triangulation failed:', e);
+            return null;
+        }
+    }
+
+    /**
+     * §ENVELOPE-VIA-MASSING (L-402d) — build the buildable-envelope study volume: a
+     * translucent extruded #6600FF prism from the cached C58 `BuildableEnvelope`
+     * inset ring (scene-XZ metres) up to its max height. Returns null when there is
+     * no `ok` envelope (no parcel / degenerate setbacks / no envelope computed yet),
+     * or on any triangulation failure — never throws.
+     *
+     * Geometry alignment: the inset ring is in the SAME scene-XZ frame as the parcel
+     * polygon + generated walls. We build the 2D shape in (x, −z) and rotate it flat
+     * onto the XZ ground plane extruding UP (+Y) so scene coords land at (p.x, y, p.z)
+     * — aligned with the parcel line + walls.
+     */
+    private buildEnvelopeVolume(): THREE.Mesh | null {
+        try {
+            const env = getLastBuildableEnvelope();
+            if (!env || env.status !== 'ok') return null;
+            const ring = env.insetPolygon;
+            if (!Array.isArray(ring) || ring.length < 3) return null;
+            const height =
+                typeof env.maxHeight_m === 'number' && env.maxHeight_m > 0
+                    ? env.maxHeight_m
+                    : ENVELOPE_FALLBACK_HEIGHT_M;
+
+            const shape = new THREE.Shape();
+            shape.moveTo(ring[0]!.x, -ring[0]!.z);
+            for (let i = 1; i < ring.length; i++) {
+                shape.lineTo(ring[i]!.x, -ring[i]!.z);
+            }
+            shape.closePath();
+
+            const geo = new THREE.ExtrudeGeometry(shape, {
+                depth: height,
+                bevelEnabled: false,
+                steps: 1,
+            });
+            // Lay the extruded shape (XY plane, extruded along +Z) flat onto XZ with the
+            // extrusion pointing UP: rotateX(−90°) maps a local (sx, sy, sz) → (sx, sz, −sy),
+            // so with the shape built in (x, −z) the scene point is (x, sz∈[0,h], z) — the
+            // ring aligns in X/Z and the volume rises from the ground to `height`.
+            geo.rotateX(-Math.PI / 2);
+            geo.translate(0, GROUND_Y_OFFSET, 0);
+
+            const mat = new THREE.MeshBasicMaterial({
+                color: PRYZM_VIOLET,
+                transparent: true,
+                opacity: 0.16,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.name = 'pryzm-buildable-envelope-volume';
+            // Distinct flag (NOT the parcel hide flags) — visible in the BIM 3D + plan
+            // design scene; a future view gate can target this without touching the parcel.
+            mesh.userData.isBuildableEnvelopeVolume = true;
+            return mesh;
+        } catch (e) {
+            console.warn('[ParcelBoundarySceneRenderer] envelope volume build failed:', e);
             return null;
         }
     }

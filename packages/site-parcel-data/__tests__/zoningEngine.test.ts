@@ -38,8 +38,8 @@ describe('computeBuildableEnvelope — estimated default pack', () => {
 
     it('insets by the uniform mean setback and applies the height', () => {
         const env = solveEstimatedEnvelope(RECT, UNCLASSIFIED);
-        // uniform = mean(5,3,6) = 4.6667 → inner (40-2u)×(20-2u).
-        const u = (5 + 3 + 6) / 3;
+        // §ESTIMATED-SETBACK-MODEST — uniform = mean(3,1.5,3) = 2.5 → inner (40-2u)×(20-2u).
+        const u = (3 + 1.5 + 3) / 3;
         const expectedArea = (40 - 2 * u) * (20 - 2 * u);
         expect(env.insetAreaM2).toBeCloseTo(expectedArea, 4);
         expect(env.maxHeight_m).toBe(12);
@@ -78,11 +78,14 @@ describe('computeBuildableEnvelope — determinism (C58 §1.1)', () => {
 
 describe('computeBuildableEnvelope — degenerate over-inset', () => {
     it('reports status "degenerate" with no volume when setbacks consume the parcel', () => {
+        // §ESTIMATED-SETBACK-MODEST — with the modest 2.5 m uniform inset a plot must be
+        // genuinely tiny (≤ ~5 m across) to fully degenerate; a 4×4 m plot still does
+        // (4 − 2×2.5 = −1 m → the setbacks cross the centreline).
         const tiny: Pt[] = [
             { x: 0, z: 0 },
-            { x: 6, z: 0 },
-            { x: 6, z: 6 },
-            { x: 0, z: 6 },
+            { x: 4, z: 0 },
+            { x: 4, z: 4 },
+            { x: 0, z: 4 },
         ];
         const env = solveEstimatedEnvelope(tiny, UNCLASSIFIED);
         expect(env.status).toBe('degenerate');
@@ -91,6 +94,35 @@ describe('computeBuildableEnvelope — degenerate over-inset', () => {
         // The label is still present (never a fabricated authoritative surface).
         expect(env.confidence).toBe('estimated-ruleset');
         expect(env.caveats.some((c) => /consume the whole parcel/i.test(c))).toBe(true);
+    });
+});
+
+describe('computeBuildableEnvelope — modest setbacks on a normal urban plot (§ESTIMATED-SETBACK-MODEST)', () => {
+    // The demo-critical case: a typical small Barcelona plot (~12 × 8 m). Under the OLD
+    // 5/3/6 m defaults (uniform mean 4.667 m) this degenerated to nothing — the founder's
+    // "Setbacks consume the whole parcel" card on a normal plot. The modest 3/1.5/3 m
+    // defaults MUST leave a plausible, non-degenerate buildable envelope.
+    const SMALL_URBAN: Pt[] = [
+        { x: 0, z: 0 },
+        { x: 12, z: 0 },
+        { x: 12, z: 8 },
+        { x: 0, z: 8 },
+    ];
+
+    it('yields a NON-degenerate envelope with plausible area on a ~12×8 m plot', () => {
+        const env = solveEstimatedEnvelope(SMALL_URBAN, UNCLASSIFIED);
+        expect(env.status).toBe('ok');
+        expect(env.insetPolygon.length).toBeGreaterThanOrEqual(3);
+        // uniform = mean(3,1.5,3) = 2.5 → (12 − 5) × (8 − 5) = 7 × 3 = 21 m².
+        const u = (3 + 1.5 + 3) / 3;
+        const expectedArea = (12 - 2 * u) * (8 - 2 * u);
+        expect(env.insetAreaM2).toBeCloseTo(expectedArea, 4);
+        expect(env.insetAreaM2).toBeGreaterThan(15); // visibly buildable, not a sliver
+        expect(env.maxHeight_m).toBe(12);
+        expect(env.maxVolumeM3).toBeCloseTo(expectedArea * 12, 3);
+        // Still an ESTIMATE — the honest label + verify caveat are mandatory.
+        expect(env.confidence).toBe('estimated-ruleset');
+        expect(env.caveats.some((c) => /verify against/i.test(c))).toBe(true);
     });
 });
 

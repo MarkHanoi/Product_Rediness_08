@@ -543,14 +543,26 @@ export function dispatchParcelBoundary(
         return false;
     }
     console.log('[gis] site.parcel-boundary-set', boundaryRes.event, 'area(m²)=', boundaryRes.event.area);
+
+    // C58 (L-398 + L-402b) + §ENVELOPE-VIA-MASSING (L-402d) — ORDERING FIX. Compute +
+    // cache the buildable envelope BEFORE emitting `site.parcel-boundary-set`. The Forma
+    // live-update subscribes to that event and does the FIRST (framing) render of the 3D
+    // Site; computing the envelope FIRST means its inset ring is already cached
+    // (getLastBuildableEnvelope) when that render reads it, so the purple study volume is
+    // drawn in the SAME pass as the parcel boundary — not missing on the framing pass and
+    // only appearing on a later `site.zoning-updated` re-render (which a stale-input
+    // terrain re-place could also clobber). Single producer (solveEstimatedEnvelope),
+    // one cache, consumed by BOTH the framing render and the zoning dispatch below.
+    const envelope = computeAndCacheEstimatedEnvelope(boundary);
     ctx.rt.events?.emit('site.parcel-boundary-set', boundaryRes.event);
 
-    // C58 (L-398 / L-399a) — the payoff of committing a parcel: compute the
-    // buildable envelope and write its numeric results onto the C19 Parcel via
-    // the EXISTING `site.updateZoning` command (P6 — the UI never writes zoning
-    // fields directly). Jurisdiction-selected: a plot in Denmark resolves REAL
-    // structured Plandata.dk zoning; everywhere else uses the estimated default.
-    applyZoning(ctx, boundary);
+    // C58 (L-398 / L-399a) — the payoff of committing a parcel: thread the buildable
+    // envelope's numeric results onto the C19 Parcel via the EXISTING `site.updateZoning`
+    // command (P6 — the UI never writes zoning fields directly). Jurisdiction-selected: a
+    // plot in Denmark resolves REAL structured Plandata.dk zoning (which REPLACES the
+    // estimated ring cached above once its async fetch returns); everywhere else the
+    // estimated envelope (already computed + cached for the framing render) is threaded on.
+    applyZoning(ctx, boundary, envelope);
     return true;
 }
 
@@ -563,48 +575,57 @@ type ZoningBoundary = {
  * C58 §1.5 (L-399a) — JURISDICTION SELECTION. Route the just-committed parcel to
  * the right zoning provider: a plot whose site location is in Denmark resolves
  * REAL structured Plandata.dk zoning (`confidence: 'structured'`); everywhere
- * else uses the curated `estimated-default` pack (`estimated-ruleset`).
+ * else dispatches the curated `estimated-default` envelope (`estimated-ruleset`).
  *
  * The DK path is async (same-origin proxy fetch) and best-effort: on ANY
- * failure / no-plan it falls back to the estimated default, so the envelope is
- * NEVER broken (C58 §1.2 fidelity-3 graceful degradation). Non-DK plots keep the
- * exact synchronous estimated path they had before — no behaviour change.
+ * failure / no-plan it falls back to the estimated envelope (already computed +
+ * cached by `computeAndCacheEstimatedEnvelope`), so the envelope is NEVER broken
+ * (C58 §1.2 fidelity-3 graceful degradation). Non-DK plots dispatch that same
+ * precomputed estimated envelope synchronously — the geometry is solved once.
  *
- * Kept deliberately minimal (another agent may touch this file): selection is a
- * bbox predicate on the site location; the shared dispatch + estimated solve are
- * unchanged below.
+ * §ENVELOPE-VIA-MASSING (L-402d) note: the estimated ring is already cached before
+ * this runs (so the framing render has geometry); in Denmark the real structured
+ * envelope REPLACES it in `_lastEnvelope` when the async fetch returns, and both
+ * renderers redraw off the same single cache.
  */
-function applyZoning(ctx: SiteContext, boundary: ZoningBoundary): void {
+function applyZoning(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    estimated: BuildableEnvelope | null,
+): void {
     try {
         const loc = ctx.store.getSite()?.location;
         if (loc && isInDenmark(loc.latitude, loc.longitude)) {
-            void applyDkZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude);
+            void applyDkZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude, estimated);
             return;
         }
     } catch (e) {
         console.warn('[gis][c58] jurisdiction selection failed (non-fatal) — using estimated default:', e);
     }
-    applyEstimatedZoning(ctx, boundary);
+    applyEstimatedZoning(ctx, estimated);
 }
 
 /**
  * L-399a — the Denmark path: fetch structured zoning from Plandata.dk (via the
- * same-origin keyless proxy), solve a `structured` envelope, and dispatch it. On
- * a miss / any failure, fall back to the estimated default (never a broken
- * envelope). Fully guarded — never throws into the commit path.
+ * same-origin keyless proxy), solve a `structured` envelope, and dispatch it (which
+ * RE-caches `_lastEnvelope` with the real geometry so both renderers redraw the true
+ * DK envelope over the estimated framing ring). On a miss / any failure, fall back to
+ * the precomputed estimated envelope (never a broken envelope). Fully guarded — never
+ * throws into the commit path.
  */
 async function applyDkZoningThenFallback(
     ctx: SiteContext,
     boundary: ZoningBoundary,
     lat: number,
     lon: number,
+    estimated: BuildableEnvelope | null,
 ): Promise<void> {
     try {
         if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
         const record = await DkZoningProvider.fetchZoningAtPoint(lat, lon);
         if (!record) {
-            // No usable Danish plan at this point → estimated default.
-            applyEstimatedZoning(ctx, boundary);
+            // No usable Danish plan at this point → the precomputed estimated envelope.
+            applyEstimatedZoning(ctx, estimated);
             return;
         }
         const site = ctx.store.getSite();
@@ -622,24 +643,59 @@ async function applyDkZoningThenFallback(
         );
     } catch (e) {
         console.warn('[gis][c58] DK zoning path failed (non-fatal) — falling back to estimated default:', e);
-        try { applyEstimatedZoning(ctx, boundary); } catch { /* estimated is best-effort too */ }
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }
 
 /**
- * C58 §3.2 / §1.7 — run the PURE estimated-default solver over the just-committed
- * parcel (the non-DK / fallback path) and dispatch its numeric results.
- * `confidence: 'estimated-ruleset'` (the honest label, C58 §1.4). Fully guarded.
+ * C58 §3.2 / §1.7 + §ENVELOPE-VIA-MASSING (L-402d) — THE SINGLE ESTIMATED-ENVELOPE
+ * PRODUCER. Run the PURE estimated-default solver over the just-committed parcel and
+ * cache the full `BuildableEnvelope` (confidence label + derivation + inset ring in
+ * scene-XZ) so BOTH renderers read ONE geometry source: the Forma/Cesium 3D Site (via
+ * `resolveFormaEnvelope`) AND the BIM three.js scene (via the site-element renderer),
+ * plus the facts card. Called BEFORE `site.parcel-boundary-set` emits so the framing
+ * render already has the ring (see `dispatchParcelBoundary`). In Denmark this estimated
+ * ring is the immediate framing geometry; the real structured envelope replaces it in
+ * `_lastEnvelope` when the async DK fetch returns (see `applyDkZoningThenFallback`).
+ * `confidence: 'estimated-ruleset'` (the honest label, C58 §1.4). Fully guarded — never
+ * throws into the commit path; returns the envelope (also cached) or null.
  */
-function applyEstimatedZoning(ctx: SiteContext, boundary: ZoningBoundary): void {
+function computeAndCacheEstimatedEnvelope(
+    boundary: {
+        polygon: XZPoint[];
+        edgeClassifications: ParcelEdgeClassification[];
+    },
+): BuildableEnvelope | null {
     try {
-        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
-        const site = ctx.store.getSite();
-        if (!site) return;
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return null;
         const envelope = solveEstimatedEnvelope(
             boundary.polygon,
             boundary.edgeClassifications,
         );
+        _lastEnvelope = envelope;
+        return envelope;
+    } catch (e) {
+        console.warn('[gis][c58] buildable-envelope solve failed (non-fatal):', e);
+        return null;
+    }
+}
+
+/**
+ * C58 §1.7 — thread the (already-computed + cached) ESTIMATED envelope onto the C19
+ * Parcel via the shared `dispatchEnvelope` (P6 `site.updateZoning` + `_lastEnvelope`
+ * cache + `site.zoning-updated`). Takes the precomputed envelope from
+ * `computeAndCacheEstimatedEnvelope` so the geometry is produced exactly once; this is
+ * the non-DK / fallback path (`jurisdictionRef: 'estimated-default'`). Fully guarded —
+ * never throws into the commit path.
+ */
+function applyEstimatedZoning(
+    ctx: SiteContext,
+    envelope: BuildableEnvelope | null,
+): void {
+    try {
+        if (!envelope) return;
+        const site = ctx.store.getSite();
+        if (!site) return;
         dispatchEnvelope(ctx, site.id, envelope, 'estimated-default');
     } catch (e) {
         // Envelope computation is best-effort site intelligence — never block the

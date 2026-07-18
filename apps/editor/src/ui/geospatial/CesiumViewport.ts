@@ -589,6 +589,11 @@ export class CesiumViewport {
    *  faulted, so we never re-enable AO/silhouette after Cesium reported a
    *  render error for them (avoids a crash → disable → re-enable → crash loop). */
   private formaPostProcessFaulted = false;
+  /** §ENVELOPE-VIA-MASSING (L-402d) — a STABLE per-instance id so the render
+   *  diagnostics can prove the envelope/massing entities land in the SAME viewer
+   *  the camera framed (a paned re-parent must never split the two). */
+  private static instanceSeq = 0;
+  private readonly instanceId = `cvp-${(CesiumViewport.instanceSeq++)}`;
   /** Disposer for the `scene.renderError` subscription (called on dispose). */
   private renderErrorSub: (() => void) | null = null;
   /** §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — remover for the canvas
@@ -3771,31 +3776,43 @@ export class CesiumViewport {
       }
     }
 
-    // ── C58 buildable-envelope study volume — translucent #6600FF prism ───────
-    // (L-402b) Extrude the setback-inset ring from the site base up to the max
-    // height, using the SAME `toCartesian` ENU projection as the parcel boundary
-    // above, so the envelope base sits coincident with the inset of the drawn
-    // parcel (SPEC-BUILDABLE-ENVELOPE-UX §4). Purple + translucent so the parcel
-    // + context read through as a study volume, not a solid building.
+    // ── C58 buildable-envelope study volume ───────────────────────────────────
+    // §ENVELOPE-VIA-MASSING (L-402d — founder's architectural fix) — the buildable
+    // envelope is ONE MORE MASSING VOLUME, produced from the C58 `BuildableEnvelope`
+    // ring + max height and built EXACTLY like the storey-band massing prisms above:
+    // the SAME `viewer.entities.add({ polygon: { hierarchy, height, extrudedHeight,
+    // material } })` construction, the SAME `formaMassingEntities` lifecycle (cleared
+    // by `clearFormaMassing` on every re-render), the SAME `toCartesian` ENU frame.
+    //
+    // WHY (root cause of the old fragility): the envelope used to be a SEPARATE render
+    // path — a prism PLUS a bespoke `depthFailMaterial` top-ring polyline. That polyline
+    // was the L-402c crash (a Dash depth-fail material threw inside `scene.render()` and
+    // blanked the whole viewer) and, even after the crash fix, it kept the envelope on a
+    // one-off path that could render nothing while the proven massing path rendered fine.
+    // The founder's insight: the building massing ALREADY renders reliably on the Forma
+    // Site, and the envelope is a SIMPLER single extruded polygon — so it must go through
+    // the identical mechanism. No separate polyline, no depth-fail, no bespoke guards.
+    // Translucent #6600FF so the parcel + context still read through as a STUDY volume.
     const envelope = input.envelope;
-    if (envelope && envelope.ring && envelope.ring.length >= 3) {
+    const envelopePresent = !!(envelope && envelope.ring && envelope.ring.length >= 3);
+    let envelopeEntitiesAdded = 0;
+    if (envelopePresent) {
       try {
         const envTop = baseHeight +
-          (typeof envelope.maxHeightM === 'number' && envelope.maxHeightM > 0
-            ? envelope.maxHeightM
+          (typeof envelope!.maxHeightM === 'number' && envelope!.maxHeightM > 0
+            ? envelope!.maxHeightM
             : 9);
         const envBottom = baseHeight - FORMA_BASE_SINK_M; // seat below ground (no z-fight).
-        const positions = envelope.ring.map((p) => toCartesian(p.x, p.z, envBottom));
+        const positions = envelope!.ring.map((p) => toCartesian(p.x, p.z, envBottom));
+        // Identical entity construction to the storey-band massing prism (see above),
+        // differing ONLY in the translucent purple study fill + shadows-off (a study
+        // volume should not cast a solid building shadow).
         const ent = viewer.entities.add({
           name: 'pryzm-forma-buildable-envelope',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: envBottom,
             extrudedHeight: envTop,
-            // #6600FF, translucent (study volume — reads clearly as a STUDY, not a
-            // solid building). Bumped 0.28 → 0.34 so the fill has enough presence to be
-            // legible against the grey/white context once the plot itself is cleared
-            // (§PLOT-CLEAR-ENVELOPE), without turning opaque.
             material: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.34),
             outline: true,
             outlineColor: Cesium.Color.fromCssColorString('#6600FF').withAlpha(1.0),
@@ -3807,47 +3824,26 @@ export class CesiumViewport {
           },
         });
         this.formaMassingEntities.push(ent);
-
-        // §PLOT-CLEAR-ENVELOPE — a CRISP #6600FF top-ring outline that reads ABOVE the
-        // surrounding context. Cesium clamps `polygon.outlineWidth` to 1 px on most WebGL
-        // GPUs, so the prism's own outline can be lost among tall neighbours; a dedicated
-        // polyline gives a reliable thick edge, and its `depthFailMaterial` draws the ring
-        // (dimmer) even where a context building would occlude it — so the study volume is
-        // never buried behind the neighbourhood. Purple stays translucent overall.
-        //
-        // §ENVELOPE-BLANK-SCENE-FIX (L-402c REGRESSION ROOT CAUSE) — the depth-fail material
-        // was a `PolylineDashMaterialProperty`. A DASH material is the ONE material type not
-        // supported as a polyline depth-fail appearance in this Cesium build — it passes
-        // `entities.add()` (so the surrounding try/catch never sees it) but then FAILS when
-        // the depth-fail draw command is built inside `scene.render()`, which throws EVERY
-        // frame and blanks the ENTIRE viewer (envelope prism + parcel + massing + context all
-        // gone) — exactly the reported "empty 3D Site". Every other depth-fail polyline in
-        // this file uses a plain Color / ColorMaterialProperty / PolylineOutline (never Dash)
-        // and works. Use a plain Color depth-fail (proven safe) + `arcType: NONE` (matching
-        // the climate depth-fail polylines) so the ring can NEVER take down the render loop.
-        const topRing = envelope.ring.map((p) => toCartesian(p.x, p.z, envTop));
-        const topRingClosed = [...topRing, topRing[0]!];
-        const capLine = viewer.entities.add({
-          name: 'pryzm-forma-buildable-envelope-top',
-          polyline: {
-            positions: topRingClosed,
-            width: 3,
-            clampToGround: false,
-            arcType: Cesium.ArcType.NONE,
-            material: Cesium.Color.fromCssColorString('#6600FF'),
-            // Plain Color depth-fail: draws the occluded portion dimmer (see fix note above).
-            depthFailMaterial: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.6),
-          },
-        });
-        this.formaMassingEntities.push(capLine);
+        envelopeEntitiesAdded = 1;
         console.log(
-          `[CesiumViewport][forma] buildable envelope drawn: ${envelope.ring.length}-vertex inset, ` +
-            `top ${envTop.toFixed(1)} m (#6600FF translucent + crisp depth-fail top outline).`,
+          `[CesiumViewport][forma] buildable envelope drawn via massing path: ` +
+            `${envelope!.ring.length}-vertex inset, top ${envTop.toFixed(1)} m ` +
+            `(#6600FF translucent extruded polygon — same entity type as the storey massing).`,
         );
       } catch (e) {
         console.warn('[CesiumViewport][forma] envelope volume failed — skipped:', e);
       }
     }
+    // §ENVELOPE-VIA-MASSING diagnostic — envelope present? entities added? which viewer?
+    // The founder's next console tells us EXACTLY where the paned render dies: if this
+    // logs `present=y added=1` on the SAME instanceId the camera framed, the envelope is
+    // in the shown viewer and any invisibility is a camera/occlusion issue, not a wrong
+    // viewer / short-circuited add.
+    console.log(
+      `[CesiumViewport][forma] §ENVELOPE-VIA-MASSING render diag: envelope present=${envelopePresent ? 'y' : 'n'}, ` +
+        `envelope entities added=${envelopeEntitiesAdded}, total massing entities=${this.formaMassingEntities.length}, ` +
+        `viewer=${this.instanceId}, container=${this.container?.id ?? 'n/a'}.`,
+    );
 
     // FIX A.21.D28#2 — `area ≈ 0 m²`. The footprint area + centroid were computed
     // ONLY from the parcel boundary; a house generated from scratch (no drawn

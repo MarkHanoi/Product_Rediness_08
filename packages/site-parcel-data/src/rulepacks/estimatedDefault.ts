@@ -40,7 +40,17 @@ export const ESTIMATED_DEFAULT_PACK: JurisdictionZoningContract =
                 maxFloors: 4,
                 plotRatioFAR: 2,
                 maxCoverage: 0.5,
-                setbacks: { front_m: 5, side_m: 3, rear_m: 6 },
+                // §ESTIMATED-SETBACK-MODEST (L-402d) — MODEST placeholder setbacks so a
+                // typical small/normal urban plot (e.g. ~12×8 m) still yields a VISIBLE
+                // buildable envelope instead of degenerating to nothing. The prior
+                // 5/3/6 m eroded an 8 m-wide plot to a negative inset (side 3 m ×2 = 6 m,
+                // leaving 2 m — and with the uniform-mean fallback ~4.67 m ×2 = 9.3 m > 8 m
+                // → degenerate). 3 m front / 1.5 m side / 3 m rear (uniform mean 2.5 m)
+                // leaves a plausible inset on normal plots while staying conservative.
+                // These remain ESTIMATES (every field flagged `estimated`, ordinanceRef
+                // null → `estimated-ruleset` confidence + mandatory "Estimated" badge);
+                // real DK/ES zoning is the L-399 pack track, never an engine edit.
+                setbacks: { front_m: 3, side_m: 1.5, rear_m: 3 },
                 // Every field is an estimate — no field is published-structured.
                 fieldProvenance: {
                     maxHeight: 'estimated',
