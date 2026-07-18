@@ -3668,6 +3668,22 @@ Links: L-405; ties L-374g (enhanced-Forma segment), L-380/C57 + L-384 (parcel-se
 
 Links: L-412; supersedes the "3D-Site-on-right" narrow ask + the "site-view enabler button" idea; absorbs L-405 (switcher registry); ties L-398/L-402b (envelope, now visible via a pane host), SPEC-BUILDABLE-ENVELOPE-UX. Owner UNASSIGNED. Target TBD.
 
+## L-413 — Composition-root: thread the real runtime into the site subsystem; retire the `runtime ?? window.runtime` fallback (follow-up to L-412)
+**Severity:** P1 (architectural debt / follow-up to L-412 — the L-412 envelope-visible fix is correct + safe, but patches a transitional smell not the root cause). **Queue:** view-system / composition-root (C02/C59). **Contracts/specs:** **P1** (single composition root) + **C02-COMPOSITION-ROOT-AND-BOOT** + **C59-MULTI-PANE-VIEW-SYSTEM §invariant-7**. Follow-up to **L-412** (`5fe0fa07`). **Status: OPEN — logged only, not started; NOT launch-blocking (correctness verified). Owner UNASSIGNED. Target TBD.**
+
+> **Why (architectural review of the L-412 envelope fix, `5fe0fa07`).** The fix converges the emitter/subscriber onto one bus (no wrong-bus / double-subscribe) and is correct + safe — but it patches a transitional smell rather than the root cause.
+>
+> **Root cause (traced).** `apps/editor/src/engine/initUI.ts:2820` deliberately passes `createMainLayout(props, null)` — a "Phase B.2 / S73-WIRE" migration gate: threading the real runtime there would prematurely activate ~30 half-migrated child code paths. So `mountGISArea`'s captured runtime is null and site code reaches for the typed global `window.runtime`.
+>
+> **Sound fix (scoped, low-risk).** Inject the real runtime into the site subsystem (e.g. `mountGISArea(props, {runtime})` or a `setSiteRuntime(runtime)` post-construction injector) and retire the window fallback for the site path — WITHOUT flipping the global null (which would activate the gated Phase-C child paths). Sub-items:
+> - **(a)** Inject runtime into the site subsystem + retire the `resolveFormaEvents` / `getFormaBoundary` window fallback.
+> - **(b)** Route the latent same-class captured-null sites through the ONE shared accessor — `GISAreaLayout.ts:118`, `:1160`, `:2974` (site-location reads) and the 6 toast emits (`:186, :1890, :2986, :2994, :2997, :3021`).
+> - **(c)** Wire the forma live-update disposer (`window.pryzmDisposeFormaLiveUpdate`, `GISAreaLayout.ts:~2902`) into a real pane-unmount hook — listeners currently persist for the session / orphan on re-mount.
+>
+> **Terminal state = Phase-C runtime threading** (`createMainLayout(props, runtime)`). The `runtime ?? window.runtime` fallback is time-boxed transitional migration debt (C59 §invariant-7), removed when Phase C threads the runtime.
+
+Links: L-413; follow-up to L-412 (`5fe0fa07`); ties C02, C59 §invariant-7, P1. Owner UNASSIGNED. Target TBD.
+
 ## Pipeline A — compliance-authoring: sub-task breakdown (transcribed from `SEPTEMBER-READINESS-MASTER-PROGRAM-PLAN.md` §8)
 
 The coarse compliance L-items (mapping-table rows L-393, L-398–L-402 above) break into schedulable sub-items. Parents stay **OPEN**; scope + contract map verbatim from the program plan §8. The **serial engine core** is `L-403 (C57/C58) → L-398a → L-398b/c → L-398d → L-401a/b/c` (critical path, ~4 weeks); once the engine interface freezes (~wk2) Track J (L-399/L-400 adapters), Track R (L-402), and Track I (L-393) fan out in parallel.
