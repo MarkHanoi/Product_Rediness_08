@@ -55,6 +55,29 @@ import {
     resolveLiveUpdateEventBus,
     type LiveUpdateEventBus,
 } from '../../engine/views/siteAuthoringPaneDecisions';
+// L-402 — the PURE explain-why report model (C58 §1.3 derivation → presentable rows).
+import { buildComplianceReport } from '@pryzm/site-parcel-data';
+
+/** §L-402-XSS — escape text before it enters an innerHTML template. The compliance rows
+ *  carry EXTERNAL provider strings (zoneCode / source / ordinanceRef come from Plandata.dk
+ *  and other zoning providers), so they are untrusted input and MUST NOT be interpolated raw. */
+function escHtml(value: unknown): string {
+    return String(value ?? '').replace(/[&<>"']/g, (c) => (
+        c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'
+    ));
+}
+
+/** §L-402-XSS — only allow http(s) citation links. `ordinanceRef` is provider-supplied, so a
+ *  `javascript:`/`data:` URL would otherwise execute from an anchor href. Returns null when the
+ *  value is not a safe absolute http(s) URL (caller then renders it as plain text, not a link). */
+function safeHttpUrl(value: unknown): string | null {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw) return null;
+    try {
+        const u = new URL(raw);
+        return (u.protocol === 'http:' || u.protocol === 'https:') ? u.toString() : null;
+    } catch { return null; }
+}
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -1848,12 +1871,60 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const ordRef =
             env.derivation.find((d) => typeof d.ordinanceRef === 'string' && d.ordinanceRef)?.ordinanceRef ?? null;
         const sourceId = env.derivation[0]?.source ?? '';
+        // §L-402-XSS — `ordRef` + `sourceId` are PROVIDER-SUPPLIED (Plandata.dk et al.), so the
+        // link is protocol-validated and all interpolated text is escaped. A non-http(s) ref is
+        // rendered as plain text, never as an anchor href.
+        const ordHref = safeHttpUrl(ordRef);
         const sourceLine =
             env.confidence === 'estimated-ruleset'
                 ? '<span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>'
                 : sourceId === 'plandata-dk'
-                ? `<span style="color:#8a83a0;font-size:10.5px;">Source: Plandata.dk${ordRef ? ` · <a href="${ordRef}" target="_blank" rel="noopener" style="color:#6600FF;text-decoration:underline;">plan document</a>` : ''}</span>`
-                : `<span style="color:#8a83a0;font-size:10.5px;">Source: ${sourceId || 'zoning provider'}</span>`;
+                ? `<span style="color:#8a83a0;font-size:10.5px;">Source: Plandata.dk${ordHref ? ` · <a href="${escHtml(ordHref)}" target="_blank" rel="noopener noreferrer" style="color:#6600FF;text-decoration:underline;">plan document</a>` : ''}</span>`
+                : `<span style="color:#8a83a0;font-size:10.5px;">Source: ${escHtml(sourceId || 'zoning provider')}</span>`;
+
+        // ── L-402 slice 2 — the EXPLAIN-WHY report ────────────────────────────
+        // Every number above is only trustworthy if the user can see WHERE it came from
+        // (C58 §1.3). `buildComplianceReport` is the PURE model (site-parcel-data, 11 tests);
+        // this renders it as a collapsed <details> so the card stays compact but the full
+        // determination — value · zone · source · provenance · citation — is one click away.
+        // HONESTY (C58 §1.4): estimated rows are badged individually; a row with no citation
+        // reads "no citation" rather than silently looking authoritative.
+        const report = buildComplianceReport(env);
+        const whyBlock = (() => {
+            if (!report || report.rows.length === 0) return '';
+            const rowsHtml = report.rows.map((r) => {
+                const href = safeHttpUrl(r.ordinanceRef);
+                const cite = href
+                    ? `<a href="${escHtml(href)}" target="_blank" rel="noopener noreferrer" style="color:#6600FF;text-decoration:underline;">citation</a>`
+                    : r.ordinanceRef
+                    ? escHtml(r.ordinanceRef)
+                    : '<span style="color:#a49dbb;">no citation</span>';
+                const prov = r.isEstimate
+                    ? '<span style="color:#6600FF;background:#f3eeff;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">EST</span>'
+                    : '<span style="color:#2e7d32;background:#eef7ee;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">PUB</span>';
+                return `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid #efecf7;">
+                          <span style="color:#6b6480;flex:0 0 auto;">${escHtml(r.label)}</span>
+                          <span style="text-align:right;flex:1 1 auto;">
+                            <b>${escHtml(r.valueText)}</b> ${prov}<br>
+                            <span style="color:#8a83a0;font-size:10px;">zone ${escHtml(r.zoneCode)} · ${escHtml(r.source)} · ${cite}</span>
+                          </span>
+                        </div>`;
+            }).join('');
+            const gfa = report.maxGrossFloorAreaM2 !== null
+                ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #efecf7;">
+                     <span style="color:#6b6480;">Max gross floor area</span>
+                     <span style="font-weight:600;">${Math.round(report.maxGrossFloorAreaM2).toLocaleString()} m²</span>
+                   </div>
+                   <div style="color:#a49dbb;font-size:9.5px;margin-top:2px;">Zoning ceiling = buildable footprint × FAR (indicative).</div>`
+                : '';
+            const caveat = report.hasAnyEstimate
+                ? `<div style="margin-top:6px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">${report.estimatedRowCount} of ${report.rows.length} value(s) are ESTIMATED — not an authoritative determination.</div>`
+                : '';
+            return `<details style="margin-top:9px;">
+                      <summary style="cursor:pointer;color:#6600FF;font-size:11px;font-weight:600;list-style:none;">Why these numbers?</summary>
+                      <div style="margin-top:5px;font-size:11px;">${rowsHtml}${gfa}${caveat}</div>
+                    </details>`;
+        })();
         const rows =
             env.status === 'degenerate'
                 ? `<div style="color:#b23b3b;font-weight:600;">Setbacks consume the whole parcel — no buildable envelope.</div>`
@@ -1869,6 +1940,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
                ${sourceLine}
              </div>
+             ${whyBlock}
              <button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${formaEnvelopeVisible ? '#6600FF' : '#ffffff'};color:${formaEnvelopeVisible ? '#ffffff' : '#6600FF'};">
                Envelope: ${formaEnvelopeVisible ? 'ON' : 'OFF'}
              </button>`;
