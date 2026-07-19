@@ -1437,6 +1437,9 @@ export class CesiumViewport {
         // §GLOBE-TILE-CLAMP-FLUSH — keep the primitive so the clamp can bounding-sphere
         // it as a fallback ground height when picking returns ellipsoid-0.
         this.photorealTileset = tileset;
+        // §PLOT-CLEAR-PHOTOREAL (L-429) — a tileset can load AFTER the parcel was committed
+        // (globe entered post-draw), so re-apply the parcel void to the freshly-placed tiles.
+        this.applyParcelClipToPhotorealTiles();
         // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
         // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
         this.photorealTilesActive = true;
@@ -1477,6 +1480,9 @@ export class CesiumViewport {
           photogrammetryLoaded = true;
           // §GLOBE-TILE-CLAMP-FLUSH — keep the primitive for the bounding-sphere fallback.
           this.photorealTileset = tileset;
+        // §PLOT-CLEAR-PHOTOREAL (L-429) — a tileset can load AFTER the parcel was committed
+        // (globe entered post-draw), so re-apply the parcel void to the freshly-placed tiles.
+        this.applyParcelClipToPhotorealTiles();
           // §A.21.D-GLOBE3 — photoreal tiles ARE the surrounding context now → suppress
           // PRYZM's own OSM/Overpass context extrusions (they'd duplicate the tiles).
           this.photorealTilesActive = true;
@@ -3198,6 +3204,10 @@ export class CesiumViewport {
     // the site hasn't moved. Fully guarded: this is at the TOP of the render pass and MUST NOT
     // be able to blank the site (same invariant as the parcel projection above).
     this.reapplyPlotClearToContext();
+    // §PLOT-CLEAR-PHOTOREAL (L-429) — the OSM/entity plot-clear above cannot touch the Google
+    // photoreal tile MESH, so cut a parcel-shaped void into the tileset too (or restore it when
+    // the parcel cleared). Same committed ring, same never-throw posture.
+    this.applyParcelClipToPhotorealTiles();
 
     const silhouetteTargets: Cesium.Entity[] = [];
 
@@ -5617,6 +5627,78 @@ export class CesiumViewport {
     } catch (e) {
       // NICE-TO-HAVE — must never blank/strip the context. On any failure leave it as-is.
       console.warn('[CesiumViewport][forma] §PLOT-CLEAR-ENVELOPE re-filter threw — context left as-is:', e);
+    }
+  }
+
+  /**
+   * §PLOT-CLEAR-PHOTOREAL (L-429) — cut a PARCEL-SHAPED VOID in the Google Photorealistic
+   * 3D-Tiles mesh so the user's proposed design is VISIBLE instead of buried inside the
+   * existing building.
+   *
+   * WHY THIS IS DIFFERENT FROM §PLOT-CLEAR-ENVELOPE (L-418): the OSM/Forma context is a set
+   * of per-building ENTITIES, so the on-plot one can simply be hidden. Google photoreal tiles
+   * are ONE immutable textured mesh — the existing building CANNOT be removed from it
+   * (founder: "in cesium 3d tiles the building is still present, you cannot see it"). Cesium's
+   * native answer is a CLIPPING POLYGON on the tileset: geometry INSIDE the polygon is clipped
+   * away, leaving a void exactly on the committed parcel, with real photoreal context intact
+   * all around it — which is precisely the Archistar-style "your design in its real street".
+   *
+   * Reuses the SAME `committedParcelLonLat` ring the plot-clear already projects once per
+   * render (one geometry source). No parcel ⇒ the clip is REMOVED (full photoreal restored).
+   * Fully guarded: a clipping failure must NEVER break the globe — on any error we drop the
+   * clip and keep the tileset intact.
+   */
+  private applyParcelClipToPhotorealTiles(): void {
+    try {
+      const tileset = this.photorealTileset;
+      if (!tileset) return; // keyless / flat-ground study — nothing to clip.
+      const parcel = this.committedParcelLonLat;
+
+      // No committed parcel → restore the untouched photoreal mesh.
+      if (!parcel || parcel.length < 3) {
+        if (tileset.clippingPolygons) {
+          tileset.clippingPolygons = undefined as unknown as Cesium.ClippingPolygonCollection;
+          console.log('[CesiumViewport][globe] §PLOT-CLEAR-PHOTOREAL — no parcel; photoreal tiles restored (clip removed).');
+          this.viewer?.scene.requestRender();
+        }
+        return;
+      }
+
+      // Feature-detect: ClippingPolygon landed in Cesium 1.111 (we ship 1.140). If a host
+      // bundles an older Cesium, degrade silently to the un-clipped tileset.
+      const CP = (Cesium as unknown as { ClippingPolygon?: unknown; ClippingPolygonCollection?: unknown });
+      if (typeof CP.ClippingPolygon !== 'function' || typeof CP.ClippingPolygonCollection !== 'function') {
+        console.warn('[CesiumViewport][globe] §PLOT-CLEAR-PHOTOREAL — ClippingPolygon unavailable in this Cesium build; photoreal tiles left un-clipped.');
+        return;
+      }
+
+      // Ring → flat [lon,lat,…] degrees (Cartesian3 positions on the ellipsoid).
+      const degrees: number[] = [];
+      for (const [lon, lat] of parcel) {
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+        degrees.push(lon, lat);
+      }
+      if (degrees.length < 6) return; // < 3 usable vertices — leave the tileset alone.
+
+      const positions = Cesium.Cartesian3.fromDegreesArray(degrees);
+      const polygon = new Cesium.ClippingPolygon({ positions });
+      // `inverse: false` (default) clips geometry INSIDE the polygon — i.e. removes the tile
+      // mesh over the plot, leaving the void. (`inverse: true` would keep ONLY the plot.)
+      tileset.clippingPolygons = new Cesium.ClippingPolygonCollection({ polygons: [polygon], inverse: false });
+
+      console.log(
+        `[CesiumViewport][globe] §PLOT-CLEAR-PHOTOREAL — parcel-shaped void clipped into the photoreal ` +
+          `tileset (${degrees.length / 2}-vertex ring); the proposed design now reads inside real context.`,
+      );
+      this.viewer?.scene.requestRender();
+    } catch (e) {
+      // NICE-TO-HAVE — must NEVER break the globe. Drop the clip, keep the tiles.
+      console.warn('[CesiumViewport][globe] §PLOT-CLEAR-PHOTOREAL clip failed — photoreal tiles left un-clipped:', e);
+      try {
+        if (this.photorealTileset?.clippingPolygons) {
+          this.photorealTileset.clippingPolygons = undefined as unknown as Cesium.ClippingPolygonCollection;
+        }
+      } catch { /* give up silently — the tileset stays as-is */ }
     }
   }
 
