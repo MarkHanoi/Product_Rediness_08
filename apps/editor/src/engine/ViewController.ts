@@ -1404,6 +1404,14 @@ export class ViewController implements IViewController {
         // buffer, eliminating depth-fighting and overdraw artefacts.
         this._vst(`_activateFloorPlanView — camera.layers.disable(ANNOTATION_LAYER)`);
         this._camera.three.layers.disable(ANNOTATION_LAYER);
+        // §L-431 (founder 2026-07-19) — the PARCEL OUTLINE + BUILDABLE ENVELOPE are site
+        // context an architect needs while drawing IN PLAN (you set out walls against the
+        // setback line). They live on EDITOR_LAYER, which this activation never enabled —
+        // so the plan view showed neither, even after L-426 fixed 3D/elevation/section.
+        // The plan-specific fill gate (`_applyParcelFillVisibilityForView`) still hides the
+        // translucent parcel FILL slab where appropriate; only the crisp outline + envelope show.
+        this._vst(`_activateFloorPlanView — camera.layers.enable(EDITOR_LAYER) (§L-431 parcel + envelope in plan)`);
+        this._camera.three.layers.enable(EDITOR_LAYER);
 
         // ── Phase 2: Apply per-level element visibility culling (Task 2.2) ───
         // Hide elements not on the active plan view's level before camera setup
