@@ -33,6 +33,9 @@ import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
 import { getCurrentSiteOrigin } from "../site/siteDispatch";
+// §L-430 slice 2b — the scene(PROJECT-north) → ENU(TRUE-north) frame boundary, extracted
+// headless so it is unit-testable (this file is not). See sceneEnuFrame.ts for why.
+import { sceneXZToEnu } from "./sceneEnuFrame";
 // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — pure vertical-datum + georeference
 // decisions (no Cesium/THREE/DOM): the ONE datum boundary (C12 §1.4) that decides whether
 // the globe ground height is RESOLVED (a measurement off the photoreal tile mesh, or the
@@ -1831,6 +1834,34 @@ export class CesiumViewport {
   }
 
   /**
+   * §L-430 slice 2b — θ, the PROJECT→TRUE-north angle (radians, clockwise), read from
+   * `SiteLocation.trueNorth`. This closes **ADR-0115 §Remaining #2** ("globe applies θ to the
+   * placed model"), open since 2026-07-02: this viewport previously never read `trueNorth` at
+   * all, so a model authored on project north would have been placed on the globe at the
+   * WRONG BEARING while the plan looked perfect.
+   *
+   * Consumed via `sceneXZToEnu(x, z, θ)` — the scene-XZ → ENU frame boundary. It is
+   * deliberately NOT applied inside `enuToCartesian`, which already receives east/north:
+   * rotating there would double-rotate anything whose east/north was produced from a source
+   * that is already true-north (terrain samples, OSM context, the sun anchor). θ belongs at
+   * the ONE place authored scene coordinates cross into the world frame, and nowhere else.
+   *
+   * Returns 0 when unavailable, which is exactly the identity — so an un-rotated site is
+   * byte-identical to the pre-L-430 globe (ADR-0070).
+   */
+  private readProjectNorthRad(): number {
+    try {
+      const store = this.runtime?.siteModelStore as
+        | { getLocation?: () => { trueNorth?: number } | null }
+        | undefined;
+      const theta = store?.getLocation?.()?.trueNorth;
+      return typeof theta === 'number' && Number.isFinite(theta) ? theta : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * Point the camera at a site location so the user sees their plot (top-down at
    * ~600 m, near-nadir pitch) instead of the washed-out globe limb.
    *
@@ -3156,9 +3187,17 @@ export class CesiumViewport {
     const originCartesian = Cesium.Cartesian3.fromDegrees(originLon, originLat, 0);
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
 
+    // §L-430 slice 2b — θ (project→true north) for THIS massing pass. Read once per render
+    // (not per vertex) so a mid-render store change cannot rotate half the building.
+    const thetaRad = this.readProjectNorthRad();
+
     const toCartesian = (x: number, z: number, up: number): Cesium.Cartesian3 => {
-      // scene-XZ → ENU local (east, north, up): east = x, north = −z.
-      const local = new Cesium.Cartesian3(x, -z, up);
+      // scene-XZ → ENU local (east, north, up). §L-430: routed through the shared, tested
+      // frame boundary (`sceneEnuFrame.ts`) instead of the old inline `east = x, north = −z`,
+      // so the authored PROJECT-north geometry is rotated onto TRUE north for the globe.
+      // θ = 0 ⇒ identical to the previous inline mapping.
+      const { east, north } = sceneXZToEnu(x, z, thetaRad);
+      const local = new Cesium.Cartesian3(east, north, up);
       return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
     };
 

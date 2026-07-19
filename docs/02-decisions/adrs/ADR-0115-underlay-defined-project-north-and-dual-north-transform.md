@@ -222,9 +222,31 @@ site. Fix (additive):
    via the tool's state handle, no `import * as THREE`). Wired controller → SiteBoundaryMap2D
    `onEnterCanvas` → engine helper. θ still lands on `SiteLocation.trueNorth` via
    `dispatchSiteTrueNorth` for the globe. (This is what the L-69 note anticipated.)
-2. **Globe applies θ to the placed model.** `CesiumViewport` currently does not read
-   `SiteLocation.trueNorth`; feed θ into the Forma massing placement so the model rotates to
-   true north on the globe (the transform primitive is ready).
+2. **Globe applies θ to the placed model.** **SLICE 2b PARTIAL (2026-07-19, L-430).**
+   `CesiumViewport` did not read `SiteLocation.trueNorth` at all; it now does, via
+   `readProjectNorthRad()`, and the PRIMARY massing path (`renderFormaMassing`'s
+   `toCartesian` closure — what places the authored building, boundary and envelope on the
+   globe) routes through the new headless `sceneEnuFrame.ts` (`sceneXZToEnu`).
+   - **Extracted, not inlined.** `CesiumViewport.ts` is ~8 000 lines bound to Cesium + the DOM
+     and is effectively untestable; the frame mapping was therefore pulled out into a pure
+     module with 6 direct tests, including the end-to-end property that a parcel squared into
+     the authoring frame lands back on its ORIGINAL true-world bearing. That last test is the
+     one that catches a θ applied in the WRONG DIRECTION — such a θ round-trips perfectly and
+     so survives a round-trip test, which is the trap here.
+   - **θ is applied at the scene boundary, NOT inside `enuToCartesian`.** That helper already
+     receives east/north and is shared by inputs that are ALREADY true-north (terrain samples,
+     OSM context, the sun anchor). Rotating there would DOUBLE-rotate them. θ belongs at the
+     one place authored scene coordinates cross into the world frame.
+   - **STILL PARTIAL — see the MIGRATION INVENTORY at the top of `sceneEnuFrame.ts`** for the
+     named list of sites still open-coding `east = x, north = −z` (terrain `enuToLatLon` +
+     its ring callers, `sceneRingToMetric`, the centroid helpers, the glTF real-model
+     placement — which needs `projectHeadingToTrueBearingDeg` for its HEADING as well as its
+     position — the §GLOBE-HEADING-90 path, and a GLSL shader that computes the mapping
+     per-fragment on the GPU and will need θ as a uniform or CPU pre-rotation).
+   - **This partial state is safe ONLY because θ is still 0 everywhere** (no producer yet), so
+     every mapping is the identity. Completing the inventory is a HARD PRECONDITION of item 8;
+     enabling the producer first would place migrated and unmigrated geometry in two different
+     frames — the building splits across bearings, and nothing throws.
 3. ~~**Persist the underlay raster beyond localStorage** (large data URLs) — carried over from
    ADR-0259.~~ **DONE (2026-07-03, L-58, `§FIX-SITE-OVERLAY-RENDER-AND-FLOW`).** The site-plan
    overlay raster now lives in IndexedDB (`SiteOverlayRasterStore`, per-project, mirroring the
@@ -288,3 +310,19 @@ ad-hoc counter-rotation, which is exactly how double-rotation defects are born.
    is marked (NEW) in C34 and **does not exist yet** — it must be built with this item.
    Note `FacadeOrientationService.northBasis(trueNorth)` is ALREADY parameterised and merely
    needs its callers to pass θ (`CreatePanelLayout.ts` currently relies on the `0` default).
+8. **THE PRODUCER — derive θ at parcel commit. SHIPS LAST, BY DESIGN.**
+   `siteDispatch.dispatchParcelBoundary` calls `deriveProjectNorthAngleFromParcel(ring)` and
+   dispatches it via the existing `dispatchSiteTrueNorth` (P6). This is the single change that
+   makes θ ≠ 0 and therefore activates every consumer at once.
+   **HARD PRECONDITIONS — all of items 2, 6, 7 complete:**
+   - the `sceneEnuFrame.ts` migration inventory fully drained (globe geometry AND headings);
+   - solar θ wired end-to-end — the θ plumbing exists (item 6) but `RealSunService`
+     `setProjectNorth` still needs a CALLER subscribing to `site.location-changed`, and
+     `computeSunHoursOnModel`/`sunSamples` need θ threaded from the site;
+   - the north arrow resolving from project context, so plan sheets do not claim true north
+     while pointing at project north.
+   **Also unresolved at the producer:** the parcel ring itself is committed in the TRUE frame
+   by `boundaryProjection.buildBoundaryFromLatLonRing`. Either it is de-rotated at commit (so
+   the authoring frame really is project north — the founder's ask) or every downstream
+   consumer applies θ⁻¹. The former is the ADR-0070 RIGID-TRANSFORM-LAST spirit and is
+   strongly preferred; it must be decided explicitly, not drifted into.
