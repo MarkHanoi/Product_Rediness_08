@@ -60,7 +60,9 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { createSiteFromRect } from '../site/createSiteFromRect.js';
-import { resolveSiteContext, ensureSite, dispatchSiteLocation, dispatchClearParcelBoundary, resolveBuildableFootprint } from '../site/siteDispatch.js';
+import { resolveSiteContext, ensureSite, dispatchSiteLocation, dispatchClearParcelBoundary, resolveBuildableFootprint, getLastBuildableEnvelope } from '../site/siteDispatch.js';
+// §L-401 slice 2 — the pure storey height-cap decision (C58 envelope → legal storey count).
+import { capStoreysToEnvelope } from '@pryzm/site-parcel-data';
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
@@ -1698,11 +1700,35 @@ export class OnboardingStepController {
         // §OFFICE-PREVIEW-STEP — the stories slider is CAPPED to the FEASIBLE max for the
         // current radius (Task A), so the preview is never infeasible. The cap follows the
         // radius slider live (a bigger plate hosts a taller tower).
-        const feasibleMax = Math.max(1, maxFeasibleStoriesForRadius(derivedRadiusM));
+        // §L-401 slice 2 — the storey cap is now the STRICTER of structural feasibility (plate
+        // radius) and ZONING (the C58 envelope's height limit at this floor-to-floor). Slice 1
+        // made the FOOTPRINT compliant; without this a building sits perfectly inside the
+        // setbacks and still busts the height limit, so "compliant-by-construction" was only
+        // half true. Capping the SLIDER (not just the output) means the user cannot author a
+        // non-compliant request in the first place.
+        const zoningCapFor = (storeyHeightM: number): number => {
+            const env = getLastBuildableEnvelope();
+            const r = capStoreysToEnvelope({
+                requestedStoreys: seedStories,
+                maxHeightM: env?.maxHeight_m ?? null,
+                storeyHeightM,
+            });
+            return r.heightAllowedStoreys ?? Number.POSITIVE_INFINITY;
+        };
+        const feasibleMax = Math.max(1, Math.min(
+            maxFeasibleStoriesForRadius(derivedRadiusM),
+            zoningCapFor(seedFtf),
+        ));
         const storiesInput = sliderField('Storeys', 'onboarding-office-stories', Math.min(seedStories, feasibleMax), 1, Math.max(feasibleMax, 1), 1, '');
         const radiusInput = sliderField('Plate radius', 'onboarding-office-radius', derivedRadiusM, 8, Math.max(60, Math.ceil(derivedRadiusM)), 1, ' m');
         const ftfInput = sliderField('Floor-to-floor height', 'onboarding-office-ftf', seedFtf, 3, 6, 0.1, ' m');
         const deskInput = sliderField('Desk density', 'onboarding-office-desk', seedDeskDensity, 4, 8, 1, ' /1000 sqft');
+
+        // §L-401 slice 2 — the storey-cap REASON line (filled in by refreshPreview).
+        const capHint = document.createElement('div');
+        capHint.className = 'os-hint';
+        capHint.setAttribute('data-testid', 'onboarding-office-storey-cap-hint');
+        form.appendChild(capHint);
 
         // Culture toggle (open-plan-first / perimeter-offices-first).
         const cultureWrap = document.createElement('div');
@@ -1896,8 +1922,22 @@ export class OnboardingStepController {
         const numV = (v: string, d: number): number => { const n = Number(v); return Number.isFinite(n) ? n : d; };
         refreshPreview = (): void => {
             const radiusM = numV(radiusInput.value, derivedRadiusM);
-            // Re-cap the stories slider to this radius (a smaller plate → fewer storeys).
-            const cap = Math.max(1, maxFeasibleStoriesForRadius(radiusM));
+            // Re-cap the stories slider to this radius (a smaller plate → fewer storeys) AND
+            // to zoning (§L-401 slice 2). Because this runs on EVERY slider input, the zoning
+            // cap correctly follows the floor-to-floor slider too: taller storeys ⇒ fewer of
+            // them fit under the same height limit.
+            const ftfM = numV(ftfInput.value, seedFtf);
+            const structuralCap = Math.max(1, maxFeasibleStoriesForRadius(radiusM));
+            const zoningCap = zoningCapFor(ftfM);
+            const cap = Math.max(1, Math.min(structuralCap, zoningCap));
+            // Tell the user WHY the slider stops where it does — a control that silently
+            // refuses to move is indistinguishable from a broken one.
+            const envMaxH = getLastBuildableEnvelope()?.maxHeight_m ?? null;
+            if (capHint) {
+                capHint.textContent = Number.isFinite(zoningCap) && zoningCap <= structuralCap && envMaxH
+                    ? `Max ${cap} storeys — limited by the ${envMaxH} m zoning height at ${ftfM.toFixed(1)} m floor-to-floor.`
+                    : `Max ${cap} storeys — limited by the ${radiusM} m plate radius.`;
+            }
             storiesInput.max = String(cap);
             if (numV(storiesInput.value, seedStories) > cap) {
                 storiesInput.value = String(cap);
@@ -2199,7 +2239,7 @@ export class OnboardingStepController {
      * here: the office controller's `request()` owns the OTel span (per file convention).
      */
     private async generateOffice(): Promise<void> {
-        const stories = resolveOfficeStoreyCount(this.briefMetadata);
+        const requestedStories = resolveOfficeStoreyCount(this.briefMetadata);
         const footprint = this.readParcelFootprint();
         const circle = deriveOfficeCircleFromParcel(footprint);
         // §OFFICE-PREVIEW-STEP — if the office SETUP step ran, it wrote the chosen params
@@ -2225,6 +2265,26 @@ export class OnboardingStepController {
         const glassColor = typeof md['officeGlassColor'] === 'string' && hexRe.test(md['officeGlassColor'] as string) ? (md['officeGlassColor'] as string) : undefined;
         // §OFFICE-INNER-WALL-COLOUR — the inner-wall (interior partition) colour from the preview.
         const innerWallColor = typeof md['officeInnerWallColor'] === 'string' && hexRe.test(md['officeInnerWallColor'] as string) ? (md['officeInnerWallColor'] as string) : undefined;
+
+        // §L-401 slice 2 — ENFORCE the zoning storey cap at GENERATION, not only on the
+        // slider. Defence in depth, and not redundant: `stories` can arrive from the capped
+        // preview slider OR from the console / RAC path, which never saw that slider. The
+        // slider cap is UX; THIS is the correctness boundary — it is the last point before a
+        // non-compliant building is authored.
+        const storeyCap = capStoreysToEnvelope({
+            requestedStoreys: requestedStories,
+            maxHeightM: getLastBuildableEnvelope()?.maxHeight_m ?? null,
+            storeyHeightM: floorToFloorM ?? 4.0,
+        });
+        const stories = storeyCap.storeys;
+        if (storeyCap.capped) {
+            console.warn(`[onboarding-step] §L-401 storey cap — ${storeyCap.explanation}`);
+        }
+        if (storeyCap.infeasible) {
+            // Never silently emit a non-compliant building: say so loudly. (Surfacing this in
+            // the UI belongs with the L-402 compliance report — logged there, not faked here.)
+            console.error(`[onboarding-step] §L-401 INFEASIBLE — ${storeyCap.explanation} Building 1 storey; this site cannot comply at this floor-to-floor.`);
+        }
         console.log('[onboarding-step] §OFFICE-ONBOARDING-WIRE → OFFICE generator', {
             stories,
             footprintPts: footprint?.length ?? 0,
