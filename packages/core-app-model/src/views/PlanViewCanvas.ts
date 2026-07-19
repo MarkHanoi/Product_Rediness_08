@@ -105,9 +105,28 @@ export interface PlanViewCanvasStyle {
     transparency?: number | null;
 }
 
+/**
+ * §L-431 slice 2 — SITE CONTEXT for the Canvas2D plan projection: the committed C19 parcel
+ * ring and the C58 buildable-envelope inset ring, in WORLD plan-XZ metres.
+ *
+ * LAYERING (why this is injected, not imported): `PlanViewCanvas` lives in
+ * `packages/core-app-model` (a LOWER layer) while the parcel/envelope live in the app layer
+ * (`siteDispatch`). A lower layer may never import from a higher one, so the app layer PUSHES
+ * this data in via a provider callback — exactly the pattern `styleResolver` already uses.
+ * The canvas stays a pure renderer with no knowledge of the site subsystem.
+ */
+export interface PlanSiteContext {
+    /** Committed parcel boundary ring (world XZ metres), or null when none. */
+    readonly parcelRing: ReadonlyArray<{ x: number; z: number }> | null;
+    /** Buildable-envelope inset ring (world XZ metres), or null when no valid envelope. */
+    readonly envelopeRing: ReadonlyArray<{ x: number; z: number }> | null;
+}
+
 export interface PlanViewCanvasOptions {
     gridVisible?: boolean;
     styleResolver?: (category: string, layerTag: string) => PlanViewCanvasStyle | null;
+    /** §L-431 — provider for the parcel + envelope site-context rings (see PlanSiteContext). */
+    siteContextProvider?: () => PlanSiteContext | null;
 }
 
 export interface PlanViewCanvasRenderOptions {
@@ -118,6 +137,8 @@ export class PlanViewCanvas {
     private readonly _canvas: HTMLCanvasElement;
     private readonly _ctx: CanvasRenderingContext2D;
     private readonly _styleResolver: ((category: string, layerTag: string) => PlanViewCanvasStyle | null) | null;
+    /** §L-431 — injected site-context provider (parcel + envelope rings). See PlanSiteContext. */
+    private readonly _siteContextProvider: (() => PlanSiteContext | null) | null;
     private _frustumH = DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM;
     private _camTarget = new THREE.Vector3();
     private _gridVisible = true;
@@ -183,6 +204,7 @@ export class PlanViewCanvas {
         this._canvas = canvas;
         this._ctx = ctx;
         this._styleResolver = options.styleResolver ?? null;
+        this._siteContextProvider = options.siteContextProvider ?? null;
         this._gridVisible = options.gridVisible ?? true;
     }
 
@@ -279,6 +301,9 @@ export class PlanViewCanvas {
         const cropClipApplied = this._applyCropClip(ctx, viewDef);
         if (isPlanLike) this._drawUnderlay(ctx);
         if (isPlanLike) this._renderRoomFills(ctx);
+        // §L-431 slice 2 — site context (parcel + buildable envelope) UNDER the datums/elements
+        // so model linework always reads on top of the reference rings.
+        if (isPlanLike) this._renderSiteContext(ctx);
         if (isPlanLike) this._renderBimGridDatums(ctx, viewDef);
         if (!isPlanLike && this._sectionFlipV) this._renderLevelDatums(ctx);
 
@@ -1699,6 +1724,9 @@ export class PlanViewCanvas {
         const cropClipApplied = this._applyCropClip(ctx, viewDef);
         if (isPlanLike) this._drawUnderlay(ctx);
         if (isPlanLike) this._renderRoomFills(ctx);
+        // §L-431 slice 2 — site context (parcel + buildable envelope) UNDER the datums/elements
+        // so model linework always reads on top of the reference rings.
+        if (isPlanLike) this._renderSiteContext(ctx);
         if (isPlanLike) this._renderBimGridDatums(ctx, viewDef);
         if (!isPlanLike && this._sectionFlipV) this._renderLevelDatums(ctx);
 
@@ -1863,6 +1891,67 @@ export class PlanViewCanvas {
         ctx.rect(left, top, width, height);
         ctx.clip();
         return true;
+    }
+
+    /**
+     * §L-431 slice 2 — draw the SITE CONTEXT (committed parcel outline + buildable-envelope
+     * inset) into the Canvas2D plan projection.
+     *
+     * WHY THIS EXISTS: the plan pane projects BIM ELEMENTS only, so the parcel + envelope —
+     * which are site context, not model geometry — never appeared there (founder: "not showing
+     * the envelope on the plan view / elevations"). Enabling EDITOR_LAYER (L-431 slice 1) fixed
+     * the three.js plan camera but could not affect this separate Canvas2D renderer.
+     *
+     * C34 (print/drawing standards): these are REFERENCE lines, not model linework — drawn as
+     * thin dashed strokes so they read as context an architect sets out against and never get
+     * mistaken for built geometry. Plan mapping is the canvas's own convention: world {x,z} →
+     * worldToScreen(x, -z). Pure paint: no state mutation, fully guarded (a provider failure
+     * must never break the plan pane).
+     */
+    private _renderSiteContext(ctx: CanvasRenderingContext2D): void {
+        try {
+            const site = this._siteContextProvider?.() ?? null;
+            if (!site) return;
+            // Site context belongs in PLAN-type views (it is a ground-plane footprint); an
+            // elevation/section would show it edge-on as a meaningless line.
+            if (this._viewType !== 'plan') return;
+
+            const strokeRing = (
+                ring: ReadonlyArray<{ x: number; z: number }>,
+                color: string,
+                dash: readonly number[],
+                widthPx: number,
+            ): void => {
+                if (ring.length < 3) return;
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = widthPx;
+                ctx.setLineDash([...dash]);
+                ctx.beginPath();
+                for (let i = 0; i < ring.length; i++) {
+                    const p = ring[i]!;
+                    const s = this.worldToScreen(p.x, -p.z);
+                    if (i === 0) ctx.moveTo(s.sx, s.sy);
+                    else ctx.lineTo(s.sx, s.sy);
+                }
+                ctx.closePath();
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            };
+
+            // Parcel = the legal lot line (longer dash, slightly stronger).
+            if (site.parcelRing && site.parcelRing.length >= 3) {
+                strokeRing(site.parcelRing, 'rgba(102, 0, 255, 0.75)', [7, 4], 1.1);
+            }
+            // Envelope = the setback-reduced buildable limit you must design within
+            // (tighter dash so the two rings are visually distinguishable at any zoom).
+            if (site.envelopeRing && site.envelopeRing.length >= 3) {
+                strokeRing(site.envelopeRing, 'rgba(102, 0, 255, 0.95)', [3, 3], 1.4);
+            }
+        } catch {
+            // Site context is a NICE-TO-HAVE overlay — never let it break the plan render.
+        }
     }
 
     private _renderCropBoundary(ctx: CanvasRenderingContext2D, viewDef: ViewDefinition): void {

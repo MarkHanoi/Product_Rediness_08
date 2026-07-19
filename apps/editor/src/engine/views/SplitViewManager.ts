@@ -23,6 +23,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §L-431 slice 2 — the C58 envelope cache (transient, app-layer) for the plan site-context overlay.
+import { getLastBuildableEnvelope } from '../../ui/site/siteDispatch';
 import * as OBC from '@thatopen/components';
 import type { ISplitViewManager } from '@pryzm/views';
 import { unifiedFrameLoop } from '@pryzm/core-app-model';
@@ -586,6 +588,25 @@ export class SplitViewManager implements ISplitViewManager {
         try {
             this._planCanvas = new PlanViewCanvas(this._canvas, {
                 gridVisible: this._gridVisible,
+                // §L-431 slice 2 — PUSH the site context down to the pure Canvas2D renderer.
+                // `PlanViewCanvas` is a LOWER layer (core-app-model) and must not import the
+                // site subsystem, so the app layer supplies the rings through this callback
+                // (same injection pattern as `styleResolver`). Read fresh on every paint so a
+                // newly committed parcel / recomputed envelope appears without re-construction.
+                siteContextProvider: () => {
+                    try {
+                        const store = (window.runtime as unknown as {
+                            siteModelStore?: { getParcelBoundary?: () => { polygon?: ReadonlyArray<{ x: number; z: number }> } | null };
+                        } | undefined)?.siteModelStore;
+                        const parcel = store?.getParcelBoundary?.()?.polygon ?? null;
+                        const env = getLastBuildableEnvelope();
+                        const envelopeRing = env && env.status === 'ok' && env.insetPolygon.length >= 3
+                            ? env.insetPolygon.map((pt) => ({ x: pt.x, z: pt.z }))
+                            : null;
+                        if (!parcel && !envelopeRing) return null;
+                        return { parcelRing: parcel && parcel.length >= 3 ? parcel : null, envelopeRing };
+                    } catch { return null; }
+                },
                 styleResolver: (category, layerTag) => {
                     // VIEW-SYSTEM-AUDIT-2026 F13 — `vgGovernanceStore.resolveStyle()`
                     // signature is `(modelId, category, viewId?)`.  The previous code
