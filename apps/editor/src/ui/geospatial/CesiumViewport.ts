@@ -6393,11 +6393,24 @@ export class CesiumViewport {
     //      the plot is then the only silhouette we have, and it is flagged as such below);
     //   4. else a square about the massing centroid (formaMassingOrigin) so an already-placed
     //      building without a traceable loop still gets a study.
-    // scene-XZ → the metric Pt convention (x = east, z = north): east = x, north = −z.
+    // scene-XZ → the metric Pt convention (x = east, z = north).
+    //
+    // §L-430 slice 2b — θ IS REQUIRED HERE, and this is the most consequential site in the
+    // migration. This study evaluates the AUTHORED façade against occluders that are
+    // TRUE-north by origin (`siteMetricFootprints` = OSM context) and against SUN directions
+    // that are likewise true-north. If the building ring stayed in the PROJECT frame while
+    // its occluders and its sun did not, the study would be computing shadows and sky
+    // exposure for a building rotated by θ relative to its own surroundings — producing a
+    // fully-populated, plausible-looking, and wrong façade heatmap. Frame-mixing is the
+    // failure mode; rotating the ring (and its openings) to true north is what prevents it.
     const input = this.formaLastMassingInput;
+    const thetaRad = this.readProjectNorthRad();
     const sceneRingToMetric = (
       r: ReadonlyArray<{ x: number; z: number }>,
-    ): { x: number; z: number }[] => r.map((p) => ({ x: p.x, z: -p.z }));
+    ): { x: number; z: number }[] => r.map((p) => {
+      const e = sceneXZToEnu(p.x, p.z, thetaRad);
+      return { x: e.east, z: e.north };
+    });
 
     let ring: { x: number; z: number }[] | null = null;
     let ringSource = '';
@@ -6464,14 +6477,20 @@ export class CesiumViewport {
     // surface is the real walls WITH their openings, not a solid perimeter prism. When there
     // are no openings (older callers / apartment massing) every face stays solid — the fast
     // preview / fallback tier (A.24), unchanged behaviour.
-    const metricOpenings: FacadeOpening[] = (input?.openings ?? []).map((o) => ({
-      a: { x: o.a.x, z: -o.a.z },
-      b: { x: o.b.x, z: -o.b.z },
-      baseElevation: o.baseElevation,
-      sill: o.sill,
-      height: o.height,
-      kind: o.kind,
-    }));
+    // §L-430 — rotated with the SAME θ as `sceneRingToMetric` above; an opening left in the
+    // project frame would be punched into the wrong face of its own (rotated) façade.
+    const metricOpenings: FacadeOpening[] = (input?.openings ?? []).map((o) => {
+      const a = sceneXZToEnu(o.a.x, o.a.z, thetaRad);
+      const b = sceneXZToEnu(o.b.x, o.b.z, thetaRad);
+      return {
+        a: { x: a.east, z: a.north },
+        b: { x: b.east, z: b.north },
+        baseElevation: o.baseElevation,
+        sill: o.sill,
+        height: o.height,
+        kind: o.kind,
+      };
+    });
 
     // §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE (L-232, founder 2026-07-11) — the 2.5 m lattice + the
     // 25-min sun cadence were too coarse for a façade: after L-227 stretches the wall field to the
@@ -6945,6 +6964,13 @@ export class CesiumViewport {
           u_pryzmEncRange: { type: Cesium.UniformType.FLOAT, value: Math.max(1, drape.encodeRange) },
           // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — envelope-only drape. 0 = test disabled.
           u_pryzmInnerBand: { type: Cesium.UniformType.FLOAT, value: Math.max(0, innerBandM) },
+          // §L-430 slice 2b — θ (project→true north). REQUIRED FOR CORRECTNESS, not cosmetics:
+          // `positionMC` below is the model's LOCAL (project-frame) position, but the face
+          // table, centroid and roof bbox this shader compares it against are all built from
+          // `sceneRingToMetric` / the massing centroid, which are now TRUE-frame. Without this
+          // rotation the two frames disagree by θ and every fragment samples the WRONG face —
+          // the drape would slide around the building. θ = 0 ⇒ identity ⇒ unchanged.
+          u_pryzmProjNorth: { type: Cesium.UniformType.FLOAT, value: this.readProjectNorthRad() },
         },
         fragmentShaderText: [
           '#define PRYZM_MAX_FACES 128',
@@ -6955,8 +6981,16 @@ export class CesiumViewport {
           '}',
           'void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {',
           '  vec3 p = fsInput.attributes.positionMC;',
-          '  float east = p.x;',
-          '  float north = -p.z;',   // ENU mapping: north = −z (§A.21.D54)
+          // §L-430 — base ENU mapping (north = −z, §A.21.D54) THEN rotate the project frame
+          // onto true north, matching `projectVectorToTrueNorth` exactly:
+          //     east' =  e·cosθ + n·sinθ ;  north' = −e·sinθ + n·cosθ
+          // The face table / centroid / roof bbox are true-frame; positionMC is project-frame.
+          '  float e0 = p.x;',
+          '  float n0 = -p.z;',
+          '  float csT = cos(u_pryzmProjNorth);',
+          '  float snT = sin(u_pryzmProjNorth);',
+          '  float east  =  e0 * csT + n0 * snT;',
+          '  float north = -e0 * snT + n0 * csT;',
           '  float upM = p.y;',
           '  vec4 col;',
           '  if (upM >= u_pryzmHeight - u_pryzmRoofBand) {',
@@ -7663,6 +7697,36 @@ export class CesiumViewport {
     return 180;
   }
 
+  /**
+   * §L-430 slice 2b — the site ENU frame with θ (project→true north) applied, for placing a
+   * whole rigid model (glTF) rather than individual points.
+   *
+   * WHY A MATRIX AND NOT PER-VERTEX: a placed model must rotate its POSITION AND ITS HEADING
+   * TOGETHER. Rotating position alone leaves the building correctly sited but facing the
+   * wrong way — which reads as a modelling error rather than a frame bug, and is therefore
+   * easy to misdiagnose for a long time. Baking θ into the placement matrix makes the two
+   * inseparable by construction.
+   *
+   * SIGN — derived, not guessed. It must agree with the massing's per-point mapping exactly,
+   * or the real GLB and the pastel massing blocks separate (the §A.21.D54 / §GLOBE-HEADING-90
+   * defect class this file already fights):
+   *     sceneXZToEnu(1, 0, θ) = { east: cosθ, north: −sinθ }   // scene +X in the true frame
+   *     Rz(α) · (1, 0)        = ( cosα,       sinα        )
+   *   ⇒ α = −θ
+   * The ENU frame's local axes are X=east, Y=north, Z=up, so this is a rotation about local Z
+   * post-multiplied INSIDE the ENU frame — i.e. applied to the model before Cesium's own glTF
+   * axis correction, exactly where the massing applies it to its points.
+   *
+   * θ = 0 ⇒ the rotation is the identity and the returned matrix is byte-identical to a bare
+   * `eastNorthUpToFixedFrame(position)`.
+   */
+  private enuFrameWithProjectNorth(position: Cesium.Cartesian3): Cesium.Matrix4 {
+    const m = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+    const theta = this.readProjectNorthRad();
+    if (theta === 0) return m;
+    return Cesium.Matrix4.multiplyByMatrix3(m, Cesium.Matrix3.fromRotationZ(-theta), m);
+  }
+
   /** ENU(east,north,up) metres → ECEF Cartesian via the site-origin anchor. */
   private enuToCartesian(
     enuMatrix: Cesium.Matrix4,
@@ -8068,7 +8132,7 @@ export class CesiumViewport {
       // `forwardAxis === Z` adds Z_UP_TO_X_UP). Verified: scene+x→east, scene+z→south
       // (north = −z), scene+y→up — identical to `toCartesian(x, z, up)`.
       const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
-      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      const modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
 
       // Same option shape as the established `loadBimGltf` path (Cesium depth-tests
       // scene primitives against the loaded 3D-Tiles natively → correct occlusion).
@@ -8241,7 +8305,7 @@ export class CesiumViewport {
     if (!model || !origin || model.isDestroyed()) return;
     try {
       const position = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, this.formaTerrainBaseHeight);
-      model.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      model.modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
       this.viewer?.scene.requestRender();
     } catch (e) {
       console.warn('[CesiumViewport][globe] §A.21.D49 reseatRealModelOnGlobe failed (non-fatal):', e);
@@ -8355,7 +8419,7 @@ export class CesiumViewport {
       // forwardAxis=X (NOT Z) gives Y_UP_TO_Z_UP alone = (x, y, z) ↦ (x, −z, y), the
       // massing mapping exactly. forwardAxis=Z added a spurious +90° heading turn.
       const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
-      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      const modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
 
       const newModel = await Cesium.Model.fromGltfAsync({
         url: input.glbUrl,
@@ -8455,7 +8519,7 @@ export class CesiumViewport {
     if (!model || !origin || model.isDestroyed()) return;
     try {
       const position = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, this.formaTerrainBaseHeight);
-      model.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      model.modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
       this.viewer?.scene.requestRender();
     } catch (e) {
       console.warn('[CesiumViewport][forma6] reseatRealModelOnForma failed (non-fatal):', e);
@@ -9473,7 +9537,10 @@ export class CesiumViewport {
       ? Cesium.Cartesian3.fromDegrees(lon, lat, height)
       : (previousMatrix ? Cesium.Matrix4.getTranslation(previousMatrix, new Cesium.Cartesian3()) : Cesium.Cartesian3.ZERO);
 
-    const modelMatrix = previousMatrix || Cesium.Transforms.eastNorthUpToFixedFrame(position);
+    // §L-430 — only the FALLBACK branch gets θ. `previousMatrix` is a clone of an
+    // already-placed model's matrix and therefore ALREADY carries θ; re-applying it here
+    // would double-rotate on every reload, compounding each time.
+    const modelMatrix = previousMatrix || this.enuFrameWithProjectNorth(position);
 
     // Clean up old model
     if (this.viewer && this.currentModel) {

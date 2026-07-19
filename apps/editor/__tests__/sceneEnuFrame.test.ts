@@ -12,8 +12,13 @@
 //   • θ = 0 strict identity — the byte-identity discipline for every un-rotated site.
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { sceneXZToEnu, enuToSceneXZ, projectHeadingToTrueBearingDeg } from '../src/ui/geospatial/sceneEnuFrame';
 import { deriveProjectNorthAngleFromParcel } from '../src/ui/site/overlay/projectTrueNorth';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const DEG = Math.PI / 180;
 const THETAS = [0, 12 * DEG, -30 * DEG, 44 * DEG, -44 * DEG];
@@ -95,6 +100,36 @@ describe('§L-430 scene ⇄ ENU frame', () => {
         expect(projectHeadingToTrueBearingDeg(0, 30 * DEG)).toBeCloseTo(30, 9);
         expect(projectHeadingToTrueBearingDeg(350, 30 * DEG)).toBeCloseTo(20, 9);  // wraps
         expect(projectHeadingToTrueBearingDeg(10, -30 * DEG)).toBeCloseTo(340, 9); // wraps
+    });
+
+    it('the GLSL drape shader applies the SAME rotation as sceneXZToEnu', () => {
+        // The façade drape runs this rotation on the GPU as a string of GLSL. No type checker
+        // and no unit test reaches inside it, so a sign error there is invisible — and its
+        // symptom (the heatmap sliding around the building) looks like a UV/texture bug, not a
+        // frame bug. `positionMC` is PROJECT-frame while the face table it samples is
+        // TRUE-frame, so the shader MUST rotate. Pin the algebra to the source text.
+        const src = readFileSync(resolve(HERE, '../src/ui/geospatial/CesiumViewport.ts'), 'utf8');
+
+        // The uniform must exist and be fed from the θ accessor (not a literal / stale field).
+        expect(src).toMatch(/u_pryzmProjNorth:\s*\{[^}]*value:\s*this\.readProjectNorthRad\(\)/);
+
+        // And the fragment body must implement projectVectorToTrueNorth exactly:
+        //   east' =  e·cosθ + n·sinθ      north' = −e·sinθ + n·cosθ
+        // Whitespace-tolerant, but sign- and term-order-sensitive — an inverted θ fails here.
+        const glsl = src.replace(/\s+/g, ' ');
+        expect(glsl).toMatch(/float east\s*=\s*e0 \* csT \+ n0 \* snT;/);
+        expect(glsl).toMatch(/float north\s*=\s*-\s*e0 \* snT \+ n0 \* csT;/);
+
+        // Cross-check the algebra itself against the shipping helper, so the pinned strings
+        // above are provably the RIGHT formula and not merely the current one.
+        const theta = 37 * DEG, x = 12, z = -5;
+        const cs = Math.cos(theta), sn = Math.sin(theta);
+        const e0 = x, n0 = -z;
+        const glslEast = e0 * cs + n0 * sn;
+        const glslNorth = -e0 * sn + n0 * cs;
+        const helper = sceneXZToEnu(x, z, theta);
+        expect(glslEast).toBeCloseTo(helper.east, 12);
+        expect(glslNorth).toBeCloseTo(helper.north, 12);
     });
 
     it('heading and position agree: a scene +X vector and a 90° heading rotate together', () => {

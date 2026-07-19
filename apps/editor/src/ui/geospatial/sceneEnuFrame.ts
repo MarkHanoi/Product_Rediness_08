@@ -60,14 +60,32 @@
 //   • `enuToLatLon` itself, and the street-ring compass samples built from an ENU centroid —
 //     they already operate in ENU.
 //
-// NOT YET MIGRATED — each must be converted (or consciously exempted) before slice 3:
-//   • `sceneRingToMetric` — flips a scene ring to the metric frame for door/opening work.
-//   • The glTF real-model placement (scene → ENU + the Z_UP_TO_X_UP heading correction) —
-//     note this one needs `projectHeadingToTrueBearingDeg` too, not just a position rotate.
-//   • The §GLOBE-HEADING-90 scene→ENU heading path.
-//   • The GLSL shader that computes `float east = p.x; float north = -p.z;` on the GPU —
-//     θ cannot be applied per-fragment cheaply; pass it as a uniform or pre-rotate the
-//     vertex data on the CPU.
+//   • `renderFacadeAnalysis` → `sceneRingToMetric` AND its opening list. The most
+//     consequential site: this study evaluates the AUTHORED façade against occluders that are
+//     true-north by origin (OSM context) and against true-north sun directions. An unrotated
+//     ring would compute shadows and sky exposure for a building rotated by θ relative to its
+//     own surroundings — a fully-populated, plausible, WRONG heatmap.
+//   • The glTF real-model placement — via `enuFrameWithProjectNorth(position)`, which bakes θ
+//     into the placement MATRIX so position and HEADING rotate together and cannot drift
+//     apart. Applied at all four placement/reseat sites; the `previousMatrix` reload path
+//     deliberately does NOT re-apply θ (that matrix already carries it — re-applying would
+//     compound on every reload).
+//   • The GLSL façade-drape shader — θ passed as the `u_pryzmProjNorth` uniform and applied
+//     to `positionMC`. REQUIRED, because the face table / centroid / roof bbox it samples
+//     against are now true-frame while `positionMC` is project-frame; without it every
+//     fragment samples the wrong face and the drape slides around the building. The GLSL is a
+//     STRING — no compiler or unit test reaches inside it — so its algebra is pinned to the
+//     source text by `sceneEnuFrame.test.ts`.
+//
+// NOT YET MIGRATED — must be converted (or consciously exempted) before slice 3:
+//   • Nothing known in this file. The inventory above is believed complete, but it was built
+//     by inspection, not by a machine check — so treat "believed complete" accordingly and
+//     re-grep for `north = -` / `-p.z` / `-cz` in the geospatial layer before enabling θ.
+//   • OUTSIDE this file, still open: `RealSunService.setProjectNorth` has no CALLER yet (no
+//     `site.location-changed` subscriber); `computeSunHoursOnModel` / `sunSamples` need θ
+//     threaded from the site; `FacadeOrientationService.northBasis(trueNorth)` is already
+//     parameterised but its callers still rely on the 0 default; and the plan/sheet north
+//     arrow still reads a literal angle (C34 §1.4 violation).
 //
 // EXEMPT (already TRUE-north sources — rotating them would DOUBLE-rotate):
 //   • Terrain samples, OSM/Overpass context geometry, the sun anchor, and anything else whose
