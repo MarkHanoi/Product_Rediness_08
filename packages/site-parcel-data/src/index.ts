@@ -17,6 +17,13 @@ export {
 } from './ZoningRulesEngine.js';
 
 export { solveEstimatedEnvelope } from './solveEstimated.js';
+// L-402 — the compliance "explain-why" report model (pure; explains an envelope, never recomputes it).
+export {
+    buildComplianceReport,
+    formatConstraintValue,
+    type ComplianceReport,
+    type ComplianceReportRow,
+} from './complianceReport.js';
 
 export {
     ESTIMATED_DEFAULT_PACK,
