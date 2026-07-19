@@ -93,13 +93,33 @@ export function computeSolarPositionRad(
  * The light is placed AT the sun direction (position = dir · 120) with its target
  * at the origin, so this vector points TOWARD the sun — the convention the
  * occlusion + sun-facing tests in this package use.
+ *
+ * §L-430 PROJECT NORTH (`projectNorthRad` = θ, project→true, clockwise, default 0):
+ * when the authoring frame is rotated to project north, the model's scene axes no longer
+ * align with true north — so the SUN must be expressed in that same frame or the shadows
+ * are silently wrong by θ. This is NOT a violation of "solar stays true north": the
+ * invariant is that sun-vs-BUILDING geometry is preserved, and leaving the sun in the true
+ * frame while the building rotates is precisely what would BREAK it.
+ *
+ * Applying the canonical free-vector transform (`trueVectorToProjectNorth`, ADR-0115) to
+ * (east, north) = (cosAlt·sin az, cosAlt·cos az) reduces exactly to an azimuth shift:
+ *     east' = cosAlt·sin(az − θ) ,  north' = cosAlt·cos(az − θ)
+ * so we shift the scalar azimuth rather than importing the L5 transform — `solar-analysis`
+ * is L2 and may not import from `apps/editor`. `projectNorthSolarEquivalence.test.ts` pins
+ * this scalar form against the real transform so the two can never drift.
+ * θ = 0 ⇒ `az − 0` ⇒ byte-identical to before (ADR-0070 byte-identity).
  */
-export function sunDirectionFromAltAz(altitudeRad: number, azimuthRad: number): { x: number; y: number; z: number } {
+export function sunDirectionFromAltAz(
+    altitudeRad: number,
+    azimuthRad: number,
+    projectNorthRad = 0,
+): { x: number; y: number; z: number } {
     const cosAlt = Math.cos(altitudeRad);
+    const az = azimuthRad - projectNorthRad;
     return {
-        x:  cosAlt * Math.sin(azimuthRad),
+        x:  cosAlt * Math.sin(az),
         y:  Math.sin(altitudeRad),
-        z: -cosAlt * Math.cos(azimuthRad),
+        z: -cosAlt * Math.cos(az),
     };
 }
 

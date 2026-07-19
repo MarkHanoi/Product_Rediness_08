@@ -245,6 +245,14 @@ export class RealSunService {
     private _elevationOffDeg  = 0;   // real+offset: added to real el; manual: absolute el
     private _intensityMul     = 1;   // real+offset: ×real; manual: absolute (0–2)
 
+    /**
+     * §L-430 — θ, the PROJECT→TRUE-north angle (radians, clockwise; `SiteLocation.trueNorth`).
+     * NOT a user offset: it is the frame the model is authored in. Subtracted from the
+     * azimuth when building the light VECTOR so the sun tracks the building's frame.
+     * 0 (the default, and the value for every un-rotated site) ⇒ byte-identical behaviour.
+     */
+    private _projectNorthRad  = 0;
+
     /** Fired whenever sun position is updated (e.g. for UI refresh). */
     onPositionChange?: (pos: SunPosition) => void;
 
@@ -297,6 +305,23 @@ export class RealSunService {
         if (next.azimuthDeg   !== undefined) this._azimuthOffDeg   = next.azimuthDeg;
         if (next.elevationDeg !== undefined) this._elevationOffDeg = next.elevationDeg;
         if (next.intensity    !== undefined) this._intensityMul    = next.intensity;
+        if (this._enabled) this._drive();
+    }
+
+    /**
+     * §L-430 — set θ, the project→true-north angle (radians), i.e. the frame the model is
+     * authored in. Deliberately SEPARATE from {@link setOffsets}: an offset is a user
+     * preference, θ is a property of the site, and conflating them would let a slider
+     * corrupt the frame (ADR-0115's "two angles must never alias" rule).
+     *
+     * The REPORTED azimuth (`lastPosition`, the panel readout, the climate charts) stays
+     * TRUE — the real sun's bearing is a fact about the world, not about our frame. Only the
+     * scene light VECTOR is expressed in the project frame.
+     */
+    setProjectNorth(thetaRad: number): void {
+        const next = Number.isFinite(thetaRad) ? thetaRad : 0;
+        if (next === this._projectNorthRad) return;
+        this._projectNorthRad = next;
         if (this._enabled) this._drive();
     }
 
@@ -510,12 +535,25 @@ export class RealSunService {
 
         // 3. Direction → Three.js world position (+X East, +Y Up, +Z South).
         //    Azimuth clockwise from North → sin(az)=East, -cos(az)=+Z(South).
+        //
+        //    §L-430 PROJECT NORTH: subtract θ so the sun is expressed in the SAME frame the
+        //    model is authored in. If the authoring frame rotates to project north and the
+        //    sun does not follow, the sun keeps pointing at true north while the building no
+        //    longer does — every shadow silently swings by θ. Preserving "solar is true
+        //    north" means preserving sun-vs-BUILDING geometry, so this shift is REQUIRED,
+        //    not a violation. Algebraically identical to the canonical free-vector transform
+        //    `trueVectorToProjectNorth` (ADR-0115) — pinned by projectNorthSolarEquivalence
+        //    .test.ts. MUST stay in lock-step with solar-analysis/solarPosition.ts
+        //    `sunDirectionFromAltAz`, which is a deliberate replica of these lines: if only
+        //    one gets θ, the VIEWPORT shadows and the sun-hours ANALYSIS disagree. θ = 0 ⇒
+        //    byte-identical to before.
         const cosAlt = Math.cos(altitude);
-        const dirX   =  cosAlt * Math.sin(azimuth);
+        const azProj = azimuth - this._projectNorthRad;
+        const dirX   =  cosAlt * Math.sin(azProj);
         // Keep the light just above ground so a low / below-horizon sun still lights
         // the model from a grazing angle instead of flipping under the floor.
         const dirY   =  Math.max(0.02, Math.sin(altitude));
-        const dirZ   = -cosAlt * Math.cos(azimuth);
+        const dirZ   = -cosAlt * Math.cos(azProj);
 
         // Preserve the light's existing distance so we don't shrink the Pascal key
         // light's shadow-frustum coverage (it sits at |pos|≈17; own light at 120).

@@ -235,3 +235,56 @@ site. Fix (additive):
 4. **Promote the geolocation record to a durable schema element** if/when Model A (store in
    project-north end-to-end) is pursued — today θ on `SiteLocation.trueNorth` + the per-project
    overlay record is sufficient and P5-clean.
+5. ~~**Parcel-derived θ (Pipeline B).**~~ **DONE (2026-07-19, L-430 slice 1, `66b0a0de`.)**
+   This ADR shipped θ only for an UNDERLAY-defined project north (an imported plan the user
+   rotates on the basemap). Pipeline B is PARCEL-driven — the user selects/draws a real
+   cadastral plot and never imports a plan — so `deriveProjectNorthAngleFromParcel(ringXZ)`
+   (`projectTrueNorth.ts`) derives θ from the parcel's DOMINANT (longest) edge, folded into
+   (−π/4, +π/4] mod π/2 so it is always the SMALLEST squaring rotation and an already-square
+   site returns EXACTLY 0 (byte-identity). PURE — derives only; application is items 2 + 6.
+6. **Solar consumes θ — ⚠ THE INVARIANT IS EASILY STATED BACKWARDS.**
+   **SLICE 2a DONE (2026-07-19, L-430).** It is tempting (and was written down wrongly in the
+   V1 audit before this amendment) to say "solar must never consume the rotated frame". That is
+   **false and produces silently wrong shadow studies.** The invariant this ADR actually
+   protects is that **sun-vs-BUILDING geometry is preserved**. If the authoring frame rotates
+   by θ and the sun vector does not follow, the sun keeps pointing at true north while the
+   building no longer does — every shadow swings by θ. **Solar is a MANDATORY θ consumer.**
+   What stays TRUE north is the *reported* azimuth (panel readout, climate charts,
+   `lastPosition`) — a fact about the world; what rotates is the scene light VECTOR.
+   - Applied at BOTH sun-direction builders: `packages/solar-analysis/src/solarPosition.ts`
+     `sunDirectionFromAltAz(alt, az, projectNorthRad = 0)` (drives sun-hours ANALYSIS) and its
+     deliberate replica in `RealSunService._drive` (drives the VIEWPORT key light), the latter
+     via a new `setProjectNorth(θ)` kept SEPARATE from `setOffsets` so a user slider can never
+     corrupt the frame (the "two angles must never alias" rule, §Consequences).
+   - **Duplication hazard:** that math exists twice. θ on only one gives *rendered shadows
+     disagreeing with analysed shadows* — the worst failure mode, since each looks plausible
+     alone. The two MUST move in lock-step; both files now say so at the call site.
+   - **Layering:** `solar-analysis` (L2) and `core-app-model` (L1) may not import this L5
+     primitive. Applying `trueVectorToProjectNorth` to
+     `(east, north) = (cosAlt·sin az, cosAlt·cos az)` reduces exactly to an azimuth shift of
+     −θ, so the low layers use that SCALAR form — no illegal import — and
+     `apps/editor/__tests__/projectNorthSolarEquivalence.test.ts` pins it against the REAL
+     transform (plus a θ=0 strict-equality byte-identity check, altitude invariance, façade
+     incidence preservation, and a **negative control** proving that ignoring θ genuinely
+     breaks the invariant, so the suite cannot pass vacuously).
+   - New primitive: `trueVectorToProjectNorth` — the previously missing inverse free-vector
+     form, the counterpart to `projectVectorToTrueNorth`.
+
+### Sequencing rule for the remaining θ application (items 2, 7) — deliberate
+
+Wire every θ **CONSUMER** first while θ is still 0, then enable the **PRODUCER** last.
+θ = 0 ⇒ every mapping is the identity, so each consumer lands provably byte-identical and
+carries no behavioural risk; flipping the producer on then lights up plan, globe and solar
+coherently in ONE step. The intuitive order (derive θ first) would rotate the plan while
+`CesiumViewport` still read 0 — i.e. ship a visibly wrong globe and invite a per-subsystem
+ad-hoc counter-rotation, which is exactly how double-rotation defects are born.
+
+7. **North arrow must resolve from project context (C34 §1.4).**
+   `PlanViewAnnotationRenderer._renderNorthArrow` reads a literal
+   `ann.parameters.northAngle ?? 0` and never consults `SiteLocation.trueNorth`, which C34 §1.4
+   forbids ("MUST resolve direction from project context; MUST NOT carry a hard-coded numeric
+   direction"). Once θ ≠ 0 the plan north arrow would point at project north while claiming
+   true north. The GA gate meant to catch this, `tools/ga-gate/check-north-arrow-source.ts`,
+   is marked (NEW) in C34 and **does not exist yet** — it must be built with this item.
+   Note `FacadeOrientationService.northBasis(trueNorth)` is ALREADY parameterised and merely
+   needs its callers to pass θ (`CreatePanelLayout.ts` currently relies on the `0` default).

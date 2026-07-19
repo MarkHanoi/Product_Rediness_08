@@ -166,6 +166,27 @@ export function projectVectorToTrueNorth(vec: EastNorth, thetaRad: number): East
 }
 
 /**
+ * Inverse of {@link projectVectorToTrueNorth}: rotate a FREE VECTOR (a direction / delta,
+ * no base translation) from the TRUE-NORTH frame into the PROJECT-NORTH authoring frame.
+ *
+ * §L-430 — this is the primitive the SUN direction conceptually needs. When the authoring
+ * frame is rotated by θ, a sun vector left in the true frame would keep pointing at true
+ * north while the building no longer does, silently swinging every shadow by θ. Preserving
+ * "solar is true north" means preserving sun-vs-BUILDING geometry, which requires rotating
+ * the sun vector by the same θ — the solar path is a MANDATORY θ consumer, not an exempt one.
+ *
+ * NOTE (layering): `packages/solar-analysis` (L2) and `core-app-model` (L1) may not import
+ * this L5 module. They therefore apply the algebraically IDENTICAL scalar form — an azimuth
+ * shift of −θ — instead of importing this function. `projectNorthSolarEquivalence.test.ts`
+ * pins the two against each other so the convention can never drift apart silently.
+ */
+export function trueVectorToProjectNorth(vec: EastNorth, thetaRad: number): EastNorth {
+    const cos = Math.cos(thetaRad);
+    const sin = Math.sin(thetaRad);
+    return { east: vec.east * cos - vec.north * sin, north: vec.east * sin + vec.north * cos };
+}
+
+/**
  * Re-express an overlay transform in the PROJECT-NORTH frame: the underlay is rendered
  * AXIS-ALIGNED (rotationRad = 0) in the plan view, because the plan view IS the project
  * frame. Centre + scale + size are unchanged. The removed rotation is exactly the θ
