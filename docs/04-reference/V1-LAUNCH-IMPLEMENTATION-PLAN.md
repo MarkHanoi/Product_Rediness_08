@@ -3741,3 +3741,26 @@ The coarse compliance L-items (mapping-table rows L-393, L-398–L-402 above) br
 **FOUNDER DECISION — RESOLVED (2026-07-18): DIRECTION CHOSEN, DEFERRED.** *"It would be good to queue this for the future — not priority but definitely nice to have."* The geospatial view **should eventually become a first-class interactive BIM/IFC surface** (a wanted end-state), NOT stay permanently context-only — but explicitly **queued, not-priority (post-September)**. So the direction is settled; the remaining governance step is **sequencing, not choosing**: when picked up, the FIRST deliverable is the governing contract (a C55 §1.2 amendment + C27/C28 extension, or a new geospatial-interrogation contract) **before any code**, and C55 stays as-written (context-only) until it lands. Fast-vs-correct is N/A (spike).
 
 Links: L-414; ties L-353/L-355/L-356/L-357 (geospatial-context cluster) + the C-CONTEXT-ENGINE governance gap (L-359) + L-374/L-412 (context/pane view work) + C57/C58 (parcel/envelope-in-Cesium). Contracts: C12, C55 §1.2, C19, C03, C27, C28, C25, C26, C10, C04. Spike stub: `docs/03-execution/spikes/spike-bim-ifc-data-interrogation-in-cesium.md`. Queue: geospatial / context-engine (primary) + data-platform (C03/C27/C28) + interop/IFC (C25/C26 + ThatOpen). Owner UNASSIGNED. Target TBD (post-launch).
+
+---
+
+## L-432 — Parcel boundary + buildable envelope as SNAP TARGETS (P1, Pipeline B)
+
+**Founder (2026-07-19):** *"consider that the boundary line + envelope on pryzm views should allow snapping for element creation."*
+
+**Why P1, not polish.** L-425/426/431 made both cadastral references *visible* in the PRYZM 3D + plan views, and L-401 makes the *generators* build inside the envelope. But a user drawing walls **by hand** has nothing to bite onto, so hand-authored geometry can silently violate the very setback line the envelope panel claims to enforce. Compliance-by-construction currently holds **only on the generated path**; snapping is what extends it to manual authoring. Until then the guides are decorative.
+
+**Architecture — additive; reuse, do not reinvent.** `packages/snapping` (L1) already exposes `ISnapProvider` + `SnapManager.registerProvider()` with 11 shipped providers (`SnapManager.ts:12-22`). The work is **one** new `SiteContextSnapProvider` yielding:
+- parcel-boundary **vertices**, **edges**, edge **midpoints** and **perpendicular-foot**;
+- buildable-envelope **inset-ring** vertices + edges — the setback line is the highest-value target, since *"build to the setback"* is the single most common architectural move.
+
+Source of truth is `siteModelStore.getParcelBoundary()` + `getLastBuildableEnvelope()` — the same pair L-431 slice 2 already feeds to the plan pane via `siteContextProvider`, so the read path exists.
+
+**Design decisions to make explicitly:**
+1. These are **reference geometry, not model elements** — they must snap but never become selectable/editable BIM (C34 reference-linework treatment, mirroring the dashed plan-pane draw).
+2. A **distinct snap glyph + toggle**, so a setback snap is legible *as* a setback snap and not confused with a grid or wall snap.
+3. **Priority ordering** vs existing providers: an envelope edge should probably outrank the grid, but not an explicit wall endpoint.
+
+**Frame coupling — sequence AFTER the L-430 slice-3 decision.** Snapping works in scene coordinates. If slice 3 de-rotates the parcel ring at commit (the preferred RIGID-TRANSFORM-LAST option), the boundary and envelope become axis-aligned in the authoring frame and these snaps line up with orthogonal wall drawing **for free** — the project-north work compounding. If instead θ⁻¹ is applied per-consumer, this provider becomes another θ consumer. Building it before that decision means building it twice.
+
+Contracts: **C58** (envelope), **C19** (site + parcel), **C34** (reference linework), **C11** (element pipeline). Files: `packages/snapping/src/providers/*`, `SnapManager.ts:12-22,49`, `siteModelStore`, `ParcelBoundarySceneRenderer.ts`. Completes L-425/426/431; extends L-401 to manual authoring. Owner UNASSIGNED.

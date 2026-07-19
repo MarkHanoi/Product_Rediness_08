@@ -38,14 +38,30 @@
 // across two frames. Nothing throws; it just looks subtly wrong.
 //
 // MIGRATED (routes through `sceneXZToEnu`):
-//   • CesiumViewport.renderFormaMassing → the `toCartesian(x, z, up)` closure — the primary
-//     path that places the authored building + boundary + envelope on the globe.
+//   • `renderFormaMassing` → the `toCartesian(x, z, up)` closure — the primary path that
+//     places the authored building + boundary + envelope on the globe.
+//   • `polygonCentroidAndAreaXZ(ring, θ)` — centroid rotated; |area| is rotation-invariant
+//     so it needs no correction. Its call sites are individually reasoned:
+//       – terrain sampling, camera flyTo, and the two centroid→lat/lon sites PASS θ;
+//       – the pitched-roof ridge fan deliberately DOES NOT (see below).
+//   • `footprintBBoxXZ(walls, slabs, θ)` — centre rotated; see the caveat in its docstring
+//     (an AABB is frame-dependent, so its `area` stays a project-frame approximation and
+//     must never be reused for a metric/compliance figure).
+//   • Terrain sampling: the boundary ring, the 1.7× street push-out and the extent radius
+//     all now work from the ROTATED ring. Sampling an unrotated ring would probe ground
+//     heights at the WRONG REAL-WORLD PLACE, seating the building on a neighbouring plot's
+//     ground — which reads as an elevation bug, not a frame bug.
+//
+// DELIBERATELY NOT ROTATED (rotating these would DOUBLE-rotate — the defect, not the fix):
+//   • The pitched-roof ridge fan's use of `polygonCentroidAndAreaXZ`: it is a scene → ENU →
+//     scene ROUND TRIP used only to recover a centroid in SCENE space. Applying θ without
+//     inverting it on the way back would rotate the roof apex off its own footprint. Its
+//     vertices reach ENU later via `toCartesian`, where θ is applied exactly once.
+//   • `enuToLatLon` itself, and the street-ring compass samples built from an ENU centroid —
+//     they already operate in ENU.
 //
 // NOT YET MIGRATED — each must be converted (or consciously exempted) before slice 3:
-//   • `enuToLatLon(east, north)` closure in the terrain-sampling path, and its callers that
-//     pass `(p.x, -p.z)` over the boundary ring + the centroid/extent maths beside it.
 //   • `sceneRingToMetric` — flips a scene ring to the metric frame for door/opening work.
-//   • The boundary/rect centroid helpers returning `{ east: cx, north: -cz }`.
 //   • The glTF real-model placement (scene → ENU + the Z_UP_TO_X_UP heading correction) —
 //     note this one needs `projectHeadingToTrueBearingDeg` too, not just a position rotate.
 //   • The §GLOBE-HEADING-90 scene→ENU heading path.

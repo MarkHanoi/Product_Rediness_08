@@ -3530,6 +3530,12 @@ export class CesiumViewport {
           // boundary edge up to the footprint centroid, lifted by the rise. This
           // gives a hip-like solid mass without a full roof-geometry build (the
           // exact pitched form lives in the BIM view; the globe is a massing read).
+          // §L-430 — deliberately NOT rotated (θ omitted). This call is a round-trip:
+          // scene → ENU → scene, used only to get the ring's centroid back in SCENE space
+          // for the ridge fan below. Passing θ here without inverting it on the way back
+          // would rotate the roof apex off its own footprint — the classic double-rotation
+          // defect. The vertices this feeds are converted to ENU later by `toCartesian`,
+          // which is where θ is correctly applied exactly once.
           const c = this.polygonCentroidAndAreaXZ(r.ring);
           // ENU centroid → scene-XZ: east = x, north = -z  ⇒  x = east, z = -north.
           const cx = c.east;
@@ -3839,8 +3845,9 @@ export class CesiumViewport {
         });
         this.formaMassingEntities.push(line);
 
-        // Centroid (ENU metres) + area for the NW oblique flyTo.
-        const c = this.polygonCentroidAndAreaXZ(boundary);
+        // Centroid (ENU metres) + area for the NW oblique flyTo. §L-430 — rotated, so the
+        // camera flies to where the plot REALLY is rather than to a rotated copy of it.
+        const c = this.polygonCentroidAndAreaXZ(boundary, thetaRad);
         centroidEast = c.east;
         centroidNorth = c.north;
         areaM2 = c.area;
@@ -3926,7 +3933,7 @@ export class CesiumViewport {
     // derive the footprint from the authored geometry's XZ bounding box (walls,
     // else slab rings) — the SAME scene-XZ data the massing already renders.
     if (areaM2 <= 0) {
-      const bbox = this.footprintBBoxXZ(walls, slabs);
+      const bbox = this.footprintBBoxXZ(walls, slabs, thetaRad);
       if (bbox) {
         centroidEast = bbox.east;
         centroidNorth = bbox.north;
@@ -4110,7 +4117,8 @@ export class CesiumViewport {
       if (input.boundary && input.boundary.length >= 3) {
         const oc = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
         const e = Cesium.Transforms.eastNorthUpToFixedFrame(oc);
-        const ct = this.polygonCentroidAndAreaXZ(input.boundary);
+        // §L-430 — authored boundary → TRUE-north ENU before it becomes a real lat/lon.
+        const ct = this.polygonCentroidAndAreaXZ(input.boundary, this.readProjectNorthRad());
         const cc = Cesium.Matrix4.multiplyByPoint(e, new Cesium.Cartesian3(ct.east, ct.north, 0), new Cesium.Cartesian3());
         const cg = Cesium.Cartographic.fromCartesian(cc);
         cLat = Cesium.Math.toDegrees(cg.latitude);
@@ -4310,12 +4318,20 @@ export class CesiumViewport {
         const cg = Cesium.Cartographic.fromCartesian(cart);
         return { lat: Cesium.Math.toDegrees(cg.latitude), lon: Cesium.Math.toDegrees(cg.longitude) };
       };
-      const c = this.polygonCentroidAndAreaXZ(input.boundary);
+      // §L-430 slice 2b — the boundary is AUTHORED scene geometry, so it must be rotated
+      // onto true north before it becomes a lat/lon. Terrain sampling at an unrotated ring
+      // would probe ground heights at the WRONG REAL-WORLD PLACE — the building would seat
+      // itself to a neighbouring plot's ground level, which reads as a plausible elevation
+      // bug rather than a frame bug. Note `enuToLatLon` itself takes ENU and is NOT rotated
+      // (its street-ring callers below already work in ENU).
+      const thetaRad = this.readProjectNorthRad();
+      const boundaryEnu = input.boundary.map((p) => sceneXZToEnu(p.x, p.z, thetaRad));
+      const c = this.polygonCentroidAndAreaXZ(input.boundary, thetaRad);
       const centroidLL = enuToLatLon(c.east, c.north);
       sampleLat = centroidLL.lat;
       sampleLon = centroidLL.lon;
       samplePts.push(centroidLL);
-      for (const p of input.boundary) samplePts.push(enuToLatLon(p.x, -p.z));
+      for (const p of boundaryEnu) samplePts.push(enuToLatLon(p.east, p.north));
       // §GLOBE-GROUND-STREET-RING (founder 2026-07-01) — ALSO sample a ring in the
       // SURROUNDING STREET (each footprint vertex pushed ~1.7× outward from the centroid,
       // plus 8 compass points ~30 m beyond the footprint). The building base must sit on
@@ -4323,16 +4339,20 @@ export class CesiumViewport {
       // the whole footprint sits on an elevated podium/roof — WITHOUT needing an absolute
       // height cap (the old §GLOBE-FLOAT-SAFETY cap wrongly rejected Paris's real ~80 m
       // ground as a "rooftop" and buried the tower 80 m underground).
+      // §L-430 — push outward in ENU using the ROTATED ring, so the street ring lands on the
+      // real surrounding streets rather than on a rotated copy of them.
       const east = c.east, north = c.north;
-      for (const p of input.boundary) {
-        const ox = east + (p.x - east) * 1.7;
-        const oy = north + (-p.z - north) * 1.7;
+      for (const p of boundaryEnu) {
+        const ox = east + (p.east - east) * 1.7;
+        const oy = north + (p.north - north) * 1.7;
         samplePts.push(enuToLatLon(ox, oy));
       }
-      // Footprint half-extent → a comfortable street ring radius beyond it.
+      // Footprint half-extent → a comfortable street ring radius beyond it. (Rotation-
+      // invariant in principle — it is a distance — but computed from the rotated ring so
+      // it stays consistent with the centroid it is measured against.)
       let ext = 0;
-      for (const p of input.boundary) {
-        ext = Math.max(ext, Math.hypot(p.x - east, -p.z - north));
+      for (const p of boundaryEnu) {
+        ext = Math.max(ext, Math.hypot(p.east - east, p.north - north));
       }
       // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — DENSER + WIDER street sampling so the min
       // reliably catches TRUE street ground rather than perching on the nearest slightly
@@ -4784,7 +4804,8 @@ export class CesiumViewport {
     let sampleLat = input.originLat;
     let sampleLon = input.originLon;
     if (input.boundary && input.boundary.length >= 3) {
-      const c = this.polygonCentroidAndAreaXZ(input.boundary);
+      // §L-430 — authored boundary → TRUE-north ENU before it becomes a real lat/lon.
+      const c = this.polygonCentroidAndAreaXZ(input.boundary, this.readProjectNorthRad());
       // ENU (east, north) → lat/lon via the same anchor used for placement.
       const originCartesian = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
       const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
@@ -8992,11 +9013,18 @@ export class CesiumViewport {
 
   /**
    * Polygon centroid (area-weighted) + absolute area of a scene-XZ ring,
-   * returned in ENU metres (`east = x`, `north = −z`). Used to frame the NW
-   * oblique camera on the plot centre with an altitude ∝ √area.
+   * returned in ENU metres. Used to frame the NW oblique camera on the plot centre
+   * with an altitude ∝ √area, and to anchor terrain sampling.
+   *
+   * §L-430 slice 2b — takes θ (project→true north) and returns TRUE-north ENU.
+   * Rotation is linear about the origin, so rotating the CENTROID is exactly equivalent
+   * to rotating every vertex first and then taking the centroid; and |area| is
+   * rotation-invariant, so the area term needs no correction. θ = 0 ⇒ the previous
+   * `east = x, north = −z` mapping, unchanged.
    */
   private polygonCentroidAndAreaXZ(
-    ring: ReadonlyArray<{ x: number; z: number }>
+    ring: ReadonlyArray<{ x: number; z: number }>,
+    projectNorthRad = 0,
   ): { east: number; north: number; area: number } {
     let signedArea = 0;
     let cx = 0;
@@ -9020,11 +9048,11 @@ export class CesiumViewport {
       }
       ax /= ring.length;
       az /= ring.length;
-      return { east: ax, north: -az, area: 0 };
+      return { ...sceneXZToEnu(ax, az, projectNorthRad), area: 0 };
     }
     cx /= 6 * signedArea;
     cz /= 6 * signedArea;
-    return { east: cx, north: -cz, area: Math.abs(signedArea) };
+    return { ...sceneXZToEnu(cx, cz, projectNorthRad), area: Math.abs(signedArea) };
   }
 
   /**
@@ -9035,10 +9063,19 @@ export class CesiumViewport {
    * Returns null when there is no usable geometry. The bounding box is a coarse
    * but ALWAYS-non-zero footprint — enough to frame the camera + scale the
    * climate-overlay radius onto the building instead of collapsing to the origin.
+   *
+   * §L-430 slice 2b — θ rotates the returned CENTRE onto true north. NOTE the deliberate
+   * asymmetry: an axis-aligned bounding box is FRAME-DEPENDENT (the AABB of a shape in the
+   * project frame is not the AABB of that shape in the true frame), so `area` here remains a
+   * project-frame approximation. That is acceptable ONLY because both consumers — camera
+   * framing distance and the climate-overlay radius — want a coarse "how big is this
+   * roughly", never a compliance figure. Do NOT reuse this area for anything metric (GFA,
+   * coverage, FAR); use `polygonCentroidAndAreaXZ`, whose area IS rotation-invariant.
    */
   private footprintBBoxXZ(
     walls: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
     slabs: ReadonlyArray<{ ring: ReadonlyArray<{ x: number; z: number }> }>,
+    projectNorthRad = 0,
   ): { east: number; north: number; area: number } | null {
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     let seen = 0;
@@ -9058,7 +9095,7 @@ export class CesiumViewport {
     if (w <= 0 || d <= 0) return null;
     const cx = (minX + maxX) / 2;
     const cz = (minZ + maxZ) / 2;
-    return { east: cx, north: -cz, area: w * d };
+    return { ...sceneXZToEnu(cx, cz, projectNorthRad), area: w * d };
   }
 
   /**
