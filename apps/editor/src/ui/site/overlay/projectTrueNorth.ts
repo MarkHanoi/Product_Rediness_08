@@ -61,6 +61,67 @@ export function deriveProjectNorthAngle(transform: SitePlanOverlayTransform): nu
 }
 
 /**
+ * L-430 slice 1 — derive the project→true-north angle θ from the COMMITTED PARCEL.
+ *
+ * WHY: ADR-0115 shipped θ only for an UNDERLAY-defined project north (an imported plan the
+ * user rotates on the basemap). Pipeline B is PARCEL-driven — the user selects/draws a real
+ * cadastral plot and never imports a plan — so project north must also be derivable from the
+ * parcel itself, giving the founder's "orthogonal walls + correct normals" while the 3D Site
+ * and Globe keep TRUE north (they consume θ⁻¹ via `projectToTrueNorth`).
+ *
+ * HOW: take the parcel's DOMINANT (longest) edge — for a city plot that edge is the street
+ * frontage, which is exactly what an architect squares the building to. Its direction in the
+ * TRUE frame is φ. Per this file's sign convention a project-frame East-aligned vector appears
+ * in the true frame at −θ, so squaring that edge means **θ = −φ**. φ is then FOLDED into
+ * (−π/4, +π/4] modulo π/2, because aligning to ANY of the four axes is equivalent for
+ * orthogonal authoring — this guarantees we always pick the SMALLEST squaring rotation (an
+ * edge at 80° yields θ = +10°, never −80°) and that an already-square site returns EXACTLY 0
+ * (ADR-0070 byte-identity: θ = 0 ⇒ both transforms are the identity, so nothing changes).
+ *
+ * PURE — derives an angle only. It does NOT apply the frame anywhere; wiring the authoring
+ * frame, the globe θ application and the north arrow are later slices, deliberately separate
+ * so the SOLAR path (which must stay TRUE-north, ADR-0074/C21) is never rotated by accident.
+ *
+ * @param ringXZ parcel boundary in scene-XZ metres. Mapped to East/North as (east = x,
+ *               north = −z) — the SAME mapping the site, Cesium and plan-canvas paths use.
+ * @returns θ in radians, normalised; 0 for a degenerate ring (< 2 usable points) or an
+ *          already-axis-aligned parcel.
+ */
+export function deriveProjectNorthAngleFromParcel(
+    ringXZ: ReadonlyArray<{ x: number; z: number }> | null | undefined,
+): number {
+    if (!ringXZ || ringXZ.length < 2) return 0;
+
+    // Longest edge = the dominant frontage. Deterministic: ties keep the FIRST edge, so the
+    // same parcel always yields the same θ (no frame flapping between recomputes).
+    let bestLenSq = 0;
+    let bestPhi = 0;
+    const n = ringXZ.length;
+    for (let i = 0; i < n; i++) {
+        const a = ringXZ[i]!;
+        const b = ringXZ[(i + 1) % n]!;      // closes the ring (open rings are the norm here)
+        const dEast = b.x - a.x;
+        const dNorth = -(b.z - a.z);          // scene-XZ → East/North
+        const lenSq = dEast * dEast + dNorth * dNorth;
+        if (lenSq > bestLenSq + 1e-12) {
+            bestLenSq = lenSq;
+            bestPhi = Math.atan2(dNorth, dEast);
+        }
+    }
+    if (bestLenSq <= 1e-12) return 0;         // all points coincident — degenerate
+
+    // Fold φ into (−π/4, +π/4] mod π/2 → the smallest rotation that squares the site.
+    const quarter = Math.PI / 2;
+    let phi = bestPhi % quarter;              // (−π/2, π/2)
+    if (phi > Math.PI / 4) phi -= quarter;
+    if (phi <= -Math.PI / 4) phi += quarter;
+
+    // θ = −φ (see HOW above). Snap a hair off zero to exactly 0 for byte-identity.
+    const theta = normalizeAngle(-phi);
+    return Math.abs(theta) < 1e-9 ? 0 : theta;
+}
+
+/**
  * Rotate a point expressed in the PROJECT-NORTH frame into the TRUE-NORTH / world
  * frame, about `base` (metres East/North — the shared site origin). Clockwise by θ,
  * matching the overlay raster's own placement so plan geometry lands on the globe
