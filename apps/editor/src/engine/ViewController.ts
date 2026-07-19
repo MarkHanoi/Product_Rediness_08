@@ -12,7 +12,7 @@ import { PlanViewVisibilityCuller } from '@pryzm/core-app-model';
 import { ViewCameraStateStore } from '@pryzm/core-app-model';
 import type { FrameCoordinator } from '@pryzm/core-app-model';
 import type { ViewVisibilityMap } from '@pryzm/core-app-model';
-import { BIM_LAYER, ANNOTATION_LAYER, PLAN_SYMBOL_LAYER, DOCUMENTATION_LAYER } from '@pryzm/scene-committer';
+import { BIM_LAYER, EDITOR_LAYER, ANNOTATION_LAYER, PLAN_SYMBOL_LAYER, DOCUMENTATION_LAYER } from '@pryzm/scene-committer';
 import { MultiViewCameraManager } from '@pryzm/core-app-model';
 import type { UnifiedFrameLoop } from '@pryzm/core-app-model';
 import { previewRegistry } from '@pryzm/scene-committer';
@@ -1096,6 +1096,15 @@ export class ViewController implements IViewController {
         this._vst(`_activate3DView — camera.layers explicit restore (BIM+ANNOTATION, PLAN_SYMBOL+DOCUMENTATION stay off)`);
         this._camera.three.layers.enable(BIM_LAYER);           // already on from deactivate; be explicit
         this._camera.three.layers.enable(ANNOTATION_LAYER);    // disabled by _activateFloorPlanView
+        // §L-426 (founder live-traced) — EDITOR_LAYER carries the on-screen editor AIDS:
+        // the C19 parcel-boundary outline + the C58 buildable-envelope study volume
+        // (ParcelBoundarySceneRenderer). The RC-B change above swapped `enableAll()` for
+        // explicit per-layer enables to keep PLAN_SYMBOL ghosts off the WebGPU renderer —
+        // and DROPPED EDITOR_LAYER in the process, so those aids were never rendered by the
+        // 3D camera ("no envelope is seen on pryzm views" even though the envelope card
+        // showed a valid area). Enable it explicitly: editor-only aids are on-screen design
+        // references; they are excluded from PRINT by the sheet/export path, not by this camera.
+        this._camera.three.layers.enable(EDITOR_LAYER);
         this._camera.three.layers.disable(DOCUMENTATION_LAYER);
         // PLAN_SYMBOL_LAYER stays disabled — deactivate() already turned it off.
         // No enableAll() call so ghost plan-symbol objects are NEVER visible to camera.
@@ -1569,6 +1578,9 @@ export class ViewController implements IViewController {
         this._camera.three.layers.enable(BIM_LAYER);
         this._camera.three.layers.enable(ANNOTATION_LAYER);
         this._camera.three.layers.enable(DOCUMENTATION_LAYER);
+        // §L-426 — editor aids (parcel boundary + buildable envelope) live on EDITOR_LAYER;
+        // the explicit-enable refactor dropped it, so they never rendered. Same fix as 3D.
+        this._camera.three.layers.enable(EDITOR_LAYER);
         // PLAN_SYMBOL_LAYER stays disabled — deactivate() already disabled it.
 
         // EL-FIX-1: Clear any stale navManager pan-lock handler that may have been
@@ -1684,6 +1696,9 @@ export class ViewController implements IViewController {
         this._camera.three.layers.enable(BIM_LAYER);
         this._camera.three.layers.enable(ANNOTATION_LAYER);
         this._camera.three.layers.enable(DOCUMENTATION_LAYER);
+        // §L-426 — editor aids (parcel boundary + buildable envelope) live on EDITOR_LAYER;
+        // the explicit-enable refactor dropped it, so they never rendered. Same fix as 3D.
+        this._camera.three.layers.enable(EDITOR_LAYER);
         // PLAN_SYMBOL_LAYER stays disabled — deactivate() already disabled it.
 
         // V002 fix: resolve the section plane from the active ViewDefinition stored in
