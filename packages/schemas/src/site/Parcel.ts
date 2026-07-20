@@ -70,6 +70,33 @@ export const ParcelSchema = z.object({
         overlays: [],
         jurisdictionRef: null,
     }),
+    /**
+     * ADR-0270 option A / C58 §1.7a (L-451) — THE PERSISTED BUILDABLE TRUTH.
+     *
+     * The buildable-envelope INSET ring in the same scene-XZ frame as `boundary.polygon`.
+     * `null` when no envelope has been solved.
+     *
+     * WHY THIS FIELD EXISTS. C58 §1.7 used to claim the envelope maps 1:1 onto
+     * `setbacks.{front,side,rear}`. That holds ONLY for setback-governed zones. An
+     * alignment-governed zone (*alineación a vial* + *profundidad edificable* + party walls —
+     * Madrid publishes `Fondo de la Edificación` as a POLYLINE, verified live in L-438) has NO
+     * front/side/rear triple that encodes it. Writing one would be a lossy coercion that is
+     * INVISIBLE, because the stored numbers look perfectly well-formed.
+     *
+     * So the POLYGON is the truth and the three numbers are a derived, lossy summary. This is
+     * barely a change in substance: C58 §2.4 already computed this ring and §1.8 already
+     * threaded THE POLYGON — not the numbers — into generation. The contract had simply not
+     * caught up with what the code already relied on.
+     *
+     * CONSUMER RULE (C58 §1.7a): anything asking "what may I build here" MUST read THIS.
+     * Reading `setbacks` and re-insetting is valid only for `setback` zones and MUST NOT be a
+     * general path — it silently reproduces the pre-ADR-0270 defect.
+     *
+     * NOT a second parcel outline: `boundary.polygon` remains immutable per C19 §1.4. This is a
+     * DERIVED ring stored alongside the mutable zoning fields, and is recomputed by the engine.
+     */
+    buildableRing: z.array(PtSchema).nullable().default(null),
+
     /** Computed square metres of polygon; the L3 store fills this. */
     area: z.number().min(0).default(0),
 });
