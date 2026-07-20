@@ -3959,6 +3959,11 @@ export class CesiumViewport {
           },
         });
         this.formaMassingEntities.push(line);
+        // §SITE-OVERLAY-NOT-BUILDING (L-468) — the DASHED BOUNDARY LINE is site context too.
+        // The first pass registered only the flat fill, which is skipped entirely on the
+        // photoreal path (`if (!input.keepPhotoreal)` above) — so on the globe, the very place
+        // the founder reported the problem, nothing at all was protected.
+        this.formaSiteOverlayEntities.add(line);
 
         // Centroid (ENU metres) + area for the NW oblique flyTo. §L-430 — rotated, so the
         // camera flies to where the plot REALLY is rather than to a rotated copy of it.
@@ -4019,6 +4024,11 @@ export class CesiumViewport {
           },
         });
         this.formaMassingEntities.push(ent);
+        // §SITE-OVERLAY-NOT-BUILDING (L-468) — THE ONE THAT ACTUALLY MATTERED. The buildable
+        // envelope is the compliance constraint, not a massing block, so it must survive the
+        // "real model supersedes the massing" step. It was missing from the first pass, which
+        // is why the founder still lost it on both the Forma study and the photoreal globe.
+        this.formaSiteOverlayEntities.add(ent);
         envelopeEntitiesAdded = 1;
         console.log(
           `[CesiumViewport][forma] buildable envelope drawn via massing path: ` +
@@ -5573,6 +5583,12 @@ export class CesiumViewport {
       }
     }
     this.formaMassingEntities = [];
+    // §SITE-OVERLAY-NOT-BUILDING — the FULL clear genuinely disposes everything, so the
+    // overlay membership must reset with it. Without this the Set retains destroyed entities
+    // forever: an unbounded leak, and a stale reference that could make a LATER entity (a
+    // recycled object identity) wrongly test as "site overlay" and survive a clear it should
+    // not have. Membership must not outlive the entities it describes.
+    this.formaSiteOverlayEntities.clear();
     this.setFormaSilhouetteTargets([]);
   }
 
@@ -5585,12 +5601,30 @@ export class CesiumViewport {
    */
   public clearFormaMassingEntitiesOnly(): void {
     const viewer = this.viewer;
+    // §SITE-OVERLAY-NOT-BUILDING (L-464, completed by L-468) — ⚠ THIS IS WHERE THE ENVELOPE
+    // WAS ACTUALLY DYING, and why the first L-464 fix did nothing on the photoreal globe.
+    //
+    // This method REMOVES entities; it does not hide them. So the `setGlobeBuildingShown`
+    // skip-set added by L-464 was irrelevant here — a show/hide guard cannot save an entity
+    // from `entities.remove()`. Founder log, decisive: "REAL detailed model placed on tiles —
+    // massing blocks hidden", immediately after which the envelope vanished even though the
+    // datum had resolved (54.29 m) and the draw diag said `present=y added=1`.
+    //
+    // The buildable envelope and the parcel boundary are SITE CONTEXT, not abstract massing
+    // blocks. The whole point of this method is "the real model supersedes the massing" — the
+    // real model does NOT supersede the planning constraint the design must sit inside. An
+    // envelope that disappears the moment your building appears is the silent false negative
+    // C58 §1.4 forbids, and it disappears at exactly the moment it becomes most useful.
+    const kept: Cesium.Entity[] = [];
     if (viewer) {
       for (const ent of this.formaMassingEntities) {
+        if (this.formaSiteOverlayEntities.has(ent)) { kept.push(ent); continue; }
         try { viewer.entities.remove(ent); } catch { /* already gone */ }
       }
     }
-    this.formaMassingEntities = [];
+    // Keep the overlays in the array so the NEXT full re-render still clears them (they share
+    // the CLEAR lifecycle — that part was always right; only the SUPERSEDE step was wrong).
+    this.formaMassingEntities = kept;
     this.setFormaSilhouetteTargets([]);
   }
 

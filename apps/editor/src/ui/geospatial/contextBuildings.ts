@@ -57,6 +57,18 @@ export interface ContextBuildingFeature {
     readonly properties: {
         /** Extrusion height in metres (resolved from height / building:levels). */
         readonly heightM: number;
+        /**
+         * §CTX-HEIGHT-PROVENANCE (L-459) — HOW `heightM` was arrived at:
+         * `tagged` (explicit OSM height) · `derived-levels` (real storey COUNT × our assumed
+         * 3.2 m) · `assumed` (nothing tagged — this is the 9 m default, i.e. **fabricated**).
+         *
+         * ⚠ ANY consumer that treats `heightM` as a measurement MUST read this first. That
+         * includes the site-metric density / wind / heat grids and the party-wall / blind-façade
+         * resolver, all of which currently consume the number with no idea whether it is real.
+         * Optional for back-compat with cached/persisted collections written before this landed;
+         * absent MUST be read as `'assumed'` (the pessimistic, honest default), never as tagged.
+         */
+        readonly heightProvenance?: ContextHeightProvenance;
         /** OSM `building:levels` (floor count) when tagged — feeds the population
          *  density proxy with a truthful GFA. Omitted when no levels tag exists. */
         readonly floors?: number;
@@ -413,26 +425,126 @@ export function contextBboxAround(
     return [lon - h * lonScale, lat - h, lon + h * lonScale, lat + h];
 }
 
-/** Resolve an extrusion height (m) from OSM tags. Prefers the explicit `height`
- *  (+ `roof:height` when both are tagged), else `building:levels` × storey height,
- *  else a sensible default. Accuracy refinement (founder 2026-06-28). */
-function resolveHeight(tags: Record<string, string> | undefined): number {
+/**
+ * §CTX-HEIGHT-PROVENANCE (L-459) — HOW a context building's height was arrived at.
+ *
+ * - `tagged`         — an explicit `height` / `building:height` tag. A surveyed-ish number.
+ * - `derived-levels` — computed from `building:levels` × an ASSUMED 3.2 m storey. Real storey
+ *                      count, invented storey height.
+ * - `assumed`        — nothing usable was tagged; this is `DEFAULT_BUILDING_HEIGHT_M` (9 m).
+ *                      **A fabricated number.**
+ */
+export type ContextHeightProvenance = 'tagged' | 'derived-levels' | 'assumed';
+
+export interface ResolvedContextHeight {
+    readonly height_m: number;
+    readonly provenance: ContextHeightProvenance;
+}
+
+/**
+ * Resolve an extrusion height (m) from OSM tags, AND say how we got it.
+ *
+ * §CTX-HEIGHT-PROVENANCE (L-459) — ⚠ WHY THE PROVENANCE IS RETURNED RATHER THAN DISCARDED.
+ * This function has always KNOWN which branch it took; it simply threw that away and returned a
+ * bare number. Downstream — the 3D extrusion, the density/wind/heat site-metric grids, the
+ * party-wall / blind-façade resolver — a fabricated 9 m was then indistinguishable from a
+ * surveyed 34 m. OSM height tagging is sparse outside a few well-mapped regions, so in a typical
+ * city the MAJORITY of context buildings are the 9 m default: that is the direct cause of the
+ * "uniform low-rise carpet" look, and it is why the founder's "real heights" ask is not met even
+ * where the pipeline works perfectly.
+ *
+ * PRYZM's whole compliance posture is "never present a guess as a fact" — C58 §1.4 forbids
+ * exactly this shape of failure and §1.6 mandates PER-FIELD provenance. The context layer did the
+ * opposite. This does not IMPROVE any height; it makes the guess *legible*, which is the
+ * prerequisite for every later fix (LOD2 ingestion, L-458) and for the cross-check against a
+ * curated *alçada reguladora* table.
+ *
+ * ⚠ THE SHORTCUTS DELIBERATELY NOT TAKEN: raising the 9 m default (one fabricated number for
+ * another) or hiding untagged buildings (silently deletes real buildings from a shadow study,
+ * which is worse than showing them at a stated guess).
+ */
+function resolveHeightWithProvenance(
+    tags: Record<string, string> | undefined,
+): ResolvedContextHeight {
     if (tags) {
         const h = parseFloat(tags['height'] ?? tags['building:height'] ?? '');
         if (Number.isFinite(h) && h > 0) {
             // `height` is usually the TOTAL height; only add `roof:height` when the
             // tagged height is explicitly the wall/eave height (rare). Keep it simple
             // + robust: prefer `height` as-is, which is what most mappers intend.
-            return clampHeight(h);
+            return { height_m: clampHeight(h), provenance: 'tagged' };
         }
         const lvl = parseFloat(tags['building:levels'] ?? tags['levels'] ?? '');
         if (Number.isFinite(lvl) && lvl > 0) {
             const roof = parseFloat(tags['roof:height'] ?? '');
             const roofAdd = Number.isFinite(roof) && roof > 0 ? roof : 0;
-            return clampHeight(lvl * METRES_PER_LEVEL + roofAdd);
+            // NOTE: `derived-levels`, not `tagged` — the LEVEL COUNT is real, the 3.2 m
+            // storey height is ours. A 6-storey building is genuinely 6 storeys; whether it
+            // is 19.2 m is our assumption, and the two must not be conflated.
+            return {
+                height_m: clampHeight(lvl * METRES_PER_LEVEL + roofAdd),
+                provenance: 'derived-levels',
+            };
         }
     }
-    return DEFAULT_BUILDING_HEIGHT_M;
+    return { height_m: DEFAULT_BUILDING_HEIGHT_M, provenance: 'assumed' };
+}
+
+/** Tally of how a collection's heights were arrived at (§CTX-HEIGHT-PROVENANCE, L-459). */
+export interface ContextHeightProvenanceSummary {
+    readonly total: number;
+    readonly tagged: number;
+    readonly derivedLevels: number;
+    readonly assumed: number;
+    /** Share of footprints whose height is a FABRICATED default, 0–1. */
+    readonly assumedFraction: number;
+}
+
+/**
+ * Count height provenance across a collection.
+ *
+ * PURE. Missing `heightProvenance` (a cached collection written before L-459) counts as
+ * `assumed` — the pessimistic reading. Guessing `tagged` for old data would re-hide exactly what
+ * this exists to expose.
+ */
+export function summariseContextHeightProvenance(
+    collection: ContextBuildingCollection,
+): ContextHeightProvenanceSummary {
+    let tagged = 0, derivedLevels = 0, assumed = 0;
+    for (const f of collection.features) {
+        switch (f.properties.heightProvenance) {
+            case 'tagged': tagged++; break;
+            case 'derived-levels': derivedLevels++; break;
+            default: assumed++; break;
+        }
+    }
+    const total = collection.features.length;
+    return {
+        total, tagged, derivedLevels, assumed,
+        assumedFraction: total > 0 ? assumed / total : 0,
+    };
+}
+
+/**
+ * One-line console suffix stating how much of this context is fabricated.
+ *
+ * §CTX-HEIGHT-PROVENANCE (L-459) — logged on EVERY fetch, deliberately, and phrased as a
+ * fraction rather than a flag. The defect this addresses is not that 9 m is used; it is that
+ * nothing anywhere SAID so, and the "uniform low-rise carpet" therefore read as the city rather
+ * than as our assumption. A number nobody had is the whole remedy.
+ */
+function summariseHeightProvenance(collection: ContextBuildingCollection): string {
+    const s = summariseContextHeightProvenance(collection);
+    if (s.total === 0) return '';
+    const pct = Math.round(s.assumedFraction * 100);
+    return (
+        ` §CTX-HEIGHT-PROVENANCE: ${s.tagged} tagged · ${s.derivedLevels} from levels · ` +
+        `${s.assumed} ASSUMED ${DEFAULT_BUILDING_HEIGHT_M} m default (${pct}% fabricated)` +
+        (pct >= 50
+            ? ' — ⚠ the MAJORITY of these heights are our guess, not measurements. Any shadow, ' +
+              'daylight or party-wall reading against them inherits that (C58 §1.4 in spirit).'
+            : '')
+    );
 }
 
 /** OSM `building:levels` (floor count) when tagged, else undefined. Feeds the
@@ -478,7 +590,7 @@ interface OverpassElement {
 }
 
 /** Convert an Overpass response to our GeoJSON FeatureCollection (outer rings). */
-function overpassToCollection(elements: OverpassElement[]): ContextBuildingCollection {
+export function overpassToCollection(elements: OverpassElement[]): ContextBuildingCollection {
     const features: ContextBuildingFeature[] = [];
     const push = (
         geom: Array<{ lat: number; lon: number }> | undefined,
@@ -492,11 +604,15 @@ function overpassToCollection(elements: OverpassElement[]): ContextBuildingColle
         const last = ring[ring.length - 1]!;
         if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
         const floors = resolveFloors(tags);
+        // §CTX-HEIGHT-PROVENANCE (L-459) — resolve height and its origin TOGETHER. The branch
+        // was always known here; it was simply discarded one line later.
+        const h = resolveHeightWithProvenance(tags);
         features.push({
             type: 'Feature',
             geometry: { type: 'Polygon', coordinates: [ring] },
             properties: {
-                heightM: resolveHeight(tags),
+                heightM: h.height_m,
+                heightProvenance: h.provenance,
                 osmId: id,
                 ...(floors !== undefined ? { floors } : {}),
             },
@@ -603,7 +719,8 @@ async function raceMirrors(
         if (winner.features.length > 0) lsWrite(key, winner); // persist non-empty
         console.log(
             `[gis] context buildings: ${winner.features.length} OSM footprint(s) ` +
-                `for bbox ${key} (via same-origin /api/overpass proxy).`,
+                `for bbox ${key} (via same-origin /api/overpass proxy).` +
+                summariseHeightProvenance(winner),
         );
         return winner;
     }
@@ -715,7 +832,8 @@ async function raceMirrors(
             if (winner.features.length > 0) lsWrite(key, winner); // persist non-empty
             console.log(
                 `[gis] context buildings: ${winner.features.length} OSM footprint(s) ` +
-                    `for bbox ${key} (gentle mirror fetch, ≤${OVERPASS_MAX_CONCURRENCY} concurrent).`,
+                    `for bbox ${key} (gentle mirror fetch, ≤${OVERPASS_MAX_CONCURRENCY} concurrent).` +
+                        summariseHeightProvenance(winner),
             );
             return winner;
         }
