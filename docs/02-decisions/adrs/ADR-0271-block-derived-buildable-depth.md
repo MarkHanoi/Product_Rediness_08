@@ -106,9 +106,22 @@ C58 §1.3 requires the derivation, not just the value.
 
 ### Granularity
 
-A block-derived depth is **`granularity: 'block'`**, and C58 §1.11.2 requires that it not be
-presented as a parcel figure without saying so in the same sentence. This is not pedantry here:
-the depth is genuinely a property of the manzana, and two parcels on the same block share it.
+⚠ **CORRECTED 2026-07-20 — this section originally said `granularity: 'block'`. That was wrong,
+and getting it backwards would have been consequential.**
+
+The correct stamp is **`granularity: 'parcel'`**. C58 §1.11 discriminates what a number is
+**ABOUT**, not what was used to compute it. Its motivating failure is Madrid VEDA: a real,
+published *ámbito* FAR that is a fact **about the sector**, so presenting it as this plot's FAR is
+a category error no confidence chip corrects.
+
+Art. 242.2 is different in kind. It is a **parcel-level rule** that happens to take block geometry
+as an INPUT, and the depth it yields is the correct legal depth **for this plot**. Two parcels on
+one manzana share it because the ordinance makes it so — not because a coarser figure was
+borrowed and spread across them.
+
+Stamping `'block'` would have tripped §1.11.3, which forbids the generator from consuming
+coarser-than-parcel numbers as hard constraints — so the engine would have computed a correct
+Eixample depth and then refused to let anything use it.
 
 ⚠ `granularity` is normative in C58 §1.11 but **absent from the schemas** (gap KG-2). This ADR
 cannot be fully conformant until that lands; P2 adds it.

@@ -102,6 +102,35 @@ export type EnvelopeStatus = z.infer<typeof EnvelopeStatusSchema>;
 /**
  * The engine output (C58 §2.4). See the DEVIATION note above re `insetPolygon`.
  */
+/**
+ * C58 §1.11 — what the envelope's numbers are ABOUT. Ordered coarse-ward from `parcel`.
+ *
+ * `'unknown'` is deliberately NOT a synonym for "probably fine": §1.11.4 requires it to be
+ * treated as coarser-than-parcel, because an unlabelled source is exactly the one you cannot
+ * vouch for. Defaulting optimistically here would reintroduce the category error the whole
+ * discriminator exists to prevent.
+ */
+export const EnvelopeGranularitySchema = z.enum([
+    'parcel',
+    'block',
+    'sector',
+    'ambito',
+    'municipality',
+    'unknown',
+]);
+export type EnvelopeGranularity = z.infer<typeof EnvelopeGranularitySchema>;
+
+/**
+ * Is this granularity usable as a PARCEL-level answer (C58 §1.11.2/§1.11.3)?
+ *
+ * The single place that decides. Anything but `'parcel'` may be shown as CONTEXT — and must say
+ * so in the same sentence as the number — but MUST NOT be presented as this plot's envelope, and
+ * MUST NOT reach the generator as a hard constraint.
+ */
+export function isParcelGranular(g: EnvelopeGranularity): boolean {
+    return g === 'parcel';
+}
+
 export const BuildableEnvelopeSchema = z.object({
     /** `parcel ⊖ setbacks` in scene-XZ metres (see DEVIATION note). Empty when
      *  `status !== 'ok'`. */
@@ -117,6 +146,29 @@ export const BuildableEnvelopeSchema = z.object({
     permittedUse: z.array(PermittedUseSchema).default([]),
     /** MANDATORY confidence label (C58 §1.2) — there is no unlabelled envelope. */
     confidence: EnvelopeConfidenceSchema,
+    /**
+     * MANDATORY granularity discriminator (C58 §1.11, gap KG-2 — normative since 2026-07-20 and
+     * unimplemented until now).
+     *
+     * A THIRD axis, independent of `confidence`. §1.2 models fidelity and §1.4 credibility;
+     * neither catches the failure the live Spain pass exposed — **a source can be numeric,
+     * published and authoritative and still be unusable, because it answers at the wrong
+     * granularity.** Madrid VEDA publishes real buildable-m² at *ámbito* level; Valencia
+     * `InventarioSuSuz` a real FAR at *sector* level. Both would earn a high confidence chip,
+     * and neither answers "what may I build on THIS parcel". The number is not uncertain — it
+     * is **about something else**, which is why no confidence label corrects it.
+     *
+     * ⚠ THE DISTINCTION THAT IS EASY TO GET BACKWARDS, and I did once: granularity describes
+     * what the number is ABOUT, **not what was used to compute it**. A block-derived
+     * *profunditat edificable* (ADR-0271) reads block geometry as an INPUT, but PGM Art. 242.2
+     * is a parcel-level rule and the depth it yields is the correct legal answer for THIS plot.
+     * Two parcels on one manzana share it because the ordinance makes it so, not because a
+     * coarser figure was borrowed. It is therefore `'parcel'`. Stamping it `'block'` would trip
+     * §1.11.3 and make the generator refuse a perfectly valid parcel constraint.
+     *
+     * `'unknown'` counts as coarser-than-parcel (§1.11.4) — never as parcel.
+     */
+    granularity: EnvelopeGranularitySchema.default('unknown'),
     status: EnvelopeStatusSchema.default('none'),
     /** The zone code the numbers resolved from (echoed for the report/UI). */
     zoneCode: z.string().min(1).nullable().default(null),

@@ -454,6 +454,21 @@ export function computeBuildableEnvelope(
         span.setStatus({ code: SpanStatusCode.OK });
 
         return {
+            // C58 §1.11 (gap KG-2, closed here) — what these numbers are ABOUT.
+            //
+            // `'parcel'`: every rule kind the engine solves — setback, alignment, and
+            // block-derived — yields the answer FOR THIS PLOT. ⚠ Note the block-derived case
+            // specifically: it reads block geometry as an INPUT, but PGM Art. 242.2 is a
+            // parcel-level rule, so the depth it produces is this parcel's legal depth. Two
+            // parcels on one manzana share it because the ordinance makes it so, not because a
+            // coarser figure was borrowed. Granularity describes what a number is ABOUT, not
+            // what was used to compute it — and stamping `'block'` here would trip §1.11.3 and
+            // make the generator refuse a valid parcel constraint.
+            //
+            // The genuinely coarse sources (Madrid VEDA *ámbito*, Valencia sector) enter through
+            // a PROVIDER, not this solver; when one lands it must stamp its own granularity on
+            // the `ZoningRecord` and this line becomes a read of that, not a constant.
+            granularity: 'parcel',
             insetPolygon,
             maxHeight_m: maxHeight.value,
             maxFloors: maxFloors.value,
