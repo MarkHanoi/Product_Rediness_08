@@ -392,7 +392,16 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 z-index: 88880;
                 display: none;
                 opacity: 0;
-                background: rgba(255, 255, 255, 0.68);
+                /* §LOAD-MASK-OPAQUE-WHITE (L-483) — a FULL white mask, not a translucent scrim.
+                   The old rgba(...,0.68) let the layer being loaded show THROUGH at 32%, and on a
+                   view transition the thing behind is a Cesium globe whose 3D tiles have not
+                   painted yet — i.e. a DARK sphere. So the "Opening the 3D globe" card sat on a
+                   muddy grey-through-to-black wash (founder: "an ugly dark background comes up").
+                   Brand is white + purple, explicitly no black (onboarding brand note), so the
+                   honest mask is opaque white: the user sees a clean white field with the prism
+                   and progress until the scene is genuinely ready, never a half-loaded globe.
+                   The blur is kept for the brief fade in/out, when a frame may still show through. */
+                background: #FFFFFF;
                 backdrop-filter: blur(8px);
                 -webkit-backdrop-filter: blur(8px);
                 transition: opacity 0.20s ease;
