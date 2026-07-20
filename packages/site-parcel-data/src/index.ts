@@ -43,6 +43,17 @@ export {
     estimatedDefaultZoningRecord,
 } from './rulepacks/estimatedDefault.js';
 
+// ── ADR-0271 P5 — Barcelona (INE 08019) ensanche pack, clau 13a/13E. ──
+// Founder-signed source (AMB consolidation to 31-12-2009, L-449 gate). Carries the Art. 242.2
+// CONSTRUCTION; height/floors/FAR stay null because the signed source contains no bands and
+// zone 13a has no per-parcel FAR at all (Art. 322.1 — the envelope IS the rule).
+export {
+    ES_BARCELONA_ENSANCHE_PACK,
+    BCN_ENSANCHE_RULE,
+    BCN_ENSANCHE_ZONE_CODES,
+    BCN_ORDINANCE_REF,
+} from './rulepacks/esBarcelonaEnsanche.js';
+
 export {
     insetPolygonPerEdge,
     type PerEdgeSetbacks,
