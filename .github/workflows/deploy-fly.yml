@@ -120,25 +120,35 @@ jobs:
         # each attempt a 5m health wait. fly.toml grace_period=90s covers the HTTP
         # readiness; this covers the deploy-time smoke/health race.
         run: |
+          # §DEPLOY-LOG-VISIBLE (2026-07-20) — do NOT wrap attempts in ::group::.
+          # GitHub Actions COLLAPSES group blocks by default, so on a failure the
+          # flyctl output — the only thing that says WHY — was hidden behind a
+          # disclosure triangle. Three consecutive failed deploys were diagnosed
+          # blind because the step summary showed only the group titles. A failure
+          # must be readable without expanding anything.
           set +e
           for attempt in 1 2 3; do
-            echo "::group::Fly deploy attempt $attempt"
+            echo "───────── Fly deploy attempt $attempt ─────────"
             flyctl deploy --local-only \
               --build-arg LOWMEM=0 \
               --build-arg VITE_CESIUM_TOKEN="${{ secrets.VITE_CESIUM_TOKEN }}" \
               --build-arg VITE_GOOGLE_MAPS_KEY="${{ secrets.VITE_GOOGLE_MAPS_KEY }}" \
               --strategy=rolling \
-              --wait-timeout=5m
-            code=$?
-            echo "::endgroup::"
+              --wait-timeout=5m 2>&1 | tee "/tmp/fly-attempt-$attempt.log"
+            code=${PIPESTATUS[0]}
             if [ "$code" -eq 0 ]; then
               echo "✓ Fly deploy succeeded on attempt $attempt"
               exit 0
             fi
-            echo "✗ Fly deploy attempt $attempt failed (exit $code) — retrying in 15s…"
-            sleep 15
+            # Re-emit the tail as a GitHub ERROR annotation so the cause appears on
+            # the run summary page itself, not only inside the raw log.
+            echo "::error::Fly deploy attempt $attempt failed (exit $code): $(tail -n 3 "/tmp/fly-attempt-$attempt.log" | tr '\n' ' ')"
+            echo "───── flyctl output, attempt $attempt (last 60 lines) ─────"
+            tail -n 60 "/tmp/fly-attempt-$attempt.log"
+            echo "──────────────────────────────────────────────────────────"
+            [ "$attempt" -lt 3 ] && { echo "retrying in 15s…"; sleep 15; }
           done
-          echo "✗ All 3 Fly deploy attempts failed — see logs above."
+          echo "✗ All 3 Fly deploy attempts failed — the flyctl output for each is printed above."
           exit 1
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
