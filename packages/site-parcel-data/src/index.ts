@@ -25,6 +25,18 @@ export {
     type ComplianceReportRow,
 } from './complianceReport.js';
 
+// L-456 — proposed-vs-permitted capacity comparison (the *proyecto de ejecución* question:
+// how much have I used, how much is left, am I over?).
+export {
+    buildCapacityComparison,
+    CAPACITY_EPSILON,
+    type CapacityComparison,
+    type CapacityRow,
+    type CapacityStatus,
+    type CapacityMetric,
+    type MeasuredDesign,
+} from './capacityComparison.js';
+
 export {
     ESTIMATED_DEFAULT_PACK,
     ESTIMATED_DEFAULT_ZONE_CODE,
