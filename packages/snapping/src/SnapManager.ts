@@ -20,6 +20,8 @@ import { SlabSnapProvider } from './providers/SlabSnapProvider';
 import { StairSnapProvider } from './providers/StairSnapProvider';
 import { FurnitureSnapProvider } from './providers/FurnitureSnapProvider';
 import { BeamSnapProvider } from './providers/BeamSnapProvider';
+// §L-432 — parcel boundary + buildable-envelope setback line as snap targets.
+import { SiteContextSnapProvider, type SiteSnapContext } from './providers/SiteContextSnapProvider';
 
 export class SnapManager {
     private providers: Map<string, ISnapProvider> = new Map();
@@ -424,6 +426,25 @@ export class SnapManager {
             }
             : undefined;
         manager.registerProvider(new GridSnapProvider(manager.settings.gridSize, getBimGrids));
+
+        // §L-432 — SITE CONTEXT: the parcel boundary + the buildable-envelope SETBACK LINE as
+        // snap targets. Without this, compliance-by-construction holds only on the GENERATED
+        // path: a user drawing walls by hand has nothing to bite onto and can silently cross
+        // the setback line the envelope panel claims to enforce.
+        //
+        // Read via the SAME lazy-global pattern as `slabStore` above, and for the same reason:
+        // callers like WallTool forward only `{ gridStore }`, so an explicitly-passed store
+        // would leave the reference missing exactly where walls are drawn. The app layer
+        // publishes the rings (it owns the site-store + envelope reads, which are L5 and not
+        // importable from this L1 package). Fully guarded — an absent global simply means no
+        // site candidates, never a crash.
+        const getSiteSnapContext = (): SiteSnapContext | null => {
+            try {
+                const ctx = win?.__pryzmSiteSnapContext;
+                return typeof ctx === 'function' ? (ctx() ?? null) : null;
+            } catch { return null; }
+        };
+        manager.registerProvider(new SiteContextSnapProvider(getSiteSnapContext));
 
         return manager;
     }

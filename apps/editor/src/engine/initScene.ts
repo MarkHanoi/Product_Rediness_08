@@ -139,6 +139,8 @@ import { perfTraceOn, perfTime, perfLog, perfDump } from '@pryzm/core-app-model/
 // §FIX-LOAD-TRAVERSE-BATCH (P2) — per-add geometry-pass gate policy (unit-tested).
 import { isProjectLoadActive, shouldDeferPerAddGeometryPass } from './perAddGeometryGate';
 import { batchCoordinator } from '@pryzm/core-app-model';
+// §L-432 — publishes the parcel + envelope rings for the L1 site-context snap provider.
+import { installSiteSnapContext } from '../ui/site/siteSnapContext';
 
 // ── Derived type alias ─────────────────────────────────────────────────────────
 // Preserves the specific scene/camera/renderer generic params from createBimWorld
@@ -3443,6 +3445,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // that left the catcher reading uniform grey. Re-earn a freeze-aware refresh later
         // only if a genuine idle-repaint gap is observed on prod.
         realEnvironment.enable();
+
+        // §L-432 — publish the site-context snap reader (parcel boundary + buildable-envelope
+        // setback line). Without this the envelope is a picture: a user drawing walls by hand
+        // has nothing to bite onto and can cross the setback line the panel claims to enforce.
+        installSiteSnapContext();
 
         // Re-solve the sun when the site location changes (onboarding / relocate).
         window.runtime?.events?.on('site.location-changed', () => {

@@ -28,5 +28,8 @@ export * from './providers/SlabSnapProvider.js';
 export * from './providers/StairSnapProvider.js';
 export * from './providers/FurnitureSnapProvider.js';
 export * from './providers/BeamSnapProvider.js';
+// §L-432 — snap to the parcel boundary + buildable-envelope setback line (site REFERENCE
+// geometry, never model geometry). Extends compliance-by-construction to manual authoring.
+export * from './providers/SiteContextSnapProvider.js';
 
 export { SpatialGrid, SnapBoundsError } from '@pryzm/spatial-index';

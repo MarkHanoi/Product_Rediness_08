@@ -24,7 +24,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 // §L-431 slice 2 — the C58 envelope cache (transient, app-layer) for the plan site-context overlay.
-import { getLastBuildableEnvelope } from '../../ui/site/siteDispatch';
+// §L-432 — the shared site-context reader (parcel ring + envelope setback ring + θ), also
+// published to the L1 snapping package. One source, so the pane and the snaps cannot disagree.
+import { readSiteContextRings } from '../../ui/site/siteSnapContext';
 import * as OBC from '@thatopen/components';
 import type { ISplitViewManager } from '@pryzm/views';
 import { unifiedFrameLoop } from '@pryzm/core-app-model';
@@ -593,36 +595,10 @@ export class SplitViewManager implements ISplitViewManager {
                 // site subsystem, so the app layer supplies the rings through this callback
                 // (same injection pattern as `styleResolver`). Read fresh on every paint so a
                 // newly committed parcel / recomputed envelope appears without re-construction.
-                siteContextProvider: () => {
-                    try {
-                        const store = (window.runtime as unknown as {
-                            siteModelStore?: {
-                                getParcelBoundary?: () => { polygon?: ReadonlyArray<{ x: number; z: number }> } | null;
-                                getLocation?: () => { trueNorth?: number } | null;
-                            };
-                        } | undefined)?.siteModelStore;
-                        const parcel = store?.getParcelBoundary?.()?.polygon ?? null;
-                        const env = getLastBuildableEnvelope();
-                        const envelopeRing = env && env.status === 'ok' && env.insetPolygon.length >= 3
-                            ? env.insetPolygon.map((pt) => ({ x: pt.x, z: pt.z }))
-                            : null;
-                        // §L-430 slice 2d — θ rides on this same provider so the pane cannot
-                        // draw site rings in one frame and annotate them with another.
-                        const rawTheta = store?.getLocation?.()?.trueNorth;
-                        const projectNorthRad = typeof rawTheta === 'number' && Number.isFinite(rawTheta)
-                            ? rawTheta : 0;
-                        // Return a context whenever there is ANYTHING to convey. θ alone counts:
-                        // an underlay-defined project north can exist with no parcel yet, and
-                        // bailing out early there would silently leave the north arrow at 0 —
-                        // i.e. pointing at project north while claiming true north.
-                        if (!parcel && !envelopeRing && projectNorthRad === 0) return null;
-                        return {
-                            parcelRing: parcel && parcel.length >= 3 ? parcel : null,
-                            envelopeRing,
-                            projectNorthRad,
-                        };
-                    } catch { return null; }
-                },
+                // §L-432 — ONE shared reader, also used by the site-context SNAP provider. Two
+                // separate reads could drift, drawing the setback line in one place while the
+                // snap fires in another.
+                siteContextProvider: readSiteContextRings,
                 styleResolver: (category, layerTag) => {
                     // VIEW-SYSTEM-AUDIT-2026 F13 — `vgGovernanceStore.resolveStyle()`
                     // signature is `(modelId, category, viewId?)`.  The previous code
