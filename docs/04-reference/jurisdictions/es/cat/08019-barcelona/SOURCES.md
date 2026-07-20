@@ -168,6 +168,91 @@ plausible and be wrong.
 
 ---
 
+## C.7 — SECOND VERIFICATION PASS (2026-07-20, human-assisted, web-enabled)
+
+A follow-up pass ran the four L-461 / L-460 questions against primary sources. **It cleared two,
+partially cleared one, and did not reach the fourth.** Recorded in full — including what it
+*failed* to find — because a negative result that is not written down gets re-attempted.
+
+### C.7.1 ✅ CLEARED — the 2002 Ordinance TEXT, from a PRIMARY source
+
+The *Ordenança de rehabilitació i millora de l'Eixample* was located on **BCNROC, the
+Ajuntament de Barcelona's own repository** — so this is primary, not the AMB secondary document
+§C.5 disqualifies.
+
+| Item | Value |
+|---|---|
+| Handle | `bcnroc.ajuntament.barcelona.cat/jspui/handle/11703/89247` |
+| BOPB scan | `bcnroc.ajuntament.barcelona.cat/jspui/bitstream/11703/89247/2/18817.pdf` |
+| Publication | BOPB núm. 297, **12-12-2002**, marginal 123907 (*text refós*) |
+
+**Art. 2, verbatim:**
+
+> «la qualificació 13 Eixample (clau 13E) **substitueix** la qualificació de Zona de densificació
+> urbana (clau 13) en aquest àmbit. La zona 13 Eixample (clau 13E) es defineix com una **subzona**
+> de la Zona de densificació urbana (clau 13) i es regula en tot allò no previst, per aquest Text
+> Refós…»
+
+*"The 13-Eixample designation (clau 13E) **replaces** the Urban Densification Zone designation
+(clau 13) in this area. Zone 13-Eixample (clau 13E) is defined as a **subzone** of the Urban
+Densification Zone (clau 13) and is governed, in everything this Text Refós does not provide for,
+by [the PGM rules]."*
+
+### C.7.2 ✅ CLEARED (as a legal reading) — §C.2's `13a` vs `13E` is NOT a contradiction
+
+**The ordinance and the geo-service are answering different questions.** Inside the *Conjunt
+Especial de l'Eixample*, `13E` is the operative label and `13a`'s PGM rules apply **residually**,
+per Art. 2 above. So both are "true" — MUC surfaces the underlying PGM zone code as its primary
+attribute, and the ordinance-level override is simply not a field that dataset carries.
+
+⚠ **THE SECOND HALF OF THAT IS AN INFERENCE, NOT A FINDING.** That MUC's data model omits the
+override is the *most plausible* reading of the two facts; **AMB/MUC were not asked**, and the
+service's internal model was not inspected. The LEGAL fact (Art. 2 exists and says the above) is
+solid; the EXPLANATION of the service's behaviour is not. Do not let the second borrow the
+first's confidence — that is exactly the move C58 §1.4 exists to forbid.
+
+**Consequence for the pack:** a Barcelona Eixample pack should be keyed on `13E` with `13a` as
+the residual fallback — **not** on `13a` alone, which is what the live service alone would have
+suggested. That is a design change the data by itself would have hidden.
+
+### C.7.3 ⚠ STILL OPEN — is the 2002 Ordinance IN FORCE today?
+
+**Not resolved, and this gates C.7.1/C.7.2 entirely.** A secondary legal database tags it
+"Vigente", but the Diputació CIDO page's **two 2015 `Derogació` rows were never reached**, so
+what they derogate is unknown — the whole instrument, a narrower one sharing its subject, or a
+partial amendment. `w123.bcn.cat/APPS/egaseta/` was **not** queried this pass.
+
+**Until this closes, `13E` cannot be encoded as governing.** An ordinance whose force is unknown
+is not a source.
+
+### C.7.4 ❌ NOT CLEARED — the height table, plus a NEW NEGATIVE that matters
+
+The Barcelona-modified Art. 327.2a table (**9,00 / 12,35 / 15,70 / 19,05 / 22,40 / 25,75 m** at
+**3,35 m**/floor) **remains unverified**. Neither DOGC 4893 nor DOGC 5224 would render as text.
+
+⚠ **NEW, AND IT CUTS AGAINST OUR FIGURE:** the pass repeatedly confirmed the **generic PGM Art.
+327** floor height as **3,05 m** — *«L'alçada mínima de les plantes, inclosos els forjats i el
+paviment, ha de ser de 3'05 m.»* — across several municipal *fitxes*. It could **not** confirm
+the 3,35 m Barcelona variant anywhere. A modification touching Art. 327 §2 (exp. 2007/028428,
+DOGC 29-09-2008) **is confirmed to exist**, but its substituted content was not read.
+
+**So our 3,35 m figure is now single-sourced AND contradicted by the generic article.** Treat it
+as **unverified, not corrected** — the correct state is still `null`, and this pass strengthens
+rather than weakens that.
+
+### C.7.5 ❌ NOT ATTEMPTED — the volumetric rules (L-466)
+
+*Cossos sortints* / tribunes, *planta baixa*, *àtic* / *sotacoberta*, *patis de llum* — not
+searched. One incidental hit surfaced: a `4ª Cossos sortints` clause prohibiting enclosed
+projecting bodies on streets under 8 m wide — **but it is the Badalona (08015) fitxa, a named
+trap in §C.6, and was correctly NOT promoted.** It is recorded here only as evidence that
+projecting-body rules live in the Art. 327 clause family, which is where a future pass starts.
+
+**Recommended next pass:** start from the DOGC modification texts directly, not the AMB *fitxa*
+pages — those summarise in prose and do not reliably reproduce table or clause detail.
+
+---
+
 ## D. Unverified / open
 
 - The *clau* (zone code) that applies to Eixample blocks — **not established**. Without it a
