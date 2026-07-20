@@ -40,6 +40,19 @@ export const DerivationConstraintSchema = z.enum([
     'maxFAR',
     'maxCoverage',
     'permittedUse',
+    // ─── ADR-0270 P4 — alignment-governed zones (C58 §1.7a) ───────────────────────────────
+    // An alignment rule SHAPED the envelope but had no way to SAY SO: the solver recorded it
+    // only in free-text `caveats`, so "Why these numbers?" listed three setbacks and silently
+    // omitted the constraint that actually did the work. A user reading the panel would have
+    // concluded the setback triple governed the plot. These literals make the real rule a
+    // first-class, citable row — the §1.3 explain-why obligation applied to the rule KIND, not
+    // just its numbers.
+    /** *Profundidad / profunditat edificable* — the depth band measured from the alignment. */
+    'alignment.depth',
+    /** Offset of the buildable line from the alignment itself (0 ⇒ façade ON the line). */
+    'alignment.offset',
+    /** How the lateral boundaries are treated: party wall (*mitgera*) vs a side setback. */
+    'alignment.sideTreatment',
 ]);
 export type DerivationConstraint = z.infer<typeof DerivationConstraintSchema>;
 

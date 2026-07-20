@@ -62,6 +62,13 @@ export interface ComplianceReport {
 
 /** Stable presentation order — how an architect reads a zoning determination. */
 const CONSTRAINT_ORDER: readonly DerivationConstraint[] = [
+    // ADR-0270 P4 — the alignment rows lead. On an *ensanche* parcel the alignment + depth ARE
+    // the governing rule; the setback triple is a secondary detail (often all-zero). Listing
+    // them first is not cosmetic: reading order is what tells an architect which rule shaped
+    // the envelope, and burying the depth under three zeros is how the old panel misled.
+    'alignment.depth',
+    'alignment.offset',
+    'alignment.sideTreatment',
     'setback.front',
     'setback.side',
     'setback.rear',
@@ -72,6 +79,11 @@ const CONSTRAINT_ORDER: readonly DerivationConstraint[] = [
 ];
 
 const LABELS: Record<DerivationConstraint, string> = {
+    // Keep the local legal term alongside the English — it is what appears in the ordinance the
+    // citation points at, so a user checking the source can find the clause.
+    'alignment.depth': 'Buildable depth (profundidad edificable)',
+    'alignment.offset': 'Offset from alignment (alineación)',
+    'alignment.sideTreatment': 'Lateral boundaries',
     'setback.front': 'Front setback',
     'setback.side': 'Side setback',
     'setback.rear': 'Rear setback',
@@ -81,13 +93,25 @@ const LABELS: Record<DerivationConstraint, string> = {
     permittedUse: 'Permitted use',
 };
 
+/** Human wording for the `sideTreatment` enum — never show a raw code to a user. */
+const SIDE_TREATMENT_TEXT: Record<string, string> = {
+    'party-wall': 'Party wall (medianera) — built to both side boundaries',
+    setback: 'Side setback',
+};
+
 /** Format a derivation value with the unit its constraint implies. */
 export function formatConstraintValue(
     constraint: DerivationConstraint,
     value: number | string | readonly string[] | null,
 ): string {
     if (value === null || value === undefined) return '—';
-    if (typeof value === 'string') return value.trim() === '' ? '—' : value;
+    if (typeof value === 'string') {
+        if (value.trim() === '') return '—';
+        // ADR-0270 P4 — expand the sideTreatment enum into words. Rendering `party-wall` raw
+        // would show an internal token where a legal concept belongs.
+        if (constraint === 'alignment.sideTreatment') return SIDE_TREATMENT_TEXT[value] ?? value;
+        return value;
+    }
     if (typeof value === 'number') {
         // Numeric: ratio for FAR, percent for coverage, metres for setbacks/height.
         if (constraint === 'maxFAR') return value.toFixed(2);

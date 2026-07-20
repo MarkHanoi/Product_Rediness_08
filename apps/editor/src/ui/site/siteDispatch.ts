@@ -43,6 +43,9 @@ import {
     computeBuildableEnvelope,
     DkZoningProvider,
     isInDenmark,
+    // L-445 fallback 3 — re-inset from PERSISTED setbacks for projects committed before the
+    // ring-persistence fix. C58 §1.7a permits this for `setback` zones only; see the guard.
+    insetPolygonPerEdge,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 import { trace } from '@opentelemetry/api';
@@ -133,7 +136,7 @@ export function getLastBuildableEnvelope(): BuildableEnvelope | null {
 export interface RenderableBuildableEnvelope {
     readonly ring: ReadonlyArray<{ x: number; z: number }>;
     readonly maxHeightM: number | null;
-    readonly source: 'solved' | 'persisted';
+    readonly source: 'solved' | 'persisted' | 're-inset';
 }
 
 export function resolveRenderableBuildableEnvelope(
@@ -162,6 +165,49 @@ export function resolveRenderableBuildableEnvelope(
                 maxHeightM: parcel?.maxHeight ?? null,
                 source: 'persisted',
             };
+        }
+        // 3) LAST RESORT — RE-INSET from the persisted setbacks (L-445 follow-up).
+        //
+        // WHY THIS EXISTS: fallback (2) only helps parcels committed AFTER the ring-persistence
+        // fix shipped. Every project committed BEFORE it has `buildableRing === null` for good,
+        // and nothing re-solves on load — so the founder's existing Barcelona project still
+        // logged `envelope present=n` with the fix deployed. A fix that only helps new data is
+        // not a fix for a user who already has data.
+        //
+        // ⚠ THIS IS THE ONE RE-DERIVATION C58 §1.7a PERMITS, and only under its exact condition:
+        // "Reading the three numbers and re-insetting is valid only for `setback` zones and MUST
+        // NOT be used as a general path." The guard below IS that condition, and it is
+        // self-enforcing rather than a promise: an alignment-governed zone stores its ring (so
+        // branch 2 already returned) and stores `null` setbacks (so this branch cannot fire).
+        // Requiring all three to be NUMBERS is therefore equivalent to "this is a setback zone".
+        //
+        // It re-runs the same deterministic per-edge inset on PERSISTED inputs — it does not
+        // invent a number, and it cannot upgrade provenance: the caller still gets geometry only,
+        // and the facts card still shows nothing, because no derivation was re-derived.
+        const sb = parcel?.setbacks;
+        const boundary = parcel?.boundary;
+        if (
+            sb && boundary && Array.isArray(boundary.polygon) && boundary.polygon.length >= 3 &&
+            typeof sb.front === 'number' && typeof sb.side === 'number' && typeof sb.rear === 'number'
+        ) {
+            const reInset = insetPolygonPerEdge(
+                boundary.polygon,
+                boundary.edgeClassifications as ParcelEdgeClassification[],
+                { front: sb.front, side: sb.side, rear: sb.rear, unclassified: sb.side },
+            );
+            if (!reInset.degenerate && reInset.polygon.length >= 3) {
+                console.log(
+                    `[gis][c58] §ENVELOPE-REINSET (L-445) — no cached or persisted ring; re-inset ` +
+                        `from the PERSISTED setbacks ${sb.front}/${sb.side}/${sb.rear} m ` +
+                        `(${reInset.polygon.length}-pt ring). Valid here because this is a setback ` +
+                        `zone (C58 §1.7a); an alignment zone stores its ring and null setbacks.`,
+                );
+                return {
+                    ring: reInset.polygon.map((p) => ({ x: p.x, z: p.z })),
+                    maxHeightM: parcel?.maxHeight ?? null,
+                    source: 're-inset',
+                };
+            }
         }
     } catch {
         // Never let a render path throw on a missing store.

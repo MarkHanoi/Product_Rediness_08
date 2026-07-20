@@ -97,8 +97,15 @@ export function computeBuildableEnvelope(
 ): BuildableEnvelope {
     const span = tracer.startSpan('pryzm.zoning.computeBuildableEnvelope');
     try {
-        const { parcelRing, edgeClassifications, zoning, rulePack, geometricRule } = input;
+        const { parcelRing, edgeClassifications, zoning, rulePack } = input;
         const zone = findZone(rulePack, zoning.zoneCode);
+        // ADR-0270 P5 — the rule may now come FROM THE PACK ZONE, which is how a curated
+        // *ensanche* pack declares itself. The explicit `input.geometricRule` still wins so a
+        // caller (and the A1b tests) can override, but before this line the pack had no voice at
+        // all: `geometricRule` was a sibling input nothing in production ever populated, so the
+        // whole alignment branch below was reachable only from tests. `??` not `||` — a pack that
+        // deliberately declares `null` (legacy setback behaviour) must not be overridden.
+        const geometricRule = input.geometricRule ?? zone?.geometricRule ?? null;
         const structured = zoning.structuredFields ?? {};
         const packProv = zone?.fieldProvenance ?? {};
         const source = zone
@@ -257,6 +264,30 @@ export function computeBuildableEnvelope(
                 //     insetPolygonPerEdge(...)  THEN  clipToDepthBand(...)
                 // No parallel path, no fork of C58 §2.4.
                 if (geometricRule?.kind === 'alignment') {
+                    // ── ADR-0270 P4 — the rule must EXPLAIN ITSELF (C58 §1.3). ──────────
+                    // Previously the alignment rule shaped the envelope but was recorded only
+                    // in free-text `caveats`, which the compliance report does not read — so
+                    // "Why these numbers?" showed three setbacks and silently omitted the
+                    // constraint that actually did the work. A user would reasonably conclude
+                    // the triple governed the plot. These rows make the real rule citable.
+                    // Emitted BEFORE the geometry runs so the trace explains the rule that was
+                    // APPLIED even when the result turns out degenerate.
+                    const alignProv = zone?.fieldProvenance['alignment.depth']
+                        ?? zone?.fieldProvenance['geometricRule']
+                        ?? 'estimated';
+                    const addAlign = (
+                        constraint: DerivationEntry['constraint'],
+                        value: number | string,
+                    ): void => {
+                        derivation.push({
+                            constraint, value, zoneCode: zoning.zoneCode, source,
+                            fieldProvenance: alignProv, ordinanceRef,
+                        });
+                    };
+                    addAlign('alignment.depth', geometricRule.buildableDepth_m);
+                    addAlign('alignment.offset', geometricRule.alignmentOffset_m);
+                    addAlign('alignment.sideTreatment', geometricRule.sideTreatment);
+
                     const frontIdx = edgeClassifications.findIndex((c) => c === 'front');
                     if (frontIdx < 0) {
                         // HARD FAIL, not a silent fallback. Without a front edge there is no

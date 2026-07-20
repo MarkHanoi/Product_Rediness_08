@@ -12,6 +12,7 @@
 
 import { z } from 'zod';
 import { PermittedUseSchema } from './EnvelopeNumbers.js';
+import { GeometricRuleCompatSchema } from '../GeometricRule.js';
 import {
     FieldProvenanceSchema,
     RulePackDefaultConfidenceSchema,
@@ -59,6 +60,24 @@ export const ZoningRuleSchema = z.object({
     fieldProvenance: z.record(z.string(), FieldProvenanceSchema).default({}),
     /** Citation of the governing legal document (C58 §1.3), or null. */
     ordinanceRef: z.string().min(1).nullable().default(null),
+    /**
+     * ADR-0270 P5 / C58 §2.2 — the GEOMETRIC RULE that shapes the buildable area for this zone.
+     *
+     * WITHOUT THIS FIELD A PACK COULD NOT DECLARE AN ALIGNMENT ZONE AT ALL. The `alignment`
+     * variant shipped in A1a and the solver branch shipped in A1b, but `computeBuildableEnvelope`
+     * only ever accepted a `geometricRule` as a SIBLING INPUT — which nothing in production
+     * populated, so the whole alignment path was reachable only from tests. This is the slot that
+     * makes a curated *ensanche* pack expressible.
+     *
+     * OMITTED / `null` ⇒ the legacy per-edge inset from `setbacks` above, which is the implicit
+     * `kind: 'setback'` behaviour every existing pack relies on. Purely additive: no shipped pack
+     * changes meaning, and `GeometricRuleCompatSchema` stamps `kind:'setback'` on a legacy triple.
+     *
+     * ⚠ `setbacks` ABOVE REMAINS THE INSET INPUT even for an alignment zone — the alignment rule
+     * adds the depth band; it does not replace the per-edge inset. Keep the two consistent when
+     * authoring a pack (see C58 §1.7a and the note in `ZoningRulesEngine`).
+     */
+    geometricRule: GeometricRuleCompatSchema.nullable().default(null),
 });
 export type ZoningRule = z.infer<typeof ZoningRuleSchema>;
 

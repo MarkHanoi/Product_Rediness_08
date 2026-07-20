@@ -105,6 +105,60 @@ describe('§OVERPASS-PROXY /api/overpass', () => {
         expect(fake.calls).toBe(4);
     });
 
+    // ─────────────────────────────────────────────────────────────────────────────────────
+    // §OVERPASS-NO-CACHE-EMPTY (L-422 root cause) — a FAILURE MUST NEVER BE CACHEABLE.
+    //
+    // The empty-on-failure response is deliberate (the client degrades to "no context"), but it
+    // was sent with the SUCCESS headers `public, max-age=86400`. The server correctly declined
+    // to cache it — and then told the BROWSER to cache it for a day. One transient rate-limit
+    // became a persistent whole-day zero-context, and because an empty body is indistinguishable
+    // from a legitimately empty area it read as data absence rather than failure.
+    //
+    // Live evidence: for the Barcelona port bbox the app logged parks 0 / water 0 / buildings 0
+    // while a direct Overpass query on the SAME bbox returned 20 water ways.
+    // ─────────────────────────────────────────────────────────────────────────────────────
+    it('L-422 — the FAILURE response is NOT cacheable by the browser', async () => {
+        fake = makeFakeFetch(() => new Response('rate limited', { status: 429 }));
+        const r = await post('data=' + encodeURIComponent('[out:json];(way(9,9,9,9););out geom;'));
+        const cc = r.headers.get('cache-control') ?? '';
+        expect(cc).toContain('no-store');
+        expect(cc).not.toContain('max-age=86400');
+        // The whole point: a transient failure must not survive as a cached "empty area".
+        expect(cc).not.toMatch(/public/);
+    });
+
+    it('L-422 — the failure is machine-distinguishable from a genuinely empty area', async () => {
+        fake = makeFakeFetch(() => new Response('rate limited', { status: 429 }));
+        const r = await post('data=' + encodeURIComponent('[out:json];(way(8,8,8,8););out geom;'));
+        expect(r.headers.get('x-overpass-upstream')).toBe('FAILED');
+        const body = await r.json();
+        expect(body._upstreamFailed).toBe(true);
+        // Back-compat: every existing client parse path reads `elements`, which is still there.
+        expect(body.elements).toEqual([]);
+    });
+
+    it('L-422 — a SUCCESSFUL response is still long-cacheable (the fix is failure-only)', async () => {
+        const payload = JSON.stringify({ elements: [{ type: 'way', id: 1 }] });
+        fake = makeFakeFetch(() => new Response(payload, { status: 200 }));
+        const r = await post('data=' + encodeURIComponent('[out:json];(way(7,7,7,7););out geom;'));
+        const cc = r.headers.get('cache-control') ?? '';
+        expect(cc).toContain('max-age=86400');
+        expect(cc).not.toContain('no-store');
+        expect(r.headers.get('x-overpass-upstream')).toBeNull();
+    });
+
+    // A genuinely empty area is a real, cacheable answer — it must NOT be swept up by the fix,
+    // or every empty rural bbox would re-query Overpass forever.
+    it('L-422 — a genuinely EMPTY upstream result stays cacheable', async () => {
+        const payload = JSON.stringify({ elements: [] });
+        fake = makeFakeFetch(() => new Response(payload, { status: 200 }));
+        const r = await post('data=' + encodeURIComponent('[out:json];(way(6,6,6,6););out geom;'));
+        const cc = r.headers.get('cache-control') ?? '';
+        expect(cc).toContain('max-age=86400');
+        const body = await r.json();
+        expect(body._upstreamFailed).toBeUndefined();   // real answer, not a failure marker
+    });
+
     it('empty query → 400', async () => {
         fake = makeFakeFetch(() => new Response('{}', { status: 200 }));
         const r = await post('data=');
