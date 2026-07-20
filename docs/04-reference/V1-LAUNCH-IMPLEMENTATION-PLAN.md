@@ -3684,6 +3684,54 @@ Links: L-412; supersedes the "3D-Site-on-right" narrow ask + the "site-view enab
 
 Links: L-413; follow-up to L-412 (`5fe0fa07`); ties C02, C59 §invariant-7, P1. Owner UNASSIGNED. Target TBD.
 
+## Pipeline A — REAL PLANNING DATA (approved 2026-07-20): target state + sequenced tasks
+
+Cross-refs: **L-443** (rule model), **L-449** (extraction engine), **L-450** (corpus acquisition),
+**L-438** (why no API can supply this), **L-441** (classification, shipped free).
+Contracts: **C58 §1.2/§1.4/§1.11**, **C57**, **ADR-0269**.
+
+### TARGET STATE — the flow this pipeline exists to deliver
+
+> Open PRYZM → search an address in Barcelona / Madrid / Córdoba → click the parcel →
+> **real boundary (Catastro)** + **real setbacks / edificabilidad / área de implantación read from
+> that municipality's PGOU, each value citing its own document, page and clause** → buildable
+> envelope computed from those REAL rules → generate a compliant building inside it → view it in
+> photoreal context → carry it into full BIM authoring.
+
+**Honest scope of that promise — record these so the target is not later remembered as broader
+than it was approved to be:**
+
+- **Parcel selection — WORKS TODAY.** Catastro, 15 CCAA + Ceuta/Melilla. No work required.
+- **Real numbers — DELIVERABLE, per curated municipality.** Not "all Spain" on day one. The
+  three pilot cities are THREE curations, not 318 — weeks, not quarters. The 318 (L-450) is the
+  scale-out, and it is a programme of human verification, not an engineering sprint.
+- **Provenance is the differentiator.** Every value carries `sourceRef` (document/page/clause),
+  so "Why these numbers?" answers with the ordinance article rather than a confidence chip.
+  This is Archistar parity and arguably past it.
+- **Photoreal visual context — ALREADY WORKS** (Google 3D Tiles, 3D globe). Once L-448 stopped
+  the tileset clipping, it is clean. No further work needed for LOOKING at real context.
+- **⚠ ANALYTICAL LOD2 CONTEXT IS *NOT* PROMISED FOR SPAIN.** Google's tiles are ONE FUSED MESH —
+  gorgeous, but individual neighbouring buildings cannot be selected, queried for height, or used
+  as analysis inputs. Per-building LOD2 is a DIFFERENT dataset; **L-404** does this for Denmark
+  only because Denmark publishes "Danmark i 3D". **No Spanish national LOD2 equivalent is known
+  to exist.** Until one is found, Spanish analytical context remains OSM footprints + heights.
+  Anyone reading this plan must not infer LOD2 neighbours from "photoreal context".
+
+### SEQUENCED TASKS — order is load-bearing, do not reorder
+
+| # | Task | L-ID | Why it must come here |
+|---|---|---|---|
+| A1 | **Extend C58's rule model** for street *alineación* + *profundidad edificable* (ADR required) | **L-443** | **THE UNBLOCK.** C58 §2.2 hardcodes `{front_m, side_m, rear_m}`, which CANNOT express the rules governing dense Spanish urban fabric. Extracted values would have nowhere to land. Acquiring 64 GB before this exists produces a corpus we cannot represent and must re-extract — the human-gated step done twice. |
+| A2 | **Draft-extraction schema + verification gate** — draft `JurisdictionZoningContract` w/ per-field `sourceRef`; draft→published promotion is what earns `confidence:'structured'` | **L-449** | Founder approved option (a): C58 §1.2/§1.4 stand UNAMENDED. Nothing unverified is ever served as authoritative. |
+| A3 | **Object storage + acquire the 318** (`spain/priority_318.csv`) | **L-450** | ~64 GB, ~$1/month. NOT the repo (GitHub caps 100 MB/file; cf. the 185 MB GLB catalogue already `.dockerignore`d, which is why `/items/*.glb` 404s). NOT Postgres — the DB holds only rule packs (~1–5 KB each; 318 ≈ 2 MB, inside the FREE tier). **Same bucket closes OBJECT-STORAGE-GLB.** |
+| A4 | **Pilot end-to-end on Madrid + Barcelona + Córdoba** | L-449/L-450 | Prove ONE municipality fully before scaling. Three curations is a demo; 318 is a programme. |
+| A5 | Extend coverage BY DEMAND | L-450 | An uncovered municipality selected by a user is a coverage SIGNAL; its envelope honestly reports `estimated-ruleset` until curated. Coverage grows where users are, not alphabetically. |
+
+**Cost to start: ~$1/month object storage. Supabase stays FREE.** The expensive input is human
+verification time, not infrastructure — plan against that, not against hosting.
+
+**Owner: UNASSIGNED. Target: TBD.**
+
 ## Pipeline A — compliance-authoring: sub-task breakdown (transcribed from `SEPTEMBER-READINESS-MASTER-PROGRAM-PLAN.md` §8)
 
 The coarse compliance L-items (mapping-table rows L-393, L-398–L-402 above) break into schedulable sub-items. Parents stay **OPEN**; scope + contract map verbatim from the program plan §8. The **serial engine core** is `L-403 (C57/C58) → L-398a → L-398b/c → L-398d → L-401a/b/c` (critical path, ~4 weeks); once the engine interface freezes (~wk2) Track J (L-399/L-400 adapters), Track R (L-402), and Track I (L-393) fan out in parallel.
