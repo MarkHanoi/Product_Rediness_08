@@ -24,6 +24,7 @@ import {
     ClimateRefIdSchema,
     BuildingIdSchema,
     ProvenanceRecordSchema,
+    PtSchema,
     type SiteModel,
 } from '@pryzm/schemas';
 import type { ContainmentReport, FARReport } from '@pryzm/site-validators';
@@ -117,6 +118,21 @@ export const SiteUpdateZoningPayloadSchema = z.object({
         .optional(),
     maxFAR: z.number().min(0).nullable().optional(),
     maxHeight: z.number().min(0).nullable().optional(),
+    /**
+     * ADR-0270 option A / C58 §1.7a (L-451) — the buildable-envelope INSET RING, which is now
+     * the PERSISTED TRUTH for "what may I build here".
+     *
+     * `null` explicitly CLEARS a previously-solved envelope (e.g. the parcel changed and no
+     * envelope has been re-solved). Omitted leaves it untouched, matching every other field
+     * here — the caller supplies deltas only.
+     *
+     * WHY IT IS SEPARATE FROM `setbacks`: an alignment-governed zone (*alineación a vial* +
+     * *profundidad edificable*) has NO front/side/rear triple that encodes it, so the three
+     * numbers cannot carry the answer. C58 §2.4 already computed this ring and §1.8 already
+     * threaded THE POLYGON — not the numbers — into generation; this is the field that finally
+     * lets it survive close+reopen (cf. L-188).
+     */
+    buildableRing: z.array(PtSchema).nullable().optional(),
 });
 export type SiteUpdateZoningPayload = z.infer<
     typeof SiteUpdateZoningPayloadSchema
