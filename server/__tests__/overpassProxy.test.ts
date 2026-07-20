@@ -147,16 +147,44 @@ describe('§OVERPASS-PROXY /api/overpass', () => {
         expect(r.headers.get('x-overpass-upstream')).toBeNull();
     });
 
-    // A genuinely empty area is a real, cacheable answer — it must NOT be swept up by the fix,
-    // or every empty rural bbox would re-query Overpass forever.
-    it('L-422 — a genuinely EMPTY upstream result stays cacheable', async () => {
+    // §OVERPASS-NO-LONG-CACHE-EMPTY (L-467) — ⚠ THIS TEST'S ASSERTION WAS DELIBERATELY INVERTED.
+    //
+    // It previously asserted that a zero-element 200 "stays cacheable" for 24 h, on the stated
+    // reasoning that "a genuinely empty area is a real, cacheable answer — or every empty rural
+    // bbox would re-query Overpass forever". The CONCERN is right and is still honoured below.
+    // The ASSERTION was the defect: Overpass mirrors under load answer 200-with-empty rather than
+    // 429, so a 24 h cache turned one blip into a full day of "central Barcelona has no
+    // buildings" — server-side, shared by every client, surviving hard-refresh. That is the
+    // founder-reported bug, and L-457 could not have caught it: it fixed the BROWSER caching a
+    // FAILED response, while this is the SERVER caching an EMPTY SUCCESSFUL one.
+    //
+    // The new contract: an empty answer is cached BRIEFLY (minutes, not a day) — we do not yet
+    // trust the emptiness, which is exactly true — so a poisoned empty heals itself, and a
+    // genuinely rural bbox still is not re-queried on every render.
+    it('L-467 — an EMPTY upstream result is cached only BRIEFLY, never for 24 h', async () => {
         const payload = JSON.stringify({ elements: [] });
         fake = makeFakeFetch(() => new Response(payload, { status: 200 }));
         const r = await post('data=' + encodeURIComponent('[out:json];(way(6,6,6,6););out geom;'));
         const cc = r.headers.get('cache-control') ?? '';
-        expect(cc).toContain('max-age=86400');
+        // The whole point: NOT durable.
+        expect(cc).not.toContain('max-age=86400');
+        // Distinct from the all-mirrors-failed marker — upstream DID answer.
+        expect(r.headers.get('x-overpass-upstream')).toBe('EMPTY-UNVERIFIED');
         const body = await r.json();
-        expect(body._upstreamFailed).toBeUndefined();   // real answer, not a failure marker
+        expect(body._upstreamFailed).toBeUndefined();   // not a failure, just not trusted yet
+    });
+
+    it('L-467 — the rural concern still holds: a repeat empty query is served from cache', async () => {
+        // The original test's reasoning, preserved as an assertion rather than a comment: we must
+        // not re-hit a shared public endpoint on every render for a legitimately empty bbox
+        // (C57 §7.2). One upstream call, two requests.
+        let upstreamCalls = 0;
+        const payload = JSON.stringify({ elements: [] });
+        fake = makeFakeFetch(() => { upstreamCalls++; return new Response(payload, { status: 200 }); });
+        const q = 'data=' + encodeURIComponent('[out:json];(way(5,5,5,5););out geom;');
+        await post(q);
+        await post(q);
+        expect(upstreamCalls).toBe(1);
     });
 
     it('empty query → 400', async () => {

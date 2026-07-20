@@ -76,6 +76,32 @@ export function overpassBodyParser(req, res, next) {
 /** Cache TTL — 24 h. A city's OSM footprints change slowly; a day-stale context
  *  massing study is completely acceptable and eliminates repeat Overpass calls. */
 export const OVERPASS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * §OVERPASS-NO-LONG-CACHE-EMPTY (L-467) — how long a ZERO-element upstream answer is trusted.
+ *
+ * 5 minutes, not 24 hours. See the rationale at the cache-write site: an empty result from a
+ * loaded Overpass mirror is usually a soft failure wearing a 200, and caching it for a day turns
+ * one blip into a day of "this city has no buildings". Short enough that a transient empty heals
+ * itself without a redeploy or a cache flush; long enough that a genuinely empty bbox is not
+ * re-queried on every render (C57 §7.2 politeness).
+ */
+export const OVERPASS_EMPTY_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Count `elements` in a verbatim upstream JSON string WITHOUT trusting it to be well-formed.
+ * Returns -1 when the body cannot be parsed, which callers must treat as "not empty" — an
+ * unparseable body is a different problem, and mislabelling it "empty" would be the very
+ * conflation this whole section exists to remove.
+ */
+function countElements(body) {
+    try {
+        const parsed = JSON.parse(typeof body === 'string' ? body : String(body));
+        return Array.isArray(parsed?.elements) ? parsed.elements.length : -1;
+    } catch {
+        return -1;
+    }
+}
 /** Bounded size — evict the OLDEST entry when exceeded (insertion-order LRU-ish).
  *  Each entry is a parsed-then-restringified Overpass JSON (tens–hundreds of KB);
  *  256 distinct bbox queries is a generous working set for the whole server. */
@@ -118,8 +144,8 @@ function cacheGet(key, now = Date.now()) {
 }
 
 /** Store an upstream JSON string, evicting the oldest entries past the cap. */
-function cacheSet(key, body, now = Date.now()) {
-    _cache.set(key, { body, expires: now + OVERPASS_CACHE_TTL_MS });
+function cacheSet(key, body, now = Date.now(), ttlMs = OVERPASS_CACHE_TTL_MS) {
+    _cache.set(key, { body, expires: now + ttlMs });
     while (_cache.size > OVERPASS_CACHE_MAX_ENTRIES) {
         const oldest = _cache.keys().next().value;
         if (oldest === undefined) break;
@@ -302,7 +328,46 @@ export function makeOverpassHandler(deps = {}) {
             return res.status(200).json({ elements: [], _upstreamFailed: true });
         }
 
-        // Success — cache the verbatim upstream JSON + return it.
+        // §OVERPASS-NO-LONG-CACHE-EMPTY (L-467) — ⚠ A ZERO-ELEMENT "SUCCESS" IS NOT A FACT.
+        //
+        // THE DEFECT THIS FIXES, and it is the real root of the founder's "context buildings do
+        // not appear": Overpass mirrors under load routinely answer **HTTP 200 with an empty
+        // `elements` array** rather than a 429/504. `fetchFromMirrors` sees 200 and returns it,
+        // so this path treated it as a genuine answer and cached it for TWENTY-FOUR HOURS —
+        // server-side, shared by every client, surviving reload and hard-refresh. One transient
+        // blip therefore produced a whole day of "this area has no buildings" for a bbox in the
+        // middle of Barcelona, and `_upstreamFailed` was absent because from the proxy's point of
+        // view nothing failed.
+        //
+        // ⚠ THIS IS L-422 / L-457 ONE LAYER DEEPER, which is why it survived that fix. L-457
+        // stopped the BROWSER caching a FAILED response and taught the client to honour
+        // `_upstreamFailed`. Neither touched the SERVER caching an EMPTY SUCCESSFUL one — and the
+        // comment on the failure path above ("the server already declines to cache this") is true
+        // only of that path, which is precisely how this stayed invisible.
+        //
+        // WHY A SHORT TTL AND NOT "NEVER CACHE": some areas ARE genuinely empty (open sea, a
+        // desert bbox), and re-querying those on every render would hammer a shared public
+        // endpoint — the politeness obligation in C57 §7.2. A short TTL bounds BOTH failure
+        // modes: a poisoned empty expires in minutes instead of a day, and a genuinely empty
+        // area is still not re-fetched on every frame. It is the honest middle: we are saying
+        // "we do not yet trust this emptiness", which is exactly true.
+        const isEmpty = countElements(upstream) === 0;
+        if (isEmpty) {
+            cacheSet(key, upstream, Date.now(), OVERPASS_EMPTY_CACHE_TTL_MS);
+            setProxyFailureHeaders(res);
+            res.setHeader('X-Overpass-Cache', 'MISS-EMPTY-SHORT');
+            // Distinct from FAILED: upstream answered, we simply do not treat zero as durable.
+            res.setHeader('X-Overpass-Upstream', 'EMPTY-UNVERIFIED');
+            console.warn(
+                `[overpass-proxy] §OVERPASS-NO-LONG-CACHE-EMPTY — upstream returned 200 with ZERO ` +
+                    `elements; caching for ${Math.round(OVERPASS_EMPTY_CACHE_TTL_MS / 1000)}s only ` +
+                    `(not ${Math.round(OVERPASS_CACHE_TTL_MS / 3600000)}h). A zero-element answer ` +
+                    `from a loaded mirror is usually a soft failure, not an empty world.`,
+            );
+            return res.status(200).send(upstream);
+        }
+
+        // Success with real content — cache the verbatim upstream JSON + return it.
         cacheSet(key, upstream);
         setProxyCacheHeaders(res);
         res.setHeader('X-Overpass-Cache', 'MISS');

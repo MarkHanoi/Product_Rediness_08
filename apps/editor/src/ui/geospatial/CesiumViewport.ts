@@ -4040,6 +4040,33 @@ export class CesiumViewport {
         `viewer=${this.instanceId}, container=${this.container?.id ?? 'n/a'}.`,
     );
 
+    // §SITE-OVERLAY-DATUM-DIAG (L-466) — WHERE, VERTICALLY, DID THE OVERLAY LAND?
+    //
+    // `present=y added=1` above proves the envelope was DRAWN. It says nothing about whether
+    // it is drawn somewhere you can SEE. On the photoreal globe the ground is the Google tile
+    // mesh (Barcelona ≈ +57 m ELLIPSOIDAL: ~49 m geoid separation + ~8 m terrain), but the
+    // overlay is seated at `formaTerrainBaseHeight`. If the datum never resolved that value is
+    // still 0 — the ellipsoid — so the envelope renders ~57 m BENEATH the visible surface and
+    // the parcel clip reads as an empty black shaft. Identical symptom to "not rendered", and
+    // the existing diag cannot tell them apart. This line can.
+    //
+    // Deliberately logged on EVERY massing render (not only on failure): the founder's report
+    // is "the envelope is not there", and the whole point is that the answer is a NUMBER
+    // nobody currently has. C12 §1.4 — an unresolved datum must be visible as unresolved.
+    if (input.keepPhotoreal) {
+      const unresolved = this.globeGroundSource === 'unresolved' || !this.globeGroundResolved;
+      console.log(
+        `[CesiumViewport][globe] §SITE-OVERLAY-DATUM-DIAG: site overlay seated at base ` +
+          `${baseHeight.toFixed(2)} m ELLIPSOIDAL · groundSource=${this.globeGroundSource} · ` +
+          `resolved=${this.globeGroundResolved ? 'y' : 'n'}` +
+          (unresolved || Math.abs(baseHeight) < 1e-3
+            ? ' — ⚠ BURIED-RISK: the photoreal tile surface is tens of metres above the ellipsoid, ' +
+              'so an overlay at ~0 m sits UNDER the visible ground and reads as "not rendered". ' +
+              'This is a DATUM failure, not a draw failure (C12 §1.4).'
+            : ' — datum measured; overlay should sit on the visible tile surface.'),
+      );
+    }
+
     // FIX A.21.D28#2 — `area ≈ 0 m²`. The footprint area + centroid were computed
     // ONLY from the parcel boundary; a house generated from scratch (no drawn
     // parcel) left `areaM2 = 0` and `centroidEast/North = 0`, which (a) logged the
