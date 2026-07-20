@@ -310,7 +310,36 @@ ad-hoc counter-rotation, which is exactly how double-rotation defects are born.
    is marked (NEW) in C34 and **does not exist yet** — it must be built with this item.
    Note `FacadeOrientationService.northBasis(trueNorth)` is ALREADY parameterised and merely
    needs its callers to pass θ (`CreatePanelLayout.ts` currently relies on the `0` default).
-8. **THE PRODUCER — derive θ at parcel commit. SHIPS LAST, BY DESIGN.**
+8. ~~**THE PRODUCER — derive θ at parcel commit.**~~ **DONE (2026-07-20, L-430 slice 3.)**
+   `dispatchParcelBoundary` derives θ from the committed ring and, when non-zero, dispatches it
+   via `dispatchSiteTrueNorth` **before** storing the boundary or emitting
+   `site.parcel-boundary-set` (the consumers read θ on that event's first render; setting it
+   afterwards would paint one frame in the wrong orientation), then **de-rotates the ring into
+   the authoring frame**.
+   - **THE FORK IS RESOLVED — de-rotate at commit, NOT θ⁻¹ per consumer.** This is ADR-0070's
+     RIGID-TRANSFORM-LAST rule: the ring is rotated ONCE, at the single point every parcel
+     passes through, so every downstream stage — envelope inset, generators, walls, rooms,
+     snapping (L-432), the plan view — is authored axis-aligned with no further transform and
+     no per-consumer θ to forget. The alternative sprays θ⁻¹ across every reader, which is how
+     one missed site silently mixes frames.
+   - Rotation is about the SCENE origin, which IS the LTP-ENU origin the ring was projected
+     about, so the free-vector form is exact and no base term is needed. Edge order is
+     preserved by a rotation, so `edgeClassifications` stay valid without recomputation.
+   - **θ = 0 ⇒ the whole producer is SKIPPED** (guarded on `projectNorthRad !== 0`), so an
+     already-square parcel keeps the original ring object — byte-identity by construction, not
+     by a transform that happens to round-trip.
+   - Tests (5, `projectNorthProducer.test.ts`) assert the END-TO-END contract: a rotated parcel
+     comes out axis-aligned; it maps back to its ORIGINAL real-world position via
+     `sceneXZToEnu(θ)` (the critical one — an orthogonal-but-not-exactly-invertible rotation
+     would slide the building off its real plot while every view still looked right); an
+     already-square parcel is untouched; the transform is RIGID (area preserved — a parcel's
+     area is a legal quantity feeding FAR and the envelope); and a non-rectangular L-plot
+     squares on its dominant edge with area intact.
+   - NOTE recorded during testing: `z: -e.north` yields `-0` where north is 0. Numerically
+     identical and harmless — and unreachable in production because of the θ = 0 guard — but
+     it would surface as a strict-equality difference if that guard were ever removed.
+
+   **Superseded planning text (kept for the record):**
    `siteDispatch.dispatchParcelBoundary` calls `deriveProjectNorthAngleFromParcel(ring)` and
    dispatches it via the existing `dispatchSiteTrueNorth` (P6). This is the single change that
    makes θ ≠ 0 and therefore activates every consumer at once.
