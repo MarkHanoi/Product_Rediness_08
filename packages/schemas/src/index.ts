@@ -223,3 +223,5 @@ export * from './climate/index.js';
 // `Annotation` as a value in `@pryzm/plugin-annotations`).  Subpath
 // imports have zero collision risk and are what every supplement-S33/S34
 // consumer (producer, evaluator, scene-committer) already uses.
+// ADR-0270 / L-451 — geometric rule model (setback | alignment | explicit-area).
+export * from './site/GeometricRule';

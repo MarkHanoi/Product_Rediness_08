@@ -5767,7 +5767,21 @@ export class CesiumViewport {
     // migration that caused L-446.
     //
     // Set `globalThis.__pryzmPlotClearPhotoreal = true` to re-enable.
-    if ((globalThis as Record<string, unknown>).__pryzmPlotClearPhotoreal !== true) return;
+    // §L-452 — DEFAULT RESTORED TO ON. L-448 turned this OFF because clipping smears and
+    // shatters the surrounding photoreal mesh. That corruption is real — but turning it off
+    // was a BAD TRADE and I got the priority wrong: the void is not merely an occlusion
+    // nicety, it is the DEPTH-CLEARING MECHANISM. Without it the proposed building renders
+    // BURIED UNDER the tile mesh and cannot be seen at all, which blocks the founder harder
+    // than the corruption did — they could at least evaluate position through a corrupted hole,
+    // but nothing can be evaluated through an opaque one.
+    //
+    // So: corrupted-but-visible beats clean-but-invisible, until the correct fix lands.
+    // THE CORRECT FIX (L-452, not this line): stop clipping the tileset at all and instead
+    // render the proposal so it is not depth-occluded by it — Cesium's newer
+    // `Cesium3DTileset.clippingPolygons` cuts a true polygonal void rather than the
+    // plane-volume approximation that produces the smear, and is the first thing to try.
+    // Set `globalThis.__pryzmPlotClearPhotoreal = false` to opt OUT and see clean context.
+    if ((globalThis as Record<string, unknown>).__pryzmPlotClearPhotoreal === false) return;
 
     try {
       const tileset = this.photorealTileset;
