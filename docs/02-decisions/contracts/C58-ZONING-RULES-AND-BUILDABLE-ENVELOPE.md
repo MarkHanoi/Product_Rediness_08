@@ -388,3 +388,34 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 | Date | Change |
 |---|---|
 | 2026-07-17 | Initial DRAFT — fills the C58 reserved slot (the core compliance value-prop; gap audit G-ENG-1). Fills the C19 §9/§10.2 deferred jurisdiction-registry. Grounds on the two-fidelity scoping + the Denmark structured-zoning reference. Author: compliance-authoring governance track. |
+
+
+---
+
+## Known gaps / violations (added 2026-07-20)
+
+### KG-1 (L-443) — the rule model cannot express alignment-governed zones
+
+**§2.2 `JurisdictionZoningContract.zones[]` admits only
+`setbacks: { front_m, side_m, rear_m }`, and §2.4 derives the envelope as
+`insetPolygon = parcel ⊖ setbacks`. A large class of real Spanish ordinances is not
+expressible in that shape.**
+
+Verified live (L-438): Madrid publishes `Fondo de la Edificación` as a **POLYLINE** with no
+attributes, plus `Alineaciones` — buildable depth as *a line you build up to*, not a setback
+number. *Alineación a vial*, *profundidad edificable* and *altura reguladora por ancho de
+calle* are standard in Spanish *ensanche* fabric.
+
+**Consequence if unaddressed:** any adapter for such a zone must either omit it (silent
+coverage gap) or coerce it into a front-setback (**a confidently wrong envelope on exactly
+the dense urban fabric the product targets**). §1.4's confidence labelling does NOT mitigate
+this — the output is not uncertain, it is derived from the wrong rule.
+
+**Status:** OPEN. Requires a deliberate extension of §2.2 with an alignment/depth rule
+family, or an explicit, published scope restriction. Tracked as **L-443**.
+**This contract currently claims a generality it does not have.**
+
+### KG-2 (L-441/L-439) — granularity is modelled (§1.11) but not yet implemented
+`granularity` is normative in §1.11 as of 2026-07-20 but is not yet present in the schema,
+engine or UI. Until it is, nothing prevents a sector-level figure being rendered as a parcel
+envelope. Tracked as **L-439**.

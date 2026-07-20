@@ -254,3 +254,34 @@ When a proposed contract is RATIFIED, its row in §3 moves to §1 of this doc an
 **Discovered by:** L-414 (founder — SPIKE, QUEUED/NOT priority: *"if in the future we want to manipulate / interrogate the DATA in the Cesium views … how IFC data in Cesium could adapt to a super-performant and flexible process"*).
 **The gap:** **No contract governs interrogating / selecting / manipulating BIM or IFC DATA inside the Cesium / Forma geospatial view.** Today that view is a **passive context surface** — the BIM scene is baked in as a whole-scene glTF `Cesium.Model` (`CesiumViewport.ts` `realModelOnGlobe`/`realModelOnForma`) with no per-element feature IDs, so `scene.pick` resolves only the whole model. **C27** (BIM 3.0 Inspect) + **C28** (Data panel / Pset) govern BIM-data interrogation but only on the editor canvas; **C55 §1.2** governs analytical drape *layers* and frames the Cesium surface as **context-only** (layers drape, never BIM); **C12** governs only the coordinate substrate. Making the BIM/IFC data interactive in the geospatial view (per-feature 3D-Tiles metadata `EXT_mesh_features`/`EXT_structural_metadata`, ThatOpen fragment-ID → Cesium feature-ID picking, a selection bridge into C27/C28) sits in **forward tension** with C55's context-only stance — a coverage gap, **not a present violation** (C55 §1.2 is about drape layers, not picking the BIM model already in the view).
 **Resolution — FOUNDER DECISION MADE 2026-07-18 (direction chosen, deferred):** the founder resolved the direction — the geospatial view **should eventually become a first-class interactive BIM/IFC surface** (*"definitely nice to have"*), NOT stay permanently context-only — but explicitly **queued, not-priority (post-September)**. So the gap-close is scheduled, not open-ended: when L-414 is picked up, author a governing contract (amend C55 §1.2 + extend C27/C28 to the geospatial surface, or a new geospatial-interrogation contract) **before** any code — spanning the BIM data model (C03), IFC/ThatOpen interop (C25/C26), the Cesium render + bridge (C12/C55/CesiumViewport), and the C10 perf budget. **C55 remains context-only (as written) until that contract lands.** Cross-referenced from C55 §4.1 + the L-414 spike stub (`docs/03-execution/spikes/spike-bim-ifc-data-interrogation-in-cesium.md`). Adjacent to the L-355/L-357/L-359 C-CONTEXT-ENGINE gap.
+
+
+---
+
+## Added 2026-07-20 (from L-442 / L-443)
+
+### GAP-A — No contract governs the RUNTIME BOOT BUDGET  (L-442)
+The production container transpiles ~100 workspace TypeScript packages on every cold boot
+(`dist/index.cjs` re-spawns `server.js` under `--import tsx`). Nothing anywhere states a
+maximum acceptable boot time, and nothing prevents an added package from pushing boot past
+the platform's health-check ceiling. It did exactly that on 2026-07-20 and broke every
+deploy — intermittently for ~3 weeks, then deterministically.
+
+**Needed:** a stated boot-time budget with a CI guard, in the same spirit as the existing
+performance budgets. Without it, deploy breakage from package growth is unbounded and only
+discoverable in production.
+
+### GAP-B — SPEC-PARCEL-SELECTION was recommended but never authored  (L-380 / L-443)
+`PARCEL-ZONING-FEATURE-SCOPING.md` §9.4 called for `SPEC-PARCEL-SELECTION` covering the map
+interaction, envelope render, fallback states and provenance chips. **The file does not
+exist.** Parcel-select shipped without it (Catastro live in production), so the behaviour is
+governed by code alone.
+
+### GAP-C — PORTUGAL has no contract, ADR, spec or verified endpoint  (L-443)
+The founder has named Portugal (Seixal, Aroeira) as target territory. Portugal appears in NO
+governance document. PDM ≠ PGOU; 308 municipalities; different infrastructure (DGT / SNIG).
+Nothing in C57/C58/ADR-0269 was written with it in mind, and no endpoint has been verified.
+
+**Risk:** treating Portugal as "more of the Spain work" would import assumptions
+(Catastro-style national parcels, PGOU-shaped ordinances) that have not been checked and may
+not hold. It needs its own live-verification pass before any estimate.
