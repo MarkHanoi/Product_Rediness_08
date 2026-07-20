@@ -47,7 +47,7 @@ import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
 // §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
 // §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
-import { CATASTRO_PARCEL_PATH, catastroParcelHandler } from './server/parcelZoningProxy.js';
+import { CATASTRO_PARCEL_PATH, catastroParcelHandler, CATASTRO_BLOCK_PATH, catastroBlockHandler } from './server/parcelZoningProxy.js';
 // §PLANDATA-ZONING-PROXY (L-399a): same-origin KEYLESS Denmark zoning proxy + cache (real DK envelope)
 import { PLANDATA_ZONING_PATH, plandataZoningHandler } from './server/plandataZoningProxy.js';
 // §L-441 Tier B — Spain's NATIONAL clasificacion-del-suelo (SIU). Same cache/forward/
@@ -375,6 +375,9 @@ app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
 // Same-origin → connect-src 'self' already covers it (NO CSP change). Never crashes:
 // no parcel / upstream failure → 200 { parcel: null } so the client falls back to draw.
 app.get(CATASTRO_PARCEL_PATH, apiLimiter, catastroParcelHandler);
+// ADR-0271 P4b §CATASTRO-BLOCK — the manzana ring the block-derived depth needs. Same limiter
+// and same posture as the parcel route: resolves to null on any doubt, never fabricates.
+app.get(CATASTRO_BLOCK_PATH, apiLimiter, catastroBlockHandler);
 
 // §PLANDATA-ZONING-PROXY (L-399a) — same-origin KEYLESS Denmark zoning proxy for the
 // FIRST genuine-data jurisdiction of the compliance pilot (C58 §1.2 fidelity 1). Public

@@ -359,3 +359,88 @@ export function makeCatastroParcelHandler(deps = {}) {
 
 /** The default production handler (real `fetch`, real endpoints). */
 export const catastroParcelHandler = makeCatastroParcelHandler();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CATASTRO-BLOCK (ADR-0271 P4b) — the *manzana* (block) ring.
+//
+// WHY: `computeBuildableEnvelope` refuses a `block-derived-alignment` zone without a block ring
+// (PGM Art. 242.2 derives the depth FROM the block), and nothing produced one. This does.
+//
+// ⚠ THE SOURCE CLAIM THIS ENCODES, AND WHY IT IS NOT TRUSTED. Catastro's official INSPIRE WFS
+// spec documents a `GetZoning` stored query returning `cp:CadastralZoning` — the block polygon
+// itself. That is DOCUMENTARY evidence: every live probe of `ovc.catastro.meh.es` was bot-blocked,
+// so no response body was ever seen. It also CONTRADICTS this repo's own earlier scoping note
+// ("the WFS has no BBOX, it is ID-keyed only"), which means one of the two is wrong and we do not
+// yet know which.
+//
+// So this handler treats the documentation as a HYPOTHESIS and verifies it at runtime: if the
+// response is not a usable ring it resolves to `null`, exactly like the parcel provider (C57
+// §1.5 — providers never throw and never fabricate). A wrong guess therefore costs an absent
+// envelope, never a wrong one. That is the whole posture of this subsystem: on this pipeline the
+// only acceptable failure is a REFUSAL.
+//
+// Deliberately NOT implemented here: grid-sampling `Consulta_RCCOOR_Distancia` to enumerate
+// sibling parcels. It is non-deterministic, resolution-dependent, and cannot prove it found every
+// parcel — and an enumeration that silently misses one yields a block ring that is subtly small,
+// which becomes a subtly wrong *profunditat edificable*. Diagnostic use only.
+
+/** Same-origin route for the block ring. Keys/CSP stay server-side (C57 §1.2). */
+export const CATASTRO_BLOCK_PATH = '/api/catastro/block';
+
+/**
+ * Build the `GetZoning` stored-query URL for a cadastral reference.
+ * Exported so a test can assert the shape without a network call.
+ */
+export function buildZoningQueryUrl(refcat) {
+    return `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
+        `&STOREDQUERIE_ID=GetZoning&REFCAT=${encodeURIComponent(refcat)}&srsName=EPSG:4326`;
+}
+
+/**
+ * Handler: `?refcat=…` → `{ block: { ring, areaM2 } | null }`.
+ *
+ * Reuses `parseParcelGml` — a CadastralZoning feature carries the same `gml:posList` exterior
+ * ring, so the parser is shared rather than forked. If the payload is not that shape, the parse
+ * returns null and so do we: an unrecognised response is NOT an empty block, and must never be
+ * reported as one (the L-467/L-469 conflation, which cost four deploys to unpick).
+ */
+export function makeCatastroBlockHandler(deps = {}) {
+    const fetchImpl = deps.fetchImpl || fetch;
+    const timeoutMs = deps.timeoutMs || CATASTRO_UPSTREAM_TIMEOUT_MS;
+    return async function catastroBlockHandler(req, res) {
+        const refcat = typeof req.query?.refcat === 'string' ? req.query.refcat.trim() : '';
+        if (!refcat) return res.status(400).json({ error: 'refcat required' });
+
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+            const r = await fetchImpl(buildZoningQueryUrl(refcat), { signal: ctrl.signal });
+            if (!r.ok) {
+                console.warn(`[catastro-block] GetZoning HTTP ${r.status} for ${refcat} — no block.`);
+                return res.status(200).json({ block: null, _upstreamFailed: true });
+            }
+            const gml = await r.text();
+            const parsed = parseParcelGml(gml);
+            if (!parsed) {
+                // The documented shape did not materialise. Say so loudly — this is the single
+                // line that tells us the hypothesis above was wrong, and it must not read as
+                // "this parcel has no block".
+                console.warn(
+                    `[catastro-block] §CATASTRO-BLOCK — GetZoning answered for ${refcat} but no ` +
+                    `usable ring was parsed. The documented cp:CadastralZoning shape is NOT ` +
+                    `confirmed; treating as NO BLOCK (never as an empty one).`,
+                );
+                return res.status(200).json({ block: null, _shapeUnrecognised: true });
+            }
+            console.log(`[catastro-block] block ring for ${refcat}: ${parsed.ring.length} pts, ~${Math.round(parsed.areaM2)} m².`);
+            return res.status(200).json({ block: parsed });
+        } catch (err) {
+            console.warn(`[catastro-block] fetch failed for ${refcat}: ${err?.message ?? err}`);
+            return res.status(200).json({ block: null, _upstreamFailed: true });
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+}
+
+export const catastroBlockHandler = makeCatastroBlockHandler();
