@@ -1259,18 +1259,58 @@ export async function fetchContextBuildingsNearAndFar(
     };
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return empty;
 
-    // THE single network hop — one far-extent query; near + far are derived from it below.
+    // §CTX-CHEAP-QUERY-FIRST (L-482) — SECURE THE NEAR RING BEFORE GAMBLING ON THE FAR ONE.
+    //
+    // THE DEFECT: this asked for the FAR extent first and only fell back after it failed. The far
+    // box is `2 × CONTEXT_BBOX_FAR_HALF_DEG` = 0.032° ≈ 3.5 km — over a dense European city that
+    // is tens of thousands of footprints WITH FULL GEOMETRY (`out geom`), which is at or past what
+    // public Overpass will complete under load. So the single most expensive query was also the
+    // FIRST, and the fallback only ran once its whole budget was already spent. By then the user
+    // has usually navigated on and the request is aborted — which is exactly the founder's
+    // "randomly the context doesn't render, even on the same project". It is not random: it is a
+    // race between an expensive query and the user, and we were starting from the losing end.
+    //
+    // THE DECISIVE EVIDENCE (founder console, Madrid, one second apart):
+    //     context parks:     236 green area(s) for bbox -3.7140,40.4105,-3.6930,40.4265
+    //     context buildings: far-extent fetch returned 0 footprints
+    // Parks succeeded on a LARGER bbox. Same network, same proxy, same moment. That rules out
+    // connectivity and rate-limiting and leaves query COST — the identical signature recorded for
+    // L-471, where a bigger parks bbox succeeded beside a smaller buildings one.
+    //
+    // THE FIX: fetch the NEAR extent first. It is ~4× smaller in area, so it succeeds in the
+    // cases where the far one does not, and it is the ring that actually carries the visual
+    // payload (extruded, shadow-casting, the immediate neighbourhood the user is looking at).
+    // Only then attempt the far ring, and treat it as PURELY ADDITIVE — if it fails we still
+    // render real context instead of nothing. Worst case is now "near context without the distant
+    // ring", not "no context at all".
+    //
+    // Both extents keep their own cache key, so a repeat visit still serves from cache; and when
+    // the far fetch does succeed the near features are taken from it (a strict superset), so the
+    // near/far split stays consistent and nothing is double-counted.
+    const nearFirst = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG), signal);
+    if (signal?.aborted) return empty;
+    if (nearFirst.features.length > 0) {
+        console.log(
+            `[gis] context buildings: §CTX-CHEAP-QUERY-FIRST near extent secured ` +
+                `${nearFirst.features.length} footprint(s) — attempting the far ring as a bonus.`,
+        );
+    }
+
     const full = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
     if (signal?.aborted) return empty;
 
     if (full.features.length === 0) {
-        // Genuinely empty far tile (or a transient far-fetch failure). Fall back ONCE to the
-        // narrow extent so the immediate neighbourhood still renders — do NOT reintroduce the
-        // old wide-first serial storm. The far ring stays empty; the narrow result is the near.
+        // The far ring is the expensive, optional half. Losing it must never cost us the near
+        // ring we already hold — that regression is what made a partial failure look total.
         console.warn(
-            '[gis] context buildings: far-extent fetch returned 0 footprints — falling back once ' +
-                'to the narrow extent (immediate neighbourhood only).',
+            '[gis] context buildings: far-extent fetch returned 0 footprints (dense-city query ' +
+                `cost, see §CTX-CHEAP-QUERY-FIRST). Rendering the ${nearFirst.features.length} ` +
+                'near footprint(s) already secured; the distant ring is omitted, not the context.',
         );
+        if (nearFirst.features.length > 0) return { near: nearFirst, far: emptyContextCollection() };
+
+        // Near came back empty too — try the still-narrower extent before giving up. This is the
+        // pre-existing last resort and stays exactly as it was.
         const narrow = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FALLBACK_HALF_DEG), signal);
         if (signal?.aborted) return empty;
         return { near: narrow, far: emptyContextCollection() };
