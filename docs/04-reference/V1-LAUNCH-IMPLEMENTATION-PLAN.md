@@ -3881,3 +3881,67 @@ turning ×318 from a guess into arithmetic.
 Zero coverage: no contract, no ADR, no verified endpoint. PDM ≠ PGOU, 308 municipalities,
 different infrastructure (DGT / SNIG). Needs its own live-verification pass before any
 estimate.
+
+---
+
+## L-454 — Forma context: bound the EXPENSIVE near ring (P1 perf, FIXED — pending live verify)
+
+**Link:** audit row **L-454**. **Queue:** site / perf. **Contract:** **C12** (context engine),
+**C04** (rendering). **Tag:** `§FEAT-FORMA-CONTEXT-NEAR-CAP`. **Status:** implemented
+2026-07-20, 12/12 tests, root `tsc` clean; live perf verify OUTSTANDING.
+
+### The defect
+`§FEAT-FORMA-CONTEXT-EXTENT-LOD` (L-368) capped the FAR ring at 900 — shadows already OFF,
+height clamped to 24 m, no outline, i.e. **the cheap half**. The NEAR ring — extruded to true
+height, outlined, `ShadowMode.ENABLED` — had **no ceiling at all**. Live: 2,545 near + 900 far;
+a Barcelona run hit 4,542 near. *A gap between the plan and the implementation, not a tuning
+problem.*
+
+### Why the literal fix ("add a cap + nearest-first sort") would have been wrong
+Three findings, each of which would have shipped a new defect:
+
+1. **The cap cannot live in the fetch.** The `near` collection feeds three consumers: the
+   renderer, `setNeighbourFootprints` (PW.2 party-wall / blind-façade resolution) and
+   `lastContextCollection` (site-metric population / wind / heat density grids). Capping the
+   collection under-counts built density and yields a **wrong metric number** — a fabricated
+   figure, which the standing constraint forbids outright. Tiering is applied at the **render
+   boundary**; the fetched collection stays complete.
+2. **Overflow is DEMOTED, not dropped.** Dropping leaves a **donut hole** — footprints between
+   the cap radius and the near-bbox edge vanish while genuinely *farther* far-ring blocks keep
+   drawing. Demoted footprints take the cheap shading, so **total entities are unchanged; only
+   shadow casters are bounded.**
+3. **The demoted tier keeps TRUE height.** The far annulus's 24 m clamp exists so no distant
+   skyscraper dominates; applying it inside the near bbox would squash a real tower in the
+   site's own neighbourhood — a visible geometry lie.
+
+### The cap is derived, not felt
+The entry warned that the far ring's 900 became load-bearing with no recorded evidence.
+The primary rule here is **distance**, pinned to the Cesium shadow map's own
+`sm.maximumDistance = 600` (§FORMA-GRAZING-BANDING-FIX). Beyond it Cesium renders no shadow at
+all, so a caster there pays full cost for nothing — and the near bbox (0.008° ≈ 890 m on-axis,
+~1,259 m at the corners) reaches **~2.1× past it**, which is *how* the ring accumulated
+thousands of pointless casters.
+
+| Input | Value | Source |
+|---|---|---|
+| Shadow horizon | 600 m | `CesiumViewport.ts` `sm.maximumDistance` (in-code) |
+| Near bbox | 0.008° ⇒ 3.17 km² | `CONTEXT_BBOX_HALF_DEG` |
+| Density, typical | ~803 /km² | live 2,545 footprints |
+| Density, Barcelona | ~1,433 /km² | live 4,542 footprints |
+| Shadow disc | 1.131 km² | π·0.6² |
+| ⇒ Expected shadowed | **~908 … ~1,621** | density × disc |
+
+So the distance rule alone cuts the typical case **2,545 → ~908 (−64%)** with no invented
+number. `CONTEXT_NEAR_MAX_BUILDINGS = 1600` is a **runaway backstop only**, set just above the
+densest fabric observed, applied nearest-first.
+
+**⚠ HONESTY:** no GPU frame-time capture was taken. This is derived from the shadow horizon and
+measured footprint densities, and says so in the constant's doc comment so it is never later
+mistaken for a profiled value. A coupling-guard test pins the radius to 600 so the two knobs
+cannot silently drift apart again — the exact failure mode being closed.
+
+### Still open from this entry (deliberately untouched)
+- The far-extent fetch intermittently returning 0 with a single narrow retry (the "takes a while").
+- `readiness NEVER ARRIVED at stage "anchor" (25,000 ms)` before the tile clamp resolved at 52.16 m.
+
+Neither is addressable by a render-tier change; both need their own evidence.
