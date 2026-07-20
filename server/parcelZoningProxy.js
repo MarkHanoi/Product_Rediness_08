@@ -361,48 +361,80 @@ export function makeCatastroParcelHandler(deps = {}) {
 export const catastroParcelHandler = makeCatastroParcelHandler();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §CATASTRO-BLOCK (ADR-0271 P4b) — the *manzana* (block) ring.
-//
-// WHY: `computeBuildableEnvelope` refuses a `block-derived-alignment` zone without a block ring
-// (PGM Art. 242.2 derives the depth FROM the block), and nothing produced one. This does.
-//
-// ⚠ THE SOURCE CLAIM THIS ENCODES, AND WHY IT IS NOT TRUSTED. Catastro's official INSPIRE WFS
-// spec documents a `GetZoning` stored query returning `cp:CadastralZoning` — the block polygon
-// itself. That is DOCUMENTARY evidence: every live probe of `ovc.catastro.meh.es` was bot-blocked,
-// so no response body was ever seen. It also CONTRADICTS this repo's own earlier scoping note
-// ("the WFS has no BBOX, it is ID-keyed only"), which means one of the two is wrong and we do not
-// yet know which.
-//
-// So this handler treats the documentation as a HYPOTHESIS and verifies it at runtime: if the
-// response is not a usable ring it resolves to `null`, exactly like the parcel provider (C57
-// §1.5 — providers never throw and never fabricate). A wrong guess therefore costs an absent
-// envelope, never a wrong one. That is the whole posture of this subsystem: on this pipeline the
-// only acceptable failure is a REFUSAL.
-//
-// Deliberately NOT implemented here: grid-sampling `Consulta_RCCOOR_Distancia` to enumerate
-// sibling parcels. It is non-deterministic, resolution-dependent, and cannot prove it found every
-// parcel — and an enumeration that silently misses one yields a block ring that is subtly small,
-// which becomes a subtly wrong *profunditat edificable*. Diagnostic use only.
 
-/** Same-origin route for the block ring. Keys/CSP stay server-side (C57 §1.2). */
+// ─────────────────────────────────────────────────────────────────────────────
+// §CATASTRO-BLOCK (ADR-0271 P4b) — the *manzana* (block) parcels.
+//
+// ⚠ THIS REPLACES A ROUTE I SHIPPED BROKEN ONE DEPLOY EARLIER (v225). That version called the
+// `GetZoning` stored query with `REFCAT`. Probed live immediately afterwards, it answers:
+//     ExceptionText: The parameter COD_ZONA can't be null
+// `GetZoning` is keyed by COD_ZONA, not by a cadastral reference, so the route could never have
+// returned a block. It shipped because I wrote it from documentation instead of from a response —
+// the exact failure this file's own comments warn about, committed by me while warning about it.
+//
+// WHAT ACTUALLY WORKS, VERIFIED LIVE (2026-07-20, real responses, not docs):
+//   1. `GetFeature&typeNames=cp:CadastralParcel&bbox=<lat,lon,lat,lon,urn:ogc:def:crs:EPSG::4326>`
+//      RETURNS FEATURES — 21 parcels for a Passeig de Gràcia bbox. This directly contradicts the
+//      repo's own scoping note ("the WFS has no BBOX, it is ID-keyed only"), which was wrong.
+//   2. **The refcat encodes the manzana in its first 5 characters.** Established empirically, not
+//      recalled: that same bbox split cleanly into `02297` (13 parcels) and `03286` (8) — two
+//      real adjacent Eixample blocks.
+//
+// So the block is: bbox around the subject parcel → keep the parcels whose refcat shares its
+// 5-char manzana prefix → hand the rings to `dissolveParcelsToBlockRing` (already built + tested).
+//
+// The manzana prefix is a HEURISTIC ON AN OBSERVED PATTERN, not a documented guarantee. It is
+// therefore reported (`manzana`, `siblingCount`) so a caller can judge it, and a result that
+// yields fewer than 3 parcels resolves to `null` — a "block" of one or two parcels is far more
+// likely to be a broken prefix assumption than a real Barcelona manzana, and a too-small block
+// ring produces a too-small interior courtyard and therefore a WRONG *profunditat edificable*.
+// Refusing is correct here; guessing is not (C57 §1.5).
+
+/** Same-origin route for the block's parcels. Keys/CSP stay server-side (C57 §1.2). */
 export const CATASTRO_BLOCK_PATH = '/api/catastro/block';
 
-/**
- * Build the `GetZoning` stored-query URL for a cadastral reference.
- * Exported so a test can assert the shape without a network call.
- */
-export function buildZoningQueryUrl(refcat) {
+/** How far around the subject parcel to search, in degrees (~±220 m at Barcelona latitude).
+ *  Comfortably larger than a 113 m Cerdà manzana, and well inside Catastro's documented
+ *  1 km² / 5000-feature BBOX ceiling for `cp:CadastralParcel`. */
+export const BLOCK_BBOX_HALF_DEG = 0.002;
+
+/** The 5-char manzana prefix of an urban cadastral reference (verified empirically — see above). */
+export function manzanaPrefix(refcat) {
+    return typeof refcat === 'string' && refcat.length >= 5 ? refcat.slice(0, 5) : null;
+}
+
+/** Build the BBOX GetFeature URL. Exported so a test can assert the shape with no network. */
+export function buildParcelBboxUrl(lat, lon, halfDeg = BLOCK_BBOX_HALF_DEG) {
+    const bbox = `${lat - halfDeg},${lon - halfDeg},${lat + halfDeg},${lon + halfDeg},urn:ogc:def:crs:EPSG::4326`;
     return `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
-        `&STOREDQUERIE_ID=GetZoning&REFCAT=${encodeURIComponent(refcat)}&srsName=EPSG:4326`;
+        `&typeNames=cp:CadastralParcel&bbox=${encodeURIComponent(bbox)}`;
 }
 
 /**
- * Handler: `?refcat=…` → `{ block: { ring, areaM2 } | null }`.
+ * Split a multi-feature GML collection into `{ refcat, ring, areaM2 }` entries.
  *
- * Reuses `parseParcelGml` — a CadastralZoning feature carries the same `gml:posList` exterior
- * ring, so the parser is shared rather than forked. If the payload is not that shape, the parse
- * returns null and so do we: an unrecognised response is NOT an empty block, and must never be
- * reported as one (the L-467/L-469 conflation, which cost four deploys to unpick).
+ * Splits on the feature boundary and reuses the single-feature parser per chunk rather than
+ * forking a second GML reader — the ring extraction is identical and must not drift.
+ */
+export function parseParcelCollectionGml(gml) {
+    if (typeof gml !== 'string' || gml.length === 0) return [];
+    const chunks = gml.split(/<cp:CadastralParcel\b/).slice(1);
+    const out = [];
+    for (const chunk of chunks) {
+        const rcMatch = chunk.match(/<(?:[\w.-]+:)?nationalCadastralReference>([^<]+)</i);
+        const refcat = rcMatch && rcMatch[1] ? rcMatch[1].trim() : null;
+        const parsed = parseParcelGml(chunk);
+        if (refcat && parsed) out.push({ refcat, ring: parsed.ring, areaM2: parsed.areaM2 });
+    }
+    return out;
+}
+
+/**
+ * Handler: `?refcat=…` → `{ block: { manzana, parcels: [{refcat, ring, areaM2}], siblingCount } | null }`.
+ *
+ * Two upstream calls: `GetParcel` for the subject's own ring (to centre the bbox), then one BBOX
+ * `GetFeature`. Never throws; resolves to `null` on any doubt (C57 §1.5) — an absent block costs
+ * an absent envelope, which is the only acceptable failure on a compliance path.
  */
 export function makeCatastroBlockHandler(deps = {}) {
     const fetchImpl = deps.fetchImpl || fetch;
@@ -410,32 +442,50 @@ export function makeCatastroBlockHandler(deps = {}) {
     return async function catastroBlockHandler(req, res) {
         const refcat = typeof req.query?.refcat === 'string' ? req.query.refcat.trim() : '';
         if (!refcat) return res.status(400).json({ error: 'refcat required' });
+        const manzana = manzanaPrefix(refcat);
+        if (!manzana) return res.status(400).json({ error: 'refcat too short for a manzana prefix' });
 
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeoutMs);
         try {
-            const r = await fetchImpl(buildZoningQueryUrl(refcat), { signal: ctrl.signal });
-            if (!r.ok) {
-                console.warn(`[catastro-block] GetZoning HTTP ${r.status} for ${refcat} — no block.`);
-                return res.status(200).json({ block: null, _upstreamFailed: true });
-            }
-            const gml = await r.text();
-            const parsed = parseParcelGml(gml);
-            if (!parsed) {
-                // The documented shape did not materialise. Say so loudly — this is the single
-                // line that tells us the hypothesis above was wrong, and it must not read as
-                // "this parcel has no block".
-                console.warn(
-                    `[catastro-block] §CATASTRO-BLOCK — GetZoning answered for ${refcat} but no ` +
-                    `usable ring was parsed. The documented cp:CadastralZoning shape is NOT ` +
-                    `confirmed; treating as NO BLOCK (never as an empty one).`,
-                );
+            // 1) The subject parcel, to centre the search.
+            const selfUrl = `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
+                `&STOREDQUERIE_ID=GetParcel&REFCAT=${encodeURIComponent(refcat)}&srsName=EPSG:4326`;
+            const selfRes = await fetchImpl(selfUrl, { signal: ctrl.signal });
+            if (!selfRes.ok) return res.status(200).json({ block: null, _upstreamFailed: true });
+            const selfParsed = parseParcelGml(await selfRes.text());
+            if (!selfParsed || selfParsed.ring.length < 3) {
                 return res.status(200).json({ block: null, _shapeUnrecognised: true });
             }
-            console.log(`[catastro-block] block ring for ${refcat}: ${parsed.ring.length} pts, ~${Math.round(parsed.areaM2)} m².`);
-            return res.status(200).json({ block: parsed });
+            const lat = selfParsed.ring.reduce((s, p) => s + p.lat, 0) / selfParsed.ring.length;
+            const lon = selfParsed.ring.reduce((s, p) => s + p.lon, 0) / selfParsed.ring.length;
+
+            // 2) One BBOX query, then filter to the manzana.
+            const bboxRes = await fetchImpl(buildParcelBboxUrl(lat, lon), { signal: ctrl.signal });
+            if (!bboxRes.ok) return res.status(200).json({ block: null, _upstreamFailed: true });
+            const all = parseParcelCollectionGml(await bboxRes.text());
+            const parcels = all.filter((p) => manzanaPrefix(p.refcat) === manzana);
+
+            if (parcels.length < 3) {
+                // See the header: a 1–2 parcel "block" is far likelier to be a broken prefix
+                // assumption than a real manzana, and a too-small ring yields a wrong depth.
+                console.warn(
+                    `[catastro-block] §CATASTRO-BLOCK — manzana ${manzana} matched only ` +
+                    `${parcels.length} of ${all.length} parcels in the bbox. Refusing: too few for a ` +
+                    `block, and a partial block ring produces a WRONG profunditat edificable.`,
+                );
+                return res.status(200).json({ block: null, _tooFewSiblings: parcels.length });
+            }
+
+            console.log(
+                `[catastro-block] manzana ${manzana}: ${parcels.length} parcel(s) of ${all.length} ` +
+                `in bbox around ${refcat}.`,
+            );
+            return res.status(200).json({
+                block: { manzana, parcels, siblingCount: parcels.length },
+            });
         } catch (err) {
-            console.warn(`[catastro-block] fetch failed for ${refcat}: ${err?.message ?? err}`);
+            console.warn(`[catastro-block] failed for ${refcat}: ${err?.message ?? err}`);
             return res.status(200).json({ block: null, _upstreamFailed: true });
         } finally {
             clearTimeout(timer);
