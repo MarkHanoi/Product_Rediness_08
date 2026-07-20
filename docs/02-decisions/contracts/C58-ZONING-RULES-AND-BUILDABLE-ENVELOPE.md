@@ -99,6 +99,43 @@ Per **P8**: `pryzm.zoning.fetchZoning`, `pryzm.zoning.computeBuildableEnvelope`,
 
 ---
 
+### §1.11 — GRANULARITY is a THIRD axis, independent of confidence (L-439)
+
+**Added 2026-07-20 after the live Spain verification pass
+(`docs/04-reference/spain/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md`).**
+
+§1.2 models fidelity (`structured` vs `estimated-ruleset`) and §1.4 models credibility. Neither
+captures the failure the Spain pass exposed: **a source can be genuinely numeric, published,
+and authoritative — and still be unusable, because it answers at the wrong GRANULARITY.**
+
+Live examples:
+- **Madrid VEDA** (`ANALISIS_URBANO/Visor_Edificabilidad`) publishes real `esriFieldTypeDouble`
+  buildable-m² by use — at **`Ambito`** (planning-sector) granularity.
+- **Valencia `InventarioSuSuz`** publishes `sup_m2` + `edif_m2` (a real, computed FAR of 0.756
+  for Almassora) — at **sector** granularity, and only for *suelo urbanizable*.
+
+Both are `structured` by §1.2 and would earn a high confidence label — yet **neither answers
+"what may I build on THIS parcel."** Presenting a sector FAR as a parcel FAR is a category
+error that no confidence chip corrects, because the number is not uncertain: it is *about
+something else*.
+
+**Therefore, normative:**
+
+1. Every `ZoningRecord` and `BuildableEnvelope` MUST carry a `granularity` discriminator:
+   `'parcel' | 'block' | 'sector' | 'ambito' | 'municipality' | 'unknown'`.
+2. An envelope whose numbers derive from a granularity **coarser than `parcel`** MUST NOT be
+   presented as a parcel envelope. It may be shown as **context** ("this sector permits
+   X m² across Y m²") and MUST say so in the same sentence as the number.
+3. The generator bridge (§1.8) MUST NOT consume coarser-than-parcel numbers as hard
+   constraints. Building to a sector-derived FAR on one parcel silently over- or under-builds
+   it, and the result would still validate against the containment check (L-428) because the
+   footprint is legal — only the *quantity* is wrong.
+4. `granularity: 'unknown'` is treated as coarser-than-parcel. It is never treated as parcel.
+
+**Rationale.** §1.4 stops us presenting a guess as a fact. §1.11 stops us presenting a *fact
+about the wrong thing* as a fact about this parcel — which is harder to notice precisely
+because the underlying datum is correct and well-sourced.
+
 ## §2 — Schema
 
 Pure Zod (L0), `packages/schemas/src/elements/site/zoning/` (per **P5**).
