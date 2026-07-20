@@ -42,6 +42,109 @@ function setupSite(): SiteModelStore {
 // site.updateZoning
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ADR-0270 option A / C58 §1.7a (L-451 A1c, L-445) — the inset ring is the PERSISTED TRUTH for
+// "what may I build here". These cover the round-trip that A1c wired but never asserted, and
+// which L-445 depends on: without persistence the ring lives only in a module global and dies
+// on reload, so the 3D Site draws no envelope while the toggle still reports "ON".
+describe('siteUpdateZoning — buildableRing (C58 §1.7a persisted truth)', () => {
+    const RING = [
+        { x: 2, z: 2 },
+        { x: 8, z: 2 },
+        { x: 8, z: 6 },
+        { x: 2, z: 6 },
+    ];
+
+    it('persists the inset ring onto the Parcel', () => {
+        const store = setupSite();
+        const result = siteUpdateZoning({ siteId: 'site_proj-001', buildableRing: RING }, store);
+        expect(result.ok).toBe(true);
+        expect(store.getSite()!.parcel.buildableRing).toEqual(RING);
+    });
+
+    it('defaults to null on a fresh parcel (never a fabricated ring)', () => {
+        expect(setupSite().getSite()!.parcel.buildableRing).toBeNull();
+    });
+
+    it('OMITTED leaves an existing ring untouched (delta semantics)', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableRing: RING }, store);
+        // A later zoning patch that says nothing about the ring must not erase it — otherwise
+        // any setback edit would silently drop the envelope.
+        siteUpdateZoning({ siteId: 'site_proj-001', maxFAR: 1.5 }, store);
+        const after = store.getSite()!;
+        expect(after.parcel.buildableRing).toEqual(RING);
+        expect(after.parcel.maxFAR).toBe(1.5);
+    });
+
+    it('explicit null CLEARS a stale ring (a wrong ring is worse than none — C58 §1.4)', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableRing: RING }, store);
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableRing: null }, store);
+        expect(store.getSite()!.parcel.buildableRing).toBeNull();
+    });
+
+    it('does not disturb the boundary polygon (§1.4 immutability)', () => {
+        const store = setupSite();
+        const before = store.getSite()!.parcel.boundary.polygon;
+        siteUpdateZoning({ siteId: 'site_proj-001', buildableRing: RING }, store);
+        expect(store.getSite()!.parcel.boundary.polygon).toEqual(before);
+    });
+});
+
+// ADR-0270 option A / C58 §1.7a — `null` setbacks are the honest answer for a zone that is NOT
+// setback-governed (*alineación a vial* + *profundidad edificable*). §1.7a: "An engine or adapter
+// MUST NOT synthesise 'equivalent effective setbacks'." Before the fields were nullable there was
+// nowhere to PUT that answer — the only options were a fabricated triple or stale numbers from a
+// previous solve, both of which look well-formed and are undetectably wrong downstream. This is
+// the clause the A1c tripwire was guarding.
+describe('siteUpdateZoning — null setbacks (C58 §1.7a, non-setback zones)', () => {
+    it('stores an explicit null per edge', () => {
+        const store = setupSite();
+        const result = siteUpdateZoning(
+            { siteId: 'site_proj-001', setbacks: { front: null, side: null, rear: null } },
+            store,
+        );
+        expect(result.ok).toBe(true);
+        expect(store.getSite()!.parcel.setbacks).toEqual({ front: null, side: null, rear: null });
+    });
+
+    // THE POINT OF THE WHOLE CHANGE: null ("not setback-governed") must not collapse into
+    // 0 ("setback-governed, requirement zero"). Collapsing them re-creates the defect quietly.
+    it('keeps null DISTINCT from 0', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', setbacks: { front: null, side: 0 } }, store);
+        const { setbacks } = store.getSite()!.parcel;
+        expect(setbacks.front).toBeNull();
+        expect(setbacks.side).toBe(0);
+        expect(setbacks.front).not.toBe(0);
+    });
+
+    // An alignment solve must ERASE the stale triple, not merely decline to mention it —
+    // omitting leaves numbers describing a parcel they no longer describe.
+    it('an explicit null ERASES a previously-solved setback', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', setbacks: { front: 5, side: 3, rear: 4 } }, store);
+        siteUpdateZoning(
+            { siteId: 'site_proj-001', setbacks: { front: null, side: null, rear: null } },
+            store,
+        );
+        expect(store.getSite()!.parcel.setbacks).toEqual({ front: null, side: null, rear: null });
+    });
+
+    it('OMITTED still means "untouched" — null and absent are different instructions', () => {
+        const store = setupSite();
+        siteUpdateZoning({ siteId: 'site_proj-001', setbacks: { front: 5, side: 3, rear: 4 } }, store);
+        siteUpdateZoning({ siteId: 'site_proj-001', maxHeight: 12 }, store);
+        expect(store.getSite()!.parcel.setbacks).toEqual({ front: 5, side: 3, rear: 4 });
+    });
+
+    it('still rejects a negative setback', () => {
+        const store = setupSite();
+        expect(siteUpdateZoning({ siteId: 'site_proj-001', setbacks: { front: -1 } }, store).ok)
+            .toBe(false);
+    });
+});
+
 describe('siteUpdateZoning', () => {
     it('patches setbacks without touching the polygon (§1.4 immutability)', () => {
         const store = setupSite();

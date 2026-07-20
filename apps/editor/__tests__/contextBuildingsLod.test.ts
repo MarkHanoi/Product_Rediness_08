@@ -8,6 +8,9 @@ import {
     ringCentroidLonLat,
     selectFarRingFootprints,
     selectNearFootprints,
+    selectNearRingRenderTiers,
+    CONTEXT_NEAR_SHADOW_RADIUS_M,
+    CONTEXT_NEAR_MAX_BUILDINGS,
     type ContextBuildingFeature,
 } from '../src/ui/geospatial/contextBuildings';
 
@@ -102,5 +105,92 @@ describe('§PERF-CTX-SINGLE-FETCH selectNearFootprints (single-fetch split)', ()
         // No footprint appears in both, and together they cover every input exactly once.
         expect(farIds.some((id) => nearIds.has(id))).toBe(false);
         expect(near.length + far.length).toBe(full.length);
+    });
+});
+
+// §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the near ring was UNCAPPED while the cheap far ring
+// was capped at 900: the plan bounded the wrong half. These cover the tiering that bounds the
+// EXPENSIVE half (extruded + outlined + shadow-casting) WITHOUT losing coverage.
+describe('§FEAT-FORMA-CONTEXT-NEAR-CAP selectNearRingRenderTiers', () => {
+    // At the equator 0.001° lon ≈ 111.32 m, so the 600 m shadow horizon ≈ 0.00539°.
+    const INSIDE = 0.004;    // ~445 m — inside the shadow horizon
+    const OUTSIDE = 0.007;   // ~779 m — beyond it, but still inside the 0.008° near bbox
+
+    it('gives the expensive tier only to footprints inside the shadow-map horizon', () => {
+        const { shadowed, demoted } = selectNearRingRenderTiers({
+            features: [feat(1, INSIDE, 0), feat(2, OUTSIDE, 0)],
+            centerLat: 0, centerLon: 0,
+        });
+        expect(shadowed.map((f) => f.properties.osmId)).toEqual([1]);
+        expect(demoted.map((f) => f.properties.osmId)).toEqual([2]);
+        expect(shadowed[0]!.properties.ring).toBe('near');
+        expect(demoted[0]!.properties.ring).toBe('far');
+        expect(shadowed[0]!.properties.distM!).toBeLessThan(CONTEXT_NEAR_SHADOW_RADIUS_M);
+        expect(demoted[0]!.properties.distM!).toBeGreaterThan(CONTEXT_NEAR_SHADOW_RADIUS_M);
+    });
+
+    // THE load-bearing guarantee: dropping the overflow would punch a donut hole in the fabric
+    // (footprints vanish while genuinely FARTHER far-ring blocks keep drawing).
+    it('DEMOTES the overflow, never drops it — coverage is preserved exactly', () => {
+        const features = [
+            feat(1, INSIDE, 0), feat(2, OUTSIDE, 0), feat(3, 0, INSIDE),
+            feat(4, 0, OUTSIDE), feat(5, -INSIDE, 0), feat(6, -OUTSIDE, 0),
+        ];
+        const { shadowed, demoted } = selectNearRingRenderTiers({
+            features, centerLat: 0, centerLon: 0, cap: 2,
+        });
+        const ids = [...shadowed, ...demoted].map((f) => f.properties.osmId).sort((a, b) => a - b);
+        expect(ids).toEqual([1, 2, 3, 4, 5, 6]);                 // nothing lost
+        expect(shadowed.length + demoted.length).toBe(features.length);
+        const shadowedIds = new Set(shadowed.map((f) => f.properties.osmId));
+        expect(demoted.some((f) => shadowedIds.has(f.properties.osmId))).toBe(false); // disjoint
+    });
+
+    it('applies the count backstop NEAREST-FIRST, so the least important lose shadows', () => {
+        const features = [
+            feat(1, 0.005, 0),   // ~557 m — 3rd nearest
+            feat(2, 0.001, 0),   // ~111 m — nearest
+            feat(3, 0.003, 0),   // ~334 m — 2nd
+        ];
+        const { shadowed, demoted } = selectNearRingRenderTiers({
+            features, centerLat: 0, centerLon: 0, cap: 2,
+        });
+        // All three are inside the 600 m horizon, so ONLY the backstop separates them.
+        expect(shadowed.map((f) => f.properties.osmId)).toEqual([2, 3]);
+        expect(demoted.map((f) => f.properties.osmId)).toEqual([1]);
+        expect(shadowed[0]!.properties.distM!).toBeLessThan(shadowed[1]!.properties.distM!);
+    });
+
+    it('treats cap <= 0 as "no backstop" (matches the far ring convention)', () => {
+        const features = Array.from({ length: 5 }, (_, i) => feat(i + 1, 0.0005 * (i + 1), 0));
+        const { shadowed, demoted } = selectNearRingRenderTiers({
+            features, centerLat: 0, centerLon: 0, cap: 0,
+        });
+        expect(shadowed).toHaveLength(5);   // all within the horizon, no cap applied
+        expect(demoted).toHaveLength(0);
+    });
+
+    it('is order-independent — it sorts, so input order cannot change the tiers', () => {
+        const features = [feat(1, 0.005, 0), feat(2, 0.001, 0), feat(3, 0.003, 0)];
+        const forward = selectNearRingRenderTiers({
+            features, centerLat: 0, centerLon: 0, cap: 2,
+        });
+        const reversed = selectNearRingRenderTiers({
+            features: [...features].reverse(), centerLat: 0, centerLon: 0, cap: 2,
+        });
+        expect(forward.shadowed.map((f) => f.properties.osmId))
+            .toEqual(reversed.shadowed.map((f) => f.properties.osmId));
+    });
+
+    // ⚠ COUPLING GUARD: CONTEXT_NEAR_SHADOW_RADIUS_M is not a taste value — it MUST track the
+    // Cesium shadow map's own `sm.maximumDistance` (CesiumViewport §FORMA-GRAZING-BANDING-FIX).
+    // Beyond it Cesium renders no shadow at all, so a caster there is pure waste. If that knob
+    // moves and this does not, the tiers silently drift apart again — which is the L-454 defect.
+    it('pins the shadow radius to the Cesium shadow-map maximumDistance (600 m)', () => {
+        expect(CONTEXT_NEAR_SHADOW_RADIUS_M).toBe(600);
+        // The backstop must sit ABOVE the densest fabric observed live (Barcelona ~1,433
+        // footprints/km² × the 1.131 km² shadow disc ≈ 1,621) only as a runaway guard — the
+        // DISTANCE rule stays the primary mechanism, never the count.
+        expect(CONTEXT_NEAR_MAX_BUILDINGS).toBeGreaterThan(900);
     });
 });

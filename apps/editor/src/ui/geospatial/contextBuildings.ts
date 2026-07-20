@@ -208,6 +208,43 @@ export const CONTEXT_BBOX_FAR_HALF_DEG = 0.016;
 export const CONTEXT_FAR_MAX_BUILDINGS = 900;
 
 /**
+ * §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — radius (metres) inside which a NEAR-ring footprint
+ * earns the EXPENSIVE render tier (extruded to true height + outline + `ShadowMode.ENABLED`).
+ *
+ * NOT a taste value: it is the Cesium shadow map's own `maximumDistance` (`CesiumViewport.ts`
+ * §FORMA-GRAZING-BANDING-FIX, `sm.maximumDistance = 600`). Beyond it Cesium does not render the
+ * shadow AT ALL, so a footprint out there pays the full shadow-caster cost and contributes
+ * nothing visible — the definition of waste. The near bbox is `CONTEXT_BBOX_HALF_DEG` 0.008°
+ * (~890 m on-axis, ~1,259 m at the corners), i.e. it reaches ~2.1× past the shadow horizon,
+ * which is exactly how the near ring came to carry thousands of pointless shadow casters.
+ *
+ * ⚠ COUPLED CONSTANT: if `sm.maximumDistance` changes, change this with it, or the tiers
+ * silently drift apart again.
+ */
+export const CONTEXT_NEAR_SHADOW_RADIUS_M = 600;
+
+/**
+ * §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — hard BACKSTOP on the expensive near tier.
+ *
+ * DERIVATION (recorded, because `CONTEXT_FAR_MAX_BUILDINGS = 900` became load-bearing with no
+ * evidence behind it and L-454 exists to stop that repeating):
+ *   • Live footprint DENSITY, measured from the two logged runs over the 0.008° near bbox
+ *     (1.78 km square = 3.17 km²): 2,545 near ⇒ ~803/km²; the dense Barcelona run 4,542 ⇒
+ *     ~1,433/km².
+ *   • The shadow disc (`CONTEXT_NEAR_SHADOW_RADIUS_M`) is π·0.6² = 1.131 km².
+ *   • Expected shadowed count = density × disc area ⇒ ~908 (typical) … ~1,621 (Barcelona).
+ * So the DISTANCE rule alone already cuts the typical case 2,545 → ~908 (−64%) without any
+ * invented number. This backstop is set just above the DENSEST fabric actually observed, so it
+ * is a runaway guard that does not bite on real cities — the distance rule stays the primary
+ * mechanism, which is the point.
+ *
+ * ⚠ HONESTY NOTE: this is derived from the shadow-map horizon + measured footprint densities.
+ * It is NOT a GPU frame-time measurement — no frame-time capture was taken. Re-derive it from
+ * profiler evidence before treating it as a tuned performance value.
+ */
+export const CONTEXT_NEAR_MAX_BUILDINGS = 1600;
+
+/**
  * Overpass request timeout (ms).
  *
  * §SITE-METRIC-OVERPASS-PARALLEL (2026-06-29) — dropped 20 s → 9 s. The mirrors now
@@ -752,6 +789,81 @@ export function selectNearFootprints(input: {
         if (clon >= w && clon <= e && clat >= s && clat <= n) near.push(f);
     }
     return near;
+}
+
+/**
+ * §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — split the NEAR ring into its two RENDER tiers.
+ *
+ * THE DEFECT THIS CLOSES: `selectFarRingFootprints` capped the FAR ring (shadows already OFF,
+ * height clamped, no outline — the CHEAP half) at 900, while the NEAR ring — extruded to true
+ * height, outlined, and `ShadowMode.ENABLED`, i.e. where the GPU cost actually is — had NO
+ * ceiling whatsoever. Live: 2,545 near + 900 far; a Barcelona run hit 4,542 near. The plan
+ * capped the cheap half; this caps the expensive one.
+ *
+ * TWO RULES, distance first:
+ *   • `shadowed` — centroid within `shadowRadiusM` AND inside the nearest-N `cap`. Full
+ *     treatment. Sorted NEAREST-FIRST, so when the backstop bites it drops the LEAST
+ *     important footprints, never an arbitrary slice (the pattern already proven on the far ring).
+ *   • `demoted`  — everything else in the near set. Rendered with the FAR ring's cheap
+ *     treatment (shadows off, no outline) but at TRUE HEIGHT — see below.
+ *
+ * ⚠ DEMOTED, NEVER DROPPED — this is the load-bearing decision. Dropping the overflow would
+ * punch a DONUT HOLE in the fabric: footprints between the cap radius and the near-bbox edge
+ * would vanish while genuinely FARTHER far-ring blocks kept drawing, which reads as missing
+ * city, not as LOD. Demotion removes the shadow + outline passes (the cost) while keeping
+ * coverage identical to today. Total drawn entities are therefore UNCHANGED; what changes is
+ * how many of them are shadow casters.
+ *
+ * ⚠ TRUE HEIGHT ON THE DEMOTED TIER: the far annulus clamps height to 24 m so no stray distant
+ * skyscraper dominates. That clamp must NOT apply here — these footprints are inside the near
+ * bbox and a real tower squashed to 24 m would be a visible geometry LIE about the site's own
+ * immediate neighbourhood. The caller passes them with the clamp disabled.
+ *
+ * ⚠ RENDER BOUNDARY ONLY — callers MUST apply this when placing entities, NOT to the fetched
+ * collection. The near collection also feeds `setNeighbourFootprints` (party-wall / blind-façade
+ * resolution) and the site-metric density heatmaps; capping the COLLECTION would silently
+ * under-count built density and produce a WRONG metric number rather than a cheaper frame.
+ *
+ * PURE + testable. Never throws. Input order is irrelevant (it sorts).
+ */
+export interface NearRingRenderTiers {
+    /** Extruded to true height + outline + shadows ON. Nearest-first, bounded. */
+    readonly shadowed: ContextBuildingFeature[];
+    /** Same footprints the near ring always drew, minus the shadow + outline cost. */
+    readonly demoted: ContextBuildingFeature[];
+}
+
+export function selectNearRingRenderTiers(input: {
+    readonly features: readonly ContextBuildingFeature[];
+    readonly centerLat: number;
+    readonly centerLon: number;
+    readonly shadowRadiusM?: number;
+    readonly cap?: number;
+}): NearRingRenderTiers {
+    const shadowRadiusM = input.shadowRadiusM ?? CONTEXT_NEAR_SHADOW_RADIUS_M;
+    const cap = input.cap ?? CONTEXT_NEAR_MAX_BUILDINGS;
+
+    // Stamp distance once, then order nearest-first so both the radius test and the backstop
+    // act on the same ranking (the far ring's proven pattern).
+    const ranked = input.features.map((f) => {
+        const [clon, clat] = ringCentroidLonLat(f);
+        return { f, distM: planarMetres(input.centerLat, input.centerLon, clat, clon) };
+    });
+    ranked.sort((a, b) => a.distM - b.distM);
+
+    const shadowed: ContextBuildingFeature[] = [];
+    const demoted: ContextBuildingFeature[] = [];
+    for (const { f, distM } of ranked) {
+        // `cap <= 0` means "no backstop" (matches the far ring's `cap > 0` convention).
+        const withinCap = cap <= 0 || shadowed.length < cap;
+        const tier = distM <= shadowRadiusM && withinCap ? 'near' : 'far';
+        const tagged: ContextBuildingFeature = {
+            ...f,
+            properties: { ...f.properties, ring: tier, distM },
+        };
+        if (tier === 'near') shadowed.push(tagged); else demoted.push(tagged);
+    }
+    return { shadowed, demoted };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

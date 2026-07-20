@@ -3724,7 +3724,7 @@ than it was approved to be:**
 | A1 | **Extend C58's rule model** for street *alineación* + *profundidad edificable* (ADR required) | **L-443** | **THE UNBLOCK.** C58 §2.2 hardcodes `{front_m, side_m, rear_m}`, which CANNOT express the rules governing dense Spanish urban fabric. Extracted values would have nowhere to land. Acquiring 64 GB before this exists produces a corpus we cannot represent and must re-extract — the human-gated step done twice. |
 | A1a | **ADR-0270 P1 — L0 `GeometricRule` discriminated union** (`setback`/`alignment`/`explicit-area`) + back-compat `.transform()` stamping `kind:'setback'` on legacy packs | **L-451** | **SAFE TO BUILD NOW** — additive, changes no persisted data. Done when Zod round-trips incl. packs with no `kind`. |
 | A1b | **ADR-0270 P2 — L2 solver branches on KIND**; `alignment` projects a depth band from the aligned edge instead of eroding every edge | **L-451** | **SAFE TO BUILD NOW.** Done when byte-determinism tests pass per kind (C58 §1.1) AND an alignment zone yields a DEPTH-limited ring, not a whole-plot ring. |
-| A1c | **ADR-0270 P3 — persist the inset ring; amend C58 §1.7; `null` (never fabricated) setbacks on alignment zones** | **L-451** | ⚠ **DECISION-GATED / BLOCKED** on the §1.7 (A)-vs-(B) call. **Do NOT ship P2 without P3** or C58 §1.7 becomes an ACTIVE violation. |
+| A1c | **ADR-0270 P3 — persist the inset ring; amend C58 §1.7; `null` (never fabricated) setbacks on alignment zones** | **L-451**, **L-455** | ✅ **DONE 2026-07-20. TRIPWIRE LIFTED.** Schema + command + WRITER + READER + round-trip tests all exist (stores 755/755, validators 42/42). Setbacks are nullable, with `null` ("not setback-governed") kept DISTINCT from `0`; the §1.6 check skips a null edge. ⚠ The merged-but-unwired state that preceded this is logged as **L-455**: a persisted field nothing writes is indistinguishable at runtime from a field that does not exist. |
 | A1d | **ADR-0270 P4/P5 — "Why these numbers?" renders alignment AS alignment; Barcelona *ensanche* pilot pack** | **L-451** | Done when the panel shows *alineación + profundidad* (never three invented setbacks) and one real zone solves end-to-end. |
 | A2 | **Draft-extraction schema + verification gate** — draft `JurisdictionZoningContract` w/ per-field `sourceRef`; draft→published promotion is what earns `confidence:'structured'` | **L-449** | Founder approved option (a): C58 §1.2/§1.4 stand UNAMENDED. Nothing unverified is ever served as authoritative. |
 | A3 | **Object storage + acquire the 318** (`spain/priority_318.csv`) | **L-450** | ~64 GB, ~$1/month. NOT the repo (GitHub caps 100 MB/file; cf. the 185 MB GLB catalogue already `.dockerignore`d, which is why `/items/*.glb` 404s). NOT Postgres — the DB holds only rule packs (~1–5 KB each; 318 ≈ 2 MB, inside the FREE tier). **Same bucket closes OBJECT-STORAGE-GLB.** |
@@ -3881,3 +3881,67 @@ turning ×318 from a guess into arithmetic.
 Zero coverage: no contract, no ADR, no verified endpoint. PDM ≠ PGOU, 308 municipalities,
 different infrastructure (DGT / SNIG). Needs its own live-verification pass before any
 estimate.
+
+---
+
+## L-454 — Forma context: bound the EXPENSIVE near ring (P1 perf, FIXED — pending live verify)
+
+**Link:** audit row **L-454**. **Queue:** site / perf. **Contract:** **C12** (context engine),
+**C04** (rendering). **Tag:** `§FEAT-FORMA-CONTEXT-NEAR-CAP`. **Status:** implemented
+2026-07-20, 12/12 tests, root `tsc` clean; live perf verify OUTSTANDING.
+
+### The defect
+`§FEAT-FORMA-CONTEXT-EXTENT-LOD` (L-368) capped the FAR ring at 900 — shadows already OFF,
+height clamped to 24 m, no outline, i.e. **the cheap half**. The NEAR ring — extruded to true
+height, outlined, `ShadowMode.ENABLED` — had **no ceiling at all**. Live: 2,545 near + 900 far;
+a Barcelona run hit 4,542 near. *A gap between the plan and the implementation, not a tuning
+problem.*
+
+### Why the literal fix ("add a cap + nearest-first sort") would have been wrong
+Three findings, each of which would have shipped a new defect:
+
+1. **The cap cannot live in the fetch.** The `near` collection feeds three consumers: the
+   renderer, `setNeighbourFootprints` (PW.2 party-wall / blind-façade resolution) and
+   `lastContextCollection` (site-metric population / wind / heat density grids). Capping the
+   collection under-counts built density and yields a **wrong metric number** — a fabricated
+   figure, which the standing constraint forbids outright. Tiering is applied at the **render
+   boundary**; the fetched collection stays complete.
+2. **Overflow is DEMOTED, not dropped.** Dropping leaves a **donut hole** — footprints between
+   the cap radius and the near-bbox edge vanish while genuinely *farther* far-ring blocks keep
+   drawing. Demoted footprints take the cheap shading, so **total entities are unchanged; only
+   shadow casters are bounded.**
+3. **The demoted tier keeps TRUE height.** The far annulus's 24 m clamp exists so no distant
+   skyscraper dominates; applying it inside the near bbox would squash a real tower in the
+   site's own neighbourhood — a visible geometry lie.
+
+### The cap is derived, not felt
+The entry warned that the far ring's 900 became load-bearing with no recorded evidence.
+The primary rule here is **distance**, pinned to the Cesium shadow map's own
+`sm.maximumDistance = 600` (§FORMA-GRAZING-BANDING-FIX). Beyond it Cesium renders no shadow at
+all, so a caster there pays full cost for nothing — and the near bbox (0.008° ≈ 890 m on-axis,
+~1,259 m at the corners) reaches **~2.1× past it**, which is *how* the ring accumulated
+thousands of pointless casters.
+
+| Input | Value | Source |
+|---|---|---|
+| Shadow horizon | 600 m | `CesiumViewport.ts` `sm.maximumDistance` (in-code) |
+| Near bbox | 0.008° ⇒ 3.17 km² | `CONTEXT_BBOX_HALF_DEG` |
+| Density, typical | ~803 /km² | live 2,545 footprints |
+| Density, Barcelona | ~1,433 /km² | live 4,542 footprints |
+| Shadow disc | 1.131 km² | π·0.6² |
+| ⇒ Expected shadowed | **~908 … ~1,621** | density × disc |
+
+So the distance rule alone cuts the typical case **2,545 → ~908 (−64%)** with no invented
+number. `CONTEXT_NEAR_MAX_BUILDINGS = 1600` is a **runaway backstop only**, set just above the
+densest fabric observed, applied nearest-first.
+
+**⚠ HONESTY:** no GPU frame-time capture was taken. This is derived from the shadow horizon and
+measured footprint densities, and says so in the constant's doc comment so it is never later
+mistaken for a profiled value. A coupling-guard test pins the radius to 600 so the two knobs
+cannot silently drift apart again — the exact failure mode being closed.
+
+### Still open from this entry (deliberately untouched)
+- The far-extent fetch intermittently returning 0 with a single narrow retry (the "takes a while").
+- `readiness NEVER ARRIVED at stage "anchor" (25,000 ms)` before the tile clamp resolved at 52.16 m.
+
+Neither is addressable by a render-tier change; both need their own evidence.

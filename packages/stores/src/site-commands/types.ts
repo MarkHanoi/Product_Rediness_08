@@ -109,11 +109,21 @@ export const SiteUpdateZoningPayloadSchema = z.object({
             jurisdictionRef: z.string().min(3).max(64).nullable().optional(),
         })
         .optional(),
+    /**
+     * ADR-0270 option A / C58 §1.7a — each field is NULLABLE as well as optional, and the two
+     * mean different things:
+     *   • OMITTED  → leave the stored value untouched (delta semantics, as every field here).
+     *   • `null`   → this zone is NOT setback-governed; record that explicitly.
+     *   • a number → the requirement, in metres.
+     * Omitting on an alignment zone is NOT good enough: it leaves STALE numbers from a previous
+     * setback solve sitting on a parcel they no longer describe, which §1.7a forbids precisely
+     * because they still look well-formed. Only an explicit `null` erases them honestly.
+     */
     setbacks: z
         .object({
-            front: z.number().min(0).optional(),
-            side: z.number().min(0).optional(),
-            rear: z.number().min(0).optional(),
+            front: z.number().min(0).nullable().optional(),
+            side: z.number().min(0).nullable().optional(),
+            rear: z.number().min(0).nullable().optional(),
         })
         .optional(),
     maxFAR: z.number().min(0).nullable().optional(),

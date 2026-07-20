@@ -33,10 +33,32 @@ export const ParcelBoundarySchema = z.object({
 });
 export type ParcelBoundary = z.infer<typeof ParcelBoundarySchema>;
 
+/**
+ * ADR-0270 option A / C58 §1.7a — front/side/rear are NULLABLE.
+ *
+ * §1.7a: "For any non-`setback` rule those fields MUST be `null`. An engine or adapter MUST NOT
+ * synthesise 'equivalent effective setbacks'." Before this, the three fields were plain numbers,
+ * so an alignment-governed zone (*alineación a vial* + *profundidad edificable*) had **nowhere to
+ * put the honest answer** — it could only store a fabricated triple, or leave stale numbers from a
+ * previous solve, both of which look perfectly well-formed and are undetectably wrong downstream.
+ * That is the "fact of the wrong SHAPE" hole §1.7a exists to close, and the reason the tripwire
+ * forbade emitting an `alignment` result into `site.updateZoning` until this landed.
+ *
+ * `null` = "this zone is not setback-governed; the answer is not a number." It is NOT `0`, which
+ * means "setback-governed, and the requirement is zero". Distinguishing those two is the whole
+ * point — collapsing them re-creates the defect in a quieter disguise.
+ *
+ * The L0 helper `displaySetbacks()` (GeometricRule.ts) is the ONLY sanctioned way to derive the
+ * triple from a rule; it already returns `null` for every non-`setback` kind.
+ *
+ * DEFAULT STAYS `0`, deliberately: it preserves the documented C19 behaviour for parcels created
+ * without zoning, and this amendment is about what a SOLVE may write, not about redefining an
+ * unzoned parcel. `null` is only ever written explicitly.
+ */
 export const ParcelSetbacksSchema = z.object({
-    front: z.number().min(0).default(0),
-    side: z.number().min(0).default(0),
-    rear: z.number().min(0).default(0),
+    front: z.number().min(0).nullable().default(0),
+    side: z.number().min(0).nullable().default(0),
+    rear: z.number().min(0).nullable().default(0),
 });
 export type ParcelSetbacks = z.infer<typeof ParcelSetbacksSchema>;
 

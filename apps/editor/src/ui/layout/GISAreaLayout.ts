@@ -7,7 +7,15 @@ import type { UIProps } from '../Layout';
 // always-on pills under root-level chrome (toolbar 9000, nav rail 9999).
 import { launcherRailStyle } from './zLayers';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
-import { getCurrentSiteOrigin, getLastBuildableEnvelope } from '../site/siteDispatch';
+// L-445 — `getLastBuildableEnvelope` is the FULL envelope incl. the derivation trace (facts
+// card only; legitimately null after a reload, and shown as such rather than fabricated).
+// `resolveRenderableBuildableEnvelope` is the GEOMETRY read for renderers — it falls back to
+// the persisted `Parcel.buildableRing` (C58 §1.7a), so the study volume survives re-entry.
+import {
+    getCurrentSiteOrigin,
+    getLastBuildableEnvelope,
+    resolveRenderableBuildableEnvelope,
+} from '../site/siteDispatch';
 // §PARCEL-SELECT (L-380 P1) — the real cadastral parcel data source for the map's
 // "Select parcel" mode (Barcelona / Catastro pilot, via the same-origin proxy). With
 // this wired the select mode fetches REAL parcels; where no parcel exists / outside
@@ -1827,17 +1835,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let formaEnvelopeVisible = true;
     let envelopePanel: HTMLDivElement | null = null;
 
-    /** Feed the cached envelope's inset ring + height to the render, when ON. */
+    /**
+     * Feed the envelope's inset ring + height to the render, when ON.
+     *
+     * L-445 — was `getLastBuildableEnvelope()`, a module global written only on the COMMIT
+     * path, so it was null on every re-entry after a reload and the 3D Site drew no envelope
+     * while the toggle still said "Envelope: ON". Now routes through
+     * `resolveRenderableBuildableEnvelope()`, which prefers this session's solved envelope and
+     * falls back to the PERSISTED `Parcel.buildableRing` (C58 §1.7a / ADR-0270 option A).
+     */
     const resolveFormaEnvelope = ():
         | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null }
         | null => {
         if (!formaEnvelopeVisible) return null;
-        const env = getLastBuildableEnvelope();
-        if (!env || env.status !== 'ok' || env.insetPolygon.length < 3) return null;
-        return {
-            ring: env.insetPolygon.map((p) => ({ x: p.x, z: p.z })),
-            maxHeightM: env.maxHeight_m,
-        };
+        const env = resolveRenderableBuildableEnvelope(runtime ?? null);
+        if (!env || env.ring.length < 3) return null;
+        return { ring: env.ring.map((p) => ({ x: p.x, z: p.z })), maxHeightM: env.maxHeightM };
     };
 
     /** §L-412 (C59 Phase 1b) — the DOM host for the 3D-Site chrome (envelope card).
@@ -1853,16 +1866,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return document.getElementById('container');
     };
 
-    /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
-    const refreshEnvelopePanel = (): void => {
-        const viewport = getForma3dHostEl();
-        const env = getLastBuildableEnvelope();
-        // No envelope (no parcel / cleared) → drop the card entirely.
-        if (!viewport || !env || env.status === 'none') {
-            if (envelopePanel?.parentElement) envelopePanel.parentElement.removeChild(envelopePanel);
-            envelopePanel = null;
-            return;
-        }
+    /** The card's shell — created once, re-homed if the pane host changed. */
+    const ensureEnvelopePanel = (viewport: HTMLElement): HTMLDivElement => {
         if (!envelopePanel) {
             envelopePanel = document.createElement('div');
             envelopePanel.setAttribute('data-testid', 'buildable-envelope-card');
@@ -1875,9 +1880,86 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             } satisfies Partial<CSSStyleDeclaration>);
             viewport.appendChild(envelopePanel);
         } else if (envelopePanel.parentElement !== viewport) {
-            // The pane host changed (split mounted / disposed) — re-home the card.
             viewport.appendChild(envelopePanel);
         }
+        return envelopePanel;
+    };
+
+    /** The ON/OFF toggle markup + handler, shared by the full and reduced cards. */
+    const envelopeToggleHtml = (): string =>
+        `<button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${formaEnvelopeVisible ? '#6600FF' : '#ffffff'};color:${formaEnvelopeVisible ? '#ffffff' : '#6600FF'};">
+           Envelope: ${formaEnvelopeVisible ? 'ON' : 'OFF'}
+         </button>`;
+
+    const wireEnvelopeToggle = (panel: HTMLDivElement): void => {
+        const btn = panel.querySelector('[data-testid="envelope-toggle"]') as HTMLButtonElement | null;
+        if (!btn) return;
+        btn.onclick = () => {
+            formaEnvelopeVisible = !formaEnvelopeVisible;
+            // Re-place the massing (no re-fly) so the envelope appears/disappears.
+            if (cesiumViewport?.renderFormaMassing && formaViewMode !== 'map2d') {
+                renderFormaMassing(false);
+            } else {
+                refreshEnvelopePanel();
+            }
+        };
+    };
+
+    /**
+     * L-445 — the REDUCED card, shown when the buildable ring was read back from persistence
+     * (C58 §1.7a) but this session never re-solved the envelope.
+     *
+     * ⚠ IT DELIBERATELY SHOWS LESS THAN THE FULL CARD. No confidence badge, no setback triple,
+     * no FAR, no "Why these numbers?" — none of that provenance was re-derived on load, and
+     * rendering a stale-looking badge or an empty derivation would present unverified data as a
+     * determination (C58 §1.4). What IS persisted (the ring, and `Parcel.maxHeight`) is shown;
+     * everything else says so plainly. The toggle is present so a visible envelope is always
+     * controllable.
+     */
+    const renderReducedEnvelopePanel = (viewport: HTMLElement, maxHeightM: number | null): void => {
+        const panel = ensureEnvelopePanel(viewport);
+        const heightTxt = maxHeightM !== null ? `${maxHeightM.toFixed(1)} m` : '—';
+        panel.innerHTML =
+            `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>
+               <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f4f2f8;color:#6b6480;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Saved</span>
+             </div>
+             <div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
+             <div style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">
+               Saved envelope shape. The source values and citations were not re-derived in this
+               session — re-commit the parcel to see the full determination.
+             </div>
+             ${envelopeToggleHtml()}`;
+        wireEnvelopeToggle(panel);
+    };
+
+    /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
+    const refreshEnvelopePanel = (): void => {
+        const viewport = getForma3dHostEl();
+        const env = getLastBuildableEnvelope();
+        // L-445 — the card must not vanish while the VOLUME is on screen. After a reload the
+        // envelope now renders from the persisted ring (C58 §1.7a) but `getLastBuildableEnvelope`
+        // is legitimately null, so the full card cannot be built. Without this branch the user
+        // would see an envelope with NO card and therefore NO toggle — visible, uncontrollable.
+        // The reduced card carries only what is genuinely persisted plus the toggle; it shows NO
+        // confidence badge and NO "Why these numbers?", because that provenance was not
+        // re-derived and inventing it is precisely the C58 §1.4 violation this fix exists to
+        // prevent. Re-committing the parcel re-solves and restores the full card.
+        if (viewport && (!env || env.status === 'none')) {
+            const persisted = resolveRenderableBuildableEnvelope(runtime ?? null);
+            if (persisted && persisted.source === 'persisted') {
+                renderReducedEnvelopePanel(viewport, persisted.maxHeightM);
+                return;
+            }
+        }
+        // No envelope (no parcel / cleared) → drop the card entirely.
+        if (!viewport || !env || env.status === 'none') {
+            if (envelopePanel?.parentElement) envelopePanel.parentElement.removeChild(envelopePanel);
+            envelopePanel = null;
+            return;
+        }
+        // (shell creation + re-homing is shared with the reduced card — see ensureEnvelopePanel)
+        const panel = ensureEnvelopePanel(viewport);
         const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
             const e = env.derivation.find((d) => d.constraint === c);
             return typeof e?.value === 'number' ? `${e.value.toFixed(1)} m` : '—';
@@ -1961,7 +2043,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max FAR</span><span style="font-weight:600;">${farTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>`;
-        envelopePanel.innerHTML =
+        panel.innerHTML =
             `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}
              </div>
@@ -1970,21 +2052,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                ${sourceLine}
              </div>
              ${whyBlock}
-             <button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${formaEnvelopeVisible ? '#6600FF' : '#ffffff'};color:${formaEnvelopeVisible ? '#ffffff' : '#6600FF'};">
-               Envelope: ${formaEnvelopeVisible ? 'ON' : 'OFF'}
-             </button>`;
-        const btn = envelopePanel.querySelector('[data-testid="envelope-toggle"]') as HTMLButtonElement | null;
-        if (btn) {
-            btn.onclick = () => {
-                formaEnvelopeVisible = !formaEnvelopeVisible;
-                // Re-place the massing (no re-fly) so the envelope appears/disappears.
-                if (cesiumViewport?.renderFormaMassing && formaViewMode !== 'map2d') {
-                    renderFormaMassing(false);
-                } else {
-                    refreshEnvelopePanel();
-                }
-            };
-        }
+             ${envelopeToggleHtml()}`;
+        wireEnvelopeToggle(panel);
     };
 
     /**
@@ -2154,6 +2223,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 furniture,
                 openings,
                 stairs,
+                // L-445 (SECOND, INDEPENDENT DEFECT) — this payload never carried `envelope`,
+                // so the PHOTOREAL GLOBE could not draw the C58 study volume under ANY
+                // conditions, even immediately after a commit with the envelope fully solved.
+                // `renderBuildingOnGlobe` forwards the whole payload to `renderFormaMassing`,
+                // which has always accepted `envelope` — the key was simply never passed.
+                // Same reader as the 3D-Site path, so the toggle governs both surfaces.
+                envelope: resolveFormaEnvelope(),
                 // The camera is framed by reframeSiteIn3D() — don't double-fly here.
                 frameCentroid: false,
             });

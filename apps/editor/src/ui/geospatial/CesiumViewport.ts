@@ -11,6 +11,12 @@ import {
     // nearest-N capped) split client-side, so the far ring never waits on a second network hop.
     fetchContextBuildingsNearAndFar,
     CONTEXT_BBOX_HALF_DEG,
+    // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — bound the EXPENSIVE half. The near ring was
+    // uncapped while the cheap far ring was capped; this tiers it by the shadow-map horizon
+    // (demoting the overflow rather than dropping it, so coverage is unchanged).
+    selectNearRingRenderTiers,
+    CONTEXT_NEAR_SHADOW_RADIUS_M,
+    CONTEXT_NEAR_MAX_BUILDINGS,
     // §PLOT-CLEAR-ENVELOPE (L-402c) — pure filter that removes the OSM context
     // building sitting ON the committed working plot (the building the user is
     // replacing) so it can't bury the translucent #6600FF buildable-envelope volume.
@@ -5650,8 +5656,27 @@ export class CesiumViewport {
       );
     }
 
+    // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the near ring was UNCAPPED while the far ring was
+    // capped at 900: the plan bounded the CHEAP half and left the expensive one (extruded +
+    // outlined + shadow-casting) unbounded. Split it into its two render tiers HERE, at the
+    // render boundary — deliberately NOT in the fetch, because `collection` above also feeds
+    // setNeighbourFootprints (party-wall resolution) and the site-metric density heatmaps,
+    // which need the COMPLETE set or they report a wrong density number.
+    const nearTiers = selectNearRingRenderTiers({
+      features: nearSplit.kept, centerLat: lat, centerLon: lon,
+    });
+    if (nearTiers.demoted.length > 0) {
+      console.log(
+        `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-NEAR-CAP — near ring tiered: ` +
+          `${nearTiers.shadowed.length} shadow-casting (within ` +
+          `${CONTEXT_NEAR_SHADOW_RADIUS_M} m, cap ${CONTEXT_NEAR_MAX_BUILDINGS}) + ` +
+          `${nearTiers.demoted.length} demoted to shadowless/true-height ` +
+          `(of ${nearSplit.kept.length} kept). Coverage unchanged; shadow casters bounded.`,
+      );
+    }
+
     let placed = 0;
-    for (const f of nearSplit.kept) {
+    for (const f of nearTiers.shadowed) {
       try {
         const ring = f.geometry.coordinates[0];
         if (!ring || ring.length < 4) continue;
@@ -5712,6 +5737,16 @@ export class CesiumViewport {
     // this renders immediately from `far` rather than gating on a separate Overpass round-trip.
     // §PLOT-CLEAR-ENVELOPE — the far ring gets the SAME on-plot filter (a large plot could
     // reach a far footprint), so the plot stays clear at every LOD tier.
+    // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the DEMOTED near-tier first: cheap shading, but
+    // TRUE height (no 24 m clamp) because these are the site's own immediate neighbours.
+    // plotClearSplit already ran on the near set above, so no second filter is needed.
+    if (nearTiers.demoted.length > 0) {
+      this.renderContextBuildingsFarRing(
+        { type: 'FeatureCollection', features: nearTiers.demoted }, lat, lon, viewer,
+        { heightClampM: null, label: 'near ring (demoted tier)' },
+      );
+    }
+
     const farSplit = this.plotClearSplit(far.features, parcelLonLat);
     this.renderContextBuildingsFarRing(
       { type: 'FeatureCollection', features: farSplit.kept }, lat, lon, viewer,
@@ -5894,7 +5929,17 @@ export class CesiumViewport {
    */
   private renderContextBuildingsFarRing(
     far: ContextBuildingCollection, lat: number, lon: number, viewer: Cesium.Viewer,
+    /**
+     * §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — `heightClampM: null` disables the 24 m low-poly
+     * clamp. Used for the DEMOTED near-ring tier: those footprints are inside the near bbox
+     * (the site's own immediate neighbourhood), so squashing a real tower to 24 m would be a
+     * visible geometry lie. They take the cheap SHADING (shadows/outline off) at TRUE height.
+     * `label` only distinguishes the two passes in the diagnostic log.
+     */
+    opts: { readonly heightClampM?: number | null; readonly label?: string } = {},
   ): void {
+    const heightClampM = opts.heightClampM === undefined ? 24 : opts.heightClampM;
+    const label = opts.label ?? 'far ring';
     if (!this.viewer || this.viewer !== viewer) return;
     // A newer near/far load or a dispose superseded us, or the site moved.
     if (!this.contextBuildingsAt
@@ -5925,7 +5970,8 @@ export class CesiumViewport {
         // §FEAT-FORMA-CONTEXT-EXTENT-LOD — LOW-POLY: cap the far height so distant blocks read
         // as simple massing (never a stray far skyscraper dominating), and SHADOWS OFF — the
         // shadow pass is the perf driver the founder flagged, so the far ring never casts.
-        const h = Math.min(24, Math.max(0.1, f.properties.heightM));
+        const trueH = Math.max(0.1, f.properties.heightM);
+        const h = heightClampM === null ? trueH : Math.min(heightClampM, trueH);
         const ent = viewer.entities.add({
           name: 'pryzm-forma-context-building-far',
           polygon: {
@@ -5949,8 +5995,9 @@ export class CesiumViewport {
     }
     viewer.scene.requestRender();
     console.log(
-      `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD far ring rendered: ${placed} ` +
-        `flat/low-poly shadowless footprint(s) (nearest-first, capped).`,
+      `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD ${label} rendered: ${placed} ` +
+        `shadowless footprint(s) (nearest-first, capped; height ` +
+        `${heightClampM === null ? 'TRUE (unclamped)' : `clamped ${heightClampM} m`}).`,
     );
   }
 
