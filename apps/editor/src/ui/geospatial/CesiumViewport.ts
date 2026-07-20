@@ -3246,6 +3246,24 @@ export class CesiumViewport {
     // §PLOT-CLEAR-PHOTOREAL (L-429) — the OSM/entity plot-clear above cannot touch the Google
     // photoreal tile MESH, so cut a parcel-shaped void into the tileset too (or restore it when
     // the parcel cleared). Same committed ring, same never-throw posture.
+    //
+    // §L-448 — DEFAULT OFF. Founder-reported, twice: clipping the Google tileset does not
+    // produce a clean parcel-shaped void. It smears a large blurred quad across the
+    // surrounding blocks and shatters the mesh into loose triangles, so the real context —
+    // the ENTIRE POINT of the photoreal globe — becomes unreadable. Founder: "I cannot eye
+    // test anything."
+    //
+    // The trade this feature was making is a bad one. It exists so a proposed design is not
+    // hidden BEHIND the existing building on the plot; the cost is destroying the legibility
+    // of every neighbouring building. A design you cannot judge in context is worth less than
+    // one partially occluded by the structure it replaces — and the occlusion case is already
+    // handled for OSM/entity context by the plot-clear above, which works correctly.
+    //
+    // Google's photoreal tiles are a single fused mesh with no per-building segmentation, so
+    // a clean per-parcel cut is not something a clipping plane can express at this tile
+    // resolution. Doing it properly needs a different mechanism (e.g. classification or a
+    // masked overlay), not a tuned clipping volume — so this is switched off rather than
+    // adjusted, and re-enabling it is opt-in until that mechanism exists.
     this.applyParcelClipToPhotorealTiles();
 
     const silhouetteTargets: Cesium.Entity[] = [];
@@ -5709,6 +5727,14 @@ export class CesiumViewport {
    * clip and keep the tileset intact.
    */
   private applyParcelClipToPhotorealTiles(): void {
+    // §L-448 — OPT-IN. Guarded HERE, at the single chokepoint, rather than at the call sites:
+    // there are three (two tileset-load-after-commit paths + the massing render), and gating
+    // one would silently leave the other two applying the clip — the same class of half-applied
+    // migration that caused L-446.
+    //
+    // Set `globalThis.__pryzmPlotClearPhotoreal = true` to re-enable.
+    if ((globalThis as Record<string, unknown>).__pryzmPlotClearPhotoreal !== true) return;
+
     try {
       const tileset = this.photorealTileset;
       if (!tileset) return; // keyless / flat-ground study — nothing to clip.
