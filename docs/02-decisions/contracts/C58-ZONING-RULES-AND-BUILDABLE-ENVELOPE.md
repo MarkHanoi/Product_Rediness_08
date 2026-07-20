@@ -68,6 +68,44 @@ A `JurisdictionZoningContract` (§2.2) is a **curated, versioned** artefact. It 
 
 ### §1.7 — The envelope maps onto C19's existing mutable fields via `site.updateZoning`; no new C19 output schema
 
+> **AMENDED 2026-07-20 (ADR-0270 option A, founder decision; L-451).** The 1:1 mapping below
+> holds ONLY for setback-governed zones. **The inset POLYGON is now the persisted truth**; the
+> front/side/rear triple is a DERIVED, EXPLICITLY-LOSSY summary that is `null` — never
+> fabricated — for any non-`setback` geometric rule. See §1.7a.
+
+### §1.7a — The inset polygon is the persisted truth; setbacks are a lossy summary (ADR-0270, L-451)
+
+**Why the original §1.7 could not hold.** An `alignment` rule (*alineación a vial* +
+*profundidad edificable* + party walls — verified live in L-438; Madrid publishes `Fondo de la
+Edificación` as a POLYLINE) has **no front/side/rear triple that encodes it**. Writing one would
+be a lossy coercion that is *invisible*, because the stored numbers look perfectly well-formed.
+That is a fact of the wrong SHAPE — a hole neither §1.4 (guess-as-fact) nor §1.11
+(fact-about-the-wrong-thing) closed.
+
+**The resolution, and why it is barely a change at all.** §2.4 ALREADY computes `insetPolygon`,
+and §1.8 ALREADY threads *the polygon* — not the three numbers — into generation. **The polygon
+was always the load-bearing artefact; §1.7 simply had not caught up.** So:
+
+1. The **`BuildableEnvelope.insetPolygon` is the authoritative geometric output.** It MUST be
+   persisted with the parcel's mutable zoning state so it survives close+reopen (cf. L-188,
+   which established site state must round-trip).
+2. `setbacks.{front,side,rear}` remain on C19 for DISPLAY and for `setback` zones, where they
+   are true of the zone.
+3. For **any non-`setback` rule those fields MUST be `null`.** An engine or adapter MUST NOT
+   synthesise "equivalent effective setbacks" — explicitly rejected in ADR-0270 as lossy by
+   construction and unrecoverable. `null` is the honest answer; a fabricated triple is
+   undetectably wrong downstream. The L0 helper `displaySetbacks()` enforces this at the type
+   level and is the ONLY sanctioned way to derive the triple from a rule.
+4. The write path is UNCHANGED: still `site.updateZoning` (P6), still no UI writing zoning
+   fields directly. This amendment changes WHAT is persisted, not HOW.
+5. The parcel polygon itself remains immutable (C19 §1.4). This adds a *derived* ring alongside
+   the mutable zoning fields; it never edits the parcel.
+
+**Consumer rule.** Anything asking "what may I build here" MUST read the persisted inset
+polygon. Reading the three numbers and re-insetting is only valid for `setback` zones and MUST
+NOT be used as a general path — it silently reproduces the pre-ADR-0270 defect.
+
+
 The `BuildableEnvelope` numeric results map **1:1** onto the C19 `Parcel` mutable fields (`setbacks.{front,side,rear}`, `maxFAR`, `maxHeight`, `zoning.category`, `zoning.overlays`) and reach the model **only** through the existing `site.updateZoning` command (C19 §4.1, `packages/stores/src/site-commands/siteUpdateZoning.ts`). C58 introduces **no** new persisted output schema on the Site — only the transient `BuildableEnvelope` + `DerivationTrace` (which the report renders and which may be cached, not persisted as authored model data).
 
 - Per **P6**, the UI never writes zoning fields directly; the engine result is dispatched as `site.updateZoning`.
@@ -437,9 +475,15 @@ Spanish *ensanche* is governed by *alineación a vial* + *profundidad edificable
 front/side/rear triple encodes such a rule.** Any value written there for an alignment zone is a
 lossy coercion that looks well-formed and is therefore invisible.
 
-**Status:** ADR-0270 PROPOSED, awaiting a decision between option (A) persist the inset polygon
-as the truth + amend §1.7 + allow `null` setbacks, and option (B) store equivalent effective
-setbacks (**not recommended** — lossy by construction).
+**Status (updated 2026-07-20): RESOLVED IN CONTRACT — founder chose option (A).** §1.7 is
+amended and §1.7a added: the inset polygon is the persisted truth, and setbacks are `null`
+(never fabricated) for non-`setback` rules. Option (B) — "equivalent effective setbacks" — was
+REJECTED as lossy by construction and invisible.
+
+**IMPLEMENTATION STILL OPEN (A1c).** The contract now states the correct behaviour; the C19
+persistence field and the `site.updateZoning` payload have NOT yet been changed. Until they are,
+this remains a PENDING AMENDMENT rather than a satisfied clause — and the tripwire below still
+applies.
 
 **Until that decision lands:** the engine MUST NOT emit an `alignment` result into
 `site.updateZoning`. No alignment path exists in the solver today, so this is a PENDING

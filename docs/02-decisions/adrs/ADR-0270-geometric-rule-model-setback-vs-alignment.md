@@ -1,6 +1,7 @@
 # ADR-0270 — The geometric rule model: setback-governed vs alignment-governed zones
 
-- **Status:** PROPOSED — awaiting founder/architect decision. **NOT accepted, NOT implemented.**
+- **Status:** **ACCEPTED 2026-07-20 (founder) — option (A).** P1/P2 IMPLEMENTED + tested (A1a/A1b, 87/87).
+  P3 contract half DONE (C58 §1.7 amended, §1.7a added); P3 persistence half IN PROGRESS. P4/P5 open.
 - **Date:** 2026-07-20
 - **Tracker:** **L-443** (the conflict), **L-451** (this ADR). Inputs to **L-449** (extraction),
   **L-450** (corpus). Evidence: **L-438** (live Spain verification).
