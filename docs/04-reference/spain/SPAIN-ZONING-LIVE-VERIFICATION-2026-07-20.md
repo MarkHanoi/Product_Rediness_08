@@ -420,3 +420,97 @@ publish; it is *derived*, not *stored*.
   the `servicios-ogc` portal page returned no DERA service names. Only `DERA_g1_relieve`
   resolved of the guessed set. **Not found by targeted probing — needs the CSW catalogue or
   local knowledge, NOT more URL guessing.**
+
+---
+
+# §8 — DECISIVE: a NATIONAL clasificación-del-suelo service exists (SIU)
+
+**This supersedes the "17 regional integrations" premise for Tier B.** Both research
+documents, this document's own §1–§7, and the acquisition plan all assumed classification had
+to be assembled region by region. **It does not.**
+
+## §8.1 The service
+
+`https://mapas.fomento.gob.es/arcgis/rest/services/SIU/Servicios_OGC/MapServer`
+— **SIU (Sistema de Información Urbana), Ministerio de Vivienda y Agenda Urbana.**
+OGC endpoints also published (`.../MapServer/WFSServer`, `WMSServer`). **VERIFIED-LIVE.**
+
+**Layer 15 — `OGC_Clases_Suelo`** (polygon), fields via ArcGIS REST:
+
+| field | type | meaning |
+|---|---|---|
+| `ProvINE` | String | **MISNAMED — it is the 5-digit MUNICIPALITY INE code** (`48080` Bilbao, `08053`, `31232`). This is our join key to `priority_318.csv` and to Catastro. |
+| `ClaseSuelo` | String | the classification itself |
+| `NuclRural` | String | rural-settlement flag |
+| `FechaBaja` | String | supersession date; `99999999` = currently in force |
+
+Sibling layers: **L14 `OGC_Recintos`** (`UsoSuelo`, `IdSector`) and **L13 `OGC_Sectores`**
+(`IdSector`) — sector geometry keyed to the same municipality code.
+
+## §8.2 Real values (queried live, not inferred)
+
+`ClaseSuelo` is the full legal taxonomy, not a simplified flag:
+
+- `SUELO URBANO`
+- `SUELO URBANO NO CONSOLIDADO`
+- `SUELO URBANIZABLE DELIMITADO O SECTORIZADO`
+- `SUELO URBANIZABLE NO DELIMITADO O SECTORIZADO`
+- `SUELO NO URBANIZABLE`
+- `SISTEMAS GENERALES Y OTROS`
+
+**21 791 polygons total.**
+
+## §8.3 Coverage — tested, not assumed
+
+`returnDistinctValues` hit the service's 2 000-record page cap, so it proves nothing about
+totals. Coverage was therefore measured by per-province counts:
+
+| Prov | Count | | Prov | Count |
+|---|---|---|---|---|
+| 08 Barcelona | 1 208 | | 33 Asturias | 366 |
+| 46 Valencia | 777 | | 30 Murcia | 252 |
+| 28 Madrid | 701 | | 35 Las Palmas | 194 |
+| 50 Zaragoza | 485 | | 52 Melilla | 6 |
+| 41 Sevilla | 448 | | | |
+| 15 A Coruña | 440 | | | |
+
+**Every province tested returns data**, spanning the full numbering range and including the
+regions where the region-by-region hunt failed — **Andalucía (448), Canarias (194), Galicia
+(440), Asturias (366)** — and both foral regions (`48080` Bilbao, `31232` Navarra).
+
+## §8.4 Why this was nearly missed — the third client-side artefact today
+
+1. The ministry directory returned **HTTP 403** to a default curl UA; a **browser
+   User-Agent** returned 200 and the full portal index. The directory is where SIU was found.
+2. The SIU **WFS** projection of layer 15 returns only `OBJECTID, Shape, AreaLambert` — the
+   `ClaseSuelo` attribute is **absent**. Only the **ArcGIS REST** view exposes it. Judging
+   this service by its WFS alone would have recorded a national source as empty.
+
+Together with Murcia's HTTP 400s (a header artefact) and the first pass's `[binary data]` XML,
+**three of this exercise's most consequential "negatives" were properties of the client, not
+the data.** Any future verification MUST vary client and protocol before recording a negative.
+
+## §8.5 What this changes
+
+1. **Tier B is ONE national integration, not seventeen.** Municipality-keyed, ministry-
+   published, covering all 8 132 municipalities including País Vasco and Navarra.
+2. **Andalucía's gap is closed for Tier B.** It has no regional classification WFS, but SIU
+   carries it (448 polygons in prov 41). The biggest SEED region is unblocked.
+3. **`FechaBaja` gives a currency signal** — a per-polygon "still in force" test, which is
+   exactly what C58 §1.6 wants for rule-pack freshness.
+4. **Granularity (C58 §1.11)** is `municipality`→sub-municipal polygons, **not parcel**. It
+   answers *"what class of land is this plot on"* — the Tier B question — and must NOT be
+   presented as a parcel envelope.
+5. **Regional services remain valuable for Tier C**, where they carry `Edificabilidad`
+   (Murcia), `edif_m2` (Valencia), `Edif_*` (Madrid VEDA) at ámbito/sector granularity.
+   SIU replaces them for classification only.
+
+## §8.6 Still open
+
+- **SIU currency/provenance**: how often refreshed, and does it lag regional sources? Every
+  row sampled shows `FechaBaja = 99999999`, so no superseded rows were observed —
+  **UNVERIFIED** whether the layer retains history.
+- **Precision**: 21 791 polygons across 8 132 municipalities (~2.7 each) is **coarse**.
+  Whether SIU polygons are detailed enough to classify an individual plot, or are generalised
+  municipal envelopes, is **UNVERIFIED and is the next thing to test** — overlay a SIU polygon
+  against a known Catastro parcel and check the boundary agrees.
