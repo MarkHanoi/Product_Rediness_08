@@ -66,3 +66,61 @@ The normative invariants live in C57 + C58; the report design in SPEC-COMPLIANCE
 - **CF-2 — Terrara buy-vs-build (Switzerland + the ES curation long-tail).** License a normalizer (Terrara, 4M parcels / 3,000+ municipal codes, but closed/undocumented API + pricing UNVERIFIED) vs hand-maintain rule packs. Recommendation: build Spain packs, evaluate Terrara for the CH fast-follow; do not silently commit. Commercial decision.
 - **CF-3 — Engineering-context vs Forma-abstract default view** (inherited from L-374 §7.5): DK LOD2 fidelity vs the deliberately-abstract massing study default. Founder sets the default.
 - **VISION wedge** — a one-line compliance-authoring pillar belongs in the product vision. The canonical vision docs are `docs/01-strategy/STR-02-product-vision.md` (roadmap) and `docs/01-strategy/STR-12-site-and-cognition-strategy.md §2.1` (which already declares cadastral plot boundary + regulatory context as first-class site substrate, but framed aspirationally). Elevating it from "backdrop data" to a *named product wedge* is exactly CF-1 (headline vs Phase-B) — a founder messaging decision — so this ADR **records the recommended line but does not edit the vision doc** (avoiding a conflict with an open human decision). Recommended STR-12 §2.1 line: *"**Site-feasibility (compliance-authoring)** — select a real parcel, derive its buildable envelope from local zoning (jurisdiction-agnostic engine, Denmark-first reference), and author the compliant building in-browser: 'select a plot, see what you can build, then build it.' (Governed by C57/C58; sequenced behind the V1 launch blockers.)"*
+
+
+---
+
+## Amendment 2026-07-20 — live verification changes the shape of this decision
+
+Evidence: `docs/04-reference/spain/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md` (endpoint
+responses, not portal descriptions). Audit rows **L-438**, **L-439**.
+
+### What the pass established
+
+**There is no region in Spain where a live geometry service alone yields a parcel-level,
+legally-usable buildable envelope.** Every service checked stops at zone-code-only,
+codes-plus-document-reference, or real numbers at the wrong granularity.
+
+This does not overturn the ADR's jurisdiction-agnostic, two-fidelity decision — it **validates
+it and inverts the expected weighting**. `structured` was scoped as the normal path with
+curation as the fallback for weak regions. The truth is the reverse: **curation is the primary
+mechanism everywhere, including in the two strongest numeric services found.**
+
+### Consequences for the build sequence
+
+1. **Sequence by curation cost per SEED municipality, not by API quality.** API quality is
+   uniformly insufficient, so it no longer discriminates between regions. The real variable is
+   how many SEED municipalities a given curation effort unlocks
+   (`docs/04-reference/spain/seed_counts_by_ccaa.csv`).
+2. **"Phase 1 = three high-quality API regions" is not a real category.** Catalonia, Madrid and
+   Valencia need the same PDF curation as everyone else; what they offer is better *geometry*
+   and, for Catalonia, a scriptable document-discovery API (RPUC, INE-code-keyed).
+3. **Granularity is now a first-class contract concern** — C58 §1.11.
+
+### One prior claim corrected, and why it matters procedurally
+
+The scoping material asserted Madrid's `PGOUM97/PG_CONDICIONES_EDIFICACION` exposes a *"real
+numeric coefficient"*. That phrase is in the service's **prose description**; the layer returns
+`COND_EDIF` (a SmallInt code) and `COEF_Z` (a String). Madrid's genuine numeric service is a
+different, newer one — **VEDA** (`ANALISIS_URBANO/Visor_Edificabilidad`) — and it is
+ámbito-level.
+
+Procedurally this matters more than the fact itself: it is the same failure mode C58 §1.4 and
+L-373 were written to prevent, occurring one layer earlier, in research. **Endpoint claims are
+now only citable from an endpoint response, never from a service description.**
+
+## Open decisions still deferred to humans (updated)
+
+- **Does the C58 envelope model fit Spain at all?** Madrid publishes *Fondo de la Edificación*
+  as a **polyline with no attributes** — buildable depth as a line you build up to, not a
+  setback number. `setbacks + height + FAR` cannot represent that. Either extend C58 with an
+  alignment/depth/street-width rule type, or ship only the zone subset that genuinely expresses
+  setback+height+FAR. **This changes effort materially and is not an engineering call.**
+- **Cédula urbanística budget + authority.** Castilla y León's own documentation directs
+  parcel-level questions to a cédula — ~2,248 municipalities where it is the only path.
+- **LLM extraction of legal figures** shown to users making financial decisions — policy ruling
+  required before any curated number is surfaced.
+- **Basque Country + Navarra scope.** Foral cadastre, not Catastro: **16 SEED municipalities
+  where parcel-select does not function at all** until a second `ParcelProvider` exists.
+- **A second verification pass** for the 11 still-UNVERIFIED regions before any of their
+  existing "confirmed" claims are relied upon.
