@@ -2081,6 +2081,25 @@ export class CesiumViewport {
       // Google/ESRI tiles already show real buildings). Best-effort, guarded.
       if (this.formaMode) {
         void this.loadContextBuildings(loc.latitude, loc.longitude, true);
+      } else {
+        // §CTX-PREFETCH-ON-LOCATION (L-470) — WARM THE CACHE THE MOMENT THE LOCATION IS KNOWN.
+        //
+        // THE LATENCY THIS REMOVES: nothing fetched context until the 3D Site actually rendered,
+        // i.e. AFTER the parcel was committed — so the founder watched a blank pane for the full
+        // round-trip (~10 s on a dense far-extent bbox). But the location is known much earlier:
+        // the user then spends tens of seconds drawing or selecting a parcel. That entire window
+        // was dead time we were not using.
+        //
+        // Fire-and-forget, deliberately: this renders NOTHING and touches no entity. It only
+        // primes the per-bbox cache in `contextBuildings.ts`, so the later real call — same
+        // lat/lon, therefore the same bbox key — becomes a cache HIT instead of a round trip.
+        //
+        // ⚠ STILL ONE NETWORK QUERY PER SITE (C12 §8). The prefetch and the render read the SAME
+        // key; the second is served from cache. This adds no upstream load and no second query —
+        // it moves the one query EARLIER, into time the user is already spending.
+        void fetchContextBuildingsNearAndFar(loc.latitude, loc.longitude).catch(() => {
+          /* never throws by contract; a failed prefetch simply leaves the cache cold */
+        });
       }
     });
     // EventSubscription is both callable and Disposable — store the callable form.

@@ -140,7 +140,11 @@ export const OVERPASS_CACHE_MAX_ENTRIES = 256;
 /** Per-mirror upstream timeout (ms). Generous vs. the client's 9 s because the
  *  server pays it ONCE for the whole fleet (result is then cached), and a slow
  *  legitimate large-city response is worth waiting for so it gets cached. */
-export const OVERPASS_UPSTREAM_TIMEOUT_MS = 20_000;
+// §CTX-TIMEOUT-ALIGN (L-471) — MUST EXCEED the `[timeout:N]` the CLIENT asks Overpass for
+// (60 s for buildings). At 20 s the proxy aborted a legitimate dense-city query before
+// Overpass had spent its own budget — so the request we made could never have succeeded.
+// Asking upstream for 60 s and hanging up at 20 s is not a timeout policy, it is a bug.
+export const OVERPASS_UPSTREAM_TIMEOUT_MS = 75_000;
 /** L-422 — backoff before the RETRY attempt on a transient failure (429 / 504 /
  *  network). Overpass rate-limits typically clear after a couple seconds, so a
  *  brief pause before retrying the SAME mirror recovers context that an immediate

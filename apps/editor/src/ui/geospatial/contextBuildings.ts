@@ -285,7 +285,10 @@ export const CONTEXT_NEAR_MAX_BUILDINGS = 1600;
  * racing means the FASTEST live mirror wins in seconds and a slow/dead one no longer
  * delays the others. 9 s still lets a legitimately large urban tile return.
  */
-export const OVERPASS_TIMEOUT_MS = 9000;
+// §CTX-TIMEOUT-ALIGN (L-471) — MUST EXCEED the `[timeout:N]` we ask Overpass for (60 s),
+// or we hang up on our own request. At 9 s this aborted every dense-city buildings query
+// long before it could return, and the abort was indistinguishable from an empty area.
+export const OVERPASS_TIMEOUT_MS = 70_000;
 
 /**
  * §OVERPASS-GENTLE-MIRRORS (ADR-0087, 2026-06-30) — back-off + concurrency control.
@@ -565,7 +568,11 @@ function overpassQuery(bbox: Bbox): string {
     const [w, s, e, n] = bbox;
     const b = `${s},${w},${n},${e}`; // Overpass bbox order = south,west,north,east
     return (
-        `[out:json][timeout:25];` +
+        // §CTX-TIMEOUT-ALIGN (L-471) — 60 s, not 25 s. A far-extent bbox over a DENSE city
+        // (Eixample: tens of thousands of footprints with `out geom`) does not complete in 25 s,
+        // and Overpass then answers 200 + empty + a `remark`. Parks succeeded on a LARGER bbox
+        // in the same second, which is what proves this is query COST, not the network.
+        `[out:json][timeout:60];` +
         `(way["building"](${b});relation["building"]["type"="multipolygon"](${b}););` +
         `out geom;`
     );
