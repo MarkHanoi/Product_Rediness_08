@@ -94,6 +94,117 @@ describe('§L-430 scene ⇄ ENU frame', () => {
         });
     });
 
+    // ─────────────────────────────────────────────────────────────────────────────────────
+    // L-453 — THE MIRROR-VS-ROTATION DISCRIMINATOR
+    //
+    // The founder reported the parcel/building looking MIRRORED on the globe. A mirror is a
+    // sign flip on one axis and CANNOT be produced by any value of θ, so it was filed as a
+    // second defect stacked on L-446. It then hid: the observed θ was −44.89°, and at ~45° a
+    // reflection and a rotation are visually near-IDENTICAL on a compact parcel. After the
+    // L-446 runtime fix the founder confirmed the location was correct, but the entry was
+    // deliberately HELD OPEN, because absence of a visible mirror on one near-45° parcel is
+    // not proof — and closing it would discard the reason it was invisible.
+    //
+    // The audit specified the measurement: a LONG, THIN parcel aligned roughly EAST–WEST.
+    // Doing it as a test rather than an eyeball makes it exact and permanent. `MIRRORED` is
+    // the concrete defect being excluded — `north = +z` instead of `north = −z`, the one sign
+    // flip that produces the reported symptom.
+    // ─────────────────────────────────────────────────────────────────────────────────────
+    describe('L-453 — reflection is excluded, on a shape that can actually tell them apart', () => {
+        const THETA_LIVE = -44.89 * DEG;      // the exact angle at which it hid
+
+        /** The DEFECT hypothesis: the same rotation applied to a z-mirrored base mapping. */
+        const mirrored = (x: number, z: number, th: number) => {
+            const cos = Math.cos(th), sin = Math.sin(th);
+            const base = { east: x, north: z };          // ← the sign flip (correct is −z)
+            return { east: base.east * cos + base.north * sin, north: -base.east * sin + base.north * cos };
+        };
+
+        // ⚠ CORRECTION TO THE AUDIT'S PRESCRIBED MEASUREMENT (found by writing this test).
+        // L-453 specified "a LONG, THIN parcel aligned roughly EAST–WEST". That shape CANNOT
+        // detect this reflection. Flipping `north = −z` to `north = +z` changes the pre-rotation
+        // vector by exactly (0, 2z); rotation is length-preserving, so the displacement is
+        // exactly 2|z| — INDEPENDENT of θ and of how long the parcel is east–west. An east–west
+        // parcel is thin in z, so it is the WORST shape for this test, not the best. The
+        // prescribed measurement would have produced a confident false clear.
+        const LONG_THIN_EW = [
+            { x: -60, z: -3 }, { x: 60, z: -3 }, { x: 60, z: 3 }, { x: -60, z: 3 },
+        ];
+
+        it('CORRECTS the audit: an east–west parcel cannot discriminate this mirror (2|z| only)', () => {
+            const spreads = LONG_THIN_EW.map((p) => {
+                const a = sceneXZToEnu(p.x, p.z, THETA_LIVE);
+                const b = mirrored(p.x, p.z, THETA_LIVE);
+                return Math.hypot(a.east - b.east, a.north - b.north);
+            });
+            // Exactly 2|z| = 6 m on a 120 m-long parcel — invisible, and the length buys nothing.
+            expect(Math.max(...spreads)).toBeCloseTo(6, 9);
+        });
+
+        // THE SHAPE-INDEPENDENT ANSWER, which is what actually closes this out. Any reflection
+        // flips the sign of the linear map's DETERMINANT. The scene→ENU base mapping is already
+        // ONE deliberate handedness flip (+z is south), so the correct map has det = −1 for every
+        // θ; the mirrored hypothesis has det = +1. This needs no parcel at all, and no choice of
+        // shape can make it pass vacuously — the failure mode that hid the bug for two days.
+        it('DECISIVE: the linear map has determinant −1 at every θ (no second reflection)', () => {
+            for (const th of [...THETAS, THETA_LIVE, 90 * DEG, 137.2 * DEG]) {
+                const ex = sceneXZToEnu(1, 0, th);        // image of the scene +X basis vector
+                const ez = sceneXZToEnu(0, 1, th);        // image of the scene +Z basis vector
+                const det = ex.east * ez.north - ez.east * ex.north;
+                expect(det).toBeCloseTo(-1, 12);
+                // And the mirrored hypothesis is genuinely the opposite sign — the guard's guard.
+                const mx = mirrored(1, 0, th), mz = mirrored(0, 1, th);
+                expect(mx.east * mz.north - mz.east * mx.north).toBeCloseTo(1, 12);
+            }
+        });
+
+        it('pins the exact matrix entries — base flip then rotation, nothing else', () => {
+            for (const th of [...THETAS, THETA_LIVE]) {
+                const cos = Math.cos(th), sin = Math.sin(th);
+                const ex = sceneXZToEnu(1, 0, th);
+                const ez = sceneXZToEnu(0, 1, th);
+                expect(ex.east).toBeCloseTo(cos, 12);
+                expect(ex.north).toBeCloseTo(-sin, 12);
+                expect(ez.east).toBeCloseTo(-sin, 12);
+                expect(ez.north).toBeCloseTo(-cos, 12);
+            }
+        });
+
+        // The shape that WOULD have caught it, recorded so the right measurement is on file:
+        // elongated along scene Z (north–south), i.e. the opposite of what the audit specified.
+        it('the discriminating shape is elongated NORTH–SOUTH, not east–west', () => {
+            const LONG_THIN_NS = [
+                { x: -3, z: -60 }, { x: 3, z: -60 }, { x: 3, z: 60 }, { x: -3, z: 60 },
+            ];
+            const spreads = LONG_THIN_NS.map((p) => {
+                const a = sceneXZToEnu(p.x, p.z, THETA_LIVE);
+                const b = mirrored(p.x, p.z, THETA_LIVE);
+                return Math.hypot(a.east - b.east, a.north - b.north);
+            });
+            expect(Math.max(...spreads)).toBeCloseTo(120, 9);   // 2|z| — unmissable
+        });
+
+        // A reflection reverses winding; a rotation preserves it. The scene→ENU base mapping
+        // is ITSELF a handedness flip by design (+z is south), so the invariant is that the
+        // sign relationship is CONSTANT in θ — a spurious extra mirror at some θ would break it.
+        it('winding orientation is constant across θ (no θ-dependent handedness flip)', () => {
+            const signedArea = (pts: ReadonlyArray<{ east: number; north: number }>) => {
+                let a = 0;
+                for (let i = 0; i < pts.length; i++) {
+                    const p = pts[i]!, q = pts[(i + 1) % pts.length]!;
+                    a += p.east * q.north - q.east * p.north;
+                }
+                return a / 2;
+            };
+            const areas = [...THETAS, THETA_LIVE].map((th) =>
+                signedArea(LONG_THIN_EW.map((p) => sceneXZToEnu(p.x, p.z, th))),
+            );
+            expect(areas.every((a) => Math.sign(a) === Math.sign(areas[0]!))).toBe(true);
+            // Rigid ⇒ |area| is invariant too.
+            for (const a of areas) expect(Math.abs(a)).toBeCloseTo(Math.abs(areas[0]!), 6);
+        });
+    });
+
     it('headings rotate WITH positions (a placed model must not be left facing wrong)', () => {
         expect(projectHeadingToTrueBearingDeg(0, 0)).toBe(0);
         expect(projectHeadingToTrueBearingDeg(90, 0)).toBe(90);
