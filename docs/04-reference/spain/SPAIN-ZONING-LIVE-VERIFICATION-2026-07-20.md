@@ -249,3 +249,99 @@ business-critical decision.
    because API quality is uniformly insufficient.
 5. **A second verification pass is required** for the 11 unverified regions before any of
    their existing "confirmed" claims are relied on.
+
+---
+
+# §6 — SECOND PASS (2026-07-20, same day) — Tier B sweep with `curl`
+
+**Method change that matters:** this pass used **`curl` via the shell**, not an agent
+`web_fetch`. The previous pass reported WFS XML arriving as opaque `[binary data]` and
+Murcia returning HTTP 400 on every variant. **Both were tooling artefacts.** With curl, the
+same endpoints return readable XML and HTTP 200. Several prior negatives are therefore
+**wrong and are corrected below.**
+
+> **Lesson worth keeping:** an "endpoint is broken" finding is only as good as the client.
+> Two of the regions written off in the first pass are in fact serving exactly the data we
+> need.
+
+## §6.1 Castilla y León — **CORRECTED: has a classification WFS**
+
+Prior verdict (both research docs): *"PDF/cédula only — NONE at service level."*
+**That is wrong.** GeoServer serves WFS at the same path as the documented WMS:
+
+`https://idecyl.jcyl.es/geoserver/urbanismo/wfs` — **VERIFIED-LIVE**
+
+Feature types include `urbanismo:plau_cyl_clasificacion`,
+`plau_cyl_categorias_desagrupa`, `plau_cyl_grado_ejecucion`, `ot_cyl_instrumentos_ambito`.
+
+`DescribeFeatureType` on **`plau_cyl_clasificacion`** — **VERIFIED-LIVE**:
+
+| field | type | meaning |
+|---|---|---|
+| `c_clase_sue` | string | **clase de suelo CODE** (urbano / urbanizable / rústico) |
+| `n_clase_sue` | string | its name |
+| `c_mun`, `n_mun` | string | **municipality code + name — the join key** |
+| `n_prov` | string | province |
+| `c_instrum` | string | governing planning instrument |
+| `m_sup_m` | **double** | surface area m² |
+| `geometry` | Geometry | the polygon |
+
+**Verdict: GEOMETRY + CLASSIFICATION CODE + municipality key — full Tier B, for a region of
+2,248 municipalities (28% of Spain).**
+
+**Reconciling with CyL's own disclaimer:** SIUCyL genuinely does state it "does not resolve
+the detailed query of an urban certificate for a specific parcel". That remains true — and
+is about **Tier C** (parcel-level envelope). The prior research conflated *"no parcel-level
+envelope"* with *"no data"*. For Tier B, CyL is one of the better sources in Spain.
+
+## §6.2 Región de Murcia — **CORRECTED: reachable, and it publishes classification**
+
+`https://mapas-gis-inter.carm.es/geoserver/SIT_USU_PLA_URB_CARM/wfs` — **HTTP 200 with
+curl** (prior pass: 400 on every variant → the 400 was the client, not the server).
+
+Feature types include `plu_clasific_tipos_urbanizable`,
+`plu_clasific_tipos_no_urbanizable`, `plu_clasific_tipos_sin_clasificar`,
+`plu_ze_37_mun_uso_suelo`.
+
+**Verdict: classification layers present. Tier B capable.** Field-level `DescribeFeatureType`
+still to run.
+
+## §6.3 Andalucía — negative CONFIRMED, with a better endpoint
+
+`https://www.ideandalucia.es/services/DERA_g7_sistema_urbano/wfs` — **HTTP 200 with curl**
+(prior pass: 400/binary). Feature types: `g07_01_Poblaciones`, `g07_02_EntidadSingular`,
+`g07_03_EntidadColectiva`, `g07_04_Manzana`.
+
+These are **settlement and block geometry — urban fabric, not planning classification.** So
+the earlier verdict survives contact with a working client: **Andalucía publishes no
+classification/calificación WFS in the DERA G7 group.** Other DERA groups and any
+planeamiento-specific service remain unchecked.
+
+**Verdict: still the weakest large region — and it carries the most SEED municipalities (57).**
+
+## §6.4 Others probed
+
+| Region | Result |
+|---|---|
+| **Navarra** (`idena.navarra.es/ogc/wfs`) | **HTTP 200**, WFS live; layers incl. `CARTO1_Pol_41SueloU`, `CARTO1_Txt_57SueloR` (suelo urbano / rústico). Tier B looks reachable — fields pending. |
+| **Aragón** (`idearagon.aragon.es`) | HTTP 200, WFS capabilities returned — layers pending. |
+| **Euskadi** (`geo.euskadi.eus/geoserver/wfs`) | HTTP 404 — wrong path; UDALPLAN endpoint still to find. |
+| **Galicia** (ArcGIS `WFSServer`) | HTTP 400 — ArcGIS WFS needs different params; retry pending. |
+| **La Rioja** (`ide.larioja.org/geoserver/wfs`) | connection failed (000) — retry pending. |
+| **Asturias** (`ideas.asturias.es/wfs`) | HTTP 404 — wrong path. |
+
+## §6.5 Running Tier-B picture
+
+| Region | SEED | Tier B (classification WFS) |
+|---|---|---|
+| Cataluña | 52 | ✅ `MUC_CLASSIFICACIONS` |
+| Valencia | 50 | ✅ `Planeamiento.Clasificacion` |
+| **Castilla y León** | 13 | ✅ **CORRECTED — `plau_cyl_clasificacion`** |
+| **Murcia** | 14 | ✅ **CORRECTED — `plu_clasific_tipos_*`** |
+| Navarra | 2 | ✅ likely (`CARTO1_Pol_41SueloU`) |
+| Madrid | 31 | ⚠️ city geometry yes; region-wide unchecked |
+| **Andalucía** | **57** | ❌ **not found — biggest region, biggest gap** |
+| Canarias, Galicia, Euskadi, Aragón, CLM, Balears, Asturias, Extremadura, Cantabria, La Rioja | — | pending |
+
+**Direction of travel: Tier B is looking MORE achievable than either research document
+suggested — the failures were client-side, not server-side. Andalucía is the real hole.**
