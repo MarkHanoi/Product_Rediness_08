@@ -514,3 +514,65 @@ the data.** Any future verification MUST vary client and protocol before recordi
   Whether SIU polygons are detailed enough to classify an individual plot, or are generalised
   municipal envelopes, is **UNVERIFIED and is the next thing to test** — overlay a SIU polygon
   against a known Catastro parcel and check the boundary agrees.
+
+---
+
+# §9 — PRECISION TEST: SIU is plot-scale, not a generalised envelope
+
+§8.6 flagged precision as the open question that decides whether SIU is a product or a
+backdrop. **Tested and answered — positively.**
+
+## §9.1 The misleading first signal
+
+Feature counts per municipality look alarmingly low:
+
+| Municipality | SIU features |
+|---|---|
+| Barcelona `08019` | **4** |
+| Madrid `28079` | 6 |
+| Valencia `46250` | 5 |
+| Murcia `30030` | 7 |
+
+**This does NOT mean coarse.** SIU stores **one MultiSurface per clase de suelo per
+municipality** — Barcelona has 4 features because 4 land classes are present, each a single
+multipolygon. Feature count measures *how many classes exist*, not *how detailed they are*.
+Reading it as precision would have produced exactly the wrong conclusion.
+
+## §9.2 The actual measurement (Barcelona, `outSR=4326`, VERIFIED-LIVE)
+
+| `ClaseSuelo` | rings | vertices |
+|---|---|---|
+| `SUELO URBANO` | **93** | **18 208** |
+| `SUELO URBANO NO CONSOLIDADO` | 77 | 3 097 |
+| `SUELO NO URBANIZABLE` | 15 | 10 973 |
+| `SUELO URBANIZABLE DELIMITADO O SECTORIZADO` | 1 | 257 |
+
+**18 208 vertices describing Barcelona's urban land is plot-scale geometry.** The 93 rings on
+`SUELO URBANO` are the disjoint urban areas plus interior holes — the shape of the real
+fabric, not a bounding envelope.
+
+**Verdict: SIU is fit for the Tier B question** — *"is this plot urbano / urbanizable /
+rústico?"* — by point-in-polygon against a Catastro parcel centroid.
+
+## §9.3 Storage implication (feeds the PostGIS sizing question)
+
+Barcelona's 4 features returned **1.3 MB of GeoJSON**. Barcelona is among the most complex
+municipalities, so it is an upper bound rather than an average — but the national corpus is
+plainly **multi-gigabyte as GeoJSON**, materially less in PostGIS binary geometry with a
+GiST index.
+
+This makes the earlier infrastructure finding concrete: **the current per-request proxy
+cannot serve this**, and a national mirror needs real spatial storage. It is not a
+"large JSON file" problem.
+
+## §9.4 Remaining caveat — one thing still NOT verified
+
+Precision is confirmed; **positional agreement with Catastro is not.** SIU is published by the
+Ministerio and Catastro by the Dirección General del Catastro — two agencies, two
+digitisation lineages. A plot near a class boundary could be classified differently depending
+on which geometry is authoritative.
+
+**Next test (not yet run):** take a known Catastro parcel, point-in-polygon it against SIU,
+and check the answer agrees with the municipal planning viewer for that same plot. Until then,
+edge-of-boundary plots carry an unquantified risk and should be labelled accordingly under
+C58 §1.4.
