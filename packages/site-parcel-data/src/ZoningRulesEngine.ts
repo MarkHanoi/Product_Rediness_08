@@ -27,6 +27,8 @@ import type {
     PermittedUse,
 } from '@pryzm/schemas';
 import { polygonArea } from '@pryzm/site-validators';
+import type { GeometricRule } from '@pryzm/schemas';
+import { clipToDepthBand } from './geometry/depthBandClip';
 import { insetPolygonPerEdge, type PerEdgeSetbacks } from './geometry/insetPolygon.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
@@ -40,6 +42,15 @@ export interface ComputeBuildableEnvelopeInput {
     readonly zoning: ZoningRecord;
     /** The curated rule pack for the jurisdiction, or null (structured-only). */
     readonly rulePack: JurisdictionZoningContract | null;
+    /**
+     * ADR-0270 / §L-451 — the zone's GEOMETRIC RULE, when the pack declares one.
+     *
+     * OPTIONAL AND ADDITIVE: omitted (or `kind: 'setback'`) reproduces today's behaviour
+     * byte-for-byte — the front/side/rear inset. Only `kind: 'alignment'` takes the new path.
+     * Every pack shipped before ADR-0270 is implicitly a setback rule, so absence is not a
+     * missing input, it IS the legacy semantic (see `GeometricRuleCompatSchema`).
+     */
+    readonly geometricRule?: GeometricRule | null;
 }
 
 /** A single numeric field resolution (C58 §1.2 priority order). */
@@ -86,7 +97,7 @@ export function computeBuildableEnvelope(
 ): BuildableEnvelope {
     const span = tracer.startSpan('pryzm.zoning.computeBuildableEnvelope');
     try {
-        const { parcelRing, edgeClassifications, zoning, rulePack } = input;
+        const { parcelRing, edgeClassifications, zoning, rulePack, geometricRule } = input;
         const zone = findZone(rulePack, zoning.zoneCode);
         const structured = zoning.structuredFields ?? {};
         const packProv = zone?.fieldProvenance ?? {};
@@ -233,9 +244,68 @@ export function computeBuildableEnvelope(
             } else {
                 status = 'ok';
                 insetPolygon = inset.polygon;
-                insetAreaM2 = polygonArea(insetPolygon);
-                if (maxHeight.value !== null) {
-                    maxVolumeM3 = insetAreaM2 * maxHeight.value;
+
+                // ── ADR-0270 P2 — ALIGNMENT ZONES: apply *profundidad edificable* ──────────
+                //
+                // The inset above has already handled the alignment offset (front), the party
+                // wall or side setback, and any rear patio — it is a per-edge operation and
+                // that is exactly what those are. What it CANNOT express is the depth cap,
+                // because that measures from ONE edge and says nothing about the others.
+                //
+                // So the alignment envelope is a COMPOSITION of two existing, separately
+                // tested operations rather than a second solver:
+                //     insetPolygonPerEdge(...)  THEN  clipToDepthBand(...)
+                // No parallel path, no fork of C58 §2.4.
+                if (geometricRule?.kind === 'alignment') {
+                    const frontIdx = edgeClassifications.findIndex((c) => c === 'front');
+                    if (frontIdx < 0) {
+                        // HARD FAIL, not a silent fallback. Without a front edge there is no
+                        // alineación to measure from, and skipping the clip would return the
+                        // FULL-DEPTH ring — a confidently wrong buildable area, which is the
+                        // precise defect ADR-0270 exists to prevent. Refuse the envelope
+                        // instead (C58 §1.4: never present a guess as a fact).
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Alignment zone, but no parcel edge is classified `front` — the ' +
+                            'alineación cannot be located, so profundidad edificable cannot be ' +
+                            'applied. No envelope (ADR-0270; C58 §1.4).',
+                        );
+                    } else {
+                        const a = parcelRing[frontIdx]!;
+                        const b = parcelRing[(frontIdx + 1) % parcelRing.length]!;
+                        const clipped = clipToDepthBand(
+                            insetPolygon, a, b, geometricRule.buildableDepth_m,
+                        );
+                        if (clipped.degenerate || clipped.polygon.length < 3) {
+                            status = 'degenerate';
+                            insetPolygon = [];
+                            caveats.push(
+                                `Profundidad edificable ${geometricRule.buildableDepth_m} m ` +
+                                'leaves no buildable area after setbacks — no envelope.',
+                            );
+                        } else {
+                            insetPolygon = clipped.polygon;
+                            caveats.push(
+                                clipped.bandInactive
+                                    // Stated explicitly: citing a depth limit that never bound
+                                    // anything would misrepresent what constrained the envelope
+                                    // (C58 §1.3 explain-why).
+                                    ? `Profundidad edificable ${geometricRule.buildableDepth_m} m ` +
+                                      'is NOT binding here — the parcel is shallower than the ' +
+                                      'ordinance permits; setbacks alone govern.'
+                                    : `Profundidad edificable ${geometricRule.buildableDepth_m} m ` +
+                                      'applied from the alineación (ADR-0270).',
+                            );
+                        }
+                    }
+                }
+
+                if (status === 'ok') {
+                    insetAreaM2 = polygonArea(insetPolygon);
+                    if (maxHeight.value !== null) {
+                        maxVolumeM3 = insetAreaM2 * maxHeight.value;
+                    }
                 }
             }
         }
