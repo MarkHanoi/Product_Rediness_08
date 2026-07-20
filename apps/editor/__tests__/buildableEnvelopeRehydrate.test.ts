@@ -72,6 +72,77 @@ describe('L-445 resolveRenderableBuildableEnvelope — persisted-ring fallback',
             .toBeNull();
     });
 
+    // ── Fallback 3: re-inset from PERSISTED setbacks ────────────────────────────────────
+    // Fallback 2 only helps parcels committed AFTER the ring-persistence fix. Every project
+    // committed BEFORE it has buildableRing === null forever, and nothing re-solves on load —
+    // which is why the founder's existing Barcelona project STILL logged `present=n` with the
+    // fix deployed. A fix that only helps new data is not a fix for a user who already has data.
+    describe('re-inset fallback for parcels committed before ring persistence', () => {
+        const SQUARE = [
+            { x: 0, z: 0 }, { x: 30, z: 0 }, { x: 30, z: 20 }, { x: 0, z: 20 },
+        ];
+        const parcelNoRing = (setbacks: unknown) => ({
+            buildableRing: null,
+            maxHeight: 12,
+            setbacks,
+            boundary: { polygon: SQUARE, edgeClassifications: ['front', 'side', 'rear', 'side'] },
+        });
+
+        it('re-insets from stored setbacks when no ring is persisted', () => {
+            const res = resolveRenderableBuildableEnvelope(
+                runtimeWithParcel(parcelNoRing({ front: 3, side: 1.5, rear: 3 })) as never,
+            );
+            expect(res).not.toBeNull();
+            expect(res!.source).toBe('re-inset');
+            expect(res!.ring.length).toBeGreaterThanOrEqual(3);
+            expect(res!.maxHeightM).toBe(12);
+            // Genuinely inset — strictly inside the parcel on every axis.
+            const xs = res!.ring.map((p) => p.x), zs = res!.ring.map((p) => p.z);
+            expect(Math.min(...xs)).toBeGreaterThan(0);
+            expect(Math.max(...xs)).toBeLessThan(30);
+            expect(Math.min(...zs)).toBeGreaterThan(0);
+            expect(Math.max(...zs)).toBeLessThan(20);
+        });
+
+        // ⚠ THE §1.7a GUARD, and the reason this fallback is legal at all. The contract permits
+        // re-insetting "only for `setback` zones and MUST NOT be used as a general path". An
+        // alignment zone stores NULL setbacks, so requiring all three to be numbers IS that
+        // condition — enforced by the type, not by a promise. If this ever passed, an
+        // alignment-governed parcel would silently get a setback-shaped envelope: the exact
+        // lossy coercion ADR-0270 rejected.
+        it('REFUSES to re-inset an alignment zone (null setbacks) — C58 §1.7a', () => {
+            expect(resolveRenderableBuildableEnvelope(
+                runtimeWithParcel(parcelNoRing({ front: null, side: null, rear: null })) as never,
+            )).toBeNull();
+        });
+
+        it('refuses when even ONE setback is null (partial data is not a setback zone)', () => {
+            expect(resolveRenderableBuildableEnvelope(
+                runtimeWithParcel(parcelNoRing({ front: 3, side: null, rear: 3 })) as never,
+            )).toBeNull();
+        });
+
+        it('returns null when the re-inset is degenerate (setbacks eat the parcel)', () => {
+            expect(resolveRenderableBuildableEnvelope(
+                runtimeWithParcel(parcelNoRing({ front: 50, side: 50, rear: 50 })) as never,
+            )).toBeNull();
+        });
+
+        // Precedence: a persisted ring is the TRUTH and must never be second-guessed by a
+        // re-derivation, even though both are available here.
+        it('prefers the PERSISTED ring over re-insetting when both are possible', () => {
+            const rt = runtimeWithParcel({
+                buildableRing: RING,
+                maxHeight: 9,
+                setbacks: { front: 3, side: 1.5, rear: 3 },
+                boundary: { polygon: SQUARE, edgeClassifications: ['front', 'side', 'rear', 'side'] },
+            });
+            const res = resolveRenderableBuildableEnvelope(rt as never)!;
+            expect(res.source).toBe('persisted');
+            expect(res.ring).toEqual(RING);
+        });
+    });
+
     it('falls back to window.runtime when no runtime argument is passed', () => {
         (globalThis as { window: { runtime?: unknown } }).window.runtime =
             runtimeWithParcel({ buildableRing: RING, maxHeight: 9 });

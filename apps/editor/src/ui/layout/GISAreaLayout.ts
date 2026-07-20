@@ -1847,9 +1847,30 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const resolveFormaEnvelope = ():
         | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null }
         | null => {
-        if (!formaEnvelopeVisible) return null;
+        // §ENVELOPE-RESOLVE-DIAG (L-445) — say WHY, every time. The previous diagnostic reported
+        // only `present=n`, which is a symptom with four possible causes (toggle off / no cached
+        // envelope / no persisted ring / degenerate re-inset). That ambiguity cost a full
+        // deploy-test cycle: the wiring was statically correct, so reading the code could not
+        // distinguish them — exactly the L-446 lesson that a correct read chain plus wrong
+        // behaviour means runtime STATE, and only a probe names it.
+        if (!formaEnvelopeVisible) {
+            console.log('[gis][c58] §ENVELOPE-RESOLVE-DIAG — envelope OFF (user toggle); not rendered.');
+            return null;
+        }
         const env = resolveRenderableBuildableEnvelope(runtime ?? null);
-        if (!env || env.ring.length < 3) return null;
+        if (!env || env.ring.length < 3) {
+            console.log(
+                '[gis][c58] §ENVELOPE-RESOLVE-DIAG — NO ring available: no envelope solved this ' +
+                    'session, no persisted buildableRing, and no re-inset from persisted setbacks ' +
+                    `(resolver returned ${env ? `${env.ring.length}-pt ring` : 'null'}). ` +
+                    'Re-commit the parcel to solve one.',
+            );
+            return null;
+        }
+        console.log(
+            `[gis][c58] §ENVELOPE-RESOLVE-DIAG — ring OK: ${env.ring.length} pts, source=${env.source}, ` +
+                `maxHeight=${env.maxHeightM ?? 'n/a'} m.`,
+        );
         return { ring: env.ring.map((p) => ({ x: p.x, z: p.z })), maxHeightM: env.maxHeightM };
     };
 
