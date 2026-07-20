@@ -37,6 +37,21 @@ export interface StoreyCapInput {
     readonly siteAreaM2?: number | null;
     /** Buildable footprint area (m²) — the per-storey plate the building actually builds. */
     readonly footprintAreaM2?: number | null;
+    /**
+     * True when the limits come from an ESTIMATED rule pack rather than published zoning
+     * (C58 `confidence: 'estimated-ruleset'` / `fieldProvenance: 'estimated'`).
+     *
+     * WHY THIS EXISTS — it is the same honesty rule as the FAR denominator, applied to height.
+     * The default rule pack hard-codes `maxHeight_m: 12` for ANY site without real zoning data
+     * (today: everywhere outside Danish Plandata). With a 4 m office floor-to-floor that is
+     * 3 storeys — so hard-capping on it would silently reduce every office, anywhere, to 3
+     * storeys on the strength of an INVENTED number, and would read as a broken slider rather
+     * than as a compliance decision.
+     *
+     * An estimate is a good enough basis to WARN, never to BLOCK. When true, the allowances
+     * are still computed and returned (so the UI can advise) but no cap is applied.
+     */
+    readonly isEstimate?: boolean;
 }
 
 export interface StoreyCapResult {
@@ -59,6 +74,11 @@ export interface StoreyCapResult {
      * building.
      */
     readonly infeasible: boolean;
+    /**
+     * True when a limit WOULD have bound but was not enforced because it is an estimate.
+     * The caller should ADVISE the user (and say the figure is estimated) rather than block.
+     */
+    readonly advisory: boolean;
     /** Human-readable explanation for the compliance report / UI. */
     readonly explanation: string;
 }
@@ -101,6 +121,7 @@ export function capStoreysToEnvelope(input: StoreyCapInput): StoreyCapResult {
             farAllowedStoreys: null,
             resultingHeightM: 0,
             infeasible: false,
+            advisory: false,
             explanation: 'No storey height available — storey count left as requested (no cap applied).',
         };
     }
@@ -146,6 +167,7 @@ export function capStoreysToEnvelope(input: StoreyCapInput): StoreyCapResult {
             farAllowedStoreys: null,
             resultingHeightM: requested * storeyH,
             infeasible: false,
+            advisory: false,
             explanation: 'No height or FAR limit known for this parcel — storey count left as requested.',
         };
     }
@@ -153,6 +175,26 @@ export function capStoreysToEnvelope(input: StoreyCapInput): StoreyCapResult {
     // The STRICTER limit governs; ties report 'height' (the more tangible constraint to a user).
     limits.sort((a, b) => (a.n - b.n) || (a.kind === 'height' ? -1 : 1));
     const strictest = limits[0]!;
+
+    // ESTIMATED limits ADVISE, they do not BLOCK. See `isEstimate` for why: the default rule
+    // pack's invented 12 m would otherwise cap every office outside real zoning data to 3
+    // storeys, which reads as a broken control rather than a compliance decision.
+    if (input.isEstimate === true) {
+        const wouldBind = strictest.n < requested;
+        return {
+            storeys: requested,
+            capped: false,
+            binding: 'none',
+            heightAllowedStoreys: heightAllowed,
+            farAllowedStoreys: farAllowed,
+            resultingHeightM: requested * storeyH,
+            infeasible: false,
+            advisory: wouldBind,
+            explanation: wouldBind
+                ? `Estimated limits suggest about ${Math.max(1, strictest.n)} storey(s) — NOT enforced, because this zoning is an estimate, not published data. Verify against the local ordinance.`
+                : `${requested} storey(s) — within the estimated limits (not published data).`,
+        };
+    }
 
     // Even one storey breaches → infeasible. Still return 1: a zero-storey building is not a
     // useful answer, and the caller is required to surface `infeasible` rather than pretend.
@@ -169,6 +211,7 @@ export function capStoreysToEnvelope(input: StoreyCapInput): StoreyCapResult {
         farAllowedStoreys: farAllowed,
         resultingHeightM: storeys * storeyH,
         infeasible,
+        advisory: false,   // published data ⇒ enforced, not advised
         explanation: explain({ requested, storeys, capped, binding, infeasible, maxH, far, storeyH }),
     };
 }

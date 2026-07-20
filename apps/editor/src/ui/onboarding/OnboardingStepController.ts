@@ -1706,18 +1706,26 @@ export class OnboardingStepController {
         // setbacks and still busts the height limit, so "compliant-by-construction" was only
         // half true. Capping the SLIDER (not just the output) means the user cannot author a
         // non-compliant request in the first place.
-        const zoningCapFor = (storeyHeightM: number): number => {
+        // Returns the ENFORCEABLE storey cap. An ESTIMATED envelope never caps (it advises) —
+        // the default rule pack invents `maxHeight_m: 12`, which at a 4 m office floor-to-floor
+        // would silently pin every office outside real zoning data to 3 storeys and read as a
+        // broken slider rather than a compliance decision.
+        const zoningCapFor = (storeyHeightM: number): { cap: number; advisoryStoreys: number | null } => {
             const env = getLastBuildableEnvelope();
+            const isEstimate = env?.confidence === 'estimated-ruleset';
             const r = capStoreysToEnvelope({
                 requestedStoreys: seedStories,
                 maxHeightM: env?.maxHeight_m ?? null,
                 storeyHeightM,
+                isEstimate,
             });
-            return r.heightAllowedStoreys ?? Number.POSITIVE_INFINITY;
+            // Estimated zoning NEVER constrains the control; it only annotates it.
+            if (isEstimate) return { cap: Number.POSITIVE_INFINITY, advisoryStoreys: r.heightAllowedStoreys };
+            return { cap: r.heightAllowedStoreys ?? Number.POSITIVE_INFINITY, advisoryStoreys: null };
         };
         const feasibleMax = Math.max(1, Math.min(
             maxFeasibleStoriesForRadius(derivedRadiusM),
-            zoningCapFor(seedFtf),
+            zoningCapFor(seedFtf).cap,
         ));
         const storiesInput = sliderField('Storeys', 'onboarding-office-stories', Math.min(seedStories, feasibleMax), 1, Math.max(feasibleMax, 1), 1, '');
         const radiusInput = sliderField('Plate radius', 'onboarding-office-radius', derivedRadiusM, 8, Math.max(60, Math.ceil(derivedRadiusM)), 1, ' m');
@@ -1928,15 +1936,23 @@ export class OnboardingStepController {
             // them fit under the same height limit.
             const ftfM = numV(ftfInput.value, seedFtf);
             const structuralCap = Math.max(1, maxFeasibleStoriesForRadius(radiusM));
-            const zoningCap = zoningCapFor(ftfM);
+            const { cap: zoningCap, advisoryStoreys } = zoningCapFor(ftfM);
             const cap = Math.max(1, Math.min(structuralCap, zoningCap));
             // Tell the user WHY the slider stops where it does — a control that silently
-            // refuses to move is indistinguishable from a broken one.
+            // refuses to move is indistinguishable from a broken one — and, when the zoning is
+            // only an ESTIMATE, say so plainly instead of presenting a guess as a legal limit.
             const envMaxH = getLastBuildableEnvelope()?.maxHeight_m ?? null;
             if (capHint) {
-                capHint.textContent = Number.isFinite(zoningCap) && zoningCap <= structuralCap && envMaxH
-                    ? `Max ${cap} storeys — limited by the ${envMaxH} m zoning height at ${ftfM.toFixed(1)} m floor-to-floor.`
-                    : `Max ${cap} storeys — limited by the ${radiusM} m plate radius.`;
+                if (advisoryStoreys !== null && envMaxH) {
+                    capHint.textContent =
+                        `Estimated zoning (${envMaxH} m) suggests about ${Math.max(1, advisoryStoreys)} storeys at `
+                        + `${ftfM.toFixed(1)} m floor-to-floor — not enforced, this is a default rule pack, not published data.`;
+                } else if (Number.isFinite(zoningCap) && zoningCap <= structuralCap && envMaxH) {
+                    capHint.textContent =
+                        `Max ${cap} storeys — limited by the ${envMaxH} m zoning height at ${ftfM.toFixed(1)} m floor-to-floor.`;
+                } else {
+                    capHint.textContent = `Max ${cap} storeys — limited by the ${radiusM} m plate radius.`;
+                }
             }
             storiesInput.max = String(cap);
             if (numV(storiesInput.value, seedStories) > cap) {
@@ -2271,14 +2287,19 @@ export class OnboardingStepController {
         // preview slider OR from the console / RAC path, which never saw that slider. The
         // slider cap is UX; THIS is the correctness boundary — it is the last point before a
         // non-compliant building is authored.
+        const envForCap = getLastBuildableEnvelope();
         const storeyCap = capStoreysToEnvelope({
             requestedStoreys: requestedStories,
-            maxHeightM: getLastBuildableEnvelope()?.maxHeight_m ?? null,
+            maxHeightM: envForCap?.maxHeight_m ?? null,
             storeyHeightM: floorToFloorM ?? 4.0,
+            // ESTIMATED zoning advises, never blocks — see storeyCap.ts `isEstimate`.
+            isEstimate: envForCap?.confidence === 'estimated-ruleset',
         });
         const stories = storeyCap.storeys;
         if (storeyCap.capped) {
             console.warn(`[onboarding-step] §L-401 storey cap — ${storeyCap.explanation}`);
+        } else if (storeyCap.advisory) {
+            console.info(`[onboarding-step] §L-401 storey ADVISORY (estimated zoning, not enforced) — ${storeyCap.explanation}`);
         }
         if (storeyCap.infeasible) {
             // Never silently emit a non-compliant building: say so loudly. (Surfacing this in

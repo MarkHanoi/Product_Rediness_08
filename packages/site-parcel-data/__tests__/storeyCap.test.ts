@@ -107,6 +107,43 @@ describe('§L-401 capStoreysToEnvelope', () => {
         expect(r.heightAllowedStoreys).toBe(10);   // still reported, for the explain-why panel
     });
 
+    it('ESTIMATED zoning ADVISES, it never BLOCKS — the default-rule-pack regression', () => {
+        // THE EXACT PRODUCTION SCENARIO this guards: `rulepacks/estimatedDefault.ts` hard-codes
+        // maxHeight_m = 12 for ANY site without published zoning (today, everywhere outside
+        // Danish Plandata). At the 4 m office floor-to-floor that is 3 storeys — so enforcing
+        // it would silently pin EVERY office anywhere to 3 storeys on the strength of an
+        // invented number, and would read as a broken slider, not a compliance decision.
+        // An estimate is enough to WARN on, never enough to BLOCK on (C58 §1.4).
+        const r = capStoreysToEnvelope({
+            requestedStoreys: 40, maxHeightM: 12, storeyHeightM: 4, isEstimate: true,
+        });
+        expect(r.storeys).toBe(40);            // NOT capped to 3
+        expect(r.capped).toBe(false);
+        expect(r.binding).toBe('none');
+        expect(r.advisory).toBe(true);         // but the UI is told to say something
+        expect(r.heightAllowedStoreys).toBe(3); // and what the estimate would have implied
+        expect(r.explanation).toMatch(/not enforced|estimate/i);
+    });
+
+    it('the SAME limits DO bind when the zoning is published, not estimated', () => {
+        // Proves the estimate branch is a provenance decision, not a disabled cap.
+        const r = capStoreysToEnvelope({
+            requestedStoreys: 40, maxHeightM: 12, storeyHeightM: 4, isEstimate: false,
+        });
+        expect(r.storeys).toBe(3);
+        expect(r.capped).toBe(true);
+        expect(r.binding).toBe('height');
+        expect(r.advisory).toBe(false);
+    });
+
+    it('an estimate that would NOT have bound is not flagged advisory (no false alarm)', () => {
+        const r = capStoreysToEnvelope({
+            requestedStoreys: 2, maxHeightM: 12, storeyHeightM: 4, isEstimate: true,
+        });
+        expect(r.storeys).toBe(2);
+        expect(r.advisory).toBe(false);
+    });
+
     it('survives degenerate input without inventing an answer', () => {
         const noStoreyH = capStoreysToEnvelope({ requestedStoreys: 5, maxHeightM: 12, storeyHeightM: 0 });
         expect(noStoreyH.storeys).toBe(5);
