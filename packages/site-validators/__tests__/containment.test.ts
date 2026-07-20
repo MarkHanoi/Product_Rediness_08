@@ -36,6 +36,52 @@ describe('checkFootprintContainment', () => {
         expect(report.violations).toEqual([]);
     });
 
+    // ADR-0270 option A / C58 §1.7a — a `null` setback means the zone is NOT setback-governed
+    // (*alineación a vial* + *profundidad edificable*), so the three-number test is not the
+    // applicable compliance test; the buildable-ring containment check is. The validator must
+    // SKIP it — coercing null→0 would silently pass everything, and treating null as a violation
+    // would assert a requirement the zone never stated.
+    describe('null setbacks (non-setback-governed zone)', () => {
+        // Sits 1 m from the front edge — a clear violation of a 2 m front setback.
+        const tightToFront = [
+            { x: 3, z: 1 },
+            { x: 7, z: 1 },
+            { x: 7, z: 5 },
+            { x: 3, z: 5 },
+        ];
+
+        it('skips the setback test for a null edge instead of failing it', () => {
+            const report = checkFootprintContainment(tightToFront, parcel, edges, {
+                front: null, side: null, rear: null,
+            });
+            expect(report.ok).toBe(true);
+            expect(report.violations).toEqual([]);
+        });
+
+        it('still enforces the NON-null edges (null is per-edge, not a global off-switch)', () => {
+            const report = checkFootprintContainment(tightToFront, parcel, edges, {
+                front: 2, side: null, rear: null,
+            });
+            expect(report.ok).toBe(false);
+            expect(report.violations.every((v) => v.kind === 'setback-front')).toBe(true);
+        });
+
+        // Containment is a different invariant and null setbacks must not weaken it.
+        it('still reports outside-parcel vertices when every setback is null', () => {
+            const outside = [
+                { x: 5, z: 3 },
+                { x: 15, z: 3 },
+                { x: 15, z: 5 },
+                { x: 5, z: 5 },
+            ];
+            const report = checkFootprintContainment(outside, parcel, edges, {
+                front: null, side: null, rear: null,
+            });
+            expect(report.ok).toBe(false);
+            expect(report.violations.some((v) => v.kind === 'outside-parcel')).toBe(true);
+        });
+    });
+
     it('fails with outside-parcel for a vertex outside the parcel', () => {
         const footprint = [
             { x: 5, z: 3 },

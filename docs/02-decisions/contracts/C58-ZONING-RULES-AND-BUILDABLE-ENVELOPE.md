@@ -480,15 +480,40 @@ amended and §1.7a added: the inset polygon is the persisted truth, and setbacks
 (never fabricated) for non-`setback` rules. Option (B) — "equivalent effective setbacks" — was
 REJECTED as lossy by construction and invisible.
 
-**IMPLEMENTATION STILL OPEN (A1c).** The contract now states the correct behaviour; the C19
-persistence field and the `site.updateZoning` payload have NOT yet been changed. Until they are,
-this remains a PENDING AMENDMENT rather than a satisfied clause — and the tripwire below still
-applies.
+**IMPLEMENTATION COMPLETE (A1c) — 2026-07-20. THE TRIPWIRE IS LIFTED.** All four persistence
+requirements now hold in code, each with a test:
 
-**Until that decision lands:** the engine MUST NOT emit an `alignment` result into
-`site.updateZoning`. No alignment path exists in the solver today, so this is a PENDING
-AMENDMENT, not an active violation — **it becomes an active violation the moment ADR-0270 P2
-ships without P3.**
+| Requirement | Where | Test |
+|---|---|---|
+| The inset ring persists on the parcel | `Parcel.buildableRing` (L0) | stores — persists / defaults null / preserved-on-omit / cleared-on-null |
+| `site.updateZoning` carries it | `SiteUpdateZoningPayloadSchema.buildableRing` + preserve-on-omit | stores |
+| **A producer actually SENDS it** | `siteDispatch.dispatchEnvelope` | — *this was the gap; see below* |
+| Setbacks can be `null` | `ParcelSetbacksSchema` fields nullable; payload nullable; `checkFootprintContainment` SKIPS a null edge | stores + site-validators |
+
+**⚠ HOW THIS CLAUSE WAS SILENTLY UNSATISFIED FOR A WHOLE SESSION — worth recording, because the
+failure mode is structural, not a typo.** A1c was reported merged and the schema + command halves
+genuinely were. But **nothing ever sent `buildableRing`, and nothing ever read it back** — a
+repo-wide grep for the field under `apps/` returned zero hits, and no test asserted the
+round-trip. A persisted field that no producer writes is indistinguishable, at runtime, from a
+field that does not exist. It surfaced only as **L-445**, a P0 where the envelope vanished from
+the 3D Site on re-entry. **A "persistence landed" claim is only true when a WRITER, a READER and
+a round-trip test exist; the schema is the cheapest third of the work.**
+
+**Setback nullability was the other half of the same gap.** `ParcelSetbacksSchema` typed
+front/side/rear as plain numbers, so clause 3 above ("for any non-`setback` rule those fields MUST
+be `null`") was **unsatisfiable in code** — an alignment zone had nowhere to put the honest answer
+and could only store a fabricated triple or leave stale numbers from an earlier setback solve.
+`null` now means "this zone is not setback-governed" and is DISTINCT from `0` ("setback-governed,
+requirement zero"); the default remains `0` for parcels created without zoning, since this
+amendment governs what a SOLVE may write, not what an unzoned parcel means. The validator skips a
+null edge rather than coercing it to `0` (which would silently pass every footprint) or flagging a
+violation (which would assert a requirement the zone never stated).
+
+**Superseded tripwire (kept for the record):** *"the engine MUST NOT emit an `alignment` result
+into `site.updateZoning` … it becomes an active violation the moment ADR-0270 P2 ships without
+P3."* P3 has now shipped, so an `alignment` result has somewhere honest to land. What remains open
+is P4/P5 (A1d) — the "Why these numbers?" panel must render alignment AS alignment rather than as
+three setbacks, and no alignment rule pack has been authored yet.
 
 ### §2.2 — the rule model cannot express alignment-governed zones (L-443, L-451)
 

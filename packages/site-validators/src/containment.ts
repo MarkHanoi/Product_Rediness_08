@@ -18,10 +18,15 @@ import {
 
 export type EdgeClassification = 'front' | 'side' | 'rear' | 'unclassified';
 
+/**
+ * ADR-0270 option A / C58 §1.7a — a setback may be `null`, meaning "this zone is NOT
+ * setback-governed" (e.g. *alineación a vial* + *profundidad edificable*). That is distinct from
+ * `0`, which means "setback-governed, requirement zero". See `checkFootprintContainment`.
+ */
 export interface SetbackSpec {
-    readonly front: number;
-    readonly side: number;
-    readonly rear: number;
+    readonly front: number | null;
+    readonly side: number | null;
+    readonly rear: number | null;
 }
 
 export interface ContainmentViolation {
@@ -96,6 +101,12 @@ export function checkFootprintContainment(
             const cls = edgeClassifications[ei] ?? 'unclassified';
             if (cls === 'unclassified') continue;
             const required = setbacks[cls];
+            // ADR-0270 / C58 §1.7a — `null` means this zone is NOT setback-governed, so the
+            // three-number test is not the applicable compliance test at all; the buildable-ring
+            // containment check is (§1.7a consumer rule). Skipping is the honest outcome:
+            // coercing null→0 would silently PASS every footprint, and flagging a violation
+            // would assert a requirement the zone never stated.
+            if (required === null) continue;
             if (required <= 0) continue;          // no setback configured
             const dist = pointSegmentDistance(v, a, b);
             if (dist < required) {

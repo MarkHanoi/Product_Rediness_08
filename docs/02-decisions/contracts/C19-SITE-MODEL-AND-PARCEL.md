@@ -197,15 +197,36 @@ Mirrors today's `ProjectLocation` (see `packages/schemas/src/elements/Project.ts
 |---|---|---|---|
 | `boundary.polygon` | `Pt[]` (closed loop, scene-XZ metres) | `[]` | immutable post-create (§1.4) |
 | `boundary.edgeClassifications` | `('front' \| 'side' \| 'rear' \| 'unclassified')[]` | `[]` | one per edge; len = polygon.length |
-| `setbacks.front` | `number` | `0` | metres |
-| `setbacks.side` | `number` | `0` | metres |
-| `setbacks.rear` | `number` | `0` | metres |
+| `setbacks.front` | `number \| null` | `0` | metres; `null` = zone is NOT setback-governed (see below) |
+| `setbacks.side` | `number \| null` | `0` | metres; `null` = zone is NOT setback-governed |
+| `setbacks.rear` | `number \| null` | `0` | metres; `null` = zone is NOT setback-governed |
+| `buildableRing` | `Pt[] \| null` | `null` | ADR-0270 / C58 §1.7a — the buildable-envelope INSET ring; **the persisted truth for "what may I build here"** |
 | `maxFAR` | `number \| null` | `null` | floor-area ratio cap; `null` = unrestricted |
 | `maxHeight` | `number \| null` | `null` | metres; `null` = unrestricted |
 | `zoning.category` | `string \| null` | `null` | jurisdiction-specific zone code (e.g. `'R-2'`, `'C-1'`) |
 | `zoning.overlays` | `string[]` | `[]` | overlay codes (conservation area, flood zone, heritage) |
 | `zoning.jurisdictionRef` | `JurisdictionId \| null` | `null` | links to a future Jurisdiction registry (out of scope C19) |
 | `area` | `number` (computed) | derived | square metres of polygon — recomputed on `site.create` only (§1.4) |
+
+**Nullable setbacks + `buildableRing` (ADR-0270 option A, C58 §1.7a — amended 2026-07-20).**
+Not every zone is governed by a front/side/rear triple. An *alignment* zone (*alineación a vial* +
+*profundidad edificable* + party walls — Madrid publishes `Fondo de la Edificación` as a POLYLINE)
+has **no triple that encodes it**, so writing one is a lossy coercion that looks perfectly
+well-formed and is therefore invisible downstream. Hence:
+
+- `null` means **"this zone is not setback-governed; the answer is not a number."** It is NOT `0`,
+  which means "setback-governed, and the requirement is zero". Collapsing the two re-creates the
+  defect in a quieter disguise. The default stays `0` for a parcel created without zoning — this
+  amendment governs what a SOLVE may write, not what an unzoned parcel means.
+- `buildableRing` is the authoritative geometric answer. **Anything asking "what may I build here"
+  MUST read it.** Reading the three numbers and re-insetting is valid only for `setback` zones and
+  MUST NOT be a general path.
+- **§1.6 interaction:** the setback compliance check SKIPS an edge whose setback is `null` — that
+  test is simply not the applicable one for such a zone (buildable-ring containment is). Coercing
+  `null`→`0` would silently pass every footprint; flagging a violation would assert a requirement
+  the zone never stated. Containment itself is unaffected and still enforced.
+- The parcel polygon remains immutable (§1.4): `buildableRing` is a *derived* ring stored beside
+  the mutable zoning fields, never an edit to the boundary.
 
 ### §2.4 — `BuildingFootprint`
 
