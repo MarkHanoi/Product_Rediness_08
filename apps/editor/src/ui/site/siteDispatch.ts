@@ -91,17 +91,82 @@ export function getCurrentSiteOrigin(): { lat: number; lon: number } | null {
 
 // ── C58 — buildable-envelope transient cache (L-398 / L-402b) ────────────────
 //
-// The computed `BuildableEnvelope` is TRANSIENT per C58 §1.7 (only the numeric
-// setback/height fields persist on the C19 Parcel via `site.updateZoning`; the
-// confidence label + derivation trace + inset ring are not persisted authored
-// data). We cache the last-computed envelope here — mirroring the `_lastSiteOrigin`
-// pattern above — so the Forma render + facts card can read the full object
-// (inset ring in scene-XZ, height, confidence, derivation) without recomputing.
+// ⚠ AMENDED by ADR-0270 option A / C58 §1.7a (L-451). This block previously read "the inset
+// ring is not persisted authored data" — that was true under the ORIGINAL §1.7 and is now
+// WRONG: the INSET RING **is** the persisted truth (`Parcel.buildableRing`), because an
+// alignment-governed zone has no front/side/rear triple that can encode it. Still transient,
+// and correctly so: `confidence`, `status` and the `derivation` trace — provenance we must
+// never fabricate on read-back (§1.4).
+//
+// We cache the last-computed envelope here — mirroring the `_lastSiteOrigin` pattern above —
+// so the facts card can read the FULL object without recomputing. Renderers that need only
+// GEOMETRY must use `resolveRenderableBuildableEnvelope()` instead, which falls back to the
+// persisted ring; reading this global directly is what caused L-445 (it dies on reload).
 let _lastEnvelope: BuildableEnvelope | null = null;
 
 /** C58 — the last computed buildable envelope for the current parcel, or null. */
 export function getLastBuildableEnvelope(): BuildableEnvelope | null {
     return _lastEnvelope;
+}
+
+/**
+ * C58 §1.7a / ADR-0270 option A (L-445 fix) — the buildable ring + height for RENDERING,
+ * resolved from the persisted truth when this session never solved an envelope.
+ *
+ * THE DEFECT THIS CLOSES (L-445): every renderer read `getLastBuildableEnvelope()`, a MODULE
+ * GLOBAL written only inside `dispatchParcelBoundary`. It therefore survived view switches but
+ * NOT a reload / open-from-hub — so re-entering 3D Site on an existing project logged
+ * `envelope present=n, entities added=0` while the toggle still truthfully said "Envelope: ON".
+ * An envelope that silently fails to arrive reads to the user as "there is no constraint here"
+ * — the false negative C58 §1.4 exists to forbid. The BOUNDARY never had this bug because it
+ * reads `siteModelStore` (persisted); the envelope read a RAM global. Same view, two lifetimes.
+ *
+ * ⚠ WHY THIS RETURNS A RING AND NOT A `BuildableEnvelope`: only the inset ring is persisted
+ * (§1.7a). `confidence`, `status` and the `derivation` trace are NOT, and SYNTHESISING them to
+ * satisfy the richer type would fabricate provenance for a number we did not re-derive — the
+ * exact §1.4 violation this fix exists to prevent. Callers that need the derivation (the "Why
+ * these numbers?" facts card) must keep using `getLastBuildableEnvelope()` and honestly show
+ * nothing when this session did not solve; callers that only need GEOMETRY use this.
+ *
+ * `source` is diagnostic: 'solved' = this session's full envelope, 'persisted' = read back.
+ */
+export interface RenderableBuildableEnvelope {
+    readonly ring: ReadonlyArray<{ x: number; z: number }>;
+    readonly maxHeightM: number | null;
+    readonly source: 'solved' | 'persisted';
+}
+
+export function resolveRenderableBuildableEnvelope(
+    runtimeArg?: PryzmRuntime | null,
+): RenderableBuildableEnvelope | null {
+    // 1) This session solved one — richest source, always preferred.
+    const solved = _lastEnvelope;
+    if (solved && solved.status === 'ok' && solved.insetPolygon.length >= 3) {
+        return {
+            ring: solved.insetPolygon.map((p) => ({ x: p.x, z: p.z })),
+            maxHeightM: solved.maxHeight_m,
+            source: 'solved',
+        };
+    }
+    // 2) Fall back to the PERSISTED ring. Deliberately does NOT use `resolveSiteContext`:
+    //    that toasts + warns on every miss, and this runs on a render path where "no site
+    //    yet" is the normal case, not an error.
+    try {
+        const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
+        const store = rt?.siteModelStore as SiteModelStore | undefined;
+        const parcel = store?.getSite()?.parcel;
+        const ring = parcel?.buildableRing;
+        if (ring && ring.length >= 3) {
+            return {
+                ring: ring.map((p) => ({ x: p.x, z: p.z })),
+                maxHeightM: parcel?.maxHeight ?? null,
+                source: 'persisted',
+            };
+        }
+    } catch {
+        // Never let a render path throw on a missing store.
+    }
+    return null;
 }
 
 /**
@@ -824,12 +889,25 @@ function dispatchEnvelope(
     if (s !== undefined) setbacks.side = s;
     if (r !== undefined) setbacks.rear = r;
 
+    // ADR-0270 option A / C58 §1.7a (L-451) — PERSIST THE INSET RING. This is the half of the
+    // A1c wiring that was missing: the schema (`Parcel.buildableRing`) and the command
+    // (`siteUpdateZoning` preserve-on-omit) both landed, but NOTHING ever sent the field, so
+    // the ring lived only in the `_lastEnvelope` module global and died on reload — the
+    // L-445 root cause. An explicit `null` CLEARS a stale ring rather than leaving one that no
+    // longer describes this parcel, which would be worse than none because it still looks
+    // authoritative (C58 §1.4). A degenerate/rejected solve therefore clears, never writes.
+    const insetRing =
+        envelope.status === 'ok' && envelope.insetPolygon.length >= 3
+            ? envelope.insetPolygon.map((p) => ({ x: p.x, z: p.z }))
+            : null;
+
     const res = siteUpdateZoning(
         {
             siteId,
             setbacks: Object.keys(setbacks).length > 0 ? setbacks : undefined,
             maxFAR: envelope.maxFAR,
             maxHeight: envelope.maxHeight_m,
+            buildableRing: insetRing,
             zoning: {
                 category: envelope.zoneCode,
                 jurisdictionRef,
