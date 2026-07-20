@@ -126,10 +126,20 @@ export const OVERPASS_PROXY_ENDPOINT = '/api/overpass';
  * ANY failure (network / non-2xx / parse / abort / empty) so the caller can fall
  * back to the direct public mirrors. NEVER throws.
  *
- * The proxy answers 200 `{ elements: [] }` even when every upstream mirror fails,
- * so a `null` here means the PROXY ITSELF was unreachable (no server) — exactly
- * the case where the direct-mirror fallback should run. An empty-but-present
- * `elements` array is a legitimate proxy answer and is returned as-is.
+ * §OVERPASS-CLIENT-FAILOVER (L-457 slice 2) — the proxy answers 200 `{ elements: [] }` even when
+ * every upstream mirror fails, so a truthy object here does NOT mean success. It now marks that
+ * case with `_upstreamFailed: true`, and we translate it to `null` — i.e. to "the proxy could not
+ * answer" — because that is what it functionally IS for a caller.
+ *
+ * ⚠ WHY THIS MATTERS MORE THAN IT LOOKS. Without this translation, `if (viaProxy)` in every
+ * caller returns EARLY on a failed proxy response, which means the client-side direct-mirror
+ * cascade, the gentle-mirror throttle, the 429 cooldown registry and the staggered race below
+ * are ALL DEAD CODE whenever the BFF is up — an entire tested resilience subsystem that only ran
+ * when the server was absent, which is the one case it was never needed for. The server emitted
+ * this marker and nothing consumed it; L-457 was half a fix until now.
+ *
+ * A genuinely empty `elements` array from a HEALTHY upstream is still returned as-is — that is a
+ * real answer about a real empty area, and must stay distinguishable from a failure.
  */
 export async function fetchOverpassViaProxy<T = unknown>(
     query: string,
@@ -143,7 +153,16 @@ export async function fetchOverpassViaProxy<T = unknown>(
             signal,
         });
         if (!res.ok) return null;
-        return (await res.json()) as { elements?: T[] };
+        const json = (await res.json()) as { elements?: T[]; _upstreamFailed?: boolean };
+        if (json && json._upstreamFailed === true) {
+            console.warn(
+                '[gis] §OVERPASS-CLIENT-FAILOVER — the proxy reported ALL upstream mirrors failed ' +
+                    '(429/timeout). Treating as "no answer" so the direct-mirror fallback runs, ' +
+                    'instead of accepting an empty result as "this area has no context".',
+            );
+            return null;
+        }
+        return json;
     } catch {
         return null; // proxy unreachable / aborted — fall back to direct mirrors
     }
