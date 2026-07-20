@@ -419,3 +419,34 @@ family, or an explicit, published scope restriction. Tracked as **L-443**.
 `granularity` is normative in §1.11 as of 2026-07-20 but is not yet present in the schema,
 engine or UI. Until it is, nothing prevents a sector-level figure being rendered as a parcel
 envelope. Tracked as **L-439**.
+
+---
+
+## Known Violations / Pending Amendments
+
+> Recorded per the logging protocol Step 4.3, so this contract does not silently keep
+> claiming a mapping that cannot hold.
+
+### §1.7 — the 1:1 mapping to `setbacks.{front,side,rear}` DOES NOT HOLD for alignment-governed zones (L-451, ADR-0270)
+
+§1.7 asserts the envelope numeric results map 1:1 onto C19 mutable parcel fields and that C58
+persists no new output schema. **That holds only while every zone is setback-governed.**
+
+Spanish *ensanche* is governed by *alineación a vial* + *profundidad edificable* + party walls
+(verified live, L-438: Madrid publishes `Fondo de la Edificación` as a POLYLINE). **No
+front/side/rear triple encodes such a rule.** Any value written there for an alignment zone is a
+lossy coercion that looks well-formed and is therefore invisible.
+
+**Status:** ADR-0270 PROPOSED, awaiting a decision between option (A) persist the inset polygon
+as the truth + amend §1.7 + allow `null` setbacks, and option (B) store equivalent effective
+setbacks (**not recommended** — lossy by construction).
+
+**Until that decision lands:** the engine MUST NOT emit an `alignment` result into
+`site.updateZoning`. No alignment path exists in the solver today, so this is a PENDING
+AMENDMENT, not an active violation — **it becomes an active violation the moment ADR-0270 P2
+ships without P3.**
+
+### §2.2 — the rule model cannot express alignment-governed zones (L-443, L-451)
+
+`setbacks: { front_m, side_m, rear_m }` is the only geometric shape. ADR-0270 proposes the
+discriminated union (`setback` / `alignment` / `explicit-area`).
