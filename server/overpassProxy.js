@@ -48,15 +48,28 @@ export const OVERPASS_PATH = '/api/overpass';
  * — the same list the browser used to hit directly, now hit server-side once.
  */
 export const OVERPASS_MIRRORS = [
+    // §OVERPASS-MIRROR-COVERAGE (L-476) — ordered by MEASURED Barcelona performance.
+    // `overpass.openstreetmap.fr` answered the Eixample probe bbox in 0.73 s with the
+    // full 24 footprints; `maps.mail.ru` answered the same bbox correctly in 8.4 s.
+    // The two historical leads (`overpass-api.de`, `kumi.systems`) are kept because
+    // they may behave differently from the Fly server IP than from a dev machine, but
+    // they must no longer sit in front of mirrors that are known to answer.
+    'https://overpass.openstreetmap.fr/api/interpreter',
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass.private.coffee/api/interpreter',
-    // L-422 — additional established public mirrors so a rate-limited server IP
-    // (the founder's heavy demo testing 429s the first three) has more chances to
-    // resolve context before degrading to "no context". High-capacity + reliable.
-    'https://overpass.osm.ch/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-    'https://overpass.openstreetmap.fr/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+    // ⚠ `https://overpass.osm.ch/api/interpreter` REMOVED (L-476). It is a SWITZERLAND-ONLY
+    // extract, not a global mirror, and it is the root cause of "context returns 0 in
+    // Barcelona". Measured directly, same query shape, same minute:
+    //     Zurich    bbox 47.3760,8.5400,47.3770,8.5420  → HTTP 200, 20 elements, 0.44 s
+    //     Barcelona bbox 41.3916,2.1664,41.3926,2.1684  → HTTP 200,  0 elements, 0.20 s
+    //     (the SAME Barcelona bbox → 24 elements from .fr and from maps.mail.ru)
+    // It is not failing and it is not lying: it is truthfully reporting that its database
+    // contains no buildings there. But it is the FASTEST responder in the pool precisely
+    // BECAUSE it has nothing to return, so it won every cascade for every city on earth
+    // outside Switzerland — and it emits NO `remark`, so neither the L-469 guard here nor
+    // the client's could ever catch it. A regional extract cannot serve a global product.
 ];
 
 // ── Body parser ─────────────────────────────────────────────────────────────
@@ -224,6 +237,10 @@ export async function fetchFromMirrors(query, deps = {}) {
     const sleep = deps.sleepImpl || defaultSleep;
     const body = 'data=' + encodeURIComponent(query);
 
+    // §OVERPASS-ZERO-IS-NOT-AN-ANSWER (L-476) — the first well-formed zero-element answer,
+    // held aside in case no mirror can better it. See the branch below for the reasoning.
+    let provisionalEmpty = null;
+
     for (const endpoint of mirrors) {
         // One initial attempt + one retry per mirror (transient 429 / hiccup).
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -280,6 +297,36 @@ export async function fetchFromMirrors(query, deps = {}) {
                         if (attempt === 0) { clearTimeout(timer); await sleep(backoffMs); continue; }
                         break;
                     }
+                    // §OVERPASS-ZERO-IS-NOT-AN-ANSWER (L-476) — ⚠ A ZERO-ELEMENT 200 MUST NOT
+                    // END THE CASCADE.
+                    //
+                    // THE DEFECT THIS FIXES is the general form of the osm.ch bug documented on
+                    // OVERPASS_MIRRORS. Removing that one mirror fixes today's Barcelona; it does
+                    // nothing about the next partial mirror, and a public pool we do not control
+                    // WILL contain another one. The L-469 guard cannot help: a regional extract
+                    // returning "nothing here" is not erroring, so it emits no `remark`, and a
+                    // well-formed zero is indistinguishable from a genuinely empty area — the
+                    // recurring failure-vs-absence conflation behind L-422 / L-457 / L-467 / L-469.
+                    //
+                    // The discriminator we DO have is CORROBORATION. A zero is only credible when
+                    // it is the best any mirror can do. So a zero is held as PROVISIONAL and the
+                    // cascade continues; the first mirror with actual content wins outright, and
+                    // the zero is returned only after the pool is exhausted. Cost is bounded — it
+                    // is paid only when a mirror answers zero, and a genuinely empty bbox (open
+                    // sea, desert) is cheap to answer everywhere, so the walk is fast exactly in
+                    // the case where we walk the whole pool.
+                    //
+                    // Note this deliberately does NOT try to detect regional coverage. It cannot
+                    // be done from one response, and guessing would be the same class of mistake.
+                    if (countElements(text) === 0) {
+                        console.warn(
+                            `[overpass-proxy] §OVERPASS-ZERO-IS-NOT-AN-ANSWER ${endpoint} returned HTTP 200 ` +
+                                `with ZERO elements and NO remark — holding as PROVISIONAL and trying the ` +
+                                `next mirror. A zero is only trusted once no mirror can better it.`,
+                        );
+                        if (provisionalEmpty === null) provisionalEmpty = text;
+                        break; // next mirror — retrying THIS one would just repeat its own answer
+                    }
                     return text;
                 }
                 break; // empty body — try the next mirror
@@ -294,7 +341,12 @@ export async function fetchFromMirrors(query, deps = {}) {
             }
         }
     }
-    return null;
+    // §OVERPASS-ZERO-IS-NOT-AN-ANSWER (L-476) — pool exhausted. If some mirror gave us a
+    // well-formed zero, that is now the CORROBORATED answer and we return it; the handler
+    // still treats it as `EMPTY-UNVERIFIED` and short-TTLs it (§OVERPASS-NO-LONG-CACHE-EMPTY,
+    // L-467), so an emptiness we merely failed to disprove is never cached as durable truth.
+    // `null` remains reserved for "no mirror answered at all", which is a FAILURE, not a zero.
+    return provisionalEmpty;
 }
 
 /** Set the permissive same-origin cache headers on a SUCCESSFUL Overpass proxy response. */

@@ -722,8 +722,16 @@ async function raceMirrors(
     if (signal?.aborted) return emptyContextCollection();
     if (viaProxy) {
         const winner = overpassToCollection(viaProxy.elements ?? []);
-        cache.set(key, winner);
-        if (winner.features.length > 0) lsWrite(key, winner); // persist non-empty
+        // §OVERPASS-NO-MEMOISE-EMPTY (L-476) — cache ONLY a non-empty result. The contract this
+        // file already documents ("empty results are never cached", `fetchContextBuildings`) was
+        // not what the code did: an empty collection was memoised here for the whole session, so
+        // every later request for the same bbox returned zero from memory and RETURNED WITHOUT
+        // LOGGING ANYTHING — which is why a zeroed context produced a console with no fetch, no
+        // count and no warning to root-cause from. Silence made a transient failure look permanent
+        // AND made it un-diagnosable. Empties now fall through to a real fetch; `inFlight` still
+        // collapses concurrent callers, and the server's short-TTL empty cache (L-467) keeps us
+        // polite to the public mirrors, so this does not reintroduce a request storm.
+        if (winner.features.length > 0) { cache.set(key, winner); lsWrite(key, winner); }
         console.log(
             `[gis] context buildings: ${winner.features.length} OSM footprint(s) ` +
                 `for bbox ${key} (via same-origin /api/overpass proxy).` +
@@ -837,9 +845,19 @@ async function raceMirrors(
         }
 
         let winner: ContextBuildingCollection | null = null;
+        // §OVERPASS-ZERO-IS-NOT-AN-ANSWER (L-476) — the mirror-side twin of the server rule in
+        // `server/overpassProxy.js`. A mirror that answers HTTP 200 with ZERO footprints and no
+        // `remark` is not erroring, so the L-469 guard above cannot see it — but it is also the
+        // FASTEST possible response, so it wins this race outright and suppresses every mirror
+        // that actually has the data. That is exactly how a Switzerland-only extract zeroed
+        // Barcelona (see OVERPASS_MIRRORS in the proxy for the measurements). A zero is therefore
+        // held as PROVISIONAL: real content always beats it, and it is only accepted once no
+        // mirror can better it. The two lists are kept in sync, so the rule is kept in sync too.
+        let provisionalEmpty: ContextBuildingCollection | null = null;
         while (inFlightAttempts.size > 0 && !winAbort.signal.aborted) {
             const { result } = await Promise.race(inFlightAttempts);
-            if (result) { winner = result; break; }
+            if (result && result.features.length > 0) { winner = result; break; }
+            if (result && provisionalEmpty === null) provisionalEmpty = result;
             // That attempt failed — top up the in-flight set from remaining candidates.
             if (next < candidates.length) {
                 if (winAbort.signal.aborted) break;
@@ -851,9 +869,12 @@ async function raceMirrors(
         if (!winAbort.signal.aborted) winAbort.abort(new DOMException('winner found / mirrors exhausted', 'AbortError'));
 
         if (signal?.aborted) return emptyContextCollection();
+        // §OVERPASS-ZERO-IS-NOT-AN-ANSWER (L-476) — pool exhausted with no real content, so a
+        // corroborated zero (if any mirror gave us one) is now the answer.
+        if (!winner && provisionalEmpty) winner = provisionalEmpty;
         if (winner) {
-            cache.set(key, winner);
-            if (winner.features.length > 0) lsWrite(key, winner); // persist non-empty
+            // §OVERPASS-NO-MEMOISE-EMPTY (L-476) — see the proxy path above; same rule.
+            if (winner.features.length > 0) { cache.set(key, winner); lsWrite(key, winner); }
             console.log(
                 `[gis] context buildings: ${winner.features.length} OSM footprint(s) ` +
                     `for bbox ${key} (gentle mirror fetch, ≤${OVERPASS_MAX_CONCURRENCY} concurrent).` +

@@ -19,6 +19,7 @@ import {
     overpassBodyParser,
     makeOverpassHandler,
     fetchFromMirrors,
+    OVERPASS_MIRRORS,
     overpassCacheStats,
     __resetOverpassCache,
 } from '../overpassProxy.js';
@@ -177,14 +178,22 @@ describe('§OVERPASS-PROXY /api/overpass', () => {
     it('L-467 — the rural concern still holds: a repeat empty query is served from cache', async () => {
         // The original test's reasoning, preserved as an assertion rather than a comment: we must
         // not re-hit a shared public endpoint on every render for a legitimately empty bbox
-        // (C57 §7.2). One upstream call, two requests.
+        // (C57 §7.2). The invariant is that the REPEAT costs nothing upstream.
+        //
+        // §OVERPASS-ZERO-IS-NOT-AN-ANSWER (L-476) — this used to assert a flat `1`. The FIRST
+        // request now deliberately costs one call PER MIRROR (2 here), because a zero is only
+        // believed once every mirror corroborates it — that walk is the fix for the Barcelona
+        // zero. The politeness obligation this test defends is unaffected: it is about repeat
+        // renders, and the repeat still makes zero upstream calls.
         let upstreamCalls = 0;
         const payload = JSON.stringify({ elements: [] });
         fake = makeFakeFetch(() => { upstreamCalls++; return new Response(payload, { status: 200 }); });
         const q = 'data=' + encodeURIComponent('[out:json];(way(5,5,5,5););out geom;');
         await post(q);
+        const afterFirst = upstreamCalls;
+        expect(afterFirst).toBe(2);          // one corroboration pass over the 2 test mirrors
         await post(q);
-        expect(upstreamCalls).toBe(1);
+        expect(upstreamCalls).toBe(afterFirst); // the repeat is served from cache — the point
     });
 
     // §OVERPASS-REMARK-IS-AN-ERROR (L-469) — Overpass reports server-side failure IN-BAND:
@@ -286,5 +295,85 @@ describe('§OVERPASS-PROXY fetchFromMirrors — mirror fallback', () => {
             timeoutMs: 500,
         });
         expect(text).toBeNull();
+    });
+});
+
+/**
+ * §OVERPASS-ZERO-IS-NOT-AN-ANSWER (L-476) — regression cover for the root cause of
+ * "context buildings return 0 in Barcelona".
+ *
+ * A partial/regional Overpass extract (the live offender was `overpass.osm.ch`, a
+ * Switzerland-only database) answers HTTP 200 + `elements: []` + NO `remark` for every
+ * bbox outside its coverage. It is not erroring, so the L-469 remark guard cannot see it,
+ * and because it has nothing to return it is the FASTEST mirror in the pool — so it won
+ * every cascade and suppressed the mirrors that actually held the data.
+ */
+describe('§OVERPASS-ZERO-IS-NOT-AN-ANSWER fetchFromMirrors — a zero must not win the cascade', () => {
+    /** A mirror that answers instantly with a well-formed, remark-free ZERO. */
+    const emptyBody = JSON.stringify({ version: 0.6, elements: [] });
+
+    it('does NOT let a fast zero-element mirror suppress a later mirror that has the data', async () => {
+        const seen: string[] = [];
+        const fetchImpl = (async (endpoint: string) => {
+            seen.push(String(endpoint));
+            // mirror-a = the regional extract: instant, 200, zero elements, no remark.
+            if (String(endpoint).includes('mirror-a')) return new Response(emptyBody, { status: 200 });
+            return new Response(JSON.stringify({ elements: [{ id: 7 }] }), { status: 200 });
+        }) as unknown as typeof fetch;
+
+        const text = await fetchFromMirrors('q', {
+            fetchImpl,
+            mirrors: ['https://mirror-a.example/api/interpreter', 'https://mirror-b.example/api/interpreter'],
+            timeoutMs: 1000,
+            backoffMs: 0,
+        });
+
+        // The REAL content wins — this is the whole bug: before the fix this was `elements: []`.
+        expect(JSON.parse(text as string).elements[0].id).toBe(7);
+        // And the zero mirror was tried exactly ONCE — retrying it would only repeat its own
+        // answer, since a coverage gap is not a transient fault.
+        expect(seen.filter((e) => e.includes('mirror-a'))).toHaveLength(1);
+        expect(seen.some((e) => e.includes('mirror-b'))).toBe(true);
+    });
+
+    it('DOES return a zero once every mirror corroborates it (a genuinely empty area)', async () => {
+        const fetchImpl = (async () => new Response(emptyBody, { status: 200 })) as unknown as typeof fetch;
+        const text = await fetchFromMirrors('q', {
+            fetchImpl,
+            mirrors: ['https://mirror-a.example/api/interpreter', 'https://mirror-b.example/api/interpreter'],
+            timeoutMs: 1000,
+            backoffMs: 0,
+        });
+        // Not null — null means "nobody answered", which is a FAILURE and must stay distinct
+        // from "every source agrees this bbox is empty".
+        expect(text).not.toBeNull();
+        expect(JSON.parse(text as string).elements).toHaveLength(0);
+    });
+
+    it('keeps a total upstream failure distinct from a corroborated zero', async () => {
+        const fetchImpl = (async () => { throw new Error('offline'); }) as unknown as typeof fetch;
+        const text = await fetchFromMirrors('q', {
+            fetchImpl,
+            mirrors: ['https://mirror-a.example/api/interpreter'],
+            timeoutMs: 500,
+            backoffMs: 0,
+        });
+        // A refusal, not a zero. The handler turns this into `_upstreamFailed` + no-store.
+        expect(text).toBeNull();
+    });
+});
+
+/**
+ * §OVERPASS-MIRROR-COVERAGE (L-476) — the Switzerland-only extract must never return to
+ * the pool. This is a coverage bug that no amount of response inspection can detect, so
+ * the only durable guard is the list itself.
+ */
+describe('§OVERPASS-MIRROR-COVERAGE the mirror pool carries no regional extracts', () => {
+    it('does not include overpass.osm.ch (a Switzerland-only database)', () => {
+        expect(OVERPASS_MIRRORS.some((m) => m.includes('overpass.osm.ch'))).toBe(false);
+    });
+
+    it('still offers several mirrors so one bad actor cannot zero the product', () => {
+        expect(OVERPASS_MIRRORS.length).toBeGreaterThanOrEqual(4);
     });
 });
