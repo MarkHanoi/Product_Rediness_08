@@ -164,6 +164,30 @@ export const OVERPASS_UPSTREAM_TIMEOUT_MS = 75_000;
  *  retry would just 429 again. Injectable (`deps.backoffMs`) so tests run instantly. */
 export const OVERPASS_RETRY_BACKOFF_MS = 1500;
 
+/**
+ * §OVERPASS-CASCADE-DEADLINE (L-478) — a ceiling on the WHOLE mirror walk, not each hop.
+ *
+ * THE DEFECT THIS FIXES, AND IT WAS INTRODUCED BY THE L-476 FIX ONE COMMIT EARLIER.
+ * `§OVERPASS-ZERO-IS-NOT-AN-ANSWER` deliberately stopped a zero-element answer from ENDING
+ * the cascade — correct, and the reason Barcelona has context at all. But it also removed the
+ * thing that used to terminate the walk EARLY, and nothing bounded the total. Worst case went
+ * to `mirrors × 2 attempts × OVERPASS_UPSTREAM_TIMEOUT_MS` ≈ **5 × 2 × 75 s = 750 s**.
+ *
+ * Fly's edge gives up long before that, so the request died as an opaque **502 Bad Gateway** —
+ * observed live in the founder's console on `/api/overpass` AND, at the same moment, on
+ * `/api/catastro/parcel`, because long-held in-flight requests pile up on one instance. A 502
+ * is the worst possible answer here: it carries no information at all, so the client cannot
+ * tell "upstream is down" from "this area is empty" — the exact conflation L-467/469/476 spent
+ * three fixes closing, reintroduced through the back door as a TIMEOUT rather than a payload.
+ *
+ * 45 s sits comfortably inside the gateway window while still allowing a genuinely expensive
+ * dense-city query (the far-extent Eixample bbox legitimately returns >12,000 footprints) to
+ * complete on a healthy mirror. When the budget is spent we return what we actually have — a
+ * corroborated-so-far zero, or `null` for a real failure, which the handler already renders as
+ * `_upstreamFailed` + `no-store`. A bounded honest answer beats an unbounded wait every time.
+ */
+export const OVERPASS_TOTAL_BUDGET_MS = 45_000;
+
 /** Promise-based sleep; injectable via `deps.sleepImpl` so tests don't wait. */
 function defaultSleep(ms) {
     return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
@@ -225,7 +249,9 @@ export function overpassCacheStats() {
  * without touching the network.
  *
  * @param {string} query  Overpass-QL
- * @param {{ fetchImpl?: typeof fetch, mirrors?: string[], timeoutMs?: number }} [deps]
+ * @param {{ fetchImpl?: typeof fetch, mirrors?: string[], timeoutMs?: number,
+ *           backoffMs?: number, sleepImpl?: (ms: number) => Promise<void>,
+ *           totalBudgetMs?: number, nowImpl?: () => number }} [deps]
  * @returns {Promise<string|null>}
  */
 export async function fetchFromMirrors(query, deps = {}) {
@@ -241,11 +267,29 @@ export async function fetchFromMirrors(query, deps = {}) {
     // held aside in case no mirror can better it. See the branch below for the reasoning.
     let provisionalEmpty = null;
 
+    // §OVERPASS-CASCADE-DEADLINE (L-478) — THE WHOLE WALK IS BOUNDED, not just each hop.
+    // See the constant for why. `nowMs` is injectable so tests drive the clock.
+    const now = deps.nowImpl || (() => Date.now());
+    const totalBudgetMs = deps.totalBudgetMs || OVERPASS_TOTAL_BUDGET_MS;
+    const deadline = now() + totalBudgetMs;
+    const msLeft = () => deadline - now();
+
     for (const endpoint of mirrors) {
         // One initial attempt + one retry per mirror (transient 429 / hiccup).
         for (let attempt = 0; attempt < 2; attempt++) {
+            // §OVERPASS-CASCADE-DEADLINE (L-478) — stop walking rather than be killed mid-walk.
+            if (msLeft() <= 0) {
+                console.warn(
+                    `[overpass-proxy] §OVERPASS-CASCADE-DEADLINE budget of ${totalBudgetMs}ms spent — ` +
+                        `abandoning the remaining mirrors and answering with what we have ` +
+                        `(${provisionalEmpty ? 'a corroborated-so-far ZERO' : 'a FAILURE'}). ` +
+                        `A bounded honest answer beats a gateway timeout.`,
+                );
+                return provisionalEmpty;
+            }
             const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            // Never let one hop overrun the whole budget.
+            const timer = setTimeout(() => ctrl.abort(), Math.min(timeoutMs, msLeft()));
             try {
                 const res = await fetchImpl(endpoint, {
                     method: 'POST',

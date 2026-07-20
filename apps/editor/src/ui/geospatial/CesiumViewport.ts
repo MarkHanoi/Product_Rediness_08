@@ -4511,8 +4511,46 @@ export class CesiumViewport {
       const centroidLL = enuToLatLon(c.east, c.north);
       sampleLat = centroidLL.lat;
       sampleLon = centroidLL.lon;
-      samplePts.push(centroidLL);
-      for (const p of boundaryEnu) samplePts.push(enuToLatLon(p.east, p.north));
+      // §GLOBE-DONT-MEASURE-THE-HOLE (L-479) — ⚠ DO NOT SAMPLE INSIDE THE PARCEL WHILE THE
+      // PHOTOREAL VOID IS CUT.
+      //
+      // THE DEFECT: `§PLOT-CLEAR-PHOTOREAL` (L-429) punches a PARCEL-SHAPED VOID through the
+      // photoreal tileset so the proposal reads on a clear plot — and it runs BEFORE this
+      // clamp in the same placement pass (founder console, in order: "parcel-shaped void
+      // clipped into the photoreal tileset (8-vertex ring)" … then "ground anchor:
+      // resolved source=photoreal-tile-clamp height=11.38 m picks=49"). The centroid and every
+      // boundary vertex are, by construction, INSIDE that hole. Their rays therefore pass
+      // through the removed surface and hit whatever lies beyond it.
+      //
+      // ⚠ AND THE REDUCTION TAKES THE **MINIMUM**, so those fall-through picks do not merely
+      // dilute the answer — they WIN. Barcelona resolved to 11.38 m where the tile surface is
+      // ≈ +50 m (geoid ≈ +49 m), burying the building ~40 m. It is the L-477 failure mode with
+      // a different origin: not a pick that hit the ellipsoid, but a pick that hit nothing
+      // because WE had just deleted the ground we were trying to measure. L-477's ±2 m guard
+      // cannot catch it — 11.38 m is a perfectly plausible height.
+      //
+      // THE FOUNDER DATED IT EXACTLY: *"this was working perfectly fine until the envelope was
+      // rendering on the 3d tiles scene."* That is the commit that introduced the void.
+      //
+      // THE FIX: rely on the STREET RING only, which is already the documented principle —
+      // §GLOBE-GROUND-STREET-RING: "the building base must sit on the STREET ground, and the
+      // MINIMUM over these points reliably recovers it." The street ring is OUTSIDE the parcel,
+      // so it is outside the void and still measures real tile mesh. The in-parcel picks were
+      // only ever a convenience; once the plot is cleared they are actively wrong.
+      //
+      // When no void is cut (the Forma flat-ground study, or no photoreal tileset), the
+      // in-parcel picks are still good and are kept — so nothing regresses on that path.
+      const parcelVoidCut = this.photorealTilesActive;
+      if (!parcelVoidCut) {
+        samplePts.push(centroidLL);
+        for (const p of boundaryEnu) samplePts.push(enuToLatLon(p.east, p.north));
+      } else {
+        console.log(
+          '[CesiumViewport][globe] §GLOBE-DONT-MEASURE-THE-HOLE (L-479) — photoreal void is cut ' +
+            'over this parcel, so the in-parcel ground picks would ray straight through it. ' +
+            'Measuring the ground from the STREET RING only (§GLOBE-GROUND-STREET-RING).',
+        );
+      }
       // §GLOBE-GROUND-STREET-RING (founder 2026-07-01) — ALSO sample a ring in the
       // SURROUNDING STREET (each footprint vertex pushed ~1.7× outward from the centroid,
       // plus 8 compass points ~30 m beyond the footprint). The building base must sit on
@@ -4662,6 +4700,24 @@ export class CesiumViewport {
     // WGS-84 ELLIPSOID, and with photoreal tiles as the visible ground that is ~50 m BELOW
     // real ground at Menorca (geoid separation ≈ +49 m) — the founder's burial. The sphere
     // ground is a real (coarse) measurement and is allowed; a fabricated 0 is not.
+    // §GLOBE-PICK-SPREAD-DIAG (L-479) — print the DISTRIBUTION, not just the min. A single
+    // number cannot distinguish "the ground really is 11 m here" from "most rays fell through
+    // a hole". A tight cluster is a real surface; a wide spread with a low tail is fall-through.
+    if (tileHeights.length > 0) {
+      const sorted = [...tileHeights].filter((h) => typeof h === 'number' && Number.isFinite(h)).sort((a, b) => a - b);
+      if (sorted.length > 0) {
+        const at = (f: number): number => sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))];
+        console.log(
+          `[CesiumViewport][globe] §GLOBE-PICK-SPREAD-DIAG ${sorted.length} finite pick(s) — ` +
+            `min ${sorted[0].toFixed(2)} · p25 ${at(0.25).toFixed(2)} · median ${at(0.5).toFixed(2)} · ` +
+            `p75 ${at(0.75).toFixed(2)} · max ${sorted[sorted.length - 1].toFixed(2)} m ELLIPSOIDAL. ` +
+            `spread ${(sorted[sorted.length - 1] - sorted[0]).toFixed(2)} m. ` +
+            `A tight cluster = a real tile surface; a low tail far below the median = rays ` +
+            `falling through un-streamed tiles or the §PLOT-CLEAR-PHOTOREAL void (L-479).`,
+        );
+      }
+    }
+
     const anchor = resolveGlobeGroundAnchor({
       photorealTilesActive: this.photorealTilesActive,
       heightPickingAvailable,

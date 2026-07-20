@@ -302,3 +302,49 @@ describe('§GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — a near-ellipsoid pick
             .toBeCloseTo(50.3, 5);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// §GLOBE-LONE-OUTLIER-CANNOT-SET-THE-DATUM (L-479) — the founder's two-run measurement.
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Same parcel, same anchor, minutes apart:
+//     picks=48 → 50.87 m  (correct: Barcelona tile surface, geoid ≈ +49 m + terrain)
+//     picks=49 → 11.38 m  (buried ~40 m)
+// ONE extra pick, ~39 m below the rest, took the whole building underground — because a raw
+// `min` gives every single sample a veto over the datum.
+describe('§GLOBE-LONE-OUTLIER-CANNOT-SET-THE-DATUM (L-479) — the founder\'s exact two-run case', () => {
+    /** ~48 street-ring picks clustered on the real Barcelona tile surface. */
+    const goodPicks = Array.from({ length: 48 }, (_, i) => 50.87 + (i % 7) * 0.35);
+
+    it('THE BUG: one fall-through pick 39 m low no longer decides the ground', () => {
+        const buried = resolveGlobeGroundAnchor(base({ tileSampleHeights: [...goodPicks, 11.38] }));
+        // Before the fix this returned 11.38 — the founder's buried building.
+        expect(buried.heightM).toBeGreaterThan(45);
+        expect(buried.heightM).toBeLessThan(56);
+    });
+
+    it('and the two runs now AGREE, which is the property that was actually broken', () => {
+        const runB = resolveGlobeGroundAnchor(base({ tileSampleHeights: goodPicks }));           // 48 picks
+        const runA = resolveGlobeGroundAnchor(base({ tileSampleHeights: [...goodPicks, 11.38] })); // 49 picks
+        // The founder saw 50.87 vs 11.38 for the same parcel. Same input ± one bad ray must not
+        // move the datum by 39 m; a datum that flips on re-entry is indistinguishable from a bug.
+        expect(Math.abs((runA.heightM as number) - (runB.heightM as number))).toBeLessThan(2);
+    });
+
+    it('still takes the LOW end — it must not perch on a podium or a neighbour roof', () => {
+        // 40 street picks at ~50 m + 8 rooftop picks at ~80 m. The answer must be street ground.
+        const withRoofs = [
+            ...Array.from({ length: 40 }, (_, i) => 50 + (i % 5) * 0.2),
+            ...Array.from({ length: 8 }, () => 80),
+        ];
+        const anchor = resolveGlobeGroundAnchor(base({ tileSampleHeights: withRoofs }));
+        expect(anchor.heightM).toBeLessThan(52);   // street, not roof
+        expect(anchor.heightM).toBeGreaterThan(49);
+    });
+
+    it('preserves the exact previous MIN behaviour on a small sample (no distribution to trust)', () => {
+        // Fewer than OUTLIER_ROBUST_MIN_SAMPLES → unchanged semantics, so nothing regresses on
+        // the sparse-pick paths that predate the street ring.
+        const anchor = resolveGlobeGroundAnchor(base({ tileSampleHeights: [80.1, 81.0, 80.5] }));
+        expect(anchor.heightM).toBeCloseTo(80.1, 5);
+    });
+});

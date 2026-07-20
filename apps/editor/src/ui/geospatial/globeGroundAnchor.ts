@@ -148,6 +148,17 @@ function sphereGroundConfirmsNearEllipsoid(sphereGroundHeightM: number | null): 
  *  `ELLIPSOID_PICK_EPSILON_M` because the sphere estimate is coarse by nature. */
 export const SPHERE_GROUND_NEAR_ELLIPSOID_M = 10;
 
+/** §GLOBE-LONE-OUTLIER-CANNOT-SET-THE-DATUM (L-479) — the low quantile used INSTEAD of the raw
+ *  minimum once there are enough samples. 0.1 keeps the "lowest open street cell" behaviour the
+ *  min was chosen for, while denying any single fall-through pick a veto over the datum. */
+export const GROUND_LOW_QUANTILE = 0.1;
+
+/** §GLOBE-LONE-OUTLIER-CANNOT-SET-THE-DATUM (L-479) — below this many credible picks there is no
+ *  distribution worth reasoning about, so the exact previous `min` behaviour is preserved. The
+ *  live sampler produces ~48 (two 16-point compass rings + pushed-out vertices), so the robust
+ *  path is the normal one and this is the degenerate-input guard. */
+export const OUTLIER_ROBUST_MIN_SAMPLES = 12;
+
 /**
  * §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES (L-179) — the PURE reduction of the tile-surface
  * height picks to a base height. A building roof is always ABOVE the ground it stands on,
@@ -174,14 +185,41 @@ export function reduceTileGroundHeight(
     const rejectNearZero =
         opts.rejectEllipsoidPicks === true && !sphereGroundConfirmsNearEllipsoid(sphereGroundHeightM);
 
-    let min: number | null = null;
+    const credible: number[] = [];
     for (const h of sampledHeights) {
         if (typeof h === 'number' && Number.isFinite(h)) {
             if (rejectNearZero && Math.abs(h) <= ELLIPSOID_PICK_EPSILON_M) continue;
-            min = min === null ? h : Math.min(min, h);
+            credible.push(h);
         }
     }
-    if (min !== null) return min - seatEpsilonM;
+
+    // §GLOBE-LONE-OUTLIER-CANNOT-SET-THE-DATUM (L-479) — THE GROUND IS A LOW PLATEAU, NOT THE
+    // SINGLE LOWEST SAMPLE.
+    //
+    // THE EVIDENCE, two runs over the SAME parcel at the SAME anchor minutes apart:
+    //     picks=48 → 50.87 m  (correct: Barcelona tile surface, geoid ≈ +49 m + terrain)
+    //     picks=49 → 11.38 m  (buried ~40 m)
+    // ONE additional pick, ~39 m below the rest, moved the whole building underground. A raw
+    // `min` gives every single sample a veto over the datum, so one ray through a hole (the
+    // §PLOT-CLEAR-PHOTOREAL void, an un-streamed tile, a genuine gap in the mesh) decides it.
+    //
+    // WHY NOT JUST KEEP THE MIN: the min is here for a real reason (§GLOBE-GROUND-STREET-RING)
+    // — it stops the model perching on a podium or a neighbour's roof, and a fixed absolute cap
+    // was already tried and wrongly buried Paris's genuinely elevated ~80 m ground. So we keep
+    // "take the LOW end", but take a robust low END rather than the extreme: the 10th percentile
+    // once there are enough samples to have one. With ~48 street-ring picks that still lands in
+    // the open-street cells the min was chosen to find, while a lone fall-through can no longer
+    // outvote them. Below the sample threshold there is no distribution to reason about, so we
+    // fall back to the exact previous behaviour and change nothing.
+    if (credible.length === 0) {
+        // fall through to the sphere-ground fallback below
+    } else if (credible.length < OUTLIER_ROBUST_MIN_SAMPLES) {
+        return Math.min(...credible) - seatEpsilonM;
+    } else {
+        const sorted = [...credible].sort((a, b) => a - b);
+        const idx = Math.floor(GROUND_LOW_QUANTILE * sorted.length);
+        return sorted[Math.min(idx, sorted.length - 1)] - seatEpsilonM;
+    }
     if (
         sphereGroundHeightM !== null &&
         Number.isFinite(sphereGroundHeightM) &&

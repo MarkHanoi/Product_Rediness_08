@@ -377,3 +377,94 @@ describe('§OVERPASS-MIRROR-COVERAGE the mirror pool carries no regional extract
         expect(OVERPASS_MIRRORS.length).toBeGreaterThanOrEqual(4);
     });
 });
+
+/**
+ * §OVERPASS-CASCADE-DEADLINE (L-478) — the whole walk is bounded, not just each hop.
+ *
+ * Regression cover for a defect the L-476 fix INTRODUCED: once a zero no longer ends the
+ * cascade, nothing terminated the walk early, so the worst case became
+ * mirrors × 2 attempts × 75 s ≈ 750 s. Fly's edge killed it first, and the request surfaced
+ * as an opaque 502 Bad Gateway — which tells the client nothing at all, re-creating the
+ * failure-vs-absence conflation as a TIMEOUT instead of a payload.
+ */
+describe('§OVERPASS-CASCADE-DEADLINE (L-478) — a bounded honest answer beats a gateway timeout', () => {
+    /** A fake clock the walk reads through `deps.nowImpl`. */
+    function fakeClock(startMs = 0) {
+        let t = startMs;
+        return { now: () => t, advance: (ms: number) => { t += ms; } };
+    }
+
+    it('stops walking once the budget is spent instead of running to the gateway timeout', async () => {
+        const clock = fakeClock();
+        const tried: string[] = [];
+        // Every mirror burns 20 s and fails — 6 mirrors would be 240 s+ unbounded.
+        const fetchImpl = (async (endpoint: string) => {
+            tried.push(String(endpoint));
+            clock.advance(20_000);
+            throw new Error('slow mirror');
+        }) as unknown as typeof fetch;
+
+        const text = await fetchFromMirrors('q', {
+            fetchImpl,
+            mirrors: Array.from({ length: 6 }, (_, i) => `https://m${i}.example/api/interpreter`),
+            timeoutMs: 75_000,
+            backoffMs: 0,
+            totalBudgetMs: 45_000,
+            nowImpl: clock.now,
+        });
+
+        expect(text).toBeNull();                     // a real failure stays a real failure
+        // 45 s / 20 s per attempt → the walk stops after ~3 attempts, NOT all 12.
+        expect(tried.length).toBeLessThanOrEqual(4);
+        expect(tried.length).toBeGreaterThan(0);
+    });
+
+    it('returns the corroborated-so-far ZERO when the budget expires mid-walk', async () => {
+        const clock = fakeClock();
+        const emptyBody = JSON.stringify({ version: 0.6, elements: [] });
+        let call = 0;
+        const fetchImpl = (async () => {
+            call++;
+            clock.advance(25_000);
+            // First mirror answers a well-formed zero; the rest would hang past the budget.
+            if (call === 1) return new Response(emptyBody, { status: 200 });
+            throw new Error('slow mirror');
+        }) as unknown as typeof fetch;
+
+        const text = await fetchFromMirrors('q', {
+            fetchImpl,
+            mirrors: ['https://a.example/api/interpreter', 'https://b.example/api/interpreter', 'https://c.example/api/interpreter'],
+            timeoutMs: 75_000,
+            backoffMs: 0,
+            totalBudgetMs: 45_000,
+            nowImpl: clock.now,
+        });
+
+        // Not null: a mirror DID answer. We simply could not afford to seek a better answer.
+        // The handler still short-TTLs this as EMPTY-UNVERIFIED (§OVERPASS-NO-LONG-CACHE-EMPTY).
+        expect(text).not.toBeNull();
+        expect(JSON.parse(text as string).elements).toHaveLength(0);
+    });
+
+    it('does not truncate a walk that finishes inside the budget', async () => {
+        const clock = fakeClock();
+        const emptyBody = JSON.stringify({ version: 0.6, elements: [] });
+        const fetchImpl = (async (endpoint: string) => {
+            clock.advance(100); // fast mirrors
+            if (String(endpoint).includes('a.')) return new Response(emptyBody, { status: 200 });
+            return new Response(JSON.stringify({ elements: [{ id: 9 }] }), { status: 200 });
+        }) as unknown as typeof fetch;
+
+        const text = await fetchFromMirrors('q', {
+            fetchImpl,
+            mirrors: ['https://a.example/api/interpreter', 'https://b.example/api/interpreter'],
+            timeoutMs: 75_000,
+            backoffMs: 0,
+            totalBudgetMs: 45_000,
+            nowImpl: clock.now,
+        });
+
+        // The zero from `a` was correctly passed over for real content from `b` — L-476 intact.
+        expect(JSON.parse(text as string).elements[0].id).toBe(9);
+    });
+});
