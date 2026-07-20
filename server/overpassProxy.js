@@ -94,6 +94,37 @@ export const OVERPASS_EMPTY_CACHE_TTL_MS = 5 * 60 * 1000;
  * unparseable body is a different problem, and mislabelling it "empty" would be the very
  * conflation this whole section exists to remove.
  */
+/**
+ * §OVERPASS-REMARK-IS-AN-ERROR (L-469) — read an Overpass payload's `remark` and element count.
+ *
+ * Overpass signals server-side failure in-band: HTTP 200, `elements: []`, and a human-readable
+ * `remark` such as *"runtime error: Query timed out in 'query' at line 1 after 25 seconds."*
+ * Nothing in this stack read that field, so such a response was indistinguishable from a genuine
+ * "no buildings here".
+ *
+ * ⚠ A `remark` ALONE IS NOT A FAILURE. Overpass also emits informational remarks alongside real
+ * results. The caller must therefore require BOTH a remark AND zero elements before treating a
+ * response as failed — otherwise a warning attached to a perfectly good answer would throw the
+ * answer away, which is the same class of over-correction in the opposite direction.
+ *
+ * Unparseable body → `{remark: null, elementCount: -1}`: not "empty", because a malformed payload
+ * is a different problem and mislabelling it would repeat the conflation this is here to remove.
+ */
+function inspectOverpassPayload(body) {
+    try {
+        const parsed = JSON.parse(typeof body === 'string' ? body : String(body));
+        const remark = typeof parsed?.remark === 'string' && parsed.remark.trim() !== ''
+            ? parsed.remark.trim()
+            : null;
+        return {
+            remark,
+            elementCount: Array.isArray(parsed?.elements) ? parsed.elements.length : -1,
+        };
+    } catch {
+        return { remark: null, elementCount: -1 };
+    }
+}
+
 function countElements(body) {
     try {
         const parsed = JSON.parse(typeof body === 'string' ? body : String(body));
@@ -218,7 +249,35 @@ export async function fetchFromMirrors(query, deps = {}) {
                     break; // non-transient — skip straight to the next mirror
                 }
                 const text = await res.text();
-                if (text && text.length > 0) return text;
+                if (text && text.length > 0) {
+                    // §OVERPASS-REMARK-IS-AN-ERROR (L-469) — ⚠ A 200 IS NOT A SUCCESS.
+                    //
+                    // Overpass reports server-side failures (query timeout, memory exhaustion,
+                    // rate limiting) as **HTTP 200 with `elements: []` and a `remark` string** —
+                    // there is no error status to check. This branch returned any non-empty body
+                    // as the winner, so such a response was accepted as a genuine answer AND
+                    // short-circuited the mirror cascade, so a healthier mirror was never tried.
+                    //
+                    // This bites hardest exactly where the product needs it most: a dense city.
+                    // The far-extent bbox over central Barcelona is a very large query, and the
+                    // denser the fabric the likelier it exceeds the query budget — so the failure
+                    // scales WITH the value of the area, and reads as "this city has no
+                    // buildings". Same conflation as L-467, one layer further upstream: there,
+                    // an empty answer was cached as durable truth; here, an explicit error is not
+                    // even recognised as an error.
+                    const diag = inspectOverpassPayload(text);
+                    if (diag.remark && diag.elementCount === 0) {
+                        console.warn(
+                            `[overpass-proxy] §OVERPASS-REMARK-IS-AN-ERROR ${endpoint} returned HTTP 200 ` +
+                                `with ZERO elements and a remark — treating as a FAILED attempt, not an ` +
+                                `answer. Overpass said: "${diag.remark}"`,
+                        );
+                        // Same handling as a 429: back off and retry once, then the next mirror.
+                        if (attempt === 0) { clearTimeout(timer); await sleep(backoffMs); continue; }
+                        break;
+                    }
+                    return text;
+                }
                 break; // empty body — try the next mirror
             } catch (err) {
                 // Timeout / network / abort — back off, retry once, then next mirror.

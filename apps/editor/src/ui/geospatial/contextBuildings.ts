@@ -763,7 +763,24 @@ async function raceMirrors(
                 console.warn(`[gis] context buildings: ${endpoint} HTTP ${res.status} — skipping this mirror.`);
                 return null;
             }
-            const json = (await res.json()) as { elements?: OverpassElement[] };
+            const json = (await res.json()) as { elements?: OverpassElement[]; remark?: string };
+            // §OVERPASS-REMARK-IS-AN-ERROR (L-469) — the SAME in-band failure the server proxy
+            // now catches, on the direct-mirror path. Overpass reports a query timeout / memory
+            // exhaustion as HTTP 200 + `elements: []` + a `remark`; without this, that response
+            // becomes an empty collection indistinguishable from "this area has no buildings",
+            // and it also WINS the mirror race, so no healthier mirror is tried.
+            //
+            // Requires BOTH remark AND zero elements — Overpass also emits informational remarks
+            // beside real results, and discarding those would be the mirror-image mistake.
+            const remark = typeof json.remark === 'string' ? json.remark.trim() : '';
+            if (remark !== '' && (json.elements?.length ?? 0) === 0) {
+                console.warn(
+                    `[gis] context buildings: §OVERPASS-REMARK-IS-AN-ERROR ${endpoint} returned HTTP 200 ` +
+                        `with ZERO elements and a remark — treating as a FAILED mirror, not an empty area. ` +
+                        `Overpass said: "${remark}"`,
+                );
+                return null; // → the race moves on to the next mirror
+            }
             return overpassToCollection(json.elements ?? []);
         } catch {
             return null; // timeout / network / abort — non-fatal, try the next mirror

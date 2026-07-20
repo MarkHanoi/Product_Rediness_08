@@ -187,6 +187,68 @@ describe('§OVERPASS-PROXY /api/overpass', () => {
         expect(upstreamCalls).toBe(1);
     });
 
+    // §OVERPASS-REMARK-IS-AN-ERROR (L-469) — Overpass reports server-side failure IN-BAND:
+    // HTTP 200, `elements: []`, and a `remark`. There is no error status to check. Nothing in
+    // the stack read that field, so a query timeout over a dense city was indistinguishable from
+    // "this area genuinely has no buildings" — and it bites hardest exactly where the product is
+    // most valuable, because the denser the fabric the likelier the query exceeds its budget.
+    const TIMEOUT_REMARK =
+        'runtime error: Query timed out in "query" at line 1 after 25 seconds.';
+
+    it('L-469 — a 200 carrying a remark and ZERO elements is a FAILURE, not an answer', async () => {
+        fake = makeFakeFetch(() =>
+            new Response(JSON.stringify({ elements: [], remark: TIMEOUT_REMARK }), { status: 200 }));
+        const r = await post('data=' + encodeURIComponent('[out:json];(way(1,1,1,1););out geom;'));
+        // Still 200 to the client (the non-fatal degrade path is deliberate) — but now flagged.
+        expect(r.status).toBe(200);
+        expect(r.headers.get('x-overpass-upstream')).toBe('FAILED');
+        const body = await r.json();
+        expect(body._upstreamFailed).toBe(true);
+        // MUST NOT be long-cached: a timeout is transient, and caching it would repeat L-467.
+        expect(r.headers.get('cache-control') ?? '').not.toContain('max-age=86400');
+    });
+
+    it('L-469 — a remark response does NOT short-circuit the mirror cascade', async () => {
+        // The subtler half: returning the remark body as "the winner" also stopped us trying a
+        // healthier mirror. Both mirrors must be attempted before we give up.
+        let calls = 0;
+        fake = makeFakeFetch(() => {
+            calls++;
+            return new Response(JSON.stringify({ elements: [], remark: TIMEOUT_REMARK }), { status: 200 });
+        });
+        await post('data=' + encodeURIComponent('[out:json];(way(2,2,2,2););out geom;'));
+        // 2 mirrors x (1 attempt + 1 retry) = 4.
+        expect(calls).toBeGreaterThanOrEqual(2);
+    });
+
+    it('L-469 — a second mirror that ANSWERS still wins after the first remarks', async () => {
+        let calls = 0;
+        fake = makeFakeFetch(() => {
+            calls++;
+            return calls <= 2
+                ? new Response(JSON.stringify({ elements: [], remark: TIMEOUT_REMARK }), { status: 200 })
+                : new Response(JSON.stringify({ elements: [{ type: 'way', id: 7 }] }), { status: 200 });
+        });
+        const r = await post('data=' + encodeURIComponent('[out:json];(way(3,3,3,3););out geom;'));
+        const body = await r.json();
+        expect(body.elements).toHaveLength(1);
+        expect(body._upstreamFailed).toBeUndefined();
+    });
+
+    it('L-469 — ⚠ a remark alongside REAL results is NOT discarded', async () => {
+        // The over-correction guard. Overpass also emits informational remarks next to genuine
+        // data; throwing those answers away would be the same defect in the opposite direction.
+        fake = makeFakeFetch(() =>
+            new Response(
+                JSON.stringify({ elements: [{ type: 'way', id: 42 }], remark: 'some informational note' }),
+                { status: 200 },
+            ));
+        const r = await post('data=' + encodeURIComponent('[out:json];(way(4,4,4,4););out geom;'));
+        const body = await r.json();
+        expect(body.elements).toHaveLength(1);
+        expect(body._upstreamFailed).toBeUndefined();
+    });
+
     it('empty query → 400', async () => {
         fake = makeFakeFetch(() => new Response('{}', { status: 200 }));
         const r = await post('data=');
