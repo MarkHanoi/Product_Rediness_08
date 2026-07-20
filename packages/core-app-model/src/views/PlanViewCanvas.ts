@@ -120,6 +120,13 @@ export interface PlanSiteContext {
     readonly parcelRing: ReadonlyArray<{ x: number; z: number }> | null;
     /** Buildable-envelope inset ring (world XZ metres), or null when no valid envelope. */
     readonly envelopeRing: ReadonlyArray<{ x: number; z: number }> | null;
+    /**
+     * §L-430 slice 2d — θ (project→true north, radians) from `SiteLocation.trueNorth`.
+     * Carried on the SAME provider as the rings because it is the same site read; keeping it
+     * here means the plan pane cannot draw site geometry in one frame and annotate it with
+     * another. Consumed by the north arrow (C34 §1.4). 0 / absent ⇒ identity.
+     */
+    readonly projectNorthRad?: number;
 }
 
 export interface PlanViewCanvasOptions {
@@ -577,6 +584,11 @@ export class PlanViewCanvas {
                 // Annotations must use the SAME sign, or they are mirrored relative to
                 // the elements they annotate on any hSign === -1 elevation.
                 hSign:        this._hWorldSign,
+                // §L-430 slice 2d — θ for the north arrow (C34 §1.4). The plan is drawn in
+                // the PROJECT frame, so the arrow must point at TRUE north (−θ on the sheet).
+                // Read from the SAME provider as the site rings, so the pane can never draw
+                // site geometry in one frame and annotate it with another.
+                projectNorthRad: this._siteContextProvider?.()?.projectNorthRad ?? 0,
             },
         );
 
@@ -1836,6 +1848,11 @@ export class PlanViewCanvas {
                 // Annotations must use the SAME sign, or they are mirrored relative to
                 // the elements they annotate on any hSign === -1 elevation.
                 hSign:        this._hWorldSign,
+                // §L-430 slice 2d — θ for the north arrow (C34 §1.4). The plan is drawn in
+                // the PROJECT frame, so the arrow must point at TRUE north (−θ on the sheet).
+                // Read from the SAME provider as the site rings, so the pane can never draw
+                // site geometry in one frame and annotate it with another.
+                projectNorthRad: this._siteContextProvider?.()?.projectNorthRad ?? 0,
             },
         );
 

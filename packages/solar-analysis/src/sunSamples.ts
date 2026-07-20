@@ -70,6 +70,8 @@ export function generateSunSamples(opts: SunSampleOptions): SunSample[] {
     const year = opts.year ?? DEFAULT_YEAR;
     const stepMinutes = opts.stepMinutes && opts.stepMinutes > 0 ? opts.stepMinutes : DEFAULT_STEP_MINUTES;
     const daylightOnly = opts.daylightOnly ?? true;
+    // §L-430 — θ rotates the SCENE-space `dir` only; `azimuthDeg` below stays TRUE north.
+    const projectNorthRad = Number.isFinite(opts.projectNorthRad) ? (opts.projectNorthRad as number) : 0;
 
     const days = resolveDays(opts, year);
 
@@ -81,7 +83,7 @@ export function generateSunSamples(opts: SunSampleOptions): SunSample[] {
             const altitudeDeg = altitude * RAD_TO_DEG;
             if (daylightOnly && altitudeDeg <= 0) continue;
             out.push({
-                dir: sunDirectionFromAltAz(altitude, azimuth),
+                dir: sunDirectionFromAltAz(altitude, azimuth, projectNorthRad),
                 altitudeDeg,
                 azimuthDeg: ((azimuth * RAD_TO_DEG) % 360 + 360) % 360,
                 timeMinutes: t,

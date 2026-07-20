@@ -3448,6 +3448,26 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         window.runtime?.events?.on('site.location-changed', () => {
             try { realEnvironment.refreshSiteLocation(); }
             catch (e) { console.warn('[initScene] realEnvironment.refreshSiteLocation error:', e); }
+            // §L-430 slice 2c — push θ (project→true north) into the sun service on the SAME
+            // event that carries it (`SiteLocation.trueNorth`). Slice 2a gave RealSunService a
+            // `setProjectNorth` but NO caller, so the viewport key light would have stayed in
+            // the true frame while the model rotated — every shadow silently wrong by θ.
+            //
+            // This is the frame, not a preference: it is deliberately separate from the panel's
+            // `setOffsets` so a user slider can never move it (ADR-0115 "two angles must never
+            // alias"). θ = 0 ⇒ no-op, so this is inert until the producer ships.
+            try {
+                const theta = (window.runtime?.siteModelStore as
+                    { getLocation?: () => { trueNorth?: number } | null } | undefined)
+                    ?.getLocation?.()?.trueNorth;
+                const coordinator = window.renderingPipelineCoordinator as
+                    { realSunService?: { setProjectNorth?: (rad: number) => void } } | undefined;
+                coordinator?.realSunService?.setProjectNorth?.(
+                    typeof theta === 'number' && Number.isFinite(theta) ? theta : 0,
+                );
+            } catch (e) {
+                console.warn('[initScene] §L-430 setProjectNorth error (advisory):', e);
+            }
         });
         // Re-place the catcher when the active level / levels change.
         window.runtime?.events?.on('view-activated', () => {

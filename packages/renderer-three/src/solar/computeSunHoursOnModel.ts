@@ -71,6 +71,16 @@ export interface ComputeSunHoursOptions {
     readonly latDeg: number;
     /** Site longitude (decimal degrees). Affects solar time of day. Default 0. */
     readonly lngDeg?: number;
+    /**
+     * §L-430 — θ, the PROJECT→TRUE-north angle (radians; `SiteLocation.trueNorth`). Default 0.
+     *
+     * This analysis raycasts sun directions against SCENE geometry, so the sun must be in the
+     * SAME frame the model is authored in. Omitting θ once the authoring frame rotates would
+     * cast every ray from a bearing θ off the true sun — a fully-populated, plausible, wrong
+     * sun-hours heatmap. Must match `RealSunService.setProjectNorth`, or the analysed shadows
+     * and the viewport shadows disagree.
+     */
+    readonly projectNorthRad?: number;
     /** Sample spacing on each surface, metres. Default 0.75. */
     readonly sampleSpacing?: number;
     /** Heatmap colour ramp (cold → hot). Default PRYZM purple → yellow. */
@@ -358,6 +368,9 @@ export function computeSunHoursOnModel(
         dayOfYear,
         stepMinutes,
         daylightOnly: true,
+        // §L-430 — express the sun in the AUTHORING frame; these dirs are raycast against
+        // scene geometry below, so a true-frame sun would rotate every shadow by θ.
+        projectNorthRad: opts.projectNorthRad ?? 0,
     });
 
     // Optional time-of-day window (panel's HH:MM slider): keep only samples within
