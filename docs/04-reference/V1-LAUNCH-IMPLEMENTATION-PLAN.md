@@ -3764,3 +3764,68 @@ Source of truth is `siteModelStore.getParcelBoundary()` + `getLastBuildableEnvel
 **Frame coupling — sequence AFTER the L-430 slice-3 decision.** Snapping works in scene coordinates. If slice 3 de-rotates the parcel ring at commit (the preferred RIGID-TRANSFORM-LAST option), the boundary and envelope become axis-aligned in the authoring frame and these snaps line up with orthogonal wall drawing **for free** — the project-north work compounding. If instead θ⁻¹ is applied per-consumer, this provider becomes another θ consumer. Building it before that decision means building it twice.
 
 Contracts: **C58** (envelope), **C19** (site + parcel), **C34** (reference linework), **C11** (element pipeline). Files: `packages/snapping/src/providers/*`, `SnapManager.ts:12-22,49`, `siteModelStore`, `ParcelBoundarySceneRenderer.ts`. Completes L-425/426/431; extends L-401 to manual authoring. Owner UNASSIGNED.
+
+
+---
+
+## L-442 — Deploy: precompile the server so boot stops transpiling (P0 mitigated, durable fix open)
+
+**Link:** audit row **L-442**. **Queue:** infra / deploy. **Owner:** UNASSIGNED. **Target:** TBD.
+
+**Phase 0 — DONE (mitigation, this pass).** `fly.toml` VM 512 MB/1 cpu → 1024 MB/2 cpu;
+`grace_period` 90 s → 60 s (Fly caps it at 60 s, so 90 s was tolerance we never had).
+This buys headroom; it does not fix the cause.
+
+**Phase 1 — the durable fix (OPEN).** Stop transpiling at boot. `dist/index.cjs` currently
+re-spawns `server.js` under `--import tsx`, so ~100 workspace TS packages are compiled on
+every cold start before `httpServer.listen()`. Precompile the server and its workspace deps
+in the Docker builder stage and run plain `node` at runtime.
+
+**Why this is P0 and not cosmetic:** boot cost grows monotonically with every package added.
+It was intermittent for ~3 weeks and became deterministic in one session. Any future package
+can re-break deploys, and the retry loop cannot rescue a deterministic overrun.
+
+**Acceptance:** cold boot binds `0.0.0.0:5000` in <20 s with no `tsx` in the runtime image;
+a deploy succeeds on attempt 1 with the machine reaching a good state.
+
+---
+
+## L-443 — Planning Rules Engine: extend C58's rule model (P1, CONFLICT — needs a decision)
+
+**Link:** audit row **L-443**. **Queue:** compliance / geospatial (C58). **Owner:** UNASSIGNED.
+**Target:** TBD. **Blocked on:** a human decision, not on engineering.
+
+**The finding:** the founder's "compiler" model *is* C58 — §1.5 (jurisdiction-agnostic core +
+adapters), §2.2 (`JurisdictionZoningContract`), §2.4 (`insetPolygon = parcel ⊖ setbacks`).
+No new architecture is required. What is required is **content** and **one model extension**.
+
+### Phase 1 — DECISION (blocking, human)
+C58 §2.2 admits only `setbacks: { front_m, side_m, rear_m }`. The founder's own example
+`{"alignment":"street", …}` cannot be expressed, nor can Madrid's published reality
+(`Fondo de la Edificación` polyline + `Alineaciones`, verified live) or *profundidad
+edificable*. **Choose:**
+- **(a)** extend C58 with an alignment/depth/street-width rule family (recommended — it is
+  the actual data shape of Spain's second city), or
+- **(b)** restrict rule packs to zones that genuinely express a setback triple, and state the
+  coverage limit publicly.
+
+**Do not** coerce alignment zones into a front-setback number: that yields confidently wrong
+envelopes on dense urban fabric, which is precisely where the product is most used.
+
+### Phase 2 — the missing link: `calificación` (zone code)
+L-441 landed national *clasificación* (urbano/urbanizable/rústico) via SIU. But applying a
+rule requires the **specific zone code**, which is patchier — Catalonia and Valencia publish
+it, Andalucía does not. **Without this, a perfect rule library is unusable.** This, not the
+rule schema, is the practical blocker for step 1 of the founder's roadmap.
+
+### Phase 3 — three-city end-to-end proof (Madrid · Barcelona · Córdoba)
+Extract real ordenanzas into a `JurisdictionZoningContract`, run against real Catastro
+parcels, compare the envelope to the municipal viewer. Madrid first — it fails on the hard
+(alignment) case while changing the schema is still cheap. Córdoba tests Andalucía, where no
+regional zone-code source was found. **Output: how long one municipality actually takes**,
+turning ×318 from a guess into arithmetic.
+
+### Phase 4 — Portugal (UNSTARTED, not an extension of Spain)
+Zero coverage: no contract, no ADR, no verified endpoint. PDM ≠ PGOU, 308 municipalities,
+different infrastructure (DGT / SNIG). Needs its own live-verification pass before any
+estimate.
