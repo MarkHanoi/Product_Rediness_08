@@ -55,3 +55,13 @@ export {
     type StoreyCapResult,
     type StoreyCapBinding,
 } from './storeyCap.js';
+// §L-428 — post-generate envelope CONTAINMENT validator (the verification half of
+// compliance-by-construction: detect any element footprint that breaches the setback line).
+export {
+    checkEnvelopeContainment,
+    CONTAINMENT_TOLERANCE_M,
+    type XZ,
+    type FootprintToCheck,
+    type ContainmentViolation,
+    type ContainmentReport,
+} from './envelopeContainment.js';
