@@ -621,6 +621,16 @@ export class CesiumViewport {
   /** Entities placed for the authored massing (proposed buildings + boundary),
    *  so a re-render can clear the previous set before placing the new one. */
   private formaMassingEntities: Cesium.Entity[] = [];
+  /**
+   * §SITE-OVERLAY-NOT-BUILDING (L-464) — the subset of `formaMassingEntities` that is SITE
+   * CONTEXT (buildable envelope, parcel boundary) rather than the proposed BUILDING.
+   *
+   * They share the massing array so they share its CLEAR lifecycle — that part was right — but
+   * they must NOT share its SHOW/HIDE lifecycle: the site constraint does not stop applying
+   * because the proposal is being re-drawn or the ground datum is still resolving.
+   * `setGlobeBuildingShown` skips everything in here.
+   */
+  private formaSiteOverlayEntities = new Set<Cesium.Entity>();
   /** The last-known site lat/lon (= ENU anchor) + the boundary centroid (in ENU
    *  metres) + plot area the massing was placed against — used by the
    *  "Zoom to Site" / "Reset View" affordance to repeat the NW oblique flyTo. */
@@ -3931,6 +3941,7 @@ export class CesiumViewport {
             },
           });
           this.formaMassingEntities.push(ent);
+          this.formaSiteOverlayEntities.add(ent);   // §SITE-OVERLAY-NOT-BUILDING (L-464)
         }
 
         // Dashed top line (closed ring).
@@ -4739,6 +4750,18 @@ export class CesiumViewport {
    *  cannot resurrect a floor the user filtered out. Guarded; never throws. */
   private setGlobeBuildingShown(shown: boolean): void {
     for (const ent of this.formaMassingEntities) {
+      // §SITE-OVERLAY-NOT-BUILDING (L-464) — the buildable ENVELOPE and the parcel BOUNDARY ride
+      // in `formaMassingEntities` for their CLEAR lifecycle, but they are SITE CONTEXT, not the
+      // proposed building. Hiding them here made both flash on and vanish a moment later:
+      // whenever the building is hidden — while the ground datum resolves, or when the real GLB
+      // replaces the massing — the compliance overlay went with it. Founder: "I see for a second
+      // the envelope and boundary - then disappear."
+      //
+      // ⚠ WHY THIS MATTERS BEYOND THE FLICKER: an envelope that vanishes reads as "there is no
+      // constraint here" — the silent false negative C58 §1.4 forbids, and the same class of
+      // defect as L-445. The constraint does not stop applying because the proposal is being
+      // re-drawn.
+      if (this.formaSiteOverlayEntities.has(ent)) continue;
       try { ent.show = shown; } catch { /* entity gone */ }
     }
     const model = this.realModelOnGlobe;
