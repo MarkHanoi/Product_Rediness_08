@@ -1855,11 +1855,45 @@ export class CesiumViewport {
         | { getLocation?: () => { trueNorth?: number } | null }
         | undefined;
       const theta = store?.getLocation?.()?.trueNorth;
-      return typeof theta === 'number' && Number.isFinite(theta) ? theta : 0;
+      const ok = typeof theta === 'number' && Number.isFinite(theta);
+
+      // §L-446 DIAGNOSTIC — θ read as 0 is INDISTINGUISHABLE from "this site genuinely has no
+      // project north", and both make enuFrameWithProjectNorth return the bare ENU frame. That
+      // ambiguity is exactly why this defect survived a fix: the rotation is skipped SILENTLY.
+      //
+      // The whole read chain is statically correct — siteModelStore is on PryzmRuntime
+      // (types.ts §3593, wired at composeRuntime:1538), getLocation() exists
+      // (stores/SiteModelStore.ts:72), and trueNorth is schema-backed with .default(0)
+      // (schemas/site/SiteLocation.ts:33). So a 0 here is a RUNTIME-STATE failure, and only a
+      // runtime probe can say which link is empty. Report each link separately rather than
+      // logging "theta=0", which would not distinguish them.
+      //
+      // Warn-once: this is called per placement and per massing render — unthrottled it would
+      // flood the console the founder is reading.
+      if (!ok || theta === 0) {
+        if (!CesiumViewport._projNorthDiagWarned) {
+          CesiumViewport._projNorthDiagWarned = true;
+          console.warn(
+            '[CesiumViewport][§L-446] project north resolved to 0 — the model will render in ' +
+            'PROJECT space on a TRUE-north globe. Which link is empty: ' +
+            `runtime=${this.runtime ? 'present' : 'NULL'} ` +
+            `siteModelStore=${store ? 'present' : 'MISSING'} ` +
+            `getLocation=${typeof store?.getLocation === 'function' ? 'present' : 'MISSING'} ` +
+            `location=${store?.getLocation?.() ? 'present' : 'NULL'} ` +
+            `trueNorth=${JSON.stringify(theta)}. ` +
+            'If every link is present and trueNorth is 0, the site genuinely has no project ' +
+            'north and this is CORRECT — not a bug.',
+          );
+        }
+      }
+      return ok ? theta : 0;
     } catch {
       return 0;
     }
   }
+
+  /** §L-446 — warn-once latch for the project-north diagnostic above. */
+  private static _projNorthDiagWarned = false;
 
   /**
    * Point the camera at a site location so the user sees their plot (top-down at
