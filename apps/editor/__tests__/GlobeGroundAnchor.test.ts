@@ -206,3 +206,99 @@ describe('§FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (ii) — the horizontal georef
         expect(georefOriginsDiverge({ ltpOrigin: MENORCA, storeLocation: jitter, anchorOrigin: MENORCA })).toBe(false);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// §GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — the pick SUCCEEDED and was WRONG.
+// ─────────────────────────────────────────────────────────────────────────────────────
+// L-259 (above) closed "no pick yet → silent 0". This closes the harder twin: a pick that
+// COMES BACK, reports success, and is an ellipsoid hit. Where the photoreal tiles have not
+// streamed at that LOD there is no primitive for `clampToHeightMostDetailed` to hit, so the
+// ray continues onto the rendered globe — which on this keyless build IS the ellipsoid — and
+// the API reports an ordinary successful pick at h ≈ 0.
+//
+// Measured live in Barcelona (L-466 case 2): base **-0.54 m ELLIPSOIDAL, resolved=y**, where
+// the true tile surface is ≈ +50 m. The building was drawn ~50 m under the city, and the
+// system reported it as resolved. Failure-reported-as-success, the same shape as L-467 /
+// L-469 / L-476 in other layers.
+//
+// ⚠ The reduction takes the MINIMUM over footprint + street ring, so ONE ellipsoid hit does
+// not dilute the answer — it WINS. That is why rejection must happen BEFORE the min.
+describe('§GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — a near-ellipsoid pick is not a measurement', () => {
+    /** Barcelona: geoid separation ≈ +49 m, so the photoreal ground is ≈ +50 m ELLIPSOIDAL. */
+    const BCN_TILE_GROUND_M = 50.3;
+
+    it('THE BUG: a single ellipsoid hit among good tile picks no longer drags the base underground', () => {
+        // Street-ring picks all agree on ~50 m; one ray fell through un-streamed tiles to ~0.
+        const anchor = resolveGlobeGroundAnchor(base({
+            tileSampleHeights: [BCN_TILE_GROUND_M, BCN_TILE_GROUND_M + 0.4, -0.54, BCN_TILE_GROUND_M + 0.2],
+        }));
+        expect(anchor.status).toBe('resolved');
+        // Before the fix this was -0.54 — the min — and the building sat ~50 m under Barcelona.
+        expect(anchor.heightM).toBeCloseTo(BCN_TILE_GROUND_M, 5);
+        expect(anchor.source).toBe('photoreal-tile-clamp');
+    });
+
+    it('THE FOUNDER-REPORTED CASE: picks that are ALL ellipsoid hits resolve to UNRESOLVED, not to ~0', () => {
+        const anchor = resolveGlobeGroundAnchor(base({ tileSampleHeights: [-0.54, 0, 0.31, -1.2] }));
+        // The honest answer is "we have not measured the ground yet" — which is the truth:
+        // the tiles had not streamed. UNRESOLVED makes the caller hold the building hidden
+        // and retry (`decideGroundAnchorAction`) instead of burying it at a confident 0.
+        expect(anchor.status).toBe('unresolved');
+        expect(anchor.heightM).toBeNull();
+        expect(anchor.source).toBe('unresolved');
+    });
+
+    it('and that UNRESOLVED state makes the caller RETRY rather than place — the refusal is the fix', () => {
+        const anchor = resolveGlobeGroundAnchor(base({ tileSampleHeights: [-0.54] }));
+        expect(decideGroundAnchorAction(anchor, 3)).toBe('hold-hidden-retry');
+        // And when the budget is spent it is revealed with a LOUD warning — never silently.
+        expect(decideGroundAnchorAction(anchor, 0)).toBe('reveal-unknown-datum-warn');
+    });
+
+    it('never mislabels an all-ellipsoid run as a real tile clamp, even when a sphere ground rescues it', () => {
+        const anchor = resolveGlobeGroundAnchor(base({
+            tileSampleHeights: [-0.54, 0.2],
+            tilesetSphereGroundHeightM: BCN_TILE_GROUND_M,
+        }));
+        expect(anchor.status).toBe('resolved');
+        expect(anchor.heightM).toBeCloseTo(BCN_TILE_GROUND_M, 5);
+        // The evidence log must not claim we clamped to the tile mesh when every pick was junk.
+        expect(anchor.source).toBe('tileset-bounding-sphere');
+    });
+
+    it('THE CORROBORATION ESCAPE: near-zero picks ARE believed when the tileset itself says ground is near zero', () => {
+        // Genuinely low ground near a small geoid separation. Blanket-rejecting near-zero picks
+        // would refuse to place a building here forever, so independent evidence re-admits them.
+        const anchor = resolveGlobeGroundAnchor(base({
+            tileSampleHeights: [1.4, 1.8, 2.1],
+            tilesetSphereGroundHeightM: 1.5,
+        }));
+        expect(anchor.status).toBe('resolved');
+        expect(anchor.heightM).toBeCloseTo(1.4, 5);
+        expect(anchor.source).toBe('photoreal-tile-clamp');
+    });
+
+    it('leaves ordinary elevated ground untouched (Paris ≈ 80 m ellipsoidal, Menorca ≈ 54 m)', () => {
+        expect(resolveGlobeGroundAnchor(base({ tileSampleHeights: [80.1, 81.0] })).heightM)
+            .toBeCloseTo(80.1, 5);
+        expect(resolveGlobeGroundAnchor(base({ tileSampleHeights: [MENORCA_TILE_GROUND_ELLIPSOIDAL_M] })).heightM)
+            .toBeCloseTo(MENORCA_TILE_GROUND_ELLIPSOIDAL_M, 5);
+    });
+
+    it('does NOT touch the flat-ground study: with photoreal tiles OFF, 0 is still the true datum', () => {
+        // ADR-0268 §156 — no tiles means the rendered globe surface IS the ellipsoid, so 0 is a
+        // true datum statement, not a fall-through. This rule must never reach that path.
+        const anchor = resolveGlobeGroundAnchor(base({ photorealTilesActive: false, tileSampleHeights: [] }));
+        expect(anchor.status).toBe('resolved');
+        expect(anchor.heightM).toBe(0);
+        expect(anchor.source).toBe('ellipsoid-flat-ground');
+    });
+
+    it('reduceTileGroundHeight keeps its historical L-179/L-184 semantics when the flag is OFF', () => {
+        // The legacy `selectPhotorealTileBaseHeight` surface delegates without the flag, so the
+        // opt-in must be exactly that: opt-in. Guards against a silent behaviour change there.
+        expect(reduceTileGroundHeight([50.3, -0.54], null, 0)).toBeCloseTo(-0.54, 5);
+        expect(reduceTileGroundHeight([50.3, -0.54], null, 0, { rejectEllipsoidPicks: true }))
+            .toBeCloseTo(50.3, 5);
+    });
+});

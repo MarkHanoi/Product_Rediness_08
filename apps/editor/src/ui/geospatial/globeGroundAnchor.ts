@@ -91,6 +91,64 @@ export interface GlobeGroundAnchorInput {
 }
 
 /**
+ * §GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — how close to the WGS-84 ellipsoid a height
+ * pick may land before we refuse to believe it came off the photoreal tile MESH.
+ *
+ * THE DEFECT THIS EXISTS FOR: `clampToHeightMostDetailed` is documented to clamp onto the
+ * nearest PRIMITIVE surface, but where the photoreal tiles have not STREAMED yet at that
+ * LOD there is no primitive to hit, and the ray continues onto the rendered globe — whose
+ * surface, on this keyless build, IS the ellipsoid. The API reports that as an ordinary
+ * successful pick. So the failure does not present as "no height"; it presents as `h ≈ 0`,
+ * `status=resolved`, `source=photoreal-tile-clamp` — a confident, well-formed, WRONG datum.
+ * Measured live in Barcelona: base **-0.54 m ELLIPSOIDAL, resolved=y**, where the true tile
+ * surface is ≈ **+50 m** (geoid separation ≈ 49 m). The building was drawn ~50 m under the
+ * city. Same failure-reported-as-success shape as L-467/L-469/L-476, in a different layer.
+ *
+ * WHY ±2 m IS SAFE WITHOUT A GEOID MODEL. We deliberately do NOT ship an EGM96 grid to
+ * decide this: a half-right geoid table would be a new source of confident wrong answers,
+ * which is the very failure mode being closed. We rely instead on a property that needs no
+ * model — over essentially all inhabited land the ellipsoidal height of the ground is the
+ * geoid separation (tens of metres, either sign) PLUS local terrain, so a genuine tile-mesh
+ * pick landing within 2 m of the ellipsoid is vanishingly unlikely, while an ellipsoid hit
+ * lands there by construction.
+ *
+ * AND THE FAILURE IS A REFUSAL, WHICH IS WHY THE ASYMMETRY IS ACCEPTABLE. A false REJECT
+ * yields `unresolved` → the building is held hidden and the clamp retries as tiles stream
+ * (`decideGroundAnchorAction`), and if the budget runs out it is revealed with a LOUD
+ * warning. A false ACCEPT silently buries the building. Refusing to place is cheap;
+ * placing wrongly is not.
+ *
+ * ⚠ NOT A TERRAIN PROVIDER. ADR-0268 §156: the photoreal tile mesh IS the ground. Attaching
+ * a terrain provider to "fix" this would double-count elevation. This rejects a bad pick; it
+ * does not introduce a second elevation source.
+ */
+export const ELLIPSOID_PICK_EPSILON_M = 2;
+
+/**
+ * §GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — the CORROBORATION ESCAPE.
+ *
+ * Some ground genuinely does sit near the ellipsoid (where the geoid separation is small and
+ * the terrain is low). Blanket-rejecting near-zero picks would refuse to place a building
+ * there forever. So the rejection is skipped when we hold INDEPENDENT evidence that the
+ * ground really is near zero: the tileset's own root bounding-sphere ground — a real, if
+ * coarse, measurement of the actual tile data rather than a model or a guess.
+ *
+ * This can only ever LOOSEN the rule toward the truth, and only on evidence.
+ */
+function sphereGroundConfirmsNearEllipsoid(sphereGroundHeightM: number | null): boolean {
+    return (
+        sphereGroundHeightM !== null &&
+        Number.isFinite(sphereGroundHeightM) &&
+        Math.abs(sphereGroundHeightM) <= SPHERE_GROUND_NEAR_ELLIPSOID_M
+    );
+}
+
+/** §GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — how near zero the tileset's own coarse
+ *  sphere ground must be to corroborate that near-zero picks are real ground. Wider than
+ *  `ELLIPSOID_PICK_EPSILON_M` because the sphere estimate is coarse by nature. */
+export const SPHERE_GROUND_NEAR_ELLIPSOID_M = 10;
+
+/**
  * §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES (L-179) — the PURE reduction of the tile-surface
  * height picks to a base height. A building roof is always ABOVE the ground it stands on,
  * so the MINIMUM over the footprint + surrounding street ring recovers the true street
@@ -104,10 +162,22 @@ export function reduceTileGroundHeight(
     sampledHeights: readonly (number | null | undefined)[],
     sphereGroundHeightM: number | null,
     seatEpsilonM = 0,
+    opts: { readonly rejectEllipsoidPicks?: boolean } = {},
 ): number | null {
+    // §GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — see `ELLIPSOID_PICK_EPSILON_M`. When the
+    // photoreal tiles are the visible ground, a pick that lands within a couple of metres of
+    // the ellipsoid did not hit the tile mesh; it fell THROUGH un-streamed tiles onto the
+    // globe. Discarding it is essential BEFORE the min: this reduction takes the MINIMUM over
+    // the footprint + street ring, so ONE ellipsoid hit does not merely dilute the answer, it
+    // WINS outright and drags the whole building underground — which is precisely how the
+    // founder's Barcelona base resolved to -0.54 m while the true tile surface is ~+50 m.
+    const rejectNearZero =
+        opts.rejectEllipsoidPicks === true && !sphereGroundConfirmsNearEllipsoid(sphereGroundHeightM);
+
     let min: number | null = null;
     for (const h of sampledHeights) {
         if (typeof h === 'number' && Number.isFinite(h)) {
+            if (rejectNearZero && Math.abs(h) <= ELLIPSOID_PICK_EPSILON_M) continue;
             min = min === null ? h : Math.min(min, h);
         }
     }
@@ -150,13 +220,27 @@ export function resolveGlobeGroundAnchor(input: GlobeGroundAnchorInput): GlobeGr
     if (!input.heightPickingAvailable) {
         return { status: 'unresolved', heightM: null, datum: 'ellipsoidal-wgs84', source: 'unresolved' };
     }
-    const hasRealPick = input.tileSampleHeights.some(
+    // §GLOBE-ELLIPSOID-PICK-IS-NOT-GROUND (L-477) — we are past `photorealTilesActive`, so the
+    // tile mesh IS the visible ground and a near-ellipsoid pick is a fall-through onto the
+    // globe, not a measurement. Reject those picks. If that leaves nothing, the answer is
+    // UNRESOLVED — the SAME state as "tiles have not streamed yet", which is exactly what it
+    // is — and `decideGroundAnchorAction` holds the building hidden and retries.
+    const rejectEllipsoidPicks = true;
+    const credible = rejectEllipsoidPicks && !sphereGroundConfirmsNearEllipsoid(input.tilesetSphereGroundHeightM)
+        ? input.tileSampleHeights.filter(
+            (h) => typeof h === 'number' && Number.isFinite(h) && Math.abs(h) > ELLIPSOID_PICK_EPSILON_M,
+        )
+        : input.tileSampleHeights;
+    // `hasRealPick` must reflect the picks we actually BELIEVE, so a run whose only picks were
+    // ellipsoid hits is not mislabelled `photoreal-tile-clamp` in the evidence log.
+    const hasRealPick = credible.some(
         (h) => typeof h === 'number' && Number.isFinite(h),
     );
     const h = reduceTileGroundHeight(
         input.tileSampleHeights,
         input.tilesetSphereGroundHeightM,
         input.seatEpsilonM ?? 0,
+        { rejectEllipsoidPicks },
     );
     if (h === null) {
         return { status: 'unresolved', heightM: null, datum: 'ellipsoidal-wgs84', source: 'unresolved' };
