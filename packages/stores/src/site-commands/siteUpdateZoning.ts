@@ -65,6 +65,14 @@ export function siteUpdateZoning(
         zoning: payload.zoning
             ? { ...current.parcel.zoning, ...payload.zoning }
             : current.parcel.zoning,
+        // ADR-0270 option A / C58 §1.7a — persist the inset ring as the buildable TRUTH.
+        // `undefined` = untouched (delta semantics, as every field above); an explicit `null`
+        // CLEARS a stale envelope rather than leaving a ring that no longer describes this
+        // parcel — which would be worse than none, because it still looks authoritative.
+        buildableRing:
+            payload.buildableRing === undefined
+                ? (current.parcel.buildableRing ?? null)
+                : payload.buildableRing,
     };
 
     const next = { ...current, parcel: nextParcel };
