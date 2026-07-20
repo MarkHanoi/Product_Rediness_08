@@ -3288,17 +3288,46 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const cesiumMounter: PaneRendererMounter = {
             rendererKind: 'cesium',
             mount: async (paneEl) => {
+                // §L-433 (founder 2026-07-20: "the Forma 3D-Site view takes too long to trigger")
+                // — put the SHARED loading overlay up SYNCHRONOUSLY, before any await.
+                //
+                // ROOT CAUSE this fixes: `engageFormaCesium` opens a loading session via
+                // `startViewActivationLoading('site', …)`, but THIS pane mounter — the path the
+                // onboarding site-authoring split actually takes — constructed Cesium directly
+                // (toggleGIS + awaitCesiumReady) and so bypassed the overlay producer entirely.
+                // The result was a dead BLACK pane for the whole viewer-construct + tile-stream
+                // window, with no spinner, no progress and no explanation. A black pane with no
+                // affordance reads as a crash, which is why this was reported as "too long"
+                // rather than "still loading": the wait was invisible, not merely slow.
+                //
+                // Reuses the EXISTING readiness chain (viewer ready → tiles → placement →
+                // ground settled) and the ONE shared overlay — no new component, no timer, and
+                // the L-270 stall watchdog still guarantees it can never spin forever.
+                const paneActivation = startViewActivationLoading('site', () => {
+                    // Retry = re-run this mount against the same pane element.
+                    void containViewActivation(
+                        () => { void cesiumMounter.mount?.(paneEl); },
+                        (m) => activeViewActivation?.fail(m),
+                        'The 3D Site pane failed to open',
+                    );
+                });
                 // Ensure the single Cesium viewer is constructed + visible. toggleGIS
                 // mounts it lazily into #container on first use; we then MOVE its one
                 // container node into the right pane (no second viewer). Suppress the
                 // re-activation self-place (we render our own massing below).
                 gisReactivationSelfPlaceSuppressed = true;
                 try { toggleGIS(true); }
-                catch (e) { console.error('[gis][panes] toggleGIS threw:', e); }
+                catch (e) {
+                    console.error('[gis][panes] toggleGIS threw:', e);
+                    // Never leave the overlay spinning on a hard failure — surface it with the
+                    // retry/continue escape actions instead of a permanent spinner.
+                    paneActivation.fail(`The 3D Site failed to open: ${String((e as Error)?.message ?? e)}`);
+                }
                 finally { gisReactivationSelfPlaceSuppressed = false; }
                 await awaitCesiumReady();
                 if (!cesiumViewport) {
                     console.warn('[gis][panes] Cesium never constructed — right pane empty.');
+                    paneActivation.fail('The 3D Site viewer could not be constructed.');
                     return;
                 }
                 // RE-TARGET the single #cesium-viewport-container into the RIGHT pane.
@@ -3323,8 +3352,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     renderFormaMassing(false);
                 }
                 mountFormaAnalysis();
+                // §L-433 — the placement has been ISSUED, so the readiness chain may now await
+                // the ground clamp. Without this the overlay would wait on a signal that is
+                // never armed and only the stall watchdog would end it — turning a slow load
+                // into a visible error. This is the same handshake `engageFormaCesium` makes.
+                paneActivation.contentIssued();
             },
             unmount: () => {
+                // §L-433 — leaving the pane mid-load must not strand the overlay over an empty
+                // right pane; cancel restores input and dismisses it.
+                try { activeViewActivation?.cancel('site-authoring pane unmounted'); }
+                catch { /* advisory */ }
                 // Re-home the single viewer back to #container + hide it (never disposed).
                 const host = document.getElementById('container');
                 if (host) { try { cesiumViewport?.reparentContainerTo?.(host); } catch { /* gone */ } }
