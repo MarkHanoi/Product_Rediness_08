@@ -132,7 +132,25 @@ kill_timeout = "10s"
     # so the config states the truth.
     grace_period    = "60s"
     method          = "GET"
-    path            = "/api/health/ready"
+    # §L-444 (2026-07-20) — DEPLOY GATE MUST NOT DEPEND ON THE DATABASE.
+    # This was "/api/health/ready", which runs SELECT 1 and returns 503 whenever the
+    # DB is unreachable. Fly uses these checks BOTH to gate a deploy and to route
+    # traffic, so an unreachable database did not just take the app down — it made
+    # every deploy fail, INCLUDING a rollback. You most need to ship when something is
+    # broken, and this guaranteed you could not.
+    #
+    # /api/health/live is process liveness only (no DB, 200 while the process is up),
+    # which is the correct question for "did this machine start?". The app already
+    # degrades without PG (§SERVER-PG-DEGRADE) and can still serve the SPA, static
+    # assets and every non-DB route, so a degraded instance is far better than a
+    # deploy lockout.
+    #
+    # TRADE-OFF, stated deliberately: with /live, an instance whose DB is down STAYS in
+    # rotation and serves errors on DB-backed routes rather than being pulled out.
+    # That is the accepted cost of never being unable to deploy. If we later want both,
+    # the answer is a separate readiness signal for routing — not putting the DB back
+    # in the deploy gate.
+    path            = "/api/health/live"
     protocol        = "http"
     tls_skip_verify = false
 
