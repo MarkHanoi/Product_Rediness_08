@@ -72,6 +72,26 @@ function resolveScene(): unknown | null {
     );
 }
 
+/**
+ * §L-430 slice 2c — θ (project→true north, radians) from `SiteLocation.trueNorth`.
+ *
+ * The sun-hours study raycasts against SCENE geometry, so the sun must be expressed in the
+ * authoring frame. This reads the SAME field `RealSunService.setProjectNorth` is fed from, so
+ * the analysed shadows and the viewport shadows cannot drift apart. Returns 0 (the identity)
+ * whenever unavailable, so an un-rotated project is byte-identical to before.
+ */
+function resolveProjectNorthRad(): number {
+    try {
+        const store = (window as unknown as {
+            runtime?: { siteModelStore?: { getLocation?: () => { trueNorth?: number } | null } };
+        }).runtime?.siteModelStore;
+        const theta = store?.getLocation?.()?.trueNorth;
+        return typeof theta === 'number' && Number.isFinite(theta) ? theta : 0;
+    } catch {
+        return 0;
+    }
+}
+
 /** Resolve the site latitude/longitude (decimal degrees) for the sun path, or a
  *  UK-ish fallback when no real site location is pinned (same rule as daylight). */
 function resolveSiteLatLng(): { lat: number; lng: number; source: 'site' | 'default' } {
@@ -119,6 +139,12 @@ export function computeSunHoursForActiveLevel(
         res = computeSunHoursOnModel(scene as never, level.id, {
             latDeg: lat,
             lngDeg: lng,
+            // §L-430 slice 2c — the AUTHORING frame angle. These sun directions are raycast
+            // against scene geometry, so they must share the model's frame; a true-frame sun
+            // against a project-frame model rotates every shadow by θ. Read from the same
+            // `SiteLocation.trueNorth` the viewport key light uses, so the ANALYSIS and the
+            // VIEWPORT can never disagree. θ = 0 ⇒ unchanged.
+            projectNorthRad: resolveProjectNorthRad(),
             ...(dayOfYear != null ? { dayOfYear } : {}),
             ...(opts.stepMinutes != null ? { stepMinutes: opts.stepMinutes } : {}),
             ...(opts.sampleSpacing != null ? { sampleSpacing: opts.sampleSpacing } : {}),

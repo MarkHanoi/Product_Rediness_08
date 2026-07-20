@@ -48,3 +48,10 @@ export {
     type MapPlandataOpts,
 } from './providers/mapPlandataToZoningRecord.js';
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
+// §L-401 slice 2 — storey height-cap against the C58 envelope (pure decision).
+export {
+    capStoreysToEnvelope,
+    type StoreyCapInput,
+    type StoreyCapResult,
+    type StoreyCapBinding,
+} from './storeyCap.js';

@@ -32,6 +32,12 @@ import type {
     BuildableEnvelope,
 } from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
+// §L-430 slice 3 — parcel→θ derivation + the true→project free-vector rotation used to square
+// the committed ring into the authoring frame (ADR-0115 dual-north primitive).
+import {
+    deriveProjectNorthAngleFromParcel,
+    trueVectorToProjectNorth,
+} from './overlay/projectTrueNorth';
 import {
     solveEstimatedEnvelope,
     computeBuildableEnvelope,
@@ -580,6 +586,44 @@ export function dispatchParcelBoundary(
 ): boolean {
     const siteId = ensureSite(ctx);
     if (!siteId) return false;
+
+    // §L-430 slice 3 — THE PRODUCER. Everything before this slice derived or consumed θ while
+    // it was still 0; this is the single point that makes it non-zero, and it is deliberately
+    // the LAST piece so every consumer was already in place (ADR-0115 §Remaining, sequencing).
+    //
+    // WHY DE-ROTATE THE RING AT COMMIT rather than apply θ⁻¹ at every consumer (the fork
+    // recorded in ADR-0115 item 8): this is ADR-0070's RIGID-TRANSFORM-LAST rule. The parcel
+    // arrives TRUE-north-framed from `buildBoundaryFromLatLonRing`; rotating it ONCE, here,
+    // means every downstream stage — envelope inset, generators, walls, rooms, snapping,
+    // the plan view — is authored in an axis-aligned frame with no further transform and no
+    // per-consumer θ to forget. The alternative sprays θ⁻¹ across every reader, which is how
+    // one missed site silently mixes frames.
+    //
+    // The rotation is about the SCENE ORIGIN, which IS the LTP-ENU origin the ring was
+    // projected about, so it is exactly the free-vector form and no base term is needed.
+    // θ = 0 (a parcel already square to true north) ⇒ EXACT identity ⇒ byte-identical to
+    // before for every existing project (ADR-0070 byte-identity).
+    const projectNorthRad = deriveProjectNorthAngleFromParcel(boundary.polygon);
+    if (projectNorthRad !== 0) {
+        // Persist θ FIRST: the consumers (globe, solar, north arrow, plan pane) read it from
+        // `SiteLocation.trueNorth`, and `site.parcel-boundary-set` below triggers the first
+        // render. Setting it after would paint one frame in the wrong orientation.
+        dispatchSiteTrueNorth(ctx, projectNorthRad);
+        boundary = {
+            // Edge ORDER is preserved by a rotation, so `edgeClassifications` (indexed by
+            // edge) stays valid without recomputation.
+            polygon: boundary.polygon.map((p) => {
+                const e = trueVectorToProjectNorth({ east: p.x, north: -p.z }, projectNorthRad);
+                return { x: e.east, z: -e.north };
+            }),
+            edgeClassifications: boundary.edgeClassifications,
+        };
+        console.log(
+            `[gis] §L-430 project north — parcel squared to its dominant edge: `
+            + `θ = ${(projectNorthRad * 180 / Math.PI).toFixed(2)}° (project→true). `
+            + `Authoring frame is now orthogonal; 3D Site + globe re-apply θ for true north.`,
+        );
+    }
 
     const boundaryRes = siteSetParcelBoundary({ siteId, boundary }, ctx.store);
     if (!boundaryRes.ok) {

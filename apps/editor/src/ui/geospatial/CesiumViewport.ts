@@ -33,6 +33,9 @@ import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
 import { getCurrentSiteOrigin } from "../site/siteDispatch";
+// §L-430 slice 2b — the scene(PROJECT-north) → ENU(TRUE-north) frame boundary, extracted
+// headless so it is unit-testable (this file is not). See sceneEnuFrame.ts for why.
+import { sceneXZToEnu } from "./sceneEnuFrame";
 // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — pure vertical-datum + georeference
 // decisions (no Cesium/THREE/DOM): the ONE datum boundary (C12 §1.4) that decides whether
 // the globe ground height is RESOLVED (a measurement off the photoreal tile mesh, or the
@@ -1831,6 +1834,34 @@ export class CesiumViewport {
   }
 
   /**
+   * §L-430 slice 2b — θ, the PROJECT→TRUE-north angle (radians, clockwise), read from
+   * `SiteLocation.trueNorth`. This closes **ADR-0115 §Remaining #2** ("globe applies θ to the
+   * placed model"), open since 2026-07-02: this viewport previously never read `trueNorth` at
+   * all, so a model authored on project north would have been placed on the globe at the
+   * WRONG BEARING while the plan looked perfect.
+   *
+   * Consumed via `sceneXZToEnu(x, z, θ)` — the scene-XZ → ENU frame boundary. It is
+   * deliberately NOT applied inside `enuToCartesian`, which already receives east/north:
+   * rotating there would double-rotate anything whose east/north was produced from a source
+   * that is already true-north (terrain samples, OSM context, the sun anchor). θ belongs at
+   * the ONE place authored scene coordinates cross into the world frame, and nowhere else.
+   *
+   * Returns 0 when unavailable, which is exactly the identity — so an un-rotated site is
+   * byte-identical to the pre-L-430 globe (ADR-0070).
+   */
+  private readProjectNorthRad(): number {
+    try {
+      const store = this.runtime?.siteModelStore as
+        | { getLocation?: () => { trueNorth?: number } | null }
+        | undefined;
+      const theta = store?.getLocation?.()?.trueNorth;
+      return typeof theta === 'number' && Number.isFinite(theta) ? theta : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * Point the camera at a site location so the user sees their plot (top-down at
    * ~600 m, near-nadir pitch) instead of the washed-out globe limb.
    *
@@ -3156,9 +3187,17 @@ export class CesiumViewport {
     const originCartesian = Cesium.Cartesian3.fromDegrees(originLon, originLat, 0);
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
 
+    // §L-430 slice 2b — θ (project→true north) for THIS massing pass. Read once per render
+    // (not per vertex) so a mid-render store change cannot rotate half the building.
+    const thetaRad = this.readProjectNorthRad();
+
     const toCartesian = (x: number, z: number, up: number): Cesium.Cartesian3 => {
-      // scene-XZ → ENU local (east, north, up): east = x, north = −z.
-      const local = new Cesium.Cartesian3(x, -z, up);
+      // scene-XZ → ENU local (east, north, up). §L-430: routed through the shared, tested
+      // frame boundary (`sceneEnuFrame.ts`) instead of the old inline `east = x, north = −z`,
+      // so the authored PROJECT-north geometry is rotated onto TRUE north for the globe.
+      // θ = 0 ⇒ identical to the previous inline mapping.
+      const { east, north } = sceneXZToEnu(x, z, thetaRad);
+      const local = new Cesium.Cartesian3(east, north, up);
       return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
     };
 
@@ -3491,6 +3530,12 @@ export class CesiumViewport {
           // boundary edge up to the footprint centroid, lifted by the rise. This
           // gives a hip-like solid mass without a full roof-geometry build (the
           // exact pitched form lives in the BIM view; the globe is a massing read).
+          // §L-430 — deliberately NOT rotated (θ omitted). This call is a round-trip:
+          // scene → ENU → scene, used only to get the ring's centroid back in SCENE space
+          // for the ridge fan below. Passing θ here without inverting it on the way back
+          // would rotate the roof apex off its own footprint — the classic double-rotation
+          // defect. The vertices this feeds are converted to ENU later by `toCartesian`,
+          // which is where θ is correctly applied exactly once.
           const c = this.polygonCentroidAndAreaXZ(r.ring);
           // ENU centroid → scene-XZ: east = x, north = -z  ⇒  x = east, z = -north.
           const cx = c.east;
@@ -3800,8 +3845,9 @@ export class CesiumViewport {
         });
         this.formaMassingEntities.push(line);
 
-        // Centroid (ENU metres) + area for the NW oblique flyTo.
-        const c = this.polygonCentroidAndAreaXZ(boundary);
+        // Centroid (ENU metres) + area for the NW oblique flyTo. §L-430 — rotated, so the
+        // camera flies to where the plot REALLY is rather than to a rotated copy of it.
+        const c = this.polygonCentroidAndAreaXZ(boundary, thetaRad);
         centroidEast = c.east;
         centroidNorth = c.north;
         areaM2 = c.area;
@@ -3887,7 +3933,7 @@ export class CesiumViewport {
     // derive the footprint from the authored geometry's XZ bounding box (walls,
     // else slab rings) — the SAME scene-XZ data the massing already renders.
     if (areaM2 <= 0) {
-      const bbox = this.footprintBBoxXZ(walls, slabs);
+      const bbox = this.footprintBBoxXZ(walls, slabs, thetaRad);
       if (bbox) {
         centroidEast = bbox.east;
         centroidNorth = bbox.north;
@@ -4071,7 +4117,8 @@ export class CesiumViewport {
       if (input.boundary && input.boundary.length >= 3) {
         const oc = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
         const e = Cesium.Transforms.eastNorthUpToFixedFrame(oc);
-        const ct = this.polygonCentroidAndAreaXZ(input.boundary);
+        // §L-430 — authored boundary → TRUE-north ENU before it becomes a real lat/lon.
+        const ct = this.polygonCentroidAndAreaXZ(input.boundary, this.readProjectNorthRad());
         const cc = Cesium.Matrix4.multiplyByPoint(e, new Cesium.Cartesian3(ct.east, ct.north, 0), new Cesium.Cartesian3());
         const cg = Cesium.Cartographic.fromCartesian(cc);
         cLat = Cesium.Math.toDegrees(cg.latitude);
@@ -4271,12 +4318,20 @@ export class CesiumViewport {
         const cg = Cesium.Cartographic.fromCartesian(cart);
         return { lat: Cesium.Math.toDegrees(cg.latitude), lon: Cesium.Math.toDegrees(cg.longitude) };
       };
-      const c = this.polygonCentroidAndAreaXZ(input.boundary);
+      // §L-430 slice 2b — the boundary is AUTHORED scene geometry, so it must be rotated
+      // onto true north before it becomes a lat/lon. Terrain sampling at an unrotated ring
+      // would probe ground heights at the WRONG REAL-WORLD PLACE — the building would seat
+      // itself to a neighbouring plot's ground level, which reads as a plausible elevation
+      // bug rather than a frame bug. Note `enuToLatLon` itself takes ENU and is NOT rotated
+      // (its street-ring callers below already work in ENU).
+      const thetaRad = this.readProjectNorthRad();
+      const boundaryEnu = input.boundary.map((p) => sceneXZToEnu(p.x, p.z, thetaRad));
+      const c = this.polygonCentroidAndAreaXZ(input.boundary, thetaRad);
       const centroidLL = enuToLatLon(c.east, c.north);
       sampleLat = centroidLL.lat;
       sampleLon = centroidLL.lon;
       samplePts.push(centroidLL);
-      for (const p of input.boundary) samplePts.push(enuToLatLon(p.x, -p.z));
+      for (const p of boundaryEnu) samplePts.push(enuToLatLon(p.east, p.north));
       // §GLOBE-GROUND-STREET-RING (founder 2026-07-01) — ALSO sample a ring in the
       // SURROUNDING STREET (each footprint vertex pushed ~1.7× outward from the centroid,
       // plus 8 compass points ~30 m beyond the footprint). The building base must sit on
@@ -4284,16 +4339,20 @@ export class CesiumViewport {
       // the whole footprint sits on an elevated podium/roof — WITHOUT needing an absolute
       // height cap (the old §GLOBE-FLOAT-SAFETY cap wrongly rejected Paris's real ~80 m
       // ground as a "rooftop" and buried the tower 80 m underground).
+      // §L-430 — push outward in ENU using the ROTATED ring, so the street ring lands on the
+      // real surrounding streets rather than on a rotated copy of them.
       const east = c.east, north = c.north;
-      for (const p of input.boundary) {
-        const ox = east + (p.x - east) * 1.7;
-        const oy = north + (-p.z - north) * 1.7;
+      for (const p of boundaryEnu) {
+        const ox = east + (p.east - east) * 1.7;
+        const oy = north + (p.north - north) * 1.7;
         samplePts.push(enuToLatLon(ox, oy));
       }
-      // Footprint half-extent → a comfortable street ring radius beyond it.
+      // Footprint half-extent → a comfortable street ring radius beyond it. (Rotation-
+      // invariant in principle — it is a distance — but computed from the rotated ring so
+      // it stays consistent with the centroid it is measured against.)
       let ext = 0;
-      for (const p of input.boundary) {
-        ext = Math.max(ext, Math.hypot(p.x - east, -p.z - north));
+      for (const p of boundaryEnu) {
+        ext = Math.max(ext, Math.hypot(p.east - east, p.north - north));
       }
       // §FIX-GLOBE-AUTOFRAME-AND-SEAT (L-184) — DENSER + WIDER street sampling so the min
       // reliably catches TRUE street ground rather than perching on the nearest slightly
@@ -4745,7 +4804,8 @@ export class CesiumViewport {
     let sampleLat = input.originLat;
     let sampleLon = input.originLon;
     if (input.boundary && input.boundary.length >= 3) {
-      const c = this.polygonCentroidAndAreaXZ(input.boundary);
+      // §L-430 — authored boundary → TRUE-north ENU before it becomes a real lat/lon.
+      const c = this.polygonCentroidAndAreaXZ(input.boundary, this.readProjectNorthRad());
       // ENU (east, north) → lat/lon via the same anchor used for placement.
       const originCartesian = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
       const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
@@ -6333,11 +6393,24 @@ export class CesiumViewport {
     //      the plot is then the only silhouette we have, and it is flagged as such below);
     //   4. else a square about the massing centroid (formaMassingOrigin) so an already-placed
     //      building without a traceable loop still gets a study.
-    // scene-XZ → the metric Pt convention (x = east, z = north): east = x, north = −z.
+    // scene-XZ → the metric Pt convention (x = east, z = north).
+    //
+    // §L-430 slice 2b — θ IS REQUIRED HERE, and this is the most consequential site in the
+    // migration. This study evaluates the AUTHORED façade against occluders that are
+    // TRUE-north by origin (`siteMetricFootprints` = OSM context) and against SUN directions
+    // that are likewise true-north. If the building ring stayed in the PROJECT frame while
+    // its occluders and its sun did not, the study would be computing shadows and sky
+    // exposure for a building rotated by θ relative to its own surroundings — producing a
+    // fully-populated, plausible-looking, and wrong façade heatmap. Frame-mixing is the
+    // failure mode; rotating the ring (and its openings) to true north is what prevents it.
     const input = this.formaLastMassingInput;
+    const thetaRad = this.readProjectNorthRad();
     const sceneRingToMetric = (
       r: ReadonlyArray<{ x: number; z: number }>,
-    ): { x: number; z: number }[] => r.map((p) => ({ x: p.x, z: -p.z }));
+    ): { x: number; z: number }[] => r.map((p) => {
+      const e = sceneXZToEnu(p.x, p.z, thetaRad);
+      return { x: e.east, z: e.north };
+    });
 
     let ring: { x: number; z: number }[] | null = null;
     let ringSource = '';
@@ -6404,14 +6477,20 @@ export class CesiumViewport {
     // surface is the real walls WITH their openings, not a solid perimeter prism. When there
     // are no openings (older callers / apartment massing) every face stays solid — the fast
     // preview / fallback tier (A.24), unchanged behaviour.
-    const metricOpenings: FacadeOpening[] = (input?.openings ?? []).map((o) => ({
-      a: { x: o.a.x, z: -o.a.z },
-      b: { x: o.b.x, z: -o.b.z },
-      baseElevation: o.baseElevation,
-      sill: o.sill,
-      height: o.height,
-      kind: o.kind,
-    }));
+    // §L-430 — rotated with the SAME θ as `sceneRingToMetric` above; an opening left in the
+    // project frame would be punched into the wrong face of its own (rotated) façade.
+    const metricOpenings: FacadeOpening[] = (input?.openings ?? []).map((o) => {
+      const a = sceneXZToEnu(o.a.x, o.a.z, thetaRad);
+      const b = sceneXZToEnu(o.b.x, o.b.z, thetaRad);
+      return {
+        a: { x: a.east, z: a.north },
+        b: { x: b.east, z: b.north },
+        baseElevation: o.baseElevation,
+        sill: o.sill,
+        height: o.height,
+        kind: o.kind,
+      };
+    });
 
     // §FEAT-FACADE-ANALYSIS-SMOOTH-PER-FACE (L-232, founder 2026-07-11) — the 2.5 m lattice + the
     // 25-min sun cadence were too coarse for a façade: after L-227 stretches the wall field to the
@@ -6885,6 +6964,13 @@ export class CesiumViewport {
           u_pryzmEncRange: { type: Cesium.UniformType.FLOAT, value: Math.max(1, drape.encodeRange) },
           // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — envelope-only drape. 0 = test disabled.
           u_pryzmInnerBand: { type: Cesium.UniformType.FLOAT, value: Math.max(0, innerBandM) },
+          // §L-430 slice 2b — θ (project→true north). REQUIRED FOR CORRECTNESS, not cosmetics:
+          // `positionMC` below is the model's LOCAL (project-frame) position, but the face
+          // table, centroid and roof bbox this shader compares it against are all built from
+          // `sceneRingToMetric` / the massing centroid, which are now TRUE-frame. Without this
+          // rotation the two frames disagree by θ and every fragment samples the WRONG face —
+          // the drape would slide around the building. θ = 0 ⇒ identity ⇒ unchanged.
+          u_pryzmProjNorth: { type: Cesium.UniformType.FLOAT, value: this.readProjectNorthRad() },
         },
         fragmentShaderText: [
           '#define PRYZM_MAX_FACES 128',
@@ -6895,8 +6981,16 @@ export class CesiumViewport {
           '}',
           'void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {',
           '  vec3 p = fsInput.attributes.positionMC;',
-          '  float east = p.x;',
-          '  float north = -p.z;',   // ENU mapping: north = −z (§A.21.D54)
+          // §L-430 — base ENU mapping (north = −z, §A.21.D54) THEN rotate the project frame
+          // onto true north, matching `projectVectorToTrueNorth` exactly:
+          //     east' =  e·cosθ + n·sinθ ;  north' = −e·sinθ + n·cosθ
+          // The face table / centroid / roof bbox are true-frame; positionMC is project-frame.
+          '  float e0 = p.x;',
+          '  float n0 = -p.z;',
+          '  float csT = cos(u_pryzmProjNorth);',
+          '  float snT = sin(u_pryzmProjNorth);',
+          '  float east  =  e0 * csT + n0 * snT;',
+          '  float north = -e0 * snT + n0 * csT;',
           '  float upM = p.y;',
           '  vec4 col;',
           '  if (upM >= u_pryzmHeight - u_pryzmRoofBand) {',
@@ -7603,6 +7697,36 @@ export class CesiumViewport {
     return 180;
   }
 
+  /**
+   * §L-430 slice 2b — the site ENU frame with θ (project→true north) applied, for placing a
+   * whole rigid model (glTF) rather than individual points.
+   *
+   * WHY A MATRIX AND NOT PER-VERTEX: a placed model must rotate its POSITION AND ITS HEADING
+   * TOGETHER. Rotating position alone leaves the building correctly sited but facing the
+   * wrong way — which reads as a modelling error rather than a frame bug, and is therefore
+   * easy to misdiagnose for a long time. Baking θ into the placement matrix makes the two
+   * inseparable by construction.
+   *
+   * SIGN — derived, not guessed. It must agree with the massing's per-point mapping exactly,
+   * or the real GLB and the pastel massing blocks separate (the §A.21.D54 / §GLOBE-HEADING-90
+   * defect class this file already fights):
+   *     sceneXZToEnu(1, 0, θ) = { east: cosθ, north: −sinθ }   // scene +X in the true frame
+   *     Rz(α) · (1, 0)        = ( cosα,       sinα        )
+   *   ⇒ α = −θ
+   * The ENU frame's local axes are X=east, Y=north, Z=up, so this is a rotation about local Z
+   * post-multiplied INSIDE the ENU frame — i.e. applied to the model before Cesium's own glTF
+   * axis correction, exactly where the massing applies it to its points.
+   *
+   * θ = 0 ⇒ the rotation is the identity and the returned matrix is byte-identical to a bare
+   * `eastNorthUpToFixedFrame(position)`.
+   */
+  private enuFrameWithProjectNorth(position: Cesium.Cartesian3): Cesium.Matrix4 {
+    const m = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+    const theta = this.readProjectNorthRad();
+    if (theta === 0) return m;
+    return Cesium.Matrix4.multiplyByMatrix3(m, Cesium.Matrix3.fromRotationZ(-theta), m);
+  }
+
   /** ENU(east,north,up) metres → ECEF Cartesian via the site-origin anchor. */
   private enuToCartesian(
     enuMatrix: Cesium.Matrix4,
@@ -8008,7 +8132,7 @@ export class CesiumViewport {
       // `forwardAxis === Z` adds Z_UP_TO_X_UP). Verified: scene+x→east, scene+z→south
       // (north = −z), scene+y→up — identical to `toCartesian(x, z, up)`.
       const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
-      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      const modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
 
       // Same option shape as the established `loadBimGltf` path (Cesium depth-tests
       // scene primitives against the loaded 3D-Tiles natively → correct occlusion).
@@ -8181,7 +8305,7 @@ export class CesiumViewport {
     if (!model || !origin || model.isDestroyed()) return;
     try {
       const position = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, this.formaTerrainBaseHeight);
-      model.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      model.modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
       this.viewer?.scene.requestRender();
     } catch (e) {
       console.warn('[CesiumViewport][globe] §A.21.D49 reseatRealModelOnGlobe failed (non-fatal):', e);
@@ -8295,7 +8419,7 @@ export class CesiumViewport {
       // forwardAxis=X (NOT Z) gives Y_UP_TO_Z_UP alone = (x, y, z) ↦ (x, −z, y), the
       // massing mapping exactly. forwardAxis=Z added a spurious +90° heading turn.
       const position = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, baseHeight);
-      const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      const modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
 
       const newModel = await Cesium.Model.fromGltfAsync({
         url: input.glbUrl,
@@ -8395,7 +8519,7 @@ export class CesiumViewport {
     if (!model || !origin || model.isDestroyed()) return;
     try {
       const position = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, this.formaTerrainBaseHeight);
-      model.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      model.modelMatrix = this.enuFrameWithProjectNorth(position); // §L-430 θ
       this.viewer?.scene.requestRender();
     } catch (e) {
       console.warn('[CesiumViewport][forma6] reseatRealModelOnForma failed (non-fatal):', e);
@@ -8953,11 +9077,18 @@ export class CesiumViewport {
 
   /**
    * Polygon centroid (area-weighted) + absolute area of a scene-XZ ring,
-   * returned in ENU metres (`east = x`, `north = −z`). Used to frame the NW
-   * oblique camera on the plot centre with an altitude ∝ √area.
+   * returned in ENU metres. Used to frame the NW oblique camera on the plot centre
+   * with an altitude ∝ √area, and to anchor terrain sampling.
+   *
+   * §L-430 slice 2b — takes θ (project→true north) and returns TRUE-north ENU.
+   * Rotation is linear about the origin, so rotating the CENTROID is exactly equivalent
+   * to rotating every vertex first and then taking the centroid; and |area| is
+   * rotation-invariant, so the area term needs no correction. θ = 0 ⇒ the previous
+   * `east = x, north = −z` mapping, unchanged.
    */
   private polygonCentroidAndAreaXZ(
-    ring: ReadonlyArray<{ x: number; z: number }>
+    ring: ReadonlyArray<{ x: number; z: number }>,
+    projectNorthRad = 0,
   ): { east: number; north: number; area: number } {
     let signedArea = 0;
     let cx = 0;
@@ -8981,11 +9112,11 @@ export class CesiumViewport {
       }
       ax /= ring.length;
       az /= ring.length;
-      return { east: ax, north: -az, area: 0 };
+      return { ...sceneXZToEnu(ax, az, projectNorthRad), area: 0 };
     }
     cx /= 6 * signedArea;
     cz /= 6 * signedArea;
-    return { east: cx, north: -cz, area: Math.abs(signedArea) };
+    return { ...sceneXZToEnu(cx, cz, projectNorthRad), area: Math.abs(signedArea) };
   }
 
   /**
@@ -8996,10 +9127,19 @@ export class CesiumViewport {
    * Returns null when there is no usable geometry. The bounding box is a coarse
    * but ALWAYS-non-zero footprint — enough to frame the camera + scale the
    * climate-overlay radius onto the building instead of collapsing to the origin.
+   *
+   * §L-430 slice 2b — θ rotates the returned CENTRE onto true north. NOTE the deliberate
+   * asymmetry: an axis-aligned bounding box is FRAME-DEPENDENT (the AABB of a shape in the
+   * project frame is not the AABB of that shape in the true frame), so `area` here remains a
+   * project-frame approximation. That is acceptable ONLY because both consumers — camera
+   * framing distance and the climate-overlay radius — want a coarse "how big is this
+   * roughly", never a compliance figure. Do NOT reuse this area for anything metric (GFA,
+   * coverage, FAR); use `polygonCentroidAndAreaXZ`, whose area IS rotation-invariant.
    */
   private footprintBBoxXZ(
     walls: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
     slabs: ReadonlyArray<{ ring: ReadonlyArray<{ x: number; z: number }> }>,
+    projectNorthRad = 0,
   ): { east: number; north: number; area: number } | null {
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     let seen = 0;
@@ -9019,7 +9159,7 @@ export class CesiumViewport {
     if (w <= 0 || d <= 0) return null;
     const cx = (minX + maxX) / 2;
     const cz = (minZ + maxZ) / 2;
-    return { east: cx, north: -cz, area: w * d };
+    return { ...sceneXZToEnu(cx, cz, projectNorthRad), area: w * d };
   }
 
   /**
@@ -9397,7 +9537,10 @@ export class CesiumViewport {
       ? Cesium.Cartesian3.fromDegrees(lon, lat, height)
       : (previousMatrix ? Cesium.Matrix4.getTranslation(previousMatrix, new Cesium.Cartesian3()) : Cesium.Cartesian3.ZERO);
 
-    const modelMatrix = previousMatrix || Cesium.Transforms.eastNorthUpToFixedFrame(position);
+    // §L-430 — only the FALLBACK branch gets θ. `previousMatrix` is a clone of an
+    // already-placed model's matrix and therefore ALREADY carries θ; re-applying it here
+    // would double-rotate on every reload, compounding each time.
+    const modelMatrix = previousMatrix || this.enuFrameWithProjectNorth(position);
 
     // Clean up old model
     if (this.viewer && this.currentModel) {

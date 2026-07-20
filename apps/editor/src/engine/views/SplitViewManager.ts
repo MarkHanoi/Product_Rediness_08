@@ -596,15 +596,31 @@ export class SplitViewManager implements ISplitViewManager {
                 siteContextProvider: () => {
                     try {
                         const store = (window.runtime as unknown as {
-                            siteModelStore?: { getParcelBoundary?: () => { polygon?: ReadonlyArray<{ x: number; z: number }> } | null };
+                            siteModelStore?: {
+                                getParcelBoundary?: () => { polygon?: ReadonlyArray<{ x: number; z: number }> } | null;
+                                getLocation?: () => { trueNorth?: number } | null;
+                            };
                         } | undefined)?.siteModelStore;
                         const parcel = store?.getParcelBoundary?.()?.polygon ?? null;
                         const env = getLastBuildableEnvelope();
                         const envelopeRing = env && env.status === 'ok' && env.insetPolygon.length >= 3
                             ? env.insetPolygon.map((pt) => ({ x: pt.x, z: pt.z }))
                             : null;
-                        if (!parcel && !envelopeRing) return null;
-                        return { parcelRing: parcel && parcel.length >= 3 ? parcel : null, envelopeRing };
+                        // §L-430 slice 2d — θ rides on this same provider so the pane cannot
+                        // draw site rings in one frame and annotate them with another.
+                        const rawTheta = store?.getLocation?.()?.trueNorth;
+                        const projectNorthRad = typeof rawTheta === 'number' && Number.isFinite(rawTheta)
+                            ? rawTheta : 0;
+                        // Return a context whenever there is ANYTHING to convey. θ alone counts:
+                        // an underlay-defined project north can exist with no parcel yet, and
+                        // bailing out early there would silently leave the north arrow at 0 —
+                        // i.e. pointing at project north while claiming true north.
+                        if (!parcel && !envelopeRing && projectNorthRad === 0) return null;
+                        return {
+                            parcelRing: parcel && parcel.length >= 3 ? parcel : null,
+                            envelopeRing,
+                            projectNorthRad,
+                        };
                     } catch { return null; }
                 },
                 styleResolver: (category, layerTag) => {

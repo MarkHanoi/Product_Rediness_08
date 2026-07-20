@@ -117,4 +117,18 @@ export interface SunSampleOptions {
     readonly stepMinutes?: number;
     /** When true (default), below-horizon samples (altitudeDeg ≤ 0) are dropped. */
     readonly daylightOnly?: boolean;
+    /**
+     * §L-430 — θ, the PROJECT→TRUE-north angle (radians, clockwise; `SiteLocation.trueNorth`).
+     * Default 0.
+     *
+     * REQUIRED whenever the samples will be tested against SCENE geometry (sun-hours,
+     * shadow studies, façade analysis): the returned `dir` is a SCENE-space vector, so if the
+     * model is authored on project north and the sun is not expressed in that same frame, the
+     * study silently rotates the sun by θ relative to the building. `azimuthDeg` stays TRUE —
+     * the real bearing is a fact about the world, and only the vector changes frame.
+     *
+     * MUST match `RealSunService.setProjectNorth`, or the sun-hours ANALYSIS and the VIEWPORT
+     * shadows disagree — the worst failure mode, since each looks plausible alone.
+     */
+    readonly projectNorthRad?: number;
 }

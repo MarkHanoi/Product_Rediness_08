@@ -48,6 +48,21 @@ export type PlanWorldToScreen = (worldX: number, worldZ: number) => { sx: number
 export interface PlanViewAnnotationRenderOptions {
     activeLinkedViewId?: string | null;
     /**
+     * §L-430 slice 2d — θ, the PROJECT→TRUE-north angle in RADIANS, supplied by the app layer
+     * (from `SiteLocation.trueNorth`).
+     *
+     * WHY INJECTED: this renderer is L1 and may not import the L5 dual-north transform or read
+     * the site store directly. The app layer already owns that read, so it passes the value in
+     * — the same pattern `PlanViewCanvas` uses for its site-context provider.
+     *
+     * WHY IT MATTERS (C34 §1.4): the north arrow MUST resolve its direction from project
+     * context and MUST NOT carry a hard-coded numeric direction. Once the authoring frame is
+     * rotated to project north, an arrow drawn from a literal angle points at PROJECT north
+     * while labelling itself TRUE north — a drawing that is wrong in the one place a reader
+     * trusts absolutely, and wrong silently. Default 0 ⇒ unchanged for un-rotated projects.
+     */
+    projectNorthRad?: number;
+    /**
      * §ANN-ELEV-SEC: Current view type, forwarded from PlanViewCanvas._viewType.
      * Used to select the correct world-axis projection for annotation model points.
      * 'plan' (default) maps points as (pt.x, pt.z).
@@ -252,6 +267,8 @@ export class PlanViewAnnotationRenderer {
     private _sectionHAxis: 'x' | 'z' = 'x';
     /** §FIX-DIM-ELEV-PROJECTION (L-256/L-263) — see PlanViewAnnotationRenderOptions.hSign. */
     private _hSign: 1 | -1 = 1;
+    /** §L-430 slice 2d — θ (project→true north, radians) for this render pass. 0 = identity. */
+    private _projectNorthRad = 0;
 
     /** Returns true when the current view is a vertical cut (section or elevation). */
     private _isSectionLike(): boolean {
@@ -383,6 +400,9 @@ export class PlanViewAnnotationRenderer {
         if (options.viewType !== undefined) this._viewType = options.viewType;
         if (options.sectionHAxis !== undefined) this._sectionHAxis = options.sectionHAxis;
         if (options.hSign !== undefined) this._hSign = options.hSign;
+        // §L-430 slice 2d — carry θ for this render pass (north arrow, C34 §1.4).
+        this._projectNorthRad = Number.isFinite(options.projectNorthRad)
+            ? (options.projectNorthRad as number) : 0;
 
         // Contract 23 §7 — resolve annotation base pen once per render call.
         // Priority: element override (10000) > view override (9000) > system (0).
@@ -2849,8 +2869,26 @@ export class PlanViewAnnotationRenderer {
         const textPx    = Math.max(10, mmToPx(style.textSizeMm));
         const R         = 20;
 
-        // Rotation: northAngle in degrees (0 = pointing up), convert to radians, flip for screen
-        const northDeg  = (ann.parameters.northAngle as number | undefined) ?? 0;
+        // Rotation: northAngle in degrees (0 = pointing up), convert to radians, flip for screen.
+        //
+        // §L-430 slice 2d / C34 §1.4 — DIRECTION RESOLVES FROM PROJECT CONTEXT, not a literal.
+        // The plan is drawn in the PROJECT-north frame, so "up" on the sheet is project north,
+        // not true north. TRUE north therefore sits at −θ on the sheet (the inverse of the
+        // project→true rotation), and that is what a north arrow must point at: the arrow is
+        // the reader's only cue that the drawing frame is not the world frame.
+        //
+        // Leaving the old literal in place would have produced a drawing that LOOKS correct and
+        // is wrong in the one place a reader trusts absolutely — and wrong silently, since the
+        // arrow renders happily either way.
+        //
+        // MANUAL OVERRIDE (C34 §1.4): honoured ONLY when the annotation explicitly declares
+        // `northArrowMode: 'manual'`. A bare `northAngle` is treated as legacy data and ignored
+        // in favour of project context, because that is exactly the hard-coded direction the
+        // contract forbids. θ = 0 ⇒ identical to the previous behaviour.
+        const isManual  = ann.parameters.northArrowMode === 'manual';
+        const northDeg  = isManual
+            ? ((ann.parameters.northAngle as number | undefined) ?? 0)
+            : -(this._projectNorthRad * 180) / Math.PI;
         const northAng  = (-Math.PI / 2) + (northDeg * Math.PI / 180);
 
         ctx.save();
