@@ -44,7 +44,11 @@
 
 import type { Pt } from '@pryzm/schemas';
 import type { ParcelEdgeClassification } from '@pryzm/schemas';
-import { polygonSignedArea, pointInPolygon } from '@pryzm/site-validators';
+import {
+    polygonSignedArea,
+    pointInPolygon,
+    pointPolygonEdgeDistance,
+} from '@pryzm/site-validators';
 
 export interface PerEdgeSetbacks {
     readonly front: number;
@@ -64,6 +68,13 @@ export interface InsetResult {
 const EPS = 1e-9;
 /** Vertices closer than this (metres) are treated as coincident (1 µm). */
 const COINCIDENT_EPS = 1e-6;
+/**
+ * §INSET-BOUNDARY-TOLERANT (L-462) — how far outside the parcel an inset vertex may test before
+ * the soundness gate rejects it. 1 mm: far below any planning dimension, so it cannot mask a
+ * genuine escape (a real fold lands metres out), but comfortably above the float error of a
+ * miter intersection landing on an edge it was constructed to lie on.
+ */
+const BOUNDARY_TOLERANCE_M = 1e-3;
 
 function sub(a: Pt, b: Pt): Pt {
     return { x: a.x - b.x, z: a.z - b.z };
@@ -348,13 +359,34 @@ export function insetPolygonPerEdge(
     // area means the offset/cleanup produced garbage (a folded or escaped ring).
     if (insetSigned > Math.abs(signed) + EPS) return { polygon: [], degenerate: true };
 
-    // Every inset vertex must lie inside the original parcel. This is the strict
-    // soundness gate: an inward offset stays within the parcel, so a vertex that
-    // escaped (a pathological fold on a spiky non-convex ring) is rejected rather
-    // than emitted as a wrong envelope. `pointInPolygon` treats on-boundary as
-    // inside, so a vertex seated exactly on a parcel edge still passes.
+    // Every inset vertex must lie inside the original parcel. This is the strict soundness gate:
+    // an inward offset stays within the parcel, so a vertex that escaped (a pathological fold on
+    // a spiky non-convex ring) is rejected rather than emitted as a wrong envelope.
+    //
+    // §INSET-BOUNDARY-TOLERANT (L-462) — ⚠ THE PREVIOUS COMMENT HERE WAS WRONG. It claimed
+    // "`pointInPolygon` treats on-boundary as inside, so a vertex seated exactly on a parcel edge
+    // still passes." That is TRUE FOR ONLY HALF THE BOUNDARY: `pointInPolygon` uses the standard
+    // half-open ray-casting convention, so on a 113×113 ring the point (0, 11) tests INSIDE while
+    // (113, 11) — the mirror-image situation on the opposite edge — tests OUTSIDE. Verified
+    // directly.
+    //
+    // CONSEQUENCE: any inset with a ZERO setback on some edges puts its vertices exactly ON those
+    // edges, and roughly half of them then fail this gate — so the whole inset was reported
+    // `degenerate` and the caller saw "no buildable area" for a perfectly valid plot. **That is
+    // precisely the PARTY-WALL (*mitgera*) case — a front setback with `side: 0`, i.e. the
+    // Barcelona *ensanche* configuration ADR-0270 exists to serve.** The all-zero short-circuit
+    // above was an earlier, narrower patch for the same underlying asymmetry.
+    //
+    // WHY THE FIX IS LOCAL AND NOT IN `pointInPolygon`: that validator is shared, and its
+    // half-open convention is load-bearing elsewhere — it is what stops a point on a boundary
+    // SHARED by two parcels being counted in both (C19 §1.6 containment). Changing it would ripple
+    // into compliance checks to fix a rendering-side soundness gate. So the tolerance is applied
+    // HERE, where "on the parcel edge" is unambiguously legal for an erosion.
     for (const p of out) {
-        if (!pointInPolygon(p, ring)) return { polygon: [], degenerate: true };
+        if (pointInPolygon(p, ring)) continue;
+        // Outside by the half-open test — accept only if it is ON the boundary within tolerance.
+        if (pointPolygonEdgeDistance(p, ring) <= BOUNDARY_TOLERANCE_M) continue;
+        return { polygon: [], degenerate: true };
     }
 
     return { polygon: out, degenerate: false };
