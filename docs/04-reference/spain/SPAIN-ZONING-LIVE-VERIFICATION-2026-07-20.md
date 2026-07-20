@@ -576,3 +576,71 @@ on which geometry is authoritative.
 and check the answer agrees with the municipal planning viewer for that same plot. Until then,
 edge-of-boundary plots carry an unquantified risk and should be labelled accordingly under
 C58 §1.4.
+
+---
+
+# §10 — Madrid `Visor_2025` parcel layer: `UUBV_NM_ED` RESOLVED
+
+A parallel research pass found
+`sigma.madrid.es/hosted/rest/services/ANALISIS_URBANO/Visor_2025/MapServer/2`
+("Parcelas Urbanisticas 2025", polygon) carrying **`UUBV_NM_ED : Double`** at parcel
+granularity, and flagged as its #1 open question whether that field is **populated** —
+its tooling strips query-string parameters, so it could read the schema but not the data.
+
+**Executed here (curl, live). Answer: populated — but it does not mean what it appears to.**
+
+## §10.1 The data
+
+| Check | Result |
+|---|---|
+| Total features in layer | **406** |
+| `UUBV_NM_ED IS NOT NULL` | **406 / 406 — fully populated** |
+| Distinct values | 300 |
+| Values `< 10` (look like **ratios**) | **27** |
+| Values `>= 10` (look like **m²**) | **379** |
+
+Sample: `edif=3638 area=781` · `edif=3638 area=819` · `edif=3638 area=913` ·
+`edif=0.3 area=20176`.
+
+## §10.2 Three findings that change the interpretation
+
+**1. It is 406 parcels, not Madrid.** Madrid has on the order of 1.5 million cadastral
+parcels. This layer holds **406**. That is consistent with the service's own description —
+parcels created by *reparcelación* when a licence is granted — so it is a **development
+caseload subset**, not the city's parcel fabric. Building an adapter on it would yield a
+product that covers 406 plots while *appearing* to cover Madrid.
+
+**2. The column mixes units.** 379 values are m²-scale; **27 are below 10** and read as
+ratios (`0.3`, `1`). A single column carrying both an absolute quantum and a ratio **cannot
+be consumed without a disambiguation rule**, and there is no unit field to disambiguate it.
+Consuming it naively would silently produce envelopes wrong by three orders of magnitude on
+~7% of rows.
+
+**3. Some values are inherited, not parcel-specific.** `edif=4100` appears on 18 parcels of
+areas 1840 / 1897 / 1833 / 1929 / 1833… — the same quantum across different-sized parcels.
+If it were *this parcel's* buildable m² it would scale with area. It does not. (Counter-example:
+`edif=14880` sits on 6 parcels all of area 6304 — self-consistent.) So the column appears to
+mix **parcel-specific** and **parent-unit-inherited** values, again without a discriminator.
+
+## §10.3 Verdict
+
+**`UUBV_NM_ED` is populated — and is NOT a usable source of parcel-level edificabilidad for
+Madrid.** It is a 406-row development caseload with mixed units and mixed granularity in one
+column. Under **C58 §1.11** it would have to be labelled `granularity: 'unknown'`, which the
+contract treats as coarser-than-parcel and therefore forbidden as a parcel envelope.
+
+**This is the §1 headline holding, not falling:** numeric edificabilidad in Spain is published
+for *development* land (ámbitos, sectors, reparcelación caseloads) and not for the
+consolidated urban fabric.
+
+## §10.4 Two method notes
+
+- The naming-convention argument used to infer the field's meaning (`UUBV_NM_SU` = *número de
+  superficie*, therefore `UUBV_NM_ED` = *número de edificabilidad*) **does not hold**:
+  `UBOV_NM_SU` is typed **`esriFieldTypeDate`**, not a number. The conclusion was roughly
+  right; the reasoning that supported it was not. Field *semantics* cannot be inferred from
+  field *names* — the same trap that produced the Madrid VEDA error and my own Navarra error.
+- **A populated schema is not a usable dataset.** The prior pass correctly warned that an
+  empty `fields` array is a negative finding; this adds the next level — a *fully populated*
+  field can still be unusable because of **coverage, unit consistency and granularity**. Those
+  three must be checked before any field is called a source.
