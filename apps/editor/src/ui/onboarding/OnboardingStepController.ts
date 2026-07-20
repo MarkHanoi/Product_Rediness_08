@@ -155,6 +155,86 @@ export function startOnboardingStepFlow(
     return () => controller.dispose();
 }
 
+/** §L-435 — a settings combination that DOES fit, found by probing around one that does not. */
+export interface NearestFeasibleResi {
+    readonly floors: number;
+    readonly minM2: number;
+    readonly maxM2: number;
+    /** Short human label for the one-click fix button, e.g. "3 floors" or "60–120 m² units". */
+    readonly label: string;
+}
+
+/**
+ * §L-435 — find the NEAREST residential settings that actually produce a layout.
+ *
+ * WHY: "No layout fits at this size — try a larger size band or fewer floors" is a refusal, not
+ * guidance. It leaves the user to guess which of two knobs to turn, and by how much, with a
+ * multi-second preview round-trip per guess. This probes for them and offers the answer.
+ *
+ * HOW: re-runs the SAME pure orchestrator (`orchestrateResidentialBuilding`) — no separate
+ * feasibility model that could disagree with the engine. Probes in order of least surprise:
+ * fewer floors first (keeps the unit mix the user chose), then a wider size band. Bounded to a
+ * handful of attempts so a failing preview stays responsive.
+ *
+ * Returns null when nothing nearby fits — in which case the caller must NOT invent advice.
+ */
+export function findNearestFeasibleResi(input: {
+    footprint: ReadonlyArray<{ x: number; z: number }>;
+    floors: number;
+    minM2: number;
+    maxM2: number;
+    typologies: { T1: boolean; T2: boolean; T3: boolean; T4: boolean };
+}): NearestFeasibleResi | null {
+    const attempt = (floors: number, minM2: number, maxM2: number): boolean => {
+        try {
+            const r = orchestrateResidentialBuilding({
+                footprint: input.footprint as { x: number; z: number }[],
+                upperLevels: floors,
+                coreWidthM: 6, coreDepthM: 4, corridorWidthM: 1.5,
+                minApartmentAreaM2: minM2,
+                maxApartmentAreaM2: maxM2,
+                typologies: input.typologies,
+            });
+            return r.status === 'ok';
+        } catch { return false; }
+    };
+
+    // 1) Fewer floors — preserves the chosen unit mix and size band, so it is the least
+    //    surprising change to propose. Step down at most 4 (bounded probe).
+    for (let f = input.floors - 1; f >= 1 && f >= input.floors - 4; f--) {
+        if (attempt(f, input.minM2, input.maxM2)) {
+            return {
+                floors: f, minM2: input.minM2, maxM2: input.maxM2,
+                label: `${f} floor${f === 1 ? '' : 's'}`,
+            };
+        }
+    }
+
+    // 2) A wider size band at the ORIGINAL floor count — the user may care more about height
+    //    than about unit size. Widen the max, then also lower the min.
+    for (const widen of [20, 40, 60]) {
+        const maxM2 = input.maxM2 + widen;
+        if (attempt(input.floors, input.minM2, maxM2)) {
+            return {
+                floors: input.floors, minM2: input.minM2, maxM2,
+                label: `${input.minM2}–${maxM2} m² units`,
+            };
+        }
+    }
+    for (const widen of [20, 40]) {
+        const minM2 = Math.max(20, input.minM2 - widen);
+        const maxM2 = input.maxM2 + widen;
+        if (attempt(input.floors, minM2, maxM2)) {
+            return {
+                floors: input.floors, minM2, maxM2,
+                label: `${minM2}–${maxM2} m² units`,
+            };
+        }
+    }
+
+    return null;   // nothing nearby fits — say so plainly rather than guessing
+}
+
 // Exported for unit tests (the public entry point is `startOnboardingStepFlow`); the flow
 // is otherwise always launched via that factory.
 export class OnboardingStepController {
@@ -1537,7 +1617,32 @@ export class OnboardingStepController {
                     typologies: { T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4 },
                 });
                 if (result.status !== 'ok') {
-                    preview.innerHTML = `<span class="os-resi-preview-hint">No layout fits at this size — try a larger size band or fewer floors.</span>`; lastResult = null; lastCard = null; renderViewsRail(null, -1); return;
+                    // §L-435 — a dead end that says only "try something else" is a refusal, not
+                    // guidance. The orchestrator ALREADY returns a soft-fail `reason` (C50 §1.7)
+                    // and the UI was discarding it. Surface the real reason, then PROBE for the
+                    // nearest setting that does fit and offer it as one click.
+                    const nearest = findNearestFeasibleResi({
+                        footprint, floors, minM2, maxM2,
+                        typologies: { T1: typoState.T1, T2: typoState.T2, T3: typoState.T3, T4: typoState.T4 },
+                    });
+                    const why = this._escapeHtml(result.reason || 'this combination does not fit the plot');
+                    preview.innerHTML =
+                        `<span class="os-resi-preview-hint"><strong>No layout fits.</strong> ${why}`
+                        + (nearest
+                            ? ` <button type="button" class="os-inline-fix" data-testid="onboarding-resi-nearest-fix">`
+                              + `Use ${this._escapeHtml(nearest.label)}</button>`
+                            : ' Try a larger size band or fewer floors.')
+                        + `</span>`;
+                    if (nearest) {
+                        preview.querySelector<HTMLButtonElement>('[data-testid="onboarding-resi-nearest-fix"]')
+                            ?.addEventListener('click', () => {
+                                floorsInput.value = String(nearest.floors);
+                                minInput.value = String(nearest.minM2);
+                                maxInput.value = String(nearest.maxM2);
+                                renderLivePreview();
+                            });
+                    }
+                    lastResult = null; lastCard = null; renderViewsRail(null, -1); return;
                 }
                 const card = buildResidentialCardModel(result);
                 lastResult = result;

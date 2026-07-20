@@ -215,6 +215,24 @@ export class PlanViewCanvas {
         this._gridVisible = options.gridVisible ?? true;
     }
 
+    /**
+     * §L-436 — the current site-context rings (parcel + buildable-envelope setback line), or
+     * null. Exposed so `PlanSnapEngine` can offer them as snap targets in the PLAN pane.
+     *
+     * WHY THIS EXISTS: the plan pane snaps through `PlanSnapEngine`, an ENTIRELY separate
+     * system from the 3D `SnapManager` that L-432's `SiteContextSnapProvider` plugs into — so
+     * site snapping worked in 3D and silently did nothing in plan. Reading through the canvas
+     * (which already owns the provider) keeps ONE source for the rings that are DRAWN and the
+     * rings that are SNAPPED TO; two readers could disagree.
+     */
+    getSiteContextRings(): PlanSiteContext | null {
+        try {
+            return this._siteContextProvider?.() ?? null;
+        } catch {
+            return null;
+        }
+    }
+
     setLevelId(levelId: string | null): void {
         this._levelId = levelId;
     }
@@ -1947,7 +1965,17 @@ export class PlanViewCanvas {
                 ctx.beginPath();
                 for (let i = 0; i < ring.length; i++) {
                     const p = ring[i]!;
-                    const s = this.worldToScreen(p.x, -p.z);
+                    // §L-436 — RAW world XZ. This previously passed `-p.z`, which MIRRORED the
+                    // parcel and envelope in Z relative to every other thing in the pane: BIM
+                    // geometry and annotations both feed `worldToScreen(wx, wz)` unnegated, and
+                    // `worldToScreen` already owns the world→screen flip. The rings are the
+                    // SAME scene-XZ coordinates walls are authored in, so they take the SAME
+                    // mapping — no East/North reinterpretation belongs here.
+                    //
+                    // The bug hid because a mirrored rectangle is still a rectangle: the
+                    // orientation looked right, only the POSITION was wrong, and nothing was
+                    // drawn against the rings until walls could be snapped to them.
+                    const s = this.worldToScreen(p.x, p.z);
                     if (i === 0) ctx.moveTo(s.sx, s.sy);
                     else ctx.lineTo(s.sx, s.sy);
                 }

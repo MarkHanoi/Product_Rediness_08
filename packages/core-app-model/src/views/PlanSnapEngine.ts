@@ -335,6 +335,62 @@ export class PlanSnapEngine {
             });
         }
 
+        // ── 1b. §L-436 SITE CONTEXT — parcel boundary + buildable-envelope setback line ─────
+        // L-432 added these as snap targets via the 3D `SnapManager`, but the PLAN pane snaps
+        // through THIS engine, which knew nothing about them — so site snapping worked in 3D
+        // and silently did nothing in plan (founder: "I am able to snap in 3d view - but not on
+        // plan view"). Plan is where walls are actually drawn to a setback, so this is the pane
+        // that matters most.
+        //
+        // Ranking mirrors the 3D provider's reasoning: corners just BELOW a drawing `endpoint`
+        // (the user's own geometry wins a tie) and edges ABOVE `nearest` but below the real
+        // geometry families, so a legal constraint beats a fallback without hijacking a genuine
+        // wall snap. Envelope before parcel — "build to the setback" is the common move.
+        {
+            const site = planCanvas.getSiteContextRings?.() ?? null;
+            const rings: Array<{ ring: ReadonlyArray<{ x: number; z: number }>; corner: number; edge: number }> = [];
+            if (site?.envelopeRing && site.envelopeRing.length >= 3) {
+                rings.push({ ring: site.envelopeRing, corner: 196, edge: 96 });
+            }
+            if (site?.parcelRing && site.parcelRing.length >= 3) {
+                rings.push({ ring: site.parcelRing, corner: 194, edge: 94 });
+            }
+            for (const { ring, corner, edge } of rings) {
+                const n = ring.length;
+                for (let i = 0; i < n; i++) {
+                    const a = ring[i]!;
+                    const b = ring[(i + 1) % n]!;
+
+                    const dCorner = distSqPx(a.x, a.z);
+                    if (dCorner <= radSq) {
+                        candidates.push({
+                            worldX: a.x, worldZ: a.z, snapType: 'endpoint',
+                            distSqPx: dCorner, priorityOverride: corner,
+                        });
+                    }
+
+                    // Perpendicular foot on the edge — "drag the wall to the setback line".
+                    const dx = b.x - a.x, dz = b.z - a.z;
+                    const lenSq = dx * dx + dz * dz;
+                    if (lenSq <= 1e-12) continue;
+                    let t = ((cwX - a.x) * dx + (cwZ - a.z) * dz) / lenSq;
+                    // Interior only: at an endpoint the corner candidate above already covers
+                    // that position at a higher priority, and a coincident lower-priority
+                    // candidate could win on a hair-shorter distance and demote the corner snap.
+                    if (!(t > 1e-6 && t < 1 - 1e-6)) continue;
+                    t = Math.max(0, Math.min(1, t));
+                    const fx = a.x + dx * t, fz = a.z + dz * t;
+                    const dEdge = distSqPx(fx, fz);
+                    if (dEdge <= radSq) {
+                        candidates.push({
+                            worldX: fx, worldZ: fz, snapType: 'perpendicular',
+                            distSqPx: dEdge, priorityOverride: edge,
+                        });
+                    }
+                }
+            }
+        }
+
         // ── 2. Per-segment foot (perpendicular) + nearest fallback ──────────
         const worldRadius = this._estimateWorldRadius(this._radiusPx);
         const worldBuf    = worldRadius * 1.5;
