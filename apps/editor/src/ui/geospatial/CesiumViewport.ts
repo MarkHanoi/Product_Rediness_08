@@ -3418,7 +3418,17 @@ export class CesiumViewport {
     // Group walls into storey bands keyed by their (rounded) base elevation. Each
     // band's height = the tallest wall on that storey. Bands are sorted from the
     // ground up so the band index doubles as the floor number for the selector.
-    const bands = this.groupWallsIntoStoreyBands(walls);
+    // §NO-PHANTOM-MASSING (L-447) — a nominal band is legitimate ONLY when the project has
+    // authored building geometry that simply is not walls (slab-only / roof-only). With nothing
+    // authored at all, the nominal band is a building that does not exist, extruded over the
+    // parcel and standing between the viewer and the two things that ARE true there: the
+    // boundary and the buildable envelope. Founder, three times: "we don't need this white
+    // volume — we need the site boundary on 3d site + the buildable volume."
+    const hasAuthoredGeometry =
+      walls.length > 0 ||
+      (input.slabs?.length ?? 0) > 0 ||
+      (input.roofs?.length ?? 0) > 0;
+    const bands = this.groupWallsIntoStoreyBands(walls, hasAuthoredGeometry);
 
     // §FORMA-FULL-HEIGHT (founder 2026-07-01, ADR-0095) — BUG 2 ROOT CAUSE + FIX.
     // ROOT CAUSE: the massing shell was extruded from ONLY the storey bands present in
@@ -8949,6 +8959,15 @@ export class CesiumViewport {
       baseElevation?: number;
       levelId?: string;
     }>,
+    /**
+     * §NO-PHANTOM-MASSING (L-447) — emit a nominal 3 m band when there are NO walls?
+     *
+     * Only the caller can answer: it is the one that can see slabs and roofs, and therefore
+     * whether "no walls" means "a slab-only building" (massing legitimately stands for something)
+     * or "nothing authored at all" (any massing is a phantom drawn over the parcel). Defaults to
+     * `true` so no other call site changes behaviour.
+     */
+    allowNominalBand = true,
   ): Array<{
     baseElevation: number;
     heightM: number;
@@ -8975,9 +8994,26 @@ export class CesiumViewport {
       band.heightM = Math.max(band.heightM, h);
       if (!band.levelId && w.levelId) band.levelId = w.levelId;
     }
-    // No walls at all → one nominal ground band (so an empty/boundary-only scene
-    // still extrudes a single 3 m block from the footprint, as before).
-    if (bands.length === 0) {
+    // §NO-PHANTOM-MASSING (L-447) — ⚠ THIS IS THE "WHITE VOLUME" THE FOUNDER REPORTED 3 TIMES.
+    //
+    // The old behaviour, and its own comment said so plainly: "no walls at all → one nominal
+    // ground band, so an empty/boundary-only scene still extrudes a single 3 m block from the
+    // footprint". That block is a BUILDING THAT DOES NOT EXIST, drawn over the parcel — and
+    // `tileBandsToFullHeight` then stacked it to the resolved full height (founder console:
+    // `0 wall(s) across 2 storey(s) [#0@0.0m·3.0m, #1@3.0m·1.0m]`).
+    //
+    // It is precisely what the founder asked to be rid of, three times: *"we don't need this
+    // white volume — we need the site boundary on 3d site + the buildable volume."* And it is
+    // worse than clutter: an opaque white pad over the plot is the thing that reads as "here is
+    // your building" on an EMPTY project, and it sits between the viewer and the two things that
+    // are actually true there — the parcel boundary and the buildable envelope.
+    //
+    // A nominal band is still emitted when the project HAS authored building geometry that
+    // simply is not walls (a slab-only or roof-only scene), because there the massing legitimately
+    // stands for something. `allowNominalBand` is decided by the caller, which is the only place
+    // that can see slabs and roofs. Consumers already guard `bands.length === 0` (the draw loop,
+    // `resolveFullBuildingHeight`, `tileBandsToFullHeight`), so an empty list is safe.
+    if (bands.length === 0 && allowNominalBand) {
       bands.push({ baseElevation: 0, heightM: 3, levelId: undefined, walls: [] });
     }
     bands.sort((p, q) => p.baseElevation - q.baseElevation);
