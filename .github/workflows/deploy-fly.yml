@@ -126,13 +126,29 @@ jobs:
           # disclosure triangle. Three consecutive failed deploys were diagnosed
           # blind because the step summary showed only the group titles. A failure
           # must be readable without expanding anything.
+          # §DEPLOY-SECRET-WHITESPACE (2026-07-20) — NEVER interpolate a secret directly into
+          # a line-continued command. A secret whose value carries a trailing newline (which
+          # copy-pasting from a cloud console routinely adds) expands MID-COMMAND and shatters
+          # the backslash continuation, so flyctl receives a malformed argument list and exits
+          # in seconds without building. That is indistinguishable from an auth/config failure
+          # in the log, because GitHub redacts the secret value that caused it.
+          #
+          # Secrets now arrive via `env:` (never expanded by the YAML templater into the shell
+          # line) and are stripped of CR/LF and surrounding whitespace before use.
+          strip() { printf '%s' "${1-}" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          CESIUM_TOKEN_CLEAN="$(strip "${VITE_CESIUM_TOKEN_RAW-}")"
+          GOOGLE_KEY_CLEAN="$(strip "${VITE_GOOGLE_MAPS_KEY_RAW-}")"
+          # Length-only diagnostics — never the value. A length that differs from what you
+          # pasted is the tell that the secret carries stray whitespace.
+          echo "build-arg lengths — cesium:${#CESIUM_TOKEN_CLEAN} google:${#GOOGLE_KEY_CLEAN}"
+
           set +e
           for attempt in 1 2 3; do
             echo "───────── Fly deploy attempt $attempt ─────────"
             flyctl deploy --local-only \
               --build-arg LOWMEM=0 \
-              --build-arg VITE_CESIUM_TOKEN="${{ secrets.VITE_CESIUM_TOKEN }}" \
-              --build-arg VITE_GOOGLE_MAPS_KEY="${{ secrets.VITE_GOOGLE_MAPS_KEY }}" \
+              --build-arg VITE_CESIUM_TOKEN="$CESIUM_TOKEN_CLEAN" \
+              --build-arg VITE_GOOGLE_MAPS_KEY="$GOOGLE_KEY_CLEAN" \
               --strategy=rolling \
               --wait-timeout=5m 2>&1 | tee "/tmp/fly-attempt-$attempt.log"
             code=${PIPESTATUS[0]}
@@ -152,6 +168,11 @@ jobs:
           exit 1
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          # §DEPLOY-SECRET-WHITESPACE — passed as env, NOT interpolated into the shell line,
+          # so a stray newline in the secret can never break command parsing. Sanitised in
+          # the script above before being handed to --build-arg.
+          VITE_CESIUM_TOKEN_RAW: ${{ secrets.VITE_CESIUM_TOKEN }}
+          VITE_GOOGLE_MAPS_KEY_RAW: ${{ secrets.VITE_GOOGLE_MAPS_KEY }}
 
 # deploy-marker: v35 — public-window build 2026-06-06 (house wiring + D11 + D16 + Living Graph + crash-fix + governance docs)
 
