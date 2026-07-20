@@ -345,3 +345,78 @@ planeamiento-specific service remain unchecked.
 
 **Direction of travel: Tier B is looking MORE achievable than either research document
 suggested — the failures were client-side, not server-side. Andalucía is the real hole.**
+
+---
+
+# §7 — THE PATTERN (third pass) — *urbanizable* is numeric; *urbano* is not
+
+## §7.1 Murcia — a third numeric source, with a document link
+
+`DescribeFeatureType` on `SIT_USU_PLA_URB_CARM:plu_clasific_tipos_urbanizable`
+— **VERIFIED-LIVE**:
+
+| field | type | note |
+|---|---|---|
+| `Clasificacion` | string | clase de suelo |
+| `Municipio` | string | join key |
+| `Ambito` | string | **granularity: sector/ámbito** |
+| `Uso_global`, `Uso_especifico` | string | permitted use |
+| **`Edificabilidad`** | **double** | **numeric buildable quantum** |
+| `Area_m2` | decimal | sector area → FAR is computable |
+| `Sistema_general` | string | |
+| `Area_suspendida`, `Fecha_acuerdo_suspension` | string/date | plan suspension status |
+| **`Enlace_ficha`** | string | **link to the governing ficha** |
+| `geom` | MultiSurface | |
+
+**Verdict: NUMERIC-FIELDS (ámbito-level) + a document link.** Murcia joins Madrid VEDA and
+Valencia `InventarioSuSuz`.
+
+## §7.2 The pattern — and it is the most useful finding of the whole exercise
+
+Three independent regions, three different portals, **the same shape**:
+
+| Region | Layer | Numeric? | Granularity | Land type |
+|---|---|---|---|---|
+| Madrid | VEDA `Datos_2024` | ✅ `Edif_*` Double | **Ámbito** | development ámbitos |
+| Valencia | `InventarioSuSuz` | ✅ `edif_m2`/`sup_m2` | **Sector** | ***suelo urbanizable*** |
+| Murcia | `plu_clasific_tipos_urbanizable` | ✅ `Edificabilidad` | **Ámbito** | ***suelo urbanizable*** |
+
+> **Numeric edificabilidad IS published in Spain — but only for land that is being
+> DEVELOPED (*suelo urbanizable* / ámbitos de ordenación), never for consolidated
+> *suelo urbano*.**
+
+**Why this is structural, not accidental:** *urbanizable* land is planned as **sectors with
+an assigned buildable quantum** — the number is the planning instrument's own output, so it
+has to be published. Consolidated *urbano* is governed by an **ordenanza applied per plot**
+(zone code → normativa → geometry-dependent rules), so there is no per-parcel number to
+publish; it is *derived*, not *stored*.
+
+### What this changes
+
+1. **Two different products, not one pipeline.**
+   - **Development land** (*urbanizable*): numeric edificabilidad is **available now**, from
+     live services, in at least 3 regions. Sector granularity, but that is the *correct*
+     granularity for that land — a development sector genuinely is the unit of account.
+   - **Consolidated urban plots**: no number exists anywhere. Curation-only, and the
+     C58 granularity rule (§1.11) forbids borrowing the sector figure.
+2. **The "no numeric edificabilidad in Spain" headline (§1) needs qualifying**, and this
+   document corrects itself: it is true **for suelo urbano**, and false for **suelo
+   urbanizable**. The earlier statement was drawn from parcel-oriented services only.
+3. **A near-term product exists that needs no curation at all**: development-land feasibility
+   over *suelo urbanizable*, using published numeric edificabilidad + `Enlace_ficha` /
+   `url_abs` for provenance. That is a real Archistar-shaped answer on a subset of the
+   market, shippable without the PDF pipeline.
+
+## §7.3 Corrections to this document's own earlier claims
+
+- **Navarra — my "likely Tier B" was wrong.** `IDENA:CARTO1_Pol_41SueloU` fields are
+  `C1MOBJECT, C1MFEATURE, C1MMSTABLE, C1MDGN, ALTITUD, GEOM_AREA, GEOM_PERI…` — MicroStation
+  DGN cartography artefacts, **not planning attributes**. That layer is base cartography whose
+  *name* mentions suelo. **Navarra Tier B: UNVERIFIED, correct layer not yet found.** Naming
+  a layer by its title rather than its fields is precisely the error this document exists to
+  avoid, and it recurred here.
+- **Andalucía — negative stands, hunt abandoned honestly.** Guessed service names
+  (`DERA_g13_planeamiento`, `urbanismo`, `planeamiento`, two GeoServer roots) all 404;
+  the `servicios-ogc` portal page returned no DERA service names. Only `DERA_g1_relieve`
+  resolved of the guessed set. **Not found by targeted probing — needs the CSW catalogue or
+  local knowledge, NOT more URL guessing.**
