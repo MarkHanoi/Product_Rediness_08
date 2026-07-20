@@ -319,6 +319,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }]) => {
                     if (!cesiumViewport) {
                         cesiumViewport = new CesiumViewport(viewport, runtime ?? null /* B-runtime-thread CesiumViewport */);
+                        // §L-446 — re-inject on every activation. The constructor above runs
+                        // inside a lazy Promise.all import that can resolve BEFORE a runtime
+                        // exists; the probe confirmed runtime=NULL in production, which pinned
+                        // project north at 0 permanently and rendered the model in PROJECT
+                        // space on a TRUE-north globe. setRuntime() is idempotent and never
+                        // downgrades a live runtime to null, so calling it here is safe and
+                        // heals the viewport as soon as the runtime is available.
+                        cesiumViewport.setRuntime(runtime ?? null);
                         await cesiumViewport.mount();
                         // GIS-CESIUM-ZRAISE — the Cesium container now defaults to
                         // display:none (so it never floats over the BIM view before

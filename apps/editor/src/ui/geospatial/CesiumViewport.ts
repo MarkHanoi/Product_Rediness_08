@@ -933,8 +933,54 @@ export class CesiumViewport {
   // ~650 m under Madrid's photoreal ground. The globe now clamps ONLY to the tile surface
   // (see `clampToPhotorealTilesThenReplace`). No ion terrain host, no CSP change.
 
-  /** Phase B (S73-WIRE) — runtime threaded by parent. */
-  public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
+  /**
+   * Phase B (S73-WIRE) — runtime threaded by parent.
+   *
+   * §L-446 — NO LONGER `readonly`. It was a construct-time snapshot, and the §L-446 probe
+   * proved that snapshot is `null` in production:
+   *
+   *     [§L-446] runtime=NULL siteModelStore=MISSING getLocation=MISSING
+   *              location=NULL trueNorth=undefined
+   *
+   * The viewport is built inside a lazy `Promise.all([...])` import, which can resolve before
+   * the parent holds a runtime. Because the field was `readonly` and assigned once, a null at
+   * that instant was PERMANENT — so `readProjectNorthRad()` returned 0 forever, and
+   * `enuFrameWithProjectNorth` short-circuited to the bare ENU frame on every call.
+   *
+   * That is the whole rotation defect. θ was being produced correctly the entire time
+   * (`site Project North set → θ = 44.65°` in the same session) — the viewport simply could
+   * not see it. Every sign, axis and matrix I verified was right; they were multiplying a θ
+   * that was always zero.
+   *
+   * Now late-injectable via {@link setRuntime} so the viewport HEALS the moment a runtime
+   * exists, instead of being permanently deaf to it.
+   */
+  public runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
+
+  /**
+   * §L-446 — inject the runtime after construction.
+   *
+   * Idempotent and NEVER downgrades a live runtime to null: a later call with null must not
+   * undo a successful injection, or the viewport would silently regress to θ = 0 and the
+   * rotation bug would return intermittently — far harder to diagnose than the original.
+   */
+  public setRuntime(
+    rt: import('@pryzm/runtime-composer/types').PryzmRuntime | null,
+  ): void {
+    if (!rt || this.runtime === rt) return;
+    const wasNull = this.runtime === null;
+    this.runtime = rt;
+    if (wasNull) {
+      // Re-arm the diagnostic: a θ of 0 AFTER healing is a genuinely different claim from a
+      // θ of 0 caused by the null runtime, and must be re-reported rather than stay latched.
+      CesiumViewport._projNorthDiagWarned = false;
+      console.log(
+        '[CesiumViewport][§L-446] runtime injected post-construction — project north is now ' +
+        'readable (it was NULL at construction, which forced θ = 0 and rendered the model in ' +
+        'PROJECT space on a TRUE-north globe).',
+      );
+    }
+  }
 
   constructor(private parent: HTMLElement, runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
       this.runtime = runtime;
