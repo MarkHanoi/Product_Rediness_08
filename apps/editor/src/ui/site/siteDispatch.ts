@@ -30,6 +30,8 @@ import type {
     ParcelEdgeClassification,
     SiteModel,
     BuildableEnvelope,
+    ZoningRecord,
+    Pt,
 } from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
 // §L-430 slice 3 — parcel→θ derivation + the true→project free-vector rotation used to square
@@ -43,11 +45,25 @@ import {
     computeBuildableEnvelope,
     DkZoningProvider,
     isInDenmark,
+    // ADR-0271 §BCN-REAL-ENVELOPE — Barcelona ensanche real-envelope path.
+    isInBarcelona,
+    ES_BARCELONA_ENSANCHE_PACK,
+    BCN_ENSANCHE_ZONE_CODES,
+    dissolveParcelsToBlockRing,
+    classifyBlockFrontages,
+    type RoadPolyline,
     // L-445 fallback 3 — re-inset from PERSISTED setbacks for projects committed before the
     // ring-persistence fix. C58 §1.7a permits this for `setback` zones only; see the guard.
     insetPolygonPerEdge,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
+// ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
+// PURE engine: clau (MUC), parcel refcat + block (Catastro), and OSM road centrelines.
+import { fetchQualificationAtPoint } from './zoning/MucZoningProvider.js';
+import { catastroParcelProvider } from './parcel/CatastroParcelProvider.js';
+import { fetchBlockForParcel } from './parcel/CatastroBlockProvider.js';
+import { fetchContextRoads } from '../geospatial/contextRoads.js';
+import { latLonToSceneXZ, type LatLon } from './boundaryProjection.js';
 import { trace } from '@opentelemetry/api';
 import { polygonAreaXZ } from './siteInspectorData';
 
@@ -799,6 +815,14 @@ function applyZoning(
             void applyDkZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude, estimated);
             return;
         }
+        // ADR-0271 §BCN-REAL-ENVELOPE — a Barcelona-metro plot resolves the REAL, cited
+        // ensanche envelope (clau 13a/13E, block-derived profunditat edificable per PGM
+        // Art. 242.2). Async + best-effort: ANY problem (or a non-Eixample clau) falls back
+        // to the precomputed estimated envelope, exactly like the DK path.
+        if (loc && isInBarcelona(loc.latitude, loc.longitude)) {
+            void applyBcnZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude, estimated);
+            return;
+        }
     } catch (e) {
         console.warn('[gis][c58] jurisdiction selection failed (non-fatal) — using estimated default:', e);
     }
@@ -843,6 +867,175 @@ async function applyDkZoningThenFallback(
         );
     } catch (e) {
         console.warn('[gis][c58] DK zoning path failed (non-fatal) — falling back to estimated default:', e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * ADR-0271 §BCN-REAL-ENVELOPE — the Barcelona (Eixample) path. Resolves a REAL, CITED
+ * buildable envelope for a clau 13a/13E parcel: the *profunditat edificable* is CONSTRUCTED
+ * from the block per PGM Art. 242.2 (`ES_BARCELONA_ENSANCHE_PACK` +
+ * `block-derived-alignment`), never guessed.
+ *
+ * THE SAFETY CONTRACT (founder's rule): an ABSENT/refused envelope costs nothing, a WRONG
+ * *profunditat edificable* costs credibility. So EVERY problem — no clau / non-Eixample clau /
+ * no refcat / no block / a non-conforming block tiling (dissolve `degenerate`) / no street
+ * frontages / any thrown error / an envelope whose `status !== 'ok'` — routes to
+ * `applyEstimatedZoning` (the precomputed estimated envelope). The worst outcome is "same as
+ * today (estimated)". Never throws into the commit path.
+ *
+ * ⚠ FRAME (the correctness crux): by the time this runs, `boundary.polygon` is already in the
+ * θ-DE-ROTATED authoring frame (`dispatchParcelBoundary` squared the parcel to project north
+ * BEFORE `applyZoning`). So the block ring AND the roads are projected about the SAME site
+ * origin and de-rotated by the SAME θ (`site.location.trueNorth`, which `dispatchParcelBoundary`
+ * persisted via `dispatchSiteTrueNorth`) — see `toAuthoringFrame` below. Any other frame yields
+ * a garbage envelope.
+ */
+async function applyBcnZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §BCN-REAL-ENVELOPE';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        // (b) Resolve the planning clau. Non-Eixample (e.g. 13b) MUST fall back — the pack is
+        //     not applicable, and borrowing Eixample's depth would be a wrong number.
+        const qual = await fetchQualificationAtPoint(lat, lon);
+        const eixampleCodes = BCN_ENSANCHE_ZONE_CODES as readonly string[];
+        if (!qual || !eixampleCodes.includes(qual.clau)) {
+            console.log(`${TAG} clau=${qual?.clau ?? 'none'} not an Eixample zone (13a/13E) — estimated fallback.`);
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const clau = qual.clau;
+        console.log(`${TAG} clau resolved → ${clau} (${qual.clauLabel ?? 'n/a'}).`);
+
+        // (c) Real cadastral parcel → referencia catastral.
+        const parcelFeat = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+        const refcat = parcelFeat?.refcat;
+        if (!refcat) {
+            console.log(`${TAG} no Catastro refcat at point — estimated fallback.`);
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        // (d) The block (manzana) this parcel belongs to.
+        const block = await fetchBlockForParcel(refcat);
+        if (!block || block.parcels.length < 3) {
+            console.log(
+                `${TAG} block=${block?.manzana ?? 'none'} parcels=${block?.parcels.length ?? 0} (need ≥3) ` +
+                    `— estimated fallback.`,
+            );
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        console.log(`${TAG} block ${block.manzana} — ${block.parcels.length} parcels (~${block.totalAreaM2.toFixed(0)} m²).`);
+
+        // (e) FRAME — project + de-rotate about the SAME origin + θ the parcel used.
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const origin = { lat: site.location.latitude, lon: site.location.longitude };
+        const rawTheta = site.location.trueNorth;
+        const theta = Number.isFinite(rawTheta) ? rawTheta : 0;
+        // Project a WGS84 point to scene-XZ (TRUE-north frame, `latLonToSceneXZ` — the exact
+        // projection `buildBoundaryFromLatLonRing` uses internally), then apply the IDENTICAL
+        // θ de-rotation `dispatchParcelBoundary` applied to the parcel ring. θ = 0 ⇒ identity.
+        const toAuthoringFrame = (p: LatLon): Pt => {
+            const xz = latLonToSceneXZ(p, origin.lat, origin.lon);
+            if (theta === 0) return { x: xz.x, z: xz.z };
+            const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+            return { x: e.east, z: -e.north };
+        };
+
+        // Dissolve the block's parcels to ONE block ring (exact edge-cancellation; refuses a
+        // non-conforming tiling with `degenerate`).
+        const parcelRingsXZ = block.parcels.map((bp) => bp.ring.map(toAuthoringFrame));
+        const dissolved = dissolveParcelsToBlockRing(parcelRingsXZ);
+        if (dissolved.degenerate || dissolved.ring.length < 3) {
+            console.log(`${TAG} block ring dissolve refused (reason=${dissolved.reason}) — estimated fallback.`);
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const blockRing = dissolved.ring;
+
+        // (f) Roads → street-frontage classification of the block edges. No frontages ⇒ the
+        //     solver refuses ⇒ estimated fallback (that is the correct failure).
+        let roads: RoadPolyline[] = [];
+        try {
+            const roadCol = await fetchContextRoads(lat, lon);
+            roads = roadCol.ways.map((w) => ({
+                points: w.coords.map(([wlon, wlat]) => toAuthoringFrame({ lat: wlat, lon: wlon })),
+            }));
+        } catch (e) {
+            console.warn(`${TAG} context-roads fetch failed (non-fatal) — 0 roads:`, e);
+            roads = [];
+        }
+        const blockEdgeClassifications = classifyBlockFrontages(blockRing, roads);
+        const frontCount = blockEdgeClassifications.filter((c) => c === 'front').length;
+        console.log(
+            `${TAG} roads=${roads.length} way(s); block frontages: ${frontCount} 'front' of ` +
+                `${blockEdgeClassifications.length} block edges.`,
+        );
+        if (frontCount === 0) {
+            console.log(`${TAG} no street frontages classified — the solver would refuse; estimated fallback.`);
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+
+        // (g) Solve. The ZoningRecord names the clau; the ENGINE reads the geometricRule FROM
+        //     the pack zone (so we pass no geometricRule). Mirrors `estimatedDefaultZoningRecord`
+        //     shape, with catastro-muc provenance and a null record-level ordinanceRef (the pack
+        //     zone supplies the real citation).
+        const record: ZoningRecord = {
+            zoneCode: clau,
+            zoneLabel: qual.clauLabel,
+            jurisdictionId: 'es-08019-barcelona',
+            structuredFields: {},
+            overlays: [],
+            ordinanceRef: null,
+            provenance: {
+                source: 'catastro-muc',
+                label: 'Generalitat MUC (clau) + Catastro parcel/manzana',
+                version: null,
+                license: null,
+                crs: 'EPSG:4326',
+            },
+        };
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack: ES_BARCELONA_ENSANCHE_PACK,
+            blockRing,
+            blockEdgeClassifications,
+        });
+
+        // (h) Dispatch ONLY a status:'ok' envelope; anything else falls back (never a broken one).
+        if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
+            dispatchEnvelope(ctx, site.id, envelope, 'muc-catastro');
+            console.log(
+                `${TAG} envelope OK → confidence=${envelope.confidence} zone=${envelope.zoneCode ?? 'n/a'} ` +
+                    `inset=${envelope.insetAreaM2.toFixed(1)}m² (REAL, cited per PGM Art. 242.2).`,
+            );
+        } else {
+            console.log(
+                `${TAG} envelope status=${envelope.status} — estimated fallback. ` +
+                    `caveats: ${envelope.caveats.join(' | ')}`,
+            );
+            applyEstimatedZoning(ctx, estimated);
+        }
+    } catch (e) {
+        console.warn(`${TAG} path failed (non-fatal) — estimated fallback:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }

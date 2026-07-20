@@ -83,6 +83,19 @@ export {
     type MapPlandataOpts,
 } from './providers/mapPlandataToZoningRecord.js';
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
+// ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
+export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';
+// ── ADR-0271 P4 — block (manzana) ring dissolve + street-frontage classification. ──
+// The pure producers the block-derived-alignment envelope needs; the L5 editor injects
+// their results into `computeBuildableEnvelope` (roads/parcels are fetched at the edge).
+export {
+    dissolveParcelsToBlockRing,
+    classifyBlockFrontages,
+    VERTEX_MATCH_TOLERANCE_M,
+    type RoadPolyline,
+    type BlockRingResult,
+    type FrontageOptions,
+} from './geometry/blockRing.js';
 // §L-401 slice 2 — storey height-cap against the C58 envelope (pure decision).
 export {
     capStoreysToEnvelope,

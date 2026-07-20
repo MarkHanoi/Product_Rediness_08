@@ -400,8 +400,13 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                    Brand is white + purple, explicitly no black (onboarding brand note), so the
                    honest mask is opaque white: the user sees a clean white field with the prism
                    and progress until the scene is genuinely ready, never a half-loaded globe.
-                   The blur is kept for the brief fade in/out, when a frame may still show through. */
-                background: #FFFFFF;
+                   The blur is kept for the brief fade in/out, when a frame may still show through.
+                   §LOAD-MASK-TINT (L-494) — a SLIGHT lavender-grey, not pure white: the prism +
+                   spinner are near-white, so on #FFFFFF they vanished (founder: "we don't see the
+                   prism rotating while loading"). A faint tint keeps the dark globe fully masked
+                   while giving the white prism contrast to read against. Still brand (white+purple,
+                   no black). */
+                background: #ECEAF3;
                 backdrop-filter: blur(8px);
                 -webkit-backdrop-filter: blur(8px);
                 transition: opacity 0.20s ease;
