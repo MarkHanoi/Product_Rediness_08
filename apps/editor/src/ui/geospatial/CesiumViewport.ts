@@ -8172,7 +8172,20 @@ export class CesiumViewport {
       );
       const seatPosition = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, seatBase);
       if (Math.abs(seatBase - baseHeight) > 1e-3) {
-        newModel.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(seatPosition);
+        // §L-446 — MUST be enuFrameWithProjectNorth, NOT the raw ENU frame.
+        //
+        // This re-seat rebuilds the matrix from scratch, so a raw `eastNorthUpToFixedFrame`
+        // here SILENTLY DISCARDS the project-north rotation applied when the model was first
+        // placed above. The model then renders in PROJECT space on a TRUE-north globe — i.e.
+        // rotated by θ against the real world — while the parcel void, boundary and massing
+        // (which take the θ-aware path) stay correctly aligned. That is exactly the reported
+        // defect: the building sits skewed inside its own correctly-oriented plot.
+        //
+        // It is also VERTICALLY CONDITIONAL (`> 1e-3`), which is why it presents as
+        // intermittent: on flat ground seatBase == baseHeight, the branch never runs, and the
+        // orientation is correct. It only corrupts when the terrain clamp moves — so a bug
+        // report depends on the site's ground, not on the code path being exercised.
+        newModel.modelMatrix = this.enuFrameWithProjectNorth(seatPosition);
       }
 
       // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — THE VERTICAL INVARIANT, applied to the

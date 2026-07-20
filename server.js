@@ -50,6 +50,9 @@ import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/ove
 import { CATASTRO_PARCEL_PATH, catastroParcelHandler } from './server/parcelZoningProxy.js';
 // §PLANDATA-ZONING-PROXY (L-399a): same-origin KEYLESS Denmark zoning proxy + cache (real DK envelope)
 import { PLANDATA_ZONING_PATH, plandataZoningHandler } from './server/plandataZoningProxy.js';
+// §L-441 Tier B — Spain's NATIONAL clasificacion-del-suelo (SIU). Same cache/forward/
+// fallback shape as the Plandata proxy above.
+import { SIU_CLASSIFICATION_PATH, siuClassificationHandler } from './server/siuClassificationProxy.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -384,6 +387,8 @@ app.get(CATASTRO_PARCEL_PATH, apiLimiter, catastroParcelHandler);
 // no plan / upstream failure → 200 { zoning: null } so the client falls back to the estimated
 // default pack (the envelope is never broken).
 app.get(PLANDATA_ZONING_PATH, apiLimiter, plandataZoningHandler);
+// §L-441 — SIU national land classification (urbano / urbanizable / rustico) by point.
+app.get(SIU_CLASSIFICATION_PATH, apiLimiter, siuClassificationHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}
