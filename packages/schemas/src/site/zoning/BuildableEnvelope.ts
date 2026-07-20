@@ -53,6 +53,18 @@ export const DerivationConstraintSchema = z.enum([
     'alignment.offset',
     /** How the lateral boundaries are treated: party wall (*mitgera*) vs a side setback. */
     'alignment.sideTreatment',
+    // ─── ADR-0271 — block-derived depth (PGM Art. 242.2) ──────────────────────────────────
+    /**
+     * WHICH rule bound a CONSTRUCTED depth: `interior-ratio` (the ≥30% courtyard rule — the
+     * true Art. 242 construction), `max-cap` (the block is shallow enough that the 30 m cap
+     * governs) or `min-floor` (the ratio would force a depth below the 11 m floor).
+     *
+     * A first-class row rather than a diagnostic, because these are **different legal
+     * statements about the same number** — "the courtyard rule set this" and "the cap set
+     * this" are not interchangeable in an explain-why report (C58 §1.3). Present ONLY when
+     * the depth was constructed; a stated scalar depth has no binding.
+     */
+    'alignment.depthBinding',
 ]);
 export type DerivationConstraint = z.infer<typeof DerivationConstraintSchema>;
 

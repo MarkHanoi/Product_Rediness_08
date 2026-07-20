@@ -82,6 +82,10 @@ export function estimatedDefaultZoningRecord() {
         jurisdictionId: 'estimated-default',
         structuredFields: {},
         overlays: [] as string[],
+        // Required by `ZoningRecord`, and `null` is the only honest value: these are curated
+        // placeholders, so there is no ordinance to cite. Omitting the key type-errored under
+        // `tsc -p` while passing vitest (which does not typecheck) — the gap that let it drift.
+        ordinanceRef: null,
         provenance: {
             source: 'estimated-default',
             label: 'PRYZM estimated default rule pack',

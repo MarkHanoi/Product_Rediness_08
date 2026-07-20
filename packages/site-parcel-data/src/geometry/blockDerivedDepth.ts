@@ -116,9 +116,28 @@ function interiorFreeAreaAt(input: BlockDerivedDepthInput, d: number): number {
 export function solveBlockDerivedDepth(
     input: BlockDerivedDepthInput,
 ): BlockDerivedDepthResult | null {
-    const { blockRing, interiorFreeRatio, minDepth_m, maxDepth_m } = input;
+    const { blockRing, blockEdgeClassifications, interiorFreeRatio, minDepth_m, maxDepth_m } = input;
     if (blockRing.length < 3) return null;
     if (!(maxDepth_m >= minDepth_m) || !(minDepth_m >= 0)) return null;
+    if (blockEdgeClassifications.length !== blockRing.length) return null;
+
+    // §BLOCK-DEPTH-REQUIRES-FRONTAGE (L-465) — ⚠ WITHOUT THIS GUARD THE SOLVER RETURNS THE
+    // ORDINANCE CAP FOR A BLOCK WITH NO IDENTIFIED STREETS, AND CALLS IT NON-DEGENERATE.
+    //
+    // Art. 242.2 measures the depth "equidistant from the street frontages". With no edge
+    // classified `front`, `interiorFreeAreaAt` erodes NOTHING at any `d`, so the free ratio is
+    // 1.0 for every depth, the `freeAtMax >= requiredFree` short-circuit below always fires, and
+    // the function hands back `maxDepth_m` — 30 m, the deepest the ordinance permits ANYWHERE —
+    // with `binding: 'max-cap'` and `degenerate: false`. A caller cannot tell that apart from a
+    // genuine cap-bound answer.
+    //
+    // That is the exact defect class this module's own header rails against, reached from the
+    // opposite direction: not a hard-coded depth, but a CONSTRUCTED one whose construction had
+    // no input. A mis-classified block (the likely real-world case, since frontage classification
+    // is itself derived) would silently produce maximum buildability on the densest land in Spain.
+    //
+    // `null` is the honest answer — the caller shows no envelope (C58 §1.2 tier 3, §1.4).
+    if (!blockEdgeClassifications.some((c) => c === 'front')) return null;
 
     const blockArea = area(blockRing);
     if (!(blockArea > 0)) return null;

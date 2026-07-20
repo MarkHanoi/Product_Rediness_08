@@ -49,6 +49,18 @@ export {
     type InsetResult,
 } from './geometry/insetPolygon.js';
 
+// ── ADR-0271 — block-derived *profunditat edificable* (PGM Art. 242.2). ──
+// Exported so the block-ring producer (P4) can resolve a depth for display/diagnostics without
+// a full envelope solve. The ENGINE reaches it internally; callers should normally go through
+// `computeBuildableEnvelope`, which applies the depth to the parcel and records the derivation.
+export {
+    solveBlockDerivedDepth,
+    BLOCK_DEPTH_BISECTION_STEPS,
+    type BlockDerivedDepthInput,
+    type BlockDerivedDepthResult,
+    type BlockDepthBinding,
+} from './geometry/blockDerivedDepth.js';
+
 // ── L-399a — DK Plandata.dk zoning provider (C58 §3.1, the first real-data jurisdiction) ──
 export type { ZoningProvider, ZoningProviderDeps } from './providers/ZoningProvider.js';
 export { DkZoningProvider, PLANDATA_ZONING_PATH } from './providers/DkZoningProvider.js';

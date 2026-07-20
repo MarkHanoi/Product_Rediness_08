@@ -67,6 +67,9 @@ const CONSTRAINT_ORDER: readonly DerivationConstraint[] = [
     // them first is not cosmetic: reading order is what tells an architect which rule shaped
     // the envelope, and burying the depth under three zeros is how the old panel misled.
     'alignment.depth',
+    // ADR-0271 — immediately after the depth it explains. A constructed depth read without its
+    // binding looks like a figure the ordinance stated, which is the one thing it is not.
+    'alignment.depthBinding',
     'alignment.offset',
     'alignment.sideTreatment',
     'setback.front',
@@ -82,6 +85,7 @@ const LABELS: Record<DerivationConstraint, string> = {
     // Keep the local legal term alongside the English — it is what appears in the ordinance the
     // citation points at, so a user checking the source can find the clause.
     'alignment.depth': 'Buildable depth (profundidad edificable)',
+    'alignment.depthBinding': 'Depth determined by',
     'alignment.offset': 'Offset from alignment (alineación)',
     'alignment.sideTreatment': 'Lateral boundaries',
     'setback.front': 'Front setback',
@@ -99,6 +103,18 @@ const SIDE_TREATMENT_TEXT: Record<string, string> = {
     setback: 'Side setback',
 };
 
+/**
+ * ADR-0271 — human wording for the block-depth `binding`. These are not synonyms: each names a
+ * DIFFERENT article doing the work, and an architect checking the citation needs to land on the
+ * right clause. `min-floor` in particular is a warning, not a result — it means the Art. 242.2
+ * construction wanted LESS than the ordinance floor, so the floor is what governs.
+ */
+const DEPTH_BINDING_TEXT: Record<string, string> = {
+    'interior-ratio': 'The interior free-space rule (≥30% of the block, PGM Art. 242.2)',
+    'max-cap': 'The ordinance depth cap (30 m) — the block is deep enough that the free-space rule did not bind',
+    'min-floor': 'The ordinance depth floor (11 m) — the free-space rule alone would give less',
+};
+
 /** Format a derivation value with the unit its constraint implies. */
 export function formatConstraintValue(
     constraint: DerivationConstraint,
@@ -110,6 +126,8 @@ export function formatConstraintValue(
         // ADR-0270 P4 — expand the sideTreatment enum into words. Rendering `party-wall` raw
         // would show an internal token where a legal concept belongs.
         if (constraint === 'alignment.sideTreatment') return SIDE_TREATMENT_TEXT[value] ?? value;
+        // ADR-0271 — same reason: `interior-ratio` is a token, not a legal statement.
+        if (constraint === 'alignment.depthBinding') return DEPTH_BINDING_TEXT[value] ?? value;
         return value;
     }
     if (typeof value === 'number') {
