@@ -208,10 +208,38 @@ export async function fetchFromMirrors(query, deps = {}) {
     return null;
 }
 
-/** Set the permissive same-origin cache headers on an Overpass proxy response. */
+/** Set the permissive same-origin cache headers on a SUCCESSFUL Overpass proxy response. */
 function setProxyCacheHeaders(res) {
     // Browsers + any intermediary same-origin cache may hold the result for a day.
     res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=86400');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+}
+
+/**
+ * §OVERPASS-NO-CACHE-EMPTY (L-422 root cause) — headers for the FAILURE response.
+ *
+ * THE DEFECT THIS FIXES: the all-mirrors-failed path returns `200 {elements: []}` so the client
+ * degrades to "no context" instead of erroring — deliberate, and right. But it was sent with the
+ * SUCCESS headers (`public, max-age=86400`), so although the SERVER correctly declined to cache
+ * the failure, the response TOLD THE BROWSER TO CACHE IT FOR 24 HOURS. One transient Overpass
+ * rate-limit therefore became a persistent, whole-day "this area has no context" for that client
+ * — and because the empty body is indistinguishable from a legitimately empty area, it looked
+ * like data absence rather than a failure.
+ *
+ * Live evidence (2026-07-20, Barcelona port bbox 2.1682,41.3724,2.1896,41.3884): the app logged
+ * `parks: 0`, `water: 0 areas + 0 waterways + 0 sea surfaces`, `buildings: far-extent fetch
+ * returned 0 footprints` — while a direct Overpass query for the SAME bbox returned **20 water
+ * ways**. Three unrelated layers reading exactly zero at once is not data absence; it is one
+ * shared cached failure.
+ *
+ * A failure must never be cacheable. `no-store` also keeps it out of the service worker and any
+ * intermediary, which a bare `max-age=0` would not reliably do.
+ */
+function setProxyFailureHeaders(res) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
 }
@@ -258,12 +286,20 @@ export function makeOverpassHandler(deps = {}) {
         }
 
         if (upstream === null) {
-            // All mirrors failed / rate-limited / offline. Answer 200 with an
-            // empty element set so the client's non-fatal path degrades to "no
-            // context" instead of erroring. Do NOT cache the empty failure.
-            setProxyCacheHeaders(res);
+            // All mirrors failed / rate-limited / offline. Answer 200 with an empty element set
+            // so the client's non-fatal path degrades to "no context" instead of erroring.
+            // §OVERPASS-NO-CACHE-EMPTY (L-422) — the server already declines to cache this, but
+            // it MUST also tell the browser/SW/intermediaries not to. Sending the success
+            // headers here made one transient rate-limit into a 24-hour zero-context day.
+            setProxyFailureHeaders(res);
             res.setHeader('X-Overpass-Cache', 'MISS-EMPTY');
-            return res.status(200).json({ elements: [] });
+            // Explicit, machine-readable failure marker. The body stays `{elements: []}` for
+            // back-compat with every existing client parse path, but a caller that wants to
+            // distinguish "upstream failed" from "this area is genuinely empty" now can —
+            // previously the two were indistinguishable, which is why the defect read as data
+            // absence for so long.
+            res.setHeader('X-Overpass-Upstream', 'FAILED');
+            return res.status(200).json({ elements: [], _upstreamFailed: true });
         }
 
         // Success — cache the verbatim upstream JSON + return it.
