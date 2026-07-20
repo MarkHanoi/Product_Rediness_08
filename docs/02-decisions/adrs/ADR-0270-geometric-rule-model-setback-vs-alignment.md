@@ -48,7 +48,7 @@ wrong *thing*. **Neither stops us presenting a fact of the wrong SHAPE — this 
 
 ---
 
-## Decision (proposed)
+## Decision (ACCEPTED — option A, founder 2026-07-20)
 
 **Model the geometric rule as a discriminated union on rule KIND, not as optional fields added
 to the existing flat setback shape.**
@@ -188,6 +188,21 @@ blocked on the §1.7 decision above.**
 
 ## Status
 
-**PROPOSED.** Not accepted. No code written. No contract set ACTIVE. The §1.7 conflict is
-flagged for a human decision per the logging protocol Step 2 and is deliberately not resolved
-here.
+**ACCEPTED 2026-07-20 (founder) — option (A).** See the header for the authoritative phase state.
+
+> **⚠ This section previously read "PROPOSED. Not accepted. No code written. No contract set
+> ACTIVE."** That was correct when written and became false on acceptance the same day: the
+> header was updated, this trailing section was not, and ~15 source files implement the decision.
+> **A reader landing at the bottom of the file got the exact opposite answer from one landing at
+> the top** — and on an ADR the bottom is where people look for status. Corrected in place per
+> C01 Discipline Rule 1 (edit the canonical doc; never fork a derivative). The original wording is
+> quoted here rather than deleted, because the point of an immutable record is that you can see
+> what it used to say.
+>
+> The §1.7 conflict this section refers to WAS resolved — by the founder, as option (A), which is
+> what the header records and what C58 §1.7a now encodes.
+
+**Superseded in part by [ADR-0271](./ADR-0271-block-derived-buildable-depth.md):** this ADR's
+`alignment` variant carries a SCALAR `buildableDepth_m`, which cannot express the Barcelona
+Eixample, where PGM Art. 242.2 states a CONSTRUCTION rather than a number. ADR-0271 adds a fourth
+variant for that case. Nothing here is retracted — the gap is in reach, not in correctness.
