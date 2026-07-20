@@ -17,6 +17,17 @@ import { resolveViewScope, resolveBeyondLineStyle } from './ViewScope';
 import { categoryFromFlags } from '../drawing/PenWeightTable';
 // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) / C09 §4.6 — the four-zone classifier.
 import { drawingZoneFromLayerName, penZoneOf, BEYOND_DASH_PX } from '../drawing/DrawingZone';
+
+/**
+ * §PLAN-CAMTARGET-SANITY (L-481) — how far from the site origin a PLAN camera target may sit
+ * before we refuse it. See `PlanViewCanvas.setFrustum` for the defect and the evidence.
+ *
+ * 20 km is deliberately generous: it comfortably contains any real site, campus or masterplan
+ * a plan view is ever framed on, while still being three orders of magnitude below the ~300 km
+ * excursion observed live. It is a sanity bound against a coordinate-space leak, NOT a design
+ * limit on project extent — which is why it refuses loudly rather than clamping silently.
+ */
+const PLAN_CAMTARGET_MAX_ABS_M = 20_000;
 // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the third pen axis. The projector
 // stamps the element TYPE's function on the projected LineSegments; this is where it is read.
 import { elementFunctionFrom, ELEMENT_FUNCTION_KEY } from '../drawing/ElementFunction';
@@ -770,8 +781,58 @@ export class PlanViewCanvas {
         return null;
     }
 
+    /**
+     * §PLAN-CAMTARGET-SANITY (L-481) — THE CAMERA TARGET IS AN INPUT, AND IT WAS THE ONLY
+     * UNGUARDED ONE IN THE WHOLE PLAN-TOOL CHAIN.
+     *
+     * THE DEFECT: `screenToWorld` is `(sx/w)*2*fW - fW + this._camTarget.x`. `_frustumH` is
+     * clamped to [2, 200] on the line above, so the pixel term can contribute at most a few
+     * hundred metres — which means `_camTarget` is the ONLY term that can carry a large value,
+     * and it was copied verbatim. A bad target is therefore added to EVERY subsequent click.
+     *
+     * MEASURED, founder's console: `[WallPlanToolHandler] Polyline start point set
+     * {worldX: 181116.41, worldZ: -253540.26}` — a wall authored ~300 km from the origin.
+     * Nothing downstream objected: there is no magnitude check anywhere between here and
+     * `wall.create`, so a finite-but-absurd coordinate is committed as real geometry and
+     * silently corrupts the project. The plan view then looks "empty" because the content is
+     * hundreds of kilometres outside the viewport, which reads as a RENDER bug and sends you
+     * hunting in entirely the wrong place (the founder's report was "I lost the plan view
+     * boundary and envelope").
+     *
+     * ⚠ THIS DOES NOT FIX THE PRODUCER. The upstream cause is still open: `_fitCamTargetToScene`
+     * expands a Box3 over EVERY mesh in the scene unfiltered, so one far-placed mesh (the site
+     * plan underlay is the leading suspect — its position derives from a lat/lon differenced
+     * against a site origin that may be unset) drags the centre arbitrarily far. This guard
+     * REFUSES the bad value and says so loudly, which converts a silent data-corruption bug
+     * into a visible, diagnosable one — and prints the evidence needed to finish the job.
+     *
+     * WHY REFUSE RATHER THAN CLAMP: clamping would invent a plausible-looking target and let
+     * authoring continue at a subtly wrong place. Keeping the last known-good target means the
+     * view stays where it was and the user's clicks stay meaningful. An absent pan costs
+     * nothing; a wall committed 300 km away costs the project.
+     */
     setFrustum(frustumH: number, camTarget: THREE.Vector3): void {
         this._frustumH = Math.max(2, Math.min(200, frustumH));
+
+        const finite =
+            Number.isFinite(camTarget.x) && Number.isFinite(camTarget.y) && Number.isFinite(camTarget.z);
+        const withinPlausibleSite =
+            Math.abs(camTarget.x) <= PLAN_CAMTARGET_MAX_ABS_M &&
+            Math.abs(camTarget.z) <= PLAN_CAMTARGET_MAX_ABS_M;
+
+        if (!finite || !withinPlausibleSite) {
+            console.error(
+                '[PlanViewCanvas] §PLAN-CAMTARGET-SANITY (L-481) REFUSED an implausible plan camera ' +
+                    `target (${camTarget.x}, ${camTarget.y}, ${camTarget.z}). Limit is ` +
+                    `±${PLAN_CAMTARGET_MAX_ABS_M} m from the site origin. Keeping the last good target ` +
+                    `(${this._camTarget.x.toFixed(2)}, ${this._camTarget.z.toFixed(2)}). ` +
+                    'Every plan click adds this target to its world position, so accepting it would ' +
+                    'author geometry hundreds of km away. LIKELY PRODUCER: a scene mesh placed far ' +
+                    'from the origin (site-plan underlay?) pulling SplitViewManager._fitCamTargetToScene.',
+            );
+            return;
+        }
+
         this._camTarget.copy(camTarget);
     }
 

@@ -63,6 +63,12 @@ import { triggerWindowResize } from '../triggerWindowResize'; // F.events.16
 /** Half the default view frustum extent (world units). */
 const DEFAULT_FRUSTUM = DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM;
 
+/** §PLAN-FIT-OUTLIER-DIAG (L-481) — a mesh further than this from the origin is reported by
+ *  name before it can drag the plan camera target. 5 km is well beyond any real site extent
+ *  but far below the ~300 km excursion measured live, so it fires on the fault and not on
+ *  legitimate large projects. Diagnostic only — it changes no behaviour. */
+const PLAN_FIT_OUTLIER_WARN_M = 5_000;
+
 /** Target frame interval for the secondary renderer (~30 fps). */
 const SECONDARY_FPS_INTERVAL = 1000 / 30;
 
@@ -1734,13 +1740,45 @@ export class SplitViewManager implements ISplitViewManager {
 
     // ── Scene Helpers ─────────────────────────────────────────────────────────
 
+    /**
+     * §PLAN-FIT-OUTLIER-DIAG (L-481) — name the mesh that drags the plan camera away.
+     *
+     * This expands a Box3 over EVERY mesh in the scene, unfiltered, and hands the centre to the
+     * plan camera target. One mesh placed far from the origin therefore moves the target
+     * arbitrarily far — and because `PlanViewCanvas.screenToWorld` ADDS that target to every
+     * click, it silently relocates authored geometry. Live evidence: a wall committed at
+     * (181116, -253540), ~300 km out.
+     *
+     * `PlanViewCanvas.setFrustum` now REFUSES such a target, so the corruption is stopped. What
+     * is still unknown is WHICH mesh is the outlier — the site-plan underlay is the leading
+     * suspect (its position derives from a lat/lon differenced against a site origin that may be
+     * unset), but that was inferred from the magnitude, NOT traced. So rather than guess and
+     * "fix" the wrong producer, this logs the offender by name the moment it appears. One run of
+     * the founder's flow then settles it, instead of another round of theorising.
+     */
     private _fitCamTargetToScene(): void {
         const box = new THREE.Box3();
+        let farthestName = '';
+        let farthestDist = 0;
         this._scene.traverse(obj => {
             if ((obj as THREE.Mesh).isMesh) {
                 box.expandByObject(obj);
+                const d = Math.hypot(obj.position.x, obj.position.z);
+                if (d > farthestDist) {
+                    farthestDist = d;
+                    farthestName = obj.name || obj.type || '(unnamed)';
+                }
             }
         });
+        if (farthestDist > PLAN_FIT_OUTLIER_WARN_M) {
+            console.error(
+                `[SplitViewManager] §PLAN-FIT-OUTLIER-DIAG (L-481) — mesh "${farthestName}" sits ` +
+                    `${Math.round(farthestDist)} m from the origin and is being averaged into the PLAN ` +
+                    'camera target. Every plan click adds that target to its world position, so this is ' +
+                    'the producer of far-away authored geometry. THIS NAME IS THE ANSWER — it identifies ' +
+                    'which subsystem is emitting a coordinate in the wrong space.',
+            );
+        }
         if (box.isEmpty()) {
             this._camTarget.set(0, 0, 0);
             this._frustumH = DEFAULT_FRUSTUM;
