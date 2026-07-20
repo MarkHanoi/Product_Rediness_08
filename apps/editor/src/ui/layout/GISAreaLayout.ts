@@ -326,7 +326,28 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         // space on a TRUE-north globe. setRuntime() is idempotent and never
                         // downgrades a live runtime to null, so calling it here is safe and
                         // heals the viewport as soon as the runtime is available.
-                        cesiumViewport.setRuntime(runtime ?? null);
+                        // §L-446 — resolve CAPTURED-THEN-WINDOW, the pattern §L-412 already
+                        // established here and `getFormaBoundary` uses for the store.
+                        //
+                        // The captured `runtime` is NULL on the live boot path by DESIGN:
+                        // `createMainLayout(props, null)` (Layout.ts:86, initUI.ts). The §L-446
+                        // probe confirmed the consequence in production —
+                        //   [§L-446] runtime=NULL siteModelStore=MISSING trueNorth=undefined
+                        // — so project north read 0 forever and the model rendered in PROJECT
+                        // space on a TRUE-north globe.
+                        //
+                        // `window.runtime` IS published at bootstrap() start, BEFORE initUI, so
+                        // it is populated by the time this lazy import resolves. This is the
+                        // third consumer of the same documented boot-order gap, and it uses the
+                        // same resolution rather than inventing a new one.
+                        const resolvedRuntime =
+                            runtime ??
+                            (typeof window !== 'undefined'
+                                ? ((window as { runtime?: unknown }).runtime as
+                                    | import('@pryzm/runtime-composer/types').PryzmRuntime
+                                    | undefined) ?? null
+                                : null);
+                        cesiumViewport.setRuntime(resolvedRuntime);
                         await cesiumViewport.mount();
                         // GIS-CESIUM-ZRAISE — the Cesium container now defaults to
                         // display:none (so it never floats over the BIM view before
