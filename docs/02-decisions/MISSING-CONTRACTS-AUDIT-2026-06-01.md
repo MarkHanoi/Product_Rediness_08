@@ -310,3 +310,9 @@ context-layer provenance; it simply doesn't reach here yet. **Decision needed:**
 carry graded + source-tagged + multi-field provenance, OR write a new context-provenance spec
 (SPEC-CONTEXT-PROVENANCE). Must land BEFORE the context provenance badge ships (L-512a). Owner:
 UNASSIGNED. Related: C12/C19/C21/C55, L-511, L-512.
+
+**Also governs L-514 (Portugal) — an EVEN MORE ACUTE case (added 2026-07-21):** Portugal has DGT
+national LiDAR height but **no national floor-count** (no Catastro-ALTURAS equivalent), so the
+measured height stands **single-source with no second field to cross-check** — the graded provenance
+model must carry `measured_height_m` + `height_confidence` AND honestly record the *absence* of a
+floor-count field, never collapsing to one "REAL". Same decision, same owner; no separate gap entry.

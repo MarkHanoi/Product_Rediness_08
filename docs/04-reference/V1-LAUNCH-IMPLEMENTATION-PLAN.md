@@ -3998,6 +3998,27 @@ Refines L-511b for the ship-first country. Full docs: `spain/SPAIN-HEIGHT-MEASUR
 cycle-aware confidence (or add a context-provenance spec) BEFORE the badge ships — the three height
 fields must not collapse into one "REAL". Coverage gap logged to MISSING-CONTRACTS-AUDIT.
 
+### L-514 — Portugal deep-dive: source map + single-source LiDAR-height model (child of L-511)
+
+Refines L-511f (PT spike) for build-order #7. Full docs: `portugal/PORTUGAL-CONTEXT-DEEP-DIVE.md`,
+`portugal/README.md`, `portugal/topics/*`. **NOT live-probed this session** — every source is a spike
+lead to re-verify (UNVERIFIED), unlike the live-verified Spain pass. **Reframing:** PT is NOT
+uniformly the weakest — new 2023–25 national parcel cadastre + Lisbon's rich municipal 3D model; the
+weakness is patchy parcel coverage (~134 munis) + no national LOD outside Lisbon. Design deltas:
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-514a **Parcels — Carta Cadastral coverage-check** (DL 72/2023, SNIC, DGT; NIC + geometry; ~134 munis = 127 CGPR + 7 SiNErGIC) — per-municipality resolver, PDM/OSM proxy fallback; BUPi is NOT a source | design | **DOCUMENTED** — coverage-gated; verify per-muni (esp. Lisbon/Porto) + OGC-API status |
+| L-514b **DGT-LiDAR nDSM height = SAME module as L-511c/L-512b** (10 pts/m², DTM 50cm/DSM 2m, 90th-pctile) — **single-source: NO floor-count cross-check** → stands alone, lower confidence; no published RMSE-Z | infra | spec DONE (reuses ES/FR/PT module), build NOT STARTED |
+| L-514c **Lisbon municipal 3D model licence verify** — CML "Modelo Tridimensional da Ocupação Superficial" (LOD2/3-ish) + Rede Viária + modelled sidewalks; **VERIFY open-redistribution** at geodados-cml.hub.arcgis.com | verify | **BLOCKER** — UNVERIFIED licence; do not integrate until confirmed |
+| L-514d PT roads/water/parks — OSM/Overture + IP (roads, open-status UNVERIFIED) + SNIRH/DGT hydrography (water, flatten) + COS/COSc (parks, coarse) | impl | leads documented, NOT live-probed, NOT STARTED |
+| L-514e PT trees — **Lisbon CML "Arvoredo"** legally-mandated per-tree register (Tier-A) + DGT LiDAR CHM elsewhere (**verify class codes vs ASPRS first**); procedural fallback | impl | source documented, NOT live-probed, NOT STARTED |
+
+**Contract action:** governed by the SAME graded-provenance gap as L-512 (logged in
+MISSING-CONTRACTS-AUDIT). PT is the MORE ACUTE case — single-source LiDAR height with no cross-check,
+so `measured_height_m` + `height_confidence` must ship WITHOUT collapsing to one "REAL", and must
+record the ABSENCE of a floor-count field rather than inventing one.
+
 ### L-513 — context 3D at MAX performance: static pre-baked tiles (delivery layer for L-511/L-512)
 
 Root cause (live-reproduced): context is fetched live from public Overpass per site visit; public
