@@ -1044,6 +1044,29 @@ async function applyBcnZoningThenFallback(
                 crs: 'EPSG:4326',
             },
         };
+        // §L-515-FRONTAGE-DIAG — founder: "the depth (profunditat edificable) is applied to the
+        // SIDE of the parcel, not measured back from the street frontage." The depth solve is
+        // correct (per-edge block inset, front:d); a wrong-side band means an EDGE was mis-classified
+        // as `front`. Log which parcel + block edges are `front`, with each edge's midpoint + compass
+        // bearing, so we can see whether the `front` edge is the actual street edge or a side edge.
+        try {
+            const bearingOf = (ring: { x: number; z: number }[], i: number): string => {
+                const a = ring[i], b = ring[(i + 1) % ring.length];
+                // scene +x = East, +z = South (screen-down); report a rough compass bearing of the edge.
+                const deg = ((Math.atan2(b.x - a.x, -(b.z - a.z)) * 180) / Math.PI + 360) % 360;
+                const mx = ((a.x + b.x) / 2).toFixed(1), mz = ((a.z + b.z) / 2).toFixed(1);
+                return `#${i}@(${mx},${mz}) ${deg.toFixed(0)}°`;
+            };
+            const pFront = (boundary.edgeClassifications ?? [])
+                .map((c, i) => (c === 'front' ? bearingOf(boundary.polygon, i) : null))
+                .filter(Boolean);
+            const bFrontCount = blockEdgeClassifications.filter((c) => c === 'front').length;
+            console.log(
+                `${TAG} §L-515-FRONTAGE-DIAG parcel: ${boundary.edgeClassifications?.length ?? 0} edges, ` +
+                    `${pFront.length} 'front' [${pFront.join(' | ')}] · block: ${bFrontCount}/${blockEdgeClassifications.length} 'front'. ` +
+                    `If the 'front' edge bearing is NOT the street side, the depth band runs off the wrong edge.`,
+            );
+        } catch { /* diagnostic only */ }
         const envelope = computeBuildableEnvelope({
             parcelRing: boundary.polygon,
             edgeClassifications: boundary.edgeClassifications,
