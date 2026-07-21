@@ -119,11 +119,23 @@ export function parseBlockResponse(json: unknown): BlockFeature | null {
 export async function fetchBlockForParcel(
     refcat: string,
     signal?: AbortSignal,
+    /**
+     * §BLOCK-CENTROID-REUSE (L-533) — the subject parcel's centroid, when the caller already has
+     * it. The proxy otherwise spends a WHOLE extra round-trip on a slow government WFS re-fetching
+     * this parcel purely to centre its bbox — a number the caller was already handed moments
+     * earlier when it resolved the clau. Supplying it halves the route's latency. Optional by
+     * design: any caller without a centroid still gets a correct block.
+     */
+    centroid?: { lat: number; lon: number },
 ): Promise<BlockFeature | null> {
     if (typeof refcat !== 'string' || refcat.trim() === '') return null;
     const span = _tracer.startSpan('pryzm.parcel.fetchBlock');
     try {
-        const url = `${CATASTRO_BLOCK_ENDPOINT}?refcat=${encodeURIComponent(refcat.trim())}`;
+        const centroidQuery =
+            centroid && Number.isFinite(centroid.lat) && Number.isFinite(centroid.lon)
+                ? `&lat=${encodeURIComponent(String(centroid.lat))}&lon=${encodeURIComponent(String(centroid.lon))}`
+                : '';
+        const url = `${CATASTRO_BLOCK_ENDPOINT}?refcat=${encodeURIComponent(refcat.trim())}${centroidQuery}`;
         const res = await fetch(url, { signal });
         if (!res.ok) {
             span.setAttribute('result', 'http-error');

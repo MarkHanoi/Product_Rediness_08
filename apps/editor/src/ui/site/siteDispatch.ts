@@ -1000,7 +1000,22 @@ async function applyBcnZoningThenFallback(
         }
 
         // (d) The block (manzana) this parcel belongs to.
-        const block = await fetchBlockForParcel(refcat);
+        // §BLOCK-CENTROID-REUSE (L-533) — hand the proxy the centroid we ALREADY have from the
+        // parcel fetch above, so it can skip its own `GetParcel` round-trip to the same slow WFS.
+        const pRing = Array.isArray(parcelFeat?.ring) ? parcelFeat.ring : null;
+        const centroid =
+            pRing && pRing.length >= 3
+                ? {
+                      lat: pRing.reduce((s: number, p: LatLon) => s + p.lat, 0) / pRing.length,
+                      lon: pRing.reduce((s: number, p: LatLon) => s + p.lon, 0) / pRing.length,
+                  }
+                : undefined;
+        const tBlock = performance.now();
+        const block = await fetchBlockForParcel(refcat, undefined, centroid);
+        console.log(
+            `${TAG} §BCN-ENVELOPE-TIMING block fetch ${(performance.now() - tBlock).toFixed(0)} ms ` +
+                `(centroid ${centroid ? 'reused — GetParcel skipped' : 'unavailable'}).`,
+        );
         if (!block || block.parcels.length < 3) {
             console.log(
                 `${TAG} block=${block?.manzana ?? 'none'} parcels=${block?.parcels.length ?? 0} (need ≥3) ` +
@@ -1053,7 +1068,15 @@ async function applyBcnZoningThenFallback(
         // deadline: if roads arrive fast they still refine; otherwise resolve the envelope NOW from
         // the manzana-perimeter model. Parcel frontage is already road-independent (§L-515). The
         // underlying fetch is not cancelled — it still warms the context cache for the render layer.
-        const ENVELOPE_ROADS_DEADLINE_MS = 2000;
+        // §L-533 — 2000 → 600 ms. The comment above already establishes that in the dense Eixample
+        // this query "returns 0 anyway"; the founder's logs bear that out on EVERY run
+        // (`roads=0 way(s)` after the full deadline, every time). So the 2 s was a fixed tax on the
+        // real envelope in exchange for a refinement that never arrives, and the manzana-perimeter
+        // model that then runs is the CORRECT one for a street-bounded Catastro manzana regardless.
+        // 600 ms still lets a genuinely fast/cached roads response refine the frontages — it only
+        // stops us WAITING on the slow path. The fetch is not cancelled and still warms the context
+        // cache for the render layer, so nothing is thrown away.
+        const ENVELOPE_ROADS_DEADLINE_MS = 600;
         let roads: RoadPolyline[] = [];
         try {
             const roadCol = await Promise.race([

@@ -436,29 +436,100 @@ export function parseParcelCollectionGml(gml) {
  * `GetFeature`. Never throws; resolves to `null` on any doubt (C57 §1.5) — an absent block costs
  * an absent envelope, which is the only acceptable failure on a compliance path.
  */
+/**
+ * §BLOCK-CACHE (L-533) — the block route had NO cache at all, so every boundary draw paid two
+ * fresh round-trips to a slow Spanish government WFS. A *manzana* is static cadastral data (it
+ * changes when parcels are legally subdivided, i.e. essentially never within a session), and the
+ * SAME block is re-fetched constantly: every redraw, every re-select, and every other parcel on
+ * the same block. Keyed by manzana rather than by refcat for exactly that reason — the second
+ * parcel a user tries on a block is then free.
+ *
+ * Mirrors the parcel cache's TTL/size discipline above; entries are the parsed parcel arrays,
+ * never raw GML, so a hit costs no re-parse either.
+ */
+const BLOCK_CACHE_TTL_MS = PARCEL_CACHE_TTL_MS;
+const BLOCK_CACHE_MAX_ENTRIES = 128;
+
 export function makeCatastroBlockHandler(deps = {}) {
     const fetchImpl = deps.fetchImpl || fetch;
     const timeoutMs = deps.timeoutMs || CATASTRO_UPSTREAM_TIMEOUT_MS;
+
+    // ⚠ PER-HANDLER, NOT MODULE-LEVEL. The first version of this cache was a module-level Map and
+    // it immediately leaked between tests: a block cached by one case was served to the next,
+    // so "REFUSES below 3 siblings" passed a stale success back and failed. That was the CACHE
+    // telling the truth about a design flaw, not a test-harness quirk — a module-global mutable
+    // Map is shared by every handler anyone constructs, which is exactly the hidden coupling
+    // `makeCatastroBlockHandler(deps)` exists to avoid. Scoping it to the closure gives each
+    // constructed handler its own cache: production builds ONE (`catastroBlockHandler` below) and
+    // gets one long-lived cache, while every test gets a clean one for free, with no reset hook to
+    // remember to call.
+    const blockCache = new Map();
+
+    const blockCacheGet = (manzana) => {
+        const hit = blockCache.get(manzana);
+        if (!hit) return null;
+        if (Date.now() - hit.at > BLOCK_CACHE_TTL_MS) {
+            blockCache.delete(manzana);
+            return null;
+        }
+        return hit.parcels;
+    };
+
+    const blockCacheSet = (manzana, parcels) => {
+        if (blockCache.size >= BLOCK_CACHE_MAX_ENTRIES) {
+            // Oldest-first eviction — Map preserves insertion order.
+            const oldest = blockCache.keys().next();
+            if (!oldest.done) blockCache.delete(oldest.value);
+        }
+        blockCache.set(manzana, { at: Date.now(), parcels });
+    };
+
     return async function catastroBlockHandler(req, res) {
         const refcat = typeof req.query?.refcat === 'string' ? req.query.refcat.trim() : '';
         if (!refcat) return res.status(400).json({ error: 'refcat required' });
         const manzana = manzanaPrefix(refcat);
         if (!manzana) return res.status(400).json({ error: 'refcat too short for a manzana prefix' });
 
+        // §BLOCK-CACHE — a hit skips BOTH upstream calls.
+        const cached = blockCacheGet(manzana);
+        if (cached) {
+            console.log(`[catastro-block] §BLOCK-CACHE hit for manzana ${manzana} (${cached.length} parcels) — 0 upstream calls.`);
+            return res.status(200).json({
+                block: { manzana, parcels: cached, siblingCount: cached.length }, _cached: true,
+            });
+        }
+
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeoutMs);
         try {
-            // 1) The subject parcel, to centre the search.
-            const selfUrl = `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
-                `&STOREDQUERIE_ID=GetParcel&REFCAT=${encodeURIComponent(refcat)}&srsName=EPSG:4326`;
-            const selfRes = await fetchImpl(selfUrl, { signal: ctrl.signal });
-            if (!selfRes.ok) return res.status(200).json({ block: null, _upstreamFailed: true });
-            const selfParsed = parseParcelGml(await selfRes.text());
-            if (!selfParsed || selfParsed.ring.length < 3) {
-                return res.status(200).json({ block: null, _shapeUnrecognised: true });
+            // 1) Centre the search on the subject parcel.
+            //
+            // §BLOCK-CENTROID-REUSE (L-533) — the CALLER usually already holds this parcel's ring:
+            // `applyBcnZoningThenFallback` fetches it moments earlier to resolve the clau, and the
+            // draw flow has it from the pick. Re-deriving it here cost a SECOND round-trip to the
+            // same slow WFS for a number we were already given. So accept `lat`/`lon` and skip the
+            // `GetParcel` call when they are supplied — halving the latency of the whole route.
+            // Absent or malformed params fall back to the original self-fetch, so the route stays
+            // correct for any caller that does not have a centroid to offer.
+            const qLat = Number.parseFloat(req.query?.lat);
+            const qLon = Number.parseFloat(req.query?.lon);
+            let lat;
+            let lon;
+            if (Number.isFinite(qLat) && Number.isFinite(qLon)) {
+                lat = qLat;
+                lon = qLon;
+            } else {
+                const selfUrl = `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
+                    `&STOREDQUERIE_ID=GetParcel&REFCAT=${encodeURIComponent(refcat)}&srsName=EPSG:4326`;
+                const selfRes = await fetchImpl(selfUrl, { signal: ctrl.signal });
+                if (!selfRes.ok) return res.status(200).json({ block: null, _upstreamFailed: true });
+                const selfParsed = parseParcelGml(await selfRes.text());
+                if (!selfParsed || selfParsed.ring.length < 3) {
+                    return res.status(200).json({ block: null, _shapeUnrecognised: true });
+                }
+                lat = selfParsed.ring.reduce((s, p) => s + p.lat, 0) / selfParsed.ring.length;
+                lon = selfParsed.ring.reduce((s, p) => s + p.lon, 0) / selfParsed.ring.length;
             }
-            const lat = selfParsed.ring.reduce((s, p) => s + p.lat, 0) / selfParsed.ring.length;
-            const lon = selfParsed.ring.reduce((s, p) => s + p.lon, 0) / selfParsed.ring.length;
 
             // 2) One BBOX query, then filter to the manzana.
             const bboxRes = await fetchImpl(buildParcelBboxUrl(lat, lon), { signal: ctrl.signal });
@@ -477,9 +548,12 @@ export function makeCatastroBlockHandler(deps = {}) {
                 return res.status(200).json({ block: null, _tooFewSiblings: parcels.length });
             }
 
+            // §BLOCK-CACHE — only a TRUSTWORTHY block is cached. The `< 3` refusal above returns
+            // before this point, so a rejected block is never remembered as an answer.
+            blockCacheSet(manzana, parcels);
             console.log(
                 `[catastro-block] manzana ${manzana}: ${parcels.length} parcel(s) of ${all.length} ` +
-                `in bbox around ${refcat}.`,
+                `in bbox around ${refcat}${Number.isFinite(qLat) ? ' (centroid supplied — GetParcel skipped)' : ''}. Cached.`,
             );
             return res.status(200).json({
                 block: { manzana, parcels, siblingCount: parcels.length },
