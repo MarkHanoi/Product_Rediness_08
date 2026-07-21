@@ -41,17 +41,29 @@ water/parks/trees via the tiered per-country resolver. All scoped in `CONTEXT-DA
   noUnusedLocals; a new dep MUST commit `pnpm-lock.yaml` in the SAME commit or the build breaks).
 - Shared checkout: commit with EXPLICIT pathspecs; NEVER `git stash` / `git reset --hard` / `git add -A`.
 - Deploy = push to `main` + a `# deploy-marker: vNNN — <what to test>` line in
-  `.github/workflows/deploy-fly.yml`. **Last marker = v253.** Rapid pushes CANCEL in-flight deploys
+  `.github/workflows/deploy-fly.yml`. **Last marker = v254.** Rapid pushes CANCEL in-flight deploys
   (content still lands in the newest deploy). SW is network-first → hard-refresh after deploy.
 - Log every new item per the template into the audit + implementation plan (+ MISSING-CONTRACTS on a
   contract gap). Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - localhost dev is unusable (event-loop starvation) — test on `pryzm.fly.dev`.
 
-## CONFIRMED WORKING (shipped v247–v253, founder-verified)
+## CONFIRMED WORKING (shipped v247–v254, founder-verified)
 Real "Real · constructed" envelope on draw + select (green badge, cited profunditat edificable, PGM
 Art. 242.2); correct street-frontage depth (L-515); envelope no longer waits on Overpass (L-516/516b);
 readable + non-empty panel (L-508b/518/518c); 3D-Site paints on startup (L-520); draw flow queries the
 real parcel (L-521/521b); context prefetched at the parcel (L-524a). L-489 persistence captures site.
+
+## DONE THIS SESSION (v254) — the L-525/L-526 accuracy triage
+- **SHIPPED:** pack min-floor corrected **11 m → 12 m** (PGM Art. 242 minimum; `esBarcelonaEnsanche.ts`).
+- **DIAGNOSED (code-verified, NOT blind-fixed):** the depth root cause is nailed. The block-fetch bbox
+  is `BLOCK_BBOX_HALF_DEG = 0.002` ≈ **444 m** (~4× a 113 m Cerdà block) → it is **NOT clipping**.
+  Catastro **masa 02309 genuinely = HALF a Cerdà illa** (14 parcels / 6,686 m²), while the pilot masa
+  02297 was a full illa (23 parcels / 14,090 m²). **Catastro masa ≠ urbanistic illa** — the 5-char
+  refcat-prefix manzana heuristic breaks here. Then, with roads=0, the all-perimeter-front model insets
+  from the masa's INTERIOR edge too → the depth over-erodes and floors out. Full write-up in
+  `L-526-LEGAL-FINDINGS.md` §"THE DEPTH ROOT CAUSE" + audit L-525.
+- **The visible depth (24–28 m) is NOT yet fixed** — that needs the illa-assembly (L-525b below), which
+  is real geometry/data work deliberately left for a fresh context, not blind-patched on a spent one.
 
 ## OPEN TASKS — PRIORITISED CHECKLIST
 
@@ -63,12 +75,21 @@ real parcel (L-521/521b); context prefetched at the parcel (L-524a). L-489 persi
       — a contradiction; Art. 327 governs alçada + storeys + profunditat, so it could be WHY depth is
       too shallow). A parallel Claude-Chat research prompt exists (`L-526-LEGAL-RESEARCH-PROMPT.md`);
       fold its verdict in. **Doubt the rule before perfecting the geometry.**
-- [ ] **L-525b (GEOMETRY, do FIRST — cheap + highest-impact) — verify the block dissolve.** Block
-      02309 came out ~6,686 m² ≈ HALF a Cerdà manzana → the all-perimeter inset floored the depth to
-      11 m (`min-floor`). Probe: in `apps/editor/src/ui/site/siteDispatch.ts` (`applyBcnZoningThenFallback`)
-      log the dissolved `blockRing` bbox/area/bearings; overlay on satellite for a KNOWN parcel — full
-      block or partial? If partial → fix `fetchBlockForParcel` / `dissolveParcelsToBlockRing`
-      (a silent shrink on EVERY affected envelope). Details: `L-525-ENVELOPE-ACCURACY-INVESTIGATION.md`.
+- [ ] **L-525b (GEOMETRY, THE depth fix — do FIRST, highest-impact) — assemble the full illa.**
+      ROOT CAUSE ALREADY CONFIRMED this session (see "DONE THIS SESSION"): the bbox is fine; Catastro
+      **masa 02309 is only HALF a Cerdà illa** (6,686 m²), and `fetchBlockForParcel` /
+      `dissolveParcelsToBlockRing` return that half-masa, so the all-perimeter inset floors the depth to
+      ~11–12 m. **The fix is masa-union:** make the block provider return the FULL illa (~12,000 m²) —
+      union masa 02309 with its adjacent sibling masa into ONE Cerdà block — because a Catastro masa is
+      NOT guaranteed to equal the urbanistic illa. Then offset the whole illa (Art. 242) and intersect
+      with the parcel; never offset a half-masa. AND classify the block-INTERIOR edge (the one facing
+      the pati d'illa / the sibling masa, not a street) as non-front so all-perimeter-front stops
+      eroding it. Probe FIRST (the discipline): log the dissolved `blockRing` bbox/area/bearings +
+      parcel count, overlay on satellite for Pau Claris 155 — confirm the union now spans the whole
+      113 m illa before trusting the depth. Files: `siteDispatch.ts` (`applyBcnZoningThenFallback`),
+      `CatastroBlockProvider.ts`, `server/parcelZoningProxy.js` (the `manzanaPrefix` heuristic — it
+      needs a masa-adjacency/union step). Details: `L-525-ENVELOPE-ACCURACY-INVESTIGATION.md`,
+      `L-526-LEGAL-FINDINGS.md`. NOTE: the min-floor is ALREADY 12 m (v254) — do NOT re-touch it.
 - [ ] **L-525c — depth MODEL (only if the block is whole).** All-perimeter inset over-erodes small/
       irregular blocks; the real profunditat is a street-frontage BAND leaving the pati d'illa
       courtyard, not an inset from every edge (incl. chamfers). Evolve `blockDerivedDepth.ts`.
@@ -113,14 +134,27 @@ real parcel (L-521/521b); context prefetched at the parcel (L-524a). L-489 persi
   graded + cycle-tagged) — extend C23 or add a spec BEFORE the graded height badge ships.
 - Data↔geometry bidirectional link (L-519) — no contract governs clicking a report row to select geometry.
 
-## RECOMMENDED FIRST MOVE NEXT SESSION (the L-526 legal research is DONE — see `L-526-LEGAL-FINDINGS.md`)
-The legal research RESOLVED L-526: **the depth error is GEOMETRY, confirmed.** Art. 242 offsets the
-FULL illa; our block 02309 dissolved to ~6,686 m² ≈ HALF a Cerdà manzana → the inset floored to ~11 m.
-So the FIRST implementation move is **L-525b — make `fetchBlockForParcel`/`dissolveParcelsToBlockRing`
-return the FULL illa (~12,000 m²), offset the illa (Art. 242) then intersect the parcel**, and set the
-pack **min-floor = 12 m (not 11)**. Then apply the other confirmed fixes: encode the **Art. 327.2 height
-table** (20 m street → PB+5 ≈ 20.75–22.40 m; use the OFFICIAL street width) for L-525a/L-527; fix the
-**citation** (depth = Art. 242, DROP Art. 322.1; height = Arts. 238/240/327; re-cite the current
-Barcelona NUMAMB/RPUC, drop the anachronistic "AMB Dec 2010"). STILL TO CERTIFY (needs the MUC/RPUC
-fitxa, not web search): the exact depth figure + official street width for parcel 0230904DF3803 + the
-20.75-vs-22.40 PB+5 reconciliation.
+## RECOMMENDED FIRST MOVE NEXT SESSION (diagnosis + min-floor DONE v254; the fix is now turnkey)
+The legal research (L-526) and the code diagnosis are BOTH resolved: **the depth error is GEOMETRY,
+code-confirmed** — Art. 242 offsets the FULL illa, but Catastro masa 02309 = HALF a Cerdà illa
+(6,686 m²) and the block provider returns that half, so the inset floors to ~11–12 m. The min-floor is
+already corrected to 12 m (v254). So the FIRST implementation move is **L-525b — make the block provider
+return the FULL illa via masa-union** (union masa 02309 + its sibling masa; Catastro masa ≠ urbanistic
+illa), classify the block-interior edge as non-front, offset the whole illa (Art. 242), then intersect
+the parcel. **Probe first** (log/overlay the dissolved ring for Pau Claris 155 → confirm it spans the
+whole 113 m illa) before trusting the depth — this is the whole session's discipline. THEN apply the
+other confirmed fixes: encode the **Art. 327.2 height table** (20 m street → PB+5 ≈ 20.75–22.40 m; use
+the OFFICIAL street width) for L-525a/L-527; fix the **citation** (depth = Art. 242, DROP Art. 322.1;
+height = Arts. 238/240/327; re-cite the current Barcelona NUMAMB/RPUC, drop the anachronistic "AMB Dec
+2010"; repair the "2008 §2 not reflected" caveat — it's a HEIGHT change and the vintage is wrong anyway;
+update `esBarcelonaEnsanche.ts` `BCN_ORDINANCE_REF` + the panel citation + RISK-REGISTER R1). STILL TO
+CERTIFY (needs the interactive MUC/RPUC fitxa, not web search): the exact depth figure + official street
+width for parcel 0230904DF3803 + the 20.75-vs-22.40 PB+5 reconciliation.
+
+## THE FOCUS, IN ONE LINE
+**Make the Barcelona envelope look as right as it reads.** The data, flow, citation-honesty, and legal
+diagnosis are DONE and founder-verified. The single remaining credibility gap is ACCURACY — depth
+(L-525b illa-assembly, root cause confirmed → the highest-impact move) and heights (L-525a/L-527 shared
+nDSM + Art. 327.2 table). Fix those two and the Barcelona demo is production-sound. Everything else
+(context tile bake L-513, 3D-globe visuals L-510/517, features L-519/524B, Madrid/Córdoba, the 7-country
+study) is downstream of nailing accuracy first. Do NOT blind-fix — probe, then fix, then log per template.
