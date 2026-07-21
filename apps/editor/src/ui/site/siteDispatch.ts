@@ -1056,9 +1056,26 @@ async function applyBcnZoningThenFallback(
         // (h) Dispatch ONLY a status:'ok' envelope; anything else falls back (never a broken one).
         if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
             dispatchEnvelope(ctx, site.id, envelope, 'muc-catastro');
+            // §L-507-DEPTH-DIAG — surface the REAL numbers so the founder can correlate the panel
+            // + the 3D envelope SHAPE with the data ("is the 26 m depth what the prism shows?").
+            // The depth + how it was bound live in the derivation trace (alignment.depth /
+            // alignment.depthBinding); insetArea vs parcel area shows how much of the plot the
+            // depth band covers (a mid-block parcel shallower than the depth → whole plot; a deep
+            // parcel → a street-facing band leaving the interior free).
+            const depthRow = envelope.derivation.find((d) => d.constraint === 'alignment.depth');
+            const bindRow = envelope.derivation.find((d) => d.constraint === 'alignment.depthBinding');
+            const parcelAreaM2 = Math.abs(
+                boundary.polygon.reduce((acc, p, i) => {
+                    const q = boundary.polygon[(i + 1) % boundary.polygon.length];
+                    return acc + (p.x * q.z - q.x * p.z);
+                }, 0) / 2,
+            );
             console.log(
                 `${TAG} envelope OK → confidence=${envelope.confidence} zone=${envelope.zoneCode ?? 'n/a'} ` +
-                    `inset=${envelope.insetAreaM2.toFixed(1)}m² (REAL, cited per PGM Art. 242.2).`,
+                    `depth=${typeof depthRow?.value === 'number' ? depthRow.value.toFixed(1) + 'm' : 'n/a'} ` +
+                    `(binding=${bindRow?.value ?? 'n/a'}) inset=${envelope.insetAreaM2.toFixed(1)}m² of ` +
+                    `parcel~${parcelAreaM2.toFixed(0)}m² (${parcelAreaM2 > 0 ? Math.round((envelope.insetAreaM2 / parcelAreaM2) * 100) : '?'}% covered) ` +
+                    `— REAL, cited per PGM Art. 242.2.`,
             );
         } else {
             console.log(
