@@ -811,6 +811,15 @@ function applyZoning(
 ): void {
     try {
         const loc = ctx.store.getSite()?.location;
+        // §JURISDICTION-DIAG (L-505) — ALWAYS logs, so a silent estimated fallback is never a
+        // mystery: it names whether the site location was readable and which jurisdiction gate
+        // matched. If the founder searches the console and finds NO §BCN-REAL-ENVELOPE line, this
+        // line says why — loc null (site not set at applyZoning time) vs isInBarcelona=false.
+        console.log(
+            `[gis][c58] §JURISDICTION-DIAG loc=${loc ? `${loc.latitude.toFixed(5)},${loc.longitude.toFixed(5)}` : 'NULL'} ` +
+                `isInDenmark=${loc ? isInDenmark(loc.latitude, loc.longitude) : 'n/a'} ` +
+                `isInBarcelona=${loc ? isInBarcelona(loc.latitude, loc.longitude) : 'n/a'}`,
+        );
         if (loc && isInDenmark(loc.latitude, loc.longitude)) {
             void applyDkZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude, estimated);
             return;

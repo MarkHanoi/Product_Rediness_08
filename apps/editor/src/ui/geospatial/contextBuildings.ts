@@ -231,7 +231,17 @@ export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
  * nearest `CONTEXT_FAR_MAX_BUILDINGS`. The inner near ring is untouched (extruded + shadows),
  * so nothing regresses; the far ring is purely additive, bounded context.
  */
-export const CONTEXT_BBOX_FAR_HALF_DEG = 0.016;
+// §CTX-FAR-EXTENT-HALVED (L-506, founder 2026-07-21) — was 0.016. The 0.016° far box
+// (~3.5 km) is a `way["building"]…out geom` query over the whole dense Eixample: ~8,000+
+// footprints, which is BOTH the slow-render load the founder called out ("needs to be more
+// zoomed in for speed") AND the dense-city Overpass cost that intermittently returns 0
+// (L-482/L-504). Halving the RADIUS quarters the AREA and roughly quarters the query cost,
+// so the far ring loads faster and fails far less — the founder's "smaller circle" ask. The
+// near ring (§CONTEXT_BBOX_HALF_DEG, the extruded+shadowed immediate context) is UNCHANGED,
+// so the plot's surroundings still read fully; only the distant annulus shrinks. ⚠ This is a
+// MITIGATION of the latency, not the real fix — L-504 (self-host OSM building tiles so reads
+// are O(1) with no query cost or 429) is what makes context <2 s ALWAYS.
+export const CONTEXT_BBOX_FAR_HALF_DEG = 0.011;
 
 /** §FEAT-FORMA-CONTEXT-EXTENT-LOD — hard CAP on FAR-ring footprints kept for render (the
  *  nearest N by centroid distance). Bounds the shadow-off geometry budget so a dense urban
