@@ -41,7 +41,7 @@ water/parks/trees via the tiered per-country resolver. All scoped in `CONTEXT-DA
   noUnusedLocals; a new dep MUST commit `pnpm-lock.yaml` in the SAME commit or the build breaks).
 - Shared checkout: commit with EXPLICIT pathspecs; NEVER `git stash` / `git reset --hard` / `git add -A`.
 - Deploy = push to `main` + a `# deploy-marker: vNNN — <what to test>` line in
-  `.github/workflows/deploy-fly.yml`. **Last marker = v263.** Rapid pushes CANCEL in-flight deploys
+  `.github/workflows/deploy-fly.yml`. **Last marker = v268.** Rapid pushes CANCEL in-flight deploys
   (content still lands in the newest deploy). SW is network-first → hard-refresh after deploy.
 - Log every new item per the template into the audit + implementation plan (+ MISSING-CONTRACTS on a
   contract gap). Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
@@ -53,7 +53,51 @@ Art. 242.2); correct street-frontage depth (L-515); envelope no longer waits on 
 readable + non-empty panel (L-508b/518/518c); 3D-Site paints on startup (L-520); draw flow queries the
 real parcel (L-521/521b); context prefetched at the parcel (L-524a). L-489 persistence captures site.
 
-## DONE LAST SESSION (v256–v263) — depth AND height are FIXED; the documented depth cause was WRONG
+## ⚡ READ THIS FIRST — THE STATE CHANGED FUNDAMENTALLY ON 2026-07-21 (v256–v268)
+
+**Yesterday's framing was "Barcelona works, Spain is unknown." That is obsolete. The GEOMETRY now
+works across Spain; what remains is LEGAL CURATION, city by city.** Four separate "confirmed" root
+causes were falsified by probe in one day — trust measurements in this file, not prose elsewhere.
+
+**The numbers that matter now (all measured, none estimated):**
+- **Block dissolve 63.5 % → 91.4 %** across 5 cities / 956 real manzanas (**ADR-0274**, L-539).
+  Córdoba went **0/3 → 90.8 %**. **0 pre-existing rings changed, 0 lost** — guaranteed by
+  exact-pass-first AND verified on all 607. *Madrid and Córdoba are no longer geometry-blocked.*
+- **Barcelona fabrications: 741 points → 0.** Ground getting a constructed-or-cited answer
+  **6.5 % → 86.1 %** (L-550/L-551). Private buildable land positively answered **24.2 % → 48.4 %**.
+- **Street width is a CONSTRUCTION** (**ADR-0275**, L-537): Barcelona height coverage **44 % → 86 %**.
+- **CI now gates deploys** (L-540, v268). Before that, v256–v267 all shipped with CI red and ungated.
+
+**FOUNDER DECISION 2026-07-21 — `no-rule-pack` refusal switched ON.** 51.6 % of Barcelona's private
+buildable land (13b, 12, 12b, 22a, 22@, 20a/*) now shows NO envelope + a cited refusal rather than a
+generic estimated setback triple, because for an *alineació de vial* zone that triple is the WRONG
+GEOMETRIC OPERATION, not merely an imprecise value. **Do not "restore" it.**
+
+**⚠ FIVE CONTRACT-vs-CODE CONFLICTS ARE LOGGED AND NEED A HUMAN** (see C57 §13 / C58 / C19 §13):
+(1) **C58 has no `constructed` confidence tier (L-518)** — Barcelona's real, block-derived,
+ordinance-cited depth renders with an **ESTIMATED** badge. Our best data is undersold by our own UI,
+and the September wedge depends on that distinction. (2) **L-560** — θ is derived from the parcel's
+LONGEST edge (often a party wall or chamfer): within ONE Cerdà block θ measured 44.6, −44.9, −37.6,
+0.0, 31.4, 20.2°. Every generated wall is squared to that frame. Fixing it re-squares EXISTING saved
+projects — needs a migration decision. (3) the C19 θ invariant is documented but not enforced.
+(4) correct 326-vertex block rings breach a 200-vertex hard reject. (5) **20.75 vs 22.40 m** for PB+5
+unreconciled (L-528).
+
+**BLOCKED ON THE FOUNDER, NOT ON ENGINEERING:** the **R2 bucket** (kills the `/items/*.glb` 404s in
+every console log and unblocks the L-513a tile bake — live public Overpass is the last unreliable
+dependency on the demo critical path); an **interactive RPUC/AMB session** to source **Art. 328**
+(clau 13b) and **Art. 316** (nucli antic) — automated fetches get 403/404 for INE 08019, and Phases
+1–3 cannot ship without them; and **L-528 certification**.
+
+**THE DISCIPLINE THAT PAID FOR THE DAY:** four convenient hypotheses died on contact with a probe —
+the half-illa masa-union, "nucli antic is a cheap parameter change", "the dissolve fails on slivers"
+(zero slivers in 250,646 edges), and clau 13b being config-only (a municipal republication claimed a
+single 18 m depth — adopting it would have replaced the Art. 242 algorithm with a constant,
+city-wide). **When a doc says a root cause is CONFIRMED, check whether anyone measured it.**
+
+---
+
+## DONE (v256–v263) — depth AND height are FIXED; the documented depth cause was WRONG
 
 ⚠ **READ THIS BEFORE TRUSTING ANY "CONFIRMED ROOT CAUSE" IN THE OLDER DOCS.** Three documents (the
 audit, `L-525-ENVELOPE-ACCURACY-INVESTIGATION.md`, `L-526-LEGAL-FINDINGS.md`) had independently
