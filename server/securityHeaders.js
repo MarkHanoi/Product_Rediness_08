@@ -175,6 +175,34 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         'https://api.worldpop.org',
     ];
 
+    // §L-570-CSP (2026-07-21) — the Cloudflare R2 asset origin (furniture GLB
+    // catalogue + the L-571 context PMTiles). THE SAME MISTAKE AS THE NASA/WorldPop
+    // entry NOTED DIRECTLY ABOVE: the client re-host landed, this allowlist entry
+    // did not, so every model 404'd differently than before — not "missing object"
+    // but `Refused to connect … violates the document's Content Security Policy`,
+    // with the upload, the bundle and the deploy all reporting success. A new
+    // client ORIGIN is never just a client change.
+    //
+    // Derived from the SAME env var the build inlines (VITE_GLB_URL) so the policy
+    // cannot drift from the bundle: point the build at a custom domain
+    // (assets.pryzm.app) and the CSP follows automatically. Only the ORIGIN is taken
+    // — a path in connect-src is meaningless and would silently widen nothing.
+    for (const raw of [env.VITE_GLB_URL, env.VITE_CONTEXT_TILES_URL]) {
+        if (!raw) continue;
+        try {
+            const o = new URL(raw).origin;
+            if (o.startsWith('https://') && !src.includes(o)) src.push(o);
+        } catch { /* malformed → allow nothing, never crash the header build */ }
+    }
+    // The r2.dev default the deploy workflow bakes in when no repo VARIABLE overrides
+    // it. Listed explicitly so a deployment that sets neither env var still serves the
+    // catalogue — the vars are BUILD-time (vite inlines them) and are not guaranteed
+    // to be present in the RUNTIME server process, which is exactly the asymmetry that
+    // makes this class of bug invisible until a browser refuses the request.
+    if (!src.some((s) => s.endsWith('.r2.dev'))) {
+        src.push('https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev');
+    }
+
     // Supabase REST + realtime — derive the EXACT project origin from
     // SUPABASE_URL (RLS-protected direct browser access is by design). Falls
     // back to the *.supabase.co wildcard ONLY when SUPABASE_URL is unset /
