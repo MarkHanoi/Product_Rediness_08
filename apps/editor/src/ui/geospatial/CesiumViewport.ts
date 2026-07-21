@@ -42,6 +42,10 @@ import { getCurrentSiteOrigin } from "../site/siteDispatch";
 // §L-430 slice 2b — the scene(PROJECT-north) → ENU(TRUE-north) frame boundary, extracted
 // headless so it is unit-testable (this file is not). See sceneEnuFrame.ts for why.
 import { sceneXZToEnu } from "./sceneEnuFrame";
+// §SITE-FRAME-PROBE (L-536) — the SAME pure derivation the authoring frame is DEFINED by, so the
+// probe below can re-derive θ from the very ring it is about to draw and report a VERDICT instead
+// of three numbers a reader has to interpret. See the probe block in renderFormaMassing.
+import { deriveProjectNorthAngleFromParcel } from "../site/overlay/projectTrueNorth";
 // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — pure vertical-datum + georeference
 // decisions (no Cesium/THREE/DOM): the ONE datum boundary (C12 §1.4) that decides whether
 // the globe ground height is RESOLVED (a measurement off the photoreal tile mesh, or the
@@ -3457,15 +3461,65 @@ export class CesiumViewport {
         // authored against a DIFFERENT origin — mechanism (1).
         const dEast = (cLon - originLon) * 111320 * Math.cos((originLat * Math.PI) / 180);
         const dNorth = (cLat - originLat) * 110540;
+        // §SITE-FRAME-PROBE VERDICT (L-536) — THE PROBE NOW ANSWERS ITS OWN QUESTION.
+        //
+        // The first cut printed origin/θ/centroid/offset and asked the reader to interpret them.
+        // That was not enough: it could report `theta=43.71°` on a session where the frames were
+        // SPLIT and on one where they were fine, because it never checked θ against the ring.
+        //
+        // THE INVARIANT THAT SETTLES IT (verified offline on 800 real Catastro parcels,
+        // scratchpad/probe-l536-theta.mts, 0 violations): `dispatchParcelBoundary` de-rotates the
+        // committed ring by θ, so the STORED ring is square in the authoring frame — and therefore
+        // re-deriving θ from the stored ring MUST return ≈ 0. `boundary` here IS that stored ring.
+        //
+        //   residual ≈ 0            → the ring is de-rotated; applying θ is correct.        CONSISTENT
+        //   residual ≈ θ (θ ≠ 0)    → the ring is still in the TRUE frame while θ is being
+        //                             applied on top ⇒ DOUBLE ROTATION. This is the L-536
+        //                             signature: same origin, same vertex count, bearing off by
+        //                             ~θ — which on a 17–43 vertex cadastral outline does not read
+        //                             as "rotated", it reads as A DIFFERENT SHAPE from the 2D map.
+        //   residual ≠ 0, θ = 0     → the ring WAS de-rotated but θ never reached this viewport
+        //                             (the L-446 null-runtime class, or a lost θ write) ⇒ the model
+        //                             sits on the globe in PROJECT space. Same visible symptom.
+        //
+        // The residual is folded into (−45°, +45°] mod 90° by the derivation itself, so a value
+        // near ±45° is "as far from square as it is possible to be", not a large number.
+        const thetaDeg = (thetaRad * 180) / Math.PI;
+        const residualDeg = (deriveProjectNorthAngleFromParcel(boundary) * 180) / Math.PI;
+        const SQUARE_TOL_DEG = 0.5;
+        const ringIsSquare = Math.abs(residualDeg) <= SQUARE_TOL_DEG;
+        const thetaIsZero = Math.abs(thetaDeg) <= SQUARE_TOL_DEG;
+        const verdict = ringIsSquare
+          ? thetaIsZero
+            ? 'CONSISTENT (θ = 0 and the ring is square — an axis-aligned site, or a site with no ' +
+              'project north; both are the identity, nothing to disagree about)'
+            : 'CONSISTENT (the ring is square in the authoring frame and θ is being re-applied ' +
+              'exactly once — the 3D boundary should match the 2D map vertex-for-vertex)'
+          : thetaIsZero
+            ? '⚠ FRAME SPLIT — θ = 0 HERE but the stored ring is NOT square (residual ' +
+              `${residualDeg.toFixed(2)}°), so it WAS de-rotated at commit and this viewport never ` +
+              'got the θ back. The parcel is being drawn in PROJECT space on a TRUE-north globe: ' +
+              'the 3D Site will not match the 2D map. Suspect the runtime→siteModelStore link ' +
+              '(§L-446) or a θ write that never landed.'
+            : '⚠ DOUBLE ROTATION — the stored ring is NOT square (residual ' +
+              `${residualDeg.toFixed(2)}°) yet θ = ${thetaDeg.toFixed(2)}° is being applied to it. ` +
+              'The ring was never de-rotated at commit (or θ is STALE from a PREVIOUS parcel — ' +
+              '§L-536-THETA-RESET, the redraw path) so the rotation is happening twice. This is ' +
+              'the "3D Site shows a different SHAPE from the 2D map" report.';
         console.log(
           `[CesiumViewport][forma] §SITE-FRAME-PROBE origin=${originLat.toFixed(6)},${originLon.toFixed(6)} ` +
-            `theta=${((thetaRad * 180) / Math.PI).toFixed(2)}° ` +
+            `theta=${thetaDeg.toFixed(2)}° ringResidual=${residualDeg.toFixed(2)}° ` +
             `boundaryCentroid=${cLat.toFixed(6)},${cLon.toFixed(6)} ` +
             `offsetFromOrigin=${Math.hypot(dEast, dNorth).toFixed(1)} m (E ${dEast.toFixed(1)}, N ${dNorth.toFixed(1)}) ` +
-            `verts=${boundary.length}. ` +
-            `READ IT LIKE THIS: offset ≫ plot size ⇒ ORIGIN mismatch (translation, L-521 family); ` +
-            `offset small but the plot looks rotated ⇒ θ mismatch (theta here vs the θ siteDispatch ` +
-            `de-rotated the ring by); both sane ⇒ the boundary and the OSM context genuinely disagree.`,
+            `verts=${boundary.length}\n` +
+            `  FRAME VERDICT: ${verdict}\n` +
+            `  TRANSLATION: offset ≫ plot size ⇒ ORIGIN mismatch (L-521 family). offset ≈ the plot's ` +
+            `own first-vertex→centroid distance (tens of metres on a city lot) ⇒ fine.\n` +
+            `  ⚠ NOT A BUG IF: you are comparing the 2D boundary to the PURPLE volume. That is the ` +
+            `buildable ENVELOPE (inset by the setbacks / the Art. 242 profunditat edificable), not ` +
+            `the boundary — it is SUPPOSED to be a smaller, simpler shape. Compare the dashed green ` +
+            `parcel outline instead. And the 2D PLAN draws the AUTHORING frame, so it is de-rotated ` +
+            `by θ from the 2D map BY DESIGN (ADR-0115) — in Barcelona that is ~45°.`,
         );
       }
     } catch {

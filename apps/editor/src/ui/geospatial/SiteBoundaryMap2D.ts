@@ -50,6 +50,9 @@ import {
     type LatLon,
 } from '../site/boundaryProjection.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary } from '../site/siteDispatch.js';
+// §L-536-THETA-RESET — the SAME pure derivation `dispatchParcelBoundary` uses, so the θ this
+// surface publishes cannot drift from the θ the ring is de-rotated by. See commit() below.
+import { deriveProjectNorthAngleFromParcel } from '../site/overlay/projectTrueNorth.js';
 import {
     buildFormaMap2DStyle,
     buildSatelliteStyle,
@@ -2125,6 +2128,49 @@ export function mountSiteBoundaryMap2D(
         // apartment generator + future site intelligence share the SAME frame).
         if (!fromSite) {
             dispatchSiteLocation(ctx, { latitude: origin.lat, longitude: origin.lon, siteAddress: null });
+        }
+
+        // §L-536-THETA-RESET — θ MUST be written on EVERY parcel commit, INCLUDING θ = 0.
+        //
+        // MEASURED, not assumed (probe: scratchpad/probe-l536-frames.mts + probe-l536-zero.mts,
+        // 800 real Catastro parcels). The frame chain itself is exact: map lat/lon →
+        // buildBoundaryFromLatLonRing → θ de-rotation (dispatchParcelBoundary) → θ re-application
+        // (CesiumViewport.toCartesian) round-trips to 1e-14 m with identical vertex counts. So the
+        // 2D map and the 3D Site CANNOT disagree — **provided the θ written at commit is the θ read
+        // at render.**
+        //
+        // `dispatchParcelBoundary` guards BOTH the de-rotation AND the θ write behind
+        // `if (projectNorthRad !== 0)`. On the θ = 0 branch it therefore leaves the ring in the TRUE
+        // frame *and leaves `SiteLocation.trueNorth` at whatever it already was*. On a FRESH site
+        // that is harmless (trueNorth defaults to 0). After §L-384 "Redraw" — or any re-selection —
+        // it is not: `dispatchClearParcelBoundary` clears the boundary but NOT θ, so a previously
+        // selected parcel's θ (±45° everywhere in the Cerdà grid) survives and is then re-applied
+        // by the 3D Site to a ring that was never de-rotated. Same origin, same vertex count,
+        // bearing off by ~45° — which on a 17–43 vertex cadastral outline does not read as "rotated",
+        // it reads as A DIFFERENT SHAPE. That is L-536's signature.
+        //
+        // θ = 0 exactly is not exotic in Barcelona: 9 of 800 probed parcels (1.1%), because the
+        // Eixample *xamfrà* (the 45° chamfered corner) is the LONGEST edge of a corner parcel and
+        // is axis-aligned to true north — so `deriveProjectNorthAngleFromParcel` folds it to 0.
+        // Rare per-parcel, certain to recur across sessions: exactly an intermittent, thrice-reported
+        // defect.
+        //
+        // FIX HERE, NOT IN THE ENGINE: θ is DERIVED FROM the parcel, so committing a parcel must
+        // publish that parcel's θ unconditionally. We call the SAME pure derivation on the SAME
+        // input `dispatchParcelBoundary` is about to use, and fill only the branch it skips — so
+        // when θ ≠ 0 nothing changes at all (it writes the identical value a line later). The
+        // structural fix (making the write unconditional inside `dispatchParcelBoundary`, and
+        // checking its currently-ignored return value) belongs in `siteDispatch.ts`, which is owned
+        // by another agent this session — see the L-536 audit row.
+        const thetaForCommit = deriveProjectNorthAngleFromParcel(built.polygon);
+        if (thetaForCommit === 0 && ctx.store.getSite()) {
+            console.log(
+                '[gis] §L-536-THETA-RESET — this parcel squares to true north (θ = 0), so ' +
+                    'dispatchParcelBoundary will skip the θ write. Publishing θ = 0 explicitly so a ' +
+                    'PREVIOUS parcel’s project north cannot survive a redraw and rotate this ring on ' +
+                    'the 3D Site.',
+            );
+            dispatchSiteTrueNorth(ctx, 0);
         }
 
         const ok = dispatchParcelBoundary(ctx, {
