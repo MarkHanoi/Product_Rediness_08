@@ -172,3 +172,55 @@ Paying this down restores push-to-deploy and removes the bypass. Deliberate sess
 - **Probe, don't assert.** Ship the probe before the fix.
 - Test on **https://pryzm.fly.dev** (localhost dev starves the event loop). **Hard-refresh** after
   every deploy.
+
+---
+
+## THE DEFINITION OF DONE — six layers a parcel must pass to be "sound end-to-end"
+
+The founder asked: *"which % of parcels are sound in all the ways?"* **There is no trustworthy single
+number today, and knowing WHY is the point.** A parcel is only sound if it clears every layer:
+
+| # | Layer | Barcelona status | Measured? |
+|---|---|---|---|
+| 1 | **Zone identified** | **100 %** of city ground gets a constructed-or-refused answer | ✅ L-553 |
+| 2 | **No fabrication** | fabricated setback triples **141 → 0** citywide | ✅ L-553 |
+| 3 | **Rule pack exists** | **24.2 %** of private buildable land (clau 13a/13E) | ✅ n=273 |
+| 4 | **Depth constructed** | needs the block dissolve to succeed | ❌ **unmeasured live — and failing (L-576)** |
+| 5 | **Height constructed** | needs an *amplada de vial* resolution (Art. 327.2) | ⚠️ partially measured OFFLINE only |
+| 6 | **Renders correctly** | — | ❌ **never systematically checked** |
+
+**24.2 % is a CEILING, not the answer.** Live end-to-end = `24.2 % × dissolve-success-rate × height-
+resolution-rate × render-correctness`. The offline dissolve figure (91.4 %) would give ~22 %, but the
+founder falsified it three-for-three on prime Eixample. **Do not quote 24.2 % as a working figure and
+do not multiply by 91.4 %.** The next number given to the founder must come from a LIVE sweep.
+
+Remaining city, for completeness: **24.2 %** legal refusal (parks, motorways, Collserola, clau 18 —
+correctly answered "no envelope applies"); **51.6 %** coverage gap (13b, 12/12b, 22a, 20a family —
+honestly badged, blocked on the founder's Art. 328 / Art. 316 RPUC session).
+
+**What IS complete is the HONESTY, not the coverage:** no parcel in Barcelona now receives a
+confidently wrong answer. The binding constraint has MOVED — it used to be legal sourcing, it is now
+the dissolve (layer 4), a geometry bug standing between us and the 24.2 % already earned.
+
+### ⇒ TASK 2 (L-576) MUST PRODUCE THE LAYER-4 NUMBER
+The sweep is not just "find the dominant failure reason" — it must output a **live, per-layer
+percentage** the founder can be told without caveats: of N real Eixample refcats, how many reached
+`status: 'ok'` with a constructed depth, and of the failures, the breakdown by `dissolved.reason`.
+
+### ⇒ TASK 4 (NEW) — LAYERS 5 AND 6 ARE UNMEASURED. Measure them in the SAME sweep.
+Marginal cost is near zero once the sweep harness exists, and without them "sound end-to-end" stays
+unanswerable.
+- **Layer 5 (height):** for each parcel that got a depth, did `resolveAlcadaReguladora` return a
+  height, and via which provenance tier (`declared-municipal-gis` / `curated-cerda-nominal` /
+  `snapped-to-declared-quantum` / `measured-cadastral` / none)? A parcel with a real depth and a null
+  height is NOT sound end-to-end. ⚠ `BAND_EDGE_GUARD_M` deliberately REFUSES near a band edge — count
+  those separately; they are a correct refusal, not a bug.
+- **Layer 6 (render):** the envelope can be legally correct and still wrong on screen. Nothing checks
+  this. Minimum viable check: assert the dispatched `insetPolygon` is non-degenerate, is CONTAINED in
+  the parcel ring (`checkEnvelopeContainment` already exists), and that `maxVolumeM3 = insetAreaM2 ×
+  maxHeight`. ⚠ The founder reported a parcel that "looked wrong" in 3D — remember an oblique camera
+  always skews a flat polygon, and the `cos(lat)` shear hypothesis was already REFUTED
+  (`boundaryProjection.ts:58`). Confirm top-down before investigating (L-577c).
+
+**Deliverable of tasks 2+4: one table, same six rows, every cell filled from live data.** That is the
+answer to *"which % of parcels are sound in all the ways?"* and the founder has asked for it directly.
