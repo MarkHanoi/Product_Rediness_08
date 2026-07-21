@@ -28,11 +28,19 @@ export type FieldProvenance = z.infer<typeof FieldProvenanceSchema>;
  * There is no unlabelled envelope:
  *   - `authoritative`     — an official certificate-grade determination.
  *   - `structured`        — provider returned numeric fields directly (DK case).
- *   - `estimated-ruleset` — resolved from a curated zone-class rule pack.
+ *   - `block-constructed` — a REAL determination CONSTRUCTED from real cadastral geometry + an
+ *                           accepted rule (the Barcelona PGM Art. 242.2 case: the depth is solved
+ *                           from a real dissolved Catastro manzana, not looked up). Real inputs +
+ *                           accepted rule + constructed geometry — NOT an official municipal
+ *                           certificate. See L-518 + `spain/barcelona-catalonia/RISK-REGISTER.md`
+ *                           (R1): the panel MUST word this as "constructed", keep the citations,
+ *                           and retain the "2008 modification not reflected" caveat.
+ *   - `estimated-ruleset` — resolved from a curated zone-class rule pack (generic default).
  */
 export const EnvelopeConfidenceSchema = z.enum([
     'authoritative',
     'structured',
+    'block-constructed',
     'estimated-ruleset',
 ]);
 export type EnvelopeConfidence = z.infer<typeof EnvelopeConfidenceSchema>;

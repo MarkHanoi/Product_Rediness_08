@@ -2008,9 +2008,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             const e = env.derivation.find((d) => d.constraint === c);
             return typeof e?.value === 'number' ? `${e.value.toFixed(1)} m` : '—';
         };
+        // §L-518 — the `block-constructed` tier (Barcelona PGM Art. 242.2) is REAL data, so it must
+        // NOT wear the ESTIMATED badge — but it is a CONSTRUCTED determination, not an official
+        // certificate, so the badge says "Real · constructed" (not a bare "verified"), per the
+        // RISK-REGISTER R1 wording condition. Green (real) with the honest qualifier.
         const badge =
             env.confidence === 'estimated-ruleset'
                 ? '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
+                : env.confidence === 'block-constructed'
+                ? '<span title="Real inputs + accepted rule + constructed geometry — not an official municipal certificate" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Real · constructed</span>'
                 : `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${env.confidence}</span>`;
         const heightTxt = env.maxHeight_m !== null ? `${env.maxHeight_m.toFixed(1)} m` : '—';
         const farTxt = env.maxFAR !== null ? env.maxFAR.toFixed(2) : '—';
@@ -2033,6 +2039,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const sourceLine =
             env.confidence === 'estimated-ruleset'
                 ? '<span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>'
+                : env.confidence === 'block-constructed'
+                ? '<span style="color:#8a83a0;font-size:10.5px;">Constructed per PGM Art. 242.2 from the real Catastro block — real inputs + accepted rule, not an official municipal certificate.</span>'
                 : sourceId === 'plandata-dk'
                 ? `<span style="color:#8a83a0;font-size:10.5px;">Source: Plandata.dk${ordHref ? ` · <a href="${escHtml(ordHref)}" target="_blank" rel="noopener noreferrer" style="color:#6600FF;text-decoration:underline;">plan document</a>` : ''}</span>`
                 : `<span style="color:#8a83a0;font-size:10.5px;">Source: ${escHtml(sourceId || 'zoning provider')}</span>`;

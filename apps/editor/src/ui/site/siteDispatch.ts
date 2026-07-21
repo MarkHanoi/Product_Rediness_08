@@ -1128,7 +1128,23 @@ async function applyBcnZoningThenFallback(
 
         // (h) Dispatch ONLY a status:'ok' envelope; anything else falls back (never a broken one).
         if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
-            dispatchEnvelope(ctx, site.id, envelope, 'muc-catastro');
+            // §L-518 — this is a REAL determination CONSTRUCTED from the real Catastro block per PGM
+            // Art. 242.2, NOT the generic estimated pack. The engine stamps `estimated-ruleset`
+            // because the depth came via a rule pack, but each derivation row's provenance is
+            // *published* — so the panel showed an ESTIMATED badge over real, cited data (the
+            // contradiction the founder hit). Re-label to the honest `block-constructed` tier IFF the
+            // depth was actually solved from the block (the `alignment.depthBinding` derivation row
+            // is present) — never on a degenerate/estimated fallback. Founder-CONFIRMED 2026-07-21;
+            // conditions of this badge are in `spain/barcelona-catalonia/RISK-REGISTER.md` (R1): the
+            // panel MUST word it "constructed", keep citations, keep the "2008 mod not reflected"
+            // caveat. This is the ONLY place the tier is assigned.
+            const isBlockConstructed = envelope.derivation.some(
+                (d) => d.constraint === 'alignment.depthBinding',
+            );
+            const dispatched = isBlockConstructed
+                ? { ...envelope, confidence: 'block-constructed' as const }
+                : envelope;
+            dispatchEnvelope(ctx, site.id, dispatched, 'muc-catastro');
             // §L-507-DEPTH-DIAG — surface the REAL numbers so the founder can correlate the panel
             // + the 3D envelope SHAPE with the data ("is the 26 m depth what the prism shows?").
             // The depth + how it was bound live in the derivation trace (alignment.depth /
