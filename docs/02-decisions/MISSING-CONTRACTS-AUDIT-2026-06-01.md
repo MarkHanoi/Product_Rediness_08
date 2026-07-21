@@ -345,3 +345,140 @@ is the same shape as the Editable Living Graph ambition (bidirectional data↔mo
 needed:** extend C58 to expose a stable per-derivation-row geometry selector, and define the
 selection/highlight contract (C27/C28 extension or a new SPEC-EXPLAINABLE-GEOMETRY). Owner:
 UNASSIGNED. Related: C58, C27, C28, C03, L-519.
+
+---
+
+## Gap — MULTI-CITY / MULTI-JURISDICTION rule-pack SCALING is un-contracted (L-535 / L-537 / L-538 / L-539)
+
+**Found:** 2026-07-21, while measuring how the Barcelona buildable-envelope engine transfers to
+other Spanish cities.
+
+**What exists.** C57 governs *fetching a parcel* per jurisdiction (an adapter each). C58 governs
+*one* jurisdiction's rule pack and, since 2026-07-21, the registry that resolves a zone code to a
+pack or a refusal (§1.13). ADR-0269 argues the strategy at the level of "adapter + pack swap".
+
+**What no contract governs — and it is now the dominant cost.** Nothing defines:
+
+1. **What a jurisdiction must SUPPLY to be supportable.** The street-width work (ADR-0275) had to
+   invent this ad hoc: a region supplies its own height table, its own quantisation set **derived
+   from its own probe**, and optionally a declared-width override list — and it supplies **no
+   geometry**. That separation is real and measured (Barcelona `{20,30}`, Madrid `{15,30}`,
+   Valencia `{25,50}`, **Córdoba/Sevilla `[]`**), but it lives in a source-file header, not in a
+   contract.
+2. **The per-jurisdiction SOURCE-ACCEPTANCE gate.** The L-449 founder-signature pattern is the only
+   thing standing between a transcribed PDF and a compliance number — and it **failed once
+   already**: Barcelona's first accepted source (2026-07-20, "the AMB Dec 2010 PDF") proved stale,
+   anachronistic and mis-attributed, and had to be **re-signed** on 2026-07-21 against the
+   consolidated RPUC/NUMAMB refós (`L-526-LEGAL-FINDINGS.md`). **A wrong source passes a gate just
+   as easily as a right one.** The metropolitan PGM is republished by dozens of municipalities in
+   versions that differ from Barcelona's consolidation, and those republications are the easiest
+   documents to find. No contract states that the gate is **per-source, not per-jurisdiction**, or
+   what must be recorded about what was actually read.
+3. **The ordering constraint between geometry and rules.** Measured (L-535): outside Barcelona the
+   *geometry* stage failed before any rule was consulted (Madrid 2/4, Córdoba 0/3), so rule work
+   would have landed on a pipeline that could not feed it. ADR-0274 removed the geometry blocker,
+   but nothing codifies "measure the pipeline before authoring the pack".
+4. **Coverage as a governed, published number.** L-538 measured Barcelona at **24.0 %** of private
+   buildable land with **44 distinct claus** live. There is no contract requiring a jurisdiction's
+   coverage to be measured, published, or honestly tiered before it is offered to users, and no
+   definition of what "we support city X" means — a question with a legally-loaded answer, since
+   for ~22.5 % of Barcelona the *correct* output is a reasoned refusal, not an envelope.
+5. **Where a rule KIND belongs.** ADR-0270/0271/0272 each added a kind because a real ordinance
+   needed one. Nothing says when a new kind is warranted versus when a pack should refuse — the
+   distinction the founder's standing ranking ("legal fidelity first, standardisation second; a
+   shared abstraction that flattens a real legal difference is worse than N specific packs") turns
+   on.
+
+**Not a present violation of any contract** — it is simply un-governed territory that four audit
+rows and one 21-week plan now depend on. **Decision needed:** extend C58 with a
+`§Jurisdiction Onboarding` section, or write **C60 — Multi-Jurisdiction Rule-Pack Scaling**.
+Owner: UNASSIGNED. Related: C57, C58, C23 §11, ADR-0269/0270/0271/0272/0274/0275, L-449, L-535,
+L-537, L-538, L-539, `BARCELONA-COMPLETE-COVERAGE-PLAN.md`.
+
+---
+
+## Gap — CADASTRAL / UPSTREAM DATA-QUALITY ASSUMPTIONS are un-contracted (L-539)
+
+**Found:** 2026-07-21, when a probe demolished an assumption that had been written into a
+production source file's header and believed for weeks.
+
+**The gap.** PRYZM consumes government geometry as if its properties were known. They were not
+written down anywhere, and the one place they *were* stated —
+`packages/site-parcel-data/src/geometry/blockRing.ts`'s own header, which blamed "T-junctions and
+slivers" — was **measured to be wrong about half of it**: across 250,646 real parcel edges there
+are **ZERO slivers** (no edge below 0.0835 m, exactly one 1e-6° grid step) and **nothing to weld**
+(a weld at ε ≤ 0.05 m moves 0.0000 m and changes 0 outcomes).
+
+No contract states, for any upstream geodata source:
+
+- **Its coordinate QUANTUM**, which is the only defensible upper bound on any repair tolerance
+  (Catastro: 1e-6° = 0.083 m E / 0.111 m N — see C57 §1.11).
+- **Which quantity a tolerance must be justified against.** The intuitive candidate — cadastral
+  survey accuracy — is the **wrong** one: both sides of a shared boundary come from the same
+  digitisation, so the relevant quantity is the RELATIVE displacement, whose only source is the
+  publication rounding. Getting this backwards produces a defensible-sounding number that is
+  unrelated to the defect.
+- **What the parser silently drops.** `parseParcelGml` discards `<gml:interior>` rings (30 of
+  33,865 features). Real, tiny, latent — and it was found by accident while investigating something
+  else (C57 §13 KV-2).
+- **The obligation to publish a failure DISTRIBUTION before repairing anything.** The rule that
+  produced the only two trustworthy fixes in this subsystem — *characterise first, derive the
+  tolerance from the data, do not tune a number until it passes* — exists in ADR-0274 §7 and in
+  three probe documents, and is enforced by nothing.
+- **Sampling honesty.** A WFS bbox returns parcels that merely *intersect* it, so a straddling
+  block arrives truncated and fails for **our** reason; 1,682 such manzanas had to be excluded by
+  hand or the baseline would have been flattered. Nothing requires this.
+
+**Why it matters beyond Spain.** The same class of assumption underlies the context-data pipeline
+(L-511/L-512 heights), the terrain work (L-522) and every future national adapter. The failure mode
+is uniform: *an assumption about upstream data, stated once in a code comment, believed
+indefinitely, and expensive when wrong.*
+
+**Decision needed:** a **C61 — Upstream Geodata Quality & Repair** contract (or a C57 extension)
+requiring, per source: a stated quantum, a measured failure taxonomy before any repair, a tolerance
+derived from at least two independent bounds, a `quality`/provenance record on every repaired
+artefact, and an explicit list of what the parser discards. Owner: UNASSIGNED. Related: C57
+§1.11/§1.12/§13, C12, C55, ADR-0274, L-511/L-512, L-535, L-539.
+
+---
+
+## Gap — CI / TEST ENFORCEMENT is un-contracted (L-540 / L-542)
+
+**Found:** 2026-07-21, during the launch-readiness sweep.
+
+**The gap.** C01 §Governance and the 8 principles are described as "CI-enforced and merge-blocking",
+and many contracts (C57 §6, C58 §6, C19 §6) list gates with a "ratchet" column. **No contract
+governs the enforcement mechanism itself** — what must be green, for which trigger, before code
+reaches production, and what it means for a gate to be advisory.
+
+Two concrete, measured instances:
+
+1. **The deploy workflow did not depend on CI at all.** `deploy-fly.yml` triggered on
+   `push: [main]` with no `needs:` and no `workflow_run:` on `ci.yml`; the two ran side by side and
+   never spoke, so **every push to `main` deployed regardless of CI** — v256–v265 all shipped
+   ungated while `test-unit` was red. `ci.yml`'s own header describes itself as protecting merges
+   via required status checks on **PRs**, a mechanism that is **inert** in a push-to-`main`
+   workflow, which is the founder's actual workflow. **A §L-540-CI-GATE job has since been added**
+   (verified present in `deploy-fly.yml` at the time of writing, with `needs: ci-gate` on the
+   deploy job). *This gap entry is not closed by that fix* — the fix is one workflow's
+   implementation detail with no contract behind it, and nothing prevents the dependency being
+   dropped again.
+2. **`pnpm -r --if-present run test:ci` silently skips most of the monorepo (L-543).** Counted
+   independently here, 2026-07-21, across `packages/`, `apps/` and `plugins/`: **139 workspaces
+   define a `test` script and only 17 define `test:ci`** — so **122 workspaces' suites are skipped
+   without a warning** by the root `test:ci` script (`package.json:47`). (Audit row L-543 states
+   130 of 166 over a wider workspace set; the two counts differ only in denominator and agree on
+   the finding.) `--if-present` converts a missing script into a silent pass, which is the same
+   shape as every honesty defect in this repo's audit: **an absence rendering identically to a
+   success.**
+
+Also un-governed: `ga-gate` and `a11y` carry `continue-on-error: true` and therefore cannot turn a
+run red — a documented advisory choice with no contract stating when a gate may be advisory, who
+may make it so, or how it ratchets to blocking (L-542).
+
+**Decision needed:** a **C62 — CI, Test Enforcement & Release Gating** contract stating: which
+suites are required for which trigger (PR vs push-to-main vs deploy); that a *deploy* must be
+gated on the same evidence as a *merge*; that a missing test script is a **failure**, not a skip;
+and the lifecycle by which an advisory gate becomes blocking. Owner: UNASSIGNED. Related: C01,
+C10, C14, C57 §6, C58 §6, C19 §6, `tools/ga-gate/`, L-540, L-542,
+`docs/04-reference/STATUS-REPORT-2026-07-21.md` §5.

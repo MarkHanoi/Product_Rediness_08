@@ -1,7 +1,7 @@
 # C58 — Zoning Rules & Buildable Envelope
 
-> **Stamp**: 2026-07-17 · **Status**: DRAFT
-> _DRAFT: the zoning-rules engine and the buildable-envelope solver are **0% built** (verified in the Archistar gap audit — G-ENG-1..5). This contract is the binding target shape; it asserts intent, not code-conformance. No slot here is claimed ACTIVE._
+> **Stamp**: 2026-07-17 · **Amended**: 2026-07-21 · **Status**: DRAFT
+> _DRAFT. ⚠ The "**0% built**" statement carried here from the 2026-07-17 Archistar gap audit (G-ENG-1..5) is **no longer true** and is corrected rather than deleted: `packages/site-parcel-data/` now ships the engine (`ZoningRulesEngine.ts`), the solvers (`geometry/{blockDerivedDepth,blockRing,insetPolygon,streetWidth,depthBandClip}.ts`), the rule-pack registry + refusal vocabulary (`rulepacks/{registry,zoneRefusal,esBarcelonaZoneClassification}.ts`) and one real jurisdiction pack (`rulepacks/esBarcelonaEnsanche.ts`), live on the Barcelona `13a` path. **The contract nevertheless stays DRAFT and no slot is claimed ACTIVE**: measured coverage is 24.0 % of Barcelona's private buildable land (L-538), the §6 gates are not all green, and §13/§14 below record where the code does not honour this contract. Status is a statement about conformance, and conformance is not established by documentation._
 > **Scope**: governs the **zoning → buildable-envelope subsystem** — the `ZoningProvider` adapter interface, the canonical zoning-rule schema, the per-jurisdiction curated **`JurisdictionZoningContract`** rule-pack, the deterministic `ZoningRulesEngine` that solves `parcel + zoning-rules → BuildableEnvelope`, the two-fidelity (structured / estimated / none) honesty model, the "explain-why" derivation trace, and the envelope → authoring hand-off. This is the core compliance value-prop contract. Companion to [C57 Parcel Data Layer](./C57-PARCEL-DATA-LAYER.md) (which fetches the parcel) and consumer of [C19](./C19-SITE-MODEL-AND-PARCEL.md)'s mutable zoning fields.
 > **Depends on**: [C03](./C03-SCHEMAS-COMMANDS-AND-STATE.md), [C19](./C19-SITE-MODEL-AND-PARCEL.md), [C57](./C57-PARCEL-DATA-LAYER.md), [C12](./C12-GEOSPATIAL.md), [C10](./C10-PERFORMANCE-AND-OBSERVABILITY.md), [C23](./C23-PROVENANCE-AND-AI-AUDIT.md).
 > **Downstream**: [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md) (renders the envelope + derivation trace); [C50 Typology Pipeline](./C50-TYPOLOGY-PIPELINE.md) + [C53 Generative Layout Engine](./C53-GENERATIVE-LAYOUT-ENGINE-ARCHITECTURE.md) (consume the envelope as generation bounds); [C19 §1.6](./C19-SITE-MODEL-AND-PARCEL.md) (footprint-in-parcel-minus-setbacks — the envelope makes the setback numbers real).
@@ -33,6 +33,18 @@ Numeric building rules are structured only in Denmark; PDF-trapped elsewhere. Th
 3. **`none`** — no data → **no envelope**; graceful fallback to manual setback entry / draw (C57 §1.5). The envelope is hidden, never fabricated.
 
 Every `BuildableEnvelope` MUST carry a `confidence` field ∈ `{ 'authoritative', 'structured', 'estimated-ruleset' }`. There is no unlabelled envelope.
+
+> **AMENDED 2026-07-21 (L-550).** The enum above is no longer complete. `EnvelopeConfidence` also
+> carries **`'not-determined'`**, paired with `EnvelopeStatus: 'not-applicable'`, for the case
+> §1.13 introduces: the ordinance grants no private buildable envelope here. That is neither a
+> fidelity level nor an absence of data — it is a *positive legal answer*, and it must not be
+> forced onto a scale that only measures how good our numbers are. See §1.13.
+>
+> ⚠ **Still unresolved: there is no tier for a REAL determination CONSTRUCTED from real geometry
+> plus an accepted rule.** Barcelona's Art. 242.2 depth is exactly that — its derivation rows carry
+> `published` fieldProvenance, yet the top-level `confidence` lands on `estimated-ruleset`, so the
+> panel shows an ESTIMATED badge over data that is real and cited. Logged as L-518 and as a
+> standing gap in `MISSING-CONTRACTS-AUDIT-2026-06-01.md`. **Not closed by this amendment.**
 
 **Why**: the honest core (scoping §6.3). Denmark's numbers are real; a Barcelona envelope is a curated estimate. Conflating them would be the single most damaging credibility failure for a compliance product.
 
@@ -173,6 +185,109 @@ something else*.
 **Rationale.** §1.4 stops us presenting a guess as a fact. §1.11 stops us presenting a *fact
 about the wrong thing* as a fact about this parcel — which is harder to notice precisely
 because the underlying datum is correct and well-sourced.
+
+### §1.12 — Where the ordinance states an ALGORITHM, the answer is CONSTRUCTED; a construction's INPUTS carry their own graded provenance ladder
+
+**Added 2026-07-21 (L-525a, L-537; extends ADR-0271 from the depth to every constructed field).**
+
+§1.2 models the case where a number is *published somewhere*. A large and growing class of
+European ordinance states no number at all — it states **how to derive one**. Two are now
+shipped for Barcelona and both were verified against live data before a line was written:
+
+| Field | The ordinance | Why a lookup is impossible |
+|---|---|---|
+| *profunditat edificable* | PGM Art. 242 — an equidistant figure similar to the block leaving ≥ 30 % interior free space, floored at **12 m**, capped at 30 m | The answer is a function of the block and differs block to block (ADR-0271) |
+| *alçada reguladora* | PGM Art. 327.2 — a table keyed on the **declared** street width (*ample oficial*) | **No declared-width dataset is published** — nationally or (probed 2026-07-21) by Barcelona; the only municipal `vial` layer is a WMS raster with no width attribute |
+
+**Normative:**
+
+1. **A constructed field is a first-class result, not a fallback.** It MUST carry its derivation
+   (§1.3) naming the article that defines the construction, and MUST NOT be presented as a
+   published figure.
+2. **Every INPUT to a construction carries its own provenance tier**, and the resolver MUST
+   return the tier alongside the value — never the value alone. Flattening the tiers erases the
+   only thing that keeps the panel honest (the L-459 defect class: a constructed number rendering
+   identically to a surveyed one). The shipped ladder for the *amplada de vial*
+   (`packages/site-parcel-data/src/rulepacks/ampladaDeVial.ts`), strongest first:
+
+   | Tier | Meaning | Status |
+   |---|---|---|
+   | `declared-municipal-gis` | a real planning street database | **reserved — no Spanish municipality probed publishes one machine-readably** |
+   | `curated-cerda-nominal` | the hand-verified nominal figure (~26 Cerdà streets) | demoted, never deleted — still wins on its own streets |
+   | `snapped-to-declared-quantum` | a measurement close enough to a value the grid demonstrably quantises on | shipped |
+   | `measured-cadastral` | the raw frontage-to-frontage distance | shipped |
+   | *(none)* | no width ⇒ no height | **the correct answer when we do not know** |
+
+   Only the two strongest tiers may disarm the band-edge refusal guard.
+3. **A snap to a "declared quantum" is legitimate ONLY where the quantisation has been MEASURED,
+   and the quanta live in the REGION pack — never in the measurement code.** Measured over
+   **6,819 frontages / 697 blocks / 5 cities** (`SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`):
+   widths do cluster (47.1 % within ±0.5 m of a round value vs a 13.0 % uniform null), **but the
+   intuitive set `{10,15,20,25,30}` is FALSE for the city we ship** — Barcelona spikes ×7.55 at
+   20 m and ×7.51 at 30 m, and ×0.63 / ×0.24 / ×0.00 at 10 / 15 / 25 m. Madrid is `{15,30}`,
+   Valencia `{25,50}`, and **Córdoba and Sevilla quantise on nothing above ×2.8 — for them the
+   honest configuration is `quanta: []`.** A region supplies its own quanta derived from its own
+   probe; it MUST NOT copy another region's.
+4. **A snap MUST resolve noise, never correct the data.** The nominal "50 m" Cerdà arteries
+   **measure 48 m** (×6.23 at 47.75–48.25; 50 m itself ×0.90) — an offset ~3× the measurement's
+   own p90 error bar of 0.63 m. Snapping 48 → 50 would be a *correction*, and is refused. The
+   snap tolerance MUST be derived from the measurement's own error (shipped: **0.60 m**, the p90
+   rounded down, one fifth of the narrowest Art. 327.2 band, so a snap can never cross a band by
+   itself), and a measurement whose own spread exceeds it MUST be refused rather than snapped.
+5. **A continuous distribution MUST NOT be snapped at all.** Barcelona's 5.5–8.5 m mass is a
+   continuous ridge of pre-Cerdà streets, not a spike on a declared value, despite a ×4.10 count
+   at 6 m; snapping inside a continuum manufactures precision the data does not contain.
+6. **No input ⇒ no output, and the *absence* must be geometrically distinguishable.** Where the
+   construction cannot resolve, the engine MUST emit `null` and the massing path MUST render a
+   flat **footprint slab**, never an invented prism. The hardcoded `: 9` metre height fallback
+   removed under L-525a is the anti-pattern: it produced a ~9 m volume next to real ~25 m
+   neighbours and read as an answer.
+
+**Why**: the L-529 discipline, generalised. A tuned constant standing between cadastral data and
+a compliance number is the failure this subsystem spent a session unwinding; a *measured* constant
+carried with its tier is not.
+
+### §1.13 — A REFUSAL is a positive answer and MUST be representable, cited, and distinct from a coverage gap
+
+**Added 2026-07-21 (L-550; implements BARCELONA-COMPLETE-COVERAGE-PLAN Phase 0.3).**
+
+Before this invariant the engine had exactly two outcomes — a solved envelope or the generic
+estimated pack — so a Collserola forest reserve, the Ronda de Dalt, the Parc de la Ciutadella and
+a clau-`18` *volumetria específica* plot were all shown a **fabricated front/side/rear triple** in
+the same card as the Eixample's real Art. 242.2 construction. That is the §CONTEXT-DATA-HONESTY
+family (L-422 / L-467 / L-469) restated at the envelope layer: **a refusal and a failure rendered
+as the same value.**
+
+1. `EnvelopeStatus` carries `'not-applicable'` and `EnvelopeConfidence` carries
+   `'not-determined'`, with a structured `BuildableEnvelope.refusal { code, headline, detail,
+   ordinanceRef, legallyGrounded }` over a **closed** code set. A Zod refinement makes `refusal`
+   present **exactly** when status is `not-applicable`, so a blank refusal card and a refusal on a
+   solved envelope are both unrepresentable.
+2. **`legallyGrounded: false` (the `no-rule-pack` code) MUST wear a different chip.** *"The
+   ordinance grants no private buildable envelope here"* and *"PRYZM has not encoded this zone
+   yet"* are **opposite claims**; collapsing them into one boolean is what put an estimate on a
+   motorway. A coverage gap MUST NEVER render as a legal finding.
+3. **A refused envelope MUST zero/null every numeric field and the ring** — `storeyCap`, the
+   generators and the massing path all read those and will happily extrude one.
+4. **A refusal's `ordinanceRef` MUST cite what was actually read.** Where the classification comes
+   from a taxonomy rather than an article (the weaker `CODI_QUAL_MUC` systems classifier), the ref
+   MUST name the taxonomy, not invent an article number — an invented citation on a refusal is
+   still an unsourced claim about the law (the L-526 lesson).
+5. **Zone → pack resolution MUST go through a registry, not a hardcoded list in an editor file.**
+   Shipped: `packages/site-parcel-data/src/rulepacks/registry.ts` returns three outcomes —
+   `pack` / `refusal` / `unregistered` — replacing the `BCN_ENSANCHE_ZONE_CODES.includes(clau)`
+   gate in `apps/editor/src/ui/site/siteDispatch.ts`. Adding a clau, or a city, is now a **data**
+   addition in L2, which is what §1.5 always required.
+6. **Zone-code classification MUST be enumerated, never prefix-matched.** `13a` starts with `1`
+   (port) and `22a`/`20a` with `2` (forest reserve), so a prefix table would refuse the Eixample —
+   and the failure would be SILENT, rendering as a correct-looking refusal.
+
+**Measured result** (probe scored against the shipping `resolveZoneDisposition`): **741 of 1,014
+points = 73.1 % of all Barcelona ground** now returns a cited refusal instead of a fabricated
+triple; 86.1 % of all ground gets a constructed-or-cited answer.
+
+**Why**: honesty is not achieved by hiding a number. It is achieved by making "no envelope
+applies, and here is the article that says so" a *representable, first-class* result.
 
 ## §2 — Schema
 
@@ -426,6 +541,7 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 | Date | Change |
 |---|---|
 | 2026-07-17 | Initial DRAFT — fills the C58 reserved slot (the core compliance value-prop; gap audit G-ENG-1). Fills the C19 §9/§10.2 deferred jurisdiction-registry. Grounds on the two-fidelity scoping + the Denmark structured-zoning reference. Author: compliance-authoring governance track. |
+| 2026-07-21 | Corrected the stale "0 % built" stamp (the engine, solvers, registry and one real pack ship; status stays DRAFT). Amended **§1.2** with `not-determined` + the still-open constructed tier (L-518). Added **§1.12** (construction-not-lookup + the measured provenance ladder, L-525a/L-537) and **§1.13** (refusal vocabulary + rule-pack registry, L-550). Updated **KG-1**; added **KG-3** (FAR/coverage never applied, L-551), **KG-4** (`explicit-area` unsolved, L-538), **KG-5** (24.0 % measured coverage, L-538). Recorded the **L-529 violation** of "the floor is not a fallback", including the refutation of the previously-confirmed half-illa root cause. |
 
 
 ---
@@ -449,14 +565,69 @@ coverage gap) or coerce it into a front-setback (**a confidently wrong envelope 
 the dense urban fabric the product targets**). §1.4's confidence labelling does NOT mitigate
 this — the output is not uncertain, it is derived from the wrong rule.
 
-**Status:** OPEN. Requires a deliberate extension of §2.2 with an alignment/depth rule
-family, or an explicit, published scope restriction. Tracked as **L-443**.
-**This contract currently claims a generality it does not have.**
+**Status (updated 2026-07-21): PARTIALLY CLOSED.** `packages/schemas/src/site/GeometricRule.ts` is
+now a discriminated union of four kinds — `setback` (ADR-0270), `alignment` (ADR-0270),
+`block-derived-alignment` (ADR-0271) and `explicit-area` — solved exhaustively in
+`ZoningRulesEngine.ts`. The alignment family KG-1 named is expressible and shipped for Barcelona
+`13a`. **What is still open is bigger than what closed**, and is measured rather than estimated —
+see KG-3 and KG-4 below. Tracked as **L-443**, **L-551**, **L-538**.
 
 ### KG-2 (L-441/L-439) — granularity is modelled (§1.11) but not yet implemented
 `granularity` is normative in §1.11 as of 2026-07-20 but is not yet present in the schema,
 engine or UI. Until it is, nothing prevents a sector-level figure being rendered as a parcel
 envelope. Tracked as **L-439**.
+
+### KG-3 (L-551) — `plotRatioFAR` and `maxCoverage` are RESOLVED and DISPLAYED, and never applied to any geometry
+
+`ZoningRulesEngine.ts` resolves both, emits derivation rows for both and returns both on the
+`BuildableEnvelope`. **Neither ever shapes a polygon.** `maxCoverage` is displayed and nothing
+else; `maxFAR` binds only downstream in `storeyCap.ts`, and only when a generator asks. So a zone
+whose ordinance states intensity as *"90 % occupation, 2 m² sostre per m² sòl"* has **no way to
+shape an envelope at all** and falls to the generic estimated pack — an invented setback triple on
+land the ordinance never described with setbacks.
+
+**Measured consequence (L-538 probe, 2,907 grid points over INE 08019, 275 on private buildable
+land): 31.3 % of Barcelona's private buildable land** (`22a` + `22@` 18.2 %, the `20a` family
+13.1 %) is blocked on this one missing capability — larger than the entire currently shipped
+coverage. **Decision taken: ADR-0272 (ACCEPTED), implementation deferred to Phase 2** of
+`BARCELONA-COMPLETE-COVERAGE-PLAN.md`. Until it lands, this contract's §1.8 generation-bridge
+claim is only true for the geometric kinds.
+
+⚠ ADR-0272 records a migration obligation that belongs here too: a `coverage-and-far` envelope's
+`insetAreaM2` is **not** the buildable footprint, so every consumer that computes
+`insetAreaM2 × maxHeight` for a study volume (the facts card does) will over-state it unless it
+applies `maxCoverage`.
+
+### KG-4 (L-538) — `explicit-area` has a schema, no engine branch and no resolver
+
+The fourth union member is declared and never solved. It is the kind that a *derived-plan*
+ordinance needs — PGM Art. 306 (`18`, *volumetria específica*) states that buildability is *"that
+resulting from the established volumetric ordering"*, i.e. **the ordinance points at a different
+approved document per site**. Measured: `18` is **22.5 % of Barcelona's private buildable land**,
+the second-largest family, and inventing a generic parameterisation for it would fabricate a
+number for a fifth of the city.
+
+**The honest near-term output is the §1.13 cited refusal, and it is shipped.** Whether
+`explicit-area` ever gets an engine branch depends on a data-acquisition question that is
+unresolved: does RPUC/NUMAMB expose per-site approved volumetries as data? Tracked as
+BARCELONA-COMPLETE-COVERAGE-PLAN Phase 5. **This is the single most important expectation-setting
+fact in the subsystem: "complete Barcelona" cannot mean "every parcel gets a constructed
+envelope."**
+
+### KG-5 (L-538) — measured coverage, so the gap is a number rather than an impression
+
+`13a` + `13E` were the only registered packs until 2026-07-21. Probe (`fetchQualificationAtPoint`
+from `server/mucZoningProxy.js`, the production function, so it cannot disagree with the live code
+path): **1,014 resolutions, 44 distinct claus, 275 points on private buildable land** ⇒ **today's
+engine constructs an envelope for 24.0 %** of Barcelona's private buildable land. **`13E` was
+returned ZERO times in 1,014 resolutions.**
+
+Two corollaries this contract should not lose:
+- The ranking is **not** what intuition says. `18` (22.5 %) is the second-largest family and is the
+  one this architecture can least express (KG-4).
+- The probe measures **land area**, not parcel count. `13a`/`12` are dense small-parcel fabric and
+  are under-counted per parcel; `18`/`22a`/`20a` sit on large parcels and are over-counted. A
+  parcel-weighted probe has not been run.
 
 ---
 
@@ -519,3 +690,59 @@ three setbacks, and no alignment rule pack has been authored yet.
 
 `setbacks: { front_m, side_m, rear_m }` is the only geometric shape. ADR-0270 proposes the
 discriminated union (`setback` / `alignment` / `explicit-area`).
+
+> **STATUS 2026-07-21 — the union shipped** with a fourth member (`block-derived-alignment`,
+> ADR-0271) and is solved exhaustively in `ZoningRulesEngine.ts`. See KG-1 above for what closed
+> and KG-3/KG-4 for what did not.
+
+---
+
+### §1.3/§1.4 — "the ordinance floor is never a fallback" WAS VIOLATED IN PRODUCTION for a full session (L-529)
+
+**Recorded 2026-07-21 because the failure mode is the one this contract exists to prevent, and it
+still got through.**
+
+ADR-0271 states the invariant plainly: *"The floor is not a fallback — returning `minDepth_m` when
+the construction fails would publish a depth the ordinance does not sanction for that block."*
+That is exactly what shipped, silently, on real Barcelona parcels.
+
+**The mechanism.** `insetPolygonPerEdge`'s greedy self-intersection cleanup
+(`removeSelfIntersections`) truncated the offset ring on every fold: a 12 m inset of the real
+block ring came out with **2 vertices** and was reported `degenerate`. `solveBlockDerivedDepth`
+reads a degenerate inset as **zero interior free area** ⇒ Art. 242.2 unsatisfiable at any depth ⇒
+clamp to the ordinance floor and flag `degenerate`. The user saw `12.0 m · binding=min-floor`,
+which is a well-formed, plausible, wrong number.
+
+**Measured, by probe on live Catastro data** (`L-525-ENVELOPE-ACCURACY-INVESTIGATION.md`, the
+resolution box): the inset was clean to d = 6 (70 % free) and degenerate at **every d ≥ 8**, while
+a clean 82 m control square insets fine to d = 25 — so the failure was in the code, not the
+geometry. Instrumenting the gates showed the cleanup collapsing **40 vertices → 2**. An
+independent distance-field solve (validated to 2 dp against an analytic control) put the depth at
+**≈ 17.4 m**. **Fixed by §INSET-LOOP-DECOMPOSE**
+(`packages/site-parcel-data/src/geometry/insetPolygon.ts:192`): CL Pau Claris 155 now solves to
+**15.7 m · binding=interior-ratio · achievedFreeRatio 0.300 · degenerate=false**.
+
+**⛔ THE ROOT CAUSE RECORDED IN THIS SUBSYSTEM'S DOCUMENTS BEFORE THAT PROBE WAS WRONG, AND IT WAS
+RECORDED AS CONFIRMED IN THREE PLACES.** The standing explanation was that Catastro masa 02309 is
+*half a Cerdà illa* and that unioning it with a sibling masa was the fix. Refuted by measurement:
+the masa's bbox is 113.4 × 113.8 m with **ZERO cross-masa adjacency links** in a 444 m search —
+there is no sibling to union with — and its dissolved ring is **solid**, 6,696 m², perimeter 336 m,
+i.e. a genuine ~82 × 82 m block **rotated ~45°** to the Eixample grid bearing. The
+"6,686 ≈ half of 12,769" arithmetic compared a rotated small block against a nominal axis-aligned
+one. The legal theory (L-526, that a stale Art. 327 §2 citation explained the depth) was also
+wrong — the 2008 modification is a **height** change and does not touch depth.
+
+**The blast-radius sweep found it was never Barcelona-specific**: across 684 cases, a
+flag/battle-axe lot reported "no buildable area" at the DEFAULT 3 / 1.5 / 3 m setbacks in **every**
+jurisdiction, because the same greedy cleanup runs on every `setback` inset.
+
+**Two contract-level lessons, both normative going forward:**
+1. **§1.1 byte-determinism is not sufficient.** A deterministic solver fed a silently-collapsed
+   polygon is deterministically wrong. A geometric stage that can degrade MUST report *why* it
+   degraded (the `status: 'rejected'` / `degenerate` diagnostic discipline), and a caller MUST NOT
+   convert a degradation into a floor value.
+2. **Probe the geometry before theorising about the data.** The probe that demolished three
+   documents' agreed root cause took ten minutes, needed no deploy, and used a keyless public WFS.
+
+**Status: the DEFECT is fixed (L-529, v256). The INVARIANT it violated is not CI-gated** — nothing
+today fails a build if a solver clamps to `minDepth_m` on a degenerate input. **OPEN.**

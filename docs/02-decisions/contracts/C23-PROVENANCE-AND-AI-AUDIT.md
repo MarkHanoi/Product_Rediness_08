@@ -1,6 +1,6 @@
 # C23 — Provenance & AI Audit
 
-> **Stamp**: 2026-06-01 · **Status**: DRAFT
+> **Stamp**: 2026-06-01 · **Amended**: 2026-07-21 (§11 — graded non-AI provenance tiers now in production, documented as **ungoverned**) · **Status**: DRAFT
 > **Scope**: every AI-generated artefact in PRYZM is auditable end-to-end. Records model, prompt, context-hash, timestamp, user, project, cost, workflow version, reproducibility status, lineage, and human-approval status. Append-only ProvenanceStore with ≥ 7-year retention surfaces a per-project audit export for customers + regulators.
 > **Depends on**: [C03 Schemas, Commands & State](./C03-SCHEMAS-COMMANDS-AND-STATE.md) · [C05 Persistence & File Format](./C05-PERSISTENCE-AND-FILE-FORMAT.md) · [C08 Collaboration & Security](./C08-COLLABORATION-AND-SECURITY.md) · [C09 AI & Visibility Intent](./C09-AI-AND-VISIBILITY-INTENT.md) · [C10 Performance & Observability](./C10-PERFORMANCE-AND-OBSERVABILITY.md) · [C22 Privacy & PII Tier](./C22-PRIVACY-AND-PII-TIER.md)
 > **Downstream**: every L2 AI workflow in `packages/ai-host/` · every server AI route in `server/aiPublicApiRoutes.js`, `server/aiUsageStore.js`, `server/aiResponseCache.js` · the future "AI provenance" UI panel + project-level audit export
@@ -734,3 +734,43 @@ These are deferred to the C23 → CANONICAL ratification PR. They do not block D
 6. **AI calls from server-side automation (no `userId`).** [C28 Data Panel](./C28-DATA-PANEL-AND-AUTOMATION.md) introduces cron-scheduled AI calls. The `userId` for those is the project owner at schedule-creation time, but ownership can transfer. Open: does the artefact carry the *original* owner or the *current* owner? Tentative answer: the original at write time (append-only), but the project Audit panel surfaces both for clarity.
 
 7. **Worker-pool / horizontal-scaling write coordination.** The idempotency key (§1.11) prevents duplicates from the same client, but two different workers picking up retries for the same upstream call could race on the INSERT. PostgreSQL's `ON CONFLICT … DO NOTHING` on the `idempotencyKey` unique index covers this — but needs an explicit conformance test.
+
+---
+
+## §11 — Graded NON-AI provenance tiers now in production (added 2026-07-21) — DOCUMENTED, NOT YET GOVERNED
+
+> **Why this section exists.** §1–§10 govern **AI-artefact** provenance. The compliance-authoring
+> subsystem (C57/C58) shipped, during 2026-07-20/21, several *graded, source-tagged, per-field*
+> provenance ladders on **non-AI** determinations. C23 does not claim to cover them and does not
+> cover them. Leaving them undocumented would let a contract-reader conclude PRYZM has one
+> provenance model when it has four, so they are recorded here with their evidence, explicitly
+> flagged as **ungoverned**. The decision on whether C23 absorbs them or a sibling contract is
+> written is tracked in
+> [`MISSING-CONTRACTS-AUDIT-2026-06-01.md`](../MISSING-CONTRACTS-AUDIT-2026-06-01.md).
+
+### §11.1 — The four ladders in use
+
+| # | Ladder | Tiers (strongest first) | Where | Evidence |
+|---|---|---|---|---|
+| 1 | **Street width** (*amplada de vial*) — an INPUT to a constructed height | `declared-municipal-gis` (reserved — none exists) → `curated-cerda-nominal` → `snapped-to-declared-quantum` → `measured-cadastral` → *none* | `packages/site-parcel-data/src/rulepacks/ampladaDeVial.ts` | `SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md` — 6,819 frontages / 697 blocks / 5 cities |
+| 2 | **Block-ring geometry** — the INPUT to the constructed depth | `exact` (edge cancellation succeeded unaided) → `repaired` (T-junction split, with `splitCount` + `maxOffset_m` + `tolerance_m`) → refused | `packages/site-parcel-data/src/geometry/blockRing.ts` (`quality` on every result) | `SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` — 956 manzanas, repaired rings match published areas at p50 0.13 % vs exact 0.15 % |
+| 3 | **Envelope confidence** — the OUTPUT tier | `authoritative` → `structured` → `estimated-ruleset` → `not-determined` (paired with status `not-applicable`) | C58 §1.2 / §1.13 | L-518, L-550 |
+| 4 | **Per-field rule provenance** | `published-structured` → `ordinance-pdf` → `estimated` | C58 §1.6 `fieldProvenance` | C58 §2.2 |
+
+### §11.2 — The three properties these ladders have that §2.1's `AIArtefact` does not model
+
+1. **Graded, not binary.** A `snapped-to-declared-quantum` width and a `measured-cadastral` width are both real measurements of the same street; one is one inference closer to the declared figure. Collapsing them loses the only distinction that keeps the panel honest.
+2. **Multi-field for ONE value.** A constructed *alçada reguladora* is `(street width, its tier, its own error bar) × (Art. 327.2 band) × (block-ring quality)`. There is no single `source` string that is true of it.
+3. **The absence of a source is itself a value.** `declared-municipal-gis` is a *reserved, empty* tier — its emptiness is a probed finding about Spain, not a TODO. Likewise C58 §1.12.6: no width ⇒ no height ⇒ a flat footprint slab, which is the correct answer and must be distinguishable from a failure.
+
+### §11.3 — The failure class these ladders exist to prevent
+
+**L-459, restated:** a constructed number rendering identically to a surveyed one. The measured instance is L-525a — a hardcoded `: 9` metre height fallback produced a ~9 m study volume beside real ~25 m Eixample neighbours, indistinguishable in the UI from a derived figure. The tier must therefore be returned **with** the value, by construction, and never flattened at the call site.
+
+### §11.4 — What C23 does NOT yet do about any of this
+
+- No `ProvenanceEdge` links a **non-AI** determination to the elements it constrains, so the §1.3 lineage graph does not reach the envelope.
+- No retention, export or audit-trail guarantee (§1.5 / §1.8 / §2.5) covers these tiers — a customer audit export today would not contain the ladder that produced their buildable depth.
+- No CI gate asserts a tier is carried rather than flattened. C58 §6's `check-zoning-confidence-label` gate is scoped to the envelope's top-level label, not to the input ladders.
+
+**Status: ungoverned. Owner: UNASSIGNED.** Related: C57 §1.11/§1.12, C58 §1.12/§1.13, L-511/L-512 (the context-data sibling gap), L-518, L-537, L-539.

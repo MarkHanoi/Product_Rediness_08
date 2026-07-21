@@ -136,6 +136,31 @@ When `pryzm-project-switch` fires (per [C13](./C13-PROJECT-LIFECYCLE-AND-ISOLATI
 
 **Why**: cross-project Site leak (Project A's parcel polygon rendering against Project B's BuildingFootprint) is a §3.8-class isolation bug. The C19 store joins the C13 reset list.
 
+### §1.12 — The parcel frame round-trips exactly; θ is committed and cleared with the boundary it belongs to
+
+**Added 2026-07-21 (L-536). Measured, not asserted** — probes `scratchpad/probe-l536-{frames,theta,zero}.mts`, run on live Catastro parcels through the PRODUCTION frame functions, so the probe cannot disagree with the code path it characterises.
+
+**§1.12.1 — The arithmetic invariant (VERIFIED).** The full chain a committed parcel traverses —
+
+```
+real cadastral ring (WGS84)
+  → buildBoundaryFromLatLonRing   (apps/editor/src/ui/site/boundaryProjection.ts)
+  → θ de-rotation                 (dispatchParcelBoundary)
+  → θ re-application              (CesiumViewport.toCartesian / sceneXZToEnu)
+```
+
+— MUST round-trip to the ring it started from. **Measured: 1.0e-14 m, with identical vertex counts (27→27, 42→42, 16→16)** on four real Diputació / Rambla de Catalunya parcels, and identically whether the projection origin is the parcel's first vertex or a site anchor 300 m away. The equirectangular projection's own anisotropic scale error is **0.378 %, i.e. 0.13 m over a 35 m parcel** — it cannot distort a shape visibly. **Therefore the 2D map and the 3D Site cannot disagree about a parcel's shape, PROVIDED the θ written at commit is the θ read at render.** Any reported shape mismatch between surfaces is a θ-lifecycle fault (§1.12.2) or a comparison of the boundary against the *envelope*, which is a different, smaller polygon by design (C58).
+
+**§1.12.2 — θ is part of the boundary commit, not an optional side effect.** A command that commits a parcel boundary MUST publish `SiteLocation.trueNorth` (θ) on **every** branch, including the θ = 0 branch, and MUST check that the write was accepted. A command that CLEARS the boundary MUST clear θ with it.
+
+- **The defect this exists to forbid, measured:** `dispatchParcelBoundary` guarded BOTH the de-rotation and the θ write behind one `if (projectNorthRad !== 0)`, and `dispatchClearParcelBoundary` (§L-384 Redraw) cleared the boundary but **not** θ. Select parcel A (θ ≈ ±45° across the Cerdà grid) → Redraw → select parcel B whose θ folds to exactly 0 → B's ring is never de-rotated, A's θ survives, and the 3D Site re-applies ~45° to it. Same origin, same vertex count, bearing off by ~45° — on a 17–43-vertex cadastral outline that does not read as "rotated", it reads as a **different shape**.
+- **θ = 0 exactly is 9 of 800 probed Barcelona parcels (1.1 %)** — the Eixample *xamfrà* corner runs at 45°, so the mod-90° fold sends it to 0. Rare per parcel, certain to recur across sessions: an intermittent, thrice-reported defect.
+- **A soft-rejected θ write whose return value is ignored splits the frames permanently the other way.** Return values on the θ dispatch are load-bearing.
+
+**§1.12.3 — The stored ring is in the AUTHORING frame, and that is by design.** `ParcelBoundarySceneRenderer` draws the store ring, so the 2D plan differs from the 2D map by θ (37–45° in Barcelona) on **100 %** of parcels, per ADR-0115. That is the dual-north model working, not a defect — but it is a legitimate UX complaint and MUST NOT be "fixed" by de-rotating one surface in isolation.
+
+**Why**: a parcel boundary is a legal outline (§1.4). Two surfaces drawing the same legal outline differently is not a rendering nuance — it is the product telling the user two incompatible things about the plot they are about to build on.
+
 ---
 
 ## §2 — Schema
@@ -674,3 +699,38 @@ External (non-contract) references:
 | Date | Change |
 |---|---|
 | 2026-06-01 | Initial DRAFT — fills the C19 reserved slot per the Phase-3.5 missing-contracts audit. Author: Phase-3.5 documentation track. |
+| 2026-07-21 | Added **§1.12** (parcel-frame round-trip invariant + the θ commit/clear lifecycle, L-536, measured to 1e-14 m). Added **§13 Known violations** recording the longest-edge θ derivation defect (**L-560**), the un-shipped engine-side θ hardening (L-536), and the §7.3 vertex budget vs real block rings (L-539). Nothing here is claimed fixed on the strength of documentation. |
+
+---
+
+## §13 — Known violations / open defects
+
+> Recorded per the C31 logging protocol so this contract does not silently keep asserting frame guarantees the code does not deliver. Each row cites a `file:line` or a probe.
+
+### KV-1 (**L-560**) — θ is derived from the parcel's LONGEST EDGE, which on real cadastral rings is often not the frontage
+
+**This is a defect in the derivation itself, and it is independent of the §1.12.2 lifecycle bug — fixing the lifecycle does not touch it.**
+
+`deriveProjectNorthAngleFromParcel` (`apps/editor/src/ui/site/overlay/projectTrueNorth.ts:90-122`) takes the ring's **longest edge** as the dominant frontage and squares the authoring frame to it:
+
+```
+if (lenSq > bestLenSq + 1e-12) { bestLenSq = lenSq; bestPhi = Math.atan2(dNorth, dEast); }
+```
+
+Its own docstring states the assumption — *"for a city plot that edge is the street frontage, which is exactly what an architect squares the building to."* **On real cadastral rings that assumption does not hold**: the longest edge is frequently a party wall, a courtyard return, or the *xamfrà* chamfer.
+
+**Measured (L-536 probe, live Catastro):** within a **single** Cerdà block — whose physical bearing is ONE number — per-parcel θ came back as **44.6°, −44.9°, −37.6°, 0.0°, 31.4°, 20.2°**.
+
+**Consequence.** §1.12.3 makes the authoring frame the frame **every generated wall is squared to**. So on a material minority of parcels the whole building is authored up to **~10° off the street**, and **~45° off on chamfer corners** — a silently skewed model that passes every containment and setback check (§1.6), because those are frame-independent. It is not detectable by any gate this contract currently defines.
+
+**Status: OPEN, NOT FIXED.** The derivation needs to be block-aware or length-**weighted** (a dominant *direction*, not `max(edge)`). No decision has been taken on which; that is a real architectural choice and belongs in an ADR, not in a patch. Tracked as **L-560**.
+
+### KV-2 (L-536) — the engine-side θ lifecycle hardening required by §1.12.2 has NOT shipped
+
+What shipped in v267 is the **commit-side** half: `SiteBoundaryMap2D.commit()` (§L-536-THETA-RESET) publishes θ = 0 explicitly on the branch `dispatchParcelBoundary` skips, so a previous parcel's project north can no longer survive a redraw on that path; and `CesiumViewport`'s §SITE-FRAME-PROBE now emits a **verdict** (`CONSISTENT` / `⚠ DOUBLE ROTATION` / `⚠ FRAME SPLIT`) by re-deriving θ from the ring it is about to draw and testing *"the stored ring must be square in the authoring frame"* — verified 0 violations on 800 real parcels.
+
+**What §1.12.2 actually requires and what is still missing:** making the θ write in `dispatchParcelBoundary` **unconditional**, **checking its return value**, and **resetting θ in `dispatchClearParcelBoundary`**. Those live in `apps/editor/src/ui/site/siteDispatch.ts` and were deferred on file-ownership grounds during a multi-agent session. **The reachable path is closed; the invariant is not enforced.** Neither half is verified in a browser.
+
+### KV-3 (L-539) — §7.3's 200-vertex hard reject is breached by real, correct block rings
+
+§7.3 hard-rejects a polygon above 200 vertices. Measured after the tolerant dissolve shipped: **2 of 874** real block rings exceed it (**max 326**; the exact path alone already reached 192). Those rings are correct — they are refused for being *large*, not for being wrong. See C57 §13 KV-1: the budget was sized for a parcel and a block is a union of ~20 of them. **Status: OPEN** — needs either a distinct block-ring budget or the §10.3 deterministic simplification, and MUST NOT be closed by silently simplifying a ring that feeds a compliance number.

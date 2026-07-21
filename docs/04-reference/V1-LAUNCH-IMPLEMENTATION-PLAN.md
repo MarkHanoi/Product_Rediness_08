@@ -4203,3 +4203,35 @@ never once executed contained 10 stale assertions against a function that became
 were invisible for as long as the gate was fake. Nothing was skipped, deleted or `continue-on-error`'d
 to buy a green board.
 
+
+
+---
+
+## L-560 — PROJECT NORTH is derived from the wrong edge (2026-07-21). OPEN — needs an ADR before any code.
+
+Source: a **bonus measurement** from the L-536 frame investigation, logged separately because it is
+a different bug with a different fix. L-536's defect is a θ *lifecycle* fault (a stale θ surviving a
+Redraw); **L-560 is the θ *derivation*, and it is wrong on parcels where the lifecycle works
+perfectly.**
+
+`deriveProjectNorthAngleFromParcel` (`apps/editor/src/ui/site/overlay/projectTrueNorth.ts:90-122`)
+squares the authoring frame to the parcel's **longest edge**, on the stated assumption that *"for a
+city plot that edge is the street frontage."* **Measured on live Catastro parcels: within ONE Cerdà
+block, whose physical bearing is a single number, per-parcel θ came back as 44.6°, −44.9°, −37.6°,
+0.0°, 31.4°, 20.2°** — because on a 17–43-vertex cadastral ring the longest edge is routinely a
+party wall, a courtyard return, or the *xamfrà* chamfer. Every generated wall is squared to that
+frame, so the building is authored up to **~10° off the street** on a material minority of parcels
+and **~45° off on chamfer corners** — and **no existing gate can see it**, because C19 §1.6
+containment and setback compliance are frame-independent.
+
+| Task | Phase | Status |
+|---|---|---|
+| **L-560a — ADR: how θ should be derived.** Decide between (a) a length-**WEIGHTED** dominant direction (sum edge vectors mod 90°, so many short frontage-parallel edges outvote one long party wall), (b) **block-aware** — take θ from the dissolved manzana ring, whose bearing is the street's bearing by construction and which is now available on 91.4 % of blocks (L-539 / ADR-0274), or (c) frontage-classified edges only, once C19 §10.1 edge classification exists. **Must preserve ADR-0070 byte-identity** (an already-square site returns EXACTLY 0) and must stay deterministic (no frame flapping between recomputes — today's "ties keep the FIRST edge" exists for that). Take the next free ADR number at authoring time. | geospatial / project north | **OPEN — not started.** No decision taken; do NOT patch the heuristic without this. |
+| **L-560b — the migration answer (needs a founder call).** Changing the derivation changes the authoring frame of **existing projects**. A stored model authored under the old θ must not silently re-square around its walls. Options: pin θ on the Site at commit time and only derive for NEW parcels; or migrate with an explicit user-visible prompt. | geospatial / persistence | **OPEN — blocks L-560c.** |
+| **L-560c — implement + acceptance.** Re-run `scratchpad/probe-l536-theta.mts` over the same Cerdà block and assert per-parcel θ agrees to within a few degrees across the parcels of one block; existing `parcelProjectNorth.test.ts` and `projectNorthProducer.test.ts` invariants must still pass unchanged. | geospatial / project north | **BLOCKED on L-560a + L-560b.** |
+
+**Contracts:** **C19 §1.12** (the frame round-trip invariant this sits under — the arithmetic is
+exact to 1e-14 m, so this is a derivation defect and not a projection one) and **C19 §13 KV-1**
+(where it is recorded as a known violation of C19's frame guarantees). ADR-0115 / §L-430 (dual
+north), ADR-0070 (byte-identity), C12 (`trueNorth` in radians). The buildable envelope is
+unaffected — it is solved in the true frame (C58).

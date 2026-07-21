@@ -105,6 +105,34 @@ C57 ends at the fetched `ParcelFeature`. It MUST NOT compute setbacks, height li
 
 **Why**: scope discipline. C57 = "fetch the real plot". C58 = "what may be built on it". C19 = "the site element that persists". Three clean boundaries.
 
+### §1.11 — Cadastral geometry is a PUBLISHED artefact with a known quantum; block assembly must be tolerant of it, and must never move a vertex
+
+**Added 2026-07-21 (L-539). Grounded in `docs/04-reference/spain/SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` — 125 live Catastro bbox fetches · 33,865 parcels · 956 COMPLETE manzanas · 250,646 parcel edges · 5 cities, run through the PRODUCTION parsers, projection and dissolve.** This invariant replaces an assumption that was written into `packages/site-parcel-data/src/geometry/blockRing.ts`'s own header ("slivers") and was measured to be false.
+
+An adapter's output ring, and any BLOCK assembled from adapter output, MUST be treated as a **published** artefact carrying its publisher's coordinate quantum — never as survey-exact geometry, and never as noise to be smoothed.
+
+1. **The quantum is a fact, not a tolerance to tune.** Catastro INSPIRE GML publishes WGS84 coordinates rounded to **1e-6°**, which at Iberian latitudes is **0.083 m east / 0.111 m north**. Measured directly: **not one of 250,646 real parcel edges is shorter than 0.0835 m** — exactly one longitude grid step — and **0 of 177 break-vertex nearest-neighbour gaps fall below 0.05 m**. There is no continuum below the grid, therefore **there are no slivers and no near-coincident vertices to weld**; a weld at ε ≤ 0.05 m was measured to move **0.0000 m** and change **0** outcomes, and is deliberately NOT implemented.
+2. **The dominant real defect is a vertex-COUNT disagreement, not a positional one.** Two neighbours record one shared boundary with different vertex counts (A stores `p → q`, B stores `p → r → q`), so edge cancellation leaves the block outline **plus** a hair-thin degenerate triangle and the chain finds two loops. Measured over 349 failing manzanas: **66.8 %** present as multiple closed loops, **94.4 %** of those nested and enclosing **~0 %** of the outer area (p95 < 0.05 %), and **86.2 %** carry a T-junction within 0.25 m.
+3. **The sanctioned repair splits an edge at the neighbour's OWN published vertex.** No vertex may be constructed, moved or welded. The tolerance is **0.10 m** (`TJUNCTION_SPLIT_TOLERANCE_M`, `blockRing.ts:134`) and is bounded from three independent directions — the publisher's own 0.111 m quantum (so the repair cannot introduce an error the input does not already contain), the empirical valley in the offset histogram (defect mass ends ~0.075 m; real unrelated geometry resumes above 0.3 m), and the success plateau (0.05 → 81.5 %, **0.10 → 91.6 %**, 0.20 → 93.4 %, 0.30 → 93.1 % *falling*). **A tolerance is defensible on a plateau; on a slope it is a tuned number.**
+4. **The EXACT pass runs first and its result is returned unchanged whenever it succeeds.** Applying the repair unconditionally was measured to alter **137 of the 607 rings that already existed** — 137 silently moved *profunditats edificables* — and is therefore refused by construction. Measured outcome of the shipped design: **0 pre-existing rings changed, 0 lost.**
+5. **A mis-repair MUST degrade to a refusal, never to a plausible-but-wrong ring.** `non-manifold` and `malformed-parcel` inputs are never repaired (they are wrong inputs, not digitisation artefacts). Every result carries `quality { path, splitCount, maxOffset_m, tolerance_m }` so a downstream consumer can tier the ring's provenance (C23) rather than inferring it.
+
+**Success rate over the same 956 real manzanas: 63.5 % → 91.4 %** (Barcelona Eixample 81.5 % → 96.3 %; Madrid centro 77.2 % → 99.0 %; Córdoba 44.2 % → 90.8 %; Sevilla, the worst, 38.5 % → 82.3 %). Independent check the dissolve never sees — ring area vs the **sum of published cadastral parcel areas** — repaired rings agree at p50 **0.13 %**, slightly *better* than the exact rings' 0.15 %.
+
+**Why**: a block ring feeds a compliance number (C58 §1.1/§1.3). Smoothing cadastral geometry to make blocks close would silently move that number on parcels that already worked. Splitting at a vertex the publisher itself recorded moves nothing, so the exactness guarantee survives the repair.
+
+### §1.12 — The *manzana* prefix is an OBSERVED heuristic with a measured failure rate, and MUST be labelled as one
+
+The 5-character *referencia catastral* prefix used to collect a block's parcels (`server/parcelZoningProxy.js`, which already documents it as "an observed pattern, not a documented guarantee") is a heuristic, not a published relation. Measured limits, all from live data:
+
+- **8 of 9** sampled parcels across 3 cities yielded ≥ 3 parcels for the prefix (`SPAIN-CADASTRAL-DISSOLVE-PROBE.md`); the single failure was honest — a car park whose masa genuinely contains one parcel, refused by the `< 3` guard.
+- **~7 of the 82 manzanas still refused after §1.11** are the prefix collecting **two genuinely separate polygons** — a *prefix* defect, not a geometry one (`SPAIN-DISSOLVE-FAILURE-TAXONOMY.md`).
+- **A Catastro masa is NOT guaranteed to equal the urbanistic *illa*.** The converse was asserted as confirmed in three documents during L-525/L-526 and then **refuted by probe**: masa 02309's bbox is 113.4 × 113.8 m with **zero** cross-masa adjacency in a 444 m search, and its ring is solid at 6,696 m² / 336 m perimeter — a genuine ~82 × 82 m block rotated ~45°, not "half an illa". See `L-525-ENVELOPE-ACCURACY-INVESTIGATION.md` and ADR-0271 §"Corrections".
+
+An adapter or block assembler MUST NOT present a prefix-collected masa as a legally-defined block. Where the collection is ambiguous the correct output is a **refusal** (C58's `not-applicable` / `degenerate`), never a partial block silently fed to a solver.
+
+**Why**: a partial or over-collected block produces an almost-right *profunditat edificable* — the confidently-wrong number ADR-0270/0271 and L-462/L-465 exist to prevent.
+
 ---
 
 ## §2 — Schema
@@ -305,3 +333,28 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 | Date | Change |
 |---|---|
 | 2026-07-17 | Initial DRAFT — fills the C57 reserved slot (compliance-authoring foundation, L-398/L-400/L-403). Grounds on the shipped Spain/Catastro parcel-select + the Denmark reference. Author: compliance-authoring governance track. |
+| 2026-07-21 | Added **§1.11** (cadastral publication quantum + tolerant block assembly, L-539) and **§1.12** (the manzana-prefix heuristic's measured limits, L-535/L-539/L-525). Added **§13 Known violations**. All grounded in the live-data probes listed there; no invariant is claimed conformant on documentation alone. |
+
+---
+
+## §13 — Known violations / measured limits
+
+> Recorded per the C31 logging protocol so this contract does not silently keep asserting behaviour the code lacks. Every row cites a probe document or a `file:line`.
+
+### KV-1 (L-539) — a real block ring can exceed the C19 §7.3 / C57 §7.3 200-vertex HARD reject
+
+§7.3 defers to the C19 §7.3 budget (≤ 50 vertices soft, **hard-reject > 200**). Measured after §1.11 shipped: **2 of 874** produced block rings exceed 200 vertices (**max 326**); the exact path alone already reached 192 (`SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` §"What this document does not show"). Those rings refuse downstream — honestly, but they refuse, and the refusal is a *budget* artefact, not a data one. **No deterministic simplification exists yet** (§10.3 is still pending), so there is nowhere honest to put a ring that is correct and over budget.
+
+**Status: OPEN.** Decision needed: raise the block-ring budget as a distinct number from the *parcel* budget (a block is a union of ~20 parcels and 200 was never sized for it), or land §10.3's deterministic simplification first. Do NOT silently simplify a ring that feeds a compliance number.
+
+### KV-2 (L-539) — `parseParcelGml` discards `<gml:interior>` rings
+
+`server/parcelZoningProxy.js`'s parser keeps only the first `<posList>`, so a parcel with a hole loses it. Measured: **30 of 33,865** features (0.1 %) carry an interior ring, and **0 of the 220** nested-loop failure manzanas contains one — so this is *not* the L-539 defect and was correctly excluded from it. Real, tiny, latent, and now written down rather than left as a silent parser behaviour. **Status: OPEN, unprioritised.**
+
+### KV-3 — §1.7's L2 lift has not happened; the shipped Spain adapter is still at L5
+
+§1.7 names `packages/site-parcel-data/` (L2) as the target home and `apps/editor/src/ui/site/parcel/` (L5) as an explicitly transitional placement. `packages/site-parcel-data/` now exists and holds the geometry + rule-pack + engine layers, but the **provider** itself has not moved. The §6 gates ratcheted "On L2" are therefore still unratcheted. **Status: OPEN** (tracked by L-400).
+
+### KV-4 (L-539) — País Vasco / Navarra are outside Catastro and outside every measurement above
+
+Every rate in §1.11 and §1.12 is measured on Catastro territory. **Neither province is covered by any probe**, and both run their own cadastres. This contract asserts nothing about them.

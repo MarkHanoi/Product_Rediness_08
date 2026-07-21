@@ -1,9 +1,12 @@
 # ADR-0271 — Block-derived *profunditat edificable*: when the ordinance states an ALGORITHM, not a number
 
-- **Status:** **PROPOSED.** P1 (solver) IMPLEMENTED + tested (10 tests, `blockDerivedDepth.ts`).
-  P2 (schema variant), P3 (engine plumbing), P4 (block-ring source), P5 (pack) open.
+- **Status:** **PROPOSED** *(the decision below stands; three of its supporting statements were
+  measured wrong and are corrected in **§Corrections (2026-07-21)** at the end — read that before
+  acting on anything in this record).*
+  P1–P5 have all since landed for Barcelona `13a`; the phase table in §Phases is superseded by the
+  §Corrections table.
   ⚠ This ADR was written **after** its P1 code landed — see "A process note against ourselves".
-- **Date:** 2026-07-20
+- **Date:** 2026-07-20 · **Amended:** 2026-07-21 (L-529, L-526, L-539)
 - **Tracker:** **L-460** (the finding), **L-462** (the geometry bug it exposed). Blocks the A1d
   Barcelona pack. Consumes **L-456** (capacity model). Depends on **L-461** (human curation gate).
 - **Contracts:** **C58 §1.1** (byte-determinism — constrains the solver's iteration budget),
@@ -26,7 +29,14 @@ insufficient, for a reason that is not a missing lookup.
 one:**
 
 > *a figure similar to the block, equidistant from the street frontages, leaving at least 30% of
-> the block area as interior free space* — capped at 30 m, floored at 11 m.
+> the block area as interior free space* — capped at 30 m, floored at ~~11 m~~ **12 m**.
+>
+> ⚠ **CORRECTED 2026-07-21 (L-526): the ordinance floor is 12 m, not 11 m.** Primary-source
+> research on Art. 242 (`L-526-LEGAL-FINDINGS.md`) establishes the minimum depth as **12 m** and
+> adds an **8 m inscribed-circle** interior check this ADR never modelled. The pack now ships
+> `minDepth_m: 12` (`packages/site-parcel-data/src/rulepacks/esBarcelonaEnsanche.ts:112`). The
+> same research corrected the *citation*: the depth authority is **Art. 242** applied via
+> Art. 327.1 — **not Art. 322.1**, which is *edificabilitat* and states no depth number.
 
 **That is a geometric algorithm with a unique solution, not a number.** The depth is a function of
 the block, and it differs block to block. Every "20 m" / "24 m" figure repeated online is
@@ -182,3 +192,99 @@ WAF-blocked facts needing a human in a real browser.
 
 **PROPOSED.** Not yet accepted. P1 landed ahead of this record (see the process note); P2–P5
 await a decision on the union-variant question above.
+
+---
+
+# Corrections (2026-07-21) — three supporting statements measured wrong
+
+> **Nothing above is deleted.** The DECISION — model Art. 242.2 as a construction, not a lookup —
+> was and remains correct, and is now the template for the *alçada reguladora* too (C58 §1.12).
+> What follows corrects the record's supporting claims, each with the measurement that corrected
+> it, per the governance rule that a superseded assertion is marked and explained rather than
+> quietly edited away.
+
+## C-1 — ⛔ REFUTED: the "half-illa / masa-union" depth story (L-529)
+
+**What was believed, and recorded as CONFIRMED in three separate documents** (this ADR's
+downstream investigation `L-525-ENVELOPE-ACCURACY-INVESTIGATION.md`, `L-526-LEGAL-FINDINGS.md`,
+and the launch audit): Barcelona masa 02309 dissolved to ~6,686 m² ≈ *half* a Cerdà illa
+(~12,000 m²), so insetting it from all perimeter edges eroded the interior fast and floored the
+depth at the ordinance minimum. The fix was called *turnkey*: union the masa with its sibling.
+
+**What the probes measured, on live Catastro data, in about ten minutes and with no deploy:**
+
+| # | Probe | Result |
+|---|---|---|
+| 1 | Group every parcel in a 444 m bbox into connected components by geometric adjacency | Masa 02309's bbox is **113.4 × 113.8 m** with **ZERO cross-masa adjacency links**. **There is no sibling masa to union with.** The premise is false. |
+| 2 | Run the production `dissolveParcelsToBlockRing` and measure the ring | **Solid** ring — enclosed area = summed parcel area = 6,696 m², no courtyard hole — perimeter only **336 m** (a solid 113 m illa would be 452 m) ⇒ a genuine **~82 × 82 m block rotated ~45°** to the Eixample grid bearing. |
+| 3 | Sweep `insetPolygonPerEdge` over d = 0…30 on that ring | Clean to d = 6 (70 % free); **degenerate at every d ≥ 8**. A clean 82 m control square insets fine to d = 25. |
+| 4 | Instrument the inset's internal gates | The greedy self-intersection cleanup collapses **40 vertices → 2**; gate G5 (`< 3` verts) then declares the polygon degenerate. **ROOT CAUSE.** |
+| 5 | Independent distance-field solve (validated to 2 dp against an analytic control) | Depth ≈ **17.4 m** — the block was never short of courtyard (48 % free at 12 m). |
+
+**The actual cause was a CODE defect, not a data one.** `insetPolygonPerEdge`'s
+`removeSelfIntersections` truncated the ring on every fold; `solveBlockDerivedDepth` read the
+resulting degenerate inset as zero interior free area, so Art. 242.2 was unsatisfiable at any
+depth and the solver clamped to the ordinance floor. **Fixed by §INSET-LOOP-DECOMPOSE**
+(`packages/site-parcel-data/src/geometry/insetPolygon.ts:192`). CL Pau Claris 155:
+`12.0 m · min-floor · degenerate=true` → **`15.7 m · interior-ratio · achievedFreeRatio 0.300 ·
+degenerate=false`**. Logged as **L-529**.
+
+**The legal theory was wrong too.** The parallel hypothesis — that a stale citation, specifically
+the un-reflected 2008 modification to Art. 327 §2, explained the depth — is refuted: that
+modification amends the **height table** and does not touch depth (`L-526-LEGAL-FINDINGS.md`).
+
+**And it was never Barcelona-specific.** The blast-radius sweep over **684 cases** found the same
+greedy cleanup running on every `setback` inset: a flag/battle-axe lot reported *"no buildable
+area"* at the DEFAULT **3 / 1.5 / 3 m** setbacks in **every** jurisdiction. What presented as an
+ordinance-modelling problem on the densest land in Spain was a generic geometry bug.
+
+**The invariant this ADR states was therefore violated in production.** *"The floor is not a
+fallback — returning `minDepth_m` when the construction fails would publish a depth the ordinance
+does not sanction for that block."* That is precisely what shipped. The invariant is right; it was
+not enforced anywhere. Recorded against C58 §1.3/§1.4 as an open, un-gated violation.
+
+**The lesson, stated as a rule:** *measure the geometry before theorising about the data.* Three
+documents converged on a shared inference drawn from ONE number (6,686 m²) whose **shape** nobody
+had measured. Cross-ref: memory `inset-collapse-was-the-depth-rootcause`.
+
+## C-2 — CORRECTED: "the inputs already exist in the product" understated the block-ring problem by a third
+
+**Consequences** says the block ring comes "from the same Catastro INSPIRE WFS that already
+returns parcels … or by dissolving the parcels of a manzana", verified live on one refcat. **One
+verified parcel does not measure a success rate.** Measured since:
+
+- **9 real addresses / 3 cities** (`SPAIN-CADASTRAL-DISSOLVE-PROBE.md`, L-535): Barcelona 2/2,
+  Madrid 2/4, **Córdoba 0/3**. Outside Barcelona the geometry stage failed *before any rule was
+  consulted*.
+- **956 COMPLETE real manzanas / 5 cities** (`SPAIN-DISSOLVE-FAILURE-TAXONOMY.md`, L-539):
+  **63.5 %** baseline — and Barcelona itself is **81.5 %**, not the 100 % the 2-of-2 sample
+  suggested. *A 2-of-2 sample cannot distinguish 100 % from 80 %.*
+- After the tolerant dissolve (**ADR-0274**): **91.4 %** overall, Barcelona Eixample 96.3 %, with
+  **0 pre-existing rings changed and 0 lost**.
+
+So P4 ("block-ring SOURCE") was not merely "real work, not plumbing" as this ADR anticipated — it
+was, until L-539, **the single binding constraint on buildable-envelope coverage in every city**.
+
+## C-3 — SUPERSEDED: the phase table
+
+| Phase | This ADR said | Actual, 2026-07-21 |
+|---|---|---|
+| P1 solver | ✅ 10 tests | ✅ shipped — but produced a floored depth on real blocks until L-529 (C-1) |
+| P2 schema variant | open | ✅ `block-derived-alignment` is in the `GeometricRule` union, solved exhaustively |
+| P3 engine plumbing | open | ✅ shipped |
+| P4 block-ring source | open | ✅ shipped; success rate measured and then repaired — see C-2 and **ADR-0274** |
+| P5 Barcelona pack | blocked on L-461 | ✅ `esBarcelonaEnsanche.ts` ships, `estimated-ruleset`/amber, founder source gate **re-signed** 2026-07-21 against the consolidated RPUC/NUMAMB refós after the first acceptance proved stale and anachronistic (L-449, L-526) |
+
+⚠ **`granularity` (KG-2) is still absent from the schemas.** This ADR's granularity section remains
+un-implemented, so the `'parcel'` stamp it argues for is asserted in prose only.
+
+## C-4 — EXTENDED, not corrected: the construction principle generalised
+
+The reasoning here — *the ordinance states an algorithm, so the answer is constructed and cited,
+never looked up* — was applied a second time on 2026-07-21 to the **height**: PGM Art. 327.2 keys
+the *alçada reguladora* on the declared street width, and **no declared-width dataset is published
+in Spain**. That construction, and the graded provenance ladder its inputs require, is
+**ADR-0275**; the principle is now normative as **C58 §1.12**.
+
+**Cross-refs:** L-525, L-525a, L-526, L-529, L-535, L-537, L-539; ADR-0270, ADR-0272, ADR-0274,
+ADR-0275; C57 §1.11/§1.12, C58 §1.12/§1.13.
