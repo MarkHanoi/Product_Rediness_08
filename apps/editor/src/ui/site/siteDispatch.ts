@@ -1044,32 +1044,61 @@ async function applyBcnZoningThenFallback(
                 crs: 'EPSG:4326',
             },
         };
-        // §L-515-FRONTAGE-DIAG — founder: "the depth (profunditat edificable) is applied to the
-        // SIDE of the parcel, not measured back from the street frontage." The depth solve is
-        // correct (per-edge block inset, front:d); a wrong-side band means an EDGE was mis-classified
-        // as `front`. Log which parcel + block edges are `front`, with each edge's midpoint + compass
-        // bearing, so we can see whether the `front` edge is the actual street edge or a side edge.
+        // §L-515-FIX — the parcel's `front` edge must be the real STREET frontage, not the −Z
+        // placeholder classifyEdges() (boundaryProjection.ts) assigns. That placeholder marks
+        // whichever edge faces screen-"north" as front, so the profunditat edificable was clipped
+        // from a SIDE edge on any parcel whose street isn't on its −Z side (founder: "the depth back
+        // is applied to the SIDE of the parcel"). REAL frontage, road-independent: a parcel edge is a
+        // street edge iff it lies on the BLOCK PERIMETER — the block ring was dissolved FROM these
+        // parcels, so a parcel's street edge is (within tolerance) coincident with a block-ring edge,
+        // while its party-wall/courtyard edges are not. Reuse the tested classifyBlockFrontages,
+        // testing each PARCEL edge against the block ring as one closed polyline (tight 2 m). Same
+        // authoring frame as the block (see the FRAME note above), so the test is valid. Guarded: if
+        // it finds no perimeter frontage (shouldn't happen for a real block parcel), keep the
+        // placeholder rather than risk a worse result.
+        let parcelEdgeClassifications = boundary.edgeClassifications;
+        try {
+            const blockAsPolyline: RoadPolyline = { points: [...blockRing, blockRing[0]!] };
+            const byPerimeter = classifyBlockFrontages(
+                boundary.polygon,
+                [blockAsPolyline],
+                { maxDistance_m: 2, maxAngleDeg: 20 },
+            );
+            if (byPerimeter.length === boundary.polygon.length && byPerimeter.some((c) => c === 'front')) {
+                parcelEdgeClassifications = byPerimeter;
+            } else {
+                console.warn(
+                    `${TAG} §L-515-FIX block-perimeter frontage found ` +
+                        `${byPerimeter.filter((c) => c === 'front').length} front of ${byPerimeter.length} parcel ` +
+                        `edges — keeping the −Z placeholder classification.`,
+                );
+            }
+        } catch (e) {
+            console.warn(`${TAG} §L-515-FIX parcel-vs-block frontage failed (non-fatal):`, e);
+        }
+        // §L-515-FRONTAGE-DIAG — show the placeholder vs corrected `front` edge (bearing of each),
+        // so the fix is verifiable in-browser: the corrected `front` should face the street, and the
+        // depth insets from the FIRST corrected front edge.
         try {
             const bearingOf = (ring: { x: number; z: number }[], i: number): string => {
                 const a = ring[i], b = ring[(i + 1) % ring.length];
-                // scene +x = East, +z = South (screen-down); report a rough compass bearing of the edge.
                 const deg = ((Math.atan2(b.x - a.x, -(b.z - a.z)) * 180) / Math.PI + 360) % 360;
                 const mx = ((a.x + b.x) / 2).toFixed(1), mz = ((a.z + b.z) / 2).toFixed(1);
                 return `#${i}@(${mx},${mz}) ${deg.toFixed(0)}°`;
             };
-            const pFront = (boundary.edgeClassifications ?? [])
-                .map((c, i) => (c === 'front' ? bearingOf(boundary.polygon, i) : null))
-                .filter(Boolean);
-            const bFrontCount = blockEdgeClassifications.filter((c) => c === 'front').length;
+            const placeholderFront = (boundary.edgeClassifications ?? [])
+                .map((c, i) => (c === 'front' ? bearingOf(boundary.polygon, i) : null)).filter(Boolean);
+            const fixedFront = parcelEdgeClassifications
+                .map((c, i) => (c === 'front' ? bearingOf(boundary.polygon, i) : null)).filter(Boolean);
             console.log(
-                `${TAG} §L-515-FRONTAGE-DIAG parcel: ${boundary.edgeClassifications?.length ?? 0} edges, ` +
-                    `${pFront.length} 'front' [${pFront.join(' | ')}] · block: ${bFrontCount}/${blockEdgeClassifications.length} 'front'. ` +
-                    `If the 'front' edge bearing is NOT the street side, the depth band runs off the wrong edge.`,
+                `${TAG} §L-515-FRONTAGE-DIAG placeholder(−Z) front=[${placeholderFront.join(' | ')}] → ` +
+                    `block-perimeter front=[${fixedFront.join(' | ')}] · block ` +
+                    `${blockEdgeClassifications.filter((c) => c === 'front').length}/${blockEdgeClassifications.length} front.`,
             );
         } catch { /* diagnostic only */ }
         const envelope = computeBuildableEnvelope({
             parcelRing: boundary.polygon,
-            edgeClassifications: boundary.edgeClassifications,
+            edgeClassifications: parcelEdgeClassifications,
             zoning: record,
             rulePack: ES_BARCELONA_ENSANCHE_PACK,
             blockRing,
