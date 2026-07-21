@@ -316,3 +316,32 @@ national LiDAR height but **no national floor-count** (no Catastro-ALTURAS equiv
 measured height stands **single-source with no second field to cross-check** — the graded provenance
 model must carry `measured_height_m` + `height_confidence` AND honestly record the *absence* of a
 floor-count field, never collapsing to one "REAL". Same decision, same owner; no separate gap entry.
+
+---
+
+## Gap — C58 confidence tier for block-CONSTRUCTED real determinations (L-518)
+
+**Found:** 2026-07-21, founder testing the real Barcelona envelope.
+
+C58 §1.2's confidence model has `structured` (real per-parcel published fields) and
+`estimated-ruleset` (curated default pack). The Barcelona envelope is NEITHER cleanly: its depth is a
+REAL determination CONSTRUCTED from a real Catastro block + PGM Art. 242.2 via the rule pack, with
+each derivation row carrying *published* fieldProvenance (the panel renders PUB), yet the top-level
+`confidence` lands on `estimated-ruleset` → the panel shows an ESTIMATED badge + "Default rule pack"
+over data that is real and cited (L-518). **Decision needed:** add a confidence tier (e.g.
+`constructed-published` / `block-derived`) for "real, cited determination constructed from real
+geometry + an accepted rule", and assign it to the catastro-muc BCN path — reconciled with §1.2/§1.4
+and the founder-signed L-449 source acceptance. Owner: UNASSIGNED. Related: C58, ADR-0270/0271, L-518.
+
+## Gap — data↔geometry bidirectional link (zoning report ↔ envelope geometry) (L-519)
+
+**Found:** 2026-07-21, founder feature request.
+
+No contract governs clicking a zoning/envelope report row to SELECT the geometry it derives from (or
+the reverse: hover geometry → highlight the row). C27 (Inspect) covers element selection, C28 (Data
+panel) covers data surfacing, C58 owns the envelope + derivation — but none defines the
+`constraint → geometry-selector` map or the bidirectional highlight contract that L-519 needs. This
+is the same shape as the Editable Living Graph ambition (bidirectional data↔model). **Decision
+needed:** extend C58 to expose a stable per-derivation-row geometry selector, and define the
+selection/highlight contract (C27/C28 extension or a new SPEC-EXPLAINABLE-GEOMETRY). Owner:
+UNASSIGNED. Related: C58, C27, C28, C03, L-519.

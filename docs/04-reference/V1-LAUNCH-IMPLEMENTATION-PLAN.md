@@ -4030,6 +4030,34 @@ edge); the bug is upstream **frontage classification** — a side edge is being 
 depth), C19 (frontage). Correct-fix = real road-adjacency frontage, NOT "longest edge = front" (wrong
 on corner/irregular parcels). Relates L-507 (depth shape), L-502 (manzana-perimeter frontage).
 
+### L-518 — envelope panel summary mislabels real BCN data as ESTIMATED + reads empty
+
+Founder: the top summary shows ESTIMATED + empty setbacks while the detail shows real PUB data.
+Two causes: (1) the catastro-muc record is rule-pack-solved → `confidence:'estimated-ruleset'` despite
+published per-field provenance; (2) the setback-centric summary is null-by-design for alignment zones.
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-518a **C58 decision**: add/assign a confidence tier for "real determination constructed from a real block + rule pack (Art. 242.2)" distinct from `estimated-ruleset` | contract | BLOCKED — needs the founder/C58 call (gap logged) |
+| L-518b Once tiered: BCN envelope carries the real confidence → badge + sourceLine reflect PUB, not ESTIMATED | fix | BLOCKED on L-518a |
+| L-518c Alignment-zone summary: surface Buildable DEPTH + AREA in the headline (not just the null setback triple) so it isn't "empty" | fix | NOT STARTED |
+
+### L-519 — interactive envelope↔data linking (click a row → select its geometry)
+
+Founder: click "Buildable depth" etc. → highlight the envelope faces + boundary edges that row governs.
+Study/plan done (see audit L-519). Correct-fix reuses SelectionBus + the GPU-pick highlight/overlay
+pattern; the join key is the derivation `constraint` already on every row.
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-519a **C58: `constraint → geometry-selector` map** — expose, per derivation row, which envelope faces + boundary edges it derives from (depth→rear band edge + dimension; alignment→front edge; medianera→side edges; area→inset face) | schema | NOT STARTED (foundation) |
+| L-519b Panel row `click`/hover → publish a highlight intent on **SelectionBus** (no one-off path) | ui | NOT STARTED |
+| L-519c Overlay renderer draws the mapped envelope edges/faces + boundary segments (reuse element-highlight overlay), in **both** 3D Site (Forma) + 3D globe (Cesium) | render | NOT STARTED |
+| L-519d Bidirectional: hover geometry → reverse-highlight the row (Editable-Living-Graph pattern) | ui | STRETCH |
+
+**Contracts:** C58 (constraint→geometry map — the foundation), C27 (Inspect/selection), C28 (Data panel),
+C03 (SelectionBus), C06, C12/C55. **Coverage gap** (data↔geometry link) logged to MISSING-CONTRACTS.
+
 **Contract action:** governed by the SAME graded-provenance gap as L-512 (logged in
 MISSING-CONTRACTS-AUDIT). PT is the MORE ACUTE case — single-source LiDAR height with no cross-check,
 so `measured_height_m` + `height_confidence` must ship WITHOUT collapsing to one "REAL", and must
