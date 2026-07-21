@@ -4095,7 +4095,7 @@ mirrors 406/timeout/429 — an unfixable hot-path. Full design: `CONTEXT-3D-PERF
 
 | Sub-task | Phase | Status |
 |---|---|---|
-| L-513a Bake **Barcelona** context → **PMTiles** → Fly object storage | infra/bake | SOURCE VERIFIED LIVE (Geofabrik Cataluña 266MB static .osm.pbf, 200; Overture S3 200) — bake job NOT STARTED |
+| L-513a Bake **Barcelona** context → **PMTiles** → Fly object storage | infra/bake | **TOOL BUILT** — `tools/context-bake/` (bake.mjs orchestrator + Dockerfile + README); download→osmium clip→tags-filter→export→tippecanoe→PMTiles; auto-detects local tools vs bundled Docker image; `--check`/`--dry-run` verified. Ready to run where Docker/toolchain exists (dev/CI/Fly). Source Geofabrik Cataluña live. NEXT: run it + upload + wire client reader (L-513b/c). |
 | L-513b Client tile read: viewport z/x/y **range requests** + **Web Worker** decode + **instanced** render | client | NOT STARTED |
 | L-513c Swap `fetchContextBuildings` body to tiles; Overpass demoted to emergency fallback (badged ESTIMATED) | client | code already anticipates the swap |
 | L-513d Provenance badge travels IN the tile (keeps C23 honest) | client/data | NOT STARTED |
