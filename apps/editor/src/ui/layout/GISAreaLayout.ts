@@ -2090,9 +2090,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                       <div style="margin-top:5px;font-size:11px;">${rowsHtml}${gfa}${caveat}</div>
                     </details>`;
         })();
+        // §L-518c — an ALIGNMENT zone (Barcelona 13a) has NULL setbacks/height/FAR BY DESIGN (the
+        // "rear setback" IS the profunditat edificable), so the setback-triple summary read as
+        // "empty / not filled in" (founder). When the envelope is alignment-governed (an
+        // `alignment.depth` derivation row is present), surface the fields that ACTUALLY govern —
+        // buildable DEPTH + alignment offset + area — instead of three dashes.
+        const alignDepthRow = env.derivation.find((d) => d.constraint === 'alignment.depth');
+        const alignOffsetRow = env.derivation.find((d) => d.constraint === 'alignment.offset');
+        const isAlignmentZone = typeof alignDepthRow?.value === 'number';
+        const depthSummaryTxt = isAlignmentZone ? `${(alignDepthRow!.value as number).toFixed(1)} m` : '—';
+        const offsetSummaryTxt =
+            typeof alignOffsetRow?.value === 'number' ? `${(alignOffsetRow!.value as number).toFixed(1)} m` : '—';
         const rows =
             env.status === 'degenerate'
                 ? `<div style="color:#b23b3b;font-weight:600;">Setbacks consume the whole parcel — no buildable envelope.</div>`
+                : isAlignmentZone
+                ? `<div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#6b6480;">Buildable depth</span><span style="font-weight:600;text-align:right;">${depthSummaryTxt}</span></div>
+                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Alignment offset</span><span style="font-weight:600;">${offsetSummaryTxt}</span></div>
+                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>
+                   <div style="color:#a49dbb;font-size:9.5px;margin-top:3px;">Alignment zone — setbacks/height/FAR set by the profunditat edificable, not a numeric triple.</div>`
                 : `<div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Setbacks (F/S/R)</span><span style="font-weight:600;">${setback('setback.front')} / ${setback('setback.side')} / ${setback('setback.rear')}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max FAR</span><span style="font-weight:600;">${farTxt}</span></div>
