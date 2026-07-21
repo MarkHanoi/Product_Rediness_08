@@ -1342,6 +1342,23 @@ export class CesiumViewport {
           : 'KEYLESS-SATELLITE (no token → no default ion layer; FREE ESRI World Imagery satellite basemap installed below for the 3D globe view; Google Photorealistic 3D Tiles need a VITE_CESIUM_TOKEN)'}.`
       );
 
+      // §CESIUM-QUALITY-MSAA (L-509, founder 2026-07-21 "better quality on the 3D globe") —
+      // enable multi-sample anti-aliasing so the photoreal tile edges + the envelope prism read
+      // CRISP instead of jagged/pixelated. This is the SAFE quality lever: it is independent of
+      // the tileset `maximumScreenSpaceError` (deliberately held at 12 — the §CESIUM-SSE-RETUNE
+      // balance that keeps the height clamp accurate; lowering it would risk the float-bug) and
+      // of `requestRenderMode` (MSAA resolves per rendered frame, on-demand rendering unchanged).
+      // 4× is the standard quality/perf sweet spot; guarded + feature-detected so an older Cesium
+      // or a GPU without MSAA simply skips it (no crash, no regression). Modest GPU cost, paid
+      // only when the scene actually redraws.
+      try {
+        const sc = this.viewer.scene as unknown as { msaaSamples?: number };
+        if (typeof sc.msaaSamples === 'number') {
+          sc.msaaSamples = 4;
+          console.log('[gis][cesium] §CESIUM-QUALITY-MSAA — 4× MSAA enabled (crisper tile + prism edges).');
+        }
+      } catch { /* MSAA unsupported on this build/GPU — non-fatal, skip */ }
+
       // Disable depth test against terrain
       this.viewer.scene.globe.depthTestAgainstTerrain = false;
 
