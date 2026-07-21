@@ -114,3 +114,51 @@ buildings/roads/water → PMTiles → upload to Fly object storage`. Determinist
 on Geofabrik's daily refresh. NOT a live query. This is the same object-storage pattern already used
 for the furniture-GLB catalogue (memory §furniture-glb-404-object-storage), so the hosting path exists.
 No blocker remains between here and a working Barcelona context tileset — only the bake job itself.
+
+## 9. L-513b — client tile-reader: turnkey implementation spec
+
+This is the ONLY remaining piece and it is deliberately NOT coded blind: it needs (a) real tiles
+from the bake to test decode, and (b) a new dependency whose lockfile must be synced or the Fly
+build fails (memory §agent-packagejson-breaks-frozen-lockfile). Follow these steps exactly.
+
+### Dependency (do the lockfile sync in the SAME commit)
+- Add **`pmtiles`** (the official reader; issues HTTP `Range` requests against a static `.pmtiles`)
+  and **`@mapbox/vector-tile`** + **`pbf`** (decode the vector-tile blobs to features).
+- `pnpm --filter @pryzm/editor add pmtiles @mapbox/vector-tile pbf` then COMMIT the updated
+  `pnpm-lock.yaml` in the same commit (run root `tsc --skipLibCheck` first — Fly build is strict).
+
+### New module: `apps/editor/src/ui/geospatial/contextTiles.ts`
+- `export async function fetchContextBuildingsFromTiles(lat, lon, signal?): Promise<ContextBuildingsNearFar>`
+  — SAME return shape as `fetchContextBuildingsNearAndFar`, so it is a drop-in.
+- Impl: `const p = new PMTiles(TILE_BASE_URL + '/buildings.pmtiles')` (module-singleton, reused);
+  compute the z/x/y tiles covering the near bbox (`CONTEXT_BBOX_HALF_DEG`) + far bbox
+  (`CONTEXT_BBOX_FAR_HALF_DEG`); `await p.getZxy(z,x,y)` per tile; decode with
+  `new VectorTile(new Pbf(buf)).layers.buildings`; map each feature → the existing
+  `ContextBuildingFootprint` shape (ring lon/lat + `heightM` from the tile attr + a
+  `heightProvenance` of `'tiled'`). Instanced render is unchanged downstream.
+- Decode OFF the main thread if it stutters: move the Pbf/VectorTile step into a Web Worker
+  (the tiles are small per-viewport; measure first — may not be needed).
+
+### Swap point (the code already anticipates it)
+`contextBuildings.ts` header says *"the ONLY change is to replace `fetchContextBuildings`'s body."*
+Concretely: in `fetchContextBuildingsNearAndFar`, try the tile reader first and fall through to the
+existing Overpass path on any miss/error (badged ESTIMATED). Keep the per-bbox cache + the L-524a
+parcel prefetch — they now cache tile reads (already ~instant, but the cache still dedups).
+
+### Config
+`const TILE_BASE_URL = import.meta.env.VITE_CONTEXT_TILES_URL ?? ''`; when empty, skip tiles and use
+Overpass (so nothing changes until the tiles are uploaded + the env var is set). Point it at the
+object-storage prefix the bake uploaded to (README §Upload).
+
+### Test plan (needs the baked tiles)
+1. Run the bake (`tools/context-bake`), upload `out/*.pmtiles`, set `VITE_CONTEXT_TILES_URL`.
+2. Draw an Eixample parcel → 3D Site context should paint in <500 ms with NO `/api/overpass` call
+   in the network tab (confirm the tile reads instead).
+3. Kill the env var → confirm the Overpass fallback still works (badged ESTIMATED).
+4. Spot-check building heights against the current Overpass render (should match; tiles carry the
+   same OSM tag heights until the L-511/L-512 authoritative data feeds the bake).
+
+### Why this is the last mile
+Once wired, the context render latency the founder kept hitting (`502→failover`, "takes too long")
+is gone — replaced by a static <50 ms range read. Everything upstream (envelope, panel, prefetch
+timing) is already done and confirmed sound (v247–v253).
