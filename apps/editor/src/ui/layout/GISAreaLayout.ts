@@ -2013,7 +2013,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // confidence badge and NO "Why these numbers?", because that provenance was not
         // re-derived and inventing it is precisely the C58 §1.4 violation this fix exists to
         // prevent. Re-committing the parcel re-solves and restores the full card.
-        if (viewport && (!env || env.status === 'none')) {
+        // §L-574 — `status: 'none'` NO LONGER IMPLIES "nothing to say". The construction-
+        // incomplete refusal carries that status (attempted, no data) together with a `refusal`
+        // object, and BOTH branches below would have destroyed it: the first would paint a
+        // reduced card from a stale persisted ring, the second would remove the panel outright.
+        // A refusal rendered as an empty screen is the failure L-553 exists to prevent — a blank
+        // panel reads as a crash, not as "we could not complete this". So a `'none'` carrying a
+        // refusal skips both and falls through to the refusal card below.
+        const isNoneWithoutRefusal = (e: typeof env): boolean =>
+            !!e && e.status === 'none' && !e.refusal;
+        if (viewport && (!env || isNoneWithoutRefusal(env))) {
             const persisted = resolveRenderableBuildableEnvelope(runtime ?? null);
             if (persisted && persisted.source === 'persisted') {
                 renderReducedEnvelopePanel(viewport, persisted.maxHeightM);
@@ -2021,7 +2030,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
         }
         // No envelope (no parcel / cleared) → drop the card entirely.
-        if (!viewport || !env || env.status === 'none') {
+        if (!viewport || !env || isNoneWithoutRefusal(env)) {
             if (envelopePanel?.parentElement) envelopePanel.parentElement.removeChild(envelopePanel);
             envelopePanel = null;
             return;
@@ -2041,7 +2050,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         //   • The reason + its citation are the CONTENT, not a footnote.
         //
         // Returning early is what guarantees no estimated row can leak in underneath.
-        if (env.status === 'not-applicable' && env.refusal) {
+        // §L-574 — `'none'` joins `'not-applicable'` here. A refusal is identified by its
+        // refusal OBJECT; the status says which KIND (see `isRefusedEnvelope`, whose allow-list
+        // this mirrors). Omitting `'none'` was the bug that would have made the third card
+        // unreachable — the envelope would have fallen through to the numeric rows below and
+        // rendered as an empty determination.
+        if ((env.status === 'not-applicable' || env.status === 'none') && env.refusal) {
             const r = env.refusal;
             // ── §L-553 — TWO VISUALLY DISTINCT CARDS, and the split is load-bearing. ─────────
             //
@@ -2061,8 +2075,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // So the coverage-gap card leads with a NEUTRAL, forward-looking chip (never red,
             // never a warning triangle — this is not an error state), names the user's zone
             // first, and shows the facts we DO hold so the panel is never blank.
-            const isGap = !r.legallyGrounded;
-            const chip = isGap
+            // ── §L-574 — A THIRD CARD, and it MUST be branched before `legallyGrounded`. ──────
+            //
+            // `source-data-unavailable` is ALSO `legallyGrounded: false`, so the two-way split
+            // above would have handed it the "Zone rules coming" chip — telling an Eixample owner
+            // we have not encoded 13a, which is false and is precisely the kind of confident,
+            // plausible-sounding wrong statement this family of work exists to remove.
+            //
+            // It is the only TRANSIENT refusal: the rule is encoded and applies, and an INPUT was
+            // missing for this parcel. So it is the only one that says "try again", and the only
+            // one whose chip implies motion rather than a settled state.
+            const isTransient = r.code === 'source-data-unavailable';
+            const isGap = !isTransient && !r.legallyGrounded;
+            const chip = isTransient
+                ? '<span title="We hold this zone\'s rules; a data source needed to apply them was unavailable for this parcel. Usually temporary." style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Couldn’t complete</span>'
+                : isGap
                 ? '<span title="PRYZM has not encoded this zone\'s rules yet — a coverage gap, not a legal finding and not an error" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Zone rules coming</span>'
                 : '<span title="The governing ordinance provides no private buildable envelope for this zone" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>';
             // "What we DO know" — the single strongest signal that the parcel was identified
@@ -2077,12 +2104,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // authoritative-looking reference for a claim the document does not make (L-526). So
             // the "no citation" line is shown only on the LEGAL card, where its absence would be
             // a real omission.
+            // §L-574 — the transient card joins the coverage gap in showing NO "missing citation"
+            // note. Neither is an article-sourced classification, so flagging an absent citation
+            // would invite the reader to look for a legal basis that was never claimed — and on
+            // this card it would actively mislead, since Art. 242.2 IS the governing rule and is
+            // not the reason we failed. Our data path is (L-526).
             const cite = r.ordinanceRef
                 ? `<div style="margin-top:8px;color:#8a83a0;font-size:10px;line-height:1.45;">${escHtml(r.ordinanceRef)}</div>`
-                : isGap
+                : isGap || isTransient
                 ? ''
                 : '<div style="margin-top:8px;color:#a49dbb;font-size:10px;">No citation held for this classification.</div>';
-            const reasonLine = isGap
+            const reasonLine = isTransient
+                // §L-574 — say the land is unaffected (same reassurance as the coverage gap, for
+                // the same reason) AND tell the user the one action that actually helps. This is
+                // an INSTRUCTION, not a button: a working Retry needs a cached boundary and a
+                // re-invoke path that do not exist yet, and a dead button would be worse than
+                // none — it would read as "we tried and it is permanently broken". Logged as the
+                // L-574 follow-up.
+                ? `<div style="margin-top:8px;color:#9a6414;font-size:10.5px;line-height:1.5;">Re-select the parcel to try again — this usually clears on a second attempt.</div>
+                   <div style="margin-top:4px;color:#a49dbb;font-size:10px;">Status <code style="font-size:10px;">${escHtml(r.code)}</code> — not an error, and not a limit on your land. Your parcel, boundary and area are unaffected.</div>`
+                : isGap
                 ? `<div style="margin-top:8px;color:#a49dbb;font-size:10px;">Coverage status <code style="font-size:10px;">${escHtml(r.code)}</code> — not an error. Your parcel, boundary and area are unaffected.</div>`
                 : `<div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>`;
             panel.innerHTML =

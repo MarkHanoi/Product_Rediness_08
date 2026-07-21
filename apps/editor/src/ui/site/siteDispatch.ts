@@ -55,6 +55,9 @@ import {
     // opposite claims and the old boolean collapsed them.
     resolveZoneDisposition,
     buildRefusedEnvelope,
+    // §L-574 — the third refusal: an ENCODED clau whose construction could not complete.
+    barcelonaConstructionIncompleteRefusal,
+    type ConstructionFailureReason,
     BCN_JURISDICTION_ID,
     dissolveParcelsToBlockRing,
     classifyBlockFrontages,
@@ -1097,10 +1100,57 @@ async function applyBcnZoningThenFallback(
         }
         const zonePack = disposition.pack;
         console.log(`${TAG} clau resolved → ${clau} (${qual.clauLabel ?? 'n/a'}) → pack ${zonePack.jurisdictionId}.`);
+
+        /**
+         * §L-574 (founder-decided 2026-07-21) — WE HAVE THE PACK AND THE CONSTRUCTION STILL
+         * COULD NOT COMPLETE. Refuse; do NOT fall back to the estimated triple.
+         *
+         * Every `return` below this point is a path where the clau is KNOWN, its rule pack is
+         * REGISTERED, and an INPUT was missing (Catastro refcat, the block, the dissolve, or a
+         * solution on the ring). Those all used to call `applyEstimatedZoning`, which for a
+         * *segons alineacions de vial* clau like 13a draws a front/side/rear triple — **the
+         * wrong SHAPE, not an imprecise number** (C58 §1.11) — spanning the full plot depth on
+         * the most valuable land in Barcelona. ~8.6 % of Eixample parcels reach here (the
+         * dissolve succeeds on 91.4 %, L-539), plus every transient Catastro failure.
+         *
+         * ⚠ Deliberately NOT the L-550 legal refusal and NOT the L-553 coverage gap: the first
+         * would assert an ordinance fact we have not established (a false negative about
+         * someone's land), the second would claim we lack a pack we demonstrably have. This is
+         * the only TRANSIENT refusal, which is why its card is the only one offering a retry.
+         *
+         * Returns `true` when it handled the case, so each call site stays a two-liner.
+         */
+        const refuseConstructionIncomplete = (reason: ConstructionFailureReason): boolean => {
+            const site = ctx.store.getSite();
+            if (!site) {
+                // No site to dispatch onto — nothing can be rendered either way. Fall back
+                // rather than drop the answer silently.
+                applyEstimatedZoning(ctx, estimated);
+                return true;
+            }
+            const refusal = barcelonaConstructionIncompleteRefusal(
+                clau,
+                reason,
+                qual.clauLabel ?? null,
+                knownFacts,
+            );
+            // `status: 'none'` — ATTEMPTED, no data. NOT `'not-applicable'`, which would assert
+            // that the ordinance answered "no envelope here"; a Catastro outage establishes no
+            // such thing. Both clear a stale `buildableRing` (dispatchEnvelope writes only on
+            // `'ok'`), so the L-445 protection is unchanged.
+            dispatchEnvelope(ctx, site.id, buildRefusedEnvelope(clau, refusal, 'none'), 'muc-catastro');
+            console.log(
+                `${TAG} §L-574 CONSTRUCTION-INCOMPLETE clau=${clau} reason=${reason} — ` +
+                    `refused, NO estimated fallback (a setback triple is the wrong SHAPE for an ` +
+                    `alineacions-de-vial clau). Transient: a retry may resolve it.`,
+            );
+            return true;
+        };
+
         const refcat = parcelFeat?.refcat;
         if (!refcat) {
-            console.log(`${TAG} no Catastro refcat at point — estimated fallback.`);
-            applyEstimatedZoning(ctx, estimated);
+            console.log(`${TAG} no Catastro refcat at point — §L-574 refusal.`);
+            refuseConstructionIncomplete('block-unavailable');
             return;
         }
 
@@ -1124,9 +1174,9 @@ async function applyBcnZoningThenFallback(
         if (!block || block.parcels.length < 3) {
             console.log(
                 `${TAG} block=${block?.manzana ?? 'none'} parcels=${block?.parcels.length ?? 0} (need ≥3) ` +
-                    `— estimated fallback.`,
+                    `— §L-574 refusal.`,
             );
-            applyEstimatedZoning(ctx, estimated);
+            refuseConstructionIncomplete('block-unavailable');
             return;
         }
         console.log(`${TAG} block ${block.manzana} — ${block.parcels.length} parcels (~${block.totalAreaM2.toFixed(0)} m²).`);
@@ -1155,8 +1205,8 @@ async function applyBcnZoningThenFallback(
         const parcelRingsXZ = block.parcels.map((bp) => bp.ring.map(toAuthoringFrame));
         const dissolved = dissolveParcelsToBlockRing(parcelRingsXZ);
         if (dissolved.degenerate || dissolved.ring.length < 3) {
-            console.log(`${TAG} block ring dissolve refused (reason=${dissolved.reason}) — estimated fallback.`);
-            applyEstimatedZoning(ctx, estimated);
+            console.log(`${TAG} block ring dissolve refused (reason=${dissolved.reason}) — §L-574 refusal.`);
+            refuseConstructionIncomplete('block-dissolve-refused');
             return;
         }
         const blockRing = dissolved.ring;
@@ -1517,14 +1567,30 @@ async function applyBcnZoningThenFallback(
                     `— REAL, cited per PGM Art. 242.2.`,
             );
         } else {
+            // §L-574 — the construction RAN on a real block and produced no usable envelope
+            // (`degenerate`: an irregular ring, no `front` edge, or Art. 242.2 with no solution).
+            // The engine's caveats say exactly which, and are still logged — they render nowhere
+            // yet (L-573), which is precisely why the refusal card has to carry the explanation.
             console.log(
-                `${TAG} envelope status=${envelope.status} — estimated fallback. ` +
+                `${TAG} envelope status=${envelope.status} — §L-574 refusal. ` +
                     `caveats: ${envelope.caveats.join(' | ')}`,
             );
-            applyEstimatedZoning(ctx, estimated);
+            refuseConstructionIncomplete('construction-no-solution');
         }
     } catch (e) {
-        console.warn(`${TAG} path failed (non-fatal) — estimated fallback:`, e);
+        // §L-574 — DELIBERATELY still the estimated fallback, and NOT a refusal.
+        //
+        // A refusal card must NAME the zone (L-553 rule 1: proving we identified the land
+        // correctly is what separates "missing data" from "broken"). This catch wraps the WHOLE
+        // path, including everything before the clau is resolved, so a throw here may mean we
+        // never learned the zone at all — and `clau` / `knownFacts` are scoped to the `try` and
+        // genuinely unavailable here. Emitting an unnamed "could not complete" card would be a
+        // worse answer than the honestly-badged estimate, and inventing a zone name to fill it
+        // would be the fabrication this whole item removes.
+        //
+        // The five paths that DO know the clau refuse individually above; this is the residual
+        // "we don't even know what we were solving" case.
+        console.warn(`${TAG} path failed before/outside the clau-known paths — estimated fallback:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }
