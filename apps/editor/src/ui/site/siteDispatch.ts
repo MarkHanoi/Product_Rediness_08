@@ -980,16 +980,40 @@ async function applyBcnZoningThenFallback(
             console.warn(`${TAG} context-roads fetch failed (non-fatal) — 0 roads:`, e);
             roads = [];
         }
-        const blockEdgeClassifications = classifyBlockFrontages(blockRing, roads);
-        const frontCount = blockEdgeClassifications.filter((c) => c === 'front').length;
+        let blockEdgeClassifications = classifyBlockFrontages(blockRing, roads);
+        let frontCount = blockEdgeClassifications.filter((c) => c === 'front').length;
         console.log(
             `${TAG} roads=${roads.length} way(s); block frontages: ${frontCount} 'front' of ` +
                 `${blockEdgeClassifications.length} block edges.`,
         );
         if (frontCount === 0) {
-            console.log(`${TAG} no street frontages classified — the solver would refuse; estimated fallback.`);
-            applyEstimatedZoning(ctx, estimated);
-            return;
+            // §BCN-MANZANA-PERIMETER-FRONTAGE (L-502) — roads came back EMPTY. That is not a real
+            // "this block has no streets": the `way["highway"]…out geom` query over the dense
+            // Eixample is the same query-cost failure as buildings (L-471/L-482) and Overpass hands
+            // back an empty set (confirmed by direct probe: 0 ways for the central-Eixample bbox).
+            // Refusing here would deny the flagship area the real envelope.
+            //
+            // A Catastro *manzana* is a STREET-BOUNDED BLOCK BY DEFINITION — the block route returns
+            // exactly the parcels sharing the 5-char manzana prefix, i.e. one Cerdà block enclosed by
+            // streets on every side. Art. 242.2 (the founder-signed source) derives the depth as "a
+            // figure similar to the block, EQUIDISTANT FROM THE STREET FRONTAGES, leaving ≥30%
+            // interior free" — and for a manzana those street frontages ARE its perimeter. So
+            // classifying every block-ring edge as `front` is NOT a fabricated number; it is the
+            // definition of the block for this rule, and it yields precisely the Eixample
+            // perimeter-building-with-interior-courtyard morphology the ordinance intends. Roads,
+            // when they DO classify a frontage, remain the refinement (this branch only fires on 0).
+            //
+            // Length is taken over `blockRing` so it satisfies the engine's `=== blockRing.length`
+            // guard exactly (C58 §block-depth). If the dissolved ring were somehow not a plausible
+            // block the earlier dissolve step would already have refused it as degenerate.
+            blockEdgeClassifications = blockRing.map(() => 'front' as ParcelEdgeClassification);
+            frontCount = blockEdgeClassifications.length;
+            console.log(
+                `${TAG} §BCN-MANZANA-PERIMETER — roads empty (dense-Eixample Overpass cost); applying ` +
+                    `the manzana-perimeter frontage model: every one of the ${frontCount} block-ring ` +
+                    `edges IS a street frontage (a Catastro manzana is street-bounded by definition; ` +
+                    `PGM Art. 242.2 measures depth from those perimeter frontages).`,
+            );
         }
 
         // (g) Solve. The ZoningRecord names the clau; the ENGINE reads the geometricRule FROM
