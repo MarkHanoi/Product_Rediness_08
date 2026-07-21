@@ -2043,21 +2043,56 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // Returning early is what guarantees no estimated row can leak in underneath.
         if (env.status === 'not-applicable' && env.refusal) {
             const r = env.refusal;
-            // `legallyGrounded: false` (today only `no-rule-pack`) is a statement about PRYZM's
-            // coverage, not about the law, and must never wear the same chip as one that is.
-            const chip = r.legallyGrounded
-                ? '<span title="The governing ordinance provides no private buildable envelope for this zone" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>'
-                : '<span title="PRYZM has not encoded a rule pack for this zone yet — this is a coverage gap, not a legal finding" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e5;color:#8a5a00;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Not yet covered</span>';
+            // ── §L-553 — TWO VISUALLY DISTINCT CARDS, and the split is load-bearing. ─────────
+            //
+            // `legallyGrounded: true`  → THE ORDINANCE says no envelope applies here (a park, a
+            //                            motorway, a clau-18 plot). A settled, cited answer.
+            // `legallyGrounded: false` → PRYZM has not encoded THIS zone's rules yet. A coverage
+            //                            gap on a roadmap, and a statement about US, not the law.
+            //
+            // Since the founder switched on the coverage-gap refusal, HALF OF BARCELONA'S
+            // BUILDABLE LAND lands on the second card. If it reads as "broken" rather than "not
+            // yet", we have traded a labelled wrong answer for an apparent product failure —
+            // strictly worse. The lesson is a day old: fabricated context heights were rendered
+            // translucent so a guess could not look surveyed, and the founder asked "why are some
+            // buildings WIREFRAME?" — not "why don't we know those heights?". An honest signal
+            // that is not LEGIBLE is not honest in effect.
+            //
+            // So the coverage-gap card leads with a NEUTRAL, forward-looking chip (never red,
+            // never a warning triangle — this is not an error state), names the user's zone
+            // first, and shows the facts we DO hold so the panel is never blank.
+            const isGap = !r.legallyGrounded;
+            const chip = isGap
+                ? '<span title="PRYZM has not encoded this zone\'s rules yet — a coverage gap, not a legal finding and not an error" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Zone rules coming</span>'
+                : '<span title="The governing ordinance provides no private buildable envelope for this zone" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>';
+            // "What we DO know" — the single strongest signal that the parcel was identified
+            // correctly and nothing crashed. Rendered as facts, never as constraints.
+            const facts = Array.isArray(r.knownFacts) && r.knownFacts.length > 0
+                ? `<div style="margin-top:9px;padding:7px 8px;background:#faf9fd;border-radius:6px;">
+                     <div style="color:#6b6480;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:4px;">What PRYZM found for this parcel</div>
+                     ${r.knownFacts.map((f) => `<div style="color:#3d4a5c;font-size:10.5px;line-height:1.5;">${escHtml(f)}</div>`).join('')}
+                   </div>`
+                : '';
+            // A coverage gap has NO ordinance citation by design — citing one would be an
+            // authoritative-looking reference for a claim the document does not make (L-526). So
+            // the "no citation" line is shown only on the LEGAL card, where its absence would be
+            // a real omission.
             const cite = r.ordinanceRef
                 ? `<div style="margin-top:8px;color:#8a83a0;font-size:10px;line-height:1.45;">${escHtml(r.ordinanceRef)}</div>`
+                : isGap
+                ? ''
                 : '<div style="margin-top:8px;color:#a49dbb;font-size:10px;">No citation held for this classification.</div>';
+            const reasonLine = isGap
+                ? `<div style="margin-top:8px;color:#a49dbb;font-size:10px;">Coverage status <code style="font-size:10px;">${escHtml(r.code)}</code> — not an error. Your parcel, boundary and area are unaffected.</div>`
+                : `<div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>`;
             panel.innerHTML =
                 `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;cursor:grab;">
                    <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${chip}
                  </div>
                  <div style="font-weight:600;font-size:11.5px;color:#3d4a5c;line-height:1.4;">${escHtml(r.headline)}</div>
                  <div style="margin-top:6px;color:#6b6480;font-size:11px;line-height:1.5;">${escHtml(r.detail)}</div>
-                 <div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>
+                 ${facts}
+                 ${reasonLine}
                  ${cite}
                  ${envelopeToggleHtml()}`;
             wireEnvelopeToggle(panel);

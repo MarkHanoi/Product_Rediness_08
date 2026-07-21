@@ -39,12 +39,66 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         expect(registeredPackZoneCodes(BCN_JURISDICTION_ID)).toEqual([...BCN_ENSANCHE_ZONE_CODES]);
     });
 
-    it('answers `unregistered` — NOT `refusal` — for a privately buildable clau with no pack yet', () => {
-        // 13b/12/22a/20a are real buildable zones awaiting Phases 1–4. Refusing them would be
-        // the opposite error from the one Phase 1b fixes.
+    it('L-553 — refuses a privately buildable clau with no pack, as a COVERAGE gap not a legal one', () => {
+        // FOUNDER DECISION 2026-07-21: 13b/12/12b/22a/22@/20a lose their envelope rather than be
+        // shown a generic setback triple, because in an *alineacions de vial* zone that triple is
+        // the wrong geometric OPERATION, and no badge can label a category error.
         for (const clau of ['13b', '12', '12b', '22a', '22@', '20a', '20a/10']) {
-            expect(resolveZoneDisposition(BCN_JURISDICTION_ID, clau).kind).toBe('unregistered');
+            const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
+            expect(d.kind, clau).toBe('refusal');
+            if (d.kind !== 'refusal') continue;
+            expect(d.refusal.code, clau).toBe('no-rule-pack');
+            // ⚠ THE LOAD-BEARING ASSERTION. A coverage gap must NEVER claim to be a legal
+            // finding — that would tell a developer the law forbids building on their perfectly
+            // buildable plot, which is a worse error than the one this replaced.
+            expect(d.refusal.legallyGrounded, clau).toBe(false);
+            // …and must carry no ordinance citation, for the same reason (L-526).
+            expect(d.refusal.ordinanceRef, clau).toBeNull();
         }
+    });
+
+    it('L-553 — a LEGAL refusal is never displaced by the coverage-gap fallback', () => {
+        // Precedence: the ordinance's answer outranks a statement about PRYZM's coverage. If this
+        // inverted, every park in Barcelona would read "rules coming soon".
+        for (const clau of ['6a', '18', '27', 'SX1', '8a']) {
+            const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
+            expect(d.kind, clau).toBe('refusal');
+            if (d.kind !== 'refusal') continue;
+            expect(d.refusal.code, clau).not.toBe('no-rule-pack');
+            expect(d.refusal.legallyGrounded, clau).toBe(true);
+        }
+    });
+
+    it('L-553 — the coverage-gap card names the zone and carries the parcel facts', () => {
+        // The card is what decides whether full honesty succeeds or reads as a crash, so its
+        // inputs are asserted, not assumed. Half of Barcelona's buildable land sees this.
+        const facts = ['Cadastral reference: 0230904DF3803', 'Parcel area: 412 m²'];
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '13b', {
+            zoneLabel: 'Densificació Urbana Semiintensiva',
+            knownFacts: facts,
+        });
+        expect(d.kind).toBe('refusal');
+        if (d.kind !== 'refusal') return;
+        // Rule 1 — the zone, in the ordinance's own words, in the headline.
+        expect(d.refusal.headline).toContain('Densificació Urbana Semiintensiva');
+        expect(d.refusal.headline).toContain('13b');
+        // Rule 2 — "not encoded yet", never "no envelope applies" (that is the legal card).
+        expect(d.refusal.headline).toMatch(/not encoded/i);
+        expect(d.refusal.headline).not.toMatch(/no envelope applies/i);
+        // Rule 3 — the reason nothing is drawn, in the user's terms.
+        expect(d.refusal.detail).toMatch(/coverage gap, not an error/i);
+        expect(d.refusal.detail).toMatch(/rather show you nothing than something wrong/i);
+        // Rule 4 — a roadmap, with the covered zone named.
+        expect(d.refusal.detail).toMatch(/13a/);
+        // …and the facts, so the panel is never blank.
+        expect(d.refusal.knownFacts).toEqual(facts);
+    });
+
+    it('L-553 — a jurisdiction with no coverage-gap policy still answers `unregistered`', () => {
+        // Deleting the `unregistered` outcome would bake Barcelona's answer into every future
+        // city. In suburban/detached fabric a setback triple is the RIGHT shape and an estimate
+        // is genuinely just an estimate.
+        expect(resolveZoneDisposition('es-28079-madrid', 'anything').kind).toBe('unregistered');
     });
 
     it('answers `unregistered` for an unknown jurisdiction rather than throwing', () => {
@@ -144,16 +198,26 @@ describe('L-550 — the harmonised MUC-code fallback (the COMPOSITE-clau gap the
         }
     });
 
-    it('never lets the harmonised code refuse a buildable zone', () => {
+    it('never lets the harmonised code call a buildable zone a SYSTEM', () => {
         // The cross-tab over all 1 014 measured points: A1/M*/R* are the private zones and
         // contain no systems. If a future MUC class beginning with S were buildable this test
         // is where the assumption breaks, loudly.
+        //
+        // ⚠ Note what is asserted, and what deliberately is NOT. Since L-553 these claus DO
+        // refuse — as a COVERAGE GAP, a statement about PRYZM. What must never happen is the
+        // harmonised code declaring them public domain, because that is a claim about the LAW
+        // and it would tell a developer their buildable plot is a road.
         for (const [clau, muc] of [
             ['13a', 'R2'], ['13b', 'R2'], ['12', 'R1'], ['12b', 'R1'],
             ['22a', 'A1'], ['22@', 'M3'], ['20a/10', 'R6'], ['20a', 'R4'],
         ] as const) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, { harmonisedCode: muc });
-            expect(d.kind, `${clau}/${muc} must not be refused`).not.toBe('refusal');
+            if (d.kind === 'refusal') {
+                expect(d.refusal.code, `${clau}/${muc}`).toBe('no-rule-pack');
+                expect(d.refusal.legallyGrounded, `${clau}/${muc}`).toBe(false);
+            } else {
+                expect(d.kind, `${clau}/${muc}`).toBe('pack');
+            }
         }
     });
 
@@ -173,7 +237,9 @@ describe('L-550 — the harmonised MUC-code fallback (the COMPOSITE-clau gap the
 });
 
 describe('L-550 — the refused envelope', () => {
-    const refusal = barcelonaZoneRefusal('6a')!;
+    // Resolved through the public entry point, so the envelope under test is the one the
+    // dispatcher actually builds (facts attached), not a hand-assembled approximation of it.
+    const refusal = barcelonaZoneRefusalFor('6a', null, ['Parcel area: 900 m²'])!;
     const env = buildRefusedEnvelope('6a', refusal);
 
     it('parses against the schema, which enforces refusal ⇔ not-applicable', () => {

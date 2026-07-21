@@ -37,7 +37,7 @@ const inCity = raw.hits.filter((h) => h.ine === INE_BARCELONA && h.clau);
 // The plan's "private buildable land" denominator = the points NOT classified as a system /
 // protected soil. It is derived here from the SHIPPING classification, so the denominator and
 // the numerator move together and cannot drift apart the way two hand-kept lists would.
-type Tier = 'constructed' | 'refused-legal' | 'estimated-unregistered';
+type Tier = 'constructed' | 'refused-legal' | 'refused-coverage-gap' | 'estimated-unregistered';
 
 const byClau = new Map<
     string,
@@ -48,8 +48,17 @@ for (const h of inCity) {
     // The harmonised code is passed EXACTLY as `applyBcnZoningThenFallback` passes it, so the
     // probe scores the real decision and not a re-implementation of it.
     const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, { harmonisedCode: h.mucCode });
+    // L-553 — a refusal is now TWO different answers and the probe must not merge them: a legal
+    // refusal is a statement about the ordinance, a coverage-gap refusal a statement about PRYZM.
+    // Merging them would make the headline number flatter to us than it is to a user.
     const tier: Tier =
-        d.kind === 'pack' ? 'constructed' : d.kind === 'refusal' ? 'refused-legal' : 'estimated-unregistered';
+        d.kind === 'pack'
+            ? 'constructed'
+            : d.kind === 'refusal'
+            ? d.refusal.legallyGrounded
+                ? 'refused-legal'
+                : 'refused-coverage-gap'
+            : 'estimated-unregistered';
     const e =
         byClau.get(clau) ??
         { n: 0, tier, label: h.label, refusalCode: d.kind === 'refusal' ? d.refusal.code : null };
@@ -72,6 +81,7 @@ const NON_BUILDABLE_CODES = new Set([
 let buildableTotal = 0;
 let constructed = 0;
 let refusedOnBuildable = 0;
+let coverageGapOnBuildable = 0;
 let estimatedOnBuildable = 0;
 let systemsRefused = 0;
 
@@ -84,6 +94,7 @@ for (const [, e] of byClau) {
     buildableTotal += e.n;
     if (e.tier === 'constructed') constructed += e.n;
     else if (e.tier === 'refused-legal') refusedOnBuildable += e.n;
+    else if (e.tier === 'refused-coverage-gap') coverageGapOnBuildable += e.n;
     else estimatedOnBuildable += e.n;
 }
 
@@ -98,29 +109,42 @@ for (const [clau, e] of rows) {
     console.log(clau.padEnd(10), String(e.n).padStart(4), ` ${e.tier}`.padEnd(26), e.refusalCode ?? '');
 }
 
+
+// ── SUMMARY ───────────────────────────────────────────────────────────────────────────────────
+// L-553 splits the old single "refused" line in two, because they are different answers to the
+// user: a LEGAL refusal is settled (the ordinance grants no envelope here) while a COVERAGE-GAP
+// refusal is temporary (PRYZM has not encoded this zone yet). Reporting them merged would flatter
+// us — it would count a roadmap item as a finished answer.
 console.log('\n── SUMMARY ──');
 console.log(`resolved points inside INE ${INE_BARCELONA}: ${inCity.length}`);
-console.log(`non-buildable land (systems / open space / facilities / protected): ${systemsRefused} points`);
-console.log(`  → all now REFUSED with a cited reason (was: fabricated setback triple)`);
+console.log(
+    `non-buildable land (systems / open space / facilities / protected): ${systemsRefused} points ` +
+        `— all REFUSED with a cited reason (was: a fabricated setback triple).`,
+);
 console.log(`\nPRIVATE BUILDABLE LAND: n = ${buildableTotal}`);
 console.log(
-    `  CONSTRUCTED (a rule pack answers)      : ${constructed} = ${pct(constructed, buildableTotal)} %`,
+    `  CONSTRUCTED (a rule pack answers)        : ${constructed} = ${pct(constructed, buildableTotal)} %`,
 );
 console.log(
-    `  REFUSED, cited (derived-plan zones)    : ${refusedOnBuildable} = ${pct(refusedOnBuildable, buildableTotal)} %`,
+    `  REFUSED — LEGAL (derived-plan zones)     : ${refusedOnBuildable} = ${pct(refusedOnBuildable, buildableTotal)} %`,
 );
 console.log(
-    `  ESTIMATED (buildable, no pack yet)     : ${estimatedOnBuildable} = ${pct(estimatedOnBuildable, buildableTotal)} %`,
+    `  REFUSED — COVERAGE GAP (L-553, no pack)  : ${coverageGapOnBuildable} = ${pct(coverageGapOnBuildable, buildableTotal)} %`,
 );
 console.log(
-    `\n  HONESTLY TIERED (constructed + refused): ${constructed + refusedOnBuildable} = ` +
+    `  ESTIMATED setback triple STILL DRAWN     : ${estimatedOnBuildable} = ${pct(estimatedOnBuildable, buildableTotal)} %`,
+);
+console.log(
+    `\n  POSITIVELY ANSWERED (constructed + legal refusal): ${constructed + refusedOnBuildable} = ` +
         `${pct(constructed + refusedOnBuildable, buildableTotal)} % of private buildable land`,
 );
 console.log(
-    `  …and ${pct(systemsRefused + constructed + refusedOnBuildable, inCity.length)} % of ALL ` +
-        `Barcelona ground gets a constructed-or-cited-refusal answer.`,
+    `  NOTHING WRONG-SHAPED DRAWN (all three tiers)    : ` +
+        `${constructed + refusedOnBuildable + coverageGapOnBuildable} = ` +
+        `${pct(constructed + refusedOnBuildable + coverageGapOnBuildable, buildableTotal)} %`,
 );
+console.log(`\n  FABRICATED SETBACK TRIPLES REMAINING IN THE WHOLE CITY: ${estimatedOnBuildable}`);
 console.log(
-    `\n⚠ The ESTIMATED remainder is NOT dishonest — the panel badges every value ESTIMATED. It is\n` +
-        `  the coverage gap Phases 1–4 close (13b, 12/12b, 22a/22@, 20a).`,
+    `  ALL Barcelona ground with a constructed-or-refused answer: ` +
+        `${pct(systemsRefused + constructed + refusedOnBuildable + coverageGapOnBuildable, inCity.length)} %`,
 );

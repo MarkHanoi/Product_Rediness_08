@@ -55,10 +55,20 @@ export const BCN_PGM_INSTRUMENT_REF =
     '(sistemes i zones). Source: the current consolidated PGM refós in the Registre de ' +
     'Planejament Urbanístic de Catalunya (RPUC) / AMB Geoportal de Planejament (NUMAMB).';
 
+/**
+ * The article-attributable part of a refusal — everything EXCEPT the per-parcel facts.
+ *
+ * `knownFacts` is deliberately absent from these static rows: it is the user's own parcel
+ * reference / address / area, which is per-lookup data, not law. Attaching it here would mean a
+ * legal classification that varies by parcel, which is the wrong shape. It is merged in by
+ * `barcelonaZoneRefusalFor` at resolution time (L-553).
+ */
+type ClassifiedRefusal = Omit<EnvelopeRefusal, 'knownFacts'>;
+
 /** A classification row: the claus it covers, and the refusal they produce. */
 interface ClauClassification {
     readonly claus: readonly string[];
-    readonly refusal: EnvelopeRefusal;
+    readonly refusal: ClassifiedRefusal;
 }
 
 /**
@@ -195,8 +205,8 @@ const CLASSIFICATIONS: readonly ClauClassification[] = [
  * clau → refusal. Built once, and it ASSERTS DISJOINTNESS: a clau classified twice is a
  * transcription error that would otherwise resolve to whichever row happened to be last.
  */
-export const BCN_ZONE_REFUSALS_BY_CLAU: ReadonlyMap<string, EnvelopeRefusal> = (() => {
-    const m = new Map<string, EnvelopeRefusal>();
+export const BCN_ZONE_REFUSALS_BY_CLAU: ReadonlyMap<string, ClassifiedRefusal> = (() => {
+    const m = new Map<string, ClassifiedRefusal>();
     for (const c of CLASSIFICATIONS) {
         for (const clau of c.claus) {
             if (m.has(clau)) {
@@ -217,7 +227,7 @@ export const BCN_ZONE_REFUSALS_BY_CLAU: ReadonlyMap<string, EnvelopeRefusal> = (
  * `null` means "keep today's behaviour" — either a rule pack answers, or the estimated fallback
  * does. It never means "buildable"; it means this table makes no claim.
  */
-export function barcelonaZoneRefusal(clau: string): EnvelopeRefusal | null {
+export function barcelonaZoneRefusal(clau: string): ClassifiedRefusal | null {
     return BCN_ZONE_REFUSALS_BY_CLAU.get(clau) ?? null;
 }
 
@@ -269,7 +279,7 @@ export const BCN_REFUSED_CLAUS: readonly string[] = [...BCN_ZONE_REFUSALS_BY_CLA
 /** `CODI_QUAL_MUC` prefixes that denote a *sistema* in the harmonised Catalan taxonomy. */
 const HARMONISED_SYSTEM_PREFIX = 'S';
 
-const HARMONISED_SYSTEM_REFUSAL: EnvelopeRefusal = {
+const HARMONISED_SYSTEM_REFUSAL: ClassifiedRefusal = {
     code: 'public-system',
     headline: 'Public system — no private buildable envelope applies.',
     detail:
@@ -296,14 +306,108 @@ const HARMONISED_SYSTEM_REFUSAL: EnvelopeRefusal = {
 export function barcelonaZoneRefusalFor(
     clau: string,
     harmonisedCode?: string | null,
+    knownFacts: readonly string[] = [],
 ): EnvelopeRefusal | null {
+    // L-553 — the per-parcel facts are merged onto the LEGAL refusals too, not only the coverage
+    // gap. "The Parc de la Ciutadella is public open space" is a better answer when the card also
+    // shows the user their own parcel reference and area: it proves the classification is about
+    // THEIR land and not a generic message the panel fell back to.
+    const attach = (r: ClassifiedRefusal): EnvelopeRefusal => ({ ...r, knownFacts: [...knownFacts] });
     const byClau = BCN_ZONE_REFUSALS_BY_CLAU.get(clau);
-    if (byClau) return byClau;
+    if (byClau) return attach(byClau);
     if (
         typeof harmonisedCode === 'string' &&
         harmonisedCode.trim().toUpperCase().startsWith(HARMONISED_SYSTEM_PREFIX)
     ) {
-        return HARMONISED_SYSTEM_REFUSAL;
+        return attach(HARMONISED_SYSTEM_REFUSAL);
     }
     return null;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// L-553 — THE COVERAGE-GAP REFUSAL (`no-rule-pack`). FOUNDER-DECIDED, 2026-07-21.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// THE DECISION. A privately-buildable clau with no authored pack used to fall to the generic
+// estimated pack, which draws a front/side/rear setback triple on ANY polygon. The founder ruled
+// that off: *"the most important is to have a robust, TRUSTED-AGAINST-REAL-LEGAL-DATA result."*
+//
+// THE ARGUMENT IS ABOUT SHAPE, NOT PRECISION — and that is why a badge could not save it. For
+// `12`, `12b` and `13b` the ordination type is **segons alineacions de vial**: the façade sits ON
+// the street line and a *profunditat edificable* is measured from it. A setback triple cannot
+// express that at all (ADR-0270 is entirely about this), so an estimated triple there is not an
+// imprecise answer to the right question — it is a confident answer to a DIFFERENT question,
+// and it silently yields an envelope covering the whole plot depth on exactly the parcels where
+// land value is highest. An "ESTIMATED" chip labels uncertainty; it cannot label a category
+// error. C58 §1.11 · C58 §1.7a.
+//
+// THE COST, ACCEPTED KNOWINGLY: 51.6 % of Barcelona's private buildable land (`13b`, `12`,
+// `12b`, `22a`, `22@`, `20a/*`) loses its envelope until Phases 1–3 land.
+//
+// ⚠ WHICH MAKES THE CARD THE THING THAT DECIDES WHETHER THIS SUCCEEDS OR BACKFIRES, and the copy
+// below is therefore load-bearing product surface, not a log line. Half of Barcelona will read
+// it. If it reads as "broken" rather than "we don't have this zone's rules yet", we will have
+// traded a LABELLED WRONG ANSWER for an APPARENT PRODUCT FAILURE — strictly worse.
+//
+// The precedent is from the same day and it is humbling: fabricated context-building heights were
+// rendered translucent so a guess could not look surveyed. The founder looked at it and asked
+// *"why are some buildings wireframe?"* — not *"why don't we know those heights?"*. **The signal
+// was honest and it still failed, because it communicated "render artifact" instead of "missing
+// data".** So this copy obeys four rules:
+//
+//   1. NAME THE ZONE, in the ordinance's own words, first. It proves we identified their land
+//      correctly — the single fastest way to distinguish "missing data" from "crashed".
+//   2. SAY WHAT IS MISSING, in the user's terms: PRYZM has not encoded THIS zone's rules yet.
+//      Never "no envelope applies" — that is the LEGAL refusal, a different answer that must stay
+//      visibly different, or the two collapse and we are back to L-550's original defect.
+//   3. SAY WHY NOTHING IS DRAWN, without jargon: a generic estimate would be the wrong SHAPE for
+//      this zone, and we would rather show nothing than something wrong.
+//   4. PLACE IT ON A ROADMAP, with the covered zone named. "Not yet" is forgivable; "no" is not.
+
+/** What PRYZM covers today vs next — kept beside the copy that cites it so they cannot drift. */
+const BCN_ROADMAP_LINE =
+    'Barcelona coverage today: clau 13a / 13E (the Eixample), where the buildable depth is ' +
+    'constructed per PGM Art. 242 from the real cadastral block. Next: 13b, 12 / 12b, 22a and ' +
+    'the 20a family. Each zone ships only once its governing article has been read and accepted ' +
+    '— which is why this one is not here yet.';
+
+/**
+ * The refusal shown on a privately-buildable clau PRYZM has not authored a pack for.
+ *
+ * ⚠ `legallyGrounded: false` — the ONE refusal in the vocabulary that is a statement about
+ * PRYZM's coverage rather than about the law, and the UI MUST render it differently. Letting a
+ * coverage gap wear the same chip as "the ordinance grants no envelope here" would tell a
+ * developer their perfectly buildable plot cannot be built on. That is the opposite error from
+ * the one this whole slice fixes, and it is worse, because it is a false negative about someone's
+ * land.
+ */
+export function barcelonaNoRulePackRefusal(
+    clau: string,
+    clauLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const named = clauLabel && clauLabel.trim() ? `${clauLabel.trim()} (clau ${clau})` : `clau ${clau}`;
+    return {
+        code: 'no-rule-pack',
+        // Rule 1 — the zone, named, first. Rule 2 — what is missing, plainly.
+        headline: `${named} — PRYZM has not encoded this zone's building rules yet.`,
+        detail:
+            // Rule 3 — why nothing is drawn, in the user's terms rather than ours.
+            'This is a coverage gap, not an error, and your parcel was identified correctly — ' +
+            'the zone above is what the Generalitat’s planning map returns for this land. ' +
+            'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
+            'did. It has been switched off deliberately: this zone is regulated by a different ' +
+            'kind of rule (the façade sits on the street line, with a maximum buildable depth ' +
+            'measured back from it), so a setback estimate would be the wrong SHAPE, not merely ' +
+            'an imprecise number — and it would quietly over-state the buildable area. We would ' +
+            'rather show you nothing than something wrong. ' +
+            // Rule 4 — the roadmap.
+            BCN_ROADMAP_LINE,
+        // NOT a PGM article. This refusal is a statement about PRYZM, and citing an ordinance
+        // for it would be the L-526 error (an authoritative-looking citation for a claim the
+        // document does not make).
+        ordinanceRef: null,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
 }

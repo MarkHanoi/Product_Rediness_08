@@ -1014,8 +1014,39 @@ async function applyBcnZoningThenFallback(
         // only the strictly coarser question "is this a *sistema*?", which the L-550 probe showed
         // it answers perfectly across all 1 014 measured points — and which is what catches the
         // COMPOSITE claus (`1a-5b`, `3-6b`) no enumeration can anticipate.
+        //
+        // §L-553 — `zoneLabel` + `knownFacts` exist for the COVERAGE-GAP card. When PRYZM has no
+        // pack for a buildable clau it now draws NOTHING (founder decision), and a blank panel
+        // reads as a crash. These are the facts that prove we identified the user's land
+        // correctly: their zone in the ordinance's own words, their cadastral reference, their
+        // address, their area. Facts only — never a constraint. All are already in hand from the
+        // two fetches above, so this costs no network.
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                if (!Array.isArray(ring) || ring.length < 3) return null;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+        const knownFacts = [
+            `Zone: ${qual.clauLabel ? `${qual.clauLabel} (clau ${clau})` : `clau ${clau}`}`,
+            parcelFeat?.refcat ? `Cadastral reference: ${parcelFeat.refcat}` : null,
+            typeof parcelFeat?.address === 'string' && parcelFeat.address.trim()
+                ? `Address: ${parcelFeat.address.trim()}`
+                : null,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            'Planning source: Generalitat de Catalunya MUC + Catastro',
+        ].filter((s): s is string => typeof s === 'string');
         const disposition = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, {
             harmonisedCode: qual.mucCode ?? null,
+            zoneLabel: qual.clauLabel ?? null,
+            knownFacts,
         });
         if (disposition.kind === 'refusal') {
             // §L-550 PHASE-1B — THE ORDINANCE ANSWERS, AND ITS ANSWER IS "NO ENVELOPE".
@@ -1039,20 +1070,27 @@ async function applyBcnZoningThenFallback(
             const refused = buildRefusedEnvelope(clau, disposition.refusal);
             dispatchEnvelope(ctx, site.id, refused, 'muc-catastro');
             console.log(
-                `${TAG} §L-550 REFUSAL clau=${clau} (${qual.clauLabel ?? 'n/a'}) ` +
-                    `code=${disposition.refusal.code} — ${disposition.refusal.headline} ` +
-                    `NO estimated fallback: an estimate here would be a fabricated legal claim.`,
+                `${TAG} §L-550/§L-553 REFUSAL clau=${clau} (${qual.clauLabel ?? 'n/a'}) ` +
+                    `code=${disposition.refusal.code} legallyGrounded=${disposition.refusal.legallyGrounded} ` +
+                    `— ${disposition.refusal.headline} NO estimated fallback ` +
+                    `(${disposition.refusal.legallyGrounded
+                        ? 'an estimate here would be a fabricated legal claim'
+                        : 'a setback triple is the wrong geometric OPERATION for this zone — founder decision'}).`,
             );
             return;
         }
         if (disposition.kind !== 'pack') {
-            // A privately-buildable clau PRYZM has not authored a pack for yet (13b, 12, 22a,
-            // 20a…). Keep today's behaviour — the estimated pack, which badges every value
-            // ESTIMATED. ⚠ NOT a refusal: refusing here would tell the user the law forbids
-            // building on a perfectly buildable plot, which is the opposite error.
+            // §L-553 — UNREACHABLE for Barcelona, and deliberately still here.
+            //
+            // Barcelona now declares a coverage-gap refusal, so `resolveZoneDisposition` never
+            // returns `unregistered` for it. This branch is the guard for the day a jurisdiction
+            // is registered WITHOUT one — suburban/detached fabric, where a setback triple is the
+            // RIGHT shape and an estimate is genuinely just an estimate. Deleting it would bake
+            // Barcelona's answer into every future city, which is exactly the standardising-over-
+            // a-real-legal-difference the founder's ranking forbids.
             console.log(
-                `${TAG} clau=${clau} is privately buildable but has no rule pack yet ` +
-                    `(registry: unregistered) — estimated fallback, honestly badged.`,
+                `${TAG} clau=${clau} is privately buildable, has no rule pack, and this ` +
+                    `jurisdiction declares no coverage-gap refusal — estimated fallback, honestly badged.`,
             );
             applyEstimatedZoning(ctx, estimated);
             return;

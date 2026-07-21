@@ -42,7 +42,10 @@
 
 import type { JurisdictionZoningContract, EnvelopeRefusal } from '@pryzm/schemas';
 import { ES_BARCELONA_ENSANCHE_PACK, BCN_ENSANCHE_ZONE_CODES } from './esBarcelonaEnsanche.js';
-import { barcelonaZoneRefusalFor } from './esBarcelonaZoneClassification.js';
+import {
+    barcelonaZoneRefusalFor,
+    barcelonaNoRulePackRefusal,
+} from './esBarcelonaZoneClassification.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -66,7 +69,28 @@ export type ZoneDisposition =
 interface JurisdictionRegistration {
     readonly jurisdictionId: string;
     readonly packsByZone: ReadonlyMap<string, JurisdictionZoningContract>;
-    readonly refusalFor: (zoneCode: string, harmonisedCode?: string | null) => EnvelopeRefusal | null;
+    readonly refusalFor: (
+        zoneCode: string,
+        harmonisedCode?: string | null,
+        knownFacts?: readonly string[],
+    ) => EnvelopeRefusal | null;
+    /**
+     * L-553 — the COVERAGE-GAP refusal for a privately-buildable zone this jurisdiction has no
+     * pack for. Per-jurisdiction because the copy must name that jurisdiction's roadmap and speak
+     * about its ordination types; a generic "no data" string would be exactly the illegible
+     * honesty this decision exists to avoid.
+     *
+     * ⚠ OPTIONAL, and its absence is meaningful. A jurisdiction that declares NO coverage-gap
+     * refusal keeps the estimated fallback for its unpacked zones. That is the correct default
+     * for suburban/detached fabric, where a setback triple is the RIGHT shape and an estimate is
+     * genuinely just an estimate. Switching it off wholesale would be standardising over a real
+     * legal difference — the founder's ranking, inverted.
+     */
+    readonly noRulePackRefusal?: (
+        zoneCode: string,
+        zoneLabel?: string | null,
+        knownFacts?: readonly string[],
+    ) => EnvelopeRefusal;
 }
 
 /**
@@ -79,6 +103,18 @@ interface JurisdictionRegistration {
  */
 export interface ZoneDispositionHints {
     readonly harmonisedCode?: string | null;
+    /**
+     * L-553 — the zone's name in the ordinance's own words (`DESC_QUAL_AJUNT` from the MUC).
+     * Carried so the COVERAGE-GAP card can open by naming the user's zone, which is the fastest
+     * way to distinguish "we don't have this zone's rules" from "it crashed".
+     */
+    readonly zoneLabel?: string | null;
+    /**
+     * L-553 — short "label: value" facts about this parcel the caller already holds (reference,
+     * address, area). Shown so the refusal card is never a blank panel. Facts only — never a
+     * constraint.
+     */
+    readonly knownFacts?: readonly string[];
 }
 
 function packMap(
@@ -97,6 +133,11 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // Barcelona's private buildable land (measured, plan §2.2).
         packsByZone: packMap(ES_BARCELONA_ENSANCHE_PACK, BCN_ENSANCHE_ZONE_CODES),
         refusalFor: barcelonaZoneRefusalFor,
+        // L-553, founder-decided: Barcelona's unpacked buildable claus (13b, 12, 12b, 22a, 22@,
+        // 20a/*) refuse rather than show a generic setback triple. The dense Barcelona fabric is
+        // *alineacions de vial*, so that triple is the wrong geometric OPERATION, and no badge
+        // can label a category error.
+        noRulePackRefusal: barcelonaNoRulePackRefusal,
     },
 ];
 
@@ -120,8 +161,24 @@ export function resolveZoneDisposition(
     const pack = reg.packsByZone.get(zoneCode);
     // Pack precedence — see the header on why this order and not the reverse.
     if (pack) return { kind: 'pack', pack, zoneCode };
-    const refusal = reg.refusalFor(zoneCode, hints?.harmonisedCode ?? null);
+    const refusal = reg.refusalFor(
+        zoneCode,
+        hints?.harmonisedCode ?? null,
+        hints?.knownFacts ?? [],
+    );
     if (refusal) return { kind: 'refusal', zoneCode, refusal };
+    // L-553 — a privately-buildable zone with no pack. If the jurisdiction declares a
+    // coverage-gap refusal, REFUSE rather than let the caller draw a generic setback estimate.
+    // Order matters: this runs LAST, so a legal refusal (a statement about the ordinance) can
+    // never be displaced by a coverage refusal (a statement about PRYZM). Those two must not be
+    // interchangeable and the precedence is what guarantees it.
+    if (reg.noRulePackRefusal) {
+        return {
+            kind: 'refusal',
+            zoneCode,
+            refusal: reg.noRulePackRefusal(zoneCode, hints?.zoneLabel ?? null, hints?.knownFacts ?? []),
+        };
+    }
     return { kind: 'unregistered', zoneCode };
 }
 

@@ -168,6 +168,22 @@ export const EnvelopeRefusalSchema = z.object({
     /** The governing citation, or null when the classification is not article-sourced. */
     ordinanceRef: z.string().min(1).nullable().default(null),
     /**
+     * L-553 — SHORT "label: value" facts PRYZM *does* hold about this parcel, shown on the
+     * refusal card so the screen is never blank.
+     *
+     * ⚠ THIS IS NOT DECORATION, IT IS THE DIFFERENCE BETWEEN "MISSING DATA" AND "BROKEN". An
+     * empty panel is read as a crash; a panel that names the user's parcel, its address, its
+     * area and its exact zone proves we identified their land correctly and are declining a
+     * specific, known thing. Precedent, paid for the same day: fabricated context-building
+     * heights were made translucent so a guess could not look surveyed, and the founder asked
+     * *"why are some buildings wireframe?"* — the signal was honest and still failed, because
+     * it read as a render artifact rather than as missing data. An honest signal that is not
+     * LEGIBLE is not honest in effect.
+     *
+     * Facts only — never a constraint, never a number the user could mistake for an allowance.
+     */
+    knownFacts: z.array(z.string().min(1)).default([]),
+    /**
      * Is this refusal a statement about the LAW (true) or about PRYZM's coverage (false)?
      *
      * `no-rule-pack` is the only `false` today. The distinction is load-bearing: "the ordinance
