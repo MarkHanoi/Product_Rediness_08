@@ -936,10 +936,18 @@ async function applyBcnZoningThenFallback(
             return;
         }
 
-        // (b) Resolve the planning clau. Non-Eixample (e.g. 13b) MUST fall back — the pack is
-        //     not applicable, and borrowing Eixample's depth would be a wrong number.
-        const qual = await fetchQualificationAtPoint(lat, lon);
+        // (b+c) §L-516b — the planning clau (MUC) and the Catastro parcel are INDEPENDENT point
+        // lookups (both keyed on lat/lon; neither needs the other), so awaiting them sequentially
+        // added a whole round-trip to the placeholder→real transition (founder: "it takes time to go
+        // from placeholder to real"). Fetch them in PARALLEL. Trade-off: on a NON-Eixample plot the
+        // parcel fetch is now made-then-discarded (a cheap wasted call, and such plots fall back to
+        // estimated anyway); on the Eixample demo path — the one that matters — it saves a full
+        // Catastro round-trip off the critical path.
         const eixampleCodes = BCN_ENSANCHE_ZONE_CODES as readonly string[];
+        const [qual, parcelFeat] = await Promise.all([
+            fetchQualificationAtPoint(lat, lon),
+            catastroParcelProvider.fetchParcelAtPoint(lon, lat),
+        ]);
         if (!qual || !eixampleCodes.includes(qual.clau)) {
             console.log(`${TAG} clau=${qual?.clau ?? 'none'} not an Eixample zone (13a/13E) — estimated fallback.`);
             applyEstimatedZoning(ctx, estimated);
@@ -947,9 +955,6 @@ async function applyBcnZoningThenFallback(
         }
         const clau = qual.clau;
         console.log(`${TAG} clau resolved → ${clau} (${qual.clauLabel ?? 'n/a'}).`);
-
-        // (c) Real cadastral parcel → referencia catastral.
-        const parcelFeat = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
         const refcat = parcelFeat?.refcat;
         if (!refcat) {
             console.log(`${TAG} no Catastro refcat at point — estimated fallback.`);
