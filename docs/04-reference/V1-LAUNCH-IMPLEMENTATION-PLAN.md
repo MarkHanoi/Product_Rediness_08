@@ -4278,3 +4278,73 @@ tell you if public access is off. (2) Push/deploy, and read the deploy log for
 `✓ §L-570-BUNDLE-PROOF`. Then open the furniture carousel and confirm
 `§FURNITURE-GLB-404-SUMMARY` is absent. If it is still there, its own message now says which of
 the two halves failed.
+
+---
+
+## 2026-07-21 (late) — THE 3D SITE IS THE PRIORITY. Ordered plan, set by the founder.
+
+> *"When can I have a reliable 3D Site working fast and always? It is still not reliable!!"*
+> *"I really want to see 3D Site working sound ASAP!!!"*
+
+This supersedes the ordering of the Barcelona legal-sourcing / Madrid / Córdoba / September-wedge
+tracks **for the next session only**. Those remain correct and queued; they are not what the founder
+is looking at.
+
+### ⚠ THE HONEST STATE, so nobody re-reads the R2 work as "done"
+**The 3D Site context is NOT wired to R2 and is NOT faster than it was this morning.** Two different
+things landed and must not be conflated:
+
+| | Wired to R2? | Notes |
+|---|---|---|
+| Furniture GLB catalogue | ✅ **Yes** | Sync ran green + §L-570-CSP (v273). L-570/L-575. |
+| **3D Site context buildings** | ❌ **No** | Tiles are **baked and sitting in R2**; nothing reads them. Still **live Overpass**. |
+
+`VITE_CONTEXT_TILES_URL` is **deliberately EMPTY** — pointing the app at tiles before the reader
+exists would bake a URL nothing reads and fail *silently*, which is precisely the bug class that hit
+twice on 2026-07-21 (L-570 → L-575).
+
+### Step 1 — **L-513b, the PMTiles client reader**  ← START HERE. Now unblocked.
+`context-bake.yml` **completed `success`**, so Barcelona PMTiles exist in R2 `pryzm-assets/tiles/`.
+That job proves the tiles are REAL (≥50 KB + `PMTiles` magic header — a bad tippecanoe filter emits
+a valid-but-empty tileset that uploads happily and renders as "no context") and that the host honours
+`Range` (HTTP 206 — PMTiles reads byte ranges; a host answering 200 would silently turn every tile
+read into a full-file download).
+
+This **removes** the last unreliable third party on the demo critical path rather than mitigating it.
+Everything shipped so far (L-524a prefetch, L-531 non-blocking far ring, L-534 dead mirror, the
+600 ms roads deadline) mitigates live Overpass — which L-513 root-caused as *unfixable in the client*
+(406 / 45 s hangs / 429 / 504, and errors returned **in-band as HTTP 200 + `remark`**, i.e. a failure
+byte-identical to "there is nothing here", L-469).
+
+- Deps `pmtiles`, `@mapbox/vector-tile`, `pbf` — ⚠ `pnpm-lock.yaml` in the **SAME** commit or the Fly
+  build dies on `--frozen-lockfile`.
+- Set repo VARIABLE `VITE_CONTEXT_TILES_URL`.
+- ⚠⚠ **VERIFY THE CSP IN A BROWSER** — this adds a new ORIGIN. §L-570-CSP derives it from the same
+  env vars, so it *should* be automatic. **Do not assume** (L-575: upload/bundle/deploy all green
+  while every request was refused).
+- Feed the **EXISTING** context render path; keep Overpass as the fallback when the URL is empty so
+  local dev still works.
+- **Acceptance:** context renders in **< 100 ms** with **ZERO** Overpass requests in the network tab.
+
+### Step 2 — **L-576, measure the dissolve before fixing it**
+The founder hit `block-dissolve-refused` on **three consecutive prime-Eixample parcels**, against a
+predicted ~1-in-12. **The 91.4 % offline figure does not describe production and must not be
+re-trusted.** Instrument `dissolved.reason` per parcel, sweep real Eixample refcats, get the true rate
+and the dominant reason (~1 h) — **then** fix the dominant case.
+⚠ **Do NOT loosen the dissolve tolerance.** A partial/self-overlapping ring yields a *confidently
+wrong depth*, worse than the refusal, and inverts the founder's ranking (L-553/L-574).
+This is what converts the "Couldn't complete" cards back into real envelopes.
+
+### Step 3 — **L-577, the two card defects**
+Truncated chip (small fix); **"disappears on selection"** — unreproduced, three candidate causes,
+**ask the founder which behaviour before writing code**; and confirm the "parcel looks wrong"
+screenshot from a **top-down** camera (oblique cameras skew flat polygons; the `cos(lat)` shear
+hypothesis was checked and REFUTED at `boundaryProjection.ts:58`).
+
+### Deferred but NOT forgotten
+- **`command-manager` CI debt** — 64 vs 55 (+9). Deploys currently need `bypass_ci_gate: true`.
+  ⚠ The 9 are the **dual-write pattern** (`E.5.x P2`); removing one half without the other **silently
+  breaks undo**. Deliberate session, not a patch. (Earlier "128 / +73" was a Windows path-parsing bug
+  in the checker — fixed `838d39a`.)
+- **L-560** longest-edge θ; **L-573** engine caveats render nowhere; Barcelona Phases 1–3 (Art. 328 /
+  Art. 316 — blocked on a founder RPUC session); Madrid / Córdoba; the September wedge.
