@@ -113,8 +113,14 @@ real parcel (L-521/521b); context prefetched at the parcel (L-524a). L-489 persi
   graded + cycle-tagged) — extend C23 or add a spec BEFORE the graded height badge ships.
 - Data↔geometry bidirectional link (L-519) — no contract governs clicking a report row to select geometry.
 
-## RECOMMENDED FIRST MOVE NEXT SESSION
-Do **L-525b's block-dissolve probe** (cheapest, highest-impact — a partial block silently shrinks every
-envelope) and read back the **L-526 Claude-Chat legal verdict** in parallel. Those two together tell you
-whether the depth is wrong because of the block (geometry) or the rule (legal) — and everything else
-(height nDSM, the bake, the visuals) follows from a correct depth.
+## RECOMMENDED FIRST MOVE NEXT SESSION (the L-526 legal research is DONE — see `L-526-LEGAL-FINDINGS.md`)
+The legal research RESOLVED L-526: **the depth error is GEOMETRY, confirmed.** Art. 242 offsets the
+FULL illa; our block 02309 dissolved to ~6,686 m² ≈ HALF a Cerdà manzana → the inset floored to ~11 m.
+So the FIRST implementation move is **L-525b — make `fetchBlockForParcel`/`dissolveParcelsToBlockRing`
+return the FULL illa (~12,000 m²), offset the illa (Art. 242) then intersect the parcel**, and set the
+pack **min-floor = 12 m (not 11)**. Then apply the other confirmed fixes: encode the **Art. 327.2 height
+table** (20 m street → PB+5 ≈ 20.75–22.40 m; use the OFFICIAL street width) for L-525a/L-527; fix the
+**citation** (depth = Art. 242, DROP Art. 322.1; height = Arts. 238/240/327; re-cite the current
+Barcelona NUMAMB/RPUC, drop the anachronistic "AMB Dec 2010"). STILL TO CERTIFY (needs the MUC/RPUC
+fitxa, not web search): the exact depth figure + official street width for parcel 0230904DF3803 + the
+20.75-vs-22.40 PB+5 reconciliation.
