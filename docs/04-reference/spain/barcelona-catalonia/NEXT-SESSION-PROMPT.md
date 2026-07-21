@@ -22,7 +22,7 @@ quality upgrade** (NL/DK/CH/FR/DE/ES/PT) — OSM → national-authoritative buil
 water/parks/trees via the tiered per-country resolver. All scoped in `CONTEXT-DATA-COUNTRY-STUDY.md`.
 
 ## READ FIRST (in order)
-1. `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` — rows **L-508b → L-530** (L-529 depth fix + L-530 frame probe are the newest).
+1. `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` — rows **L-508b → L-534** (L-529 depth, L-525a height, L-531/532/533/534 are the newest).
 2. `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` — the "Session 2026-07-21" section + the
    L-525 / L-526 sub-task tables.
 3. `docs/04-reference/spain/barcelona-catalonia/`: `RISK-REGISTER.md`,
@@ -41,19 +41,19 @@ water/parks/trees via the tiered per-country resolver. All scoped in `CONTEXT-DA
   noUnusedLocals; a new dep MUST commit `pnpm-lock.yaml` in the SAME commit or the build breaks).
 - Shared checkout: commit with EXPLICIT pathspecs; NEVER `git stash` / `git reset --hard` / `git add -A`.
 - Deploy = push to `main` + a `# deploy-marker: vNNN — <what to test>` line in
-  `.github/workflows/deploy-fly.yml`. **Last marker = v257.** Rapid pushes CANCEL in-flight deploys
+  `.github/workflows/deploy-fly.yml`. **Last marker = v263.** Rapid pushes CANCEL in-flight deploys
   (content still lands in the newest deploy). SW is network-first → hard-refresh after deploy.
 - Log every new item per the template into the audit + implementation plan (+ MISSING-CONTRACTS on a
   contract gap). Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - localhost dev is unusable (event-loop starvation) — test on `pryzm.fly.dev`.
 
-## CONFIRMED WORKING (shipped v247–v254, founder-verified)
+## CONFIRMED WORKING (shipped v247–v263, founder-verified)
 Real "Real · constructed" envelope on draw + select (green badge, cited profunditat edificable, PGM
 Art. 242.2); correct street-frontage depth (L-515); envelope no longer waits on Overpass (L-516/516b);
 readable + non-empty panel (L-508b/518/518c); 3D-Site paints on startup (L-520); draw flow queries the
 real parcel (L-521/521b); context prefetched at the parcel (L-524a). L-489 persistence captures site.
 
-## DONE LAST SESSION (v256–v257) — the depth is FIXED, and the documented cause was WRONG
+## DONE LAST SESSION (v256–v263) — depth AND height are FIXED; the documented depth cause was WRONG
 
 ⚠ **READ THIS BEFORE TRUSTING ANY "CONFIRMED ROOT CAUSE" IN THE OLDER DOCS.** Three documents (the
 audit, `L-525-ENVELOPE-ACCURACY-INVESTIGATION.md`, `L-526-LEGAL-FINDINGS.md`) had independently
@@ -86,14 +86,55 @@ so the miter is the legally faithful construction and a distance-field solve (va
 against an analytic control) served only as the verification ORACLE. They bracket as theory predicts:
 **15.7 m miter (shipped) vs 17.4 m distance-field**.
 
-⚠ **WIDER BLAST RADIUS, NOT YET SWEPT:** `insetPolygonPerEdge` backs `ZoningRulesEngine`,
-`depthBandClip`, `blockDerivedDepth` and `siteDispatch` — i.e. EVERY setback inset in EVERY
-jurisdiction. Any irregular plot at a meaningful setback could have been silently reporting "no
-buildable area" or a floored figure. **Non-Spain pilot parcels have NOT been re-checked.**
+⚠ **WIDER BLAST RADIUS — SWEPT (v258), AND IT WAS NEVER A BARCELONA BUG.** `insetPolygonPerEdge`
+backs `ZoningRulesEngine`, `depthBandClip`, `blockDerivedDepth` and `siteDispatch` — EVERY setback
+inset in EVERY jurisdiction. 684 old-vs-new cases: **0 regressed, 0 changed, 0 soundness escapes,
+21 FIXED**, so the change is strictly a repair. The headline: a **FLAG / BATTLE-AXE lot** reported
+"no buildable area" at the DEFAULT pack's own 3/1.5/3 m setbacks, everywhere. **STILL OPEN: the
+non-Spain pilot PARCELS have not been re-opened since** — cheap, and the last unexamined consequence.
 
-**ALSO SHIPPED v257:** the Art. 327.2 **alçada reguladora table** (`resolveAlcadaReguladora`, 19
-tests) + a **curated Cerdà official street-width allow-list** — both PURE and **deliberately
-UNWIRED** (see L-525a below), and **§SITE-FRAME-PROBE** for L-530.
+**HEIGHT IS ALSO FIXED (L-525a, v259) — founder-verified live.** PGM **Art. 327.2** alçada table
+(`bcnAlcadaReguladora.ts`, 19 tests) + a curated Cerdà *ample oficial* allow-list
+(`bcnOfficialStreetWidths.ts`) now CONSTRUCT the height AND the storey count, with a citable
+`maxHeight` derivation row. Live: `DIPUTACIO ample oficial 20.00 m → PB+5 = 20.75 m`, envelope
+`block-constructed`, depth 26.3 m, 90 % of parcel covered. **The hardcoded `: 9` fallback in
+`CesiumViewport.ts` is GONE** — with no known height the envelope draws as a 0.5 m FOOTPRINT SLAB
+(§ENVELOPE-NO-FABRICATED-HEIGHT), never an invented prism.
+
+⚠ **THE TWO "9 m" PROBLEMS ARE DIFFERENT — DO NOT CONFLATE THEM.** The ENVELOPE height is fixed.
+The **CONTEXT NEIGHBOUR** heights are still ~35–40 % flat 9 m, because that share of Barcelona OSM
+footprints carries no `height`/`building:levels` tag. That is **L-527**, a DATA-COVERAGE problem no
+code can fix; it needs the LiDAR nDSM build. Symptom: move one manzana and the neighbours go flat
+again. v263 ships the honest interim (§CTX-ASSUMED-HEIGHT-VISIBLE — assumed-height buildings render
+translucent/cooler so a guess cannot read as surveyed). **A "nicer" fix was deliberately REJECTED:**
+inheriting a neighbourhood median would make fabricated data MORE convincing, which is strictly
+worse than visibly wrong, and is the exact failure this session spent its length unwinding.
+
+**ALSO SHIPPED v258–v263, all founder-reported, all root-caused from live logs:**
+- **L-529 blast sweep (v258)** — 684 old-vs-new cases: **0 regressed, 0 changed, 0 soundness
+  escapes, 21 FIXED**. The collapse was never a Barcelona bug: a **FLAG / BATTLE-AXE lot** (narrow
+  neck onto a wider body) reported "no buildable area" at the DEFAULT pack's 3/1.5/3 m setbacks in
+  EVERY jurisdiction; likewise an L-shape at 8 m and 6 % of randomised non-convex parcels at 6 m.
+- **L-530 (v257) — RESOLVED by its own probe.** `§SITE-FRAME-PROBE` reported `theta=43.71°`
+  (the Cerdà grid bearing, correct) and a 23.2 m first-vertex→centroid offset on a 616 m² plot —
+  i.e. the plot's own geometry. **No origin bug, no θ bug.** L-529 was ruled out as the cause on
+  logic AND measurement (byte-identical old-vs-new on a cross-shaped drawn plot, every setback).
+- **L-531 (v259)** — context buildings were held hostage: the near ring was fetched and logged as
+  "secured", then `await`ed behind the expensive far ring, so nothing painted until that settled
+  (tens of seconds, usually `0 footprints`) — and toggling the envelope forced a re-render that
+  made them appear. **Second occurrence of the L-516 defect class** (an optional refinement gating a
+  critical path); now 2500 ms-bounded (§CTX-FAR-RING-NONBLOCKING).
+- **L-532 (v260)** — two camera defaults for one intent (3D Site opened `plan` 0°/−68°, globe NW
+  oblique 325°/−45°). One `DEFAULT_3D_SITE_VIEW` constant now drives it. ⚠ REMAINING: the **BIM 3D
+  view is a separate camera system** and still frames independently — the other half of the founder's
+  request, and it wants a live iterate-and-look pass.
+- **L-533 (v261)** — envelope latency: the block route had **NO cache at all**; it spent a whole
+  extra round-trip re-fetching the parcel just to centre its own bbox; and the roads deadline was a
+  2 s tax for a query that returns 0 every time in dense Eixample. Now cached per manzana
+  (per-handler, not module-global — see the audit for why that distinction bit), centroid reused,
+  deadline 600 ms. `§BCN-ENVELOPE-TIMING` measures what remains.
+- **L-534 (v262)** — `overpass.kumi.systems` removed from the BROWSER mirror list (CORS-blocked from
+  pryzm.fly.dev, so a guaranteed-failed leg). Still used server-side, where CORS does not apply.
 
 ## OPEN TASKS — PRIORITISED CHECKLIST
 
@@ -187,32 +228,43 @@ The dependency chain: (1) founder creates bucket + public domain + token → han
 
 ## RECOMMENDED FIRST MOVE NEXT SESSION
 
-**1. Read the `§SITE-FRAME-PROBE` line (L-530) — it gates everything visual.** The founder reports the
-3D-Site plot boundary no longer lines up with the context buildings. v257 ships the measurement, not a
-fix, because three mechanisms produce that symptom and they need OPPOSITE fixes: **(1) origin /
-translation** (anchor-vs-parcel-centroid — the L-521/L-524a family; the founder's log already shows two
-context fetches whose bbox centres are ~800 m apart), **(2) θ / rotation** (`readProjectNorthRad` has a
-documented history of latching 0 forever when the store link is absent at first read — a ~45° error in
-Barcelona, where the Cerdà grid is 45° off true north), **(3) neither** (Catastro parcel vs OSM
-footprints genuinely disagreeing). The probe prints `origin`, `theta`, `boundaryCentroid` and
-`offsetFromOrigin` in metres with the reading key inline. **L-529 is already RULED OUT** as the cause,
-on logic (it only rewrites the inset behind the purple envelope; the boundary never passes through it)
-and by measurement (old-vs-new byte-identical on a cross-shaped drawn plot at every setback 1–6 m).
+**The Barcelona envelope is now ACCURATE and founder-verified: real depth (Art. 242.2 construction)
+and real height (Art. 327.2 construction), both cited, both amber/estimated by design.** What remains
+is NOT envelope correctness. Work the queue in this order:
 
-**2. Then WIRE the height (L-525a)** — now the biggest credibility gap, since the envelope is the right
-DEPTH but still a fabricated ~9 m tall (~2.5× too short). The table and the width source are already
-committed; what remains is: resolve address → official width → alçada → `envelope.maxHeightM`, and
-**delete the hardcoded `: 9` fallback in `CesiumViewport.ts` (~L4073)**, which extrudes a fabricated
-~PB+2 in the same purple study volume as a real height (the L-459 defect class). Held back deliberately
-— do not stack a new height source on an unexplained frame problem.
+**1. UNBLOCK THE FOUNDER-GATED ITEMS FIRST — they are pure waiting, not engineering.**
+   - **R2 credentials** (`R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` + base URL).
+     Until the bucket exists, the GLB re-host, the **L-513a** tile bake and **L-513b** reader are all
+     dead in the water. Setup is written: `OBJECT-STORAGE-R2-DECISION.md`.
+   - **L-528 certification** — the founder in the MUC/RPUC viewer with
+     `PAU-CLARIS-155-CERTIFICATION-PROMPT.md`. This is the ONLY path from amber to green. Note the
+     certified depth is now compared against **15.7 m / 26.3 m**, not 12 m, and the certified height
+     against **20.75 m** — and the **20.75-vs-22.40 m PB+5** question is still open.
 
-**3. Then sweep the L-529 blast radius** — re-check the non-Spain pilot parcels now that deep insets
-succeed where they used to return "no buildable area".
+**2. THE L-529 FOLLOW-UP NOBODY HAS DONE — re-check the NON-SPAIN pilot parcels.** The inset fix
+   changed 21 of 684 swept cases from "no buildable area" to a real envelope, including a
+   battle-axe lot at the DEFAULT setbacks in every jurisdiction. Denmark/Plandata pilots have NOT
+   been re-verified since. This is cheap and is the last unexamined consequence of the fix.
 
-**STILL TO CERTIFY (needs the interactive MUC/RPUC fitxa, not web search):** the exact depth figure and
-the official street width for parcel 0230904DF3803, plus the **20.75-vs-22.40 m** PB+5 reconciliation —
-task **L-528**, ready-to-run browser prompt at `PAU-CLARIS-155-CERTIFICATION-PROMPT.md`. Note the
-certified depth is now compared against **15.7 m**, not 12 m.
+**3. L-527 heights — the real build.** ~35–40 % of context footprints have no OSM height. Build the
+   shared **LiDAR nDSM** module (`spain/SPAIN-HEIGHT-MEASUREMENT.md`: PNOA/ICGC, 90th-pctile of
+   DSM−DTM per footprint) — the SAME module that would certify the envelope height — and bake the
+   result into the L-513a PMTiles. Do NOT substitute a prettier guess; v263 deliberately makes the
+   guesses LOOK like guesses instead, and that decision should stand until real heights exist.
+
+**4. The visual pass, WITH the founder at the screen** (this repo's own P2 rule: iterate-and-look,
+   never blind): the **BIM 3D camera** (the remaining half of L-532 — it is a separate camera system
+   from Cesium's), **L-510** white party-wall caps, **L-517** facade sliver.
+
+**5. L-519 panel selectability** — the founder asked; it is unbuilt AND ungoverned. Write the
+   C58 `constraint → geometry` map spec FIRST (it is already logged in MISSING-CONTRACTS), then wire
+   SelectionBus + the GPU-pick highlight.
+
+⚠ **AND THE HABIT THAT PAID FOR THIS SESSION:** when a doc says a root cause is "confirmed", check
+whether anyone MEASURED it. Three documents agreed the depth bug was a half-illa needing masa-union;
+all three were wrong, and a ten-minute probe against the keyless Catastro WFS — from the dev box, no
+deploy — refuted them. `server/parcelZoningProxy.js` exports its parsers precisely so a probe cannot
+disagree with the code path it is diagnosing.
 
 ## THE FOCUS, IN ONE LINE
 
