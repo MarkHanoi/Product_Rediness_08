@@ -21,6 +21,7 @@ import {
 // this wired the select mode fetches REAL parcels; where no parcel exists / outside
 // the provider's coverage the map falls back to the honest "no parcel — draw" state.
 import { defaultParcelProvider } from '../site/parcel';
+import { makeDraggable } from '../makeDraggable';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
 // §FIX-GISLAYOUT-PLACE-REAL-MODEL-FORMA-AND-GLOBE-REENTRY (L-193) — PURE view-switch
@@ -1907,6 +1908,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 boxSizing: 'border-box', resize: 'both',
             } satisfies Partial<CSSStyleDeclaration>);
             viewport.appendChild(envelopePanel);
+            // §L-508 — MOVABLE (the second half of the founder's ask; resize shipped above). The
+            // drag handle is the panel HEADER (`[data-envelope-drag]`, present in BOTH render
+            // templates); makeDraggable resolves it lazily at mousedown, so it survives the
+            // panel's innerHTML re-renders. Exclude the ON/OFF toggle so a click there never
+            // starts a drag. Wired ONCE (inside the create block); the returned disposer is not
+            // needed — the panel lives for the GIS session.
+            try {
+                makeDraggable(envelopePanel, '[data-envelope-drag]', ['[data-testid="envelope-toggle"]']);
+            } catch { /* non-fatal — drag is a convenience, the panel still works without it */ }
         } else if (envelopePanel.parentElement !== viewport) {
             viewport.appendChild(envelopePanel);
         }
@@ -1948,7 +1958,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const panel = ensureEnvelopePanel(viewport);
         const heightTxt = maxHeightM !== null ? `${maxHeightM.toFixed(1)} m` : '—';
         panel.innerHTML =
-            `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>
                <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f4f2f8;color:#6b6480;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Saved</span>
              </div>
@@ -2072,7 +2082,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max FAR</span><span style="font-weight:600;">${farTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>`;
         panel.innerHTML =
-            `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}
              </div>
              ${rows}
