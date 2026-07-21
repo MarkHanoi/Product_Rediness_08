@@ -13,11 +13,22 @@
 #   - test-unit      (L-247 G0 — REQUIRED as of phase 0.5d, 2026-07-13: the editor's
 #                     1,495-test suite is green and this job is now hard-fail. It is
 #                     the first unit-test gate the estate has ever had.)
+#   - test-root      (§L-540-CI-GATE — the root vitest suite; was wired to NOTHING)
 #   - build
 #   - apex-gates
 #   - docker-image   (Fly parity — build + boot smoke; ~15-20 min)
 # NOT yet required (advisory by design, see the job header):
 #   - ga-gate        (§H33/H34/H35 — ratchet broadening)
+#   - test-pryzm1    (§L-540-CI-GATE / L-544 — landed RED per the L-247 ladder)
+#
+# §L-540-CI-GATE (2026-07-21) — REQUIRED STATUS CHECKS ARE NOT THE GATE HERE.
+# The list above assumes PRs. The founder's actual workflow is push-straight-to-
+# `main`, and `deploy-fly.yml` used to deploy every such push with NO dependency
+# on this workflow's result — so a red CI shipped to production (verified:
+# v256-v265). The real gate is now the `ci-gate` job in `deploy-fly.yml`, which
+# reads THIS workflow's conclusion for the pushed SHA and refuses to deploy
+# unless it succeeded. Keep the two in mind together: adding a job here that is
+# `continue-on-error` cannot block a deploy, by design.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: CI
@@ -184,7 +195,83 @@ jobs:
       # still SILENTLY SKIPS the ~120 workspaces that have a `test` script but no `test:ci`.
       # Closing that is the rest of 0.5e: add `test:ci` to each, in batches, triaging the red
       # PRODUCT-FIRST as we go — never `.skip` a test to green the board.
-      - run: pnpm run test:ci
+      # §L-540-CI-GATE (L-543) — RATCHET ON THE `--if-present` HOLE.
+      #
+      # The aggregator above silently skips every workspace with no `test:ci`
+      # script. Measured 2026-07-21: 166 workspaces, 18 enforced, 130 skipped.
+      # The comment above has stated that honestly for a while; a comment is not
+      # a gate, and the number was free to get worse without anyone noticing.
+      #
+      # This check fails if the unguarded set GROWS past the committed baseline,
+      # or if the baseline goes stale. It deliberately does NOT mass-add
+      # `test:ci` scripts — see the script header for why that was rejected.
+      # Runs AFTER the aggregator so a real test failure is reported first.
+      - run: pnpm run check:testci-coverage
+
+  # §L-540-CI-GATE — THE ROOT VITEST SUITE WAS WIRED TO NOTHING.
+  #
+  # `vitest.config.ts` at the repo root covers the `src/ui` panel + toolbar
+  # happy-dom specs plus five `apps/editor` spec directories. It is a documented
+  # suite in CLAUDE.md. It was invoked by no CI job, no `test:ci`, nothing.
+  # Measured before wiring: 23 files / 263 tests, ALL GREEN — so this lands
+  # hard-fail immediately (the L-247 "land it advisory first" ladder exists for
+  # gates that land RED; landing a green gate as advisory would be theatre).
+  test-root:
+    name: Unit tests — root vitest (src/ui panels + toolbar)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:root
+
+  # §L-540-CI-GATE / L-544 — `test:pryzm1` WAS WIRED TO NOTHING, AND IT IS RED.
+  #
+  # ADVISORY ON LANDING, DELIBERATELY, AND THIS IS NOT "WEAKENING A GATE TO GET
+  # GREEN": there was no gate here at all. Per this repo's own L-247 ladder
+  # (0.5b land RED + advisory -> 0.5c triage PRODUCT-FIRST -> 0.5d flip to
+  # hard-fail), a suite that has never run cannot land blocking, or the first
+  # thing it blocks is the fix for itself.
+  #
+  # Measured 2026-07-21: 13 tests, 11 pass, 2 fail. Both failures are REAL and
+  # neither is environmental:
+  #
+  #   * tests/viewTemplateToIntent.spec.test.ts — ERR_MODULE_NOT_FOUND for
+  #     `src/migration/ViewTemplateToIntentMigration`. That directory does not
+  #     exist and `buildViewSeedFromTemplate` has ZERO references anywhere in the
+  #     tree. The subject was removed in the PRYZM-3 migration and the test was
+  #     orphaned. It tests nothing.
+  #   * tests/curtainPanelTypeDrift.spec.test.ts — `ReferenceError: HTMLElement
+  #     is not defined`, from `@pryzm/geometry-curtain-wall` transitively
+  #     importing `@thatopen/ui` (Lit) under plain `node --test`. Same root cause
+  #     as the three editor suites fixed in this pass (L-541), but this runner is
+  #     `tsx --test`, which has no config in which to alias or stub.
+  #
+  # FLIP TO HARD-FAIL when L-544 closes. Do not delete this job to make the board
+  # look better than the estate is.
+  test-pryzm1:
+    name: Legacy PRYZM-1 suite (ADVISORY — RED, see L-544)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:pryzm1
 
   ga-gate:
     name: GA-gate (P1..P8 + perf budgets)

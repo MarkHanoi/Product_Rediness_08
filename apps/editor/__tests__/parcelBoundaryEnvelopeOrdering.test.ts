@@ -12,7 +12,7 @@
 // in an isolated worktree with an incomplete node_modules link it is skipped by the
 // runner (same gap as the existing @pryzm/climate-host editor suites), not a failure.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SiteModelStore, siteCreate } from '@pryzm/stores';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { BuildableEnvelope } from '@pryzm/schemas';
@@ -51,7 +51,52 @@ function ctxFor(store: SiteModelStore) {
     return { ctx: { rt, store, projectId: 'proj-env', toast: () => {} }, events };
 }
 
+/**
+ * §L-540-CI-GATE — wait for an event that is emitted from an ASYNC continuation.
+ *
+ * `dispatchParcelBoundary` returns `true` synchronously after the framing emit, then
+ * continues the zoning leg (network → rule pack → `site.zoning-updated`) as a
+ * fire-and-forget promise. The ordering assertion below therefore CANNOT be made
+ * synchronously — the original test read `events` on the same tick and always saw
+ * `indexOf('site.zoning-updated') === -1`. That is a defect in the test, not in the
+ * environment: no browser would emit it synchronously either.
+ *
+ * Bounded poll rather than a fixed sleep so the test is neither flaky nor slow.
+ */
+async function waitForEvent(
+    events: readonly EmitRecord[],
+    type: string,
+    timeoutMs = 2_000,
+): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (events.some((e) => e.type === type)) return;
+        await new Promise((r) => setTimeout(r, 5));
+    }
+}
+
 describe('§ENVELOPE-VIA-MASSING — envelope cached BEFORE site.parcel-boundary-set (framing render)', () => {
+    // §L-540-CI-GATE — the zoning leg calls same-origin relative URLs
+    // (`/api/muc/zoning`, `/api/catastro/parcel`). Under Node those throw
+    // `ERR_INVALID_URL` before any request is made, which happens to be
+    // deterministic — but relying on an accident is not a gate. Stub `fetch`
+    // explicitly so the suite states its own offline contract: NO unit test may
+    // reach the network, and the code under test must fall back to the estimated
+    // rule set. (Rejected: mocking the providers — this test's whole point is to
+    // exercise the REAL siteDispatch ordering, which another agent owns and which
+    // must not be edited from here.)
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => {
+        realFetch = globalThis.fetch;
+        globalThis.fetch = vi.fn(async () => {
+            throw new TypeError('§L-540-CI-GATE: network is disabled in unit tests');
+        }) as unknown as typeof globalThis.fetch;
+    });
+    afterEach(() => {
+        globalThis.fetch = realFetch;
+        vi.restoreAllMocks();
+    });
+
     it('has the buildable envelope in hand at the instant the framing event fires', () => {
         const store = new SiteModelStore();
         siteCreate({ projectId: 'proj-env', location: { latitude: 41.39, longitude: 2.16 } }, store);
@@ -67,12 +112,13 @@ describe('§ENVELOPE-VIA-MASSING — envelope cached BEFORE site.parcel-boundary
         expect(framing!.envelopeAtEmit!.insetPolygon.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('emits site.parcel-boundary-set BEFORE site.zoning-updated (framing first, zoning after)', () => {
+    it('emits site.parcel-boundary-set BEFORE site.zoning-updated (framing first, zoning after)', async () => {
         const store = new SiteModelStore();
         siteCreate({ projectId: 'proj-env', location: { latitude: 41.39, longitude: 2.16 } }, store);
         const { ctx, events } = ctxFor(store);
 
         dispatchParcelBoundary(ctx, BOUNDARY);
+        await waitForEvent(events, 'site.zoning-updated');
 
         const order = events.map((e) => e.type);
         const iBoundary = order.indexOf('site.parcel-boundary-set');

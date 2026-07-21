@@ -23,6 +23,16 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      # §L-540-CI-GATE — the ONLY way past the CI gate below. Deliberately an
+      # explicit, audited human action (it shows up in the run's inputs), not a
+      # silent default. If you find yourself using it routinely, the gate is
+      # telling you something true and the answer is to fix the red, not to
+      # normalise the bypass.
+      bypass_ci_gate:
+        description: 'EMERGENCY: deploy even if CI is red/absent for this SHA. State why in the run notes.'
+        type: boolean
+        default: false
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
 # always converges on the newest commit (correct for continuous deployment).
@@ -41,8 +51,209 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # §L-540-CI-GATE — A RED CI MUST NOT REACH PRODUCTION.
+  #
+  # THE DEFECT THIS CLOSES (STATUS-REPORT-2026-07-21 §5, "the load-bearing
+  # finding"): this workflow triggered on `push: [main]` with NO `needs:` and no
+  # `workflow_run:` dependency on `ci.yml`. The two workflows ran side by side and
+  # never spoke. Every push to `main` deployed to production regardless of whether
+  # CI passed — verified: v256–v265 all shipped ungated, while `test-unit` was red.
+  # `ci.yml`'s own header describes itself as protecting merges via required status
+  # checks on PRs, a mechanism that is INERT in a push-to-`main` workflow, which is
+  # the founder's actual workflow.
+  #
+  # WHY THIS SHAPE, AND WHAT WAS REJECTED
+  #
+  #  (a) `on: workflow_run: [CI] types: [completed]` — REJECTED. It reverses the
+  #      trigger (deploy would fire on CI completion, not on the push), which
+  #      breaks the `concurrency: deploy-fly` latest-wins semantics that v184–v193
+  #      were fixed for, and silently drops deploys for commits where CI is
+  #      path-ignored (docs-only pushes — a real and frequent case here).
+  #
+  #  (b) Duplicating lint/test/build as `needs:` jobs inside THIS workflow —
+  #      REJECTED. It doubles the Actions bill (the build alone is 25 min) and
+  #      creates a second copy of the gate that can drift from `ci.yml`. A gate you
+  #      have to keep in sync twice is a gate that will be wrong once.
+  #
+  #  (c) THIS: a cheap job that asks the API what CI concluded for THIS EXACT SHA
+  #      and refuses to proceed unless the answer is "success". One source of
+  #      truth (`ci.yml`), no duplicated compute, and it is honest about the two
+  #      awkward cases below rather than assuming them away.
+  #
+  # THE TWO AWKWARD CASES, HANDLED EXPLICITLY:
+  #
+  #  1. CI never ran for this SHA because `ci.yml` path-ignores `docs/**`,
+  #     `**/*.md`, `.claude/**`. Then there is nothing to gate on and blocking
+  #     would be wrong. We therefore RE-DERIVE whether the commit is genuinely
+  #     doc-only from the diff, and pass ONLY in that case. If CI is absent for a
+  #     commit that touched code, that is a broken trigger, not a green light —
+  #     we FAIL. (Failing-closed here is the whole point of the item.)
+  #
+  #  2. `ga-gate` and `a11y` carry `continue-on-error: true`, so they cannot turn
+  #     the run red. That is a pre-existing, documented advisory choice and this
+  #     gate does not silently upgrade it — see L-542 in the audit for the
+  #     "advisory gates" backlog. This job enforces exactly what `ci.yml` itself
+  #     declares required, no more and no less.
+  # ───────────────────────────────────────────────────────────────────────────
+  ci-gate:
+    name: CI must be green for this SHA (§L-540-CI-GATE)
+    runs-on: ubuntu-latest
+    # The gated jobs (see REQUIRED_JOBS below) top out at ci.yml's `test-unit`
+    # 30-min cap. 35 min here leaves the poll loop, not the runner, to report why
+    # a wait ended. A timeout FAILS the gate — "we got bored waiting" would
+    # reintroduce exactly the fail-open this closes.
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read      # required to read ci.yml's run conclusions
+    steps:
+      - name: Check out (2 commits — needed to classify a doc-only push)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Wait for CI and require success
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          BYPASS: ${{ github.event.inputs.bypass_ci_gate }}
+        run: |
+          set -euo pipefail
+
+          if [ "${BYPASS:-false}" = "true" ]; then
+            echo "::warning::§L-540-CI-GATE BYPASSED by explicit workflow_dispatch input."
+            echo "Deploying ${SHA} WITHOUT a green CI. This is recorded in the run inputs."
+            exit 0
+          fi
+
+          echo "Gating deploy of ${SHA} on the CI workflow's conclusion."
+
+          # ── WHICH CI JOBS THIS GATE WAITS FOR, AND WHY NOT ALL OF THEM ───────
+          #
+          # Gating on the WHOLE run's conclusion was written first and then
+          # narrowed, for a reason worth recording: the run's slowest required job
+          # is `build` (25 min cap), and `flyctl deploy --local-only` in the next
+          # job BUILDS THE SAME TREE WITH THE SAME COMMAND. Waiting for CI's build
+          # before starting an identical build turns a ~15-minute
+          # push→production loop into ~45 minutes for zero extra safety: a broken
+          # build fails the deploy on its own, loudly, in the deploy's own logs.
+          # For a founder whose documented workflow is test-on-production, that
+          # latency is a real cost and it buys nothing.
+          #
+          # So we gate on exactly the checks the deploy does NOT itself re-run —
+          # the ones that would otherwise reach production unverified. These are
+          # cheap (all well under 15 min), so the loop grows by minutes, not by
+          # half an hour.
+          REQUIRED_JOBS="lint isolation command-manager test-server test-unit test-root apex-gates"
+          #
+          # Deliberately NOT waited on:
+          #   build         — duplicated by this workflow's own `flyctl deploy` build.
+          #   docker-image  — PR-only in ci.yml; never runs on a push to main.
+          #   a11y          — PR-only AND continue-on-error.
+          #   ga-gate       — continue-on-error by design (§H33/H34/H35 backlog).
+          #   test-pryzm1   — continue-on-error, landed RED per L-544.
+          # A `continue-on-error` job cannot block a deploy. That is pre-existing
+          # and this gate does not silently upgrade it; see L-542.
+
+          # Poll the RUN's jobs for this exact SHA. 60 attempts x 30s = 30 min.
+          found=0
+          gate_ok=0
+          for attempt in $(seq 1 60); do
+            # NOTE: no heredoc anywhere in this block on purpose — a heredoc
+            # terminator cannot be indented inside a `run: |` and silently
+            # swallows the rest of the script if it is.
+            run_id=$(gh api "repos/${REPO}/actions/workflows/ci.yml/runs?head_sha=${SHA}&per_page=1" \
+                       --jq '.workflow_runs[0].id // empty' 2>/dev/null || true)
+
+            if [ -z "${run_id}" ]; then
+              echo "attempt ${attempt}: no CI run recorded for ${SHA} yet"
+              # Give the CI trigger a fair chance to register before concluding
+              # it was path-ignored. 10 attempts = 5 minutes.
+              if [ "${attempt}" -ge 10 ]; then break; fi
+              sleep 30
+              continue
+            fi
+
+            found=1
+            jobs_json=$(gh api "repos/${REPO}/actions/runs/${run_id}/jobs?per_page=100" \
+                          --jq '.jobs[] | "\(.name)\t\(.status)\t\(.conclusion // "null")"' 2>/dev/null || true)
+
+            pending=""
+            failed=""
+            for want in ${REQUIRED_JOBS}; do
+              # The jobs API exposes only the job's `name:` (prose), never its id,
+              # so the gate has to match on the name PREFIX declared in ci.yml.
+              # ⚠ IF YOU RENAME A JOB IN ci.yml, UPDATE THE MATCHING PREFIX HERE —
+              # an unmatched job is reported as `(absent)` and the gate then waits
+              # and finally FAILS, which is the correct failure direction (a
+              # rename must not silently un-gate a check) but is confusing if you
+              # do not know to look here.
+              case "${want}" in
+                lint)            pat='^Lint';;
+                isolation)       pat='^Isolation gates';;
+                command-manager) pat='^Command-manager gate';;
+                test-server)     pat='^Server tests';;
+                test-unit)       pat='^Unit tests — editor';;
+                test-root)       pat='^Unit tests — root';;
+                apex-gates)      pat='^Apex/app contract gates';;
+                *)               pat="^${want}";;
+              esac
+              row=$(printf '%s\n' "${jobs_json}" | grep -- "${pat}" | head -1 || true)
+              if [ -z "${row}" ]; then pending="${pending} ${want}(absent)"; continue; fi
+              st=$(printf '%s' "${row}" | cut -f2)
+              cc=$(printf '%s' "${row}" | cut -f3)
+              if [ "${st}" != "completed" ]; then pending="${pending} ${want}(${st})"
+              elif [ "${cc}" != "success" ] && [ "${cc}" != "skipped" ]; then failed="${failed} ${want}(${cc})"
+              fi
+            done
+
+            if [ -n "${failed}" ]; then
+              echo "::error::§L-540-CI-GATE FAILED — required CI jobs are red for ${SHA}:${failed}"
+              echo "This is the gate working. Fix the red; do not weaken the gate to get green."
+              echo "Run: https://github.com/${REPO}/actions/runs/${run_id}"
+              exit 1
+            fi
+            if [ -z "${pending}" ]; then
+              echo "::notice::§L-540-CI-GATE passed: all required CI jobs green for ${SHA}."
+              gate_ok=1
+              break
+            fi
+            echo "attempt ${attempt}: waiting on${pending}"
+            sleep 30
+          done
+
+          if [ "${found}" -eq 0 ]; then
+            # CASE 1 — no CI run exists. Legitimate ONLY if ci.yml path-ignored
+            # this commit. Re-derive that from the diff rather than trusting it.
+            echo "No CI run found for ${SHA}. Classifying the commit."
+            changed=$(git diff --name-only HEAD^ HEAD || true)
+            echo "Changed files:"; echo "${changed}"
+            offending=$(echo "${changed}" | grep -Ev '^(docs/|\.claude/)|\.md$' || true)
+            if [ -z "${offending}" ]; then
+              echo "Doc-only commit (matches ci.yml paths-ignore). CI legitimately did not run."
+              echo "::notice::§L-540-CI-GATE passed: doc-only commit, nothing to gate."
+              exit 0
+            fi
+            echo "::error::§L-540-CI-GATE FAILED — this commit changed CODE:"
+            echo "${offending}"
+            echo "…but no CI run exists for ${SHA}. That is a broken trigger, not a pass."
+            echo "Fix the ci.yml trigger, or re-run this deploy with bypass_ci_gate and say why."
+            exit 1
+          fi
+
+          if [ "${gate_ok}" -ne 1 ]; then
+            # Timed out with the required jobs still running. FAIL — "we got bored
+            # waiting" is exactly the fail-open this item exists to close.
+            echo "::error::§L-540-CI-GATE FAILED — required CI jobs for ${SHA} were still running after 30 min."
+            exit 1
+          fi
+
   deploy:
     name: build (16GB runner) + deploy
+    # §L-540-CI-GATE — THE LINE THAT DID NOT EXIST. Without it a red CI deployed.
+    needs: ci-gate
     runs-on: ubuntu-latest
     # Hard ceiling — building the full minified client on the runner (~10-15 min)
     # + image push + machine bounce. A 30-min cap catches a hang without burning
@@ -426,3 +637,4 @@ jobs:
 # deploy-marker: v265 — L-537 §BCN-ALCADA-WIDTH: the buildable envelope now derives a HEIGHT on ~86% of Barcelona frontages instead of only the ~26 hand-curated Cerda streets. You hit this on Enric Granados and Ronda de la Universitat ('the envelope becomes almost null') — unlisted street => no maxHeight => a 0.5 m footprint slab. Coverage was the defect, not the honesty. PGM Art. 327.2 keys the height on the DECLARED street width and NOBODY publishes that dataset, so the width is now CONSTRUCTED from cadastral geometry and cited as constructed, exactly the way the profunditat edificable already is (ADR-0271): we measure frontage-to-frontage from your block ring across to the blocks opposite. It costs NO extra network — those opposing parcels already arrived in the block bbox and were being thrown away. ⚠ THE PART THAT NEEDED PROVING FIRST: snapping a measured 19.8 m to a declared 20 m is only legitimate if real streets actually cluster on round values, and that is the L-529 trap (a confident theory recorded as confirmed in three documents and wrong). So it was MEASURED before any of it shipped — 6,819 frontages, 697 blocks, 5 cities, live Catastro. Verdict: they DO cluster (47% within +/-0.5 m of a round value vs 13% by chance) BUT the intuitive snap set is FALSE — Barcelona has NO 10/15/25 m quantum at all, only 20 m and 30 m, and the 'nominal 50 m' arteries actually measure 48 m, so those are deliberately NOT snapped. Cross-check that matters: on streets the curated list DOES cover, the new measurement independently reaches the same answer (Aribau 60, Pau Claris 174 both => 20 m => PB+5 = 20.75 m). Ronda de la Universitat now resolves 30 m => PB+6 = 23.8 m. TEST: draw/select a parcel on an unlisted Eixample street (Enric Granados, Ronda de la Universitat, Comte Borrell) and watch for a real purple PRISM instead of a flat slab; the console '§BCN-ALCADA' line names the tier (curated-cerda-nominal / snapped-to-declared-quantum / measured-cadastral) and the panel's 'Why these numbers?' row now says which. Still honestly BLANK where the block ring fails to dissolve (~1 block in 3 nationally, L-535) — that is the next thing to fix, not this. Root tsc clean, 208/208 site-parcel-data + 169/169 server green.
 # deploy-marker: v266 — L-539 §DISSOLVE-TJUNCTION-SPLIT: the block dissolve now tolerates real cadastral geometry, so ~9 blocks in 10 produce a buildable envelope instead of ~6. This was the last thing v265 said to fix next: no block ring => no depth => no street width => no height => the 0.5 m footprint slab, and it was failing on ONE REAL BLOCK IN THREE nationally. ⚠ THE PART THAT NEEDED PROVING FIRST, again: the brief AND the module's own header both said the cause was 'slivers and near-coincident vertices' needing a weld. MEASURED OVER 956 REAL MANZANAS (33,865 parcels, 250,646 edges, 5 cities, live Catastro, production code reused) — THAT IS FALSE. There are no slivers: not one parcel edge in a quarter-million is shorter than 0.083 m, no two distinct vertices are closer than 0.05 m, and a weld moves literally 0.0000 m. The real cause is that Catastro publishes coordinates rounded to 6 decimal places (a 0.083 m x 0.111 m grid — you can SEE that exact number as the floor of the edge-length distribution), so two neighbours can store the SAME boundary with different vertex counts; the leftover fragments make a hair-thin triangle, the outline comes out as two loops instead of one, and the engine refuses. 90% of all failures are that single defect. FIX: before cancelling edges, split an edge at the neighbour's OWN EXISTING vertex when it lies within 0.10 m of it. Nothing is welded, nothing is moved, no vertex is invented — the tolerance is Catastro's own coordinate resolution (0.111 m), so the repair cannot introduce an error the data does not already contain, and it sits in the measured valley between the defect population (ends ~0.075 m) and real geometry (resumes above 0.3 m). NOT tuned until blocks passed: 0.20 m would have scored 1.8 points higher and was REFUSED for exceeding that bound. THE GUARANTEE THAT MATTERS: the exact pass still runs first and wins whenever it succeeds, so ZERO existing rings changed — verified on all 607. Repairing unconditionally would have moved 137 of them, i.e. 137 silently changed compliance numbers, which is worse than any refusal. RESULTS: Barcelona 81.5% => 96.3%, Madrid 75.8/77.2% => 92.6/99.0%, Cordoba 44.2% => 90.8% (was 0/3 in the first probe), Valencia 72.7% => 92.7%, Sevilla 38.5% => 82.3%, overall 63.5% => 91.4%. Independent check the dissolve cannot fake: the repaired rings match the SUM OF PUBLISHED CADASTRAL PARCEL AREAS slightly BETTER (0.13%) than the exact ones (0.15%). TEST: parcels that previously showed 'Estimated' with a flat slab on a Barcelona block should now resolve a real purple prism; the console prints '§DISSOLVE-TJUNCTION-SPLIT' naming how many edges were split and the max offset in metres whenever a ring was recovered this way (silence = it was exact, as before). Still honestly refuses 8.6% — genuinely two-block masas, real gaps, offsets past the valley. 219/219 site-parcel-data (+11, two of them REAL Cordoba manzana fixtures), 169/169 server.
 # deploy-marker: v267 — L-536 §L-536-THETA-RESET + §SITE-FRAME-PROBE verdict: the parcel boundary disagreeing between the 2D map, the 2D plan and the 3D Site is now DIAGNOSED rather than guessed, and the one real bug in it is fixed. ⚠ THE PART THAT NEEDED PROVING FIRST (L-529's lesson, third time): the audit listed four candidate mechanisms needing OPPOSITE fixes, so nothing was patched until it was measured. Live Catastro + the production frame functions, reused so the probe cannot disagree with the code it diagnoses: the whole chain (real ring -> commit projection -> theta de-rotation -> theta re-application in Cesium) round-trips to 1e-14 m with IDENTICAL vertex counts on four real Diputacio/Rambla-de-Catalunya parcels, and the projection's own scale error is 0.13 m over a 35 m parcel. So origin-mismatch and vertex-decimation are ARITHMETICALLY RULED OUT — the two surfaces cannot disagree unless the theta written at commit differs from the theta read at render. IT CAN: dispatchParcelBoundary guards BOTH the de-rotation AND the SiteLocation.trueNorth write behind one `if (theta !== 0)`, and Redraw clears the boundary but not theta — so select a parcel, redraw, select one whose theta folds to exactly 0, and the OLD parcel's ~45 deg project north survives and gets re-applied to a ring that was never de-rotated. On a 17-43 vertex cadastral outline a 45 deg error does not read as 'rotated', it reads as A DIFFERENT SHAPE. theta === 0 exactly is 9 of 800 probed Barcelona parcels (1.1%) because the Eixample xamfra — the 45 deg chamfered corner — is a corner parcel's LONGEST edge and is axis-aligned to true north. Rare per parcel, certain to recur: an intermittent, thrice-reported defect. FIX: the boundary commit now publishes theta = 0 explicitly on exactly the branch the engine skips (theta != 0 is untouched — the engine writes the identical value a line later). ALSO: two thirds of what the screenshots show is NOT a bug and the probe now says so out loud — the purple volume is the buildable ENVELOPE (with your own numbers, a ~17.7 x 28.5 m quadrilateral inside a parcel with ~35.7 m sides), it is SUPPOSED to be smaller and simpler than the boundary; and the 2D PLAN draws the AUTHORING frame so it is de-rotated by theta from the 2D map BY DESIGN (ADR-0115), ~45 deg in Barcelona, on 100% of parcels. §SITE-FRAME-PROBE therefore no longer prints three numbers for a human to interpret: it re-derives theta from the ring it is about to draw and prints a VERDICT — CONSISTENT / DOUBLE ROTATION / FRAME SPLIT — against the invariant 'the stored ring must be square in the authoring frame' (verified 0 violations across 800 real parcels). TEST: 3D Site on an Eixample parcel, then Redraw and select a CORNER (chamfered) parcel on the same block — the dashed GREEN parcel outline in 3D should match the 2D map vertex-for-vertex both times, and the console '§SITE-FRAME-PROBE ... FRAME VERDICT:' line should say CONSISTENT. If it ever says DOUBLE ROTATION or FRAME SPLIT, that line names which one. NOT FIXED YET (owned by another agent this session): making the theta write unconditional inside dispatchParcelBoundary, checking its currently-ignored return value, and resetting theta in dispatchClearParcelBoundary. Root tsc clean.
+# deploy-marker: v268 — L-540 THE CI GATE. Until this commit, a RED CI STILL DEPLOYED TO PRODUCTION: deploy-fly.yml triggered on push:[main] with no `needs:` and no `workflow_run:` dependency on ci.yml, and ci.yml's own header describes itself as protecting merges via required status checks on PRs — a mechanism that is INERT in a push-straight-to-main repo. v256-v265 all shipped ungated while the editor unit suite was red. NOW: a `ci-gate` job asks the Actions API what CI concluded for THIS EXACT SHA and `deploy` needs it. It deliberately does NOT wait for CI's `build` job (flyctl deploy --local-only rebuilds the same tree with the same command; waiting would triple the push->prod loop for zero safety), so the loop grows by minutes, not half an hour. A doc-only push still deploys — but only after the gate RE-DERIVES doc-only-ness from the diff; a missing CI run on a CODE commit FAILS, and so does a poll timeout. Emergency `bypass_ci_gate` dispatch input exists, defaults false, and is recorded in the run inputs. ALSO: the 5 red editor tests are fixed (L-541) — 4 were real as the status report said, and the 5th ("plausibly environmental") turned out to be real too: it read an async-emitted event synchronously. Root cause of 3 was an L2 geometry package statically importing the browser-only @thatopen/ui. The root vitest suite (263 tests) and a `--if-present` coverage ratchet (166 workspaces, only 18 enforced) are now wired hard-fail; test:pryzm1 is wired ADVISORY because it is genuinely RED (L-544). TEST: this deploy should visibly WAIT on the CI gate before building — that wait is the fix. Verification: editor 219/219 files & 1881/0, pnpm run test:ci exit 0, test:server 169/169, site-parcel-data 236/236, root tsc clean.

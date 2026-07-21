@@ -31,29 +31,38 @@ vi.mock('../src/ui/platform/PlatformCollabPill', () => ({
     mountPresenceStrip: vi.fn(),
     initSocketCollaboration: vi.fn(),
 }));
+// §L-540-CI-GATE — these three were `vi.fn().mockImplementation(() => ({ … }))`.
+// `PlatformShell.ts:109-111` calls them with `new`, and an ARROW FUNCTION is not a
+// constructor, so every test in this file died with
+//   `TypeError: () => ({ orchestrator: … }) is not a constructor`.
+// The suite never ran, which is why the defect survived. Fixed by declaring real
+// classes — the sub-controllers genuinely ARE classes, so this mocks the shape the
+// production code actually depends on rather than an object-returning factory.
+// (Rejected alternative: `vi.fn(function () { Object.assign(this, …) })` — works,
+// but obscures that these are constructors and trips `no-invalid-this` lint.)
 vi.mock('../src/ui/platform/PlatformSaveController', () => ({
-    PlatformSaveController: vi.fn().mockImplementation(() => ({
-        orchestrator: {
+    PlatformSaveController: class {
+        orchestrator = {
             setLoading: vi.fn(),
             resetDirtyAfterLoad: vi.fn(),
             setVersionPreviewMode: vi.fn(),
-        },
-        schedulePostLoadThumbnailCapture: vi.fn(),
-        dispose: vi.fn(),
-    })),
+        };
+        schedulePostLoadThumbnailCapture = vi.fn();
+        dispose = vi.fn();
+    },
 }));
 vi.mock('../src/ui/platform/PlatformVersionController', () => ({
-    PlatformVersionController: vi.fn().mockImplementation(() => ({
-        loadVersion: vi.fn(),
-        dismissPreviewBanner: vi.fn(),
-    })),
+    PlatformVersionController: class {
+        loadVersion = vi.fn();
+        dismissPreviewBanner = vi.fn();
+    },
 }));
 vi.mock('../src/ui/platform/PlatformProjectBrowser', () => ({
-    PlatformProjectBrowser: vi.fn().mockImplementation(() => ({
-        buildToolbar: vi.fn(),
-        buildHubMenu: vi.fn(),
-        dispose: vi.fn(),
-    })),
+    PlatformProjectBrowser: class {
+        buildToolbar = vi.fn();
+        buildHubMenu = vi.fn();
+        dispose = vi.fn();
+    },
 }));
 
 // Controllable version repository + warm.

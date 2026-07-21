@@ -36,14 +36,14 @@ import {
 const AUDIT = { actorId: 'u', projectId: 'p', clientId: 'c', timestamp: '' } as const;
 
 describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () => {
-  it('builds without throw with the registry pre-wired', () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+  it('builds without throw with the registry pre-wired', async () => {
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     expect(typeof rt.tearDown).toBe('function');
     rt.tearDown();
   });
 
-  it('lands all 12 element-family stores under their plugin storeKey', () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+  it('lands all 12 element-family stores under their plugin storeKey', async () => {
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     expect(rt.stores.wall).toBeInstanceOf(WallStore);
     expect(rt.stores.slab).toBeInstanceOf(SlabStore);
     expect(rt.stores.door).toBeInstanceOf(DoorStore);
@@ -59,8 +59,8 @@ describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () 
     rt.tearDown();
   });
 
-  it('exposes the UNIFIED wall system-type catalogue auxiliary (§FIX-WALL-TYPE-UNIFY-CATALOGUE, L-50)', () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+  it('exposes the UNIFIED wall system-type catalogue auxiliary (§FIX-WALL-TYPE-UNIFY-CATALOGUE, L-50)', async () => {
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     // §FIX-WALL-TYPE-UNIFY-CATALOGUE (L-50, ADR-0116) — the wall handlers'
     // catalogue is now the SHARED geometry-wall singleton (the type picker's
     // store, window.wallSystemTypeStore), adapted to the handler interface —
@@ -78,14 +78,14 @@ describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () 
     rt.tearDown();
   });
 
-  it('exposes viewRegistry auxiliary (13th plugin)', () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+  it('exposes viewRegistry auxiliary (13th plugin)', async () => {
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     expect(rt.viewRegistry).toBeInstanceOf(ViewRegistry);
     rt.tearDown();
   });
 
-  it('records every plugin\'s handler types under registeredHandlerTypes', () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+  it('records every plugin\'s handler types under registeredHandlerTypes', async () => {
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     // Every plugin contributes at least one handler.
     for (const plugin of ALL_PLUGINS) {
       const types = rt.registeredHandlerTypes[plugin.id];
@@ -102,12 +102,12 @@ describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () 
     rt.tearDown();
   });
 
-  it("records storeKeys for every plugin (view contributes 'view' — ViewRegistry IS a Store)", () => {
+  it("records storeKeys for every plugin (view contributes 'view' — ViewRegistry IS a Store)", async () => {
     // W-1C-1 contract: the view plugin registers ViewRegistry under
     // storeKey 'view' (see PluginRegistry.ts §View entry comment block).
     // A custom storesProvider exposes the Map directly to view.* handlers;
     // that wiring is owned by W-2A.
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     for (const id of ELEMENT_PLUGIN_IDS) {
       expect(rt.registeredStoreKeys[id]?.length, `${id} storeKey`).toBeGreaterThan(0);
     }
@@ -115,8 +115,8 @@ describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () 
     rt.tearDown();
   });
 
-  it('every contributed handler type appears on the bus registry exactly once', () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+  it('every contributed handler type appears on the bus registry exactly once', async () => {
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     const seen = new Set<string>();
     for (const types of Object.values(rt.registeredHandlerTypes)) {
       for (const t of types) {
@@ -128,8 +128,8 @@ describe('editor.bootstrap.everything — bootstrapWithEverything (W-1C-1)', () 
     rt.tearDown();
   });
 
-  it('tearDown is idempotent', () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+  it('tearDown is idempotent', async () => {
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     rt.tearDown();
     expect(() => rt.tearDown()).not.toThrow();
   });

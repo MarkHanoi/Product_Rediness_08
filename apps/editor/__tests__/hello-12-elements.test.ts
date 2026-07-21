@@ -33,7 +33,7 @@ const AUDIT = { actorId: 'u', projectId: 'p', clientId: 'c', timestamp: '' } as 
 
 describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
   it('creates one entity of every element family via the bus', async () => {
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
 
     // ---- 1. wall (5 m long so opening reservations have room) ----
     const wallId = createId('wall');
@@ -149,13 +149,13 @@ describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
     rt.tearDown();
   });
 
-  it('exposes the view plugin store + handlers (13th plugin)', () => {
+  it('exposes the view plugin store + handlers (13th plugin)', async () => {
     // The view plugin's bus integration (CreateView reads ctx.stores.view
     // as a ViewRegistry instance, not a Record) is the responsibility of
     // W-2A view-state-integration.  W-1C-1 ships the plugin contribution:
     // ViewRegistry is registered as runtime.stores.view + 5 view handler
     // types are recorded under registeredHandlerTypes.view.
-    const rt = bootstrapWithEverything({ audit: AUDIT });
+    const rt = await bootstrapWithEverything({ audit: AUDIT });
     expect(rt.viewRegistry).toBeDefined();
     expect(rt.stores.view).toBe(rt.viewRegistry);
     expect(rt.registeredHandlerTypes.view).toEqual([
