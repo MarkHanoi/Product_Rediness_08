@@ -67,6 +67,27 @@ import {
 // L-402 — the PURE explain-why report model (C58 §1.3 derivation → presentable rows).
 import { buildComplianceReport } from '@pryzm/site-parcel-data';
 
+/**
+ * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
+ * the parcel. Founder, twice: *"I requested the camera always in the same position towards the
+ * parcel and angle — but it is not yet implemented, for all 3D views."*
+ *
+ * THE CAUSE was two different defaults for the same intent: "3D Site" mounted in **`'plan'`**
+ * (plan-oblique, heading 0°, pitch −68°) while the "3D globe" framed with the NW oblique
+ * (`FORMA_FLY_*`, heading 325°, pitch −45°). Same parcel, same click-depth, two camera
+ * orientations — so the view appeared to change angle depending on which door you came through.
+ *
+ * `'3d'` is the default because it is the one the globe already uses, so the two now agree and a
+ * user moving between them keeps their bearings. **`'plan'` remains a first-class, explicitly
+ * user-selected mode** — it is a deliberate near-top-down preset, not an accident, and this does
+ * not remove it.
+ *
+ * Change THIS ONE LINE to move every 3D-view entry together; that single-source-of-truth is the
+ * actual fix, more than the particular value chosen. The angles themselves live in
+ * `CesiumViewport.ts` (`FORMA_FLY_HEADING_DEG` / `FORMA_FLY_PITCH_DEG`).
+ */
+const DEFAULT_3D_SITE_VIEW: 'plan' | '3d' = '3d';
+
 /** §L-402-XSS — escape text before it enters an innerHTML template. The compliance rows
  *  carry EXTERNAL provider strings (zoneCode / source / ordinanceRef come from Plandata.dk
  *  and other zoning providers), so they are untrusted input and MUST NOT be interpolated raw. */
@@ -983,11 +1004,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         formaBtn.addEventListener('mouseenter', () => { if (activeSegment !== 'forma') formaBtn.style.background = '#f4f0ff'; });
         formaBtn.addEventListener('mouseleave', () => { if (activeSegment !== 'forma') formaBtn.style.background = 'transparent'; });
         formaBtn.addEventListener('click', () => {
-            console.log('[gis][forma] result-toggle: launching Forma "3D Site" view (Plan-oblique default).');
+            console.log(
+                `[gis][forma] result-toggle: launching Forma "3D Site" view ` +
+                    `(§SITE-VIEWPOINT-CONSISTENT default "${DEFAULT_3D_SITE_VIEW}").`,
+            );
             // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — mountFormaViewToggle sets
             // activeSegment='forma' + repaints, so this segment lights up and the
             // Forma sub-bar mounts BELOW (never replacing) this segmented switch.
-            mountFormaViewToggle('plan');
+            mountFormaViewToggle(DEFAULT_3D_SITE_VIEW);
         });
         bar.appendChild(formaBtn);
         formaBtnRef = formaBtn;
