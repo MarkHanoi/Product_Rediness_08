@@ -21,6 +21,10 @@
   + rooftop terrace. More expressive than `ALTURAS` (captures terraces/porches/mixed-height parts) but
   needs a parser — build only for high-value sites needing terrace-vs-floor massing/shadow accuracy.
 
+> **Terrain DTM = byproduct of this same PNOA class-2 pull** — the bare-ground (class-2) returns
+> rasterized here for the nDSM's `DTM` half ARE the terrain-draping surface (roads/water/parks/site
+> grading). No new ES sourcing; see `../../CONTEXT-DATA-TERRAIN.md` (L-522).
+
 ## Height — a HYBRID, never a single "REAL" (the core L-512 finding)
 Catastro's OWN 3D viewer states its heights are estimated: every floor is flat-extruded at 3 m
 ("extrusion de cada planta a 3 metros"). That is the **same category of estimate as OSM

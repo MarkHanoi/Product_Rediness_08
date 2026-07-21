@@ -4014,6 +4014,30 @@ weakness is patchy parcel coverage (~134 munis) + no national LOD outside Lisbon
 | L-514d PT roads/water/parks — OSM/Overture + IP (roads, open-status UNVERIFIED) + SNIRH/DGT hydrography (water, flatten) + COS/COSc (parks, coarse) | impl | leads documented, NOT live-probed, NOT STARTED |
 | L-514e PT trees — **Lisbon CML "Arvoredo"** legally-mandated per-tree register (Tier-A) + DGT LiDAR CHM elsewhere (**verify class codes vs ASPRS first**); procedural fallback | impl | source documented, NOT live-probed, NOT STARTED |
 
+### L-522 — Terrain / DTM deep-dive: byproduct-of-height reframing + per-country DTM adapters (child of L-511)
+
+Refines L-511 for the terrain-draping surface. Full docs: `CONTEXT-DATA-TERRAIN.md`. **NOT
+live-probed this session** — every source is a spike lead to re-verify (UNVERIFIED), like the L-514
+Portugal pass. **Reframing: terrain is NOT a new source** — the DTM is a byproduct of the SAME
+classified LiDAR pull already done for building height (class-2 ground -> DTM); its `DTM` half IS
+the draping surface. **Spain needs NO new sourcing**; the new work is per-country DTM adapters +
+FABDEM global fallback + grid/accuracy badging. Design deltas:
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-522a **ES DTM reuse + grid badge** — PNOA/ICGC class-2 -> DTM = byproduct of the L-511c/L-512b height pull (NO new sourcing); add a **grid-resolution badge** alongside the coverage-cycle badge (3rd-coverage = finer terrain) | design | **DOCUMENTED** — reuses the height module; no new ES fetch |
+| L-522b **`terrain_source` adapter interface** — `country/region -> terrain adapter` yielding `dtm_raster` (bare-earth, NEVER a DSM) + `grid_resolution` + `vertical_accuracy_rmse`; pipeline consumes raster + badge, never needs the country | design | **DOCUMENTED** — mirrors the height resolver pattern |
+| L-522c **FR — IGN LiDAR HD** (MNT/DTM 1x1km @ 50cm, ~10cm vert; national, completion targeted 2026) + **RGE ALTI** 5m fallback (~7m RMSE alpine, flag like PNOA-1st) | impl | leads documented, NOT live-probed, NOT STARTED |
+| L-522d **UK — EA LIDAR Composite DTM** 1m (~99% England, +/-15cm RMSE) + **Scotland** own composite; **Wales + NI check individually** — do NOT assume EA coverage extends there | impl | leads documented; **devolved-nation coverage UNVERIFIED** |
+| L-522e **DE — DGM1 per-Land (16 adapters)** — 1m, published per state, no federal endpoint (own licence/tiling/cadence each); mirrors the L-511 German state-router | impl | **16-adapter cost flagged**; NOT live-probed, NOT STARTED |
+| L-522f **NL — AHN reference adapter** — DTM + DSM, sub-decimetre; gold-standard national LiDAR terrain, replicate this adapter shape | reference | **DOCUMENTED** — the pattern to copy (as 3DBAG/AHN is for buildings) |
+| L-522g **FABDEM global fallback** — GLO-30 DSM + ML bare-earth correction (~30m, coarse but genuinely bare-earth); use INSTEAD of raw SRTM/GLO-30 (surface models); **verify CC BY-NC-SA non-commercial clause** vs PRYZM commercial use | impl | **BLOCKER-risk = licence**; leads documented, NOT live-probed |
+
+**Contract action (do NOT skip):** the grid+RMSE-tagged terrain provenance is richer than C23's
+binary REAL/ESTIMATED badge — governed by the SAME graded-provenance gap already logged under L-512
+(MISSING-CONTRACTS-AUDIT). Extend C23 (or the context-provenance spec) to carry grid + accuracy
+tags; RMSE stays **NULL** where the provider published none (do not invent — the L-514 rule).
+
 ### L-515 — envelope depth applied to the WRONG parcel edge (Barcelona)
 
 Founder: the profunditat edificable band runs off a SIDE edge, not measured back from the street
