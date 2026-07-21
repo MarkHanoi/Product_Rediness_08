@@ -86,28 +86,38 @@ surfaced this. PRYZM builds run ~10–20 min each, so a heavy testing day can co
 
 ## 4. Free + private options (chosen when you do not want to pay)
 
-**A. Self-hosted runner — the proper end state.** Actions minutes are metered **only on
-GitHub-hosted runners**; self-hosted is free on private repos. Workflows run unchanged and **the CI
-gate keeps working**. Cost: ~15 min setup, and the machine must be on. Needs Docker for
-`--local-only`, or switch that flag to `--remote-only`.
+### ⚠ FIRST — going private ALSO HALVES THE RUNNER, and this build is at the edge
+GitHub-hosted `ubuntu-latest` is **4-core / 16 GB on PUBLIC repos** but **2-core / ~7 GB on PRIVATE
+repos**. This build peaks at ~5.5 GB heap + native ≈ **~7 GB** (`NODE_OPTIONS=--max-old-space-size=
+6144`). **So private is not just metered, it is a smaller machine — fixing billing may still leave
+you OOM-ing.** Public is free *and* bigger.
 
-**B. Deploy from the founder's machine — free, private, but UNGATED.**
-`flyctl` is installed at `~/.fly/bin/flyctl`. **Docker is NOT installed**, so `--local-only` will
-fail; use Fly's remote builder:
+### ⚠ TWO "obvious" free options that DO NOT WORK on this repo — verified, do not retry
+- **`flyctl deploy --remote-only`** — Fly's remote/Depot builder **OOMs at exit 137** on this build
+  and cannot be resized. *(Recommended in error on 2026-07-21 before the project history was
+  re-read; corrected same day.)*
+- **`flyctl deploy --local-only`** — needs Docker (**NOT installed**) and more RAM than the founder's
+  machine has (11.7 GB total vs a ~7 GB build). A self-hosted runner inherits that same ceiling:
+  plausible, unproven, not a safe default.
 
-```bash
-flyctl deploy --remote-only
-```
+### ✅ A. The PUBLIC-REPO WINDOW — the confirmed free recipe (verified 2026-06-05, run #99 → Fly v30)
+GitHub bills Actions by visibility **at run time**, so public = free unlimited **and** the 16 GB
+runner. (1) make the repo public; (2) trigger the deploy while public; (3) wait for green; (4)
+optionally revert `deploy-fly.yml` to `workflow_dispatch`-only; (5) make private again — a reverting
+push whose commit has no `push:` trigger does not start a run.
+**Risk:** source is briefly world-visible (scrapers watch the new-public-repo firehose).
+**Actions SECRETS are NOT exposed by going public** — they are stored separately.
 
-⚠ **This bypasses the CI gate entirely** — the exact problem L-540 fixed. If you use it, run
-`pnpm run test:ci` locally first, every time, manually.
+### B. Pay for private minutes
+Fix the card / raise the Actions spending limit (§3). ⚠ Still subject to the 7 GB private runner
+above — confirm the build fits before relying on it.
 
-**C. Make the repo public again** — unlimited minutes, zero setup, gate intact. The trade is source
-visibility.
+### C. Self-hosted runner — the proper end state, but unproven here
+Minutes are metered only on GitHub-*hosted* runners, so this is free on a private repo AND keeps the
+CI gate. Needs Docker and enough RAM; see the ceiling above. Worth a quiet hour, not a deadline.
 
-**Recommendation on 2026-07-21:** check billing first (often free to fix). If genuinely out of
-minutes, prefer **C** over **B** — losing the CI gate is a worse trade than a public repo. Move to
-**A** when there is a quiet hour.
+**Recommendation on 2026-07-21: use A.** Days from launch, testing constantly — a proven free path
+that keeps the gate beats an unproven private one.
 
 ---
 
