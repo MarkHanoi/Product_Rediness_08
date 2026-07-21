@@ -54,6 +54,18 @@ export {
     BCN_ORDINANCE_REF,
 } from './rulepacks/esBarcelonaEnsanche.js';
 
+// L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the
+// counterpart to Art. 242's depth). Refuses rather than let a MEASURED street width choose a
+// storey band near a boundary — see the module header.
+export {
+    resolveAlcadaReguladora,
+    BCN_ALCADA_REGULADORA_TABLE,
+    PB5_UNCERTIFIED_ALTERNATIVE_M,
+    BAND_EDGE_GUARD_M,
+    type AlcadaBand,
+    type AlcadaResolution,
+} from './rulepacks/bcnAlcadaReguladora.js';
+
 export {
     insetPolygonPerEdge,
     type PerEdgeSetbacks,
