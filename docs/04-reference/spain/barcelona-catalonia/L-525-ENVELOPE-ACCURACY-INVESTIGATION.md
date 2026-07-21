@@ -68,6 +68,14 @@ floor and clamped up. Real Eixample profunditat edificable ≈ **20–28 m** (ot
 manzana (~12,000 m²)**. Insetting such a small block from ALL 58 perimeter edges (the §BCN-MANZANA-
 PERIMETER all-front model, L-502) erodes the interior fast → the 30% rule floors out.
 
+**⚠ THIRD candidate (LEGAL, tracked as L-526) — the RULE/citation itself may be wrong.** Founder
+doubt: is the cited chain (PGM Art. 242.2 / 322.1 via AMB/MMAMB Dec-2010 consolidated 31-12-2009) the
+correct, CURRENT text? The panel caveats *"a 2008 modification to Art. 327 §2 is not reflected"* — yet
+our source is consolidated to **31-12-2009**, which should post-date it (a contradiction). Art. 327
+governs alçada + storeys + profunditat, so a 2008 change to §2 could be why BOTH depth and height are
+off. **Source the 2008 modification before trusting the geometry conclusion** — a correct inset on a
+whole block is still wrong if the underlying depth rule is stale. See audit L-526.
+
 **Two candidate root causes — a probe distinguishes them:**
 - **(b1) The block dissolve captured a PARTIAL / wrong manzana.** Does the 5-char Catastro *manzana*
   prefix (`02309`) correspond to a full Cerdà block here, or a sub-block? 6,686 m² / 14 parcels says

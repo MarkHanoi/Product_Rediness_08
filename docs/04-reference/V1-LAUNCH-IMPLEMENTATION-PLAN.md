@@ -4145,3 +4145,18 @@ Two independent defects (audit L-525 has the console evidence). **Do NOT blind-f
 | L-525c **DEPTH — re-examine the depth MODEL for small/irregular blocks.** All-perimeter inset (L-502) over-erodes a small block; the real profunditat edificable is a street-frontage BAND leaving a central courtyard, not an inset from every edge (incl. chamfers). Decide whether the model needs frontage-band geometry for non-square blocks. | zoning / depth model (blockDerivedDepth.ts) | OPEN — after L-525b confirms the block is whole |
 
 **Contracts:** C58, ADR-0270/0271, C57, `blockDerivedDepth.ts`, the (unbuilt) alçada-reguladora height table.
+
+### L-526 — verify the profunditat-edificable LEGAL BASIS (the rule/citation side of L-525 depth)
+
+Founder doubt (audit L-526): the depth may be too shallow because the RULE or citation is wrong, not
+just the geometry. **Probe the primary sources; do not assume.**
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-526a Confirm the **citation chain** — PGM-1976 NNUU Art. 242.2 (profunditat construction) + Art. 322.1 (13a), via AMB/MMAMB Normativa Urbanística Metropolitana (Dec 2010) consolidated 31-12-2009 — is the governing + current text we cite in `esBarcelonaEnsanche.ts` (`ordinanceRef`). | legal / provenance | OPEN |
+| L-526b Confirm **"maximum depth" = the max DEPTH OF THE BUILDING** measured perpendicular from the alineació inward (our 11 m) — the right metric, not a courtyard offset or other measure. | legal / semantics | OPEN |
+| L-526c **Source the 2008 modification to Art. 327 §2** (the panel caveats it is "not reflected", yet our source is consolidated to 31-12-2009 — a contradiction to resolve). Art. 327 governs alçada + storeys + profunditat, so this could be WHY depth (and height, L-525a) is off. If it changes 13a → update the pack + re-badge; note in RISK-REGISTER R1. May reopen the founder-signed **L-449** source-acceptance gate. | legal / rule model (C58) | OPEN — highest-value probe |
+
+**Contracts:** C58 (rule + provenance), ADR-0271, L-449 (source acceptance), `esBarcelonaEnsanche.ts`.
+This is the LEGAL half; **L-525b/c is the GEOMETRY half** (block dissolve + depth model). Do both — a
+correct rule on a partial block is still wrong, and a whole block with a stale rule is still wrong.
