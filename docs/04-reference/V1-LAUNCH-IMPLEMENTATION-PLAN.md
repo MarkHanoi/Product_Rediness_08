@@ -4006,7 +4006,7 @@ mirrors 406/timeout/429 — an unfixable hot-path. Full design: `CONTEXT-3D-PERF
 
 | Sub-task | Phase | Status |
 |---|---|---|
-| L-513a Bake **Barcelona** context (Overture/OSM buildings+roads+water) → **PMTiles** → Fly object storage | infra/bake | NOT STARTED (do first — ship-first city) |
+| L-513a Bake **Barcelona** context → **PMTiles** → Fly object storage | infra/bake | SOURCE VERIFIED LIVE (Geofabrik Cataluña 266MB static .osm.pbf, 200; Overture S3 200) — bake job NOT STARTED |
 | L-513b Client tile read: viewport z/x/y **range requests** + **Web Worker** decode + **instanced** render | client | NOT STARTED |
 | L-513c Swap `fetchContextBuildings` body to tiles; Overpass demoted to emergency fallback (badged ESTIMATED) | client | code already anticipates the swap |
 | L-513d Provenance badge travels IN the tile (keeps C23 honest) | client/data | NOT STARTED |

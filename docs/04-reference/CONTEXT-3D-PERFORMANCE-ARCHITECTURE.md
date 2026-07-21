@@ -99,3 +99,18 @@ Governs/absorbs **L-504** (context <2 s). Delivery layer for **L-511** (country 
 (Spain sources). Provenance-in-tile ties **C23** (+ the graded-provenance gap in MISSING-CONTRACTS).
 Render-fault is **L-503**-adjacent, tracked separately. Contracts: **C12** (context/tiles), C55
 (geodata layers), C19 (site model), C10 (perf budget).
+
+## 8. Bake sources — LIVE-VERIFIED 2026-07-21 (the architecture rests on these)
+The entire premise ("get context in bulk WITHOUT Overpass") is confirmed — both candidate ingest
+sources are static, no-rate-limit, and reachable right now:
+
+| Source | Probe result | Role |
+|---|---|---|
+| **Geofabrik Cataluña** `download.geofabrik.de/europe/spain/cataluna-latest.osm.pbf` | **200** → `cataluna-260720.osm.pbf`, **265,839,733 B (~266 MB)**, `application/octet-stream`, Last-Modified **2026-07-21** (daily-refreshed) | **Pragmatic Barcelona source (L-513a).** The whole region's OSM (buildings+roads+water+parks) in ONE static file. Download once, bake, done. |
+| **Overture Maps** `overturemaps-us-west-2.s3.amazonaws.com` | **200**, latest release `release/2026-06-17.0/` listed, anonymous HTTPS | Cleaner/conflated buildings+transport (GeoParquet); the better long-term source, needs a Parquet→tile step. |
+
+**Implication for L-513a:** the bake is `download cataluna-*.osm.pbf (266 MB, one GET) → filter
+buildings/roads/water → PMTiles → upload to Fly object storage`. Deterministic, offline, re-runnable
+on Geofabrik's daily refresh. NOT a live query. This is the same object-storage pattern already used
+for the furniture-GLB catalogue (memory §furniture-glb-404-object-storage), so the hosting path exists.
+No blocker remains between here and a working Barcelona context tileset — only the bake job itself.
