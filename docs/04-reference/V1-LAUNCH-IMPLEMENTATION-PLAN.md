@@ -4014,6 +4014,22 @@ weakness is patchy parcel coverage (~134 munis) + no national LOD outside Lisbon
 | L-514d PT roads/water/parks — OSM/Overture + IP (roads, open-status UNVERIFIED) + SNIRH/DGT hydrography (water, flatten) + COS/COSc (parks, coarse) | impl | leads documented, NOT live-probed, NOT STARTED |
 | L-514e PT trees — **Lisbon CML "Arvoredo"** legally-mandated per-tree register (Tier-A) + DGT LiDAR CHM elsewhere (**verify class codes vs ASPRS first**); procedural fallback | impl | source documented, NOT live-probed, NOT STARTED |
 
+### L-515 — envelope depth applied to the WRONG parcel edge (Barcelona)
+
+Founder: the profunditat edificable band runs off a SIDE edge, not measured back from the street
+frontage. The depth SOLVE is correct (`blockDerivedDepth.ts` per-edge inset, refuses w/o a `front`
+edge); the bug is upstream **frontage classification** — a side edge is being marked `front`.
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-515a **read §L-515-FRONTAGE-DIAG** on a real Barcelona parcel (probe shipped v244) — is the `front` edge the street side or a side edge? | diagnose | probe LIVE, awaiting console line |
+| L-515b Fix the classifier so the parcel's actual STREET edge is the one the depth insets from (frontage-from-road adjacency; check the L-502 manzana-perimeter fallback interaction) | fix | BLOCKED on L-515a |
+| L-515c regression test: a corner + a mid-block Eixample parcel both inset from the correct street edge | test | NOT STARTED |
+
+**Contracts:** C58 (envelope determination), ADR-0270 (alignment/depth clip), ADR-0271 (block-derived
+depth), C19 (frontage). Correct-fix = real road-adjacency frontage, NOT "longest edge = front" (wrong
+on corner/irregular parcels). Relates L-507 (depth shape), L-502 (manzana-perimeter frontage).
+
 **Contract action:** governed by the SAME graded-provenance gap as L-512 (logged in
 MISSING-CONTRACTS-AUDIT). PT is the MORE ACUTE case — single-source LiDAR height with no cross-check,
 so `measured_height_m` + `height_confidence` must ship WITHOUT collapsing to one "REAL", and must
