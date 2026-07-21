@@ -80,7 +80,14 @@ export const BCN_ENSANCHE_RULE: GeometricRule = {
     // *Mitgera* — build to both side boundaries. This is the configuration that exposed L-462.
     sideTreatment: 'party-wall',
     interiorFreeRatio: 0.3,   // "≥30% of the block as interior free space"
-    minDepth_m: 11,           // ordinance floor
+    // §L-525/L-526 — the PGM Art. 242 minimum depth is 12 m (primary-source verdict, 2026-07-21:
+    // "where the construction yields < 12 m, 12 m is taken", plus the 8 m inscribed-circle interior
+    // rule); the pack previously used 11 m. NOTE: raising this to 12 m does NOT by itself make the
+    // depth correct on a HALF-illa block — the visible ~11 m floor came from Catastro masa 02309
+    // being only HALF a Cerdà illa (6,686 m² vs ~12,000 m²), so the all-perimeter inset over-erodes
+    // it. The real depth fix is illa-assembly (L-525b, see `L-526-LEGAL-FINDINGS.md`); this line
+    // just makes the ordinance floor legally correct.
+    minDepth_m: 12,           // ordinance floor (Art. 242 — 12 m, verified)
     maxDepth_m: 30,           // ordinance cap
 };
 

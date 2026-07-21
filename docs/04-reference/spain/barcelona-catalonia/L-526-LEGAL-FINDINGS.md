@@ -61,6 +61,8 @@ The research's strongest hypothesis for our **11 m**: *Art. 242 offsets the **IL
 parcel. Offsetting each PARCEL independently — or a PARTIAL/undersized block — collapses the depth to
 ~10–12 m, "remarkably close to your engine's output."* **Our block 02309 dissolved to ~6,686 m² ≈ HALF
 a normal Cerdà manzana (~12,000 m²)** → the all-perimeter inset on a half-block floors out at ~11–12 m.
+**CODE-VERIFIED 2026-07-21 — the bbox is NOT the cause; the Catastro masa genuinely = half the illa.** `server/parcelZoningProxy.js` uses `BLOCK_BBOX_HALF_DEG = 0.002` (~444 m box, ~4× a 113 m Cerdà block) with the **5-char refcat prefix** as the manzana filter (explicitly "a HEURISTIC … not a guarantee"). The bbox is large enough to capture a whole illa from any parcel in it — so masa **02309 genuinely contains only 14 parcels / 6,686 m²** (≈ half a Cerdà illa), while the pilot masa 02297 was a full illa (23 parcels / 14,090 m²). **Catastro masas do NOT always equal the urbanistic illa** — the prefix heuristic breaks here. COMPOUNDING: with roads=0 the all-perimeter-front model (L-502) then treats the masa's INTERIOR edge (facing the other half-masa / courtyard, not a street) as a street frontage → over-inset → the depth floors. **THE FIX = assemble the full illa** (union 02309 + its sibling masa into one Cerdà block) so all-perimeter-front is correct, and/or classify the block-interior edge as non-front. This is L-525b — real geometry/data work, not a one-liner. INTERIM SHIPPED (v254): the ordinance min-floor is now the correct **12 m** (was 11 m).
+
 **This confirms L-525b (verify/fix the block dissolve) as the primary depth fix** — the depth is wrong
 from the GEOMETRY (a partial block / not the full illa), not primarily from the legal rule.
 
