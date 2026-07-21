@@ -977,14 +977,35 @@ async function applyBcnZoningThenFallback(
         }
         const blockRing = dissolved.ring;
 
-        // (f) Roads → street-frontage classification of the block edges. No frontages ⇒ the
-        //     solver refuses ⇒ estimated fallback (that is the correct failure).
+        // (f) Roads → street-frontage classification of the block edges.
+        // §L-516 — take the SLOW Overpass roads fetch OFF the real-envelope critical path (founder:
+        // "it takes too long to provide the true real envelope"). Roads are ONLY a refinement here:
+        // this path is Eixample-only (gated above on 13a/13E), a Catastro manzana is street-bounded
+        // by definition, so the CORRECT block frontage is the all-perimeter model below (§BCN-
+        // MANZANA-PERIMETER), and in the dense Eixample the `way["highway"]…out geom` query is the
+        // same cost-failure as buildings and returns 0 anyway (proved: overpass 406 / 45 s). Waiting
+        // up to the proxy's 45 s budget on a call that almost always returns nothing — while the real
+        // envelope is BLOCKED behind it — is exactly the latency the founder hit. Bound it to a tight
+        // deadline: if roads arrive fast they still refine; otherwise resolve the envelope NOW from
+        // the manzana-perimeter model. Parcel frontage is already road-independent (§L-515). The
+        // underlying fetch is not cancelled — it still warms the context cache for the render layer.
+        const ENVELOPE_ROADS_DEADLINE_MS = 2000;
         let roads: RoadPolyline[] = [];
         try {
-            const roadCol = await fetchContextRoads(lat, lon);
-            roads = roadCol.ways.map((w) => ({
-                points: w.coords.map(([wlon, wlat]) => toAuthoringFrame({ lat: wlat, lon: wlon })),
-            }));
+            const roadCol = await Promise.race([
+                fetchContextRoads(lat, lon),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), ENVELOPE_ROADS_DEADLINE_MS)),
+            ]);
+            if (roadCol) {
+                roads = roadCol.ways.map((w) => ({
+                    points: w.coords.map(([wlon, wlat]) => toAuthoringFrame({ lat: wlat, lon: wlon })),
+                }));
+            } else {
+                console.warn(
+                    `${TAG} §L-516 roads fetch exceeded ${ENVELOPE_ROADS_DEADLINE_MS} ms — resolving the ` +
+                        `real envelope NOW from the manzana-perimeter model (roads are only a refinement).`,
+                );
+            }
         } catch (e) {
             console.warn(`${TAG} context-roads fetch failed (non-fatal) — 0 roads:`, e);
             roads = [];
