@@ -5925,6 +5925,13 @@ export class CesiumViewport {
     // scene reads as transparent; the white proposed mass still stands out against
     // the muted off-white context.
     const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill);
+    // §CTX-ASSUMED-HEIGHT-VISIBLE (L-527) — the "we do not know this building's height" fill. Kept
+    // in the SAME family as the surveyed fill (this is still background context, not an alarm) but
+    // cooler and slightly translucent, so a block of guesses reads as missing data rather than as
+    // surveyed massing. See the full rationale at the entity construction below.
+    const assumedFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill)
+      .withAlpha(0.55)
+      .brighten(0.12, new Cesium.Color());
     const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.6);
 
     // §PLOT-CLEAR-ENVELOPE (L-402c) — drop any OSM footprint sitting ON the committed
@@ -5984,14 +5991,36 @@ export class CesiumViewport {
           );
         });
         const h = f.properties.heightM;
+        // §CTX-ASSUMED-HEIGHT-VISIBLE (L-527 interim) — a GUESS MUST NOT RENDER LIKE A MEASUREMENT.
+        //
+        // ~35-40% of Barcelona OSM footprints carry no `height` and no `building:levels`, so they
+        // fall back to a flat 9 m default (`§CTX-HEIGHT-PROVENANCE` logs the share every run).
+        // Painted in the SAME opaque off-white as the surveyed ones, those guesses were
+        // indistinguishable from real data — the founder reads a block of flat 9 m boxes as a
+        // rendering fault rather than as "we don't have this data", and any shadow, daylight or
+        // party-wall study against them silently inherits the fabrication (C58 §1.4 in spirit).
+        // This is the L-459 defect class, and it is the SAME mistake the envelope's hardcoded
+        // `: 9` made — fixed there in v259 by refusing to invent, and fixed here by refusing to
+        // DISGUISE.
+        //
+        // The real fix is measured heights (LiDAR nDSM — L-527/L-511c/L-512b), which is a build,
+        // not a patch. The honest interim is to make the assumption legible: assumed-height
+        // buildings render slightly translucent and cooler, so they read as "unknown height"
+        // instead of as surveyed massing. **Deliberately NOT done: inventing a better-looking
+        // number** (e.g. inheriting a neighbourhood median). That would make fabricated data MORE
+        // convincing, which is strictly worse than leaving it visibly wrong.
+        const isAssumedHeight = f.properties.heightProvenance === 'assumed';
+        const bodyFill = isAssumedHeight ? assumedFill : fill;
         const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-building',
+          name: isAssumedHeight
+            ? 'pryzm-forma-context-building-assumed-height'
+            : 'pryzm-forma-context-building',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: base,
             // Top preserved above ground: terrain base + the footprint's height.
             extrudedHeight: top + Math.max(0.1, h),
-            material: fill,
+            material: bodyFill,
             outline: true,
             outlineColor: outline,
             outlineWidth: 1,
