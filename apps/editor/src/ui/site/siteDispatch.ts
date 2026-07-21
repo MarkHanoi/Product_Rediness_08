@@ -1449,22 +1449,17 @@ async function applyBcnZoningThenFallback(
 
         // (h) Dispatch ONLY a status:'ok' envelope; anything else falls back (never a broken one).
         if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
-            // §L-518 — this is a REAL determination CONSTRUCTED from the real Catastro block per PGM
-            // Art. 242.2, NOT the generic estimated pack. The engine stamps `estimated-ruleset`
-            // because the depth came via a rule pack, but each derivation row's provenance is
-            // *published* — so the panel showed an ESTIMATED badge over real, cited data (the
-            // contradiction the founder hit). Re-label to the honest `block-constructed` tier IFF the
-            // depth was actually solved from the block (the `alignment.depthBinding` derivation row
-            // is present) — never on a degenerate/estimated fallback. Founder-CONFIRMED 2026-07-21;
-            // conditions of this badge are in `spain/barcelona-catalonia/RISK-REGISTER.md` (R1): the
-            // panel MUST word it "constructed", keep citations, keep the "2008 mod not reflected"
-            // caveat. This is the ONLY place the tier is assigned.
-            const isBlockConstructed = envelope.derivation.some(
-                (d) => d.constraint === 'alignment.depthBinding',
-            );
-            const withTier = isBlockConstructed
-                ? { ...envelope, confidence: 'block-constructed' as const }
-                : envelope;
+            // §L-518 / §L-572 — the `block-constructed` tier USED TO BE STAMPED HERE, and is not
+            // any more: `ZoningRulesEngine` now assigns it itself (search §L-572 there). The
+            // condition is unchanged — the `alignment.depthBinding` derivation row is present iff
+            // the depth was really solved from the block — but it is now a property of the
+            // DETERMINATION rather than of this one UI path, so the per-parcel report, an export
+            // or an API gets the same honest label without re-deriving it. Re-adding a re-label
+            // here would create a second place for the tier to drift from the engine's caveats.
+            // Founder-CONFIRMED 2026-07-21; badge conditions remain in
+            // `spain/barcelona-catalonia/RISK-REGISTER.md` (R1): word it "constructed", keep the
+            // citations, keep the "2008 modification not reflected" caveat.
+            const withTier = envelope;
             // §BCN-ALCADA (L-525a) — attach the CONSTRUCTED height + storey count, each with its own
             // citable "why" row. Only when we actually have one: leaving `maxHeight_m` null is what
             // makes the panel omit the row honestly, and is far better than a number nobody can cite.

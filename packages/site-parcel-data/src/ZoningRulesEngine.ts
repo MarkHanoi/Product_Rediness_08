@@ -440,6 +440,44 @@ export function computeBuildableEnvelope(
             }
         }
 
+        // ── §L-572 — the `block-constructed` tier is stamped HERE, by the engine. ──
+        //
+        // C58 §1.2. A depth SOLVED from a real block ring under an accepted ordinance rule is a
+        // different fidelity from a number read out of a curated pack, and the fact that
+        // distinguishes them is `alignment.depthBinding` — a derivation row this engine emits
+        // (~L377) if and only if `solveBlockDerivedDepth` actually returned a binding. Every
+        // failure path above clears the depth and marks `status`, so the row cannot appear on a
+        // fallback.
+        //
+        // ⚠ THIS MOVED FROM L5 (`siteDispatch.ts`), and the move is the point. The tier was
+        // derived in the editor by re-scanning `derivation` for that same row — so the label was a
+        // property of ONE UI path rather than of the determination itself, and any second consumer
+        // (the per-parcel report, an API, an export) would have received `estimated-ruleset` on
+        // genuinely constructed, citable data. An honesty label that only one caller knows how to
+        // compute is not a property of the answer (C58 §1.2/§1.6).
+        //
+        // It also fixes a latent contradiction: the caveat below is keyed on the tier, and while
+        // the upgrade happened downstream, a constructed Barcelona envelope carried the literal
+        // text "Estimated envelope — verify against the governing ordinance" in `caveats` while
+        // its badge read "Real · constructed". That never reached a user only because `caveats` is
+        // currently consumed by nothing but a `console.log` — i.e. it was invisible, not absent.
+        // Ordering the upgrade BEFORE the caveat makes the two agree by construction.
+        //
+        // ⚠ HONEST LIMIT — this labels the RULE, not the INPUT. The engine is pure and cannot
+        // verify that `blockRing` is real cadastral geometry; it certifies "constructed from the
+        // block ring supplied under an accepted rule". Per C58 §1.6 the ring's own provenance
+        // rides with the caller (in production, `CatastroBlockProvider` — real Catastro). A caller
+        // that synthesises a ring and reads this tier as proof of real data would be over-claiming,
+        // which is why the badge wording is "Real · constructed", never "verified"/"certificate"
+        // (RISK-REGISTER R1).
+        if (
+            status === 'ok' &&
+            confidence === 'estimated-ruleset' &&
+            derivation.some((d) => d.constraint === 'alignment.depthBinding')
+        ) {
+            confidence = 'block-constructed';
+        }
+
         if (confidence === 'estimated-ruleset' && status === 'ok') {
             caveats.push('Estimated envelope — verify against the governing ordinance before relying on it (C58 §1.4).');
         }

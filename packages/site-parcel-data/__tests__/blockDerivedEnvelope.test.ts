@@ -188,3 +188,67 @@ describe('ADR-0271 P3 — the other rule kinds are untouched', () => {
         expect(withBlock.insetAreaM2).toBeCloseTo(withoutBlock.insetAreaM2, 9);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §L-572 — the CONFIDENCE TIER is a property of the determination, not of a UI path.
+//
+// This block existed nowhere before. The `block-constructed` tier was assigned in L5
+// (`siteDispatch.ts`) by re-scanning `derivation` for the `alignment.depthBinding` row, so it
+// was untested AND unreachable by any second consumer: a per-parcel report, an export or an API
+// calling `computeBuildableEnvelope` directly received `estimated-ruleset` on real, cited,
+// constructed data. These tests pin the tier at the engine so that cannot regress.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§L-572 — the engine stamps `block-constructed` itself (C58 §1.2)', () => {
+    const ESTIMATED_CAVEAT = 'Estimated envelope';
+
+    it('a depth CONSTRUCTED from the block is labelled `block-constructed`, not estimated', () => {
+        const env = solve();
+        expect(env.status).toBe('ok');
+        expect(env.confidence).toBe('block-constructed');
+    });
+
+    it('and does NOT also carry the "Estimated envelope" caveat — the label and the prose must agree', () => {
+        // THE LATENT CONTRADICTION THIS CLOSES: the caveat is pushed when the tier is still
+        // `estimated-ruleset`. While the upgrade happened downstream in the editor, a constructed
+        // Barcelona envelope shipped with a badge reading "Real · constructed" and a caveat
+        // reading "Estimated envelope — verify against the governing ordinance". It never reached
+        // a user only because `caveats` is currently consumed by nothing but a console.log — it
+        // was invisible, not absent, and would have surfaced the moment caveats are rendered.
+        const env = solve();
+        expect(env.caveats.some((c) => c.includes(ESTIMATED_CAVEAT))).toBe(false);
+    });
+
+    it('a REFUSED block-derived solve is never labelled constructed', () => {
+        // The tier must track the determination, not the zone type. No block ring ⇒ no
+        // construction happened ⇒ claiming "constructed" would be the exact over-claim the
+        // C58 §1.4 refusal paths exist to prevent.
+        const env = solve({ blockRing: null });
+        expect(env.status).not.toBe('ok');
+        expect(env.confidence).not.toBe('block-constructed');
+    });
+
+    it('a plain setback zone stays `estimated-ruleset` AND keeps its caveat', () => {
+        // The other direction: the upgrade must not leak onto envelopes that genuinely are
+        // estimates. This is what stops §L-572 from quietly promoting the whole product.
+        const env = solve({ geometricRule: null });
+        expect(env.confidence).toBe('estimated-ruleset');
+        expect(env.caveats.some((c) => c.includes(ESTIMATED_CAVEAT))).toBe(true);
+    });
+
+    it('a STATED-depth alignment zone is not "constructed" — nothing was constructed', () => {
+        // `kind: 'alignment'` reads the depth straight off the rule, so no `depthBinding` row is
+        // emitted and the tier must stay estimated. This is the distinction the binding row was
+        // introduced to make (C58 §1.3), now load-bearing for the honesty label too.
+        const env = solve({
+            geometricRule: {
+                kind: 'alignment',
+                alignTo: 'street',
+                buildableDepth_m: 12,
+                alignmentOffset_m: 0,
+                sideTreatment: 'party-wall',
+            },
+        });
+        expect(env.status).toBe('ok');
+        expect(env.confidence).toBe('estimated-ruleset');
+    });
+});
