@@ -1895,16 +1895,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             envelopePanel.setAttribute('data-testid', 'buildable-envelope-card');
             Object.assign(envelopePanel.style, {
                 position: 'absolute', top: '108px', right: '16px', zIndex: '32',
-                width: '232px', padding: '12px 14px', background: '#ffffff',
+                width: '300px', minWidth: '272px', maxWidth: '92vw',
+                padding: '12px 14px', background: '#ffffff',
                 borderRadius: '12px', border: '1px solid #ece7fb',
                 boxShadow: '0 4px 18px rgba(20,10,60,0.18)',
                 font: '500 12px/1.45 system-ui, sans-serif', color: '#2a2340',
-                // §L-508 — the real PGM Art. 242.2 citation is long; a fixed-height card spilled
-                // it off-screen and clipped it (founder: "I cannot read the data"). Cap the height
-                // to the viewport, SCROLL the overflow, WRAP long citation strings, and let the
-                // user RESIZE the card (the movable-by-drag part is the follow-up in L-508 via
-                // makeDraggable). box-sizing so the width/resize honour the padding.
-                maxHeight: 'calc(100vh - 128px)', overflowY: 'auto', overflowWrap: 'anywhere',
+                // §L-508b — FIX the real-data layout (founder: "data is terrible, stuck in a
+                // minimum-width strip on the right"). Three faults, all fixed here + in the
+                // "Why?" rows below: (1) the card was only 232px — too narrow for the real
+                // PGM Art. 242.2 citation, so it went to 300px w/ a HARD minWidth so it can
+                // never collapse to a sliver; (2) `overflowWrap:anywhere` broke values ONE
+                // CHARACTER PER LINE — replaced with `break-word` (breaks only long unbreakable
+                // tokens, never mid-value); (3) the two-column "Why?" rows starved the value
+                // column — those rows are now STACKED (see whyBlock). maxHeight+scroll keep the
+                // long determination on-screen; resize:both + makeDraggable keep it user-movable.
+                maxHeight: 'calc(100vh - 128px)', overflowY: 'auto',
+                overflowWrap: 'break-word', wordBreak: 'normal',
                 boxSizing: 'border-box', resize: 'both',
             } satisfies Partial<CSSStyleDeclaration>);
             viewport.appendChild(envelopePanel);
@@ -2051,12 +2057,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 const prov = r.isEstimate
                     ? '<span style="color:#6600FF;background:#f3eeff;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">EST</span>'
                     : '<span style="color:#2e7d32;background:#eef7ee;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">PUB</span>';
-                return `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid #efecf7;">
-                          <span style="color:#6b6480;flex:0 0 auto;">${escHtml(r.label)}</span>
-                          <span style="text-align:right;flex:1 1 auto;">
-                            <b>${escHtml(r.valueText)}</b> ${prov}<br>
-                            <span style="color:#8a83a0;font-size:10px;">zone ${escHtml(r.zoneCode)} · ${escHtml(r.source)} · ${cite}</span>
-                          </span>
+                // §L-508b — STACKED, not two-column. The old side-by-side flex let a long label
+                // ("Buildable depth (profunditat edificable)") take the whole width and starve the
+                // value to a per-character strip. Label on its own line, then the bold value + PUB/
+                // EST badge, then the zone·source·citation line — reads top-to-bottom, never starves.
+                return `<div style="padding:5px 0;border-top:1px solid #efecf7;">
+                          <div style="color:#6b6480;margin-bottom:2px;">${escHtml(r.label)}</div>
+                          <div><b>${escHtml(r.valueText)}</b> ${prov}</div>
+                          <div style="color:#8a83a0;font-size:10px;margin-top:1px;">zone ${escHtml(r.zoneCode)} · ${escHtml(r.source)} · ${cite}</div>
                         </div>`;
             }).join('');
             const gfa = report.maxGrossFloorAreaM2 !== null
