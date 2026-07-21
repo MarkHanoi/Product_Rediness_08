@@ -32,7 +32,7 @@ Numeric building rules are structured only in Denmark; PDF-trapped elsewhere. Th
 2. **`estimated-ruleset`** — the provider returns only a **zone class** → look up the per-jurisdiction curated **`JurisdictionZoningContract`** (§2.2: zone code → numeric envelope). Confidence `estimated-ruleset`.
 3. **`none`** — no data → **no envelope**; graceful fallback to manual setback entry / draw (C57 §1.5). The envelope is hidden, never fabricated.
 
-Every `BuildableEnvelope` MUST carry a `confidence` field ∈ `{ 'authoritative', 'structured', 'estimated-ruleset' }`. There is no unlabelled envelope.
+Every `BuildableEnvelope` MUST carry a `confidence` field. There is no unlabelled envelope. ⚠ The three tiers listed above are the *input-fidelity* ladder only; the **complete** enum is `{ 'authoritative', 'structured', 'block-constructed', 'estimated-ruleset', 'not-determined' }` — see the two amendments below for `'block-constructed'` (L-518/L-572) and `'not-determined'` (L-550), neither of which is an input fidelity.
 
 > **AMENDED 2026-07-21 (L-550).** The enum above is no longer complete. `EnvelopeConfidence` also
 > carries **`'not-determined'`**, paired with `EnvelopeStatus: 'not-applicable'`, for the case
@@ -40,11 +40,39 @@ Every `BuildableEnvelope` MUST carry a `confidence` field ∈ `{ 'authoritative'
 > fidelity level nor an absence of data — it is a *positive legal answer*, and it must not be
 > forced onto a scale that only measures how good our numbers are. See §1.13.
 >
-> ⚠ **Still unresolved: there is no tier for a REAL determination CONSTRUCTED from real geometry
-> plus an accepted rule.** Barcelona's Art. 242.2 depth is exactly that — its derivation rows carry
-> `published` fieldProvenance, yet the top-level `confidence` lands on `estimated-ruleset`, so the
-> panel shows an ESTIMATED badge over data that is real and cited. Logged as L-518 and as a
-> standing gap in `MISSING-CONTRACTS-AUDIT-2026-06-01.md`. **Not closed by this amendment.**
+> **CLOSED 2026-07-21 (L-518 + L-572) — the tier for a CONSTRUCTED determination now exists and is
+> engine-assigned.** The gap this note recorded was real: Barcelona's Art. 242.2 depth is a real
+> determination *constructed* from real cadastral geometry plus an accepted rule, its derivation
+> rows carry `published` fieldProvenance, and yet the top-level `confidence` landed on
+> `estimated-ruleset` — an ESTIMATED badge over data that is real and cited.
+>
+> **`EnvelopeConfidence` therefore carries a fourth member, `'block-constructed'`**, between
+> `structured` and `estimated-ruleset`: *real inputs + accepted rule + constructed geometry, and
+> NOT an official municipal certificate*. The complete enum is
+> `{ 'authoritative', 'structured', 'block-constructed', 'estimated-ruleset', 'not-determined' }`.
+>
+> **THE ASSIGNMENT RULE IS NORMATIVE, because where it happens is what makes it true (L-572).**
+> The tier MUST be stamped by `ZoningRulesEngine` itself, keyed on the presence of the
+> `alignment.depthBinding` derivation row (§1.3) — which the engine emits if and only if
+> `solveBlockDerivedDepth` returned a binding, so it cannot appear on a fallback. It was originally
+> assigned in the **L5 editor** (`siteDispatch.ts`) by re-scanning the derivation, which made the
+> honesty label a property of ONE UI PATH rather than of the determination: a per-parcel report, an
+> export or an API calling `computeBuildableEnvelope` directly would receive `estimated-ruleset` on
+> genuinely constructed data. **An honesty label that only one caller knows how to compute is not a
+> property of the answer.** No surface may re-derive or override the tier.
+>
+> ⚠ **The upgrade MUST be ordered BEFORE the "Estimated envelope — verify against the governing
+> ordinance" caveat is pushed.** While the upgrade lived downstream, a constructed envelope carried
+> that caveat *and* a "Real · constructed" badge simultaneously. This is asserted by test, not by
+> convention (`blockDerivedEnvelope.test.ts`, §L-572).
+>
+> ⚠ **HONEST LIMIT — the tier labels the RULE, not the INPUT.** The engine is pure and cannot
+> verify that the `blockRing` it was handed is real cadastral geometry; it certifies *"constructed
+> from the block ring supplied, under an accepted rule"*. Per §1.6 the ring's own provenance rides
+> with the caller (production: `CatastroBlockProvider`, real Catastro). This is precisely why §5.1's
+> wording condition exists: the badge reads **"Real · constructed"** and MUST NOT read "verified",
+> "certified" or "authoritative" (`spain/barcelona-catalonia/RISK-REGISTER.md` R1), and it retains
+> its citations and the "2008 modification not reflected" caveat.
 
 **Why**: the honest core (scoping §6.3). Denmark's numbers are real; a Barcelona envelope is a curated estimate. Conflating them would be the single most damaging credibility failure for a compliance product.
 
@@ -353,7 +381,7 @@ The engine output (transient — not persisted authored data; §1.7).
 | `maxCoverage` | `number \| null` | ground coverage 0..1 |
 | `maxVolumeM3` | `number \| null` | `area(insetPolygon) × maxHeight_m` — the 3D envelope volume (SPEC-COMPLIANCE-REPORT render) |
 | `permittedUse` | `string[]` | for the typology brief hand-off (§1.8) |
-| `confidence` | `'authoritative' \| 'structured' \| 'estimated-ruleset'` | §1.2 — mandatory |
+| `confidence` | `'authoritative' \| 'structured' \| 'block-constructed' \| 'estimated-ruleset' \| 'not-determined'` | §1.2 — mandatory. `block-constructed` is stamped by the ENGINE (L-572), never by a UI surface; `not-determined` pairs with `status: 'not-applicable'` (§1.13) |
 | `derivation` | `DerivationTrace` | §1.3 — per-constraint "why" |
 | `caveats` | `string[]` | e.g. "setback estimated from zone class; verify against POUM" |
 
@@ -434,7 +462,7 @@ Each of steps 2–3 opens a `pryzm.zoning.*` span (§1.10).
 
 The envelope render + provenance UX is specified in [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md). C58 binds only:
 
-- **§5.1 — Confidence label mandatory** (§1.4): the envelope's `confidence` chip is always shown; `estimated-ruleset` renders in the distinct "verify against ordinance" style with the `ordinanceRef` link. CI-gated.
+- **§5.1 — Confidence label mandatory** (§1.4): the envelope's `confidence` chip is always shown; `estimated-ruleset` renders in the distinct "verify against ordinance" style with the `ordinanceRef` link. CI-gated. ⚠ **`block-constructed` MUST be worded "Real · constructed"** — never "verified", "certified" or "authoritative" — and MUST keep its citations and the "2008 modification not reflected" caveat (L-518, RISK-REGISTER R1). It is a real determination, not a municipal certificate, and the tier labels the rule rather than the input (§1.2). A surface MUST NOT compute this tier for itself: it arrives already stamped by the engine (L-572).
 - **§5.2 — Brand colour**: the plan setback-inset polygon and the 3D max-height volume render in PRYZM purple `#6600FF` (C18 / C19 §5.5); the translucent 3D volume uses the **existing** renderer path (no new THREE owner — P2 safe).
 - **§5.3 — Explain-why surfaced** (§1.3): each envelope constraint is traceable to its `DerivationEntry` in the compliance report.
 
@@ -542,6 +570,7 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 |---|---|
 | 2026-07-17 | Initial DRAFT — fills the C58 reserved slot (the core compliance value-prop; gap audit G-ENG-1). Fills the C19 §9/§10.2 deferred jurisdiction-registry. Grounds on the two-fidelity scoping + the Denmark structured-zoning reference. Author: compliance-authoring governance track. |
 | 2026-07-21 | Corrected the stale "0 % built" stamp (the engine, solvers, registry and one real pack ship; status stays DRAFT). Amended **§1.2** with `not-determined` + the still-open constructed tier (L-518). Added **§1.12** (construction-not-lookup + the measured provenance ladder, L-525a/L-537) and **§1.13** (refusal vocabulary + rule-pack registry, L-550). Updated **KG-1**; added **KG-3** (FAR/coverage never applied, L-551), **KG-4** (`explicit-area` unsolved, L-538), **KG-5** (24.0 % measured coverage, L-538). Recorded the **L-529 violation** of "the floor is not a fallback", including the refutation of the previously-confirmed half-illa root cause. |
+| 2026-07-21 | **CLOSED the constructed-tier gap the row above left open (L-518 + L-572).** `'block-constructed'` is now documented as a full member of `EnvelopeConfidence` in **§1.2**, the **§4 field table** and **§5.1**; the three places that still listed a 3-member enum are corrected. Added the NORMATIVE assignment rule — the tier is stamped by `ZoningRulesEngine` keyed on the `alignment.depthBinding` derivation row, never re-derived by a UI surface, because assigning it in L5 made the honesty label a property of one UI path and would have badged a per-parcel report ESTIMATED on constructed data. Added the ordering constraint (upgrade BEFORE the estimated caveat — the two contradicted each other in shipped code, proven by a pre-fix-red test) and the honest limit that the tier labels the RULE, not the INPUT (a pure engine cannot verify its `blockRing` is real cadastral geometry; §1.6 provenance rides with the caller). |
 
 
 ---
