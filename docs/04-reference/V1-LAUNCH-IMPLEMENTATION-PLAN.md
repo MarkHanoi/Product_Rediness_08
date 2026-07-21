@@ -3948,3 +3948,33 @@ cannot silently drift apart again — the exact failure mode being closed.
 - `readiness NEVER ARRIVED at stage "anchor" (25,000 ms)` before the tile clamp resolved at 52.16 m.
 
 Neither is addressable by a render-tier change; both need their own evidence.
+
+---
+
+## L-511 — 3D context-data country study (buildings/LOD/height · roads · pedestrian · water · parks/trees)
+
+**Links back to:** L-511 (`V1-LAUNCH-READINESS-AUDIT.md`). **Phase:** post-launch quality (P2), but
+**Spain is founder-designated ship-first**. Full study + gates: `CONTEXT-DATA-COUNTRY-STUDY.md`.
+
+**Pattern (correct-fix):** one ingestion **adapter per country behind the existing per-country
+resolver** (the Barcelona zoning resolver's shape) → Tier A native LOD2 (NL/DK/CH/DE) mapped direct;
+Tier B footprint + **shared nDSM height module** (ES/FR/PT); Tier C = current OSM/Overpass fallback,
+untouched except as the clean fallthrough. Every rendered feature carries a `REAL — <source>` /
+`ESTIMATED` provenance badge (**C23**), same as the zoning "Why these numbers?" panel.
+
+**Two-phase gate:** Spike (live endpoint + sample + CRS/license + 5-building check + gaps) → founder
+go-ahead → Implementation (adapter + reproject + mesh map + badge + re-run spot check). **No impl
+before its spike Gate is evidence-passed.**
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-511a NL spike (reference pattern) | spike | **Buildings Gate PASSED (live); BGT re-verify pending** |
+| L-511b **ES spike (ship-first)** | spike | **Footprint+height Tier-B Gate PASSED (live)**; Catastro bbox axis-order + nDSM module are the impl deltas |
+| L-511c shared **nDSM height module** (footprint ∩ (DSM−DTM)) — ES+FR+PT | infra | NOT STARTED (build once) |
+| L-511d ES adapter (Catastro EPSG:25831 → WGS84 + `numberOfFloorsAboveGround` stopgap → nDSM) | impl | BLOCKED on go-ahead |
+| L-511e provenance badge on context features (C23) | impl | NOT STARTED |
+| L-511f DK / CH / FR / DE / PT spikes | spike | NOT STARTED (build order) |
+
+**Contracts touched:** C12, C19, C21, C23, C55. **Coverage note:** no contract yet governs
+context-layer *provenance badging* end-to-end (C23 covers AI-audit provenance; extend it or add a
+context-ingestion spec) — logged as a gap, not invented.
