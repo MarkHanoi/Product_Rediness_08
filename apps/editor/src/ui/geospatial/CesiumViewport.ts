@@ -3356,6 +3356,59 @@ export class CesiumViewport {
       return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
     };
 
+    // §SITE-FRAME-PROBE (L-530) — WHY THIS LOGS RATHER THAN FIXES.
+    //
+    // Founder 2026-07-21: the plot boundary no longer lines up with the context buildings in the
+    // 3D Site. Three mechanisms produce that symptom and they need OPPOSITE fixes, so guessing
+    // would be a coin flip:
+    //   (1) TRANSLATION — the boundary's scene-XZ was computed against a different origin than the
+    //       `originLat/Lon` this ENU frame is built at (the anchor-vs-parcel-centroid split, the
+    //       same family as L-521 and L-524a). Symptom: correct shape + correct rotation, offset.
+    //   (2) ROTATION — θ (project north) differed between the WRITE (siteDispatch de-rotates the
+    //       parcel ring by θ) and this READ. `readProjectNorthRad` has a documented history of
+    //       latching 0 forever when the store link is absent at first read. Symptom: correct
+    //       position, wrong bearing — very visible in Barcelona, where the Cerdà grid is ~45° off
+    //       true north.
+    //   (3) NEITHER — context and boundary are both right and the eye is comparing an OSM
+    //       footprint set to a cadastral parcel that genuinely disagree.
+    //
+    // These are distinguishable in one line, so log the frame inputs and let the next test settle
+    // it. Cheap, safe, and it converts an argument into a measurement. Never throws — a diagnostic
+    // must not be able to blank the site (the §DECOUPLE-ENVELOPE-FROM-CONTEXT lesson, immediately
+    // below, was exactly that failure).
+    try {
+      if (boundary && boundary.length >= 3) {
+        let sx = 0;
+        let sz = 0;
+        for (const p of boundary) {
+          sx += p.x;
+          sz += p.z;
+        }
+        const cx = sx / boundary.length;
+        const cz = sz / boundary.length;
+        const carto = Cesium.Cartographic.fromCartesian(toCartesian(cx, cz, 0));
+        const cLat = carto ? Cesium.Math.toDegrees(carto.latitude) : Number.NaN;
+        const cLon = carto ? Cesium.Math.toDegrees(carto.longitude) : Number.NaN;
+        // Metres between the ENU origin and where the boundary's centroid actually lands. A plot
+        // drawn ON its site reads a few tens of metres; hundreds of metres means the boundary was
+        // authored against a DIFFERENT origin — mechanism (1).
+        const dEast = (cLon - originLon) * 111320 * Math.cos((originLat * Math.PI) / 180);
+        const dNorth = (cLat - originLat) * 110540;
+        console.log(
+          `[CesiumViewport][forma] §SITE-FRAME-PROBE origin=${originLat.toFixed(6)},${originLon.toFixed(6)} ` +
+            `theta=${((thetaRad * 180) / Math.PI).toFixed(2)}° ` +
+            `boundaryCentroid=${cLat.toFixed(6)},${cLon.toFixed(6)} ` +
+            `offsetFromOrigin=${Math.hypot(dEast, dNorth).toFixed(1)} m (E ${dEast.toFixed(1)}, N ${dNorth.toFixed(1)}) ` +
+            `verts=${boundary.length}. ` +
+            `READ IT LIKE THIS: offset ≫ plot size ⇒ ORIGIN mismatch (translation, L-521 family); ` +
+            `offset small but the plot looks rotated ⇒ θ mismatch (theta here vs the θ siteDispatch ` +
+            `de-rotated the ring by); both sane ⇒ the boundary and the OSM context genuinely disagree.`,
+        );
+      }
+    } catch {
+      /* diagnostic only — never allowed to affect the render */
+    }
+
     // §PLOT-CLEAR-ENVELOPE (L-402c) — project the committed parcel ring to [lon,lat]
     // ONCE (the SAME ENU frame as the OSM footprints), so loadContextBuildings can drop
     // any context building sitting ON the plot (the building the user is replacing),
