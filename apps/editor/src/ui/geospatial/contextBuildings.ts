@@ -5,6 +5,9 @@
 // therefore registers its own reclaimer with the platform quota flow rather than
 // letting `ProjectRepository` reach across the boundary into keys it does not own.
 import { ctxbldRead, ctxbldWrite } from './contextBuildingsCache';
+// §CTX-PMTILES-READER (L-513b) — the baked-tiles source that REPLACES live Overpass on the hot
+// path. See `contextTiles.ts` for why Overpass could never be made reliable from the client.
+import { readContextTileFeatures, contextTilesEnabled, type ContextTileFeature } from './contextTiles';
 //
 // WHY THIS EXISTS
 // ---------------
@@ -663,6 +666,46 @@ export function overpassToCollection(elements: OverpassElement[]): ContextBuildi
     return { type: 'FeatureCollection', features };
 }
 
+/**
+ * §CTX-PMTILES-READER (L-513b) — convert baked tile features to the SAME collection shape the
+ * Overpass path produces, so every consumer (2D MapLibre source, 3D Cesium extruder, the site
+ * metric grids, the party-wall resolver) is untouched by where the footprints came from.
+ *
+ * Height + provenance go through the identical `resolveHeightWithProvenance` as Overpass — the
+ * tiles carry the raw OSM tags, so `tagged` / `derived-levels` / `assumed` keep meaning exactly
+ * what §CTX-HEIGHT-PROVENANCE (L-459) says they mean. A tile footprint is NOT more trustworthy
+ * than an Overpass one; it is the same OSM data delivered reliably.
+ *
+ * ⚠ `osmId` here is the tile reader's SYNTHETIC id, not an OSM id — the bake does not carry OSM
+ * ids into the tiles. It is stable and unique per emitted piece, which is what the downstream
+ * `Set<osmId>` dedupe actually requires. See the `contextTiles.ts` header.
+ */
+export function tilesToCollection(tileFeatures: readonly ContextTileFeature[]): ContextBuildingCollection {
+    const features: ContextBuildingFeature[] = [];
+    for (const tf of tileFeatures) {
+        const floors = resolveFloors(tf.tags);
+        const h = resolveHeightWithProvenance(tf.tags);
+        // A multipolygon contributes one feature per part — the consumers extrude a single outer
+        // ring each, exactly as the Overpass path emits one feature per `outer` member.
+        for (let part = 0; part < tf.rings.length; part++) {
+            const ring = tf.rings[part]!;
+            if (ring.length < 4) continue; // need ≥3 distinct points + the closing point
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [ring as number[][]] },
+                properties: {
+                    heightM: h.height_m,
+                    heightProvenance: h.provenance,
+                    // Parts of one multipolygon must not collide in a Set keyed on osmId.
+                    osmId: tf.syntheticId * 8 + Math.min(part, 7),
+                    ...(floors !== undefined ? { floors } : {}),
+                },
+            });
+        }
+    }
+    return { type: 'FeatureCollection', features };
+}
+
 /** An empty collection — the resting / fallback state. */
 export function emptyContextCollection(): ContextBuildingCollection {
     return { type: 'FeatureCollection', features: [] };
@@ -704,6 +747,34 @@ async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBu
     const key = bboxKey(bbox);
     const cached = cache.get(key);
     if (cached) return cached;
+
+    // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST. This is the ONE per-bbox fetch
+    // chokepoint, so gating here moves every extent (near, far, narrow fallback) off live Overpass
+    // in a single place. When the tiles URL is unset — local dev, or before the rollout — this is a
+    // no-op and the Overpass path below runs exactly as it did.
+    //
+    // ⚠ THE FALLBACK IS DELIBERATELY NOT UNCONDITIONAL. We fall back to Overpass only on
+    // `disabled` (not configured) or `unavailable` (a real read failure). We do NOT fall back on a
+    // truthful EMPTY result, because "the tiles say nothing is mapped here" is an ANSWER, and
+    // re-asking a flaky third party for a second opinion on it would reintroduce the very
+    // failure-looks-like-empty conflation this whole change exists to remove
+    // (§CONTEXT-DATA-HONESTY, L-422/457/467/469).
+    const tiled = await readContextTileFeatures('buildings', bbox, signal);
+    if (tiled.status === 'ok') {
+        const collection = tilesToCollection(tiled.features);
+        console.log(
+            `[gis] §CTX-PMTILES-READER buildings: ${collection.features.length} footprint(s) from ` +
+                `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call.`,
+        );
+        cache.set(key, collection);
+        return collection;
+    }
+    if (tiled.status === 'unavailable') {
+        console.warn(
+            `[gis] §CTX-PMTILES-READER buildings: tiles configured but unreadable (${tiled.reason}) ` +
+                '— falling back to live Overpass. This is a DEGRADED path, not the intended one.',
+        );
+    }
     // §A.21.D-GLOBE2 — persistent cache hit (survives reload / new project), so a
     // re-visited site loads its context buildings without another Overpass call.
     const persisted = lsRead(key);
@@ -1312,6 +1383,37 @@ export async function fetchContextBuildingsNearAndFar(
     // Both extents keep their own cache key, so a repeat visit still serves from cache; and when
     // the far fetch does succeed the near features are taken from it (a strict superset), so the
     // near/far split stays consistent and nothing is double-counted.
+    // §CTX-PMTILES-READER (L-513b) — SKIP THE HEDGE WHEN THE TILES ARE ON.
+    //
+    // Everything below (cheap-query-first, the non-blocking far ring, the narrow last resort) is
+    // machinery built to survive ONE specific third party: a public Overpass instance whose cost
+    // model made a big bbox likely to fail. Baked tiles have no query planner and no rate limit —
+    // reading the far extent is a fixed number of static byte-range GETs, and the near ring is a
+    // strict subset of it (§PERF-CTX-SINGLE-FETCH). Running the hedge anyway would read the near
+    // tiles and then read them AGAIN as part of the far box: ~55 tile requests to serve ~35 tiles
+    // of data, and a slower first paint, to protect against a failure mode that no longer exists.
+    // So on the tiles path we go straight to the single far read and partition it.
+    if (contextTilesEnabled()) {
+        const full = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+        if (signal?.aborted) return empty;
+        const nearBbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+        const nearFeatures = selectNearFootprints({ farFeatures: full.features, nearBbox });
+        const nearOsmIds = new Set<number>(nearFeatures.map((f) => f.properties.osmId));
+        const farFeatures = selectFarRingFootprints({
+            farFeatures: full.features,
+            centerLat: lat, centerLon: lon,
+            nearBbox, nearOsmIds, cap,
+        });
+        console.log(
+            `[gis] §CTX-PMTILES-READER near+far from ONE baked-tile read: ${nearFeatures.length} near ` +
+                `+ ${farFeatures.length} far (cap ${cap}) of ${full.features.length} footprint(s).`,
+        );
+        return {
+            near: { type: 'FeatureCollection', features: nearFeatures },
+            far: { type: 'FeatureCollection', features: farFeatures },
+        };
+    }
+
     const nearFirst = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG), signal);
     if (signal?.aborted) return empty;
     if (nearFirst.features.length > 0) {

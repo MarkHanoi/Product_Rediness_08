@@ -933,6 +933,9 @@ importers:
 
   apps/editor:
     dependencies:
+      '@mapbox/vector-tile':
+        specifier: ^3.0.0
+        version: 3.0.0
       '@pryzm/auto-dimension':
         specifier: workspace:*
         version: link:../../packages/auto-dimension
@@ -1065,6 +1068,12 @@ importers:
       maplibre-gl:
         specifier: ^5.6.0
         version: 5.24.0
+      pbf:
+        specifier: ^5.1.2
+        version: 5.1.2
+      pmtiles:
+        specifier: ^4.4.1
+        version: 4.4.1
     devDependencies:
       '@pryzm/runtime-composer':
         specifier: workspace:*
@@ -5570,6 +5579,9 @@ packages:
   '@mapbox/vector-tile@2.0.5':
     resolution: {integrity: sha512-pXj8m7KTsqZt+1jsE0xIpGvqTSbblfkuEJL/NJmNePMtEwxO8V3XMDo9WMSfDeqHvCtBI9Lmt4mGcGR10zecmw==}
 
+  '@mapbox/vector-tile@3.0.0':
+    resolution: {integrity: sha512-Qf10S1uIHMk20ri/IVBnpS+esUEkVaR5Hftmz88jTInrpmWgPGJfPe3LVjjlE77trLx8tH6qjTG7uWH9hIq/0Q==}
+
   '@mapbox/whoots-js@3.1.0':
     resolution: {integrity: sha512-Es6WcD0nO5l+2BOQS4uLfNPYQaNDfbot3X1XUoloz+x0mPDS3eeORZJl06HXjwBG1fOGwCRnzK88LMdxKRrd6Q==}
     engines: {node: '>=6.0.0'}
@@ -8872,6 +8884,10 @@ packages:
     resolution: {integrity: sha512-J0ajxARhZfpUEebxYs1vhMGMuLSXtBe1e+fFPDrf2uA2hgo+UshKfNUWOz92HJNz6/NFEXseQPddnHkTreWRqg==}
     hasBin: true
 
+  pbf@5.1.2:
+    resolution: {integrity: sha512-mnvGdvOrIvJOBGUEdGkrVXjN8E/VkIJCkf2eS1DH2yv82ORUlLttmDt0rWY38yYZmVwciZwBUvHM20qxBZf40w==}
+    hasBin: true
+
   pdf-lib@1.17.1:
     resolution: {integrity: sha512-V/mpyJAoTsN4cnP31vc0wfNA1+p20evqqnap0KLoRUN0Yk/p3wN52DOEsL4oBFcLdb76hlpKPtzJIgo67j/XLw==}
 
@@ -8958,6 +8974,9 @@ packages:
     resolution: {integrity: sha512-C8oWjPR3F81yljW9o5OxcWzfh6avkVwDD2VYdwIGqTkl+OGFISgypqzfu7dOe4QNLL2aqcWBmI3PMtLIK233lw==}
     engines: {node: '>=18'}
     hasBin: true
+
+  pmtiles@4.4.1:
+    resolution: {integrity: sha512-5oTeQc/yX/ft1evbpIlnoCZugQuug/iYIAj/ZTqIqzdGek4uZEho99En890EE6NOSI3JTI3IG8R7r8+SltphxA==}
 
   pngjs@7.0.0:
     resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
@@ -11938,6 +11957,12 @@ snapshots:
       '@mapbox/point-geometry': 1.1.0
       '@types/geojson': 7946.0.16
       pbf: 4.0.2
+
+  '@mapbox/vector-tile@3.0.0':
+    dependencies:
+      '@mapbox/point-geometry': 1.1.0
+      '@types/geojson': 7946.0.16
+      pbf: 5.1.2
 
   '@mapbox/whoots-js@3.1.0': {}
 
@@ -16217,6 +16242,10 @@ snapshots:
     dependencies:
       resolve-protobuf-schema: 2.1.0
 
+  pbf@5.1.2:
+    dependencies:
+      resolve-protobuf-schema: 2.1.0
+
   pdf-lib@1.17.1:
     dependencies:
       '@pdf-lib/standard-fonts': 1.0.0
@@ -16299,6 +16328,10 @@ snapshots:
       playwright-core: 1.59.1
     optionalDependencies:
       fsevents: 2.3.2
+
+  pmtiles@4.4.1:
+    dependencies:
+      fflate: 0.8.2
 
   pngjs@7.0.0: {}
 

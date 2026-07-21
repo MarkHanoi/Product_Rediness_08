@@ -28,6 +28,7 @@
     "typecheck": "tsc -p ../../tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^3.0.0",
     "@pryzm/auto-dimension": "workspace:*",
     "@pryzm/building-graph": "workspace:*",
     "@pryzm/climate-host": "workspace:*",
@@ -38,10 +39,7 @@
     "@pryzm/geometry-lift": "workspace:*",
     "@pryzm/geospatial": "workspace:*",
     "@pryzm/keyboard-registry": "workspace:*",
-    "@pryzm/schemas": "workspace:*",
-    "@pryzm/typology-pipeline": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",
-    "maplibre-gl": "^5.6.0",
     "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/plugin-beam": "workspace:*",
     "@pryzm/plugin-ceiling": "workspace:*",
@@ -53,8 +51,8 @@
     "@pryzm/plugin-grid": "workspace:*",
     "@pryzm/plugin-handrail": "workspace:*",
     "@pryzm/plugin-plumbing": "workspace:*",
-    "@pryzm/plugin-roof": "workspace:*",
     "@pryzm/plugin-pool": "workspace:*",
+    "@pryzm/plugin-roof": "workspace:*",
     "@pryzm/plugin-rooms": "workspace:*",
     "@pryzm/plugin-selection": "workspace:*",
     "@pryzm/plugin-slab": "workspace:*",
@@ -67,11 +65,16 @@
     "@pryzm/renderer": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
     "@pryzm/site-parcel-data": "workspace:*",
     "@pryzm/solar-analysis": "workspace:*",
     "@pryzm/stores": "workspace:*",
     "@pryzm/street-analytics": "workspace:*",
-    "@pryzm/view-state": "workspace:*"
+    "@pryzm/typology-pipeline": "workspace:*",
+    "@pryzm/view-state": "workspace:*",
+    "maplibre-gl": "^5.6.0",
+    "pbf": "^5.1.2",
+    "pmtiles": "^4.4.1"
   },
   "devDependencies": {
     "@pryzm/runtime-composer": "workspace:*",

@@ -46,11 +46,27 @@ const REGION = {
 // Per-layer: the osmium tags-filter expression + tippecanoe zoom range. Attributes (building
 // height / building:levels, highway class, etc.) ride along in the GeoJSON — osmium export keeps
 // all tags — so the client can style + badge them (provenance-in-tile, C23).
+//
+// §BAKE-GEOMETRY-TYPES (L-513b, 2026-07-21) — ⚠ `geom` IS NOT OPTIONAL. A live probe of the FIRST
+// bake found, in one Gòtic z16 tile:
+//     LineString 362 features (all building=*) · Polygon 362 (IDENTICAL tags) · Point 678
+// `osmium export` defaults to `--geometry-types=point,linestring,polygon`, so it emitted EVERY
+// closed building way TWICE — once as the way (LineString) and once as the assembled area
+// (Polygon) — and additionally exported the tagged `entrance=*` NODES that `tags-filter` drags in
+// as referenced objects. That triples the tile bytes, double-counts every footprint for anything
+// that measures built density, and would extrude a cloud of doorways. Pinning the geometry type
+// per layer is the fix at source. (The client reader stays defensive about this anyway — tiles are
+// a separately-deployed artefact and can be older than the code reading them.)
+//
+// §BAKE-UNIQUE-ID — `--add-unique-id=type_id` carries the real OSM id into the tile, so the client
+// can stop minting synthetic ids and can dedupe a footprint across tile boundaries properly.
 const LAYERS = [
-  { id: 'buildings', filter: ['w/building'],                                     minz: 12, maxz: 16, extra: ['--drop-densest-as-needed'] },
-  { id: 'roads',     filter: ['w/highway'],                                       minz: 10, maxz: 16, extra: ['--drop-densest-as-needed'] },
-  { id: 'water',     filter: ['nwr/natural=water', 'nwr/waterway', 'w/water'],   minz: 8,  maxz: 16, extra: [] },
-  { id: 'parks',     filter: ['nwr/leisure=park', 'nwr/landuse=grass,forest,recreation_ground', 'nwr/natural=wood'], minz: 10, maxz: 16, extra: [] },
+  { id: 'buildings', filter: ['w/building'],                                     geom: 'polygon',            minz: 12, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  { id: 'roads',     filter: ['w/highway'],                                       geom: 'linestring',         minz: 10, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  // Water is genuinely MIXED — lakes/basins are areas, streams/rivers are ways. Both are wanted,
+  // and `contextWater.ts` already splits them, so this is the one layer that keeps two types.
+  { id: 'water',     filter: ['nwr/natural=water', 'nwr/waterway', 'w/water'],   geom: 'polygon,linestring', minz: 8,  maxz: 16, extra: [] },
+  { id: 'parks',     filter: ['nwr/leisure=park', 'nwr/landuse=grass,forest,recreation_ground', 'nwr/natural=wood'], geom: 'polygon', minz: 10, maxz: 16, extra: [] },
 ];
 
 // ── args ─────────────────────────────────────────────────────────────────────
@@ -151,8 +167,11 @@ async function main() {
     const pmt = resolve(OUT, `${l.id}.pmtiles`);
     run(`filter ${l.id}`,
       tool('osmium', ['tags-filter', REGION.clipped, ...l.filter, '-o', filtered, '--overwrite']));
-    run(`export ${l.id} → GeoJSONSeq`,
-      tool('osmium', ['export', filtered, '-f', 'geojsonseq', '-o', geo, '--overwrite']));
+    run(`export ${l.id} → GeoJSONSeq (${l.geom})`,
+      tool('osmium', ['export', filtered, '-f', 'geojsonseq',
+        // §BAKE-GEOMETRY-TYPES + §BAKE-UNIQUE-ID — see the LAYERS note above.
+        '--geometry-types', l.geom, '--add-unique-id', 'type_id',
+        '-o', geo, '--overwrite']));
     run(`tile ${l.id} → PMTiles`,
       tool('tippecanoe', ['-o', pmt, '-l', l.id, '-Z', String(l.minz), '-z', String(l.maxz),
         '-P', '--force', ...l.extra, geo]));
