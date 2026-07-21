@@ -822,9 +822,29 @@ function applyZoning(
         let qLat: number | undefined = loc?.latitude;
         let qLon: number | undefined = loc?.longitude;
         if (loc && boundary.polygon.length >= 3) {
+            // §L-521b — use the AREA centroid (shoelace), NOT the vertex average. A hand-drawn boundary
+            // can be irregular/concave, where the vertex average drifts OUTSIDE the polygon and would
+            // query Catastro/MUC at the wrong point → wrong clau / no parcel → estimated fallback (the
+            // founder's recurring "estimated on a Barcelona draw"). The area centroid is the proper
+            // polygon centroid and lands inside for the typical near-convex parcel; a degenerate
+            // (near-zero) area falls back to the vertex average.
+            const poly = boundary.polygon;
             let cx = 0, cz = 0;
-            for (const p of boundary.polygon) { cx += p.x; cz += p.z; }
-            cx /= boundary.polygon.length; cz /= boundary.polygon.length;
+            let a2 = 0, ax = 0, az = 0;
+            for (let i = 0; i < poly.length; i++) {
+                const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
+                const cross = p.x * q.z - q.x * p.z;
+                a2 += cross;
+                ax += (p.x + q.x) * cross;
+                az += (p.z + q.z) * cross;
+            }
+            if (Math.abs(a2) > 1e-6) {
+                cx = ax / (3 * a2);
+                cz = az / (3 * a2);
+            } else {
+                for (const p of poly) { cx += p.x; cz += p.z; }
+                cx /= poly.length; cz /= poly.length;
+            }
             const theta = Number.isFinite(loc.trueNorth) ? loc.trueNorth : 0;
             const tn = theta === 0
                 ? { east: cx, north: -cz }
