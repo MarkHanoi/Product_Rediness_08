@@ -32,6 +32,49 @@
 // *profunditat edificable*, which is precisely the confidently-wrong compliance number ADR-0270,
 // ADR-0271, L-462 and L-465 all exist to prevent.
 //
+// §DISSOLVE-TJUNCTION-SPLIT (L-539) — THE ABOVE CAVEAT WAS THE DOMINANT OUTCOME, AND IS NOW
+// REPAIRED FOR ONE MEASURED CLASS ONLY
+// ---------------------------------------------------------------------------------------------
+// Measured on 956 complete real *manzanas* across 5 Spanish cities (probe + full method in
+// `docs/04-reference/spain/SPAIN-DISSOLVE-FAILURE-TAXONOMY.md`): the exact pass produced a ring
+// for only **63.5 %** of them. One Barcelona block in five, and three Sevilla blocks in five,
+// yielded NO ring — therefore no depth, no width, no height, and a 0.5 m footprint slab.
+//
+// The taxonomy demolished the assumption this header itself carried. There are **no slivers and
+// no near-coincident vertices**: across 349 failing manzanas, the nearest-neighbour distance of
+// every break vertex was ≥ 0.05 m, and 0 of 250,646 parcel edges were shorter than 0.083 m. A
+// vertex weld — the "obvious" fix, and the one the brief anticipated — moves NOTHING below 0.1 m
+// and is therefore not implemented. **We still never move a vertex.**
+//
+// What actually dominates is a single defect with a single cause. Catastro's INSPIRE GML
+// publishes WGS84 coordinates rounded to **6 decimal places** (verified on 12,601 sampled
+// vertices), i.e. on a grid of 1e-6° ≈ **0.083 m east / 0.111 m north** at Iberian latitudes —
+// which is exactly the 0.0835 m floor observed in the edge-length distribution. Two neighbours
+// digitising the SAME boundary can therefore hold different vertex COUNTS on it: parcel A stores
+// `p → q`, parcel B stores `p → r → q` with `r` sitting up to a rounding off the straight line.
+// Nothing cancels; the survivors form the block outline PLUS a hair-thin triangle `p-r-q`, so the
+// chain finds two loops instead of one and refuses. 94 % of the multi-loop failures are exactly
+// that: an extra loop nested inside the outline with an area of ~0 % of it.
+//
+// The repair is correspondingly narrow: before cancelling, SPLIT an edge at any existing vertex
+// lying within `TJUNCTION_SPLIT_TOLERANCE_M` of its interior. `p → q` becomes `p → r`, `r → q`,
+// both cancel against B, and the outline closes.
+//
+// ⚠ WHAT THIS COSTS, STATED PLAINLY. The split point is the NEIGHBOUR'S OWN EXISTING VERTEX — no
+// vertex is constructed and none is moved, so the "output points are input points" guarantee
+// survives intact. The one thing that IS given up: the ring may now follow a path that departs
+// from the exactly-straight `p → q` by up to the tolerance. That deviation is bounded by 0.10 m,
+// which is SMALLER THAN THE SOURCE DATA'S OWN COORDINATE RESOLUTION (0.111 m north) — the repair
+// cannot introduce an error larger than the rounding already present in the input. The tolerance
+// is derived and defended in `TJUNCTION_SPLIT_TOLERANCE_M` below; it is not a tuned number.
+//
+// ⚠ AND WHAT IT DELIBERATELY DOES NOT DO. The exact pass runs FIRST and its result is returned
+// UNCHANGED whenever it succeeds. Applying the repair unconditionally would have altered 137 of
+// the 607 rings that already existed — i.e. silently moved 137 compliance numbers. A new failure
+// is recoverable; a silently changed *profunditat edificable* is not. `non-manifold` (genuinely
+// overlapping parcels) and `malformed-parcel` are never repaired either: those are wrong INPUTS,
+// not a digitisation artefact. Blocks that are genuinely two separate polygons still refuse.
+//
 // ⚠⚠ PROVENANCE WARNING — READ BEFORE TRUSTING A FRONTAGE CLASSIFICATION
 // ---------------------------------------------------------------------
 // `classifyBlockFrontages` infers a LEGAL fact (which boundaries are street frontages, per PGM
@@ -61,6 +104,54 @@ import { polygonSignedArea, pointSegmentDistance } from '@pryzm/site-validators'
  */
 export const VERTEX_MATCH_TOLERANCE_M = 1e-3;
 
+/**
+ * §DISSOLVE-TJUNCTION-SPLIT (L-539) — how far off an edge an existing vertex may sit and still be
+ * taken as a T-junction on it, in metres.
+ *
+ * ⚠ THIS NUMBER IS DERIVED FROM THE SOURCE DATA, NOT CHOSEN. It is bounded from BOTH sides by
+ * measurements in `SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` (956 manzanas, 5 cities), and every one of
+ * the three bounds lands in the same place:
+ *
+ *  1. **The publisher's own quantum — the upper bound that matters.** Catastro INSPIRE GML rounds
+ *     coordinates to 1e-6° ≈ 0.083 m east / **0.111 m north**. A tolerance at or below that is
+ *     incapable of introducing a positional error the input does not already contain. 0.10 m is
+ *     inside it. Anything above 0.111 m would be asserting more precision than the data has.
+ *  2. **The empirical valley.** The perpendicular offsets of candidate T-junctions form two
+ *     populations with a gap between them: the defect population runs to ~0.075 m (78 % of 1,057
+ *     incidences are ≤ 0.1 m), then the histogram collapses ten-fold across 0.1–0.3 m, then real,
+ *     unrelated geometry resumes above 0.3 m. 0.10 m is the floor of that valley.
+ *  3. **The success curve's plateau.** 0.05 m → 81.5 %, **0.10 m → 91.6 %**, 0.20 m → 93.4 %,
+ *     0.30 m → 93.1 % (falling: over-splitting starts destroying rings). The curve is already
+ *     flat at 0.10; the extra 1.8 points at 0.20 would cost a doubling of the deviation and take
+ *     it past bound 1, so it is refused. A tolerance is only defensible on a plateau — on a slope
+ *     it is a tuned number, which is the L-529 failure this whole probe exists to avoid.
+ *
+ * Two structural safeties follow from the value rather than being added on top: an edge shorter
+ * than 2× the tolerance can never be split (the split point must clear both endpoints by the
+ * tolerance), and a mis-split can only ever leave a fragment that fails to cancel — i.e. it
+ * degrades to a REFUSAL, never to a plausible-but-wrong ring.
+ */
+export const TJUNCTION_SPLIT_TOLERANCE_M = 0.1;
+
+/**
+ * §DISSOLVE-TJUNCTION-SPLIT — how the ring was obtained, so a caller can tier its provenance
+ * (C58 §1.4) exactly as L-537 did for measured street widths.
+ *
+ * A ring on the `exact` path is bit-for-bit what this module has always produced. A ring on the
+ * `t-junction-split` path is the same construction over a tiling that had `splitCount` edges cut
+ * at an existing neighbour vertex, and its worst-case departure from the exactly-straight input
+ * boundary is `maxOffset_m` (≤ the tolerance, and ≤ the source's own coordinate resolution).
+ */
+export interface BlockRingQuality {
+    readonly path: 'exact' | 't-junction-split';
+    /** Edges cut at an existing neighbour vertex. 0 on the exact path. */
+    readonly splitCount: number;
+    /** Largest perpendicular offset of any applied split, m. 0 on the exact path. */
+    readonly maxOffset_m: number;
+    /** The tolerance in force, m — reported so a caveat can quote it rather than re-derive it. */
+    readonly tolerance_m: number;
+}
+
 export interface BlockRingResult {
     /** The block outline, or `[]` when the parcels do not form a conforming tiling. */
     readonly ring: ReadonlyArray<Pt>;
@@ -74,6 +165,11 @@ export interface BlockRingResult {
         | 'non-manifold'
         /** Survivors did not chain into ONE closed loop — T-junctions, slivers, or a gap. */
         | 'open-or-disjoint';
+    /**
+     * §DISSOLVE-TJUNCTION-SPLIT (L-539). Present on every result, success or failure, so the
+     * decision "was this ring repaired, and by how much?" is never inferred from its absence.
+     */
+    readonly quality: BlockRingQuality;
 }
 
 /** Quantise to the match tolerance so coincident-but-jittery vertices key identically. */
@@ -129,19 +225,18 @@ function dropCollinear(ring: ReadonlyArray<Pt>): Pt[] {
 }
 
 /**
- * Dissolve the parcels of one *manzana* into the block outline.
+ * The EXACT edge-cancellation pass — the original algorithm, unchanged.
  *
- * PURE + deterministic (C58 §1.1/§1.9). Never throws. Constructs no new vertices — every output
- * point is an input point, so the ring is exact rather than approximate.
- *
- * Returns `degenerate` rather than a best-effort ring whenever the inputs are not a conforming
- * tiling. See the header for why that refusal is the whole point.
+ * Kept as its own function rather than folded into the public entry point precisely so the
+ * repaired path cannot drift from it: the repair only ever changes the INPUT it is handed, and
+ * both paths then run this identical code.
  */
-export function dissolveParcelsToBlockRing(
+function dissolveExact(
     parcelRings: ReadonlyArray<ReadonlyArray<Pt>>,
+    quality: BlockRingQuality,
 ): BlockRingResult {
     const fail = (reason: BlockRingResult['reason']): BlockRingResult =>
-        ({ ring: [], degenerate: true, reason });
+        ({ ring: [], degenerate: true, reason, quality });
 
     if (parcelRings.length < 1) return fail('too-few-parcels');
 
@@ -230,7 +325,171 @@ export function dissolveParcelsToBlockRing(
     // always sees the same orientation for the same block.
     const simplified = dropCollinear(out);
     const ring = polygonSignedArea(simplified) < 0 ? [...simplified].reverse() : simplified;
-    return { ring, degenerate: false, reason: null };
+    return { ring, degenerate: false, reason: null, quality };
+}
+
+/** The quality record of a ring nothing was done to. */
+const EXACT_QUALITY: BlockRingQuality = {
+    path: 'exact',
+    splitCount: 0,
+    maxOffset_m: 0,
+    tolerance_m: 0,
+};
+
+/**
+ * §DISSOLVE-TJUNCTION-SPLIT (L-539) — insert existing neighbour vertices into the edges they sit
+ * on, so a boundary two parcels store with different vertex COUNTS can cancel.
+ *
+ * ⚠ CONSTRUCTS NO VERTEX AND MOVES NONE. Every inserted point is an input vertex of some parcel,
+ * taken by reference. The only thing given up is that the path `p → q` becomes `p → r → q`, which
+ * departs from the straight line by at most `tol` — see `TJUNCTION_SPLIT_TOLERANCE_M` for why
+ * that bound is below the input's own coordinate resolution.
+ *
+ * DETERMINISM (C58 §1.1) is engineered, not hoped for: the candidate vertex set is de-duplicated
+ * by the same quantisation key the cancellation uses and then SORTED, the spatial index is only
+ * ever used to narrow the search (never to order it), and the hits on one edge are sorted by
+ * position along it with a coordinate tie-break. Same parcels in any order ⇒ same split rings.
+ */
+function splitTJunctions(
+    parcelRings: ReadonlyArray<ReadonlyArray<Pt>>,
+    tol: number,
+): { rings: Pt[][]; splitCount: number; maxOffset_m: number } {
+    // Unique candidate vertices, in a deterministic order.
+    const uniq = new Map<string, Pt>();
+    for (const ring of parcelRings) for (const p of ring) if (!uniq.has(key(p))) uniq.set(key(p), p);
+    const verts = [...uniq.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, p]) => p);
+
+    // Uniform grid, cell = tol, so an edge only ever tests the vertices near it. Without this the
+    // scan is O(vertices × edges) — ~600 × ~600 per manzana today, which is survivable but grows
+    // quadratically with block size, and this runs on the envelope's critical path.
+    const cell = Math.max(tol, 1e-6);
+    const grid = new Map<string, Pt[]>();
+    for (const p of verts) {
+        const gk = `${Math.floor(p.x / cell)},${Math.floor(p.z / cell)}`;
+        const list = grid.get(gk);
+        if (list) list.push(p);
+        else grid.set(gk, [p]);
+    }
+
+    let splitCount = 0;
+    let maxOffset = 0;
+
+    const rings = parcelRings.map((ring) => {
+        const out: Pt[] = [];
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!;
+            const b = ring[(i + 1) % ring.length]!;
+            out.push(a);
+            const dx = b.x - a.x;
+            const dz = b.z - a.z;
+            const len2 = dx * dx + dz * dz;
+            if (len2 === 0) continue;
+            const len = Math.sqrt(len2);
+            // An edge shorter than 2×tol has no interior clear of both endpoints, so it can never
+            // be split. That is a safety, not an optimisation: it is what stops the tolerance from
+            // reshaping the shortest features in the data.
+            if (len <= 2 * tol) continue;
+
+            const hits: Array<{ t: number; p: Pt; perp: number }> = [];
+            const cx0 = Math.floor((Math.min(a.x, b.x) - tol) / cell);
+            const cx1 = Math.floor((Math.max(a.x, b.x) + tol) / cell);
+            const cz0 = Math.floor((Math.min(a.z, b.z) - tol) / cell);
+            const cz1 = Math.floor((Math.max(a.z, b.z) + tol) / cell);
+            for (let cx = cx0; cx <= cx1; cx++) {
+                for (let cz = cz0; cz <= cz1; cz++) {
+                    for (const v of grid.get(`${cx},${cz}`) ?? []) {
+                        const t = ((v.x - a.x) * dx + (v.z - a.z) * dz) / len2;
+                        // Must clear BOTH endpoints by the tolerance: a vertex near a corner is a
+                        // corner, not a T-junction, and splitting there would emit a fragment
+                        // shorter than the tolerance itself.
+                        if (t * len <= tol || (1 - t) * len <= tol) continue;
+                        const perp = Math.hypot(v.x - (a.x + t * dx), v.z - (a.z + t * dz));
+                        if (perp > tol) continue;
+                        hits.push({ t, p: v, perp });
+                    }
+                }
+            }
+            if (hits.length === 0) continue;
+            hits.sort((u, w) =>
+                u.t !== w.t ? u.t - w.t : u.p.x !== w.p.x ? u.p.x - w.p.x : u.p.z - w.p.z,
+            );
+            let lastKey = key(a);
+            for (const h of hits) {
+                const hk = key(h.p);
+                // Two candidates that quantise to the same vertex would emit a zero-length edge,
+                // which the cancellation pass discards — and a discarded edge is a hole in the
+                // chain. Emit each distinct vertex once.
+                if (hk === lastKey) continue;
+                out.push(h.p);
+                lastKey = hk;
+                splitCount++;
+                if (h.perp > maxOffset) maxOffset = h.perp;
+            }
+        }
+        return out;
+    });
+
+    return { rings, splitCount, maxOffset_m: maxOffset };
+}
+
+export interface DissolveOptions {
+    /**
+     * Override the T-junction split tolerance (m). Production must NOT pass this — the default is
+     * derived from the source data's own coordinate resolution and a caller is not in a position
+     * to know better. It exists so a test can pin the behaviour at a stated tolerance, and so a
+     * future non-Catastro provider with a different published precision can state its own.
+     */
+    readonly tJunctionTolerance_m?: number;
+    /** Set false to get the pre-L-539 behaviour verbatim (used by the regression tests). */
+    readonly repairTJunctions?: boolean;
+}
+
+/**
+ * Dissolve the parcels of one *manzana* into the block outline.
+ *
+ * PURE + deterministic (C58 §1.1/§1.9). Never throws. Constructs no new vertices and moves none —
+ * every output point is an input point.
+ *
+ * Returns `degenerate` rather than a best-effort ring whenever the inputs are not a conforming
+ * tiling, INCLUDING after the §DISSOLVE-TJUNCTION-SPLIT repair. See the header for why that
+ * refusal is the whole point, and for what the repair does and does not do.
+ */
+export function dissolveParcelsToBlockRing(
+    parcelRings: ReadonlyArray<ReadonlyArray<Pt>>,
+    options: DissolveOptions = {},
+): BlockRingResult {
+    const exact = dissolveExact(parcelRings, EXACT_QUALITY);
+
+    // ⚠ THE EXACT RESULT WINS WHENEVER IT EXISTS. Measured on 956 real manzanas: repairing
+    // unconditionally would have changed 137 of the 607 rings the exact pass already produces —
+    // 137 silently moved compliance numbers, which is a worse outcome than any number of new
+    // refusals (brief L-539; the ADR-0270/0271 + L-462/L-465/L-529 line of reasoning).
+    if (!exact.degenerate) return exact;
+
+    if (options.repairTJunctions === false) return exact;
+
+    // Only ONE failure mode is a digitisation artefact. `non-manifold` means the parcels
+    // genuinely overlap and `malformed-parcel` means an input is not a polygon; splitting edges
+    // would not make either true, it would only make a fiction closable. `too-few-parcels` has
+    // nothing to repair.
+    if (exact.reason !== 'open-or-disjoint') return exact;
+
+    const tol = options.tJunctionTolerance_m ?? TJUNCTION_SPLIT_TOLERANCE_M;
+    if (!(tol > 0) || !Number.isFinite(tol)) return exact;
+
+    const opened = parcelRings.map((r) => openRing(r));
+    const split = splitTJunctions(opened, tol);
+    if (split.splitCount === 0) return exact;
+
+    const repaired = dissolveExact(split.rings, {
+        path: 't-junction-split',
+        splitCount: split.splitCount,
+        maxOffset_m: split.maxOffset_m,
+        tolerance_m: tol,
+    });
+    // A repair that still does not close tells us nothing new about WHY, and the exact pass's
+    // reason is the honest one to report (the repair is our intervention, not the input's fault).
+    return repaired.degenerate ? exact : repaired;
 }
 
 /** A road centreline, as the context engine already holds it (C12 §8). */

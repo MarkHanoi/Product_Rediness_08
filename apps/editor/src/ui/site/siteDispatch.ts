@@ -1064,6 +1064,21 @@ async function applyBcnZoningThenFallback(
             return;
         }
         const blockRing = dissolved.ring;
+        // §DISSOLVE-TJUNCTION-SPLIT (L-539) — say WHICH path produced this ring. A repaired ring
+        // is still built from input vertices only, but it followed a boundary that departs from
+        // the straight input edge by up to `maxOffset_m` (bounded by 0.1 m, i.e. under Catastro’s
+        // own 0.111 m coordinate quantum). It is logged rather than inferred from silence, for
+        // the L-459 reason: a derived value that renders indistinguishably from a surveyed one is
+        // the defect, not the derivation.
+        if (dissolved.quality.path !== 'exact') {
+            console.log(
+                `${TAG} §DISSOLVE-TJUNCTION-SPLIT — block ring recovered by splitting ` +
+                    `${dissolved.quality.splitCount} edge(s) at an existing neighbour vertex; max ` +
+                    `offset ${dissolved.quality.maxOffset_m.toFixed(3)} m (tolerance ` +
+                    `${dissolved.quality.tolerance_m} m). Without it this block would have had NO ` +
+                    `envelope at all.`,
+            );
+        }
 
         // (f) Roads → street-frontage classification of the block edges.
         // §L-516 — take the SLOW Overpass roads fetch OFF the real-envelope critical path (founder:
