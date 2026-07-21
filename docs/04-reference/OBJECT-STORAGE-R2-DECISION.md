@@ -1,8 +1,30 @@
 # Object storage — Cloudflare R2 (decision record)
 
-**Status:** DECIDED (founder, 2026-07-21). Unblocks L-513 (context tiles) + the furniture-GLB 404.
-**Owner action pending:** create the bucket + a public domain + API token, then hand the credentials
-to the build. Until then the code is ready but has nowhere to read/write.
+**Status:** DECIDED (founder, 2026-07-21) → **PROVISIONED + WIRED (L-570 / L-571, same day).**
+Bucket `pryzm-assets` exists with prefixes `items/` + `tiles/`; the `R2_ACCOUNT_ID` /
+`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` repo secrets are set; the client and both publish
+workflows are wired. **Remaining owner action: click "Run workflow" on the two jobs below.**
+
+## What is wired (read this before changing anything here)
+
+| Piece | Where | Note |
+|---|---|---|
+| Public base URL | `https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev` | **NOT a secret** — it ships in the client bundle by design. |
+| GLB/thumbnail URL resolution | `apps/editor/src/ui/furniture-carousel/catalogAssetUrl.ts` | Logical `/items/…` → `${VITE_GLB_URL}…`; **exact identity when the var is unset**, so local dev is unaffected. |
+| Build-time plumbing | `deploy-fly.yml` → `--build-arg` → `Dockerfile` `ARG/ENV` → vite | Both `VITE_GLB_URL` and `VITE_CONTEXT_TILES_URL`. |
+| Base-URL source | repo **variables** `vars.VITE_GLB_URL` / `vars.VITE_CONTEXT_TILES_URL` | Deliberately `vars`, not `secrets` — a secret is redacted from the log, hiding the one diagnostic that matters when the 404s persist. Setting the variable is the ONLY change needed to move to `assets.pryzm.app`. |
+| Proof the base URL shipped | `deploy-fly.yml` step **§L-570-BUNDLE-PROOF** | Greps the LIVE bundle for the R2 host and **fails the job** if absent. |
+| Publish the catalogue | `.github/workflows/r2-sync-items.yml` (`workflow_dispatch`) | `public/items` → `s3://pryzm-assets/items`, then probes the public URL for 200. |
+| Publish the tiles | `.github/workflows/context-bake.yml` (`workflow_dispatch`) | Bake → `s3://pryzm-assets/tiles`, then probes with `Range:` requiring **206**. |
+
+⚠ **THE ONE THING THAT WILL BITE ANYONE EDITING THIS.** `VITE_*` variables are **build-time** —
+vite inlines them into the bundle. Setting `VITE_GLB_URL` as a **Fly runtime secret does nothing**,
+and the failure is **completely silent**: the build succeeds, the deploy succeeds, the app comes up,
+and it keeps requesting the old 404ing paths with no error anywhere. That is why the value is a
+`--build-arg` and why the deploy asserts against the shipped bytes rather than trusting the config.
+
+⚠ **`VITE_CONTEXT_TILES_URL` is intentionally EMPTY.** The client PMTiles reader (L-513b) does not
+exist yet. Setting that variable before it ships would bake a base URL nothing reads.
 
 ## Why R2 (not S3 / B2 / a Fly volume)
 
@@ -95,14 +117,19 @@ Result: global CDN distribution, fast PMTiles range reads, minimal ongoing cost.
 
 ## Ordering (the dependency chain)
 
-1. **[founder]** create bucket + public domain + token → hand over the 4 `R2_*` values + the base URL.
-2. **[code]** wire the GLB base URL (quick win — kills the 404 as soon as the catalog is synced).
-3. **[code]** write the GitHub-Actions bake+upload job (L-513a) using the `R2_*` secrets.
-4. **[founder]** click "Run" on the bake job → tiles land in `pryzm-assets/tiles/`.
-5. **[code]** wire the client tiles reader (L-513b) + set `VITE_CONTEXT_TILES_URL`.
+1. ~~**[founder]** create bucket + public domain + token~~ — ✅ **DONE 2026-07-21.**
+2. ~~**[code]** wire the GLB base URL~~ — ✅ **DONE (L-570).**
+3. ~~**[code]** write the GitHub-Actions bake+upload job (L-513a)~~ — ✅ **DONE (L-571).**
+4. **[founder]** click "Run workflow" on **Sync furniture GLB catalogue to R2** → the catalogue
+   lands in `pryzm-assets/items/`. The job itself verifies public readability, so a bucket that is
+   still private fails loudly here instead of looking like a code bug later.
+5. **[founder]** click "Run workflow" on **Bake context tiles → R2 (L-513a)** → tiles land in
+   `pryzm-assets/tiles/`. It has never been executed; the first run is its test.
+6. **[code]** wire the client tiles reader (L-513b) — needs `pmtiles` + `@mapbox/vector-tile` +
+   `pbf` with `pnpm-lock.yaml` committed in the SAME commit (`--frozen-lockfile`) — **then** set
+   `VITE_CONTEXT_TILES_URL`, in that order.
 
-Steps 2–5 are all mine; only 1 and 4 need the founder. **Step 1 is the single unblock** — it cascades
-into both the tile pipeline and the GLB fix.
+Only 4 and 5 need the founder now.
 
 **Cross-refs:** L-513 (context tile bake + reader), `CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` §8/§9,
 `tools/context-bake/`, the furniture-GLB-404 issue, memory `furniture-glb-404-object-storage`.

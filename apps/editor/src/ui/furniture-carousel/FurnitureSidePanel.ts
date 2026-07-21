@@ -7,6 +7,8 @@ import {
 } from './FurnitureCategoryRegistry';
 import { buildFurniturePlanIcon } from './furniturePlanIcon';
 import { FurnitureThumbnailService } from './FurnitureThumbnailService';
+// L-570 — rewrite `/items/…` to the R2-hosted catalogue when VITE_GLB_URL is baked in.
+import { resolveCatalogAssetUrl } from './catalogAssetUrl';
 
 type SidePanelCategory = FurnitureCategory | 'all';
 
@@ -246,7 +248,8 @@ export class FurnitureSidePanel {
 
         if (item.thumbnailPath) {
             const img = document.createElement('img');
-            img.src = item.thumbnailPath;
+            // L-570 — `/items/…` → the R2 catalogue base when VITE_GLB_URL is baked in.
+            img.src = resolveCatalogAssetUrl(item.thumbnailPath);
             img.alt = item.label;
             img.className = 'fsp-thumb-img';
             img.loading = 'lazy';

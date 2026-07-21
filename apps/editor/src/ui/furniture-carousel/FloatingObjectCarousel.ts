@@ -51,6 +51,8 @@ import {
 import {
     buildFurnitureGeometry,
 } from './FurnitureGeometryFactory';
+// L-570 — rewrite `/items/…` to the R2-hosted catalogue when VITE_GLB_URL is baked in.
+import { resolveCatalogAssetUrl, isCatalogRehosted, catalogBaseUrl } from './catalogAssetUrl';
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
@@ -367,10 +369,18 @@ export class FloatingObjectCarousel {
         this._glbFailTimer = setTimeout(() => {
             const n = this._glbFailures.length;
             const first = this._glbFailures[0];
+            // L-570 — the message must tell the truth about WHICH host failed. Before the
+            // R2 wiring the only possible cause was "not in the image"; now a failure with a
+            // base configured means the OBJECT STORE is missing/unsynced, which is a
+            // completely different fix (run the `Sync furniture GLB catalogue to R2` job).
+            const where = isCatalogRehosted()
+                ? `object storage base "${catalogBaseUrl()}" — the catalogue is wired (L-570) but ` +
+                  `these objects are missing there; run the "Sync furniture GLB catalogue to R2" workflow`
+                : `no VITE_GLB_URL baked into this build — the GLB catalog is .dockerignore'd out ` +
+                  `of the prod image (tracker OBJECT-STORAGE-GLB), so /items/** 404s by design`;
             console.warn(
                 `[Carousel] §FURNITURE-GLB-404-SUMMARY ${n} furniture model(s) failed to load ` +
-                `(e.g. "${first}") — using placeholder geometry. In prod the GLB catalog is not ` +
-                `baked into the image (tracker OBJECT-STORAGE-GLB); re-host on object storage to fix.`,
+                `(e.g. "${first}") — using placeholder geometry. Cause: ${where}.`,
             );
             this._glbFailures = [];
             this._glbFailTimer = null;
@@ -401,7 +411,8 @@ export class FloatingObjectCarousel {
                 // Async: load real GLB and normalise its height to 1 world-unit so
                 // _arrangeItems can apply MODEL_SCALE uniformly for all item types.
                 loader.load(
-                    descriptor.glbPath,
+                    // L-570 — logical `/items/…` → `${VITE_GLB_URL}…` in prod, unchanged in dev.
+                    resolveCatalogAssetUrl(descriptor.glbPath),
                     (gltf) => {
                         // Guard: item may have been cleared while loading
                         if (!this.items.includes(item)) return;

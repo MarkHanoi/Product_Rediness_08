@@ -1,0 +1,197 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# context-bake.yml — bake the 3D-Site context to PMTiles and publish to R2 (L-513a)
+#
+# THE PROBLEM THIS RETIRES. The 3D-Site context (surrounding buildings/roads/
+# water/parks) is fetched at runtime from the PUBLIC Overpass API. That is the
+# last unreliable dependency on the demo critical path, and it fails in ways no
+# amount of client code can fix: 406s, 45-second hangs, 429 rate limits, 504s,
+# "ALL upstream mirrors failed", and — the nastiest one (L-469) — errors reported
+# IN-BAND as HTTP 200 with a `remark` field, i.e. an empty result that is
+# indistinguishable from "there is genuinely nothing here".
+# See docs/04-reference/CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md §8/§9.
+#
+# THE FIX. Pre-bake the same data, offline and deterministically, from Geofabrik's
+# daily Cataluña extract into static PMTiles, and serve them from R2 over HTTP
+# range requests. A tile read becomes a CDN byte-range fetch (<50 ms) with no
+# third-party availability in the loop.
+#
+# WHAT RUNS. `tools/context-bake/bake.mjs` — already built and documented:
+#   download .osm.pbf (~266 MB) → osmium extract (Barcelona bbox)
+#   → osmium tags-filter → osmium export (GeoJSONSeq) → tippecanoe → *.pmtiles
+# The toolchain (osmium-tool + the felt tippecanoe fork) is NOT on the runner and
+# tippecanoe is not packaged for Debian, so we build the tool's OWN Dockerfile and
+# let bake.mjs's existing Docker fallback drive it. That keeps CI running the
+# exact same toolchain a developer runs locally — no second, drifting recipe.
+#
+# MANUAL ONLY, BY DESIGN. The source refreshes daily but the city does not; a
+# scheduled bake would burn ~15 min of runner time to republish near-identical
+# tiles. The founder clicks "Run workflow" when the context should be refreshed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Bake context tiles → R2 (L-513a)
+
+on:
+  workflow_dispatch:
+    inputs:
+      layer:
+        description: 'Bake a single layer only (buildings | roads | water | parks). Blank = all four.'
+        type: string
+        default: ''
+      publish:
+        description: 'Upload the result to s3://pryzm-assets/tiles/. Untick to bake and only inspect the artifact.'
+        type: boolean
+        default: true
+
+concurrency:
+  group: context-bake
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    name: osmium + tippecanoe → PMTiles → R2
+    runs-on: ubuntu-latest
+    # Observed envelope is ~5–15 min (tools/context-bake/README.md); 90 gives the
+    # Geofabrik download and a cold tippecanoe compile room without hanging all day.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Free disk space
+        run: |
+          # The bake needs ~2 GB of scratch (266 MB pbf + clip + per-layer pbf +
+          # GeoJSONSeq, which is by far the largest intermediate). The hosted image
+          # ships several GB of preinstalled toolchains this job will never use.
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          df -h /
+
+      - name: Build the bake toolchain image
+        # Bundles osmium-tool + the felt tippecanoe fork. bake.mjs auto-detects that
+        # the local binaries are absent and shells out to this image, mounting
+        # tools/context-bake/out at /work. Compiling tippecanoe is the slow part
+        # (a few minutes) and is why this is not an every-push job.
+        run: docker build -t pryzm-context-bake tools/context-bake
+
+      - name: Plan (tool availability + what will be produced)
+        run: node tools/context-bake/bake.mjs --check
+
+      - name: Bake
+        env:
+          LAYER: ${{ inputs.layer }}
+        run: |
+          set -euo pipefail
+          if [ -n "$LAYER" ]; then
+            node tools/context-bake/bake.mjs --layer "$LAYER"
+          else
+            node tools/context-bake/bake.mjs
+          fi
+
+      - name: Assert the tiles are real
+        run: |
+          set -euo pipefail
+          cd tools/context-bake/out
+          ls -lh *.pmtiles
+          # A zero-byte or few-KB .pmtiles means tippecanoe produced an empty tileset
+          # (bad filter, bad bbox, truncated download). It would upload happily and
+          # then render as "no context" — the exact failure we are replacing. Catch
+          # it here, where the log still says why.
+          fail=0
+          for f in *.pmtiles; do
+            sz=$(stat -c %s "$f")
+            echo "$f — $sz bytes"
+            if [ "$sz" -lt 51200 ]; then
+              echo "::error::$f is only $sz bytes — the bake produced an effectively empty tileset."
+              fail=1
+            fi
+            # PMTiles v3 files start with the magic string "PMTiles".
+            if [ "$(head -c 7 "$f")" != "PMTiles" ]; then
+              echo "::error::$f does not carry the PMTiles magic header."
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: Upload the tiles as a run artifact
+        # Kept regardless of publishing: it makes a bake inspectable/diffable after
+        # the fact, and gives a rollback source if a later bake regresses.
+        uses: actions/upload-artifact@v4
+        with:
+          name: context-pmtiles
+          path: tools/context-bake/out/*.pmtiles
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish to R2
+        if: ${{ inputs.publish }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 does not implement the aws CLI v2 default checksum/streaming behaviours;
+          # without these an upload fails with an opaque signature error.
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot publish. (The bake artifact above is still valid.)"
+            exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # NOTE ON CACHING (decision record §Caching): PMTiles are served with a
+          # 1-year immutable TTL, which means clients will NOT re-check them. A
+          # re-bake therefore has to change the PATH to be seen. `--exclude '*'
+          # --include '*.pmtiles'` keeps every intermediate (.osm.pbf, .geojsonseq —
+          # gigabytes) out of the bucket; only the four tilesets go up.
+          aws s3 sync tools/context-bake/out "s3://pryzm-assets/tiles" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress \
+            --exclude '*' --include '*.pmtiles' \
+            --content-type 'application/vnd.pmtiles' \
+            --cache-control 'public, max-age=31536000, immutable'
+
+          echo "── bucket after publish ──"
+          aws s3 ls "s3://pryzm-assets/tiles/" --endpoint-url "$ENDPOINT" --human-readable
+
+      - name: Verify a tileset is publicly readable AND range-servable
+        if: ${{ inputs.publish }}
+        env:
+          PUBLIC_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/' }}
+        run: |
+          set -euo pipefail
+          # PMTiles is USELESS without HTTP Range support — the client reads a byte
+          # range per tile and never downloads the whole file. A 200 here would mean
+          # the host ignored the Range header and would be a silent, catastrophic
+          # regression to full-file downloads. We require 206 Partial Content.
+          URL="${PUBLIC_BASE%/}/buildings.pmtiles"
+          echo "probing $URL"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 -H 'Range: bytes=0-127' "$URL")"
+          echo "HTTP $code (expected 206)"
+          if [ "$code" = "206" ]; then
+            echo "✓ tiles are public and range-servable — ready for the client reader (L-513b)."
+          elif [ "$code" = "200" ]; then
+            echo "::error::$URL served 200, not 206 — the host is ignoring Range requests. PMTiles needs 206."
+            exit 1
+          else
+            echo "::error::$URL returned $code — objects uploaded but not publicly served."
+            echo "  Fix in the Cloudflare dashboard: R2 → pryzm-assets → Settings → Public access."
+            exit 1
+          fi
+
+      - name: What to do next
+        if: ${{ success() && inputs.publish }}
+        run: |
+          {
+            echo "### Context tiles published ✅"
+            echo ""
+            echo "Tiles are live under \`pryzm-assets/tiles/\`."
+            echo ""
+            echo "**Next (L-513b, a separate code change):** the client tile reader does not exist yet —"
+            echo "the app still uses live Overpass. Do NOT set the \`VITE_CONTEXT_TILES_URL\` repo variable"
+            echo "until the reader ships, or the build will bake a base URL nothing reads."
+          } >> "$GITHUB_STEP_SUMMARY"

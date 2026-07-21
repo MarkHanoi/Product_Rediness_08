@@ -320,6 +320,15 @@ jobs:
         #   globe streams the SAME Google Photorealistic 3D Tiles directly via the key.
         #   Empty/absent (the default) → no effect, keyless ESRI fallback unchanged.
         #   Branch order is ion-token → google-key → keyless.
+        # --build-arg VITE_GLB_URL / VITE_CONTEXT_TILES_URL (L-570 / L-571): PUBLIC
+        #   object-storage base URLs (Cloudflare R2 `pryzm-assets`). NOT secrets — they
+        #   are CDN URLs that ship in the browser bundle by design, so they come from
+        #   `vars.*` (repo variables) with a literal default, not from `secrets.*`.
+        #   ⚠ THE WHOLE POINT: `VITE_*` is INLINED BY VITE AT BUILD TIME. Setting these
+        #   as Fly runtime secrets does NOTHING — the bundle is already built. They must
+        #   be here, on the build, and the failure mode of getting it wrong is SILENT:
+        #   the build goes green and the app keeps requesting the old 404ing paths.
+        #   Verified post-build by grepping the image's dist/ for the host (step below).
         # §DEPLOY-RETRY (2026-06-27): the BUILD always succeeds + pushes, but the
         # rolling health check intermittently fails — "WARNING The app is not
         # listening on 0.0.0.0:5000 … timeout reached waiting for health checks"
@@ -349,9 +358,16 @@ jobs:
           strip() { printf '%s' "${1-}" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
           CESIUM_TOKEN_CLEAN="$(strip "${VITE_CESIUM_TOKEN_RAW-}")"
           GOOGLE_KEY_CLEAN="$(strip "${VITE_GOOGLE_MAPS_KEY_RAW-}")"
+          # L-570/L-571 — the asset base URLs are PUBLIC, so unlike the two above they can
+          # (and should) be echoed in full: a wrong base URL is the single likeliest cause
+          # of "the 404s are still there", and a redacted log cannot tell you that.
+          GLB_URL_CLEAN="$(strip "${VITE_GLB_URL_RAW-}")"
+          TILES_URL_CLEAN="$(strip "${VITE_CONTEXT_TILES_URL_RAW-}")"
           # Length-only diagnostics — never the value. A length that differs from what you
           # pasted is the tell that the secret carries stray whitespace.
           echo "build-arg lengths — cesium:${#CESIUM_TOKEN_CLEAN} google:${#GOOGLE_KEY_CLEAN}"
+          echo "build-arg VITE_GLB_URL           = '${GLB_URL_CLEAN}'   (public; empty = keep local /items/)"
+          echo "build-arg VITE_CONTEXT_TILES_URL = '${TILES_URL_CLEAN}' (public; empty = live Overpass fallback)"
 
           set +e
           for attempt in 1 2 3; do
@@ -360,6 +376,8 @@ jobs:
               --build-arg LOWMEM=0 \
               --build-arg VITE_CESIUM_TOKEN="$CESIUM_TOKEN_CLEAN" \
               --build-arg VITE_GOOGLE_MAPS_KEY="$GOOGLE_KEY_CLEAN" \
+              --build-arg VITE_GLB_URL="$GLB_URL_CLEAN" \
+              --build-arg VITE_CONTEXT_TILES_URL="$TILES_URL_CLEAN" \
               --strategy=rolling \
               --wait-timeout=5m 2>&1 | tee "/tmp/fly-attempt-$attempt.log"
             code=${PIPESTATUS[0]}
@@ -384,6 +402,83 @@ jobs:
           # the script above before being handed to --build-arg.
           VITE_CESIUM_TOKEN_RAW: ${{ secrets.VITE_CESIUM_TOKEN }}
           VITE_GOOGLE_MAPS_KEY_RAW: ${{ secrets.VITE_GOOGLE_MAPS_KEY }}
+          # L-570 — PUBLIC R2 base for the furniture catalogue. The literal is the
+          # bucket's r2.dev public endpoint (docs/04-reference/OBJECT-STORAGE-R2-DECISION.md).
+          # Define the repo VARIABLE `VITE_GLB_URL` to override — that is the ONLY change
+          # needed when the bucket moves to a custom domain (assets.pryzm.app). Deliberately
+          # `vars`, not `secrets`: a secret would be REDACTED from the log, which would hide
+          # the one diagnostic that matters when the 404s persist.
+          VITE_GLB_URL_RAW: ${{ vars.VITE_GLB_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/items/' }}
+          # L-571 — PUBLIC R2 base for the baked context PMTiles. INTENTIONALLY EMPTY by
+          # default: no tiles are published until the founder runs `context-bake.yml`, and
+          # the client reader (L-513b) does not exist yet. Set the repo variable
+          # `VITE_CONTEXT_TILES_URL` to https://pub-….r2.dev/tiles/ only AFTER both.
+          VITE_CONTEXT_TILES_URL_RAW: ${{ vars.VITE_CONTEXT_TILES_URL }}
+
+      # ───────────────────────────────────────────────────────────────────────
+      # §L-570-BUNDLE-PROOF — PROVE the base URL is in the SHIPPED bundle.
+      #
+      # WHY THIS STEP EXISTS AT ALL. `VITE_*` variables are inlined by vite at
+      # BUILD time. If the value never reaches the build environment, NOTHING
+      # fails: the build is green, the deploy is green, the app is up — and it
+      # quietly keeps requesting the old, 404ing `/items/**` paths. There is no
+      # error anywhere to notice. The ONLY honest verification is to look at the
+      # bytes that were actually shipped, which is what this does: fetch the live
+      # index.html, follow it to the entry chunk(s), and grep for the host.
+      #
+      # It is deliberately a REAL assertion (exit 1), not an advisory echo — an
+      # advisory check for a silent failure mode is just a second silent failure.
+      # Non-fatal only when the var is intentionally empty (nothing to prove).
+      # ───────────────────────────────────────────────────────────────────────
+      - name: Verify the R2 asset base URL is baked into the shipped bundle (§L-570-BUNDLE-PROOF)
+        env:
+          EXPECT_GLB: ${{ vars.VITE_GLB_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/items/' }}
+          SITE: https://pryzm.fly.dev
+        run: |
+          set -u
+          if [ -z "${EXPECT_GLB}" ]; then
+            echo "VITE_GLB_URL is intentionally empty — nothing to verify. Skipping."
+            exit 0
+          fi
+          # The host alone is what vite inlines into a chunk; match on that, not on
+          # the full URL (vite may split the literal across concatenations).
+          HOST="$(printf '%s' "$EXPECT_GLB" | sed -E 's#^https?://([^/]+)/?.*#\1#')"
+          echo "expecting host: $HOST"
+          # A cold Fly machine can take a moment to serve after a rolling deploy.
+          for i in 1 2 3 4 5; do
+            curl -fsS --max-time 30 "$SITE/" -o /tmp/index.html && break
+            echo "index.html not served yet (try $i) — waiting 10s…"; sleep 10
+          done
+          if [ ! -s /tmp/index.html ]; then
+            echo "::error::§L-570-BUNDLE-PROOF could not fetch $SITE/ — cannot verify."
+            exit 1
+          fi
+          # Collect every module script the shell references, plus their static imports.
+          CHUNKS="$(grep -oE '(src|href)="/assets/[^"]+\.js"' /tmp/index.html \
+                    | sed -E 's/.*"(\/assets\/[^"]+)"/\1/' | sort -u)"
+          echo "entry chunks: $(echo "$CHUNKS" | tr '\n' ' ')"
+          FOUND=0
+          SCANNED=0
+          for c in $CHUNKS; do
+            curl -fsS --max-time 60 "$SITE$c" -o /tmp/chunk.js || continue
+            SCANNED=$((SCANNED+1))
+            if grep -qF "$HOST" /tmp/chunk.js; then FOUND=1; echo "  ✓ found in $c"; break; fi
+            # The furniture carousel is lazily chunked — follow this chunk's imports one level.
+            for d in $(grep -oE '"\./[A-Za-z0-9_.-]+\.js"' /tmp/chunk.js | tr -d '"' | sed 's#^\./#/assets/#' | sort -u); do
+              curl -fsS --max-time 60 "$SITE$d" -o /tmp/chunk2.js || continue
+              SCANNED=$((SCANNED+1))
+              if grep -qF "$HOST" /tmp/chunk2.js; then FOUND=1; echo "  ✓ found in $d"; break; fi
+            done
+            [ "$FOUND" -eq 1 ] && break
+          done
+          echo "scanned $SCANNED chunk(s)"
+          if [ "$FOUND" -ne 1 ]; then
+            echo "::error::§L-570-BUNDLE-PROOF FAILED — '$HOST' is NOT present in the shipped bundle."
+            echo "  The build did not see VITE_GLB_URL. Check the --build-arg above reached Dockerfile's ARG,"
+            echo "  and that the deployed commit is this SHA (a cancelled/stale deploy shows the same symptom)."
+            exit 1
+          fi
+          echo "✓ §L-570-BUNDLE-PROOF — the R2 catalogue host IS baked into the shipped bundle."
 
 # deploy-marker: v35 — public-window build 2026-06-06 (house wiring + D11 + D16 + Living Graph + crash-fix + governance docs)
 
@@ -638,3 +733,6 @@ jobs:
 # deploy-marker: v266 — L-539 §DISSOLVE-TJUNCTION-SPLIT: the block dissolve now tolerates real cadastral geometry, so ~9 blocks in 10 produce a buildable envelope instead of ~6. This was the last thing v265 said to fix next: no block ring => no depth => no street width => no height => the 0.5 m footprint slab, and it was failing on ONE REAL BLOCK IN THREE nationally. ⚠ THE PART THAT NEEDED PROVING FIRST, again: the brief AND the module's own header both said the cause was 'slivers and near-coincident vertices' needing a weld. MEASURED OVER 956 REAL MANZANAS (33,865 parcels, 250,646 edges, 5 cities, live Catastro, production code reused) — THAT IS FALSE. There are no slivers: not one parcel edge in a quarter-million is shorter than 0.083 m, no two distinct vertices are closer than 0.05 m, and a weld moves literally 0.0000 m. The real cause is that Catastro publishes coordinates rounded to 6 decimal places (a 0.083 m x 0.111 m grid — you can SEE that exact number as the floor of the edge-length distribution), so two neighbours can store the SAME boundary with different vertex counts; the leftover fragments make a hair-thin triangle, the outline comes out as two loops instead of one, and the engine refuses. 90% of all failures are that single defect. FIX: before cancelling edges, split an edge at the neighbour's OWN EXISTING vertex when it lies within 0.10 m of it. Nothing is welded, nothing is moved, no vertex is invented — the tolerance is Catastro's own coordinate resolution (0.111 m), so the repair cannot introduce an error the data does not already contain, and it sits in the measured valley between the defect population (ends ~0.075 m) and real geometry (resumes above 0.3 m). NOT tuned until blocks passed: 0.20 m would have scored 1.8 points higher and was REFUSED for exceeding that bound. THE GUARANTEE THAT MATTERS: the exact pass still runs first and wins whenever it succeeds, so ZERO existing rings changed — verified on all 607. Repairing unconditionally would have moved 137 of them, i.e. 137 silently changed compliance numbers, which is worse than any refusal. RESULTS: Barcelona 81.5% => 96.3%, Madrid 75.8/77.2% => 92.6/99.0%, Cordoba 44.2% => 90.8% (was 0/3 in the first probe), Valencia 72.7% => 92.7%, Sevilla 38.5% => 82.3%, overall 63.5% => 91.4%. Independent check the dissolve cannot fake: the repaired rings match the SUM OF PUBLISHED CADASTRAL PARCEL AREAS slightly BETTER (0.13%) than the exact ones (0.15%). TEST: parcels that previously showed 'Estimated' with a flat slab on a Barcelona block should now resolve a real purple prism; the console prints '§DISSOLVE-TJUNCTION-SPLIT' naming how many edges were split and the max offset in metres whenever a ring was recovered this way (silence = it was exact, as before). Still honestly refuses 8.6% — genuinely two-block masas, real gaps, offsets past the valley. 219/219 site-parcel-data (+11, two of them REAL Cordoba manzana fixtures), 169/169 server.
 # deploy-marker: v267 — L-536 §L-536-THETA-RESET + §SITE-FRAME-PROBE verdict: the parcel boundary disagreeing between the 2D map, the 2D plan and the 3D Site is now DIAGNOSED rather than guessed, and the one real bug in it is fixed. ⚠ THE PART THAT NEEDED PROVING FIRST (L-529's lesson, third time): the audit listed four candidate mechanisms needing OPPOSITE fixes, so nothing was patched until it was measured. Live Catastro + the production frame functions, reused so the probe cannot disagree with the code it diagnoses: the whole chain (real ring -> commit projection -> theta de-rotation -> theta re-application in Cesium) round-trips to 1e-14 m with IDENTICAL vertex counts on four real Diputacio/Rambla-de-Catalunya parcels, and the projection's own scale error is 0.13 m over a 35 m parcel. So origin-mismatch and vertex-decimation are ARITHMETICALLY RULED OUT — the two surfaces cannot disagree unless the theta written at commit differs from the theta read at render. IT CAN: dispatchParcelBoundary guards BOTH the de-rotation AND the SiteLocation.trueNorth write behind one `if (theta !== 0)`, and Redraw clears the boundary but not theta — so select a parcel, redraw, select one whose theta folds to exactly 0, and the OLD parcel's ~45 deg project north survives and gets re-applied to a ring that was never de-rotated. On a 17-43 vertex cadastral outline a 45 deg error does not read as 'rotated', it reads as A DIFFERENT SHAPE. theta === 0 exactly is 9 of 800 probed Barcelona parcels (1.1%) because the Eixample xamfra — the 45 deg chamfered corner — is a corner parcel's LONGEST edge and is axis-aligned to true north. Rare per parcel, certain to recur: an intermittent, thrice-reported defect. FIX: the boundary commit now publishes theta = 0 explicitly on exactly the branch the engine skips (theta != 0 is untouched — the engine writes the identical value a line later). ALSO: two thirds of what the screenshots show is NOT a bug and the probe now says so out loud — the purple volume is the buildable ENVELOPE (with your own numbers, a ~17.7 x 28.5 m quadrilateral inside a parcel with ~35.7 m sides), it is SUPPOSED to be smaller and simpler than the boundary; and the 2D PLAN draws the AUTHORING frame so it is de-rotated by theta from the 2D map BY DESIGN (ADR-0115), ~45 deg in Barcelona, on 100% of parcels. §SITE-FRAME-PROBE therefore no longer prints three numbers for a human to interpret: it re-derives theta from the ring it is about to draw and prints a VERDICT — CONSISTENT / DOUBLE ROTATION / FRAME SPLIT — against the invariant 'the stored ring must be square in the authoring frame' (verified 0 violations across 800 real parcels). TEST: 3D Site on an Eixample parcel, then Redraw and select a CORNER (chamfered) parcel on the same block — the dashed GREEN parcel outline in 3D should match the 2D map vertex-for-vertex both times, and the console '§SITE-FRAME-PROBE ... FRAME VERDICT:' line should say CONSISTENT. If it ever says DOUBLE ROTATION or FRAME SPLIT, that line names which one. NOT FIXED YET (owned by another agent this session): making the theta write unconditional inside dispatchParcelBoundary, checking its currently-ignored return value, and resetting theta in dispatchClearParcelBoundary. Root tsc clean.
 # deploy-marker: v268 — L-540 THE CI GATE. Until this commit, a RED CI STILL DEPLOYED TO PRODUCTION: deploy-fly.yml triggered on push:[main] with no `needs:` and no `workflow_run:` dependency on ci.yml, and ci.yml's own header describes itself as protecting merges via required status checks on PRs — a mechanism that is INERT in a push-straight-to-main repo. v256-v265 all shipped ungated while the editor unit suite was red. NOW: a `ci-gate` job asks the Actions API what CI concluded for THIS EXACT SHA and `deploy` needs it. It deliberately does NOT wait for CI's `build` job (flyctl deploy --local-only rebuilds the same tree with the same command; waiting would triple the push->prod loop for zero safety), so the loop grows by minutes, not half an hour. A doc-only push still deploys — but only after the gate RE-DERIVES doc-only-ness from the diff; a missing CI run on a CODE commit FAILS, and so does a poll timeout. Emergency `bypass_ci_gate` dispatch input exists, defaults false, and is recorded in the run inputs. ALSO: the 5 red editor tests are fixed (L-541) — 4 were real as the status report said, and the 5th ("plausibly environmental") turned out to be real too: it read an async-emitted event synchronously. Root cause of 3 was an L2 geometry package statically importing the browser-only @thatopen/ui. The root vitest suite (263 tests) and a `--if-present` coverage ratchet (166 workspaces, only 18 enforced) are now wired hard-fail; test:pryzm1 is wired ADVISORY because it is genuinely RED (L-544). TEST: this deploy should visibly WAIT on the CI gate before building — that wait is the fix. Verification: editor 219/219 files & 1881/0, pnpm run test:ci exit 0, test:server 169/169, site-parcel-data 236/236, root tsc clean.
+# deploy-marker: v269 — L-545 THE CAPTURE HALF of the GIS georeference (L-188/L-489). L-188 fixed RESTORE and restore is genuinely correct; the bug recurring as L-489 is on the SAVE side, and it had two causes, both provable from code. (1) THE `??` WAS ON THE WRONG THING: `siteModelStore ?? window.runtime.siteModelStore` short-circuits on the STORE REFERENCE, not on whether that store HOLDS a site. SiteModelStore is PER-RUNTIME and initPersistence binds the threaded one ONCE into a session-long closure — so after any runtime recomposition (project switch / renderer backend swap / device-loss recovery) the serializer keeps saving from a stale EMPTY store while the live window.runtime store holds your real parcel. Store resolves, getSite() returns null, save proceeds: exactly your logged `siteStore=resolved · site=NULL · walls>0`. Now every candidate is tried and the first that actually HAS a site wins — this can only find a site where the old code found none, never the reverse. (2) `site: null` WAS AMBIGUOUS — it meant BOTH "plain BIM project, never had a georeference" AND "GIS project whose georeference was lost", so the loader treated the second as the first and reported a clean load. Snapshots now carry `siteCapture = {status: captured|none|degraded, reason, elementCount, source}`, carried through the STREAMED split/merge too, and the reopen path now says so loudly instead of silently re-deriving nothing. ⚠ BLOCK-vs-DEGRADE was ARGUED, not picked: DEGRADE, because the alternative to a lossy save is NO save (which loses your geometry, not just a lat/lon), because this is the AUTO-SAVE path so a throw = silently-failing autosaves, and because a null site is CORRECT for most projects. NO substitute origin is ever fabricated (no default city, no bbox centroid) — same discipline as the envelope's removed hardcoded 9 m. ⚠ HONEST LIMIT: the standing instruction "do NOT patch the persistence path until that one line is read with walls>0" is STILL unsatisfied — no browser here. So (1) is NOT claimed as THE root cause. TEST, and this is the one thing only you can do: commit a Barcelona/Cordoba parcel, draw a wall, let it save, and read `§L-489-SITE-CAPTURE-DIAG ... status=`. status=captured ⇒ this closed it. status=degraded ⇒ capture still fails upstream, and `source`/`reason` now name which half instead of the save succeeding in silence. 8 new tests (siteCaptureProvenance) covering the stale-store fall-through, the degraded/none split, and BOTH the JSON and STREAMED round-trips.
+# deploy-marker: v270 — L-550/L-553 BARCELONA STOPS GUESSING. Two shipped slices, one measured outcome: FABRICATED SETBACK TRIPLES IN THE WHOLE CITY, 141 -> 0. Until now the buildable-envelope panel had exactly two outcomes — a solved envelope, or the generic estimated pack, which draws a front/side/rear triple on ANY polygon. So a Collserola forest reserve, the Ronda de Dalt, the Parc de la Ciutadella and a clau-18 volumetria-especifica plot were ALL shown a fabricated setback triple, in the same card and the same purple volume as the Eixample's real Art. 242 construction. L-550 gave PRYZM the vocabulary to say "the ordinance grants no private buildable envelope here" — 25 claus classified with their reason, clau 18 cited to PGM Art. 306 verbatim. L-553 is YOUR call, applied: a privately-buildable clau with NO rule pack (13b, 12, 12b, 22a, 22@, 20a/*) now refuses too, because in an alineacions-de-vial zone a setback triple is the WRONG GEOMETRIC OPERATION — a confident answer to a different question, not an imprecise answer to the right one — and an "ESTIMATED" chip can label uncertainty but cannot label a category error. COST YOU ACCEPTED: 51.6% of Barcelona's private buildable land has no envelope until Phases 1-3 land. MEASURED, NOT ASSERTED (the probe re-runs the L-538 grid of 1,014 live MUC points through the SHIPPING resolver, so it cannot disagree with the code it scores): private buildable land n=273 — constructed 24.2% (13a), legal refusal 24.2% (18/15/16/17), coverage-gap refusal 51.6%, estimated 0.0%. 100% of ALL Barcelona ground now gets a constructed-or-refused answer. THE PROBE ALSO FOUND A GAP THE PLAN DID NOT: four COMPOSITE claus (1a-5b, 3-5, 7b-6b, 3-6b) that no enumeration anticipates and that were still being estimated; cross-tabbing clau x CODI_QUAL_MUC over all 1,014 points showed S*/SX* holds ONLY systems and A1/M*/R* ONLY private zones, so a weaker-tier fallback keys on that — citing the MUC taxonomy, never an invented PGM article. ⚠ THE CARD IS THE THING TO JUDGE, and it was designed against v263's failure: making guessed context heights translucent was honest and STILL failed, because you asked "why are some buildings WIREFRAME?" rather than "why don't we know those heights?" — an honest signal that is not LEGIBLE is not honest in effect. So the coverage-gap card names YOUR ZONE first in the ordinance's own words ("Densificacio Urbana Semiintensiva (clau 13b) — PRYZM has not encoded this zone's building rules yet"), says why nothing is drawn in plain terms ("a setback estimate would be the wrong SHAPE, not merely an imprecise number... we would rather show you nothing than something wrong"), shows a "What PRYZM found for this parcel" block (zone, cadastral reference, address, area) so the panel is NEVER BLANK, and ends on a roadmap naming what IS covered. It is purple "Zone rules coming", never red, never a warning triangle — this is not an error state, and it says so. TEST, and this is the judgement only you can make: (1) an EIXAMPLE parcel should be UNCHANGED — real purple prism, "Real - constructed" badge. (2) a BARRI GOTIC parcel (clau 12, Carrer d'Avinyo/Ferran) should now show the "Zone rules coming" card naming clau 12 nucli antic, with your parcel reference and area — instead of the old "7 of 7 values ESTIMATED". (3) a PARK or the Ronda de Dalt should show the grey "No envelope applies" card with its PGM citation. THE QUESTION: does card (2) read as "not yet" or as "broken"? If it reads as broken, the copy is wrong and that is a bug worth reporting — it is the one thing that decides whether full honesty helps or hurts. NOT DONE: clau 13b is still HELD, not implemented — Art. 328 was identified as its governing article and it does key height on the amplada de vial like 13a, but AMB NUMAMB 403s and the AMB Geoportal 404s for Barcelona specifically, so the only fetchable texts are municipal republications — the exact class of document that produced 13a's mis-attributed first citation. One of them offers "profunditat edificable 18,00 m", which is flatly incompatible with the Art. 242 construction. Needs your sourcing session (L-552). Root tsc clean, 240/240 site-parcel-data, 169/169 server, 220 files / 1889 editor.
+# deploy-marker: v271 — L-570/L-571 OBJECT STORAGE WIRED (Cloudflare R2 `pryzm-assets`). (1) THE FURNITURE CATALOGUE HAS NEVER LOADED IN PRODUCTION and that was a deliberate choice with no second half: `public/items/**` (164 GLBs + thumbnails, ~186 MB) is .dockerignore'd out of the Fly image on purpose, but nothing ever told the CLIENT where the catalogue actually lives — so every `/items/**` 404'd and `§FURNITURE-GLB-404-SUMMARY … N furniture model(s) failed to load` closed EVERY console log collected during testing. The client now composes catalogue URLs from a BUILD-TIME base (`resolveCatalogAssetUrl`, exact identity when unset so local dev is untouched), wired at the four places that actually fetch — carousel GLB, drag-place gltfLoader, and BOTH thumbnail <img src> sites (thumbnails live in the same tree and 404'd for the same reason). Descriptors and persisted `properties.glbPath` keep the LOGICAL `/items/…` path: storing the CDN URL would freeze today's bucket hostname into every saved project and make the eventual move to assets.pryzm.app a data migration instead of an env-var change. (2) THE TRAP THIS DEPLOY EXISTS TO AVOID: `VITE_*` is INLINED BY VITE AT BUILD TIME, so setting it as a Fly RUNTIME secret does nothing and fails TOTALLY SILENTLY — build green, deploy green, app up, still 404ing. `VITE_GLB_URL` + `VITE_CONTEXT_TILES_URL` are therefore threaded --build-arg -> Dockerfile ARG/ENV -> vite, and a new post-deploy step §L-570-BUNDLE-PROOF fetches the LIVE index.html, follows its entry chunks and their imports, and greps for the R2 host, EXITING 1 if absent — an advisory check for a silent failure mode is just a second silent failure. Both base URLs come from repo `vars`, NOT `secrets`: they are public CDN URLs that ship in the bundle by design, and a secret would be REDACTED from the log, hiding the one diagnostic that matters when the 404s persist. (3) `VITE_CONTEXT_TILES_URL` defaults to EMPTY on purpose — no tiles are published until the founder runs the new context-bake job, and the client PMTiles reader (L-513b) does not exist yet, so the Overpass path stays live. (4) Two new workflow_dispatch jobs the founder clicks: `r2-sync-items.yml` publishes the catalogue (in CI, not from a laptop, because the catalogue is COMMITTED TO THIS REPO — 317 tracked files — so the bucket is always re-derivable from a commit) and then probes the PUBLIC URL for 200, because uploading and being publicly SERVED are different facts; `context-bake.yml` (L-513a/L-571) bakes Geofabrik Cataluña -> osmium -> tippecanoe -> PMTiles, asserts each tileset is >=50 KB AND carries the PMTiles magic header (an empty-but-valid tileset would upload happily and render as "no context" — the exact failure being replaced), then requires HTTP 206 to a Range probe, because PMTiles reads a byte range per tile and a 200 would silently degrade every read into a full-file download. Root tsc clean; apps/editor 1898 passed (+7 new); test:server 169/169. NOT YET OBSERVED IN PROD — the 404s are wired-to-be-gone, not seen-gone, until the sync job is run and this build ships.

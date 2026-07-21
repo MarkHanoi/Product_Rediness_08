@@ -1,5 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { undoManager, AddObjectCommand } from '@pryzm/command-registry';
+// L-570 — rewrite `/items/…` to the R2-hosted catalogue when VITE_GLB_URL is baked in.
+import { resolveCatalogAssetUrl } from '../ui/furniture-carousel/catalogAssetUrl';
 
 interface FurnitureDeps {
     world: any;
@@ -43,7 +45,11 @@ export function createAddFurniture(deps: FurnitureDeps): (modelPath: string, pos
             return;
         }
 
-        gltfLoader.load(modelPath, async (gltf: any) => {
+        // L-570 — FETCH from the re-hosted catalogue, but PERSIST the logical `/items/…`
+        // path below (`properties.glbPath`). Storing the CDN URL would freeze today's
+        // bucket hostname into every saved project.
+        const fetchUrl = resolveCatalogAssetUrl(modelPath);
+        gltfLoader.load(fetchUrl, async (gltf: any) => {
             const model = gltf.scene;
             const id = crypto.randomUUID();
             const placedPos = position ?? new THREE.Vector3(0, 0, 0);
@@ -76,8 +82,8 @@ export function createAddFurniture(deps: FurnitureDeps): (modelPath: string, pos
                 properties: { glbPath: modelPath }, furnitureCategory: undefined,
             });
         }, undefined, (error: any) => {
-            console.error(`[addFurniture] Failed to load GLB at "${modelPath}":`, error);
-            alert(`Could not load furniture model.\n\nPath: ${modelPath}\n\nTo fix: place the GLB file at\n  public${modelPath}\n\nSee docs/KaveFurniture.md for the full setup guide.`);
+            console.error(`[addFurniture] Failed to load GLB at "${fetchUrl}" (logical "${modelPath}"):`, error);
+            alert(`Could not load furniture model.\n\nPath: ${modelPath}\nFetched: ${fetchUrl}\n\nTo fix: place the GLB file at\n  public${modelPath}\n(or sync the catalogue to object storage — see docs/04-reference/OBJECT-STORAGE-R2-DECISION.md).\n\nSee docs/KaveFurniture.md for the full setup guide.`);
         });
     };
 }

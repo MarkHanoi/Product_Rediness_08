@@ -104,6 +104,23 @@ ENV VITE_CESIUM_TOKEN=${VITE_CESIUM_TOKEN}
 # console and rotate it there. Must be set BEFORE the build so vite bakes it in.
 ARG VITE_GOOGLE_MAPS_KEY=""
 ENV VITE_GOOGLE_MAPS_KEY=${VITE_GOOGLE_MAPS_KEY}
+# L-570 OBJECT-STORAGE-GLB — base URL of the re-hosted furniture catalogue on
+# Cloudflare R2 (`pryzm-assets/items/`). `public/items/**` (~186 MB, 164 GLBs) is
+# .dockerignore'd OUT of this image on purpose, so every `/items/**` request 404s
+# in prod unless the client is told where the catalogue actually lives. This value
+# is NOT a secret — it is a public CDN base URL that ships in the bundle by design.
+# EMPTY (the default) → the client keeps the local `/items/…` path, which is what
+# local dev wants (vite serves public/items/ directly). Must be set BEFORE the
+# build: `VITE_*` is INLINED by vite at build time, so setting it as a Fly RUNTIME
+# secret has no effect whatsoever. Verify with: grep -r 'r2.dev' dist/assets | head
+ARG VITE_GLB_URL=""
+ENV VITE_GLB_URL=${VITE_GLB_URL}
+# L-513b context tiles — base URL of the baked PMTiles (`pryzm-assets/tiles/`).
+# Same build-time/inlining rules. Also public. EMPTY (the default) → the client
+# falls back to live Overpass, i.e. today's behaviour, so setting it is the only
+# step needed to switch the 3D-Site context onto static tiles once they are baked.
+ARG VITE_CONTEXT_TILES_URL=""
+ENV VITE_CONTEXT_TILES_URL=${VITE_CONTEXT_TILES_URL}
 RUN pnpm run build:docker
 
 # Prune dev-only deps from node_modules so the runtime stage can copy a smaller tree.

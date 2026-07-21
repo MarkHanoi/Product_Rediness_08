@@ -1,0 +1,137 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# r2-sync-items.yml — publish the furniture GLB catalogue to Cloudflare R2 (L-570)
+#
+# THE PROBLEM. `public/items/**` is 164 GLBs + thumbnails, ~186 MB. It is
+# .dockerignore'd OUT of the Fly image on purpose (`.dockerignore` → `public/items`)
+# because baking ~186 MB of static assets into an application image is the wrong
+# shape: it slows every build and every machine start for content a CDN serves
+# better. The consequence, until now, was that `/items/**` simply 404'd in
+# production and every console log ended with §FURNITURE-GLB-404-SUMMARY.
+#
+# THE FIX (docs/04-reference/OBJECT-STORAGE-R2-DECISION.md). Serve the catalogue
+# from R2 (`pryzm-assets/items/`) and point the client at it via the build-time
+# `VITE_GLB_URL` (wired in deploy-fly.yml + Dockerfile).
+#
+# WHY A CI JOB AND NOT A LOCAL `aws s3 sync`. The catalogue is COMMITTED TO THIS
+# REPO (317 tracked files under public/items/), so the runner already has an
+# authoritative copy after checkout. That makes this reproducible by anyone with
+# repo access, removes any dependency on one machine's disk, and means the bucket
+# can always be re-derived from a commit. (If the catalogue were only on the
+# founder's laptop, the honest answer would have been "run it locally" — it isn't.)
+#
+# MANUAL ONLY. The catalogue changes rarely and a sync moves ~186 MB; running it
+# on every push would be waste, not safety. The founder clicks "Run workflow".
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Sync furniture GLB catalogue to R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      delete_removed:
+        description: 'Also DELETE objects in the bucket that no longer exist in the repo (aws s3 sync --delete).'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Preview only — list what would be uploaded, change nothing.'
+        type: boolean
+        default: false
+
+concurrency:
+  # Two concurrent syncs against one prefix can interleave uploads and (with
+  # --delete) race a delete against an upload. One at a time, always.
+  group: r2-sync-items
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: aws s3 sync public/items → s3://pryzm-assets/items
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Fail fast if the R2 credentials are absent
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          # Length-only — NEVER echo a credential. A missing secret otherwise
+          # surfaces 40 lines later as an opaque aws "Unable to locate credentials".
+          missing=0
+          for n in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            v="${!n}"   # indirect expansion (bash) — reads the value without naming it inline
+            if [ -z "$v" ]; then echo "::error::repo secret $n is not set"; missing=1;
+            else echo "$n present (${#v} chars)"; fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          # The catalogue is plain committed binaries (not LFS) — a normal shallow
+          # checkout brings the working tree, which is all this job needs.
+          lfs: false
+
+      - name: Show what is about to be published
+        run: |
+          if [ ! -d public/items ]; then
+            echo "::error::public/items/ is missing from the checkout — nothing to sync."
+            exit 1
+          fi
+          echo "files : $(find public/items -type f | wc -l)"
+          echo "glb   : $(find public/items -name '*.glb' | wc -l)"
+          echo "size  : $(du -sh public/items | cut -f1)"
+
+      - name: Sync to R2
+        env:
+          # R2 speaks the S3 API; the aws CLI needs the standard names + an endpoint override.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 does not implement the newer default checksum/streaming behaviours the
+          # aws CLI v2 turns on by default; without these an upload fails with an
+          # opaque signature/header error rather than anything about R2.
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          DELETE_REMOVED: ${{ inputs.delete_removed }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          FLAGS=""
+          [ "$DELETE_REMOVED" = "true" ] && FLAGS="$FLAGS --delete"
+          [ "$DRY_RUN" = "true" ] && FLAGS="$FLAGS --dryrun"
+
+          # Cache-Control: these are content-addressed-by-path, immutable assets that
+          # change only when a model is re-authored under a new slug — a 1-year
+          # immutable TTL is what makes the CDN worth having (decision record §Caching).
+          aws s3 sync public/items "s3://pryzm-assets/items" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress \
+            --cache-control "public, max-age=31536000, immutable" \
+            $FLAGS
+
+          echo "── bucket after sync ──"
+          aws s3 ls "s3://pryzm-assets/items/" --endpoint-url "$ENDPOINT" --recursive --summarize \
+            | tail -n 5
+
+      - name: Verify a known object is publicly readable
+        if: ${{ inputs.dry_run != true }}
+        env:
+          # Public base URL — NOT a secret (it is in the client bundle by design).
+          PUBLIC_BASE: ${{ vars.VITE_GLB_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/items/' }}
+        run: |
+          # Uploading successfully and being publicly SERVED are two different facts.
+          # R2 buckets are private until a public domain is enabled; a green sync with
+          # public access off would leave the 404s exactly where they were.
+          PROBE="Sofas/sofa/model.glb"
+          URL="${PUBLIC_BASE%/}/$PROBE"
+          echo "probing $URL"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 "$URL")"
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::$URL returned $code — the objects are uploaded but NOT publicly served."
+            echo "  Fix in the Cloudflare dashboard: R2 → pryzm-assets → Settings → Public access."
+            exit 1
+          fi
+          echo "✓ the catalogue is live on R2 and publicly readable."

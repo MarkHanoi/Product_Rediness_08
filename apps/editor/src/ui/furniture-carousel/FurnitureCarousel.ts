@@ -32,6 +32,8 @@ import {
     FurnitureTypeDescriptor,
 } from './FurnitureCategoryRegistry';
 import { FurnitureThumbnailService } from './FurnitureThumbnailService';
+// L-570 — rewrite `/items/…` to the R2-hosted catalogue when VITE_GLB_URL is baked in.
+import { resolveCatalogAssetUrl } from './catalogAssetUrl';
 import * as PryzmIcons from '../icons/PryzmIcons';
 
 // Map from category id → custom isometric icon (16 px)
@@ -372,7 +374,9 @@ export class FurnitureCarousel {
 
         if (descriptor.thumbnailPath) {
             // Kave catalog item — use the pre-rendered static WebP thumbnail
-            thumb.src = descriptor.thumbnailPath;
+            // L-570 — thumbnails live under the same `/items/**` catalogue as the GLBs, so
+            // they 404 in prod for the same reason and take the same R2 base.
+            thumb.src = resolveCatalogAssetUrl(descriptor.thumbnailPath);
             thumb.classList.remove('fc-thumb-loading');
             thumb.onerror = () => { thumb.classList.add('fc-thumb-loading'); };
         } else {
