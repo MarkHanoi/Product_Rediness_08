@@ -482,6 +482,15 @@ export function computeBuildableEnvelope(
             zoneCode: anyResolved ? zoning.zoneCode : null,
             derivation,
             caveats,
+            // L-550 — the SOLVER never refuses on legal grounds: by the time a parcel reaches
+            // here a rule pack has already been selected for it, so its zone IS buildable. A
+            // "no envelope applies" answer is a CLASSIFICATION decision taken upstream (the
+            // rule-pack registry) and dispatched via `buildRefusedEnvelope`, never produced by
+            // the geometry. Keeping this constant `null` is what preserves that separation:
+            // `degenerate` (the constraints consumed the parcel) and `not-applicable` (the
+            // ordinance grants no envelope) are different legal statements, and the engine is
+            // only ever entitled to make the first.
+            refusal: null,
         };
     } catch (err) {
         span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });

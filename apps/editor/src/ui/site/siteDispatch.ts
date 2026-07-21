@@ -47,8 +47,15 @@ import {
     isInDenmark,
     // ADR-0271 §BCN-REAL-ENVELOPE — Barcelona ensanche real-envelope path.
     isInBarcelona,
-    ES_BARCELONA_ENSANCHE_PACK,
-    BCN_ENSANCHE_ZONE_CODES,
+    // L-550 Phase 0.1/0.3 — the rule-pack REGISTRY replaced the hard-coded
+    // `BCN_ENSANCHE_ZONE_CODES.includes(clau)` gate that used to live here, so a new clau (or a
+    // new city) is a data addition in `@pryzm/site-parcel-data`, not an edit to this L5 file
+    // (C58 §1.5). It answers `pack` / `refusal` / `unregistered` — three outcomes, because
+    // "the ordinance grants no envelope here" and "PRYZM has not encoded this zone yet" are
+    // opposite claims and the old boolean collapsed them.
+    resolveZoneDisposition,
+    buildRefusedEnvelope,
+    BCN_JURISDICTION_ID,
     dissolveParcelsToBlockRing,
     classifyBlockFrontages,
     type RoadPolyline,
@@ -989,18 +996,69 @@ async function applyBcnZoningThenFallback(
         // parcel fetch is now made-then-discarded (a cheap wasted call, and such plots fall back to
         // estimated anyway); on the Eixample demo path — the one that matters — it saves a full
         // Catastro round-trip off the critical path.
-        const eixampleCodes = BCN_ENSANCHE_ZONE_CODES as readonly string[];
         const [qual, parcelFeat] = await Promise.all([
             fetchQualificationAtPoint(lat, lon),
             catastroParcelProvider.fetchParcelAtPoint(lon, lat),
         ]);
-        if (!qual || !eixampleCodes.includes(qual.clau)) {
-            console.log(`${TAG} clau=${qual?.clau ?? 'none'} not an Eixample zone (13a/13E) — estimated fallback.`);
+        if (!qual) {
+            // The MUC refused to name a clau (an ambiguous pixel, or a failed lookup). That is a
+            // FAILURE, not a legal answer, so it must NOT become a refusal — estimated fallback.
+            console.log(`${TAG} no clau resolved at point — estimated fallback.`);
             applyEstimatedZoning(ctx, estimated);
             return;
         }
         const clau = qual.clau;
-        console.log(`${TAG} clau resolved → ${clau} (${qual.clauLabel ?? 'n/a'}).`);
+        // §L-550 PHASE-0.1 — ask the REGISTRY, do not test a literal. Three outcomes.
+        // The harmonised `CODI_QUAL_MUC` is passed as a HINT, never as a pack selector (it cannot
+        // distinguish 13a from 13b — both are `R2`, and `mucZoningProxy.js` says so). It answers
+        // only the strictly coarser question "is this a *sistema*?", which the L-550 probe showed
+        // it answers perfectly across all 1 014 measured points — and which is what catches the
+        // COMPOSITE claus (`1a-5b`, `3-6b`) no enumeration can anticipate.
+        const disposition = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, {
+            harmonisedCode: qual.mucCode ?? null,
+        });
+        if (disposition.kind === 'refusal') {
+            // §L-550 PHASE-1B — THE ORDINANCE ANSWERS, AND ITS ANSWER IS "NO ENVELOPE".
+            //
+            // This is the branch that makes "PRYZM refuses rather than guesses" TRUE. Before it,
+            // a park, a motorway, a Collserola forest reserve and a clau-18 *volumetria
+            // específica* plot ALL fell into `applyEstimatedZoning` and were shown a fabricated
+            // front/side/rear triple in the same card and the same purple volume as a real
+            // determination — a legal claim about land that cannot be developed at all,
+            // indistinguishable on screen from the Eixample's constructed Art. 242.2 envelope.
+            //
+            // A refusal is a POSITIVE, CITED result, not a shortfall: it carries the clau, the
+            // reason code, the reasoning and the instrument. `dispatchEnvelope` sees
+            // `status !== 'ok'` and therefore CLEARS any persisted `buildableRing` rather than
+            // leaving a stale one that still looks authoritative (C58 §1.7a, the L-445 lesson).
+            const site = ctx.store.getSite();
+            if (!site) {
+                applyEstimatedZoning(ctx, estimated);
+                return;
+            }
+            const refused = buildRefusedEnvelope(clau, disposition.refusal);
+            dispatchEnvelope(ctx, site.id, refused, 'muc-catastro');
+            console.log(
+                `${TAG} §L-550 REFUSAL clau=${clau} (${qual.clauLabel ?? 'n/a'}) ` +
+                    `code=${disposition.refusal.code} — ${disposition.refusal.headline} ` +
+                    `NO estimated fallback: an estimate here would be a fabricated legal claim.`,
+            );
+            return;
+        }
+        if (disposition.kind !== 'pack') {
+            // A privately-buildable clau PRYZM has not authored a pack for yet (13b, 12, 22a,
+            // 20a…). Keep today's behaviour — the estimated pack, which badges every value
+            // ESTIMATED. ⚠ NOT a refusal: refusing here would tell the user the law forbids
+            // building on a perfectly buildable plot, which is the opposite error.
+            console.log(
+                `${TAG} clau=${clau} is privately buildable but has no rule pack yet ` +
+                    `(registry: unregistered) — estimated fallback, honestly badged.`,
+            );
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const zonePack = disposition.pack;
+        console.log(`${TAG} clau resolved → ${clau} (${qual.clauLabel ?? 'n/a'}) → pack ${zonePack.jurisdictionId}.`);
         const refcat = parcelFeat?.refcat;
         if (!refcat) {
             console.log(`${TAG} no Catastro refcat at point — estimated fallback.`);
@@ -1066,7 +1124,7 @@ async function applyBcnZoningThenFallback(
         const blockRing = dissolved.ring;
         // §DISSOLVE-TJUNCTION-SPLIT (L-539) — say WHICH path produced this ring. A repaired ring
         // is still built from input vertices only, but it followed a boundary that departs from
-        // the straight input edge by up to `maxOffset_m` (bounded by 0.1 m, i.e. under Catastro’s
+        // the straight input edge by up to `maxOffset_m` (bounded by 0.1 m, i.e. under Catastro's
         // own 0.111 m coordinate quantum). It is logged rather than inferred from silence, for
         // the L-459 reason: a derived value that renders indistinguishably from a surveyed one is
         // the defect, not the derivation.
@@ -1232,7 +1290,9 @@ async function applyBcnZoningThenFallback(
             parcelRing: boundary.polygon,
             edgeClassifications: parcelEdgeClassifications,
             zoning: record,
-            rulePack: ES_BARCELONA_ENSANCHE_PACK,
+            // §L-550 — the pack comes from the REGISTRY (`disposition.pack`), not from a fixed
+            // import, so clau 13b's pack will flow through this same line unchanged.
+            rulePack: zonePack,
             blockRing,
             blockEdgeClassifications,
         });

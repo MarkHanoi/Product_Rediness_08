@@ -96,8 +96,87 @@ export type DerivationTrace = z.infer<typeof DerivationTraceSchema>;
  * (mirrors §ENVELOPE-DIAGNOSTIC status:rejected). `none` = no zoning data at all
  * (C58 §1.2 fidelity 3 — the envelope is hidden).
  */
-export const EnvelopeStatusSchema = z.enum(['ok', 'degenerate', 'none']);
+/**
+ * `not-applicable` (L-550, Phase 0.3 of the Barcelona complete-coverage plan) — **the zone has
+ * no private buildable envelope AT ALL, and saying so is a POSITIVE, cited answer.**
+ *
+ * ⚠ WHY THIS IS A FOURTH STATUS AND NOT A CAVEAT ON `none`. The three existing values all
+ * describe a determination that was ATTEMPTED: `ok` succeeded, `degenerate` was consumed by its
+ * own constraints, `none` found no data. A public park, a rail corridor, or a *volumetria
+ * específica* parcel is none of those — the ordinance answers the question, and its answer is
+ * "not by a zone envelope". Folding that into `none` makes it indistinguishable from "we could
+ * not look it up", which is the exact §CONTEXT-DATA-HONESTY collapse this project has now paid
+ * for three times (L-422 / L-467 / L-469): a REFUSAL and a FAILURE rendered as the same value.
+ *
+ * Before this existed, every such parcel fell through to the generic estimated pack and was
+ * shown a fabricated front/side/rear triple over a motorway or a Collserola forest reserve.
+ */
+export const EnvelopeStatusSchema = z.enum(['ok', 'degenerate', 'none', 'not-applicable']);
 export type EnvelopeStatus = z.infer<typeof EnvelopeStatusSchema>;
+
+/**
+ * WHY the ordinance yields no private buildable envelope (L-550). A closed vocabulary, because
+ * these are legally DIFFERENT statements and a free-text string would let them blur:
+ *
+ *  - `public-system`        — the parcel is public domain (*sistema*): roads, rail, port,
+ *                             technical services, hydrographic. No private zone rule exists.
+ *  - `public-open-space`    — parks/gardens (*parcs i jardins*). Buildability is nil-to-
+ *                             incidental and set by a *Pla Especial*, never by a zone parameter.
+ *  - `facility-plan`        — *equipaments / dotacions*. Buildability is fixed PER FACILITY by a
+ *                             *Pla Especial d'Equipaments*; there is no per-parcel rule to encode.
+ *  - `protected-soil`       — *sòl no urbanitzable* / protective easements (Collserola, general-
+ *                             system protection strips). No urban envelope exists.
+ *  - `protected-private-green` — PRIVATE land whose whole purpose is that it is NOT built on
+ *                             (Barcelona clau `8a`, *verd privat protegit*). Distinct from
+ *                             `public-open-space`: the owner is private, the answer is still no.
+ *  - `derived-plan`         — the general plan POINTS AT ANOTHER DOCUMENT (a *Pla Parcial*,
+ *                             *ordenació de volums*, PERI, or MPGM) that fixes buildability
+ *                             per site. The rule is not absent — it is elsewhere, and PRYZM does
+ *                             not hold it. **This is the honest label for Barcelona clau 18, the
+ *                             second-largest family in the city (22.5 % of buildable land).**
+ *  - `overlay-uncertain`    — a heritage catalogue / protection special plan MAY bind and our
+ *                             data path cannot see it, so any computed figure would silently
+ *                             over-state buildability. Refusing under uncertainty (Ciutat Vella).
+ *  - `no-rule-pack`         — the zone IS privately buildable and PRYZM simply has not authored
+ *                             its pack yet. ⚠ The ONE code here that is a gap rather than a legal
+ *                             fact; it must never be presented as though the ordinance refused.
+ */
+export const EnvelopeRefusalCodeSchema = z.enum([
+    'public-system',
+    'public-open-space',
+    'facility-plan',
+    'protected-soil',
+    'protected-private-green',
+    'derived-plan',
+    'overlay-uncertain',
+    'no-rule-pack',
+]);
+export type EnvelopeRefusalCode = z.infer<typeof EnvelopeRefusalCodeSchema>;
+
+/**
+ * A structured, CITED refusal (C58 §1.3 applied to the absence of a number). Every field is
+ * required except the citation, and the citation being nullable is itself meaningful: a refusal
+ * with no `ordinanceRef` is an unsourced claim about the law and the UI must say so, exactly as
+ * it does for an uncited number.
+ */
+export const EnvelopeRefusalSchema = z.object({
+    code: EnvelopeRefusalCodeSchema,
+    /** One line the user reads first — e.g. "Public system — no private buildable envelope." */
+    headline: z.string().min(1),
+    /** The reasoning, naming the governing article where one exists. */
+    detail: z.string().min(1),
+    /** The governing citation, or null when the classification is not article-sourced. */
+    ordinanceRef: z.string().min(1).nullable().default(null),
+    /**
+     * Is this refusal a statement about the LAW (true) or about PRYZM's coverage (false)?
+     *
+     * `no-rule-pack` is the only `false` today. The distinction is load-bearing: "the ordinance
+     * grants no envelope here" and "we have not encoded this zone yet" are opposite claims and
+     * must never share a rendering.
+     */
+    legallyGrounded: z.boolean(),
+});
+export type EnvelopeRefusal = z.infer<typeof EnvelopeRefusalSchema>;
 
 /**
  * The engine output (C58 §2.4). See the DEVIATION note above re `insetPolygon`.
@@ -170,11 +249,27 @@ export const BuildableEnvelopeSchema = z.object({
      */
     granularity: EnvelopeGranularitySchema.default('unknown'),
     status: EnvelopeStatusSchema.default('none'),
+    /**
+     * L-550 — present IFF `status === 'not-applicable'`; null otherwise. Refined below so the
+     * two can never disagree: a refusal status with no reason would render as a blank card, and
+     * a reason attached to an `ok` envelope would let a UI show "no envelope applies" beside a
+     * perfectly good one.
+     */
+    refusal: EnvelopeRefusalSchema.nullable().default(null),
     /** The zone code the numbers resolved from (echoed for the report/UI). */
     zoneCode: z.string().min(1).nullable().default(null),
     /** Per-constraint "why" (C58 §1.3). */
     derivation: DerivationTraceSchema.default([]),
     /** Caveats — e.g. "uniform setback until edge classification (C58 §10.3)". */
     caveats: z.array(z.string().min(1)).default([]),
-});
+}).refine(
+    (e) => (e.status === 'not-applicable') === (e.refusal !== null),
+    {
+        message:
+            "`refusal` must be present exactly when status is 'not-applicable' — a refusal " +
+            'without a reason renders as a blank card, and a reason on a solved envelope would ' +
+            'let the UI deny an envelope it actually has (L-550).',
+        path: ['refusal'],
+    },
+);
 export type BuildableEnvelope = z.infer<typeof BuildableEnvelopeSchema>;

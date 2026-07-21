@@ -2028,6 +2028,41 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         // (shell creation + re-homing is shared with the reduced card — see ensureEnvelopePanel)
         const panel = ensureEnvelopePanel(viewport);
+        // ── §L-550 PHASE-1B — THE REFUSAL CARD. ──────────────────────────────────────────────
+        // `status: 'not-applicable'` means the ORDINANCE answered and its answer is "no private
+        // buildable envelope applies here" (a public system, protected soil, or a zone the
+        // general plan delegates to a per-site derived plan — clau 18 alone is 22.5 % of
+        // Barcelona's private buildable land). That is a POSITIVE result and it gets its own
+        // rendering, deliberately unlike BOTH the estimated card and the degenerate one:
+        //
+        //   • NO "Estimated" badge — nothing was estimated. The chip says "No envelope applies".
+        //   • NO setback/height/FAR rows — there are no numbers, and three dashes would read as
+        //     "not filled in yet", which is exactly the ambiguity this whole slice removes.
+        //   • The reason + its citation are the CONTENT, not a footnote.
+        //
+        // Returning early is what guarantees no estimated row can leak in underneath.
+        if (env.status === 'not-applicable' && env.refusal) {
+            const r = env.refusal;
+            // `legallyGrounded: false` (today only `no-rule-pack`) is a statement about PRYZM's
+            // coverage, not about the law, and must never wear the same chip as one that is.
+            const chip = r.legallyGrounded
+                ? '<span title="The governing ordinance provides no private buildable envelope for this zone" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>'
+                : '<span title="PRYZM has not encoded a rule pack for this zone yet — this is a coverage gap, not a legal finding" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e5;color:#8a5a00;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Not yet covered</span>';
+            const cite = r.ordinanceRef
+                ? `<div style="margin-top:8px;color:#8a83a0;font-size:10px;line-height:1.45;">${escHtml(r.ordinanceRef)}</div>`
+                : '<div style="margin-top:8px;color:#a49dbb;font-size:10px;">No citation held for this classification.</div>';
+            panel.innerHTML =
+                `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;cursor:grab;">
+                   <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${chip}
+                 </div>
+                 <div style="font-weight:600;font-size:11.5px;color:#3d4a5c;line-height:1.4;">${escHtml(r.headline)}</div>
+                 <div style="margin-top:6px;color:#6b6480;font-size:11px;line-height:1.5;">${escHtml(r.detail)}</div>
+                 <div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>
+                 ${cite}
+                 ${envelopeToggleHtml()}`;
+            wireEnvelopeToggle(panel);
+            return;
+        }
         const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
             const e = env.derivation.find((d) => d.constraint === c);
             return typeof e?.value === 'number' ? `${e.value.toFixed(1)} m` : '—';

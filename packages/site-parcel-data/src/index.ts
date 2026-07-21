@@ -54,6 +54,31 @@ export {
     BCN_ORDINANCE_REF,
 } from './rulepacks/esBarcelonaEnsanche.js';
 
+// ── L-550 Phase 0.1 — THE RULE-PACK REGISTRY. ──
+// The dispatcher no longer hard-codes which claus have a pack: it asks the registry for a
+// ZONE DISPOSITION and gets `pack` / `refusal` / `unregistered`. Adding a clau (or a city) is a
+// data addition here, not an edit to an L5 editor file (C58 §1.5).
+export {
+    resolveZoneDisposition,
+    registeredPackZoneCodes,
+    BCN_JURISDICTION_ID,
+    type ZoneDisposition,
+    type ZoneDispositionHints,
+} from './rulepacks/registry.js';
+
+// ── L-550 Phase 0.3 / 1b — THE REFUSAL VOCABULARY. ──
+// "No private buildable envelope applies here (clau NN)" is a POSITIVE, cited answer — and until
+// now it was inexpressible, so parks, motorways and Collserola were shown a fabricated setback
+// triple from the generic estimated pack.
+export { buildRefusedEnvelope, isRefusedEnvelope } from './rulepacks/zoneRefusal.js';
+export {
+    barcelonaZoneRefusal,
+    barcelonaZoneRefusalFor,
+    BCN_ZONE_REFUSALS_BY_CLAU,
+    BCN_REFUSED_CLAUS,
+    BCN_PGM_INSTRUMENT_REF,
+} from './rulepacks/esBarcelonaZoneClassification.js';
+
 // L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the
 // counterpart to Art. 242's depth). Refuses rather than let a MEASURED street width choose a
 // storey band near a boundary — see the module header.

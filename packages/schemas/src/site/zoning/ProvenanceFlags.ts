@@ -36,12 +36,24 @@ export type FieldProvenance = z.infer<typeof FieldProvenanceSchema>;
  *                           (R1): the panel MUST word this as "constructed", keep the citations,
  *                           and retain the "2008 modification not reflected" caveat.
  *   - `estimated-ruleset` — resolved from a curated zone-class rule pack (generic default).
+ *   - `not-determined`    — **NO determination was made, and that is the answer** (L-550, the
+ *                           Phase-0.3 refusal vocabulary). Reserved for `status:
+ *                           'not-applicable'` envelopes: the zone is a public system, protected
+ *                           soil, or governed by a derived plan / per-site document PRYZM does
+ *                           not hold, so there is no private buildable envelope to compute.
+ *                           ⚠ THIS IS NOT A WEAKER `estimated-ruleset`. An estimate is a number
+ *                           we produced and labelled; this is the deliberate absence of one,
+ *                           carrying a CITED reason (`BuildableEnvelope.refusal`). Conflating
+ *                           the two is the §CONTEXT-DATA-HONESTY failure — "failure and empty
+ *                           are the same value" — restated at the envelope layer: today a park
+ *                           and an unsurveyed plot both render a fabricated setback triple.
  */
 export const EnvelopeConfidenceSchema = z.enum([
     'authoritative',
     'structured',
     'block-constructed',
     'estimated-ruleset',
+    'not-determined',
 ]);
 export type EnvelopeConfidence = z.infer<typeof EnvelopeConfidenceSchema>;
 
