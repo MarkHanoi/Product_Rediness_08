@@ -4105,3 +4105,43 @@ mirrors 406/timeout/429 — an unfixable hot-path. Full design: `CONTEXT-3D-PERF
 **Perf budget:** first bytes <50 ms (CDN range GET), near-ring <500 ms, repeat ~0 ms (cache), no
 rate-limit risk. **Contracts:** C12/C55/C19/C10. **NOT this item:** the grey-scanline render fault
 (webgl-fallback / §PERF-WEBGPU-FRAGMENT — relates L-503, separate live-browser diagnosis).
+
+---
+
+## Session 2026-07-21 — Barcelona real end-to-end production hardening (deploys v243–v253)
+
+Barcelona real end-to-end (draw + select) reached **founder-confirmed SOUND** this session. Every
+item cross-links its audit row (`V1-LAUNCH-READINESS-AUDIT.md L-NNN`). ✅ = shipped + confirmed / live;
+🔧 = built, needs a run; ⏳ = open, needs a machine/browser/deep pass.
+
+| L-NNN | What | Phase | Status |
+|---|---|---|---|
+| **L-508b** | Envelope panel readable with REAL data (widen 300px/minWidth 272px; `overflowWrap:anywhere`→`break-word`; stacked "Why?" rows so the value column can't starve) | UI / envelope panel | ✅ **v243** — founder-confirmed |
+| **L-515** | Envelope depth insets from the real STREET frontage, not the −Z placeholder (parcel frontage = block-perimeter membership, reusing `classifyBlockFrontages`) | zoning / envelope geometry | ✅ **v245** (probe v244) |
+| **L-516** | Envelope no longer waits on the slow Overpass roads fetch (2 s deadline; roads are a manzana-perimeter *refinement*) | zoning fetch latency | ✅ **v246** |
+| **L-516b** | MUC clau ‖ Catastro parcel fetched in parallel (independent point lookups) | zoning fetch latency | ✅ **v251** |
+| **L-517** | 3D-tiles parcel-clip facade-sliver mismatch (under-sized clip vs offset) | globe / photoreal clip | ⏳ needs a **live Cesium** clip-margin pass |
+| **L-518** | New C58 confidence tier `block-constructed` → real **"Real · constructed"** badge + honest source line, not ESTIMATED (assigned only when `alignment.depthBinding` present) | zoning / envelope provenance (C58) | ✅ **v247** — founder-confirmed the decision; governed by `spain/barcelona-catalonia/RISK-REGISTER.md` R1 |
+| **L-518c** | Alignment-zone summary shows Buildable depth + alignment offset + area instead of the null setback triple | UI / envelope panel | ✅ **v249** |
+| **L-519** | Interactive envelope↔data linking (click a panel row → select its geometry) | geospatial / UI + zoning | ⏳ studied + planned (L-519a–d); foundation = C58 `constraint→geometry` map |
+| **L-520** | 3D Site paints on first layout via a ResizeObserver (was blank until an incidental reflow; canvas mounts 0×0) | globe / Cesium canvas-sizing | ✅ **v250** |
+| **L-521** | Draw flow queries Catastro at the drawn parcel's centroid, not the geocode anchor (new `sceneXZToLatLon` inverse; undo θ then invert projection) | zoning / draw-flow trigger | ✅ **v248** — founder-confirmed REAL on a draw |
+| **L-521b** | Query point = AREA centroid (shoelace), not the vertex average (fixed intermittent estimated on irregular/concave draws) | zoning / draw-flow | ✅ **v252** |
+| **L-522** | Terrain / DTM sourcing study (byproduct of the height LiDAR pull; per-country adapters + FABDEM fallback) | geospatial / context-data (docs) | ✅ documented (child of L-511); ⚠ FABDEM non-commercial licence |
+| **L-523** | Envelope + context latency (Part A envelope = L-516/L-516b ✅; Part B context = the tile bake) | zoning fetch + geospatial/infra | ✅ Part A; ⏳ Part B = L-513a bake |
+| **L-524 / L-524a** | Front-load the context wait: prefetch context at the **parcel** centroid (not the geocode anchor) so the render hits cache | geospatial / context prefetch | ✅ **v253** Part A (parcel prefetch); ⏳ Part B (context-ready loading gate) |
+| **L-513a** | Context tile-bake tool (`tools/context-bake/`: download→osmium clip→tags-filter→export→tippecanoe→PMTiles; Docker or local) | infra / bake | 🔧 **BUILT** — needs a Docker run + upload |
+| **L-513b** | Client PMTiles tile-reader (turnkey spec in `CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` §9) | client / context | ⏳ spec ready; needs real tiles + the dep (lockfile sync) |
+| **L-525** | Envelope HEIGHT + DEPTH too small vs the real Eixample neighbours (P1 ACCURACY) | zoning / envelope accuracy | ⏳ **root-caused, needs the deep 3-step pass** — see the L-525 section below |
+
+### L-525 — envelope accuracy (the deep investigation)
+
+Two independent defects (audit L-525 has the console evidence). **Do NOT blind-fix; each needs a probe.**
+
+| Sub-task | Phase | Status / plan |
+|---|---|---|
+| L-525a **HEIGHT — source the 13a alçada reguladora** (street-width → regulated height per the PGM table; ~20.75 m @10–20 m streets, ~24.4 m wider) and drive the 3D massing height from it, replacing the fabricated ~9 m default. The alignment-zone envelope currently has a NULL max-height and the massing invents 9 m. | zoning / height data | OPEN — a real DATA addition (fetch the amplada de vial + the PGM height table); needs a live probe of the source, like the depth pipeline |
+| L-525b **DEPTH — verify the block dissolve** captures the full Cerdà manzana. Block 02309 dissolved to ~6,686 m² ≈ HALF a normal manzana (~12,000 m²); a partial block makes the all-perimeter inset floor out at 11 m (`min-floor`). Probe: log/compare the dissolved block-ring footprint vs the real manzana outline for a known parcel. | zoning / block assembly (C57) | OPEN — if the block is partial, fix the Catastro manzana query/dissolve; if whole, go to L-525c |
+| L-525c **DEPTH — re-examine the depth MODEL for small/irregular blocks.** All-perimeter inset (L-502) over-erodes a small block; the real profunditat edificable is a street-frontage BAND leaving a central courtyard, not an inset from every edge (incl. chamfers). Decide whether the model needs frontage-band geometry for non-square blocks. | zoning / depth model (blockDerivedDepth.ts) | OPEN — after L-525b confirms the block is whole |
+
+**Contracts:** C58, ADR-0270/0271, C57, `blockDerivedDepth.ts`, the (unbuilt) alçada-reguladora height table.
