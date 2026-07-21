@@ -61,6 +61,23 @@ export function latLonToSceneXZ(
     return { x, z };
 }
 
+/**
+ * Inverse of {@link latLonToSceneXZ} — recover a WGS84 lat/lon from site-local scene XZ metres
+ * about the SAME `(originLat, originLon)`. Exact algebraic inverse of the local equirectangular
+ * projection above (§L-521: needed to query the REAL zoning at a DRAWN parcel's actual centroid,
+ * not the site anchor). The XZ must be in the TRUE-north frame (undo any project-north θ first).
+ */
+export function sceneXZToLatLon(
+    p: XZPoint,
+    originLat: number,
+    originLon: number,
+): LatLon {
+    const cosLat0 = Math.cos(originLat * DEG2RAD);
+    const lat = originLat - p.z / (DEG2RAD * EARTH_RADIUS_M);
+    const lon = originLon + p.x / (DEG2RAD * EARTH_RADIUS_M * cosLat0);
+    return { lat, lon };
+}
+
 /** Signed area (shoelace) of an XZ ring; >0 ⇒ counter-clockwise in XZ. */
 function signedAreaXZ(ring: ReadonlyArray<XZPoint>): number {
     let a = 0;

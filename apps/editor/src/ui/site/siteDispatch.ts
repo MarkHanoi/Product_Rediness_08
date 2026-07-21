@@ -63,7 +63,7 @@ import { fetchQualificationAtPoint } from './zoning/MucZoningProvider.js';
 import { catastroParcelProvider } from './parcel/CatastroParcelProvider.js';
 import { fetchBlockForParcel } from './parcel/CatastroBlockProvider.js';
 import { fetchContextRoads } from '../geospatial/contextRoads.js';
-import { latLonToSceneXZ, type LatLon } from './boundaryProjection.js';
+import { latLonToSceneXZ, sceneXZToLatLon, type LatLon } from './boundaryProjection.js';
 import { trace } from '@opentelemetry/api';
 import { polygonAreaXZ } from './siteInspectorData';
 
@@ -811,25 +811,47 @@ function applyZoning(
 ): void {
     try {
         const loc = ctx.store.getSite()?.location;
-        // §JURISDICTION-DIAG (L-505) — ALWAYS logs, so a silent estimated fallback is never a
-        // mystery: it names whether the site location was readable and which jurisdiction gate
-        // matched. If the founder searches the console and finds NO §BCN-REAL-ENVELOPE line, this
-        // line says why — loc null (site not set at applyZoning time) vs isInBarcelona=false.
+        // §L-521 — resolve the jurisdiction + fetch the REAL zoning at the DRAWN PARCEL'S actual
+        // centroid, NOT the site anchor. On a SELECT flow the anchor IS the parcel (centroid ≈
+        // anchor ⇒ unchanged); on a DRAW flow the anchor is the initial geocode (e.g. the Barcelona
+        // city centre / Gothic Quarter) while the boundary is drawn elsewhere (Passeig de Gràcia),
+        // so querying at the anchor hit a NON-Eixample clau and fell back to estimated — the
+        // founder's "the drawn envelope stays on placeholder dims". Recover the centroid's lat/lon:
+        // undo the commit θ-rotation (project→true via -θ), then invert the equirectangular
+        // projection about the site origin (= anchor lat/lon).
+        let qLat: number | undefined = loc?.latitude;
+        let qLon: number | undefined = loc?.longitude;
+        if (loc && boundary.polygon.length >= 3) {
+            let cx = 0, cz = 0;
+            for (const p of boundary.polygon) { cx += p.x; cz += p.z; }
+            cx /= boundary.polygon.length; cz /= boundary.polygon.length;
+            const theta = Number.isFinite(loc.trueNorth) ? loc.trueNorth : 0;
+            const tn = theta === 0
+                ? { east: cx, north: -cz }
+                : trueVectorToProjectNorth({ east: cx, north: -cz }, -theta);
+            const ll = sceneXZToLatLon({ x: tn.east, z: -tn.north }, loc.latitude, loc.longitude);
+            qLat = ll.lat;
+            qLon = ll.lon;
+        }
+        // §JURISDICTION-DIAG (L-505 + L-521) — ALWAYS logs the anchor AND the parcel-centroid query
+        // point, so a silent estimated fallback is never a mystery: if the founder finds NO
+        // §BCN-REAL-ENVELOPE line, this says why — loc null vs isInBarcelona=false at the PARCEL.
         console.log(
-            `[gis][c58] §JURISDICTION-DIAG loc=${loc ? `${loc.latitude.toFixed(5)},${loc.longitude.toFixed(5)}` : 'NULL'} ` +
-                `isInDenmark=${loc ? isInDenmark(loc.latitude, loc.longitude) : 'n/a'} ` +
-                `isInBarcelona=${loc ? isInBarcelona(loc.latitude, loc.longitude) : 'n/a'}`,
+            `[gis][c58] §JURISDICTION-DIAG anchor=${loc ? `${loc.latitude.toFixed(5)},${loc.longitude.toFixed(5)}` : 'NULL'} ` +
+                `parcel=${qLat != null ? `${qLat.toFixed(5)},${qLon!.toFixed(5)}` : 'n/a'} ` +
+                `isInDenmark=${qLat != null ? isInDenmark(qLat, qLon!) : 'n/a'} ` +
+                `isInBarcelona=${qLat != null ? isInBarcelona(qLat, qLon!) : 'n/a'} (L-521: querying the PARCEL, not the anchor).`,
         );
-        if (loc && isInDenmark(loc.latitude, loc.longitude)) {
-            void applyDkZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude, estimated);
+        if (qLat != null && qLon != null && isInDenmark(qLat, qLon)) {
+            void applyDkZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // ADR-0271 §BCN-REAL-ENVELOPE — a Barcelona-metro plot resolves the REAL, cited
         // ensanche envelope (clau 13a/13E, block-derived profunditat edificable per PGM
         // Art. 242.2). Async + best-effort: ANY problem (or a non-Eixample clau) falls back
         // to the precomputed estimated envelope, exactly like the DK path.
-        if (loc && isInBarcelona(loc.latitude, loc.longitude)) {
-            void applyBcnZoningThenFallback(ctx, boundary, loc.latitude, loc.longitude, estimated);
+        if (qLat != null && qLon != null && isInBarcelona(qLat, qLon)) {
+            void applyBcnZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
     } catch (e) {
