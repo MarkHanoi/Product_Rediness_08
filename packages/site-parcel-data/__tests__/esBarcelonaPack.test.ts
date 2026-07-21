@@ -80,13 +80,25 @@ describe('ADR-0271 P5 — what the signed source did NOT authorise stays null', 
         }
     });
 
-    it('carries an ordinanceRef naming the source AND its 2009 staleness', () => {
-        // C58 §1.3 — an estimated value must cite what it came from. The consolidation date is
-        // part of the citation because a 2008 Art. 327 modification post-dates it.
+    it('carries an ordinanceRef naming the LIVING consolidated source (L-526, v255)', () => {
+        // C58 §1.3 — an estimated value must cite what it came from.
+        //
+        // ⚠ THIS ASSERTION USED TO REQUIRE `/2009/`, on the reasoning that the consolidation date
+        // belonged in the citation because a 2008 Art. 327 modification post-dated it. L-526 found
+        // that reasoning wrong twice over: a text consolidated to 31-12-2009 ALREADY contains a
+        // DOGC 29-09-2008 modification (so the caveat was self-contradictory), and the modification
+        // is to the HEIGHT table, not to the depth this pack derives. The "AMB … Dec 2010" vintage
+        // was also anachronistic — the AMB did not exist until July 2011.
+        //
+        // So the citation is now the LIVING consolidated refós (RPUC / NUMAMB), which has no single
+        // frozen date to assert. Pinning a year here would re-introduce exactly the stale-vintage
+        // claim L-526 removed, so the test pins the SOURCE and the ARTICLES instead.
         for (const z of zones()) {
             expect(z.ordinanceRef).toBeTruthy();
-            expect(z.ordinanceRef).toMatch(/2009/);
-            expect(z.ordinanceRef).toMatch(/Art\. 242\.2/);
+            expect(z.ordinanceRef).toMatch(/RPUC|NUMAMB/);
+            expect(z.ordinanceRef).toMatch(/Art\. 242/);
+            // The anachronistic attribution must not come back.
+            expect(z.ordinanceRef).not.toMatch(/AMB Normativa Urbanística Metropolitana \(Dec 2010\)/);
         }
     });
 });
@@ -99,7 +111,9 @@ describe('ADR-0271 P5 — the Art. 242.2 construction, which IS authorised', () 
         expect(BCN_ENSANCHE_RULE).not.toHaveProperty('buildableDepth_m');
         if (BCN_ENSANCHE_RULE.kind === 'block-derived-alignment') {
             expect(BCN_ENSANCHE_RULE.interiorFreeRatio).toBe(0.3);
-            expect(BCN_ENSANCHE_RULE.minDepth_m).toBe(11);
+            // 12 m, not 11 — Art. 242 sets the ordinance MINIMUM depth at 12 m (L-526 primary-source
+            // finding, shipped v254). The 11 m this once asserted was our own misreading.
+            expect(BCN_ENSANCHE_RULE.minDepth_m).toBe(12);
             expect(BCN_ENSANCHE_RULE.maxDepth_m).toBe(30);
         }
     });

@@ -58,7 +58,27 @@ PB+5 ≈ 20.75–22.40 m.** Our **9 m ≈ PB+2 is wrong by ~2.5×.**
 Parcel **0230904DF3803** = Pau Claris 155. No MPGM/PE found modifying it (nearby 158-160 IS modified,
 155 is not) → standard 13a rules apply. Expected: **depth ~24–28 m, height ~20.75–22.40 m (PB+5).**
 
-## 🎯 THE DEPTH ROOT CAUSE (validates L-525b)
+## 🎯 THE DEPTH ROOT CAUSE — ⛔ **THIS ENTIRE SECTION WAS WRONG. SUPERSEDED 2026-07-21 (v256).**
+
+> The section below concluded that masa 02309 is half a Cerdà illa and that masa-union (L-525b) was
+> THE depth fix. **Live-data probes refuted it.** Masa 02309's bbox is 113.4 × 113.8 m with ZERO
+> cross-masa adjacency links in a 444 m search — there is no sibling masa to union with. Its
+> dissolved ring is solid, 6,696 m², perimeter 336 m ⇒ a genuine **~82 × 82 m block rotated ~45°**
+> (the Eixample grid bearing), not half of anything. The "6,686 ≈ half of 12,769 m²" arithmetic
+> compared a rotated small block against a nominal axis-aligned one.
+>
+> **The real cause was a code defect, not a data one:** `insetPolygonPerEdge`'s greedy
+> self-intersection cleanup collapsed the block ring from 40 vertices to 2 at any inset ≥ 8 m, which
+> `solveBlockDerivedDepth` read as zero interior free area ⇒ floor + degenerate. See **L-529** and
+> the resolution box atop `L-525-ENVELOPE-ACCURACY-INVESTIGATION.md`. Fixed: Pau Claris 155 now
+> solves to **15.7 m, binding=interior-ratio, freeRatio=0.300, degenerate=false**.
+>
+> **The LEGAL findings in the rest of this file are unaffected and still hold** — the 12 m minimum,
+> the Art. 242 / 322 / 327 attribution, the 2008-modification analysis and the height table were all
+> independently sourced and remain correct. Only this one geometry inference was wrong. Retained
+> verbatim below so the reasoning that misled three documents stays auditable.
+
+### (superseded text follows)
 The research's strongest hypothesis for our **11 m**: *Art. 242 offsets the **ILLA (block)**, not the
 parcel. Offsetting each PARCEL independently — or a PARTIAL/undersized block — collapses the depth to
 ~10–12 m, "remarkably close to your engine's output."* **Our block 02309 dissolved to ~6,686 m² ≈ HALF

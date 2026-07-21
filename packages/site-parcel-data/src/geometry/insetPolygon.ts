@@ -189,52 +189,111 @@ function selfIntersects(ring: ReadonlyArray<Pt>): boolean {
 }
 
 /**
- * Greedy loop removal for a self-intersecting offset ring. Walks the ring and,
- * whenever the newest edge crosses an earlier kept edge, splices out the loop
- * between them and inserts the crossing point. Keeps the outer simple boundary —
- * removes the reversed "spikes" an inward offset folds up in narrow concavities.
+ * §INSET-LOOP-DECOMPOSE (L-525b) — split a self-intersecting offset ring into SIMPLE loops.
+ *
+ * ⚠ THIS REPLACES A GREEDY WELDER THAT DESTROYED THE POLYGON. The previous implementation walked
+ * the ring and spliced out a loop the moment the newest edge crossed an earlier kept edge. That
+ * is correct only when the fold is ONE small spike near the end of the walk. When an inward
+ * offset folds in SEVERAL places at once — the normal case for a real cadastral block, which is
+ * non-convex with many short edges — each greedy splice truncates `out` back to the crossing
+ * index, so later splices cut into material earlier ones had already kept. It does not degrade,
+ * it collapses: on the real Barcelona block 02309 (58 vertices, 9 reflex) a 12 m inset came out
+ * of it with TWO vertices, which the caller's `< 3` gate then reported as `degenerate` — i.e. as
+ * "the setbacks consumed the whole block", for a block that in truth retains 48% free space.
+ *
+ * THE CONSEQUENCE THAT MAKES THIS A COMPLIANCE BUG, NOT A RENDERING ONE: `solveBlockDerivedDepth`
+ * reads a degenerate inset as ZERO interior free area, so the Art. 242.2 courtyard rule can never
+ * be satisfied at any depth, and the solver falls to the ordinance FLOOR and flags `degenerate`.
+ * Barcelona shipped a 12 m *profunditat edificable* where the construction yields ~17 m. A too-
+ * shallow depth is exactly as wrong as a too-deep one, and it failed SILENTLY (L-525).
+ *
+ * WHAT THIS DOES INSTEAD — the standard offset-cleanup, stated in full because it is load-bearing:
+ * a self-intersecting offset ring is not garbage, it is a ring that traverses several closed
+ * loops. Split it at its crossings and each loop comes out simple and consistently wound. Loops
+ * wound OPPOSITE to the (CCW-canonicalised) input are the "invalid loops" of offsetting — the
+ * reversed folds an inward offset produces where opposing walls pass through each other — and are
+ * discarded. Loops wound WITH the input are real surviving material.
+ *
+ * The split is exact: every emitted vertex is either an input vertex or a true crossing point,
+ * and the two traversals of a crossing are matched by the CROSSING'S OWN IDENTITY (the edge pair
+ * that produced it) rather than by coordinate comparison — so no tolerance governs the topology,
+ * which is what makes the decomposition deterministic (C58 §1.1).
  */
-function removeSelfIntersections(ring: ReadonlyArray<Pt>): Pt[] {
-    const out: Pt[] = [];
-    for (let i = 0; i < ring.length; i++) {
-        const v = ring[i]!;
-        // Try to weld the incoming edge (out.last -> v) against earlier kept edges.
-        let welded = false;
-        for (let k = out.length - 2; k >= 0; k--) {
-            const a = out[k]!;
-            const b = out[k + 1]!;
-            const last = out[out.length - 1]!;
-            if (segmentsCross(a, b, last, v)) {
-                const x = lineIntersect(a, sub(b, a), last, sub(v, last));
-                if (x) {
-                    out.length = k + 1; // keep a..out[k]
-                    out.push(x); // the crossing point
-                    welded = true;
-                    break;
-                }
-            }
+interface WalkNode {
+    readonly p: Pt;
+    /** Identity for matching the two traversals of one crossing. NEVER a coordinate. */
+    readonly key: string;
+}
+
+/** Proper crossing of a-b and c-d, with each segment's own parameter. Null if they do not cross. */
+function segmentCrossPoint(
+    a: Pt,
+    b: Pt,
+    c: Pt,
+    d: Pt,
+): { t: number; u: number; p: Pt } | null {
+    if (!segmentsCross(a, b, c, d)) return null;
+    const r = sub(b, a);
+    const s = sub(d, c);
+    const denom = cross(r, s);
+    if (Math.abs(denom) < EPS) return null;
+    const t = cross(sub(c, a), s) / denom;
+    const u = cross(sub(c, a), r) / denom;
+    return { t, u, p: { x: a.x + t * r.x, z: a.z + t * r.z } };
+}
+
+/**
+ * Decompose a (possibly self-intersecting) ring into simple closed loops.
+ *
+ * Method: build the traversal with every crossing spliced into both of the edges that produced
+ * it, then walk it with a stack — revisiting a node means the walk just closed a loop, so pop it
+ * off and carry on. Every loop is emitted exactly once and the vertices partition cleanly.
+ */
+function decomposeToSimpleLoops(ring: ReadonlyArray<Pt>): Pt[][] {
+    const n = ring.length;
+    const perEdge: Array<Array<{ t: number; p: Pt; key: string }>> = [];
+    for (let i = 0; i < n; i++) perEdge.push([]);
+
+    for (let i = 0; i < n; i++) {
+        const a = ring[i]!;
+        const b = ring[(i + 1) % n]!;
+        for (let j = i + 1; j < n; j++) {
+            // Adjacent edges share an endpoint by construction — that is not a crossing.
+            if (j === (i + 1) % n || (j + 1) % n === i) continue;
+            const x = segmentCrossPoint(a, b, ring[j]!, ring[(j + 1) % n]!);
+            if (!x) continue;
+            const key = `X${i}:${j}`;
+            perEdge[i]!.push({ t: x.t, p: x.p, key });
+            perEdge[j]!.push({ t: x.u, p: x.p, key });
         }
-        if (!welded) out.push({ x: v.x, z: v.z });
     }
-    // Close-up pass: the wrap edge (out.last -> out.first) may still cross.
-    if (out.length >= 4) {
-        for (let k = 1; k < out.length - 2; k++) {
-            const a = out[k]!;
-            const b = out[k + 1]!;
-            const last = out[out.length - 1]!;
-            const first = out[0]!;
-            if (segmentsCross(a, b, last, first)) {
-                const x = lineIntersect(a, sub(b, a), last, sub(first, last));
-                if (x) {
-                    // Drop the tail loop and the head stub, seat the crossing point.
-                    const kept = out.slice(k + 1);
-                    kept.push(x);
-                    return kept;
-                }
-            }
+
+    // The traversal: each original vertex, then that edge's crossings in the order met along it.
+    const walk: WalkNode[] = [];
+    for (let i = 0; i < n; i++) {
+        walk.push({ p: ring[i]!, key: `V${i}` });
+        perEdge[i]!.sort((p, q) => p.t - q.t);
+        for (const c of perEdge[i]!) walk.push({ p: c.p, key: c.key });
+    }
+
+    const loops: Pt[][] = [];
+    const path: WalkNode[] = [];
+    const seenAt = new Map<string, number>();
+    for (const node of walk) {
+        const at = seenAt.get(node.key);
+        if (at === undefined) {
+            seenAt.set(node.key, path.length);
+            path.push(node);
+            continue;
         }
+        // Closed a loop: everything after the first visit of this node IS the loop.
+        const loop = path.slice(at).map((w) => ({ x: w.p.x, z: w.p.z }));
+        if (loop.length >= 3) loops.push(loop);
+        for (let k = at + 1; k < path.length; k++) seenAt.delete(path[k]!.key);
+        path.length = at + 1;
     }
-    return out;
+    if (path.length >= 3) loops.push(path.map((w) => ({ x: w.p.x, z: w.p.z })));
+    return loops;
 }
 
 /**
@@ -346,8 +405,23 @@ export function insetPolygonPerEdge(
     }
 
     // ── 5. Clean up any residual self-intersection (narrow concavities). ─────
+    // §INSET-LOOP-DECOMPOSE (L-525b) — split into simple loops and keep the material that
+    // survives the offset. A loop wound OPPOSITE the CCW-canonicalised input is an offset
+    // artefact (a reversed fold), never real buildable area, so it is discarded on ORIENTATION
+    // rather than on any size threshold — a threshold would be a tunable standing between a
+    // cadastral block and a compliance number, which is what L-525b was.
     if (selfIntersects(out)) {
-        out = removeSelfIntersections(out);
+        const loops = decomposeToSimpleLoops(out);
+        const kept = loops.filter((l) => l.length >= 3 && polygonSignedArea(l) > EPS);
+        if (kept.length === 0) return { polygon: [], degenerate: true };
+        // An offset can genuinely sever a polygon into several disjoint pieces (a block pinched
+        // at a narrow waist). `InsetResult` carries ONE ring, so the largest surviving piece is
+        // returned — the principal buildable region. That UNDER-reports total area when a real
+        // split occurs, which is the conservative direction for a setback (it can only shrink a
+        // buildable envelope, never inflate one). A multi-region result needs an API change and
+        // is tracked separately rather than faked here with a merged ring that encloses the gap.
+        kept.sort((a, b) => polygonSignedArea(b) - polygonSignedArea(a));
+        out = kept[0]!;
     }
     if (out.length < 3) return { polygon: [], degenerate: true };
 

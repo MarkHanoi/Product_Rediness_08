@@ -1,5 +1,46 @@
 # L-525 — Envelope accuracy: the deep investigation (height + depth)
 
+> ## ⛔ RESOLVED 2026-07-21 (v256) — DEFECT B IS FIXED AND EVERY HYPOTHESIS BELOW ABOUT IT WAS WRONG
+>
+> **Read this box before acting on anything below it.** Defect B (the shallow depth) is fixed. The
+> cause was **neither** candidate this document proposed (b1 partial block / b2 wrong depth model),
+> **nor** the legal rule L-526 examined. All three were plausible, and all three were wrong.
+>
+> **The actual cause: `insetPolygonPerEdge` collapsed.** Its greedy self-intersection cleanup
+> (`removeSelfIntersections`) truncated the polygon on every fold, so a 12 m inset of the real block
+> came out with **2 vertices** and was reported `degenerate`. `solveBlockDerivedDepth` reads that as
+> ZERO interior free area ⇒ Art. 242.2 unsatisfiable at any depth ⇒ fall to the ordinance floor and
+> flag degenerate. Logged as **L-529**; fix = §INSET-LOOP-DECOMPOSE.
+>
+> **Result for CL Pau Claris 155:** `12.0 m · min-floor · degenerate=true` → **`15.7 m ·
+> interior-ratio · achievedFreeRatio=0.300 · degenerate=false`**.
+>
+> **Defect A (the fabricated ~9 m height) is untouched and still open** — everything this document
+> says about it stands.
+>
+> ### THE PROBES (live Catastro data, 2026-07-21) — what actually refuted b1 and b2
+> | # | Probe | Result |
+> |---|---|---|
+> | 1 | Group all parcels in the 444 m bbox into connected components by geometric adjacency | Masa 02309 bbox = **113.4 × 113.8 m**; **ZERO cross-masa adjacency links**. **There is no sibling masa to union with** — b1's "half-illa" premise is false. |
+> | 2 | Run the real `dissolveParcelsToBlockRing` and measure the ring | Ring is **solid** (enclosed area = summed parcel area = 6,696 m², no courtyard hole), perimeter only **336 m**. A solid 113 m illa would be 452 m. ⇒ a genuine **~82 × 82 m block rotated ~45°** (the Eixample grid bearing). The "6,686 ≈ half of 12,769" arithmetic compared a *rotated small block* to a *nominal axis-aligned* one. |
+> | 3 | Sweep `insetPolygonPerEdge` over d = 0…30 on that ring | Clean to d=6 (70% free), **degenerate at every d ≥ 8**. A clean 82 m control square insets fine to d=25 ⇒ the failure is in the code, not the geometry. |
+> | 4 | Instrument the inset's internal gates | Self-intersection cleanup collapses **40 vertices → 2**; gate G5 (`< 3` verts) then declares the whole polygon degenerate. **Root cause.** |
+> | 5 | Independent distance-field solve (validated to 2 dp against an analytic control) | Depth ≈ **17.4 m** — nowhere near 12 m, confirming the block was never short of courtyard (48% free at 12 m). |
+>
+> ### Why the exact bisection in `blockDerivedDepth.ts` was NOT replaced
+> Art. 242 says *"figura similar a la illa"* — an equidistant figure **similar** to the block, i.e.
+> **sharp mitered corners**. The miter offset is therefore the legally faithful construction and the
+> distance field is the approximation, not the other way round. The distance field was used only as
+> an independent oracle. The two bracket as theory predicts (the miter offsets from edge *lines*, so
+> it erodes marginally more): **15.7 m (miter, shipped) vs 17.4 m (distance field)**.
+>
+> ### Lesson for the next session
+> Three documents (this one, `L-526-LEGAL-FINDINGS.md`, the audit) had independently converged on
+> "masa 02309 is half an illa" and called the fix *turnkey*. It was a shared inference from ONE
+> number (6,686 m²) that nobody had measured the shape behind. **The probe that killed it took ten
+> minutes and needed no deploy** — the public Catastro WFS is keyless and callable straight from the
+> dev box. Measure the geometry before theorising about the data.
+
 **Item:** L-525 (`../../V1-LAUNCH-READINESS-AUDIT.md`). Founder, 2026-07-21: *"the height of the
 envelope doesn't correspond with the environment height … the buildings nearby are super tall and
 way deeper … I want to analyse this really deep — we cannot have such mistakes."*
