@@ -4120,10 +4120,35 @@ export class CesiumViewport {
     let envelopeEntitiesAdded = 0;
     if (envelopePresent) {
       try {
+        // §ENVELOPE-NO-FABRICATED-HEIGHT (L-525a) — ⚠ THIS USED TO BE `: 9`.
+        //
+        // When the zone published no maximum height (every Barcelona 13a alignment zone, BY DESIGN
+        // — the height is constructed from Art. 327.2, not stated), this fell back to a hardcoded
+        // 9 m and extruded it in the SAME translucent purple study volume as a real one. A
+        // fabricated ~PB+2 was therefore indistinguishable from a surveyed height, on streets whose
+        // real answer is PB+5 ≈ 20.75 m — the founder's "the height is absolutely not correct".
+        // That is the L-459 defect class (a fabricated value rendering exactly like a measured one)
+        // reached through the envelope instead of the context.
+        //
+        // With a known height we extrude it. WITHOUT one we now show a FOOTPRINT SLAB, not an
+        // invented building: it reads unmistakably as "this is the buildable area, we do not claim
+        // a height" instead of quietly asserting three storeys. An absent height costs a flat
+        // study volume; a fabricated one costs a wrong building, and only one of those is
+        // recoverable by a user who cannot see which it was.
+        const FOOTPRINT_ONLY_HEIGHT_M = 0.5;
+        const hasRealHeight =
+          typeof envelope!.maxHeightM === 'number' && envelope!.maxHeightM > 0;
+        if (!hasRealHeight) {
+          console.log(
+            `[CesiumViewport][forma] §ENVELOPE-NO-FABRICATED-HEIGHT — no maxHeight on this envelope, ` +
+              `so the study volume is drawn as a ${FOOTPRINT_ONLY_HEIGHT_M} m FOOTPRINT SLAB rather than ` +
+              `an invented prism. For Barcelona 13a this means the Art. 327.2 alçada could not be ` +
+              `constructed (see §BCN-ALCADA — usually the street is not on the curated ample-oficial ` +
+              `allow-list). Fix the width source, not this fallback.`,
+          );
+        }
         const envTop = baseHeight +
-          (typeof envelope!.maxHeightM === 'number' && envelope!.maxHeightM > 0
-            ? envelope!.maxHeightM
-            : 9);
+          (hasRealHeight ? envelope!.maxHeightM! : FOOTPRINT_ONLY_HEIGHT_M);
         const envBottom = baseHeight - FORMA_BASE_SINK_M; // seat below ground (no z-fight).
         const positions = envelope!.ring.map((p) => toCartesian(p.x, p.z, envBottom));
         // Identical entity construction to the storey-band massing prism (see above),

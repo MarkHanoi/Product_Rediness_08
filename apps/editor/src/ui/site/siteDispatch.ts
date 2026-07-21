@@ -55,6 +55,11 @@ import {
     // L-445 fallback 3 — re-inset from PERSISTED setbacks for projects committed before the
     // ring-persistence fix. C58 §1.7a permits this for `setback` zones only; see the guard.
     insetPolygonPerEdge,
+    // L-525a — the HEIGHT half of the 13a construction (PGM Art. 327.2), the counterpart to
+    // Art. 242's depth. Both refuse rather than guess; see their module headers.
+    resolveAlcadaReguladora,
+    officialStreetWidthForAddress,
+    BCN_ORDINANCE_REF,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1185,6 +1190,61 @@ async function applyBcnZoningThenFallback(
             blockEdgeClassifications,
         });
 
+        // (g2) §BCN-ALCADA (L-525a) — CONSTRUCT the *alçada reguladora màxima*.
+        //
+        // A 13a zone publishes NO per-parcel height, exactly as it publishes no depth: Art. 327.2
+        // gives a TABLE keyed by the *amplada de vial*, and the height falls out of the band the
+        // street sits in. So the pack correctly ships `maxHeight_m: null` — and until now nothing
+        // filled it, which meant the Cesium massing path fell back to a hardcoded 9 m and extruded
+        // a fabricated ~PB+2 in the same purple volume as a real height, on streets whose real
+        // answer is PB+5. That is the L-459 defect class (a fabricated value rendering exactly like
+        // a measured one), reached through the envelope instead of the context.
+        //
+        // WHY THE STREET WIDTH COMES FROM AN ALLOW-LIST AND NOT FROM MEASURING: Art. 327 keys on the
+        // *ample oficial*, and Barcelona publishes none machine-readably (probed 2026-07-21 — the
+        // only relevant `vial` dataset is a WMS raster with no width attribute). A GIS-measured
+        // frontage gap is NOT the legal quantity, and here that distinction is decisive rather than
+        // pedantic: the bands are STEPS and the Cerdà grid sits ON one. A standard street is
+        // 20.00 m, exactly the PB+4/PB+5 boundary — 19.99 m ⇒ 17.70 m, 20.00 m ⇒ 20.75 m. One
+        // centimetre of cadastral noise would move the building a full storey. Hence the curated
+        // declared figures, and `resolveAlcadaReguladora`'s refusal near a band edge otherwise.
+        //
+        // Unlisted street ⇒ `null` ⇒ NO constructed height, and the caller shows none. That is the
+        // correct failure: an absent height costs a flat study volume, a wrong one costs a wrong
+        // building (C57 §1.5, ADR-0271, the whole discipline of this path).
+        let alcadaHeightM: number | null = null;
+        let alcadaFloors: number | null = null;
+        let alcadaWhy = 'no official street width for this address (not on the curated allow-list)';
+        try {
+            const addr = typeof parcelFeat?.address === 'string' ? parcelFeat.address : '';
+            const w = addr ? officialStreetWidthForAddress(addr) : null;
+            if (w) {
+                // `trustedOfficialWidth` — these ARE the declared figures, so a value sitting ON a
+                // band edge (the 20 m Cerdà standard) is legitimate and the guard is skipped.
+                const r = resolveAlcadaReguladora(w.width_m, { trustedOfficialWidth: true });
+                if (r.ok) {
+                    alcadaHeightM = r.height_m;
+                    // PB+N ⇒ N storeys ABOVE the ground floor, so N+1 levels in total.
+                    alcadaFloors = r.floorsAboveGround + 1;
+                    alcadaWhy =
+                        `${w.street} ample oficial ${w.width_m.toFixed(2)} m → PB+${r.floorsAboveGround} ` +
+                        `= ${r.height_m.toFixed(2)} m (Art. 327.2)` +
+                        (r.uncertifiedAlternative_m
+                            ? ` ⚠ an official Barcelona certificate gives ${r.uncertifiedAlternative_m.toFixed(2)} m for PB+5 — uncertified, L-528`
+                            : '');
+                } else {
+                    alcadaWhy = `width ${w.width_m} m rejected: ${r.reason}`;
+                }
+            }
+            console.log(
+                `${TAG} §BCN-ALCADA height=${alcadaHeightM === null ? 'NONE' : alcadaHeightM.toFixed(2) + 'm'} ` +
+                    `floors=${alcadaFloors ?? 'n/a'} — ${alcadaWhy}.`,
+            );
+        } catch (e) {
+            // Never allowed to cost the (already-correct) DEPTH envelope.
+            console.warn(`${TAG} §BCN-ALCADA failed — height omitted:`, e);
+        }
+
         // (h) Dispatch ONLY a status:'ok' envelope; anything else falls back (never a broken one).
         if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
             // §L-518 — this is a REAL determination CONSTRUCTED from the real Catastro block per PGM
@@ -1200,9 +1260,37 @@ async function applyBcnZoningThenFallback(
             const isBlockConstructed = envelope.derivation.some(
                 (d) => d.constraint === 'alignment.depthBinding',
             );
-            const dispatched = isBlockConstructed
+            const withTier = isBlockConstructed
                 ? { ...envelope, confidence: 'block-constructed' as const }
                 : envelope;
+            // §BCN-ALCADA (L-525a) — attach the CONSTRUCTED height + storey count, each with its own
+            // citable "why" row. Only when we actually have one: leaving `maxHeight_m` null is what
+            // makes the panel omit the row honestly, and is far better than a number nobody can cite.
+            const dispatched =
+                alcadaHeightM === null
+                    ? withTier
+                    : {
+                          ...withTier,
+                          maxHeight_m: alcadaHeightM,
+                          maxFloors: alcadaFloors,
+                          maxVolumeM3: withTier.insetAreaM2 * alcadaHeightM,
+                          derivation: [
+                              ...withTier.derivation,
+                              {
+                                  constraint: 'maxHeight' as const,
+                                  value: alcadaHeightM,
+                                  zoneCode: withTier.zoneCode ?? clau,
+                                  // The construction is stated in the source string so the panel's
+                                  // explain-why shows HOW the number was reached, not just what it is.
+                                  source: `PGM Art. 327.2 alçada reguladora — ${alcadaWhy}`,
+                                  // NOT 'published': the table is the ordinance, but the street width
+                                  // is a curated Cerdà nominal figure pending L-528 certification.
+                                  // Badging this as published would be the L-459 defect again.
+                                  fieldProvenance: 'ordinance-pdf' as const,
+                                  ordinanceRef: BCN_ORDINANCE_REF,
+                              },
+                          ],
+                      };
             dispatchEnvelope(ctx, site.id, dispatched, 'muc-catastro');
             // §L-507-DEPTH-DIAG — surface the REAL numbers so the founder can correlate the panel
             // + the 3D envelope SHAPE with the data ("is the 26 m depth what the prism shows?").

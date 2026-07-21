@@ -66,6 +66,18 @@ export {
     type AlcadaResolution,
 } from './rulepacks/bcnAlcadaReguladora.js';
 
+// L-525a — the curated *ample oficial* allow-list Art. 327.2 keys on. Barcelona publishes no
+// machine-readable official street width, and a MEASURED width cannot substitute (the bands are
+// steps and the Cerdà grid sits on one). Unlisted street ⇒ null ⇒ no fabricated height.
+export {
+    officialStreetWidthForAddress,
+    streetNameFromCatastroAddress,
+    normaliseStreetName,
+    BCN_OFFICIAL_STREET_WIDTHS,
+    type OfficialStreetWidth,
+    type StreetWidthProvenance,
+} from './rulepacks/bcnOfficialStreetWidths.js';
+
 export {
     insetPolygonPerEdge,
     type PerEdgeSetbacks,

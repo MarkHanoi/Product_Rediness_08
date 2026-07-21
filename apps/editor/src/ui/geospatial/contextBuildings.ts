@@ -1306,7 +1306,57 @@ export async function fetchContextBuildingsNearAndFar(
         );
     }
 
-    const full = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+    // §CTX-FAR-RING-NONBLOCKING (L-531) — ⚠ THE PARAGRAPH ABOVE DESCRIBES THE INTENT; THIS MAKES
+    // THE CODE ACTUALLY DO IT.
+    //
+    // The near ring was "secured" — and then held hostage. `await`ing the far fetch here means
+    // NOTHING renders until the single most expensive query settles, so the near ring we already
+    // hold in memory is worth nothing to the user until then. In dense Barcelona that is tens of
+    // seconds and usually ends in `0 footprints` anyway; and if the user navigates in the meantime
+    // the abort returns `empty`, so they get NO context at all. That is the founder's "often the
+    // context buildings are not rendering, and if I toggle the envelope they render": toggling
+    // forces a re-render AFTER the far fetch has settled, so the already-cached near ring finally
+    // paints. Never random — a race we were losing, with the payload already in hand.
+    //
+    // So bound the far ring by a BUDGET, exactly as §L-516 does for the roads fetch on the
+    // envelope path (same defect: an optional refinement gating a critical path). If it does not
+    // land in time we return the near ring NOW and let the far request keep running — it populates
+    // its own cache key, so the next render picks it up for free. Additive, as intended.
+    const FAR_RING_BUDGET_MS = 2500;
+    type Fetched = Awaited<ReturnType<typeof fetchForBbox>>;
+    const TIMED_OUT = Symbol('far-ring-timeout');
+
+    let full: Fetched;
+    if (nearFirst.features.length > 0) {
+        const farPromise = fetchForBbox(
+            contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG),
+            signal,
+            // Swallow — a failed BONUS must never reject the whole context fetch, and letting it
+            // run on unattended would otherwise be an unhandled rejection.
+        ).catch(() => emptyContextCollection() as Fetched);
+
+        const raced = await Promise.race([
+            farPromise,
+            new Promise<typeof TIMED_OUT>((resolve) =>
+                setTimeout(() => resolve(TIMED_OUT), FAR_RING_BUDGET_MS),
+            ),
+        ]);
+        if (signal?.aborted) return empty;
+        if (raced === TIMED_OUT) {
+            console.warn(
+                `[gis] context buildings: §CTX-FAR-RING-NONBLOCKING far ring exceeded ` +
+                    `${FAR_RING_BUDGET_MS} ms — rendering the ${nearFirst.features.length} near ` +
+                    'footprint(s) NOW rather than holding the whole context behind the optional ' +
+                    'distant ring. The far request continues and warms its cache for the next render.',
+            );
+            return { near: nearFirst, far: emptyContextCollection() };
+        }
+        full = raced;
+    } else {
+        // Near came back empty, so the far ring is no longer a bonus — it is the only chance of
+        // any context at all. Wait for it, as before.
+        full = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+    }
     if (signal?.aborted) return empty;
 
     if (full.features.length === 0) {
