@@ -1725,6 +1725,46 @@ export class ProjectLoader {
                     (snapshot as { site?: import('@pryzm/schemas').SiteModel | null }).site ?? null,
                 );
                 if (restored) console.log('[ProjectLoader] §FIX-GIS-SITE-STATE-NOT-PERSISTED — C19 site state restored from snapshot');
+
+                // §L-545-SITE-CAPTURE-PROVENANCE (L-188 / L-489) — SAY IT, DO NOT SWALLOW IT.
+                //
+                // Before this, a snapshot saved WITH geometry but WITHOUT a georeference
+                // reopened indistinguishably from a plain non-GIS project: `snapshot.site`
+                // was null, `restoreSiteState` had nothing to anchor with, and the load
+                // reported success. The building floated, 3D Site rendered nothing, the
+                // envelope would not re-derive — and no line of output said why. The
+                // serializer now stamps `siteCapture`, so the reopen can name the cause.
+                //
+                // Deliberately NOT fatal and deliberately NOT a repair attempt: there is
+                // nothing to repair from — the origin is simply not in the file. Inventing
+                // one (a default city, a bbox centroid) is the L-459 mistake, and it would
+                // render a fabricated location as convincingly as a surveyed one.
+                const capture = (snapshot as { siteCapture?: { status?: string; reason?: string; elementCount?: number } }).siteCapture;
+                if (capture?.status === 'degraded') {
+                    console.error(
+                        '[ProjectLoader] ⚠ §L-545 — THIS PROJECT WAS SAVED WITHOUT A GEOREFERENCE. ' +
+                        `It carries ${capture.elementCount ?? '?'} element(s) but no C19 site, so the model has no ` +
+                        'origin: it will appear misplaced in 3D Site, context will not load, and any ' +
+                        'buildable-envelope result cannot be re-derived. This is recorded loss, not a ' +
+                        `load failure — the geometry is intact. Cause at save time: ${capture.reason ?? 'unrecorded'}.`,
+                    );
+                    try {
+                        (window as { runtime?: { events?: { emit?: (t: string, p: unknown) => void } } }).runtime?.events?.emit?.(
+                            'pryzm:toast',
+                            {
+                                message: 'This project was saved without a site georeference — the model has no origin. Re-select the site/parcel to restore it.',
+                                severity: 'warning',
+                            },
+                        );
+                    } catch { /* toast is best-effort; the console line above is the record */ }
+                } else if (capture === undefined && ((snapshot as { site?: unknown }).site == null)) {
+                    // Pre-L-545 snapshot with no site. UNKNOWABLE whether a georeference was
+                    // lost or never existed — say exactly that rather than assert either.
+                    console.log(
+                        '[ProjectLoader] §L-545 — snapshot predates site-capture provenance; ' +
+                        'cannot distinguish "never had a site" from "site was lost at save".',
+                    );
+                }
             } catch (e) {
                 console.warn('[ProjectLoader] §FIX-GIS-SITE-STATE-NOT-PERSISTED — site restore failed (non-fatal):', e);
             }

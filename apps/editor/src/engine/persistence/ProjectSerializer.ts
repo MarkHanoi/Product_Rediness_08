@@ -70,6 +70,7 @@ type IfcMetaSnapshot = ReturnType<IfcMetaStore['serialize']>;
 // every save/reload (the site silently defaulted to Madrid). The SiteModel is pure Zod
 // data (no THREE / DOM), so it round-trips through JSON directly.
 import type { SiteModelStore } from '@pryzm/stores';
+import { trace } from '@opentelemetry/api';
 import type { SiteModel } from '@pryzm/schemas';
 import { CeilingStore } from '@pryzm/core-app-model/stores';
 import { CeilingSystemTypeStore } from '@pryzm/core-app-model/stores';
@@ -396,6 +397,40 @@ export interface ProjectSnapshot {
      * compat with every pre-L-188 snapshot).
      */
     site?: SiteModel | null;
+
+    /**
+     * §L-545-SITE-CAPTURE-PROVENANCE (L-188 / L-489) — WHY `site` has the value it
+     * has, recorded at SAVE time.
+     *
+     * The defect this closes: `site: null` was AMBIGUOUS. It meant BOTH "this is a
+     * plain BIM project that never had a georeference" (correct, common) AND "this
+     * is a GIS project whose georeference was LOST at save" (the P0 — the building
+     * reopens floating over the North Atlantic, nothing renders in 3D Site, and the
+     * envelope will not re-derive). Those two need opposite responses, and nothing
+     * downstream could tell them apart, so the loader silently treated the second
+     * as the first. Same failure shape as the [context-data honesty] family: an
+     * error and an empty result were the same value.
+     *
+     * `status` is therefore explicit:
+     *   - `captured`  — a SiteModel was read and is in `site`.
+     *   - `none`      — no site, and no geometry either. Nothing was lost.
+     *   - `degraded`  — **geometry was saved with NO georeference.** The save was
+     *                   ALLOWED (see the block-vs-degrade argument at the capture
+     *                   site) but it is recorded as a known-lossy save so the
+     *                   reopen path can say so instead of pretending.
+     *
+     * Absent on every pre-L-545 snapshot; readers must treat `undefined` as "not
+     * recorded", never as `none`.
+     */
+    siteCapture?: {
+        readonly status: 'captured' | 'none' | 'degraded';
+        /** Human-readable cause, for the reopen path and for support. */
+        readonly reason: string;
+        /** Element count at save time — what would be orphaned by a lost origin. */
+        readonly elementCount: number;
+        /** Which store candidate produced the site (diagnostic for instance drift). */
+        readonly source: 'threaded' | 'window.runtime' | 'none';
+    };
 }
 
 // ── THREE.js strippers ──────────────────────────────────────────────────────
@@ -722,6 +757,143 @@ export interface ProjectStores {
     siteModelStore?: SiteModelStore;
 }
 
+
+/**
+ * §L-545-SITE-CAPTURE (L-188 / L-489) — resolve the C19 SiteModel to persist, and
+ * record WHY it has the value it has.
+ *
+ * ── DEFECT 1: THE `??` WAS ON THE WRONG THING ───────────────────────────────
+ * The previous inline code was `siteModelStore ?? window.runtime.siteModelStore`.
+ * That short-circuits on the STORE REFERENCE, not on whether the store actually
+ * holds a site. `SiteModelStore` is a PER-RUNTIME instance (`composeRuntime.ts:908`),
+ * and `initPersistence.ts:83-89` binds the threaded one ONCE, at init, into a
+ * closure that lives for the rest of the session. If the runtime is recomposed
+ * after that bind — the reconstruction-boundary family: project switch, renderer
+ * backend swap, device-loss recovery — the serializer keeps saving from a STALE,
+ * EMPTY store while the live `window.runtime.siteModelStore` holds the real parcel.
+ * The store resolves, `getSite()` returns null, the save proceeds. That is exactly
+ * the founder's signature: `siteStore=resolved · site=NULL · walls>0`.
+ *
+ * Fix: try EVERY candidate and take the first that actually HAS a site. This
+ * strictly dominates the old behaviour — it can only find a site where the old
+ * code found none, never the reverse — and it records which candidate won, so
+ * instance drift becomes visible instead of inferred.
+ *
+ * ── DEFECT 2: `site: null` WAS AMBIGUOUS ────────────────────────────────────
+ * It meant BOTH "plain BIM project, never had a georeference" (correct, common)
+ * and "GIS project whose georeference was LOST at save" (the P0). Nothing
+ * downstream could tell them apart, so the loader treated the second as the first
+ * and reported a clean load. Same failure shape as the context-data honesty
+ * family: an error and an empty result were the same value. `capture.status`
+ * separates them.
+ *
+ * ── BLOCK THE SAVE, OR SAVE WITH EXPLICIT DEGRADATION? ──────────────────────
+ * FOR BLOCKING: an element-bearing GIS snapshot with a null georeference is
+ * corrupt-on-arrival — it reopens floating, renders nothing in 3D Site, and any
+ * compliance envelope derived from it is meaningless.
+ *
+ * AGAINST BLOCKING — decisive, three independent reasons:
+ *  1. **The alternative to a lossy save is NO SAVE, which loses MORE.** The
+ *     georeference is one field; the geometry is the user's actual work. A
+ *     "data-loss prevention" that discards the model to protect a lat/lon causes
+ *     strictly greater loss than the bug it guards against.
+ *  2. **This runs on the AUTO-SAVE path.** A throw here does not produce a dialog
+ *     the user answers — it produces auto-saves that silently stop succeeding.
+ *     That is the L-188 bug again with the blame moved.
+ *  3. **A null site is CORRECT for most projects.** Plain BIM work has no parcel
+ *     and never will. The predicate that would gate the block ("is this a GIS
+ *     project?") is not reliably knowable at save time, and inventing one is the
+ *     L-459 mistake — dressing a guess as a determination.
+ *
+ * DECISION: **SAVE, AND RECORD THE DEGRADATION AS FIRST-CLASS DATA** — not a
+ * console warning (those printed for a day and changed nothing) but a field ON
+ * THE SNAPSHOT, so the loss travels with the artefact and the reopen path can
+ * state it plainly. This does NOT stop the loss; it makes it legible and removes
+ * the ambiguity. Never fabricate a substitute origin.
+ *
+ * ⚠ HONEST LIMIT: the audit's standing instruction on L-489 is *"Do NOT patch the
+ * persistence path until that one line is read [with walls>0]"*, and it has not
+ * been read — no browser exists in this environment. Defect 1 is therefore NOT
+ * claimed as "the" root cause; it is a provable capture bug fixed on its own
+ * merits. If a live save still reports `degraded`, `capture.source` and
+ * `capture.reason` narrow what is left.
+ *
+ * Pure: no I/O, no mutation of the stores, no events. Safe to call from a test.
+ */
+export function resolveSiteCapture(
+    candidates: readonly { readonly label: 'threaded' | 'window.runtime'; readonly store: SiteModelStore | undefined }[],
+    elementCount: number,
+): { site: SiteModel | null; capture: NonNullable<ProjectSnapshot['siteCapture']> } {
+    const span = trace.getTracer('pryzm.editor.persistence').startSpan('persistence.resolveSiteCapture');
+    try {
+        let site: SiteModel | null = null;
+        let source: 'threaded' | 'window.runtime' | 'none' = 'none';
+        let anyStoreResolved = false;
+
+        for (const c of candidates) {
+            if (!c.store) continue;
+            anyStoreResolved = true;
+            try {
+                const s = c.store.getSite?.() ?? null;
+                if (s) {
+                    // structuredClone yields a plain, unfrozen snapshot — the SiteModel is
+                    // pure Zod data (no THREE/DOM refs), so this round-trips through JSON.
+                    site = structuredClone(s) as SiteModel;
+                    source = c.label;
+                    break;
+                }
+            } catch (e) {
+                // Try the NEXT candidate rather than giving up: one broken store must not
+                // cost the georeference when another holds it.
+                console.warn(
+                    `[ProjectSerializer] §L-545 — failed to read SiteModel from the ${c.label} store (trying the next candidate):`,
+                    e,
+                );
+            }
+        }
+
+        let capture: NonNullable<ProjectSnapshot['siteCapture']>;
+        if (site) {
+            capture = {
+                status: 'captured',
+                reason: `SiteModel read from the ${source} SiteModelStore.`,
+                elementCount,
+                source,
+            };
+        } else if (elementCount > 0) {
+            const reason = anyStoreResolved
+                ? 'a SiteModelStore was available but getSite() returned null on every candidate — the parcel/origin was never committed into a store the serializer can see'
+                : 'no SiteModelStore was available at save time (neither threaded via initPersistence nor on window.runtime)';
+            capture = { status: 'degraded', reason, elementCount, source: 'none' };
+            console.warn(
+                '[ProjectSerializer] ⚠ §L-489/§L-545 — SAVING A PROJECT WITH GEOMETRY BUT NO SITE ' +
+                'GEOREFERENCE. The save is ALLOWED (blocking it would discard the geometry too — see ' +
+                "the argument above) but is RECORDED on the snapshot as siteCapture.status='degraded', " +
+                `so the reopen path can say so instead of silently re-deriving nothing. Reason: ${reason}.`,
+            );
+        } else {
+            capture = {
+                status: 'none',
+                reason: 'No site and no geometry — nothing was lost (a plain non-GIS project).',
+                elementCount,
+                source: 'none',
+            };
+        }
+
+        span.setAttribute('site.capture.status', capture.status);
+        span.setAttribute('site.capture.source', capture.source);
+        span.setAttribute('site.capture.element_count', elementCount);
+        console.log(
+            `[ProjectSerializer] §L-489-SITE-CAPTURE-DIAG siteStore=${anyStoreResolved ? 'resolved' : 'NULL'} ` +
+            `site=${site ? `captured(lat=${typeof site.location?.latitude === 'number' ? site.location.latitude.toFixed(5) : '?'}, from=${source})` : 'NULL'} ` +
+            `walls=${elementCount} status=${capture.status}`,
+        );
+        return { site, capture };
+    } finally {
+        span.end();
+    }
+}
+
 export class ProjectSerializer {
     /**
      * Serialize the current live project state to a plain-JSON snapshot.
@@ -741,51 +913,19 @@ export class ProjectSerializer {
             floorStore, floorSystemTypeStore, ifcMetaStore, siteModelStore,
         } = stores;
 
-        // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — capture the C19 SiteModel so the
-        // real location / parcel boundary / geospatial origin survive save+reload. The
-        // store is a per-runtime instance (not a module singleton); prefer the threaded
-        // `stores.siteModelStore`, fall back to `window.runtime.siteModelStore` (parity
-        // with how `lighting` sources `window.lightingStore`). structuredClone yields a
-        // plain, unfrozen snapshot — the SiteModel is pure Zod data (no THREE/DOM refs).
-        const resolvedSiteStore: SiteModelStore | undefined =
-            siteModelStore
-            ?? ((window as { runtime?: { siteModelStore?: SiteModelStore } }).runtime?.siteModelStore);
-        const site: SiteModel | null = (() => {
-            try {
-                const s = resolvedSiteStore?.getSite?.() ?? null;
-                return s ? (structuredClone(s) as SiteModel) : null;
-            } catch (e) {
-                console.warn('[ProjectSerializer] §FIX-GIS-SITE-STATE-NOT-PERSISTED — failed to read SiteModel (non-fatal):', e);
-                return null;
-            }
-        })();
-
-        // §L-489-SITE-CAPTURE-DIAG (2026-07-21) — make the georeference-loss bug visible at SAVE
-        // time, not just on reopen. L-489: reopening a project floats the building because the
-        // saved snapshot's `site` was null. This log pinpoints WHICH half fails, so one save
-        // settles capture-vs-restore: `siteStore=NULL` ⇒ the store was not threaded/available at
-        // save (a wiring/timing bug); `siteStore=resolved` but `site=NULL` ⇒ getSite() returned
-        // null (the parcel/origin was never committed into the store for this project). ⚠ AND it
-        // WARNS LOUDLY on the actual corruption: geometry present but no site = an element-bearing
-        // GIS snapshot with no georeference, which is exactly what floats the building on reopen.
-        try {
-            const wallCount = wallStore.getAll().length;
-            const lat = site?.location?.latitude;
-            console.log(
-                `[ProjectSerializer] §L-489-SITE-CAPTURE-DIAG siteStore=${resolvedSiteStore ? 'resolved' : 'NULL'} ` +
-                    `site=${site ? `captured(lat=${typeof lat === 'number' ? lat.toFixed(5) : '?'})` : 'NULL'} ` +
-                    `walls=${wallCount}`,
-            );
-            if (wallCount > 0 && !site) {
-                console.warn(
-                    '[ProjectSerializer] ⚠ §L-489 — SAVING A GIS PROJECT WITH GEOMETRY BUT NO SITE ' +
-                        'GEOREFERENCE. On reopen this building will have no origin and will float ' +
-                        '(the founder\'s "building in space" bug). Root: the SiteModel store was ' +
-                        (resolvedSiteStore ? 'resolved but getSite() returned null (parcel/origin not committed into the store).'
-                                           : 'NOT available at save time (not threaded / window.runtime.siteModelStore null).'),
-                );
-            }
-        } catch { /* diagnostic only — never block a save */ }
+        // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) / §L-545 (L-489) — capture the C19
+        // SiteModel so the real location / parcel boundary / geospatial origin survive
+        // save+reload. The resolution + degradation logic is the pure, exported
+        // `resolveSiteCapture` below (extracted so it is testable WITHOUT constructing
+        // the ~25-store serializer bundle — the old inline version had no unit coverage,
+        // which is a large part of why L-188 recurred as L-489).
+        const { site, capture: siteCapture } = resolveSiteCapture(
+            [
+                { label: 'threaded', store: siteModelStore },
+                { label: 'window.runtime', store: (window as { runtime?: { siteModelStore?: SiteModelStore } }).runtime?.siteModelStore },
+            ],
+            (() => { try { return wallStore.getAll().length; } catch { return -1; } })(),
+        );
 
         const levels = wallStore.getLevels().map(l => ({ ...l }));
         const grids = gridStore.getAll().map(g => ({ ...g }));
@@ -996,6 +1136,13 @@ export class ProjectSerializer {
             // parcel boundary, footprint, context buildings). Omitted when no site is
             // authored so non-GIS projects keep a byte-identical snapshot.
             site: site ?? undefined,
+
+            // §L-545-SITE-CAPTURE-PROVENANCE (L-188 / L-489) — WHY `site` is what it
+            // is. Without this, `site: undefined` cannot be distinguished from
+            // `site: LOST`, and the reopen path treated the second as the first.
+            // Always stamped from here on; readers must treat `undefined` as
+            // "pre-L-545 snapshot, not recorded" rather than as `none`.
+            siteCapture,
         };
 
         // L-334 / L-360 — stamp a stable content checksum into the snapshot so

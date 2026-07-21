@@ -108,6 +108,16 @@ export interface SnapshotHeader {
      * undefined) and reopening a GIS project would default to Madrid.
      */
     site?: ProjectSnapshot['site'];
+
+    /**
+     * §L-545-SITE-CAPTURE-PROVENANCE (L-188 / L-489) — the site-capture status
+     * stamped by the serializer. Carried here for the SAME reason `site` is: this
+     * split enumerates fields EXPLICITLY, so anything not listed is silently
+     * dropped on the streaming path. A `degraded` stamp that survives the
+     * monolithic save but vanishes on a streamed one would be worse than no stamp
+     * — it would make the loss look conditional on file size.
+     */
+    siteCapture?: ProjectSnapshot['siteCapture'];
 }
 
 // ─── Level chunk shape ─────────────────────────────────────────────────────
@@ -241,6 +251,8 @@ export function splitSnapshotByLevel(snap: ProjectSnapshot): SnapshotSplitResult
         ifcImports: snap.ifcImports,
         // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — carry the C19 site through the split.
         site: snap.site,
+        // §L-545 — carry the capture provenance through the split (see the header field).
+        siteCapture: snap.siteCapture,
     };
 
     // Pre-create one chunk per declared level, in declared order.
@@ -382,6 +394,8 @@ export function mergeSnapshotFromHeaderAndLevels(
         ifcImports: header.ifcImports,
         // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) — restore the C19 site on merge.
         site: header.site,
+        // §L-545 — restore the capture provenance on merge (see the header field).
+        siteCapture: header.siteCapture,
     };
 
     const sink = (chunk: LevelChunk): void => {
