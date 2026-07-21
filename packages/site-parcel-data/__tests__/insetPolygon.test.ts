@@ -279,6 +279,36 @@ describe('insetPolygonPerEdge — degenerate-input hardening (L-403)', () => {
         }
     });
 
+    it('gives a battle-axe / flag lot a buildable area at the DEFAULT setbacks (L-529 blast radius)', () => {
+        // NOT a Barcelona case, and that is the point. The L-529 blast-radius sweep (684 cases,
+        // old-vs-new) found 21 shapes the OLD cleanup wrongly called `degenerate`. This is the one
+        // that matters commercially: a FLAG (battle-axe) lot — a common real parcel worldwide, a
+        // narrow access neck onto a wider rear body — collapsed at the **default pack's own
+        // 3 / 1.5 / 3 m setbacks**, in EVERY jurisdiction, not just Spain. The user was told the
+        // plot had no buildable area at all.
+        //
+        // The neck is where it broke: 8 m wide, so a 3 m inset from both sides leaves 2 m and the
+        // offset folds there while the body is still comfortably open. One fold in the neck used
+        // to take the whole polygon with it.
+        const flagLot: Pt[] = [
+            { x: 0, z: 0 }, { x: 40, z: 0 }, { x: 40, z: 6 }, { x: 22, z: 6 },
+            { x: 22, z: 40 }, { x: 14, z: 40 }, { x: 14, z: 6 }, { x: 0, z: 6 },
+        ];
+        const cls: ParcelEdgeClassification[] = flagLot.map(() => 'unclassified');
+
+        for (const setbacks of [
+            { front: 3, side: 3, rear: 3, unclassified: 3 },
+            { front: 3, side: 1.5, rear: 3, unclassified: 3 }, // the estimated-default / DK pack
+        ]) {
+            const res = insetPolygonPerEdge(flagLot, cls, setbacks);
+            expect(res.degenerate).toBe(false);
+            expect(polygonArea(res.polygon)).toBeGreaterThan(0);
+            // The erosion must still be sound — inside the lot, and smaller than it.
+            expect(polygonArea(res.polygon)).toBeLessThan(polygonArea(flagLot));
+            for (const p of res.polygon) expect(pointInPolygon(p, flagLot)).toBe(true);
+        }
+    });
+
     it('folds interior coincident/duplicate vertices instead of emitting a zero-length edge', () => {
         const dup: Pt[] = [
             { x: 0, z: 0 }, { x: 40, z: 0 }, { x: 40, z: 0 }, // repeated vertex
