@@ -103,10 +103,20 @@ real parcel (L-521/521b); context prefetched at the parcel (L-524a). L-489 persi
       inconclusive), so CONSTRUCT it (amplada de vial = the measured frontage-to-frontage gap, reuses
       block geometry). Interim: badge `assumed` heights ESTIMATED so a guess never reads as surveyed.
 
-### P1 — CONTEXT RENDER LATENCY (last "feels-production" gap; needs a Docker machine)
-- [ ] **L-513a — run the bake.** Tool BUILT: `tools/context-bake/`. `docker build -t pryzm-context-bake
-      tools/context-bake` then `node tools/context-bake/bake.mjs` → upload `out/*.pmtiles` to object
-      storage. (Live public Overpass is unfixable — 502/429/failover; static tiles = <50 ms.)
+### P1 — CONTEXT RENDER LATENCY (last "feels-production" gap)
+**STORAGE DECIDED (founder 2026-07-21): Cloudflare R2, bucket `pryzm-assets`, prefixes `tiles/` +
+`items/`. Full setup + env-var contract + upload commands + caching in `OBJECT-STORAGE-R2-DECISION.md`.**
+The dependency chain: (1) founder creates bucket + public domain + token → hands over `R2_ACCOUNT_ID`,
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` + the base URL; then all of the below are unblocked.
+- [ ] **GLB re-host (quick win) — kill the `/items/*.glb` 404.** Once the bucket exists: `aws s3 sync`
+      the 185 MB furniture catalog to `pryzm-assets/items/`, set `VITE_GLB_URL`, and swap the loader's
+      `/items/x.glb` → `${VITE_GLB_URL}x.glb`. No other change. (memory `furniture-glb-404-object-storage`.)
+- [ ] **L-513a — the bake, as a GitHub-Actions `workflow_dispatch` job (recommended over local Docker).**
+      Tool BUILT: `tools/context-bake/` (Dockerfile bundles `osmium` + `tippecanoe`; downloads Geofabrik
+      Cataluña pbf ~200–300 MB → clip → filter → tile → PMTiles; ~5–15 min; needs Docker + ~2–4 GB disk).
+      Write a `.github/workflows/context-bake.yml` that runs the image and `aws s3 sync`s `out/*.pmtiles`
+      to `pryzm-assets/tiles/` using the `R2_*` repo secrets; founder clicks "Run". (Live public Overpass
+      is unfixable — 502/429/failover; static tiles = <50 ms.)
 - [ ] **L-513b — wire the client reader** per `CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md §9`: add
       `pmtiles` + `@mapbox/vector-tile` + `pbf`, COMMIT the lockfile same commit; new
       `apps/editor/src/ui/geospatial/contextTiles.ts` (drop-in for `fetchContextBuildingsNearAndFar`);
@@ -149,7 +159,10 @@ height = Arts. 238/240/327; re-cite the current Barcelona NUMAMB/RPUC, drop the 
 2010"; repair the "2008 §2 not reflected" caveat — it's a HEIGHT change and the vintage is wrong anyway;
 update `esBarcelonaEnsanche.ts` `BCN_ORDINANCE_REF` + the panel citation + RISK-REGISTER R1). STILL TO
 CERTIFY (needs the interactive MUC/RPUC fitxa, not web search): the exact depth figure + official street
-width for parcel 0230904DF3803 + the 20.75-vs-22.40 PB+5 reconciliation.
+width for parcel 0230904DF3803 + the 20.75-vs-22.40 PB+5 reconciliation — **task L-528, ready-to-run
+browser prompt at `PAU-CLARIS-155-CERTIFICATION-PROMPT.md`** (four params + a final table; official
+sources only, no estimates). NOTE: the citation itself is ALREADY SHIPPED (v255, founder re-signed the
+L-449 gate) — this certifies the NUMBERS, not the attribution.
 
 ## THE FOCUS, IN ONE LINE
 **Make the Barcelona envelope look as right as it reads.** The data, flow, citation-honesty, and legal
