@@ -1,0 +1,139 @@
+# §L-578-CORS — put a CORS policy on the R2 asset bucket, then PROVE it from an Origin.
+#
+# ⚠ THE THIRD TIME THE SAME CLASS OF BUG HAS SHIPPED. The chain, in order:
+#   v272  the GLB catalogue was re-hosted on R2. Upload green, bundle correct, deploy green,
+#         every model still failed.
+#   v273  §L-570-CSP added the R2 origin to `connect-src`. Necessary — and still not enough.
+#   v274  the PMTiles context reader shipped. Bundle verified, CSP verified, tiles verified real
+#         and Range-capable from Node — and the browser refused every request anyway:
+#           Access to fetch at 'https://pub-….r2.dev/items/…/model.glb' from origin
+#           'https://pryzm.fly.dev' has been blocked by CORS policy: No
+#           'Access-Control-Allow-Origin' header is present on the requested resource.
+#
+# CSP AND CORS ARE NOT THE SAME CONTROL AND FIXING ONE DOES NOT FIX THE OTHER.
+#   • CSP  is OUR header on OUR document; it says which origins our page is ALLOWED to ask.
+#   • CORS is THEIR header on THEIR response; it says whether the answer may be READ.
+# CSP was fixed in v273. The bucket has never sent CORS at all, so from a browser the answer was
+# never readable — while `curl`, `aws s3 ls`, the upload probe and every Node probe saw a clean
+# HTTP 200/206, because NONE OF THEM ENFORCE CORS. Only a browser does. That is precisely why
+# every green signal pointed away from the real failure, three deploys running.
+#
+# ⚠ THE ASSERTION AT THE BOTTOM IS THE POINT OF THIS FILE. Setting a policy and reporting success
+# is what the previous two attempts did. This job re-reads the policy AND replays a real browser-
+# shaped request (with `Origin:` and, for the tiles, `Range:`) and FAILS if the response does not
+# carry `access-control-allow-origin`. An advisory check for a silent failure mode is just a
+# second silent failure.
+name: R2 — set + verify bucket CORS (§L-578-CORS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      bucket:
+        description: 'R2 bucket name.'
+        required: false
+        default: 'pryzm-assets'
+
+permissions:
+  contents: read
+
+jobs:
+  cors:
+    name: put-bucket-cors + browser-shaped proof
+    runs-on: ubuntu-latest
+    env:
+      # R2 speaks the S3 API; the aws CLI needs the standard names + an endpoint override.
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      # R2 does not implement the newer default checksum behaviour the aws CLI v2 turns on.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      BUCKET: ${{ inputs.bucket || 'pryzm-assets' }}
+      PUBLIC_BASE: https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev
+      SITE_ORIGIN: https://pryzm.fly.dev
+    steps:
+      - name: Fail fast on missing credentials
+        run: |
+          # Named explicitly — an absent secret otherwise surfaces 40 lines later as an
+          # opaque "Unable to locate credentials".
+          for n in R2_ACCOUNT_ID AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!n}" ]; then echo "::error::secret $n is not set"; exit 1; fi
+          done
+
+      - name: Write the CORS policy
+        run: |
+          # AllowedHeaders '*' is required because the PMTiles reader sends `Range`, which is
+          # NOT a CORS-safelisted request header and therefore triggers a preflight.
+          #
+          # ExposeHeaders is the half that is easy to get wrong and hard to diagnose: without
+          # `Content-Range` and `Content-Length` readable, a range request SUCCEEDS but the
+          # client cannot see how much it got, so the PMTiles directory parse fails on data it
+          # actually holds — a failure that looks like a corrupt tileset rather than a policy.
+          cat > cors.json <<'JSON'
+          {
+            "CORSRules": [
+              {
+                "AllowedOrigins": [
+                  "https://pryzm.fly.dev",
+                  "http://localhost:5000",
+                  "http://localhost:5173"
+                ],
+                "AllowedMethods": ["GET", "HEAD"],
+                "AllowedHeaders": ["*"],
+                "ExposeHeaders": ["Content-Length", "Content-Range", "Content-Type", "ETag", "Accept-Ranges"],
+                "MaxAgeSeconds": 3600
+              }
+            ]
+          }
+          JSON
+          cat cors.json
+
+      - name: Apply it to the bucket
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3api put-bucket-cors \
+            --bucket "$BUCKET" \
+            --cors-configuration file://cors.json \
+            --endpoint-url "$ENDPOINT"
+          echo "--- read back what the bucket now stores ---"
+          aws s3api get-bucket-cors --bucket "$BUCKET" --endpoint-url "$ENDPOINT"
+
+      - name: ⚠ PROVE it from a browser-shaped request, or fail
+        run: |
+          # R2's public r2.dev edge caches policy for a short while; retry rather than declare
+          # failure on a stale edge.
+          probe() {
+            local url="$1"; shift
+            curl -s -o /dev/null -D - -H "Origin: ${SITE_ORIGIN}" "$@" "$url" | tr -d '\r'
+          }
+          ok=0
+          for attempt in 1 2 3 4 5 6; do
+            echo "=== attempt ${attempt} ==="
+            GLB_H="$(probe "${PUBLIC_BASE}/items/Sofas/sofa/model.glb")"
+            TIL_H="$(probe "${PUBLIC_BASE}/tiles/buildings.pmtiles" -H 'Range: bytes=0-127')"
+            echo "$GLB_H" | grep -iE '^HTTP|^access-control' || true
+            echo "$TIL_H" | grep -iE '^HTTP|^access-control|^content-range' || true
+            g=$(echo "$GLB_H" | grep -ci '^access-control-allow-origin' || true)
+            t=$(echo "$TIL_H" | grep -ci '^access-control-allow-origin' || true)
+            if [ "$g" -ge 1 ] && [ "$t" -ge 1 ]; then ok=1; break; fi
+            echo "not yet visible at the edge — waiting 20 s"
+            sleep 20
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::No access-control-allow-origin on the R2 responses. The browser will"
+            echo "::error::still refuse both the GLB catalogue and the context PMTiles."
+            exit 1
+          fi
+          echo "✅ CORS is live: both the GLB catalogue and the context tiles are browser-readable."
+
+      - name: Confirm the Range read still works WITH CORS applied
+        run: |
+          # A CORS policy must not cost us byte-range reads — PMTiles reads a range per tile, and
+          # a host answering 200 instead of 206 would silently turn every tile read into a
+          # full-file download of a 19 MB archive.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Origin: ${SITE_ORIGIN}" \
+            -H 'Range: bytes=0-127' "${PUBLIC_BASE}/tiles/buildings.pmtiles")
+          echo "range status: $code"
+          [ "$code" = "206" ] || { echo "::error::expected HTTP 206, got $code"; exit 1; }
+          echo "✅ Range reads intact (206)."
