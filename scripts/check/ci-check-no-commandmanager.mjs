@@ -139,15 +139,27 @@ function findViolations() {
             if (!rawLine) continue;
 
             // grep -n format: /path/to/file.ts:42:    code here
-            // Find first two colons to split path : lineNo : text.
-            const firstColon = rawLine.indexOf(':');
-            if (firstColon < 0) continue;
-            const secondColon = rawLine.indexOf(':', firstColon + 1);
-            if (secondColon < 0) continue;
-
-            const filePath = rawLine.slice(0, firstColon);
-            const lineNo   = parseInt(rawLine.slice(firstColon + 1, secondColon), 10);
-            const text     = rawLine.slice(secondColon + 1);
+            //
+            // ⚠ WINDOWS DRIVE-LETTER BUG (fixed 2026-07-21). This used to take the FIRST two
+            // colons. On Linux CI that is correct. On Windows the path is `C:\Users\…`, so the
+            // first colon is the DRIVE LETTER: `filePath` became "C", `lineNo` became NaN (every
+            // reported line read `LNaN:`), and `text` became the rest of the PATH rather than the
+            // source line — so the comment filter below inspected a path, matched nothing, and
+            // **excluded no comments at all**. The result was a wildly inflated local count (128
+            // vs the true 64) that disagreed with CI while looking authoritative. It caused a real
+            // mis-diagnosis: a deploy blocker was reported as "73 calls over" when it is 9.
+            //
+            // Fix: anchor on the LAST colon that is followed by digits-then-colon, i.e. match the
+            // `:<lineNo>:` separator explicitly instead of guessing by position.
+            const m = /^(.*?):(\d+):(.*)$/s.exec(
+                // Strip a leading `X:` drive prefix before matching so a path colon can never be
+                // mistaken for the line-number separator.
+                rawLine,
+            );
+            if (!m) continue;
+            const filePath = m[1];
+            const lineNo   = parseInt(m[2], 10);
+            const text     = m[3];
 
             // Exclude pure-comment lines (first non-whitespace is '//' or '*').
             const trimmed = text.trimStart();
