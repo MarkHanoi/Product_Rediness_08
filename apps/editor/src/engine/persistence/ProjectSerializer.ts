@@ -760,6 +760,33 @@ export class ProjectSerializer {
             }
         })();
 
+        // §L-489-SITE-CAPTURE-DIAG (2026-07-21) — make the georeference-loss bug visible at SAVE
+        // time, not just on reopen. L-489: reopening a project floats the building because the
+        // saved snapshot's `site` was null. This log pinpoints WHICH half fails, so one save
+        // settles capture-vs-restore: `siteStore=NULL` ⇒ the store was not threaded/available at
+        // save (a wiring/timing bug); `siteStore=resolved` but `site=NULL` ⇒ getSite() returned
+        // null (the parcel/origin was never committed into the store for this project). ⚠ AND it
+        // WARNS LOUDLY on the actual corruption: geometry present but no site = an element-bearing
+        // GIS snapshot with no georeference, which is exactly what floats the building on reopen.
+        try {
+            const wallCount = wallStore.getAll().length;
+            const lat = site?.location?.latitude;
+            console.log(
+                `[ProjectSerializer] §L-489-SITE-CAPTURE-DIAG siteStore=${resolvedSiteStore ? 'resolved' : 'NULL'} ` +
+                    `site=${site ? `captured(lat=${typeof lat === 'number' ? lat.toFixed(5) : '?'})` : 'NULL'} ` +
+                    `walls=${wallCount}`,
+            );
+            if (wallCount > 0 && !site) {
+                console.warn(
+                    '[ProjectSerializer] ⚠ §L-489 — SAVING A GIS PROJECT WITH GEOMETRY BUT NO SITE ' +
+                        'GEOREFERENCE. On reopen this building will have no origin and will float ' +
+                        '(the founder\'s "building in space" bug). Root: the SiteModel store was ' +
+                        (resolvedSiteStore ? 'resolved but getSite() returned null (parcel/origin not committed into the store).'
+                                           : 'NOT available at save time (not threaded / window.runtime.siteModelStore null).'),
+                );
+            }
+        } catch { /* diagnostic only — never block a save */ }
+
         const levels = wallStore.getLevels().map(l => ({ ...l }));
         const grids = gridStore.getAll().map(g => ({ ...g }));
         const walls = wallStore.getAll().map(serializeWall);
