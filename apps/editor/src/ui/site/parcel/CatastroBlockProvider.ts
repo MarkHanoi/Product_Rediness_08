@@ -39,12 +39,27 @@ export interface BlockParcel {
     readonly areaM2: number;
 }
 
+/**
+ * §STREET-WIDTH-NEIGHBOURS (L-537) — a parcel of a DIFFERENT manzana lying within 100 m of this
+ * block, i.e. a candidate frontage across a street. No area: it is only ever ray-hit, never measured.
+ */
+export interface NeighbourParcel {
+    readonly refcat: string;
+    readonly ring: ReadonlyArray<LatLon>;
+}
+
 export interface BlockFeature {
     /** The 5-char manzana code the siblings were filtered by. */
     readonly manzana: string;
     readonly parcels: ReadonlyArray<BlockParcel>;
     /** Total cadastral area (m²) — a cheap plausibility read: a Cerdà block is ~13–14,000 m². */
     readonly totalAreaM2: number;
+    /**
+     * §STREET-WIDTH-NEIGHBOURS — surrounding blocks' parcels, for the *amplada de vial*
+     * measurement (L-537). Empty is NORMAL and non-fatal: it costs a street width, therefore a
+     * height, and the caller falls back to no constructed height — never to a guessed one.
+     */
+    readonly neighbours: ReadonlyArray<NeighbourParcel>;
 }
 
 function isFiniteNum(v: unknown): v is number {
@@ -102,10 +117,25 @@ export function parseBlockResponse(json: unknown): BlockFeature | null {
     }
     if (parcels.length < 3) return null;
 
+    // §STREET-WIDTH-NEIGHBOURS (L-537) — DELIBERATELY the opposite failure policy to the block
+    // parcels above. A malformed BLOCK parcel invalidates the whole block, because a shrunken
+    // manzana yields a deeper permitted build than the ordinance allows. A malformed NEIGHBOUR
+    // only removes one candidate opposing frontage: the worst it can do is make a street
+    // unmeasurable, and an unmeasurable street produces NO height rather than a wrong one. So one
+    // bad neighbour is dropped and the rest are kept.
+    const neighbours: NeighbourParcel[] = [];
+    if (Array.isArray(b.neighbours)) {
+        for (const raw of b.neighbours) {
+            const p = parseParcel(raw);
+            if (p) neighbours.push({ refcat: p.refcat, ring: p.ring });
+        }
+    }
+
     return {
         manzana,
         parcels,
         totalAreaM2: parcels.reduce((s, p) => s + p.areaM2, 0),
+        neighbours,
     };
 }
 

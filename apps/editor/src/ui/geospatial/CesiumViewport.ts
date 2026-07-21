@@ -4206,8 +4206,10 @@ export class CesiumViewport {
             `[CesiumViewport][forma] §ENVELOPE-NO-FABRICATED-HEIGHT — no maxHeight on this envelope, ` +
               `so the study volume is drawn as a ${FOOTPRINT_ONLY_HEIGHT_M} m FOOTPRINT SLAB rather than ` +
               `an invented prism. For Barcelona 13a this means the Art. 327.2 alçada could not be ` +
-              `constructed (see §BCN-ALCADA — usually the street is not on the curated ample-oficial ` +
-              `allow-list). Fix the width source, not this fallback.`,
+              `constructed — since L-537 that is no longer "the street is unlisted" (the width is now ` +
+              `MEASURED from the block, ~86% of Barcelona frontages resolve): read the §BCN-ALCADA ` +
+              `line for the real reason — no block ring, no opposing frontage, or a width genuinely ` +
+              `between two storey bands. Fix the width source, not this fallback.`,
           );
         }
         const envTop = baseHeight +

@@ -59,6 +59,15 @@ import {
     // Art. 242's depth. Both refuse rather than guess; see their module headers.
     resolveAlcadaReguladora,
     officialStreetWidthForAddress,
+    // L-537 — the *amplada de vial* CONSTRUCTION that replaced the ~26-street allow-list as the
+    // primary width source. Measurement is region-agnostic and costs NO extra network (the
+    // opposing frontage already arrived in the block bbox); the quantum set is Barcelona's own,
+    // derived from a measured distribution, not from intuition.
+    measureStreetWidths,
+    governingStreetWidth,
+    blockEdgesFacingParcel,
+    resolveAmpladaDeVial,
+    BCN_STREET_WIDTH_QUANTISATION,
     BCN_ORDINANCE_REF,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
@@ -1223,45 +1232,102 @@ async function applyBcnZoningThenFallback(
         // answer is PB+5. That is the L-459 defect class (a fabricated value rendering exactly like
         // a measured one), reached through the envelope instead of the context.
         //
-        // WHY THE STREET WIDTH COMES FROM AN ALLOW-LIST AND NOT FROM MEASURING: Art. 327 keys on the
-        // *ample oficial*, and Barcelona publishes none machine-readably (probed 2026-07-21 — the
-        // only relevant `vial` dataset is a WMS raster with no width attribute). A GIS-measured
-        // frontage gap is NOT the legal quantity, and here that distinction is decisive rather than
-        // pedantic: the bands are STEPS and the Cerdà grid sits ON one. A standard street is
-        // 20.00 m, exactly the PB+4/PB+5 boundary — 19.99 m ⇒ 17.70 m, 20.00 m ⇒ 20.75 m. One
-        // centimetre of cadastral noise would move the building a full storey. Hence the curated
-        // declared figures, and `resolveAlcadaReguladora`'s refusal near a band edge otherwise.
+        // WHERE THE STREET WIDTH COMES FROM (§BCN-ALCADA-WIDTH, L-537 — this REPLACED an allow-list)
+        // -------------------------------------------------------------------------------------
+        // Art. 327 keys on the *ample oficial*, and Barcelona publishes none machine-readably
+        // (probed 2026-07-21 — the only relevant `vial` dataset is a WMS raster with no width
+        // attribute). The first cut therefore hand-curated ~26 Cerdà streets. That was honest and
+        // it did not scale: Enric Granados and Ronda de la Universitat are unlisted, so `maxHeight`
+        // stayed null and the massing path drew a 0.5 m footprint slab on real Eixample parcels.
+        // **Coverage was the defect, not the honesty.**
         //
-        // Unlisted street ⇒ `null` ⇒ NO constructed height, and the caller shows none. That is the
+        // So the width is now CONSTRUCTED, exactly as the *profunditat edificable* is under
+        // ADR-0271: measure the frontage-to-frontage distance from our block ring to the blocks
+        // across the street. ⚠ IT COSTS NO NETWORK — the block route's bbox already returned the
+        // surrounding parcels and now hands them back as `neighbours` (§STREET-WIDTH-NEIGHBOURS),
+        // cached per manzana, so this is arithmetic on data we had already paid for.
+        //
+        // The dangerous step is turning a measurement into a DECLARED width, because the bands are
+        // STEPS and the Cerdà grid sits ON one (19.99 m ⇒ 17.70 m, 20.00 m ⇒ 20.75 m). That is
+        // gated on evidence, not intuition: 6,819 frontages across 697 blocks in 5 cities
+        // (`spain/SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`) show Barcelona spikes of ×7.55 at 20 m
+        // and ×7.51 at 30 m — and NO 10/15/25 m quantum at all, which is why the intuitive snap set
+        // was NOT shipped. `resolveAmpladaDeVial` walks declared > snapped > measured > none, and
+        // only the first two disarm `resolveAlcadaReguladora`'s band-edge guard.
+        //
+        // Every tier can still end in NO width — no block ring, no opposing frontage, a width
+        // between bands. Then there is no constructed height and the caller shows none. That is the
         // correct failure: an absent height costs a flat study volume, a wrong one costs a wrong
         // building (C57 §1.5, ADR-0271, the whole discipline of this path).
         let alcadaHeightM: number | null = null;
         let alcadaFloors: number | null = null;
-        let alcadaWhy = 'no official street width for this address (not on the curated allow-list)';
+        let alcadaWhy = 'no street width could be established for this parcel';
+        let alcadaProvenance: string | null = null;
         try {
             const addr = typeof parcelFeat?.address === 'string' ? parcelFeat.address : '';
-            const w = addr ? officialStreetWidthForAddress(addr) : null;
-            if (w) {
-                // `trustedOfficialWidth` — these ARE the declared figures, so a value sitting ON a
-                // band edge (the 20 m Cerdà standard) is legitimate and the guard is skipped.
-                const r = resolveAlcadaReguladora(w.width_m, { trustedOfficialWidth: true });
+            const declared = addr ? officialStreetWidthForAddress(addr) : null;
+
+            // Measure only when the curated list misses — on a listed street the declared figure
+            // wins anyway, and the measurement would be computed to be discarded.
+            let measurement = null as ReturnType<typeof governingStreetWidth>;
+            let measureNote = '';
+            if (!declared) {
+                const neighbourRingsXZ = (block.neighbours ?? []).map((n) =>
+                    n.ring.map(toAuthoringFrame),
+                );
+                if (neighbourRingsXZ.length === 0) {
+                    measureNote = 'no neighbour parcels returned for this block';
+                } else {
+                    const widths = measureStreetWidths(blockRing, neighbourRingsXZ);
+                    // Restrict to the block edges THIS parcel fronts. Taking the narrowest street
+                    // around the whole block would under-build a parcel that only fronts the wide
+                    // artery — wrong in the safe direction is still wrong. An empty result means we
+                    // could not tell which edges are ours, and then the whole block is the honest
+                    // fallback rather than an arbitrary pick.
+                    const facing = blockEdgesFacingParcel(blockRing, boundary.polygon);
+                    measurement = governingStreetWidth(widths, facing.length > 0 ? facing : undefined);
+                    measureNote =
+                        `${widths.measurements.length} of ` +
+                        `${widths.measurements.length + widths.rejected.length} block edges measured; ` +
+                        `parcel fronts edge(s) [${facing.join(',')}]`;
+                }
+            }
+
+            const amplada = resolveAmpladaDeVial({
+                declared,
+                measurement,
+                quantisation: BCN_STREET_WIDTH_QUANTISATION,
+            });
+
+            if (amplada) {
+                alcadaProvenance = amplada.provenance;
+                const r = resolveAlcadaReguladora(amplada.width_m, {
+                    trustedOfficialWidth: amplada.trustedOfficialWidth,
+                });
                 if (r.ok) {
                     alcadaHeightM = r.height_m;
                     // PB+N ⇒ N storeys ABOVE the ground floor, so N+1 levels in total.
                     alcadaFloors = r.floorsAboveGround + 1;
                     alcadaWhy =
-                        `${w.street} ample oficial ${w.width_m.toFixed(2)} m → PB+${r.floorsAboveGround} ` +
-                        `= ${r.height_m.toFixed(2)} m (Art. 327.2)` +
+                        `${amplada.why} → PB+${r.floorsAboveGround} = ${r.height_m.toFixed(2)} m ` +
+                        `(Art. 327.2)` +
                         (r.uncertifiedAlternative_m
                             ? ` ⚠ an official Barcelona certificate gives ${r.uncertifiedAlternative_m.toFixed(2)} m for PB+5 — uncertified, L-528`
                             : '');
                 } else {
-                    alcadaWhy = `width ${w.width_m} m rejected: ${r.reason}`;
+                    // A refusal is an ANSWER here, and the reason is the useful part: `band-edge`
+                    // means the width genuinely cannot choose a storey band, not that we failed.
+                    alcadaWhy =
+                        `${amplada.width_m.toFixed(2)} m (${amplada.provenance}) rejected: ${r.reason}` +
+                        (r.straddles.length ? ` — straddles ${r.straddles.join(' / ')} m` : '');
                 }
+            } else if (measureNote) {
+                alcadaWhy = `no width: ${measureNote}`;
             }
             console.log(
                 `${TAG} §BCN-ALCADA height=${alcadaHeightM === null ? 'NONE' : alcadaHeightM.toFixed(2) + 'm'} ` +
-                    `floors=${alcadaFloors ?? 'n/a'} — ${alcadaWhy}.`,
+                    `floors=${alcadaFloors ?? 'n/a'} tier=${alcadaProvenance ?? 'none'} ` +
+                    `neighbours=${block.neighbours?.length ?? 0} — ${alcadaWhy}.`,
             );
         } catch (e) {
             // Never allowed to cost the (already-correct) DEPTH envelope.
@@ -1305,10 +1371,16 @@ async function applyBcnZoningThenFallback(
                                   zoneCode: withTier.zoneCode ?? clau,
                                   // The construction is stated in the source string so the panel's
                                   // explain-why shows HOW the number was reached, not just what it is.
-                                  source: `PGM Art. 327.2 alçada reguladora — ${alcadaWhy}`,
-                                  // NOT 'published': the table is the ordinance, but the street width
-                                  // is a curated Cerdà nominal figure pending L-528 certification.
-                                  // Badging this as published would be the L-459 defect again.
+                                  source:
+                                      `PGM Art. 327.2 alçada reguladora [width tier: ` +
+                                      `${alcadaProvenance ?? 'unknown'}] — ${alcadaWhy}`,
+                                  // NOT 'published'. The TABLE is the ordinance, but the WIDTH is
+                                  // never a published figure: it is a curated Cerdà nominal value
+                                  // pending L-528, a measurement attributed to a declared quantum,
+                                  // or a raw measurement — L-537's tier ladder, carried into this
+                                  // row verbatim so the panel's "Why these numbers?" says WHICH.
+                                  // Badging any of them as published would be the L-459 defect
+                                  // again (a constructed number rendering like a surveyed one).
                                   fieldProvenance: 'ordinance-pdf' as const,
                                   ordinanceRef: BCN_ORDINANCE_REF,
                               },

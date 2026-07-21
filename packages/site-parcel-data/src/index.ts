@@ -78,6 +78,31 @@ export {
     type StreetWidthProvenance,
 } from './rulepacks/bcnOfficialStreetWidths.js';
 
+// L-537 — the *amplada de vial* CONSTRUCTION that replaced the ~26-street allow-list as the primary
+// width source. `streetWidth.ts` MEASURES (region-agnostic, zero extra network — the opposing
+// frontage is already in the block bbox); `ampladaDeVial.ts` RESOLVES through the provenance tiers
+// declared > snapped > measured > none. The snap set is derived from a 6,819-frontage measured
+// distribution (`spain/SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`), never from intuition.
+export {
+    measureStreetWidths,
+    governingStreetWidth,
+    blockEdgesFacingParcel,
+    type StreetWidthMeasurement,
+    type StreetWidthMeasurementResult,
+    type StreetWidthRejection,
+    type RejectedEdge,
+    type MeasureStreetWidthsOptions,
+} from './geometry/streetWidth.js';
+export {
+    resolveAmpladaDeVial,
+    snapToDeclaredQuantum,
+    BCN_STREET_WIDTH_QUANTISATION,
+    type StreetWidthQuantisation,
+    type ResolveAmpladaInput,
+    type ResolvedAmplada,
+    type SnapResult,
+} from './rulepacks/ampladaDeVial.js';
+
 export {
     insetPolygonPerEdge,
     type PerEdgeSetbacks,

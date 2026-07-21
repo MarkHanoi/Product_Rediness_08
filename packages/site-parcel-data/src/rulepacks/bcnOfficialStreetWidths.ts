@@ -19,6 +19,28 @@
 // So this table exists to supply the DECLARED figure for streets whose official width is a matter
 // of public record, and to refuse for every street where it is not.
 //
+// ⚠ UPDATE — L-537 DEMOTED THIS FILE FROM "THE SOURCE" TO "THE TOP OVERRIDE TIER"
+// -------------------------------------------------------------------------------
+// Everything above remains true; what changed is that it is no longer the ONLY answer. An
+// allow-list of ~26 streets does not scale to a city, let alone to Spain, and the founder hit the
+// consequence directly: Carrer d'Enric Granados and Ronda de la Universitat are unlisted, so
+// `maxHeight` was null and the massing path drew a 0.5 m footprint slab. **Coverage was the defect,
+// not the honesty.**
+//
+// The fix was NOT to guess a 20 m Eixample default (see the ALLOW-LIST note below — that would be
+// the same fabrication in a new costume). It was to MEASURE the frontage gap from cadastral
+// geometry and, where the measured distribution proves the grid quantises, attribute it to the
+// quantum. That claim was gated on evidence before any code shipped: 6,819 frontages across 697
+// blocks in 5 cities (`SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`) show Barcelona spikes of ×7.55
+// at 20 m and ×7.51 at 30 m — and, equally importantly, NO 10/15/25 m quantum at all, which is why
+// the intuitive snap set was not shipped.
+//
+// This table therefore SURVIVES, unchanged and above the measurement, as tier 2 of
+// `resolveAmpladaDeVial` (`ampladaDeVial.ts`): on the streets it lists it still wins, because a
+// nominal declared value beats an inference from geometry. It is superseded entry-for-entry by
+// L-528 certification, and by a real municipal GIS layer (`declared-municipal-gis`) if one ever
+// appears. Deleting it would have thrown away the only verified figures we have.
+//
 // ⚠⚠ PROVENANCE — STATE IT PLAINLY, BECAUSE THIS TABLE IS THE WEAK LINK
 // ---------------------------------------------------------------------
 // These are the **Cerdà plan's nominal official widths**, which is why they are round numbers: the
@@ -47,10 +69,39 @@
 //
 // PURE + deterministic (C58 §1.1/§1.9). No I/O, no THREE, no DOM.
 
-/** How a width figure was obtained — drives the confidence badge downstream (C23). */
+/**
+ * How a width figure was obtained — drives the confidence badge downstream (C23).
+ *
+ * ⚠ THE ORDER IS THE CONTRACT, strongest first. `resolveAmpladaDeVial` (`ampladaDeVial.ts`) walks
+ * these tiers and the panel badges them differently, so they must NEVER be flattened into a single
+ * "we have a width" boolean — that flattening IS the L-459 defect (a constructed number rendering
+ * exactly like a surveyed one).
+ */
 export type StreetWidthProvenance =
+    /**
+     * A municipal planning street database — the actual *ample oficial*.
+     *
+     * RESERVED, NOT REACHABLE TODAY: no Spanish municipality we have probed publishes one
+     * machine-readably (Barcelona's only relevant `vial` layer is a WMS raster with no width
+     * attribute, probed 2026-07-21). The tier exists so that the day such a layer appears it slots
+     * in ABOVE the curated list without a redesign — and so the ladder cannot be misread as
+     * "curated is the best possible".
+     */
+    | 'declared-municipal-gis'
     /** Cerdà-plan nominal official width. Public record, NOT yet certified against MUC/RPUC. */
-    | 'curated-cerda-nominal';
+    | 'curated-cerda-nominal'
+    /**
+     * A cadastral measurement attributed to a value the street grid demonstrably quantises on
+     * (L-537). One tier BELOW the curated list: it is an inference about the declared figure, made
+     * from geometry, and the inference is only licensed by the measured distribution documented in
+     * `SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`.
+     */
+    | 'snapped-to-declared-quantum'
+    /**
+     * The raw frontage-to-frontage distance. NOT the legal quantity — the weakest tier that still
+     * produces a height, and the only one on which the band-edge guard stays armed.
+     */
+    | 'measured-cadastral';
 
 export interface OfficialStreetWidth {
     /** Normalised street name (see `normaliseStreetName`). */

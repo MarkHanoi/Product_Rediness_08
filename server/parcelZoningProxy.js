@@ -398,6 +398,78 @@ export const CATASTRO_BLOCK_PATH = '/api/catastro/block';
  *  1 km² / 5000-feature BBOX ceiling for `cp:CadastralParcel`. */
 export const BLOCK_BBOX_HALF_DEG = 0.002;
 
+/**
+ * §STREET-WIDTH-NEIGHBOURS (L-537) — how far beyond the subject block a parcel may lie and still
+ * be returned as a candidate OPPOSING FRONTAGE, in metres.
+ *
+ * WHY THE ROUTE RETURNS THEM AT ALL. PGM Art. 327.2 keys the *alçada reguladora* on the street
+ * width, and the width is the frontage-to-frontage distance from our block to the block across the
+ * street. That opposing geometry is ALREADY in the bbox response we just parsed — the route was
+ * throwing it away in the `manzanaPrefix` filter below. Returning it costs ZERO additional upstream
+ * calls, which is the entire reason the measurement is affordable per-manzana.
+ *
+ * WHY IT IS FILTERED RATHER THAN RETURNED WHOLE. The bbox is ~±220 m and routinely carries 200–500
+ * parcels; shipping all of them would multiply this route's payload ~20× to serve rays that never
+ * travel more than one street. 100 m is comfortably beyond the widest Barcelona artery (Passeig de
+ * Gràcia ~60 m) and beyond the measurement's own 80 m search limit, so the filter can never remove
+ * a parcel the measurement would have hit — it only removes ones it provably would not.
+ */
+export const NEIGHBOUR_HALO_M = 100;
+
+/** Metres per degree of latitude (WGS84 mean). Only used to size the halo above, where a few
+ *  percent of error is irrelevant because the halo is already generous by design. */
+const M_PER_DEG_LAT = 111320;
+
+/** Axis-aligned lat/lon bounds of a ring, or null if it is unusable. */
+function ringBounds(ring) {
+    if (!Array.isArray(ring) || ring.length < 3) return null;
+    let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+    for (const p of ring) {
+        if (!Number.isFinite(p?.lat) || !Number.isFinite(p?.lon)) return null;
+        if (p.lat < minLat) minLat = p.lat;
+        if (p.lat > maxLat) maxLat = p.lat;
+        if (p.lon < minLon) minLon = p.lon;
+        if (p.lon > maxLon) maxLon = p.lon;
+    }
+    return { minLat, maxLat, minLon, maxLon };
+}
+
+/**
+ * §STREET-WIDTH-NEIGHBOURS — the parcels NOT in this manzana that lie within the halo of it.
+ *
+ * A bbox-overlap test, not a true distance: it can only ever admit a parcel the exact test would
+ * have excluded, never exclude one it would have kept. That direction is the safe one — a spare
+ * parcel costs a few bytes, a missing one costs an unmeasurable frontage and therefore an absent
+ * building height.
+ */
+function neighbourParcels(blockParcels, allParcels, manzana) {
+    let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+    for (const p of blockParcels) {
+        const b = ringBounds(p.ring);
+        if (!b) continue;
+        if (b.minLat < minLat) minLat = b.minLat;
+        if (b.maxLat > maxLat) maxLat = b.maxLat;
+        if (b.minLon < minLon) minLon = b.minLon;
+        if (b.maxLon > maxLon) maxLon = b.maxLon;
+    }
+    if (!Number.isFinite(minLat)) return [];
+    const dLat = NEIGHBOUR_HALO_M / M_PER_DEG_LAT;
+    const cosLat = Math.max(0.1, Math.cos(((minLat + maxLat) / 2) * (Math.PI / 180)));
+    const dLon = dLat / cosLat;
+    const lo = { lat: minLat - dLat, lon: minLon - dLon };
+    const hi = { lat: maxLat + dLat, lon: maxLon + dLon };
+
+    const out = [];
+    for (const p of allParcels) {
+        if (manzanaPrefix(p.refcat) === manzana) continue;
+        const b = ringBounds(p.ring);
+        if (!b) continue;
+        if (b.maxLat < lo.lat || b.minLat > hi.lat || b.maxLon < lo.lon || b.minLon > hi.lon) continue;
+        out.push({ refcat: p.refcat, ring: p.ring });
+    }
+    return out;
+}
+
 /** The 5-char manzana prefix of an urban cadastral reference (verified empirically — see above). */
 export function manzanaPrefix(refcat) {
     return typeof refcat === 'string' && refcat.length >= 5 ? refcat.slice(0, 5) : null;
@@ -472,16 +544,20 @@ export function makeCatastroBlockHandler(deps = {}) {
             blockCache.delete(manzana);
             return null;
         }
-        return hit.parcels;
+        return hit;
     };
 
-    const blockCacheSet = (manzana, parcels) => {
+    const blockCacheSet = (manzana, parcels, neighbours) => {
         if (blockCache.size >= BLOCK_CACHE_MAX_ENTRIES) {
             // Oldest-first eviction — Map preserves insertion order.
             const oldest = blockCache.keys().next();
             if (!oldest.done) blockCache.delete(oldest.value);
         }
-        blockCache.set(manzana, { at: Date.now(), parcels });
+        // §STREET-WIDTH-NEIGHBOURS — the neighbours are cached WITH the block, deliberately. They
+        // come from the same single bbox response, so caching the block without them would make the
+        // second parcel on a block cheaper but UNMEASURABLE — a cache hit that silently downgrades
+        // the answer is worse than a miss.
+        blockCache.set(manzana, { at: Date.now(), parcels, neighbours });
     };
 
     return async function catastroBlockHandler(req, res) {
@@ -493,9 +569,18 @@ export function makeCatastroBlockHandler(deps = {}) {
         // §BLOCK-CACHE — a hit skips BOTH upstream calls.
         const cached = blockCacheGet(manzana);
         if (cached) {
-            console.log(`[catastro-block] §BLOCK-CACHE hit for manzana ${manzana} (${cached.length} parcels) — 0 upstream calls.`);
+            console.log(
+                `[catastro-block] §BLOCK-CACHE hit for manzana ${manzana} (${cached.parcels.length} parcels, ` +
+                `${cached.neighbours.length} neighbours) — 0 upstream calls.`,
+            );
             return res.status(200).json({
-                block: { manzana, parcels: cached, siblingCount: cached.length }, _cached: true,
+                block: {
+                    manzana,
+                    parcels: cached.parcels,
+                    siblingCount: cached.parcels.length,
+                    neighbours: cached.neighbours,
+                },
+                _cached: true,
             });
         }
 
@@ -550,13 +635,16 @@ export function makeCatastroBlockHandler(deps = {}) {
 
             // §BLOCK-CACHE — only a TRUSTWORTHY block is cached. The `< 3` refusal above returns
             // before this point, so a rejected block is never remembered as an answer.
-            blockCacheSet(manzana, parcels);
+            // §STREET-WIDTH-NEIGHBOURS (L-537) — the opposing frontages, from the SAME bbox parse.
+            const neighbours = neighbourParcels(parcels, all, manzana);
+            blockCacheSet(manzana, parcels, neighbours);
             console.log(
                 `[catastro-block] manzana ${manzana}: ${parcels.length} parcel(s) of ${all.length} ` +
-                `in bbox around ${refcat}${Number.isFinite(qLat) ? ' (centroid supplied — GetParcel skipped)' : ''}. Cached.`,
+                `in bbox around ${refcat}${Number.isFinite(qLat) ? ' (centroid supplied — GetParcel skipped)' : ''}; ` +
+                `${neighbours.length} neighbour parcel(s) within ${NEIGHBOUR_HALO_M} m for §BCN-ALCADA street width. Cached.`,
             );
             return res.status(200).json({
-                block: { manzana, parcels, siblingCount: parcels.length },
+                block: { manzana, parcels, siblingCount: parcels.length, neighbours },
             });
         } catch (err) {
             console.warn(`[catastro-block] failed for ${refcat}: ${err?.message ?? err}`);

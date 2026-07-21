@@ -170,6 +170,57 @@ describe('the handler REFUSES rather than returning a partial block', () => {
         expect((res._body as { block: null }).block).toBeNull();
     });
 
+    it('§STREET-WIDTH-NEIGHBOURS returns the OTHER manzana as a neighbour, not as a sibling', async () => {
+        // L-537. The opposing frontage the *amplada de vial* is measured to is already in this
+        // bbox response; the route used to discard it in the manzana filter and the street width
+        // was therefore unobtainable without a second HTTP call. It must appear as a NEIGHBOUR —
+        // never inside `parcels`, which would corrupt the block ring and the depth with it.
+        let call = 0;
+        const handler = makeCatastroBlockHandler({
+            fetchImpl: (async () => {
+                call++;
+                if (call === 1) return okRes(SUBJECT_GML);
+                return okRes(collectionGml([
+                    { rc: '0229720DF3802G', pts: SQUARE },
+                    { rc: '0229701DF3802G', pts: SQUARE },
+                    { rc: '0229702DF3802G', pts: SQUARE },
+                    { rc: '0328601DF3802G', pts: SQUARE },   // ← a DIFFERENT manzana, ~adjacent
+                ]));
+            }) as unknown as typeof fetch,
+        });
+        const res = fakeRes();
+        await handler({ query: { refcat: '0229720DF3802G' } } as never, res as never);
+        const body = res._body as {
+            block: { siblingCount: number; neighbours: Array<{ refcat: string }> };
+        };
+        expect(body.block.siblingCount).toBe(3);
+        expect(body.block.neighbours.map((n) => n.refcat)).toEqual(['0328601DF3802G']);
+    });
+
+    it('drops a neighbour that is far outside the halo — payload, not correctness', async () => {
+        // The halo is generous by design (100 m > the 80 m measurement search limit), so a parcel
+        // removed here is one no ray could have reached. A parcel a whole degree away is the
+        // unambiguous case.
+        let call = 0;
+        const FAR = '42.5000 3.1000 42.5000 3.1005 42.5005 3.1005 42.5005 3.1000 42.5000 3.1000';
+        const handler = makeCatastroBlockHandler({
+            fetchImpl: (async () => {
+                call++;
+                if (call === 1) return okRes(SUBJECT_GML);
+                return okRes(collectionGml([
+                    { rc: '0229720DF3802G', pts: SQUARE },
+                    { rc: '0229701DF3802G', pts: SQUARE },
+                    { rc: '0229702DF3802G', pts: SQUARE },
+                    { rc: '0328601DF3802G', pts: FAR },
+                ]));
+            }) as unknown as typeof fetch,
+        });
+        const res = fakeRes();
+        await handler({ query: { refcat: '0229720DF3802G' } } as never, res as never);
+        const body = res._body as { block: { neighbours: unknown[] } };
+        expect(body.block.neighbours).toEqual([]);
+    });
+
     it('missing refcat → 400', async () => {
         const handler = makeCatastroBlockHandler({ fetchImpl: (async () => okRes('')) as unknown as typeof fetch });
         const res = fakeRes();
