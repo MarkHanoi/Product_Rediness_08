@@ -1898,6 +1898,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 borderRadius: '12px', border: '1px solid #ece7fb',
                 boxShadow: '0 4px 18px rgba(20,10,60,0.18)',
                 font: '500 12px/1.45 system-ui, sans-serif', color: '#2a2340',
+                // §L-508 — the real PGM Art. 242.2 citation is long; a fixed-height card spilled
+                // it off-screen and clipped it (founder: "I cannot read the data"). Cap the height
+                // to the viewport, SCROLL the overflow, WRAP long citation strings, and let the
+                // user RESIZE the card (the movable-by-drag part is the follow-up in L-508 via
+                // makeDraggable). box-sizing so the width/resize honour the padding.
+                maxHeight: 'calc(100vh - 128px)', overflowY: 'auto', overflowWrap: 'anywhere',
+                boxSizing: 'border-box', resize: 'both',
             } satisfies Partial<CSSStyleDeclaration>);
             viewport.appendChild(envelopePanel);
         } else if (envelopePanel.parentElement !== viewport) {
