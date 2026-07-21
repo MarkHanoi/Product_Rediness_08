@@ -4162,3 +4162,16 @@ just the geometry. **Probe the primary sources; do not assume.**
 **Contracts:** C58 (rule + provenance), ADR-0271, L-449 (source acceptance), `esBarcelonaEnsanche.ts`.
 This is the LEGAL half; **L-525b/c is the GEOMETRY half** (block dissolve + depth model). Do both — a
 correct rule on a partial block is still wrong, and a whole block with a stale rule is still wrong.
+
+#### L-526 / L-525 — RESEARCH VERDICT + concrete fixes (2026-07-21)
+
+Primary-source research done (`spain/barcelona-catalonia/L-526-LEGAL-FINDINGS.md`). The depth error is
+GEOMETRY, not the rule; the citation + height are separately wrong. Actionable fix tasks:
+
+| Task | Phase | Status |
+|---|---|---|
+| **L-525b (THE depth fix, do first)** — `fetchBlockForParcel`/`dissolveParcelsToBlockRing` must return the **FULL illa** (~12,000 m² for a Cerdà block, not our 6,686 m² half). Art. 242 offsets the ILLA then intersects the parcel — never offset the parcel/half-block (that collapses depth to ~11 m, exactly our output). | zoning / block assembly (C57) | ROOT CAUSE CONFIRMED — implement + verify vs the real manzana outline |
+| **pack min-floor** — set `minDepth_m` = **12 m** (not 11 m) in `esBarcelonaEnsanche.ts`; add the 8 m inscribed-circle interior check (Art. 242). | zoning / pack | READY — confirmed by research |
+| **L-525a height** — encode the **Art. 327.2 alçada table** (`<8→8.55/PB+1 … 20–30→20.75/PB+5 … ≥30→23.80/PB+6`) keyed by **OFFICIAL street width** (ample oficial, NOT GIS-measured); drive the massing height from it. ⚠ reconcile 20.75 vs **22.40 m** PB+5 (Barcelona certificate via Arts. 238/240/327) before shipping the number. | zoning / height + street-width source | READY (table confirmed); needs the official-street-width source + the 20.75/22.40 reconciliation |
+| **L-526 citation** — depth = **Art. 242** (DROP Art. 322.1 as the depth authority — it's *edificabilitat*); height = **Arts. 238 + 240 + 327**; re-cite the source as the **current Barcelona consolidated NUMAMB / RPUC** (drop the anachronistic "AMB Dec 2010 / 31-12-2009" — AMB formed 2011); repair/remove the stale "2008 §2 not reflected" caveat (that mod is a HEIGHT change). Update `esBarcelonaEnsanche.ts` `ordinanceRef` + the panel; note in RISK-REGISTER R1; reopens L-449. | zoning / provenance (C58) | READY |
+| **Still to certify (needs the interactive MUC/RPUC GIS, not web search)** — exact depth figure + official street width for parcel 0230904DF3803; verbatim current Art. 327.2 for Barcelona (the 20.75/22.40 reconciliation); the 2008 §2 numeric delta. | legal / verification | OPEN — pull the fitxa from `dtes.gencat.cat/muc-visor` / `geoportalplanejament.amb.cat` |
