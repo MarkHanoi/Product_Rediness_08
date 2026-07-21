@@ -3978,3 +3978,22 @@ before its spike Gate is evidence-passed.**
 **Contracts touched:** C12, C19, C21, C23, C55. **Coverage note:** no contract yet governs
 context-layer *provenance badging* end-to-end (C23 covers AI-audit provenance; extend it or add a
 context-ingestion spec) — logged as a gap, not invented.
+
+### L-512 — Spain deep-dive: concrete source map + hybrid-height model (child of L-511)
+
+Refines L-511b for the ship-first country. Full docs: `spain/SPAIN-HEIGHT-MEASUREMENT.md`,
+`spain/topics/*`, `spain/CONTEXT-DATA-SPIKE.md`. Design deltas this locks in:
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-512a **Hybrid-height model** — `floor_count` (Catastro) + `measured_height_m` (LiDAR nDSM 90th-pctile, cycle-tagged) + `height_confidence`; flag disagreements >~1 floor | design | **DOCUMENTED** — feeds the C23 provenance-model extension |
+| L-512b **Shared nDSM module = L-511c**, now with the concrete PDAL/GDAL pipeline + 90th-pctile statistic + ASPRS class filter | infra | spec DONE, build NOT STARTED (ES+FR+PT) |
+| L-512c ES roads — **BTN25 Redes de Transporte + CartoCiudad `portales`** (entrance points) | impl | source verified live, NOT STARTED |
+| L-512d ES water — **BTN25 hydrography + IGR Hidrografía** (Pfafstetter) | impl | source verified, NOT STARTED |
+| L-512e ES parks — **BTN25 zonas verdes/instalaciones** | impl | source verified, NOT STARTED |
+| L-512f ES trees — **Open Data BCN** per-tree (Barcelona Tier-A; procedural elsewhere) | impl | CKAN live; **exact dataset slug to confirm before wiring** |
+| L-512g roof shape — RANSAC reconstruction from classified LiDAR, Barcelona-first; badge "reconstructed" | stretch | NOT STARTED |
+
+**Contract action (do NOT skip):** extend **C23** provenance to carry graded, source-tagged,
+cycle-aware confidence (or add a context-provenance spec) BEFORE the badge ships — the three height
+fields must not collapse into one "REAL". Coverage gap logged to MISSING-CONTRACTS-AUDIT.

@@ -285,3 +285,28 @@ Nothing in C57/C58/ADR-0269 was written with it in mind, and no endpoint has bee
 **Risk:** treating Portugal as "more of the Spain work" would import assumptions
 (Catastro-style national parcels, PGOU-shaped ordinances) that have not been checked and may
 not hold. It needs its own live-verification pass before any estimate.
+
+---
+
+## Gap — graded / source-tagged CONTEXT-DATA provenance (L-511 / L-512)
+
+**Found:** 2026-07-21, during the Spain 3D-context-data deep-dive (L-512).
+
+**The gap:** PRYZM's provenance model today is effectively a **binary REAL vs ESTIMATED badge**
+(the zoning "Why these numbers?" panel, the closest thing C23 governs). The context-data work needs
+something richer that no contract currently describes:
+- **Graded confidence**, not binary — a LiDAR-measured height on a PNOA 1st-coverage tile (~20-40 cm
+  RMSE) and on a 3rd-coverage tile (<10 cm) are BOTH "REAL" but carry different confidence.
+- **Multi-field provenance for one value** — a building height is `floor_count` (Catastro, real count)
+  + `measured_height_m` (LiDAR nDSM, cycle-tagged) + `height_confidence` (agreement + point count).
+  Collapsing these into one "REAL" is dishonest.
+- **"reconstructed" as a distinct tier** — Spanish pitched roofs would be OUR RANSAC reconstruction
+  from LiDAR, not a government LOD2 model; that is neither "REAL — official" nor "ESTIMATED".
+- **Per-feature, per-layer** — buildings, roads, water, parks, trees each resolve to a different
+  source/tier within one scene.
+
+**Not a present violation** — C23 governs AI-audit provenance and does not *claim* to cover graded
+context-layer provenance; it simply doesn't reach here yet. **Decision needed:** extend **C23** to
+carry graded + source-tagged + multi-field provenance, OR write a new context-provenance spec
+(SPEC-CONTEXT-PROVENANCE). Must land BEFORE the context provenance badge ships (L-512a). Owner:
+UNASSIGNED. Related: C12/C19/C21/C55, L-511, L-512.

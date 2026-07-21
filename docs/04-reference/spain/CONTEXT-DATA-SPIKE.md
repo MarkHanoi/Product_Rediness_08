@@ -43,8 +43,9 @@ that is the correct, honest outcome, not a failure.**
 1. **Query Catastro in native `EPSG::25831`** (Barcelona is UTM 31N) to dodge the 4326 axis-order
    exception; reproject to WGS84 for our pipeline. This is the *same* Catastro auth/host the
    Barcelona zoning pipeline already talks to — reuse that client.
-2. **nDSM module is shared infra** (ES + FR + PT). Build once: tile-index PNOA DTM+DSM → sample max
-   `(DSM−DTM)` inside each footprint polygon → per-building height. Do NOT one-off it per country.
+2. **nDSM module is shared infra** (ES + FR + PT). Build once: tile-index PNOA DTM+DSM → sample the
+   **90th-percentile** of `(DSM−DTM)` inside each footprint polygon (NOT max — antennas/HVAC inflate
+   max; see `SPAIN-HEIGHT-MEASUREMENT.md` §1.2) → per-building height. Do NOT one-off it per country.
 3. **`numberOfFloorsAboveGround` stopgap** ships day-1 value before nDSM: real footprint + floor-count
    height, badged `REAL — Catastro (floors×3m est.)`, upgraded to `REAL — Catastro + PNOA nDSM` later.
 4. **Foral cadastres** (País Vasco, Navarra) → `regions/pais-vasco-separate-cadastre/`,
@@ -52,3 +53,24 @@ that is the correct, honest outcome, not a failure.**
 5. **License:** Catastro free/open; PNOA-LiDAR **CC BY 4.0** → attribution in the disclosure panel.
 6. Roads/water/parks/trees: keep the current Overpass pipeline, badged ESTIMATED. Trees: no national
    registry; Barcelona *does* publish a municipal tree cadastre — candidate special-case later.
+
+---
+
+## Per-layer three-tier badging matrix (L-512 — the honesty structure)
+Every context layer resolves to a DIFFERENT tier; nothing collapses to one flat REAL/ESTIMATED toggle.
+This is the same graded model as building height (`SPAIN-HEIGHT-MEASUREMENT.md` §3) and drives the
+**C23 provenance extension** (coverage gap logged in `MISSING-CONTRACTS-AUDIT-2026-06-01.md`).
+
+| Layer | REAL tier | Reconstructed / derived tier | ESTIMATED tier |
+|---|---|---|---|
+| **Buildings/height** | Catastro footprint + LiDAR nDSM 90th-pctile (cycle-tagged) | RANSAC roof reconstruction from LiDAR | Catastro `ALTURAS`×3 m, or OSM levels |
+| **Trees** | Barcelona Arbrat per-tree | LiDAR CHM-detected (treetop+crown) | procedural placement, no detection |
+| **Roads** | — (no ES surface-polygon dataset exists) | centerline + inferred width, DTM-draped | class-default width, no local data |
+| **Pedestrian** | municipal 1:1,000 curb polygons where published | orthophoto-segmented sidewalks | inferred gap-fill, or omitted |
+| **Water** | BTN25/IGR shape + DTM-sampled flat elevation | — | raw OSM polygon, no elevation correction |
+| **Parks** | BTN25 discrete polygon | — | SIOSE composite @site-scale, or OSM |
+
+**Modeling methods** for each layer are documented in `topics/*.md` (§"3D modeling method"):
+tree CHM + local-maxima + watershed; road centerline→buffer→junction-fill→drape; pedestrian 3-option
+ladder + Barcelona crosswalk dataset; water flatten-don't-nDSM; parks BTN25-primary / SIOSE-coarse-fallback.
+Raw founder source preserved at `SOURCE-founder-deep-dives-raw.md`.
