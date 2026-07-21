@@ -4095,8 +4095,8 @@ mirrors 406/timeout/429 — an unfixable hot-path. Full design: `CONTEXT-3D-PERF
 
 | Sub-task | Phase | Status |
 |---|---|---|
-| L-513a Bake **Barcelona** context → **PMTiles** → Fly object storage | infra/bake | **TOOL BUILT** — `tools/context-bake/` (bake.mjs orchestrator + Dockerfile + README); download→osmium clip→tags-filter→export→tippecanoe→PMTiles; auto-detects local tools vs bundled Docker image; `--check`/`--dry-run` verified. Ready to run where Docker/toolchain exists (dev/CI/Fly). Source Geofabrik Cataluña live. NEXT: run it + upload + wire client reader (L-513b/c). |
-| L-513b Client tile read: viewport z/x/y **range requests** + **Web Worker** decode + **instanced** render | client | NOT STARTED |
+| L-513a Bake **Barcelona** context → **PMTiles** → object storage | infra/bake | **TOOL BUILT + PUBLISH JOB SHIPPED (L-571).** Tool: `tools/context-bake/` (bake.mjs + Dockerfile + README); download→osmium clip→tags-filter→export→tippecanoe→PMTiles; `--check`/`--dry-run` verified. Publish: **`.github/workflows/context-bake.yml`**, `workflow_dispatch` — builds the tool's own image (so CI runs the SAME toolchain as a dev box, not a second apt recipe), bakes, asserts each tileset is ≥50 KB **and** carries the `PMTiles` magic header (an empty-but-valid tileset would upload happily and render as "no context"), uploads a run artifact, syncs only `*.pmtiles` → `s3://pryzm-assets/tiles` (1-yr immutable), then probes the public URL with `Range: bytes=0-127` **requiring HTTP 206** — 200 would mean Range is ignored, silently degrading every tile read to a full-file download. ⏳ **NEVER EXECUTED — the first run is the test** (runner disk, tippecanoe compile, r2.dev Range behaviour are the unproven parts). Founder clicks "Run workflow". |
+| L-513b Client tile read: viewport z/x/y **range requests** + **Web Worker** decode + **instanced** render | client | NOT STARTED. **Unblocked on the plumbing side by L-571:** `VITE_CONTEXT_TILES_URL` is threaded build-arg → `Dockerfile` ARG → vite and defaults to **EMPTY**, so the Overpass path stays live until the reader exists. ⚠ Do NOT set the repo variable before the reader ships — it would bake a base URL nothing reads. Needs `pmtiles` + `@mapbox/vector-tile` + `pbf` with `pnpm-lock.yaml` in the SAME commit (`--frozen-lockfile`). |
 | L-513c Swap `fetchContextBuildings` body to tiles; Overpass demoted to emergency fallback (badged ESTIMATED) | client | code already anticipates the swap |
 | L-513d Provenance badge travels IN the tile (keeps C23 honest) | client/data | NOT STARTED |
 | L-513e Feed **L-511/L-512 authoritative** data into the same bake (3DBAG NL; Catastro+PNOA nDSM ES) + Cesium 3D Tiles for native LOD2 | infra | after L-513a proves the path |
@@ -4235,3 +4235,46 @@ exact to 1e-14 m, so this is a derivation defect and not a projection one) and *
 (where it is recorded as a known violation of C19's frame guarantees). ADR-0115 / §L-430 (dual
 north), ADR-0070 (byte-identity), C12 (`trueNorth` in radians). The buildable envelope is
 unaffected — it is solved in the true frame (C58).
+
+---
+
+## L-545 — the CAPTURE half of the GIS georeference (L-188 / L-489), 2026-07-21
+
+L-188 wired the RESTORE half and the restore half is correct. L-489 is the same P0 recurring
+from the other side: `snapshot.site` is null at SAVE, so there is nothing to restore.
+
+| Task | Phase | Status |
+|---|---|---|
+| **The `??` was on the wrong thing.** `siteModelStore ?? window.runtime.siteModelStore` short-circuits on the STORE REFERENCE, not on whether it HOLDS a site. `SiteModelStore` is per-runtime; `initPersistence.ts:83-89` binds the threaded one ONCE into a session-long closure, so after a runtime recomposition (project switch / backend swap / device-loss recovery) the serializer saves from a stale EMPTY store while the live one holds the parcel — producing exactly `siteStore=resolved · site=NULL · walls>0`. Now: try every candidate, take the first that HAS a site, record which won. Strictly dominates the old behaviour. | persistence | ✅ **SHIPPED** + unit-gated |
+| **`site: null` was ambiguous.** It meant both "never had a georeference" and "georeference LOST". New `snapshot.siteCapture = { status: captured\|none\|degraded, reason, elementCount, source }`, carried through the STREAMING split/merge (that path enumerates fields explicitly — an unlisted field is silently dropped, which is how L-188 happened), and surfaced loudly by `ProjectLoader` on reopen. | persistence | ✅ **SHIPPED** + unit-gated |
+| **BLOCK vs DEGRADE — decided, with the argument recorded in code.** DEGRADE. (a) the alternative to a lossy save is NO save, which loses more; (b) this is the AUTO-SAVE path, so a throw = silently-failing auto-saves, i.e. L-188 with the blame moved; (c) a null site is CORRECT for most projects and the gating predicate ("is this GIS?") is not knowable at save time — inventing it is the L-459 mistake. No substitute origin is ever fabricated. | persistence | ✅ **DECIDED + SHIPPED** |
+| **The live root cause is STILL UNCONFIRMED.** The audit's standing instruction — *"Do NOT patch the persistence path until that one line is read [with walls>0]"* — has not been satisfied: no browser exists in this environment, and the one probe reading on record was on an EMPTY project. The defect fixed above is provable from code and fixed on its own merits; it is NOT claimed to be "the" root cause. | persistence | 🔴 **OPEN — needs one founder save/close/reopen** |
+
+**The one thing a human must still do:** commit a parcel on a real Barcelona/Córdoba location,
+draw a wall, save, and read the console. `status=captured` ⇒ this fix closed it. `status=degraded`
+⇒ capture is still failing upstream of the serializer, and `siteCapture.source` + `reason` now say
+which half — instead of the save succeeding silently as it did before.
+
+
+## L-570 — object storage wired: the furniture GLB catalogue leaves the image, 2026-07-21
+
+The founder provisioned Cloudflare R2 (`pryzm-assets`, prefixes `items/` + `tiles/`), which
+unblocked the two items that had been "code ready, nowhere to read/write" — see
+`OBJECT-STORAGE-R2-DECISION.md`. This is the `items/` half; the `tiles/` half is L-571 / L-513a.
+
+| Task | Phase | Status |
+|---|---|---|
+| **Resolve catalogue URLs from a build-time base.** `apps/editor/src/ui/furniture-carousel/catalogAssetUrl.ts` — `resolveCatalogAssetUrl()` maps the logical `/items/…` onto `VITE_GLB_URL`. **Exact identity when unset**, so local dev (vite serves `public/items/` directly) is unaffected and no test had to be rewritten. | client | ✅ **SHIPPED** (7 new unit tests) |
+| **Wire the four places that actually FETCH** — carousel GLB load, drag-place `gltfLoader.load`, and both thumbnail `<img src>` sites. Thumbnails matter as much as models: they live under the same `/items/**` tree and 404'd for the same reason. | client | ✅ **SHIPPED** |
+| **Persist the LOGICAL path, fetch the resolved one.** `properties.glbPath` still stores `/items/…`. Storing the CDN URL would freeze today's bucket hostname into every saved project, turning the eventual move to `assets.pryzm.app` from an env-var change into a data migration. | client/persistence | ✅ **SHIPPED** |
+| **Publish job.** `.github/workflows/r2-sync-items.yml` (`workflow_dispatch`) → `s3://pryzm-assets/items`, 1-yr immutable cache. **Runs in CI, not on a laptop, because the catalogue is COMMITTED TO THIS REPO** (317 tracked files, not LFS) — so the bucket is always re-derivable from a commit and depends on no one machine's disk. Fails fast if the `R2_*` secrets are absent (length-only diagnostics, never a value), then probes the PUBLIC URL for 200 — uploading and being publicly SERVED are different facts, and an R2 bucket is private until a public domain is enabled. | infra | ✅ **SHIPPED — needs one founder click to run** |
+| **The `VITE_*` trap, and the proof step that closes it.** Vite INLINES `VITE_*` at build time; setting it as a Fly runtime secret does nothing and fails **silently** — build green, deploy green, app still 404ing. Threaded `--build-arg` → `Dockerfile` `ARG/ENV` → vite; and a post-deploy step **§L-570-BUNDLE-PROOF** fetches the live `index.html`, follows the entry chunks and their imports, and greps for the R2 host, **exiting 1** if absent. An advisory check for a silent failure is just a second silent failure. | ci/build | ✅ **SHIPPED** |
+| **`vars`, not `secrets`, for the base URL.** It is a public CDN URL that ships in the bundle by design; as a secret it would be REDACTED from the log, hiding the single diagnostic that matters when the 404s persist. Repo variable `VITE_GLB_URL` overrides the r2.dev literal default — the only change needed for a custom domain later. | ci/build | ✅ **SHIPPED** |
+| **The summary line now names WHICH host failed.** "no `VITE_GLB_URL` in this build" and "the object store lacks these objects" are opposite diagnoses with opposite fixes; the old text asserted the first unconditionally, which would have made a bucket problem read as a build problem forever. | client/diagnostics | ✅ **SHIPPED** |
+| **Did the 404s actually stop?** UNPROVEN from here. No deploy has run and the sync job has not been clicked. The code path is verified by unit tests and the bundle proof is automated, but the production observation is outstanding. | verification | 🔴 **OPEN — needs the two founder clicks + one console read** |
+
+**The two founder actions, in order.** (1) Run **"Sync furniture GLB catalogue to R2"** — it will
+tell you if public access is off. (2) Push/deploy, and read the deploy log for
+`✓ §L-570-BUNDLE-PROOF`. Then open the furniture carousel and confirm
+`§FURNITURE-GLB-404-SUMMARY` is absent. If it is still there, its own message now says which of
+the two halves failed.
