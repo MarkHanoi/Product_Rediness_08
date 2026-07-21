@@ -4,6 +4,8 @@ Result of the parallel Claude-Chat investigation (prompt: `L-526-LEGAL-RESEARCH-
 firm conclusions; a few items still need the parcel *fitxa urbanística* + the official street width to
 certify exact numbers. **These findings drive the L-525 + L-526 fixes.**
 
+> **L-449 RE-SIGNATURE — founder-accepted 2026-07-21.** The founder re-exercised the human source gate, accepting the current consolidated PGM refós in the **RPUC / AMB Geoportal (NUMAMB)** as the source, superseding the 2026-07-20 "AMB Dec 2010 PDF" acceptance. The corrected `BCN_ORDINANCE_REF` (depth=Art. 242, edificabilitat=Art. 322, height=Arts. 238/240/327, source=RPUC/NUMAMB) shipped in `esBarcelonaEnsanche.ts` at v255. The pack stays `estimated-ruleset`/amber — the ATTRIBUTION is now correct, but the per-parcel numbers are still uncertified (see "STILL TO CERTIFY").
+
 ## ✅ CONFIRMED (actionable now)
 
 ### The articles do different jobs than our citation implies
@@ -76,7 +78,7 @@ from the GEOMETRY (a partial block / not the full illa), not primarily from the 
    height from it. **Use the OFFICIAL street width** (Art. 327 uses the *ample oficial del carrer*,
    e.g. 20.00 m) — NOT a GIS-measured width. Resolve the 20.75 vs 22.40 m PB+5 discrepancy against a
    Barcelona certificate before shipping the number.
-4. **[L-526] Fix the citation** — depth = **Art. 242** (drop Art. 322.1 as the depth authority; 322 is
+4. **[L-526] Fix the citation — ✅ SHIPPED v255 (2026-07-21).** depth = **Art. 242** (drop Art. 322.1 as the depth authority; 322 is
    edificabilitat); height = **Arts. 238 + 240 + 327**; re-cite the source as the **current Barcelona
    consolidated NUMAMB / RPUC** (drop the anachronistic "AMB Dec 2010 / 31-12-2009"); drop/repair the
    stale "2008 mod not reflected" caveat (it's a height change + the vintage is wrong anyway). Update

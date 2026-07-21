@@ -2,17 +2,28 @@
 //
 // ⚠ THE FOUNDER SIGNED THE SOURCE, AND THIS RECORDS EXACTLY WHAT THAT DID AND DID NOT AUTHORISE.
 //
-// Founder decision 2026-07-20: *"I accept what the PDF says in 2009."* That is the L-449 human
-// gate being exercised, and it is theirs to exercise. The source is the AMB/MMAMB *Normativa
-// Urbanística Metropolitana* (Dec 2010), consolidated to **31-12-2009**, which disclaims its own
-// official status. So every value below is `ordinance-pdf`, never `published-structured`, and the
-// pack ships `estimated-ruleset` — the amber badge and the "verify against ordinance" affordance
-// stay on (C58 §1.2/§1.4).
+// Founder decision 2026-07-20: *"I accept what the PDF says in 2009."* — the INITIAL L-449 gate,
+// against the AMB/MMAMB *Normativa Urbanística Metropolitana* (Dec 2010, consolidated 31-12-2009).
+//
+// ⚠ SUPERSEDED 2026-07-21 (L-526). The primary-source research
+// (`docs/04-reference/spain/barcelona-catalonia/L-526-LEGAL-FINDINGS.md`) found that citation both
+// STALE + ANACHRONISTIC (the AMB as an institution did not exist until 21-07-2011, so an "AMB Dec
+// 2010" attribution is impossible) and MIS-ATTRIBUTED (it named Art. 322.1 for the depth; depth is
+// Art. 242, edificabilitat is Art. 322). The founder RE-EXERCISED the L-449 gate on 2026-07-21,
+// accepting the CURRENT consolidated PGM refós in the **RPUC** (Registre de Planejament Urbanístic
+// de Catalunya) / AMB Geoportal de Planejament (**NUMAMB**) — a living consolidated text — as the
+// source. `BCN_ORDINANCE_REF` below carries the corrected citation.
+//
+// The pack STILL ships `estimated-ruleset` (amber badge, `ordinance-pdf` provenance, the "verify
+// against ordinance" affordance) — re-citing corrected the ATTRIBUTION, not the confidence tier. The
+// per-parcel figures are not yet certified against the MUC/RPUC *fitxa urbanística* (see L-525 "still
+// to certify"): the exact profunditat + the official street width for parcel 0230904DF3803. C58
+// §1.2/§1.4.
 //
 // WHAT THE ACCEPTANCE UNLOCKED — the Art. 242.2 CONSTRUCTION, which is the whole point:
 // the ordinance does not state a *profunditat edificable*, it states how to DERIVE one — a figure
 // similar to the block, equidistant from the street frontages, leaving ≥30% of the block area as
-// interior free space, capped 30 m, floored 11 m. Those three parameters ARE in the accepted
+// interior free space, capped 30 m, floored 12 m (Art. 242 minimum; L-526). Those parameters ARE in the accepted
 // source, and they are what `block-derived-alignment` needs. So *área de implantación máxima*
 // becomes a REAL, CITED, per-block computation rather than a placeholder.
 //
@@ -24,8 +35,11 @@
 //     confirmed was the GENERIC PGM at 3,05 m/floor, with band values we also do not hold.
 //     Encoding either would be a number the signed source does not contain. An absent number is
 //     honest; a plausible one is not (`jurisdictions/README.md`).
-//     ⚠ Compounding it: a modification touching Art. 327 §2 (exp. 2007/028428, DOGC 29-09-2008)
-//     is CONFIRMED to exist and post-dates this source's 31-12-2009 consolidation in substance.
+//     ⚠ The Art. 327 §2 modification (exp. 2007/028428, DOGC 29-09-2008) is a HEIGHT-TABLE change
+//     (L-526), NOT a depth change. The current RPUC/NUMAMB consolidation carries it; the height bands
+//     stay NULL here only because encoding them is L-525a (needs the *ample oficial del carrer*), not
+//     because the source lacks them. The old "not reflected" caveat was internally inconsistent and is
+//     dropped from the citation.
 //
 //   • **`plotRatioFAR` stays NULL — and that is a FINDING, not a gap.** PGM Art. 322.1: for
 //     densificació urbana zones *"l'edificabilitat es defineix per l'envolupant màxima de volum"*.
@@ -61,11 +75,19 @@ import {
     type GeometricRule,
 } from '@pryzm/schemas';
 
-/** The governing citation carried on every value in this pack. */
+/**
+ * The governing citation carried on every value in this pack. Corrected 2026-07-21 (L-526):
+ * depth = Art. 242 (drop the old Art. 322.1 depth attribution — 322 is edificabilitat, not depth);
+ * height = Arts. 238 + 240 + 327; source re-cited to the current consolidated RPUC/NUMAMB refós
+ * (the anachronistic "AMB Dec 2010 / 31-12-2009" is dropped). Founder re-accepted 2026-07-21.
+ */
 export const BCN_ORDINANCE_REF =
-    'PGM-1976 NNUU Art. 242.2 / Art. 322.1 — via AMB/MMAMB Normativa Urbanística Metropolitana ' +
-    '(Dec 2010), consolidated to 31-12-2009. Accepted by the founder 2026-07-20 (L-449 gate). ' +
-    'NOT an official publication; a 2008 modification to Art. 327 §2 is not reflected.';
+    'PGM-1976 NNUU — profunditat edificable: Art. 242 (per-block construction, applied via Art. 327.1). ' +
+    'Edificabilitat: Art. 322 (envolupant màxima de volum — not a per-parcel FAR). ' +
+    'Alçada reguladora: Arts. 238 + 240 + 327. Source: the current consolidated PGM refós in the ' +
+    'Registre de Planejament Urbanístic de Catalunya (RPUC) / AMB Geoportal de Planejament (NUMAMB) — ' +
+    'a living consolidated text, not a frozen PDF. Founder-accepted 2026-07-21 (L-449 gate; supersedes ' +
+    'the 2026-07-20 AMB-Dec-2010 acceptance).';
 
 /**
  * Art. 242.2 as a rule, not a number. The three parameters below are the ordinance's own
