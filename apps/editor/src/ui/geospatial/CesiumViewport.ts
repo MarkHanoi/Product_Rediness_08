@@ -1737,6 +1737,29 @@ export class CesiumViewport {
         );
       }, 100);
 
+      // §L-520 — the one-shot 100 ms resize above MISSES the founder's case: the re-parented
+      // canvas mounts 0×0 (the multi-pane host lays out after Cesium mounts), so the 3D Site
+      // renders BLANK/white until some LATER external reflow happens to resize it (the log shows
+      // `canvas 0x0` at mount, then `1140x1098` only after a reflow — nothing paints in between).
+      // A ResizeObserver guarantees a resize + repaint the MOMENT the pane reaches a non-zero
+      // size, regardless of timing — so the ground + context paint on first layout instead of
+      // waiting for an incidental reflow. Self-disconnects once the viewer is disposed (it fires
+      // on the teardown resize, sees a dead viewer, and unsubscribes), so no accumulating leak
+      // across project switches. Guarded: if ResizeObserver is unavailable the 100 ms timer above
+      // remains the fallback.
+      try {
+        const ro = new ResizeObserver(() => {
+          if (!this.isViewerLive()) { ro.disconnect(); return; }
+          const w = this.container.clientWidth;
+          const h = this.container.clientHeight;
+          if (w > 0 && h > 0) {
+            this.viewer!.resize();
+            this.viewer!.scene.requestRender();
+          }
+        });
+        ro.observe(this.container);
+      } catch { /* ResizeObserver unavailable — the 100 ms timer remains the fallback */ }
+
       // §GLOBE-FRAME-NO-JUMP — record genuine USER camera control so a late
       // base-settle never re-flies (yanks) the user back to the site. A move that
       // begins while one of OUR programmatic flyTos is in flight
