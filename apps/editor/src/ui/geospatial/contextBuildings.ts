@@ -99,13 +99,28 @@ export type Bbox = readonly [number, number, number, number];
  */
 export const OVERPASS_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
     // §A.21.D-GLOBE2 (2026-06-05) — extra keyless CORS mirrors so heavy testing that
     // rate-limits (429) the primary still gets context buildings from a fallback.
     'https://overpass.private.coffee/api/interpreter',
     // §SITE-METRIC-OVERPASS-PARALLEL (2026-06-29) — `overpass.osm.jp` REMOVED: its TLS
     // cert is `ERR_CERT_COMMON_NAME_INVALID`, so it could never succeed and only added a
     // guaranteed-failed leg to the cascade.
+    //
+    // §OVERPASS-CORS-DEAD-LEG (L-534, 2026-07-21) — `overpass.kumi.systems` REMOVED from THIS
+    // (browser) list for exactly the same reason, one class up. Founder console on pryzm.fly.dev:
+    //     Access to fetch at 'https://overpass.kumi.systems/api/interpreter' from origin
+    //     'https://pryzm.fly.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin'
+    //     header is present on the requested resource.
+    // It no longer sends the CORS header, so from a BROWSER it can never succeed — every attempt is
+    // a guaranteed failure that still costs a round-trip and a console error, and it burned that
+    // budget while the user was staring at missing context. The comment above this list still
+    // claims "all keyless + CORS-enabled"; that stopped being true and nothing re-checked it.
+    //
+    // ⚠ IT IS DELIBERATELY STILL IN THE SERVER'S LIST (`server/overpassProxy.js`) AND THE CSP
+    // (`server/securityHeaders.js`). CORS is a BROWSER policy — server-to-server fetches are not
+    // subject to it, so the mirror remains perfectly usable from our proxy, which is the primary
+    // path anyway. This removes a dead leg from the browser fallback ONLY; it does not reduce the
+    // number of mirrors we can actually reach.
 ] as const;
 
 /** The origin(s) that must appear in the server CSP `connect-src` for fetch. */
