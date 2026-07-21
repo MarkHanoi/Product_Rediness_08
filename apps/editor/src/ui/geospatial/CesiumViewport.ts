@@ -907,10 +907,30 @@ export class CesiumViewport {
    * cannot tell which — the same failure/empty conflation the context-data honesty family
    * (L-422/L-457/L-467/L-469) keeps producing, surfaced at the UI instead of in the data.
    *
-   * Deliberately a small corner badge, NOT the full-screen `LoadingOverlayController`: the site,
+   * Deliberately a small badge, NOT the full-screen `LoadingOverlayController`: the site,
    * the parcel and the envelope are already useful and interactive before the neighbourhood
    * arrives, so blocking the view would be a downgrade. Context is a progressive enhancement and
    * the indicator should say so.
+   *
+   * §CTX-BADGE-TOP-CENTRE (L-524c) — it shipped at bottom-left and was INVISIBLE in practice, so
+   * the honesty fix above never actually reached the founder's eye. Bottom-left is a contested
+   * corner in this viewport, by TWO independent occupants:
+   *   1. Cesium renders `.cesium-widget-credits` there by default (inside the widget, i.e. inside
+   *      `this.container`), and
+   *   2. `initScene.ts` mounts the "3D detail" control at `position:fixed; bottom:12px; left:12px;
+   *      z-index:40` — `fixed`, so it escapes this container entirely, and z-40 > the badge's z-30.
+   * MOVING it is the entire fix — raising z-index CANNOT work here, and it is worth writing down
+   * why so nobody "fixes" this again with a bigger number. `this.container` sets an explicit
+   * `z-index: CESIUM_Z (15)`, which makes it a STACKING CONTEXT: every z-index inside is resolved
+   * against its siblings *within* the container, then the whole container competes with the page
+   * as a single unit at 15. So a `position:fixed` control at z-40 sits above this badge no matter
+   * what value the badge carries. The z-41 below is therefore scoped to the container's own
+   * children (the Cesium widget and its credits) — correct and useful there, and deliberately not
+   * load-bearing for the overlap that caused the bug.
+   *
+   * Top-centre is unoccupied in this container (the only other child is the Cesium widget). A
+   * diagnostic nobody can see is worse than no diagnostic, because a hidden "loading" badge reads
+   * as "nothing is loading" — the very failure/empty conflation this badge exists to break.
    */
   private contextLoadingBadge: HTMLDivElement | null = null;
 
@@ -923,8 +943,10 @@ export class CesiumViewport {
           const el = document.createElement('div');
           el.setAttribute('data-testid', 'pryzm-context-loading-badge');
           Object.assign(el.style, {
-            position: 'absolute', left: '12px', bottom: '12px', zIndex: '30',
+            position: 'absolute', left: '50%', top: '12px',
+            transform: 'translateX(-50%)', zIndex: '41',
             display: 'flex', alignItems: 'center', gap: '8px',
+            whiteSpace: 'nowrap',
             padding: '7px 12px', borderRadius: '8px',
             background: 'rgba(255,255,255,0.94)', color: '#6600FF',
             font: '500 12px/1.2 system-ui, sans-serif',
