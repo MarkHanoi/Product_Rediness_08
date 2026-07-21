@@ -70,13 +70,22 @@ export {
 // "No private buildable envelope applies here (clau NN)" is a POSITIVE, cited answer — and until
 // now it was inexpressible, so parks, motorways and Collserola were shown a fabricated setback
 // triple from the generic estimated pack.
-export { buildRefusedEnvelope, isRefusedEnvelope } from './rulepacks/zoneRefusal.js';
+export { buildRefusedEnvelope, isRefusedEnvelope, isTransientRefusal } from './rulepacks/zoneRefusal.js';
 export {
     barcelonaZoneRefusal,
     barcelonaZoneRefusalFor,
     BCN_ZONE_REFUSALS_BY_CLAU,
     BCN_REFUSED_CLAUS,
     BCN_PGM_INSTRUMENT_REF,
+} from './rulepacks/esBarcelonaZoneClassification.js';
+
+// ── L-574 — the THIRD refusal: an encoded clau whose construction could not complete. ──
+// Distinct from the legal refusal (which would assert an ordinance fact we have not
+// established) and from the coverage gap (which would claim we lack a pack we in fact have).
+// The only TRANSIENT refusal, hence the only one carrying a retry affordance.
+export {
+    barcelonaConstructionIncompleteRefusal,
+    type ConstructionFailureReason,
 } from './rulepacks/esBarcelonaZoneClassification.js';
 
 // L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the

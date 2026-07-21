@@ -140,6 +140,23 @@ export type EnvelopeStatus = z.infer<typeof EnvelopeStatusSchema>;
  *  - `no-rule-pack`         — the zone IS privately buildable and PRYZM simply has not authored
  *                             its pack yet. ⚠ The ONE code here that is a gap rather than a legal
  *                             fact; it must never be presented as though the ordinance refused.
+ *  - `source-data-unavailable` — **L-574, founder-decided 2026-07-21.** The zone is buildable,
+ *                             PRYZM HAS authored its pack, and the determination still could not
+ *                             be completed because an INPUT was unavailable for this parcel — the
+ *                             Catastro block outline could not be assembled, the dissolve was
+ *                             refused, or the construction had no solution on this block.
+ *                             ⚠ **A THIRD CATEGORY, and the distinction is the whole point.**
+ *                             It is NOT a legal refusal: telling an Eixample owner "no envelope
+ *                             applies" would be a false negative about their land — worse than
+ *                             the fabrication it replaces. It is NOT `no-rule-pack`: we have the
+ *                             pack, so "not encoded yet" would be false too. It is the only code
+ *                             that is TRANSIENT and therefore the only one a RETRY can fix.
+ *                             Before L-574 these parcels fell through to the generic estimated
+ *                             pack — and for a *segons alineacions de vial* clau like `13a` a
+ *                             front/side/rear triple is the WRONG SHAPE, not an imprecise number
+ *                             (C58 §1.11), spanning the full plot depth on the most valuable land
+ *                             in the city. `legallyGrounded: false` — this is a statement about
+ *                             PRYZM's data path, never about the ordinance.
  */
 export const EnvelopeRefusalCodeSchema = z.enum([
     'public-system',
@@ -150,6 +167,7 @@ export const EnvelopeRefusalCodeSchema = z.enum([
     'derived-plan',
     'overlay-uncertain',
     'no-rule-pack',
+    'source-data-unavailable',
 ]);
 export type EnvelopeRefusalCode = z.infer<typeof EnvelopeRefusalCodeSchema>;
 
@@ -186,9 +204,11 @@ export const EnvelopeRefusalSchema = z.object({
     /**
      * Is this refusal a statement about the LAW (true) or about PRYZM's coverage (false)?
      *
-     * `no-rule-pack` is the only `false` today. The distinction is load-bearing: "the ordinance
-     * grants no envelope here" and "we have not encoded this zone yet" are opposite claims and
-     * must never share a rendering.
+     * `no-rule-pack` and `source-data-unavailable` are the `false` codes. The distinction is
+     * load-bearing: "the ordinance grants no envelope here", "we have not encoded this zone yet"
+     * and "we hold the rule but could not fetch what it needs for your parcel" are three
+     * different claims and must never share a rendering. Only the third is transient, and it is
+     * the only one for which a RETRY affordance makes sense (L-574).
      */
     legallyGrounded: z.boolean(),
 });

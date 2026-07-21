@@ -468,3 +468,80 @@ export function barcelonaNoRulePackRefusal(
         knownFacts: [...knownFacts],
     };
 }
+
+/**
+ * §L-574 — WHY the construction could not be completed. A closed vocabulary rather than free
+ * text, because these are different operational failures with different likelihoods of a retry
+ * succeeding, and the card says so honestly.
+ */
+export type ConstructionFailureReason =
+    /** The Catastro block could not be fetched / assembled at all (upstream outage, timeout). */
+    | 'block-unavailable'
+    /** Parcels were fetched but did not dissolve into one clean ring (~8.6 % of blocks, L-539). */
+    | 'block-dissolve-refused'
+    /** The ring exists but the ordinance construction has no solution on it. */
+    | 'construction-no-solution';
+
+const FAILURE_DETAIL: Record<ConstructionFailureReason, string> = {
+    'block-unavailable':
+        'We could not retrieve the cadastral block this parcel belongs to. The maximum buildable ' +
+        'depth (PGM Art. 242.2) is a function of the WHOLE block, not of your plot alone, so ' +
+        'without the block outline there is nothing to measure from.',
+    'block-dissolve-refused':
+        'We retrieved the neighbouring cadastral parcels but could not merge them into a single ' +
+        'clean block outline. The maximum buildable depth (PGM Art. 242.2) is measured from the ' +
+        'block as a whole, so a partial or self-overlapping outline would give a confidently ' +
+        'wrong depth rather than an approximate one.',
+    'construction-no-solution':
+        'We assembled the cadastral block, but the Art. 242.2 construction has no valid solution ' +
+        'on it — typically an irregular or incomplete block outline. Rather than fall back to a ' +
+        'generic figure the article does not sanction for this block, we are declining to state ' +
+        'a depth.',
+};
+
+/**
+ * §L-574 (founder-decided 2026-07-21) — the refusal for **an encoded clau whose construction
+ * could not be completed for THIS parcel**.
+ *
+ * ⚠ THIS IS THE THIRD CARD, AND IT EXISTS BECAUSE THE OTHER TWO WOULD BOTH LIE HERE.
+ *  - The LEGAL refusal ("no private buildable envelope applies") would assert a fact about the
+ *    ordinance that we have not established — a **false negative about someone's land**, which
+ *    L-553 names as worse than the fabrication it replaced.
+ *  - The COVERAGE-GAP refusal ("PRYZM has not encoded this zone yet") would be simply false: the
+ *    pack exists and works, on this very clau, on 91.4 % of blocks.
+ *
+ * What it replaces is worse than both: before L-574 these parcels fell through to the generic
+ * estimated pack. For a *segons alineacions de vial* clau like `13a`, a front/side/rear triple is
+ * **the wrong SHAPE, not an imprecise number** (C58 §1.11) — it silently draws an envelope
+ * spanning the full plot depth on the most valuable land in Barcelona.
+ *
+ * It is also the ONLY refusal that is TRANSIENT, which is why it is the only one that earns a
+ * retry affordance: the same parcel will very often resolve on a second attempt.
+ */
+export function barcelonaConstructionIncompleteRefusal(
+    clau: string,
+    reason: ConstructionFailureReason,
+    clauLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const named = clauLabel && clauLabel.trim() ? `${clauLabel.trim()} (clau ${clau})` : `clau ${clau}`;
+    return {
+        code: 'source-data-unavailable',
+        // Name the zone FIRST and say we DO hold its rules — that is the single fact that
+        // separates this card from the coverage-gap card in the user's mind (L-553 rule 1).
+        headline: `${named} — PRYZM could not complete this determination for your parcel.`,
+        detail:
+            `We have this zone's building rules encoded and they apply to your land. ` +
+            FAILURE_DETAIL[reason] +
+            ' This is a data-availability problem on our side, not a limit on your land, and it ' +
+            'is usually temporary — retrying often resolves it. We would rather show you nothing ' +
+            'than an envelope of the wrong shape.',
+        // NOT an ordinance citation. Art. 242.2 is not the reason we failed; our data path is.
+        // Citing it would be the L-526 error — an authoritative-looking citation for a claim the
+        // document does not make.
+        ordinanceRef: null,
+        // A statement about PRYZM's data path, never about the law.
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}

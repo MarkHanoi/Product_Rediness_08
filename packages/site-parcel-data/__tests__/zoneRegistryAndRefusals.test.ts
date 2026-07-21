@@ -18,6 +18,7 @@ import {
 import {
     barcelonaZoneRefusal,
     barcelonaZoneRefusalFor,
+    barcelonaConstructionIncompleteRefusal,
     BCN_ZONE_REFUSALS_BY_CLAU,
 } from '../src/rulepacks/esBarcelonaZoneClassification.js';
 import { buildRefusedEnvelope, isRefusedEnvelope } from '../src/rulepacks/zoneRefusal.js';
@@ -327,5 +328,103 @@ describe('L-550 — the refused envelope', () => {
     it('surfaces the reason in caveats too, so a caveat-only reader is not left blank', () => {
         expect(env.caveats).toContain(refusal.headline);
         expect(env.caveats.length).toBeGreaterThanOrEqual(2);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §L-574 — the THIRD refusal: an ENCODED clau whose construction could not complete.
+//
+// Founder-decided 2026-07-21. Before this, a 13a parcel whose Art. 242.2 construction failed
+// (block unavailable, dissolve refused, no solution) fell through to the GENERIC ESTIMATED PACK
+// and was shown a front/side/rear triple. For a *segons alineacions de vial* clau that triple is
+// the wrong SHAPE, not an imprecise number (C58 §1.11) — an envelope spanning the full plot
+// depth on the most valuable land in Barcelona. ~8.6 % of Eixample parcels take this path
+// (the dissolve succeeds on 91.4 %, L-539), plus every transient Catastro failure.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§L-574 — construction-incomplete is its own refusal, not either existing one', () => {
+    const REASONS = [
+        'block-unavailable',
+        'block-dissolve-refused',
+        'construction-no-solution',
+    ] as const;
+
+    it('is NEVER legally grounded — it is a statement about PRYZM, not the ordinance', () => {
+        // THE LOAD-BEARING ASSERTION. Wearing the legal chip would tell an Eixample owner the law
+        // forbids building on their buildable plot — L-553: "a false negative about someone's
+        // land, worse than the error this replaced."
+        for (const reason of REASONS) {
+            const r = barcelonaConstructionIncompleteRefusal('13a', reason);
+            expect(r.legallyGrounded).toBe(false);
+            expect(r.code).toBe('source-data-unavailable');
+        }
+    });
+
+    it('never cites an ordinance — Art. 242.2 is not why we failed, our data path is', () => {
+        // The L-526 error: an authoritative-looking citation for a claim the document never makes.
+        for (const reason of REASONS) {
+            expect(barcelonaConstructionIncompleteRefusal('13a', reason).ordinanceRef).toBeNull();
+        }
+    });
+
+    it('does NOT claim the zone is unencoded — that is the other card, and it would be false', () => {
+        // We HAVE the 13a pack and it works on 91.4 % of blocks. Saying "not encoded yet" here
+        // would be a different lie from the one being fixed.
+        for (const reason of REASONS) {
+            const { headline, detail } = barcelonaConstructionIncompleteRefusal('13a', reason);
+            expect(`${headline} ${detail}`).not.toMatch(/not encoded|has not encoded|coming soon/i);
+        }
+        // …and it says the opposite, explicitly.
+        expect(barcelonaConstructionIncompleteRefusal('13a', 'block-unavailable').detail)
+            .toMatch(/rules encoded/i);
+    });
+
+    it('names the zone first and says the land is unaffected (L-553 legibility rules)', () => {
+        const r = barcelonaConstructionIncompleteRefusal('13a', 'block-unavailable', 'Eixample');
+        expect(r.headline).toMatch(/^Eixample \(clau 13a\)/);
+        expect(r.detail).toMatch(/not a limit on your land/i);
+    });
+
+    it('states each failure reason distinctly — a generic message would hide which one', () => {
+        const details = REASONS.map(
+            (x) => barcelonaConstructionIncompleteRefusal('13a', x).detail,
+        );
+        expect(new Set(details).size).toBe(REASONS.length);
+    });
+
+    it('signals that a retry may help — it is the ONLY transient refusal', () => {
+        expect(barcelonaConstructionIncompleteRefusal('13a', 'block-unavailable').detail)
+            .toMatch(/temporary|retry/i);
+    });
+
+    it('carries knownFacts so the panel is never blank (L-553)', () => {
+        const r = barcelonaConstructionIncompleteRefusal('13a', 'block-unavailable', 'Eixample', [
+            'Cadastral reference: 1234567AB1234C',
+            'Area: 412 m²',
+        ]);
+        expect(r.knownFacts).toHaveLength(2);
+    });
+
+    it('builds an envelope with status `none`, NOT `not-applicable`', () => {
+        // `not-applicable` means the ordinance ANSWERED "not by a zone envelope". A Catastro
+        // outage establishes no such thing. `none` = attempted, no data — which is exactly true.
+        const env = buildRefusedEnvelope(
+            '13a',
+            barcelonaConstructionIncompleteRefusal('13a', 'block-unavailable'),
+            'none',
+        );
+        expect(env.status).toBe('none');
+        expect(env.confidence).toBe('not-determined');
+        // The L-445 protection must survive the new status: nothing extrudable escapes.
+        expect(env.insetPolygon).toEqual([]);
+        expect(env.insetAreaM2).toBe(0);
+        expect(env.maxHeight_m).toBeNull();
+        expect(isRefusedEnvelope(env)).toBe(true);
+    });
+
+    it('the legal refusal still defaults to `not-applicable` — the default did not shift', () => {
+        // Guard on the signature change: adding an optional 3rd parameter must not silently
+        // re-status the 24.2 % of Barcelona that is a genuine legal refusal.
+        const legal = buildRefusedEnvelope('6b', barcelonaZoneRefusal('6b')!);
+        expect(legal.status).toBe('not-applicable');
     });
 });

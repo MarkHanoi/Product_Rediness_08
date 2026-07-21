@@ -50,9 +50,23 @@ import type { BuildableEnvelope, EnvelopeRefusal } from '@pryzm/schemas';
  * `confidence: 'not-determined'` is the honest label: no determination was made. It is NOT a
  * weaker `estimated-ruleset`, and the UI must not badge it as an estimate.
  */
+/**
+ * §L-574 — the status a refusal carries. Defaults to `'not-applicable'` (the L-550 legal
+ * refusal). Pass `'none'` for `source-data-unavailable`, where the ordinance DOES apply and we
+ * simply could not fetch what it needs.
+ *
+ * ⚠ THE TWO ARE NOT INTERCHANGEABLE, and the schema says why (`EnvelopeStatus`):
+ * `'not-applicable'` means the ordinance ANSWERED and its answer was "not by a zone envelope";
+ * `'none'` means the determination was attempted and found no data. Stamping a Catastro outage
+ * as `'not-applicable'` would assert a legal fact we have not established — about someone's
+ * land — which is the failure/refusal collapse this project has paid for three times
+ * (L-422/L-467/L-469). Both clear a stale `buildableRing` (`dispatchEnvelope` writes only on
+ * `'ok'`), so the L-445 protection is unchanged either way.
+ */
 export function buildRefusedEnvelope(
     zoneCode: string,
     refusal: EnvelopeRefusal,
+    status: 'not-applicable' | 'none' = 'not-applicable',
 ): BuildableEnvelope {
     return {
         insetPolygon: [],
@@ -68,7 +82,7 @@ export function buildRefusedEnvelope(
         // though it is not a parcel-level *number*. Stamping `'unknown'` would imply we are
         // unsure what the statement is about, which we are not (C58 §1.11.4).
         granularity: 'parcel',
-        status: 'not-applicable',
+        status,
         zoneCode,
         // No derivation rows: there is no constraint to explain. The `refusal` field carries the
         // explanation, and the compliance report renders zero rows rather than an empty table of
@@ -80,10 +94,38 @@ export function buildRefusedEnvelope(
 }
 
 /**
- * Is this envelope a refusal? The single predicate every consumer should branch on, so
- * "not-applicable" never has to be string-matched at ten call sites (and so a future fifth
- * status does not silently fall into an `ok` branch).
+ * Is this envelope a refusal? The single predicate every consumer should branch on, so the
+ * status never has to be string-matched at ten call sites (and so a future status does not
+ * silently fall into an `ok` branch).
+ *
+ * §L-574 — this previously hard-coded `status === 'not-applicable'`, which silently excluded the
+ * new `source-data-unavailable` refusal (status `'none'`): every consumer would have treated it
+ * as an ordinary empty envelope and its card would never have rendered. Caught by test, not by
+ * review — which is exactly why the accepted statuses are now a NAMED LIST rather than a literal
+ * buried in an expression.
+ *
+ * ⚠ IT IS DELIBERATELY STILL AN ALLOW-LIST, not simply `refusal !== null`. A `degenerate`
+ * envelope carrying a refusal object is a contradictory state (the constraints consumed the
+ * parcel AND the ordinance declined), and classifying it as a refusal would let a producer bug
+ * render as a polished explanation. Refusing to recognise the impossible combination is what
+ * makes the bug surface. **A new refusal kind MUST add its status here.**
  */
+const REFUSAL_STATUSES: ReadonlySet<BuildableEnvelope['status']> = new Set([
+    'not-applicable', // L-550 — the ordinance grants no private envelope here (legal).
+    'none',           // L-574 — attempted, but an input was unavailable (data path).
+]);
+
 export function isRefusedEnvelope(env: BuildableEnvelope | null | undefined): boolean {
-    return !!env && env.status === 'not-applicable' && env.refusal !== null;
+    return !!env && env.refusal != null && REFUSAL_STATUSES.has(env.status);
+}
+
+/**
+ * §L-574 — is this refusal about PRYZM's DATA PATH rather than the law or our coverage?
+ *
+ * The one refusal that is TRANSIENT, and therefore the only one where offering a RETRY is
+ * honest. Exposed as a predicate so no surface has to string-match the code (the same reason
+ * `isRefusedEnvelope` exists).
+ */
+export function isTransientRefusal(env: BuildableEnvelope | null | undefined): boolean {
+    return isRefusedEnvelope(env) && env!.refusal!.code === 'source-data-unavailable';
 }
