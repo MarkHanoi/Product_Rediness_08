@@ -94,6 +94,49 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         expect(d.refusal.knownFacts).toEqual(facts);
     });
 
+    it('L-553 — the "why nothing is drawn" reason is TRUE OF EACH ZONE, not one sentence for all', () => {
+        // ⚠ THE BUG THIS PINS, caught in review before it shipped. The first draft of the card
+        // told every unpacked clau "the façade sits on the street line … a setback estimate would
+        // be the wrong shape". True for 12/12b/13b — FLATLY WRONG for 20a, where *edificació
+        // aïllada* separations ARE real front/side/rear distances and a setback triple is the
+        // correct shape (ADR-0272 §3.7). It would have stated a confident falsehood about the
+        // user's land inside the copy written to explain why we refuse to do exactly that.
+        const detailFor = (clau: string): string => {
+            const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
+            expect(d.kind).toBe('refusal');
+            return d.kind === 'refusal' ? d.refusal.detail : '';
+        };
+        // Alineació de vial — the shape argument is correct here.
+        for (const clau of ['12', '12b', '13b']) {
+            expect(detailFor(clau), clau).toMatch(/façade sits on the street line/i);
+            expect(detailFor(clau), clau).toMatch(/wrong SHAPE/);
+        }
+        // Edificació aïllada — must NOT claim the shape is wrong; it must say the opposite.
+        for (const clau of ['20a', '20a/10', '20a/9u']) {
+            expect(detailFor(clau), clau).not.toMatch(/wrong SHAPE/);
+            expect(detailFor(clau), clau).not.toMatch(/façade sits on the street line/i);
+            expect(detailFor(clau), clau).toMatch(/IS governed by real separation distances/i);
+        }
+        // Industrial — coverage % + floor-area index, the ADR-0272 gap.
+        for (const clau of ['22a', '22@']) {
+            expect(detailFor(clau), clau).not.toMatch(/wrong SHAPE/);
+            expect(detailFor(clau), clau).toMatch(/floor-area index/i);
+        }
+        // Every card, whatever the family, must carry the three invariants.
+        for (const clau of ['12', '13b', '20a/10', '22a', '99z']) {
+            const d = detailFor(clau);
+            expect(d, clau).toMatch(/coverage gap, not an error/i);
+            // The COMMITMENT, not one exact phrasing: every card must say, in whatever words fit
+            // that family, that showing nothing is preferred to showing something wrong. (The
+            // 20a copy reaches it via "worse than showing none" — asserting a fixed string here
+            // would have forced the wrong sentence into the right card.)
+            expect(d, clau).toMatch(
+                /rather show you nothing than something wrong|worse than showing none/i,
+            );
+            expect(d, clau).toMatch(/13a/); // the roadmap names what IS covered
+        }
+    });
+
     it('L-553 — a jurisdiction with no coverage-gap policy still answers `unregistered`', () => {
         // Deleting the `unregistered` outcome would bake Barcelona's answer into every future
         // city. In suburban/detached fabric a setback triple is the RIGHT shape and an estimate

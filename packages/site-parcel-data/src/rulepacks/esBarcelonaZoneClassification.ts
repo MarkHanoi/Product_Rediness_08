@@ -364,6 +364,67 @@ export function barcelonaZoneRefusalFor(
 //      this zone, and we would rather show nothing than something wrong.
 //   4. PLACE IT ON A ROADMAP, with the covered zone named. "Not yet" is forgivable; "no" is not.
 
+/**
+ * WHY nothing is drawn — **per zone family, because the reason genuinely differs and a single
+ * sentence would be FALSE for half of them.**
+ *
+ * ⚠ THE BUG THIS EXISTS TO PREVENT, caught while reviewing the copy: the first draft said, for
+ * every unpacked clau, *"the façade sits on the street line, with a maximum buildable depth
+ * measured back from it, so a setback estimate would be the wrong shape."* That is exactly right
+ * for `12`/`12b`/`13b` — and **flatly wrong for `20a`**, where *edificació aïllada* separations
+ * ARE real front/side/rear distances and a setback triple is the CORRECT shape (ADR-0272 §3.7
+ * says so explicitly). Shipping it would have told a `20a` owner a true-sounding fact about their
+ * land that the ordinance does not say — the C58 §1.11 category error, committed in the very copy
+ * written to explain why we refuse to commit it.
+ *
+ * So the reason is resolved per family, each stating that family's ACTUAL blocker. Legal fidelity
+ * outranks tidy copy, in the explanation as much as in the number.
+ */
+function coverageGapReasonFor(clau: string): string {
+    // *Alineacions de vial* — the shape itself is wrong. 12 / 12b / 13b.
+    if (clau === '12' || clau === '12b' || clau === '13b') {
+        return (
+            'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
+            'did. It has been switched off deliberately: this zone is regulated by a different ' +
+            'KIND of rule — the façade sits on the street line, with a maximum buildable depth ' +
+            'measured back from it — so a setback estimate would be the wrong SHAPE, not merely ' +
+            'an imprecise number, and it would quietly over-state your buildable area by ' +
+            'covering the full depth of the plot. We would rather show you nothing than ' +
+            'something wrong.'
+        );
+    }
+    // Industrial / activitats — the LIMITS are a coverage % and a floor-area index, which the
+    // solver resolves and displays but cannot yet apply to geometry (ADR-0272, Phase 2).
+    if (clau === '22a' || clau === '22@') {
+        return (
+            'This zone states its limits as a maximum ground occupation and a floor-area index ' +
+            '(m² of floor per m² of site) rather than as setback distances. PRYZM can read those ' +
+            'two numbers but cannot yet turn them into an envelope, and a generic setback ' +
+            'estimate would answer a different question from the one this zone asks. We would ' +
+            'rather show you nothing than something wrong.'
+        );
+    }
+    // *Edificació aïllada* — separations ARE the right shape here. The blocker is that we hold
+    // none for this subzone, and the generic defaults belong to a different zone entirely.
+    if (clau === '20a' || clau.startsWith('20a/') || clau === '21' || clau.startsWith('21/')) {
+        return (
+            'This zone IS governed by real separation distances to the street and to the ' +
+            'boundaries — so an envelope of the usual shape is the right answer here. What PRYZM ' +
+            'does not yet hold is THIS subzone’s own sourced numbers: its separations, its ' +
+            'minimum parcel size, its maximum occupation and its net buildability index. The ' +
+            'generic defaults we would otherwise fall back on are a different zone’s numbers, ' +
+            'and presenting them as yours would be worse than showing none.'
+        );
+    }
+    // Anything else — true of every zone, and it claims nothing beyond what we know.
+    return (
+        'PRYZM has not yet read and accepted the governing article for this zone, and it will ' +
+        'not publish a buildable figure it cannot cite. A generic setback estimate would be a ' +
+        'number the ordinance does not contain. We would rather show you nothing than something ' +
+        'wrong.'
+    );
+}
+
 /** What PRYZM covers today vs next — kept beside the copy that cites it so they cannot drift. */
 const BCN_ROADMAP_LINE =
     'Barcelona coverage today: clau 13a / 13E (the Eixample), where the buildable depth is ' +
@@ -392,15 +453,11 @@ export function barcelonaNoRulePackRefusal(
         // Rule 1 — the zone, named, first. Rule 2 — what is missing, plainly.
         headline: `${named} — PRYZM has not encoded this zone's building rules yet.`,
         detail:
-            // Rule 3 — why nothing is drawn, in the user's terms rather than ours.
             'This is a coverage gap, not an error, and your parcel was identified correctly — ' +
             'the zone above is what the Generalitat’s planning map returns for this land. ' +
-            'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
-            'did. It has been switched off deliberately: this zone is regulated by a different ' +
-            'kind of rule (the façade sits on the street line, with a maximum buildable depth ' +
-            'measured back from it), so a setback estimate would be the wrong SHAPE, not merely ' +
-            'an imprecise number — and it would quietly over-state the buildable area. We would ' +
-            'rather show you nothing than something wrong. ' +
+            // Rule 3 — why nothing is drawn, in the user's terms, and TRUE OF THIS ZONE (see
+            // `coverageGapReasonFor`: a single sentence here would have been false for 20a).
+            coverageGapReasonFor(clau) + ' ' +
             // Rule 4 — the roadmap.
             BCN_ROADMAP_LINE,
         // NOT a PGM article. This refusal is a statement about PRYZM, and citing an ordinance
