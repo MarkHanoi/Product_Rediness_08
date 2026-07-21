@@ -63,6 +63,7 @@ import { fetchQualificationAtPoint } from './zoning/MucZoningProvider.js';
 import { catastroParcelProvider } from './parcel/CatastroParcelProvider.js';
 import { fetchBlockForParcel } from './parcel/CatastroBlockProvider.js';
 import { fetchContextRoads } from '../geospatial/contextRoads.js';
+import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { latLonToSceneXZ, sceneXZToLatLon, type LatLon } from './boundaryProjection.js';
 import { trace } from '@opentelemetry/api';
 import { polygonAreaXZ } from './siteInspectorData';
@@ -862,6 +863,17 @@ function applyZoning(
                 `isInDenmark=${qLat != null ? isInDenmark(qLat, qLon!) : 'n/a'} ` +
                 `isInBarcelona=${qLat != null ? isInBarcelona(qLat, qLon!) : 'n/a'} (L-521: querying the PARCEL, not the anchor).`,
         );
+        // §L-524a — PREFETCH context buildings at the PARCEL centroid (not just the geocode anchor).
+        // The existing §CTX-PREFETCH-ON-LOCATION (CesiumViewport L-470) warms the per-bbox cache at
+        // the SITE location — which on a DRAW is the geocode (city centre), a DIFFERENT bbox than the
+        // parcel the 3D-Site render centres on. So the render MISSED that cache and did a cold, slow
+        // Overpass round-trip (founder: "context takes too long / didn't render yet"). Same
+        // anchor-vs-parcel gap as L-521. Warm the parcel bbox HERE, the moment the parcel is committed
+        // — fire-and-forget (renders nothing, never throws), so the later render at the same bbox key
+        // is a cache HIT. Bounded properly once L-513a tiles land (this becomes a <50 ms tile read).
+        if (qLat != null && qLon != null) {
+            void fetchContextBuildingsNearAndFar(qLat, qLon).catch(() => { /* prefetch is best-effort */ });
+        }
         if (qLat != null && qLon != null && isInDenmark(qLat, qLon)) {
             void applyDkZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
