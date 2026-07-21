@@ -3997,3 +3997,22 @@ Refines L-511b for the ship-first country. Full docs: `spain/SPAIN-HEIGHT-MEASUR
 **Contract action (do NOT skip):** extend **C23** provenance to carry graded, source-tagged,
 cycle-aware confidence (or add a context-provenance spec) BEFORE the badge ships — the three height
 fields must not collapse into one "REAL". Coverage gap logged to MISSING-CONTRACTS-AUDIT.
+
+### L-513 — context 3D at MAX performance: static pre-baked tiles (delivery layer for L-511/L-512)
+
+Root cause (live-reproduced): context is fetched live from public Overpass per site visit; public
+mirrors 406/timeout/429 — an unfixable hot-path. Full design: `CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md`.
+**Absorbs L-504** (context <2 s). **P1** — primary-surface UX + it gates the value of L-511/L-512.
+
+| Sub-task | Phase | Status |
+|---|---|---|
+| L-513a Bake **Barcelona** context (Overture/OSM buildings+roads+water) → **PMTiles** → Fly object storage | infra/bake | NOT STARTED (do first — ship-first city) |
+| L-513b Client tile read: viewport z/x/y **range requests** + **Web Worker** decode + **instanced** render | client | NOT STARTED |
+| L-513c Swap `fetchContextBuildings` body to tiles; Overpass demoted to emergency fallback (badged ESTIMATED) | client | code already anticipates the swap |
+| L-513d Provenance badge travels IN the tile (keeps C23 honest) | client/data | NOT STARTED |
+| L-513e Feed **L-511/L-512 authoritative** data into the same bake (3DBAG NL; Catastro+PNOA nDSM ES) + Cesium 3D Tiles for native LOD2 | infra | after L-513a proves the path |
+| L-513f Region rollout on the L-511 build order | infra | NOT STARTED |
+
+**Perf budget:** first bytes <50 ms (CDN range GET), near-ring <500 ms, repeat ~0 ms (cache), no
+rate-limit risk. **Contracts:** C12/C55/C19/C10. **NOT this item:** the grey-scanline render fault
+(webgl-fallback / §PERF-WEBGPU-FRAGMENT — relates L-503, separate live-browser diagnosis).
