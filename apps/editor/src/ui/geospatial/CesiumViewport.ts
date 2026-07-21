@@ -892,6 +892,64 @@ export class CesiumViewport {
    *  them (handles duplicate osmIds from multipolygon relations). Reset in
    *  clearContextBuildings alongside `contextBuildingEntities`. */
   private contextBuildingPlacements: Array<{ entity: Cesium.Entity; feature: ContextBuildingFeature }> = [];
+
+  /**
+   * §CTX-LOADING-BADGE (L-524b) — the "surrounding buildings are still coming" indicator.
+   *
+   * Founder, after v259 made context noticeably faster: *"still not enough — could you add a
+   * loading layer whenever there is no context buildings?"* Correct instinct, and it is an HONESTY
+   * fix as much as a UX one. An empty 3D Site is AMBIGUOUS: "still fetching", "this area genuinely
+   * has no buildings", and "the fetch failed" all render as the same blank ground, and the user
+   * cannot tell which — the same failure/empty conflation the context-data honesty family
+   * (L-422/L-457/L-467/L-469) keeps producing, surfaced at the UI instead of in the data.
+   *
+   * Deliberately a small corner badge, NOT the full-screen `LoadingOverlayController`: the site,
+   * the parcel and the envelope are already useful and interactive before the neighbourhood
+   * arrives, so blocking the view would be a downgrade. Context is a progressive enhancement and
+   * the indicator should say so.
+   */
+  private contextLoadingBadge: HTMLDivElement | null = null;
+
+  /** Show/hide the badge. Idempotent, never throws — a diagnostic affordance must not be able to
+   *  break the viewport (the §DECOUPLE-ENVELOPE-FROM-CONTEXT lesson). */
+  private setContextLoadingVisible(show: boolean, label = 'Loading surrounding buildings…'): void {
+    try {
+      if (show) {
+        if (!this.contextLoadingBadge) {
+          const el = document.createElement('div');
+          el.setAttribute('data-testid', 'pryzm-context-loading-badge');
+          Object.assign(el.style, {
+            position: 'absolute', left: '12px', bottom: '12px', zIndex: '30',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '7px 12px', borderRadius: '8px',
+            background: 'rgba(255,255,255,0.94)', color: '#6600FF',
+            font: '500 12px/1.2 system-ui, sans-serif',
+            boxShadow: '0 1px 6px rgba(0,0,0,0.14)', pointerEvents: 'none',
+          } satisfies Partial<CSSStyleDeclaration>);
+          const dot = document.createElement('span');
+          Object.assign(dot.style, {
+            width: '8px', height: '8px', borderRadius: '50%', background: '#6600FF',
+            animation: 'pryzmCtxPulse 1s ease-in-out infinite',
+          } satisfies Partial<CSSStyleDeclaration>);
+          if (!document.getElementById('pryzm-ctx-badge-kf')) {
+            const kf = document.createElement('style');
+            kf.id = 'pryzm-ctx-badge-kf';
+            kf.textContent = '@keyframes pryzmCtxPulse{0%,100%{opacity:1}50%{opacity:0.25}}';
+            document.head.appendChild(kf);
+          }
+          el.appendChild(dot);
+          el.appendChild(document.createTextNode(label));
+          this.container.appendChild(el);
+          this.contextLoadingBadge = el;
+        } else {
+          this.contextLoadingBadge.lastChild!.textContent = label;
+        }
+      } else if (this.contextLoadingBadge) {
+        this.contextLoadingBadge.remove();
+        this.contextLoadingBadge = null;
+      }
+    } catch { /* never allowed to affect the render */ }
+  }
   /** The (lat,lon) the context buildings were last loaded for — skip a refetch
    *  when the site hasn't moved (the loader also caches per bbox). */
   private contextBuildingsAt: { lat: number; lon: number } | null = null;
@@ -3355,6 +3413,11 @@ export class CesiumViewport {
       const local = new Cesium.Cartesian3(east, north, up);
       return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
     };
+
+    // §CTX-LOADING-BADGE (L-524b) — a forma pass is running; if no context footprint has been
+    // placed yet, say so rather than presenting empty ground as a finished scene. Cleared by the
+    // context render below the moment the first building lands (or by its own no-data branch).
+    this.setContextLoadingVisible(this.contextBuildingPlacements.length === 0);
 
     // §SITE-FRAME-PROBE (L-530) — WHY THIS LOGS RATHER THAN FIXES.
     //
@@ -6044,6 +6107,14 @@ export class CesiumViewport {
     console.log(
       `[CesiumViewport][forma] context buildings rendered: ${placed} extruded footprint(s) ` +
         `around LAT ${lat} LON ${lon} (base ${base.toFixed(1)} m, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
+    );
+    // §CTX-LOADING-BADGE (L-524b) — first buildings are on screen, so the wait is over. If the
+    // ring came back genuinely EMPTY we say THAT instead of silently clearing: "no context data
+    // here" and "still loading" are different facts and must not look identical (the failure-vs-
+    // empty conflation of L-467/L-469, which is exactly what an unexplained blank scene is).
+    this.setContextLoadingVisible(
+      this.contextBuildingPlacements.length === 0,
+      'No surrounding building data for this area',
     );
 
     // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) / §PERF-CTX-SINGLE-FETCH (L-368) — the near ring
