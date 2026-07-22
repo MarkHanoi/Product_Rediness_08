@@ -47,8 +47,8 @@ beyond?"* Created 2026-07-22.
 
 | | Value | Source |
 |---|---|---|
-| **End-to-end envelope resolution, Barcelona** | **6.5%** *(was 5.8% pre-L-581)* — derivation in §2.0.1 | `scratchpad/l576-layer6.json` |
-| **Zone (*clau*) coverage of private buildable land** | **24.2% TODAY** · 33.0% once 13b is encoded ⚠ not interchangeable | `bcn-clau-distribution.json` |
+| **End-to-end envelope resolution, Barcelona** | **20.9%** *(5.8% → 6.5% L-581 → 8.8% 13b → **20.9% L-586**)* — §2.0.1 | measured 2026-07-22 |
+| **Zone (*clau*) coverage of private buildable land** | **32.7% MEASURED** *(was 24.0%; 13b shipped)* | `bcn-clau-distribution.json` |
 | Constructed ceiling | ~75.8% | — |
 | Definitive ceiling *(incl. "no envelope applies")* | ~88% | — |
 | **Block dissolve, all Spain** | **91.4%** (n=956 manzanas) — Madrid 92.6/99.0% · Córdoba 90.8% | `probe-dissolve-accept.mts` |
@@ -71,8 +71,8 @@ the citation"* is a **correct answer**.
 | 3 | Block dissolve (*manzana*) | 🟢 LIVE-PARTIAL | part of 83.0% | `blockRing.ts` |
 | 4 | Depth — Art. 242.2 | ✅ DONE | inside the 83.0% | ADR-0271 |
 | 5 | Height — Art. 327.2 | 🟢 LIVE-PARTIAL | **78.3%** (n=83) | L-525a |
-| 6 | **Render / inset volume** | 🟢 LIVE-PARTIAL | **41.5%** live (n=65) — was 36.9% | **L-581 shipped** |
-| | **END-TO-END** | **6.5%** *(was 5.8%)* | derivation §2.0.1 | |
+| 6 | Render / inset volume | ✅ **DONE** | **98.5%** live (n=65) — was 36.9% | **L-586 shipped** |
+| | **END-TO-END** | **20.9%** *(was 5.8% this morning)* | derivation §2.0.1 | |
 
 ### §2.0 — ⚠ Post-L-581 re-measurement (2026-07-22), and what it does NOT license
 
@@ -93,6 +93,63 @@ answers actually produced BY the Art. 242 construction went 16 → 28.**
 not be compared.** The fixture measures one inset call at the 11 m floor; this measures the full
 solve plus a containment check. Quoting whichever is larger would be exactly the aggregate-shopping
 that produced the retracted 92.3%.
+
+### §2.0.5 — ⇒ L-586: THE MITER WAS REPLACED, AND LAYER 6 IS EFFECTIVELY SOLVED
+
+Live re-run, same 65 parcels, after replacing the miter offset with the **boundary of the capsule
+union** (`inset = parcel \ ⋃(edgeᵢ ⊕ disk(sᵢ))` — no new dependency):
+
+| | this morning | after the L-581 clamp | **after L-586** |
+|---|---|---|---|
+| geometry sound | 36.9% | 41.5% | **98.5%** |
+| *"Art. 242.2 cannot be satisfied"* | **40/65** | 28/65 | **0/65** |
+| not-contained | 41 | 38 | **0** |
+| ratio-violated | — | — | **0** |
+| bound by the real Art. 242 construction | 16 | 28 | **63 (96.9%)** |
+
+*(1/65 is a network error, not a geometry outcome — counted separately, per §CONTEXT-DATA-HONESTY.)*
+
+### ⚠⚠ THE FINDING THAT MATTERS MORE THAN THE RATE
+
+**The previous code was OVER-STATING buildable area on 31 of 65 blocks — worst by 2,577 m², a ratio
+of 1.652 (65% over).** That is telling a client they may build MORE than the ordinance allows: the
+direction C58 §1.4 forbids. **It is now 0/65** at 11, 15, 20 and 30 m, party-wall and uniform.
+
+**And every check we had was blind to it, including the one written specifically to catch it.** The
+soundness gates compared the inset to the **PARCEL**, never to the **TRUE EROSION** — and a fold can
+inflate buildable area by 65% while still sitting inside the parcel. The verification probe written
+this afternoon inherited the same blind spot: it asserted *"inset not larger than the parcel"* and
+called that a conservatism check. **The invariant was WRONG, not merely unmet, and the 55.4% figure
+published this afternoon was measured through it.**
+
+⇒ **Three times in one day an aggregate looked healthy while the geometry was wrong, and three times
+only an INDEPENDENT ORACLE caught it** (`scratchpad/probe-l586-oracle-65.mts` — grid rasterisation, a
+different algorithm, not a replica). **Never accept an aggregate as proof of a geometry change, and
+check that your invariant is the RIGHT one before trusting that it holds.**
+
+**Why no patch to the miter could ever have worked:** a miter vertex sits at
+`|M−V| = |a−b| / sin θ`. Dissolved cadastral rings turn **< 1°** at half their vertices, and the Art.
+242 party-wall call puts `a=11` beside `b=0` across exactly those. **`11/sin(1°) = 630 m`** — from
+correct data and a legal input. The L-403 drop loop, the L-581 clamp and the reverted collinear-merge
+were all fighting an identity.
+
+### §2.0.6 — ⇒ THE BALANCE HAS FLIPPED. ENGINEERING IS NO LONGER THE LEVER.
+
+Recomputed from measured values (coverage 32.7% · L1–3 83.0% · L5 78.3% · L6 98.5%):
+
+| lever | gain | owner |
+|---|---|---|
+| **22a rule pack** | **+11.2** | 🔴 legal sourcing |
+| **clau 12 pack** | **+17.3** *(cumulative)* | 🔴 legal sourcing |
+| **20a family** | **+24.0** *(cumulative)* | 🔴 legal sourcing |
+| height 78.3 → 95% | +4.5 | engineering |
+| layers 1–3 → 95% | +3.0 | engineering |
+| **all packs + every layer at 95%** | **62.4%** | — |
+
+⚠ **This morning layer 6 was worth more than everything else combined. It is now 98.5% and the
+remaining engineering is worth +7.5 points total, while 22a ALONE is worth +11.2.** Every rung above
+this is **rule packs**, i.e. human-gated legal sourcing that does not parallelise with engineers
+(§4.1). **Any plan that funds only engineering now tops out at ~28%.**
 
 ### §2.0.1 — ⇒ THE END-TO-END DERIVATION, RECOVERED AND NOW RECORDED
 
@@ -160,6 +217,44 @@ one we cannot parallelise.** Any plan that funds only engineering tops out at 23
 
 ⇒ **This is also the moat.** A competitor cannot buy these packs either — see §1.7 of the
 architecture doc.
+
+### §2.0.4 — ⇒ MEASURED after 13b shipped (2026-07-22), and the clau-18 discovery
+
+**Coverage 24.0% → 32.7% (+8.7 pts), MEASURED not forecast.** Verified by reproducing the original
+probe's denominator exactly (n=275 private-buildable points, INE 08019, MUC prefix `R*`/`A*`/`M*`;
+`S*` = sistemes = the ordinance grants no private envelope). **End-to-end: 8.8%.**
+
+⚠ A first attempt at this used a hand-written zone list, put **Collserola natural park** in the
+private-buildable set and produced a false 20.2%. That is the **wrong-PROPERTY** probe error from
+[[probe-can-be-wrong-three-ways]] — measuring something adjacent to the intended thing. The MUC
+classification is the authoritative partition; do not hand-roll one.
+
+**The remaining sourcing queue, by measured share of private buildable land:**
+
+| clau | share | cumulative coverage if packed | end-to-end at layer-6 80% |
+|---|---|---|---|
+| **18** *Ordenació en volumetria específica* | **22.5%** | 55.3% | ⚠ see below |
+| **22a** *Zona industrial* | 17.5% | 50.2% | 26.1% |
+| **12** *Nucli Antic de Substitució* | 9.5% | 59.7% | 31.0% |
+| **20a** family (6 variants) | ~10.5% | 70.2% | 36.5% |
+| everything else | ~2% | ~72% | — |
+
+### ⚠⚠ CLAU 18 IS THE BIGGEST REMAINING PRIVATE CLAU **AND MAY BE STRUCTURALLY UNPACKABLE**
+
+At **22.5%** it is larger than 22a. But its name is the problem: *ordenació en **volumetria
+específica*** means **the volume is fixed by a PER-SITE plan** (*estudi de detall* / *pla especial*),
+not by the PGM. If that reading holds there is **no generic rule to encode** — each parcel's
+parameters live in its own document — and clau 18 belongs with the systems land as a **CORRECT
+REFUSAL** ("this parcel's envelope is set by its own plan"), not as a coverage gap.
+
+**This reconciles a figure we had been quoting without understanding**: the documented *constructed
+ceiling* of ~75.8% almost certainly already excludes clau 18. Excluding it, packing everything else
+reaches ~70% coverage ⇒ **≈ 60% end-to-end**, against the 65% previously stated.
+
+⇒ **THE HONEST DESTINATION IS ~60%, NOT 65%** — and clau 18 needs a decision: confirm it is genuinely
+per-site (⇒ reclassify as a correct refusal and stop counting it as a gap), or establish that the PGM
+gives it default parameters (⇒ it is the single most valuable pack on the board). **Until that is
+settled, every ceiling figure in this document carries a ±22.5-point uncertainty.**
 
 ### §2.1 — Rule-pack coverage by *clau*
 
