@@ -98,6 +98,32 @@ export interface BlockDerivedDepthResult {
      * `interiorFreeAt`.
      */
     readonly insetDegenerate: boolean;
+    /**
+     * §L-581-MONOTONICITY — ⚠ TRUE when the free area MEASURABLY INCREASED with a DEEPER erosion
+     * across the depths this solve actually sampled. That is physically impossible for any true
+     * inward offset, so it is **not a fact about this block** — it is a **self-refutation of our own
+     * geometry**, and it is the strongest evidence available that a `0` came from our offset rather
+     * than from a consumed courtyard.
+     *
+     * **More CONCLUSIVE than `insetDegenerate`, but far RARER — and measured NOT to be independent
+     * of it.** `insetDegenerate` reports that the offset gave up; it cannot say whether giving up
+     * was CORRECT (a genuinely consumed courtyard legitimately yields 0). This flag, when it fires,
+     * proves it was not — needing no assumption about block shape, which is precisely the assumption
+     * that sank the retracted half-plane remedy, because monotonicity holds for every polygon,
+     * convex or reflex.
+     *
+     * ⚠ **BUT IT FIRES ON ONLY 3.1% OF REAL BLOCKS, AND ADDS ZERO DETECTIONS OVER
+     * `insetDegenerate`** (65-block fixture). It is a tripwire for a rare second failure mode, not a
+     * measure of L-581. See `nonMonotone` for why this is structural and not tunable.
+     *
+     * ⚠ ONE-SIDED. `false` means no contradiction was seen **at the sampled depths**, NOT that the
+     * offset is sound. Never present it as a certificate.
+     *
+     * ⚠ PURELY DIAGNOSTIC — no depth, binding, or refusal depends on it (yet). Turning it into a
+     * refusal is the honest end state and a founder decision, because it converts wrong depths into
+     * absent ones. See the note on `nonMonotone`.
+     */
+    readonly interiorFreeNonMonotone: boolean;
 }
 
 /** Absolute polygon area (m²). Winding-agnostic. */
@@ -148,6 +174,76 @@ function interiorFreeAt(input: BlockDerivedDepthInput, d: number): InteriorFree 
 }
 
 /**
+ * §L-581-MONOTONICITY — THE PROOF THAT A COLLAPSE IS **OUR** FAILURE AND NOT THE ORDINANCE'S.
+ *
+ * `insetDegenerate` says the offset routine gave up. It does NOT, by itself, prove the routine was
+ * WRONG to: a courtyard really can be consumed, and a genuinely consumed courtyard is a legitimate
+ * `0`. Distinguishing the two is the whole difficulty of L-581, and a flag that merely reports "the
+ * offset returned degenerate" leaves it undistinguished.
+ *
+ * **Monotonicity settles it, from physics rather than from geometry code.** Eroding a polygon
+ * further inward can only ever REMOVE area:
+ *
+ *     d₁ < d₂   ⟹   freeArea(d₁) ≥ freeArea(d₂)
+ *
+ * This holds for every polygon, convex or reflex, for any true inward offset — it needs no
+ * assumption about block shape (which is what sank the retracted half-plane argument: **all 65
+ * fixture blocks carry 10–43 reflex vertices, zero convex**). So an observed INCREASE is not
+ * evidence about the ordinance, the block, or the courtyard. It is a **contradiction**, and the only
+ * thing it can contradict is our own offset.
+ *
+ * When the free area is `0` at the ordinance FLOOR (11 m) but POSITIVE at a DEEPER depth, the solver
+ * is about to report *"Art. 242.2 cannot be satisfied on this block"* — a statement about Catalan
+ * planning law — on the strength of a measurement its own deeper sample refutes.
+ *
+ * ⚠⚠ **AND IT CATCHES ALMOST NOTHING. MEASURED, 65 REAL BLOCKS: 3.1% — AND *ZERO* CASES THAT
+ * `insetDegenerate` DID NOT ALREADY CATCH.** This is recorded rather than quietly dropped because
+ * the author (me) introduced it predicting it would be "the strongest evidence available", and the
+ * fixture said otherwise. **The prediction was wrong, and the reason is structural, not a tuning
+ * problem:**
+ *
+ *   - collapses and STAYS collapsed at every depth : **45/65** ⟵ monotone (0 → 0). **INVISIBLE.**
+ *   - collapses then RECOVERS deeper               : **11/65** ⟵ the only shape this can ever see
+ *   - never collapses                              :   9/65
+ *
+ * The offset does not *sag* on these blocks — it fails **outright and everywhere**. A test for
+ * "impossible increase" cannot see a function that is flat at zero. Of the 11 recoverable blocks
+ * only 2 are flagged, because the solver samples the depths its bisection needs, not the depths a
+ * recovery happens to occupy.
+ *
+ * ⚠ **THE CONSEQUENCE FOR THE PLANNED FIX, WHICH THIS MEASUREMENT PARTLY DEMOLISHES: the
+ * "monotonicity guard" half of the L-581 plan is NOT the valuable half.** It cannot detect the
+ * dominant pathology. **The CLAMP is the whole fix.** Anyone budgeting L-581 as "clamp + guard"
+ * should budget it as "clamp", and treat this flag as a cheap always-honest tripwire for a rare
+ * second failure mode — not as coverage.
+ *
+ * ⚠ **THE NUMBER THAT ACTUALLY MATTERS IS NOT THIS ONE: 63.1% of real Eixample blocks collapse AT
+ * THE 11 m FLOOR** — the shallowest depth the ordinance permits anywhere. The solver is not failing
+ * at aggressive depths; it is failing at the gentlest one it will ever be asked for.
+ *
+ * ⚠ **THIS IS MEASUREMENT ONLY. IT CHANGES NO DEPTH, NO BINDING, AND NO REFUSAL.** Making the solver
+ * refuse here is the honest end state, but it converts a wrong depth into NO depth on a large
+ * fraction of real blocks — a visible product regression that is the founder's call, not a
+ * refactor's. Reporting first is the same order this module already took for `insetDegenerate`, and
+ * for the same reason: **the live rate should be observed before the trade is taken.**
+ *
+ * ⚠ It is a ONE-SIDED test. `false` means "no contradiction was observed **at the depths we happened
+ * to sample**" — never "the offset is sound". Absence of evidence is not evidence of absence, and
+ * this function must not be read as a certificate.
+ */
+function nonMonotone(samples: ReadonlyArray<{ readonly d: number; readonly a: number }>, blockArea: number): boolean {
+    // Tolerance relative to the block, so it scales with the geometry instead of assuming a unit.
+    // Guards against float noise in the offset/area arithmetic being read as a real increase.
+    const eps = Math.max(1e-9, blockArea * 1e-9);
+    const sorted = [...samples].sort((x, y) => x.d - y.d);
+    for (let i = 1; i < sorted.length; i++) {
+        // Deeper erosion produced MORE free area than a shallower one. Physically impossible.
+        if (sorted[i]!.a > sorted[i - 1]!.a + eps) return true;
+    }
+    return false;
+}
+
+/**
  * Solve Art. 242.2 for this block. PURE, deterministic, never throws.
  *
  * Returns the LARGEST depth in `[minDepth_m, maxDepth_m]` that still leaves `interiorFreeRatio`
@@ -185,10 +281,31 @@ export function solveBlockDerivedDepth(
     if (!(blockArea > 0)) return null;
     const requiredFree = blockArea * interiorFreeRatio;
 
+    // §L-581-MONOTONICITY — every depth this solver evaluates, recorded as it goes. Free area must
+    // fall as depth grows; the record is what lets us notice when it doesn't. Measurement only.
+    const samples: Array<{ d: number; a: number }> = [];
+    const measure = (d: number): InteriorFree => {
+        const r = interiorFreeAt(input, d);
+        samples.push({ d, a: r.area_m2 });
+        return r;
+    };
+
     // If even the ordinance FLOOR cannot keep the courtyard, the construction fails here. Report
     // it rather than clamping — a depth the ordinance does not sanction is worse than no answer.
-    const atMin = interiorFreeAt(input, minDepth_m);
+    const atMin = measure(minDepth_m);
     if (atMin.area_m2 < requiredFree) {
+        // §L-581-MONOTONICITY — ⚠ WE ARE ABOUT TO SAY "ART. 242.2 CANNOT BE SATISFIED ON THIS
+        // BLOCK". Before making a claim about the ordinance, take ONE deeper sample and check our
+        // own arithmetic against physics: MORE erosion cannot leave MORE free area. If the deeper
+        // depth comes back larger, the floor measurement is refuted by our own instrument and the
+        // legal conclusion rests on nothing.
+        //
+        // ⚠ MEASURED YIELD: 1 of 41 blocks on this path. The extra offset call is kept because it is
+        // cheap (one offset, off the hot path) and because when it DOES fire the conclusion is
+        // certain rather than probable — but it is a tripwire, NOT coverage. The dominant failure
+        // (collapsed at every depth, 45/65) is invisible to it by construction. Do not read a
+        // `false` here as reassurance.
+        measure(maxDepth_m);
         return {
             depth_m: minDepth_m,
             achievedFreeRatio: atMin.area_m2 / blockArea,
@@ -198,11 +315,12 @@ export function solveBlockDerivedDepth(
             // "the ordinance cannot be satisfied" is really "our offset failed". 61.5% of real
             // Eixample blocks that reach here.
             insetDegenerate: atMin.insetDegenerate,
+            interiorFreeNonMonotone: nonMonotone(samples, blockArea),
         };
     }
 
     // If the CAP still leaves enough free space, the cap governs — the ratio never binds.
-    const atMax = interiorFreeAt(input, maxDepth_m);
+    const atMax = measure(maxDepth_m);
     if (atMax.area_m2 >= requiredFree) {
         return {
             depth_m: maxDepth_m,
@@ -211,6 +329,7 @@ export function solveBlockDerivedDepth(
             degenerate: false,
             // A cap-bound answer never rests on a collapse — the inset SUCCEEDED at the cap.
             insetDegenerate: false,
+            interiorFreeNonMonotone: nonMonotone(samples, blockArea),
         };
     }
 
@@ -220,7 +339,7 @@ export function solveBlockDerivedDepth(
     let hi = maxDepth_m;
     for (let i = 0; i < BLOCK_DEPTH_BISECTION_STEPS; i++) {
         const mid = (lo + hi) / 2;
-        if (interiorFreeAt(input, mid).area_m2 >= requiredFree) lo = mid;
+        if (measure(mid).area_m2 >= requiredFree) lo = mid;
         else hi = mid;
     }
     // §L-581 — WHICH FACT STOPPED THE BISECTION? `hi` is the first inadmissible depth. If the
@@ -228,13 +347,17 @@ export function solveBlockDerivedDepth(
     // labelled it with an ordinance rule. The tell is visible in the output — a genuine
     // ratio-bound answer lands AT the ratio (30%), while a collapse-bound one lands wherever the
     // offset happened to break (44–94% observed).
-    const atHi = interiorFreeAt(input, hi);
-    const atLo = interiorFreeAt(input, lo);
+    const atHi = measure(hi);
+    const atLo = measure(lo);
     return {
         depth_m: lo,                       // `lo` is admissible by the invariant; `hi` is not.
         achievedFreeRatio: atLo.area_m2 / blockArea,
         binding: 'interior-ratio',
         degenerate: false,
         insetDegenerate: atHi.insetDegenerate,
+        // §L-581-MONOTONICITY — across the bisection's OWN 40+ sample points. A violation here means
+        // the bisection was searching a domain where its premise does not hold, so `binding:
+        // 'interior-ratio'` names a rule that never actually bound.
+        interiorFreeNonMonotone: nonMonotone(samples, blockArea),
     };
 }
