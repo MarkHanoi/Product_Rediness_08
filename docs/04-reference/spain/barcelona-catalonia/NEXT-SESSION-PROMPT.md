@@ -1,6 +1,29 @@
-# Next-session prompt — PRYZM (hand-off, 2026-07-22, v280)
+# Next-session prompt — PRYZM (hand-off, 2026-07-22, **v281 — FINAL**)
 
 Paste this whole file to start the next Claude Code session.
+
+> ## ⚠ FINAL-STATE CORRECTIONS — these OVERRIDE the body below wherever they disagree
+>
+> The body was written at **v280**, mid-session. Four things changed after it:
+>
+> 1. **LIVE IS v281, NOT v280.**
+> 2. **THE R2 BUCKET CORS POLICY LANDED.** The body's *"delete the proxies WHEN CORS lands"* is now
+>    simply *"delete the proxies"* — `server/contextTilesProxy.js` and `server/catalogAssetProxy.js`
+>    are dead weight. ⚠ **But confirm from the founder's NETWORK TAB that R2 is read DIRECTLY first.**
+>    A bundle grep **cannot** tell a dead fallback constant from an active code path — that exact
+>    ambiguity is what let §L-570-BUNDLE-PROOF pass while every asset was being CORS-refused.
+> 3. **L-577b IS FIXED.** The body may still describe *"on selection the card disappears"* as
+>    unreproduced. It was root-caused (a `position: fixed` assumption in the SHARED `makeDraggable`
+>    utility, never checked, against a `position: absolute` panel) and fixed at the utility, with 5
+>    tests. See the L-577 audit row. **(c) "the parcel looked wrong" is still open.**
+> 4. **L-583 IS NOW IN THE MASTER AUDIT.** It previously existed only as a standalone doc, so a
+>    reader working from the audit alone would not have learned that **13b is unblocked**
+>    (coverage **24.2% → 33.0%**), that **L-528 resolved in our favour**, or that **12b needs a
+>    different SHAPE of rule**.
+>
+> Everything else in the body stands as written — in particular **§2 (the half-plane retraction)**
+> and **§5 (the method note)**, which are the two sections most likely to save you a wasted session.
+
 
 ---
 

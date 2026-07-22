@@ -1,5 +1,7 @@
 # V1 Launch Implementation Plan — Phased (LIVING DOCUMENT)
 
+> 📄 **`docs/04-reference/spain/barcelona-catalonia/BARCELONA-DATA-PIPELINE.md` — READ BEFORE ASSUMING A "BARCELONA DATASET" EXISTS.** Exactly **1 of the 7 layers** is a dataset we own and publish (the baked context tiles). Parcels are a **live national API** (Catastro), the zone is a **regional GIS** (MUC), the block is **DERIVED** (refcat prefix + bbox + dissolve), the street width is **MEASURED by ray-casting** because no published width layer exists, and the rules are **HAND-ENCODED legal text**. **The buildable envelope is not looked up — it is CONSTRUCTED, per parcel, on every selection** (ADR-0271). *"Six of seven layers are free. The seventh is the whole cost."*
+
 > **Status**: ACTIVE · **Target**: v1 launch (next week) · **Companion audit**:
 > `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` (issue log L-NN + area conformance, side-by-side).
 > Each item cites its audit id (L-NN), the queue id (Q-NN), the `§`-tag, the agent, acceptance, and a gate (G-NN).
