@@ -84,6 +84,20 @@ export interface BlockDerivedDepthResult {
      * the floor** — that would publish a depth the ordinance does not sanction. Surface it.
      */
     readonly degenerate: boolean;
+    /**
+     * §L-581 — ⚠ TRUE when the decision above was made on a COLLAPSED INSET rather than on the
+     * ordinance. **When this is set, `binding` and `degenerate` are NOT trustworthy legal
+     * statements** — the 0 free area they rest on came from our offset routine failing, not from
+     * the courtyard being consumed.
+     *
+     * A caller that reports "Art. 242.2 cannot be satisfied here" while this flag is set is making
+     * a claim about the ordinance on the strength of our own bug (C58 §1.11). Read it, log it, and
+     * prefer refusing with a geometry reason over citing the ratio.
+     *
+     * Measured at ~3 in 4 of real Eixample blocks that reach this solver — see the note on
+     * `interiorFreeAt`.
+     */
+    readonly insetDegenerate: boolean;
 }
 
 /** Absolute polygon area (m²). Winding-agnostic. */
@@ -92,17 +106,45 @@ function area(ring: ReadonlyArray<Pt>): number {
 }
 
 /**
- * The interior free area remaining when the block is eroded by `d` from its street frontages
- * ONLY. Non-frontage edges get 0 so the interior courtyard is measured from the streets, which is
- * what "equidistant from the street frontages" means.
+ * §L-581 — DID THE OFFSET FAIL, OR IS THE COURTYARD GENUINELY GONE? The two are not the same
+ * fact, and until this existed the solver could not tell them apart.
+ *
+ * It previously returned a bare number that was 0 for BOTH "the erosion consumed the courtyard" and "the offset
+ * routine collapsed", so a geometry failure was silently converted into a legal conclusion: the
+ * bisection stops just below the collapse and reports `binding: 'interior-ratio'`, or — when the
+ * collapse is below the ordinance floor — the solver returns `degenerate: true`, which reads as
+ * *"Art. 242.2 cannot be satisfied on this block"*. That is a statement about the ORDINANCE made
+ * on the strength of our own offset failing.
+ *
+ * MEASURED on 65 real Eixample manzanas that had already cleared depth and height: only 36.9%
+ * came out geometrically sound; 61.5% returned `min-floor` degenerate and ~10 of 13
+ * `interior-ratio` rows reported an achieved free ratio of 44–94%, which is impossible if the
+ * 30% ratio had actually bound (a genuine ratio-bound answer lands AT 30%).
+ *
+ * ROOT CAUSE, isolated: the failure is the MIXTURE of setbacks, not the ring. On the same block
+ * `{front: 5, side: 0}` (the Art. 242 call) collapses while a UNIFORM 5 m on every edge succeeds.
+ * That mixed shape is the party-wall (*mitgera*) configuration — the Barcelona *ensanche* case
+ * ADR-0270 exists to serve — so the defect sits on the pack's most important use case.
+ *
+ * ⚠ THIS FLAG DELIBERATELY DOES NOT CHANGE THE ANSWER. Making the solver refuse on a collapsed
+ * inset is the honest end state, but it turns a wrong depth into NO depth on ~3 in 4 blocks —
+ * a visible regression that is a product decision, not a refactor. Reporting first means the
+ * live rate can be observed before that trade is taken. Fixing the offset removes the trade
+ * altogether, and is the preferred order.
  */
-function interiorFreeAreaAt(input: BlockDerivedDepthInput, d: number): number {
+interface InteriorFree {
+    readonly area_m2: number;
+    /** TRUE when the 0 came from the OFFSET FAILING, not from the courtyard being consumed. */
+    readonly insetDegenerate: boolean;
+}
+
+function interiorFreeAt(input: BlockDerivedDepthInput, d: number): InteriorFree {
     const res = insetPolygonPerEdge(
         input.blockRing,
         input.blockEdgeClassifications as ParcelEdgeClassification[],
         { front: d, side: 0, rear: 0, unclassified: 0 },
     );
-    return res.degenerate ? 0 : area(res.polygon);
+    return { area_m2: res.degenerate ? 0 : area(res.polygon), insetDegenerate: res.degenerate };
 }
 
 /**
@@ -125,7 +167,7 @@ export function solveBlockDerivedDepth(
     // ORDINANCE CAP FOR A BLOCK WITH NO IDENTIFIED STREETS, AND CALLS IT NON-DEGENERATE.
     //
     // Art. 242.2 measures the depth "equidistant from the street frontages". With no edge
-    // classified `front`, `interiorFreeAreaAt` erodes NOTHING at any `d`, so the free ratio is
+    // classified `front`, `interiorFreeAt` erodes NOTHING at any `d`, so the free ratio is
     // 1.0 for every depth, the `freeAtMax >= requiredFree` short-circuit below always fires, and
     // the function hands back `maxDepth_m` — 30 m, the deepest the ordinance permits ANYWHERE —
     // with `binding: 'max-cap'` and `degenerate: false`. A caller cannot tell that apart from a
@@ -145,24 +187,30 @@ export function solveBlockDerivedDepth(
 
     // If even the ordinance FLOOR cannot keep the courtyard, the construction fails here. Report
     // it rather than clamping — a depth the ordinance does not sanction is worse than no answer.
-    const freeAtMin = interiorFreeAreaAt(input, minDepth_m);
-    if (freeAtMin < requiredFree) {
+    const atMin = interiorFreeAt(input, minDepth_m);
+    if (atMin.area_m2 < requiredFree) {
         return {
             depth_m: minDepth_m,
-            achievedFreeRatio: freeAtMin / blockArea,
+            achievedFreeRatio: atMin.area_m2 / blockArea,
             binding: 'min-floor',
             degenerate: true,
+            // §L-581 — the dominant case in practice: the inset collapsed AT the floor, so this
+            // "the ordinance cannot be satisfied" is really "our offset failed". 61.5% of real
+            // Eixample blocks that reach here.
+            insetDegenerate: atMin.insetDegenerate,
         };
     }
 
     // If the CAP still leaves enough free space, the cap governs — the ratio never binds.
-    const freeAtMax = interiorFreeAreaAt(input, maxDepth_m);
-    if (freeAtMax >= requiredFree) {
+    const atMax = interiorFreeAt(input, maxDepth_m);
+    if (atMax.area_m2 >= requiredFree) {
         return {
             depth_m: maxDepth_m,
-            achievedFreeRatio: freeAtMax / blockArea,
+            achievedFreeRatio: atMax.area_m2 / blockArea,
             binding: 'max-cap',
             degenerate: false,
+            // A cap-bound answer never rests on a collapse — the inset SUCCEEDED at the cap.
+            insetDegenerate: false,
         };
     }
 
@@ -172,13 +220,21 @@ export function solveBlockDerivedDepth(
     let hi = maxDepth_m;
     for (let i = 0; i < BLOCK_DEPTH_BISECTION_STEPS; i++) {
         const mid = (lo + hi) / 2;
-        if (interiorFreeAreaAt(input, mid) >= requiredFree) lo = mid;
+        if (interiorFreeAt(input, mid).area_m2 >= requiredFree) lo = mid;
         else hi = mid;
     }
+    // §L-581 — WHICH FACT STOPPED THE BISECTION? `hi` is the first inadmissible depth. If the
+    // inset COLLAPSED there, the ratio never bound: we merely walked up to our own failure and
+    // labelled it with an ordinance rule. The tell is visible in the output — a genuine
+    // ratio-bound answer lands AT the ratio (30%), while a collapse-bound one lands wherever the
+    // offset happened to break (44–94% observed).
+    const atHi = interiorFreeAt(input, hi);
+    const atLo = interiorFreeAt(input, lo);
     return {
         depth_m: lo,                       // `lo` is admissible by the invariant; `hi` is not.
-        achievedFreeRatio: interiorFreeAreaAt(input, lo) / blockArea,
+        achievedFreeRatio: atLo.area_m2 / blockArea,
         binding: 'interior-ratio',
         degenerate: false,
+        insetDegenerate: atHi.insetDegenerate,
     };
 }

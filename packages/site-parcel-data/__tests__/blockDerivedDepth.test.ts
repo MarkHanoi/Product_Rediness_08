@@ -112,4 +112,51 @@ describe('ADR-0271 solveBlockDerivedDepth — the Art. 242.2 construction', () =
             })).toBeNull();
         });
     });
+
+    describe('§L-581 — was the answer decided by the ORDINANCE or by a collapsed inset?', () => {
+        // The solver's free-area probe returns 0 both when the courtyard is genuinely consumed and
+        // when `insetPolygonPerEdge` FAILS. Before `insetDegenerate` existed, the second case was
+        // silently reported as the first — i.e. a geometry bug published as the legal statement
+        // "Art. 242.2 cannot be satisfied on this block" (C58 §1.11). Measured on 65 real Eixample
+        // manzanas: only 36.9% were geometrically sound.
+
+        it('a clean block that is genuinely ratio-bound is NOT flagged', () => {
+            const r = solveBlockDerivedDepth(block(113, 113))!;
+            expect(r.binding).toBe('interior-ratio');
+            // The tell of an HONEST ratio-bound answer: the achieved ratio lands ON 30%.
+            expect(r.achievedFreeRatio).toBeCloseTo(0.30, 3);
+            expect(r.insetDegenerate).toBe(false);
+        });
+
+        it('a cap-bound answer can never rest on a collapse — the inset SUCCEEDED at the cap', () => {
+            const r = solveBlockDerivedDepth(block(400, 400))!;
+            expect(r.binding).toBe('max-cap');
+            expect(r.insetDegenerate).toBe(false);
+        });
+
+        it('a genuinely too-shallow block is degenerate WITHOUT being flagged as a geometry failure', () => {
+            // 30 × 30 cannot keep 30% free at the 11 m floor — that is the ORDINANCE binding, and
+            // the inset itself is perfectly well-formed. Distinguishing this from a collapse is the
+            // entire point of the flag.
+            const r = solveBlockDerivedDepth(block(30, 30))!;
+            expect(r.degenerate).toBe(true);
+            expect(r.binding).toBe('min-floor');
+            expect(r.insetDegenerate).toBe(false);
+        });
+
+        it('every branch reports the flag, so a caller can never read it as undefined', () => {
+            // An absent flag would be falsy and therefore read as "trustworthy" — the failure mode
+            // this exists to remove. Assert presence explicitly on all three bindings.
+            for (const b of [block(113, 113), block(400, 400), block(30, 30)]) {
+                const r = solveBlockDerivedDepth(b)!;
+                expect(typeof r.insetDegenerate).toBe('boolean');
+            }
+        });
+
+        it('stays deterministic — the flag must not make the solver input-sensitive (C58 §1.1)', () => {
+            const a = solveBlockDerivedDepth(block(113, 113))!;
+            const b = solveBlockDerivedDepth(block(113, 113))!;
+            expect(a).toEqual(b);
+        });
+    });
 });
