@@ -94,7 +94,8 @@ Cloudflare dashboard. Exit criterion is written into `docs/04-reference/OBJECT-S
 | 3 | Rule pack exists | 24.2% of private buildable land (13a/13E) | ✅ n=273 |
 | 4 | **Depth constructed** | **83.0%** | ✅ **L-576 live, n=100** |
 | 5 | **Height constructed** | **78.3%** of the parcels that got a depth | ✅ **live, n=83** |
-| 6 | Renders correctly | — | ❌ still unmeasured |
+| 6 | **Geometry sound** | **36.9%** — dominated by L-581, our own bug | ✅ **live, n=65** |
+| ⇒ | **ALL SIX LAYERS** | **5.8%** of parcels clear every layer today | ✅ composed from the above |
 
 **LAYER 4 IS NOW A REAL NUMBER (live, n=100 Eixample manzanas through the production path):**
 depth constructed **83.0%** · `block-dissolve-refused` 7.0% (6 `open-or-disjoint`, 1 `non-manifold`)
@@ -126,7 +127,27 @@ legal side.
 The long-standing assumption that *amplada de vial* availability was the blocker is **refuted**; the
 blocker is band-edge ambiguity, which is a different fix (a declared source, not better geometry).
 
-⇒ **LIVE END-TO-END = 24.2% × 83.0% × 78.3% = 15.7%**, before layer 6. Quote this, not 24.2%.
+⇒ **LIVE END-TO-END = 24.2% × 83.0% × 78.3% × 36.9% = 5.8%.**
+
+⚠ **5.8% SUPERSEDES the 15.7% quoted earlier the same day.** That figure stopped at layer 5 and never
+checked whether the depth it counted was geometrically real; layer 6 then showed ~3 in 4 of those
+depths are under-reported or refused for a reason that is NOT the ordinance (L-581). **Do not quote
+15.7%.** ⇒ Fixing L-581 alone returns the same measurement to **~15.7%** — a 2.7× gain from one
+geometry fix, with no new legal sourcing.
+
+**LAYER 6 — GEOMETRY SOUND, LIVE (n=65 that cleared BOTH depth and height):** sound **36.9%** ·
+`min-floor` degenerate **61.5%** · NOT-CONTAINED 1.5%. Binding: `min-floor` 61.5% · `interior-ratio`
+24.6% · `max-cap` 13.8%. The 61.5% and ~10 of the 13 `interior-ratio` rows are **the same defect**
+(L-581), so it is the DOMINANT behaviour of the depth solver on real Eixample geometry, not an edge
+case. ⚠ The volume identity is **NOT MEASURED** — it needs `computeBuildableEnvelope`, which the
+sweep does not run; the first draft "checked" it by comparing `insetArea × height` to
+`insetArea × height`, a tautology that would have reported 100% and meant nothing.
+
+**⇒ THE FULL PHASED PLAN TO MAXIMUM COVERAGE IS IN `V1-LAUNCH-IMPLEMENTATION-PLAN.md`** (last
+section). Headline: 100% is the WRONG target — layer 3's ceiling is 75.8% because 24.2% of private
+buildable land legally has NO private envelope and a refusal is the correct answer. The feasible end
+state is **~88% definitive** (≈64% constructed + ≈24% correctly refused). The layers MULTIPLY, so
+every layer needs ≥95% before the composed number moves.
 
 **LAYER 6 IS STILL UNMEASURED** and needs `computeBuildableEnvelope` wired into the sweep (parcel
 ring + block ring + clau + rule pack). Minimum check: the dispatched `insetPolygon` is

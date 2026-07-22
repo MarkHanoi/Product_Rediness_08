@@ -4348,3 +4348,113 @@ hypothesis was checked and REFUTED at `boundaryProjection.ts:58`).
   in the checker — fixed `838d39a`.)
 - **L-560** longest-edge θ; **L-573** engine caveats render nowhere; Barcelona Phases 1–3 (Art. 328 /
   Art. 316 — blocked on a founder RPUC session); Madrid / Córdoba; the September wedge.
+
+---
+
+# BARCELONA — THE PHASED PLAN TO MAXIMUM COVERAGE (2026-07-22, after the L-576→L-582 sweeps)
+
+**Founder question:** *"what is the pipeline and plan of execution to have Barcelona 100% on all
+the 6 layers — is it feasible?"*
+
+## ⚠ FIRST: 100% IS THE WRONG TARGET, AND CHASING IT WOULD UNDO L-553
+
+Layer 3, measured (`n=273`, private buildable land):
+
+| | share | a gap? |
+|---|---|---|
+| rule pack exists (13a / 13E) | **24.2%** | — |
+| coverage gap (13b, 12/12b, 22a, 20a family) | **51.6%** | **YES — fixable** |
+| **legal refusal** (parks, motorways, Collserola, clau 18) | **24.2%** | **NO** — the ordinance grants no private buildable envelope. The refusal **IS** the correct answer |
+
+⇒ **Layer 3's ceiling is 75.8%, not 100%.** Pushing past it means fabricating envelopes where none
+legally exist — precisely what L-550/L-553 removed, and what C58 §1.4/§1.11 forbid.
+
+**The correct target is: every parcel receives a DEFINITIVE CORRECT answer — constructed, or refused
+with a citation.** By that measure layers 1–2 are already at 100% and have been since L-553.
+
+## ⚠ SECOND: THE LAYERS MULTIPLY, SO 90% EACH IS NOT 90%
+
+Four layers at 90% compose to **65%**. Every layer needs **≥95%** before the end-to-end number moves
+meaningfully. This is why the cheap in-house fixes below outrank everything else per unit of effort —
+and why a single bad layer (today: layer 6 at 36.9%) caps the whole product.
+
+## THE MEASURED BASELINE (2026-07-22, all live)
+
+| # | Layer | Live | Running |
+|---|---|---|---|
+| 1 | Zone identified | 100% | 100% |
+| 2 | No fabrication | 100% | 100% |
+| 3 | Rule pack exists | 24.2% | 24.2% |
+| 4 | Depth constructed | 83.0% | 20.1% |
+| 5 | Height constructed | 78.3% | 15.7% |
+| 6 | **Geometry sound** | **36.9%** | **5.80%** |
+
+⇒ **5.8% of parcels clear all six layers today.** ⚠ This SUPERSEDES the 15.7% quoted earlier the same
+day: that figure stopped at layer 5 and never checked whether the depth it counted was geometrically
+real. **Do not quote 15.7%.**
+
+## PHASE 0 — OUR OWN BUGS · nothing blocked, highest leverage per unit of effort
+
+| Item | Layer | Effect |
+|---|---|---|
+| **L-581** — mixed-setback inset collapse (the real geometry fix) | 6 | **36.9% → ~95%** |
+| manzana-prefix grouping (1 parcel matched of ~300) | 4 | +7 pts |
+| Catastro upstream retry / cache | 4 | +3 pts |
+| L-576 dissolve `open-or-disjoint` | 4 | up to +7 pts |
+
+**⇒ 5.8% → ~16.7%.** L-581 alone is **2.7×**. ⚠ Do this FIRST: while it is open, PRYZM states
+*"Art. 242.2 cannot be satisfied on this block"* on the strength of our own offset failing.
+
+## PHASE 1 — DECLARED STREET WIDTHS · needs one data source
+
+The 20.5% band-edge refusals are **not scattered** — they cluster on exactly two widths, **~7.6–8.0 m**
+(straddling 8.55/11.6) and **~15.3–15.5 m** (straddling 14.65/17.7). Barcelona publishes an *ample
+oficial*; wiring it for those two bands sets `trustedOfficialWidth` and disarms `BAND_EDGE_GUARD_M`
+**legitimately** rather than by relaxing it.
+
+⚠ **"No measurable street width" is 0.0%** — the ray-cast measurement resolved EVERY block. The
+long-standing assumption that *amplada de vial* availability was the blocker is **REFUTED**. This is
+a legal-source problem, not a geometry one.
+
+**⇒ layer 5 78.3% → ~95%; end-to-end ~20.3%.**
+
+## PHASE 2 — RULE-PACK COVERAGE · blocked on the founder, and it DOMINATES
+
+13b (Art. 328), 12/12b nucli antic (Art. 316), 22a, 20a family = **51.6%** of private buildable land.
+Needs the RPUC / AMB-NUMAMB sourcing session, then encoding ~4–5 packs against the proven 13a
+pattern. ⚠ **Nothing engineering-side moves this number.** It is the only item gated exclusively on
+the founder, and it is the long pole.
+
+**⇒ layer 3 24.2% → 75.8%; end-to-end ~63.6%.**
+
+## THE REALISTIC END STATE — feasible, and it is NOT 100%
+
+```
+constructed envelope             ~64%
+correctly refused (no envelope)  ~24%
+──────────────────────────────────────
+definitive correct answer        ~88%
+honest residual refusal          ~12%   (band-edge with no official width,
+                                         Catastro outages, malformed cadastre)
+```
+
+**Is it feasible? ~88% definitive: YES. 100% constructed: NO, and it should not be attempted.
+100% CORRECT is already shipped.**
+
+## SEQUENCING
+
+1. **L-581** — biggest multiplier, zero external dependency, and it is actively making a false legal
+   statement.
+2. **Phase 0 remainder** — mechanical and well-understood.
+3. **The founder's RPUC session, STARTED IN PARALLEL WITH 1–2** — it is the long pole and the only
+   founder-gated item.
+4. **Declared widths** — smallest payoff; whenever.
+
+## ⚠ RE-MEASURE AFTER EACH PHASE. DO NOT PROJECT.
+
+Every projected number in this work stream has been wrong: **91.4%** (offline dissolve, falsified
+three-for-three), **24.2%** (quoted as a working figure when it was a ceiling), **15.7%** (stopped at
+layer 5). The live harnesses now exist and are cheap to re-run:
+`scratchpad/probe-l576-live-dissolve.mts` (layer 4), `probe-l576-layer5.mts` (layer 5),
+`probe-l576-layer6.mts` (layer 6). **The next number given to the founder must come from re-running
+them, not from this table.**
