@@ -1,0 +1,97 @@
+{
+  "ranAt": "2026-07-22T15:06:03.758Z",
+  "dissolveClosure": [
+    "/packages/site-parcel-data/src/geometry/blockRing.ts"
+  ],
+  "l581Touched": [
+    "/packages/site-parcel-data/src/geometry/insetPolygon.ts",
+    "/packages/site-parcel-data/src/geometry/blockDerivedDepth.ts"
+  ],
+  "l581ReachesDissolve": false,
+  "perCity": [
+    {
+      "city": "Barcelona",
+      "manzanas": 108,
+      "ringsPreL539": 88,
+      "ringsHead": 104,
+      "selfIntersecting": 1,
+      "areaErrPct": [
+        0.1531564432057768,
+        0.21320082437921276,
+        0.33694955378902375
+      ]
+    },
+    {
+      "city": "Barcelona-old",
+      "manzanas": 77,
+      "ringsPreL539": 63,
+      "ringsHead": 72,
+      "selfIntersecting": 0,
+      "areaErrPct": [
+        0.14952484105265426,
+        0.2437367175583673,
+        0.842917036966083
+      ]
+    },
+    {
+      "city": "Madrid",
+      "manzanas": 95,
+      "ringsPreL539": 72,
+      "ringsHead": 88,
+      "selfIntersecting": 0,
+      "areaErrPct": [
+        0.17758471086672173,
+        0.20935119873595648,
+        0.2731866061636028
+      ]
+    },
+    {
+      "city": "Madrid-centro",
+      "manzanas": 101,
+      "ringsPreL539": 78,
+      "ringsHead": 100,
+      "selfIntersecting": 1,
+      "areaErrPct": [
+        0.18319958151189597,
+        0.2616607407202986,
+        0.4241196036561047
+      ]
+    },
+    {
+      "city": "Cordoba",
+      "manzanas": 163,
+      "ringsPreL539": 72,
+      "ringsHead": 148,
+      "selfIntersecting": 4,
+      "areaErrPct": [
+        0.18562160449245732,
+        0.2708509816557599,
+        0.35753624968597725
+      ]
+    },
+    {
+      "city": "Sevilla",
+      "manzanas": 192,
+      "ringsPreL539": 74,
+      "ringsHead": 158,
+      "selfIntersecting": 1,
+      "areaErrPct": [
+        0.08041346068197282,
+        0.1613820448711828,
+        0.9520195950495688
+      ]
+    },
+    {
+      "city": "Valencia",
+      "manzanas": 220,
+      "ringsPreL539": 160,
+      "ringsHead": 204,
+      "selfIntersecting": 4,
+      "areaErrPct": [
+        0.09431402337070907,
+        0.19531716700989785,
+        15.84851134287768
+      ]
+    }
+  ]
+}

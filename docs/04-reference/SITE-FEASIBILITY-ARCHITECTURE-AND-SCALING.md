@@ -55,11 +55,26 @@ The envelope is a **six-layer** product. The layers **multiply**: four layers at
 | 6 | render / inset volume | **41.5%** live *(was 36.9%; L-581 clamp shipped 2026-07-22)* | n=65 |
 | | **END-TO-END** | ❔ **STALE — must be re-derived** | |
 
-⚠⚠ **THE END-TO-END FIGURE IS CURRENTLY UNQUOTABLE.** 5.8% was computed when layer 6 stood at 36.9%.
-It is **not** the product of the layer percentages (0.83 × 0.783 × 0.369 ≈ 24%, not 5.8%), so the
-chain involves conditioning this document does not record. **Do not multiply the layers and publish
-the result.** Re-derive it and cite the derivation. A stale cell that says "stale" is safe; one that
-still says "5.8%" is not.
+**The end-to-end chain, recovered and now recorded** *(it was never written down, which is how it
+briefly became unquotable — the missing factor was COVERAGE):*
+
+```
+end-to-end  =  clau coverage  ×  layers 1–3  ×  layer 5 (height)  ×  layer 6 (geometry)
+```
+
+| | coverage | L1–3 | L5 | L6 | = |
+|---|---|---|---|---|---|
+| before the L-581 clamp | 24.2% | 83.0% | 78.3% | 36.9% | **5.80%** ✓ *reproduces the published 5.8%* |
+| **TODAY** | 24.2% | 83.0% | 78.3% | **41.5%** | **6.5%** |
+| once the 13b pack lands | 33.0% | 83.0% | 78.3% | 41.5% | **8.9%** |
+
+⚠ **33.0% coverage is a FORECAST, not today's number** — it is what coverage becomes when 13b is
+encoded. Today it is 24.2%. Do not interchange them.
+
+⚠⚠ **And the biggest remaining lever is still layer 6, by 2.5×**: taking it to 80% is worth **+6.1
+points** against +2.4 for the 13b pack, +1.4 for height coverage and +0.9 for the dissolve. All four
+together reach ≈ **23.8%**, the realistic ceiling of the current architecture. **L-581 shipped a fix;
+it did not finish the job.**
 
 ### ⚠⚠ Two things that must never be dropped when this table is quoted
 
@@ -148,8 +163,22 @@ This is the scaling question, and the answer is unusually clean.
    Two capable research agents hit that wall from different angles, twice each, in one day.
    **It does not parallelise with engineers**, which means it is the one line item that cannot be
    accelerated by hiring developers.
-3. **Spain-wide scaling is currently blocked by the block dissolve, not by rules.** Barcelona 2/2,
-   Madrid 2/4, Córdoba 0/3. The L-581 clamp above is what unblocks the other two.
+3. **⚠⚠ RETRACTED — "Spain-wide scaling is blocked by the block dissolve, not by rules." IT IS NOT.**
+   Measured on a frozen 956-manzana sample with the production dissolve: **91.4% nationally**,
+   including **Madrid 92.6% / 99.0%** and **Córdoba 90.8%**. The old "Madrid 2/4 · Córdoba 0/3"
+   figure is a superseded L-535 measurement, is not reproducible (street names recorded, no
+   coordinates), and must not be re-quoted. The win belongs to **L-539** (ADR-0274), not L-581 —
+   verified structurally, not statistically: `insetPolygonPerEdge` is **not reachable** from
+   `blockRing.ts` in the import closure, so L-581's dissolve effect is 0 blocks.
+
+   **The three gates that actually block a second Spanish city**, each independently sufficient:
+   **G1** the jurisdiction router (`isInBarcelona()`, a lat/lon bbox — Madrid and Córdoba test
+   false, so the dissolve and depth solver are *never called there*, making their production rate
+   unobservable); **G2** the zoning source is Catalonia-only (MUC — 0/4 Madrid and 0/3 Córdoba
+   points returned a qualification, 0 network errors); **G3** exactly one rule pack is registered,
+   `es-08019-barcelona`. ⇒ **The geometry was never what stood between us and Madrid.** A second
+   city = a router change (small) + a non-Catalan qualification source (medium) + a hand-sourced
+   rule pack (the human-gated cost above).
 
 *Canonical: `docs/04-reference/spain/barcelona-catalonia/BARCELONA-DATA-PIPELINE.md`*
 

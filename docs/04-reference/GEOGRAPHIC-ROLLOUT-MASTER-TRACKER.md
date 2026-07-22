@@ -47,11 +47,12 @@ beyond?"* Created 2026-07-22.
 
 | | Value | Source |
 |---|---|---|
-| **End-to-end envelope resolution, Barcelona** | **5.8%** | `scratchpad/l576-layer6.json` |
-| **Zone (*clau*) coverage of private buildable land** | **33.0%** *(with 13b)* | `bcn-clau-distribution.json` |
+| **End-to-end envelope resolution, Barcelona** | **6.5%** *(was 5.8% pre-L-581)* — derivation in §2.0.1 | `scratchpad/l576-layer6.json` |
+| **Zone (*clau*) coverage of private buildable land** | **24.2% TODAY** · 33.0% once 13b is encoded ⚠ not interchangeable | `bcn-clau-distribution.json` |
 | Constructed ceiling | ~75.8% | — |
 | Definitive ceiling *(incl. "no envelope applies")* | ~88% | — |
-| **Cities end-to-end proven** | **1 of 3 attempted** *(BCN 2/2 · Madrid 2/4 · Córdoba 0/3)* | dissolve probe |
+| **Block dissolve, all Spain** | **91.4%** (n=956 manzanas) — Madrid 92.6/99.0% · Córdoba 90.8% | `probe-dissolve-accept.mts` |
+| **Cities live in production** | **1** — Barcelona only, and a jurisdiction router is why | §4 |
 
 ⚠ **100% is neither achievable nor desirable.** 24.2% of private buildable land is in zones where the
 ordinance **grants no private envelope** (parks, motorways, clau 18). *"No envelope applies, here is
@@ -71,7 +72,7 @@ the citation"* is a **correct answer**.
 | 4 | Depth — Art. 242.2 | ✅ DONE | inside the 83.0% | ADR-0271 |
 | 5 | Height — Art. 327.2 | 🟢 LIVE-PARTIAL | **78.3%** (n=83) | L-525a |
 | 6 | **Render / inset volume** | 🟢 LIVE-PARTIAL | **41.5%** live (n=65) — was 36.9% | **L-581 shipped** |
-| | **END-TO-END** | ❔ **STALE — must be re-derived** | *(was 5.8% when layer 6 was 36.9%)* | see below |
+| | **END-TO-END** | **6.5%** *(was 5.8%)* | derivation §2.0.1 | |
 
 ### §2.0 — ⚠ Post-L-581 re-measurement (2026-07-22), and what it does NOT license
 
@@ -93,12 +94,41 @@ not be compared.** The fixture measures one inset call at the 11 m floor; this m
 solve plus a containment check. Quoting whichever is larger would be exactly the aggregate-shopping
 that produced the retracted 92.3%.
 
-⚠⚠ **END-TO-END IS NOW UNQUOTABLE UNTIL RE-DERIVED.** 5.8% was computed with layer 6 at 36.9%. It is
-**not** the product of the layer percentages (0.83 × 0.783 × 0.369 ≈ 24%, not 5.8%), so the chain
-involves conditioning this tracker does not record. **Do not multiply the layers and publish the
-result** — re-derive it from `probe-l576-*` and cite the derivation here. Until then this cell reads
-STALE, which is the honest state; a stale number that says "stale" is safe, one that says "5.8%" is
-not.
+### §2.0.1 — ⇒ THE END-TO-END DERIVATION, RECOVERED AND NOW RECORDED
+
+The chain was never written down, which is why it briefly became unquotable. It is **four factors,
+and the missing one was COVERAGE**:
+
+```
+end-to-end  =  clau coverage  ×  layers 1–3  ×  layer 5 (height)  ×  layer 6 (geometry)
+```
+
+Confirmed against the published figure to two decimals:
+
+| | coverage | L1–3 | L5 | L6 | = |
+|---|---|---|---|---|---|
+| **before the clamp** | 24.2% | 83.0% | 78.3% | 36.9% | **5.80%** ✓ *matches the published 5.8%* |
+| **TODAY** *(13b not yet encoded)* | 24.2% | 83.0% | 78.3% | **41.5%** | **6.5%** |
+| with the 13b pack | **33.0%** | 83.0% | 78.3% | 41.5% | **8.9%** |
+
+⚠ **Note the coverage column: 33.0% is NOT today's number.** It is what coverage becomes once the
+13b pack is encoded. Today it is **24.2%**. Several documents quote 33.0% as current — it is a
+FORECAST, and the two must not be interchanged.
+
+### §2.0.2 — ⇒ WHAT EACH REMAINING LEVER IS ACTUALLY WORTH, from today's 6.5%
+
+| Lever | Gain | |
+|---|---|---|
+| **Layer 6 → 80%** *(finish what L-581 started)* | **+6.1 pts** | ⟵ **still the biggest single lever, by 2.5×** |
+| 13b rule pack | +2.4 pts | cheapest, fully unblocked |
+| Layer 5 → 95% *(height coverage)* | +1.4 pts | |
+| Layers 1–3 → 95% *(dissolve)* | +0.9 pts | |
+| **all four together** | **≈ 23.8%** | the realistic ceiling of the current architecture |
+
+⚠⚠ **THE UNCOMFORTABLE READ: L-581 IS NOT FINISHED.** The clamp moved layer 6 from 36.9% to 41.5% —
+roughly a third of the distance to a healthy offset — and layer 6 remains worth more than every other
+lever combined. Treating L-581 as "done" because a fix shipped would leave the largest lever on the
+table. **The next unit of engineering effort belongs here, not on data acquisition.**
 
 ### §2.1 — Rule-pack coverage by *clau*
 
@@ -127,7 +157,7 @@ not.
 | Result | inset sound at the 11 m floor **36.9% → 55.4%**; Art. 242 answers **24/65 → 31/65**, of which honest (landing AT the 30% rule) **3 → 9** |
 | Rejected | **delete the drop** — catastrophic, 1.5%. Step 4 is load-bearing. **Half-plane intersection** — retracted, and a GLOBAL clamp turned out to be the same thing wearing a disguise: it broke four L-403/L-525b/L-529 regression tests at once. The shipped clamp is **LOCAL** — only the dropped edge's own line, and only over that edge's own span. **Monotonicity guard** — now SHIPPED as a refusal (the earlier "3.1% yield, worthless" measurement was taken when the curve was flat at zero, so the test was blind by construction; the clamp made it measurable). |
 | ⚠⚠ **RETRACTED** | An earlier draft of this row claimed **92.3% / 34 honest**. Both were ARTEFACTS of an un-gated clamp that OVER-ERODED: eating real courtyard makes the bisection settle where the ratio lands on exactly 30%, so **"lands honestly at 30%" scored HIGHEST when the geometry was most wrong.** Caught only by an INDEPENDENT grid-rasterisation oracle — on real block 02309 a uniform 12 m inset is ~3,227 m²; the shipped code gives 2,921 m² (correctly conservative); the un-gated clamp gave **256 m², wrong by 12×** while every aggregate looked healthy. **Never accept an aggregate as proof of a geometry change.** |
-| Unblocks | **Madrid and Córdoba, same code path** |
+| ⚠⚠ **RETRACTED CLAIM** | *"Unblocks Madrid and Córdoba, same code path."* **FALSE — and structurally impossible, not merely small.** A transitive import-closure walk shows `insetPolygonPerEdge` is **not reachable from the production dissolve** (`blockRing.ts` imports only `@pryzm/schemas` + `@pryzm/site-validators`, neither of which reaches it). Measured L-581 effect on dissolve: **0 blocks, in every city.** The dissolve win that was being attributed here is **L-539** (`§DISSOLVE-TJUNCTION-SPLIT`, ADR-0274) — a different change to a different file that landed *earlier*. See §4. |
 | Evidence | `scratchpad/probe-l581-remedies.mts`, `l581-blocks.fixture.json` (65 real blocks, offline, no network) |
 
 ### 🔵 PHASE 2 — 13b RULE PACK
@@ -210,12 +240,44 @@ shortens it.** Ground elevation was never the hard part. It is a reading task: f
 
 **Scaling is currently blocked by the BLOCK DISSOLVE, not by the rules.**
 
-| City | Dissolve | Rule pack | Status | Blocker |
-|---|---|---|---|---|
-| **Barcelona** | 2/2 | 13a ✅ · 13b 🔵 · 12b ⏸ | 🟢 LIVE-PARTIAL | L-581 |
-| **Madrid** | **2/4** | ❌ none | 🔴 BLOCKED | **L-581 clamp**, then PGOU pack |
-| **Córdoba** | **0/3** | ❌ none | 🔴 BLOCKED | **L-581 clamp** |
-| Rest of Spain | — | ❌ | 🔵 not started | per-municipality sourcing |
+| City | Dissolve (n=956 sample) | Zoning source | Rule pack | Status | Binding blocker |
+|---|---|---|---|---|---|
+| **Barcelona** | Eixample 96.3% · Ciutat Vella 93.5% | ✅ MUC | 13a ✅ · 13b 🔵 · 12b ⏸ | 🟢 LIVE-PARTIAL | layer 6 |
+| **Madrid** | **92.6% / 99.0%** ✅ | ❌ none | ❌ none | 🔴 BLOCKED | **G1 router** → G2 source → G3 pack |
+| **Córdoba** | **90.8%** ✅ | ❌ none | ❌ none | 🔴 BLOCKED | **G1 router** → G2 source → G3 pack |
+| Valencia | 92.7% ✅ | ❌ | ❌ | 🔵 not started | same three gates |
+| Sevilla | 82.3% | ❌ | ❌ | 🔵 not started | same three gates |
+| **ALL SPAIN** | **91.4%** (874/956) | — | — | — | — |
+
+### §4.0 — ⚠⚠ RETRACTED: "the dissolve is the blocker". IT IS NOT, AND IT HAS NOT BEEN FOR A WHILE.
+
+**Measured this session on a frozen 956-manzana sample, production `dissolveParcelsToBlockRing`:
+the dissolve is at 91.4% nationally**, including **Madrid 92.6% / 99.0%** and **Córdoba 90.8%**. The
+old "Madrid 2/4 · Córdoba 0/3" figure is a **superseded L-535 measurement** and must not be re-quoted;
+it is also not reproducible — that probe recorded street names only, no coordinates or refcats.
+
+The win belongs to **L-539** (`§DISSOLVE-TJUNCTION-SPLIT`, ADR-0274), not to L-581. Verified
+structurally rather than statistically: an import-closure walk shows `insetPolygonPerEdge` is **not
+reachable from `blockRing.ts`**, so L-581's effect on the dissolve is 0 blocks — impossible, not
+merely small.
+
+⇒ **THE THREE GATES THAT ACTUALLY BLOCK A SECOND SPANISH CITY**, each independently sufficient, in
+the order they fire:
+
+| | Gate | Evidence |
+|---|---|---|
+| **G1** | **Jurisdiction router.** `siteDispatch.ts` routes on `isInDenmark()` / `isInBarcelona()` and otherwise falls through to `applyEstimatedZoning()`. `BARCELONA_BBOX` = lat 41.2–41.6, lon 1.9–2.4. Madrid and Córdoba test **false**, so the dissolve, the depth solver and the inset **are never called there at all** — their production success rate is currently *unobservable*. | probe, production function |
+| **G2** | **The zoning source is Catalonia-only** — `sig.gencat.cat/ows/MUC/wms`. Live-probed: **0/4 Madrid and 0/3 Córdoba** points returned a qualification, 0 network errors. | live probe |
+| **G3** | **No rule pack exists.** `rulepacks/registry.ts` `REGISTRATIONS` holds exactly ONE entry, `es-08019-barcelona`. Even given a perfect block ring there is no rule to apply. | source |
+
+⇒ **The geometry was never the thing standing between us and Madrid.** A second city needs a router
+change (small), a non-Catalan qualification source (medium), and a hand-sourced rule pack (the
+human-gated cost of §4.1). Budget it that way.
+
+⚠ **Two defects the aggregate was hiding**, surfaced by the independent oracle (ring area vs
+*published* cadastral area — a number the dissolve never sees): **Valencia's worst ring is 15.85% off**,
+and **11 rings across the sample self-intersect** (Córdoba 4, Valencia 4, Barcelona 1, Madrid-centro 1,
+Sevilla 1). Both pass every published summary statistic. Logged, not yet fixed.
 
 ⚠ **Street width has NO national source** — it must be **CONSTRUCTED** (measured from Catastro),
 and only snapped to nominal values if a distribution probe proves quantisation.
