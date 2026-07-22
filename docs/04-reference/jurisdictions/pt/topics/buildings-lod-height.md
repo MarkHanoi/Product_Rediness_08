@@ -1,6 +1,6 @@
 # Portugal — Buildings / LOD / Height (context layer)
 
-> Part of the 3D-Context-Data country study (`../../CONTEXT-DATA-COUNTRY-STUDY.md`, umbrella **L-511**;
+> Part of the 3D-Context-Data country study (`../../../CONTEXT-DATA-COUNTRY-STUDY.md`, umbrella **L-511**;
 > deep-dive **L-514**). Full analysed writeup: `../PORTUGAL-CONTEXT-DEEP-DIVE.md`.
 > **Endpoints NOT live-probed this session** — everything below is *per founder deep-dive, verify
 > live before relying on it*. Items are marked **UNVERIFIED** accordingly.
@@ -39,7 +39,7 @@ geometry + area.
 - **DGT national LiDAR:** PRR-funded, flown **Apr 2024–Mar 2025**, **10 pts/m²**, classified LAZ +
   derived **DTM 50 cm / DSM 2 m**, **open** ("sem qualquer tipo de restrição"), **~90% continental
   coverage** (NW gap, rolling). Host `cdd.dgterritorio.gov.pt` + QGIS "DGT CDD Downloader". All UNVERIFIED.
-- **Method identical to Spain** (`../../spain/SPAIN-HEIGHT-MEASUREMENT.md`): nDSM = `DSM − DTM`,
+- **Method identical to Spain** (`../../../spain/SPAIN-HEIGHT-MEASUREMENT.md`): nDSM = `DSM − DTM`,
   per-footprint **90th-percentile** (not max), keep `max` + point count. **SAME shared nDSM module
   (L-511c / L-512b) — build once (ES+FR+PT).**
 - **KEY DIFFERENCE vs Spain:**

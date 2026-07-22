@@ -1,7 +1,7 @@
 # Portugal — 3D Context Data: full deep-dive (L-514)
 
 Part of the context-data study — umbrella **L-511**, deep-dive **L-514**
-(`../V1-LAUNCH-READINESS-AUDIT.md`). Source: **founder deep-dive 2026-07-21**. Unlike the Spain
+(`../../V1-LAUNCH-READINESS-AUDIT.md`). Source: **founder deep-dive 2026-07-21**. Unlike the Spain
 pass (L-512), **Portugal endpoints were NOT live-probed this session** — everything below is
 "per founder deep-dive, endpoints NOT yet live-probed". Every URL, coverage figure, licence term
 and class code marked **UNVERIFIED** must be re-probed live before Phase-2 relies on it (project
@@ -81,7 +81,7 @@ Portugal now has **national LiDAR** from **DGT**:
 - **~90% continental coverage** (a gap in the NW; rolling completion) — **UNVERIFIED figure**.
 - Host: **`cdd.dgterritorio.gov.pt`** + a **QGIS "DGT CDD Downloader"** plugin.
 
-**Method is identical to Spain** (see `../spain/SPAIN-HEIGHT-MEASUREMENT.md`): nDSM = `DSM − DTM`,
+**Method is identical to Spain** (see `../../spain/SPAIN-HEIGHT-MEASUREMENT.md`): nDSM = `DSM − DTM`,
 per-footprint **90th-percentile** (not max — antennas/HVAC inflate max), keep `max` + point count
 for confidence. **This is the SAME shared nDSM module (L-511c / L-512b) — build once (ES+FR+PT), do
 NOT one-off it per country.**

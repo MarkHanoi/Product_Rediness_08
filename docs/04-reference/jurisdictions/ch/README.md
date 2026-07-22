@@ -1,7 +1,7 @@
 # Switzerland — 3D Context Data (build-order #3)
 
 Part of the country-by-country 3D-context-data quality upgrade — umbrella item **L-511**
-(`../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth: `Pryzm_3D_Context_Data_Sourcing.md`.
+(`../../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth: `Pryzm_3D_Context_Data_Sourcing.md`.
 
 - **Target LOD:** LOD2 (manual photogrammetry)
 - **Source(s):** swissBUILDINGS3D 2.0/3.0β + swissTLM3D + swissALTI3D

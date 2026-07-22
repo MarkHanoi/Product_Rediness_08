@@ -1015,7 +1015,7 @@ during the audit, and the audit rows L-535/L-536/L-538 record that block dissolv
 BCN 2/2 but Madrid 2/4 and Córdoba 0/3, i.e. the approach is not yet known to scale beyond
 Barcelona.)*
 
-**Switzerland** — **DOCS ONLY. Zero code.** `docs/04-reference/switzerland/{README.md,
+**Switzerland** — **DOCS ONLY. Zero code.** `docs/04-reference/jurisdictions/ch/{README.md,
 regions/{national-2_0-baseline, sankt-gallen, schwyz, zurich}, topics/*.md}`. The two
 code-side mentions (`ParcelProvider.ts:8`, `server/parcelZoningProxy.js:38`) are aspirational
 comments; a third (`server/overpassProxy.js:71`) is an unrelated mirror exclusion.

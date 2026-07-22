@@ -1,6 +1,6 @@
 # Netherlands — Buildings / LOD / Height (context layer)
 
-> Part of the 3D-Context-Data country study (see `../../README.md` and umbrella item **L-511**).
+> Part of the 3D-Context-Data country study (see `../../../README.md` and umbrella item **L-511**).
 > Fill against the research doc `Pryzm_3D_Context_Data_Sourcing.md` — but **verify every endpoint live** before relying on it.
 
 - **Target LOD:** LOD2.2 (real roofs)

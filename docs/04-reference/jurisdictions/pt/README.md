@@ -1,7 +1,7 @@
 # Portugal — 3D Context Data spike (build-order #7)
 
 Part of the country study — umbrella **L-511**, deep-dive **L-514**
-(`../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth: `../Pryzm_3D_Context_Data_Sourcing.md`
+(`../../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth: `../../Pryzm_3D_Context_Data_Sourcing.md`
 + the founder deep-dive. Full analysed writeup: `PORTUGAL-CONTEXT-DEEP-DIVE.md`.
 
 > **Verification status — READ THIS FIRST.** Unlike the Spain spike (live-probed 2026-07-21), the
@@ -82,8 +82,8 @@ Lisbon licence verification), not endpoint-blocked.**
 
 ## Per-layer three-tier badging matrix (L-514 — the honesty structure)
 Every context layer resolves to a DIFFERENT tier; nothing collapses to one flat REAL/ESTIMATED toggle.
-Same graded model as Spain (`../spain/CONTEXT-DATA-SPIKE.md`) and the **C23 provenance extension**
-(coverage gap logged in `../../02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md`, now noted as an
+Same graded model as Spain (`../../spain/CONTEXT-DATA-SPIKE.md`) and the **C23 provenance extension**
+(coverage gap logged in `../../../02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md`, now noted as an
 **even more acute** single-source case for PT).
 
 | Layer | REAL tier | Reconstructed / derived tier | ESTIMATED tier |

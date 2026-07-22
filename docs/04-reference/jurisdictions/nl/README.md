@@ -1,6 +1,6 @@
 # Netherlands — 3D Context Data (build-order #1, reference pattern)
 
-Part of the country study — umbrella **L-511** (`../V1-LAUNCH-READINESS-AUDIT.md`).
+Part of the country study — umbrella **L-511** (`../../V1-LAUNCH-READINESS-AUDIT.md`).
 Research ground-truth: `Pryzm_3D_Context_Data_Sourcing.md`. **Spike run live 2026-07-21.**
 
 - **Target LOD:** LOD2.2 (real roofs)

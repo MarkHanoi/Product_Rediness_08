@@ -1,11 +1,11 @@
-# Germany — 3D Context Data (build-order #5)
+# France — 3D Context Data (build-order #4)
 
 Part of the country-by-country 3D-context-data quality upgrade — umbrella item **L-511**
-(`../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth: `Pryzm_3D_Context_Data_Sourcing.md`.
+(`../../V1-LAUNCH-READINESS-AUDIT.md`). Research ground-truth: `Pryzm_3D_Context_Data_Sourcing.md`.
 
-- **Target LOD:** LOD2 (~90% auto-matched)
-- **Source(s):** 16 state geoportals (ALKIS/ATKIS + DGM1)
-- **Integration effort:** MED-HIGH (state router)
+- **Target LOD:** LOD1 (real footprint+height)
+- **Source(s):** BD TOPO + LiDAR HD
+- **Integration effort:** LOW-MED
 - **Spike status:** NOT STARTED
 - **Implementation status:** NOT STARTED (blocked on spike Gate)
 
