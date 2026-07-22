@@ -52,7 +52,7 @@ The envelope is a **six-layer** product. The layers **multiply**: four layers at
 | 1–3 | parcel · zone · block dissolve | **83.0%** | n=100 |
 | 4 | depth (Art. 242.2) | *(inside the 83.0%)* | — |
 | 5 | height (Art. 327) | **78.3%** | n=83 |
-| 6 | render / inset volume | **36.9%** | n=65 |
+| 6 | render / inset volume | **55.4%** *(was 36.9% before the L-581 clamp, shipped 2026-07-22)* | n=65 |
 | | **END-TO-END** | **5.8%** | |
 
 ### ⚠⚠ Two things that must never be dropped when this table is quoted
@@ -85,16 +85,26 @@ A fix ("clamp instead of drop") was built and measured offline against 65 real b
 
 | variant | sound at the 11 m ordinance floor | answers landing honestly at the 30% rule |
 |---|---|---|
-| shipped today | 36.9% | 3 |
-| **clamp** | **92.3%** | **34** |
+| before | 36.9% | 3 |
+| **clamp (shipped)** | **55.4%** | **9** |
 
-**That is layer 6 going 36.9% → 92.3%, and end-to-end roughly 5.8% → ~20%.** Zero external
-dependency, and it unblocks Madrid and Córdoba on the same code path.
+**Layer 6 goes 36.9% → 55.4%**, Art. 242 answers 24/65 → 31/65. Zero external dependency, and it
+unblocks Madrid and Córdoba on the same code path. **SHIPPED 2026-07-22.**
 
-⚠ **Not yet shipped, deliberately.** It newly answers 25 blocks but newly refuses 11, and it moves
-published depths **in both directions — including upward** (one block 11.8 m → 24.3 m). Upward means
-telling a client they may build deeper than we said yesterday. **That is a founder decision, not an
-engineering one**, and it is pending. *(Audit row L-581.)*
+### ⚠⚠ A first draft of this section claimed 92.3% and 34 honest answers. Both were RETRACTED.
+
+They came from an un-gated version of the clamp that **over-eroded**. Over-erosion eats real
+courtyard, and a smaller free area makes the depth search settle exactly where the 30% ratio binds —
+so **"lands honestly at 30%", the very metric introduced to detect dishonest answers, scored HIGHEST
+when the geometry was most wrong.** Every aggregate looked healthy.
+
+It was caught only by an **independent grid-rasterisation oracle** — a different algorithm, not
+another variant of the same one. On real block 02309 a uniform 12 m inset is **~3,227 m²**; the
+shipped code returns **2,921 m²** (correctly conservative); the un-gated clamp returned **256 m² —
+wrong by 12×**. *(Audit row L-581.)*
+
+⇒ **The transferable lesson, and it applies to every layer in §1.3: never accept an aggregate as
+proof of a geometry change. Validate against a source that cannot share the bug.**
 
 ## 1.5 · What it costs to add a city, and a country
 
@@ -267,7 +277,7 @@ the exact shape of the defect L-513 removed.
 
 | ID | Defect | Impact | Status |
 |---|---|---|---|
-| **L-581** | offset drops ~50% of constraints on the party-wall call | **layer 6: 36.9% → 92.3%**; end-to-end ~5.8% → ~20% | **measured, awaiting founder sign-off** (§1.4) |
+| **L-581** | offset drops ~50% of constraints on the party-wall call | **layer 6: 36.9% → 55.4%** | **SHIPPED 2026-07-22** (§1.4) |
 | L-552 | 13b rule pack | coverage 24.2% → **33.0%** | unblocked. ⚠ cite Art. 242 via **Art. 326**, never Art. 328 |
 | — | estimated-card render race | generic pack paints before the Barcelona resolver refuses | open |
 | L-527 | context heights 0.9% surveyed | flat massing; blocks 12b | needs nDSM — see §2.8 |

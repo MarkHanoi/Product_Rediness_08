@@ -70,7 +70,7 @@ the citation"* is a **correct answer**.
 | 3 | Block dissolve (*manzana*) | 🟢 LIVE-PARTIAL | part of 83.0% | `blockRing.ts` |
 | 4 | Depth — Art. 242.2 | ✅ DONE | inside the 83.0% | ADR-0271 |
 | 5 | Height — Art. 327.2 | 🟢 LIVE-PARTIAL | **78.3%** (n=83) | L-525a |
-| 6 | **Render / inset volume** | 🔴 **THE BOTTLENECK** | **36.9%** (n=65) | **L-581** |
+| 6 | **Render / inset volume** | 🟢 LIVE-PARTIAL | **55.4%** (n=65) — was 36.9% | **L-581 shipped** |
 | | **END-TO-END** | | **5.8%** | |
 
 ### §2.1 — Rule-pack coverage by *clau*
@@ -89,17 +89,17 @@ the citation"* is a **correct answer**.
 
 *Ordered by **value per unit of effort**, not by appetite. Each phase names what unblocks next.*
 
-### 🟡 PHASE 1 — L-581 CLAMP · *the only item that moves the scoreboard*
+### ✅ PHASE 1 — L-581 CLAMP · *shipped; the scoreboard moved less than first claimed*
 
-**Status: MEASURED, AWAITING FOUNDER SIGN-OFF.** Zero external dependency.
+**Status: ✅ SHIPPED 2026-07-22** (founder: *"just do whatever is right"*). Verified against an independent oracle; all 30 `site-parcel-data` geometry tests green.
 
 | | |
 |---|---|
 | Defect | The offset **drops ~50% of its own constraints** on the `{front: d, side: 0}` party-wall call — the exact Art. 242 call, and the Barcelona *ensanche* configuration. The survivors mitre to a corner **outside the block** (escapes to **177 m** at the 11 m floor, **5.6 km** at 30 m). |
 | ⚠ Correction | The long-standing write-up said the ring "drains below 3 lines". **It does not — that gate fires ZERO times.** Failures land on the *soundness* gates (area>parcel 29.2%, vertex-escaped 33.8%). Measured 2026-07-22, `probe-l581-failure-site.mts`. |
-| Result | inset sound at the 11 m floor **36.9% → 92.3%**; honest ratio-bound answers **3 → 34**; end-to-end **~5.8% → ~20%** |
-| Rejected | **delete the drop** — catastrophic, 1.5%. Step 4 is load-bearing. **Half-plane intersection** — retracted, must stay retracted (over-states free area at convex front–front corners ⇒ over-states depth, the forbidden direction). **Monotonicity guard** — built, measured **3.1% yield and zero detections** the existing flag did not already make. Budget this as "clamp", not "clamp + guard". |
-| ⚠ **The decision** | 25 blocks newly answered, **11 newly refused**, depths move **both ways including UPWARD** (11.8 → 24.3 m). Upward tells a client they may build deeper than we said yesterday. **Founder call.** |
+| Result | inset sound at the 11 m floor **36.9% → 55.4%**; Art. 242 answers **24/65 → 31/65**, of which honest (landing AT the 30% rule) **3 → 9** |
+| Rejected | **delete the drop** — catastrophic, 1.5%. Step 4 is load-bearing. **Half-plane intersection** — retracted, and a GLOBAL clamp turned out to be the same thing wearing a disguise: it broke four L-403/L-525b/L-529 regression tests at once. The shipped clamp is **LOCAL** — only the dropped edge's own line, and only over that edge's own span. **Monotonicity guard** — now SHIPPED as a refusal (the earlier "3.1% yield, worthless" measurement was taken when the curve was flat at zero, so the test was blind by construction; the clamp made it measurable). |
+| ⚠⚠ **RETRACTED** | An earlier draft of this row claimed **92.3% / 34 honest**. Both were ARTEFACTS of an un-gated clamp that OVER-ERODED: eating real courtyard makes the bisection settle where the ratio lands on exactly 30%, so **"lands honestly at 30%" scored HIGHEST when the geometry was most wrong.** Caught only by an INDEPENDENT grid-rasterisation oracle — on real block 02309 a uniform 12 m inset is ~3,227 m²; the shipped code gives 2,921 m² (correctly conservative); the un-gated clamp gave **256 m², wrong by 12×** while every aggregate looked healthy. **Never accept an aggregate as proof of a geometry change.** |
 | Unblocks | **Madrid and Córdoba, same code path** |
 | Evidence | `scratchpad/probe-l581-remedies.mts`, `l581-blocks.fixture.json` (65 real blocks, offline, no network) |
 

@@ -1,0 +1,35 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+── INSET SOUNDNESS AT THE 11 m ORDINANCE FLOOR (the gentlest depth ever asked for)
+   V0-baseline         24/65 sound  (36.9%)
+   V1-no-drop           1/65 sound  (1.5%)
+   V2-clamp            60/65 sound  (92.3%)
+   V3-no-drop+clamp    61/65 sound  (93.8%)
+
+── ART. 242.2 SOLVE OUTCOME across all 65 blocks
+   V0-baseline        degenerate 41  ·  interior-ratio 16 (3 landing AT 30%)  ·  max-cap  8
+   V1-no-drop         degenerate 64  ·  interior-ratio  1 (0 landing AT 30%)  ·  max-cap  0
+   V2-clamp           degenerate 27  ·  interior-ratio 38 (34 landing AT 30%)  ·  max-cap  0
+   V3-no-drop+clamp   degenerate 50  ·  interior-ratio 15 (11 landing AT 30%)  ·  max-cap  0
+
+── ⚠ DEPTH MOVEMENT: V1-no-drop vs shipped baseline (metres, + = we now permit MORE)
+   newly ANSWERED (was "ordinance cannot be satisfied") : 0
+   newly REFUSED  (⚠ a visible regression)              : 23
+   already answered: 0 DEEPER · 1 shallower · 0 unchanged
+   Δdepth  min -13.50  median -13.50  max -13.50
+
+── ⚠ DEPTH MOVEMENT: V2-clamp vs shipped baseline (metres, + = we now permit MORE)
+   newly ANSWERED (was "ordinance cannot be satisfied") : 25
+   newly REFUSED  (⚠ a visible regression)              : 11
+   already answered: 3 DEEPER · 10 shallower · 0 unchanged
+   Δdepth  min -16.49  median -2.02  max 12.54
+   ⚠ LARGEST UPWARD MOVES — each one tells a client they may build DEEPER than
+     we said yesterday. This is the direction that needs sign-off, not the rate:
+       9613810DF2891D  11.8 m → 24.3 m   (interior-ratio → interior-ratio)
+       1242501DF3814C  16.5 m → 21.7 m   (interior-ratio → interior-ratio)
+       1733301DF3813D  12.6 m → 14.9 m   (interior-ratio → interior-ratio)
+
+── ⚠ DEPTH MOVEMENT: V3-no-drop+clamp vs shipped baseline (metres, + = we now permit MORE)
+   newly ANSWERED (was "ordinance cannot be satisfied") : 9
+   newly REFUSED  (⚠ a visible regression)              : 18
+   already answered: 0 DEEPER · 6 shallower · 0 unchanged
+   Δdepth  min -16.81  median -6.00  max -0.19

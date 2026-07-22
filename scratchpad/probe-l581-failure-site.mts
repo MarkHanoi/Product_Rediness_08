@@ -1,0 +1,300 @@
+// L-581 FAILURE-SITE CENSUS — WHICH of the six `return degenerate` gates in
+// `insetPolygonPerEdge` actually fires on real Barcelona blocks?
+//
+// WHY THIS RUNS BEFORE ANY REMEDY. The L-581 diagnosis names the step-4 drop cascade
+// ("a reversed edge's line is DROPPED, neighbours mitre deeper, the ring drains below 3 lines").
+// That is a HYPOTHESIS about a mechanism, and the house rule that produced today's retractions is
+// PROBE THE CODE BEFORE WRITING THE DEFECT DOWN. `insetPolygonPerEdge` has SIX distinct degenerate
+// exits, and a remedy aimed at the wrong one is a wasted session:
+//
+//   G1 lines<3 after the step-4 splice   ⟵ the hypothesised cascade
+//   G2 loop-decompose kept nothing
+//   G3 out<3 after cleanup
+//   G4 inset area <= 0 / winding flipped
+//   G5 inset area > parcel area
+//   G6 a vertex escaped the parcel (the L-462 half-open/tolerance gate)
+//
+// G6 is a live rival hypothesis, NOT a hypothetical one: its own comment records that the
+// `{front: d, side: 0}` PARTY-WALL call — the exact Art. 242 call — puts vertices EXACTLY on the
+// zero-setback edges, where the half-open point-in-polygon test rejects roughly half of them. If
+// the census lands on G6, clamping the step-4 drop changes nothing at all.
+//
+// METHOD. An instrumented REPLICA of the shipped algorithm, run over the 65-block fixture (offline,
+// no network). ⚠ A replica can DRIFT from the shipped code, which would make every number here a
+// measurement of the replica. So the replica is not trusted: it is CROSS-CHECKED against the real
+// `insetPolygonPerEdge` on every block × every depth, and the probe REFUSES to report a census if
+// the two ever disagree on `degenerate` or on area beyond float noise.
+//
+// Run:  npx tsx scratchpad/probe-l581-failure-site.mts
+
+import { readFileSync } from 'node:fs';
+import type { Pt, ParcelEdgeClassification } from '@pryzm/schemas';
+import { polygonSignedArea, pointInPolygon, pointPolygonEdgeDistance } from '../packages/site-validators/src/index.js';
+import { insetPolygonPerEdge } from '../packages/site-parcel-data/src/geometry/insetPolygon.js';
+
+// ── the shipped constants, mirrored ──────────────────────────────────────────
+const EPS = 1e-9;
+const COINCIDENT_EPS = 1e-6;
+const BOUNDARY_TOLERANCE_M = 1e-3;
+
+const sub = (a: Pt, b: Pt): Pt => ({ x: a.x - b.x, z: a.z - b.z });
+const cross = (a: Pt, b: Pt): number => a.x * b.z - a.z * b.x;
+const length = (v: Pt): number => Math.hypot(v.x, v.z);
+
+function lineIntersect(p0: Pt, d0: Pt, p1: Pt, d1: Pt): Pt | null {
+    const denom = cross(d0, d1);
+    if (Math.abs(denom) < EPS) return null;
+    const t = cross(sub(p1, p0), d1) / denom;
+    return { x: p0.x + t * d0.x, z: p0.z + t * d0.z };
+}
+interface OffsetLine { readonly p: Pt; readonly d: Pt }
+function miter(lines: ReadonlyArray<OffsetLine>): Pt[] {
+    const n = lines.length;
+    const out: Pt[] = new Array(n);
+    for (let j = 0; j < n; j++) {
+        const prev = lines[(j - 1 + n) % n]!, curr = lines[j]!;
+        out[j] = lineIntersect(prev.p, prev.d, curr.p, curr.d) ?? { ...curr.p };
+    }
+    return out;
+}
+function segmentsCross(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
+    const d1 = cross(sub(b, a), sub(c, a)), d2 = cross(sub(b, a), sub(d, a));
+    const d3 = cross(sub(d, c), sub(a, c)), d4 = cross(sub(d, c), sub(b, c));
+    return (d1 > EPS) !== (d2 > EPS) && (d3 > EPS) !== (d4 > EPS);
+}
+function selfIntersects(ring: ReadonlyArray<Pt>): boolean {
+    const n = ring.length;
+    for (let i = 0; i < n; i++) {
+        const a = ring[i]!, b = ring[(i + 1) % n]!;
+        for (let j = i + 1; j < n; j++) {
+            if (j === i || j === (i + 1) % n || (j + 1) % n === i) continue;
+            if (segmentsCross(a, b, ring[j]!, ring[(j + 1) % n]!)) return true;
+        }
+    }
+    return false;
+}
+function segmentCrossPoint(a: Pt, b: Pt, c: Pt, d: Pt): { t: number; u: number; p: Pt } | null {
+    if (!segmentsCross(a, b, c, d)) return null;
+    const r = sub(b, a), s = sub(d, c);
+    const denom = cross(r, s);
+    if (Math.abs(denom) < EPS) return null;
+    const t = cross(sub(c, a), s) / denom, u = cross(sub(c, a), r) / denom;
+    return { t, u, p: { x: a.x + t * r.x, z: a.z + t * r.z } };
+}
+function decomposeToSimpleLoops(ring: ReadonlyArray<Pt>): Pt[][] {
+    const n = ring.length;
+    const perEdge: Array<Array<{ t: number; p: Pt; key: string }>> = [];
+    for (let i = 0; i < n; i++) perEdge.push([]);
+    for (let i = 0; i < n; i++) {
+        const a = ring[i]!, b = ring[(i + 1) % n]!;
+        for (let j = i + 1; j < n; j++) {
+            if (j === (i + 1) % n || (j + 1) % n === i) continue;
+            const x = segmentCrossPoint(a, b, ring[j]!, ring[(j + 1) % n]!);
+            if (!x) continue;
+            const key = `X${i}:${j}`;
+            perEdge[i]!.push({ t: x.t, p: x.p, key });
+            perEdge[j]!.push({ t: x.u, p: x.p, key });
+        }
+    }
+    const walk: Array<{ p: Pt; key: string }> = [];
+    for (let i = 0; i < n; i++) {
+        walk.push({ p: ring[i]!, key: `V${i}` });
+        perEdge[i]!.sort((p, q) => p.t - q.t);
+        for (const c of perEdge[i]!) walk.push({ p: c.p, key: c.key });
+    }
+    const loops: Pt[][] = [];
+    const path: Array<{ p: Pt; key: string }> = [];
+    const seenAt = new Map<string, number>();
+    for (const node of walk) {
+        const at = seenAt.get(node.key);
+        if (at === undefined) { seenAt.set(node.key, path.length); path.push(node); continue; }
+        const loop = path.slice(at).map((w) => ({ x: w.p.x, z: w.p.z }));
+        if (loop.length >= 3) loops.push(loop);
+        for (let k = at + 1; k < path.length; k++) seenAt.delete(path[k]!.key);
+        path.length = at + 1;
+    }
+    if (path.length >= 3) loops.push(path.map((w) => ({ x: w.p.x, z: w.p.z })));
+    return loops;
+}
+
+type Gate = 'ok' | 'G0-input' | 'G1-lines<3' | 'G2-no-loop-kept' | 'G3-out<3'
+    | 'G4-area<=0' | 'G5-area>parcel' | 'G6-vertex-escaped';
+
+interface Diag {
+    gate: Gate;
+    polygon: Pt[];
+    degenerate: boolean;
+    /** How many offset lines the step-4 loop DROPPED before the outcome. */
+    dropped: number;
+    linesStart: number;
+    /** For G6: how far outside the parcel the worst offending vertex landed (m). */
+    escapeDist_m: number;
+}
+
+/** Instrumented replica of `insetPolygonPerEdge`. Cross-checked against the real one below. */
+function insetDiag(
+    polygon: ReadonlyArray<Pt>,
+    edgeClassifications: ReadonlyArray<ParcelEdgeClassification>,
+    setbacks: { front: number; side: number; rear: number; unclassified: number },
+): Diag {
+    const fail = (gate: Gate, dropped = 0, linesStart = 0, escapeDist_m = 0): Diag =>
+        ({ gate, polygon: [], degenerate: true, dropped, linesStart, escapeDist_m });
+    if (polygon.length < 3) return fail('G0-input');
+
+    const pts: Pt[] = [];
+    const cls: Array<ParcelEdgeClassification | undefined> = [];
+    for (let i = 0; i < polygon.length; i++) {
+        const p = polygon[i]!, prev = pts[pts.length - 1];
+        if (prev && length(sub(p, prev)) < COINCIDENT_EPS) continue;
+        pts.push({ x: p.x, z: p.z });
+        cls.push(edgeClassifications[i]);
+    }
+    while (pts.length >= 2 && length(sub(pts[pts.length - 1]!, pts[0]!)) < COINCIDENT_EPS) { pts.pop(); cls.pop(); }
+    if (pts.length < 3) return fail('G0-input');
+    const signed = polygonSignedArea(pts);
+    if (Math.abs(signed) < EPS) return fail('G0-input');
+
+    const maxSetback = Math.max(0, setbacks.front, setbacks.side, setbacks.rear, setbacks.unclassified);
+    if (maxSetback <= EPS) {
+        return { gate: 'ok', polygon: pts.map((p) => ({ x: p.x, z: p.z })), degenerate: false, dropped: 0, linesStart: pts.length, escapeDist_m: 0 };
+    }
+
+    let ring: Pt[] = pts;
+    let ringCls: Array<ParcelEdgeClassification | undefined> = cls;
+    if (signed < 0) {
+        const n = pts.length;
+        ring = pts.slice().reverse();
+        ringCls = new Array(n);
+        for (let i = 0; i < n; i++) ringCls[i] = cls[(n - 1 - i + n) % n];
+    }
+
+    const n = ring.length;
+    const lines: OffsetLine[] = [];
+    for (let i = 0; i < n; i++) {
+        const a = ring[i]!, b = ring[(i + 1) % n]!;
+        const dir = sub(b, a), len = length(dir);
+        if (len < EPS) continue;
+        const ux = dir.x / len, uz = dir.z / len;
+        const c = ringCls[i];
+        const s = Math.max(0, c === 'front' ? setbacks.front : c === 'side' ? setbacks.side
+            : c === 'rear' ? setbacks.rear : setbacks.unclassified);
+        lines.push({ p: { x: a.x + -uz * s, z: a.z + ux * s }, d: { x: ux, z: uz } });
+    }
+    const linesStart = lines.length;
+    if (lines.length < 3) return fail('G1-lines<3', 0, linesStart);
+
+    let dropped = 0;
+    let out: Pt[] = miter(lines);
+    for (let guard = 0; guard < lines.length; guard++) {
+        let reversedIdx = -1;
+        for (let j = 0; j < lines.length; j++) {
+            const line = lines[j]!, a = out[j]!, b = out[(j + 1) % out.length]!;
+            const edge = sub(b, a);
+            if (edge.x * line.d.x + edge.z * line.d.z <= EPS) { reversedIdx = j; break; }
+        }
+        if (reversedIdx < 0) break;
+        lines.splice(reversedIdx, 1);
+        dropped++;
+        if (lines.length < 3) return fail('G1-lines<3', dropped, linesStart);
+        out = miter(lines);
+    }
+
+    if (selfIntersects(out)) {
+        const loops = decomposeToSimpleLoops(out);
+        const kept = loops.filter((l) => l.length >= 3 && polygonSignedArea(l) > EPS);
+        if (kept.length === 0) return fail('G2-no-loop-kept', dropped, linesStart);
+        kept.sort((a, b) => polygonSignedArea(b) - polygonSignedArea(a));
+        out = kept[0]!;
+    }
+    if (out.length < 3) return fail('G3-out<3', dropped, linesStart);
+
+    const insetSigned = polygonSignedArea(out);
+    if (insetSigned <= EPS) return fail('G4-area<=0', dropped, linesStart);
+    if (insetSigned > Math.abs(signed) + EPS) return fail('G5-area>parcel', dropped, linesStart);
+
+    let worst = 0;
+    for (const p of out) {
+        if (pointInPolygon(p, ring)) continue;
+        const dist = pointPolygonEdgeDistance(p, ring);
+        if (dist <= BOUNDARY_TOLERANCE_M) continue;
+        worst = Math.max(worst, dist);
+    }
+    if (worst > 0) return fail('G6-vertex-escaped', dropped, linesStart, worst);
+
+    return { gate: 'ok', polygon: out, degenerate: false, dropped, linesStart, escapeDist_m: 0 };
+}
+
+// ── fixture ──────────────────────────────────────────────────────────────────
+interface Fixture {
+    refcat: string; blockRing: Pt[]; edgeClassifications: string[];
+    blockAreaM2: number; frontEdges: number; totalEdges: number;
+    shortestEdgeM: number; convex: boolean; reflexCount: number;
+}
+const blocks = JSON.parse(
+    readFileSync(new URL('./l581-blocks.fixture.json', import.meta.url), 'utf8'),
+) as Fixture[];
+
+const areaOf = (r: ReadonlyArray<Pt>): number => (r.length < 3 ? 0 : Math.abs(polygonSignedArea(r)));
+
+// ── 0. REPLICA FIDELITY. Refuse to report anything if the replica has drifted. ──
+const DEPTHS = [11, 15, 20, 25, 30];
+let checked = 0;
+const drift: string[] = [];
+for (const b of blocks) {
+    const cls = b.edgeClassifications as ParcelEdgeClassification[];
+    for (const d of DEPTHS) {
+        const real = insetPolygonPerEdge(b.blockRing, cls, { front: d, side: 0, rear: 0, unclassified: 0 });
+        const rep = insetDiag(b.blockRing, cls, { front: d, side: 0, rear: 0, unclassified: 0 });
+        checked++;
+        if (real.degenerate !== rep.degenerate) {
+            drift.push(`${b.refcat}@${d}m: degenerate real=${real.degenerate} replica=${rep.degenerate}`);
+            continue;
+        }
+        const da = Math.abs(areaOf(real.polygon) - areaOf(rep.polygon));
+        if (da > 1e-6) drift.push(`${b.refcat}@${d}m: area Δ=${da.toExponential(2)} m²`);
+    }
+}
+if (drift.length) {
+    console.log(`✖ REPLICA DRIFT — ${drift.length}/${checked} disagreements with the shipped function.`);
+    console.log('  The census below would measure the replica, not the product. Fix the replica first.');
+    for (const d of drift.slice(0, 10)) console.log(`    ${d}`);
+    process.exit(1);
+}
+console.log(`✔ replica fidelity: ${checked}/${checked} block×depth cases agree with the shipped`);
+console.log('  insetPolygonPerEdge on both `degenerate` and area. The census measures the product.\n');
+
+// ── 1. THE CENSUS ────────────────────────────────────────────────────────────
+for (const depth of DEPTHS) {
+    const tally = new Map<Gate, number>();
+    const dropStats: number[] = [];
+    const escapes: number[] = [];
+    for (const b of blocks) {
+        const r = insetDiag(b.blockRing, b.edgeClassifications as ParcelEdgeClassification[],
+            { front: depth, side: 0, rear: 0, unclassified: 0 });
+        tally.set(r.gate, (tally.get(r.gate) ?? 0) + 1);
+        if (r.degenerate) dropStats.push(r.dropped / Math.max(1, r.linesStart));
+        if (r.gate === 'G6-vertex-escaped') escapes.push(r.escapeDist_m);
+    }
+    const label = depth === 11 ? '  ⟵ THE ORDINANCE FLOOR — the gentlest depth ever asked for' : '';
+    console.log(`── front = ${depth} m${label}`);
+    const ok = tally.get('ok') ?? 0;
+    console.log(`   ok ${ok}/${blocks.length} (${((ok / blocks.length) * 100).toFixed(1)}%)`);
+    for (const g of ['G0-input', 'G1-lines<3', 'G2-no-loop-kept', 'G3-out<3', 'G4-area<=0', 'G5-area>parcel', 'G6-vertex-escaped'] as Gate[]) {
+        const c = tally.get(g) ?? 0;
+        if (c) console.log(`   ${g.padEnd(18)} ${String(c).padStart(3)}  (${((c / blocks.length) * 100).toFixed(1)}%)`);
+    }
+    if (dropStats.length) {
+        const mean = dropStats.reduce((s, v) => s + v, 0) / dropStats.length;
+        console.log(`   of the failures, mean share of offset lines DROPPED by step 4: ${(mean * 100).toFixed(1)}%`);
+    }
+    if (escapes.length) {
+        const srt = [...escapes].sort((a, b) => a - b);
+        console.log(`   G6 escape distance: median ${srt[srt.length >> 1]!.toFixed(3)} m, max ${srt[srt.length - 1]!.toFixed(3)} m`);
+        console.log('   ⚠ a SUB-MILLIMETRE median would mean G6 is a TOLERANCE defect, not a fold.');
+    }
+    console.log();
+}
+
+console.log('READ THIS AS: whichever gate dominates at 11 m IS L-581. A clamp in step 4 can only');
+console.log('move blocks that fail at G1 — every other gate is a different defect with a different');
+console.log('remedy, and shipping the clamp would leave them exactly where they are.');

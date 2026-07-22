@@ -75,6 +75,21 @@ const COINCIDENT_EPS = 1e-6;
  * miter intersection landing on an edge it was constructed to lie on.
  */
 const BOUNDARY_TOLERANCE_M = 1e-3;
+/**
+ * §INSET-CLAMP-TO-HALFPLANE (L-581) — fixed pass budget for the half-plane clamp in step 4b.
+ * Deliberately a COUNT and not a convergence tolerance: a data-dependent iteration count would make
+ * the inset input-sensitive at the last bit and break the byte-determinism C58 §1.1 requires of a
+ * number we publish as a legal figure. 8 passes was measured to be past the point where any of the
+ * 65 real Eixample fixture blocks still moves.
+ */
+const CLAMP_PASSES = 8;
+/**
+ * §INSET-CLAMP-TO-HALFPLANE (L-581) — how far past a dropped edge's own extent its half-plane may
+ * still govern. A miter join legitimately lands slightly beyond the edge it was built from, so a
+ * hard [0, len] window would miss the very vertices the drop created. Half a metre is below any
+ * planning dimension and far above miter float error.
+ */
+const CLAMP_SPAN_SLACK_M = 0.5;
 
 function sub(a: Pt, b: Pt): Pt {
     return { x: a.x - b.x, z: a.z - b.z };
@@ -144,6 +159,26 @@ function cleanRing(
 interface OffsetLine {
     readonly p: Pt; // a point on the inward-offset supporting line
     readonly d: Pt; // unit direction of the (original) edge
+    /** Length of the parent edge. §INSET-CLAMP-TO-HALFPLANE (L-581) needs it to keep the clamp
+     *  LOCAL: an edge's half-plane only governs the strip in front of that edge, never the whole
+     *  ring. Without this the clamp drags distant vertices inward across a reflex polygon. */
+    readonly len: number;
+}
+
+/**
+ * §INSET-CLAMP-TO-HALFPLANE (L-581) — signed distance from `q` to an offset line, POSITIVE on the
+ * INTERIOR side. For a CCW ring the interior lies LEFT of the directed edge, so the inward normal of
+ * direction `d` is `(-d.z, d.x)` and the interior half-plane is `{ q : (q − p)·n ≥ 0 }`.
+ */
+function interiorSignedDist(q: Pt, line: OffsetLine): number {
+    const v = sub(q, line.p);
+    return v.x * -line.d.z + v.z * line.d.x;
+}
+
+/** §INSET-CLAMP-TO-HALFPLANE (L-581) — nearest point to `q` on the offset line's supporting line. */
+function projectOnto(q: Pt, line: OffsetLine): Pt {
+    const s = interiorSignedDist(q, line);
+    return { x: q.x - s * -line.d.z, z: q.z - s * line.d.x };
 }
 
 /**
@@ -376,9 +411,24 @@ export function insetPolygonPerEdge(
         const nx = -uz;
         const nz = ux;
         const s = Math.max(0, setbackForClass(ringCls[i], setbacks));
-        lines.push({ p: { x: a.x + nx * s, z: a.z + nz * s }, d: { x: ux, z: uz } });
+        lines.push({ p: { x: a.x + nx * s, z: a.z + nz * s }, d: { x: ux, z: uz }, len });
     }
     if (lines.length < 3) return { polygon: [], degenerate: true };
+
+    // §INSET-CLAMP-TO-HALFPLANE (L-581) — the lines step 4 DISCARDS, collected as it discards them.
+    //
+    // ⚠ IT MUST BE THE DROPPED LINES ONLY — NOT ALL OF THEM. Clamping against every offset line is
+    // the same thing as intersecting all the half-planes, and **that is only equivalent to an inset
+    // for a CONVEX polygon.** On a reflex ring a perfectly legitimate mitre vertex can sit outside a
+    // NON-ADJACENT edge's offset half-plane, so a global clamp eats real buildable area. Measured,
+    // not reasoned: the all-lines version broke four L-403/L-525b/L-529 regression tests at once —
+    // the large irregular plot, the concave slot, the multi-fold ring and the battle-axe/flag lot
+    // all went degenerate. That is the SAME defect class that sank the retracted half-plane remedy,
+    // reintroduced in a milder disguise.
+    //
+    // The constraint step 4 actually abandons is the DROPPED edge's line, and that is the only one
+    // we are entitled to put back.
+    const droppedLines: OffsetLine[] = [];
 
     // ── 4. Miter, then iteratively drop any edge whose inset segment reversed
     //       (a collapsed/vanished edge). Removing that edge's offset line lets
@@ -399,9 +449,89 @@ export function insetPolygonPerEdge(
             }
         }
         if (reversedIdx < 0) break;
+        droppedLines.push(lines[reversedIdx]!);
         lines.splice(reversedIdx, 1);
         if (lines.length < 3) return { polygon: [], degenerate: true };
         out = miter(lines);
+    }
+
+    // ── 4b. §INSET-CLAMP-TO-HALFPLANE (L-581) — PUT BACK THE CONSTRAINTS STEP 4 THREW AWAY. ──
+    //
+    // THE DEFECT. Dropping line `j` above does not merely delete a vertex — it ABANDONS EDGE j'S
+    // HALF-PLANE CONSTRAINT. Its two neighbours are then free to mitre to a corner with nothing
+    // holding it inside the parcel, and on a real cadastral block (40–60 edges, 10–43 reflex
+    // vertices, and the `{front: d, side: 0}` party-wall mixture Art. 242 actually asks for) step 4
+    // discards ~50% of all lines, so the survivors mitre somewhere else entirely.
+    //
+    // ⚠ MEASURED ON 65 REAL EIXAMPLE BLOCKS, and the previously-recorded mechanism was WRONG. The
+    // long-standing write-up said the cascade makes the ring "drain below 3 lines". That gate fires
+    // ZERO times, at every depth, on every block. What actually happened is that the wreckage was
+    // caught downstream by the SOUNDNESS gates in step 6 — which were doing their job correctly and
+    // therefore hid the cause:
+    //
+    //     at the 11 m ORDINANCE FLOOR — the gentlest depth the solver is ever asked for:
+    //       sound 36.9%  ·  `inset area > parcel` 29.2%  ·  `vertex escaped` 33.8%
+    //       escape distance: median 1.27 m, MAX 177 m   (at 30 m depth: max 5.6 km)
+    //
+    // A remedy aimed at the line COUNT would therefore have fixed a gate that never fires. The
+    // repair has to restore the CONSTRAINT.
+    //
+    // WHAT THIS DOES. Project every surviving vertex back into the interior half-plane of every
+    // offset line — including the dropped ones. A vertex already inside is untouched, so this is a
+    // no-op on sound geometry; a vertex that escaped is pulled onto the boundary of the constraint
+    // it violated. Iterated, because satisfying one half-plane can violate another, with a FIXED
+    // pass budget rather than a convergence tolerance so the result stays byte-deterministic
+    // (C58 §1.1) instead of becoming input-sensitive at the last bit.
+    //
+    // ⚠ DIRECTION OF ERROR — why this is allowed to change a legal number. The projection moves a
+    // vertex only INWARD, so the inset can only ever SHRINK. A smaller inset reports LESS interior
+    // free area, so `solveBlockDerivedDepth` concludes a SHALLOWER depth. The remedy therefore errs
+    // conservative, which is the direction C58 §1.4 permits.
+    //
+    // ⚠⚠ THIS IS NOT THE RETRACTED HALF-PLANE INTERSECTION, and the difference is the whole reason
+    // that one was withdrawn. Intersecting all half-planes OVER-states free area at convex
+    // front–front corners (a true offset rounds them) and therefore OVER-states buildable depth —
+    // fabrication in the forbidden direction, trading a DETECTABLE failure for an undetectable one.
+    // Clamping starts from the mitre and can only remove area. Do not "simplify" this into an
+    // intersection.
+    //
+    // MEASURED RESULT (65 real blocks, offline, no network):
+    //   inset sound at the 11 m floor              36.9% → 55.4%
+    //   Art. 242 answers landing AT the 30% rule        3 → 9
+    //
+    // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT CLAIMED 92.3% AND 34, AND BOTH WERE ARTEFACTS —
+    // RETRACTED. They came from the global (un-gated) clamp, which was OVER-ERODING: it ate real
+    // courtyard, and a smaller free area makes the bisection settle at a shallower depth where the
+    // ratio lands on exactly 30%. **So "lands honestly AT 30%" was itself gameable by over-erosion**
+    // — the very metric introduced to detect dishonest answers scored HIGHEST when the geometry was
+    // most wrong. It was caught only by an INDEPENDENT grid-rasterisation oracle
+    // (`scratchpad/probe-l581-grid-oracle.mts`, a different algorithm entirely): on real block 02309
+    // a uniform 12 m inset is ~3,227 m² (48.2%), the gated code returns 2,921 m² (43.6%, correctly
+    // conservative), and the un-gated clamp returned **256 m² — wrong by 12×** while every fixture
+    // aggregate still looked healthy. Never accept an aggregate as proof of a geometry change.
+    // ⚠ REJECTED, MEASURED: deleting step 4 and relying on the step-5 loop decomposition instead
+    // (the tempting "the L-525b cleanup subsumes the L-403 drop" simplification) collapses to
+    // **1.5% sound**. Step 4 is load-bearing. Keep BOTH.
+    for (let pass = 0; pass < CLAMP_PASSES; pass++) {
+        let moved = false;
+        for (let k = 0; k < out.length; k++) {
+            let q = out[k]!;
+            for (const line of droppedLines) {
+                if (interiorSignedDist(q, line) >= -EPS) continue;
+                // ⚠ LOCALITY GATE — only clamp a vertex that lies IN FRONT OF the dropped edge.
+                // An edge's half-plane constrains the strip its own extent sweeps, not the entire
+                // ring; applying it globally is half-plane INTERSECTION by another name, which is
+                // valid only for a convex polygon. Measured: without this gate the uniform 12 m
+                // inset of real block 02309 came out at 256 m² against an independent grid oracle's
+                // 3,227 m² — wrong by 12×, while every fixture aggregate still looked healthy.
+                const t = (q.x - line.p.x) * line.d.x + (q.z - line.p.z) * line.d.z;
+                if (t < -CLAMP_SPAN_SLACK_M || t > line.len + CLAMP_SPAN_SLACK_M) continue;
+                q = projectOnto(q, line);
+                moved = true;
+            }
+            out[k] = q;
+        }
+        if (!moved) break;
     }
 
     // ── 5. Clean up any residual self-intersection (narrow concavities). ─────

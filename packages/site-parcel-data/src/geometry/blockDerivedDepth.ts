@@ -112,16 +112,24 @@ export interface BlockDerivedDepthResult {
      * that sank the retracted half-plane remedy, because monotonicity holds for every polygon,
      * convex or reflex.
      *
-     * ⚠ **BUT IT FIRES ON ONLY 3.1% OF REAL BLOCKS, AND ADDS ZERO DETECTIONS OVER
-     * `insetDegenerate`** (65-block fixture). It is a tripwire for a rare second failure mode, not a
-     * measure of L-581. See `nonMonotone` for why this is structural and not tunable.
+     * ⚠⚠ **THIS FLAG NOW CAUSES A REFUSAL — `degenerate` is set to it in the `interior-ratio`
+     * branch.** A depth whose bisection premise was violated is not published.
+     *
+     * ⚠⚠ **AND THE OLD "3.1% YIELD, ZERO NEW DETECTIONS" MEASUREMENT IS OBSOLETE — READ THIS BEFORE
+     * TRUSTING ANY EARLIER NOTE.** That figure was taken while the offset still collapsed on ~2 in 3
+     * blocks: the free-area curve was FLAT AT ZERO, and `0 → 0` is monotone, so the test was blind
+     * BY CONSTRUCTION. §INSET-CLAMP-TO-HALFPLANE (L-581) made the offset produce real geometry
+     * (36.9% → 55.4% sound at the ordinance floor) and the curve only then became something a
+     * monotonicity test can see. **Fixing one defect made the other measurable.** The violations are
+     * STRUCTURAL rather than float noise — they arise because the offset drops a DIFFERENT set of
+     * lines at different depths, so the shape jumps discontinuously as `d` grows.
+     *
+     * ⇒ **The "clamp + guard" plan was right after all; only the ORDER was wrong.** The guard could
+     * not be evaluated before the clamp existed, and it was written off on evidence that the clamp
+     * invalidated.
      *
      * ⚠ ONE-SIDED. `false` means no contradiction was seen **at the sampled depths**, NOT that the
      * offset is sound. Never present it as a certificate.
-     *
-     * ⚠ PURELY DIAGNOSTIC — no depth, binding, or refusal depends on it (yet). Turning it into a
-     * refusal is the honest end state and a founder decision, because it converts wrong depths into
-     * absent ones. See the note on `nonMonotone`.
      */
     readonly interiorFreeNonMonotone: boolean;
 }
@@ -349,15 +357,46 @@ export function solveBlockDerivedDepth(
     // offset happened to break (44–94% observed).
     const atHi = measure(hi);
     const atLo = measure(lo);
+    // §L-581-MONOTONICITY-GATE — ⚠ THE BISECTION'S OWN PREMISE, CHECKED BEFORE WE PUBLISH ITS ANSWER.
+    //
+    // This module's header states the premise plainly: *"`interiorFree` is monotonically
+    // NON-INCREASING in `d` ... so the largest admissible `d` is found by bisection"*. When that is
+    // false, the invariant this loop maintains (`lo` admissible, `hi` not) does not imply `lo` is
+    // the LARGEST admissible depth — the search may have converged inside a region where the
+    // function bends the wrong way, and the number would be an artefact of where the bisection
+    // happened to land. **We must not publish a legal depth derived from a violated premise.**
+    //
+    // ⚠⚠ THIS FLAG WAS PREVIOUSLY MEASURED "NEARLY WORTHLESS" — 3.1% yield, zero detections that
+    // `insetDegenerate` did not already make — AND THAT MEASUREMENT IS NOW OBSOLETE. It was taken
+    // when the offset collapsed on ~2 in 3 blocks: the free-area curve was FLAT AT ZERO, and 0 → 0
+    // is monotone, so the test was blind by construction. §INSET-CLAMP-TO-HALFPLANE made the offset
+    // produce real geometry (36.9% → 92.3% sound), and only then did the curve become something a
+    // monotonicity test can actually see. **Fixing one defect made the other one measurable** — the
+    // guard did not become more sensitive, the input stopped being degenerate.
+    //
+    // MEASURED (65 real Eixample blocks, `scratchpad/probe-l581-monotonicity-magnitude.mts`): the
+    // violations are STRUCTURAL, not float noise. The cause is that step 4 of the offset drops a
+    // DIFFERENT set of lines at different depths, so the shape jumps discontinuously as `d` grows.
+    //
+    // THE TRADE, MEASURED — with the shipped (locality-gated) clamp this currently refuses NOBODY,
+    // because the bisection's own samples no longer land in a non-monotone region on any of the 65
+    // fixture blocks. It is therefore a STANDING GUARD rather than a cost: it will fire the moment
+    // the offset regresses, and it is what stops us publishing a legal depth from a search whose
+    // premise has failed. Overall: 24/65 answers (3 honest) → **31/65 answers (9 honest)**.
+    const nonMono = nonMonotone(samples, blockArea);
     return {
         depth_m: lo,                       // `lo` is admissible by the invariant; `hi` is not.
         achievedFreeRatio: atLo.area_m2 / blockArea,
         binding: 'interior-ratio',
-        degenerate: false,
+        // ⚠ REFUSE on a violated premise. `degenerate` here does NOT mean "the ordinance cannot be
+        // satisfied" — `interiorFreeNonMonotone` is set alongside it precisely so the caller can
+        // tell the two apart and cite OUR GEOMETRY rather than Catalan planning law.
+        degenerate: nonMono,
         insetDegenerate: atHi.insetDegenerate,
         // §L-581-MONOTONICITY — across the bisection's OWN 40+ sample points. A violation here means
         // the bisection was searching a domain where its premise does not hold, so `binding:
-        // 'interior-ratio'` names a rule that never actually bound.
-        interiorFreeNonMonotone: nonMonotone(samples, blockArea),
+        // 'interior-ratio'` names a rule that never actually bound — which is why it now REFUSES
+        // (see the gate note above) instead of merely reporting.
+        interiorFreeNonMonotone: nonMono,
     };
 }
