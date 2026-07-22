@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import {
     resolveAlcadaReguladora,
     BCN_ALCADA_REGULADORA_TABLE,
-    PB5_UNCERTIFIED_ALTERNATIVE_M,
+    EIXAMPLE_CORNICE_INCREMENT_MAX_M,
     BAND_EDGE_GUARD_M,
 } from '../src/rulepacks/bcnAlcadaReguladora.js';
 
@@ -75,9 +75,11 @@ describe('L-525a — Art. 327.2 alçada reguladora table', () => {
         // The open question must be visible to the caller on the answers it actually affects,
         // and absent everywhere else — a blanket caveat would be noise and get ignored.
         const pb5 = resolveAlcadaReguladora(20, { trustedOfficialWidth: true });
-        expect(pb5.ok && pb5.uncertifiedAlternative_m).toBe(PB5_UNCERTIFIED_ALTERNATIVE_M);
+        expect(pb5.ok && pb5.corniceIncrementMax_m).toBe(EIXAMPLE_CORNICE_INCREMENT_MAX_M);
         const pb3 = resolveAlcadaReguladora(13.5);
-        expect(pb3.ok && pb3.uncertifiedAlternative_m).toBe(null);
+        // §L-583 — Art. 21 is written against the ARM, not a storey count, so the increment is
+        // available on EVERY band. The old `=== 5` gate was an artefact of the 22.40 confusion.
+        expect(pb3.ok && pb3.corniceIncrementMax_m).toBe(EIXAMPLE_CORNICE_INCREMENT_MAX_M);
     });
 });
 

@@ -1474,8 +1474,13 @@ async function applyBcnZoningThenFallback(
                     alcadaWhy =
                         `${amplada.why} → PB+${r.floorsAboveGround} = ${r.height_m.toFixed(2)} m ` +
                         `(Art. 327.2)` +
-                        (r.uncertifiedAlternative_m
-                            ? ` ⚠ an official Barcelona certificate gives ${r.uncertifiedAlternative_m.toFixed(2)} m for PB+5 — uncertified, L-528`
+                        // §L-583 — was: "an official Barcelona certificate gives 22.40 m for PB+5
+                        // — uncertified". That read as a RIVAL height and made our correct number
+                        // look doubtful. 22.40 m is the Art. 21 *alçada reguladora incrementada*,
+                        // a separate, CONDITIONAL allowance — stated as an allowance, never as a
+                        // height, because we verify neither of its preconditions.
+                        (r.corniceIncrementMax_m
+                            ? ` · a cornice increment of up to ${r.corniceIncrementMax_m.toFixed(2)} m over this height may apply (Art. 21, Ordenança de l'Eixample, 2002) where the parcel is inside the Conjunt Especial de l'Eixample AND adjoins buildings predating 1932 — PRYZM does not verify either condition, so it is NOT included above`
                             : '');
                 } else {
                     // A refusal is an ANSWER here, and the reason is the useful part: `band-edge`

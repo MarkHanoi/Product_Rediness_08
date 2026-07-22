@@ -94,7 +94,7 @@ export {
 export {
     resolveAlcadaReguladora,
     BCN_ALCADA_REGULADORA_TABLE,
-    PB5_UNCERTIFIED_ALTERNATIVE_M,
+    EIXAMPLE_CORNICE_INCREMENT_MAX_M,
     BAND_EDGE_GUARD_M,
     type AlcadaBand,
     type AlcadaResolution,

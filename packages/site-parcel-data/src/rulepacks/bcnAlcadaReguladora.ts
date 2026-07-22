@@ -20,11 +20,12 @@
 // Art. 327.2, the height clause for Subzona I = clau 13a. Height for 13a is cited via
 // Arts. 238 + 240 + 327 (per an official Barcelona *Certificat Urbanístic*).
 //
-// ⚠ ONE FIGURE IS NOT YET CERTIFIED. For the PB+5 band, our research surfaced BOTH 20.75 m (the
-// table) and 22.40 m (an official Barcelona certificate, via Arts. 238/240/327). That
-// reconciliation is open — audit **L-528**, which needs the interactive MUC/RPUC *fitxa*, not a
-// web search. We encode 20.75 m (the table value) and flag the ambiguity rather than silently
-// picking one: see `PB5_UNCERTIFIED_ALTERNATIVE_M`.
+// ✅ THE 20.75-vs-22.40 QUESTION IS RESOLVED (L-528 → L-583 §3), AND OUR NUMBER WAS RIGHT.
+// The whole table was independently corroborated band-for-band (all six) against a consolidated
+// PGM text that flags its own local rewrites and carries none on this article. And 22.40 m was
+// never a rival *alçada reguladora*: it is the ***alçada reguladora incrementada*** of Art. 21 of
+// Barcelona's own Ordenança de Rehabilitació i Millora de l'Eixample (22-11-2002) — a cornice
+// increment of up to 2.25 m over the ARM. See `EIXAMPLE_CORNICE_INCREMENT_MAX_M`.
 //
 // ⚠⚠ AND THE INPUT IS THE DANGEROUS PART — READ BEFORE FEEDING THIS A MEASURED WIDTH
 // ---------------------------------------------------------------------------------
@@ -76,11 +77,36 @@ export const BCN_ALCADA_REGULADORA_TABLE: ReadonlyArray<AlcadaBand> = Object.fre
 ]);
 
 /**
- * The competing PB+5 figure from an official Barcelona *Certificat Urbanístic* (Arts. 238/240/327).
- * NOT applied — recorded so the open question is visible in code rather than only in a document.
- * Resolving it is audit item L-528.
+ * §L-528 RESOLVED (L-583 §3) — ⚠ **22,40 m WAS NEVER A COMPETING *ALÇADA REGULADORA*.**
+ *
+ * This constant used to be `PB5_UNCERTIFIED_ALTERNATIVE_M = 22.4`, described as "the competing PB+5
+ * figure … resolving it is audit item L-528". That framing was wrong in a way that mattered: it
+ * presented 22,40 m as a **rival answer to the same question**, which made our own correct 20,75 m
+ * look uncertain. **It is a different quantity, from a different instrument.**
+ *
+ * WHAT 22,40 m ACTUALLY IS. Barcelona's **Ordenança de Rehabilitació i Millora de l'Eixample**
+ * (Consell Plenari, 22-11-2002), **Art. 21**: a building may exceed the *alçada reguladora màxima*
+ * by up to **2,25 m** to form a cornice line / harmonise floor heights with **adjacent buildings
+ * predating 1932**, provided the increase adds **no storeys** and does not raise the ground floor.
+ * The ordinance names the result with its own legal term — ***alçada reguladora incrementada*** —
+ * and Art. 17 distinguishes construction above "the maximum regulated height **or** the increased
+ * regulated height per Art. 21.2.3".
+ *
+ *   20,75 m (Art. 327 table, 20–30 m street, PB+5)  +  1,65 m  =  22,40 m   ⊂  the 2,25 m ceiling
+ *
+ * ⚠ **IT IS NOT BAND-SPECIFIC.** The old code gated this on `floorsAboveGround === 5`, which was an
+ * artefact of the 22,40-vs-20,75 confusion, not a rule. Art. 21 is written against the ARM, whatever
+ * band produced it.
+ *
+ * ⚠ **AND IT IS CONDITIONAL, SO IT IS NEVER APPLIED HERE.** It requires (a) the parcel to lie inside
+ * the *Conjunt Especial de l'Eixample*, and (b) adjacent buildings predating 1932. **We verify
+ * neither.** Reporting an increased height without checking its conditions would be exactly the
+ * fabrication C58 §1.4 forbids. This is surfaced as an *available allowance the user should be aware
+ * of*, never as a height we assert.
+ *
+ * Confidence: `published` — Barcelona's OWN municipal ordinance (not a mirror). See L-583 §3.
  */
-export const PB5_UNCERTIFIED_ALTERNATIVE_M = 22.4;
+export const EIXAMPLE_CORNICE_INCREMENT_MAX_M = 2.25;
 
 /**
  * How close to a band edge (metres) counts as TOO CLOSE to decide from a measured width.
@@ -99,8 +125,16 @@ export type AlcadaResolution =
           readonly height_m: number;
           readonly floorsAboveGround: number;
           readonly band: AlcadaBand;
-          /** True when the PB+5 20.75-vs-22.40 question (L-528) applies to THIS answer. */
-          readonly uncertifiedAlternative_m: number | null;
+          /**
+           * §L-583 — the Art. 21 cornice increment (m) that MAY be added on top of `height_m`
+           * under Barcelona's Ordenança de l'Eixample, if its conditions hold.
+           *
+           * ⚠ **NOT APPLIED, and NOT a rival height.** `height_m` remains the *alçada reguladora
+           * màxima*. This is a separate allowance whose preconditions (inside the Conjunt Especial
+           * de l'Eixample; adjacent buildings predating 1932) we do NOT verify — so a consumer must
+           * present it as "an increment of up to X m may apply", never as a height.
+           */
+          readonly corniceIncrementMax_m: number | null;
       }
     | {
           readonly ok: false;
@@ -157,7 +191,8 @@ export function resolveAlcadaReguladora(
         height_m: band.height_m,
         floorsAboveGround: band.floorsAboveGround,
         band,
-        uncertifiedAlternative_m:
-            band.floorsAboveGround === 5 ? PB5_UNCERTIFIED_ALTERNATIVE_M : null,
+        // §L-583 — available on ANY band (Art. 21 is written against the ARM, not a storey count).
+        // The old `floorsAboveGround === 5` gate was an artefact of the 22,40-vs-20,75 confusion.
+        corniceIncrementMax_m: EIXAMPLE_CORNICE_INCREMENT_MAX_M,
     };
 }
