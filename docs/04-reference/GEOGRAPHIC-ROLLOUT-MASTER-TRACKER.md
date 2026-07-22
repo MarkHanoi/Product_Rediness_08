@@ -239,22 +239,60 @@ classification is the authoritative partition; do not hand-roll one.
 | **20a** family (6 variants) | ~10.5% | 70.2% | 36.5% |
 | everything else | ~2% | ~72% | — |
 
-### ⚠⚠ CLAU 18 IS THE BIGGEST REMAINING PRIVATE CLAU **AND MAY BE STRUCTURALLY UNPACKABLE**
+### ✅ CLAU 18 — RESOLVED 2026-07-22. **It is a CORRECT REFUSAL, not a coverage gap.**
 
-At **22.5%** it is larger than 22a. But its name is the problem: *ordenació en **volumetria
-específica*** means **the volume is fixed by a PER-SITE plan** (*estudi de detall* / *pla especial*),
-not by the PGM. If that reading holds there is **no generic rule to encode** — each parcel's
-parameters live in its own document — and clau 18 belongs with the systems land as a **CORRECT
-REFUSAL** ("this parcel's envelope is set by its own plan"), not as a coverage gap.
+Research verdict **(B): the PGM delegates clau 18's volumetry to a site-specific instrument and
+states no citywide default.** Confidence ~90%. The verbatim base-PGM article was NOT located — but
+**that does not block us, because (B) and "unknown" imply the SAME product behaviour: refuse, with a
+citation.** Acting on it is safe in a way acting on a numeric guess never is.
 
-**This reconciles a figure we had been quoting without understanding**: the documented *constructed
-ceiling* of ~75.8% almost certainly already excludes clau 18. Excluding it, packing everything else
-reaches ~70% coverage ⇒ **≈ 60% end-to-end**, against the 65% previously stated.
+Evidence, all verbatim:
+- AMB: *"Comprèn àrees de sòl urbà … en la qual l'edificació correspon al tipus d'ordenació per
+  **volumetria específica, segons Pla Parcial o ordenació d'illa definitivament aprovats** o amb
+  concreció de volum específic."*
+- AMB Geoportal: *"la zona 18 fa referència a una **volumetria aprovada anteriorment** a l'aprovació
+  del PGM"* — i.e. clau 18 is a **container for inherited site-specific envelopes**, not a rule.
+- MPGM Marina de la Zona Franca: *"El **planejament de desenvolupament en determinarà** la modalitat
+  … **fixant l'ocupació, l'altura i la resta de paràmetres**"* — the development plan fixes them, not
+  the PGM.
+- A Barcelona planning certificate for a clau-18 parcel gives *"Tipus d'ordenació: segons volumetria
+  específica"* and then points at the specific MPGM, its plans, annexes and ordering drawings.
+- **No fallback found.** Targeted searches for *"en absència de"*, *"mentre no s'aprovi"*,
+  *"supletòriament"* returned nothing. ⚠ Absence of evidence, recorded as such.
 
-⇒ **THE HONEST DESTINATION IS ~60%, NOT 65%** — and clau 18 needs a decision: confirm it is genuinely
-per-site (⇒ reclassify as a correct refusal and stop counting it as a gap), or establish that the PGM
-gives it default parameters (⇒ it is the single most valuable pack on the board). **Until that is
-settled, every ceiling figure in this document carries a ±22.5-point uncertainty.**
+### ⇒ WHAT THIS DOES TO THE NUMBERS — and it explains a figure nobody could account for
+
+| | |
+|---|---|
+| private buildable sample | 275 pts |
+| clau 18 — **plan-defined ⇒ correct refusal** | 62 pts = **22.5%** |
+| **PACKABLE universe** | **213 pts** |
+
+**⇒ If every packable clau were encoded we would reach 213/275 = 77.5% of private buildable land —
+and the documented "constructed ceiling" is 75.8%.** That figure has been quoted in our docs for
+weeks with no derivation attached. **It matches, and it now has one: whoever computed it had already
+excluded clau 18.** Independent corroboration that (B) is the right reading.
+
+⚠ **THE HONEST COVERAGE DENOMINATOR CHANGES.** We have been quoting **32.7% of ALL private buildable
+land**. Against the land a rule pack can ever govern it is **90/213 = 42.3%**. Both are true; the
+second is the one that measures our progress, the first the one that measures the user's experience.
+**State which denominator you mean, every time.**
+
+**⇒ THE DESTINATION, with the uncertainty closed: ~69%** (full packable coverage + layers 1–3 and
+height at 95%), not the ~60%/~83% branch pair. **And the 22.5% is ANSWERED, not missing** — *"this
+parcel's envelope is set by its own approved plan"*, cited.
+
+### ⇒ ACTION REQUIRED (queued, not yet shipped)
+
+Clau 18 must return a **specific, cited refusal**, not the generic estimated pack and not a bare
+coverage-gap card. Wording along the lines of *"This parcel is subject to specific volumetric
+planning. Its height, occupation and setbacks are set by the applicable Pla Parcial / Pla Especial /
+PMU / Estudi de Detall, not by the PGM."* **Do NOT compute a generic envelope for clau 18.**
+
+⚠ Still open, and worth one more pass if cheap: whether the PGM **caps total edificabilitat even
+where a detail plan sets the shape**. Catalan practice commonly lets an *estudi de detall*
+redistribute volume without increasing it — but that must be quoted, not assumed. **If such a cap
+exists it is encodable even under (B)**, and it would partially reclaim the 22.5%.
 
 ### §2.1 — Rule-pack coverage by *clau*
 
