@@ -70,8 +70,35 @@ the citation"* is a **correct answer**.
 | 3 | Block dissolve (*manzana*) | 🟢 LIVE-PARTIAL | part of 83.0% | `blockRing.ts` |
 | 4 | Depth — Art. 242.2 | ✅ DONE | inside the 83.0% | ADR-0271 |
 | 5 | Height — Art. 327.2 | 🟢 LIVE-PARTIAL | **78.3%** (n=83) | L-525a |
-| 6 | **Render / inset volume** | 🟢 LIVE-PARTIAL | **55.4%** (n=65) — was 36.9% | **L-581 shipped** |
-| | **END-TO-END** | | **5.8%** | |
+| 6 | **Render / inset volume** | 🟢 LIVE-PARTIAL | **41.5%** live (n=65) — was 36.9% | **L-581 shipped** |
+| | **END-TO-END** | ❔ **STALE — must be re-derived** | *(was 5.8% when layer 6 was 36.9%)* | see below |
+
+### §2.0 — ⚠ Post-L-581 re-measurement (2026-07-22), and what it does NOT license
+
+Re-run on the **live** path over the same 65 parcels, before vs after the clamp:
+
+| | before | after |
+|---|---|---|
+| geometry sound (contained + non-degenerate) | 24/65 · 36.9% | **27/65 · 41.5%** |
+| `min-floor` — *"Art. 242.2 cannot be satisfied on this block"* | **40** | **28** |
+| `interior-ratio` — the real Art. 242 construction | 16 | **28** |
+| `max-cap` | 9 | 6 |
+
+**The headline is the middle row, not the top one: 12 blocks that were being told the ordinance
+cannot be satisfied now get a real derived depth — a 30% cut in false refusals — and the count of
+answers actually produced BY the Art. 242 construction went 16 → 28.**
+
+⚠ **41.5% (live) and the 55.4% quoted for the offline fixture are DIFFERENT MEASUREMENTS and must
+not be compared.** The fixture measures one inset call at the 11 m floor; this measures the full
+solve plus a containment check. Quoting whichever is larger would be exactly the aggregate-shopping
+that produced the retracted 92.3%.
+
+⚠⚠ **END-TO-END IS NOW UNQUOTABLE UNTIL RE-DERIVED.** 5.8% was computed with layer 6 at 36.9%. It is
+**not** the product of the layer percentages (0.83 × 0.783 × 0.369 ≈ 24%, not 5.8%), so the chain
+involves conditioning this tracker does not record. **Do not multiply the layers and publish the
+result** — re-derive it from `probe-l576-*` and cite the derivation here. Until then this cell reads
+STALE, which is the honest state; a stale number that says "stale" is safe, one that says "5.8%" is
+not.
 
 ### §2.1 — Rule-pack coverage by *clau*
 
