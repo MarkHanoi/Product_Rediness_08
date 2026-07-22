@@ -21,8 +21,17 @@
 //   anvendelsegenerel  string   generel anvendelse  → permittedUse[] (classified)
 //   anvgen             string   anvendelseskode     → fallback use text + zoneCode
 //   plannavn/plannr/planid       plan identity       → zoneLabel + zoneCode + provenance
+//   lp_plannavn/lp_plannr/lokplan_id  (delområde layer) same identity, `lp_*`-named
+//   delnr              string   delområde-nummer    → zoneLabel suffix (which sub-area)
 //   doklink            string   plandokument-link   → ordinanceRef (the C58 §1.3 citation)
 //   zonestatus         string   Byzone/Landzone …   → overlay tag (context)
+//
+// SUB-AREA (delområde) — a multi-area lokalplan publishes its real per-area
+// height/FAR/storeys on the `theme_pdk_lokalplandelomraade_vedtaget` feature (SAME
+// dimensional field names: maxbygnhjd/maxetager/bebygpct), NOT on the whole-plan
+// polygon (whose fields are then null). The proxy queries the delområde FIRST
+// (server/plandataZoningProxy.js §USABLE-FALLBACK); this mapper needs no dimensional
+// change for it — only the `lp_*` identity aliases above.
 //
 // NOTE — bebyggelsesprocent is the Danish FLOOR-AREA ratio (etageareal/grundareal
 // ×100), i.e. FAR×100 — NOT ground coverage. It maps to `plotRatioFAR` ONLY;
@@ -38,9 +47,11 @@
 import type { PermittedUse, ZoningRecord } from '@pryzm/schemas';
 import { ZoningRecordSchema } from '@pryzm/schemas';
 
-/** Which Plandata layer a feature came from (a lokalplan is more specific than
- *  a kommuneplan framework, so the proxy prefers it). */
-export type PlandataLayer = 'lokalplan' | 'kommuneplanramme';
+/** Which Plandata layer a feature came from, MOST-SPECIFIC first. A local plan's
+ *  sub-area (`lokalplandelomraade`) is tighter than the whole local plan, which is
+ *  tighter than the kommuneplan framework — the proxy prefers whichever most-specific
+ *  layer actually publishes a number (server/plandataZoningProxy.js §USABLE-FALLBACK). */
+export type PlandataLayer = 'lokalplandelomraade' | 'lokalplan' | 'kommuneplanramme';
 
 /**
  * The proxy's normalised hand-off: the winning plan's raw `properties` (the WFS
@@ -140,20 +151,30 @@ export function mapPlandataToZoningRecord(
     const permittedUse: PermittedUse[] = use ? [use] : [];
 
     // ── Identity / citation. ─────────────────────────────────────────────────
-    const planName = firstString(p.plannavn);
-    const planNr = firstString(p.plannr);
-    const planId = firstString(p.planid);
-    const zoneCode =
-        firstString(p.anvgen) ??
-        planNr ??
-        planId ??
-        (response.layer === 'lokalplan' ? 'DK-LOKALPLAN' : 'DK-KOMMUNEPLANRAMME');
-    const zoneLabel = planName ?? useText ?? null;
+    // The delområde (sub-area) layer carries the plan identity under `lp_*` field
+    // names + its own `delnr` (sub-area number), so read both spellings — the plan
+    // name/number is the SAME instrument, just published on the sub-area feature.
+    const planName = firstString(p.plannavn, p.lp_plannavn);
+    const planNr = firstString(p.plannr, p.lp_plannr);
+    const planId = firstString(p.planid, p.lokplan_id);
+    const delnr = firstString(p.delnr);
+    const layerFallbackCode =
+        response.layer === 'lokalplandelomraade'
+            ? 'DK-LOKALPLAN-DELOMRAADE'
+            : response.layer === 'lokalplan'
+              ? 'DK-LOKALPLAN'
+              : 'DK-KOMMUNEPLANRAMME';
+    const zoneCode = firstString(p.anvgen) ?? planNr ?? planId ?? layerFallbackCode;
+    // Name the governing sub-area explicitly when we resolved one (delområde), so the
+    // facts card shows WHICH part of the plan the numbers came from.
+    const baseLabel = planName ?? useText ?? null;
+    const zoneLabel =
+        baseLabel && delnr ? `${baseLabel} (delområde ${delnr})` : baseLabel;
     const doklink = firstString(p.doklink);
     const zonestatus = firstString(p.zonestatus);
 
     const label = planName
-        ? `Plandata.dk — ${planName}`
+        ? `Plandata.dk — ${planName}${delnr ? ` · delområde ${delnr}` : ''}`
         : `Plandata.dk — ${response.layer}`;
 
     const record: ZoningRecord = ZoningRecordSchema.parse({

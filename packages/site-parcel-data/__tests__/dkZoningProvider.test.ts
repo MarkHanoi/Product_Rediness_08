@@ -93,6 +93,36 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
         expect(rec!.structuredFields.permittedUse).toEqual(['mixed']);
     });
 
+    it('L-608 — a delområde (sub-area) feature maps like a plan + names the sub-area', () => {
+        // The sub-area layer carries the plan identity under `lp_*` names + its own
+        // `delnr`, and the SAME dimensional field names as the whole plan.
+        const delomraade: PlandataZoningResponse = {
+            layer: 'lokalplandelomraade',
+            properties: {
+                lp_plannavn: 'Lokalplan 410 Ørestad Syd',
+                lp_plannr: '410',
+                delnr: '3',
+                anvendelsegenerel: 'Blandet bolig og erhverv',
+                bebygpct: 185,
+                maxbygnhjd: 42,
+                maxetager: 12,
+                doklink: 'https://dokument.plandata.dk/20_410_delomr3.pdf',
+                zonestatus: 'Byzone',
+            },
+        };
+        const rec = mapPlandataToZoningRecord(delomraade, { fetchDateISO: FETCH_DATE })!;
+        expect(rec).not.toBeNull();
+        expect(rec.structuredFields.maxHeight_m).toBe(42);
+        expect(rec.structuredFields.maxFloors).toBe(12);
+        expect(rec.structuredFields.plotRatioFAR).toBeCloseTo(1.85, 6);
+        expect(rec.structuredFields.permittedUse).toEqual(['mixed']);
+        // Identity resolved from the lp_* aliases; the sub-area is named.
+        expect(rec.zoneLabel).toBe('Lokalplan 410 Ørestad Syd (delområde 3)');
+        expect(rec.zoneCode).toBe('410'); // no anvgen → falls to lp_plannr
+        expect(rec.ordinanceRef).toBe('https://dokument.plandata.dk/20_410_delomr3.pdf');
+        expect(rec.provenance.label).toContain('delområde 3');
+    });
+
     it('floors a fractional maxetager to an integer storey count', () => {
         const attic: PlandataZoningResponse = {
             layer: 'lokalplan',

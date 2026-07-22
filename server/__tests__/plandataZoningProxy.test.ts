@@ -17,6 +17,7 @@ import {
     makePlandataZoningHandler,
     pickFirstFeatureProps,
     buildPlandataWfsUrl,
+    hasUsableDimension,
     zoningCacheStats,
     __resetZoningCache,
 } from '../plandataZoningProxy.js';
@@ -44,6 +45,59 @@ const LOKALPLAN_GEOJSON = JSON.stringify({
 });
 const EMPTY_GEOJSON = JSON.stringify({ type: 'FeatureCollection', features: [] });
 
+// A sub-area (delområde) feature: plan identity under `lp_*`, its own dimensions.
+const DELOMRAADE_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+        {
+            type: 'Feature',
+            properties: {
+                lp_plannavn: 'Lokalplan 410 Ørestad Syd',
+                lp_plannr: '410',
+                delnr: '3',
+                anvendelsegenerel: 'Blandet bolig og erhverv',
+                bebygpct: 185,
+                maxbygnhjd: 42,
+                maxetager: 12,
+                doklink: 'https://dokument.plandata.dk/20_410_delomr3.pdf',
+                zonestatus: 'Byzone',
+            },
+            geometry: { type: 'Polygon', coordinates: [[[12.56, 55.67], [12.57, 55.67], [12.57, 55.68], [12.56, 55.68], [12.56, 55.67]]] },
+        },
+    ],
+});
+// A local plan that publishes NO dimensional field (identity + use only) — it must
+// NOT shadow a dimensioned kommuneplanramme beneath it (§USABLE-FALLBACK).
+const LOKALPLAN_NODIM_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+        {
+            type: 'Feature',
+            properties: { plannavn: 'Lokalplan uden tal', anvendelsegenerel: 'Boligområde', doklink: 'https://dokument.plandata.dk/nodim.pdf' },
+            geometry: { type: 'Polygon', coordinates: [[[12.56, 55.67], [12.57, 55.67], [12.57, 55.68], [12.56, 55.68], [12.56, 55.67]]] },
+        },
+    ],
+});
+const RAMME_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+        {
+            type: 'Feature',
+            properties: { plannavn: 'Ramme 4.B.12', bebygpct: 60, maxbygnhjd: 18, anvendelsegenerel: 'Boligområde', doklink: 'https://dokument.plandata.dk/ramme.pdf', zonestatus: 'Byzone' },
+            geometry: { type: 'Polygon', coordinates: [[[12.56, 55.67], [12.57, 55.67], [12.57, 55.68], [12.56, 55.68], [12.56, 55.67]]] },
+        },
+    ],
+});
+
+/** Which Plandata layer a WFS URL targets (delområde substring contains 'lokalplan'
+ *  so test it FIRST). */
+function layerOfUrl(u: string): 'delomraade' | 'lokalplan' | 'kommuneplanramme' | 'other' {
+    if (u.includes('lokalplandelomraade')) return 'delomraade';
+    if (u.includes('theme_pdk_lokalplan_vedtaget')) return 'lokalplan';
+    if (u.includes('kommuneplanramme')) return 'kommuneplanramme';
+    return 'other';
+}
+
 function listen(app: express.Express): Promise<{ server: Server; url: string }> {
     return new Promise((resolve) => {
         const server = createServer(app);
@@ -67,6 +121,18 @@ describe('§PLANDATA-ZONING-PROXY helpers', () => {
         expect(pickFirstFeatureProps('not json')).toBeNull();
     });
 
+    it('hasUsableDimension — true iff a real height/storeys/FAR field is present (L-608)', () => {
+        expect(hasUsableDimension({ maxbygnhjd: 24 })).toBe(true);
+        expect(hasUsableDimension({ maxetager: 6 })).toBe(true);
+        expect(hasUsableDimension({ bebygpct: 110 })).toBe(true);
+        expect(hasUsableDimension({ maxbygnhjd: '24.0' })).toBe(true); // string-coerced
+        // Identity / use only → NOT usable (must fall through to a richer layer).
+        expect(hasUsableDimension({ plannavn: 'P', anvendelsegenerel: 'Boligområde' })).toBe(false);
+        expect(hasUsableDimension({ maxbygnhjd: 0 })).toBe(false); // 0 is not a volume
+        expect(hasUsableDimension({ maxbygnhjd: null, maxetager: '' })).toBe(false);
+        expect(hasUsableDimension(null)).toBe(false);
+    });
+
     it('buildPlandataWfsUrl builds a bbox GetFeature URL (both axis orders)', () => {
         const lonlat = buildPlandataWfsUrl('pdk:theme_pdk_lokalplan_vedtaget', 12.5683, 55.6761, 'lonlat');
         expect(lonlat).toContain('geoserver.plandata.dk/geoserver/wfs');
@@ -82,15 +148,22 @@ describe('§PLANDATA-ZONING-PROXY helpers', () => {
 describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
     let server: Server, url: string;
     let wfsCalls = 0;
-    let wfsBody = LOKALPLAN_GEOJSON;
+    // Per-layer response bodies (mutable per test). Default: only the whole
+    // lokalplan carries a plan (the classic layer-preference case).
+    let deloBody = EMPTY_GEOJSON;
+    let lokalplanBody = LOKALPLAN_GEOJSON;
+    let rammeBody = EMPTY_GEOJSON;
 
     const fakeFetch = (async (u: string) => {
         const s = String(u);
         if (s.includes('geoserver.plandata.dk')) {
             wfsCalls++;
-            // Only the lokalplan layer returns a plan (proves layer preference).
-            if (s.includes('lokalplan')) return new Response(wfsBody, { status: 200 });
-            return new Response(EMPTY_GEOJSON, { status: 200 });
+            switch (layerOfUrl(s)) {
+                case 'delomraade': return new Response(deloBody, { status: 200 });
+                case 'lokalplan': return new Response(lokalplanBody, { status: 200 });
+                case 'kommuneplanramme': return new Response(rammeBody, { status: 200 });
+                default: return new Response(EMPTY_GEOJSON, { status: 200 });
+            }
         }
         return new Response('', { status: 404 });
     }) as unknown as typeof fetch;
@@ -103,12 +176,18 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
         server = a.server; url = a.url;
     });
     afterAll(async () => { await close(server); });
-    beforeEach(() => { __resetZoningCache(); wfsCalls = 0; wfsBody = LOKALPLAN_GEOJSON; });
+    beforeEach(() => {
+        __resetZoningCache();
+        wfsCalls = 0;
+        deloBody = EMPTY_GEOJSON;
+        lokalplanBody = LOKALPLAN_GEOJSON;
+        rammeBody = EMPTY_GEOJSON;
+    });
 
     const get = (lat: number, lon: number) =>
         fetch(`${url}${PLANDATA_ZONING_PATH}?lat=${lat}&lon=${lon}`);
 
-    it('Copenhagen point → 200 { zoning: { layer, properties } }', async () => {
+    it('Copenhagen point (only the whole lokalplan has data) → 200 { layer: lokalplan }', async () => {
         const r = await get(55.6761, 12.5683);
         expect(r.status).toBe(200);
         const body = await r.json();
@@ -116,6 +195,36 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
         expect(body.zoning.layer).toBe('lokalplan');
         expect(body.zoning.properties.maxbygnhjd).toBe(24);
         expect(wfsCalls).toBeGreaterThanOrEqual(1);
+    });
+
+    it('L-608 — a dimensioned delområde WINS over the whole plan (most-specific)', async () => {
+        deloBody = DELOMRAADE_GEOJSON; // sub-area carries the real numbers
+        const r = await get(55.6761, 12.5683);
+        const body = await r.json();
+        expect(body.zoning.layer).toBe('lokalplandelomraade');
+        expect(body.zoning.properties.maxbygnhjd).toBe(42);
+        expect(body.zoning.properties.delnr).toBe('3');
+    });
+
+    it('L-608 §USABLE-FALLBACK — a dimensionless lokalplan does NOT shadow a dimensioned ramme', async () => {
+        deloBody = EMPTY_GEOJSON;
+        lokalplanBody = LOKALPLAN_NODIM_GEOJSON; // identity/use only, no numbers
+        rammeBody = RAMME_GEOJSON; // the framework HAS numbers
+        const r = await get(55.6761, 12.5683);
+        const body = await r.json();
+        expect(body.zoning.layer).toBe('kommuneplanramme');
+        expect(body.zoning.properties.maxbygnhjd).toBe(18);
+    });
+
+    it('L-608 — when NO layer has a dimension, the most-specific feature is still returned (identity + citation)', async () => {
+        deloBody = EMPTY_GEOJSON;
+        lokalplanBody = LOKALPLAN_NODIM_GEOJSON;
+        rammeBody = EMPTY_GEOJSON;
+        const r = await get(55.6761, 12.5683);
+        const body = await r.json();
+        expect(body.zoning).not.toBeNull();
+        expect(body.zoning.layer).toBe('lokalplan');
+        expect(body.zoning.properties.doklink).toBe('https://dokument.plandata.dk/nodim.pdf');
     });
 
     it('cache by coordinate — repeat click does NOT re-fetch the WFS', async () => {
@@ -129,7 +238,7 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
     });
 
     it('no plan at the point → 200 { zoning: null } (never crashes)', async () => {
-        wfsBody = EMPTY_GEOJSON; // even the lokalplan layer is empty
+        deloBody = lokalplanBody = rammeBody = EMPTY_GEOJSON; // every layer empty
         const r = await get(55.6761, 12.5683);
         expect(r.status).toBe(200);
         const body = await r.json();

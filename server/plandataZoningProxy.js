@@ -50,15 +50,49 @@ export const PLANDATA_ZONING_PATH = '/api/plandata/zoning';
 export const PLANDATA_WFS_ENDPOINT = 'https://geoserver.plandata.dk/geoserver/wfs';
 
 /**
- * Plandata WFS 2.0 type names (verified via GetCapabilities 2026-07-17). Ordered
- * MOST-SPECIFIC first: a local plan governs a parcel more tightly than the
- * municipal-plan framework, so we prefer a `lokalplan` hit and fall back to the
- * `kommuneplanramme` only when no local plan covers the point.
+ * Plandata WFS 2.0 type names (verified live via GetCapabilities + DescribeFeatureType
+ * 2026-07-22 — see docs/04-reference/jurisdictions/dk/findings/). Ordered
+ * MOST-SPECIFIC first, because a point is governed by the tightest instrument that
+ * publishes a number for it:
+ *
+ *   1. `lokalplandelomraade` — a local plan's SUB-AREA (delområde). A multi-area
+ *      lokalplan states its real per-area height/FAR/storeys on the delområde, NOT
+ *      on the whole-plan polygon; the plan-level fields are then null. Querying the
+ *      delområde first is the single biggest resolution win (measured national
+ *      dimensional fill: delområde 59.3% vs whole-plan lokalplan 38.2%). L-608 §2.
+ *   2. `lokalplan` — the whole local plan (single-area plans carry their numbers here
+ *      and have no delområde).
+ *   3. `kommuneplanramme` — the municipal-plan FRAMEWORK. It governs where no local
+ *      plan is silent-with-a-number, and it is the richest layer of all (dimensional
+ *      fill 76.9%), so it must be reachable BENEATH a dimensionless local plan (see
+ *      §USABLE-FALLBACK in fetchZoningAtPoint).
  */
 export const PLANDATA_LAYERS = [
+    { key: 'lokalplandelomraade', typeName: 'pdk:theme_pdk_lokalplandelomraade_vedtaget' },
     { key: 'lokalplan', typeName: 'pdk:theme_pdk_lokalplan_vedtaget' },
     { key: 'kommuneplanramme', typeName: 'pdk:theme_pdk_kommuneplanramme_vedtaget_v' },
 ];
+
+/**
+ * §USABLE-FALLBACK (L-608) — does a raw WFS feature carry at least one dimensional
+ * field the buildable-envelope engine can actually use (max building height, max
+ * storeys, or bebyggelsesprocent)? Mirrors the mapper's own "usable" gate so the
+ * proxy can PREFER a layer that has data over a more-specific layer that has none —
+ * never fabricating a value, only choosing which real, cited plan supplies it.
+ *
+ * @param {Record<string, unknown>|null|undefined} props
+ * @returns {boolean}
+ */
+export function hasUsableDimension(props) {
+    if (!props || typeof props !== 'object') return false;
+    for (const key of ['maxbygnhjd', 'maxetager', 'bebygpct']) {
+        const v = props[key];
+        if (v === null || v === undefined || v === '') continue;
+        const n = typeof v === 'number' ? v : Number.parseFloat(String(v));
+        if (Number.isFinite(n) && n > 0) return true;
+    }
+    return false;
+}
 
 // ── Shared in-memory cache (keyed by rounded coordinate) ─────────────────────
 /** Zoning changes slowly; a day-stale plan lookup is fine + eliminates repeat
@@ -222,8 +256,19 @@ export async function fetchTextOnce(url, deps = {}) {
 
 /**
  * Resolve the applicable plan at a WGS84 point, server-side + cached:
- *   for each layer (lokalplan → kommuneplanramme), for each bbox axis order
- *   (lonlat → latlon), fetch once; the FIRST non-empty feature set wins.
+ *   for each layer (delområde → lokalplan → kommuneplanramme), for each bbox axis
+ *   order (lonlat → latlon), fetch once.
+ *
+ * §USABLE-FALLBACK (L-608) — SELECTION RULE. Return the feature from the
+ * MOST-SPECIFIC layer that actually carries a usable dimensional field
+ * (`hasUsableDimension`). This is what stops a dimensionless local plan from
+ * SHADOWING the richer kommuneplan framework beneath it (measured: a lokalplan
+ * publishes a dimension on only 38.2% of plans, the ramme on 76.9%). If NO layer
+ * carries a dimension, return the most-specific feature we found anyway (for its
+ * identity + plan-document citation), so the mapper still yields a cited record or
+ * falls to the estimated default. We NEVER fabricate a number — we only pick which
+ * real, cited plan supplies the ones that exist.
+ *
  * Returns `{ layer, properties }`, or null (no plan at the point / all upstreams
  * failed or empty). NEVER throws. `deps` is injectable for tests.
  *
@@ -234,16 +279,25 @@ export async function fetchTextOnce(url, deps = {}) {
  */
 export async function fetchZoningAtPoint(lon, lat, deps = {}) {
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+    /** @type {ZoningResult|null} The most-specific feature found, dimension or not. */
+    let firstCandidate = null;
     for (const layer of PLANDATA_LAYERS) {
         for (const axis of /** @type {const} */ (['lonlat', 'latlon'])) {
             const url = buildPlandataWfsUrl(layer.typeName, lon, lat, axis);
             const text = await fetchTextOnce(url, deps);
             if (!text) continue;
             const props = pickFirstFeatureProps(text);
-            if (props) return { layer: layer.key, properties: props };
+            if (!props) continue; // wrong axis order (off-map) → try the other
+            const candidate = { layer: layer.key, properties: props };
+            // A layer that publishes a real dimension wins immediately (most-specific first).
+            if (hasUsableDimension(props)) return candidate;
+            // Otherwise remember the most-specific feature and fall through to the
+            // next (broader) layer, which may carry the numbers this one omitted.
+            if (!firstCandidate) firstCandidate = candidate;
+            break; // this layer answered with a (dimensionless) feature — next layer
         }
     }
-    return null;
+    return firstCandidate;
 }
 
 /** Set permissive same-origin cache headers on a zoning proxy response. */
