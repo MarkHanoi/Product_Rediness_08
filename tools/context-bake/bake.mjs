@@ -61,7 +61,19 @@ const REGION = {
 // §BAKE-UNIQUE-ID — `--add-unique-id=type_id` carries the real OSM id into the tile, so the client
 // can stop minting synthetic ids and can dedupe a footprint across tile boundaries properly.
 const LAYERS = [
-  { id: 'buildings', filter: ['w/building'],                                     geom: 'polygon',            minz: 12, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  // §BAKE-BUILDING-RELATIONS (L-580, 2026-07-22) — ⚠ `w/building` (WAYS ONLY) SILENTLY DROPPED
+  // EVERY MULTIPOLYGON-RELATION BUILDING. Measured against OSM for the Gòtic far extent:
+  //     ways 3,872  ·  relations 1,973   (total 5,845)
+  // i.e. ~34% of buildings in Barcelona's dense historic fabric are mapped as RELATIONS — the
+  // courtyard blocks with interior voids, which is precisely the shape that needs a relation. The
+  // baked tiles held 79% of ground truth there against 96–98% in Eixample/Vila Olímpica, and this
+  // is the whole difference. `wr/` takes ways AND relations; `tags-filter` pulls in their member
+  // ways automatically, and `osmium export` assembles them into MultiPolygons that the client
+  // reader already handles (one feature per outer ring).
+  //
+  // ⚠ NOT `nwr/` — that would additionally admit NODES tagged `building`, which carry no footprint
+  // and would be discarded by `--geometry-types polygon` anyway, after costing a pass over them.
+  { id: 'buildings', filter: ['wr/building'],                                    geom: 'polygon',            minz: 12, maxz: 16, extra: ['--drop-densest-as-needed'] },
   { id: 'roads',     filter: ['w/highway'],                                       geom: 'linestring',         minz: 10, maxz: 16, extra: ['--drop-densest-as-needed'] },
   // Water is genuinely MIXED — lakes/basins are areas, streams/rivers are ways. Both are wanted,
   // and `contextWater.ts` already splits them, so this is the one layer that keeps two types.
