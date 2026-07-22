@@ -343,6 +343,8 @@ export function barcelonaZoneRefusalFor(
 //
 // THE COST, ACCEPTED KNOWINGLY: 51.6 % of Barcelona's private buildable land (`13b`, `12`,
 // `12b`, `22a`, `22@`, `20a/*`) loses its envelope until Phases 1–3 land.
+// ⇒ §L-583 UPDATE: `13b` has since shipped a pack (8.8 pp of that 51.6 %), so the standing cost is
+// now ~42.8 % — `12`, `12b`, `22a`, `22@`, `20a/*`. The argument below is unchanged for those.
 //
 // ⚠ WHICH MAKES THE CARD THE THING THAT DECIDES WHETHER THIS SUCCEEDS OR BACKFIRES, and the copy
 // below is therefore load-bearing product surface, not a log line. Half of Barcelona will read
@@ -381,8 +383,15 @@ export function barcelonaZoneRefusalFor(
  * outranks tidy copy, in the explanation as much as in the number.
  */
 function coverageGapReasonFor(clau: string): string {
-    // *Alineacions de vial* — the shape itself is wrong. 12 / 12b / 13b.
-    if (clau === '12' || clau === '12b' || clau === '13b') {
+    // *Alineacions de vial* — the shape itself is wrong. 12 / 12b.
+    //
+    // ⚠ §L-583 — `13b` was in this list and is NOT any more: it now has a pack
+    // (`esBarcelonaSemiintensiva.ts`), and the registry gives a pack precedence over any refusal,
+    // so this branch is unreachable for it. The clau is left OUT rather than left in-and-dead:
+    // this copy is what a user reads, and a sentence claiming we have not encoded a zone we HAVE
+    // encoded is a false statement about our own coverage — the mirror image of the false
+    // statement about the law that the rest of this module exists to prevent.
+    if (clau === '12' || clau === '12b') {
         return (
             'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
             'did. It has been switched off deliberately: this zone is regulated by a different ' +
@@ -427,10 +436,10 @@ function coverageGapReasonFor(clau: string): string {
 
 /** What PRYZM covers today vs next — kept beside the copy that cites it so they cannot drift. */
 const BCN_ROADMAP_LINE =
-    'Barcelona coverage today: clau 13a / 13E (the Eixample), where the buildable depth is ' +
-    'constructed per PGM Art. 242 from the real cadastral block. Next: 13b, 12 / 12b, 22a and ' +
-    'the 20a family. Each zone ships only once its governing article has been read and accepted ' +
-    '— which is why this one is not here yet.';
+    'Barcelona coverage today: clau 13a / 13E (the Eixample) and clau 13b (densificació urbana ' +
+    'semiintensiva), where the buildable depth is constructed per PGM Art. 242 from the real ' +
+    'cadastral block. Next: 12 / 12b, 22a and the 20a family. Each zone ships only once its ' +
+    'governing article has been read and accepted — which is why this one is not here yet.';
 
 /**
  * The refusal shown on a privately-buildable clau PRYZM has not authored a pack for.

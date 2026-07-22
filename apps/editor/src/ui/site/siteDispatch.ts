@@ -84,7 +84,9 @@ import {
     blockEdgesFacingParcel,
     resolveAmpladaDeVial,
     BCN_STREET_WIDTH_QUANTISATION,
-    BCN_ORDINANCE_REF,
+    // §L-583 — `BCN_ORDINANCE_REF` (the 13a citation) is deliberately NO LONGER imported here.
+    // The height derivation row now carries the citation `resolveBcnAlcadaForZone` returned
+    // alongside the article that produced the number, so the two cannot drift apart per clau.
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1561,8 +1563,14 @@ async function applyBcnZoningThenFallback(
                                   zoneCode: withTier.zoneCode ?? clau,
                                   // The construction is stated in the source string so the panel's
                                   // explain-why shows HOW the number was reached, not just what it is.
+                                  // §L-583 — the ARTICLE is the zone's own (Art. 327.2 for 13a/13E,
+                                  // Art. 328 for 13b), never a literal. A row that named the wrong
+                                  // article would be the most damaging output this path can
+                                  // produce: a real number under an authoritative-looking citation
+                                  // to a document that does not govern the parcel (L-526).
                                   source:
-                                      `PGM Art. 327.2 alçada reguladora [width tier: ` +
+                                      `PGM ${alcadaArticle ?? 'alçada article n/a'} alçada ` +
+                                      `reguladora [width tier: ` +
                                       `${alcadaProvenance ?? 'unknown'}] — ${alcadaWhy}`,
                                   // NOT 'published'. The TABLE is the ordinance, but the WIDTH is
                                   // never a published figure: it is a curated Cerdà nominal value
@@ -1572,7 +1580,9 @@ async function applyBcnZoningThenFallback(
                                   // Badging any of them as published would be the L-459 defect
                                   // again (a constructed number rendering like a surveyed one).
                                   fieldProvenance: 'ordinance-pdf' as const,
-                                  ordinanceRef: BCN_ORDINANCE_REF,
+                                  // §L-583 — the zone's own citation, resolved alongside the
+                                  // article that produced the number (never the 13a constant).
+                                  ordinanceRef: alcadaOrdinanceRef,
                               },
                           ],
                       };

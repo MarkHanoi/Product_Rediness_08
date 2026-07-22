@@ -23,12 +23,16 @@ import {
 } from '../src/rulepacks/esBarcelonaZoneClassification.js';
 import { buildRefusedEnvelope, isRefusedEnvelope } from '../src/rulepacks/zoneRefusal.js';
 import { BCN_ENSANCHE_ZONE_CODES } from '../src/rulepacks/esBarcelonaEnsanche.js';
+import { BCN_SEMIINTENSIVA_ZONE_CODES } from '../src/rulepacks/esBarcelonaSemiintensiva.js';
 
 describe('L-550 P0.1 — the rule-pack registry', () => {
-    it('answers `pack` for every clau the Barcelona ensanche pack is registered for', () => {
-        for (const clau of BCN_ENSANCHE_ZONE_CODES) {
+    it('answers `pack` for every clau a Barcelona pack is registered for', () => {
+        // §L-583 — 13b joined 13a/13E here. The loop is over the packs' OWN code lists rather
+        // than a literal, so registering the next clau cannot leave this test asserting the old
+        // coverage while passing.
+        for (const clau of [...BCN_ENSANCHE_ZONE_CODES, ...BCN_SEMIINTENSIVA_ZONE_CODES]) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
-            expect(d.kind).toBe('pack');
+            expect(d.kind, clau).toBe('pack');
             if (d.kind === 'pack') {
                 expect(d.pack.jurisdictionId).toBe(BCN_JURISDICTION_ID);
                 // The pack must genuinely contain the zone it is registered against, or the
@@ -37,14 +41,37 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
                 expect(d.pack.zones.some((z) => z.code === clau)).toBe(true);
             }
         }
-        expect(registeredPackZoneCodes(BCN_JURISDICTION_ID)).toEqual([...BCN_ENSANCHE_ZONE_CODES]);
+        expect(registeredPackZoneCodes(BCN_JURISDICTION_ID)).toEqual([
+            ...BCN_ENSANCHE_ZONE_CODES,
+            ...BCN_SEMIINTENSIVA_ZONE_CODES,
+        ]);
+    });
+
+    it('§L-583 — 13b resolves to the 13b pack, never to the 13a one', () => {
+        // The two packs share the Art. 242 depth construction and NOTHING else. If 13b ever
+        // resolved through the ensanche pack, the engine would read 13a's zone entry and the
+        // panel would cite Art. 327 on Subzona II land (L-526's failure class).
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '13b');
+        expect(d.kind).toBe('pack');
+        if (d.kind !== 'pack') return;
+        const zone = d.pack.zones.find((z) => z.code === '13b');
+        expect(zone).toBeDefined();
+        expect(zone!.ordinanceRef).toMatch(/Art\. 326/);
+        expect(zone!.ordinanceRef).toMatch(/Art\. 328 states NO depth rule/);
+        // The rule is the Art. 242 CONSTRUCTION, not a transcribed depth (the "18,00 m" trap).
+        expect(zone!.geometricRule?.kind).toBe('block-derived-alignment');
+        // And every number the ordinance does not state per-parcel stays absent.
+        expect(zone!.maxHeight_m).toBeNull();
+        expect(zone!.plotRatioFAR).toBeNull();
     });
 
     it('L-553 — refuses a privately buildable clau with no pack, as a COVERAGE gap not a legal one', () => {
-        // FOUNDER DECISION 2026-07-21: 13b/12/12b/22a/22@/20a lose their envelope rather than be
+        // FOUNDER DECISION 2026-07-21: 12/12b/22a/22@/20a lose their envelope rather than be
         // shown a generic setback triple, because in an *alineacions de vial* zone that triple is
         // the wrong geometric OPERATION, and no badge can label a category error.
-        for (const clau of ['13b', '12', '12b', '22a', '22@', '20a', '20a/10']) {
+        // §L-583 — `13b` has LEFT this list because it now has a pack, not because the policy
+        // changed. That is the intended way out of a coverage gap: ship the zone's own article.
+        for (const clau of ['12', '12b', '22a', '22@', '20a', '20a/10']) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;
@@ -73,16 +100,20 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
     it('L-553 — the coverage-gap card names the zone and carries the parcel facts', () => {
         // The card is what decides whether full honesty succeeds or reads as a crash, so its
         // inputs are asserted, not assumed. Half of Barcelona's buildable land sees this.
+        // §L-583 — the specimen clau moved from `13b` (now packed) to `12b` (Barcelona's nucli
+        // antic de conservació, still a genuine coverage gap and a HARD one: L-583 §5.2 shows it
+        // is a neighbour-survey rule, not a table, and §5.3 that our height inputs are 0.9 %
+        // surveyed). The card's rules are unchanged; only the zone standing in for them is.
         const facts = ['Cadastral reference: 0230904DF3803', 'Parcel area: 412 m²'];
-        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '13b', {
-            zoneLabel: 'Densificació Urbana Semiintensiva',
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '12b', {
+            zoneLabel: 'Nucli Antic de Conservació',
             knownFacts: facts,
         });
         expect(d.kind).toBe('refusal');
         if (d.kind !== 'refusal') return;
         // Rule 1 — the zone, in the ordinance's own words, in the headline.
-        expect(d.refusal.headline).toContain('Densificació Urbana Semiintensiva');
-        expect(d.refusal.headline).toContain('13b');
+        expect(d.refusal.headline).toContain('Nucli Antic de Conservació');
+        expect(d.refusal.headline).toContain('12b');
         // Rule 2 — "not encoded yet", never "no envelope applies" (that is the legal card).
         expect(d.refusal.headline).toMatch(/not encoded/i);
         expect(d.refusal.headline).not.toMatch(/no envelope applies/i);
@@ -107,8 +138,10 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
             expect(d.kind).toBe('refusal');
             return d.kind === 'refusal' ? d.refusal.detail : '';
         };
-        // Alineació de vial — the shape argument is correct here.
-        for (const clau of ['12', '12b', '13b']) {
+        // Alineació de vial — the shape argument is correct here. (§L-583: `13b` is no longer in
+        // this list because it is packed; the argument still holds for it, it is just no longer
+        // reached.)
+        for (const clau of ['12', '12b']) {
             expect(detailFor(clau), clau).toMatch(/façade sits on the street line/i);
             expect(detailFor(clau), clau).toMatch(/wrong SHAPE/);
         }
@@ -124,7 +157,7 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
             expect(detailFor(clau), clau).toMatch(/floor-area index/i);
         }
         // Every card, whatever the family, must carry the three invariants.
-        for (const clau of ['12', '13b', '20a/10', '22a', '99z']) {
+        for (const clau of ['12', '12b', '20a/10', '22a', '99z']) {
             const d = detailFor(clau);
             expect(d, clau).toMatch(/coverage gap, not an error/i);
             // The COMMITMENT, not one exact phrasing: every card must say, in whatever words fit
