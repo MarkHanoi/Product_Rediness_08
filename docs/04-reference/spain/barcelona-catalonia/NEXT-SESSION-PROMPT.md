@@ -185,3 +185,83 @@ the parcel ring as the "envelope"), and `maxVolumeM3 = insetAreaM2 × maxHeight`
   question, not an imprecise answer to the right one (C58 §1.11).
 - Test on **https://pryzm.fly.dev**; **hard-refresh** (SW is network-first).
 - **Say plainly what is unverified.** "Wired but not observed" ≠ "working".
+
+---
+
+# ⇒ END-OF-SESSION ADDENDUM (2026-07-22 late) — READ THIS BEFORE THE TABLE ABOVE
+
+The body of this file was written mid-session. Four things changed after it, and two of them
+**invert** advice given earlier in this same document.
+
+## 1. ⚠ THE ORDERING FLIPPED — L-581 NOW OUTRANKS THE RPUC SESSION
+
+Earlier this file says *"start the RPUC session, it is the long pole"*. **That was correct when
+layer 6 was unmeasured. It is no longer correct.**
+
+| | end-to-end |
+|---|---|
+| today | **5.8%** |
+| + 13b ships | 7.9% |
+| **+ L-581 fixed** | **20.4%** ⭐ |
+| + full coverage | 63.6% |
+
+**L-581 alone is a 2.6× gain, with zero external dependency**, and while it is open PRYZM states
+*"Art. 242.2 cannot be satisfied on this block"* on the strength of our own offset failing. It is
+also a **multi-city** fix — Madrid 2/4 and Córdoba 0/3 were blocked by the same depth path.
+**Start here.**
+
+## 2. ⚠ THE L-581 REMEDY IS NOT THE HALF-PLANE SWAP — THAT RECOMMENDATION WAS RETRACTED
+
+An adversarial second opinion (`L-581-SECOND-OPINION-PROMPT.md`) demolished it, and the fixture
+confirmed the reviewer was right:
+
+- The load-bearing claim — *"47–89% free area after eroding 30 m from every frontage is physically
+  impossible"* — **was wrong.** The call is `{front: d, side: 0}`, so **only front edges erode**. The
+  outlier blocks have **25–36% front-edge fraction**; the control where both methods agreed to 0.2 m
+  has **71%**. Large remaining area is the *expected* behaviour of an anisotropic offset.
+- Half-plane intersection **over-states** free area at convex front–front corners (the true offset
+  rounds the corner), i.e. it can **over-state buildable depth** — fabrication in the direction
+  C58 §1.4 exists to prevent.
+
+**THE PLAN INSTEAD:** in `insetPolygonPerEdge`, **CLAMP a reversed edge's contribution instead of
+DROPPING its line** (dropping abandons the constraint and cascades), **plus a monotonicity guard in
+`solveBlockDerivedDepth` that REFUSES** with an honest reason when `interiorFreeAt` is measured
+non-monotone across the bisection's own sample points. Fixture for offline verification:
+`scratchpad/l581-blocks.fixture.json` (65 blocks, front/total edge counts, convexity recorded).
+
+⚠ **All 65 blocks carry 10–43 REFLEX vertices — ZERO are convex.** An earlier claim that Eixample
+illes are "convex-ish" was wrong; weigh the measurements, not that rationale.
+
+## 3. CLOSED SINCE THE BODY OF THIS FILE WAS WRITTEN
+
+- **L-528 — RESOLVED, our 20,75 m was CORRECT.** 22,40 m is the *alçada reguladora incrementada*
+  (Art. 21, Ordenança de l'Eixample, Barcelona's own). Fixed in code — see L-583 §3.
+- **L-577b — founder REPRODUCED it, and it was NONE of the three candidates**: clicking the panel
+  HEADER (a drag handle) on a `position: absolute` panel whose `left` was written in viewport space.
+  Fixed at `makeDraggable`.
+- **A3 — ANSWERED. `13b` INHERITS Art. 242's 30%**, on a *structural* argument (L-583 §9). ⇒ **13b is
+  the week-of-config branch and is now unblocked.**
+- **L-578 — CORS is live**; both clients read R2 direct again (v281). The proxies are unused and can
+  be deleted.
+
+## 4. STILL OPEN, IN ORDER
+
+1. **L-581** — per §1/§2 above.
+2. **Estimated-card render race** — the generic default pack SOLVES AND PAINTS before the Barcelona
+   resolver refuses (`§ENVELOPE-RESOLVE-DIAG … maxHeight=12 m` precedes `§L-553 REFUSAL` in the
+   founder's own console). L-553 removed the estimated fallback from the FINAL answer, not the
+   INTERMEDIATE one, and `§ENVELOPE-REINSET` can re-derive it from PERSISTED generic setbacks.
+3. **13b rule pack** — unblocked; cite **Art. 242 via Art. 326**, never Art. 328 (which has no depth
+   rule — citing it would be a fabricated attribution of the L-526 kind).
+4. **13E gap** — the *Conjunt Especial de l'Eixample* overlay is not encoded.
+5. **12b** — a NEIGHBOUR-SURVEY rule, not a table. ⚠ **BLOCKED on surveyed heights**: our context
+   layer is **0,9% surveyed** (L-582), so averaging it into a legal height would be fabrication.
+6. **Founder-gated:** the A3 verbatim scoping sentence (upgrades tier, does not change the answer).
+
+## 5. THE METHOD NOTE THAT OUTLIVES ALL OF THE ABOVE
+
+**Six confident hypotheses died in one session**, one of them killed by a review written to invite
+demolition. The three failure shapes are in §"HOW PROBE BEFORE FIX FAILED THREE TIMES" above; the
+fourth, fifth and sixth were the mixed-vs-uniform root cause, the convexity rationale, and the
+half-plane recommendation. **A probe is evidence only once a differently-designed probe agrees, and
+an INDEPENDENT source beats a cleverer version of the same one.**
