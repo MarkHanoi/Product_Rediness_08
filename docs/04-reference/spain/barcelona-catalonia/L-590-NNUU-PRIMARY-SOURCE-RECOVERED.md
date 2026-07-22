@@ -178,3 +178,76 @@ encode", and the whole PGM is now a local, greppable, coordinate-addressable pri
 ⚠ **Still to confirm:** whether page 111's footnote-54 Barcelona modification changes 20a's indices,
 and whether Art. 350 carries a Barcelona-exclusive override of its own. **The volume flags its
 per-municipality modifications by footnote — check every article we encode for one.**
+
+---
+
+# §7 — ⚠⚠ Art. 238 DEFINES *amplada de vial* — and our measurement uses the wrong statistic
+
+The "which of the three widths does the ordinance mean?" question — flagged as our **biggest hidden
+assumption**, because it is systemic across every clau with a width-banded height table — **is
+answered by the ordinance itself.** Page 78, **Art. 236.3 and Art. 238**, both now local.
+
+### The definition
+
+**Art. 236.3.a/b/c** fixes the vocabulary:
+- ***Alineació de vial*** — *"la línia que estableix límits a l'edificació al llarg dels vials"*
+- ***Línia de façana*** — *"el tram d'alineació pertanyent a cada parcel·la"*
+- ***Ample de vial*** — *"la mida lineal que, com a **distància entre dues bandes del carrer**, es pren
+  com a constant o paràmetre que serveix per a determinar l'altura reguladora"*
+
+**Art. 238.1** then gives the measurement rule:
+
+| | rule |
+|---|---|
+| **a** | If the *alineacions de vialitat* are parallel with a **constant** distance along a whole stretch between two cross-streets, **take that distance**. |
+| **b** | If they are **not parallel**, or show widenings/narrowings/irregularities, take **for each SIDE of a street segment between two cross-streets, the MINIMUM *amplada puntual*** on that side and segment. |
+| **c** | ***Amplada puntual*** at a point on an alignment = *"**la menor** de les distàncies entre aquest punt i els punts de l'alineació oposada del mateix vial"* — **the MINIMUM distance from that point to the opposite alignment.** |
+| **d** | If opposite frontages or nearby stretches of the same street yield different widths **in land of the same zoning**, take *"**l'amplada mitjana** que asseguri un nombre màxim de plantes uniforme"* — the AVERAGE that produces a uniform storey count. |
+
+**Art. 238.2** — *"L'amplada vial és la que resulta de la **real afectació a l'ús públic**"*. Only
+effectively urbanised streets serve as the parameter; for new-opening streets it is what the plan and
+urbanisation project actually cede to public use.
+
+### ⇒ THE GOOD NEWS: our approach is CONCEPTUALLY RIGHT
+
+The ordinance measures **between ALINEACIONS** — planning alignment lines, which for the *ordenació
+segons alineacions de vial* coincide with the façade line (Art. 237.1). **It is not curb-to-curb.**
+Our ray-cast from a block frontage to the opposing frontage measures exactly that pairing, and
+Art. 238.1.c's *point → nearest point on the opposite alignment* **is a ray-cast**. The feared
+"conceptually wrong, not merely imprecise" outcome did not materialise.
+
+### 🔴 THE DEFECT: the ordinance says MINIMUM, we compute MEDIAN
+
+`streetWidth.ts` samples across an edge and returns `median(samples)`, deliberately, so that one
+stray ray cannot move the answer. **Art. 238.1.b/c says the governing figure is the MINIMUM.**
+
+⚠ **AND THE DIRECTION IS THE FORBIDDEN ONE.** `median ≥ min`, so we report a **wider** street than
+the rule prescribes, which selects a **higher** band, which **over-states permitted height** — the
+direction C58 §1.4 forbids, and the same class as the L-586 over-statement found today.
+
+**How much it can matter:** an edge is accepted while its spread is ≤ 3.0 m, so median can sit up to
+~1.5 m above the minimum — **more than enough to cross the 8, 11, 15 or 20 m band edges** and buy a
+storey the ordinance does not grant.
+
+⚠ **It is NOT a simple `median → min` swap, and must not be done as one.** Art. 238 is a three-part
+rule and the parts interact:
+1. **238.1.a** — for genuinely parallel alignments the answer is *the* constant distance; min, median
+   and mean coincide, and our tight-spread accept path already lands there. **No change for the
+   common case.**
+2. **238.1.b/c** — for irregular alignments the answer is the **minimum, per SIDE, per SEGMENT
+   BETWEEN TWO CROSS-STREETS.** We currently segment by block EDGE, which is not the same partition:
+   one cadastral edge may span several *trams*, and one *tram* may span several edges.
+3. **238.1.d** — where opposite frontages differ in same-zoned land, the ordinance **AVERAGES to
+   force a uniform storey count.** We have no such rule, and it cuts the opposite way to (2).
+
+⇒ **Naively taking the minimum would satisfy (c) while violating (d), and would still use the wrong
+partition for (b).** This needs implementing as Art. 238 in full, with the *tram*-between-cross-
+streets partition, and it should be measured against the fixture before and after — a shift toward
+the minimum will move real heights DOWNWARD on irregular streets.
+
+⚠ **Also unmodelled: Art. 238.2's "real afectació a l'ús públic".** We measure any gap between
+frontages, whether or not it is an urbanised public street. An interior courtyard or a private gap
+would be measured as if it were a vial.
+
+**⇒ Logged as the next layer-5 work item. It does not block 22a or 20a encoding, which key on the
+same `amplada de vial` and therefore inherit whatever this resolves to.**
