@@ -14,7 +14,10 @@
  *   // later:
  *   disposeDrag();
  *
- * @param panel               The floating panel root element (position:fixed).
+ * @param panel               The floating panel root element. `position: fixed` OR
+ *                            `absolute` — §L-577b made the utility offset-parent aware,
+ *                            so an absolutely-positioned panel inside an offset
+ *                            container no longer jumps by that container's position.
  * @param dragHandleSelector  CSS selector for the drag grip relative to `panel`
  *                            (e.g. '.vg-header'). Re-evaluated on each mousedown.
  * @param excludeSelectors    CSS selectors for children that must NOT start a drag
@@ -62,9 +65,47 @@ export function makeDraggable(
      * cursor↔origin offset from that SAME rect — no second, post-mutation read to
      * disagree with.
      */
+    /**
+     * §L-577b — the ORIGIN that `style.left/top` are measured from, in viewport coordinates.
+     *
+     * ⚠ THIS UTILITY USED TO ASSUME `position: fixed` (see the `@param` above) AND SILENTLY
+     * CORRUPT ANY PANEL THAT WAS NOT. `getBoundingClientRect()` is VIEWPORT-relative, but for a
+     * `position: absolute` element `style.left` is measured from its OFFSET PARENT'S padding box.
+     * Writing the former into the latter displaces the panel by the offset parent's position.
+     *
+     * The founder hit exactly this: the buildable-envelope panel is `position: absolute` inside the
+     * 3D-Site RIGHT PANE, whose left edge sits ~600–950 px into the window. A single CLICK on the
+     * header — mousedown alone, no drag — pinned a viewport-relative `left` and launched the panel
+     * clean off the right of the screen. Reported as *"as soon as I select the panel it
+     * disappears"*, and unreproducible for anyone who never clicked the header.
+     *
+     * The viewport clamp in `onMouseMove` could not save it, because a click produces no mousemove.
+     */
+    function originOf(): { x: number; y: number } {
+        if (getComputedStyle(panel).position === 'fixed') return { x: 0, y: 0 };
+        const op = panel.offsetParent as HTMLElement | null;
+        if (!op) {
+            // No positioned ancestor ⇒ offsets are relative to the initial containing block, i.e.
+            // the document, so the origin moves with the page scroll.
+            return { x: -window.scrollX, y: -window.scrollY };
+        }
+        const r = op.getBoundingClientRect();
+        const cs = getComputedStyle(op);
+        // `left` is measured from the offset parent's PADDING box, so skip its border; and the
+        // parent's own scroll shifts the coordinate space.
+        return {
+            x: r.left + (parseFloat(cs.borderLeftWidth) || 0) - op.scrollLeft,
+            y: r.top + (parseFloat(cs.borderTopWidth) || 0) - op.scrollTop,
+        };
+    }
+
+    let originX = 0;
+    let originY = 0;
+
     function pinToAbsolute(rect: DOMRect) {
-        panel.style.left      = rect.left + 'px';
-        panel.style.top       = rect.top  + 'px';
+        // Convert the viewport rect into the coordinate space `left/top` actually use.
+        panel.style.left      = (rect.left - originX) + 'px';
+        panel.style.top       = (rect.top  - originY) + 'px';
         panel.style.right     = 'auto';
         panel.style.bottom    = 'auto';
         panel.style.margin    = '0';
@@ -82,6 +123,12 @@ export function makeDraggable(
         // Single rect read: the panel's true on-screen box (already accounts for any
         // translate centring). Both the absolute-pin AND the grab offset derive from
         // THIS rect, so the panel cannot jump on the first move.
+        // §L-577b — resolve the coordinate origin BEFORE pinning, and from the panel's CURRENT
+        // layout: `pinToAbsolute` mutates position properties, which can change `offsetParent`.
+        const o = originOf();
+        originX = o.x;
+        originY = o.y;
+
         const rect  = panel.getBoundingClientRect();
         offsetX     = e.clientX - rect.left;
         offsetY     = e.clientY - rect.top;
@@ -97,14 +144,18 @@ export function makeDraggable(
 
     function onMouseMove(e: MouseEvent) {
         if (!dragging) return;
-        // left = cursor - grabOffset preserves the exact point the user grabbed.
+        // left = cursor - grabOffset preserves the exact point the user grabbed. These are
+        // VIEWPORT coordinates, which is the space the clamp below must work in.
         const x = e.clientX - offsetX;
         const y = e.clientY - offsetY;
-        // Clamp so the panel can't be dragged fully off-screen.
+        // Clamp so the panel can't be dragged fully off-screen — in viewport space...
         const maxX = Math.max(0, window.innerWidth  - panelW);
         const maxY = Math.max(0, window.innerHeight - panelH);
-        panel.style.left = Math.min(maxX, Math.max(0, x)) + 'px';
-        panel.style.top  = Math.min(maxY, Math.max(0, y)) + 'px';
+        const clampedX = Math.min(maxX, Math.max(0, x));
+        const clampedY = Math.min(maxY, Math.max(0, y));
+        // ...then §L-577b converts into the space `left/top` are actually measured from.
+        panel.style.left = (clampedX - originX) + 'px';
+        panel.style.top  = (clampedY - originY) + 'px';
     }
 
     function onMouseUp() {
