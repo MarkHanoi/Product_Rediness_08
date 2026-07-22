@@ -130,6 +130,37 @@ roughly a third of the distance to a healthy offset — and layer 6 remains wort
 lever combined. Treating L-581 as "done" because a fix shipped would leave the largest lever on the
 table. **The next unit of engineering effort belongs here, not on data acquisition.**
 
+### §2.0.3 — ⇒ THE DESTINATION: what we are actually working towards in Barcelona
+
+Each rung is a distinct workstream. This is the whole Barcelona programme on one ladder:
+
+| | end-to-end | gain | workstream |
+|---|---|---|---|
+| today | **6.5%** | — | — |
+| + 13b rule pack | 8.9% | +2.4 | legal sourcing (done, needs encoding) |
+| + layer 6 healthy (80%) | 17.2% | **+8.3** | **engineering only — finish L-581** |
+| + height coverage 95% | 20.8% | +3.7 | Art. 327 edge cases |
+| + dissolve 95% | 23.8% | +3.0 | geometry |
+| **+ ALL remaining clau packs** | **54.7%** | **+30.9** | ⟵ **THE BIGGEST ITEM ON THE BOARD** |
+| + every layer at 95% | **65.0%** | +10.3 | engineering polish |
+
+**⇒ Barcelona's destination is ~65% constructed, ~88% definitive** (the rest being the 24.2% that
+correctly answers *"no envelope applies"*).
+
+### ⚠⚠ THE STRATEGIC FACT THIS LADDER EXPOSES
+
+**The ~23.8% I have been quoting is only the ceiling of WHAT IS ALREADY BUILT.** The gap between
+23.8% and 65% is **one thing: rule packs.** At **+30.9 points it is worth 3.7× the largest
+engineering item** — and it is precisely the workstream that **cannot be accelerated by hiring
+engineers**, because its cost is human-gated legal SOURCING (§4.1: AMB 403s scripted fetch,
+Barcelona's ordinance page is robots-disallowed, the authoritative viewers are interactive).
+
+⇒ **Engineering effort and coverage effort are not substitutes, and the binding constraint is the
+one we cannot parallelise.** Any plan that funds only engineering tops out at 23.8%.
+
+⇒ **This is also the moat.** A competitor cannot buy these packs either — see §1.7 of the
+architecture doc.
+
 ### §2.1 — Rule-pack coverage by *clau*
 
 | *clau* | Status | Effect on coverage | Note |
