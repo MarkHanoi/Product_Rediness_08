@@ -4514,3 +4514,79 @@ across the bisection's own sample points.
 It is **~64% constructed + ~24% correctly refused = ~88% of parcels receiving a DEFINITIVE CORRECT
 answer**. 100% constructed is neither achievable nor desirable — pushing past the ceiling means
 fabricating envelopes where the ordinance grants none, which is the L-550/L-553 line.
+
+---
+
+# SCALING BEYOND BARCELONA — the strategy, and the evidence behind it (2026-07-22)
+
+**Founder question:** *"once we are at ~85% Barcelona, how difficult is it to scale to other
+municipalities?"*
+
+## ⚠ THE FRAMING THAT MATTERS: cost scales with DATA REGIMES, not with cities
+
+Adding a **city** costs almost nothing. Adding a **new way that planning law is published** costs
+everything. Every estimate below follows from that, and it is why the tier table is not ordered by
+distance from Barcelona.
+
+## What ALREADY scales — proven this session, not assumed
+
+| Component | Evidence it transfers |
+|---|---|
+| **Context tiles** | `tools/context-bake/bake.mjs` takes any Geofabrik region. Madrid or Córdoba = change a bbox, re-run one CI job. |
+| **Catastro parcel/block source** | **NATIONAL.** `buildParcelBboxUrl`, `parseParcelCollectionGml`, `manzanaPrefix` already work Spain-wide — the L-539 sweep covered Madrid and Córdoba. |
+| **Geometry engine** | Dissolve, ray-cast street width, inset, block-derived depth — all zone-agnostic. |
+| **The honesty apparatus** | Refusal tiers, per-field provenance, confidence badges, refuse-rather-than-fabricate. Jurisdiction-independent — **and it is the hard part, already built.** |
+| **Measurement harness** | The six-layer sweep (`probe-l576-*`) re-runs against any city. |
+
+⇒ **L-581 IS A MULTI-CITY FIX.** The L-539 probe had Madrid at **2/4** and Córdoba at **0/3**
+blocked by the **dissolve/depth path, not by rules**. Fixing the depth engine lifts every Spanish
+city at once. That is a second, independent reason it outranks legal sourcing.
+
+## ⚠ WHAT DOES NOT SCALE — and this session proved the mechanism
+
+**You cannot encode "PGM Art. 328" once and reuse it across the metropolitan area.** The
+`08015` (Badalona) vs `08245` copies of Art. 328 **state different numbers** (L-583 §1). Same plan,
+same article number, **different law** — because each municipality layers its own *modificacions*
+onto shared article numbers.
+
+That kills the naive model *"encode the PGM once, get 36 municipalities free"*.
+
+## The realistic tiers
+
+| Tier | Example | Cost per municipality | Why |
+|---|---|---|---|
+| **1 — same metropolitan plan** | AMB's ~36 (Badalona, L'Hospitalet, Santa Coloma, Sant Cugat) | **days** | Article STRUCTURE is shared. Barcelona's pack is the template; each city is a *diff* of modificacions. |
+| **2 — other Catalan** | Girona, Tarragona | **weeks** | Different plans, but RPUC publishes them and the **MUC clau taxonomy is shared**, so zone identification survives. |
+| **3 — other Spanish regions** | Madrid (PGOUM 1997), Córdoba | **months** | Different plan, different taxonomy, different portal. Catastro + geometry survive; the zone-identification layer is rebuilt. |
+| **4 — structured-data jurisdictions** | Denmark (Plandata), NL, parts of DE | ⚠ **possibly CHEAPER than Tier 1** | Publishes **structured fields** ⇒ **no rule pack at all**. That path already exists in `ZoningRulesEngine` (`structuredFields`). |
+
+⇒ **The Tier-4 inversion is the strategic finding: Denmark is easier than Badalona.** Not because
+the law is simpler, but because it is machine-readable. Spain makes you read PDFs.
+
+## ⚠ THE REAL BOTTLENECK IS HUMAN-GATED AND DOES NOT PARALLELISE
+
+Sourcing, not encoding. This session: **AMB 403s to scripts, Barcelona's own book page is
+robots-disallowed, per-municipality pages 404, and the authoritative viewers are interactive.** Two
+capable research agents hit the same wall from different angles, twice each.
+
+**You cannot hire engineers out of that.** Every jurisdiction needs one human with a browser, once.
+Plan capacity around that, not around developer-days.
+
+## THE RECOMMENDED SEQUENCE
+
+1. **Finish Barcelona to ~88% definitive.** It is the template, and the only place the template gets
+   VALIDATED.
+2. **Then take ONE AMB neighbour — L'Hospitalet or Badalona.** This MEASURES the Tier-1 diff cost
+   empirically instead of trusting the estimate above. **If it is genuinely days, AMB's 36
+   municipalities are a real market. If it is weeks, the whole tier reprices** — and it is far better
+   to learn that on city #2 than on city #12.
+3. **Prefer a structured-data jurisdiction for the second COUNTRY** (Denmark / NL / DE) over a second
+   Spanish region — higher coverage per unit of effort, and it exercises the `structuredFields` path
+   that is currently under-tested.
+
+## ⚠ THE ONE THING TO RESIST
+
+**Do NOT scale breadth before L-581 and the layer-4/5 fixes.** At **36.9%** geometry-soundness,
+adding cities multiplies a broken denominator — every new city inherits the same under-reported
+depths and the same false *"Art. 242.2 cannot be satisfied"* claim. **Fix the engine at one city and
+the same fix pays out everywhere**; scale first and you pay to re-verify every city after the fix.
