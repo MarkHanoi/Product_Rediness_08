@@ -89,6 +89,22 @@ Paste this whole file to start the next Claude Code session.
 >    - ⚠ **A DTM upgrade serves the RASANT and does nothing for heights; an nDSM serves HEIGHTS and
 >      does nothing for the rasant.** Separate programmes, separate licences — do not fund as one.
 >
+>
+> 8. **⚠⚠ THE SIX-LAYER SCORE IS A *RESOLUTION* RATE, NOT AN *ACCURACY* RATE** (§11 of the same doc).
+>    Layer 5 counts **78.3%** because a height was PRODUCED — it never asks whether the height was
+>    measured **from the right datum**. The rasant defect does not lower that 78.3%; it means part of
+>    it is a **correct number on the WRONG REFERENCE LEVEL** (C58 §1.11). ⇒ **Every percentage in
+>    this hand-off — 83.0 / 78.3 / 36.9 / 5.8 — is a resolution rate. Never present them as
+>    accuracy.** On sloping parcels 5.8% is optimistic and **V6 (gated by V8) is what measures by how
+>    much.**
+>
+>    **Mapped onto the six layers, the Cityweft workstream barely touches them:** **L-581 is the ONLY
+>    item that moves the scoreboard** (layer 4 + layer 6, 5.8% → ~20.4%). The **entire LiDAR/context
+>    programme sits OUTSIDE the six layers** except the **+1.8%** that 12b adds to layer 2 — so the
+>    most expensive, most exciting workstream from that call buys **1.8% of coverage** and a better
+>    scene. ⚠ **The terrain work raises NO number — it protects one we already claim, which is
+>    exactly the kind of defect that gets deferred forever unless it is named.**
+>
 > Everything else in the body stands as written — in particular **§2 (the half-plane retraction)**
 > and **§5 (the method note)**, which are the two sections most likely to save you a wasted session.
 

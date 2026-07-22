@@ -538,3 +538,66 @@ city-scale capture.** Our moat is **depth of legal correctness per municipality*
 moat while it is deep. **That argues for finishing Barcelona to a defensible standard before
 widening** — which is the same conclusion the coverage maths reaches from the other side (**L-581
 first**), and the two agreeing is the strongest signal on this page.
+
+
+---
+
+# §11 · MAPPED ONTO THE SIX LAYERS — **and the uncomfortable thing this reveals**
+
+*The six-layer definition of done is the only honest scoreboard we have. Every item in §10 must
+answer: WHICH LAYER, and does it move COVERAGE or CORRECTNESS?*
+
+| # | Layer | Live | What in §10 touches it | Coverage or correctness? |
+|---|---|---|---|---|
+| 1 | parcel | ✅ solved | — | — |
+| 2 | zone (clau) | 33.0% w/ 13b | **nDSM → unblocks 12b (+1.8%)** | **coverage** (small) |
+| 3 | block dissolve | folded in 83.0% | — | — |
+| 4 | depth (Art. 242) | folded in 83.0% | **L-581 CLAMP** | **coverage** ⭐ |
+| 5 | height (Art. 327) | 78.3% | **⚠ TERRAIN / RASANT (V6·V7·V8)** | **⚠ CORRECTNESS — see below** |
+| 6 | render / inset volume | **36.9%** | **L-581 CLAMP** | **coverage** ⭐⭐ |
+| — | *context buildings* | 0.9% surveyed heights | nDSM · footprint×height split · Overture/MS | **NEITHER — not a layer** |
+
+## 11.1 · ⚠⚠ THE FINDING: THE RASANT DEFECT LIVES INSIDE LAYER 5, AND LAYER 5 ALREADY COUNTS AS SOUND
+
+Layer 5 measures **78.3%** — "the Art. 327 height was constructed." But that measurement asks
+**"did we produce a height?"**, never **"is the height measured from the right datum?"**
+
+**The rasant defect does not REDUCE layer 5's 78.3%. It means part of that 78.3% is a correct number
+placed on the WRONG REFERENCE LEVEL** — a right answer to a slightly different question (C58 §1.11),
+which is the failure mode this product exists to avoid.
+
+⇒ **THE SIX-LAYER SCORE MEASURES WHETHER WE PRODUCE AN ANSWER, NOT WHETHER THE ANSWER IS RIGHT.**
+The 5.8% is a **resolution** rate, not a **correctness** rate. On sloping parcels it is optimistic,
+and **we do not yet know by how much — that is exactly what V6 measures** (gated by V8).
+
+⚠ This is the most important sentence in the document: **every percentage we have ever quoted,
+including 83.0 / 78.3 / 36.9 / 5.8, is a resolution rate.** Nobody should present them as accuracy.
+
+## 11.2 · ⇒ WHAT THAT DOES TO THE ORDER (it CONFIRMS it — from a second direction)
+
+- **L-581 is the ONLY item in §10 that moves the scoreboard**: layer 6 **36.9%**, layer 4, and
+  end-to-end **5.8% → ~20.4%**. Everything else moves **correctness or context**.
+- **The terrain work does not raise a number — it PROTECTS one we already claim.** That makes it
+  hard to justify on a dashboard and easy to justify to an architect who builds from our envelope.
+  ⚠ **Defects that lower no metric are the ones that get deferred forever.** Name it, or it will be.
+- **The whole context/LiDAR programme sits OUTSIDE the six layers** except for the **1.8%** that 12b
+  contributes to layer 2. **⚠ That is the single most decision-relevant fact on this page**: the
+  most expensive, most exciting workstream from the Cityweft call buys **1.8% of coverage** and a
+  better-looking scene.
+
+## 11.3 · ⇒ THE HONEST SCOREBOARD AFTER ALL SIX LAYERS
+
+| Item | Layer(s) | Effort | End-to-end effect |
+|---|---|---|---|
+| **L-581 clamp** | 4 + **6** | days | **5.8% → ~20.4%** ⭐ |
+| 13b rule pack | 2 | ~week | 24.2% → **33.0%** coverage |
+| V6/V7/V8 terrain + rasant | **5** | ~1 day probes, then unknown | **0%** — protects existing correctness |
+| Honest terrain fallback | 5 | hours | 0% — closes a live honesty hole |
+| Footprint×height split | context | small | 0% — **enabling**, needed by every branch |
+| nDSM / LiDAR programme | context + **2 via 12b** | **weeks**, licence-gated | **+1.8%** + L-527 + scene quality |
+| Overture/MS interim heights | context | days | 0% — ⚠ worthless unless it beats ground truth |
+
+⇒ **Do L-581. Then the three probes and the two cheap correctness items in parallel. Treat the LiDAR
+programme as what it is: a CONTEXT-QUALITY and 12b investment, not a coverage lever** — and schedule
+it against a business reason (demo credibility, 12b, a customer asking for real neighbours), never
+against the six-layer number, which it barely moves.
