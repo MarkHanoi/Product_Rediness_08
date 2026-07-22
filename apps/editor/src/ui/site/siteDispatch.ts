@@ -1483,6 +1483,12 @@ async function applyBcnZoningThenFallback(
                 // would be the one failure mode worse than showing nothing.
                 const zoned = resolveBcnAlcadaForZone(clau, amplada.width_m, {
                     trustedOfficialWidth: amplada.trustedOfficialWidth,
+                    // §L-586 — hand the band-edge guard this measurement's OWN error bar. 0.5 m is
+                    // the measured-for-declared substitution allowance, not a claim about THIS
+                    // measurement's noise; a frontage whose rays disagree by more than that can
+                    // straddle a band edge the constant clears (PS Gràcia 66: 19.15 m ± 0.87 m
+                    // shipped 17.70 m while its own samples reached 20.02 m).
+                    measurementSpread_m: amplada.measurementSpread_m,
                 });
                 if (!zoned) {
                     alcadaWhy =

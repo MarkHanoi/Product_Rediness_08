@@ -115,7 +115,19 @@ export function parseBlockResponse(json: unknown): BlockFeature | null {
         if (!p) return null;
         parcels.push(p);
     }
-    if (parcels.length < 3) return null;
+    // §BLOCK-SINGLETON-MANZANA (L-586) — a 1–2 parcel block is admitted ONLY on the server's
+    // explicit `freeStanding: true` verdict, which it reaches by measuring that no other parcel in
+    // the bbox touches this one (city blocks are separated by streets). Seven of the 100 manzanas
+    // in the live Barcelona sweep are genuine single-parcel blocks — four of them full ~12,000 m²
+    // Eixample illes — and the old blanket `< 3` refusal cost every one of them a depth, a width,
+    // a height and a real footprint.
+    //
+    // ⚠ THE DEFAULT IS STILL REFUSAL. Only the literal `true` opens the gate: `false`, `null`,
+    // absent, or any other shape all keep the old behaviour, so an older server, a truncated
+    // response or a proxy that rewrote the body cannot talk this client into trusting a partial
+    // block. The client never re-derives the verdict — it has no bbox to measure against, and a
+    // second, weaker implementation of the same test is exactly the parallel code path C58 forbids.
+    if (parcels.length < 3 && b.freeStanding !== true) return null;
 
     // §STREET-WIDTH-NEIGHBOURS (L-537) — DELIBERATELY the opposite failure policy to the block
     // parcels above. A malformed BLOCK parcel invalidates the whole block, because a shrunken

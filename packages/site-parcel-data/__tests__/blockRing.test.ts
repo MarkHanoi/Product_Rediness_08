@@ -351,3 +351,117 @@ describe('ADR-0271 P4 — classifyBlockFrontages', () => {
         expect(twice).toEqual(once);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §DISSOLVE-INTERIOR-VOID (L-586)
+//
+// A perimeter that chains into several loops is not one failure but four, and the SIGN of the
+// area identity is what tells them apart (see the module header). Census over the same 956 real
+// manzanas: 233 multi-loop, of which 83 are holes, 74 interior overlaps, 11 detached fragments and
+// 65 satisfy neither identity. Only the 83 may be recovered — and the bias of this block of tests
+// is again deliberate: three of its five cases assert a REFUSAL.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('L-586 §DISSOLVE-INTERIOR-VOID — a hole in a tiling is not a broken tiling', () => {
+    /** Four parcels tiling a 30×30 block around a 10×10 unparcelled courtyard. */
+    const RING_OF_FOUR: Pt[][] = [
+        rect(0, 0, 30, 10),   // south band
+        rect(0, 20, 30, 30),  // north band
+        rect(0, 10, 10, 20),  // west jamb
+        rect(20, 10, 30, 20), // east jamb
+    ];
+
+    it('returns the OUTER loop as the ring and the courtyard as a void', () => {
+        const res = dissolveParcelsToBlockRing(RING_OF_FOUR);
+        expect(res.degenerate).toBe(false);
+        expect(res.reason).toBeNull();
+        expect(polygonArea(res.ring)).toBeCloseTo(900, 6);
+        expect(res.voids).toHaveLength(1);
+        expect(polygonArea(res.voids[0]!)).toBeCloseTo(100, 6);
+        // The identity that licenses the whole thing, restated as an assertion.
+        const parcelSum = RING_OF_FOUR.reduce((s, r) => s + polygonArea(r), 0);
+        expect(polygonArea(res.ring) - polygonArea(res.voids[0]!)).toBeCloseTo(parcelSum, 6);
+    });
+
+    it('is deterministic under parcel reordering — same ring AND same voids', () => {
+        const a = dissolveParcelsToBlockRing(RING_OF_FOUR);
+        const b = dissolveParcelsToBlockRing([RING_OF_FOUR[2]!, RING_OF_FOUR[0]!, RING_OF_FOUR[3]!, RING_OF_FOUR[1]!]);
+        expect(JSON.stringify(b.ring)).toBe(JSON.stringify(a.ring));
+        expect(JSON.stringify(b.voids)).toBe(JSON.stringify(a.voids));
+    });
+
+    it('every ring that is NOT hole-punched reports `voids: []`, never undefined', () => {
+        // C58 §1.4 — the absence of a void must be a stated fact, not an absent field.
+        const res = dissolveParcelsToBlockRing([rect(0, 0, 10, 10), rect(10, 0, 20, 10)]);
+        expect(res.degenerate).toBe(false);
+        expect(res.voids).toEqual([]);
+        expect(dissolveParcelsToBlockRing([]).voids).toEqual([]);
+    });
+
+    it('REFUSES two disjoint blocks — the identity ADDS, so they are not one block with a hole', () => {
+        // 10×10 at the origin and another 40 m away. Both loops are perfectly valid polygons and
+        // the old multi-loop test would have refused this too; the point is that the NEW path must
+        // not start accepting it just because it can now enumerate several loops.
+        const res = dissolveParcelsToBlockRing([rect(0, 0, 10, 10), rect(40, 0, 60, 20)]);
+        expect(res.degenerate).toBe(true);
+        expect(res.reason).toBe('open-or-disjoint');
+        expect(res.voids).toEqual([]);
+    });
+
+    it('REFUSES a detached fragment sitting inside the outline\'s bounding box', () => {
+        // The Barcelona 06276 shape: a big block plus a small separate piece. It is caught by the
+        // identity (Σ|parcels| == |outer| + |small|), not by any distance heuristic.
+        const res = dissolveParcelsToBlockRing([
+            rect(0, 0, 100, 100), rect(120, 40, 124, 44),
+        ]);
+        expect(res.degenerate).toBe(true);
+        expect(res.reason).toBe('open-or-disjoint');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §DISSOLVE-SIMPLICITY-GATE (L-586)
+//
+// An independent oracle (ring area vs PUBLISHED cadastral parcel areas) found 11 of the 874 rings
+// this module emitted over the 956-manzana sample to be SELF-INTERSECTING. Each closed, each had
+// every vertex at degree 2, and each matched the published area to 0.00% — nothing in the
+// acceptance path could see them. They are zero-area "antennas": a boundary stored twice with
+// mismatched endpoints, walked out and back along two near-collinear legs that cross near the base.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('L-586 §DISSOLVE-SIMPLICITY-GATE — closed is not the same as simple', () => {
+    it('refuses a ring that closes but crosses itself, with its own reason', () => {
+        // A bow-tie: one "parcel" whose ring is a figure of eight. Every vertex has degree 2, the
+        // chain closes in exactly four steps, and |area| is a perfectly plausible 200 m² — the
+        // exact shape of defect the area oracle cannot catch.
+        const bowtie: Pt[] = [
+            { x: 0, z: 0 }, { x: 20, z: 20 }, { x: 20, z: 0 }, { x: 0, z: 20 },
+        ];
+        const res = dissolveParcelsToBlockRing([bowtie]);
+        expect(res.degenerate).toBe(true);
+        expect(res.reason).toBe('self-intersecting');
+        expect(res.ring).toEqual([]);
+        expect(res.voids).toEqual([]);
+    });
+
+    it('does NOT refuse an ordinary convex or reflex block', () => {
+        // The gate must be incapable of rejecting geometry that has always been fine, including an
+        // L-shaped block whose reflex corner is the case a sloppy test would trip on.
+        const lShaped = dissolveParcelsToBlockRing([rect(0, 0, 30, 10), rect(0, 10, 10, 30)]);
+        expect(lShaped.degenerate).toBe(false);
+        expect(polygonArea(lShaped.ring)).toBeCloseTo(500, 6);
+        expect(dissolveParcelsToBlockRing([rect(0, 0, 10, 10)]).degenerate).toBe(false);
+    });
+
+    it('a crossed exact ring is handed to the T-junction repair before being refused', () => {
+        // §DISSOLVE-SIMPLICITY-GATE admits `self-intersecting` to the repairable set precisely so a
+        // crossed ring gets the repair the exact pass's false success used to deny it. Measured on
+        // the 11 crossed rings in the sample: 7 recover, 4 are refused. This asserts the WIRING —
+        // that a crossed result is not short-circuited straight to a refusal.
+        const bowtie: Pt[] = [{ x: 0, z: 0 }, { x: 20, z: 20 }, { x: 20, z: 0 }, { x: 0, z: 20 }];
+        const repaired = dissolveParcelsToBlockRing([bowtie]);
+        const unrepaired = dissolveParcelsToBlockRing([bowtie], { repairTJunctions: false });
+        // Neither can be rescued here (there is no neighbour vertex to split on), but both must
+        // report the SAME honest reason rather than one of them silently reporting the other's.
+        expect(repaired.reason).toBe('self-intersecting');
+        expect(unrepaired.reason).toBe('self-intersecting');
+    });
+});

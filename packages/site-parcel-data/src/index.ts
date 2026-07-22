@@ -65,6 +65,7 @@ export {
     BCN_13B_ORDINANCE_REF,
     BCN_13B_PERI_FAR_NOT_APPLICABLE,
     BCN_13B_DENSITY_CAP_HAB_PER_HA,
+    BCN_ART323_DWELLING_MODULE_M2,
 } from './rulepacks/esBarcelonaSemiintensiva.js';
 
 // ── L-550 Phase 0.1 — THE RULE-PACK REGISTRY. ──
@@ -109,6 +110,9 @@ export {
     BCN_ALCADA_REGULADORA_TABLE,
     EIXAMPLE_CORNICE_INCREMENT_MAX_M,
     BAND_EDGE_GUARD_M,
+    // §L-586 — the guard is the substitution allowance OR the measurement's own error bar,
+    // whichever is larger. Exported so a caller can report the guard it was actually judged by.
+    effectiveBandEdgeGuard_m,
     type AlcadaBand,
     type AlcadaResolution,
 } from './rulepacks/bcnAlcadaReguladora.js';

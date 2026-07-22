@@ -94,8 +94,81 @@
 // which explicitly sanctions "edge nearest the longest street = front"), C12 §8 (no new Overpass
 // query — roads arrive from the existing single context fetch).
 
+// §DISSOLVE-INTERIOR-VOID (L-586) — THE MULTI-LOOP REFUSAL WAS NOT ALWAYS A DEFECT IN THE INPUT.
+// -----------------------------------------------------------------------------------------------
+// The header above treats a perimeter that chains into more than one loop as a single failure —
+// "T-junctions, slivers, or a gap". It is not one failure. It is four, and only ONE of them is
+// ours; the multi-loop bucket was hiding a correctness win and three genuine upstream defects
+// behind the same `open-or-disjoint` label.
+//
+// THE MEASUREMENT THAT SEPARATES THEM IS A SIGN, NOT A HEURISTIC. For the parcel union P, the
+// divergence theorem gives `Area(P) = Σ signed areas of the loops of ∂P`. So with one large loop
+// and some small ones, and all areas taken positive:
+//
+//   Σ|parcels| == |outer| − Σ|small|  ⇒ the small loops are HOLES. The parcels tile the block MINUS
+//                                       an unparcelled courtyard, light well or passage. The block
+//                                       OUTLINE is the outer loop, exactly and unambiguously, and
+//                                       the input is a perfectly good tiling-with-holes.
+//   Σ|parcels| == |outer| + Σ|small|  ⇒ the small loops are SEPARATE components — a DETACHED
+//                                       fragment of the manzana if they lie outside the outer loop,
+//                                       or two OVERLAPPING parcels if they lie inside (the overlap
+//                                       is bounded twice, so it never cancels). Neither is a
+//                                       tiling. Both must still refuse.
+//   neither                           ⇒ mixed or worse. Refuse.
+//
+// Census over the same 956 real manzanas the L-539 work used (`scratchpad/probe-l586-loopsign.mts`,
+// exact pass only): 607 single-loop, 114 rejected earlier at the degree-2 test, 2 non-manifold, and
+// 233 multi-loop — of which **83 are HOLES**, 74 are interior overlaps, 11 are detached fragments
+// and 65 satisfy neither identity. Only the 83 are recoverable, and this module now recovers them:
+// it returns the outer loop as the ring and the holes as `voids` rather than discarding them
+// (C58 §1.4 — a fact we measured must not vanish; a caller sizing a *pati interior*, or writing a
+// caveat, has to be able to see that the outline is not solid).
+//
+// Worked examples, ring area against the SUM OF PUBLISHED CADASTRAL PARCEL AREAS — a number this
+// module never sees. Madrid 17516: outer 13,309 m² − void 2,566 m² = 10,743 against 10,721
+// published (+0.21%, the same 0.15–0.19% bias every ring in the sample carries). Barcelona-old
+// 12215: 4,875 − 102 = 4,773 against 4,763 (+0.21%). Live Barcelona 14378: 11,064 − 0.5 = 11,064
+// against 11,046 (+0.16%). Across all 18 rings this newly produces, the void-corrected error is
+// p50 0.13% / worst 0.59% — indistinguishable from the population that already dissolved.
+//
+// ⚠ AND THE COUNTER-EXAMPLES, BECAUSE THE FIRST READING OF THIS DATA WAS WRONG. Live Barcelona
+// 06276 (outer 12,723.5, small loop 5.52, parcels 12,729.03) and 01306 (6,997.3 + 22.76 = 7,020.07)
+// look like holes and are not: the identity ADDS, so the small loop is a detached fragment sitting
+// OUTSIDE the block. 97208 and 98191 add too, with the small loop INSIDE — two parcels overlapping
+// by 0.25 m² and 1.39 m². All four still refuse, correctly, and they refuse because of the identity
+// rather than because anyone eyeballed them. That is the whole reason the gate is an identity.
+//
+// ⚠ THE GUARD IS THEREFORE AN IDENTITY, NOT A TOLERANCE. A multi-loop perimeter is read as
+// outline-plus-voids only when (a) every vertex still has degree exactly 2, (b) every other loop
+// lies inside the candidate outline, and (c) `|outer| − Σ|voids|` equals the summed parcel areas to
+// within float noise. (c) is the safety: a detached fragment or an overlap misses it by square
+// metres, not by rounding. It is an EXACT algebraic identity of any hole-punched tiling, so its
+// bound is a float-error bound and not a tuned number — the L-529 failure this module's own header
+// warns about.
+//
+// §DISSOLVE-SIMPLICITY-GATE (L-586) — "IT CLOSED" WAS NEVER "IT CLOSED CORRECTLY".
+// -----------------------------------------------------------------------------------------------
+// An independent oracle over 956 real manzanas (ring area vs the SUM OF PUBLISHED CADASTRAL PARCEL
+// AREAS — a number this module never sees) found 11 of the 874 rings we emitted to be
+// SELF-INTERSECTING: Córdoba 4, Valencia 4, Barcelona 1, Madrid-centro 1, Sevilla 1. Every one of
+// them passed the degree-2 test, closed in exactly `perimeter.length` steps, and matched the
+// published area to 0.00% — the acceptance path had no way to see them.
+//
+// What they are: a boundary two neighbours store with slightly different endpoints fails to cancel,
+// and the chain walks it OUT and BACK along two near-collinear legs — a zero-area antenna, up to
+// 29 m long, whose legs cross near the base. The ring is closed, its area is right, and it is not a
+// polygon. Downstream it poisons everything: the inset miters an impossible corner, the depth
+// solver measures across the fold, and the envelope is confidently wrong.
+//
+// A refusal is the contract (C58 §1.2 tier 3), but a refusal is the LAST resort, so the gate is
+// wired the same way the T-junction repair is: a crossed ring is treated as a failure of the exact
+// pass, which lets §DISSOLVE-TJUNCTION-SPLIT — previously unreachable here, because the exact pass
+// "succeeded" — have its attempt. Measured: 7 of the 11 then produce a SIMPLE ring whose area moves
+// by at most 0.02%, and 4 become honest refusals (−0.46 pp of the dissolve rate for 11 fewer
+// poisoned envelopes). See `scratchpad/probe-l586-simplicity-gate.mts`.
+
 import type { Pt, ParcelEdgeClassification } from '@pryzm/schemas';
-import { polygonSignedArea, pointSegmentDistance } from '@pryzm/site-validators';
+import { polygonSignedArea, pointInPolygon, pointSegmentDistance } from '@pryzm/site-validators';
 
 /**
  * Vertices within this distance (metres) are treated as the same point when matching shared
@@ -164,12 +237,36 @@ export interface BlockRingResult {
         /** An edge shared by 3+ parcels: overlapping inputs, not a tiling. */
         | 'non-manifold'
         /** Survivors did not chain into ONE closed loop — T-junctions, slivers, or a gap. */
-        | 'open-or-disjoint';
+        | 'open-or-disjoint'
+        /**
+         * §DISSOLVE-SIMPLICITY-GATE (L-586). The survivors DID chain into one closed loop, but
+         * that loop crosses itself, so it is not a polygon and cannot bound an envelope. Kept
+         * distinct from `open-or-disjoint` because the input failure is a different one: not a
+         * gap in the tiling but a boundary stored twice with mismatched endpoints.
+         */
+        | 'self-intersecting';
     /**
      * §DISSOLVE-TJUNCTION-SPLIT (L-539). Present on every result, success or failure, so the
      * decision "was this ring repaired, and by how much?" is never inferred from its absence.
      */
     readonly quality: BlockRingQuality;
+    /**
+     * §DISSOLVE-INTERIOR-VOID (L-586) — closed perimeter loops lying strictly INSIDE `ring`, i.e.
+     * land inside the block that no parcel of the manzana covers (a courtyard, light well or
+     * passage). Empty on every result the pre-L-586 code produced, and empty on every failure.
+     *
+     * Each void carries the SAME winding as `ring` (both normalised positive), not the opposite
+     * winding a hole conventionally has in a single multi-ring polygon. They are returned as their
+     * own polygons, so a caller that needs hole orientation must reverse them itself — stated here
+     * because silently inheriting a convention is how a hole becomes a solid two layers away.
+     *
+     * ⚠ THESE ARE RETURNED, NOT DISCARDED, ON PURPOSE. `ring` is the block OUTLINE and is what
+     * Art. 242 depth is measured from, so the voids do not change it — but a caller that reports a
+     * buildable area, or that sizes a *pati interior*, must be able to see that the outline is not
+     * solid. Silently dropping them would be the C58 §1.4 defect (a measured fact rendered
+     * indistinguishably from its absence) one layer down from L-459.
+     */
+    readonly voids: ReadonlyArray<ReadonlyArray<Pt>>;
 }
 
 /** Quantise to the match tolerance so coincident-but-jittery vertices key identically. */
@@ -225,18 +322,78 @@ function dropCollinear(ring: ReadonlyArray<Pt>): Pt[] {
 }
 
 /**
- * The EXACT edge-cancellation pass — the original algorithm, unchanged.
+ * §DISSOLVE-SIMPLICITY-GATE (L-586) — does this closed ring cross itself?
+ *
+ * O(n²) over the ring's own edges, which is the honest cost: there is no cheaper exact test, and
+ * the alternative — shipping a folded ring — is the defect this exists to stop. The ring is bounded
+ * by the C19 §7.3 vertex budget (>200 is a hard reject downstream) and the widest ring in the
+ * 956-manzana sample is 326 vertices, i.e. ~53k segment tests of pure arithmetic. It runs once per
+ * block, behind a cache, on a path that already made two WFS round-trips.
+ *
+ * Only PROPER crossings count (all four orientations strictly non-zero). A ring that merely touches
+ * itself at a shared vertex, or that runs collinearly along itself, is left to `dropCollinear` and
+ * the degree-2 test — this predicate must not start refusing rings that have always been fine.
+ */
+function ringSelfIntersects(ring: ReadonlyArray<Pt>): boolean {
+    const n = ring.length;
+    if (n < 4) return false;
+    const orient = (p: Pt, q: Pt, r: Pt): number =>
+        Math.sign((q.x - p.x) * (r.z - p.z) - (q.z - p.z) * (r.x - p.x));
+    for (let i = 0; i < n; i++) {
+        const a = ring[i]!;
+        const b = ring[(i + 1) % n]!;
+        for (let j = i + 2; j < n; j++) {
+            // Edges i and j are adjacent through the wrap when i is 0 and j is the last edge.
+            if (i === 0 && j === n - 1) continue;
+            const c = ring[j]!;
+            const d = ring[(j + 1) % n]!;
+            const o1 = orient(a, b, c);
+            const o2 = orient(a, b, d);
+            const o3 = orient(c, d, a);
+            const o4 = orient(c, d, b);
+            if (o1 !== o2 && o3 !== o4 && o1 !== 0 && o2 !== 0 && o3 !== 0 && o4 !== 0) return true;
+        }
+    }
+    return false;
+}
+
+/** |shoelace| of a ring, m². Local so the void identity below cannot drift from the winding fix. */
+function absArea(ring: ReadonlyArray<Pt>): number {
+    return Math.abs(polygonSignedArea(ring));
+}
+
+/**
+ * §DISSOLVE-INTERIOR-VOID (L-586) — the float-noise bound on the void identity
+ * `|outer| − Σ|voids| == Σ|parcels|`.
+ *
+ * ⚠ NOT A GEOMETRIC TOLERANCE, AND NOT TUNED. The identity is EXACT for any tiling with holes; the
+ * only thing that separates the two sides is shoelace round-off, which for coordinates of order
+ * 1e2 m over a few hundred vertices is of order 1e-8 m². A relative bound of 1e-6 is a hundredfold
+ * margin on that and is still only 0.013 m² on a 13,000 m² Eixample illa — three orders of
+ * magnitude below the smallest real void measured (0.014 m²) and six below the smallest overlap
+ * this guard has to reject. Widening it would be the L-529 mistake; it does not need widening.
+ */
+const VOID_IDENTITY_REL_TOLERANCE = 1e-6;
+
+/**
+ * The EXACT edge-cancellation pass.
  *
  * Kept as its own function rather than folded into the public entry point precisely so the
  * repaired path cannot drift from it: the repair only ever changes the INPUT it is handed, and
  * both paths then run this identical code.
+ *
+ * §DISSOLVE-INTERIOR-VOID / §DISSOLVE-SIMPLICITY-GATE (L-586) changed two things and nothing else:
+ * a perimeter that chains into several loops is now read as outline-plus-voids WHEN the identity
+ * above holds, and a ring that crosses itself is refused instead of returned. A single-loop,
+ * non-crossing perimeter — every ring this function has ever produced — takes the identical path
+ * and yields the identical bytes.
  */
 function dissolveExact(
     parcelRings: ReadonlyArray<ReadonlyArray<Pt>>,
     quality: BlockRingQuality,
 ): BlockRingResult {
     const fail = (reason: BlockRingResult['reason']): BlockRingResult =>
-        ({ ring: [], degenerate: true, reason, quality });
+        ({ ring: [], degenerate: true, reason, quality, voids: [] });
 
     if (parcelRings.length < 1) return fail('too-few-parcels');
 
@@ -294,38 +451,98 @@ function dissolveExact(
         if (list.length !== 2) return fail('open-or-disjoint');
     }
 
-    const start = perimeter[0]!;
-    const out: Pt[] = [start.a, start.b];
-    let currentKey = start.kb;
-    let previous = start;
+    // ── Walk EVERY closed loop the perimeter contains. ─────────────────────────────────
+    // Degree is exactly 2 at every vertex (checked above), so the perimeter is a disjoint union
+    // of simple closed loops as an edge set and this enumeration is total.
+    //
+    // DETERMINISM (C58 §1.1): loops are started from the first not-yet-visited edge of the
+    // key-SORTED `perimeter`, so both the set of loops and the vertex order within each are
+    // independent of the caller's parcel order. When there is exactly one loop, `perimeter[0]` is
+    // its start and the walk below is the original walk, step for step.
+    const visited = new Set<(typeof perimeter)[number]>();
+    const loops: Pt[][] = [];
 
-    // Bounded by the edge count: a well-formed chain closes in exactly `perimeter.length` steps,
-    // and the bound guarantees termination on any malformed input (no unbounded while-loop —
-    // same determinism discipline as the block-depth bisection).
-    for (let step = 1; step < perimeter.length; step++) {
-        const candidates = byVertex.get(currentKey);
-        if (!candidates) return fail('open-or-disjoint');
-        const next = candidates.find((e) => e !== previous);
-        if (!next) return fail('open-or-disjoint');
-        const nextKey = next.ka === currentKey ? next.kb : next.ka;
-        const nextPt = next.ka === currentKey ? next.b : next.a;
-        // Closing early means we walked a sub-loop, so the perimeter is disjoint.
-        if (nextKey === key(out[0]!)) {
-            if (step !== perimeter.length - 1) return fail('open-or-disjoint');
-            break;
+    for (const seed of perimeter) {
+        if (visited.has(seed)) continue;
+        const out: Pt[] = [seed.a, seed.b];
+        visited.add(seed);
+        let currentKey = seed.kb;
+        let previous = seed;
+        const startKey = seed.ka;
+        let closed = false;
+
+        // Bounded by the edge count — the bound guarantees termination on any malformed input
+        // (no unbounded while-loop; same determinism discipline as the block-depth bisection).
+        for (let step = 1; step < perimeter.length; step++) {
+            const candidates = byVertex.get(currentKey);
+            if (!candidates) return fail('open-or-disjoint');
+            const next = candidates.find((e) => e !== previous);
+            if (!next) return fail('open-or-disjoint');
+            const nextKey = next.ka === currentKey ? next.kb : next.ka;
+            const nextPt = next.ka === currentKey ? next.b : next.a;
+            visited.add(next);
+            if (nextKey === startKey) {
+                closed = true;
+                break;
+            }
+            out.push(nextPt);
+            currentKey = nextKey;
+            previous = next;
         }
-        out.push(nextPt);
-        currentKey = nextKey;
-        previous = next;
+        if (!closed) return fail('open-or-disjoint');
+        // A loop of fewer than 3 distinct vertices bounds nothing.
+        if (out.length < 3) return fail('open-or-disjoint');
+        loops.push(out);
     }
 
-    if (out.length !== perimeter.length) return fail('open-or-disjoint');
+    // Every perimeter edge must have been consumed exactly once. Anything else means the walk
+    // disagreed with the edge set, which is a refusal, never a best-effort ring.
+    if (visited.size !== perimeter.length) return fail('open-or-disjoint');
 
     // Normalise winding so downstream (which is winding-agnostic but easier to reason about)
     // always sees the same orientation for the same block.
-    const simplified = dropCollinear(out);
-    const ring = polygonSignedArea(simplified) < 0 ? [...simplified].reverse() : simplified;
-    return { ring, degenerate: false, reason: null, quality };
+    const orient = (r: ReadonlyArray<Pt>): Pt[] => {
+        const s = dropCollinear(r);
+        return polygonSignedArea(s) < 0 ? [...s].reverse() : s;
+    };
+
+    if (loops.length === 1) {
+        const ring = orient(loops[0]!);
+        // §DISSOLVE-SIMPLICITY-GATE — closed is not the same as simple. See `ringSelfIntersects`.
+        if (ringSelfIntersects(ring)) return fail('self-intersecting');
+        return { ring, degenerate: false, reason: null, quality, voids: [] };
+    }
+
+    // ── §DISSOLVE-INTERIOR-VOID — outline plus holes, or a genuine refusal? ────────────
+    const oriented = loops.map(orient);
+    // Largest by area is the only candidate outline; ties cannot occur once containment is
+    // required, and a tie between two equal-area loops fails containment below anyway.
+    let outerIdx = 0;
+    for (let i = 1; i < oriented.length; i++) {
+        if (absArea(oriented[i]!) > absArea(oriented[outerIdx]!)) outerIdx = i;
+    }
+    const outer = oriented[outerIdx]!;
+    const inner = oriented.filter((_, i) => i !== outerIdx);
+
+    // (b) EVERY other loop must lie strictly inside the candidate outline. One vertex per loop
+    // suffices: the loops are edge-disjoint and non-crossing, so a loop that is not wholly inside
+    // has no vertex inside.
+    for (const loop of inner) {
+        if (!loop.every((p) => pointInPolygon(p, outer))) return fail('open-or-disjoint');
+    }
+
+    // (c) THE IDENTITY THAT MAKES THIS SAFE. Parcels that tile the outline minus the voids satisfy
+    // `|outer| − Σ|voids| == Σ|parcels|` exactly. Two disjoint blocks, or an overlapping pair, miss
+    // it by square metres. See `VOID_IDENTITY_REL_TOLERANCE` for why its bound is float noise.
+    const parcelAreaSum = parcelRings.reduce((s, r) => s + absArea(openRing(r)), 0);
+    const voidAreaSum = inner.reduce((s, r) => s + absArea(r), 0);
+    const residual = Math.abs(absArea(outer) - voidAreaSum - parcelAreaSum);
+    if (residual > VOID_IDENTITY_REL_TOLERANCE * Math.max(parcelAreaSum, 1)) {
+        return fail('open-or-disjoint');
+    }
+
+    if (ringSelfIntersects(outer)) return fail('self-intersecting');
+    return { ring: outer, degenerate: false, reason: null, quality, voids: inner };
 }
 
 /** The quality record of a ring nothing was done to. */
@@ -468,11 +685,18 @@ export function dissolveParcelsToBlockRing(
 
     if (options.repairTJunctions === false) return exact;
 
-    // Only ONE failure mode is a digitisation artefact. `non-manifold` means the parcels
+    // Only the DIGITISATION failure modes are repairable. `non-manifold` means the parcels
     // genuinely overlap and `malformed-parcel` means an input is not a polygon; splitting edges
     // would not make either true, it would only make a fiction closable. `too-few-parcels` has
     // nothing to repair.
-    if (exact.reason !== 'open-or-disjoint') return exact;
+    //
+    // §DISSOLVE-SIMPLICITY-GATE (L-586) admits `self-intersecting` to that set. It is the same
+    // defect in the source — a shared boundary stored twice with mismatched endpoints — and the
+    // repair is the same one; the only difference is that the mismatch happened to leave a closed
+    // chain rather than an open one. Measured on the 11 crossed rings in the 956-manzana sample:
+    // 7 become SIMPLE with an area change of at most 0.02%, 4 remain crossed or stop closing and
+    // are refused below.
+    if (exact.reason !== 'open-or-disjoint' && exact.reason !== 'self-intersecting') return exact;
 
     const tol = options.tJunctionTolerance_m ?? TJUNCTION_SPLIT_TOLERANCE_M;
     if (!(tol > 0) || !Number.isFinite(tol)) return exact;

@@ -65,7 +65,7 @@ import {
     type LiveUpdateEventBus,
 } from '../../engine/views/siteAuthoringPaneDecisions';
 // L-402 — the PURE explain-why report model (C58 §1.3 derivation → presentable rows).
-import { buildComplianceReport } from '@pryzm/site-parcel-data';
+import { buildComplianceReport, BCN_ART323_DWELLING_MODULE_M2 } from '@pryzm/site-parcel-data';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -2139,10 +2139,61 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 cells + truncated);
         })();
 
+        // ── §ENVELOPE-CAPACITY-DOMAIN (L-588) — CAPACITY IS NOT GEOMETRY. ────────────────────
+        //
+        // ⚠ THE DESIGN DECISION, AND IT IS A LEGAL ONE, NOT A UI ONE. PGM Art. 323 caps clau 13b at
+        // 250 *habitatges* per hectare. The tempting shortcut is a yellow warning on the envelope —
+        // and that would be WRONG TWICE OVER:
+        //
+        //   1. **A warning implies something is wrong. Nothing is wrong.** The geometric envelope is
+        //      a COMPLETE and CORRECT answer to the geometric question. It is not defective; the
+        //      PANEL is merely incomplete.
+        //   2. **Density is ORTHOGONAL to geometry.** Two parcels can share an identical envelope —
+        //      same height, depth, setbacks, occupation — and have entirely different legal
+        //      capacity. "How large may the building be?" and "how many dwellings may exist inside
+        //      it?" are different questions with different articles. Merging them into one object
+        //      would make the envelope mean two things at once, and no later un-merging is cheap.
+        //
+        // So capacity gets its OWN SECTION with its own status, and the envelope keeps its ✓. The
+        // long-term shape this anticipates is `ParcelAssessment { geometry, capacity, use, parking,
+        // heritage, planning }` — at which point a future "Art. 412 hotel beds" drops into
+        // `capacity` with no redesign. This section is that architecture's first tenant.
+        //
+        // ⚠ `status: Not yet evaluated` is deliberate and honest: we hold the CAP but do not compute
+        // the parcel's dwelling count, so we can neither confirm nor deny compliance. Saying so is
+        // the C58 §1.4 answer; implying the envelope already accounts for it would not be.
+        // §L-590 — ⚠ THIS SECTION SHIPPED WITH THE WRONG RULE FOR ABOUT TWO HOURS. It read
+        // "250 habitatges/ha", which is what our pack recorded for Art. 323. Barcelona's OWN
+        // Art. 323 — recovered from the primary text, and marked *"d'aplicació exclusiva al
+        // municipi de Barcelona"* (DOGC 4277, 10-12-2004) — states a per-parcel DWELLING COUNT
+        // derived from BUILT AREA, not a density per hectare. A different SHAPE of quantity, not a
+        // different number, which is the L-526 failure class.
+        //
+        // ⇒ And the corrected rule is COMPUTABLE from what this card already holds, so Capacity now
+        // states a figure instead of deferring.
+        //
+        // ⚠ IT SAYS WHICH AREA IT USED. Art. 323.2 defines `superfície construïda` precisely
+        // (between exterior enclosures, INCLUDING celoberts and ventilation courts, EXCLUDING
+        // cossos sortints and ground-floor area beyond the upper storeys' fondària). **Our envelope
+        // GFA approximates that and is not identical to it**, so this is labelled an indication,
+        // never a determination — and it inherits the GFA's own honesty: when storeys were not
+        // derived, GFA is null and this reads "not derived" rather than inventing a count.
+        const art323Dwellings = gfa !== null && gfa > 0
+            ? Math.ceil(gfa / BCN_ART323_DWELLING_MODULE_M2)
+            : null;
+        const capacityBlock = (env.zoneCode === '13b' || env.zoneCode === '13a')
+            ? group('Capacity',
+                'A SEPARATE legal question from the envelope above — the geometry is complete, and this is not a defect in it.',
+                row('Dwelling module', `${BCN_ART323_DWELLING_MODULE_M2} m² per dwelling`)
+                + row('Max dwellings', art323Dwellings !== null ? `≈ ${art323Dwellings}` : NOT_DERIVED,
+                    'Art. 323: superfície construïda ÷ 80 m², rounded up. Computed from the envelope GFA above, which APPROXIMATES the ordinance\'s superfície construïda rather than equalling it — an indication, not a determination.')
+                + row('Source', 'PGM Art. 323 — aplicació exclusiva al municipi de Barcelona'))
+            : '';
+
         return `<details style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;">
                   <summary style="cursor:pointer;font-weight:700;font-size:10.5px;color:#6600FF;list-style:none;">Full site &amp; massing data</summary>
                   <div style="font-size:10.5px;margin-top:4px;">
-                    ${parcelBlock}${ordBlock}${massBlock}${perLevel}
+                    ${parcelBlock}${ordBlock}${massBlock}${perLevel}${capacityBlock}
                     <div style="margin-top:9px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:9.5px;line-height:1.45;">
                       Values marked <i>not derived</i> were not produced by the rule pack for this zone.
                       PRYZM does not infer them — an inferred value would be indistinguishable from a

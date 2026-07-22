@@ -56,13 +56,29 @@
 //     `0` would assert "the ordinance requires zero clearance here", which we have not
 //     established.
 //
-// ⚠ NOT MODELLABLE AT ALL — A DENSITY CAP. PGM **Art. 323** limits Subzona II to a maximum of
-// **250 habitatges per hectare** of buildable land at the *alçada reguladora* (L-552 §4.2). That
-// is neither a setback, nor a depth, nor a coverage, nor a FAR: it caps DWELLING COUNT, and no
-// `GeometricRule` kind and no `JurisdictionZoningContract` field can express it. It does not
-// shrink the envelope — it constrains the programme inside it — but it means **a 13b envelope is
-// not a complete statement of what may be built there**, and no consumer may imply otherwise.
-// Recorded as `BCN_13B_DENSITY_CAP_HAB_PER_HA` and applied nowhere.
+// ⚠⚠ A DWELLING-COUNT CAP — AND THE FIGURE WE FIRST RECORDED FOR IT WAS THE WRONG RULE (L-590).
+//
+// We had Art. 323 as "250 habitatges per hectare" (L-552 §4.2). **Barcelona's own Art. 323 says
+// something structurally different**, and the primary text is now in the repo
+// (`docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`, p. 185), in a section
+// headed *"(d'aplicació **exclusiva** al municipi de Barcelona)"*, approved by the Subcomissió
+// d'Urbanisme de Barcelona on 20-10-2004, DOGC 4277 of 10-12-2004:
+//
+//   *"Les edificacions que s'aixequin a la subzona I, intensiva i a la subzona II, semiintensiva,
+//    no podran depassar per parcel·la un nombre d'habitatges igual al que resulti, per excés, de
+//    dividir la superfície construïda pel mòdul de 80 m²."*
+//
+// ⇒ **max dwellings per parcel = ceil(superfície construïda ÷ 80 m²)** — a per-parcel count derived
+// from BUILT AREA, not a density per hectare. ⚠ A different SHAPE of rule, not a different number,
+// which is the L-526 failure class: the two disagree about what the input even is.
+//
+// `superfície construïda` is defined by Art. 323.2 as the area between the building's exterior
+// enclosures, **including** *celoberts* and ventilation courts, **excluding** *cossos sortints* and
+// any ground-floor area exceeding the *fondària* of the upper storeys.
+//
+// ⇒ **AND THIS ONE IS COMPUTABLE.** Unlike a per-hectare density it needs no site plan — our own
+// envelope yields a floor area. It is therefore recorded as a RULE, not as an unusable note; the
+// consumer converts envelope GFA into a dwelling ceiling and must say that it did so.
 //
 // CONFIDENCE. `defaultConfidence: 'estimated-ruleset'`, exactly as 13a ships. The
 // **`block-constructed`** tier is stamped by `ZoningRulesEngine` (§L-572) when the depth is really
@@ -137,12 +153,31 @@ export const BCN_SEMIINTENSIVA_RULE: GeometricRule = {
 export const BCN_13B_PERI_FAR_NOT_APPLICABLE = 1.8;
 
 /**
- * ⚠ A CONSTRAINT PRYZM CANNOT EXPRESS — **NOT USED BY ANY CODE PATH, and must not be.**
+ * §L-590 — PGM **Art. 323**, Barcelona-exclusive text (DOGC 4277, 10-12-2004), p. 185 of the NNUU
+ * PDF committed under `docs/04-reference/spain/barcelona-catalonia/`.
  *
- * PGM Art. 323 caps Subzona II at 250 *habitatges* per hectare of buildable land at the *alçada
- * reguladora*. No `GeometricRule` kind and no contract field models a DWELLING-COUNT cap. It does
- * not shrink the envelope; it constrains the programme inside it. Consumers presenting a 13b
- * envelope must not imply it is a complete statement of what may be built (L-552 §4.2).
+ * **max dwellings per parcel = ceil(superfície construïda ÷ 80 m²)**, for BOTH subzona I (13a,
+ * intensiva) and subzona II (13b, semiintensiva).
+ *
+ * ⚠ THIS REPLACES A WRONG FIGURE. We previously recorded Art. 323 as "250 habitatges/ha" — a
+ * DENSITY, i.e. a different kind of quantity with a different input. Retained here as the
+ * correction record so nobody reinstates it from the older note.
+ *
+ * ⚠ It caps the PROGRAMME, never the envelope: it cannot shrink a buildable volume, and a consumer
+ * must not present it as if it did. But it IS computable from a floor area, so — unlike a
+ * per-hectare density — a consumer holding an envelope can state a dwelling ceiling.
+ *
+ * ⚠ `superfície construïda` has a specific legal definition (Art. 323.2: between exterior
+ * enclosures, INCLUDING celoberts and ventilation courts, EXCLUDING cossos sortints and
+ * ground-floor area beyond the fondària of the upper storeys). **An envelope GFA APPROXIMATES it
+ * and is not identical to it** — any consumer must say which one it used.
+ */
+export const BCN_ART323_DWELLING_MODULE_M2 = 80;
+
+/**
+ * @deprecated §L-590 — WRONG RULE for Barcelona. Art. 323 is a per-parcel dwelling count derived
+ * from built area (see `BCN_ART323_DWELLING_MODULE_M2`), not a per-hectare density. Kept only so a
+ * stale import fails loudly at review rather than silently re-publishing 250 hab/ha.
  */
 export const BCN_13B_DENSITY_CAP_HAB_PER_HA = 250;
 
