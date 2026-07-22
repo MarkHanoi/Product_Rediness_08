@@ -168,8 +168,28 @@ export type AlcadaResolution =
            * `band-edge`   — the width sits within `BAND_EDGE_GUARD_M` of a band boundary, so a
            *                 measured value cannot choose the storey band. Needs the official width.
            * `bad-input`   — not a usable positive finite width.
+           *
+           * §L-590 — the two below are **APPLICABILITY** refusals, not measurement refusals: the
+           * width was fine, the TABLE does not govern this parcel. They exist because PGM Art. 350
+           * (clau 22a) splits into two regimes — 350.1 for industrial land WITH a definitively
+           * approved *Pla Parcial* (whose own plànols/ordenances then give the height) and 350.2
+           * for land WITHOUT one (whose height table we encode). Arts. 327/328 never emit them;
+           * they are declared on the SHARED type rather than on a parallel one so every consumer
+           * that already renders a refusal reason keeps working, with no second resolution shape
+           * to drift apart from this one.
+           *
+           * `pla-parcial-governs`  — established that a Pla Parcial covers the parcel ⇒ Art. 350.1;
+           *                          the height is in a document PRYZM does not hold.
+           * `pla-parcial-unknown`  — NOT established either way. ⚠ Distinct from `governs` on
+           *                          purpose: "we did not look" must never harden into "there is
+           *                          none", which is the reading that would let Art. 350.2's table
+           *                          answer for land it may not govern.
            */
-          readonly reason: 'band-edge' | 'bad-input';
+          readonly reason:
+              | 'band-edge'
+              | 'bad-input'
+              | 'pla-parcial-governs'
+              | 'pla-parcial-unknown';
           /** The two candidate heights straddling the edge, for an honest "we cannot say" message. */
           readonly straddles: readonly number[];
       };

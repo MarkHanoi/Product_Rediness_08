@@ -197,8 +197,32 @@ describe('L-583 — resolveBcnAlcadaForZone: the right ARTICLE for the right cla
     it('returns NULL for a clau with no encoded height article, never a neighbour’s table', () => {
         // A packed zone whose height article we have not read must publish NO height. Borrowing
         // an adjacent zone's table is the one outcome worse than showing nothing.
-        for (const clau of ['12', '12b', '22a', '20a', '', '13']) {
+        //
+        // ⚠ §L-590 — `22a` WAS in this list and has MOVED OUT, not been dropped: PGM Art. 350.2.c
+        // has since been read from the primary NNUU text and encoded, so 22a is no longer "a clau
+        // with no encoded height article" and asserting `null` for it would now be asserting a
+        // fact about our coverage that is false. The assertion it moved to is STRONGER — it pins
+        // the article, not merely the absence of one. `22@` takes its place here, and belongs
+        // here: it is a formally distinct subzone with its own articles, which Art. 350 does not
+        // govern.
+        for (const clau of ['12', '12b', '22@', '20a', '', '13']) {
             expect(resolveBcnAlcadaForZone(clau, 25), clau).toBeNull();
         }
+    });
+
+    it('§L-590 gives 22a its OWN article (Art. 350.2.c), never 327’s or 328’s table', () => {
+        // The replacement for 22a's old `toBeNull()` row, and it guards more than that row did:
+        // on a 25 m street Art. 327 would say 20.75 m and Art. 328 16.70 m, while Art. 350.2.c
+        // says 17 m. All three are plausible-looking heights; only one is this land's.
+        const z = resolveBcnAlcadaForZone('22a', 25, {
+            trustedOfficialWidth: true,
+            planParcialRegime: 'none',
+        });
+        expect(z).not.toBeNull();
+        expect(z!.article).toBe('Art. 350.2.c');
+        expect(z!.ordinanceRef).toMatch(/clau 22a/);
+        expect(z!.resolution.ok && z!.resolution.height_m).toBe(17);
+        expect(z!.resolution.ok && z!.resolution.height_m).not.toBe(20.75); // Art. 327
+        expect(z!.resolution.ok && z!.resolution.height_m).not.toBe(16.7); // Art. 328
     });
 });

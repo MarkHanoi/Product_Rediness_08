@@ -162,6 +162,22 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
             // DIFFERENT height table (Art. 328, not Art. 327 — see `bcnAlcadaByZone.ts`, which is
             // what stops the dispatcher handing this zone 13a's numbers under 13a's citation).
             [ES_BARCELONA_SEMIINTENSIVA_PACK, BCN_SEMIINTENSIVA_ZONE_CODES],
+            // ⚠⚠ §L-590 — `ES_BARCELONA_INDUSTRIAL_PACK` (clau 22a) EXISTS AND IS **NOT** LISTED
+            // HERE. THIS IS NOT AN OVERSIGHT. Do not "finish the job" by adding it.
+            //
+            // The pack is fully sourced from the primary PGM text (Art. 350, p. 116 of the
+            // committed NNUU PDF) and its scalars are right. What is missing is a GEOMETRIC RULE:
+            // Art. 350.2 grants a ≤90 %-of-PARCEL ground floor plus, above it, a tower confined to
+            // a band concentric with the BLOCK equal to 70 % of the block — a two-tier solid.
+            // `GeometricRule` has no kind for that and `BuildableEnvelope` carries one prism, so
+            // the pack's `geometricRule` is `null`; and `null` means "legacy per-edge inset", which
+            // on this zone's (correctly) all-null setbacks erodes nothing. Registering it would
+            // therefore publish an envelope covering **100 %** of the plot on the same card as the
+            // **90 %** occupation cap it read from the same article — an over-statement that
+            // contradicts its own citation, which is strictly worse than the coverage-gap refusal
+            // 22a gets today.
+            //
+            // Read `BCN_22A_ENVELOPE_BLOCKER` in `esBarcelonaIndustrial.ts` before touching this.
         ),
         refusalFor: barcelonaZoneRefusalFor,
         // L-553, founder-decided: Barcelona's remaining unpacked buildable claus (12, 12b, 22a,

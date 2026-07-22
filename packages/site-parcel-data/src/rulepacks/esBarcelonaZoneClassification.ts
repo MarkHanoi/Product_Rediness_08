@@ -404,13 +404,26 @@ function coverageGapReasonFor(clau: string): string {
     }
     // Industrial / activitats — the LIMITS are a coverage % and a floor-area index, which the
     // solver resolves and displays but cannot yet apply to geometry (ADR-0272, Phase 2).
+    //
+    // ⚠ §L-590 — 22a's governing article HAS now been read from the primary PGM text and encoded
+    // (`esBarcelonaIndustrial.ts`, PGM Art. 350 on p. 116 of the committed NNUU PDF). The pack is
+    // deliberately NOT registered, so this branch stays REACHABLE and the copy stays true — but it
+    // is now true for a sharper reason, and the sharper reason is what the user gets. Art. 350.2
+    // describes a two-tier solid (≤90 % of the parcel at ground floor; above it, only inside a band
+    // concentric with the BLOCK equal to 70 % of the block) and our envelope model holds a single
+    // prism. Saying "we have read your zone's article and it needs a shape we cannot yet draw" is a
+    // different and more honest statement than "we have not read it", and it is the one that is
+    // now accurate. See `BCN_22A_ENVELOPE_BLOCKER`.
     if (clau === '22a' || clau === '22@') {
         return (
             'This zone states its limits as a maximum ground occupation and a floor-area index ' +
-            '(m² of floor per m² of site) rather than as setback distances. PRYZM can read those ' +
-            'two numbers but cannot yet turn them into an envelope, and a generic setback ' +
-            'estimate would answer a different question from the one this zone asks. We would ' +
-            'rather show you nothing than something wrong.'
+            '(m² of floor per m² of site) rather than as setback distances — and above the ground ' +
+            'floor it confines the building to a band measured around the whole block, not around ' +
+            'your plot. PRYZM has read the governing article and can quote those numbers, but the ' +
+            'shape it describes is a wide ground floor with a narrower building above it, which ' +
+            'our buildable-volume model cannot yet draw. A generic setback estimate would answer ' +
+            'a different question from the one this zone asks. We would rather show you nothing ' +
+            'than something wrong.'
         );
     }
     // *Edificació aïllada* — separations ARE the right shape here. The blocker is that we hold
