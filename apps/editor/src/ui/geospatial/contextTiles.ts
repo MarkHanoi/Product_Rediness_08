@@ -142,10 +142,36 @@ function readEnvBaseUrl(): string {
     }
 }
 
-/** The configured tiles base URL, normalised to a trailing `/`. Empty string = not configured. */
+/**
+ * §CTX-TILES-PROXY (L-578) — the SAME-ORIGIN fallback base.
+ *
+ * ⚠ WHY THERE IS A FALLBACK AT ALL. Reading R2 directly is the intended path and is what
+ * `VITE_CONTEXT_TILES_URL` selects. It could not work in a browser because THE BUCKET SENDS NO
+ * CORS HEADERS — and nothing outside a browser can see that: curl, `aws s3 ls`, the upload probe
+ * and every Node probe returned a clean 200/206, because none of them enforce CORS. Fixing it
+ * needs bucket-ADMIN credentials the repo's object-scoped R2 token does not have
+ * (`PutBucketCors` → `AccessDenied`), i.e. it is gated on a human with dashboard access.
+ *
+ * So when no direct URL is configured we read the SAME tiles through our own origin, where CORS
+ * does not apply. The moment the bucket policy lands and the variable is set, this stops being
+ * used with no code change — the direct route is strictly faster and keeps our server off the
+ * context hot path, which is the whole point of L-513b.
+ */
+export const CONTEXT_TILES_SAME_ORIGIN_BASE = '/api/context-tiles/';
+
+/**
+ * The tiles base URL, normalised to a trailing `/`.
+ *
+ * ⚠ NEVER EMPTY NOW. Before L-578 an unset variable meant "stay on live Overpass"; it now means
+ * "use the same-origin proxy", because a working-but-proxied context beats a third party that
+ * L-513 proved cannot be made reliable. Overpass survives only as the failure fallback inside
+ * `fetchForBbox`, for a genuine `unavailable` read.
+ */
 export function contextTilesBaseUrl(): string {
     const raw = (baseUrlOverride ?? readEnvBaseUrl()).trim();
-    if (!raw) return '';
+    // An explicit empty override is how a test — or local dev — asks for the Overpass path back.
+    if (baseUrlOverride === '') return '';
+    if (!raw) return CONTEXT_TILES_SAME_ORIGIN_BASE;
     return raw.endsWith('/') ? raw : `${raw}/`;
 }
 

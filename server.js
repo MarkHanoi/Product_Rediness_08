@@ -46,6 +46,7 @@ import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
 import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
 // §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
+import { CONTEXT_TILES_PATH, contextTilesHandler } from './server/contextTilesProxy.js';
 // §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
 import { CATASTRO_PARCEL_PATH, catastroParcelHandler, CATASTRO_BLOCK_PATH, catastroBlockHandler } from './server/parcelZoningProxy.js';
 // §MUC-ZONING-PROXY (L-480) — the Catalan clau lookup: the ONE missing input that keeps
@@ -366,6 +367,19 @@ app.post(LEADS_PATH, leadsBodyParser, leadsHandler);
 // already covers it (no CSP change). Never crashes: all-mirrors-failed → 200
 // { elements: [] } so the client's non-fatal "no context" path still works.
 app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
+
+// §CTX-TILES-PROXY (L-578) — same-origin passthrough to the baked context PMTiles in R2.
+// The client reads R2 DIRECTLY when `VITE_CONTEXT_TILES_URL` is set; this route exists because
+// the bucket sends no CORS headers, so a browser cannot read it directly (CORS is a BROWSER
+// policy — server-to-server is unaffected). See the module header: it is a fallback that unwires
+// itself the moment the bucket's CORS policy lands.
+//
+// ⚠ DELIBERATELY NOT BEHIND `apiLimiter`. That limiter is 60 req/min/IP, and ONE 3D-Site load
+// issues ~30–35 tile reads (a byte range per tile) — so the limiter would throttle the context
+// on the second site visit of any minute and present as the exact "context randomly doesn't
+// render" complaint this whole work stream exists to end. These are cacheable static bytes, not
+// an expensive upstream query; `globalLimiter` still applies.
+app.get(`${CONTEXT_TILES_PATH}/:layer`, contextTilesHandler);
 
 // §PARCEL-PROXY (L-380 P0) — same-origin Catastro cadastral-parcel proxy + SHARED
 // server-side cache for the "select a real parcel" map mode. Public + unauthenticated

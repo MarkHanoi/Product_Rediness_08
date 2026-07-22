@@ -16,6 +16,7 @@ import {
     readContextTileFeatures,
     __setContextTilesBaseUrl,
     MAX_TILES_PER_FETCH,
+    CONTEXT_TILES_SAME_ORIGIN_BASE,
     type TileBbox,
     type ContextTileFeature,
 } from '../src/ui/geospatial/contextTiles';
@@ -69,12 +70,32 @@ describe('tile addressing', () => {
 });
 
 describe('configuration', () => {
-    it('is disabled — and says so distinctly — when no URL is configured', async () => {
+    it('is disabled — and says so distinctly — when tiles are explicitly turned off', async () => {
         __setContextTilesBaseUrl('');
         expect(contextTilesEnabled()).toBe(false);
         const r = await readContextTileFeatures('buildings', [2.16, 41.38, 2.17, 41.39]);
         // ⚠ NOT `ok` with []. "Not configured" must never look like "no buildings here".
         expect(r.status).toBe('disabled');
+    });
+
+    it('§CTX-TILES-PROXY falls back to the SAME-ORIGIN base when no direct URL is set', () => {
+        // The R2 bucket sends no CORS headers, so a browser cannot read it directly. An unset
+        // variable must therefore mean "proxy", not "go back to live Overpass" — Overpass is the
+        // dependency L-513 proved cannot be made reliable.
+        __setContextTilesBaseUrl(null);
+        expect(contextTilesBaseUrl()).toBe(CONTEXT_TILES_SAME_ORIGIN_BASE);
+        expect(contextTilesEnabled()).toBe(true);
+    });
+
+    it('prefers the DIRECT R2 URL when configured, so the proxy unwires itself', () => {
+        __setContextTilesBaseUrl('https://cdn.example/tiles/');
+        expect(contextTilesBaseUrl()).toBe('https://cdn.example/tiles/');
+    });
+
+    it('needs no CSP origin for the same-origin fallback', () => {
+        __setContextTilesBaseUrl(null);
+        // A relative base has no origin to allowlist — connect-src 'self' already covers it.
+        expect(contextTilesOrigin()).toBeNull();
     });
 
     it('normalises a missing trailing slash so the archive URL is well formed', () => {
