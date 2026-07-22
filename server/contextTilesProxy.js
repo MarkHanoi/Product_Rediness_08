@@ -93,9 +93,20 @@ export function makeContextTilesHandler(deps = {}) {
                 const v = upstream.headers.get(h);
                 if (v) res.setHeader(h, v);
             }
-            // A given bake is immutable, so this is safe to cache hard; a re-bake changes the bytes
-            // and the ETag, and `stale-while-revalidate` keeps the swap invisible to the user.
-            res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+            // §L-580-CACHE — ⚠ THE TILES ARE **NOT** IMMUTABLE UNDER THIS URL, and the first
+            // version of this line assumed they were (`max-age=86400, stale-while-revalidate=604800`).
+            // A re-bake REPLACES `<layer>.pmtiles` in place, so that policy would have served the
+            // OLD tileset for a day — and, via stale-while-revalidate, up to a WEEK — after a bake
+            // that fixed real coverage. The L-580 re-bake raised Gòtic coverage 79% → 121%; under
+            // the previous header the founder would have hard-refreshed, seen no change, and
+            // reasonably concluded the fix had failed. A stale cache that looks like a broken fix
+            // is the same class of misleading-green as the rest of this subsystem's history.
+            //
+            // One hour is short enough that a re-bake is visible the same session, and long enough
+            // that a normal session pays for the ~36 tile reads once. `must-revalidate` then makes
+            // the browser check the ETag rather than silently extending the stale copy — a 304 is
+            // cheap, and correctness here is worth the round-trip.
+            res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
             res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
 
             if (upstream.status === 304 || !upstream.body) return res.end();

@@ -109,11 +109,17 @@ describe('context tiles proxy', () => {
         expect(res.statusCode).toBe(504);
     });
 
-    it('marks the response cacheable — a given bake is immutable', async () => {
+    it('§L-580-CACHE caches, but REVALIDATES — the tiles are not immutable under this URL', async () => {
+        // A re-bake REPLACES `<layer>.pmtiles` in place. The first version of this header used
+        // `max-age=86400, stale-while-revalidate=604800`, which would have served the OLD tileset
+        // for a day — up to a WEEK while revalidating — after a bake that fixed real coverage
+        // (L-580 raised Gòtic 79% → 121%). A stale cache that looks like a broken fix is the same
+        // class of misleading-green as the rest of this subsystem's history.
         const handler = makeContextTilesHandler({ fetch: async () => upstreamResponse() });
         const res = makeRes();
         await handler({ params: { layer: 'parks' }, headers: {} }, res);
-        expect(res.headers['cache-control']).toContain('max-age=86400');
+        expect(res.headers['cache-control']).toContain('must-revalidate');
+        expect(res.headers['cache-control']).not.toContain('stale-while-revalidate');
     });
 
     it('exposes the route prefix the client composes against', () => {
