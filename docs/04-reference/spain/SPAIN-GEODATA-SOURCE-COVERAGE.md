@@ -356,3 +356,77 @@ blocked behind the LiDAR programme.
 ⚠ **What NOT to do:** do not build a provider-switch UI, do not add a runtime height fetch, and do
 not treat "get LiDAR" as one task — it is *licence → acquire → derive nDSM → zonal stats → bake*,
 and **the first step can veto the other four.**
+
+
+---
+
+# §9 · "WOULD IT BE QUICKER TO USE DSM / POINT CLOUD / DTM + SEPARATE SOURCES?"
+
+*Founder question, 2026-07-22. Short answer: **not at runtime — that is already at its ceiling.
+For heights, nothing is quicker because there is no heights programme to beat. And terrain has a
+resolution trap that must be probed BEFORE the terrain work is scheduled.***
+
+## 9.1 · Runtime — **NO, AND IT CANNOT BE**
+
+**MEASURED today: 42 tiles · 13.4 MB · ~1 s**, byte-ranged from R2, pre-baked. A height attribute
+baked into those tiles rides in requests we **already make**: same count, same round-trips.
+
+⇒ **The best any new source can achieve is "exactly as fast as now."** The only available direction
+is slower — which is precisely what runtime layer-composition (the competitor's UI shape) would do,
+and that is the shape of **L-513**. **There is no speed argument for changing anything.** If someone
+proposes a new source *for performance*, the answer is no.
+
+## 9.2 · Heights — **NOTHING IS QUICKER, BECAUSE WE ARE DOING NOTHING**
+
+There is no current heights programme to be quicker than: we read OSM tags, **0.9% surveyed**. So
+the real question is *which acquisition path is fastest*, and there are two, not one:
+
+| Path | Effort | Quality | Blockers |
+|---|---|---|---|
+| **A · Overture / MS ML height attributes** | **days** — attribute join, reuse the EXISTING bake, **no raster, no point cloud, no zonal stats** | ⚠ **ML-ESTIMATED** | licence (ODbL etc.) |
+| **B · nDSM from PNOA LiDAR / ICGC** | **weeks** — acquire → DSM−DTM → rasterise → per-footprint zonal stats → bake | **MEASURED** | **G1 licence gate can veto** |
+
+⚠ **THE TRAP IN PATH A, AND IT IS THE WHOLE DECISION.** Microsoft/Overture heights **may themselves
+be estimates**. Replacing *our* estimate (`building:levels` × an assumed 3.2 m) with *their* estimate
+is **not progress** — it is the same epistemic value wearing a better provenance label, which is the
+**L-459** pattern exactly.
+
+⇒ **GATE ON THIS, BEFORE ANY INGESTION:** validate path A against the **0.9% of OSM buildings that
+carry a SURVEYED `height`** — the one independent ground truth we hold. **If it does not beat
+`levels × 3.2 m`, path A is worth nothing and the honest move is to wait for B.** Cheap to run,
+and it can save weeks in either direction.
+
+## 9.3 · ⚠⚠ TERRAIN — THE RESOLUTION TRAP (NEW PROBE **V8**, RUNS BEFORE V6)
+
+§8 concluded "we already have terrain, V6 is hours." That is right about **availability** and says
+**nothing about RESOLUTION** — which decides whether V6 can answer its question at all.
+
+> **If Cesium World Terrain is ~10–30 m postings under Barcelona, it CANNOT resolve a 20 m street.**
+> The centroid sample and the façade sample would land in the **same terrain cell**, and **V6 would
+> report a delta near zero for INSTRUMENTAL reasons — not because the ground is flat.**
+
+⚠ That is the **wrong-instrument** failure from [[probe-can-be-wrong-three-ways]]: a probe that
+measures the TOOL instead of the WORLD, and reports a reassuring number either way. It would close
+the terrain question **falsely**, which is worse than leaving it open.
+
+**V8 — establish the actual posting spacing of the terrain provider under Barcelona** (sample a
+known slope at decreasing spacings; find where the returned profile stops changing). **V8 GATES V6.**
+
+⇒ **THIS is the one place where switching to IGN MDT / ICGC may be genuinely NECESSARY rather than
+merely nicer.** ICGC is believed to publish fine-resolution DTMs for Catalonia *(⚠ UNVERIFIED)*. If
+V8 shows the current terrain is too coarse for façade-level rasant, a DTM upgrade moves from
+"optional polish" to **a prerequisite of the legal calculation**.
+
+⚠ Note the asymmetry that keeps catching us: **a DTM upgrade serves the RASANT question and does
+nothing for building heights; an nDSM serves HEIGHTS and does nothing for the rasant.** They are
+separate programmes with separate licences. Do not fund them as one line item.
+
+## 9.4 · ⇒ ANSWER, IN ONE PARAGRAPH
+
+**Quicker? No — and speed is the wrong reason to do any of it.** Runtime is already at its ceiling
+and cannot improve. Heights have no incumbent to beat, so the choice is *estimated-in-days* (path A,
+worthless unless it beats our ground truth) vs *measured-in-weeks* (path B, licence-gated). Terrain
+we already have, but **possibly at the wrong resolution to answer the question we need it for**, and
+**V8 must settle that before V6 runs.** ⚠ **None of it moves the 5.8% end-to-end number — that is
+L-581.** Do this work because the answers are **wrong or unverifiable without it**, never because it
+would be faster.

@@ -72,6 +72,23 @@ Paste this whole file to start the next Claude Code session.
 >
 >    ⚠ **NONE OF THIS OUTRANKS L-581.** It moves correctness, not the 5.8%.
 >
+>
+> 7. **⚠ "WOULD A NEW SOURCE BE QUICKER?" — ANSWERED, §9 of the same doc. NO, AND SPEED IS THE WRONG
+>    REASON TO DO ANY OF IT.**
+>    - **Runtime is already at its ceiling** (42 tiles / 13.4 MB / ~1 s pre-baked). A baked height
+>      attribute rides in requests we already make. **The best a new source can do is TIE.**
+>    - **Heights: two paths.** **A** = Overture/MS ML attributes, *days*, ⚠ **but ML-ESTIMATED** —
+>      swapping our estimate for theirs is the L-459 pattern, not progress. **GATE: validate against
+>      the 0.9% SURVEYED ground truth first; if it does not beat `levels × 3.2 m`, path A is worth
+>      nothing.** **B** = nDSM from LiDAR, *weeks*, measured, licence-gated.
+>    - **⚠⚠ NEW PROBE V8, AND IT GATES V6: what is the terrain provider's actual RESOLUTION under
+>      Barcelona?** If it is ~10–30 m postings it **cannot resolve a 20 m street** — centroid and
+>      façade land in the SAME CELL and **V6 reports ~0 delta for INSTRUMENTAL reasons, closing the
+>      terrain question FALSELY.** That is the wrong-instrument failure mode. **This is the one place
+>      switching to ICGC/IGN MDT may be NECESSARY, not merely nicer.**
+>    - ⚠ **A DTM upgrade serves the RASANT and does nothing for heights; an nDSM serves HEIGHTS and
+>      does nothing for the rasant.** Separate programmes, separate licences — do not fund as one.
+>
 > Everything else in the body stands as written — in particular **§2 (the half-plane retraction)**
 > and **§5 (the method note)**, which are the two sections most likely to save you a wasted session.
 
