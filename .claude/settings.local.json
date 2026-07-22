@@ -168,7 +168,16 @@
       "Bash(echo \"MERGE1_EXIT=$?\")",
       "Bash(git merge --no-ff worktree-agent-a734f91f2762d1dda -m 'merge: §FEAT-PLACEMENT-SPACEBAR-ROTATE \\(L-16\\) — Spacebar rotates the placement preview +90° CW \\(plan + 3D + GLB drag-drop flows converged on the shared PrePlacementRotation\\), committed rotation applied on click/Enter, reset on Esc. Wall-hosted doors/windows excluded \\(C15\\). *)",
       "Bash(echo \"MERGE2_EXIT=$?\")",
-      "Bash(git ls-remote *)"
+      "Bash(git ls-remote *)",
+      "Bash(python \"C:/Users/LENOVO/AppData/Local/Temp/claude/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/af0b8282-0f4c-473c-8dd6-8dbe2b85ea47/scratchpad/append_audit2.py\")",
+      "Bash(git credential *)",
+      "Bash(python -c ' *)",
+      "Bash(cd \"c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08\")",
+      "Bash(curl -s -X POST --data-urlencode data=__TRACKED_VAR__ https://pryzm.fly.dev/api/overpass)",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(s\\);console.log\\('OSM buildings in Vila Olimpica bbox:',\\(j.elements||[]\\).length, j.remark?\\('REMARK: '+j.remark\\):''\\);}catch\\(e\\){console.log\\('non-JSON, first 200:',s.slice\\(0,200\\)\\);}}\\)\")",
+      "Bash(w/building)",
+      "Bash(cd \"C:/Users/LENOVO/.claude/projects/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/memory\" *)",
+      "Read(//c/Users/LENOVO/.claude/projects/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/memory/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"

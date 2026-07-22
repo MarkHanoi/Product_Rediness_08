@@ -60,13 +60,25 @@ for (const refcat of ['0128801DF3802G', '9619801DF2891H']) {
     console.log(`\n═══ ${refcat} — block ${blockArea.toFixed(0)} m², ${d.ring.length} verts, ` +
         `${front.size} front / ${d.ring.length - front.size} side, shortest edge ${shortest.toFixed(3)} m`);
 
-    const run = (label: string, cls: never[], s: number) => {
-        const r = insetPolygonPerEdge(d.ring, cls, { front: s, side: cls === uniform ? s : 0, rear: 0, unclassified: 0 });
+    const run = (label: string, cls: never[], front: number, side: number) => {
+        const r = insetPolygonPerEdge(d.ring, cls, { front, side, rear: side, unclassified: side });
         const a = r.degenerate ? 0 : areaOf(r.polygon);
-        console.log(`  ${label.padEnd(28)} → ${r.degenerate ? 'DEGENERATE' : `ok ${r.polygon.length} verts, ${a.toFixed(0)} m² (${((a / blockArea) * 100).toFixed(1)}%)`}`);
+        console.log(`  ${label.padEnd(30)} → ${r.degenerate ? 'DEGENERATE' : `ok ${String(r.polygon.length).padStart(3)} verts, ${a.toFixed(0)} m²`}`);
     };
-    run('A production  front=5 side=0', mixed, 5);
-    run('B uniform     all=5', uniform, 5);
-    run('C production  front=0.01', mixed, 0.01);
-    run('D uniform     all=0.01', uniform, 0.01);
+    // ⚠ THE DECISIVE MATRIX. If side=0 fails while an infinitesimal side=0.001 succeeds, the defect
+    // is the EXACTLY-ZERO setback (an unmoved supporting line mitered against moved ones), not the
+    // depth and not the ring. That distinction picks the fix.
+    // ⚠ THE DECISIVE PAIR. Same MIXED classification array both times; the only difference is
+    // whether the two setback VALUES are equal. Equal values make the mixed call numerically
+    // identical to the uniform one that succeeds — so if `front=5 side=5` works and `front=5
+    // side=4.9` does not, the defect is DIFFERING setbacks, and the classification plumbing is
+    // exonerated. If `front=5 side=5` ALSO fails, the defect is in how the classification array
+    // itself is consumed, since uniform-classification/uniform-value succeeds on this same ring.
+    run('mixed cls, front=5 side=5', mixed, 5, 5);
+    run('mixed cls, front=5 side=4.9', mixed, 5, 4.9);
+    run('mixed cls, front=5 side=4', mixed, 5, 4);
+    run('mixed cls, front=5 side=2', mixed, 5, 2);
+    console.log('  --- uniform classification, same values (control) ---');
+    run('unif  cls, front=5 side=5', uniform, 5, 5);
+    run('unif  cls, front=5 side=0', uniform, 5, 0);
 }
