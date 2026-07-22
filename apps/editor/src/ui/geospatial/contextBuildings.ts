@@ -791,10 +791,60 @@ export async function fetchContextBuildings(
  * primary + narrow-fallback extents share the same fetch/cache/never-throw path.
  * NEVER throws — any failure resolves to an EMPTY collection.
  */
-async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBuildingCollection> {
+async function fetchForBbox(
+    bbox: Bbox,
+    /** ⚠ ACCEPTED AND INTENTIONALLY NOT FORWARDED — see §CTX-ONE-READ-PER-BBOX below. Kept in the
+     *  signature because callers legitimately hold a signal and the RENDER side still honours it;
+     *  what must not happen is one caller's abort cancelling a download others are awaiting. */
+    _signal?: AbortSignal,
+): Promise<ContextBuildingCollection> {
     const key = bboxKey(bbox);
     const cached = cache.get(key);
     if (cached) return cached;
+
+    // §CTX-ONE-READ-PER-BBOX (L-585) — ⚠ DE-DUPLICATE **BEFORE** THE TILE READ, NOT AFTER IT.
+    //
+    // THE DEFECT, founder 2026-07-22: *"why is it STILL not loading in secs?"* — with the boundary
+    // and envelope already painted and the surrounding buildings absent for many seconds, on a
+    // path where the tiles themselves are measured at ~1 s (42 tiles · 13.4 MB · 9,762 footprints).
+    // The tiles were never the slow part. WE WERE READING THEM TWO OR THREE TIMES AND CANCELLING
+    // OUR OWN READS.
+    //
+    // The `inFlight` map below existed to make concurrent callers share ONE fetch — but it sat
+    // BELOW the `readContextTileFeatures` call, so it only ever guarded the Overpass FALLBACK. On
+    // the tiles path (the live path) every caller went straight to its own full read, and the
+    // cache is only populated on COMPLETION. Three callers overlap on the onboarding flow:
+    //   1. §CTX-PREFETCH-ON-LOCATION (L-470) fires the moment the address is known — its entire
+    //      stated purpose is "warm the cache so the later real call is a HIT". It could not work:
+    //      the later call is issued while the prefetch is still in flight, so it was never a hit,
+    //      it was a DUPLICATE. The optimisation was silently buying a second full read.
+    //   2. `renderFormaMassing` kicks off the render-path load.
+    //   3. `clampTerrainThenReplace` re-renders once the terrain sample lands and calls
+    //      `loadContextBuildings(..., force = true)`, which ABORTS (2) and starts a third read.
+    // An aborted read returns empty and is deliberately NOT cached (§L-579, correctly — a
+    // cancelled request must not settle as "no buildings here"), so the work is simply thrown
+    // away and started again. That is the founder's blank pane: not latency, RESTARTS.
+    //
+    // ⚠ THE SHARED READ DELIBERATELY TAKES NO ABORT SIGNAL. If one caller's signal governed a
+    // promise other callers are awaiting, an abort by (3) would hand (1) and (2) an empty result
+    // for a read that was nearly done — trading the duplicate-read bug for a lost-result one. The
+    // tiles are static, CDN-cached byte ranges: letting a read RUN TO COMPLETION and populate the
+    // cache is cheaper than cancelling and repeating it, and it means a re-render moments later is
+    // a cache HIT rather than a fresh 42-tile round trip. Each caller still honours its OWN signal
+    // after the await, so a user who navigated away still renders nothing — the abort now cancels
+    // the RENDER, which is what it was always for, instead of the shared download.
+    const pending = inFlight.get(key);
+    if (pending) return pending;
+    const shared = fetchForBboxUncached(bbox).finally(() => { inFlight.delete(key); });
+    inFlight.set(key, shared);
+    return shared;
+}
+
+/** The actual read for one bbox — tiles first, Overpass as the failure fallback. Called only via
+ *  `fetchForBbox`, which owns the cache + the one-read-per-bbox guarantee. */
+async function fetchForBboxUncached(bbox: Bbox): Promise<ContextBuildingCollection> {
+    const key = bboxKey(bbox);
+    const signal: AbortSignal | undefined = undefined;
 
     // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST. This is the ONE per-bbox fetch
     // chokepoint, so gating here moves every extent (near, far, narrow fallback) off live Overpass
@@ -838,13 +888,10 @@ async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBu
     // re-visited site loads its context buildings without another Overpass call.
     const persisted = lsRead(key);
     if (persisted) { cache.set(key, persisted); return persisted; }
-    // §SITE-METRIC-OVERPASS-PARALLEL — a fetch for THIS bbox is already racing; share it.
-    const pending = inFlight.get(key);
-    if (pending) return pending;
-
-    const p = raceMirrors(bbox, key, signal).finally(() => { inFlight.delete(key); });
-    inFlight.set(key, p);
-    return p;
+    // §SITE-METRIC-OVERPASS-PARALLEL — sharing a concurrent fetch for THIS bbox now happens in
+    // `fetchForBbox`, which guards the tile read as well (§CTX-ONE-READ-PER-BBOX). This path is
+    // already inside that guard, so it must NOT register a second `inFlight` entry.
+    return raceMirrors(bbox, key, signal);
 }
 
 /**

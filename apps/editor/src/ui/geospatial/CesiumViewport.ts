@@ -6013,6 +6013,23 @@ export class CesiumViewport {
     // stop a fetch repeating within its window (counts from the moment we commit to fetch).
     this.contextLastLoadAtMs = Date.now();
 
+    // §CTX-LOADING-BADGE-ARM (L-585) — ARM THE BADGE WHERE THE WAIT ACTUALLY BEGINS.
+    //
+    // Founder 2026-07-22: *"add the 'loading' surrounding buildings also when the context
+    // buildings are not showing even if the boundary + envelope are showing."* That is precisely
+    // the state this method opens in, and the badge was NOT shown for it. It was armed in exactly
+    // ONE place — `renderFormaMassing` — so every other entry into a context load ran silent:
+    // the `site.location-changed` load, the pan refresh, and the `clampTerrainThenReplace`
+    // re-seat. The boundary and envelope paint synchronously and the context streams in after
+    // (§DECOUPLE-ENVELOPE-FROM-CONTEXT), so "envelope up, neighbourhood missing, no explanation"
+    // was the DEFAULT presentation of a perfectly healthy in-flight load.
+    //
+    // Arming it here — at the one point every load must pass, immediately before the await —
+    // makes the indicator a property of THE FETCH rather than of one caller. Only when nothing is
+    // on screen yet: a refresh that already has neighbours drawn must not flash a badge over a
+    // scene that looks complete.
+    if (this.contextBuildingPlacements.length === 0) this.setContextLoadingVisible(true);
+
     // Cancel any in-flight load; start a fresh one.
     this.contextBuildingsAbort?.abort();
     this.contextBuildingsAbort = new AbortController();
@@ -6030,10 +6047,18 @@ export class CesiumViewport {
     } catch (e) {
       // fetchContextBuildingsNearAndFar never throws, but be defensive.
       this.warnContextOnce('fetch threw — no context buildings: ' + String(e));
+      // §CTX-LOADING-BADGE-ARM (L-585) — a FAILURE must not keep saying "loading". Leaving the
+      // badge spinning here promises an arrival that is never coming, which is the same
+      // failure-vs-empty conflation the badge exists to break — and it says something DIFFERENT
+      // from "this area has no data", so it gets its own words.
+      this.setContextLoadingVisible(true, 'Surrounding buildings unavailable');
       return;
     }
     const collection = near;
     // A newer load (or dispose) superseded us.
+    // §CTX-LOADING-BADGE-ARM (L-585) — the badge is deliberately LEFT AS-IS on this path: a newer
+    // load superseded us and armed it for itself, so clearing it here would blank the indicator
+    // for a wait that is still running.
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     // PW.2 (§DIAG-PARTY-WALL) — capture the neighbour footprints for the layout
@@ -6052,6 +6077,11 @@ export class CesiumViewport {
 
     if (collection.features.length === 0) {
       this.warnContextOnce('no context footprints returned for this site (sparse/offline).');
+      // §CTX-LOADING-BADGE-ARM (L-585) — ⚠ THIS RETURN USED TO LEAVE THE BADGE SPINNING FOREVER.
+      // An empty ring is a settled ANSWER, and the badge must state it rather than keep implying
+      // that buildings are still on the way. Same wording as the rendered-but-empty branch below,
+      // because it is the same fact.
+      this.setContextLoadingVisible(true, 'No surrounding building data for this area');
       return;
     }
 
