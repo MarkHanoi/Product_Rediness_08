@@ -343,7 +343,13 @@ export class WindowBuilder {
         // The rebuild is deferred + adaptively sliced, so the interactive cost is
         // bounded — correctness over the micro-optimisation for a shared-material
         // colour edit.
-        return false;
+        //
+        // Expressed as a named, typed flag rather than a bare `return false;`
+        // followed by the (then unreachable) original classifier: the classifier
+        // below is the code this flag DISABLES, and keeping it as dead statements
+        // after a return meant no linter or compiler was checking it any more.
+        const PROPERTY_ONLY_FAST_PATH_ENABLED: boolean = false;
+        if (!PROPERTY_ONLY_FAST_PATH_ENABLED) return false;
         const vg = vgGovernanceStore.getEffectiveStyle('Window', next.id);
         if (vg.hidden || vg.colorOverride !== undefined || vg.opacityFactor !== undefined) return false;
         let materialDirty = false;

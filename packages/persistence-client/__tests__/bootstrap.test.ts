@@ -124,7 +124,9 @@ describe('PersistenceBootstrap', () => {
       const result = await bootstrapPersistence({
         audit: AUDIT,
         loadEnginePersistence: async () => {
-          // eslint-disable-next-line @typescript-eslint/no-throw-literal
+          // (`@typescript-eslint/no-throw-literal` was removed in
+          // typescript-eslint v8 — the disable directive it referenced errored as
+          // "rule not found". The throw is deliberate: it is the subject of the test.)
           throw 'string-thrown' as unknown as Error;
         },
         engineParams: FAKE_ENGINE_PARAMS,

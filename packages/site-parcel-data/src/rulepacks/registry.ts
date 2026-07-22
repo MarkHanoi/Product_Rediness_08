@@ -43,6 +43,10 @@
 import type { JurisdictionZoningContract, EnvelopeRefusal } from '@pryzm/schemas';
 import { ES_BARCELONA_ENSANCHE_PACK, BCN_ENSANCHE_ZONE_CODES } from './esBarcelonaEnsanche.js';
 import {
+    ES_BARCELONA_SEMIINTENSIVA_PACK,
+    BCN_SEMIINTENSIVA_ZONE_CODES,
+} from './esBarcelonaSemiintensiva.js';
+import {
     barcelonaZoneRefusalFor,
     barcelonaNoRulePackRefusal,
 } from './esBarcelonaZoneClassification.js';
@@ -117,24 +121,51 @@ export interface ZoneDispositionHints {
     readonly knownFacts?: readonly string[];
 }
 
+/**
+ * Build the zone→pack map from one or more (pack, codes) registrations.
+ *
+ * ⚠ THROWS on a duplicate code, at module load. Two packs claiming the same clau is not a
+ * resolvable ambiguity — whichever the map ordering happened to keep would silently decide which
+ * ordinance governs someone's land, and the loser would fail nowhere. A load-time throw is the
+ * only failure mode that cannot be mistaken for a working envelope (the same reasoning that makes
+ * `esBarcelonaEnsanche.ts` parse its schema at load).
+ */
 function packMap(
-    pack: JurisdictionZoningContract,
-    codes: readonly string[],
+    ...registrations: ReadonlyArray<
+        readonly [pack: JurisdictionZoningContract, codes: readonly string[]]
+    >
 ): ReadonlyMap<string, JurisdictionZoningContract> {
     const m = new Map<string, JurisdictionZoningContract>();
-    for (const c of codes) m.set(c, pack);
+    for (const [pack, codes] of registrations) {
+        for (const c of codes) {
+            if (m.has(c)) {
+                throw new Error(
+                    `[site-parcel-data] duplicate rule-pack registration for zone code "${c}" ` +
+                        `(${m.get(c)!.displayName} vs ${pack.displayName}). One clau, one pack.`,
+                );
+            }
+            m.set(c, pack);
+        }
+    }
     return m;
 }
 
 const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     {
         jurisdictionId: BCN_JURISDICTION_ID,
-        // ADR-0271 — clau 13a/13E, the block-derived *profunditat edificable* pack. 24.0 % of
-        // Barcelona's private buildable land (measured, plan §2.2).
-        packsByZone: packMap(ES_BARCELONA_ENSANCHE_PACK, BCN_ENSANCHE_ZONE_CODES),
+        packsByZone: packMap(
+            // ADR-0271 — clau 13a/13E, the block-derived *profunditat edificable* pack. 24.2 % of
+            // Barcelona's private buildable land (measured, plan §2.2).
+            [ES_BARCELONA_ENSANCHE_PACK, BCN_ENSANCHE_ZONE_CODES],
+            // L-583 §9 — clau 13b (*densificació urbana semiintensiva*), +8.8 pp ⇒ 33.0 %. The
+            // SAME Art. 242 depth construction (it is the same article, reached via Art. 326), a
+            // DIFFERENT height table (Art. 328, not Art. 327 — see `bcnAlcadaByZone.ts`, which is
+            // what stops the dispatcher handing this zone 13a's numbers under 13a's citation).
+            [ES_BARCELONA_SEMIINTENSIVA_PACK, BCN_SEMIINTENSIVA_ZONE_CODES],
+        ),
         refusalFor: barcelonaZoneRefusalFor,
-        // L-553, founder-decided: Barcelona's unpacked buildable claus (13b, 12, 12b, 22a, 22@,
-        // 20a/*) refuse rather than show a generic setback triple. The dense Barcelona fabric is
+        // L-553, founder-decided: Barcelona's remaining unpacked buildable claus (12, 12b, 22a,
+        // 22@, 20a/*) refuse rather than show a generic setback triple. The dense Barcelona fabric is
         // *alineacions de vial*, so that triple is the wrong geometric OPERATION, and no badge
         // can label a category error.
         noRulePackRefusal: barcelonaNoRulePackRefusal,

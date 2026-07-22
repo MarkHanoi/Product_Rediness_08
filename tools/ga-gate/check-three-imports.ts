@@ -92,7 +92,7 @@ function main(): number {
       `  '@pryzm/renderer-three/three' (THREE namespace) — never from 'three/*' directly.`,
     );
     console.error(
-      `  Find them with: rg "^\\s*import\\b.*from .three(?:/[^'\"]+)?." . --type ts ` +
+      `  Find them with: rg "^\\s*import\\b.*from .three(?:/[^'"]+)?." . --type ts ` +
         `-g '!node_modules' -g '!dist' -g '!packages/renderer-three/**' ` +
         `-g '!**/__fixtures__/**' -g '!**/__tests__/lint-fixtures/**'`,
     );

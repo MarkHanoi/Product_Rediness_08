@@ -114,15 +114,17 @@ export function computeMullionsX(
   return out;
 }
 
+// `_height` is part of the published positional signature but the row pitch is
+// derived from `sillToHead` alone. It was previously `void height;` placed AFTER
+// the return — unreachable, so it suppressed nothing.
 export function computeMullionsZ(
-  height: number, sillToHead: number, rows: number,
+  _height: number, sillToHead: number, rows: number,
 ): readonly number[] {
   if (rows <= 1) return [];
   const out: number[] = [];
   const r = sillToHead / rows;
   for (let i = 1; i < rows; i++) out.push(i * r);
   return out;
-  void height;
 }
 
 function computeBounds(positions: ReadonlyArray<number>) {

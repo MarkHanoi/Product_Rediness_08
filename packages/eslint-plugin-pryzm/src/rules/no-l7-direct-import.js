@@ -109,8 +109,8 @@ function isForbiddenImport(source) {
   if (!source || typeof source !== 'string') return false;
   // Allow the L6 SDK facade (not yet shipped; future-proof allowance).
   if (L6_ALLOWED.has(source)) return false;
-  const stripped = source.split('/')[0] + (source.includes('/') ? '/' + source.split('/').slice(1).join('/') : '');
-  // Flag any @pryzm/* import that isn't in L6_ALLOWED.
+  // Flag any @pryzm/* import that isn't in L6_ALLOWED. (A `stripped` local was
+  // computed here and never read — it re-assembled `source` unchanged.)
   return L0_TO_L5_PREFIXES.some(
     (prefix) => source === prefix.slice(0, -1) || source.startsWith(prefix),
   );

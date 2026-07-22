@@ -21,7 +21,7 @@ export function isElementType(v: unknown): v is string {
 
 /** Column id — non-empty identifier-like string (letters, digits,
  *  hyphen, underscore).  ≤ 64 chars. */
-export const COLUMN_ID_PATTERN = /^[A-Za-z0-9_\-]+$/;
+export const COLUMN_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 export const COLUMN_ID_MAX_LEN = 64;
 export function isColumnId(v: unknown): v is string {
   return typeof v === 'string'

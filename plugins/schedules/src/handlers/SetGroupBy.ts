@@ -64,5 +64,6 @@ export class SetGroupByHandler implements CommandHandler<SetGroupByPayload, Stor
       });
       return { forward, inverse, nextStates: { schedule: next } };
     }, { scheduleId: cmd.scheduleId });
+    }); // withHandlerSpan — C10 §2
   }
 }

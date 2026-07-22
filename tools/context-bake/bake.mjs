@@ -90,8 +90,8 @@ const layers = ONE ? LAYERS.filter((l) => l.id === ONE) : LAYERS;
 
 // ── tool detection ─────────────────────────────────────────────────────────
 function has(bin) {
-  const probe = process.platform === 'win32' ? 'where' : 'command';
-  const cmd = process.platform === 'win32' ? [bin] : ['-v', bin];
+  // (`probe`/`cmd` locals used to be computed here and then ignored — the real
+  // invocation below builds its own argv. Dropped rather than left dangling.)
   try {
     const r = spawnSync(process.platform === 'win32' ? 'where' : 'sh',
       process.platform === 'win32' ? [bin] : ['-c', `command -v ${bin}`],

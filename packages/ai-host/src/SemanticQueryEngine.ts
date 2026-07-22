@@ -353,8 +353,8 @@ export class SemanticQueryEngine {
 
             {
                 patterns: [
-                    /(?:elements?|openings?|doors?\s*and\s*windows?)\s+(?:in|hosted\s+(?:in|by)|on)\s+wall\s+([a-z0-9\-]+)/i,
-                    /what(?:'s|\s+is)\s+(?:in|on)\s+wall\s+([a-z0-9\-]+)/i,
+                    /(?:elements?|openings?|doors?\s*and\s*windows?)\s+(?:in|hosted\s+(?:in|by)|on)\s+wall\s+([a-z0-9-]+)/i,
+                    /what(?:'s|\s+is)\s+(?:in|on)\s+wall\s+([a-z0-9-]+)/i,
                 ],
                 handler: (input, m) => {
                     const wallHint = m[1]!.trim();

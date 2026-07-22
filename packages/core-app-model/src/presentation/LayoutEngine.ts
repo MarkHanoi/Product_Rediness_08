@@ -35,17 +35,19 @@ const PRESETS: LayoutPreset[] = [
         key:         'single-centred',
         name:        'Single View Centred',
         description: 'Main view fills the available paper area minus margins.',
-        build(viewportIds, paper) {
+        // The paper box is applied by `resolve()`, not by this preset — hence
+        // `_paper`, matching the sibling presets below. (It used to destructure
+        // w/h/marginMm and `void` them on a line placed AFTER the return, i.e.
+        // unreachable, which suppressed nothing.)
+        build(viewportIds, _paper) {
             const id = viewportIds[0];
             if (!id) return [];
-            const { w, h, marginMm } = paper;
             return [{
                 id:       `lr-${crypto.randomUUID()}`,
                 targetId: id,
                 priority: 1,
                 rule:     { type: 'anchor', edge: 'center', offset: 0 },
             }];
-            void w; void h; void marginMm; // used indirectly via resolve()
         },
     },
     {

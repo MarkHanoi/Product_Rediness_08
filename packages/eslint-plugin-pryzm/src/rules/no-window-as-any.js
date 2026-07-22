@@ -57,11 +57,8 @@ function isAnyOrUnknownTypeAnnotation(typeAnnotation) {
   return false;
 }
 
-function isWindowRoot(expr) {
-  const e = unwrapParens(expr);
-  if (!e) return false;
-  return e.type === 'Identifier' && ROOTS.has(e.name);
-}
+// (`isWindowRoot()` lived here and was never called — `isWindowAsAnyAssertion()`
+// below does the same ROOTS check inline. Removed rather than left dead.)
 
 /** Detect `(window as any).<x>` and `(window as unknown as any).<x>`. */
 function isWindowAsAnyAssertion(objectExpr) {

@@ -27,6 +27,7 @@ import {
     type SeasonPreset,
     type RampStop,
 } from '@pryzm/renderer-three';
+import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { makeDraggable } from '../makeDraggable.js';
 import {
     computeSunHoursForActiveLevel,
@@ -424,10 +425,22 @@ export class SolarSunHoursPanel {
                 if (this.computeBtn) this.computeBtn.disabled = false;
             }
         };
-        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-            window.requestAnimationFrame(() => window.requestAnimationFrame(run));
-        } else {
+        // ADR-003 / P3 — the single rAF pump lives in `packages/frame-scheduler`.
+        // This used to be a raw `rAF(() => rAF(run))`; it is the one-shot
+        // "defer past the next paint" pattern that `scheduleOnce()` exists to
+        // replace (FrameScheduler.scheduleOnce docblock, §8 row #3). Two chained
+        // one-shots reproduce the two-frame wait exactly, and 'overlay' is the
+        // phase for HUD/panel work per C11 §6.1.
+        // The `else run()` arm of the old code is preserved: when no rAF pump is
+        // running (headless / unit tests) there is no paint to defer past, so the
+        // compute runs inline exactly as before rather than never firing.
+        const scheduler = getFrameScheduler();
+        if (!scheduler.isRunning) {
             run();
+        } else {
+            scheduler.scheduleOnce('solar-sun-hours-compute', () => {
+                scheduler.scheduleOnce('solar-sun-hours-compute', run, 'overlay');
+            }, 'overlay');
         }
     }
 

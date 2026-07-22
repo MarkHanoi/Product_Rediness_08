@@ -65,9 +65,15 @@ import {
     // L-445 fallback 3 — re-inset from PERSISTED setbacks for projects committed before the
     // ring-persistence fix. C58 §1.7a permits this for `setback` zones only; see the guard.
     insetPolygonPerEdge,
-    // L-525a — the HEIGHT half of the 13a construction (PGM Art. 327.2), the counterpart to
-    // Art. 242's depth. Both refuse rather than guess; see their module headers.
-    resolveAlcadaReguladora,
+    // L-525a — the HEIGHT half of the alignment construction, the counterpart to Art. 242's depth.
+    // Both refuse rather than guess; see their module headers.
+    // §L-583 — ZONE-KEYED, not article-keyed. This used to call `resolveAlcadaReguladora` (Art. 327
+    // = Subzona I) directly and stamp the literal "Art. 327.2" into the derivation row. With clau
+    // 13b now packed, that would hand a Subzona II parcel Art. 327's numbers under Art. 327's
+    // citation — a wrong height carrying a confident citation to an article that does not govern
+    // that land (the L-526 failure class). The registry answers WHICH article; see
+    // `bcnAlcadaByZone.ts`.
+    resolveBcnAlcadaForZone,
     officialStreetWidthForAddress,
     // L-537 — the *amplada de vial* CONSTRUCTION that replaced the ~26-street allow-list as the
     // primary width source. Measurement is region-agnostic and costs NO extra network (the
@@ -1426,6 +1432,11 @@ async function applyBcnZoningThenFallback(
         let alcadaFloors: number | null = null;
         let alcadaWhy = 'no street width could be established for this parcel';
         let alcadaProvenance: string | null = null;
+        // §L-583 — the governing height ARTICLE + citation, resolved from the clau (Art. 327.2 for
+        // 13a/13E, Art. 328 for 13b). Null until a zoned resolver answers, so a clau with no
+        // encoded height article publishes no height rather than borrowing another zone's table.
+        let alcadaArticle: string | null = null;
+        let alcadaOrdinanceRef: string | null = null;
         try {
             const addr = typeof parcelFeat?.address === 'string' ? parcelFeat.address : '';
             const declared = addr ? officialStreetWidthForAddress(addr) : null;
@@ -1464,16 +1475,31 @@ async function applyBcnZoningThenFallback(
 
             if (amplada) {
                 alcadaProvenance = amplada.provenance;
-                const r = resolveAlcadaReguladora(amplada.width_m, {
+                // §L-583 — ask the DATA LAYER which article governs this clau. `null` = PRYZM has
+                // encoded no height table for it; then there is no constructed height, exactly as
+                // when no width could be established. Substituting a neighbouring zone's table
+                // would be the one failure mode worse than showing nothing.
+                const zoned = resolveBcnAlcadaForZone(clau, amplada.width_m, {
                     trustedOfficialWidth: amplada.trustedOfficialWidth,
                 });
-                if (r.ok) {
+                if (!zoned) {
+                    alcadaWhy =
+                        `clau ${clau} has a rule pack but no encoded alçada reguladora article — ` +
+                        `no height is published (another zone's table would be a mis-citation)`;
+                }
+                const r = zoned?.resolution ?? null;
+                alcadaArticle = zoned?.article ?? null;
+                alcadaOrdinanceRef = zoned?.ordinanceRef ?? null;
+                if (r?.ok) {
                     alcadaHeightM = r.height_m;
                     // PB+N ⇒ N storeys ABOVE the ground floor, so N+1 levels in total.
                     alcadaFloors = r.floorsAboveGround + 1;
                     alcadaWhy =
                         `${amplada.why} → PB+${r.floorsAboveGround} = ${r.height_m.toFixed(2)} m ` +
-                        `(Art. 327.2)` +
+                        // §L-583 — the article comes from the ZONE, never a literal. A 13b parcel
+                        // must read "Art. 328", and it must be the article whose table produced
+                        // the number above, resolved together in `resolveBcnAlcadaForZone`.
+                        `(${alcadaArticle ?? 'article n/a'})` +
                         // §L-583 — was: "an official Barcelona certificate gives 22.40 m for PB+5
                         // — uncertified". That read as a RIVAL height and made our correct number
                         // look doubtful. 22.40 m is the Art. 21 *alçada reguladora incrementada*,
@@ -1482,11 +1508,12 @@ async function applyBcnZoningThenFallback(
                         (r.corniceIncrementMax_m
                             ? ` · a cornice increment of up to ${r.corniceIncrementMax_m.toFixed(2)} m over this height may apply (Art. 21, Ordenança de l'Eixample, 2002) where the parcel is inside the Conjunt Especial de l'Eixample AND adjoins buildings predating 1932 — PRYZM does not verify either condition, so it is NOT included above`
                             : '');
-                } else {
+                } else if (r) {
                     // A refusal is an ANSWER here, and the reason is the useful part: `band-edge`
                     // means the width genuinely cannot choose a storey band, not that we failed.
                     alcadaWhy =
-                        `${amplada.width_m.toFixed(2)} m (${amplada.provenance}) rejected: ${r.reason}` +
+                        `${amplada.width_m.toFixed(2)} m (${amplada.provenance}) rejected by ` +
+                        `${alcadaArticle ?? 'the zone table'}: ${r.reason}` +
                         (r.straddles.length ? ` — straddles ${r.straddles.join(' / ')} m` : '');
                 }
             } else if (measureNote) {

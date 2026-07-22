@@ -222,13 +222,13 @@ function explain(a: {
 }): string {
     if (a.infeasible) {
         return a.binding === 'height'
-            ? `Cannot comply: the ${a.maxH} m height limit does not fit even one ${a.storeyH} m storey.`
+            ? `Cannot comply: the ${a.maxH}\u202fm height limit does not fit even one ${a.storeyH}\u202fm storey.`
             : `Cannot comply: the FAR limit (${a.far}) does not permit even one storey on this footprint.`;
     }
     if (!a.capped) {
         return `${a.storeys} storey(s) — within all known limits.`;
     }
     return a.binding === 'height'
-        ? `Capped ${a.requested} → ${a.storeys} storey(s) by the ${a.maxH} m height limit at ${a.storeyH} m per storey.`
+        ? `Capped ${a.requested} → ${a.storeys} storey(s) by the ${a.maxH}\u202fm height limit at ${a.storeyH}\u202fm per storey.`
         : `Capped ${a.requested} → ${a.storeys} storey(s) by the FAR limit (${a.far}).`;
 }

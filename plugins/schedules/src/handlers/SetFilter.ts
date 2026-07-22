@@ -64,5 +64,6 @@ export class SetFilterHandler implements CommandHandler<SetFilterPayload, Stores
       });
       return { forward, inverse, nextStates: { schedule: next } };
     }, { scheduleId: cmd.scheduleId });
+    }); // withHandlerSpan — C10 §2
   }
 }

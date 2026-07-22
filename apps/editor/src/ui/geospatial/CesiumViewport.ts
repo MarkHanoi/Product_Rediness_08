@@ -164,7 +164,7 @@ import {
 // §SITE-METRIC-HEATMAP-CHUNKED — frame-budget-friendly deferral so the larger /
 // finer ground heatmap (esp. the per-cell sun-hours raycast) fills in progressively
 // across frames instead of freezing the WebGPU viewport on one synchronous build.
-import { deferWork, type DeferWorkCanceller } from "@pryzm/frame-scheduler";
+import { deferWork, getFrameScheduler, type DeferWorkCanceller } from "@pryzm/frame-scheduler";
 
 // H7 (07-BIM-SECURITY-CONTRACT §6.1): Cesium Ion token MUST be loaded from the
 // VITE_CESIUM_TOKEN environment variable and MUST NOT be hardcoded in source.
@@ -9917,15 +9917,25 @@ export class CesiumViewport {
     }
     // One more after layout flushes — the container often gets its real size a
     // frame after display flips from none → block.
-    requestAnimationFrame(() => {
-      // §GLOBE-CRASH-GUARD — the viewport can be disposed between this rAF being
+    // ADR-003 / P3 — `requestAnimationFrame` may only be called inside
+    // `packages/frame-scheduler`. This is the canonical one-shot "next frame"
+    // deferral, which `FrameScheduler.scheduleOnce()` exists to replace; the
+    // 'overlay' phase is the C11 §6.1 slot for viewport/HUD work. When the pump
+    // is not running (headless / before composeRuntime starts it) we fall back to
+    // `deferWork(…, 0)` — also frame-scheduler-owned — so the second resize still
+    // happens after layout flushes instead of being silently dropped.
+    const secondPass = (): void => {
+      // §GLOBE-CRASH-GUARD — the viewport can be disposed between this being
       // scheduled and firing; gate on isViewerLive() (destroyed-but-non-null safe).
       if (!this.isViewerLive()) return;
       try {
         this.viewer!.resize();
         this.viewer!.scene.requestRender();
       } catch { /* viewer torn down mid-frame */ }
-    });
+    };
+    const scheduler = getFrameScheduler();
+    if (scheduler.isRunning) scheduler.scheduleOnce('cesium-force-resize', secondPass, 'overlay');
+    else deferWork(secondPass, 0);
   }
 
   /**

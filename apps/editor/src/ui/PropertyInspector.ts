@@ -501,10 +501,14 @@ export class PropertyInspector {
                             curtainWallStore?.get(elementId);
             if (element) {
                 levelId = element.levelId;
+            } else if (this._roofStore) {
+                // The roof lookup used to sit in an `else if (!levelId && elementId && …)`
+                // branch on the SAME condition as the `if` above, so it could never execute
+                // (no-dupe-else-if) and a selected roof never resolved its level. It belongs
+                // here: one more fallback in the same semantic-identity chain.
+                const roof = this._roofStore.getById(elementId);
+                if (roof) levelId = roof.levelId;
             }
-        } else if (!levelId && elementId && this._roofStore) {
-            const roof = this._roofStore.getById(elementId);
-            if (roof) levelId = roof.levelId;
         }
 
         const resolvedLevel = bimManager?.getLevelById(levelId);

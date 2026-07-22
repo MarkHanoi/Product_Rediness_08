@@ -54,6 +54,19 @@ export {
     BCN_ORDINANCE_REF,
 } from './rulepacks/esBarcelonaEnsanche.js';
 
+// ── L-583 §9 — Barcelona clau 13b (*densificació urbana semiintensiva*). ──
+// The SAME Art. 242 depth construction as 13a — it is the same article, applicable via Art. 326
+// (the *segons alineacions de vial* ordering type), NOT via Art. 328, which states no depth rule
+// at all. Height/floors/FAR/coverage are null, each for a reason argued in the module header.
+export {
+    ES_BARCELONA_SEMIINTENSIVA_PACK,
+    BCN_SEMIINTENSIVA_RULE,
+    BCN_SEMIINTENSIVA_ZONE_CODES,
+    BCN_13B_ORDINANCE_REF,
+    BCN_13B_PERI_FAR_NOT_APPLICABLE,
+    BCN_13B_DENSITY_CAP_HAB_PER_HA,
+} from './rulepacks/esBarcelonaSemiintensiva.js';
+
 // ── L-550 Phase 0.1 — THE RULE-PACK REGISTRY. ──
 // The dispatcher no longer hard-codes which claus have a pack: it asks the registry for a
 // ZONE DISPOSITION and gets `pack` / `refusal` / `unregistered`. Adding a clau (or a city) is a
@@ -99,6 +112,22 @@ export {
     type AlcadaBand,
     type AlcadaResolution,
 } from './rulepacks/bcnAlcadaReguladora.js';
+
+// L-583 §4 — PGM Art. 328, the clau 13b (Subzona II) *alçada reguladora* table. Same CONSTRUCTION
+// as Art. 327, different numbers (four bands, PB+4 ceiling), and no Eixample cornice increment.
+export {
+    resolveAlcadaSemiintensiva,
+    BCN_ALCADA_SEMIINTENSIVA_TABLE,
+    BCN_ART328_EDGE_CONVENTION,
+} from './rulepacks/bcnAlcadaSemiintensiva.js';
+
+// L-583 — WHICH height article governs WHICH clau. The L5 dispatcher must ask this rather than
+// call an article's resolver directly: calling Art. 327's table for a 13b parcel would publish a
+// wrong height under a confident citation to an article that does not govern that land.
+export {
+    resolveBcnAlcadaForZone,
+    type ZonedAlcadaResolution,
+} from './rulepacks/bcnAlcadaByZone.js';
 
 // L-525a — the curated *ample oficial* allow-list Art. 327.2 keys on. Barcelona publishes no
 // machine-readable official street width, and a MEASURED width cannot substitute (the bands are

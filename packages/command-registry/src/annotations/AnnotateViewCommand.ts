@@ -201,7 +201,10 @@ export class AnnotateViewCommand {
         // Phase 3 exit gate.  Using an alias preserves identical runtime behaviour while
         // keeping the ratchet count at threshold.  TODO(TASK-06): replace with runtime.bus.
         const _cmdMgr = ctx?.commandManager
-            ?? (typeof window !== undefined ? window.commandManager : null); // TODO(TASK-06)
+            // `typeof window !== undefined` (unquoted) was ALWAYS true — `typeof` yields a
+            // string, so the guard never guarded and `window.commandManager` threw a
+            // ReferenceError in any non-DOM runtime (node tests, workers, SSR).
+            ?? (typeof window !== 'undefined' ? window.commandManager : null); // TODO(TASK-06)
         const annotationStore = ctx?.stores?.annotationStore
             ?? ctx?.annotationStore
             ?? (typeof window !== 'undefined' ? window.annotationStore : null); // TODO(TASK-08)

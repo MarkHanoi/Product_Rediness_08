@@ -133,6 +133,11 @@ export default [
     ignores: [
       'node_modules/**',
       'dist/**',
+      // `apps/component-editor/dist-gate/` is a COMMITTED vite bundle (the C51
+      // apex-output gate reads it). It is a build artefact by every definition
+      // this ignore list already uses, and linting minified output produced
+      // errors about the bundler's own variable names.
+      '**/dist-gate/**',
       'build/**',
       'coverage/**',
       'attached_assets/**',
@@ -169,6 +174,18 @@ export default [
       ecmaVersion: 'latest',
       sourceType: 'module',
       globals: { ...globals.browser, ...globals.node },
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      // Same `^_` convention the TypeScript block below declares, applied to the
+      // plain-JS files too (it was TS-only, so the `_`-prefixed rest-destructure
+      // "omit a key" idiom in packages/file-format/src/family-migrations/ops/*.js
+      // was reported as unused even though it is the documented convention).
+      // `ignoreRestSiblings` is what makes `const { [k]: _removed, ...rest }` legal.
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
     },
   },
 
@@ -254,6 +271,35 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-unused-vars': 'off', // handled by the TS rule above
     },
+  },
+
+  // ── `no-undef` MUST be off on TypeScript, for the same structural reason
+  // `no-unused-vars` is off in the block above: the base rule resolves identifiers
+  // against ESLint's `globals` list, which contains VALUES only. Every TS *type*
+  // from lib.dom.d.ts / @types/node therefore reads as undefined. Measured on this
+  // tree before the change: 179 errors across 85 files, 100% of them type positions
+  // (`EventListener`, `EventListenerOptions`, `RequestInit`, `NodeJS`,
+  // `CanvasTextBaseline`, `GeoJSON`, `CryptoKeyPair`, …) and ZERO genuine undefined
+  // values — enough on its own to make the `lint` CI job unpassable, which is why
+  // every deploy has been going out through `bypass_ci_gate`.
+  //
+  // This is not a suppression: an undefined identifier in TypeScript is a COMPILER
+  // error (TS2304), and CI runs `tsc --noEmit` over the same tree in the `build`
+  // job. It is also typescript-eslint's own documented guidance — `no-undef` is in
+  // the set `eslint-recommended` explicitly turns off for TS files.
+  //
+  // Scoped to the .ts/.tsx of the four PRYZM 2 trees only — NOT `**/*.ts`: a
+  // whole-tree glob would ADD files to the linted set (root `scratchpad/*.mts`
+  // probes are parsed by espree and fatal on TS syntax). Plain .js/.mjs under
+  // tools/ and packages/ keep the base rule, since nothing else checks them.
+  {
+    files: [
+      'packages/**/*.{ts,tsx}',
+      'tools/**/*.{ts,tsx}',
+      'apps/**/*.{ts,tsx}',
+      'plugins/**/*.{ts,tsx}',
+    ],
+    rules: { 'no-undef': 'off' },
   },
 
   // W-1A-1 — single-channel store rule for plugin handlers.
