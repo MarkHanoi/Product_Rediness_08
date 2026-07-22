@@ -2001,6 +2001,157 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         wireEnvelopeToggle(panel);
     };
 
+    // ── §ENVELOPE-SITE-DATA (L-586) — the full parcel + massing read-out ─────────────────────
+    //
+    // Founder 2026-07-22: *"I want as much data as possible in the panel about the parcel — depth,
+    // site boundary dims, perimeter, levels, height, max buildable surface — with sources."*
+    //
+    // WHY THIS IS AN HONESTY FEATURE AND NOT DECORATION. The card previously showed four numbers.
+    // A feasibility figure a user acts on is only as trustworthy as its provenance (C58 §1.3), and
+    // the derivation trace already carried far more than we rendered — so the data existed and was
+    // simply not surfaced. Everything below is COMPUTED FROM GEOMETRY WE HOLD or read from the
+    // derivation trace; each group states where it came from.
+    //
+    // ⚠⚠ THE RULE THAT GOVERNS EVERY ROW: **NEVER SYNTHESISE A MISSING VALUE.** Storeys are shown
+    // only when the rule pack actually derived `maxFloors`; they are NOT back-computed from
+    // `height ÷ 3 m`, and max GFA is shown only when the storey count is real. An invented storey
+    // count would look identical to a derived one and would silently propagate into every area and
+    // yield figure on this card — the L-459 pattern, and the exact failure C58 §1.4 forbids. A
+    // dash that says "not derived" is worth more than a plausible number.
+    const polyPerimeterM = (ring: ReadonlyArray<{ x: number; z: number }>): number => {
+        if (ring.length < 2) return 0;
+        let p = 0;
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+            p += Math.hypot(b.x - a.x, b.z - a.z);
+        }
+        return p;
+    };
+    const polyAreaM2 = (ring: ReadonlyArray<{ x: number; z: number }>): number => {
+        if (ring.length < 3) return 0;
+        let a = 0;
+        for (let i = 0; i < ring.length; i++) {
+            const p = ring[i]!, q = ring[(i + 1) % ring.length]!;
+            a += p.x * q.z - q.x * p.z;
+        }
+        return Math.abs(a) / 2;
+    };
+    /** Axis-aligned extent. Labelled "bounding box", never "dimensions" — a non-rectangular parcel
+     *  has no single width×depth, and calling a bbox that would overstate what we know. */
+    const polyBboxM = (ring: ReadonlyArray<{ x: number; z: number }>): { w: number; d: number } => {
+        if (ring.length === 0) return { w: 0, d: 0 };
+        const xs = ring.map((p) => p.x), zs = ring.map((p) => p.z);
+        return { w: Math.max(...xs) - Math.min(...xs), d: Math.max(...zs) - Math.min(...zs) };
+    };
+    const num = (v: number, unit: string, dp = 1): string =>
+        `${v.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp })} ${unit}`;
+    const NOT_DERIVED =
+        '<span style="color:#a49dbb;font-style:italic;" title="The rule pack did not derive this. We do not infer it — an inferred value would be indistinguishable from a derived one.">not derived</span>';
+
+    const buildSiteDataBlock = (env: ReturnType<typeof getLastBuildableEnvelope>): string => {
+        if (!env) return '';
+        const site = (runtime?.siteModelStore as {
+            getSite?: () => { parcel?: { boundary?: { polygon?: Array<{ x: number; z: number }>; edgeClassifications?: string[] } } } | null;
+        } | undefined)?.getSite?.();
+        const parcelRing = site?.parcel?.boundary?.polygon ?? [];
+        const edgeCls = site?.parcel?.boundary?.edgeClassifications ?? [];
+        const frontEdges = edgeCls.filter((c) => c === 'front').length;
+        const inset = env.insetPolygon ?? [];
+
+        const row = (label: string, value: string, hint?: string): string =>
+            `<div style="display:flex;justify-content:space-between;gap:10px;padding:2.5px 0;">
+               <span style="color:#6b6480;">${escHtml(label)}${hint ? `<span title="${escHtml(hint)}" style="color:#c3bdd6;cursor:help;"> ⓘ</span>` : ''}</span>
+               <span style="font-weight:600;text-align:right;">${value}</span>
+             </div>`;
+        const group = (title: string, source: string, body: string): string =>
+            `<div style="margin-top:9px;">
+               <div style="font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#6600FF;">${escHtml(title)}</div>
+               ${body}
+               <div style="color:#a49dbb;font-size:9.5px;margin-top:3px;">${escHtml(source)}</div>
+             </div>`;
+
+        // ── PARCEL — pure geometry off the committed boundary. ──
+        const parcelBlock = parcelRing.length >= 3
+            ? group('Parcel', 'Cadastral boundary as committed to this project (Catastro / drawn), measured in scene metres.',
+                row('Area', num(polyAreaM2(parcelRing), 'm²', 0))
+                + row('Perimeter', num(polyPerimeterM(parcelRing), 'm'))
+                + row('Bounding box', `${num(polyBboxM(parcelRing).w, '', 1)} × ${num(polyBboxM(parcelRing).d, 'm', 1)}`,
+                    'Axis-aligned extent. A non-rectangular parcel has no single width × depth, so this is deliberately labelled a bounding box.')
+                + row('Boundary edges', `${parcelRing.length}${frontEdges > 0 ? ` (${frontEdges} street frontage)` : ''}`))
+            : '';
+
+        // ── ORDINANCE — every value read from the derivation trace, with its citation. ──
+        const dRow = (c: string) => env.derivation.find((d) => d.constraint === c);
+        const depthRow = dRow('alignment.depth');
+        const ordBody =
+            (typeof depthRow?.value === 'number' ? row('Buildable depth', num(depthRow.value as number, 'm'),
+                'Block-granularity: Art. 242.2 derives this from the whole manzana, so neighbouring parcels on the same block share it.') : '')
+            + row('Max height', env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED)
+            + row('Storeys', env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
+                'Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
+            + row('Max FAR', env.maxFAR !== null ? env.maxFAR.toFixed(2) : NOT_DERIVED)
+            + row('Max site coverage', env.maxCoverage !== null ? `${(env.maxCoverage * 100).toFixed(0)} %` : NOT_DERIVED);
+        const ordCite = env.derivation.find((d) => typeof d.ordinanceRef === 'string' && d.ordinanceRef)?.ordinanceRef;
+        const ordBlock = group('Ordinance limits',
+            ordCite ? `Zone ${env.zoneCode ?? 'n/a'} · ${ordCite}` : `Zone ${env.zoneCode ?? 'n/a'} · citation held per row in "Why these numbers?"`,
+            ordBody);
+
+        // ── MASSING — what the limits actually buy. ──
+        const footprint = env.insetAreaM2 || polyAreaM2(inset);
+        const coverPct = parcelRing.length >= 3 && polyAreaM2(parcelRing) > 0
+            ? (footprint / polyAreaM2(parcelRing)) * 100 : null;
+        // ⚠ GFA ONLY WHEN THE STOREY COUNT IS REAL. footprint × storeys is the whole reason the
+        // "never synthesise storeys" rule above matters — a guessed storey count would silently
+        // become a guessed sellable area, which is the number a developer actually decides on.
+        const gfa = env.maxFloors !== null && env.maxFloors > 0 ? footprint * env.maxFloors : null;
+        const massBody =
+            row('Buildable footprint', footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED)
+            + (coverPct !== null ? row('Footprint / parcel', `${coverPct.toFixed(0)} %`) : '')
+            + (inset.length >= 3 ? row('Footprint perimeter', num(polyPerimeterM(inset), 'm')) : '')
+            + row('Max buildable area (GFA)',
+                gfa !== null ? num(gfa, 'm²', 0) : NOT_DERIVED,
+                'Footprint × storeys. Deliberately blank when the storey count was not derived — a guessed storey count would become a guessed sellable area.')
+            + row('Study volume', env.maxVolumeM3 !== null ? num(env.maxVolumeM3, 'm³', 0) : NOT_DERIVED,
+                'Footprint × max height. A massing study volume, not a permitted volume.');
+        const massBlock = group('Massing potential',
+            'Computed from the inset footprint this card solved. A STUDY, not a permit.', massBody);
+
+        // ── PER-STOREY — only when storeys are real. ──
+        const perLevel = (() => {
+            if (env.maxFloors === null || env.maxFloors <= 0 || footprint <= 0) return '';
+            const n = env.maxFloors;
+            // ⚠ The band is only shown when a max height exists; otherwise the storey rows carry
+            // area alone rather than an invented floor-to-floor.
+            const ftf = env.maxHeight_m !== null && n > 0 ? env.maxHeight_m / n : null;
+            const cells = Array.from({ length: Math.min(n, 40) }, (_, i) => {
+                const lvl = i;
+                const band = ftf !== null ? `${(lvl * ftf).toFixed(1)}–${((lvl + 1) * ftf).toFixed(1)} m` : '—';
+                return `<div style="display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;">
+                          <span style="color:#6b6480;">${lvl === 0 ? 'Ground' : `Level ${lvl}`}</span>
+                          <span style="color:#8a83a0;">${band}</span>
+                          <span style="font-weight:600;">${num(footprint, 'm²', 0)}</span>
+                        </div>`;
+            }).join('');
+            const truncated = n > 40 ? `<div style="color:#a49dbb;font-size:9.5px;">…${n - 40} further storeys not listed.</div>` : '';
+            return group('Per storey', ftf !== null
+                ? 'Even floor-to-floor from max height ÷ storeys — an EQUAL DIVISION for study, not a regulated storey height.'
+                : 'No max height derived, so no vertical band is shown rather than an invented one.',
+                cells + truncated);
+        })();
+
+        return `<details style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;">
+                  <summary style="cursor:pointer;font-weight:700;font-size:10.5px;color:#6600FF;list-style:none;">Full site &amp; massing data</summary>
+                  <div style="font-size:10.5px;margin-top:4px;">
+                    ${parcelBlock}${ordBlock}${massBlock}${perLevel}
+                    <div style="margin-top:9px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:9.5px;line-height:1.45;">
+                      Values marked <i>not derived</i> were not produced by the rule pack for this zone.
+                      PRYZM does not infer them — an inferred value would be indistinguishable from a
+                      derived one on this card.
+                    </div>
+                  </div>
+                </details>`;
+    };
+
     /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
     const refreshEnvelopePanel = (): void => {
         const viewport = getForma3dHostEl();
@@ -2266,6 +2417,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
                ${sourceLine}
              </div>
+             ${buildSiteDataBlock(env)}
              ${whyBlock}
              ${envelopeToggleHtml()}`;
         wireEnvelopeToggle(panel);

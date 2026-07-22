@@ -52,8 +52,14 @@ The envelope is a **six-layer** product. The layers **multiply**: four layers at
 | 1–3 | parcel · zone · block dissolve | **83.0%** | n=100 |
 | 4 | depth (Art. 242.2) | *(inside the 83.0%)* | — |
 | 5 | height (Art. 327) | **78.3%** | n=83 |
-| 6 | render / inset volume | **55.4%** *(was 36.9% before the L-581 clamp, shipped 2026-07-22)* | n=65 |
-| | **END-TO-END** | **5.8%** | |
+| 6 | render / inset volume | **41.5%** live *(was 36.9%; L-581 clamp shipped 2026-07-22)* | n=65 |
+| | **END-TO-END** | ❔ **STALE — must be re-derived** | |
+
+⚠⚠ **THE END-TO-END FIGURE IS CURRENTLY UNQUOTABLE.** 5.8% was computed when layer 6 stood at 36.9%.
+It is **not** the product of the layer percentages (0.83 × 0.783 × 0.369 ≈ 24%, not 5.8%), so the
+chain involves conditioning this document does not record. **Do not multiply the layers and publish
+the result.** Re-derive it and cite the derivation. A stale cell that says "stale" is safe; one that
+still says "5.8%" is not.
 
 ### ⚠⚠ Two things that must never be dropped when this table is quoted
 
@@ -88,8 +94,17 @@ A fix ("clamp instead of drop") was built and measured offline against 65 real b
 | before | 36.9% | 3 |
 | **clamp (shipped)** | **55.4%** | **9** |
 
-**Layer 6 goes 36.9% → 55.4%**, Art. 242 answers 24/65 → 31/65. Zero external dependency, and it
-unblocks Madrid and Córdoba on the same code path. **SHIPPED 2026-07-22.**
+**Measured live, same 65 parcels, before vs after:** geometry sound 36.9% → **41.5%**; blocks told
+*"Art. 242.2 cannot be satisfied"* **40 → 28**; answers produced by the real Art. 242 construction
+**16 → 28**. The middle row is the headline — **a 30% cut in false refusals.** **SHIPPED 2026-07-22.**
+
+⚠ The table above (55.4%) is the **offline fixture** metric — one inset call at the 11 m floor. The
+41.5% is the **live** metric — full solve plus containment. **They are different measurements and
+must not be compared**; quoting whichever is larger is the aggregate-shopping that produced the
+retracted 92.3%.
+
+⚠ *"Unblocks Madrid and Córdoba on the same code path"* is an **UNTESTED CLAIM** — the dissolve probe
+for those cities has not been re-run since the clamp. Do not repeat it as fact until it has.
 
 ### ⚠⚠ A first draft of this section claimed 92.3% and 34 honest answers. Both were RETRACTED.
 
