@@ -157,10 +157,56 @@ function rayHitSegment(origin: Pt, dirX: number, dirZ: number, a: Pt, b: Pt): nu
     return t;
 }
 
-/** Median of a non-empty numeric array. Even counts take the LOWER middle so the result is always
- *  an observed sample, never a constructed average — same discipline as the block-ring dissolve. */
-function median(sorted: ReadonlyArray<number>): number {
-    return sorted[Math.floor((sorted.length - 1) / 2)]!;
+/**
+ * §AMPLADA-ART-238 (L-591) — THE ORDINANCE SAYS **MINIMUM**, AND WE WERE RETURNING THE MEDIAN.
+ *
+ * PGM **Art. 238.1** defines *amplada de vial* — the parameter that selects the height band in
+ * Art. 327 (13a), Art. 328 (13b), Art. 342.5 (20a) and Art. 350.c (22a) — in three parts:
+ *
+ *   **a.** If the *alineacions de vialitat* are parallel with a **constant** distance along a whole
+ *          stretch between two cross-streets, that distance IS the amplada de vial.
+ *   **b.** If they are not parallel, or show *"eixamplaments, estrenyiments i altres irregularitats"*,
+ *          take **for each SIDE of a segment between two cross-streets the MINIMUM *amplada
+ *          puntual*** on that side and segment.
+ *   **c.** *"S'entén per amplada puntual de vial per a un punt d'una alineació de vialitat **la menor
+ *          de les distàncies** entre aquest punt i els punts de l'alineació oposada del mateix
+ *          vial."*
+ *
+ * ⚠ **WHY THE MEDIAN WAS THE WRONG STATISTIC, AND WHY IT WAS WRONG IN THE DANGEROUS DIRECTION.**
+ * The median was chosen so a single stray ray — into a chamfered corner, a porch, a gap between two
+ * opposing parcels — could not move the answer. Sound instinct, wrong quantity: `median ≥ min`, so we
+ * reported a **wider** street than Art. 238 prescribes, selected a **higher** band, and **over-stated
+ * permitted height**. That is the direction C58 §1.4 forbids, and the same class as the L-586
+ * over-statement. An edge is accepted while its spread is ≤ `maxSpread_m` (3.0 m), so the median
+ * could sit over a metre above the minimum — comfortably enough to cross the 8, 11, 15 or 20 m band
+ * edges and grant a storey the ordinance does not.
+ *
+ * ⚠ **AND THE ROBUSTNESS CONCERN DOES NOT SURVIVE INSPECTION.** Taking the minimum of NOISY samples
+ * is not the same as the minimum of the TRUE geometry, so in principle one spuriously short ray
+ * could now dominate. In practice it cannot do harm: the spread gate already REFUSES any edge whose
+ * samples disagree by more than 3 m, so every surviving edge is one where min and median differ by
+ * little — and where they do differ, the minimum is both the ordinance's answer and the
+ * conservative one. **We would rather under-state a height than over-state it.**
+ *
+ * ⚠ **NOT IMPLEMENTED, DELIBERATELY — two clauses of Art. 238 this does NOT satisfy:**
+ *   1. **238.1.b's partition.** The minimum is required per side per ***tram* between two
+ *      cross-streets**. We take it per CADASTRAL EDGE, which is a different partition — one edge may
+ *      span several *trams*, and one *tram* several edges.
+ *   2. **238.1.d's averaging.** *"Quan … resultin amplades de vial diferents per a frontals oposats
+ *      … s'ha de prendre com a amplada de vial l'amplada mitjana que asseguri un nombre màxim de
+ *      plantes uniforme."* Where opposite frontages of same-zoned land disagree, the ordinance
+ *      AVERAGES to force a uniform storey count — which cuts the OPPOSITE way to the minimum.
+ *   3. **238.2's *"real afectació a l'ús públic"*.** Only effectively urbanised public streets are a
+ *      valid parameter; we measure any gap between frontages, so a private gap or interior courtyard
+ *      still counts as a vial.
+ *
+ * Each needs data we do not yet have (a *tram* partition; the opposing block's zoning; a public-way
+ * layer). **Taking the minimum is strictly closer to Art. 238 than the median was, and errs
+ * conservative where it still diverges** — which is why it ships now rather than waiting for all
+ * three.
+ */
+function governingPunctualWidth(sorted: ReadonlyArray<number>): number {
+    return sorted[0]!;
 }
 
 /**
@@ -259,7 +305,8 @@ export function measureStreetWidths(
         }
         measurements.push({
             edgeIndex: i,
-            width_m: median(sorted),
+            // §AMPLADA-ART-238 (L-591) — the ordinance's MINIMUM punctual width, not the median.
+            width_m: governingPunctualWidth(sorted),
             spread_m: spread,
             sampleCount: sorted.length,
             edgeLength_m: len,
