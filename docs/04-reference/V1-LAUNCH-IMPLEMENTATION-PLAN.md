@@ -4458,3 +4458,59 @@ layer 5). The live harnesses now exist and are cheap to re-run:
 `scratchpad/probe-l576-live-dissolve.mts` (layer 4), `probe-l576-layer5.mts` (layer 5),
 `probe-l576-layer6.mts` (layer 6). **The next number given to the founder must come from re-running
 them, not from this table.**
+
+---
+
+## ⇒ UPDATE 2026-07-22 (late) — THE PER-CLAU ROADMAP, AND IT REORDERS THE PLAN
+
+Measured from the L-538 city grid (1,014 MUC points; **n=273** private buildable land):
+
+| clau | share of private land | status |
+|---|---|---|
+| **13a** | **24.2%** | ✅ SHIPPED |
+| `18` — *ordenació en volumetria específica* | **22.7%** | ⛔ **LEGAL REFUSAL** — buildability is a per-plot approved volume, not a zone rule. Correct answer, not a gap. |
+| `22a` — zona industrial | **17.6%** | gap — **the biggest single remaining win** |
+| `20a` family (edificació aïllada, 11 subcodes) | **13.2%** | gap — one pack covers all subcodes |
+| `12` — nucli antic de substitució | **9.5%** | gap |
+| **`13b`** | **8.8%** | ✅ **UNBLOCKED 2026-07-22** — see L-583 §9 |
+| `12b` — nucli antic de conservació | **1.8%** | gap — ⚠ neighbour-survey rule, needs SURVEYED heights (L-583 §5.3) |
+| `15` / `16` / `17` / `8a` | ~2.2% | mixed |
+
+### Coverage ceiling and ordering
+
+```
+today                24.2%   13a
++ 13b (unblocked)    33.0%   ← A3 answered; Art. 242 machinery transfers unchanged
++ 22a industrial     50.6%   ← biggest remaining, one article
++ 12 nucli antic     60.1%
++ 20a family         73.3%   ← 11 subcodes, one pack
++ 12b                75.1%   ← hardest: neighbour-survey + surveyed heights
+                     75.8%   CEILING (the rest is correct legal refusal)
+```
+
+### ⚠ THIS REORDERS THE PLAN — L-581 NOW OUTRANKS ALL LEGAL SOURCING
+
+| | L3 | L4 | L5 | L6 | end-to-end |
+|---|---|---|---|---|---|
+| today | 24.2% | 83.0% | 78.3% | 36.9% | **5.8%** |
+| + 13b ships | 33.0% | 83.0% | 78.3% | 36.9% | **7.9%** |
+| **+ L-581 fixed** | 33.0% | 83.0% | 78.3% | ~95% | **20.4%** ⭐ |
+| + Phase-0 remainder | 33.0% | ~93% | 78.3% | ~95% | 22.8% |
+| + declared widths | 33.0% | ~93% | ~95% | ~95% | 27.7% |
+| + full coverage | 75.8% | ~93% | ~95% | ~95% | **63.6%** |
+
+**L-581 alone (7.9% → 20.4%, a 2.6× jump) is worth more than every legal-sourcing item combined**,
+has **zero external dependency**, and is currently causing PRYZM to state *"Art. 242.2 cannot be
+satisfied on this block"* on the strength of our own offset failing. ⇒ **It is now unambiguously
+first.** The earlier ordering ("RPUC session first, it's the long pole") was correct when layer 6
+was unmeasured; it is not correct now.
+
+⚠ **The L-581 REMEDY is NOT the half-plane swap** — that recommendation was retracted after an
+adversarial review (see the L-581 audit row). The plan is **clamp-instead-of-drop** in the reversed-
+edge loop, plus a **monotonicity guard that REFUSES** when `interiorFreeAt` is measured non-monotone
+across the bisection's own sample points.
+
+### ⚠ 63.6% IS NOT "BARCELONA AT 85%"
+It is **~64% constructed + ~24% correctly refused = ~88% of parcels receiving a DEFINITIVE CORRECT
+answer**. 100% constructed is neither achievable nor desirable — pushing past the ceiling means
+fabricating envelopes where the ordinance grants none, which is the L-550/L-553 line.
