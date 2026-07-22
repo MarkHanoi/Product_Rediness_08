@@ -18,24 +18,35 @@
 // HONESTY CONTRACT — the whole point of the exercise
 // --------------------------------------------------
 // ⚠ This reader NEVER collapses a failure into an empty result. `readContextTileFeatures` returns a
-// DISCRIMINATED result (`ok` / `unavailable` / `disabled`), because "the range requests all failed"
+// DISCRIMINATED result (`ok` / `aborted` / `unavailable` / `disabled`), because "the range requests all failed"
 // and "this tile genuinely contains no buildings" are the same VALUE and must not be the same
 // ANSWER — that conflation IS L-467/L-469. Callers use the discriminator to decide whether falling
 // back to Overpass is warranted; an honest empty must NOT trigger a fallback, and an honest failure
 // must not be rendered as "no context here".
 //
-// GEOMETRY DEFENSIVENESS — probed, not assumed (2026-07-21)
-// ---------------------------------------------------------
-// A live probe of the baked `buildings.pmtiles` found, in a single Gòtic tile:
-//     LineString: 362 features (all carry building=*)   Polygon: 362 features (identical tags)
-//     Point:      678 features (0 carry building=*; every one is an `entrance=*` node)
-// i.e. `osmium export` emitted EVERY building TWICE — once as the closed way (LineString) and once
-// as the assembled area (Polygon) — and dragged in the tagged `entrance` nodes as points. Rendering
-// the layer naively would double-count every footprint and extrude a cloud of doorways. So this
-// reader keeps ONLY polygonal geometry carrying the layer's defining tag, and treats the tile's
-// geometry type as untrusted input. `tools/context-bake/bake.mjs` has been corrected to emit one
-// geometry class per layer, but the reader must stay defensive regardless of which bake it meets —
-// the tiles are a separately-deployed artefact and can be older than the code reading them.
+// GEOMETRY DEFENSIVENESS — probed, then RE-probed properly (§L-579, 2026-07-22)
+// -----------------------------------------------------------------------------
+// The bake emits each building TWICE — once as the closed way (LineString) and once as the
+// assembled area (Polygon) — and drags in tagged `entrance` NODES as Points. So this reader keeps
+// ONLY polygonal geometry carrying the layer's defining tag, and treats the tile's geometry type
+// as untrusted input.
+//
+// ⚠ THE EVIDENCE FOR THAT WAS INITIALLY BAD, AND THE CORRECTION MATTERS MORE THAN THE CONCLUSION.
+// The first "proof" was one Gòtic tile where the two counts happened to match exactly (362/362).
+// A follow-up matched linestrings to polygons by CENTROID and reported 47% of them "unmatched",
+// which read as *the reader is deleting half of Barcelona* — a frightening number that was pure
+// artefact: in Eixample neighbouring buildings sit ~10 m apart, exactly the scale at which centroid
+// proximity stops telling a twin from a neighbour.
+//
+// The decisive test is footprint OVERLAP, not proximity. Bounding-box IoU over four Barcelona
+// tiles (Eixample, Gòtic, Born/Ciutadella, Vila Olímpica): 853 linestrings → 743 TWIN (IoU > 0.8),
+// 58 DISTINCT (IoU < 0.3), 52 ambiguous. And against independent OSM ground truth for one bbox
+// (our own `/api/overpass`: 217 buildings) the POLYGONS ALONE yield 225 at z16 — 104%, the surplus
+// being tile-boundary clip pieces; z15 and z14 give 98%. Dropping the linestrings loses nothing.
+//
+// `tools/context-bake/bake.mjs` pins one geometry class per layer, but this reader stays defensive
+// regardless of which bake it meets — the tiles are a separately-deployed artefact and can be
+// older than the code reading them.
 //
 // TILE IDENTITY — ⚠ `osmId` is SYNTHETIC on this path
 // ----------------------------------------------------
@@ -76,6 +87,20 @@ export type ContextTileResult =
     | { readonly status: 'ok'; readonly features: ContextTileFeature[]; readonly tilesRead: number; readonly ms: number }
     /** No tiles URL is configured (local dev / not yet rolled out) — the caller should use Overpass. */
     | { readonly status: 'disabled' }
+    /**
+     * §L-579 — THE CALLER CANCELLED. This is NOT a failure and MUST NOT trigger a fallback.
+     *
+     * The founder's console showed this three times in one session:
+     *     §CTX-PMTILES-READER buildings: tiles configured but unreadable (aborted)
+     *       — falling back to live Overpass. This is a DEGRADED path…
+     *     §OVERPASS-CLIENT-FAILOVER — the proxy reported ALL upstream mirrors failed (429/timeout).
+     * An abort means the user navigated and a newer request is already in flight; the honest
+     * response is to render nothing and let that newer request paint. Instead we treated it as a
+     * read failure, went to the third party this whole subsystem exists to remove, got rate-limited,
+     * and burned that budget while the user was watching an empty map. Distinct from `unavailable`
+     * precisely so the caller can tell "you cancelled me" from "the tiles are broken".
+     */
+    | { readonly status: 'aborted' }
     /** Tiles ARE configured but could not be read (network / 404 / corrupt / out of bounds). */
     | { readonly status: 'unavailable'; readonly reason: string };
 
@@ -303,7 +328,21 @@ function ringsFor(
                 .filter((r) => r.length >= 4);
         case 'LineString':
             // ⚠ For an AREAL layer this is the bake's duplicate copy of a polygon we have already
-            // taken — keeping it would double-count every footprint (probed: 362 vs 362).
+            // taken — keeping it would DOUBLE-COUNT every footprint.
+            //
+            // §L-579 — THIS WAS RE-PROVED PROPERLY, because the first proof was not one. It rested
+            // on one tile where the polygon and linestring counts happened to match exactly
+            // (362/362). A follow-up matched linestrings to polygons by CENTROID and reported 47%
+            // "unmatched", which read as "the reader is deleting half the city" — and that was an
+            // ARTEFACT: in Eixample neighbouring buildings sit ~10 m apart, the scale at which
+            // centroid matching stops distinguishing a twin from a neighbour.
+            //
+            // The decisive test is footprint OVERLAP, not proximity. Bounding-box IoU across four
+            // Barcelona tiles (Eixample, Gòtic, Born/Ciutadella, Vila Olímpica): 853 linestrings →
+            // 743 TWIN (IoU > 0.8) · 58 DISTINCT (IoU < 0.3) · 52 ambiguous. And against OSM ground
+            // truth over one bbox (our own /api/overpass: 217 buildings), the POLYGONS ALONE give
+            // 225 at z16 — 104%, the surplus being tile-boundary clip pieces. Dropping the
+            // linestrings is correct and loses nothing.
             return areal ? [] : [geometry.coordinates as number[][]];
         case 'MultiLineString':
             return areal ? [] : (geometry.coordinates as number[][][]);
@@ -343,9 +382,11 @@ export async function readContextTileFeatures(
             return { status: 'unavailable', reason: `zoom ${z} below tileset minZoom ${header.minZoom}` };
         }
     } catch (e) {
+        // An abort during the header read is the caller cancelling, not a broken tileset.
+        if ((e as Error)?.name === 'AbortError' || signal?.aborted) return { status: 'aborted' };
         return { status: 'unavailable', reason: `header read failed: ${(e as Error)?.message ?? e}` };
     }
-    if (signal?.aborted) return { status: 'unavailable', reason: 'aborted' };
+    if (signal?.aborted) return { status: 'aborted' };
 
     const tiles = tilesCovering(bbox, z);
     if (tiles.length === 0) return { status: 'ok', features: [], tilesRead: 0, ms: Date.now() - t0 };
@@ -370,7 +411,7 @@ export async function readContextTileFeatures(
             return { x, y, data: null, error: (e as Error)?.message ?? String(e) };
         }
     }));
-    if (signal?.aborted) return { status: 'unavailable', reason: 'aborted' };
+    if (signal?.aborted) return { status: 'aborted' };
 
     for (const r of results) {
         if (r.error) { failed++; continue; }

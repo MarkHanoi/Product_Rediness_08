@@ -769,6 +769,17 @@ async function fetchForBbox(bbox: Bbox, signal?: AbortSignal): Promise<ContextBu
         cache.set(key, collection);
         return collection;
     }
+    if (tiled.status === 'aborted') {
+        // §L-579 — AN ABORT IS NOT A FAILURE, so it must not buy a fallback. The caller cancelled
+        // (the user navigated) and a newer request is already in flight; the honest response is to
+        // return empty and let that newer request paint. Falling through to Overpass here meant
+        // every pan issued a live third-party query we had just spent this whole subsystem
+        // removing — and the founder's console duly showed it being rate-limited:
+        //     §OVERPASS-CLIENT-FAILOVER — the proxy reported ALL upstream mirrors failed (429/timeout)
+        // ⚠ The empty returned here is NOT cached: caching it would make a cancelled request look
+        // like a settled "no buildings here" for every later read of this bbox.
+        return emptyContextCollection();
+    }
     if (tiled.status === 'unavailable') {
         console.warn(
             `[gis] §CTX-PMTILES-READER buildings: tiles configured but unreadable (${tiled.reason}) ` +
