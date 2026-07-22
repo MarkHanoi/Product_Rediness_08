@@ -4476,6 +4476,34 @@ Measured from the L-538 city grid (1,014 MUC points; **n=273** private buildable
 | `12b` — nucli antic de conservació | **1.8%** | gap — ⚠ neighbour-survey rule, needs SURVEYED heights (L-583 §5.3) |
 | `15` / `16` / `17` / `8a` | ~2.2% | mixed |
 
+> ### ⚠ THE TWO CITATIONS THE 13b WORK HANGS ON — get these wrong and the output is fabrication
+>
+> **1 · WHY 13b INHERITS THE 30% (cite Art. 242 *via* Art. 326 — NEVER Art. 328).**
+> The argument is **STRUCTURAL, not a category inference.** Art. 242 sits in *Títol IV → Cap. 2n →
+> Secció 2a — "Normes aplicables a l'edificació segons alineacions de vial"*: the **common
+> provisions of the ORDERING TYPE**, not any zone's article block. Art. 236 lists buildable depth as
+> a parameter of that ordering type, and **Art. 326 stipulates that the subzones (PLURAL, no
+> carve-out) of *densificació urbana* are ordered by street alignment.** So 13b needs no
+> cross-reference to Art. 242 — for the same reason it needs none for Art. 240 (heights) or Art. 244
+> (setbacks). Art. 242.2's own wording corroborates it: the 40% is scoped to *"la zona de nucli antic
+> **subzona I**"* — a subzone **named explicitly** — while the 30% is scoped to *"les de
+> **densificació urbana**"*, the category **unqualified**. Where the drafter meant to restrict to a
+> subzone, they said so.
+> ⚠ **Art. 328 contains NO depth rule.** Citing it for depth would be a fabricated attribution of
+> exactly the L-526 kind. Art. 328 is the 13b **height** table (<8→7,55/PB+1 · 8–11→10,60 ·
+> 11–15→13,65 · ≥15→16,70).
+>
+> **2 · THE 22,40 m FIGURE IS NOT A HEIGHT — DO NOT LET IT BACK INTO THE TABLE (L-528, closed).**
+> It is the ***alçada reguladora incrementada*** of **Art. 21, Ordenança de Rehabilitació i Millora
+> de l'Eixample (22-11-2002)**: a cornice increment of **up to 2,25 m** to harmonise with neighbours
+> **predating 1932** (20,75 + 1,65 = 22,40). A different quantity, from a different instrument,
+> answering a different question. Our Art. 327 table was **corroborated band-for-band, six for six**.
+> ⚠ It is **CONDITIONAL** (inside the *Conjunt Especial de l'Eixample* + pre-1932 neighbours) and
+> **we verify neither**, so it ships as `corniceIncrementMax_m` — *an allowance that may apply*,
+> **never** a height we assert (C58 §1.4). It is **NOT band-specific**; the old
+> `floorsAboveGround === 5` gate was an artefact of the confusion and is removed.
+
+
 ### Coverage ceiling and ordering
 
 ```
