@@ -122,6 +122,21 @@ const ADDRESS_TYPE_CODES = new Set([
 ]);
 
 /**
+ * §L-586 — the parsed halves of a Catastro `ldt` line, kept SEPARATE.
+ *
+ * ⚠ THE TYPE CODE IS NOT NOISE, AND DISCARDING IT WAS A LIVE DEFECT. See
+ * `BCN_OFFICIAL_STREET_WIDTH_ALIASES` below: `"PS GRACIA"` (Passeig de Gràcia, ~60 m) and
+ * `"TR GRACIA"` (Travessera de Gràcia, a fraction of that) share the bare name `GRACIA`. A lookup
+ * that throws the code away either misses both or — far worse — answers one with the other's width.
+ */
+export interface CatastroAddressParts {
+    /** The `ldt` type code, uppercased (`CL`, `PS`, `RB`, `GV`, `AV`, `PJ`, `PZ`…), or `''`. */
+    readonly typeCode: string;
+    /** The street name, normalised by `normaliseStreetName`. `''` when none could be read. */
+    readonly street: string;
+}
+
+/**
  * Normalise a street name for matching: strip diacritics, uppercase, drop Catalan/Spanish
  * particles and punctuation, collapse whitespace.
  *
@@ -146,23 +161,41 @@ export function normaliseStreetName(raw: string): string {
 }
 
 /**
- * Pull the street name out of a Catastro `ldt` address line.
+ * Split a Catastro `ldt` address line into its type code and its street name.
  *
- * `"CL PAU CLARIS 174 BARCELONA (BARCELONA)"` → `"PAU CLARIS"`. Returns `''` when no street can be
- * read — never a partial guess, because a partial name could collide with a different street.
+ * `"CL PAU CLARIS 174 BARCELONA (BARCELONA)"` → `{ typeCode: 'CL', street: 'PAU CLARIS' }`.
+ * Returns empty strings rather than a partial guess — a partial name could collide with a
+ * different street, and this value becomes a building height.
  */
-export function streetNameFromCatastroAddress(address: string): string {
-    if (typeof address !== 'string' || address.trim() === '') return '';
+export function parseCatastroAddress(address: string): CatastroAddressParts {
+    if (typeof address !== 'string' || address.trim() === '') return { typeCode: '', street: '' };
     const tokens = address.trim().split(/\s+/);
     let i = 0;
-    if (tokens[i] && ADDRESS_TYPE_CODES.has(tokens[i]!.toUpperCase())) i++;
+    let typeCode = '';
+    if (tokens[i] && ADDRESS_TYPE_CODES.has(tokens[i]!.toUpperCase())) {
+        typeCode = tokens[i]!.toUpperCase();
+        i++;
+    }
     const nameTokens: string[] = [];
     for (; i < tokens.length; i++) {
         // The house number terminates the street name.
         if (/^\d/.test(tokens[i]!)) break;
         nameTokens.push(tokens[i]!);
     }
-    return normaliseStreetName(nameTokens.join(' '));
+    return { typeCode, street: normaliseStreetName(nameTokens.join(' ')) };
+}
+
+/**
+ * Pull the street name out of a Catastro `ldt` address line.
+ *
+ * `"CL PAU CLARIS 174 BARCELONA (BARCELONA)"` → `"PAU CLARIS"`. Returns `''` when no street can be
+ * read — never a partial guess, because a partial name could collide with a different street.
+ *
+ * ⚠ The type code is DROPPED here. For a lookup, use `parseCatastroAddress` and keep it — see
+ * `CatastroAddressParts` for the defect that costs.
+ */
+export function streetNameFromCatastroAddress(address: string): string {
+    return parseCatastroAddress(address).street;
 }
 
 /**
@@ -178,9 +211,21 @@ export const BCN_OFFICIAL_STREET_WIDTHS: ReadonlyMap<string, OfficialStreetWidth
             ['MERIDIANA', 50, 'Cerdà diagonal artery; 50 m official width.'],
             ['PARAL LEL', 50, 'Cerdà artery; 50 m official width.'],
             ['PASSEIG SANT JOAN', 50, 'Cerdà passeig; 50 m official width.'],
-            ['PASSEIG GRACIA', 60, 'Cerdà showcase passeig; ~60 m official width (widest Eixample street).'],
+            ['PASSEIG GRACIA', 60, 'Cerdà showcase passeig; ~60 m official width (widest Eixample street). '
+                + '§L-586: seven parcels measured their Passeig frontage at 61.1–62.3 m, i.e. ~1–2 m WIDER '
+                + 'than this nominal. Not reconciled and deliberately not "corrected" — 60 and 62 sit in the '
+                + 'same ≥30 m band, so the height is identical either way and adjusting the figure to match '
+                + 'a measurement would be inventing a declared value.'],
             ['ARAGO', 30, 'Cerdà secondary artery; 30 m official width.'],
-            ['RAMBLA CATALUNYA', 30, 'Cerdà rambla; 30 m official width.'],
+            // ⚠ §L-586 — 30 m IS THE ≥30 BAND BOUNDARY (Art. 327.2): 30.00 ⇒ 23.80 m PB+6, 29.99 ⇒
+            // 20.75 m PB+5. Because a declared width is band-edge-exempt by definition, this entry
+            // decides a whole storey with no guard behind it. It is corroborated but NOT certified:
+            // three parcels independently measured their Rambla frontage at 29.85–30.01 m (mean
+            // ~29.94), which is consistent with a declared 30 m and is ALSO consistent with a
+            // declared 29.9 m. Certifying it is L-528.
+            ['RAMBLA CATALUNYA', 30, 'Cerdà rambla; 30 m official width. ⚠ Sits EXACTLY on the Art. 327.2 '
+                + '≥30 m band edge, so it alone decides PB+5 vs PB+6; measured 29.85–30.01 m across three '
+                + 'parcels (§L-586) — corroborated, uncertified (L-528).'],
 
             // ── The standard 20 m Cerdà grid. Listed EXPLICITLY, one by one, rather than applied
             //    as a default — see the header on why an "Eixample default" is a fabrication. ──
@@ -210,13 +255,67 @@ export const BCN_OFFICIAL_STREET_WIDTHS: ReadonlyMap<string, OfficialStreetWidth
 );
 
 /**
+ * §L-586 — **THE FOUR ARTERIES CATASTRO COULD NEVER REACH.** Type-qualified aliases, keyed
+ * `"<ldt type code> <normalised name>"`.
+ *
+ * THE DEFECT THIS CLOSES, AND HOW IT WAS FOUND
+ * --------------------------------------------
+ * The allow-list above keys eight arteries on names that CONTAIN their street type — `PASSEIG
+ * GRACIA`, `RAMBLA CATALUNYA`, `GRAN VIA CORTS CATALANES`, `PASSEIG SANT JOAN`. Catastro's `ldt`
+ * field never writes the type as a WORD; it writes a CODE, and `parseCatastroAddress` strips it:
+ *
+ *     "PS GRACIA 67 BARCELONA (BARCELONA)"          → "GRACIA"           ✗ no entry
+ *     "RB CATALUNYA 43 BARCELONA (BARCELONA)"       → "CATALUNYA"        ✗ no entry
+ *     "GV CORTS CATALANES 748 BARCELONA (BARCELONA)"→ "CORTS CATALANES"  ✗ no entry
+ *
+ * So **the four highest-value entries in the table were dead data**: every parcel on Passeig de
+ * Gràcia, Rambla de Catalunya and Gran Via fell straight through the tier ladder to tier 3/4 and
+ * was resolved from the NARROWEST street around it — which on a corner parcel is the cross street,
+ * not the artery it is addressed on. Measured live over 83 Barcelona manzanas (L-586 probe), that
+ * cost one outright refusal and eight parcels resolved off the wrong façade.
+ *
+ * ⚠ WHY THE FIX IS NOT "ALSO KEY THEM ON THE BARE NAME". Because `GRACIA` is AMBIGUOUS: `PS GRACIA`
+ * is Passeig de Gràcia (~60 m) and `TR GRACIA` is Travessera de Gràcia, a different and much
+ * narrower street. Adding a bare `GRACIA → 60` key would hand the Passeig's width to the Travessera
+ * — a fabricated height wearing a curated badge, which is the exact failure class this whole module
+ * exists to prevent. **The type code is therefore part of the key, and a wrong code simply misses.**
+ *
+ * PROVENANCE. The widths are unchanged — they are the same `curated-cerda-nominal` figures already
+ * in the table, reached rather than restated. The alias strings are the LIVE Catastro renderings,
+ * read off `Consulta_RCCOOR_Distancia` responses for real parcels in the L-586 probe, not guessed.
+ *
+ * ⚠ Only forms OBSERVED in live Catastro data are listed. An artery whose `ldt` rendering we have
+ * not seen stays absent and keeps missing — an unlisted street is a safe outcome (see the header).
+ */
+export const BCN_OFFICIAL_STREET_WIDTH_ALIASES: ReadonlyMap<string, string> = new Map([
+    // Observed: "PS GRACIA 67 BARCELONA (BARCELONA)" and six further PS GRACIA parcels.
+    ['PS GRACIA', normaliseStreetName('PASSEIG GRACIA')],
+    // Observed: "RB CATALUNYA 42/43/79 BARCELONA (BARCELONA)".
+    ['RB CATALUNYA', normaliseStreetName('RAMBLA CATALUNYA')],
+    // Observed: "GV CORTS CATALANES 517/524/748/764/780/796 BARCELONA (BARCELONA)".
+    ['GV CORTS CATALANES', normaliseStreetName('GRAN VIA CORTS CATALANES')],
+    // Same construction as PS GRACIA (a *passeig* whose entry carries the word). NOT yet observed
+    // in a live `ldt` string — listed because the rendering follows mechanically from the same
+    // code table, and because missing is the failure mode either way.
+    ['PS SANT JOAN', normaliseStreetName('PASSEIG SANT JOAN')],
+]);
+
+/**
  * Look up the *ample oficial* for a Catastro address line.
  *
  * Returns `null` for any street not on the allow-list — the caller must then show NO constructed
  * height rather than fall back to a measured width or a default. See the header.
+ *
+ * §L-586 — resolution is TYPE-QUALIFIED FIRST, bare name second. The order is the safety property:
+ * a type-qualified alias can distinguish `PS GRACIA` from `TR GRACIA`, and the bare-name pass can
+ * never reach an aliased entry because no aliased entry is keyed on its bare name.
  */
 export function officialStreetWidthForAddress(address: string): OfficialStreetWidth | null {
-    const name = streetNameFromCatastroAddress(address);
-    if (name === '') return null;
-    return BCN_OFFICIAL_STREET_WIDTHS.get(name) ?? null;
+    const { typeCode, street } = parseCatastroAddress(address);
+    if (street === '') return null;
+    if (typeCode !== '') {
+        const canonical = BCN_OFFICIAL_STREET_WIDTH_ALIASES.get(`${typeCode} ${street}`);
+        if (canonical) return BCN_OFFICIAL_STREET_WIDTHS.get(canonical) ?? null;
+    }
+    return BCN_OFFICIAL_STREET_WIDTHS.get(street) ?? null;
 }

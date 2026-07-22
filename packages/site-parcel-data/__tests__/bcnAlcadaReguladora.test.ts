@@ -15,6 +15,7 @@ import {
     BCN_ALCADA_REGULADORA_TABLE,
     EIXAMPLE_CORNICE_INCREMENT_MAX_M,
     BAND_EDGE_GUARD_M,
+    effectiveBandEdgeGuard_m,
 } from '../src/rulepacks/bcnAlcadaReguladora.js';
 
 describe('L-525a — Art. 327.2 alçada reguladora table', () => {
@@ -128,5 +129,57 @@ describe('L-525a — refusing to let measurement noise choose a storey band', ()
 
     it('is deterministic (C58 §1.1)', () => {
         expect(resolveAlcadaReguladora(25)).toEqual(resolveAlcadaReguladora(25));
+    });
+});
+
+describe('§L-586 — 0.5 m is a FLOOR, not the whole error bar', () => {
+    // THE LIVE CASE. PS Gràcia 66 measured 19.15 m with a ray spread of 0.87 m — its own samples
+    // reach 20.02 m, ACROSS the 20 m band edge — and shipped 17.70 m (PB+4) because 19.15 ± 0.5
+    // stays inside the 15–20 band. The guard was satisfied by a constant that describes a
+    // DIFFERENT error (measured standing in for declared) than the one actually present.
+    it('REFUSES when the measurement\'s own spread straddles a band edge the constant clears', () => {
+        const naive = resolveAlcadaReguladora(19.152);
+        expect(naive.ok, 'the 0.5 m constant alone accepts this').toBe(true);
+
+        const honest = resolveAlcadaReguladora(19.152, { measurementSpread_m: 0.87 });
+        expect(honest.ok).toBe(false);
+        if (!honest.ok) {
+            expect(honest.reason).toBe('band-edge');
+            expect(honest.straddles).toEqual([17.7, 20.75]);
+        }
+    });
+
+    it('NEVER narrows the guard — a pin-sharp measurement still refuses on a band edge', () => {
+        // The 0.5 m allowance prices the measured-for-declared substitution, which a tight spread
+        // says nothing about. Letting a small spread shrink the guard would silently re-open the
+        // Cerdà 20 m step this module was written for.
+        for (const spread of [0, 0.001, 0.05, BAND_EDGE_GUARD_M]) {
+            const r = resolveAlcadaReguladora(20.0, { measurementSpread_m: spread });
+            expect(r.ok, `spread ${spread} m must not relax the guard`).toBe(false);
+        }
+        expect(effectiveBandEdgeGuard_m(0.05)).toBe(BAND_EDGE_GUARD_M);
+        expect(effectiveBandEdgeGuard_m(undefined)).toBe(BAND_EDGE_GUARD_M);
+        expect(effectiveBandEdgeGuard_m(null)).toBe(BAND_EDGE_GUARD_M);
+        expect(effectiveBandEdgeGuard_m(Number.NaN)).toBe(BAND_EDGE_GUARD_M);
+        expect(effectiveBandEdgeGuard_m(0.87)).toBe(0.87);
+    });
+
+    it('a spread cannot resurrect a width an OFFICIAL source already settled', () => {
+        // `trustedOfficialWidth` short-circuits the guard entirely; a spread is meaningless there
+        // because no measurement produced the number.
+        const r = resolveAlcadaReguladora(20.0, {
+            trustedOfficialWidth: true,
+            measurementSpread_m: 5,
+        });
+        expect(r.ok).toBe(true);
+        if (r.ok) expect(r.height_m).toBe(20.75);
+    });
+
+    it('leaves a clear-of-any-edge width alone however noisy, when it stays in one band', () => {
+        // 25 m ± 2 m is still wholly inside the 20–30 band. Refusing here would be superstition,
+        // not caution — the guard must fire on band CROSSINGS, not on noise as such.
+        const r = resolveAlcadaReguladora(25, { measurementSpread_m: 2 });
+        expect(r.ok).toBe(true);
+        if (r.ok) expect(r.height_m).toBe(20.75);
     });
 });

@@ -134,6 +134,21 @@ export interface ResolvedAmplada {
      * what makes the conversion explicit rather than a quietly relaxed threshold.
      */
     readonly trustedOfficialWidth: boolean;
+    /**
+     * §L-586 — the measurement's OWN error bar (`StreetWidthMeasurement.spread_m`) when a
+     * measurement produced this width, else `null`.
+     *
+     * ⚠ CARRIED SEPARATELY FROM `trustedOfficialWidth` ON PURPOSE. That flag answers "may the
+     * band-edge guard be skipped?"; this answers "how wide must the guard be when it is not?".
+     * Flattening the two loses the case the guard was written for: a width comfortably clear of a
+     * band edge by the 0.5 m substitution allowance, whose own rays disagree by nearly a metre and
+     * therefore straddle the edge anyway (PS Gràcia 66, 19.15 m ± 0.87 m, L-586).
+     *
+     * `null` on the declared and snapped tiers: a declared figure has no measurement error, and a
+     * snapped one is asserted to BE the declared quantum — its residual is already gated by the
+     * snap tolerance, which the measurement's spread had to pass to get here.
+     */
+    readonly measurementSpread_m: number | null;
     /** Human-readable derivation, for the panel's "Why these numbers?" row. Never omitted. */
     readonly why: string;
 }
@@ -205,6 +220,7 @@ export function resolveAmpladaDeVial(input: ResolveAmpladaInput): ResolvedAmplad
             width_m: d.width_m,
             provenance: d.provenance,
             trustedOfficialWidth: true,
+            measurementSpread_m: null,
             why: `${d.street} ample oficial ${d.width_m.toFixed(2)} m (${d.provenance}) — ${d.note}`,
         };
     }
@@ -219,6 +235,7 @@ export function resolveAmpladaDeVial(input: ResolveAmpladaInput): ResolvedAmplad
             width_m: snap.quantum_m,
             provenance: 'snapped-to-declared-quantum',
             trustedOfficialWidth: true,
+            measurementSpread_m: null,
             why:
                 `measured ${m.width_m.toFixed(2)} m (±${m.spread_m.toFixed(2)} m over ${m.sampleCount} ` +
                 `rays) → attributed to the ${snap.quantum_m} m declared quantum, ${snap.delta_m.toFixed(2)} m ` +
@@ -232,6 +249,9 @@ export function resolveAmpladaDeVial(input: ResolveAmpladaInput): ResolvedAmplad
         width_m: m.width_m,
         provenance: 'measured-cadastral',
         trustedOfficialWidth: false,
+        // §L-586 — the ONLY tier that reaches the band-edge guard, and therefore the only one whose
+        // error bar the guard needs.
+        measurementSpread_m: Number.isFinite(m.spread_m) ? m.spread_m : null,
         why:
             `measured frontage-to-frontage ${m.width_m.toFixed(2)} m (±${m.spread_m.toFixed(2)} m over ` +
             `${m.sampleCount} rays across block edge #${m.edgeIndex}); not attributed to a declared ` +

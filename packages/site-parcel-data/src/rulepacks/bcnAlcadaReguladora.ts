@@ -119,6 +119,32 @@ export const EIXAMPLE_CORNICE_INCREMENT_MAX_M = 2.25;
  */
 export const BAND_EDGE_GUARD_M = 0.5;
 
+/**
+ * §L-586 — **0.5 m IS A FLOOR, NOT THE WHOLE ERROR.**
+ *
+ * The constant above is a *substitution* allowance: it prices the gap between a GIS-measured
+ * frontage gap and the legally-declared figure it stands in for. It says nothing about how noisy
+ * this particular measurement was. `StreetWidthMeasurement` already carries that separately as
+ * `spread_m` (max − min across the rays), and the module that produces it calls that value "THE
+ * ERROR BAR — the caller must not treat `width_m` as tighter than this".
+ *
+ * The guard was ignoring it, and the hole is not theoretical. In the L-586 live sweep, PS Gràcia 66
+ * measured **19.15 m with a spread of 0.87 m** — its own samples reach 20.02 m, i.e. ACROSS the
+ * 20 m band edge — and it nonetheless shipped 17.70 m (PB+4) with the guard satisfied, because
+ * 19.15 ± 0.5 stays inside the 15–20 band. That is precisely the outcome the guard exists to
+ * prevent: the noise, not the measurement, choosing a storey.
+ *
+ * So the effective guard is `max(BAND_EDGE_GUARD_M, spread_m)`. It can only ever WIDEN — passing a
+ * tight measurement never relaxes the 0.5 m substitution allowance, because that allowance is about
+ * a different error entirely.
+ */
+export function effectiveBandEdgeGuard_m(measurementSpread_m?: number | null): number {
+    return typeof measurementSpread_m === 'number' && Number.isFinite(measurementSpread_m) &&
+        measurementSpread_m > BAND_EDGE_GUARD_M
+        ? measurementSpread_m
+        : BAND_EDGE_GUARD_M;
+}
+
 export type AlcadaResolution =
     | {
           readonly ok: true;
@@ -158,10 +184,16 @@ export type AlcadaResolution =
  * @param opts.trustedOfficialWidth  set TRUE only when `amplada_m` came from the planning street
  *   database (the *ample oficial*), not from measuring geometry. An official width is exact by
  *   definition, so it may sit ON a band edge legitimately and the guard is skipped.
+ * @param opts.measurementSpread_m  §L-586 — the measurement's OWN error bar
+ *   (`StreetWidthMeasurement.spread_m`). Widens the guard when it exceeds `BAND_EDGE_GUARD_M`;
+ *   never narrows it. Omit only when there is no measurement behind the width.
  */
 export function resolveAlcadaReguladora(
     amplada_m: number,
-    opts: { readonly trustedOfficialWidth?: boolean } = {},
+    opts: {
+        readonly trustedOfficialWidth?: boolean;
+        readonly measurementSpread_m?: number | null;
+    } = {},
 ): AlcadaResolution {
     if (typeof amplada_m !== 'number' || !Number.isFinite(amplada_m) || amplada_m <= 0) {
         return { ok: false, reason: 'bad-input', straddles: [] };
@@ -174,8 +206,11 @@ export function resolveAlcadaReguladora(
     if (!opts.trustedOfficialWidth) {
         // Would nudging the measured width by the guard change the storey band? If so, the
         // measurement is not what decided the answer — the noise is — and we must not answer.
-        const low = bandFor(Math.max(0.000001, amplada_m - BAND_EDGE_GUARD_M));
-        const high = bandFor(amplada_m + BAND_EDGE_GUARD_M);
+        // §L-586 — the guard is the substitution allowance OR this measurement's own error bar,
+        // whichever is larger. See `effectiveBandEdgeGuard_m`.
+        const guard = effectiveBandEdgeGuard_m(opts.measurementSpread_m);
+        const low = bandFor(Math.max(0.000001, amplada_m - guard));
+        const high = bandFor(amplada_m + guard);
         if (low.height_m !== high.height_m) {
             return {
                 ok: false,

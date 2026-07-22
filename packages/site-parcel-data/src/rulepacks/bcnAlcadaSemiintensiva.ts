@@ -49,7 +49,10 @@
 // Strategic context: C58 §1.1/§1.2/§1.4/§1.11, ADR-0271, L-552, L-583 §4.
 
 import {
-    BAND_EDGE_GUARD_M,
+    // §L-586 — 0.5 m is a FLOOR (the measured-for-declared substitution allowance), not the whole
+    // error. A measurement's own ray spread can exceed it and straddle a band edge the constant
+    // clears. Shared with Art. 327 so the two articles cannot drift apart on the same question.
+    effectiveBandEdgeGuard_m,
     type AlcadaBand,
     type AlcadaResolution,
 } from './bcnAlcadaReguladora.js';
@@ -125,7 +128,11 @@ export const BCN_ALCADA_SEMIINTENSIVA_TABLE: ReadonlyArray<AlcadaBand> = Object.
  */
 export function resolveAlcadaSemiintensiva(
     amplada_m: number,
-    opts: { readonly trustedOfficialWidth?: boolean } = {},
+    opts: {
+        readonly trustedOfficialWidth?: boolean;
+        /** §L-586 — `StreetWidthMeasurement.spread_m`. Widens the guard; never narrows it. */
+        readonly measurementSpread_m?: number | null;
+    } = {},
 ): AlcadaResolution {
     if (typeof amplada_m !== 'number' || !Number.isFinite(amplada_m) || amplada_m <= 0) {
         return { ok: false, reason: 'bad-input', straddles: [] };
@@ -138,8 +145,9 @@ export function resolveAlcadaSemiintensiva(
     if (!opts.trustedOfficialWidth) {
         // Would nudging the measured width by the guard change the storey band? If so, the
         // measurement is not what decided the answer — the noise is — and we must not answer.
-        const low = bandFor(Math.max(0.000001, amplada_m - BAND_EDGE_GUARD_M));
-        const high = bandFor(amplada_m + BAND_EDGE_GUARD_M);
+        const guard = effectiveBandEdgeGuard_m(opts.measurementSpread_m);
+        const low = bandFor(Math.max(0.000001, amplada_m - guard));
+        const high = bandFor(amplada_m + guard);
         if (low.height_m !== high.height_m) {
             return { ok: false, reason: 'band-edge', straddles: [low.height_m, high.height_m] };
         }

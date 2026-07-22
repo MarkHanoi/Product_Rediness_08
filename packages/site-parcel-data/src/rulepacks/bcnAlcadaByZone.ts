@@ -62,7 +62,15 @@ export interface ZonedAlcadaResolution {
 export function resolveBcnAlcadaForZone(
     zoneCode: string,
     amplada_m: number,
-    opts: { readonly trustedOfficialWidth?: boolean } = {},
+    opts: {
+        readonly trustedOfficialWidth?: boolean;
+        /**
+         * §L-586 — the measurement's own error bar (`ResolvedAmplada.measurementSpread_m`).
+         * Widens the band-edge guard when it exceeds the 0.5 m substitution allowance; never
+         * narrows it. Honoured identically by Art. 327 and Art. 328.
+         */
+        readonly measurementSpread_m?: number | null;
+    } = {},
 ): ZonedAlcadaResolution | null {
     if ((BCN_ENSANCHE_ZONE_CODES as readonly string[]).includes(zoneCode)) {
         return {
