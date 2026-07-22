@@ -267,3 +267,92 @@ better evidence arrived, and **surfaced the 08015/08019 trap as a counter-exampl
 answer**. That behaviour is the reason this document can be trusted at the tiers it claims — and it
 is the same discipline that turned "91,4%", "24,2%" and "15,7%" from confident numbers into
 correctly-retracted ones during the same day's engineering work.
+
+---
+
+# 9. ⇒ A3 ANSWERED — `13b` **INHERITS** Art. 242's 30%. The argument is STRUCTURAL, not inferential.
+
+**This supersedes §4.1's `inferred` rating.** The earlier reading ("13b is a densificació urbana
+subzone, so the 30% applies by category") was a *category inference*. The correct argument is that
+**Art. 242 is a general provision of an ORDERING TYPE that `13b` is stipulated to use** — which is
+a different and much stronger claim.
+
+## 9.1 The document architecture — where Art. 242 actually lives
+
+```
+Normes Urbanístiques
+└─ Títol IV — Reglamentació detallada del sòl urbà
+   └─ Capítol 2n — DE LES DISPOSICIONS COMUNES ALS TIPUS D'ORDENACIÓ
+      └─ Secció 2a — Normes aplicables a l'edificació SEGONS ALINEACIONS DE VIAL
+         ├─ Art. 236 — Paràmetres del tipus d'ordenació segons alineacions de vial
+         ├─ Art. 240 — Regles sobre determinació d'alçades
+         ├─ Art. 242 — PROFUNDITAT EDIFICABLE          ← here
+         ├─ Art. 244 — Reculades
+         └─ Art. 245 — Ordenació de volums
+```
+
+⚠ **Art. 242 is NOT inside any zone's own article block** — not 321–328 (densificació urbana), not
+315–320 (nucli antic). It sits among the **common provisions for the street-alignment ordering
+type**.
+
+## 9.2 The three links that close the chain
+
+1. **Art. 236** — buildable depth is one of the **defined parameters** of the street-alignment
+   ordering type.
+2. **Art. 326** — the subzones of the *densificació urbana* zone are ordered under the
+   street-alignment ordering type. **Plural — both subzones. No carve-out for *semiintensiva*.**
+3. **Art. 242** — sits in that ordering type's common provisions, alongside **Art. 240**
+   (height-measurement rules) and **Art. 244** (setbacks).
+
+⇒ **`13b` does not need a cross-reference to "inherit" Art. 242.** It applies for the same reason
+Art. 240 and Art. 244 apply to `13b` — which nobody disputes, and which no article states
+individually either. **Art. 242 occupies the identical structural position.** Shipping code that made
+`13b` ignore Art. 242 for lack of an explicit link would equally have to make it ignore Art. 240.
+
+## 9.3 The scoping sentence — verbatim (Art. 242.2)
+
+> *"La profunditat edificable resultarà del traçat, en posició equidistant dels frontals a la via
+> pública, d'una figura semblant a la de l'illa, la superfície de la qual sigui equivalent, com a
+> mínim, a la zona de nucli antic subzona I, al 40 per 100 de la superfície total; i, a les de
+> densificació urbana, al 30 per 100 de l'esmentada superfície. En cap cas la profunditat edificable
+> no pot superar la de 30 metres que es considerarà màxima."*
+
+⚠ **AND THE ASYMMETRY INSIDE THE SENTENCE IS ITSELF EVIDENCE.** The 40% is scoped to *"la zona de
+nucli antic **subzona I**"* — the subzone named **explicitly**, excluding subzona II. The 30% is
+scoped to *"les de **densificació urbana**"* — the **category, unqualified**, with no subzona
+restriction. **Where the drafter meant to restrict a share to one subzone, they said so.** In the
+same sentence, in the same breath, they did not do so for densificació urbana.
+
+## 9.4 Why the wording is trustworthy despite no Barcelona copy
+
+The sentence was found **letter-for-letter identical across three independently-maintained municipal
+mirrors** (codes 08123, 08221, and the Santa Coloma family) — municipalities that **visibly diverge
+from each other** on the surrounding zone-specific articles (their 13a/13b height figures differ, per
+§1). **A sentence that stays byte-identical across independently-amended copies, while the articles
+around it diverge, is strong evidence nobody has locally amended it** — which raises confidence that
+Barcelona's own copy reads the same.
+
+## 9.5 Confidence, and what it licenses
+
+**`corroborated`, upgraded by structural placement.** Not `certified`, and not `published-for-Barcelona`
+— Barcelona's own copy remains unretrieved (numamb bot-detection and a robots-disallowed book page,
+each hit independently twice).
+
+⇒ **This is enough to BUILD `13b` on**, provided the shipped citation is honest about the chain:
+the depth comes from **Art. 242 via Art. 326** (the ordering type), **not** from Art. 328 — which
+genuinely has no depth rule. Citing "Art. 328" for the depth would be a fabricated attribution of
+exactly the L-526 kind.
+
+⇒ **13b is the WEEK-OF-CONFIGURATION branch, not the month-of-new-rule-design branch.** The
+Art. 242 machinery (`solveBlockDerivedDepth`, ADR-0271) transfers unchanged; only the Art. 328
+height table is new — and §4 already has it at `corroborated`.
+
+## 9.6 The single click that would certify it
+
+`www.amb.cat` → **NUMAMB** → *Normes Urbanístiques → Títol IV → Capítol 2n → Secció 2a*, and read
+Art. 242 + the Secció 2a heading note. ⚠ The deep-link article ID `991409` is **STALE** — AMB has
+renumbered; navigate from the NUMAMB landing page rather than the indexed URL. Barcelona's own
+consolidated PDF at `barcelona.cat/ca/coneixbcn/barcelonallibres/normativa-urbanistica-metropolitana`
+would settle the "is it Barcelona's own" question outright.
+
+**NOT blocking.** It upgrades the tier; it does not change the answer.
