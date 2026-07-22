@@ -482,3 +482,31 @@ gated on the same evidence as a *merge*; that a missing test script is a **failu
 and the lifecycle by which an advisory gate becomes blocking. Owner: UNASSIGNED. Related: C01,
 C10, C14, C57 §6, C58 §6, C19 §6, `tools/ga-gate/`, L-540, L-542,
 `docs/04-reference/STATUS-REPORT-2026-07-21.md` §5.
+
+
+---
+
+## Added 2026-07-22 — two coverage gaps found by the L-592 / L-593 spikes
+
+### GAP — the 3D-Site scene has NO contracted SELECTION model (L-592)
+
+BIM selection is contracted and implemented (`SelectionBus`, `SelectionManager`, `gpu-pick`). The
+Cesium 3D-Site scene has its **own** ad-hoc `ScreenSpaceEventHandler` (`CesiumViewport.ts:1899`)
+branching on `Cesium.Model` / `Cesium3DTileFeature`. **Two selection models coexist and neither is
+contracted for the 3D-Site scene.** C12 covers context buildings as rendered geometry only; C19
+owns parcel selection but context buildings are not site-model objects.
+
+⚠ This is the same shape as the pre-C59 situation (three uncontracted view mechanisms). **Adding a
+third selection path without a contract is how that recurs.** See `SPIKE-L592-L593-*.md`.
+
+### GAP — no contract or spec owns the SITE-ENTRY / onboarding navigation flow (L-593)
+
+The shipped sequence (location → draw/select boundary → generate) lives in `onboarding-bootstrap`,
+`PlatformRouter` and `siteDispatch`, plus session notes — **not in any contract or spec.**
+`SPEC-FORMA-SITE-VIEW.md` covers the Forma view once a site exists; nothing covers how a user
+ARRIVES at one. The L-593 globe proposal has therefore no contract to conform to, which is exactly
+the condition under which a fourth ad-hoc mechanism gets built.
+
+⇒ **Recommend a `C60 — SITE ENTRY & JURISDICTION COVERAGE` contract**, owning the entry state
+machine AND the honest answer to *"where can PRYZM actually answer?"* — which today exists only as
+`REGISTRATIONS` in `rulepacks/registry.ts` plus the `isInBarcelona()` bbox.

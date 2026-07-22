@@ -4737,3 +4737,36 @@ ACQUIRE, not out-build.** ⚠ And the uncomfortable corollary belongs in the pla
 **a capture product can add zoning far more easily than we can add city-scale capture.** The moat is
 depth of legal correctness per municipality — which argues for finishing Barcelona to a defensible
 standard **before** widening.
+
+
+---
+
+# L-592 / L-593 — 3D-Site selection + globe entry (logged 2026-07-22, NOT started)
+
+Both are **Phase 5 (polish / post-launch)**, and neither moves the Barcelona end-to-end number.
+Full architectural check: `docs/03-execution/spikes/SPIKE-L592-L593-GLOBE-ENTRY-AND-CONTEXT-SELECTION.md`.
+
+## L-592 — context-building query panel · Phase 5 · P2 · OWNER: UNASSIGNED · TARGET: TBD
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | Add an **Entity branch** to the existing `LEFT_CLICK` pick handler | `CesiumViewport.ts:1899`. ⚠ MUST remain inside the **§FORMA-CLICK-NO-NAV** try/catch — an escaping pick throw once matched `ViewportCrashGuard` and its fallback link full-reloaded the app, losing the open project |
+| 2 | Resolve the picked entity via a typed accessor over `contextBuildingPlacements` | The entity↔feature pairing already exists (`:898`, pushed `:6207`). **No new store.** P4: no `window as any` |
+| 3 | Read-only info panel on the existing `contextualBar`/`popover` z-slot | C06 §206/§208/§233 — take the next slot, never a hand-picked `z-index`. C59 §1.3: chrome sits above its own pane only |
+| 4 | 🔴 **Surface `heightProvenance` in the panel** | **Merge-blocking.** Heights are 0.9% surveyed / 79.3% `levels × 3.2 m` / **19.8% fabricated 9 m**. A panel reading "Height: 9 m" undoes §CTX-ASSUMED-HEIGHT-VISIBLE. `syntheticId` must never be shown as an OSM id |
+| 5 | Contract the 3D-Site selection model | Coverage gap logged in `MISSING-CONTRACTS-AUDIT`. Do NOT route through `SelectionBus` — context buildings are not model objects |
+
+## L-593 — 3D globe entry flow · Phase 5 · P2 (one P1 decision) · OWNER: UNASSIGNED · TARGET: TBD
+
+⚠ **DEPENDENCY: sequenced BEHIND C59 Phase 2** (per-pane view picker, in flight). The globe is a
+`site-3d` view state; building it against a switcher about to change underneath is rework.
+
+| # | Task | Notes |
+|---|---|---|
+| 0 | 🔴 **FOUNDER DECISION — (A) honest coverage globe vs (B) open globe** | **Blocks everything below.** One city is live; a globe inviting any country advertises coverage we lack (C58 §1.4 at the navigation layer). Recommend (A) |
+| 1 | Pure stage machine `world → country → city → parcel` | Modelled on `paneViewModel.ts`: a pure, unit-tested reducer; camera + panels are its projections. **Not** a `moveEnd` altitude sniffer (flaps at the boundary, nowhere to put the coverage answer) |
+| 2 | Stage transitions as view-state **commands** | C59 §2 invariant 3 (P6). Reuse `flyToFormaSite`/`frameSiteLocation` |
+| 3 | Coverage layer derived from the adapter registry | The ONLY honest source: `rulepacks/registry.ts` `REGISTRATIONS` + `isInBarcelona()`. Anything hand-drawn drifts from what the engine can do |
+| 4 | ⚠ Pre-site stages MUST NOT write site state | C19 §1.3/§1.4 — the parcel boundary is one-shot immutable; only the final parcel pick may dispatch |
+| 5 | ⚠ Perf budget | C59 §2 invariant 5 — founder's box runs the **WebGL fallback**; do not hold a BIM pane live behind a photoreal globe |
+| 6 | New contract `C60 — Site Entry & Jurisdiction Coverage` | No contract owns the entry flow today (gap logged). Without it this becomes a fourth ad-hoc view mechanism — the thing C59 §0 exists to prevent |

@@ -4488,3 +4488,22 @@ to a corridor/hall, its program dependencies from the rules DB). SPEC: extend SP
 | **L-518** Envelope panel summary mislabels real BCN data as ESTIMATED + reads empty (P1) | UNASSIGNED | TBD | Top summary shows ESTIMATED badge + "Default rule pack" + empty setbacks while the detail shows real PUB (27.3m depth, PGM 242.2). Causes: (1) catastro-muc record rule-pack-solved → `confidence:'estimated-ruleset'` despite published per-field provenance; (2) setback-centric summary null-by-design for alignment zones. | **BLOCKER = C58 decision**: needs a confidence tier for "real determination constructed from a real block + rule pack" ≠ estimated-ruleset (gap logged MISSING-CONTRACTS). Contracts C58 §1.2/§1.4, ADR-0270, C57. Relates L-493b/L-507/L-515. Queue: zoning / envelope provenance. |
 | **L-519** Interactive envelope↔data linking — click a panel row → select its geometry (P2, FEATURE) | UNASSIGNED | TBD | Founder-requested explainability upgrade: click "Buildable depth" etc → highlight the envelope faces + boundary edges that row governs. Studied/planned (L-519a-d): join key = the derivation `constraint` already on each row; reuse SelectionBus + GPU-pick highlight overlay; both Forma + Cesium surfaces. | Depends on L-519a (C58 `constraint→geometry` map = foundation). Contracts C58/C27/C28/C03/C06/C12/C55. Coverage gap (data↔geometry link) logged MISSING-CONTRACTS. Ties [[editable-living-graph]] concept. Queue: geospatial/UI + zoning. |
 | **L-513** Context 3D at MAX performance — static pre-baked tiles (P1; absorbs L-504) | UNASSIGNED | TBD (Barcelona first) | Root cause LIVE-reproduced 2026-07-21: context fetched live from public Overpass per visit; `overpass-api.de` 406, `overpass.kumi.systems` 000@45s — unfixable hot-path. Fix: bake context (Overture/OSM → later Catastro+PNOA/3DBAG) into PMTiles + Cesium 3D Tiles on our CDN; client range-request + worker-decode + instanced render; provenance in-tile. First bytes <50ms, no rate limit. Design: `docs/04-reference/CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md`. | **Delivery layer for L-511/L-512** (their data feeds the bake). **Absorbs L-504.** Depends on: object-storage/CDN infra (ties L-442 deploy, furniture-GLB object-storage precedent). NOT the grey-scanline render fault (L-503). Contracts C12/C55/C19/C10. Queue: geospatial + infra (tile bake). |
+
+
+---
+
+## Added 2026-07-22 — L-592 / L-593 (spikes logged, not started)
+
+| Item | Owner | Target | Depends on | Status |
+|---|---|---|---|---|
+| **L-592** — 3D-Site context-building query panel | UNASSIGNED | TBD | none (single-layer, client only) | LOGGED |
+| **L-593** — 3D globe entry flow (world→country→city→parcel) | UNASSIGNED | TBD | **C59 Phase 2** (per-pane view picker, IN FLIGHT) · **founder decision A vs B** | BLOCKED on decision |
+| **C60** — Site Entry & Jurisdiction Coverage contract | UNASSIGNED | TBD | L-593 decision | PROPOSED (gap logged in MISSING-CONTRACTS-AUDIT) |
+| 3D-Site selection model contract | UNASSIGNED | TBD | L-592 | PROPOSED (gap logged) |
+
+⚠ **Neither L-592 nor L-593 moves the Barcelona end-to-end resolution rate.** They change how a user
+arrives at and interrogates a parcel, not what we can answer once there. Sequence them behind the
+rule-pack and geometry work, not ahead of it.
+
+Spike + full architectural alignment check:
+`docs/03-execution/spikes/SPIKE-L592-L593-GLOBE-ENTRY-AND-CONTEXT-SELECTION.md`
