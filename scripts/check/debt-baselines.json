@@ -1,0 +1,14 @@
+{
+  "eslint/no-restricted-imports": {
+    "baseline": 0,
+    "note": "@thatopen/components imports outside the allowed surface. 98 files' worth existed at the repo's INITIAL commit - architectural debt (C14), not a style nit. Ratchets down only."
+  },
+  "eslint/three-outside-committer": {
+    "baseline": 0,
+    "note": "P2 - direct `three` imports outside packages/renderer-three."
+  },
+  "eslint/no-empty": {
+    "baseline": 0,
+    "note": "Empty blocks. Trivially fixable; kept visible so it trends down rather than accumulating."
+  }
+}
