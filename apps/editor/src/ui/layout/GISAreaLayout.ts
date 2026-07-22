@@ -1990,7 +1990,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>
-               <span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f4f2f8;color:#6b6480;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Saved</span>
+               <span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f4f2f8;color:#6b6480;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Saved</span>
              </div>
              <div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
              <div style="margin-top:8px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">
@@ -2087,11 +2087,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // one whose chip implies motion rather than a settled state.
             const isTransient = r.code === 'source-data-unavailable';
             const isGap = !isTransient && !r.legallyGrounded;
+            // §L-577a — THE CHIP MUST NOT SHRINK. It rendered as `COULDN'T COMPL…` because it is a
+            // flex item in the header row and flex items default to `flex-shrink: 1`, so the pill
+            // was compressed below its own text and clipped. Two fixes, both needed: `flex:none`
+            // stops the pill shrinking, and the header row is allowed to WRAP (below) so on a
+            // narrow panel the chip drops to a second line instead of either text being cut.
+            //
+            // ⚠ Deliberately NOT fixed by shortening the wording. The whole point of this card is
+            // that a refusal reads as honest rather than broken, and a clipped word reads as a
+            // broken widget — the L-527/L-553 rule that an honest signal which is not LEGIBLE is
+            // not honest in effect. Truncation was a layout defect, so it is fixed in the layout.
             const chip = isTransient
-                ? '<span title="We hold this zone\'s rules; a data source needed to apply them was unavailable for this parcel. Usually temporary." style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Couldn’t complete</span>'
+                ? '<span title="We hold this zone\'s rules; a data source needed to apply them was unavailable for this parcel. Usually temporary." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Couldn’t complete</span>'
                 : isGap
-                ? '<span title="PRYZM has not encoded this zone\'s rules yet — a coverage gap, not a legal finding and not an error" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Zone rules coming</span>'
-                : '<span title="The governing ordinance provides no private buildable envelope for this zone" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>';
+                ? '<span title="PRYZM has not encoded this zone\'s rules yet — a coverage gap, not a legal finding and not an error" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Zone rules coming</span>'
+                : '<span title="The governing ordinance provides no private buildable envelope for this zone" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>';
             // "What we DO know" — the single strongest signal that the parcel was identified
             // correctly and nothing crashed. Rendered as facts, never as constraints.
             const facts = Array.isArray(r.knownFacts) && r.knownFacts.length > 0
@@ -2127,7 +2137,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 ? `<div style="margin-top:8px;color:#a49dbb;font-size:10px;">Coverage status <code style="font-size:10px;">${escHtml(r.code)}</code> — not an error. Your parcel, boundary and area are unaffected.</div>`
                 : `<div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>`;
             panel.innerHTML =
-                `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;cursor:grab;">
+                `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
                    <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${chip}
                  </div>
                  <div style="font-weight:600;font-size:11.5px;color:#3d4a5c;line-height:1.4;">${escHtml(r.headline)}</div>
@@ -2149,10 +2159,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // RISK-REGISTER R1 wording condition. Green (real) with the honest qualifier.
         const badge =
             env.confidence === 'estimated-ruleset'
-                ? '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
+                ? '<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
                 : env.confidence === 'block-constructed'
-                ? '<span title="Real inputs + accepted rule + constructed geometry — not an official municipal certificate" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Real · constructed</span>'
-                : `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${env.confidence}</span>`;
+                ? '<span title="Real inputs + accepted rule + constructed geometry — not an official municipal certificate" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Real · constructed</span>'
+                : `<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${env.confidence}</span>`;
         const heightTxt = env.maxHeight_m !== null ? `${env.maxHeight_m.toFixed(1)} m` : '—';
         const farTxt = env.maxFAR !== null ? env.maxFAR.toFixed(2) : '—';
         const gfaTxt =
