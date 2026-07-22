@@ -79,6 +79,61 @@ have not yet measured how wrong it is — that measurement is task V6 below.
 
 ---
 
+---
+
+## ⚠⚠ CORRECTION, SAME DAY (2026-07-22) — "WE HAVE NO TERRAIN" WAS **WRONG**. READ THIS OVER §2.
+
+I wrote §2 below from an assumption and did not check the code first. **The code disagrees with it,
+so §2 is the thing that is wrong** — and the corrected defect is *narrower, more precise, and far
+cheaper to fix.* Left in place rather than deleted, because the retraction is the useful part.
+
+**WHAT WE ACTUALLY HAVE.** `CesiumViewport.clampTerrainThenReplace()` calls
+`Cesium.sampleTerrainMostDetailed()` and **seats the massing on real sampled ground**. Cesium World
+Terrain is live in production (`VITE_CESIUM_TOKEN` is a repo secret, baked at build time). So we are
+**not** hard-pinned to elevation 0, and we do **not** need to acquire a DTM to know the ground height.
+
+**THE ACTUAL DEFECT, RESTATED — IT SURVIVES, IN A SHARPER FORM.** We take **ONE sample, at the
+boundary centroid**, and seat the entire massing at that single elevation:
+
+> **The envelope is a FLAT SLAB placed at the CENTROID's elevation.**
+
+The Art. 327 height is then extruded from that one datum. But **the ordinance measures from the
+*rasant* AT THE FAÇADE** — and on a sloping street the façade rasant differs from the centroid, *and
+differs along the façade's own length*. So on sloping ground the published height is wrong by
+**(centroid elevation − façade rasant)**, which is the fall from the middle of the block to its
+street edge. Still metres in the Gòtic, still unstated. **Two independent errors, not one:**
+
+1. **wrong DATUM** — centroid instead of the façade line;
+2. **NO SEGMENTATION** — one datum for a whole frontage the ordinance may require broken into
+   segments, each with its own reference.
+
+**⚠ AND A THIRD, WHICH IS THE FAMILIAR ONE.** The terrain sample **falls back to base 0 SILENTLY**
+when the provider is the keyless `EllipsoidTerrainProvider`, or when the sample rejects/returns NaN
+(`warnTerrainOnce`, one console line). A viewer cannot tell "seated on real ground" from "seated on
+a fallback zero" — **failure and a legitimate value rendering identically.** That is the
+§CONTEXT-DATA-HONESTY family again (L-422/457/467/469/579) and the L-459 pattern (a fabricated
+height rendering like a measured one), reached through the terrain path this time.
+
+### ⇒ WHAT THIS CHANGES IN THE PLAN
+
+- **V6 gets much cheaper and does NOT need a DTM acquisition.** The question is no longer "what is
+  the terrain?" but **"how far does the ground fall between the block centroid and the façade, and
+  along the façade?"** — answerable by sampling the *existing* Cesium terrain at points we already
+  compute. **No licence gate, no new source, no pipeline. It can be written today.**
+- **G1 (the licence gate) does NOT block V6.** It still blocks the LiDAR *height* work.
+- **V7 (the rasant rule) is unchanged and is now the LONG POLE.** We can already get ground
+  elevation anywhere we like; what we cannot do is say **which point the ordinance measures from**.
+  Knowing the ground shape was never the hard part.
+- **A fourth task appears: make the terrain fallback HONEST** — a seat derived from a failed or
+  absent terrain sample must be visibly distinguishable from a real one, exactly as L-582's
+  fabricated 9 m context heights are drawn translucent.
+
+**⚠ THE METHOD LESSON, WHICH IS THE REASON THIS SECTION EXISTS.** §2 was written from a competitor
+screenshot plus an assumption about our own code, published to the audit, the plan, the hand-off
+prompt and memory — **and then contradicted by the first grep.** *Probe the code before writing the
+defect down*, including (especially) when the defect feels obviously true. That is the same failure
+this session already logged twice on L-581.
+
 ## 3 · CANDIDATE SOURCE LIST — ⚠ HYPOTHESES, ALL UNVERIFIED
 
 | # | Source | Believed to give | Believed licence | Confidence |
@@ -187,3 +242,117 @@ If S1 verifies, the change is **not** "add a LiDAR layer". It is:
 **Cross-refs:** L-513/L-513b (why context is baked, not live), L-527 (flat Gòtic envelope), L-582
 (height provenance), L-583 §5 (12b needs surveyed heights), ADR-0271, C19, C23, C58,
 `BARCELONA-DATA-PIPELINE.md`.
+
+
+---
+
+# §8 · THE STUDY — footprint × height, terrain/DSM/DTM/point-cloud, and "would it be faster?"
+
+*Answers the founder's four questions, 2026-07-22, before session close. Every number marked
+**MEASURED** comes from this session's committed evidence (`scratchpad/l576-*.json`, L-582 sweep,
+the context bake). Everything else is explicitly labelled.*
+
+## Q1 · Where are we with `<footprint source>` + `<height source>`? Do we have 100%?
+
+**No. Footprints are near-complete; heights are almost entirely absent.** They are two different
+situations and lumping them as "source data" hides that.
+
+| | Source | Coverage | Quality |
+|---|---|---|---|
+| **Footprint** | OSM, via our own bake | **MEASURED 104–121% of OSM ground truth** across three Barcelona districts | **Good.** Over 100% is correct — tile-edge clipping + multipolygon outer rings |
+| **Height** | tags on those *same* OSM features | **MEASURED 0.9% surveyed** · 79.3% `building:levels` × our assumed 3.2 m · **19.8% fabricated 9 m** | **Bad, and 1 in 5 is invented** |
+
+⇒ **The footprint layer is essentially solved. The height layer is 0.9% real.** So "do we have 100%
+of the source data" resolves to: **yes for shape, no for height, and height is what the ordinance
+and the visual both depend on.**
+
+⚠ **This is exactly why the Gòtic envelope "looks flat" (L-527)** — not a rendering bug; the
+neighbours around it have no measured heights.
+
+## Q2 · Why don't we do what Cityweft does (separate footprint and height sources)?
+
+**Not because the data is unavailable, and not because it is hard. Because of one modelling
+decision we made early and never revisited.**
+
+Our context feature carries **shape and height as one record from one provider**. `heightProvenance`
+(L-582) records *how good* a height is, but there is **no field that can say "this shape came from
+OSM and this height came from LiDAR."** So a second height source has nowhere to go. Cityweft's
+entire layer matrix is downstream of having made the opposite choice.
+
+⚠ **The honest reading: this is a self-inflicted limitation, not a data gap.** The sources they use
+appear to be public. **We should do the same thing** — the work is (a) split the provenance pair in
+the feature model, (b) bake a height attribute from an nDSM, (c) prefer measured over estimated per
+feature with the tier surfaced. **(a) is the enabling change and it is a schema change, not a
+pipeline.**
+
+⚠ But see Q4 before scheduling it, and note the licence gate G1 can still veto (b).
+
+## Q3 · Why don't we have terrain? — **⚠ WE DO. I WAS WRONG; SEE THE CORRECTION ABOVE §3.**
+
+We sample **real Cesium World Terrain** and seat the massing on it. The defect is narrower: **ONE
+sample at the block CENTROID**, so the envelope is a **flat slab at centroid elevation**, while the
+ordinance measures from the ***rasant* at the FAÇADE**. Plus a **silent fallback to 0**.
+
+⇒ **Ground elevation was never the blocker. The blocker is V7 — which point the ordinance measures
+FROM.** No dataset answers that; only the ordinance text does.
+
+## Q4 · ⚠ WOULD IT BE FASTER / MORE PERFORMANT? — **THE ANSWER IS COUNTER-INTUITIVE**
+
+**Adding LiDAR heights would cost us approximately NOTHING at runtime — *if* we do it our way and
+NOT the way the competitor's UI implies.**
+
+**Today, MEASURED:** 42 tiles · **13.4 MB tileset** · 9,762 footprints · **~1 s**, read as byte
+ranges straight from R2. The client already fetches every one of those tiles.
+
+- **Our way — bake `height` as a per-feature ATTRIBUTE into the EXISTING PMTiles.** A float per
+  feature in tiles we already request. **Zero extra HTTP requests. Zero extra round-trips.** Tile
+  bytes grow slightly; MVT attribute encoding is compact and the tiles compress. **Runtime cost ≈ 0,
+  and the *rendering* gets cheaper**, because real heights beat the fabricated-9 m translucent path.
+- **Their way — a selectable height LAYER composed at runtime.** Flexible for a user who wants to
+  compare providers, but it implies **a second fetch path**. For us that is strictly worse: it is
+  the shape of **L-513**, the defect that made the 3D Site unusable and cost this session's first
+  half. **We already learned this the expensive way.**
+
+⇒ **Do NOT copy their runtime composability. Copy their SOURCE SEPARATION, resolve it at BAKE time,
+and ship one fused tileset.** A user does not need a provider switch; they need a height that is
+true and a tier that says how true.
+
+⚠ **THE REAL COST IS OFFLINE, AND IT IS NOT SMALL.** Point clouds are large: the bake input is
+already a 266 MB regional extract; **LiDAR for the same area is plausibly 1–2 orders of magnitude
+bigger** *(⚠ ESTIMATE — V4 must measure it)*. Deriving an nDSM means DSM − DTM, rasterised, then
+per-footprint zonal statistics. That is a **batch job**, days of engineering, not a fetch.
+
+⇒ **Runtime: free. Build: expensive. Which is the right trade for us** — the same trade the context
+bake already made and won.
+
+## §8.1 · DSM / DTM / nDSM / point cloud — the distinction that decides the work
+
+Conflating these is the most common way to plan this wrong:
+
+| Term | What it is | What it gives us | Have it? |
+|---|---|---|---|
+| **DTM** *(terrain)* | bare earth, buildings removed | the **rasant** datum for Art. 327 | ✅ **effectively — Cesium World Terrain, sampled today** |
+| **DSM** *(surface)* | everything: roofs, canopy | roof absolute elevation | ❌ |
+| **nDSM** | **DSM − DTM** | ⭐ **BUILDING HEIGHT above ground** — the number we actually need | ❌ |
+| **point cloud** | raw classified LiDAR returns | the input all three are derived from | ❌ |
+
+⚠ **The deliverable is the nDSM, and it is DERIVED, not downloaded.** Asking "can we get Spain
+LiDAR?" is the wrong question; the question is **"can we get, or compute, an nDSM, and may we
+redistribute it commercially?"** (G1). ⚠ And note the asymmetry: **the DTM we already have is enough
+for V6 (terrain) but useless for heights** — different products, different work, and V6 must not be
+blocked behind the LiDAR programme.
+
+## §8.2 · ⇒ RECOMMENDATION
+
+1. **L-581 clamp still goes first.** 5.8% → ~20.4%. None of this moves that number. *(This is the
+   one place a competitor conversation is most likely to cause damage — by reordering the board.)*
+2. **V6 next — it is now hours, not weeks.** Sample the terrain we already have at centroid vs
+   façade and report the delta. Decides whether the datum defect is P1 or noise.
+3. **V7 in parallel — founder/legal, not engineering.** The long pole, and no dataset can shortcut it.
+4. **Make the terrain fallback honest** — small, and it closes a live §CONTEXT-DATA-HONESTY hole.
+5. **Then, and only after G1 clears: split footprint/height provenance and bake the nDSM.** Runtime
+   free, build expensive, unblocks L-527 and 12b.
+
+⚠ **What NOT to do:** do not build a provider-switch UI, do not add a runtime height fetch, and do
+not treat "get LiDAR" as one task — it is *licence → acquire → derive nDSM → zonal stats → bake*,
+and **the first step can veto the other four.**

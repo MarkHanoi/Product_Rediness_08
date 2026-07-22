@@ -44,6 +44,34 @@ Paste this whole file to start the next Claude Code session.
 >    ⚠ **L-584 does NOT outrank L-581** — it moves correctness, not coverage. See
 >    `docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md` and audit row L-584.
 >
+>
+> 6. **⚠ L-584 CORRECTED, AND THE STUDY IS DONE (`SPAIN-GEODATA-SOURCE-COVERAGE.md` §8).**
+>
+>    **"We have no terrain" was WRONG** — I published it before grepping. `CesiumViewport
+>    .clampTerrainThenReplace()` samples **real Cesium World Terrain** and seats the massing on it.
+>    **The defect is narrower: ONE sample at the block CENTROID ⇒ the envelope is a FLAT SLAB at
+>    centroid elevation**, while the ordinance measures from the ***rasant* at the FAÇADE** — plus a
+>    **silent fallback to 0** when the provider is keyless or the sample NaNs (a viewer cannot tell
+>    real ground from fallback zero: §CONTEXT-DATA-HONESTY / L-459 through the terrain path).
+>    ⇒ **V6 needs NO new dataset and NO licence gate — sample the terrain we ALREADY have at
+>    centroid vs façade. Hours, not weeks. V7 (which point the law measures FROM) is the LONG POLE**
+>    and no dataset can shortcut it.
+>
+>    **Footprint vs height, MEASURED:** footprints **104–121% of OSM ground truth (solved)**;
+>    heights **0.9% surveyed / 79.3% estimated / 19.8% fabricated (not solved)**. We cannot source
+>    them separately because our feature model **welds shape and height into one record** — a
+>    self-inflicted schema limitation, not a data gap.
+>
+>    **⚠ PERFORMANCE — THE COUNTER-INTUITIVE PART: baking heights costs ~ZERO at runtime.** A float
+>    per feature in the 42 tiles / 13.4 MB / ~1 s we ALREADY fetch: **no extra requests**. ⇒ **Copy
+>    the competitor's SOURCE SEPARATION, resolve it at BAKE time, ship ONE fused tileset. Do NOT
+>    copy their runtime layer-switching — that is a second fetch path, which is the shape of L-513.**
+>    The real cost is OFFLINE (licence → acquire → nDSM = DSM − DTM → zonal stats → bake).
+>    ⚠ **We need an nDSM, not "LiDAR"** — and the DTM we already have is enough for V6 but useless
+>    for heights.
+>
+>    ⚠ **NONE OF THIS OUTRANKS L-581.** It moves correctness, not the 5.8%.
+>
 > Everything else in the body stands as written — in particular **§2 (the half-plane retraction)**
 > and **§5 (the method note)**, which are the two sections most likely to save you a wasted session.
 

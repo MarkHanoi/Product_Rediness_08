@@ -4656,6 +4656,25 @@ stated.** That is a C58 §1.4 unstated-assumption defect inside a number we alre
   rasant rule changes every published height with no legal basis for the new value — trading a known
   wrong number for an unknown one.
 
+> ### ⚠⚠ G0 CORRECTED, SAME DAY — "we have no terrain" was WRONG
+>
+> `CesiumViewport.clampTerrainThenReplace()` already calls `Cesium.sampleTerrainMostDetailed()` and
+> **seats the massing on real sampled ground**; Cesium World Terrain ships in production. **We are
+> not pinned to elevation 0, and V6 does NOT need a DTM acquisition or the G1 licence gate.**
+>
+> **The defect survives, sharper:** we take **ONE sample at the BOUNDARY CENTROID** and seat the
+> whole massing there — a **FLAT SLAB at the centroid's elevation** — while the ordinance measures
+> from the ***rasant* at the FAÇADE**. Two independent errors: **wrong DATUM** (centroid, not façade
+> line) and **NO SEGMENTATION** (one datum for a frontage the ordinance may split). **Plus a third:
+> the sample falls back to base 0 SILENTLY** on the keyless provider or a NaN/rejected sample, so
+> "seated on real ground" and "seated on a fallback zero" render identically — §CONTEXT-DATA-HONESTY
+> / L-459 through the terrain path.
+>
+> ⇒ **V6 becomes: sample the EXISTING terrain at the centroid vs the façade line, and report the
+> delta. Writable today, no new source.** **V7 (the rasant rule) is now the LONG POLE** — ground
+> elevation was never the hard part; the DATUM THE LAW USES is. **New task: make the terrain
+> fallback honest**, as L-582's fabricated heights are drawn translucent.
+
 ### G1 · LICENCE GATE (probe V2) — **BLOCKS EVERYTHING BELOW IT**
 
 May a **DERIVED** product (an nDSM; heights baked into our tiles) be **redistributed COMMERCIALLY**?
