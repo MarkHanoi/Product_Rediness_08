@@ -1,3 +1,20 @@
+// ⚠⚠ RETIRED 2026-07-22 — DO NOT RESYNC, DO NOT RUN.
+//
+// This probe REPLICATES an algorithm that no longer exists. L-586 replaced the miter offset with
+// the capsule-union boundary, so the replica's drift guard now (correctly) refuses to report:
+// 320/325 disagreements with the shipped function.
+//
+// ⚠ THE GUARD FIRING IS AN INSTRUCTION TO DELETE, NOT TO RESYNC. Resyncing would rebuild a copy
+// of production logic and reintroduce exactly the drift risk the guard exists to detect — see
+// PROBE-DISCIPLINE.md R6.
+//
+// SUPERSEDED BY `probe-l586-oracle-65.mts`, which is a better instrument for a structural reason:
+// it is an INDEPENDENT ALGORITHM (grid rasterisation), not a replica, so it cannot inherit the
+// defect it is measuring. That is PROBE-DISCIPLINE.md R2.
+//
+// Kept as .txt for the historical record of the failure-site census that disproved the documented
+// L-581 mechanism (the `lines < 3` gate fires ZERO times). Renamed so no tooling executes it.
+//
 // L-581 FAILURE-SITE CENSUS — WHICH of the six `return degenerate` gates in
 // `insetPolygonPerEdge` actually fires on real Barcelona blocks?
 //
@@ -36,6 +53,9 @@ import { insetPolygonPerEdge } from '../packages/site-parcel-data/src/geometry/i
 const EPS = 1e-9;
 const COINCIDENT_EPS = 1e-6;
 const BOUNDARY_TOLERANCE_M = 1e-3;
+// §INSET-CLAMP-TO-HALFPLANE (L-581) — mirrored from the shipped module.
+const CLAMP_PASSES = 8;
+const CLAMP_SPAN_SLACK_M = 0.5;
 
 const sub = (a: Pt, b: Pt): Pt => ({ x: a.x - b.x, z: a.z - b.z });
 const cross = (a: Pt, b: Pt): number => a.x * b.z - a.z * b.x;
@@ -47,7 +67,15 @@ function lineIntersect(p0: Pt, d0: Pt, p1: Pt, d1: Pt): Pt | null {
     const t = cross(sub(p1, p0), d1) / denom;
     return { x: p0.x + t * d0.x, z: p0.z + t * d0.z };
 }
-interface OffsetLine { readonly p: Pt; readonly d: Pt }
+interface OffsetLine { readonly p: Pt; readonly d: Pt; readonly len: number }
+function interiorSignedDist(q: Pt, line: OffsetLine): number {
+    const v = sub(q, line.p);
+    return v.x * -line.d.z + v.z * line.d.x;
+}
+function projectOnto(q: Pt, line: OffsetLine): Pt {
+    const s = interiorSignedDist(q, line);
+    return { x: q.x - s * -line.d.z, z: q.z - s * line.d.x };
+}
 function miter(lines: ReadonlyArray<OffsetLine>): Pt[] {
     const n = lines.length;
     const out: Pt[] = new Array(n);
@@ -178,12 +206,13 @@ function insetDiag(
         const c = ringCls[i];
         const s = Math.max(0, c === 'front' ? setbacks.front : c === 'side' ? setbacks.side
             : c === 'rear' ? setbacks.rear : setbacks.unclassified);
-        lines.push({ p: { x: a.x + -uz * s, z: a.z + ux * s }, d: { x: ux, z: uz } });
+        lines.push({ p: { x: a.x + -uz * s, z: a.z + ux * s }, d: { x: ux, z: uz }, len });
     }
     const linesStart = lines.length;
     if (lines.length < 3) return fail('G1-lines<3', 0, linesStart);
 
     let dropped = 0;
+    const droppedLines: OffsetLine[] = [];
     let out: Pt[] = miter(lines);
     for (let guard = 0; guard < lines.length; guard++) {
         let reversedIdx = -1;
@@ -193,10 +222,28 @@ function insetDiag(
             if (edge.x * line.d.x + edge.z * line.d.z <= EPS) { reversedIdx = j; break; }
         }
         if (reversedIdx < 0) break;
+        droppedLines.push(lines[reversedIdx]!);
         lines.splice(reversedIdx, 1);
         dropped++;
         if (lines.length < 3) return fail('G1-lines<3', dropped, linesStart);
         out = miter(lines);
+    }
+
+    // §INSET-CLAMP-TO-HALFPLANE (L-581) step 4b — mirrored from the shipped module.
+    for (let pass = 0; pass < CLAMP_PASSES; pass++) {
+        let moved = false;
+        for (let k = 0; k < out.length; k++) {
+            let q = out[k]!;
+            for (const line of droppedLines) {
+                if (interiorSignedDist(q, line) >= -EPS) continue;
+                const t = (q.x - line.p.x) * line.d.x + (q.z - line.p.z) * line.d.z;
+                if (t < -CLAMP_SPAN_SLACK_M || t > line.len + CLAMP_SPAN_SLACK_M) continue;
+                q = projectOnto(q, line);
+                moved = true;
+            }
+            out[k] = q;
+        }
+        if (!moved) break;
     }
 
     if (selfIntersects(out)) {
