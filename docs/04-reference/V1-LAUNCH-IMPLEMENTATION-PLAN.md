@@ -4624,7 +4624,25 @@ the same fix pays out everywhere**; scale first and you pay to re-verify every c
 
 ---
 
-## L-584 — SPAIN GEODATA SOURCES: terrain, LiDAR, and the footprint x height split
+## L-584 — SPAIN GEODATA SOURCES
+
+> ### ⇒ THE POST-CITYWEFT DATA + PERFORMANCE PLAN LIVES IN §10 OF
+> `docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md`
+>
+> Three principles decide every call in it: **(1) resolve at BAKE time, ship ONE fused tileset,
+> never add a runtime fetch path** — our ~1 s load is pre-baked byte ranges, an asset that cost us
+> L-513 to win; **(2) measured beats estimated, and swapping estimate for estimate is not progress**;
+> **(3) probes before programmes** — V8 (terrain resolution), V2 (commercial redistribution licence)
+> and V3-gate (do ML heights beat `levels × 3.2 m` against our 0.9% surveyed ground truth) each
+> **VETO** a branch and together cost ~1 day.
+>
+> ⚠ **PERFORMANCE PLAN IN ONE LINE: CHANGE NOTHING AT RUNTIME.** The load path is at its ceiling; a
+> baked height attribute rides in requests we already make (cost ≈ 0). **The correct move is to
+> protect it**, not to copy the competitor's runtime layer-switching.
+>
+> ⚠ **AND NOTHING IN IT PRECEDES L-581**, which is the only item that moves end-to-end 5.8% → 20.4%.
+
+: terrain, LiDAR, and the footprint x height split
 
 *Raised 2026-07-22 from the founder's Cityweft call. Full analysis:*
 `docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md`. *Audit row: L-584.*

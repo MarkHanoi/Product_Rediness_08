@@ -430,3 +430,111 @@ we already have, but **possibly at the wrong resolution to answer the question w
 **V8 must settle that before V6 runs.** ⚠ **None of it moves the 5.8% end-to-end number — that is
 L-581.** Do this work because the answers are **wrong or unverifiable without it**, never because it
 would be faster.
+
+
+---
+
+# §10 · THE DATA + PERFORMANCE PLAN (post-Cityweft) — **THE RECOMMENDATION**
+
+*2026-07-22. Opinionated on purpose: one path, with the gates that can kill each branch.*
+
+## 10.0 · THE THREE PRINCIPLES THAT DECIDE EVERY CALL BELOW
+
+1. **RESOLVE AT BAKE TIME. SHIP ONE FUSED TILESET. NEVER ADD A RUNTIME FETCH PATH.**
+   Our ~1 s load is **pre-baked byte ranges** — an asset, not an accident, and it cost this session's
+   first half to win (L-513). A provider-switch UI is a second fetch path, and it is the same defect
+   wearing a feature's clothes. **Copy the competitor's source SEPARATION, never their runtime
+   COMPOSITION.**
+2. **MEASURED BEATS ESTIMATED — AND SWAPPING ESTIMATE FOR ESTIMATE IS NOT PROGRESS.**
+   The 19.8% fabricated 9 m is only a defect because it is *indistinguishable* from a measurement.
+   Any replacement must be **measured, or tiered and visibly so**.
+3. **PROBES BEFORE PROGRAMMES.** Three cheap probes (V8, V2, V3-gate) decide **weeks** of work and
+   can each **veto** a branch. Running them first is the highest-leverage hour available.
+
+## 10.1 · ⚠ PHASE 1 — **L-581 CLAMP. NOTHING FROM THE CITYWEFT CALL PRECEDES THIS.**
+
+**5.8% → ~20.4% end-to-end.** More than every data item on this page combined, zero external
+dependency, and it unblocks Madrid + Córdoba (same code path). ⚠ **Everything below moves
+CORRECTNESS, not COVERAGE.** The single most likely way to damage this product in the next month is
+to let a competitor conversation reorder the board. **Founder decision still owed:** the clamp moves
+real depths **upward** on some blocks (14.3 → 27.1 m observed) — telling a client they may build
+deeper than we said yesterday.
+
+## 10.2 · PHASE 2 — **THE THREE DECIDING PROBES. Run in parallel. ~1 day total.**
+
+| Probe | Question | Kills what, if it fails |
+|---|---|---|
+| **V8** ⭐ | **Terrain posting spacing under Barcelona.** ~10–30 m **cannot resolve a 20 m street** | **GATES V6** — without it V6 reports ~0 delta for *instrumental* reasons and closes the rasant question **falsely** |
+| **V2** | **May a DERIVED product be redistributed COMMERCIALLY?** (PNOA/IGN/ICGC) | **Kills the whole nDSM branch** — so it runs *before* any pipeline work |
+| **V3-gate** | Do **Overture/MS ML** heights beat `levels × 3.2 m`, tested against our **0.9% surveyed** ground truth? | **Kills the "cheap heights" branch** — if they lose, path A is worthless |
+
+⚠ **All three are cheap and all three can veto. Not one line of pipeline code before they report.**
+
+## 10.3 · PHASE 3 — **BRANCH ON THE RESULTS**
+
+- **V8 says terrain is fine** ⇒ run **V6** (centroid vs façade delta) immediately — hours.
+  **V8 says too coarse** ⇒ a fine DTM (**ICGC**, believed 1–2 m, *unverified*) becomes a
+  **PREREQUISITE of a legal calculation**, not polish. Still a DTM programme only — **it does
+  nothing for heights.**
+- **V3-gate passes** ⇒ take path A (Overture/MS attribute join, ~days, reuses the existing bake) as
+  an **interim, tiered `estimated-external`** — never as `measured`.
+  **Fails** ⇒ skip it entirely and wait for the nDSM. **An honest 0.9% beats a laundered 100%.**
+- **V2 passes** ⇒ the nDSM programme is viable (weeks). **Fails** ⇒ heights are permanently capped
+  at path A quality, and **that becomes a strategic fact to plan around, not a bug to retry.**
+
+## 10.4 · PHASE 4 — **THE ENABLING SCHEMA CHANGE (small, do it regardless)**
+
+**Split footprint provenance from height provenance** in the context feature model — a feature must
+carry an OSM *shape* and an external *height* with **two independent tiers** (extends L-582
+`heightProvenance`; C23, C58 §1.2).
+
+⚠ **This is the whole reason we cannot do what Cityweft does, and it is a SCHEMA change, not a
+pipeline.** Their entire layer matrix is downstream of having made this choice early. **It is cheap,
+it is not blocked by any probe, and every branch above needs it.** Do it while the probes run.
+
+## 10.5 · PHASE 5 — **BAKE, DON'T FETCH**
+
+Add `height` + `heightSource` + `heightTier` as **per-feature attributes in the EXISTING PMTiles**
+via `tools/context-bake/`. **Runtime cost ≈ 0** — a float per feature in the 42 tiles / 13.4 MB we
+already request, **no new requests**. Rendering gets *cheaper* (the fabricated-9 m translucent path
+retires).
+
+⇒ **Performance plan, in one line: CHANGE NOTHING AT RUNTIME. The load path is already at its
+ceiling and the correct move is to protect it.**
+
+## 10.6 · PHASE 6 — **CLOSE THE HONESTY HOLE WE FOUND TODAY (small, high value)**
+
+The terrain sample **falls back to base 0 SILENTLY** on a keyless provider or a NaN/rejected sample.
+"Seated on real ground" and "seated on a fallback zero" render **identically**. Make the fallback
+visible, exactly as L-582's fabricated heights are drawn translucent. ⚠ **This is a live
+§CONTEXT-DATA-HONESTY defect, found by grep today, and it is cheap.**
+
+## 10.7 · ⇒ SEQUENCING
+
+```
+L-581 CLAMP ─────────────────────────────────►  the only thing that moves 5.8% → 20.4%
+   ├─ (parallel) V8 · V2 · V3-gate  ~1 day ──►  three vetoes, resolved before any pipeline
+   ├─ (parallel) Phase 4 schema split ───────►  cheap, unblocked, needed by every branch
+   └─ (parallel) Phase 6 honest fallback ────►  cheap, closes a live defect
+        │
+        ├── V8 ok ──► V6 (hours) ──► V7 rasant rule  ⟵ FOUNDER/LEGAL, THE LONG POLE
+        ├── V8 coarse ──► ICGC DTM programme (rasant only)
+        ├── V3-gate ok ──► path A interim heights, tiered `estimated-external`
+        └── V2 ok ──► nDSM programme (weeks) ──► L-527 + 12b unblocked
+```
+
+⚠ **V7 is the long pole and no dataset shortens it.** We can already get ground elevation anywhere;
+what we cannot do is say **which point the ordinance measures FROM**. That is a reading task, and it
+is the founder's or a lawyer's, not an engineer's.
+
+## 10.8 · ⚠ THE STRATEGIC READ — SAY IT PLAINLY
+
+Their picker has **no zoning, no FAR, no depth, no height rule**. They do **city-scale context
+capture**; we do the **derived legal envelope**. ⇒ **Context is a commodity input to ACQUIRE, not
+out-build** — and our bake already delivers it faster than a runtime-composed layer stack can.
+
+⚠ **The uncomfortable half: a capture product can add zoning far more easily than we can add
+city-scale capture.** Our moat is **depth of legal correctness per municipality**, and it is only a
+moat while it is deep. **That argues for finishing Barcelona to a defensible standard before
+widening** — which is the same conclusion the coverage maths reaches from the other side (**L-581
+first**), and the two agreeing is the strongest signal on this page.
