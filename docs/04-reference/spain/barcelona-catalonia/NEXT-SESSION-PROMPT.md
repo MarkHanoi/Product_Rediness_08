@@ -21,6 +21,29 @@ Paste this whole file to start the next Claude Code session.
 >    (coverage **24.2% → 33.0%**), that **L-528 resolved in our favour**, or that **12b needs a
 >    different SHAPE of rule**.
 >
+>
+> 5. **⚠ TWO THINGS LANDED AFTER EVEN THESE CORRECTIONS — BOTH CHANGE THE PLAN BELOW:**
+>
+>    **(a) THE "clamp + monotonicity guard" PLAN IS NOW JUST "clamp".** The guard was BUILT and
+>    MEASURED against the 65-block fixture: **3.1%, and ZERO detections that `insetDegenerate` did
+>    not already make.** Structural, not tunable — **45/65 blocks collapse and STAY collapsed (0 → 0
+>    is monotone, so the test is blind by construction), 11/65 recover, 9/65 never collapse.** The
+>    offset does not sag on these blocks, it fails outright and everywhere. It ships as a cheap
+>    always-honest tripwire for a rare second failure mode; **do not budget it as coverage.**
+>    ⇒ **THE CLAMP IS THE WHOLE FIX.** ⚠ And the real number is worse than we thought: **63.1% of
+>    blocks collapse AT THE 11 m ORDINANCE FLOOR** — the gentlest depth the solver is ever asked for.
+>
+>    **(b) L-584 — WE HAVE NO TERRAIN, AND IT IS A LEGAL DEFECT, NOT A VISUAL ONE.** PGM heights are
+>    measured from the ***rasant*** (pavement reference level), with explicit ordinance machinery for
+>    SLOPING frontages; we extrude from a FLAT plane at elevation 0. On sloping ground our published
+>    height is wrong by the street's fall across the parcel — **metres in the Gotic** — and the
+>    flat-ground assumption is nowhere stated. **Probe V6 (measure the fall across a sample of
+>    frontages — DTM only, no LiDAR, no licence, no pipeline) is the cheapest high-information probe
+>    on the board.** Its companion **V7** (how the ordinance fixes the reference level on a slope) is
+>    NOT optional: a DTM tells you the ground shape, not which point the law measures from.
+>    ⚠ **L-584 does NOT outrank L-581** — it moves correctness, not coverage. See
+>    `docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md` and audit row L-584.
+>
 > Everything else in the body stands as written — in particular **§2 (the half-plane retraction)**
 > and **§5 (the method note)**, which are the two sections most likely to save you a wasted session.
 

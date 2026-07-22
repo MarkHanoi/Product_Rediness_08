@@ -4620,3 +4620,81 @@ Plan capacity around that, not around developer-days.
 adding cities multiplies a broken denominator — every new city inherits the same under-reported
 depths and the same false *"Art. 242.2 cannot be satisfied"* claim. **Fix the engine at one city and
 the same fix pays out everywhere**; scale first and you pay to re-verify every city after the fix.
+
+
+---
+
+## L-584 — SPAIN GEODATA SOURCES: terrain, LiDAR, and the footprint x height split
+
+*Raised 2026-07-22 from the founder's Cityweft call. Full analysis:*
+`docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md`. *Audit row: L-584.*
+
+### ⚠ SEQUENCING — READ BEFORE PICKING THIS UP
+
+**This does NOT outrank L-581.** L-581 moves end-to-end **5.8% → ~20.4%**; everything below moves
+**correctness and honesty, not coverage**. A new data layer is the most reorder-tempting thing on
+the board and it must not displace the depth fix. **But one piece of it is P1 and cheap — G0.**
+
+### G0 · ⚠ MEASURE THE FLAT-GROUND ERROR (probes V6 + V7) — **P1 CORRECTNESS, DO EARLY**
+
+**The defect:** we place the envelope on a FLAT plane at elevation 0 and extrude the Art. 327 height
+from it. **PGM heights are measured from the *rasant*** — the pavement reference level — and the
+ordinances carry explicit machinery for SLOPING frontages. Barcelona is not flat (Montjuic, the
+Gotic slope, Vallcarca, Ciutadella's fall to the sea). **So our published height is wrong by the
+street's fall across the parcel wherever the ground moves, and the flat-ground assumption is nowhere
+stated.** That is a C58 §1.4 unstated-assumption defect inside a number we already ship to architects.
+
+- **V6** — for a sample of Barcelona parcels, measure the terrain fall **across the frontage**.
+  Needs a DTM only: **no LiDAR, no licence, no pipeline.** That one number decides whether this is a
+  P1 defect or a rounding error. **Highest information per hour on this page.**
+- **V7** — establish from the PGM/ordinances **how the reference level is fixed on a sloping
+  frontage** (segmentation, mid-point conventions). ⚠ **NOT optional and NOT substitutable by the
+  DTM**: the ground shape does not tell us which point the ordinance measures FROM. Encoding a
+  guessed convention would be a **wrong-SHAPE** error (C58 §1.11) — the same class as encoding 12b
+  as a width→height table.
+- ⇒ **Until V6 and V7 report, do NOT "add terrain" to the scene.** Moving the base plane without the
+  rasant rule changes every published height with no legal basis for the new value — trading a known
+  wrong number for an unknown one.
+
+### G1 · LICENCE GATE (probe V2) — **BLOCKS EVERYTHING BELOW IT**
+
+May a **DERIVED** product (an nDSM; heights baked into our tiles) be **redistributed COMMERCIALLY**?
+Get it in writing for PNOA LiDAR, IGN MDT, ICGC. **A veto here kills the LiDAR plan outright**, so it
+runs before any pipeline work. ⚠ A real risk, not a formality: our entire delivery model is
+re-publishing derived geodata from our own object storage.
+
+### G2 · REACHABILITY + ACCURACY (V1, V3, V4, V5)
+
+- **V1** reachability — record **body content-type**, not just status. ⚠ The SPA-fallback trap: a
+  `206` carrying `text/html` looked exactly like a working byte-range read.
+- **V3** accuracy — compare derived nDSM heights against the **0.9% of OSM buildings carrying a
+  surveyed `height`**. Small, but genuinely INDEPENDENT — never self-comparison, which is how the
+  tautological layer-6 probe produced a false 15.7%.
+- **V4** volume/cost vs the existing bake (266 MB → 13.4 MB). **V5** ICGC vs PNOA — ⚠ regional may
+  win on quality but does **not** transfer outside Catalonia.
+
+### G3 · THE ARCHITECTURE (only after G1 passes)
+
+1. **Split footprint provenance from height provenance** in the context feature model — a feature
+   must be able to carry an OSM *shape* and a LiDAR *height* with two independent confidence tiers.
+   Extends L-582 `heightProvenance` (C23, C58 §1.2). **This is the enabling change; the competitor's
+   entire layer matrix is downstream of having made it.**
+2. **Bake nDSM height into the EXISTING PMTiles** as a per-feature attribute — reuse
+   `tools/context-bake/`. ⚠ **Do NOT add a second runtime fetch path. L-513 is the standing lesson:
+   live third-party geodata on the hot path is not fixable by making it faster.**
+3. **Terrain gets its own ADR** before code — it moves the site base plane, so it touches the
+   envelope, solar, and every elevation in the scene (C19 site frame).
+
+### G4 · WHAT IT UNBLOCKS
+
+**L-527** (Gotic envelope flat — parked pending exactly this nDSM) · **12b** (Arts. 319/320 average
+of neighbours; blocked because averaging 79% estimates + 20% fabrications into a LEGAL height is
+fabrication in costume) · solar/shadow realism · footprint completeness · trees.
+
+### G5 · STRATEGIC POSTURE
+
+Their picker has **no zoning, no FAR, no depth, no height rule**. ⇒ **Context is a commodity input to
+ACQUIRE, not out-build.** ⚠ And the uncomfortable corollary belongs in the plan, not only the doc:
+**a capture product can add zoning far more easily than we can add city-scale capture.** The moat is
+depth of legal correctness per municipality — which argues for finishing Barcelona to a defensible
+standard **before** widening.
