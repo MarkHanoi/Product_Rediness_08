@@ -16,6 +16,13 @@
 //      digits, three different quantities. C58 §1.11 is exactly this failure.
 
 import { describe, it, expect } from 'vitest';
+import type { EnvelopeRefusal } from '@pryzm/schemas';
+import { resolveAlcadaIndustrial } from '../src/rulepacks/bcnAlcadaIndustrial.js';
+import {
+    buildRefusedEnvelope,
+    isRefusedEnvelope,
+    isTransientRefusal,
+} from '../src/rulepacks/zoneRefusal.js';
 import {
     ES_BARCELONA_INDUSTRIAL_PACK,
     BCN_INDUSTRIAL_ZONE_CODES,
@@ -26,8 +33,10 @@ import {
     BCN_ART350_2B_INTERIOR_FREE_RATIO,
     BCN_ART350_1_AILLADA_COVERAGE,
     BCN_ART350_COSSOS_SORTINTS,
+    BCN_22A_REGIME_NEUTRAL_LIMITS,
 } from '../src/rulepacks/esBarcelonaIndustrial.js';
 import { registeredPackZoneCodes, resolveZoneDisposition, BCN_JURISDICTION_ID } from '../src/rulepacks/registry.js';
+import { computeBuildableEnvelope } from '../src/index.js';
 
 const zone = () => ES_BARCELONA_INDUSTRIAL_PACK.zones[0]!;
 
@@ -161,52 +170,270 @@ describe('L-590 — EVERY NULL IS A FINDING (C58 §1.7a: null ≠ 0)', () => {
         expect(zone().setbacks.rear_m).toBeNull();
     });
 
-    it('⚠ geometricRule is null BECAUSE THE RULE KIND DOES NOT EXIST — not as a placeholder', () => {
-        expect(zone().geometricRule).toBeNull();
-        expect(BCN_22A_ENVELOPE_BLOCKER.missingRuleKind).toMatch(/tiered-occupation/);
-        expect(BCN_22A_ENVELOPE_BLOCKER.reasons.length).toBeGreaterThanOrEqual(4);
+    it('⚠⚠ §L-590b — geometricRule is NO LONGER NULL: the two-tier rule kind now exists', () => {
+        // ⚠ THIS TEST REPLACES THE ONE THAT ASSERTED `geometricRule` WAS NULL. That assertion was
+        // correct and load-bearing for as long as the model could not express Art. 350.2 — it
+        // stopped anyone "finishing the job" by publishing a whole-parcel envelope beside the
+        // article's own 90 % occupation cap. ADR-0273 removed the thing it was guarding against,
+        // so it is replaced rather than deleted: what is asserted now is the SHAPE the article
+        // states, transcribed field by field.
+        const rule = zone().geometricRule!;
+        expect(rule).not.toBeNull();
+        expect(rule.kind).toBe('tiered-occupation');
+        if (rule.kind !== 'tiered-occupation') return;
+
+        // Art. 350.2.b — the BAND's own ratio, as the article prints it ("superfície igual al 70
+        // per 100 d'aquesta"), NOT the 0.30 complement. Transcribing the complement would put the
+        // digits of Art. 242.2's `interiorFreeRatio` into a field with opposite semantics.
+        expect(rule.bandAreaRatioOfBlock).toBe(0.7);
+        expect(rule.bandAreaRatioOfBlock).not.toBe(BCN_ART350_2B_INTERIOR_FREE_RATIO);
+        // Art. 350.2.e — 5 m, one INDIVISIBLE storey.
+        expect(rule.interiorTierHeight_m).toBe(5);
+        expect(rule.interiorTierFloors).toBe(1);
+        // Art. 349 — *segons alineacions de vial*: façade ON the line, party walls laterally.
+        expect(rule.alignTo).toBe('street');
+        expect(rule.alignmentOffset_m).toBe(0);
+        expect(rule.sideTreatment).toBe('party-wall');
+        // ⚠ AND IT CARRIES NO DEPTH BOUNDS, because Art. 350 states none. A `minDepth_m` or
+        // `maxDepth_m` appearing here would necessarily have come from Art. 242 — L-526 exactly.
+        expect(rule).not.toHaveProperty('minDepth_m');
+        expect(rule).not.toHaveProperty('maxDepth_m');
+        expect(rule).not.toHaveProperty('interiorFreeRatio');
+    });
+
+    it('the tier numbers are badged as READ FROM THE ORDINANCE, not as PRYZM estimates', () => {
+        // Without this the `tier.*` derivation rows fall back to `estimated`, i.e. the panel
+        // presents figures read verbatim off p. 116 as guesses — the inverse of the L-459 defect
+        // and just as misleading.
+        expect(zone().fieldProvenance['geometricRule']).toBe('ordinance-pdf');
     });
 });
 
 describe('L-590 — ⚠ THE PACK IS DELIBERATELY UNREGISTERED, AND 22a STILL REFUSES', () => {
-    it('is NOT in the Barcelona registry', () => {
-        // THE GUARDRAIL. If someone "finishes the job" by registering it, this fails with the
-        // reason in the message rather than shipping a 100 %-of-parcel envelope beside a 90 % cap.
+    it('is NOT in the Barcelona registry — and the reason has CHANGED, not gone away', () => {
+        // ⚠⚠ THE GUARDRAIL, RE-AIMED. It used to guard the ENVELOPE MODEL: registering the pack
+        // would have published a whole-parcel envelope beside the article's own 90 % cap. ADR-0273
+        // closed that, and this test was deliberately NOT relaxed, because a SECOND blocker was
+        // always stated alongside the first and it is untouched by any amount of engineering:
+        //
+        //   Arts. 350.2.a–f govern only 22a land *mancada de Pla Parcial*. PRYZM holds no source
+        //   establishing whether a definitively-approved Pla Parcial covers a given parcel.
+        //
+        // ⚠ AND IT GATES THE FOOTPRINT, NOT ONLY THE HEIGHT — the point most likely to be missed
+        // by someone reading only `resolveAlcadaIndustrial`'s refusal. The FAR and the occupation
+        // survive the regime question because Art. 350.1.1r restates them; Art. 350.2.b's band
+        // does not. Registering today would apply that band, cited to Art. 350.2.b, to parcels
+        // Art. 350.1 may govern.
+        //
+        // Unblocking is a DATA or LEGAL step (a Pla-Parcial coverage layer, or a founder ruling
+        // that 22a inside the municipality is `'none'` by default), never an engineering one.
         const codes = registeredPackZoneCodes(BCN_JURISDICTION_ID);
         expect(
             codes,
-            'clau 22a must NOT be registered until a tiered-occupation GeometricRule exists — ' +
-                'see BCN_22A_ENVELOPE_BLOCKER. Registering it publishes an envelope covering the ' +
-                'whole parcel next to the 90 % occupation cap read from the same article.',
+            'clau 22a must NOT be registered until the Art. 350.1 / 350.2 Pla-Parcial regime can ' +
+                'be established for a parcel — see BCN_22A_ENVELOPE_BLOCKER. The two-tier ' +
+                'GEOMETRY is solved (ADR-0273); what is missing is the legal fact that says ' +
+                'whether Art. 350.2 governs this land at all.',
         ).not.toContain('22a');
         expect(BCN_22A_ENVELOPE_BLOCKER.registered).toBe(false);
+        // ⚠ §L-590c — this asserted `toHaveLength(1)` ("one reason left"). It is now 2, and the
+        // count grew because a re-read of p. 116 found a SECOND quantity the regime gates (the
+        // occupation: Art. 350.1.2n caps *aïllada* sectors at 70 %, not 90 %), not because a
+        // closed blocker came back. Asserting the SHAPE rather than the count is the honest fix —
+        // a count is a proxy that punishes a sharper finding.
+        expect(BCN_22A_ENVELOPE_BLOCKER.reasons.length).toBeGreaterThanOrEqual(1);
+        expect(BCN_22A_ENVELOPE_BLOCKER.reasons[0]).toMatch(/mancada de Pla Parcial/);
+        expect(BCN_22A_ENVELOPE_BLOCKER.reasons.join(' ')).toMatch(/70 %/);
+        // …and the model blocker is recorded as CLOSED rather than quietly dropped, so the
+        // argument that was answered stays readable next to the one that was not.
+        expect(BCN_22A_ENVELOPE_BLOCKER.missingRuleKind).toBeNull();
+        expect(BCN_22A_ENVELOPE_BLOCKER.ruleKind).toBe('tiered-occupation');
+        expect(BCN_22A_ENVELOPE_BLOCKER.closed.length).toBeGreaterThanOrEqual(3);
         // The zones that ARE registered are unaffected.
         expect(codes).toContain('13a');
         expect(codes).toContain('13b');
     });
 
-    it('a 22a parcel still resolves to a COVERAGE-GAP refusal, not an envelope', () => {
+    it('⚠ THE PACK IS NEVERTHELESS SOLVABLE TODAY — the geometry blocker really is closed', () => {
+        // The counterpart to the guard above, and the reason the guard is now honest rather than
+        // merely conservative: the pack's rule, driven through the SHIPPING engine on a real
+        // block, produces the two-tier envelope Art. 350.2 describes. Registration is gated on a
+        // legal fact, not on a missing capability — and this test is what stops that claim from
+        // decaying into an excuse.
+        const BLOCK = [
+            { x: 0, z: 0 }, { x: 113, z: 0 }, { x: 113, z: 113 }, { x: 0, z: 113 },
+        ];
+        const env = computeBuildableEnvelope({
+            parcelRing: [
+                { x: 40, z: 0 }, { x: 60, z: 0 }, { x: 60, z: 113 }, { x: 40, z: 113 },
+            ],
+            edgeClassifications: ['front', 'side', 'rear', 'side'],
+            zoning: {
+                zoneCode: '22a',
+                zoneLabel: 'Zona Industrial (clau 22a)',
+                jurisdictionId: 'es-08019-barcelona',
+                // The Art. 350.2.c height as the L5 caller would supply it once the regime is
+                // established. Passing it here does NOT assume the regime — it isolates the
+                // GEOMETRY, which is what this test is about.
+                structuredFields: { maxHeight_m: 17 },
+                overlays: [],
+                ordinanceRef: null,
+                provenance: {
+                    source: 'catastro-muc', label: 'test', version: 'test',
+                    license: null, crs: 'EPSG:4326',
+                },
+            } as never,
+            rulePack: ES_BARCELONA_INDUSTRIAL_PACK,
+            blockRing: BLOCK,
+            blockEdgeClassifications: ['front', 'front', 'front', 'front'],
+        });
+        expect(env.status).toBe('ok');
+        expect(env.tiers.map((t) => t.id)).toEqual(['block-band', 'block-interior']);
+        expect(env.tiers[0]!.maxHeight_m).toBe(17);   // Art. 350.2.c inside the band
+        expect(env.tiers[1]!.maxHeight_m).toBe(5);    // Art. 350.2.e beyond it
+        // The rule reaches the engine FROM THE PACK — no test-only `geometricRule` override —
+        // which is what proves registration is the only remaining step.
+        expect(env.derivation.some((d) => d.constraint === 'tier.bandDepth')).toBe(true);
+    });
+
+    it('a 22a parcel still resolves to a REFUSAL, not an envelope', () => {
         const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22a', {
             zoneLabel: 'Zona industrial',
         });
         expect(d.kind).toBe('refusal');
         if (d.kind === 'refusal') {
-            // ⚠ `legallyGrounded: false` — this is a statement about PRYZM's model, NOT a claim
+            // ⚠ `legallyGrounded: false` — this is a statement about PRYZM's inputs, NOT a claim
             // that the ordinance forbids building on industrial land. Flipping it would tell an
             // owner their perfectly buildable plot cannot be built on.
             expect(d.refusal.legallyGrounded).toBe(false);
         }
     });
+});
 
-    it('the refusal copy now states the REAL blocker: a shape we cannot draw', () => {
-        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22a', {});
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §L-590c / ADR-0276 — TRACK C: the REGIME-NEUTRAL half of Art. 350 ships; everything the
+// regime gates stays refused. FOUNDER-RULED 2026-07-22 ("C now, B in parallel, hold A").
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+describe('§L-590c — clau 22a returns the two cited facts plus a NAMED refusal', () => {
+    const refusalFor22a = (): EnvelopeRefusal => {
+        const d = resolveZoneDisposition(BCN_JURISDICTION_ID, '22a', { zoneLabel: 'Zona industrial' });
         expect(d.kind).toBe('refusal');
-        if (d.kind === 'refusal') {
-            const text = JSON.stringify(d.refusal);
-            // Must still name the floor-area index (it is one of the two numbers we CAN quote)…
-            expect(text).toMatch(/floor-area index/i);
-            // …and must now name the two-tier shape, which is what actually blocks the envelope.
-            expect(text).toMatch(/around the whole block/i);
-        }
+        if (d.kind !== 'refusal') throw new Error('unreachable');
+        return d.refusal;
+    };
+
+    it('is the FOURTH refusal code, not one of the three that would each be false', () => {
+        // `no-rule-pack` would say we have not encoded the zone (we have, and it is solved).
+        // `source-data-unavailable` is the TRANSIENT code and would invite an eternal retry.
+        // `derived-plan` would assert the delegation we cannot establish — L-526 verbatim.
+        const r = refusalFor22a();
+        expect(r.code).toBe('regime-undetermined');
+        expect(r.code).not.toBe('no-rule-pack');
+        expect(r.code).not.toBe('source-data-unavailable');
+        expect(r.code).not.toBe('derived-plan');
+        // A statement about PRYZM's inputs, never about what the law permits on this land.
+        expect(r.legallyGrounded).toBe(false);
+    });
+
+    it('publishes the FAR as UNCONDITIONAL — all three paragraphs state it', () => {
+        const r = refusalFor22a();
+        expect(BCN_22A_REGIME_NEUTRAL_LIMITS.plotRatioFAR).toBe(2);
+        // Read live from the pack, so the published figure cannot drift from the encoded one.
+        expect(BCN_22A_REGIME_NEUTRAL_LIMITS.plotRatioFAR).toBe(zone().plotRatioFAR);
+        expect(r.detail).toMatch(/2 m² of floor per m² of site/);
+        expect(r.detail).toMatch(/whichever regime governs your parcel/i);
+        // The three paragraphs, named — that is WHY it is unconditional, and the reason must
+        // travel with the claim or it is an assertion rather than a citation.
+        expect(r.ordinanceRef).toMatch(/Art\. 350\.1\.1r/);
+        expect(r.ordinanceRef).toMatch(/Art\. 350\.1\.2n/);
+        expect(r.ordinanceRef).toMatch(/Art\. 350\.2\.a/);
+    });
+
+    it('⚠ publishes the 90 % occupation ONLY WITH its condition attached', () => {
+        // THE LOAD-BEARING ASSERTION OF THIS SUITE. Art. 350.1.2n caps an *edificació aïllada*
+        // sector at 70 %, and Art. 349.1 makes the ordering type a property of the Pla Parcial.
+        // A bare "90 %" therefore OVER-STATES by 20 pp on such a sector — the one direction
+        // C58 §1.4 forbids outright. The condition is not a nicety; it is what makes the figure
+        // publishable at all.
+        const r = refusalFor22a();
+        expect(BCN_22A_REGIME_NEUTRAL_LIMITS.maxCoverage).toBe(zone().maxCoverage);
+        expect(BCN_22A_REGIME_NEUTRAL_LIMITS.maxCoverageAilladaAlternative)
+            .toBe(BCN_ART350_1_AILLADA_COVERAGE);
+        expect(r.detail).toMatch(/90 % of the parcel/);
+        expect(r.detail).toMatch(/segons alineacions de vial/);
+        expect(r.detail).toMatch(/edificació aïllada/);
+        expect(r.detail).toMatch(/70 %/);
+    });
+
+    it('NAMES THE MISSING INPUT rather than saying "we don’t know"', () => {
+        const r = refusalFor22a();
+        expect(r.detail).toMatch(/definitively-approved detailed plan/i);
+        expect(r.detail).toMatch(/Pla Parcial/);
+        expect(r.detail).toMatch(/what ordering type does it assign this sector/i);
+        // …and names the zone FIRST (L-553 rule 1) so the card cannot read as a crash.
+        expect(r.headline).toMatch(/clau 22a/);
+        expect(r.headline).toMatch(/TWO regimes/);
+    });
+
+    it('⚠⚠ THE GUARD — a 22a parcel gets NO Art. 350.2.b band and NO Art. 350.2.c height', () => {
+        // ⚠⚠ THIS IS THE TEST THAT STOPS A FUTURE AGENT "FINISHING THE JOB". The pack is solvable
+        // (asserted above) and the temptation is to register it. Registering it would send 22a
+        // through `computeBuildableEnvelope` with the `tiered-occupation` rule, cutting an
+        // Art. 350.2.b band and publishing an Art. 350.2.e 5 m principal tier — BOTH regime-gated,
+        // on parcels Art. 350.1 may govern. Going through `refusalFor` instead keeps every numeric
+        // field null and every polygon empty, which is what makes the partial answer safe for
+        // consumers that have never heard of it.
+        const r = refusalFor22a();
+        const env = buildRefusedEnvelope('22a', r);
+
+        // 1 — nothing geometric. Nothing to extrude, nothing to persist, nothing to bound a
+        //     generator with (C58 §1.13.3).
+        expect(env.insetPolygon).toEqual([]);
+        expect(env.insetAreaM2).toBe(0);
+        expect(env.tiers).toEqual([]);
+        expect(env.maxVolumeM3).toBeNull();
+
+        // 2 — NO HEIGHT. Not 9, not 13, not 17 (Art. 350.2.c), not 5 (Art. 350.2.e).
+        expect(env.maxHeight_m).toBeNull();
+        expect(env.maxFloors).toBeNull();
+
+        // 3 — and the two facts we DO publish are NOT in numeric fields either. They are prose
+        //     under a citation, because prose is the only form that can carry the occupation's
+        //     condition, and because a number in these fields is a number a consumer will use.
+        expect(env.maxFAR).toBeNull();
+        expect(env.maxCoverage).toBeNull();
+
+        // 4 — the refusal is recognised as one, so every consumer takes the refusal branch.
+        expect(isRefusedEnvelope(env)).toBe(true);
+        expect(env.status).toBe('not-applicable');
+        expect(env.confidence).toBe('not-determined');
+        // …and is NOT the transient kind, so no surface offers a retry that can never succeed.
+        expect(isTransientRefusal(env)).toBe(false);
+
+        // 5 — the CITATION must not name the paragraphs the card is declining to apply. A
+        //     reference to Art. 350.2.b/.c beside "we cannot establish the regime" is an
+        //     authoritative-looking citation for a claim the card does not make (L-526).
+        expect(r.ordinanceRef).not.toMatch(/Art\. 350\.2\.c \(street-width/);
+        expect(r.ordinanceRef).toMatch(/NOT cited for this parcel/);
+        expect(r.detail).not.toMatch(/\b17 m\b/);
+        expect(r.detail).not.toMatch(/\b9 m\b/);
+    });
+
+    it('⚠ resolveAlcadaIndustrial still REFUSES on the default (option A stays on hold)', () => {
+        // The founder ruling: "Option A is explicitly on hold." There must be no permissive
+        // default anywhere — an omitted regime must not become an ordinance fact.
+        expect(resolveAlcadaIndustrial(20).ok).toBe(false);
+        expect(resolveAlcadaIndustrial(20, { planParcialRegime: 'unknown' }).ok).toBe(false);
+        expect(resolveAlcadaIndustrial(20, { planParcialRegime: 'approved' }).ok).toBe(false);
+        // …and the gate is still openable by an EXPLICIT establishment, so this is a refusal to
+        // guess and not a dead code path.
+        expect(
+            resolveAlcadaIndustrial(20, { planParcialRegime: 'none', trustedOfficialWidth: true }).ok,
+        ).toBe(true);
+        // The ruling itself is recorded in the blocker, with its date, so it cannot be
+        // re-litigated from memory.
+        expect(BCN_22A_ENVELOPE_BLOCKER.founderRuling.date).toBe('2026-07-22');
+        expect(BCN_22A_ENVELOPE_BLOCKER.founderRuling.optionAOnHold).toMatch(/NOT implemented/);
+        expect(BCN_22A_ENVELOPE_BLOCKER.shipped.length).toBeGreaterThanOrEqual(3);
     });
 });

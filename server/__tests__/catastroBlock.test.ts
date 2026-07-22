@@ -17,6 +17,8 @@ import {
     parseParcelCollectionGml,
     makeCatastroBlockHandler,
     BLOCK_BBOX_HALF_DEG,
+    isFreeStandingBlock,
+    FREE_STANDING_CLEARANCE_M,
 } from '../parcelZoningProxy.js';
 
 /** A minimal but structurally real two-feature CadastralParcel collection. */
@@ -226,5 +228,113 @@ describe('the handler REFUSES rather than returning a partial block', () => {
         const res = fakeRes();
         await handler({ query: {} } as never, res as never);
         expect(res._code).toBe(400);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §BLOCK-SINGLETON-MANZANA (L-586)
+//
+// The blanket `< 3 parcels` refusal above was a GUESS ("far likelier to be a broken prefix than a
+// real manzana") that was never measured. Measured on the live 100-manzana Barcelona sweep, seven
+// parcels hit it and ALL SEVEN are genuine whole blocks — four of them full ~12,000 m² Eixample
+// illes held as one cadastral parcel (a school, a market, a convent). The guess is replaced by the
+// test it was estimating: city blocks are separated by STREETS, so a real whole-block parcel
+// touches nothing, and a parcel whose siblings were lost to a broken prefix still does.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('§BLOCK-SINGLETON-MANZANA — a free-standing single parcel IS a manzana', () => {
+    const okRes = (body: string) => ({ ok: true, text: async () => body } as unknown as Response);
+    // ~55 m clear of SQUARE — a street's width away, well beyond FREE_STANDING_CLEARANCE_M and
+    // far beyond Catastro's own 0.111 m coordinate quantum.
+    const ACROSS_THE_STREET = '41.3930 2.1650 41.3930 2.1655 41.3935 2.1655 41.3935 2.1650 41.3930 2.1650';
+
+    it('ACCEPTS a 1-parcel manzana when nothing in the bbox touches it', async () => {
+        let call = 0;
+        const handler = makeCatastroBlockHandler({
+            fetchImpl: (async () => {
+                call++;
+                if (call === 1) return okRes(SUBJECT_GML);
+                return okRes(collectionGml([
+                    { rc: '0229720DF3802G', pts: SQUARE },
+                    { rc: '0328601DF3802G', pts: ACROSS_THE_STREET },
+                ]));
+            }) as unknown as typeof fetch,
+        });
+        const res = fakeRes();
+        await handler({ query: { refcat: '0229720DF3802G' } } as never, res as never);
+        const body = res._body as { block: { siblingCount: number; freeStanding: boolean | null } };
+        expect(body.block).not.toBeNull();
+        expect(body.block.siblingCount).toBe(1);
+        expect(body.block.freeStanding).toBe(true);
+    });
+
+    it('STILL REFUSES a 1-parcel manzana that abuts another parcel — the broken-prefix case', async () => {
+        // This is the danger the old guard was aimed at, and it must survive intact: the siblings
+        // are right there under a different prefix, so the "block" is a fragment of a real one and
+        // its ring would yield a WRONG profunditat edificable.
+        let call = 0;
+        const handler = makeCatastroBlockHandler({
+            fetchImpl: (async () => {
+                call++;
+                if (call === 1) return okRes(SUBJECT_GML);
+                return okRes(collectionGml([
+                    { rc: '0229720DF3802G', pts: SQUARE },
+                    // Shares the 2.1655 edge exactly — an abutting parcel, not a street away.
+                    { rc: '0328601DF3802G', pts: '41.3920 2.1655 41.3920 2.1660 41.3925 2.1660 41.3925 2.1655 41.3920 2.1655' },
+                ]));
+            }) as unknown as typeof fetch,
+        });
+        const res = fakeRes();
+        await handler({ query: { refcat: '0229720DF3802G' } } as never, res as never);
+        const body = res._body as { block: null; _tooFewSiblings: number; _abuttingParcels: number };
+        expect(body.block).toBeNull();
+        expect(body._tooFewSiblings).toBe(1);
+        expect(body._abuttingParcels).toBe(1);
+    });
+
+    it('reports `freeStanding: null` — not false — for an ordinary multi-parcel block', async () => {
+        // THREE STATES, NEVER TWO (L-467/L-469). "not evaluated" and "evaluated and negative" are
+        // different facts and must not render as the same value.
+        let call = 0;
+        const handler = makeCatastroBlockHandler({
+            fetchImpl: (async () => {
+                call++;
+                if (call === 1) return okRes(SUBJECT_GML);
+                return okRes(collectionGml([
+                    { rc: '0229720DF3802G', pts: SQUARE },
+                    { rc: '0229721DF3802G', pts: SQUARE },
+                    { rc: '0229722DF3802G', pts: SQUARE },
+                ]));
+            }) as unknown as typeof fetch,
+        });
+        const res = fakeRes();
+        await handler({ query: { refcat: '0229720DF3802G' } } as never, res as never);
+        const body = res._body as { block: { siblingCount: number; freeStanding: boolean | null } };
+        expect(body.block.siblingCount).toBe(3);
+        expect(body.block.freeStanding).toBeNull();
+    });
+
+    it('isFreeStandingBlock is honest about an EMPTY bbox — null distance, not Infinity', async () => {
+        const parcels = parseParcelCollectionGml(collectionGml([{ rc: '0229720DF3802G', pts: SQUARE }]));
+        const verdict = isFreeStandingBlock(parcels, parcels);
+        expect(verdict.nearestOtherParcelM).toBeNull();
+        expect(verdict.touching).toEqual([]);
+    });
+
+    it('measures a real street gap and a real shared edge on opposite sides of the clearance', async () => {
+        const own = parseParcelCollectionGml(collectionGml([{ rc: '0229720DF3802G', pts: SQUARE }]));
+        const far = parseParcelCollectionGml(collectionGml([
+            { rc: '0229720DF3802G', pts: SQUARE },
+            { rc: '0328601DF3802G', pts: ACROSS_THE_STREET },
+        ]));
+        const near = parseParcelCollectionGml(collectionGml([
+            { rc: '0229720DF3802G', pts: SQUARE },
+            { rc: '0328601DF3802G', pts: '41.3920 2.1655 41.3920 2.1660 41.3925 2.1660 41.3925 2.1655 41.3920 2.1655' },
+        ]));
+        const farV = isFreeStandingBlock(own, far);
+        const nearV = isFreeStandingBlock(own, near);
+        expect(farV.freeStanding).toBe(true);
+        expect(farV.nearestOtherParcelM).toBeGreaterThan(FREE_STANDING_CLEARANCE_M);
+        expect(nearV.freeStanding).toBe(false);
+        expect(nearV.nearestOtherParcelM).toBeLessThan(FREE_STANDING_CLEARANCE_M);
     });
 });

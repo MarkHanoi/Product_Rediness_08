@@ -58,6 +58,7 @@ import {
     barcelonaZoneRefusalFor,
     barcelonaNoRulePackRefusal,
 } from './esBarcelonaZoneClassification.js';
+import { BARCELONA_BBOX, isInBarcelona } from '../providers/barcelonaBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -78,8 +79,58 @@ export type ZoneDisposition =
  * genuinely works that way (Barcelona's does not — see `esBarcelonaZoneClassification.ts` on why
  * it enumerates).
  */
+/**
+ * L-593 / C60 §2 — WHERE a jurisdiction's registration APPLIES, in WGS84.
+ *
+ * WHY THIS LIVES ON THE REGISTRATION AND IS **NOT OPTIONAL**
+ * ---------------------------------------------------------
+ * The site-entry globe (C60) has to answer *"can PRYZM answer here?"* BEFORE a parcel
+ * exists. Until now the only two statements of that were (a) `packsByZone`, which knows
+ * WHAT we answer but not WHERE, and (b) the `isInBarcelona()` bbox living in a provider,
+ * which knows WHERE but is not reachable from the registry. Any third statement — a
+ * hand-drawn coverage polygon in the UI layer — would DRIFT from what the engine can
+ * actually do, invisibly, which is precisely the failure class this codebase keeps
+ * hitting. So coverage is declared HERE, on the same object as the packs, and:
+ *
+ *   • `bbox`/`contains` are the **imported routing constant and predicate the dispatcher
+ *     itself routes on** (`siteDispatch.ts` → `isInBarcelona`), not a copy. A globe that
+ *     lights a region the dispatcher would not route into is therefore unrepresentable.
+ *   • `packZoneCodes` is NOT stored — `listJurisdictionCoverage()` reads it live from
+ *     `packsByZone`, so registering a pack updates the globe with no second edit.
+ *   • The field is REQUIRED. A future Madrid registration that forgot its extent would
+ *     be a tsc error, not a city silently missing from the coverage globe.
+ *
+ * ⚠ A bbox is a COARSE claim, exactly as `barcelonaBbox.ts` says: it is a proximity gate,
+ * never an authorisation. C60 §3 requires the entry UI to state the resolution it has
+ * ("metropolitan area", not "this street") and to keep the real answer at the parcel step.
+ */
+export interface JurisdictionExtent {
+    readonly minLat: number;
+    readonly maxLat: number;
+    readonly minLon: number;
+    readonly maxLon: number;
+}
+
 interface JurisdictionRegistration {
     readonly jurisdictionId: string;
+    /** Human name of the covered area, in the ordinance's own terms. */
+    readonly displayName: string;
+    /** ISO 3166-1 alpha-2 of the sovereign state whose law the packs encode. */
+    readonly countryCode: string;
+    readonly countryName: string;
+    /**
+     * The coarse extent the dispatcher gates on. MUST be the same constant the routing
+     * predicate uses — see the header above on why a copy is forbidden.
+     */
+    readonly extent: JurisdictionExtent;
+    /** The routing predicate itself. `extent` is its bbox; this is its decision. */
+    readonly contains: (lat: number, lon: number) => boolean;
+    /**
+     * What the entry UI may honestly promise at this jurisdiction, in one line. Written
+     * per-jurisdiction because "we hold the ordinance's depth construction and height
+     * table" is a different promise from "we hold a setback triple".
+     */
+    readonly answerSummary: string;
     readonly packsByZone: ReadonlyMap<string, JurisdictionZoningContract>;
     readonly refusalFor: (
         zoneCode: string,
@@ -161,6 +212,16 @@ function packMap(
 const REGISTRATIONS: readonly JurisdictionRegistration[] = [
     {
         jurisdictionId: BCN_JURISDICTION_ID,
+        displayName: 'Barcelona',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: BARCELONA_BBOX,
+        contains: isInBarcelona,
+        answerSummary:
+            'Zoning (clau) from the Catalan MUC, the Art. 242 buildable-depth construction ' +
+            'and the ordinance height tables — for the registered claus only. Everything ' +
+            'else in the city is answered with a cited refusal, never an estimate.',
         packsByZone: packMap(
             // ADR-0271 — clau 13a/13E, the block-derived *profunditat edificable* pack. 24.2 % of
             // Barcelona's private buildable land (measured, plan §2.2).
@@ -183,6 +244,57 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
             // municipality. Ciutat Vella is 12b and stays refused (its height is the mean of
             // existing neighbours, an input we do not hold).
             [ES_BARCELONA_NUCLI_ANTIC_PACK, BCN_NUCLI_ANTIC_ZONE_CODES],
+            // ⚠⚠ §L-590 / §L-590b — `ES_BARCELONA_INDUSTRIAL_PACK` (clau 22a) EXISTS AND IS
+            // **NOT** LISTED HERE. THIS IS NOT AN OVERSIGHT. Do not "finish the job" by adding it.
+            //
+            // ⚠ THE REASON HAS CHANGED, SO READ IT AGAIN EVEN IF YOU READ IT BEFORE. The blocker
+            // used to be the ENVELOPE MODEL: Art. 350.2's two-tier solid was inexpressible, so the
+            // pack shipped `geometricRule: null`, which means "legacy per-edge inset" and on this
+            // zone's (correctly) all-null setbacks erodes nothing. **ADR-0273 closed that.** The
+            // `tiered-occupation` rule kind exists, `BuildableEnvelope` carries `tiers`, and this
+            // pack's rule is solved end to end against a real block in
+            // `esBarcelonaIndustrialPack.test.ts`.
+            //
+            // WHAT STILL BLOCKS REGISTRATION IS A LEGAL FACT PRYZM DOES NOT HOLD. Arts. 350.2.a–f
+            // govern only industrial land *mancada de Pla Parcial*; land with a definitively
+            // approved Pla Parcial is governed by Art. 350.1, where only the FAR and the
+            // occupation are the PGM's and everything else comes from that plan. Neither the
+            // Catastro parcel nor the MUC says which. ⚠ AND THIS GATES THE FOOTPRINT, NOT ONLY THE
+            // HEIGHT: the FAR (2) and the occupation (90 %) are restated verbatim by Art. 350.1.1r
+            // and are therefore regime-neutral, but Art. 350.2.b's band is not. Registering today
+            // would apply that band — cited to Art. 350.2.b — to parcels Art. 350.1 may govern.
+            // The error would be conservative (a band only restricts), and "conservative" has
+            // never been the test: a confident mis-citation is the specific harm L-526 named.
+            //
+            // ⇒ Unblocking is (i) a Pla-Parcial coverage layer for Barcelona's industrial land, or
+            // (ii) a founder ruling that 22a inside the municipality is `'none'` by default. Both
+            // are determinations about the law. Read `BCN_22A_ENVELOPE_BLOCKER` (and its `.closed`
+            // list) in `esBarcelonaIndustrial.ts` before touching this line.
+            //
+            // ── §L-590c (2026-07-22) — WHAT CHANGED, AND WHY IT IS STILL NOT A REGISTRATION ────
+            //
+            // 22a no longer returns the generic coverage gap. `barcelonaZoneRefusalFor` now hands
+            // it a NAMED `regime-undetermined` refusal (ADR-0274) that publishes the regime-neutral
+            // half of Art. 350 — the 2 m²st/m²s FAR, unconditional across all three paragraphs,
+            // and the 90 % occupation WITH its *alineacions de vial* condition — under its own
+            // narrowed citation, and names the exact missing legal fact for the rest.
+            //
+            // ⚠⚠ THAT ROUTE IS A **REFUSAL**, NOT A PACK, AND THE DISTINCTION IS THE SAFETY
+            // PROPERTY. Adding the pack to this map would send 22a down `computeBuildableEnvelope`
+            // with the `tiered-occupation` rule, which would cut an Art. 350.2.b band and publish
+            // an Art. 350.2.e 5 m tier as the principal tier — both regime-gated, on parcels
+            // Art. 350.1 may govern. Going through `refusalFor` instead keeps every numeric field
+            // null and every polygon empty (`buildRefusedEnvelope`), so the two facts reach the
+            // user as cited PROSE and nothing reaches the massing, the generator bounds or
+            // `site.updateZoning`. `esBarcelonaIndustrialPack.test.ts` asserts exactly that.
+            //
+            // ⚠ FOUNDER RULING 2026-07-22 — "C now, B in parallel, hold A". **Option A (assume no
+            // Pla Parcial by default) IS ON HOLD. Do not add a permissive default anywhere.**
+            // Track B has since found that Barcelona's OWN municipal planning WMS answers the
+            // regime question at a point (see V1-LAUNCH-READINESS-AUDIT L-590c/L-605) — and that
+            // on Zona Franca 22a the answer is a Pla Parcial with 18,30 / 24,40 m heights, i.e.
+            // option A would have been WRONG there. Wiring that source is a founder re-decision,
+            // not an implementer's.
         ),
         refusalFor: barcelonaZoneRefusalFor,
         // L-553, founder-decided: Barcelona's remaining unpacked buildable claus (12, 12b, 22a,
@@ -241,4 +353,43 @@ export function resolveZoneDisposition(
  */
 export function registeredPackZoneCodes(jurisdictionId: string): readonly string[] {
     return [...(BY_JURISDICTION.get(jurisdictionId)?.packsByZone.keys() ?? [])];
+}
+
+/**
+ * L-593 / C60 §2 — ONE registered jurisdiction, as the site-entry globe sees it.
+ *
+ * A projection of `REGISTRATIONS`, never a parallel table. `packZoneCodes` is read live
+ * so it cannot lag the packs; `contains` IS the dispatcher's routing predicate.
+ */
+export interface JurisdictionCoverage {
+    readonly jurisdictionId: string;
+    readonly displayName: string;
+    readonly countryCode: string;
+    readonly countryName: string;
+    readonly extent: JurisdictionExtent;
+    readonly contains: (lat: number, lon: number) => boolean;
+    readonly answerSummary: string;
+    /** Zone codes a curated pack answers for, live from `packsByZone`. */
+    readonly packZoneCodes: readonly string[];
+}
+
+/**
+ * **THE answer to "where can PRYZM actually answer?"** — derived from the shipping
+ * registry, so it is definitionally incapable of disagreeing with the code path it
+ * describes (the same argument as `registeredPackZoneCodes`, one level up).
+ *
+ * C60 §2 forbids any other source for the site-entry coverage layer. If this list is
+ * empty, the honest globe is entirely dark — that is a correct rendering, not a bug.
+ */
+export function listJurisdictionCoverage(): readonly JurisdictionCoverage[] {
+    return REGISTRATIONS.map((r) => ({
+        jurisdictionId: r.jurisdictionId,
+        displayName: r.displayName,
+        countryCode: r.countryCode,
+        countryName: r.countryName,
+        extent: r.extent,
+        contains: r.contains,
+        answerSummary: r.answerSummary,
+        packZoneCodes: [...r.packsByZone.keys()],
+    }));
 }

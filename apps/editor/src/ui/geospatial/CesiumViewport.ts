@@ -27,6 +27,27 @@ import {
     type ContextBuildingCollection,
     type ContextBuildingFeature,
 } from "./contextBuildings";
+// §CTX-USE-COLOUR (L-599) — pure "what is this building" classification + palette + legend.
+// ⭐ ACTUAL use only (OSM `building=*`); PERMITTED use (clau/MUC) is a DIFFERENT layer and is
+// deliberately not merged — their disagreement is the development signal.
+import {
+    classifyContextUse,
+    summariseContextUse,
+    CONTEXT_USE_STYLE,
+    type ContextUseLegend,
+} from "./contextBuildingUse";
+// §CTX-QUERY-PANEL (L-592) — pure read-only query model for a picked context building. Every
+// judgement about what may be SAID about it (height provenance, synthetic-vs-OSM id) lives there.
+import { buildContextBuildingQuery, type ContextBuildingQueryModel } from "./contextBuildingQuery";
+// §FACADE-STUDY-SUBJECT (L-596) — the EXPLICIT choice of what the sun study runs on, and the
+// refusals that stop it ever silently substituting one subject for the other (the L-272 trap).
+import {
+    resolveFacadeStudySubject,
+    includeProposedMassingAsOccluder,
+    type FacadeStudySubject,
+} from "./facadeStudySubject";
+// C06 §7 / §233 — z-index comes from the single named scale, never a hand-picked literal.
+import { zCss } from "../layout/zLayers";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
 import { fetchContextParks, type ContextParkCollection } from "./contextParks";
@@ -896,6 +917,42 @@ export class CesiumViewport {
    *  them (handles duplicate osmIds from multipolygon relations). Reset in
    *  clearContextBuildings alongside `contextBuildingEntities`. */
   private contextBuildingPlacements: Array<{ entity: Cesium.Entity; feature: ContextBuildingFeature }> = [];
+  /**
+   * §CTX-QUERY-PANEL (L-592) — O(1) entity → feature lookup for the LEFT_CLICK pick.
+   *
+   * A linear scan of `contextBuildingPlacements` would be ~10k comparisons per click, which is
+   * survivable, but the pick handler runs on the founder's WebGL-fallback box with up to ~9,762
+   * footprints placed and this is the one lookup on the interaction path. Maintained in lock-step
+   * with `contextBuildingPlacements` at BOTH push sites (near + far ring) and cleared with it in
+   * `clearContextBuildings` — if the two ever diverge the panel simply does not open (a miss is a
+   * no-op, never a wrong building).
+   */
+  private contextFeatureByEntity = new Map<Cesium.Entity, ContextBuildingFeature>();
+  /** §CTX-QUERY-PANEL (L-592) — the read-only info panel DOM, or null when nothing is picked. */
+  private contextQueryPanel: HTMLElement | null = null;
+  /** §CTX-QUERY-PANEL (L-592) — the yellow rim drawn round the picked footprint (one entity). */
+  private contextQueryHighlight: Cesium.Entity | null = null;
+  /**
+   * §CTX-USE-COLOUR (L-599) — is the use-colouring MODE on? DEFAULT OFF.
+   *
+   * ⚠ A MODE, never a permanent repaint: the scene's massing semantics (proposed = #6600FF,
+   * context = off-white `FORMA_PALETTE.contextFill`, unknown-height = translucent + cooler) are
+   * load-bearing, so turning this off must restore EXACTLY the previous appearance — which is why
+   * `contextUseMaterialBackup` snapshots the real material objects rather than recomputing them.
+   */
+  private contextUseColourOn = false;
+  /** §CTX-USE-COLOUR (L-599) — the pre-colouring material of every entity this mode repainted. */
+  private contextUseMaterialBackup = new Map<Cesium.Entity, Cesium.MaterialProperty>();
+  /** §CTX-USE-COLOUR (L-599) — the legend DOM (a colour with no legend is an uninterpreted fact). */
+  private contextUseLegendEl: HTMLElement | null = null;
+  /**
+   * §FACADE-STUDY-SUBJECT (L-596) — WHAT the sun study runs on. DEFAULT 'building' (unchanged
+   * behaviour). 'envelope' is an EXPLICIT user choice and is labelled on screen for as long as it
+   * paints; it is NEVER selected automatically as a fallback (that is the L-272 defect).
+   */
+  private facadeStudySubject: FacadeStudySubject = 'building';
+  /** §FACADE-STUDY-SUBJECT (L-596) — the "ENVELOPE STUDY" badge DOM while such a study is shown. */
+  private facadeSubjectBadge: HTMLElement | null = null;
 
   /**
    * §CTX-LOADING-BADGE (L-524b) — the "surrounding buildings are still coming" indicator.
@@ -1920,7 +1977,45 @@ export class CesiumViewport {
 
           const pickedObject = this.viewer.scene.pick(movement.position);
 
-          if (!Cesium.defined(pickedObject)) return;
+          if (!Cesium.defined(pickedObject)) {
+            // §CTX-QUERY-PANEL (L-592) — a click on empty sky/ground dismisses the context
+            // info panel. Inside the guard, like everything else in this handler.
+            this.closeContextBuildingQuery();
+            return;
+          }
+
+          // §CTX-QUERY-PANEL (L-592) — THE MISSING BRANCH. `scene.pick` on an Entity-backed
+          // primitive returns a `{ id: Entity }`, and this handler previously branched only on
+          // `Cesium.Model` / `Cesium3DTileFeature` — so a picked CONTEXT BUILDING fell straight
+          // through to "clicked away — deselect" and the neighbourhood was inert.
+          //
+          // The pairing of record already existed (`contextBuildingPlacements`, L-418); all that
+          // was missing was resolving the picked entity back through it and showing a READ-ONLY
+          // panel. A context building is NOT a model object (C19: transient scene decoration,
+          // never persisted; C57: not a parcel), so nothing here selects it into the model, makes
+          // it editable, or persists anything.
+          //
+          // ⚠ It also does NOT route through `SelectionBus` / `gpu-pick`. Those are the BIM-side
+          // selection model; the 3D-Site scene has its own ad-hoc `ScreenSpaceEventHandler` path
+          // and no contract currently owns a unified one (logged as a COVERAGE GAP in the L-592
+          // spike). Inventing a second selection framework here would make that gap worse.
+          {
+            const pickedEntity: unknown = (pickedObject as { id?: unknown }).id;
+            if (pickedEntity instanceof Cesium.Entity) {
+              // The selection rim sits on top of the building it rims, so a second click on the
+              // same building can land on the rim. That is still "the same pick" — keep the panel.
+              if (pickedEntity === this.contextQueryHighlight) return;
+              const feature = this.contextFeatureByEntity.get(pickedEntity);
+              if (feature) {
+                if (this.currentModel) this.currentModel.silhouetteSize = 0;
+                this.showContextBuildingQuery(feature);
+                return;
+              }
+            }
+          }
+          // Anything else picked (the massing, the envelope, a road…) closes the panel: the
+          // panel describes ONE context building and must never outlive the pick that opened it.
+          this.closeContextBuildingQuery();
 
           // If GLB model clicked
           if (pickedObject.primitive instanceof Cesium.Model) {
@@ -1961,6 +2056,346 @@ export class CesiumViewport {
       },
       Cesium.ScreenSpaceEventType.LEFT_CLICK
     );
+  }
+
+  // ── §CTX-QUERY-PANEL (L-592) — read-only query of ONE context building ────────
+  //
+  // 🔴 THE RULE THAT GATES THIS FEATURE: the panel MUST surface `heightProvenance`.
+  // MEASURED (L-582, 23,251 Barcelona footprints): 0.9% surveyed · 79.3% `building:levels` × our
+  // assumed 3.2 m · 19.8% a fabricated 9 m. The scene already draws the assumed ones translucent
+  // (§CTX-ASSUMED-HEIGHT-VISIBLE) so a guess does not RENDER like a measurement — a panel reading
+  // "Height: 9 m" would undo that in one line of text. All of that judgement lives in the pure,
+  // unit-tested `contextBuildingQuery.ts`; this method only paints its answer.
+
+  /** Open (or replace) the read-only panel for a picked context building. Never throws. */
+  private showContextBuildingQuery(feature: ContextBuildingFeature): void {
+    try {
+      const model = buildContextBuildingQuery({
+        heightM: feature.properties.heightM,
+        ...(feature.properties.heightProvenance !== undefined
+          ? { heightProvenance: feature.properties.heightProvenance } : {}),
+        ...(feature.properties.floors !== undefined ? { floors: feature.properties.floors } : {}),
+        osmId: feature.properties.osmId,
+        ...(feature.properties.osmIdSource !== undefined
+          ? { osmIdSource: feature.properties.osmIdSource } : {}),
+        ...(feature.properties.useTag !== undefined ? { useTag: feature.properties.useTag } : {}),
+        ...(feature.properties.name !== undefined ? { name: feature.properties.name } : {}),
+        ...(feature.properties.ring !== undefined ? { ring: feature.properties.ring } : {}),
+        ...(feature.properties.distM !== undefined ? { distM: feature.properties.distM } : {}),
+      });
+      this.renderContextBuildingQueryPanel(model);
+      this.setContextQueryHighlight(feature);
+      this.viewer?.scene.requestRender();
+    } catch (e) {
+      // A panel is a nice-to-have; it may never escalate. (An escaping throw here would land in
+      // §FORMA-CLICK-NO-NAV's catch anyway, but failing quietly is better than relying on that.)
+      console.warn('[CesiumViewport][ctx-query] §CTX-QUERY-PANEL — panel build failed, ignored:', e);
+    }
+  }
+
+  /** Dismiss the panel + its rim highlight. Idempotent, never throws. */
+  private closeContextBuildingQuery(): void {
+    try {
+      if (this.contextQueryPanel) { this.contextQueryPanel.remove(); this.contextQueryPanel = null; }
+      if (this.contextQueryHighlight && this.viewer) {
+        try { this.viewer.entities.remove(this.contextQueryHighlight); } catch { /* gone */ }
+        this.viewer.scene.requestRender();
+      }
+      this.contextQueryHighlight = null;
+    } catch { /* never allowed to affect the view */ }
+  }
+
+  /**
+   * A single YELLOW rim polyline round the picked footprint at its drawn top.
+   *
+   * Yellow deliberately — it is ALREADY this handler's selection colour (the GLB silhouette
+   * above), so selection reads as one idea. It is emphatically NOT #6600FF: that is the proposed
+   * buildable envelope, and a purple rim on a neighbour would read as "this is your envelope".
+   * ONE entity, replaced on each pick, removed on dismiss — no per-frame cost.
+   */
+  private setContextQueryHighlight(feature: ContextBuildingFeature): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (this.contextQueryHighlight) {
+      try { viewer.entities.remove(this.contextQueryHighlight); } catch { /* gone */ }
+      this.contextQueryHighlight = null;
+    }
+    const ring = feature.geometry.coordinates[0];
+    if (!ring || ring.length < 4) return;
+    const top = this.formaTerrainBaseHeight + Math.max(0.1, feature.properties.heightM) + 0.15;
+    const positions = ring
+      .filter((p) => p[0] != null && p[1] != null)
+      .map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon!, lat!, top));
+    if (positions.length < 3) return;
+    this.contextQueryHighlight = viewer.entities.add({
+      name: 'pryzm-context-query-highlight',
+      polyline: {
+        positions,
+        width: 3,
+        material: Cesium.Color.fromCssColorString('#FFD400'),
+        clampToGround: false,
+      },
+    });
+  }
+
+  /** Paint the pure query model as DOM. Read-only by construction — no inputs, no actions. */
+  private renderContextBuildingQueryPanel(model: ContextBuildingQueryModel): void {
+    if (this.contextQueryPanel) { this.contextQueryPanel.remove(); this.contextQueryPanel = null; }
+    const el = document.createElement('div');
+    el.setAttribute('data-testid', 'pryzm-context-building-query');
+    Object.assign(el.style, {
+      position: 'absolute', top: '12px', right: '12px', width: '286px', maxWidth: 'calc(100% - 24px)',
+      // C06 §7 / §233 — the named `popover` slot from zLayers, never a hand-picked literal.
+      zIndex: zCss('popover'),
+      padding: '12px 13px 11px', borderRadius: '10px',
+      background: 'rgba(255,255,255,0.97)', color: '#2a2440',
+      font: '400 12px/1.45 system-ui, sans-serif',
+      boxShadow: '0 2px 14px rgba(0,0,0,0.18)', pointerEvents: 'auto',
+      maxHeight: 'calc(100% - 24px)', overflowY: 'auto',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const head = document.createElement('div');
+    Object.assign(head.style, { display: 'flex', alignItems: 'flex-start', gap: '8px' } satisfies Partial<CSSStyleDeclaration>);
+    const title = document.createElement('div');
+    title.textContent = model.title;
+    Object.assign(title.style, { flex: '1', font: '600 13px/1.3 system-ui', color: '#1c1630' } satisfies Partial<CSSStyleDeclaration>);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Close');
+    Object.assign(close.style, {
+      appearance: 'none', border: 'none', background: 'transparent', cursor: 'pointer',
+      font: '600 16px/1 system-ui', color: '#7a7391', padding: '0 2px',
+    } satisfies Partial<CSSStyleDeclaration>);
+    close.addEventListener('click', () => this.closeContextBuildingQuery());
+    head.appendChild(title);
+    head.appendChild(close);
+    el.appendChild(head);
+
+    const sub = document.createElement('div');
+    sub.textContent = model.subtitle;
+    Object.assign(sub.style, { marginTop: '3px', font: '400 10.5px/1.35 system-ui', color: '#7a7391' } satisfies Partial<CSSStyleDeclaration>);
+    el.appendChild(sub);
+
+    for (const row of model.rows) {
+      const r = document.createElement('div');
+      Object.assign(r.style, { marginTop: '9px' } satisfies Partial<CSSStyleDeclaration>);
+      const lab = document.createElement('div');
+      lab.textContent = row.label;
+      Object.assign(lab.style, {
+        font: '600 9.5px/1 system-ui', letterSpacing: '0.06em', textTransform: 'uppercase',
+        color: '#9a93b0',
+      } satisfies Partial<CSSStyleDeclaration>);
+      const val = document.createElement('div');
+      val.textContent = row.value;
+      Object.assign(val.style, {
+        marginTop: '2px', font: '600 12.5px/1.25 system-ui',
+        // An ABSENCE is styled as an absence — never with the same weight as a datum.
+        color: row.isUnknown ? '#9a93b0' : '#1c1630',
+        fontStyle: row.isUnknown ? 'italic' : 'normal',
+      } satisfies Partial<CSSStyleDeclaration>);
+      r.appendChild(lab);
+      r.appendChild(val);
+      if (row.caveat) {
+        const cav = document.createElement('div');
+        cav.textContent = row.caveat;
+        Object.assign(cav.style, {
+          marginTop: '2px', font: '400 10px/1.4 system-ui', color: '#7a7391',
+        } satisfies Partial<CSSStyleDeclaration>);
+        r.appendChild(cav);
+      }
+      el.appendChild(r);
+    }
+
+    const foot = document.createElement('div');
+    foot.textContent = model.footnote;
+    Object.assign(foot.style, {
+      marginTop: '11px', paddingTop: '8px', borderTop: '1px solid #ece8f6',
+      font: '400 9.5px/1.4 system-ui', color: '#9a93b0',
+    } satisfies Partial<CSSStyleDeclaration>);
+    el.appendChild(foot);
+
+    this.container.appendChild(el);
+    this.contextQueryPanel = el;
+  }
+
+  // ── §CTX-USE-COLOUR (L-599) — colour context buildings by ACTUAL use ─────────
+  //
+  // A toggleable MODE, never a permanent repaint (the scene's massing semantics are load-bearing:
+  // proposed = #6600FF, context = off-white, unknown height = translucent + cooler). Turning it
+  // OFF restores the EXACT material objects that were there before, not a recomputed lookalike.
+  //
+  // The 9% of buildings with no recorded use are left UNCOLOURED — the absence of colour is the
+  // statement, because a colour reads as a fact (see `contextBuildingUse.ts` for the full
+  // rationale, the measured distribution, and why permitted-use is a separate layer).
+
+  /** §CTX-USE-COLOUR — toggle the use-colouring mode. DEFAULT OFF. Never throws. */
+  public setContextUseColouring(on: boolean): void {
+    const want = !!on;
+    if (want === this.contextUseColourOn) return;
+    this.contextUseColourOn = want;
+    try {
+      if (want) this.applyContextUseColouring();
+      else this.restoreContextUseColouring();
+    } catch (e) {
+      console.warn('[CesiumViewport][ctx-use] §CTX-USE-COLOUR toggle failed — context left as-is:', e);
+    }
+  }
+
+  /** §CTX-USE-COLOUR — current mode state. */
+  public getContextUseColouring(): boolean {
+    return this.contextUseColourOn;
+  }
+
+  /**
+   * §CTX-USE-COLOUR — the legend for what is ACTUALLY ON SCREEN.
+   *
+   * ⚠ Counted live from the placed features, never quoted from the L-599 probe: the probe measured
+   * 9.0% unknown across central Eixample + Gràcia, but another neighbourhood has another answer,
+   * and printing the probe's constant as if it described the current view would be a real number
+   * from the wrong place.
+   */
+  public getContextUseLegend(): ContextUseLegend | null {
+    if (this.contextBuildingPlacements.length === 0) return null;
+    return summariseContextUse(
+      this.contextBuildingPlacements.map((p) => classifyContextUse(p.feature.properties.useTag)),
+    );
+  }
+
+  /**
+   * Paint every placed context entity by its use class.
+   *
+   * PERF: O(n) ONCE per toggle (and once per context (re)load while the mode is on) — never per
+   * frame. On the founder's WebGL-fallback box that is ~9,762 material assignments at the moment
+   * the user flips the switch, then nothing. Entity material assignment does not rebuild geometry.
+   */
+  private applyContextUseColouring(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    let coloured = 0, leftUncoloured = 0;
+    for (const { entity, feature } of this.contextBuildingPlacements) {
+      const poly = entity.polygon;
+      if (!poly) continue;
+      const cls = classifyContextUse(feature.properties.useTag);
+      const css = CONTEXT_USE_STYLE[cls].colorCss;
+      if (css === null) {
+        // 'unknown' — DELIBERATELY untouched. The ordinary context fill (and, for an
+        // unknown-height building, its translucency) stays exactly as it was: no colour = no
+        // claim. Giving this class a swatch would be the L-582 fabrication pattern in colour form.
+        leftUncoloured++;
+        continue;
+      }
+      if (!this.contextUseMaterialBackup.has(entity)) {
+        this.contextUseMaterialBackup.set(entity, poly.material);
+      }
+      // Preserve the §CTX-ASSUMED-HEIGHT-VISIBLE channel: an unknown-HEIGHT building stays
+      // translucent even while it is coloured by use, and the far ring stays aerially recessive.
+      // The two honesty signals ride different channels (alpha vs hue) so they compose.
+      const alpha = entity.name === 'pryzm-forma-context-building-assumed-height' ? 0.55
+        : entity.name === 'pryzm-forma-context-building-far' ? 0.82
+        : 1.0;
+      poly.material = new Cesium.ColorMaterialProperty(
+        Cesium.Color.fromCssColorString(css).withAlpha(alpha),
+      );
+      coloured++;
+    }
+    this.renderContextUseLegend();
+    viewer.scene.requestRender();
+    console.log(
+      `[CesiumViewport][ctx-use] §CTX-USE-COLOUR ON — ${coloured} building(s) coloured by ACTUAL ` +
+        `OSM use, ${leftUncoloured} left UNCOLOURED (no use tag — the absence is the signal). ` +
+        `This is what a building IS, not what the land MAY BE (clau/MUC zoning is a separate layer).`,
+    );
+  }
+
+  /** Restore the exact pre-colouring materials. Exact by construction — snapshots, not recompute. */
+  private restoreContextUseColouring(): void {
+    const viewer = this.viewer;
+    let restored = 0;
+    for (const [entity, material] of this.contextUseMaterialBackup) {
+      const poly = entity.polygon;
+      if (!poly) continue;
+      poly.material = material;
+      restored++;
+    }
+    this.contextUseMaterialBackup.clear();
+    if (this.contextUseLegendEl) { this.contextUseLegendEl.remove(); this.contextUseLegendEl = null; }
+    viewer?.scene.requestRender();
+    console.log(`[CesiumViewport][ctx-use] §CTX-USE-COLOUR OFF — restored ${restored} original material(s).`);
+  }
+
+  /**
+   * §CTX-USE-COLOUR — re-apply after a context (re)load, so newly-placed buildings are not left
+   * in the base fill while the mode says they are coloured. Cheap no-op when the mode is off.
+   */
+  private refreshContextUseColouringAfterLoad(): void {
+    if (!this.contextUseColourOn) return;
+    try { this.applyContextUseColouring(); } catch (e) {
+      console.warn('[CesiumViewport][ctx-use] re-colour after load failed (non-fatal):', e);
+    }
+  }
+
+  /** The legend — a colour without one is an uninterpreted fact, and the 9% needs saying in words. */
+  private renderContextUseLegend(): void {
+    if (this.contextUseLegendEl) { this.contextUseLegendEl.remove(); this.contextUseLegendEl = null; }
+    const legend = this.getContextUseLegend();
+    if (!legend) return;
+    const el = document.createElement('div');
+    el.setAttribute('data-testid', 'pryzm-context-use-legend');
+    Object.assign(el.style, {
+      position: 'absolute', bottom: '12px', right: '12px', width: '206px',
+      // C06 §7 / §233 — named slot, never a literal.
+      zIndex: zCss('contextualBar'),
+      padding: '10px 11px', borderRadius: '9px',
+      background: 'rgba(255,255,255,0.96)', color: '#2a2440',
+      font: '400 11px/1.4 system-ui, sans-serif',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.16)', pointerEvents: 'none',
+      maxHeight: '46%', overflowY: 'auto',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const h = document.createElement('div');
+    h.textContent = 'Building use (OSM)';
+    Object.assign(h.style, { font: '600 11px/1.2 system-ui', color: '#1c1630' } satisfies Partial<CSSStyleDeclaration>);
+    el.appendChild(h);
+    const sub = document.createElement('div');
+    sub.textContent = 'What each building IS — not what the land may be zoned for.';
+    Object.assign(sub.style, { marginTop: '2px', font: '400 9.5px/1.35 system-ui', color: '#7a7391' } satisfies Partial<CSSStyleDeclaration>);
+    el.appendChild(sub);
+
+    for (const row of legend.rows) {
+      const r = document.createElement('div');
+      Object.assign(r.style, {
+        display: 'flex', alignItems: 'flex-start', gap: '7px', marginTop: '6px',
+      } satisfies Partial<CSSStyleDeclaration>);
+      const sw = document.createElement('span');
+      Object.assign(sw.style, {
+        flex: '0 0 auto', width: '11px', height: '11px', marginTop: '2px', borderRadius: '3px',
+        background: row.style.colorCss ?? 'transparent',
+        // The 'unknown' row gets a DASHED EMPTY swatch — visibly "no colour was applied",
+        // not a colour that happens to be pale.
+        border: row.style.colorCss ? '1px solid rgba(0,0,0,0.14)' : '1px dashed #b6afc9',
+      } satisfies Partial<CSSStyleDeclaration>);
+      const txt = document.createElement('span');
+      Object.assign(txt.style, { flex: '1' } satisfies Partial<CSSStyleDeclaration>);
+      const line = document.createElement('div');
+      line.textContent = `${row.style.label} · ${row.count} (${(row.share * 100).toFixed(1)}%)`;
+      Object.assign(line.style, {
+        font: '500 10.5px/1.25 system-ui',
+        color: row.cls === 'unknown' ? '#7a7391' : '#2a2440',
+      } satisfies Partial<CSSStyleDeclaration>);
+      txt.appendChild(line);
+      if (row.style.note) {
+        const n = document.createElement('div');
+        n.textContent = row.style.note;
+        Object.assign(n.style, { font: '400 9px/1.3 system-ui', color: '#9a93b0' } satisfies Partial<CSSStyleDeclaration>);
+        txt.appendChild(n);
+      }
+      r.appendChild(sw);
+      r.appendChild(txt);
+      el.appendChild(r);
+    }
+    this.container.appendChild(el);
+    this.contextUseLegendEl = el;
   }
 
   /**
@@ -6205,6 +6640,8 @@ export class CesiumViewport {
         // §PLOT-CLEAR-ENVELOPE (L-418) — pair the entity with its source footprint so a
         // later parcel commit can re-filter this already-placed near ring without a refetch.
         this.contextBuildingPlacements.push({ entity: ent, feature: f });
+        // §CTX-QUERY-PANEL (L-592) — the O(1) pick lookup, maintained in lock-step.
+        this.contextFeatureByEntity.set(ent, f);
         placed++;
       } catch {
         // Skip a single malformed footprint; never break the whole load.
@@ -6246,6 +6683,10 @@ export class CesiumViewport {
     this.renderContextBuildingsFarRing(
       { type: 'FeatureCollection', features: farSplit.kept }, lat, lon, viewer,
     );
+
+    // §CTX-USE-COLOUR (L-599) — if the use MODE is on, colour the freshly-placed set (and refresh
+    // the legend counts, which describe THIS scene). No-op when the mode is off.
+    this.refreshContextUseColouringAfterLoad();
   }
 
   /**
@@ -6485,6 +6926,8 @@ export class CesiumViewport {
         // the re-filter also hides a far block sitting on a large committed plot (parity with
         // the near ring, which the placement-time filter already covers for both).
         this.contextBuildingPlacements.push({ entity: ent, feature: f });
+        // §CTX-QUERY-PANEL (L-592) — far-ring buildings are queryable too (parity with near).
+        this.contextFeatureByEntity.set(ent, f);
         placed++;
       } catch { /* skip a malformed far footprint */ }
     }
@@ -6558,6 +7001,14 @@ export class CesiumViewport {
     // §PLOT-CLEAR-ENVELOPE (L-418) — the entity refs are gone, so drop their footprint
     // pairings too (they are repopulated on the next placement).
     this.contextBuildingPlacements = [];
+    // §CTX-QUERY-PANEL (L-592) — the pick lookup and any open panel/highlight refer to entities
+    // that no longer exist; drop them together or a stale panel would describe a removed building.
+    this.contextFeatureByEntity.clear();
+    this.closeContextBuildingQuery();
+    // §CTX-USE-COLOUR (L-599) — the backup map keys are those same dead entities. Drop them (the
+    // MODE flag is deliberately kept, so the next load re-colours) and clear the stale legend.
+    this.contextUseMaterialBackup.clear();
+    if (this.contextUseLegendEl) { this.contextUseLegendEl.remove(); this.contextUseLegendEl = null; }
   }
 
   /**
@@ -6990,6 +7441,72 @@ export class CesiumViewport {
   }
 
   /**
+   * §FACADE-STUDY-SUBJECT (L-596) — choose WHAT the sun study runs on: the DESIGNED BUILDING
+   * (default, unchanged) or the BUILDABLE ENVELOPE (pre-planning: which envelope faces earn
+   * glazing before anything is designed).
+   *
+   * 🔴 THIS IS AN EXPLICIT, LABELLED MODE — AND IT MUST STAY ONE. Read L-272 before touching it:
+   * an earlier version silently took `input.boundary` (the PARCEL ring) as the façade source when
+   * the building was missing, and PRESENTED the result as the building's façade study. The output
+   * was a phantom envelope at the plot line, self-shadowed by the real building inside it, with no
+   * authored opening able to project onto any face. The founder's request here is legitimately
+   * "analyse the envelope" — so the user CHOOSES it, the code never substitutes it, and the answer
+   * is badged as an ENVELOPE study for as long as it is on screen. `resolveFacadeStudySubject`
+   * (pure, unit-tested) returns a REFUSAL rather than a substitution in every missing-input case.
+   */
+  public setFacadeStudySubject(subject: FacadeStudySubject): void {
+    if (subject !== 'building' && subject !== 'envelope') return;
+    if (this.facadeStudySubject === subject) return;
+    this.facadeStudySubject = subject;
+    // The subject is part of the study's identity, so a switch must recompute — the
+    // §PERF-SUNHOURS-NO-RECOMPUTE key folds it in (see facadeAnalysisKey) and therefore MISSES
+    // here rather than serving the other subject's painted result.
+    if (this.facadeAnalysisOn && this.siteMetricActive === 'sunHours') this.renderFacadeAnalysis();
+    else this.clearFacadeAnalysis();
+  }
+
+  /** §FACADE-STUDY-SUBJECT (L-596) — the currently chosen study subject. */
+  public getFacadeStudySubject(): FacadeStudySubject {
+    return this.facadeStudySubject;
+  }
+
+  /**
+   * §FACADE-STUDY-SUBJECT (L-596) — the on-screen badge that names the study's SUBJECT.
+   *
+   * Not decoration: an envelope study and a building façade study answer DIFFERENT QUESTIONS, and
+   * a viewer who cannot tell which one is painted will read a legal-envelope result as a building
+   * result. The badge is shown for as long as the study is painted, and the refusal path uses the
+   * same surface to say WHY nothing was painted (a refusal is a result — L-467/L-469).
+   */
+  private setFacadeSubjectBadge(text: string | null, tone: 'study' | 'refused' = 'study'): void {
+    try {
+      if (text === null) {
+        if (this.facadeSubjectBadge) { this.facadeSubjectBadge.remove(); this.facadeSubjectBadge = null; }
+        return;
+      }
+      if (!this.facadeSubjectBadge) {
+        const el = document.createElement('div');
+        el.setAttribute('data-testid', 'pryzm-facade-subject-badge');
+        Object.assign(el.style, {
+          position: 'absolute', left: '12px', top: '12px', maxWidth: '270px',
+          // C06 §7 / §233 — named slot from zLayers, never a hand-picked literal.
+          zIndex: zCss('contextualBar'),
+          padding: '8px 11px', borderRadius: '8px',
+          background: 'rgba(255,255,255,0.96)',
+          font: '400 11px/1.4 system-ui, sans-serif',
+          boxShadow: '0 1px 8px rgba(0,0,0,0.14)', pointerEvents: 'none',
+        } satisfies Partial<CSSStyleDeclaration>);
+        this.container.appendChild(el);
+        this.facadeSubjectBadge = el;
+      }
+      this.facadeSubjectBadge.textContent = text;
+      this.facadeSubjectBadge.style.color = tone === 'refused' ? '#8a5200' : '#1c1630';
+      this.facadeSubjectBadge.style.border =
+        tone === 'refused' ? '1px solid #f0d59a' : '1px solid #e3dcfa';
+    } catch { /* a badge may never affect the render */ }
+  }
+
+  /**
    * §FORMA-FACADE-ANALYSIS — paint the designed building's façade + roof by sun-hours.
    * Reuses the building FOOTPRINT (`formaLastMassingInput.boundary`, scene-XZ → ENU)
    * and storey heights, samples points across each exterior wall face + roof, and runs
@@ -7076,7 +7593,40 @@ export class CesiumViewport {
 
     let ring: { x: number; z: number }[] | null = null;
     let ringSource = '';
-    if (input) {
+
+    // §FACADE-STUDY-SUBJECT (L-596) — THE EXPLICIT SUBJECT BRANCH.
+    //
+    // 🔴 Read L-272 before editing. The two subjects NEVER fall through into each other: the pure
+    // `resolveFacadeStudySubject` returns `refused` (with a reason naming the missing input) rather
+    // than substituting the other subject's geometry. That is the whole difference between this
+    // feature and the L-272 defect, which silently used the PARCEL ring and presented the result as
+    // a building façade study.
+    const studySubject = this.facadeStudySubject;
+    // The building path's own ring cascade decides "is there a building?" below; for the envelope
+    // path we do not need it, so `hasBuildingRing` is only asserted for the building subject.
+    let envelopeHeightM = 0;
+    if (studySubject === 'envelope') {
+      const resolution = resolveFacadeStudySubject({
+        subject: 'envelope',
+        envelope: input?.envelope ?? null,
+        hasBuildingRing: false,
+      });
+      if (resolution.status === 'refused') {
+        // A REFUSAL IS A RESULT. It names the missing input on screen instead of painting the
+        // building (the L-272 substitution) or leaving a silent blank (L-467/L-469).
+        console.log(`[CesiumViewport][forma-facade] §FACADE-STUDY-SUBJECT envelope study refused — ${resolution.reason}`);
+        this.setFacadeSubjectBadge(`Envelope study unavailable — ${resolution.reason}`, 'refused');
+        return;
+      }
+      ring = sceneRingToMetric(resolution.ring!);
+      ringSource = 'buildable-envelope';
+      envelopeHeightM = resolution.heightM!;
+      this.setFacadeSubjectBadge(`${resolution.label} — ${resolution.caption}`);
+    } else {
+      this.setFacadeSubjectBadge(null);
+    }
+
+    if (!ring && input) {
       // The authored walls include the perimeter shell; reconstructPerimeterRing traces
       // the outer boundary loop (interior partitions branch off + are not followed).
       const wallRing = this.reconstructPerimeterRing(input.walls);
@@ -7090,7 +7640,7 @@ export class CesiumViewport {
       ring = sceneRingToMetric(input.boundary);
       ringSource = 'parcel-boundary';
     }
-    if (!ring) {
+    if (!ring && studySubject === 'building') {
       // Last resort: a square about the placed massing centroid (already ENU metres —
       // east = centroidEast, north = centroidNorth — so NO z-flip here).
       const o = this.formaMassingOrigin;
@@ -7105,10 +7655,19 @@ export class CesiumViewport {
       }
     }
     if (!ring || ring.length < 3) {
-      console.log('[CesiumViewport][forma-facade] no building footprint (no boundary / wall-loop / slab / massing) — skipping façade analysis.');
+      // §FACADE-STUDY-SUBJECT (L-596) — the BUILDING subject's refusal, routed through the same
+      // pure resolver so the wording (and the "switch to the envelope — it is a different
+      // question" hint) is stated in exactly one place. It still REFUSES; it does not reach for
+      // the envelope, which is the L-272 substitution this feature exists to keep closed.
+      const refusal = resolveFacadeStudySubject({
+        subject: 'building', envelope: input?.envelope ?? null, hasBuildingRing: false,
+      });
+      const reason = refusal.status === 'refused' ? refusal.reason : 'no building footprint';
+      console.log(`[CesiumViewport][forma-facade] no building footprint (no boundary / wall-loop / slab / massing) — skipping façade analysis. ${reason}`);
+      this.setFacadeSubjectBadge(`Façade study unavailable — ${reason}`, 'refused');
       return;
     }
-    console.log(`[CesiumViewport][forma-facade] §FORMA-FACADE-FOOTPRINT-FIX footprint from ${ringSource} (${ring.length} pts).`);
+    console.log(`[CesiumViewport][forma-facade] §FORMA-FACADE-FOOTPRINT-FIX footprint from ${ringSource} (${ring.length} pts), subject=${studySubject}.`);
     // §FIX-FACADE-ANALYSIS-DRAPE-QUALITY (L-272) — ENVELOPE-ONLY drape (see `applyRealModelSunDrape`).
     // The inner band is only meaningful when the ring IS the building's own wall line; on a parcel
     // ring or a centroid square, "inside the ring" says nothing about "inside the building", so the
@@ -7123,14 +7682,29 @@ export class CesiumViewport {
     // than the single 4 m ground band — so the façade study paints the entire elevation,
     // not just the bottom ring.
     let heightM = 0;
-    for (const b of this.formaStoreyBands) {
-      const top = (b.baseElevation || 0) + (b.heightM || 0);
-      if (top > heightM) heightM = top;
+    if (studySubject === 'envelope') {
+      // §FACADE-STUDY-SUBJECT (L-596) — the envelope's CONSTRUCTED legal height (Art. 327.2 for
+      // Barcelona 13a). Never the storey-band stack: the storeys belong to a design, and the
+      // envelope study is explicitly about the case where no design exists. `resolveFacadeStudy
+      // Subject` already refused when this height is absent (§ENVELOPE-NO-FABRICATED-HEIGHT,
+      // L-525a) — there is no stand-in height on this path, by design.
+      heightM = envelopeHeightM;
+    } else {
+      for (const b of this.formaStoreyBands) {
+        const top = (b.baseElevation || 0) + (b.heightM || 0);
+        if (top > heightM) heightM = top;
+      }
+      if (!(heightM > 0)) heightM = 3; // single-storey fallback
     }
-    if (!(heightM > 0)) heightM = 3; // single-storey fallback
 
     // Occluders = OSM context + the proposed massing (the same set the ground grid uses).
-    const occluders = this.siteMetricFootprints(origin);
+    // §FACADE-STUDY-SUBJECT (L-596) — for the ENVELOPE subject the proposed massing is DROPPED:
+    // a design sitting inside the envelope is the same space counted twice, and letting it shade
+    // the envelope reproduces the exact "real building self-shadowing the phantom" artefact L-272
+    // records. Real OSM neighbours stay in the set for both subjects — those genuinely shade it.
+    const occluders = this.siteMetricFootprints(origin, {
+      includeProposedMassing: includeProposedMassingAsOccluder(studySubject),
+    });
 
     // §FIX-FACADE-ANALYSIS-REAL-GEOMETRY (L-144 / L-160b) — the REAL authored window +
     // door openings, in the metric frame (east = x, north = −z, matching sceneRingToMetric).
@@ -7141,7 +7715,12 @@ export class CesiumViewport {
     // preview / fallback tier (A.24), unchanged behaviour.
     // §L-430 — rotated with the SAME θ as `sceneRingToMetric` above; an opening left in the
     // project frame would be punched into the wrong face of its own (rotated) façade.
-    const metricOpenings: FacadeOpening[] = (input?.openings ?? []).map((o) => {
+    // §FACADE-STUDY-SUBJECT (L-596) — NO openings on the envelope subject. The authored openings
+    // belong to the DESIGNED building; punching them into envelope faces would assert window
+    // positions on a volume that has none, which is precisely the "no authored opening could
+    // project onto any face" confusion L-272 produced from the other direction. An envelope face
+    // is a solid legal plane, and the study answers which of those planes earn glazing.
+    const metricOpenings: FacadeOpening[] = (studySubject === 'envelope' ? [] : (input?.openings ?? [])).map((o) => {
       const a = sceneXZToEnu(o.a.x, o.a.z, thetaRad);
       const b = sceneXZToEnu(o.b.x, o.b.z, thetaRad);
       return {
@@ -7377,7 +7956,15 @@ export class CesiumViewport {
       // Cesium CustomShader instead of painting the separate translucent envelope prism.
       // The BVH intensities computed above are byte-identical (ADR-0110); only the DISPLAY
       // target changes. On any failure we fall through to the polygon envelope (no regression).
-      const drapeModel = this.realModelOnForma && !this.realModelOnForma.isDestroyed()
+      //
+      // §FACADE-STUDY-SUBJECT (L-596) — ⚠ NEVER DRAPE AN ENVELOPE STUDY ONTO THE REAL MODEL.
+      // That is L-272's actual mechanism of harm: the drape projects the study onto the GLB's
+      // nearest faces, so draping a study of the LEGAL ENVELOPE across a designed building's walls
+      // would smear one question's answer over another object entirely. On the envelope subject we
+      // always paint the envelope's own faces (the polygon tier below), whether or not a real model
+      // happens to be placed.
+      const drapeModel = studySubject === 'building'
+        && this.realModelOnForma && !this.realModelOnForma.isDestroyed()
         ? this.realModelOnForma : null;
       if (drapeModel) {
         try {
@@ -7441,7 +8028,9 @@ export class CesiumViewport {
         const material = this.facadeTextureMaterial(tex);
         if (!material) continue;
         const ent = viewer.entities.add({
-          name: 'pryzm-facade-sun',
+          // §FACADE-STUDY-SUBJECT (L-596) — the SUBJECT is baked into the entity name so the
+          // scene itself records which question this surface answers.
+          name: studySubject === 'envelope' ? 'pryzm-facade-sun-envelope' : 'pryzm-facade-sun',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(job.corners),
             material,
@@ -7458,7 +8047,7 @@ export class CesiumViewport {
       const roofMat = this.facadeTextureMaterial(roofTex);
       if (roofMat && roofRingWorld.length >= 3) {
         const ent = viewer.entities.add({
-          name: 'pryzm-facade-sun-roof',
+          name: studySubject === 'envelope' ? 'pryzm-facade-sun-envelope-roof' : 'pryzm-facade-sun-roof',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(roofRingWorld),
             material: roofMat,
@@ -7471,7 +8060,11 @@ export class CesiumViewport {
       // §FORMA-FACADE-VISIBLE — the analysis has now PAINTED, so suppress the building's
       // own materials: the tower reads as a pure sun-hours gradient object, not the grey/
       // pastel massing (or the real GLB) showing through. Reversed in setFacadeAnalysis(OFF).
-      if (this.facadeAnalysisOn && this.facadeAnalysisEntities.length > 0) {
+      //
+      // §FACADE-STUDY-SUBJECT (L-596) — NOT on the envelope subject. Suppressing the design would
+      // hide the very thing the user is comparing the envelope against, and the envelope study is
+      // a SEPARATE volume rather than a repaint of the building's own surfaces.
+      if (studySubject === 'building' && this.facadeAnalysisOn && this.facadeAnalysisEntities.length > 0) {
         this.setBuildingMaterialsVisibleForFacade(false);
       }
       try { viewer.scene.requestRender(); } catch { /* viewer gone */ }
@@ -7777,6 +8370,9 @@ export class CesiumViewport {
     // §PERF-SUNHOURS-NO-RECOMPUTE (L-143) — an explicit clear drops the memoised study so
     // the next render always rebuilds (the painted result no longer exists to reuse).
     this.facadeAnalysisLastKey = null;
+    // §FACADE-STUDY-SUBJECT (L-596) — the badge names a study that is no longer on screen, so it
+    // goes with it. A label outliving its study is worse than no label.
+    this.setFacadeSubjectBadge(null);
   }
 
   /**
@@ -7815,7 +8411,21 @@ export class CesiumViewport {
 
   /** Project the OSM context + proposed massing footprints into the site-ENU frame
    *  (east/north metres about the overlay origin) for the street-analytics grids. */
-  private siteMetricFootprints(origin: { lat: number; lon: number }): MetricFootprint[] {
+  private siteMetricFootprints(
+    origin: { lat: number; lon: number },
+    /**
+     * §FACADE-STUDY-SUBJECT (L-596) — `includeProposedMassing: false` drops the PROPOSED massing
+     * from the occluder set, keeping only the real OSM neighbours.
+     *
+     * Used ONLY by the ENVELOPE façade study, and it is the L-272 lesson stated as code: the
+     * envelope is the volume a building COULD occupy, so a design that happens to exist inside it
+     * is not a neighbour casting shade onto it — it is the same space counted twice, which is
+     * exactly the "real building self-shadowing the phantom" artefact L-272 records. DEFAULT true
+     * ⇒ every existing caller (ground heatmaps, the building façade study) is byte-unchanged.
+     */
+    opts: { readonly includeProposedMassing?: boolean } = {},
+  ): MetricFootprint[] {
+    const includeProposedMassing = opts.includeProposedMassing !== false;
     const out: MetricFootprint[] = [];
     const originCart = Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0);
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCart);
@@ -7845,7 +8455,7 @@ export class CesiumViewport {
     }
     // The proposed massing as one footprint so the field reads its density/shelter
     // even when OSM context is sparse (a square about the massing centroid).
-    const o = this.formaMassingOrigin;
+    const o = includeProposedMassing ? this.formaMassingOrigin : null;
     if (o && o.areaM2 > 0) {
       const half = Math.sqrt(o.areaM2) / 2;
       const cx = o.centroidEast;
@@ -8260,7 +8870,16 @@ export class CesiumViewport {
       const top = (band.baseElevation || 0) + (band.heightM || 0);
       if (top > heightM) heightM = top;
     }
-    return `${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}|${bSig}|${wSig}|${sSig}|h${heightM.toFixed(1)}|${this.siteMetricSunDay}|${this.siteMetricGeometrySig()}`;
+    // §FACADE-STUDY-SUBJECT (L-596) — the SUBJECT and the envelope's own identity are part of the
+    // study's identity, so switching subject (or re-resolving the envelope to a new ring/height)
+    // MISSES this key and recomputes. ⚠ This EXTENDS the §PERF-SUNHOURS-NO-RECOMPUTE cache; it
+    // does not defeat it: with the subject unchanged the key is byte-identical to before, so every
+    // existing repaint that short-circuited still short-circuits.
+    const env = inp?.envelope ?? null;
+    const envSig = env && env.ring?.length
+      ? `e${env.ring.length}:${(env.maxHeightM ?? 0).toFixed(1)}:${env.ring[0]!.x.toFixed(1)},${env.ring[0]!.z.toFixed(1)}`
+      : 'e0';
+    return `${this.facadeStudySubject}|${envSig}|${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}|${bSig}|${wSig}|${sSig}|h${heightM.toFixed(1)}|${this.siteMetricSunDay}|${this.siteMetricGeometrySig()}`;
   }
 
   /** §CESIUM-PERF-METRIC-TEXTURE-CACHE — drop every cached heatmap texture. Called
@@ -10015,6 +10634,17 @@ export class CesiumViewport {
     // disposed viewport doesn't retain their raster buffers.
     try { this.siteMetricTextureCache.clear(); } catch { /* ignore */ }
 
+    // §CTX-QUERY-PANEL (L-592) / §CTX-USE-COLOUR (L-599) / §FACADE-STUDY-SUBJECT (L-596) — drop
+    // the DOM chrome and the entity-keyed maps. These hold Cesium.Entity references, so leaving
+    // them would retain a destroyed scene's objects across a project switch.
+    try { this.closeContextBuildingQuery(); } catch { /* ignore */ }
+    try {
+      this.contextFeatureByEntity.clear();
+      this.contextUseMaterialBackup.clear();
+      if (this.contextUseLegendEl) { this.contextUseLegendEl.remove(); this.contextUseLegendEl = null; }
+      this.setFacadeSubjectBadge(null);
+    } catch { /* ignore */ }
+
     // FORMA.3 — drop any placed massing/boundary entities first.
     try {
       this.clearFormaMassing();
@@ -10160,6 +10790,62 @@ export class CesiumViewport {
 
   public getViewer(): Cesium.Viewer | null {
     return this.viewer;
+  }
+
+  /**
+   * §FEAT-SITE-ENTRY-GLOBE (L-593, C60 §4) — fly the ONE camera to an explicit WGS84
+   * target. The whole public surface the site-entry stage machine needs.
+   *
+   * WHY THIS EXISTS AT ALL: the entry flow's camera port must not construct a viewer
+   * (C59 §2 invariant 1) and must not reach into `viewer.camera` from a UI handler
+   * (C59 §2 invariant 3). `flyToFormaSite()` is public but is anchored to a PLACED
+   * MASSING — meaningless at globe scale, where nothing is placed — and
+   * `frameSiteLocation()` is private and hard-codes the site altitude/pitch. So this is
+   * the same primitive with the framing supplied by the caller's pure model
+   * (`cameraForState`), which is where framing decisions belong.
+   *
+   * ⚠ It performs NO stage logic, NO coverage test and NO site write — it is a camera,
+   * not a decision. C12: degrees + ellipsoid metres only; no ENU frame is assumed.
+   * P3: `flyTo` is Cesium's own tween on the existing viewer render loop; nothing here
+   * schedules a rAF.
+   */
+  public flyToGeographic(target: {
+    lat: number;
+    lon: number;
+    altitudeM: number;
+    pitchDeg: number;
+    instant?: boolean;
+  }): void {
+    // §GLOBE-CRASH-GUARD — same gate as frameSiteLocation: a settle that lands after
+    // disposal must no-op rather than touch a destroyed camera.
+    if (!this.isViewerLive()) return;
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(target.lat) || !Number.isFinite(target.lon) || !Number.isFinite(target.altitudeM)) {
+      console.warn('[CesiumViewport][site-entry] flyToGeographic: invalid target — ignored.', target);
+      return;
+    }
+    const destination = Cesium.Cartesian3.fromDegrees(target.lon, target.lat, target.altitudeM);
+    const orientation = {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(target.pitchDeg),
+      roll: 0,
+    };
+    if (target.instant) {
+      viewer.camera.setView({ destination, orientation });
+      return;
+    }
+    // §GLOBE-FRAME-NO-JUMP-2 — this is OUR programmatic motion, not the user grabbing
+    // the camera; token-gate it so a superseded flight's `cancel` cannot clear the flag
+    // out from under a newer one (see frameSiteLocation for the full rationale).
+    const token = this.beginProgrammaticFly();
+    const clear = (): void => { this.endProgrammaticFly(token); };
+    try {
+      viewer.camera.flyTo({ destination, orientation, duration: 1.6, complete: clear, cancel: clear });
+    } catch (e) {
+      clear();
+      console.warn('[CesiumViewport][site-entry] flyToGeographic failed:', e);
+    }
   }
 
   /**

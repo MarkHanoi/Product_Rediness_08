@@ -84,7 +84,15 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // §L-591 — `20a/10` left for the same reason (the whole `20a/*` family is now packed).
         // ⚠ BARE `20a` STAYS. It names the zone, not the subzone, and the ten subzones span
         // 0,25–1,50 in edificabilitat — there is no representative value, so it remains a gap.
-        for (const clau of ['12b', '22a', '22@', '20a']) {   // §L-595 — '12' is packed now
+        // ⚠⚠ §L-590c — `22a` HAS LEFT THIS LIST, and NOT because it was packed. It now returns a
+        // NAMED `regime-undetermined` refusal (ADR-0274) that publishes the regime-neutral half of
+        // PGM Art. 350 under its own citation. Keeping it here would assert that a 22a owner is
+        // told "PRYZM has not encoded this zone's rules yet" — a statement that has been FALSE
+        // since `esBarcelonaIndustrial.ts` was authored. Note in particular that the
+        // `ordinanceRef === null` assertion below is CORRECT for a coverage gap and would be
+        // WRONG for 22a: that card DOES make claims about the ordinance and must cite them
+        // (C58 §1.13.4). Its own assertions live in `esBarcelonaIndustrialPack.test.ts`.
+        for (const clau of ['12b', '22@', '20a']) {   // §L-595 — '12' is packed now
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;
@@ -166,13 +174,21 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
             expect(detailFor(clau), clau).not.toMatch(/façade sits on the street line/i);
             expect(detailFor(clau), clau).toMatch(/IS governed by real separation distances/i);
         }
-        // Industrial — coverage % + floor-area index, the ADR-0272 gap.
-        for (const clau of ['22a', '22@']) {
+        // Industrial. ⚠ §L-590c — `22a` IS NO LONGER HERE: it does not reach the coverage-gap
+        // copy at all, because `barcelonaZoneRefusalFor` answers it first with the named
+        // `regime-undetermined` card. `22@` remains, and its copy has been RE-POINTED at 22@'s
+        // own blocker (a distinct subzone with its own articles) rather than inheriting 22a's —
+        // leaving 22a's wording on a card 22a can no longer reach would have left a sentence
+        // that is true of nothing.
+        for (const clau of ['22@']) {
             expect(detailFor(clau), clau).not.toMatch(/wrong SHAPE/);
-            expect(detailFor(clau), clau).toMatch(/floor-area index/i);
+            expect(detailFor(clau), clau).toMatch(/formally distinct subzone/i);
+            // …and it must NOT quote the base zone's article at 22@, which is the whole reason
+            // 22@ is unpacked in the first place.
+            expect(detailFor(clau), clau).not.toMatch(/Art\. 350/);
         }
         // Every card, whatever the family, must carry the three invariants.
-        for (const clau of ['12b', '20a', '22a', '99z']) {   // §L-595 — '12' is packed now
+        for (const clau of ['12b', '20a', '22@', '99z']) {   // §L-595 — '12' is packed now
             const d = detailFor(clau);
             expect(d, clau).toMatch(/coverage gap, not an error/i);
             // The COMMITMENT, not one exact phrasing: every card must say, in whatever words fit
@@ -305,7 +321,19 @@ describe('L-550 — the harmonised MUC-code fallback (the COMPOSITE-clau gap the
         ] as const) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau, { harmonisedCode: muc });
             if (d.kind === 'refusal') {
-                expect(d.refusal.code, `${clau}/${muc}`).toBe('no-rule-pack');
+                // ⚠ §L-590c — this asserted the literal `'no-rule-pack'`, which was a proxy for
+                // the real invariant and broke the moment a second `legallyGrounded: false` code
+                // was introduced for one of these claus (`22a` ⇒ `regime-undetermined`). It now
+                // asserts the invariant the test's own header states: whatever the code, it must
+                // be a statement about PRYZM, never one of the LEGAL system classifications. A
+                // proxy assertion that fails on a correct change is a test encoding the wrong
+                // thing, so it is re-aimed rather than relaxed — the allow-list is CLOSED, so a
+                // future third code must be added here deliberately.
+                expect(
+                    ['no-rule-pack', 'regime-undetermined'],
+                    `${clau}/${muc} — a buildable clau may only ever refuse with a code that is ` +
+                        'about PRYZM, never with a legal system classification',
+                ).toContain(d.refusal.code);
                 expect(d.refusal.legallyGrounded, `${clau}/${muc}`).toBe(false);
             } else {
                 expect(d.kind, `${clau}/${muc}`).toBe('pack');

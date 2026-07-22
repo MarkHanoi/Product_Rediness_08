@@ -9,13 +9,23 @@
 // coordinates and cross-checked against the PDF's content-stream reading order, which is what
 // establishes the paragraph numbering — the thing `extract_text()` destroys.
 //
-// ⚠⚠⚠ **THIS PACK IS AUTHORED, TESTED, CITED — AND DELIBERATELY *NOT* REGISTERED IN
-// `registry.ts`.** That is the headline finding of L-590 and it is argued in full in
-// `BCN_22A_ENVELOPE_BLOCKER` below. In one line: **Art. 350's envelope is two-tier and our
-// `GeometricRule` / `BuildableEnvelope` model is single-prism**, so registering this pack would
-// hand every 22a parcel an envelope covering **100 %** of its plot while the very same card
-// published a **90 %** occupation cap taken from the same article. A refusal costs an absent
-// envelope; that would cost a self-contradicting one.
+// ⚠⚠⚠ **THIS PACK IS AUTHORED, TESTED, CITED, SOLVED — AND STILL *NOT* REGISTERED IN
+// `registry.ts`.** ⚠ **THE REASON CHANGED ON 2026-07-22; READ IT AGAIN EVEN IF YOU READ IT BEFORE.**
+//
+// L-590's headline finding was that **Art. 350's envelope is two-tier and our `GeometricRule` /
+// `BuildableEnvelope` model was single-prism**, so registering the pack would have handed every
+// 22a parcel an envelope covering **100 %** of its plot while the very same card published a
+// **90 %** occupation cap from the same article. **§L-590b / ADR-0273 closed that.** The
+// `tiered-occupation` rule kind exists, `BuildableEnvelope` carries `tiers`, this pack's
+// `geometricRule` is no longer null, and the two-tier solve is verified end to end against a real
+// block in `esBarcelonaIndustrialPack.test.ts`.
+//
+// ⚠ WHAT STILL BLOCKS REGISTRATION IS THE OTHER BLOCKER, WHICH NO AMOUNT OF ENGINEERING CLOSES:
+// **we cannot establish which of Art. 350's two regimes governs a parcel** (see the section
+// below), and — the part most easily missed — **that gates the FOOTPRINT, not only the height.**
+// Only the FAR and the occupation are restated by Art. 350.1 and therefore regime-neutral;
+// Art. 350.2.b's band is not. `BCN_22A_ENVELOPE_BLOCKER` carries the argument and a `.closed`
+// list recording exactly what ADR-0273 answered.
 //
 // ═══ ART. 350 HAS TWO REGIMES, AND THEY GOVERN DIFFERENT PARCELS ══════════════════════════════
 //
@@ -38,10 +48,16 @@
 // `resolveAlcadaIndustrial` takes a three-valued `PlaParcialRegime` and refuses on `unknown`, and
 // this pack's `zones[0].code` scope note says which regime its scalars belong to.
 //
-// ⚠ THE GOOD NEWS, AND IT IS A REAL FINDING: **the FAR and the occupation do not depend on the
-// answer** for *alineacions a vial* land. 350.1.1r and 350.2.a state the SAME pair — 2 m²st/m²s
-// and 90 %. Art. 349 makes *segons alineacions (de vial)* the ordering type of this zone. So the
-// two numbers this pack ships are stable across the regime question; only the HEIGHT is gated.
+// ⚠ THE GOOD NEWS, AND IT IS A REAL FINDING — **BUT IT WAS OVERSTATED ONCE AND IS NOW EXACT
+// (§L-590c, re-read from p. 116 on 2026-07-22).** See `BCN_22A_REGIME_NEUTRAL_LIMITS`:
+//   • **The FAR of 2 m²st/m²s is UNCONDITIONAL.** All THREE paragraphs state it — 350.1.1r,
+//     350.1.2n and 350.2.a — so it survives the regime question AND the ordering-type question.
+//   • **The 90 % occupation is CONDITIONAL.** 350.1.1r and 350.2.a state it for *alineacions a
+//     vial* sectors; 350.1.**2n** states **70 %** for *edificació aïllada* sectors. Art. 349.1
+//     makes *alineacions de vial* the ordering type only *"si no n'hi ha"* a Pla Parcial — with
+//     one, the type is *"l'establert a l'indicat Pla Parcial"*. So a bare "90 %" would over-state
+//     by 20 pp on an *aïllada* sector, and the condition travels with the number everywhere.
+// Only the HEIGHT and the BAND are gated outright; the occupation is gated conditionally.
 // (The 70 % of 350.1.2n applies to *edificació aïllada* sectors, which Art. 349.2 says a PERI or
 // Estudi de Detall may create. It is recorded below as a NON-APPLIED constant so nobody reaches
 // for it, and so nobody re-discovers it and mistakes it for the 70 % of 350.2.b, which is a
@@ -79,8 +95,8 @@
 // mirrors 13b's height table rests on — but a re-typeset primary source is not an authenticated
 // one, and `BCN_22A_ORDINANCE_REF` says so in the citation string itself.
 //
-// PURE + deterministic (C58 §1.1). Strategic context: C58 §1.1/§1.2/§1.4/§1.7a/§1.11, ADR-0270,
-// ADR-0271, L-526, L-583, L-584, L-590.
+// PURE + deterministic (C58 §1.1). Strategic context: C58 §1.1/§1.2/§1.4/§1.7a/**§1.7b**/§1.11,
+// **C58 KG-6**, ADR-0270, ADR-0271, **ADR-0273**, L-526, L-583, L-584, L-590, §L-590b.
 
 import {
     JurisdictionZoningContractSchema,
@@ -189,24 +205,185 @@ export const BCN_22A_ORDINANCE_REF =
  * them into an envelope.
  */
 export const BCN_22A_ENVELOPE_BLOCKER = {
-    /** Registered in `registry.ts`? NO — see this constant's doc comment. */
+    /** Registered in `registry.ts`? Still NO — but for ONE reason now, not two. */
     registered: false,
-    /** The `GeometricRule` kind Art. 350.2 would need and that the union does not contain. */
-    missingRuleKind: 'tiered-occupation (parcel-coverage podium + block-band tower)',
+    /**
+     * ⚠ **BLOCKER 1 IS CLOSED (§L-590b / ADR-0273).** The rule kind this constant named as missing
+     * now EXISTS, is solved, and is what this pack's `geometricRule` carries.
+     */
+    missingRuleKind: null,
+    /** The `GeometricRule` kind Art. 350.2 needed — shipped, and named here so the closure is
+     *  traceable from the constant that demanded it. */
+    ruleKind: 'tiered-occupation',
+    /**
+     * ⚠ THE ONE REASON LEFT, AND IT IS NOT AN ENGINEERING ONE.
+     *
+     * Art. 350.2.a–f govern only 22a land *mancada de Pla Parcial*. Land WITH a
+     * definitively-approved Pla Parcial is governed by Art. 350.1, under which the PGM imposes
+     * only the FAR and occupation ceilings and everything else — height, storeys, and any band —
+     * comes from that plan's own plànols and ordenances. **PRYZM holds no source establishing
+     * which regime covers a given parcel**: neither the Catastro parcel nor the MUC
+     * (`CODI_QUAL_MUC` / `DESC_QUAL_AJUNT`) carries it.
+     *
+     * ⚠ AND THIS BLOCKS THE *FOOTPRINT*, NOT ONLY THE HEIGHT — which is the point most likely to
+     * be missed by someone reading only `resolveAlcadaIndustrial`'s refusal. The FAR (2 m²st/m²s)
+     * and the occupation (90 %) survive the regime question because Art. 350.1.1r states the same
+     * pair, so this pack ships them either way. **Art. 350.2.b's band does not.** Registering the
+     * pack today would apply a 70 %-of-block band, cited to Art. 350.2.b, to parcels Art. 350.1
+     * may govern — a wrong citation on someone's land, which is L-526 exactly. The error would be
+     * in the CONSERVATIVE direction (the band only ever restricts), and "conservative" has never
+     * been the test here: an under-stated envelope on 17.5 % of the city is a real cost, and a
+     * confident mis-citation is the specific harm this codebase keeps paying for.
+     *
+     * ⇒ Unblocking is a DATA or a LEGAL step, not an engineering one:
+     *   (i) a Pla-Parcial coverage layer for Barcelona's industrial land, or
+     *  (ii) a founder ruling that 22a inside the municipality is `'none'` by default.
+     * Both are determinations about the law, and the pack's whole discipline is that those are
+     * not made silently by an implementer.
+     */
     reasons: Object.freeze([
-        'Art. 350.2.a/.b/.c/.e describe a two-tier solid (≤90 % of the PARCEL at ground floor, ' +
-            'plus 5 m in the block interior; above the ground floor only inside a band concentric ' +
-            'with the BLOCK whose area equals 70 % of it, up to the Art. 350.2.c height). ' +
-            'GeometricRule has no coverage-driven or per-storey footprint kind, and ' +
-            'BuildableEnvelope carries a single prism.',
-        'geometricRule: null would make computeBuildableEnvelope return the WHOLE PARCEL as the ' +
-            'buildable footprint (the setbacks are correctly null for an alignment zone), i.e. a ' +
-            '100 % envelope beside a published 90 % occupation cap from the same article.',
-        'block-derived-alignment is a near-miss, not a fit: it requires minDepth_m/maxDepth_m that ' +
-            'Art. 350 does not state, and it would drop the ground-floor podium entirely.',
         'Art. 350.2 governs only 22a land mancada de Pla Parcial, and PRYZM holds no source ' +
-            'establishing whether a definitively-approved Pla Parcial covers a given parcel.',
+            'establishing whether a definitively-approved Pla Parcial covers a given parcel. ' +
+            'This gates the FOOTPRINT (Art. 350.2.b’s band) as well as the height, because only ' +
+            'the FAR and the occupation are restated by Art. 350.1 and therefore regime-neutral.',
+        '§L-590c — and the occupation is regime-neutral only CONDITIONALLY: Art. 350.1.2n caps ' +
+            'an *edificació aïllada* sector at 70 %, not 90 %, and Art. 349.1/349.2 make the ' +
+            'ordering type itself a property of the Pla Parcial (or of a PERI / Estudi de ' +
+            'Detall). So the regime question gates a SECOND number as well, and the 90 % ships ' +
+            'only with that condition stated in the same sentence.',
     ]),
+    /**
+     * The blockers this constant used to carry and that are now CLOSED. Kept rather than deleted
+     * so a reader of the git history — or of the test that guards this file — can see WHICH
+     * argument was answered and by what, instead of finding a list that mysteriously shrank.
+     */
+    /**
+     * §L-590c — **THE FOUNDER RULING, 2026-07-22.** Three options were put; this is the one taken,
+     * and the two that were not, recorded so nobody re-litigates them from memory.
+     *
+     * *"C converts our largest owned gap into an honest answer this week and cannot be wrong. B is
+     * the real fix and we don't yet know its price. A is the only one that buys the 15 points, and
+     * it buys them by asserting a legal fact we haven't verified — on the one axis (height) where
+     * we haven't established the error direction. If B turns out to be a dead end, A becomes
+     * reasonable — but then it's a decision made with evidence that no coverage layer exists,
+     * which is a much better footing than making it today."*
+     *
+     * ⚠ **OPTION A — defaulting `PlaParcialRegime` to `'none'` inside the municipality — IS ON
+     * HOLD AND MUST NOT BE IMPLEMENTED.** `resolveAlcadaIndustrial` keeps refusing on `unknown`,
+     * and no permissive default may be added anywhere. Track B has since returned evidence that
+     * makes A look actively wrong on real land: Barcelona's own municipal planning WMS reports
+     * the Zona Franca 22a polygon as governed by *"PP de ordenación del Polígono industrial del
+     * Consorcio Zona Franca"* (`CODI_PLA S164`, definitively approved 16-02-1968) with its own
+     * heights of **18,30 m / 24,40 m** — against the 9 / 13 / 17 m of Art. 350.2.c. Assuming
+     * `'none'` there would have UNDER-stated the ceiling by roughly a third on real parcels.
+     */
+    founderRuling: Object.freeze({
+        date: '2026-07-22',
+        chosen: 'C now, B in parallel, hold A',
+        optionAOnHold:
+            'Assume no Pla Parcial by default inside the municipality. NOT implemented. ' +
+            'resolveAlcadaIndustrial must keep refusing on `unknown`; no permissive default.',
+    }),
+    /**
+     * §L-590c — what SHIPPED under Track C, so "22a refuses" is no longer the whole story.
+     *
+     * The clau no longer returns the generic *"PRYZM has not encoded this zone yet"* coverage gap
+     * — that statement was false the moment this pack was authored. It now returns a NAMED
+     * `regime-undetermined` refusal that states the regime-neutral half of Art. 350 under its own
+     * citation and names the exact missing input for the rest.
+     */
+    shipped: Object.freeze([
+        '§L-590c — the FAR (2 m² sostre/m² sòl) is published as an UNCONDITIONAL Art. 350 fact: ' +
+            'Arts. 350.1.1r, 350.1.2n and 350.2.a all state it, so it survives both the regime ' +
+            'question and the ordering-type question. See BCN_22A_REGIME_NEUTRAL_LIMITS.',
+        '§L-590c — the 90 % occupation is published WITH its condition attached (Art. 350.1.2n ' +
+            'caps *aïllada* sectors at 70 %), because a bare 90 % would over-state by 20 pp on ' +
+            'any sector a Pla Parcial ordered as *edificació aïllada* — the direction C58 §1.4 ' +
+            'forbids. The earlier framing of this finding called the pair flatly regime-neutral; ' +
+            'only the FAR is.',
+        '§L-590c — the refusal NAMES THE MISSING INPUT ("is a definitively-approved Pla Parcial ' +
+            'in force here, and if so what ordering type does it assign this sector?") under a ' +
+            'new fourth refusal code `regime-undetermined` (ADR-0276), rather than wearing ' +
+            '`no-rule-pack` (false: the pack exists) or `source-data-unavailable` (false, and ' +
+            'harmful: it is the TRANSIENT code and would invite an eternal retry).',
+    ]),
+    closed: Object.freeze([
+        '§L-590b / ADR-0273 — the two-tier solid IS now expressible: GeometricRule gained the ' +
+            '`tiered-occupation` kind and BuildableEnvelope gained `tiers`, with the legacy ' +
+            'single-prism fields pinned to the principal tier so no consumer can over-state.',
+        '§L-590b — `geometricRule` is no longer null, so the "whole parcel at the tall tier’s ' +
+            'height" failure is unreachable: the engine now splits the parcel at the band ' +
+            'boundary and caps the study volume with the Art. 350.2.a occupation figure.',
+        '§L-590b — block-derived-alignment was correctly rejected and stays rejected. The new ' +
+            'kind states NO depth bounds (Art. 350 states none) and models the band ratio as the ' +
+            'EQUALITY the article states, not as Art. 242.2’s minimum.',
+    ]),
+} as const;
+
+/**
+ * §L-590c / ADR-0276 — **WHAT ART. 350 STATES NO MATTER WHICH REGIME GOVERNS THE PARCEL.**
+ *
+ * This is the half of clau 22a that ships TODAY, through the `regime-undetermined` refusal
+ * (`barcelonaRegimeUndeterminedRefusal` in `esBarcelonaZoneClassification.ts`). The other half —
+ * the Art. 350.2.c height and the Art. 350.2.b band — stays refused, because it is the half the
+ * regime question actually gates.
+ *
+ * ⚠ **RE-READ FROM THE PRIMARY TEXT ON 2026-07-22, AND THE READING CORRECTED ONE OF THE TWO
+ * FIGURES.** All three paragraphs of Art. 350 were extracted glyph-by-glyph from p. 116 and
+ * re-assembled in reading order:
+ *
+ *   • **Art. 350.1.1r** (Pla Parcial, sector ordered *segons alineacions a vial*) — *"la intensitat
+ *     d'edificació per parcel·la no podrà passar de **2 m² sostre/m² sòl**, l'ocupació màxima de la
+ *     parcel·la ha de ser del **90 per 100**."*
+ *   • **Art. 350.1.2n** (Pla Parcial, sector ordered *edificació aïllada*) — *"la intensitat
+ *     d'edificació per parcel·la no podrà passar de **2 m² sostre/m² sòl**, l'ocupació màxima de la
+ *     parcel·la es limitarà al **70 per 100**…"*
+ *   • **Art. 350.2.a** (*mancada de Pla Parcial*) — *"la intensitat d'edificació per parcel·la no
+ *     podrà passar de **2 m² sostre/m² sòl** i l'ocupació màxima de la parcel·la ha de ser del
+ *     **90 per 100**."*
+ *
+ * ⇒ **THE FAR IS STATED IDENTICALLY IN ALL THREE.** It survives both the regime question AND the
+ * ordering-type question, and is therefore UNCONDITIONAL on this clau. That is the strongest
+ * statement in this file.
+ *
+ * ⚠⚠ **THE OCCUPATION IS *NOT* UNCONDITIONAL, AND THE EARLIER FRAMING OF THIS FINDING SAID IT
+ * WAS.** 90 % holds under Art. 350.2.a and under Art. 350.1.**1r**; under Art. 350.1.**2n** the cap
+ * is **70 %**. Art. 349.1 makes *segons alineacions de vial* the ordering type only *"si no n'hi
+ * ha"* a Pla Parcial — where one exists, the ordering type is *"l'establert a l'indicat Pla
+ * Parcial"*, which may be *edificació aïllada*; and Art. 349.2 lets a PERI or Estudi de Detall
+ * convert sectors to *aïllada*. So publishing a bare "90 %" would OVER-state occupation by 20
+ * percentage points on any 22a sector a Pla Parcial ordered as *aïllada* — the one error direction
+ * C58 §1.4 forbids outright. The condition therefore travels WITH the number, in the same
+ * sentence, wherever it is shown. It is not a caveat that can be dropped for brevity.
+ *
+ * ⚠ AND NEITHER FIGURE MAY BE WRITTEN INTO A `BuildableEnvelope` NUMERIC FIELD. C58 §1.13.3: a
+ * refused envelope nulls every number, because `storeyCap`, the generators and the massing path
+ * read those and will extrude one. These are PROSE facts under a citation (C58 §1.13.7) — which is
+ * also the only form that can carry the occupation's condition at all.
+ */
+export const BCN_22A_REGIME_NEUTRAL_LIMITS = {
+    /**
+     * FAR, m² sostre / m² sòl. **Unconditional** — Arts. 350.1.1r, 350.1.2n and 350.2.a all state
+     * it. Read live from the pack so the published figure and the encoded one cannot drift.
+     */
+    plotRatioFAR: 2,
+    /** The paragraphs that state the FAR. All three of them; that is the point. */
+    plotRatioFARArticles: '350.1.1r · 350.1.2n · 350.2.a',
+    /** Parcel occupation, as a fraction. **CONDITIONAL** — see `maxCoverageCondition`. */
+    maxCoverage: 0.9,
+    /** The paragraphs that state 90 %. */
+    maxCoverageArticles: '350.1.1r · 350.2.a',
+    /**
+     * ⚠ The condition that MUST be shown in the same sentence as the 90 %. Never drop it: without
+     * it the figure over-states by 20 pp on an *aïllada* sector (Art. 350.1.2n ⇒ 70 %).
+     */
+    maxCoverageCondition:
+        'where the sector is ordered *segons alineacions de vial* — which Art. 349.1 makes the ' +
+        'default in the absence of a Pla Parcial. A Pla Parcial (or a PERI / Estudi de Detall ' +
+        'under Art. 349.2) may instead order a sector as *edificació aïllada*, where ' +
+        'Art. 350.1.2n caps occupation at 70 %.',
+    /** The *aïllada* alternative, named so the 70 % is never re-discovered as a surprise. */
+    maxCoverageAilladaAlternative: 0.7,
 } as const;
 
 /**
@@ -326,14 +503,42 @@ export const ES_BARCELONA_INDUSTRIAL_PACK: JurisdictionZoningContract =
                 // clearance", a claim Art. 350 does not make.
                 setbacks: { front_m: null, side_m: null, rear_m: null },
 
-                // ── ⚠⚠ NULL, AND THE MOST IMPORTANT NULL IN THIS PACKAGE. ────────────────────
-                // Art. 350.2's envelope is two-tier (podium at ≤90 % of the parcel + tower inside
-                // the 70 % block band) and `GeometricRule` has no kind that expresses it. `null`
-                // here does NOT mean "to be filled later" — it means the rule this zone needs does
-                // not exist in the model yet. Read `BCN_22A_ENVELOPE_BLOCKER` before changing it,
-                // and note that changing it to `block-derived-alignment` requires two bounds
-                // Art. 350 never states.
-                geometricRule: null,
+                // ── §L-590b / ADR-0273 — THE TWO-TIER RULE. Was the most important NULL in this
+                // package; the kind it was waiting for now exists. ────────────────────────────
+                //
+                // Art. 350.2 divides the parcel at a line drawn on the BLOCK:
+                //   • inside the band concentric with the block alignments whose area EQUALS 70 %
+                //     of the block (Art. 350.2.b) → the Art. 350.2.c street-width height;
+                //   • in the block interior beyond it (Art. 350.2.e) → 5 m, one indivisible storey.
+                //
+                // ⚠ IT IS STILL NOT `block-derived-alignment`, and must never be changed to it:
+                // that kind REQUIRES `minDepth_m`/`maxDepth_m` Art. 350 never states, and its
+                // `interiorFreeRatio` is Art. 242.2's MINIMUM where 350.2.b states an EQUALITY.
+                // See `TieredOccupationRuleSchema` for the three-way rejection in full.
+                //
+                // ⚠ THE RATIO STATED HERE IS THE BAND'S OWN (0.70, *"superfície igual al 70 per
+                // 100 d'aquesta"*), NOT its complement. `BCN_ART350_2B_INTERIOR_FREE_RATIO` (0.30)
+                // remains the recorded complement and is numerically equal to Art. 242.2's
+                // `interiorFreeRatio` — a coincidence that is a trap, which is exactly why this
+                // field transcribes the article's own number rather than the derived one.
+                geometricRule: {
+                    kind: 'tiered-occupation',
+                    // Art. 349 — *edificació segons alineacions (de vial)*: the façade sits ON the
+                    // street line, so the offset is 0 and the laterals are party walls. `0` is
+                    // correct here (unlike the setback triple, which is null) because *alineació a
+                    // vial* IS the positive statement "build on the line" — the same call
+                    // `esBarcelonaEnsanche.ts` makes for 13a under Art. 242.
+                    alignTo: 'street',
+                    alignmentOffset_m: 0,
+                    sideTreatment: 'party-wall',
+                    // Art. 350.2.b.
+                    bandAreaRatioOfBlock: 0.7,
+                    // Art. 350.2.e — 5 m, *"una única planta indivisible"*, measured from the
+                    // rasant to the underside of the roof structure (L-584 applies: we extrude
+                    // from a flat datum, which is a platform-wide defect, not this pack's).
+                    interiorTierHeight_m: 5,
+                    interiorTierFloors: 1,
+                },
 
                 fieldProvenance: {
                     // `ordinance-pdf` — this IS the ordinance PDF, read directly. It is a better
@@ -344,6 +549,13 @@ export const ES_BARCELONA_INDUSTRIAL_PACK: JurisdictionZoningContract =
                     maxFAR: 'ordinance-pdf',
                     maxCoverage: 'ordinance-pdf',
                     permittedUse: 'ordinance-pdf',
+                    // §L-590b — the tier rows (`tier.bandAreaRatio`, `tier.bandDepth`,
+                    // `tier.interiorHeight`) read this. Without it they would badge
+                    // `estimated`, i.e. the panel would present numbers read verbatim off p. 116
+                    // of the ordinance as PRYZM's guesses. ⚠ It badges the RATIO and the 5 m,
+                    // which ARE in the article — never the constructed DEPTH's accuracy, which is
+                    // a property of our geometry and is reported separately (C58 §1.12).
+                    geometricRule: 'ordinance-pdf',
                 },
                 ordinanceRef: BCN_22A_ORDINANCE_REF,
             },

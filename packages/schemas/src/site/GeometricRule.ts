@@ -175,6 +175,104 @@ export const BlockDerivedAlignmentRuleSchema = z
     });
 
 /**
+ * §L-590b / ADR-0273 — **TIERED OCCUPATION**: the ordinance grants DIFFERENT HEIGHTS OVER
+ * DIFFERENT PARTS OF THE SAME PARCEL, and the line that divides them is drawn on the BLOCK.
+ *
+ * PGM NNUU Art. 350.2 (Barcelona clau `22a`, *zona industrial mancada de Pla Parcial*):
+ *
+ *   • **350.2.b** — *"l’edificació **per damunt de la planta baixa** haurà de situar-se dins de la
+ *     franja concèntrica a les alineacions de l’illa **de superfície igual al 70 per 100**
+ *     d’aquesta"* — above the ground floor the mass must sit inside a band concentric with the
+ *     BLOCK's alignments whose AREA EQUALS 70 % of the block.
+ *   • **350.2.c** (closing sentence) — *"L’edificació a l’alçada reguladora fixada a l’anterior
+ *     quadre només podrà alçar-se dins de la franja del 70 per 100 esmentat al precedent
+ *     apartat b)."* The street-width height table applies ONLY inside that band.
+ *   • **350.2.e** — *"Alçada de l’edificació a **l’interior de l’illa**: es fixa en **5 m**
+ *     (corresponents a una única planta indivisible)"*. Outside the band the height is 5 m.
+ *
+ * ⇒ ONE building, TWO tiers with different heights, and they tile the parcel: the part of the
+ * parcel inside the block band rises to the Art. 350.2.c height; the part in the block interior
+ * is capped at one indivisible 5 m storey.
+ *
+ * ── WHY THIS IS A NEW `kind` AND NOT ANY OF THE FOUR ABOVE ───────────────────────────────────
+ *
+ *  • `setback` — erodes by a STATED distance from every edge. Art. 350 states no distances at
+ *    all, and Art. 349 orders this zone *segons alineacions de vial* (façade ON the street line),
+ *    so there is no honest front/side/rear triple to erode by (C58 §1.7a).
+ *  • `alignment` — carries a SCALAR `buildableDepth_m`. Art. 350 states no depth; it states an
+ *    AREA EQUALITY on the block from which a depth must be constructed. Exactly the gap ADR-0271
+ *    opened `block-derived-alignment` for, one article over.
+ *  • `block-derived-alignment` — the near-miss, and it is rejected on THREE independent grounds,
+ *    any one of which is fatal:
+ *      (a) it REQUIRES `minDepth_m` + `maxDepth_m`, both strictly positive. **Art. 350 states
+ *          neither.** Supplying Art. 242's 11 m / 30 m would impose the Eixample article's clamps
+ *          on industrial land under a citation to Art. 350 — the L-526 failure verbatim; any
+ *          other pair would be synthesised (C58 §1.7a: never invent a value).
+ *      (b) `interiorFreeRatio` is a **MINIMUM** (*"com a mínim el 30 per 100"*, Art. 242.2).
+ *          Art. 350.2.b is an **EQUALITY** (*"de superfície igual al 70 per 100"*). A minimum
+ *          admits a whole interval of lawful depths and needs ordinance clamps to pick one; an
+ *          equality picks itself and MUST NOT be clamped. Same digits, different quantifier,
+ *          different solver contract.
+ *      (c) it produces ONE region and ONE height, so it would silently DROP the block-interior
+ *          tier. On industrial fabric that tier is frequently most of the parcel.
+ *  • `explicit-area` — the ordinance publishes no polygon for this zone; there is nothing to
+ *    reference.
+ *
+ * ── WHAT IS DELIBERATELY *NOT* IN THIS SCHEMA ────────────────────────────────────────────────
+ *
+ * **No occupation figure.** Art. 350.2.a's *"ocupació màxima de la parcel·la … 90 per 100"* is
+ * already `ZoningRule.maxCoverage`, resolved by the engine in C58 §1.2 priority order. Repeating
+ * it here would give one legal quantity two homes that are free to disagree on a compliance
+ * number. Per ADR-0272 §3.2 a coverage cap does **not** shape a polygon — it constrains HOW MUCH
+ * ground is occupied, not WHERE — so it is a quantitative cap carried on the envelope, never a
+ * boundary, and this rule never reads it.
+ *
+ * **No depth bounds.** See (a) above. The construction is unbounded because the article is.
+ *
+ * ⚠ Like `block-derived-alignment`, this kind is UNSOLVABLE without a block ring, and
+ * `requiresBlockRing` says so statically (ADR-0270 reason 4).
+ */
+export const TieredOccupationRuleSchema = z
+    .object({
+        kind: z.literal('tiered-occupation'),
+        ...alignmentCoreShape,
+
+        /**
+         * Art. 350.2.b — the band's area **as a share of the BLOCK**, stated as the article states
+         * it (0.70 = *"superfície igual al 70 per 100 d’aquesta"*).
+         *
+         * ⚠ **AN EQUALITY, NOT A MINIMUM.** The solver must return the depth at which the band's
+         * area EQUALS this share and must never clamp that depth against bounds from another
+         * article. Contrast `BlockDerivedAlignmentRuleSchema.interiorFreeRatio`, which is
+         * Art. 242.2's *minimum* free space and is deliberately the COMPLEMENTARY quantity as
+         * well as the opposite quantifier — the two must not be transcribed into each other.
+         *
+         * Exclusive bounds: 0 admits no building above the ground floor at all and 1 imposes no
+         * constraint. Either is a transcription error, not a zone.
+         */
+        bandAreaRatioOfBlock: z.number().gt(0).lt(1),
+
+        /**
+         * Art. 350.2.e — the height permitted on the part of the parcel lying in the BLOCK
+         * INTERIOR, i.e. outside the band. Barcelona 22a ⇒ 5 m.
+         *
+         * ⚠ Measured *"des de la rasant del carrer a la part inferior de l’element d’estructura de
+         * la coberta"* — from the street's finished grade, not from a flat datum (L-584, open
+         * platform-wide). Recorded so this figure is never read as a height above an arbitrary
+         * plane.
+         */
+        interiorTierHeight_m: z.number().positive(),
+
+        /**
+         * Art. 350.2.e — *"una única planta indivisible"*. Carried as an integer rather than
+         * derived from `interiorTierHeight_m ÷ some storey module`, because the article states the
+         * STOREY COUNT directly and a divided figure would be our arithmetic wearing its citation.
+         */
+        interiorTierFloors: z.number().int().positive(),
+    })
+    .refine(requireSideWhenSetback, SIDE_REQUIRED_MSG);
+
+/**
  * The PGOU publishes the buildable area DIRECTLY as geometry (Madrid's `Fondo de la
  * Edificación` polyline).
  *
@@ -193,12 +291,14 @@ export const GeometricRuleSchema = z.discriminatedUnion('kind', [
     SetbackRuleSchema,
     AlignmentRuleSchema,
     BlockDerivedAlignmentRuleSchema,
+    TieredOccupationRuleSchema,
     ExplicitAreaRuleSchema,
 ]);
 
 export type SetbackRule = z.infer<typeof SetbackRuleSchema>;
 export type AlignmentRule = z.infer<typeof AlignmentRuleSchema>;
 export type BlockDerivedAlignmentRule = z.infer<typeof BlockDerivedAlignmentRuleSchema>;
+export type TieredOccupationRule = z.infer<typeof TieredOccupationRuleSchema>;
 export type ExplicitAreaRule = z.infer<typeof ExplicitAreaRuleSchema>;
 export type GeometricRule = z.infer<typeof GeometricRuleSchema>;
 
@@ -211,7 +311,11 @@ export type GeometricRule = z.infer<typeof GeometricRuleSchema>;
  * not sanction for that block).
  */
 export function requiresBlockRing(rule: GeometricRule): boolean {
-    return rule.kind === 'block-derived-alignment';
+    // §L-590b — `tiered-occupation` joins it: Art. 350.2.b's band is defined on the BLOCK, so a
+    // parcel-only solve has nothing to construct the tier boundary from. Same argument, same
+    // static guarantee — routing either kind through the parcel-only path is a compile error, not
+    // a runtime `undefined` on a compliance number.
+    return rule.kind === 'block-derived-alignment' || rule.kind === 'tiered-occupation';
 }
 
 /**

@@ -49,6 +49,16 @@ import type { BuildableEnvelope, EnvelopeRefusal } from '@pryzm/schemas';
  *
  * `confidence: 'not-determined'` is the honest label: no determination was made. It is NOT a
  * weaker `estimated-ruleset`, and the UI must not badge it as an estimate.
+ *
+ * ⚠ **§L-590c / ADR-0276 — "EVERY NUMERIC FIELD IS NULL" IS UNCHANGED, AND THE NEW
+ * `regime-undetermined` REFUSAL DOES NOT DENT IT.** That card DOES state two limits of PGM
+ * Art. 350 — but in `refusal.detail` + `refusal.ordinanceRef`, i.e. PROSE UNDER A CITATION, never
+ * in a field. C58 §1.13.7 makes the permission explicit and keeps §1.13.3 intact, for the exact
+ * reason this comment gives: `storeyCap`, the generators and the massing path read these fields
+ * and will extrude whatever they find. **If you are here because you want to "just put the FAR
+ * in `maxFAR` since we know it" — that is the back door, and it is also impossible to do
+ * honestly: Art. 350's occupation cap is CONDITIONAL on the sector's ordering type, and a
+ * schema field cannot carry a condition.**
  */
 /**
  * §L-574 — the status a refusal carries. Defaults to `'not-applicable'` (the L-550 legal
@@ -89,6 +99,11 @@ export function buildRefusedEnvelope(
         // dashes that would read as "not filled in yet".
         derivation: [],
         caveats: [refusal.headline, refusal.detail],
+        // §L-590b — no tiers: a refusal has no geometry at all, tiered or otherwise. Explicit
+        // rather than relying on the schema default, because this object is a TS literal that
+        // never goes through `.parse()`, so the default would not apply and the field would be
+        // structurally absent on a type that requires it.
+        tiers: [],
         refusal,
     };
 }

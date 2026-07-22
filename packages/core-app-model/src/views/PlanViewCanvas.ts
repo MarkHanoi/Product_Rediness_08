@@ -27,7 +27,7 @@ import { drawingZoneFromLayerName, penZoneOf, BEYOND_DASH_PX } from '../drawing/
  * excursion observed live. It is a sanity bound against a coordinate-space leak, NOT a design
  * limit on project extent — which is why it refuses loudly rather than clamping silently.
  */
-const PLAN_CAMTARGET_MAX_ABS_M = 20_000;
+export const PLAN_CAMTARGET_MAX_ABS_M = 20_000;
 // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the third pen axis. The projector
 // stamps the element TYPE's function on the projected LineSegments; this is where it is read.
 import { elementFunctionFrom, ELEMENT_FUNCTION_KEY } from '../drawing/ElementFunction';

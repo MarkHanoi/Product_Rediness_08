@@ -17,6 +17,15 @@ export {
 } from './ZoningRulesEngine.js';
 
 export { solveEstimatedEnvelope } from './solveEstimated.js';
+
+// ── §L-590b / ADR-0273 — attach a CONSTRUCTED *alçada reguladora* to a solved envelope. ──
+// The L5 dispatcher currently does this with an inline object spread, which is correct for a
+// single prism and silently wrong for a tiered envelope (it would leave `tiers` describing the old
+// heights, and it would assign a height that governs ONE tier to the whole building). Beside the
+// solver rather than in the editor, for the same reason the registry and the `block-constructed`
+// tier moved down: a rule about the determination must not live in one of its consumers.
+export { applyConstructedHeight, type ConstructedHeightPatch } from './envelopeHeight.js';
+
 // L-402 — the compliance "explain-why" report model (pure; explains an envelope, never recomputes it).
 export {
     buildComplianceReport,
@@ -117,6 +126,10 @@ export {
     BCN_JURISDICTION_ID,
     type ZoneDisposition,
     type ZoneDispositionHints,
+    // L-593 / C60 §2 — the site-entry globe's ONLY legal coverage source.
+    listJurisdictionCoverage,
+    type JurisdictionCoverage,
+    type JurisdictionExtent,
 } from './rulepacks/registry.js';
 
 // ── L-550 Phase 0.3 / 1b — THE REFUSAL VOCABULARY. ──
@@ -139,6 +152,17 @@ export {
 export {
     barcelonaConstructionIncompleteRefusal,
     type ConstructionFailureReason,
+} from './rulepacks/esBarcelonaZoneClassification.js';
+
+// ── §L-590c / ADR-0276 — the FOURTH refusal: the ordinance states two regimes and no public ──
+// source says which one this parcel is in. Distinct from the coverage gap (the pack EXISTS), from
+// the transient data-path failure (no retry can produce a legal fact nobody publishes) and from
+// `derived-plan` (which would assert the very delegation we cannot establish — L-526).
+// ⚠ The ONE refusal that states limits, in prose under its own citation, while keeping every
+// numeric envelope field null (C58 §1.13.7).
+export {
+    barcelonaRegimeUndeterminedRefusal,
+    BCN_22A_REGIME_ORDINANCE_REF,
 } from './rulepacks/esBarcelonaZoneClassification.js';
 
 // L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the
@@ -226,6 +250,51 @@ export {
     type BlockDerivedDepthResult,
     type BlockDepthBinding,
 } from './geometry/blockDerivedDepth.js';
+
+// ── §L-590b / ADR-0273 — the Art. 350.2.b *franja concèntrica* (the TIER BOUNDARY). ──
+// ⚠ A DIFFERENT CONSTRUCTION FROM THE ONE ABOVE, not a variant of it: Art. 350.2.b states an
+// area EQUALITY on the block and NO depth bounds, where Art. 242.2 states a MINIMUM free share
+// with an 11 m floor and a 30 m cap. They coincide on the unclamped interior of the depth range
+// and diverge at both bounds — measured, `blockConcentricBand.test.ts`. Exported for the same
+// reason as `solveBlockDerivedDepth`: diagnostics and probes; production goes through
+// `computeBuildableEnvelope`, which cuts the tiers and records the derivation.
+export {
+    solveBlockConcentricBandDepth,
+    BLOCK_BAND_BISECTION_STEPS,
+    BLOCK_BAND_RATIO_TOLERANCE,
+    type BlockConcentricBandInput,
+    type BlockConcentricBandResult,
+} from './geometry/blockConcentricBand.js';
+
+
+
+// ── L-590 / §L-590b — Barcelona clau 22a (*zona industrial*), PGM Art. 350. ──
+// ⚠ AUTHORED FROM THE PRIMARY PDF, AND STILL **NOT REGISTERED** in `registry.ts` — but for ONE
+// reason now, not two. The two-tier solid IS expressible and IS solved (ADR-0273: the
+// `tiered-occupation` rule kind + `BuildableEnvelope.tiers`), and this pack's `geometricRule`
+// carries it, verified end to end in `esBarcelonaIndustrialPack.test.ts`.
+// ⚠ WHAT REMAINS IS NOT ENGINEERING: Arts. 350.2.a–f govern only industrial land *mancada de Pla
+// Parcial*, and PRYZM holds no source establishing which regime covers a parcel. That gates the
+// FOOTPRINT as well as the height — only the FAR and the occupation are restated by Art. 350.1 and
+// therefore regime-neutral. `BCN_22A_ENVELOPE_BLOCKER` carries the argument, and `.closed` records
+// what ADR-0273 answered. Clau 22a keeps its coverage-gap refusal until the regime can be
+// established or the founder rules on it.
+export {
+    ES_BARCELONA_INDUSTRIAL_PACK,
+    BCN_INDUSTRIAL_ZONE_CODES,
+    BCN_22A_ORDINANCE_REF,
+    BCN_22A_ENVELOPE_BLOCKER,
+    BCN_ART350_MIN_PARCEL_M2,
+    BCN_ART350_MIN_FACADE_M,
+    BCN_ART350_2B_INTERIOR_FREE_RATIO,
+    BCN_ART350_1_AILLADA_COVERAGE,
+    BCN_ART350_COSSOS_SORTINTS,
+    // §L-590c — the half of Art. 350 that ships TODAY, through the `regime-undetermined` refusal.
+    // ⚠ The FAR is unconditional (all three paragraphs state it); the occupation is CONDITIONAL
+    // (Art. 350.1.2n caps *aïllada* sectors at 70 %) and its condition travels with the number.
+    BCN_22A_REGIME_NEUTRAL_LIMITS,
+} from './rulepacks/esBarcelonaIndustrial.js';
+
 
 // ── L-399a — DK Plandata.dk zoning provider (C58 §3.1, the first real-data jurisdiction) ──
 export type { ZoningProvider, ZoningProviderDeps } from './providers/ZoningProvider.js';

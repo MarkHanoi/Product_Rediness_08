@@ -65,6 +65,22 @@ export const DerivationConstraintSchema = z.enum([
      * the depth was constructed; a stated scalar depth has no binding.
      */
     'alignment.depthBinding',
+    // ─── §L-590b / ADR-0273 — tiered occupation (PGM Art. 350.2) ──────────────────────────
+    /**
+     * Art. 350.2.b — the band's area as a share of the BLOCK, **as an equality**. A first-class
+     * row because it is the rule that DIVIDES the parcel into tiers; without it the panel would
+     * show two heights and no reason for the line between them.
+     */
+    'tier.bandAreaRatio',
+    /**
+     * The depth CONSTRUCTED from that equality (metres from the block alignments). Distinct from
+     * `alignment.depth`: that one is Art. 242's *profunditat edificable*, a limit on how deep a
+     * building may go; this one is the boundary between two lawful heights, and citing either
+     * under the other's name would be a category error on a compliance number (C58 §1.11).
+     */
+    'tier.bandDepth',
+    /** Art. 350.2.e — the height permitted on the block-interior tier (22a ⇒ 5 m, one storey). */
+    'tier.interiorHeight',
 ]);
 export type DerivationConstraint = z.infer<typeof DerivationConstraintSchema>;
 
@@ -157,6 +173,32 @@ export type EnvelopeStatus = z.infer<typeof EnvelopeStatusSchema>;
  *                             (C58 §1.11), spanning the full plot depth on the most valuable land
  *                             in the city. `legallyGrounded: false` — this is a statement about
  *                             PRYZM's data path, never about the ordinance.
+ *  - `regime-undetermined`  — **§L-590c, ADR-0274, founder-ruled 2026-07-22.** The zone is
+ *                             buildable, PRYZM HAS authored and solved its pack, every input we
+ *                             need is available — and the ordinance itself states **two different
+ *                             regimes for the same clau**, keyed on a legal fact about the parcel
+ *                             that no public source records. PGM Art. 350 is the shipped case:
+ *                             Art. 350.2.a–f govern clau `22a` land *mancada de Pla Parcial*;
+ *                             Art. 350.1 governs land WITH a definitively-approved *Pla Parcial*,
+ *                             where the height and the concentric band come from that plan
+ *                             instead. Neither Catastro nor the MUC says which.
+ *                             ⚠ **A FOURTH CATEGORY, and each of the other three would be a
+ *                             different false statement.** `no-rule-pack` would say we have not
+ *                             encoded the zone — we have, and authoring more would not help.
+ *                             `source-data-unavailable` is defined as TRANSIENT and is the only
+ *                             code that earns a RETRY affordance — this never clears on a retry,
+ *                             so it would send the user round a loop for ever. `derived-plan`
+ *                             asserts that the general plan DELEGATES for this parcel — which is
+ *                             true only in one of the two regimes, i.e. it would assert the very
+ *                             fact we cannot establish (the L-526 error). §CONTEXT-DATA-HONESTY
+ *                             again: a coverage gap, a fetch failure and *"we cannot make this
+ *                             legal determination"* are three different answers.
+ *                             `legallyGrounded: false` — the LAW is fully known here; what is
+ *                             missing is which half of it applies, which is a statement about
+ *                             PRYZM's inputs, not about the ordinance.
+ *                             ⚠ Unlike every other refusal, this one MAY state, in prose and under
+ *                             its own citation, the limits that hold in **both** regimes — see
+ *                             C58 §1.13.7. Its numeric fields stay null exactly like the others.
  */
 export const EnvelopeRefusalCodeSchema = z.enum([
     'public-system',
@@ -168,6 +210,7 @@ export const EnvelopeRefusalCodeSchema = z.enum([
     'overlay-uncertain',
     'no-rule-pack',
     'source-data-unavailable',
+    'regime-undetermined',
 ]);
 export type EnvelopeRefusalCode = z.infer<typeof EnvelopeRefusalCodeSchema>;
 
@@ -204,11 +247,14 @@ export const EnvelopeRefusalSchema = z.object({
     /**
      * Is this refusal a statement about the LAW (true) or about PRYZM's coverage (false)?
      *
-     * `no-rule-pack` and `source-data-unavailable` are the `false` codes. The distinction is
-     * load-bearing: "the ordinance grants no envelope here", "we have not encoded this zone yet"
-     * and "we hold the rule but could not fetch what it needs for your parcel" are three
-     * different claims and must never share a rendering. Only the third is transient, and it is
-     * the only one for which a RETRY affordance makes sense (L-574).
+     * `no-rule-pack`, `source-data-unavailable` and `regime-undetermined` are the `false` codes.
+     * The distinction is load-bearing: "the ordinance grants no envelope here", "we have not
+     * encoded this zone yet", "we hold the rule but could not fetch what it needs for your
+     * parcel" and "the ordinance states two regimes and no source says which one your parcel is
+     * in" are FOUR different claims and must never share a rendering. Only
+     * `source-data-unavailable` is transient, and it is the only one for which a RETRY affordance
+     * makes sense (L-574) — offering one on `regime-undetermined` would loop for ever, because
+     * no number of retries produces a legal fact nobody publishes (§L-590c / ADR-0274).
      */
     legallyGrounded: z.boolean(),
 });
@@ -244,6 +290,86 @@ export type EnvelopeGranularity = z.infer<typeof EnvelopeGranularitySchema>;
  */
 export function isParcelGranular(g: EnvelopeGranularity): boolean {
     return g === 'parcel';
+}
+
+/**
+ * §L-590b / ADR-0273 — ONE TIER of a multi-tier envelope: a footprint with its OWN height cap.
+ *
+ * ⚠ **WHY THE ENVELOPE COULD NOT STAY A SINGLE PRISM.** A large class of European ordinance grants
+ * different heights over different parts of the SAME parcel, and the dividing line is not a design
+ * choice — it is drawn by the ordinance. PGM Art. 350.2 (Barcelona clau `22a`, 17.5 % of the
+ * city's private buildable land) is the shipped case: the part of the parcel inside a band
+ * concentric with the BLOCK rises to the Art. 350.2.c street-width height (9 / 13 / 17 m), and the
+ * part in the block interior is capped at one indivisible 5 m storey (Art. 350.2.e).
+ *
+ * `insetPolygon` + `maxHeight_m` can express exactly one of those two facts. Expressing the taller
+ * one over the whole parcel OVER-STATES buildable volume — the one direction C58 §1.4 forbids and
+ * the defect L-586 spent a whole session removing. Expressing the shorter one silently deletes the
+ * building. Neither is a "close enough" summary of a solid the ordinance describes exactly.
+ *
+ * ⚠ **TIERS ARE DISJOINT REGIONS, NOT STACKED SLABS.** In Art. 350.2 they TILE the buildable
+ * footprint side by side; each rises from its own `baseHeight_m` (0 for both here — both are
+ * measured from the *rasant*). A podium/tower reading, where an upper tier sits ON a lower one,
+ * is expressible by setting the upper tier's `baseHeight_m` to the lower one's `maxHeight_m`, but
+ * nothing in this schema assumes it. Consumers must not assume containment or nesting in either
+ * direction: the only guaranteed relation is that every tier polygon lies inside the parcel.
+ *
+ * ⚠ **`tiers` NEVER CONTRADICTS THE LEGACY SCALARS — the refinement below enforces it.** When
+ * tiers are present, `insetPolygon` / `insetAreaM2` / `maxHeight_m` carry the **PRINCIPAL TIER**:
+ * the tallest, ties broken by area. That choice is the conservative one *by construction* — the
+ * legacy prism is then a real tier of the real solid, so a consumer that has never heard of tiers
+ * renders something that genuinely fits inside the envelope, and it UNDER-states (it omits the
+ * other tiers) rather than over-stating. A caveat says so in words, because an under-statement is
+ * not free either (ADR-0272 §4: under-building is not a "safe" error in a feasibility tool).
+ */
+export const EnvelopeTierSchema = z.object({
+    /**
+     * Stable machine id for this tier within the envelope (`'block-band'`, `'block-interior'`).
+     * A closed vocabulary is deliberately NOT imposed here: the tier ids a zone produces are a
+     * property of its ordinance, and enumerating them in L0 would make every new jurisdiction a
+     * schema change (C58 §1.5, the argument that put the pack registry below the editor).
+     */
+    id: z.string().min(1),
+    /** What the user reads — e.g. "Inside the 70 % block band (Art. 350.2.b)". */
+    label: z.string().min(1),
+    /** This tier's footprint, scene-XZ metres (same frame as `insetPolygon`; see DEVIATION note). */
+    polygon: z.array(PtSchema).min(3),
+    /** `area(polygon)` in m². Carried rather than recomputed so every consumer agrees. */
+    areaM2: z.number().min(0),
+    /** Height of this tier's UNDERSIDE above the datum. 0 = it rises from the ground. */
+    baseHeight_m: z.number().min(0).default(0),
+    /**
+     * This tier's height cap. **Nullable, and the null is a finding**: Art. 350.2.c keys on the
+     * *amplada de vial* and is gated on the Pla-Parcial regime, so a tier can be geometrically
+     * determined while its height honestly refuses. A tier with a null height is a real permitted
+     * REGION with no published vertical limit — never a licence to extrude a default.
+     */
+    maxHeight_m: z.number().min(0).nullable().default(null),
+    /** Storey cap for this tier, where the ordinance states one (Art. 350.2.e ⇒ 1). */
+    maxFloors: z.number().int().min(0).nullable().default(null),
+    /** The paragraph that grants THIS tier — tiers of one envelope cite different articles. */
+    ordinanceRef: z.string().min(1).nullable().default(null),
+});
+export type EnvelopeTier = z.infer<typeof EnvelopeTierSchema>;
+
+/**
+ * The PRINCIPAL tier — the one the legacy single-prism fields mirror. Tallest wins; ties break on
+ * area; a null height sorts BELOW any stated height, because "no published limit" must never
+ * outrank a real one when choosing what to publish as `maxHeight_m`.
+ *
+ * Exported so the engine, the panel and any future consumer make the same choice. A second
+ * implementation of "which tier is the headline one" would be free to disagree with the schema
+ * refinement that enforces it.
+ */
+export function principalTier(tiers: ReadonlyArray<EnvelopeTier>): EnvelopeTier | null {
+    let best: EnvelopeTier | null = null;
+    for (const t of tiers) {
+        if (best === null) { best = t; continue; }
+        const th = t.maxHeight_m ?? -1;
+        const bh = best.maxHeight_m ?? -1;
+        if (th > bh || (th === bh && t.areaM2 > best.areaM2)) best = t;
+    }
+    return best;
 }
 
 export const BuildableEnvelopeSchema = z.object({
@@ -298,6 +424,15 @@ export const BuildableEnvelopeSchema = z.object({
     derivation: DerivationTraceSchema.default([]),
     /** Caveats — e.g. "uniform setback until edge classification (C58 §10.3)". */
     caveats: z.array(z.string().min(1)).default([]),
+    /**
+     * §L-590b / ADR-0273 — the tiers of a multi-tier envelope. See `EnvelopeTierSchema`.
+     *
+     * **EMPTY is the norm and means "a single prism", not "not filled in".** Every zone shipped
+     * before ADR-0273 — every `setback`, `alignment` and `block-derived-alignment` zone — produces
+     * one prism, and for those the legacy fields are the whole truth. Defaulting to `[]` is
+     * therefore the identity, exactly as `GeometricRuleCompatSchema`'s `kind: 'setback'` stamp is.
+     */
+    tiers: z.array(EnvelopeTierSchema).default([]),
 }).refine(
     (e) => (e.status === 'not-applicable') === (e.refusal !== null),
     {
@@ -306,6 +441,38 @@ export const BuildableEnvelopeSchema = z.object({
             'without a reason renders as a blank card, and a reason on a solved envelope would ' +
             'let the UI deny an envelope it actually has (L-550).',
         path: ['refusal'],
+    },
+).refine(
+    // §L-590b — TIERS MAY NOT CONTRADICT THE LEGACY SCALARS.
+    //
+    // ⚠ THIS IS THE REFINEMENT THAT MAKES THE SCHEMA CHANGE SAFE FOR EVERY CONSUMER THAT HAS NEVER
+    // HEARD OF TIERS. The whole migration risk of adding `tiers` is that a producer fills them and
+    // leaves `insetPolygon` / `maxHeight_m` describing something else — and then the panel, the
+    // Cesium massing and the generator bounds each read a prism that is not part of the solid. By
+    // pinning the legacy fields to the PRINCIPAL tier the old readers are guaranteed to be reading
+    // a REAL tier of the REAL envelope: under-stated (the other tiers are invisible to them) but
+    // never over-stated, which is the one direction C58 §1.4 forbids.
+    //
+    // Compared on `insetAreaM2` + `maxHeight_m` rather than on polygon identity: the ring is the
+    // same object by construction in the engine, and a vertex-by-vertex equality check in a Zod
+    // refinement would be an O(n) hot path on every parse for a weaker guarantee than the area.
+    (e) => {
+        if (e.tiers.length === 0) return true;
+        const p = principalTier(e.tiers);
+        if (!p) return false;
+        return (
+            Math.abs(p.areaM2 - e.insetAreaM2) <= 1e-6 * Math.max(1, p.areaM2) &&
+            p.maxHeight_m === e.maxHeight_m
+        );
+    },
+    {
+        message:
+            'When `tiers` is non-empty the legacy single-prism fields MUST mirror the PRINCIPAL ' +
+            'tier (tallest, ties on area): `insetAreaM2` must equal its area and `maxHeight_m` ' +
+            'its height. Otherwise every tier-unaware consumer — the facts panel, the Cesium ' +
+            'massing, the C58 §1.8 generator bounds — renders a prism that is not part of the ' +
+            'solid (ADR-0273; C58 §1.4).',
+        path: ['tiers'],
     },
 );
 export type BuildableEnvelope = z.infer<typeof BuildableEnvelopeSchema>;

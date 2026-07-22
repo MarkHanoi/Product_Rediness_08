@@ -4507,3 +4507,92 @@ rule-pack and geometry work, not ahead of it.
 
 Spike + full architectural alignment check:
 `docs/03-execution/spikes/SPIKE-L592-L593-GLOBE-ENTRY-AND-CONTEXT-SELECTION.md`
+
+---
+
+## Added 2026-07-22 — L-601 (answerability layer, logged not started)
+
+| Item | Owner | Target | Depends on | Status |
+|---|---|---|---|---|
+| **L-601 (a)** — pure L2 answerability classifier + tests | UNASSIGNED | TBD | **none** — zero file overlap with in-flight work | LOGGED — **unblocked, may start now** |
+| **L-601 (b)** — palette / legend / selection panel | UNASSIGNED | TBD | L-601 (a) · the `ContextUseMode` seam (L-599, landed) | LOGGED |
+| **L-601 (c)** — 2D map layer + 3D drape | UNASSIGNED | TBD | **L-600** (shared camera, IN FLIGHT — same two files) · L-601 (b) | BLOCKED on L-600 |
+| C55 membership ruling for an **introspective** layer | UNASSIGNED | TBD | L-601 (a) | OPEN — Step-2 finding, see below |
+
+⚠ **L-601 does not move the Barcelona end-to-end resolution rate.** It makes the EXISTING answer
+distribution visible — 72.9% correct refusals, 12.7% full envelopes, 8.3% owned gap. Its value is
+commercial legibility (our refusals read as rigour rather than absence), not coverage.
+
+⚠ **Sequencing is a hard constraint, not a preference.** L-601 (c) and L-600 both edit
+`CesiumViewport.ts` + `GISAreaLayout.ts`. Running them concurrently already cost a revert once today
+(L-598: copying one agent's shared file silently reverted another's branch, and the repair no-opped
+because the guard matched the import line). **Agent pack/feature files may be COPIED; shared wiring
+must be RE-APPLIED BY HAND.**
+
+**Step-2 finding carried forward:** `C55 — Geodata Analytical Layers` is the closest home, and its
+§1.2 (layers drape, never become BIM geometry) and §1.4 (graceful absence) fit exactly. But §1.1/§1.3
+model a layer as an **external national registry** with tiles, opacity and C23 attribution. This
+layer is **derived from our own rule-pack registry** — the first *introspective* layer in the system.
+That is a contract question, not an implementation detail; it is logged in
+`docs/02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md` rather than resolved unilaterally.
+
+---
+
+## Added 2026-07-22 — L-602 / L-603 (panel interrogability; logged, not started)
+
+| Item | Owner | Target | Depends on | Status |
+|---|---|---|---|---|
+| **L-602** — Site Inspector (C19 §5.3): selection shows parcel/building data | UNASSIGNED | TBD | 🔴 **founder ruling: MY parcel vs ANY parcel** | BLOCKED on ruling |
+| **L-603 (a)** — `DerivationEntry` geometric reference (L0 schema, C58 §2.4) | UNASSIGNED | TBD | none — pure L0, no file overlap with in-flight work | LOGGED — **unblocked** |
+| **L-603 (b)** — solver emits the binding beside the value | UNASSIGNED | TBD | L-603 (a) | LOGGED |
+| **L-603 (c)** — highlight render via the C56 AutoDimension path | UNASSIGNED | TBD | L-603 (b) · **L-600** (shared camera, IN FLIGHT — same view surfaces) | BLOCKED on L-600 |
+| C59 **per-view capability** vocabulary | UNASSIGNED | TBD | L-603 (c) | OPEN — gap logged |
+| Contract for the **datum→geometry** binding | UNASSIGNED | TBD | L-603 (a) | PROPOSED — gap logged |
+
+⚠ **L-602 is P1 and the others P2, for one reason: L-602's data ALREADY EXISTS and is merely
+unreachable.** `buildSiteDataBlock()` computes the full parcel/ordinance/massing/capacity block
+today; the user selects a thing and is shown nothing about it. That is a wiring gap against a
+written contract (C19 §5.3), not a capability we lack.
+
+⚠ **The L-602 ruling is not cosmetic.** Reading *"any parcel I click"* means a zoning read at an
+arbitrary point — and **C57 §1.3** says a selected parcel *"commits down C19's identical one-shot
+immutable path"*, while **C19 §1.4** makes the parcel boundary immutable for the Site's life.
+**Reusing the parcel-select path to merely LOOK at a neighbour would overwrite the user's site.**
+Whoever implements this must prove by test that a neighbour select performs no site write.
+
+**Dependency note:** L-601 (c), L-602 and L-603 (c) all touch the same view surfaces as **L-600**.
+Sequence them; do not fan out. Concurrent agents in `CesiumViewport.ts` / `GISAreaLayout.ts` already
+forced one revert today (L-598).
+
+---
+
+## Added 2026-07-22 — L-600 (shared camera pose) + L-604 (§PLAN-CAMTARGET producer)
+
+| Item | Owner | Target | Depends on | Status |
+|---|---|---|---|---|
+| **L-600 (a)** — pure shared-camera-pose model (`sharedCameraPose.ts`, 31 tests) + **C59 §2.7** | assistant | done (this pass) | none — imports no renderer | **BUILT — UNVERIFIED LIVE, NOT WIRED** |
+| **L-600 (0)** — 🔴 founder ruling: **angle-only** vs **angle + distance** | founder | TBD | none | **BLOCKED on ruling** (C59 §2.7.7) |
+| **L-600 (b)** — `CesiumViewport.flyToGeographic()` optional `headingDeg` | UNASSIGNED | TBD | **C59 Phase 3** · ⚠ high-collision file | BLOCKED |
+| **L-600 (c)** — settle-driven per-surface observation hooks + live projection | UNASSIGNED | TBD | L-600 (b) · **C59 Phase 3** (`bim-3d.paneHostable`) | BLOCKED |
+| **L-604 (1–2)** — plan-camera spam fix + world-space/ancestry probe | assistant | done (this pass) | none | **BUILT — UNVERIFIED LIVE** |
+| **L-604 (3)** — capture the offending ancestry from ONE live run | founder (one click-path) | TBD | L-604 (1–2) deployed | **WAITING ON EVIDENCE** |
+| **L-604 (4)** — fix the ECEF leak (C12 §1.1 violation, logged C12 §1.5) | UNASSIGNED | TBD | L-604 (3) — **do not fix on inference** | OPEN |
+| **L-604 (5)** — de-duplicate `CesiumThreeBridge` (P3) | UNASSIGNED | TBD | none | LOGGED |
+
+⚠ **Sequencing — both of the just-landed contracts are upstream of L-600's wiring.**
+**C59 Phase 2** (per-pane picker + `PaneLayoutStore`) and **C60 Phase 1** (site-entry stage
+machine) BOTH landed 2026-07-22 and BOTH are **unverified live**. L-600's wiring sits behind
+**C59 Phase 3**, exactly where C60 §8 already parked its own Phase 2 — and for the identical
+reason: `bim-3d.paneHostable` is still `false`, so no pane owns a camera yet. **Three things now
+queue on Phase 3: C60 Phase 2, L-600 (b)/(c), and L-601 (c).** Phase 3 is the critical path, not
+any of them individually.
+
+⚠ **File-collision constraint (L-598) is unchanged and now binds four items.** L-600 (b),
+L-601 (c), L-602 and L-603 (c) all touch `CesiumViewport.ts` / `GISAreaLayout.ts`. **This pass
+deliberately touched NEITHER** — the shared-pose model imports no renderer precisely so it could
+be built without entering those files. Keep that property: sequence the wiring, do not fan out.
+
+⚠ **L-604 is P1 and ahead of L-600 in severity, though behind it in visibility.** The
+`§PLAN-CAMTARGET-SANITY` guard is the only thing preventing geometry being authored ~2 000 km from
+the site; L-600 is a missing convenience. **Do not let the visible request outrank the silent
+corruption risk when scheduling.**

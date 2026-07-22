@@ -44,6 +44,9 @@ import { sheetStore } from '@pryzm/core-app-model';
 import {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
     MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
+    // §PLAN-CAMTARGET-REFUSE-AT-PRODUCER (L-604) — the SAME bound PlanViewCanvas.setFrustum
+    // enforces. Imported, never re-typed, so producer and consumer cannot drift apart.
+    PLAN_CAMTARGET_MAX_ABS_M,
     PlanViewCanvas,
 } from '@pryzm/core-app-model';
 // Contract 27 Phase 6 — SVP canvas click → element selection
@@ -123,6 +126,13 @@ export class SplitViewManager implements ISplitViewManager {
     private _camTarget   = new THREE.Vector3();  // pan center (XZ plane)
     private _gridVisible = true;
     private _hasFitProjectedDrawing = false;
+    /**
+     * §PLAN-CAMTARGET-REFUSE-AT-PRODUCER (L-604) — latched so an implausible scene fit is
+     * reported ONCE per fault instead of on every frame. Cleared the moment a plausible fit
+     * lands, so a fault that recurs after a recovery is reported again rather than swallowed.
+     * Failure and silence must never look the same.
+     */
+    private _planFitRefusalLogged = false;
     /**
      * Debounce timer to call endMotion() after the last wheel event.
      * See 08-CAMERA-SYSTEM-CONTRACT §3 and the equivalent fix in
@@ -1755,43 +1765,121 @@ export class SplitViewManager implements ISplitViewManager {
      * unset), but that was inferred from the magnitude, NOT traced. So rather than guess and
      * "fix" the wrong producer, this logs the offender by name the moment it appears. One run of
      * the founder's flow then settles it, instead of another round of theorising.
+     *
+     * ── §PLAN-FIT-DIAG-MEASURED-NOTHING (L-604) ────────────────────────────────────────
+     * ⚠ THE DIAGNOSTIC ABOVE WAS BROKEN, AND ITS BREAKAGE IS WHY L-481 STAYED UNSOLVED.
+     * `box.expandByObject(obj)` measures the mesh in WORLD space (it applies `matrixWorld`),
+     * but the outlier probe read `obj.position` — the mesh's LOCAL offset from its PARENT. A
+     * mesh whose own position is (0.4, 0, 1.2) but whose PARENT GROUP carries a huge matrix is
+     * therefore invisible to the probe while dominating the box. That is exactly the shape of
+     * the live fault: `CesiumThreeBridge.setAnchor()` re-parents BIM meshes into a
+     * `GIS_BIM_ROOT` group and gives that group the full ECEF `eastNorthUpToFixedFrame`
+     * matrix, whose translation is on the order of 6.4e6 m. The meshes' LOCAL positions never
+     * change, so the probe stayed silent and named nothing — a probe that could pass while
+     * measuring nothing. Fixed here: measure the WORLD position (the same space the box uses)
+     * and name the ANCESTRY, not just the leaf, because the offending transform lives on an
+     * ancestor by construction.
+     *
+     * ── §PLAN-CAMTARGET-REFUSE-AT-PRODUCER (L-604) ─────────────────────────────────────
+     * `PlanViewCanvas.setFrustum` REFUSES an implausible target — correctly, and that refusal
+     * is what has kept geometry from being authored 2 000 km away. But the refusal happened at
+     * the CONSUMER while this method kept the bad value in `this._camTarget`, and `_render()`
+     * re-pushes `_camTarget` through `_syncPlanCanvasState()` on EVERY frame. So the guard
+     * re-fired on every frame forever: an unbroken console error at 30 fps, with no way to see
+     * anything else in the log. A guard that fires forever is a guard hiding a bug.
+     *
+     * So the same bound is now enforced HERE, at the producer, against the SAME imported
+     * constant. On refusal the previous known-good target is KEPT (identical policy to the
+     * consumer: an absent pan costs nothing, a relocated project costs everything), and the
+     * error is logged ONCE per fault rather than per frame. This does NOT fix the coordinate
+     * leak itself — see the L-604 audit row; it makes the leak diagnosable instead of deafening.
      */
     private _fitCamTargetToScene(): void {
         const box = new THREE.Box3();
         let farthestName = '';
         let farthestDist = 0;
+        const worldPos = new THREE.Vector3();
         this._scene.traverse(obj => {
             if ((obj as THREE.Mesh).isMesh) {
                 box.expandByObject(obj);
-                const d = Math.hypot(obj.position.x, obj.position.z);
+                // §PLAN-FIT-DIAG-MEASURED-NOTHING (L-604) — WORLD space, matching the box.
+                obj.getWorldPosition(worldPos);
+                const d = Math.hypot(worldPos.x, worldPos.z);
                 if (d > farthestDist) {
                     farthestDist = d;
-                    farthestName = obj.name || obj.type || '(unnamed)';
+                    farthestName = this._describeAncestry(obj);
                 }
             }
         });
         if (farthestDist > PLAN_FIT_OUTLIER_WARN_M) {
             console.error(
-                `[SplitViewManager] §PLAN-FIT-OUTLIER-DIAG (L-481) — mesh "${farthestName}" sits ` +
-                    `${Math.round(farthestDist)} m from the origin and is being averaged into the PLAN ` +
-                    'camera target. Every plan click adds that target to its world position, so this is ' +
-                    'the producer of far-away authored geometry. THIS NAME IS THE ANSWER — it identifies ' +
-                    'which subsystem is emitting a coordinate in the wrong space.',
+                `[SplitViewManager] §PLAN-FIT-OUTLIER-DIAG (L-481/L-604) — mesh "${farthestName}" sits ` +
+                    `${Math.round(farthestDist)} m from the origin IN WORLD SPACE and is being averaged ` +
+                    'into the PLAN camera target. Every plan click adds that target to its world ' +
+                    'position, so this is the producer of far-away authored geometry. THE ANCESTRY IS ' +
+                    'THE ANSWER — the offending transform is usually on a PARENT (e.g. CesiumThreeBridge’s ' +
+                    'GIS_BIM_ROOT, which carries the full ECEF eastNorthUpToFixedFrame matrix), not on ' +
+                    'the leaf mesh.',
             );
         }
         if (box.isEmpty()) {
             this._camTarget.set(0, 0, 0);
             this._frustumH = DEFAULT_FRUSTUM;
+            this._planFitRefusalLogged = false;
             this._syncPlanCanvasState();
             return;
         }
         const center = box.getCenter(new THREE.Vector3());
         const size   = box.getSize(new THREE.Vector3());
-        this._camTarget.set(center.x, box.min.y + 1.5, center.z);
+
+        // §PLAN-CAMTARGET-REFUSE-AT-PRODUCER (L-604) — refuse HERE, keep the last good target,
+        // and log ONCE. Otherwise `_render` re-pushes the bad value every frame forever.
+        const targetY = box.min.y + 1.5;
+        const plausible =
+            Number.isFinite(center.x) && Number.isFinite(center.z) && Number.isFinite(targetY) &&
+            Math.abs(center.x) <= PLAN_CAMTARGET_MAX_ABS_M &&
+            Math.abs(center.z) <= PLAN_CAMTARGET_MAX_ABS_M;
+        if (!plausible) {
+            if (!this._planFitRefusalLogged) {
+                this._planFitRefusalLogged = true;
+                console.error(
+                    '[SplitViewManager] §PLAN-CAMTARGET-REFUSE-AT-PRODUCER (L-604) — REFUSED a scene ' +
+                        `fit that produced an implausible plan camera target (${center.x}, ${targetY}, ` +
+                        `${center.z}); limit is ±${PLAN_CAMTARGET_MAX_ABS_M} m from the site origin. ` +
+                        `Keeping the last good target (${this._camTarget.x.toFixed(2)}, ` +
+                        `${this._camTarget.z.toFixed(2)}). These magnitudes are GLOBE/ECEF scale, not ` +
+                        'site-local — see the §PLAN-FIT-OUTLIER-DIAG line above for the offending ' +
+                        'ancestry. Logged ONCE per fault; the per-frame repeat was the L-481 symptom.',
+                );
+            }
+            this._syncPlanCanvasState();
+            return;
+        }
+
+        this._planFitRefusalLogged = false;
+        this._camTarget.set(center.x, targetY, center.z);
         // Phase 1b — tightened from 0.55 → 0.42 so the fallback lands closer to geometry
         // when the drawing is not yet in cache. PlanViewCanvas.fitToDrawing() will refine on arrival.
         this._frustumH = Math.max(MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM, Math.max(size.x, size.z) * 0.42);
         this._syncPlanCanvasState();
+    }
+
+    /**
+     * §PLAN-FIT-DIAG-MEASURED-NOTHING (L-604) — name a mesh AND the ancestors it hangs off,
+     * innermost-last (`GIS_BIM_ROOT › Group › Wall_12`). The leaf name alone is not the answer
+     * when the coordinate-space error lives on a parent's matrix, which is the normal case.
+     * Capped at 5 levels so the log line stays readable on a deep scene graph.
+     */
+    private _describeAncestry(obj: THREE.Object3D): string {
+        const parts: string[] = [];
+        let cursor: THREE.Object3D | null = obj;
+        let depth = 0;
+        while (cursor && cursor !== this._scene && depth < 5) {
+            parts.unshift(cursor.name || cursor.type || '(unnamed)');
+            cursor = cursor.parent;
+            depth++;
+        }
+        return parts.join(' › ') || '(unnamed)';
     }
 
     private _syncPlanCanvasState(): void {

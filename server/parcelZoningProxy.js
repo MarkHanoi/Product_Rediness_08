@@ -470,6 +470,115 @@ function neighbourParcels(blockParcels, allParcels, manzana) {
     return out;
 }
 
+/**
+ * §BLOCK-SINGLETON-MANZANA (L-586) — how far a parcel of a DIFFERENT manzana must stay clear of
+ * this one before we will believe this manzana really is a whole, free-standing city block, in
+ * metres.
+ *
+ * ⚠ THIS IS A DISCRIMINATOR BETWEEN TWO POPULATIONS THAT ARE ORDERS OF MAGNITUDE APART, NOT A
+ * TUNED THRESHOLD. Two parcels that ABUT share their boundary, so the measured distance is the
+ * coordinate quantum — Catastro publishes to 1e-6°, i.e. 0.083 m east / 0.111 m north. Two parcels
+ * in DIFFERENT blocks are separated by a street: measured on the seven single-parcel manzanas in
+ * the live Barcelona sweep, the nearest other parcel sat at 4.99, 14.56, 15.20, 18.17, 19.27,
+ * 19.83 and 20.53 m (`scratchpad/probe-l586-hairloops.mts`). There is nothing between 0.111 m and
+ * 4.99 m to be sensitive to. 0.5 m is four times the publisher's own quantum and ten times below
+ * the narrowest observed street, so no plausible value in that gap changes any outcome.
+ */
+export const FREE_STANDING_CLEARANCE_M = 0.5;
+
+/** Perpendicular distance from p to segment ab, in the local metric plane. */
+function pointSegmentDistanceM(p, a, b) {
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const l2 = dx * dx + dz * dz;
+    if (l2 === 0) return Math.hypot(p.x - a.x, p.z - a.z);
+    let t = ((p.x - a.x) * dx + (p.z - a.z) * dz) / l2;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    return Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz));
+}
+
+/**
+ * §BLOCK-SINGLETON-MANZANA (L-586) — is this manzana a FREE-STANDING block?
+ *
+ * WHY THIS EXISTS. The route refused any manzana with fewer than 3 parcels, on the stated
+ * suspicion that "a 1–2 parcel block is far likelier to be a broken prefix assumption than a real
+ * manzana". That suspicion was never measured, and it is wrong often enough to matter: in the live
+ * 100-manzana Barcelona sweep behind the 83.0% layer-1–3 resolution rate, SEVEN parcels were
+ * refused by it — and all seven are genuinely whole blocks. Four of them are ~12,000 m² full
+ * Eixample *illes* (12,686 / 12,622 / 12,183 / 11,250 m²) held as a single cadastral parcel, the
+ * ordinary shape of a school, hospital, market or convent. Refusing them produced no depth, no
+ * width, no height and a 0.5 m footprint slab for 7 % of the sample.
+ *
+ * ⚠ SO THE GUARD IS REPLACED BY THE TEST IT WAS GUESSING AT, NOT REMOVED. City blocks are
+ * separated by STREETS. A parcel that really is a whole manzana therefore shares no boundary with
+ * any other parcel; a parcel whose siblings were lost to a broken prefix — the actual danger — is
+ * still touching them, and is still refused. That is an independent oracle on the very question
+ * the old guard was estimating, it costs no upstream call (the bbox response is already parsed),
+ * and it was validated at 7/7 before being written.
+ *
+ * ⚠ IT TESTS AGAINST EVERY OTHER PARCEL IN THE BBOX, not merely those of other manzanas, precisely
+ * so that a prefix which has mislabelled a sibling cannot slip through: whatever the sibling is
+ * called, it is still touching, and touching is disqualifying.
+ *
+ * Pure and deterministic (C58 §1.1): no clock, no RNG, fixed iteration over the parsed response.
+ *
+ * @returns {{ freeStanding: boolean, nearestOtherParcelM: number|null, touching: string[] }}
+ *   `nearestOtherParcelM` is null only when the bbox held no other parcel at all — which is itself
+ *   a fact worth reporting rather than rendering as a distance of Infinity.
+ */
+export function isFreeStandingBlock(blockParcels, allParcels, clearanceM = FREE_STANDING_CLEARANCE_M) {
+    if (!Array.isArray(blockParcels) || blockParcels.length === 0) {
+        return { freeStanding: false, nearestOtherParcelM: null, touching: [] };
+    }
+    const own = new Set(blockParcels.map((p) => p.refcat));
+    const first = blockParcels[0]?.ring?.[0];
+    if (!first) return { freeStanding: false, nearestOtherParcelM: null, touching: [] };
+
+    // Local equirectangular plane about the block's first vertex. Over a ±220 m bbox its scale
+    // error is a few parts per million — six orders below the 0.5 m the answer turns on.
+    const cos0 = Math.cos(first.lat * (Math.PI / 180));
+    const toXZ = (v) => ({
+        x: (v.lon - first.lon) * (Math.PI / 180) * 6378137 * cos0,
+        z: -(v.lat - first.lat) * (Math.PI / 180) * 6378137,
+    });
+
+    const ownRings = blockParcels.map((p) => p.ring.map(toXZ)).filter((r) => r.length >= 3);
+    if (ownRings.length === 0) return { freeStanding: false, nearestOtherParcelM: null, touching: [] };
+
+    let nearest = Infinity;
+    const touching = [];
+    for (const p of allParcels) {
+        if (own.has(p.refcat)) continue;
+        if (!Array.isArray(p.ring) || p.ring.length < 3) continue;
+        const other = p.ring.map(toXZ);
+        let best = Infinity;
+        for (const ring of ownRings) {
+            for (let i = 0; i < ring.length; i++) {
+                const a = ring[i];
+                const b = ring[(i + 1) % ring.length];
+                // Sample the edge MIDPOINT as well as the vertex: a long own-edge running beside a
+                // short foreign one would otherwise be judged only at its ends.
+                const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+                for (let j = 0; j < other.length; j++) {
+                    const c = other[j];
+                    const d = other[(j + 1) % other.length];
+                    const dv = pointSegmentDistanceM(a, c, d);
+                    if (dv < best) best = dv;
+                    const dm = pointSegmentDistanceM(mid, c, d);
+                    if (dm < best) best = dm;
+                }
+            }
+        }
+        if (best < nearest) nearest = best;
+        if (best < clearanceM) touching.push(p.refcat);
+    }
+    return {
+        freeStanding: touching.length === 0,
+        nearestOtherParcelM: Number.isFinite(nearest) ? nearest : null,
+        touching,
+    };
+}
+
 /** The 5-char manzana prefix of an urban cadastral reference (verified empirically — see above). */
 export function manzanaPrefix(refcat) {
     return typeof refcat === 'string' && refcat.length >= 5 ? refcat.slice(0, 5) : null;
@@ -547,7 +656,7 @@ export function makeCatastroBlockHandler(deps = {}) {
         return hit;
     };
 
-    const blockCacheSet = (manzana, parcels, neighbours) => {
+    const blockCacheSet = (manzana, parcels, neighbours, freeStanding = null) => {
         if (blockCache.size >= BLOCK_CACHE_MAX_ENTRIES) {
             // Oldest-first eviction — Map preserves insertion order.
             const oldest = blockCache.keys().next();
@@ -557,7 +666,7 @@ export function makeCatastroBlockHandler(deps = {}) {
         // come from the same single bbox response, so caching the block without them would make the
         // second parcel on a block cheaper but UNMEASURABLE — a cache hit that silently downgrades
         // the answer is worse than a miss.
-        blockCache.set(manzana, { at: Date.now(), parcels, neighbours });
+        blockCache.set(manzana, { at: Date.now(), parcels, neighbours, freeStanding });
     };
 
     return async function catastroBlockHandler(req, res) {
@@ -579,6 +688,11 @@ export function makeCatastroBlockHandler(deps = {}) {
                     parcels: cached.parcels,
                     siblingCount: cached.parcels.length,
                     neighbours: cached.neighbours,
+                    // §BLOCK-SINGLETON-MANZANA — see the fresh-response comment. A cached singleton
+                    // must arrive carrying the same verdict it was admitted on.
+                    freeStanding: cached.freeStanding === null || cached.freeStanding === undefined
+                        ? null
+                        : cached.freeStanding.freeStanding,
                 },
                 _cached: true,
             });
@@ -622,29 +736,61 @@ export function makeCatastroBlockHandler(deps = {}) {
             const all = parseParcelCollectionGml(await bboxRes.text());
             const parcels = all.filter((p) => manzanaPrefix(p.refcat) === manzana);
 
+            // §BLOCK-SINGLETON-MANZANA (L-586) — a 1–2 parcel manzana is refused only when it is
+            // still TOUCHING another parcel, which is the broken-prefix case the old blanket `< 3`
+            // guard was guessing at. A free-standing one is a real whole block (7/7 in the live
+            // Barcelona sweep, four of them full ~12,000 m² Eixample illes) and must be answered.
+            let freeStanding = null;
             if (parcels.length < 3) {
-                // See the header: a 1–2 parcel "block" is far likelier to be a broken prefix
-                // assumption than a real manzana, and a too-small ring yields a wrong depth.
-                console.warn(
-                    `[catastro-block] §CATASTRO-BLOCK — manzana ${manzana} matched only ` +
-                    `${parcels.length} of ${all.length} parcels in the bbox. Refusing: too few for a ` +
-                    `block, and a partial block ring produces a WRONG profunditat edificable.`,
+                freeStanding = isFreeStandingBlock(parcels, all);
+                if (!freeStanding.freeStanding) {
+                    console.warn(
+                        `[catastro-block] §BLOCK-SINGLETON-MANZANA — manzana ${manzana} matched only ` +
+                        `${parcels.length} of ${all.length} parcels in the bbox AND still abuts ` +
+                        `${freeStanding.touching.length} other parcel(s) (nearest ` +
+                        `${freeStanding.nearestOtherParcelM === null ? 'n/a' : freeStanding.nearestOtherParcelM.toFixed(2)} m). ` +
+                        'Refusing: the siblings are there under another prefix, and a partial block ' +
+                        'ring produces a WRONG profunditat edificable.',
+                    );
+                    return res.status(200).json({
+                        block: null,
+                        _tooFewSiblings: parcels.length,
+                        _abuttingParcels: freeStanding.touching.length,
+                    });
+                }
+                console.log(
+                    `[catastro-block] §BLOCK-SINGLETON-MANZANA — manzana ${manzana} is a ` +
+                    `${parcels.length}-parcel FREE-STANDING block; nearest other parcel ` +
+                    `${freeStanding.nearestOtherParcelM === null ? 'none in bbox' : `${freeStanding.nearestOtherParcelM.toFixed(2)} m`}. ` +
+                    'Accepting: the parcel IS the manzana.',
                 );
-                return res.status(200).json({ block: null, _tooFewSiblings: parcels.length });
             }
 
-            // §BLOCK-CACHE — only a TRUSTWORTHY block is cached. The `< 3` refusal above returns
-            // before this point, so a rejected block is never remembered as an answer.
+            // §BLOCK-CACHE — only a TRUSTWORTHY block is cached. The refusals above return before
+            // this point, so a rejected block is never remembered as an answer.
             // §STREET-WIDTH-NEIGHBOURS (L-537) — the opposing frontages, from the SAME bbox parse.
             const neighbours = neighbourParcels(parcels, all, manzana);
-            blockCacheSet(manzana, parcels, neighbours);
+            // §BLOCK-SINGLETON-MANZANA — the free-standing VERDICT is cached with the block, for
+            // the same reason the neighbours are: a cache hit that dropped it would silently
+            // downgrade a valid singleton block to "too few parcels" on the second lookup.
+            blockCacheSet(manzana, parcels, neighbours, freeStanding);
             console.log(
                 `[catastro-block] manzana ${manzana}: ${parcels.length} parcel(s) of ${all.length} ` +
                 `in bbox around ${refcat}${Number.isFinite(qLat) ? ' (centroid supplied — GetParcel skipped)' : ''}; ` +
                 `${neighbours.length} neighbour parcel(s) within ${NEIGHBOUR_HALO_M} m for §BCN-ALCADA street width. Cached.`,
             );
             return res.status(200).json({
-                block: { manzana, parcels, siblingCount: parcels.length, neighbours },
+                block: {
+                    manzana,
+                    parcels,
+                    siblingCount: parcels.length,
+                    neighbours,
+                    // §BLOCK-SINGLETON-MANZANA (L-586) — THREE STATES, NEVER TWO. `true` = measured
+                    // free-standing; `null` = not evaluated because the manzana has ≥3 parcels and
+                    // never needed it. `false` never reaches a caller: it returns a refusal above.
+                    // Collapsing null and false would be the L-467/L-469 conflation one field down.
+                    freeStanding: freeStanding === null ? null : freeStanding.freeStanding,
+                },
             });
         } catch (err) {
             console.warn(`[catastro-block] failed for ${refcat}: ${err?.message ?? err}`);

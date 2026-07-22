@@ -138,6 +138,15 @@ hold country-level data. **We hold none.** Fabricating a country panel to fill t
 
 **I recommend (A)** and am not choosing it unilaterally.
 
+> ✅ **RESOLVED 2026-07-22 — the founder chose (A), the honest coverage globe.** Implemented as
+> **Phase 1 of [C60 — Site Entry & Jurisdiction Coverage](../../02-decisions/contracts/C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md)**,
+> with **(B) preserved as a configuration value** (`SiteEntryMode`), not a fork. The coverage layer is
+> derived from the rule-pack registry — which required the registry to be taught *where* it applies
+> (required extent/country fields carrying the **imported** `BARCELONA_BBOX` + `isInBarcelona` the
+> dispatcher routes on) — so a hand-drawn coverage shape is now both forbidden (C60 §2) and
+> unnecessary. Live wiring is deliberately NOT done: it is sequenced behind C59 Phase 3, exactly as
+> Step 5 below recommends.
+
 ## Step 3 — The architecturally-sound approach
 
 **Follow C59, not a new mechanism.** The globe stages are **camera-altitude states of the single

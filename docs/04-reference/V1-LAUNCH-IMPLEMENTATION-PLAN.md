@@ -4770,3 +4770,89 @@ Full architectural check: `docs/03-execution/spikes/SPIKE-L592-L593-GLOBE-ENTRY-
 | 4 | ⚠ Pre-site stages MUST NOT write site state | C19 §1.3/§1.4 — the parcel boundary is one-shot immutable; only the final parcel pick may dispatch |
 | 5 | ⚠ Perf budget | C59 §2 invariant 5 — founder's box runs the **WebGL fallback**; do not hold a BIM pane live behind a photoreal globe |
 | 6 | New contract `C60 — Site Entry & Jurisdiction Coverage` | No contract owns the entry flow today (gap logged). Without it this becomes a fourth ad-hoc view mechanism — the thing C59 §0 exists to prevent |
+
+## L-601 — answerability layer: colour + select land by what PRYZM can say · Phase 5 · P2 · OWNER: UNASSIGNED · TARGET: TBD
+
+⚠ **DEPENDENCY: the UI half is sequenced BEHIND [L-600]** (shared 3D camera, in flight) — both need
+`CesiumViewport.ts` and `GISAreaLayout.ts`, and two agents in those two files already forced a revert
+today (L-598). **Tasks 1–3 are pure L2 and have zero overlap; they may start immediately.**
+
+⚠ **This is NOT L-599.** L-599 colours *what a building IS* (OSM `building=*`). L-601 colours *what
+PRYZM can SAY about the land*. Two questions, two modes on one seam — never one merged colour.
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | Pure L2 classifier: parcel → one of **five** `AnswerabilityClass`es | `systems-land` · `full-envelope` · `plan-defined` (clau 18) · `zone-unencoded` · `construction-incomplete`. Lives beside `resolveZoneDisposition` in `@pryzm/site-parcel-data`. **PURE** (C58 §1.1) — no I/O, no DOM |
+| 2 | 🔴 **Derive the class from the SHIPPING answer path, never a parallel table** | C60 §2 identity discipline. It MUST consume `resolveZoneDisposition` + the refusal vocabulary (`zoneRefusal.ts`, `barcelonaZoneRefusalFor`) — the same functions that answer the click. A second statement of "what we cover" would drift invisibly (L-422/457/467/469) |
+| 3 | Tests asserting the derivation, not the values | Assert the classifier returns `zone-unencoded` for 22a **because the registry does not list it** — so registering 22a re-classes it with no second edit. A hard-coded expectation would pass while measuring nothing (the debt-gate lesson) |
+| 4 | Palette + legend with live counts from the CURRENT view | Only `full-envelope` saturated. `plan-defined` **visually distinct from** `zone-unencoded` — C58 §1.4 / §CONTEXT-DATA-HONESTY: a correct refusal and an owned gap are opposite claims and must never share a colour. No `#6600FF` (reserved for the envelope), no off-white (the context fill) |
+| 5 | Second mode on the existing `ContextUseMode` seam | **Never** a branch inside `classifyContextUse` — a test already asserts `classifyContextUse.length === 1` so a zoning argument breaks the build. Preserve it |
+| 6 | Selection → the existing read-only query panel, showing class **+ its citation** | C06 §233 z-slot via `zCss()`. C23: the article that produced the refusal rides along — a class without its citation is the thing this whole layer exists to avoid |
+| 7 | 2D map layer (`SiteBoundaryMap2D`) + 3D drape (`CesiumViewport`) | ⚠ **AFTER L-600 lands.** C55 §1.2: layers drape, never become BIM geometry |
+| 8 | Decide C55 membership (see Step-2 finding) | C55's provider model assumes an EXTERNAL registry with attribution + tiles. This layer's "provider" is our own rule-pack registry — the first **introspective** layer. Either extend C55 §1.3 to admit an internal provider, or state why it sits outside |
+
+## L-602 — Site Inspector: selection shows the parcel/building data · Phase 5 · P1 · OWNER: UNASSIGNED · TARGET: TBD
+
+⚠ **This is a GAP, not a new feature — [C19 §5.3](../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md) already specifies the surface.** Build what the contract says; do not invent a fourth panel.
+
+🔴 **TASK 0 BLOCKS EVERYTHING BELOW — founder ruling required.**
+
+| # | Task | Notes |
+|---|---|---|
+| 0 | 🔴 **RULING: does "the parcel data" mean (i) MY parcel or (ii) ANY parcel I click?** | **(i)** = routing + UX, data already exists, cheap and safe. **(ii)** = a new zoning read path at an arbitrary point, real per-click cost, and it must NEVER commit |
+| 1 | Build the **C19 §5.3 Site Inspector**, three sections exactly as spec'd | Location (PII-gated per C22) · Parcel (area, setbacks, FAR + height utilisation, §1.6 soft-warnings) · Context (count, ingest, source, licence — the §2.6 ProvenanceRecord) |
+| 2 | Route the EXISTING data into it rather than recomputing | `GISAreaLayout.buildSiteDataBlock()` already produces parcel/ordinance/massing/capacity. Two surfaces computing one number differently is C19 §1.4's "two incompatible things about the plot" failure |
+| 3 | 🔴 **If (ii): a neighbour-parcel read MUST NOT commit** | **C19 §1.4** parcel boundary is one-shot immutable; **C57 §1.3** *"a selected parcel commits down C19's identical one-shot immutable path"*. Naive reuse of the parcel-select path would **overwrite the user's site by clicking a neighbour.** A test must prove no site write occurs on a neighbour select |
+| 4 | Honour **C19 §1.5**: context buildings appear in the Site Inspector ONLY | Not in schedules, not in IFC, not in editable property panels. L-592's read-only panel either folds into the Inspector's Context section or is explicitly justified as distinct |
+| 5 | Parcel facts come from C58 / the site model, never from the parcel adapter | **C57 §1.10** — the Parcel Data Layer owns geometry + attributes only, **not zoning** |
+| 6 | Every value carries its provenance / citation | C23. The existing EST/REAL badges are the precedent — keep them |
+
+## L-603 — clickable numbers: datum → geometry highlight · Phase 5 · P2 · OWNER: UNASSIGNED · TARGET: TBD
+
+⚠ **The first task is a SCHEMA change, not UI.** `DerivationEntry` records a datum's LAW and not its GEOMETRY, so today there is literally nothing to highlight.
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | Add a **geometric reference** to `DerivationEntry` (C58 §2.4, L0) | `packages/schemas/src/site/zoning/BuildableEnvelope.ts:92`. Must stay **P5-pure** — a reference (ring index / edge indices / storey band / tier id), never THREE or DOM types |
+| 2 | 🔴 **Make "this number has no geometry" REPRESENTABLE and explicit** | `Max FAR`, `max site coverage`, dwelling module, max dwellings have no shape. **Merge-blocking:** such a row must be non-clickable and say why. An approximate highlight that looks authoritative is §CONTEXT-DATA-HONESTY in a new costume |
+| 3 | **The solver emits the binding**, beside the value it explains | Never a `switch` on the row label in the panel — that silently desynchronises the moment a rule changes which edge governs (the L-526 class). This is the whole architectural point |
+| 4 | Render the highlight through the **C56 AutoDimension** path | `DimensionString` + `DimensionReference`/`DimAnchor` → `evaluateDimensions` → the existing annotation renderer. **Do not build a bespoke overlay** — the output half already ships |
+| 5 | Highlight as **visibility intent** (C09 / P7), dispatched by command (P6) | Not UI state, not a direct store write |
+| 6 | Declare **per-view capability** — every view except `site-3d` globe | ⚠ C59 has no vocabulary for "this view does not support capability X". Either add one or state why the exclusion lives elsewhere. Founder explicitly excluded Cesium |
+| 7 | Contract the datum→geometry binding | Coverage gap logged in `MISSING-CONTRACTS-AUDIT`. C27/C28 cover selection→data; **nothing covers data→geometry** |
+
+## L-600 — shared camera pose across the 3 linked 3D views · Phase 5 · P2 · OWNER: UNASSIGNED · TARGET: TBD
+
+⚠ **This is a GAP, not a bug.** Nothing regressed — "the same angle in all three" has never
+existed. See the L-600 audit row and **C59 §2.7** (written this pass) for the full root cause.
+
+⚠ **The pure model already LANDED and is deliberately NOT WIRED**
+(`apps/editor/src/engine/views/sharedCameraPose.ts`, 31 tests). Everything below is the wiring,
+and it is sequenced **behind C59 Phase 3** — `bim-3d.paneHostable` is still `false`, so there is
+no per-pane camera state to hang it on. C60 Phase 2 is queued behind the same gate.
+
+🔴 **TASK 0 BLOCKS THE PRODUCT SHAPE (not the code) — founder ruling required.**
+
+| # | Task | Notes |
+|---|---|---|
+| 0 | 🔴 **RULING: "same camera angle" = (i) ANGLE ONLY, or (ii) ANGLE **AND** DISTANCE?** | C59 §2.7.7. **(i)** shipped as the default — bearing+tilt shared, each view keeps a usable distance, nothing ever off-screen. **(ii)** makes `site-3d`↔`bim-3d` genuinely one camera on one thing, at the cost that a distance right for one subject is wrong for the other. **The globe is band-clamped under BOTH** — the span is 5 orders of magnitude. **One field (`SharedPoseMode`), not a rebuild** |
+| 1 | Land **C59 Phase 3 per-pane camera state** first | This is the actual blocker. Flipping `bim-3d.paneHostable` (re-target the WebGPU renderer off `#container`) is what gives a pane a camera to own |
+| 2 | Add optional `headingDeg` to `CesiumViewport.flyToGeographic()` | `CesiumViewport.ts:10830` hard-codes `heading: 0`, so today it **cannot express a shared bearing at all**. Additive, one field, defaults to current behaviour. ⚠ HIGH-COLLISION FILE (L-598) — hand-apply, do not bulk-copy |
+| 3 | A **settle**-driven observation hook per surface | Dispatches `view.camera.pose-observed` carrying the epoch that surface was last projected at. ⚠ **P3: no sync loop, no per-frame poll** — C04's frame bus is the only scheduler. Cesium: `camera.moveEnd`. BIM: the controls' settle, not `change` |
+| 4 | Project through the model, never renderer→renderer | **C59 §2 invariant 7.** A review that finds one renderer writing another renderer's camera is looking at the oscillation this design exists to prevent, not a shortcut |
+| 5 | Apply θ **exactly once**, on the BIM side | ADR-0115/ADR-0070. ⚠ **Barcelona θ ≈ −45°, everywhere else 0° — this bug hides in testing.** Use `bimHeadingFromTrueHeading`; the equivalence against `trueVectorToProjectNorth` is already pinned |
+| 6 | Expose the linkage in the UI: state it, and let it be turned OFF | `describeSharedPose()` is the pure copy source (C60 §3 discipline). ⚠ **Do NOT delete `ViewCameraStateStore`** — plans/sections/elevations genuinely want per-view memory and are explicitly out of scope |
+| 7 | Founder live verification | Localhost dev is unusable here; the model is unit-gated only. Click-path in the L-600 report |
+
+## L-604 — §PLAN-CAMTARGET-SANITY producer: ECEF coordinates in the BIM scene graph · Phase 2 · P1 · OWNER: UNASSIGNED · TARGET: TBD
+
+⚠ **Two of three parts are DONE (diagnosability). The coordinate leak itself is OPEN and is a
+C12 §1.1 violation, recorded in C12 §1.5.**
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | ✅ **DONE — stop the per-frame spam** (`§PLAN-CAMTARGET-REFUSE-AT-PRODUCER`) | The refusal was at the consumer while `SplitViewManager._camTarget` kept the bad value and `_render` re-pushed it every frame. Now refused at the producer against the **same imported bound**, last-good target kept, logged **once**, re-armed on recovery |
+| 2 | ✅ **DONE — fix the probe that measured nothing** (`§PLAN-FIT-DIAG-MEASURED-NOTHING`) | `§PLAN-FIT-OUTLIER-DIAG` read `obj.position` (LOCAL) while the box measures WORLD, so a parent-borne transform was invisible to it. Now world-space + prints the **ancestry**. **This is why L-481 stalled** |
+| 3 | 🔴 **OPEN — get the ancestry from one live run before fixing anything** | The next run of the founder's flow prints the offending parent by name. ⚠ **Do not "fix" a producer inferred from magnitude** — that is exactly what stalled L-481 (which names the site-plan underlay as its own untraced suspect) |
+| 4 | 🔴 **OPEN — the real fix belongs in C12, not the plan pane** | Either `CesiumThreeBridge.setAnchor()` stops putting the full ECEF `eastNorthUpToFixedFrame` matrix on `GIS_BIM_ROOT` (an LTP-ENU-relative group per C12 §1.1), or C12 declares a contracted exception with a **named frame flag world-space consumers can test**. Filtering `GIS_BIM_ROOT` out of the plan fit is the shortcut and is **not** recommended: it treats one consumer and leaves every other world-space reader exposed |
+| 5 | P3 — de-duplicate the bridge | `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts` duplicates the live `plugins/geospatial` one (live importer `GISAreaLayout.ts:402`) and imports `three` directly. Two copies of a coordinate-frame boundary is a drift hazard |

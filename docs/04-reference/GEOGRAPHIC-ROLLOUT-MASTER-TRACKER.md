@@ -471,10 +471,33 @@ rollout.
 | **Spain** | `CatastroParcelProvider` ✅ **BUILT** | `MucZoningProvider` 🟢 | 🟢 LIVE-PARTIAL | national, keyless |
 | **Denmark** | `DkParcelProvider` 🔵 | `DkZoningProvider` 🔵 | 🔵 READY | **the reference *structured* case** — Plandata publishes numbers, no construction needed. **Keyed** — the template for every keyed source; key stays server-side. `DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md` |
 | **Switzerland** | `OerebParcelProvider` 🔵 | `OerebZoningProvider` / `TerraraZoningProvider` 🔵 | 🔵 / gated | Terrara is buy-vs-build, ADR-0269, **API ❔ UNVERIFIED** |
+| **Saudi Arabia** | user-drawn (Balady API exists, **geo-fenced** 🔴) | **none needed for footprint** — class user-picked | 🔵 **READY (demo)** | **founder demo market.** Footprint = `plot ⊖ max(w/5,{3,2})` capped at coverage(class); a `setback` pack of 4 national constants. **Height deferred to municipal plan (the trap, §5.1).** `saudi-arabia/SAUDI-ARABIA-ENTRY-ASSESSMENT.md` · L-606 |
 
 ⚠ **Denmark is strategically more interesting than its size suggests**: it is the case where the
 envelope is a **lookup, not a construction**, so it proves the *other* half of the engine and it is
 where `confidence: 'structured'` can actually be claimed.
+
+### §5.1 — Saudi Arabia — the cheapest second jurisdiction probed, and why (L-606, 2026-07-22)
+
+**VERIFIED-LIVE against the primary 2024 MOMRAH ministerial decision (قرار 1/4500943139), read
+directly — the `ROBOTS_DISALLOWED` negative was the external tool's policy, not a fact; one `curl`
+returned a 5 MB PDF.** The MVP question — *"envelope from street width + class alone, no zone
+portal?"* — is **YES for the footprint**: setbacks are `max(streetWidth/5, {front 3, side/rear 2})`
+and ground coverage is a national constant by class (villa 75 % / apartment 65 %). No FAR in the
+residential regime; no block dissolve; no Art.-242-style construction. The single most expensive
+Barcelona line item — parcel→zone resolution — **is off the critical path.** Demo effort ≈ **M**
+(one `setback` pack + one `street-proportional-setback` solver variant + a router branch), a
+fraction of Barcelona.
+
+⚠ **The trap IS present and is written into the primary law:** floors + max height defer to the
+municipal `المخطط المعتمد`, and **development-authority regulations (RCRC / ROSHN / NEOM / Diriyah)
+prevail on conflict** — so a plot in a giga-project zone is not answered by the national tables. It
+bites the **vertical** question only (the footprint stays nationally grounded), which is a smaller,
+better-bounded surface than Barcelona's 62.8 % derived-planning. **No free/reachable parcel data**
+(the Balady ArcGIS service exists and even publishes per-parcel setbacks+use+floors, but its host is
+NXDOMAIN externally and its proxy WAF-blocks non-SA IPs). Demo path = user-drawn plot + class
+dropdown. Full analysis: `saudi-arabia/SAUDI-ARABIA-ENTRY-ASSESSMENT.md`,
+`saudi-arabia/SAUDI-PRIMARY-DECISION-EXTRACT.md`, `saudi-arabia/SAUDI-UMAPS-API-ENUMERATION.md`.
 
 ---
 

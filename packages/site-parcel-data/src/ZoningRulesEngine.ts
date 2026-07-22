@@ -23,14 +23,17 @@ import type {
     BuildableEnvelope,
     DerivationEntry,
     EnvelopeConfidence,
+    EnvelopeTier,
     FieldProvenance,
     PermittedUse,
 } from '@pryzm/schemas';
+import { principalTier } from '@pryzm/schemas';
 import { polygonArea } from '@pryzm/site-validators';
 import type { GeometricRule } from '@pryzm/schemas';
-import { clipToDepthBand } from './geometry/depthBandClip';
+import { clipToDepthBand, clipBeyondDepthBand } from './geometry/depthBandClip';
 import { insetPolygonPerEdge, type PerEdgeSetbacks } from './geometry/insetPolygon.js';
 import { solveBlockDerivedDepth, type BlockDepthBinding } from './geometry/blockDerivedDepth.js';
+import { solveBlockConcentricBandDepth } from './geometry/blockConcentricBand.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
 
@@ -256,6 +259,15 @@ export function computeBuildableEnvelope(
         let insetPolygon: Pt[] = [];
         let insetAreaM2 = 0;
         let maxVolumeM3: number | null = null;
+        // §L-590b / ADR-0273 — the tiers of a multi-tier envelope. EMPTY for every rule kind that
+        // yields a single prism, which is all of them except `tiered-occupation`.
+        let tiers: EnvelopeTier[] = [];
+        // §L-590b — set ONLY by the tiered branch, where the headline height is the PRINCIPAL
+        // TIER's rather than the zone-level resolution. `undefined` (not `null`) means "the tiered
+        // branch did not run", which is the state every other zone is in — `null` is a real value
+        // there (a tier whose height honestly refuses).
+        let tieredMaxHeight: number | null | undefined;
+        let tieredMaxFloors: number | null | undefined;
 
         if (!anyResolved) {
             caveats.push('No zoning data resolved for this parcel — no envelope (C58 §1.2 fidelity “none”).');
@@ -431,10 +443,226 @@ export function computeBuildableEnvelope(
                     }
                 }
 
+                // ── §L-590b / ADR-0273 — TIERED OCCUPATION (PGM Art. 350.2). ─────────────────
+                //
+                // The ordinance grants two DIFFERENT HEIGHTS over two DIFFERENT PARTS of the same
+                // parcel, and the line between them is drawn on the BLOCK:
+                //   • inside the band concentric with the block alignments whose area equals 70 %
+                //     of the block (Art. 350.2.b) — the Art. 350.2.c street-width height;
+                //   • in the block interior beyond it (Art. 350.2.e) — 5 m, one indivisible storey.
+                //
+                // ⚠ NOT A SECOND SOLVER. Like the alignment branch above, this is a COMPOSITION of
+                // pieces that already exist and are separately tested: the per-edge inset has
+                // already run; `solveBlockConcentricBandDepth` turns Art. 350.2.b's area equality
+                // into a depth using the SAME erosion `solveBlockDerivedDepth` uses; and the two
+                // tiers are cut from the inset by `clipToDepthBand` / `clipBeyondDepthBand`, which
+                // share one inward normal and one Sutherland–Hodgman pass so the tiers tile the
+                // footprint exactly. No new geometry primitive is introduced by this branch.
+                else if (geometricRule?.kind === 'tiered-occupation') {
+                    const tierProv = zone?.fieldProvenance['geometricRule'] ?? 'estimated';
+                    const addTierRow = (
+                        constraint: DerivationEntry['constraint'],
+                        value: number | string,
+                    ): void => {
+                        derivation.push({
+                            constraint, value, zoneCode: zoning.zoneCode, source,
+                            fieldProvenance: tierProv, ordinanceRef,
+                        });
+                    };
+                    // Emitted BEFORE the geometry, exactly as the alignment branch does: the trace
+                    // must explain the rule that was APPLIED even when the result is degenerate,
+                    // or "why no envelope?" reads as a crash rather than as a determination.
+                    addTierRow('tier.bandAreaRatio', geometricRule.bandAreaRatioOfBlock);
+                    addTierRow('tier.interiorHeight', geometricRule.interiorTierHeight_m);
+
+                    const frontIdx = edgeClassifications.findIndex((c) => c === 'front');
+                    if (!blockRing || !blockEdgeClassifications) {
+                        // HARD FAIL. Art. 350.2.b's band is CONCENTRIC WITH THE BLOCK; without a
+                        // block there is nothing to be concentric with, and falling through to the
+                        // un-tiered inset would publish the WHOLE parcel at the tall tier's height
+                        // — a 100 % envelope beside this zone's own 90 % occupation cap, which is
+                        // the exact over-statement §BCN_22A_ENVELOPE_BLOCKER refused to ship.
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Tiered zone (PGM Art. 350.2.b), but no block ring was supplied — the ' +
+                            'franja concèntrica is a function of the block and cannot be ' +
+                            'constructed from the parcel alone. No envelope (C58 §1.2, §1.4).',
+                        );
+                    } else if (blockEdgeClassifications.length !== blockRing.length) {
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Tiered zone: blockEdgeClassifications length does not match ' +
+                            'blockRing — the alineacions de l’illa cannot be identified. No envelope.',
+                        );
+                    } else if (frontIdx < 0) {
+                        // Same asymmetry as the alignment branch: with no parcel edge on the
+                        // street there is no line to measure the tier boundary from, and skipping
+                        // the split would silently merge two tiers into the taller one.
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Tiered zone, but no parcel edge is classified `front` — the tier ' +
+                            'boundary cannot be located on this plot. No envelope (C58 §1.4).',
+                        );
+                    } else {
+                        const solvedBand = solveBlockConcentricBandDepth({
+                            blockRing,
+                            blockEdgeClassifications,
+                            bandAreaRatio: geometricRule.bandAreaRatioOfBlock,
+                        });
+                        if (!solvedBand) {
+                            status = 'degenerate';
+                            insetPolygon = [];
+                            caveats.push(
+                                'Tiered zone: the Art. 350.2.b band cannot be constructed on this ' +
+                                'block (degenerate ring, or no edge identified as a street ' +
+                                'alignment). No envelope.',
+                            );
+                        } else if (solvedBand.degenerate) {
+                            // ⚠ CITE OUR GEOMETRY, NEVER THE ARTICLE. Art. 350.2.b's equality
+                            // always has a solution on a well-formed block; missing it means our
+                            // erosion is discontinuous here (the L-581 pathology), and saying "the
+                            // ordinance cannot be satisfied" would be a claim about Catalan
+                            // planning law resting on our own failure (C58 §1.11).
+                            status = 'degenerate';
+                            insetPolygon = [];
+                            caveats.push(
+                                `Tiered zone: the Art. 350.2.b band solve did not reach its own ` +
+                                `target (achieved ${(solvedBand.achievedBandRatio * 100).toFixed(1)} % ` +
+                                `of the block against ${(geometricRule.bandAreaRatioOfBlock * 100).toFixed(0)} % ` +
+                                `required)` +
+                                (solvedBand.insetDegenerate ? ' — the block offset collapsed' : '') +
+                                '. This is a limitation of PRYZM’s geometry on this block, NOT a ' +
+                                'statement that the ordinance cannot be satisfied. No envelope.',
+                            );
+                        } else {
+                            addTierRow('tier.bandDepth', solvedBand.depth_m);
+                            const a = parcelRing[frontIdx]!;
+                            const b = parcelRing[(frontIdx + 1) % parcelRing.length]!;
+                            const bandClip = clipToDepthBand(insetPolygon, a, b, solvedBand.depth_m);
+                            const interiorClip = clipBeyondDepthBand(
+                                insetPolygon, a, b, solvedBand.depth_m,
+                            );
+                            if (bandClip.degenerate || bandClip.polygon.length < 3) {
+                                // The parcel lies wholly in the block interior. Legally that is a
+                                // real answer — a single 5 m tier — but it is NOT what this branch
+                                // is built to assert, and inventing the one-tier case here would
+                                // duplicate the interior tier's construction. Refuse rather than
+                                // guess which of the two shapes the plot has.
+                                status = 'degenerate';
+                                insetPolygon = [];
+                                caveats.push(
+                                    `Tiered zone: the Art. 350.2.b band (${solvedBand.depth_m.toFixed(2)} m ` +
+                                    'from the block alignments) leaves no street-facing tier on this ' +
+                                    'parcel. No envelope.',
+                                );
+                            } else {
+                                const bandArea = polygonArea(bandClip.polygon);
+                                tiers.push({
+                                    id: 'block-band',
+                                    label:
+                                        `Inside the ${(geometricRule.bandAreaRatioOfBlock * 100).toFixed(0)} % ` +
+                                        `block band — ${solvedBand.depth_m.toFixed(2)} m from the ` +
+                                        'street alignments (Art. 350.2.b)',
+                                    polygon: bandClip.polygon,
+                                    areaM2: bandArea,
+                                    baseHeight_m: 0,
+                                    // ⚠ MAY BE NULL, and that null is a finding rather than a gap:
+                                    // Art. 350.2.c keys on the *amplada de vial* AND is gated on
+                                    // the Pla-Parcial regime, so this tier's REGION can be
+                                    // determined while its HEIGHT honestly refuses. A default here
+                                    // would be a fabricated height on the tallest part of the
+                                    // building (C58 §1.4).
+                                    maxHeight_m: maxHeight.value,
+                                    maxFloors: maxFloors.value,
+                                    ordinanceRef,
+                                });
+                                if (!interiorClip.degenerate && interiorClip.polygon.length >= 3) {
+                                    tiers.push({
+                                        id: 'block-interior',
+                                        label:
+                                            'Block interior — ' +
+                                            `${geometricRule.interiorTierHeight_m} m, ` +
+                                            `${geometricRule.interiorTierFloors} indivisible ` +
+                                            'storey (Art. 350.2.e)',
+                                        polygon: interiorClip.polygon,
+                                        areaM2: polygonArea(interiorClip.polygon),
+                                        baseHeight_m: 0,
+                                        maxHeight_m: geometricRule.interiorTierHeight_m,
+                                        maxFloors: geometricRule.interiorTierFloors,
+                                        ordinanceRef,
+                                    });
+                                } else {
+                                    caveats.push(
+                                        'This parcel lies wholly inside the block band, so the ' +
+                                        `${geometricRule.interiorTierHeight_m} m block-interior ` +
+                                        'tier (Art. 350.2.e) does not arise here.',
+                                    );
+                                }
+
+                                // ── The PRINCIPAL tier drives the legacy single-prism fields. ──
+                                // Pinned by the `BuildableEnvelopeSchema` refinement, so a
+                                // tier-unaware consumer (the facts panel, the Cesium massing, the
+                                // C58 §1.8 generator bounds) always reads a REAL tier of the REAL
+                                // solid: under-stated, never over-stated.
+                                const principal = principalTier(tiers)!;
+                                insetPolygon = principal.polygon;
+                                tieredMaxHeight = principal.maxHeight_m;
+                                tieredMaxFloors = principal.maxFloors;
+                                caveats.push(
+                                    `Two-tier envelope (PGM Art. 350.2): ` +
+                                    tiers.map((t) => `${t.label} → ` +
+                                        (t.maxHeight_m === null
+                                            ? 'height not established'
+                                            : `${t.maxHeight_m} m`)).join(' · ') +
+                                    `. The single-volume figures below describe the PRINCIPAL tier ` +
+                                    `only ("${principal.label}") and therefore UNDER-state the ` +
+                                    'whole permitted solid — read `tiers` for the full envelope ' +
+                                    '(ADR-0273).',
+                                );
+                            }
+                        }
+                    }
+                }
+
                 if (status === 'ok') {
                     insetAreaM2 = polygonArea(insetPolygon);
-                    if (maxHeight.value !== null) {
-                        maxVolumeM3 = insetAreaM2 * maxHeight.value;
+                    const headlineHeight =
+                        tieredMaxHeight !== undefined ? tieredMaxHeight : maxHeight.value;
+                    if (headlineHeight !== null) {
+                        // ── §L-590b — THE OCCUPATION CAP BINDS THE VOLUME, NOT THE RING. ───────
+                        //
+                        // ADR-0272 §3.2: a coverage limit constrains HOW MUCH ground is occupied,
+                        // never WHERE, so it must not reshape a polygon — the ring stays the
+                        // permitted REGION. But ADR-0272 §4 also flagged, as a migration
+                        // obligation, that `insetAreaM2 × maxHeight` then OVER-STATES the study
+                        // volume for a coverage-governed zone. On Art. 350.2 that is not
+                        // hypothetical: a parcel shallower than the band depth has a band tier
+                        // covering 100 % of the plot beside a published 90 % cap — the precise
+                        // over-statement `BCN_22A_ENVELOPE_BLOCKER` refused to ship, and C58 §1.4
+                        // forbids it in this direction specifically.
+                        //
+                        // ⚠ APPLIED ONLY WHERE THE ZONE IS TIERED, and deliberately not
+                        // retro-fitted to every coverage-carrying zone in this pass: doing so
+                        // silently changes the published volume of every shipped envelope, which
+                        // is a product decision with its own before/after measurement, not a
+                        // side-effect of adding a rule kind. Recorded in C58 KG-3.
+                        const cap =
+                            tiers.length > 0 && maxCoverage.value !== null
+                                ? maxCoverage.value * polygonArea(parcelRing)
+                                : Infinity;
+                        const effectiveArea = Math.min(insetAreaM2, cap);
+                        maxVolumeM3 = effectiveArea * headlineHeight;
+                        if (effectiveArea < insetAreaM2 - 1e-9) {
+                            caveats.push(
+                                `Ocupació màxima ${(maxCoverage.value! * 100).toFixed(0)} % of the ` +
+                                'parcel binds the study volume: the tier ring is the region ' +
+                                'building is PERMITTED in, not the area that may be covered ' +
+                                '(ADR-0272 §3.2).',
+                            );
+                        }
                     }
                 }
             }
@@ -508,8 +736,19 @@ export function computeBuildableEnvelope(
             // the `ZoningRecord` and this line becomes a read of that, not a constant.
             granularity: 'parcel',
             insetPolygon,
-            maxHeight_m: maxHeight.value,
-            maxFloors: maxFloors.value,
+            // §L-590b — a TIERED envelope's headline height is the PRINCIPAL TIER's, not the
+            // zone-level resolution, and the two genuinely differ: on Art. 350.2 the tall tier's
+            // height can refuse (no *amplada de vial*, or the Pla-Parcial regime unknown) while
+            // the 5 m block-interior tier is stated outright. Publishing the zone-level `null`
+            // there would hide a height the ordinance DOES give, and publishing the tall tier's
+            // height beside the interior tier's ring would over-state. `undefined` means the
+            // tiered branch never ran, which is every other zone.
+            //
+            // ⚠ The `BuildableEnvelopeSchema` refinement enforces this agreement, so the two can
+            // never drift: a producer that fills `tiers` and leaves these fields describing
+            // something else fails to parse.
+            maxHeight_m: tieredMaxHeight !== undefined ? tieredMaxHeight : maxHeight.value,
+            maxFloors: tieredMaxFloors !== undefined ? tieredMaxFloors : maxFloors.value,
             maxFAR: maxFAR.value,
             maxCoverage: maxCoverage.value,
             maxVolumeM3,
@@ -520,6 +759,9 @@ export function computeBuildableEnvelope(
             zoneCode: anyResolved ? zoning.zoneCode : null,
             derivation,
             caveats,
+            // §L-590b / ADR-0273 — empty for every single-prism zone (all of them but
+            // `tiered-occupation`), which is the identity and not a gap.
+            tiers,
             // L-550 — the SOLVER never refuses on legal grounds: by the time a parcel reaches
             // here a rule pack has already been selected for it, so its zone IS buildable. A
             // "no envelope applies" answer is a CLASSIFICATION decision taken upstream (the

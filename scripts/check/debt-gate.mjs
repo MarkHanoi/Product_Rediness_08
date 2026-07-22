@@ -40,51 +40,71 @@ import { execSync } from 'node:child_process';
 const BASELINE_PATH = new URL('./debt-baselines.json', import.meta.url);
 
 /**
- * ⚠ ESLINT IS RUN **ONCE**, NOT ONCE PER METRIC.
+ * ⚠ ESLINT IS RUN **ONCE**, AS **JSON**, AND THE RESULT IS PROVEN NON-EMPTY BEFORE IT IS TRUSTED.
  *
- * The first draft shelled `npx eslint .` inside each metric's counter. Over ~200 tracked files that
- * is minutes per invocation, and three metrics timed the gate out at ten minutes — a gate slow
- * enough to be skipped is a gate that does not exist. One invocation, then every metric counts its
- * own rule out of the same buffer.
+ * Two defects were built into this file and caught before it shipped. Both are recorded because the
+ * second one is the more instructive:
+ *
+ * 1. The first draft shelled `npx eslint .` inside EACH metric's counter. Over ~200 tracked files
+ *    that is minutes per invocation, and three metrics timed the gate out at ten minutes. **A gate
+ *    slow enough to be skipped is a gate that does not exist.** One invocation now.
+ *
+ * 2. ⚠⚠ **THE SECOND DRAFT USED `--format unix` AND SILENTLY MEASURED NOTHING.** That formatter was
+ *    removed from core ESLint; the command exits 2 printing *"The unix formatter is no longer part
+ *    of core ESLint"* and emits **no violations at all**. Every counter read 0, every metric
+ *    reported "baseline maintained", and **the gate passed while measuring nothing** — on a repo
+ *    with 126 `no-restricted-imports` errors. **A FALSE PASS IS WORSE THAN NO GATE**, because it
+ *    actively certifies the thing it cannot see.
+ *
+ * ⇒ That is the **failure-vs-empty conflation** this codebase has been bitten by five times
+ * (§CONTEXT-DATA-HONESTY, L-422/457/467/469/579): *"I found zero violations"* and *"I could not
+ * measure"* are the same VALUE and must never be the same ANSWER. So this uses the **core `json`
+ * formatter** and **refuses to report** unless it can prove it actually parsed a lint run.
  */
-function eslintOutput() {
+function eslintResults() {
+    let out = '';
     try {
-        return execSync('npx eslint . --format unix', {
-            encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+        out = execSync('npx eslint . --format json', {
+            encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
         });
     } catch (e) {
-        // A linter exiting non-zero because it FOUND things is behaving correctly, not failing.
-        return `${e.stdout ?? ''}${e.stderr ?? ''}`;
+        // A linter exiting non-zero because it FOUND things is behaving correctly, not failing —
+        // its stdout still holds the JSON.
+        out = `${e.stdout ?? ''}`;
     }
+    const start = out.indexOf('[');
+    if (start < 0) throw new Error('eslint produced no JSON — cannot measure (see the note above)');
+    let parsed;
+    try {
+        parsed = JSON.parse(out.slice(start));
+    } catch {
+        throw new Error('eslint JSON did not parse — cannot measure (see the note above)');
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('eslint reported ZERO FILES — cannot measure (see the note above)');
+    }
+    return parsed;
 }
 
-/**
- * Count violations of ONE eslint rule in `--format unix` output.
- *
- * NO REGEX, DELIBERATELY. unix format ends each line `[Error/<rule>]`, so a LITERAL substring
- * count of `<rule>]` is both simpler and safer.
- *
- * The regex version was tried and was WRONG: `\bno-empty\b` also matches inside
- * `no-empty-function`, because `-` is a non-word character so the boundary sits right there.
- * Verified on a two-line sample containing one real `no-empty`: it scored 2. **A gate that silently
- * over-counts fails innocent changes and teaches people to bypass it**, which is worse than no gate.
- */
-const countRule = (out, rule) => out.split(`${rule}]`).length - 1;
+/** Count violations of one rule across the parsed result. Exact `ruleId` match — no substrings, so
+ *  `no-empty` can never absorb `no-empty-function`. */
+const countRule = (results, rule) =>
+    results.reduce((n, f) => n + (f.messages ?? []).filter((m) => m.ruleId === rule).length, 0);
 
-/** Every metric is `(eslintOut) => number`. Add a row here + a baseline entry; no new script. */
+/** Every metric is `(eslintResults) => number`. Add a row here + a baseline entry; no new script. */
 const METRICS = {
-    // 126 at the time of writing, and ~98 files' worth existed at the repo's INITIAL commit.
+    // ~126 at the time of writing, and ~98 files' worth existed at the repo's INITIAL commit.
     // Architectural debt (C14 legacy elimination / the OBC migration), not a style nit.
-    'eslint/no-restricted-imports': (o) => countRule(o, 'no-restricted-imports'),
+    'eslint/no-restricted-imports': (r) => countRule(r, 'no-restricted-imports'),
     // P2 - direct `three` imports outside packages/renderer-three.
-    'eslint/three-outside-committer': (o) => countRule(o, 'no-three-outside-committer'),
+    'eslint/three-outside-committer': (r) => countRule(r, 'pryzm/no-three-outside-committer'),
     // Trivially fixable; kept visible so it trends down instead of accumulating.
-    'eslint/no-empty': (o) => countRule(o, 'no-empty'),
+    'eslint/no-empty': (r) => countRule(r, 'no-empty'),
 };
 
 const baselines = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
 console.log('  running eslint once for every metric…');
-const esOut = eslintOutput();
+const esOut = eslintResults();
 const update = process.argv.includes('--update');
 const rows = [];
 let failed = 0;

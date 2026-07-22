@@ -72,6 +72,14 @@ const CONSTRAINT_ORDER: readonly DerivationConstraint[] = [
     'alignment.depthBinding',
     'alignment.offset',
     'alignment.sideTreatment',
+    // §L-590b / ADR-0273 — the tier rows lead for the same reason the alignment rows do: on an
+    // Art. 350.2 parcel the tier split IS the governing rule, and a reader who meets "Max height"
+    // first will take one number for the whole building when the ordinance grants two. The ratio
+    // comes before the depth it produces, and the block-interior height last, because that is the
+    // order the article argues in (350.2.b → its depth → 350.2.e).
+    'tier.bandAreaRatio',
+    'tier.bandDepth',
+    'tier.interiorHeight',
     'setback.front',
     'setback.side',
     'setback.rear',
@@ -88,6 +96,13 @@ const LABELS: Record<DerivationConstraint, string> = {
     'alignment.depthBinding': 'Depth determined by',
     'alignment.offset': 'Offset from alignment (alineación)',
     'alignment.sideTreatment': 'Lateral boundaries',
+    // §L-590b / ADR-0273. "of the block" is IN the label, not only in the citation: the whole
+    // hazard of Art. 350's numbers is that 70 % and 90 % appear in the same article measured
+    // against different things (C58 §1.11), and a row reading just "Band area" beside "Max site
+    // coverage 90 %" invites exactly that conflation.
+    'tier.bandAreaRatio': 'Upper-floor band, as a share of the BLOCK (franja concèntrica)',
+    'tier.bandDepth': 'Upper-floor band depth from the block alignments',
+    'tier.interiorHeight': 'Height in the block interior, beyond the band',
     'setback.front': 'Front setback',
     'setback.side': 'Side setback',
     'setback.rear': 'Rear setback',
@@ -135,6 +150,15 @@ export function formatConstraintValue(
         if (constraint === 'maxFAR') return value.toFixed(2);
         // Coverage may arrive as a 0–1 fraction OR an already-percent number — normalise.
         if (constraint === 'maxCoverage') return `${(value <= 1 ? value * 100 : value).toFixed(0)}%`;
+        // §L-590b — the band ratio is a SHARE OF THE BLOCK, not a length. Without this it would
+        // fall through to the metres default and print "0.7 m" for Art. 350.2.b's 70 %: a real
+        // ordinance figure rendered as a completely different quantity, under a correct citation
+        // — the C58 §1.11 category error, produced by a formatting default. The unit is spelled
+        // out rather than left to the `%` sign because the row sits two lines from "Max site
+        // coverage 90 %", which is a share of the PARCEL.
+        if (constraint === 'tier.bandAreaRatio') {
+            return `${(value <= 1 ? value * 100 : value).toFixed(0)}% of the block`;
+        }
         return `${value.toFixed(1)} m`;
     }
     // Remaining case: a list of permitted uses (readonly string[]).

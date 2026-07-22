@@ -48,6 +48,10 @@
 // C58 §1.2/§1.3/§1.4, ADR-0272.
 
 import type { EnvelopeRefusal } from '@pryzm/schemas';
+import {
+    BCN_22A_REGIME_NEUTRAL_LIMITS,
+    BCN_INDUSTRIAL_ZONE_CODES,
+} from './esBarcelonaIndustrial.js';
 
 /** The instrument every classification below is read from. */
 export const BCN_PGM_INSTRUMENT_REF =
@@ -315,6 +319,25 @@ export function barcelonaZoneRefusalFor(
     const attach = (r: ClassifiedRefusal): EnvelopeRefusal => ({ ...r, knownFacts: [...knownFacts] });
     const byClau = BCN_ZONE_REFUSALS_BY_CLAU.get(clau);
     if (byClau) return attach(byClau);
+    // ── §L-590c / ADR-0276 — clau 22a's NAMED refusal, ahead of the coverage gap. ────────────
+    //
+    // ⚠ IT MUST RESOLVE HERE AND NOT IN `barcelonaNoRulePackRefusal`, and the ordering is the
+    // whole point: `resolveZoneDisposition` consults `refusalFor` BEFORE `noRulePackRefusal`, so
+    // putting 22a here is what stops the generic *"PRYZM has not encoded this zone's rules yet"*
+    // card — a statement about our coverage that has been FALSE since `esBarcelonaIndustrial.ts`
+    // was authored — from being what a 22a owner reads. The same correction was made for 13b in
+    // `coverageGapReasonFor`, for the same reason: a false statement about OUR coverage is the
+    // mirror image of the false statement about the LAW that this module exists to prevent.
+    //
+    // ⚠ AND IT IS NOT IN THE `CLASSIFICATIONS` TABLE ABOVE, deliberately. Every row there is
+    // `legallyGrounded: true` — a claim about what the ordinance says about the land. This one is
+    // `legallyGrounded: false`: the ordinance is fully known and PRYZM cannot locate the parcel
+    // within it. Filing it as a legal classification would make it look like the PGM refuses an
+    // envelope on industrial land, which is the false-negative-about-someone's-land error L-553
+    // ranks as the worst of the set.
+    if ((BCN_INDUSTRIAL_ZONE_CODES as readonly string[]).includes(clau)) {
+        return barcelonaRegimeUndeterminedRefusal(clau, null, knownFacts);
+    }
     if (
         typeof harmonisedCode === 'string' &&
         harmonisedCode.trim().toUpperCase().startsWith(HARMONISED_SYSTEM_PREFIX)
@@ -391,12 +414,7 @@ function coverageGapReasonFor(clau: string): string {
     // this copy is what a user reads, and a sentence claiming we have not encoded a zone we HAVE
     // encoded is a false statement about our own coverage — the mirror image of the false
     // statement about the law that the rest of this module exists to prevent.
-    // §L-595 — clau 12 now has a pack (Art. 320.3a + Art. 320.2a's 40% construction), so only
-    // 12b remains a coverage gap. ⚠ 12b stays refused for a REASON, not an omission: its height
-    // is the MEAN OF EXISTING NEIGHBOURS and its depth that of the adjacent buildings — inputs
-    // our pipeline does not hold, and averaging our 0.9%-surveyed context into a legal height
-    // would be fabrication wearing the costume of a construction.
-    if (clau === '12b') {
+    if (clau === '12' || clau === '12b') {
         return (
             'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
             'did. It has been switched off deliberately: this zone is regulated by a different ' +
@@ -410,25 +428,27 @@ function coverageGapReasonFor(clau: string): string {
     // Industrial / activitats — the LIMITS are a coverage % and a floor-area index, which the
     // solver resolves and displays but cannot yet apply to geometry (ADR-0272, Phase 2).
     //
-    // ⚠ §L-590 — 22a's governing article HAS now been read from the primary PGM text and encoded
-    // (`esBarcelonaIndustrial.ts`, PGM Art. 350 on p. 116 of the committed NNUU PDF). The pack is
-    // deliberately NOT registered, so this branch stays REACHABLE and the copy stays true — but it
-    // is now true for a sharper reason, and the sharper reason is what the user gets. Art. 350.2
-    // describes a two-tier solid (≤90 % of the parcel at ground floor; above it, only inside a band
-    // concentric with the BLOCK equal to 70 % of the block) and our envelope model holds a single
-    // prism. Saying "we have read your zone's article and it needs a shape we cannot yet draw" is a
-    // different and more honest statement than "we have not read it", and it is the one that is
-    // now accurate. See `BCN_22A_ENVELOPE_BLOCKER`.
-    if (clau === '22a' || clau === '22@') {
+    // ⚠⚠ §L-590c — **`22a` WAS IN THIS BRANCH AND IS NOT ANY MORE**, and the removal follows the
+    // same rule as `13b`'s above: `barcelonaZoneRefusalFor` now returns a NAMED
+    // `regime-undetermined` refusal for `22a` (ADR-0276), and `resolveZoneDisposition` consults
+    // that BEFORE the coverage gap — so this text is unreachable for `22a`, and leaving it in
+    // would leave a sentence claiming we have not encoded a zone we HAVE encoded. That is a false
+    // statement about our own coverage: the mirror image of the false statement about the law
+    // that the rest of this module exists to prevent.
+    //
+    // ⚠ `22@` STAYS, because for `22@` the sentence is still TRUE. The 2000 MPGM defines 22@ as a
+    // formally distinct subzone with its own articles, and PRYZM has authored no pack for it —
+    // answering it from Art. 350 would cite the wrong articles for that land. The copy is
+    // therefore re-pointed at 22@'s actual blocker rather than inherited from 22a's.
+    if (clau === '22@') {
         return (
-            'This zone states its limits as a maximum ground occupation and a floor-area index ' +
-            '(m² of floor per m² of site) rather than as setback distances — and above the ground ' +
-            'floor it confines the building to a band measured around the whole block, not around ' +
-            'your plot. PRYZM has read the governing article and can quote those numbers, but the ' +
-            'shape it describes is a wide ground floor with a narrower building above it, which ' +
-            'our buildable-volume model cannot yet draw. A generic setback estimate would answer ' +
-            'a different question from the one this zone asks. We would rather show you nothing ' +
-            'than something wrong.'
+            'This zone (22@, the Poblenou *districte d’activitats*) is a formally distinct subzone ' +
+            'created by a 2000 modification of the general plan, and it is governed by that ' +
+            'instrument’s OWN articles — its own permitted uses, its own complementary ' +
+            'buildability coefficients and its own transformation regime — except where they ' +
+            'defer back to the general plan. PRYZM has read and encoded the base industrial zone ' +
+            '(22a) but not 22@, and answering you from the base zone’s article would quote rules ' +
+            'that do not govern your land. We would rather show you nothing than something wrong.'
         );
     }
     // *Edificació aïllada* — separations ARE the right shape here. The blocker is that we hold
@@ -491,6 +511,150 @@ export function barcelonaNoRulePackRefusal(
         // for it would be the L-526 error (an authoritative-looking citation for a claim the
         // document does not make).
         ordinanceRef: null,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §L-590c / ADR-0276 — THE FOURTH REFUSAL: *"the ordinance states two regimes and no public
+// source says which one your parcel is in."* FOUNDER-RULED 2026-07-22.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// THE SITUATION IT NAMES. PGM Art. 350 governs clau `22a` (*zona industrial*) — **17.5 % of
+// Barcelona's private buildable land**, fully sourced from the primary text (L-590) and fully
+// solvable since ADR-0273. And it governs it TWICE:
+//
+//   • **Art. 350.2.a–f** — for industrial land *mancada de Pla Parcial*. Full conditions,
+//     including the 350.2.c street-width height table and the 350.2.b concentric band.
+//   • **Art. 350.1** — for land WITH a definitively-approved *Pla Parcial*. The PGM imposes only
+//     two ceilings; the height, the storeys and any band come from that plan's own plànols and
+//     ordenances, a document PRYZM does not hold.
+//
+// **Neither the Catastro parcel nor the MUC records which regime applies.** The field does not
+// exist in either source.
+//
+// ⚠ WHY THE OTHER THREE REFUSALS WOULD EACH BE A DIFFERENT FALSE STATEMENT — the argument that
+// earns a fourth code rather than a fourth caveat (ADR-0276 §2):
+//
+//   • `no-rule-pack` — *"PRYZM has not encoded this zone's rules yet."* **False.** The pack is
+//     authored from the primary PDF, schema-validated, and solved end-to-end against a real
+//     block. More authoring would not move it one inch. This is the same defect that had `13b`
+//     removed from `coverageGapReasonFor`: a false statement about OUR OWN coverage.
+//   • `source-data-unavailable` — **false, and harmful in a specific way.** That code is defined
+//     as the ONE TRANSIENT refusal and is the only one that earns a retry affordance; the card
+//     literally says *"Re-select the parcel to try again — this usually clears on a second
+//     attempt."* Nothing clears here on a retry, because the input is not a fetch that failed,
+//     it is a legal fact nobody publishes. It would loop a user for ever.
+//   • `derived-plan` — the closest legal cousin, and the most dangerous. It asserts that the
+//     general plan DELEGATES buildability to another document for this parcel. That is true in
+//     exactly one of the two regimes — i.e. asserting it would assert the very fact we cannot
+//     establish, on someone's land, under a citation. **That is L-526 verbatim.**
+//
+// ⇒ §CONTEXT-DATA-HONESTY, one turn further: a coverage gap, a fetch failure and *"we cannot make
+// this determination"* are THREE different answers, and this is the third.
+//
+// ⚠ AND THIS IS THE ONLY REFUSAL THAT STATES LIMITS (C58 §1.13.7). Every other refusal says
+// nothing numeric because it has nothing to say. Here we hold two figures the ordinance states in
+// BOTH regimes, and withholding them would be its own dishonesty — the user would read "we can
+// tell you nothing" when we can tell them the most load-bearing number on the zone. The safety
+// argument is exact and has two halves:
+//   1. The figures live in `detail` and `ordinanceRef` — PROSE under a citation. **Every numeric
+//      field of the envelope stays null** (C58 §1.13.3, `buildRefusedEnvelope` unchanged), so
+//      `storeyCap`, the generators, the Cesium massing and the C58 §1.8 generator bounds all
+//      still receive nothing and can extrude nothing.
+//   2. Prose is the ONLY form that can carry the occupation's condition. `maxCoverage: 0.9` in a
+//      field is unconditional by construction; *"90 %, where the sector is ordered segons
+//      alineacions de vial"* is the true statement, and it does not fit in a number.
+//   ⚠ They are also NOT put in `knownFacts`, whose contract is "facts only — never a constraint,
+//   never a number the user could mistake for an allowance". A FAR ceiling is exactly such a
+//   number, and the `knownFacts` block renders as bare lines with no room for the condition.
+
+/**
+ * The label used when no caller supplies one. Taken from the pack rather than the MUC because we
+ * know this zone's name from the ordinance itself — and `barcelonaZoneRefusalFor`'s signature
+ * carries no label, so relying on the provider would silently drop L-553 rule 1 (name the zone
+ * first) on the very card that most needs it.
+ */
+const BCN_22A_DEFAULT_LABEL = 'Zona Industrial';
+
+/**
+ * The citation carried by the refusal below. **Narrower than the pack's `BCN_22A_ORDINANCE_REF` on
+ * purpose:** the pack's ref names Art. 350.2.b/.c/.d/.e/.f, and this card asserts none of those.
+ * Citing them here would attach an authoritative-looking reference to paragraphs the card is
+ * explicitly declining to apply — a citation that cannot be checked against the claim, which is
+ * the L-526 failure in miniature.
+ */
+export const BCN_22A_REGIME_ORDINANCE_REF =
+    'PGM-1976 NNUU, clau 22a (Zona Industrial, Secció 8a, Arts. 348–351). ' +
+    'Edificabilitat 2 m² sostre/m² sòl: stated identically by Art. 350.1.1r, Art. 350.1.2n and ' +
+    'Art. 350.2.a, and therefore independent of both the Pla-Parcial regime and the sector’s ' +
+    'ordering type. Ocupació màxima 90 %: Art. 350.1.1r and Art. 350.2.a, for sectors ordered ' +
+    '*segons alineacions de vial* (Art. 349.1); Art. 350.1.2n caps *edificació aïllada* sectors ' +
+    'at 70 % instead. ⚠ The alçada màxima (Art. 350.2.c) and the franja concèntrica del 70 % de ' +
+    'l’illa (Art. 350.2.b) are NOT cited for this parcel: they govern only land *mancada de Pla ' +
+    'Parcial*, and PRYZM holds no source establishing which regime applies. ' +
+    'Source: MMAMB re-edition of the Normativa Urbanística Metropolitana (1976 NNUU / 1988 Text ' +
+    'Refós), p. 116, committed at docs/04-reference/spain/barcelona-catalonia/' +
+    'PGM-NNUU-metropolitana.pdf — a manually re-typeset re-edition, primary but NOT ' +
+    'authenticated. §L-590c.';
+
+/**
+ * §L-590c / ADR-0276 — the `regime-undetermined` refusal for Barcelona clau `22a`.
+ *
+ * Says, in substance: *"PGM Art. 350 caps this land at 2 m² sostre/m² sòl — that holds whichever
+ * regime governs your parcel. The occupation cap is 90 % on the ordinary alignment ordering. The
+ * buildable HEIGHT and the concentric band depend on which of the article's two regimes applies,
+ * and no public source records that. Here is exactly what we would need."*
+ *
+ * ⚠ `legallyGrounded: false`. The LAW is fully known — both halves of it, read from p. 116 and
+ * transcribed. What is missing is which half applies to this parcel, which is a statement about
+ * PRYZM's inputs. Flipping this to `true` would render the card as *"the ordinance grants no
+ * envelope here"* and tell an industrial landowner their plot cannot be built on.
+ *
+ * ⚠ `ordinanceRef` IS present, unlike the other two `legallyGrounded: false` refusals — and that
+ * is not an inconsistency. Those two cite nothing because they make no claim about the ordinance.
+ * This one DOES make claims about the ordinance (the FAR, the occupation, the existence of two
+ * regimes), and C58 §1.13.4 requires a claim about the law to cite what was actually read.
+ */
+export function barcelonaRegimeUndeterminedRefusal(
+    clau: string,
+    clauLabel?: string | null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const L = BCN_22A_REGIME_NEUTRAL_LIMITS;
+    const named = `${(clauLabel && clauLabel.trim()) || BCN_22A_DEFAULT_LABEL} (clau ${clau})`;
+    return {
+        code: 'regime-undetermined',
+        // L-553 rule 1 — name the zone first, then say what is missing in ONE clause. The
+        // headline deliberately does NOT say "no envelope"; it says which determination failed.
+        headline:
+            `${named} — PRYZM holds this zone's limits, but the governing article has TWO ` +
+            'regimes and no public source says which one applies to your parcel.',
+        detail:
+            // ── What we CAN state, and it is stated first, because it is the part that is true. ──
+            `PGM Art. 350 caps this land at a floor-area index of ${L.plotRatioFAR} m² of floor ` +
+            `per m² of site. That figure holds whichever regime governs your parcel — all three ` +
+            `paragraphs of the article state it (Arts. ${L.plotRatioFARArticles}). Maximum ` +
+            `ground occupation is ${(L.maxCoverage * 100).toFixed(0)} % of the parcel ` +
+            `(Arts. ${L.maxCoverageArticles}) ${L.maxCoverageCondition} ` +
+            // ── What we CANNOT state, and exactly why. ──
+            'What PRYZM cannot establish is the buildable HEIGHT or the band the building must ' +
+            'sit within above the ground floor. Those govern only industrial land that is NOT ' +
+            'covered by a definitively-approved detailed plan (*Pla Parcial*); where one is in ' +
+            'force, that plan sets them instead, and its heights can differ from the general ' +
+            'plan’s by a factor of two. ' +
+            // ── The missing input, NAMED. This is the sentence that makes the refusal actionable
+            //    and that distinguishes it from "we don't know". ──
+            'The missing input is a single fact about your parcel: is a definitively-approved ' +
+            'Pla Parcial in force here, and if so, what ordering type does it assign this ' +
+            'sector? Neither the cadastral record nor the Generalitat’s planning map carries ' +
+            'it. We would rather give you the two figures that are certain and decline the rest ' +
+            'than publish a height that may belong to the other regime.',
+        // C58 §1.13.4 — cite what was actually read. This refusal makes real claims about the
+        // ordinance, so it must carry the ordinance's own reference; the two other
+        // `legallyGrounded: false` refusals cite nothing because they claim nothing about it.
+        ordinanceRef: BCN_22A_REGIME_ORDINANCE_REF,
         legallyGrounded: false,
         knownFacts: [...knownFacts],
     };

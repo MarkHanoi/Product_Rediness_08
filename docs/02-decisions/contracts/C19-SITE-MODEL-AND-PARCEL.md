@@ -67,6 +67,21 @@ The `Parcel.boundary` polygon (the legal lot outline) MUST be authored once (via
 
 **Why**: the Inspect/Data/Selection systems (C27, C28) assume editable BIM elements. ContextBuildings are environment, not BIM. Conflating the two breaks the selection / property-panel semantics.
 
+> ⚠ **KNOWN DIVERGENCE (L-602, 2026-07-22) — §5.3's Site Inspector IS NOT BUILT, and two other
+> surfaces carry its data instead.** `GISAreaLayout.buildSiteDataBlock()` renders the parcel /
+> ordinance / massing / capacity block, and the L-592 3D-Site query panel renders context-building
+> attributes on selection. **Neither is the §5.3 Inspector.** The L-592 panel is strictly READ-ONLY,
+> so it does not violate §1.5's letter (which forbids context buildings in *property panels for
+> selection-based editing*) — but §1.5's *"they appear in the Site Inspector only"* is not being
+> honoured, because the Inspector does not exist. Recorded here rather than left implicit, so this
+> contract does not keep claiming a surface the code does not have.
+>
+> ⚠ **And a trap for whoever builds it:** §1.4 (parcel boundary immutable post-create) together with
+> [C57](./C57-PARCEL-DATA-LAYER.md) §1.3 (*"a selected parcel commits down C19's identical one-shot
+> immutable path"*) means that **reusing the parcel-select path merely to INSPECT a neighbouring
+> parcel would overwrite the user's Site.** Any "click any parcel to see its data" implementation
+> MUST prove by test that a non-site parcel selection performs no site write. See L-602.
+
 ### §1.6 — Footprint must lie inside Parcel minus setbacks
 
 The `BuildingFootprint.polygon` (the project's own building outline on the parcel) MUST satisfy:

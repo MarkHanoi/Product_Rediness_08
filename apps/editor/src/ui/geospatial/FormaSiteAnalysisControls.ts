@@ -65,6 +65,9 @@ import {
     peekRealClimateBaseline,
     peekRealPopulationSample,
 } from '../climate/siteRealData';
+// §FACADE-STUDY-SUBJECT (L-596) — the subject type + its user-facing labels. The REFUSAL wording
+// lives in that module too, so the panel never invents its own explanation of a missing input.
+import type { FacadeStudySubject } from './facadeStudySubject';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ACCENT = '#6600FF';
@@ -97,6 +100,15 @@ export interface FormaSunViewport {
     // the viewport doesn't implement it (test stub / older build).
     setFacadeAnalysis?(on: boolean): void;
     getFacadeAnalysis?(): boolean;
+    // §FACADE-STUDY-SUBJECT (L-596) — WHAT the sun study runs on: the DESIGNED BUILDING
+    // (default) or the BUILDABLE ENVELOPE (pre-planning). ⚠ The choice is the USER's; the
+    // viewport never substitutes one for the other (see L-272 / facadeStudySubject.ts).
+    setFacadeStudySubject?(subject: FacadeStudySubject): void;
+    getFacadeStudySubject?(): FacadeStudySubject;
+    // §CTX-USE-COLOUR (L-599) — colour context buildings by their ACTUAL OSM use. A MODE:
+    // turning it off restores the scene's previous appearance exactly.
+    setContextUseColouring?(on: boolean): void;
+    getContextUseColouring?(): boolean;
 }
 
 /** Season presets → a representative day (UTC midnight) of the current year. */
@@ -133,6 +145,16 @@ export class FormaSiteAnalysisControls {
      *  sun-hours heatmap is active (façade priority metric = sun-hours). */
     private facadeRow: HTMLElement | null = null;
     private facadeOn = false;
+    /**
+     * §FACADE-STUDY-SUBJECT (L-596) — which subject the façade study runs on. DEFAULT 'building'
+     * (unchanged behaviour). Rendered as TWO EXPLICIT buttons, never as an automatic fallback:
+     * an envelope study and a building façade study answer different questions, and L-272 records
+     * what happens when the code decides that for the user.
+     */
+    private facadeSubject: FacadeStudySubject = 'building';
+    /** §CTX-USE-COLOUR (L-599) — the "colour by use" mode row + state. DEFAULT OFF. */
+    private useColourRow: HTMLElement | null = null;
+    private useColourOn = false;
     /** Guards a single proactive `ensureSiteClimate` per mount (avoid loops). */
     private climateEnsureRequested = false;
     /** SITE-PANEL-UI — user dismissed the panel (✕). STATIC so the choice persists
@@ -255,6 +277,10 @@ export class FormaSiteAnalysisControls {
             this.viewport.setSiteMetricOverlay?.(null);
             // §FORMA-FACADE-ANALYSIS — clear the façade study on view exit.
             this.viewport.setFacadeAnalysis?.(false);
+            // §CTX-USE-COLOUR (L-599) — leave the scene EXACTLY as we found it. The mode is
+            // analysis chrome, so unmounting it must restore the base massing appearance rather
+            // than leaving a coloured city behind with no legend to explain it.
+            this.viewport.setContextUseColouring?.(false);
         } catch { /* ignore */ }
         try { if (isClimatePanelOpen()) closeClimatePanel(); } catch { /* ignore */ }
         if (this.root?.parentElement) this.root.parentElement.removeChild(this.root);
@@ -272,6 +298,9 @@ export class FormaSiteAnalysisControls {
         this.sunDayRow = null;
         this.facadeRow = null;
         this.facadeOn = false;
+        this.facadeSubject = 'building';
+        this.useColourRow = null;
+        this.useColourOn = false;
         this.activeMetric = null;
         this.climateEnsureRequested = false;
     }
@@ -871,6 +900,14 @@ export class FormaSiteAnalysisControls {
         this.facadeRow = facade;
         block.appendChild(facade);
 
+        // §CTX-USE-COLOUR (L-599) — the "colour context by use" MODE. Independent of the
+        // sun-hours metric (it describes the neighbourhood, not a climate field), so it is
+        // always shown when the viewport supports it.
+        const useColour = document.createElement('div');
+        Object.assign(useColour.style, { marginTop: '6px' });
+        this.useColourRow = useColour;
+        block.appendChild(useColour);
+
         const legend = document.createElement('div');
         this.metricLegendWrap = legend;
         block.appendChild(legend);
@@ -878,6 +915,7 @@ export class FormaSiteAnalysisControls {
         this.renderMetricChips();
         this.renderSunDayRow();
         this.renderFacadeToggle();
+        this.renderUseColourToggle();
         block.appendChild(this.smallNote(
             this.metricSupported()
                 ? 'Pick one metric to colour the site. Sun hours = direct-sun shadow study; others read climate + OSM.'
@@ -959,6 +997,101 @@ export class FormaSiteAnalysisControls {
             btn.disabled = true;
             btn.title = 'This view does not support façade analysis.';
         }
+        row.appendChild(btn);
+
+        // §FACADE-STUDY-SUBJECT (L-596) — the SUBJECT picker, rendered only when the study is ON.
+        //
+        // 🔴 TWO EXPLICIT BUTTONS, NOT A FALLBACK. The founder asked to *"run this façade study on
+        // the envelope for pre-planning"* — a legitimate request for the same geometry L-272
+        // records as a defect. The difference is that the user CHOOSES it here and the result is
+        // badged as an ENVELOPE study in the viewport for as long as it paints. If the chosen
+        // subject is unavailable the viewport REFUSES and says which input is missing; it never
+        // quietly studies the other one.
+        if (!supported || !this.facadeOn) return;
+        const subjectSupported = typeof this.viewport.setFacadeStudySubject === 'function';
+        if (!subjectSupported) return;
+        const subjectRow = document.createElement('div');
+        Object.assign(subjectRow.style, { display: 'flex', gap: '4px', marginTop: '4px' } satisfies Partial<CSSStyleDeclaration>);
+        const subjects: ReadonlyArray<{ key: FacadeStudySubject; label: string; title: string }> = [
+            {
+                key: 'building', label: 'Building',
+                title: 'Sun on the DESIGNED building’s own façade + roof.',
+            },
+            {
+                key: 'envelope', label: 'Envelope',
+                title: 'Pre-planning: sun on the faces of the BUILDABLE ENVELOPE, before any '
+                    + 'building is designed. A different question from the building study — the '
+                    + 'result is labelled as an envelope study in the view.',
+            },
+        ];
+        for (const s of subjects) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute('data-testid', `forma-facade-subject-${s.key}`);
+            b.textContent = s.label;
+            b.title = s.title;
+            const isOn = this.facadeSubject === s.key;
+            Object.assign(b.style, {
+                flex: '1', appearance: 'none', cursor: 'pointer',
+                border: `1px solid ${isOn ? ACCENT : '#e3dcfa'}`, borderRadius: '6px',
+                background: isOn ? ACCENT : '#faf8ff', color: isOn ? '#fff' : ACCENT,
+                font: '600 10px/1 system-ui', padding: '5px 4px',
+            } satisfies Partial<CSSStyleDeclaration>);
+            b.addEventListener('click', () => {
+                this.facadeSubject = s.key;
+                try { this.viewport.setFacadeStudySubject?.(s.key); }
+                catch (e) { console.warn('[forma-analysis] façade subject switch failed:', e); }
+                this.renderFacadeToggle();
+            });
+            subjectRow.appendChild(b);
+        }
+        row.appendChild(subjectRow);
+        row.appendChild(this.smallNote(
+            this.facadeSubject === 'envelope'
+                ? 'Studying the BUILDABLE ENVELOPE — the legal volume, not a designed building.'
+                : 'Studying the designed building’s own façade.',
+        ));
+    }
+
+    /**
+     * §CTX-USE-COLOUR (L-599) — the "colour context buildings by use" MODE toggle (DEFAULT OFF).
+     *
+     * MEASURED before it was designed (16,187 buildings, live tiles): 91.0% carry a meaningful use
+     * tag — the opposite of the height situation — which is why this may be coloured at all. The
+     * remaining 9% are left UNCOLOURED in the scene and named in the legend, because a colour reads
+     * as a fact. The legend itself is drawn by the viewport (it counts what is actually on screen).
+     */
+    private renderUseColourToggle(): void {
+        const row = this.useColourRow;
+        if (!row) return;
+        row.replaceChildren();
+        const supported = typeof this.viewport.setContextUseColouring === 'function';
+        if (!supported) { row.style.display = 'none'; return; }
+        row.style.display = 'block';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('data-testid', 'forma-context-use-toggle');
+        const paint = () => {
+            btn.textContent = this.useColourOn ? '🎨 Building use: ON' : '🎨 Colour context by use';
+            btn.style.background = this.useColourOn ? ACCENT : '#faf8ff';
+            btn.style.color = this.useColourOn ? '#ffffff' : ACCENT;
+            btn.style.border = `1px solid ${this.useColourOn ? ACCENT : '#e3dcfa'}`;
+        };
+        Object.assign(btn.style, {
+            width: '100%', appearance: 'none', cursor: 'pointer',
+            borderRadius: '6px', font: '600 11px/1 system-ui', padding: '6px 4px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        paint();
+        btn.title = 'Colour surrounding buildings by what OSM says they ARE (residential, retail, '
+            + 'office…). Buildings with no recorded use stay uncoloured. This is ACTUAL use — not '
+            + 'the zoning code for what the land MAY be.';
+        btn.addEventListener('click', () => {
+            this.useColourOn = !this.useColourOn;
+            paint();
+            try { this.viewport.setContextUseColouring?.(this.useColourOn); }
+            catch (e) { console.warn('[forma-analysis] use-colour toggle failed:', e); }
+        });
         row.appendChild(btn);
     }
 

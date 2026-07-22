@@ -618,6 +618,10 @@ export type {
 export {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
     MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
+    // §PLAN-CAMTARGET-SANITY (L-481/L-604) — exported so the PRODUCER
+    // (SplitViewManager._fitCamTargetToScene) refuses against the SAME bound the consumer
+    // enforces. A second hand-typed limit would drift, and the drift would be invisible.
+    PLAN_CAMTARGET_MAX_ABS_M,
     PlanViewCanvas,
 } from './views/PlanViewCanvas.js';
 

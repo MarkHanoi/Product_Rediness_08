@@ -107,15 +107,86 @@ export function clipToDepthBand(
         return { polygon: ring.map((p) => ({ x: p.x, z: p.z })), degenerate: false, bandInactive: true };
     }
 
-    // Sutherland–Hodgman: keep the side where depthOf(p) <= depth.
+    return sutherlandHodgman(ring, depthOf, depth, false);
+}
+
+/**
+ * §L-590b / ADR-0273 — the COMPLEMENT of `clipToDepthBand`: keep the part of `ring` lying BEYOND
+ * `depth` from the aligned edge.
+ *
+ * ⚠ **WHY THIS BELONGS HERE AND IS NOT A NEW MODULE.** PGM Art. 350.2 divides a parcel into two
+ * tiers at ONE line — inside the block band (Art. 350.2.c height) and beyond it, in the block
+ * interior (Art. 350.2.e, 5 m). The two tiers must tile the footprint exactly, with no sliver lost
+ * and no overlap double-counted. That is guaranteed only if both sides are clipped against the
+ * *same* line by the *same* arithmetic: the inward normal is resolved once by `inwardNormal`
+ * (which tests the ring centroid rather than assuming a winding — assuming CCW would silently
+ * hand back the complementary tier), and both sides run the same Sutherland–Hodgman pass with the
+ * predicate flipped. A separate module could not make that promise; two implementations of "which
+ * side of the line" would be free to disagree, and they would disagree on a compliance number.
+ *
+ * ⚠ `bandInactive` MEANS THE OPPOSITE THING HERE AND IS DELIBERATELY NOT REUSED FOR THE EMPTY
+ * CASE. A parcel entirely within `depth` of its alignment has NO block-interior tier, and that is
+ * `degenerate: true` — an empty region — not "the constraint did not bite". Reporting it as
+ * inactive would let a caller render the WHOLE parcel as the 5 m tier, which is the complement of
+ * the truth. `bandInactive: true` is returned only for the genuine no-op: a ring lying wholly
+ * beyond the depth, so nothing was removed.
+ */
+export function clipBeyondDepthBand(
+    ring: ReadonlyArray<Pt>,
+    edgeA: Pt,
+    edgeB: Pt,
+    depth: number,
+): DepthClipResult {
+    if (ring.length < 3 || !Number.isFinite(depth) || depth <= 0) {
+        return { polygon: [], degenerate: true, bandInactive: false };
+    }
+
+    const n = inwardNormal(edgeA, edgeB, ring);
+    if (!n) return { polygon: [], degenerate: true, bandInactive: false };
+
+    const depthOf = (p: Pt): number => dot(sub(p, edgeA), n);
+
+    let maxDepth = -Infinity;
+    let minDepth = Infinity;
+    for (const p of ring) {
+        const d = depthOf(p);
+        if (d > maxDepth) maxDepth = d;
+        if (d < minDepth) minDepth = d;
+    }
+    // Wholly inside the band ⇒ there is no block-interior part of this parcel at all. An empty
+    // region, reported as such (see the note above on why this is NOT `bandInactive`).
+    if (maxDepth <= depth + EPS) {
+        return { polygon: [], degenerate: true, bandInactive: false };
+    }
+    // Wholly beyond the band ⇒ the clip removed nothing. The genuine no-op.
+    if (minDepth >= depth - EPS) {
+        return { polygon: ring.map((p) => ({ x: p.x, z: p.z })), degenerate: false, bandInactive: true };
+    }
+
+    return sutherlandHodgman(ring, depthOf, depth, true);
+}
+
+/**
+ * Sutherland–Hodgman against ONE half-plane. `keepBeyond` selects which side survives.
+ *
+ * Exact for any simple polygon, convex or not — which matters because parcel insets are routinely
+ * concave. Shared by both public clips so the two tiers of an Art. 350.2 envelope are cut by
+ * identical arithmetic and cannot drift apart (see `clipBeyondDepthBand`).
+ */
+function sutherlandHodgman(
+    ring: ReadonlyArray<Pt>,
+    depthOf: (p: Pt) => number,
+    depth: number,
+    keepBeyond: boolean,
+): DepthClipResult {
     const out: Pt[] = [];
     for (let i = 0; i < ring.length; i++) {
         const cur = ring[i]!;
         const prev = ring[(i - 1 + ring.length) % ring.length]!;
         const dCur = depthOf(cur) - depth;
         const dPrev = depthOf(prev) - depth;
-        const curIn = dCur <= 0;
-        const prevIn = dPrev <= 0;
+        const curIn = keepBeyond ? dCur >= 0 : dCur <= 0;
+        const prevIn = keepBeyond ? dPrev >= 0 : dPrev <= 0;
 
         if (curIn !== prevIn) {
             // Crossing — emit the exact intersection. Guarded against the degenerate

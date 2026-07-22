@@ -8,6 +8,9 @@ import { ctxbldRead, ctxbldWrite } from './contextBuildingsCache';
 // §CTX-PMTILES-READER (L-513b) — the baked-tiles source that REPLACES live Overpass on the hot
 // path. See `contextTiles.ts` for why Overpass could never be made reliable from the client.
 import { readContextTileFeatures, contextTilesEnabled, type ContextTileFeature } from './contextTiles';
+// §CTX-USE-COLOUR (L-599) — the pure "what does OSM say this building IS" resolver. Applied at
+// collection-build time so BOTH source paths (Overpass + baked tiles) carry the same raw tag.
+import { resolveUseTag } from './contextBuildingUse';
 //
 // WHY THIS EXISTS
 // ---------------
@@ -77,6 +80,32 @@ export interface ContextBuildingFeature {
         readonly floors?: number;
         /** OSM id (debug / dedupe). */
         readonly osmId: number;
+        /**
+         * §CTX-QUERY-PANEL (L-592) — WHERE `osmId` came from.
+         *
+         * `osm` = a real OpenStreetMap way/relation id (the Overpass path).
+         * `tile-synthetic` = minted by `contextTiles.ts` from `(z, x, y, feature index)` because
+         * the bake carries no OSM ids. Stable and unique — which is all the downstream `Set`
+         * dedupe needs — but **NOT an OSM id**, and it must never be presented as one.
+         *
+         * Optional for back-compat with cached collections written before this landed; absent
+         * MUST be read as `'tile-synthetic'` (the pessimistic, honest default), never as `osm`.
+         */
+        readonly osmIdSource?: 'osm' | 'tile-synthetic';
+        /**
+         * §CTX-USE-COLOUR (L-599) — the RAW winning OSM use tag, e.g. `building=apartments`,
+         * `shop=*`, `amenity=school`. `undefined` = no meaningful use is tagged (a bare
+         * `building=yes` or nothing at all) — measured at 9.0% of 16,187 central-Barcelona
+         * buildings, and a REAL ANSWER ("OSM does not record a use here"), never a failure.
+         *
+         * Deliberately the RAW tag rather than a pre-classified category: classification and
+         * palette are display concerns owned by `contextBuildingUse.ts`, and the query panel
+         * shows the user the actual tag. ⚠ This says what the building IS; it says nothing about
+         * what the land MAY BE (the clau / MUC zoning code) — a different layer, never merged.
+         */
+        readonly useTag?: string;
+        /** OSM `name`, when tagged — used as the query panel's title. */
+        readonly name?: string;
         /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187) — distance ring for the renderer's LOD:
          *  'near' = extruded + shadows (as today); 'far' = flat/low-poly, shadows OFF.
          *  Absent on the legacy near-only path (treated as 'near'). */
@@ -690,6 +719,7 @@ export function overpassToCollection(elements: OverpassElement[]): ContextBuildi
         // §CTX-HEIGHT-PROVENANCE (L-459) — resolve height and its origin TOGETHER. The branch
         // was always known here; it was simply discarded one line later.
         const h = resolveHeightWithProvenance(tags);
+        const useTag = resolveUseTag(tags);
         features.push({
             type: 'Feature',
             geometry: { type: 'Polygon', coordinates: [ring] },
@@ -697,6 +727,11 @@ export function overpassToCollection(elements: OverpassElement[]): ContextBuildi
                 heightM: h.height_m,
                 heightProvenance: h.provenance,
                 osmId: id,
+                // §CTX-QUERY-PANEL (L-592) — this path DOES carry real OSM ids.
+                osmIdSource: 'osm',
+                // §CTX-USE-COLOUR (L-599) — the raw use tag rides along; absent = not recorded.
+                ...(useTag !== undefined ? { useTag } : {}),
+                ...(tags?.['name'] ? { name: tags['name'] } : {}),
                 ...(floors !== undefined ? { floors } : {}),
             },
         });
@@ -733,6 +768,7 @@ export function tilesToCollection(tileFeatures: readonly ContextTileFeature[]): 
     for (const tf of tileFeatures) {
         const floors = resolveFloors(tf.tags);
         const h = resolveHeightWithProvenance(tf.tags);
+        const useTag = resolveUseTag(tf.tags);
         // A multipolygon contributes one feature per part — the consumers extrude a single outer
         // ring each, exactly as the Overpass path emits one feature per `outer` member.
         for (let part = 0; part < tf.rings.length; part++) {
@@ -746,6 +782,13 @@ export function tilesToCollection(tileFeatures: readonly ContextTileFeature[]): 
                     heightProvenance: h.provenance,
                     // Parts of one multipolygon must not collide in a Set keyed on osmId.
                     osmId: tf.syntheticId * 8 + Math.min(part, 7),
+                    // §CTX-QUERY-PANEL (L-592) — ⚠ SYNTHETIC. The query panel reads this and
+                    // presents the number as an INTERNAL reference, never as an OSM id.
+                    osmIdSource: 'tile-synthetic',
+                    // §CTX-USE-COLOUR (L-599) — the tiles carry the raw OSM tags, so the use
+                    // classification is identical on both source paths.
+                    ...(useTag !== undefined ? { useTag } : {}),
+                    ...(tf.tags['name'] ? { name: tf.tags['name'] } : {}),
                     ...(floors !== undefined ? { floors } : {}),
                 },
             });

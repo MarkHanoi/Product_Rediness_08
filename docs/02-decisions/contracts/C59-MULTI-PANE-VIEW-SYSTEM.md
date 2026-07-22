@@ -1,6 +1,13 @@
 # C59 — Multi-Pane View System (renderer-agnostic view hosting)
 
 > **Stamp**: 2026-07-22 · **Status**: CANONICAL (Phase 1a landed — pure model; Phase 1b IMPLEMENTED — 2D-left/3D-right site authoring, single-Cesium re-target, boundary→3D fix — pending founder live verification; **Phase 2 IMPLEMENTED — registry-driven per-pane view picker + `PaneLayoutStore` command layer + the `canvas2d` plan mounter — pending founder live verification**; Phase 3/4 phased). L-412 stays OPEN and the contract stays CANONICAL (not ACTIVE) until the founder confirms Phases 1b **and 2** live. ⚠ **Phase 2 is built ON TOP of the unverified Phase 1b** (it reuses the same `MultiPaneController` + Cesium re-parent path): if Phase 1b's live re-parent proves wrong, Phase 2's picker inherits that fault — the switcher's decision layer is unit-pinned, its *mounting* is not.
+> **2026-07-22 addendum (L-600)**: **§2 invariant 8 + §2.7 added — the SHARED CAMERA POSE.** The
+> founder's *"same camera angle in all 3 main 3D views"* is a Phase-3 capability that has **never
+> existed** (per-view camera memory is by design; the Cesium↔THREE boundary has never been
+> synchronised). The **pure model landed** (`sharedCameraPose.ts`, 31 tests) and is **deliberately
+> NOT wired** — it is queued behind Phase 3 for the same reason C60 §8 parks its own Phase 2 there.
+> ⚠ **§2.7.7 records an OPEN founder decision** (angle-only vs angle+distance) that this contract
+> deliberately does **not** take. Nothing in §2.7 is founder-verified live.
 > **Scope**: The native, renderer-agnostic multi-pane view system: **panes** (left/right, extensible to N) that can host **any view** (MapLibre 2D site map · Cesium/Forma 3D Site · BIM WebGPU 3D · BIM Canvas2D plan · elevations/sections), and the user's ability to **assign or swap any view into any pane**.
 > **Key principles**: P1 (single composition root), P2 (single THREE owner), P3 (single rAF), P4 (no `window as any`), P6 (commands only), P8 (spans on new exported functions).
 > **Supersedes**: the narrow "3D Site on the right pane" enabler and the "site-view enabler button" discoverability idea (audit L-412). Absorbs the L-405 view-mode-switcher registry recommendation as its switcher surface.
@@ -77,6 +84,171 @@ The founder's Phase-2 ask, verbatim: *"in each view (either split view or comple
 6. **Renderer-agnostic.** Adding a new view type is a registry entry + a mounter; it MUST NOT require a new pane framework.
 7. **Single INJECTED site-store accessor (P1 composition-root).** All site-state reads (parcel boundary, envelope, site model) MUST resolve the site store through ONE shared accessor, and every reader and writer MUST land on the same store instance. Per-call-site direct `runtime.siteModelStore` reads are **forbidden**: a captured-null or stale `runtime` reference silently diverges readers from writers (some call sites trust `siteDispatch`'s module globals while a captured-null reader sees an empty store). This is the Phase-1b Bug 2 root cause — a boundary committed into one store was invisible to a captured-null-runtime reader ("no parcel boundary yet"). **Terminal ideal (the norm this invariant mandates):** the site subsystem is handed the **real, composition-root-threaded runtime by injection** (`mountGISArea(props, {runtime})` / `setSiteRuntime(runtime)`), and the single shared `getSiteModelStore()` accessor reads from that injected runtime. **Transitional debt (NOT doctrine):** the `runtime ?? window.runtime` window-fallback shipped by the L-412 fix (`5fe0fa07`) is **time-boxed migration debt**, not the ideal pattern. It exists only because `initUI.ts:2820` deliberately passes `createMainLayout(props, null)` (the Phase B.2 / S73-WIRE gate — threading the real runtime there would prematurely activate ~30 half-migrated child paths), so the captured runtime is null and site code reaches for the typed global `window.runtime`. The window reach-through is a **consequence of the deliberate null**, tolerated ONLY until Phase C threads the runtime — and MUST be removed then. Tracked as **L-413**. This is the P1 single-composition-root rule applied to site state; the window fallback is a temporary bridge to it, not a blessed end state.
 
+8. **The shared camera pose is ONE pure value, PROJECTED — never a listener graph** (Phase 3, §2.7). No renderer may write another renderer's camera. The only write path is an intent on the shared-pose reducer, and a renderer applying a projected pose MUST NOT be able to re-emit it (the epoch discipline). θ is applied EXACTLY ONCE, on the BIM side. See §2.7 for the mechanism and why a listener implementation is forbidden.
+
+---
+
+## §2.7 — The shared camera pose (L-600) — Phase 3, pure model LANDED, NOT WIRED
+
+> **Founder, verbatim (2026-07-22):** *"I want to keep the view always the same camera angle in
+> all the 3 main 3D views — 3D globe, 3D Site, and 3D PRYZM (BIM) — but it doesn't work."*
+
+### §2.7.1 — It has never existed. This is a GAP, not a regression.
+
+Two mechanisms, each correct for what it was built for, each wrong for this:
+
+1. `ViewController._cameraStateStore` (`ViewCameraStateStore`, `ViewController.ts:132`;
+   `restore` at `:1180` 3D / `:1479` plan / `:1646` elevation / `:1771` section / `:1848`
+   ground; `save` at `:1874` on deactivate) is keyed **by view-definition id**. Every view is
+   DESIGNED to return exactly where you left it.
+2. The globe and the 3D Site are **Cesium** (`CesiumViewport`) — a different renderer, a
+   different camera type, a different coordinate frame (ECEF vs site-local metres). The BIM
+   camera store cannot reach across that boundary and never has.
+
+⇒ Nothing broke. There is no synchronisation to repair; there is a capability to add.
+
+### §2.7.2 — Three surfaces, TWO renderers (normative)
+
+The founder names three views. C59 §2 invariant 1 and C60 §6.5 both say the globe and the 3D
+Site are **the same Cesium viewer at different camera altitudes**. The shared-pose model
+therefore enumerates three *surfaces* (`globe` · `site-3d` · `bim-3d`) because they have
+different distance bands and different producers — **not** because a second viewer exists.
+Nothing in §2.7 may be read as licence to construct one.
+
+### §2.7.3 — ONE pure pose, PROJECTED (normative)
+
+The shared camera state is a **pure, unit-tested reducer** — the same shape as `paneViewModel`
+(§1.2) and C60's `siteEntryModel` — whose projections the renderers consume.
+Implementation: `apps/editor/src/engine/views/sharedCameraPose.ts`.
+
+**A listener implementation is forbidden.** "Cesium moves → write BIM; BIM moves → write
+Cesium" oscillates, and the oscillation is structural, not a tuning problem. The remedy is
+structural: ONE pose in view state, mutated only by an intent
+(`view.camera.pose-observed` · `view.camera.set-link-mode` · `view.camera.reset`), projected
+outward. **A renderer never writes another renderer.**
+
+**Echo suppression is a monotonic EPOCH**, modelled directly on the discipline that already
+solves this exact problem in `CesiumViewport`: `beginProgrammaticFly()` /
+`endProgrammaticFly(token)` (§GLOBE-FRAME-NO-JUMP-2), where a token stops a *superseded*
+flight's `cancel` clearing the in-flight flag out from under a newer one. Here:
+
+| `appliedEpoch` vs `state.epoch` | verdict | why |
+|---|---|---|
+| `<` | **stale** | a newer pose superseded it — the `formaFlyToken` case |
+| `>` | **future** | an invented token; refused, never trusted |
+| `=` and within tolerance | **echo** | the surface is reporting back what we gave it |
+| `=` and outside tolerance | **accept** | the user moved the camera |
+
+Acceptance strictly increments the epoch, so a projection at epoch *E* can only produce
+observations at `appliedEpoch === E` that are within tolerance ⇒ **an applied pose cannot
+re-emit**. That is a property of the shape, pinned by a ping-pong property test, not a tuned
+constant.
+
+### §2.7.4 — What is shared is the ANGLE. The TARGET is not. (normative)
+
+The pose carries `headingDeg` + `pitchDeg` + `distanceM` and **no target**. This is what makes
+the model frame-independent, and it dissolves two problems that would otherwise be fatal:
+
+- **Pre-site there is no site-local target.** The LTP-ENU frame is established only when a site
+  is chosen (C12; C19 §1.3), i.e. *after* C60's `world`/`country` stages. A pose carrying a
+  site-local target would be undefined for half the entry flow.
+- **Each surface already owns what it looks at** — the globe: C60's entry-stage `focus`; the 3D
+  Site: the site; the BIM view: the model. Those stay where they are.
+
+**C60 relationship, decided and recorded here** (C60 §4 is unchanged by this): the entry-stage
+camera is a **producer of heading/pitch into** the shared pose and a **consumer of heading/pitch
+out of** it. Its **target and altitude band remain owned by C60** (`cameraForState`,
+`SITE_ENTRY_ALTITUDE_M`) and are deliberately **outside** the shared pose. The two models
+compose; neither duplicates nor overrides the other.
+
+### §2.7.5 — WHICH NORTH: θ is applied EXACTLY ONCE, on the BIM side (normative)
+
+`headingDeg` is measured **clockwise from TRUE north**. True north is the only frame both
+renderers can honour: Cesium has no notion of project north, and at globe scale no site exists
+so θ is not yet defined.
+
+The BIM authoring frame is de-rotated from true north by θ (`SiteLocation.trueNorth`, radians,
+project→true, clockwise — ADR-0070 / ADR-0115). **In Barcelona θ ≈ −45°.** So:
+
+- **Cesium projection: θ is NOT applied.** Cesium's `heading` is already true-north clockwise.
+- **BIM projection: θ IS applied, once** — `project bearing = true bearing − θ`. This is the
+  identical scalar form `packages/solar-analysis` already uses for the sun azimuth
+  (`sunDirectionFromAltAz`: `az − θ`), and the spec pins it against ADR-0115's canonical vector
+  transform `trueVectorToProjectNorth`, the same equivalence-pinning discipline as
+  `projectNorthSolarEquivalence.test.ts`.
+
+Applying θ on both sides double-rotates; applying it on neither makes the two views disagree by
+45° in Barcelona and by **0° everywhere else** — a bug that hides in testing. Hence: **once,
+in `projectPoseToBim`, and nowhere else.**
+
+Scene axes are `{ x = East, y = Up, z = South }` — the convention
+`packages/solar-analysis/src/solarPosition.ts` states explicitly and
+`deriveProjectNorthAngleFromParcel` uses (`north = −z`).
+
+### §2.7.6 — Per-view camera memory is NOT deleted, and the linkage can be OFF (normative)
+
+Plans, sections and elevations genuinely want "return where I left you", and
+`ViewCameraStateStore` stays exactly as it is for them. The shared pose applies **only to the
+linked 3D surfaces**. `SharedPoseMode` is a **configuration value, not a fork** — the same
+discipline as C60 §5's (A)/(B):
+
+- `'angle-only'` — **default.** Heading + pitch shared; each surface keeps its own distance,
+  clamped into a declared band.
+- `'angle-and-distance'` — distance shared too, **still band-clamped per surface**, and every
+  projection returns `clamped` so a clamp is stated rather than silent.
+- `'off'` — no linkage; each 3D view keeps its own camera. Switching to `off` moves **no**
+  camera.
+
+The linkage must be **inspectable**: `describeSharedPose()` is a pure copy projection (the C60
+§3 discipline — what the user reads is a unit test, not a screenshot review), and it states the
+bearing, which north it is measured from, whether distance is shared, and that plans/sections/
+elevations are excluded. A silent camera coupling is a mystery; a stated one is a feature.
+
+**Distance bands are DECLARED OUTPUTS, never inputs** (`SURFACE_DISTANCE_BAND`) — exactly the
+discipline C60 §1.1 states for `SITE_ENTRY_ALTITUDE_M`. They are what a projected distance is
+clamped *into*; they are never compared against a live camera distance to infer which surface
+you are on. The surface is a fact about the **pane**, not about the camera.
+
+### §2.7.7 — 🔴 OPEN FOUNDER DECISION: angle-only, or angle **and** distance?
+
+The founder's words are *"the same camera **angle**"* — angle, not necessarily distance. The two
+readings are **materially different products for the `site-3d` ↔ `bim-3d` pair**, and this
+contract does **not** choose:
+
+- **Angle-only:** switching surfaces keeps the bearing and tilt; each view stays framed at a
+  distance that suits its own subject. Nothing is ever off-screen.
+- **Angle and distance:** the 3D Site and the BIM view become genuinely "one camera looking at
+  one thing" — which may be exactly the feeling described — at the cost that a distance chosen
+  for one subject can be wrong for the other.
+
+**The globe cannot participate in the second reading unclamped**, in either case: a globe camera
+30 m above the pavement and a BIM camera 20 000 km out are both unusable, and the span is five
+orders of magnitude. So the globe is band-clamped under both modes, declared.
+
+⇒ **The model implements both and defaults to `'angle-only'`** — the only reading that is safe at
+globe scale — and the choice is logged as an open decision on **L-600**. It is a one-field
+change, not a rebuild.
+
+### §2.7.8 — Status: PURE MODEL LANDED, NOT WIRED. What Phase 3 must still do.
+
+`sharedCameraPose.ts` imports **no renderer** and is reachable from **no** production path. That
+is deliberate and it is the honest sequencing, for the same reason C60 §8 gives for its own
+Phase 2: **`bim-3d.paneHostable` is still `false`** (the WebGPU renderer owns `#container`), so
+there is no per-pane camera state to hang this on. Wiring it onto the Phase-2 switcher would
+build against a surface about to change.
+
+Phase 3 must add, and these are the ONLY renderer changes required:
+
+1. **`CesiumViewport.flyToGeographic()` must accept an optional `headingDeg`.** It currently
+   hard-codes `heading: 0` (`CesiumViewport.ts:10830`), so it cannot express a shared bearing at
+   all. Additive, one field, defaulting to today's behaviour.
+2. **A camera-settled observation hook per surface** that dispatches
+   `view.camera.pose-observed` carrying the epoch that surface was last projected at. It must
+   fire on *settle*, not per frame — P3 forbids a sync loop or a per-frame poll, and C04's frame
+   bus is the only scheduler.
+
+Both are pane-scoped Phase-3 work and neither was done in this pass.
+
 ---
 
 ## §3 — Migration of the three legacy owners
@@ -104,7 +276,8 @@ The migration is **staged** (see §4) so each step is verify-gated and the curre
   - `MultiPaneController.registeredKinds()` (runtime availability) and the site-authoring default now applied **through the store**.
   - **Explicitly NOT done (deferred, honestly surfaced in the picker rather than half-wired):** `bim-3d` in a pane (needs the Phase-3 WebGPU re-target — it still owns `#container`), and directly-assignable elevation/section panes (need Phase-3 per-pane view state). The legacy `mountResultToggleBar` bar is **left in place** for its non-pane duties (photoreal globe fidelity, zoom-to-site, fly-tour); retiring it is Phase 4 consolidation, and removing it in Phase 2 would have deleted controls that have no pane equivalent yet.
   - Verify (pending, founder): open the site split → each pane's dropdown lists every view → put the 3D Site in the LEFT pane (right empties, ONE Cesium) → put Plan in the right pane → take one pane full screen and switch view from there → confirm `3D Model` is greyed **with the Phase-3 reason visible**.
-- **Phase 3 — Full swap-any-view-any-pane + N-up.** WebGPU BIM 3D re-targetable into a pane (this is what flips `bim-3d.paneHostable`); **per-pane view state + camera state** (`MultiViewCameraManager`/`ViewCameraStateStore`, L-405) — which is what flips `bim-elevation-2d` / `bim-section-2d`; optional 3rd/4th pane; per-pane view persistence.
+- **Phase 3 — Full swap-any-view-any-pane + N-up + the SHARED CAMERA POSE.** WebGPU BIM 3D re-targetable into a pane (this is what flips `bim-3d.paneHostable`); **per-pane view state + camera state** (`MultiViewCameraManager`/`ViewCameraStateStore`, L-405) — which is what flips `bim-elevation-2d` / `bim-section-2d`; optional 3rd/4th pane; per-pane view persistence.
+  - **Landed early, deliberately unwired (L-600, 2026-07-22):** the **pure shared-camera-pose model** (§2.7) — `apps/editor/src/engine/views/sharedCameraPose.ts` + `apps/editor/__tests__/SharedCameraPose.test.ts` (31 tests). It imports no renderer and is reachable from no production path. **It does NOT make the founder's three views move together; nothing in that pass did.** It pins the decision layer (θ applied exactly once; epoch-based echo suppression; declared distance bands; the linkage inspectable and switchable off) so the Phase-3 wiring is a projection rather than a design. The two renderer additions it still needs are listed in §2.7.8, and the angle-only-vs-angle-and-distance product decision is OPEN on the founder (§2.7.7).
 - **Phase 4 — Consolidation.** Retire the three legacy owners' bespoke container logic once every flow routes through `PaneHost` — including the **literal reuse/retirement of `SplitViewManager`** (whose split geometry Phase 1b only *mirrors*), collapsing the mirrored geometry back onto a single shared implementation.
 
 Each phase is independently shippable and CI-gated (tsc + vitest; the live phases add the founder's browser acceptance — localhost dev is unusable here, so per-phase code-tracing + unit tests gate the merge and the founder confirms live).
@@ -114,7 +287,18 @@ Each phase is independently shippable and CI-gated (tsc + vitest; the live phase
 ## §5 — Open items / cross-refs
 
 - **L-405** (unified view-mode switcher) becomes C59 Phase 2's switcher surface (its "correct-fix" registry recommendation IS this contract). **Status after Phase 2:** the registry-driven per-pane picker exists and is the canonical way to choose a view *for a pane*. L-405's two named gaps are addressed differently than its original framing: (a) the **2D parcel-select map** is now a first-class, always-listed picker entry in either pane (no longer reachable only through the onboarding draw step); (b) the **enhanced-Forma / LOD200 "Context" segment** is NOT wired here — it is a *fidelity mode of the existing `site-3d` view*, not a separate pane view, so it belongs on the 3D-Site pane's own sub-controls, not in the pane registry. L-405 stays OPEN for that sub-control and for the retirement of the legacy segmented bar (Phase 4).
-- **Pinned by** `apps/editor/__tests__/PaneViewModel.test.ts` (Phase 1a pure model), `apps/editor/__tests__/PaneViewSwitcher.test.ts` (Phase 2 store + option adjudication), `apps/editor/src/engine/__tests__/PaneHost.spec.ts` (Phase 1b live hosting) and `apps/editor/src/engine/__tests__/PaneViewPicker.spec.ts` (Phase 2 picker DOM, singleton move through the picker, disabled-with-reason, full-screen). Localhost dev is unusable in this repo, so these plus code-tracing gate the merge and the founder confirms live.
+- **Pinned by** `apps/editor/__tests__/PaneViewModel.test.ts` (Phase 1a pure model), `apps/editor/__tests__/PaneViewSwitcher.test.ts` (Phase 2 store + option adjudication), `apps/editor/src/engine/__tests__/PaneHost.spec.ts` (Phase 1b live hosting) and `apps/editor/src/engine/__tests__/PaneViewPicker.spec.ts` (Phase 2 picker DOM, singleton move through the picker, disabled-with-reason, full-screen), and **`apps/editor/__tests__/SharedCameraPose.test.ts` (§2.7, 31 tests — the epoch ping-pong property, the θ equivalence against ADR-0115's `trueVectorToProjectNorth`, the declared distance clamps, and the copy projection)**. Localhost dev is unusable in this repo, so these plus code-tracing gate the merge and the founder confirms live.
 - **C06 §7** governs the pane z-layering; C06 gains a §8 pointer to C59 for the view-hosting model.
+- **C60 — Site Entry & Jurisdiction Coverage** (L-593, added 2026-07-22) owns the `world → country →
+  city → parcel` **globe entry flow**. It is deliberately a SEPARATE contract, not a C59 section:
+  C59's question is *which view is hosted in which pane* (failure mode: a double-mounted GPU
+  singleton); C60's is *where is the user in the arrival sequence, and can PRYZM answer there*
+  (failure mode: a fabricated claim of coverage). C60 **depends on** C59 and adds **no** view
+  mechanism — the globe entry is a **camera state of the existing `site-3d` view** (C59 §2.6), moved
+  by this contract's `PaneLayoutStore`, and it requests the 3D Site **solo** so no BIM pane stays
+  live behind a photoreal globe on the WebGL fallback (§2 invariant 5). **Sequencing:** C60's live
+  wiring is queued behind **C59 Phase 3** (per-pane view + camera state) — the entry flow is a
+  per-pane camera state, and building it against the Phase-2 switcher would build against a surface
+  about to change.
 - **SPEC-BUILDABLE-ENVELOPE-UX** (L-398/L-402b): the envelope render path is complete; C59 Phase 1b makes it visible during authoring by hosting the 3D Site in a pane rather than gating it behind a full-screen view swap.
 - **Contract-17 lineage.** The historical "Contract 17 §4 — split view" (referenced in `SplitViewManager.ts` / `initScene.ts`) is subsumed here; C59 is its canonical successor.

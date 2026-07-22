@@ -145,6 +145,49 @@ was always the load-bearing artefact; §1.7 simply had not caught up.** So:
 polygon. Reading the three numbers and re-insetting is only valid for `setback` zones and MUST
 NOT be used as a general path — it silently reproduces the pre-ADR-0270 defect.
 
+### §1.7b — An envelope MAY have MORE THAN ONE TIER, and the single-prism fields are then a lossy summary of a KNOWN kind (ADR-0273, §L-590b)
+
+**Added 2026-07-22.** §1.7a established that the polygon, not the setback triple, is the
+load-bearing artefact. This extends the same argument one step: **for a growing class of European
+ordinance a single polygon-plus-height is itself the lossy summary**, because the ordinance grants
+*different heights over different parts of the same parcel* and draws the dividing line itself.
+
+The shipped case is PGM Art. 350.2 (Barcelona clau `22a`, **17.5 % of the city's private buildable
+land**): the part of the parcel inside a band concentric with the BLOCK, whose area equals 70 % of
+the block (Art. 350.2.b), rises to the Art. 350.2.c street-width height; the part in the block
+interior beyond it is capped at 5 m, one indivisible storey (Art. 350.2.e). Two heights, one
+building, and the boundary between them is constructed from the block — not chosen by a designer.
+
+**Normative:**
+
+1. `BuildableEnvelope` carries **`tiers: EnvelopeTier[]`** (§2.4a). **Empty is the norm and means
+   "a single prism"** — it is the identity for every `setback`, `alignment` and
+   `block-derived-alignment` zone, exactly as `kind: 'setback'` is the identity for a pre-ADR-0270
+   pack. Absence is never "not filled in".
+2. When `tiers` is non-empty, `insetPolygon` / `insetAreaM2` / `maxHeight_m` / `maxFloors` MUST
+   mirror the **PRINCIPAL TIER** — the tallest, ties broken by area, a null height ranking below
+   any stated one. The L0 helper `principalTier()` is the ONLY sanctioned way to select it, and
+   `BuildableEnvelopeSchema` REFUSES TO PARSE an envelope where they disagree.
+3. **Why the principal tier and not a merged figure.** The legacy prism is then a *real tier of the
+   real solid*, so a consumer that has never heard of tiers renders something that genuinely fits
+   inside the envelope. It UNDER-states (the other tiers are invisible to it) and never
+   OVER-states, which is the only direction §1.4 permits. A merged or averaged prism would be a
+   volume no article grants — the ADR-0272 §3.4 objection, applied to geometry.
+4. A **multi-tier envelope MUST NOT be rendered as one prism without saying so.** The engine emits
+   a caveat naming every tier and its height; a surface that shows only the principal tier while
+   presenting it as "the envelope" repeats the §1.11 category error at solid scale.
+5. **A tier's `maxHeight_m` MAY be null while its polygon is fully determined.** This is a
+   finding, not a gap: Art. 350.2.c is keyed on the *amplada de vial* and gated on a legal regime,
+   so the REGION can be established while the HEIGHT honestly refuses. No consumer may substitute
+   a default height for a null tier (§1.4).
+6. **Coverage binds a tiered envelope's VOLUME.** Where the zone states a `maxCoverage`, the study
+   volume is `min(area(principal tier), maxCoverage × parcelArea) × height`. Without this a parcel
+   shallower than the tier boundary publishes a footprint covering 100 % of the plot beside a
+   90 % occupation cap read from the same article — see KG-3.
+
+**Why this is not a §1.7a-style migration.** Nothing persisted changes shape: `tiers` is transient
+engine output like the rest of the envelope (§1.7), and the C19 write path is untouched.
+
 
 The `BuildableEnvelope` numeric results map **1:1** onto the C19 `Parcel` mutable fields (`setbacks.{front,side,rear}`, `maxFAR`, `maxHeight`, `zoning.category`, `zoning.overlays`) and reach the model **only** through the existing `site.updateZoning` command (C19 §4.1, `packages/stores/src/site-commands/siteUpdateZoning.ts`). C58 introduces **no** new persisted output schema on the Site — only the transient `BuildableEnvelope` + `DerivationTrace` (which the report renders and which may be cached, not persisted as authored model data).
 
@@ -309,6 +352,39 @@ as the same value.**
 6. **Zone-code classification MUST be enumerated, never prefix-matched.** `13a` starts with `1`
    (port) and `22a`/`20a` with `2` (forest reserve), so a prefix table would refuse the Eixample —
    and the failure would be SILENT, rendering as a correct-looking refusal.
+7. **A refusal MAY state the limits that hold REGARDLESS of what it is refusing — in prose, under
+   a citation, with every numeric field still null.** *(Added 2026-07-22, §L-590c / ADR-0276,
+   founder-ruled.)*
+
+   Clauses 1–6 assume a refusal has nothing numeric to say. `regime-undetermined` breaks that
+   assumption: PGM Art. 350 governs clau `22a` under **two regimes**, and some of its limits are
+   stated identically in both. Withholding those would be its own dishonesty — the user would read
+   *"we can tell you nothing"* while we hold the most load-bearing figure on 17.5 % of the city.
+
+   The permission is **narrow and conditional**, because it is one step from the fabrication this
+   whole invariant exists to end:
+
+   - **Clause 3 is NOT relaxed.** `insetPolygon`, `maxHeight_m`, `maxFloors`, `maxFAR`,
+     `maxCoverage`, `maxVolumeM3`, `insetAreaM2` and `tiers` stay null/empty/zero. `storeyCap`, the
+     generators, the Cesium massing, the §1.8 generator bounds and `site.updateZoning` therefore
+     receive **nothing** and can extrude nothing. The facts reach only `detail` + `ordinanceRef`.
+   - **Prose is not a workaround — it is the only form that can carry a CONDITION.** Art. 350's
+     occupation cap is 90 % on an *alineacions de vial* sector and **70 %** on an *edificació
+     aïllada* one (Art. 350.1.2n). `maxCoverage: 0.9` in a field is unconditional by construction
+     and would over-state by 20 pp; *"90 %, where the sector is ordered segons alineacions de
+     vial"* is the true statement and does not fit in a number. **A limit whose condition cannot
+     be stated alongside it MUST NOT be published at all.**
+   - **NOT `knownFacts`.** That field's contract is *facts only — never a constraint, never a
+     number the user could mistake for an allowance*, and it renders as bare lines with no room
+     for the condition. A FAR ceiling is exactly such a number.
+   - **The citation MUST be narrowed to what is actually claimed.** The `22a` card cites
+     Arts. 350.1.1r / 350.1.2n / 350.2.a and **explicitly disclaims** Arts. 350.2.b and 350.2.c,
+     which it is declining to apply. Carrying the pack's full `ordinanceRef` would attach an
+     authoritative-looking reference to paragraphs the card does not assert — L-526 in miniature.
+
+   ⚠ This clause licenses stating a limit **the ordinance states in every branch of the refusal's
+   own uncertainty**. It does not license stating a *typical*, *likely* or *neighbouring-zone*
+   value, which remains forbidden by §1.4 in every context.
 
 **Measured result** (probe scored against the shipping `resolveZoneDisposition`): **741 of 1,014
 points = 73.1 % of all Barcelona ground** now returns a cited refusal instead of a fabricated
@@ -362,6 +438,28 @@ JurisdictionZoningContract = {
 }
 ```
 
+**`geometricRule` — the shipped kinds (ADR-0270 / ADR-0271 / ADR-0273).** A Zod discriminated union
+on `kind`, so an unhandled kind is a COMPILE error in the exhaustive solver switch rather than a
+silently-skipped compliance rule. A new jurisdiction adds a VARIANT; it never migrates a shipped
+pack.
+
+| `kind` | Geometric operation | Needs a block ring? | Shipped for |
+|---|---|---|---|
+| `setback` | erode inward from every edge by its classified distance | no | detached / suburban fabric (the pre-ADR-0270 identity) |
+| `alignment` | inset, THEN a half-plane clip at a **stated** `buildableDepth_m` | no | *alineación a vial* + *profundidad edificable* (Madrid `Fondo de la Edificación`) |
+| `block-derived-alignment` | as `alignment`, but the depth is CONSTRUCTED from the block: the largest depth leaving **at least** `interiorFreeRatio` of it free, clamped to `[minDepth_m, maxDepth_m]` | **yes** | PGM Art. 242.2 — clau `13a`/`13E`, `13b` |
+| `tiered-occupation` | inset, THEN split at a depth CONSTRUCTED from the block: the depth at which a band concentric with the block has an area **equal to** `bandAreaRatioOfBlock`. Produces TWO tiers (§2.4a) with different heights | **yes** | PGM Art. 350.2 — clau `22a` (authored; registration gated on the Art. 350.1/350.2 regime, see KG-6) |
+| `explicit-area` | the ordinance publishes the polygon; reference it | no | **declared, no engine branch — KG-4** |
+
+⚠ **`tiered-occupation` is NOT `block-derived-alignment` with different numbers, and the distinction
+is normative.** Art. 242.2 states a **minimum** free share and two ordinance clamps; Art. 350.2.b
+states an **equality** and no bounds at all. The two constructions coincide wherever Art. 242's
+clamps do not bite and diverge at both of them (measured: on a 30 m block Art. 242 refuses where
+Art. 350.2.b answers cleanly; on a 400 m block Art. 242 caps at 30 m where Art. 350.2.b gives
+90.5 m). Supplying Art. 242's 11 m / 30 m to a 22a parcel would publish clamps under a citation to
+an article that does not contain them — the L-526 defect class. **A pack MUST NOT be given bounds
+its own article does not state (§1.7a, and §1.12's "never invent an input to a construction").**
+
 > **No jurisdiction rule VALUES are asserted in this contract.** The schema defines the slots; the numeric packs (`es-barcelona`, `dk`, …) are curated data artefacts authored + versioned separately (L-399). Where a specific DK/CH/ES value is not in a source document, the pack carries a `null` + an `estimated`/`ordinance-pdf` flag, never an invented number.
 
 ### §2.3 — `EnvelopeNumbers` (shared numeric shape)
@@ -384,10 +482,35 @@ The engine output (transient — not persisted authored data; §1.7).
 | `confidence` | `'authoritative' \| 'structured' \| 'block-constructed' \| 'estimated-ruleset' \| 'not-determined'` | §1.2 — mandatory. `block-constructed` is stamped by the ENGINE (L-572), never by a UI surface; `not-determined` pairs with `status: 'not-applicable'` (§1.13) |
 | `derivation` | `DerivationTrace` | §1.3 — per-constraint "why" |
 | `caveats` | `string[]` | e.g. "setback estimated from zone class; verify against POUM" |
+| `tiers` | `EnvelopeTier[]` | §1.7b / §2.4a — the tiers of a multi-tier envelope. **EMPTY = a single prism** (every zone before ADR-0273). Non-empty ⇒ the fields above mirror `principalTier(tiers)`, enforced by a schema refinement |
+
+### §2.4a — `EnvelopeTier` (ADR-0273, §L-590b)
+
+One tier of a multi-tier envelope: a footprint with its OWN height cap. Tiers are **disjoint
+regions that tile the buildable footprint**, not stacked slabs — a podium/tower reading is
+expressible by setting an upper tier's `baseHeight_m` to the lower one's `maxHeight_m`, but no
+consumer may ASSUME nesting or containment in either direction. The only guaranteed relation is
+that every tier polygon lies inside the parcel.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` | stable machine id within the envelope (`'block-band'`, `'block-interior'`). Deliberately NOT a closed vocabulary — the tiers a zone produces are a property of its ordinance, and enumerating them in L0 would make every new jurisdiction a schema change (§1.5) |
+| `label` | `string` | what the user reads, naming the granting paragraph |
+| `polygon` | `Pt[]` | this tier's footprint, scene-XZ metres (same frame as `insetPolygon`) |
+| `areaM2` | `number` | `area(polygon)`, carried so every consumer agrees |
+| `baseHeight_m` | `number` | height of this tier's underside above the datum; 0 = rises from the ground |
+| `maxHeight_m` | `number \| null` | this tier's cap. **Nullable, and the null is a finding** (§1.7b.5) — never a licence to extrude a default |
+| `maxFloors` | `number \| null` | storey cap where the ordinance states one (Art. 350.2.e ⇒ 1) |
+| `ordinanceRef` | `string \| null` | the paragraph granting THIS tier — tiers of one envelope cite different articles |
 
 ```ts
 DerivationEntry = {
-  constraint: 'setback.front'|'setback.side'|'setback.rear'|'maxHeight'|'maxFAR'|'maxCoverage'|'permittedUse';
+  constraint: 'setback.front'|'setback.side'|'setback.rear'|'maxHeight'|'maxFAR'|'maxCoverage'|'permittedUse'
+            |'alignment.depth'|'alignment.offset'|'alignment.sideTreatment'|'alignment.depthBinding'
+            // ADR-0273 — tiered occupation. `tier.bandDepth` is NOT `alignment.depth`: that one is
+            // a limit on how deep a building may go, this one is the boundary between two lawful
+            // heights, and citing either under the other's name is a §1.11 category error.
+            |'tier.bandAreaRatio'|'tier.bandDepth'|'tier.interiorHeight';
   value: number | string | string[] | null;
   zoneCode: string;
   source: string;                                       // rule-pack / provider id
@@ -570,6 +693,8 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 |---|---|
 | 2026-07-17 | Initial DRAFT — fills the C58 reserved slot (the core compliance value-prop; gap audit G-ENG-1). Fills the C19 §9/§10.2 deferred jurisdiction-registry. Grounds on the two-fidelity scoping + the Denmark structured-zoning reference. Author: compliance-authoring governance track. |
 | 2026-07-21 | Corrected the stale "0 % built" stamp (the engine, solvers, registry and one real pack ship; status stays DRAFT). Amended **§1.2** with `not-determined` + the still-open constructed tier (L-518). Added **§1.12** (construction-not-lookup + the measured provenance ladder, L-525a/L-537) and **§1.13** (refusal vocabulary + rule-pack registry, L-550). Updated **KG-1**; added **KG-3** (FAR/coverage never applied, L-551), **KG-4** (`explicit-area` unsolved, L-538), **KG-5** (24.0 % measured coverage, L-538). Recorded the **L-529 violation** of "the floor is not a fallback", including the refutation of the previously-confirmed half-illa root cause. |
+| 2026-07-22 | **THE ENVELOPE IS NO LONGER A SINGLE PRISM (ADR-0273, §L-590b).** Added **§1.7b** (multi-tier envelopes; the principal-tier rule and why it is the only non-over-stating summary; a tier's height may refuse while its region is determined; coverage binds a tiered volume) and **§2.4a** (`EnvelopeTier`). Added the `tiers` field to the §2.4 table and the three `tier.*` literals to `DerivationEntry`. Documented the **shipped `geometricRule` kinds as a table in §2.2**, including the new `tiered-occupation` — a contract that silently omitted a shipped rule kind is the drift C14 exists to prevent — with the normative statement that `tiered-occupation` is NOT `block-derived-alignment` with different numbers (equality vs minimum; no ordinance bounds vs two), and that a pack MUST NOT be given bounds its own article does not state. **Partially closed KG-3** (coverage now binds the study volume, on tiered envelopes only, with the reason the retro-fit was NOT taken in the same change). Added **KG-6**: clau `22a` is solved and still unregistered, and the remaining blocker is the Art. 350.1/350.2 *Pla Parcial* regime — a legal fact PRYZM does not hold, which gates the FOOTPRINT and not only the height. |
+| 2026-07-22 | **A REFUSAL MAY NOW STATE THE LIMITS THAT SURVIVE ITS OWN UNCERTAINTY (ADR-0276, §L-590c, founder-ruled).** Added **§1.13.7** — narrow, conditional permission for a refusal to publish, in prose under a narrowed citation and with **every numeric field still null (§1.13.3 unrelaxed)**, the limits the ordinance states in *every branch* of what the refusal is uncertain about; with the rule that a limit whose CONDITION cannot be stated alongside it must not be published at all, and that `knownFacts` is the wrong vehicle. Added the fourth `EnvelopeRefusalCode`, **`regime-undetermined`** (the ordinance states two regimes and no public source says which governs this parcel), argued against each of `no-rule-pack` / `source-data-unavailable` / `derived-plan`. **Updated KG-6**: clau `22a` now ships the regime-neutral half of PGM Art. 350 — and **CORRECTED this contract's own earlier claim** that the FAR *and* the occupation were regime-neutral: the FAR is (all three paragraphs state it), the occupation is only conditionally so (Art. 350.1.2n caps *aïllada* sectors at 70 %). Recorded the founder ruling ("C now, B in parallel, hold A"; **option A on hold**) and the Track-B finding that Barcelona's municipal WMS *does* answer the regime question — and that on Zona Franca 22a it answers "Pla Parcial, 18,30 / 24,40 m", i.e. option A would have under-stated by ~⅓. |
 | 2026-07-21 | **CLOSED the constructed-tier gap the row above left open (L-518 + L-572).** `'block-constructed'` is now documented as a full member of `EnvelopeConfidence` in **§1.2**, the **§4 field table** and **§5.1**; the three places that still listed a 3-member enum are corrected. Added the NORMATIVE assignment rule — the tier is stamped by `ZoningRulesEngine` keyed on the `alignment.depthBinding` derivation row, never re-derived by a UI surface, because assigning it in L5 made the honesty label a property of one UI path and would have badged a per-parcel report ESTIMATED on constructed data. Added the ordering constraint (upgrade BEFORE the estimated caveat — the two contradicted each other in shipped code, proven by a pre-fix-red test) and the honest limit that the tier labels the RULE, not the INPUT (a pure engine cannot verify its `blockRing` is real cadastral geometry; §1.6 provenance rides with the caller). |
 
 
@@ -626,6 +751,93 @@ claim is only true for the geometric kinds.
 `insetAreaM2` is **not** the buildable footprint, so every consumer that computes
 `insetAreaM2 × maxHeight` for a study volume (the facts card does) will over-state it unless it
 applies `maxCoverage`.
+
+**PARTIALLY CLOSED 2026-07-22 (ADR-0273, §L-590b), and the remainder is stated precisely so the
+gap does not read as smaller than it is.** `maxCoverage` now binds the study VOLUME — but **only
+on a `tiered-occupation` envelope** (§1.7b.6), where leaving it out would have published a
+100 %-of-parcel footprint beside the same article's 90 % cap on any parcel shallower than the tier
+boundary. It is deliberately NOT retro-fitted to every coverage-carrying zone in the same change:
+doing so silently moves the published volume of every shipped envelope, which is a product decision
+owed its own before/after measurement, not a side-effect of adding a rule kind. **`maxCoverage`
+still shapes no polygon anywhere, and that stays correct per ADR-0272 §3.2** — a coverage limit
+constrains how much ground is occupied, never where.
+
+### KG-6 (§L-590b) — clau `22a` is SOLVED and still UNREGISTERED, and the reason is now a legal fact rather than a modelling gap
+
+ADR-0273 closed the modelling half: `tiered-occupation` + `EnvelopeTier` express Art. 350.2's
+two-tier solid, and `esBarcelonaIndustrial.ts`'s rule is solved end to end against a real block.
+
+**What blocks registration is that Arts. 350.2.a–f govern only industrial land *mancada de Pla
+Parcial*.** Land with a definitively-approved *Pla Parcial* falls under Art. 350.1, where the PGM
+imposes only the FAR and occupation ceilings and everything else comes from that plan. Neither the
+Catastro parcel nor the MUC says which regime a parcel is in.
+
+⚠ **This gates the FOOTPRINT, not only the height** — the point most likely to be missed, because
+`resolveAlcadaIndustrial`'s three-valued refusal makes it look like a height-only problem. The FAR
+(2 m²st/m²s) and the occupation (90 %) are restated verbatim by Art. 350.1.1r and are therefore
+regime-neutral; **Art. 350.2.b's band is not.** Registering today would apply that band, cited to
+Art. 350.2.b, to parcels Art. 350.1 may govern. The error would be conservative — a band only ever
+restricts — and *conservative is not the test*: a confident mis-citation is precisely the harm
+§1.3/§1.4 and L-526 exist to prevent, and an under-stated envelope on 17.5 % of the city is a real
+cost, not a safe one.
+
+**Unblocking is a data or legal step:** (i) a Pla-Parcial coverage layer for Barcelona's industrial
+land, or (ii) a founder ruling that 22a inside the municipality is `'none'` by default. Both are
+determinations about the law and are not made silently by an implementer (§1.6).
+
+---
+
+#### §L-590c update (2026-07-22) — the REGIME-NEUTRAL half now ships; the gap is HALF the size and precisely bounded
+
+**Founder ruling, 2026-07-22: "C now, B in parallel, hold A."** Verbatim: *"C converts our largest
+owned gap into an honest answer this week and cannot be wrong. B is the real fix and we don't yet
+know its price. A is the only one that buys the 15 points, and it buys them by asserting a legal
+fact we haven't verified — on the one axis (height) where we haven't established the error
+direction."*
+
+⚠ **Option A — defaulting the regime to `'none'` inside the municipality — is ON HOLD and must not
+be implemented.** `resolveAlcadaIndustrial` keeps refusing on `unknown`; no permissive default may
+be added anywhere.
+
+**What ships (Track C).** Clau `22a` no longer returns the generic coverage gap — that card said
+*"PRYZM has not encoded this zone's rules yet"*, which has been false since the pack was authored.
+It now returns a **`regime-undetermined`** refusal (ADR-0276, the fourth refusal kind) carrying:
+
+| | |
+|---|---|
+| FAR **2 m² sostre/m² sòl** | **UNCONDITIONAL.** Arts. 350.1.1r, 350.1.2n **and** 350.2.a all state it — it survives the regime question *and* the ordering-type question. |
+| Occupation **90 %** | **CONDITIONAL**, and the condition ships with the number: it holds on sectors ordered *segons alineacions de vial*; Art. 350.1.**2n** caps *edificació aïllada* sectors at **70 %**. |
+| Height (Art. 350.2.c) · band (Art. 350.2.b) | **Still refused**, and the citation explicitly disclaims those paragraphs. |
+
+⚠ **A CORRECTION TO THIS GAP'S OWN EARLIER TEXT.** The paragraph above (and ADR-0273 §6) said the
+FAR *and the occupation* were "restated verbatim by Art. 350.1.1r and therefore regime-neutral".
+Re-reading p. 116 glyph-by-glyph on 2026-07-22 shows that is true of the FAR and **only
+conditionally** true of the occupation: Art. 349.1 makes *alineacions de vial* the ordering type
+only *"si no n'hi ha"* a Pla Parcial, and Art. 349.2 lets a PERI or Estudi de Detall convert sectors
+to *aïllada*. So the regime question gates a **second** number, and a bare 90 % would over-state by
+20 pp — the direction §1.4 forbids outright.
+
+**The route is a REFUSAL, not a registration, and that is the safety property.** Registering the
+pack would send `22a` through `computeBuildableEnvelope` with the `tiered-occupation` rule, cutting
+an Art. 350.2.b band and publishing an Art. 350.2.e 5 m principal tier — both regime-gated. Going
+through `refusalFor` keeps every numeric field null and every polygon empty (§1.13.3), so the two
+facts reach the user as cited prose and nothing reaches the massing, the generator bounds or
+`site.updateZoning`. Guarded by a named test in `esBarcelonaIndustrialPack.test.ts`.
+
+**Track B (2026-07-22) — a source that answers the regime question DOES exist, and was not wired.**
+Barcelona's own municipal planning WMS (`https://w133.bcn.cat/WMSURBANISME/service.svc/get`,
+CC-BY-4.0, keyless, HTTPS, point-queryable) returns, at a clau-22a point in the Zona Franca, the
+qualification polygon's `CODI_PLA` **and** the matching *àmbit de planejament* with
+`TEMATICA: PP` (Pla Parcial), `DATA_AD: 16/02/1968` (definitive approval date) and
+`NOM_PLA: "PP de ordenación del Polígono industrial del Consorcio Zona Franca"` — i.e. the
+instrument TYPE and its DEFINITIVE APPROVAL, joined to the parcel by the qualification's own plan
+code, with `REF_CADASTRAL` available from the same service. ⚠ It also publishes that plan's own
+heights (**18,30 m / 24,40 m**), against Art. 350.2.c's 9 / 13 / 17 m — **so option A would have
+under-stated that land by roughly a third.** The Catalan MUC, by contrast, publishes **no**
+Pla-Parcial layer for Barcelona (`MUCPD_SECTOR`/`MUCPD_QUAL`: 0 features for INE 08019;
+`MUCVW_MUCS_SECT`: 81, all PMU). Wiring the municipal source changes the answer to a decision that
+is currently on hold and is therefore a founder re-decision, not an implementer's — see
+V1-LAUNCH-READINESS-AUDIT **L-605**.
 
 ### KG-4 (L-538) — `explicit-area` has a schema, no engine branch and no resolver
 

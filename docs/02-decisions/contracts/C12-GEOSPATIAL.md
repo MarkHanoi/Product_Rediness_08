@@ -82,6 +82,64 @@ one lost it. **"The base is 0" and "the ground is unknown" were indistinguishabl
   `resolveGlobeGroundAnchor`, `decideGroundAnchorAction`), `CesiumViewport`
   (`clampToPhotorealTilesThenReplace`, `reframeAfterBaseSettle` = the settle chokepoint).
 
+### §1.5 — KNOWN VIOLATION: `CesiumThreeBridge.setAnchor()` puts ECEF coordinates in the BIM scene graph (L-604, OPEN)
+
+> **Status: OPEN — NOT fixed. Recorded so this contract stops claiming behaviour the code does
+> not have.** Severity **P1** (silent geometry corruption class). Owner: **UNASSIGNED**.
+> Target: **TBD**.
+
+**The violation.** §1.1 mandates that the THREE scene coordinate frame is **LTP-ENU, local, and
+recentred within 1 km of the camera**, for the stated `float32` precision reason.
+`plugins/geospatial/src/CesiumThreeBridge.ts` `setAnchor()` (`:63–101`) does the opposite: it
+re-parents BIM meshes into a `GIS_BIM_ROOT` group and assigns that group the **full ECEF**
+`Cesium.Transforms.eastNorthUpToFixedFrame(anchor)` matrix. The group's translation is the
+anchor's Earth-centred position — **~6.37 × 10⁶ m for any point on Earth**. Every mesh beneath it
+therefore has a **world** position at ECEF magnitude while its **local** position is unchanged.
+That is precisely the regime §1.1 exists to prevent, and it is not merely a rendering concern:
+any consumer that reads **world** coordinates from the shared scene graph inherits the ECEF
+frame.
+
+**The consumer it broke.** `SplitViewManager._fitCamTargetToScene()` expands a `Box3` over every
+mesh in the scene (world space) and hands the centre to the plan camera target. Because
+`PlanViewCanvas.screenToWorld` **adds** that target to every click, a globe-scale target
+relocates authored geometry — the L-481 defect (a wall committed ~300 km from the origin).
+
+**What is verified, and what is not** (§C58 §1.4 honesty, applied to our own diagnosis):
+- ✅ **Verified by code reading:** `setAnchor()` is the only mechanism in the repository that can
+  place globe-scale transforms into the BIM THREE scene graph, and `_fitCamTargetToScene`
+  consumes world coordinates.
+- ❌ **NOT verified:** that `setAnchor()` actually ran in the founder's session. The log line
+  `CesiumThreeBridge ACTIVATED` proves only that `activate()` ran; `setAnchor()` is called from
+  the separate `cesium-model-transformed` event.
+- ❌ **NOT verified:** that the observed target `(-1505720.29, -1635527.14, -948869.49)` is
+  arithmetically the ECEF anchor for the founder's site. Barcelona's ECEF is positive in x and
+  z; the observed triple is negative in all three. **The magnitude is globe-scale; the
+  derivation is not established.** Naming `setAnchor()` as *the* producer on magnitude alone
+  would be exactly the inference that made L-481 stall for weeks.
+
+**Why no speculative fix was made.** The obvious candidates — filter `GIS_BIM_ROOT` out of the
+plan fit, or make the fit run in the authoring frame rather than the world frame — each change
+what the plan pane frames, and picking one against an unconfirmed producer risks "fixing" the
+wrong thing (the L-481 note in `SplitViewManager` says the underlay was the leading suspect, and
+that too was inferred from magnitude and never traced). What shipped instead (L-604) is the
+evidence the diagnosis needs:
+- the outlier probe now measures **world** position and prints the **ancestry**, because the
+  previous probe read `obj.position` (LOCAL) and therefore could not see a parent-borne
+  transform at all — **a probe that passed while measuring nothing**;
+- the producer now **refuses** an implausible fit against the same imported bound the consumer
+  enforces, keeps the last good target, and logs **once** instead of every frame.
+
+**The real fix belongs here, in C12**, not in the plan pane: either the bridge must not place
+ECEF coordinates in the shared scene graph at all (an LTP-ENU-relative group per §1.1), or C12
+must declare an explicit, contracted exception with a named frame flag that world-space consumers
+can test. Until one of those lands, this section stands as the record that the code disagrees
+with §1.1 and **the code is wrong**.
+
+**Also noted (separate, P3, not addressed):** `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts`
+is a **duplicate** of the live `plugins/geospatial` bridge and imports `three` directly. The live
+importer is `GISAreaLayout.ts:402` via `@pryzm/plugin-geospatial`; the `renderer-three` copy has
+no importer found. Two copies of a coordinate-frame boundary is a drift hazard.
+
 ---
 
 ## §2 — Logarithmic Depth Buffer

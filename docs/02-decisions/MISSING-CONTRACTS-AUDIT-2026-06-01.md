@@ -510,3 +510,121 @@ the condition under which a fourth ad-hoc mechanism gets built.
 ⇒ **Recommend a `C60 — SITE ENTRY & JURISDICTION COVERAGE` contract**, owning the entry state
 machine AND the honest answer to *"where can PRYZM actually answer?"* — which today exists only as
 `REGISTRATIONS` in `rulepacks/registry.ts` plus the `isInBarcelona()` bbox.
+
+> ✅ **CLOSED 2026-07-22 — [`C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md`](./contracts/C60-SITE-ENTRY-AND-JURISDICTION-COVERAGE.md)
+> written and Phase 1 implemented.** It owns both halves, as recommended. The coverage half was
+> resolved by making the registry itself able to answer *where*: `JurisdictionRegistration` gained
+> **required** extent/country/summary fields whose Barcelona values are the **imported
+> `BARCELONA_BBOX` constant and `isInBarcelona` predicate the dispatcher already routes on** (not
+> copies — identity is asserted by test), plus `listJurisdictionCoverage()`. A hand-maintained
+> coverage layer is now forbidden by C60 §2 and structurally unnecessary. The entry half is a pure,
+> unit-tested reducer (C60 §1.1 explicitly forbids the `camera.moveEnd` altitude sniffer). **Live
+> wiring is NOT done and is sequenced behind C59 Phase 3** (C60 §8).
+
+---
+
+## GAP — no contract owns an **INTROSPECTIVE** geodata layer (L-601, 2026-07-22)
+
+`C55 — Geodata Analytical Layers` is the closest home for the answerability layer (colour + select
+land by *what PRYZM can say about it*), and two of its invariants fit exactly: **§1.2** (layers
+drape; they never become BIM geometry) and **§1.4** (graceful absence is a quiet no-op).
+
+**But §1.1 and §1.3 model a layer as an EXTERNAL national registry** — a `GeodataProvider` with
+`fetchTile(layerId, bbox, z)`, a country grouping, C23 attribution and an opacity slider, explicitly
+so "adding Norway is registering a new provider, never editing the core". The answerability layer has
+**no external source at all**: it is derived from `resolveZoneDisposition` + the refusal vocabulary —
+*our own engine describing what it can and cannot answer*. It is the first **introspective** layer in
+the system.
+
+⇒ **This is a genuine contract question, deliberately NOT resolved here.** Two candidate answers,
+both defensible:
+
+- **Extend C55 §1.3** to admit an *internal* provider whose `attribution()` is the ordinance citation
+  rather than a registry credit. Cheapest, and keeps one Layers panel.
+- **Own it in C58/C57 instead**, on the grounds that the class is a **zoning determination** that
+  merely happens to be rendered — the same reasoning that put jurisdiction coverage in the rule-pack
+  registry (C60 §2) rather than in the UI layer.
+
+⚠ The C60 precedent leans toward the second: coverage was made a property of the *engine*, not of the
+*display*, precisely so a hand-maintained copy could not drift. The same argument applies here and
+should be weighed before defaulting to C55.
+
+**Whichever is chosen, C58 §1.4 binds the palette**: a *correct refusal* (systems land, clau 18) and
+an *owned gap* (zone unencoded) are OPPOSITE claims and must never share a colour —
+§CONTEXT-DATA-HONESTY, "failure and empty are the same VALUE and must never be the same ANSWER".
+
+Logged as **L-601**. See `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` task 8.
+
+---
+
+## GAP — nothing owns the **DATUM → GEOMETRY** binding (L-603, 2026-07-22)
+
+PRYZM can already say *which article produced a number*. It cannot say *which piece of geometry
+expresses it*. `DerivationEntry` (C58 §2.4, `BuildableEnvelope.ts:92`) carries
+`constraint · value · zoneCode · source · fieldProvenance · ordinanceRef` — complete **legal**
+provenance and **no geometric reference** at all.
+
+So "click *Buildable depth 19.0 m* and highlight the depth in the model" has nothing to bind to.
+
+**Searched, and the direction is the problem:**
+
+- **C27** (BIM3 Inspect) and **C28** (Data Panel) establish **selection → data** — click geometry, the
+  grid filters. C28 §Depends states it outright: *"Inspect selection drives data filter"*.
+- **This request is the INVERSE — data → geometry.** Neither contract covers it, and it is not a
+  symmetric case: a BIM element has an id, whereas *"the buildable depth"* is a **scalar produced by
+  a solver**, whose geometric expression (which edge of which ring, at which storey) is knowledge the
+  solver has and currently discards.
+- **C56 AutoDimension** owns *drawing* a measured distance and should be the render path — but it
+  governs a dimension SET planned from a wall graph, not a datum highlight.
+- **C09/P7** places a highlight in visibility intent. **C58** owns the numbers. **No ADR, no spec.**
+
+⚠ **Second, distinct gap in the same request: C59 has no vocabulary for PER-VIEW CAPABILITY.** The
+founder asked for this in *"all views apart from 3D globe"*. C59 models a view as a mountable pane
+surface; it cannot express *"view X does not support capability Y"*. Today that exclusion could only
+be an `if (viewType === 'site-3d')` somewhere — exactly the ad-hoc branching C59 §0 exists to stop.
+
+⇒ **Recommend a contract (or a C58 §2.4 + C56 extension) owning the binding**, with one rule
+non-negotiable from day one: **a datum with no geometric expression must be REPRESENTABLE as such**.
+`Max FAR`, `max site coverage`, the 80 m² dwelling module and `max dwellings ≈ 34` have no shape.
+Highlighting *something approximate* for them would be §CONTEXT-DATA-HONESTY's failure in a new
+costume — *failure and empty are the same VALUE and must never be the same ANSWER*.
+
+Logged as **L-603**. See `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md`.
+
+---
+
+## L-600 (2026-07-22) — CROSS-RENDERER CAMERA STATE: **gap CLOSED IN PLACE, not a new contract**
+
+**Searched, and reported honestly rather than assumed.** The founder asked for one shared camera
+angle across the 3D globe, the 3D Site and the 3D BIM view. Enumerating what governs it:
+
+- **C59** owned *which view is hosted in which pane* and explicitly deferred *"per-pane view state
+  **+ camera state**"* to Phase 3 — so this was **under-specified, not unowned**.
+- **C60** owns the globe entry stages and their camera as a **projection of the stage**
+  (`cameraForState`), but scopes that to the entry flow only.
+- **C04** owns scheduling (single rAF), **C12** the coordinate frames, **ADR-0115/ADR-0070** the
+  dual-north θ. None of them says whether two renderers may share a camera pose, or how.
+- **`ViewCameraStateStore` / `MultiViewCameraManager`** are implementation, contracted nowhere
+  beyond C59's Phase-3 one-liner and the L-405 recommendation.
+
+⇒ **No new contract was created, and that is the finding.** The failure mode here — a camera
+feedback loop between two renderers, and a θ applied zero or twice — is **not distinct from C59's
+domain**; it is the camera half of the per-pane view state C59 already claimed. A separate
+contract would have split one subject across two documents, which is precisely the disease C59 §0
+was written to cure. The gap is closed **in place** as **C59 §2.7** (+ a new §2 invariant 7),
+following C60 §7's own test for when a separate contract IS warranted (*different question,
+different failure mode*) and failing it.
+
+⚠ **What remains genuinely uncontracted, and is NOT filled by §2.7:** whether a *shared camera*
+should also cover the 2D surfaces (plan/section/elevation). C59 §2.7.6 states they are excluded
+and why, but that is a scoping decision recorded in passing, not a contracted position on
+cross-view camera semantics generally. If a future request asks for a linked 2D↔3D camera, this
+should be revisited rather than extended by analogy.
+
+## L-604 (2026-07-22) — ECEF IN THE BIM SCENE GRAPH: **NOT a missing contract — an existing one is VIOLATED**
+
+Recorded here only to close the search: this looked like a coverage gap and is not one. **C12
+§1.1** already mandates a local LTP-ENU scene frame recentred within 1 km, with the `float32`
+precision rationale stated. `CesiumThreeBridge.setAnchor()` contradicts it. The contract is
+correct and the code is wrong (C01 conflict-resolution order), so this is logged as a **Known
+Violation in C12 §1.5**, not as a missing contract. No new document.
