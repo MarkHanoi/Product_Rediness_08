@@ -93,7 +93,7 @@ Cloudflare dashboard. Exit criterion is written into `docs/04-reference/OBJECT-S
 | 2 | No fabrication | fabricated setback triples 141 → 0 | ✅ L-553 |
 | 3 | Rule pack exists | 24.2% of private buildable land (13a/13E) | ✅ n=273 |
 | 4 | **Depth constructed** | **83.0%** | ✅ **L-576 live, n=100** |
-| 5 | Height constructed | see the sweep in `scratchpad/probe-l576-layer5.mts` | 🔄 in flight |
+| 5 | **Height constructed** | **78.3%** of the parcels that got a depth | ✅ **live, n=83** |
 | 6 | Renders correctly | — | ❌ still unmeasured |
 
 **LAYER 4 IS NOW A REAL NUMBER (live, n=100 Eixample manzanas through the production path):**
@@ -106,14 +106,27 @@ depth constructed **83.0%** · `block-dissolve-refused` 7.0% (6 `open-or-disjoin
   failing manzanas sat 33–58 m clear of the window edge.
 - ⚠ **A SEPARATE BUG SURFACED:** 7% match only ONE parcel for the manzana prefix out of ~300 in the
   bbox. That is a **grouping** failure, not a dissolve failure, and needs a different fix.
-- ⇒ Honest end-to-end ceiling: 24.2% × 83.0% = **20.1%** before layers 5–6.
+- ⇒ With layer 5 below: 24.2% × 83.0% × 78.3% = **15.7%** live end-to-end, before layer 6.
 - ⚠ **NO tolerance was loosened** and the L-576 dissolve fix itself is **still OPEN**.
 
-**LAYER 5 — partial read, pattern already clear.** Cerdà 20 m streets measure 19.58–19.94 m and snap
-to the 20 m quantum → 20.75 m / PB+4. Band-edge refusals are **not scattered** — they cluster on two
-widths (~7.6–8.0 m straddling 8.55/11.6, and ~15.3–15.5 m straddling 14.65/17.7). A declared-width
-source for just those two bands would convert most refusals into answers. ⚠ Those refusals are the
-guard WORKING; count them separately, never as failures.
+**LAYER 5 IS NOW A REAL NUMBER (live, n=83 — the manzanas that already have a depth):**
+height constructed **78.3%** · band-edge REFUSAL **20.5%** · no measurable width **0.0%** · error 1.2%.
+
+Provenance tier — which source actually decided each height:
+`snapped-to-declared-quantum` **55.4%** · `measured-cadastral` **43.4%** · none 1.2%.
+Height distribution: 20.75 m ×46 · 17.7 m ×15 · 14.65 m ×2 · 8.55 m ×2.
+
+⚠ **THE 20.5% BAND-EDGE REFUSALS ARE THE GUARD WORKING, NOT A BUG** — count them separately. And
+they are **not scattered**: they cluster on exactly two widths — ~7.6–8.0 m (straddling 8.55/11.6)
+and ~15.3–15.5 m (straddling 14.65/17.7). **A declared-width source for just those two bands would
+convert most of them into answers**, which makes this the highest-leverage remaining item on the
+legal side.
+
+⚠ **"no measurable street width" is 0.0%** — the ray-casting width measurement resolved EVERY block.
+The long-standing assumption that *amplada de vial* availability was the blocker is **refuted**; the
+blocker is band-edge ambiguity, which is a different fix (a declared source, not better geometry).
+
+⇒ **LIVE END-TO-END = 24.2% × 83.0% × 78.3% = 15.7%**, before layer 6. Quote this, not 24.2%.
 
 **LAYER 6 IS STILL UNMEASURED** and needs `computeBuildableEnvelope` wired into the sweep (parcel
 ring + block ring + clau + rule pack). Minimum check: the dispatched `insetPolygon` is
