@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { Pt, ParcelEdgeClassification } from '@pryzm/schemas';
-import { polygonArea, pointInPolygon } from '@pryzm/site-validators';
+import { polygonArea, pointInPolygon, pointPolygonEdgeDistance } from '@pryzm/site-validators';
 import { insetPolygonPerEdge } from '../src/geometry/insetPolygon.js';
 
 // 40 m × 20 m rectangle, CCW in scene-XZ.
@@ -255,9 +255,23 @@ describe('insetPolygonPerEdge — degenerate-input hardening (L-403)', () => {
         // is where the old code returned `degenerate` ⇒ zero interior free area ⇒ a floored depth.
         const atFloor = insetPolygonPerEdge(BLOCK_02309, cls, uniform(12));
         expect(atFloor.degenerate).toBe(false);
-        // ~2,922 m² = 43.6% of the block still free at 12 m — comfortably past the 30% Art. 242.2
-        // requires, which is the whole point: the block was never short of courtyard.
-        expect(polygonArea(atFloor.polygon)).toBeCloseTo(2922, -1);
+        // ⚠ THIS ASSERTION WAS `toBeCloseTo(2922, -1)` AND THAT NUMBER WAS NOT GROUND TRUTH — it
+        // was whatever the mitre-plus-clamp implementation happened to return, frozen into a test.
+        // The INDEPENDENT grid-rasterisation oracle (`scratchpad/probe-l581-grid-oracle.mts`, a
+        // different algorithm: keep every cell whose distance to the boundary is ≥ 12 m) puts the
+        // true uniform 12 m inset at 3,219 m² on a 0.5 m grid and 3,227 m² on a 0.25 m grid — so
+        // 2,922 was 9.5% UNDER truth, and pinning it to ±5 m² would have blocked any construction
+        // that got closer. §INSET-ROUND-JOIN (L-586) returns 3,196 m², i.e. 99.0% of truth and
+        // still on the conservative side of it.
+        //
+        // SO THE ASSERTION IS NOW STATED AGAINST THE ORACLE RATHER THAN AGAINST AN IMPLEMENTATION:
+        // never ABOVE the true erosion (C58 §1.4 — over-stating buildable area is the failure that
+        // is not allowed), and never so far below it that "conservative" has quietly become
+        // "returns nothing", which is exactly how L-525b shipped a floored depth. A test that only
+        // fixes a value cannot tell those two apart; this one can.
+        const ORACLE_12M_M2 = 3227; // grid 0.25 m, independent algorithm
+        expect(polygonArea(atFloor.polygon)).toBeLessThanOrEqual(ORACLE_12M_M2);
+        expect(polygonArea(atFloor.polygon)).toBeGreaterThan(ORACLE_12M_M2 * 0.95);
         expect(polygonArea(atFloor.polygon) / blockArea).toBeGreaterThan(0.30);
 
         // An inset is an EROSION, so it must live inside the block — a fold that escaped would be
@@ -307,6 +321,92 @@ describe('insetPolygonPerEdge — degenerate-input hardening (L-403)', () => {
             expect(polygonArea(res.polygon)).toBeLessThan(polygonArea(flagLot));
             for (const p of res.polygon) expect(pointInPolygon(p, flagLot)).toBe(true);
         }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // §INSET-ROUND-JOIN (L-586) — the mitre blow-up, and the conservatism that replaced it.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    it('does not throw the corner 630 m away when a big setback meets a zero one across a 1° turn', () => {
+        // THE ROOT CAUSE OF L-586, ISOLATED. A mitre vertex sits at |M − V| = |a − b| / sin θ. Art.
+        // 242 asks for {front: 11, side: 0} — the Barcelona party-wall (*mitgera*) call — and a
+        // DISSOLVED cadastral ring turns by less than 1° at half its vertices. 11 / sin(1°) = 630 m,
+        // from a legal input on correct data. No amount of downstream repair can recover from that;
+        // the construction has to not produce it. Here the erosion must instead round the corner at
+        // radius 11 and land back ON the zero-setback edge.
+        const ring: Pt[] = [
+            { x: 0, z: 0 },
+            { x: 60, z: 0 },              // front (setback 11)
+            { x: 120, z: 1.047 },         // ← a 1.0° turn: the mitre would fly ~630 m
+            { x: 120, z: 80 },
+            { x: 0, z: 80 },
+        ];
+        const cls: ParcelEdgeClassification[] = ['front', 'side', 'side', 'side', 'side'];
+        const res = insetPolygonPerEdge(ring, cls, { front: 11, side: 0, rear: 0, unclassified: 0 });
+        expect(res.degenerate).toBe(false);
+        // Nothing may leave the parcel. ⚠ A ZERO setback puts the inset exactly ON those edges, and
+        // `pointInPolygon` is half-open, so "on the boundary" tests inside on one side and outside
+        // on the other — the L-462 asymmetry. Assert containment the way the production soundness
+        // gate does, boundary-tolerantly, or this test would encode the very bug L-462 fixed.
+        for (const p of res.polygon) {
+            expect(pointInPolygon(p, ring) || pointPolygonEdgeDistance(p, ring) <= 1e-3).toBe(true);
+        }
+        const maxX = Math.max(...res.polygon.map((p) => p.x));
+        expect(maxX).toBeLessThanOrEqual(121); // 630 m would fail here by two orders of magnitude
+        // Only the 11 m front strip is removed from a 120 × 80 plot ⇒ ~8,940 m² of ~9,600 m².
+        expect(polygonArea(res.polygon)).toBeGreaterThan(8000);
+        expect(polygonArea(res.polygon)).toBeLessThan(polygonArea(ring));
+    });
+
+    it('never reports MORE buildable area than the erosion actually contains (C58 §1.4)', () => {
+        // THE ASSERTION THAT MATTERS LEGALLY, and the one no soundness count can make. The old
+        // gates only compared the inset to the PARCEL, so a fold could inflate the inset far past
+        // the true erosion and still pass: measured on the 65-block Eixample fixture, the
+        // pre-L-586 code over-stated on 31 of them, the worst by 2,577 m² (ratio 1.65).
+        //
+        // This checks the DEFINITION directly — sample the parcel and count the points that are
+        // genuinely ≥ s from every edge — so it is independent of how the ring was built.
+        const cls: ParcelEdgeClassification[] = IRREGULAR9_CLS;
+        const res = insetPolygonPerEdge(IRREGULAR9, cls, PER_EDGE);
+        expect(res.degenerate).toBe(false);
+        const setbackOf = (i: number): number =>
+            cls[i] === 'front' ? PER_EDGE.front : cls[i] === 'rear' ? PER_EDGE.rear
+                : cls[i] === 'side' ? PER_EDGE.side : PER_EDGE.unclassified;
+        const segDist = (p: Pt, a: Pt, b: Pt): number => {
+            const vx = b.x - a.x, vz = b.z - a.z, l2 = vx * vx + vz * vz;
+            const t = l2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.z - a.z) * vz) / l2));
+            return Math.hypot(p.x - (a.x + t * vx), p.z - (a.z + t * vz));
+        };
+        const STEP = 0.25;
+        let cells = 0;
+        for (let x = -3; x <= 42; x += STEP) {
+            for (let z = -1; z <= 42; z += STEP) {
+                const p = { x, z };
+                if (!pointInPolygon(p, IRREGULAR9)) continue;
+                let ok = true;
+                for (let i = 0; i < IRREGULAR9.length; i++) {
+                    if (segDist(p, IRREGULAR9[i]!, IRREGULAR9[(i + 1) % IRREGULAR9.length]!) < setbackOf(i)) {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (ok) cells++;
+            }
+        }
+        const oracle = cells * STEP * STEP;
+        // Grid centre-sampling noise is ~perimeter × STEP / 2; allow it, then demand conservatism.
+        expect(polygonArea(res.polygon)).toBeLessThanOrEqual(oracle + 2 * Math.sqrt(oracle) * STEP);
+        // …and demand it has not achieved conservatism by returning almost nothing.
+        expect(polygonArea(res.polygon)).toBeGreaterThan(oracle * 0.90);
+    });
+
+    it('is byte-deterministic — the same input gives the identical ring, twice (C58 §1.1)', () => {
+        // The arcs are generated by chord-midpoint bisection precisely so that no transcendental
+        // (`Math.sin`/`Math.cos`, implementation-defined in ECMA-262) touches a number we publish
+        // as a legal *profunditat edificable*.
+        const a = insetPolygonPerEdge(IRREGULAR9, IRREGULAR9_CLS, PER_EDGE);
+        const b = insetPolygonPerEdge(IRREGULAR9, IRREGULAR9_CLS, PER_EDGE);
+        expect(a.polygon).toEqual(b.polygon);
     });
 
     it('folds interior coincident/duplicate vertices instead of emitting a zero-length edge', () => {

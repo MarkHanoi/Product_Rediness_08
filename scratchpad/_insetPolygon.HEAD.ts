@@ -11,41 +11,35 @@
 //   parcel spine is already in scene-XZ METRES (an LTP-ENU planar frame), not
 //   degrees, so feeding it to Turf would be metrically wrong; and SPEC §4
 //   forbids re-projecting to WGS84 and back (the envelope must stay in the exact
-//   frame the parcel renders in). A pure metric erosion is the correct tool here:
-//   it is deterministic, per-edge (front/side/rear each get their own inward
-//   offset — Turf cannot do that with a single uniform buffer), metric-exact in
-//   scene-XZ, and adds no dependency. NOTE FOR ANY FUTURE "just add a polygon
-//   boolean library" proposal: the repo has none (no polygon-clipping, martinez,
-//   turf, polybooljs, @flatten-js), and the construction below does not need one —
-//   the only boolean operation an erosion requires is resolving the offset ring's
-//   own self-intersections, which §INSET-LOOP-DECOMPOSE already does exactly.
+//   frame the parcel renders in). A pure metric half-plane edge-offset is the
+//   correct tool here: it is deterministic, per-edge (front/side/rear each get
+//   their own inward offset — C58 can't do that with a single uniform buffer),
+//   metric-exact in scene-XZ, and adds no dependency.
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// THE ALGORITHM (§INSET-ROUND-JOIN, L-586) — the boundary of the CAPSULE UNION.
+// ROBUSTNESS FOR REAL DRAWN PARCELS (L-403 — winding + non-convex hardening):
+//   The first slice offset each edge's line inward and re-intersected consecutive
+//   lines (a "miter" offset). That is exact for rectangles + convex parcels, but
+//   it was gated by degenerate heuristics that fired on ANY single reversed inset
+//   edge. Real hand-drawn parcels are IRREGULAR (non-orthogonal, mixed edge
+//   lengths, occasional shallow reflex vertices) and per-edge setbacks differ
+//   (front≠side≠rear), so a short edge flanked by larger setbacks legitimately
+//   COLLAPSES to a miter join — which the old heuristics mis-read as "the whole
+//   parcel is over-inset" → status=degenerate, inset=0 m² on a large valid plot.
+//   The result was also WINDING-DEPENDENT (CW and CCW twins of the same polygon
+//   gave different answers).
 //
-//   A per-edge setback is an EROSION, and the erosion has a definition:
-//       inset = { q ∈ parcel : dist(q, edge_i) ≥ s_i for every edge i }
-//             = parcel \ ⋃_i (edge_i ⊕ disk(s_i))
-//   Step 4 builds that boundary directly — each edge's offset SEGMENT, joined at
-//   each vertex either by a sharp corner (where the erosion genuinely has one) or
-//   by the arc where the two neighbouring capsules hand over. Step 4b then keeps
-//   only the points the definition above actually admits, which is an independent
-//   test rather than another repair. Step 5 splits residual folds into simple
-//   loops; step 6 gates genuine over-inset. Winding-INDEPENDENT (canonicalised to
-//   CCW). Full rationale, and the four earlier approaches this replaces, are
-//   documented inline at steps 3 and 4b — READ THEM BEFORE CHANGING THIS FILE:
-//   three of the four were measured, plausible and wrong.
-//
-//   MEASURED, 65 real Eixample blocks, Art. 242 call {front: 11, side: 0}, against
-//   an INDEPENDENT grid-rasterisation oracle (`scratchpad/probe-l586-oracle-65.mts`):
-//       geometrically sound at the 11 m ordinance floor   36.9% → 55.4% → 100%
-//       blocks OVER-stating the true erosion (C58 §1.4)   31/65 → 0/65
-//       code/oracle area ratio                            median 0.990, min 0.887
-//   ⚠ The over-statement column is the one that matters and the one nothing before
-//   this measured: the old soundness gates compared the inset to the PARCEL, never
-//   to the true erosion, so a fold could inflate buildable area by 65% (2,577 m²
-//   on block 0224301DF3802C) and still be reported as sound.
+//   This implementation is winding-INDEPENDENT by construction (it canonicalises
+//   to CCW, and the offset-line intersection set is identical for either input
+//   winding) and treats a collapsed/reversed edge as a LOCAL event: it drops that
+//   edge's offset line and re-miters the neighbours (the vanished-edge miter
+//   join), instead of degenerating the whole polygon. A final self-intersection
+//   cleanup (greedy loop removal) handles narrow concavities where an inward
+//   offset would otherwise fold over itself. Genuine over-inset (setbacks consume
+//   the parcel → < 3 surviving vertices, ~0 area, or the inset escapes the
+//   parcel) is still reported as `degenerate` — but a large simple irregular
+//   polygon now yields a real inset.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Pt } from '@pryzm/schemas';
@@ -82,28 +76,20 @@ const COINCIDENT_EPS = 1e-6;
  */
 const BOUNDARY_TOLERANCE_M = 1e-3;
 /**
- * §INSET-ROUND-JOIN (L-586) — target chord/radius ratio for one arc segment of a vertex arc.
- * 0.261 = 2·sin(7.5°), i.e. a 15° arc step. The arc is generated by CHORD-MIDPOINT BISECTION
- * (only `sqrt`, never a transcendental), so the subdivision level is a fixed integer derived from
- * the chord ratio rather than a convergence loop — C58 §1.1 byte-determinism.
+ * §INSET-CLAMP-TO-HALFPLANE (L-581) — fixed pass budget for the half-plane clamp in step 4b.
+ * Deliberately a COUNT and not a convergence tolerance: a data-dependent iteration count would make
+ * the inset input-sensitive at the last bit and break the byte-determinism C58 §1.1 requires of a
+ * number we publish as a legal figure. 8 passes was measured to be past the point where any of the
+ * 65 real Eixample fixture blocks still moves.
  */
-const ARC_CHORD_RATIO = 0.261;
+const CLAMP_PASSES = 8;
 /**
- * §INSET-ROUND-JOIN (L-586) — hard cap on arc bisection levels (2³ = 8 segments per arc). Bounds
- * the output vertex count (and therefore the O(n²) self-intersection cleanup) on a 60-vertex
- * cadastral ring. At the worst case — a 180° reflex arc — 8 segments leave a sagitta of 0.019·r,
- * i.e. 23 cm at an 12 m setback, and the chord always lies INSIDE the true arc, so the error is in
- * the conservative direction C58 §1.4 requires.
+ * §INSET-CLAMP-TO-HALFPLANE (L-581) — how far past a dropped edge's own extent its half-plane may
+ * still govern. A miter join legitimately lands slightly beyond the edge it was built from, so a
+ * hard [0, len] window would miss the very vertices the drop created. Half a metre is below any
+ * planning dimension and far above miter float error.
  */
-const ARC_MAX_LEVELS = 3;
-/**
- * §INSET-EROSION-PREDICATE (L-586) — slack on the "no closer than s_j to segment j" test in step 4b.
- * Every point step 4 emits is CONSTRUCTED to sit at exactly its setback from the segment that made
- * it, so the test is comparing a number against itself and only float error separates them. 1 µm is
- * a thousand times above that error and a million times below any planning dimension, so it cannot
- * admit a point that genuinely violates a setback.
- */
-const PREDICATE_TOLERANCE_M = 1e-6;
+const CLAMP_SPAN_SLACK_M = 0.5;
 
 function sub(a: Pt, b: Pt): Pt {
     return { x: a.x - b.x, z: a.z - b.z };
@@ -170,53 +156,46 @@ function cleanRing(
     return { pts, cls };
 }
 
+interface OffsetLine {
+    readonly p: Pt; // a point on the inward-offset supporting line
+    readonly d: Pt; // unit direction of the (original) edge
+    /** Length of the parent edge. §INSET-CLAMP-TO-HALFPLANE (L-581) needs it to keep the clamp
+     *  LOCAL: an edge's half-plane only governs the strip in front of that edge, never the whole
+     *  ring. Without this the clamp drags distant vertices inward across a reflex polygon. */
+    readonly len: number;
+}
+
 /**
- * §INSET-ROUND-JOIN (L-586) — emit the interior points of the circular arc of radius `r` centred on
- * `c` running from `e` to `q` (both already at distance `r` from `c`), taking the SHORT way round.
- *
- * Method: chord-midpoint bisection. The midpoint of a chord, re-normalised to radius `r`, is the
- * arc's midpoint — and it is always the SHORT arc's midpoint, so no angle, no branch and no
- * `atan2` is needed to choose a direction. The subdivision depth is a fixed integer derived from
- * the chord ratio, so the whole construction uses nothing but `+ - * / sqrt`, all IEEE-exact
- * operations. That is deliberate: `Math.sin`/`Math.cos` are implementation-defined in ECMA-262,
- * and this polygon's area is published as a legally-binding *profunditat edificable* (C58 §1.1).
- *
- * Every emitted point lies INSIDE the true arc's chord-hull, i.e. the polyline under-states the
- * arc, so the resulting inset is never larger than the exact erosion (C58 §1.4).
+ * §INSET-CLAMP-TO-HALFPLANE (L-581) — signed distance from `q` to an offset line, POSITIVE on the
+ * INTERIOR side. For a CCW ring the interior lies LEFT of the directed edge, so the inward normal of
+ * direction `d` is `(-d.z, d.x)` and the interior half-plane is `{ q : (q − p)·n ≥ 0 }`.
  */
-/** Distance from `p` to the SEGMENT a→b (not to its infinite line). */
-function pointSegmentDistance(p: Pt, a: Pt, b: Pt): number {
-    const vx = b.x - a.x;
-    const vz = b.z - a.z;
-    const l2 = vx * vx + vz * vz;
-    const t = l2 < EPS ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.z - a.z) * vz) / l2));
-    return Math.hypot(p.x - (a.x + t * vx), p.z - (a.z + t * vz));
+function interiorSignedDist(q: Pt, line: OffsetLine): number {
+    const v = sub(q, line.p);
+    return v.x * -line.d.z + v.z * line.d.x;
 }
 
-function arcInteriorPoints(c: Pt, r: number, e: Pt, q: Pt, out: Pt[]): void {
-    if (r < EPS) return;
-    const chord = length(sub(q, e));
-    if (chord < EPS) return;
-    let levels = 0;
-    let ratio = chord / r;
-    while (ratio > ARC_CHORD_RATIO && levels < ARC_MAX_LEVELS) {
-        ratio /= 2;
-        levels++;
+/** §INSET-CLAMP-TO-HALFPLANE (L-581) — nearest point to `q` on the offset line's supporting line. */
+function projectOnto(q: Pt, line: OffsetLine): Pt {
+    const s = interiorSignedDist(q, line);
+    return { x: q.x - s * -line.d.z, z: q.z - s * line.d.x };
+}
+
+/**
+ * Miter offset: place a new vertex at each intersection of consecutive offset
+ * lines. Parallel consecutive lines (a straight/collinear vertex) fall back to
+ * the current line's offset point. Returns one vertex per offset line.
+ */
+function miter(lines: ReadonlyArray<OffsetLine>): Pt[] {
+    const n = lines.length;
+    const out: Pt[] = new Array(n);
+    for (let j = 0; j < n; j++) {
+        const prev = lines[(j - 1 + n) % n]!;
+        const curr = lines[j]!;
+        const x = lineIntersect(prev.p, prev.d, curr.p, curr.d);
+        out[j] = x ?? { ...curr.p };
     }
-    if (levels === 0) return;
-    bisectArc(c, r, e, q, levels, out);
-}
-
-function bisectArc(c: Pt, r: number, e: Pt, q: Pt, levels: number, out: Pt[]): void {
-    if (levels === 0) return;
-    const mx = (e.x + q.x) / 2 - c.x;
-    const mz = (e.z + q.z) / 2 - c.z;
-    const m = Math.hypot(mx, mz);
-    if (m < EPS) return; // antipodal chord — no defined short-way midpoint
-    const mid: Pt = { x: c.x + (mx / m) * r, z: c.z + (mz / m) * r };
-    bisectArc(c, r, e, mid, levels - 1, out);
-    out.push(mid);
-    bisectArc(c, r, mid, q, levels - 1, out);
+    return out;
 }
 
 /** True iff segments a-b and c-d properly cross (interiors intersect). */
@@ -357,19 +336,14 @@ function decomposeToSimpleLoops(ring: ReadonlyArray<Pt>): Pt[][] {
  * classification. Deterministic + metric-exact in scene-XZ metres, and
  * WINDING-INDEPENDENT (CW and CCW inputs give the same inset area).
  *
- * Method (§INSET-ROUND-JOIN, L-586): trace the boundary of `parcel \ ⋃ (edge_i ⊕
- * disk(s_i))` — each edge's offset SEGMENT, joined at each vertex by the sharp
- * corner or the hand-over arc the erosion actually has there; drop any traced
- * point the erosion's own definition does not admit; split residual folds into
- * simple loops and keep the surviving material. Robust for rectangular, convex
- * and irregular non-convex parcels, and specifically for DISSOLVED cadastral
- * blocks (40–60 edges, sub-metre notches, sub-degree turns, mixed
- * setback-vs-party-wall calls). Genuine over-inset (setbacks consume the parcel)
- * → `degenerate: true` with an empty polygon (no crash, no garbage).
- *
- * The result is never LARGER than the exact erosion — verified block by block
- * against an independent grid oracle, because the direction of the error is the
- * whole compliance question (C58 §1.4).
+ * Method: offset each edge's supporting line inward by its own setback, miter
+ * the offset lines to place vertices, iteratively collapse any edge whose inset
+ * segment REVERSES (a short edge subsumed by its neighbours' larger setbacks —
+ * a local miter join, NOT a global over-inset), then clean up any residual
+ * self-intersection from narrow concavities. Robust for rectangular, convex,
+ * and irregular non-convex parcels. Genuine over-inset (setbacks consume the
+ * parcel) collapses to < 3 vertices / ~0 area / an inset that escapes the
+ * parcel → `degenerate: true` with an empty polygon (no crash, no garbage).
  *
  * @param polygon              closed ring, ≥ 3 vertices, scene-XZ metres.
  * @param edgeClassifications  one per edge (`edge i` = `polygon[i]→polygon[i+1]`).
@@ -421,175 +395,144 @@ export function insetPolygonPerEdge(
         for (let i = 0; i < n; i++) ringCls[i] = cls[(n - 1 - i + n) % n];
     }
 
-    // ── 3. §INSET-ROUND-JOIN (L-586) — build the offset ring as the boundary of the CAPSULE UNION.
-    //
-    // WHAT THIS REPLACES, AND WHY THE OLD CONSTRUCTION COULD NOT BE PATCHED FURTHER. Slices L-403 →
-    // L-525b → L-581 all built the inset by MITRING: offset every edge's supporting LINE inward,
-    // intersect consecutive lines, then repair the wreckage (drop reversed edges, decompose folds,
-    // clamp escapees back into the half-planes the drop abandoned). Measured on the 65-block
-    // Eixample fixture at the 11 m ordinance floor with the Art. 242 party-wall call
-    // {front: 11, side: 0}, that pipeline topped out at 55.4% geometrically sound, with `inset area
-    // > parcel` at 27.7% and `vertex escaped the parcel` at 16.9% — escapes reaching 1,736 m on an
-    // 80 m block.
-    //
-    // THE ROOT CAUSE IS NOT REPAIRABLE BY REPAIR. A mitre vertex sits at |M − V| = |a − b| / sin θ
-    // for adjacent setbacks a, b and turn angle θ. A dissolved cadastral ring is not a tidy polygon:
-    // 49% of its vertices turn by less than 1° and 20% of its edges are under 1 m (measured —
-    // `scratchpad/probe-l581-collinear.mts`). Art. 242's party-wall call puts a = 11 next to b = 0
-    // across exactly such vertices, so sin θ ≈ 0.017 throws the mitre 630 m away — from a legal
-    // input, on correct data, with no bug anywhere upstream. Every previous slice was fighting that
-    // identity. ⚠ Simplifying the ring first does NOT help and was measured: a Douglas-Peucker
-    // pre-pass scores 53.8% at 5 cm, 49.2% at 15 cm, 52.3% at 30 cm, 50.8% at 1 m. Only a 2 m
-    // distortion improves it, and 2 m is itself a planning dimension.
-    //
-    // THE CORRECT OBJECT. A per-edge setback is an EROSION, and the erosion has a closed-form
-    // definition that owes nothing to mitring:
-    //
-    //     inset = { q ∈ parcel : dist(q, edge_i) ≥ s_i for every edge i }
-    //           = parcel \ ⋃_i (edge_i ⊕ disk(s_i))          — a union of CAPSULES.
-    //
-    // So the inset boundary is the outer boundary of that capsule union, and it is built from
-    // exactly two kinds of piece: each edge's offset SEGMENT (never its infinite line), and at each
-    // vertex the arc of the circle around that vertex where the two neighbouring capsules hand
-    // over. Both pieces lie within max(s) of the parcel boundary, so nothing can fly 630 m — the
-    // pathology is not mitigated, it is absent from the construction.
-    //
-    // THE HAND-OVER AT A VERTEX, stated exactly (this is the whole algorithm):
-    //   Let V be the vertex, `a` the setback of the incoming edge (direction dp, inward normal np)
-    //   and `b` that of the outgoing edge (dc, nc). The two offset lines meet at M.
-    //     • M is a genuine boundary point IFF its perpendicular feet land on the SEGMENTS that
-    //       generated it — i.e. (M−V)·dp ≤ 0 and (M−V)·dc ≥ 0. For equal setbacks that test reduces
-    //       exactly to "the vertex is convex", which is the classical result that an erosion keeps
-    //       convex corners SHARP and rounds reflex ones. For unequal setbacks it additionally
-    //       rejects the near-collinear blow-up above — the case Art. 242 actually generates.
-    //     • Otherwise the capsules hand over on the circle of radius r = max(a, b) around V. The
-    //       incoming capsule leaves that circle at E = V + a·np − √(r²−a²)·dp and the outgoing one
-    //       joins it at Q = V + b·nc + √(r²−b²)·dc; between them runs the arc. When a = b this is
-    //       the textbook round join; when b = 0 (a *mitgera* / party wall) it is the quarter-turn
-    //       that lands the inset back ON the parcel edge at distance a from the corner — which is
-    //       what the ordinance means, and what a mitre could never express.
-    //
-    // ⚠ DIRECTION OF ERROR (C58 §1.4). Every departure from the exact erosion here is INWARD: the
-    // arc is drawn as an INSCRIBED chord polyline, and where the setbacks differ the hand-over runs
-    // on the LARGER radius. The inset can therefore only ever be under-stated, never over-stated —
-    // the one direction a buildable-depth number is allowed to be wrong in. Verified against an
-    // independent grid-rasterisation oracle rather than against itself.
-    //
-    // ⚠ WHAT IS DELETED HERE AND MUST NOT COME BACK. Step 4's "drop the reversed edge's offset
-    // line" (L-403) and step 4b's half-plane clamp (L-581) were both repairs for mitre blow-up. An
-    // offset SEGMENT cannot reverse — it is a rigid translate of its parent edge — so there is
-    // nothing to drop; and no constraint is ever abandoned, so there is nothing to clamp back.
-    // Re-introducing either would be repairing a failure this construction does not have. Do NOT
-    // read the archived "deleting step 4 collapses to 1.5% sound" result as an argument against
-    // this: that was measured on the MITRE construction, where the drop was load-bearing.
+    // ── 3. Build each edge's inward-offset supporting line. For a CCW ring the
+    //       interior lies to the LEFT of the directed edge, so the inward unit
+    //       normal of edge dir (ux,uz) is (-uz, ux). ─────────────────────────
     const n = ring.length;
-    const dirs: Pt[] = new Array(n);
-    const nrms: Pt[] = new Array(n);
-    const sbs: number[] = new Array(n);
+    let lines: OffsetLine[] = [];
     for (let i = 0; i < n; i++) {
         const a = ring[i]!;
         const b = ring[(i + 1) % n]!;
-        const v = sub(b, a);
-        const len = length(v);
-        if (len < EPS) return { polygon: [], degenerate: true }; // cleanRing should have removed it
-        dirs[i] = { x: v.x / len, z: v.z / len };
-        nrms[i] = { x: -v.z / len, z: v.x / len }; // CCW ⇒ the interior is LEFT of the directed edge
-        sbs[i] = Math.max(0, setbackForClass(ringCls[i], setbacks));
+        const dir = sub(b, a);
+        const len = length(dir);
+        if (len < EPS) continue; // already cleaned, but stay defensive
+        const ux = dir.x / len;
+        const uz = dir.z / len;
+        const nx = -uz;
+        const nz = ux;
+        const s = Math.max(0, setbackForClass(ringCls[i], setbacks));
+        lines.push({ p: { x: a.x + nx * s, z: a.z + nz * s }, d: { x: ux, z: uz }, len });
     }
+    if (lines.length < 3) return { polygon: [], degenerate: true };
 
-    // ── 4. Walk the vertices, emitting each hand-over. The offset SEGMENT of edge i is implicit:
-    //       it runs from the last point emitted at vertex i to the first point emitted at vertex
-    //       i+1. That is why no edge can reverse in isolation — an over-eroded edge shows up as a
-    //       CROSSING, which is a global property step 5 is built to resolve. ─────────────────────
-    let out: Pt[] = [];
-    const push = (p: Pt): void => {
-        const last = out[out.length - 1];
-        if (last && length(sub(p, last)) < COINCIDENT_EPS) return;
-        out.push(p);
-    };
-    for (let i = 0; i < n; i++) {
-        const V = ring[i]!;
-        const ip = (i - 1 + n) % n;
-        const dp = dirs[ip]!;
-        const np = nrms[ip]!;
-        const a = sbs[ip]!;
-        const dc = dirs[i]!;
-        const nc = nrms[i]!;
-        const b = sbs[i]!;
-
-        const pPrev: Pt = { x: V.x + a * np.x, z: V.z + a * np.z };
-        const pCurr: Pt = { x: V.x + b * nc.x, z: V.z + b * nc.z };
-
-        const m = lineIntersect(pPrev, dp, pCurr, dc);
-        if (m) {
-            const tPrev = (m.x - V.x) * dp.x + (m.z - V.z) * dp.z;
-            const tCurr = (m.x - V.x) * dc.x + (m.z - V.z) * dc.z;
-            // Feet on the GENERATING SEGMENTS ⇒ the mitre is the exact capsule-union corner.
-            if (tPrev <= EPS && tCurr >= -EPS) {
-                push(m);
-                continue;
-            }
-        }
-
-        const r = Math.max(a, b);
-        if (r < EPS) {
-            push({ x: V.x, z: V.z }); // both neighbours are party walls — the corner is the corner
-            continue;
-        }
-        const back = Math.sqrt(Math.max(0, r * r - a * a));
-        const fwd = Math.sqrt(Math.max(0, r * r - b * b));
-        const e: Pt = { x: pPrev.x - back * dp.x, z: pPrev.z - back * dp.z };
-        const q: Pt = { x: pCurr.x + fwd * dc.x, z: pCurr.z + fwd * dc.z };
-        push(e);
-        const arc: Pt[] = [];
-        arcInteriorPoints(V, r, e, q, arc);
-        for (const p of arc) push(p);
-        push(q);
-    }
-    // The wrap can close on a duplicate of the first point.
-    while (out.length >= 2 && length(sub(out[out.length - 1]!, out[0]!)) < COINCIDENT_EPS) out.pop();
-    if (out.length < 3) return { polygon: [], degenerate: true };
-
-    // ── 4b. §INSET-EROSION-PREDICATE (L-586) — keep only points that are GENUINELY in the erosion.
+    // §INSET-CLAMP-TO-HALFPLANE (L-581) — the lines step 4 DISCARDS, collected as it discards them.
     //
-    // Step 4 builds the boundary of the capsule union PAIRWISE — each vertex hand-over knows about
-    // its own two capsules and nothing else. That is right almost everywhere and wrong exactly where
-    // a THIRD capsule already covers the ground: a dissolved cadastral ring carries 0.3–0.6 m notch
-    // spikes (chamfer joins between the parcels that were merged), and the round join at such a
-    // spike sweeps a 138° arc of radius `s` about a feature two orders of magnitude smaller than
-    // `s`. Measured on block 02309 at a uniform 12 m: two arc points swept 3.0 m clean OUTSIDE the
-    // block, and the raw ring measured 3,400 m² against an independent grid oracle's 3,227 m² — an
-    // OVER-statement, the direction C58 §1.4 forbids.
+    // ⚠ IT MUST BE THE DROPPED LINES ONLY — NOT ALL OF THEM. Clamping against every offset line is
+    // the same thing as intersecting all the half-planes, and **that is only equivalent to an inset
+    // for a CONVEX polygon.** On a reflex ring a perfectly legitimate mitre vertex can sit outside a
+    // NON-ADJACENT edge's offset half-plane, so a global clamp eats real buildable area. Measured,
+    // not reasoned: the all-lines version broke four L-403/L-525b/L-529 regression tests at once —
+    // the large irregular plot, the concave slot, the multi-fold ring and the battle-axe/flag lot
+    // all went degenerate. That is the SAME defect class that sank the retracted half-plane remedy,
+    // reintroduced in a milder disguise.
     //
-    // The fix is not another repair heuristic: it is the DEFINITION. A point belongs to the inset
-    // iff it is in the parcel and no closer than s_j to segment j, for EVERY j — not just its own
-    // two. Points failing that were never on the erosion boundary, so dropping them removes area
-    // that was never buildable. This is an independent test of the construction rather than a part
-    // of it, which is what lets it catch a pairwise blind spot the construction cannot see.
-    //
-    // Edges with s_j = 0 (a *mitgera* / party wall) impose NOTHING — `dist ≥ 0` is vacuous — so the
-    // Barcelona ensanche case is untouched by this stage except through parcel containment, where
-    // §INSET-BOUNDARY-TOLERANT (L-462) already governs: those vertices sit exactly ON the parcel
-    // edge, which is legal for an erosion by zero.
-    const admissible: Pt[] = [];
-    for (const p of out) {
-        if (!pointInPolygon(p, ring) && pointPolygonEdgeDistance(p, ring) > BOUNDARY_TOLERANCE_M) {
-            continue; // outside the parcel — an erosion never leaves it
-        }
-        let ok = true;
-        for (let j = 0; j < n; j++) {
-            const s = sbs[j]!;
-            if (s <= EPS) continue;
-            if (pointSegmentDistance(p, ring[j]!, ring[(j + 1) % n]!) < s - PREDICATE_TOLERANCE_M) {
-                ok = false;
+    // The constraint step 4 actually abandons is the DROPPED edge's line, and that is the only one
+    // we are entitled to put back.
+    const droppedLines: OffsetLine[] = [];
+
+    // ── 4. Miter, then iteratively drop any edge whose inset segment reversed
+    //       (a collapsed/vanished edge). Removing that edge's offset line lets
+    //       its two neighbours miter directly — the correct join for a short
+    //       edge subsumed by larger setbacks. Bounded: each pass removes ≥ 1. ─
+    let out: Pt[] = miter(lines);
+    for (let guard = 0; guard < lines.length; guard++) {
+        let reversedIdx = -1;
+        for (let j = 0; j < lines.length; j++) {
+            const line = lines[j]!;
+            const a = out[j]!;
+            const b = out[(j + 1) % out.length]!;
+            const edge = sub(b, a);
+            // Reversed iff the inset segment runs opposite its parent edge dir.
+            if (edge.x * line.d.x + edge.z * line.d.z <= EPS) {
+                reversedIdx = j;
                 break;
             }
         }
-        if (ok) admissible.push(p);
+        if (reversedIdx < 0) break;
+        droppedLines.push(lines[reversedIdx]!);
+        lines.splice(reversedIdx, 1);
+        if (lines.length < 3) return { polygon: [], degenerate: true };
+        out = miter(lines);
     }
-    out = admissible;
-    while (out.length >= 2 && length(sub(out[out.length - 1]!, out[0]!)) < COINCIDENT_EPS) out.pop();
-    if (out.length < 3) return { polygon: [], degenerate: true };
+
+    // ── 4b. §INSET-CLAMP-TO-HALFPLANE (L-581) — PUT BACK THE CONSTRAINTS STEP 4 THREW AWAY. ──
+    //
+    // THE DEFECT. Dropping line `j` above does not merely delete a vertex — it ABANDONS EDGE j'S
+    // HALF-PLANE CONSTRAINT. Its two neighbours are then free to mitre to a corner with nothing
+    // holding it inside the parcel, and on a real cadastral block (40–60 edges, 10–43 reflex
+    // vertices, and the `{front: d, side: 0}` party-wall mixture Art. 242 actually asks for) step 4
+    // discards ~50% of all lines, so the survivors mitre somewhere else entirely.
+    //
+    // ⚠ MEASURED ON 65 REAL EIXAMPLE BLOCKS, and the previously-recorded mechanism was WRONG. The
+    // long-standing write-up said the cascade makes the ring "drain below 3 lines". That gate fires
+    // ZERO times, at every depth, on every block. What actually happened is that the wreckage was
+    // caught downstream by the SOUNDNESS gates in step 6 — which were doing their job correctly and
+    // therefore hid the cause:
+    //
+    //     at the 11 m ORDINANCE FLOOR — the gentlest depth the solver is ever asked for:
+    //       sound 36.9%  ·  `inset area > parcel` 29.2%  ·  `vertex escaped` 33.8%
+    //       escape distance: median 1.27 m, MAX 177 m   (at 30 m depth: max 5.6 km)
+    //
+    // A remedy aimed at the line COUNT would therefore have fixed a gate that never fires. The
+    // repair has to restore the CONSTRAINT.
+    //
+    // WHAT THIS DOES. Project every surviving vertex back into the interior half-plane of every
+    // offset line — including the dropped ones. A vertex already inside is untouched, so this is a
+    // no-op on sound geometry; a vertex that escaped is pulled onto the boundary of the constraint
+    // it violated. Iterated, because satisfying one half-plane can violate another, with a FIXED
+    // pass budget rather than a convergence tolerance so the result stays byte-deterministic
+    // (C58 §1.1) instead of becoming input-sensitive at the last bit.
+    //
+    // ⚠ DIRECTION OF ERROR — why this is allowed to change a legal number. The projection moves a
+    // vertex only INWARD, so the inset can only ever SHRINK. A smaller inset reports LESS interior
+    // free area, so `solveBlockDerivedDepth` concludes a SHALLOWER depth. The remedy therefore errs
+    // conservative, which is the direction C58 §1.4 permits.
+    //
+    // ⚠⚠ THIS IS NOT THE RETRACTED HALF-PLANE INTERSECTION, and the difference is the whole reason
+    // that one was withdrawn. Intersecting all half-planes OVER-states free area at convex
+    // front–front corners (a true offset rounds them) and therefore OVER-states buildable depth —
+    // fabrication in the forbidden direction, trading a DETECTABLE failure for an undetectable one.
+    // Clamping starts from the mitre and can only remove area. Do not "simplify" this into an
+    // intersection.
+    //
+    // MEASURED RESULT (65 real blocks, offline, no network):
+    //   inset sound at the 11 m floor              36.9% → 55.4%
+    //   Art. 242 answers landing AT the 30% rule        3 → 9
+    //
+    // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT CLAIMED 92.3% AND 34, AND BOTH WERE ARTEFACTS —
+    // RETRACTED. They came from the global (un-gated) clamp, which was OVER-ERODING: it ate real
+    // courtyard, and a smaller free area makes the bisection settle at a shallower depth where the
+    // ratio lands on exactly 30%. **So "lands honestly AT 30%" was itself gameable by over-erosion**
+    // — the very metric introduced to detect dishonest answers scored HIGHEST when the geometry was
+    // most wrong. It was caught only by an INDEPENDENT grid-rasterisation oracle
+    // (`scratchpad/probe-l581-grid-oracle.mts`, a different algorithm entirely): on real block 02309
+    // a uniform 12 m inset is ~3,227 m² (48.2%), the gated code returns 2,921 m² (43.6%, correctly
+    // conservative), and the un-gated clamp returned **256 m² — wrong by 12×** while every fixture
+    // aggregate still looked healthy. Never accept an aggregate as proof of a geometry change.
+    // ⚠ REJECTED, MEASURED: deleting step 4 and relying on the step-5 loop decomposition instead
+    // (the tempting "the L-525b cleanup subsumes the L-403 drop" simplification) collapses to
+    // **1.5% sound**. Step 4 is load-bearing. Keep BOTH.
+    for (let pass = 0; pass < CLAMP_PASSES; pass++) {
+        let moved = false;
+        for (let k = 0; k < out.length; k++) {
+            let q = out[k]!;
+            for (const line of droppedLines) {
+                if (interiorSignedDist(q, line) >= -EPS) continue;
+                // ⚠ LOCALITY GATE — only clamp a vertex that lies IN FRONT OF the dropped edge.
+                // An edge's half-plane constrains the strip its own extent sweeps, not the entire
+                // ring; applying it globally is half-plane INTERSECTION by another name, which is
+                // valid only for a convex polygon. Measured: without this gate the uniform 12 m
+                // inset of real block 02309 came out at 256 m² against an independent grid oracle's
+                // 3,227 m² — wrong by 12×, while every fixture aggregate still looked healthy.
+                const t = (q.x - line.p.x) * line.d.x + (q.z - line.p.z) * line.d.z;
+                if (t < -CLAMP_SPAN_SLACK_M || t > line.len + CLAMP_SPAN_SLACK_M) continue;
+                q = projectOnto(q, line);
+                moved = true;
+            }
+            out[k] = q;
+        }
+        if (!moved) break;
+    }
 
     // ── 5. Clean up any residual self-intersection (narrow concavities). ─────
     // §INSET-LOOP-DECOMPOSE (L-525b) — split into simple loops and keep the material that
