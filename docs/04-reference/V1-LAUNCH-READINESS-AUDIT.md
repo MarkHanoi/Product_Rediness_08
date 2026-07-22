@@ -2,6 +2,8 @@
 
 > 📄 **`docs/04-reference/spain/barcelona-catalonia/BARCELONA-DATA-PIPELINE.md` — READ BEFORE ASSUMING A "BARCELONA DATASET" EXISTS.** Exactly **1 of the 7 layers** is a dataset we own and publish (the baked context tiles). Parcels are a **live national API** (Catastro), the zone is a **regional GIS** (MUC), the block is **DERIVED** (refcat prefix + bbox + dissolve), the street width is **MEASURED by ray-casting** because no published width layer exists, and the rules are **HAND-ENCODED legal text**. **The buildable envelope is not looked up — it is CONSTRUCTED, per parcel, on every selection** (ADR-0271). *"Six of seven layers are free. The seventh is the whole cost."*
 
+> 🗺️ **`docs/04-reference/GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` — the JURISDICTION axis.** This audit owns *what is broken* (issue log L-NN); the rollout tracker owns *how far along we are in Barcelona, Spain, and beyond* — phases, per-*clau* coverage, per-city status, and the standing risk register. It links here and never restates. Start there for "where are we?"; start here for "what is broken?".
+
 > **Status**: LIVING · **Owner**: engine · **Started**: 2026-07-02 · **Target**: v1 launch (next week)
 > **Companion plan**: `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` (phased/subphased, side-by-side).
 > **Feeds from**: `ADR-0098` (element-lifecycle conformance audit), `ADR-0099` (host-wall freeze fix),
