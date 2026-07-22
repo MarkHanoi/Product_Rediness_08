@@ -47,6 +47,7 @@ import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
 // §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
 import { CONTEXT_TILES_PATH, contextTilesHandler } from './server/contextTilesProxy.js';
+import { CATALOG_PROXY_PATH, catalogAssetHandler } from './server/catalogAssetProxy.js';
 // §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
 import { CATASTRO_PARCEL_PATH, catastroParcelHandler, CATASTRO_BLOCK_PATH, catastroBlockHandler } from './server/parcelZoningProxy.js';
 // §MUC-ZONING-PROXY (L-480) — the Catalan clau lookup: the ONE missing input that keeps
@@ -380,6 +381,20 @@ app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
 // render" complaint this whole work stream exists to end. These are cacheable static bytes, not
 // an expensive upstream query; `globalLimiter` still applies.
 app.get(`${CONTEXT_TILES_PATH}/:layer`, contextTilesHandler);
+
+// §CATALOG-R2-PROXY (L-578b) — the furniture catalogue (GLBs + thumbnails) over our own origin,
+// for the SAME reason as the tiles above: the R2 bucket sends no CORS headers, and three.js
+// fetches every GLB from the BROWSER, where CORS is enforced. `VITE_GLB_URL` points here.
+//
+// ⚠ Registered BEFORE the static/SPA middleware on purpose. The SPA catch-all answers unknown
+// paths with index.html — and it honours Range, so a missed route returns `206 Partial Content`
+// carrying HTML. That is a success-shaped failure: a GLTFLoader handed it reports a corrupt
+// model, not a routing mistake. (Observed live while verifying the tiles proxy.)
+//
+// ⚠ Deliberately NOT behind `apiLimiter` — opening the carousel fetches many thumbnails at once,
+// and 60 req/min/IP would throttle the catalogue into exactly the 404-shaped failure this route
+// exists to end. These are immutable, hard-cached static bytes.
+app.get(`${CATALOG_PROXY_PATH}/*`, catalogAssetHandler);
 
 // §PARCEL-PROXY (L-380 P0) — same-origin Catastro cadastral-parcel proxy + SHARED
 // server-side cache for the "select a real parcel" map mode. Public + unauthenticated

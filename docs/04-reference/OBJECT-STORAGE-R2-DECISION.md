@@ -23,8 +23,74 @@ and the failure is **completely silent**: the build succeeds, the deploy succeed
 and it keeps requesting the old 404ing paths with no error anywhere. That is why the value is a
 `--build-arg` and why the deploy asserts against the shipped bytes rather than trusting the config.
 
-⚠ **`VITE_CONTEXT_TILES_URL` is intentionally EMPTY.** The client PMTiles reader (L-513b) does not
-exist yet. Setting that variable before it ships would bake a base URL nothing reads.
+⚠ **`VITE_CONTEXT_TILES_URL` is intentionally EMPTY** — see §CORS below. It no longer means "stay
+on Overpass"; it now selects the **same-origin proxy**, because the browser cannot read R2 directly.
+
+## ⚠⚠ §CORS — THE BUCKET IS NOT BROWSER-READABLE, AND THAT IS THE WHOLE STORY (L-578, 2026-07-22)
+
+**The bucket has never sent an `Access-Control-Allow-Origin` header.** Every browser fetch of an R2
+object from `https://pryzm.fly.dev` is refused before the response body is readable:
+
+```
+Access to fetch at 'https://pub-….r2.dev/items/Sofas/sofa/model.glb' from origin
+'https://pryzm.fly.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin'
+header is present on the requested resource.
+```
+
+**This cost four deploys, and the reason it hid so well is the important part.** CSP and CORS are
+different controls and fixing one does not fix the other:
+
+| | Whose header | On what | Says |
+|---|---|---|---|
+| **CSP** | ours | our document | which origins the page may **ask** |
+| **CORS** | theirs | their response | whether the answer may be **read** |
+
+v273 (§L-570-CSP) fixed the first. The second was never set at all. And **no non-browser check can
+see it** — `curl`, `aws s3 ls`, the `r2-sync-items` upload probe, the `context-bake` Range probe and
+every Node probe all return a clean `200`/`206`, because **none of them enforce CORS**. Only a
+browser does. Every green signal pointed away from the real failure, four times running.
+
+### The correct fix, and why it is not yet applied
+Set the bucket's CORS policy (Cloudflare → R2 → `pryzm-assets` → Settings → CORS Policy). One
+policy fixes **both** the catalogue and the tiles. `.github/workflows/r2-cors.yml` applies it via
+`PutBucketCors` **and re-verifies with a browser-shaped request**, failing the job if the header
+does not come back — the assertion the two previous attempts lacked. It is committed and currently
+**blocked**: the repo's R2 token is object-scoped, so `PutBucketCors` → `AccessDenied`. It needs a
+token with **Admin Read & Write**, or two minutes in the dashboard.
+
+`ExposeHeaders` must include `Content-Range` / `Content-Length`. Without them a range read
+*succeeds* but the client cannot see how much it got, so the PMTiles directory parse fails on data
+it actually holds — presenting as a corrupt tileset rather than as a policy problem.
+
+### The interim: same-origin proxies (⚠ they unwire themselves)
+**CORS is a BROWSER policy — server-to-server fetches are not subject to it.** So both asset classes
+are routed through our own origin, the same mechanism and the same reasoning as the pre-existing
+`server/overpassProxy.js` (§OVERPASS-PROXY):
+
+| Asset | Route | Module |
+|---|---|---|
+| Context PMTiles | `/api/context-tiles/<layer>` | `server/contextTilesProxy.js` (§CTX-TILES-PROXY) |
+| Furniture catalogue | `/api/catalog/items/**` | `server/catalogAssetProxy.js` (§CATALOG-R2-PROXY) |
+
+**This is explicitly an interim, not the target architecture.** Proxying puts our Fly instance back
+on the asset hot path — precisely the coupling L-513b removed for context. It is acceptable only
+because these are *immutable static bytes* from object storage: no query planner, no rate limit, no
+in-band failure mode, and hard-cacheable at both hops. It would NOT be acceptable for a live query
+API, which is why Overpass being proxied never made Overpass reliable.
+
+**EXIT CRITERION — delete these routes when all three hold:**
+1. the bucket CORS policy is live and `r2-cors.yml` passes its browser-shaped assertion;
+2. `vars.VITE_GLB_URL` and `vars.VITE_CONTEXT_TILES_URL` point back at the R2 base;
+3. a browser confirms both load with zero `Refused to connect` / CORS lines.
+
+Both clients **prefer** the configured direct base and only fall back to the proxy when none is
+set, so steps 1–2 restore the direct route with **no code change**.
+
+⚠ **Registration order is load-bearing.** Both routes sit BEFORE the static/SPA middleware. The SPA
+catch-all answers unknown paths with `index.html` *and honours `Range`*, so a missed route returns
+`206 Partial Content` carrying HTML — a success-shaped failure that a PMTiles reader or a
+`GLTFLoader` reports as corrupt data rather than as a routing mistake. This was observed live while
+verifying the tiles proxy: `content-type: text/html`, `content-range: bytes 0-127/21660`.
 
 ## Why R2 (not S3 / B2 / a Fly volume)
 
