@@ -20,7 +20,12 @@ import {
     type TileBbox,
     type ContextTileFeature,
 } from '../src/ui/geospatial/contextTiles';
-import { tilesToCollection } from '../src/ui/geospatial/contextBuildings';
+import {
+    tilesToCollection,
+    resolveFarRingCap,
+    CONTEXT_FAR_MAX_BUILDINGS,
+    CONTEXT_TOTAL_MAX_BUILDINGS,
+} from '../src/ui/geospatial/contextBuildings';
 
 afterEach(() => { __setContextTilesBaseUrl(null); });
 
@@ -161,5 +166,42 @@ describe('tilesToCollection', () => {
 
     it('returns an empty collection for no input without throwing', () => {
         expect(tilesToCollection([]).features).toHaveLength(0);
+    });
+});
+
+describe('§L-579 far-ring budget', () => {
+    it('spends the whole-scene budget the near ring left over', () => {
+        // Eixample, measured live: 3,101 near ⇒ the far ring may draw 2,899, not a flat 900.
+        // Under the old fixed cap that site rendered 54% of the buildings OSM actually has.
+        expect(resolveFarRingCap(3101, 6000)).toBe(2899);
+    });
+
+    it('⚠ is MONOTONE — it can never allow FEWER than the historic cap', () => {
+        // The load-bearing property: this change must be INCAPABLE of drawing less than before.
+        // A near ring that alone exceeds the budget must still leave the far floor intact rather
+        // than fall to zero and blank the surrounding fabric.
+        expect(resolveFarRingCap(5900, 6000)).toBe(CONTEXT_FAR_MAX_BUILDINGS);
+        expect(resolveFarRingCap(99999, 6000)).toBe(CONTEXT_FAR_MAX_BUILDINGS);
+        for (const near of [0, 1, 900, 1600, 3101, 5999, 6000, 12000]) {
+            expect(resolveFarRingCap(near, 6000)).toBeGreaterThanOrEqual(CONTEXT_FAR_MAX_BUILDINGS);
+        }
+    });
+
+    it('lets a SPARSE site keep everything — no invented limit where none is needed', () => {
+        // Vila Olímpica, measured: 1,157 near and only 882 far candidates. The allowance must sit
+        // comfortably above 882 so a site that costs nothing to draw in full is never truncated.
+        expect(resolveFarRingCap(1157, 6000)).toBeGreaterThan(882);
+    });
+
+    it('never returns a negative, fractional or zero allowance', () => {
+        for (const near of [-5, 0, 7000]) {
+            const cap = resolveFarRingCap(near, 6000);
+            expect(Number.isInteger(cap)).toBe(true);
+            expect(cap).toBeGreaterThan(0);
+        }
+    });
+
+    it('defaults to the shipped total budget when the near ring is empty', () => {
+        expect(resolveFarRingCap(0)).toBe(CONTEXT_TOTAL_MAX_BUILDINGS);
     });
 });

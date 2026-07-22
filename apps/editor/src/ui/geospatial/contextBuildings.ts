@@ -261,10 +261,58 @@ export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
 // are O(1) with no query cost or 429) is what makes context <2 s ALWAYS.
 export const CONTEXT_BBOX_FAR_HALF_DEG = 0.011;
 
-/** §FEAT-FORMA-CONTEXT-EXTENT-LOD — hard CAP on FAR-ring footprints kept for render (the
- *  nearest N by centroid distance). Bounds the shadow-off geometry budget so a dense urban
- *  annulus can never stack thousands of extra primitives. */
+/** §FEAT-FORMA-CONTEXT-EXTENT-LOD — FLOOR on the far-ring allowance (the nearest N by centroid
+ *  distance). Since §L-579 this is the MINIMUM the far ring may draw, not the maximum — the
+ *  effective cap is derived from the whole-scene budget below. Kept at its historic value so the
+ *  far ring can never render LESS than it did before that change. */
 export const CONTEXT_FAR_MAX_BUILDINGS = 900;
+
+/**
+ * §L-579 — TOTAL drawn context footprints (near + far). THE CAP THAT ACTUALLY MATTERS.
+ *
+ * ⚠ WHY THIS REPLACED A FIXED FAR-RING CAP. `CONTEXT_FAR_MAX_BUILDINGS = 900` was chosen when
+ * context came from live Overpass, which under-delivered so badly that the cap almost never bit.
+ * Reading the baked tiles delivers the COMPLETE set, and the fixed 900 immediately became the
+ * binding constraint — measured against OSM ground truth over the real far extent:
+ *
+ *   site                 in data   near    far (candidates)   RENDERED / OSM
+ *   Eixample              7,141    3,101   900 (of 4,040)     54%  — 3,445 never drawn
+ *   Gòtic                 4,614    2,915   900 (of 1,699)     65%  — 2,030 never drawn
+ *   Vila Olímpica         2,039    1,157   882                98%
+ *
+ * That is the founder's "many buildings are not rendering": a nearest-first cap draws a dense
+ * disc and leaves the surrounding fabric EMPTY, and it only bites in dense districts — which is
+ * exactly why their own (sparse) site looked correct while panning into the Eixample did not.
+ * The comment on `CONTEXT_NEAR_MAX_BUILDINGS` already recorded that the 900 "became load-bearing
+ * with no evidence behind it"; this is that debt coming due.
+ *
+ * WHY A TOTAL RATHER THAN A BIGGER FAR NUMBER: the GPU pays for FOOTPRINTS DRAWN, not for which
+ * ring a footprint belongs to. Budgeting the total lets a sparse site spend nothing and a dense
+ * one spend it where it is visible, instead of hard-truncating one ring while the other is
+ * under-filled. The far tier is also the CHEAP one — flat, shadowless, height-clamped — so it is
+ * the right place to spend what the near ring leaves over.
+ *
+ * ⚠ HONESTY NOTE, in the same spirit as the note on `CONTEXT_NEAR_MAX_BUILDINGS`: 6,000 is NOT a
+ * measured frame-time budget. No GPU capture was taken. It is set from the observed numbers above
+ * — enough to cover a dense Barcelona far ring (Eixample needs ~2,900 beyond the near set) while
+ * staying within ~1.5× the footprint count the scene already drew before this change. Re-derive it
+ * from profiler evidence before treating it as tuned.
+ */
+export const CONTEXT_TOTAL_MAX_BUILDINGS = 6000;
+
+/**
+ * The far-ring allowance for a scene that already holds `nearCount` near footprints.
+ *
+ * PURE + testable. Never returns less than `CONTEXT_FAR_MAX_BUILDINGS`, so this can only ever
+ * draw MORE than the previous behaviour — a regression here is impossible by construction.
+ */
+export function resolveFarRingCap(
+    nearCount: number,
+    totalBudget: number = CONTEXT_TOTAL_MAX_BUILDINGS,
+): number {
+    const remaining = totalBudget - Math.max(0, nearCount);
+    return Math.max(CONTEXT_FAR_MAX_BUILDINGS, remaining);
+}
 
 /**
  * §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — radius (metres) inside which a NEAR-ring footprint
@@ -1413,7 +1461,12 @@ export async function fetchContextBuildingsNearAndFar(
         const farFeatures = selectFarRingFootprints({
             farFeatures: full.features,
             centerLat: lat, centerLon: lon,
-            nearBbox, nearOsmIds, cap,
+            nearBbox,
+            nearOsmIds,
+            // §L-579 — spend the WHOLE-SCENE budget the near ring left over rather than a
+            // fixed 900 that hard-truncated the far ring in dense fabric. `Math.max` keeps
+            // this MONOTONE: it can only ever draw more than before, never less.
+            cap: Math.max(cap, resolveFarRingCap(nearFeatures.length)),
         });
         console.log(
             `[gis] §CTX-PMTILES-READER near+far from ONE baked-tile read: ${nearFeatures.length} near ` +
@@ -1510,7 +1563,12 @@ export async function fetchContextBuildingsNearAndFar(
     const farFeatures = selectFarRingFootprints({
         farFeatures: full.features,
         centerLat: lat, centerLon: lon,
-        nearBbox, nearOsmIds, cap,
+        nearBbox,
+        nearOsmIds,
+        // §L-579 — spend the WHOLE-SCENE budget the near ring left over rather than a
+        // fixed 900 that hard-truncated the far ring in dense fabric. `Math.max` keeps
+        // this MONOTONE: it can only ever draw more than before, never less.
+        cap: Math.max(cap, resolveFarRingCap(nearFeatures.length)),
     });
     console.log(
         `[gis] §PERF-CTX-SINGLE-FETCH near+far from ONE ${CONTEXT_BBOX_FAR_HALF_DEG}° fetch: ` +
