@@ -13,13 +13,23 @@
 // that fills its pane. No `requestAnimationFrame` here (P3) — divider drag only
 // re-sizes; the renderers reflow via their `PaneHost.resize()`.
 
-import { LEFT_PANE, RIGHT_PANE, type PaneId } from './paneViewModel';
+import { EMPTY_LR_LAYOUT, LEFT_PANE, RIGHT_PANE, type PaneId } from './paneViewModel';
 import { PaneHost, MultiPaneController } from './PaneHost';
+import { PaneLayoutStore } from './paneLayoutStore';
+import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker';
 
-/** The shell handle: pane elements, the controller, and disposal. */
+/** The shell handle: pane elements, the store (the ONE write path), and disposal. */
 export interface SiteAuthoringPaneShell {
     readonly root: HTMLElement;
     readonly controller: MultiPaneController;
+    /**
+     * §C59 Phase 2 — the view-state store. EVERY layout change (including a caller
+     * applying a model-derived default) must go through `store.dispatch(...)`, not
+     * `controller.applyLayout(...)`: the controller is the imperative shell the store
+     * drives, and a caller that writes to it directly leaves the store — and therefore
+     * every pane picker — stale (C59 §2 invariant 3).
+     */
+    readonly store: PaneLayoutStore;
     /** The pane element for `left` / `right` (for pane-scoped chrome, e.g. the facts card). */
     getPaneElement(paneId: PaneId): HTMLElement | null;
     /** Tear the shell down (removes the DOM + listeners). Idempotent. */
@@ -37,6 +47,11 @@ export interface SiteAuthoringPaneShellOptions {
     zIndex?: number;
     /** Called on every divider drag / resize so the controller can reflow renderers. */
     onResize?: () => void;
+    /**
+     * §C59 Phase 2 — mount the per-pane view picker on every pane (default true).
+     * Off only for tests that want bare geometry.
+     */
+    viewPicker?: boolean;
 }
 
 const MIN_FRACTION = 0.2;
@@ -116,10 +131,39 @@ export function mountSiteAuthoringPaneShell(
     const rightHost = new PaneHost(RIGHT_PANE, rightPaneEl);
     const controller = new MultiPaneController([leftHost, rightHost]);
 
+    // ── §C59 Phase 2 — the view-state store (the ONE write path) + per-pane pickers ──
+    // The store owns the layout and drives the controller; the pickers only dispatch
+    // intents into it (C59 §2 invariant 3). The shell itself never assigns a view.
+    const store = new PaneLayoutStore(EMPTY_LR_LAYOUT, { applier: controller });
+
     // ── Divider drag (mirrors SplitViewManager._onDividerMove) ──────────────────
     let dragging = false;
     const applyFraction = (): void => {
-        leftPaneEl.style.flex = `0 0 ${(leftFraction * 100).toFixed(3)}%`;
+        // §C59 Phase 2 — FULL SCREEN is a LAYOUT fact, not a second mechanism: when
+        // exactly one pane holds a view (the `solo` / "empty this pane" intents), the
+        // vacated pane and the divider collapse and the surviving pane fills the shell —
+        // carrying its picker with it, which is how the founder's "in each view, split
+        // OR complete, change to another view" holds in full screen too.
+        const layout = store.getLayout();
+        const leftEmpty = layout[LEFT_PANE] == null;
+        const rightEmpty = layout[RIGHT_PANE] == null;
+        const solo = leftEmpty !== rightEmpty; // exactly one occupied → full screen.
+
+        divider.style.display = solo ? 'none' : '';
+        if (solo && leftEmpty) {
+            leftPaneEl.style.display = 'none';
+            rightPaneEl.style.display = '';
+            rightPaneEl.style.flex = '1 1 0';
+        } else if (solo && rightEmpty) {
+            rightPaneEl.style.display = 'none';
+            leftPaneEl.style.display = '';
+            leftPaneEl.style.flex = '1 1 100%';
+        } else {
+            leftPaneEl.style.display = '';
+            rightPaneEl.style.display = '';
+            rightPaneEl.style.flex = '1 1 0';
+            leftPaneEl.style.flex = `0 0 ${(leftFraction * 100).toFixed(3)}%`;
+        }
     };
     const onDown = (e: MouseEvent): void => {
         dragging = true;
@@ -154,6 +198,29 @@ export function mountSiteAuthoringPaneShell(
     };
     window.addEventListener('resize', onWindowResize);
 
+    // ── Layout changes → re-tile (split ⇄ full screen) + reflow the renderers ────
+    // The store notifies AFTER the controller has mounted/unmounted, so the renderer
+    // that just moved is reflowed to the box it actually ended up in. No rAF (P3): a
+    // flex change is synchronous and each mounter's `resize()` is its own reflow
+    // primitive (Cesium's one-shot settle lives inside `reflowContainer()`).
+    const unsubscribeLayout = store.subscribe(() => {
+        applyFraction();
+        controller.resize();
+        opts.onResize?.();
+    });
+
+    // ── §C59 Phase 2 — the per-pane view picker, on EVERY pane ──────────────────
+    // ONE component, mounted per pane, content derived from VIEW_TYPE_REGISTRY. This is
+    // the standardised switcher the founder asked for; it replaces per-surface bespoke
+    // toggles for pane views (C59 §4 Phase 2, absorbing L-405).
+    const pickers: PaneViewPickerHandle[] = [];
+    if (opts.viewPicker !== false) {
+        pickers.push(
+            mountPaneViewPicker({ paneId: LEFT_PANE, paneEl: leftPaneEl, store, corner: 'top-left' }),
+            mountPaneViewPicker({ paneId: RIGHT_PANE, paneEl: rightPaneEl, store, corner: 'top-right' }),
+        );
+    }
+
     let disposed = false;
     const dispose = (): void => {
         if (disposed) return;
@@ -162,6 +229,10 @@ export function mountSiteAuthoringPaneShell(
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
         window.removeEventListener('resize', onWindowResize);
+        unsubscribeLayout();
+        for (const p of pickers) {
+            try { p.dispose(); } catch { /* chrome already gone */ }
+        }
         // Detach both hosted renderers before removing the DOM (the mounters re-home
         // their singleton — e.g. Cesium back to #container — on unmount).
         leftHost.unmount();
@@ -172,6 +243,7 @@ export function mountSiteAuthoringPaneShell(
     return {
         root,
         controller,
+        store,
         getPaneElement: (paneId) => controller.getPaneElement(paneId),
         dispose,
         get isDisposed() {

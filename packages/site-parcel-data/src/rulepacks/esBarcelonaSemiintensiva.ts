@@ -138,7 +138,34 @@ export const BCN_SEMIINTENSIVA_RULE: GeometricRule = {
     // Art. 242 ordinance floor, 12 m (L-526 primary-source verdict: "where the construction yields
     // < 12 m, 12 m is taken"). Same article as 13a ⇒ same floor; this is not a copied 13a
     // parameter, it is the same sentence applying twice.
-    minDepth_m: 12,
+    // §L-594 — 11 m, NOT 12. ⚠ THIS WAS AN OVER-STATEMENT, CORRECTED AGAINST THE PRIMARY TEXT.
+    //
+    // The packs shipped `12` citing "Art. 242 — 12 m, verified". The primary text
+    // (`docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`, p. 81, Art. 242.4)
+    // says otherwise, verbatim:
+    //
+    //   *"Quan un cop complertes les condicions de l'apartat 2 resultin, en alguna alineació,
+    //    edificacions amb una profunditat edificable INFERIOR A 11 m., s'haurà de prendre aquesta
+    //    dimensió com a profunditat edificable, sempre que sigui possible inscriure una
+    //    circumferència de vuit metres de diàmetre."*
+    //
+    // ⚠ DIRECTION: `minDepth_m` is a FLOOR, so a HIGHER floor permits a DEEPER building wherever the
+    // Art. 242.2 construction yields less. 12 therefore OVER-STATED buildable depth — the direction
+    // C58 §1.4 forbids, and the third over-statement found in one day (after L-586's 65% inset and
+    // L-591's median street width).
+    //
+    // ⚠ HOW IT GOT IN, because the mechanism matters more than the metre: two agents disagreed, and
+    // the ASSERTIVE one was believed. One said "12, corrected by L-526"; the other said "11, and
+    // GeometricRule's own docstring says 11". Neither was checked against the ordinance until the
+    // conflict forced it. **When two sources disagree about a legal number, read the law — do not
+    // pick the more confident sentence.**
+    //
+    // ⚠ NOT MODELLED: the floor is CONDITIONAL — it applies only *"sempre que sigui possible
+    // inscriure una circumferència de vuit metres de diàmetre"*, and Art. 242.5 adds that where even
+    // that fails and the total width between opposing alignments is under 30 m, the parcels must be
+    // FULLY buildable. We apply the 11 m floor unconditionally, which is the conservative reading of
+    // the first clause and ignores the second.
+    minDepth_m: 11,
     maxDepth_m: 30, // Art. 242.2 — "en cap cas … no pot superar la de 30 metres"
 };
 

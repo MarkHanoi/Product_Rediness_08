@@ -156,7 +156,12 @@ describe('L-583 §9 — the Art. 242 construction, reused not reimplemented', ()
             // Art. 242.2 scopes 40 % to *nucli antic subzona I* (named explicitly) and 30 % to
             // *les de densificació urbana* (the category, unqualified). 13b is in that category.
             expect(BCN_SEMIINTENSIVA_RULE.interiorFreeRatio).toBe(0.3);
-            expect(BCN_SEMIINTENSIVA_RULE.minDepth_m).toBe(12); // Art. 242 floor (L-526)
+            // §L-594 — 11 m, per the PRIMARY TEXT (NNUU p. 81, Art. 242.4): *"…profunditat
+            // edificable INFERIOR A 11 m., s'haurà de prendre aquesta dimensió…"*. Was 12,
+            // which OVER-STATED depth (a floor raises the answer) — C58 §1.4's forbidden
+            // direction. Two agents disagreed and the assertive one was believed until the
+            // ordinance was read. Pinned at 11 so it cannot drift back.
+            expect(BCN_SEMIINTENSIVA_RULE.minDepth_m).toBe(11);
             expect(BCN_SEMIINTENSIVA_RULE.maxDepth_m).toBe(30); // Art. 242.2 cap
         }
     });

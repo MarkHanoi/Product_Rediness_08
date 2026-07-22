@@ -391,7 +391,12 @@ function coverageGapReasonFor(clau: string): string {
     // this copy is what a user reads, and a sentence claiming we have not encoded a zone we HAVE
     // encoded is a false statement about our own coverage — the mirror image of the false
     // statement about the law that the rest of this module exists to prevent.
-    if (clau === '12' || clau === '12b') {
+    // §L-595 — clau 12 now has a pack (Art. 320.3a + Art. 320.2a's 40% construction), so only
+    // 12b remains a coverage gap. ⚠ 12b stays refused for a REASON, not an omission: its height
+    // is the MEAN OF EXISTING NEIGHBOURS and its depth that of the adjacent buildings — inputs
+    // our pipeline does not hold, and averaging our 0.9%-surveyed context into a legal height
+    // would be fabrication wearing the costume of a construction.
+    if (clau === '12b') {
         return (
             'PRYZM could draw a generic front/side/rear setback estimate here, and until now it ' +
             'did. It has been switched off deliberately: this zone is regulated by a different ' +

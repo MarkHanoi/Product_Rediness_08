@@ -1,0 +1,903 @@
+{
+  "ranAt": "2026-07-22T16:07:37.178Z",
+  "headRings": 874,
+  "nowRings": 889,
+  "moved": 13,
+  "moves": [
+    {
+      "id": "Barcelona/07174",
+      "headVerts": 53,
+      "nowVerts": 54,
+      "headArea": 4668.5399889724,
+      "nowArea": 4668.51209547071,
+      "headSelfX": false,
+      "nowSelfX": false,
+      "voids": 1
+    },
+    {
+      "id": "Barcelona/96375",
+      "headVerts": 30,
+      "nowVerts": 29,
+      "headArea": 1866.541401721119,
+      "nowArea": 1866.494925253695,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 0
+    },
+    {
+      "id": "Cordoba/29588",
+      "headVerts": 34,
+      "nowVerts": 30,
+      "headArea": 2133.7235621058926,
+      "nowArea": 2134.109833407921,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 0
+    },
+    {
+      "id": "Cordoba/33597",
+      "headVerts": 19,
+      "nowVerts": 17,
+      "headArea": 5469.9975382671555,
+      "nowArea": 5469.55748669049,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 0
+    },
+    {
+      "id": "Cordoba/39412",
+      "headVerts": 28,
+      "nowVerts": 29,
+      "headArea": 2241.626481351953,
+      "nowArea": 2241.602028826358,
+      "headSelfX": false,
+      "nowSelfX": false,
+      "voids": 1
+    },
+    {
+      "id": "Cordoba/42494",
+      "headVerts": 44,
+      "nowVerts": 46,
+      "headArea": 6026.635960929096,
+      "nowArea": 6026.318111212771,
+      "headSelfX": false,
+      "nowSelfX": false,
+      "voids": 2
+    },
+    {
+      "id": "Cordoba/44504",
+      "headVerts": 30,
+      "nowVerts": 29,
+      "headArea": 1652.1482672902341,
+      "nowArea": 1652.0504679753883,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 0
+    },
+    {
+      "id": "Cordoba/44544",
+      "headVerts": 65,
+      "nowVerts": 63,
+      "headArea": 5013.039189623259,
+      "nowArea": 5012.995182397771,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 0
+    },
+    {
+      "id": "Madrid-centro/99398",
+      "headVerts": 47,
+      "nowVerts": 46,
+      "headArea": 12775.628673722007,
+      "nowArea": 12775.600367923402,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 0
+    },
+    {
+      "id": "Sevilla/48202",
+      "headVerts": 74,
+      "nowVerts": 75,
+      "headArea": 2382.235224080263,
+      "nowArea": 2382.107222352553,
+      "headSelfX": false,
+      "nowSelfX": false,
+      "voids": 2
+    },
+    {
+      "id": "Valencia/52263",
+      "headVerts": 54,
+      "nowVerts": 51,
+      "headArea": 3248.80834502111,
+      "nowArea": 3248.9900949313396,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 0
+    },
+    {
+      "id": "Valencia/53279",
+      "headVerts": 28,
+      "nowVerts": 29,
+      "headArea": 1640.878250274625,
+      "nowArea": 1640.6391081820177,
+      "headSelfX": false,
+      "nowSelfX": false,
+      "voids": 1
+    },
+    {
+      "id": "Valencia/55296",
+      "headVerts": 47,
+      "nowVerts": 37,
+      "headArea": 1520.4784979245376,
+      "nowArea": 1526.3325441240565,
+      "headSelfX": true,
+      "nowSelfX": false,
+      "voids": 1
+    }
+  ],
+  "gains": [
+    {
+      "id": "Madrid/17516",
+      "headReason": "open-or-disjoint",
+      "parcels": 12,
+      "verts": 95,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 13309.263610516731,
+      "voidArea": 2565.5802569007833,
+      "published": 10721,
+      "netVsPublished": 0.2115787110899017,
+      "voidPctOfBlock": 19.27665069969393,
+      "selfX": false
+    },
+    {
+      "id": "Barcelona-old/12215",
+      "headReason": "open-or-disjoint",
+      "parcels": 15,
+      "verts": 31,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 4874.631998570245,
+      "voidArea": 101.85234814611488,
+      "published": 4763,
+      "netVsPublished": 0.20532543405688877,
+      "voidPctOfBlock": 2.0894366626237364,
+      "selfX": false
+    },
+    {
+      "id": "Valencia/59173",
+      "headReason": "open-or-disjoint",
+      "parcels": 31,
+      "verts": 61,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 6482.147827997593,
+      "voidArea": 132.31977479442867,
+      "published": 6345,
+      "netVsPublished": 0.07609224906483875,
+      "voidPctOfBlock": 2.0412952358617176,
+      "selfX": false
+    },
+    {
+      "id": "Valencia/53228",
+      "headReason": "open-or-disjoint",
+      "parcels": 19,
+      "verts": 85,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 7166.843110106728,
+      "voidArea": 139.9984990090709,
+      "published": 7022,
+      "netVsPublished": 0.0689918982862067,
+      "voidPctOfBlock": 1.9534193348204336,
+      "selfX": false
+    },
+    {
+      "id": "Sevilla/45227",
+      "headReason": "open-or-disjoint",
+      "parcels": 12,
+      "verts": 32,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 3531.744452235909,
+      "voidArea": 37.37571823699989,
+      "published": 3493,
+      "netVsPublished": 0.039185055794709205,
+      "voidPctOfBlock": 1.058279236860915,
+      "selfX": false
+    },
+    {
+      "id": "Sevilla/52268",
+      "headReason": "open-or-disjoint",
+      "parcels": 50,
+      "verts": 178,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 5584.720556278073,
+      "voidArea": 6.842717188894911,
+      "published": 5545,
+      "netVsPublished": 0.5929276661709204,
+      "voidPctOfBlock": 0.12252568628886291,
+      "selfX": false
+    },
+    {
+      "id": "Cordoba/32471",
+      "headReason": "open-or-disjoint",
+      "parcels": 14,
+      "verts": 31,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 4432.478687154718,
+      "voidArea": 0.552592165067125,
+      "published": 4426,
+      "netVsPublished": 0.1338927923554149,
+      "voidPctOfBlock": 0.012466888259802175,
+      "selfX": false
+    },
+    {
+      "id": "Valencia/56202",
+      "headReason": "open-or-disjoint",
+      "parcels": 25,
+      "verts": 216,
+      "path": "exact",
+      "voids": 2,
+      "ringArea": 6466.11051936444,
+      "voidArea": 0.3970140563272935,
+      "published": 6461,
+      "netVsPublished": 0.0729531853910056,
+      "voidPctOfBlock": 0.006139920670058643,
+      "selfX": false
+    },
+    {
+      "id": "Valencia/59252",
+      "headReason": "open-or-disjoint",
+      "parcels": 5,
+      "verts": 87,
+      "path": "exact",
+      "voids": 2,
+      "ringArea": 3271.34241613795,
+      "voidArea": 0.16261986011883778,
+      "published": 3267,
+      "netVsPublished": 0.12793989218950028,
+      "voidPctOfBlock": 0.0049710436705315,
+      "selfX": false
+    },
+    {
+      "id": "Sevilla/53320",
+      "headReason": "open-or-disjoint",
+      "parcels": 26,
+      "verts": 94,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 4645.259273556401,
+      "voidArea": 0.15751914492825758,
+      "published": 4640,
+      "netVsPublished": 0.10995160369553748,
+      "voidPctOfBlock": 0.00339096562004517,
+      "selfX": false
+    },
+    {
+      "id": "Cordoba/43501",
+      "headReason": "open-or-disjoint",
+      "parcels": 18,
+      "verts": 39,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 6392.482399313346,
+      "voidArea": 0.058679915357743084,
+      "published": 6382,
+      "netVsPublished": 0.16332998116558997,
+      "voidPctOfBlock": 0.0009179519268452932,
+      "selfX": false
+    },
+    {
+      "id": "Cordoba/39462",
+      "headReason": "open-or-disjoint",
+      "parcels": 28,
+      "verts": 84,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 6790.149348265731,
+      "voidArea": 0.04401204750793042,
+      "published": 6777,
+      "netVsPublished": 0.1933796107159934,
+      "voidPctOfBlock": 0.0006481749553737212,
+      "selfX": false
+    },
+    {
+      "id": "Barcelona-old/06128",
+      "headReason": "open-or-disjoint",
+      "parcels": 24,
+      "verts": 41,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 7005.58713366044,
+      "voidArea": 0.037194195249355744,
+      "published": 6990,
+      "netVsPublished": 0.22245979206281286,
+      "voidPctOfBlock": 0.0005309218847717289,
+      "selfX": false
+    },
+    {
+      "id": "Cordoba/43505",
+      "headReason": "open-or-disjoint",
+      "parcels": 17,
+      "verts": 58,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 7061.615583722432,
+      "voidArea": 0.014669757887192575,
+      "published": 7051,
+      "netVsPublished": 0.1503462482562022,
+      "voidPctOfBlock": 0.00020773940061262323,
+      "selfX": false
+    },
+    {
+      "id": "Madrid-centro/06438",
+      "headReason": "open-or-disjoint",
+      "parcels": 26,
+      "verts": 48,
+      "path": "exact",
+      "voids": 1,
+      "ringArea": 9825.671026789098,
+      "voidArea": 0.009434706246153723,
+      "published": 9808,
+      "netVsPublished": 0.18007332874033147,
+      "voidPctOfBlock": 0.00009602098645914938,
+      "selfX": false
+    },
+    {
+      "id": "Sevilla/51260",
+      "headReason": "open-or-disjoint",
+      "parcels": 63,
+      "verts": 177,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 9217.09924937718,
+      "voidArea": 0.004922788428871172,
+      "published": 9210,
+      "netVsPublished": 0.07702851887894512,
+      "voidPctOfBlock": 0.0000534093025981446,
+      "selfX": false
+    },
+    {
+      "id": "Valencia/52174",
+      "headReason": "open-or-disjoint",
+      "parcels": 25,
+      "verts": 132,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 19605.98181988497,
+      "voidArea": 0.004783372485690052,
+      "published": 19590,
+      "netVsPublished": 0.08155710317756987,
+      "voidPctOfBlock": 0.000024397515664523428,
+      "selfX": false
+    },
+    {
+      "id": "Valencia/53302",
+      "headReason": "open-or-disjoint",
+      "parcels": 36,
+      "verts": 72,
+      "path": "t-junction-split",
+      "voids": 1,
+      "ringArea": 8975.771547674542,
+      "voidArea": 0,
+      "published": 8966,
+      "netVsPublished": 0.1089844710522148,
+      "voidPctOfBlock": 0,
+      "selfX": false
+    }
+  ],
+  "losses": [
+    {
+      "id": "Sevilla/54202",
+      "nowReason": "open-or-disjoint",
+      "parcels": 21,
+      "headVerts": 73,
+      "headSelfX": true,
+      "headArea": 3174.0855474542777,
+      "published": 3172
+    },
+    {
+      "id": "Valencia/51296",
+      "nowReason": "self-intersecting",
+      "parcels": 9,
+      "headVerts": 45,
+      "headSelfX": true,
+      "headArea": 2323.291547763884,
+      "published": 2321
+    },
+    {
+      "id": "Valencia/60255",
+      "nowReason": "self-intersecting",
+      "parcels": 9,
+      "headVerts": 71,
+      "headSelfX": true,
+      "headArea": 4806.188066332106,
+      "published": 4804
+    }
+  ],
+  "voidRows": [
+    {
+      "id": "Barcelona-old/06128",
+      "voids": 1,
+      "voidArea": 0.037194195249355744,
+      "ringArea": 7005.58713366044
+    },
+    {
+      "id": "Barcelona-old/09145",
+      "voids": 1,
+      "voidArea": 0.13947278328890889,
+      "ringArea": 8250.79608523907
+    },
+    {
+      "id": "Barcelona-old/10129",
+      "voids": 1,
+      "voidArea": 0.45562758957828464,
+      "ringArea": 7530.236216712614
+    },
+    {
+      "id": "Barcelona-old/10213",
+      "voids": 1,
+      "voidArea": 0.05578423461213333,
+      "ringArea": 10444.170750984778
+    },
+    {
+      "id": "Barcelona-old/12215",
+      "voids": 1,
+      "voidArea": 101.85234814611488,
+      "ringArea": 4874.631998570245
+    },
+    {
+      "id": "Barcelona/00223",
+      "voids": 1,
+      "voidArea": 0.013945699204164441,
+      "ringArea": 12591.055941949939
+    },
+    {
+      "id": "Barcelona/00329",
+      "voids": 2,
+      "voidArea": 0.14408786933312,
+      "ringArea": 13408.282581514239
+    },
+    {
+      "id": "Barcelona/01193",
+      "voids": 1,
+      "voidArea": 0.10227369385438578,
+      "ringArea": 11306.175487671448
+    },
+    {
+      "id": "Barcelona/07174",
+      "voids": 1,
+      "voidArea": 0.01859566743320329,
+      "ringArea": 4668.51209547071
+    },
+    {
+      "id": "Barcelona/99188",
+      "voids": 1,
+      "voidArea": 0.004648912644313441,
+      "ringArea": 12532.150448284838
+    },
+    {
+      "id": "Barcelona/99366",
+      "voids": 1,
+      "voidArea": 7.015898972895229e-11,
+      "ringArea": 3792.8469029489092
+    },
+    {
+      "id": "Cordoba/31505",
+      "voids": 1,
+      "voidArea": 0.7530492912073896,
+      "ringArea": 18240.36967690037
+    },
+    {
+      "id": "Cordoba/32471",
+      "voids": 1,
+      "voidArea": 0.552592165067125,
+      "ringArea": 4432.478687154718
+    },
+    {
+      "id": "Cordoba/33412",
+      "voids": 1,
+      "voidArea": 0.00978102069628406,
+      "ringArea": 2653.003852620984
+    },
+    {
+      "id": "Cordoba/36427",
+      "voids": 1,
+      "voidArea": 0.06846623347772152,
+      "ringArea": 10090.445877469863
+    },
+    {
+      "id": "Cordoba/36481",
+      "voids": 1,
+      "voidArea": 0.07824239711370362,
+      "ringArea": 4027.3317735793034
+    },
+    {
+      "id": "Cordoba/36544",
+      "voids": 1,
+      "voidArea": 0.06356676403743222,
+      "ringArea": 6287.2761511615045
+    },
+    {
+      "id": "Cordoba/37492",
+      "voids": 3,
+      "voidArea": 0.014670106906230274,
+      "ringArea": 8175.459889385919
+    },
+    {
+      "id": "Cordoba/38416",
+      "voids": 1,
+      "voidArea": 0.04890508489478407,
+      "ringArea": 1168.0001490586092
+    },
+    {
+      "id": "Cordoba/39412",
+      "voids": 1,
+      "voidArea": 0.15649615500079683,
+      "ringArea": 2241.602028826358
+    },
+    {
+      "id": "Cordoba/39449",
+      "voids": 1,
+      "voidArea": 0.03423240762163715,
+      "ringArea": 397.8197016248161
+    },
+    {
+      "id": "Cordoba/39462",
+      "voids": 1,
+      "voidArea": 0.04401204750793042,
+      "ringArea": 6790.149348265731
+    },
+    {
+      "id": "Cordoba/40445",
+      "voids": 1,
+      "voidArea": 0.019561257652623176,
+      "ringArea": 3768.564321440919
+    },
+    {
+      "id": "Cordoba/40493",
+      "voids": 3,
+      "voidArea": 0.10269004072833221,
+      "ringArea": 8529.737915178277
+    },
+    {
+      "id": "Cordoba/42494",
+      "voids": 2,
+      "voidArea": 0.09290991644360247,
+      "ringArea": 6026.318111212771
+    },
+    {
+      "id": "Cordoba/42518",
+      "voids": 1,
+      "voidArea": 0.09290856538501657,
+      "ringArea": 3197.414079942074
+    },
+    {
+      "id": "Cordoba/43501",
+      "voids": 1,
+      "voidArea": 0.058679915357743084,
+      "ringArea": 6392.482399313346
+    },
+    {
+      "id": "Cordoba/43505",
+      "voids": 1,
+      "voidArea": 0.014669757887192575,
+      "ringArea": 7061.615583722432
+    },
+    {
+      "id": "Madrid-centro/00431",
+      "voids": 1,
+      "voidArea": 0.1886968014755439,
+      "ringArea": 2610.4881422026488
+    },
+    {
+      "id": "Madrid-centro/02365",
+      "voids": 1,
+      "voidArea": 0.009435651246008092,
+      "ringArea": 6890.7428997463485
+    },
+    {
+      "id": "Madrid-centro/06381",
+      "voids": 2,
+      "voidArea": 0.061330071638394656,
+      "ringArea": 9677.875769593758
+    },
+    {
+      "id": "Madrid-centro/06438",
+      "voids": 1,
+      "voidArea": 0.009434706246153723,
+      "ringArea": 9825.671026789098
+    },
+    {
+      "id": "Madrid-centro/06464",
+      "voids": 1,
+      "voidArea": 0.009434353154006203,
+      "ringArea": 12546.666052844375
+    },
+    {
+      "id": "Madrid-centro/07382",
+      "voids": 1,
+      "voidArea": 0.028306177293416113,
+      "ringArea": 2454.5465817463814
+    },
+    {
+      "id": "Madrid/11522",
+      "voids": 1,
+      "voidArea": 0.028300807266703032,
+      "ringArea": 2416.525752986434
+    },
+    {
+      "id": "Madrid/12563",
+      "voids": 4,
+      "voidArea": 0.9102896337475386,
+      "ringArea": 11592.279101913813
+    },
+    {
+      "id": "Madrid/17516",
+      "voids": 1,
+      "voidArea": 2565.5802569007833,
+      "ringArea": 13309.263610516731
+    },
+    {
+      "id": "Madrid/17616",
+      "voids": 1,
+      "voidArea": 0.014148603765875123,
+      "ringArea": 17668.455725993328
+    },
+    {
+      "id": "Madrid/24526",
+      "voids": 1,
+      "voidArea": 0.07075170491680183,
+      "ringArea": 8216.867167439124
+    },
+    {
+      "id": "Sevilla/45227",
+      "voids": 1,
+      "voidArea": 37.37571823699989,
+      "ringArea": 3531.744452235909
+    },
+    {
+      "id": "Sevilla/45300",
+      "voids": 1,
+      "voidArea": 0.01476772834129747,
+      "ringArea": 2098.0019446982
+    },
+    {
+      "id": "Sevilla/45304",
+      "voids": 1,
+      "voidArea": 0.044302862997580406,
+      "ringArea": 1810.9385955309326
+    },
+    {
+      "id": "Sevilla/46304",
+      "voids": 1,
+      "voidArea": 0.12306289102031087,
+      "ringArea": 5497.711591908858
+    },
+    {
+      "id": "Sevilla/47206",
+      "voids": 1,
+      "voidArea": 0.12800184079893562,
+      "ringArea": 881.2631294941154
+    },
+    {
+      "id": "Sevilla/47253",
+      "voids": 2,
+      "voidArea": 0.38398202747887566,
+      "ringArea": 973.5125850327373
+    },
+    {
+      "id": "Sevilla/48188",
+      "voids": 1,
+      "voidArea": 0.01969316281281408,
+      "ringArea": 2042.2597539575374
+    },
+    {
+      "id": "Sevilla/48202",
+      "voids": 2,
+      "voidArea": 0.12800172680039168,
+      "ringArea": 2382.107222352553
+    },
+    {
+      "id": "Sevilla/48214",
+      "voids": 1,
+      "voidArea": 0.02461527209493397,
+      "ringArea": 3724.7386417123403
+    },
+    {
+      "id": "Sevilla/48277",
+      "voids": 1,
+      "voidArea": 0.1526048240250475,
+      "ringArea": 5151.215258950466
+    },
+    {
+      "id": "Sevilla/49278",
+      "voids": 1,
+      "voidArea": 0.029536437345882405,
+      "ringArea": 5657.345166816836
+    },
+    {
+      "id": "Sevilla/51260",
+      "voids": 1,
+      "voidArea": 0.004922788428871172,
+      "ringArea": 9217.09924937718
+    },
+    {
+      "id": "Sevilla/52252",
+      "voids": 1,
+      "voidArea": 0,
+      "ringArea": 575.4068353784343
+    },
+    {
+      "id": "Sevilla/52260",
+      "voids": 2,
+      "voidArea": 0.029536679062402982,
+      "ringArea": 2736.3862463082896
+    },
+    {
+      "id": "Sevilla/52268",
+      "voids": 1,
+      "voidArea": 6.842717188894911,
+      "ringArea": 5584.720556278073
+    },
+    {
+      "id": "Sevilla/53320",
+      "voids": 1,
+      "voidArea": 0.15751914492825758,
+      "ringArea": 4645.259273556401
+    },
+    {
+      "id": "Sevilla/54260",
+      "voids": 1,
+      "voidArea": 0.01969131798253443,
+      "ringArea": 4350.205957820705
+    },
+    {
+      "id": "Sevilla/55256",
+      "voids": 1,
+      "voidArea": 0.004922831547048645,
+      "ringArea": 3796.6158636736964
+    },
+    {
+      "id": "Sevilla/56260",
+      "voids": 1,
+      "voidArea": 0.004922872466148309,
+      "ringArea": 13631.399297996468
+    },
+    {
+      "id": "Sevilla/57190",
+      "voids": 1,
+      "voidArea": 0.05907875095002302,
+      "ringArea": 1226.7505694830568
+    },
+    {
+      "id": "Valencia/51306",
+      "voids": 1,
+      "voidArea": 0.05739192174222296,
+      "ringArea": 1541.9152830628957
+    },
+    {
+      "id": "Valencia/52174",
+      "voids": 1,
+      "voidArea": 0.004783372485690052,
+      "ringArea": 19605.98181988497
+    },
+    {
+      "id": "Valencia/52271",
+      "voids": 1,
+      "voidArea": 0,
+      "ringArea": 2903.956778643855
+    },
+    {
+      "id": "Valencia/52309",
+      "voids": 1,
+      "voidArea": 0,
+      "ringArea": 1924.2507253727706
+    },
+    {
+      "id": "Valencia/53228",
+      "voids": 1,
+      "voidArea": 139.9984990090709,
+      "ringArea": 7166.843110106728
+    },
+    {
+      "id": "Valencia/53279",
+      "voids": 1,
+      "voidArea": 0.07652546953073625,
+      "ringArea": 1640.6391081820177
+    },
+    {
+      "id": "Valencia/53302",
+      "voids": 1,
+      "voidArea": 0,
+      "ringArea": 8975.771547674542
+    },
+    {
+      "id": "Valencia/53312",
+      "voids": 2,
+      "voidArea": 0.1769559600094226,
+      "ringArea": 9631.956839620894
+    },
+    {
+      "id": "Valencia/55296",
+      "voids": 1,
+      "voidArea": 5.897090657139785,
+      "ringArea": 1526.3325441240565
+    },
+    {
+      "id": "Valencia/56202",
+      "voids": 2,
+      "voidArea": 0.3970140563272935,
+      "ringArea": 6466.11051936444
+    },
+    {
+      "id": "Valencia/56241",
+      "voids": 1,
+      "voidArea": 0.019132023585477498,
+      "ringArea": 2094.2677904651932
+    },
+    {
+      "id": "Valencia/56287",
+      "voids": 1,
+      "voidArea": 0.16739819144615353,
+      "ringArea": 1375.1426665377583
+    },
+    {
+      "id": "Valencia/56318",
+      "voids": 1,
+      "voidArea": 0.06695668962669288,
+      "ringArea": 3898.036726480769
+    },
+    {
+      "id": "Valencia/57279",
+      "voids": 1,
+      "voidArea": 0.06695949801271439,
+      "ringArea": 3159.082161508345
+    },
+    {
+      "id": "Valencia/57309",
+      "voids": 1,
+      "voidArea": 0.03347868821302313,
+      "ringArea": 1411.456720163667
+    },
+    {
+      "id": "Valencia/59173",
+      "voids": 1,
+      "voidArea": 132.31977479442867,
+      "ringArea": 6482.147827997593
+    },
+    {
+      "id": "Valencia/59252",
+      "voids": 2,
+      "voidArea": 0.16261986011883778,
+      "ringArea": 3271.34241613795
+    },
+    {
+      "id": "Valencia/60291",
+      "voids": 1,
+      "voidArea": 0.09565385624333622,
+      "ringArea": 4027.6873512271527
+    },
+    {
+      "id": "Valencia/60313",
+      "voids": 1,
+      "voidArea": 0.08608640345710228,
+      "ringArea": 1616.7696190408747
+    },
+    {
+      "id": "Valencia/61322",
+      "voids": 1,
+      "voidArea": 0,
+      "ringArea": 3104.2147527496363
+    },
+    {
+      "id": "Valencia/64212",
+      "voids": 1,
+      "voidArea": 0.04783192066270203,
+      "ringArea": 10073.560255003671
+    }
+  ]
+}

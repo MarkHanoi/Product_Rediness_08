@@ -178,6 +178,16 @@ export class MultiPaneController {
     }
 
     /**
+     * §C59 Phase 2 — the renderer kinds that actually have a mounter in THIS workspace.
+     * The per-pane view picker asks for this so a view whose renderer is not wired here
+     * is shown DISABLED WITH A REASON, instead of being offered and then failing at
+     * mount with a console warning and an empty pane (C59 §4 Phase 2: disable-or-explain).
+     */
+    registeredKinds(): ReadonlySet<RendererKind> {
+        return new Set(this.mounters.keys());
+    }
+
+    /**
      * Assign `viewType` (or `null` to clear) to `paneId` through the pure reducer,
      * then reconcile the live hosts. Because the reducer MOVES a singleton out of any
      * other pane, this is the safe "swap the 3D Site into either pane" primitive.

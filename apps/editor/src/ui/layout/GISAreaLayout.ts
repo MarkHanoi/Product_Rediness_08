@@ -55,6 +55,10 @@ import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
 import { mountSiteAuthoringPaneShell, type SiteAuthoringPaneShell } from '../../engine/views/SiteAuthoringPaneShell';
 import { siteAuthoringDefaultLayout, RIGHT_PANE } from '../../engine/views/paneViewModel';
 import type { PaneRendererMounter } from '../../engine/views/PaneHost';
+import {
+    createSvpPlanPaneMounter,
+    type SplitViewManagerLike,
+} from '../../engine/views/svpPlanPaneMounter';
 // §L-412 (C59) — PURE decision: should a paned 3D-Site live-update FRAME the plot
 // (first parcel commit) or re-render in place (no re-fly)? Keeps the no-jitter
 // guarantee unit-testable without a live Cesium viewer.
@@ -3897,16 +3901,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         shell.controller.registerMounter(mapMounter);
         shell.controller.registerMounter(cesiumMounter);
 
-        // Apply the founder default THROUGH the pure model (left=2d-map, right=3d-site).
+        // ── Canvas2D plan mounter (EITHER pane) — §C59 Phase 2 ──
+        // Makes `bim-plan-2d` a real pane view, so the per-pane picker can put the plan
+        // next to (or instead of) the 3D Site: the founder's "3D Site available from plan
+        // view and vice versa". It DRIVES the existing SplitViewManager plan renderer and
+        // re-parents its pane node — no second plan surface (C59 §0/§3).
+        shell.controller.registerMounter(
+            createSvpPlanPaneMounter(
+                () => (window.splitViewManager as SplitViewManagerLike | null | undefined) ?? null,
+            ),
+        );
+
+        // Apply the founder default THROUGH the view-state store (left=2d-map,
+        // right=3d-site). §C59 Phase 2 invariant 3: the STORE is the single write path —
+        // calling `controller.applyLayout` here would land the layout on the renderers but
+        // leave the store (and therefore every pane's view picker) showing something else.
         const layout = siteAuthoringDefaultLayout();
-        try {
-            const r = shell.controller.applyLayout(layout);
-            if (r instanceof Promise) r.catch((err) => console.error('[gis][panes] applyLayout (async) failed:', err));
-        } catch (err) {
-            console.error('[gis][panes] applyLayout failed — tearing the split down:', err);
+        const applied = shell.store.dispatch({ type: 'view.pane.set-layout', layout });
+        if (!applied.ok) {
+            console.error('[gis][panes] default layout rejected — tearing the split down:', applied.rejected);
             unmountSiteAuthoringPanes();
             return;
         }
+        applied.pending?.catch((err) => console.error('[gis][panes] layout apply (async) failed:', err));
         console.log(
             '[gis][panes] §L-412 site-authoring split mounted — LEFT 2D map · RIGHT live 3D Site ' +
             '(single Cesium re-targeted; envelope live on draw/select).',

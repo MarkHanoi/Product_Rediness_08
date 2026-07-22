@@ -68,35 +68,44 @@ export {
     BCN_ART323_DWELLING_MODULE_M2,
 } from './rulepacks/esBarcelonaSemiintensiva.js';
 
-// ── L-590 — Barcelona clau 22a (*zona industrial*), PGM Art. 350. ──
-// ⚠ AUTHORED FROM THE PRIMARY PDF, AND DELIBERATELY **NOT REGISTERED** in `registry.ts`. Art. 350.2
-// describes a TWO-TIER solid (a ≤90 %-of-parcel podium plus a tower confined to a band concentric
-// with the block equal to 70 % of it) and `GeometricRule` has no kind that expresses it; a
-// `geometricRule: null` pack would draw the WHOLE parcel beside its own 90 % occupation cap.
-// `BCN_22A_ENVELOPE_BLOCKER` carries the full argument and what would unblock it. Clau 22a keeps
-// its coverage-gap refusal until then.
+// ── L-591 — Barcelona clau `20a/*` (*Zona d'ordenació en edificació aïllada*, PGM Arts. 337–343
+// as modified for Barcelona by DOGC 4277, 10-12-2004). ──
+// The FIRST Barcelona family whose ordinance states real front/lateral/fons separations, so it
+// ships a plain `kind: 'setback'` rule and needs no cadastral block. Two subzones state their
+// numbers as CONSTRUCTIONS rather than constants — `20a/8` on the amplada de vial (Art. 342.5) and
+// `20a/9u` on the parcel area (Art. 340.2) — and those resolve through the functions below, never
+// through a scalar in the pack.
 export {
-    ES_BARCELONA_INDUSTRIAL_PACK,
-    BCN_INDUSTRIAL_ZONE_CODES,
-    BCN_22A_ORDINANCE_REF,
-    BCN_22A_ENVELOPE_BLOCKER,
-    BCN_ART350_MIN_PARCEL_M2,
-    BCN_ART350_MIN_FACADE_M,
-    BCN_ART350_2B_INTERIOR_FREE_RATIO,
-    BCN_ART350_1_AILLADA_COVERAGE,
-    BCN_ART350_COSSOS_SORTINTS,
-} from './rulepacks/esBarcelonaIndustrial.js';
-
-// L-590 — PGM Art. 350.2.c, the clau 22a height table. THREE bands (9 / 13 / 17 m, PB+1…PB+3) and
-// an OPEN-ENDED top band — not the four-or-six-band, 3,05 m-ladder shape of Arts. 327/328. Gated on
-// `PlaParcialRegime`, because Art. 350.2 governs only industrial land *mancada de Pla Parcial*.
+    ES_BARCELONA_20A_AILLADA_PACK,
+    BCN_20A_AILLADA_ZONE_CODES,
+    bcn20aOrdinanceRef,
+    resolve20aEdificabilitat,
+    resolve20aParcelOverrides,
+    type Bcn20aEdificabilitatResolution,
+    type Bcn20aEdificabilitatRefusal,
+    type Bcn20aParcelOverrides,
+} from './rulepacks/esBarcelona20aAillada.js';
 export {
-    resolveAlcadaIndustrial,
-    BCN_ALCADA_INDUSTRIAL_TABLE,
-    BCN_ART350_EDGE_CONVENTION,
-    BCN_ART350_BLOCK_INTERIOR_HEIGHT_M,
-    type PlaParcialRegime,
-} from './rulepacks/bcnAlcadaIndustrial.js';
+    BCN_20A_SUBZONES,
+    BCN_20A_BY_CLAU,
+    BCN_20A_ZONE_CODES,
+    BCN_20A_BARE_CLAU_UNRESOLVABLE,
+    BCN_20A_BARCELONA_DELTAS,
+    BCN_20A_UNMODELLED_RULES,
+    BCN_20A_ART342_DWELLING_MODULE_M2,
+    type Bcn20aSubzone,
+    type Bcn20aFamily,
+    type Bcn20aSeparations,
+    type Bcn20aAuxiliary,
+} from './rulepacks/bcn20aSubzones.js';
+export {
+    resolveAlcada20aSubzonaV,
+    BCN_ALCADA_20A_V_TABLE,
+    BCN_ART342_5_EDGE_CONVENTION,
+    BCN_20A_V_CLAU,
+    type Bcn20aVBand,
+    type Bcn20aVResolution,
+} from './rulepacks/bcnAlcada20aAillada.js';
 
 // ── L-550 Phase 0.1 — THE RULE-PACK REGISTRY. ──
 // The dispatcher no longer hard-codes which claus have a pack: it asks the registry for a

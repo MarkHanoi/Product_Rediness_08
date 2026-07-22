@@ -1,0 +1,2111 @@
+{
+  "ranAt": "2026-07-22T16:15:10.933Z",
+  "tally": {
+    "single-loop (fine)": 607,
+    "degree≠2": 114,
+    "HOLE — interior void (recoverable)": 83,
+    "ADD, inner — parcels OVERLAP (refuse)": 74,
+    "ADD, outer — DETACHED fragment (refuse)": 11,
+    "MIXED / neither identity (refuse)": 65,
+    "non-manifold": 2
+  },
+  "rows": [
+    {
+      "id": "Barcelona-old/06128",
+      "loops": 2,
+      "outer": 7005.587133658812,
+      "voidSum": 0.037194195249355744,
+      "parcelSum": 7005.549939463562,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/06152",
+      "loops": 2,
+      "outer": 4576.3903820917,
+      "voidSum": 0.10227890090118308,
+      "parcelSum": 4576.4926609926015,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/07155",
+      "loops": 3,
+      "outer": 2533.8579432370784,
+      "voidSum": 0.03719240271657043,
+      "parcelSum": 2533.895135639026,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/09145",
+      "loops": 2,
+      "outer": 8250.7960852391,
+      "voidSum": 0.13947278328890889,
+      "parcelSum": 8250.656612455812,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/10129",
+      "loops": 2,
+      "outer": 7530.236216711226,
+      "voidSum": 0.45562758957828464,
+      "parcelSum": 7529.78058912165,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/10163",
+      "loops": 2,
+      "outer": 6469.50665260405,
+      "voidSum": 0.013946970157235228,
+      "parcelSum": 6469.520599574208,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/10213",
+      "loops": 2,
+      "outer": 10444.17075098464,
+      "voidSum": 0.05578423461213333,
+      "parcelSum": 10444.114966750025,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/12215",
+      "loops": 2,
+      "outer": 4874.636647238336,
+      "voidSum": 101.85234814611485,
+      "parcelSum": 4772.784299092222,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona-old/14194",
+      "loops": 2,
+      "outer": 1623.7085579684674,
+      "voidSum": 67.58866548121537,
+      "parcelSum": 1556.1198924872526,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/00223",
+      "loops": 2,
+      "outer": 12591.055941949862,
+      "voidSum": 0.013945699204164441,
+      "parcelSum": 12591.041996250657,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/00329",
+      "loops": 3,
+      "outer": 13408.282581516942,
+      "voidSum": 0.14408786933312,
+      "parcelSum": 13408.138493647602,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/01193",
+      "loops": 2,
+      "outer": 11306.175487671448,
+      "voidSum": 0.10227369385438578,
+      "parcelSum": 11306.073213977594,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/03192",
+      "loops": 4,
+      "outer": 6800.080506974027,
+      "voidSum": 1498.9382784155912,
+      "parcelSum": 8299.018785389619,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Barcelona/06193",
+      "loops": 3,
+      "outer": 5862.519352832335,
+      "voidSum": 0.0743806411795731,
+      "parcelSum": 5862.57513831152,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/06276",
+      "loops": 2,
+      "outer": 12723.525952508415,
+      "voidSum": 5.522172033603056,
+      "parcelSum": 12729.048124542012,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Barcelona/06377",
+      "loops": 3,
+      "outer": 11119.761403559754,
+      "voidSum": 0.27886106162424085,
+      "parcelSum": 11120.040264621377,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/07174",
+      "loops": 2,
+      "outer": 4668.512095470413,
+      "voidSum": 0.01859566743320329,
+      "parcelSum": 4668.493499802979,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/93228",
+      "loops": 5,
+      "outer": 11965.205908121668,
+      "voidSum": 0.7158928889404024,
+      "parcelSum": 11965.745152116906,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/93279",
+      "loops": 2,
+      "outer": 12677.386542580845,
+      "voidSum": 0.48342209691088556,
+      "parcelSum": 12677.869964677766,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/93368",
+      "loops": 2,
+      "outer": 1883.345628424067,
+      "voidSum": 51.752649990819634,
+      "parcelSum": 1935.0982784148864,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Barcelona/94329",
+      "loops": 3,
+      "outer": 7822.454329264638,
+      "voidSum": 0.1301433929297673,
+      "parcelSum": 7822.584472657567,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/96289",
+      "loops": 2,
+      "outer": 12560.1266689117,
+      "voidSum": 0.09296398295464314,
+      "parcelSum": 12560.033704928746,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/97344",
+      "loops": 2,
+      "outer": 3469.642723948519,
+      "voidSum": 19.5952013013557,
+      "parcelSum": 3489.237925249875,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Barcelona/98379",
+      "loops": 2,
+      "outer": 1286.211908080839,
+      "voidSum": 0.04647659605319632,
+      "parcelSum": 1286.1654314847858,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/99188",
+      "loops": 2,
+      "outer": 12532.145799370704,
+      "voidSum": 0.004648912644313441,
+      "parcelSum": 12532.150448283348,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/99366",
+      "loops": 2,
+      "outer": 3792.846902944509,
+      "voidSum": 7.015898972895229e-11,
+      "parcelSum": 3792.84690294458,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Barcelona/99374",
+      "loops": 2,
+      "outer": 3552.2681329589896,
+      "voidSum": 0.04182873435500767,
+      "parcelSum": 3552.2263042246345,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/28453",
+      "loops": 2,
+      "outer": 4314.8898106793295,
+      "voidSum": 0.029341449059756997,
+      "parcelSum": 4314.919152128388,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/29507",
+      "loops": 2,
+      "outer": 4406.790465662773,
+      "voidSum": 0.014670002457364717,
+      "parcelSum": 4406.775795660316,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/29552",
+      "loops": 3,
+      "outer": 8624.590638202728,
+      "voidSum": 0.053786065216172574,
+      "parcelSum": 8624.59552784496,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/29563",
+      "loops": 2,
+      "outer": 1763.0885550606374,
+      "voidSum": 0.04400631481294681,
+      "parcelSum": 1763.044548745825,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/29569",
+      "loops": 4,
+      "outer": 7724.383635306542,
+      "voidSum": 0.3373840616966104,
+      "parcelSum": 7724.574330646492,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/29584",
+      "loops": 3,
+      "outer": 3541.5555038777934,
+      "voidSum": 0.014668450708768432,
+      "parcelSum": 3541.570172328475,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/30596",
+      "loops": 2,
+      "outer": 2237.3989221570914,
+      "voidSum": 0.0537839806258944,
+      "parcelSum": 2237.452706137717,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/31505",
+      "loops": 2,
+      "outer": 18240.369676900325,
+      "voidSum": 0.7530492912073896,
+      "parcelSum": 18239.616627609113,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/32454",
+      "loops": 7,
+      "outer": 6484.31937671747,
+      "voidSum": 0.6601856850938788,
+      "parcelSum": 6484.001509534741,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/32461",
+      "loops": 2,
+      "outer": 2116.874171056673,
+      "voidSum": 0.05868279330201176,
+      "parcelSum": 2116.932853849975,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/32471",
+      "loops": 2,
+      "outer": 4432.478687154718,
+      "voidSum": 0.552592165067125,
+      "parcelSum": 4431.926094989652,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/33412",
+      "loops": 2,
+      "outer": 2653.003852620984,
+      "voidSum": 0.00978102069628406,
+      "parcelSum": 2652.9940716002875,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/33445",
+      "loops": 4,
+      "outer": 4003.254913717011,
+      "voidSum": 0.13203863505782465,
+      "parcelSum": 4003.3576104333956,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/33468",
+      "loops": 2,
+      "outer": 10256.155444127739,
+      "voidSum": 0.029341176480244258,
+      "parcelSum": 10256.18478530422,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/34412",
+      "loops": 6,
+      "outer": 8713.97910541139,
+      "voidSum": 0.5624089621916255,
+      "parcelSum": 8713.915528747144,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/34452",
+      "loops": 4,
+      "outer": 4590.151709832896,
+      "voidSum": 0.0978057653984344,
+      "parcelSum": 4590.112587526634,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36427",
+      "loops": 2,
+      "outer": 10090.440987026232,
+      "voidSum": 0.06846623347772152,
+      "parcelSum": 10090.372520792751,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36462",
+      "loops": 3,
+      "outer": 7125.445668194643,
+      "voidSum": 0.23473084962239454,
+      "parcelSum": 7125.680399044264,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36465",
+      "loops": 6,
+      "outer": 6772.230072387748,
+      "voidSum": 0.25918106453828216,
+      "parcelSum": 6772.195840926501,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36476",
+      "loops": 3,
+      "outer": 9566.815650034527,
+      "voidSum": 0.16626586591110534,
+      "parcelSum": 9566.83521072434,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36481",
+      "loops": 2,
+      "outer": 4027.3317735793034,
+      "voidSum": 0.07824239711370362,
+      "parcelSum": 4027.2535311821903,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36508",
+      "loops": 4,
+      "outer": 9103.48775719003,
+      "voidSum": 0.23471936269538674,
+      "parcelSum": 9103.341057589738,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36513",
+      "loops": 2,
+      "outer": 3861.2491413091198,
+      "voidSum": 0.10268798442331217,
+      "parcelSum": 3861.3518292935437,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/36544",
+      "loops": 2,
+      "outer": 6287.276151161566,
+      "voidSum": 0.06356676403743222,
+      "parcelSum": 6287.212584397528,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/37466",
+      "loops": 3,
+      "outer": 1887.125403224096,
+      "voidSum": 0.10269484706213916,
+      "parcelSum": 1887.228098071158,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/37492",
+      "loops": 4,
+      "outer": 8175.459889385919,
+      "voidSum": 0.014670106906230274,
+      "parcelSum": 8175.445219279013,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/38416",
+      "loops": 2,
+      "outer": 1168.0001490571758,
+      "voidSum": 0.04890508489478407,
+      "parcelSum": 1167.9512439722807,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/39412",
+      "loops": 2,
+      "outer": 2241.602028826358,
+      "voidSum": 0.15649615500079683,
+      "parcelSum": 2241.445532671357,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/39426",
+      "loops": 6,
+      "outer": 7137.0048303034255,
+      "voidSum": 0.6797692402700477,
+      "parcelSum": 7136.970597318745,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/39449",
+      "loops": 2,
+      "outer": 397.8197016248161,
+      "voidSum": 0.03423240762163715,
+      "parcelSum": 397.7854692171945,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/39457",
+      "loops": 5,
+      "outer": 4300.936281375736,
+      "voidSum": 0.20050187078450676,
+      "parcelSum": 4300.872707612291,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/39508",
+      "loops": 3,
+      "outer": 2355.3435984882663,
+      "voidSum": 0.15647979129095124,
+      "parcelSum": 2355.4902982933527,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/40445",
+      "loops": 2,
+      "outer": 3768.564321440919,
+      "voidSum": 0.019561257652623176,
+      "parcelSum": 3768.5447601832657,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/40493",
+      "loops": 4,
+      "outer": 8529.737915178277,
+      "voidSum": 0.10269004072833221,
+      "parcelSum": 8529.635225137548,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/40529",
+      "loops": 3,
+      "outer": 3611.299822936997,
+      "voidSum": 0.23471400134009812,
+      "parcelSum": 3611.0846684350904,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/41499",
+      "loops": 2,
+      "outer": 1515.8979358739675,
+      "voidSum": 0.058680298666850206,
+      "parcelSum": 1515.956616172634,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/41502",
+      "loops": 2,
+      "outer": 3778.7599964467117,
+      "voidSum": 0.10757952103142543,
+      "parcelSum": 3778.867575967743,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/42432",
+      "loops": 4,
+      "outer": 8560.422873276011,
+      "voidSum": 0.22984821398171906,
+      "parcelSum": 8560.525571414055,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/42476",
+      "loops": 4,
+      "outer": 5163.139929702675,
+      "voidSum": 0.13692438785395966,
+      "parcelSum": 5163.257293463579,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/42494",
+      "loops": 3,
+      "outer": 6026.318111212771,
+      "voidSum": 0.09290991644360247,
+      "parcelSum": 6026.225201296331,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/42518",
+      "loops": 2,
+      "outer": 3197.414079942378,
+      "voidSum": 0.09290856538501657,
+      "parcelSum": 3197.3211713769924,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/43501",
+      "loops": 4,
+      "outer": 6392.482399313169,
+      "voidSum": 0.11735983090213153,
+      "parcelSum": 6392.482399313357,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/43505",
+      "loops": 3,
+      "outer": 7061.615583722432,
+      "voidSum": 0.03422943499771411,
+      "parcelSum": 7061.620473641653,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/43511",
+      "loops": 5,
+      "outer": 9617.124910547183,
+      "voidSum": 0.17114662468479125,
+      "parcelSum": 9617.051561994043,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/43514",
+      "loops": 2,
+      "outer": 2282.694772607882,
+      "voidSum": 0.04400903304939874,
+      "parcelSum": 2282.6507635748326,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/43533",
+      "loops": 4,
+      "outer": 2099.3315954860796,
+      "voidSum": 0.2884959994383536,
+      "parcelSum": 2099.336485248342,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/43546",
+      "loops": 3,
+      "outer": 6319.412157740747,
+      "voidSum": 0.029338213961864312,
+      "parcelSum": 6319.412157740665,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/44462",
+      "loops": 5,
+      "outer": 5047.463307574606,
+      "voidSum": 3612.6976986066716,
+      "parcelSum": 8659.98495832115,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Cordoba/44479",
+      "loops": 8,
+      "outer": 10760.962667832562,
+      "voidSum": 3298.934924600702,
+      "parcelSum": 14059.58462463263,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Cordoba/44519",
+      "loops": 2,
+      "outer": 4212.49264999027,
+      "voidSum": 0.04889957077057261,
+      "parcelSum": 4212.541549561041,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Cordoba/44541",
+      "loops": 3,
+      "outer": 2838.269950339242,
+      "voidSum": 0.21514936238653865,
+      "parcelSum": 2838.4850997016288,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/00378",
+      "loops": 3,
+      "outer": 4690.287127999212,
+      "voidSum": 0.09907332977894967,
+      "parcelSum": 4690.188054669433,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/00431",
+      "loops": 2,
+      "outer": 2610.4881422026488,
+      "voidSum": 0.1886968014755439,
+      "parcelSum": 2610.2994454011737,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/02365",
+      "loops": 2,
+      "outer": 6890.742899750227,
+      "voidSum": 0.009435651246008092,
+      "parcelSum": 6890.733464098984,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/02466",
+      "loops": 2,
+      "outer": 947.3389115772295,
+      "voidSum": 0.1037786748888565,
+      "parcelSum": 947.4426902521186,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/03397",
+      "loops": 2,
+      "outer": 2273.7986724568914,
+      "voidSum": 0.11794124326951305,
+      "parcelSum": 2273.916613700162,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/04461",
+      "loops": 2,
+      "outer": 4987.65057719125,
+      "voidSum": 0.08490967062888188,
+      "parcelSum": 4987.735486861878,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/05439",
+      "loops": 3,
+      "outer": 3243.800061717769,
+      "voidSum": 0.15095648194531464,
+      "parcelSum": 3243.649105235824,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/06381",
+      "loops": 3,
+      "outer": 9677.875769593758,
+      "voidSum": 0.061330071638394656,
+      "parcelSum": 9677.814439522112,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/06438",
+      "loops": 2,
+      "outer": 9825.67102678913,
+      "voidSum": 0.009434706246153723,
+      "parcelSum": 9825.661592082888,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/06464",
+      "loops": 2,
+      "outer": 12546.666052844375,
+      "voidSum": 0.009434353154006203,
+      "parcelSum": 12546.656618491217,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/07382",
+      "loops": 2,
+      "outer": 2454.5465817463814,
+      "voidSum": 0.028306177293416113,
+      "parcelSum": 2454.5182755690885,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/98364",
+      "loops": 3,
+      "outer": 3609.9405058583275,
+      "voidSum": 0.34439874716895247,
+      "parcelSum": 3610.284904605496,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/98429",
+      "loops": 2,
+      "outer": 4654.318728618351,
+      "voidSum": 0.07547885559809231,
+      "parcelSum": 4654.394207473948,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid-centro/99476",
+      "loops": 3,
+      "outer": 9527.753818307354,
+      "voidSum": 0.09905958599355813,
+      "parcelSum": 9527.852877893056,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/11522",
+      "loops": 2,
+      "outer": 2416.525752986434,
+      "voidSum": 0.028300807266703032,
+      "parcelSum": 2416.497452179167,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/11661",
+      "loops": 2,
+      "outer": 13371.131281044107,
+      "voidSum": 0.014147808289635577,
+      "parcelSum": 13371.145428852398,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/12563",
+      "loops": 5,
+      "outer": 11592.27910190825,
+      "voidSum": 0.9102896337475386,
+      "parcelSum": 11591.368812274502,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/12603",
+      "loops": 2,
+      "outer": 5725.932302076996,
+      "voidSum": 0.07074426462042993,
+      "parcelSum": 5726.003046341615,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/14456",
+      "loops": 3,
+      "outer": 4604.830454187481,
+      "voidSum": 1081.951420133482,
+      "parcelSum": 5686.781874320961,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Madrid/15504",
+      "loops": 2,
+      "outer": 9252.559597938012,
+      "voidSum": 0.0943377778193053,
+      "parcelSum": 9252.653935715827,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/17516",
+      "loops": 2,
+      "outer": 13309.268327353186,
+      "voidSum": 2565.580256901115,
+      "parcelSum": 10743.688070452064,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/17616",
+      "loops": 2,
+      "outer": 17668.45572599283,
+      "voidSum": 0.014148603765875123,
+      "parcelSum": 17668.44157738907,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/18568",
+      "loops": 2,
+      "outer": 11184.438872526016,
+      "voidSum": 0.014149660617476911,
+      "parcelSum": 11184.453022186633,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/21500",
+      "loops": 4,
+      "outer": 8896.514677737683,
+      "voidSum": 0.31603758671087,
+      "parcelSum": 8896.71750783135,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/21616",
+      "loops": 3,
+      "outer": 10952.385773713584,
+      "voidSum": 4.296468107627305,
+      "parcelSum": 10956.682241821207,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Madrid/24526",
+      "loops": 2,
+      "outer": 8216.86716744077,
+      "voidSum": 0.07075170491680183,
+      "parcelSum": 8216.796415735855,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/24633",
+      "loops": 3,
+      "outer": 8751.042613743115,
+      "voidSum": 0.1509142774518466,
+      "parcelSum": 8750.919995892773,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/25506",
+      "loops": 3,
+      "outer": 8784.346068923574,
+      "voidSum": 0.03301844867451109,
+      "parcelSum": 8784.331918160004,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Madrid/25658",
+      "loops": 3,
+      "outer": 12084.023702522925,
+      "voidSum": 0.10846778803500001,
+      "parcelSum": 12083.952962661228,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/44183",
+      "loops": 3,
+      "outer": 4408.960671979885,
+      "voidSum": 0.1870842633836094,
+      "parcelSum": 4409.118216622073,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/44256",
+      "loops": 4,
+      "outer": 3100.957141655382,
+      "voidSum": 0.1279940923222842,
+      "parcelSum": 3100.966987356609,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45162",
+      "loops": 2,
+      "outer": 1561.4810125193458,
+      "voidSum": 0.04923369282539625,
+      "parcelSum": 1561.5302462121713,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45170",
+      "loops": 3,
+      "outer": 10427.843415515395,
+      "voidSum": 0.04923341192841235,
+      "parcelSum": 10427.872955562763,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45171",
+      "loops": 2,
+      "outer": 4195.367175141172,
+      "voidSum": 0.029539881355162834,
+      "parcelSum": 4195.396715022528,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45227",
+      "loops": 2,
+      "outer": 3531.744452235909,
+      "voidSum": 37.37571823699989,
+      "parcelSum": 3494.3687339989087,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45234",
+      "loops": 2,
+      "outer": 1681.5522776693492,
+      "voidSum": 0.08861312921207755,
+      "parcelSum": 1681.6408907985615,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45239",
+      "loops": 4,
+      "outer": 2885.0870359078303,
+      "voidSum": 0.17722693085725894,
+      "parcelSum": 2884.909808976974,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45260",
+      "loops": 2,
+      "outer": 5286.539422124189,
+      "voidSum": 0.024614223413436775,
+      "parcelSum": 5286.514807900775,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45275",
+      "loops": 2,
+      "outer": 959.2237701755603,
+      "voidSum": 0.04922731502193711,
+      "parcelSum": 959.2729974905822,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45300",
+      "loops": 2,
+      "outer": 2098.0019446982,
+      "voidSum": 0.01476772834129747,
+      "parcelSum": 2097.9871769698584,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/45304",
+      "loops": 2,
+      "outer": 1810.9385955309326,
+      "voidSum": 0.044302862997580406,
+      "parcelSum": 1810.894292667936,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/46210",
+      "loops": 5,
+      "outer": 16959.564992575128,
+      "voidSum": 0.16246199278646145,
+      "parcelSum": 16959.648685117525,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/46231",
+      "loops": 3,
+      "outer": 3668.90977615149,
+      "voidSum": 0.06399856539337634,
+      "parcelSum": 3668.9737747168824,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/46250",
+      "loops": 2,
+      "outer": 6312.430534686346,
+      "voidSum": 0.3495225034462237,
+      "parcelSum": 6312.780057189791,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/46304",
+      "loops": 2,
+      "outer": 5497.706669392382,
+      "voidSum": 0.12306289102031087,
+      "parcelSum": 5497.583606501362,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/46310",
+      "loops": 3,
+      "outer": 3817.5535804011924,
+      "voidSum": 0.13783043668971962,
+      "parcelSum": 3817.494510213757,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/46321",
+      "loops": 5,
+      "outer": 5672.319104671308,
+      "voidSum": 0.1575183398904345,
+      "parcelSum": 5672.3486393605235,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/47206",
+      "loops": 2,
+      "outer": 881.2631294939756,
+      "voidSum": 0.12800184079893562,
+      "parcelSum": 881.1351276531767,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/47253",
+      "loops": 3,
+      "outer": 973.5125850328246,
+      "voidSum": 0.38398202747887566,
+      "parcelSum": 973.128603005346,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/47270",
+      "loops": 3,
+      "outer": 5200.747648122272,
+      "voidSum": 0.22644757733079768,
+      "parcelSum": 5200.619656013282,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/47272",
+      "loops": 3,
+      "outer": 5599.991567543181,
+      "voidSum": 0.00984544691038991,
+      "parcelSum": 5600.001412990092,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/47314",
+      "loops": 6,
+      "outer": 5632.7787325193285,
+      "voidSum": 0.3839517364367726,
+      "parcelSum": 5632.778732519135,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48188",
+      "loops": 2,
+      "outer": 2042.2597539567244,
+      "voidSum": 0.01969316281281408,
+      "parcelSum": 2042.240060793912,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48202",
+      "loops": 3,
+      "outer": 2382.107222352614,
+      "voidSum": 0.12800172680039168,
+      "parcelSum": 2381.9792206258135,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48204",
+      "loops": 2,
+      "outer": 695.9088596888752,
+      "voidSum": 0.02461564313775555,
+      "parcelSum": 695.9334753320129,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48205",
+      "loops": 6,
+      "outer": 1221.8350598619782,
+      "voidSum": 0.31015790346224037,
+      "parcelSum": 1222.1452177654407,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48211",
+      "loops": 3,
+      "outer": 1228.5917709503763,
+      "voidSum": 0.15753953601142712,
+      "parcelSum": 1228.749310486388,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48214",
+      "loops": 2,
+      "outer": 3724.7386417126722,
+      "voidSum": 0.02461527209493397,
+      "parcelSum": 3724.7140264405784,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48277",
+      "loops": 2,
+      "outer": 5151.215258950466,
+      "voidSum": 0.1526048240250475,
+      "parcelSum": 5151.06265412644,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/48308",
+      "loops": 3,
+      "outer": 2656.1815658767555,
+      "voidSum": 685.105432845034,
+      "parcelSum": 3341.2869987217878,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Sevilla/49224",
+      "loops": 3,
+      "outer": 7206.9813908731785,
+      "voidSum": 0.07384520003623996,
+      "parcelSum": 7206.976467859456,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/49227",
+      "loops": 3,
+      "outer": 2964.9715440518125,
+      "voidSum": 0.30522663815716555,
+      "parcelSum": 2964.7057014957927,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/49270",
+      "loops": 2,
+      "outer": 2981.222005350306,
+      "voidSum": 0.019691095239522838,
+      "parcelSum": 2981.241696445546,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/49274",
+      "loops": 2,
+      "outer": 3119.0095769573345,
+      "voidSum": 0.16737162306291964,
+      "parcelSum": 3119.176948580398,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/49278",
+      "loops": 2,
+      "outer": 5657.345166816871,
+      "voidSum": 0.029536437345882405,
+      "parcelSum": 5657.315630379524,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/49287",
+      "loops": 2,
+      "outer": 213.49735871914714,
+      "voidSum": 5.109759242404252,
+      "parcelSum": 218.6071179615514,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Sevilla/49300",
+      "loops": 3,
+      "outer": 2487.8137012844572,
+      "voidSum": 0.0639934348690474,
+      "parcelSum": 2487.8776947193264,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/49319",
+      "loops": 8,
+      "outer": 10867.550729662324,
+      "voidSum": 0.7235979844545568,
+      "parcelSum": 10867.309530334338,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/50250",
+      "loops": 3,
+      "outer": 1702.4683478589411,
+      "voidSum": 0.034460031995946494,
+      "parcelSum": 1702.4634249972312,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/50264",
+      "loops": 5,
+      "outer": 3006.157128445528,
+      "voidSum": 0.10830089353106587,
+      "parcelSum": 3006.216201660174,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/50280",
+      "loops": 3,
+      "outer": 11458.255289539824,
+      "voidSum": 0.1575262863689204,
+      "parcelSum": 11458.412815826201,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/50329",
+      "loops": 3,
+      "outer": 2970.953114863773,
+      "voidSum": 0.21166419578059958,
+      "parcelSum": 2971.1155548281276,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/51230",
+      "loops": 8,
+      "outer": 5800.007305562886,
+      "voidSum": 0.5021399893235099,
+      "parcelSum": 5799.554394983947,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/51320",
+      "loops": 2,
+      "outer": 13668.820594452623,
+      "voidSum": 0.014767370049185047,
+      "parcelSum": 13668.835361822667,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/52220",
+      "loops": 3,
+      "outer": 10258.577690637996,
+      "voidSum": 0.11322960713135632,
+      "parcelSum": 10258.690920245119,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/52250",
+      "loops": 3,
+      "outer": 7506.91788949285,
+      "voidSum": 0.18214640235805746,
+      "parcelSum": 7507.100035895207,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/52252",
+      "loops": 2,
+      "outer": 575.4068353784343,
+      "voidSum": 0,
+      "parcelSum": 575.4068353784344,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/52260",
+      "loops": 3,
+      "outer": 2736.386246308285,
+      "voidSum": 0.029536679062402982,
+      "parcelSum": 2736.356709629222,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/52270",
+      "loops": 7,
+      "outer": 3428.896281292553,
+      "voidSum": 0.46273903932735816,
+      "parcelSum": 3429.1424190794633,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/52273",
+      "loops": 2,
+      "outer": 2100.3256192800163,
+      "voidSum": 0.13783602193211486,
+      "parcelSum": 2100.463455301948,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/52320",
+      "loops": 4,
+      "outer": 1204.8794979273068,
+      "voidSum": 0.16736351778905956,
+      "parcelSum": 1205.0271716190618,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53198",
+      "loops": 2,
+      "outer": 1241.0434066195526,
+      "voidSum": 0.019692850043270482,
+      "parcelSum": 1241.0630994695962,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53226",
+      "loops": 7,
+      "outer": 9588.796358314103,
+      "voidSum": 0.36430081988004304,
+      "parcelSum": 9589.042507517335,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53258",
+      "loops": 2,
+      "outer": 2504.4526656133976,
+      "voidSum": 0.09353422259299649,
+      "parcelSum": 2504.5461998359906,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53261",
+      "loops": 2,
+      "outer": 866.8072249684229,
+      "voidSum": 0.02461401665681784,
+      "parcelSum": 866.83183898508,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53264",
+      "loops": 7,
+      "outer": 4888.930122379394,
+      "voidSum": 0.3495183754820914,
+      "parcelSum": 4889.023655464825,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53268",
+      "loops": 2,
+      "outer": 936.8347418418326,
+      "voidSum": 0.029536996078513678,
+      "parcelSum": 936.8642788379111,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53272",
+      "loops": 5,
+      "outer": 2481.598433995258,
+      "voidSum": 0.255981557520748,
+      "parcelSum": 2481.716579328452,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53277",
+      "loops": 2,
+      "outer": 649.0612437715622,
+      "voidSum": 0.039382095661282784,
+      "parcelSum": 649.1006258672235,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53319",
+      "loops": 9,
+      "outer": 8341.766678724769,
+      "voidSum": 0.26089018201925196,
+      "parcelSum": 8341.702686793333,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/53320",
+      "loops": 7,
+      "outer": 4645.456172486351,
+      "voidSum": 0.48732485841556095,
+      "parcelSum": 4645.362645496623,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/54202",
+      "loops": 7,
+      "outer": 3174.05600866658,
+      "voidSum": 0.16246333427992,
+      "parcelSum": 3174.051085535502,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/54210",
+      "loops": 2,
+      "outer": 2379.9349162644885,
+      "voidSum": 0.004923121187744073,
+      "parcelSum": 2379.939839385676,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/54230",
+      "loops": 2,
+      "outer": 4411.536168252237,
+      "voidSum": 0.024614815687897362,
+      "parcelSum": 4411.560783067923,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/54260",
+      "loops": 2,
+      "outer": 4350.2059578217195,
+      "voidSum": 0.01969131798253443,
+      "parcelSum": 4350.186266503739,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/55217",
+      "loops": 2,
+      "outer": 3460.5272212516793,
+      "voidSum": 6.168629354786162,
+      "parcelSum": 3466.6958506064657,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Sevilla/55256",
+      "loops": 2,
+      "outer": 3796.6158636736964,
+      "voidSum": 0.004922831547048645,
+      "parcelSum": 3796.61094084215,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/55279",
+      "loops": 3,
+      "outer": 6091.271320875089,
+      "voidSum": 0.03445896190392972,
+      "parcelSum": 6091.29593441932,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/55288",
+      "loops": 4,
+      "outer": 2623.0415563593037,
+      "voidSum": 0.0738400997946087,
+      "parcelSum": 2623.0760150729934,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/56203",
+      "loops": 3,
+      "outer": 3421.801229689442,
+      "voidSum": 0.1476934509262584,
+      "parcelSum": 3421.948923140369,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/56206",
+      "loops": 2,
+      "outer": 1633.9958987708633,
+      "voidSum": 5.513919532084909,
+      "parcelSum": 1639.5098183029484,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Sevilla/56220",
+      "loops": 3,
+      "outer": 8090.0669805402285,
+      "voidSum": 0.1624598433236315,
+      "parcelSum": 8090.229440383553,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/56230",
+      "loops": 2,
+      "outer": 11004.04403814334,
+      "voidSum": 0.01476897626476767,
+      "parcelSum": 11004.0588071196,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/56260",
+      "loops": 2,
+      "outer": 13631.399297996453,
+      "voidSum": 0.004922872466148309,
+      "parcelSum": 13631.404220868922,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/56264",
+      "loops": 4,
+      "outer": 9589.075331893848,
+      "voidSum": 0.2116777364988387,
+      "parcelSum": 9588.932572490188,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/56275",
+      "loops": 2,
+      "outer": 5544.734150825338,
+      "voidSum": 0.1378349098598619,
+      "parcelSum": 5544.871985735197,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/57190",
+      "loops": 2,
+      "outer": 1226.7505694830568,
+      "voidSum": 0.05907875091066872,
+      "parcelSum": 1226.6914907321461,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/57211",
+      "loops": 2,
+      "outer": 1249.2832456533838,
+      "voidSum": 0.01476926924905797,
+      "parcelSum": 1249.2980149226323,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/57225",
+      "loops": 2,
+      "outer": 1272.5550003251183,
+      "voidSum": 0.16738185368006836,
+      "parcelSum": 1272.7223821787982,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/57230",
+      "loops": 4,
+      "outer": 5832.249826586206,
+      "voidSum": 0.07876755202393859,
+      "parcelSum": 5832.210442810274,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/57239",
+      "loops": 4,
+      "outer": 5042.621985308612,
+      "voidSum": 0.27568493292814367,
+      "parcelSum": 5042.5038346230685,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/57260",
+      "loops": 3,
+      "outer": 7016.491712277956,
+      "voidSum": 0.1181469543406024,
+      "parcelSum": 7016.570476914426,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Sevilla/57310",
+      "loops": 2,
+      "outer": 10443.879203086208,
+      "voidSum": 0.024612331729258585,
+      "parcelSum": 10443.903815417943,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/51306",
+      "loops": 2,
+      "outer": 1541.9152830628957,
+      "voidSum": 0.05739192174222296,
+      "parcelSum": 1541.8578911411535,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/52174",
+      "loops": 4,
+      "outer": 19605.977036509805,
+      "voidSum": 0.13393442785888965,
+      "parcelSum": 19605.99617000162,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/52255",
+      "loops": 2,
+      "outer": 1517.549926384922,
+      "voidSum": 0.05739526423218422,
+      "parcelSum": 1517.4925311206898,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/52271",
+      "loops": 2,
+      "outer": 2903.956778643855,
+      "voidSum": 0,
+      "parcelSum": 2903.9567786438547,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/52273",
+      "loops": 2,
+      "outer": 5954.6041023977405,
+      "voidSum": 258.9268148136114,
+      "parcelSum": 6213.530917211351,
+      "label": "ADD, outer — DETACHED fragment (refuse)",
+      "allIn": false
+    },
+    {
+      "id": "Valencia/52309",
+      "loops": 2,
+      "outer": 1924.2507253727315,
+      "voidSum": 0,
+      "parcelSum": 1924.2507253727313,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/52311",
+      "loops": 4,
+      "outer": 4649.9703355525435,
+      "voidSum": 0.08608664838902769,
+      "parcelSum": 4649.922509636933,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/53228",
+      "loops": 2,
+      "outer": 7166.843110106455,
+      "voidSum": 139.9984990090709,
+      "parcelSum": 7026.844611097384,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/53279",
+      "loops": 2,
+      "outer": 1640.6391081820175,
+      "voidSum": 0.07652546953073625,
+      "parcelSum": 1640.5625827124873,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/53298",
+      "loops": 4,
+      "outer": 1379.6274845349942,
+      "voidSum": 0.3634877945143966,
+      "parcelSum": 1379.8666212424082,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/53302",
+      "loops": 7,
+      "outer": 8975.771547674352,
+      "voidSum": 0.4352199981674403,
+      "parcelSum": 8975.393719324702,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/53312",
+      "loops": 3,
+      "outer": 9631.956839620112,
+      "voidSum": 0.1769559600094226,
+      "parcelSum": 9631.779883660107,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/54168",
+      "loops": 3,
+      "outer": 8664.292744035232,
+      "voidSum": 0.5309688798859042,
+      "parcelSum": 8664.287960535581,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/54303",
+      "loops": 3,
+      "outer": 1517.7927541264269,
+      "voidSum": 0.08130477510617595,
+      "parcelSum": 1517.797536760435,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/55294",
+      "loops": 2,
+      "outer": 1325.0941613782684,
+      "voidSum": 0.07174072099110662,
+      "parcelSum": 1325.16590209926,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/55317",
+      "loops": 2,
+      "outer": 4099.024052881424,
+      "voidSum": 0.14347870654228245,
+      "parcelSum": 4099.1675315879675,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56202",
+      "loops": 3,
+      "outer": 6466.1105193672865,
+      "voidSum": 0.3970140563272935,
+      "parcelSum": 6465.713505310962,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56241",
+      "loops": 2,
+      "outer": 2094.2677904651932,
+      "voidSum": 0.019132023585477498,
+      "parcelSum": 2094.2486584416088,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56261",
+      "loops": 2,
+      "outer": 1844.7857229988035,
+      "voidSum": 0.03348042437258414,
+      "parcelSum": 1844.8192034231765,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56266",
+      "loops": 2,
+      "outer": 1641.3637190911202,
+      "voidSum": 0.009565781498210413,
+      "parcelSum": 1641.3732848726183,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56272",
+      "loops": 3,
+      "outer": 746.59619667715,
+      "voidSum": 0.033479864467572895,
+      "parcelSum": 746.6009795149313,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56273",
+      "loops": 2,
+      "outer": 616.1115776044979,
+      "voidSum": 0.01913137477336946,
+      "parcelSum": 616.1307089792714,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56274",
+      "loops": 3,
+      "outer": 608.9998303979482,
+      "voidSum": 0.20566239448631762,
+      "parcelSum": 609.128967250443,
+      "label": "MIXED / neither identity (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56287",
+      "loops": 2,
+      "outer": 1375.142666538543,
+      "voidSum": 0.16739819144615353,
+      "parcelSum": 1374.975268347097,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56309",
+      "loops": 2,
+      "outer": 1863.216844149217,
+      "voidSum": 0.028695924914927673,
+      "parcelSum": 1863.2455400741314,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/56318",
+      "loops": 2,
+      "outer": 3898.036726480769,
+      "voidSum": 0.06695668962669288,
+      "parcelSum": 3897.9697697911433,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/57279",
+      "loops": 2,
+      "outer": 3159.082161508277,
+      "voidSum": 0.06695949801271439,
+      "parcelSum": 3159.0152020102646,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/57293",
+      "loops": 2,
+      "outer": 1459.9006592414264,
+      "voidSum": 0.019130808078784867,
+      "parcelSum": 1459.919790049505,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/57309",
+      "loops": 2,
+      "outer": 1411.456720163666,
+      "voidSum": 0.03347868821302313,
+      "parcelSum": 1411.4232414754529,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/57318",
+      "loops": 2,
+      "outer": 1041.9247279772776,
+      "voidSum": 0.0717391266619849,
+      "parcelSum": 1041.9964671039397,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/58213",
+      "loops": 2,
+      "outer": 5424.748398826831,
+      "voidSum": 0.019132721661762275,
+      "parcelSum": 5424.767531548494,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/59173",
+      "loops": 2,
+      "outer": 6482.147827997424,
+      "voidSum": 132.31977479558532,
+      "parcelSum": 6349.828053201838,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/59252",
+      "loops": 3,
+      "outer": 3271.3424161377297,
+      "voidSum": 0.16261986011883778,
+      "parcelSum": 3271.179796277611,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/59257",
+      "loops": 2,
+      "outer": 2177.2481847511663,
+      "voidSum": 0.03826396290006073,
+      "parcelSum": 2177.2864487140664,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/60164",
+      "loops": 2,
+      "outer": 4083.4301938949493,
+      "voidSum": 0.014350534295274997,
+      "parcelSum": 4083.4445444292446,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/60168",
+      "loops": 2,
+      "outer": 3639.7376852932057,
+      "voidSum": 0.009567053522133051,
+      "parcelSum": 3639.7472523467272,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/60217",
+      "loops": 3,
+      "outer": 13970.073005923377,
+      "voidSum": 0.13393116673109517,
+      "parcelSum": 13970.206937090112,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/60291",
+      "loops": 2,
+      "outer": 4027.6873512272564,
+      "voidSum": 0.09565385624333622,
+      "parcelSum": 4027.591697371015,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/60313",
+      "loops": 2,
+      "outer": 1616.7696190406027,
+      "voidSum": 0.08608640345710228,
+      "parcelSum": 1616.6835326371458,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/61322",
+      "loops": 2,
+      "outer": 3104.2147527496363,
+      "voidSum": 0,
+      "parcelSum": 3104.2147527496363,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/62166",
+      "loops": 2,
+      "outer": 942.1152948205594,
+      "voidSum": 0.14829003446962474,
+      "parcelSum": 942.2635848550291,
+      "label": "ADD, inner — parcels OVERLAP (refuse)",
+      "allIn": true
+    },
+    {
+      "id": "Valencia/64212",
+      "loops": 2,
+      "outer": 10073.560255003433,
+      "voidSum": 0.04783192066270203,
+      "parcelSum": 10073.512423082768,
+      "label": "HOLE — interior void (recoverable)",
+      "allIn": true
+    }
+  ]
+}

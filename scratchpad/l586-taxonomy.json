@@ -1,0 +1,405 @@
+{
+  "ranAt": "2026-07-22T15:54:01.267Z",
+  "rows": [
+    {
+      "refcat": "0627611DF3802H",
+      "manzana": "06276",
+      "priorOutcome": "block-dissolve-refused",
+      "priorReason": "open-or-disjoint",
+      "network": "ok",
+      "verdict": "2 loops, secondary loops are 0.043% of the main one ⇒ digitisation artefact the T-junction split did not catch (perim 56 edges, 0 vertices of degree≠2, 0 3+-shared edges)",
+      "category": "ours",
+      "bboxParcels": 206,
+      "matched": 23,
+      "sheets": {
+        "DF3802": 23
+      },
+      "census": {
+        "perimeterEdges": 56,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 52,
+            "area": 12723.51221593523
+          },
+          {
+            "edges": 4,
+            "area": 5.5221660717556915
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "0422328DF3802C",
+      "manzana": "04223",
+      "priorOutcome": "block-dissolve-refused",
+      "priorReason": "open-or-disjoint",
+      "network": "ok",
+      "verdict": "3 loops, secondary loops are 0.172% of the main one ⇒ digitisation artefact the T-junction split did not catch (perim 126 edges, 0 vertices of degree≠2, 0 3+-shared edges)",
+      "category": "ours",
+      "bboxParcels": 145,
+      "matched": 27,
+      "sheets": {
+        "DF3802": 27
+      },
+      "census": {
+        "perimeterEdges": 126,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 119,
+            "area": 16893.919952024877
+          },
+          {
+            "edges": 4,
+            "area": 28.867728401862443
+          },
+          {
+            "edges": 3,
+            "area": 0.22778078788064704
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "0130601DF3803A",
+      "manzana": "01306",
+      "priorOutcome": "block-dissolve-refused",
+      "priorReason": "open-or-disjoint",
+      "network": "ok",
+      "verdict": "2 loops, secondary loops are 0.325% of the main one ⇒ digitisation artefact the T-junction split did not catch (perim 59 edges, 0 vertices of degree≠2, 0 3+-shared edges)",
+      "category": "ours",
+      "bboxParcels": 173,
+      "matched": 8,
+      "sheets": {
+        "DF3803": 8
+      },
+      "census": {
+        "perimeterEdges": 59,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 55,
+            "area": 6997.309978687537
+          },
+          {
+            "edges": 4,
+            "area": 22.757187692527964
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "0431601DF3803A",
+      "manzana": "04316",
+      "priorOutcome": "block-dissolve-refused",
+      "priorReason": "non-manifold",
+      "network": "ok",
+      "verdict": "1 loops, secondary 0.0% of main; 0 vertices of degree≠2, 1 3+-shared edges; parcel-area sum 11698 m² — not a conforming tiling",
+      "category": "correct-refusal",
+      "bboxParcels": 210,
+      "matched": 25,
+      "sheets": {
+        "DF3803": 25
+      },
+      "census": {
+        "perimeterEdges": 71,
+        "nonManifoldEdges": 1,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 71,
+            "area": 11697.905855991572
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "0123301DF3802C",
+      "manzana": "01233",
+      "priorOutcome": "too-few-parcels",
+      "priorReason": "only 1",
+      "network": "ok",
+      "verdict": "manzana 01233 really has 1 parcel(s) in the bbox; subject parcel 17 verts. Production refuses at <3.",
+      "category": "upstream-gap",
+      "bboxParcels": 191,
+      "matched": 1,
+      "sheets": {
+        "DF3802": 1
+      }
+    },
+    {
+      "refcat": "9521901DF2892B",
+      "manzana": "95219",
+      "priorOutcome": "too-few-parcels",
+      "priorReason": "only 1",
+      "network": "ok",
+      "verdict": "manzana 95219 really has 1 parcel(s) in the bbox; subject parcel 33 verts. Production refuses at <3.",
+      "category": "upstream-gap",
+      "bboxParcels": 275,
+      "matched": 1,
+      "sheets": {
+        "DF2892": 1
+      }
+    },
+    {
+      "refcat": "9720801DF2892B",
+      "manzana": "97208",
+      "priorOutcome": "block-dissolve-refused",
+      "priorReason": "open-or-disjoint",
+      "network": "ok",
+      "verdict": "2 loops, secondary loops are 0.002% of the main one ⇒ digitisation artefact the T-junction split did not catch (perim 49 edges, 0 vertices of degree≠2, 0 3+-shared edges)",
+      "category": "ours",
+      "bboxParcels": 249,
+      "matched": 23,
+      "sheets": {
+        "DF2892": 23
+      },
+      "census": {
+        "perimeterEdges": 49,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 46,
+            "area": 12688.093051423166
+          },
+          {
+            "edges": 3,
+            "area": 0.25103432691265937
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "9819101DF2891H",
+      "manzana": "98191",
+      "priorOutcome": "block-dissolve-refused",
+      "priorReason": "open-or-disjoint",
+      "network": "ok",
+      "verdict": "2 loops, secondary loops are 0.011% of the main one ⇒ digitisation artefact the T-junction split did not catch (perim 56 edges, 0 vertices of degree≠2, 0 3+-shared edges)",
+      "category": "ours",
+      "bboxParcels": 247,
+      "matched": 24,
+      "sheets": {
+        "DF2891": 24
+      },
+      "census": {
+        "perimeterEdges": 56,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 51,
+            "area": 12604.281275034966
+          },
+          {
+            "edges": 5,
+            "area": 1.3946435045149883
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "0939501DF3803H",
+      "manzana": "09395",
+      "priorOutcome": "too-few-parcels",
+      "priorReason": "only 1",
+      "network": "ok",
+      "verdict": "manzana 09395 really has 1 parcel(s) in the bbox; subject parcel 13 verts. Production refuses at <3.",
+      "category": "upstream-gap",
+      "bboxParcels": 277,
+      "matched": 1,
+      "sheets": {
+        "DF3803": 1
+      }
+    },
+    {
+      "refcat": "0942306DF3804D",
+      "manzana": "09423",
+      "priorOutcome": "upstream-error",
+      "priorReason": "bbox: bbox HTTP 404",
+      "network": "ok",
+      "verdict": "4 loops, secondary loops are 0.001% of the main one ⇒ digitisation artefact the T-junction split did not catch (perim 72 edges, 2 vertices of degree≠2, 0 3+-shared edges)",
+      "category": "ours",
+      "bboxParcels": 307,
+      "matched": 47,
+      "sheets": {
+        "DF3804": 47
+      },
+      "census": {
+        "perimeterEdges": 72,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 2,
+        "components": [
+          {
+            "edges": 57,
+            "area": 15100.396082968342
+          },
+          {
+            "edges": 3,
+            "area": 0.12547724502142898
+          },
+          {
+            "edges": 3,
+            "area": 0.08365149317661036
+          },
+          {
+            "edges": 9,
+            "area": 0.013941916484327521
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "1437807DF3813E",
+      "manzana": "14378",
+      "priorOutcome": "block-dissolve-refused",
+      "priorReason": "open-or-disjoint",
+      "network": "ok",
+      "verdict": "3 loops, secondary loops are 0.004% of the main one ⇒ digitisation artefact the T-junction split did not catch (perim 49 edges, 0 vertices of degree≠2, 0 3+-shared edges)",
+      "category": "ours",
+      "bboxParcels": 159,
+      "matched": 26,
+      "sheets": {
+        "DF3813": 26
+      },
+      "census": {
+        "perimeterEdges": 49,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 43,
+            "area": 11064.229024656597
+          },
+          {
+            "edges": 3,
+            "area": 0.37181562193615036
+          },
+          {
+            "edges": 3,
+            "area": 0.10689699144268161
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "1637801DF3813F",
+      "manzana": "16378",
+      "priorOutcome": "too-few-parcels",
+      "priorReason": "only 1",
+      "network": "ok",
+      "verdict": "manzana 16378 really has 1 parcel(s) in the bbox; subject parcel 35 verts. Production refuses at <3.",
+      "category": "upstream-gap",
+      "bboxParcels": 153,
+      "matched": 1,
+      "sheets": {
+        "DF3813": 1
+      }
+    },
+    {
+      "refcat": "1735701DF3813F",
+      "manzana": "17357",
+      "priorOutcome": "too-few-parcels",
+      "priorReason": "only 1",
+      "network": "ok",
+      "verdict": "manzana 17357 really has 1 parcel(s) in the bbox; subject parcel 30 verts. Production refuses at <3.",
+      "category": "upstream-gap",
+      "bboxParcels": 152,
+      "matched": 1,
+      "sheets": {
+        "DF3813": 1
+      }
+    },
+    {
+      "refcat": "0011101DF3801C",
+      "manzana": "00111",
+      "priorOutcome": "too-few-parcels",
+      "priorReason": "only 1",
+      "network": "ok",
+      "verdict": "manzana 00111 really has 1 parcel(s) in the bbox; subject parcel 17 verts. Production refuses at <3.",
+      "category": "upstream-gap",
+      "bboxParcels": 291,
+      "matched": 1,
+      "sheets": {
+        "DF3801": 1
+      }
+    },
+    {
+      "refcat": "0013201DF3801C",
+      "manzana": "00132",
+      "priorOutcome": "too-few-parcels",
+      "priorReason": "only 1",
+      "network": "ok",
+      "verdict": "manzana 00132 really has 1 parcel(s) in the bbox; subject parcel 21 verts. Production refuses at <3.",
+      "category": "upstream-gap",
+      "bboxParcels": 343,
+      "matched": 1,
+      "sheets": {
+        "DF3801": 1
+      }
+    },
+    {
+      "refcat": "9914201DF2891D",
+      "manzana": "99142",
+      "priorOutcome": "upstream-error",
+      "priorReason": "bbox: fetch failed",
+      "network": "ok",
+      "verdict": "now dissolves (upstream data changed since the sweep)",
+      "category": "correct-refusal",
+      "bboxParcels": 280,
+      "matched": 40,
+      "sheets": {
+        "DF2891": 40
+      },
+      "census": {
+        "perimeterEdges": 55,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 49,
+            "area": 11983.361075551296
+          },
+          {
+            "edges": 3,
+            "area": 0.08368496104515089
+          },
+          {
+            "edges": 3,
+            "area": 0.06973746921889301
+          }
+        ]
+      }
+    },
+    {
+      "refcat": "9916801DF2891F",
+      "manzana": "99168",
+      "priorOutcome": "upstream-error",
+      "priorReason": "self-fetch: fetch failed",
+      "network": "ok",
+      "verdict": "now dissolves (upstream data changed since the sweep)",
+      "category": "correct-refusal",
+      "bboxParcels": 281,
+      "matched": 26,
+      "sheets": {
+        "DF2891": 26
+      },
+      "census": {
+        "perimeterEdges": 45,
+        "nonManifoldEdges": 0,
+        "badDegreeVertices": 0,
+        "components": [
+          {
+            "edges": 45,
+            "area": 11997.540990756239
+          }
+        ]
+      }
+    }
+  ]
+}

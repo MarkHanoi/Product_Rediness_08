@@ -24,13 +24,21 @@ import {
 import { buildRefusedEnvelope, isRefusedEnvelope } from '../src/rulepacks/zoneRefusal.js';
 import { BCN_ENSANCHE_ZONE_CODES } from '../src/rulepacks/esBarcelonaEnsanche.js';
 import { BCN_SEMIINTENSIVA_ZONE_CODES } from '../src/rulepacks/esBarcelonaSemiintensiva.js';
+import { BCN_20A_AILLADA_ZONE_CODES } from '../src/rulepacks/esBarcelona20aAillada.js';
+import { BCN_NUCLI_ANTIC_ZONE_CODES } from '../src/rulepacks/esBarcelonaNucliAntic.js';
 
 describe('L-550 P0.1 — the rule-pack registry', () => {
     it('answers `pack` for every clau a Barcelona pack is registered for', () => {
         // §L-583 — 13b joined 13a/13E here. The loop is over the packs' OWN code lists rather
         // than a literal, so registering the next clau cannot leave this test asserting the old
         // coverage while passing.
-        for (const clau of [...BCN_ENSANCHE_ZONE_CODES, ...BCN_SEMIINTENSIVA_ZONE_CODES]) {
+        for (const clau of [
+            ...BCN_ENSANCHE_ZONE_CODES,
+            ...BCN_SEMIINTENSIVA_ZONE_CODES,
+            // §L-591 — the ten `20a/*` subzone claus joined on the same terms.
+            ...BCN_20A_AILLADA_ZONE_CODES,
+            ...BCN_NUCLI_ANTIC_ZONE_CODES,   // §L-595 — clau 12 (annexed nuclis antics)
+        ]) {
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('pack');
             if (d.kind === 'pack') {
@@ -44,6 +52,8 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         expect(registeredPackZoneCodes(BCN_JURISDICTION_ID)).toEqual([
             ...BCN_ENSANCHE_ZONE_CODES,
             ...BCN_SEMIINTENSIVA_ZONE_CODES,
+            ...BCN_20A_AILLADA_ZONE_CODES,
+            ...BCN_NUCLI_ANTIC_ZONE_CODES,   // §L-595 — clau 12 (annexed nuclis antics)
         ]);
     });
 
@@ -71,7 +81,10 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // the wrong geometric OPERATION, and no badge can label a category error.
         // §L-583 — `13b` has LEFT this list because it now has a pack, not because the policy
         // changed. That is the intended way out of a coverage gap: ship the zone's own article.
-        for (const clau of ['12', '12b', '22a', '22@', '20a', '20a/10']) {
+        // §L-591 — `20a/10` left for the same reason (the whole `20a/*` family is now packed).
+        // ⚠ BARE `20a` STAYS. It names the zone, not the subzone, and the ten subzones span
+        // 0,25–1,50 in edificabilitat — there is no representative value, so it remains a gap.
+        for (const clau of ['12b', '22a', '22@', '20a']) {   // §L-595 — '12' is packed now
             const d = resolveZoneDisposition(BCN_JURISDICTION_ID, clau);
             expect(d.kind, clau).toBe('refusal');
             if (d.kind !== 'refusal') continue;
@@ -141,12 +154,14 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // Alineació de vial — the shape argument is correct here. (§L-583: `13b` is no longer in
         // this list because it is packed; the argument still holds for it, it is just no longer
         // reached.)
-        for (const clau of ['12', '12b']) {
+        for (const clau of ['12b']) {   // §L-595 — '12' is packed now
             expect(detailFor(clau), clau).toMatch(/façade sits on the street line/i);
             expect(detailFor(clau), clau).toMatch(/wrong SHAPE/);
         }
         // Edificació aïllada — must NOT claim the shape is wrong; it must say the opposite.
-        for (const clau of ['20a', '20a/10', '20a/9u']) {
+        // §L-591 — the suffixed claus are packed now; bare `20a` is the remaining gap and still
+        // reaches this copy, which is what keeps the per-family wording under test.
+        for (const clau of ['20a']) {
             expect(detailFor(clau), clau).not.toMatch(/wrong SHAPE/);
             expect(detailFor(clau), clau).not.toMatch(/façade sits on the street line/i);
             expect(detailFor(clau), clau).toMatch(/IS governed by real separation distances/i);
@@ -157,7 +172,7 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
             expect(detailFor(clau), clau).toMatch(/floor-area index/i);
         }
         // Every card, whatever the family, must carry the three invariants.
-        for (const clau of ['12', '12b', '20a/10', '22a', '99z']) {
+        for (const clau of ['12b', '20a', '22a', '99z']) {   // §L-595 — '12' is packed now
             const d = detailFor(clau);
             expect(d, clau).toMatch(/coverage gap, not an error/i);
             // The COMMITMENT, not one exact phrasing: every card must say, in whatever words fit

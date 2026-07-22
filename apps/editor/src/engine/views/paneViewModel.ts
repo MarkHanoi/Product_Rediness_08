@@ -26,12 +26,25 @@ export type RendererKind =
     | 'webgpu-three'  // BIM 3D editor (renderer-three) — heavyweight singleton
     | 'canvas2d';     // BIM plan / section projection (SplitViewManager / PlanViewCanvas)
 
-/** A hostable view. Extensible: elevations, RCP, schedules, sheets slot in later. */
+/**
+ * A hostable view. Extensible: RCP, schedules, sheets slot in later.
+ *
+ * §C59 Phase 2 — `bim-elevation-2d` / `bim-section-2d` were added here (contract
+ * §1.1 records the extension + why). They are REAL surfaces today — the Canvas2D
+ * plan pane renders `viewType: 'plan' | 'section' | 'elevation'` from
+ * `viewDefinitionStore` — but they are not yet independently PANE-assignable
+ * (choosing one needs a per-pane view-definition id, i.e. Phase 3's per-pane view
+ * state). They are therefore registered as NOT pane-hostable WITH A REASON, so the
+ * per-pane picker can list them honestly ("all the views") and explain the block,
+ * rather than silently omitting them or half-wiring them.
+ */
 export type ViewType =
-    | 'site-map-2d'   // MapLibre parcel draw/select surface
-    | 'site-3d'       // Cesium Forma / 3D Site (boundary + buildable envelope)
-    | 'bim-3d'        // BIM WebGPU 3D editor
-    | 'bim-plan-2d';  // Canvas2D plan projection (today's SVP secondary pane)
+    | 'site-map-2d'       // MapLibre parcel draw/select surface
+    | 'site-3d'           // Cesium Forma / 3D Site (boundary + buildable envelope)
+    | 'bim-3d'            // BIM WebGPU 3D editor
+    | 'bim-plan-2d'       // Canvas2D plan projection (the SVP secondary pane's renderer)
+    | 'bim-elevation-2d'  // Canvas2D elevation projection (same renderer, different view def)
+    | 'bim-section-2d';   // Canvas2D section projection (same renderer, different view def)
 
 /** A pane slot. `left`/`right` today; extensible to `pane-2`, `pane-3`, … for N-up. */
 export type PaneId = string;
@@ -51,15 +64,71 @@ export interface ViewTypeDescriptor {
     readonly singleton: boolean;
     /** Human-readable label for the pane's view-picker. */
     readonly label: string;
+    /**
+     * §C59 Phase 2 — can this view be hosted in a PANE today?
+     *
+     * `false` does NOT mean "hidden". A non-hostable view still appears in the
+     * per-pane picker, DISABLED and with `unavailableReason` shown, because a greyed
+     * option with no explanation is a worse answer than no option at all (C59 §4
+     * Phase 2). It flips to `true` when its mounter lands (Phase 3 for the WebGPU BIM
+     * 3D re-target and the per-pane view-definition state elevations/sections need).
+     */
+    readonly paneHostable: boolean;
+    /** WHY this view cannot be pane-hosted yet — surfaced verbatim in the picker. */
+    readonly unavailableReason?: string;
+    /** Short one-glyph mark for compact picker chrome (brand-neutral, no colour). */
+    readonly glyph?: string;
 }
 
 /** The canonical view-type registry. The live PaneHost consults this to pick a mounter. */
 export const VIEW_TYPE_REGISTRY: Readonly<Record<ViewType, ViewTypeDescriptor>> = {
-    'site-map-2d': { viewType: 'site-map-2d', rendererKind: 'maplibre',     singleton: false, label: '2D Site Map' },
-    'site-3d':     { viewType: 'site-3d',     rendererKind: 'cesium',       singleton: true,  label: '3D Site' },
-    'bim-3d':      { viewType: 'bim-3d',      rendererKind: 'webgpu-three', singleton: true,  label: '3D Model' },
-    'bim-plan-2d': { viewType: 'bim-plan-2d', rendererKind: 'canvas2d',     singleton: false, label: 'Plan' },
+    'site-map-2d': {
+        viewType: 'site-map-2d', rendererKind: 'maplibre', singleton: false,
+        label: '2D Site Map', glyph: '▦', paneHostable: true,
+    },
+    'site-3d': {
+        viewType: 'site-3d', rendererKind: 'cesium', singleton: true,
+        label: '3D Site', glyph: '◉', paneHostable: true,
+    },
+    'bim-plan-2d': {
+        viewType: 'bim-plan-2d', rendererKind: 'canvas2d', singleton: false,
+        label: 'Plan', glyph: '▤', paneHostable: true,
+    },
+    'bim-3d': {
+        viewType: 'bim-3d', rendererKind: 'webgpu-three', singleton: true,
+        label: '3D Model', glyph: '◧', paneHostable: false,
+        unavailableReason:
+            'The BIM 3D renderer still owns the whole viewport (#container) and cannot be ' +
+            're-targeted into a pane yet — that is C59 Phase 3.',
+    },
+    'bim-elevation-2d': {
+        viewType: 'bim-elevation-2d', rendererKind: 'canvas2d', singleton: false,
+        label: 'Elevation', glyph: '◪', paneHostable: false,
+        unavailableReason:
+            'Elevations render in the Plan pane — pick "Plan", then choose the elevation in ' +
+            'that pane\'s own view selector. A directly assignable elevation pane needs ' +
+            'per-pane view state (C59 Phase 3).',
+    },
+    'bim-section-2d': {
+        viewType: 'bim-section-2d', rendererKind: 'canvas2d', singleton: false,
+        label: 'Section', glyph: '◫', paneHostable: false,
+        unavailableReason:
+            'Sections render in the Plan pane — pick "Plan", then choose the section in that ' +
+            'pane\'s own view selector. A directly assignable section pane needs per-pane ' +
+            'view state (C59 Phase 3).',
+    },
 };
+
+/**
+ * §C59 Phase 2 — the picker's stable presentation order. Derived from the registry
+ * (never a second hardcoded list): registry keys in declaration order, so adding a
+ * view type = ONE registry entry and it appears in every pane's picker (invariant 6).
+ */
+export function listPaneViewTypes(
+    registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,
+): ViewType[] {
+    return Object.keys(registry) as ViewType[];
+}
 
 /** Which view (if any) each pane currently hosts. `null` = the pane is empty. */
 export type PaneLayout = Readonly<Record<PaneId, ViewType | null>>;

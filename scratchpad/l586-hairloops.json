@@ -1,0 +1,176 @@
+{
+  "ranAt": "2026-07-22T15:57:12.372Z",
+  "q1": [
+    {
+      "refcat": "0627611DF3802H",
+      "hairEdges": 4,
+      "hairArea": 5.5221660717556915,
+      "hairPerim": 9.413424939200691,
+      "longestEdge": 2.454717793048108,
+      "minOffset": 3.5622237058826656,
+      "maxOffset": 6.01125250347927
+    },
+    {
+      "refcat": "0422328DF3802C",
+      "hairEdges": 4,
+      "hairArea": 28.867728401862443,
+      "hairPerim": 24.89268832992986,
+      "longestEdge": 9.488846810450015,
+      "minOffset": 1.4728199573823966,
+      "maxOffset": 4.6373902792179535
+    },
+    {
+      "refcat": "0422328DF3802C",
+      "hairEdges": 3,
+      "hairArea": 0.22778078788064704,
+      "hairPerim": 9.827937835927813,
+      "longestEdge": 4.909922673770563,
+      "minOffset": 39.76396597935489,
+      "maxOffset": 44.64150941265539
+    },
+    {
+      "refcat": "0130601DF3803A",
+      "hairEdges": 4,
+      "hairArea": 22.757187692527964,
+      "hairPerim": 21.727864671854896,
+      "longestEdge": 8.029863031060183,
+      "minOffset": 17.109506856927652,
+      "maxOffset": 20.422280733941566
+    },
+    {
+      "refcat": "9720801DF2892B",
+      "hairEdges": 3,
+      "hairArea": 0.25103432691265937,
+      "hairPerim": 9.845944512854487,
+      "longestEdge": 4.920783970836183,
+      "minOffset": 14.11221437421662,
+      "maxOffset": 19.032882744785386
+    },
+    {
+      "refcat": "9819101DF2891H",
+      "hairEdges": 5,
+      "hairArea": 1.3946435045149883,
+      "hairPerim": 6.215089201277988,
+      "longestEdge": 2.61966047188514,
+      "minOffset": 36.63575693016583,
+      "maxOffset": 39.253664183830075
+    },
+    {
+      "refcat": "0942306DF3804D",
+      "hairEdges": 3,
+      "hairArea": 0.12547724502142898,
+      "hairPerim": 57.38535904779419,
+      "longestEdge": 28.69267679796916,
+      "minOffset": 30.655717041474833,
+      "maxOffset": 55.27604704666464
+    },
+    {
+      "refcat": "0942306DF3804D",
+      "hairEdges": 3,
+      "hairArea": 0.08365149317661036,
+      "hairPerim": 54.316935974725915,
+      "longestEdge": 27.158466519774578,
+      "minOffset": 32.07475558859297,
+      "maxOffset": 56.87448086187288
+    },
+    {
+      "refcat": "0942306DF3804D",
+      "hairEdges": 9,
+      "hairArea": 0.013941916484327521,
+      "hairPerim": 58.35584618521098,
+      "longestEdge": 11.748695673158853,
+      "minOffset": 30.57830067306878,
+      "maxOffset": 35.8138024978737
+    },
+    {
+      "refcat": "1437807DF3813E",
+      "hairEdges": 3,
+      "hairArea": 0.37181562193615036,
+      "hairPerim": 19.99692442791061,
+      "longestEdge": 9.997809884243921,
+      "minOffset": 31.192319172944178,
+      "maxOffset": 31.277383710825685
+    },
+    {
+      "refcat": "1437807DF3813E",
+      "hairEdges": 3,
+      "hairArea": 0.10689699144268161,
+      "hairPerim": 7.42509949101147,
+      "longestEdge": 3.700715430173565,
+      "minOffset": 18.40097863211435,
+      "maxOffset": 22.101615974234107
+    }
+  ],
+  "q2": [
+    {
+      "refcat": "0123301DF3802C",
+      "manzana": "01233",
+      "area": 12686.005128454757,
+      "perimeter": 424.55902025260934,
+      "sharedLen": 0,
+      "sharedPct": 0,
+      "sharers": [],
+      "minGap": 19.83393764405516
+    },
+    {
+      "refcat": "9521901DF2892B",
+      "manzana": "95219",
+      "area": 944.8407150240073,
+      "perimeter": 184.59842874911237,
+      "sharedLen": 0,
+      "sharedPct": 0,
+      "sharers": [],
+      "minGap": 15.202083883290648
+    },
+    {
+      "refcat": "0939501DF3803H",
+      "manzana": "09395",
+      "area": 12621.922108359848,
+      "perimeter": 423.6178715482907,
+      "sharedLen": 0,
+      "sharedPct": 0,
+      "sharers": [],
+      "minGap": 19.26646356790757
+    },
+    {
+      "refcat": "1637801DF3813F",
+      "manzana": "16378",
+      "area": 12182.701166468136,
+      "perimeter": 416.57961504043203,
+      "sharedLen": 0,
+      "sharedPct": 0,
+      "sharers": [],
+      "minGap": 18.170974428907037
+    },
+    {
+      "refcat": "1735701DF3813F",
+      "manzana": "17357",
+      "area": 280.2909703381997,
+      "perimeter": 100.10384740867315,
+      "sharedLen": 0,
+      "sharedPct": 0,
+      "sharers": [],
+      "minGap": 14.556478314870784
+    },
+    {
+      "refcat": "0011101DF3801C",
+      "manzana": "00111",
+      "area": 53.641829053343834,
+      "perimeter": 39.80605351987993,
+      "sharedLen": 0,
+      "sharedPct": 0,
+      "sharers": [],
+      "minGap": 4.989794434472541
+    },
+    {
+      "refcat": "0013201DF3801C",
+      "manzana": "00132",
+      "area": 11250.336669041768,
+      "perimeter": 398.4938268917749,
+      "sharedLen": 0,
+      "sharedPct": 0,
+      "sharers": [],
+      "minGap": 20.529110755554733
+    }
+  ]
+}

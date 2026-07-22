@@ -113,7 +113,12 @@ describe('ADR-0271 P5 — the Art. 242.2 construction, which IS authorised', () 
             expect(BCN_ENSANCHE_RULE.interiorFreeRatio).toBe(0.3);
             // 12 m, not 11 — Art. 242 sets the ordinance MINIMUM depth at 12 m (L-526 primary-source
             // finding, shipped v254). The 11 m this once asserted was our own misreading.
-            expect(BCN_ENSANCHE_RULE.minDepth_m).toBe(12);
+            // §L-594 — 11 m, per the PRIMARY TEXT (NNUU p. 81, Art. 242.4): *"…profunditat
+            // edificable INFERIOR A 11 m., s'haurà de prendre aquesta dimensió…"*. Was 12,
+            // which OVER-STATED depth (a floor raises the answer) — C58 §1.4's forbidden
+            // direction. Two agents disagreed and the assertive one was believed until the
+            // ordinance was read. Pinned at 11 so it cannot drift back.
+            expect(BCN_ENSANCHE_RULE.minDepth_m).toBe(11);
             expect(BCN_ENSANCHE_RULE.maxDepth_m).toBe(30);
         }
     });

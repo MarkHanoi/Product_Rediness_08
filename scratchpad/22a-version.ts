@@ -32,16 +32,13 @@
 
 import { resolveAlcadaReguladora, type AlcadaResolution } from './bcnAlcadaReguladora.js';
 import { resolveAlcadaSemiintensiva } from './bcnAlcadaSemiintensiva.js';
+import { resolveAlcadaIndustrial, type PlaParcialRegime } from './bcnAlcadaIndustrial.js';
 import { BCN_ENSANCHE_ZONE_CODES, BCN_ORDINANCE_REF } from './esBarcelonaEnsanche.js';
 import {
     BCN_SEMIINTENSIVA_ZONE_CODES,
     BCN_13B_ORDINANCE_REF,
 } from './esBarcelonaSemiintensiva.js';
-import { resolveAlcadaIndustrial, type PlaParcialRegime } from './bcnAlcadaIndustrial.js';
 import { BCN_INDUSTRIAL_ZONE_CODES, BCN_22A_ORDINANCE_REF } from './esBarcelonaIndustrial.js';
-import { BCN_20A_V_CLAU, resolveAlcada20aSubzonaV } from './bcnAlcada20aAillada.js';
-import { bcn20aOrdinanceRef } from './esBarcelona20aAillada.js';
-import { BCN_20A_BY_CLAU } from './bcn20aSubzones.js';
 
 /** The answer, with the citation that belongs to it — the two must never be assembled separately. */
 export interface ZonedAlcadaResolution {
@@ -106,21 +103,6 @@ export function resolveBcnAlcadaForZone(
             // with 327.2 would be a fabricated precision (L-526).
             article: 'Art. 328',
             ordinanceRef: BCN_13B_ORDINANCE_REF,
-        };
-    }
-    // §L-591 — clau `20a/8` (subzona V) is the ONLY `20a` clau whose alçada is a CONSTRUCTION from
-    // the amplada de vial (Barcelona Art. 342.5). The other nine 20a claus have a flat statutory
-    // height — 9,15 m / PB+2 (Arts. 342.3, 343.2), 15,25 m / PB+4 for `20a/9b` — which is a zone
-    // SCALAR and ships in the pack's `maxHeight_m`, exactly like any other scalar. Returning a
-    // "resolution" for them here would attach a width-derived derivation row to a number the width
-    // did not decide, which is a small lie about a correct value — and the one thing this module
-    // exists to prevent is a height row whose stated construction is not the real one.
-    if (zoneCode === BCN_20A_V_CLAU) {
-        const sub = BCN_20A_BY_CLAU.get(BCN_20A_V_CLAU)!;
-        return {
-            resolution: resolveAlcada20aSubzonaV(amplada_m, opts),
-            article: 'Art. 342.5 (Barcelona)',
-            ordinanceRef: bcn20aOrdinanceRef(sub),
         };
     }
     // §L-590 — clau 22a (*zona industrial*). THE POINT OF THIS BRANCH: without it, the day 22a is

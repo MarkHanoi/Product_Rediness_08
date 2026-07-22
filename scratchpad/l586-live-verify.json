@@ -1,0 +1,115 @@
+{
+  "ranAt": "2026-07-22T16:11:59.290Z",
+  "rows": [
+    {
+      "refcat": "0627611DF3802H",
+      "manzana": "06276",
+      "parcels": 23,
+      "published": 12707,
+      "head": "REFUSED (open-or-disjoint)",
+      "now": "REFUSED (open-or-disjoint)",
+      "netErrPct": null,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "0422328DF3802C",
+      "manzana": "04223",
+      "parcels": 27,
+      "published": 16897,
+      "head": "REFUSED (open-or-disjoint)",
+      "now": "REFUSED (open-or-disjoint)",
+      "netErrPct": null,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "0130601DF3803A",
+      "manzana": "01306",
+      "parcels": 8,
+      "published": 7009,
+      "head": "REFUSED (open-or-disjoint)",
+      "now": "REFUSED (open-or-disjoint)",
+      "netErrPct": null,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "9720801DF2892B",
+      "manzana": "97208",
+      "parcels": 23,
+      "published": 12666,
+      "head": "REFUSED (open-or-disjoint)",
+      "now": "REFUSED (open-or-disjoint)",
+      "netErrPct": null,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "9819101DF2891H",
+      "manzana": "98191",
+      "parcels": 24,
+      "published": 12581,
+      "head": "REFUSED (open-or-disjoint)",
+      "now": "REFUSED (open-or-disjoint)",
+      "netErrPct": null,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "0942306DF3804D",
+      "manzana": "09423",
+      "parcels": 47,
+      "published": 15071,
+      "head": "REFUSED (open-or-disjoint)",
+      "now": "57 verts, 15100 m², 1 void(s) 0.2 m², selfX false",
+      "netErrPct": 0.19387887577376925,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "1437807DF3813E",
+      "manzana": "14378",
+      "parcels": 26,
+      "published": 11046,
+      "head": "REFUSED (open-or-disjoint)",
+      "now": "41 verts, 11064 m², 2 void(s) 0.5 m², selfX false",
+      "netErrPct": 0.16069447803042855,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "0431601DF3803A",
+      "manzana": "04316",
+      "parcels": 25,
+      "published": 11679,
+      "head": "REFUSED (non-manifold)",
+      "now": "REFUSED (non-manifold)",
+      "netErrPct": null,
+      "identical": false,
+      "network": "ok"
+    },
+    {
+      "refcat": "0029907DF3802G",
+      "manzana": "00299",
+      "parcels": 15,
+      "published": 7529,
+      "head": "33 verts, 7545 m², selfX false",
+      "now": "33 verts, 7545 m², 0 void(s) 0.0 m², selfX false",
+      "netErrPct": 0.2173091293216542,
+      "identical": true,
+      "network": "ok"
+    },
+    {
+      "refcat": "0128801DF3802G",
+      "manzana": "01288",
+      "parcels": 26,
+      "published": 13696,
+      "head": "50 verts, 13721 m², selfX false",
+      "now": "50 verts, 13721 m², 0 void(s) 0.0 m², selfX false",
+      "netErrPct": 0.18164175528153026,
+      "identical": true,
+      "network": "ok"
+    }
+  ]
+}

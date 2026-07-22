@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-07-22T15:06:03.758Z",
+  "ranAt": "2026-07-22T16:04:50.164Z",
   "dissolveClosure": [
     "/packages/site-parcel-data/src/geometry/blockRing.ts"
   ],
@@ -12,9 +12,9 @@
     {
       "city": "Barcelona",
       "manzanas": 108,
-      "ringsPreL539": 88,
+      "ringsPreL539": 93,
       "ringsHead": 104,
-      "selfIntersecting": 1,
+      "selfIntersecting": 0,
       "areaErrPct": [
         0.1531564432057768,
         0.21320082437921276,
@@ -24,72 +24,72 @@
     {
       "city": "Barcelona-old",
       "manzanas": 77,
-      "ringsPreL539": 63,
-      "ringsHead": 72,
+      "ringsPreL539": 68,
+      "ringsHead": 74,
       "selfIntersecting": 0,
       "areaErrPct": [
-        0.14952484105265426,
-        0.2437367175583673,
-        0.842917036966083
+        0.15011305894204752,
+        0.2550346238744204,
+        2.3437329114055183
       ]
     },
     {
       "city": "Madrid",
       "manzanas": 95,
-      "ringsPreL539": 72,
-      "ringsHead": 88,
+      "ringsPreL539": 77,
+      "ringsHead": 89,
       "selfIntersecting": 0,
       "areaErrPct": [
         0.17758471086672173,
-        0.20935119873595648,
-        0.2731866061636028
+        0.21401007479361595,
+        24.141998046047302
       ]
     },
     {
       "city": "Madrid-centro",
       "manzanas": 101,
-      "ringsPreL539": 78,
-      "ringsHead": 100,
-      "selfIntersecting": 1,
+      "ringsPreL539": 83,
+      "ringsHead": 101,
+      "selfIntersecting": 0,
       "areaErrPct": [
-        0.18319958151189597,
-        0.2616607407202986,
+        0.18041510033407634,
+        0.2542829586180863,
         0.4241196036561047
       ]
     },
     {
       "city": "Cordoba",
       "manzanas": 163,
-      "ringsPreL539": 72,
-      "ringsHead": 148,
-      "selfIntersecting": 4,
+      "ringsPreL539": 82,
+      "ringsHead": 152,
+      "selfIntersecting": 0,
       "areaErrPct": [
-        0.18562160449245732,
-        0.2708509816557599,
+        0.18539143335732328,
+        0.2705408798922253,
         0.35753624968597725
       ]
     },
     {
       "city": "Sevilla",
       "manzanas": 192,
-      "ringsPreL539": 74,
-      "ringsHead": 158,
-      "selfIntersecting": 1,
+      "ringsPreL539": 91,
+      "ringsHead": 161,
+      "selfIntersecting": 0,
       "areaErrPct": [
-        0.08041346068197282,
-        0.1613820448711828,
-        0.9520195950495688
+        0.08136737865659932,
+        0.1637721869438437,
+        1.109202755107621
       ]
     },
     {
       "city": "Valencia",
       "manzanas": 220,
-      "ringsPreL539": 160,
-      "ringsHead": 204,
-      "selfIntersecting": 4,
+      "ringsPreL539": 174,
+      "ringsHead": 208,
+      "selfIntersecting": 0,
       "areaErrPct": [
-        0.09431402337070907,
-        0.19531716700989785,
+        0.0949945846946646,
+        0.20563405751241293,
         15.84851134287768
       ]
     }

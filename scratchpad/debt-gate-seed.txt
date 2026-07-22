@@ -1,0 +1,14 @@
+  running eslint once for every metric…
+
+  DEBT GATE — a metric may hold or improve, never worsen
+
+  metric                          baseline  current  introduced  status
+  ------------------------------  --------  -------  ----------  ------
+  eslint/no-restricted-imports           0        0           0  PASS — baseline maintained
+  eslint/three-outside-committer         0        0           0  PASS — baseline maintained
+  eslint/no-empty                        0        0           0  PASS — baseline maintained
+
+  baselines ratcheted down where current < baseline.
+
+✔ DEBT GATE PASSED — technical debt baseline maintained or reduced.
+

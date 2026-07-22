@@ -1,0 +1,120 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+L-586 diagnose over the 83 manzana(s) that reached a CONSTRUCTED DEPTH.
+
+✔ 0029907DF3802G [GRACIA] height-ok · 60.00 m (curated-cerda-nominal) ⚠facing≠block(7.67) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0128801DF3802G [GRACIA] height-ok · 60.00 m (curated-cerda-nominal) ⚠facing≠block(19.857) → 23.8 m PB+6 · band 30–Infinity m
+✖ 0131203DF3803A [PROVENCA] error · fetch failed
+✖ 0133115DF3803C [?] error · fetch failed
+✔ 0229701DF3802G [GRACIA] height-ok · 60.00 m (curated-cerda-nominal) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0230901DF3803A [MALLORCA] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 0232201DF3803A [PAU CLARIS] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 0328601DF3802G [ARAGO] height-ok · 30.00 m (curated-cerda-nominal) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0330601DF3803A [PAU CLARIS] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.738) → 20.75 m PB+5 · band 20–30 m
+✔ 0331201DF3803A [PAU CLARIS] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.798) → 20.75 m PB+5 · band 20–30 m
+✔ 0333215DF3803C [MALLORCA] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.673) → 20.75 m PB+5 · band 20–30 m
+✔ 0429601DF3802G [ARAGO] height-ok · 30.00 m (curated-cerda-nominal) ⚠facing≠block(5.822) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0432101DF3803A [ROGER LLURIA] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 0433717DF3803C [BRUC] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.79) → 20.75 m PB+5 · band 20–30 m
+✔ 0024301DF3802C [BALMES] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(15.409) → 20.75 m PB+5 · band 20–30 m
+✔ 0026405DF3802E [VALENCIA] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.669) → 20.75 m PB+5 · band 20–30 m
+✔ 0125401DF3802E [BALMES] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 0128802DF3802G [GRACIA] height-ok · 60.00 m (curated-cerda-nominal) ⚠facing≠block(19.857) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0223501DF3802C [BALMES] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 0224301DF3802C [CATALUNYA] height-ok · 30.00 m (curated-cerda-nominal) ⚠facing≠block(19.839) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0227801DF3802E [GRACIA] height-ok · 60.00 m (curated-cerda-nominal) ⚠facing≠block(19.662) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0326701DF3802E [CATALUNYA] height-ok · 30.00 m (curated-cerda-nominal) ⚠facing≠block(19.553) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0328605DF3802G [GRACIA] height-ok · 60.00 m (curated-cerda-nominal) ⚠facing≠block(19.508) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9927310DF2892H [CATALUNYA] height-ok · 30.00 m (curated-cerda-nominal) ⚠facing≠block(19.482) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9520801DF2892B [VILLARROEL] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.639) → 20.75 m PB+5 · band 20–30 m
+◐ 9521101DF2892B [ROMA] band-edge-refusal · 15.21 m (measured-cadastral) · band-edge
+✔ 9522801DF2892B [CASANOVA] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(18.524) → 20.75 m PB+5 · band 20–30 m
+✔ 9523413DF2892D [VALENCIA] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 9619801DF2891H [VILLARROEL] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.579) → 20.75 m PB+5 · band 20–30 m
+✔ 9621801DF2892B [ARAGO] height-ok · 30.00 m (curated-cerda-nominal) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9622301DF2892D [VALENCIA] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(18.912) → 20.75 m PB+5 · band 20–30 m
+✔ 9722801DF2892B [ARAGO] height-ok · 30.00 m (curated-cerda-nominal) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9723411DF2892D [ARAGO] height-ok · 30.00 m (curated-cerda-nominal) ⚠facing≠block(19.787) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9821101DF2892B [CONSELL CENT] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(7.899) → 20.75 m PB+5 · band 20–30 m
+✔ 9821801DF2892B [CONSELL CENT] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(7.912) → 20.75 m PB+5 · band 20–30 m
+✔ 9823101DF2892D [ARAGO] height-ok · 30.00 m (curated-cerda-nominal) ⚠facing≠block(19.648) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9919301DF2891H [DIPUTACIO] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(7.851) → 20.75 m PB+5 · band 20–30 m
+✔ 9921301DF2892B [MUNTANER] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.577) → 20.75 m PB+5 · band 20–30 m
+✔ 9923427DF2892D [ARIBAU] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(15.474) → 20.75 m PB+5 · band 20–30 m
+✔ 0838504DF3803H [PROVENCA] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.211) → 20.75 m PB+5 · band 20–30 m
+✔ 0840506DF3804B [ROSSELLO] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.231) → 20.75 m PB+5 · band 20–30 m
+✔ 0942701DF3804B [SARDENYA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(7.883) → 20.75 m PB+5 · band 20–30 m
+✔ 0943514DF3804D [ROSSELLO] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 1038403DF3813G [SAGRADA FAMILIA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(7.975) → 20.75 m PB+5 · band 20–30 m
+✔ 1040501DF3814A [MARINA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(17.362) → 20.75 m PB+5 · band 20–30 m
+◐ 1041201DF3814A [SARDENYA] band-edge-refusal · 7.92 m (measured-cadastral) ⚠facing≠block(7.898) · band-edge
+✔ 1043801DF3814C [ROSSELLO] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+◐ 1139101DF3813G [SAGRADA FAMILIA] band-edge-refusal · 7.90 m (measured-cadastral) · band-edge
+✔ 1139301DF3813G [SARDENYA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(7.598) → 20.75 m PB+5 · band 20–30 m
+◐ 1140701DF3814A [PAULA FONT] band-edge-refusal · 7.59 m (measured-cadastral) · band-edge
+✔ 1141501DF3814A [LEPANT] height-ok · 20.00 m (snapped-to-declared-quantum) → 20.75 m PB+5 · band 20–30 m
+✔ 1142301DF3814C [LEPANT] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.63) → 20.75 m PB+5 · band 20–30 m
+✔ 1143503DF3814C [ROSSELLO] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 1239804DF3813G [VALENCIA] height-ok · 20.00 m (curated-cerda-nominal) → 20.75 m PB+5 · band 20–30 m
+✔ 1240501DF3814A [MALLORCA] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.72) → 20.75 m PB+5 · band 20–30 m
+✔ 1242501DF3814C [LEPANT] height-ok · 20.00 m (snapped-to-declared-quantum) → 20.75 m PB+5 · band 20–30 m
+✔ 1432501DF3813C [SICILIA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.691) → 20.75 m PB+5 · band 20–30 m
+✔ 1435804DF3813E [DIPUTACIO] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.636) → 20.75 m PB+5 · band 20–30 m
+✔ 1532804DF3813B [CASP] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.691) → 20.75 m PB+5 · band 20–30 m
+✔ 1533401DF3813D [CORTS CATALANES] height-ok · 50.00 m (curated-cerda-nominal) ⚠facing≠block(19.659) → 23.8 m PB+6 · band 30–Infinity m
+✔ 1535401DF3813F [SARDENYA] height-ok · 20.00 m (snapped-to-declared-quantum) → 20.75 m PB+5 · band 20–30 m
+✔ 1632401DF3813D [CASP] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.64) → 20.75 m PB+5 · band 20–30 m
+◐ 1632703DF3813B [RIBES] band-edge-refusal · 15.44 m (measured-cadastral) ⚠facing≠block(15.353) · band-edge
+✔ 1634401DF3813D [CORTS CATALANES] height-ok · 50.00 m (curated-cerda-nominal) → 23.8 m PB+6 · band 30–Infinity m
+✔ 1732807DF3813B [SARDENYA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(15.406) → 20.75 m PB+5 · band 20–30 m
+✔ 1733301DF3813D [MARINA] height-ok · 13.20 m (measured-cadastral) → 14.65 m PB+3 · band 12–15 m
+✔ 1733601DF3813D [MARINA] height-ok · 50.12 m (measured-cadastral) ⚠facing≠block(13.263) → 23.8 m PB+6 · band 30–Infinity m
+✔ 1735401DF3813F [CORTS CATALANES] height-ok · 50.00 m (curated-cerda-nominal) ⚠facing≠block(19.884) → 23.8 m PB+6 · band 30–Infinity m
+✔ 1832422DF3813D [AUSIAS MARC] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.683) → 20.75 m PB+5 · band 20–30 m
+✔ 1834501DF3813D [MARINA] height-ok · 50.10 m (measured-cadastral) ⚠facing≠block(14.594) → 23.8 m PB+6 · band 30–Infinity m
+✔ 1836401DF3813F [CORTS CATALANES] height-ok · 50.00 m (curated-cerda-nominal) ⚠facing≠block(18.007) → 23.8 m PB+6 · band 30–Infinity m
+✔ 0015801DF3801E [COMTE URGELL] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.038) → 20.75 m PB+5 · band 20–30 m
+✔ 0017801DF3801E [SEPULVEDA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.437) → 20.75 m PB+5 · band 20–30 m
+✔ 9613810DF2891D [VILADOMAT] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.163) → 20.75 m PB+5 · band 20–30 m
+✔ 9615803DF2891F [COMTE BORRELL] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.288) → 20.75 m PB+5 · band 20–30 m
+✔ 9617107DF2891F [CORTS CATALANES] height-ok · 50.00 m (curated-cerda-nominal) ⚠facing≠block(19.517) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9712902DF2891B [FLORIDABLANCA] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(17.068) → 20.75 m PB+5 · band 20–30 m
+✔ 9714801DF2891D [COMTE BORRELL] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.655) → 20.75 m PB+5 · band 20–30 m
+✔ 9716801DF2891F [COMTE URGELL] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.227) → 20.75 m PB+5 · band 20–30 m
+✔ 9813901DF2891D [VILADOMAT] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.45) → 20.75 m PB+5 · band 20–30 m
+✔ 9815801DF2891F [COMTE URGELL] height-ok · 20.00 m (curated-cerda-nominal) ⚠facing≠block(19.521) → 20.75 m PB+5 · band 20–30 m
+✔ 9817801DF2891F [CORTS CATALANES] height-ok · 50.00 m (curated-cerda-nominal) ⚠facing≠block(19.969) → 23.8 m PB+6 · band 30–Infinity m
+✔ 9912203DF2891B [TAMARIT] height-ok · 20.00 m (snapped-to-declared-quantum) ⚠facing≠block(19.636) → 20.75 m PB+5 · band 20–30 m
+
+──────────────────────────────────────────────────────────────────────────────
+L-586 LAYER 5 (n=83)
+──────────────────────────────────────────────────────────────────────────────
+  height-ok           : 76  91.6%
+  band-edge-refusal   : 5  6.0%
+  no-width            : 0  0.0%
+  no-ring             : 0  0.0%
+  error               : 2  2.4%
+
+  provenance tier:
+    curated-cerda-nominal: 53  63.9%
+    snapped-to-declared-quantum: 20  24.1%
+    measured-cadastral: 8  9.6%
+    none: 2  2.4%
+
+  facing-edge restriction vs whole-block minimum:
+    diverged on 59 parcel(s); facingEmpty on 1
+
+  band-edge refusals, by straddle:
+    8.55/11.6 m — 3
+      1041201DF3814A [SARDENYA] w=7.919 spread=0.033 edge=0 facing=[0,1,38,39]
+      1139101DF3813G [SAGRADA FAMILIA] w=7.901 spread=0.013 edge=0 facing=[0,1,2,3,36,37,38,39]
+      1140701DF3814A [PAULA FONT] w=7.595 spread=0.050 edge=0 facing=[0,1,2,34]
+    14.65/17.7 m — 2
+      9521101DF2892B [ROMA] w=15.205 spread=0.039 edge=30 facing=[27,28,29,30,31,32,33,34]
+      1632703DF3813B [RIBES] w=15.441 spread=0.043 edge=5 facing=[1,2,3,4,5,6]
+
+  rejection reasons across ALL block edges:
+    edge-too-short: 2354
+    inconsistent: 75
+    no-opposing-frontage: 49
+
+guard = 0.5 m · rows → scratchpad/l586-layer5-AFTER-fix.json

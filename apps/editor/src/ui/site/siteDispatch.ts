@@ -31,9 +31,13 @@ import type {
     SiteModel,
     BuildableEnvelope,
     ZoningRecord,
+    ZoningRule,
     Pt,
 } from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
+// ADR-0270 — "does this zone's rule need a cadastral block to solve?" asked of the RULE, not of a
+// clau literal, so a parcel-only pack for any city takes the parcel-only branch automatically.
+import { requiresBlockRing } from '@pryzm/schemas';
 // §L-430 slice 3 — parcel→θ derivation + the true→project free-vector rotation used to square
 // the committed ring into the authoring frame (ADR-0115 dual-north primitive).
 import {
@@ -55,6 +59,11 @@ import {
     // opposite claims and the old boolean collapsed them.
     resolveZoneDisposition,
     buildRefusedEnvelope,
+    // §L-591 — clau `20a/*` (*edificació aïllada*). Its rule is a plain `setback` inset from the
+    // parcel's own boundary, so it must NOT be routed through the block-derived Art. 242 path.
+    // Two of the ten subzones state their numbers as CONSTRUCTIONS, resolved per parcel here.
+    resolve20aEdificabilitat,
+    resolve20aParcelOverrides,
     // §L-574 — the third refusal: an ENCODED clau whose construction could not complete.
     barcelonaConstructionIncompleteRefusal,
     type ConstructionFailureReason,
@@ -1108,6 +1117,111 @@ async function applyBcnZoningThenFallback(
         }
         const zonePack = disposition.pack;
         console.log(`${TAG} clau resolved → ${clau} (${qual.clauLabel ?? 'n/a'}) → pack ${zonePack.jurisdictionId}.`);
+
+        // §L-591 — A PACK WHOSE RULE NEEDS NO BLOCK MUST NOT BE ROUTED THROUGH THE BLOCK PATH.
+        //
+        // Everything below this branch is the Art. 242.2 construction: Catastro refcat → manzana →
+        // dissolve → frontage classification → a depth measured from the street line. It is
+        // correct for every clau packed until now, because every one of them is *alineació a vial*.
+        //
+        // `20a` is not. Art. 339 puts the whole family under *edificació aïllada*, and Arts.
+        // 342.7 / 343.3 state real front–lateral–fons separations, so its rule is
+        // `kind: 'setback'` — a plain inset from the parcel's OWN boundary. Sending it down the
+        // block path would (a) make it depend on a cadastral block it does not need, so a failed
+        // dissolve would refuse an envelope the ordinance fully determines, and (b) cost a slow
+        // Catastro round-trip plus an Overpass wait for nothing.
+        //
+        // The test is `requiresBlockRing` on the ZONE'S OWN RULE, not a clau literal — a new
+        // parcel-only pack for any city flows through here unchanged (C58 §1.5).
+        const packZone: ZoningRule | null =
+            zonePack.zones.find((z: ZoningRule) => z.code === clau) ?? null;
+        const packRule = packZone?.geometricRule ?? null;
+        if (packRule && !requiresBlockRing(packRule)) {
+            const site0 = ctx.store.getSite();
+            if (!site0) {
+                applyEstimatedZoning(ctx, estimated);
+                return;
+            }
+            const parcelOnlyRecord: ZoningRecord = {
+                zoneCode: clau,
+                zoneLabel: qual.clauLabel,
+                jurisdictionId: BCN_JURISDICTION_ID,
+                structuredFields: {},
+                overlays: [],
+                ordinanceRef: null,
+                provenance: {
+                    source: 'catastro-muc',
+                    label: 'Generalitat MUC (clau) + Catastro parcel',
+                    version: null,
+                    license: null,
+                    crs: 'EPSG:4326',
+                },
+            };
+            const parcelOnlyEnvelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: parcelOnlyRecord,
+                rulePack: zonePack,
+            });
+            // §L-591 — the two `20a` subzones whose numbers are CONSTRUCTIONS, not constants.
+            // The pack ships `null` for them (a scalar would be one street's / one parcel size's
+            // answer for the whole subzone); this is where the parcel's own answer is attached,
+            // with the article that produced it. Silence stays silence: when the resolver refuses,
+            // NO number is published and the reason is logged, exactly as an absent height is.
+            const far = resolve20aEdificabilitat(clau, { parcelArea_m2: parcelAreaM2 });
+            const overrides = resolve20aParcelOverrides(clau, parcelAreaM2);
+            const enriched: BuildableEnvelope =
+                far.ok && parcelOnlyEnvelope.status === 'ok'
+                    ? {
+                          ...parcelOnlyEnvelope,
+                          // Only FILL a null. The eight unconditional subzones already carry
+                          // Art. 340.1's scalar from the pack, and overwriting it here would
+                          // create a second authority for the same number.
+                          maxFAR: parcelOnlyEnvelope.maxFAR ?? far.index,
+                          derivation:
+                              parcelOnlyEnvelope.maxFAR === null
+                                  ? [
+                                        ...parcelOnlyEnvelope.derivation,
+                                        {
+                                            constraint: 'maxFAR' as const,
+                                            value: far.index,
+                                            zoneCode: clau,
+                                            source: `PGM ${far.article} — ${far.why}`,
+                                            fieldProvenance: 'ordinance-pdf' as const,
+                                            ordinanceRef: packZone?.ordinanceRef ?? null,
+                                        },
+                                    ]
+                                  : parcelOnlyEnvelope.derivation,
+                          // ⚠ The Art. 255 slope caveat rides on EVERY 20a answer. We hold no
+                          // terrain (L-584) and much of Barcelona's 20a fabric is hillside, so
+                          // the figures above are an UPPER BOUND and must say so on screen.
+                          caveats: [
+                              ...parcelOnlyEnvelope.caveats,
+                              ...far.caveats,
+                              ...(overrides.article
+                                  ? [
+                                        `A small-parcel regime may apply (${overrides.article}): ` +
+                                            `${overrides.why} PRYZM has NOT applied it — unverified: ` +
+                                            `${overrides.unverifiedConditions.join(' ')}`,
+                                    ]
+                                  : []),
+                          ],
+                      }
+                    : parcelOnlyEnvelope;
+            dispatchEnvelope(ctx, site0.id, enriched, 'muc-catastro');
+            console.log(
+                `${TAG} §L-591 PARCEL-ONLY rule (kind=${packRule.kind}) clau=${clau} — solved from ` +
+                    `the parcel alone, no block needed. area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m² ` +
+                    `FAR=${far.ok ? far.index : `NONE (${far.reason}: ${far.detail})`} ` +
+                    `height=${enriched.maxHeight_m ?? 'NONE (see pack §NULLS)'} m` +
+                    (overrides.article
+                        ? ` · ⚠ SMALL-PARCEL REGIME MAY APPLY (${overrides.article}): ${overrides.why} ` +
+                          `— NOT applied; unverified: ${overrides.unverifiedConditions.join(' | ')}`
+                        : '') +
+                    (far.ok && far.caveats.length ? ` · caveats: ${far.caveats.join(' | ')}` : ''),
+            );
+            return;
+        }
 
         /**
          * §L-574 (founder-decided 2026-07-21) — WE HAVE THE PACK AND THE CONSTRUCTION STILL
