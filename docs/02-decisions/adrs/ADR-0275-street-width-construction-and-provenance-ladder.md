@@ -10,7 +10,7 @@
 **Extends:** ADR-0271 (the construction-not-lookup principle, applied to depth) to the **height**.
 **Contracts:** **C58 §1.12** (this ADR is the decision that invariant records), C58
 §1.1/§1.2/§1.3/§1.4/§1.9, **C23 §11.1** (ladder 1), C12 §8 (no new fetch).
-**Evidence:** `docs/04-reference/spain/SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`.
+**Evidence:** `docs/04-reference/jurisdictions/es/SPAIN-STREET-WIDTH-DISTRIBUTION-PROBE.md`.
 
 > **ADR number note.** `ADR-0273` is *reserved* by `BARCELONA-COMPLETE-COVERAGE-PLAN.md` §3.9 /
 > Phase 3 and audit row L-538 for the **nucli-antic block-occupation rule kind**, and `ADR-0274` is

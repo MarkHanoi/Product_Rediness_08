@@ -94,7 +94,7 @@ recorded; **no network**).
 
 ## 3 · THE POST-CITYWEFT DATA PLAN — ⚠ NONE OF IT PRECEDES L-581
 
-Full analysis: `docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md` §8–§11. Audit row L-584.
+Full analysis: `docs/04-reference/jurisdictions/es/SPAIN-GEODATA-SOURCE-COVERAGE.md` §8–§11. Audit row L-584.
 
 **Mapped onto the six layers, this entire workstream barely touches them.** L-581 is the only item
 that moves the score. The whole LiDAR/context programme sits **outside** the six layers except the
@@ -195,12 +195,12 @@ Live: **v281**.
 - `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` — rows **L-576 → L-584**
 - `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md` — phased plan, per-clau roadmap, the two
   citations the 13b work hangs on, scaling strategy
-- `docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md` — §8 study · §9 "would it be quicker" ·
+- `docs/04-reference/jurisdictions/es/SPAIN-GEODATA-SOURCE-COVERAGE.md` — §8 study · §9 "would it be quicker" ·
   §10 the plan · §11 the six-layer mapping
-- `docs/04-reference/spain/barcelona-catalonia/BARCELONA-DATA-PIPELINE.md` — **read before assuming a
+- `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md` — **read before assuming a
   "Barcelona dataset" exists.** Only 1 of 7 layers is a dataset we own; the envelope is CONSTRUCTED
   per parcel on every selection. *"Six of seven layers are free. The seventh is the whole cost."*
-- `docs/04-reference/spain/barcelona-catalonia/L-583-LEGAL-PARAMETERS-SOURCED.md` — every legal
+- `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/L-583-LEGAL-PARAMETERS-SOURCED.md` — every legal
   parameter with a confidence tier. **Nothing is `certified`.**
 - `docs/02-decisions/adrs/ADR-0271` — Art. 242.2 is an ALGORITHM, not a lookup
 - Evidence behind the numbers: `scratchpad/l576-live-dissolve.json`, `l576-layer5.json`,

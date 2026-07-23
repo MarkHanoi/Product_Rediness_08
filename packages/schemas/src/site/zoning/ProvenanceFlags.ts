@@ -32,7 +32,7 @@ export type FieldProvenance = z.infer<typeof FieldProvenanceSchema>;
  *                           accepted rule (the Barcelona PGM Art. 242.2 case: the depth is solved
  *                           from a real dissolved Catastro manzana, not looked up). Real inputs +
  *                           accepted rule + constructed geometry — NOT an official municipal
- *                           certificate. See L-518 + `spain/barcelona-catalonia/RISK-REGISTER.md`
+ *                           certificate. See L-518 + `jurisdictions/es/es-ct/08019-barcelona/RISK-REGISTER.md`
  *                           (R1): the panel MUST word this as "constructed", keep the citations,
  *                           and retain the "2008 modification not reflected" caveat.
  *   - `estimated-ruleset` — resolved from a curated zone-class rule pack (generic default).

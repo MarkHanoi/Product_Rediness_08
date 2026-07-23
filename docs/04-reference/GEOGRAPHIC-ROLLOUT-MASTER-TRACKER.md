@@ -13,7 +13,7 @@ beyond?"* Created 2026-07-22.
 > | **How the system works + how it scales** | [SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md](./SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md) |
 > | **Product phases A–D (all features)** | [master-execution-tracker.md](../03-execution/plans/master-execution-tracker.md) |
 > | **Sources: what exists, what we're missing** | [spain/SPAIN-GEODATA-SOURCE-COVERAGE.md](./spain/SPAIN-GEODATA-SOURCE-COVERAGE.md) |
-> | **⚠ Read before assuming a dataset exists** | [spain/barcelona-catalonia/BARCELONA-DATA-PIPELINE.md](./spain/barcelona-catalonia/BARCELONA-DATA-PIPELINE.md) |
+> | **⚠ Read before assuming a dataset exists** | [jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md](./jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md) |
 
 ---
 

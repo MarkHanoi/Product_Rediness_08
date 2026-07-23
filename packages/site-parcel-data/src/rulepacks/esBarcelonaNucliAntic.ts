@@ -168,7 +168,7 @@ export const BCN_12_ORDINANCE_REF =
     'Nombre màxim d\'habitatges per parcel·la: Art. 318 in its Barcelona-exclusive form — ' +
     'superfície construïda ÷ a 80 m² module — a PROGRAMME limit PRYZM records but does not model. ' +
     'Source: MMAMB re-edition of the Normativa Urbanística Metropolitana, committed at ' +
-    'docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf. ⚠ That volume is a ' +
+    'docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf. ⚠ That volume is a ' +
     'manually re-typeset reproduction of the 1988 text refós with documented transcription errors ' +
     '(Arts. 251.3a, 330, 331) and a missing table on p. 106 — confidence estimated-ruleset, ' +
     'never certified.';

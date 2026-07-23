@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // THE SOURCE, AND EXACTLY WHICH TEXT WAS READ
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-// `docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf` — the MMAMB re-edition
+// `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf` — the MMAMB re-edition
 // of the *Normativa Urbanística Metropolitana*. Read with COORDINATES (pypdf `visitor_text`,
 // grouping on `tm[5]`, sorting on `tm[4]`, splitting the two columns at the x-midpoint); plain
 // `extract_text()` interleaves the columns and is what made three prior research rounds declare

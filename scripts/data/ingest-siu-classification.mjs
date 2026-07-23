@@ -2,7 +2,7 @@
 /**
  * §L-441 Tier B — ingest Spain's NATIONAL clasificación-del-suelo corpus from SIU.
  *
- * SOURCE (verified live 2026-07-20, see docs/04-reference/spain/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md §8):
+ * SOURCE (verified live 2026-07-20, see docs/04-reference/jurisdictions/es/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md §8):
  *   https://mapas.fomento.gob.es/arcgis/rest/services/SIU/Servicios_OGC/MapServer/15
  *   "OGC_Clases_Suelo" — Ministerio de Vivienda y Agenda Urbana.
  *

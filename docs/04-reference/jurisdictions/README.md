@@ -92,7 +92,7 @@ jurisdiction*, not an extension of the Spain work: PDM ≠ PGOU, different infra
 
 ## Related
 
-- `docs/04-reference/spain/` — the national live-verification research (**L-438**) and the
+- `docs/04-reference/jurisdictions/es/` — the national live-verification research (**L-438**) and the
   priority-municipality corpus. That folder is *research*; this tree is *curated output*.
 - `docs/02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md` — the governing contract.
 - `docs/02-decisions/adrs/ADR-0270-*.md` — the geometric-rule union (setback / alignment / explicit-area).

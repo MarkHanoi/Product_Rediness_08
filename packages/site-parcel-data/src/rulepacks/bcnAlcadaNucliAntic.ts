@@ -117,7 +117,7 @@ export const BCN_ART320_EDGE_CONVENTION = {
  * PGM **Art. 320.3a**, clau `12` — as modified for the **municipality of Barcelona** by the
  * Subcomissió d'Urbanisme de Barcelona, 2 March 2007, **DOGC 4893 of 29-05-2007**; reproduced at
  * p. 275 of the MMAMB *Normativa Urbanística Metropolitana* re-edition committed under
- * `docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`.
+ * `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf`.
  *
  * | Ample de vial | Alçada reguladora màxima | Nombre màxim de plantes |
  * |---|---|---|

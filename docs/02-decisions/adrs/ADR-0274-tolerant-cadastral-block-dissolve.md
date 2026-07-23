@@ -7,8 +7,8 @@ blocker); **L-537** (the at-scale 64 % baseline this reproduces).
 **Extends:** ADR-0271 (which requires a block ring and named its source as P4 "real work").
 **Contracts:** **C57 §1.11 / §1.12** (this ADR is the decision those invariants record), C58
 §1.1/§1.2/§1.4, C19 §7.3, C23 §11.1.
-**Evidence:** `docs/04-reference/spain/SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` ·
-`docs/04-reference/spain/SPAIN-CADASTRAL-DISSOLVE-PROBE.md`.
+**Evidence:** `docs/04-reference/jurisdictions/es/SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` ·
+`docs/04-reference/jurisdictions/es/SPAIN-CADASTRAL-DISSOLVE-PROBE.md`.
 
 > **ADR number note.** `ADR-0273` is *reserved* by
 > `BARCELONA-COMPLETE-COVERAGE-PLAN.md` §3.9/Phase 3 and audit row L-538 for the **nucli-antic

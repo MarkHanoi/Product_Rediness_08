@@ -72,7 +72,7 @@ The normative invariants live in C57 + C58; the report design in SPEC-COMPLIANCE
 
 ## Amendment 2026-07-20 — live verification changes the shape of this decision
 
-Evidence: `docs/04-reference/spain/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md` (endpoint
+Evidence: `docs/04-reference/jurisdictions/es/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md` (endpoint
 responses, not portal descriptions). Audit rows **L-438**, **L-439**.
 
 ### What the pass established
@@ -91,7 +91,7 @@ mechanism everywhere, including in the two strongest numeric services found.**
 1. **Sequence by curation cost per SEED municipality, not by API quality.** API quality is
    uniformly insufficient, so it no longer discriminates between regions. The real variable is
    how many SEED municipalities a given curation effort unlocks
-   (`docs/04-reference/spain/seed_counts_by_ccaa.csv`).
+   (`docs/04-reference/jurisdictions/es/seed_counts_by_ccaa.csv`).
 2. **"Phase 1 = three high-quality API regions" is not a real category.** Catalonia, Madrid and
    Valencia need the same PDF curation as everyone else; what they offer is better *geometry*
    and, for Catalonia, a scriptable document-discovery API (RPUC, INE-code-keyed).

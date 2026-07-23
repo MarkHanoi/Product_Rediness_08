@@ -1,7 +1,7 @@
 // L-591 — the `20a` (*ordenació en edificació aïllada*) pack, pinned against the PRIMARY SOURCE.
 //
 // Every numeric assertion below is a transcription of the Barcelona-exclusive text of PGM Arts.
-// 340/342/343 as printed in `docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`
+// 340/342/343 as printed in `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf`
 // (printed pp. 110–113 for Art. 340, pp. 179–183 for the Barcelona Arts. 342/343). They exist so a
 // future "tidy-up" of the table fails here rather than in someone's planning application.
 

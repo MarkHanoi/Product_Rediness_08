@@ -58,7 +58,7 @@ densest, highest-value land in Spain, where being confidently wrong is most expe
 
 ### Independent corroboration from the data side
 
-`docs/04-reference/spain/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md` §7.2 reaches the same
+`docs/04-reference/jurisdictions/es/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md` §7.2 reaches the same
 conclusion from the opposite direction: numeric *edificabilidad* is published in Spain **only for
 *suelo urbanizable*, never for consolidated *suelo urbano***, because urbano is governed by an
 ordenanza applied per plot — **derived, not stored**. The Eixample is consolidated urbano. So the

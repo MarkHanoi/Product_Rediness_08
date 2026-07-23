@@ -1661,7 +1661,7 @@ async function applyBcnZoningThenFallback(
             // or an API gets the same honest label without re-deriving it. Re-adding a re-label
             // here would create a second place for the tier to drift from the engine's caveats.
             // Founder-CONFIRMED 2026-07-21; badge conditions remain in
-            // `spain/barcelona-catalonia/RISK-REGISTER.md` (R1): word it "constructed", keep the
+            // `jurisdictions/es/es-ct/08019-barcelona/RISK-REGISTER.md` (R1): word it "constructed", keep the
             // citations, keep the "2008 modification not reflected" caveat.
             const withTier = envelope;
             // §BCN-ALCADA (L-525a) — attach the CONSTRUCTED height + storey count, each with its own

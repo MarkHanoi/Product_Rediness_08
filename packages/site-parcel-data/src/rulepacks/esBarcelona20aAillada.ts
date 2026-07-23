@@ -109,7 +109,7 @@ export const BCN_20A_AILLADA_ZONE_CODES = BCN_20A_ZONE_CODES;
 /** The shared provenance of every value in this pack: a coordinate-accurate read of a re-edition. */
 const SOURCE_SENTENCE =
     'Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), ' +
-    'committed at docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf and read ' +
+    'committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read ' +
     'with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the ' +
     'Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually ' +
     're-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, ' +

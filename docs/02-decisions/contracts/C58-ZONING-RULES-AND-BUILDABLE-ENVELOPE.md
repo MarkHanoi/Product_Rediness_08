@@ -71,7 +71,7 @@ Every `BuildableEnvelope` MUST carry a `confidence` field. There is no unlabelle
 > from the block ring supplied, under an accepted rule"*. Per §1.6 the ring's own provenance rides
 > with the caller (production: `CatastroBlockProvider`, real Catastro). This is precisely why §5.1's
 > wording condition exists: the badge reads **"Real · constructed"** and MUST NOT read "verified",
-> "certified" or "authoritative" (`spain/barcelona-catalonia/RISK-REGISTER.md` R1), and it retains
+> "certified" or "authoritative" (`jurisdictions/es/es-ct/08019-barcelona/RISK-REGISTER.md` R1), and it retains
 > its citations and the "2008 modification not reflected" caveat.
 
 **Why**: the honest core (scoping §6.3). Denmark's numbers are real; a Barcelona envelope is a curated estimate. Conflating them would be the single most damaging credibility failure for a compliance product.
@@ -223,7 +223,7 @@ Per **P8**: `pryzm.zoning.fetchZoning`, `pryzm.zoning.computeBuildableEnvelope`,
 ### §1.11 — GRANULARITY is a THIRD axis, independent of confidence (L-439)
 
 **Added 2026-07-20 after the live Spain verification pass
-(`docs/04-reference/spain/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md`).**
+(`docs/04-reference/jurisdictions/es/SPAIN-ZONING-LIVE-VERIFICATION-2026-07-20.md`).**
 
 §1.2 models fidelity (`structured` vs `estimated-ruleset`) and §1.4 models credibility. Neither
 captures the failure the Spain pass exposed: **a source can be genuinely numeric, published,

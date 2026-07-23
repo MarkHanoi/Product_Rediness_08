@@ -595,7 +595,7 @@ export const BCN_22A_REGIME_ORDINANCE_REF =
     'l’illa (Art. 350.2.b) are NOT cited for this parcel: they govern only land *mancada de Pla ' +
     'Parcial*, and PRYZM holds no source establishing which regime applies. ' +
     'Source: MMAMB re-edition of the Normativa Urbanística Metropolitana (1976 NNUU / 1988 Text ' +
-    'Refós), p. 116, committed at docs/04-reference/spain/barcelona-catalonia/' +
+    'Refós), p. 116, committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/' +
     'PGM-NNUU-metropolitana.pdf — a manually re-typeset re-edition, primary but NOT ' +
     'authenticated. §L-590c.';
 

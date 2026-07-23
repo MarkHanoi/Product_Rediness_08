@@ -7,7 +7,7 @@
 >
 > **Status:** ACTIVE as of 2026-07-22. Supersedes the layout sketch in `jurisdictions/README.md`
 > (which was designed but never populated — its good ideas are absorbed below; see §6).
-> **Reference implementations:** `spain/barcelona-catalonia/` and `saudi-arabia/`.
+> **Reference implementations:** `jurisdictions/es/es-ct/08019-barcelona/` and `saudi-arabia/`.
 > **Rollout across all existing folders:** owned by the standardization agent (L-607).
 
 ---
@@ -15,17 +15,19 @@
 ## 1 — THE FOLDER TREE (identical everywhere)
 
 ```
-docs/04-reference/<country>/                     ← full lowercase country name (spain, saudi-arabia, denmark)
+docs/04-reference/jurisdictions/<cc>/            ← ISO 3166-1 alpha-2, lowercase (es, sa, dk, pt, fr, de, nl, ch) — see §2
   README.md            ← country index + national-layer status (what is solved / achievable / absent nationally)
   NEXT.md              ← country-level: where we stopped, blockers, resume steps, TRIP-WIRES
   sources/             ← primary documents & the verified source catalogue for the NATION
   topics/              ← cross-cutting context data (buildings-lod-height, roads, parks, water) — the CONTEXT layer, not the legal layer
-  <municipality>/      ← «code»-«slug»  e.g. 08019-barcelona  (see §2 on the code)
-    README.md          ← what governs HERE · pack status · granularity · open questions
-    NEXT.md            ← municipality-level: where we stopped, blockers, resume steps, TRIP-WIRES
-    findings/          ← the substantive L-NNN investigation records (the reasoning, the measurements)
-    sources/           ← SOURCES.md (per-field citations) + VERIFICATION.md (the human sign-off) + any local primary docs
-    archive/           ← superseded handoffs + one-shot sourcing prompts (kept, not deleted)
+  <cc>-<subdiv>/       ← ISO 3166-2, lowercase (es-ct, es-md, es-an, sa-01) — a region layer, added only where the law is regional (§2)
+    README.md · NEXT.md
+    <code>-<slug>/     ← national statistical / LAU code + slug, e.g. 08019-barcelona (INE) — see §2
+      README.md          ← what governs HERE · pack status · granularity · open questions
+      NEXT.md            ← municipality-level: where we stopped, blockers, resume steps, TRIP-WIRES
+      findings/          ← the substantive L-NNN investigation records (the reasoning, the measurements)
+      sources/           ← SOURCES.md (per-field citations) + VERIFICATION.md (the human sign-off) + any local primary docs
+      archive/           ← superseded handoffs + one-shot sourcing prompts (kept, not deleted)
 ```
 
 **Every level has `README.md` + `NEXT.md`.** That pair is the contract: README says *what is true
@@ -74,9 +76,11 @@ add the region/municipality layers only when a local instrument actually governs
 law, not the template.** ISO 3166-2 codes are used the moment a region layer is needed, never
 invented before.
 
-⚠ **The reference folder is mid-migration.** `spain/barcelona-catalonia/` holds canonical *content*
-but a legacy *path*; it becomes `jurisdictions/es/es-ct/08019-barcelona/` under the rollout (L-607),
-which must update every back-reference repo-wide (`git mv` + grep-and-fix), not just move files.
+✅ **The reference folder migration is DONE (2026-07-23).** `spain/barcelona-catalonia/` is now
+`jurisdictions/es/es-ct/08019-barcelona/`, the whole Spanish tree lives under `jurisdictions/es/`,
+and all back-references were remapped repo-wide (`git mv` + grep-and-fix). Denmark (`dk/`) and Saudi
+Arabia (`sa/`) migrate as their live agents land; the dormant countries (pt/fr/de/nl/ch) are already
+under `jurisdictions/`.
 
 ---
 
@@ -164,7 +168,7 @@ guess.
 ```
 
 The `README.md` template is lighter: *what governs · pack status · granularity · the number · file
-index.* Worked examples: `spain/barcelona-catalonia/NEXT.md` (dense) and `saudi-arabia/NEXT.md`.
+index.* Worked examples: `jurisdictions/es/es-ct/08019-barcelona/NEXT.md` (dense) and `saudi-arabia/NEXT.md`.
 
 ---
 

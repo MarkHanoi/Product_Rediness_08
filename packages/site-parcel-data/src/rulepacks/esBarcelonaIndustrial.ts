@@ -3,7 +3,7 @@
 //
 // PRIMARY SOURCE, READ DIRECTLY
 // -----------------------------
-// `docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf` — the MMAMB re-edition
+// `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf` — the MMAMB re-edition
 // of the *Normativa Urbanística Metropolitana* (1976 NNUU · 1988 Text Refós · later updates).
 // **Art. 350 is on PDF page 116 (printed page 115).** Every figure below was extracted with glyph
 // coordinates and cross-checked against the PDF's content-stream reading order, which is what
@@ -126,7 +126,7 @@ export const BCN_22A_ORDINANCE_REF =
     'from that plan’s own plànols and ordenances and only the FAR/occupation ceilings are the ' +
     'PGM’s. PRYZM holds no source establishing which regime a parcel is in. ' +
     'Source: MMAMB re-edition of the Normativa Urbanística Metropolitana (1976 NNUU / 1988 Text ' +
-    'Refós), p. 116, committed at docs/04-reference/spain/barcelona-catalonia/' +
+    'Refós), p. 116, committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/' +
     'PGM-NNUU-metropolitana.pdf. ⚠ A manually re-typeset re-edition with transcription errors ' +
     'documented elsewhere in the volume (Arts. 251.3a, 330, 331) — primary, but NOT authenticated, ' +
     'hence estimated-ruleset and never certified. No "Veure modificació per al Municipi de ' +

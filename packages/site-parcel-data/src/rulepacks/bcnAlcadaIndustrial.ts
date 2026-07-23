@@ -3,7 +3,7 @@
 //
 // READ FROM THE PRIMARY SOURCE, NOT FROM A MIRROR
 // -----------------------------------------------
-// `docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`, **PDF page 116**
+// `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf`, **PDF page 116**
 // (printed page 115), right-hand column. The values below were extracted glyph-by-glyph with
 // coordinates (pypdf `visitor_text`, grouped by `y`, split at the column gutter `x ≈ 235`) and
 // re-read in content-stream order to confirm the paragraph numbering. `extract_text()` alone

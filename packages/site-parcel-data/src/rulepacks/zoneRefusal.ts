@@ -32,7 +32,7 @@
 // PURITY: L2-pure (C58 §1.9) — no I/O, no THREE, no DOM, no clock. A refusal is data.
 //
 // Strategic context — C58 §1.2/§1.3/§1.4, C23,
-// docs/04-reference/spain/barcelona-catalonia/BARCELONA-COMPLETE-COVERAGE-PLAN.md §0.3/§1.1/§5.
+// docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/BARCELONA-COMPLETE-COVERAGE-PLAN.md §0.3/§1.1/§5.
 
 import type { BuildableEnvelope, EnvelopeRefusal } from '@pryzm/schemas';
 

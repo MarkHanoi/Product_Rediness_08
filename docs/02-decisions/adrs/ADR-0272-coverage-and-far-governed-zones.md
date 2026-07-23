@@ -1,7 +1,7 @@
 # ADR-0272 — Coverage- and FAR-governed zones: a rule kind for *ocupació màxima* + *índex d'edificabilitat neta*
 
 **Status:** ACCEPTED (decision) · **implementation deferred to Phase 2** of
-`docs/04-reference/spain/barcelona-catalonia/BARCELONA-COMPLETE-COVERAGE-PLAN.md`.
+`docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/BARCELONA-COMPLETE-COVERAGE-PLAN.md`.
 **Date:** 2026-07-21 · **Audit:** L-551 (this ADR); L-550 (the Phase-0/1b slice that precedes it).
 **Supersedes / extends:** ADR-0270 (the geometric-rule model), ADR-0271 (block-derived depth).
 **Contracts:** C58 §1.2/§1.3/§1.4/§1.7a/§1.11, C23, C19.

@@ -60,7 +60,7 @@
 //
 // We had Art. 323 as "250 habitatges per hectare" (L-552 §4.2). **Barcelona's own Art. 323 says
 // something structurally different**, and the primary text is now in the repo
-// (`docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`, p. 185), in a section
+// (`docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf`, p. 185), in a section
 // headed *"(d'aplicació **exclusiva** al municipi de Barcelona)"*, approved by the Subcomissió
 // d'Urbanisme de Barcelona on 20-10-2004, DOGC 4277 of 10-12-2004:
 //
@@ -141,7 +141,7 @@ export const BCN_SEMIINTENSIVA_RULE: GeometricRule = {
     // §L-594 — 11 m, NOT 12. ⚠ THIS WAS AN OVER-STATEMENT, CORRECTED AGAINST THE PRIMARY TEXT.
     //
     // The packs shipped `12` citing "Art. 242 — 12 m, verified". The primary text
-    // (`docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`, p. 81, Art. 242.4)
+    // (`docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf`, p. 81, Art. 242.4)
     // says otherwise, verbatim:
     //
     //   *"Quan un cop complertes les condicions de l'apartat 2 resultin, en alguna alineació,
@@ -181,7 +181,7 @@ export const BCN_13B_PERI_FAR_NOT_APPLICABLE = 1.8;
 
 /**
  * §L-590 — PGM **Art. 323**, Barcelona-exclusive text (DOGC 4277, 10-12-2004), p. 185 of the NNUU
- * PDF committed under `docs/04-reference/spain/barcelona-catalonia/`.
+ * PDF committed under `docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/`.
  *
  * **max dwellings per parcel = ceil(superfície construïda ÷ 80 m²)**, for BOTH subzona I (13a,
  * intensiva) and subzona II (13b, semiintensiva).

@@ -42,7 +42,7 @@ Paste this whole file to start the next Claude Code session.
 >    on the board.** Its companion **V7** (how the ordinance fixes the reference level on a slope) is
 >    NOT optional: a DTM tells you the ground shape, not which point the law measures from.
 >    ⚠ **L-584 does NOT outrank L-581** — it moves correctness, not coverage. See
->    `docs/04-reference/spain/SPAIN-GEODATA-SOURCE-COVERAGE.md` and audit row L-584.
+>    `docs/04-reference/jurisdictions/es/SPAIN-GEODATA-SOURCE-COVERAGE.md` and audit row L-584.
 >
 >
 > 6. **⚠ L-584 CORRECTED, AND THE STUDY IS DONE (`SPAIN-GEODATA-SOURCE-COVERAGE.md` §8).**

@@ -6,7 +6,7 @@
 // against the AMB/MMAMB *Normativa Urbanística Metropolitana* (Dec 2010, consolidated 31-12-2009).
 //
 // ⚠ SUPERSEDED 2026-07-21 (L-526). The primary-source research
-// (`docs/04-reference/spain/barcelona-catalonia/L-526-LEGAL-FINDINGS.md`) found that citation both
+// (`docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/L-526-LEGAL-FINDINGS.md`) found that citation both
 // STALE + ANACHRONISTIC (the AMB as an institution did not exist until 21-07-2011, so an "AMB Dec
 // 2010" attribution is impossible) and MIS-ATTRIBUTED (it named Art. 322.1 for the depth; depth is
 // Art. 242, edificabilitat is Art. 322). The founder RE-EXERCISED the L-449 gate on 2026-07-21,
@@ -112,7 +112,7 @@ export const BCN_ENSANCHE_RULE: GeometricRule = {
     // §L-594 — 11 m, NOT 12. ⚠ THIS WAS AN OVER-STATEMENT, CORRECTED AGAINST THE PRIMARY TEXT.
     //
     // The packs shipped `12` citing "Art. 242 — 12 m, verified". The primary text
-    // (`docs/04-reference/spain/barcelona-catalonia/PGM-NNUU-metropolitana.pdf`, p. 81, Art. 242.4)
+    // (`docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf`, p. 81, Art. 242.4)
     // says otherwise, verbatim:
     //
     //   *"Quan un cop complertes les condicions de l'apartat 2 resultin, en alguna alineació,

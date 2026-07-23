@@ -107,7 +107,7 @@ C57 ends at the fetched `ParcelFeature`. It MUST NOT compute setbacks, height li
 
 ### §1.11 — Cadastral geometry is a PUBLISHED artefact with a known quantum; block assembly must be tolerant of it, and must never move a vertex
 
-**Added 2026-07-21 (L-539). Grounded in `docs/04-reference/spain/SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` — 125 live Catastro bbox fetches · 33,865 parcels · 956 COMPLETE manzanas · 250,646 parcel edges · 5 cities, run through the PRODUCTION parsers, projection and dissolve.** This invariant replaces an assumption that was written into `packages/site-parcel-data/src/geometry/blockRing.ts`'s own header ("slivers") and was measured to be false.
+**Added 2026-07-21 (L-539). Grounded in `docs/04-reference/jurisdictions/es/SPAIN-DISSOLVE-FAILURE-TAXONOMY.md` — 125 live Catastro bbox fetches · 33,865 parcels · 956 COMPLETE manzanas · 250,646 parcel edges · 5 cities, run through the PRODUCTION parsers, projection and dissolve.** This invariant replaces an assumption that was written into `packages/site-parcel-data/src/geometry/blockRing.ts`'s own header ("slivers") and was measured to be false.
 
 An adapter's output ring, and any BLOCK assembled from adapter output, MUST be treated as a **published** artefact carrying its publisher's coordinate quantum — never as survey-exact geometry, and never as noise to be smoothed.
 
