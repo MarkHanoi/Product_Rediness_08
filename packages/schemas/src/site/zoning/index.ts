@@ -8,6 +8,7 @@
 // Strategic context — docs/02-decisions/contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md §2.
 
 export * from './ProvenanceFlags.js';
+export * from './ExtractionProvenance.js';
 export * from './EnvelopeNumbers.js';
 export * from './ZoningRecord.js';
 export * from './JurisdictionZoningContract.js';

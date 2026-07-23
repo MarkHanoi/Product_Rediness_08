@@ -30,19 +30,26 @@ only from a RESPONSE, never from portal prose — these are responses. Host:
 | `NUMORD` | field on layer 6, String, "Número de Catálogo :" | ↑ same |
 | Alineaciones (official line) | `pgoum97/PG_ORDENACION_SIN_AMBITO/MapServer` layer 5 (polyline); also `PG_GESTION` layer 8 | `.../PG_ORDENACION_SIN_AMBITO/MapServer?f=json` |
 
-⚠ **Two caveats that gate USE of the above (not portal prose — structural facts of the response):**
-1. `COEF_Z` is **String** and keyed on **`CODMANZANA`** ⇒ **block granularity** (C58 §1.11) and may
-   be a coded value. **Parse under assertion; refuse (not zero) on an unparseable code.** Its exact
-   numeric semantics are **UNVERIFIED** — do not treat as a bare float until confirmed on a real query.
-2. `Fondo de la Edificación` is a **polyline** (rear line), not a closed ring. Which layer is the
-   closed buildable area (6 vs 10 vs a constructed close against Alineaciones) is **UNVERIFIED** —
-   the ringRef resolver's first job (`findings/L-608` §4).
+⚠ **Two caveats that gated USE of the above — BOTH now RESOLVED by the live re-probe 2026-07-23
+(sigma was reachable this pass; see `findings/L-608-NZ1-PROVIDER-SHIPPED.md`):**
+1. `COEF_Z` is **String** — and the live value vocabulary is a **CODED string, not a float**.
+   Distinct values observed on `/6/query`: `"-"`, `"4"`, `"5"`, `"0 / 5"`, `"0 / 4"`. So the parser
+   MUST classify: `"-"`/blank → **absent (not zero)**; a single number → numeric; `"0 / 5"` →
+   **coded/REFUSED** (`parseFloat("0 / 5") === 0` is the silent-zero trap). Shipped as `parseCoefZ`.
+   ⚠ The numeric **SEMANTICS** (is it m²/m² FAR or a grado/plantas coefficient?) remain **UNVERIFIED**
+   — the adapter withholds it from the volume calc unless a caller asserts it (L-449 gate).
+2. **RESOLVED — the closed buildable ring is LAYER 6.** `/6` is `esriGeometryPolygon`, single-ring,
+   EPSG:25830, carrying `COEF_Z`+`CODMANZANA`+`NUMORD` — it IS the closed footprint, read directly.
+   No polyline-closing against Alineaciones is needed. (Granularity is finer than manzana: one
+   layer-6 polygon per catalogued unit `NUMORD` within a `CODMANZANA`.)
 
-## A2. PRIOR-VERIFIED, NOT re-confirmed this pass — the calificación (Norma Zonal) plane
+## A2. STILL DOWN — the calificación (Norma Zonal) plane
 
-The prior Madrid assessment recorded *"calificación as a LIVE queryable ArcGIS point service"*. This
-pass could **not** re-verify it: `pgoum97/PG_ORDENACION/MapServer?f=json` returned HTTP 500 "Service
-not started" (x3, 2026-07-23). **Tier: PRIOR-VERIFIED (not re-confirmed).** Resume by retrying and
+The prior Madrid assessment recorded *"calificación as a LIVE queryable ArcGIS point service"*. It
+was **re-probed LIVE 2026-07-23 and is STILL down**: `pgoum97/PG_ORDENACION/MapServer?f=json`
+returns `Error handling service request : Service not started.` (now measured across two passes).
+**Tier: MEASURED-NEGATIVE (transient — retry).** So the exact NZ-code string for registration is
+still unverified; `MADRID_NZ1_ZONE_CODES = ['NZ1']` stays a placeholder. Resume by retrying and
 identifying the NZ-code field; see `NEXT.md` §3.4.
 
 ---

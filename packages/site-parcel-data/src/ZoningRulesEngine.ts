@@ -74,6 +74,13 @@ export interface ComputeBuildableEnvelopeInput {
      * the depth is measured from. Length MUST equal `blockRing.length`.
      */
     readonly blockEdgeClassifications?: ReadonlyArray<ParcelEdgeClassification> | null;
+    /**
+     * The published buildable-footprint ring for an `explicit-area` zone (ADR-0270), injected by
+     * the caller (never fetched by the engine) exactly like `blockRing`. The `explicit-area` branch
+     * clips the parcel to it via `solveExplicitArea`; absent → the branch refuses (no whole-parcel
+     * fall-through). Scene-XZ metres, same frame as `parcelRing`.
+     */
+    readonly explicitAreaFootprint?: ReadonlyArray<Pt> | null;
 }
 
 /** A single numeric field resolution (C58 §1.2 priority order). */

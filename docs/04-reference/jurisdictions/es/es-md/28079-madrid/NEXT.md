@@ -5,14 +5,16 @@
 
 ## 1 — WHERE WE STOPPED (the one-paragraph truth)
 
-Madrid was converted from assessment to a **buildable pack SPEC**. The four target Normas Zonales
-(3/4/1/8 ≈ 96 % of directly-governed residential land) each have a **decided, justified
-geometricRule kind** (NZ 1 `explicit-area`, NZ 4 `alignment`, NZ 8/5/7 `setback`, NZ 3 refusal).
-**NZ 1's numbers are live ArcGIS data** (`COEF_Z` + `Fondo de la Edificación`, verified this pass)
-— it is the first real `explicit-area` case — **but it is engine-blocked** (no `explicit-area`
-solver, C58 §2.2 KG-4). **NZ 4/8/5/7 are document-gated**: their grado-structured numbers sit in the
-Compendio 2023 NNUU and were not sourced citeably this pass, and the Zod schema structurally forbids
-a placeholder pack. Net: **SPEC complete, zero shippable envelopes.**
+Madrid was converted from assessment to a **buildable pack SPEC**, and NZ 1 is now **provider-ready**.
+The four target Normas Zonales (3/4/1/8 ≈ 96 % of directly-governed residential land) each have a
+**decided, justified geometricRule kind** (NZ 1 `explicit-area`, NZ 4 `alignment`, NZ 8/5/7
+`setback`, NZ 3 refusal). **NZ 1 is fully engineered**: live ArcGIS data (`COEF_Z` + layer-6
+footprint), the merged `explicit-area` solver, AND — this pass — the Madrid adapter that feeds it
+(`esMadridNZ1Provider.ts`, fixture-tested). What remains for NZ 1 is **wiring + sign-off, no research**
+(a server proxy, the `explicitAreaFootprint` interface-field fix, the NZ-code re-verify, L-449).
+**NZ 4/8/5/7 stay document-gated**: grado-structured numbers in the Compendio 2023 NNUU, not sourced
+citeably (the Zod schema forbids a placeholder pack). Net: **NZ 1 provider-ready, zero shippable
+envelopes TODAY (wiring-gated), NZ 4/8/5/7 human-read-gated.**
 
 ## 2 — THE NUMBER
 
@@ -28,19 +30,24 @@ Ceiling for the four NZs once sourced + NZ 1 solver ships **≈ 60–62 %** (0.6
    `madrid.es/.../CompendioNNUU/Compendio 2023/1 Compendio 2023.pdf`, Cap. 8.4 (NZ 4) and Cap. 8.8
    (NZ 8), and extract **per grado**: fondo edificable / retranqueos, altura de cornisa + nº plantas,
    ocupación máxima, usos. Each value → a `sources/SOURCES.md` row, or stays `null`.
-2. **NZ 1 is engine-blocked (KG-4).** *Why:* `explicit-area` is declared in the schema with **no
-   solver branch**; the exhaustive switch makes registering it a compile error until the branch
-   exists. *Unblock:* add the `explicit-area` engine case + the ringRef resolver (design in
-   `findings/L-608` §4). *Resume step:* implement `solveExplicitArea(parcel, ringRef)` in the
-   engine, and a provider-side `resolveMadridNZ1Ring(codManzana)` that closes the `Fondo de la
-   Edificación` polyline against `Alineaciones` (or reads layer 6/10 polygon directly).
-3. **The buildable RING geometry is ambiguous.** *Why:* `Fondo de la Edificación` is a **polyline**
-   (rear line), not a closed ring; layer 6 `Condiciones de la Edificación` (polygon) and layer 10
-   `Fondo` (polygon) are candidates for the closed area but were not confirmed. *Resume step:* query
-   `PG_CONDICIONES_EDIFICACION/MapServer/6/query` and `/10/query` for one central manzana; compare
-   the polygon to the parcel + alineación to see which is the buildable area.
-4. **The calificación endpoint was not re-verified this pass.** *Why:* `pgoum97/PG_ORDENACION`
-   returned HTTP 500 "Service not started" x3. *Resume step:* retry
+2. **NZ 1 engine + provider — RESOLVED (KG-4 solver + the Madrid adapter both shipped).** The
+   `explicit-area` solver branch merged a prior pass; the Madrid provider/adapter shipped THIS pass
+   (`packages/site-parcel-data/src/rulepacks/esMadridNZ1Provider.ts` + fixture test, suite 571).
+   ⚠ **What now blocks NZ 1 is WIRING + SIGN-OFF, not research:** (a) a server same-origin proxy
+   `/api/madrid/pgoum97/{condiciones,ficha}`; (b) the `ComputeBuildableEnvelopeInput` field defect
+   (blocker 2a below); (c) the NZ-code re-verify (blocker 4); (d) L-449. See
+   `findings/L-608-NZ1-PROVIDER-SHIPPED.md` §6.
+2a. **🔴 PRE-EXISTING DEFECT — `ComputeBuildableEnvelopeInput` lacks `explicitAreaFootprint`.** The
+   engine branch reads `input.explicitAreaFootprint` (`ZoningRulesEngine.ts:651`) but the interface
+   never declares it, so `tsc` fails at the base (3 errors) though `vitest` is green — this would
+   hard-fail the Fly build. *Unblock:* add `readonly explicitAreaFootprint?: ReadonlyArray<Pt> |
+   null;` to the interface (like `blockRing`). **Engine/schema owner** — was out of scope this round.
+3. **The buildable RING geometry — RESOLVED — it is LAYER 6.** Live re-probe 2026-07-23:
+   `PG_CONDICIONES_EDIFICACION/6` is a single-ring `esriGeometryPolygon` in EPSG:25830 carrying
+   `COEF_Z`; it IS the closed footprint, read directly (no polyline-closing needed). The adapter
+   reads layer 6. `COEF_Z` is a CODED string (`"-"`, `"4"`, `"5"`, `"0 / 5"`) — `parseCoefZ` gates it.
+4. **The calificación endpoint is STILL down (measured across two passes).**
+   `pgoum97/PG_ORDENACION` returns `Service not started` again 2026-07-23. *Resume step:* retry
    `pgoum97/PG_ORDENACION/MapServer/layers?f=json`, find the NZ-code field, run a `GetFeatureInfo` at
    a known residential coordinate, and **run `returnCountOnly` unfiltered before trusting any zero.**
 
@@ -59,8 +66,14 @@ Ceiling for the four NZs once sourced + NZ 1 solver ships **≈ 60–62 %** (0.6
 
 - The eleven-Norma-Zonal typology map + the rule-kind decision per NZ (`findings/L-608` §1, §3).
 - The LIVE ArcGIS probe of the NZ 1 data plane (`findings/L-608` §2; `sources/SOURCES.md` §A).
-- The `explicit-area` ringRef resolver design (`findings/L-608` §4).
-- The declaration-grade `esMadridNZ1.ts` pack file (UNREGISTERED, engine-blocked).
+- The `explicit-area` solver primitive (`resolveExplicitAreaRing` + `solveExplicitArea`) + engine
+  branch — MERGED (prior pass).
+- **The Madrid NZ 1 PROVIDER/ADAPTER — SHIPPED this pass:**
+  `packages/site-parcel-data/src/rulepacks/esMadridNZ1Provider.ts` (`parseCoefZ`,
+  `mapMadridConditionsToExplicitAreaSource`, `MadridNZ1RingProvider`, `isInMadrid`) + fixture test
+  (`__tests__/esMadridNZ1Provider.test.ts`, +20, suite 571 green). See
+  `findings/L-608-NZ1-PROVIDER-SHIPPED.md`.
+- The declaration-grade `esMadridNZ1.ts` pack file (UNREGISTERED — awaits the wiring unit in §6/§3.4).
 
 ## 6 — VERIFIED SOURCES (endpoint · answers · tier · query)
 
@@ -72,8 +85,9 @@ Ceiling for the four NZs once sourced + NZ 1 solver ships **≈ 60–62 %** (0.6
 
 ## 7 — DEAD ENDS (measured negatives — do NOT re-run hoping)
 
-- `pgoum97/PG_ORDENACION/MapServer?f=json` — HTTP 500 "Service not started" (x3, 2026-07-23). Retry
-  later; not a permanent absence.
+- `pgoum97/PG_ORDENACION/MapServer?f=json` — `Service not started` across TWO passes (2026-07-23).
+  Retry later; not a permanent absence. (Note: sigma itself is REACHABLE — the other services
+  answered live this pass — so this is the service being down, not a network block.)
 - `madridlicencias.com/.../PGOUM-97.pdf` via WebFetch — returns compressed/encoded streams, no text
   layer extractable by the fetch model. Use the official `madrid.es` Compendio 2023 with a real PDF
   reader / OCR instead.

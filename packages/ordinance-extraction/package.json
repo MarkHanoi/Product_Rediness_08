@@ -1,0 +1,28 @@
+{
+  "name": "@pryzm/ordinance-extraction",
+  "version": "0.1.0",
+  "description": "C58/C23 — L2 horizontal ordinance-extraction CORE. Turns scanned/text-trapped municipal ordinances into citeable buildable-envelope parameters at the permanent `pipeline-extracted-unverified` tier. Pure orchestration + verification GATES (supersession stage-0, dual-pass agreement, arithmetic cross-check, range/sanity, locale normaliser, algorithm detector, no-silent-graduation). The extraction model call is an INJECTED port; the per-city enumerator is an interface. Shared by Barcelona, Córdoba, Denmark and beyond (ORDINANCE-EXTRACTION-PIPELINE.md).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:ci": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@pryzm/schemas": "workspace:*",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -10,8 +10,9 @@
 > folder, carries a `NEXT.md` in this shape:
 > `docs/04-reference/<country>/<municipality>/NEXT.md`. See §0 for the template.
 >
-> **Last updated:** 2026-07-22. **Maintainer:** UNASSIGNED. **Status of the city:** live in
-> production; at its honest full-envelope ceiling for the PGM-only approach.
+> **Last updated:** 2026-07-23 (§8 — the sufficiency ceiling MEASURED, `L-590h`). **Maintainer:**
+> UNASSIGNED. **Status of the city:** live in production; at its honest full-envelope ceiling (~48%)
+> for the PGM-only approach; the OCR path is measured to buy a PARTIAL (FAR-only) tier, not ~80%.
 
 ---
 
@@ -229,20 +230,59 @@ me a near-published "Barcelona has no sector data". `L-590c` §1, §5.1.
 
 ## 8 — THE SMALLEST NEXT STEP that moves the number
 
-**Enumerate the Barcelona PIU backend (§3.1 resume step).** One measurement: capture the XHR that the
-fitxa SPA fires, and see whether it returns **structured planning parameters** or **document links**.
+### 8.0 — 🔴 MEASURED (`L-590h`, 2026-07-23): the SUFFICIENCY ceiling replaces the 48–80% band
 
-- **If structured:** blocker 3.1 partially opens, 18 + 22a (40% of private land) come into reach, and
-  the same technique likely generalises to every Spanish city. Barcelona's ceiling moves off ~48%.
-- **If document links / scans:** the ~80% path is confirmed to be OCR-only, and we should **stop
-  spending on Barcelona coverage** and ship the **"point at the governing plan" signpost tier**
-  instead (cheap, generalises for free, moves product quality not the resolution number).
+The RPUC `basica→detall→documents` enumerator was cracked (`L-590e`) and **24 clau-18 + 22a Pla
+Parcial primary documents were read by vision, field by field** (`L-590h`). The measured answer:
 
-**Everything else on Barcelona is either near its ceiling or gated behind this one fact.** Measure it
-before scheduling any further Barcelona rule work.
+| extractable from the Pla Parcial primary document | measured | 95% CI |
+|---|---:|---:|
+| a **directly-extractable SECTOR edificabilitat (FAR)** number | **9/24 = 37.5%** | 21–57% |
+| a **parcel-level HEIGHT** number (no drawing needed) | **0/24 = 0%** | 0–14% |
+| a **full parcel-level ENVELOPE** | **0/24 = 0%** | 0–14% |
+
+- **The wall is SUFFICIENCY, not OCR — and NOT image quality.** Not one document failed the buildable-
+  number question because of a bad scan (clean laser and faded typewriter behave the same). Height is
+  keyed to **block labels / plantas on the plànol** in ~100% of every height-bearing document — the
+  value is geometry, not characters (`L-590h` §2.2). FAR (a sector coefficient) IS extractable; height
+  is not, without the drawing.
+- ⇒ **OCR raises Barcelona from ~48% to a PARTIAL (FAR-only) answer tier over the derived 63%, NOT to
+  ~80%.** The ~80% full envelope is gated behind **plànol vectorisation** (block-label→parcel geometry),
+  a separate harder problem — **not** the OCR programme. **State the ceiling as two tiers: ~48%
+  full-envelope (unchanged); a FAR-only partial tier reachable by OCR; ~80% only with drawing
+  vectorisation.**
+- ⚠ **Document SELECTION is a first-class failure mode** (`L-590h` §4): 54% of sampled documents carried
+  no number mostly because the name-heuristic picked the WRONG document (alignment study / polygon
+  division / approval act). A real pipeline must score across ALL of an expedient's documents. This
+  raises the FAR yield; it cannot raise the full-envelope yield off ~0.
+- ⚠ **Confident-wrong traps named** (`L-590h` §3): the arithmetic cross-check caught a misread live
+  (110284 whole-plan "1,833" fails 494.055/600.494=0,823 → AMBIGUOUS); and 110215's "15 m / 7,5 m³/m²"
+  is a **valuation surveyor's assumption**, not an ordinance value, and it *reconciles arithmetically* —
+  so a prose "ordinance vs valuation/algorithm?" gate is needed on top of the arithmetic gate.
+
+### 8.1 — SHIPPED this pass: the "point at the governing plan" signpost tier
+
+`packages/site-parcel-data/src/rulepacks/governingInstrumentSignpost.ts` (+ tests, 14/14 green). Pure
+L2, no OCR: takes a fetched RPUC `detall` payload → returns the governing instrument's name, type,
+approval date, in-force flag, and direct document links; **refuses to cite a superseded/unconfirmed
+instrument as governing** (annulment guard, §3.6). Not wired into `registry.ts`/`index.ts` (out of
+scope); the L5 dispatcher attaches it to a derived-planning refusal card. Generalises to every Spanish
+city for free. Does NOT move the resolution number; converts a blank refusal into a cited answer.
+
+### 8.2 — The remaining lever (if coverage spend is justified)
+
+The ~80% gate is now known to be **plànol vectorisation, not OCR**. Before scoping an OCR build for
+coverage, price the drawing-understanding problem (`L-590h` §7). The old PIU-backend probe below is
+superseded by the RPUC enumerator, which is confirmed to return **document links / scans**, not
+structured parameters — so the structured-export hope (blocker 3.1 path 1) is closed for the historical
+corpus; only the OCR (FAR-partial) and vectorisation (full) paths remain.
+
+**Everything else on Barcelona is either near its ceiling or gated behind plànol vectorisation.**
 
 ---
 
 **See also:** `BARCELONA-REASONING-RECORD.md` (the full day) · `L-590c-PLA-PARCIAL-REGIME-RESOLVED.md`
-(the derived-planning finding + expert validation + the 80% refutation) · `RISK-REGISTER.md` ·
-`../../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` (the jurisdiction axis).
+(the derived-planning finding + expert validation + the 80% refutation) ·
+`findings/L-590e…g` (corpus + OCR decision + pilot) ·
+`findings/L-590h-BARCELONA-SUFFICIENCY-CEILING.md` (the measured sufficiency ceiling + signpost tier) ·
+`RISK-REGISTER.md` · `../../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` (the jurisdiction axis).

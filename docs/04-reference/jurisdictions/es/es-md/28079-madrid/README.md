@@ -28,12 +28,18 @@ whole point of this record:
 
 ## Pack status
 
-**SPEC ONLY — no shippable pack, and no pack is registered.** (See `findings/L-608-MADRID-PACK-SPEC.md`.)
+**NZ 1 PROVIDER-READY (wiring + sign-off left); NZ 4/8/5/7 document-gated; no pack registered yet.**
+(See `findings/L-608-MADRID-PACK-SPEC.md`, `findings/L-608-NZ1-PROVIDER-SHIPPED.md`.)
 
-- **NZ 1** — numbers are LIVE DATA (`COEF_Z` + `Fondo de la Edificación`, verified this pass), but
-  **engine-blocked**: `explicit-area` has no solver branch (C58 §2.2 KG-4). A declaration-grade pack
-  file exists at `packages/site-parcel-data/src/rulepacks/esMadridNZ1.ts` — **UNREGISTERED**, all
-  numerics null, confidence `estimated-ruleset`, human-verification gate NOT passed.
+- **NZ 1** — numbers are LIVE DATA (`COEF_Z` + layer-6 footprint) and NZ 1 is now **fully
+  engineered**: the merged `explicit-area` solver + the Madrid adapter
+  (`esMadridNZ1Provider.ts` — `parseCoefZ`/`mapMadridConditionsToExplicitAreaSource`/
+  `MadridNZ1RingProvider`, fixture-tested). The declaration pack (`esMadridNZ1.ts`) is still
+  **UNREGISTERED**. Remaining is **wiring + sign-off, not research**: a server same-origin proxy,
+  the `ComputeBuildableEnvelopeInput.explicitAreaFootprint` interface-field fix (a pre-existing tsc
+  defect, engine owner), the NZ-code re-verify (`PG_ORDENACION` still down), and the L-449 gate.
+  Live re-probe 2026-07-23 RESOLVED the ring-layer (it is **layer 6**) and the `COEF_Z` coding
+  (`"-"`/`"4"`/`"5"`/`"0 / 5"` — a CODED string, defensively parsed, FAR semantics unverified).
 - **NZ 4 / 8 / 5 / 7** — DOCUMENT-gated. Values are grado-structured in the NNUU and were not
   sourced citeably this pass. The Zod schema (`buildableDepth_m.positive()`,
   the mandatory setback triple) **structurally forbids** a placeholder pack. Values stay `null`.
@@ -59,6 +65,9 @@ whole point of this record:
 - `NEXT.md` — where we stopped, blockers, trip-wires, smallest next step.
 - `findings/L-608-MADRID-PACK-SPEC.md` — the substantive record: probe results, rule-kind
   justifications, the `explicit-area` ringRef resolver design, resolution derivation.
+- `findings/L-608-EXPLICIT-AREA-SOLVER-SHIPPED.md` — the merged jurisdiction-agnostic solver.
+- `findings/L-608-NZ1-PROVIDER-SHIPPED.md` — the Madrid adapter + the live re-probe that resolved
+  the ring-layer and `COEF_Z` coding + the discovered `explicitAreaFootprint` interface defect.
 - `sources/SOURCES.md` — per-field citations (the trust gate). Currently: NZ 1 live-data rows
   VERIFIED-LIVE; all NZ 4/8/5/7 rule values UNVERIFIED.
 - `sources/VERIFICATION.md` — the human sign-off (DRAFT — nothing signed).
