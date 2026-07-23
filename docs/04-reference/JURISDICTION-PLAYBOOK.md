@@ -107,6 +107,35 @@ One row per value the pack sets: `value · unit · governing article · document
 interpolate, average, or infer a legal number.** A pack may not ship `confidence: 'structured'`
 unless every field it sets has a row here. (This is the L-449 human-verification gate.)
 
+### 3.3b — `SOURCE.md` (jurisdiction root) — THE DATA-SOURCE CATALOGUE (feeds the parcel panel)
+
+**One `SOURCE.md` at every jurisdiction level** (country and municipality), listing **every data
+source PRYZM uses for that jurisdiction** — the services, registries and documents behind the
+answers. Distinct from `sources/SOURCES.md` (which cites the *legal value* of a *field*); `SOURCE.md`
+catalogues *where the data comes from*. It is the human-readable face of the attribution PRYZM is
+already obliged to carry per **C23** (provenance), **C55 §1.5** and **C57 §1.9** (attribution
+mandatory), and it is what the **parcel-selection panel surfaces on click** (see below).
+
+One row per source, and every column filled or explicitly `—`:
+
+| column | meaning |
+|---|---|
+| **Source** | the service/registry/document name (e.g. "AMB Geoserveis — `qualificacio_refos/16`") |
+| **Provides** | what it answers (clau · buildable depth · height table · parcel geometry · context buildings …) |
+| **Endpoint / locator** | the exact URL/path (or the document + page), copy-pasteable |
+| **Access** | live API / WFS / WMS / document / user-drawn · free-keyless / keyed / geo-fenced |
+| **Confidence tier** | `VERIFIED-LIVE` / `VERIFIED-PRIMARY` / `CONVERGENT-SECONDARY` / `INFERRED` / `COULD-NOT-VERIFY` |
+| **Licence / attribution** | the required credit string (C23/C55/C57) |
+| **Currency** | as-of date / version / staleness note (e.g. "living refós" vs "1988 Text Refós") |
+| **Notes** | the ⚠ gotchas — the wrong path that 301'd, the `CODIS_INE`-not-`CODI_INE` trap, "informatiu no normatiu" |
+
+> ⭐ **THE PANEL LINK (product requirement).** On parcel selection the envelope panel MUST be able to
+> show *"where these numbers come from"* — the specific sources that produced THIS parcel's answer,
+> each with its tier and attribution. `SOURCE.md` is the human catalogue; the panel reads the same
+> facts from the **structured attribution the parcel/zoning layer already carries** (never from the
+> markdown at runtime). Keep the two in lock-step: a source in the panel that is not in `SOURCE.md`
+> — or vice-versa — is a drift bug. Tracked as **L-612**.
+
 ### 3.4 — `sources/VERIFICATION.md` — THE HUMAN SIGN-OFF
 Who checked it, when, against which document version, and **what they could NOT confirm.** Draft →
 published is a human act.
