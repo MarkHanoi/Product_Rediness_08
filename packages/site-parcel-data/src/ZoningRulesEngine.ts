@@ -34,6 +34,7 @@ import { clipToDepthBand, clipBeyondDepthBand } from './geometry/depthBandClip';
 import { insetPolygonPerEdge, type PerEdgeSetbacks } from './geometry/insetPolygon.js';
 import { solveBlockDerivedDepth, type BlockDepthBinding } from './geometry/blockDerivedDepth.js';
 import { solveBlockConcentricBandDepth } from './geometry/blockConcentricBand.js';
+import { solveExplicitArea } from './geometry/explicitArea.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
 
@@ -626,6 +627,72 @@ export function computeBuildableEnvelope(
                         }
                     }
                 }
+
+                // ── C58 §2.2 (KG-4) / ADR-0270 — EXPLICIT-AREA ZONES: clip to the published footprint ──
+                //
+                // The kind for a plan that PUBLISHES the buildable footprint as geometry rather than
+                // stating parameters (Madrid `Fondo de la Edificación`; and the reusable primitive
+                // for any such jurisdiction). Like the alignment branch this is a COMPOSITION of the
+                // per-edge inset (already run — for an explicit-area zone the pack states no
+                // setbacks, so the inset is the parcel itself) THEN a single geometric operation:
+                // `parcel ∩ published-footprint`, delegated to `solveExplicitArea`. No parallel
+                // solver, no fork of C58 §2.4.
+                //
+                // ⚠ Placed as a discriminated `else if` on the exhaustive `GeometricRule` union: a
+                // `setback` rule has no branch (it IS the plain inset above), and `alignment` /
+                // `block-derived-alignment` are handled above, so this closes the last kind. Before
+                // it existed, an `explicit-area` pack fell through to the plain inset and published
+                // the WHOLE parcel as buildable — the ADR-0270 defect. Now it is solved or refused.
+                else if (geometricRule?.kind === 'explicit-area') {
+                    // Explain-why (C58 §1.3): name the rule that shaped the envelope. The edificabilidad
+                    // rides the maxFAR row already emitted above; the footprint is recorded as a
+                    // caveat here (a dedicated `explicitArea.*` derivation constraint is the P4-parity
+                    // follow-up — WIRING TODO diff-sketch at the foot of this file).
+                    const footprint = input.explicitAreaFootprint ?? null;
+                    if (!footprint || footprint.length < 3) {
+                        // HARD FAIL, not a fall-through to the parcel inset. `explicit-area` means the
+                        // footprint IS the rule; without it there is nothing to clip to, and returning
+                        // the whole-parcel inset would publish a confidently-wrong buildable area on
+                        // exactly the historic-core parcels this kind governs (C58 §1.2, §1.4).
+                        status = 'degenerate';
+                        insetPolygon = [];
+                        caveats.push(
+                            'Explicit-area zone (ADR-0270), but no published buildable footprint was ' +
+                            'supplied — the ordinance publishes the footprint as geometry and the ' +
+                            'engine cannot construct it from the parcel alone. No envelope ' +
+                            '(C58 §1.2, §1.4).',
+                        );
+                    } else {
+                        const solved = solveExplicitArea({ parcelRing: insetPolygon, footprintRing: footprint });
+                        if (!solved.ok) {
+                            status = 'degenerate';
+                            insetPolygon = [];
+                            caveats.push(
+                                solved.reason === 'no-overlap'
+                                    ? 'Explicit-area zone: the published buildable footprint does not ' +
+                                      'overlap this parcel — no buildable area here. No envelope.'
+                                    : solved.reason === 'non-convex-both'
+                                    ? 'Explicit-area zone: neither the parcel nor the published footprint ' +
+                                      'is convex, so their intersection cannot be computed exactly on this ' +
+                                      'plot. Refusing rather than publish an approximate buildable area ' +
+                                      '(C58 §1.4). A general concave clipper is the follow-up.'
+                                    : 'Explicit-area zone: degenerate parcel or footprint geometry — no envelope.',
+                            );
+                        } else {
+                            insetPolygon = solved.ring;
+                            caveats.push(
+                                solved.footprintCoversParcel
+                                    // Cite that the footprint did NOT bite, rather than imply it
+                                    // constrained the plot (C58 §1.3 explain-why).
+                                    ? 'Published buildable footprint COVERS this parcel — the whole plot ' +
+                                      'is buildable under the explicit-area rule (ADR-0270).'
+                                    : 'Buildable envelope clipped to the published footprint ' +
+                                      '(explicit-area, ADR-0270).',
+                            );
+                        }
+                    }
+                }
+
 
                 if (status === 'ok') {
                     insetAreaM2 = polygonArea(insetPolygon);
