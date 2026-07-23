@@ -25,20 +25,41 @@ any downstream pack may ship a value.
 
 ---
 
+| **EU INSPIRE Geoportal** | Free federated search across all Italian planning regimes; returns per-municipality dataset records by comune name + plan type. Confirmed hits: Lecce, Bari, Lavagna, Aosta, Valle d'Aosta. **⚠ Discovery only** — each record requires individual format/currency verification; many hits are georeferenced historical scans (raster, `Grid` spatial representation type), not current vector layers. | EU INSPIRE | `https://inspire-geoportal.ec.europa.eu` | `corroborated — discovery layer; not a data-quality signal` |
+| **dati.gov.it + RNDT (national discovery catalog)** | Free public discovery for finding PDF/document links per comune; regional RNDT metadata flows to EU INSPIRE Geoportal. Useful for enumerating which comuni have published any plan data before manual search. Improves *findability*, not *data structure*. | Presidenza del Consiglio / AgID | `https://dati.gov.it` · `https://geodati.gov.it/geoportale/` (RNDT) | `corroborated — discovery only` |
+| **OpenBuildingMap — national modeled building height** | Free global dataset (published 2025) with per-building height estimated from EU JRC Global Human Settlement built-up-characteristics layer; covers Italy. **⚠ Modeled/estimated — NOT authoritative or survey-grade.** Satellite-derived; materially lower confidence than ARPA Piemonte's BDTRE-derived surveyed data. Must be explicitly flagged as modeled if used; never conflate with surveyed height. | OpenBuildingMap (JRC-derived) | `https://openbuildingmap.org` | `inferred — modeled; NOT shippable as a legal or surveyed claim` |
+| **OSM Italy building footprints** | OpenStreetMap Italy extract (~2.1 GB, ODbL, continuously updated). Building completeness is uneven — confirmed ~1M OSM buildings vs. ~2.8M in Lombardy authoritative dataset (2018 study). Combine with OpenBuildingMap for height estimates. | OpenStreetMap / Geofabrik | `https://download.geofabrik.de/europe/italy.html` | `corroborated — geometry quality varies; completeness uneven` |
+| **Lombardy Indagine Offerta PGT** | Region-wide free structured dataset with SLP (Superficie Lorda di Pavimento) floor-area figures by function (residential vs. other) for every Lombard comune. Collected under L.R. 31/2014, in partnership with ANCI Lombardia and ARIA S.p.A. Covers: Transformation Areas (Documento di Piano) and Implementation Plans (Piano delle Regole). **Not per-parcel FAR** — aggregate by comune/transformation area. Best FAR-adjacent structured data found in Italy. Schema not yet probed. | Regione Lombardia / ARIA S.p.A. | Geoportale Regione Lombardia or ARIA open data portal | `corroborated — existence confirmed; schema TBD` |
+| **APAR/SITAP WFS** | SITAP re-engineered as APAR/SITAP, now OGC-compliant (WMS + WFS), delivering genuine vector cartography (polygon, line, point) for landscape constraints (D.Lgs. 42/2004 Artt. 136/157/142). Guida v2.0.0 confirms OGC alignment behind `sitap.cultura.gov.it`. **Access model (public vs. MiBACT-restricted) not yet confirmed by live probe.** Content confidence ceiling unchanged (informational, not certifying). | MiBACT / APAR | `https://sitap.cultura.gov.it` | `corroborated — WFS access method confirmed; public access and schema TBD` |
+| **AP Bolzano / South Tyrol geodata** | CC0 geodata via WMS/WMTS/WFS/WCS from provincial administration and municipalities; open-data programme since 2007. NewPlan: unified planning + landscape-constraint GIS. Parcel-level zoning queryability and planning-layer licence not yet live-probed. | Autonomous Province of Bolzano | `https://geokatalog.buergernetz.bz.it/` · `https://geoservices.buergernetz.bz.it/` | `corroborated — infrastructure existence confirmed; planning layer WFS and access TBD` |
+| **UrbisMap API** | Documented urban-planning API service with technical architecture and endpoints (not just web-GIS). Separate territorial-data-integration API for PA software. Licensed (not free), but provides an actual API contract rather than scraping. | UrbisMap (commercial) | `https://www.urbismap.it` | `secondary — commercial; API existence confirmed` |
+| **Arcai** | AI chat layer indexing NTA/PRG/PGT/PUC documents article-by-article for 6,252 comuni (~€39/month). Acknowledged failure mode on documents with corrupted characters/OCR artifacts. PDF-transcription-as-a-service, not raw structured data. | Arcai (commercial) | `https://www.arcai.it` | `secondary — commercial; coverage and reliability caveats apply` |
+
+---
+
 ## B — UNVERIFIED (needed before any numeric rule may ship)
 
 | Field | Why not verified | What would verify it (the exact source to read) |
 |---|---|---|
 | **Catasto WFS field schema** | Not live-probed — feature type name, GetFeature response fields, and whether authentication is required are unconfirmed | Direct GetCapabilities + GetFeature against `wfs.cartografia.agenziaentrate.gov.it` |
 | **Any operative zoning parameter for any Italian parcel** | No national zoning WFS; regional geoportals not live-probed | Per-city: Piedmont PRG mosaic WFS (Turin) or Lombardy Geoportale PGT WFS (Milan) |
-| **SITAP WFS/WCS programmatic endpoint** | SITAP is described as a web-GIS; machine-readable endpoint for per-parcel constraint query not confirmed | Direct inspection of SITAP network requests or `sitap.beniculturali.it/arcgis/rest/services` |
+| **APAR/SITAP WFS public access** | WFS confirmed in APAR documentation (guida v2.0.0); whether endpoint is publicly accessible or MiBACT-restricted is unconfirmed | Direct probe of `sitap.cultura.gov.it` OGC endpoints — see NEXT.md B5 |
+| **AP Bolzano NewPlan WFS and planning-layer access** | Infrastructure existence confirmed; parcel-level zoning queryability, licence for planning layer, and whether WFS is public or institution-restricted are unconfirmed | Direct probe of `geoservices.buergernetz.bz.it` — see NEXT.md B0 |
+| **Lombardy Indagine Offerta PGT schema** | Existence and purpose confirmed; field names, granularity (per comune vs. per transformation area), and currency unknown | Direct download from Geoportale Lombardia or ARIA open data — see NEXT.md B8 |
 | **ARPA Piemonte Edifici 3D endpoint and field schema** | Existence confirmed; WFS/download path and field names not read | `opendata.arpa.piemonte.it` → search "Edifici 3D" |
 | **Catasto bulk download format (Feb 2025)** | Release confirmed; format (GeoJSON / GeoPackage / Shapefile) and schema not read | Download the manifest from Agenzia delle Entrate open data portal |
 | **Regional derogation status (Art. 9) for Lombardy, Lazio, Piedmont** | DPR 380/2001 Art. 2-bis regime confirmed nationally; which regions have enacted active derogations is unresearched | Each region's own planning law or regional building code (for Lombardy: LR 12/2005 and RET; for Lazio: LR 38/1999; for Piedmont: LR 56/1977 as amended) |
+| **Palermo zoning shapefile currency** | CC BY 4.0 shapefile confirmed; dated to 2004 council resolution (presa d'atto N.07/2004); subsequent varianti currency unknown | Check Comune di Palermo urban planning portal for varianti adopted post-2004 |
+| **Turin DCC 123 (2026) PRG revision structure** | PRG revision in progress; preliminary text not read; incoming zone-classification mechanism unknown | Read DCC 123 preliminary revision text from `comune.torino.it` |
 
 ---
 
-⚠ **SITAP-derived values must never be shipped as `certified` or `published`.** SITAP explicitly
-self-describes as informational and acknowledged incomplete. Every SITAP-derived constraint row must
-carry: *"SITAP (informational only — acknowledged incomplete and of variable positional accuracy;
-a null result does not certify absence of a constraint)."* Confidence ceiling: `corroborated`.
+⚠ **SITAP/APAR-derived values must never be shipped as `certified` or `published`.** Despite the
+OGC access-method upgrade, SITAP explicitly self-describes as informational and acknowledged
+incomplete. Every APAR/SITAP-derived constraint row must carry: *"SITAP (informational only —
+acknowledged incomplete and of variable positional accuracy; a null result does not certify absence
+of a constraint; structured access ≠ certified content)."* Confidence ceiling: `corroborated`.
+
+⚠ **OpenBuildingMap / OSM height values must never be presented at the same confidence tier as
+ARPA Piemonte Edifici 3D.** The modeled/crowd-sourced category is categorically different from
+surveyed. Label explicitly: "modeled estimate — not authoritative."

@@ -29,6 +29,32 @@ research-level estimates.
 
 ## 3 — BLOCKERS (ordered by dependency)
 
+### B0 — AP Bolzano NewPlan not probed (potential Tier 0 — highest-value unverified lead)
+
+- **What it is.** South Tyrol (AP Bolzano) runs NewPlan — a geographic information system for
+  integrated management of territorial plans, unifying urban planning and landscape-constraint
+  layers. The province makes geodata freely available via WMS/WMTS/WFS/WCS, CC0 by default, since
+  2007. If the planning layer is public and parcel-queryable via WFS, this may be closer to
+  Denmark's ~96% than Italy's ~8% — the strongest Italian jurisdiction found in any research pass.
+- **Why it blocks.** If confirmed, Bolzano becomes Tier 0 (pre-Turin in implementation priority);
+  the entire Italy tier list re-orders. If denied (geobrowser-only or institution-restricted), it
+  reverts to a standard Tier 3 exception needing its own separate cadastral + planning integration.
+- **What would unblock it.** (1) Confirm WFS endpoint for the planning/zoning layer exists and is
+  publicly accessible; (2) run a GetFeature for a Bolzano parcel bbox and inspect whether zoning
+  attributes (zone type, permitted height, density index) are present; (3) confirm CC0 licence
+  applies to the planning layer specifically, not just base cartography.
+- **THE EXACT RESUME STEP.**
+  ```bash
+  # Probe the South Tyrol geobrowser / WFS entry point
+  curl "https://geokatalog.buergernetz.bz.it/geokatalog/" | head -40
+  # Search for NewPlan WFS endpoint
+  curl "https://geoservices.buergernetz.bz.it/mapproxy/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
+    | grep -i 'plan\|zona\|urb\|prg\|pct' | head -20
+  # Alternative: check the GeoServer instance
+  curl "https://geoservices.buergernetz.bz.it/geoserver/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
+    | grep -i 'plan\|zona\|urb' | head -20
+  ```
+
 ### B1 — Catasto WFS not live-probed (gate for ALL Italian parcel work)
 
 - **What it is.** The Agenzia delle Entrate WFS (`wfs.cartografia.agenziaentrate.gov.it`) is
@@ -54,23 +80,32 @@ research-level estimates.
   &SRSNAME=EPSG:4326&COUNT=3&OUTPUTFORMAT=application/json" | python3 -m json.tool | head -40
   ```
 
-### B2 — Turin PRG NTA primary text not read (gate for Tier 1 classification)
+### B2 — Turin PRG NTA primary text not read (gate for Tier 1 classification) — UPDATED: now a moving target
 
 - **What it is.** The entire Tier 1 categorisation of Turin rests on an *unconfirmed assumption*
   that the current Torino PRG Norme Tecniche di Attuazione still uses DM 1444-style zone letters
   (`A`, `B`, `C`, etc.) with per-zone numeric tables for height, coverage, and density. The PRG
   NTA primary text was not directly read in the research pass.
-- **Why it blocks.** If the assumption holds, Turin is ~10–15 dev-days (zone-letter config, not
-  a new engine kind). If Turin has drifted toward a Milan- or Rome-style bespoke mechanism, it
-  becomes Tier 2 (~20–25 dev-days, new kind). Committing a budget before this check is the same
-  category of mistake as assuming all German cities have live XPlanGML attributes without probing.
-- **What would unblock it.** Locate and read Torino's current PRG NTA from the Comune di Torino
-  official portal or the Piedmont regional mosaic. Specifically: find the zoning classification
-  table and the per-zone building parameter articles.
+- **NEW additional risk:** Turin's PRG is **actively being rewritten in 2026**. A "regime di
+  salvaguardia" is in effect following adoption of the preliminary revision (DCC 123, March 16,
+  2026). The new plan is reportedly being condensed from 260 to ~80 pages. Any dev-day estimate
+  built on Turin's zone-letter mechanism needs to check whether the *incoming* plan keeps or drops
+  the letter scheme — this could go either direction. The Tier 1 rating is now **~12%
+  (contingent, and currently a moving target)**.
+- **Why it blocks.** If the incoming plan drops zone letters entirely and adopts a bespoke
+  mechanism, Turin moves from Tier 1 to Tier 2 — dev-day estimate roughly doubles. Committing a
+  budget before this check risks building against a plan mid-revision.
+- **What would unblock it.** (1) Read the outgoing PRG NTA from `comune.torino.it/urbanistica`
+  to confirm current zone-letter mechanism; (2) read the DCC 123 preliminary revision text to
+  assess what zone classification structure the incoming plan will use; (3) confirm "regime di
+  salvaguardia" scope — does it freeze the outgoing plan's operative rules while the new plan is
+  adopted, or does it create a gap?
 - **THE EXACT RESUME STEP.** Navigate to `comune.torino.it/urbanistica` → Piano Regolatore
   Generale → Norme Tecniche di Attuazione. Download the consolidated NTA PDF. Read Art. 1–15
   (typically: classification by zone type) and the first numeric table. Record zone letters used
   and whether they map directly to DM 1444 `A`/`B`/`C` or have been replaced by local mnemonics.
+  Then: search `comune.torino.it` for "DCC 123 2026" and "variante PRG" to locate the preliminary
+  revision text and assess its zone-classification structure.
 
 ### B3 — Piedmont PRG mosaic WFS currency unconfirmed for Turin
 
@@ -104,17 +139,26 @@ research-level estimates.
   ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | grep -i 'pgt\|piano\|zona\|urb'
   ```
 
-### B5 — SITAP machine-readable endpoint not confirmed
+### B5 — APAR/SITAP WFS public-access status unconfirmed (status upgraded from web-GIS-only)
 
-- **What it is.** SITAP is described as a "web-GIS system" — its queryability as a
-  programmatic WFS/WCS for per-parcel constraint intersection has not been confirmed.
-- **Why it blocks.** If SITAP is WFS-queryable, the heritage overlay can be integrated into the
-  parcel probe pipeline. If it is map-viewer-only, each parcel requires a human lookup or a
-  headless browser scrape.
-- **THE EXACT RESUME STEP.** Navigate to `sitap.beniculturali.it` and inspect network requests
-  for WFS/WCS endpoints. Attempt:
+- **What it is.** SITAP has been re-engineered as **APAR/SITAP** and now complies with OGC
+  standards, delivering WMS and WFS cartographic services (confirmed in guida v2.0.0 documentation,
+  behind `sitap.cultura.gov.it`). The data is genuine vector (polygon, line, point features) —
+  not raster tiles. This is a material upgrade from the original "web-GIS only" characterisation.
+- **What remains unconfirmed.** Whether the WFS endpoint is publicly accessible or restricted to
+  MiBACT-affiliated users. The documentation was found as v2.0.0 guida text, not a confirmed open
+  public endpoint probe.
+- **Why it still blocks.** If public: heritage overlay becomes automatable via WFS per-parcel
+  intersection — a meaningful pipeline step. If institution-restricted: same scrape/manual path as
+  before.
+- **THE EXACT RESUME STEP.** Probe the APAR/SITAP WFS endpoint directly:
   ```bash
+  curl "https://sitap.cultura.gov.it/arcgis/rest/services?f=json" 2>/dev/null | head -40
+  # If that 404s, try the legacy path:
   curl "https://sitap.beniculturali.it/arcgis/rest/services?f=json" 2>/dev/null | head -40
+  # Or attempt OGC WFS GetCapabilities:
+  curl "https://sitap.cultura.gov.it/geoserver/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
+    | grep -i 'sitap\|vincolo\|paesaggio' | head -20
   ```
 
 ### B6 — ARPA Piemonte Edifici 3D endpoint and field schema unconfirmed
@@ -146,19 +190,33 @@ research-level estimates.
 - **4.3 — If any other Italian region is targeted** → that region is Tier 3 by default; a
   dedicated research pass on its regional planning law and geoportal status is required before
   any dev-day estimate can be given. Do not assume the PRG or DM 1444 mechanism applies without
-  checking the region's own law.
+  checking the region's own law. Use EU INSPIRE Geoportal as first discovery step before crawling
+  regional portals.
 - **4.4 — If the Agenzia delle Entrate Feb 2025 bulk download includes zone data** → update B1
   and reassess national rate. The bulk download was confirmed for parcels and addresses; zone
   data is separately unlikely but worth checking if the download manifest is read.
-- **4.5 — If AP Trento or Bolzano is ever targeted** → both require entirely separate cadastral
-  integrations (not the national WFS). Bolzano also uses the PCTP instrument (not PRG/PGT/PUC).
-  Start from scratch; do not port any national Italy integration.
-- **4.6 — If Turin PRG NTA confirms DM 1444 zone letters** → port the German B-Plan zone-letter
-  reader concept (BauNVO→GRZ/GFZ equivalent) to Italy's mc/mq density metric. The abstraction
-  is similar; the field units differ (mc/mq vs GFZ ratio). Update Turin NEXT.md B2 as resolved.
+- **4.5 — If AP Trento is ever targeted** → requires entirely separate cadastral integration
+  (not the national WFS). Start from scratch; do not port any national Italy integration.
+- **4.5b — If AP Bolzano (South Tyrol) is targeted** → do NOT treat as a standard Tier 3 case.
+  Read B0 above first. South Tyrol may be the easiest Italian jurisdiction in the entire study;
+  NewPlan probe is the first step, not a regional-instrument research pass.
+- **4.6 — If Turin PRG NTA confirms DM 1444 zone letters in the *incoming* plan (post-DCC 123)** →
+  port the German B-Plan zone-letter reader concept (BauNVO→GRZ/GFZ equivalent) to Italy's mc/mq
+  density metric. The abstraction is similar; field units differ (mc/mq vs GFZ ratio). Update
+  Turin NEXT.md B2 as resolved.
 - **4.7 — If Milan's perequation ledger is found as queryable GIS** → the biggest structural
   uncertainty for Milan (which parcels have already transacted rights, at what volume) may
   become engineering-tractable. Update Milan NEXT.md immediately.
+- **4.8 — If any Italian comune's zoning shapefile is found via EU INSPIRE Geoportal** → check
+  `Spatial representation type` metadata field before treating as structured data: `Grid` = raster
+  scan (not usable for zone identification); `Vector` = potentially usable (still check currency).
+  Do not assume "found on INSPIRE = current legal vector layer."
+- **4.9 — If Emilia-Romagna zoning WFS is confirmed (not just topography)** → update zone
+  identification score for that region and check if any Emilia-Romagna cities become viable
+  Tier 1 candidates (PUG mechanism — research still needed on NTA structure).
+- **4.10 — If Lombardy Indagine Offerta PGT schema probe (B8) shows parcel-level granularity** →
+  update indice di fabbricabilità score from ~0% to a non-zero Lombardy figure; revisit Milan
+  rate estimate.
 
 ---
 
@@ -182,10 +240,16 @@ research-level estimates.
 | Codice Civile Art. 873 | National minimum boundary setback (3 m) | `published` | `normattiva.it` → CC Art. 873 |
 | DPR 380/2001 (Testo Unico Edilizia) Art. 2-bis | Regional derogation regime for building distances | `published` | `normattiva.it` → DPR 380/2001 Art. 2-bis |
 | D.Lgs. 42/2004 (Codice Beni Culturali) | Heritage and landscape protection basis | `published` | `normattiva.it` → D.Lgs. 42/2004 |
-| SITAP `sitap.beniculturali.it` | Landscape constraints (Artt. 136/157/142 D.Lgs. 42/2004) | VERIFIED-LEAD (web-GIS; programmatic endpoint TBD) | Web-GIS confirmed; WFS endpoint TBD |
+| APAR/SITAP `sitap.cultura.gov.it` | Landscape constraints — confirmed OGC WMS+WFS (APAR re-engineering) | VERIFIED-LEAD (WFS access method confirmed in documentation; public access and schema TBD) | Guida v2.0.0 confirms OGC alignment; live probe of public access TBD |
 | Vincoli in Rete | Listed buildings + archaeological assets (D.Lgs. 42/2004 Parts II-III) | VERIFIED-LEAD | Freely consultable — programmatic endpoint TBD |
-| ARPA Piemonte Edifici 3D | Per-building height (Piedmont region) | VERIFIED-LEAD (existence confirmed; endpoint TBD) | `opendata.arpa.piemonte.it` |
+| ARPA Piemonte Edifici 3D | Per-building height, surveyed (Piedmont region) | VERIFIED-LEAD (existence confirmed; endpoint TBD) | `opendata.arpa.piemonte.it` |
 | PST/SIM terrain — MASE | DTM/DSM, 25 cm resolution, CC BY 4.0 (PNRR 2026 target: 100%) | `published` | MASE open data portal |
+| EU INSPIRE Geoportal | Free federated discovery of per-comune plan records across all 21 Italian planning regimes | VERIFIED-LEAD (discovery; each record requires individual format/currency verification) | `https://inspire-geoportal.ec.europa.eu` — search by comune name + plan type |
+| dati.gov.it + RNDT | Free public discovery of municipal plan PDF links; RNDT metadata → INSPIRE | VERIFIED-LEAD (discovery only) | `https://geodati.gov.it/geoportale/` (RNDT) |
+| OpenBuildingMap | National modeled building height (JRC-derived, 2025) | `inferred` — modeled; NOT shippable as legal/surveyed claim | `https://openbuildingmap.org` — must be flagged as modeled |
+| OSM Italy | Building footprints, ODbL, ~2.1 GB extract | `corroborated (completeness uneven)` | `https://download.geofabrik.de/europe/italy.html` |
+| AP Bolzano geodata infrastructure | CC0 WMS/WMTS/WFS/WCS; NewPlan planning GIS | VERIFIED-LEAD (infrastructure confirmed; planning-layer WFS and access TBD) | `https://geokatalog.buergernetz.bz.it/` |
+| Lombardy Indagine Offerta PGT | SLP floor-area figures by function for every Lombard comune | VERIFIED-LEAD (existence confirmed; schema TBD) | Geoportale Lombardia or ARIA S.p.A. open data — see B8 |
 
 ---
 
@@ -201,21 +265,34 @@ research-level estimates.
 - **National LoD2 building model:** PST/SIM produces terrain/surface only. No national
   building-height/semantic-building product was found. Do not re-search for a ZSHH-equivalent
   Italian federal body — one was not identified and the absence appears structural.
+- **Tuscany regional zoning as vector data:** Tuscany's PRG data is delivered as PDF-format
+  scanned maps, not vector — confirmed negative. Do not probe Tuscany geoportal expecting
+  structured zone polygons.
+- **Puglia PUG as a feature service:** Puglia's PUG zoning layer is a planning-status tracker
+  (which comuni have adopted/approved), not a queryable per-parcel feature service — confirmed
+  negative for zone identification purposes.
 
 ---
 
 ## 8 — THE SMALLEST NEXT STEP that moves the number, and its cost
 
-**Run the Catasto WFS probe (B1) and, in the same session, the Piedmont PRG mosaic probe (B3).
-Estimated: 0.5 dev-days.**
+**Run the AP Bolzano NewPlan probe (B0) in parallel with the APAR/SITAP WFS public-access
+probe (B5). Estimated: 0.25 dev-days each = 0.5 dev-days total.**
 
-This single session:
-1. Confirms the national parcel geometry access path (WFS field schema, auth, response format).
-2. Confirms whether the Piedmont PRG mosaic WFS returns zone letters for Turin parcels with
-   current-date data.
-3. Together, these two results determine whether Turin is an immediately startable Tier 1 city
-   (zone + parcel accessible via API → read the NTA PDF for the numbers) or requires further
-   research.
+B0 (Bolzano) is now the highest-value unverified lead because it is the one place that could
+overturn the structural "Italy is worst-performing" conclusion for at least one jurisdiction. If
+NewPlan WFS is confirmed public and parcel-queryable, Bolzano leaps to Tier 0, ahead of Turin.
+If not, it clarifies as Tier 3 and Turin remains the cheapest candidate.
 
-If both probes succeed, the next step is reading Turin's PRG NTA primary text (B2) — a half-day
-PDF read that converts the Tier 1 assumption into a confirmed classification.
+B5 (APAR/SITAP) is cheap and high-leverage: confirming public WFS access moves the heritage
+overlay pipeline from web-GIS to programmable for all Italian cities simultaneously.
+
+**After B0 and B5 are resolved:**
+- If Bolzano confirmed: run a GetFeature probe over a sample Bolzano parcel bbox and inspect
+  zone attribute fields → Bolzano becomes Tier 0; estimate dev-days for a NewPlan pack.
+- If Bolzano denied: run Catasto WFS probe (B1) + Piedmont PRG mosaic probe (B3) for Turin
+  (0.5 dev-days), then read Turin's outgoing NTA and DCC 123 revision text (B2) — a half-day
+  PDF read that either confirms Tier 1 or reclassifies Turin to Tier 2.
+
+The Lombardy Indagine Offerta PGT schema probe (B8) is a parallel low-cost task (0.25 dev-days)
+that can run alongside either path above, as it is Milan-scoped and independent of Turin/Bolzano.

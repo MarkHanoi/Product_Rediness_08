@@ -267,6 +267,284 @@ standing acknowledgment that SITAP is explicitly self-described as informational
 
 ---
 
+## Part D — Subsequent Research Rounds: Findings and Corrections
+
+*Added 2026-07-23. This section records four follow-up research rounds conducted after Part A–C
+above were written. Entries are corrections, additions, or sharpenings to earlier claims — not
+replacements. Read §§A–C first for the baseline; read §D for what those rounds changed.*
+
+---
+
+### D.1 — SITAP access-method upgrade (APAR/SITAP, OGC-compliant WFS)
+
+**Corrects:** `§A.7` (heritage overlays) and `RATE.md` SITAP row (~40% score).
+
+SITAP has been re-engineered as **APAR/SITAP**. The re-engineered system now complies with OGC
+standards, enabling WMS and WFS cartographic services aligned with other national MiBACT mapping
+systems, behind `sitap.cultura.gov.it`. The data is confirmed as genuine **vector** (polygon,
+line, and point features) — not raster tiles — covering "decreed" landscape constraints (D.Lgs.
+42/2004 Artt. 136/157) and archaeological-interest zones (Art. 142).
+
+**What changes:** the access method. The original characterisation of SITAP as "web-GIS only"
+is no longer accurate; it is now a programmable OGC endpoint. Score moves from ~40% to ~50–55%.
+
+**What does NOT change:** content confidence ceiling. SITAP still self-describes as "purely
+informational and support character" with "acknowledged incompleteness" and "variable positional
+accuracy." Structured access ≠ certified content — these are two separate axes. Ship at
+`corroborated` maximum; never `certified`.
+
+**Open:** whether the APAR/SITAP WFS endpoint is publicly accessible or restricted to
+MiBACT-affiliated users. The guida v2.0.0 was the source — not a confirmed open live probe.
+See NEXT.md B5 for the resume step.
+
+---
+
+### D.2 — AP Bolzano/South Tyrol reordering (potential Tier 0 — highest-value unverified lead)
+
+**Corrects:** `§A.1.D` (Bolzano deviation note), `README.md §1.5` tiering.
+
+The original study flagged AP Trento and AP Bolzano as negative exceptions: excluded from the
+national Catasto WFS, requiring "their own separate cadastral integration from day one." This
+framing understates what is actually there for Bolzano (South Tyrol):
+
+- **CC0 geodata by default** across WMS/WMTS/WFS/WCS — more permissive than the national
+  Catasto's CC BY 4.0.
+- **Open geodata programme since 2007** — the Municipality of Merano was the first municipality
+  in Italy to open cadastral data for OpenStreetMap; South Tyrol hosted Italy's first OSM mapping
+  party in November 2007. This predates PNRR-driven digitisation by nearly two decades.
+- **NewPlan:** a geographic information system for integrated management of territorial plans,
+  merging urban and landscape-constraint layers into one system — the "planning instrument vs.
+  landscape overlay" split that plagues mainland Italy (SITAP separate from PRG separate from
+  Vincoli in Rete) appears to be solved in NewPlan.
+
+**Why this matters:** the two jurisdictions explicitly carved out as *requiring extra work* may
+include the country's actual best case. If NewPlan WFS is confirmed public + parcel-queryable,
+Bolzano may be closer to Denmark's ~96% than Italy's ~8% — a larger divergence from the
+original framing than any other finding in this research thread.
+
+**Caveat:** all documentation is in German/Italian bilingual text; parcel-level query mechanics,
+licence terms for the planning layer specifically, and whether NewPlan exposes a public WFS vs.
+a browsable geobrowser UI are unconfirmed. This is a research lead, not a confirmed result.
+
+**Recommended action before any Italy city-tier decision:** direct live probe of NewPlan public
+access model. See NEXT.md B0.
+
+**AP Trento** was NOT confirmed in this pass. Trento is governed independently from Bolzano
+despite sharing a region name, and should not be assumed to mirror Bolzano's open-data posture.
+
+---
+
+### D.3 — EU INSPIRE Geoportal as Italy's cross-region discovery layer (new)
+
+**Adds to:** `§A.5` (no national machine-readable zoning layer), `README.md §2.2`.
+
+The EU INSPIRE Geoportal (`inspire-geoportal.ec.europa.eu`) is confirmed as a free, federated
+search interface across all 21 Italian planning regimes, directly searchable by comune name or
+plan type. It collapses the discovery problem from "crawl 21 regional geoportals" to "query one
+EU endpoint per target comune."
+
+Concrete hits confirmed:
+- **Comune di Lecce** — digitised PRG (IODL 2.0, shapefile, no limitation on public access)
+- **Comune di Bari** — own "riporto informatizzato" PRG (council resolution, January 2013)
+- **Comune di Lavagna** (Liguria) — 1998-approved PRG, 1:5000 scale, entire municipal territory
+- **Città di Aosta** — digitised 1885 historical piano regolatore (authorised March 2024)
+- **Valle d'Aosta** — genuine **vector** PRG layers (P4 "Servizi", P1 "Percorsi storici") under
+  CC-BY-equivalent licence with explicit 2030 validity window
+
+**Critical caveat:** several hits are **georeferenced scans of historical paper plans**, not
+current structured vector layers. The record's own metadata (`Spatial representation type: Grid`
+= raster scan; `Vector` = potentially structured) tells you which before spending time on it.
+Lecce's "riporto informatizzato su aereofotogrammetrico" is declared as `Grid` despite being
+distributed in a shapefile container — it is cartography, not attribute-rich zoning polygons.
+
+**Operational guidance:** adopt INSPIRE Geoportal as the **first discovery step** for any target
+Italian comune, ahead of region-specific geoportal hunting. Treat every hit as a lead requiring
+individual format/currency verification — "found via INSPIRE Geoportal" is not itself a
+confidence tier.
+
+---
+
+### D.4 — Lombardy Indagine Offerta PGT (concrete FAR-adjacent structured data — new)
+
+**Corrects:** `§A.5` and `RATE.md` indice di fabbricabilità row (~0% score for Lombardy).
+
+Lombardy ran a region-wide land-consumption monitoring exercise under L.R. 31/2014, in
+partnership between Regione Lombardia, the comuni, the provinces, ANCI Lombardia, and ARIA
+S.p.A. The dataset covers every Lombard comune across three information layers:
+
+1. Transformation Areas from the Documento di Piano as of December 2014
+2. Transformation Areas as of the survey's data-entry date
+3. Implementation Plans from the Piano delle Regole
+
+Each layer reports **SLP (Superficie Lorda di Pavimento)** floor-area figures broken out by
+residential vs. other functions — structured, free, region-wide. This is NOT a per-parcel FAR
+lookup, but it is a genuine numeric layer sitting materially closer to the indice di fabbricabilità
+row than anything else found in this research.
+
+**Revised assessment:** the Lombardy indice di fabbricabilità score is NOT a flat ~0% — it is
+"~0% nationally; Lombardy a potential exception pending schema probe." This is the single most
+promising concrete lead for raising the FAR row above 0% in any Italian region.
+
+**What remains unconfirmed:** field names, granularity (per comune aggregate vs. per
+transformation area vs. per parcel), and whether figures are current or frozen at the 2014 survey
+date. See NEXT.md B8 for the resume step.
+
+---
+
+### D.5 — Zone identification: regional sharpening and confirmed exceptions
+
+**Corrects/sharpens:** `§A.5`, `RATE.md` zone identification row (~15%).
+
+**Tuscany confirmed negative:** Tuscany's regional PRG data is delivered as PDF-format scanned
+maps, not vector. "Having a geoportal" does not imply "having zoning-as-data." This is the
+clearest case of the general Italian pattern: regional OGC infrastructure ≠ zoning layer in that
+infrastructure.
+
+**Emilia-Romagna infrastructure confirmed, zoning layer unconfirmed:** genuine free OGC stack
+(WMS, WFS, WCS, WPS, CS-W, INSPIRE-compliant). Whether the *zoning* layer specifically is in
+that stack is unconfirmed — needs direct WFS capabilities check.
+
+**Palermo and Naples as confirmed municipal-level exceptions, independent of regional tier:**
+- Palermo publishes its own zoning shapefile directly, CC BY 4.0. Dated to a 2004 council
+  resolution (presa d'atto N.07/2004) — **currency risk: may not reflect subsequent varianti**.
+- Naples publishes its PUC and a historic-centre typology dataset directly via its open-data
+  portal — same "fabric typology" approach as Rome, suggesting this pattern is more common across
+  Campanian/southern cities than just Rome.
+
+**Implication for scoring:** zone identification should not be scored purely by region tier. A
+third axis — "does this specific comune publish independently?" — must sit alongside the regional
+score. ~15% still holds as a conservative regional-tier floor, but the real distribution is
+lumpy: some cities in "weak" regions beat the average; most don't.
+
+**Puglia confirmed as compliance tracker, not feature service:** Puglia's PUG zoning layer is
+organised as a planning-status tracker (which comuni have adopted vs. approved their PUG) — a
+compliance dashboard with document links, not a queryable per-parcel feature service.
+
+**Veneto — new access-tier pattern (institutional-access-gating):** Veneto's IDT has genuine
+free OGC infrastructure, but the "Quadro Conoscitivo" — the knowledge-base underpinning PAT/PI
+planning decisions under L.R. 11/2004 — is restricted to provinces and comuni specifically. The
+general public is locked out of exactly the layer that would answer a zoning query. This is a
+distinct failure mode: not "no data exists" (Tuscany) and not "uneven currency" (Piedmont) —
+it is "structured, exists, but deliberately access-gated to institutional actors." Worth its own
+category in the three-caveat framework.
+
+**Campania SIT — broad aggregator with explicit "not evidentiary" disclaimer:** Campania runs a
+region-wide platform covering all 550 Campanian comuni (Catasto, Urbanistica, Zonizzazione,
+etc.) via a commercial cloud WebGIS. Two caveats: some services are login-restricted per comune;
+and the regional geoportal carries an **explicit legal disclaimer** that all thematic maps may
+not be current and are "for study purposes only, not evidentiary." This disclaimer is near-verbatim
+to SITAP's own self-description and the Piedmont mosaic's currency caveat — it is the structural
+Italian pattern, not a one-off: *every regional/comuni aggregator found in this research carries
+some version of "convenient but not certifying."*
+
+---
+
+### D.6 — Max height and existing building heights: OpenBuildingMap fills "~0% elsewhere" (new)
+
+**Corrects:** `§A.6`, `RATE.md` existing building heights row and max height row.
+
+**OpenBuildingMap** (published 2025, postdating the original study) provides a free global dataset
+with per-building height estimated using the EU JRC's Global Human Settlement built-up
+characteristics layer, covering Italy. **OSM** building footprints are freely downloadable for
+all of Italy (~2.1 GB ODbL extract, continuously updated).
+
+**What this changes:** the original claim of "~0% everywhere outside Piedmont" for existing
+building heights is no longer accurate. Revised: ~10% Piedmont (surveyed, high confidence, BDTRE-
+derived) + ~30–40% nationally (free, modeled/crowd-sourced, lower confidence, coverage uneven
+by locale).
+
+**Critical distinction to preserve:** modeled height from satellite-derived built-up layers is
+materially lower confidence than ARPA Piemonte's BDTRE-derived surveyed figures. Do not conflate.
+OpenBuildingMap/OSM heights must be explicitly labelled "modeled estimate — not authoritative"
+if used. The ~30–40% national estimate should appear in a separate row (or sub-row) from Piedmont's
+surveyed figure in any data table — they answer the same question at different confidence tiers.
+
+**Permitted height remains ~0%:** no source found gives *permitted* building height as structured
+GIS data. The update is for *existing* building height only.
+
+---
+
+### D.7 — Document/plan PDF link: three improvements (RNDT, UrbisMap API, Arcai)
+
+**Corrects:** `§A.5` and `RATE.md` document/plan PDF link row (~30% → ~35–40%).
+
+1. **dati.gov.it + RNDT:** together form a free public discovery layer for finding PDF/document
+   links per comune. Regional RNDT metadata flows through to the EU INSPIRE Geoportal. This is
+   a cheap first sweep before manual city-by-city search — it doesn't deliver structured data
+   but it does enumerate which comuni have published any plan document at all.
+
+2. **UrbisMap:** shipped an actual documented API product since the original "just a webgis"
+   characterisation — a technical-architecture API service with endpoints, plus a separate
+   territorial-data-integration API for PA software. This changes "commercial aggregator you'd
+   scrape" into "commercial aggregator with an actual API contract." Not free.
+
+3. **Arcai:** a new entrant — an AI chat layer indexing NTA/PRG/PGT/PUC documents article-by-
+   article for 6,252 comuni (~€39/month). Acknowledged failure mode on documents with corrupted
+   characters or OCR artifacts. Useful for PDF-transcription-as-a-service access, not raw
+   structured data.
+
+Score moves from ~30% to ~35–40% — link *findability* has improved; link *structure* has not.
+
+---
+
+### D.8 — Turin PRG revision (DCC 123, 2026) — Tier 1 candidate is a moving target
+
+**Corrects:** `§B.3` Turin section, `RATE.md` city-level table, `NEXT.md B2`.
+
+Turin's PRG is **actively being rewritten in 2026**. A "regime di salvaguardia" is in effect
+following adoption of the preliminary revision (DCC 123, March 16, 2026). The new plan is
+reportedly being condensed from ~260 pages to ~80. Any dev-day estimate built on Turin's DM 1444
+zone-letter mechanism must check whether the *incoming* plan keeps or drops the letter scheme.
+
+**Risk direction:** the simplification could go either way — a condensed plan might retain zone
+letters for simplicity, or might consolidate to a bespoke mechanism. "Turin's PRG uses DM 1444
+zone letters" now has two levels of uncertainty: (1) the outgoing plan NTA has not been directly
+read; (2) the incoming plan may change the mechanism entirely.
+
+**Re-labelling:** Turin is now rated **~12% (contingent, and currently a moving target)** until
+the new PRG's structure is confirmed. The Tier 1 classification remains the working assumption
+but carries an additional active-revision risk that did not exist in the original study.
+
+---
+
+### D.9 — Structural pattern confirmed: the three-caveat framework
+
+A pattern confirmed empirically across every region checked (seven-plus regional geoportals,
+the EU INSPIRE Geoportal, multiple municipal exceptions, three commercial aggregators) is exactly
+the one the original study predicted structurally. **Something free and technically real almost
+always exists, but it always carries one of three caveats:**
+
+1. **Not current** — Piedmont PRG mosaic (explicit uneven currency), Palermo's 2004 shapefile
+2. **Not legally certifying** — SITAP/APAR, Campania SIT, Roma Capitale mosaic, INSPIRE Geoportal hits
+3. **Not publicly accessible past the general-cartography layer** — Veneto IDT (Quadro Conoscitivo
+   gated to institutions), some Campania SIT services (login-restricted per comune)
+
+**Operational guidance:** before using any Italian regional aggregator, check which of the three
+caveats applies. These caveats are structural — they are not resolvable by switching to a different
+scraping method, and they are not one-off gaps specific to individual portals. The realistic path
+forward is a per-region, per-comune verification checklist built around this three-caveat
+framework, since it now shows up reliably enough to treat as the rule rather than the exception.
+
+---
+
+### D.10 — Revised headline and what the number means
+
+The headline national rate moves from ~8% to **~9–11%**. This is NOT a structural break. The
+revisions are concentrated in:
+- (a) Two rows getting cheap free fallbacks that did not exist or were not identified before
+  (existing height via OpenBuildingMap/OSM; PDF discovery via RNDT/INSPIRE)
+- (b) Better documentation of the lumpiness of zone identification (was scored as a flat
+  regional floor; is actually lumpy with municipal-level exceptions in "weak" regions)
+- (c) SITAP access-method upgrade (WFS confirmed; content confidence unchanged)
+
+The structural diagnosis is unchanged and remains the dominant fact: no national zoning layer,
+21 independent legal mechanisms, Milan/Rome permanently off DM 1444, no national LoD2 building
+model. A realistic ceiling without a national standard remains ~25–30% for Turin/Milan/Rome.
+The AP Bolzano outlier (§D.2) is the one jurisdiction where this ceiling may not apply.
+
+---
+
 **Cross-refs:** `FRANCE-MASTER-DATA-SOURCE-STUDY.md` · `GERMANY-MASTER-DATA-SOURCE-STUDY.md` ·
 DM 2 aprile 1968 n. 1444 · Codice Civile Art. 873 · DPR 380/2001 Art. 2-bis ·
-D.Lgs. 42/2004 (Codice Beni Culturali) · L.R. Lombardia 12/2005 (PGT) · PRG Roma 2008 NTA.
+D.Lgs. 42/2004 (Codice Beni Culturali) · L.R. Lombardia 12/2005 (PGT) · PRG Roma 2008 NTA ·
+L.R. Lombardia 31/2014 (consumo di suolo) · DCC Torino 123/2026 (PRG revision).
