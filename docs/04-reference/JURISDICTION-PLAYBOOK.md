@@ -119,6 +119,36 @@ published is a human act.
 - **Anything uncitable** in `SOURCES.md` — put research notes under an explicit *unverified* heading
   in the README instead.
 
+### 3.6 — MAXIMAL DETAIL — the richness standard (binding on every jurisdiction)
+
+**Write it down as if the next reader has zero context and cannot re-run your session.** The docs
+are the asset; the session is disposable. Every jurisdiction's `findings/` must be rich enough that
+a stranger — or a future agent on a stale base — can reconstruct exactly what was done, believe it,
+and continue. Concretely, a findings record MUST carry:
+
+- **Every endpoint in full** — the exact URL, host, path, params, and the HTTP method. Not "the AMB
+  service" — `https://geoportal.amb.cat/geoserveis/rest/services/…` with the query string. Record the
+  **wrong** paths too (the `/arcgis/` that 301'd) so nobody re-walks the dead end.
+- **Reproduction commands** — the literal `curl`/query that produced each number, copy-pasteable, so
+  the finding is re-runnable, not just asserted.
+- **Named individual records** — documentIds, cadastral refs, zone codes, feature counts. *"0/33 had
+  a text layer"* names the 33; *"8/8 covered by a Pla Parcial"* names the 8 centroids. **An aggregate
+  is not evidence** (L-581).
+- **The confidence tier on every claim** — `VERIFIED-LIVE` / `VERIFIED-PRIMARY` / `CONVERGENT-SECONDARY`
+  / `INFERRED` / `COULD-NOT-VERIFY`. A number without its tier is not documented.
+- **The measurement, not just the conclusion** — the denominator named, the sample size, the method,
+  and the counter-evidence you looked for. "48%" is meaningless without "of what, measured how."
+- **DEAD ENDS, kept** — what was tried and failed, and *why*, so the next pass doesn't repeat it. A
+  measured negative is a first-class finding.
+- **TRIP-WIRES** — "if you see X in another jurisdiction, come back here" (the whole point of the
+  cross-jurisdiction network — a source found in Córdoba must reach Barcelona automatically).
+- **The reasoning trail** — not just *what* the rule is, but *why* it was read that way, which
+  article, what the alternative reading was, and how it was ruled out. When a claim was later
+  corrected or retracted, **keep the retraction visible** — the history is the audit trail.
+
+⇒ **Bias toward MORE detail, always.** Over-documenting costs bytes; under-documenting costs a
+re-derived day. If in doubt, write the extra paragraph, name the extra id, paste the extra command.
+
 ---
 
 ## 4 — THE ONBOARDING PIPELINE (the same stages for every new jurisdiction)
