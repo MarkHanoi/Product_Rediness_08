@@ -56,6 +56,7 @@ _Populate as you build_
 - **Supabase PostgreSQL on Replit**: Direct Supabase PostgreSQL connections (port 5432) are blocked on Replit; use the Supabase REST client instead.
 - **Monorepo Inotify Limits**: Vite's watcher specifically excludes `node_modules` and the pnpm store to prevent exhausting inotify limits common in monorepo setups.
 - **PWA Icon & Screenshot Requirements**: Ensure `public/icons/` contains `icon-192.png` and `icon-512.png`, and `public/screenshots/` contains `editor.png` (1920x1080) and `mobile.png` (390x844) for successful PWA installability and Lighthouse checks.
+- **Replit Package Firewall**: Replit blocks older versions of several packages (vitest 2.x, happy-dom 15.x, jspdf 2.x, etc.). Overrides in `package.json#pnpm.overrides` force all workspace packages to use newer allowed versions. The install workflow uses `--prod` to skip devDependencies. **pnpm 10 reads overrides from `package.json#pnpm.overrides`, NOT `pnpm-workspace.yaml`** (despite the comment there).
 
 ## Pointers
 - **Plugin Manifest Schema**: Refer to ADR-0038 for the formal specification.

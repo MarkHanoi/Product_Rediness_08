@@ -33,7 +33,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm install --no-frozen-lockfile && pnpm run dev"
+args = "pnpm install --prod --no-frozen-lockfile && pnpm run dev"
 waitForPort = 5000
 
 [deployment]
