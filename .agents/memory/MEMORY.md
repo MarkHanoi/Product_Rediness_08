@@ -1,0 +1,1 @@
+- [France/Germany jurisdiction probing](fr-de-jurisdiction-probing.md) — GPU WFS endpoints, apicarto paths, Berlin/Hamburg/Munich WFS status, BayBO Art. 6 formula, Marseille PLUi partition/urlfic pattern.

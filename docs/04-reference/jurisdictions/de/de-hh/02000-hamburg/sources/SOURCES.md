@@ -28,8 +28,8 @@
 |---|---|---|
 | ~~**GRZ / GFZ / Height attributes in Hamburg XPlanGML**~~ | **RESOLVED 2026-07-23 — CONFIRMED ABSENT** from the public WFS. The `app:hh_hh_festgestellt` schema has no GRZ/GFZ/Höhe fields — only plan ID, PDF URL, and geometry. This is a definitive negative: Hamburg packs must use PDF transcription. | ~~Run probe~~ — DONE; result in §A |
 | **Pre-1960 Hamburg-law plan citation preservation** | For a pre-1960 plan: open PDF from `planrecht` field; check whether the PDF preserves the original Hamburg-law citation (needed for signature gate) | Download PDF for a plan with `feststellungsdatum` before 1960; read legal citation on cover page |
-| **ALKIS WFS authentication terms (Hamburg)** | `https://geodienste.hamburg.de/HH_WFS_ALKIS?SERVICE=WFS&REQUEST=GetCapabilities` returned HTTP **404** in 2026-07-23 probe — path may have changed | Check `transparenzportal.hamburg.de` for current ALKIS WFS endpoint |
-| **HBauO §6 — Abstandsflächen multiplier** | HBauO primary text §6 | `landesrecht-hamburg.de/bsha` → HBauO §6 |
+| **ALKIS WFS — Hamburg** | `geodienste.hamburg.de/HH_WFS_ALKIS` — **confirmed HTTP 404** (2026-07-23 live probe). Path has changed or service discontinued at this URL. | Live probe 2026-07-23 | `geodienste.hamburg.de/HH_WFS_ALKIS` | `verified (negative)` — 404 confirmed; use `transparenzportal.hamburg.de` CKAN or `geodienste.hamburg.de` capabilities listing to find current ALKIS endpoint |
+| **HBauO §6 — Abstandsflächen multiplier** | `landesrecht-hamburg.de/bsha` is a JavaScript SPA — §6 text not accessible via curl (returns 5,634 chars JS bundle, no article content). Headless browser or PDF print required. | Live probe 2026-07-23 | `landesrecht-hamburg.de/bsha/document/jlr-BauOHA2018pP6` | `verified (negative)` — content not accessible via curl |
 | **§34 coverage fraction** | Grid-sample probe over Hamburg bbox | See `../NEXT.md §3.B4` |
 | **Any specific GRZ/GFZ/height value for any Hamburg B-Plan zone** | Live XPlanGML response or signed Satzung PDF | From B1 probe + Satzung cross-check |
 
