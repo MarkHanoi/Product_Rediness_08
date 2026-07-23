@@ -7,34 +7,21 @@ cost and sequencing of the Lyon pack depends on one unresolved probe.
 
 ---
 
-## 1 — THE CRITICAL PROBE (run this first, before anything else in France)
+## 1 — THE CRITICAL PROBE — **COMPLETED 2026-07-23**
 
-**Does the national GPU WFS expose `HBCPRINC` and/or `PLAFOND` as fields on Lyon zoning polygons?**
+**Result: HBCPRINC/PLAFOND are NOT on the national GPU WFS. Height data is on `data.grandlyon.com` only. Outcome: Tier 2 source integration required (+3–5 dev-days).**
 
-```bash
-# Lyon parcel — Confluence district (~69002)
-curl "https://data.geopf.fr/annexes/ressources/wfs/gpu.xml\
-?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
-&TYPENAMES=gpu:zone_urba\
-&BBOX=4.8240,45.7390,4.8350,45.7470,EPSG:4326\
-&SRSNAME=EPSG:4326&COUNT=3&OUTPUTFORMAT=application/json" \
-  | python3 -m json.tool | grep -E '"HBCPRINC|HBCSEC|PLAFOND|hauteur|HAUT'
+Live probes run 2026-07-23:
+1. **National GPU WFS `wfs_du:zone_urba`** for Lyon Confluence bbox (4.8240,45.7390,4.8350,45.7470): returned GML (338,262 chars). Parsed field names: NO `HBCPRINC`, `HBCSEC`, or `PLAFOND` present. Only standard GPU zone fields.
+2. **`apicarto.ign.fr/api/gpu/zone`**: returns HTTP 404 — path has changed. API Carto GPU paths are stale.
+3. **`data.grandlyon.com` WFS `plu_h_opposable.pluhauteur`**: CONFIRMED LIVE. Schema: `hauteur` (string, absolute metres; sample: "16"), `last_update`, `last_update_fme` (2026-04-23), `gid`. Geometry: polygon. WFS is open (no authentication observed).
 
-# Also try API Carto module GPU (may expose different fields)
-curl "https://apicarto.ign.fr/api/gpu/zone?lon=4.8300&lat=45.7430" | python3 -m json.tool
-```
+**Revised outcome:** Lyon outer 56 communes → data.grandlyon.com `pluhauteur` is the height source, not the national GPU. This is Tier 2 (second data source). Additional integration cost: ~3–5 dev-days beyond the GPU integration. Total pack estimate: ~8–12 dev-days for outer communes.
 
-**What each outcome means:**
-- **Fields present in national GPU WFS** → outer 56 communes are Tier 1. Begin pack
-  implementation immediately. No new engine kind needed. Estimated cost: ~5–7 dev-days to ship
-  the outer-communes pack.
-- **Fields absent, but present on `data.grandlyon.com`** → second data source integration
-  required. Check: `curl "https://data.grandlyon.com/geoserver/metropole-de-lyon/ows\
-  ?service=WFS&version=2.0.0&request=GetCapabilities" | grep -i hauteur`. If found, add
-  `data.grandlyon.com` as a second source and scope the integration separately (~3–5 dev-days).
-- **Fields absent from both** → Lyon height values are in the PLU-H règlement PDF only.
-  Sourcing reverts to the same PDF-transcription path as Paris. Update the blocker in
-  `../../NEXT.md §3.1` accordingly.
+**Outstanding sub-questions:**
+- Is `pluhauteur` a single unified layer (all 58 communes) or separate for Lyon+Villeurbanne?
+- Does `pluzone` layer on grandlyon contain zone_urba equivalent (zone code, libelle)?
+- PLU-H document URL pattern confirmed: `pluh.grandlyon.com/plu.php?select_commune=LYON5E`
 
 ---
 

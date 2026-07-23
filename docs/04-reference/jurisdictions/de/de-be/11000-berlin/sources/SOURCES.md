@@ -1,6 +1,6 @@
 # Berlin (11000) — data sources
 
-**Status:** NOT STARTED — no live probe run, no field values confirmed.
+**Status:** PROBE ATTEMPTED 2026-07-23 — all documented FIS-Broker paths return 404. Endpoints in NEXT.md §6 are stale. FIS-Broker discovery required before any Berlin probe can succeed.
 
 ---
 
@@ -24,9 +24,10 @@
 
 | Field | What to verify against | Method |
 |---|---|---|
-| **Berlin FIS-Broker B-Plan layer name** | Live WFS GetCapabilities response | Run probe B1 in `../NEXT.md §3` |
-| **GRZ / GFZ / Höhe attributes in Berlin B-Plan XPlanGML** | Live GetFeature response for a Mitte parcel | Run probe B1; check attribute names and null rate |
-| **Berlin FIS-Broker Baunutzungsplan layer name** | WFS GetCapabilities — search for Baunutzungsplan / baunp / bnp | Same probe session as B1 |
+| **Berlin FIS-Broker endpoint discovery — 2026-07-23 probe results** | All documented FIS-Broker WFS paths returned **HTTP 404**: `fbinter.stadt-berlin.de/fb/wfs/geometry/senstadt/re_bplan`, `fbinter.stadt-berlin.de/fb/wfs/data/senstadt/s_bplan`, `fbinter.stadt-berlin.de/fb/wfs/geometry/senstadt/re_3dgebaeude`, `fbinter.stadt-berlin.de/fb/wfs/data/senstadt/s_wfs_alkis_gebaeudeflaechen`, `gdi.berlin.de/services/wfs/be_bplan`, `gdi.berlin.de/services/wfs/be_xplanung`, `gdi.berlin.de/services/wfs/s_bplan`. FIS-Broker index page `fbinter.stadt-berlin.de/fb/` also returned 404. `fbinter.stadt-berlin.de/fb/index.jsp` returned no WFS links. **All FIS-Broker paths documented before 2026-07-23 are stale.** | 2026-07-23 live probes | `fbinter.stadt-berlin.de` and `gdi.berlin.de` | `verified (negative)` — endpoint rediscovery required |
+| **Berlin FIS-Broker B-Plan layer name** | Live WFS GetCapabilities response — **BLOCKED: endpoint rediscovery required first** | Find current FIS-Broker endpoint (see `../NEXT.md §7 DEAD ENDS`) |
+| **GRZ / GFZ / Höhe attributes in Berlin B-Plan XPlanGML** | Live GetFeature response for a Mitte parcel — **BLOCKED: endpoint rediscovery required first** | Run probe B1 after endpoint discovery; check attribute names and null rate |
+| **Berlin FIS-Broker Baunutzungsplan layer name** | WFS GetCapabilities — search for Baunutzungsplan / baunp / bnp — **BLOCKED: endpoint rediscovery required first** | Same probe session as B1 |
 | **Baustufen → GRZ/GFZ translation table** | Original 1958/60 Baunutzungsplan legend/key | Berlin Senate Stadtentwicklungsamt archive — see `../NEXT.md §3.B2` |
 | **§34 coverage fraction — East Berlin** | Grid-sample probe over former East Berlin districts | See `../NEXT.md §3.B4` |
 | **BauO Bln §6 — Abstandsflächen multiplier** | BauO Bln primary text §6 | `gesetze.berlin.de` → BauO Bln §6 |

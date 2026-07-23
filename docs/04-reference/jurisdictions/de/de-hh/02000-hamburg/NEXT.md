@@ -22,30 +22,24 @@ Denominator: Hamburg parcels inside a modern BauGB B-Plan boundary with non-null
 
 ## 3 — BLOCKERS
 
-### B1 — XPlanGML structured-field completeness unknown (the critical probe)
+### ~~B1 — XPlanGML structured-field completeness unknown~~ **RESOLVED 2026-07-23 — NEGATIVE**
 
-- **What it is.** Hamburg XPlanung is confirmed as fully migrated (1,900 + 900 plans), but whether the GRZ, GFZ, and height (`hoeheMN` / `GeschosseMax`) attributes are populated in the XPlanGML response is not yet verified. A compliant XPlanGML can carry only a B-Plan polygon + Satzung PDF link.
-- **Why it blocks.** If attributes are null, the numeric-rule ingestion path doesn't exist; all Hamburg packs would need PDF transcription (same path as Paris), raising the estimate from ~10–12 to ~18–20 dev-days.
-- **What would unblock it.** One live XPlanGML `GetFeature` request. See exact command below.
-- **THE EXACT RESUME STEP.**
-  ```bash
-  # 1. Check available feature types
-  curl "https://geodienste.hamburg.de/HH_WFS_Bebauungsplaene\
-  ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
-    | grep -E '<Name>|FeatureType' | head -30
+**Outcome: The Hamburg XPlanung WFS does NOT expose GRZ, GFZ, or height attributes. Hamburg packs require PDF transcription. Estimate: ~18–20 dev-days (upper estimate confirmed).**
 
-  # 2. Fetch one B-Plan feature — Altstadt/HafenCity area
-  curl "https://geodienste.hamburg.de/HH_WFS_Bebauungsplaene\
-  ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
-  &TYPENAMES=app:hh_bp_bereiche\
-  &BBOX=9.9980,53.5430,10.0090,53.5490,EPSG:4326\
-  &SRSNAME=EPSG:4326&COUNT=3&OUTPUTFORMAT=application/json" \
-    | python3 -m json.tool
+Live probe results 2026-07-23:
+- WFS endpoint `geodienste.hamburg.de/HH_WFS_Bebauungsplaene` — HTTP 200, open (Datenlizenz Deutschland 2.0, no access restrictions).
+- Two feature types: `app:hh_hh_festgestellt` (finalized plans), `app:prosin_imverfahren` (in-progress plans).
+- `app:hh_hh_festgestellt` schema (DescribeFeatureType): `geltendes_planrecht` (plan ID), `planrecht` (PDF URL), `begruendung`, `feststellungsdatum`, `geom`. **No GRZ, no GFZ, no Höhe, no XPlanGML zone attributes.**
+- Sample feature: plan "TB3", festgestellt 11.10.1949, PDF at `daten-hamburg.de/.../bplan/TB3.pdf` (200 OK, 581 KB PDF).
+- Conclusion: the public WFS is a boundary-polygon + PDF-link service. XPlanGML attributes (if they exist) are not exposed through this endpoint. Structured zoning parameters are in the PDFs only.
 
-  # 3. Check attributes in response for GRZ, GFZ, height
-  # Look for: GRZ, GFZ, hoeheMN, hoeheBezugspunkt, GeschosseMax, Nutzungsschablone
-  ```
-  Record: field names present in response, which are non-null, sample values.
+**Impact on Hamburg pack estimate:** raised from ~10–12 dev-days to ~18–20 dev-days (PDF transcription path).
+
+**Remaining path for Hamburg:**
+1. Download sample B-Plan PDFs via `planrecht` URL
+2. Assess whether PDFs are machine-readable (structured) or scanned raster images
+3. If structured PDF: build a PDF → GRZ/GFZ/Höhe extractor (~5 additional dev-days)
+4. If scanned raster: OCR pipeline required (~10 additional dev-days)
 
 ### B2 — Pre-1960 Hamburg-law plan citation preservation unconfirmed
 
@@ -102,15 +96,26 @@ Denominator: Hamburg parcels inside a modern BauGB B-Plan boundary with non-null
 ## 7 — DEAD ENDS (measured negatives — do NOT re-run hoping)
 
 - **ZSHH national LoD2 gateway as a free API for Hamburg:** INSPIRE Art. 13(1)(e) restricted — do not attempt. Go to Hamburg LGV / Transparenzportal directly for LoD2 tiles.
+- **Hamburg WFS as a source of GRZ/GFZ/Höhe attributes:** `geodienste.hamburg.de/HH_WFS_Bebauungsplaene` is a boundary-polygon + PDF-link service. Do NOT attempt to read GRZ/GFZ/Höhe from WFS GetFeature responses — they are not there. Source from PDFs only.
+- **`app:hh_bp_bereiche` layer name:** returned "Feature type with name 'hh_bp_bereiche' is not served by this WFS" — this layer does not exist. Correct layer names are `app:hh_hh_festgestellt` and `app:prosin_imverfahren`.
+- **Hamburg ALKIS WFS at `geodienste.hamburg.de/HH_WFS_ALKIS`:** HTTP 404 (2026-07-23). Path has changed or endpoint requires authentication. Use Transparenzportal for current ALKIS endpoint.
 
 ---
 
 ## 8 — THE SMALLEST NEXT STEP that moves the number, and its cost
 
-**Run the Hamburg XPlanGML probe (B1). Estimated: 0.5 dev-days.**
+**~~Run the Hamburg XPlanGML probe (B1)~~ — DONE 2026-07-23. B1 resolved as NEGATIVE.**
 
-The single probe in B1 above answers the two questions that determine the entire Hamburg implementation path:
-1. Are GRZ/GFZ/height attributes populated? → determines whether Hamburg is a ~10 d pipeline build or a ~20 d PDF-transcription exercise.
-2. What is the layer name and auth requirement? → unblocks all subsequent engineering.
+**New smallest next step: assess Hamburg B-Plan PDF structure. Estimated: 1 dev-day.**
 
-Record the full probe output verbatim in `sources/SOURCES.md §A`. The result of this one probe defines the Hamburg pack's first milestone.
+1. Download 3–5 sample B-Plan PDFs via `planrecht` field URLs (e.g. `daten-hamburg.de/.../bplan/TB3.pdf`)
+2. Open each PDF: check whether it is a structured/searchable PDF or a raster scan
+3. If structured (text-selectable): assess whether GRZ/GFZ/Höhe appear as labelled text → build PDF text extractor
+4. If raster: assess OCR feasibility and cost; compare with manual transcription for initial pack
+
+Record result in `sources/SOURCES.md §A` and update estimate accordingly. This single assessment determines whether the Hamburg pack costs ~18 or ~25 dev-days.
+
+**Layer names now confirmed (do not re-guess):**
+- Finalized plans: `app:hh_hh_festgestellt`
+- In-progress plans: `app:prosin_imverfahren`
+- PDF URL pattern: `https://daten-hamburg.de/infrastruktur_bauen_wohnen/bebauungsplaene/pdfs/bplan/<planID>.pdf`

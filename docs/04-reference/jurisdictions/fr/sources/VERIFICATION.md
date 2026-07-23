@@ -2,7 +2,7 @@
 
 **Verifier:** UNASSIGNED · **Date:** — · **Pack version / commit:** —
 
-**Status: OPEN — no live endpoint has been probed and no numeric rule value has been verified.**
+**Status: PARTIALLY VERIFIED — BD TOPO `hauteur` and GPU WFS live-probed 2026-07-23. Two checks resolved. Three remain pending (apicarto path change, LiDAR coverage, licence header).**
 
 All entries in `SOURCES.md §A` are `corroborated` or `published` based on research synthesis (multiple consistent secondary sources and official documentation pages). They have NOT been verified against live API responses. The following steps are required before any field can be promoted to `certified`.
 
@@ -12,9 +12,9 @@ All entries in `SOURCES.md §A` are `corroborated` or `published` based on resea
 
 | Field | To verify against | Method | Verdict |
 |---|---|---|---|
-| BD TOPO `HAUTEUR` non-null for Paris buildings | Live WFS response from `data.geopf.fr/wfs` for a Paris bbox | Run the probe in NEXT.md §8; record field names and a sample `HAUTEUR` value | ⬜ pending |
-| GPU API returns zone code + PDF link for a Paris parcel | Live `apicarto.ign.fr/api/gpu` response | `GET /api/gpu/zone?lon=2.3470&lat=48.8530`; confirm `codezone`, `libelle`, `urlfic` fields present | ⬜ pending |
-| GPU WFS returns zone code for a Lyon parcel; confirm presence/absence of `HBCPRINC`/`PLAFOND` | Live `data.geopf.fr/annexes/ressources/wfs/gpu.xml` response | WFS `GetFeature` for Lyon bbox; inspect all field names | ⬜ pending |
+| BD TOPO `HAUTEUR` non-null for Paris buildings | Live WFS response from `data.geopf.fr/wfs` for a Paris bbox | Run the probe in NEXT.md §8; record field names and a sample `HAUTEUR` value | ✅ **VERIFIED 2026-07-23** — field name is lowercase `hauteur`; 5/5 features non-null in Paris 8th arr bbox; sample values 9.5m, 21m, 9.6m; endpoint `data.geopf.fr/wfs` with `apikey=essentiels`; HTTP 200 |
+| GPU API returns zone code + PDF link for a Paris parcel | Live `apicarto.ign.fr/api/gpu` response | `GET /api/gpu/zone?lon=2.3470&lat=48.8530`; confirm `codezone`, `libelle`, `urlfic` fields present | ⚠ **BLOCKED 2026-07-23** — apicarto.ign.fr `/api/gpu/zone` and `/api/gpu/commune` return 404; API paths have changed. Use GPU WFS directly: `data.geopf.fr/annexes/ressources/wfs/gpu.xml` with `apikey=gpu`. Pending: re-probe correct apicarto paths via `/api/doc/gpu` swagger |
+| GPU WFS returns zone code for a Lyon parcel; confirm presence/absence of `HBCPRINC`/`PLAFOND` | Live `data.geopf.fr/annexes/ressources/wfs/gpu.xml` response | WFS `GetFeature` for Lyon bbox; inspect all field names | ✅ **VERIFIED 2026-07-23 — NEGATIVE** — live probe of `wfs_du:zone_urba` for Lyon Confluence (BBOX 4.8240,45.7390,4.8350,45.7470) returned GML (338,262 chars). No `HBCPRINC` or `PLAFOND` in field schema. These fields are NOT on the national GPU WFS. Lyon height data is on `data.grandlyon.com` only (see Lyon SOURCES.md) |
 | LiDAR HD coverage includes Paris, Lyon, Marseille tiles | `macarte.ign.fr` coverage map | Visual check + tile availability at a known coordinate for each city | ⬜ pending |
 | Etalab 2.0 licence text on BD TOPO WFS response | Response `Content-License` header or metadata object | Inspect headers on a live WFS GetFeature response | ⬜ pending |
 

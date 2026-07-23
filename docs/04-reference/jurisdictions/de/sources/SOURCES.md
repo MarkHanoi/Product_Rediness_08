@@ -1,6 +1,6 @@
 # Germany (`de`) — national data sources
 
-**Status:** PARTIAL — national standards and legal instruments characterised from research; no live probe yet. No numeric rule values are verified — those live in per-parcel B-Plan XPlanGML files or signed Satzung PDFs, neither of which has been read for any specific German parcel.
+**Status:** PARTIALLY PROBED 2026-07-23 — Hamburg WFS live-probed (open, Datenlizenz Deutschland 2.0); Berlin FIS-Broker paths stale (all 404). No numeric rule values are verified — those live in per-parcel B-Plan XPlanGML files or signed Satzung PDFs, neither of which has been read for any specific German parcel.
 
 > **Trust gate:** a field with NO citable source stays `null` in the pack and is listed under §B.
 > A pack may not ship confidence `structured` unless EVERY field it sets has a row in §A here.

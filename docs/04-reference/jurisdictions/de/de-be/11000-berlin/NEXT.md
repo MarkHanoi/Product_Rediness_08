@@ -117,6 +117,18 @@ Denominator: Berlin parcels under regime (a) B-Plan with non-null GRZ/GFZ/Höhe 
 
 - **Baustufen→GRZ/GFZ mapping in XPlanGML:** XPlanGML predates the 1958/60 plan and has no field for Baustufen-to-BauNVO conversion. Do not search the XPlanGML schema for this table — it is not there. Go to the Berlin Senate archive.
 - **Single spatial query classifying §34 vs §30 without a separate FIS-Broker probe:** there is no negative-space query for "parcels not covered by any plan." The classifier must check plan-layer coverage first and infer §34 from absence.
+- **All FIS-Broker WFS paths documented before 2026-07-23 — ALL 404 (live probe):** Do NOT retry these paths hoping they recover:
+  - `fbinter.stadt-berlin.de/fb/wfs/geometry/senstadt/re_bplan` → 404
+  - `fbinter.stadt-berlin.de/fb/wfs/data/senstadt/s_bplan` → 404
+  - `fbinter.stadt-berlin.de/fb/wfs/geometry/senstadt/re_3dgebaeude` → 404
+  - `fbinter.stadt-berlin.de/fb/wfs/data/senstadt/s_wfs_alkis_gebaeudeflaechen` → 404
+  - `gdi.berlin.de/services/wfs/be_bplan` → 404
+  - `gdi.berlin.de/services/wfs/be_xplanung` → 404
+  - `gdi.berlin.de/services/wfs/s_bplan` → 404
+  - `fbinter.stadt-berlin.de/fb/` → 404 (index page)
+  - `fbinter.stadt-berlin.de/fb/index.jsp` → no WFS links found
+  - `geodaten.berlin.de/geoserver/bplan/wfs` → 404
+  **Current approach:** browse `gdi.berlin.de` and `daten.berlin.de` manually or via CKAN API (`data.berlin.de/api/3/action/package_search?q=bebauungsplan&fq=res_format:WFS`) — `data.berlin.de` CKAN API itself also returned empty results in 2026-07-23 probe (503/empty response). New discovery session required.
 
 ---
 

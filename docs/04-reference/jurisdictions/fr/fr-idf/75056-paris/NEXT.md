@@ -15,22 +15,24 @@ Neither the `UG` pack nor any other Paris zone can be implemented without a rati
 describing the new engine kind. **THE EXACT RESUME STEP:** read UG.10.1–10.4 verbatim from the
 consolidated PLU bioclimatique text, then draft ADR-0274 with the founder.
 
-### B2 — "Plan des hauteurs" machine-readability unknown
+### ~~B2 — "Plan des hauteurs" machine-readability unknown~~ **RESOLVED 2026-07-23 — GIS CONFIRMED**
 
-The graphic-plan ceiling values that `UG`'s height formula depends on are stored in a "plan des
-hauteurs". It may be a queryable GIS layer (best case: 4–5 dev-days to ingest) or PDF plates
-only ("atlas des planches au 1/2000" — worst case: +6–8 dev-days for digitizing).
+**Outcome: BEST CASE — the height envelope is GIS machine-readable.**
 
-**THE EXACT RESUME STEP:**
-```bash
-# Check Paris open data for a GIS hauteurs layer
-curl "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets\
-?where=title+like+'hauteur'&limit=10&select=dataset_id,title,description"
+Three datasets confirmed on `opendata.paris.fr` (live probe 2026-07-23):
 
-# Also check the SIG portal
-curl "https://api-sig.paris.fr/geoserver/wfs?SERVICE=WFS&REQUEST=GetCapabilities" \
-  | grep -i hauteur
-```
+1. **`plub_filet`** — "Filets gabarit-enveloppe" — **20,644 records** (parcel-edge segments). Field `haut` is a coded letter (M, K, C observed). The letter maps to a height-via-street-width ratio per PLU bioclimatique UG.10. Geometry: line segments (edges of parcel frontages). Access: `https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/plub_filet/records`
+
+2. **`plub_hauteur`** — "Plafonds des hauteurs" — **116 records** (zone polygons). Field `hauteur` = absolute metres (sample: 25m). This is a coarse zone-level ceiling override (e.g. large urban regeneration sectors).
+
+3. **`plub_hmc`** — "Hauteur maximale constructible" — **47 records** (spot polygons). Fields: `hmc` = "NGF" (datum = altitude above sea level), `ht_hmc` = absolute height (samples: 85m, 67m). These are absolute NGF ceiling points for exceptional cases (tall towers, hilltops).
+
+**Impact on estimate:** Paris pack is now 24–29 dev-days (lower estimate confirmed). GIS ingestion path is viable. `plub_filet` coded-letter field decoding is the remaining unknown (requires reading UG.10 règlement verbatim).
+
+**Remaining work for plan des hauteurs:**
+- Read PLU bioclimatique règlement UG.10 verbatim for the `haut` letter-to-height decoding table
+- Verify that `c_asp` (parcel reference in `plub_filet`) is joinable to the cadastral parcel identifier
+- Determine whether `plub_filet` segments cover 100% of Paris parcels or only specified frontages
 
 ### B3 — ABF perimeter overlay not built (HIGH RISK for Paris)
 

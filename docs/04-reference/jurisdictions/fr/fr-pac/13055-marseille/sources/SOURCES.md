@@ -1,6 +1,6 @@
 # Marseille / AMP Territoire 1 (13055) — data sources
 
-**Status:** NOT STARTED — no live probe run, no field values confirmed.
+**Status:** PARTIALLY PROBED 2026-07-23 — GPU WFS probed; no height attributes on zone_urba features (graphic-primacy path confirmed from WFS side). AMP portal graphic layer machine-readability still unconfirmed. No règlement PDF read, no numeric value certified.
 
 ---
 
@@ -24,7 +24,7 @@
 
 | Field | What to verify against | Method |
 |---|---|---|
-| **PLUi Territoire 1 règlement graphique machine-readability** | AMP urbanisme portal / GPU WFS response | Run B1 probe in `../NEXT.md §3` — **highest priority** |
+| **PLUi Territoire 1 règlement graphique machine-readability** | PARTIALLY PROBED 2026-07-23: GPU WFS `wfs_du:zone_urba` for Vieux-Port bbox returned XML WFS Capabilities (not feature data — likely rate-limited by the GPU server; the Capabilities XML does not show height attributes as feature types). No height attributes found in zone_urba DescribeFeatureType schema. **Graphic layer GIS machine-readability status: STILL UNKNOWN** — GPU WFS does not carry it; AMP portal not yet probed. | Retry GPU GetFeature for Marseille bbox with rate delay; probe `sig.ampmetropole.fr` or AMP geoserver for graphic règlement layer |
 | **PLUi Territoire 1 graphic-primacy precedence rule verbatim text** | PLUi Territoire 1 règlement PDF — dispositions générales | Download PLUi PDF via GPU link; read verbatim before drafting ADR-0275 |
 | **Zone UA height article verbatim** (max height in metres, emprise au sol %) | PLUi Territoire 1 written règlement, zone UA articles | PLUi PDF via GPU link |
 | **Zone UB height article verbatim** | PLUi Territoire 1 written règlement, zone UB articles | Same PLUi PDF |
