@@ -6,15 +6,15 @@
 ## What was checked, against which document version
 | Field | Verified against | Method | Verdict |
 |---|---|---|---|
-| `maxCoverage` 0.75 / 0.65 | 2024 MOMRAH decision, Ch. 4 pp18/22 | PDF read live | ⚠ page-cited, clause not transcribed |
-| setback formula `max(w/5,{3,2,2})` | Ch. 4 §4.2 | PDF read + resolver unit-verified | ⚠ page-cited |
-| height / floors = null (refusal) | Ch. 4 §4.1 + Ch. 1 §1 | PDF read | ✅ correct to refuse (no national value) |
+| `maxCoverage` 0.75 / 0.65 | §4-1 cl. 1 / §4-2 cl. 1 | PDF read live | ✅ clause-transcribed (L-606, machine) |
+| setback formula `max(w/5,{3,2,2})` | §4-1 cl. 4 / §4-2 cl. 4 | PDF read + resolver unit-verified | ✅ clause-transcribed (L-606) |
+| height / floors = null, **bounded** refusal | §5-1-5 cl. 3 / §3-1 / §3-2 (cap) + §4 cl. 1 (exact) | PDF read | ✅ correct to refuse the EXACT value; national CEILING (≤14 m villa / ≤23 m apt) now cited alongside |
 | no FAR | full-text grep | PDF read | ✅ confirmed absent |
-| pack ↔ engine end-to-end | — | vitest scratch (footprint insets, coverage caps, height null, `estimated-ruleset`) | ✅ confirmed |
+| pack ↔ engine end-to-end | — | vitest throwaway, re-run L-606 (40×40 villa @ 20 m → 32×32 inset, 0.75 cap, height null, `estimated-ruleset`); deleted, suite back to baseline | ✅ confirmed |
 
 ## What I could NOT confirm (and why it stays unshippable)
-- **Clause-by-clause transcription + human sign-off** — the L-449 `structured`-tier gate. Not done →
-  the pack ships `estimated-ruleset`.
+- **The human sign-off.** Clause numbers are now MACHINE-transcribed (L-606); the remaining L-449
+  `structured`-tier gate is a **person** confirming the transcription. Until signed → `estimated-ruleset`.
 - **Apartment front ≥ 6 m at street ≥ 30 m** — `COULD NOT VERIFY` in the apartment table; **moot**
   because `max(w/5,3) ≥ 6 ⟺ w ≥ 30`.
 - **Per-zone floor/height** — every reachable Riyadh source geo-fenced/WAF-blocked (ECONNREFUSED /

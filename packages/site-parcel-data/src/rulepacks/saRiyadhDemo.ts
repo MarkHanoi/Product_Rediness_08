@@ -57,14 +57,17 @@
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 //   • `setbacks.{front,side,rear}` = NULL — the operative distance is `max(w/5, floor)`, a function
 //     of the street width, resolved per-parcel by `resolveSaudiSetbacks` (§2). Cited, not empty.
-//   • `maxHeight_m` = NULL, `maxFloors` = NULL — a **field-level cited-null refusal** (C58 §1.13),
-//     NOT a whole-envelope refusal. Floors + max height are NOT national: the decision (Ch. 4 §4.1
-//     cl. 1) defers them to the municipal approved plan (المخطط المعتمد), and region/city
-//     development-authority regulations (RCRC/ROSHN/NEOM/Diriyah…) PREVAIL on conflict (Ch. 1 §1
-//     cl. 3). Nulling these two fields alone keeps the FOOTPRINT (setbacks + coverage) intact while
-//     the vertical extent honestly refuses — deleting the whole envelope would zero the buildable
-//     ring the national tables DO determine. 23 m is the villa/apartment↔high-rise CLASS boundary
-//     (high-rise is out of scope, Ch. §4), never a height cap this decision imposes.
+//   • `maxHeight_m` = NULL, `maxFloors` = NULL — a **field-level BOUNDED cited-null refusal**
+//     (C58 §1.13), NOT a whole-envelope refusal. The EXACT floors + height are municipal: §4 cl. 1
+//     defers them to the approved plan (المخطط المعتمد), and development-authority regs
+//     (RCRC/ROSHN/NEOM/Diriyah…) PREVAIL on conflict (§1 cl. 3). BUT — unlike the first pass claimed
+//     — the decision DOES set a national numeric CEILING on the vertical extent: a villa ≤ 14 m and
+//     ≤ ground+1+annex (§5-1-5 cl. 3; §3-1), an apartment ≤ 23 m (§3-2..§3-4). The exact value
+//     WITHIN that ceiling is what refuses; the ceiling itself is national and is carried in
+//     `SA_HEIGHT_PLAN_DEFERRED_REF` + `SA_MAX_HEIGHT_M`. These two fields stay NULL (not rendered)
+//     because rendering the ceiling would OVER-state where the plan restricts below it (C58 §1.4);
+//     the FOOTPRINT (setbacks + coverage) stays intact regardless. So no envelope field is a total
+//     unknown: 4 of 6 are pinned nationally, the other 2 are nationally BOUNDED.
 //   • `plotRatioFAR` = NULL — the residential decision has **no FAR at all** (grep of the 42-page
 //     text: 0 hits for معامل البناء). Saudi residential buildability is coverage% + setbacks +
 //     floor count, not FAR. The "FAR 3" figure elsewhere is a COMMERCIAL/hotel document. This is a
@@ -127,13 +130,45 @@ export const SA_SETBACK_FLOOR = Object.freeze({ front_m: 3, side_m: 2, rear_m: 2
 export const SA_FRONT_FLOOR_WIDE_STREET_M = 6;
 export const SA_WIDE_STREET_THRESHOLD_M = 30;
 
-/** Ch. 4 §4.2 — the NEIGHBOUR-facing (party) separation. A DIFFERENT quantity from the street-facing
- *  side/rear above, and NOT part of the resolved street triple: the demo does not classify the
- *  party edge per-parcel. Carried so a consumer states it, never silently drops it. */
+/** §4-2 cl. 4 / §4-3 cl. 4 — the NEIGHBOUR-facing (party) separation. A DIFFERENT quantity from the
+ *  street-facing side/rear above, and NOT part of the resolved street triple: the demo does not
+ *  classify the party edge per-parcel. Carried so a consumer states it, never silently drops it. */
 export const SA_NEIGHBOUR_SIDE_M = Object.freeze({
     villa: 1.5,
     apartment_le5floors: 2,
     apartment_gt5floors: 3,
+} as const);
+
+// ── The NATIONAL VERTICAL CEILING — a cited numeric UPPER BOUND per class. ──────────────────────
+//
+// 🔴 MAXIMISATION (2026-07-23, L-606 re-read of the primary PDF, machine-transcribed). The vertical
+// extent is NOT purely municipal: the decision states an EXPLICIT, national, numeric CEILING per
+// class. This was under-recorded in the first pass (which treated 23 m as "only a class boundary,
+// not a cap" and did not surface the villa metre cap at all):
+//
+//   • VILLA — total height ≤ 14 m (§5-1-5 cl. 3, "الحد الأقصى لارتفاع الفلل السكنية 14 متر",
+//     measured pavement→upper-annex roof slab per the §2 definition) AND floors ≤ ground + 1 upper
+//     + upper annex (§3-1, "بحد أقصى دورين وملحق علوي"). BOTH are national hard caps.
+//   • APARTMENT / commercial / administrative — total height ≤ 23 m (§3-2/§3-3/§3-4,
+//     "لا يزيد ارتفاعها الكلي عن 23م"); above 23 m the building is HIGH-RISE (§2 definition) and
+//     OUT of scope (§1-1). So for an in-scope apartment, 23 m is BOTH the class boundary AND the
+//     national height ceiling.
+//
+// ⚠ WHY THESE ARE NOT RENDERED AS `maxHeight_m` / `maxFloors`. They are the MAXIMUM the national law
+// permits, not the value a given parcel is granted: §4 cl. 1 defers the SPECIFIC permitted floors +
+// height to the municipal approved plan (المخطط المعتمد), which may set LOWER (heritage, airport,
+// density zones), and development authorities may override entirely (§1 cl. 3). Rendering 14 m / 23 m
+// as the height would OVER-state wherever the plan restricts below the cap — the one direction
+// C58 §1.4 forbids. So `maxHeight_m`/`maxFloors` stay NULL (the exact value refuses) and the ceiling
+// is surfaced in the refusal text (`SA_HEIGHT_PLAN_DEFERRED_REF`) as a BOUNDED refusal — a cited
+// national upper bound, not a bare "unknown". A future L5 flow MAY offer a clearly-labelled
+// "national-maximum envelope" toggle rendering to this cap; that is a UI opt-in, never the default.
+export const SA_MAX_HEIGHT_M = Object.freeze({ villa: 14, apartment: 23 } as const);
+/** §3-1 — a villa is nationally capped at ground + 1 upper floor + an upper annex (ملحق علوي). */
+export const SA_MAX_FLOORS_VILLA = Object.freeze({
+    mainFloors: 2, // ground + 1 upper ("دورين")
+    plusUpperAnnex: true, // + ملحق علوي (penthouse-class annex, ≤ 70% of the floor beneath)
+    plusBasement: true, // + قبو (basement; not counted in total height per §5-1-5 cl. 4)
 } as const);
 
 /** The primary-source citation carried on every value in this pack. */
@@ -141,22 +176,30 @@ const SA_MOMRAH_DECISION_REF =
     'قرار وزاري رقم 1/4500943139 (1446 H ≈ 21 Jul 2024) — اشتراطات إنشاء المباني السكنية ' +
     '(Requirements for the construction of residential buildings), وزارة الشؤون البلدية والقروية ' +
     'والإسكان (MOMRAH). Read live from momah.gov.sa (HTTP 200, application/pdf, 5,084,557 B, 42 pp) ' +
-    'and mirrored at balady.gov.sa — two independent government hosts. Coverage + setbacks: Ch. 4 ' +
-    '(villa p18, apartment p22, apt-admin p23); definitions Ch. 2 (pp. 9–12). ⚠ estimated-ruleset — ' +
-    'the decision PDF is read but the per-field clause numbers are NOT yet human-transcribed to ' +
-    'SOURCES.md and no VERIFICATION.md sign-off exists (playbook §3.3 / L-449). Nothing is certified. ' +
+    'and mirrored at balady.gov.sa — two independent government hosts. CLAUSE-CITED (machine ' +
+    'transcription, L-606, 2026-07-23): villa ground coverage 75% §4-1 cl. 1; villa setbacks ' +
+    'max(w/5,{3,2}) §4-1 cl. 4 (front ≥6 m at w≥30 m §4-1 cl. 5); apartment ground coverage 65% ' +
+    '§4-2 cl. 1; apartment/admin setbacks §4-2 cl. 4 / §4-3 cl. 4; classes §3-1..§3-4; definitions ' +
+    '§2. ⚠ estimated-ruleset — clause numbers are now transcribed, but a human VERIFICATION.md ' +
+    'sign-off (playbook §3.4 / L-449) is still absent, so nothing is certified `structured`. ' +
     'See docs/04-reference/jurisdictions/sa/SAUDI-PRIMARY-DECISION-EXTRACT.md.';
 
-/** The field-level cited-null refusal on height/floors (C58 §1.13). NOT a whole-envelope refusal. */
+/** The field-level BOUNDED cited-null refusal on height/floors (C58 §1.13). NOT a whole-envelope
+ *  refusal, and NOT a bare "unknown": the EXACT value refuses (municipal), but a NATIONAL numeric
+ *  CEILING is cited alongside — the honest maximum the demo can state without over-building. */
 export const SA_HEIGHT_PLAN_DEFERRED_REF =
-    'Floors + maximum height are NOT set nationally. The decision (Ch. 4 §4.1 cl. 1) defers them to ' +
-    'the municipal approved plan (المخطط المعتمد) per planning zone; and region/city ' +
-    'development-authority regulations (RCRC/ROSHN/NEOM/Diriyah Gate…) PREVAIL on any conflict ' +
-    '(Ch. 1 §1 cl. 3). PRYZM holds no reachable per-zone floor/height source for Riyadh (the ' +
-    'candidates — trc.alriyadh.gov.sa, rcrc.gov.sa, istitlaa.ncc.gov.sa — are geo-fenced/WAF-blocked ' +
-    'from outside SA; measured negatives on shape, not proof of absence). So height/floors REFUSE ' +
-    'here, per-field, while the footprint (setbacks + coverage) stays intact. 23 m is the ' +
-    'apartment↔high-rise class boundary (high-rise out of scope), not a cap. — ' +
+    'Floors + maximum height are BOUNDED nationally but not PINNED nationally. National CEILING: a ' +
+    'villa ≤ 14 m and ≤ ground + 1 upper + upper annex (§5-1-5 cl. 3; §3-1); an apartment ≤ 23 m ' +
+    '(§3-2..§3-4, above which it is high-rise and out of scope, §1-1). The EXACT permitted floors + ' +
+    'height WITHIN that ceiling are deferred to the municipal approved plan (المخطط المعتمد) per ' +
+    'planning zone (§4 cl. 1) and may be set LOWER; region/city development-authority regulations ' +
+    '(RCRC/ROSHN/NEOM/Diriyah Gate…) PREVAIL on any conflict (§1 cl. 3). PRYZM holds no reachable ' +
+    'per-zone source for the exact Riyadh value (candidates trc.alriyadh.gov.sa, rcrc.gov.sa, ' +
+    'istitlaa.ncc.gov.sa are geo-fenced/WAF-blocked from outside SA; measured negatives on shape, ' +
+    'not proof of absence). So height/floors REFUSE the exact value here, per-field — with the ' +
+    'national ceiling cited — while the footprint (setbacks + coverage) stays intact. Rendering the ' +
+    'ceiling as the height would over-state where the plan restricts below it (C58 §1.4), so ' +
+    'maxHeight_m/maxFloors stay null and the cap lives here, in the refusal. — ' +
     SA_MOMRAH_DECISION_REF;
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -233,7 +276,10 @@ export function resolveSaudiSetbacks(
         front_m,
         side_m,
         rear_m,
-        article: '2024 MOMRAH decision, Ch. 4 §4.2 (setbacks) — max(street width / 5, floor)',
+        article:
+            plotClass === 'villa'
+                ? '2024 MOMRAH decision §4-1 cl. 4 (villa setbacks) — max(street width / 5, {front 3, side/rear 2})'
+                : '2024 MOMRAH decision §4-2 cl. 4 (apartment setbacks) — max(street width / 5, {front 3, side/rear 2})',
         why:
             `street width ${w.toFixed(2)} m → w/5 = ${proportional.toFixed(2)} m → ` +
             `front max(${proportional.toFixed(2)}, 3) = ${front_m.toFixed(2)} m, ` +
@@ -296,9 +342,12 @@ function zoneFor(code: SaRiyadhZoneCode): ZoningRule {
         },
         ordinanceRef:
             (isVilla
-                ? 'Villa: ground coverage ≤ 75 % (Ch. 4, p18); '
-                : 'Apartment: ground coverage ≤ 65 % (Ch. 4, p22); ') +
-            `setbacks max(w/5, {front 3, side/rear 2}) m (Ch. 4 §4.2). ${SA_HEIGHT_PLAN_DEFERRED_REF}`,
+                ? 'Villa: ground coverage ≤ 75 % (§4-1 cl. 1); setbacks max(w/5, {front 3, side/rear 2}) m ' +
+                  '(§4-1 cl. 4, front ≥6 m at w≥30 m §4-1 cl. 5); national height ceiling ≤ 14 m & ' +
+                  '≤ ground+1+annex (§5-1-5 cl. 3; §3-1). '
+                : 'Apartment: ground coverage ≤ 65 % (§4-2 cl. 1); setbacks max(w/5, {front 3, side/rear 2}) m ' +
+                  '(§4-2 cl. 4); national height ceiling ≤ 23 m (§3-2). ') +
+            SA_HEIGHT_PLAN_DEFERRED_REF,
     };
 }
 
@@ -378,6 +427,8 @@ export function saRiyadhResolvedPack(
 //         saRiyadhResolvedPack,
 //         saRiyadhZoneCodeForClass,
 //         SA_GROUND_COVERAGE,
+//         SA_MAX_HEIGHT_M,
+//         SA_MAX_FLOORS_VILLA,
 //         SA_HEIGHT_PLAN_DEFERRED_REF,
 //         type SaudiPlotClass,
 //         type SaRiyadhZoneCode,

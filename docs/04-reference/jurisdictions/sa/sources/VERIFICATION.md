@@ -6,15 +6,17 @@
 ## What was checked, against which document version
 | Field | Verified against | Method | Verdict |
 |---|---|---|---|
-| setback formula | 2024 MOMRAH decision, Ch. 4 §4.2 | PDF read live (momah.gov.sa + balady mirror) | ⚠ page-cited, clause numbers not transcribed |
-| coverage villa 0.75 / apt 0.65 | Ch. 4 pp18/22 | PDF read | ⚠ page-cited, not clause-transcribed |
+| setback formula | §4-1 cl. 4 / §4-2 cl. 4 | PDF read live (momah.gov.sa + balady mirror) | ✅ clause-transcribed (L-606, machine) |
+| coverage villa 0.75 / apt 0.65 | §4-1 cl. 1 / §4-2 cl. 1 | PDF read | ✅ clause-transcribed (L-606, machine) |
 | no residential FAR | full-text grep (0 hits) | PDF read | ✅ confirmed absent |
-| floors / max height | Ch. 4 §4.1 + Ch. 1 §1 | PDF read | ❌ national value does not exist — deferred |
+| **national height CEILING** villa ≤14 m / apt ≤23 m | §5-1-5 cl. 3 / §3-1 / §3-2 | PDF read (L-606) | ✅ **national CAP exists and is cited** (correction to first pass) |
+| floors / max height — the **EXACT** value | §4 cl. 1 + §1 cl. 3 | PDF read | 🟡 exact value municipal; the CEILING is national (row above) |
 
 ## What I could NOT confirm (and why it stays unshippable)
-- **A human clause-by-clause transcription** — the numbers are read as page positions, not each tied
-  to its numbered clause with a person's sign-off. This is the L-449 gate the `structured` tier
-  requires; until it is done the pack ships `estimated-ruleset`.
+- **The human clause-by-clause sign-off.** The clause numbers are now MACHINE-transcribed from the PDF
+  (L-606) — the first pass's "not clause-transcribed" gap is closed on the machine side. What remains is
+  a **person** confirming that transcription against the document version (the L-449 gate the `structured`
+  tier requires). Until a human signs, the pack ships `estimated-ruleset`. This is now the LAST gate.
 - **Per-city floor/height** — every reachable Riyadh source (trc.alriyadh.gov.sa, rcrc.gov.sa,
   istitlaa.ncc.gov.sa) is geo-fenced/WAF-blocked from outside SA (ECONNREFUSED / "requested URL was
   rejected"). Measured negative on shape, NOT proof of absence.

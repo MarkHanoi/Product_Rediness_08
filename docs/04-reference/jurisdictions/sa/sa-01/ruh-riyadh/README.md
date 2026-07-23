@@ -18,9 +18,9 @@
 ## 2 — Pack status
 | Zone | Kind | Disposition | Confidence | Note |
 |---|---|---|---|---|
-| `sa-villa` | `setback` | `pack` (once wired — WIRING TODO) | `estimated-ruleset` | ground coverage 0.75; setbacks resolved per-parcel from street width |
-| `sa-apartment` | `setback` | `pack` (once wired) | `estimated-ruleset` | ground coverage 0.65; ≤ 23 m class |
-| height / floors (both) | — | **field-level cited-null refusal** (C58 §1.13) | — | municipal plan + authority override; not resolved |
+| `sa-villa` | `setback` | `pack` (once wired — WIRING TODO) | `estimated-ruleset` | ground coverage 0.75 (§4-1 cl. 1); setbacks resolved per-parcel (§4-1 cl. 4); national height ceiling ≤ 14 m (§5-1-5 cl. 3) |
+| `sa-apartment` | `setback` | `pack` (once wired) | `estimated-ruleset` | ground coverage 0.65 (§4-2 cl. 1); setbacks (§4-2 cl. 4); national height ceiling ≤ 23 m (§3-2) |
+| height / floors (both) | — | **field-level BOUNDED cited-null refusal** (C58 §1.13) | — | EXACT value municipal (§4 cl. 1) + authority override; a national CEILING (villa 14 m / apt 23 m) is cited alongside |
 
 Pack file: `packages/site-parcel-data/src/rulepacks/saRiyadhDemo.ts`. **Not registered** — see its
 `WIRING TODO (orchestrator)` block. Refusal vocabulary in use: **plan-deferred (field-level)**.
@@ -30,11 +30,18 @@ Pack file: `packages/site-parcel-data/src/rulepacks/saRiyadhDemo.ts`. **Not regi
   user-supplied street width (no reachable parcel feed).
 - Height/floors: would be **planning-zone** (municipal) granularity — refused, not held.
 
-## 4 — The number
-**No resolution rate yet** (pack authored, not wired). The *shape* of the answer once wired: a full
-cited **footprint** (setbacks + coverage) on any standard residential plot where the user supplies a
-street width; **height/floors refuse** (field-level, cited). Denominator when measured: standard
-residential plots inside the four national classes, excluding development-authority master-plan zones.
+## 4 — The number (the stipulated national ceiling)
+**No resolution rate yet** (pack authored, not wired). The stipulated ceiling, denominator = the 6
+governing envelope fields `{3 setbacks, ground coverage, max height, max floors}`:
+- **4 of 6 = 66.7% FULLY national** — the entire buildable **footprint** (setbacks §4-1/§4-2 cl. 4 +
+  coverage §4-1 cl. 1 / §4-2 cl. 1), on any standard residential plot where the user supplies a street width.
+- **2 of 6 nationally CEILINGED** — height + floors carry a cited national cap (villa ≤ 14 m §5-1-5 cl. 3
+  & ≤ G+1+annex §3-1; apt ≤ 23 m §3-2); the EXACT value beneath refuses (field-level, C58 §1.13).
+- So **no field is a total unknown**: the villa is nationally *maximised* (municipal can only reduce);
+  the apartment is national-footprint + a 23 m cap, exact floors municipal.
+
+Denominator when a rate is measured: standard residential plots inside the four national classes,
+excluding development-authority master-plan zones.
 
 ## 5 — Files in this folder
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.

@@ -15,21 +15,28 @@ dispatcher are the `WIRING TODO (orchestrator)` block in the pack file. We stopp
 already knew: **floors + height are not national and no reachable per-zone source exists** — every
 Riyadh candidate is geo-fenced.
 
-## 2 — THE NUMBER (what % of clicks, which denominator)
-No rate yet (unwired). Once wired, the footprint resolves on **any standard residential plot** where
-the user supplies a street width (denominator: plots inside the four national classes, outside
-development-authority master-plan zones). Height/floors refuse on **100 %** — a cited refusal, not a
-gap. Failure ≠ empty.
+## 2 — THE NUMBER — THE STIPULATED NATIONAL CEILING
+Denominator: the **6 governing envelope fields** `{3 setbacks, ground coverage, max height, max floors}`.
+- **4 of 6 = 66.7% FULLY national** = the entire buildable footprint (setbacks §4-1/§4-2 cl. 4 + coverage
+  §4-1 cl. 1 / §4-2 cl. 1). Resolves on any standard residential plot where the user supplies a street
+  width (denominator for a resolution rate: plots in the four national classes, outside dev-authority zones).
+- **2 of 6 nationally CEILINGED** = height/floors carry a cited national cap (villa ≤ 14 m §5-1-5 cl. 3
+  & ≤ G+1+annex §3-1; apt ≤ 23 m §3-2). The EXACT value beneath refuses — a **bounded** cited refusal,
+  not a bare gap. Failure ≠ empty. The villa is nationally *maximised* (municipal can only reduce).
 
 ## 3 — BLOCKERS (each: what · why it blocks · what would unblock · the EXACT resume step)
 
-### 3.1 — 🔴 Per-zone floor/height is not national, and no reachable source exists
-- **What.** Floors + max height are municipal (المخطط المعتمد, Ch. 4 §4.1) and development-authority
-  regs override on conflict (Ch. 1 §1). The demo refuses them, per-field.
-- **Why it blocks.** A full vertical envelope needs the per-zone number PRYZM does not hold.
-- **What would unblock (ascending cost).** (a) an in-SA read of the Riyadh RCRC/ADA per-zone height
-  table; (b) a Balady data agreement (its `NOOFFLOORS` field carries it per parcel); (c) a founder
-  demo decision to let the user pick a floor count under the ≤ 23 m apartment ceiling.
+### 3.1 — 🟡 The EXACT per-zone floor/height is municipal (the national CEILING is held)
+- **What.** The national decision CAPS the vertical extent (villa ≤ 14 m §5-1-5 cl. 3 & ≤ G+1+annex §3-1;
+  apt ≤ 23 m §3-2), but the EXACT floors + max height per zone are municipal (المخطط المعتمد, §4 cl. 1)
+  and development-authority regs override (§1 cl. 3). The demo refuses the EXACT value, per-field, WITH
+  the national ceiling cited alongside (a bounded refusal).
+- **Why it blocks (only a FULLER answer).** Pinning the exact height needs the per-zone number PRYZM does
+  not hold; the bounded answer (footprint + national cap) is complete without it.
+- **What would unblock (ascending cost).** (a) an in-SA read of the Riyadh RCRC/ADA per-zone height table;
+  (b) a Balady data agreement (its `NOOFFLOORS` field carries it per parcel); (c) a founder demo decision
+  to render the national-**maximum** envelope (villa 14 m/G+1+annex; apt 23 m) with the over-statement
+  caveat (C58 §1.4).
 - **THE EXACT RESUME STEP.** From an in-SA egress: `GET trc.alriyadh.gov.sa` and the RCRC design-guide
   volumes; assert on CONTENT (a real height table), not on HTTP 200 — the WAF returns 200 apology pages.
 
@@ -53,7 +60,15 @@ gap. Failure ≠ empty.
 - The rule pack `saRiyadhDemo.ts` (2 zones, resolver, per-parcel `saRiyadhResolvedPack`, WIRING TODO).
 - The solver DECISION (map onto `setback`, no new kind for the demo) — argued in `findings/L-606-*`.
 - The streetWidth.ts port VERDICT (algorithm ports; demo takes width from the user) — `findings/`.
-- The floor/height LIVE PROBE (all candidates geo-fenced) — `findings/`.
+- The floor/height LIVE PROBE for the EXACT value (all candidates geo-fenced) — `findings/`.
+- 🔴 **L-606 (2026-07-23): the national VERTICAL CEILING** — villa ≤ 14 m (§5-1-5 cl. 3) & ≤ G+1+annex
+  (§3-1), apt ≤ 23 m (§3-2) — transcribed from the PDF and encoded as `SA_MAX_HEIGHT_M` /
+  `SA_MAX_FLOORS_VILLA` + a BOUNDED refusal (`SA_HEIGHT_PLAN_DEFERRED_REF`). NOT rendered as maxHeight
+  (would over-state below the cap, C58 §1.4).
+- 🔴 **L-606: per-field CLAUSE NUMBERS machine-transcribed** into every `ordinanceRef` + `SOURCES.md`.
+  The pack's remaining `structured`-tier gate is now ONLY the human `VERIFICATION.md` sign-off.
+- 🔴 **L-606: end-to-end re-confirmed** (throwaway vitest, deleted; suite back to baseline): 40×40 villa
+  @ 20 m street → 32×32 inset, 0.75 coverage cap, height/floors null, `estimated-ruleset`.
 
 ## 6 — VERIFIED SOURCES (endpoint · answers · tier · exact query)
 | Source | Answers | Tier | Note |

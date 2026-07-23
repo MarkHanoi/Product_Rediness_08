@@ -10,8 +10,10 @@ Pack: `packages/site-parcel-data/src/rulepacks/saRiyadhDemo.ts`.
 `sa-ruh-riyadh`, `source: 'manual'`, `defaultConfidence: 'estimated-ruleset'`, two zones:
 - **`sa-villa`** — ground coverage **0.75**; **`sa-apartment`** — **0.65**. `permittedUse: residential`.
 - **setbacks `null`** (the width-dependent template) — resolved per-parcel by `resolveSaudiSetbacks`.
-- **`maxHeight_m: null`, `maxFloors: null`** — a **field-level cited-null refusal** (C58 §1.13),
-  `SA_HEIGHT_PLAN_DEFERRED_REF`. NOT a whole-envelope refusal — the footprint ring stays intact.
+- **`maxHeight_m: null`, `maxFloors: null`** — a **field-level BOUNDED cited-null refusal** (C58 §1.13),
+  `SA_HEIGHT_PLAN_DEFERRED_REF`. NOT a whole-envelope refusal — the footprint ring stays intact — and NOT
+  bare: a national CEILING (villa ≤ 14 m / apt ≤ 23 m) is cited alongside via `SA_MAX_HEIGHT_M` /
+  `SA_MAX_FLOORS_VILLA` (§4a). The exact value refuses; the cap is national.
 - **`plotRatioFAR: null`** — the residential regime has no FAR (genuine absence).
 - `fieldProvenance`: `ordinance-pdf` throughout (drives the "verify against the ordinance" affordance);
   pack tier `estimated-ruleset` (the clause-transcription + `VERIFICATION.md` sign-off gate is open).
@@ -92,12 +94,66 @@ status (WAF-200/geo-fence ≠ absent).
 | `istitlaa.ncc.gov.sa` (national consultation platform) | **ECONNREFUSED** (443) | Network/geo block. NOT absence. |
 | Web-search secondary (Arab News, omrania, RCRC, MEED) | Riyadh height/density is governed **per arterial road (> 40 m) and per corridor** by ADA/RCRC; some contexts cite FAR 6.5:1 and plot-size→floor bands (≤ 5000 m² → up to 10 floors) — but these are **high-rise/commercial**, OUT of scope of the residential decision (> 23 m = high-rise, excluded). | Confirms the layering (municipal + authority override) the primary law states; NOT a clean per-residential-zone national default. |
 
-**Conclusion.** The per-zone floor/height source EXISTS (municipal المخطط + RCRC/ADA corridor
+**Conclusion.** The per-zone **EXACT** floor/height source EXISTS (municipal المخطط + RCRC/ADA corridor
 guidelines that publish FAR/height and override the national decision), but every reachable candidate
 is either geo-fenced (measured on shape) or a human-readable PDF guideline, not a machine-readable
-per-parcel feed. So height/floors correctly stay a **field-level cited-null refusal**. This is
+per-parcel feed. So the EXACT height/floors correctly stay a **field-level cited-null refusal**. This is
 `COULD NOT VERIFY` (a measured geo-fence), **not** `DEAD` (proof of absence). The §3.1 blocker in
 `../NEXT.md` carries the exact in-SA resume step.
+
+---
+
+## 4a — 🔴 THE NATIONAL VERTICAL CEILING (the maximisation the probe missed on the first pass)
+
+Re-reading the primary PDF for a NATIONAL height source (per the ceiling brief) found one — a numeric
+national CEILING per class, distinct from the (municipal) EXACT value:
+
+| Class | National vertical cap | Clause | Verbatim |
+|---|---|---|---|
+| **Villa** | height **≤ 14 m** | **§5-1-5 cl. 3** | «الحد الأقصى لارتفاع الفلل السكنية 14 متر … إلى منسوب سطح الملحق العلوي» |
+| **Villa** | floors **≤ ground + 1 + upper annex** | **§3-1** | «بحد أقصى دورين وملحق علوي … وقبو» |
+| **Apartment / comm / admin** | height **≤ 23 m** | **§3-2 / §3-3 / §3-4** | «لا يزيد ارتفاعها الكلي عن 23م أعلى سطح الأرض» |
+| (boundary) | > 23 m ⇒ high-rise, OUT of scope | **§2 def + §1-1** | «الأبراج عالية الارتفاع: المباني التي يزيد ارتفاعها الكلي عن 23م» |
+
+**⇒ The vertical extent is nationally BOUNDED, not absent.** The first pass recorded floors/height as
+flatly "not national" and 23 m as "only a class boundary, not a cap"; both understated. The EXACT value
+within the cap is municipal (§4 cl. 1), but the CAP is national and cited.
+
+**Why it is NOT rendered as `maxHeight_m`.** It is a MAXIMUM, not a grant: the municipal plan may set
+LOWER, so rendering 14 m/23 m would over-state below the cap (C58 §1.4). It is encoded as `SA_MAX_HEIGHT_M`
++ `SA_MAX_FLOORS_VILLA` and surfaced in `SA_HEIGHT_PLAN_DEFERRED_REF` as a **bounded** refusal — a cited
+national upper bound beside the (refused) exact value.
+
+**Effect on the stipulated ceiling.** Of the 6 governing envelope fields, **4 are fully national (66.7%,
+the footprint) and the other 2 (height, floors) are nationally CEILINGED** — so no field is a total
+unknown. The **villa** is nationally *maximised* (footprint + 14 m + G+1+annex, municipal can only cut),
+so its national-maximum envelope is effectively complete; the **apartment** is national-footprint + a 23 m
+cap, exact floors municipal. All of this is COUNTRY-WIDE (Section 4 binds all Amanas; §3/§5-1-5 are national).
+
+## 4b — 🔴 CLAUSE-NUMBER TRANSCRIPTION (the SOURCES.md gate, machine half closed)
+
+The primary PDF was re-fetched (momah.gov.sa, HTTP 200, 4.8 MB, 42 pp) and extracted with pypdf (Arabic
+legible after digit transliteration). The per-field governing CLAUSE NUMBERS are now transcribed:
+
+| Value | Clause |
+|---|---|
+| Villa ground coverage 0.75 | §4-1 cl. 1 |
+| Villa upper-floor 0.75 / annex 0.70 | §4-1 cl. 2 / cl. 3 |
+| Villa setbacks max(w/5,{3,2}) | §4-1 cl. 4 (front ≥ 6 m at w ≥ 30 m: §4-1 cl. 5) |
+| Villa ground-floor build-in-setback ≤ 70% perimeter, ≤ 4.5 m | §4-1 cl. 8 |
+| Villa parking 1 / 2 spaces (≤/> 400 m²) | §4-1 cl. 14 |
+| Apartment ground coverage 0.65; upper 0.75 / annex 0.70 | §4-2 cl. 1 / cl. 2 / cl. 3 |
+| Apartment setbacks (neighbour ≥ 3 m > 5 floors, ≥ 2 m ≤ 5 floors) | §4-2 cl. 4 |
+| Apartment parking 1.5 / unit | §4-2 cl. 6 |
+| Admin apartment coverage/setbacks | §4-3 cl. 1–4 |
+| Classes (villa/apt/comm/admin) | §3-1 / §3-2 / §3-3 / §3-4 |
+| Deferral of exact floors/height + setbacks to the approved plan | §4 cl. 1 |
+| Development-authority override; commercial-street/special-area carve-outs | §1 cl. 2 / cl. 3 |
+| Definitions (street width, setback, coverage, total height) | §2 |
+
+These are now in every `ordinanceRef`, both `SOURCES.md` files, and both `VERIFICATION.md` files. **The
+pack's remaining `structured`-tier gate is now ONLY the human `VERIFICATION.md` sign-off** (L-449) — the
+machine transcription half is closed. Until a person signs, the honest ship tier stays `estimated-ruleset`.
 
 ---
 

@@ -23,36 +23,55 @@ residential decision directly** — so the rules are `VERIFIED-LIVE` primary, no
 headline: **a first-pass buildable FOOTPRINT (setbacks + ground coverage) is a pure national function
 of `street width + plot class`, needs no zone portal, and reuses our existing `streetWidth.ts`.** The
 one expensive Barcelona thing — parcel→zone resolution — **drops off the critical path.** We stopped
-before building anything, because **vertical extent (floors, height) is NOT national — it defers to
-the municipal plan and is overridable by development-authority regulations**, which is the same
-"local plan silently governs" trap Barcelona turned out to be, and it needs a per-city source or an
-explicit demo assumption.
+before building anything. 🔴 The L-606 re-read then found the vertical extent is **nationally
+CEILINGED, not absent**: an explicit national villa height cap of **14 m** (§5-1-5 cl. 3), a villa
+floor cap of ground+1+annex (§3-1), and the apartment ≤ 23 m cap (§3-2). So the *exact* floors/height
+defer to the municipal plan and are overridable by development authorities — the "local plan silently
+governs" trap — but only the exact value *within a known national cap*, never the footprint and never
+the cap itself. The footprint (4 of 6 fields) is fully national; the vertical is nationally bounded;
+only the exact height needs a per-city source or a demo assumption.
 
 ---
 
-## 2 — THE NUMBER (what a demo would answer)
+## 2 — 🔴 THE NUMBER — THE STIPULATED NATIONAL CEILING
 
-There is no resolution-rate yet (nothing built). The *shape* of the answer:
+**Denominator:** a complete residential envelope, decomposed into its **6 governing parameters**
+`{front, side, rear setback; ground coverage; max height; max floors}` (FAR excluded — not a parameter
+of the residential regime, a genuine national absence).
 
-- **Footprint + coverage:** fully determined by `street width + class` → **`plot ⊖ setbacks`, capped
-  by `coverage × plotArea`**. The simplest C58 rule kind (`setback` + `maxCoverage`). No block
-  dissolve, no depth construction, no tiered solid.
-- **Floors / height:** **not national.** Honest demo options: (a) show footprint + coverage, refuse
-  height as *"per municipal plan — not resolved"* (C58 §1.13, a cited refusal beside a real
-  footprint), or (b) let the user pick a floor count under the ≤23 m apartment ceiling.
+**National ceiling = 4 of 6 fields FULLY nationally determined = 66.7% — and that 66.7% is the ENTIRE
+buildable FOOTPRINT** (3 setbacks §4-1/§4-2 cl. 4 + ground coverage §4-1 cl. 1 / §4-2 cl. 1). The other
+2 fields (height, floors) are **not blank**: they carry a cited national numeric **CEILING**
+(villa ≤ 14 m §5-1-5 cl. 3 & ≤ ground+1+annex §3-1; apartment ≤ 23 m §3-2), with only the *exact* value
+beneath the cap deferred to the municipal plan. **No envelope field is a total unknown.**
+
+- **Footprint (66.7%, exact):** `plot ⊖ setbacks`, capped by `coverage × plotArea`. The simplest C58
+  rule kind (`setback` + `maxCoverage`). No block dissolve, no depth construction, no tiered solid.
+- **Vertical (33.3%, nationally CEILINGED):** villa is nationally *maximised* (14 m / G+1+annex — the
+  municipal plan can only reduce), so the national-maximum **villa** envelope is effectively complete;
+  an **apartment** is national-footprint + a 23 m cap, exact floors municipal. Honest demo options:
+  (a) footprint + coverage, height a **bounded** cited refusal ("exact value per municipal plan; ≤ 14 m
+  villa / ≤ 23 m apartment nationally", C58 §1.13); or (b) a user floor-count under the national ceiling.
+
+**Country-wide:** this national footprint + vertical ceiling applies to **every municipality of the
+Kingdom** (Section 4 binds all Amanas; §3/§5-1-5 caps are national), carved out only for commercial-
+street setbacks, Amana special-area ratios, and development-authority zones (§1). One formula, whole country.
 
 ---
 
 ## 3 — BLOCKERS
 
-### 3.1 — 🔴 Vertical extent is municipal, not national (the Barcelona trap, and it is real here)
-- **What.** Floors and max height are `المخطط المعتمد` (approved-plan) fields; development authorities
-  override the national decision.
-- **Why it blocks.** A full vertical envelope needs the per-zone municipal number we do not hold.
-- **Unblock.** A per-city source of floor/height by zone — the Riyadh / Jeddah supplementary
-  building-requirement documents are the first place to look, AND whether they OVERRIDE (Barcelona's
-  article-by-article municipal-modification pattern) rather than supplement.
-- **Resume step.** Pick the demo city, source its floor/height-by-zone table, check override scope.
+### 3.1 — 🟡 The EXACT vertical value is municipal (the national CEILING is held; only the value beneath it is not)
+- **What.** The national decision CAPS the vertical extent (villa ≤ 14 m & ≤ G+1+annex §5-1-5 cl. 3/§3-1;
+  apt ≤ 23 m §3-2), but the *exact* permitted floors/height per zone is `المخطط المعتمد` (§4 cl. 1) and
+  development authorities override (§1 cl. 3). So the ceiling is national; the exact value is not.
+- **Why it blocks (only a FULLER answer, not the ceiling).** Pinning the exact height needs the per-zone
+  municipal number we do not hold; the *bounded* answer (footprint + national cap) needs nothing more.
+- **Unblock.** A per-city source of exact floor/height by zone — the Riyadh RCRC/ADA design-guide volumes
+  or Balady `NOOFFLOORS`, AND whether they OVERRIDE (Barcelona's article-by-article pattern) or supplement.
+- **Resume step.** From an in-SA egress, read the RCRC/ADA per-zone height table; assert on CONTENT, not
+  HTTP 200 (the WAF returns 200 apology pages). Or take the founder demo decision to render the national
+  maximum with the over-statement caveat.
 
 ### 3.2 — Parcel geometry API exists but is geo-fenced
 - **What.** Balady `MapServer/28` carries setbacks + use + floors per parcel — **richer than we need**
@@ -100,6 +119,10 @@ There is no resolution-rate yet (nothing built). The *shape* of the answer:
 - **"Residential FAR = 3"** — FALSE. FAR 3 is a *commercial/hotel* figure; the residential decision has
   **no FAR at all** (Saudi residential uses coverage %, not FAR).
 - **"Flat 75% ground coverage"** — villa is 75%, **apartment is 65%.**
+- **"Height/floors are not national at all"** — INCOMPLETE (corrected L-606). A national numeric CEILING
+  exists and is cited: **villa ≤ 14 m** (§5-1-5 cl. 3) & ≤ ground+1+annex (§3-1); **apartment ≤ 23 m**
+  (§3-2). Only the EXACT value beneath the ceiling is municipal. 23 m is BOTH the class boundary AND, for
+  an in-scope apartment, the national height cap — not "only a boundary".
 
 ---
 
