@@ -192,5 +192,5 @@ p7.
 
 **Related:** `SAUDI-ARABIA-ENTRY-ASSESSMENT.md` (the assessment this feeds) ·
 `SAUDI-UMAPS-API-ENUMERATION.md` (the parcel-data probe) ·
-`../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` (the trap, in Barcelona) ·
+`../../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` (the trap, in Barcelona) ·
 C58 §1.13 / §2.2 (the rule-pack shape these numbers would fill).

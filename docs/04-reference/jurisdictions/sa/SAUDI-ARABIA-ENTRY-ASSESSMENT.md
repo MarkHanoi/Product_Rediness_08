@@ -25,7 +25,7 @@ the parcel backend directly. **Every claim below now carries a tier, and the loa
 Barcelona lands at a **~48 % PGM-only ceiling** because *edificabilitat* is an **envelope** that
 cannot be reduced to a per-parcel FAR, and because **62.8 % of the city is governed by derived
 planning the general plan does not contain**
-(`../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md`).
+(`../../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md`).
 
 **What the seed asserted about Saudi Arabia, and what the probe found:**
 
@@ -312,7 +312,7 @@ the national tables as flat law** — the override layer is real and written int
 | Top risk | **R1 — development-authority override (the Barcelona trap, present but smaller)** |
 
 **Related:** `SAUDI-PRIMARY-DECISION-EXTRACT.md` · `SAUDI-UMAPS-API-ENUMERATION.md` ·
-`../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` (§5 Saudi row) · `../V1-LAUNCH-READINESS-AUDIT.md` (L-606) ·
-`../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` ·
-`../spain/barcelona-catalonia/PROBE-DISCIPLINE.md` ·
+`../../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md` (§5 Saudi row) · `../../V1-LAUNCH-READINESS-AUDIT.md` (L-606) ·
+`../../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` ·
+`../../spain/barcelona-catalonia/PROBE-DISCIPLINE.md` ·
 C58 §1.13 / §2.2 · C57 · `packages/site-parcel-data/src/geometry/streetWidth.ts`.

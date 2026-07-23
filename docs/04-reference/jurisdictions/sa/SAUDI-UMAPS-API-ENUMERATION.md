@@ -120,5 +120,5 @@ agreement — see the assessment's risk register.
 ---
 
 **Related:** `SAUDI-ARABIA-ENTRY-ASSESSMENT.md` · `SAUDI-PRIMARY-DECISION-EXTRACT.md` ·
-`../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` (the same "moved/gated endpoint
-read as absent" lesson) · `../spain/barcelona-catalonia/PROBE-DISCIPLINE.md`.
+`../../spain/barcelona-catalonia/L-590c-PLA-PARCIAL-REGIME-RESOLVED.md` (the same "moved/gated endpoint
+read as absent" lesson) · `../../spain/barcelona-catalonia/PROBE-DISCIPLINE.md`.

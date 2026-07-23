@@ -1,13 +1,17 @@
-# NEXT — Saudi Arabia (national entry; demo city not yet chosen)
+# NEXT — Saudi Arabia (national entry; COUNTRY overview — demo city = Riyadh)
 
-> **What this file is.** Where PRYZM stopped on Saudi Arabia, why, the blockers, and the exact resume
-> steps. Same convention as every municipality's `NEXT.md` (template in
-> `../spain/barcelona-catalonia/NEXT.md` §0). ⚠ Saudi work is currently **national-law level**; when a
-> demo city is chosen (Riyadh or Jeddah are the candidates), give it its OWN
-> `saudi-arabia/<city>/NEXT.md` and demote this file to the country overview.
+> **What this file is.** The COUNTRY-level overview: where PRYZM stopped on Saudi *national* law, the
+> blockers, and the exact resume steps. Same convention as every jurisdiction's `NEXT.md`
+> (`JURISDICTION-PLAYBOOK.md` §5).
+> ⚠ **2026-07-23 — migrated to the ISO tree** (`saudi-arabia/` → `jurisdictions/sa/`, L-606) and the
+> demo city is now **Riyadh**, with its own record under
+> [`sa-01/ruh-riyadh/`](sa-01/ruh-riyadh/README.md) (ISO 3166-2 **SA-01** Riyadh Region · UN/LOCODE
+> **RUH**). Riyadh-specific status, the authored rule pack, and the floor/height blocker now live in
+> the Riyadh `NEXT.md`; this file keeps the NATIONAL picture only.
 >
-> **Last updated:** 2026-07-22. **Maintainer:** UNASSIGNED. **Status:** assessed, not built. Judged
-> **cheaper than Barcelona for a demo footprint.**
+> **Last updated:** 2026-07-23. **Maintainer:** UNASSIGNED. **Status:** national assessed;
+> Riyadh demo pack AUTHORED (not yet wired — see `sa-01/ruh-riyadh/NEXT.md`). Judged **cheaper than
+> Barcelona for a demo footprint.**
 
 ---
 
@@ -110,4 +114,4 @@ vertical extent from "assumption" to "cited".
 ---
 
 **See also:** `SAUDI-ARABIA-ENTRY-ASSESSMENT.md` · `SAUDI-PRIMARY-DECISION-EXTRACT.md` ·
-`SAUDI-UMAPS-API-ENUMERATION.md` · `../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md`.
+`SAUDI-UMAPS-API-ENUMERATION.md` · `../../GEOGRAPHIC-ROLLOUT-MASTER-TRACKER.md`.

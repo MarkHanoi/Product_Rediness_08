@@ -41,6 +41,10 @@ export default defineConfig({
       'apps/editor/src/ui/documentation/__tests__/**/*.spec.ts',
       // §FEAT-SWAP-LOADING-OVERLAY (L-141): renderer live-swap loading overlay specs.
       'apps/editor/src/ui/overlays/__tests__/**/*.spec.ts',
+      // §CTX-QUERY-PANEL (L-592) / §CTX-USE-COLOUR (L-599) / §FACADE-STUDY-SUBJECT (L-596):
+      // pure 3D-Site specs — use classification, height/id provenance labelling, and the
+      // façade study's subject resolution + refusals.
+      'apps/editor/src/ui/geospatial/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).
