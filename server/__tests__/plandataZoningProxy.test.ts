@@ -18,6 +18,7 @@ import {
     pickFirstFeatureProps,
     buildPlandataWfsUrl,
     hasUsableDimension,
+    isBindingFootprint,
     zoningCacheStats,
     __resetZoningCache,
 } from '../plandataZoningProxy.js';
@@ -44,6 +45,41 @@ const LOKALPLAN_GEOJSON = JSON.stringify({
     ],
 });
 const EMPTY_GEOJSON = JSON.stringify({ type: 'FeatureCollection', features: [] });
+
+// A byggefelt (building field): the tightest layer. A BINDING footprint
+// (bygkunifelt=true & bygvejledende=false) that also caps its own height/storeys.
+const BYGGEFELT_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+        {
+            type: 'Feature',
+            properties: {
+                lp_plannavn: 'Birkerød Bymidte',
+                lp_plannr: 'LP 92',
+                lokplan_id: 1218206,
+                delnr: 'A',
+                maxbygnhjd: 8,
+                maxetager: 2,
+                bygkunifelt: true,
+                bygvejledende: false,
+                doklink: 'https://dokument.plandata.dk/20_1218206.pdf',
+            },
+            geometry: { type: 'MultiPolygon', coordinates: [[[[12.56, 55.67], [12.561, 55.67], [12.561, 55.671], [12.56, 55.671], [12.56, 55.67]]]] },
+        },
+    ],
+});
+// A byggefelt that is only an ADVISORY placement guide (bygvejledende), with no
+// dimension — it must NOT shadow a richer lower layer's identity/numbers.
+const BYGGEFELT_ADVISORY_NODIM_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+        {
+            type: 'Feature',
+            properties: { lp_plannavn: 'Vejledende felt', lp_plannr: 'LP 7', bygkunifelt: false, bygvejledende: true },
+            geometry: { type: 'MultiPolygon', coordinates: [[[[12.56, 55.67], [12.561, 55.67], [12.561, 55.671], [12.56, 55.671], [12.56, 55.67]]]] },
+        },
+    ],
+});
 
 // A sub-area (delområde) feature: plan identity under `lp_*`, its own dimensions.
 const DELOMRAADE_GEOJSON = JSON.stringify({
@@ -91,7 +127,8 @@ const RAMME_GEOJSON = JSON.stringify({
 
 /** Which Plandata layer a WFS URL targets (delområde substring contains 'lokalplan'
  *  so test it FIRST). */
-function layerOfUrl(u: string): 'delomraade' | 'lokalplan' | 'kommuneplanramme' | 'other' {
+function layerOfUrl(u: string): 'byggefelt' | 'delomraade' | 'lokalplan' | 'kommuneplanramme' | 'other' {
+    if (u.includes('byggefelt')) return 'byggefelt';
     if (u.includes('lokalplandelomraade')) return 'delomraade';
     if (u.includes('theme_pdk_lokalplan_vedtaget')) return 'lokalplan';
     if (u.includes('kommuneplanramme')) return 'kommuneplanramme';
@@ -133,6 +170,17 @@ describe('§PLANDATA-ZONING-PROXY helpers', () => {
         expect(hasUsableDimension(null)).toBe(false);
     });
 
+    it('isBindingFootprint — true ONLY for a bygkunifelt, non-vejledende byggefelt (L-609)', () => {
+        expect(isBindingFootprint({ bygkunifelt: true, bygvejledende: false })).toBe(true);
+        expect(isBindingFootprint({ bygkunifelt: 'true', bygvejledende: 'false' })).toBe(true); // string-coerced
+        // Advisory / illustrative fields are NOT caps.
+        expect(isBindingFootprint({ bygkunifelt: true, bygvejledende: true })).toBe(false);
+        expect(isBindingFootprint({ bygkunifelt: false, bygvejledende: false })).toBe(false);
+        // Unknown bindingness is treated as NOT binding (never assume a cap).
+        expect(isBindingFootprint({ maxbygnhjd: 8 })).toBe(false);
+        expect(isBindingFootprint(null)).toBe(false);
+    });
+
     it('buildPlandataWfsUrl builds a bbox GetFeature URL (both axis orders)', () => {
         const lonlat = buildPlandataWfsUrl('pdk:theme_pdk_lokalplan_vedtaget', 12.5683, 55.6761, 'lonlat');
         expect(lonlat).toContain('geoserver.plandata.dk/geoserver/wfs');
@@ -150,6 +198,7 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
     let wfsCalls = 0;
     // Per-layer response bodies (mutable per test). Default: only the whole
     // lokalplan carries a plan (the classic layer-preference case).
+    let byggefeltBody = EMPTY_GEOJSON;
     let deloBody = EMPTY_GEOJSON;
     let lokalplanBody = LOKALPLAN_GEOJSON;
     let rammeBody = EMPTY_GEOJSON;
@@ -159,6 +208,7 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
         if (s.includes('geoserver.plandata.dk')) {
             wfsCalls++;
             switch (layerOfUrl(s)) {
+                case 'byggefelt': return new Response(byggefeltBody, { status: 200 });
                 case 'delomraade': return new Response(deloBody, { status: 200 });
                 case 'lokalplan': return new Response(lokalplanBody, { status: 200 });
                 case 'kommuneplanramme': return new Response(rammeBody, { status: 200 });
@@ -179,6 +229,7 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
     beforeEach(() => {
         __resetZoningCache();
         wfsCalls = 0;
+        byggefeltBody = EMPTY_GEOJSON;
         deloBody = EMPTY_GEOJSON;
         lokalplanBody = LOKALPLAN_GEOJSON;
         rammeBody = EMPTY_GEOJSON;
@@ -225,6 +276,27 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
         expect(body.zoning).not.toBeNull();
         expect(body.zoning.layer).toBe('lokalplan');
         expect(body.zoning.properties.doklink).toBe('https://dokument.plandata.dk/nodim.pdf');
+    });
+
+    it('L-609 — a dimensioned byggefelt WINS over the whole plan (tightest instrument)', async () => {
+        byggefeltBody = BYGGEFELT_GEOJSON; // building field carries its own height/storeys
+        lokalplanBody = LOKALPLAN_GEOJSON; // and there is a whole plan beneath it
+        const r = await get(55.6761, 12.5683);
+        const body = await r.json();
+        expect(body.zoning.layer).toBe('byggefelt');
+        expect(body.zoning.properties.maxbygnhjd).toBe(8);
+        // The bindingness flags ride along for the downstream footprint→coverage step.
+        expect(body.zoning.properties.bygkunifelt).toBe(true);
+        expect(body.zoning.properties.bygvejledende).toBe(false);
+    });
+
+    it('L-609 — a dimensionless ADVISORY byggefelt does NOT shadow the plan beneath it', async () => {
+        byggefeltBody = BYGGEFELT_ADVISORY_NODIM_GEOJSON; // vejledende, no number
+        lokalplanBody = LOKALPLAN_GEOJSON; // the real numbers are here
+        const r = await get(55.6761, 12.5683);
+        const body = await r.json();
+        expect(body.zoning.layer).toBe('lokalplan');
+        expect(body.zoning.properties.maxbygnhjd).toBe(24);
     });
 
     it('cache by coordinate — repeat click does NOT re-fetch the WFS', async () => {

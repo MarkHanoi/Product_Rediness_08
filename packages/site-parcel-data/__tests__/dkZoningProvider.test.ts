@@ -123,6 +123,68 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
         expect(rec.provenance.label).toContain('delområde 3');
     });
 
+    it('L-609 — a BINDING byggefelt maps dims + identity, tags the cap, coverage stays null', () => {
+        // A real building field (Birkerød Bymidte LP 92, probed live 2026-07-23): carries
+        // maxbygnhjd/maxetager + the lp_* identity aliases + the bindingness flags, but NO
+        // bebygpct. bygkunifelt=true & bygvejledende=false ⇒ a real footprint cap.
+        const byggefelt: PlandataZoningResponse = {
+            layer: 'byggefelt',
+            properties: {
+                lp_plannavn: 'Birkerød Bymidte',
+                lp_plannr: 'LP 92',
+                lokplan_id: 1218206,
+                delnr: 'A',
+                anvendelsegenerel: 'Boligområde',
+                maxbygnhjd: 8,
+                maxetager: 2,
+                bygkunifelt: true,
+                bygvejledende: false,
+                doklink: 'https://dokument.plandata.dk/20_1218206.pdf',
+                zonestatus: 'Byzone',
+            },
+        };
+        const rec = mapPlandataToZoningRecord(byggefelt, { fetchDateISO: FETCH_DATE })!;
+        expect(rec).not.toBeNull();
+        expect(rec.structuredFields.maxHeight_m).toBe(8);
+        expect(rec.structuredFields.maxFloors).toBe(2);
+        // byggefelt carries NO bebygpct → no FAR (honest absence).
+        expect(rec.structuredFields.plotRatioFAR).toBeNull();
+        // The footprint is NOT turned into a coverage ratio (needs the parcel — ADR-gated).
+        expect(rec.structuredFields.maxCoverage).toBeNull();
+        // Identity resolves from the lp_* aliases; the sub-area is named.
+        expect(rec.zoneLabel).toBe('Birkerød Bymidte (delområde A)');
+        expect(rec.zoneCode).toBe('LP 92'); // no anvgen/plannr → falls to lp_plannr
+        expect(rec.ordinanceRef).toBe('https://dokument.plandata.dk/20_1218206.pdf');
+        // The binding cap is recorded as CONTEXT, never as a number.
+        expect(rec.overlays).toContain('Bindende byggefelt');
+        expect(rec.overlays).toContain('Byzone');
+    });
+
+    it('L-609 — a VEJLEDENDE (advisory) byggefelt maps its dim but earns NO binding tag', () => {
+        const advisory: PlandataZoningResponse = {
+            layer: 'byggefelt',
+            properties: {
+                lp_plannavn: 'Plan med vejledende felt',
+                lp_plannr: 'LP 7',
+                maxbygnhjd: 12,
+                bygkunifelt: false,
+                bygvejledende: true,
+            },
+        };
+        const rec = mapPlandataToZoningRecord(advisory, { fetchDateISO: FETCH_DATE })!;
+        expect(rec.structuredFields.maxHeight_m).toBe(12);
+        expect(rec.overlays).not.toContain('Bindende byggefelt');
+    });
+
+    it('L-609 — a byggefelt with only a footprint (no dimension) → null record (defers to estimated)', () => {
+        // Pure geometry, no number this path can express (coverage is ADR-gated) → null.
+        const footprintOnly: PlandataZoningResponse = {
+            layer: 'byggefelt',
+            properties: { lp_plannavn: 'Felt uden tal', lp_plannr: 'LP 9', bygkunifelt: true, bygvejledende: false },
+        };
+        expect(mapPlandataToZoningRecord(footprintOnly, { fetchDateISO: FETCH_DATE })).toBeNull();
+    });
+
     it('floors a fractional maxetager to an integer storey count', () => {
         const attic: PlandataZoningResponse = {
             layer: 'lokalplan',

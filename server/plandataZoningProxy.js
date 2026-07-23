@@ -51,23 +51,37 @@ export const PLANDATA_WFS_ENDPOINT = 'https://geoserver.plandata.dk/geoserver/wf
 
 /**
  * Plandata WFS 2.0 type names (verified live via GetCapabilities + DescribeFeatureType
- * 2026-07-22 — see docs/04-reference/jurisdictions/dk/findings/). Ordered
- * MOST-SPECIFIC first, because a point is governed by the tightest instrument that
- * publishes a number for it:
+ * 2026-07-22, byggefelt re-probed live 2026-07-23 — see
+ * docs/04-reference/jurisdictions/dk/findings/). Ordered MOST-SPECIFIC first, because
+ * a point is governed by the tightest instrument that publishes a number for it:
  *
- *   1. `lokalplandelomraade` — a local plan's SUB-AREA (delområde). A multi-area
+ *   1. `byggefelt` — a lokalplan's BUILDING FIELD (byggefelt): the tightest instrument
+ *      of all, a per-building-field footprint polygon that MAY also cap that field's
+ *      height/storeys (`maxbygnhjd`/`maxetager`). Where a byggefelt publishes a
+ *      dimension it is the most-specific real number for that spot, so it must be
+ *      preferred (L-609 §4). It carries NO `bebygpct` (→ no FAR) and — crucially — its
+ *      footprint→coverage is NOT computed here: coverage = area(footprint ∩ parcel) /
+ *      area(parcel) needs the parcel geometry, which lives downstream (C57), plus an L0
+ *      schema field for the footprint ring; that is the ADR-gated cross-layer step in
+ *      dk/NEXT Blocker C. This proxy therefore treats byggefelt as a most-specific
+ *      DIMENSION + IDENTITY source only, and its footprint bindingness (`bygkunifelt` /
+ *      `bygvejledende`, see `isBindingFootprint`) is carried on the returned properties
+ *      for that downstream step. National shape (57,031 features, 2026-07-23):
+ *      23.9% are binding footprints, 31.7% publish a dimension.
+ *   2. `lokalplandelomraade` — a local plan's SUB-AREA (delområde). A multi-area
  *      lokalplan states its real per-area height/FAR/storeys on the delområde, NOT
  *      on the whole-plan polygon; the plan-level fields are then null. Querying the
  *      delområde first is the single biggest resolution win (measured national
  *      dimensional fill: delområde 59.3% vs whole-plan lokalplan 38.2%). L-608 §2.
- *   2. `lokalplan` — the whole local plan (single-area plans carry their numbers here
+ *   3. `lokalplan` — the whole local plan (single-area plans carry their numbers here
  *      and have no delområde).
- *   3. `kommuneplanramme` — the municipal-plan FRAMEWORK. It governs where no local
+ *   4. `kommuneplanramme` — the municipal-plan FRAMEWORK. It governs where no local
  *      plan is silent-with-a-number, and it is the richest layer of all (dimensional
  *      fill 76.9%), so it must be reachable BENEATH a dimensionless local plan (see
  *      §USABLE-FALLBACK in fetchZoningAtPoint).
  */
 export const PLANDATA_LAYERS = [
+    { key: 'byggefelt', typeName: 'pdk:theme_pdk_byggefelt_vedtaget' },
     { key: 'lokalplandelomraade', typeName: 'pdk:theme_pdk_lokalplandelomraade_vedtaget' },
     { key: 'lokalplan', typeName: 'pdk:theme_pdk_lokalplan_vedtaget' },
     { key: 'kommuneplanramme', typeName: 'pdk:theme_pdk_kommuneplanramme_vedtaget_v' },
@@ -92,6 +106,41 @@ export function hasUsableDimension(props) {
         if (Number.isFinite(n) && n > 0) return true;
     }
     return false;
+}
+
+/** Coerce a WFS boolean (real `true`/`false`, or the strings GeoServer sometimes
+ *  emits) to a JS boolean; anything else → null (unknown, never assumed). */
+function wfsBool(v) {
+    if (v === true || v === false) return v;
+    if (typeof v === 'string') {
+        const s = v.trim().toLowerCase();
+        if (s === 'true' || s === 't' || s === '1') return true;
+        if (s === 'false' || s === 'f' || s === '0') return false;
+    }
+    return null;
+}
+
+/**
+ * §BYGGEFELT-BINDINGNESS (L-609 §4.2) — is a byggefelt feature a BINDING footprint
+ * cap (a hard maximum on where a building may sit), rather than an advisory /
+ * illustrative placement guide?
+ *
+ * A byggefelt polygon is ONLY a coverage cap when the plan makes it one:
+ *   - `bygkunifelt` (byggeri kun i felt) = building is allowed ONLY inside the field, and
+ *   - NOT `bygvejledende` (vejledende) = the field is regulatory, not merely illustrative.
+ * Nationally (57,031 features, 2026-07-23): 23.9% pass this gate; 65.1% are
+ * `bygvejledende` guides that MUST NOT be read as caps.
+ *
+ * This is the gate a downstream footprint→coverage step consumes; the proxy carries the
+ * raw `bygkunifelt`/`bygvejledende` on the properties so that step never re-fetches. A
+ * value it cannot read stays UNKNOWN → treated as NOT binding (never assume a cap).
+ *
+ * @param {Record<string, unknown>|null|undefined} props
+ * @returns {boolean}
+ */
+export function isBindingFootprint(props) {
+    if (!props || typeof props !== 'object') return false;
+    return wfsBool(props.bygkunifelt) === true && wfsBool(props.bygvejledende) !== true;
 }
 
 // ── Shared in-memory cache (keyed by rounded coordinate) ─────────────────────
@@ -256,8 +305,8 @@ export async function fetchTextOnce(url, deps = {}) {
 
 /**
  * Resolve the applicable plan at a WGS84 point, server-side + cached:
- *   for each layer (delområde → lokalplan → kommuneplanramme), for each bbox axis
- *   order (lonlat → latlon), fetch once.
+ *   for each layer (byggefelt → delområde → lokalplan → kommuneplanramme), for each
+ *   bbox axis order (lonlat → latlon), fetch once.
  *
  * §USABLE-FALLBACK (L-608) — SELECTION RULE. Return the feature from the
  * MOST-SPECIFIC layer that actually carries a usable dimensional field
@@ -268,6 +317,14 @@ export async function fetchTextOnce(url, deps = {}) {
  * identity + plan-document citation), so the mapper still yields a cited record or
  * falls to the estimated default. We NEVER fabricate a number — we only pick which
  * real, cited plan supplies the ones that exist.
+ *
+ * §BYGGEFELT (L-609) — the byggefelt building-field is queried most-specific. When it
+ * publishes a dimension it wins (the tightest real number). But a byggefelt that is
+ * neither dimensioned NOR a binding footprint (`isBindingFootprint`) is pure geometry
+ * with no number this proxy+mapper path can yet express (footprint→coverage is the
+ * ADR-gated downstream step, dk/NEXT Blocker C) — so it must NOT become the identity
+ * `firstCandidate` that shadows a richer delområde/lokalplan below. A BINDING byggefelt
+ * is kept as the fallback identity (it is the footprint the downstream step consumes).
  *
  * Returns `{ layer, properties }`, or null (no plan at the point / all upstreams
  * failed or empty). NEVER throws. `deps` is injectable for tests.
@@ -291,6 +348,11 @@ export async function fetchZoningAtPoint(lon, lat, deps = {}) {
             const candidate = { layer: layer.key, properties: props };
             // A layer that publishes a real dimension wins immediately (most-specific first).
             if (hasUsableDimension(props)) return candidate;
+            // §BYGGEFELT — a dimensionless, non-binding byggefelt is placement guidance,
+            // not a number or a cap: skip it as the identity fallback so it never shadows
+            // a richer lower layer (a BINDING byggefelt is kept — the downstream coverage
+            // step reads its footprint).
+            if (layer.key === 'byggefelt' && !isBindingFootprint(props)) break;
             // Otherwise remember the most-specific feature and fall through to the
             // next (broader) layer, which may carry the numbers this one omitted.
             if (!firstCandidate) firstCandidate = candidate;

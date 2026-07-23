@@ -33,6 +33,18 @@
 // (server/plandataZoningProxy.js §USABLE-FALLBACK); this mapper needs no dimensional
 // change for it — only the `lp_*` identity aliases above.
 //
+// BUILDING FIELD (byggefelt, L-609) — `theme_pdk_byggefelt_vedtaget` is the tightest
+// instrument: a per-building-field footprint that MAY also cap that field's
+// maxbygnhjd/maxetager (SAME field names again; it carries NO bebygpct → no FAR). The
+// proxy queries it most-specific; this mapper maps its dimensions + identity (via the
+// SAME `lp_*` aliases) with a `DK-BYGGEFELT` fallback code. ⚠ Its FOOTPRINT is NOT
+// turned into `maxCoverage` here: coverage = area(footprint ∩ parcel)/area(parcel)
+// needs the parcel geometry (downstream, C57) + an L0 footprint-ring field — the
+// ADR-gated cross-layer step in dk/NEXT Blocker C. Emitting a coverage number from the
+// footprint alone would fabricate, so `maxCoverage` stays null on byggefelt too. A
+// binding byggefelt (`bygkunifelt && !bygvejledende`) is surfaced as an overlay tag so
+// the facts card records that a real footprint cap exists, without inventing its ratio.
+//
 // NOTE — bebyggelsesprocent is the Danish FLOOR-AREA ratio (etageareal/grundareal
 // ×100), i.e. FAR×100 — NOT ground coverage. It maps to `plotRatioFAR` ONLY;
 // `maxCoverage` stays `null` (Plandata's standard plan fields publish no separate
@@ -47,11 +59,16 @@
 import type { PermittedUse, ZoningRecord } from '@pryzm/schemas';
 import { ZoningRecordSchema } from '@pryzm/schemas';
 
-/** Which Plandata layer a feature came from, MOST-SPECIFIC first. A local plan's
- *  sub-area (`lokalplandelomraade`) is tighter than the whole local plan, which is
+/** Which Plandata layer a feature came from, MOST-SPECIFIC first. A lokalplan's
+ *  building field (`byggefelt`) is tighter than a local plan's sub-area
+ *  (`lokalplandelomraade`), which is tighter than the whole local plan, which is
  *  tighter than the kommuneplan framework — the proxy prefers whichever most-specific
  *  layer actually publishes a number (server/plandataZoningProxy.js §USABLE-FALLBACK). */
-export type PlandataLayer = 'lokalplandelomraade' | 'lokalplan' | 'kommuneplanramme';
+export type PlandataLayer =
+    | 'byggefelt'
+    | 'lokalplandelomraade'
+    | 'lokalplan'
+    | 'kommuneplanramme';
 
 /**
  * The proxy's normalised hand-off: the winning plan's raw `properties` (the WFS
@@ -159,11 +176,30 @@ export function mapPlandataToZoningRecord(
     const planId = firstString(p.planid, p.lokplan_id);
     const delnr = firstString(p.delnr);
     const layerFallbackCode =
-        response.layer === 'lokalplandelomraade'
-            ? 'DK-LOKALPLAN-DELOMRAADE'
-            : response.layer === 'lokalplan'
-              ? 'DK-LOKALPLAN'
-              : 'DK-KOMMUNEPLANRAMME';
+        response.layer === 'byggefelt'
+            ? 'DK-BYGGEFELT'
+            : response.layer === 'lokalplandelomraade'
+              ? 'DK-LOKALPLAN-DELOMRAADE'
+              : response.layer === 'lokalplan'
+                ? 'DK-LOKALPLAN'
+                : 'DK-KOMMUNEPLANRAMME';
+    // A BINDING byggefelt (bygkunifelt && !bygvejledende) IS a real footprint cap; record
+    // that fact as context so the facts card can say so — WITHOUT inventing a coverage
+    // ratio (which needs the parcel; ADR-gated, dk/NEXT Blocker C). A vejledende byggefelt
+    // is only a placement guide and earns no tag.
+    const wfsBool = (v: unknown): boolean | null => {
+        if (v === true || v === false) return v;
+        if (typeof v === 'string') {
+            const s = v.trim().toLowerCase();
+            if (s === 'true' || s === 't' || s === '1') return true;
+            if (s === 'false' || s === 'f' || s === '0') return false;
+        }
+        return null;
+    };
+    const bindingByggefelt =
+        response.layer === 'byggefelt' &&
+        wfsBool(p.bygkunifelt) === true &&
+        wfsBool(p.bygvejledende) !== true;
     const zoneCode = firstString(p.anvgen) ?? planNr ?? planId ?? layerFallbackCode;
     // Name the governing sub-area explicitly when we resolved one (delområde), so the
     // facts card shows WHICH part of the plan the numbers came from.
@@ -185,13 +221,18 @@ export function mapPlandataToZoningRecord(
             maxHeight_m,
             maxFloors,
             plotRatioFAR,
-            // Coverage NOT derived from bebyggelsesprocent (FAR ≠ coverage) — honest null.
+            // Coverage NOT derived from bebyggelsesprocent (FAR ≠ coverage), NOR from a
+            // byggefelt footprint (that needs the parcel + an L0 ring field — ADR-gated,
+            // dk/NEXT Blocker C) — honest null in every case; never a fabricated ratio.
             maxCoverage: null,
             // Per-edge setbacks are a separate byggelinjer dataset — honest null.
             setbacks: { front_m: null, side_m: null, rear_m: null },
             permittedUse,
         },
-        overlays: zonestatus ? [zonestatus] : [],
+        overlays: [
+            ...(zonestatus ? [zonestatus] : []),
+            ...(bindingByggefelt ? ['Bindende byggefelt'] : []),
+        ],
         // The plan document is the governing-document citation (C58 §1.3).
         ordinanceRef: doklink,
         provenance: {
