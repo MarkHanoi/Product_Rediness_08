@@ -41,8 +41,13 @@ is now **OCR of 15 scanned ordinance PDFs + verification**, plus **pilot coverag
 
 ## Pack status
 
-- **No pack.** No `SOURCES.md` field ships a value (numbers unextracted from scanned PDFs).
-- Disposition today: **`unregistered`** (data-access solved; rule-extraction not done). Do **not** register.
+- **Starter pack authored, UNREGISTERED** (2026-07-23): `packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts`
+  — 13 subzones across 5 families (PAS, OA, UAD full; CTP-1, MC partial), schema-valid, **not imported anywhere**.
+- **Rule-extraction is DONE** (OCR/vision of all 15 ordinance PDFs): `findings/OCR-EXTRACTION-RESULTS.md` +
+  `findings/ORDENANZA-PACK-SPEC.md`. Values are at tier **`pipeline-extracted-unverified`** (machine-read,
+  human sign-off pending) — so `SOURCES.md` §C (the verified table) is still empty.
+- Disposition today: **`unregistered`** (data-access solved; numbers extracted-but-unverified). Do **not**
+  register until the tier lands in the schema + a human verifies the values.
 
 ## Key finding — the national SIU verdict (for the whole Spain rollout)
 
@@ -56,5 +61,7 @@ Barcelona and Madrid the same hunt. Detail: `findings/CALIFICACION-ENDPOINT-PROB
 - `README.md` — this file (what is true now).
 - `NEXT.md` — where we stopped, blockers, trip-wires, the smallest next step.
 - `findings/CALIFICACION-ENDPOINT-PROBE.md` — the reachability probe, every host tried, full reproduction.
+- `findings/OCR-EXTRACTION-RESULTS.md` — the 15-ordinance OCR/vision extraction, per-family value tables, the pilot resolution %.
+- `findings/ORDENANZA-PACK-SPEC.md` — the pack design + the authored (unregistered) starter pack.
 - `sources/SOURCES.md` — per-source catalogue (endpoints, tier, exact query). No packed field yet.
 - `sources/VERIFICATION.md` — the human sign-off record (what an agent verified, what a human must still confirm).

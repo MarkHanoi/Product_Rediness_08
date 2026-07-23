@@ -23,16 +23,25 @@
 
 | # | Source | Location | State | Tier |
 |---|---|---|---|---|
-| B1 | Ordinance PDFs (15 distinct) | `http://visor.pgou.coacordoba.org/doc/ordenanzas/O_*.pdf` (e.g. `O_PAS2`, `O_INDUSTRIAL`, `O_OA1`) | HTTP 200 `application/pdf`; **scanned images, no text layer** (`pdftotext`→3 chars). References edificabilidad / plantas / ocupación / retranqueos / parcela mínima. **Numbers NOT extracted.** | **VERIFIED-LIVE (file); COULD-NOT-VERIFY (values)** |
+| B1 | Ordinance PDFs (15 links → **12 distinct docs**) | `http://visor.pgou.coacordoba.org/doc/ordenanzas/O_*.pdf` | ⚠ **HETEROGENEOUS, NOT uniformly scanned** (corrects the prior "all scanned, no text layer"): **2 born-digital text** (`O_INDUSTRIAL` 23 620 chars, `O_UAD3` 8 021 chars — read by text-pull); **10 clean rasters** (read by render-to-PNG + vision, fully legible); the **5 `O_MC*` names are ONE Manzana-Cerrada chapter** (dedupe by content, not filename); **2 dead links** (`O_UAD1`, `O_UAS1` → 69-byte "Server under construction" HTML — but `O_UAD1`'s content lives inside `O_UAD3`). **Numbers now EXTRACTED** (machine, `pipeline-extracted-unverified`) — see `findings/OCR-EXTRACTION-RESULTS.md`. | **VERIFIED-LIVE (files); values pipeline-extracted-unverified** |
 | B2 | PGOU-2001 full plan | Junta SITUA `https://ws132.juntadeandalucia.es/situadifusion/pages/search.jsf` (search INE 14021) + GMU Córdoba `https://www.gmucordoba.es/urbanismo/plan-general-de-ordenacion-urbanistica-pgou` | document registry (PDF payload) | **VERIFIED-LIVE (registry)** |
 | B3 | PEPCH (casco histórico) | separate Plan Especial — dual regime, not in the COACo pilot | not sourced | **COULD-NOT-VERIFY** |
 
 ## C — Per-field pack rows (the value table)
 
-**EMPTY.** No field is packed. Every buildable parameter (edificabilidad, nº plantas, ocupación,
-retranqueos, parcela mínima) is `null` pending OCR of B1 + human verification. This section is filled only
-after the L-449 gate is met, one row per value: `value · unit · governing ordenanza/article · document +
-date · URL`.
+**STILL EMPTY as a `structured`/verified table** — the L-449 gate is NOT met (no human sign-off yet).
+The numbers ARE extracted, but at tier **`pipeline-extracted-unverified`** (machine OCR/vision, below
+`estimated-ruleset`), so they do **not** belong in this verified value table. The full extracted set — per
+family, per field, with the governing article and the gate flags — is in
+**`findings/OCR-EXTRACTION-RESULTS.md §2`**, and authored (unregistered) into
+`packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts`. This section is filled here only after a
+Spanish-planning-literate human verifies each value against the source crop and records it in
+`VERIFICATION.md` + a C23 AIArtefact `humanApproval` — one row per value: `value · unit · governing
+ordenanza/article · document + date · URL`.
+
+⚠ **Do not promote the pipeline values into this table without the human pass.** A wrong number we OCR'd
+ourselves is our pipeline's error (`ORDINANCE-EXTRACTION-PIPELINE.md §3`); it must stay visibly unverified
+until signed off.
 
 ## D — Provenance / legal chain
 

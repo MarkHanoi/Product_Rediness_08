@@ -76,11 +76,28 @@ See `sources/SOURCES.md`. Headline three, all **VERIFIED-LIVE 2026-07-23**:
 - DERA G6 `usos_suelo` WFS — land cover, not calificación.
 - VITUA — instrument-in-force per municipality; geodata only for post-24-Apr-2026 plans.
 
-## 8 — THE SMALLEST NEXT STEP that moves the number, and its cost
+## 8 — WHERE THE NUMBER STANDS NOW (extraction DONE 2026-07-23)
 
-**OCR the 15 ordinance PDFs and count pilot parcels.** (a) `curl` the 15 distinct `O_*.pdf`, Tesseract-`spa`
-OCR, extract per-ordenanza {edificabilidad, nº plantas, ocupación, retranqueos, parcela mínima} into
-`SOURCES.md` rows; (b) `GetFeature coaco:vcatastro_urbanismo` to count cadastral parcels inside Sur+Noroeste
-→ the honest numerator. Cost: ~1 focused session for (a)+(b); then a human-verification pass to lift the
-2-district pilot from `estimated-ruleset` toward `structured`. **Do not touch `registry.ts`/`index.ts`** —
-any wiring is an orchestrator task, recorded as a `WIRING TODO (orchestrator)` block when a verified pack exists.
+✅ **The OCR/VISION extraction + the parcel count are DONE.** Results:
+- **`findings/OCR-EXTRACTION-RESULTS.md`** — all 15 links / 12 distinct docs read (2 born-digital text,
+  10 clean rasters, 2 dead links); per-family per-field value table; auto-gate flags; the pilot resolution.
+- **`findings/ORDENANZA-PACK-SPEC.md`** — the pack design + what is deliberately not packed.
+- **`packages/site-parcel-data/src/rulepacks/esCordobaPGOU2001.ts`** — the STARTER PACK, 13 subzones,
+  schema-valid, **UNREGISTERED** (WIRING-TODO in the file footer). Do NOT register until the
+  `pipeline-extracted-unverified` tier lands + a human verifies.
+
+**The number (denominator NAMED = 5 725 Catastro parcels of the Sur+Noroeste pilot, ~1.63 km², 2 of ~10
+districts, NOT the whole city):** ~**19 %** of pilot parcels get a FULLY-numeric envelope (OA+UAD+PAS),
+~**89 %** get at least a PARTIAL one (add CTP-1+MC, one field derived/tabular-null), ~**11 %** not
+extractable. Whole-city ≈ **0 %** until COACo extends the calificación beyond the 2 pilot districts.
+
+**Smallest next step now:** the human-verification pass on the §2 value table (Spanish-planning-literate
+reviewer, ~hours) → lifts the pilot from `pipeline-extracted-unverified` toward `estimated-ruleset`, then
+the orchestrator does the `registry.ts` wiring. **Do not touch `registry.ts`/`index.ts`** — wiring is an
+orchestrator task (WIRING-TODO block in the pack file).
+
+Remaining research gaps (do not re-do the extraction): (a) COACo pilot coverage still 2 districts —
+re-run `coaco:distritos&resultType=hits` to detect >2; (b) the MC per-street-width height table and the
+CTP-1 ocupación step-function need resolvers to move MC/CTP from partial→full; (c) the Conjunto Histórico
+**Tomo VI** (Campo de la Verdad envelope) and the UAS chapter are not held — source them to close those
+families.
