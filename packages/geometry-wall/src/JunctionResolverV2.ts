@@ -772,25 +772,32 @@ function detectJunctions(walls: readonly WallInput[], opts: Required<ResolveOpti
 
 /**
  * §FIX-WALL-CLUSTER-DEGENERATE (2026-07-02 — L-27 cluster case) — a wall is DEGENERATE at a
- * cluster when BOTH its endpoints are real members of the SAME junction: the wall is shorter
- * than the cluster band, so both ends snapped to one node (it shows up in `realEndpoints`
+ * cluster when BOTH its endpoints are members of the SAME RAW endpoint cluster: the wall is
+ * shorter than the cluster band, so both ends snapped to one node (it shows up in the cluster
  * TWICE). Left in the ring sweep it hinges both ends on the one pivot → a bow-tie /
  * negative-area (inverted-normal) footprint = the founder's "black triangular spike" at an
  * L-corner that also receives a tiny stub (the WallJoinResolver multi-cluster degenerate-wall
  * bug, in the V2 footprint path). Returns the set of such wall indices.
  *
+ * DETECTS ON THE RAW `clusterEndpoints` OUTPUT, not the post-`detectJunctions` drafts. The
+ * detection guard passes (T-projection / §FIX-WALL-3RD-AT-LCORNER) can SPLIT a fused stub —
+ * they re-point one of its two ends onto a neighbouring body as a separate T-junction — so by
+ * the time the drafts are final the stub no longer appears twice in ONE junction, and a
+ * post-draft doubling test misses it (both ends now live in two DIFFERENT junctions). The raw
+ * cluster is the frame in which the degeneracy is actually true and is immune to that split.
+ *
  * This is the PRECISE degeneracy signature — a genuine wall contributes exactly ONE endpoint
- * to any node (its start OR its end; the other end is band-lengths away), so a full-length
- * L/T/Y/X node of real walls never doubles a member (no false positive). It is more precise
- * than the legacy length threshold (`DEGENERATE_STUB_LENGTH` 0.15 m): a 0.158 m stub that
- * doubles into one 0.20 m-band cluster is caught here even though it clears the length gate.
- * Pure; deterministic.
+ * to any raw cluster (its start OR its end; the other end is band-lengths away, in a DIFFERENT
+ * cluster), so a full-length L/T/Y/X node of real walls never doubles a member (no false
+ * positive). It is more precise than the legacy length threshold (`DEGENERATE_STUB_LENGTH`
+ * 0.15 m): a 0.158 m stub that doubles into one 0.20 m-band cluster is caught here even though
+ * it clears the length gate. Pure; deterministic.
  */
-function collectDegenerateClusterWalls(junctions: readonly JunctionDraft[]): Set<number> {
+function collectDegenerateClusterWalls(clusters: readonly (readonly EndpointRef[])[]): Set<number> {
     const degen = new Set<number>();
-    for (const j of junctions) {
+    for (const c of clusters) {
         const seen = new Map<number, number>();
-        for (const r of j.realEndpoints) seen.set(r.wallIdx, (seen.get(r.wallIdx) ?? 0) + 1);
+        for (const r of c) seen.set(r.wallIdx, (seen.get(r.wallIdx) ?? 0) + 1);
         for (const [wi, count] of seen) if (count >= 2) degen.add(wi);
     }
     return degen;
@@ -991,14 +998,18 @@ export function resolveJunctions(
     const junctions = detectJunctions(walls, o);
 
     // §FIX-WALL-CLUSTER-DEGENERATE (2026-07-02 — L-27 cluster case) — a wall whose BOTH
-    // endpoints collapse into the SAME junction cluster is degenerate (shorter than the band).
+    // endpoints collapse into the SAME endpoint cluster is degenerate (shorter than the band).
     // STRIP it from every junction so the OTHER walls' ring sweep is the clean genuine-L /
     // genuine-N-way sweep (the stub no longer distorts their corners), and flag it `invalid`
-    // so the consumer skips its mesh instead of extruding the bow-tie. Detect on the FINAL
-    // junction set (post T-butt reclassification) — the doubling is the exact bow-tie trigger.
-    // Pure detection — never relocates a baseline. Genuine multi-wall clusters never double a
-    // member, so N-way full-length L/T/Y/X nodes are unaffected (no false positive).
-    const degenerate = collectDegenerateClusterWalls(junctions);
+    // so the consumer skips its mesh instead of extruding the bow-tie. Detect on the RAW
+    // clusters (NOT the post-`detectJunctions` drafts): a guard pass can re-point one stub end
+    // onto a neighbour body as its own T-junction, splitting the doubling across two drafts and
+    // hiding it from a post-draft test. The raw cluster is where the degeneracy is actually
+    // true and is immune to that split. Pure detection — never relocates a baseline. Genuine
+    // multi-wall clusters never double a member, so N-way full-length L/T/Y/X nodes are
+    // unaffected (no false positive).
+    const rawClusters = clusterEndpoints(walls, o.snapEpsilonM);
+    const degenerate = collectDegenerateClusterWalls(rawClusters);
     if (degenerate.size > 0) {
         for (const j of junctions) {
             j.realEndpoints = j.realEndpoints.filter(r => !degenerate.has(r.wallIdx));
