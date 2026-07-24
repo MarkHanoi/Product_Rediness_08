@@ -195,13 +195,15 @@ tradition, and is a likely Zoneomics high-coverage city.
 ```
 us/
 ├── README.md                               ← this file (country umbrella)
-├── RATE.md                                 ← data readiness rate
+├── RATE.md                                 ← data readiness rate (+ revised IGC ceiling section)
 ├── NEXT.md                                 ← blockers, trip-wires, resume steps
 ├── sources/
 │   ├── SOURCES.md                          ← per-field national data source citations
 │   └── VERIFICATION.md                     ← human sign-off (open)
 ├── findings/
-│   └── USA-MASTER-DATA-SOURCE-STUDY.md     ← full source/legal-mechanism study
+│   ├── USA-MASTER-DATA-SOURCE-STUDY.md     ← full source/legal-mechanism study
+│   ├── USA-INSTITUTIONAL-GRAPH-ANALYSIS.md ← revised ceiling proof (institution compilation model)
+│   └── USA-VISION-SHIFT-2026-07-24.md      ← theoretical framework: dataset aggregation → institution compilation
 ├── topics/
 │   ├── buildings-lod-height.md
 │   ├── parks-trees.md

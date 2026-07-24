@@ -91,6 +91,94 @@ not a data gap.
 
 ---
 
+## 5 — Phase 6: Institution Compilation (revised-model path)
+
+> Added 2026-07-24 based on the vision-shift analysis in
+> `findings/USA-VISION-SHIFT-2026-07-24.md` and `findings/USA-INSTITUTIONAL-GRAPH-ANALYSIS.md`.
+> Phase 6 is an **alternative path** to the dataset-aggregation phases above, not a replacement.
+> Phases 0–5 deliver the commercial triad quickly via Zoneomics/Regrid. Phase 6 builds the
+> durable institutional graph that raises the free-only ceiling from ~25–30% to ~55–65%.
+
+### The institution compilation model in one sentence
+
+Instead of waiting for a national zoning API that does not exist, build a compiler that discovers,
+crawls, and semantically normalises the ~5,000–8,000 municipal ArcGIS REST zoning endpoints plus
+the federal overlay graph — treating every public agency as a computational node.
+
+### Phase 6 tracker
+
+| Phase | Goal | Unlocks | Rate: from→to | Effort | Status |
+|---|---|---|---|---|---|
+| **6a** | ArcGIS Hub zoning discovery crawl — enumerate municipal FeatureServer URLs; schema-crawl first 500 | Corpus of local endpoints; field-name distribution for semantic classifier | ~12% → ~35% | 2–4 dev-days | NOT STARTED |
+| **6b** | Semantic normalisation — field-name ontology mapping (local → Planning IR) | One parser for thousands of jurisdictions | ~35% → ~42% | 3–5 dev-days | NOT STARTED |
+| **6c** | Federal overlay integration — FEMA NFHL, USFWS NWI, EPA Envirofacts, FAA OE/AAT, NRCS WSS | Free structured answers for flood, wetland, heritage, airport overlays (free, near-national) | ~42% → ~55% | 3–5 dev-days (one adapter per agency) | NOT STARTED |
+| **6d** | County assessor parcel fabric — crawl ArcGIS Hub for county assessor layers; standardise geometry + land-use codes | Near-universal free parcel fabric replacing Regrid dependency for routing | ~55% → ~62–65% | 4–7 dev-days (scripted crawl; schema normalisation) | NOT STARTED |
+| **6e** | NYC MapPLUTO `MaxAllwFAR` integration | Numeric FAR for 862K NYC parcels — highest-value free probe in corpus | Raises NYC city rate from ~15% to ~50–60% | 1–2 dev-days | NOT STARTED |
+| **6f** | Socrata city discovery — enumerate city Socrata portals; auto-discover zoning / permit datasets | Hundreds of additional structured city datasets | +3–5 pts (major cities) | 2–3 dev-days | NOT STARTED |
+
+### Phase 6 falsification probes (run first — before any Phase 6 dev work)
+
+These are cheap probes that confirm or falsify the institution-compilation hypothesis. If they
+fail, Phase 6 scope is adjusted downward before significant dev investment is made.
+
+| Probe | Command / method | Pass criteria | Est. time |
+|---|---|---|---|
+| FEMA NFHL endpoint | `curl "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST/MapServer/28/query?geometry=-87.65,41.85&geometryType=esriGeometryPoint&inSR=4326&outFields=FLD_ZONE,FLD_AR_ID&f=json"` | Returns JSON with FLD_ZONE field | 1 hr |
+| ArcGIS Hub zoning count | Query `https://hub.arcgis.com/api/search/v1/collections/all/items?q=zoning&bbox=-130,20,-60,55&resultType=hits` | Returns >2,000 distinct FeatureServer URLs | 2 hrs |
+| NYC MapPLUTO FAR fill | Download `https://data.cityofnewyork.us/resource/64uk-42ks.json?$select=bbl,maxallwfar&$limit=1000` | `MaxAllwFAR` > 0 for >80% rows | 1 hr |
+| County assessor sample | Fetch schema for Cook County (IL), LA County (CA), Harris County (TX) ArcGIS Hub layers | Land-use code field present in all three | 2 hrs |
+| USFWS NWI endpoint | `curl "https://www.fws.gov/wetlandsmapper/rest/services/Wetlands/MapServer/0/query?geometry=-87.65,41.85&geometryType=esriGeometryPoint&inSR=4326&outFields=ATTRIBUTE&f=json"` | Returns wetland type classification | 1 hr |
+
+### Architecture of the institution compilation pipeline
+
+```
+Discovery Layer
+  ├── ArcGIS Hub search API → municipal zoning FeatureServer URLs
+  ├── Socrata discovery API → city portal dataset catalogue
+  ├── CKAN API → state/city CKAN portals
+  └── Federal endpoints (hardcoded; stable) → FEMA, USFWS, EPA, FAA, NRCS, Census
+
+Schema Crawl Layer
+  ├── Per endpoint: GET /FeatureServer/0?f=json → field catalogue
+  ├── Coded-value domains → zone code vocabulary per jurisdiction
+  └── Field semantic classifier → local name → Planning IR concept
+
+Planning Intermediate Representation (Planning IR)
+  ├── parcel_id, jurisdiction_id
+  ├── zone_code, zone_description
+  ├── far_max (float | null), height_max_m (float | null), coverage_max (float | null)
+  ├── setback_front_m, setback_rear_m, setback_side_m (float | null)
+  ├── flood_zone (FEMA SFHA code | null)
+  ├── wetland_flag (bool), wetland_type (NWI attribute | null)
+  ├── heritage_flag (bool), heritage_source (NRHP | municipal | null)
+  ├── airport_overlay_flag (bool), airport_height_limit_m (float | null)
+  └── confidence (structured | constructed | derived | null)
+
+Query Layer
+  ├── Input: lat/lon + query type (zoning | flood | heritage | full)
+  ├── Route to jurisdiction via Census TIGER place boundary
+  ├── Fetch from discovered endpoint OR federal overlay OR county assessor
+  └── Translate via ontology → Planning IR → structured response
+```
+
+### Relationship between Phase 6 and Phases 0–5
+
+| Phases 0–5 (dataset aggregation + commercial) | Phase 6 (institution compilation) |
+|---|---|
+| Fast path to ~75–80% ceiling | Slower path to ~85–90% ceiling |
+| Single-vendor dependency (Zoneomics, Regrid) | Distributed; no single point of failure |
+| Zone code + FAR + height for covered cities | Full institutional graph including overlays |
+| Good for launch, high commercial ceiling | Good for long-term, high free ceiling |
+| Can run in parallel with Phase 6 | Can run in parallel with Phases 1–5 |
+
+The recommended strategy: run Phases 1–3 in parallel with Phase 6 falsification probes.
+If probes pass, begin Phase 6a while Phases 4–5 continue. The two paths converge at the ceiling.
+
+---
+
 *Model references: **Denmark** `../dk/` (ceiling, ~96%) · **Barcelona** `../es/es-ct/08019-barcelona/`
 (pilot climb). Governing: **C58** (fidelity/provenance), **ADR-0269** (curate-then-serve),
 **L-449** (human-verification gate).*
+
+*Institution compilation framework: `findings/USA-VISION-SHIFT-2026-07-24.md` ·
+`findings/USA-INSTITUTIONAL-GRAPH-ANALYSIS.md`. Added 2026-07-24.*

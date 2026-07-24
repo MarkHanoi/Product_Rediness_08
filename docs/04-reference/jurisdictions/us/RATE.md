@@ -112,6 +112,103 @@ reading pipeline across ~33,000 jurisdictions (which NZA says does not yet work 
 
 ---
 
-*Last updated: 2026-07-24. Structural research complete; no live endpoint probes run. Rates are
-estimates derived from published source descriptions, not from measured endpoint responses.
-Maintainer: UNASSIGNED.*
+## Revised ceiling: Institutional Graph model
+
+> ⚠ **This section describes a revised model** derived from the vision-shift analysis in
+> `findings/USA-VISION-SHIFT-2026-07-24.md`. The headline rates above remain the authoritative
+> numbers for cross-jurisdiction comparison (they use the same metric definition as every other
+> jurisdiction). The revised numbers below describe a **different metric** — Institutional Graph
+> Coverage (IGC) — and are **structural estimates pending five falsification probes**. Do not
+> substitute them for the headline until the probes are run. See
+> `findings/USA-INSTITUTIONAL-GRAPH-ANALYSIS.md` for the full derivation.
+
+### The shift: dataset aggregation → institution compilation
+
+The headline rates above were derived by asking:
+
+> "What open datasets exist nationally that answer zoning questions?"
+
+The answer: almost none nationally. Therefore 12% free.
+
+A second model — **institution compilation** — asks instead:
+
+> "What machine-readable institutional state already exists across the entire distributed graph
+> of US public agencies, and what does the ceiling become once that graph is compiled?"
+
+Under institution compilation, the US is not the second-worst free-source country. It may be the best.
+
+### What the institutional graph adds
+
+Three layers are materially undercounted in the current metric:
+
+**(A) Federal overlay APIs — free, structured, national**
+
+| Layer | Source | Free endpoint confirmed? | Coverage |
+|---|---|---|---|
+| Flood zone (SFHA) | FEMA NFHL ArcGIS MapServer | Endpoint known; not live-probed | ~99% US geography |
+| Wetland / habitat | USFWS National Wetlands Inventory ArcGIS FeatureServer | Endpoint known; not live-probed | ~95% US geography |
+| Terrain DTM/DSM | USGS 3DEP TNM API | Confirmed | >60% LiDAR; full national coverage targeted |
+| Heritage | NPS NRHP ArcGIS FeatureServer | Endpoint known; not live-probed | ~100,000 properties |
+| Airport height limits | FAA OE/AAT web service | Endpoint known; not live-probed | ~99% near airports |
+| Wetlands / soils | USDA NRCS Web Soil Survey API | Endpoint known; not live-probed | National |
+| Jurisdiction boundaries | Census TIGER/Line | Confirmed | 99% national |
+| Environmental risk | EPA Envirofacts REST | Confirmed | National |
+
+FEMA NFHL alone answers a first-order planning constraint — flood zone designation — for ~99% of US
+geography, free, via a structured ArcGIS MapServer. This field is as consequential as FAR for
+development decisions and was not counted in the current metric.
+
+**(B) ArcGIS REST as a hidden national zoning standard**
+
+An estimated 5,000–8,000 US municipalities publish zoning layers via ArcGIS REST FeatureServer —
+the same technical interface across all instances, with machine-readable field schemas
+(`GET .../FeatureServer/0?f=json`). Field names differ (`ZoningClass` vs `ZoneDist1` vs
+`ZONE_CODE`) but the API contract is identical, enabling a single ArcGIS crawler to discover
+and normalise thousands of municipal zoning endpoints.
+
+**NYC MapPLUTO** is the highest-value single free source in the entire corpus: it exposes
+`MaxAllwFAR` (numeric maximum FAR), `MaxAllwResiUnits`, and `ZoneDist1/2/3/4` for all ~862,000
+NYC properties as a free, structured download. If ingested, it could push NYC coverage to ~50–60%
+free — a performance unmatched by any single free dataset in any other jurisdiction.
+
+**(C) County assessor parcel fabric — near-universal, free, ArcGIS REST**
+
+Every US county maintains an assessor's parcel database (public record by statute). An estimated
+2,400–2,800 of the 3,143 counties publish this as an ArcGIS REST FeatureServer or bulk download.
+This is the US equivalent of Europe's cadastre — parcel geometry, land use codes, tax class,
+acreage — and it is free, structured, and machine-readable at near-universal coverage.
+
+### Revised ceiling table
+
+| Model | Core triad (zone + FAR + height) | Full institutional graph (incl. overlays) |
+|---|---|---|
+| Dataset aggregation, free only | **~12%** (current headline) | ~25–30% (current ceiling) |
+| Institution compilation, free only | **~35–40%** | **~55–65%** |
+| Institution compilation + commercial | **~75–80%** (same as current commercial) | **~85–90%** |
+
+The delta between the current free ceiling (~25–30%) and the revised free ceiling (~55–65%) comes
+from: (1) FEMA + EPA + USFWS + FAA federal overlays, (2) ArcGIS REST zoning discovery across
+5,000–8,000 municipalities, (3) NYC MapPLUTO numeric FAR/height, (4) county assessor parcel
+fabric. None of these require Zoneomics or Regrid.
+
+### Five falsification probes before revising the headline
+
+The revised ceiling is a structural hypothesis, not a measured rate. It becomes evidential only after:
+
+1. **FEMA NFHL bounding-box query** — confirm endpoint, SFHA field name, return format (1 dev-hour).
+2. **ArcGIS Hub zoning search** — count distinct municipal FeatureServer URLs; schema-crawl first 50;
+   measure FAR/height field presence rate (1–2 dev-days).
+3. **NYC MapPLUTO `MaxAllwFAR` population rate** — download one borough; confirm numeric fill rate (2–4 dev-hours).
+4. **County assessor Hub crawl (20-county sample)** — confirm land-use code field presence and
+   estimate national coverage fraction (1 dev-day).
+5. **USFWS NWI FeatureServer query** — confirm endpoint, wetland-type field, coverage (2 dev-hours).
+
+See `RATE-IMPLEMENTATION-PLAN.md` §"Phase 6" for the full operationalisation.
+
+---
+
+*Last updated: 2026-07-24. Structural research complete; revised ceiling added 2026-07-24 based
+on institution-compilation analysis (see `findings/USA-INSTITUTIONAL-GRAPH-ANALYSIS.md` and
+`findings/USA-VISION-SHIFT-2026-07-24.md`). No live endpoint probes run. Headline rates
+(~12% free / ~55% commercial) remain authoritative for cross-jurisdiction comparison until
+falsification probes are executed. Maintainer: UNASSIGNED.*
