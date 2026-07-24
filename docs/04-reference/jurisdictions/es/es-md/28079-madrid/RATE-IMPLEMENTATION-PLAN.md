@@ -27,6 +27,20 @@ land that refuses honestly. The DATA-readiness ceiling is higher (~70%) because 
 calificación code and NZ 1 geometry regardless of whether PRYZM consumes them — but the founder metric
 is envelopes, and the envelope ceiling is ~62%.
 
+> **⚠ 2026-07-24 RECON UPDATE (`findings/MADRID-DATA-RECON-SPIKE.md`) — the ROUTING half of the
+> ceiling is now fully GIS-native; only the parametric-number half is still PDF-bound.** Live recon
+> found the master per-parcel calificación layer
+> `…/DESARROLLO_URBANO_ACTUALIZADO/NORMAS_ZONALES/MapServer/0` (`AMB_TX_ETIQ`, spatial, ALL zones),
+> so parcel→NZ+grado assignment and derived-plan (APR/APE/API) detection are **machine-readable for
+> every zone**, not just NZ 1 — this removes the "calificación endpoint down" blocker entirely. The
+> NZ-1 envelope (`PG_CONDICIONES_EDIFICACION/6` ring, single closed 4326) is likewise fully GIS-native.
+> **What still holds the ~62% envelope ceiling in place, unchanged:** the *parametric scalars* for
+> NZ 4/8/5/7 (fondo edificable, retranqueos, altura) are **absent from GIS** — no
+> ALTURA/FONDO/RETRANQUEO attribute exists on any of the six services, and there are no coded-value
+> domains — so those numbers still need the Compendio 2023 Cap. 8.x human read. Net: Madrid can reach
+> the ceiling **without any further routing/geometry research**; the only remaining research is the
+> bounded parametric-number PDF read for four zones plus the NZ-1 `COEF_Z` legend.
+
 ---
 
 ## 2 — Phase tracker
@@ -42,7 +56,7 @@ Status vocabulary is FIXED: **NOT STARTED · IN PROGRESS · BLOCKED · SHIPPED �
 | **2** | **`explicit-area` engine branch + NZ 1 ringRef resolver** (KG-4) | NZ 1's live footprint+`COEF_Z` data becomes a shipped envelope; reusable for every footprint-publishing jurisdiction | 0% → the NZ 1 core share | Medium (one engine unit) | **BLOCKED** on the KG-4 engine work + the `explicitAreaFootprint` interface-field fix (pre-existing tsc defect) | UNASSIGNED |
 | **3** | **NZ 4** `alignment` — source *fondo edificable* per grado (NNUU Compendio 2023 Cap. 8.4), L-449 | the dominant central-Madrid residential envelope; `Alineaciones` layer already published | → most of the ~62% ceiling | High (human read, per grado) | **NOT STARTED** — DOCUMENT-gated | UNASSIGNED |
 | **4** | **NZ 8 (+5, 7)** `setback` — source retranqueos per grado, L-449 | detached/open residential envelopes | → toward ceiling | High (human read) | **NOT STARTED** — DOCUMENT-gated | UNASSIGNED |
-| **5** | Re-verify `PG_ORDENACION` live + `COEF_Z` parse under assertion | re-confirms the calificación endpoint (PRIOR-VERIFIED only) + makes NZ 1 edificabilidad safe | confidence, not resolution | Low | **NOT STARTED** | UNASSIGNED |
+| **5** | ~~Re-verify `PG_ORDENACION` live~~ + `COEF_Z` parse under assertion | calificación endpoint **RESOLVED** — the master `NORMAS_ZONALES/0` layer (`AMB_TX_ETIQ`, all-zone, spatial) is live + verified; NZ-1 code = `1.1…1.6` (not placeholder `NZ1`); `COEF_Z` semantics still need one legend read | confidence, not resolution | Low | **VERIFIED (routing) · COEF_Z legend NOT STARTED** (`findings/MADRID-DATA-RECON-SPIKE.md`) | UNASSIGNED |
 | **cert** | Per-NZ L-449 sign-off (`sources/VERIFICATION.md` — currently DRAFT, nothing signed) | moves packs to shippable; **re-derives the rate** | — | parallel | **NOT STARTED** | UNASSIGNED |
 
 ---
