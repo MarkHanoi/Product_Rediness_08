@@ -1,1 +1,2 @@
 - [France/Germany jurisdiction probing](fr-de-jurisdiction-probing.md) — GPU WFS endpoints, apicarto paths, Berlin/Hamburg/Munich WFS status, BayBO Art. 6 formula, Marseille PLUi partition/urlfic pattern.
+- [Sweden NGP and open data probe](sweden-probe-findings.md) — NGP STAC URL confirmed, geo-blocked from non-SE IPs; RAÄ WMS verified live; Boverket Planbestämmelsekatalog confirmed open; rate ~40%.

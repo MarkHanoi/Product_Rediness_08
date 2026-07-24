@@ -5,7 +5,11 @@
 
 ---
 
-## Machine-verified (agent, 2026-07-24)
+## Machine-verified (agent, 2026-07-24) — live HTTP probes
+
+**Probe environment:** Replit container (non-Swedish IP). Note: `api.lantmateriet.se` and
+`planbestammelsekatalogen.boverket.se` are geo-blocked from non-Swedish IPs (HTTP 403/000).
+RAÄ WMS is accessible globally.
 
 | Claim | How verified | Status |
 |---|---|---|
@@ -18,6 +22,14 @@
 | 236/290 municipalities actively delivering to NGP (April 2025) | April 2025 conference presentation citation in source study | ⚠️ STATED — conference figure, not independently confirmed from Lantmäteriet's live producer list |
 | Vadstena: first Östergötland municipality to publish via NGP on 2026-02-18 | Municipal/NGP announcement cited in source study | ⚠️ STATED — not independently confirmed |
 | Stockholm LOD2 is fee-based | Stockholm city geodata portal fee schedule cited in source study | ⚠️ STATED — fee schedule not directly fetched |
+| **RAÄ WMS endpoint live and free** | `GET https://pub.raa.se/visning/lamningar_v1/wms?service=wms&version=1.3.0&request=GetCapabilities` → HTTP 200; Fees: NONE; AccessConstraints: NONE; JSON GetFeatureInfo confirmed | ✅ VERIFIED-LIVE 2026-07-24 |
+| **RAÄ WMS layers** | GetCapabilities response confirms: `fornlamning`, `ovrkulthistlamning`, `ejkulthistlamning`, `ingenantikvariskbedomning`, `mojligfornlamning`; CRS: CRS:84 + EPSG:3006 | ✅ VERIFIED-LIVE 2026-07-24 |
+| **NGP STAC/OAPIF base URL** | `https://api.lantmateriet.se/distribution/geodatakatalog/sokning/v2/detaljplan/v2` confirmed from Redocly API docs; geo-blocked from non-SE IPs (HTTP 403 "Geolocation Block!") | ✅ URL CONFIRMED; ⚠️ GEO-BLOCKED |
+| **NGP auth model** | OAuth2 (Client Credentials, Authorization Code, PKCE) via `apimanager.lantmateriet.se`; Basic Auth also supported | ✅ VERIFIED from API Manager docs |
+| **Boverket Planbestämmelsekatalog API open** | Portal HTTP 200; "öppet gränssnitt utan krav på registrering"; ~3,700 codes; last updated 2025-12-01 | ✅ CONFIRMED from published terms; actual API path not resolved from non-SE IP |
+| **Lantmäteriet CC0 licence** | `https://www.lantmateriet.se/en/geodata/our-products/open-data/` HTTP 200; "may use, distribute, redo, modify and build on Lantmäteriet's open data... also applies in commercial contexts" | ✅ VERIFIED-LIVE 2026-07-24 |
+| **Pre-2022 plans not required in NGP** | Official NGP detaljplan page: "Detaljplaner påbörjade innan 2022-01-01 behöver inte tillgängliggöras digitalt" | ✅ VERIFIED from official Lantmäteriet page 2026-07-24 |
+| **PDF plan map still legally binding** | Göteborg NGP workshop FAQ (May 2025): "det är ju fortfarande pdf-plankartan som är juridiskt gällande" | ✅ VERIFIED from official PDF 2026-07-24 |
 
 ---
 

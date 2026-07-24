@@ -34,23 +34,21 @@ number. Until then, treat the 81% as a ceiling, not a floor.
 
 ## 3 — BLOCKERS (each: what · why it blocks · what would unblock it · exact resume step)
 
-### 3.1 — NGP API endpoint not live-probed
+### 3.1 — NGP API geo-blocked from non-Swedish IPs *(was: endpoint not found)*
 
-- **What it is.** The NGP WFS endpoint URL for detaljplan features has not been fetched or
-  GetCapabilities-verified. Lantmäteriet operates the platform but the specific service endpoint is
-  not confirmed from the research pass.
-- **Why it blocks.** Cannot measure land-area fill rate, cannot write a provider, cannot confirm
-  field names or CRS.
-- **What would unblock it.** A single `GetCapabilities` request to the NGP WFS (or equivalent
-  INSPIRE atom feed / REST API).
-- **THE EXACT RESUME STEP.** Fetch `https://www.lantmateriet.se/en/geodata/geodata-products/` or
-  search `lantmateriet.se` for "NGP API" / "nationella geodataplattformen WFS" to find the live
-  endpoint. Then run:
-  ```
-  GET <endpoint>?service=WFS&version=2.0.0&request=GetCapabilities
-  ```
-  and confirm the detaljplan feature type name and its attributes (especially provision codes,
-  geometry, and plan identity).
+- **What it is.** The NGP STAC/OAPIF endpoint URL is now confirmed:
+  `https://api.lantmateriet.se/distribution/geodatakatalog/sokning/v2/detaljplan/v2`
+  API type: STAC v1.0.0 + OGC API Features (OAPIF); auth: OAuth2 via `apimanager.lantmateriet.se`.
+  **However, the API returns HTTP 403 "Geolocation Block!" from non-Swedish IPs** — confirmed by
+  live probe 2026-07-24.
+- **Why it blocks.** Cannot run any feature query, fill-rate measurement, or field inspection
+  without a Swedish IP address or a proxy through Swedish infrastructure.
+- **What would unblock it.** Either: (a) a Swedish-IP VPS/proxy for the API call, or (b) a Fly.io
+  machine in the Stockholm region (`arn` = Arlanda) running the probe.
+- **THE EXACT RESUME STEP.**
+  1. Register an OAuth2 service account at `https://apimanager.lantmateriet.se/` (free, self-service).
+  2. Route a `GET .../collections` call through a Swedish IP (e.g. `flyctl machine run` in `arn` region).
+  3. Then run the fill-rate probe (see Blocker 3.2).
 
 ### 3.2 — Land-area fill rate (the critical unknown)
 
@@ -144,8 +142,17 @@ number. Until then, treat the 81% as a ceiling, not a floor.
 
 ## 7 — DEAD ENDS (measured negatives — do NOT re-run hoping)
 
-None yet — no live probes have been executed. This section will be populated after the Gothenburg
-fill-rate probe (§3.2).
+- **`api.lantmateriet.se` from non-Swedish IPs:** HTTP 403 "Geolocation Block!" — confirmed 2026-07-24.
+  Do not retry from Replit containers or non-Swedish cloud IPs without a Swedish proxy.
+- **`pb.boverket.se` (old Planbestämmelsekatalog domain):** DNS does not resolve — dead hostname.
+  The correct portal is `api-portal.boverket.se` and web app is `planbestammelsekatalogen.boverket.se`.
+- **`api.boverket.se/planbestammelsekatalog/v2/bestammelser`:** HTTP 404 — path guessing failed.
+  The actual Azure APIM path must be obtained by loading the SPA at `api-portal.boverket.se` in a browser.
+- **K-samsök API (kulturarvsdata.se):** The API accepts only specific K-samsök field names; naive
+  queries return "Okänt sökfält" errors. Use the RAÄ WMS instead — it is simpler, open, and confirmed live.
+- **RAÄ WMS GetFeatureInfo at specific pixel in Gamla Stan / Gothenburg:** Returned 0 features at
+  the test pixel. This is correct (no heritage feature at that exact pixel); it is NOT a data gap.
+  Heritage data density varies; a GetMap call across the full bbox will show features.
 
 ---
 

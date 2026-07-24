@@ -4,9 +4,9 @@
 > THE TRUST GATE (playbook §3.3, C58 §1.6, L-449). A field with NO citable source stays `null` in
 > the pack and is listed under §B Unverified. Never interpolate, average, or infer a legal number.
 
-**Status:** RESEARCH OPEN — no rule pack implemented; no live-probed endpoint values yet. All
-fields below are at `published`/`stated` confidence from structural research. None are at
-`verified-live` until a GetCapabilities + field-level probe is executed.
+**Status:** PARTIAL — RAÄ WMS endpoint VERIFIED-LIVE (2026-07-24). NGP STAC/OAPIF URL confirmed
+from API docs but geo-blocked from non-Swedish IPs. Boverket Planbestämmelsekatalog API confirmed
+open from published terms. All other fields at `published`/`stated` confidence.
 
 ---
 
@@ -52,13 +52,13 @@ fields below are at `published`/`stated` confidence from structural research. No
 |---|---|---|
 | NGP WFS endpoint URL | Not fetched — no GetCapabilities has been run | Fetch `https://www.lantmateriet.se/en/geodata/` or search "NGP WFS detaljplan"; run `GetCapabilities` |
 | NGP feature type names + field names | Depends on live endpoint | `DescribeFeatureType` after endpoint confirmed |
-| Provision code → numeric attribute mapping | Planbestämmelsekatalog API not fetched | GET `https://pb.boverket.se/` and read the schema; cross-reference with a sample NGP feature |
-| Land-area fill rate (post-2022 plans / total zoned area) | No probe executed | Run Monte-Carlo sample against NGP WFS for Gothenburg (see NEXT.md §3.2) |
+| Provision code → numeric attribute mapping | Boverket API base URL not resolved from non-SE origin (Azure APIM SPA; exact path unknown) | Load `api-portal.boverket.se` SPA in browser from Swedish IP; find `bestammelser` endpoint; fetch one record |
+| NGP STAC item field names | Geo-blocked from non-SE IPs (HTTP 403 "Geolocation Block!" confirmed 2026-07-24) | Route via Swedish IP; OAuth2 token from `apimanager.lantmateriet.se`; `GET .../collections/{id}/items?limit=1`; inspect `properties` |
+| Land-area fill rate (post-2022 plans / total zoned area) | No probe executed — geo-blocked | Run Monte-Carlo point sample against NGP STAC via Swedish IP for Gothenburg (see NEXT.md §3.2) |
 | ÖP-katalogen field coverage | API not fetched | Fetch Boverket ÖP-katalogen API endpoint; check `maxHeight`, `maxFloors`, `permittedUse` equivalent fields |
 | Lantmäteriet "akt" access status | Live restriction as of research date; may have changed | GET `https://www.lantmateriet.se` and search for akt/informationssäkerhet news |
 | LOD2 status for Gothenburg / Malmö | Not checked per city | Check `goteborg.se/geodata` and Malmö geodata portal for 3D building model downloads |
-| CRS of NGP WFS response | Not probed | Live GetFeature response |
-| Planbestämmelsekatalog adoption rate in practice | Unknown — 3,700 codes exist; unclear what % of real plans use structured codes vs. free-text | Sample 10–20 NGP-delivered detaljplan features and inspect provision-code field completeness |
+| Planbestämmelsekatalog adoption rate in practice | Unknown — 3,700 codes exist; unclear what % of real plans use structured codes vs. free-text | Sample 10–20 NGP-delivered STAC items and inspect provision-code field completeness |
 
 ⚠ A number that appears only in a conference presentation, slide, or secondary republication is
 `stated` — record it here as a research note, never promote it to §A without a primary-source citation.
