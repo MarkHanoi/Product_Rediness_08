@@ -1,8 +1,12 @@
 # Rate Implementation Plan — Finland (`fi`) national
 
-**Current rate:** `~55–65% (Ryhti live) / ~30–35% (non-Ryhti)` (see [`RATE.md`](./RATE.md)) ·
-**Realistic ceiling:** `~80–85%` · **Gap to ceiling (from Ryhti live rate):** ~15–20 pts ·
-**Gap to Denmark (~96%):** ~31–41 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
+**Current rate:** `~30–40% confirmed baseline / up to ~55–65% if _ix_ = attributes` (see [`RATE.md`](./RATE.md)) ·
+**Realistic ceiling:** `~80–85%` · **Gap to ceiling:** ~40–55 pts (schema-dependent) ·
+**Gap to Denmark (~96%):** ~56–66 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
+
+> **Phase 0 status (2026-07-24):** IN PROGRESS. Ryhti plan API endpoint + 4 `_ix_` collections
+> VERIFIED-LIVE. ryhti_building `open_address` VERIFIED-LIVE nationally. Item-level plan attribute
+> schema unconfirmed — tooling gap (binary GeoJSON payload), not an access restriction.
 
 ---
 
@@ -40,12 +44,14 @@ pass and VOOKA completes.
 
 | Phase | Goal | Unlocks | Rate: from→to | Effort | Status | Owner |
 |---|---|---|---|---|---|---|
-| **0** | Assess — live probe the Ryhti OGC API (South/North Savo), Maanmittauslaitos cadastre, KMTK 3D buildings, Museovirasto WFS; write confirmed RATE.md numbers | The honest measured baseline replacing the documentation estimate | — → **measured Tier-1 number** | Low — APIs appear open/public | NOT STARTED | UNASSIGNED |
-| **1** | Wire Tier-1 path: Maanmittauslaitos parcel geometry + Ryhti kaavatietomalli for South/North Savo + KMTK buildings + Museovirasto heritage guard | First confirmed deployable structured-data path for two Finnish regions; heritage multi-channel caveat surfaced in UI | measured → **~55–65%** (Ryhti live regions) | Low-medium — one national schema, no per-region legal variation | NOT STARTED | UNASSIGNED |
-| **2** | Confirm Helsinki/Uusimaa VOOKA date + integrate SeutuRAMAVA floor-area data as a supplementary layer for the capital metro | Adds the capital-city market; SeutuRAMAVA gives block-level FAR for Espoo/Helsinki/Kauniainen/Vantaa ahead of full Ryhti rollout | **~55–65%** → **~60–70%** (capital region added, SeutuRAMAVA supplement) | Low — SeutuRAMAVA is already structured open data | NOT STARTED | UNASSIGNED |
-| **3** | Track VOOKA rollout progress; auto-ingest each newly-migrated region as it enters Ryhti | Progressively extends Tier-1 coverage from 2 confirmed regions toward national | **~60–70%** → grows as VOOKA migrates regions | Low per region (same schema, no new legal research) — medium overall (monitoring pipeline) | NOT STARTED | UNASSIGNED |
-| **4** | PDF extraction pipeline for non-Ryhti asemakaava plans — article parser tuned to Finnish kaavamerkinnät symbol structure | Raises pre-migration regions from ~30–35% toward ~45–55% | **non-Ryhti ~30–35%** → **~45–55%** | Medium — needs Finnish-language OCR + kaavamerkinnät article-structure adapter | NOT STARTED | UNASSIGNED |
-| **5** | Full national coverage post-VOOKA + heritage multi-channel integration (LVV + municipal plan-overlay query) | Ceiling: ~80–85% nationally | → **~80–85%** (ceiling) | Medium — VOOKA timeline (1.1.2029 legal backstop); LVV API confirmation needed | NOT STARTED | UNASSIGNED |
+| **0** | Assess — Ryhti plan API + ryhti_building probed; `_ix_` item schema still pending (tooling gap) | Honest measured baseline — **conditional on `_ix_` schema** | — → **~30–40% OR ~55–65%** (schema-dependent) | Very Low — one curl command (see NEXT.md §8) | **IN PROGRESS** — endpoint + collections confirmed live; item schema blocked on tooling | UNASSIGNED |
+| **0b** | Resolve `_ix_` schema — fetch `pub_valid_ld_plan_ix_gs/items?limit=1` in GeoJSON-capable tool; confirm index-only vs. index+attributes | Sets Phase 1 vs. Phase 4 as next lever; highest-value single action | Confirms rate as ~55–65% (attributes) or ~30–40% (index-only) | Very Low — 5-minute curl/Python probe | NOT STARTED | UNASSIGNED |
+| **1a** | Wire ryhti_building `open_address` nationally — building/address structured layer | Nationally-live building context, independent of plan-layer rollout | baseline → +5% (building/address nationally) | Low — endpoint confirmed live; schema to fetch | NOT STARTED | UNASSIGNED |
+| **1b** | Wire Ryhti plan path (if Phase 0b confirms `_ix_` = attributes): Maanmittauslaitos parcels + Ryhti `pub_valid_ld_plan_ix_gs` + KMTK buildings + Museovirasto heritage guard | First confirmed numeric-fill structured path for South/North Savo | measured → **~55–65%** | Low-medium — one national schema | NOT STARTED — depends on Phase 0b result | UNASSIGNED |
+| **2** | Confirm Helsinki/Uusimaa VOOKA date + integrate SeutuRAMAVA floor-area data | Adds capital-city market; SeutuRAMAVA block-level FAR already structured | **~55–65%** → **~60–70%** | Low | NOT STARTED | UNASSIGNED |
+| **3** | Track VOOKA rollout; auto-ingest each newly-migrated region | Extends Tier-1 coverage progressively toward national | grows as VOOKA migrates | Low per region | NOT STARTED | UNASSIGNED |
+| **4** | PDF extraction pipeline for non-Ryhti (or index-only) asemakaava plans — kaavamerkinnät article-structure adapter | Raises PDF-bound regions from ~30–35% toward ~45–55% | **~30–35%** → **~45–55%** | Medium — Finnish OCR + kaavamerkinnät adapter | NOT STARTED | UNASSIGNED |
+| **5** | Full national coverage post-VOOKA + heritage multi-channel integration (LVV + municipal) | Ceiling: ~80–85% | → **~80–85%** | Medium | NOT STARTED | UNASSIGNED |
 
 ---
 

@@ -5,11 +5,11 @@
 
 ---
 
-## Machine-verified (agent, 2026-07-24) — documentation review; no live HTTP probes
+## Machine-verified (agent, 2026-07-24) — documentation review + Phase 0 live probes
 
-**Probe environment:** research from published primary-source documentation only. No live API calls
-were executed for this jurisdiction. All claims are at `published` or `stated` confidence, not
-`VERIFIED-LIVE`. No pack may ship at `structured` confidence without live endpoint verification.
+**Probe environment:** Replit container (non-Finnish IP). Phase 0 partial — Ryhti plan API and
+ryhti_building probed live. Item-level GeoJSON schema blocked on tooling (binary payload), not an
+access restriction. Maanmittauslaitos, KMTK, and Museovirasto not yet live-probed.
 
 | Claim | How verified | Status |
 |---|---|---|
@@ -31,7 +31,10 @@ were executed for this jurisdiction. All claims are at `published` or `stated` c
 | RHR GDPR-restriction — third-party access requires DVV permission | DVV published access terms; GDPR + Finnish Data Protection Act | ✅ VERIFIED from published DVV documentation |
 | SeutuRAMAVA dataset covers Espoo, Helsinki, Kauniainen, Vantaa — block-level FAR from valid asemakaava | Helsinki Region open data programme documentation | ✅ VERIFIED from published dataset description |
 | Åland has separate land registry and building permitting by statute | Finnish Constitution + Åland Self-Government Act | ✅ VERIFIED from published constitutional/statutory source |
-| Ryhti OGC API is free and open (no geo-block known, unlike Sweden's NGP) | MoE programme documentation | ⚠️ STATED — no geo-block mentioned in documentation; not live-confirmed |
+| **Ryhti plan OGC API base URL live and open** | `GET https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1` → HTTP 200 JSON; no auth required; Syke courtesy-registration norm (not access gate) | ✅ VERIFIED-LIVE 2026-07-24 |
+| **Ryhti plan collections — 4 `_ix_` collections confirmed** | `GET .../collections` → `pub_valid_ld_plan_ix_gs`, `pub_valid_lm_plan_ix_gs`, `pub_prep_ld_plan_ix_gs`, `pub_prep_lm_plan_ix_gs`; all carry `_ix_` suffix; declared bbox = all Finland (GeoServer CRS-extent default, not data coverage) | ✅ VERIFIED-LIVE 2026-07-24 |
+| **ryhti_building `open_address` live nationally** | `GET .../ryhti_building/ogc/features/v1/collections/open_address/items?limit=1` → Helsinki municipality 091, June 2026 timestamp | ✅ VERIFIED-LIVE 2026-07-24 |
+| **`_ix_` item-level property schema** | Binary payload returned by probe tool — server IS serving `application/geo+json`; tool cannot render as text | ⚠️ BLOCKED — tooling gap; not an access restriction |
 | Helsinki/Uusimaa VOOKA migration date | NOT confirmed in this pass | ❌ UNVERIFIED |
 
 ---
@@ -40,9 +43,7 @@ were executed for this jurisdiction. All claims are at `published` or `stated` c
 
 | Open item | Why it needs confirmation |
 |---|---|
-| **Ryhti OGC API endpoint URL and GetCapabilities** | No live probe executed. The entire Tier-1 implementation path depends on this. Must run before writing any provider code. |
-| **Ryhti feature property names** | tehokkuusluku (FAR), kerrosluku (storeys), kayttotarkoitus (zone/use code) — field names assumed from kaavatietomalli schema documentation but not confirmed from a live feature response. |
-| **Ryhti auth model** | API documented as open/free; no auth token process has been tested. |
+| **`_ix_` item property schema** — does `pub_valid_ld_plan_ix_gs` carry numeric kaavatietomalli attributes (tehokkuusluku, kerrosluku, kayttotarkoitus) or only plan ID + boundary + PDF link? | **Rate-defining unknown.** Confirms whether Tier-1 rate is ~55–65% or ~30–40%. One curl/Python GET resolves it. |
 | **Maanmittauslaitos parcel API — live response** | No actual API key has been obtained; no GetFeatures call made. |
 | **KMTK 3D building vector — attribute names + fill rate** | storey-count attribute assumed from product description; not confirmed from live DescribeFeatureType. |
 | **Museovirasto WFS endpoint — GetCapabilities** | Service existence confirmed; exact URL and layer names not fetched. |

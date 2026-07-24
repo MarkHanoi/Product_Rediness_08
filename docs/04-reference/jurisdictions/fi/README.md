@@ -108,12 +108,27 @@ tehokkuusluku/FAR, kerrosluku/storey count) remain locally set per plan.
 |---|---|---|
 | Programme name | Ryhti — national built-environment information system, Ministry of the Environment (2020–2025) | `published` |
 | Data model | Kaavatietomalli — ISO 19109/19103/19107-based national zoning schema | `published` |
-| Regions confirmed live | **South Savo and North Savo** — valid asemakaava and yleiskaava already available via open, free APIs today | `published` |
+| **Plan OGC API base URL** | **`https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1`** — live, public, no auth; courtesy registration via gistuki@syke.fi for production use | `verified-live` (2026-07-24) |
+| **Plan collections (4 confirmed)** | `pub_valid_ld_plan_ix_gs` (valid asemakaava index), `pub_valid_lm_plan_ix_gs` (valid yleiskaava index), `pub_prep_ld_plan_ix_gs` (prep asemakaava), `pub_prep_lm_plan_ix_gs` (prep yleiskaava) — all `_ix_`-suffixed | `verified-live` (2026-07-24) |
+| **`_ix_` schema — UNCONFIRMED** | Whether these collections carry numeric kaavatietomalli attributes (FAR/kerrosluku/use code) or only plan boundary + PDF link is the **rate-defining unknown** — item-level GeoJSON blocked on tooling gap (not access) | `unconfirmed` |
+| **Declared bbox caveat** | All four collections declare bbox = all Finland — this is a GeoServer CRS-extent metadata default, NOT data coverage. Actual plan content is South/North Savo only | `verified-live` (trap documented) |
+| Regions confirmed live | **South Savo and North Savo** — valid asemakaava and yleiskaava already in Ryhti | `published` |
 | National rollout vehicle | VOOKA project — explicit goal to export all current Finnish zoning and master plans into kaavatietomalli format | `published` |
 | Legal mandate date | Municipalities must submit building data to Ryhti by **1.1.2029** at latest | `published` (Rakentamislaki) |
 | Building-permit data mandate | Kaavatietomalli-format building permits mandatory from **start of 2026** | `published` (Rakentamislaki) |
 | Retroactive obligation | None — municipalities are NOT required to retroactively submit existing historical data (may choose to) | `published` |
-| Helsinki capital region | Rollout status inside Ryhti/VOOKA specifically is NOT confirmed in this pass — needs live probe | `stated` |
+| Helsinki capital region | Rollout status inside Ryhti/VOOKA specifically is NOT confirmed — needs VOOKA schedule check | `stated` |
+
+### 2.2b Buildings/addresses — ryhti_building (separate sub-service)
+
+| Aspect | Value | Confidence |
+|---|---|---|
+| **API base URL** | `https://paikkatiedot.ymparisto.fi/geoserver/ryhti_building/ogc/features/v1` | `verified-live` (2026-07-24) |
+| **`open_address` collection — nationwide** | Helsinki municipality 091 record confirmed; June 2026 timestamp; nationwide coverage (NOT Savo-only unlike ryhti_plan) | `verified-live` (2026-07-24) |
+| Rollout timeline | Ahead of ryhti_plan — building/address data already national while plan layer is still Savo-only | `verified-live` (2026-07-24) |
+
+⚠ `ryhti_plan` and `ryhti_building` are **two independent sub-services on different rollout timelines**.
+Do not conflate them. ryhti_building is national now; ryhti_plan content is South/North Savo only.
 
 ### 2.3 Floor-area data — SeutuRAMAVA (Helsinki capital region)
 

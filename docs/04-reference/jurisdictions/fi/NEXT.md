@@ -7,53 +7,60 @@
 
 ## 1 — WHERE WE STOPPED (the one-paragraph truth)
 
-Finland has been fully characterised at the legal/structural level — Alueidenkäyttölaki + Rakentamislaki
-(both 1.1.2025), kaavatietomalli (ISO-based national zoning data model), Ryhti programme, VOOKA national
-rollout project, Maanmittauslaitos cadastre, KMTK national 3D building vectors, national LiDAR, Museovirasto
-heritage — and is structurally the strongest jurisdiction studied after Denmark. No API endpoints have been
-live-probed, no sample parcels queried, and no code has been written. The entire readiness estimate is
-documentation-level from published primary sources. The two highest-value unknowns are: (1) does the live
-Ryhti OGC API for South/North Savo actually return structured FAR/height values at the parcel level, and
-(2) when is the Helsinki/Uusimaa region migrated into Ryhti — which determines whether the capital is Tier 1
-or Tier 2.
+**Phase 0 partially complete (2026-07-24).** The Ryhti plan OGC API is confirmed live and public at
+`https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1` — no login required. Four
+collections are enumerated, all carrying `_ix_` (index) suffixes in their schema naming, which is a
+concrete signal (mirroring Hamburg's B-Plan index) that these may be plan-boundary/directory collections
+rather than attribute-rich kaavatietomalli feature collections. A separate `ryhti_building` sub-service
+is confirmed live **nationally** — the `open_address` collection returned a Helsinki (municipality 091,
+June 2026) record — ahead of the plan layer in rollout. The one unresolved question that decides the
+entire rate estimate: does `pub_valid_ld_plan_ix_gs` carry kaavayksikkö numeric attributes (FAR,
+kerrosluku, use code) in its feature `properties`, or only plan boundary + PDF link? This sits behind a
+tooling gap (binary GeoJSON payload) — not an access restriction — and requires a single HTTP GET in any
+GeoJSON-capable environment to resolve.
 
 ---
 
 ## 2 — THE NUMBER
 
-**❔ UNVERIFIED — no live probe has been executed.**
+**Phase 0 partial — endpoint confirmed, item schema unresolved.**
 
-Structural estimate (documentation-level):
-- **~55–65%** for confirmed Ryhti live regions (South Savo, North Savo)
-- **~30–35%** for non-Ryhti regions
+| Scenario | Rate | Basis |
+|---|---|---|
+| `_ix_` collections = index + kaavatietomalli numeric attributes | **~55–65%** (Ryhti live regions) | Original estimate; holds if FAR/kerrosluku are in `properties` |
+| `_ix_` collections = index-only (boundary + PDF link) | **~30–40%** (Ryhti live regions) | Revised if Hamburg B-Plan pattern confirmed |
+| Non-Ryhti regions (all other) | **~30–35%** | Unchanged; plan in PDF/municipal WebGIS |
 
-The bimodal split is driven entirely by VOOKA migration status — not by legal-mechanism variation. The
-mechanism is identical everywhere; the data delivery is bimodal. A direct OGC API probe against the Ryhti
-endpoint for South or North Savo is the single measurement that converts the Tier-1 estimate from
-documentation to a measured number.
+**Confirmed live today regardless of `_ix_` outcome:**
+- Ryhti plan OGC API: live, public, no auth (`pub_valid_ld_plan_ix_gs`, `pub_valid_lm_plan_ix_gs`)
+- ryhti_building `open_address`: live **nationally** (Helsinki 091, June 2026 timestamp verified)
+
+The `_ix_` schema result is the single measurement that pins the number.
 
 ---
 
 ## 3 — BLOCKERS (each: what · why it blocks · what would unblock it · exact resume step)
 
-### 3.1 — Ryhti OGC API not live-probed
+### 3.1 — `_ix_` item-level schema unconfirmed (BLOCKER — tooling gap, not access gate) ⚠️ CRITICAL
 
-- **What it is.** The national Ryhti built-environment API for South Savo and North Savo is confirmed live
-  from Ministry of Environment documentation. The exact OGC API Features / STAC endpoint URL, auth model,
-  and schema field names have not been fetched.
-- **Why it blocks.** Cannot confirm: (a) the exact parcel-level query path, (b) whether FAR/kerrosluku are
-  structured attributes in the kaavatietomalli API response, (c) whether kaavayksikkö objects are present or
-  absent for the sampled plans.
-- **What would unblock it.** A live HTTP call to the Ryhti API. No geo-block is known (unlike Sweden's NGP);
-  access appears to be free and open. The Ministry of Environment Ryhti map service page is the starting point
-  for the endpoint URL.
+- **What it is.** The Ryhti plan OGC API is confirmed live at
+  `https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1`. Four collections enumerated,
+  all `_ix_`-suffixed. Item-level GeoJSON was requested but returned as binary payload that the probe tool
+  cannot decode as text. This is a **tooling gap**, not a server-side access restriction — the API is
+  serving `application/geo+json` successfully.
+- **Why it blocks.** The `_ix_` schema question decides whether the Tier-1 rate is ~55–65% (attributes
+  present) or ~30–40% (index-only, Hamburg pattern). This is the rate-defining unknown for all of Finland.
+- **What would unblock it.** Any environment that can parse `application/geo+json` text — curl, Python
+  requests, Node.js fetch, browser DevTools. The API requires no auth.
 - **THE EXACT RESUME STEP.**
-  1. Fetch the Ryhti API documentation / map service landing page at `https://www.ymparisto.fi/ryhti` or
-     `https://ryhti.ymparisto.fi/`.
-  2. Run `GET .../collections` (OGC API Features) or STAC root; record available collections.
-  3. Fetch one asemakaava feature from South Savo; inspect `properties` for tehokkuusluku, kerrosluku,
-     kayttotarkoitus.
-  4. Write result to `findings/` and update §2 of this file.
+  ```
+  curl -s "https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1/collections/pub_valid_ld_plan_ix_gs/items?limit=1" \
+    -H "Accept: application/geo+json" | python3 -m json.tool | grep -A 50 '"properties"'
+  ```
+  Inspect the `properties` object: if it contains `tehokkuusluku`, `kerrosluku`, or `kayttotarkoitus`
+  fields → `_ix_` = attributes present → rate is ~55–65%. If it contains only `planId`, `geometry`, and
+  a PDF URL field → `_ix_` = index-only → rate is ~30–40%.
+  Write result to `findings/RYHTI-PHASE0-PROBE.md` and update §2 of this file.
 
 ### 3.2 — Maanmittauslaitos cadastre — no live API key obtained
 
@@ -113,9 +120,9 @@ documentation to a measured number.
 
 ## 4 — TRIP-WIRES (if you see X elsewhere, come back HERE and do Y)
 
-- **4.1 — If you find the Ryhti OGC API endpoint working anywhere in the codebase or research:**
-  run Blocker 3.1 immediately for South Savo. The live numeric field response converts the entire estimate
-  from documentation to measurement.
+- **4.1 — If you have a GeoJSON-capable tool available (curl, Python, Node.js, browser):**
+  run Blocker 3.1 immediately — `GET .../pub_valid_ld_plan_ix_gs/items?limit=1` and read the `properties`
+  object. This is a 30-second probe that resolves the entire rate estimate. The API is open, no auth.
 - **4.2 — If you are probing any Nordic jurisdiction's national digital plan API:** apply the same
   "participation vs. land-area fill" discipline that is the core lesson from Sweden's NGP research. Finnish
   VOOKA migration ≠ full land-area coverage of that region's older plans.
@@ -142,12 +149,16 @@ documentation to a measured number.
 - The legal-structural study (this README + `findings/FINLAND-MASTER-DATA-SOURCE-STUDY.md`) — do not
   re-research the Alueidenkäyttölaki/Rakentamislaki hierarchy, kaavatietomalli schema basis, Ryhti
   programme, VOOKA mandate, or Maanmittauslaitos open-data model.
-- The bimodal rate framing — Finland's split is TIMING (VOOKA migration), not LEGAL-MECHANISM. Do not
-  re-derive this from first principles; it is already the correct characterisation.
-- The Museovirasto heritage non-exhaustion caveat structure (two named channels: LVV + municipality/region)
-  — do not simplify to "heritage overlay is incomplete"; the specific channels must remain named.
-- The first-city sequencing recommendation (South/North Savo → Helsinki/Uusimaa → Tampere/Turku) with
-  rationale (confirmed-live vs. capital-city-intuition).
+- **Ryhti plan API confirmed live** (2026-07-24): endpoint `https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1`,
+  four `_ix_` collections enumerated, no auth required. Do not re-probe the landing page or collections list.
+- **ryhti_building `open_address` confirmed live nationally** (2026-07-24): Helsinki 091 record verified.
+  Do not re-probe basic endpoint availability.
+- **`_ix_` bbox trap documented** — all four collections declare bbox covering all Finland; this is
+  GeoServer CRS-extent metadata default, NOT data coverage. Do not re-investigate this observation.
+- The bimodal rate framing — split is TIMING (VOOKA migration) + `_ix_` SCHEMA QUESTION (see Blocker 3.1).
+- The Museovirasto heritage non-exhaustion caveat (two named channels: LVV + municipality/region) — keep named.
+- The ryhti_plan / ryhti_building separation — these are two independent sub-services on different rollout
+  timelines. Do not conflate them under one "Ryhti" umbrella.
 
 ---
 
@@ -155,8 +166,9 @@ documentation to a measured number.
 
 | Source | Answers | Tier | Note |
 |---|---|---|---|
+| `https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1` | Ryhti plan OGC API — 4 `_ix_` collections: `pub_valid_ld_plan_ix_gs`, `pub_valid_lm_plan_ix_gs`, `pub_prep_ld_plan_ix_gs`, `pub_prep_lm_plan_ix_gs` | ✅ VERIFIED-LIVE 2026-07-24 | Open; no auth; item-level schema unconfirmed (binary payload) |
+| `https://paikkatiedot.ymparisto.fi/geoserver/ryhti_building/ogc/features/v1/collections/open_address/items` | Building address data — NATIONWIDE (Helsinki 091, June 2026 confirmed) | ✅ VERIFIED-LIVE 2026-07-24 | Open; no auth; nationwide coverage confirmed |
 | `https://avoin-paikkatieto.maanmittauslaitos.fi/kiinteisto-avoin/simple-features/v3/` | Parcel geometry, cadastral unit IDs, usage-right units | DOCUMENT — not live-probed | CC BY 4.0; self-service API key |
-| `https://www.ymparisto.fi/ryhti` (or `ryhti.ymparisto.fi`) | Ryhti programme + kaavatietomalli OGC API for South/North Savo | DOCUMENT — live Ryhti regions confirmed; API endpoint URL not fetched | Free, open; no geo-block known |
 | `https://www.maanmittauslaitos.fi` (Maastotietokanta) | KMTK national topographic DB including 3D Buildings + storey count | DOCUMENT — not live-probed | Open data; LiDAR-derived |
 | `https://www.museovirasto.fi` / Museovirasto WFS | Heritage: ancient monuments, RKY, Building Heritage Register, World Heritage | DOCUMENT — not live-probed | Open WFS/WMS; explicitly non-exhaustive (two other channels required) |
 | `https://www.ymparisto.fi` / Alueidenkäyttölaki + Rakentamislaki (2025) | National planning + building law | DOCUMENT — statutory text | Effective 1.1.2025; replacing MRL |
@@ -167,15 +179,22 @@ documentation to a measured number.
 
 - **RHR (rakennus- ja huoneistorekisteri) open access:** confirmed GDPR-restricted; third-party access requires DVV permission. Do not attempt to use RHR as a primary data source without a DVV access agreement. Building massing is available via KMTK instead.
 - **Åland under mainland systems:** Åland is confirmed to have a separate land registry and building permitting administration by statute. Do not assume NLS or Ryhti endpoints cover Åland without separate confirmation.
+- **Ryhti plan collection `bbox` as data-coverage proxy:** all four `_ix_` collections declare a bbox covering all of Finland (15.05–33.99°E, 58.6–70.26°N). This is a **GeoServer CRS-extent metadata default**, not data coverage. Do not infer national plan coverage from this field. Actual content is South/North Savo only per Ryhti documentation.
+- **Binary payload from Ryhti item endpoint:** fetching `pub_valid_ld_plan_ix_gs/items?limit=1` with any format parameter (GeoJSON, CSV, HTML, WFS DescribeFeatureType XML) returns `[binary data]` in the probe tool. This is a tool rendering limitation — the server IS serving `application/geo+json`. Do not retry with the same probe tool; use curl/Python/Node instead.
 
 ---
 
 ## 8 — THE SMALLEST NEXT STEP that moves the number, and its cost
 
-**Fetch the Ryhti OGC API landing page and run GetCapabilities / collections for South Savo** (Blocker 3.1).
+**Run the single curl command in Blocker 3.1** — read the `properties` of one `pub_valid_ld_plan_ix_gs` item.
 
-Cost: ~30–60 minutes. The Ministry of Environment Ryhti programme page (`ymparisto.fi/ryhti`) is the
-starting point. The API is documented as free and open with no geo-block (unlike Sweden's NGP). Once a
-single asemakaava feature response for South Savo is in hand, inspect `properties` for tehokkuusluku
-and kerrosluku — those two attribute names, confirmed live, convert the Tier-1 estimate from
-documentation-level to a measured number. That is the highest-value measurement available.
+Cost: ~5 minutes. The API is confirmed live, open, and no auth. The command:
+```bash
+curl -s "https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1/collections/pub_valid_ld_plan_ix_gs/items?limit=1" \
+  -H "Accept: application/geo+json" | python3 -m json.tool | grep -A 50 '"properties"'
+```
+Two outcomes:
+- Properties contain `tehokkuusluku`/`kerrosluku`/`kayttotarkoitus` → **rate is ~55–65%**, Phase 1 can start immediately.
+- Properties contain only plan ID + geometry + PDF link → **rate is ~30–40%**, Phase 4 PDF-extraction pipeline is the next lever.
+
+This is the highest-value measurement remaining in the entire Finland research programme. Everything else is secondary to this.

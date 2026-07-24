@@ -4,9 +4,10 @@
 > THE TRUST GATE (playbook §3.3, C58 §1.6, L-449). A field with NO citable source stays `null` in
 > the pack and is listed under §B Unverified. Never interpolate, average, or infer a legal number.
 
-**Status:** PARTIAL — legal structure confirmed from primary statutory sources and published government
-documentation. No live API probes have been executed. All endpoint URLs are documentation-confirmed, not
-field-verified. No pack may ship any confidence tier above `published` without a live probe.
+**Status:** PARTIAL — Phase 0 probe complete for Ryhti plan API (endpoint + collections VERIFIED-LIVE) and
+ryhti_building (nationwide VERIFIED-LIVE). Item-level plan attribute schema blocked on tooling (binary
+payload). Maanmittauslaitos, KMTK, Museovirasto not yet live-probed. No pack may ship `structured`
+confidence without live endpoint verification and human sign-off (L-449).
 
 ---
 
@@ -37,6 +38,10 @@ field-verified. No pack may ship any confidence tier above `published` without a
 | Plan hierarchy | Maakuntakaava → Yleiskaava → Asemakaava — three-tier, nationally uniform | statute | Alueidenkäyttölaki | MoE planning documentation | `https://www.ymparisto.fi` | `published` |
 | National plan-symbol standard | Kaavamerkinnät ja -määräykset — Ministry of the Environment; applies universally to every asemakaava and yleiskaava | regulation | Ministry of the Environment decree | National plan markings and regulations standard | `https://www.ymparisto.fi` | `published` |
 | Kaavatietomalli data model basis | ISO 19109 (General Feature Model) + ISO 19103 + ISO 19107 | standard | Ryhti programme documentation | Ministry of the Environment — Ryhti / kaavatietomalli | `https://www.ymparisto.fi/ryhti` | `published` |
+| Ryhti plan OGC API base URL | `https://paikkatiedot.ymparisto.fi/geoserver/ryhti_plan/ogc/features/v1` — live, public, no auth required; courtesy registration via gistuki@syke.fi for production use | URL | — | Live probe 2026-07-24 | direct HTTP GET | `verified-live` |
+| Ryhti plan collections | `pub_valid_ld_plan_ix_gs` (valid asemakaava index), `pub_valid_lm_plan_ix_gs` (valid yleiskaava index), `pub_prep_ld_plan_ix_gs` (prep asemakaava index), `pub_prep_lm_plan_ix_gs` (prep yleiskaava index) — all `_ix_`-suffixed | collection IDs | — | Live probe 2026-07-24 | `GET .../collections` | `verified-live` |
+| Ryhti plan collection bbox caveat | Declared bbox (15.05–33.99°E, 58.6–70.26°N) is GeoServer CRS-extent metadata default, NOT data coverage; actual content is South/North Savo only | — | — | Live probe 2026-07-24 + Ryhti documentation | direct observation | `verified-live` |
+| ryhti_building `open_address` nationwide | `https://paikkatiedot.ymparisto.fi/geoserver/ryhti_building/ogc/features/v1/collections/open_address/items` — live nationally; Helsinki 091 record confirmed; June 2026 timestamp | URL + coverage | — | Live probe 2026-07-24 | direct HTTP GET + feature inspection | `verified-live` |
 | Ryhti live regions | South Savo (Etelä-Savo) and North Savo (Pohjois-Savo) — valid asemakaava and yleiskaava in Ryhti OGC API | — | — | Ministry of the Environment — Ryhti programme documentation | `https://www.ymparisto.fi/ryhti` | `published` |
 | VOOKA mandate | All current Finnish zoning and master plans to be exported to kaavatietomalli format | — | Rakentamislaki | VOOKA project documentation, Ministry of the Environment | `https://www.ymparisto.fi` | `published` |
 | Submission deadline | Municipalities must submit building data to Ryhti by 1.1.2029 at latest | date | Rakentamislaki | Rakentamislaki + MoE implementation guidance | `https://www.ymparisto.fi` | `published` |
@@ -64,9 +69,7 @@ field-verified. No pack may ship any confidence tier above `published` without a
 
 | Field | Why not verified | What would verify it (the exact source to read) |
 |---|---|---|
-| Ryhti OGC API endpoint URL | Not fetched — no live call executed | Fetch `https://www.ymparisto.fi/ryhti` or `https://ryhti.ymparisto.fi/` for OGC API landing page; run GET `.../collections` |
-| Ryhti feature properties (tehokkuusluku, kerrosluku, kayttotarkoitus field names) | Depends on live endpoint | `GET .../collections/{asemakaava}/items?limit=1`; inspect `properties` object |
-| Ryhti auth model | Not confirmed — API documented as open/free, but auth requirements not verified | Same OGC endpoint probe; check for 401 vs 200 on unauthenticated GET |
+| Ryhti `_ix_` item property schema (tehokkuusluku, kerrosluku, kayttotarkoitus field names) | Item-level GeoJSON returned as binary payload by probe tool — tooling gap, not access gate | `curl -s ".../pub_valid_ld_plan_ix_gs/items?limit=1" -H "Accept: application/geo+json" \| python3 -m json.tool \| grep -A 50 '"properties"'` |
 | Maanmittauslaitos API key process | Process confirmed as self-service email registration; no key actually obtained | Register at NLS "My Account" / `https://www.maanmittauslaitos.fi/asioi/avoin-data`; request kiinteisto-avoin key |
 | Maanmittauslaitos cadastre field names | Not fetched | `GET .../collections` after API key obtained; DescribeFeatureType |
 | KMTK WFS/OGC endpoint URL | Not confirmed from live probe | Fetch Maastotietokanta product page; find OGC endpoint; run GetCapabilities on Buildings layer |
