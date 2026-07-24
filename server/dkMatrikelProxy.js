@@ -43,8 +43,18 @@ export const DK_PARCEL_PATH = '/api/parcel/dk';
 export const DK_MATRIKEL_WFS_URL =
     process.env.DK_MATRIKEL_WFS_URL ||
     'https://wfs.datafordeler.dk/MAT/MAT_WFS/1.0.0/WFS';
-/** The parcel feature type (jordstykke = cadastral parcel). Env-overridable. */
-export const DK_MATRIKEL_TYPENAME = process.env.DK_MATRIKEL_TYPENAME || 'jordstykke_current';
+/** The parcel-lot GEOMETRY feature type. ⚠ `jordstykke_current` is ATTRIBUTE-ONLY — it carries
+ *  matrikelnummer but NO geometry (DescribeFeatureType has no gml geometry element; a live feature
+ *  returns zero coordinates), which is why every spatial query against it failed. The parcel-lot
+ *  POLYGON lives on `lodflade_current.geometri` (gml:SurfacePropertyType, EPSG:25832). Prefixed
+ *  (`mat_v001:`) — the GeoServer needs the namespace prefix on TYPENAMES. Env-overridable. */
+export const DK_MATRIKEL_GEOM_TYPENAME =
+    process.env.DK_MATRIKEL_GEOM_TYPENAME || 'mat_v001:lodflade_current';
+/** The parcel ATTRIBUTE feature type (jordstykke = cadastral parcel; carries matrikelnummer). We
+ *  join it to the geometry by `jordstykkeLokalId → id_lokalId` to label the ring with the real
+ *  matrikelnummer. Prefixed. Env-overridable. */
+export const DK_MATRIKEL_TYPENAME =
+    process.env.DK_MATRIKEL_TYPENAME || 'mat_v001:jordstykke_current';
 
 const UPSTREAM_TIMEOUT_MS = 15_000;
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -174,12 +184,15 @@ export function parseMatrikelGml(gml) {
         const ring = [];
         for (let i = 0; i + 1 < nums.length; i += 2) ring.push(vertexToLatLon(nums[i], nums[i + 1]));
         if (ring.length < 3) continue;
-        // Matrikel ids: matrikelnummer / faelleskommunaltEjerlavsnavn (ejerlav), or the gml:id.
+        // Geometry members (lodflade) carry jordstykkeLokalId (the FK back to the parcel record) but
+        // NOT matrikelnummer — that is fetched later via the jordstykke attribute join. matrikelnr is
+        // still read here so this parser also works on a jordstykke_current block if handed one.
+        const jordstykkeLokalId = gmlField(block, 'jordstykkeLokalId');
         const matrikelnr = gmlField(block, 'matrikelnummer');
-        const ejerlav = gmlField(block, 'ejerlavsnavn') || gmlField(block, 'faelleskommunaltEjerlav');
         const gmlId = (block.match(/gml:id="([^"]+)"/i) || [])[1] || null;
-        const refcat = [ejerlav, matrikelnr].filter(Boolean).join(' ') || matrikelnr || gmlId || '';
-        out.push({ ring, refcat, address: ejerlav || null });
+        // Provisional label; upgraded to the real matrikelnummer by the attribute join when possible.
+        const refcat = matrikelnr || jordstykkeLokalId || gmlId || '';
+        out.push({ ring, refcat, jordstykkeLokalId: jordstykkeLokalId || null, address: null });
     }
     return out;
 }
@@ -234,13 +247,36 @@ function buildMatrikelUrl(lat, lon, deps = {}) {
     const apikey = deps.apikey ?? process.env.DATAFORDELER_API_KEY;
     if (!apikey) return null;
     const base = deps.wfsUrl ?? DK_MATRIKEL_WFS_URL;
-    const typename = deps.typename ?? DK_MATRIKEL_TYPENAME;
-    // Native 25832 bbox around the click (~±38 m in degrees is fine for the bbox extent; the
-    // service reprojects the bbox filter itself when the CRS is declared as 4326).
-    const bbox = `${lat - BBOX_HALF_DEG},${lon - BBOX_HALF_DEG},${lat + BBOX_HALF_DEG},${lon + BBOX_HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    const typename = deps.geomTypename ?? DK_MATRIKEL_GEOM_TYPENAME;
+    // This GeoServer publishes NO *default* geometry on the feature types, so a bare KVP
+    // `BBOX=minx,miny,maxx,maxy,crs` cannot resolve one and fails with
+    //   "Illegal property name:  for feature type …"  (blank property).
+    // We must name the geometry property explicitly via a CQL BBOX() → the parcel-lot polygon is
+    // `lodflade_current.geometri`. We additionally filter `status='Gældende'` so pending
+    // ("Ikke gennemført") lodflader that overlap the in-force parcel are excluded from the pick.
+    const minLon = lon - BBOX_HALF_DEG, minLat = lat - BBOX_HALF_DEG;
+    const maxLon = lon + BBOX_HALF_DEG, maxLat = lat + BBOX_HALF_DEG;
+    const cql = `status='Gældende' AND BBOX(geometri,${minLon},${minLat},${maxLon},${maxLat},'EPSG:4326')`;
     return `${base}?service=WFS&version=2.0.0&request=GetFeature` +
         `&TYPENAMES=${encodeURIComponent(typename)}&srsName=EPSG:25832&count=20` +
-        `&BBOX=${encodeURIComponent(bbox)}` +
+        `&CQL_FILTER=${encodeURIComponent(cql)}` +
+        `&apikey=${encodeURIComponent(apikey)}`;
+}
+
+/**
+ * URL for the best-effort attribute join: fetch the parcel record on `jordstykke_current` whose
+ * `id_lokalId` equals the geometry's `jordstykkeLokalId`, to recover the human-facing
+ * `matrikelnummer`. Returns null when there is no key / no apikey. Never throws.
+ */
+function buildJordstykkeAttrUrl(jordstykkeLokalId, deps = {}) {
+    const apikey = deps.apikey ?? process.env.DATAFORDELER_API_KEY;
+    if (!apikey || !jordstykkeLokalId) return null;
+    const base = deps.wfsUrl ?? DK_MATRIKEL_WFS_URL;
+    const typename = deps.typename ?? DK_MATRIKEL_TYPENAME;
+    const cql = `id_lokalId='${String(jordstykkeLokalId).replace(/[^0-9A-Za-z_.-]/g, '')}'`;
+    return `${base}?service=WFS&version=2.0.0&request=GetFeature` +
+        `&TYPENAMES=${encodeURIComponent(typename)}&count=1` +
+        `&CQL_FILTER=${encodeURIComponent(cql)}` +
         `&apikey=${encodeURIComponent(apikey)}`;
 }
 
@@ -268,10 +304,21 @@ export async function fetchDkParcelAtPoint(lon, lat, deps = {}) {
     const gml = await fetchTextOnce(url, deps);
     if (!gml) return null;
     const chosen = pickCandidate(parseMatrikelGml(gml), lat, lon);
-    if (!chosen || chosen.ring.length < 3 || !chosen.refcat) return null;
+    if (!chosen || chosen.ring.length < 3) return null;
+    // Best-effort attribute join: upgrade the provisional label (jordstykkeLokalId) to the real
+    // matrikelnummer. The geometry (lodflade) has no matrikelnummer of its own. Never throws; on any
+    // failure we keep the provisional refcat so the click still selects the correct polygon.
+    let refcat = chosen.refcat;
+    const attrUrl = buildJordstykkeAttrUrl(chosen.jordstykkeLokalId, deps);
+    if (attrUrl) {
+        const attrGml = await fetchTextOnce(attrUrl, deps);
+        const matrikelnr = attrGml ? gmlField(attrGml, 'matrikelnummer') : null;
+        if (matrikelnr) refcat = matrikelnr;
+    }
+    if (!refcat) return null;
     const result = {
         ring: chosen.ring,
-        refcat: chosen.refcat,
+        refcat,
         areaM2: ringAreaM2(chosen.ring),
         address: chosen.address,
     };

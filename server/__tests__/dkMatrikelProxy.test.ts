@@ -45,39 +45,58 @@ describe('utm32nToWgs84 — inverse UTM (round-trips the forward)', () => {
     }
 });
 
-// A Matrikel Jordstykke as native EPSG:25832 (posList = E N pairs) — a ~20 m square near Copenhagen.
-function matrikelGmlSquareNearCopenhagen(): { gml: string; centreLat: number; centreLon: number } {
+// The parcel-lot POLYGON lives on `lodflade_current.geometri` (native EPSG:25832, posList = E N
+// pairs) and carries only `jordstykkeLokalId` — NOT matrikelnummer. This mirrors the live shape.
+// A ~20 m square near Copenhagen, plus the separate `jordstykke_current` attribute record the proxy
+// joins to (by id_lokalId) to recover the human-facing matrikelnummer.
+const JORDSTYKKE_LOKALID = '100063526';
+function lodfladeGmlSquareNearCopenhagen(): { gml: string; centreLat: number; centreLon: number } {
     const c = wgs84ToUtm32n(55.6761, 12.5683);
     const E0 = Math.round(c.E), N0 = Math.round(c.N);
     const pts = [[E0, N0], [E0 + 20, N0], [E0 + 20, N0 + 20], [E0, N0 + 20], [E0, N0]];
     const posList = pts.map(([e, n]) => `${e} ${n}`).join(' ');
     const centre = utm32nToWgs84(E0 + 10, N0 + 10);
     const gml = `<?xml version="1.0"?>
-<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:mat="http://data.gov.dk/schemas/matrikel/1">
- <wfs:member><mat:Jordstykke gml:id="jordstykke.100">
-  <mat:matrikelnummer>7000a</mat:matrikelnummer>
-  <mat:ejerlavsnavn>København Købstads Bygrunde</mat:ejerlavsnavn>
-  <mat:geometri><gml:Polygon srsName="urn:ogc:def:crs:EPSG::25832"><gml:exterior><gml:LinearRing>
-   <gml:posList srsDimension="2">${posList}</gml:posList>
-  </gml:LinearRing></gml:exterior></gml:Polygon></mat:geometri>
- </mat:Jordstykke></wfs:member>
+<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:mat_v001="http://datafordeler.dk/schemas/mat/v001/gml3">
+ <wfs:member><mat_v001:lodflade_current gml:id="lodflade_current.9098202">
+  <mat_v001:status>Gældende</mat_v001:status>
+  <mat_v001:geometri><gml:Polygon srsName="http://www.opengis.net/gml/srs/epsg.xml#25832" srsDimension="2"><gml:exterior><gml:LinearRing>
+   <gml:posList>${posList}</gml:posList>
+  </gml:LinearRing></gml:exterior></gml:Polygon></mat_v001:geometri>
+  <mat_v001:jordstykkeLokalId>${JORDSTYKKE_LOKALID}</mat_v001:jordstykkeLokalId>
+ </mat_v001:lodflade_current></wfs:member>
 </wfs:FeatureCollection>`;
     return { gml, centreLat: centre.lat, centreLon: centre.lon };
 }
 
+// The attribute-join response: jordstykke_current filtered by id_lokalId → matrikelnummer.
+const jordstykkeAttrGml = `<?xml version="1.0"?>
+<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:mat_v001="http://datafordeler.dk/schemas/mat/v001/gml3">
+ <wfs:member><mat_v001:jordstykke_current gml:id="jordstykke_current.1">
+  <mat_v001:id_lokalId>${JORDSTYKKE_LOKALID}</mat_v001:id_lokalId>
+  <mat_v001:matrikelnummer>7000a</mat_v001:matrikelnummer>
+ </mat_v001:jordstykke_current></wfs:member>
+</wfs:FeatureCollection>`;
+
 const fakeFetch = (body: string, status = 200) => async () => ({ ok: status >= 200 && status < 300, status, text: async () => body });
+// Routes by TYPENAMES: the geometry (lodflade) query vs. the jordstykke attribute join.
+const routingFetch = (geomGml: string, attrGml: string) => async (url: string) => {
+    const body = String(url).includes('lodflade') ? geomGml : attrGml;
+    return { ok: true, status: 200, text: async () => body };
+};
 
 describe('parseMatrikelGml — native 25832 → WGS84 ring', () => {
-    it('reprojects the posList to WGS84 near Copenhagen + reads matrikelnummer/ejerlav', () => {
-        const { gml } = matrikelGmlSquareNearCopenhagen();
+    it('reprojects the lodflade posList to WGS84 near Copenhagen + reads jordstykkeLokalId', () => {
+        const { gml } = lodfladeGmlSquareNearCopenhagen();
         const cands = parseMatrikelGml(gml);
         expect(cands.length).toBe(1);
         const c = cands[0]!;
         expect(c.ring.length).toBeGreaterThanOrEqual(4);
         expect(c.ring[0]!.lat).toBeCloseTo(55.676, 2);
         expect(c.ring[0]!.lon).toBeCloseTo(12.568, 2);
-        expect(c.refcat).toContain('7000a');
-        expect(c.refcat).toContain('København');
+        // lodflade has no matrikelnummer → provisional refcat falls back to the FK, upgraded later.
+        expect(c.jordstykkeLokalId).toBe(JORDSTYKKE_LOKALID);
+        expect(c.refcat).toContain(JORDSTYKKE_LOKALID);
     });
     it('never throws on empty / malformed GML', () => {
         expect(parseMatrikelGml('')).toEqual([]);
@@ -88,17 +107,28 @@ describe('parseMatrikelGml — native 25832 → WGS84 ring', () => {
 });
 
 describe('fetchDkParcelAtPoint — the Catastro-shaped resolve', () => {
-    it('with credentials → a WGS84 Danish parcel { ring, refcat, areaM2 }', async () => {
-        const { gml, centreLat, centreLon } = matrikelGmlSquareNearCopenhagen();
+    it('with credentials → a WGS84 Danish parcel { ring, refcat, areaM2 }, refcat=matrikelnummer via join', async () => {
+        const { gml, centreLat, centreLon } = lodfladeGmlSquareNearCopenhagen();
         const p = await fetchDkParcelAtPoint(centreLon, centreLat, {
-            apikey: 'testkey', fetchImpl: fakeFetch(gml),
+            apikey: 'testkey', fetchImpl: routingFetch(gml, jordstykkeAttrGml),
         });
         expect(p).not.toBeNull();
-        expect(p!.refcat).toContain('7000a');
+        expect(p!.refcat).toBe('7000a'); // upgraded from jordstykkeLokalId by the attribute join
         expect(p!.ring.length).toBeGreaterThanOrEqual(3);
         expect(p!.ring[0]!.lat).toBeGreaterThan(55);
         expect(p!.ring[0]!.lat).toBeLessThan(58);
         expect(p!.areaM2).toBeGreaterThan(0);
+    });
+
+    it('join failure still yields a parcel labelled by jordstykkeLokalId (never throws)', async () => {
+        const { gml, centreLat, centreLon } = lodfladeGmlSquareNearCopenhagen();
+        // attr join returns empty → refcat stays the provisional jordstykkeLokalId.
+        const p = await fetchDkParcelAtPoint(centreLon, centreLat, {
+            apikey: 'testkey', fetchImpl: routingFetch(gml, ''),
+        });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe(JORDSTYKKE_LOKALID);
+        expect(p!.ring.length).toBeGreaterThanOrEqual(3);
     });
 
     it('WITHOUT credentials → null (client then footprint-falls-back), never throws', async () => {
