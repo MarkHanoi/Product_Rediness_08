@@ -206,12 +206,14 @@ describe('L-550 P0.1 — the rule-pack registry', () => {
         // Deleting the `unregistered` outcome would bake Barcelona's answer into every future
         // city. In suburban/detached fabric a setback triple is the RIGHT shape and an estimate
         // is genuinely just an estimate.
-        expect(resolveZoneDisposition('es-28079-madrid', 'anything').kind).toBe('unregistered');
+        // ⚠ Uses a genuinely-UNREGISTERED id: Madrid (es-28079-madrid) is now registered as a
+        // refusal jurisdiction (L-608), so it no longer answers `unregistered`.
+        expect(resolveZoneDisposition('es-99999-unregistered', 'anything').kind).toBe('unregistered');
     });
 
     it('answers `unregistered` for an unknown jurisdiction rather than throwing', () => {
         // Every plot outside a registered city must keep working exactly as it does today.
-        expect(resolveZoneDisposition('es-28079-madrid', '13a').kind).toBe('unregistered');
+        expect(resolveZoneDisposition('es-99999-unregistered', '13a').kind).toBe('unregistered');
         expect(resolveZoneDisposition('', '').kind).toBe('unregistered');
     });
 

@@ -67,6 +67,7 @@ import {
     JurisdictionZoningContractSchema,
     type JurisdictionZoningContract,
     type GeometricRule,
+    type EnvelopeRefusal,
 } from '@pryzm/schemas';
 
 /** The jurisdiction id Madrid packs and records use — equals the folder identity (playbook §2). */
@@ -151,3 +152,44 @@ export const ES_MADRID_NZ1_PACK: JurisdictionZoningContract =
  * that check (NEXT.md §3.4). Do not register on an unverified code.
  */
 export const MADRID_NZ1_ZONE_CODES = ['NZ1'] as const;
+
+/**
+ * L-608 — the Madrid NZ 1 REFUSAL, shipped WHILE the zone-code is unverified and the published
+ * footprint cannot be resolved live.
+ *
+ * ⚠ THIS, NOT A NUMBER, IS THE CURRENT SHIPPING OUTPUT for a Madrid parcel. NZ 1 is an
+ * `explicit-area` zone: PGOUM-97 publishes the buildable footprint (Fondo de la Edificación) and
+ * the weighted edificabilidad (COEF_Z) AS GEOMETRY on the municipal ArcGIS plane, not as setback
+ * numbers, so the honest answer until that geometry is resolvable AND the zone code is verified is
+ * a cited refusal — never a fabricated setback triple or edificabilidad (C58 §1.4, the
+ * §CONTEXT-DATA-HONESTY family: a REFUSAL and a FAILURE must not collapse to the same value).
+ *
+ * `code: 'source-data-unavailable'` — the precise class here: PRYZM HOLDS the rule (this
+ * explicit-area declaration + `resolveMadridNZ1Ring`), but cannot fetch the published footprint
+ * this parcel's manzana needs (no same-origin Madrid proxy is wired yet), and the exact
+ * Norma-Zonal code the live calificación plane reports for the parcel is not verified (that
+ * service returned HTTP 500 on 2026-07-23). It is `legallyGrounded: false` for that reason — the
+ * LAW is known; what is missing is our data path + the code verification, both statements about
+ * PRYZM's inputs, not about the ordinance. The `ordinanceRef` cites PGOUM-97 for the one LEGAL
+ * claim we do make (that NZ 1 is published as geometry), never for a number.
+ */
+export function madridNZ1Refusal(knownFacts: readonly string[] = []): EnvelopeRefusal {
+    return {
+        code: 'source-data-unavailable',
+        headline:
+            'Madrid Norma Zonal 1 — the published buildable footprint could not be resolved for ' +
+            'this parcel yet.',
+        detail:
+            'PRYZM models Madrid NZ 1 (PGOUM-97, protección del patrimonio histórico) as an ' +
+            'explicit-area zone: the ordinance publishes the buildable footprint (Fondo de la ' +
+            'Edificación) and the weighted edificabilidad (COEF_Z) directly as GEOMETRY on the ' +
+            'municipal ArcGIS plane, rather than as setback distances. That footprint must be ' +
+            'fetched live for your manzana, and it is not available here yet; the exact ' +
+            'Norma-Zonal code the calificación plane reports for this parcel is also not yet ' +
+            'verified. Rather than fabricate a setback triple or an edificabilidad, PRYZM ' +
+            'declines to draw a buildable envelope — no number is shown because none can be cited.',
+        ordinanceRef: MADRID_NZ1_ORDINANCE_REF,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}

@@ -165,6 +165,31 @@ export {
     BCN_22A_REGIME_ORDINANCE_REF,
 } from './rulepacks/esBarcelonaZoneClassification.js';
 
+// ── Córdoba (INE 14021) — PGOU-2001, the SUR + NOROESTE 2-district pilot pack. ──
+// ⚠ MACHINE-EXTRACTED (OCR) + `pipeline-extracted-unverified`. Registered but rendering NO number:
+// the dispatcher's `CORDOBA_ENVELOPE_VERIFIED` gate refuses every parcel with a cited "unverified"
+// card until `sources/VERIFICATION.md` is human-signed (pack WIRING-TODO 3). The pack self-labels
+// its honesty tier; the SAFETY is that gate, not the label.
+export {
+    ES_CORDOBA_PGOU2001_PACK,
+    CORDOBA_PGOU2001_ZONE_CODES,
+    CORDOBA_JURISDICTION_ID,
+    CORDOBA_INTENDED_DEFAULT_CONFIDENCE,
+    CORDOBA_INTENDED_FIELD_PROVENANCE,
+} from './rulepacks/esCordobaPGOU2001.js';
+export {
+    // The honesty gate: false until sign-off; the dispatcher reads it. And the three Córdoba
+    // refusals — the verification gate, the coverage gap, and the legally-grounded "no" families.
+    CORDOBA_ENVELOPE_VERIFIED,
+    cordobaUnverifiedRefusal,
+    cordobaNoRulePackRefusal,
+    cordobaZoneRefusalFor,
+    CORDOBA_LEGALLY_REFUSED_ORDENANZAS,
+    CORDOBA_PGOU_INSTRUMENT_REF,
+    CORDOBA_ROADMAP_LINE,
+} from './rulepacks/esCordobaZoneClassification.js';
+export { isInCordoba, CORDOBA_BBOX } from './providers/cordobaBbox.js';
+
 // L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the
 // counterpart to Art. 242's depth). Refuses rather than let a MEASURED street width choose a
 // storey band near a boundary — see the module header.
@@ -296,6 +321,32 @@ export {
 } from './rulepacks/esBarcelonaIndustrial.js';
 
 
+// ── L-606 — Saudi Arabia / Riyadh DEMO pack (MOMRAH national residential FOOTPRINT). ──
+// The SIMPLEST pack shape we hold: a plain `setback` inset + `maxCoverage`, with the
+// width-dependent setback triple resolved per-parcel by `resolveSaudiSetbacks` +
+// `saRiyadhResolvedPack` from the user-supplied fronting street width + plot class (§2). Height,
+// floors and FAR are cited-null findings (§NULLS). Ships `estimated-ruleset` (§4) — nothing here
+// self-declares `structured` (the L-449 human VERIFICATION.md sign-off is still absent).
+export {
+    SA_RIYADH_DEMO_PACK,
+    SA_RIYADH_ZONE_CODES,
+    SA_RIYADH_JURISDICTION_ID,
+    resolveSaudiSetbacks,
+    saRiyadhResolvedPack,
+    saRiyadhZoneCodeForClass,
+    SA_GROUND_COVERAGE,
+    SA_MAX_HEIGHT_M,
+    SA_MAX_FLOORS_VILLA,
+    SA_HEIGHT_PLAN_DEFERRED_REF,
+    type SaudiPlotClass,
+    type SaRiyadhZoneCode,
+    type SaudiSetbackResolution,
+    type SaudiSetbackRefusal,
+    type SaRiyadhResolvedPack,
+} from './rulepacks/saRiyadhDemo.js';
+// ── L-606 — Riyadh (Saudi Arabia) city jurisdiction gate (bbox). ──
+export { isInRiyadh, RIYADH_BBOX } from './providers/riyadhBbox.js';
+
 // ── L-399a — DK Plandata.dk zoning provider (C58 §3.1, the first real-data jurisdiction) ──
 export type { ZoningProvider, ZoningProviderDeps } from './providers/ZoningProvider.js';
 export { DkZoningProvider, PLANDATA_ZONING_PATH } from './providers/DkZoningProvider.js';
@@ -309,6 +360,30 @@ export {
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
 export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';
+// ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
+// the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver
+// turns that handle into a WGS84 buildable ring per manzana (or a typed refusal — it never throws).
+// Until a Madrid proxy is wired AND the zone code is verified, a Madrid parcel REFUSES (never a
+// fabricated number) — see `esMadridNZ1.ts` and `registry.ts`.
+export { isInMadrid, MADRID_BBOX } from './providers/madridBbox.js';
+export {
+    ES_MADRID_NZ1_PACK,
+    MADRID_NZ1_RULE,
+    MADRID_NZ1_ZONE_CODES,
+    MADRID_JURISDICTION_ID,
+    MADRID_NZ1_ORDINANCE_REF,
+    madridNZ1Refusal,
+} from './rulepacks/esMadridNZ1.js';
+export {
+    resolveMadridNZ1Ring,
+    MADRID_NZ1_RING_REF,
+    MADRID_CONDICIONES_PATH,
+    MADRID_CONDICIONES_LAYER,
+    type MadridLngLat,
+    type MadridRingDeps,
+    type MadridRingResolution,
+    type MadridRingRefusalReason,
+} from './providers/resolveMadridNZ1Ring.js';
 // ── ADR-0271 P4 — block (manzana) ring dissolve + street-frontage classification. ──
 // The pure producers the block-derived-alignment envelope needs; the L5 editor injects
 // their results into `computeBuildableEnvelope` (roads/parcels are fetched at the edge).

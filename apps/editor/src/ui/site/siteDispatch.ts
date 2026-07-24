@@ -52,6 +52,26 @@ import {
     isInDenmark,
     // ADR-0271 §BCN-REAL-ENVELOPE — Barcelona ensanche real-envelope path.
     isInBarcelona,
+    // L-606 — Riyadh (Saudi Arabia) DEMO path. The MOMRAH national residential FOOTPRINT mapped
+    // onto the plain `setback` kind: the class is a user dropdown and the fronting street width is
+    // user-supplied (no reachable parcel feed), so the width-dependent setback triple is resolved
+    // per-parcel here via `saRiyadhResolvedPack` and handed to `computeBuildableEnvelope`.
+    isInRiyadh,
+    saRiyadhResolvedPack,
+    saRiyadhZoneCodeForClass,
+    SA_RIYADH_JURISDICTION_ID,
+    SA_HEIGHT_PLAN_DEFERRED_REF,
+    type SaudiPlotClass,
+    // L-608 — Madrid (INE 28079) NZ 1 explicit-area path. The pack ships numeric fields null and a
+    // footprint HANDLE; `resolveMadridNZ1Ring` turns it into a WGS84 buildable ring per manzana (or
+    // refuses — it never throws). Until a Madrid proxy is wired AND the zone code is verified, this
+    // path REFUSES (via `madridNZ1Refusal`), never a fabricated number.
+    isInMadrid,
+    resolveMadridNZ1Ring,
+    MADRID_NZ1_RING_REF,
+    ES_MADRID_NZ1_PACK,
+    MADRID_NZ1_ZONE_CODES,
+    madridNZ1Refusal,
     // L-550 Phase 0.1/0.3 — the rule-pack REGISTRY replaced the hard-coded
     // `BCN_ENSANCHE_ZONE_CODES.includes(clau)` gate that used to live here, so a new clau (or a
     // new city) is a data addition in `@pryzm/site-parcel-data`, not an edit to this L5 file
@@ -97,6 +117,15 @@ import {
     // §L-583 — `BCN_ORDINANCE_REF` (the 13a citation) is deliberately NO LONGER imported here.
     // The height derivation row now carries the citation `resolveBcnAlcadaForZone` returned
     // alongside the article that produced the number, so the two cannot drift apart per clau.
+    // ── Córdoba (INE 14021) PGOU-2001 pilot — the jurisdiction gate + the HONESTY GATE. ──
+    // The pack is machine-OCR'd + `pipeline-extracted-unverified`; `CORDOBA_ENVELOPE_VERIFIED` is
+    // false until a human signs `sources/VERIFICATION.md`, so `applyCordobaZoningThenFallback`
+    // dispatches `cordobaUnverifiedRefusal` (a cited "machine-extracted, unverified" card) and NO
+    // number reaches the panel/massing. A number renders only AFTER sign-off.
+    isInCordoba,
+    CORDOBA_ENVELOPE_VERIFIED,
+    cordobaUnverifiedRefusal,
+    cordobaNoRulePackRefusal,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -939,10 +968,191 @@ function applyZoning(
             void applyBcnZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
+        // L-606 §SA-RIYADH-DEMO — a Riyadh plot resolves the MOMRAH national residential FOOTPRINT
+        // (setbacks + ground coverage) from the user-picked class + user-supplied fronting street
+        // width. No fetch: the resolve is pure and synchronous. Missing width ⇒ a cited
+        // needs-street-width refusal (never the floor triple), NOT the estimated fallback.
+        if (qLat != null && qLon != null && isInRiyadh(qLat, qLon)) {
+            applyRiyadhZoningThenFallback(ctx, boundary, estimated);
+            return;
+        }
+        // L-608 — a Madrid-metro plot routes to the NZ 1 explicit-area path. Unlike DK/BCN, its
+        // fallback on failure is a cited REFUSAL, never the estimated triple: NZ 1 is an
+        // explicit-area zone (the ordinance publishes the buildable footprint as geometry), so a
+        // front/side/rear estimate would be the wrong SHAPE, and the zone code is not yet verified.
+        if (qLat != null && qLon != null && isInMadrid(qLat, qLon)) {
+            void applyMadridZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // §COR-ENVELOPE — a Córdoba (Sur + Noroeste pilot) plot. ⚠ The pack is machine-OCR'd and
+        // UNVERIFIED, so this path renders NO number: until `sources/VERIFICATION.md` is signed it
+        // dispatches a cited "machine-extracted, unverified" refusal, never a fabricated envelope.
+        if (qLat != null && qLon != null && isInCordoba(qLat, qLon)) {
+            void applyCordobaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
     } catch (e) {
         console.warn('[gis][c58] jurisdiction selection failed (non-fatal) — using estimated default:', e);
     }
     applyEstimatedZoning(ctx, estimated);
+}
+
+// ── L-606 §SA-RIYADH-DEMO — the demo inputs (class + fronting street width). ──────────────────
+//
+// The Saudi residential footprint is a function of `street width + plot class` (§2 of
+// `saRiyadhDemo.ts`). Neither is fetchable here — the Balady parcel feed is geo-fenced, so per the
+// pack's WIRING-TODO the CLASS is a user dropdown and the WIDTH is user-supplied. Until a UI
+// control sets them, the width is null, which is the HONEST default: `saRiyadhResolvedPack` then
+// refuses with `needs-street-width` rather than ship the floor triple (which would over-state the
+// footprint on any street ≥ 15 m — the direction C58 §1.4 forbids). A future dropdown/field calls
+// `setRiyadhDemoInputs` and re-commits the parcel to draw the real footprint.
+interface RiyadhDemoInputs {
+    readonly plotClass: SaudiPlotClass;
+    readonly streetWidth_m: number | null;
+}
+let _riyadhDemoInputs: RiyadhDemoInputs = { plotClass: 'villa', streetWidth_m: null };
+
+/** §SA-RIYADH-DEMO — set the Riyadh demo class + fronting street width (the UI dropdown/field). */
+export function setRiyadhDemoInputs(inputs: {
+    plotClass: SaudiPlotClass;
+    streetWidth_m: number | null;
+}): void {
+    _riyadhDemoInputs = {
+        plotClass: inputs.plotClass,
+        streetWidth_m:
+            typeof inputs.streetWidth_m === 'number' && Number.isFinite(inputs.streetWidth_m)
+                ? inputs.streetWidth_m
+                : null,
+    };
+}
+
+/** §SA-RIYADH-DEMO — the current Riyadh demo inputs (read by any UI showing their state). */
+export function getRiyadhDemoInputs(): RiyadhDemoInputs {
+    return { ..._riyadhDemoInputs };
+}
+
+/**
+ * L-606 §SA-RIYADH-DEMO — the Riyadh path. Resolves the MOMRAH national residential FOOTPRINT for
+ * the drawn parcel from the user-picked class + user-supplied fronting street width:
+ *
+ *   1. `saRiyadhResolvedPack(width, class)` fills the chosen zone's `setbacks` with
+ *      `max(w/5, floor)` (`ordinance-pdf` provenance) — or refuses `needs-street-width`.
+ *   2. On refuse → a cited `source-data-unavailable` refusal (the width is a missing INPUT, not a
+ *      legal fact) — never the estimated fallback, whose floor triple would over-state the
+ *      footprint. `status: 'none'` so `dispatchEnvelope` clears any stale ring.
+ *   3. On ok → `computeBuildableEnvelope` insets by the resolved triple + resolves `maxCoverage`;
+ *      height/floors return null (the pack's cited-null findings). Confidence `estimated-ruleset`.
+ *
+ * PURE + synchronous (no fetch). Fully guarded — never throws into the commit path.
+ */
+function applyRiyadhZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    estimated: BuildableEnvelope | null,
+): void {
+    const TAG = '[gis][c58] §SA-RIYADH-DEMO';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const { plotClass, streetWidth_m } = _riyadhDemoInputs;
+        const zoneCode = saRiyadhZoneCodeForClass(plotClass);
+        const resolved = saRiyadhResolvedPack(streetWidth_m, plotClass);
+        if (!resolved.ok) {
+            // The zone IS buildable and the pack EXISTS — only the fronting street width is
+            // missing. That is `source-data-unavailable` (L-574): an INPUT gap, not a legal
+            // refusal, and the only refusal a retry (supply the width) can clear. NOT the
+            // estimated fallback: the floor triple {3,2,2} would over-state the footprint.
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    zoneCode,
+                    {
+                        code: 'source-data-unavailable',
+                        headline: 'Fronting street width needed to resolve the Riyadh setback.',
+                        detail: resolved.detail,
+                        ordinanceRef: SA_HEIGHT_PLAN_DEFERRED_REF,
+                        knownFacts: [
+                            `Plot class: ${plotClass}`,
+                            'Jurisdiction: Riyadh — MOMRAH national residential footprint (demo)',
+                            'Supply the fronting street width (عرض الشارع) to resolve the setback.',
+                        ],
+                        legallyGrounded: false,
+                    },
+                    'none',
+                ),
+                'momrah-national-demo',
+            );
+            console.log(
+                `${TAG} needs-street-width (class=${plotClass}) — cited refusal, NO estimated ` +
+                    `fallback (the floor triple would over-state the footprint on any street ≥ 15 m).`,
+            );
+            return;
+        }
+        const record: ZoningRecord = {
+            zoneCode,
+            zoneLabel: resolved.pack.zones.find((z) => z.code === zoneCode)?.label ?? null,
+            jurisdictionId: SA_RIYADH_JURISDICTION_ID,
+            structuredFields: {},
+            overlays: [],
+            ordinanceRef: null,
+            provenance: {
+                source: 'momrah-national-demo',
+                label: 'MOMRAH national residential footprint (user-supplied street width + class)',
+                version: null,
+                license: null,
+                crs: 'EPSG:4326',
+            },
+        };
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack: resolved.pack,
+        });
+        if (envelope.status !== 'ok') {
+            // The resolved setbacks consumed the whole parcel (a very narrow plot on a wide
+            // street). A cited refusal is honest; the estimated triple is not the right answer.
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    zoneCode,
+                    {
+                        code: 'source-data-unavailable',
+                        headline: 'The MOMRAH setbacks leave no buildable footprint on this parcel.',
+                        detail:
+                            `Class ${plotClass}, street width ${streetWidth_m} m → ${resolved.why}. ` +
+                            'The resolved setback triple consumes the whole parcel (a narrow plot on ' +
+                            'a wide street). No buildable footprint remains.',
+                        ordinanceRef: SA_HEIGHT_PLAN_DEFERRED_REF,
+                        knownFacts: [`Plot class: ${plotClass}`, `Fronting street width: ${streetWidth_m} m`],
+                        legallyGrounded: false,
+                    },
+                    'none',
+                ),
+                'momrah-national-demo',
+            );
+            console.log(`${TAG} envelope status=${envelope.status} — cited refusal (setbacks consumed the parcel).`);
+            return;
+        }
+        dispatchEnvelope(ctx, site.id, envelope, 'momrah-national-demo');
+        console.log(
+            `${TAG} class=${plotClass} street=${streetWidth_m} m → setbacks ${resolved.why} ` +
+                `· coverage=${envelope.maxCoverage ?? 'n/a'} · height=NONE (deferred to the ` +
+                `municipal approved plan) · confidence=${envelope.confidence} status=${envelope.status}.`,
+        );
+    } catch (e) {
+        console.warn('[gis][c58] §SA-RIYADH-DEMO path failed (non-fatal) — falling back to estimated default:', e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
 }
 
 /**
@@ -983,6 +1193,247 @@ async function applyDkZoningThenFallback(
         );
     } catch (e) {
         console.warn('[gis][c58] DK zoning path failed (non-fatal) — falling back to estimated default:', e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * L-608 §MADRID-NZ1 — the Madrid (PGOUM-97 Norma Zonal 1) explicit-area path.
+ *
+ * NZ 1 does NOT state setbacks: the ordinance publishes the buildable footprint (Fondo de la
+ * Edificación) and the weighted edificabilidad (COEF_Z) AS GEOMETRY on the municipal ArcGIS plane.
+ * So this path RESOLVES that published footprint into a ring for the parcel's manzana
+ * (`resolveMadridNZ1Ring`, which never throws), and:
+ *   • WITH a ring → projects it into the authoring frame (same origin + θ the parcel used, exactly
+ *     like the BCN block ring) and clips the parcel to it via `computeBuildableEnvelope`'s
+ *     explicit-area branch (`explicitAreaFootprint`), then dispatches the solved envelope;
+ *   • WITHOUT a ring → dispatches a CITED REFUSAL (`madridNZ1Refusal`), status `'none'`. It does
+ *     NOT fall back to the estimated triple: a front/side/rear estimate is the wrong geometric
+ *     SHAPE for an explicit-area zone, and the zone code is not yet verified — a fabricated number
+ *     here would be exactly the §CONTEXT-DATA-HONESTY failure this whole path exists to avoid.
+ *
+ * ⚠ CURRENT SHIPPING STATE = REFUSAL. Two inputs are not yet available and BOTH are data/human
+ * steps, not engineering: (1) no same-origin Madrid proxy is wired, so `resolveMadridNZ1Ring` has
+ * no endpoint; (2) there is no VERIFIED source mapping a Catastro parcel to the ArcGIS CODMANZANA
+ * key the resolver queries on, so `codManzana` is null and the resolver refuses `no-cod-manzana`.
+ * Deriving a CODMANZANA from the refcat would be fabricating the very key whose mapping is
+ * unverified, so it is deliberately left null. When both clear, this path solves unchanged.
+ *
+ * Best-effort + fully guarded — never throws into the commit path.
+ */
+async function applyMadridZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    _lat: number,
+    _lon: number,
+    _estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §MADRID-NZ1';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) return; // No site to dispatch onto — nothing to render either way.
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+                'madrid-pgoum',
+            );
+            return;
+        }
+
+        // (1) CODMANZANA — the key the published footprint is per. No VERIFIED Catastro→manzana
+        // source is wired (see the ⚠ note above), so this is null and the resolver refuses
+        // honestly. This is the one line to populate when that source lands.
+        const codManzana: string | null = null;
+
+        // (2) Resolve the published footprint ring (WGS84). Never throws. `MADRID_NZ1_RING_REF`
+        // equals the pack rule's `ringRef` (asserted + tested in the resolver), so we pass the
+        // constant rather than reach into the `GeometricRule` union for `.ringRef`.
+        const resolution = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, codManzana);
+
+        if (resolution.ok && resolution.ringLatLon.length >= 3) {
+            // (3) Project the WGS84 ring into the SAME authoring frame the parcel lives in: the
+            // equirectangular projection about the site origin, then the θ de-rotation
+            // `dispatchParcelBoundary` applied to the parcel ring. θ = 0 ⇒ identity. This mirrors
+            // `applyBcnZoningThenFallback`'s `toAuthoringFrame` exactly — any other frame yields a
+            // garbage clip.
+            const origin = { lat: site.location.latitude, lon: site.location.longitude };
+            const rawTheta = site.location.trueNorth;
+            const theta = Number.isFinite(rawTheta) ? rawTheta : 0;
+            const toAuthoringFrame = (p: LatLon): Pt => {
+                const xz = latLonToSceneXZ(p, origin.lat, origin.lon);
+                if (theta === 0) return { x: xz.x, z: xz.z };
+                const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+                return { x: e.east, z: -e.north };
+            };
+            const footprintRing: Pt[] = resolution.ringLatLon.map((ll) =>
+                toAuthoringFrame({ lat: ll.lat, lon: ll.lon }),
+            );
+
+            const record: ZoningRecord = {
+                zoneCode: MADRID_NZ1_ZONE_CODES[0], // reads the pack zone's explicit-area rule.
+                zoneLabel: 'Norma Zonal 1 — Protección del Patrimonio Histórico',
+                jurisdictionId: 'es-28079-madrid',
+                structuredFields: {},
+                overlays: [],
+                ordinanceRef: null, // the pack zone supplies the real citation.
+                provenance: {
+                    source: 'madrid-pgoum',
+                    label: 'Madrid PGOUM-97 PG_CONDICIONES_EDIFICACION (Fondo/Condiciones)',
+                    version: null,
+                    license: null,
+                    crs: 'EPSG:25830',
+                },
+            };
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: record,
+                rulePack: ES_MADRID_NZ1_PACK,
+                explicitAreaFootprint: footprintRing,
+            });
+            if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
+                dispatchEnvelope(ctx, site.id, envelope, 'madrid-pgoum');
+                console.log(
+                    `${TAG} explicit-area envelope OK → cod=${resolution.codManzana} ` +
+                        `edificabilidad=${resolution.edificabilidad ?? 'n/a'} ` +
+                        `inset=${envelope.insetAreaM2.toFixed(1)}m² — clipped to the published footprint.`,
+                );
+                return;
+            }
+            // Resolved a ring but the clip produced no usable envelope (no overlap / non-convex) —
+            // REFUSE, never a whole-parcel box. The engine's caveats say which; still logged.
+            console.log(`${TAG} ring resolved but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
+        } else if (!resolution.ok) {
+            console.log(`${TAG} footprint not resolved (reason=${resolution.reason}) — cited refusal.`);
+        }
+
+        // No ring / no usable envelope → the honest cited refusal (never the estimated triple).
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+            'madrid-pgoum',
+        );
+    } catch (e) {
+        // Best-effort — never block the commit. Try to leave an honest refusal rather than a
+        // fabricated estimate; if even that cannot dispatch, drop silently (the boundary is set).
+        console.warn(`${TAG} path failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+                    'madrid-pgoum',
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
+ * §COR-ENVELOPE — the Córdoba (INE 14021) PGOU-2001 pilot path (Sur + Noroeste districts).
+ *
+ * ⚠⚠⚠ THE HONESTY GATE IS THE POINT OF THIS FUNCTION. Every value in the Córdoba pack was
+ * MACHINE-EXTRACTED (OCR) from the scanned ordinance PDFs and is `pipeline-extracted-unverified` —
+ * no human has checked it against the source. A wrong number here would be PRYZM's OWN pipeline's
+ * error, so until a human signs `sources/VERIFICATION.md` (`CORDOBA_ENVELOPE_VERIFIED === false`)
+ * this path renders NO number at all: it dispatches a cited "machine-extracted, unverified" REFUSAL
+ * for EVERY Córdoba parcel — including one in a fully-packed subzone (PAS-1…MC-4). This is the same
+ * discipline that keeps Barcelona's 22a unregistered: an absent number costs nothing, a confident
+ * wrong one costs credibility (§CONTEXT-DATA-HONESTY; ORDINANCE-EXTRACTION-PIPELINE.md §3).
+ *
+ * Only AFTER sign-off does the compute branch turn on — and even then the envelope is re-tiered
+ * `pipeline-extracted-unverified` with the louder-than-estimated affordance, never a plain estimate.
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into the
+ * commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any stale
+ * `buildableRing` (dispatchEnvelope writes a ring only on `'ok'`).
+ */
+async function applyCordobaZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §COR-ENVELOPE';
+    // A placeholder zone code for the refusal envelope: no COACo subzone resolver is wired yet
+    // (WIRING-TODO 5, unblocked WITH the verification sign-off), so a Córdoba parcel is not yet
+    // bound to PAS-1/MC-3/etc. `zoneCode` is required (min length 1); this names the pilot, not a
+    // subzone, and no number rides on it.
+    const CORDOBA_PILOT_ZONE_CODE = 'cordoba-pgou-2001-pilot';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        // Per-parcel facts for the refusal card so it is never a blank panel (L-553). Area only —
+        // no network: the COACo subzone/address lookup is WIRING-TODO 5.
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+        const knownFacts = [
+            `Location: Córdoba (${lat.toFixed(5)}, ${lon.toFixed(5)}) — Sur + Noroeste PGOU-2001 pilot`,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            'Planning source: Ayuntamiento de Córdoba PGOU-2001 (COACo) — machine-extracted, unverified',
+        ].filter((s): s is string => typeof s === 'string');
+
+        if (!CORDOBA_ENVELOPE_VERIFIED) {
+            // ⚠⚠⚠ THE HONESTY GATE. Unverified → refuse, never a number. `status: 'none'` = attempted,
+            // value WITHHELD pending human verification (NOT `'not-applicable'`, which would assert the
+            // ordinance grants no envelope — it does grant one, we simply have not checked our OCR of it).
+            const refusal = cordobaUnverifiedRefusal(null, null, knownFacts);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(CORDOBA_PILOT_ZONE_CODE, refusal, 'none'),
+                'coaco-pgou',
+            );
+            console.log(
+                `${TAG} §HONESTY-GATE CORDOBA_ENVELOPE_VERIFIED=false — dispatched the ` +
+                    `machine-extracted-unverified refusal; NO number rendered (${refusal.code}). ` +
+                    `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². Signs off via sources/VERIFICATION.md.`,
+            );
+            return;
+        }
+
+        // ── VERIFICATION SIGNED (future) — resolve the subzone from COACo `ordenanza` + the `O_*`
+        // link suffix (WIRING-TODO 5), ask the registry (`resolveZoneDisposition`), and for a covered
+        // subzone compute a `pipeline-extracted-unverified` envelope with the louder affordance;
+        // otherwise dispatch the registry refusal (legal "no" family / coverage gap). That resolver +
+        // engine wiring lands together WITH the sign-off, so it is not present while the gate is
+        // closed. Until it is, refusing is the only honest output — a covered parcel with no wired
+        // resolver cannot bind a subzone, so it gets the coverage gap, never a fabricated number.
+        console.warn(
+            `${TAG} verification is signed but the COACo subzone resolver is not wired yet ` +
+                `(WIRING-TODO 5) — dispatching the coverage-gap refusal rather than an unresolved number.`,
+        );
+        const coverageGap = cordobaNoRulePackRefusal(CORDOBA_PILOT_ZONE_CODE, null, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(CORDOBA_PILOT_ZONE_CODE, coverageGap, 'none'),
+            'coaco-pgou',
+        );
+    } catch (e) {
+        console.warn(`${TAG} Córdoba path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }

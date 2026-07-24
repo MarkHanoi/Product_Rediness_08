@@ -263,6 +263,135 @@ describe('DkZoningProvider.fetchZoningAtPoint — fetch + graceful fallback', ()
     });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// REAL live-probed Plandata features (probed 2026-07-24, geoserver.plandata.dk).
+//
+// These are the VERBATIM `properties` of two adopted plans returned by a live WFS
+// GetFeature at real Copenhagen points — a lokalplan and a kommuneplanramme — kept
+// as byte-faithful fixtures (integer `anvgen` code, the fractional `maxetager`, the
+// many extra domain fields the mapper must IGNORE, and the honest absences: the
+// lokalplan carries no `maxbygnhjd`, the ramme no `maxetager`). They pin the mapper
+// against the real feed shape, not a hand-simplified stand-in. NEVER hits the network
+// in tests — the probe captured them once; the assertions are deterministic.
+//   • Østerbrogade kaserne (lokalplan 224, Østerbro 55.705,12.576): FAR 1.5, 5.5 storeys, mixed.
+//   • R24.B.4.8 (kommuneplanramme, Vesterbro 55.668,12.548): FAR 1.5, 24 m, residential.
+
+// Live-probed 2026-07-24 — pdk:theme_pdk_lokalplan_vedtaget at 55.705,12.576.
+const REAL_CPH_LOKALPLAN: PlandataZoningResponse = {
+    layer: 'lokalplan',
+    properties: {
+        id: 624359, planid: 1072569, komnr: 101, objektkode: 20, plantype: 20.1,
+        plannr: '224', plannavn: 'Østerbrogade kaserne', anvgen: 21,
+        datovedt: 19930610, datoikraft: 19930616,
+        doklink: 'https://dokument.plandata.dk/20_1072569_1483707772194.pdf',
+        bebygpct: 150, bebygpctaf: 2, maxetager: 5.5,
+        anvendelsegenerel: 'Blandet bolig og erhverv', kommunenavn: 'København',
+        status: 'V', versionsnr: 1, eareal: 70350, earealh: 1,
+        ianvreg: false, izonereg: true, iomfangreg: false, iudstykreg: true,
+        anvspec1: 1100, anvspec2: 3100, anvspec3: 3110, anvspec4: 4135,
+        // Fields the mapper must not read (present + null on the real feature):
+        maxbygnhjd: null, zonestatus: null, delnr: null,
+    },
+};
+
+// Live-probed 2026-07-24 — pdk:theme_pdk_kommuneplanramme_vedtaget_v at 55.668,12.548.
+const REAL_CPH_RAMME: PlandataZoningResponse = {
+    layer: 'kommuneplanramme',
+    properties: {
+        oid: 2901540, id: 2901540, planid: 11363591, objektkode: 10,
+        komplan_id: 11347088, plantype: 10.1, plannavn: 'R24.B.4.8 - B4',
+        plannr: 'R24.B.4.8', distrikt: '4.1 Vesterbro/Kgs. Enghave', anvgen: 11,
+        fzone: 1, datovedt: 20241212, planstatus: 'V', komnr: 101,
+        doklink: 'https://dokument.plandata.dk/11_11347088_1737715824963.pdf',
+        anvendelsegenerel: 'Boligområde',
+        // NOTE: ramme features publish `fremtidigzonestatus`, NOT `zonestatus` — so the
+        // Byzone overlay tag is an honest absence here (the mapper only reads `zonestatus`).
+        fremtidigzonestatus: 'Byzone',
+        bebygpct: 150, bebygpctaf: 4, maxbygnhjd: 24, iomfangreg: false,
+        anvspec1: 1100,
+        // Absences on the ramme: no storey cap.
+        maxetager: null, zonestatus: null,
+    },
+};
+
+describe('REAL live-probed Plandata features → structured (L-399a, probed 2026-07-24)', () => {
+    it('a REAL lokalplan (Østerbrogade kaserne 224) maps to a structured record', () => {
+        const rec = mapPlandataToZoningRecord(REAL_CPH_LOKALPLAN, { fetchDateISO: FETCH_DATE })!;
+        expect(rec).not.toBeNull();
+        expect(rec.jurisdictionId).toBe('dk');
+        expect(rec.structuredFields.plotRatioFAR).toBeCloseTo(1.5, 6); // bebygpct 150 → FAR 1.50
+        expect(rec.structuredFields.maxFloors).toBe(5); // maxetager 5.5 floored to 5
+        expect(rec.structuredFields.maxHeight_m).toBeNull(); // no maxbygnhjd on this plan (honest)
+        expect(rec.structuredFields.maxCoverage).toBeNull(); // FAR ≠ coverage
+        expect(rec.structuredFields.permittedUse).toEqual(['mixed']); // "Blandet bolig og erhverv"
+        expect(rec.zoneLabel).toBe('Østerbrogade kaserne');
+        expect(rec.zoneCode).toBe('21'); // integer anvgen code coerced to string
+        expect(rec.ordinanceRef).toBe('https://dokument.plandata.dk/20_1072569_1483707772194.pdf');
+        expect(rec.provenance.source).toBe('plandata-dk');
+        expect(rec.overlays).toEqual([]); // zonestatus null → no overlay (honest)
+    });
+
+    it('a REAL kommuneplanramme (R24.B.4.8) maps its height + FAR, honest null floors', () => {
+        const rec = mapPlandataToZoningRecord(REAL_CPH_RAMME, { fetchDateISO: FETCH_DATE })!;
+        expect(rec).not.toBeNull();
+        expect(rec.structuredFields.maxHeight_m).toBe(24); // maxbygnhjd 24 m passthrough
+        expect(rec.structuredFields.plotRatioFAR).toBeCloseTo(1.5, 6); // bebygpct 150 → FAR 1.50
+        expect(rec.structuredFields.maxFloors).toBeNull(); // no maxetager on the ramme (honest)
+        expect(rec.structuredFields.permittedUse).toEqual(['residential']); // "Boligområde"
+        expect(rec.zoneLabel).toBe('R24.B.4.8 - B4');
+        expect(rec.zoneCode).toBe('11'); // integer anvgen
+        // ramme uses `fremtidigzonestatus`, so no Byzone overlay (mapper reads only `zonestatus`).
+        expect(rec.overlays).toEqual([]);
+    });
+
+    it('the REAL lokalplan flows through the provider adapter (injected fetch) → structured', async () => {
+        const okFetch = (async () => ({
+            ok: true,
+            json: async () => ({ zoning: REAL_CPH_LOKALPLAN }),
+        })) as unknown as typeof fetch;
+        const rec = await DkZoningProvider.fetchZoningAtPoint(55.705, 12.576, {
+            fetchImpl: okFetch,
+            nowISO: FETCH_DATE,
+        });
+        expect(rec).not.toBeNull();
+        expect(rec!.structuredFields.plotRatioFAR).toBeCloseTo(1.5, 6);
+        expect(rec!.structuredFields.maxFloors).toBe(5);
+        expect(rec!.provenance.source).toBe('plandata-dk');
+    });
+
+    it('the REAL lokalplan → computeBuildableEnvelope → confidence "structured", status "ok"', () => {
+        const rec = mapPlandataToZoningRecord(REAL_CPH_LOKALPLAN, { fetchDateISO: FETCH_DATE })!;
+        const env = computeBuildableEnvelope({
+            parcelRing: RECT,
+            edgeClassifications: UNCLASSIFIED,
+            zoning: rec,
+            rulePack: null,
+        });
+        expect(env.confidence).toBe('structured'); // numbers came from the feed, not a pack
+        expect(env.status).toBe('ok');
+        expect(env.maxFAR).toBeCloseTo(1.5, 6);
+        expect(env.maxHeight_m).toBeNull(); // honest absence, not a fabricated height
+        for (const d of env.derivation) {
+            expect(d.fieldProvenance).toBe('published-structured');
+            expect(d.source).toBe('plandata-dk');
+        }
+    });
+
+    it('the REAL kommuneplanramme → computeBuildableEnvelope → structured with a real 24 m height', () => {
+        const rec = mapPlandataToZoningRecord(REAL_CPH_RAMME, { fetchDateISO: FETCH_DATE })!;
+        const env = computeBuildableEnvelope({
+            parcelRing: RECT,
+            edgeClassifications: UNCLASSIFIED,
+            zoning: rec,
+            rulePack: null,
+        });
+        expect(env.confidence).toBe('structured');
+        expect(env.status).toBe('ok');
+        expect(env.maxHeight_m).toBe(24);
+        expect(env.maxFAR).toBeCloseTo(1.5, 6);
+    });
+});
+
 describe('DK structured envelope — the L-399a end-to-end wedge (C58 §6.1)', () => {
     it('DK plan → computeBuildableEnvelope → confidence "structured" + cited derivation', () => {
         const rec = mapPlandataToZoningRecord(CPH_LOKALPLAN, { fetchDateISO: FETCH_DATE })!;

@@ -119,8 +119,10 @@ describe('L-601 (a) — legal refusals and coverage gaps NEVER share a class (C5
     it('an unknown jurisdiction / zone falls to `zone-unencoded`, never to a legal class', () => {
         // The estimated-fallback path. A plot outside every registered city is a coverage gap, not
         // a legal refusal — it must never be coloured as "the law grants no envelope".
-        expect(resolveZoneDisposition('es-28079-madrid', '13a').kind).toBe('unregistered');
-        expect(classifyAnswerability('es-28079-madrid', '13a')).toBe('zone-unencoded');
+        // ⚠ Uses a genuinely-UNREGISTERED id: Madrid (es-28079-madrid) is now registered as a
+        // refusal jurisdiction (L-608), so it no longer answers `unregistered`.
+        expect(resolveZoneDisposition('es-99999-unregistered', '13a').kind).toBe('unregistered');
+        expect(classifyAnswerability('es-99999-unregistered', '13a')).toBe('zone-unencoded');
         expect(classifyAnswerability('', '')).toBe('zone-unencoded');
     });
 });

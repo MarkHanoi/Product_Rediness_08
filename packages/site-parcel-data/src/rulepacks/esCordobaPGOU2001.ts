@@ -1,7 +1,9 @@
 // Córdoba (INE 14021) — PGOU-2001 (Texto Refundido Oct. 2002) rule pack.
 //
-// ⚠⚠⚠ THIS FILE IS UNREGISTERED. IT IS NOT IMPORTED BY `registry.ts` OR `index.ts` AND MUST NOT BE
-// UNTIL THE WIRING-TODO AT THE BOTTOM IS DONE. Authoring it here does not wire it — see §WIRING-TODO.
+// ⚠⚠⚠ THIS FILE IS NOW REGISTERED (WIRING-TODO 1/2/4/5 applied) — but the HONESTY GATE means it
+// renders NO number. Every Córdoba parcel resolves to a cited REFUSAL until a human signs
+// `sources/VERIFICATION.md`: registration + refusal, never registration + a machine-read number.
+// The gate lives in the dispatcher (`applyCordobaZoningThenFallback`, `CORDOBA_ENVELOPE_VERIFIED`).
 // ============================================================================================
 //
 // PROVENANCE & CONFIDENCE — READ THIS BEFORE TRUSTING A SINGLE NUMBER
@@ -10,17 +12,24 @@
 // PGOU-2001 ordinance PDFs served by the COACo GeoServer (`coaco:ordenanzas.link`). It has passed the
 // cheap auto-gates (locale-normalise, range, algorithm-detector) but has **NOT been human-verified
 // against the source**. Its TRUE honesty tier is `pipeline-extracted-unverified` — the permanent tier
-// BELOW `estimated-ruleset` defined in `docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md §3` and NOT
-// YET PRESENT in `packages/schemas/src/site/zoning/ProvenanceFlags.ts` (that enum is owned by the
-// OCR-core agent). Consequences, both deliberate:
+// BELOW `estimated-ruleset` defined in `docs/04-reference/ORDINANCE-EXTRACTION-PIPELINE.md §3`.
 //
-//   • `defaultConfidence: 'estimated-ruleset'` is a **PLACEHOLDER that OVER-STATES confidence** — it is
-//     the lowest tier the CURRENT schema will `.parse()`. The moment `pipeline-extracted-unverified`
-//     lands, flip it (WIRING-TODO 2). Until then this pack stays UNREGISTERED, so no user ever sees the
-//     over-statement — the unregistered state IS the safety interlock.
-//   • `fieldProvenance` is `'estimated'` on every value. The honest label is `'pipeline-extracted'`
-//     (machine, below the human `'ordinance-pdf'`), which also does not exist yet. `'estimated'` is the
-//     safe UNDER-claim (it reads as "inferred, never authoritative") and drives the amber affordance.
+// ⚠ THE STALE CLAIM IS CORRECTED (this comment used to say the enum was absent — it is NOT):
+// `pipeline-extracted-unverified` (EnvelopeConfidence + RulePackDefaultConfidence) and
+// `pipeline-extracted` (FieldProvenance) ALREADY EXIST in
+// `packages/schemas/src/site/zoning/ProvenanceFlags.ts`. So, applied here (WIRING-TODO 1/2, DONE):
+//
+//   • `defaultConfidence: CORDOBA_INTENDED_DEFAULT_CONFIDENCE` (`pipeline-extracted-unverified`) — the
+//     honest, permanent bottom tier. It NO LONGER over-states, because the schema now accepts it.
+//   • `fieldProvenance` is `'pipeline-extracted'` (= CORDOBA_INTENDED_FIELD_PROVENANCE) on every value:
+//     machine-extracted, strictly BELOW the human `'ordinance-pdf'`, and it drives the LOUDER-than-
+//     estimated "machine-extracted, unverified" affordance (ORDINANCE-EXTRACTION-PIPELINE.md §3.1c).
+//
+// ⚠ THE INTERLOCK MOVED, IT DID NOT DISAPPEAR. The pack is registered, so the honest tier is now the
+// LABEL. The SAFETY is the VERIFICATION GATE in the dispatcher: until `sources/VERIFICATION.md` is
+// human-signed, every Córdoba parcel renders a cited REFUSAL and NO numeric envelope reaches the
+// panel/massing (WIRING-TODO 3/5). A number renders only AFTER sign-off, and even then as
+// `pipeline-extracted-unverified` with the louder affordance — never as a plain estimate.
 //
 // Full extraction record, per family, per field, with the gate flags and the source article:
 //   docs/04-reference/jurisdictions/es/es-an/14021-cordoba/findings/OCR-EXTRACTION-RESULTS.md
@@ -66,10 +75,10 @@ import {
 export const CORDOBA_JURISDICTION_ID = 'es-14021-cordoba';
 
 /**
- * ⚠ THE INTENDED honesty tier for every value in this pack, pending the OCR-core schema extension
- * (`ProvenanceFlags.ts`). The pack ships `defaultConfidence:'estimated-ruleset'` ONLY because that is
- * the lowest value the current `RulePackDefaultConfidenceSchema` accepts. Flip both to these once the
- * enum exists (WIRING-TODO 2). Recorded as a constant so the intent is greppable and testable.
+ * The honesty tier for every value in this pack. The enum now EXISTS in `ProvenanceFlags.ts`, so
+ * these are APPLIED below (WIRING-TODO 1/2 done): `defaultConfidence` = the confidence constant,
+ * every `fieldProvenance` value = the provenance constant. Recorded as named constants so the
+ * intent is greppable and the test can assert the applied values equal them.
  */
 export const CORDOBA_INTENDED_DEFAULT_CONFIDENCE = 'pipeline-extracted-unverified' as const;
 export const CORDOBA_INTENDED_FIELD_PROVENANCE = 'pipeline-extracted' as const;
@@ -91,8 +100,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
         source: 'manual',
         crs: 'EPSG:4326',
         lastReviewed: '2026-07-23',
-        // ⚠ PLACEHOLDER — intended tier is CORDOBA_INTENDED_DEFAULT_CONFIDENCE. See header.
-        defaultConfidence: 'estimated-ruleset',
+        // WIRING-TODO 1/2 (DONE) — the honest permanent bottom tier (the enum now exists). The
+        // safety is no longer this label but the dispatcher's VERIFICATION GATE (see header).
+        defaultConfidence: CORDOBA_INTENDED_DEFAULT_CONFIDENCE,
         zones: [
             // ── Plurifamiliar Aislada (PAS) — FULL, Art. 13.7 ────────────────────────────────
             {
@@ -105,9 +115,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxCoverage: 0.4,            // Art. 13.7.2.4 (hard cap 0.60, 13.7.2.5.d)
                 setbacks: { front_m: 3, side_m: 6.375, rear_m: 6.375 }, // 13.7.3.1: front 3 m; lateral ½·h @ max h
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.front': 'estimated',
-                    'setback.side': 'estimated', 'setback.rear': 'estimated', permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.7.2.1 (FAR 1,2), 13.7.2.4 (ocup. 40 %), 13.7.3.3 (PB+3, 12,75 m), ' +
@@ -123,9 +133,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxCoverage: 0.5,
                 setbacks: { front_m: 3, side_m: 6.375, rear_m: 6.375 },
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.front': 'estimated',
-                    'setback.side': 'estimated', 'setback.rear': 'estimated', permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.7.2.1 (FAR 1,66), 13.7.2.4 (ocup. 50 %), 13.7.3.3 (PB+3, 12,75 m), ' +
@@ -141,9 +151,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxCoverage: 0.4,
                 setbacks: { front_m: 3, side_m: 9.75, rear_m: 9.75 }, // lateral ½·19,50
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.front': 'estimated',
-                    'setback.side': 'estimated', 'setback.rear': 'estimated', permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.7.2.1 (FAR 2,00), 13.7.2.4 (ocup. 40 %), 13.7.3.3 (PB+5, 19,50 m), ' +
@@ -162,9 +172,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 // OA-1 states no front retranqueo (open block) → front null (skip the edge).
                 setbacks: { front_m: null, side_m: 10.5, rear_m: 10.5 },
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.side': 'estimated', 'setback.rear': 'estimated',
-                    permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted',
+                    permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.6.2.2 (FAR 1,4), 13.6.2.3 (ocup. 40 %), 13.6.3.1 (PB+3..PB+6, máx 21 m), ' +
@@ -181,9 +191,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 // OA-2 (13.6.3.2): parcels on vials must ALIGN → front 0.
                 setbacks: { front_m: 0, side_m: 10.5, rear_m: 10.5 },
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.front': 'estimated',
-                    'setback.side': 'estimated', 'setback.rear': 'estimated', permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.6.2.2 (FAR 1,6), 13.6.2.3 (ocup. 40 %), 13.6.3.1 (PB+3..PB+6, máx 21 m), ' +
@@ -201,9 +211,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 // 13.9.3.2 front 4 m; adosada lateral = party-wall (0); 13.9.3.4 rear 5 m.
                 setbacks: { front_m: 4, side_m: 0, rear_m: 5 },
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.front': 'estimated',
-                    'setback.side': 'estimated', 'setback.rear': 'estimated', permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.9.2.3 (FAR 1,0), 13.9.2.2 (ocup. 60 %), 13.9.3.5 (PB+1, 7 m), ' +
@@ -219,9 +229,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxCoverage: 0.4,
                 setbacks: { front_m: 5, side_m: 0, rear_m: 6 }, // front 5 m; party-wall; fondo 6 m
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.front': 'estimated',
-                    'setback.side': 'estimated', 'setback.rear': 'estimated', permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.9.2.3 (FAR 0,7), 13.9.2.2 (ocup. 40 %), 13.9.3.5 (PB+1, 7 m), ' +
@@ -238,9 +248,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 // 13.9.3.2: UAD-3 disposed ON the vial alignment → front 0; party-wall; fondo 5 m.
                 setbacks: { front_m: 0, side_m: 0, rear_m: 5 },
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxFAR: 'estimated',
-                    maxCoverage: 'estimated', 'setback.front': 'estimated',
-                    'setback.side': 'estimated', 'setback.rear': 'estimated', permittedUse: 'estimated',
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxFAR: 'pipeline-extracted',
+                    maxCoverage: 'pipeline-extracted', 'setback.front': 'pipeline-extracted',
+                    'setback.side': 'pipeline-extracted', 'setback.rear': 'pipeline-extracted', permittedUse: 'pipeline-extracted',
                 },
                 ordinanceRef:
                     'PGOU Art. 13.9.2.3 (FAR 1,0), 13.9.2.2 (ocup. 60 %), 13.9.3.5 (PB+1, 7 m), ' +
@@ -262,9 +272,9 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 maxCoverage: 0.8,
                 setbacks: { front_m: null, side_m: null, rear_m: null }, // alignment: façade on vial line
                 fieldProvenance: {
-                    maxHeight: 'estimated', maxFloors: 'estimated', maxCoverage: 'estimated',
-                    permittedUse: 'estimated',
-                    // NB: plotRatioFAR intentionally absent — it is null-DERIVED, not estimated.
+                    maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxCoverage: 'pipeline-extracted',
+                    permittedUse: 'pipeline-extracted',
+                    // NB: plotRatioFAR intentionally absent — it is null-DERIVED, not machine-extracted.
                 },
                 ordinanceRef:
                     'PGOU Art. 13.8.3.1 (PB+1, 7 m), 13.8.2.5 (ocup. step; 80 % >125 m²), 13.8.2.1 ' +
@@ -283,7 +293,7 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: null,         // Art. 13.5.2.2 — "no se fija … Normas de composición" = DERIVED
                 maxCoverage: 0.7,           // Art. 13.5.2.5 — plantas altas 70 % (planta baja 100 %)
                 setbacks: { front_m: null, side_m: null, rear_m: null }, // alignment: façade on vial line
-                fieldProvenance: { maxCoverage: 'estimated', permittedUse: 'estimated' },
+                fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5 (ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial), 13.5.4 ' +
                     '(uso resid. plurifam.). ⚠ altura Art. 13.5.3.1 = per-street-width TABLE → null; ' +
@@ -298,7 +308,7 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: null,
                 maxCoverage: 0.7,
                 setbacks: { front_m: null, side_m: null, rear_m: null },
-                fieldProvenance: { maxCoverage: 'estimated', permittedUse: 'estimated' },
+                fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5 (ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial). ⚠ altura ' +
                     '13.5.3.1 TABLE (≤10 m→PB+2; >10→PB+3) → null; edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
@@ -315,7 +325,7 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: 3.5,
                 maxCoverage: 0.7,
                 setbacks: { front_m: null, side_m: null, rear_m: null },
-                fieldProvenance: { maxFAR: 'estimated', maxCoverage: 'estimated', permittedUse: 'estimated' },
+                fieldProvenance: { maxFAR: 'pipeline-extracted', maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.2 (FAR 3,50 — ⚠ OUT OF RANGE [0.2,3.0], human-verify), 13.5.2.5 ' +
                     '(ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial). ⚠ altura 13.5.3.1 TABLE → null. ' + SRC,
@@ -329,7 +339,7 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: null,
                 maxCoverage: 0.9,           // Art. 13.5.2.5.2 — MC-4 plantas altas 90 % (planta baja 100 %)
                 setbacks: { front_m: null, side_m: null, rear_m: null },
-                fieldProvenance: { maxCoverage: 'estimated', permittedUse: 'estimated' },
+                fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5.2 (ocup. PB 100 % / PA 90 %), 13.5.2.3 (alineación a vial). ⚠ altura ' +
                     '13.5.3.1 TABLE (MC-2/MC-4 band) → null; edificabilidad 13.5.2.2 DERIVED → null. ' + SRC,
@@ -354,22 +364,27 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
     'MC-1', 'MC-2', 'MC-3', 'MC-4',
 ] as const;
 
-// ─── WIRING-TODO (orchestrator / owning PR — NOT done here; this file is UNREGISTERED) ───────────
-// 1. OCR-core lands `pipeline-extracted-unverified` (EnvelopeConfidence + RulePackDefaultConfidence)
-//    and `pipeline-extracted` (FieldProvenance) in `packages/schemas/.../ProvenanceFlags.ts`
-//    (ORDINANCE-EXTRACTION-PIPELINE.md §3.1). Until then this pack cannot honestly self-label.
-// 2. Flip `defaultConfidence` → CORDOBA_INTENDED_DEFAULT_CONFIDENCE and every `fieldProvenance`
-//    value → CORDOBA_INTENDED_FIELD_PROVENANCE. Only THEN is the honesty label correct.
-// 3. HUMAN VERIFICATION of every value in §2 of OCR-EXTRACTION-RESULTS.md against the source crop
-//    (Spanish-planning-literate reviewer) before any parcel renders a number — record it in
-//    `sources/VERIFICATION.md` and, per no-silent-graduation, in a C23 AIArtefact with humanApproval.
-// 4. Register in `registry.ts`: add a Córdoba JurisdictionRegistration (extent = Sur+Noroeste bbox
-//    [-4.8077,37.8558]→[-4.7691,37.8986]; `contains` predicate; `answerSummary` naming the pilot scope
-//    and the derived/tabular gaps), `packsByZone: packMap([ES_CORDOBA_PGOU2001_PACK, CORDOBA_PGOU2001_ZONE_CODES])`,
-//    and a `noRulePackRefusal` for the not-extractable families + the ~10.5 % of pilot parcels with no
-//    ordenanza. Add a coverage-gap refusal that states the 2-district pilot scope (C60 §3).
-// 5. Wire the dispatcher to resolve the subzone from `ordenanza` + the `O_*` link suffix, and to
-//    RE-tier every rendered envelope as `pipeline-extracted-unverified` with the louder-than-estimated
-//    affordance (ORDINANCE-EXTRACTION-PIPELINE.md §3.1c / §5) until step 3 is done.
-// 6. Author the CTP-1 ocupación step-function hook (from `sup_pc_m2`) and the MC per-street-width height
-//    resolver (the Córdoba analogue of `bcnAlcadaNucliAntic.ts`) to lift MC/CTP from partial to full.
+// ─── WIRING-TODO — STATUS after this PR (the pack is REGISTERED but renders NO number) ───────────
+// 1. ✅ DONE. `pipeline-extracted-unverified` (EnvelopeConfidence + RulePackDefaultConfidence) and
+//    `pipeline-extracted` (FieldProvenance) ALREADY EXIST in `ProvenanceFlags.ts` (the header's
+//    "not yet present" claim was STALE and is corrected above).
+// 2. ✅ DONE. `defaultConfidence` = CORDOBA_INTENDED_DEFAULT_CONFIDENCE; every `fieldProvenance`
+//    value = 'pipeline-extracted' (= CORDOBA_INTENDED_FIELD_PROVENANCE). Asserted by esCordobaPack.test.ts.
+// 3. ⛔ OPEN — THE HUMAN GATE. HUMAN VERIFICATION of every value in §2 of OCR-EXTRACTION-RESULTS.md
+//    against the source crop (Spanish-planning-literate reviewer) before any parcel renders a number —
+//    recorded in `sources/VERIFICATION.md` and, per no-silent-graduation, in a C23 AIArtefact with
+//    humanApproval. UNTIL THIS IS SIGNED, `CORDOBA_ENVELOPE_VERIFIED` stays false in the dispatcher and
+//    every Córdoba parcel renders a cited REFUSAL, never a machine-read number.
+// 4. ✅ DONE. Registered in `registry.ts`: a Córdoba JurisdictionRegistration (Sur+Noroeste extent +
+//    `contains` from `providers/cordobaBbox.ts`; `answerSummary` naming the pilot scope + the derived/
+//    tabular gaps + the unverified status), `packsByZone: packMap([ES_CORDOBA_PGOU2001_PACK,
+//    CORDOBA_PGOU2001_ZONE_CODES])`, `refusalFor: cordobaZoneRefusalFor` (the legally-grounded
+//    not-extractable families) and `noRulePackRefusal: cordobaNoRulePackRefusal` (the coverage-gap card
+//    stating the 2-district pilot scope, for the unbindable families + the blank-ordenanza parcels).
+// 5. ✅ DONE (as a GATE, not a renderer). `applyCordobaZoningThenFallback` in `siteDispatch.ts` routes a
+//    Córdoba parcel; while `CORDOBA_ENVELOPE_VERIFIED === false` it dispatches the honest
+//    machine-extracted-unverified refusal and NO numeric envelope reaches the panel/massing. The
+//    subzone resolver (`ordenanza` + `O_*` link suffix → COACo WFS) + the re-tiered louder-than-
+//    estimated render turn on together WITH step 3; both are the same sign-off event.
+// 6. ⛔ OPEN. Author the CTP-1 ocupación step-function hook (from `sup_pc_m2`) and the MC per-street-width
+//    height resolver (the Córdoba analogue of `bcnAlcadaNucliAntic.ts`) to lift MC/CTP from partial to full.

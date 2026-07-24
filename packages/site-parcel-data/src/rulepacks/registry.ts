@@ -59,6 +59,33 @@ import {
     barcelonaNoRulePackRefusal,
 } from './esBarcelonaZoneClassification.js';
 import { BARCELONA_BBOX, isInBarcelona } from '../providers/barcelonaBbox.js';
+// L-606 — the Saudi/Riyadh DEMO pack + its coarse city gate.
+import {
+    SA_RIYADH_DEMO_PACK,
+    SA_RIYADH_ZONE_CODES,
+    SA_RIYADH_JURISDICTION_ID,
+} from './saRiyadhDemo.js';
+import { RIYADH_BBOX, isInRiyadh } from '../providers/riyadhBbox.js';
+// L-608 — Madrid (INE 28079). Registered as a REFUSAL jurisdiction: the NZ 1 pack is authored as
+// an `explicit-area` DECLARATION, but its buildable footprint is resolved live from the municipal
+// ArcGIS plane and the zone code is unverified, so no code maps to a pack yet (see below).
+import { MADRID_JURISDICTION_ID, madridNZ1Refusal } from './esMadridNZ1.js';
+import { MADRID_BBOX, isInMadrid } from '../providers/madridBbox.js';
+// ── Córdoba (INE 14021) PGOU-2001 — the 2-district pilot pack, machine-extracted + UNVERIFIED. ──
+// ⚠ Registering it does NOT render a number: the dispatcher's VERIFICATION GATE
+// (`CORDOBA_ENVELOPE_VERIFIED`) refuses every Córdoba parcel until `sources/VERIFICATION.md` is
+// signed. This registration exists so the coverage globe (C60 §2) and the future subzone resolver
+// have one source of truth; the refusal functions below are what a Córdoba parcel actually gets.
+import {
+    ES_CORDOBA_PGOU2001_PACK,
+    CORDOBA_PGOU2001_ZONE_CODES,
+    CORDOBA_JURISDICTION_ID,
+} from './esCordobaPGOU2001.js';
+import {
+    cordobaZoneRefusalFor,
+    cordobaNoRulePackRefusal,
+} from './esCordobaZoneClassification.js';
+import { CORDOBA_BBOX, isInCordoba } from '../providers/cordobaBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -302,6 +329,103 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // *alineacions de vial*, so that triple is the wrong geometric OPERATION, and no badge
         // can label a category error.
         noRulePackRefusal: barcelonaNoRulePackRefusal,
+    },
+    // ── L-606 — Riyadh (Saudi Arabia). The MOMRAH national residential FOOTPRINT, mapped onto
+    //    the plain `setback` kind + `maxCoverage`. The class is a user dropdown and the fronting
+    //    street width is user-supplied (the Balady feed is geo-fenced — no live parcel fetch), so
+    //    the setback triple is resolved per-parcel in the L5 dispatcher via `saRiyadhResolvedPack`.
+    {
+        jurisdictionId: SA_RIYADH_JURISDICTION_ID, // 'sa-ruh-riyadh'
+        displayName: 'Riyadh',
+        countryCode: 'SA',
+        countryName: 'Saudi Arabia',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: RIYADH_BBOX,
+        contains: isInRiyadh,
+        answerSummary:
+            'National MOMRAH residential FOOTPRINT (setbacks + ground coverage) for the ' +
+            'villa and apartment classes — the class is user-picked and the street width ' +
+            'user-supplied (no reachable parcel feed). Height + floors REFUSE, per-field: ' +
+            'they are set by the municipal approved plan and development authorities, not ' +
+            'nationally.',
+        packsByZone: packMap([SA_RIYADH_DEMO_PACK, [...SA_RIYADH_ZONE_CODES]]),
+        refusalFor: () => null, // no per-zone legal refusal table for the demo
+        // NO noRulePackRefusal: the two demo zones ARE the pack; unknown Saudi zones keep the
+        // estimated fallback (suburban/detached fabric, where a setback triple is the right
+        // shape) rather than a coverage-gap refusal.
+    },
+    // ── L-608 — Madrid (INE 28079), PGOUM-97 Norma Zonal 1. ──
+    //
+    // ⚠ REGISTERED AS A REFUSAL JURISDICTION, ON PURPOSE. `ES_MADRID_NZ1_PACK` is authored as an
+    // `explicit-area` DECLARATION (the buildable footprint is published as GEOMETRY, not as
+    // parameters), and the engine's `explicit-area` branch exists — but two things gate a real
+    // registration, and until BOTH clear the honest disposition is a cited refusal, never a
+    // fabricated number:
+    //   (1) the buildable RING is resolved LIVE per manzana (`resolveMadridNZ1Ring`) from
+    //       sigma.madrid.es; no same-origin Madrid proxy is wired yet, so it cannot resolve here;
+    //   (2) the exact Norma-Zonal code the live calificación plane reports for an NZ 1 parcel is
+    //       UNVERIFIED (that service returned HTTP 500 on 2026-07-23). Mapping a code to the pack
+    //       before it is verified would register on a guess.
+    //
+    // ⇒ `packsByZone` is deliberately EMPTY (no code maps to a pack yet) and `noRulePackRefusal`
+    // returns the Madrid NZ 1 refusal for every zone code, so `resolveZoneDisposition` answers
+    // `refusal` for any Madrid parcel. The extent still lights the C60 coverage globe (we DO answer
+    // here — with an honest refusal). The dispatcher's Madrid path resolves the ring independently
+    // and solves ONLY when a ring is available, refusing (via the same `madridNZ1Refusal`) otherwise.
+    //
+    // WIRING TODO (orchestrator, when both gates clear): move the pack into `packsByZone` under its
+    // VERIFIED code(s), and remove `noRulePackRefusal` (or narrow it to genuinely-unpacked NZ codes).
+    {
+        jurisdictionId: MADRID_JURISDICTION_ID,
+        displayName: 'Madrid',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: MADRID_BBOX,
+        contains: isInMadrid,
+        answerSummary:
+            'Madrid PGOUM-97 Norma Zonal 1 is modelled as an explicit-area zone (the buildable ' +
+            'footprint is published as geometry). PRYZM answers here with a cited refusal until the ' +
+            'published footprint is resolvable live and the zone code is verified — never an estimate.',
+        // No code maps to a pack yet — see the block comment above.
+        packsByZone: packMap(),
+        // No per-zone legal refusals authored for Madrid; the coverage-gap refusal below covers all.
+        refusalFor: () => null,
+        // Every Madrid zone code → the NZ 1 explicit-area refusal (the current honest state).
+        noRulePackRefusal: (_zoneCode, _zoneLabel, knownFacts) => madridNZ1Refusal(knownFacts),
+    },
+    // ── Córdoba (INE 14021) — PGOU-2001, the SUR + NOROESTE 2-district pilot. ────────────────────
+    //
+    // ⚠ REGISTERED, BUT RENDERS NO NUMBER. Every value in the pack is machine-OCR'd and
+    // `pipeline-extracted-unverified`. The dispatcher's `CORDOBA_ENVELOPE_VERIFIED` gate refuses
+    // every Córdoba parcel with a cited "machine-extracted, unverified" card until a human signs
+    // `sources/VERIFICATION.md` (pack WIRING-TODO 3). This registration wires the pack + refusals +
+    // extent so the coverage globe (C60 §2) and the future subzone resolver share one source; it is
+    // NOT an authorisation to draw a number. `packsByZone` gives the 13 packed subzones precedence
+    // for the day verification lands, exactly as Barcelona's does.
+    {
+        jurisdictionId: CORDOBA_JURISDICTION_ID,
+        displayName: 'Córdoba (Sur + Noroeste pilot)',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/PREDICATE `siteDispatch.ts` routes on — imported, not restated.
+        extent: CORDOBA_BBOX,
+        contains: isInCordoba,
+        answerSummary:
+            'PGOU-2001 ordenanzas for the Sur + Noroeste districts only (a 2-district pilot, ≈ the ' +
+            'historic centre) — 13 setback/alignment subzones (PAS/OA/UAD full; CTP-1/MC partial, ' +
+            'with DERIVED edificabilidad and per-street-width heights still null). ⚠ Every value is ' +
+            'MACHINE-EXTRACTED (OCR) and NOT human-verified, so PRYZM currently publishes NO ' +
+            'buildable figure here — each parcel gets a cited "unverified" refusal until sign-off.',
+        packsByZone: packMap([ES_CORDOBA_PGOU2001_PACK, CORDOBA_PGOU2001_ZONE_CODES]),
+        // The legally-grounded "no" families (CTP1-Campo de la Verdad, Uso Comercial, Elemento
+        // protegido) — a document PRYZM does not hold fixes their envelope; they refuse even after
+        // the packed subzones are verified.
+        refusalFor: cordobaZoneRefusalFor,
+        // The coverage gap (C60 §3): the unbindable families + the blank-ordenanza parcels, stating
+        // the 2-district pilot scope. ⚠ NOTE: while the verification gate is closed the DISPATCHER
+        // refuses the whole pilot before this table is consulted (see `applyCordobaZoningThenFallback`).
+        noRulePackRefusal: cordobaNoRulePackRefusal,
     },
 ];
 
