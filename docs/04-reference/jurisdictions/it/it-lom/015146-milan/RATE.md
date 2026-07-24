@@ -1,20 +1,27 @@
-# Data Readiness Rate — Milan (015146)
+# Data Readiness Rate — Milan (`015146`)
 
 **Headline rate: ~5%**
 
-> **Structured dimensional fill rate**: the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (parcel geometry + zone identification + at least one
-> numeric building parameter) without reading the PGT Piano delle Regole NTA PDF.
+> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
+> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
+> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
+> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
+> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
+> assumed from the jurisdiction's open-data reputation.
 
 | Jurisdiction | Rate |
 |---|---|
 | Denmark | ~96% |
 | Madrid | ~68% |
+| Saudi (national) | ~55% |
 | Barcelona | ~48% |
+| Norway (national) | ~32% |
+| Germany (national) | ~28% |
+| France (national) | ~22% |
+| Italy (national) | ~9–11% |
 | Turin | ~12% (contingent) |
 | **Milan** | **~5%** |
 | Rome | ~5% |
-| Italy (national) | ~8% |
 
 Milan's 5% reflects three compounding problems: (1) the Catasto WFS provides parcel geometry but
 not zoning data; (2) there is no zone-letter key for the dominant TUC mechanism — the operative
@@ -29,16 +36,16 @@ value) and SITAP/Vincoli in Rete heritage overlays (informational only).
 
 | Field | Structured? | Source | Score |
 |---|---|---|---|
-| Parcel geometry (Catasto) | ✅ Full (with caveat) | Agenzia delle Entrate WFS `wfs.cartografia.agenziaentrate.gov.it` — CC BY 4.0. Not survey-grade. Not live-probed. | **~90%** (nationwide; precision caveat) |
-| Heritage overlay (SITAP) | ⚠️ Informational | SITAP web-GIS — informational only; acknowledged incomplete. Milan contains many listed assets (Duomo zone, Liberty buildings). | **~35%** (Milan centro storico density likely high; SITAP incompleteness applies) |
+| Parcel geometry (Catasto) | ✅ Full (with caveat) | Agenzia delle Entrate WFS `https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php` — CC BY 4.0. **✅ VERIFIED-LIVE 2026-07-24** for Milan (ISTAT code F205). Not survey-grade. | **~90%** (nationwide; precision caveat; URL confirmed) |
+| Heritage overlay (SITAP/APAR) | ⚠️ Informational | APAR/SITAP — re-engineered with genuine OGC WMS/WFS (confirmed in documentation). **Unreachable from Replit 2026-07-24** — public access requires probe from non-cloud IP. Informational only; acknowledged incomplete. Milan contains many listed assets (Duomo zone, Liberty buildings). | **~35%** (Milan centro storico density likely high; SITAP incompleteness applies; public WFS access unconfirmed) |
 | Heritage overlay (Vincoli in Rete) | ⚠️ Informational | Same caveat as SITAP. | **~30%** |
-| **PGT zone identification (Piano delle Regole)** | ❌ Not confirmed | Lombardy Geoportale hosts PGT archive; whether WFS parcel-query returns zone polygon not confirmed. PGT portal `pgt.comune.milano.it` has tavole but as map service. | **~10%** (unconfirmed WFS; research-level only) |
+| **PGT zone identification (Piano delle Regole)** | ❌ Not confirmed | Lombardy Geoportale hosts PGT archive; Lombardy Geoportale GeoServer WFS paths return 404 or page-not-found HTML — **no WFS access path confirmed**. PGT portal `pgt.comune.milano.it` has tavole but as map service only. | **~10%** (unconfirmed WFS; research-level only) |
 | **TUC territorial index (base: 0.35 mq/mq)** | ❌ PDF (NTA) | In Piano delle Regole NTA — confirmed at research level but not live-sourced. Single citywide figure — but the perequation adjustment is parcel-and-ledger, not structurally queryable. | **~0%** (figure known at research level; operative value requires ledger lookup) |
 | **TUC ceiling (0.70 mq/mq via perequation)** | ❌ PDF + ledger | Achievable only through transferable rights, bonuses, and social-housing quota — requires the perequation ledger, which is not confirmed as publicly queryable GIS. | **~0%** |
 | **Perequation ledger** | ❌ Not found | Which Milan parcels have already transacted rights (and for what volume) is the critical operative unknown. Not confirmed as publicly queryable. | **~0%** |
 | **ERS zone rules** | ❌ PDF | ERS (*Edilizia Residenziale Sociale*) zones are explicitly excluded from the TUC unified index; they follow a separate rule set from the PGT NTA. | **~0%** |
 | DM 1444 Art. 7–8 density ceilings | ✅ Published ceiling | National published upper bounds only — **not operative for Milan**, which has superseded the DM 1444 zone-letter mechanism entirely for TUC parcels. | **100% (ceiling; not an operative value for any Milan TUC parcel)** |
-| Existing building heights | ❌ Unconfirmed | Lombardy building-height GIS layer not confirmed. Milan's own SIT may carry building data; regional aggregation unknown. PST/SIM is terrain only. | **~0%** |
+| Existing building heights | ❌ Unconfirmed | Lombardy building-height GIS layer not confirmed. Milan's own SIT may carry building data; regional aggregation unknown. PST/SIM is terrain only. OpenBuildingMap provides a modeled national estimate (~40–50%) but must be flagged as modeled. | **~0% (surveyed); ~40–50% (modeled — lower confidence tier)** |
 | Regolamento Edilizio-Tipo (RET) setbacks | ❌ Not read | Lombardy RET governs setbacks in Milan; multipliers and minimums not yet read. | **~0%** |
 
 ---
@@ -65,7 +72,7 @@ Paris does not have.
 
 | Action | Rate impact | Effort |
 |---|---|---|
-| Live-probe Lombardy Geoportale WFS for PGT Piano delle Regole zone polygon per parcel | Determines whether zone identification is an API call (raises to ~15%) or requires PDF navigation (~5%) | Low |
+| Live-probe Lombardy Geoportale WFS for PGT Piano delle Regole zone polygon per parcel | Determines whether zone identification is an API call (raises to ~15%) or requires PDF navigation (~5%); previous probe returned 404 — try workspace-specific paths | Low |
 | Read PGT Piano delle Regole NTA — extract TUC mechanism articles, ERS zone rules, and agricultural rules | Confirms the 0.35/0.70 mq/mq figures as primary-source; scopes ERS and agricultural carve-outs | Medium |
 | Sourcing check: is the perequation ledger exposed as queryable GIS (Milan SIT, PGT portal, commercial)? | If yes: Milan may be computable for TUC parcels without perequation burden; if no: TUC ceiling answers require administrative lookup | Medium |
 | Check Lombardy Geoportale for 3D/Edifici layer (building heights) | Fills context-height gap for Milan | Low |
@@ -77,5 +84,4 @@ Paris does not have.
 
 ---
 
-*Last updated: 2026-07-23. Research-level only — no live probes run. All rates are estimates from
-the Italy master study. PGT NTA figures (0.35 / 0.70 mq/mq) confirmed at research level only.*
+*Last updated: 2026-07-24. Catasto WFS VERIFIED LIVE for Milan (ISTAT F205) 2026-07-24; Lombardy PGT WFS endpoint not confirmed; all PGT rule-value rows research-level only. Maintainer: UNASSIGNED.*
