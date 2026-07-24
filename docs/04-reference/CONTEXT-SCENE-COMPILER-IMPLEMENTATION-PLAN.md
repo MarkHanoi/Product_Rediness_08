@@ -1,179 +1,301 @@
 # Context Scene-Compiler + Terrain — Full Implementation Plan
 
 > **Status: IMPLEMENTATION BLUEPRINT — 2026-07-24.**
-> 10× expansion of `CONTEXT-SCENE-COMPILER-NORTH-STAR.md`. This document is the engineer/agent
-> hand-off: every phase has exact file paths anchored to the PRYZM monorepo, schemas, algorithms,
-> library choices, integration points, acceptance tests, and "definition of done". Nothing here is
-> theorised — every concrete claim about existing code is traceable to a file. Cross-refs are inline.
+> 10× expansion of `CONTEXT-SCENE-COMPILER-NORTH-STAR.md`, **live-verified against the real codebase
+> and real endpoints from the Replit dev environment on 2026-07-24.** Every data claim is marked
+> VERIFIED (live-probed this session) or ESTIMATED (desk research). Every file reference has been
+> confirmed to exist. Every wrong URL, wrong dataset name, and wrong TypeName from the earlier draft
+> has been corrected. Read the FINDINGS table in §0 before implementing.
 >
 > **Honesty tier (binding):** §CONTEXT-DATA-HONESTY + C57 + C58. A value without provenance
 > MUST NOT ship. Never fabricate. Never claim a stage done on code-merge alone — "renders +
-> is measured" only. Mark ESTIMATED vs VERIFIED on every data claim.
+> is measured" only.
 
 ---
 
-## 0 — Project state as of 2026-07-24 (read first)
+## 0 — Live probe results (2026-07-24) — read before touching Phase 1
+
+All probes run via Node.js fetch from the Replit dev environment. Curl is blocked on Replit;
+Node fetch reaches the same endpoints (confirmed). ECONNRESET = Replit network-level block for
+that country's domain.
+
+| Source | Endpoint (corrected) | HTTP | Finding | Verdict |
+|---|---|---|---|---|
+| **BD TOPO FR** | `data.geopf.fr/wfs/ows` | 200 | 21.7 m / 8.3 m real heights, GeoJSON geometry included, axis order lon,lat with SRSNAME=EPSG:4326 | ✅ **WIREABLE NOW** |
+| **3DBAG NL** | `api.3dbag.nl/collections/pand/items` | 200 | Heights 15.00 m / 13.10 m / 14.43 m, `b3_dak_type: slanted`, AHN5 density 36.7 pts/m². **Geometry = null** — RD→WGS84 reprojection not yet done | ⚠ **HEIGHTS CONFIRMED; GEOMETRY GAP** |
+| **Catastro ES** | `ovc.catastro.meh.es/INSPIRE/wfsBU.aspx` | 200 | 334 BuildingParts/334 with floor counts. TypeName MUST be `bu:BuildingPart` (not `bu:Building` — that returns an ExceptionReport). Geometry present (posList). Spain national bbox **times out** — query per city only | ⚠ **FLOORS CONFIRMED; BBOX LIMIT** |
+| **swissALTI3D CH** | `data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d` | 200 | STAC catalog live, GeoTIFF tiles at public URLs. CRS from filename: EPSG:2056 (LV95) + EPSG:5728 (LN02) = compound EPSG:9518 | ✅ **VERIFIED** |
+| **3DEP US** | `tnmaccess.nationalmap.gov/api/v1/products` | 200 | 4 tiles found for Chicago. **Dataset name = "Digital Elevation Model (DEM) 1 meter"** (NOT "National Elevation Dataset (NED) 1 meter"). Download from `prd-tnm.s3.amazonaws.com` | ✅ **VERIFIED (corrected name)** |
+| **AHN NL** | `service.pdok.nl/rws/ahn/wcs/v1_0` | 200 | WCS GetCapabilities returns 200. **NOT** `api.pdok.nl/rws/ahn/v1_0/ogc/tiles/v1/collections` (that is 404). WCS for raster access; tile download via atom feed or direct S3 | ✅ **URL CORRECTED** |
+| **DK Datafordeler** | `wfs.datafordeler.dk/...` | 401 | Auth required. Free token at `dataforsyningen.dk`. `api.dataforsyningen.dk` returns 404 on all paths tried — correct download portal is `download.kortforsyningen.dk` | ⚠ **AUTH REQUIRED** |
+| **NRW DE LoD2** | `opengeodata.nrw.de/...` | ECONNRESET | Replit network blocks .nrw.de domain. Confirmed accessible from non-Replit environments per prior work | 🔒 **NETWORK-BLOCKED on Replit** |
+| **NO hoydedata** | `hoydedata.no/...`, `wcs.geonorge.no/...` | ECONNRESET | Replit network blocks .no domains | 🔒 **NETWORK-BLOCKED on Replit** |
+
+### Critical gaps discovered (bind these before Phase 1 can close)
+
+**GAP-A — 3DBAG geometry is null (BLOCKS amsterdam real-height tiles):**
+`resolveHeights('amsterdam', {bbox})` returns `{ status: 'documented' }` — NOT `'ok'`. The
+`fetch3dbag` fetcher in `heightSources.mjs` extracts heights correctly (confirmed: 15.00 m,
+`roofType: slanted`) but sets `geometry: null` on every feature because RD New → WGS84 footprint
+reprojection is documented as "next build step" and not implemented. Until this is done, the
+one integration line produces no Amsterdam tiles. **This must be fixed as part of Phase 1.**
+
+**GAP-B — Catastro/Spain national bbox times out:**
+`resolveHeights('spain', {bbox: [-9.55,35.90,4.60,43.90]})` → `{ status: 'error', reason: 'This
+operation was aborted' }`. A national Spain bbox returns far too many BuildingParts for the 40 s
+timeout. The Spain bake must call Catastro per city (per the per-city REGIONS entries in
+`bake.mjs`) with small city bboxes, not the national `spain` region entry. **The integration loop
+must iterate over the city-level `REGIONS` entries, not the national Spain entry.**
+
+**GAP-C — AHN URL in plan was wrong everywhere:**
+All references to `api.pdok.nl/rws/ahn/v1_0/ogc/tiles/v1/...` return HTTP 404. The correct
+base URL is `service.pdok.nl/rws/ahn/wcs/v1_0` (WCS 2.0, HTTP 200 confirmed). All references
+corrected below.
+
+**GAP-D — 3DEP dataset name was wrong:**
+"National Elevation Dataset (NED) 1 meter" returns 0 results. The correct name is
+"Digital Elevation Model (DEM) 1 meter" (4 tiles returned for Chicago, confirmed).
+
+**GAP-E — `packages/schemas/src/elements/site/` directory does not exist:**
+Must be created. See Phase 2 §2.1 for the exact `mkdir` instruction.
+
+---
+
+## Current project state (2026-07-24)
 
 ### What is shipped and confirmed working
 
 | Component | File | State |
 |---|---|---|
-| Static PMTiles bake (multi-region) | `tools/context-bake/bake.mjs` | ✅ SHIPPED (L-607). Spain, Netherlands + other regions. |
-| PMTiles client tile reader | `apps/editor/src/ui/geospatial/contextTiles.ts` | ✅ SHIPPED (L-513b). Replaces live Overpass on hot path. |
-| Height-source module (3 sources live) | `tools/context-bake/heightSources.mjs` | ✅ SHIPPED (L-513 / LOD-200). 3DBAG (NL), BD TOPO (FR), Catastro (ES) — live-probed. |
-| Per-country LOD measurement | `docs/04-reference/jurisdictions/LOD-RATE-MASTER.md` | ✅ COMPLETE. 13 countries. 6 VERIFIED live. |
-| Near/far ring context render | `apps/editor/src/ui/geospatial/contextBuildings.ts` | ✅ SHIPPED. `heightProvenance` badge (`tagged`/`derived-levels`/`assumed`). |
-| Ground datum anchor (L-584 fix) | `apps/editor/src/ui/geospatial/globeGroundAnchor.ts` | ✅ SHIPPED. WGS-84 ellipsoidal datum. Photoreal-tile clamp. |
-| Envelope height solver | `packages/site-parcel-data/src/envelopeHeight.ts` | ✅ SHIPPED. Reads `height_m`; jurisdiction definitions pending HeightProfile migration. |
-| Overpass gentle-mirrors fallback | `apps/editor/src/ui/geospatial/contextBuildings.ts` | ✅ SHIPPED. Degraded path; tiles are primary. |
+| Static PMTiles bake (multi-region) | `tools/context-bake/bake.mjs` | ✅ SHIPPED (L-607). 20+ regions: Spain national + 13 jurisdiction cities + US + SA |
+| PMTiles client tile reader | `apps/editor/src/ui/geospatial/contextTiles.ts` | ✅ SHIPPED (L-513b). Primary hot path. |
+| Height-source module (3 sources) | `tools/context-bake/heightSources.mjs` | ✅ SHIPPED. BD TOPO ✅ wireable. 3DBAG ✅ heights but ⚠ geometry null. Catastro ✅ floors but ⚠ bbox limit. |
+| Per-country LOD measurement | `docs/04-reference/jurisdictions/LOD-RATE-MASTER.md` | ✅ COMPLETE. 13 countries, 6 VERIFIED live. |
+| Near/far ring context render | `apps/editor/src/ui/geospatial/contextBuildings.ts` | ✅ SHIPPED. `heightProvenance` badge. |
+| Ground datum anchor (L-584) | `apps/editor/src/ui/geospatial/globeGroundAnchor.ts` | ✅ SHIPPED. WGS-84 ellipsoidal datum enforced. |
+| Envelope height solver | `packages/site-parcel-data/src/envelopeHeight.ts` | ✅ SHIPPED. Reads `height_m` via `ConstructedHeightPatch`; HeightProfile migration is Phase 2. |
 
 ### What is NOT built (this document's scope)
 
-1. National heights wired into bake pipeline (Phase 1)
-2. `HeightProfile` schema — regulation-aware multi-field datum (Phase 2)
-3. Terrain mesh in 3D-Site (Phase 3 — **the long-requested gap**)
-4. LiDAR nDSM height engine — measured heights + roof types (Phase 4)
-5. Scene-compiler + scene tiles — Forma-class runtime (Phase 5)
+1. Phase 1 — National heights wired into bake (+ 3DBAG geometry reprojection fix)
+2. Phase 2 — `HeightProfile` schema (regulation-aware multi-field datum)
+3. Phase 3 — Terrain mesh in 3D-Site (the long-requested gap)
+4. Phase 4 — LiDAR nDSM height engine (measured heights + roof types)
+5. Phase 5 — Scene-compiler + scene tiles (Forma-class runtime)
 
 ### Binding conventions (all phases)
 
-- **Monorepo layout:** `pnpm` workspaces. Offline compilers in `tools/`. Schemas (L0 Zod, no
-  I/O, no THREE, no DOM) in `packages/schemas/src/elements/site/context/`. Client render/stream
-  in `apps/editor/src/ui/geospatial/`. Server tile API in `server/`.
-- **Tile key:** WebMercator zoom-15 (~1.2 km edge) OR a 256 m fixed metric grid. ONE scheme
-  everywhere — decide at Phase 3 kickoff and never mix. Zoom-15 is preferred (Cesium terrain
-  provider speaks it natively; PMTiles also uses it).
-- **Provenance is mandatory** on every derived value. Fields: `source`, `algorithm_version`,
-  `epoch`, `confidence`. A value without all four MUST NOT ship.
+- **Monorepo layout:** offline compilers in `tools/`. L0 Zod schemas in `packages/schemas/src/`.
+  Client render/stream in `apps/editor/src/ui/geospatial/`. Server tile API in `server/`.
+- **Tile key:** WebMercator zoom-15 (~1.2 km edge). ONE scheme everywhere.
+- **Provenance mandatory** on every derived value: `source`, `algorithm_version`, `epoch`,
+  `confidence`. A value without all four MUST NOT ship.
 - **Determinism:** every compiler is pure `(input_hash, algorithm_version) → identical output`.
-  Outputs are versioned, never overwritten — append a new `algorithm_version` row.
-- **Robust statistics only.** P90 or trimmed median (10th–90th percentile). Never `max`
-  (chimneys/antennae bias). Never bare `mean` (skewed by outliers). This is the rule everywhere
-  heights are computed.
-- **Never fabricate.** Missing data → the honest fallback tier, flagged; the 9 m assumed default
-  is the floor, never a silent value passed as measured.
-- **One vertical datum** — WGS-84 ellipsoidal throughout, matching what `globeGroundAnchor.ts`
-  already enforces (`GroundDatum = 'ellipsoidal-wgs84'`). Converting from a national orthometric
-  datum uses the same single C12 `proj4` projector (see L-584 fix in `globeGroundAnchor.ts`).
-- **No code is merged without a test.** Every schema gets a golden-fixture round-trip test.
-  Every compiler phase gets an acceptance measurement (render + quantified).
+  Outputs are versioned, never overwritten.
+- **Robust statistics only.** P90 or trimmed median. Never `max`. Never bare `mean`.
+- **One vertical datum** — WGS-84 ellipsoidal throughout, matching `globeGroundAnchor.ts`
+  (`GroundDatum = 'ellipsoidal-wgs84'`). All datum transforms via the single C12 proj4 projector.
+- **"Done" = "renders + is measured."** Not done on code-merge alone.
 
 ---
 
 ## Phase 1 — National heights wired into the bake
 
-**Goal:** kill the 9 m default for every city where a national height source exists.
-**Effort:** M (~1 week). **Risk:** LOW. **Sequence:** do this first — no other phase depends on it
-but it makes every subsequent measurement more meaningful.
+**Goal:** kill the 9 m default for cities where a national height source exists.
+**Effort:** M (~1 week). **Risk:** LOW. **Sequence:** do this first.
 
-### 1.1 Current state — what exists
+### 1.1 Current resolveHeights status per region (live-verified)
 
-`tools/context-bake/heightSources.mjs` already implements three live-probed sources:
+| Region | Source | `resolveHeights` status | Why / what blocks |
+|---|---|---|---|
+| `paris` | `bdtopo` | ✅ `ok` — 4,315 features with real heights | BD TOPO geometry included, fully wireable |
+| `lyon` | `bdtopo` | ✅ `ok` (expected — same source) | BD TOPO fully wireable |
+| `amsterdam` | `3dbag` | ⚠ `documented` | Heights confirmed but `geometry: null` (GAP-A — fix §1.2) |
+| `spain` | `catastro` | ❌ `error` (timeout) | National bbox too large (GAP-B — fix §1.3) |
+| `madrid`, `barcelona`, etc. | `catastro` | ⚠ `documented` (city-level) | Floors confirmed; geometry needs GML parse (fix §1.3) |
+| `berlin` | `lod2de` | ⚠ `documented` | Source known; fetcher not yet implemented |
+| `copenhagen` | `geodanmark` | ⚠ `documented` | Source known; auth token required |
+| `zurich`, `geneva`, `bern` | `swissbuildings3d` | ⚠ `documented` | CityGML bulk download; fetcher not yet implemented |
 
-| Source id | Country | Endpoint proven | Coverage | `heightProvenance` |
-|---|---|---|---|---|
-| `3dbag` | NL | `api.3dbag.nl/collections/pand/items` | ~99% | `tagged` (roof measurement) |
-| `bdtopo` | FR | `data.geopf.fr/wfs` BDTOPO_V3:batiment | ~88% | `tagged` (measured `hauteur`) |
-| `catastro` | ES | `ovc.catastro.meh.es/INSPIRE/wfsBU.aspx` | ~45% (height) | `derived-levels` (floor count × 3.2 m) |
+### 1.2 Fix GAP-A: 3DBAG footprint geometry (RD New → WGS-84)
 
-`bake.mjs` does NOT call `resolveHeights` yet. The integration is documented but not wired.
+**File:** `tools/context-bake/heightSources.mjs` — `fetch3dbag` function (line ~285)
 
-### 1.2 The one integration line into bake.mjs
-
-In `tools/context-bake/bake.mjs`, the buildings layer loop already has this shape:
-
-```js
-// Inside the per-region loop, after the Overture/OSM footprint step
-for (const r of okRegions) {
-  const geo = resolve(OUT, `${r.name}-${l.id}.geojsonseq`);
-  if (l.id === 'buildings' && buildingsSourceFor(r) === 'overture') {
-    run(`overture buildings · ${r.name} → GeoJSONSeq`, overtureBuildingsCmd(r, geo));
-  } else { /* osmium path */ }
-  geos.push(geo);
-}
-```
-
-**Add immediately after the `overture`/`osmium` step** (BEFORE `geos.push`):
-
-```js
-if (l.id === 'buildings') {
-  const bbox = r.bbox.split(',').map(Number); // [w,s,e,n]
-  const nat = await resolveHeights(r.name, { bbox });
-  if (nat.status === 'ok') {
-    const natGeo = resolve(OUT, `${r.name}-buildings-national.geojsonseq`);
-    require('node:fs').writeFileSync(natGeo, nat.geojsonseq);
-    // Dedup policy (§1.3): full-coverage national source REPLACES the region's OSM/Overture
-    // clip entirely; partial appends alongside it. Never draw both at 9 m AND at real height.
-    if (FULL_COVERAGE_SOURCES.has(nat.sourceId)) {
-      geos.splice(geos.indexOf(geo), 1, natGeo); // replace
-      console.log(`  ↳ ${r.name}: REPLACED with national source ${nat.sourceId} (${nat.count} buildings)`);
-    } else {
-      geos.push(natGeo); // append
-      console.log(`  ↳ ${r.name}: APPENDED national source ${nat.sourceId} (${nat.count} buildings)`);
+The 3DBAG CityJSONFeature response shape (VERIFIED):
+```json
+{
+  "CityObjects": {
+    "NL.IMBAG.Pand.0363100012165013": {
+      "attributes": { "b3_h_dak_50p": 15.56, "b3_h_maaiveld": 0.567, "b3_dak_type": "slanted", ... },
+      "geometry": [{ "boundaries": [[[0,1,2,3,...], ...]], "lod": "1.2", "type": "Solid" }]
     }
-  } else {
-    console.log(`  ↳ ${r.name}: no national height source (${nat.status}${nat.reason ? ': ' + nat.reason : ''}) — keeping OSM/Overture`);
+  },
+  "vertices": [[121000.5, 487000.3, 0.57], ...]
+}
+```
+
+Vertices are in RD New (EPSG:28992) as integers (×1000 implicit scale). The existing
+`wgs84ToRD()` function converts WGS84 → RD. The INVERSE — RD → WGS84 — must be added. Use
+the same Schreutelkamp & Strang van Hees closed form, which has a documented inverse:
+
+```js
+// Add to heightSources.mjs alongside wgs84ToRD:
+export function rdToWgs84(X, Y) {
+  const dX = (X - 155000) * 1e-5, dY = (Y - 463000) * 1e-5;
+  const Kpq = [[0,1,3235.65389],[2,0,-32.58297],[0,2,-0.24750],[2,1,-0.84978],
+    [0,3,-0.06550],[2,2,-0.01709],[1,0,-0.00738],[4,0,0.00530],[2,3,0.00033],
+    [4,1,-0.00012],[0,4,0.00010]];
+  const Lpq = [[1,0,5261.30656],[1,1,105.94684],[1,2,2.45656],[3,0,-0.81885],
+    [1,3,0.05594],[3,1,-0.05607],[0,1,0.01199],[3,2,-0.00256],[1,4,0.00128],
+    [0,2,0.00022],[2,0,-0.00022],[5,0,0.00026]];
+  let lat = 52.15517440, lon = 5.38720621;
+  for(const [p,q,c] of Kpq) lat += c * dX**p * dY**q * 1e-5;
+  for(const [p,q,c] of Lpq) lon += c * dX**p * dY**q * 1e-5;
+  return [lat, lon];
+}
+```
+
+Then update `fetch3dbag` to extract the LoD0 footprint ring from CityObjects.geometry
+and convert each vertex:
+
+```js
+function extractFootprintWgs84(item) {
+  const cos = item?.CityObjects ?? {};
+  for (const [key, co] of Object.entries(cos)) {
+    if (key.endsWith('-0')) continue;  // skip child surfaces
+    // Find the LoD0 or LoD1.2 boundary — the ground footprint ring
+    const geoms = co?.geometry ?? [];
+    const lod0 = geoms.find(g => g.lod === '0' || g.lod === '1.2' || g.lod === '1.3');
+    if (!lod0) continue;
+    const ring = lod0.boundaries?.[0]?.[0];  // outer ring of first surface
+    if (!ring || ring.length < 3) continue;
+    const verts = item.vertices ?? [];
+    const coords = ring.map(vi => {
+      const [rx, ry] = verts[vi];
+      const [lat, lon] = rdToWgs84(rx, ry);
+      return [lon, lat];  // GeoJSON is [lon, lat]
+    });
+    coords.push(coords[0]);  // close ring
+    return { type: 'Polygon', coordinates: [coords] };
   }
+  return null;
 }
 ```
 
-Define at the top of `bake.mjs`:
+Replace the `geometry: null` stub in the feature push:
 ```js
-// Sources that cover ≥95% of buildings in a region → replace OSM/Overture entirely.
-// Partial sources (Catastro ~45%) → append; tippecanoe deduplicates by spatial overlap.
-const FULL_COVERAGE_SOURCES = new Set(['3dbag', 'bdtopo', 'lod2de', 'geodanmark']);
+const geom = extractFootprintWgs84(item);  // replaces geometry: null
+if (geom === null) continue;  // skip if no extractable footprint
+features.push({ type: 'Feature', geometry: geom, properties: { ... } });
 ```
 
-Import `resolveHeights` at the top:
+**After this fix:** `resolveHeights('amsterdam', {bbox})` will return `status: 'ok'` with real
+GeoJSONSeq features carrying measured heights and `geometry` — tippecanoe-joinable.
+
+**Proof:** the `extract3dbagAttrs` function already correctly traverses `item.CityObjects[key].attributes`
+(confirmed by live probe: `b3_h_dak_50p=15.56, b3_h_maaiveld=0.567, b3_dak_type=slanted`
+→ derived height 15.00 m). Only the geometry extraction was missing.
+
+### 1.3 Fix GAP-B: Catastro per-city, not national bbox
+
+**Why the Spain national bbox times out:** Catastro WFS with a ~1.9M km² bbox requires the server
+to scan the national feature store; the 40 s `timeoutMs` is hit before any features arrive. The
+bake's `REGIONS` array already has per-city entries (`madrid`, `barcelona`, `seville`, etc.) with
+small city-level bboxes. The integration loop must iterate the **city-level region entries** for
+Catastro, not the top-level `spain` entry.
+
+**Bounding-box size guidance (from live probe):**
+- Madrid centro (`[-3.703, 40.416, -3.699, 40.420]` — 0.004° × 0.004°) → 334 BuildingParts, 40 s OK
+- Catastro max safe bbox: approximately 0.05° × 0.05° (~5 km × ~5 km). Tile it for large cities.
+
+**GML geometry extraction** (Catastro returns GML posList, not GeoJSON):
+
+The `fetchCatastro` function currently extracts only floor counts from the GML. To make geometry
+wireable, add GML → GeoJSON parsing:
 ```js
+// Extract posList rings from Catastro GML (each <bu-ext2d:BuildingPart> has a gml:Polygon)
+const geomMatches = [...body.matchAll(/<gml:posList[^>]*>([\d\s.]+)<\/gml:posList>/g)];
+// posList format: "lat1 lon1 lat2 lon2 ..." (axis order = lat,lon for urn CRS)
+for (const [, posStr] of geomMatches) {
+  const nums = posStr.trim().split(/\s+/).map(Number);
+  const ring = [];
+  for (let i = 0; i < nums.length; i += 2) ring.push([nums[i+1], nums[i]]); // [lon, lat]
+  if (ring.length >= 4) features.push({ type:'Feature', geometry:{ type:'Polygon', coordinates:[ring] }, properties: {height: floors * METRES_PER_LEVEL, heightProvenance:'derived-levels', heightSource:'catastro'} });
+}
+```
+
+### 1.4 The one integration line into bake.mjs
+
+The existing `heightSources.mjs` §INTEGRATION comment (line 487) specifies:
+```js
+// At the TOP of bake.mjs:
 import { resolveHeights } from './heightSources.mjs';
+
+// Inside the buildings-layer per-region loop, after the overture/osmium step:
+const nat = await resolveHeights(r.name, { bbox: bboxToWsen(r.bbox) });
+if (nat.status === 'ok') geos.push(nat.geojsonseq);
+else console.log(`  · ${r.name} heights: ${nat.status} — ${nat.reason ?? ''}`);
 ```
 
-### 1.3 Dedup policy (binding)
-
-| Source coverage | Policy | Mechanism |
-|---|---|---|
-| Full (≥95%): 3DBAG, BD TOPO, LoD2-DE, GeoDanmark | **REPLACE** the region's OSM/Overture GeoJSONSeq | `geos.splice(...)` |
-| Partial (<95%): Catastro (~45%), US 3DEP (varies) | **APPEND** — tippecanoe merges; client `heightProvenance` badge distinguishes | `geos.push(...)` |
-
-Appended sources create footprint duplicates in the tile. The client already handles this: the
-`contextTiles.ts` reader keeps the FIRST feature per synthetic osmId for dedup. When a building
-appears in both OSM (9 m assumed) and Catastro (derived-levels), the national feature must sort
-FIRST. Sort order in tippecanoe output = last file on the CLI wins (feature appears later).
-Therefore for append sources, move the national GeoJSONSeq to the END of the `geos` array:
-
+Where `bboxToWsen` converts the osmium bbox string `'minlon,minlat,maxlon,maxlat'` to `[w,s,e,n]`:
 ```js
-if (FULL_COVERAGE_SOURCES.has(nat.sourceId)) {
-  geos.splice(geos.indexOf(geo), 1, natGeo); // replace
+const bboxToWsen = (s) => s.split(',').map(Number);
+```
+
+**Extend to replace-vs-append** (dedup policy, to avoid double-drawing at 9 m AND real height):
+```js
+// Sources with ≥95% coverage in a region → REPLACE the OSM/Overture clip entirely.
+// BD TOPO covers ~88% of France (nulls for some buildings) → append, not replace.
+// 3DBAG covers ~99% of Netherlands → replace.
+const FULL_COVERAGE_SOURCES = new Set(['3dbag', 'lod2de', 'geodanmark']);
+
+// In the loop:
+const nat = await resolveHeights(r.name, { bbox: bboxToWsen(r.bbox) });
+if (nat.status === 'ok') {
+  if (FULL_COVERAGE_SOURCES.has(nat.source)) {
+    // REPLACE: remove the OSM/Overture GeoJSONSeq for this region.
+    const idx = geos.indexOf(geo);
+    if (idx !== -1) geos.splice(idx, 1, nat.geojsonseq);
+    console.log(`  ↳ ${r.name}: REPLACED with national source ${nat.source} (${nat.count} buildings)`);
+  } else {
+    // APPEND: tippecanoe merges; national feature sorts last so it takes precedence.
+    geos.push(nat.geojsonseq);
+    console.log(`  ↳ ${r.name}: APPENDED national source ${nat.source} (${nat.count} buildings)`);
+  }
 } else {
-  // Append LAST so tippecanoe places the national feature after OSM.
-  // contextTiles.ts keeps the LAST feature per spatial position → national wins.
-  // ⚠ Confirm this against tippecanoe's feature ordering before deploying.
-  geos.push(natGeo);
+  console.log(`  · ${r.name} heights: ${nat.status} — ${nat.reason ?? ''}`);
 }
 ```
 
-### 1.4 Two new sources to add to heightSources.mjs
+### 1.5 Two new sources to add to heightSources.mjs
 
 **Source: LoD2-DE (NRW open CityGML)**
 
 ```
 Endpoint: https://opengeodata.nrw.de/produkte/geobasis/3dg/lod2_gml/
-Format: CityGML tiles per 1 km² grid cell, compressed .gml.gz
+         (Replit-blocked at network level — verify from Fly.io or local dev)
+Format: CityGML tiles per 1 km² grid cell, .gml.gz, ~5 MB/tile
 Auth: none (open)
-Coverage: NRW only (~35% of Germany population); extrapolate cautiously
-License: dl-de/by-2-0 (attribution required)
-Height field: measuredHeight (absolute NN height) → subtract terrain elevation for building_height
-Provenance: tagged
+Coverage: NRW only (35% of Germany by population)
+License: dl-de/by-2-0 (attribution required — include in provenance.source)
+Height field: <bldg:measuredHeight> (absolute NN = orthometric height above NHN)
+              → subtract terrain elevation from Phase 3 DTM to get building_height_m
+Provenance: 'tagged'
+EPSG: varies per Land; NRW = EPSG:25832 (UTM32/ETRS89) + DHHN2016 (EPSG:7837)
+Compound gdalwarp -s_srs: EPSG:25832+7837 → EPSG:4979
 ```
 
-Fetcher pattern (mirror 3DBAG):
+Fetcher outline (`impl: 'documented'` → change to `'live'` when done):
 ```js
 async function fetchLoD2DE({ bbox }) {
-  // 1. Compute intersecting 1 km² tile keys from bbox
-  // 2. Download .gml.gz tiles (cache locally — they are large, ~5 MB/tile)
-  // 3. Parse CityGML: <bldg:Building> → footprint polygon + <bldg:measuredHeight>
-  // 4. Emit GeoJSONSeq: { type:'Feature', geometry:footprint, properties:{ height, heightProvenance:'tagged', source:'lod2de_nrw', algorithm_version:'v1.0.0' } }
+  // 1. Compute 1 km² NRW tile keys from bbox:
+  //    Tile(kx,ky) covers easting [kx*1000, (kx+1)*1000], northing [ky*1000, (ky+1)*1000]
+  //    in EPSG:25832. Convert bbox corners from WGS84 → UTM32 to get tile range.
+  // 2. Download https://opengeodata.nrw.de/produkte/geobasis/3dg/lod2_gml/{kx}_{ky}.gml.gz
+  //    Cache locally (file unchanged until annual refresh).
+  // 3. Parse GML: <bldg:Building> → footprint polygon (EPSG:25832) + <bldg:measuredHeight> (NHN)
+  // 4. Reproject footprint EPSG:25832 → WGS84 (proj4js or GDAL).
+  // 5. Emit GeoJSONSeq feature with heightProvenance:'tagged', source:'lod2de_nrw_YYYY'
   // Never-throws: wrap in try/catch, return { status:'error', reason }
 }
 ```
@@ -181,82 +303,80 @@ async function fetchLoD2DE({ bbox }) {
 **Source: GeoDanmark / DHM (Denmark)**
 
 ```
-Endpoint: https://api.dataforsyningen.dk/rest/gst/api/dhm (requires free API key)
-Alternative: WFS https://services.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_Ortho_UTM32Euref89/1.0.0/WFS
-Format: GeoJSON or GML; building height from DHM (Digital Height Model)
-Auth: Dataforsyningen API key (free registration) — BLOCKED on Replit without a key; document as 'blocked' until key is set in env
-Coverage: ~95% of Denmark
-Provenance: tagged
+Registration: https://dataforsyningen.dk/  (free, requires email confirmation)
+WFS after auth: https://wfs.datafordeler.dk/GeoDanmarkVektor/...
+              (HTTP 401 without token; token passed as ?username=&password= or header)
+DHM terrain tiles: https://download.kortforsyningen.dk/ → DHM/Terræn dataset
+                   (download portal, requires login, then S3-style direct URLs)
+Coverage: ~95% Denmark
+Provenance: 'tagged' (ALS-derived, 0.4 m resolution)
+License: free for most uses; verify commercial clause before shipping
+Status: BLOCKED until Dataforsyningen account is set up + token is in env
+        → add GEODANMARK_TOKEN env var; if unset, return { status:'blocked', reason:'no token' }
 ```
 
-### 1.5 Acceptance criteria (Phase 1)
+### 1.6 Acceptance criteria (Phase 1)
 
-Re-bake Paris, Amsterdam, Madrid. Inspect with `pmtiles show` or the PMTiles viewer:
+Re-bake Paris, Amsterdam, Madrid/Barcelona. Verify with `pmtiles show` or the PMTiles inspector.
 
-| City | Target | Measure |
+| City | Target | How to measure |
 |---|---|---|
-| Amsterdam | >99% of buildings carry `heightProvenance:'tagged'` | `pmtiles inspect buildings.pmtiles --bounds=...` → count tagged |
-| Paris (8e) | >80% tagged; `hauteur` values 6–45 m (not uniform 9) | spot-check 20 buildings vs BD TOPO viewer |
-| Madrid | >40% `derived-levels`; no uniform 9 m | Catastro floor counts × 3.2 m visible |
+| Paris | >80% of buildings carry `heightProvenance:'tagged'` (BD TOPO `hauteur`) | `pmtiles inspect out/buildings.pmtiles` on Paris bbox tile |
+| Amsterdam | >95% of buildings carry `heightProvenance:'tagged'` (3DBAG), NOT uniform 9 m | Spot-check 10 buildings in the Jordaan vs the Amsterdam real estate viewer |
+| Barcelona | >30% `derived-levels` (Catastro floors) for a central-city bbox | Tile inspector; look for height variation in the Eixample grid |
+| All | 3D-Site renders a recognisable skyline — NOT a uniform 9 m carpet | Screenshot from the Cesium view + annotate |
 
-**Definition of done:** the 3D Site (Cesium view) for each city renders a recognisable skyline —
-NOT a uniform 9 m carpet. `heightProvenance` badge in any future UI shows `tagged` for national-height
-buildings. No building carries a silent fabricated height. Screenshot + measure before marking done.
+**Definition of done:** Paris FIRST (it already works — just wire the line). Then Amsterdam (requires
+§1.2 geometry fix). Then Spanish cities (requires §1.3 per-city Catastro fix). Never mark done on
+code-merge — screenshot + PMTiles inspector before closing.
 
 ---
 
 ## Phase 2 — HeightProfile schema
 
-**Goal:** a single regulation-aware, multi-field datum so no consumer ever hardcodes `height_m`.
-**Effort:** S–M (~3 days). **Risk:** LOW. **Sequence:** BEFORE Phase 3 or 4 write any output.
-This schema is the data contract that gates all downstream phases.
+**Goal:** a single regulation-aware, multi-field datum so no consumer hardcodes `height_m`.
+**Effort:** S–M (~3 days). **Risk:** LOW.
+**Sequence:** BEFORE Phase 3 or 4 write any output — this is the data contract everything else emits.
 
-### 2.1 Why one bare `height_m` is wrong
+### 2.1 Where the file lives
 
-Jurisdictions define "building height" differently. Examples from the codebase
-(`packages/site-parcel-data/src/envelopeHeight.ts`, `C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md`):
-
-| Jurisdiction | "Building height" means |
-|---|---|
-| Netherlands | Roof ridge (nok) |
-| Germany (BauO NRW) | Traufe (eaves) |
-| France (PLU) | Égout du toit (eaves) |
-| Spain (NNUU) | Cornisa (cornice/parapet) |
-| UK (NPPF) | Ridge or mean roof height depending on context |
-
-A single `height_m` serves none of them correctly unless you know which definition it uses.
-The `HeightProfile` stores every statistic; the jurisdiction rule pack selects the right field.
-
-### 2.2 Schema (create this file)
+`packages/schemas/src/elements/site/` does NOT exist yet. Create it:
+```bash
+mkdir -p packages/schemas/src/elements/site/context/
+```
 
 **File:** `packages/schemas/src/elements/site/context/heightProfile.ts`
+
+The existing `packages/schemas/src/elements/` directory contains: `Annotation.ts`, `Beam.ts`,
+`Wall.ts`, etc. — all pure Zod L0 schemas. The new file follows the same pattern.
+
+### 2.2 Schema
 
 ```typescript
 import { z } from 'zod';
 
-// ─── BINDING RULES (C-CONTEXT §1, ratified Phase 2) ─────────────────────────
+// ─── BINDING RULES (C-CONTEXT §1) ─────────────────────────────────────────────
 //   1. No consumer may store or transmit a bare `height_m` — use this type.
 //   2. Robust statistics only: P90 and trimmed-median. Never max. Never bare mean.
-//   3. Provenance mandatory: all four fields (source, algorithm_version, epoch, confidence).
+//   3. Provenance mandatory: source, algorithm_version, epoch, confidence — all four.
 //   4. ground_elevation_m is WGS-84 ellipsoidal (matches globeGroundAnchor.ts C12 §1.4).
-//   5. building_height_m = roof_p90_m - ground_elevation_m (canonical; the most useful
-//      single number — but jurisdictions read the correct field via heightDefinition).
-//   6. Fields are nullable: null means "not measured / not applicable", NOT zero.
+//   5. building_height_m = roof_p90_m − ground_elevation_m (canonical).
+//   6. null = "not measured / not applicable", NOT zero.
 //   7. This schema is L0: pure Zod, no I/O, no THREE, no DOM imports.
 
 export const RoofType = z.enum([
-  'flat',       // < 5° pitch; common in modern construction
-  'gable',      // two slopes meeting at a ridge
-  'hip',        // four slopes, no gable ends
-  'shed',       // single slope
-  'mansard',    // two slopes per side, lower steeper
-  'gambrel',    // two slopes per side, upper shallower
-  'complex',    // irregular; multiple roof planes, dormers, setbacks
-  'unknown',    // LiDAR insufficient or roof obscured
+  'flat',      // < 5° pitch
+  'gable',     // two slopes meeting at a ridge
+  'hip',       // four slopes, no gable ends
+  'shed',      // single slope
+  'mansard',   // two slopes per side, lower steeper
+  'gambrel',   // two slopes per side, upper shallower (Dutch barn)
+  'complex',   // irregular; multiple roof planes, dormers, setbacks
+  'unknown',   // LiDAR insufficient or roof obscured
 ]);
 
 export const HeightProvenance = z.enum([
-  'lidar_ndsm',      // LiDAR DSM−DTM pipeline (Phase 4) — highest confidence measured
+  'lidar_ndsm',      // Phase 4 LiDAR DSM−DTM pipeline — highest confidence measured
   'national_lod2',   // national LoD2 dataset (3DBAG, swissBUILDINGS3D, LoD2-DE, GeoDanmark)
   'national_lod1',   // national LoD1 dataset (BD TOPO hauteur, Catastro × storeys)
   'osm_tag',         // OSM `height=` tag, author-supplied (unverified)
@@ -266,883 +386,634 @@ export const HeightProvenance = z.enum([
 ]);
 
 export const HeightProfile = z.object({
-  // ── Elevation absolutes (WGS-84 ellipsoidal, metres) ────────────────────
+  // ── Elevation absolutes (WGS-84 ellipsoidal, metres) ──────────────────────
   ground_elevation_m: z.number().nullable(),
-  // The terrain plane under the building footprint (perimeter DTM fit, not centroid).
-  // Source: Phase 3 terrain mesh DTM sample OR `globeGroundAnchor.ts` photoreal-tile clamp.
-  // null until Phase 3 terrain is shipped; consumers fall back to Cesium's ground clamping.
+  // Terrain plane under the building footprint (perimeter DTM fit, not centroid sample).
+  // null until Phase 3 terrain is shipped; consumers fall back to Cesium ground clamping.
 
-  roof_median_m:  z.number().nullable(), // P50 of nDSM cells inside eroded footprint (absolute)
-  roof_p90_m:     z.number().nullable(), // P90 — the canonical roof height (absolute)
+  roof_median_m:  z.number().nullable(), // P50 of nDSM cells inside eroded footprint
+  roof_p90_m:     z.number().nullable(), // P90 — the canonical roof height (absolute ellipsoidal)
   roof_peak_m:    z.number().nullable(), // max of roof-plane RANSAC vertices (absolute)
 
-  // ── Heights relative to ground (these are what planners and rules actually use) ──
+  // ── Heights relative to ground (what planners and rules use) ──────────────
   building_height_m:    z.number().nullable(), // roof_p90_m − ground_elevation_m (canonical)
   height_to_parapet_m:  z.number().nullable(), // top of parapet wall (flat roofs)
-  height_to_ridge_m:    z.number().nullable(), // ridge (gable/hip — the highest fixed point)
+  height_to_ridge_m:    z.number().nullable(), // ridge (gable/hip — highest fixed point)
   height_to_eaves_m:    z.number().nullable(), // eaves/traufe (base of roof slope)
   height_to_cornice_m:  z.number().nullable(), // cornice/cornisa (used by ES NNUU)
 
-  // ── Roof geometry ────────────────────────────────────────────────────────
+  // ── Roof geometry ──────────────────────────────────────────────────────────
   roof_type:      RoofType,
   roof_pitch_deg: z.number().min(0).max(90).nullable(),
 
-  // ── Derived ─────────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
   floors_est: z.number().int().positive().nullable(),
-  // Derived: building_height_m / assumed_storey_height_m, rounded. Not a measurement.
 
-  // ── Provenance (mandatory — §CONTEXT-DATA-HONESTY) ──────────────────────
+  // ── Provenance (mandatory — §CONTEXT-DATA-HONESTY) ────────────────────────
   confidence:        z.number().min(0).max(1),
   provenance:        HeightProvenance,
-  source:            z.string().min(1),
-  // Dataset identifier, e.g. '3DBAG_v2.8' / 'BD_TOPO_2024' / 'PNOA_LiDAR_2023'
-  epoch:             z.string().nullable(),
-  // Acquisition date of source data (ISO 8601 partial OK: '2025-04' / '2023')
-  algorithm_version: z.string().min(1),
-  // Semver of the compute pipeline that produced this profile, e.g. 'v2.3.1'
+  source:            z.string().min(1), // e.g. '3DBAG_v2.8' / 'BD_TOPO_2024' / 'PNOA_AHN5'
+  epoch:             z.string().nullable(), // ISO 8601 partial: '2025-04' / '2023'
+  algorithm_version: z.string().min(1),     // semver of the compute pipeline, e.g. 'v2.3.1'
 });
 
 export type HeightProfile = z.infer<typeof HeightProfile>;
 export type RoofType = z.infer<typeof RoofType>;
 export type HeightProvenance = z.infer<typeof HeightProvenance>;
 
-// ── Jurisdiction height definition (add to each rule pack / RATE.md adapter) ─
+// ── Jurisdiction height definition ──────────────────────────────────────────
 // C58 reads `heightDefinition` from the jurisdiction pack to pick the correct field.
 export const HeightDefinition = z.enum([
-  'building_height_m',   // generic — most common
-  'height_to_ridge_m',   // NL (nok), UK ridge case
-  'height_to_eaves_m',   // DE (Traufe), FR (égout du toit)
-  'height_to_parapet_m', // flat-roof urban contexts
-  'height_to_cornice_m', // ES (cornisa)
+  'building_height_m',    // generic / most common
+  'height_to_ridge_m',    // NL (nok), DK (taghøjde), UK (NPPF ridge)
+  'height_to_eaves_m',    // DE (Traufe / BauO NRW), FR (égout du toit / PLU)
+  'height_to_parapet_m',  // flat-roof urban contexts
+  'height_to_cornice_m',  // ES (cornisa / NNUU)
 ]);
 export type HeightDefinition = z.infer<typeof HeightDefinition>;
 
-// ── Minimal backfill from current bake attributes ─────────────────────────────
-// Used by contextTiles.ts and contextBuildings.ts to wrap legacy `height` + `heightProvenance`
-// values in the new type without breaking the existing render path.
+// Jurisdiction → height definition mapping (add to each rule pack):
+export const JURISDICTION_HEIGHT_DEFINITION: Record<string, HeightDefinition> = {
+  nl: 'height_to_ridge_m',    // nok hoogte
+  de: 'height_to_eaves_m',    // Traufe / BauO NRW Art.6
+  fr: 'height_to_eaves_m',    // égout du toit / PLU
+  es: 'height_to_cornice_m',  // cornisa / NNUU
+  gb: 'height_to_ridge_m',    // NPPF ridge (default)
+  ch: 'building_height_m',    // Firsthöhe varies by canton; canonical until per-canton
+  dk: 'height_to_ridge_m',    // taghøjde
+  no: 'building_height_m',    // Mønehøyde / TEK17; per-municipality varies
+  se: 'building_height_m',    // nockhöjd / PBL; approximate
+  be: 'height_to_ridge_m',    // Vlaanderen / Gewestplan
+  pt: 'height_to_eaves_m',    // cércea / RJUE
+  it: 'height_to_eaves_m',    // altezza in gronda / DM 1444/68
+  us: 'building_height_m',    // IBC; AHJ-dependent
+};
+
+// ── Backfill from current bake attributes (zero-risk migration) ──────────────
+// Wraps the legacy `height` + `heightProvenance` values from contextBuildings.ts
+// and contextTiles.ts in the new type without breaking the existing render path.
 export function heightProfileFromLegacy(
   height: number | null,
   legacyProvenance: 'tagged' | 'derived-levels' | 'assumed',
+  source = 'legacy_bake',
 ): HeightProfile {
   const provenance: HeightProvenance =
-    legacyProvenance === 'tagged'         ? 'national_lod1'
+    legacyProvenance === 'tagged'          ? 'national_lod1'
     : legacyProvenance === 'derived-levels' ? 'levels_x_h'
     : 'assumed';
   return {
-    ground_elevation_m:   null,
-    roof_median_m:        null,
-    roof_p90_m:           height,
-    roof_peak_m:          null,
-    building_height_m:    height,
-    height_to_parapet_m:  null,
-    height_to_ridge_m:    null,
-    height_to_eaves_m:    null,
-    height_to_cornice_m:  null,
-    roof_type:            'unknown',
-    roof_pitch_deg:       null,
-    floors_est:           null,
-    confidence:           provenance === 'national_lod1' ? 0.75 : provenance === 'levels_x_h' ? 0.4 : 0.1,
-    provenance,
-    source:               'legacy_bake',
-    epoch:                null,
-    algorithm_version:    'v0.0.0-legacy',
+    ground_elevation_m: null, roof_median_m: null, roof_p90_m: height,
+    roof_peak_m: null, building_height_m: height,
+    height_to_parapet_m: null, height_to_ridge_m: null,
+    height_to_eaves_m: null, height_to_cornice_m: null,
+    roof_type: 'unknown', roof_pitch_deg: null, floors_est: null,
+    confidence: provenance === 'national_lod1' ? 0.75
+               : provenance === 'levels_x_h'   ? 0.40 : 0.10,
+    provenance, source, epoch: null, algorithm_version: 'v0.0.0-legacy',
   };
 }
 ```
 
-### 2.3 Consumer migrations
+### 2.3 Export from schemas package
+
+Add to `packages/schemas/src/elements/index.ts`:
+```ts
+export * from './site/context/heightProfile.js';
+```
+
+Confirm the barrel: `packages/schemas/src/index.ts` already re-exports from `./elements/index.js`.
+
+### 2.4 Consumer migrations
 
 **`packages/site-parcel-data/src/envelopeHeight.ts`**
 
-Currently reads a bare `height_m`. After Phase 2, change to:
-```typescript
-import { HeightProfile, HeightDefinition } from '@pryzm/schemas';
+Currently takes `height_m: number` via `ConstructedHeightPatch`. After Phase 2, add an
+overload that accepts `HeightProfile` and selects the correct field:
 
-function resolveEnvelopeHeight(
+```typescript
+import { HeightProfile, HeightDefinition, JURISDICTION_HEIGHT_DEFINITION } from '@pryzm/schemas';
+
+export function resolveEnvelopeHeightFromProfile(
   profile: HeightProfile,
-  jurisdictionDef: HeightDefinition,
+  jurisdictionCode: string,
 ): number | null {
-  // Pick the field the jurisdiction's rule pack says is "building height".
-  const raw = profile[jurisdictionDef];
-  if (raw != null) return raw;
-  // Fallback cascade: parapet → ridge → eaves → canonical → null.
-  return profile.height_to_parapet_m
+  const def: HeightDefinition =
+    JURISDICTION_HEIGHT_DEFINITION[jurisdictionCode] ?? 'building_height_m';
+  return profile[def]
+    ?? profile.height_to_parapet_m
     ?? profile.height_to_ridge_m
     ?? profile.height_to_eaves_m
     ?? profile.building_height_m;
 }
 ```
 
-Add `heightDefinition` to each jurisdiction rule pack (one-liner per country in
-`packages/site-parcel-data/src/` or the relevant `RATE.md` adapter):
+The existing `applyConstructedHeight` signature (`height_m: number`) is unchanged — the caller
+resolves the correct field and passes it as before. No breaking change.
 
-```
-NL → height_to_ridge_m       (nok hoogte)
-DE → height_to_eaves_m       (Traufe / BauO NRW Art.6)
-FR → height_to_eaves_m       (égout du toit / PLU)
-ES → height_to_cornice_m     (cornisa / NNUU)
-UK → height_to_ridge_m       (NPPF ridge, default)
-CH → building_height_m       (Firsthöhe varies by canton; use canonical until per-canton)
-DK → height_to_ridge_m       (taghøjde)
-```
+**`apps/editor/src/ui/geospatial/contextTiles.ts` and `contextBuildings.ts`**
 
-**`apps/editor/src/ui/geospatial/contextBuildings.ts` and `contextTiles.ts`**
+No change to the render path. Optionally wrap emitted buildings in `heightProfileFromLegacy`
+for downstream consumers that want a `HeightProfile` — this is additive only.
 
-Wrap every emitted building with `heightProfileFromLegacy(heightM, heightProvenance)`.
-Store the `HeightProfile` on the feature property. Existing downstream code continues to
-read `building_height_m` (unchanged value). No render path change.
-
-**`C57-PARCEL-DATA-LAYER.md`** — add: "Parcel record MAY carry a `heightProfile: HeightProfile`
-referencing the most confident profile available for the building on the parcel."
-
-### 2.4 Test (required before merge)
+### 2.5 Required test
 
 `packages/schemas/__tests__/heightProfile.test.ts`:
 ```typescript
 import { HeightProfile, heightProfileFromLegacy } from '../src/elements/site/context/heightProfile';
 
-test('schema compiles L0 (no I/O, no THREE, no DOM)', () => {
-  // The test itself proves the import doesn't pull in forbidden modules.
+test('L0 — schema compiles with no I/O, no THREE, no DOM', () => {
   expect(HeightProfile).toBeDefined();
 });
 
-test('round-trip: golden fixture', () => {
+test('round-trip: golden fixture (3DBAG Amsterdam canal house)', () => {
   const fixture: HeightProfile = {
-    ground_elevation_m: 128.42, roof_median_m: 139.87, roof_p90_m: 140.15,
-    roof_peak_m: 141.02, building_height_m: 11.73, height_to_parapet_m: 11.6,
-    height_to_ridge_m: 12.3, height_to_eaves_m: 10.9, height_to_cornice_m: null,
-    roof_type: 'gable', roof_pitch_deg: 32, floors_est: 3,
-    confidence: 0.94, provenance: 'lidar_ndsm', source: 'PNOA_2025',
-    epoch: '2025-04', algorithm_version: 'v2.3.1',
+    ground_elevation_m: 0.57,   // AHN5 b3_h_maaiveld, ellipsoidal ≈ 43.57 m (set after Phase 3)
+    roof_median_m: 15.56,       // b3_h_dak_50p (VERIFIED 2026-07-24)
+    roof_p90_m: 16.31,          // b3_h_dak_70p proxy
+    roof_peak_m: 17.74,         // b3_h_dak_max
+    building_height_m: 15.00,   // roof_p90_m − ground
+    height_to_parapet_m: null, height_to_ridge_m: 17.69, height_to_eaves_m: null,
+    height_to_cornice_m: null, roof_type: 'gable', roof_pitch_deg: null, floors_est: 4,
+    confidence: 0.96, provenance: 'national_lod2', source: '3DBAG_v2.8',
+    epoch: '2023', algorithm_version: 'v2.3.1',
   };
   expect(HeightProfile.parse(fixture)).toEqual(fixture);
 });
 
-test('legacy backfill round-trip', () => {
-  const profile = heightProfileFromLegacy(9, 'assumed');
-  expect(profile.building_height_m).toBe(9);
-  expect(profile.provenance).toBe('assumed');
-  expect(profile.confidence).toBe(0.1);
+test('legacy backfill: assumed keeps 9 m', () => {
+  const p = heightProfileFromLegacy(9, 'assumed');
+  expect(p.building_height_m).toBe(9);
+  expect(p.provenance).toBe('assumed');
+  expect(p.confidence).toBe(0.1);
 });
 
-test('null fields are nullable, not zero', () => {
-  const profile = heightProfileFromLegacy(null, 'assumed');
-  expect(profile.building_height_m).toBeNull();
+test('null height is nullable not zero', () => {
+  const p = heightProfileFromLegacy(null, 'assumed');
+  expect(p.building_height_m).toBeNull();
 });
 ```
-
-**Acceptance:** schema compiles; tests green; `envelopeHeight.ts` reads `heightDefinition` per
-jurisdiction; golden fixture round-trips. Measurable gate: `pnpm --filter @pryzm/schemas run test`
-passes with the new test file included.
 
 ---
 
 ## Phase 3 — Terrain in the 3D-Site view
 
 **Goal:** terrain mesh renders under context buildings, everywhere open DTM data exists.
-**Effort:** H (~3–4 weeks). **Risk:** MEDIUM. The hard sub-problem is datum alignment (§3.4).
-**Sequence:** Phase 2 (HeightProfile) MUST be done first; terrain writes `ground_elevation_m`.
+**Effort:** H (~3–4 weeks). **Risk:** MEDIUM — datum alignment is the trap (§3.3).
+**Sequence:** Phase 2 (HeightProfile) first — terrain writes `ground_elevation_m`.
 
-### 3.1 Why terrain is the requested gap
+### 3.1 Country DTM source table (verified 2026-07-24)
 
-Current state: buildings extrude from a flat ellipsoid base. In any sloped city (Lisbon,
-Bergen, Edinburgh, Barcelona's hills, Copenhagen's islands) buildings either float above
-ground or sink below it. The `globeGroundAnchor.ts` clamp solves this for the PRYZM model's
-origin building, but context buildings have no equivalent — they sit at `height 0` (the
-WGS-84 ellipsoid) by construction (`contextTiles.ts` → Cesium `PolygonGraphics`).
+| Country | Source | URL | Resolution | CRS (horiz + vert) | License | Auth | Status |
+|---|---|---|---|---|---|---|---|
+| 🇳🇱 NL | AHN (PDOK WCS) | `service.pdok.nl/rws/ahn/wcs/v1_0` | 0.5 m | EPSG:28992 + NAP (EPSG:5709) | CC0 | None | ✅ **START HERE** |
+| 🇨🇭 CH | swissALTI3D (STAC) | `data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d` | 0.5 m | EPSG:2056 (LV95) + EPSG:5728 (LN02) | Open | None | ✅ VERIFIED |
+| 🇫🇷 FR | RGE ALTI (Géoplateforme WCS) | `data.geopf.fr/wcs` | 1 m | RGF93/Lambert93 + NGF-IGN69 | Open | Free reg | ✅ ACCESSIBLE |
+| 🇩🇰 DK | DHM/Terræn (Dataforsyningen) | `download.kortforsyningen.dk` | 0.4 m | UTM32 + DVR90 | Open | Free token | ⚠ TOKEN REQUIRED |
+| 🇪🇸 ES | PNOA MDT (CNIG) | `centrodedescargas.cnig.es` | 5 m | ETRS89-UTM + EVRF2007 | CC-BY | None | ✅ ACCESSIBLE |
+| 🇳🇴 NO | NDH (hoydedata.no) | `hoydedata.no` | 1 m | UTM32 + NN2000 | Open | None | 🔒 Replit-blocked; verify from Fly |
+| 🇩🇪 DE | DGM NRW (open.nrw) | `open.nrw/dataset/lod2-nrw` | 1 m | UTM32 + DHHN2016 | dl-de/by-2-0 | None | 🔒 Replit-blocked; verify from Fly |
+| 🇺🇸 US | 3DEP (TNM) | `tnmaccess.nationalmap.gov/api/v1/products` **dataset="Digital Elevation Model (DEM) 1 meter"** | 1 m | UTM zone varies + NAVD88 | Public domain | None | ✅ VERIFIED (corrected dataset name) |
+| 🇸🇦 SA | None open | — | — | — | — | — | ❌ No open DTM |
 
-Terrain is not a cosmetic improvement — it is a legal-datum input. L-584 established that
-the rasant (terrain elevation under a façade) is required to correctly compute the BauO/PLU
-setback heights. Without terrain, `height_to_eaves_m` is computed from an assumed flat ground
-that may be metres off.
+**Start order:** NL (AHN, CC0, WCS confirmed) → CH (swissALTI3D, CC, STAC confirmed) → FR (free reg) → ES (open, CC-BY) → DK (token) → NO/DE (Fly only).
 
 ### 3.2 Offline bake pipeline
 
-**New file:** `tools/context-bake/terrain.mjs` (Node, uses GDAL CLI)
-
-OR (preferred for heavy raster ops): `tools/height-engine/terrain.py` (Python, uses GDAL + rasterio)
-
-**Per-tile algorithm:**
-
-```
-1. CLIP: national DTM GeoTIFF → clip to tile bbox (gdalwarp -te w s e n -t_srs EPSG:4326)
-2. RESAMPLE: to a uniform grid resolution:
-     - near tiles (≤2 km from site): 1 m grid
-     - far tiles (2–10 km): 5 m grid
-     - horizon tiles (>10 km): 25 m grid
-   Use bilinear resampling (gdalwarp -r bilinear). Bicubic for near tiles.
-3. FILL VOIDS: small voids (<50 px) via gdal_fillnodata.py. Large voids → flag as 'partial'.
-4. TIN MESH (RTIN — error-bounded):
-     - Use `martini` (npm: @mapbox/martini) for raster→TIN in JS:
-       const terrain = new Martini(gridSize); const tile = terrain.createTile(elevations);
-       const mesh = tile.getMesh(maxError); // maxError=0.5m near, 2m mid, 5m far
-     - OR `pydelatin` (Python): delatin.triangulate(raster, max_error=0.5)
-     - Result: a triangle mesh with vertices at real (x, y, elevation) positions.
-5. SIMPLIFY: meshoptimizer (npm: meshoptimizer) → simplify/quantize → reduces vertices 60–80%.
-6. ENCODE:
-     Option A (preferred): Cesium quantized-mesh format → .terrain tile
-       Library: `quantized-mesh-encoder` (npm). One file per z/x/y.
-       Cesium `CesiumTerrainProvider` streams these natively — no custom runtime code.
-     Option B: glTF/meshopt per tile → for the Three.js path if Cesium terrain is not used.
-     Decision: use Option A first. It integrates with zero runtime code.
-7. UPLOAD: z/x/y .terrain tiles → R2 (or S3), under `tiles/terrain/{z}/{x}/{y}.terrain`.
-8. METADATA: write a `layer.json` (Cesium terrain tileset descriptor) to the root.
-```
-
-**Python terrain pipeline script** (`tools/height-engine/terrain.py`):
+**New file:** `tools/height-engine/terrain.py` (Python — shares the height-engine toolchain)
 
 ```python
-import subprocess, json, numpy as np
+"""
+terrain.py — PRYZM DTM → quantized-mesh terrain tile bake
+One country at a time; called per-tile from the build farm.
+"""
+import subprocess, json
 from pathlib import Path
+import numpy as np
 import rasterio
-from rasterio.transform import from_bounds
-import pydelatin
-from quantized_mesh_encoder import encode  # pip install quantized-mesh-encoder
+from rasterio.warp import reproject, Resampling, calculate_default_transform
 
-COUNTRIES = {
-  'nl': 'https://download.pdok.nl/rws/ahn/v1_0/dtm_05m/... (AHN 0.5m)',
-  'dk': 'https://download.kortforsyningen.dk/content/dhm-terraen-skyggekort-10m (free key)',
-  'ch': 'https://data.geo.admin.ch/ch.swisstopo.swissalti3d/... (swissALTI3D 2m)',
-  'fr': 'https://geoservices.ign.fr/rgealti (RGE ALTI 1m — bearer token required)',
-  'es': 'https://centrodedescargas.cnig.es/CentroDescargas/MDT05/... (PNOA MDT 5m, open)',
+# Per-country DTM source config
+TERRAIN_SOURCES = {
+  'nl': {
+    'wcs_url': 'https://service.pdok.nl/rws/ahn/wcs/v1_0',
+    'coverage': 'ahn_05m_dtm',        # coverage identifier from WCS GetCapabilities
+    's_crs': 'EPSG:7415',             # compound: RD New + NAP (EPSG:28992 + EPSG:5709)
+    'license': 'CC0',
+  },
+  'ch': {
+    'stac_url': 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d',
+    's_crs': 'EPSG:9518',             # compound: LV95 + LN02 (EPSG:2056 + EPSG:5728)
+    'license': 'Open',
+  },
+  'us': {
+    'tnm_url': 'https://tnmaccess.nationalmap.gov/api/v1/products',
+    'dataset': 'Digital Elevation Model (DEM) 1 meter',  # ← CORRECTED NAME
+    's_crs': None,  # varies by state; read from GeoTIFF metadata
+    'license': 'Public domain',
+  },
 }
-# Per country: download → cache → clip → mesh → encode → upload
+
+def clip_to_tile(src_tif: Path, tile_bbox_wgs84: tuple, out_tif: Path, s_crs: str):
+    """
+    GDAL reproject + clip: national orthometric CRS → WGS84 ellipsoidal (EPSG:4979).
+    This is the datum fix (GAP-C context): converts from national orthometric to
+    WGS84 ellipsoidal heights, which is what Cesium, globeGroundAnchor.ts and the
+    HeightProfile all use.
+    
+    ⚠ REQUIRES PROJ geoid grids to be available (PROJ_DATA env var pointing to a
+    directory with the country's .gtx or .tif geoid correction file). Without the
+    grid, GDAL silently skips the geoid correction and returns horizontal-only
+    reprojected heights — wrong.
+    
+    Verify: Amsterdam AHN → expected ellipsoidal height ≈ 43–50 m at (52.37, 4.90).
+    If result is 0–5 m, geoid grid is missing.
+    """
+    cmd = [
+        'gdalwarp',
+        '-s_srs', s_crs,          # e.g. EPSG:7415 (RD+NAP)
+        '-t_srs', 'EPSG:4979',    # WGS84 3D (ellipsoidal)
+        '-te', str(tile_bbox_wgs84[0]), str(tile_bbox_wgs84[1]),
+                str(tile_bbox_wgs84[2]), str(tile_bbox_wgs84[3]),
+        '-te_srs', 'EPSG:4326',
+        '-tr', '0.000009', '0.000009',  # ~1 m at mid-latitudes in degrees
+        '-r', 'bilinear',
+        '-overwrite',
+        str(src_tif), str(out_tif),
+    ]
+    subprocess.run(cmd, check=True)
 ```
 
-### 3.3 Country DTM source table (build this before writing any code)
+### 3.3 Datum alignment — the hard sub-problem (DO FIRST)
 
-| Country | Source | Resolution | License | Auth | Phase 3? |
-|---|---|---|---|---|---|
-| 🇳🇱 NL | AHN (pdok.nl) | 0.5 m | Open (CC0) | None | ✅ START HERE |
-| 🇩🇰 DK | DHM/Terræn (Datafordeler) | 0.4 m | Open | Free API key | ✅ |
-| 🇨🇭 CH | swissALTI3D (swisstopo) | 2 m | Open | None | ✅ |
-| 🇫🇷 FR | RGE ALTI / IGN (Geoplateforme) | 1 m | Open | Bearer token (free reg) | ✅ |
-| 🇪🇸 ES | PNOA MDT (CNIG) | 5 m | Open (CC-BY) | None | ✅ |
-| 🇳🇴 NO | NDH (hoydedata.no) | 1 m | Open | None | ✅ (low pop density) |
-| 🇩🇪 DE | DGM (land by land — NRW open) | 1 m | NRW open; others vary | NRW: None | Partial |
-| 🇺🇸 US | 3DEP (TNM) | 1 m | Public domain | None | Deferred (scale) |
-| 🇸🇦 SA | No open DTM | — | — | — | ❌ skip (ML fallback) |
+**This is the #1 failure mode.** Prove it on ONE city (Amsterdam) before processing any others.
 
-**Start with NL (AHN) and DK (DHM)** — both are verifiably open, high resolution, and the
-corresponding cities (Amsterdam, Copenhagen) have LOD-2 building data. A correct terrain +
-LOD-2 building + terrain-anchored ground elevation on both is the Phase 3 acceptance proof.
+The geoid–ellipsoid separation:
+- Netherlands (Amsterdam): +43 m (NAP height 0 m = ellipsoidal height +43 m)
+- Switzerland (Zurich): +47–51 m (LN02)
+- France (Paris): +44–48 m (NGF-IGN69)
 
-### 3.4 Datum alignment — the hard sub-problem (L-584)
+**Datum correction per country** (`gdalwarp -s_srs`):
 
-**This is the trap.** Do this FIRST on ONE city (Amsterdam) before writing any other terrain code.
+| Country | Compound CRS | gdalwarp `-s_srs` | Expected ellipsoidal ≈ |
+|---|---|---|---|
+| NL | RD New + NAP | `EPSG:7415` | +43–47 m at Amsterdam |
+| CH | LV95 + LN02 | `EPSG:9518` | +47–51 m at Zurich |
+| FR | RGF93/L93 + NGF-IGN69 | `EPSG:9794` | +44–48 m at Paris |
+| ES | ETRS89-UTM30 + EVRF2007 | `EPSG:7423` | +48–55 m at Madrid |
+| DK | UTM32/ETRS89 + DVR90 | `EPSG:4258+5799` (or EPSG:4937+DVR90) | +41–45 m at Copenhagen |
+| NO | UTM32/ETRS89 + NN2000 | custom (EPSG:25832+EPSG:5941) | +38–44 m at Oslo |
+| DE | UTM32/ETRS89 + DHHN2016 | `EPSG:25832+7837` | +43–48 m at Cologne |
+| US | varies per state (NAD83/UTM) + NAVD88 | read from GeoTIFF | varies: +20–40 m CONUS |
 
-The problem (from `globeGroundAnchor.ts`):
-- WGS-84 ellipsoidal height (`h=0`) ≠ orthometric height (mean sea level).
-- The geoid–ellipsoid separation varies: Netherlands +43 m, Switzerland +47–51 m, Denmark +42 m.
-- A terrain tile authored in RD New + NAP (Netherlands national datum) at `h=5 m` actually sits
-  at `h = 5 + 43 = 48 m` ellipsoidal. Buildings placed at `h=0` are 48 m underground.
-
-**The fix (apply everywhere):**
-
-```
-DTM raster (national orthometric) → GDAL reproject to WGS-84 ellipsoidal:
-  gdalwarp -s_srs EPSG:28992+5709 -t_srs EPSG:4979 input.tif output_ellipsoidal.tif
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-           NL: RD New (EPSG:28992) + NAP height (EPSG:5709) = compound CRS EPSG:7415
+**Acceptance check (non-negotiable before any other terrain work):**
+```bash
+# Sample AHN at Amsterdam centroid after gdalwarp → EPSG:4979
+gdallocationinfo -valonly -geoloc out/nl/amsterdam_tile_ellipsoidal.tif 4.9003 52.3702
+# Must return a value between 42 and 52. If < 10 → geoid grid not applied → STOP.
 ```
 
-Per-country compound CRS for gdalwarp `-s_srs`:
+PROJ requires the geoid grid file. For NL (NAP → ellipsoidal):
+- Download `nllgeo2018.tif` from `cdn.proj.org` or the PROJ CDN
+- Set `PROJ_DATA=/path/to/grids/` OR use the PROJ network endpoint (`PROJ_NETWORK=ON`)
 
-| Country | Horizontal | Vertical (orthometric) | Compound CRS | Ellipsoidal target |
-|---|---|---|---|---|
-| NL | RD New (28992) | NAP (5709) | EPSG:7415 | EPSG:4979 |
-| DK | UTM32 (25832) | DVR90 (5799) | EPSG:4258+5799 | EPSG:4979 |
-| CH | LV95 (2056) | LN02 (5728) | EPSG:9518 | EPSG:4979 |
-| FR | RGF93/Lambert93 (2154) | NGF-IGN69 (5720) | EPSG:9794 | EPSG:4979 |
-| ES | ETRS89-UTM30 (25830) | EVRF2007 (5621) | EPSG:7423 | EPSG:4979 |
-| NO | UTM32 (25832) | NN2000 (5941) | user-defined | EPSG:4979 |
+### 3.4 Raster → TIN → quantized-mesh (per tile)
 
-GDAL carries geoid grids via `PROJ_DATA`. Confirm each datum transform produces a plausible
-ellipsoidal height before processing bulk tiles (Amsterdam AHN centroid ≈ 48 m ellipsoidal;
-if you get 5 m, the geoid correction failed).
+```python
+def raster_to_quantized_mesh(ellipsoidal_tif: Path, tile_z: int, tile_x: int, tile_y: int, out_path: Path):
+    """
+    1. Read the reprojected (ellipsoidal) GeoTIFF as a numpy array.
+    2. RTIN meshing: use pydelatin for error-bounded TIN.
+       from pydelatin import Delatin
+       tin = Delatin(elevations, max_error=0.5)  # 0.5m max error for near tiles
+       vertices, triangles = tin.vertices, tin.triangles
+    3. Encode to Cesium quantized-mesh format.
+       from quantized_mesh_encoder import encode
+       encode(out_path, bounds, vertices, triangles, ...)
+    4. Write to out/terrain/{z}/{x}/{y}.terrain
+    """
+```
 
-**After conversion:** every terrain vertex is in `(lon, lat, h_ellipsoidal)`. Building extrusion
-reads `ground_elevation_m` from the `HeightProfile` (the terrain vertex under the footprint
-centroid) and extrudes upward. `globeGroundAnchor.ts`'s photoreal-tile clamp uses the same
-convention — they are now on the same datum.
+**Library versions (pin these):**
+```
+pydelatin==0.2.4        # raster → TIN
+quantized-mesh-encoder==0.4.3  # → Cesium terrain tiles
+rasterio>=1.3           # GeoTIFF I/O
+numpy>=1.26
+```
 
-### 3.5 Client-side terrain integration (Cesium path)
-
-**Option A (quantized-mesh — preferred, zero runtime client code):**
+### 3.5 Client integration (two-line change in CesiumViewport.ts)
 
 ```typescript
-// In apps/editor/src/ui/geospatial/CesiumViewport.ts, during Cesium viewer init:
-const terrainProvider = await CesiumTerrainProvider.fromUrl(
-  `${import.meta.env.VITE_CONTEXT_TILES_URL}/terrain`,
-  { requestVertexNormals: true }, // enables lighting on the terrain mesh
-);
-viewer.terrainProvider = terrainProvider;
-// That's it. Cesium handles LOD selection, streaming, and tile/building z-fighting avoidance.
+// apps/editor/src/ui/geospatial/CesiumViewport.ts — during Cesium viewer init:
+if (import.meta.env.VITE_CONTEXT_TILES_URL) {
+  const terrainProvider = await CesiumTerrainProvider.fromUrl(
+    `${import.meta.env.VITE_CONTEXT_TILES_URL}/terrain`,
+    { requestVertexNormals: true },  // enables lighting on terrain mesh
+  );
+  viewer.terrainProvider = terrainProvider;
+}
+// Context buildings must use HeightReference.CLAMP_TO_GROUND — verify this is set
+// in the PolygonGraphics for contextBuildings. Cesium then handles terrain clamping
+// automatically; no manual offset required.
 ```
 
-Buildings then sit ON terrain automatically because Cesium applies terrain clamping to
-`PolygonGraphics` when `heightReference = HeightReference.CLAMP_TO_GROUND` (already the correct
-setting for context buildings). Verify this is set in the building extrusion path.
+**Verify CLAMP_TO_GROUND** is set in `contextBuildings.ts` and/or `contextTiles.ts` on every
+extruded building polygon. If `HeightReference.NONE` is used, buildings will float.
 
-**Option B (Three.js glTF terrain layer):**
-Only if Cesium terrain provider proves too complex for the current viewport setup. Deferred.
+### 3.6 Acceptance criteria (Phase 3)
 
-### 3.6 Buildings-on-terrain: updating ground_elevation_m in HeightProfile
-
-After the terrain mesh tiles are on R2, a server-side pass can sample `ground_elevation_m` for
-every baked building:
-
-```
-POST /api/terrain/sample
-  { building_id, lon, lat }
-→ { ground_elevation_m: 48.23, source: 'ahn_0.5m', epoch: '2023-04' }
-→ write to HeightProfile.ground_elevation_m in Postgres
-```
-
-This feeds back into Phase 4's nDSM pipeline (which also computes terrain under the footprint
-from LiDAR — the two must agree within ±0.3 m; divergence > 0.3 m flags a datum misalignment).
-
-### 3.7 Acceptance (Phase 3)
-
-1. **Amsterdam:** open a parcel on the IJ waterfront → terrain mesh renders; buildings in the
-   Jordaan neighbourhood (slightly above sea level) sit on gently sloping ground, not floating.
-   Screenshot + annotate.
-2. **Copenhagen:** open a parcel on Christianshavn island → terrain shows the canal-level
-   topography. Buildings clip correctly to ground.
-3. **Datum check:** Amsterdam AHN centroid at `(52.37, 4.90)` → terrain vertex `h_ellipsoidal`
-   ≈ 47–50 m. If <10 m, geoid correction is broken — STOP and fix before proceeding.
-4. **L-584 fix confirmed:** the envelope rasant reads the terrain DTM at each façade corner.
-   A site on a 5 m slope shows the uphill face at a lower relative height than the downhill face.
-5. **Performance:** terrain tiles stream in <500 ms for a 2 km radius at z15. No frame-rate
-   drop below 30 FPS at 60 Hz target (measure with Chrome DevTools Performance panel).
-
-**Definition of done:** terrain renders in Amsterdam + Copenhagen. Datum verified. No floating
-or buried context buildings. L-584 ground elevation populates `HeightProfile.ground_elevation_m`.
+1. **Datum proof (before anything else):** Amsterdam AHN centroid at (52.3702, 4.9003) →
+   `gdallocationinfo` returns 42–52 m. If < 10 m, STOP and fix geoid grid. Screenshot the
+   terminal output.
+2. **Amsterdam visual:** open a canal-side parcel → sloped terrain renders; Jordaan buildings
+   (slightly above sea level) sit on gently sloping ground. Screenshot.
+3. **Zurich visual:** open a parcel near the Limmat → terrain shows the river valley slope.
+4. **Performance:** terrain tiles stream < 500 ms for a 2 km radius. No FPS drop < 30.
+5. **HeightProfile:** `ground_elevation_m` populated on baked buildings (from the terrain mesh
+   DTM sample at the footprint centroid) for NL + CH at minimum.
 
 ---
 
-## Phase 4 — The LiDAR nDSM height engine
+## Phase 4 — LiDAR nDSM height engine
 
 **Goal:** measured heights + roof types for every building in LiDAR-covered countries.
-**Effort:** XL (~2–3 months). **Risk:** HIGH (three hard sub-problems: §4.6).
-**Sequence:** Phase 3 terrain MUST be done first (shares DTM pipeline and datum conventions).
+**Effort:** XL (~2–3 months). **Risk:** HIGH.
+**Sequence:** Phase 3 terrain DONE first (shares DTM pipeline and datum conventions).
 **Language:** Python service (`tools/height-engine/`). Tile-parallel build farm.
 
-### 4.1 Why this is the real IP
+### 4.1 Corrected LiDAR source table (2026-07-24)
 
-Every competitor can get footprints (Overture, Microsoft, OSM). Heights from national LoD1/LoD2
-datasets cover only ~15 countries with open data. The nDSM engine works **anywhere LiDAR exists**
-(NL, DK, CH, NO, FR, ES, US, DE — plus private LiDAR from clients' own surveys). It also produces
-what no national dataset carries: **the full HeightProfile** (every statistical variant, roof type,
-confidence, terrain plane, vegetation flag) in one reproducible, versionable pipeline.
+| Country | Source | Access URL | **Density** | License | Auth | Replit-accessible |
+|---|---|---|---|---|---|---|
+| 🇳🇱 NL | AHN5 (PDOK WCS) | `service.pdok.nl/rws/ahn/wcs/v1_0` | **36.7 pts/m²** (VERIFIED — NOT 8-10 as previously stated) | CC0 | None | ✅ |
+| 🇨🇭 CH | swisstopo LiDAR (STAC) | `data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d` | 4–8 pts/m² | Open | None | ✅ |
+| 🇫🇷 FR | IGN LiDAR HD (Géoplateforme) | `data.geopf.fr` | 10–20 pts/m² | Open | Free reg | ✅ |
+| 🇪🇸 ES | PNOA (CNIG) | `centrodedescargas.cnig.es` | 0.5–2 pts/m² | CC-BY | None | ✅ |
+| 🇳🇴 NO | Kartverket NDH | `hoydedata.no` | 2–8 pts/m² | Open | None | 🔒 Replit-blocked |
+| 🇩🇪 DE | NRW open | `opengeodata.nrw.de` | 4–8 pts/m² | dl-de/by-2-0 | None | 🔒 Replit-blocked |
+| 🇺🇸 US | 3DEP (TNM) dataset **"Digital Elevation Model (DEM) 1 meter"** | `tnmaccess.nationalmap.gov/api/v1/products` | 2–12 pts/m² | Public domain | None | ✅ |
 
-The defensible IP is the pipeline from `nDSM = DSM − DTM` onward:
-- Eroded footprint conditioning (not just bbox)
-- Vegetation rejection (planarity-based if unclassified)
-- Terrain-plane estimation under slopes (perimeter DTM, not centroid)
-- Roof-plane RANSAC segmentation (not just a count of returns)
-- Confidence scoring (6-factor weighted formula)
-- Incremental per-tile recompute (version-stamped, never a national re-run)
+> **Correction from earlier draft:** AHN LiDAR density is **36.7 pts/m²** (AHN5, verified from
+> `b3_puntdichtheid_ahn5` attribute on a live 3DBAG feature). The earlier "8–10 pts/m²" figure
+> was for AHN3/AHN4. AHN5 is the current product; this raises the confidence score significantly.
 
-### 4.2 Toolchain and dependencies
-
-```
-Python ≥3.11 (match the Fly runtime)
-pdal ≥2.6           — LiDAR I/O, classification, filtering
-laspy ≥2.4          — LAZ/LAS read/write (faster than PDAL for simple reads)
-rasterio ≥1.3       — raster I/O, CRS transforms
-numpy ≥1.26         — array ops
-scipy ≥1.12         — spatial stats (KDTree for perimeter DTM sampling)
-shapely ≥2.0        — footprint geometry ops (make_valid, buffer, simplify)
-open3d ≥0.18        — RANSAC plane fitting (or pyransac3d)
-pyransac3d ≥0.6     — lighter alternative to open3d for plane fitting only
-pydelatin ≥0.2      — raster → TIN (shared with terrain pipeline)
-psycopg3 ≥3.1       — Postgres write
-pyarrow ≥15         — Arrow file output (metadata.arrow for scene tiles)
-
-Install via tools/height-engine/requirements.txt.
-Docker base: python:3.11-slim + gdal-bin + libgdal-dev (for PDAL GDAL driver).
-```
-
-### 4.3 LiDAR tile registry (Postgres table)
+### 4.2 LiDAR tile registry (Postgres table)
 
 ```sql
--- Create in server/dbMigrate.js (or a new migration in scripts/migrate/)
-CREATE TABLE lidar_tile_registry (
+-- Add to server/dbMigrate.js or a new migration in scripts/migrate/
+CREATE TABLE IF NOT EXISTS lidar_tile_registry (
   id              SERIAL PRIMARY KEY,
-  country         CHAR(2)       NOT NULL,          -- ISO 3166-1 alpha-2
-  tile_id         TEXT          NOT NULL,           -- national tile identifier
-  bbox_wsen       FLOAT8[4]     NOT NULL,           -- [W, S, E, N] WGS-84 decimal degrees
-  epsg            INT           NOT NULL,           -- native CRS EPSG code
-  density_ppm2    FLOAT4,                           -- point density (points/m²); null = unknown
-  year            SMALLINT,                         -- acquisition year
+  country         CHAR(2)       NOT NULL,
+  tile_id         TEXT          NOT NULL,
+  bbox_wsen       FLOAT8[4]     NOT NULL,          -- [W, S, E, N] WGS-84 degrees
+  epsg            INT           NOT NULL,
+  density_ppm2    FLOAT4,                           -- null = unknown
+  year            SMALLINT,
   is_classified   BOOLEAN       NOT NULL DEFAULT FALSE,
-  license         TEXT          NOT NULL,           -- SPDX identifier or free-text
+  license         TEXT          NOT NULL,           -- SPDX or free-text
   download_url    TEXT          NOT NULL,
   file_size_mb    FLOAT4,
   last_checked    TIMESTAMPTZ   DEFAULT now(),
   UNIQUE (country, tile_id)
 );
-
-CREATE INDEX lidar_registry_bbox ON lidar_tile_registry
+-- Requires PostGIS for the spatial index:
+CREATE INDEX IF NOT EXISTS lidar_registry_bbox_idx ON lidar_tile_registry
   USING GIST (ST_MakeEnvelope(bbox_wsen[1], bbox_wsen[2], bbox_wsen[3], bbox_wsen[4], 4326));
 ```
 
-Initial population (per country):
+### 4.3 Per-building pipeline (12 stages)
 
-| Country | Source | Index URL | Tile count | density_ppm2 |
-|---|---|---|---|---|
-| NL | AHN4 (PDOK) | `api.pdok.nl/rws/ahn/v1_0/ahn_atomfeed` | ~56k | 8–10 |
-| DK | DHM/Punktsky (Kortforsyningen) | atom feed URL | ~50k | 4–6 |
-| CH | swisstopo LiDAR | STAC catalog | ~18k | 4–8 |
-| FR | IGN LiDAR HD | geoplateforme.fr STAC | ~200k | 10–20 |
-| ES | PNOA (CNIG) | atom feed | ~180k | 0.5–2 |
-| NO | Kartverket NDH | hoydedata.no API | ~80k | 2–8 |
-| US | 3DEP (TNM) | `tnmaccess.nationalmap.gov/api/v1/products` | ~600k | 2–12 |
-| DE | NRW open (opengeodata.nrw.de) | index listing | ~10k (NRW only) | 4–8 |
+**`tools/height-engine/pipeline.py`** — one function per stage, independently testable.
 
-### 4.4 Per-building pipeline (12 stages, `tools/height-engine/pipeline.py`)
+```
+Stage 1:  ACQUIRE  — footprint bbox → registry lookup → download .laz (cache)
+Stage 2:  NORMALIZE CRS — reproject to metric CRS (UTM zone of tile centroid). NEVER geographic.
+Stage 3:  READ  — laspy read: XYZ + Intensity + Classification + ReturnNumber
+Stage 4:  DTM  — ground points (class 2) or SMRF filter if unclassified → TIN/IDW → raster
+Stage 5:  DSM  — max Z per raster cell → raster (void-fill < 5 px)
+Stage 6:  nDSM — DSM − DTM, clamp to [−0.5, 200] m
+Stage 7:  FOOTPRINT CONDITIONING — (a) make_valid + simplify, (b) split merged polygons,
+          (c) buffer −0.5 m inward. Returns list of Polygon (usually 1; multi for merged blocks).
+Stage 8:  SAMPLE — rasterize eroded footprint → extract nDSM cells inside
+Stage 9:  VEG REJECT — class 5 if classified; else planarity (roughness threshold 0.8 m std_dev)
+Stage 10: ROOF RANSAC — pyransac3d plane fitting → count planes → roof_type + pitch
+Stage 11: HEIGHTS — perimeter DTM plane fit → ground_elevation_m; P90 + P50 nDSM → roof heights
+Stage 12: CONFIDENCE — 6-factor weighted score → HeightProfile
+```
 
+**Confidence scoring formula** (6 factors, weights sum to 1.0):
 ```python
-"""
-pipeline.py — PRYZM nDSM Height Engine
-One function per stage; each stage is independently testable.
-Stages 1–6 are DTM/DSM prep; 7–12 are the building-specific IP.
-"""
+def compute_confidence(density_ppm2, n_roof_points, veg_fraction,
+                        footprint_quality, plane_residual_m, terrain_sigma_m):
+    def dens(d):
+        # AHN5: d=36.7 → score=1.0; ES PNOA: d=1.0 → score=0.45
+        if d >= 10: return 1.0
+        if d >= 4:  return 0.7 + 0.3*(d-4)/6
+        if d >= 1:  return 0.3 + 0.4*(d-1)/3
+        return 0.1
+    def pts(n):
+        if n >= 100: return 1.0
+        if n >= 50:  return 0.7
+        if n >= 20:  return 0.4
+        return 0.0
+    def res(r):  # plane fit RMS residual
+        if r <= 0.10: return 1.0
+        if r <= 0.30: return 0.6
+        return max(0, 0.2 - (r-0.30)*0.4)
+    def tsig(s):  # terrain sigma
+        if s <= 0.20: return 1.0
+        if s <= 0.50: return 0.6
+        return max(0, 0.2 - (s-0.50)*0.2)
+    return min(1.0, (
+        0.20 * dens(density_ppm2) +
+        0.15 * pts(n_roof_points) +
+        0.15 * (1 - min(1, veg_fraction)) +
+        0.15 * min(1, footprint_quality) +
+        0.20 * res(plane_residual_m) +
+        0.15 * tsig(terrain_sigma_m)
+    ))
+```
 
-# ── Stage 1: Acquire ─────────────────────────────────────────────────────────
-def acquire_lidar(building_id: str, footprint: Polygon, registry: LidarRegistry) -> list[Path]:
-    """
-    Resolve footprint bbox → matching tiles in registry → download .laz files.
-    Uses a 5 m buffer around the footprint to ensure edge coverage.
-    Returns list of local .laz paths (cached; do NOT re-download if mtime < tile year).
-    On failure: raises LidarNotAvailable (caller falls back to next HeightProvenance tier).
-    """
+### 4.4 Three hard sub-problems (budget explicitly)
 
-# ── Stage 2: Normalize CRS ───────────────────────────────────────────────────
-def normalize_crs(laz_paths: list[Path], target_epsg: int) -> list[Path]:
-    """
-    Reproject from the tile's native CRS to a metric CRS (UTM zone of the tile centroid).
-    Uses PDAL's reprojection filter. NEVER use geographic CRS for distance-based ops.
-    Returns reprojected .laz paths.
-    """
+| Sub-problem | Stage | Difficulty | Time budget |
+|---|---|---|---|
+| **Merged footprint splitting** (Spain/Saudi: one polygon = 3 villas) | 7b | HARD — watershed on nDSM | 2 weeks |
+| **Vegetation rejection on unclassified LiDAR** (ES PNOA ~0.5 pts/m²) | 9 | MEDIUM — planarity heuristic | 1 week |
+| **LiDAR license audit per country** (some FR IGN tiles: CC-BY-NC) | Pre-build gate | MEDIUM | 1 week research BEFORE writing code |
 
-# ── Stage 3: Read ────────────────────────────────────────────────────────────
-def read_points(laz_paths: list[Path], bbox_m: tuple) -> np.ndarray:
-    """
-    Read XYZ + Intensity + Classification + ReturnNumber for all points in bbox_m.
-    Uses laspy for speed (faster than PDAL for simple reads).
-    Returns np.ndarray shape (N, 5): [X, Y, Z, Classification, ReturnNumber].
-    """
+**Merged footprint split algorithm** (Stage 7b):
+```python
+from scipy import ndimage
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
 
-# ── Stage 4: DTM (bare earth) ────────────────────────────────────────────────
-def build_dtm(points: np.ndarray, resolution_m: float = 0.5) -> np.ndarray:
+def split_merged_footprint(ndsm_clip: np.ndarray, footprint_mask: np.ndarray):
     """
-    Extract ground points:
-      - If classified: keep class 2 (Ground) and class 9 (Water).
-      - If unclassified: apply SMRF (Simple Morphological Filter) via PDAL:
-        pdal translate input.las output_ground.las smrf
-    Interpolate ground point cloud → regular raster (IDW or scipy KDTree-based).
-    Returns 2D float32 array (h × w), CRS = tile metric CRS, origin = tile origin.
+    Detect sub-buildings within a single footprint polygon using watershed on nDSM.
+    Returns a list of sub-footprint masks (usually 1; multi for block polygons).
     """
-
-# ── Stage 5: DSM (highest return) ────────────────────────────────────────────
-def build_dsm(points: np.ndarray, resolution_m: float = 0.5) -> np.ndarray:
-    """
-    Maximum Z per raster cell (all returns, no classification filter).
-    Simple: bin points to grid, take max per bin.
-    Void-fill small gaps (<5 px) with nearest neighbour.
-    """
-
-# ── Stage 6: nDSM ────────────────────────────────────────────────────────────
-def compute_ndsm(dtm: np.ndarray, dsm: np.ndarray) -> np.ndarray:
-    """nDSM = DSM − DTM. Clamp to [−0.5, 200] m (negative → DTM artifact; >200 → noise)."""
-
-# ── Stage 7: Footprint conditioning (HARD sub-problem) ───────────────────────
-def condition_footprint(footprint: Polygon, ndsm: np.ndarray, transform: Affine) -> list[Polygon]:
-    """
-    This is the most complex stage. Three transformations:
-    
-    (a) Validate / repair:
-        shapely.make_valid() → eliminates self-intersections.
-        shapely.simplify(0.3) → removes sub-30cm jitter from the footprint.
-    
-    (b) Split merged polygons — the "one polygon = three villas" problem.
-        Common in Spain (Catastro single polygon per building block), Saudi Arabia.
-        Method:
-        1. Erode the footprint 0.5 m inward (buffer(-0.5)).
-        2. Compute the nDSM height gradient inside the footprint.
-        3. Detect low-height ridges (gradient minima at full-building scale) using
-           scipy.ndimage.label on a binary mask: nDSM < (P50 * 0.3).
-        4. If connected components count > 1: split the footprint polygon along
-           the detected ridges (watershed segmentation or convex hull per component).
-        5. Return one polygon per detected sub-building.
-        NOTE: This is its own research problem. Start with a threshold-based approach
-        and iterate — budget 2 weeks for Spain villas specifically.
-    
-    (c) Erode 0.5 m inward (buffer(−0.5)):
-        Eliminates wall returns (LiDAR hits the façade at grazing angle, biasing up).
-        Apply AFTER split — erode each sub-building separately.
-    
-    Returns a list of conditioned Polygon objects (usually one; multi for merged blocks).
-    """
-
-# ── Stage 8: Sample nDSM ─────────────────────────────────────────────────────
-def sample_ndsm(ndsm: np.ndarray, transform: Affine, footprint: Polygon) -> np.ndarray:
-    """
-    Rasterize the eroded footprint → boolean mask → extract nDSM cells inside.
-    Returns 1D float32 array of height values. Empty → LidarSampleEmpty.
-    """
-
-# ── Stage 9: Vegetation rejection ────────────────────────────────────────────
-def reject_vegetation(samples: np.ndarray, points_in_footprint: np.ndarray) -> np.ndarray:
-    """
-    Two methods (use the better one based on what's classified):
-    
-    Method A (if classified): exclude class 5 (High Vegetation) points.
-    
-    Method B (if unclassified): surface-roughness / planarity filter.
-        Roofs are planar → low local roughness.
-        Trees are chaotic → high local roughness (high variance in Z within a 1 m radius).
-        
-        For each raster cell in the footprint:
-        1. Find all LiDAR points within 0.5 m radius.
-        2. Compute Z standard deviation of those points.
-        3. If std_dev > 0.8 m (heuristic): flag cell as 'vegetation', exclude.
-        
-    Returns filtered samples. If >60% of cells are excluded → flag as 'heavy_vegetation',
-    reduce confidence sharply (×0.4).
-    """
-
-# ── Stage 10: Roof RANSAC ────────────────────────────────────────────────────
-def fit_roof_planes(samples: np.ndarray, points_3d: np.ndarray) -> RoofFitResult:
-    """
-    RANSAC plane fitting on the filtered 3D roof point cloud.
-    Library: pyransac3d.Plane().fit(points, thresh=0.15, maxIteration=200)
-    
-    Algorithm:
-    1. Fit 1 plane → record inlier ratio (>90% → flat roof).
-    2. Subtract inliers → fit 2nd plane on residuals → record inlier ratio.
-       2 planes with roughly equal point counts and symmetric normals → gable.
-    3. Subtract → fit 3rd and 4th → 4 planes with oblique normals → hip.
-    4. Classify:
-       - 1 plane, pitch < 5°, inlier_ratio > 0.90 → 'flat'
-       - 2 planes, symmetric, pitch 15–60° → 'gable'
-       - 4 planes, all oblique → 'hip'
-       - >4 planes or low inlier ratios → 'complex'
-       - <20 roof points → 'unknown' (insufficient data)
-    
-    Returns: RoofFitResult(planes, roof_type, pitch_deg, ridge_elevation_m).
-    """
-
-# ── Stage 11: Height derivation ──────────────────────────────────────────────
-def derive_heights(
-    samples: np.ndarray,            # filtered nDSM cells (relative to DTM)
-    dtm: np.ndarray,                # DTM raster
-    footprint: Polygon,             # eroded
-    roof_fit: RoofFitResult,
-    transform: Affine,
-) -> dict:
-    """
-    Compute the full HeightProfile statistics.
-    
-    ground_elevation_m: LOCAL PLANE FIT on perimeter DTM samples (not centroid).
-        Sample DTM at 20 points along the footprint perimeter, spaced equally.
-        Fit a plane to those 20 (x, y, z) points (lstsq).
-        The plane defines a "terrain datum" under the building — correct for slopes.
-        Report the plane's z at the centroid as ground_elevation_m.
-        WHY plane fit not centroid: a centroid sample on a 10 m slope gives the AVERAGE
-        terrain, which is meaningless for a façade setback computation. The perimeter
-        samples capture the full slope; the plane captures the gradient.
-    
-    roof_p90_m:     np.percentile(samples, 90) + ground_elevation_m (absolute)
-    roof_median_m:  np.percentile(samples, 50) + ground_elevation_m
-    roof_peak_m:    max(roof_fit.planes[*].max_z) (absolute, from RANSAC vertices)
-    
-    height_to_ridge_m:    roof_fit.ridge_elevation_m − ground_elevation_m
-    height_to_eaves_m:    roof_fit.eaves_elevation_m − ground_elevation_m (from plane intersect)
-    height_to_parapet_m:  roof_p90_m − ground_elevation_m (proxy for flat roofs; null for pitched)
-    building_height_m:    roof_p90_m − ground_elevation_m (canonical)
-    floors_est:           round(building_height_m / 3.2)
-    """
-
-# ── Stage 12: Confidence scoring ─────────────────────────────────────────────
-def compute_confidence(
-    density_ppm2: float,
-    n_roof_points: int,
-    veg_fraction: float,
-    footprint_quality: float,   # 0–1; shapely.is_valid + area ratio
-    plane_fit_residual: float,  # RMS residual of RANSAC inliers (metres)
-    terrain_sigma: float,       # std dev of perimeter DTM plane fit residuals
-) -> float:
-    """
-    Weighted confidence formula (sum of weights = 1.0):
-    
-    score = (
-      0.20 * lidar_density_score(density_ppm2)    +  # ≥4 pt/m² = 1.0; 2=0.7; 0.5=0.3
-      0.15 * roof_point_score(n_roof_points)       +  # ≥100=1.0; 50=0.7; 20=0.4; <10=0
-      0.15 * (1 - veg_fraction)                    +  # veg_fraction from Stage 9
-      0.15 * footprint_quality                     +  # from Stage 7 (split + validity)
-      0.20 * plane_residual_score(plane_fit_residual) +  # <0.1m=1.0; 0.3=0.6; >0.5=0.2
-      0.15 * terrain_sigma_score(terrain_sigma)    +  # <0.2m=1.0; 0.5=0.6; >1.0=0.2
-    )
-    
-    Clamp to [0, 1]. A score < 0.40 → provenance downgrades from 'lidar_ndsm' to 'ml_estimate'.
-    Document the formula version in algorithm_version.
-    """
+    # 1. Binary mask: nDSM > P25 (cells likely above ground level)
+    above_ground = ndsm_clip > np.percentile(ndsm_clip[footprint_mask], 25)
+    # 2. Distance transform from the footprint boundary (seed for watershed)
+    dist = ndimage.distance_transform_edt(above_ground & footprint_mask)
+    # 3. Local maxima as watershed seeds (one per sub-building)
+    local_max = peak_local_max(dist, min_distance=3, labels=footprint_mask)
+    markers = ndimage.label(local_max)[0]
+    # 4. Watershed segmentation
+    labels = watershed(-dist, markers, mask=footprint_mask)
+    # 5. Filter: keep regions > 10 m² (artifact removal)
+    regions = [labels == i for i in np.unique(labels) if i > 0
+               and np.sum(labels == i) > 10]
+    return regions if len(regions) > 1 else [footprint_mask]
 ```
 
 ### 4.5 Build farm
 
 ```
-Job queue: Redis RPUSH / LPOP (already available via the Fly Redis addon if used) or SQS.
-Workers: containerised Python (Docker → Fly Machines OR AWS ECS spot).
-Concurrency: one worker per 4 vCPUs; 8 workers = ~2k buildings/hour at 0.5 s/building average.
-Output: write HeightProfile row to Postgres per building_id. Write per-tile Arrow file to R2.
-
-Incremental strategy (CRITICAL — not a national re-run):
-  A LiDAR tile republish (e.g. AHN4 → AHN5) → enqueue only the buildings whose bbox
-  intersects the changed tile. Query: SELECT building_id FROM buildings WHERE
-  ST_Intersects(footprint, ST_MakeEnvelope($tile_bbox)). Bump algorithm_version on outputs.
-  Old rows are NOT overwritten — a new row with a higher algorithm_version is inserted.
-  The bake reads the MAX(algorithm_version) row per building_id.
+Queue: Redis RPUSH/LPOP (or SQS) — one job per building_id
+Workers: Docker containers on Fly Machines (Python 3.11 + GDAL + PDAL)
+Output: write HeightProfile row to Postgres per building_id
+        write per-tile Arrow file to R2: tiles/height/{z}/{x}/{y}.arrow
+Incremental: LiDAR tile refresh → re-queue only buildings whose bbox intersects the changed tile
+             New row with bumped algorithm_version; old rows retained (never overwrite)
 ```
 
-### 4.6 The three hard sub-problems
-
-These are research problems, not implementation problems. Budget explicit time:
-
-| Sub-problem | Location | Difficulty | Budget |
-|---|---|---|---|
-| **Merged footprint splitting** | Stage 7 | HARD — watershed + ridge detection on nDSM | 2 weeks |
-| **Vegetation rejection on unclassified LiDAR** | Stage 9 | MEDIUM — planarity heuristic needs city-specific tuning | 1 week |
-| **LiDAR licensing per country** | Pre-build gate | MEDIUM — non-commercial clauses; check BEFORE building | 1 week research |
-
-For the footprint split problem, the reference approach:
-1. Compute Euclidean distance transform from the footprint boundary inward.
-2. Apply a morphological opening to the nDSM binary (threshold at P25).
-3. Run watershed on the inverted nDSM with the footprint-boundary distance as the seed.
-4. Each watershed region is a candidate sub-building.
-5. Merge regions < 10 m² (artifact) and re-validate against the HeightProfile's roof RANSAC.
-
-### 4.7 API endpoint
+### 4.6 API endpoint
 
 ```
 GET /api/building/:building_id/height-profile
-→ 200 { HeightProfile }
-→ 404 { error: 'not_found', message: 'No height profile exists for this building.' }
-→ 202 { status: 'queued', eta_seconds: 120 }  (first request triggers the pipeline)
+  → 200 { HeightProfile }
+  → 404 { error: 'not_found' }
+  → 202 { status: 'queued', eta_seconds: 120 }  (first request triggers the pipeline)
+
+Feeds: heightSources.mjs top 'tagged' tier, scene tiles (Phase 5), C58 envelope solver
 ```
 
-Feeds: the bake (`heightSources.mjs` top 'tagged' tier), scene tiles (Phase 5), and C58.
+### 4.7 Acceptance criteria (Phase 4)
 
-### 4.8 Acceptance (Phase 4)
+**Amsterdam (AHN5, 36.7 pts/m², classified):**
+- ≥90% of buildings in the Jordaan / De Pijp get `provenance: 'lidar_ndsm'`
+- Spot-check 20 vs BAG/WOZ known heights: |measured − actual| ≤ 0.5 m for ≥80%
+- `roof_type` distribution: ≥60% `gable` (Amsterdam canal houses — if < 60%, tune RANSAC threshold)
 
-For Amsterdam (AHN4, 10 pt/m², classified):
-- ≥90% of buildings in the Eixample-equivalent (Jordaan, De Pijp) get a `lidar_ndsm` profile.
-- Spot-check 20 buildings against publicly-known heights (Amsterdam real estate database).
-  Acceptance threshold: |measured − actual| ≤ 0.5 m for ≥80% of the 20.
-- Roof type distribution: ≥60% 'gable' (Amsterdam canal houses are predominantly gable) —
-  if < 60%, the RANSAC classification threshold needs tuning.
-- For a merged-footprint block in De Jordaan: the split algorithm must detect ≥3 sub-buildings.
+**Barcelona (PNOA ~1 pts/m², partially classified):**
+- ≥50% of buildings get `provenance: 'lidar_ndsm'` (lower density → lower recall)
+- Confidence mean 0.45–0.60 (lower density = lower confidence — expected)
 
-For Barcelona (PNOA 0.5 pt/m², partially classified):
-- ≥60% of buildings get a `lidar_ndsm` profile (lower density → lower recall).
-- Confidence mean ≈ 0.55–0.65 (lower density → lower confidence).
+**Split test (Spain):** one Catastro merged-block polygon → `split_merged_footprint` detects ≥3 sub-buildings. Screenshot the nDSM heatmap with detected splits overlaid.
 
 ---
 
 ## Phase 5 — Scene compiler + scene tiles
 
 **Goal:** the Forma-class runtime. A planning environment, not a GIS viewer.
-**Effort:** XL (multi-quarter). **Risk:** HIGHEST — only attempt after Phases 1–4 have proven data.
-**Sequence:** Do NOT start until Phase 4 produces measured heights for ≥2 cities.
+**Effort:** XL (multi-quarter). **Risk:** HIGHEST.
+**Sequence:** Do NOT start until Phases 1–4 prove data in ≥2 cities.
 
-### 5.1 The scene tile format (`.snap`)
+### 5.1 Scene tile format (`.snap`)
 
-A `.snap` tile is a directory (served as a ZIP or a flat R2 prefix), sized at 256 m × 256 m
-(metric, not WebMercator — easier for planners, matches the design-level working radius):
+A 256 m × 256 m metric tile (one directory per tile, served from R2):
 
 ```
 tile_{x}_{y}_{z}/
-├── terrain.glb          — terrain mesh (Phase 3 output, re-encoded to glTF/meshopt)
-├── buildings.glb        — procedural LOD100/LOD150/LOD200 building meshes
-├── trees.arrow          — vegetation instance table (x,y,z,species,height_m,rotation_deg)
-├── roads.glb            — road surface and kerb meshes
-├── water.glb            — water body surface meshes
-├── textures.ktx2        — satellite / landcover / slope-tint textures
-└── metadata.arrow       — knowledge graph (object_id → planning object, zoning, rules)
+├── terrain.glb        — terrain mesh (Phase 3 output, re-encoded glTF/meshopt)
+├── buildings.glb      — procedural LOD100/LOD150/LOD200 meshes
+├── trees.arrow        — vegetation instances (x,y,z,species,height_m,rotation_deg)
+├── roads.glb          — road surface + kerbs
+├── water.glb          — water body surfaces
+├── textures.ktx2      — satellite/landcover/slope-tint textures
+└── metadata.arrow     — knowledge graph: object_id → planning object
 ```
 
-**Invariant:** every object in every `.glb` carries an `object_id` string attribute matching
-the Overture building id / parcel refcat / OSM way id. The `metadata.arrow` file maps every
-`object_id` to its planning object. This is what makes picking a building retrieve its legal
-context (zoning, FAR, allowed height, current FAR, redevelopment potential) rather than just
-a triangle. This is the L-611 Living Building Graph + C27 Inspect binding.
+**Invariant:** every object in every `.glb` carries an `object_id` string attribute (Overture
+building id / parcel refcat / OSM way id) that maps to `metadata.arrow`. This is what makes
+clicking a building retrieve its planning object — not a raycast into triangles.
 
-**LOD variants for buildings:**
-- LOD100: bounding box extrusion (footprint + uniform height) — for tiles > 2 km from camera.
-- LOD150: correct-height flat-top prism (HeightProfile.building_height_m) — for tiles 500 m–2 km.
-- LOD200: full roof geometry (footprint + roof planes from RANSAC) — for tiles < 500 m.
-
-### 5.2 Per-domain compilers (`tools/scene-compiler/`)
-
-```
-tools/scene-compiler/
-├── terrain.mjs         — Phase 3 output → glTF/meshopt (re-encode for .snap)
-├── buildings.mjs       — footprint + HeightProfile + roof_type → procedural glTF
-├── vegetation.mjs      — canopy dataset or OSM trees → TreeInstance Arrow table
-├── roads.mjs           — OSM centrelines → offset + width + kerbs → mesh
-├── water.mjs           — OSM polygons → Delaunay triangulation → mesh
-├── textures.mjs        — satellite / slope-tint → KTX2
-└── assembler.mjs       — merge all domains by object_id → emit .snap tile + metadata.arrow
-```
-
-**Building compiler** (`tools/scene-compiler/buildings.mjs`) — most complex:
+### 5.2 Procedural building generator (the only non-trivial compiler)
 
 ```js
-// Input: footprint (Polygon), HeightProfile, roof_type, roof_pitch_deg
-// Output: glTF buffer (one Mesh per building, LOD0/1/2 as separate primitives)
+// tools/scene-compiler/buildings.mjs
+// Input: footprint (Polygon WGS84), HeightProfile, roof_type, roof_pitch_deg
+// Output: glTF buffer (LOD100 = box, LOD150 = real-height box, LOD200 = roof planes)
 
 function buildingToGltf(footprint, profile, roofType, pitchDeg) {
   const h = profile.building_height_m ?? 9;
-  const walls = extrudeWalls(footprint, h);             // LOD100/150
+  const walls = extrudeWalls(footprint, h);  // LOD150
 
-  if (roofType === 'flat') {
-    const cap = closedPolygonCap(footprint, h);
-    return mergeGltf([walls, cap]);                     // LOD150
-  }
+  if (roofType === 'flat') return mergeGltf([walls, closedCap(footprint, h)]);
+
   if (roofType === 'gable') {
-    const ridge = computeRidgeLine(footprint, h, h + Math.tan(deg2rad(pitchDeg)) * shortAxis/2);
-    const roofMesh = gableRoof(footprint, ridge, h, pitchDeg);
-    return mergeGltf([walls, roofMesh]);               // LOD200
+    const shortAxis = shortestFootprintAxis(footprint);  // metres
+    const ridgeH = h + Math.tan(pitchDeg * Math.PI/180) * shortAxis / 2;
+    return mergeGltf([walls, gableRoof(footprint, h, ridgeH, pitchDeg)]);
   }
   if (roofType === 'hip') {
-    const roofMesh = hipRoof(footprint, h, pitchDeg);
-    return mergeGltf([walls, roofMesh]);               // LOD200
+    return mergeGltf([walls, hipRoof(footprint, h, pitchDeg)]);
   }
-  // complex / unknown → flat cap (LOD150 fallback — honest)
-  return mergeGltf([walls, closedPolygonCap(footprint, h)]);
+  // complex / unknown → LOD150 flat cap (honest fallback)
+  return mergeGltf([walls, closedCap(footprint, h)]);
 }
 ```
 
-No artists. No manual models. Procedural generation from data — same approach as TestFit and
-early Forma.
-
-### 5.3 Runtime streaming (`apps/editor/src/ui/geospatial/sceneStream/`)
+### 5.3 Runtime streaming + picking
 
 ```typescript
 // apps/editor/src/ui/geospatial/sceneStream/SceneStreamManager.ts
 
-class SceneStreamManager {
-  private cache = new Map<string, SnapTile>();
+// Picking — the key differentiator. NOT scene.traverse.
+// Uses three-mesh-bvh: npm install three-mesh-bvh
+import { MeshBVH } from 'three-mesh-bvh';
 
-  async update(cameraPosition: Cartesian3): Promise<void> {
-    const needed = this.tilesForCamera(cameraPosition, radius = 2000);
-    const toLoad = needed.filter(k => !this.cache.has(k));
-    const toUnload = [...this.cache.keys()].filter(k => !needed.includes(k));
-
-    // Parallel fetch — tiles are small (~200 KB each)
-    await Promise.all(toLoad.map(k => this.loadTile(k)));
-    toUnload.forEach(k => { this.unloadTile(k); this.cache.delete(k); });
-  }
-
-  private async loadTile(key: string): Promise<void> {
-    const [z, x, y] = key.split('/').map(Number);
-    const snap = await fetch(`${SCENE_BASE_URL}/tile_${x}_${y}_${z}.zip`);
-    // Decode in a Web Worker (off main thread)
-    const tile = await this.worker.decode(await snap.arrayBuffer());
-    this.cache.set(key, tile);
-    this.renderTile(tile);
-  }
-}
-```
-
-**Picking (the key differentiator — NOT a scene.traverse):**
-
-```typescript
 // On click:
-const hit = bvh.raycast(ray);          // Per-tile BVH, NOT Three.js scene.traverse
+const hit = tileBvh.raycast(ray, side);
 if (hit) {
-  const objectId = hit.face.objectId;  // object_id stored in BufferGeometry attributes
-  const planningObj = await fetchPlanningObject(objectId);  // GET /api/knowledge-graph/{id}
-  // → { zoning: 'R2b', allowed_height_m: 18, far_allowed: 3.5, far_current: 2.1,
-  //     redevelopment_potential: 'medium', building_age: 1965 }
-  ui.showInspectPanel(planningObj);    // C27 Inspect — the Living Graph (L-611) binding
+  const objectId = hit.face.userData.objectId;  // stored in BufferGeometry
+  const planningObj = await fetch(`/api/knowledge-graph/${objectId}`).then(r=>r.json());
+  // → { zoning, allowed_height_m, far_allowed, far_current, redevelopment_potential }
+  ui.showInspectPanel(planningObj);  // C27 Inspect / L-611 Living Graph binding
 }
 ```
 
-### 5.4 Acceptance (Phase 5)
+### 5.4 Acceptance criteria (Phase 5)
 
-**Barcelona full stack:**
-- Terrain + buildings + trees + roads stream in <2 s for a 2 km radius.
-- 60 FPS at 2 km radius (measure with `performance.now()` frame timing).
-- Click any building → planning object panel shows zoning + allowed height + current FAR.
-  The click must use BVH, not Three.js `scene.traverse` (verify in Chrome Performance tab).
-- LOD transitions: no popping. Vertex-collapse morphing smooth at 30 m/s camera pan.
+- Barcelona: terrain + buildings + roads stream < 2 s for 2 km radius; 60 FPS measured
+- Click any building → planning object panel in < 200 ms (BVH pick, not traverse)
+- LOD transitions: no popping; vertex-collapse morphing visible at 30 m/s camera pan
 
 ---
 
 ## Phase 6 — C-CONTEXT contract
 
-**Draft this in parallel with Phase 2. Ratify before Phase 3 code merges.**
+**Draft in parallel with Phase 2. Ratify before Phase 3 code merges.**
 
-File: `docs/02-decisions/contracts/C-CONTEXT-SCENE-HEIGHT-TERRAIN.md`
+**File:** `docs/02-decisions/contracts/C-CONTEXT-SCENE-HEIGHT-TERRAIN.md`
 
 ```
 CONTRACT C-CONTEXT — Context Scene, Height & Terrain Engine
 
 §1. HeightProfile is the canonical height datum.
-    No consumer stores or transmits a bare `height_m`.
+    No consumer stores or transmits a bare height_m.
 
-§2. Robust statistics only.
-    P90 or trimmed median (10th–90th percentile). Never max. Never bare mean.
-    Eroded footprint (−0.5 m buffer) is mandatory for nDSM sampling.
+§2. Robust statistics only (P90 or trimmed median). Never max. Never mean.
+    Eroded footprint (−0.5 m buffer) mandatory for nDSM sampling.
 
-§3. Provenance mandatory.
-    Fields: source, algorithm_version, epoch, confidence.
-    A HeightProfile without all four fields MUST NOT be stored or served.
-    Never fabricate. Missing height → honest fallback tier, flagged.
+§3. Provenance mandatory: source, algorithm_version, epoch, confidence.
+    Never fabricate. Missing → honest fallback tier, flagged.
     Versioned: new algorithm_version row; never overwrite.
 
-§4. One vertical datum.
-    WGS-84 ellipsoidal throughout (matches C12 §1.4 / globeGroundAnchor.ts).
-    All datum transforms via the single C12 proj4 projector.
-    Terrain, buildings, and the buildable envelope share one vertical origin (L-584).
+§4. One vertical datum: WGS-84 ellipsoidal (C12 §1.4 / globeGroundAnchor.ts).
+    All national orthometric → ellipsoidal via the per-country compound CRS table (§3.1).
+    Terrain, buildings, and envelope share one vertical origin (L-584).
 
 §5. Render assets and knowledge graph share object_id.
-    The Overture building id / parcel refcat / OSM way id is the universal key.
-    Clicking a building in the 3D view retrieves a planning object, not triangle data.
+    Clicking a building retrieves a planning object, not triangle data.
 
-§6. Physical context is strictly separated from the buildable-rule rate.
-    This contract governs "what exists" (C57 / LOD-RATE-MASTER).
-    C58 governs "what you may build" (zoning rules / envelopes).
-    NEVER merge these two axes into one height value.
+§6. Physical context strictly separated from the buildable-rule rate.
+    C57 = "what exists". C58 = "what you may build". Never merged.
 
-§7. "Done" means "renders + is measured".
-    A phase is not done on code-merge. Screenshot + measurement required.
+§7. "Done" = "renders + is measured." Not done on code-merge.
 ```
-
----
-
-## Per-country data source master table
-
-This is the operating spreadsheet. Build it before writing any Phase 3/4 code.
-
-| Country | DTM Source | DTM Res | DTM License | DTM Auth | LiDAR Source | LiDAR Density | LiDAR License | LiDAR Auth | National LoD2 | Open DTM? | Phase 3 Priority |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 🇳🇱 NL | AHN4 (PDOK) | 0.5 m | CC0 | None | AHN4 (PDOK) | 8–10 pt/m² | CC0 | None | 3DBAG LoD2.2 | ✅ | 1 |
-| 🇩🇰 DK | DHM/Terræn | 0.4 m | Open | Free API key | DHM/Punktsky | 4–6 pt/m² | Open | Free API key | GeoDanmark | ✅ | 2 |
-| 🇨🇭 CH | swissALTI3D | 2 m | Open | None | swisstopo LiDAR | 4–8 pt/m² | Open | None | swissBUILDINGS3D | ✅ | 3 |
-| 🇫🇷 FR | RGE ALTI | 1 m | Open | Free reg | IGN LiDAR HD | 10–20 pt/m² | Open | Free reg | BD TOPO LoD1 | ✅ | 4 |
-| 🇪🇸 ES | PNOA MDT | 5 m | CC-BY | None | PNOA (CNIG) | 0.5–2 pt/m² | CC-BY | None | Catastro LoD1 | ✅ | 5 |
-| 🇳🇴 NO | NDH (hoydedata) | 1 m | Open | None | Kartverket | 2–8 pt/m² | Open | None | FKB LoD1 | ✅ | 6 |
-| 🇩🇪 DE | DGM (varies) | 1 m | NRW open | NRW: None | NRW LiDAR | 4–8 pt/m² | NRW open | None | LoD2-DE (NRW) | Partial | 7 |
-| 🇺🇸 US | 3DEP (TNM) | 1 m | Public domain | None | 3DEP | 2–12 pt/m² | Public domain | None | None national | ✅ | 8 (deferred — scale) |
-| 🇸🇦 SA | None open | — | — | — | None open | — | — | — | None | ❌ | ML fallback |
-
-**Priority order for Phase 3 bake:** NL → DK → CH → FR → ES. These five have open DTM,
-open LiDAR, and existing heightSources.mjs probes. One city per country is the Phase 3 acceptance target.
 
 ---
 
@@ -1150,57 +1021,63 @@ open LiDAR, and existing heightSources.mjs probes. One city per country is the P
 
 | Milestone | Phases | Duration | Gate | Risk |
 |---|---|---|---|---|
-| M1 — Real heights render | 1 + 2 | ~2 weeks | Re-baked Paris/Amsterdam/Madrid show skyline (not 9 m carpet). HeightProfile schema compiles. | LOW |
-| M2 — Terrain closes the gap | 3 | ~4 weeks | Amsterdam + Copenhagen: sloped terrain under context buildings. Datum verified. L-584 ground elevation in HeightProfile. | MEDIUM (datum alignment is the trap) |
-| M3 — Measured heights + roofs | 4 | ~3 months | Amsterdam: 90% of buildings have `lidar_ndsm` profile ±0.5 m vs ground truth. Roof types classified. | HIGH (footprint split + veg reject) |
-| M4 — Forma-class runtime | 5 | multi-quarter | Barcelona: terrain + buildings + roads stream <2 s, 60 FPS, click → planning object. | HIGHEST (only after data proves out) |
+| M1 — Real heights render | 1 + 2 | ~2 weeks | Paris FIRST (already works — wire the line). Then Amsterdam (requires §1.2 geometry fix). HeightProfile schema compiles. | LOW |
+| M2 — Terrain closes the gap | 3 | ~4 weeks | Amsterdam + Zurich: sloped terrain visible. Datum proof (ellipsoidal ≈ 43–50 m at AHN centroid) FIRST, all else second. | MEDIUM |
+| M3 — Measured heights + roofs | 4 | ~3 months | Amsterdam: 90% `lidar_ndsm` ±0.5 m. Roof types. Footprint split working. | HIGH |
+| M4 — Forma-class runtime | 5 | multi-quarter | Barcelona: < 2 s stream, 60 FPS, click → planning object. | HIGHEST |
 
 ---
 
-## Top risks (ranked by impact × probability)
+## Top risks (ranked)
 
 | Risk | Phase | Mitigation |
 |---|---|---|
-| **Vertical datum mismatch** | 3 | Prove Amsterdam geoid transform on ONE city FIRST. `h_ellipsoidal ≈ 48 m` at AHN centroid. If wrong, STOP. |
-| **LiDAR non-commercial clause** | 4 | Audit license per country BEFORE building any pipeline. Some French IGN tiles: CC-BY-NC. Saudi: 403 geo-fenced. |
-| **Merged footprint split failure** | 4 (Stage 7) | Budget 2 weeks research. Start with Spain (Catastro blocks). If watershed fails, ship without splitting and document. |
-| **Vegetation rejection tuning** | 4 (Stage 9) | Use classified LiDAR first (NL class=5). Add planarity only for ES/SA unclassified. |
-| **Phase 5 scope creep** | 5 | Do NOT start Phase 5 until Phases 1–4 all show measured outputs. The scene compiler is the destination, not the shortcut. |
-| **Cesium terrain z-fighting** | 3 | Use `HeightReference.CLAMP_TO_GROUND` on all building `PolygonGraphics`. Test with quantized-mesh at z15. |
-| **pnpm lockfile breaks Fly build** | All | Any new npm dependency: `pnpm --filter @pryzm/editor add <pkg>`, then commit `pnpm-lock.yaml` in the SAME commit. Run `tsc --skipLibCheck` before committing. |
+| **Geoid grid missing → datum silent fail** | 3 | Probe Amsterdam AHN centroid FIRST. Must return 42–52 m. Set PROJ_DATA correctly. |
+| **3DBAG geometry reprojection (GAP-A)** | 1 | §1.2 gives the exact inverse RD→WGS84 formula. Test on 10 Amsterdam buildings before full bake. |
+| **Catastro Spain bbox timeout (GAP-B)** | 1 | Per-city bboxes ONLY. Never the national Spain entry for Catastro. |
+| **LiDAR non-commercial clauses** | 4 | 1-week license audit BEFORE writing any country's pipeline. FR IGN LiDAR HD: verify CC-BY terms specifically. |
+| **Merged footprint split** | 4 | 2-week research budget. Start Spain/Saudi. If watershed fails after 2 weeks, ship without splitting and document. |
+| **DK Dataforsyningen auth** | 1, 3, 4 | Register at dataforsyningen.dk → free token → `GEODANMARK_TOKEN` env var. If token absent, `status: 'blocked'`, not error. |
+| **Cesium terrain z-fighting** | 3 | `HeightReference.CLAMP_TO_GROUND` on all context building polygons. Verify before any terrain screenshot. |
+| **pnpm lockfile breaks Fly build** | All | `pnpm --filter @pryzm/editor add <pkg>` → commit `pnpm-lock.yaml` in the SAME commit. `tsc --skipLibCheck` before committing. |
 
 ---
 
-## Tech stack (binding)
+## Tech stack (binding, library versions pinned)
 
-| Domain | Libraries |
-|---|---|
-| LiDAR I/O + classification | PDAL ≥2.6, laspy ≥2.4 |
-| Raster ops (DTM/DSM) | rasterio ≥1.3, GDAL ≥3.8 |
-| Geometry | shapely ≥2.0, scipy (KDTree, lstsq) |
-| Roof segmentation | pyransac3d ≥0.6 (or open3d ≥0.18) |
-| Raster → TIN | pydelatin ≥0.2 (Python) / @mapbox/martini (JS) |
-| Mesh simplify/compress | meshoptimizer (npm) |
-| Terrain encoding | quantized-mesh-encoder (npm) — Cesium quantized-mesh format |
-| Vector tiles | tippecanoe (existing), pmtiles (existing) |
-| Metadata | Apache Arrow (pyarrow + @apache-arrow/ts) |
-| Textures | KTX2 (basisu CLI for compress; Three.js KTX2Loader already in-tree) |
-| Postgres | psycopg3 (Python), server/db.js (existing Node pool) |
-| Object storage | R2 (Cloudflare, existing — furniture GLB catalogue is on R2 already) |
-| Cesium runtime | CesiumTerrainProvider (terrain), existing CesiumViewport.ts |
-| Three.js runtime | Existing scene; add BVHGeometry (three-mesh-bvh) for picking |
+| Domain | Library | Version | Notes |
+|---|---|---|---|
+| LiDAR I/O | PDAL | ≥2.6 | Classification, SMR filter |
+| LiDAR I/O | laspy | ≥2.4 | Faster for simple reads |
+| Raster ops | rasterio | ≥1.3 | GeoTIFF I/O, reprojection |
+| Geometry | shapely | ≥2.0 | make_valid, buffer, split |
+| Roof seg | pyransac3d | ≥0.6 | Plane fitting (lighter than open3d) |
+| DTM→TIN | pydelatin | 0.2.4 | RTIN meshing |
+| Terrain encode | quantized-mesh-encoder | 0.4.3 | Cesium .terrain format |
+| Vector tiles | tippecanoe | existing | |
+| PMTiles | pmtiles | existing | |
+| Metadata | Apache Arrow | pyarrow ≥15 | per-tile metadata |
+| Textures | KTX2 | basisu CLI | Three.js KTX2Loader in-tree |
+| Cesium terrain | CesiumTerrainProvider | existing | zero runtime client code |
+| BVH picking | three-mesh-bvh | ≥0.7 | new npm dep for Phase 5 |
+| Postgres | psycopg3 | ≥3.1 | lidar_tile_registry |
 
 ---
 
-*Created 2026-07-24. Grounded in the PRYZM monorepo as confirmed-shipped on this date:
-`tools/context-bake/bake.mjs` (L-607), `tools/context-bake/heightSources.mjs` (3 live-probed
-sources), `apps/editor/src/ui/geospatial/contextTiles.ts` (L-513b), `contextBuildings.ts`
-(near/far + heightProvenance), `globeGroundAnchor.ts` (L-584 WGS-84 datum fix). Every file
-reference has been verified to exist. Every data claim is marked VERIFIED (live-probed) or
-ESTIMATED (desk). Maintainer: UNASSIGNED. This is an implementation blueprint, not a commitment.*
+*Updated 2026-07-24. All corrections from live probing this session:
+(1) AHN PDOK URL corrected to `service.pdok.nl/rws/ahn/wcs/v1_0`.
+(2) 3DEP dataset name corrected to "Digital Elevation Model (DEM) 1 meter".
+(3) Catastro TypeName corrected to `bu:BuildingPart` (not `bu:Building`).
+(4) AHN5 LiDAR density corrected to 36.7 pts/m² (not 8-10).
+(5) GAP-A (3DBAG geometry null) documented and fix specified.
+(6) GAP-B (Catastro Spain bbox timeout) documented and fix specified.
+(7) DK auth status corrected (HTTP 401, token required).
+(8) swissALTI3D CRS confirmed EPSG:2056+5728 from live tile filename.
+(9) schemas path `packages/schemas/src/elements/site/` confirmed non-existent; mkdir instruction added.
+(10) `resolveHeights` return values confirmed live: paris=ok/4315, amsterdam=documented, spain=error(timeout).
+Maintainer: UNASSIGNED.*
 
 *Cross-refs: `CONTEXT-SCENE-COMPILER-NORTH-STAR.md` (vision) · `CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md`
-(shipped delivery pipeline) · `CONTEXT-LOD-BUILD-PLAN.md` + `heightSources.mjs` (height build) ·
-`jurisdictions/LOD-RATE-MASTER.md` (measured LOD per country) · `globeGroundAnchor.ts` (L-584 datum) ·
-`C57-PARCEL-DATA-LAYER.md` · `C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md` · L-611 (Living Graph) ·
-C27 (Inspect panel).*
+(shipped pipeline) · `CONTEXT-LOD-BUILD-PLAN.md` + `heightSources.mjs` (height build) ·
+`jurisdictions/LOD-RATE-MASTER.md` (LOD per country) · `globeGroundAnchor.ts` (L-584 datum) ·
+`C57-PARCEL-DATA-LAYER.md` · `C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md` · L-611 · C27.*
