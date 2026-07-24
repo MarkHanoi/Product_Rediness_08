@@ -48,6 +48,20 @@
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Global strategy: Overture-primary + MS density-fallback + country-premium
+adapters + a height confidence hierarchy — see LOD-RATE-MASTER.)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | Lantmäteriet INSPIRE BU (CC0) + Overture/MS | **~90%** | ESTIMATED |
+| **Height (3D)** | conf tier **2** — national LiDAR nDSM (DSM−DTM, free). LoD2 volumes are per-municipality PAID (Stockholm) | **~80%** | ESTIMATED (research complete; no live probe) |
+
+**Building-TYPE:** Swedish fabric ★★★. Free national LoD1 via nDSM is the safe path; do NOT pay
+Stockholm's LoD2 fee for a demo. No density-fallback needed (CC0 national footprints).
+
 ## The structural finding
 
 **Sweden has the best terrain LiDAR in Europe and CC0 national footprints — but finished LoD2 volumes

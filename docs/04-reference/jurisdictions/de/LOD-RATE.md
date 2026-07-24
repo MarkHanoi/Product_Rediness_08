@@ -48,6 +48,20 @@ never reached where LoD2-DE is wired.
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Global strategy: Overture-primary + MS density-fallback + country-premium
+adapters + a height confidence hierarchy — see LOD-RATE-MASTER.)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | country-**PREMIUM** LoD2-DE (per-Land CityGML) where open; Overture/MS fallback for licence-blocked Länder (Bavaria/Hamburg TBD) | **~95%** | ESTIMATED |
+| **Height (3D)** | conf tier **1** — measured (LoD2-DE `measuredHeight` + real roof planes, ~1 m); ALKIS `traufhoehe`/`firsthoehe` tier-2 fallback | **~85–90%** | VERIFIED (NRW live); ESTIMATED (other Länder — access, not data) |
+
+**Building-TYPE:** German urban fabric ★★★★. The 3D drag is per-Land licence ROUTING, not footprint
+or type accuracy. Density-fallback only where a Land's LoD2 is licence-blocked.
+
 ## The structural finding
 
 **Germany has a national LoD2 building model on paper (~58M buildings, LoD2-DE, CityGML, ~1 m height

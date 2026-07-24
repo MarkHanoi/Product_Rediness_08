@@ -53,6 +53,20 @@ default is never reached once Danmark i 3D + BBR are wired.
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Global strategy: Overture-primary + MS density-fallback + country-premium
+adapters + a height confidence hierarchy — see LOD-RATE-MASTER.)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | country-**PREMIUM** GeoDanmark / Danmark i 3D (national) | **~97%** | ESTIMATED |
+| **Height (3D)** | conf tier **1** — measured (Danmark i 3D LoD2 real roofs, DHM LiDAR); BBR floor count as cross-check | **~93%** | ESTIMATED (in-tree spike NOT STARTED — high confidence, not live-probed) |
+
+**Building-TYPE:** Danish fabric ★★★★; BBR gives the richest per-building attribute cross-check in
+the benchmark. No density-fallback needed. Promote to VERIFIED by running the DK context spike.
+
 ## The structural finding
 
 **Denmark has a native national LoD2 building model (Danmark i 3D / GeoDanmark) with real roofs,

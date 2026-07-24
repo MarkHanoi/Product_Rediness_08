@@ -49,6 +49,20 @@ national source wired.
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Global strategy: Overture-primary + MS density-fallback + country-premium
+adapters + a height confidence hierarchy — see LOD-RATE-MASTER.)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | country-**PREMIUM** swissBUILDINGS3D / cantonal AV (federal) | **~98%** | ESTIMATED |
+| **Height (3D)** | conf tier **1** — measured volumetric solid (±30–50 cm), cross-checked by swissSURFACE3D LiDAR + GWR `GASTW` | **~95%** | VERIFIED (GWR attrs live); geometry `document` |
+
+**Building-TYPE:** urban dense ★★★★★; alpine/detached chalet fabric ★★★ (roof complexity). No
+density-fallback needed — swissBUILDINGS3D is national + complete.
+
 ## The structural finding
 
 **Native national LoD2 since 2018.** swissBUILDINGS3D 2.0 delivers a closed volumetric solid (or

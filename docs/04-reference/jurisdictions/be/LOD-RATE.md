@@ -52,6 +52,19 @@ LOD 100 base; height only structured in Flanders.
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. Belgium is a three-region blend, not a uniform national capability.
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | CADMAP federal (national) + Overture/MS | **~90%** | ESTIMATED (endpoint live) |
+| **Height (3D)** | conf tier **1** Flanders 3D GRB LoD1 DHMV II; conf tier **4** Wallonia (PICC) + Brussels (UrbIS) — height UNKNOWN | **~55%** | ESTIMATED (three-region blend) |
+
+**Building-TYPE:** Belgian fabric ★★★. The 3D drag is the three-region schema split (GRB/PICC/UrbIS),
+not type accuracy. No LoD2 anywhere. Probe Brussels/Wallonia height fields to close the blend.
+
 ## The structural finding
 
 **Belgium is three separate systems with no shared schema and no LoD2 anywhere.** Building footprints

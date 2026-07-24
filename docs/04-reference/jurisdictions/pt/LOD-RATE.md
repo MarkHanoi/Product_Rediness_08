@@ -52,6 +52,20 @@ footprint baseline (Portugal has no national footprint dataset).
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Portugal
+INVERTS Spain: 3D height is the strong axis, 2D parcel the weak one. Binding metric = the 3D number.
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | **Overture/MS PRIMARY** — Portugal has NO national footprint layer; Carta Cadastral parcels cover only ~134 munis (not Lisbon/Porto cores) | **~85%** | ESTIMATED |
+| **Height (3D)** | conf tier **2** — DGT national LiDAR nDSM (2024–25, 10 pts/m², open); single-source (no floor-count cross-check, no published RMSE-Z) | **~75%** | ESTIMATED (founder deep-dive; not live-probed) |
+
+**Building-TYPE:** dense Lisbon/Porto cores ★★★★ (Lisbon CML LoD2/3 exception); Algarve/suburban
+**villa** fabric ★★ — courtyards + roof complexity → the "one polygon = 3 villas" FAR risk. This is
+a country where the density-fallback + `footprint_type_confidence` matter.
+
 ## The structural finding
 
 **Portugal has a genuinely good national building HEIGHT source but a weak PARCEL base and no national

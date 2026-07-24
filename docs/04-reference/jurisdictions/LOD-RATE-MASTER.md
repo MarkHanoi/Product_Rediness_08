@@ -13,6 +13,14 @@ Standard + ladder: `_TEMPLATE/LOD-RATE.md`. Plain-English: `_TEMPLATE/HOWTOREAD_
 > (LOD 100) or true massing (LOD 200). The founder's insight: *"How can we have the rules if we
 > don't even have the heights of the buildings?"*
 
+**The moat framing (read before the numbers).** The building layer is a **commodity** — Overture,
+Microsoft and Google all give footprints, and heights are increasingly free. PRYZM's value is NOT the
+footprints. It is **existing reality (this rate) × the legal envelope (the buildable-rule `RATE.md`
+rate) = development opportunity.** This rate measures how faithfully we can rebuild the *existing*
+city; it is worthless — and actively misleading (C58) — if conflated with what you MAY build. The
+BUILD that turns this measurement into rendered heights is
+`docs/04-reference/CONTEXT-LOD-BUILD-PLAN.md` + `tools/context-bake/heightSources.mjs`.
+
 ## The LOD ladder
 
 | Level | What it is | How it renders |
@@ -81,6 +89,59 @@ height metric was live-probed this pass (VERIFIED) or is a desk read of the sour
 
 ---
 
+## The data strategy — a minimal 2-source footprint stack + a height confidence hierarchy
+
+**Footprints are a solved commodity; do NOT build a multi-source monster.** The strategy is a minimal
+2-source stack, with country-premium adapters only where the ROI justifies them:
+
+| Tier | Source | Role |
+|---|---|---|
+| **Footprint PRIMARY** | **Overture Maps buildings** | one global schema unifying OSM + Microsoft + Google + Esri; carries a `height` attribute where available. The default everywhere. |
+| **Footprint FALLBACK** | **Microsoft Global Building Footprints** | triggered **per-tile by a density ratio** (Riyadh: Overture ~8k vs MS ~50k → use MS). **MERGE, don't replace** — keep Overture's attribution / names / categories, fill gaps with MS polygons. |
+| **Footprint PREMIUM** | country adapters, **only where ROI justifies** | 🇳🇱 3DBAG · 🇫🇷 IGN BD TOPO · 🇨🇭 swissBUILDINGS3D/cantonal · 🇩🇰 GeoDanmark · 🇳🇴 Kartverket · 🇪🇸 Catastro · 🇩🇪 LoD2-DE. These beat Overture/MS on 2D accuracy AND carry a real height. |
+
+**Height is a CONFIDENCE HIERARCHY, not one source** — every height carries a confidence + an honest
+`heightProvenance` (the in-code gate in `contextBuildings.ts`):
+
+| Conf tier | Source | Typical confidence | `heightProvenance` |
+|---|---|---|---|
+| **1** | existing measured height attribute (3DBAG roof, BD TOPO `hauteur`, LoD2-DE `measuredHeight`) | ~90%+ | `tagged` |
+| **2** | LiDAR-derived nDSM (DSM−DTM under the footprint: 3DEP, PNOA/ICGC, NDH, DGT) | ~75–90% | `tagged` |
+| **3** | satellite / ML estimate (Overture/MS height model) | ~60–80% | `tagged` (low conf) |
+| **4** | building-TYPE assumption (floor-count × storey height; apartment vs villa default) | ~40% | `derived-levels` |
+| floor | nothing usable → honest **9 m default** | — | `assumed` |
+
+## 2D footprint accuracy vs 3D height accuracy — the crux (never blend them)
+
+**⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers.** 2D is 85–98% almost
+everywhere (footprints are commodity). 3D is the hard 40–80% (measured height is scarce). The binding
+LOD-200 sub-metric is the **3D real-height number**. All figures **ESTIMATED** (desk) unless the row
+carries a live-probe in the honesty ledger.
+
+| Jurisdiction | Footprint decision | **2D footprint acc** (EST) | Height conf tier | **3D height acc** (binding) | Building-TYPE note |
+|---|---|---|---|---|---|
+| 🇳🇱 Netherlands | premium 3DBAG | **~99%** (VERIFIED via 3DBAG) | 1 measured | **~95%+** (VERIFIED) | dense ★★★★★ |
+| 🇨🇭 Switzerland | premium swissBUILDINGS3D | ~98% | 1 measured | ~95% | alpine detached ★★★ |
+| 🇩🇰 Denmark | premium GeoDanmark | ~97% | 1 measured | ~93% | ★★★★ |
+| 🇩🇪 Germany | premium LoD2-DE | ~95% | 1 measured (VERIFIED NRW) | ~85–90% | ★★★★ |
+| 🇫🇷 France | premium IGN BD TOPO | ~95% | 1 measured (VERIFIED) | ~85% (12% `hauteur` null) | dense ★★★★★ |
+| 🇳🇴 Norway | Overture/MS + NDH nDSM | ~90% | 2 LiDAR (FKB licensed) | ~72–85% | ★★★ |
+| 🇸🇪 Sweden | Overture/MS + LiDAR nDSM | ~90% | 2 LiDAR | ~80% | ★★★ |
+| 🇺🇸 USA | **Overture PRIMARY + MS fallback** + 3DEP | ~90% (MS 129.6M) | 1 partial + 2 3DEP | ~60% (VERIFIED 3DEP) | ★★★ suburban harder |
+| 🇪🇸 Spain | premium Catastro | **~95%** (VERIFIED footprint) | 4 floor-count (VERIFIED); 2 nDSM not built | **~45%** measured (~75–85% *if* nDSM) | villas ★★ — one polygon = 3 villas FAR risk |
+| 🇧🇪 Belgium | Overture/MS + Flanders GRB | ~90% | 1 Flanders / 4 elsewhere | ~55% | ★★★ |
+| 🇵🇹 Portugal | **Overture/MS PRIMARY** (no national) + DGT nDSM | ~85% | 2 LiDAR nDSM | ~75% | villas ★★ courtyards/roofs |
+| 🇮🇹 Italy | Overture/MS + Piedmont | ~85% | 1 Piedmont / 4 elsewhere | ~30% | ★★★ |
+| 🇸🇦 Saudi Arabia | **Overture PRIMARY → MS FALLBACK** (density trigger) | Overture ~80% / **MS ~90%+** | 3 ML / 4 assumption | ~20% | villas ★★ courtyards + attached garages — one polygon = 3 villas FAR risk |
+
+**Building-TYPE accuracy is a FAR risk, not cosmetic.** Dense apartment blocks are ★★★★★ (one
+footprint = one building, clean party walls). Villas / detached / low-density are ★★–★★★: courtyards,
+attached garages and roof complexity make ML/Overture merge or split polygons, so **"one polygon = 3
+villas"** over-states GFA and corrupts any density/FAR read (worst in Saudi/UAE/Portugal suburban
+fabric). Carry `footprint_type_confidence`.
+
+---
+
 ## Orthogonality with `RATE.md` — the two rates side by side
 
 The whole reason this rate exists: **a jurisdiction can be high on one and low on the other.** Same
@@ -130,9 +191,19 @@ fall, and the thing every national source above is there to replace. The `height
 (`tagged` / `derived-levels` / `assumed`) is the in-code honesty gate that already distinguishes a real
 height from the 9 m guess — this rate is its jurisdiction-level rollup.
 
+The BUILD that replaces the 9 m default with real heights, per country, is
+`docs/04-reference/CONTEXT-LOD-BUILD-PLAN.md` (build table + LoD2-mesh next tier) and the standalone
+`tools/context-bake/heightSources.mjs` (per-source fetchers; top 3 live-probed). It stamps
+`heightProvenance:'tagged'` (measured) or `'derived-levels'` (floor count) per building, degrading to
+Overture → Microsoft → the honest 9 m `assumed` default where no national source resolves.
+
 ---
 
 *Last updated: 2026-07-24. 6 jurisdictions VERIFIED live (NL, FR, ES, US, DE, CH); 7 desk-ESTIMATED
-(DK, NO, SE, BE, PT, IT, SA). Ranking is by headline (LOD level + real-height coverage); the binding
-metric is real building-HEIGHT coverage. Keep the benchmark table in sync across every per-jurisdiction
-`LOD-RATE.md`. Maintainer: UNASSIGNED.*
+(DK, NO, SE, BE, PT, IT, SA). Height BUILD live-probed this pass: 🇳🇱 3DBAG (roof height 14.99/13.10 m
++ `b3_dak_type:slanted`), 🇫🇷 BD TOPO (`hauteur` 21.7/8.3 m), 🇪🇸 Catastro (`bu:BuildingPart` ×334, 334
+populated floor counts → derived-levels). Data strategy = 2-source footprint stack (Overture primary +
+MS density-fallback) + country-premium adapters + a height confidence hierarchy; 2D footprint accuracy
+is reported SEPARATELY from 3D height accuracy. Ranking is by headline (LOD level + real-height
+coverage); the binding metric is real building-HEIGHT coverage. Keep the benchmark table in sync across
+every per-jurisdiction `LOD-RATE.md`. Maintainer: UNASSIGNED.*

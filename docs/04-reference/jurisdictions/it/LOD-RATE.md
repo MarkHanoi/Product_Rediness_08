@@ -48,6 +48,19 @@ regional height exists, this floor + PST/SIM-derived nDSM (post-2026) is the onl
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. Italy's gap is STRUCTURAL (no national building-height product).
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | Overture/MS + Catasto WFS (indicative, not survey-grade) | **~85%** | ESTIMATED |
+| **Height (3D)** | conf tier **1** Piedmont/Turin (ARPA Edifici 3D) ONLY; conf tier **4** OSM/type elsewhere (PST/SIM LiDAR is terrain-only) | **~30%** | ESTIMATED (no live probe) |
+
+**Building-TYPE:** Milan/Rome dense cores ★★★★; the height problem is coverage, not type — outside
+Piedmont there is no reconstructed building height at all. No density-fallback issue.
+
 ## The structural finding
 
 **Italy has no national building-model coordinator — a genuine STRUCTURAL gap, not a currency lag.**

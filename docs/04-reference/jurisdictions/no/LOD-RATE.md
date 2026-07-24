@@ -49,6 +49,20 @@ no licence step.
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Global strategy: Overture-primary + MS density-fallback + country-premium
+adapters + a height confidence hierarchy — see LOD-RATE-MASTER.)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | Kartverket Matrikkelen (free) + Overture/MS; premium FKB footprint is licence-gated | **~90%** | ESTIMATED |
+| **Height (3D)** | conf tier **2** — NDH LiDAR nDSM (free, no licence). FKB surveyed top-height (tier 1) is commercial-licensed | **~72–85%** | ESTIMATED (research complete; no per-parcel live probe) |
+
+**Building-TYPE:** Norwegian fabric ★★★. The 3D headline drag is the FKB commercial licence, not
+type accuracy — the reachable-free height is the coarser NDH-derived value. No national LoD2.
+
 ## The structural finding
 
 **Norway has strong national building + terrain data, but the building HEIGHT is behind a commercial

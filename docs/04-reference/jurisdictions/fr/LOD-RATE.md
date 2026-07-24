@@ -48,6 +48,20 @@ BD TOPO makes it moot where wired; fabricated 9 m default only for BD TOPO nulls
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Global strategy: Overture-primary + MS density-fallback + country-premium
+adapters + a height confidence hierarchy — see LOD-RATE-MASTER.)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | country-**PREMIUM** IGN BD TOPO® `batiment` (national, Etalab); geometry direct in EPSG:4326 | **~95%** | ESTIMATED (footprint); geometry VERIFIED live |
+| **Height (3D)** | conf tier **1** — measured `hauteur`; ~12% nulls fall back to surrounding-median (flagged `estimated`) | **~85%** | **VERIFIED** (live: `hauteur` 21.7/8.3 m) |
+
+**Building-TYPE:** dense French urban fabric ★★★★★. No density-fallback needed (BD TOPO is
+national + complete); type-confidence only relevant in sparse rural detached fabric.
+
 ## The structural finding
 
 **France publishes a real per-building HEIGHT nationally, but not the roof shape — so it sits at a

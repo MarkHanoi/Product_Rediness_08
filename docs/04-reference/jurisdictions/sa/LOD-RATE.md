@@ -52,6 +52,23 @@ height tags sparse; the fabricated 9 m default dominates without a DEM assist.
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Saudi is the
+CANONICAL density-fallback case AND the sharpest building-type-risk case. Binding metric = the 3D number.
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | **Overture PRIMARY → Microsoft FALLBACK, per-tile density-triggered** (Riyadh: Overture ~8k vs MS ~50k → use MS). **MERGE, don't replace** — keep Overture attribution, fill gaps with MS polygons | Overture **~80%** / **MS ~90%+** | ESTIMATED |
+| **Height (3D)** | conf tier **3** ML footprint height / conf tier **4** type assumption / GLO-30 30 m DEM as a sanity layer. National line (Balady `NOOFFLOORS`) GEO-FENCED (403 measured) | **~20%** | ESTIMATED |
+
+**Building-TYPE — the load-bearing risk here.** Saudi **villa** fabric is ★★: walled compounds,
+interior courtyards and attached garages make ML footprints merge or split, so **"one polygon = 3
+villas"** badly over-states GFA — a direct FAR/opportunity error. This is WHY the density-fallback +
+`footprint_type_confidence` exist. Dense apartment cores (central Riyadh/Jeddah) are ★★★★. Two height
+concepts must never be conflated: the regulatory cap (villa ≤14 m, MOMRAH, geo-fenced) vs the physical
+context height (ML/DEM) — the latter is never a source for the former.
+
 ## The structural finding
 
 **Saudi Arabia's national geospatial product exists but is walled off from a commercial engine outside

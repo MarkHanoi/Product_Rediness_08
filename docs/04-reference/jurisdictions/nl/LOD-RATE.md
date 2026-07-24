@@ -55,6 +55,20 @@ reached where 3DBAG is joined. (OSM floor, ESTIMATED ~15–25% explicit-height i
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Global strategy: Overture-primary + MS density-fallback + country-premium
+adapters + a height confidence hierarchy — see LOD-RATE-MASTER.)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | country-**PREMIUM** 3DBAG (BAG); Overture/MS only for the ~1–3% new-build not yet in the 3DBAG cut | **~99%** | VERIFIED (3DBAG live) |
+| **Height (3D)** | conf tier **1** — measured roof (`b3_h_dak_50p − b3_h_maaiveld`) | **~95%+** | **VERIFIED** (live: 14.99/13.10 m, `b3_dak_type:slanted`) |
+
+**Building-TYPE:** dense Dutch urban fabric is ★★★★★ (one footprint = one building). NL is the ceiling
+case — no density-fallback or type-confidence concern.
+
 ## The structural finding
 
 **3DBAG is world-class and native LoD2.** It combines the BAG building/address register

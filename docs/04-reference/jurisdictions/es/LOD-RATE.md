@@ -54,6 +54,21 @@ not a measurement — carry `floor_count`, `measured_height_m`, `height_confiden
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Spain is the
+sharpest case FOR the split: a top-tier 2D base, a weak 3D one. Binding metric = the 3D number.
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | country-**PREMIUM** Catastro INSPIRE (national); geometry direct in EPSG:4326 | **~95%** | **VERIFIED** (live footprint + geometry) |
+| **Height (3D)** | conf tier **4** — floor COUNT `numberOfFloorsAboveGround` × 3.2 m → `derived-levels`. Real MEASURED (tier 2 PNOA/ICGC nDSM) NOT built; would lift to ~75–85% | **~45%** measured | **VERIFIED** (live: `bu:BuildingPart` ×334, 334 floor counts 1/6/2/7/8…) — floor count, NOT a measurement |
+
+**Building-TYPE:** dense apartment cores ★★★★★ (BCN Eixample, Madrid centro). But Spanish **villa /
+low-density** fabric is ★★ — courtyards and attached garages create the **"one polygon = 3 villas"**
+FAR over-statement. Carry `footprint_type_confidence` and prefer BuildingPart splits over the
+merged Building outline for low-density plots.
+
 ## The structural finding
 
 **Spain has the best footprint+parcel base in the benchmark after the Netherlands, but NO measured

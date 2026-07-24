@@ -48,6 +48,20 @@ Microsoft footprints (129.6M, ODbL) give near-national LOD 100 base; height is t
 
 ---
 
+## Data strategy — footprint (2D) vs height (3D)
+
+⚠ 2D footprint accuracy and 3D height accuracy are DIFFERENT numbers — never blend them. Binding
+metric = the 3D number. (Parcel is the SEPARATE weak metric here — see sub-metric (a).)
+
+| Axis | Decision | Accuracy | Flag |
+|---|---|---|---|
+| **Footprint (2D)** | **Overture PRIMARY + Microsoft density-fallback** (MS 129.6M, ODbL) — the commodity path; no country-premium national footprint | **~90%** | ESTIMATED |
+| **Height (3D)** | conf tier **1** Overture `height`/`num_floors` (~20M, growing) + conf tier **2** USGS 3DEP nDSM (DSM−DTM 1 m, >60% of US) | **~60%** | **VERIFIED** (3DEP live — Chicago 1 m LiDAR, S3 GeoTIFF) |
+
+**Building-TYPE:** dense urban (NYC/SF/Chicago) ★★★★; sprawling suburban detached ★★★ (roof
+complexity, attached garages). Density-fallback (Overture→MS) is exactly the mechanism for the
+sparse-Overture rural/suburban tiles. No national parcel cadastre (a) drags the headline, not (2D)/(3D).
+
 ## The structural finding
 
 **The USA inverts the European pattern: footprints and height-derivation data are strong, but there
