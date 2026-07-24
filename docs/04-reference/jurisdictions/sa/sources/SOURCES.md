@@ -18,7 +18,20 @@ as of L-606 (2026-07-23) the per-field **CLAUSE NUMBERS are now machine-transcri
 | `permittedUse` | `residential` | — | **§3-1..§3-4** (classes) | same | same | `published` |
 | **NATIONAL height CEILING — villa** | **`≤ 14`** | m | **§5-1-5 cl. 3** (+ §2 definition of total height) | same | same | `published` |
 | **NATIONAL floor CEILING — villa** | **`≤ ground+1+annex`** | floors | **§3-1** ("بحد أقصى دورين وملحق علوي") | same | same | `published` |
-| **NATIONAL height CEILING — apartment** | **`≤ 23`** | m | **§3-2 / §3-3 / §3-4** (+ §2 high-rise def, §1-1 exclusion) | same | same | `published` |
+| **apartment 23 m — CLASSIFICATION THRESHOLD, ⚠ NOT a height cap** | `> 23 m ⇒ high-rise regime` | m | **§3-2 / §3-3 / §3-4** (+ §2 high-rise def, §1-1 exclusion) | same | same | `published` (as a threshold) |
+
+> ⚠ **§HEIGHT-CLASSIFICATION-NOT-CAP (founder deep-read, 2026-07-24) — a modelling correction that
+> REMOVES a false restriction.** The apartment **23 m is the CLASSIFICATION boundary** between an
+> ordinary residential apartment (≤ 23 m) and a **high-rise** building (> 23 m, a SEPARATE regulatory
+> regime outside this decision) — it is **NOT a national maximum-height cap**. Setting
+> `maxHeight_m: 23` for apartments would falsely reject legitimate taller developments (a false
+> negative). The pack correctly ships `maxHeight_m: null` and refuses per-field, so nothing
+> over-constrains today — this note exists so the value is never later hardcoded as a cap. **Villa
+> 14 m (§5-1-5 cl. 3) IS a genuine national hard cap** (⚠ the actual Chapter-5 clause text has not yet
+> been pulled in-repo — see `VERIFICATION.md`; the apartment-threshold reading is independently
+> supported by the extract itself). The **> 23 m high-rise rule set** (max floors/height, tower
+> setbacks, fire/access) is a SEPARATE document and an open next-investigation — the engine should
+> route > 23 m apartments to a high-rise branch, never reject them.
 
 > Two independent government hosts serve the identical decision (momah + balady) — a primary-source
 > corroboration, not four news outlets descended from one. Extraction: PyPDF, Arabic glyphs reversed
