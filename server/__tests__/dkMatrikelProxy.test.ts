@@ -91,7 +91,7 @@ describe('fetchDkParcelAtPoint — the Catastro-shaped resolve', () => {
     it('with credentials → a WGS84 Danish parcel { ring, refcat, areaM2 }', async () => {
         const { gml, centreLat, centreLon } = matrikelGmlSquareNearCopenhagen();
         const p = await fetchDkParcelAtPoint(centreLon, centreLat, {
-            username: 'svc', password: 'pw', fetchImpl: fakeFetch(gml),
+            apikey: 'testkey', fetchImpl: fakeFetch(gml),
         });
         expect(p).not.toBeNull();
         expect(p!.refcat).toContain('7000a');
@@ -110,7 +110,7 @@ describe('fetchDkParcelAtPoint — the Catastro-shaped resolve', () => {
     });
 
     it('upstream failure / bad coords → null (never throws)', async () => {
-        expect(await fetchDkParcelAtPoint(12.5683, 55.6761, { username: 'a', password: 'b', fetchImpl: fakeFetch('', 500) })).toBeNull();
-        expect(await fetchDkParcelAtPoint(NaN, NaN, { username: 'a', password: 'b', fetchImpl: fakeFetch('') })).toBeNull();
+        expect(await fetchDkParcelAtPoint(12.5683, 55.6761, { apikey: 'k', fetchImpl: fakeFetch('', 500) })).toBeNull();
+        expect(await fetchDkParcelAtPoint(NaN, NaN, { apikey: 'k', fetchImpl: fakeFetch('') })).toBeNull();
     });
 });

@@ -35,12 +35,16 @@
 /** The same-origin route the client's DkMatrikelParcelProvider calls. */
 export const DK_PARCEL_PATH = '/api/parcel/dk';
 
-/** The Datafordeler Matriklen2 WFS. Env-overridable — the exact service alias is account-specific. */
+/** The Datafordeler Matrikel WFS (2026 host/alias). ⚠ Basic-Auth via a Service User was RETIRED for the
+ *  entity-based WFS — the legacy `services.datafordeler.dk/MATRIKLEN2/…` alias 404s (legacy WFS closed
+ *  1 Jul 2026; Service/Web users fully off 15 Jan 2027). Auth is now an API key on an `&apikey=` query
+ *  param. Verified live. See docs/04-reference/jurisdictions/dk/findings/DENMARK-DATAFORDELER-AUTH-2026.md.
+ *  Env-overridable. */
 export const DK_MATRIKEL_WFS_URL =
     process.env.DK_MATRIKEL_WFS_URL ||
-    'https://services.datafordeler.dk/MATRIKLEN2/MatrikelGaeldendeOgForeloebig/1.0.0/WFS';
-/** The parcel feature type (Jordstykke = cadastral parcel). Env-overridable. */
-export const DK_MATRIKEL_TYPENAME = process.env.DK_MATRIKEL_TYPENAME || 'mat:Jordstykke';
+    'https://wfs.datafordeler.dk/MAT/MAT_WFS/1.0.0/WFS';
+/** The parcel feature type (jordstykke = cadastral parcel). Env-overridable. */
+export const DK_MATRIKEL_TYPENAME = process.env.DK_MATRIKEL_TYPENAME || 'jordstykke_current';
 
 const UPSTREAM_TIMEOUT_MS = 15_000;
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -223,9 +227,12 @@ async function fetchTextOnce(url, deps = {}) {
 }
 
 function buildMatrikelUrl(lat, lon, deps = {}) {
-    const username = deps.username ?? process.env.DATAFORDELER_USERNAME;
-    const password = deps.password ?? process.env.DATAFORDELER_PASSWORD;
-    if (!username || !password) return null;
+    // Auth = a single server-side API key as an `&apikey=` query param. Matriklen is OPEN data; the API
+    // key grants exactly the unprotected-data class, so OAuth buys nothing — a static key is the correct,
+    // simplest secret (never seen by the browser; server-to-server, like the Catastro proxy). Basic Auth /
+    // Service User is RETIRED for these WFS. See DENMARK-DATAFORDELER-AUTH-2026.md.
+    const apikey = deps.apikey ?? process.env.DATAFORDELER_API_KEY;
+    if (!apikey) return null;
     const base = deps.wfsUrl ?? DK_MATRIKEL_WFS_URL;
     const typename = deps.typename ?? DK_MATRIKEL_TYPENAME;
     // Native 25832 bbox around the click (~±38 m in degrees is fine for the bbox extent; the
@@ -234,7 +241,7 @@ function buildMatrikelUrl(lat, lon, deps = {}) {
     return `${base}?service=WFS&version=2.0.0&request=GetFeature` +
         `&TYPENAMES=${encodeURIComponent(typename)}&srsName=EPSG:25832&count=20` +
         `&BBOX=${encodeURIComponent(bbox)}` +
-        `&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+        `&apikey=${encodeURIComponent(apikey)}`;
 }
 
 /**
@@ -251,9 +258,9 @@ export async function fetchDkParcelAtPoint(lon, lat, deps = {}) {
     const url = buildMatrikelUrl(lat, lon, deps);
     if (!url) {
         if (!_warnedNoCreds) {
-            console.warn('[dk-matrikel] DATAFORDELER_USERNAME/PASSWORD not set — Denmark parcel-select ' +
-                'returns { parcel: null } (client falls back to the OSM footprint). Set a free Datafordeler ' +
-                'service user to enable real Danish cadastral parcels.');
+            console.warn('[dk-matrikel] DATAFORDELER_API_KEY not set — Denmark parcel-select returns ' +
+                '{ parcel: null } (client falls back to the OSM footprint). Mint a free Datafordeler API ' +
+                'key (portal.datafordeler.dk → IT-system → API-nøgle) to enable real Danish parcels.');
             _warnedNoCreds = true;
         }
         return null;
