@@ -235,17 +235,60 @@ async function main() {
     if (!groups.has(r.pbf)) groups.set(r.pbf, { url: r.pbfUrl, regions: [] });
     groups.get(r.pbf).regions.push(r);
   }
+  // §BAKE-RESILIENT (L-607b, 2026-07-24) — ⚠ ONE bad region USED TO KILL THE WHOLE RUN. The first
+  // multi-region bake got Spain+PT+FR+IT+DE all the way through, then died because
+  // `greater-london-latest.osm.pbf` downloaded as 0 MB (HEAD said 200, the GET body was empty) and
+  // osmium threw `invalid BlobHeader size` — discarding ~40 min of good work. A per-region extract
+  // must NEVER abort the batch. We now: validate the download is non-trivial (a real extract is
+  // never < 1 MB; 0 MB = a redirect/empty body), retry once, and on any download/clip failure SKIP
+  // that region with a loud warning and carry on. The tileset ships with whatever succeeded; the
+  // workflow's "assert tiles are real" step is the floor.
+  const okRegions = [];
+  const failedRegions = [];
+  const MIN_PBF_BYTES = 1_000_000; // a genuine country/comunidad/city extract is always > 1 MB.
+  const { unlinkSync } = await import('node:fs');
   for (const [pbfPath, g] of groups) {
-    await download(g.url, pbfPath);
-    for (const r of g.regions) {
-      run(`clip ${r.name} (${r.bbox})`,
-        tool('osmium', ['extract', '-b', r.bbox, r.pbf, '-o', r.clipped, '--overwrite']));
+    let pbfOk = false;
+    try {
+      await download(g.url, pbfPath);
+      // Validate: a 0-byte / redirect-HTML body passes `res.ok` but is not a pbf. Retry once.
+      let size = (!DRY && existsSync(pbfPath)) ? statSync(pbfPath).size : (DRY ? MIN_PBF_BYTES : 0);
+      if (!DRY && size < MIN_PBF_BYTES) {
+        console.warn(`  ⚠ ${g.url.split('/').pop()} downloaded ${size} B (< 1 MB) — deleting + retrying once.`);
+        if (existsSync(pbfPath)) unlinkSync(pbfPath);
+        await download(g.url, pbfPath);
+        size = existsSync(pbfPath) ? statSync(pbfPath).size : 0;
+      }
+      if (!DRY && size < MIN_PBF_BYTES) {
+        throw new Error(`download body too small (${size} B) — bad URL or Geofabrik hiccup`);
+      }
+      pbfOk = true;
+    } catch (e) {
+      console.error(`  ✖ SKIP group ${g.url.split('/').pop()} — ${e.message}. Regions skipped: ${g.regions.map((r) => r.name).join(', ')}`);
+      for (const r of g.regions) failedRegions.push(r.name);
+    }
+    if (pbfOk) {
+      for (const r of g.regions) {
+        try {
+          run(`clip ${r.name} (${r.bbox})`,
+            tool('osmium', ['extract', '-b', r.bbox, r.pbf, '-o', r.clipped, '--overwrite']));
+          okRegions.push(r);
+        } catch (e) {
+          console.error(`  ✖ SKIP clip ${r.name} — ${e.message}`);
+          failedRegions.push(r.name);
+        }
+      }
     }
     if (!KEEP_PBF && !DRY && existsSync(pbfPath)) {
-      const { unlinkSync } = await import('node:fs');
       unlinkSync(pbfPath);
       console.log(`  ↳ reclaimed ${pbfPath.split(/[\\/]/).pop()} to save disk (pass --keep-pbf to retain)`);
     }
+  }
+  console.log(`\n▶ regions ready: ${okRegions.length}/${REGIONS.length}` +
+    (failedRegions.length ? ` — SKIPPED: ${failedRegions.join(', ')}` : ' — all clipped'));
+  if (!DRY && okRegions.length === 0) {
+    console.error('\n✖ no region clipped successfully — nothing to tile. Aborting.');
+    process.exit(3);
   }
 
   for (const l of layers) {
