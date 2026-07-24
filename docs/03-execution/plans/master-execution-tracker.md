@@ -4586,7 +4586,9 @@ forced one revert today (L-598).
 | **L-608** — envelope confidence colour (violet vs grey) | assistant | next deploy | none | CODE WRITTEN (typechecks; not deployed) |
 | **L-609 (1)** — probe: 3D-globe token-vs-gating (photoreal tiles lost) | UNASSIGNED | TBD | none — do FIRST | LOGGED |
 | **L-609 (2)** — fix per probe: restore VITE_CESIUM_TOKEN (infra) OR fix keepPhotoreal gating (code) | UNASSIGNED | TBD | L-609 (1) | LOGGED |
-| **L-609 (3)** — founder live-verify photoreal tiles return on 3D globe | UNASSIGNED | TBD | L-609 (2) | LOGGED |
+| **L-609 (3)** — founder live-verify photoreal tiles return on 3D globe | UNASSIGNED | TBD | L-609 (2) | LOGGED (likely FIXED by redeploy — verify) |
+| **L-610** — map-wide data-coverage colouring (L-601 UI half) | UNASSIGNED | TBD | needs bulk per-parcel zoning; founder go | LOGGED (held) |
+| **L-611** — envelope card ⇄ geometry bidirectional linking (extends L-603) | UNASSIGNED | TBD | C27 Inspect + @pryzm/building-graph | LOGGED |
 
 ⚠ **Sequencing — both of the just-landed contracts are upstream of L-600's wiring.**
 **C59 Phase 2** (per-pane picker + `PaneLayoutStore`) and **C60 Phase 1** (site-entry stage

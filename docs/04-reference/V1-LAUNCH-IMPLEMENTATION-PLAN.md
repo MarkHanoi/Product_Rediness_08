@@ -4898,3 +4898,27 @@ to two candidates — **do not fix on inference; one probe disambiguates.**
 | 2b | **IF (b) code — gating** | Fix the `keepPhotoreal` vs Forma-massing separation so OSM context massing is Forma-only and never composites over the photoreal tileset on the globe path (`restorePhotorealGlobeContent` / `invalidateFormaRealCacheOnPhotorealGlobeEntry`) |
 | 3 | **Do NOT force-hide context on the globe blindly** | That masks a missing-token infra failure behind a code patch — the fast-but-wrong shortcut |
 | 4 | **Founder live-verify** photoreal tiles return on the 3D globe (screenshot-4 state) | `pryzm.fly.dev` |
+
+## L-610 — map-wide data-coverage colouring (before plot selection) · Phase 5 · P2 · OWNER: UNASSIGNED · TARGET: TBD
+
+L-601's deferred UI half. See audit **L-610**. Held for founder go. Barcelona-first.
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | Source per-context-parcel zoning in bulk | The gating dependency — Barcelona MUC bulk clau layer; classify each visible parcel against the registered packs. Buildings need a building→parcel→zone join |
+| 2 | Wire `answerabilityClass` → a "Data coverage" colour mode | Reuse the CONTEXT-USE-COLOUR repaint path (L-599); green=full-envelope · amber=estimated/coverage-gap · grey=no-data/refusal |
+| 3 | Paint 3D (Cesium parcels + buildings) AND 2D plan parcels + a legend | The legend enumerates the classifier's SOURCE OF TRUTH (`ANSWERABILITY_CLASSES`), never a hand copy |
+| 4 | Founder live-verify on `pryzm.fly.dev` | Pick a well-covered plot by colour before drawing |
+
+## L-611 — buildable-envelope card ⇄ geometry bidirectional linking (selectable + queryable) · Phase 5 · P2 · OWNER: UNASSIGNED · TARGET: TBD
+
+New feature; extends L-603. See audit **L-611**. The CORRECT path is the Living-Graph/Inspect model,
+NOT one-off card onclicks.
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | Model the envelope's data as building-graph nodes with geometry refs | `@pryzm/building-graph` — each card datum (ordinance limit, storey band, footprint, capacity) is a node linked to its geometry |
+| 2 | Route selection through C27 Inspect + SelectionBus (not bespoke handlers) | Uniform with the rest of BIM selection; the fast-but-wrong shortcut is ad-hoc onclick→highlight |
+| 3 | Bidirectional: card row → highlight geometry; geometry pick → surface data | Both renderers (Cesium 3D · Three 3D · 2D plan) + the card |
+| 4 | Preserve the C23 "not derived" provenance honesty into the interactive rows | A `not derived` datum must stay visibly non-authoritative when clickable |
+| 5 | Fold in L-603 (clickable numbers) as the first slice | This item is its full bidirectional superset |
