@@ -1,8 +1,9 @@
 # Saudi Arabia (`sa`) — national data layer: what is true now
 
 **Level:** country (ISO 3166-1 alpha-2 `sa`) · **Law shape:** national footprint + municipal/authority
-vertical override · **Last updated:** 2026-07-23 · **Maintainer:** UNASSIGNED ·
-**Status:** national law read (`VERIFIED-LIVE` primary); Riyadh demo pack authored, not wired.
+vertical override · **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED ·
+**Status:** national law read (`VERIFIED-LIVE` primary); Riyadh demo pack authored, not wired; Jeddah +
+Dammam scaffolded; RATE + master study + regions + topics authored (2026-07-24).
 
 > Migrated from `docs/04-reference/saudi-arabia/` to the ISO tree on 2026-07-23 (L-606), matching
 > `jurisdictions/es/`. The demo city is **Riyadh** — see [`sa-01/ruh-riyadh/`](sa-01/ruh-riyadh/README.md).
@@ -91,11 +92,20 @@ Height/floors would be **planning-zone** granularity (municipal) — not held.
 
 ## 4 — Files here
 - `NEXT.md` — country overview: national blockers, TRIP-WIRES, resume steps.
+- `RATE.md` — data readiness rate (~55%), field-by-field, with the geo-fence caveat.
 - `SAUDI-ARABIA-ENTRY-ASSESSMENT.md` — the market-entry effort assessment (the reasoning of record).
 - `SAUDI-PRIMARY-DECISION-EXTRACT.md` — the primary 2024 MOMRAH decision, read live, page-cited.
 - `SAUDI-UMAPS-API-ENUMERATION.md` — the Balady parcel backend, enumerated (exists, geo-fenced).
+- `findings/SAUDI-MASTER-DATA-SOURCE-STUDY.md` — the full source + legal-mechanism study (synthesises the
+  three files above + the context-data-layer research).
+- `regions/README.md` — the 13-region admin hierarchy + routing (national footprint everywhere; exact
+  height/floors route to the Amana approved plan / dev-authority zone).
+- `topics/` — context-data layers: `buildings-lod-height.md`, `parks-trees.md`, `roads-pedestrian.md`,
+  `water.md` (GEOSA licensed; Balady geo-fenced; global ML fallbacks are the reachable layer).
 - `sources/SOURCES.md` · `sources/VERIFICATION.md` — the national trust gate.
 - `sa-01/ruh-riyadh/` — the **Riyadh demo** (the authored rule pack's provenance home).
+- `sa-02/jed-jeddah/` — **Jeddah** scaffold (Makkah Region; adds the Al-Balad UNESCO heritage overlay).
+- `sa-04/dmm-dammam/` — **Dammam** scaffold (Eastern Province; the cleanest of the three — no overlay).
 
 ## 5 — Open questions / unverified
 - Per-city machine-readable **exact** floor/height by zone (the value *beneath* the national ceiling):
