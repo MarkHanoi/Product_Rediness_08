@@ -1,20 +1,27 @@
-# Data Readiness Rate — Rome (058091)
+# Data Readiness Rate — Rome (`058091`)
 
 **Headline rate: ~5%**
 
-> **Structured dimensional fill rate**: the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (parcel geometry + tessuto classification + at least
-> one numeric building parameter) without reading the PRG NTA PDF.
+> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
+> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
+> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
+> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
+> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
+> assumed from the jurisdiction's open-data reputation.
 
 | Jurisdiction | Rate |
 |---|---|
 | Denmark | ~96% |
 | Madrid | ~68% |
+| Saudi (national) | ~55% |
 | Barcelona | ~48% |
+| Norway (national) | ~32% |
+| Germany (national) | ~28% |
+| France (national) | ~22% |
+| Italy (national) | ~9–11% |
 | Turin | ~12% (contingent) |
 | **Rome** | **~5%** |
 | Milan | ~5% |
-| Italy (national) | ~8% |
 
 Rome's 5% reflects: (1) Catasto WFS provides parcel geometry; (2) SITAP/Vincoli in Rete cover
 heritage overlays (informational only); (3) no machine-readable tessuto-classification layer has
@@ -28,17 +35,17 @@ legally contested and unresolved. Every numeric building parameter requires the 
 
 | Field | Structured? | Source | Score |
 |---|---|---|---|
-| Parcel geometry (Catasto) | ✅ Full (with caveat) | Agenzia delle Entrate WFS — CC BY 4.0. Not survey-grade. Not live-probed. | **~90%** |
-| Heritage overlay (SITAP) | ⚠️ Informational | SITAP web-GIS — informational only; acknowledged incomplete. Rome has very high heritage density (historic centre, archaeological areas). | **~30%** (Rome's density may mean more gaps than average) |
+| Parcel geometry (Catasto) | ✅ Full (with caveat) | Agenzia delle Entrate WFS `https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php` — CC BY 4.0. **✅ VERIFIED-LIVE 2026-07-24** for Rome (ISTAT code H501). Not survey-grade. | **~90%** |
+| Heritage overlay (SITAP/APAR) | ⚠️ Informational | APAR/SITAP — re-engineered with genuine OGC WMS/WFS (confirmed in documentation). **Unreachable from Replit 2026-07-24.** Informational only; acknowledged incomplete. Rome has very high heritage density (historic centre, archaeological areas). | **~30%** (Rome's heritage density may mean more gaps than average; public WFS access unconfirmed) |
 | Heritage overlay (Vincoli in Rete) | ⚠️ Informational | Same caveat. Rome has many listed buildings and archaeological zones. | **~25%** |
 | **PRG tessuto type identification** | ❌ Not confirmed | Roma Capitale SIT or geoportal (`sit.comune.roma.it`) — whether tessuto classification is WFS-queryable per parcel is unconfirmed. May require map-viewer navigation. | **~10%** (unconfirmed WFS; research-level only) |
 | **Direct/indirect intervention classifier** | ❌ Not built | Prerequisite: must classify each parcel as direct (Città Storica/Consolidata ordinary) vs indirect (Consolidata valorizzazione/Ristrutturare/Trasformazione) before any numeric lookup. | **~0%** (classifier not built) |
 | **Città Storica NTA rules (per tessuto)** | ❌ PDF | PRG 2008 NTA — point-by-point transformation rules per tessuto at 1:5,000. Not read. | **~0%** |
 | **Città Consolidata T1/T2/T3 rules** | ❌ PDF | PRG 2008 NTA — fabric-density typology rules for T1 (medium density), T2 (high density), T3 (free typology). Not read. | **~0%** |
-| **Carta per la Qualità overlay** | ❌ Machine-readability unknown | Carta catalogues archaeological, monumental, and fabric elements — whether exposed as GIS layer or only web viewer is unconfirmed. Precedence over tessuto rules is legally contested. | **~0%** |
+| **Carta per la Qualità overlay** | ❌ Machine-readability unknown | Carta catalogues archaeological, monumental, and fabric elements — whether exposed as GIS layer or only web viewer is unconfirmed. Precedence over tessuto rules is legally contested (tessuto may supersede Carta per amended NTA). | **~0%** |
 | **Città da Ristrutturare / Trasformazione** | ✅ Refusal (correct answer) | Indirect intervention = no numeric envelope until executive plan adopted. Correct answer: "refusal — indirect intervention regime, no numeric building envelope." | **100% (refusal answer only)** |
 | DM 1444 ceiling | ✅ Published ceiling | National upper bounds — NOT operative for Rome (tessuto mechanism supersedes zone-letter system). | **100% (ceiling; not operative)** |
-| Existing building heights (Lazio) | ❌ Unconfirmed | No Lazio-wide building-height GIS layer identified. Rome's SIT may carry building data; unknown. | **~0%** |
+| Existing building heights (Lazio) | ❌ Unconfirmed | No Lazio-wide building-height GIS layer identified. Rome's SIT may carry building data; unknown. OpenBuildingMap provides a modeled national estimate (~40–50%) but must be flagged as modeled. | **~0% (surveyed); ~40–50% (modeled — lower confidence tier)** |
 
 ---
 
@@ -75,5 +82,4 @@ structurally different classification approach:
 
 ---
 
-*Last updated: 2026-07-23. Research-level only — no live probes run. PRG 2008 tessuto mechanism
-confirmed in research; NTA primary text not read; tessuto WFS queryability unconfirmed.*
+*Last updated: 2026-07-24. Catasto WFS VERIFIED LIVE for Rome (ISTAT H501) 2026-07-24; PRG tessuto WFS queryability and all rule values unconfirmed by live probe; NTA primary text not read. Maintainer: UNASSIGNED.*
