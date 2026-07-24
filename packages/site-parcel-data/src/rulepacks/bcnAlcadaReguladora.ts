@@ -145,6 +145,68 @@ export function effectiveBandEdgeGuard_m(measurementSpread_m?: number | null): n
         : BAND_EDGE_GUARD_M;
 }
 
+/**
+ * BARCELONA-GIS-AUDIT-SPIKE — the storey MODULE implied BY the Art. 327.2 table, for turning an
+ * EXTERNALLY-SOURCED floor count (the AMB Refós `OV_Trames.PLANTES`) into an approximate height.
+ *
+ * WHY THIS IS HERE AND NOT A NEW NUMBER. The clau-18 volumetric path resolves a FLOOR COUNT from
+ * the Refós (`B+7`, …), not a height in metres — the height still needs a floors→metres convention.
+ * The Art. 327.2 table already encodes one: its six bands are a straight line
+ * `height = base + module × floorsAboveGround`, with `module = (23.8 − 8.55)/(6 − 1) = 3.05` m and
+ * `base = 8.55 − 3.05 = 5.5` m (check: `5.5 + 3.05×5 = 20.75` ✓, the PB+5 band). Reusing THAT slope
+ * — rather than inventing a per-floor figure — is the point: the conversion inherits the table's own
+ * storey module instead of a second, free-to-disagree constant.
+ *
+ * ⚠⚠ IT IS AN ESTIMATE, AND IT IS WHY THE clau-18 ENVELOPE IS `estimated-ruleset`, NEVER
+ * `structured`. Two honest limits:
+ *   1. The table is clau-13a's (Subzona I). Its storey module is a reasonable Barcelona residential
+ *      convention, but it is not clau 18's OWN sourced floor-height — clau 18 has none (its height
+ *      is the drawn volumetric ordering). So a metre height here is a convention applied to a
+ *      sourced floor count, not a sourced height.
+ *   2. The table's bands stop at PB+6 (`height_m` up to 23.8 m); clau-18 `OV_Trames` reaches B+32.
+ *      For floor counts INSIDE the table we return the band's certified height verbatim; ABOVE it we
+ *      EXTRAPOLATE on the same slope and say so (`basis: 'table-module-extrapolated'`).
+ */
+export const BCN_STOREY_MODULE_M = 3.05;
+export const BCN_GROUND_FLOOR_DATUM_M = 5.5;
+
+export type FloorsToHeightBasis = 'table-exact' | 'table-module-extrapolated';
+
+export interface FloorsToHeight {
+    /** *Alçada reguladora* estimate, metres. */
+    readonly height_m: number;
+    /**
+     * `table-exact` — the floor count matched a real Art. 327.2 band; `height_m` is that band's
+     * certified figure. `table-module-extrapolated` — above the table's PB+6, computed on the
+     * table's own storey module. The caller MUST surface the latter as an estimate.
+     */
+    readonly basis: FloorsToHeightBasis;
+}
+
+/**
+ * BARCELONA-GIS-AUDIT-SPIKE — convert a floor count (storeys ABOVE the ground floor, e.g. the `7` in
+ * `B+7`) to an *alçada reguladora* estimate, reusing the Art. 327.2 table (see the module comment).
+ *
+ * Returns `null` for a non-positive / non-integer input rather than guessing. Within the table's
+ * PB+1..PB+6 range the answer is the band's certified height; above it, an extrapolation on the
+ * table's storey module, flagged so the caller tiers it as an estimate.
+ *
+ * ⚠ NOT a certified height — see the module comment's two honest limits. The clau-18 envelope that
+ * consumes this is `estimated-ruleset` for exactly this reason.
+ */
+export function heightFromFloorsAboveGround(floorsAboveGround: number): FloorsToHeight | null {
+    if (!Number.isInteger(floorsAboveGround) || floorsAboveGround < 1) return null;
+    const band = BCN_ALCADA_REGULADORA_TABLE.find(
+        (b) => b.floorsAboveGround === floorsAboveGround,
+    );
+    if (band) return { height_m: band.height_m, basis: 'table-exact' };
+    // Above PB+6 — extrapolate on the table's own slope. ESTIMATE.
+    return {
+        height_m: BCN_GROUND_FLOOR_DATUM_M + BCN_STOREY_MODULE_M * floorsAboveGround,
+        basis: 'table-module-extrapolated',
+    };
+}
+
 export type AlcadaResolution =
     | {
           readonly ok: true;

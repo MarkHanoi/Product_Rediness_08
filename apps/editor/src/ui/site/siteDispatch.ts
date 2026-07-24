@@ -126,6 +126,17 @@ import {
     CORDOBA_ENVELOPE_VERIFIED,
     cordobaUnverifiedRefusal,
     cordobaNoRulePackRefusal,
+    // BARCELONA-GIS-AUDIT-SPIKE — clau 18 (volumetria específica) explicit-area path. The AMB Refós
+    // OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its UNREGISTERED
+    // pack. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while closed, clau 18 keeps its cited
+    // refusal (`resolveZoneDisposition` still refuses it) and this branch is skipped entirely.
+    resolveBcnRefosOV,
+    BCN_REFOS_OV_RING_REF,
+    BCN_REFOS_OV_CERTIFIED,
+    ES_BARCELONA_VOLUMETRIA_18_PACK,
+    BCN_VOLUMETRIA_18_ZONE_CODE,
+    BCN_VOLUMETRIA_18_ORDINANCE_REF,
+    heightFromFloorsAboveGround,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1439,6 +1450,155 @@ async function applyCordobaZoningThenFallback(
 }
 
 /**
+ * BARCELONA-GIS-AUDIT-SPIKE §BCN-CLAU18-OV — attempt the clau-18 (*volumetria específica*)
+ * `explicit-area` envelope from the AMB Refós OV_Trames layer (a published volumetric footprint +
+ * a PLANTES floor count). Returns `true` iff it dispatched a constructed envelope; `false` on ANY
+ * miss, in which case the caller shows the existing cited clau-18 refusal (an absent number costs
+ * nothing; a wrong one costs credibility).
+ *
+ * ⚠ THE CALLER GATES THIS ON `BCN_REFOS_OV_CERTIFIED` (default OFF) — this function is not even
+ * reached while the L-449 certification is unsigned. When it is reached, the envelope it dispatches
+ * is `estimated-ruleset`, NEVER `structured`: the footprint is live Refós DATA but its vintage is
+ * uncertified, and the metre height is a floors→metres CONVENTION (Art. 327.2 storey module) applied
+ * to a sourced floor count, not a sourced height. Both facts ride as caveats naming the AMB Refós.
+ *
+ * FRAME: identical to `applyMadridZoningThenFallback` — the OV ring returns WGS84 and is projected
+ * into the SAME authoring frame (origin + θ) the parcel already lives in, then clipped to the parcel
+ * by `computeBuildableEnvelope`'s explicit-area branch. Best-effort; never throws.
+ */
+async function tryBcnClau18Volumetria(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    clauLabel: string | null,
+): Promise<boolean> {
+    const TAG = '[gis][c58] §BCN-CLAU18-OV';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) return false;
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return false;
+
+        // (1) Resolve the published volumetric footprint + PLANTES at the parcel point (WGS84).
+        // Never throws; a typed refusal → we return false and the caller keeps the clau-18 refusal.
+        const resolution = await resolveBcnRefosOV(BCN_REFOS_OV_RING_REF, { lat, lon });
+        if (!resolution.ok || resolution.ringLatLon.length < 3) {
+            console.log(
+                `${TAG} OV not resolved (${resolution.ok ? 'degenerate-ring' : resolution.reason}) — refusal stands.`,
+            );
+            return false;
+        }
+
+        // (2) The floor count → an *alçada* estimate, reusing the Art. 327.2 storey module. A count
+        // that cannot convert (non-positive) → refuse rather than publish a footprint with no height.
+        const h = heightFromFloorsAboveGround(resolution.plantes.floorsAboveGround);
+        if (!h) {
+            console.log(`${TAG} PLANTES "${resolution.plantes.raw}" → no height — refusal stands.`);
+            return false;
+        }
+
+        // (3) Project the WGS84 OV ring into the parcel's authoring frame (origin + θ). Same
+        // transform as the Madrid explicit-area path; any other frame yields a garbage clip.
+        const origin = { lat: site.location.latitude, lon: site.location.longitude };
+        const rawTheta = site.location.trueNorth;
+        const theta = Number.isFinite(rawTheta) ? rawTheta : 0;
+        const toAuthoringFrame = (p: LatLon): Pt => {
+            const xz = latLonToSceneXZ(p, origin.lat, origin.lon);
+            if (theta === 0) return { x: xz.x, z: xz.z };
+            const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+            return { x: e.east, z: -e.north };
+        };
+        const footprintRing: Pt[] = resolution.ringLatLon.map((ll) =>
+            toAuthoringFrame({ lat: ll.lat, lon: ll.lon }),
+        );
+
+        // (4) Clip parcel ∩ OV footprint via the engine's explicit-area branch (the pack states no
+        // parameters; its geometricRule is `explicit-area` with the OV ringRef).
+        const record: ZoningRecord = {
+            zoneCode: BCN_VOLUMETRIA_18_ZONE_CODE,
+            zoneLabel: clauLabel ?? 'Ordenació en volumetria específica (clau 18)',
+            jurisdictionId: BCN_JURISDICTION_ID,
+            structuredFields: {},
+            overlays: [],
+            ordinanceRef: null, // the pack zone supplies the citation.
+            provenance: {
+                source: 'catastro-muc',
+                label: 'AMB Refós de Planejament — OV_Trames (ordenació volumètrica) + MUC clau',
+                version: null,
+                license: null,
+                crs: 'EPSG:3857',
+            },
+        };
+        const envelope = computeBuildableEnvelope({
+            parcelRing: boundary.polygon,
+            edgeClassifications: boundary.edgeClassifications,
+            zoning: record,
+            rulePack: ES_BARCELONA_VOLUMETRIA_18_PACK,
+            explicitAreaFootprint: footprintRing,
+        });
+        if (envelope.status !== 'ok' || envelope.insetPolygon.length < 3) {
+            console.log(`${TAG} explicit-area clip status=${envelope.status} — refusal stands. caveats: ${envelope.caveats.join(' | ')}`);
+            return false;
+        }
+
+        // (5) The engine leaves height/floors null (the pack states none). Attach the OV-derived
+        // floor count + the storey-module height here — the same enrichment shape as the §L-591 20a
+        // FAR fill — and re-derive the study volume. Confidence STAYS `estimated-ruleset` (the engine
+        // never upgrades it: the `block-constructed` upgrade keys on an `alignment.depthBinding` row
+        // that an explicit-area solve does not emit). NEVER `structured`.
+        const totalStoreys = resolution.plantes.totalStoreys;
+        const heightBasisNote =
+            h.basis === 'table-exact'
+                ? 'height from the PGM Art. 327.2 storey table for that floor count'
+                : 'height EXTRAPOLATED on the Art. 327.2 storey module (the floor count exceeds the ' +
+                  'table’s PB+6 range) — an estimate';
+        const atticNote = resolution.plantes.hasAttic
+            ? ' The top floor is an àtic (recessed penthouse), counted but not set back in this massing.'
+            : '';
+        const enriched: BuildableEnvelope = {
+            ...envelope,
+            maxHeight_m: h.height_m,
+            maxFloors: totalStoreys,
+            maxVolumeM3: Number.isFinite(envelope.insetAreaM2) ? envelope.insetAreaM2 * h.height_m : envelope.maxVolumeM3,
+            derivation: [
+                ...envelope.derivation,
+                {
+                    constraint: 'maxHeight' as const,
+                    value: h.height_m,
+                    zoneCode: BCN_VOLUMETRIA_18_ZONE_CODE,
+                    source:
+                        `AMB Refós OV_Trames PLANTES=${resolution.plantes.raw} ` +
+                        `(${resolution.plantes.floorsAboveGround} above ground) → ${heightBasisNote}`,
+                    fieldProvenance: 'estimated' as const,
+                    ordinanceRef: BCN_VOLUMETRIA_18_ORDINANCE_REF,
+                },
+            ],
+            caveats: [
+                ...envelope.caveats,
+                `clau 18 (ordenació en volumetria específica): the buildable footprint and the ` +
+                    `floor count (${resolution.plantes.raw}) come from the AMB "Refós de Planejament" ` +
+                    `OV_Trames layer${resolution.clau ? ` (CLAU ${resolution.clau}` : ''}` +
+                    `${resolution.expedient ? `, exp. ${resolution.expedient})` : resolution.clau ? ')' : ''}. ` +
+                    `The Refós is a transcripció gràfica i alfanumèrica whose vintage is ` +
+                    `UNCERTIFIED. The metre height is a floors→metres convention (${heightBasisNote}), not ` +
+                    `a sourced clau-18 height.${atticNote} Verify against the fitxa urbanística before relying on it.`,
+            ],
+        };
+
+        dispatchEnvelope(ctx, site.id, enriched, 'muc-catastro');
+        console.log(
+            `${TAG} OV envelope OK → PLANTES=${resolution.plantes.raw} floors=${totalStoreys} ` +
+                `height=${h.height_m.toFixed(2)}m (${h.basis}) inset=${enriched.insetAreaM2.toFixed(1)}m² ` +
+                `clau=${resolution.clau ?? 'n/a'} exp=${resolution.expedient ?? 'n/a'} — estimated-ruleset, gate CERTIFIED.`,
+        );
+        return true;
+    } catch (e) {
+        console.warn(`${TAG} clau-18 OV path failed (non-fatal) — refusal stands:`, e);
+        return false;
+    }
+}
+
+/**
  * ADR-0271 §BCN-REAL-ENVELOPE — the Barcelona (Eixample) path. Resolves a REAL, CITED
  * buildable envelope for a clau 13a/13E parcel: the *profunditat edificable* is CONSTRUCTED
  * from the block per PGM Art. 242.2 (`ES_BARCELONA_ENSANCHE_PACK` +
@@ -1532,6 +1692,23 @@ async function applyBcnZoningThenFallback(
             knownFacts,
         });
         if (disposition.kind === 'refusal') {
+            // ── BARCELONA-GIS-AUDIT-SPIKE — clau 18 (*volumetria específica*): the AMB Refós ALREADY
+            //    PUBLISHES the volumetric ordering as geometry (OV_Trames: footprint + PLANTES floor
+            //    count). clau 18 is a `derived-plan` refusal in the registry, and STAYS one until
+            //    `BCN_REFOS_OV_CERTIFIED` (default OFF, L-449 gate) is signed. While the gate is
+            //    closed this is skipped and the cited refusal below is what renders — the current,
+            //    honest shipping state. When ON, we attempt the constructed `explicit-area` envelope;
+            //    on any failure we fall through to the SAME refusal (an absent number costs nothing).
+            //    ⚠ Guarded to clau EXACTLY '18': other `derived-plan` claus (14a/15/16/17…) have no
+            //    OV footprint and must keep refusing.
+            if (BCN_REFOS_OV_CERTIFIED && clau === BCN_VOLUMETRIA_18_ZONE_CODE) {
+                const rendered = await tryBcnClau18Volumetria(ctx, boundary, lat, lon, qual.clauLabel ?? null);
+                if (rendered) {
+                    console.log(`${TAG} §BCN-CLAU18-OV constructed envelope from the AMB Refós OV — certified gate ON.`);
+                    return;
+                }
+                console.log(`${TAG} §BCN-CLAU18-OV no usable OV footprint — falling through to the cited clau-18 refusal.`);
+            }
             // §L-550 PHASE-1B — THE ORDINANCE ANSWERS, AND ITS ANSWER IS "NO ENVELOPE".
             //
             // This is the branch that makes "PRYZM refuses rather than guesses" TRUE. Before it,

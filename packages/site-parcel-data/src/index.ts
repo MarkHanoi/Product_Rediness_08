@@ -201,6 +201,13 @@ export {
     // §L-586 — the guard is the substitution allowance OR the measurement's own error bar,
     // whichever is larger. Exported so a caller can report the guard it was actually judged by.
     effectiveBandEdgeGuard_m,
+    // BARCELONA-GIS-AUDIT-SPIKE — floors→height (Art. 327.2 storey module), for the clau-18
+    // volumetric path: an EXTERNALLY-sourced floor count (AMB Refós PLANTES) → an *alçada* estimate.
+    heightFromFloorsAboveGround,
+    BCN_STOREY_MODULE_M,
+    BCN_GROUND_FLOOR_DATUM_M,
+    type FloorsToHeight,
+    type FloorsToHeightBasis,
     type AlcadaBand,
     type AlcadaResolution,
 } from './rulepacks/bcnAlcadaReguladora.js';
@@ -384,6 +391,31 @@ export {
     type MadridRingResolution,
     type MadridRingRefusalReason,
 } from './providers/resolveMadridNZ1Ring.js';
+// ── BARCELONA-GIS-AUDIT-SPIKE — Barcelona clau 18 (volumetria específica) explicit-area path. ──
+// The AMB Refós OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its
+// UNREGISTERED explicit-area pack declaration. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while
+// closed, clau 18 keeps its cited refusal and nothing here renders. See `bcnRefosOVProvider.ts`.
+export {
+    resolveBcnRefosOV,
+    parsePlantes,
+    BCN_REFOS_OV_CERTIFIED,
+    BCN_REFOS_OV_RING_REF,
+    BCN_REFOS_OV_PATH,
+    BCN_REFOS_OV_LAYER,
+    BCN_INE_CODE,
+    type BcnLngLat,
+    type BcnRefosOVDeps,
+    type BcnRefosOVResolution,
+    type BcnRefosOVRefusalReason,
+    type ParsedPlantes,
+} from './providers/bcnRefosOVProvider.js';
+export {
+    ES_BARCELONA_VOLUMETRIA_18_PACK,
+    BCN_VOLUMETRIA_18_RULE,
+    BCN_VOLUMETRIA_18_ZONE_CODE,
+    BCN_VOLUMETRIA_18_ZONE_CODES,
+    BCN_VOLUMETRIA_18_ORDINANCE_REF,
+} from './rulepacks/esBarcelonaVolumetria18.js';
 // ── ADR-0271 P4 — block (manzana) ring dissolve + street-frontage classification. ──
 // The pure producers the block-derived-alignment envelope needs; the L5 editor injects
 // their results into `computeBuildableEnvelope` (roads/parcels are fetched at the edge).
