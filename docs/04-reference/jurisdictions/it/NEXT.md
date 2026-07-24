@@ -1,84 +1,83 @@
 # NEXT — Italy (`it`)
 
-> **Last updated:** 2026-07-23 · **Maintainer:** UNASSIGNED · **Status:** RESEARCH COMPLETE — no live probes run; no packs started
+> **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED · **Status:** RESEARCH COMPLETE — live probe session run 2026-07-24; several blockers resolved or partially resolved; no packs started
 
 ---
 
 ## 1 — WHERE WE STOPPED (the one-paragraph truth)
 
-The Italy master study is complete at the mechanism-characterisation level. The three-layer structure
-(national Catasto + regional instrument + municipal plan) is documented, the 21 regional-instrument
-variants are mapped, the national floor rules (DM 1444, Codice Civile Art. 873, DPR 380/2001 Art.
-2-bis) are cited, and the three target cities (Turin, Milan, Rome) are individually scoped with rough
-dev-day estimates. No live probe has been run against any Italian endpoint — not the Catasto WFS,
-not the Lombardy Geoportale, not the Piedmont PRG mosaic, not SITAP. The first engineering task for
-any Italian city is therefore a **live-probe session** (Catasto WFS field schema + regional zoning
-WFS status), followed immediately by reading Turin's PRG NTA primary text to confirm or disprove the
-Tier 1 zone-letter assumption before any dev estimate is committed.
+The Italy master study is complete at the mechanism-characterisation level, and a live-probe session
+was run on 2026-07-24. **Catasto WFS is fully confirmed live and public** (URL correction: `owfs01.php`,
+not `ows01_CXF.php`). Bolzano's GeoServer WMS is confirmed live at `geoservices1.civis.bz.it`; a
+ZoningPlan WFS is confirmed in metadata (CC0, updated daily) but could not be confirmed live from
+Replit's IP range. ARPA Piemonte Edifici 3D WMS is confirmed live; height field name not yet
+confirmed. Turin PRG "Zone di Piano" WMS is confirmed live (updated 2025-06-30); zip vector download
+is restricted. SITAP/APAR remains unreachable from Replit. Lombardy PGT WFS endpoint not found.
+The next concrete step is to test the Bolzano WFS from a non-Replit IP, read Turin PRG NTA (B2),
+and confirm ARPA Piemonte height field name by probing the FeatureServer from a browser.
 
 ---
 
 ## 2 — THE NUMBER (what % of clicks, which denominator, and why)
 
-**Full-envelope resolution: 0% (not started).** National rate estimate: ~8% (see `RATE.md`).
+**Full-envelope resolution: 0% (not started).** National rate estimate: ~9–11% (see `RATE.md`).
 Denominator: all Italian parcels outside AP Trento and Bolzano (covered by Agenzia delle Entrate
-Catasto WFS). Neither numerator nor denominator is measured from a live probe — all figures are
-research-level estimates.
+Catasto WFS). **Catasto parcel geometry is now live-probe confirmed** (2026-07-24). All zoning,
+height, and floor-area figures remain research-level estimates — no operative rule value has been
+confirmed by live probe.
 
 ---
 
 ## 3 — BLOCKERS (ordered by dependency)
 
-### B0 — AP Bolzano NewPlan not probed (potential Tier 0 — highest-value unverified lead)
+### B0 — AP Bolzano WFS ZoningPlan — partially confirmed; public access unverifiable from Replit
 
-- **What it is.** South Tyrol (AP Bolzano) runs NewPlan — a geographic information system for
-  integrated management of territorial plans, unifying urban planning and landscape-constraint
-  layers. The province makes geodata freely available via WMS/WMTS/WFS/WCS, CC0 by default, since
-  2007. If the planning layer is public and parcel-queryable via WFS, this may be closer to
-  Denmark's ~96% than Italy's ~8% — the strongest Italian jurisdiction found in any research pass.
-- **Why it blocks.** If confirmed, Bolzano becomes Tier 0 (pre-Turin in implementation priority);
-  the entire Italy tier list re-orders. If denied (geobrowser-only or institution-restricted), it
-  reverts to a standard Tier 3 exception needing its own separate cadastral + planning integration.
-- **What would unblock it.** (1) Confirm WFS endpoint for the planning/zoning layer exists and is
-  publicly accessible; (2) run a GetFeature for a Bolzano parcel bbox and inspect whether zoning
-  attributes (zone type, permitted height, density index) are present; (3) confirm CC0 licence
-  applies to the planning layer specifically, not just base cartography.
-- **THE EXACT RESUME STEP.**
+**LIVE PROBE RUN 2026-07-24. Status: PARTIALLY RESOLVED — WMS live; WFS timed out from Replit.**
+
+- **What is now confirmed:**
+  - **GeoServer WMS LIVE:** `https://geoservices1.civis.bz.it/geoserver/p_bz-TerritorialPlans/ows` responds with full GetCapabilities. Key planning layers: `LandscapePlan-Zoning` (Zonierung/Zonizzazione), `LandscapePlan-LandCover`, `CivilProtectionPlan`. Service title: "Web Map Service: R28" (Abteilung Natur, Landschaft und Raumentwicklung).
+  - **ZoningPlan metadata confirmed (CC0):** INSPIRE record `p_bz:TerritorialPlans:UrbanPlan-ZoningPlan` (geonetwork1.civis.bz.it) confirms: CC0 licence, no public access limitations, updated **daily**, scale 1:5000, CRS ETRS89/ETRS-TM32, distribution format WMS 1.3.0.
+  - **INSPIRE LandUse.ZoningElement record (2024):** `p_bz:Inspire:LandUse.ZoningElement` (demo-geonetwork1.civis.bz.it, created 2024-03-15) confirms: distribution formats **WFS 2.0.0 + WMS 1.3.0**, CC0, biannual update, 1:5000. This is the INSPIRE-compliant zoning-element layer.
+  - **NewPlan portal LIVE:** `https://newplan.civis.bz.it/` is a live OpenLayers-based viewer (current as of 2026-07-24). Frontend planning portal — login is available but not required to view.
+  - **mapproxy is WMS-only:** `geoservices.buergernetz.bz.it/mapproxy/ows` confirmed WMS-only (no WFS). Old `geoservices.buergernetz.bz.it/geoserver` returns 404.
+  - **Correct GeoServer host:** `geoservices1.civis.bz.it` (note the `1`; the old `geoservices.buergernetz.bz.it/geoserver` path is dead).
+- **What remains unconfirmed:** WFS GetCapabilities on the GeoServer timed out from Replit — unable to confirm which feature type names carry the zoning polygon layer, or whether WFS is accessible without login. The INSPIRE metadata says WFS 2.0.0 exists; the specific WFS endpoint URL for the ZoningElement layer is not in the metadata record retrieved.
+- **THE EXACT RESUME STEP (updated).**
   ```bash
-  # Probe the South Tyrol geobrowser / WFS entry point
-  curl "https://geokatalog.buergernetz.bz.it/geokatalog/" | head -40
-  # Search for NewPlan WFS endpoint
-  curl "https://geoservices.buergernetz.bz.it/mapproxy/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
-    | grep -i 'plan\|zona\|urb\|prg\|pct' | head -20
-  # Alternative: check the GeoServer instance
-  curl "https://geoservices.buergernetz.bz.it/geoserver/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
-    | grep -i 'plan\|zona\|urb' | head -20
+  # Try the GeoServer WFS from outside Replit (browser or curl from non-Replit IP)
+  curl "https://geoservices1.civis.bz.it/geoserver/p_bz-TerritorialPlans/ows?\
+  SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
+    | grep -iE '<Name>|FeatureType' | head -40
+  # If successful, run a GetFeature for Bolzano city centre bbox
+  # Bolzano centre: lat 46.4983, lon 11.3548 (ETRS-TM32 approx: E 686000, N 5151000)
+  # Also try the INSPIRE endpoint from demo-geonetwork1:
+  curl "https://geoservices1.civis.bz.it/geoserver/p_bz-Inspire/ows?\
+  SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | grep -i 'Name' | head -30
   ```
+  Confirm: (1) WFS layer name for zoning polygons; (2) whether zone-type and building-parameter attributes are present in the feature properties; (3) licence is CC0 (already confirmed in metadata).
 
-### B1 — Catasto WFS not live-probed (gate for ALL Italian parcel work)
+### B1 — Catasto WFS — ✅ RESOLVED (live-probed 2026-07-24)
 
-- **What it is.** The Agenzia delle Entrate WFS (`wfs.cartografia.agenziaentrate.gov.it`) is
-  confirmed at research level as CC BY 4.0 and covering the entire national territory (except
-  AP Trento and Bolzano). Field schema, authentication requirements, and GetFeature response
-  format have not been confirmed by direct query.
-- **Why it blocks.** All downstream parcel-level work depends on confirmed parcel geometry
-  access. If the WFS requires authentication or returns a non-standard schema, a different
-  access path (bulk download from the Feb 2025 release) must be planned.
-- **What would unblock it.** Run a GetCapabilities + one bbox GetFeature over a known Turin,
-  Milan, or Rome parcel.
-- **THE EXACT RESUME STEP.**
-  ```bash
-  # Step 1: GetCapabilities
-  curl "https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/ows01_CXF.php\
-  ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | head -80
+**CONFIRMED LIVE AND PUBLIC. No authentication required. URL corrected in all files.**
 
-  # Step 2: GetFeature — one Turin parcel bbox (~45.0703, 7.6869 — central Turin)
-  curl "https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/ows01_CXF.php\
-  ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
-  &TYPENAMES=cp:CadastralParcel\
-  &BBOX=7.683,45.067,7.692,45.074,EPSG:4326\
-  &SRSNAME=EPSG:4326&COUNT=3&OUTPUTFORMAT=application/json" | python3 -m json.tool | head -40
-  ```
+- **Confirmed endpoint:** `https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php`
+  ⚠️ **URL CORRECTION:** All prior docs used `ows01_CXF.php` — that path does NOT work. Correct file is `owfs01.php`. This correction has been applied to `SOURCES.md`.
+- **Feature types confirmed:**
+  - `CP:CadastralParcel` (Particelle) — individual cadastral parcel polygons
+  - `CP:CadastralZoning` (Mappe) — cadastral sheet (foglio) boundaries
+- **Default CRS:** EPSG:6706 (GRS80 geographic). **BBOX axis order is lat_min,lon_min,lat_max,lon_max** (not the GeoJSON/WGS84 lon/lat order — this is the critical implementation gotcha).
+- **Fields on `CP:CadastralParcel`:**
+  - `msGeometry` — polygon geometry
+  - `INSPIREID_LOCALID` — e.g. `IT.AGE.PLA.L219_128000.1`
+  - `INSPIREID_NAMESPACE` — e.g. `IT.AGE.PLA.`
+  - `LABEL` — parcel number within the foglio (e.g. `1`)
+  - `NATIONALCADASTRALREFERENCE` — foglio + particella (e.g. `L219_128000.1` for Turin foglio 128000 particella 1)
+  - `ADMINISTRATIVEUNIT` — ISTAT municipality code (e.g. `L219` = Turin, `F205` = Milan, `H501` = Rome)
+- **Confirmed live for:** Turin (`L219`), Milan (`F205`), Rome (`H501`) — GetFeature returns real parcel polygons with full geometry at all three locations.
+- **Licence:** CC BY 4.0 (confirmed in GetCapabilities `<ows:Fees>` field).
+- **Pagination:** supported via `COUNT` + `STARTINDEX`; `next` URL in response for continuation.
+- **No auth required:** response arrives without any API key or token.
+- **Remaining gap:** `CP:CadastralZoning` (sheet-level boundaries) and `CP:CadastralParcel` are the only two feature types — no zone/planning data is in the Catasto WFS itself.
 
 ### B2 — Turin PRG NTA primary text not read (gate for Tier 1 classification) — UPDATED: now a moving target
 
@@ -107,21 +106,18 @@ research-level estimates.
   Then: search `comune.torino.it` for "DCC 123 2026" and "variante PRG" to locate the preliminary
   revision text and assess its zone-classification structure.
 
-### B3 — Piedmont PRG mosaic WFS currency unconfirmed for Turin
+### B3 — Turin PRG zoning — WMS confirmed live; vector download restricted; PRG revision still unread
 
-- **What it is.** Piedmont's regional PRG mosaic WMS/WFS is documented as covering destinazioni
-  d'uso, vincoli, and piani esecutivi — but with explicitly uneven currency. The metadata flags
-  that provincial capitals and the metropolitan area were among the more recently updated zones,
-  so Turin is *plausibly* better-covered than the regional average, but this is not confirmed.
-- **Why it blocks.** Without knowing the WFS field schema and the date of the Turin layer, we
-  cannot confirm whether a zone-letter query against the mosaic would return current, operative
-  data or a stale snapshot.
-- **THE EXACT RESUME STEP.** Live-probe the Piedmont geoportal WFS:
-  ```bash
-  curl "https://www.geoportale.piemonte.it/geoserver/wfs\
-  ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | grep -i 'prg\|urb\|zona\|piano'
-  # Then GetFeature for a Turin parcel bbox to inspect field names and data-currency metadata
-  ```
+**PARTIALLY UPDATED 2026-07-24 (live probe session).**
+
+- **Turin PRG WMS confirmed live:** `https://geomap.reteunitaria.piemonte.it/ws/siccms/coto-01/wmsg01/wms_sicc23_prg_azzonamento` — GetCapabilities returns successfully. Layers confirmed: `PRGAzzonamento` (root group), `PUSP` (Progetti unitari su suolo pubblico), `AreeDiPiano`, `ZonediPiano`, `LimitiZoneDiPiano`. Service title: "Città di Torino — PRG Azzonamento". Operator: Comune di Torino via Rete Unitaria Piemonte.
+- **"Zone di Piano" dataset currency:** metadata record `c_l219:71bd559a-de54-4ebc-84c4-4c304a53a720` (Comune di Torino) shows date-of-revision **2025-06-30** — very recently updated. INSPIRE theme: Land Use. Keywords: PRG, zone di piano, azzonamento.
+- **Vector download status:** `http://geoportale.comune.torino.it/sec/zip/zone_di_piano.zip` — labelled "accesso riservato" (restricted access). WMS is public for visualization; the vector layer download requires a Comune di Torino institutional login.
+- **Piedmont regional WFS:** `geoportale.piemonte.it/geoserver/ows` timed out / returned empty from Replit. The regional PRG mosaic WFS could not be probed. Piedmont's regional portal has 174 WFS records but the specific PRG mosaic WFS feature type name was not confirmed. The "Mosaicatura PRG (Storico)" record is explicitly labelled historical.
+- **What remains unresolved:** (1) The Piedmont regional WFS layer name for the current PRG mosaic (as distinct from the historic raster mosaic); (2) whether a non-restricted WFS endpoint for Turin's "Zone di Piano" layer exists; (3) the PRG NTA text and DCC 123 revision structure (B2 — unchanged).
+- **THE EXACT RESUME STEP (updated).**
+  - To get Turin vector zoning data: request "accesso riservato" access to `zone_di_piano.zip` from Comune di Torino geoportal. Alternatively: check if the WMS supports GetFeatureInfo on the `ZonediPiano` layer (which could return zone attributes from the public WMS without vector download).
+  - To probe Piedmont regional mosaic: try `https://www.geoportale.piemonte.it/geoserver/Urbanistica/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities` from a non-Replit IP (direct curl or browser).
 
 ### B4 — Lombardy Geoportale PGT WFS queryability unconfirmed (Milan prerequisite)
 
@@ -139,42 +135,41 @@ research-level estimates.
   ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | grep -i 'pgt\|piano\|zona\|urb'
   ```
 
-### B5 — APAR/SITAP WFS public-access status unconfirmed (status upgraded from web-GIS-only)
+### B5 — APAR/SITAP WFS public-access status — confirmed unreachable from Replit
 
-- **What it is.** SITAP has been re-engineered as **APAR/SITAP** and now complies with OGC
-  standards, delivering WMS and WFS cartographic services (confirmed in guida v2.0.0 documentation,
-  behind `sitap.cultura.gov.it`). The data is genuine vector (polygon, line, point features) —
-  not raster tiles. This is a material upgrade from the original "web-GIS only" characterisation.
-- **What remains unconfirmed.** Whether the WFS endpoint is publicly accessible or restricted to
-  MiBACT-affiliated users. The documentation was found as v2.0.0 guida text, not a confirmed open
-  public endpoint probe.
-- **Why it still blocks.** If public: heritage overlay becomes automatable via WFS per-parcel
-  intersection — a meaningful pipeline step. If institution-restricted: same scrape/manual path as
-  before.
-- **THE EXACT RESUME STEP.** Probe the APAR/SITAP WFS endpoint directly:
+**PROBE RUN 2026-07-24. Status: BLOCKED FROM REPLIT. Public access still unconfirmed.**
+
+- **Probe result:** Both `sitap.cultura.gov.it` and `sitap.beniculturali.it` returned empty responses from Replit's IP range. Neither ArcGIS REST (`/arcgis/rest/services?f=json`) nor OGC WFS paths could be reached. The service may block cloud/datacenter IP ranges, may require VPN, or may simply be unreliable.
+- **What remains unconfirmed.** Whether the APAR/SITAP WFS is public or MiBACT-restricted. The OGC upgrade (WFS 2.0.0 + WMS) is confirmed in documentation; public access is not.
+- **THE EXACT RESUME STEP (updated).** Test from a residential/office IP (not a cloud host):
   ```bash
-  curl "https://sitap.cultura.gov.it/arcgis/rest/services?f=json" 2>/dev/null | head -40
-  # If that 404s, try the legacy path:
-  curl "https://sitap.beniculturali.it/arcgis/rest/services?f=json" 2>/dev/null | head -40
-  # Or attempt OGC WFS GetCapabilities:
   curl "https://sitap.cultura.gov.it/geoserver/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" \
-    | grep -i 'sitap\|vincolo\|paesaggio' | head -20
+    | grep -i 'Name\|Title\|vincolo\|paesaggio' | head -20
+  # Or try the ArcGIS REST path:
+  curl "https://sitap.cultura.gov.it/arcgis/rest/services?f=json" | head -40
   ```
+  Alternatively: send an email to the SITAP team (`cartografia@cultura.gov.it`) asking for the public OGC endpoint — the guida v2.0.0 was distributed publicly so a public endpoint may exist but require registration.
 
-### B6 — ARPA Piemonte Edifici 3D endpoint and field schema unconfirmed
+### B6 — ARPA Piemonte Edifici 3D — WMS and FeatureServer confirmed; height field name still needed
 
-- **What it is.** ARPA Piemonte's Edifici 3D dataset (per-building volumetric footprints with
-  mean elevation for all of Piedmont) is confirmed to exist and to derive height from BDTRE +
-  terrain sources, with a per-building data-quality code. The actual WFS endpoint, field names,
-  and the reliability of the height field for the Turin urban core specifically have not been
-  live-probed.
-- **Why it blocks.** Turin's building-height context data advantage (its key differentiator from
-  Milan and Rome) cannot be confirmed until the endpoint is probed.
-- **THE EXACT RESUME STEP.** Navigate to ARPA Piemonte open data portal (`opendata.arpa.piemonte.it`)
-  → "Edifici 3D". Check download format and whether a WFS/WCS endpoint is available:
+**PARTIALLY RESOLVED 2026-07-24.**
+
+- **Confirmed live endpoints:**
+  - **WMS:** `https://webgis.arpa.piemonte.it/ags/services/topografia_dati_di_base/Edifici_3D_2017/MapServer/WMSServer` — GetCapabilities responds. Layer: "Edifici 3D 2017" (layer ID 0). Style: default.
+  - **ArcGIS REST FeatureServer:** `https://webgis.arpa.piemonte.it/ags/rest/services/topografia_dati_di_base/Edifici_3D_2017/FeatureServer/0` — responds, supports pagination, statistics, advanced queries, datum transformation.
+  - CRS: EPSG:32632 (WGS84 / UTM Zone 32N).
+  - Geometry type: `esriGeometryPolygon` (building footprints, not volumetric mesh).
+  - **Field `USO` confirmed:** building use type — P = Produttivo, R = Residenziale, S = Servizi.
+- **What remains unconfirmed:** height-related field name(s). The FeatureServer endpoint timed out before returning the full field schema from Replit. The dataset is called "3D" and derives from BDTRE — a height field exists, but its attribute name (`QUOTA_MEDIA`, `ALTEZZA`, `Z_MAX`, or similar) was not confirmed in this probe session.
+- **Year:** 2017 dataset. May be outdated for new construction since 2017. Check if a more recent version exists on the geoportal.
+- **THE EXACT RESUME STEP (updated).**
   ```bash
-  curl "https://opendata.arpa.piemonte.it/api/3/action/package_search?q=edifici+3d" \
-    | python3 -m json.tool | grep -E '"url|format|name"' | head -20
+  # Get the full field schema from a browser or non-Replit curl:
+  curl "https://webgis.arpa.piemonte.it/ags/rest/services/topografia_dati_di_base/Edifici_3D_2017/FeatureServer/0?f=json" \
+    | python3 -m json.tool | grep -A2 '"name"' | grep -v 'name.*Shape\|OBJECTID' | head -60
+  # Then run a sample query for one Turin bbox to see actual height values:
+  # Approximate bbox in EPSG:32632: xmin=390000, ymin=4990000, xmax=395000, ymax=4995000
+  curl "https://webgis.arpa.piemonte.it/ags/rest/services/topografia_dati_di_base/Edifici_3D_2017/FeatureServer/0/query?geometry=390000,4990000,395000,4995000&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&f=json&resultRecordCount=3" | python3 -m json.tool | head -60
   ```
 
 ---
@@ -234,21 +229,22 @@ research-level estimates.
 
 | Source | Answers | Tier | Exact query / note |
 |---|---|---|---|
-| Catasto WFS `wfs.cartografia.agenziaentrate.gov.it` | Parcel geometry, nationwide (ex-APs) | VERIFIED-LEAD (research-level; not live-probed) | `cp:CadastralParcel` type name — confirmed in research; GetFeature schema TBD |
+| **Catasto WFS** `https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php` | Parcel geometry, nationwide (ex-APs) | **VERIFIED-LIVE (2026-07-24)** | Feature types: `CP:CadastralParcel`, `CP:CadastralZoning`. Fields: `NATIONALCADASTRALREFERENCE`, `ADMINISTRATIVEUNIT`, `LABEL`. CRS: EPSG:6706. Bbox: lat_min,lon_min,lat_max,lon_max. No auth. CC BY 4.0. Confirmed for Turin (L219), Milan (F205), Rome (H501). |
 | Agenzia delle Entrate bulk download (Feb 2025) | Parcels + addresses nationwide | VERIFIED-LEAD | Open data portal — format TBD |
 | DM 2 aprile 1968 n. 1444 | Zone taxonomy (A–F) + density/distance ceilings | `published` | `normattiva.it` → DM 1968/1444 |
 | Codice Civile Art. 873 | National minimum boundary setback (3 m) | `published` | `normattiva.it` → CC Art. 873 |
 | DPR 380/2001 (Testo Unico Edilizia) Art. 2-bis | Regional derogation regime for building distances | `published` | `normattiva.it` → DPR 380/2001 Art. 2-bis |
 | D.Lgs. 42/2004 (Codice Beni Culturali) | Heritage and landscape protection basis | `published` | `normattiva.it` → D.Lgs. 42/2004 |
-| APAR/SITAP `sitap.cultura.gov.it` | Landscape constraints — confirmed OGC WMS+WFS (APAR re-engineering) | VERIFIED-LEAD (WFS access method confirmed in documentation; public access and schema TBD) | Guida v2.0.0 confirms OGC alignment; live probe of public access TBD |
+| APAR/SITAP `sitap.cultura.gov.it` | Landscape constraints — confirmed OGC WMS+WFS (APAR re-engineering) | VERIFIED-LEAD (WFS access method confirmed in documentation; **unreachable from Replit** — public access from residential/office IP still TBD) | Guida v2.0.0 confirms OGC alignment; both `sitap.cultura.gov.it` and `sitap.beniculturali.it` returned empty from Replit 2026-07-24 |
 | Vincoli in Rete | Listed buildings + archaeological assets (D.Lgs. 42/2004 Parts II-III) | VERIFIED-LEAD | Freely consultable — programmatic endpoint TBD |
-| ARPA Piemonte Edifici 3D | Per-building height, surveyed (Piedmont region) | VERIFIED-LEAD (existence confirmed; endpoint TBD) | `opendata.arpa.piemonte.it` |
+| **ARPA Piemonte Edifici 3D** | Per-building footprints + use type (USO field); height field name TBD | **PARTIALLY VERIFIED-LIVE (2026-07-24)** | WMS live: `webgis.arpa.piemonte.it/ags/services/topografia_dati_di_base/Edifici_3D_2017/MapServer/WMSServer`. FeatureServer: `/FeatureServer/0`. CRS: EPSG:32632. Field `USO` confirmed (P/R/S). Height field name TBD — FeatureServer timed out from Replit before full schema returned. |
 | PST/SIM terrain — MASE | DTM/DSM, 25 cm resolution, CC BY 4.0 (PNRR 2026 target: 100%) | `published` | MASE open data portal |
+| **Turin PRG "Zone di Piano" WMS** | Turin zoning polygons — WMS visualization | **PARTIALLY VERIFIED-LIVE (2026-07-24)** | WMS endpoint: `geomap.reteunitaria.piemonte.it/ws/siccms/coto-01/wmsg01/wms_sicc23_prg_azzonamento`. Layers: `ZonediPiano`, `LimitiZoneDiPiano`, `AreeDiPiano`, `PUSP`. Dataset updated **2025-06-30**. Vector download (`zone_di_piano.zip`) is **accesso riservato** — institutional login required. WFS not confirmed. |
 | EU INSPIRE Geoportal | Free federated discovery of per-comune plan records across all 21 Italian planning regimes | VERIFIED-LEAD (discovery; each record requires individual format/currency verification) | `https://inspire-geoportal.ec.europa.eu` — search by comune name + plan type |
 | dati.gov.it + RNDT | Free public discovery of municipal plan PDF links; RNDT metadata → INSPIRE | VERIFIED-LEAD (discovery only) | `https://geodati.gov.it/geoportale/` (RNDT) |
 | OpenBuildingMap | National modeled building height (JRC-derived, 2025) | `inferred` — modeled; NOT shippable as legal/surveyed claim | `https://openbuildingmap.org` — must be flagged as modeled |
 | OSM Italy | Building footprints, ODbL, ~2.1 GB extract | `corroborated (completeness uneven)` | `https://download.geofabrik.de/europe/italy.html` |
-| AP Bolzano geodata infrastructure | CC0 WMS/WMTS/WFS/WCS; NewPlan planning GIS | VERIFIED-LEAD (infrastructure confirmed; planning-layer WFS and access TBD) | `https://geokatalog.buergernetz.bz.it/` |
+| **AP Bolzano GeoServer TerritorialPlans** | Landscape plans, zoning, civil protection — WMS live | **PARTIALLY VERIFIED-LIVE (2026-07-24)** | WMS: `https://geoservices1.civis.bz.it/geoserver/p_bz-TerritorialPlans/ows`. Layers: `LandscapePlan-Zoning`, `LandscapePlan-LandCover`, `CivilProtectionPlan`. CC0. WFS timed out from Replit. INSPIRE ZoningElement record confirms WFS 2.0.0 distribution. ZoningPlan dataset: CC0, daily update, 1:5000. |
 | Lombardy Indagine Offerta PGT | SLP floor-area figures by function for every Lombard comune | VERIFIED-LEAD (existence confirmed; schema TBD) | Geoportale Lombardia or ARIA S.p.A. open data — see B8 |
 
 ---
@@ -271,28 +267,30 @@ research-level estimates.
 - **Puglia PUG as a feature service:** Puglia's PUG zoning layer is a planning-status tracker
   (which comuni have adopted/approved), not a queryable per-parcel feature service — confirmed
   negative for zone identification purposes.
+- **Catasto WFS URL `ows01_CXF.php`:** the path documented in all prior research is dead. Correct path is `owfs01.php`. Do not retry the old path.
+- **`geoservices.buergernetz.bz.it/geoserver`:** returns 404. Dead. The live GeoServer is at `geoservices1.civis.bz.it/geoserver` (note the `1`).
+- **Bolzano mapproxy WFS:** `geoservices.buergernetz.bz.it/mapproxy/ows` is WMS-only — confirmed WFS rejection. Do not probe it expecting WFS.
+- **SITAP from Replit IP range:** both `sitap.cultura.gov.it` and `sitap.beniculturali.it` are unreachable from Replit (cloud datacenter IP). Must probe from residential/office IP.
+- **Piedmont regional GeoServer WFS from Replit:** `geoportale.piemonte.it/geoserver/ows` and workspace-specific paths returned empty. Likely blocked from Replit IP. Must probe from browser or non-Replit curl.
+- **Lombardy Geoportale GeoServer WFS:** `geoportale.regione.lombardia.it/geoserver/...` paths return 404 or page-not-found HTML. No GeoServer WFS access path confirmed.
+- **Turin vector zoning zip download (public):** `zone_di_piano.zip` at Comune di Torino is "accesso riservato" — institutionally gated. Public WMS only; no public WFS or zip for zone polygon geometry.
 
 ---
 
 ## 8 — THE SMALLEST NEXT STEP that moves the number, and its cost
 
-**Run the AP Bolzano NewPlan probe (B0) in parallel with the APAR/SITAP WFS public-access
-probe (B5). Estimated: 0.25 dev-days each = 0.5 dev-days total.**
+**After the 2026-07-24 probe session, the landscape has changed. Revised priority order:**
 
-B0 (Bolzano) is now the highest-value unverified lead because it is the one place that could
-overturn the structural "Italy is worst-performing" conclusion for at least one jurisdiction. If
-NewPlan WFS is confirmed public and parcel-queryable, Bolzano leaps to Tier 0, ahead of Turin.
-If not, it clarifies as Tier 3 and Turin remains the cheapest candidate.
+1. **Catasto WFS (B1) is RESOLVED.** No further action needed. Parcel geometry access is confirmed.
 
-B5 (APAR/SITAP) is cheap and high-leverage: confirming public WFS access moves the heritage
-overlay pipeline from web-GIS to programmable for all Italian cities simultaneously.
+2. **Bolzano WFS from a non-Replit IP (B0 — 0.25 dev-days).** The GeoServer WMS is live; the ZoningPlan WFS is confirmed in INSPIRE metadata as existing (CC0, daily updates, 1:5000). The WFS GetCapabilities timed out from Replit but this is almost certainly an IP-range block, not a service outage. One curl from a browser or office machine confirms or denies the WFS layer name and whether zone-type attributes are present. If confirmed, Bolzano is Tier 0 — before Turin in priority.
 
-**After B0 and B5 are resolved:**
-- If Bolzano confirmed: run a GetFeature probe over a sample Bolzano parcel bbox and inspect
-  zone attribute fields → Bolzano becomes Tier 0; estimate dev-days for a NewPlan pack.
-- If Bolzano denied: run Catasto WFS probe (B1) + Piedmont PRG mosaic probe (B3) for Turin
-  (0.5 dev-days), then read Turin's outgoing NTA and DCC 123 revision text (B2) — a half-day
-  PDF read that either confirms Tier 1 or reclassifies Turin to Tier 2.
+3. **ARPA Piemonte Edifici 3D height field name (B6 — 0.1 dev-days).** The FeatureServer endpoint is confirmed live. Open `https://webgis.arpa.piemonte.it/ags/rest/services/topografia_dati_di_base/Edifici_3D_2017/FeatureServer/0?f=json` in a browser and read the `fields` array to find the height field name (expect `QUOTA_MEDIA` or `ALTEZZA`). Run one sample query. This directly enables Turin's height context layer.
 
-The Lombardy Indagine Offerta PGT schema probe (B8) is a parallel low-cost task (0.25 dev-days)
-that can run alongside either path above, as it is Milan-scoped and independent of Turin/Bolzano.
+4. **Turin PRG NTA text (B2 — 0.5 dev-days).** Navigate `comune.torino.it/urbanistica` → NTA PDF. Read Art. 1–15 to confirm or deny zone-letter mechanism in the *outgoing* PRG. Then check DCC 123 preliminary revision text for the *incoming* mechanism. This determines Tier 1 vs. Tier 2 classification.
+
+5. **APAR/SITAP from non-Replit IP (B5 — 0.25 dev-days).** Test `sitap.cultura.gov.it` OGC endpoints from a residential IP. Both Replit-accessible paths returned empty — this is the one probe that *must* be done outside Replit.
+
+6. **Lombardy Indagine Offerta PGT schema (B8 — 0.25 dev-days).** Independent of all the above; direct download from Geoportale Lombardia or ARIA open data.
+
+**After steps 2 + 3 + 4 are completed, Italy moves from "live-probe session done" to "Tier 1 candidate (Turin) ready to estimate." The realistic dev-day estimate for a Turin pack can be committed once B2 (NTA text) is read.**
