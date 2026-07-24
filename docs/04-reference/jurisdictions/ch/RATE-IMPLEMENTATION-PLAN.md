@@ -1,9 +1,13 @@
 # Rate Implementation Plan — Switzerland (`ch`) national
 
-**Current rate:** ~85% context-data / NOT ASSESSED legal layer (see [`RATE.md`](./RATE.md)) ·
-**Realistic ceiling:** ~85–96% (context: proven; legal: conditioned on ÖREB probe outcome) ·
-**Gap to Denmark (~96%):** 11 pts (context layer) / undefined (legal layer) ·
+**Current rate:** ~85% context-data / **~20–25% building-rule (MEASURED)** (see [`RATE.md`](./RATE.md)) ·
+**Realistic ceiling:** context ~90–95% (proven) · legal ~30–40% with a per-canton FAR harvest + Baureglement pipeline (Outcome B) ·
+**Gap to Denmark (~96%):** the numeric layer — Denmark ships FAR+height as data, Switzerland ships only zone-ID as data ·
 **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
+
+> ✅ **THE DECIDING PROBE IS DONE (2026-07-24). VERDICT: Outcome B.** Full transcript:
+> [`findings/SWITZERLAND-DATA-RECON-SPIKE.md`](./findings/SWITZERLAND-DATA-RECON-SPIKE.md). Evidence
+> table: [Appendix A](#appendix-a--live-probe-evidence-2026-07-24) below.
 
 ---
 
@@ -13,21 +17,24 @@ Switzerland's context-data layer is already near the ceiling (~85%), with open i
 transcription and a few minor topic nuances (tree authority, pedestrian sub-classification, CityGML
 version). Those can be resolved with three low-effort reads and will push the context layer to ~90–95%.
 
-The legal/zoning layer ceiling is **genuinely unknown** and is gated on one probe. Switzerland has
-a structural advantage no other country in this benchmark possesses: a **federal data model** for the
-ÖREB/RDPPF cadastre (V-ÖREB ordinance), standardized across all 26 cantons. Two possible outcomes:
+The legal/zoning layer ceiling **is now established.** The deciding probe (§Phase 0b, done) resolved it
+to **Outcome B**: Switzerland has a **federal data model** for the ÖREB/RDPPF cadastre (V-ÖREB) and a
+national Nutzungsplanung WFS (MGDM 73.1) — but the structured national delivery carries the **zone
+identification only**, not the numbers.
 
-- **Outcome A — ÖREB returns structured fields** (zone code + numeric Ausnützungsziffer + max height
-  as machine-readable attributes): ceiling approaches **~85–96%**, Denmark-equivalent or better. The
-  federal V-ÖREB schema makes a single reader reusable across all 26 cantons — the gap to Denmark
-  becomes an engineering sprint, not a policy problem. Switzerland would be the highest-rated
-  jurisdiction in this benchmark after Denmark.
+- ~~**Outcome A — ÖREB/WFS returns structured numbers**~~ **← CLOSED by the probe.** The national
+  geodienste WFS `ms:grundnutzung` (DescribeFeatureType + GetFeature) returns zone-ID + `dokument`
+  only — no `nutzungsziffer`, no height. The overlay layer is identical. So the "~85–96%, single reader
+  for 26 cantons" path does **not** open.
 
-- **Outcome B — ÖREB returns PDF URL only** (numeric rules live in ordinance text, not structured
-  fields): ceiling is lower, likely **~30–45%** without a transcription pipeline. Even then,
-  Switzerland's contact-data layer (~90%) leaves it above Germany and France on the overall score.
+- **Outcome B — numbers are model/PDF-bound ← THIS IS THE VERDICT.** Full 3-field structured fill
+  (zone + density + height, no PDF) = **~20–25%**, France-class. The ceiling is **higher than France's**
+  for FAR only: the federal INTERLIS model has a typed, optional `Typ.Nutzungsziffer : 0.00 .. 9.00`
+  slot — so FAR is recoverable as **data** via a per-canton `Typ`-catalogue harvest (not OCR). Max
+  height and setback are not modelled at all → cantonal Baureglement PDF → the ordinance-extraction
+  pipeline + L-449, exactly like France for height. Realistic legal-layer ceiling **~30–40%**.
 
-The ceiling is not yet established for the legal layer. Phase 0 below IS the assessment.
+The ceiling is now established. Phases below are re-pointed onto the Outcome-B path.
 
 ---
 
@@ -36,10 +43,10 @@ The ceiling is not yet established for the legal layer. Phase 0 below IS the ass
 | Phase | Goal | Unlocks | Rate: from→to | Effort | Status | Owner |
 |---|---|---|---|---|---|---|
 | **0 — Context closeout** | Read GWR Merkmalskatalog; confirm CityGML version; check 3.0 Beta canton list; Areale Freizeit sub-types; pedestrian sub-classification | GWR EGID join pipeline can be specced; CityGML ingestion pipeline version locked | ~85% → ~90–92% | Very low — 3 document reads + 1 tile download | NOT STARTED | UNASSIGNED |
-| **0b — ÖREB pilot probe** | One HTTP GET against Zürich ÖREB (`oereb.zh.ch`) or Bern ÖREB; inspect for structured zone + FAR + height fields | Establishes ceiling model (Outcome A or B); gates all legal-layer phases | NOT ASSESSED → measured baseline | Very low — one API call | NOT STARTED | UNASSIGNED |
-| **1 — Legal-layer pilot (1 canton)** | Full envelope query for one test address in pilot canton: zone code + Ausnützungsziffer + height, cited per field | First city/municipality pack in Switzerland (`ch-zh/<BFS>-<slug>/` or `ch-be/...`) | TBD post-Phase 0b | Low–Medium | NOT STARTED | UNASSIGNED |
-| **2 — Scale to priority cantons** | Zürich (city), Geneva, Lausanne, Basel, Bern — the 5 cities most likely to be target markets | 5-city pack coverage; enables September-launch wedge if Outcome A | TBD post-Phase 1 | Medium | NOT STARTED | UNASSIGNED |
-| **3 — Full 26 cantons** | All ÖREB endpoints via federal aggregator (`geodienste.ch`); per-canton SOURCES.md + VERIFICATION.md | National coverage; Switzerland rate reaches ceiling | → ceiling (~85–96% if Outcome A) | Medium — endpoint list mostly mechanical if Outcome A | NOT STARTED | UNASSIGNED |
+| **0b — DECIDING probe** | geodienste WFS `ms:grundnutzung` DescribeFeatureType + GetFeature; overlay layer; INTERLIS `.ili` model | Establishes ceiling model | NOT ASSESSED → **Outcome B measured** | — | ✅ **DONE 2026-07-24** | agent |
+| **1 — Zone-ID structured provider (optional, honest)** | A `ChZoningProvider` returning zone code/label/main-use from the geodienste WFS as `structured`; FAR/height `null` → estimated-ruleset; gated behind an L-449 cert flag (default OFF), Madrid/Córdoba shape | First Swiss coverage that renders zone identity honestly, numbers refused | zone-ID only | Low–Medium | NOT STARTED (not authorised by the probe alone — founder call) | UNASSIGNED |
+| **2 — Per-canton FAR harvest** | Ingest each canton's populated `Typ` catalogue (INTERLIS/ili2pg) → structured `Nutzungsziffer` as DATA; L-449 sign-off per canton | FAR becomes structured where a canton populates the optional slot — Switzerland's ceiling edge over France | +FAR (canton-dependent) | Medium (per-canton ingest) | NOT STARTED | UNASSIGNED |
+| **3 — Baureglement extraction pipeline (height + setback)** | Point `@pryzm/ordinance-extraction` at cantonal Bau- und Zonenordnung PDFs; one-parser-per-article; L-449 gate | Height + setback (not modelled anywhere) become amber, France-style | +height/setback (projected) | High (per-plan-authority) | NOT STARTED | UNASSIGNED |
 
 ---
 
@@ -53,26 +60,29 @@ Switzerland's gap to Denmark on the **context layer** is:
 
 **Total context gap: ~4–11 pts — closeable in Phase 0 with 3 document reads.**
 
-Switzerland's gap to Denmark on the **legal layer** is conditioned on ÖREB probe outcome:
-- **Outcome A (ÖREB structured):** gap to Denmark is mainly engineering — building the V-ÖREB reader
-  and running it for 26 cantons. No structural PDF-transcription problem. Gap closeable.
-- **Outcome B (ÖREB PDF only):** gap mirrors France/Germany — the number lives in ordinance text and
-  requires an OCR + L-449 human-verification pipeline. Policy change would be needed to close fully.
+Switzerland's gap to Denmark on the **legal layer** is now RESOLVED to **Outcome B**:
+- The gap mirrors France for **height/setback** — the number lives in cantonal Baureglement text and
+  requires the extraction pipeline + L-449. Not modelled anywhere in the federal data model.
+- The gap is **narrower than France for FAR** — the federal INTERLIS model has a typed, optional
+  `Typ.Nutzungsziffer` slot, so FAR is recoverable as DATA via a per-canton catalogue harvest (not OCR)
+  where a canton populates it. This is Switzerland's one structural edge over France.
 
-**Switzerland is the only jurisdiction in this benchmark where the ceiling question can be definitively
-answered with a single API call.**
+**The ceiling question WAS answerable — and has now been answered — with WFS + model reads (§Phase 0b).**
 
 ---
 
 ## 4 — Dependencies, blockers, and cross-jurisdiction reuse
 
-- **Phase 0b blocks everything in the legal layer.** Do not scope Phase 1 municipality folders until
-  the ÖREB probe result is known.
+- **Phase 0b is DONE (Outcome B).** The legal-layer path is now the FAR-harvest + Baureglement-pipeline
+  route, not a single-reader V-ÖREB numeric route.
 - **L-449 human-verification gate** applies to any legal numeric value before a pack ships
-  `confidence: 'structured'` — even if ÖREB returns a structured field.
-- **V-ÖREB reader (Outcome A):** if built for Zürich, it is directly reusable for all 25 other
-  cantons via the same federal aggregator (`geodienste.ch`). Cross-canton reuse is the highest-value
-  engineering output of Phase 1.
+  `confidence: 'structured'`. No Swiss numeric value is signed off yet (see `sources/VERIFICATION.md`).
+- **Zone-ID reader is the reusable win:** a `ChZoningProvider` reading the geodienste WFS
+  `ms:grundnutzung` is directly reusable for all 19+ participating cantons via the ONE national
+  endpoint — but it delivers zone *identity*, not the numbers. Numbers require per-canton work.
+- ⚠ **DO NOT scaffold a numeric provider on the strength of the probe.** The probe DISPROVED structured
+  numbers via the national delivery. A zone-ID-only provider (numbers null, L-449-gated) is a founder
+  call, not an automatic build.
 - **swissSURFACE3D COPC reader:** if built for Switzerland (or any COPC-compatible jurisdiction),
   reusable for future COPC-format LiDAR sources.
 - **GWR EGID join pattern:** once proven, reusable for every Swiss project bbox regardless of canton —
@@ -87,3 +97,25 @@ answered with a single API call.**
 *Model references: **Denmark** `../dk/` (ceiling, ~96%) · **Barcelona**
 `../es/es-ct/08019-barcelona/` (pilot climb). Governing: **C58** (fidelity/provenance),
 **ADR-0269** (curate-then-serve), **L-449** (human-verification gate).*
+
+---
+
+## Appendix A — Live-probe evidence (2026-07-24)
+
+Mirrors the France `RATE-IMPLEMENTATION-PLAN.md` evidence discipline: every claim that moves the rate
+carries a verbatim probe result. Origin: non-DACH (US-region) egress — **not** geo-blocked for
+`geodienste.ch` or federal `*.admin.ch`. Full transcript: `findings/SWITZERLAND-DATA-RECON-SPIKE.md`.
+
+| # | Endpoint / artifact | Request | Verbatim result | Bearing on the rate |
+|---|---|---|---|---|
+| 1 | `geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu` | `DescribeFeatureType&TYPENAMES=ms:grundnutzung` | 200 — 13 elements: `wkb_geometry, publiziertab, publiziertbis, rechtsstatus, bemerkungen, typ_kommunal_code, typ_kommunal_bezeichnung, typ_kantonal_code, typ_kantonal_bezeichnung, hauptnutzung_code, hauptnutzung_bezeichnung, kanton, dokument`. **No nutzungsziffer/geschosszahl/gebäudehöhe.** | ✅ DECIDING — FAR/height NOT a national WFS attribute |
+| 2 | same | `GetFeature&TYPENAMES=ms:grundnutzung&COUNT=2` (GML) | 200 — AI: `typ_kommunal_code 1102`, `Wohnzone`, `hauptnutzung_code 11`, `bemerkungen W2`, `dokument` = Dokumente array all-null. | ✅ zone IDENTIFIED, numbers absent |
+| 3 | same | `DescribeFeatureType` overlay `…flaechenbezogene_festlegungen` | 200 — schema identical to grundnutzung. **No height.** | ✅ disproves overlay-height hypothesis |
+| 4 | `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` | GET | 200 — `CLASS Typ … Nutzungsziffer : 0.00 .. 9.00; Nutzungsziffer_Art : TEXT*40;` (OPTIONAL) via `Typ_Geometrie` assoc. **No height/floor class anywhere.** | ✅ FAR = optional typed slot (ceiling > France); height unmodelled |
+| 5 | `madd.bfs.admin.ch/eCH-0206?egid=1175237` | GET | 200 — `buildingCategory 1020, buildingClass 1110, dateOfConstruction 1987, surfaceAreaOfBuilding 87, numberOfFloors 3`, Poschiavo GR | ✅ GWR per-building context/verification |
+| 6 | `data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissbuildings3d_3_0` | GET + `/items` | 200 — EPSG 2056, tiled/fullcoverage; per-tile assets `.gdb.zip` (`application/x.filegdb+zip`) + `.dwg.zip`; CityGML 2.0 = separate curated download | ✅ 3D-context massing source confirmed |
+| 7 | `api.geo.ag.ch/v2/oereb/capabilities/json/` | GET | 200 — topics `ch.Nutzungsplanung`, `ch.ProjektierungszonenNationalstrassen`, `ch.Baulinien…` | ✅ ÖREB live; extract op path not landed (not decision-relevant) |
+
+**Reading:** rows 1–4 are the deciding evidence. Structured national delivery = zone-ID only (rows 1–2);
+the FAR is a typed-but-optional model slot the national WFS does not surface (rows 1, 4); height is not
+modelled at all (rows 1, 3, 4). ⇒ **Outcome B, ~20–25% comparable rate.**

@@ -15,12 +15,15 @@ municipality level as **Bau- und Zonenordnung (BZO)**. The federal coordination 
 V-ÖREB-ordinance-standardized cadastre of public-law restrictions, with endpoints confirmed live for
 25/26 cantons (NE has no public URL).
 
-**Key structural finding (2026-07-24):** The ÖREB 2.0 data model includes zone `TypeCode` as a
-**structured** machine-readable field. However, numeric parameters (Ausnützungsziffer/GFZ,
-Gebäudehöhe) are **not** in the base ÖREB schema — they appear in linked PDF legal provisions. A
-separate national Nutzungsplanung WFS at geodienste.ch covers 19+ cantons; whether it exposes
-numeric Nutzungsziffer as a WFS attribute is the single remaining critical probe (geo-blocked from
-non-DACH IPs).
+**Key structural finding — DECIDING PROBE RESOLVED (2026-07-24):** The ÖREB 2.0 data model includes
+zone `TypeCode` as a **structured** machine-readable field, and the national Nutzungsplanung WFS
+(`ms:grundnutzung`, 19+ cantons) delivers structured **zone identification** (type code + label +
+national main-use). But numeric parameters are **not** in the national delivery: the WFS carries no
+`Nutzungsziffer`/height element (DescribeFeatureType + GetFeature, verbatim); the federal INTERLIS
+model has only an **optional** `Typ.Nutzungsziffer 0..9` slot it does not surface; **height is not
+modelled at all**. ⇒ **Outcome B — building-rule dimensional fill ~20–25% (France-class), NOT the
+aspirational ~88%.** geodienste.ch was NOT geo-blocked (only ZG's cantonal WFS was). Full transcript:
+`findings/SWITZERLAND-DATA-RECON-SPIKE.md`.
 
 **Governing rule kind (ADR-0270):** Swiss Nutzungsplanung typically uses a **density-and-height
 model** (Ausnützungsziffer/GFZ + max Gebäudehöhe), NOT an alignment-governed model. Confirm per

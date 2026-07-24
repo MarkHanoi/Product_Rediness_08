@@ -5,7 +5,11 @@
 
 > This document compiles confirmed findings from five research passes (attached docs, 2026-07-24) into
 > a single citable reference. Cross-reference individual topic files in `../topics/` for gate answers.
-> Legal/zoning layer: scoped only — no ÖREB endpoint has been queried.
+>
+> ⚠ **SUPERSEDED IN PART (2026-07-24).** Part 7 ("legal layer scoped, not researched") and Part 8's
+> "Potential ceiling Outcome A ~85–96%" are now RESOLVED by the deciding probe: **Outcome B — the
+> national delivery ships the zone as data, not the numbers; building-rule dimensional fill ~20–25%.**
+> See `SWITZERLAND-DATA-RECON-SPIKE.md` + `../RATE.md`. The context-data findings (Parts 1–6) stand.
 
 ---
 
@@ -280,10 +284,10 @@ not a policy or legal-data problem.
 
 | Layer | Score | Basis |
 |---|---|---|
-| Context-data (buildings, terrain, roads, water, parks, trees) | ~85% | Confirmed from official product documentation; specific open items noted |
-| Building-rule (zone code + density + height without PDF read) | NOT ASSESSED | Zero ÖREB/RDPPF probes run; ceiling unknown pending one pilot query |
-| **Potential ceiling (Outcome A)** | **~85–96%** | Conditioned on ÖREB structured-field confirmation |
-| **Realistic ceiling (Outcome B)** | **~30–45%** | If ÖREB delivers PDF URL only |
+| Context-data (buildings, terrain, roads, water, parks, trees) | ~85% | Confirmed from official product documentation + live STAC/GWR probes; separate axis |
+| Building-rule (zone code + density + height without PDF read) | **~20–25% MEASURED** | Deciding probe 2026-07-24: national WFS ships zone-ID only; FAR = optional unexposed model slot; height not modelled |
+| ~~Potential ceiling (Outcome A ~85–96%)~~ | **CLOSED** | Disproven — no structured numbers in the national delivery |
+| **Realistic ceiling (Outcome B)** | **~30–40%** | FAR via per-canton `Typ` harvest + height/setback via Baureglement pipeline + L-449 |
 
 ---
 

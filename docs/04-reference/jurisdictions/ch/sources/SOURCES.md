@@ -1,10 +1,13 @@
 # Switzerland (`ch`) — national data sources
 
 **Status:** PARTIALLY LIVE-PROBED 2026-07-24.
-Context-data layer: confirmed from official product documentation + partial live probes.
-Legal/zoning layer: ÖREB endpoints VERIFIED LIVE (AG, ZH GetEGRID; GE, VD RDPPF). ÖREB data extract
-content NOT YET FETCHED. Nutzungsplanung WFS GetCapabilities VERIFIED LIVE; GetFeature geo-blocked.
-GWR API VERIFIED LIVE. CityGML 2.0 CONFIRMED. GWR full Stufe A field schema CONFIRMED from PDF v4.2.
+Context-data layer: confirmed from official product documentation + live STAC/GWR probes.
+Legal/zoning layer: ÖREB endpoints VERIFIED LIVE (AG, ZH GetEGRID; GE, VD RDPPF). **DECIDING PROBE DONE
+(2026-07-24):** Nutzungsplanung WFS `ms:grundnutzung` DescribeFeatureType + GetFeature VERIFIED LIVE —
+zone-ID only, NO Nutzungsziffer/height; overlay layer identical; INTERLIS model has optional
+`Typ.Nutzungsziffer 0..9`, no height class ⇒ **Outcome B, ~20–25% building-rule.** ÖREB full extract
+content ATTEMPTED-not-landed (per-canton path). GWR API + eCH-0206 record VERIFIED LIVE. CityGML 2.0 +
+STAC CONFIRMED. GWR full Stufe A field schema CONFIRMED from PDF v4.2.
 
 > **Trust gate (playbook §3.3):** a field with NO citable source stays `null` in the pack and is listed
 > under §B. A pack may NOT ship `confidence: 'structured'` unless EVERY field it sets has a row in §A
@@ -111,11 +114,21 @@ Source: `cadastre.ch/de/oereb-webservice` (federal M2M page, dated 2026-02-13).
 | WFS participating cantons (INCOMPLETE) | BE, GR, SO, VS | Same | `document` 2026-07-24 |
 | WFS non-participating | FL (Liechtenstein) — no data | Same | `document` 2026-07-24 |
 | WFS fee note | "Für den Bezug des Geodienstes können Kosten anfallen. Die Gebühren werden durch die Kantone erhoben." — cantonal fees may apply | GetCapabilities AccessConstraints | `VERIFIED-LIVE` 2026-07-24 |
-| WFS geo-IP restriction | ZG confirmed geo-blocked from non-DACH IPs; geodienste.ch may apply similar restriction | Live probe — ZG returned geo-block page from non-DACH IP | `VERIFIED-LIVE` 2026-07-24 |
-| WFS `ms:grundnutzung` Nutzungsziffer attribute | **NOT YET CONFIRMED** — INTERLIS model includes `Nutzungsziffer` concept; whether it is a populated WFS attribute requires GetFeature from DACH IP | WFS GetFeature geo-blocked | `NOT PROBED` — highest-priority remaining item |
-| ÖREB V-ÖREB federal ordinance | Mandates standardized data model across all 26 cantons for public-law restrictions | V-ÖREB (Verordnung über das eidgenössische Gebäude- und Wohnungsregister, as applicable to ÖREB) | `document` |
-| INTERLIS Nutzungsplanung_V1_2 — key classes | `Catalogue_CH` (national codes 11–99), `Dokument`, `Grundnutzung_Zonenflaeche` (zone polygon class — Nutzungsziffer attribute status not confirmed from partial model read) | `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` | `document` (partial read — full Geobasisdaten TOPIC not yet seen) |
+| WFS geo-IP restriction | ZG's *cantonal* WFS is geo-blocked from non-DACH IPs; **`geodienste.ch` itself is NOT geo-blocked** (all probes below succeeded from a non-DACH origin) | Live probe 2026-07-24 | `VERIFIED-LIVE` |
+| **WFS `ms:grundnutzung` — DECIDING PROBE (DescribeFeatureType)** | **RESOLVED: 13 elements** — `wkb_geometry, publiziertab, publiziertbis, rechtsstatus, bemerkungen, typ_kommunal_code, typ_kommunal_bezeichnung, typ_kantonal_code, typ_kantonal_bezeichnung, hauptnutzung_code, hauptnutzung_bezeichnung, kanton, dokument`. **NO `nutzungsziffer`, NO `geschosszahl`/`vollgeschosse`, NO `gebäudehöhe`.** | WFS DescribeFeatureType (verbatim) | `VERIFIED-LIVE` 2026-07-24 |
+| **WFS `ms:grundnutzung` — GetFeature (populated values)** | Canton AI, GML: `typ_kommunal_code 1102 / Wohnzone`, `typ_kantonal_code 1102`, `hauptnutzung_code 11 / Wohnzonen`, `bemerkungen W2`, `kanton AI`, `dokument` = `{"Dokumente":[{"Typ":null,"Titel":null,"Link":null,…}]}`. Zone fully identified; **no density/height field** | WFS GetFeature (verbatim) | `VERIFIED-LIVE` 2026-07-24 |
+| **WFS overlay `…flaechenbezogene_festlegungen` (DescribeFeatureType)** | Schema BYTE-FOR-BYTE identical to `grundnutzung` — same 13 generic elements. **No height attribute** (disproves the overlay-height hypothesis) | WFS DescribeFeatureType (verbatim) | `VERIFIED-LIVE` 2026-07-24 |
+| **INTERLIS `Nutzungsplanung_V1_2` — `Typ.Nutzungsziffer`** | `CLASS Typ` carries `Nutzungsziffer : 0.00 .. 9.00` (**OPTIONAL**) + `Nutzungsziffer_Art : TEXT*40` (OPTIONAL). Reachable from `Grundnutzung_Zonenflaeche` via the MANDATORY `Typ_Geometrie` association (`Typ -<> {1}`). So the FAR is a **typed but optional model slot**, NOT populated/surfaced by the national geodienste WFS. **No height / floor-count class exists anywhere in the model.** | `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` (full read, verbatim) | `VERIFIED-LIVE` 2026-07-24 |
+| ÖREB V-ÖREB federal ordinance | Mandates standardized data model across all 26 cantons for public-law restrictions | V-ÖREB (as applicable to ÖREB) | `document` |
+| INTERLIS Nutzungsplanung_V1_2 — key classes | `Catalogue_CH` (national codes 11–99), `Rechtsvorschriften.Dokument`, `Geometrie` (ABSTRACT: publiziertAb/Bis, Rechtsstatus, Bemerkungen), `Grundnutzung_Zonenflaeche` (zone polygon — geometry + inherited status ONLY, no density), `Typ` (Code, Bezeichnung, `Nutzungsziffer 0..9` optional), `Typ_Kt`, three overlay classes | `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` (full read) | `VERIFIED-LIVE` 2026-07-24 |
 | swisstopo WMS (`wms.geo.admin.ch`) | VERIFIED LIVE — includes heritage/inventory layers; CRS EPSG:2056, 21781, 4326, 3857 etc. | WMS GetCapabilities | `VERIFIED-LIVE` 2026-07-24 |
+
+### Context-data layer — GWR eCH-0206 live record + swissBUILDINGS3D STAC (this pass)
+
+| Field / concept | Value | Source | Confidence |
+|---|---|---|---|
+| GWR eCH-0206 element→GWR-field map (live record EGID 1175237, Poschiavo GR) | `EGID 1175237`, `buildingCategory (GKAT) 1020`, `buildingClass (GKLAS) 1110`, `dateOfConstruction (GBAUJ) 1987`, `surfaceAreaOfBuilding (GAREA) 87`, `numberOfFloors (GASTW) 3`, `buildingStatus (GSTAT) 1004`, `municipalityId 3561 / Poschiavo / GR`. eCH-0206 uses semantic English element names mapping 1:1 to GWR codes. | `madd.bfs.admin.ch/eCH-0206?egid=1175237&requestContext=building` (verbatim) | `VERIFIED-LIVE` 2026-07-24 |
+| swissBUILDINGS3D 3.0 Beta — STAC collection + tile assets | Collection `ch.swisstopo.swissbuildings3d_3_0`; EPSG:2056; `geoadmin:variant [tiled, fullcoverage]`; bbox `[5.22,45.32,11.26,48.24]`; updated 2026-06-04; per-tile assets `.gdb.zip` (`application/x.filegdb+zip`) + `.dwg.zip` (`application/x.dwg+zip`); tile grid = swisstopo 1×1 km LV95 (e.g. `…_2013_1172-31_2056_5728`). ⚠ **CityGML 2.0 is a SEPARATE curated download, not a STAC asset here.** | `data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissbuildings3d_3_0` + `/items` (verbatim) | `VERIFIED-LIVE` 2026-07-24 |
 
 ---
 
@@ -123,12 +136,13 @@ Source: `cadastre.ch/de/oereb-webservice` (federal M2M page, dated 2026-02-13).
 
 | Field | Why not verified | What would verify it |
 |---|---|---|
-| Nutzungsplanung WFS `ms:grundnutzung` Nutzungsziffer attribute | GetFeature geo-blocked from non-DACH IP | `curl` from CH/DE/AT server: `geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ms:grundnutzung&COUNT=1&outputFormat=application/json` — inspect `features[0].properties` for numeric FAR field |
-| Nutzungsplanung WFS overlay layer — max height attribute | Same geo-block | Same server requirement; check `ms:ueberlagernde_nutzungsplaninhalte_flaechenbezogene_festlegungen` |
-| ÖREB data extract `Information` fields (canton-specific numeric content) | ÖREB extract not fetched | `curl "https://api.geo.ag.ch/v2/oereb/extract/json/?EGRID=CH959823775233"` — check if `Information[].Text` contains AZ or height as structured key-value |
+| ~~Nutzungsplanung WFS `ms:grundnutzung` Nutzungsziffer attribute~~ | ✅ **RESOLVED 2026-07-24** — DescribeFeatureType + GetFeature: NOT a WFS attribute (§A). Moved to CONFIRMED | — |
+| ~~Nutzungsplanung WFS overlay — max height attribute~~ | ✅ **RESOLVED 2026-07-24** — overlay schema identical, no height (§A) | — |
+| ~~INTERLIS model Grundnutzung_Zonenflaeche attributes~~ | ✅ **RESOLVED 2026-07-24** — full `.ili` read: polygon has geometry+status only; FAR is optional `Typ.Nutzungsziffer` (§A) | — |
+| FAR (`Typ.Nutzungsziffer`) POPULATED value for a real parcel | The national WFS does not surface the `Typ` catalogue; whether a given canton populates the optional slot is per-canton | Per-canton INTERLIS/ili2pg harvest of the `Typ` catalogue, then join polygon→Typ; L-449 sign-off per canton |
+| ÖREB data extract `Information` fields (canton-specific numeric content) | ÖREB full `extract` operation not landed — `getegrid` works but `extract` 404/303 on federal-spec path guesses (AG/ZH/BS, json/xml/pdf). NOT decision-relevant (ÖREB 2.0 schema has no typed FAR/height field) | Discover the exact per-canton extract route (WSDL/capabilities per canton), then inspect `Information[].Text` |
 | NE ÖREB endpoint URL | No URL on federal M2M page (email only) | Check `sitn.ne.ch` portal or email `sitn@ne.ch` |
 | Geodienste.ch fee structure by canton | "Costs may apply" — exact amount/policy per canton unknown | Email `support@geodienste.kgk-cgc.ch` or check each canton's geodienste portal |
-| INTERLIS model full Geobasisdaten TOPIC | PDF/ili read cut off; Grundnutzung_Zonenflaeche class attributes not confirmed | Read `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` from byte 8000 onward |
 | swissTLM3D 2.4 pedestrian sub-classification | Not transcribed from Objektkatalog | Read Objektkatalog 2.4 "Strassen und Wege" path sub-types |
 | swissTLM3D 2.4 Areale Freizeit sub-types | Not transcribed | Read Objektkatalog 2.4 "Areale" chapter |
 | Municipal tree cadastres (GE, BS, LS, BE) | Only ZH confirmed open data | Search each city's opendata.swiss for "Baumkataster" / "arbres" |

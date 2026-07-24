@@ -6,10 +6,13 @@
 
 ## Status (2026-07-24)
 
-**NO PACK VALUES SIGNED OFF YET.** Live probes have confirmed endpoint availability and data model
-structure. The context-data layer sources are confirmed from official documentation. The ÖREB legal
-layer endpoints are live. No numeric building-rule value (zone code, Ausnützungsziffer, height,
-setback) has been read from a real parcel response and verified against a primary planning document.
+**NO PACK VALUES SIGNED OFF YET.** Live probes have confirmed endpoint availability and — as of the
+2026-07-24 deciding probe — the STRUCTURE of the national zoning delivery: the geodienste WFS and the
+federal INTERLIS model carry **zone identification as data but NOT the density/height numbers** (FAR =
+optional model slot, unexposed by the national WFS; height = not modelled). This means even a fully
+wired provider would render zone-ID structured and FAR/height `null`/refused. No numeric building-rule
+value (Ausnützungsziffer, height, setback) has been read from a real parcel and verified against a
+primary planning document, so no field may ship `confidence: 'structured'`.
 
 Per playbook §3.4 and L-449: a pack may NOT ship `confidence: 'structured'` without this file
 completed for each field.
@@ -27,7 +30,14 @@ completed for each field.
 | GWR API `madd.bfs.admin.ch/eCH-0206?egid=1175237` | ✅ HTTP 200 — XML response with building data for Poschiavo (GR) | No (API structural; GASTW visible in response) |
 | GWR API `madd.bfs.admin.ch/eCH-0206?egid=501001` | ✅ HTTP 200 — XML response with 5 dwellings for Heiden (AR) | No (API structural) |
 | swissBUILDINGS3D CityGML page | ✅ Page fetched — "CityGML 2.0" confirmed verbatim | No (format confirmation) |
-| Nutzungsplanung WFS GetCapabilities (geodienste.ch) | ✅ HTTP 200 — layer names confirmed; 19 cantons full | No (capabilities only; GetFeature not run) |
+| Nutzungsplanung WFS GetCapabilities (geodienste.ch) | ✅ HTTP 200 — layer names confirmed; 19 cantons full | No (capabilities only) |
+| **DECIDING: WFS `ms:grundnutzung` DescribeFeatureType** | ✅ HTTP 200 — 13 elements; **no `nutzungsziffer`/`geschosszahl`/`gebäudehöhe`** | No (schema fact — but gates the RATE) |
+| **DECIDING: WFS `ms:grundnutzung` GetFeature (AI, GML)** | ✅ HTTP 200 — `typ_kommunal_code 1102 / Wohnzone`, `hauptnutzung 11`, `bemerkungen W2`, dokument null; **no numbers** | No |
+| **WFS overlay `…flaechenbezogene_festlegungen` DescribeFeatureType** | ✅ HTTP 200 — identical generic schema; **no height** | No |
+| **INTERLIS `Nutzungsplanung_V1_2.ili` full read** | ✅ HTTP 200 — `Typ.Nutzungsziffer 0..9` OPTIONAL; **no height class anywhere** | No |
+| **GWR eCH-0206 EGID 1175237 field transcription** | ✅ HTTP 200 — GKAT 1020, GKLAS 1110, GBAUJ 1987, GAREA 87, GASTW 3, Poschiavo GR | No |
+| **STAC `ch.swisstopo.swissbuildings3d_3_0` + items** | ✅ HTTP 200 — EPSG 2056; per-tile `.gdb.zip` + `.dwg.zip`; CityGML separate | No |
+| ÖREB `extract` operation (AG/ZH/BS, json/xml/pdf) | ❌ 404/303 on all federal-spec path guesses — per-canton path not landed | N/A (not decision-relevant) |
 | swisstopo WMS GetCapabilities | ✅ HTTP 200 — capabilities confirmed live | No (structural) |
 | GWR PDF Merkmalskatalog v4.2 | ✅ PDF fetched — full Stufe A field list read | No (schema confirmation only) |
 
@@ -50,23 +60,35 @@ completed for each field.
 | ÖREB 2.0 schema — TypeCode structured | `schemas.geo.admin.ch/V_D/OeREB/2.0/extractdata.json` (fetched 2026-07-24) | Schema read | ✅ `TypeCode` confirmed as required string field in `RestrictionOnLandownership` |
 | ÖREB 2.0 schema — no numeric FAR/height field | Same schema | Schema read | ✅ Confirmed: no `Ausnuetzungsziffer` or `Gebaeudehoehe` numeric field in base schema |
 | Nutzungsplanung WFS — layer names, canton coverage | geodienste.ch GetCapabilities (fetched 2026-07-24) | WFS probe | ✅ Layer names and canton list confirmed |
-| Nutzungsplanung WFS — Nutzungsziffer attribute | NOT CHECKED — GetFeature geo-blocked | — | ❌ NOT CONFIRMED |
-| ÖREB data extract content (any canton) | NOT FETCHED — format path issue | — | ❌ NOT CONFIRMED |
-| Any specific Swiss parcel — zone code, AZ, height | NOT CHECKED | — | ❌ NOT CONFIRMED |
+| Nutzungsplanung WFS — Nutzungsziffer attribute | geodienste WFS DescribeFeatureType + GetFeature (2026-07-24) | WFS probe | ✅ **RESOLVED: NOT a national WFS attribute** — zone-ID + dokument only |
+| Nutzungsplanung WFS overlay — height attribute | Overlay DescribeFeatureType (2026-07-24) | WFS probe | ✅ **RESOLVED: no height** — schema identical to grundnutzung |
+| INTERLIS model — FAR / height presence | `Nutzungsplanung_V1_2.ili` full read (2026-07-24) | Model read | ✅ **RESOLVED:** FAR = optional `Typ.Nutzungsziffer 0..9`; height = absent from model |
+| GWR building record — real field values | `madd.bfs.admin.ch/eCH-0206?egid=1175237` (2026-07-24) | HTTP probe | ✅ GKAT/GKLAS/GBAUJ/GAREA/GASTW transcribed verbatim |
+| ÖREB full `extract` content (any canton) | AG/ZH/BS json/xml/pdf attempted (2026-07-24) | HTTP probe | ⚠ ATTEMPTED-not-landed (per-canton path); NOT decision-relevant |
+| Any specific Swiss parcel — zone code, AZ, height (as a SIGNED value) | Not read for a named parcel | — | ❌ NOT CONFIRMED — needs L-449 human sign-off |
 | Cantonal Denkmalschutz WFS | NOT PROBED | — | ❌ NOT CONFIRMED |
 
 ---
 
-## What I could NOT confirm (and why it stays unshippable)
+## What was RESOLVED by the deciding probe (2026-07-24) — no longer open
 
-- **Ausnützungsziffer (FAR) as structured field:** confirmed absent from ÖREB base schema; not
-  confirmed in Nutzungsplanung WFS (geo-blocked).
-- **Max height rule as structured field:** same as above.
-- **Any numeric building-rule value for any Swiss parcel:** no ÖREB extract fetched; no cantonal BZO
-  read.
+- **Ausnützungsziffer (FAR) as a structured national field:** ✅ RESOLVED — it is NOT one. Absent from
+  the ÖREB base schema AND from the national geodienste WFS (`ms:grundnutzung` DescribeFeatureType +
+  GetFeature). It exists only as an OPTIONAL typed slot `Typ.Nutzungsziffer 0..9` in the federal
+  INTERLIS model, recoverable via a per-canton `Typ`-catalogue harvest.
+- **Max height as a structured field:** ✅ RESOLVED — it does NOT exist anywhere in the Nutzungsplanung
+  model (not in grundnutzung, not in the overlay layer, not in the `.ili`). Baureglement-PDF-bound.
+
+## What still could NOT be confirmed (stays unshippable / needs human L-449)
+
+- **Any numeric building-rule value SIGNED OFF for a named Swiss parcel:** no ÖREB extract landed, no
+  cantonal Baureglement read + verified for a specific address. Every pack value stays `null`/refused.
+- **A POPULATED `Typ.Nutzungsziffer` for a real parcel:** the slot exists; whether a given canton fills
+  it, and its value, needs the per-canton INTERLIS harvest + sign-off.
 - **Geodienste.ch access fee:** "costs may apply" — not confirmed free.
 - **NE ÖREB endpoint:** no URL found.
-- **GWR field domain codes (GKAT, GKLAS values):** field names confirmed; code list CSV not read.
+- **GWR field domain codes (GKAT, GKLAS value tables):** field names + one live record confirmed; full
+  domain code lists not transcribed.
 
 ## Caveats that must remain visible in the product
 

@@ -470,7 +470,7 @@ rollout.
 |---|---|---|---|---|
 | **Spain** | `CatastroParcelProvider` ✅ **BUILT** | `MucZoningProvider` 🟢 | 🟢 LIVE-PARTIAL | national, keyless |
 | **Denmark** | `DkParcelProvider` 🔵 | `DkZoningProvider` 🔵 | 🔵 READY | **the reference *structured* case** — Plandata publishes numbers, no construction needed. **Keyed** — the template for every keyed source; key stays server-side. `DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md` |
-| **Switzerland** | `OerebParcelProvider` 🔵 | `OerebZoningProvider` / `TerraraZoningProvider` 🔵 | 🔵 / gated | Terrara is buy-vs-build, ADR-0269, **API ❔ UNVERIFIED** |
+| **Switzerland** | `OerebParcelProvider` 🔵 | zone-ID only (numbers model+PDF-bound) 🔵 | 🔵 / gated | **API ✅ VERIFIED 2026-07-24** (`geodienste.ch` NOT geo-blocked). **Rules rate ~20–25% (France-class), NOT 88%** — the 88% was the *context/3D* axis (LOD ~95%), a different ruler. National WFS `ms:grundnutzung` gives the ZONE as data but no `nutzungsziffer`/`geschosszahl`/`gebäudehöhe`; FAR is a typed OPTIONAL slot in the federal INTERLIS model (per-canton harvest, not OCR → ceiling ~30–40% beats France); height/setback are Baureglement-PDF-bound. `ch/findings/SWITZERLAND-DATA-RECON-SPIKE.md` |
 | **Saudi Arabia** | user-drawn (Balady API exists, **geo-fenced** 🔴) | **none needed for footprint** — class user-picked | 🔵 **READY (demo)** | **founder demo market.** Footprint = `plot ⊖ max(w/5,{3,2})` capped at coverage(class); a `setback` pack of 4 national constants. **Height deferred to municipal plan (the trap, §5.1).** `saudi-arabia/SAUDI-ARABIA-ENTRY-ASSESSMENT.md` · L-606 |
 
 ⚠ **Denmark is strategically more interesting than its size suggests**: it is the case where the

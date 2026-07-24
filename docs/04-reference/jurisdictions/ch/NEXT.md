@@ -1,7 +1,9 @@
 # NEXT — Switzerland (`ch`)
 
 > **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED · **Status:** Context-data GATE PASSED;
-> ÖREB legal-layer PARTIALLY PROBED — zone code CONFIRMED STRUCTURED; FAR/height UNCONFIRMED.
+> **DECIDING PROBE DONE — Outcome B.** Zone code CONFIRMED STRUCTURED; FAR = optional unexposed model
+> slot; height NOT modelled. Building-rule ~20–25% (MEASURED). Transcript:
+> `findings/SWITZERLAND-DATA-RECON-SPIKE.md`.
 
 ---
 
@@ -17,12 +19,15 @@ field, but Ausnützungsziffer and max height are NOT in the base ÖREB schema �
 legal provisions.
 
 A national Nutzungsplanung WFS at geodienste.ch (MGDM ID 73.1, V1.2, layer `ms:grundnutzung`) is
-confirmed live for 19+ cantons. Whether this WFS layer includes Nutzungsziffer (FAR) as a structured
-attribute is the single remaining critical unknown — blocked by geo-IP restriction on probe.
+confirmed live for 19+ cantons. **RESOLVED 2026-07-24:** the WFS does NOT include Nutzungsziffer (FAR)
+or height as a structured attribute — DescribeFeatureType + GetFeature return zone-ID + `dokument` only;
+the overlay layer is identical. The federal INTERLIS model has an OPTIONAL `Typ.Nutzungsziffer 0..9`
+slot the national WFS does not surface; height is not modelled at all. geodienste is NOT geo-blocked
+from this origin (only ZG's cantonal WFS was). ⇒ **Outcome B; building-rule ~20–25%.**
 
-ÖREB full data extract has NOT been fetched (format path needs verification per canton). One first-
-municipality folder (`ch-zh/...` or `ch-be/...`) has not been created — awaiting WFS attribute
-confirmation.
+ÖREB full `extract` operation was attempted (AG/ZH/BS, json/xml/pdf) but not landed — per-canton path
+discovery needed; NOT decision-relevant (the ÖREB schema has no typed FAR/height field). No first-
+municipality folder created — and per the build gate a numeric provider is NOT authorised by this probe.
 
 ---
 
@@ -30,34 +35,29 @@ confirmation.
 
 **Context-data structured fill:** ~85% (context layer; see `RATE.md`).
 
-**Building-rule structured fill:**
-- Zone type code: ~70% (ÖREB TypeCode confirmed structured; all 25 canton endpoints live)
+**Building-rule structured fill (MEASURED 2026-07-24):**
+- Zone type code: ~70% (ÖREB TypeCode + national WFS `typ_*_code`; 19 full + 4 partial cantons)
 - Zone polygon / boundary: ~75% (ÖREB + geodienste.ch WFS for 19+ cantons)
-- Density metric (Ausnützungsziffer): ~15–25% ESTIMATED (in PDF per ÖREB schema; geodienste.ch WFS attribute unconfirmed; pending)
-- Max height: ~5–15% ESTIMATED (in PDF typically; overlay WFS attribute unconfirmed)
-- Full 3-field (zone + FAR + height): **~15–35% estimated** — pending WFS GetFeature probe
+- Density metric (Ausnützungsziffer): ~5–10% — NOT in national WFS; optional `Typ.Nutzungsziffer` model slot only
+- Max height: ~0–5% — not modelled anywhere; cantonal Baureglement PDF
+- Full 3-field (zone + FAR + height, no PDF): **~20–25% MEASURED** (was gated on this probe; now done)
 
 ---
 
 ## 3 — BLOCKERS
 
-### 3.1 — Nutzungsplanung WFS attribute schema not probed (geo-IP blocked)
+### 3.1 — ✅ RESOLVED — Nutzungsplanung WFS attribute schema (this was the DECIDING blocker)
 
-- **What it is.** The geodienste.ch WFS (`ms:grundnutzung`) covers 19+ cantons with zone polygons.
-  Whether the features include Nutzungsziffer (FAR) as a structured attribute cannot be determined
-  without a GetFeature call — blocked from non-DACH IP addresses (ZG confirmed geo-blocked;
-  geodienste.ch likely same).
-- **Why it blocks.** If YES: FAR score rises from ~15% to ~60% for 19 cantons; overall building-rule
-  rate rises to ~35–45%. If NO: FAR remains PDF-only and the rate estimate holds.
-- **THE EXACT RESUME STEP.**
-  ```bash
-  # From a CH/DE/AT server or VPN exit node:
-  curl "https://geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu?SERVICE=WFS&VERSION=2.0.0\
-  &REQUEST=GetFeature&TYPENAMES=ms:grundnutzung&COUNT=1&outputFormat=application/json" \
-  | jq '.features[0].properties'
-  # Check: is there a 'nutzungsziffer', 'ausnuetzungsziffer', 'gfz', or similar numeric field?
-  # Also check: is there a 'gebaeudehoehemax' or 'firsthoehe' attribute?
-  ```
+- **What it was.** Whether geodienste.ch `ms:grundnutzung` carries Nutzungsziffer (FAR) / height as a
+  structured attribute — the prior pass thought this was geo-IP-blocked.
+- **VERDICT (2026-07-24).** geodienste.ch is **NOT geo-blocked from this origin** (only ZG's *cantonal*
+  WFS was). `DescribeFeatureType` → 13 elements, **no `nutzungsziffer`, no height**. `GetFeature` (canton
+  AI) → zone identified (`1102 Wohnzone / hauptnutzung 11 / bemerkungen W2`), numbers absent, `dokument`
+  null. Overlay layer schema identical (no height). INTERLIS `.ili` → optional `Typ.Nutzungsziffer 0..9`,
+  height not modelled. ⇒ **The "FAR ~60% / rate ~35–45%" path does NOT open. Outcome B, ~20–25%.**
+- **What replaces it (the real lever).** A per-canton `Typ`-catalogue harvest (INTERLIS/ili2pg) turns the
+  optional FAR slot into data where populated — a data-plumbing job, not the WFS. See RATE.md
+  "What would raise the rate" + `COUNTRY-DATA-STRATEGY.md` Step (d).
 
 ### 3.2 — ÖREB full data extract not fetched
 
@@ -108,8 +108,9 @@ These are LOW effort and do not block implementation, but close the context-data
 
 ## 4 — TRIP-WIRES
 
-- **4.1 — geodienste.ch WFS Nutzungsziffer confirmed** → update `RATE.md §2` FAR row; raise building-
-  rule rate from ~25% to ~35–45%; proceed to Phase 1 municipality folder.
+- **4.1 — ✅ FIRED & RESOLVED (2026-07-24):** geodienste.ch WFS does NOT carry Nutzungsziffer; RATE.md
+  FAR/height rows updated; building-rule rate MEASURED at ~20–25% (Outcome B). The FAR lever is now a
+  per-canton `Typ`-catalogue harvest, not the WFS.
 - **4.2 — ÖREB extract Information fields carry numeric AZ/height** → update `RATE.md §2`; raises
   rate for confirmed cantons; add SOURCES.md rows for each canton confirming this.
 - **4.3 — swissBUILDINGS3D 3.0 Beta adds a new canton** → update `regions/README.md` canton table.
@@ -173,12 +174,14 @@ These are LOW effort and do not block implementation, but close the context-data
 
 ## 8 — THE SMALLEST NEXT STEP
 
-From a DACH-region server or Swiss IP, run:
-```bash
-curl "https://geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu?SERVICE=WFS&VERSION=2.0.0\
-&REQUEST=GetFeature&TYPENAMES=ms:grundnutzung&COUNT=1&outputFormat=application/json" \
-| jq '.features[0].properties | keys'
-```
-This one call confirms whether Nutzungsziffer (FAR) is a structured WFS attribute. If YES: build-rule
-rate rises to ~35–45% and Phase 1 can be scoped for a pilot municipality. If NO: clarifies that FAR
-remains PDF-only and the transcription-pipeline question (L-449) becomes the rate ceiling gate.
+The deciding probe is DONE (Outcome B). The next decision is a **founder call, not a probe**: do we ship
+a **zone-ID-only `ChZoningProvider`** (mirrors `DkZoningProvider` — WFS fetch, injectable fetch,
+never-throws, OTel span; returns zone code/label/`hauptnutzung` as `structured`, FAR/height `null` →
+estimated-ruleset), gated behind an L-449 cert flag default OFF like Denmark/Barcelona? It renders Swiss
+zone *identity* honestly today without claiming any number.
+
+If yes, the smallest engineering step is a fixture test from the captured AI feature
+(`typ_kommunal_code 1102 / Wohnzone / hauptnutzung 11`) → a `ZoningRecord` with zoneCode set and all
+dimensions null. If the priority is instead the *numbers*, the smallest step is a one-canton `Typ`-catalogue
+harvest (ili2pg) to prove FAR-as-data on a single canton before scaling. Either way, a numeric provider is
+NOT authorised by the probe (it disproved structured numbers via the national delivery).
