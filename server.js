@@ -68,6 +68,13 @@ import {
     CORDOBA_ORDENANZAS_PATH, cordobaOrdenanzasHandler,
     CORDOBA_VCATASTRO_PATH, cordobaVcatastroHandler,
 } from './server/cordobaZoningProxy.js';
+// SWITZERLAND: same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch) — returns the
+// zone-identification GML so the client renders the real zone; the buildable envelope refuses (Outcome B).
+import { CH_GRUNDNUTZUNG_PATH, chGrundnutzungHandler } from './server/chGrundnutzungProxy.js';
+// L-613 — the open, keyless non-Spain cadastres (FR/NL/NO/DE-NRW) under /api/parcel/:cc.
+import { EU_PARCEL_PATH, euParcelHandler } from './server/euCadastreProxy.js';
+// L-613 (Denmark slice) — the Danish Matrikel cadastral proxy (credential-gated Datafordeler).
+import { DK_PARCEL_PATH, dkParcelHandler } from './server/dkMatrikelProxy.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -445,6 +452,16 @@ app.get(MADRID_CONDICIONES_PATH, apiLimiter, madridCondicionesHandler);
 // path that turns on with the L-449 sign-off. Same-origin, apiLimiter, never crashes.
 app.get(CORDOBA_ORDENANZAS_PATH, apiLimiter, cordobaOrdenanzasHandler);
 app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
+// SWITZERLAND — same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch, NOT
+// geo-blocked). GET /api/ch/grundnutzung?lat=&lon= → the zone GML at the point (24-h coord cache).
+// Zone RENDERS client-side; buildable envelope REFUSES (density/height model+PDF-bound — Outcome B).
+app.get(CH_GRUNDNUTZUNG_PATH, apiLimiter, chGrundnutzungHandler);
+// L-613 — Spain-parity "Select parcel" for the open cadastres. ⚠ Denmark's dedicated route MUST be
+// registered BEFORE the `:cc` catch-all (Express matches specific paths before params). DK carries a
+// server-side Datafordeler credential (Matrikel is not keyless); without it → { parcel: null } →
+// client OSM footprint. FR/NL/NO/DE-NRW are keyless under /api/parcel/:cc.
+app.get(DK_PARCEL_PATH, apiLimiter, dkParcelHandler);
+app.get(`${EU_PARCEL_PATH}/:cc`, apiLimiter, euParcelHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}

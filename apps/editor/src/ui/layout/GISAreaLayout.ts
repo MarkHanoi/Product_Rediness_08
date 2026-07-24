@@ -17,10 +17,13 @@ import {
     resolveRenderableBuildableEnvelope,
 } from '../site/siteDispatch';
 import type { EnvelopeConfidence } from '@pryzm/schemas';
-// §PARCEL-SELECT (L-380 P1) — the real cadastral parcel data source for the map's
-// "Select parcel" mode (Barcelona / Catastro pilot, via the same-origin proxy). With
-// this wired the select mode fetches REAL parcels; where no parcel exists / outside
-// the provider's coverage the map falls back to the honest "no parcel — draw" state.
+// §PARCEL-SELECT (L-380 P1 → L-613) — the real cadastral parcel data source for the map's
+// "Select parcel" mode. `defaultParcelProvider` is now the PER-JURISDICTION REGISTRY
+// (`parcelRegistry.ts`): a click routes to the right OPEN national cadastre — Catastro (ES),
+// IGN (FR), PDOK (NL), Kartverket (NO), ALKIS-NRW (DE-NW) — and to an honest OSM building
+// FOOTPRINT everywhere else (labelled `footprint (OSM)`, never a legal parcel; C58 §1.4). So the
+// select mode fetches REAL geometry globally, with Spain-parity "click to select" in every country;
+// adding a country is a data addition in `@pryzm/site-parcel-data`, not an edit to this L5 file.
 import { defaultParcelProvider } from '../site/parcel';
 import { makeDraggable } from '../makeDraggable';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
@@ -226,9 +229,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // for the PDF/image import path: the draw tool is disarmed (no boundary, no
                 // generate), only the site-plan overlay panel + calibration are live.
                 overlayOnly: drawOpts?.overlayOnly ?? false,
-                // §PARCEL-SELECT (L-380 P1) — wire the real Catastro parcel provider so the
-                // map's "Select parcel" mode fetches REAL cadastral geometry (Barcelona pilot).
-                // Outside coverage the map degrades to the honest "no parcel — draw" state.
+                // §PARCEL-SELECT (L-380 P1 → L-613) — wire the per-jurisdiction parcel REGISTRY so
+                // the map's "Select parcel" mode fetches REAL geometry in EVERY country: the open
+                // national cadastre where one exists (ES/FR/NL/NO/DE-NW), else an honest OSM
+                // footprint. Outside any footprint the map degrades to "no parcel — draw".
                 parcelProvider: defaultParcelProvider,
                 // O.7.2.b — CANCEL (Esc / ×) disposes the map → drop the handle.
                 onClose: () => { map2dHandle = null; },

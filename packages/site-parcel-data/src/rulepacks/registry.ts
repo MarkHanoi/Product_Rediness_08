@@ -86,6 +86,12 @@ import {
     cordobaNoRulePackRefusal,
 } from './esCordobaZoneClassification.js';
 import { CORDOBA_BBOX, isInCordoba } from '../providers/cordobaBbox.js';
+// ── SWITZERLAND (national) — Outcome-B zone-ID jurisdiction. Registered as a REFUSAL jurisdiction:
+// the national WFS publishes the zone identity (resolved LIVE by the dispatcher's `resolveChZone`),
+// but density/height are model+PDF-bound, so the buildable envelope refuses. `packsByZone` is empty;
+// `noRulePackRefusal` returns the Swiss cited refusal. The extent lights the C60 coverage globe.
+import { CH_JURISDICTION_ID, chZoningEnvelopeRefusal } from './chZoning.js';
+import { SWITZERLAND_BBOX, isInSwitzerland } from '../providers/switzerlandBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -426,6 +432,45 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // the 2-district pilot scope. ⚠ NOTE: while the verification gate is closed the DISPATCHER
         // refuses the whole pilot before this table is consulted (see `applyCordobaZoningThenFallback`).
         noRulePackRefusal: cordobaNoRulePackRefusal,
+    },
+    // ── SWITZERLAND (national), Nutzungsplanung WFS — the Outcome-B zone-ID jurisdiction. ──
+    //
+    // ⚠ REGISTERED AS A REFUSAL JURISDICTION, ON PURPOSE. The national WFS (geodienste.ch
+    // ms:grundnutzung) publishes the zone IDENTITY as structured data — but NOT its density
+    // (Nutzungsziffer, a model-slotted + PDF-bound number the WFS does not surface) or height
+    // (unmodelled entirely). So the honest disposition is: identify the zone, refuse the envelope.
+    //
+    // The DISPATCHER'S Swiss path (`applyChZoningThenFallback`) resolves the live zone via
+    // `resolveChZone` and dispatches a refusal that CARRIES the identified zone (so it renders). This
+    // registration exists so the C60 coverage globe lights Switzerland (we DO answer here — with an
+    // honest refusal) and so `resolveZoneDisposition` answers `refusal` for any Swiss parcel: no code
+    // maps to a pack (`packsByZone` empty), and `noRulePackRefusal` returns the Swiss cited refusal.
+    //
+    // WIRING TODO (orchestrator, when a canton's Typ catalogue is harvested + L-449-signed): author a
+    // per-canton FAR pack (see `resolveChFarFromCantonCatalogue`), move it into `packsByZone` under the
+    // verified zone codes, and narrow `noRulePackRefusal` to the still-unpacked cantons/zones.
+    {
+        jurisdictionId: CH_JURISDICTION_ID,
+        displayName: 'Switzerland (national Grundnutzung)',
+        countryCode: 'CH',
+        countryName: 'Switzerland',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated.
+        extent: SWITZERLAND_BBOX,
+        contains: isInSwitzerland,
+        answerSummary:
+            'Land-use ZONE identity from the national Nutzungsplanung WFS (geodienste.ch ' +
+            'ms:grundnutzung) — code, label, main-use, the local abbreviation (e.g. W2), canton. ' +
+            'The buildable envelope REFUSES: density (Nutzungsziffer) is model-slotted + PDF-bound ' +
+            'and height/floors are not modelled, so PRYZM shows the zone but never a fabricated number.',
+        // No code maps to a pack yet — the zone is identified live and its envelope refuses.
+        packsByZone: packMap(),
+        // No per-zone legal refusal table; the coverage-gap refusal below covers all Swiss parcels.
+        refusalFor: () => null,
+        // Every Swiss zone code → the Grundnutzung envelope refusal (the current honest state). The
+        // registry path has no live zone, so it refuses generically; the dispatcher path supplies the
+        // identified-zone refusal via `resolveChZone`.
+        noRulePackRefusal: (_zoneCode, _zoneLabel, knownFacts) =>
+            chZoningEnvelopeRefusal(null, knownFacts ?? []),
     },
 ];
 

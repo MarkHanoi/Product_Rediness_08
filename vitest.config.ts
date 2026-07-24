@@ -45,6 +45,9 @@ export default defineConfig({
       // pure 3D-Site specs — use classification, height/id provenance labelling, and the
       // façade study's subject resolution + refusals.
       'apps/editor/src/ui/geospatial/__tests__/**/*.spec.ts',
+      // §PARCEL-SELECT (L-613): per-jurisdiction parcel-provider parse + footprint-pick specs
+      // (captured fixtures, never live network; never-throws pinned).
+      'apps/editor/src/ui/site/parcel/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).

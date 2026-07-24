@@ -1011,14 +1011,29 @@ export function mountSiteBoundaryMap2D(
         // Zoning class is P2/P3 (Zoning Rules Engine) — honestly marked pending here.
         parcelCard.appendChild(row('Zone', 'pending (P2)'));
 
-        // Source attribution (L-373 provenance — factual cadastral geometry).
+        // Source attribution (L-373 provenance). L-613 — prefer the PER-PARCEL `source` the
+        // provider stamped ('catastro' · 'ign-fr' · 'pdok-nl' · 'geonorge-no' · 'alkis-nrw' ·
+        // 'footprint (OSM)') over the generic provider label, so the card tells the truth about
+        // whether this geometry is a legal cadastral parcel or an OSM building footprint (C58 §1.4).
+        const isFootprint = /footprint/i.test(parcel.source ?? '');
         const src = document.createElement('div');
-        src.textContent = `Source: ${parcelProvider?.label ?? 'cadastral data'}`;
+        src.textContent = `Source: ${parcel.source ?? parcelProvider?.label ?? 'cadastral data'}`;
         Object.assign(src.style, {
             font: '11px/1.3 system-ui, sans-serif', color: '#8a8398',
             borderTop: '1px solid rgba(102,0,255,0.15)', paddingTop: '7px', marginTop: '2px',
         } satisfies Partial<CSSStyleDeclaration>);
         parcelCard.appendChild(src);
+        if (isFootprint) {
+            // ⚠ A footprint is the BUILDING outline, not the land boundary — say so explicitly.
+            const note = document.createElement('div');
+            note.textContent = '⚠ Building footprint, not a legal cadastral parcel';
+            Object.assign(note.style, {
+                font: '600 10px/1.3 system-ui, sans-serif', color: '#8a5a00',
+                background: 'rgba(255,176,32,0.14)', border: '1px solid rgba(255,176,32,0.5)',
+                borderRadius: '6px', padding: '4px 7px',
+            } satisfies Partial<CSSStyleDeclaration>);
+            parcelCard.appendChild(note);
+        }
 
         const useBtn = document.createElement('button');
         useBtn.type = 'button';

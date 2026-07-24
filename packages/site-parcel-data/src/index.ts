@@ -460,3 +460,60 @@ export {
     type ContainmentViolation,
     type ContainmentReport,
 } from './envelopeContainment.js';
+
+// ── SWITZERLAND (national) — Outcome-B zone-ID provider + honest envelope refusal + FAR scaffold.
+// The national Nutzungsplanung WFS (geodienste.ch ms:grundnutzung) publishes the zone IDENTITY as
+// structured data; density is model-slotted + PDF-bound and height unmodelled, so the zone RENDERS
+// and the buildable envelope REFUSES. FAR-harvest scaffolded behind CH_FAR_CERTIFIED (default OFF).
+export { isInSwitzerland, SWITZERLAND_BBOX } from './providers/switzerlandBbox.js';
+export {
+    resolveChZone,
+    parseChGrundnutzungGml,
+    CH_GRUNDNUTZUNG_PATH,
+    CH_GRUNDNUTZUNG_LAYER,
+    type ChZoneIdentification,
+    type ChZoneResolution,
+    type ChZoneRefusalReason,
+    type ChZoneDeps,
+    type ChGrundnutzungFeature,
+} from './providers/chGrundnutzungProvider.js';
+export {
+    CH_JURISDICTION_ID,
+    CH_ZONING_PACK,
+    CH_ZONING_ORDINANCE_REF,
+    CH_ZONING_FALLBACK_ZONE_CODE,
+    chZoningEnvelopeRefusal,
+    chZoneCodeFor,
+    chZoneLabelFor,
+} from './rulepacks/chZoning.js';
+export {
+    resolveChFarFromCantonCatalogue,
+    CH_FAR_CERTIFIED,
+    CH_CANTON_FAR_CATALOGUES,
+    type ChFarKind,
+    type ChFarCatalogueEntry,
+    type ChCantonFarCatalogue,
+    type ChFarResolution,
+} from './providers/resolveChFarFromCantonCatalogue.js';
+
+// ── L-613 — the PARCEL-PROVIDER routing registry (country-granularity; the national analogue of the
+//    zoning dispatch's city predicates). Routes a WGS84 click to the cadastre that answers there, or
+//    to a documented footprint fallback. Pure; the fetch lives in the editor proxies.
+//    (isInSwitzerland / SWITZERLAND_BBOX come from the CH block above — the canonical export.)
+export {
+    resolveParcelJurisdiction,
+    listParcelJurisdictions,
+    UNIVERSAL_FOOTPRINT_JURISDICTION,
+    type ParcelJurisdiction,
+    type ParcelProviderKind,
+} from './parcelProviders/registry.js';
+export {
+    isInSpain, SPAIN_BBOX,
+    isInFrance, FRANCE_BBOX,
+    isInNetherlands, NETHERLANDS_BBOX,
+    isInNorway, NORWAY_BBOX,
+    isInGermany, GERMANY_BBOX,
+    isInNRW, NRW_BBOX,
+    isInSaudiArabia, SAUDI_ARABIA_BBOX,
+    type CountryBbox,
+} from './parcelProviders/countryBbox.js';
