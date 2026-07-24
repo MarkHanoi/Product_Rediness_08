@@ -16,6 +16,7 @@ import {
     getLastBuildableEnvelope,
     resolveRenderableBuildableEnvelope,
 } from '../site/siteDispatch';
+import type { EnvelopeConfidence } from '@pryzm/schemas';
 // §PARCEL-SELECT (L-380 P1) — the real cadastral parcel data source for the map's
 // "Select parcel" mode (Barcelona / Catastro pilot, via the same-origin proxy). With
 // this wired the select mode fetches REAL parcels; where no parcel exists / outside
@@ -1874,7 +1875,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * falls back to the PERSISTED `Parcel.buildableRing` (C58 §1.7a / ADR-0270 option A).
      */
     const resolveFormaEnvelope = ():
-        | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null }
+        | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null; confidence: EnvelopeConfidence | null }
         | null => {
         // §ENVELOPE-RESOLVE-DIAG (L-445) — say WHY, every time. The previous diagnostic reported
         // only `present=n`, which is a symptom with four possible causes (toggle off / no cached
@@ -1900,7 +1901,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             `[gis][c58] §ENVELOPE-RESOLVE-DIAG — ring OK: ${env.ring.length} pts, source=${env.source}, ` +
                 `maxHeight=${env.maxHeightM ?? 'n/a'} m.`,
         );
-        return { ring: env.ring.map((p) => ({ x: p.x, z: p.z })), maxHeightM: env.maxHeightM };
+        // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — carry the confidence through so the Cesium prism can
+        // render grey for an estimate/flat envelope. Null on the persisted/re-inset paths (provenance
+        // deliberately not re-derived) → treated as unknown → grey, the conservative honest default.
+        return {
+            ring: env.ring.map((p) => ({ x: p.x, z: p.z })),
+            maxHeightM: env.maxHeightM,
+            confidence: env.confidence,
+        };
     };
 
     /** §L-412 (C59 Phase 1b) — the DOM host for the 3D-Site chrome (envelope card).

@@ -48,6 +48,8 @@ import {
 } from "./facadeStudySubject";
 // C06 §7 / §233 — z-index comes from the single named scale, never a hand-picked literal.
 import { zCss } from "../layout/zLayers";
+import { envelopeRenderStyle } from "../site/envelopeRenderStyle";
+import type { EnvelopeConfidence } from "@pryzm/schemas";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
 import { fetchContextParks, type ContextParkCollection } from "./contextParks";
@@ -3807,6 +3809,13 @@ export class CesiumViewport {
       ring: ReadonlyArray<{ x: number; z: number }>;
       /** Max height in metres (extrusion top); falls back to a nominal 9 m when null. */
       maxHeightM: number | null;
+      /**
+       * §ENVELOPE-CONFIDENCE-COLOUR (L-608) — the C58 confidence label, or null when unknown (a
+       * persisted ring whose provenance was deliberately not re-derived). Drives the render hue:
+       * a real determination is violet, an estimate / flat / unknown is grey. Optional — older
+       * callers omit it → treated as unknown → grey (the conservative, honest default).
+       */
+      confidence?: EnvelopeConfidence | null;
     } | null;
   }): void {
     const viewer = this.viewer;
@@ -4727,18 +4736,28 @@ export class CesiumViewport {
           (hasRealHeight ? envelope!.maxHeightM! : FOOTPRINT_ONLY_HEIGHT_M);
         const envBottom = baseHeight - FORMA_BASE_SINK_M; // seat below ground (no z-fight).
         const positions = envelope!.ring.map((p) => toCartesian(p.x, p.z, envBottom));
+        // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — a confident, complete determination stays the unified
+        // violet; an estimate (`estimated-ruleset`/unverified/unknown) OR a flat footprint (no
+        // confirmed height, `hasRealHeight === false`) renders a muted grey, so the "COULDN'T
+        // COMPLETE" fallback the founder hit on clau 13a can never look like a surveyed envelope.
+        const envStyle = envelopeRenderStyle(envelope!.confidence ?? null, hasRealHeight);
+        if (!envStyle.complete) {
+          console.log(
+            `[CesiumViewport][forma] §ENVELOPE-CONFIDENCE-COLOUR — envelope drawn GREY (${envStyle.cssHex}): ${envStyle.reason}.`,
+          );
+        }
         // Identical entity construction to the storey-band massing prism (see above),
-        // differing ONLY in the translucent purple study fill + shadows-off (a study
-        // volume should not cast a solid building shadow).
+        // differing ONLY in the translucent study fill (violet when confident, grey when
+        // provisional) + shadows-off (a study volume should not cast a solid building shadow).
         const ent = viewer.entities.add({
           name: 'pryzm-forma-buildable-envelope',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: envBottom,
             extrudedHeight: envTop,
-            material: Cesium.Color.fromCssColorString('#6600FF').withAlpha(0.34),
+            material: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(0.34),
             outline: true,
-            outlineColor: Cesium.Color.fromCssColorString('#6600FF').withAlpha(1.0),
+            outlineColor: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(1.0),
             outlineWidth: 2,
             shadows: Cesium.ShadowMode.DISABLED,
             perPositionHeight: false,

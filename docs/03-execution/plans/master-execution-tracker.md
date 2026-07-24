@@ -4583,6 +4583,10 @@ forced one revert today (L-598).
 | **L-607 (5)** — client tile-URL resolution (ONLY if per-city prefixes chosen; (2a) big-extract needs none) | UNASSIGNED | TBD | L-607 (2) | LOGGED |
 | **L-607 (6)** — honesty fix: out-of-baked-coverage ≠ genuinely-empty tile | UNASSIGNED | TBD | L-607 (1) confirms it | LOGGED |
 | **L-607 (7)** — founder live verify Madrid+Córdoba context on prod | UNASSIGNED | TBD | L-607 (2–4) published | LOGGED |
+| **L-608** — envelope confidence colour (violet vs grey) | assistant | next deploy | none | CODE WRITTEN (typechecks; not deployed) |
+| **L-609 (1)** — probe: 3D-globe token-vs-gating (photoreal tiles lost) | UNASSIGNED | TBD | none — do FIRST | LOGGED |
+| **L-609 (2)** — fix per probe: restore VITE_CESIUM_TOKEN (infra) OR fix keepPhotoreal gating (code) | UNASSIGNED | TBD | L-609 (1) | LOGGED |
+| **L-609 (3)** — founder live-verify photoreal tiles return on 3D globe | UNASSIGNED | TBD | L-609 (2) | LOGGED |
 
 ⚠ **Sequencing — both of the just-landed contracts are upstream of L-600's wiring.**
 **C59 Phase 2** (per-pane picker + `PaneLayoutStore`) and **C60 Phase 1** (site-entry stage

@@ -4873,3 +4873,28 @@ L-513 removed. Reuse the existing pipeline; widen its coverage. See audit **L-60
 | 5 | **Wire the client tile-URL resolution IF per-city prefixes chosen** | Only task (2b) touches client code: `contextTiles.ts` resolves the site's jurisdiction/city → tile base. Task (2a) needs NO client change. Either way the honest `ok`/`aborted`/`unavailable`/`disabled` discriminator (L-513b) must be preserved |
 | 6 | **Fix the honesty false-negative IF task 1 confirms it** | If an out-of-region bbox returns `ok`-empty, that is the L-467/L-469 failure-vs-empty conflation at the tile layer: an un-baked city is "we haven't baked here yet", NOT "there is nothing here". The reader/caller must distinguish *out-of-baked-coverage* from *genuinely empty tile* so the badge says the honest thing (and, transitionally, may fall back to Overpass for un-baked cities — badged ESTIMATED) |
 | 7 | **Founder live verification** | Load Madrid + Córdoba on the 3D Site; confirm surrounding massing renders. Localhost dev is unusable here (localhost-dev-unusable-test-on-prod) — verify on `pryzm.fly.dev` after the bake workflow publishes |
+
+## L-608 — buildable-envelope confidence colour (violet vs grey) · Phase 5 · P2 · OWNER: assistant · TARGET: next Fly deploy
+
+Code written + typechecks; see audit **L-608**. A shared `envelopeRenderStyle.ts` colours the study
+volume violet only for a real determination with a real height, else grey (estimate/flat/unknown).
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | ✅ Shared pure helper `envelopeRenderStyle(confidence, hasRealHeight)` | `apps/editor/src/ui/site/envelopeRenderStyle.ts` — colour only; each renderer keeps its own alpha |
+| 2 | ✅ Wire Three + Cesium render paths | `ParcelBoundarySceneRenderer.buildEnvelopeVolume`, `CesiumViewport` prism |
+| 3 | ✅ Thread `confidence` (real on `solved`, null→grey on persisted/re-inset — no fabricated provenance) | `RenderableBuildableEnvelope` + `GISAreaLayout.resolveFormaEnvelope` |
+| 4 | ☐ Commit + Fly deploy + founder live-verify the grey signal on a "COULDN'T COMPLETE" parcel | Not deployed yet; verify on `pryzm.fly.dev` |
+
+## L-609 — "3D globe" lost photoreal 3D Tiles, shows 3D-Site OSM massing · Phase 5 · P1 · OWNER: UNASSIGNED · TARGET: TBD
+
+Regression in the DEPLOYED build (independent of L-607/L-608). See audit **L-609**. Root cause narrowed
+to two candidates — **do not fix on inference; one probe disambiguates.**
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | **Probe FIRST — token vs gating** | On `pryzm.fly.dev` 3D-globe, read the console for `KEYLESS-SATELLITE` vs `Google Photorealistic` (CesiumViewport ~1485) and whether `photorealTileset.tilesLoaded`. This single line decides (a) missing token vs (b) code gating. §probe-can-be-wrong-three-ways |
+| 2a | **IF (a) infra — token** | Restore/rotate `VITE_CESIUM_TOKEN` (or the Google Maps Platform key) as a Fly secret + build var. A dev token was noted removed/should-be-rotated (CesiumViewport ~199–222). No code change |
+| 2b | **IF (b) code — gating** | Fix the `keepPhotoreal` vs Forma-massing separation so OSM context massing is Forma-only and never composites over the photoreal tileset on the globe path (`restorePhotorealGlobeContent` / `invalidateFormaRealCacheOnPhotorealGlobeEntry`) |
+| 3 | **Do NOT force-hide context on the globe blindly** | That masks a missing-token infra failure behind a code patch — the fast-but-wrong shortcut |
+| 4 | **Founder live-verify** photoreal tiles return on the 3D globe (screenshot-4 state) | `pryzm.fly.dev` |

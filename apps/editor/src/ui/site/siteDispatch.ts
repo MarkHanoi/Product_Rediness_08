@@ -30,6 +30,7 @@ import type {
     ParcelEdgeClassification,
     SiteModel,
     BuildableEnvelope,
+    EnvelopeConfidence,
     ZoningRecord,
     ZoningRule,
     Pt,
@@ -195,6 +196,14 @@ export interface RenderableBuildableEnvelope {
     readonly ring: ReadonlyArray<{ x: number; z: number }>;
     readonly maxHeightM: number | null;
     readonly source: 'solved' | 'persisted' | 're-inset';
+    /**
+     * §ENVELOPE-CONFIDENCE-COLOUR (L-608) — the C58 confidence, but ONLY on the `solved` path where
+     * this session actually derived it (`_lastEnvelope`). `null` on `persisted`/`re-inset`: those
+     * read back a ring WITHOUT its provenance (the §1.7a honesty rule — we do not re-synthesise a
+     * confidence we did not re-derive), and null is honestly rendered as grey (unknown), never as a
+     * confident violet. This carries no fabricated provenance — it is the real label or nothing.
+     */
+    readonly confidence: EnvelopeConfidence | null;
 }
 
 export function resolveRenderableBuildableEnvelope(
@@ -207,6 +216,7 @@ export function resolveRenderableBuildableEnvelope(
             ring: solved.insetPolygon.map((p) => ({ x: p.x, z: p.z })),
             maxHeightM: solved.maxHeight_m,
             source: 'solved',
+            confidence: solved.confidence,
         };
     }
     // 2) Fall back to the PERSISTED ring. Deliberately does NOT use `resolveSiteContext`:
@@ -222,6 +232,7 @@ export function resolveRenderableBuildableEnvelope(
                 ring: ring.map((p) => ({ x: p.x, z: p.z })),
                 maxHeightM: parcel?.maxHeight ?? null,
                 source: 'persisted',
+                confidence: null,
             };
         }
         // 3) LAST RESORT — RE-INSET from the persisted setbacks (L-445 follow-up).
@@ -264,6 +275,7 @@ export function resolveRenderableBuildableEnvelope(
                     ring: reInset.polygon.map((p) => ({ x: p.x, z: p.z })),
                     maxHeightM: parcel?.maxHeight ?? null,
                     source: 're-inset',
+                    confidence: null,
                 };
             }
         }

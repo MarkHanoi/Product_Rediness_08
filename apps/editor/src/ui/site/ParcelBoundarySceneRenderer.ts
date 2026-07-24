@@ -54,6 +54,7 @@ import { EDITOR_LAYER } from '@pryzm/scene-committer';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { getLastBuildableEnvelope } from './siteDispatch';
+import { envelopeRenderStyle } from './envelopeRenderStyle';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
@@ -295,10 +296,13 @@ export class ParcelBoundarySceneRenderer {
             if (!env || env.status !== 'ok') return null;
             const ring = env.insetPolygon;
             if (!Array.isArray(ring) || ring.length < 3) return null;
-            const height =
-                typeof env.maxHeight_m === 'number' && env.maxHeight_m > 0
-                    ? env.maxHeight_m
-                    : ENVELOPE_FALLBACK_HEIGHT_M;
+            const hasRealHeight =
+                typeof env.maxHeight_m === 'number' && env.maxHeight_m > 0;
+            const height = hasRealHeight ? env.maxHeight_m! : ENVELOPE_FALLBACK_HEIGHT_M;
+            // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — a confident, complete determination renders in the
+            // unified violet; an estimate or a flat (no-confirmed-height) envelope renders in a muted
+            // grey so a "couldn't complete" fallback can never look like a surveyed answer.
+            const style = envelopeRenderStyle(env.confidence, hasRealHeight);
 
             const shape = new THREE.Shape();
             shape.moveTo(ring[0]!.x, -ring[0]!.z);
@@ -320,7 +324,7 @@ export class ParcelBoundarySceneRenderer {
             geo.translate(0, GROUND_Y_OFFSET, 0);
 
             const mat = new THREE.MeshBasicMaterial({
-                color: PRYZM_VIOLET,
+                color: style.hex,
                 transparent: true,
                 opacity: 0.16,
                 depthWrite: false,
@@ -328,6 +332,7 @@ export class ParcelBoundarySceneRenderer {
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.name = 'pryzm-buildable-envelope-volume';
+            mesh.userData.envelopeConfidenceComplete = style.complete;
             // Distinct flag (NOT the parcel hide flags) — visible in the BIM 3D + plan
             // design scene; a future view gate can target this without touching the parcel.
             mesh.userData.isBuildableEnvelopeVolume = true;
