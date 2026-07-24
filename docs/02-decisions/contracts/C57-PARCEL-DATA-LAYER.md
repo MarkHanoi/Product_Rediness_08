@@ -133,6 +133,17 @@ An adapter or block assembler MUST NOT present a prefix-collected masa as a lega
 
 **Why**: a partial or over-collected block produces an almost-right *profunditat edificable* — the confidently-wrong number ADR-0270/0271 and L-462/L-465 exist to prevent.
 
+### §1.13 — One registry, N identical adapters: parcel-select is PROVIDER-INVARIANT, and Spain/Catastro is the reference every jurisdiction clones
+
+**Added 2026-07-24 (L-613). Promotes §10.1 from open-question to binding: the shipped Spain/Catastro parcel-select is proven correct in production, so it is the reference implementation — every other country is a byte-for-byte clone of that flow behind one shared interface, never a bespoke path.**
+
+1. **The select UX is provider-invariant.** From the map UI's perspective, selecting a plot MUST behave **identically in every jurisdiction** — same click → real cadastral parcel snaps in → the C19 commit + C58 envelope resolve (§1.3). The *only* thing that varies per country is which adapter (and which upstream endpoint) the registry dispatched to. A jurisdiction whose select behaves differently from the Spain reference is a defect, not a variant.
+2. **One dispatch registry, routed by the SAME predicates as zoning.** A single `resolveParcelProvider(lat, lon)` registry (`packages/site-parcel-data/`, keyed by `jurisdictionId`) routes a click-point to the right adapter using the **same** point-in-jurisdiction predicates the C58 zoning dispatch already routes on (`isInDenmark`, `isInBarcelona`, `isInRiyadh`, …) — not a parallel copy. Parcel routing and zoning routing MUST agree on WHERE a point is (a divergence is a drift bug, cf. L-612). The registry is a pure dispatch layer over N adapters that all satisfy the identical §2.3 `ParcelProvider` interface; adding a jurisdiction is a registry entry, **never** a UI edit, a core edit, or a new interaction.
+3. **Catastro is the literal template.** Every new adapter is written by cloning `CatastroParcelProvider`'s shape — same interface signature, same never-throws contract (§1.5), same WGS84-normalise-at-edge (§1.1), same OTel span family (§1.8), same provenance (§1.4), same same-origin-proxy pattern (§1.2). Copy the reference; do not re-architect it.
+4. **Universal footprint fallback where no cadastre is reachable — labelled honestly.** Where a jurisdiction's cadastre is geo-fenced (Saudi Balady/U-Maps — WAF-blocks non-SA IPs, L-606) or licence-gated (parts of German ALKIS), the registry falls back to selecting the **building/parcel FOOTPRINT** from the context layer (OSM/Overture) at the click-point, so "click to select" works **everywhere** — but the result MUST be labelled `footprint` in its provenance, **never** presented as a `cadastral parcel` (§1.4/§1.5). Selection is universal; *legal-parcel* provenance is only claimed where a real cadastre resolved it.
+
+**Why**: the founder-confirmed fact that the Spain path works "100% perfectly" is the strongest available guarantee — matching its exact interface means every country inherits that reliability instead of risking a one-off. This invariant is what turns "13 countries" from 13 bespoke integrations into 13 instances of one proven process (the §1.1 adapter-swap property, made binding for the *whole* select flow, not just the geometry normalise).
+
 ---
 
 ## §2 — Schema
@@ -214,6 +225,20 @@ Denmark's Matriklen requires a Datafordeler service-user API-key (free self-serv
 | `apps/editor/src/ui/geospatial/` + `.../site/parcel/` | **L5** | the "Select parcel" map mode + info card; the transitional home of the shipped Spain adapter (§1.7). |
 
 Dependency direction: `apps/editor` ← `site-parcel-data` ← `schemas`; `site-parcel-data` → `geospatial` (peer L2). No reverse imports.
+
+### §3.4 — The add-a-jurisdiction recipe (the standardized, reusable process)
+
+Adding parcel-select for a new country is this fixed, modular sequence — **nothing outside these steps changes** (per §1.13 the UI, the interface, and the commit seam are untouched). This is the standard binding on every jurisdiction PR:
+
+1. **Routing predicate** — reuse (or add) the point-in-jurisdiction predicate the C58 zoning dispatch already uses (`providers/<cc>Bbox.ts` → `isIn<CC>`). Parcel + zoning MUST share ONE predicate per jurisdiction (§1.13.2); do not fork it.
+2. **Adapter** — implement the §2.3 `ParcelProvider` by cloning `CatastroParcelProvider`: point → real cadastral polygon, normalise to a WGS84 ring at the edge (§1.1), `null`-never-throw on any miss (§1.5), open `pryzm.parcel.*` spans (§1.8), emit full provenance incl. `sourceCrs` + `license` (§1.4). Pure fetch+parse, no THREE/DOM/store (§1.7).
+3. **Proxy route** — add `/api/parcel/<cc>` in `server/parcelZoningProxy.js` cloning the forward-once + LRU + non-fatal-empty template (§1.2). If the source is **keyed** (e.g. DK Datafordeler), the key lives server-side only (§3.2) — the browser MUST NOT see it, and a keyed source MUST look identical to a keyless one from the client (§1.2).
+4. **Register** — add the adapter to the `resolveParcelProvider` registry keyed by `jurisdictionId`, routed by the step-1 predicate. This is the ONLY wiring edit; there is no UI change (§1.13.2).
+5. **Attribution** — supply the provider `label` + `license` attribution string, surfaced on the info card (§1.9 / §5.2).
+6. **Tests** — a fixture test from a captured real feature (never live network) + the `check-parcel-never-throws` and `check-parcel-wgs84` gates (§6). Prove the select behaves identically to the Spain reference (§1.13.1) in the E2E (§6.1) generalised to the new jurisdiction.
+7. **Fallback (only if unreachable)** — if the cadastre is geo-fenced/licence-gated and step 2 cannot resolve keylessly-or-via-proxy, the jurisdiction routes to the universal footprint fallback labelled `footprint` (§1.13.4), and that limitation is recorded (an Issue-Log row + the jurisdiction's `PARCEL-SELECT-COVERAGE` entry) — never a fabricated legal parcel.
+
+**Effort per country** is then bounded to steps 1–6 (a few hundred lines + a proxy route + a test), because steps that would otherwise be per-country — the interface, the commit seam, the UI mode, the projector, the honesty fallback — are all shared core the recipe reuses. This is the modular-reuse property C57 exists to guarantee.
 
 ---
 
@@ -297,8 +322,8 @@ No behaviour change to the shipped Spain flow during the lift; the commit seam (
 
 ## §10 — Open design questions (pending decision)
 
-### §10.1 — pending: jurisdiction → provider registry shape
-Today `defaultParcelProvider` is a single export (one pilot jurisdiction). Multi-jurisdiction needs a registry keyed by `jurisdictionId` (resolved from the reverse-geocode result / the map location). Whether that registry is a static map, a runtime-composed registry (P1), or config-driven is undecided. Recommendation: a static keyed registry in `site-parcel-data`, resolved by the reverse-geocoded country/municipality. Pending L-400 implementation.
+### §10.1 — RESOLVED (2026-07-24, L-613): jurisdiction → provider registry shape
+**Decided.** The multi-jurisdiction registry is now the binding standard — see **§1.13** (provider-invariant select + one dispatch registry routed by the shared C58 predicates + Catastro as the reference clone + universal footprint fallback) and **§3.4** (the add-a-jurisdiction recipe). Shape: a static keyed registry (`resolveParcelProvider(lat, lon)`) in `packages/site-parcel-data/`, routed by the same `isIn<CC>` predicates the zoning dispatch uses, resolving to N adapters that all satisfy the §2.3 interface. Implementation in progress (L-613); the shipped Spain path is unchanged and is the reference every added country matches.
 
 ### §10.2 — pending: hover-preview fast path
 Catastro's WFS has no BBOX; the hover preview would need the WMS `GetFeatureInfo` point path (a second upstream shape). Whether hover-preview is in the P0 UI or deferred (click-only select) is a UX decision. Pending SPEC-PARCEL-SELECTION.
@@ -334,6 +359,7 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 |---|---|
 | 2026-07-17 | Initial DRAFT — fills the C57 reserved slot (compliance-authoring foundation, L-398/L-400/L-403). Grounds on the shipped Spain/Catastro parcel-select + the Denmark reference. Author: compliance-authoring governance track. |
 | 2026-07-21 | Added **§1.11** (cadastral publication quantum + tolerant block assembly, L-539) and **§1.12** (the manzana-prefix heuristic's measured limits, L-535/L-539/L-525). Added **§13 Known violations**. All grounded in the live-data probes listed there; no invariant is claimed conformant on documentation alone. |
+| 2026-07-24 | Added **§1.13** (provider-invariant parcel-select + one dispatch registry routed by the shared C58 predicates + Catastro as the reference clone + universal footprint fallback) and **§3.4** (the standardized add-a-jurisdiction recipe). Promoted **§10.1** from open-question to RESOLVED. Grounds on the founder-confirmed "Spain works 100%" reference + L-613 (parcel-select was Catastro-only, blocking every non-Spanish demo). Author: geospatial rollout track. |
 
 ---
 
