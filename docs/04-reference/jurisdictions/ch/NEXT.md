@@ -1,105 +1,140 @@
 # NEXT — Switzerland (`ch`)
 
-> **What this file is.** The single place recording where we stopped on Switzerland, exactly why, and
-> precisely what to do to go further the moment it becomes possible — so a source/technique found
-> while working on another jurisdiction can be brought straight back here.
 > **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED · **Status:** Context-data GATE PASSED;
-> legal/zoning layer NOT STARTED.
+> ÖREB legal-layer PARTIALLY PROBED — zone code CONFIRMED STRUCTURED; FAR/height UNCONFIRMED.
 
 ---
 
 ## 1 — WHERE WE STOPPED
 
-The context-data layer (L-511) is fully researched and the Gate is passed: buildings (LOD2 nationwide,
-GWR EGID join, swissSURFACE3D LiDAR, swissALTI3D DTM), roads, water, parks, and trees are all
-confirmed as object-level, nationwide, free OGD via swisstopo/BFS. The one regional nuance — the
-swissBUILDINGS3D 3.0 Beta biannual canton rollout — is documented with a routing strategy and a
-6-month re-check cadence.
+**Context-data layer:** Gate PASSED. All four topics confirmed. CityGML 2.0 confirmed. GWR full Stufe
+A field schema confirmed. Three residual open items remain (see §3.3).
 
-The legal/zoning layer has not been started at all. The operative instrument is the **ÖREB/RDPPF
-cadastre** (federal ordinance V-ÖREB), implemented per-canton as the Nutzungsplanung /
-Bau- und Zonenordnung. No canton's ÖREB endpoint has been queried. The key unknown: whether a typical
-canton's ÖREB response returns zone code + Ausnützungsziffer + max height as structured machine-readable
-fields, or delivers only linked-PDF provisions. That single question determines the realistic rate ceiling.
+**Legal/zoning layer:** Major progress. All 25 ÖREB canton endpoints now confirmed with URLs (NE has
+email only). AG and ZH GetEGRID VERIFIED LIVE. GE (Geneva) and VD (Vaud) RDPPF endpoints VERIFIED
+LIVE — both are SOAP/WCF services. The ÖREB 2.0 data schema confirms zone TypeCode is a structured
+field, but Ausnützungsziffer and max height are NOT in the base ÖREB schema — they live in linked PDF
+legal provisions.
+
+A national Nutzungsplanung WFS at geodienste.ch (MGDM ID 73.1, V1.2, layer `ms:grundnutzung`) is
+confirmed live for 19+ cantons. Whether this WFS layer includes Nutzungsziffer (FAR) as a structured
+attribute is the single remaining critical unknown — blocked by geo-IP restriction on probe.
+
+ÖREB full data extract has NOT been fetched (format path needs verification per canton). One first-
+municipality folder (`ch-zh/...` or `ch-be/...`) has not been created — awaiting WFS attribute
+confirmation.
 
 ---
 
 ## 2 — THE NUMBER
 
-**Context-data structured fill:** ~85% (all four topic layers confirmed nationwide; see `RATE.md`).
+**Context-data structured fill:** ~85% (context layer; see `RATE.md`).
 
-**Building-rule structured fill** (zone code + density metric + height rule, per parcel):
-**NOT YET ASSESSED — 0 cantons probed.** The honest current answer is: unknown, pending one pilot
-ÖREB query. Do not invent a percentage.
+**Building-rule structured fill:**
+- Zone type code: ~70% (ÖREB TypeCode confirmed structured; all 25 canton endpoints live)
+- Zone polygon / boundary: ~75% (ÖREB + geodienste.ch WFS for 19+ cantons)
+- Density metric (Ausnützungsziffer): ~15–25% ESTIMATED (in PDF per ÖREB schema; geodienste.ch WFS attribute unconfirmed; pending)
+- Max height: ~5–15% ESTIMATED (in PDF typically; overlay WFS attribute unconfirmed)
+- Full 3-field (zone + FAR + height): **~15–35% estimated** — pending WFS GetFeature probe
 
 ---
 
 ## 3 — BLOCKERS
 
-### 3.1 — Legal/zoning layer not begun; ÖREB/RDPPF structured-field question unanswered
+### 3.1 — Nutzungsplanung WFS attribute schema not probed (geo-IP blocked)
 
-- **What it is.** Zero ÖREB/RDPPF queries run for any Swiss canton. The V-ÖREB ordinance mandates a
-  standardized data model across all cantons, but whether canton implementations actually populate
-  zone + Ausnützungsziffer + height as structured attributes (vs. PDF URLs) is unknown.
-- **Why it blocks.** Without knowing this, the rate ceiling is undefined and no pack work can be
-  scoped.
-- **What would unblock it.** One pilot query against any canton's ÖREB endpoint for a known address.
-  Recommended pilot cantons (most advanced ÖREB digitization): **Zürich (`ch-zh`)** or **Bern
-  (`ch-be`)** — both are large, technically capable, and have published ÖREB documentation.
+- **What it is.** The geodienste.ch WFS (`ms:grundnutzung`) covers 19+ cantons with zone polygons.
+  Whether the features include Nutzungsziffer (FAR) as a structured attribute cannot be determined
+  without a GetFeature call — blocked from non-DACH IP addresses (ZG confirmed geo-blocked;
+  geodienste.ch likely same).
+- **Why it blocks.** If YES: FAR score rises from ~15% to ~60% for 19 cantons; overall building-rule
+  rate rises to ~35–45%. If NO: FAR remains PDF-only and the rate estimate holds.
 - **THE EXACT RESUME STEP.**
-  ```
-  # 1. Get the federal ÖREB XML service endpoint for a test canton, e.g. Zürich:
-  #    https://geodienste.ch/db/oereb_2_0/deu  (federal aggregator — lists all canton endpoints)
-  # 2. Query a known address, e.g. an address in Zürich:
-  #    https://oereb.zh.ch/extract/reduced/json/coord/2683448,1248342
-  # 3. Inspect the response: does it include a structured field for the zone code
-  #    (e.g. `Bezeichnung` / `Typ_Kt`) AND a numeric Ausnützungsziffer/GFZ AND max height?
-  #    Or only `PDF_URL` for the ordinance text?
-  # 4. Record result in ch-zh/NEXT.md and update RATE.md.
+  ```bash
+  # From a CH/DE/AT server or VPN exit node:
+  curl "https://geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu?SERVICE=WFS&VERSION=2.0.0\
+  &REQUEST=GetFeature&TYPENAMES=ms:grundnutzung&COUNT=1&outputFormat=application/json" \
+  | jq '.features[0].properties'
+  # Check: is there a 'nutzungsziffer', 'ausnuetzungsziffer', 'gfz', or similar numeric field?
+  # Also check: is there a 'gebaeudehoehemax' or 'firsthoehe' attribute?
   ```
 
-### 3.2 — GWR Merkmalskatalog field schema not transcribed
+### 3.2 — ÖREB full data extract not fetched
 
-- **What it is.** The GWR attribute catalogue (`housing-stat.ch/files/881-2200.pdf`) has not been
-  read field-by-field. Confirmed attributes (Anzahl Geschosse, Baujahr, Gebäudeart,
-  Gebäudefläche, heating, dwelling count) exist; full type/domain list not yet verified.
-- **Why it blocks.** Cannot commit a schema mapping for the EGID-join pipeline without it.
-- **THE EXACT RESUME STEP.** Download `housing-stat.ch/files/881-2200.pdf`; record Stufe A field
-  names, types, and domain values in `sources/SOURCES.md §A`.
+- **What it is.** The ÖREB 2.0 schema shows a `Information` key-value array in
+  `RestrictionOnLandownership` — some cantons may populate this with structured AZ/height data.
+  The actual extract content for a real parcel has not been seen.
+- **Why it blocks.** Cannot confirm whether canton-specific Information fields carry numeric
+  parameters beyond what the base schema defines.
+- **THE EXACT RESUME STEP.**
+  ```bash
+  # AG v2 correct extract syntax (note: may need no slash before ?):
+  curl "https://api.geo.ag.ch/v2/oereb/extract/json/?EGRID=CH959823775233"
+  # If that fails, check AG capabilities for correct path format:
+  curl "https://api.geo.ag.ch/v2/oereb/capabilities/json/"
+  # Inspect: do any RestrictionOnLandownership entries for Nutzungsplanung
+  # include Information key-value pairs with numeric AZ or height?
+  ```
 
-### 3.3 — CityGML export conformance level not confirmed
+### 3.3 — Context-data residual open items
 
-- **What it is.** swissBUILDINGS3D CityGML exports: version 2.0 or 3.0 not confirmed from a sample.
-- **Why it blocks.** The ingestion pipeline schema depends on which CityGML version is delivered.
-- **THE EXACT RESUME STEP.** Download one sample `.gml` tile from `map.geo.admin.ch`; inspect the
-  `cityGMLVersion` declaration in the file header; record in `topics/buildings-lod-height.md §Open items`.
+These are LOW effort and do not block implementation, but close the context-data rate gap (~85% → ~92%):
+
+1. **Pedestrian sub-classification in swissTLM3D 2.4**: Read Objektkatalog 2.4 "Strassen und Wege"
+   chapter; confirm whether "Wege" is further sub-typed for sidewalks vs. generic paths.
+2. **Areale Freizeit sub-types**: Read Objektkatalog 2.4 "Areale" chapter; confirm whether Freizeit
+   sub-classifies park vs. sports field vs. playground.
+3. **Municipal tree cadastres (Geneva, Basel, Lausanne, Bern)**: Check each city's opendata.swiss
+   entry for "Baumkataster" or "cadastre des arbres". Zürich is the only confirmed open-data case.
+
+### 3.4 — Geodienste.ch licensing (fees may apply)
+
+- **What it is.** The geodienste.ch Nutzungsplanung WFS GetCapabilities states: "Für den Bezug des
+  Geodienstes können Kosten anfallen. Die Gebühren werden durch die Kantone erhoben." — cantonal
+  fees may apply.
+- **Why it blocks.** Cannot assume free access for production ingestion without confirming the fee
+  structure per canton.
+- **THE EXACT RESUME STEP.** Email `support@geodienste.kgk-cgc.ch` to confirm whether API access
+  for PRYZM's production use case is free for all participating cantons, or whether per-canton
+  agreements are needed.
+
+### 3.5 — NE (Neuchâtel) ÖREB endpoint URL not found
+
+- **What it is.** The federal M2M page (2026-02-13) lists NE with email only (`sitn@ne.ch`), no URL.
+- **THE EXACT RESUME STEP.** Check `sitn.ne.ch` — the SITN portal for Neuchâtel — for an ÖREB or
+  RDPPF webservice entry. Or email sitn@ne.ch directly.
 
 ---
 
 ## 4 — TRIP-WIRES
 
-- **4.1 — ÖREB/RDPPF structured data confirmed in any canton** → come back here (§3.1) and run the
-  same probe for additional cantons using the same federal aggregator endpoint. The V-ÖREB federal
-  data model means a working reader is reusable across all 26 cantons.
-- **4.2 — swissBUILDINGS3D 3.0 Beta adds a new canton** → update `regions/README.md` canton table
-  and `topics/buildings-lod-height.md §Coverage gaps`. Check biannually at
-  `opendata.swiss/en/dataset/swissbuildings3d-3-0-beta`.
-- **4.3 — Any Swiss city publishes an open-data tree cadastre** → update `topics/parks-trees.md
-  §Known limitation` and document the endpoint in `sources/SOURCES.md`.
-- **4.4 — swissSURFACE3D COPC tile reader built for another jurisdiction** → reuse for Switzerland
-  directly; same format (COPC, LAZ 1.2 fallback), same free OGD licence.
-- **4.5 — GWR EGID join pattern proven in another context** → the same join (geometry + EGID +
-  `housing-stat.ch` API) is identical for all Swiss cantons; no per-canton variation.
+- **4.1 — geodienste.ch WFS Nutzungsziffer confirmed** → update `RATE.md §2` FAR row; raise building-
+  rule rate from ~25% to ~35–45%; proceed to Phase 1 municipality folder.
+- **4.2 — ÖREB extract Information fields carry numeric AZ/height** → update `RATE.md §2`; raises
+  rate for confirmed cantons; add SOURCES.md rows for each canton confirming this.
+- **4.3 — swissBUILDINGS3D 3.0 Beta adds a new canton** → update `regions/README.md` canton table.
+  Check biannually at `opendata.swiss/en/dataset/swissbuildings3d-3-0-beta`.
+- **4.4 — Any Swiss city publishes open-data tree cadastre** → update `topics/parks-trees.md`; add
+  endpoint to `sources/SOURCES.md`.
+- **4.5 — NW and OW share an ÖREB endpoint** (`oereb.gis-daten.ch/oereb`) — test with one EGRID from
+  each canton to confirm the shared endpoint routes correctly.
+- **4.6 — Geodienste.ch fee structure confirmed free** → unblocks production ingestion for 19
+  cantons immediately.
 
 ---
 
 ## 5 — WHAT IS ALREADY BUILT (do not redo)
 
-- **Context-data layer research:** all four topics researched, Gate PASSED. `topics/` files filled.
-- **3.0 Beta canton routing table:** `regions/README.md` with full canton-level 3.0 Beta / 2.0
-  routing logic and 6-month re-check cadence.
-- **GWR EGID join documented:** method and open items in `topics/buildings-lod-height.md`.
-- **RATE.md scaffold:** current rate and field-by-field breakdown for the context layer.
+- **Context-data Gate: PASSED.** All 4 topic files filled with confirmed sources and open items.
+- **ÖREB canton endpoint table:** all 25/26 URLs confirmed and documented in `sources/SOURCES.md`.
+- **GWR full Stufe A field schema:** confirmed from PDF v4.2; all field names documented in
+  `sources/SOURCES.md`.
+- **CityGML 2.0 version:** confirmed from official swisstopo product page.
+- **Live probe record:** AG GetEGRID, ZH GetEGRID, GE RDPPF, VD RDPPF, GWR API, WMS capabilities,
+  geodienste.ch WFS GetCapabilities — all confirmed in `RATE.md §3 probe record`.
+- **ÖREB 2.0 schema:** TypeCode structured, LegalProvisions → PDF URL, Information optional key-value.
+- **Nutzungsplanung WFS layer names:** `ms:grundnutzung`, `ms:ueberlagernde_nutzungsplaninhalte_*`.
+- **3.0 Beta canton routing table:** `regions/README.md` with full routing logic.
 
 ---
 
@@ -107,25 +142,43 @@ fields, or delivers only linked-PDF provisions. That single question determines 
 
 | Source | Answers | Tier | Exact query / note |
 |---|---|---|---|
-| `swisstopo.admin.ch/en/landscape-model-swissbuildings3d-2-0` | Buildings LOD2 product spec, licence, coverage | `document` | Product description page — coverage confirmed nationally since 2018 |
-| `opendata.swiss/en/dataset/swissbuildings3d-3-0-beta` | 3.0 Beta canton coverage list | `document` | Dataset distribution page — canton list dated 2026-07-24 |
-| `swisstopo.admin.ch` — swissTLM3D | Roads, water, parks, trees — object-level confirmation, attribute names, licence | `document` | Object catalogue (Objektkatalog swissTLM3D versions 1.7–2.4) |
-| `housing-stat.ch` (BFS) | GWR attributes (Anzahl Geschosse, Baujahr, Gebäudeart, Gebäudefläche, etc.), update cadence, Stufe A public access | `document` | GWR product documentation; field-by-field schema PDF (Merkmalskatalog) NOT YET READ |
-| `map.geo.admin.ch` | Download UI for all swisstopo products | `stated` | No login required; commercial use permitted |
+| `api.geo.ag.ch/v2/oereb/getegrid/json/?EN=2645020,1249500` | AG ÖREB GetEGRID — returned EGRID `CH959823775233`, parcel `62`, identDN `AG0200004001` | `VERIFIED-LIVE` 2026-07-24 | HTTP 200, JSON response |
+| `maps.zh.ch/oereb/v2/getegrid/json/?EN=2683448,1248342` | ZH ÖREB GetEGRID — returned EGRID `CH779170199926`, parcel `UN4079`, identDN `ZH0200000261` | `VERIFIED-LIVE` 2026-07-24 | HTTP 200, JSON response |
+| `ge.ch/terecadastrews/RdppfSVC.svc` | GE RDPPF endpoint live | `VERIFIED-LIVE` 2026-07-24 | WCF service page; WSDL at `?wsdl` |
+| `rdppf.vd.ch/ws/RdppfSVC.svc/` | VD RDPPF endpoint live | `VERIFIED-LIVE` 2026-07-24 | WCF service page |
+| `madd.bfs.admin.ch/eCH-0206?egid=1175237` | GWR live API — building data for EGID 1175237 (Poschiavo, GR) | `VERIFIED-LIVE` 2026-07-24 | HTTP 200, XML; canton GR confirmed, GASTW visible |
+| `madd.bfs.admin.ch/eCH-0206?egid=501001` | GWR live API — building data for EGID 501001 (Heiden, AR) | `VERIFIED-LIVE` 2026-07-24 | HTTP 200, XML; 5 dwellings, Heiden AR confirmed |
+| `swisstopo.admin.ch/en/landscape-model-swissbuildings3d-citygml-20240814` | CityGML 2.0 confirmed; CityGML cantons (Aug 2024): AG, AI, AR, BE, BL, BS, GL, JU, TG + city of Zurich | `document` 2026-07-24 | Official swisstopo product page |
+| `cadastre.ch/de/oereb-webservice` | Full canton ÖREB endpoint list (25 URLs + NE email) | `document` 2026-02-13 (page date) | Official federal ÖREB M2M page |
+| `schemas.geo.admin.ch/V_D/OeREB/2.0/extractdata.json` | ÖREB 2.0 JSON schema — TypeCode, TypeCodelist, LegalProvisions, Information structure | `document` 2026-07-24 | Schema file fetched |
+| `geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu?SERVICE=WFS&REQUEST=GetCapabilities` | Nutzungsplanung WFS live; layer `ms:grundnutzung`; 19 cantons full; fees may apply | `VERIFIED-LIVE` 2026-07-24 | WFS GetCapabilities, HTTP 200 |
+| `housing-stat.ch/files/Data_de.pdf` | GWR Stufe A field list: EGID, GKAT, GKLAS, GSTAT, GBAUJ, GAREA, GASTW, GAZZI, heating fields (full list in SOURCES.md) | `document` 2022 (PDF v4.2) | PDF fetched and read |
+| `wms.geo.admin.ch/?SERVICE=WMS&REQUEST=GetCapabilities` | swisstopo WMS confirmed live; includes heritage inventory layers | `VERIFIED-LIVE` 2026-07-24 | WMS GetCapabilities HTTP 200 |
 
 ---
 
 ## 7 — DEAD ENDS
 
-- None recorded yet — no live probe attempts have been made for Switzerland.
+- **ÖREB AG extract (`extract/reduced/json` without trailing slash / `extract/full/json`):** returned
+  404 — path format incorrect. The API syntax table shows format `extract/${FORMAT}/?EGRID=...` (with
+  trailing slash). Retry: `curl "https://api.geo.ag.ch/v2/oereb/extract/json/?EGRID=CH959823775233"`.
+- **SO ÖREB GetEGRID:** returned server error on two attempts ("Unbekannter Server Fehler") — may be
+  transient or the test coordinates were invalid. Do not re-run with same coordinates.
+- **`bfs.admin.ch/bfs/de/home/register/.../merkmale-gwr.html`:** 404 — URL has changed. Use
+  `housing-stat.ch/files/Data_de.pdf` or `housing-stat.ch/de/docs/index.html` instead.
+- **ZG Nutzungsplanung WFS GetFeature:** geo-blocked from non-DACH IPs. Do not retry from the same
+  origin — requires DACH IP or on-premises Swiss server.
 
 ---
 
 ## 8 — THE SMALLEST NEXT STEP
 
-Query one canton's ÖREB/RDPPF endpoint (recommended: Zürich at
-`https://oereb.zh.ch/extract/reduced/json/coord/2683448,1248342`) and check whether zone code +
-Ausnützungsziffer + max height come back as structured data fields. Cost: one HTTP GET. Outcome A
-(structured fields): Switzerland's rate ceiling approaches Denmark; scope Phase 1 for the full 26
-cantons. Outcome B (PDF URL only): ceiling is lower; scope the OCR/transcription pipeline question
-(L-449). Add `ch-zh/` + `<BFS>-<slug>/` only after this probe.
+From a DACH-region server or Swiss IP, run:
+```bash
+curl "https://geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu?SERVICE=WFS&VERSION=2.0.0\
+&REQUEST=GetFeature&TYPENAMES=ms:grundnutzung&COUNT=1&outputFormat=application/json" \
+| jq '.features[0].properties | keys'
+```
+This one call confirms whether Nutzungsziffer (FAR) is a structured WFS attribute. If YES: build-rule
+rate rises to ~35–45% and Phase 1 can be scoped for a pilot municipality. If NO: clarifies that FAR
+remains PDF-only and the transcription-pipeline question (L-449) becomes the rate ceiling gate.

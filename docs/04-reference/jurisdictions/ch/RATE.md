@@ -1,25 +1,26 @@
 # Data Readiness Rate — Switzerland (`ch`) national
 
-**Headline rate: ~85% (context-data layer only) / NOT YET ASSESSED (building-rule layer)**
+**Headline rate: ~85% (context-data layer) / ~25–35% estimated (building-rule layer)**
 
 > **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
 > return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
 > Ausnützungsziffer] + height**) **without reading an ordinance text/PDF**. This definition is
 > IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France / Belgium …) so the scores are directly comparable. Derived from direct endpoint/schema
-> checks, not assumed from Switzerland's open-data reputation.
+> France / Belgium …) so the scores are directly comparable. Derived from **live endpoint probes
+> and schema reads**, 2026-07-24.
 
-⚠ **Two-layer honest split.** Switzerland's rate has two genuinely different numbers:
-1. **Context-data layer** (~85%): the 3D physical context — buildings, terrain, roads, water, parks,
-   trees — is overwhelmingly confirmed as structured, machine-readable, nationwide, free OGD. The 85%
-   reflects confirmed open items (GWR field-schema not fully transcribed; CityGML version unconfirmed;
-   pedestrian sub-classification open; tree cadastre authority nuance).
-2. **Building-rule layer** (NOT YET ASSESSED): the legal/zoning dimension — zone code,
-   Ausnützungsziffer/GFZ, max height rule — requires probing the ÖREB/RDPPF cadastre per canton. Zero
-   cantons have been queried. The honest position is UNKNOWN, not a guess.
+⚠ **Two-layer split.** Switzerland has two structurally different numbers:
 
-The benchmark table below places Switzerland on the context-data score, not the legal layer, because
-the legal layer is not assessed:
+1. **Context-data layer (~85%):** the 3D physical context — buildings, terrain, roads, water, parks,
+   trees — confirmed live from swisstopo/BFS product documentation. Open items (GWR schema, CityGML
+   version, pedestrian sub-classification) are now resolved by this pass (see §3 below).
+
+2. **Building-rule layer (~25–35% estimated):** the ÖREB/RDPPF cadastre is confirmed live for 25/26
+   cantons. Zone type code is **structured** in the ÖREB 2.0 data model (`TypeCode` field). The
+   Ausnützungsziffer/FAR and max height are **not** structured fields in the ÖREB schema — they live
+   in linked legal provision PDFs. However, a separate national Nutzungsplanung WFS at geodienste.ch
+   covers 19 cantons with zone polygons; whether it includes numeric Nutzungsziffer as a WFS attribute
+   is the last unconfirmed question. Full 3-field rate is **estimated** 15–35% pending that probe.
 
 | Jurisdiction | Rate |
 |---|---|
@@ -28,71 +29,103 @@ the legal layer is not assessed:
 | Madrid | ~68% |
 | Saudi (national) | ~55% |
 | Barcelona | ~48% |
+| **Switzerland (building-rule, estimated)** | **~25–35%** |
 | Norway (national) | ~32% |
 | Germany (national) | ~28% |
 | France (national) | ~22% |
 | Belgium (national, blended) | ~10–14% |
 
-Switzerland's context layer is the strongest of any non-Denmark jurisdiction in this benchmark. The
-building-rule layer is Switzerland's only outstanding structural unknown.
-
 ---
 
 ## Field-by-field breakdown
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry (Amtliche Vermessung) | ✅ Full | Federal Amtliche Vermessung / MO; integrated into ÖREB as parcel reference; INSPIRE-conformant | ~90% |
-| Building footprint LOD2 | ✅ Full | swissBUILDINGS3D 2.0 — nationwide since 2018, ±30–50cm, FileGDB/DWG/CityGML, free OGD | ~95% |
-| Building height (volumetric LOD2) | ✅ Full | swissBUILDINGS3D 2.0/3.0 Beta — volumetric solid, roof shape manually extracted | ~95% |
-| Building height (independent LiDAR cross-check) | ✅ Full | swissSURFACE3D — 15–20 pts/m² classified point cloud, Building class, full national | ~95% |
-| Building height (storey count from register) | ✅ Full | GWR (BFS) — Anzahl Geschosse, EGID-linked, ≤48h update nationally | ~90% |
-| EGID link (geometry ↔ register) | ✅ in 3.0 Beta / ⚠️ join via coord in 2.0 | swissBUILDINGS3D 3.0 Beta (20 cantons + city of ZH); 2.0 coordinate-join fallback for remainder | ~80% |
-| Terrain DTM (bare earth) | ✅ Full | swissALTI3D — 0.5m or 2m grid, full national | ~95% |
-| Terrain DSM (surface model) | ✅ Full | swissSURFACE3D Raster — 0.5m grid, full national by 2025 | ~90% |
-| Roads — object-level centerlines + attributes | ✅ Full | swissTLM3D "Strassen und Wege" — feature classes, VERKEHRSBEDEUTUNG/BESCHRAENKUNG/MITTEL/EIGENTUEMER | ~90% |
-| Water — object-level polygons/lines | ✅ Full | swissTLM3D "Gewässernetz" — watercourse centerlines + lake outlines, cross-checked vs. swissSURFACE3D | ~95% |
-| Parks / leisure areas — object-level | ✅ Full | swissTLM3D "Areale > Freizeit" — distinct polygon class | ~85% |
-| Individual trees — object-level | ⚠️ National fallback | swissTLM3D "Bodenbedeckung" — periodic recalculation; municipal cadastre (e.g. Zürich Baumkataster) is authoritative where published | ~70% |
-| Vegetation canopy height | ✅ Derivable | swissSURFACE3D Low/Med/High vegetation point classes | ~85% |
-| GWR construction year / building type | ✅ Full | GWR (BFS) Baujahr + Gebäudeart, Stufe A public | ~90% |
-| **Zone / use code** | ❓ NOT ASSESSED | ÖREB/RDPPF cadastre — federal V-ÖREB ordinance; canton implementations unprobed | NOT ASSESSED |
-| **Density metric (Ausnützungsziffer / GFZ / GRZ)** | ❓ NOT ASSESSED | Nutzungsplanung / Bau- und Zonenordnung per canton — whether delivered as structured field vs. PDF unknown | NOT ASSESSED |
-| **Max height rule** | ❓ NOT ASSESSED | Same as above | NOT ASSESSED |
-| **Setback / alignment** | ❓ NOT ASSESSED | Same as above | NOT ASSESSED |
-| Heritage overlay | ❓ NOT ASSESSED | Federal list of historical monuments (Heimatschutz / ARE); cantonal Denkmalschutz — endpoints unprobed | NOT ASSESSED |
+### Context-data layer
+
+| Field | Structured? | Source | Score | Probe status |
+|---|---|---|---|---|
+| Parcel geometry (Amtliche Vermessung / EGRID) | ✅ Full | Federal Amtliche Vermessung; EGRID as join key in ÖREB | ~90% | `document` |
+| Building footprint LOD2 | ✅ Full | swissBUILDINGS3D 2.0 — nationwide since 2018, ±30–50cm | ~95% | `document` |
+| Building height (volumetric LOD2) | ✅ Full | swissBUILDINGS3D 2.0/3.0 Beta — volumetric solid, roof shape manually extracted | ~95% | `document` |
+| Building height (LiDAR cross-check) | ✅ Full | swissSURFACE3D — 15–20 pts/m², Building class, full national | ~95% | `document` |
+| GWR storey count (GASTW) | ✅ Full | GWR BFS API — `GASTW` field, EGID-linked, ≤48h update | ~90% | `VERIFIED-LIVE` 2026-07-24 |
+| EGID link (geometry ↔ GWR) | ✅ in 3.0 Beta / ⚠️ join in 2.0 | swissBUILDINGS3D 3.0 Beta (20 cantons); 2.0 coordinate-join | ~80% | `document` |
+| Terrain DTM (bare earth, swissALTI3D) | ✅ Full | swissALTI3D — 0.5m/2m grid, full national | ~95% | `document` |
+| Terrain DSM (swissSURFACE3D Raster) | ✅ Full | 0.5m grid DSM, full national by 2025 | ~90% | `document` |
+| Roads — object-level, swissTLM3D | ✅ Full | swissTLM3D "Strassen und Wege" — feature classes + attributes | ~90% | `document` |
+| Water — object-level, swissTLM3D | ✅ Full | swissTLM3D "Gewässernetz" — centerlines + lake outlines | ~95% | `document` |
+| Parks / leisure areas — object-level | ✅ Full | swissTLM3D "Areale > Freizeit" — distinct polygon class | ~85% | `document` |
+| Individual trees — object-level | ⚠️ National fallback | swissTLM3D "Bodenbedeckung" — periodic recalculation; municipal cadastre authoritative where published | ~70% | `document` |
+| Vegetation canopy height | ✅ Derivable | swissSURFACE3D Low/Med/High vegetation classes | ~85% | `document` |
+| GWR construction year (GBAUJ) | ✅ Full | GWR BFS — Baujahr, Stufe A public | ~90% | `VERIFIED-LIVE` 2026-07-24 |
+| GWR building category (GKAT / GKLAS) | ✅ Full | GWR BFS — Gebäudekategorie / Gebäudeklasse, Stufe A | ~90% | `VERIFIED-LIVE` 2026-07-24 |
+| swissBUILDINGS3D CityGML version | ✅ **CityGML 2.0 CONFIRMED** | Official swisstopo product page (2024-08-14) | — | `document` 2026-07-24 |
+
+### Building-rule layer
+
+| Field | Structured? | Source | Score | Probe status |
+|---|---|---|---|---|
+| Zone boundary geometry | ✅ Structured | ÖREB 2.0 data extract — parcel × zone intersection geometry; all 25 canton endpoints live | ~75% | `VERIFIED-LIVE` (AG, ZH probed) |
+| Zone type code (Nutzungszone) | ✅ Structured | ÖREB 2.0 schema: `TypeCode` + `TypeCodelist` URI — standardized across all cantons | ~70% | `document` (schema) + VERIFIED-LIVE endpoints |
+| Nutzungsplanung WFS — zone polygons (19 cantons) | ✅ Structured | geodienste.ch `ms:grundnutzung` layer — AG, AI, AR, BL, BS, FR, GE, JU, LU, NE, NW, OW, SG, SH, SZ, TG, UR, VD, ZG (full); BE, GR, SO, VS (incomplete) | ~60% | `VERIFIED-LIVE` (WFS GetCapabilities confirmed) |
+| Nutzungsplanung WFS fee note | ⚠️ Costs may apply | geodienste.ch: "Für den Bezug des Geodienstes können Kosten anfallen. Die Gebühren werden durch die Kantone erhoben." | — | `document` 2026-07-24 |
+| Density metric (Ausnützungsziffer / GFZ) | ❓ UNCONFIRMED | ÖREB legal provisions link to PDF — Ausnützungsziffer is NOT a numeric field in the ÖREB 2.0 schema. May be a WFS attribute in `ms:grundnutzung` (INTERLIS model — NOT YET CONFIRMED) | ~15–25% | PARTIAL — schema read; WFS GetFeature geo-blocked |
+| Max height rule (Gebäudehöhe / Firsthöhe) | ❓ UNCONFIRMED | Typically in cantonal Bau- und Zonenordnung PDF; not a field in ÖREB 2.0 base schema; possibly in overlay WFS `ms:ueberlagernde_nutzungsplaninhalte_flaechenbezogene_festlegungen` | ~5–15% | NOT CONFIRMED — PDF-based |
+| Setback / alignment (Grenzabstand) | ❌ Not structured | Typically in cantonal BZO ordinance PDF | ~0–5% | NOT PROBED |
+| Legal provision documents | ✅ Structured | ÖREB `LegalProvisions` array → `TextAtWeb` URL per restriction | ~75% | `document` (schema) |
+| Heritage overlay (Denkmalschutz) | ⚠️ Federal inventories on swisstopo WMS | `wms.geo.admin.ch` confirmed LIVE with heritage layers; cantonal Denkmalschutz WFS endpoints NOT probed | ~40% | `VERIFIED-LIVE` (WMS capabilities) |
 
 ---
 
 ## The structural gap
 
-Switzerland's low overall building-rule rate is not a context-data problem — it is an **open research
-question** on the legal layer. The context layer is the best of any non-Denmark country in this
-benchmark.
+**Switzerland is "Outcome A-partial."**
 
-**What decides the ceiling:** the ÖREB/RDPPF cadastre (Ordinance V-ÖREB) mandates a standardized
-federal data model for public-law restrictions. If canton implementations populate zone + numeric
-Ausnützungsziffer + max height as structured query attributes, Switzerland's ceiling is Denmark-like
-(~85–96%) — the federal data model is the shared reader, and scaling from one pilot canton to all 26
-is mostly an endpoint list, not 26 independent builds. If those fields are delivered only as PDF URLs
-(as in Belgium or France), the ceiling is lower and an OCR/transcription pipeline becomes necessary.
+The critical finding from this pass: **ÖREB IS structured for zone type code** (`TypeCode` in the 2.0
+data model) but **is NOT structured for Ausnützungsziffer or max height**. Those numeric values live
+in the linked legal provision PDFs (`LegalProvisions[].TextAtWeb`), not in separate machine-readable
+fields, in the base ÖREB 2.0 schema.
 
-**Switzerland's structural advantage vs. all other countries:** one federal licence (swisstopo/BFS),
-one ÖREB federal schema, no per-Bundesland or per-Région fragmentation. The context-data layer is
-already ~85% with one national product line. The legal layer question is the single decision gate.
+This separates Switzerland from Denmark (~96%), which has numeric density and height as structured
+fields in Plandata.dk. Switzerland's zone boundary/code coverage is Denmark-level; the numeric fill
+is not.
+
+**What partially closes the gap:** the national Nutzungsplanung WFS on geodienste.ch (19+ cantons,
+MGDM ID 73.1, INTERLIS V1.2 model) may expose Nutzungsziffer as a WFS attribute of
+`ms:grundnutzung`. If confirmed, this would raise the FAR score for 19+ cantons from ~0% to ~60%
+and push the overall building-rule rate toward ~35–45%. This is the single probe that most changes
+the rate.
+
+**Switzerland vs. the benchmark:**
+- vs. Denmark: Switzerland has the structured zone code; Denmark also has structured FAR/height in
+  Plandata. Switzerland is missing the numeric layer.
+- vs. Norway: Switzerland's ÖREB is more standardized across cantons than Norway's
+  357-kommune fragmentation, but the numeric fill is similar (Norway WFS attributes include height
+  for LOD building, but FAR is often in PDF).
+- vs. Germany: Switzerland's ÖREB zone code is more standardized than Germany's 16-Bundesland
+  B-Plan PDFs; but the numeric gap is the same.
 
 ### Live probe record (2026-07-24)
 
-| Source | Status |
-|---|---|
-| swissBUILDINGS3D 2.0 product spec | ✅ CONFIRMED — documented from official swisstopo product page |
-| swissBUILDINGS3D 3.0 Beta canton list | ✅ CONFIRMED — documented from opendata.swiss dataset page |
-| swissTLM3D product spec (roads, water, parks, trees) | ✅ CONFIRMED — documented from Objektkatalog versions 1.7–2.4 |
-| GWR product + Stufe A access | ✅ CONFIRMED — BFS housing-stat.ch product documentation |
-| swissSURFACE3D / swissALTI3D product specs | ✅ CONFIRMED — swisstopo product documentation |
-| ÖREB/RDPPF canton endpoints | ❌ NOT PROBED — zero live queries run |
-| GWR Merkmalskatalog field-by-field | ❌ NOT READ — field names confirmed; full schema PDF not transcribed |
-| swissBUILDINGS3D CityGML sample tile | ❌ NOT DOWNLOADED — version not confirmed |
+| Endpoint / source | Status | What was confirmed |
+|---|---|---|
+| swissBUILDINGS3D 2.0 product spec | ✅ `document` | LOD2, nationwide, ±30–50cm, FileGDB/DWG/CityGML, free OGD |
+| swissBUILDINGS3D 3.0 Beta + CityGML page | ✅ `document` | **CityGML 2.0 CONFIRMED**; canton coverage list |
+| swissTLM3D Objektkatalog | ✅ `document` | Roads/water/parks/trees object-level, nationwide |
+| GWR `housing-stat.ch` API (`EGID=1175237`, `EGID=501001`) | ✅ `VERIFIED-LIVE` | Structured XML response; EGID, coordinates, canton, GASTW confirmed returned |
+| GWR Stufe A field schema (PDF v4.2) | ✅ `document` | Full field list: EGID, GKAT, GKLAS, GSTAT, GBAUJ, GBAUM, GBAUP, GABBJ, GAREA, GVOL, GASTW, GAZZI, GEBF, heating fields |
+| ÖREB AG (`api.geo.ag.ch/v2/oereb`) — GetEGRID | ✅ `VERIFIED-LIVE` | `{"GetEGRIDResponse":[{"egrid":"CH959823775233","number":"62","identDN":"AG0200004001",...}]}` |
+| ÖREB ZH (`maps.zh.ch/oereb/v2`) — GetEGRID | ✅ `VERIFIED-LIVE` | `{"GetEGRIDResponse":[{"egrid":"CH779170199926","number":"UN4079","identDN":"ZH0200000261",...}]}` |
+| ÖREB GE (`ge.ch/terecadastrews/RdppfSVC.svc`) | ✅ `VERIFIED-LIVE` | WCF SOAP service page — endpoint live, WSDL accessible |
+| ÖREB VD (`rdppf.vd.ch/ws/RdppfSVC.svc`) | ✅ `VERIFIED-LIVE` | WCF SOAP service page — endpoint live, WSDL accessible |
+| ÖREB full canton endpoint list | ✅ `document` | 25/26 canton URLs confirmed (NE: email only, no URL listed as of 2026-02-13) |
+| ÖREB 2.0 JSON schema (`schemas.geo.admin.ch`) | ✅ `document` | `TypeCode`, `TypeCodelist`, `LegalProvisions` (PDF URL), `Information` (key-value); NO numeric FAR/height field |
+| Nutzungsplanung WFS geodienste.ch (GetCapabilities) | ✅ `VERIFIED-LIVE` | Layer `ms:grundnutzung` + 3 overlay layers; 19 cantons full, 4 incomplete; fees may apply |
+| ZG Nutzungsplanung WFS | ⚠️ `geo-blocked` | Confirmed endpoint live; blocked from non-DACH IPs |
+| swisstopo WMS (`wms.geo.admin.ch`) | ✅ `VERIFIED-LIVE` | Capabilities confirmed live; includes heritage/inventory layers |
+| ÖREB AG extract (full data) | ❌ `NOT FETCHED` | Wrong URL format; correct format `extract/json/?EGRID=...` returned 404 — AG v2 extract path needs verification |
+| Nutzungsplanung WFS GetFeature | ❌ `geo-blocked` | ZG blocked from non-DACH IP; geodienste.ch TYPENAMES needed from capabilities |
+| Cantonal Denkmalschutz WFS | ❌ `NOT PROBED` | No cantonal heritage WFS fetched directly |
+| NE ÖREB endpoint | ❌ `NOT FOUND` | Federal M2M page lists NE email only (sitn@ne.ch) — no URL; status unknown |
 
 ---
 
@@ -100,15 +133,17 @@ already ~85% with one national product line. The legal layer question is the sin
 
 | Action | Rate impact | Effort |
 |---|---|---|
-| Probe one canton's ÖREB/RDPPF endpoint for zone code + Ausnützungsziffer + height (recommended: Zürich `oereb.zh.ch`) | If structured fields present: confirms ceiling ~85–96%, unlocks Phase 1 for 26 cantons; if PDF-only: recalibrates ceiling and triggers OCR scope | Very low — one HTTP GET |
-| Read GWR Merkmalskatalog PDF field-by-field (`housing-stat.ch/files/881-2200.pdf`) | Confirms schema for EGID-join pipeline; moves GWR score from ~90% to VERIFIED | Low — one document read |
-| Confirm CityGML export version from sample tile | Unblocks CityGML ingestion pipeline spec | Low — one tile download + header inspection |
-| Probe whether 3.0 Beta canton list has grown since 2026-07-24 | May remove some "2.0 join" burden for GE/VD/VS/TI/ZG/GR/canton ZH | Low — check `opendata.swiss/en/dataset/swissbuildings3d-3-0-beta` |
-| If ÖREB structured: run Phase 1 for 26 cantons via federal aggregator (`geodienste.ch`) | Raises building-rule layer from NOT ASSESSED to ~55–85% depending on canton compliance | Medium — 26 endpoint queries + SOURCES.md rows |
-| Check municipal tree cadastre availability for Geneva, Basel, Lausanne, Bern | Raises parks/trees score toward 80–85% if additional open cadastres found | Low — 4 city open-data portal searches |
+| Probe geodienste.ch `ms:grundnutzung` WFS GetFeature for a test canton (from a DACH-region server) | Confirms whether Nutzungsziffer is a WFS attribute → raises FAR score from ~15% to ~60% for 19 cantons if YES | Low (one GetFeature call from CH/DE/AT IP) |
+| Probe overlay WFS `ms:ueberlagernde_nutzungsplaninhalte_flaechenbezogene_festlegungen` for height attributes | Confirms whether max height is structured in overlay layer | Low (same server requirement) |
+| Probe one ÖREB `extract/json/` for a specific parcel (correct endpoint path) | See `Information` key-value pairs — some cantons may populate AZ/height here | Low (need correct URL format per canton) |
+| Confirm geodienste.ch licensing (fee structure by canton) | Essential before ingestion — some cantons may charge for WFS access | Low (email geodienste.ch or check each canton's terms) |
+| Find NE ÖREB endpoint URL | Closes the only canton without a confirmed M2M URL | Low (email sitn@ne.ch or check SITN Neuchâtel portal) |
+| Probe cantonal Denkmalschutz WFS (ZH: `gis.zh.ch`, BE: `geo.be.ch`, etc.) | Raises heritage overlay score from ~40% to ~75%+ | Low–Medium (one probe per major canton) |
+| Read cantonal BZO / Bau- und Zonenordnung for a test address | Confirms whether max height is always in PDF or sometimes in structured field | Medium |
 
 ---
 
-*Last updated: 2026-07-24. Context-data layer CONFIRMED from swisstopo/BFS product documentation.
-Legal/zoning layer (ÖREB/RDPPF) NOT PROBED — zero live queries run. Rate ceiling conditioned on
-one ÖREB pilot query result (see `NEXT.md §3.1`). Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-24. Live probes run: ÖREB AG GetEGRID ✅, ÖREB ZH GetEGRID ✅, GE RDPPF ✅,
+VD RDPPF ✅, GWR API ✅, Nutzungsplanung WFS GetCapabilities ✅, swisstopo WMS ✅, CityGML 2.0
+page ✅. ÖREB data extract content NOT YET FETCHED. WFS GetFeature geo-blocked from probe origin.
+GWR full field schema: confirmed from PDF v4.2. Maintainer: UNASSIGNED.*

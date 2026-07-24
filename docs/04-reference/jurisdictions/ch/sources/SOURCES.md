@@ -1,79 +1,145 @@
 # Switzerland (`ch`) — national data sources
 
-**Status:** PARTIALLY CONFIRMED 2026-07-24 — context-data layer confirmed from official swisstopo/BFS
-product documentation (product pages, Objektkatalog, opendata.swiss dataset pages). No live HTTP
-probe has been run against any Swiss endpoint. No legal/zoning (ÖREB/RDPPF) values verified —
-zero canton endpoints queried.
+**Status:** PARTIALLY LIVE-PROBED 2026-07-24.
+Context-data layer: confirmed from official product documentation + partial live probes.
+Legal/zoning layer: ÖREB endpoints VERIFIED LIVE (AG, ZH GetEGRID; GE, VD RDPPF). ÖREB data extract
+content NOT YET FETCHED. Nutzungsplanung WFS GetCapabilities VERIFIED LIVE; GetFeature geo-blocked.
+GWR API VERIFIED LIVE. CityGML 2.0 CONFIRMED. GWR full Stufe A field schema CONFIRMED from PDF v4.2.
 
-> **Trust gate (playbook §3.3, C58 §1.6):** a field with NO citable source stays `null` in the pack
-> and is listed under §B. A pack may not ship `confidence: 'structured'` unless EVERY field it sets
-> has a row in §A here with a live-verified citation. Current status: context-data sources are
-> `document`-tier; no `VERIFIED-LIVE` rows yet (no live probe run).
+> **Trust gate (playbook §3.3):** a field with NO citable source stays `null` in the pack and is listed
+> under §B. A pack may NOT ship `confidence: 'structured'` unless EVERY field it sets has a row in §A
+> with a real citation.
 
 ---
 
-## A — CONFIRMED (research-cited; source is official product documentation)
+## A — CONFIRMED (official sources + live probe results)
 
-| Field / layer | Value / endpoint | Governing instrument | Document (title + date) | URL / handle | Confidence |
+### Context-data layer
+
+| Field / layer | Value / endpoint | Governing instrument | Document / source (title + date) | URL / handle | Confidence |
 |---|---|---|---|---|---|
-| swissBUILDINGS3D 2.0 — coverage | Full national + Liechtenstein, since 2018 | swisstopo institutional mandate | "swissBUILDINGS3D 2.0" product page | `swisstopo.admin.ch/en/landscape-model-swissbuildings3d-2-0` | `document` |
-| swissBUILDINGS3D 2.0 — LOD / geometry type | LOD2, closed solid + separate roof/façade/footprint elements; manually stereo-photogrammetrically extracted roofs incl. overhangs | Same | Same | Same | `document` |
+| swissBUILDINGS3D 2.0 — coverage | Full national + Liechtenstein since 2018 | swisstopo institutional mandate | "swissBUILDINGS3D 2.0" product page | `swisstopo.admin.ch/en/landscape-model-swissbuildings3d-2-0` | `document` |
+| swissBUILDINGS3D 2.0 — LOD / geometry | LOD2, closed solid + roof/façade/footprint, manually stereo-photogrammetrically extracted roofs incl. overhangs | Same | Same | Same | `document` |
 | swissBUILDINGS3D 2.0 — accuracy | ±30–50cm planimetric and altimetric | Same | Same | Same | `document` |
-| swissBUILDINGS3D 2.0 — formats | ESRI FileGDB, DWG, CityGML | Same | Same | Same | `document` |
+| swissBUILDINGS3D 2.0 — formats | FileGDB, DWG, CityGML | Same | Same | Same | `document` |
 | swissBUILDINGS3D 2.0 — licence | Free OGD since 1 March 2021; no login; commercial use permitted | Federal OGD ordinance | swisstopo licence terms | `swisstopo.admin.ch` | `document` |
-| swissBUILDINGS3D 2.0 — download | `map.geo.admin.ch` selection UI or swisstopo documented API; no registration | Same | Same | `map.geo.admin.ch` | `document` |
-| swissBUILDINGS3D 3.0 Beta — canton coverage (live cantons) | AG, AI, AR, BE, BL, BS, FR, GL, JU, LU, NE, NW, OW, SG, SH, SO, SZ, TG, UR + city of Zürich only — as of 2026-07-24 | swisstopo 3.0 Beta rollout programme | opendata.swiss dataset page — "swissBUILDINGS3D 3.0 Beta" | `opendata.swiss/en/dataset/swissbuildings3d-3-0-beta` | `document` |
-| swissBUILDINGS3D 3.0 Beta — EGID attribute | EGID (federal building ID) baked directly into the model | Same | Same | Same | `document` |
-| swissBUILDINGS3D 3.0 Beta — update cadence | Biannual | Same | Same | Same | `document` |
-| swissBUILDINGS3D 3.0 Beta — fallback for non-covered cantons | swissBUILDINGS3D 2.0 — same LOD2 quality; EGID join via GWR coordinate match | Same | Same | Same | `document` |
-| swissBUILDINGS3D — fidelity gap vs. availability gap | Not-yet-covered cantons have full LOD2 coverage via 2.0; absence of EGID in model is a convenience gap, not a data-availability gap | Same | Research finding consistent with swisstopo product documentation | Same | `document` |
-| swissSURFACE3D — LiDAR point cloud | 15–20 pts/m²; classified; classes: Ground / Low veg / Medium veg / High veg / Building / Water / Bridge / power lines / façades / bridge piers | swisstopo institutional mandate | "swissSURFACE3D" product documentation | `swisstopo.admin.ch` | `document` |
-| swissSURFACE3D — national coverage | Full national; 7-stage survey completed 2017–2024/25; Bern release completed national coverage | Same | Same | Same | `document` |
-| swissSURFACE3D — COPC format | Newest tiles (Eastern Switzerland, since 2024) ship as COPC; older tiles: zipped `.las` (LAZ 1.2) | Same | Same | Same | `document` |
-| swissSURFACE3D — licence | Free OGD; no login | Same | Same | Same | `document` |
-| swissSURFACE3D Raster — DSM | 0.5m grid DSM (ground + vegetation + buildings); full national by 2025; GeoTIFF 1 km² tiles | swisstopo institutional mandate | "swissSURFACE3D Raster" product documentation | `swisstopo.admin.ch` | `document` |
-| swissSURFACE3D — TLM watercourse integration | swissSURFACE3D DSM integrates swissTLM3D watercourse vectors to improve river/lake surface representation — per swisstopo own product description | Same | swisstopo product description (explicit statement) | `swisstopo.admin.ch` | `document` |
-| swissALTI3D — DTM | 0.5m or 2m grid; bare earth only (no vegetation/buildings); 6-year update cycle; GeoTIFF 1 km² tiles; full national | swisstopo institutional mandate | "swissALTI3D" product documentation | `swisstopo.admin.ch` | `document` |
-| swissALTI3D — licence | Free OGD since 1 March 2021 | Same | Same | Same | `document` |
-| swissTLM3D — product scope | 8-topic, 21M+-object national topographic landscape model; topics include Strassen und Wege, Öffentlicher Verkehr, Gewässernetz, Areale, Bodenbedeckung | swisstopo institutional mandate | Objektkatalog swissTLM3D v1.7–2.4 | `swisstopo.admin.ch` | `document` |
-| swissTLM3D — coverage | Full national + Liechtenstein; confirmed across versions 1.7 → 2.4 | Same | Same | Same | `document` |
-| swissTLM3D — accuracy | 0.2–1.5m in all 3 dimensions; roads, watercourses, lakes explicitly classed as "well-defined" objects | Same | Same | Same | `document` |
-| swissTLM3D — update cadence (roads) | Annual update for road links and admin boundaries; official cadastral survey is a named reference partner | Same | Same | Same | `document` |
-| swissTLM3D — formats | ESRI FileGDB (native), SHP, DXF, and others | Same | Same | Same | `document` |
+| **swissBUILDINGS3D — CityGML version** | **CityGML 2.0 CONFIRMED** — "swisstopo is providing some of the 3D building models from swissBUILDINGS3D 3.0 Beta in the open data format CityGML 2.0" | swisstopo | "swissBUILDINGS3D 3.0 Beta in the format CityGML 2.0" product page, 2024-08-14 | `swisstopo.admin.ch/en/landscape-model-swissbuildings3d-citygml-20240814` | `VERIFIED-LIVE` 2026-07-24 (page fetched) |
+| swissBUILDINGS3D 3.0 Beta — canton coverage (2026-07-24) | AG, AI, AR, BE, BL, BS, FR, GL, JU, LU, NE, NW, OW, SG, SH, SO, SZ, TG, UR + city of Zürich only | swisstopo 3.0 Beta rollout | opendata.swiss dataset page | `opendata.swiss/en/dataset/swissbuildings3d-3-0-beta` | `document` |
+| swissBUILDINGS3D 3.0 Beta — CityGML canton coverage (Aug 2024) | AG, AI, AR, BE, BL, BS, GL, JU, TG + city of Zurich — note: slightly smaller than full 3.0 Beta list; FR, LU, NE, NW, OW, SG, SH, SO, SZ, UR added between Aug 2024 and July 2026 | swisstopo | CityGML product page 2024-08-14 | `swisstopo.admin.ch/en/landscape-model-swissbuildings3d-citygml-20240814` | `document` |
+| swissBUILDINGS3D — EGID link | 3.0 Beta: EGID baked in model. 2.0: join via GWR `buildings.geojson` coordinate match (LV95/CH1903+) | Same | Same + BFS GWR documentation | Same | `document` |
+| swissBUILDINGS3D — fidelity gap | 2.0 fallback = same LOD2 quality; EGID can be joined externally; this is a convenience gap, not a data-availability gap | swisstopo research finding | Product documentation | Same | `document` |
+| swissSURFACE3D — LiDAR point cloud | 15–20 pts/m²; classes: Ground / Low/Med/High veg / Building / Water / Bridge / power lines / façades / bridge piers; full national (7-stage survey 2017–2024/25) | swisstopo | swissSURFACE3D product documentation | `swisstopo.admin.ch` | `document` |
+| swissSURFACE3D — COPC format | Newest tiles (Eastern Switzerland, since 2024): COPC; older tiles: zipped `.las` (LAZ 1.2) | Same | Same | Same | `document` |
+| swissSURFACE3D — TLM integration | DSM integrates swissTLM3D watercourse vectors for river/lake surface quality — per swisstopo own product description | Same | swisstopo product description (explicit statement) | `swisstopo.admin.ch` | `document` |
+| swissSURFACE3D Raster — DSM | 0.5m DSM; full national by 2025; GeoTIFF 1 km² tiles | Same | Same | Same | `document` |
+| swissALTI3D — DTM | 0.5m or 2m grid; bare earth; 6-year cycle; full national; free OGD | swisstopo | swissALTI3D product documentation | `swisstopo.admin.ch` | `document` |
+| swissTLM3D — coverage | Full national + Liechtenstein; confirmed across versions 1.7 → 2.4 | swisstopo | Objektkatalog swissTLM3D v1.7–2.4 | `swisstopo.admin.ch` | `document` |
+| swissTLM3D — accuracy | 0.2–1.5m all 3 dimensions; roads/watercourses/lakes = "well-defined" top tier | Same | Same | Same | `document` |
+| swissTLM3D — roads attributes | `VERKEHRSBEDEUTUNG`, `VERKEHRSBESCHRAENKUNG` (incl. "closed"), `VERKEHRSMITTEL`, `EIGENTUEMER` | Same | Same | Same | `document` |
+| swissTLM3D — roads update cadence | Annual for road links + admin boundaries; official cadastral survey is named reference partner | Same | Same | Same | `document` |
+| swissTLM3D — water (Gewässernetz) | Watercourse centerlines + lake polygon outlines as distinct feature classes | Same | Same | Same | `document` |
+| swissTLM3D — parks (Areale > Freizeit) | Parks/recreation/leisure as distinct polygon class separate from generic ground cover | Same | Same | Same | `document` |
+| swissTLM3D — trees (Bodenbedeckung) | Individual tree points (Einzelbäume) + wooded area polygons (Gehölzflächen) as distinct object class | Same + Zürich OGD | Objektkatalog + City of Zürich open-data documentation (production use confirmed) | `swisstopo.admin.ch` + Zürich opendata.swiss | `document` |
+| swissTLM3D — tree data authority | Zürich assigns greater authority to its own Baumkataster over swissTLM3D tree data | City of Zürich | Zürich OGD "Bodenbedeckung – Einzelbäume & Gehölzflächen" dataset documentation | Zürich opendata.swiss | `document` |
 | swissTLM3D — licence | Free OGD since 1 March 2021; no login; commercial use permitted | Federal OGD ordinance | swisstopo licence terms | `swisstopo.admin.ch` | `document` |
-| swissTLM3D — roads attributes confirmed | `VERKEHRSBEDEUTUNG` (traffic significance) · `VERKEHRSBESCHRAENKUNG` (incl. "closed") · `VERKEHRSMITTEL` (transport mode) · `EIGENTUEMER` (owner) | Same | Objektkatalog swissTLM3D v1.7–2.4 | `swisstopo.admin.ch` | `document` |
-| swissTLM3D — water object classes | Watercourse centerlines + lake polygon outlines as distinct feature classes in "Gewässernetz" topic group | Same | Same | Same | `document` |
-| swissTLM3D — parks/leisure | "Areale > Freizeit" — parks, recreation grounds, sports facilities as distinct polygons separate from generic ground cover | Same | Same | Same | `document` |
-| swissTLM3D — individual trees | "Bodenbedeckung" — Einzelbäume (individual tree points) + Gehölzflächen (wooded area polygons) as distinct object classes | Same | Same + City of Zürich open-data documentation (production use confirmed) | `swisstopo.admin.ch` + Zürich OGD | `document` |
-| swissTLM3D — tree data authority | Zürich city explicitly positions swissTLM3D tree layer as secondary to its own municipal Baumkataster; uses swissTLM3D only to supplement gaps | City of Zürich open-data documentation | "Bodenbedeckung – Einzelbäume & Gehölzflächen" Zürich OGD dataset documentation | Zürich opendata.swiss | `document` |
-| GWR — product | Gebäude- und Wohnungsregister (federal building and dwelling register); per-building EGID-linked record | Federal Statistical Office (BFS) institutional mandate; GWR federal legislation | BFS GWR product documentation | `housing-stat.ch` | `document` |
-| GWR — Stufe A attributes (public) | Anzahl Geschosse (storey count) · Baujahr (construction year) · Gebäudeart (building type) · Gebäudefläche (footprint area) · heating type · dwelling count | BFS GWR Stufe A open-data policy | GWR product documentation; Merkmalskatalog (field-by-field schema NOT YET READ) | `housing-stat.ch` | `document` |
-| GWR — update cadence | ≤48h nationally; Zürich / Thurgau / Glarus / Schwyz confirmed daily | BFS operational commitment | GWR product documentation + canton opendata.swiss republication notes | `housing-stat.ch` / opendata.swiss | `document` |
-| GWR — access | API/JSON via `housing-stat.ch` (BFS); also republished by several cantons/cities via opendata.swiss (Zürich, Thurgau, Glarus, Schwyz confirmed) | BFS open-data policy | GWR product documentation | `housing-stat.ch` | `document` |
-| GWR × swissBUILDINGS3D join key | EGID — shared between geometry (3.0 Beta: baked-in; 2.0: join via coordinate) and GWR attributes | Federal EGID assignment (BFS) | Research finding; consistent with both product documentations | `housing-stat.ch` + `swisstopo.admin.ch` | `document` |
-| ÖREB/RDPPF legal basis | V-ÖREB federal ordinance mandates standardized data model across all 26 cantons for public-law restriction cadastre | Verordnung über das Grundbuch (GBV) + V-ÖREB | Federal law | `fedlex.admin.ch` | `document` |
-| Federal OGD licence (swisstopo/BFS products) | Open use including commercial, no login, since 1 March 2021 | Federal OGD Act (Bundesgesetz über das Open Government Data) | Federal OGD ordinance | `fedlex.admin.ch` | `document` |
+| **GWR — API VERIFIED LIVE** | `POST https://madd.bfs.admin.ch/eCH-0206?egid={EGID}&requestContext=building` — HTTP 200, structured XML response | BFS institutional mandate | Live probe 2026-07-24; EGID 1175237 (Poschiavo, GR) + EGID 501001 (Heiden, AR) both returned building data | `madd.bfs.admin.ch` | `VERIFIED-LIVE` 2026-07-24 |
+| **GWR — Stufe A field schema CONFIRMED** (PDF v4.2) | Full list: EGID, EDID, EGAID, GEBNR, GBEZ, GDEKT, GGDENR, GDENAME, EGRID, LGBKR, LPARZ, ESID, STRINDX, STRNAME, STRNAMK, DEINR, STRSP, STROFFIZIEL, DPLZ4, DPLZZ, DPLZNAME, DOFFADR, GKODE, GKODN, GKSCE, DKODE, DKODN, GKAT, GKLAS, GSTAT, GBAUJ, GBAUM, GBAUP, GABBJ, GAREA, GVOL, GVOLNORM, GVOLSCE, GASTW, GAZZI, GSCHUTZR, GEBF, GWAERZH1/2, GENH1/2, GWAERSCEH1/2, GWAERDATH1/2, GWAERZW1/2, GENW1/2, GWAERSCEW1/2, GWAERDATW1/2 | BFS GWR Verordnung | GWR Merkmalskatalog PDF Version 4.2 (BFS, 2022, Neuchâtel) | `housing-stat.ch/files/Data_de.pdf` | `document` (PDF fetched 2026-07-24) |
+| GWR — Stufe B (restricted) | GLOC1–4 (local codes), GQUART (quarter) — require agreement (Stufe B) | BFS GWR Verordnung VGWR Anhang 1 | Same PDF | Same | `document` |
+| GWR — update cadence | ≤48h nationally; ZH/TG/GL/SZ confirmed daily | BFS operational commitment | GWR product documentation | `housing-stat.ch` | `document` |
+| GWR — access | API/JSON via `madd.bfs.admin.ch/eCH-0206`; rate limit 20 req/min; also canton mirrors via opendata.swiss | BFS open-data policy | GWR product documentation | `housing-stat.ch` | `document` |
+| GWR — current API catalog version | 4.3 (as of 2026-07-24) | BFS | `housing-stat.ch/de/madd/index.html` — "Die Daten werden in Version 4.3 des GWR-Merkmalskatalog bereitgestellt" | `housing-stat.ch` | `document` |
+| GWR — download includes geojson | `buildings.geojson` (LV95/CH1903+) in download zip — enables coordinate-based EGID join for 2.0 geometry | BFS | GWR download documentation | `housing-stat.ch/de/data/supply/public_content.html` | `document` |
+| Federal OGD licence (swisstopo/BFS) | Open use including commercial, no login, since 1 March 2021 | Federal OGD Act | Federal OGD ordinance | `fedlex.admin.ch` | `document` |
+
+### Legal/zoning layer — ÖREB/RDPPF endpoints
+
+| Canton | Endpoint URL | Probe status |
+|---|---|---|
+| AG | `https://api.geo.ag.ch/v2/oereb` | `VERIFIED-LIVE` — GetEGRID returned `CH959823775233` |
+| AR | `https://oereb.ar.ch/ktar/wsgi/oereb` | `document` |
+| AI | `https://oereb.ai.ch/ktai/wsgi/oereb` | `document` |
+| BE | `https://www.oereb2.apps.be.ch` | `document` |
+| BL | `https://oereb.geo.bl.ch` | `document` |
+| BS | `https://api.oereb.bs.ch` | `document` |
+| FR | `https://maps.fr.ch/RDPPF_ws/RdppfSVC.svc` | `document` |
+| **GE** | `https://ge.ch/terecadastrews/RdppfSVC.svc` | **`VERIFIED-LIVE`** — WCF service page confirmed |
+| GL | `https://map.geo.gl.ch/oereb` | `document` |
+| GR | `https://oereb.geo.gr.ch/oereb` | `document` |
+| JU | `https://geo.jura.ch/crdppf_server` | `document` |
+| LU | `https://svc.geo.lu.ch/oereb` | `document` |
+| **NE** | *(no URL listed — email only: sitn@ne.ch)* | `document` (M2M page 2026-02-13) |
+| NW | `https://oereb.gis-daten.ch/oereb` | `document` |
+| OW | `https://oereb.gis-daten.ch/oereb` (shared with NW) | `document` |
+| SH | `https://oereb.geo.sh.ch` | `document` |
+| SZ | `https://map.geo.sz.ch/oereb` | `document` |
+| SO | `https://geo.so.ch/api/oereb` | `document` |
+| SG | `https://oereb.geo.sg.ch/ktsg/wsgi/oereb` | `document` |
+| TI | `https://crdpp.geo.ti.ch/oereb2` | `document` |
+| TG | `https://map.geo.tg.ch/services/oereb` | `document` |
+| UR | `https://prozessor-oereb.ur.ch/oereb` | `document` |
+| **VD** | `https://www.rdppf.vd.ch/ws/RdppfSVC.svc/` | **`VERIFIED-LIVE`** — WCF service page confirmed |
+| VS | `https://rdppf.apps.vs.ch` | `document` |
+| ZG | `https://oereb.zg.ch/ors` | `document` |
+| **ZH** | `https://maps.zh.ch/oereb/v2` | **`VERIFIED-LIVE`** — GetEGRID returned `CH779170199926` |
+
+Source: `cadastre.ch/de/oereb-webservice` (federal M2M page, dated 2026-02-13).
+
+### Legal/zoning layer — ÖREB 2.0 data model
+
+| Field / concept | Value / confirmed | Source | Confidence |
+|---|---|---|---|
+| ÖREB API syntax | `${baseurl}/getegrid/${FORMAT}/?EN=${E},${N}` and `${baseurl}/extract/${FORMAT}/?EGRID=${EGRID}` | Federal M2M documentation + live probe confirmation | `document` |
+| ÖREB 2.0 schema versions | 0.9, 1.0, 2.0 at `schemas.geo.admin.ch/V_D/OeREB/` | Schema repository index | `VERIFIED-LIVE` 2026-07-24 |
+| ÖREB `RestrictionOnLandownership` — `TypeCode` | Zone type code — **STRUCTURED** string attribute in ÖREB 2.0 JSON schema | `schemas.geo.admin.ch/V_D/OeREB/2.0/extractdata.json` | `document` (schema fetched) |
+| ÖREB `RestrictionOnLandownership` — `TypeCodelist` | URI pointing to the code list for `TypeCode` — **STRUCTURED** | Same | `document` |
+| ÖREB `RestrictionOnLandownership` — `LegalProvisions` | Array of documents with `TextAtWeb` URI (URL to legal provision — typically PDF). Ausnützungsziffer and height are in these PDFs. | Same | `document` |
+| ÖREB `RestrictionOnLandownership` — `Information` | Optional key-value pairs — canton-specific; may contain additional data not in base schema | Same | `document` |
+| ÖREB — Ausnützungsziffer in schema | **NOT a numeric field in the base ÖREB 2.0 schema** — numeric FAR/height lives in `LegalProvisions[].TextAtWeb` (PDF link) | Same | `document` — conclusive |
+| ÖREB — Nutzungsplanung topic in ZH | "Zonenplan – Grundnutzungen (kantonal/kommunal)" and "Zonenplan – Überlagernde Nutzungsplaninhalte" are confirmed ÖREB topics in ZH | `geolion.zh.ch/geodatensatz/2281` + ZH ÖREB page | `document` |
+
+### Legal/zoning layer — Nutzungsplanung WFS (geodienste.ch)
+
+| Field / concept | Value | Source | Confidence |
+|---|---|---|---|
+| Nutzungsplanung WFS base URL | `https://geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu` | `cadastre.ch` + geodienste.ch | `VERIFIED-LIVE` 2026-07-24 (GetCapabilities HTTP 200) |
+| WFS layer names (confirmed from GetCapabilities) | `ms:grundnutzung` (zone polygons) · `ms:ueberlagernde_nutzungsplaninhalte_flaechenbezogene_festlegungen` (area overlays) · `ms:ueberlagernde_nutzungsplaninhalte_linienbezogene_festlegungen` (line overlays) · `ms:ueberlagernde_nutzungsplaninhalte_punktbezogene_festlegungen` (point overlays) | WFS GetCapabilities response | `VERIFIED-LIVE` 2026-07-24 |
+| WFS model version | MGDM ID 73.1, INTERLIS version 1.2 (Nutzungsplanung_V1_2) | GetCapabilities description + `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` | `document` |
+| WFS INTERLIS model legal basis | Updated 2023-03-20 (ARE); adapted to ÖREB Rahmenmodell V2.0 from 2021-09-01; GEOID 73 | `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` | `document` |
+| WFS CRS | EPSG:2056 (LV95) primary; also EPSG:4326, EPSG:3857 | GetCapabilities | `VERIFIED-LIVE` 2026-07-24 |
+| WFS output formats | GML 3.2 / 3.1.1 / 2.1.2; application/json (GeoJSON) | GetCapabilities | `VERIFIED-LIVE` 2026-07-24 |
+| WFS participating cantons (FULL coverage) | AG, AI, AR, BL, BS, FR, GE, JU, LU, NE, NW, OW, SG, SH, SZ, TG, UR, VD, ZG | geodienste.ch service availability map | `document` 2026-07-24 |
+| WFS participating cantons (INCOMPLETE) | BE, GR, SO, VS | Same | `document` 2026-07-24 |
+| WFS non-participating | FL (Liechtenstein) — no data | Same | `document` 2026-07-24 |
+| WFS fee note | "Für den Bezug des Geodienstes können Kosten anfallen. Die Gebühren werden durch die Kantone erhoben." — cantonal fees may apply | GetCapabilities AccessConstraints | `VERIFIED-LIVE` 2026-07-24 |
+| WFS geo-IP restriction | ZG confirmed geo-blocked from non-DACH IPs; geodienste.ch may apply similar restriction | Live probe — ZG returned geo-block page from non-DACH IP | `VERIFIED-LIVE` 2026-07-24 |
+| WFS `ms:grundnutzung` Nutzungsziffer attribute | **NOT YET CONFIRMED** — INTERLIS model includes `Nutzungsziffer` concept; whether it is a populated WFS attribute requires GetFeature from DACH IP | WFS GetFeature geo-blocked | `NOT PROBED` — highest-priority remaining item |
+| ÖREB V-ÖREB federal ordinance | Mandates standardized data model across all 26 cantons for public-law restrictions | V-ÖREB (Verordnung über das eidgenössische Gebäude- und Wohnungsregister, as applicable to ÖREB) | `document` |
+| INTERLIS Nutzungsplanung_V1_2 — key classes | `Catalogue_CH` (national codes 11–99), `Dokument`, `Grundnutzung_Zonenflaeche` (zone polygon class — Nutzungsziffer attribute status not confirmed from partial model read) | `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` | `document` (partial read — full Geobasisdaten TOPIC not yet seen) |
+| swisstopo WMS (`wms.geo.admin.ch`) | VERIFIED LIVE — includes heritage/inventory layers; CRS EPSG:2056, 21781, 4326, 3857 etc. | WMS GetCapabilities | `VERIFIED-LIVE` 2026-07-24 |
 
 ---
 
 ## B — UNVERIFIED / open (stays `null` in the pack)
 
-| Field | Why not verified | What would verify it (the exact source to read) |
+| Field | Why not verified | What would verify it |
 |---|---|---|
-| Any ÖREB/RDPPF endpoint — zone code, Ausnützungsziffer, height rule for any canton | Zero live HTTP probes run | `curl "https://oereb.zh.ch/extract/reduced/json/coord/2683448,1248342"` — inspect for structured `Typ_Kt`/`Bezeichnung` zone code field + numeric FAR/height attribute vs. `PDF_URL` only |
-| swissBUILDINGS3D CityGML export version | Sample tile not downloaded | Download one tile from `map.geo.admin.ch`; inspect `cityGMLVersion` declaration in the GML header |
-| GWR Merkmalskatalog full field schema | `housing-stat.ch/files/881-2200.pdf` not read field-by-field | Download PDF; record all Stufe A field names, types, domain values, and Stufe B restricted fields |
-| swissTLM3D roads — full VERKEHRSBEDEUTUNG / VERKEHRSBESCHRAENKUNG domain values | Attribute existence confirmed; full code-value list not transcribed | Read Objektkatalog swissTLM3D 2.4 chapter "Strassen und Wege"; list all domain values for both attributes |
-| swissTLM3D roads — pedestrian/sidewalk sub-classification | "Wege" confirmed as an object class; sub-types for pedestrian-specific paths not verified | Read Objektkatalog swissTLM3D 2.4 chapter "Strassen und Wege" — path sub-type table |
-| swissTLM3D Areale — Freizeit sub-types | Whether Freizeit is further subdivided (park vs. sports field vs. playground etc.) | Read Objektkatalog swissTLM3D 2.4 chapter "Areale" — Freizeit sub-type list |
-| Municipal tree cadastres — Geneva, Basel, Lausanne, Bern | Only Zürich confirmed as published open data | Search each city's opendata.swiss entry or city OGD portal for "Baumkataster" (German) or "arbres" / "cadastre des arbres" (French) |
-| 3.0 Beta canton list as of probe date (any date after 2026-07-24) | List is biannually updated | Check `opendata.swiss/en/dataset/swissbuildings3d-3-0-beta` distribution list; compare with `regions/README.md` |
-| Heritage overlay (Denkmalschutz / Heimatschutz) — any canton | Federal list and cantonal Denkmalschutz services not probed | Check `wms.geo.admin.ch` for "Kulturgüter" / "Denkmal" layers; check cantonal Denkmalschutz GIS portals |
-| Amtliche Vermessung (cadastral parcel geometry) — direct endpoint | Product existence and INSPIRE conformance confirmed; WFS endpoint URL and live HTTP status not verified | `curl "https://wms.geo.admin.ch/?SERVICE=WMS&REQUEST=GetCapabilities"` or check INSPIRE geoportal for Swiss parcel WFS |
+| Nutzungsplanung WFS `ms:grundnutzung` Nutzungsziffer attribute | GetFeature geo-blocked from non-DACH IP | `curl` from CH/DE/AT server: `geodienste.ch/db/npl_nutzungsplanung_v1_2_0/deu?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ms:grundnutzung&COUNT=1&outputFormat=application/json` — inspect `features[0].properties` for numeric FAR field |
+| Nutzungsplanung WFS overlay layer — max height attribute | Same geo-block | Same server requirement; check `ms:ueberlagernde_nutzungsplaninhalte_flaechenbezogene_festlegungen` |
+| ÖREB data extract `Information` fields (canton-specific numeric content) | ÖREB extract not fetched | `curl "https://api.geo.ag.ch/v2/oereb/extract/json/?EGRID=CH959823775233"` — check if `Information[].Text` contains AZ or height as structured key-value |
+| NE ÖREB endpoint URL | No URL on federal M2M page (email only) | Check `sitn.ne.ch` portal or email `sitn@ne.ch` |
+| Geodienste.ch fee structure by canton | "Costs may apply" — exact amount/policy per canton unknown | Email `support@geodienste.kgk-cgc.ch` or check each canton's geodienste portal |
+| INTERLIS model full Geobasisdaten TOPIC | PDF/ili read cut off; Grundnutzung_Zonenflaeche class attributes not confirmed | Read `models.geo.admin.ch/ARE/Nutzungsplanung_V1_2.ili` from byte 8000 onward |
+| swissTLM3D 2.4 pedestrian sub-classification | Not transcribed from Objektkatalog | Read Objektkatalog 2.4 "Strassen und Wege" path sub-types |
+| swissTLM3D 2.4 Areale Freizeit sub-types | Not transcribed | Read Objektkatalog 2.4 "Areale" chapter |
+| Municipal tree cadastres (GE, BS, LS, BE) | Only ZH confirmed open data | Search each city's opendata.swiss for "Baumkataster" / "arbres" |
+| GKAT / GKLAS domain code values | Full domain lists not transcribed from GWR PDF | Read GWR PDF v4.2 section on code tables / `kodes_codes_codici.csv` |
+| Cantonal Denkmalschutz WFS endpoints | Not probed | Check ZH: `gis.zh.ch`; BE: `geo.be.ch`; GE: `ge.ch/sitg`; for Denkmalschutz/Patrimoine layers |
+| Max height rule (numeric) for any Swiss parcel | Not probed — in PDF BZO | Read cantonal Bau- und Zonenordnung for one test address per pilot canton |
+| Any legal numeric value (AZ, height, setback) for any specific Swiss parcel | No BZO/Nutzungsplanung document has been read for any specific address | Run full envelope query for test address; read applicable BZO PDF; cite per-field |
 
 ---
 
-⚠ No zone code, Ausnützungsziffer, height rule, setback, or heritage overlay value has been verified
-from a primary source for any Swiss parcel. The context-data layer sources in §A are confirmed from
-official product documentation; live HTTP probe status is UNVERIFIED. Switzerland's context-data
-scores in `RATE.md` are research-confirmed, not yet live-endpoint-verified.
+⚠ No zone code, Ausnützungsziffer, height rule, setback, or heritage value has been verified from a
+primary source for any specific Swiss parcel. The ÖREB zone TypeCode structure is confirmed in the
+data model schema, but no actual ÖREB data extract has been fetched and read. All pack values
+remain `null` / refused until VERIFICATION.md is completed for specific parcels.

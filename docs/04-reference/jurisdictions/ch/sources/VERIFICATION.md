@@ -4,60 +4,82 @@
 
 ---
 
-## Status
+## Status (2026-07-24)
 
-**NO VALUES VERIFIED BY A HUMAN AGAINST A PRIMARY SOURCE YET.**
-
-The context-data layer is confirmed from official swisstopo/BFS product documentation (product pages,
-Objektkatalog, opendata.swiss dataset pages). No live HTTP probe has been run. No legal/zoning
-value (zone code, Ausnützungsziffer, height rule) has been read from any ÖREB/RDPPF endpoint or
-cantonal planning document for any specific Swiss parcel.
+**NO PACK VALUES SIGNED OFF YET.** Live probes have confirmed endpoint availability and data model
+structure. The context-data layer sources are confirmed from official documentation. The ÖREB legal
+layer endpoints are live. No numeric building-rule value (zone code, Ausnützungsziffer, height,
+setback) has been read from a real parcel response and verified against a primary planning document.
 
 Per playbook §3.4 and L-449: a pack may NOT ship `confidence: 'structured'` without this file
-completed. All Switzerland pack values must remain `null` / `refused` until a human verifier has
-completed the table below for each field.
+completed for each field.
 
 ---
 
-## What was checked, against which document version
+## Live probe log (all 2026-07-24 — agent-run, not human sign-off)
 
-| Field | Verified against (doc + version/date) | Method | Verdict |
+| Endpoint / action | Result | Human sign-off required? |
+|---|---|---|
+| ÖREB AG `getegrid/json/?EN=2645020,1249500` | ✅ HTTP 200 — `{"GetEGRIDResponse":[{"egrid":"CH959823775233","number":"62","identDN":"AG0200004001","type":{"Code":"RealEstate",...}}]}` | No (structural confirmation only) |
+| ÖREB ZH `getegrid/json/?EN=2683448,1248342` | ✅ HTTP 200 — `{"GetEGRIDResponse":[{"egrid":"CH779170199926","number":"UN4079","identDN":"ZH0200000261",...}]}` | No (structural confirmation only) |
+| ÖREB GE `ge.ch/terecadastrews/RdppfSVC.svc` | ✅ HTTP 200 — WCF service page; WSDL accessible | No (endpoint live) |
+| ÖREB VD `rdppf.vd.ch/ws/RdppfSVC.svc/` | ✅ HTTP 200 — WCF service page; WSDL accessible | No (endpoint live) |
+| GWR API `madd.bfs.admin.ch/eCH-0206?egid=1175237` | ✅ HTTP 200 — XML response with building data for Poschiavo (GR) | No (API structural; GASTW visible in response) |
+| GWR API `madd.bfs.admin.ch/eCH-0206?egid=501001` | ✅ HTTP 200 — XML response with 5 dwellings for Heiden (AR) | No (API structural) |
+| swissBUILDINGS3D CityGML page | ✅ Page fetched — "CityGML 2.0" confirmed verbatim | No (format confirmation) |
+| Nutzungsplanung WFS GetCapabilities (geodienste.ch) | ✅ HTTP 200 — layer names confirmed; 19 cantons full | No (capabilities only; GetFeature not run) |
+| swisstopo WMS GetCapabilities | ✅ HTTP 200 — capabilities confirmed live | No (structural) |
+| GWR PDF Merkmalskatalog v4.2 | ✅ PDF fetched — full Stufe A field list read | No (schema confirmation only) |
+
+---
+
+## What was checked against which document version
+
+| Field | Verified against | Method | Verdict |
 |---|---|---|---|
-| swissBUILDINGS3D 2.0 — LOD2, coverage, accuracy, formats, licence | swisstopo product page (read 2026-07-24) | Document read | ⚠ Research-confirmed; NOT live-probed |
-| swissBUILDINGS3D 3.0 Beta — canton list, EGID attribute, biannual cadence | opendata.swiss dataset page (read 2026-07-24) | Document read | ⚠ Research-confirmed; NOT live-probed |
-| swissTLM3D — roads, water, parks/trees coverage, accuracy, attributes, licence | Objektkatalog swissTLM3D v1.7–2.4 (read 2026-07-24) | Document read | ⚠ Research-confirmed; NOT live-probed |
-| GWR — Stufe A attributes, update cadence, API access | BFS GWR product documentation (read 2026-07-24) | Document read | ⚠ Research-confirmed; NOT live-probed; Merkmalskatalog PDF not read field-by-field |
-| swissSURFACE3D / swissALTI3D — specs, coverage, licence | swisstopo product documentation (read 2026-07-24) | Document read | ⚠ Research-confirmed; NOT live-probed |
-| ÖREB/RDPPF — any canton zone/FAR/height field | — | — | ❌ NOT CHECKED — zero ÖREB queries run |
-| Heritage overlay — any canton | — | — | ❌ NOT CHECKED |
-| Any specific Swiss parcel — building-rule envelope | — | — | ❌ NOT CHECKED |
+| swissBUILDINGS3D 2.0 — LOD2, coverage, accuracy, formats, licence | swisstopo product page (read 2026-07-24) | Document read | ⚠ Research-confirmed from official page; NOT live-endpoint-verified (no tile downloaded) |
+| swissBUILDINGS3D CityGML version | swisstopo CityGML product page 2024-08-14 (fetched 2026-07-24) | Page fetch | ✅ **CityGML 2.0 CONFIRMED** — verbatim statement in page text |
+| swissBUILDINGS3D 3.0 Beta — canton list | opendata.swiss dataset page (read 2026-07-24) | Document read | ⚠ Research-confirmed; biannual update — re-check |
+| swissTLM3D — roads, water, parks, trees coverage and attributes | Objektkatalog swissTLM3D v1.7–2.4 (read 2026-07-24) | Document read | ⚠ Research-confirmed; NOT live-endpoint-verified |
+| GWR Stufe A field schema | GWR Merkmalskatalog PDF v4.2 (fetched and read 2026-07-24) | PDF read | ✅ Full field list confirmed; API catalog version is now 4.3 (minor delta) |
+| GWR API — live availability | `madd.bfs.admin.ch/eCH-0206` (probed 2026-07-24, two EGIDs) | HTTP probe | ✅ VERIFIED LIVE — structured XML returned |
+| ÖREB AG endpoint — live availability | `api.geo.ag.ch/v2/oereb/getegrid/json/` (probed 2026-07-24) | HTTP probe | ✅ VERIFIED LIVE — JSON EGRID response |
+| ÖREB ZH endpoint — live availability | `maps.zh.ch/oereb/v2/getegrid/json/` (probed 2026-07-24) | HTTP probe | ✅ VERIFIED LIVE — JSON EGRID response |
+| ÖREB GE endpoint — live availability | `ge.ch/terecadastrews/RdppfSVC.svc` (probed 2026-07-24) | HTTP probe | ✅ VERIFIED LIVE — WCF service page |
+| ÖREB VD endpoint — live availability | `rdppf.vd.ch/ws/RdppfSVC.svc/` (probed 2026-07-24) | HTTP probe | ✅ VERIFIED LIVE — WCF service page |
+| ÖREB 2.0 schema — TypeCode structured | `schemas.geo.admin.ch/V_D/OeREB/2.0/extractdata.json` (fetched 2026-07-24) | Schema read | ✅ `TypeCode` confirmed as required string field in `RestrictionOnLandownership` |
+| ÖREB 2.0 schema — no numeric FAR/height field | Same schema | Schema read | ✅ Confirmed: no `Ausnuetzungsziffer` or `Gebaeudehoehe` numeric field in base schema |
+| Nutzungsplanung WFS — layer names, canton coverage | geodienste.ch GetCapabilities (fetched 2026-07-24) | WFS probe | ✅ Layer names and canton list confirmed |
+| Nutzungsplanung WFS — Nutzungsziffer attribute | NOT CHECKED — GetFeature geo-blocked | — | ❌ NOT CONFIRMED |
+| ÖREB data extract content (any canton) | NOT FETCHED — format path issue | — | ❌ NOT CONFIRMED |
+| Any specific Swiss parcel — zone code, AZ, height | NOT CHECKED | — | ❌ NOT CONFIRMED |
+| Cantonal Denkmalschutz WFS | NOT PROBED | — | ❌ NOT CONFIRMED |
 
 ---
 
 ## What I could NOT confirm (and why it stays unshippable)
 
-- **All ÖREB/RDPPF legal fields** — no probe run; whether structured fields exist vs. PDF URL is unknown.
-- **GWR Merkmalskatalog full field schema** — PDF at `housing-stat.ch/files/881-2200.pdf` not read
-  field-by-field; cannot confirm exact Stufe A field names and domain values.
-- **swissBUILDINGS3D CityGML version** — no sample tile downloaded; CityGML 2.0 vs. 3.0 unconfirmed.
-- **Any live HTTP endpoint status** — no endpoint has been directly fetched; all product specs are
-  from documentation, not live GetCapabilities or API responses.
-- **Heritage overlay** — no cantonal Denkmalschutz WMS/WFS probed.
-
----
+- **Ausnützungsziffer (FAR) as structured field:** confirmed absent from ÖREB base schema; not
+  confirmed in Nutzungsplanung WFS (geo-blocked).
+- **Max height rule as structured field:** same as above.
+- **Any numeric building-rule value for any Swiss parcel:** no ÖREB extract fetched; no cantonal BZO
+  read.
+- **Geodienste.ch access fee:** "costs may apply" — not confirmed free.
+- **NE ÖREB endpoint:** no URL found.
+- **GWR field domain codes (GKAT, GKLAS values):** field names confirmed; code list CSV not read.
 
 ## Caveats that must remain visible in the product
 
-- **3.0 Beta canton list is dated 2026-07-24 and is biannually updated.** Re-check before any
-  region-by-region build plan. Do not treat the list as static.
-- **GWR tree data / individual trees from swissTLM3D** — Zürich explicitly rates its own Baumkataster
-  as authoritative over swissTLM3D tree data. Present swissTLM3D tree data as a national fallback,
-  not as a primary tree inventory, unless a city's own cadastre is absent or not open.
-- **EGID in 2.0 geometry** — EGID is NOT in the 2.0 model file; it must be joined from GWR via
-  coordinate match. This is a join step, not a direct attribute read.
+- **CityGML 2.0 applies to 3.0 Beta cantons only** — the 2.0 product ships FileGDB and DWG.
+- **3.0 Beta canton list is dated 2026-07-24 and is biannually updated.** Re-check before build plans.
+- **NW and OW share one ÖREB endpoint** (`oereb.gis-daten.ch/oereb`) — must test both canton EGIDs.
+- **GE and VD RDPPF are SOAP/WCF services**, not REST/JSON — require SOAP client, not simple GET.
+- **Geodienste.ch WFS: cantonal fees may apply** — cannot assume free for production use.
+- **GWR tree data / swissTLM3D** — Zürich assigns primary authority to its Baumkataster; treat
+  swissTLM3D tree data as national fallback only.
 
 ---
 
-**Sign-off:** NOT YET SIGNED OFF. This file must be completed by a named verifier before any
-Switzerland pack field may ship `confidence: 'structured'`. All pack values remain `null` / refused
-until sign-off. — UNASSIGNED, date TBD.
+**Sign-off:** NOT YET SIGNED OFF. No pack field may ship `confidence: 'structured'` until a named
+human verifier has reviewed an actual ÖREB extract and/or BZO document for the specific pilot parcel
+and completed the sign-off table. — UNASSIGNED, date TBD.
