@@ -58,6 +58,16 @@ import { PLANDATA_ZONING_PATH, plandataZoningHandler } from './server/plandataZo
 // §L-441 Tier B — Spain's NATIONAL clasificacion-del-suelo (SIU). Same cache/forward/
 // fallback shape as the Plandata proxy above.
 import { SIU_CLASSIFICATION_PATH, siuClassificationHandler } from './server/siuClassificationProxy.js';
+// §MADRID-CONDICIONES-PROXY (L-608) — the Madrid PGOUM-97 NZ 1 buildable-footprint (explicit-area)
+// same-origin lookup. Client consumer: @pryzm/site-parcel-data → resolveMadridNZ1Ring.
+import { MADRID_CONDICIONES_PATH, madridCondicionesHandler } from './server/madridCondicionesProxy.js';
+// §CORDOBA-ZONING-PROXY (WIRING-TODO 5) — the COACo PGOU-2001 subzone + refcat-join same-origin
+// lookup. Client consumer: @pryzm/site-parcel-data → resolveCordobaSubzone. ⚠ Renders NO number
+// while CORDOBA_ENVELOPE_VERIFIED is false — the DATA path that turns on with the L-449 sign-off.
+import {
+    CORDOBA_ORDENANZAS_PATH, cordobaOrdenanzasHandler,
+    CORDOBA_VCATASTRO_PATH, cordobaVcatastroHandler,
+} from './server/cordobaZoningProxy.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -425,6 +435,16 @@ app.get(MUC_ZONING_PATH, apiLimiter, mucZoningHandler);
 app.get(PLANDATA_ZONING_PATH, apiLimiter, plandataZoningHandler);
 // §L-441 — SIU national land classification (urbano / urbanizable / rustico) by point.
 app.get(SIU_CLASSIFICATION_PATH, apiLimiter, siuClassificationHandler);
+// §MADRID-CONDICIONES-PROXY (L-608) — Madrid PGOUM-97 NZ 1 buildable footprint (explicit-area) at a
+// point. Same posture as the proxies above: same-origin (no CSP change), apiLimiter, never crashes —
+// upstream OK → 200 { features }, upstream failure → 502 (distinct from an empty answer, so the
+// client returns endpoint-unreachable, never no-feature).
+app.get(MADRID_CONDICIONES_PATH, apiLimiter, madridCondicionesHandler);
+// §CORDOBA-ZONING-PROXY (WIRING-TODO 5) — COACo PGOU-2001 subzone (spatial) + refcat-join (attrs +
+// derived-planning override). ⚠ Renders NO number while CORDOBA_ENVELOPE_VERIFIED is false; the DATA
+// path that turns on with the L-449 sign-off. Same-origin, apiLimiter, never crashes.
+app.get(CORDOBA_ORDENANZAS_PATH, apiLimiter, cordobaOrdenanzasHandler);
+app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}

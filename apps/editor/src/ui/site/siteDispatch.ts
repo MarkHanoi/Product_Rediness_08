@@ -63,12 +63,16 @@ import {
     SA_HEIGHT_PLAN_DEFERRED_REF,
     type SaudiPlotClass,
     // L-608 — Madrid (INE 28079) NZ 1 explicit-area path. The pack ships numeric fields null and a
-    // footprint HANDLE; `resolveMadridNZ1Ring` turns it into a WGS84 buildable ring per manzana (or
-    // refuses — it never throws). Until a Madrid proxy is wired AND the zone code is verified, this
-    // path REFUSES (via `madridNZ1Refusal`), never a fabricated number.
+    // footprint HANDLE; `resolveMadridNZ1Ring` SPATIAL-intersects the parcel's WGS84 point against the
+    // published PGOUM-97 plane (via the `/api/madrid/condiciones` proxy) and returns a WGS84 buildable
+    // ring (or refuses — it never throws). Gated on `MADRID_NZ1_CERTIFIED` (default OFF): while closed
+    // this path REFUSES (via `madridNZ1Refusal`), never a fabricated number; when the light L-449
+    // zone-code cert is signed it renders `estimated-ruleset` (the footprint is real published
+    // geometry, the COEF_Z semantics stay withheld), NEVER `structured`.
     isInMadrid,
     resolveMadridNZ1Ring,
     MADRID_NZ1_RING_REF,
+    MADRID_NZ1_CERTIFIED,
     ES_MADRID_NZ1_PACK,
     MADRID_NZ1_ZONE_CODES,
     madridNZ1Refusal,
@@ -1213,30 +1217,31 @@ async function applyDkZoningThenFallback(
  *
  * NZ 1 does NOT state setbacks: the ordinance publishes the buildable footprint (Fondo de la
  * Edificación) and the weighted edificabilidad (COEF_Z) AS GEOMETRY on the municipal ArcGIS plane.
- * So this path RESOLVES that published footprint into a ring for the parcel's manzana
- * (`resolveMadridNZ1Ring`, which never throws), and:
+ * So this path RESOLVES that published footprint into a ring by SPATIALLY intersecting the parcel's
+ * WGS84 centroid against the plane (`resolveMadridNZ1Ring`, via the `/api/madrid/condiciones` proxy —
+ * the join is spatial, NOT a CODMANZANA string; MADRID-DATA-RECON-SPIKE §3), which never throws, and:
  *   • WITH a ring → projects it into the authoring frame (same origin + θ the parcel used, exactly
  *     like the BCN block ring) and clips the parcel to it via `computeBuildableEnvelope`'s
- *     explicit-area branch (`explicitAreaFootprint`), then dispatches the solved envelope;
+ *     explicit-area branch (`explicitAreaFootprint`), then dispatches the solved envelope with a
+ *     caveat naming the source — `estimated-ruleset`, NEVER `structured`;
  *   • WITHOUT a ring → dispatches a CITED REFUSAL (`madridNZ1Refusal`), status `'none'`. It does
  *     NOT fall back to the estimated triple: a front/side/rear estimate is the wrong geometric
- *     SHAPE for an explicit-area zone, and the zone code is not yet verified — a fabricated number
- *     here would be exactly the §CONTEXT-DATA-HONESTY failure this whole path exists to avoid.
+ *     SHAPE for an explicit-area zone — a fabricated number here would be exactly the
+ *     §CONTEXT-DATA-HONESTY failure this whole path exists to avoid.
  *
- * ⚠ CURRENT SHIPPING STATE = REFUSAL. Two inputs are not yet available and BOTH are data/human
- * steps, not engineering: (1) no same-origin Madrid proxy is wired, so `resolveMadridNZ1Ring` has
- * no endpoint; (2) there is no VERIFIED source mapping a Catastro parcel to the ArcGIS CODMANZANA
- * key the resolver queries on, so `codManzana` is null and the resolver refuses `no-cod-manzana`.
- * Deriving a CODMANZANA from the refcat would be fabricating the very key whose mapping is
- * unverified, so it is deliberately left null. When both clear, this path solves unchanged.
+ * ⚠ GATED ON `MADRID_NZ1_CERTIFIED` (default OFF). While the flag is false the path REFUSES for
+ * every Madrid parcel (the current shipping state): the footprint is real published geometry, but
+ * the NZ-1 zone-code / COEF_Z vintage needs a light L-449 human cert first. Flipping the flag to true
+ * is that sign-off; then this renders `estimated-ruleset`. Same discipline as `BCN_REFOS_OV_CERTIFIED`
+ * / `CORDOBA_ENVELOPE_VERIFIED`.
  *
  * Best-effort + fully guarded — never throws into the commit path.
  */
 async function applyMadridZoningThenFallback(
     ctx: SiteContext,
     boundary: ZoningBoundary,
-    _lat: number,
-    _lon: number,
+    lat: number,
+    lon: number,
     _estimated: BuildableEnvelope | null,
 ): Promise<void> {
     const TAG = '[gis][c58] §MADRID-NZ1';
@@ -1253,15 +1258,24 @@ async function applyMadridZoningThenFallback(
             return;
         }
 
-        // (1) CODMANZANA — the key the published footprint is per. No VERIFIED Catastro→manzana
-        // source is wired (see the ⚠ note above), so this is null and the resolver refuses
-        // honestly. This is the one line to populate when that source lands.
-        const codManzana: string | null = null;
+        // ⚠⚠ THE CERTIFICATION GATE (default OFF). While closed, refuse for every Madrid parcel — the
+        // footprint is real but the zone-code vintage is not human-certified (a light L-449 cert). No
+        // resolve, no fabricated number; the honest cited refusal is the shipping state.
+        if (!MADRID_NZ1_CERTIFIED) {
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+                'madrid-pgoum',
+            );
+            console.log(`${TAG} MADRID_NZ1_CERTIFIED=false — cited refusal (zone-code vintage not signed).`);
+            return;
+        }
 
-        // (2) Resolve the published footprint ring (WGS84). Never throws. `MADRID_NZ1_RING_REF`
-        // equals the pack rule's `ringRef` (asserted + tested in the resolver), so we pass the
-        // constant rather than reach into the `GeometricRule` union for `.ringRef`.
-        const resolution = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, codManzana);
+        // Resolve the published footprint ring (WGS84) by SPATIAL point-intersect at the parcel
+        // centroid. Never throws. `MADRID_NZ1_RING_REF` equals the pack rule's `ringRef` (asserted +
+        // tested), so we pass the constant rather than reach into the `GeometricRule` union.
+        const resolution = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, { lat, lon });
 
         if (resolution.ok && resolution.ringLatLon.length >= 3) {
             // (3) Project the WGS84 ring into the SAME authoring frame the parcel lives in: the
@@ -1305,11 +1319,29 @@ async function applyMadridZoningThenFallback(
                 explicitAreaFootprint: footprintRing,
             });
             if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
-                dispatchEnvelope(ctx, site.id, envelope, 'madrid-pgoum');
+                // The footprint is live published DATA, but the render is `estimated-ruleset`, NEVER
+                // `structured`: the COEF_Z (edificabilidad) SEMANTICS stay withheld behind the L-449
+                // cert, so no height/FAR is asserted from it — the ring is the whole claim. Ride the
+                // source + the caveat with it (mirrors the BCN clau-18 enrichment).
+                const enriched: BuildableEnvelope = {
+                    ...envelope,
+                    caveats: [
+                        ...envelope.caveats,
+                        `Madrid Norma Zonal 1 (PGOUM-97): the buildable footprint is READ from the ` +
+                            `municipal PG_CONDICIONES_EDIFICACION plane` +
+                            `${resolution.codManzana ? ` (manzana ${resolution.codManzana})` : ''} — ` +
+                            `real published geometry, clipped to your parcel. It ships as ` +
+                            `estimated-ruleset, not structured: the zone-code vintage is human-certified ` +
+                            `only lightly and the COEF_Z (edificabilidad) semantics are withheld, so no ` +
+                            `height or FAR is asserted from it. Verify against the Compendio before relying on it.`,
+                    ],
+                };
+                dispatchEnvelope(ctx, site.id, enriched, 'madrid-pgoum');
                 console.log(
                     `${TAG} explicit-area envelope OK → cod=${resolution.codManzana} ` +
                         `edificabilidad=${resolution.edificabilidad ?? 'n/a'} ` +
-                        `inset=${envelope.insetAreaM2.toFixed(1)}m² — clipped to the published footprint.`,
+                        `inset=${enriched.insetAreaM2.toFixed(1)}m² — clipped to the published footprint ` +
+                        `(estimated-ruleset, gate CERTIFIED).`,
                 );
                 return;
             }

@@ -68,14 +68,16 @@ export const CORDOBA_ROADMAP_LINE =
 // (2) THE LEGALLY-GROUNDED "no" FAMILIES — `refusalFor`
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 //
-// ⚠ THE FAMILY KEYS ARE A FORWARD CONTRACT. The dispatcher resolves a `subzone` string from COACo
-// `coaco:ordenanzas.ordenanza` + the `O_*` link suffix (pack WIRING-TODO 5). The exact strings for
-// these NON-packed families are confirmed against the live layer when that resolver is wired; the
-// tokens below are the families the SPEC (§3) cites as deliberate legally-grounded "no"s, and they
-// are the test surface until then. Because the VERIFICATION GATE refuses the whole pilot today,
-// nothing routes through here in production yet — but the classification is correct and permanent:
-// these families refuse even AFTER the packed subzones are verified, because their envelope lives in
-// a document PRYZM does not hold.
+// ⚠ THE FAMILY KEYS ARE A FORWARD CONTRACT, now set to the LIVE COACo tokens. The dispatcher
+// resolves a `subzone` from `coaco:ordenanzas.link` basename + the `ordenanza` family name (pack
+// WIRING-TODO 5, `resolveCordobaSubzone`). The tokens below were GUESSED in the first commit; they
+// are now the values the CORDOBA-DATA-RECON-SPIKE §3a / CORDOBA-ORDINANCE-REGISTRY confirmed against
+// the live layer — `Uso Comercial`/`O_COMERCIAL`, `CTP1-Campo de la Verdad`/`O_PTC`, `Elemento
+// protegido`/`O_EP` — plus the `subzoneCodeFromLink` parse of each (`O_PTC`→`PTC`, …) so the
+// classifier matches whichever form the resolver hands it. Because the VERIFICATION GATE refuses the
+// whole pilot today, nothing routes through here in production yet — but the classification is
+// correct and permanent: these families refuse even AFTER the packed subzones are verified, because
+// their envelope lives in a document PRYZM does not hold.
 
 /** The article-attributable part of a refusal — everything EXCEPT the per-parcel `knownFacts`. */
 type ClassifiedRefusal = Omit<EnvelopeRefusal, 'knownFacts'>;
@@ -90,7 +92,8 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
     // CTP1-Campo de la Verdad — the envelope is defined in the Conjunto Histórico **Tomo VI**, a
     // document PRYZM does not hold. Only its parcelación borrows from CTP; the buildability does not.
     {
-        ordenanzas: ['CTP1-CV', 'CTP1-Campo-Verdad', 'O_CTP1CV'],
+        // Live COACo tokens (recon §3a): family `CTP1-Campo de la Verdad`, link `O_PTC.pdf` → `PTC`.
+        ordenanzas: ['CTP1-Campo de la Verdad', 'O_PTC', 'PTC'],
         refusal: {
             code: 'derived-plan',
             headline:
@@ -111,7 +114,8 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
     // Uso Comercial — a USE overlay, not a form zone: it defers to the underlying calificación or a
     // Plan Parcial for the envelope. There is no single commercial envelope to state.
     {
-        ordenanzas: ['COM', 'Uso-Comercial', 'O_COM'],
+        // Live COACo tokens (recon §3a): family `Uso Comercial`, link `O_COMERCIAL.pdf` → `COMERCIAL`.
+        ordenanzas: ['Uso Comercial', 'O_COMERCIAL', 'COMERCIAL'],
         refusal: {
             code: 'derived-plan',
             headline:
@@ -132,7 +136,8 @@ const FAMILY_CLASSIFICATIONS: readonly FamilyClassification[] = [
     // Elemento protegido — a preservation regime. The "envelope" is the EXISTING building fixed by
     // the Catálogo de protección, not a new development entitlement. A refusal, never a pack.
     {
-        ordenanzas: ['EP', 'Elemento-protegido', 'O_EP'],
+        // Live COACo tokens (recon §3a): family `Elemento protegido`, link `O_EP.pdf` → `EP`.
+        ordenanzas: ['Elemento protegido', 'O_EP', 'EP'],
         refusal: {
             code: 'derived-plan',
             headline:
@@ -178,8 +183,10 @@ export const CORDOBA_LEGALLY_REFUSED_ORDENANZAS: readonly string[] = [
  * for having no zone envelope, or `null` if this table makes no such claim (then the coverage-gap
  * `noRulePackRefusal` answers). `null` never means "buildable" — it means this table is silent.
  *
- * ⚠ Uso Industrial (subzone-unbindable, ocupación DERIVED) and Unifamiliar Aislada (dead `O_UAS1`
- * link) are deliberately NOT here: those are COVERAGE gaps, not legal "no"s, so they fall through to
+ * ⚠ Uso Industrial (`O_INDUSTRIAL`; subzone-unbindable, ocupación DERIVED) and Unifamiliar Aislada
+ * (`O_UAS1`; its ordinance content is RECOVERED — CORDOBA-ORDINANCE-REGISTRY §6 — but a pilot parcel
+ * still cannot be bound to a UAS-1..6 subzone: the calificación gives the family name only) are
+ * deliberately NOT here: those are COVERAGE gaps, not legal "no"s, so they fall through to
  * `noRulePackRefusal` — filing them as legal classifications would assert the ordinance refuses an
  * envelope on land that is in fact buildable (the false-negative-about-someone's-land error).
  */

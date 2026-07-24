@@ -129,8 +129,26 @@ function madridNZ1Zone(code: string) {
 }
 
 /**
+ * The zone code(s) this pack answers for — VERIFIED by the MADRID-DATA-RECON-SPIKE (2026-07-24, §2).
+ *
+ * The Norma-Zonal code is a `<zona>.<grado>` string served by the master calificación layer
+ * `DESARROLLO_URBANO_ACTUALIZADO/NORMAS_ZONALES/MapServer/0.AMB_TX_ETIQ`, and Norma Zonal 1 is the
+ * set `"1.1" … "1.6"` (the six grados). The routing predicate is `AMB_TX_ETIQ.startsWith('1.')`.
+ * This REPLACES the old `'NZ1'` placeholder (the recon overturned the "code unknown / service 500"
+ * state that placeholder was pinned to). NZ 4/8/5/7 (`"4"`, `"8.*"`, `"5.*"`, `"7.*"`) are NOT NZ 1
+ * and stay refusing — they are not answered by this pack.
+ *
+ * ⚠ Each grado shares the SAME `explicit-area` rule: NZ 1's buildability is the PUBLISHED footprint,
+ * identical in kind across grados 1–6 (the geometry IS the rule), so one zone per code carries the
+ * same `MADRID_NZ1_RULE`. Registration under these codes is still gated by `MADRID_NZ1_CERTIFIED`
+ * (default OFF, `resolveMadridNZ1Ring.ts`): while closed, the dispatcher renders the cited refusal.
+ */
+export const MADRID_NZ1_ZONE_CODES = ['1.1', '1.2', '1.3', '1.4', '1.5', '1.6'] as const;
+
+/**
  * The Madrid Norma Zonal 1 pack. `defaultConfidence: 'estimated-ruleset'` — see header. This pack
- * is a DECLARATION of the `explicit-area` kind + its ringRef; it does not solve until KG-4 ships.
+ * is a DECLARATION of the `explicit-area` kind + its ringRef; each grado (`1.1`…`1.6`) carries the
+ * SAME rule because the geometry is the rule. It renders only when `MADRID_NZ1_CERTIFIED` is signed.
  */
 export const ES_MADRID_NZ1_PACK: JurisdictionZoningContract =
     JurisdictionZoningContractSchema.parse({
@@ -138,20 +156,10 @@ export const ES_MADRID_NZ1_PACK: JurisdictionZoningContract =
         displayName: 'Madrid — Norma Zonal 1 (PGOUM-97, patrimonio histórico)',
         source: 'madrid-pgou',
         crs: 'EPSG:25830', // the municipal ArcGIS planes publish in UTM 30N / ETRS89.
-        lastReviewed: '2026-07-23',
+        lastReviewed: '2026-07-24',
         defaultConfidence: 'estimated-ruleset',
-        zones: [madridNZ1Zone('NZ1')],
+        zones: MADRID_NZ1_ZONE_CODES.map((code) => madridNZ1Zone(code)),
     });
-
-/**
- * The zone code(s) this pack answers for.
- *
- * ⚠ UNVERIFIED against the live calificación plane — `pgoum97/PG_ORDENACION` (which would report the
- * per-parcel Norma-Zonal code) returned HTTP 500 "Service not started" on 2026-07-23, so the exact
- * code string the provider emits for NZ 1 parcels is NOT confirmed. `'NZ1'` is a placeholder pending
- * that check (NEXT.md §3.4). Do not register on an unverified code.
- */
-export const MADRID_NZ1_ZONE_CODES = ['NZ1'] as const;
 
 /**
  * L-608 — the Madrid NZ 1 REFUSAL, shipped WHILE the zone-code is unverified and the published

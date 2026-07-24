@@ -39,8 +39,9 @@ describe('L-608 — the Madrid NZ 1 pack is VALID (parses at load)', () => {
         expect(ES_MADRID_NZ1_PACK.crs).toBe('EPSG:25830');
         // A pack cannot self-certify; the footprint is not yet resolved.
         expect(ES_MADRID_NZ1_PACK.defaultConfidence).toBe('estimated-ruleset');
-        expect(ES_MADRID_NZ1_PACK.zones).toHaveLength(1);
-        expect(zone().code).toBe('NZ1');
+        // One zone per NZ-1 grado (1.1…1.6) — each carries the SAME explicit-area rule.
+        expect(ES_MADRID_NZ1_PACK.zones).toHaveLength(6);
+        expect(zone().code).toBe('1.1');
         expect(zone().permittedUse).toEqual(['residential']);
     });
 
@@ -61,8 +62,8 @@ describe('L-608 — the Madrid NZ 1 pack is VALID (parses at load)', () => {
         expect(z.setbacks).toEqual({ front_m: null, side_m: null, rear_m: null });
     });
 
-    it('the zone code(s) it answers for are the (still-placeholder) NZ 1 set', () => {
-        expect([...MADRID_NZ1_ZONE_CODES]).toEqual(['NZ1']);
+    it('the zone codes it answers for are the six NZ 1 grados (recon §2: AMB_TX_ETIQ 1.1…1.6)', () => {
+        expect([...MADRID_NZ1_ZONE_CODES]).toEqual(['1.1', '1.2', '1.3', '1.4', '1.5', '1.6']);
     });
 });
 
@@ -75,7 +76,7 @@ describe('L-608 — Madrid REFUSES today (zone-code unverified + footprint unres
     });
 
     it('resolveZoneDisposition answers `refusal` (never `pack`) for a Madrid parcel', () => {
-        const d = resolveZoneDisposition(MADRID_JURISDICTION_ID, 'NZ1');
+        const d = resolveZoneDisposition(MADRID_JURISDICTION_ID, '1.1');
         expect(d.kind).toBe('refusal');
         if (d.kind === 'refusal') {
             expect(d.refusal.code).toBe('source-data-unavailable');
@@ -119,7 +120,7 @@ describe('L-608 — the explicit-area engine branch: renders WITH a footprint, r
         { x: 0, z: 10 },
     ];
     const record: ZoningRecord = {
-        zoneCode: 'NZ1',
+        zoneCode: '1.1',
         zoneLabel: 'Norma Zonal 1',
         jurisdictionId: MADRID_JURISDICTION_ID,
         structuredFields: {},

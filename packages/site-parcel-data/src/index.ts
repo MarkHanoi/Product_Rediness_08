@@ -189,6 +189,21 @@ export {
     CORDOBA_ROADMAP_LINE,
 } from './rulepacks/esCordobaZoneClassification.js';
 export { isInCordoba, CORDOBA_BBOX } from './providers/cordobaBbox.js';
+// ── Córdoba subzone resolver (WIRING-TODO 5) — the COACo WFS provider. ──
+// Binds a parcel to its PGOU-2001 subzone (`coaco:ordenanzas.link` → MC-3/…) + the refcat-join
+// attributes + the `actuacion` derived-planning override. WIRED but never rendered while
+// `CORDOBA_ENVELOPE_VERIFIED` is false (the dispatcher shows the unverified refusal). Never throws.
+export {
+    resolveCordobaSubzone,
+    subzoneCodeFromLink,
+    CORDOBA_ORDENANZAS_PATH,
+    CORDOBA_VCATASTRO_PATH,
+    type CordobaLngLat,
+    type CordobaSubzoneDeps,
+    type CordobaSubzoneResolution,
+    type CordobaSubzoneResult,
+    type CordobaSubzoneRefusalReason,
+} from './providers/resolveCordobaSubzone.js';
 
 // L-525a — PGM Art. 327.2 *alçada reguladora* (the height half of the 13a construction, the
 // counterpart to Art. 242's depth). Refuses rather than let a MEASURED street width choose a
@@ -384,6 +399,7 @@ export {
 export {
     resolveMadridNZ1Ring,
     MADRID_NZ1_RING_REF,
+    MADRID_NZ1_CERTIFIED,
     MADRID_CONDICIONES_PATH,
     MADRID_CONDICIONES_LAYER,
     type MadridLngLat,
