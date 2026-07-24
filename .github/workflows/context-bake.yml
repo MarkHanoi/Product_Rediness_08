@@ -50,9 +50,11 @@ jobs:
   bake:
     name: osmium + tippecanoe → PMTiles → R2
     runs-on: ubuntu-latest
-    # Observed envelope is ~5–15 min (tools/context-bake/README.md); 90 gives the
-    # Geofabrik download and a cold tippecanoe compile room without hanging all day.
-    timeout-minutes: 90
+    # §L-607 multi-region — was 90 (Barcelona only). Whole-Spain (national) + ~17 city clips across
+    # ~13 country extracts means ~10 GB of downloads (reclaimed as we go — see bake.mjs --keep-pbf)
+    # plus a whole-Spain tippecanoe pass, so 180 gives the download + cold tippecanoe compile +
+    # national tiling room without hanging all day.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 

@@ -628,3 +628,30 @@ Recorded here only to close the search: this looked like a coverage gap and is n
 precision rationale stated. `CesiumThreeBridge.setAnchor()` contradicts it. The contract is
 correct and the code is wrong (C01 conflict-resolution order), so this is logged as a **Known
 Violation in C12 §1.5**, not as a missing contract. No new document.
+
+## L-607 (2026-07-24) — 3D-SITE CONTEXT-TILE PIPELINE: **a genuine coverage gap — an already-named reserved slot**
+
+The 3D-Site context-building pipeline — bake regional coverage (`tools/context-bake/bake.mjs` +
+`context-bake.yml`), serve PMTiles from R2, and the client reader's honest
+`ok`/`aborted`/`unavailable`/`disabled` discriminator (`contextTiles.ts`, L-513b/L-578) — is
+governed by **no ratified C-contract**. Verified, not assumed:
+
+- **C57 §scope (line 292)** explicitly maps *"LOD2 context buildings + terrain ingestion (Cesium
+  3D-Tiles / quantized-mesh)"* to *"[C19 §1.8] (context snapshot) + the Denmark reference
+  architecture (offline-bake); **a future context-engine contract**"* — i.e. C57 deliberately
+  scopes context-building ingestion OUT of itself and names the missing contract.
+- **C12** owns the coordinate frame the tiles render in, not the bake/serve/coverage pipeline.
+- The de-facto authority today is the **reference** doc
+  `docs/04-reference/CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` + **ADR-0268** (Cesium georeferenced
+  placement) + the **L-513** issue chain. A reference doc + ADR is not a contract.
+
+⇒ **This is NOT a violation (nothing is claimed that the code contradicts) and NOT closeable in an
+existing contract's domain.** It is the "future context-engine contract" C57 reserved, now with a
+concrete forcing case: **which jurisdictions are baked** and **how the reader distinguishes
+*out-of-baked-coverage* from a *genuinely-empty tile*** (the §CONTEXT-DATA-HONESTY line — audit
+L-607 layer 2) have no contracted position. When L-607's implementation is scoped, that contract
+(provisional name **C-CONTEXT-ENGINE**) should be authored to own: regional coverage policy, the
+tile-format + provenance (C23 badge), the honest empty-vs-unavailable-vs-out-of-coverage
+trichotomy, and the Overpass-fallback demotion rule. **No new contract authored in this pass** —
+logged as the reserved slot it is, per C60 §7's "different question, different failure mode" test
+(which this passes: bake/serve/coverage is a distinct subject from C57's parcel ingestion).

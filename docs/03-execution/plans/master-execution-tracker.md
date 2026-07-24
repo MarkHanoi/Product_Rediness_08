@@ -4578,6 +4578,11 @@ forced one revert today (L-598).
 | **L-604 (3)** — capture the offending ancestry from ONE live run | founder (one click-path) | TBD | L-604 (1–2) deployed | **WAITING ON EVIDENCE** |
 | **L-604 (4)** — fix the ECEF leak (C12 §1.1 violation, logged C12 §1.5) | UNASSIGNED | TBD | L-604 (3) — **do not fix on inference** | OPEN |
 | **L-604 (5)** — de-duplicate `CesiumThreeBridge` (P3) | UNASSIGNED | TBD | none | LOGGED |
+| **L-607 (1)** — probe `contextTiles` off-region result (ok-empty vs unavailable) | UNASSIGNED | TBD | none — do FIRST | LOGGED |
+| **L-607 (2–4)** — multi-region context bake → R2 (widen `bake.mjs` + `context-bake.yml` beyond Barcelona bbox) | UNASSIGNED | TBD | L-607 (1) for the shape decision | LOGGED |
+| **L-607 (5)** — client tile-URL resolution (ONLY if per-city prefixes chosen; (2a) big-extract needs none) | UNASSIGNED | TBD | L-607 (2) | LOGGED |
+| **L-607 (6)** — honesty fix: out-of-baked-coverage ≠ genuinely-empty tile | UNASSIGNED | TBD | L-607 (1) confirms it | LOGGED |
+| **L-607 (7)** — founder live verify Madrid+Córdoba context on prod | UNASSIGNED | TBD | L-607 (2–4) published | LOGGED |
 
 ⚠ **Sequencing — both of the just-landed contracts are upstream of L-600's wiring.**
 **C59 Phase 2** (per-pane picker + `PaneLayoutStore`) and **C60 Phase 1** (site-entry stage

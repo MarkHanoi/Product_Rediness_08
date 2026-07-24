@@ -32,16 +32,69 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
 
 // ── Config ──────────────────────────────────────────────────────────────────
-const REGION = {
-  name: 'cataluna',
-  // Live-verified 2026-07-21: 200, ~266 MB, daily-refreshed (docs §8).
-  pbfUrl: 'https://download.geofabrik.de/europe/spain/cataluna-latest.osm.pbf',
-  pbf: resolve(OUT, 'cataluna-latest.osm.pbf'),
-  // Barcelona city clip (generous) — shrinks 266 MB → the city before per-layer filtering.
-  // minlon,minlat,maxlon,maxlat (osmium -b order).
-  bbox: '2.05,41.32,2.24,41.47',
-  clipped: resolve(OUT, 'barcelona.osm.pbf'),
-};
+// §BAKE-MULTI-REGION (L-607, 2026-07-24) — ⚠ THIS USED TO BE A SINGLE `REGION` (Barcelona only),
+// which is WHY every non-Barcelona jurisdiction city rendered "No surrounding building data for
+// this area" on the 3D Site: the client's PRIMARY context source is the baked PMTiles (L-513b/
+// L-578, Overpass demoted to failure-fallback), and R2 only ever held Barcelona tiles.
+//
+// THE FIX, kept deliberately client-invisible: every region below is clipped from its Geofabrik
+// country/comunidad extract, and ALL regions' per-layer GeoJSONSeq are fed into ONE `tippecanoe`
+// call → ONE merged `<layer>.pmtiles`. The output filenames are UNCHANGED
+// (`buildings/roads/water/parks.pmtiles`), so the flat `s3://pryzm-assets/tiles/…` URL and the
+// client reader (`contextTiles.ts`) need NO change — PMTiles indexes by tile coordinate, so a
+// single archive covering many disjoint city bboxes "just works" and a city with no baked tiles is
+// simply absent from the index (the honesty case L-607 layer 2 tracks separately).
+//
+// TO ADD A CITY: append one entry. `pbfUrl` = the smallest Geofabrik extract that CONTAINS the
+// city (a comunidad/country file, not the whole planet); `bbox` = a generous city clip
+// (minlon,minlat,maxlon,maxlat, osmium -b order). Two cities in the SAME extract reuse the same
+// download (keyed by `pbf` path). ⚠ CI disk/time: each extract is downloaded then clipped small;
+// ~3 Spanish comunidades fit the runner's envelope. If this list grows past a handful of large
+// countries, switch the workflow to bake per-region and `aws s3 sync` incrementally.
+const REGIONS = [
+  {
+    // L-607 — WHOLE SPAIN (national), founder-chosen 2026-07-24. Geofabrik's Spain extract is one
+    // ~1.3 GB pbf; tiled whole it is ~1–2.5 GB of PMTiles across the four layers — comfortably under
+    // R2's 10 GB free storage, and ONE country fits a single CI run (the cost cliff was whole-
+    // CONTINENT, not one country). This national bbox covers EVERY Spanish jurisdiction — Barcelona,
+    // Madrid, Córdoba — and anywhere a user drops a site on the mainland + Balearics, so a Spanish
+    // site never shows "no surrounding building data" again. ⚠ Canary Islands (lon ~-18) fall
+    // OUTSIDE this bbox — add a `canarias` entry from the same extract if a demo needs them.
+    name: 'spain',
+    pbfUrl: 'https://download.geofabrik.de/europe/spain-latest.osm.pbf',
+    pbf: resolve(OUT, 'spain-latest.osm.pbf'),
+    bbox: '-9.55,35.90,4.60,43.90',
+    clipped: resolve(OUT, 'clip-spain.osm.pbf'),
+  },
+  // ── L-607 multi-city, all 13 jurisdictions (founder-chosen 2026-07-24) ───────────────────────
+  // ⚠ Each `pbfUrl` is the SMALLEST Geofabrik extract that contains the city; `bbox` is a generous
+  // city-centre clip. Slugs + bboxes are best-effort and MUST be sanity-checked on the first CI
+  // bake — the workflow's "Assert the tiles are real" step fails a layer that came back empty
+  // (wrong slug / wrong bbox), which is exactly where a typo surfaces loudly instead of silently
+  // shipping "no context". Cities in the same extract reuse one download (grouped by `pbf` path).
+  // Portugal / Denmark / Belgium / Netherlands / Norway / Sweden / Finland have no Geofabrik
+  // sub-regions, so the city clips come straight from the country extract.
+  { name: 'lisbon',     pbfUrl: 'https://download.geofabrik.de/europe/portugal-latest.osm.pbf',                       pbf: resolve(OUT, 'portugal-latest.osm.pbf'),               bbox: '-9.23,38.68,-9.08,38.80',  clipped: resolve(OUT, 'clip-lisbon.osm.pbf') },
+  { name: 'porto',      pbfUrl: 'https://download.geofabrik.de/europe/portugal-latest.osm.pbf',                       pbf: resolve(OUT, 'portugal-latest.osm.pbf'),               bbox: '-8.70,41.12,-8.55,41.20',  clipped: resolve(OUT, 'clip-porto.osm.pbf') },
+  { name: 'paris',      pbfUrl: 'https://download.geofabrik.de/europe/france/ile-de-france-latest.osm.pbf',           pbf: resolve(OUT, 'ile-de-france-latest.osm.pbf'),          bbox: '2.22,48.80,2.47,48.91',    clipped: resolve(OUT, 'clip-paris.osm.pbf') },
+  { name: 'lyon',       pbfUrl: 'https://download.geofabrik.de/europe/france/rhone-alpes-latest.osm.pbf',             pbf: resolve(OUT, 'rhone-alpes-latest.osm.pbf'),            bbox: '4.78,45.70,4.92,45.80',    clipped: resolve(OUT, 'clip-lyon.osm.pbf') },
+  { name: 'rome',       pbfUrl: 'https://download.geofabrik.de/europe/italy/centro-latest.osm.pbf',                   pbf: resolve(OUT, 'italy-centro-latest.osm.pbf'),           bbox: '12.40,41.83,12.60,41.99',  clipped: resolve(OUT, 'clip-rome.osm.pbf') },
+  { name: 'milan',      pbfUrl: 'https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf',               pbf: resolve(OUT, 'italy-nordovest-latest.osm.pbf'),        bbox: '9.10,45.40,9.28,45.55',    clipped: resolve(OUT, 'clip-milan.osm.pbf') },
+  { name: 'berlin',     pbfUrl: 'https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-berlin-latest.osm.pbf'),         bbox: '13.28,52.44,13.55,52.58',  clipped: resolve(OUT, 'clip-berlin.osm.pbf') },
+  { name: 'munich',     pbfUrl: 'https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-bayern-latest.osm.pbf'),         bbox: '11.44,48.09,11.66,48.20',  clipped: resolve(OUT, 'clip-munich.osm.pbf') },
+  { name: 'london',     pbfUrl: 'https://download.geofabrik.de/europe/great-britain/england/greater-london-latest.osm.pbf', pbf: resolve(OUT, 'greater-london-latest.osm.pbf'),  bbox: '-0.20,51.44,0.02,51.55',   clipped: resolve(OUT, 'clip-london.osm.pbf') },
+  { name: 'copenhagen', pbfUrl: 'https://download.geofabrik.de/europe/denmark-latest.osm.pbf',                        pbf: resolve(OUT, 'denmark-latest.osm.pbf'),                bbox: '12.50,55.63,12.65,55.72',  clipped: resolve(OUT, 'clip-copenhagen.osm.pbf') },
+  { name: 'brussels',   pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '4.30,50.80,4.42,50.90',    clipped: resolve(OUT, 'clip-brussels.osm.pbf') },
+  { name: 'amsterdam',  pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                    pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '4.83,52.34,4.97,52.42',    clipped: resolve(OUT, 'clip-amsterdam.osm.pbf') },
+  { name: 'oslo',       pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '10.66,59.88,10.83,59.96',  clipped: resolve(OUT, 'clip-oslo.osm.pbf') },
+  { name: 'stockholm',  pbfUrl: 'https://download.geofabrik.de/europe/sweden-latest.osm.pbf',                         pbf: resolve(OUT, 'sweden-latest.osm.pbf'),                 bbox: '17.98,59.28,18.14,59.37',  clipped: resolve(OUT, 'clip-stockholm.osm.pbf') },
+  { name: 'helsinki',   pbfUrl: 'https://download.geofabrik.de/europe/finland-latest.osm.pbf',                        pbf: resolve(OUT, 'finland-latest.osm.pbf'),                bbox: '24.88,60.14,25.02,60.20',  clipped: resolve(OUT, 'clip-helsinki.osm.pbf') },
+  // Saudi — Geofabrik bundles it in the GCC-states extract (no standalone SA file). OSM/Geofabrik
+  // is global + free, so context tiles bake fine here even though the LIVE gov parcel data is
+  // geo-fenced (that gate is unrelated to OSM footprints).
+  { name: 'riyadh',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '46.60,24.58,46.83,24.80',  clipped: resolve(OUT, 'clip-riyadh.osm.pbf') },
+  { name: 'jeddah',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '39.10,21.45,39.28,21.62',  clipped: resolve(OUT, 'clip-jeddah.osm.pbf') },
+];
 
 // Per-layer: the osmium tags-filter expression + tippecanoe zoom range. Attributes (building
 // height / building:levels, highway class, etc.) ride along in the GeoJSON — osmium export keeps
@@ -139,11 +192,11 @@ async function download(url, dest) {
 
 // ── plan / check ─────────────────────────────────────────────────────────────
 function printPlan() {
-  console.log('PRYZM context tile bake — L-513a');
-  console.log(`  region      : ${REGION.name} (${REGION.pbfUrl})`);
-  console.log(`  clip bbox   : ${REGION.bbox}`);
+  console.log('PRYZM context tile bake — L-513a / L-607 (multi-region)');
+  console.log(`  regions     : ${REGIONS.length} — ${REGIONS.map((r) => r.name).join(', ')}`);
+  for (const r of REGIONS) console.log(`    · ${r.name.padEnd(10)} bbox ${r.bbox}  ← ${r.pbfUrl.split('/').pop()}`);
   console.log(`  out dir     : ${OUT}`);
-  console.log(`  layers      : ${layers.map((l) => l.id).join(', ')}`);
+  console.log(`  layers      : ${layers.map((l) => l.id).join(', ')} (each merged across ALL regions → one .pmtiles)`);
   console.log('  toolchain   :');
   console.log(`    osmium     ${LOCAL.osmium ? 'LOCAL' : 'missing'}`);
   console.log(`    tippecanoe ${LOCAL.tippecanoe ? 'LOCAL' : 'missing'}`);
@@ -167,28 +220,58 @@ async function main() {
     process.exit(2);
   }
 
-  await download(REGION.pbfUrl, REGION.pbf);
-
-  // Clip the region to the Barcelona bbox (shrinks the per-layer work massively).
-  run('clip to Barcelona bbox',
-    tool('osmium', ['extract', '-b', REGION.bbox, REGION.pbf, '-o', REGION.clipped, '--overwrite']));
+  // §BAKE-MULTI-REGION (L-607) — download + clip EACH region first, GROUPED by source extract so a
+  // shared pbf (Lisbon+Porto, Riyadh+Jeddah) downloads once. `download()` skips an existing file, so
+  // this is idempotent across reruns. The clip shrinks a country extract to the region before any
+  // per-layer filtering (the "shrink before filter" property the single-region bake had).
+  //
+  // ⚠ DISK: with whole-Spain + ~12 other country extracts in one run, the downloaded pbfs would pile
+  // up to ~10 GB and can blow a CI runner. After a group's regions are all clipped, its (large)
+  // country pbf is dead weight, so we DELETE it by default. `--keep-pbf` retains them for fast local
+  // reruns (a dev iterating locally would rather re-clip than re-download gigabytes).
+  const KEEP_PBF = args.includes('--keep-pbf');
+  const groups = new Map();
+  for (const r of REGIONS) {
+    if (!groups.has(r.pbf)) groups.set(r.pbf, { url: r.pbfUrl, regions: [] });
+    groups.get(r.pbf).regions.push(r);
+  }
+  for (const [pbfPath, g] of groups) {
+    await download(g.url, pbfPath);
+    for (const r of g.regions) {
+      run(`clip ${r.name} (${r.bbox})`,
+        tool('osmium', ['extract', '-b', r.bbox, r.pbf, '-o', r.clipped, '--overwrite']));
+    }
+    if (!KEEP_PBF && !DRY && existsSync(pbfPath)) {
+      const { unlinkSync } = await import('node:fs');
+      unlinkSync(pbfPath);
+      console.log(`  ↳ reclaimed ${pbfPath.split(/[\\/]/).pop()} to save disk (pass --keep-pbf to retain)`);
+    }
+  }
 
   for (const l of layers) {
-    const filtered = resolve(OUT, `${l.id}.osm.pbf`);
-    const geo = resolve(OUT, `${l.id}.geojsonseq`);
+    // Per region: filter + export this layer to its OWN GeoJSONSeq. Then ONE tippecanoe call takes
+    // ALL regions' GeoJSONSeq as inputs and merges them into a SINGLE `<layer>.pmtiles` — the output
+    // name is unchanged, so R2 + the client reader are untouched (the whole point of L-607's fix).
+    const geos = [];
+    for (const r of REGIONS) {
+      const filtered = resolve(OUT, `${r.name}-${l.id}.osm.pbf`);
+      const geo = resolve(OUT, `${r.name}-${l.id}.geojsonseq`);
+      run(`filter ${l.id} · ${r.name}`,
+        tool('osmium', ['tags-filter', r.clipped, ...l.filter, '-o', filtered, '--overwrite']));
+      run(`export ${l.id} · ${r.name} → GeoJSONSeq (${l.geom})`,
+        tool('osmium', ['export', filtered, '-f', 'geojsonseq',
+          // §BAKE-GEOMETRY-TYPES + §BAKE-UNIQUE-ID — see the LAYERS note above.
+          '--geometry-types', l.geom, '--add-unique-id', 'type_id',
+          '-o', geo, '--overwrite']));
+      geos.push(geo);
+    }
     const pmt = resolve(OUT, `${l.id}.pmtiles`);
-    run(`filter ${l.id}`,
-      tool('osmium', ['tags-filter', REGION.clipped, ...l.filter, '-o', filtered, '--overwrite']));
-    run(`export ${l.id} → GeoJSONSeq (${l.geom})`,
-      tool('osmium', ['export', filtered, '-f', 'geojsonseq',
-        // §BAKE-GEOMETRY-TYPES + §BAKE-UNIQUE-ID — see the LAYERS note above.
-        '--geometry-types', l.geom, '--add-unique-id', 'type_id',
-        '-o', geo, '--overwrite']));
-    run(`tile ${l.id} → PMTiles`,
+    // tippecanoe accepts multiple inputs and unions them into the one named layer (`-l l.id`).
+    run(`tile ${l.id} → PMTiles (merged from ${geos.length} region(s))`,
       tool('tippecanoe', ['-o', pmt, '-l', l.id, '-Z', String(l.minz), '-z', String(l.maxz),
-        '-P', '--force', ...l.extra, geo]));
+        '-P', '--force', ...l.extra, ...geos]));
     if (!DRY && existsSync(pmt)) {
-      console.log(`  ✔ ${l.id}.pmtiles — ${(statSync(pmt).size / 1e6).toFixed(1)} MB`);
+      console.log(`  ✔ ${l.id}.pmtiles — ${(statSync(pmt).size / 1e6).toFixed(1)} MB (${geos.length} region(s))`);
     }
   }
 

@@ -40,7 +40,15 @@ Then wire the client tile reader (L-513b/c) at those URLs and demote Overpass to
 fallback (badged ESTIMATED). Re-run the bake on Geofabrik's daily refresh to keep context current.
 
 ## Scope / notes
-- Barcelona-first (the ship-first city). To add a region: add a `REGION` + bbox in `bake.mjs`.
-- This tool does NOT modify the running app — it produces tiles. The client swap is L-513b/c.
+- **§L-607 multi-region (2026-07-24).** Was Barcelona-only — which is why every other jurisdiction
+  city showed *"No surrounding building data"* on the 3D Site (the client reads baked PMTiles first;
+  R2 only held Barcelona). `bake.mjs` now bakes a `REGIONS` list — **whole Spain (national)** + key
+  cities across Portugal, France, Italy, Germany, UK, Denmark, Belgium, Netherlands, Norway, Sweden,
+  Finland, and Saudi — and merges them into **one `<layer>.pmtiles`** per layer. Output filenames are
+  unchanged, so R2 + the client reader need no change. **To add a city: append one entry to
+  `REGIONS`** (`pbfUrl` = smallest Geofabrik extract containing it; `bbox` = generous city clip).
+- **Disk:** country extracts are downloaded grouped, clipped, then **deleted** (`--keep-pbf` retains
+  them for local reruns). Whole-Spain + ~13 extracts fits the CI runner with this reclaim.
+- This tool does NOT modify the running app — it produces tiles. The client reader is `contextTiles.ts`.
 - Buildings are OSM footprints + tag heights for now; the L-511/L-512 authoritative data
   (3DBAG / Catastro + PNOA nDSM) feeds the SAME bake later without changing the tile format.
