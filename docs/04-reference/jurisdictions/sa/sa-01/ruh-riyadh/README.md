@@ -45,6 +45,10 @@ excluding development-authority master-plan zones.
 
 ## 5 — Files in this folder
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
+- `RATE.md` — the readiness rate for Riyadh (~54%; national footprint −1 pt for the pervasive RCRC/ROSHN/ADA
+  development-authority surface).
+- `RATE-IMPLEMENTATION-PLAN.md` — the phased climb (Phase 1 = wire + certify the authored footprint pack;
+  Phases 2–3 BLOCKED on the geo-fence).
 - `sources/SOURCES.md` — per-field citations for the two zones (the trust gate).
 - `sources/VERIFICATION.md` — the human sign-off (NOT signed → `estimated-ruleset`).
 - `findings/L-606-RIYADH-DEMO-PACK-AND-PROBES.md` — the solver decision, the streetWidth verdict, the

@@ -4,19 +4,23 @@
 
 **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED
 
-> **Structured dimensional fill rate**: the fraction of parcel-level building-rule queries that return a
-> complete, machine-readable answer (classification + coverage + setbacks + height) without reading a prose
-> text/PDF. Methodology mirrors the cross-jurisdiction benchmark.
+> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
+> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
+> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
+> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
+> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
+> assumed from the jurisdiction's open-data reputation.
 
 | Jurisdiction | Rate |
 |---|---|
 | Denmark | ~96% |
 | Madrid | ~68% |
-| **Dammam** | **~55%** |
 | Saudi Arabia (national) | ~55% |
-| Jeddah | ~53% |
+| **Dammam** | **~55%** |
 | Barcelona | ~48% |
 | Norway (national) | ~32% |
+| Germany (national) | ~28% |
+| France (national) | ~22% |
 
 Dammam scores **exactly at the Saudi national average (~55%)** — it is the **cleanest** of the three cities
 because it carries *no* city-specific downward pressure. Unlike Jeddah (the Al-Balad UNESCO overlay removes

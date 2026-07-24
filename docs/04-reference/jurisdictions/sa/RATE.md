@@ -4,11 +4,12 @@
 
 **Last updated:** 2026-07-24 · **Maintainer:** UNASSIGNED
 
-> **Structured dimensional fill rate**: the fraction of parcel-level building-rule queries that return a
-> complete, machine-readable answer (classification + coverage/FAR + setbacks + height) without reading a
-> prose text/PDF document. Methodology mirrors the cross-jurisdiction benchmark (same definition used for
-> the Denmark/Madrid/Barcelona/Norway/Germany/France scores). Direct source/endpoint checks — the number
-> is reasoned out below, not assumed from Saudi Arabia's Vision-2030 digital-government reputation.
+> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
+> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
+> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
+> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
+> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
+> assumed from the jurisdiction's open-data reputation.
 
 | Jurisdiction | Rate |
 |---|---|

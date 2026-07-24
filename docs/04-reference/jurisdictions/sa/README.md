@@ -93,6 +93,10 @@ Height/floors would be **planning-zone** granularity (municipal) — not held.
 ## 4 — Files here
 - `NEXT.md` — country overview: national blockers, TRIP-WIRES, resume steps.
 - `RATE.md` — data readiness rate (~55%), field-by-field, with the geo-fence caveat.
+- `RATE-IMPLEMENTATION-PLAN.md` — the phased climb: Phase 1 ships the national footprint pack (the 66.7%
+  shippable win, realises ~55%); Phases 2–3 (exact vertical + live parcel feed) are honest **BLOCKED**
+  phases, unblocked only by an in-SA egress or a MOMRAH/Balady agreement. Reachable ceiling ~55%;
+  geo-fence-broken ceiling ~72%.
 - `SAUDI-ARABIA-ENTRY-ASSESSMENT.md` — the market-entry effort assessment (the reasoning of record).
 - `SAUDI-PRIMARY-DECISION-EXTRACT.md` — the primary 2024 MOMRAH decision, read live, page-cited.
 - `SAUDI-UMAPS-API-ENUMERATION.md` — the Balady parcel backend, enumerated (exists, geo-fenced).
@@ -103,9 +107,12 @@ Height/floors would be **planning-zone** granularity (municipal) — not held.
 - `topics/` — context-data layers: `buildings-lod-height.md`, `parks-trees.md`, `roads-pedestrian.md`,
   `water.md` (GEOSA licensed; Balady geo-fenced; global ML fallbacks are the reachable layer).
 - `sources/SOURCES.md` · `sources/VERIFICATION.md` — the national trust gate.
-- `sa-01/ruh-riyadh/` — the **Riyadh demo** (the authored rule pack's provenance home).
-- `sa-02/jed-jeddah/` — **Jeddah** scaffold (Makkah Region; adds the Al-Balad UNESCO heritage overlay).
-- `sa-04/dmm-dammam/` — **Dammam** scaffold (Eastern Province; the cleanest of the three — no overlay).
+- `sa-01/ruh-riyadh/` — the **Riyadh demo** (the authored rule pack's provenance home); carries its own
+  `RATE.md` (~54%) + `RATE-IMPLEMENTATION-PLAN.md`.
+- `sa-02/jed-jeddah/` — **Jeddah** scaffold (Makkah Region; adds the Al-Balad UNESCO heritage overlay);
+  `RATE.md` (~53%) + `RATE-IMPLEMENTATION-PLAN.md`.
+- `sa-04/dmm-dammam/` — **Dammam** scaffold (Eastern Province; the cleanest of the three — no overlay);
+  `RATE.md` (~55% = national) + `RATE-IMPLEMENTATION-PLAN.md`.
 
 ## 5 — Open questions / unverified
 - Per-city machine-readable **exact** floor/height by zone (the value *beneath* the national ceiling):

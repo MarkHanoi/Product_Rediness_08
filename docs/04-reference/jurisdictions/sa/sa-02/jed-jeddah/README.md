@@ -63,7 +63,9 @@ the whole conservation regime).
 
 ## 5 — Files in this folder
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
-- `RATE.md` — the readiness rate for Jeddah (mirrors the national number; heritage caveat added).
+- `RATE.md` — the readiness rate for Jeddah (~53%; national number −2 pt for the Al-Balad heritage removal).
+- `RATE-IMPLEMENTATION-PLAN.md` — the phased climb (Phase 1 reuses the footprint pack; 1b/1c = the Al-Balad
+  refusal overlay + JHD GIS fill; Phases 2–3 BLOCKED on the geo-fence).
 - `sources/SOURCES.md` — per-field citations (national footprint + the Jeddah-local layers).
 - `sources/VERIFICATION.md` — the human sign-off (NOT signed → `estimated-ruleset`).
 

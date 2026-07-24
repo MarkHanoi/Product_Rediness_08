@@ -56,7 +56,9 @@ denominator is the widest of the three cities.**
 
 ## 5 — Files in this folder
 - `NEXT.md` — where we stopped, blockers, TRIP-WIRES, resume steps.
-- `RATE.md` — the readiness rate for Dammam (mirrors the national number; no heritage penalty).
+- `RATE.md` — the readiness rate for Dammam (~55% = national; no heritage or density carve-out — the cleanest).
+- `RATE-IMPLEMENTATION-PLAN.md` — the phased climb (Phase 1 reuses the footprint pack, widest denominator;
+  Phases 2–3 BLOCKED on the geo-fence).
 - `sources/SOURCES.md` — per-field citations (national footprint + the Dammam-local Amana).
 - `sources/VERIFICATION.md` — the human sign-off (NOT signed → `estimated-ruleset`).
 
