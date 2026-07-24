@@ -91,7 +91,39 @@ not a data gap.
 
 ---
 
-## 5 — Phase 6: Institution Compilation (revised-model path)
+## 5 — Live probe findings (2026-07-24): what changed
+
+> Full results: `findings/USA-PROBE-RESULTS-2026-07-24.md`. Summary of score revisions below.
+
+| Field | Old score | Probed score | Key finding |
+|---|---|---|---|
+| Jurisdiction routing | ~0% free | **~80% free** | Census TIGER geocoder — 11-layer routing, all 3 cities confirmed in one API call |
+| NYC FAR (residfar/commfar) | ~0% free | **99.5% NYC** | MapPLUTO 858,602 parcels; non-conforming count: 137,541 |
+| Flood overlay | Not counted | **~90% free** | FEMA ESRI-hosted FeatureServer — 19 zones for Chicago, 2 for NYC — instant return |
+| Heritage overlay | ~75% estimated | **72,668 confirmed** | NPS NRHP MapServer — 250 in Chicago bbox; 379 in greater metro |
+| Terrain elevation | ~65–70% estimated | **Functional nationwide** | USGS 3DEP point API — 180.7m Chicago, 14.8m NYC, 86.7m LA |
+| LiDAR tiles | >60% estimated | **178 QL1 tiles confirmed** for Chicago bbox | TNM API — LAZ format, 2019 publication, highest quality tier |
+| LA City zoning | ~0% free | **Queryable** (zone code + category) | LA City Zoning FeatureServer Layer 15 — zone suffix parsing needed for overlays |
+| LA County parcels | Unknown | **Confirmed** (AIN + UseCode + geometry) | ASSR_PARCELS_25_View — assessor parcel layer live |
+
+### Most important single finding from probes
+
+**Jurisdiction routing ("which of ~33,000 ordinances applies?") was the stated ~0% free blocker. It is not.**
+Census TIGER geocoder (`geocoding.geo.census.gov/geocoder/geographies/coordinates`) answers it free,
+instantly, for all incorporated places (87% of US population) and all counties. This removes Regrid
+as a prerequisite for routing and unblocks Phases 1b and 2 without commercial API contracts.
+
+### What the probes did not confirm
+
+- ArcGIS Hub zoning endpoint count (5,000–8,000 estimate): API search returned parameter errors; manual
+  URL discovery needed. The scale claim is plausible but unverified.
+- USFWS NWI spatial query: Schema confirmed; spatial queries failing (scale restriction). County-level
+  bbox will fix it.
+- Microsoft Building Footprints: Download blocked from probe environment. Public documentation confirms 129.6M footprints.
+
+---
+
+## 6 — Phase 6: Institution Compilation (revised-model path)
 
 > Added 2026-07-24 based on the vision-shift analysis in
 > `findings/USA-VISION-SHIFT-2026-07-24.md` and `findings/USA-INSTITUTIONAL-GRAPH-ANALYSIS.md`.

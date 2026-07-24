@@ -201,9 +201,10 @@ us/
 │   ├── SOURCES.md                          ← per-field national data source citations
 │   └── VERIFICATION.md                     ← human sign-off (open)
 ├── findings/
-│   ├── USA-MASTER-DATA-SOURCE-STUDY.md     ← full source/legal-mechanism study
-│   ├── USA-INSTITUTIONAL-GRAPH-ANALYSIS.md ← revised ceiling proof (institution compilation model)
-│   └── USA-VISION-SHIFT-2026-07-24.md      ← theoretical framework: dataset aggregation → institution compilation
+│   ├── USA-MASTER-DATA-SOURCE-STUDY.md         ← full source/legal-mechanism study
+│   ├── USA-INSTITUTIONAL-GRAPH-ANALYSIS.md     ← revised ceiling proof (institution compilation model)
+│   ├── USA-VISION-SHIFT-2026-07-24.md          ← theoretical framework: dataset aggregation → institution compilation
+│   └── USA-PROBE-RESULTS-2026-07-24.md         ← LIVE ENDPOINT PROBES — measured real data (2026-07-24)
 ├── topics/
 │   ├── buildings-lod-height.md
 │   ├── parks-trees.md

@@ -15,6 +15,13 @@ ecosystem (Zoneomics, Regrid) provides numeric attributes nationally at a price.
 reflects what is achievable using only open/free sources. The ~55% rate reflects what is
 achievable if Zoneomics and Regrid are contracted.
 
+> ⚠ **Live probe results (2026-07-24) revise certain field scores significantly upward** — see
+> `findings/USA-PROBE-RESULTS-2026-07-24.md` for full detail. Key revisions: jurisdiction routing
+> is NOT ~0% (Census TIGER geocoder answers it free at ~80% coverage); NYC MapPLUTO FAR fill rate
+> is 99.5% across 858,602 parcels (not ~0%); FEMA ESRI-hosted flood layer is confirmed live and
+> free. The headline triad rate (~12% free / ~55% commercial) remains accurate for the
+> nationally-averaged triad metric; individual field scores below are updated where probes ran.
+
 | Jurisdiction | Rate |
 |---|---|
 | Denmark | ~96% |
@@ -35,18 +42,20 @@ commercial ceiling of any country studied.
 
 ## Field-by-field breakdown
 
-| Field | Structured? | Source | Score (free) | Score (commercial) |
-|---|---|---|---|---|
-| Parcel geometry | ⚠️ Partial | **Free:** ArcGIS Hub / Socrata county portals — unsystematic, schema-inconsistent; OSM. **Commercial:** Regrid (160M parcels, 99% of Americans). | **~40%** (major urban counties free; rural gaps) | **~90%** (Regrid near-universal) |
-| Jurisdiction router (which of ~33,000 ordinances governs?) | ❌ Free absent | **Free:** none national. **Commercial:** Regrid + Zoneomics both provide jurisdiction assignment. | **~0%** (no free national routing layer) | **~80%** (Zoneomics 20,000+ cities) |
-| Zone / use code | ❌ Free absent at scale | **Free:** Mercatus/NZA partner outputs (partial states); some municipal open-data portals. **Commercial:** Zoneomics 20,000+ cities. | **~5%** (NZA/Mercatus partner jurisdictions only) | **~60%** (Zoneomics coverage fraction; rural gaps remain) |
-| Density metric (FAR / lot coverage) | ❌ Free absent | **Free:** essentially none nationally. **Commercial:** Zoneomics claims FAR for covered cities. | **~0%** | **~50%** (Zoneomics; FAR field completeness per city unconfirmed) |
-| Max height (parcel-level) | ❌ Free absent | **Free:** essentially none nationally — each ordinance defines height differently. **Commercial:** Zoneomics claims building height limits. | **~0%** | **~50%** (same as FAR) |
-| Setback / alignment | ❌ Free absent | **Free:** none. **Commercial:** Zoneomics may include setbacks for some jurisdictions. | **~0%** | **~20%** (uncertain — setback completeness in Zoneomics not confirmed) |
-| Building footprint (LOD1) | ✅ Full (free) | Microsoft US Building Footprints (129.6M buildings, ODbL). Overture Maps (also free, ODbL). | **~90%** (near-national coverage) | **~95%** |
-| Building height (modelled) | ⚠️ Partial | Overture Maps + USGS 3DEP modelled heights — 20M+ buildings (of 129.6M footprints), growing to 40–50M. 3DEP DSM–DTM derivation possible for remainder where LiDAR exists. | **~15–20%** direct; **~40–50%** with 3DEP derivation | **~50%** (same; height is a free source) |
-| Terrain (DTM/DSM) | ✅ Good (free) | USGS 3DEP — national LiDAR programme; >60% of US with high-quality LiDAR; full national coverage targeted. Public Domain. | **~65–70%** (coverage not 100%; check per city) | **~70%** |
-| Heritage overlay | ✅ Good (free) | NRHP via NPS ArcGIS feature services — ~100,000 properties nationally, updated weekly. Caveats: restricted sites excluded; pre-1983 NAD27; attributes minimal (join NRIS). | **~75%** (spatial layer — most properties covered; full record requires NRIS join) | **~80%** |
+| Field | Structured? | Source | Score (free) | Score (commercial) | Probe status |
+|---|---|---|---|---|---|
+| Parcel geometry | ⚠️ Partial | **Free:** ArcGIS Hub / Socrata county portals — unsystematic, schema-inconsistent; OSM. **Commercial:** Regrid (160M parcels, 99% of Americans). | **~40%** (major urban counties free; rural gaps) | **~90%** (Regrid near-universal) | ⏳ LA County Assessor schema confirmed live (AIN + UseCode + geometry); national crawl not yet run |
+| Jurisdiction router (which of ~33,000 ordinances governs?) | ✅ **Free — REVISED** | **Free:** Census TIGER geocoder (`geocoding.geo.census.gov`) — returns Place + County GEOID for any coordinate; covers all incorporated places + counties nationally. **Commercial:** Regrid + Zoneomics also provide assignment. | **~80% CONFIRMED** ↑ from ~0% | **~90%** | ✅ **PROBED** 2026-07-24: Census TIGER returned 11-layer jurisdiction graph (Place, County, State, CSA, Urban Areas, Census Blocks, Census Tracts, Congressional + State Legislative Districts) in one query for Chicago, NYC, and LA |
+| Zone / use code | ❌ Free absent at scale | **Free:** Mercatus/NZA partner outputs; municipal ArcGIS REST endpoints (estimated 5,000–8,000). **Commercial:** Zoneomics 20,000+ cities. | **~5%** (NZA/Mercatus only; ArcGIS crawl not yet done) | **~60%** | ✅ **PROBED** 2026-07-24: LA City Zoning Layer 15 returns zone codes + CATEGORY field for downtown LA (15 polygons, zone codes including HPOZ/CPIO/O suffixes). Scale: ~1 city, not national |
+| Density metric FAR — NYC | ✅ **Free — MEASURED** | **Free:** NYC MapPLUTO (`data.cityofnewyork.us/resource/64uk-42ks`) — `residfar`, `commfar`, `facilfar` fields. **NYC only.** | **99.5% for NYC** ↑ from ~0% (858,602 parcels; 854,124 with FAR populated) | 99.5% | ✅ **PROBED** 2026-07-24: Live Socrata query; R3A avg 0.75 FAR; R6 avg 2.43; C6-7 CommFAR=15. Non-conforming count: 137,541 |
+| Density metric FAR — all other US | ❌ Free absent | **Free:** essentially none nationally outside NYC. **Commercial:** Zoneomics claims FAR for covered cities. | **~0%** (NYC excepted) | **~50%** (Zoneomics; field completeness unconfirmed) | ❌ Not probed; no free national source identified |
+| Max height (parcel-level) | ❌ Free absent | **Free:** essentially none nationally — each ordinance defines height differently. **Commercial:** Zoneomics claims building height limits. | **~0%** | **~50%** | ❌ Not probed |
+| Setback / alignment | ❌ Free absent | **Free:** none. **Commercial:** Zoneomics may include setbacks for some jurisdictions. | **~0%** | **~20%** (uncertain) | ❌ Not probed |
+| Building footprint (LOD1) | ✅ Full (free) | Microsoft US Building Footprints (129.6M buildings, ODbL). Overture Maps (also free, ODbL). | **~90%** (near-national coverage) | **~95%** | ⚠️ Download access blocked from probe environment (Azure 409). Existence confirmed via public documentation |
+| Building height (modelled) | ⚠️ Partial | Overture Maps + USGS 3DEP modelled heights — 20M+ buildings growing to 40–50M. 3DEP LiDAR derivation confirmed viable. | **~15–20%** direct; **~40–50%** with 3DEP derivation | **~50%** | ✅ **PROBED** 2026-07-24: 178 QL1 LiDAR tiles confirmed for Chicago bbox — DSM−DTM height derivation path confirmed with survey-grade data |
+| Terrain (DTM/DSM) | ✅ Full (free) | USGS 3DEP — point elevation API confirmed live; LiDAR tiles enumerable via TNM API. Public Domain. | **~70%** | **~70%** | ✅ **PROBED** 2026-07-24: Point elevation confirmed: Chicago 180.70m, NYC 14.84m, LA 86.71m |
+| Heritage overlay | ✅ Good (free) | NRHP via NPS ArcGIS MapServer (`mapservices.nps.gov`). Caveats: restricted sites excluded; pre-1983 NAD27; join NRIS for full record. | **~75%** | **~80%** | ✅ **PROBED** 2026-07-24: 72,668 properties confirmed nationally; 250 in Chicago bbox; 379 in greater Chicago metro. Field schema: RESNAME, ResType, Is_NHL, STATUS, NARA_URL |
+| Flood overlay | ✅ **Full (free) — NEW** | FEMA National Flood Hazard Layer via ESRI-hosted ArcGIS Online FeatureServer. Fields: FLD_ZONE, SFHA_TF, STUDY_TYP, STATIC_BFE. | **~90% CONFIRMED** | **~90%** | ✅ **PROBED** 2026-07-24: Chicago bbox: 19 zones (A:2, AE:5, X:3, AH:1, VE:7, AO:1) with SFHA_TF and STATIC_BFE. NYC bbox: 2 zones (AE, X) |
 
 ---
 
