@@ -52,3 +52,15 @@ fallback (badged ESTIMATED). Re-run the bake on Geofabrik's daily refresh to kee
 - This tool does NOT modify the running app — it produces tiles. The client reader is `contextTiles.ts`.
 - Buildings are OSM footprints + tag heights for now; the L-511/L-512 authoritative data
   (3DBAG / Catastro + PNOA nDSM) feeds the SAME bake later without changing the tile format.
+- **§BAKE-OVERTURE (2026-07-24) — denser buildings where OSM is thin.** OSM is a building desert in
+  Saudi/Gulf (live-probed: Riyadh OSM 56,278 vs **Overture 299,918 — 5.3×**; Jeddah 7.2×). A region
+  can flip its **buildings** layer to [Overture Maps](https://overturemaps.org) via
+  `buildingsSource: 'overture'` (Riyadh + Jeddah do). Overture is read with **DuckDB** from its
+  public GeoParquet on S3, bbox-clipped, mapped to the SAME `building`/`height`/`building:levels`
+  tags → the SAME `buildings.pmtiles` (no client change). Roads/water/parks stay OSM for every
+  region. Global override: `--buildings-source overture|osm`. The Docker image now bundles DuckDB;
+  the pinned release is `OVERTURE_RELEASE` in `bake.mjs` (bump monthly). **Full evaluation +
+  delta table + licence/attribution note:** `docs/04-reference/CONTEXT-BUILDING-SOURCE-EVALUATION.md`.
+  ⚠ Overture height is ~0% in Saudi (ML footprints) but ~73% in Barcelona (OSM+IGN) — density is
+  universal, the height two-for-one is European. ⚠ Attribution: Overture regions need "© Overture
+  Maps Foundation" added to the credit line (a client-UI follow-up).

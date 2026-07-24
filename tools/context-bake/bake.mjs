@@ -101,9 +101,48 @@ const REGIONS = [
   // Saudi — Geofabrik bundles it in the GCC-states extract (no standalone SA file). OSM/Geofabrik
   // is global + free, so context tiles bake fine here even though the LIVE gov parcel data is
   // geo-fenced (that gate is unrelated to OSM footprints).
-  { name: 'riyadh',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '46.60,24.58,46.83,24.80',  clipped: resolve(OUT, 'clip-riyadh.osm.pbf') },
-  { name: 'jeddah',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '39.10,21.45,39.28,21.62',  clipped: resolve(OUT, 'clip-jeddah.osm.pbf') },
+  //
+  // §BAKE-OVERTURE (L-6xx, 2026-07-24) — ⚠ Saudi (and the wider Gulf/Global-South) is an OSM
+  // BUILDING DESERT. Live-probed at these two bboxes (VERIFIED 2026-07-24):
+  //     Riyadh: OSM 56,278 buildings  ·  Overture 299,918  (5.3×)
+  //     Jeddah: OSM 23,247 buildings  ·  Overture 167,766  (7.2×)
+  // The bake is faithful; the SOURCE is the gap. Overture Maps is OSM ∪ Microsoft-ML ∪ Google ∪
+  // Esri ∪ national cadastres, conflated — for Riyadh the extra ~244k footprints come from
+  // "Microsoft ML Buildings", which OSM simply does not have. So these two cities flip their
+  // BUILDINGS layer to Overture (`buildingsSource:'overture'`); their roads/water/parks stay on the
+  // OSM clip (unchanged, still downloaded+clipped below). See docs/04-reference/
+  // CONTEXT-BUILDING-SOURCE-EVALUATION.md for the full delta table + the height caveat: Overture
+  // height is ~0% in Saudi (ML footprints carry none) but 73% in Barcelona (it folds OSM+IGN in),
+  // which is why European regions stay on OSM by default and lose nothing.
+  { name: 'riyadh',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '46.60,24.58,46.83,24.80',  clipped: resolve(OUT, 'clip-riyadh.osm.pbf'), buildingsSource: 'overture' },
+  { name: 'jeddah',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '39.10,21.45,39.28,21.62',  clipped: resolve(OUT, 'clip-jeddah.osm.pbf'), buildingsSource: 'overture' },
 ];
+
+// §BAKE-OVERTURE — the Overture buildings source. Overture publishes ONE global GeoParquet dataset
+// per monthly release on a public, anonymous S3 bucket (no key, no rate limit) — the SAME "static
+// bytes, no live query" property the whole L-513 architecture rests on. We read it with DuckDB
+// (spatial + httpfs extensions), clip to the region bbox via the parquet's `bbox` row-group stats
+// (pushdown — a bbox read scans only the covering row groups, not the planet), map the columns onto
+// the OSM-style tags the client reader consumes (`building`, `height`, `building:levels`), and write
+// GeoJSONSeq — the EXACT format tippecanoe already ingests from the OSM path, so it merges into the
+// same `buildings.pmtiles` with NO client change. ⚠ Pin the release deliberately (a bake must be
+// reproducible); bump it on Overture's monthly cadence (list `s3://overturemaps-us-west-2/release/`).
+// Latest live-verified: 2026-07-22.0.
+const OVERTURE_RELEASE = '2026-07-22.0';
+const OVERTURE_BUILDINGS = `s3://overturemaps-us-west-2/release/${OVERTURE_RELEASE}/theme=buildings/type=building/*.parquet`;
+
+// Global override: `--buildings-source overture` forces EVERY region's buildings to Overture (a
+// clean global switch — Overture ⊇ OSM everywhere, so it never regresses density); `--buildings-
+// source osm` forces the legacy OSM path everywhere (ignoring per-region `buildingsSource`).
+// Default: honour each region's own field (OSM unless it opts into 'overture').
+const BUILDINGS_SOURCE_OVERRIDE = (() => {
+  const i = process.argv.indexOf('--buildings-source');
+  return i >= 0 ? process.argv[i + 1] : null;
+})();
+function buildingsSourceFor(region) {
+  if (BUILDINGS_SOURCE_OVERRIDE === 'overture' || BUILDINGS_SOURCE_OVERRIDE === 'osm') return BUILDINGS_SOURCE_OVERRIDE;
+  return region.buildingsSource === 'overture' ? 'overture' : 'osm';
+}
 
 // Per-layer: the osmium tags-filter expression + tippecanoe zoom range. Attributes (building
 // height / building:levels, highway class, etc.) ride along in the GeoJSON — osmium export keeps
@@ -161,10 +200,15 @@ function has(bin) {
     return r.status === 0;
   } catch { return false; }
 }
-const LOCAL = { osmium: has('osmium'), tippecanoe: has('tippecanoe') };
+const LOCAL = { osmium: has('osmium'), tippecanoe: has('tippecanoe'), duckdb: has('duckdb') };
 const DOCKER = has('docker');
 const USE_LOCAL = LOCAL.osmium && LOCAL.tippecanoe;
 const IMAGE = 'pryzm-context-bake';
+
+// §BAKE-OVERTURE — is the Overture buildings path actually runnable? It needs DuckDB (local or in
+// the Docker image, which the Dockerfile now bundles). If any region wants Overture but no DuckDB is
+// reachable, we FAIL LOUD rather than silently baking a Barcelona-shaped hole where Riyadh should be.
+const OVERTURE_RUNNABLE = USE_LOCAL ? LOCAL.duckdb : DOCKER; // Docker image carries duckdb (see Dockerfile)
 
 // Wrap a toolchain command so it runs locally if the binaries exist, else in the Docker image
 // with the out/ dir mounted at /work.
@@ -180,6 +224,37 @@ function run(step, { cmd, argv }) {
   console.log(`\n▶ ${step}\n  ${line}`);
   if (DRY) return;
   execFileSync(cmd, argv, { stdio: 'inherit' });
+}
+
+// §BAKE-OVERTURE — build the DuckDB invocation that reads Overture buildings for one region's bbox
+// and writes GeoJSONSeq mapped onto the OSM-style tags the client reader keys on. The output file is
+// under OUT; in Docker mode OUT is mounted at /work, and the path is embedded INSIDE the `-c` SQL
+// string (not a standalone argv), so `tool()`'s automatic OUT→/work rewrite does NOT reach it — we
+// rewrite it here to the in-container path ourselves. The remote S3 URL is identical in both modes.
+//
+// COLUMN MAPPING (Overture → OSM tag the client reads, contextTiles.ts + contextBuildings.ts):
+//   COALESCE(subtype,'yes') → `building`        — belongsToLayer() requires a `building` tag present.
+//   height                  → `height`          — resolveHeight() reads `height` first → 'tagged'.
+//   num_floors              → `building:levels`  — resolveHeight() falls back to it → 'derived-levels'.
+// The bbox filter uses INTERSECTION (keeps footprints straddling the edge, matching Overpass bbox
+// semantics + the client's ringIntersectsBbox). NOTE: the delta-table COUNTS in the eval doc used
+// the simpler containment filter (`bbox.xmin/ymin BETWEEN …`); this intersection form is a small
+// edge-margin superset (<1%). `--drop-densest-as-needed` on the tippecanoe side handles the extra.
+function overtureBuildingsCmd(region, geoAbs) {
+  const geoPath = USE_LOCAL
+    ? geoAbs
+    : '/work/' + geoAbs.slice(OUT.length + 1).replace(/\\/g, '/');
+  const [minx, miny, maxx, maxy] = region.bbox.split(',').map(Number);
+  const sql = [
+    'INSTALL spatial; INSTALL httpfs; LOAD spatial; LOAD httpfs;',
+    // Force ANONYMOUS S3 (public bucket) so a runner's ambient AWS creds are never used.
+    "SET s3_region='us-west-2'; SET s3_access_key_id=''; SET s3_secret_access_key='';",
+    `COPY (SELECT COALESCE(subtype,'yes') AS "building", height AS "height", num_floors AS "building:levels", geometry`
+      + ` FROM read_parquet('${OVERTURE_BUILDINGS}', hive_partitioning=1)`
+      + ` WHERE bbox.xmin <= ${maxx} AND bbox.xmax >= ${minx} AND bbox.ymin <= ${maxy} AND bbox.ymax >= ${miny})`
+      + ` TO '${geoPath}' WITH (FORMAT GDAL, DRIVER 'GeoJSONSeq', SRS 'EPSG:4326');`,
+  ].join(' ');
+  return tool('duckdb', ['-c', sql]);
 }
 
 // ── download (Node, no toolchain needed) ─────────────────────────────────────
@@ -203,12 +278,18 @@ async function download(url, dest) {
 function printPlan() {
   console.log('PRYZM context tile bake — L-513a / L-607 (multi-region)');
   console.log(`  regions     : ${REGIONS.length} — ${REGIONS.map((r) => r.name).join(', ')}`);
-  for (const r of REGIONS) console.log(`    · ${r.name.padEnd(10)} bbox ${r.bbox}  ← ${r.pbfUrl.split('/').pop()}`);
+  for (const r of REGIONS) {
+    const src = buildingsSourceFor(r);
+    console.log(`    · ${r.name.padEnd(10)} bbox ${r.bbox}  buildings:${src.toUpperCase()}  ← ${src === 'overture' ? `Overture ${OVERTURE_RELEASE}` : r.pbfUrl.split('/').pop()}`);
+  }
+  const overtureRegions = REGIONS.filter((r) => buildingsSourceFor(r) === 'overture');
   console.log(`  out dir     : ${OUT}`);
   console.log(`  layers      : ${layers.map((l) => l.id).join(', ')} (each merged across ALL regions → one .pmtiles)`);
+  console.log(`  buildings   : ${overtureRegions.length} region(s) via Overture ${OVERTURE_RELEASE}${overtureRegions.length ? ` — ${overtureRegions.map((r) => r.name).join(', ')}` : ''}; the rest via OSM`);
   console.log('  toolchain   :');
   console.log(`    osmium     ${LOCAL.osmium ? 'LOCAL' : 'missing'}`);
   console.log(`    tippecanoe ${LOCAL.tippecanoe ? 'LOCAL' : 'missing'}`);
+  console.log(`    duckdb     ${LOCAL.duckdb ? 'LOCAL' : (DOCKER ? 'via Docker image' : 'missing')}${overtureRegions.length ? (OVERTURE_RUNNABLE ? '  ✓ Overture runnable' : '  ✖ Overture NOT runnable — install duckdb or build the Docker image') : ''}`);
   console.log(`    docker     ${DOCKER ? 'available' : 'missing'}`);
   const mode = USE_LOCAL ? 'LOCAL binaries' : DOCKER ? `Docker image "${IMAGE}"` : 'NONE';
   console.log(`  → run mode  : ${mode}`);
@@ -227,6 +308,15 @@ async function main() {
   if (!USE_LOCAL && !DOCKER && !DRY) {
     console.error('\n✖ no toolchain — see the note above. Aborting (nothing to run).');
     process.exit(2);
+  }
+  // §BAKE-OVERTURE — fail LOUD if any region wants Overture buildings but DuckDB is unreachable.
+  // A silent skip would bake a Barcelona-shaped hole exactly where the density fix was needed.
+  const wantsOverture = layers.some((l) => l.id === 'buildings') && REGIONS.some((r) => buildingsSourceFor(r) === 'overture');
+  if (wantsOverture && !OVERTURE_RUNNABLE && !DRY) {
+    console.error('\n✖ Overture buildings requested but DuckDB is not available (need local `duckdb`'
+      + ' or the Docker image, which the Dockerfile bundles). Install it, or pass'
+      + ' `--buildings-source osm` to force the legacy OSM path. Aborting.');
+    process.exit(4);
   }
 
   // §BAKE-MULTI-REGION (L-607) — download + clip EACH region first, GROUPED by source extract so a
@@ -306,15 +396,23 @@ async function main() {
     // name is unchanged, so R2 + the client reader are untouched (the whole point of L-607's fix).
     const geos = [];
     for (const r of okRegions) {  // §BAKE-RESILIENT (L-607b) — only tile regions that clipped OK; a SKIPPED region (e.g. London 0-byte pbf) has no clip file, so tiling it would crash the whole run.
-      const filtered = resolve(OUT, `${r.name}-${l.id}.osm.pbf`);
       const geo = resolve(OUT, `${r.name}-${l.id}.geojsonseq`);
-      run(`filter ${l.id} · ${r.name}`,
-        tool('osmium', ['tags-filter', r.clipped, ...l.filter, '-o', filtered, '--overwrite']));
-      run(`export ${l.id} · ${r.name} → GeoJSONSeq (${l.geom})`,
-        tool('osmium', ['export', filtered, '-f', 'geojsonseq',
-          // §BAKE-GEOMETRY-TYPES + §BAKE-UNIQUE-ID — see the LAYERS note above.
-          '--geometry-types', l.geom, '--add-unique-id', 'type_id',
-          '-o', geo, '--overwrite']));
+      // §BAKE-OVERTURE — the BUILDINGS layer of an Overture-sourced region comes from DuckDB→Overture
+      // instead of osmium; every other layer (roads/water/parks) AND every OSM-sourced region stays
+      // on the untouched osmium path, so Barcelona/Europe are byte-for-byte unchanged.
+      if (l.id === 'buildings' && buildingsSourceFor(r) === 'overture') {
+        run(`overture buildings · ${r.name} → GeoJSONSeq (${OVERTURE_RELEASE})`,
+          overtureBuildingsCmd(r, geo));
+      } else {
+        const filtered = resolve(OUT, `${r.name}-${l.id}.osm.pbf`);
+        run(`filter ${l.id} · ${r.name}`,
+          tool('osmium', ['tags-filter', r.clipped, ...l.filter, '-o', filtered, '--overwrite']));
+        run(`export ${l.id} · ${r.name} → GeoJSONSeq (${l.geom})`,
+          tool('osmium', ['export', filtered, '-f', 'geojsonseq',
+            // §BAKE-GEOMETRY-TYPES + §BAKE-UNIQUE-ID — see the LAYERS note above.
+            '--geometry-types', l.geom, '--add-unique-id', 'type_id',
+            '-o', geo, '--overwrite']));
+      }
       geos.push(geo);
     }
     const pmt = resolve(OUT, `${l.id}.pmtiles`);
