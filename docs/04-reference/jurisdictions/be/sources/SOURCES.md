@@ -1,0 +1,76 @@
+# Belgium (`be`) — national data sources
+
+**Status:** PARTIALLY PROBED 2026-07-24 — federal cadastre WFS live-probed (open, CC-equivalent);
+Wallonia plan de secteur WMS + OGC API Features live-probed (open, free); Flanders heritage WFS
+live-probed (open, free). Brussels PRAS and Flanders DSI/GRB confirmed via cache only — direct
+fetch blocked. No numeric rule values are verified — those live in per-parcel PDF voorschriften or
+prose regulatory texts, none of which has been read for any specific Belgian parcel.
+
+> **Trust gate:** a field with NO citable source stays `null` in the pack and is listed under §B.
+> A pack may not ship confidence `structured` unless EVERY field it sets has a row in §A here.
+
+---
+
+## A — VERIFIED (research-cited; partially live-probed)
+
+| Field (pack key / layer) | Value / endpoint | Unit | Governing instrument | Document (title + date) | URL / handle | Confidence |
+|---|---|---|---|---|---|---|
+| Federal parcel geometry (CADMAP) | `ccff02.minfin.fgov.be/geoservices/arcgis/rest/services/INSPIRE/CP/MapServer/exts/InspireFeatureDownload/service` — single national WFS | — | Royal Decree 30 July 2018 (cadastral-parcel definition); SPF Finances / AGDP mandate | "Cadastral parcels — INSPIRE" dataset, AGDP/SPF Finances | `finances.belgium.be` / `geo.be` | `VERIFIED-LIVE` 2026-07-24 — HTTP 200, XML |
+| Federal parcel licence | CC-equivalent open-data; no key required; published in French and Dutch | — | SPF Finances open-data terms | Open-data licence text at `finances.belgium.be` | `finances.belgium.be` | `VERIFIED-LIVE` 2026-07-24 — licence confirmed in GetCapabilities response |
+| Federal CADMAP building sublayers | "buildings managed by AGDP" and "buildings managed by the regions" — confirmed present in same WFS capabilities as parcel geometry | — | Royal Decree 30 July 2018 Art. 2; INSPIRE BU dataset record | INSPIRE Geoportal record for CADMAP | `inspire-geoportal.ec.europa.eu` | `published` — building sublayer confirmed in capabilities; height attribute NOT YET PROBED |
+| CADMAP ATOM feed | `opendata.fin.belgium.be/download/ATOM/tt098dcb-f5c7-49b8-8e0b-7c3811630d85-en.xml` | — | SPF Finances open-data | ATOM feed endpoint | `opendata.fin.belgium.be` | `VERIFIED-LIVE` 2026-07-24 (cached confirmation) |
+| Wallonia zoning WMS (plan de secteur) | `geoservices.wallonie.be/geoserver/inspire_lu/ows` — `LU.ZoningElement_pds` layer | — | CoDT (Code du Développement Territorial); 23 plans de secteur adopted 1977–1987, Art. D.I.1 et seq. | "INSPIRE - Usage des sols en Wallonie (BE) - Service de visualisation WMS" | `geoservices.wallonie.be` | `VERIFIED-LIVE` 2026-07-24 — HTTP 200, full WMS_Capabilities XML |
+| Wallonia zoning OGC API Features | `geoservices.wallonie.be/geoserver/inspire_lu/ogc/features/v1/openapi` | — | Same as WMS | OGC API Features v1 endpoint | `geoservices.wallonie.be` | `VERIFIED-LIVE` 2026-07-24 — HTTP 200, OpenAPI JSON |
+| Wallonia zoning licence | "Accès libre et gratuit au service pour tout public" — free, no key | — | SPW open-data policy | WMS GetCapabilities `AccessConstraints` field | `geoservices.wallonie.be` | `VERIFIED-LIVE` 2026-07-24 |
+| Wallonia zoning CRS support | EPSG:4326, 3035, 31370 (Belgian Lambert 72), 4258, 3857, 3812, 3034, CRS:84 | — | INSPIRE + OGC WMS standard | WMS GetCapabilities `<CRS>` list | `geoservices.wallonie.be` | `VERIFIED-LIVE` 2026-07-24 |
+| Wallonia zoning coverage | Full Walloon regional extent: bbox lon 1.82–6.97 / lat 48.94–51.42 | WGS84 bbox | CoDT; 23 plans de secteur covering 100% of Wallonia since 1977–1987 | WMS GetCapabilities `<EX_GeographicBoundingBox>` | `geoservices.wallonie.be` | `VERIFIED-LIVE` 2026-07-24 |
+| Wallonia plan de secteur legal status | 23 plans de secteur adopted 1977–1987; still fully in force; no "unplanned" land category in Wallonia | — | CoDT Art. D.I.1 and preceding CWATU provisions | CoDT (reformed May 2025); research finding | `region.wallonie.be` | `published` |
+| Wallonia discretionary test | *Bon aménagement des lieux* — CoDT Art. D.IV.13; applies as derogation standard AND as load-bearing operative test for most specific envelope questions given plan de secteur coarseness | — | CoDT Art. D.IV.13 | CoDT Art. D.IV.13 (reformed May 2025) | `walllex.be` | `published` |
+| Wallonia GRU (Guide régional d'urbanisme) | Largely indicative, not binding; not a substitute for plan de secteur or bon-aménagement-des-lieux test | — | CoDT; GRU text | Guide régional d'urbanisme de la Wallonie | `amenagement.wallonie.be` | `published` |
+| Flanders heritage WFS | `geo.onroerenderfgoed.be/geoserver/wfs` — layers: `bes_monument`, `bes_sd_gezicht`, `bes_arch_site`, `bes_landschap`, `bes_overgangszone` + vastgestelde inventories | — | Decree on Immovable Heritage (Onroerenderfgoeddecreet); Onroerend Erfgoed institutional mandate | Onroerend Erfgoed WFS GetCapabilities | `geo.onroerenderfgoed.be` | `VERIFIED-LIVE` 2026-07-24 — HTTP 200, application/xml |
+| Flanders heritage licence | No credentials required; free public WFS | — | Onroerend Erfgoed open-data policy | GetCapabilities response metadata | `geo.onroerenderfgoed.be` | `VERIFIED-LIVE` 2026-07-24 |
+| Brussels PRAS zoning layers | `gis.urban.brussels/geoserver/PERSPECTIVE_FR/ows` — `PERSPECTIVE_FR:Affectations` (PRAS zoning); ZIRAD zones; Bois (PRAS); + office-quota and Titre VIII transport-accessibility zones on separate GeoServer | — | CoBAT (Code Bruxellois de l'Aménagement du Territoire); PRAS (Plan Régional d'Affectation du Sol) | Layer catalogue confirmed via wfs.michelstuyts.be aggregator cache | `gis.urban.brussels` | `corroborated` — confirmed via third-party cache; direct fetch bot-blocked; licence terms NOT YET CONFIRMED |
+| Flanders zoning DSI/GRB layers | `geoservices.informatievlaanderen.be` — `lu:lu_gewrup_roo_ct`, `lu:lu_prorup_ct/_dg/_gv`, `lu:lu_si_gv` (plan-element footprints + voorschriften links), `lu:lu_hov_dg/_sc` (nullified provisions tracking) | — | VCRO; Digitaal Vlaanderen DSI platform mandate | Layer catalogue confirmed from search-engine cache of live GetCapabilities | `geoservices.informatievlaanderen.be` | `corroborated` — confirmed via cache; direct fetch robots-disallowed; "kosteloos" (free) licence confirmed in cached capabilities |
+| Flanders planning code | VCRO (Vlaamse Codex Ruimtelijke Ordening), codified 2009, "Codextrein" 2017 + further amendments; governs all Flemish spatial planning and permit issuance | — | VCRO, codified 2009 | VCRO current consolidated text | `codex.vlaanderen.be` | `published` |
+| Flanders discretionary test | *Goede ruimtelijke ordening* — VCRO Art. 4.3.1; applies to every permit, including inside a fully adopted RUP; covers functional fit, mobility, scale, density, visual/cultural elements | — | VCRO Art. 4.3.1 §§1–2 | VCRO Art. 4.3.1 | `codex.vlaanderen.be` | `published` |
+| Flanders "clichering" nullification | VCRO Art. 7.4.2/2 — percentage-based objectives/provisions in RUPs adopted after 1 September 2009 must be treated as non-existent by the permitting authority; a whole class of post-2009 numeric RUP figures are statutorily void | — | VCRO Art. 7.4.2/2 | VCRO Art. 7.4.2/2 | `codex.vlaanderen.be` | `published` |
+| Flanders gewestplan legal status | Gewestplannen (1970s–80s royal-decree land-use plans) still legally relevant where not superseded by a more recent RUP; RUPs are increasingly but not universally replacing them | — | VCRO transitional provisions; individual Gewestplan Royal Decrees | Research finding | — | `published` |
+| Brussels planning code | CoBAT (Code Bruxellois de l'Aménagement du Territoire) — arrêté 9 April 2004; reformed by ordonnance 30 November 2017 | — | CoBAT | CoBAT consolidated text | `urban.brussels` | `published` |
+| Brussels RRU Titre I | Règlement Régional d'Urbanisme Titre I ("Caractéristiques des constructions et de leurs abords") — region-wide; applies where no PPAS/RRUZ/PAD overrides; context-relative formulas (e.g. H = P + 3.00 + D); re-adopted 21 November 2006 and further amended | — | CoBAT; RRU arrêté 3 June 1999 / re-adopted 21 November 2006 | RRU Titre I consolidated text | `urban.brussels` | `published` |
+| Brussels RRU scope | RRU applies only where plans d'aménagement do not provide otherwise (regional default, not an override); RRUZ can locally replace Titre I | — | CoBAT; RRU Art. 1 | RRU Titre I, Art. 1 | `urban.brussels` | `published` |
+| Brussels high-rise derogation | RRU height derogations granted individually for towers (e.g. 25-storey case); each requires its own bon-aménagement-des-lieux justification per Conseil d'État case law | — | CoBAT + Conseil d'État rulings | Conseil d'État ruling on Brussels RRU height derogation (confirmed in research) | `raadvst-consetat.be` | `corroborated` — ruling existence confirmed; full text not read |
+| Brussels CBS+ (Coefficient de Biotope par Surface) | Ecological-potential indicator; ratio of weighted surfaces to total site area; appears in current RRU reform project as a gating constraint | — | RRU reform project | Current RRU reform documentation | `urban.brussels` | `stated` — referenced in reform project; full regulatory status not yet confirmed |
+| Brussels TOTEM life-cycle gate | Demolition/rebuild of buildings over 1,000 m² floor area requires TOTEM life-cycle comparison (renovation vs. rebuild) | — | RRU reform project | Current RRU reform documentation | `urban.brussels` | `stated` — referenced in reform project; full regulatory status not yet confirmed |
+| Devolution legal basis (Flanders/Wallonia) | Special law of 8 August 1980: spatial planning devolved to Flanders and Wallonia as exclusive regional competence; Art. 6 §1, I, 1° | — | Special law of 8 August 1980 | "Loi spéciale de réformes institutionnelles du 8 août 1980" | Belgian Moniteur belge | `published` |
+| Devolution legal basis (Brussels) | Special law of 12 January 1989: Brussels-Capital Region receives urbanism/spatial-planning competence at creation; Art. 4 | — | Special law of 12 January 1989 | "Loi spéciale relative aux institutions bruxelloises du 12 janvier 1989" | Belgian Moniteur belge | `published` |
+| Flanders heritage agency | Onroerend Erfgoed — formed 2011 from merger of "Ruimte en Erfgoed" and VIOE; agency of Flemish Ministry of Spatial Planning, Housing Policy and Heritage; offices in Antwerp, Leuven, Hasselt, Ghent | — | Flemish institutional structure | Onroerend Erfgoed institutional record | `onroerenderfgoed.be` | `published` |
+| Wallonia heritage layer | AWaP (Agence wallonne du Patrimoine) — "Patrimoine — biens classés et zones de protection" — CC-BY 4.0; served via SPW Géoportail | — | CoPat (Code wallon du Patrimoine) | Géoportail de Wallonie catalogue | `geoportail.wallonie.be` | `stated` — layer + CC-BY 4.0 licence confirmed from catalogue page; not independently fetched |
+| Flanders LiDAR (DHMV II) | Digitaal Hoogtemodel Vlaanderen II — full-coverage successor to DHMV I; ~8 pts/m² per strip, ~16 pts/m² average; produced by Informatie Vlaanderen/AGIV | — | Informatie Vlaanderen / AGIV mandate | DHMV product documentation | `vlaanderen.be/digitaal-hoogtemodel-dhmv` | `stated` — product confirmed; DHMV I gaps in 13 centrumsteden (Dendermonde, Diest, Hasselt, Hoboken, Ieper, Kortrijk, Oudenaarde, Ronse, Sint-Truiden, Tienen, Waregem, Riemst, Tongeren) confirmed |
+| Flanders GRB (LOD1 buildings) | `3D GRB — Gebouw LOD1 DHMV II` — block model with approximate ridge-height reference derived from DHMV; free ("kosteloos") | — | Informatie Vlaanderen / AGIV mandate | GRB product documentation | `informatievlaanderen.be` | `stated` — confirmed by name and method; direct WFS access robots-blocked |
+| Common ancestor (1962 law) | All three regional codes trace to *loi du 29 mars 1962 organique de l'aménagement du territoire et de l'urbanisme* — the single pre-devolution national statute; each region inherited then forked it | — | Loi du 29 mars 1962 | "Loi organique de l'aménagement du territoire et de l'urbanisme, 29 mars 1962" | Belgian Moniteur belge | `published` |
+
+---
+
+## B — UNVERIFIED / open (stays `null` in the pack)
+
+| Field | Why not verified | What would verify it (the exact source to read) |
+|---|---|---|
+| Federal CADMAP building-sublayer height/storey attribute | GetCapabilities confirms the building sublayer exists; GetFeature not yet run | `curl "https://ccff02.minfin.fgov.be/.../CP/MapServer/.../service?request=GetFeature&service=WFS&version=2.0.0&TypeName=CP:CP.Building&count=1"` — inspect for height or storey-count attribute |
+| Brussels PRAS layer schema and licence | Direct fetch bot-blocked; only layer names from third-party cache | Run GetCapabilities from a Belgian-IP server; inspect `<Attribute>` elements and `<AccessConstraints>` text |
+| Brussels PRAS live HTTP status | Same as above | Same probe |
+| Flanders DSI/GRB live HTTP status and layer schema | Direct fetch robots-disallowed | Probe `www.mercator.vlaanderen.be` alternative endpoint; or request registered access from Digitaal Vlaanderen |
+| Whether any Belgian RUP/PPAS/plan feature carries a numeric height/FAR/gabarit attribute (vs. PDF URL only) | No GetFeature call run against any Belgian parcel or plan feature | Run GetFeature probe per `NEXT.md §3.1`; start with Wallonia (fully open) |
+| Wallonia LiDAR density/resolution (PICC terrain products) | Not probed in this pass | Search `geoportail.wallonie.be` for "LiDAR" or "MNT" to identify specific product; check resolution and coverage vs. DHMV II |
+| Brussels LiDAR product | No standalone programme identified | Search `bruxelles-environnement.be` and `irisnet.be` geoservices catalogues for "MNT", "MNH", "LiDAR", "hauteur" |
+| Brussels heritage GIS layer (Direction du Patrimoine culturel / urban.brussels) | Register existence confirmed; live queryable GIS layer not independently confirmed | Check `urban.brussels` geoservices catalogue for heritage/patrimoine WFS/WMS endpoint |
+| Wallonia PICC building-footprint field schema | Service existence confirmed via aggregator listing; not independently fetched | `curl "https://geoservices.wallonie.be/geoserver/picc/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities"` |
+| Brussels UrbIS building-footprint field schema | Service confirmed; not probed | `curl "https://geoservices-urbis.irisnet.be/geoserver/ows?SERVICE=WFS&REQUEST=GetCapabilities"` |
+| Any numeric height/FAR/setback rule for any specific Belgian parcel | No B-Plan/RUP/PPAS/RRUZ has been read for any specific Belgian address | Run full envelope query for a test address in each region; read the applicable RUP voorschriften PDF, Brussels RRU Titre I text, or Wallonia plan de secteur + GCU (if adopted) |
+| HBauO-equivalent setback formula for any Belgian region | No regional setback formula API confirmed; Brussels RRU Titre I formulas are prose in PDF | Read RRU Titre I Art. 4–6 for Brussels setback/implantation provisions; Flanders and Wallonia have no formula equivalent |
+
+---
+
+⚠ No numeric height, FAR, setback, or gabarit value has been verified from a primary source for any
+Belgian parcel. The zone-boundary layers in §A are verified; the numeric-envelope content of those
+layers remains unprobed. Belgium's per-region estimated scores in `RATE.md §1` are research
+estimates, not verified measurements — do not use them as defaults for any specific parcel.
