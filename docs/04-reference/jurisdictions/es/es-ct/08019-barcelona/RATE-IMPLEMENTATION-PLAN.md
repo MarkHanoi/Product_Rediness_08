@@ -1,9 +1,10 @@
 # Rate Implementation Plan — Barcelona (`es-ct`, INE 08019) city — THE CANONICAL PILOT CLIMB
 
-**Current rate:** ~48% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** ~48% full-envelope
-(~76% of buildable land constructed-or-partial · 100% honestly-answered) · **Gap to ceiling:** ~0 pts
-on the structured-fill metric (the work is REALISING it, not raising it) ·
-**Gap to Denmark (~96%):** ~48 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
+**Current rate:** ~48% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** **48% MIN (proven) /
+~58% LIKELY / ~68% POSSIBLE** full-envelope — REVISED UP 2026-07-24, the AMB Refós GIS carries the
+volumetric floor-count as a queryable attribute (`findings/BARCELONA-GIS-AUDIT-SPIKE.md`) ·
+**Gap to ceiling:** ~10 pts proven, ~20 possible (was mis-stated ~0) · **Gap to Denmark (~96%):**
+~38–48 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
 
 > **Barcelona is the PILOT MODEL every other jurisdiction's plan cites.** Its phase SHAPE — registry →
 > per-clau packs → block-derived construction → refusal vocabulary → certification — is the template.
@@ -14,16 +15,36 @@ on the structured-fill metric (the work is REALISING it, not raising it) ·
 
 ## 1 — The ceiling: what "maximum" means here
 
-Barcelona is **PDF-bound, and its ceiling is BELOW Denmark's 96% — this is the gap-to-Denmark, stated
-explicitly.** Denmark reaches ~96% because its numbers are already structured national fields. Barcelona's
-are not: the PGM *Normes Urbanístiques* are ordinance prose, and — the fact that sets the ceiling —
-the ~40% derived-planning slice (clau 18 + the 22a Pla Parcials) keys its **height to plànol
-block-labels** whose geometry is a drawing, not text. Measured over 24 primary documents
-(`findings/L-590h`): sector FAR extractable ~37%, parcel-level height **~0%**, image quality no
-obstacle. So even a perfect OCR + one-time PGM transcription + the L-449 human gate top out at a
-**~48% full-envelope structured-fill ceiling**. Reaching ~80% would require **plànol vectorisation**
-(block-label → parcel geometry) — a harder, partly un-OCR-able drawing-understanding project, beyond
-the OCR programme.
+Barcelona is **PDF-bound for its qualification slice, and its ceiling is BELOW Denmark's 96% — this is
+the gap-to-Denmark, stated explicitly.** Denmark reaches ~96% because its numbers are already structured
+national fields. Barcelona's qualification polygons are not: the PGM *Normes Urbanístiques* are ordinance
+prose, and the ~40% derived-planning slice's height is a plànol block-label — measured over 24 Pla Parcial
+PDFs (`findings/L-590h`): sector FAR extractable ~37%, parcel-level height **~0% from the PDFs**. So a
+qualification-only parcel tops out at a **~48% full-envelope structured-fill ceiling** without a document.
+
+⚠ **BUT the ceiling is higher than 48% — proven 2026-07-24 (`findings/BARCELONA-GIS-AUDIT-SPIKE.md`).**
+A live audit of the **AMB "Refós de Planejament" GIS** (`geoportal.amb.cat/geoserveis/rest/services/
+qualificacio_refos_3857/MapServer`) found that the AMB has **already vectorised the volumetric ordering
+L-590h §5 deemed "a separate project beyond OCR"**: the `OV_Trames` layer carries **`PLANTES` (floor
+count) as a 100%-populated polygon attribute** (5,073 BCN polygons, real values `B+1…B+32`, incl.
+`18hs`). Footprint (the OV polygon) + floors (→ height via the already-shipped `bcnAlcadaReguladora.ts`
+Art. 327.2 table) = an **extrudable envelope, read not constructed.** Measured coverage of the **clau-18**
+slice (the R1 blocker, 22.5% of buildable, previously a permanent refusal): **~50% (32% interior-point →
+64% polygon-intersect, area-ratio corroborates 63%)**. Buildable **depth** is also digitised (`Cotes`
+polylines, `LONGITUD` in metres) but as loose annotation, not yet parcel-joinable.
+
+**Revised honest band (each tied to a specific attribute):**
+- **~48% MIN** — PROVEN, unchanged. The qualification polygon (`QU_Trames`/`MUC_QUALIFICACIONS`) carries
+  the **clau code only, no dimension**; a qualification-only parcel still needs the PDF.
+- **~58% LIKELY** — `OV_Trames.PLANTES` covers ~50% of clau-18 (`0.5 × 22.5% ≈ +11 pts`), conditional on
+  L-449 certifying the Refós vintage + building the OV point-in-polygon resolver. Height machinery already
+  ships (§4).
+- **~68% POSSIBLE** — if the non-18 OV coverage + `Cotes` depth-binding are folded in (real published
+  data, **un-measured** here — not banked).
+
+Reaching ~80%+ still requires the residual uncovered clau-18, alignment-clau depth binding, and per-subzone
+floor→metre certification — but the earlier "gap-to-ceiling ~0, ceiling is a hard 48% wall" is **refuted**:
+~+10 is proven and ~+20 possible, in official AMB data, reachable now.
 
 ⚠ **Two denominators, kept distinct, or the honesty invariant breaks:**
 - **Structured-fill rate (RATE.md):** ~48% — full zone+density+height without a PDF. This is the

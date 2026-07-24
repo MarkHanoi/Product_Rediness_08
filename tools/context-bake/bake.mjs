@@ -296,7 +296,7 @@ async function main() {
     // ALL regions' GeoJSONSeq as inputs and merges them into a SINGLE `<layer>.pmtiles` — the output
     // name is unchanged, so R2 + the client reader are untouched (the whole point of L-607's fix).
     const geos = [];
-    for (const r of REGIONS) {
+    for (const r of okRegions) {  // §BAKE-RESILIENT (L-607b) — only tile regions that clipped OK; a SKIPPED region (e.g. London 0-byte pbf) has no clip file, so tiling it would crash the whole run.
       const filtered = resolve(OUT, `${r.name}-${l.id}.osm.pbf`);
       const geo = resolve(OUT, `${r.name}-${l.id}.geojsonseq`);
       run(`filter ${l.id} · ${r.name}`,
