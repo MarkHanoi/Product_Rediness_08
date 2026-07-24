@@ -85,6 +85,10 @@ trustworthy, and it is not optional.
 |---|---|---|---|
 | [`es/`](es/) — Spain | A (geometry) live; B (classification) live; C (numbers) curation-only | — | national layer per **L-441** |
 | `es/cat/08019-barcelona` | pilot | `esBarcelonaEnsanche` | **IN PROGRESS** — A1d |
+| [`no/`](no/) — Norway | National baseline fully characterised; 3 cities scaffolded | — | RESEARCH COMPLETE — ~32% national rate; Trondheim planregister confirmed open; Oslo/Bergen WFS TBD |
+| `no/no-50/5001-trondheim` | first city | — | SCAFFOLD — planregister access confirmed; WFS GetFeature probe not yet run |
+| `no/no-03/0301-oslo` | second city | — | SCAFFOLD — Planinnsyn viewer confirmed; standalone WFS not yet confirmed |
+| `no/no-46/4601-bergen` | third city | — | SCAFFOLD — national mechanism confirmed; planregister endpoint not yet located |
 
 Portugal, France and the remaining CCAA are unstarted. Per **L-443**, Portugal is a *separate
 jurisdiction*, not an extension of the Spain work: PDM ≠ PGOU, different infrastructure
