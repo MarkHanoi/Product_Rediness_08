@@ -89,6 +89,15 @@ const REGIONS = [
   { name: 'oslo',       pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '10.66,59.88,10.83,59.96',  clipped: resolve(OUT, 'clip-oslo.osm.pbf') },
   { name: 'stockholm',  pbfUrl: 'https://download.geofabrik.de/europe/sweden-latest.osm.pbf',                         pbf: resolve(OUT, 'sweden-latest.osm.pbf'),                 bbox: '17.98,59.28,18.14,59.37',  clipped: resolve(OUT, 'clip-stockholm.osm.pbf') },
   { name: 'helsinki',   pbfUrl: 'https://download.geofabrik.de/europe/finland-latest.osm.pbf',                        pbf: resolve(OUT, 'finland-latest.osm.pbf'),                bbox: '24.88,60.14,25.02,60.20',  clipped: resolve(OUT, 'clip-helsinki.osm.pbf') },
+  // Switzerland (ch) — one national extract, three demo cities. CH is a top data-rate jurisdiction
+  // (ÖREB + national Nutzungsplanung WFS), so its 3D context must load as fast as Barcelona's.
+  { name: 'zurich',     pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                    pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '8.45,47.34,8.62,47.43',    clipped: resolve(OUT, 'clip-zurich.osm.pbf') },
+  { name: 'geneva',     pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                    pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '6.09,46.17,6.18,46.25',    clipped: resolve(OUT, 'clip-geneva.osm.pbf') },
+  { name: 'bern',       pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                    pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '7.40,46.93,7.48,46.99',    clipped: resolve(OUT, 'clip-bern.osm.pbf') },
+  // USA (us) — state-level Geofabrik extracts (smaller than the regional bundles). Add more cities
+  // by adding a row with the right state pbf + a city-centre bbox.
+  { name: 'newyork',    pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-74.03,40.70,-73.91,40.82', clipped: resolve(OUT, 'clip-newyork.osm.pbf') },
+  { name: 'sanfrancisco', pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',         pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-122.52,37.70,-122.36,37.83', clipped: resolve(OUT, 'clip-sanfrancisco.osm.pbf') },
   // Saudi — Geofabrik bundles it in the GCC-states extract (no standalone SA file). OSM/Geofabrik
   // is global + free, so context tiles bake fine here even though the LIVE gov parcel data is
   // geo-fenced (that gate is unrelated to OSM footprints).
