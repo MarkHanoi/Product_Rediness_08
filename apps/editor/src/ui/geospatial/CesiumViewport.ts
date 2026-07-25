@@ -88,6 +88,9 @@ import {
 // FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
 // show-all decision + geometry signature for the REAL full-fidelity Forma model.
 import { realModelStaysVisible } from "./formaBuildingFidelity";
+// §TERRAIN-RENDER (Phase 3) — resolve a site's lon/lat to a baked-terrain city + its R2
+// quantized-mesh tileset URL, so we can attach a CesiumTerrainProvider where terrain exists.
+import { cityForLonLat, terrainTilesetUrl } from "./terrainCoverage";
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -745,6 +748,13 @@ export class CesiumViewport {
   /** Monotonic token serialising overlapping async terrain samples — only the
    *  latest placement's clamp is allowed to commit (newer placement wins). */
   private formaTerrainToken = 0;
+  /** §TERRAIN-RENDER (Phase 3) — the city whose baked quantized-mesh terrain provider is
+   *  currently attached to the viewer (`null` = default flat EllipsoidTerrainProvider). */
+  private formaTerrainCity: string | null = null;
+  /** §TERRAIN-RENDER — cities already probed this session; once a city's tileset 404s (not
+   *  yet baked in R2 / not proxied) we don't re-attempt it, so un-baked sites stay flat
+   *  without hammering the network on every pan. Cleared on dispose (project switch). */
+  private formaTerrainProbedCities = new Set<string>();
   /** §CESIUM-REALMODEL-TOKEN — monotonic tokens serialising overlapping async
    *  real-model placements (GLB export → `Cesium.Model.fromGltfAsync` → add). Two
    *  rapid view toggles could each await the model load and BOTH add a primitive
@@ -5911,6 +5921,68 @@ export class CesiumViewport {
   }
 
   /**
+   * §TERRAIN-RENDER (Phase 3, North Star §6.3 / terrain.mjs §9) — attach the BAKED
+   * quantized-mesh terrain tileset for the site's city so real ground renders under the
+   * massing. Attaching a `CesiumTerrainProvider` (which exposes `availability`) is exactly
+   * what flips `terrainProviderHasElevationData()` TRUE, so the next `clampTerrainThenReplace`
+   * runs `sampleTerrainMostDetailed` and re-seats on real ground. The baked heights are already
+   * WGS-84 ELLIPSOIDAL (terrain.mjs bakes the `napToEllipsoidal` geoid lift in), so the sample
+   * agrees with the building/envelope datum — nothing floats or buries (the datum-share, C12 §1.4).
+   *
+   * GUARD — NO REGRESSION FOR UN-BAKED CITIES:
+   *   • no tiles base configured (local/dev Overpass path) → return, keep flat.
+   *   • lon/lat outside every baked-terrain city bbox → return, keep flat.
+   *   • already attached for this city → return (idempotent; called on every context load/pan).
+   *   • `CesiumTerrainProvider.fromUrl` throws (layer.json 404 — city listed but not yet baked
+   *     in R2, or the same-origin proxy doesn't serve `terrain/`) → keep the default
+   *     EllipsoidTerrainProvider (flat base 0). The city is remembered so we don't re-attempt.
+   * Self-correcting: a city lights up with NO code change the moment CI publishes its tileset.
+   */
+  private async maybeAttachTerrainProvider(lat: number, lon: number): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    // §A.21.D-GLOBE3 — on the paid photoreal path the Google 3D tiles already carry ground +
+    // buildings at real elevation; laying our terrain mesh under them would double-ground / z-fight
+    // the globe. Leave the photoreal path exactly as it was (the free Forma path is where terrain renders).
+    if (this.photorealTilesActive) return;
+    const city = cityForLonLat(lon, lat);
+    if (!city) return;                                 // no baked terrain here → flat (unchanged)
+    if (city === this.formaTerrainCity) return;        // provider already attached for this city
+    if (this.formaTerrainProbedCities.has(city)) return; // already tried + 404'd this session
+    const url = terrainTilesetUrl(city);
+    if (!url) return;                                  // no tiles base configured → flat (unchanged)
+    this.formaTerrainProbedCities.add(city);
+
+    let provider: Cesium.CesiumTerrainProvider;
+    try {
+      // fromUrl fetches `${url}/layer.json`; a 404 means "not baked yet" → rejects → we stay flat.
+      provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: false });
+    } catch {
+      console.log(
+        `[CesiumViewport][terrain] no baked terrain for '${city}' (${url}) — keeping flat ground.`,
+      );
+      return;
+    }
+    // Superseded / disposed during the await → drop it (a newer site owns the viewer now).
+    if (!this.isViewerLive() || this.viewer !== viewer) return;
+    // Already the attached city (a concurrent call for the SAME city won the race) → nothing to do.
+    if (this.formaTerrainCity === city) return;
+
+    viewer.terrainProvider = provider;
+    this.formaTerrainCity = city;
+    console.log(
+      `[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — re-clamping ground.`,
+    );
+    viewer.scene.requestRender();
+    // The massing was seated on the flat base before terrain arrived. Now that
+    // terrainProviderHasElevationData() is true, drop the sampled-at cache and re-clamp so it
+    // seats on the real sampled ground (the clamp re-samples + re-places seated at that height).
+    this.formaTerrainSampledAt = null;
+    const input = this.formaLastMassingInput;
+    if (input) void this.clampTerrainThenReplace(input);
+  }
+
+  /**
    * FORMA.3 — fly the camera to the NW oblique framing (heading 325°,
    * pitch −45°, altitude ∝ √areaM2) centred on the boundary centroid (SPEC
    * §4.5). Public so a "Zoom to Site" / "Reset View" affordance can repeat it.
@@ -6452,6 +6524,12 @@ export class CesiumViewport {
     const viewer = this.viewer;
     if (!viewer) return;
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+
+    // §TERRAIN-RENDER (Phase 3) — attach baked terrain for this site's city if present. This is
+    // the one hook every location change / pan passes; it's idempotent + guarded, so it costs
+    // nothing on repeat and keeps flat ground for any un-baked city (no regression). Fire-and-
+    // forget: the async attach re-clamps the massing onto real ground when the tileset resolves.
+    void this.maybeAttachTerrainProvider(lat, lon);
 
     // Skip when unchanged (≈0.1 m) and we already have entities, unless forced.
     const prev = this.contextBuildingsAt;
@@ -10721,6 +10799,10 @@ export class CesiumViewport {
     this.formaTerrainBaseHeight = 0;
     this.formaTerrainSampledAt = null;
     this.formaTerrainToken++;
+    // §TERRAIN-RENDER — a re-mounted viewer starts on the default flat ellipsoid again; forget
+    // the attached city + the per-session 404 memory so the new site re-resolves + re-attaches.
+    this.formaTerrainCity = null;
+    this.formaTerrainProbedCities.clear();
     // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — a re-mounted viewport has measured
     // NOTHING: the ground datum is unknown again (and the tileset load hook belongs to the
     // destroyed tileset). Never let a stale "resolved" flag authorise anchoring at 0.
