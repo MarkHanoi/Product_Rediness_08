@@ -156,13 +156,15 @@ export const SOURCES = {
   geodanmark: {
     country: 'dk', name: 'Danmark i 3D / GeoDanmark + BBR', impl: 'live',
     provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (real roofs)',
-    endpoint: 'https://services.datafordeler.dk/ (GeoDanmark buildings) + DHM national LiDAR + BBR',
-    heightField: 'GeoDanmark bygning + DHM nDSM height; BBR ETAGER_ANT floors + OPFOERELSE_AAR',
-    note: 'National LoD2 + richest EU building register (BBR: year, floors, use, roof material). ' +
-      '⚠ AUTH-GATED: Datafordeler Basic Auth was RETIRED (see git log 1fc5bc8b) → the 2026 host wants ' +
-      '`username=&password=` service credentials (or a Dataforsyningen `token=`). No keyless bbox path ' +
-      'exists — LIVE-PROBED 2026-07-25: the keyless Datafordeler/Dataforsyningen hosts 404. fetchGeoDanmark ' +
-      'therefore returns `blocked` (honest gate) until a DATAFORDELER_USER/PASS or DATAFORSYNING_TOKEN is set.',
+    endpoint: 'https://wfs.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_NOHIST_GML3/1.0.0/WFS (gdk60:Bygning) + DHM nDSM + BBR',
+    heightField: 'GeoDanmark bygning = FOOTPRINT ONLY (NO height attr — verified); height via DHM nDSM (DSM−DTM) or BBR ETAGER_ANT floors (BBRUUID join)',
+    note: 'Richest EU building register — but ⚠ GeoDanmark `Bygning` carries NO scalar height (VERIFIED ' +
+      '2026-07-25 against the Datafordeler objekttypekatalog: attrs BBRUUID/bygningstype/målestedBygning/' +
+      'metode3D/underMinimumBygning/BBRaktion/synligBygning/overlapBygning/geometri; metode3D is capture-' +
+      'method, not a height). apikey-GATED: Basic Auth was RETIRED (git 1fc5bc8b); the 2026 host takes ' +
+      '&apikey=<DATAFORDELER_API_KEY> (reuse the Matrikel/DHM key). No keyless bbox path (wfs.datafordeler.dk ' +
+      '→ HTTP 401 without a key). fetchGeoDanmark returns `blocked` (no key) or `documented` (footprints ' +
+      'reached, NO height → region keeps OSM). Real LoD1 height = DHM DSM−DTM nDSM or BBR floors — the follow-up.',
     coverage: 'full',
   },
   overture_us: {
@@ -739,33 +741,67 @@ export async function fetchLod2DeNrw(bbox, { timeoutMs = 90_000, sampleBytes = 6
   }
 }
 
-// ── DK GeoDanmark / DHM / BBR — AUTH-GATED. Datafordeler Basic Auth retired (git 1fc5bc8b); the 2026
-// host wants service credentials, and no keyless bbox path exists (LIVE-PROBED 2026-07-25: keyless
-// hosts 404). Honest `blocked` unless creds are supplied — never a silent skip, never a fabricated height.
+// ── DK GeoDanmark Bygning (buildings) — apikey-GATED (DATAFORDELER_API_KEY). ─────────────────────
+// AUTH: Datafordeler Basic Auth (user/pass) was RETIRED (git 1fc5bc8b); the 2026 host takes
+// `&apikey=<DATAFORDELER_API_KEY>` — the SAME key the DK Matrikel proxy + the DHM terrain adapter use.
+// No keyless bbox path exists (LIVE-PROBED 2026-07-25: wfs.datafordeler.dk → HTTP 401 without a key).
+// Honest `blocked` unless the key is set — never a silent skip, never a fabricated height.
+//
+// §HEIGHT-ATTRIBUTE FINDING (verified 2026-07-25 against the authoritative Datafordeler objekttype-
+// katalog, grunddatamodel.datafordeler.dk/.../GeoDanmark/Bygninger/Bygning.html): the GeoDanmark
+// `Bygning` object carries NO scalar height attribute. Its full attribute set is BBRUUID,
+// bygningstype, målestedBygning, metode3D, underMinimumBygning, BBRaktion, synligBygning,
+// overlapBygning, geometri (GM_Surface). `metode3D` only says HOW z was captured (Tag=roof-edge /
+// Terræn) — it is not a measured height. So GeoDanmark gives authoritative FOOTPRINTS, not height.
+// §CONTEXT-DATA-HONESTY: we therefore emit `building` footprints with NO fabricated height and return
+// `documented` (region keeps its OSM/Overture default — never REPLACE real OSM buildings with a
+// heightless national set). The real DK LoD1 height FOLLOW-UP is either DHM DSM−DTM nDSM
+// (dhm_overflade − dhm_terraen, same DATAFORDELER_API_KEY → `tagged`) or the BBR ETAGER_ANT floor
+// count joined via BBRUUID (→ `derived-levels`). Neither is GeoDanmark itself, so neither is invented here.
 export async function fetchGeoDanmark(bbox, { timeoutMs = 40_000, env = process.env } = {}) {
+  const apikey = env.DATAFORDELER_API_KEY;
+  if (!apikey) {
+    return {
+      status: 'blocked',
+      reason: 'GeoDanmark is apikey-gated — set DATAFORDELER_API_KEY (mint at portal.datafordeler.dk; ' +
+        'reuse the Matrikel/DHM key). Datafordeler Basic Auth was retired (git 1fc5bc8b); the 2026 host ' +
+        'takes &apikey=. No keyless bbox path (wfs.datafordeler.dk → HTTP 401 without a key).',
+    };
+  }
   try {
-    const user = env.DATAFORDELER_USER, pass = env.DATAFORDELER_PASS, token = env.DATAFORSYNING_TOKEN;
-    if (!user && !pass && !token) {
-      return {
-        status: 'blocked',
-        reason: 'GeoDanmark is auth-gated — set DATAFORDELER_USER + DATAFORDELER_PASS (service user) ' +
-          'or DATAFORSYNING_TOKEN. Datafordeler Basic Auth was retired; the 2026 host uses credential ' +
-          'params. No keyless bbox endpoint exists (probed 404).',
-      };
-    }
-    // Credentials present: hit the Datafordeler GeoDanmark WFS. The bygning→height + BBR floor join +
-    // GML posList parse is the ingest step; this returns 'documented' with the reachable status.
+    // GeoDanmark Vektor WFS 2.0.0, typeName gdk60:Bygning, native EPSG:25832 (UTM32N). apikey on the URL.
     const [w, s, e, n] = bbox;
-    const auth = token ? `token=${encodeURIComponent(token)}` : `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
-    const url = `https://services.datafordeler.dk/GeoDanmark_60_NOHIST/GeoDanmark60/1.0.0/WFS` +
-      `?service=WFS&version=1.1.0&request=GetFeature&typeName=Bygning&maxFeatures=200` +
-      `&bbox=${s},${w},${n},${e}&${auth}`;
+    const url = `https://wfs.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_NOHIST_GML3/1.0.0/WFS` +
+      `?service=WFS&version=2.0.0&request=GetFeature&typeNames=gdk60:Bygning` +
+      `&srsName=urn:ogc:def:crs:EPSG::25832&count=3000` +
+      `&bbox=${s},${w},${n},${e},urn:ogc:def:crs:EPSG::25832&apikey=${encodeURIComponent(apikey)}`;
     const r = await httpGet(url, { timeoutMs });
     if (!r.ok) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
-    const hasBygning = /Bygning/i.test(r.body);
+    // Parse Bygning footprints: GM_Surface exterior gml:posList (E N, EPSG:25832) → utmNToWgs84 rings.
+    const members = r.body.match(/<gdk60:Bygning\b[\s\S]*?<\/gdk60:Bygning>/g) ?? [];
+    let footprints = 0;
+    let sampleRing = null;
+    for (const m of members) {
+      const extM = m.match(/<gml:exterior>[\s\S]*?<gml:posList([^>]*)>([\s\S]*?)<\/gml:posList>/);
+      if (!extM) continue;
+      const dim = /srsDimension\s*=\s*"3"/i.test(extM[1]) ? 3 : 2; // GeoDanmark GML3 is normally 2D.
+      const ring = posListToWgs84Ring(extM[2], { dim, srsZone: 32 });
+      if (!ring) continue;
+      footprints++;
+      if (!sampleRing) sampleRing = ring.slice(0, 3);
+      // ⚠ NO height/levels written — GeoDanmark Bygning carries neither (verified). Footprints are
+      // reached + counted as proof, but NOT emitted as a heightless REPLACE (region keeps OSM).
+    }
     return {
-      status: 'documented', provenance: 'tagged', contentType: r.contentType, reachedWithAuth: true, hasBygning,
-      features: [], note: 'GeoDanmark reachable with creds; bygning height + BBR floor join + posList parse = ingest step.',
+      // `documented`, not `ok`: real footprints reached, but GeoDanmark supplies NO height, so the
+      // region KEEPS its OSM/Overture footprints (honest 9 m assumed) rather than losing them to a
+      // heightless national replace. Height is the DHM-nDSM / BBR-floors follow-up (see the header).
+      status: 'documented', provenance: 'assumed', contentType: r.contentType, reachedWithKey: true,
+      hasHeightAttribute: false, footprintCount: footprints, sampleRing, features: [],
+      note: `GeoDanmark Bygning reached with apikey — ${footprints} footprint(s) parsed (EPSG:25832→WGS84). ` +
+        '⚠ NO height attribute on the object (verified: BBRUUID/bygningstype/målestedBygning/metode3D/…/geometri, ' +
+        'no scalar height). Real DK height FOLLOW-UP = DHM DSM−DTM nDSM (dhm_overflade − dhm_terraen, same apikey → ' +
+        'tagged) OR BBR ETAGER_ANT floors via BBRUUID (derived-levels). Region keeps OSM until then — no fabricated height.',
     };
   } catch (err) {
     return { status: 'error', reason: String(err?.message ?? err) };
@@ -940,9 +976,11 @@ export async function probeSource(id) {
     const r = await fetchGeoDanmark(PROBE_BBOX.geodanmark);
     return {
       id, endpoint: SOURCES.geodanmark.endpoint, status: r.status,
-      // Honest gate: with no creds this is `blocked`, and that is the CORRECT, load-bearing result.
+      // Honest gate: with no key this is `blocked`, and that is the CORRECT, load-bearing result.
       assertHonestGate: r.status === 'blocked' || r.status === 'documented',
-      reachedWithAuth: r.reachedWithAuth ?? false, mode: heightModeForSource('geodanmark'), reason: r.reason ?? r.note,
+      reachedWithKey: r.reachedWithKey ?? false, hasHeightAttribute: r.hasHeightAttribute ?? false,
+      footprintCount: r.footprintCount, sampleRing: r.sampleRing,
+      mode: heightModeForSource('geodanmark'), reason: r.reason ?? r.note,
     };
   }
   return { id, status: 'error', reason: `no live probe for "${id}"` };

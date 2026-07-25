@@ -131,19 +131,25 @@ export const TERRAIN_SOURCES = {
       evidence: 'HTTP 200 text/xml wcs:Capabilities live (the opengeodata.nrw XYZ directory 404s — the WCS is the wireable route). ⚠ Germany = 16 per-Land portals; NRW proven, the other 15 are separate adapters (mirror the L-511 German building state-router)' },
   },
   dk: {
-    country: 'Denmark', dataset: 'DHM/Terræn (Datafordeler / Dataforsyningen)',
-    protocol: 'WCS/WMS behind Datafordeler apikey', coverageId: 'dhm_terraen',
-    endpoint: 'https://services.datafordeler.dk/ (DHM services)',
+    country: 'Denmark', dataset: 'DHM/Terræn (Danmarks Højdemodel — Datafordeler / Klimadatastyrelsen)',
+    protocol: 'WCS 1.0.0 GetCoverage behind Datafordeler apikey', coverageId: 'dhm_terraen',
+    endpoint: 'https://wcs.datafordeler.dk/DHMNedboer/dhm_wcs/1.0.0/WCS',
     resolutionM: 0.4, horizCrs: 'ETRS89 UTM32 (EPSG:25832)', vertDatum: 'DVR90 (EPSG:5799)',
-    compoundCrs: 'EPSG:4258+5799', geoidSepM: 40.0, // Copenhagen
+    compoundCrs: 'EPSG:4258+5799', geoidSepM: 36.5, // Copenhagen DVR90→WGS84 ellipsoidal (EGM2008 ~36–37 m; was a stale 40.0)
     license: 'free for most uses — verify commercial clause', commercialOk: null,
     // ⚠ 2026 auth: Datafordeler Basic Auth (username/password) is RETIRED (commit 1fc5bc8b,
     // DENMARK-DATAFORDELER-AUTH-2026.md). Same pattern as the DK Matrikel proxy fix: append
-    // `&apikey=<DATAFORDELER_API_KEY>` to the DHM WCS/WFS request; mint the key at
+    // `&apikey=<DATAFORDELER_API_KEY>` to the DHM WCS request; mint the key at
     // portal.datafordeler.dk. Env var: DATAFORDELER_API_KEY (reuse the Matrikel one).
     auth: 'apikey (&apikey=<DATAFORDELER_API_KEY>; Basic Auth retired 2026 — see DENMARK-DATAFORDELER-AUTH-2026.md)',
-    probe: { url: 'https://dataforsyningen.dk/data/930', verdict: 'token',
-      evidence: 'Registration portal HTTP 200 (dataforsyningen.dk). Datafordeler DHM service paths 404/401 WITHOUT credentials — TOKEN-GATED. Matches commit 1fc5bc8b "Datafordeler Basic Auth RETIRED → apikey=" — the DHM GetCoverage needs &apikey=<DATAFORDELER_API_KEY>. Copenhagen therefore needs a key in env; Amsterdam is the keyless one-city proof instead' },
+    probe: { url: 'https://api.dataforsyningen.dk/dhm_wcs_DAF?service=WCS&request=GetCapabilities&token=', verdict: 'token',
+      evidence: 'LIVE-PROBED 2026-07-25: the Datafordeler WCS host (wcs.datafordeler.dk/DHMNedboer/dhm_wcs/1.0.0/WCS) '
+        + 'returns HTTP 401 WITHOUT a key — apikey-GATED (GetCoverage needs &apikey=<DATAFORDELER_API_KEY>). '
+        + 'INDEPENDENT keyless confirmation of the coverage names: the Dataforsyningen mirror '
+        + '(api.dataforsyningen.dk/dhm_wcs_DAF, token empty) serves GetCapabilities HTTP 200 text/xml WCS 1.0.0, '
+        + 'service "DTM", coverages dhm_terraen (terrain/DTM — what we bake) + dhm_overflade (surface/DSM). '
+        + 'DescribeCoverage + GetCoverage on the mirror are token-gated (403 "User not authorized"). Native EPSG:25832, '
+        + 'DVR90 orthometric, FORMAT=GTiff (per the official DHM WCS doc page). Copenhagen skips loudly until the key is in env.' },
   },
   us: {
     country: 'United States', dataset: '3DEP 1 m DEM (USGS / The National Map)',
@@ -730,6 +736,16 @@ export const DTM_FETCH = {
   no: { kind: 'wcs1', endpoint: 'https://wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25833', coverageId: 'nhm_dtm_topo_25833',
     nativeCrs: 'EPSG:25833', maxPx: 1100, maxExtentM: 30000,
     note: 'Kartverket NHM DTM via ArcGIS WCS 1.0.0 (COVERAGE+CRS+BBOX+WIDTH/HEIGHT, FORMAT=GeoTIFF).' },
+  // DK — apikey-GATED (DATAFORDELER_API_KEY). bakeCity SKIPS LOUDLY before reaching here when the key
+  // is absent (see APIKEY_SOURCES + the ::warning:: skip path); with a key the apikey rides on the URL
+  // via `apikeyEnv`, and the returned `url` is REDACTED so the secret never lands in a CI log. WCS 1.0.0
+  // like NO, but FORMAT=GTiff (Datafordeler's spelling) not GeoTIFF, so `format` is overridden per-source.
+  dk: { kind: 'wcs1', endpoint: 'https://wcs.datafordeler.dk/DHMNedboer/dhm_wcs/1.0.0/WCS', coverageId: 'dhm_terraen',
+    nativeCrs: 'EPSG:25832', format: 'GTiff', apikeyEnv: 'DATAFORDELER_API_KEY', apikeyParam: 'apikey',
+    maxPx: 1100, maxExtentM: 12000,
+    note: 'DHM Terræn (Danmarks Højdemodel 0.4 m) via Datafordeler WCS 1.0.0 (apikey). Native EPSG:25832 (UTM32N), '
+      + 'DVR90 orthometric → +36.5 m ellipsoidal lift. Coverage names confirmed keyless on the Dataforsyningen mirror; '
+      + 'GetCoverage is apikey-gated (HTTP 401 without a key). Copenhagen is low/flat (~0–40 m orthometric).' },
   it: { kind: 'wms', endpoint: 'http://tinitaly.pi.ingv.it/TINItaly_1_1/wms', layer: 'tinitaly_dem',
     format: 'image/geotiff', requestCrs: 'EPSG:32632', nativeCrs: 'EPSG:32632', maxPx: 1100, maxExtentM: 30000,
     note: 'INGV TINITALY 10 m national mosaic via GeoServer WMS GetMap (EPSG:32632). image/geotiff (image/tiff lacks geo-transform).' },
@@ -770,6 +786,19 @@ function pxDims(widthM, heightM, maxPx) {
   const scale = long > maxPx ? maxPx / long : 1;
   return { width: Math.max(2, Math.round(widthM * scale)), height: Math.max(2, Math.round(heightM * scale)) };
 }
+
+// ── apikey threading (DK Datafordeler &apikey=; future SE/FI) — NEVER hardcode a key, NEVER log one.
+/** Build the `&<param>=<key>` auth suffix for an apikey-gated DTM source, or '' when none is needed.
+ *  bakeCity already SKIPS LOUDLY when the env var is unset, so reaching here without a key is only
+ *  possible via a direct fetch (e.g. --sample-city) — we refuse honestly rather than fetch keyless. */
+export function dtmAuthSuffix(cfg, env = process.env) {
+  if (!cfg.apikeyEnv) return '';
+  const key = env[cfg.apikeyEnv];
+  if (!key) throw new Error(`DTM source needs ${cfg.apikeyEnv} — not set (skip loudly upstream; no fake tile).`);
+  return `&${cfg.apikeyParam ?? 'apikey'}=${encodeURIComponent(key)}`;
+}
+/** Redact any secret query param so a fetched URL is safe to log / return (defense-in-depth). */
+export const redactKey = (u) => String(u).replace(/([?&](?:apikey|token|username|password)=)[^&]*/gi, '$1<redacted>');
 
 async function fetchBuffer(url, { timeoutMs = 90000, accept } = {}) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeoutMs);
@@ -851,11 +880,13 @@ export async function fetchDtmRaster(sourceKey, bboxWsen, { geotiffMod, env = pr
     // geometrically correct because the BBOX still georeferences it: the (anisotropic) pixels are
     // resolved by native X,Y in nativeToCell during the §3b warp, so no distortion reaches the mesh.
     const dim = cfg.maxPx;
+    // FORMAT is per-source: NO ArcGIS wants 'GeoTIFF', DK Datafordeler wants 'GTiff'. apikey (DK) rides
+    // on the URL via dtmAuthSuffix; the returned `url` is REDACTED so the key never reaches a log.
     const url = `${cfg.endpoint}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${cfg.coverageId}`
       + `&CRS=${cfg.nativeCrs}&BBOX=${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}`
-      + `&WIDTH=${dim}&HEIGHT=${dim}&FORMAT=GeoTIFF`;
+      + `&WIDTH=${dim}&HEIGHT=${dim}&FORMAT=${cfg.format ?? 'GeoTIFF'}${dtmAuthSuffix(cfg, env)}`;
     const { ab } = await fetchBuffer(url, { accept: 'image/tiff' });
-    return { raster: await readDtmFromBuffer(ab, geotiffMod), nativeCrs: cfg.nativeCrs, url };
+    return { raster: await readDtmFromBuffer(ab, geotiffMod), nativeCrs: cfg.nativeCrs, url: redactKey(url) };
   }
 
   if (cfg.kind === 'stac-cog') {
@@ -1127,6 +1158,11 @@ async function main() {
     if (!region) { console.error(`unknown city '${name}' (see --regions)`); process.exit(1); }
     if (region.blocked) { console.log(`SKIP ${name}: BLOCKED — ${region.blocked}`); return; }
     if (region.source === 'nl') { console.log('use --fetch-nl for the NL proof (RD-New closed form).'); return; }
+    const apk = APIKEY_SOURCES[region.source];
+    if (apk && !process.env[apk.env]) {
+      console.log(`::warning::SKIP ${name}: ${region.source.toUpperCase()} needs ${apk.env} (${apk.hint}) — not set; cannot sample keyless (no fake).`);
+      return;
+    }
     const geotiffMod = await import('geotiff');
     const probes = SAMPLE_PROBES[name] || [['centroid', (region.bbox[0] + region.bbox[2]) / 2, (region.bbox[1] + region.bbox[3]) / 2]];
     const r = await sampleCity(region, probes, { geotiffMod });
@@ -1204,7 +1240,13 @@ async function main() {
     const bboxOverride = val('--bbox') ? val('--bbox').split(',').map(Number) : undefined;
     console.log(`bake ${name} (${region.source.toUpperCase()}): ${DTM_FETCH[region.source]?.note ?? ''}`);
     const res = await bakeCity(region, { outDir, gridSize, geotiffMod, Martini, bboxOverride });
-    if (res.status !== 'ok') { console.log(`SKIP ${name}: ${res.reason}`); return; }
+    if (res.status !== 'ok') {
+      // apikey-gated / unwired sources SKIP LOUDLY (::warning:: → visible CI annotation) but exit 0 so
+      // the multi-city bake carries on (never a fake tile). Copenhagen lands here without the key.
+      const loud = res.status === 'skip-apikey' || res.status === 'skip-unwired';
+      console.log(`${loud ? '::warning::' : ''}SKIP ${name}: ${res.reason}`);
+      return;
+    }
     console.log(`✓ ${name} → ${outDir}  (h ${res.stats[0].minH.toFixed(1)}..${res.stats[0].maxH.toFixed(1)} m ellipsoidal)`);
     return;
   }
