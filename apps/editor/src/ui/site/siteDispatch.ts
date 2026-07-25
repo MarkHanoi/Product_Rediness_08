@@ -141,6 +141,15 @@ import {
     BCN_VOLUMETRIA_18_ZONE_CODE,
     BCN_VOLUMETRIA_18_ORDINANCE_REF,
     heightFromFloorsAboveGround,
+    // SWITZERLAND — Outcome-B zone-ID path. `resolveChZone` (never throws) identifies the zone from
+    // the national Nutzungsplanung WFS; the buildable envelope REFUSES (density/height are model+PDF-
+    // bound), carrying the identified zone as `knownFacts` so it renders. NO estimated fallback — an
+    // estimate would be a fabricated number the recon proved we cannot cite.
+    isInSwitzerland,
+    resolveChZone,
+    chZoningEnvelopeRefusal,
+    chZoneCodeFor,
+    chZoneLabelFor,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1006,6 +1015,15 @@ function applyZoning(
             void applyCordobaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
+        // SWITZERLAND — a Swiss plot resolves its REAL land-use zone from the national Nutzungsplanung
+        // WFS and RENDERS it, while the buildable envelope refuses (density/height are model+PDF-bound,
+        // Outcome B). Like Madrid/Córdoba, its fallback is a cited REFUSAL, never the estimated triple:
+        // the zone is identified but no number can be cited, so a front/side/rear estimate would be a
+        // fabrication the recon disproved.
+        if (qLat != null && qLon != null && isInSwitzerland(qLat, qLon)) {
+            void applyChZoningThenFallback(ctx, boundary, qLat, qLon);
+            return;
+        }
     } catch (e) {
         console.warn('[gis][c58] jurisdiction selection failed (non-fatal) — using estimated default:', e);
     }
@@ -1371,6 +1389,90 @@ async function applyMadridZoningThenFallback(
                     site.id,
                     buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
                     'madrid-pgoum',
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
+ * SWITZERLAND — the national Grundnutzung (land-use zone) path (Outcome B).
+ *
+ * The national Nutzungsplanung WFS (geodienste.ch ms:grundnutzung) publishes the zone IDENTITY as
+ * structured data but NOT its density (Nutzungsziffer) or height — those are model+PDF-bound. So this
+ * path:
+ *   1. `resolveChZone(lat, lon)` (never throws) — identifies the zone, or a typed refusal;
+ *   2. dispatches a CITED REFUSAL carrying the identified zone as `knownFacts`, so the parcel's REAL
+ *      zone renders (e.g. "Wohnzone (W2), canton AI") while no buildable number is drawn.
+ *
+ * ⚠ NO ESTIMATED FALLBACK, EVER. Unlike DK/BCN, a Swiss parcel never falls to the estimated triple:
+ * the zone is identified but no density/height can be cited, and a fabricated front/side/rear estimate
+ * is exactly the §CONTEXT-DATA-HONESTY failure the recon disproved (Outcome B). Even on a WFS miss the
+ * honest output is a refusal (the zone simply is not identified), never a guess.
+ *
+ * `status: 'none'` keeps every numeric envelope field null and clears any stale ring (dispatchEnvelope
+ * writes a ring only on 'ok'). Best-effort + fully guarded — never throws into the commit path.
+ */
+async function applyChZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+): Promise<void> {
+    const TAG = '[gis][c58] §CH-GRUNDNUTZUNG';
+    const JURISDICTION_REF = 'geodienste-ch-grundnutzung';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) return; // No site to dispatch onto — nothing to render either way.
+
+        // Per-parcel facts for the refusal card so it is never a blank panel (L-553). Coordinates
+        // always; parcel area when a ring is available. No network beyond the zone resolve.
+        const facts: string[] = [`Location: Switzerland (${lat.toFixed(5)}, ${lon.toFixed(5)})`];
+        if (Array.isArray(boundary.polygon) && boundary.polygon.length >= 3) {
+            const ring = boundary.polygon;
+            const areaM2 = Math.abs(
+                ring.reduce((acc, p, i) => {
+                    const q = ring[(i + 1) % ring.length]!;
+                    return acc + (p.x * q.z - q.x * p.z);
+                }, 0) / 2,
+            );
+            if (Number.isFinite(areaM2) && areaM2 > 0) facts.push(`Parcel area: ${areaM2.toFixed(0)} m²`);
+        }
+
+        // (1) Identify the zone from the national WFS. Never throws.
+        const resolution = await resolveChZone(lat, lon);
+        const zone = resolution.ok ? resolution.zone : null;
+
+        // (2) Dispatch a cited refusal that CARRIES the identified zone (so the zone renders). The
+        // envelope stays a refusal: no density/height can be cited (Outcome B), never fabricated.
+        const refusal = chZoningEnvelopeRefusal(zone, facts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(chZoneCodeFor(zone), refusal, 'none'),
+            JURISDICTION_REF,
+        );
+        if (zone) {
+            console.log(
+                `${TAG} zone identified (${chZoneLabelFor(zone)}, canton ${zone.kanton ?? 'n/a'}) — ` +
+                    `rendered; buildable envelope REFUSES (density/height are model+PDF-bound, Outcome B).`,
+            );
+        } else {
+            console.log(
+                `${TAG} zone not identified (reason=${resolution.ok ? 'n/a' : resolution.reason}) — cited refusal.`,
+            );
+        }
+    } catch (e) {
+        // Best-effort — never block the commit. Try to leave an honest refusal rather than an estimate.
+        console.warn(`${TAG} path failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(chZoneCodeFor(null), chZoningEnvelopeRefusal(null), 'none'),
+                    JURISDICTION_REF,
                 );
             }
         } catch { /* refusal dispatch is best-effort too */ }
