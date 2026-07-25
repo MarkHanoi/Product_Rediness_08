@@ -39,6 +39,31 @@ aws s3 cp tools/context-bake/out/buildings.pmtiles s3://<bucket>/context/barcelo
 Then wire the client tile reader (L-513b/c) at those URLs and demote Overpass to an emergency
 fallback (badged ESTIMATED). Re-run the bake on Geofabrik's daily refresh to keep context current.
 
+## Terrain compiler (`terrain.mjs`) — Phase 3 (North Star §6.3)
+
+A **separate, standalone** compiler for elevation. It does NOT touch `bake.mjs`'s building/PMTiles
+core — `bake.mjs` owns footprints, `terrain.mjs` owns the DTM→quantized-mesh path. They meet only
+at the shared tile key and the shared vertical datum (L-584).
+
+```bash
+node terrain.mjs --list                     # per-country DTM source registry (§1)
+node terrain.mjs --probe                     # live-probe every national DTM (HTTP + Content-Type)
+node terrain.mjs --fetch-nl out/ams.tif      # keyless AHN WCS GetCoverage → a DTM GeoTIFF (no GDAL)
+# full compile + independent-decode proof need standalone deps (NOT the pnpm workspace):
+#   npm i geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1   (in a scratch dir)
+node terrain.mjs --tif out/ams.tif --country nl --out out/terrain/amsterdam
+node terrain.verify.mjs out/ams.tif nl       # encode → INDEPENDENT decode round-trip (all LODs PASS)
+```
+
+Pipeline: national DTM GeoTIFF (bare-earth) → fill nodata → resample to a 2^k+1 grid → orthometric→
+ellipsoidal datum lift (`geoidSepM`, the L-584 fix) → MARTINI error-bounded TIN → LOD pyramid →
+self-contained **Cesium quantized-mesh** `.terrain` tiles + `layer.json` → R2 at
+`terrain/<city>/{layer.json,{z}/{x}/{y}.terrain}` (mirrors the `<layer>.pmtiles` layout). Runtime =
+`Cesium.CesiumTerrainProvider.fromUrl(...)` in `CesiumViewport.ts` (wiring documented in
+`terrain.mjs` §9). **Registry verdicts (live-probed 2026-07-25):** NL/CH/FR/ES/NO/DE/US keyless;
+DK token-gated (`&apikey=<DATAFORDELER_API_KEY>`, per commit 1fc5bc8b). Proof city: Amsterdam (AHN
+0.5 m), keyless end-to-end.
+
 ## Scope / notes
 - **§L-607 multi-region (2026-07-24).** Was Barcelona-only — which is why every other jurisdiction
   city showed *"No surrounding building data"* on the 3D Site (the client reads baked PMTiles first;
