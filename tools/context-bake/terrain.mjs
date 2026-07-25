@@ -403,10 +403,14 @@ export function resampleSquare(values, width, height, gridSize) {
  *  ONE datum for terrain, buildings and envelope (globeGroundAnchor.ts GroundDatum). */
 export const napToEllipsoidal = (h, geoidSepM) => h + geoidSepM;
 
-/** Bilinear DTM sample at a fractional grid cell (row-major, top row = maxY). */
+/** Bilinear DTM sample at a fractional grid cell (row-major, top row = maxY). CLAMP the fractional
+ *  position to the grid so a sample OUTSIDE the raster returns the nearest EDGE value (flat), never a
+ *  runaway extrapolation — essential now that a TMS tile can extend past the fetched DTM extent (the
+ *  coarse ancestor tiles), where the old index-only clamp left tx/ty at ±thousands and blew heights up. */
 function sampleGrid(values, width, height, fx, fy) {
-  const x0 = Math.max(0, Math.min(width - 1, Math.floor(fx)));
-  const y0 = Math.max(0, Math.min(height - 1, Math.floor(fy)));
+  fx = Math.max(0, Math.min(width - 1, fx));
+  fy = Math.max(0, Math.min(height - 1, fy));
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
   const x1 = Math.min(width - 1, x0 + 1), y1 = Math.min(height - 1, y0 + 1);
   const tx = fx - x0, ty = fy - y0;
   const a = values[y0 * width + x0], b = values[y0 * width + x1];
@@ -665,18 +669,107 @@ export function encodeQuantizedMesh(mesh, gridSize, tile, heightAt) {
     edges: { west: west.length, south: south.length, east: east.length, north: north.length } } };
 }
 
-/** Minimal Cesium layer.json for a quantized-mesh tileset served from R2. */
-export function layerJson(tile, maxZoom) {
-  const toDeg = (r) => r / D2R;
-  const available = [];
-  for (let z = 0; z <= maxZoom; z++) available.push([{ startX: 0, startY: 0, endX: (1 << (z + 1)) - 1, endY: (1 << z) - 1 }]);
+// ── §7b — GEOGRAPHIC-TMS TILING  (the paths + layer.json MUST agree — this was the render-flat bug) ──
+// Cesium's CesiumTerrainProvider reads layer.json then requests `{z}/{x}/{y}.terrain`, and it PLACES
+// every vertex at lerp(tileRect.west,east,u)×lerp(south,north,v) where tileRect = the TMS tile's OWN
+// geographic rectangle (computed from z/x/y — NOT from anything stored in the tile). So a tile is only
+// correct if it was ENCODED over that exact rectangle. The old bake wrote flat `<lod>.terrain` files
+// and a layer.json that declared GLOBAL TMS ranges → Cesium asked for `0/1/0.terrain` (404) and, even
+// if it had loaded, would have stretched a city-extent mesh across a quarter-globe tile. THE FIX
+// (scheme A): emit, for each zoom z, the ONE real TMS tile that contains the city, encoded over THAT
+// tile's rectangle, and declare exactly those tiles. Cesium then requests precisely what we wrote and
+// drapes it in the right place. Geographic scheme: level z has 2^(z+1) tiles across 360° lon × 2^z
+// across 180° lat; tiles are SQUARE in degrees (side = 180/2^z). x from lon=-180, y from lat=-90 (TMS,
+// south-origin — the convention layer.json `scheme:'tms'` + `available` use; Cesium flips y internally).
+export const tmsTileSideDeg = (z) => 180 / 2 ** z;
+
+/** The single geographic-TMS tile (z,x,y) containing (lon,lat) + its rectangle [w,s,e,n] in degrees. */
+export function tmsTileForLonLat(lon, lat, z) {
+  const side = tmsTileSideDeg(z);
+  const nx = 2 ** (z + 1), ny = 2 ** z;
+  const x = Math.min(nx - 1, Math.max(0, Math.floor((lon + 180) / side)));
+  const y = Math.min(ny - 1, Math.max(0, Math.floor((lat + 90) / side))); // TMS y: 0 at south
+  const west = -180 + x * side, south = -90 + y * side;
+  return { z, x, y, rectDeg: [west, south, west + side, south + side] };
+}
+
+/** The rectangle [w,s,e,n]° of a specific geographic-TMS tile (z,x,y). */
+export function tmsTileRectDeg(z, x, y) {
+  const side = tmsTileSideDeg(z);
+  const west = -180 + x * side, south = -90 + y * side;
+  return [west, south, west + side, south + side];
+}
+
+/** Every geographic-TMS tile at level z whose rectangle intersects the city bbox → {xMin,xMax,yMin,yMax}
+ *  (clamped to the level's grid). Usually 1 tile at coarse z, a 1–4 tile block near the finest. */
+export function tmsTileRangeForBbox(cityWsen, z) {
+  const side = tmsTileSideDeg(z);
+  const nx = 2 ** (z + 1), ny = 2 ** z;
+  const [w, s, e, n] = cityWsen;
+  const cx = (v) => Math.min(nx - 1, Math.max(0, v)), cy = (v) => Math.min(ny - 1, Math.max(0, v));
+  return {
+    xMin: cx(Math.floor((w + 180) / side)), xMax: cx(Math.floor((e + 180) / side)),
+    yMin: cy(Math.floor((s + 90) / side)), yMax: cy(Math.floor((n + 90) / side)),
+  };
+}
+
+/** Finest zoom to emit: the deepest level whose tile side is still ≥ the city's larger span, so the
+ *  bbox lands in a small (≤2×2) block at the finest level — real per-post resolution AND full coverage,
+ *  without the straddle-fragility of demanding one centre-tile contain the whole bbox. */
+export function tmsMaxZoomForBbox(cityWsen, cap = 18) {
+  const [w, s, e, n] = cityWsen;
+  const spanDeg = Math.max(e - w, n - s) || 1e-4;
+  const z = Math.floor(Math.log2(180 / spanDeg)); // 180/2^z ≥ spanDeg  ⇒  z ≤ log2(180/span)
+  return Math.max(0, Math.min(cap, z));
+}
+
+/** Cesium layer.json for a city-block terrain drape. `available` lists EXACTLY the emitted tiles (the
+ *  real TMS x/y block at each level) and `bounds` is the city bbox — so Cesium requests only what
+ *  exists on disk (no 404 → flat) and refines from the level-0 tile down to the finest block. */
+export function layerJson(cityWsen, available) {
   return {
     tilejson: '2.1.0', name: 'PRYZM terrain', format: 'quantized-mesh-1.0',
     scheme: 'tms', tiles: ['{z}/{x}/{y}.terrain'],
-    projection: 'EPSG:4326', bounds: [-180, -90, 180, 90],
-    extent: [toDeg(tile.west), toDeg(tile.south), toDeg(tile.east), toDeg(tile.north)],
-    minzoom: 0, maxzoom: maxZoom, available,
+    projection: 'EPSG:4326', bounds: cityWsen, extent: cityWsen,
+    minzoom: 0, maxzoom: available.length - 1, available,
   };
+}
+
+/**
+ * Emit the root→finest pyramid of real TMS tiles that drape a city, + a matching layer.json. Shared by
+ * every compile path (NL closed-form + the generalized warp). At each level z (0..maxZoom) it emits
+ * every TMS tile intersecting the bbox — a proper nested refinement path (each tile's parent also
+ * intersects the bbox, so it too is emitted). The caller supplies `gridForRect`: given a TMS tile
+ * rectangle [w,s,e,n]°, return a gridSize×gridSize row-major (gy=0 = north) Float32 grid of ELLIPSOIDAL
+ * heights sampled over THAT rectangle (edge-clamped outside the DTM — coarse ancestor tiles are mostly
+ * the site's border height, honest real data, never a fabricated datum). Each tile is ENCODED over its
+ * OWN rectangle, so Cesium's linear (u,v)↔lon/lat is exact and every tile lands where the site is.
+ */
+export function emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini, baseErrM = 0.5 }) {
+  const maxZoom = tmsMaxZoomForBbox(cityWsen);
+  mkdirSync(outDir, { recursive: true });
+  const available = [];
+  const tiles = [];
+  for (let z = 0; z <= maxZoom; z++) {
+    const { xMin, xMax, yMin, yMax } = tmsTileRangeForBbox(cityWsen, z);
+    available.push([{ startX: xMin, startY: yMin, endX: xMax, endY: yMax }]);
+    const errM = baseErrM * 2 ** (maxZoom - z); // finest (baseErrM) at maxZoom, coarser going up
+    for (let x = xMin; x <= xMax; x++) for (let y = yMin; y <= yMax; y++) {
+      const rectDeg = tmsTileRectDeg(z, x, y);
+      const grid = gridForRect(rectDeg);
+      const tileRad = { west: rectDeg[0] * D2R, south: rectDeg[1] * D2R, east: rectDeg[2] * D2R, north: rectDeg[3] * D2R };
+      const heightAt = (gx, gy) => grid[gy * gridSize + gx];
+      const mesh = meshTile(grid, gridSize, errM, Martini);
+      const enc = encodeQuantizedMesh(mesh, gridSize, tileRad, heightAt);
+      mkdirSync(resolve(outDir, String(z), String(x)), { recursive: true });
+      writeFileSync(resolve(outDir, String(z), String(x), `${y}.terrain`), enc.buffer);
+      tiles.push({ z, x, y, path: `${z}/${x}/${y}.terrain`, errM: +errM.toFixed(2), ...enc.stats, bytes: enc.buffer.length });
+      console.log(`  z${String(z).padStart(2)} → ${`${z}/${x}/${y}.terrain`.padEnd(24)} err=${errM.toFixed(2).padStart(7)}m  ${String(enc.stats.triangles).padStart(6)} tris ${String(enc.stats.vertices).padStart(6)}v  h[${enc.stats.minH.toFixed(1)}..${enc.stats.maxH.toFixed(1)}]m  ${(enc.buffer.length / 1024).toFixed(1)}KB`);
+    }
+  }
+  writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(cityWsen, available), null, 2));
+  console.log(`layer.json (scheme tms · bounds ${cityWsen.map((v) => v.toFixed(4)).join(',')} · z0..${maxZoom} · ${tiles.length} tiles) → ${outDir}`);
+  return { cityWsen, maxZoom, available, tiles };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -950,25 +1043,14 @@ async function fetchSwissAltiStac(cfg, bbox, geotiffMod) {
 // ═════════════════════════════════════════════════════════════════════════════
 export function compileWarpToTileset({ raster, nativeCrs, geoidSepM, outDir, gridSize = 257, Martini, tileWsen }) {
   const proj = getProjector(nativeCrs);
-  const tile4 = tileWsen ?? inscribedWgs84Extent(raster, proj);
-  const filled = fillNodata(raster.values, raster.width, raster.height);
-  const gridGeo = resampleToGeographicGrid({ ...raster, values: filled }, proj.forward, tile4, gridSize);
-  const gridEll = Float32Array.from(gridGeo, (h) => napToEllipsoidal(h, geoidSepM));
-  const tile = { west: tile4[0] * D2R, south: tile4[1] * D2R, east: tile4[2] * D2R, north: tile4[3] * D2R };
-  const heightAt = (gx, gy) => gridEll[gy * gridSize + gx];
-  mkdirSync(outDir, { recursive: true });
-  const stats = [];
-  for (let lod = 0; lod < DEFAULT_LOD_ERRORS_M.length; lod++) {
-    const mesh = meshTile(gridEll, gridSize, DEFAULT_LOD_ERRORS_M[lod], Martini);
-    const enc = encodeQuantizedMesh(mesh, gridSize, tile, heightAt);
-    writeFileSync(resolve(outDir, `${lod}.terrain`), enc.buffer);
-    stats.push({ lod, ...enc.stats, bytes: enc.buffer.length });
-    console.log(`LOD${lod} err=${DEFAULT_LOD_ERRORS_M[lod]}m → ${enc.stats.triangles} tris, ${enc.stats.vertices} verts, `
-      + `h[${enc.stats.minH.toFixed(1)}..${enc.stats.maxH.toFixed(1)}]m, ${(enc.buffer.length / 1024).toFixed(1)} KB`);
-  }
-  writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(tile, DEFAULT_LOD_ERRORS_M.length - 1), null, 2));
-  console.log(`layer.json + ${DEFAULT_LOD_ERRORS_M.length} LOD tiles → ${outDir}  (tile extent ${tile4.map((v) => v.toFixed(4)).join(',')})`);
-  return { tileWsen: tile4, stats };
+  const cityWsen = tileWsen ?? inscribedWgs84Extent(raster, proj);
+  const rasterFilled = { ...raster, values: fillNodata(raster.values, raster.width, raster.height) };
+  // Per-tile warp: resample the native DTM onto THIS TMS tile's rectangle, then lift ortho→ellipsoidal.
+  const gridForRect = (rectDeg) =>
+    Float32Array.from(resampleToGeographicGrid(rasterFilled, proj.forward, rectDeg, gridSize),
+      (h) => napToEllipsoidal(h, geoidSepM));
+  const res = emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini });
+  return { tileWsen: cityWsen, ...res };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1024,23 +1106,33 @@ export async function compileTifToTileset(tifPath, country, outDir, gridSize, ge
     if (!nativeCrs) throw new Error(`compileTifToTileset: no nativeCrs for '${country}' — pass a wired source or use compileWarpToTileset({nativeCrs}) directly`);
     return compileWarpToTileset({ raster, nativeCrs, geoidSepM: src.geoidSepM, outDir, gridSize, Martini });
   }
+  // NL closed-form: build the ellipsoidal city grid once (RD-New inverse for the corners — unchanged
+  // datum math), then serve it into the shared per-level TMS emitter via a box-linear sampler. The grid
+  // spans the WGS-84 quad of the raster corners (gy=0 = north); samples outside it clamp to the edge.
   const filled = fillNodata(raster.values, raster.width, raster.height);
-  const grid = resampleSquare(filled, raster.width, raster.height, gridSize);
-  const gridEll = grid.map((h) => napToEllipsoidal(h, src.geoidSepM));
+  const cityGrid = resampleSquare(filled, raster.width, raster.height, gridSize).map((h) => napToEllipsoidal(h, src.geoidSepM));
   const [minX, minY, maxX, maxY] = raster.bboxNative;
   const [wLon, sLat] = rdToWgs84(minX, minY), [eLon, nLat] = rdToWgs84(maxX, maxY);
-  const tile = { west: wLon * D2R, south: sLat * D2R, east: eLon * D2R, north: nLat * D2R };
-  const heightAt = (gx, gy) => gridEll[gy * gridSize + gx];
-  mkdirSync(outDir, { recursive: true });
-  for (let lod = 0; lod < DEFAULT_LOD_ERRORS_M.length; lod++) {
-    const mesh = meshTile(gridEll, gridSize, DEFAULT_LOD_ERRORS_M[lod], Martini);
-    const { buffer, stats } = encodeQuantizedMesh(mesh, gridSize, tile, heightAt);
-    const p = resolve(outDir, `${lod}.terrain`);
-    writeFileSync(p, buffer);
-    console.log(`LOD${lod} err=${DEFAULT_LOD_ERRORS_M[lod]}m → ${stats.triangles} tris, ${stats.vertices} verts, ${(buffer.length / 1024).toFixed(1)} KB → ${p}`);
-  }
-  writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(tile, DEFAULT_LOD_ERRORS_M.length - 1), null, 2));
-  console.log(`layer.json + ${DEFAULT_LOD_ERRORS_M.length} LOD tiles → ${outDir}`);
+  const cityWsen = [wLon, sLat, eLon, nLat];
+  const sampleCityGrid = (lon, lat) => {
+    const u = (lon - wLon) / (eLon - wLon), vN = (nLat - lat) / (nLat - sLat); // vN=0 at north
+    const fx = Math.min(gridSize - 1, Math.max(0, u * (gridSize - 1)));
+    const fy = Math.min(gridSize - 1, Math.max(0, vN * (gridSize - 1)));
+    const x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(gridSize - 1, x0 + 1), y1 = Math.min(gridSize - 1, y0 + 1);
+    const tx = fx - x0, ty = fy - y0;
+    const a = cityGrid[y0 * gridSize + x0], b = cityGrid[y0 * gridSize + x1];
+    const c = cityGrid[y1 * gridSize + x0], d = cityGrid[y1 * gridSize + x1];
+    return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+  };
+  const gridForRect = ([rw, rs, re, rn]) => {
+    const out = new Float32Array(gridSize * gridSize);
+    for (let gy = 0; gy < gridSize; gy++) {
+      const lat = rn - (rn - rs) * (gy / (gridSize - 1));
+      for (let gx = 0; gx < gridSize; gx++) out[gy * gridSize + gx] = sampleCityGrid(rw + (re - rw) * (gx / (gridSize - 1)), lat);
+    }
+    return out;
+  };
+  return emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1247,7 +1339,8 @@ async function main() {
       console.log(`${loud ? '::warning::' : ''}SKIP ${name}: ${res.reason}`);
       return;
     }
-    console.log(`✓ ${name} → ${outDir}  (h ${res.stats[0].minH.toFixed(1)}..${res.stats[0].maxH.toFixed(1)} m ellipsoidal)`);
+    const fine = res.tiles[res.tiles.length - 1];
+    console.log(`✓ ${name} → ${outDir}  (z0..${res.maxZoom}, finest ${fine.path} h ${fine.minH.toFixed(1)}..${fine.maxH.toFixed(1)} m ellipsoidal)`);
     return;
   }
 

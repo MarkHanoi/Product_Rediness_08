@@ -22,10 +22,74 @@ import MartiniMod from '@mapbox/martini';
 import decodeMod from '@here/quantized-mesh-decoder';
 
 const Martini = MartiniMod.default ?? MartiniMod;
-const decode = decodeMod.default ?? decodeMod;
+// @here/quantized-mesh-decoder's CJS build double-wraps under Node-ESM interop (m.default.default is
+// the function in 1.2.x); unwrap defensively so the round-trip works regardless of the resolved shape.
+const decode = [decodeMod, decodeMod?.default, decodeMod?.default?.default].find((c) => typeof c === 'function');
 const T = await import('./terrain.mjs');
 
 const D2R = Math.PI / 180;
+
+// ── §TILESET MODE — the ON-DISK ↔ layer.json AGREEMENT proof (the render-flat bug's direct gate) ──
+// `node terrain.verify.mjs --tileset <dir> [--lonlat lon,lat]` reads the emitted layer.json, walks its
+// `available` array, and asserts EVERY declared `{z}/{x}/{y}.terrain` exists at that exact path (the old
+// bake wrote flat `<lod>.terrain` while layer.json declared `{z}/{x}/{y}` → 404 → flat globe). It then
+// DECODES the first tile Cesium requests (the level-0 tile) AND the finest tile with the independent
+// @here decoder, and prints the exact request path Cesium derives for a real city lon/lat, confirming a
+// file is there. This is the whole-loop honesty gate: paths agree AND the bytes are a real mesh.
+if (process.argv.includes('--tileset')) {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const dir = process.argv[process.argv.indexOf('--tileset') + 1];
+  const ll = process.argv.includes('--lonlat')
+    ? process.argv[process.argv.indexOf('--lonlat') + 1].split(',').map(Number) : null;
+  const relOf = (tmpl, z, x, y) => tmpl.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+  const layer = JSON.parse(fs.readFileSync(path.resolve(dir, 'layer.json'), 'utf8'));
+  console.log(`═══ VERIFY TILESET: ${dir} ═══\n`);
+  console.log(`[0] layer.json  scheme=${layer.scheme}  tiles=${JSON.stringify(layer.tiles)}  bounds=[${layer.bounds.map((v) => v.toFixed(4)).join(',')}]  z0..${layer.maxzoom}`);
+  const tmpl = layer.tiles[0];
+
+  // [2] every tile the layer.json DECLARES must exist at exactly that path
+  let present = 0, missing = 0;
+  layer.available.forEach((ranges, z) => {
+    for (const r of ranges) {
+      for (let x = r.startX; x <= r.endX; x++) for (let y = r.startY; y <= r.endY; y++) {
+        const rel = relOf(tmpl, z, x, y);
+        if (fs.existsSync(path.resolve(dir, rel))) present++;
+        else { missing++; console.log(`    MISSING ${rel}`); }
+      }
+    }
+  });
+  console.log(`[2] declared→disk: ${present} present, ${missing} missing  ${missing === 0 ? 'PASS' : 'FAIL'}`);
+
+  // [3] decode the FIRST tile Cesium requests (level-0 available tile) + the finest, independently
+  const decodeAt = (z, x, y, tag) => {
+    const rel = relOf(tmpl, z, x, y);
+    const buf = fs.readFileSync(path.resolve(dir, rel));
+    const dec = decode(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+    console.log(`    ${tag} ${rel.padEnd(22)} → ${dec.vertexData.length / 3} verts, ${dec.triangleIndices.length / 3} tris, h[${dec.header.minHeight.toFixed(1)}..${dec.header.maxHeight.toFixed(1)}]m`);
+    return dec;
+  };
+  const r0 = layer.available[0][0], rM = layer.available[layer.maxzoom][0];
+  console.log('[3] independent @here decode round-trip:');
+  const d0 = decodeAt(0, r0.startX, r0.startY, 'root  ');
+  const dM = decodeAt(layer.maxzoom, rM.startX, rM.startY, 'finest');
+  const decOk = d0.triangleIndices.length > 0 && dM.triangleIndices.length > 0;
+
+  // [4] the EXACT path Cesium requests for a real city lon/lat, at every level, must exist on disk
+  const probe = ll ?? [(layer.bounds[0] + layer.bounds[2]) / 2, (layer.bounds[1] + layer.bounds[3]) / 2];
+  console.log(`[4] Cesium request path for lon/lat ${probe.map((v) => v.toFixed(5)).join(',')} (site centre):`);
+  let pathOk = true;
+  for (let z = 0; z <= layer.maxzoom; z++) {
+    const t = T.tmsTileForLonLat(probe[0], probe[1], z);
+    const rel = relOf(tmpl, z, t.x, t.y);
+    const ok = fs.existsSync(path.resolve(dir, rel));
+    pathOk &&= ok;
+    console.log(`    z${String(z).padStart(2)} → ${rel.padEnd(22)} ${ok ? 'EXISTS' : '404 !!'}`);
+  }
+  const allOk = missing === 0 && decOk && pathOk;
+  console.log(`\n${allOk ? '✅ tileset is Cesium-loadable: every declared/requested tile exists on disk and decodes.' : '❌ tileset MISMATCH — a declared/requested tile is missing or empty.'}`);
+  process.exit(allOk ? 0 : 1);
+}
 
 // ── §CITY MODE — the generalized multi-country proof (the reprojection-adapter verification) ─────
 // `node terrain.verify.mjs --city <name>` fetches the city's REAL national DTM via the §8b adapter,
