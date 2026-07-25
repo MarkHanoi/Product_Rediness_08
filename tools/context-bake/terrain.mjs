@@ -35,6 +35,7 @@
 //
 // USAGE:
 //   node terrain.mjs --list                         # print the per-country DTM source registry
+//   node terrain.mjs --regions                       # print the 25 per-city REGIONS (bakeable vs blocked)
 //   node terrain.mjs --probe                         # live-probe every source (HTTP + Content-Type)
 //   node terrain.mjs --fetch-nl amsterdam.tif        # keyless WCS GetCoverage → an AHN DTM GeoTIFF
 //   node terrain.mjs --tif <file> --country nl \     # compile ONE GeoTIFF → quantized-mesh tileset
@@ -149,6 +150,97 @@ export const TERRAIN_SOURCES = {
     probe: { url: 'https://tnmaccess.nationalmap.gov/api/v1/products?datasets=Digital%20Elevation%20Model%20(DEM)%201%20meter&bbox=-87.65,41.87,-87.62,41.90&max=3', verdict: 'keyless',
       evidence: 'HTTP 200 application/json, "total":1 item "USGS 1 Meter … IL_4_County_QL1_LiDAR_2016", downloadURL on prd-tnm.s3.amazonaws.com. ⚠ geoidSepM is NEGATIVE in CONUS' },
   },
+  // ─── L-6xx Phase-3 extension: the countries LIVE-PROBED 2026-07-25 for the multi-city bake ───
+  it: {
+    country: 'Italy', dataset: 'TINITALY/01 DEM (INGV) — national 10 m bare-earth',
+    protocol: 'WMS GetMap → GeoTIFF (GeoServer)', coverageId: 'tinitaly_dem',
+    endpoint: 'http://tinitaly.pi.ingv.it/TINItaly_1_1/wms',
+    resolutionM: 10.0, horizCrs: 'ETRS89 UTM32/33 (EPSG:258xx)', vertDatum: 'orthometric (Italian geoid)',
+    compoundCrs: 'read from GeoTIFF', geoidSepM: 48.0, // Rome/Milan (~46–49 m over Italy)
+    license: 'CC-BY 4.0 (cite Tarquini et al. / INGV)', commercialOk: true, auth: 'none',
+    probe: { url: 'http://tinitaly.pi.ingv.it/TINItaly_1_1/wms?service=WMS&request=GetCapabilities', verdict: 'keyless',
+      evidence: 'LIVE 2026-07-25: HTTP 200 text/xml WMS_Capabilities (214 KB), layer <Name>tinitaly_dem</Name> '
+        + '"TINITALY, a digital elevation model of Italy with a 10 meter…", AccessConstraints=none. GeoServer WMS → '
+        + 'GetMap FORMAT=image/geotiff yields a real GeoTIFF for a bbox. ⚠ 10 m grid (coarser than the 0.5–1 m '
+        + 'national DTMs elsewhere) but a genuine national bare-earth model; covers Rome + Milan.' },
+  },
+  gb: {
+    country: 'United Kingdom (England)', dataset: 'EA LIDAR Composite DTM 1 m (Environment Agency)',
+    protocol: 'WCS 2.0.1 GetCoverage', coverageId: '13787b9a-26a4-4775-8523-806d13af58fc__Lidar_Composite_Elevation_DTM_1m',
+    endpoint: 'https://environment.data.gov.uk/spatialdata/lidar-composite-digital-terrain-model-dtm-1m/wcs',
+    resolutionM: 1.0, horizCrs: 'OSGB36 / British National Grid (EPSG:27700)', vertDatum: 'ODN (Newlyn)',
+    compoundCrs: 'EPSG:27700+5701', geoidSepM: 46.0, // London ODN→WGS84 ellipsoid
+    license: 'Open Government Licence v3', commercialOk: true, auth: 'none',
+    probe: { url: 'https://environment.data.gov.uk/spatialdata/lidar-composite-digital-terrain-model-dtm-1m/wcs?service=WCS&request=GetCapabilities', verdict: 'keyless',
+      evidence: 'LIVE 2026-07-25: HTTP 200 application/xml WCS 2.0.1 Capabilities (7.4 KB), CoverageId '
+        + '"…__Lidar_Composite_Elevation_DTM_1m" Title "Lidar_Composite_Elevation_DTM_1m", ServiceTypeVersion 2.0.1/1.1.x. '
+        + 'OGL v3 → commercial OK. England coverage includes London (Scotland/Wales are separate portals).' },
+  },
+  se: {
+    country: 'Sweden', dataset: 'Lantmäteriet Markhöjdmodell / höjddata grid 1+',
+    protocol: 'Lantmäteriet download/OGC API (free consumer key)', coverageId: 'markhojdmodell',
+    endpoint: 'https://api.lantmateriet.se/ (Höjddata Nedladdning)',
+    resolutionM: 1.0, horizCrs: 'SWEREF99 TM (EPSG:3006)', vertDatum: 'RH2000 (EPSG:5613)',
+    compoundCrs: 'EPSG:3006+5613', geoidSepM: 26.0, // Stockholm RH2000→WGS84 ellipsoid
+    license: 'CC0 (open data since 2022)', commercialOk: true, auth: 'apikey (free Lantmäteriet consumer key)',
+    probe: { url: 'https://api.lantmateriet.se/distribution/produkter/hojdgrid/v1/', verdict: 'token',
+      evidence: 'LIVE 2026-07-25: HTTP 404 on the unauthenticated distribution route + 404 on the OGC-features '
+        + 'guess — the elevation IS open (CC0) but delivered through Lantmäteriet\'s account-gated download/API, so it '
+        + 'needs a FREE registered consumer key (LANTMATERIET_API_KEY), like DK\'s Datafordeler apikey. Pin the exact '
+        + 'GeoTIFF/tiff download route once the key is minted.' },
+  },
+  fi: {
+    country: 'Finland', dataset: 'NLS/Maanmittauslaitos Korkeusmalli 2 m (KM2)',
+    protocol: 'WCS 2.0 GetCoverage (avoin-karttakuva, API key)', coverageId: 'korkeusmalli_2m',
+    endpoint: 'https://avoin-karttakuva.maanmittauslaitos.fi/ortokuvat-ja-korkeusmallit/wcs/v2',
+    resolutionM: 2.0, horizCrs: 'ETRS-TM35FIN (EPSG:3067)', vertDatum: 'N2000 (EPSG:5717)',
+    compoundCrs: 'EPSG:3067+5717', geoidSepM: 19.0, // Helsinki N2000→WGS84 ellipsoid
+    license: 'CC-BY 4.0 (NLS open data)', commercialOk: true, auth: 'apikey (free NLS open-data key)',
+    probe: { url: 'https://avoin-karttakuva.maanmittauslaitos.fi/ortokuvat-ja-korkeusmallit/wcs/v2?service=WCS&request=GetCapabilities', verdict: 'token',
+      evidence: 'LIVE 2026-07-25: HTTP 401 without a key — the NLS elevation WCS is CC-BY 4.0 open data but '
+        + 'requires a FREE API key (MML_API_KEY, register at asiointi.maanmittauslaitos.fi). Keyless everywhere else '
+        + 'in Nordics except this one; add the key as a CI secret to bake Helsinki.' },
+  },
+  pt: {
+    country: 'Portugal', dataset: '(no open national bare-earth DTM found)',
+    protocol: 'n/a', coverageId: null,
+    endpoint: 'https://www.dgterritorio.gov.pt/ (DGT)',
+    resolutionM: null, horizCrs: 'ETRS89 / PT-TM06 (EPSG:3763)', vertDatum: 'Cascais 1938',
+    compoundCrs: null, geoidSepM: 53.0, // Lisbon (for when a source is found)
+    license: 'BLOCKED — no open commercial DTM located', commercialOk: null, auth: 'none',
+    probe: { url: 'https://cartografia.dgterritorio.gov.pt/wcs/ELEVATION?service=WCS&request=GetCapabilities', verdict: 'blocked',
+      evidence: 'LIVE 2026-07-25: HTTP 404 text/html on the guessed DGT elevation WCS; DGT publishes cartography '
+        + 'but NO open national high-res bare-earth DTM WCS/tiles. Only fallback is Copernicus (EU-DEM 25 m deprecated, '
+        + 'or GLO-30 which is a DSM not bare-earth) — neither is an acceptable commercial national drape. BLOCKED: '
+        + 'needs a founder-sourced DGT DTM licence or a Copernicus-DEM commercial-clearance decision.' },
+  },
+  be: {
+    country: 'Belgium (region-split; Brussels-Capital here)', dataset: '(no keyless national DTM; Brussels DTM unsourced)',
+    protocol: 'regional WCS (per region)', coverageId: null,
+    endpoint: 'https://geoservices-urbis.irisnet.be/geoserver/ows (URBIS — reference, not elevation)',
+    resolutionM: null, horizCrs: 'Lambert 2008 (EPSG:3812)', vertDatum: 'TAW/DNG (Ostend)',
+    compoundCrs: null, geoidSepM: 45.0, // Brussels
+    license: 'BLOCKED — Brussels-Capital DTM route not located', commercialOk: null, auth: 'none',
+    probe: { url: 'https://geoservices-urbis.irisnet.be/geoserver/ows?service=WCS&request=GetCapabilities', verdict: 'blocked',
+      evidence: 'LIVE 2026-07-25: URBIS GeoServer OWS answers (HTTP 200 xml) but exposes NO elevation coverage '
+        + '(WCS 2.0.1 + 1.0.0 both return a ~500-byte empty/exception doc). Belgium has NO national DTM — it is '
+        + 'REGION-split (Flanders DHMV, Wallonia MNT LiDAR both open) but Brussels-Capital is an enclaved separate '
+        + 'region neither reliably covers. BLOCKED for Brussels until the Brussels-Capital (Bruxelles '
+        + 'Environnement / CIRB) DTM service + licence are pinned. Mirror the DE per-Land router.' },
+  },
+  sa: {
+    country: 'Saudi Arabia', dataset: '(no open national DTM found)',
+    protocol: 'n/a', coverageId: null,
+    endpoint: 'https://www.geosa.gov.sa/ (GEOSA — national geospatial authority)',
+    resolutionM: null, horizCrs: 'MTM / Ain el Abd or ETRS-like', vertDatum: 'unknown',
+    compoundCrs: null, geoidSepM: null,
+    license: 'BLOCKED — no open DEM/DSM service', commercialOk: null, auth: 'unknown',
+    probe: { url: 'https://www.geosa.gov.sa/', verdict: 'blocked',
+      evidence: 'GEOSA is the national authority but publishes NO open DEM/DSM WCS/WMS/tile service. No keyless '
+        + 'national bare-earth DTM exists (matches the Saudi OSM building-desert finding — the whole country is '
+        + 'data-scarce and gov-gated). BLOCKED: founder must ask a GEOSA/MOMRAH contact for a DEM service + licence. '
+        + 'FABDEM (30 m global, CC-BY-NC) exists here but is NON-COMMERCIAL — must NOT be shipped as a drape.' },
+  },
   // Global bare-earth fallback for everywhere with no national open DTM (CONTEXT-DATA-TERRAIN.md).
   _fabdem: {
     country: 'GLOBAL FALLBACK', dataset: 'FABDEM (Forest And Buildings removed Copernicus DEM)',
@@ -161,6 +253,50 @@ export const TERRAIN_SOURCES = {
       evidence: '⚠ NON-COMMERCIAL licence (CC-BY-NC-SA). MUST NOT ship as a drape surface for a commercial product without clearing the clause. Bare-earth (correct choice over raw GLO-30 DSM) but flagged, not silently used' },
   },
 };
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §1b — PER-CITY TERRAIN REGIONS  (mirrors bake.mjs REGIONS — the 25 jurisdiction cities)
+//
+// Each city maps to a country DTM `source` (a TERRAIN_SOURCES key) + a city-centre `bbox`
+// [minLon,minLat,maxLon,maxLat]. Bboxes mirror bake.mjs's building REGIONS 1:1 (the three Spanish
+// cities are pinned here because the BUILDING bake uses one national `spain` region, but TERRAIN is
+// per-city — a whole-Spain DTM tiling is far too large, so we clip PNOA MDT per city). A city whose
+// `source` is BLOCKED (no open commercial DTM) is carried with `blocked:true` + the reason, and the
+// CLI / CI SKIPS it with a loud note — never a silent omission. The client's terrainCoverage.ts
+// lists exactly the non-blocked slugs, so an un-baked/blocked city keeps flat ground (no regression).
+// ═════════════════════════════════════════════════════════════════════════════
+export const REGIONS = [
+  // slug          source  bbox [W,S,E,N]                          note
+  { name: 'amsterdam',    source: 'nl', bbox: [4.83, 52.34, 4.97, 52.42] },
+  { name: 'paris',        source: 'fr', bbox: [2.22, 48.80, 2.47, 48.91] },
+  { name: 'lyon',         source: 'fr', bbox: [4.78, 45.70, 4.92, 45.80] },
+  { name: 'rome',         source: 'it', bbox: [12.40, 41.83, 12.60, 41.99] },
+  { name: 'milan',        source: 'it', bbox: [9.10, 45.40, 9.28, 45.55] },
+  { name: 'london',       source: 'gb', bbox: [-0.20, 51.44, 0.02, 51.55] },
+  { name: 'copenhagen',   source: 'dk', bbox: [12.50, 55.63, 12.65, 55.72] }, // apikey (DATAFORDELER_API_KEY)
+  { name: 'oslo',         source: 'no', bbox: [10.66, 59.88, 10.83, 59.96] },
+  { name: 'stockholm',    source: 'se', bbox: [17.98, 59.28, 18.14, 59.37] }, // apikey (LANTMATERIET_API_KEY)
+  { name: 'helsinki',     source: 'fi', bbox: [24.88, 60.14, 25.02, 60.20] }, // apikey (MML_API_KEY)
+  { name: 'zurich',       source: 'ch', bbox: [8.45, 47.34, 8.62, 47.43] },
+  { name: 'geneva',       source: 'ch', bbox: [6.09, 46.17, 6.18, 46.25] },
+  { name: 'bern',         source: 'ch', bbox: [7.40, 46.93, 7.48, 46.99] },
+  { name: 'madrid',       source: 'es', bbox: [-3.80, 40.33, -3.58, 40.52] },
+  { name: 'barcelona',    source: 'es', bbox: [2.09, 41.32, 2.23, 41.47] },
+  { name: 'cordoba',      source: 'es', bbox: [-4.85, 37.84, -4.72, 37.94] },
+  { name: 'newyork',      source: 'us', bbox: [-74.03, 40.70, -73.91, 40.82] },
+  { name: 'sanfrancisco', source: 'us', bbox: [-122.52, 37.70, -122.36, 37.83] },
+  // ── BLOCKED cities (no open commercial DTM) — carried explicitly, SKIPPED with a reason ──
+  { name: 'lisbon',       source: 'pt', bbox: [-9.23, 38.68, -9.08, 38.80], blocked: 'PT — no open national bare-earth DTM (DGT). See coverage doc.' },
+  { name: 'porto',        source: 'pt', bbox: [-8.70, 41.12, -8.55, 41.20], blocked: 'PT — no open national bare-earth DTM (DGT).' },
+  { name: 'brussels',     source: 'be', bbox: [4.30, 50.80, 4.42, 50.90], blocked: 'BE — region-split; Brussels-Capital DTM route/licence unsourced.' },
+  { name: 'berlin',       source: 'de', bbox: [13.28, 52.44, 13.55, 52.58], blocked: 'DE — per-Land; only NRW is sourced. Berlin=Geoportal Berlin DGM1 (separate adapter).' },
+  { name: 'munich',       source: 'de', bbox: [11.44, 48.09, 11.66, 48.20], blocked: 'DE — per-Land; only NRW is sourced. Munich=Bayern DGM1 (separate adapter).' },
+  { name: 'riyadh',       source: 'sa', bbox: [46.60, 24.58, 46.83, 24.80], blocked: 'SA — no open national DTM (GEOSA). Founder-gated.' },
+  { name: 'jeddah',       source: 'sa', bbox: [39.10, 21.45, 39.28, 21.62], blocked: 'SA — no open national DTM (GEOSA). Founder-gated.' },
+];
+
+/** Cities we CAN bake now (source not blocked). CI iterates these; blocked ones print a note. */
+export const BAKEABLE_REGIONS = REGIONS.filter((r) => !r.blocked);
 
 // ═════════════════════════════════════════════════════════════════════════════
 // §2 — DTM RASTER INGEST
@@ -492,12 +628,21 @@ async function fetchToFile(url, dest, timeoutMs = 60000) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// §9 — RUNTIME WIRING (the Cesium terrain-provider + the L-584 datum fix) — DOC, not executed.
+// §9 — RUNTIME WIRING (the Cesium terrain-provider + the L-584 datum fix).
 //
-// CesiumViewport.ts already has the whole machinery; it just never had a real terrain provider
+// ✅ SHIPPED (Phase 3, 2026-07-25). The wiring documented below is now IMPLEMENTED in the client:
+//   • apps/editor/src/ui/geospatial/terrainCoverage.ts — cityForLonLat() + terrainTilesetUrl():
+//       resolve a site lon/lat → baked-terrain city slug → `${contextTilesBaseUrl()}terrain/<city>`.
+//   • apps/editor/src/ui/geospatial/CesiumViewport.ts — maybeAttachTerrainProvider(): called from
+//       loadContextBuildings() (every location change / pan), it awaits CesiumTerrainProvider.fromUrl,
+//       assigns viewer.terrainProvider on success, then drops formaTerrainSampledAt and re-runs
+//       clampTerrainThenReplace so the massing re-seats on real ground. GUARDED: unknown city or a
+//       404 layer.json (un-baked / blocked) keeps the flat EllipsoidTerrainProvider — no regression.
+//
+// CesiumViewport.ts already had the whole machinery; it just never had a real terrain provider
 // (`terrainProviderHasElevationData()` returns false for the default EllipsoidTerrainProvider, so
-// `clampTerrainThenReplace()` clamps to flat base 0). Phase 3 attaches the R2 tileset — TWO edits,
-// both isolated, no new dependency (Cesium ships CesiumTerrainProvider):
+// `clampTerrainThenReplace()` clamps to flat base 0). Phase 3 attaches the R2 tileset — no new
+// dependency (Cesium ships CesiumTerrainProvider):
 //
 //   // (a) after the viewer is built, attach the baked terrain instead of the bare ellipsoid:
 //   const provider = await Cesium.CesiumTerrainProvider.fromUrl(
@@ -520,6 +665,36 @@ async function fetchToFile(url, dest, timeoutMs = 60000) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 // ═════════════════════════════════════════════════════════════════════════════
+// §9b — COMPILE ONE DTM GeoTIFF → a Cesium quantized-mesh tileset dir (shared by --tif + --bake-city)
+// ⚠ Reprojection: NL uses the closed-form RD inverse (rdToWgs84). Other countries need proj4 for
+// their native horizCrs — until that adapter lands, only source 'nl' is wired end-to-end (§9).
+// ═════════════════════════════════════════════════════════════════════════════
+export async function compileTifToTileset(tifPath, country, outDir, gridSize, geotiffMod, Martini) {
+  const src = TERRAIN_SOURCES[country];
+  const raster = await readDtmGeoTIFF(tifPath, geotiffMod);
+  const filled = fillNodata(raster.values, raster.width, raster.height);
+  const grid = resampleSquare(filled, raster.width, raster.height, gridSize);
+  const gridEll = grid.map((h) => napToEllipsoidal(h, src.geoidSepM));
+  const [minX, minY, maxX, maxY] = raster.bboxNative;
+  if (country !== 'nl') {
+    throw new Error(`reproject adapter not wired for ${country} (${src.horizCrs}) — only NL RD-New today`);
+  }
+  const [wLon, sLat] = rdToWgs84(minX, minY), [eLon, nLat] = rdToWgs84(maxX, maxY);
+  const tile = { west: wLon * D2R, south: sLat * D2R, east: eLon * D2R, north: nLat * D2R };
+  const heightAt = (gx, gy) => gridEll[gy * gridSize + gx];
+  mkdirSync(outDir, { recursive: true });
+  for (let lod = 0; lod < DEFAULT_LOD_ERRORS_M.length; lod++) {
+    const mesh = meshTile(gridEll, gridSize, DEFAULT_LOD_ERRORS_M[lod], Martini);
+    const { buffer, stats } = encodeQuantizedMesh(mesh, gridSize, tile, heightAt);
+    const p = resolve(outDir, `${lod}.terrain`);
+    writeFileSync(p, buffer);
+    console.log(`LOD${lod} err=${DEFAULT_LOD_ERRORS_M[lod]}m → ${stats.triangles} tris, ${stats.vertices} verts, ${(buffer.length / 1024).toFixed(1)} KB → ${p}`);
+  }
+  writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(tile, DEFAULT_LOD_ERRORS_M.length - 1), null, 2));
+  console.log(`layer.json + ${DEFAULT_LOD_ERRORS_M.length} LOD tiles → ${outDir}`);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // §10 — CLI
 // ═════════════════════════════════════════════════════════════════════════════
 function printRegistry() {
@@ -528,16 +703,35 @@ function printRegistry() {
     console.log(`■ ${code.toUpperCase().padEnd(8)} ${s.dataset}`);
     console.log(`    endpoint  : ${s.endpoint}`);
     console.log(`    grid/CRS  : ${s.resolutionM} m · ${s.horizCrs} + ${s.vertDatum} (compound ${s.compoundCrs})`);
-    console.log(`    datum lift: ${s.geoidSepM >= 0 ? '+' : ''}${s.geoidSepM} m orthometric→ellipsoidal · licence ${s.license} · commercialOk=${s.commercialOk} · auth ${s.auth}`);
+    const lift = s.geoidSepM == null ? 'n/a' : `${s.geoidSepM >= 0 ? '+' : ''}${s.geoidSepM} m`;
+    console.log(`    datum lift: ${lift} orthometric→ellipsoidal · licence ${s.license} · commercialOk=${s.commercialOk} · auth ${s.auth}`);
     console.log(`    PROBE     : ${s.probe.verdict.toUpperCase()} — ${s.probe.evidence}`);
     console.log('');
   }
+}
+
+/** Print the per-city terrain REGIONS (the 25 jurisdiction cities), grouped bakeable vs blocked. */
+function printRegions() {
+  console.log(`PRYZM terrain — ${REGIONS.length} jurisdiction cities (mirrors bake.mjs REGIONS)\n`);
+  console.log(`  BAKEABLE (${BAKEABLE_REGIONS.length}):`);
+  for (const r of BAKEABLE_REGIONS) {
+    const s = TERRAIN_SOURCES[r.source];
+    console.log(`    ✔ ${r.name.padEnd(13)} ${r.source.toUpperCase().padEnd(3)} ${s.probe.verdict.padEnd(8)} bbox ${r.bbox.join(',')}`);
+  }
+  const blocked = REGIONS.filter((r) => r.blocked);
+  console.log(`\n  BLOCKED (${blocked.length}) — skipped with reason, NOT silently dropped:`);
+  for (const r of blocked) {
+    console.log(`    ✖ ${r.name.padEnd(13)} ${r.source.toUpperCase().padEnd(3)} — ${r.blocked}`);
+  }
+  console.log('');
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const flag = (n) => args.includes(n);
   const val = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : null);
+
+  if (flag('--regions')) { printRegions(); return; }
 
   if (flag('--probe')) {
     for (const [code, s] of Object.entries(TERRAIN_SOURCES)) {
@@ -567,28 +761,41 @@ async function main() {
     const geotiffMod = await import('geotiff');
     const Martini = (await import('@mapbox/martini')).default;
     const country = val('--country') || 'nl';
-    const src = TERRAIN_SOURCES[country];
     const outDir = val('--out') || resolve(HERE, 'out/terrain', country);
     const gridSize = Number(val('--grid') || 257);
-    const raster = await readDtmGeoTIFF(val('--tif'), geotiffMod);
-    const filled = fillNodata(raster.values, raster.width, raster.height);
-    const grid = resampleSquare(filled, raster.width, raster.height, gridSize);
-    const gridEll = grid.map((h) => napToEllipsoidal(h, src.geoidSepM));
-    const [minX, minY, maxX, maxY] = raster.bboxNative;
-    // NL uses the closed-form RD inverse; other countries wire proj4 with src.horizCrs.
-    const [wLon, sLat] = rdToWgs84(minX, minY), [eLon, nLat] = rdToWgs84(maxX, maxY);
-    const tile = { west: wLon * D2R, south: sLat * D2R, east: eLon * D2R, north: nLat * D2R };
-    const heightAt = (gx, gy) => gridEll[gy * gridSize + gx];
-    mkdirSync(outDir, { recursive: true });
-    for (let lod = 0; lod < DEFAULT_LOD_ERRORS_M.length; lod++) {
-      const mesh = meshTile(gridEll, gridSize, DEFAULT_LOD_ERRORS_M[lod], Martini);
-      const { buffer, stats } = encodeQuantizedMesh(mesh, gridSize, tile, heightAt);
-      const p = resolve(outDir, `${lod}.terrain`);
-      writeFileSync(p, buffer);
-      console.log(`LOD${lod} err=${DEFAULT_LOD_ERRORS_M[lod]}m → ${stats.triangles} tris, ${stats.vertices} verts, ${(buffer.length / 1024).toFixed(1)} KB → ${p}`);
+    await compileTifToTileset(val('--tif'), country, outDir, gridSize, geotiffMod, Martini);
+    return;
+  }
+
+  // §TERRAIN-BAKE-CITY — the CI entry point (terrain-bake.yml iterates BAKEABLE_REGIONS).
+  // Fetch this city's national DTM → compile → out/terrain/<city>/. HONEST: only source 'nl'
+  // (keyless AHN, RD-New) is wired end-to-end today; every other city SKIPS loudly (exit 0) with
+  // its registry probe verdict, so CI keeps going and never emits a wrong-datum tileset. As each
+  // per-country fetch/reproject adapter lands, its branch is added here and the city lights up.
+  if (flag('--bake-city')) {
+    const name = val('--bake-city');
+    const region = REGIONS.find((r) => r.name === name);
+    if (!region) { console.error(`unknown city '${name}' (see --regions)`); process.exit(1); }
+    if (region.blocked) { console.log(`SKIP ${name}: BLOCKED — ${region.blocked}`); return; }
+    const src = TERRAIN_SOURCES[region.source];
+    const outDir = val('--out') || resolve(HERE, 'out/terrain', name);
+    if (region.source !== 'nl') {
+      console.log(`SKIP ${name} (${region.source.toUpperCase()}): fetch/reproject adapter not yet wired `
+        + `(needs proj4 for ${src.horizCrs}; probe=${src.probe.verdict}). No tileset emitted — see CONTEXT-TERRAIN-COVERAGE.md.`);
+      return;
     }
-    writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(tile, DEFAULT_LOD_ERRORS_M.length - 1), null, 2));
-    console.log(`layer.json + ${DEFAULT_LOD_ERRORS_M.length} LOD tiles → ${outDir}`);
+    const geotiffMod = await import('geotiff');
+    const Martini = (await import('@mapbox/martini')).default;
+    mkdirSync(outDir, { recursive: true });
+    const tifPath = resolve(outDir, `${name}_dtm.tif`);
+    // Amsterdam-centre 256 m RD-New tile — the reproducible keyless proof box (§8/--fetch-nl).
+    const bboxRD = (val('--bbox-rd') || '120900,486900,121156,487156').split(',').map(Number);
+    const url = dtmWcsUrl(bboxRD);
+    console.log(`bake ${name}: fetch keyless AHN DTM → ${tifPath}\n  ${url}`);
+    const fr = await fetchToFile(url, tifPath);
+    console.log(`  ✔ ${fr.bytes} B ${fr.ct} TIFF magic ${fr.magic}`);
+    await compileTifToTileset(tifPath, region.source, outDir, Number(val('--grid') || 257), geotiffMod, Martini);
+    console.log(`✓ ${name} → ${outDir}`);
     return;
   }
 

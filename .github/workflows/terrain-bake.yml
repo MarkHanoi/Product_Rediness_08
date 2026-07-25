@@ -1,0 +1,221 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# terrain-bake.yml — bake per-city TERRAIN (Cesium quantized-mesh) → R2 (Phase 3)
+#
+# SEPARATE from context-bake.yml BY DESIGN. context-bake.yml owns the building/road/
+# water/park PMTiles (osmium + tippecanoe, via a Docker toolchain). This workflow owns
+# the ELEVATION half: `tools/context-bake/terrain.mjs` turns a national DTM raster into
+# a Cesium quantized-mesh tileset per city and publishes it to
+# `s3://pryzm-assets/tiles/terrain/<city>/`. The client attaches it with a
+# CesiumTerrainProvider (apps/editor/.../CesiumViewport.ts maybeAttachTerrainProvider),
+# which is what makes real ground RENDER under the massing in the 3D-Site view.
+#
+# WHY the split matters operationally: the height agent edits bake.mjs; terrain.mjs is a
+# standalone module that does NOT import bake.mjs. Two workflows = no collision, no shared
+# concurrency group, independent dispatch.
+#
+# TOOLCHAIN: pure Node — geotiff (read DTM) + @mapbox/martini (raster→TIN). NO Docker,
+# NO GDAL (terrain.mjs implements the quantized-mesh encoder in-file). Deps install
+# STANDALONE into tools/context-bake/node_modules (no package.json → NOT a pnpm workspace
+# member; ephemeral in CI, gitignored), exactly as terrain.mjs's header prescribes.
+#
+# HONEST CURRENT STATE (2026-07-25): only Amsterdam (NL AHN) is wired end-to-end — it is
+# the keyless, reprojection-proven one-city path (dtmWcsUrl + rdToWgs84). Every other
+# BAKEABLE city SKIPS loudly (its per-country fetch/reproject adapter — proj4 for the
+# native CRS — is not written yet), and every BLOCKED city is skipped with its reason.
+# So this run currently publishes `terrain/amsterdam/` and reports the rest as pending —
+# no wrong-datum tileset is ever emitted. As each adapter lands in terrain.mjs, its city
+# starts producing tiles here with no workflow change.
+#
+# MANUAL ONLY. Founder clicks "Run workflow"; national DTMs change slowly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Bake terrain tiles → R2 (Phase 3)
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: 'Bake a single city only (e.g. amsterdam). Blank = every BAKEABLE region.'
+        type: string
+        default: ''
+      publish:
+        description: 'Upload to s3://pryzm-assets/tiles/terrain/. Untick to bake + inspect the artifact only.'
+        type: boolean
+        default: true
+
+concurrency:
+  group: terrain-bake
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    name: DTM → MARTINI TIN → quantized-mesh → R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install terrain compiler deps (standalone — NOT the pnpm workspace)
+        working-directory: tools/context-bake
+        # --no-save so no package.json is written (a package.json here would make
+        # tools/context-bake a pnpm workspace member and trip frozen-lockfile). ESM
+        # `import('geotiff')` inside terrain.mjs resolves from ./node_modules by walking up.
+        run: npm install --no-save --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1
+
+      - name: Plan — source registry + per-city regions + live probe
+        run: |
+          set -euo pipefail
+          node tools/context-bake/terrain.mjs --regions
+          echo "── live source probe ──"
+          node tools/context-bake/terrain.mjs --probe || true
+
+      - name: Bake
+        env:
+          # apikey-gated sources (used once their fetch/reproject adapters land). DK reuses the
+          # Matrikel key. ⚠ If any of these is only a FLY secret, add it as a REPO secret too or
+          # the CI bake for that city cannot authenticate. Amsterdam (the wired city) is keyless.
+          DATAFORDELER_API_KEY: ${{ secrets.DATAFORDELER_API_KEY }}
+          LANTMATERIET_API_KEY: ${{ secrets.LANTMATERIET_API_KEY }}
+          MML_API_KEY: ${{ secrets.MML_API_KEY }}
+          CITY: ${{ inputs.city }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CITY" ]; then
+            CITIES="$CITY"
+          else
+            # Every bakeable (non-blocked) city, from the single source of truth.
+            CITIES="$(node -e "import('./tools/context-bake/terrain.mjs').then(m => console.log(m.BAKEABLE_REGIONS.map(r => r.name).join(' ')))")"
+          fi
+          echo "cities to attempt: $CITIES"
+          for c in $CITIES; do
+            echo "── $c ──"
+            node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c"
+          done
+
+      - name: Assert produced tilesets are real
+        run: |
+          set -euo pipefail
+          cd tools/context-bake/out
+          if [ ! -d terrain ] || [ -z "$(ls -A terrain 2>/dev/null)" ]; then
+            echo "::warning::no terrain/ tilesets were produced — all attempted cities skipped (adapters pending). This is expected until >1 country's fetch/reproject adapter lands."
+            exit 0
+          fi
+          fail=0
+          for d in terrain/*/; do
+            city="$(basename "$d")"
+            if [ ! -f "$d/layer.json" ]; then
+              echo "::error::$city has no layer.json — compile produced no tileset."
+              fail=1; continue
+            fi
+            # At least one quantized-mesh LOD, non-trivial size (an empty encode is a few bytes).
+            n="$(ls "$d"/*.terrain 2>/dev/null | wc -l)"
+            biggest="$(ls -S "$d"/*.terrain 2>/dev/null | head -1)"
+            sz="$(stat -c %s "$biggest" 2>/dev/null || echo 0)"
+            echo "$city — $n .terrain LODs, largest $sz bytes, layer.json OK"
+            if [ "$n" -lt 1 ] || [ "$sz" -lt 128 ]; then
+              echo "::error::$city produced no real quantized-mesh tiles."
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: Round-trip proof (independent decoder) — Amsterdam
+        # The encoder is hand-rolled, so a tileset is only trustworthy if a decoder we did NOT
+        # write reads it back. Runs only when Amsterdam was baked (its DTM tif is on disk).
+        run: |
+          set -euo pipefail
+          TIF="tools/context-bake/out/terrain/amsterdam/amsterdam_dtm.tif"
+          if [ -f "$TIF" ]; then
+            ( cd tools/context-bake && node terrain.verify.mjs "out/terrain/amsterdam/amsterdam_dtm.tif" nl )
+          else
+            echo "amsterdam not baked this run — skipping round-trip proof."
+          fi
+
+      - name: Upload tilesets as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terrain-tilesets
+          path: tools/context-bake/out/terrain/**
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Publish to R2
+        if: ${{ inputs.publish }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ ! -d tools/context-bake/out/terrain ] || [ -z "$(ls -A tools/context-bake/out/terrain 2>/dev/null)" ]; then
+            echo "nothing to publish — no tilesets produced this run."
+            exit 0
+          fi
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot publish. (The artifact above is still valid.)"
+            exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # Two passes so each object carries the right content-type. Terrain tiles are served
+          # whole (Cesium fetches each .terrain in full — no HTTP Range requirement, unlike PMTiles).
+          # A 1-day cache lets a re-bake propagate (per-city path is stable, so we do NOT use the
+          # immutable/path-change scheme PMTiles uses).
+          aws s3 sync tools/context-bake/out/terrain "s3://pryzm-assets/tiles/terrain" \
+            --endpoint-url "$ENDPOINT" --no-progress \
+            --exclude '*' --include '*.terrain' \
+            --content-type 'application/vnd.quantized-mesh' \
+            --cache-control 'public, max-age=86400'
+          aws s3 sync tools/context-bake/out/terrain "s3://pryzm-assets/tiles/terrain" \
+            --endpoint-url "$ENDPOINT" --no-progress \
+            --exclude '*' --include 'layer.json' --include '*/layer.json' \
+            --content-type 'application/json' \
+            --cache-control 'public, max-age=86400'
+          echo "── bucket after publish ──"
+          aws s3 ls "s3://pryzm-assets/tiles/terrain/" --endpoint-url "$ENDPOINT" --recursive --human-readable | head -50
+
+      - name: Verify a tileset is publicly readable
+        if: ${{ inputs.publish }}
+        env:
+          PUBLIC_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/' }}
+        run: |
+          set -euo pipefail
+          # Verify whatever city we actually baked (prefer amsterdam). Terrain does NOT need 206 —
+          # Cesium reads each .terrain whole — so a plain 200 on layer.json is the success signal.
+          CITY="amsterdam"
+          if [ ! -d "tools/context-bake/out/terrain/$CITY" ]; then
+            CITY="$(basename "$(ls -d tools/context-bake/out/terrain/*/ 2>/dev/null | head -1)")" || true
+          fi
+          if [ -z "$CITY" ]; then echo "no city to verify (none baked)."; exit 0; fi
+          URL="${PUBLIC_BASE%/}/terrain/$CITY/layer.json"
+          echo "probing $URL"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 "$URL")"
+          echo "HTTP $code (expected 200)"
+          if [ "$code" = "200" ]; then
+            echo "✓ terrain/$CITY is public — CesiumTerrainProvider.fromUrl will resolve it."
+          else
+            echo "::error::$URL returned $code — uploaded but not publicly served. Fix in the Cloudflare R2 dashboard (Public access), and ensure connect-src allows the tiles origin (server/securityHeaders.js)."
+            exit 1
+          fi
+
+      - name: What to do next
+        if: ${{ success() && inputs.publish }}
+        run: |
+          {
+            echo "### Terrain tiles published ✅"
+            echo ""
+            echo "Live under \`pryzm-assets/tiles/terrain/<city>/\`. The client "
+            echo "(\`CesiumViewport.maybeAttachTerrainProvider\`) attaches them automatically for any "
+            echo "site inside a baked city bbox — no code change needed."
+            echo ""
+            echo "**Pending adapters:** only \`amsterdam\` is wired end-to-end today. The other bakeable"
+            echo "cities await a per-country DTM fetch + proj4 reprojection adapter in \`terrain.mjs\`."
+            echo "**apikey cities:** copenhagen (DATAFORDELER_API_KEY), stockholm (LANTMATERIET_API_KEY),"
+            echo "helsinki (MML_API_KEY) — add each as a REPO secret before baking those cities."
+          } >> "$GITHUB_STEP_SUMMARY"
