@@ -61,10 +61,16 @@ jobs:
 
       - name: Install terrain compiler deps (standalone — NOT the pnpm workspace)
         working-directory: tools/context-bake
-        # --no-save so no package.json is written (a package.json here would make
-        # tools/context-bake a pnpm workspace member and trip frozen-lockfile). ESM
-        # `import('geotiff')` inside terrain.mjs resolves from ./node_modules by walking up.
-        run: npm install --no-save --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1
+        # A TRANSIENT, uncommitted package.json scopes npm to THIS dir so it never walks up
+        # to the repo-root package.json (whose `workspace:*` deps npm cannot parse — that walk-up
+        # is what killed the install with EUNSUPPORTEDPROTOCOL). It is created and removed inside
+        # this step, so pnpm frozen-lockfile never sees it and tools/context-bake never becomes a
+        # workspace member. ESM `import('geotiff')` in terrain.mjs then resolves from ./node_modules.
+        run: |
+          set -euo pipefail
+          printf '{ "name": "pryzm-context-bake-standalone", "private": true, "version": "0.0.0" }\n' > package.json
+          npm install --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1
+          rm -f package.json package-lock.json
 
       - name: Plan — source registry + per-city regions + live probe
         run: |
