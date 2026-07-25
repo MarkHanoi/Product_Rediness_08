@@ -1332,14 +1332,15 @@ async function applyMadridZoningThenFallback(
                             `${resolution.codManzana ? ` (manzana ${resolution.codManzana})` : ''} — ` +
                             `real published geometry, clipped to your parcel. It ships as ` +
                             `estimated-ruleset, not structured: the zone-code vintage is human-certified ` +
-                            `only lightly and the COEF_Z (edificabilidad) semantics are withheld, so no ` +
+                            `only lightly and the COEF_Z${resolution.coefZ ? ` code "${resolution.coefZ}"` : ''} ` +
+                            `(edificabilidad) semantics are withheld, so no ` +
                             `height or FAR is asserted from it. Verify against the Compendio before relying on it.`,
                     ],
                 };
                 dispatchEnvelope(ctx, site.id, enriched, 'madrid-pgoum');
                 console.log(
                     `${TAG} explicit-area envelope OK → cod=${resolution.codManzana} ` +
-                        `edificabilidad=${resolution.edificabilidad ?? 'n/a'} ` +
+                        `coefZ=${resolution.coefZ ?? 'n/a'} edificabilidad=${resolution.edificabilidad ?? 'n/a'} ` +
                         `inset=${enriched.insetAreaM2.toFixed(1)}m² — clipped to the published footprint ` +
                         `(estimated-ruleset, gate CERTIFIED).`,
                 );

@@ -4,8 +4,9 @@
 // every test injects `fetchImpl`), the parse is deterministic. Per the MADRID-DATA-RECON-SPIKE §3
 // the join is SPATIAL — the resolver sends the parcel's WGS84 POINT and the plane intersects it, so
 // these tests pass a point, not a CODMANZANA string. They pin the resolver's honesty properties (see
-// its header): never throws, does not project (returns WGS84), and parses COEF_Z under assertion
-// (unparseable → refusal, absent → null, never a fabricated default).
+// its header): never throws, does not project (returns WGS84), and treats COEF_Z as a coded token that
+// NEVER discards the ring — a compound/placeholder/garbage token → ring still ships with edificabilidad
+// null (honest withheld), a bare positive number → a numeric candidate, never a fabricated default.
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -44,8 +45,8 @@ function fakeFetch(body: unknown): { fetchImpl: typeof fetch; calls: () => numbe
 }
 
 describe('resolveMadridNZ1Ring — the spatial ring resolver', () => {
-    it('the certification gate is OFF by default (NZ 1 keeps its refusal until sign-off)', () => {
-        expect(MADRID_NZ1_CERTIFIED).toBe(false);
+    it('the certification gate is ON (L-608 sign-off — NZ 1 renders estimated-ruleset)', () => {
+        expect(MADRID_NZ1_CERTIFIED).toBe(true);
     });
 
     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {
@@ -63,38 +64,65 @@ describe('resolveMadridNZ1Ring — the spatial ring resolver', () => {
             expect(res.ringLatLon).toHaveLength(4); // 5 arcgis pts − 1 closing vertex
             // Returned in WGS84 (property 2: the resolver does NOT project to scene-XZ).
             expect(res.ringLatLon[0]).toEqual({ lat: 40.4166, lon: -3.704 });
-            expect(res.edificabilidad).toBeCloseTo(1.25, 6); // "1,25" → 1.25
+            expect(res.edificabilidad).toBeCloseTo(1.25, 6); // clean number "1,25" → 1.25
+            expect(res.coefZ).toBe('1,25'); // the raw token rides back verbatim
             // CODMANZANA is READ from the feature (not derived from a refcat) and echoed.
             expect(res.codManzana).toBe('0105104');
         }
     });
 
-    it('ABSENT COEF_Z → edificabilidad null (honest absence), still ok', async () => {
+    it('a bare integer COEF_Z ("5") → edificabilidad 5, coefZ "5", ring ships', async () => {
+        const { fetchImpl } = fakeFetch(okBody({ COEF_Z: '5', CODMANZANA: '0401031' }, RINGS));
+        const res = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, PT, { fetchImpl });
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+            expect(res.edificabilidad).toBe(5);
+            expect(res.coefZ).toBe('5');
+            expect(res.ringLatLon).toHaveLength(4);
+        }
+    });
+
+    it('ABSENT COEF_Z → edificabilidad null + coefZ null (honest absence), ring still ships', async () => {
         const { fetchImpl } = fakeFetch(okBody({ CODMANZANA: '0105104' }, RINGS));
         const res = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(true);
-        if (res.ok) expect(res.edificabilidad).toBeNull();
+        if (res.ok) {
+            expect(res.edificabilidad).toBeNull();
+            expect(res.coefZ).toBeNull();
+            expect(res.ringLatLon).toHaveLength(4);
+        }
     });
 
-    it('a placeholder dash COEF_Z ("-") → edificabilidad null (absence, not zero)', async () => {
+    it('a placeholder dash COEF_Z ("-") → edificabilidad null + coefZ null (absence, not zero)', async () => {
         const { fetchImpl } = fakeFetch(okBody({ COEF_Z: '-', CODMANZANA: '1' }, RINGS));
         const res = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(true);
-        if (res.ok) expect(res.edificabilidad).toBeNull();
+        if (res.ok) {
+            expect(res.edificabilidad).toBeNull();
+            expect(res.coefZ).toBeNull();
+        }
     });
 
-    it('a COMPOUND code ("0 / 5") → refuses (never the silent-zero parseFloat trap)', async () => {
+    it('a COMPOUND code ("0 / 5") → ring SHIPS, edificabilidad null (no silent-zero), coefZ verbatim', async () => {
         const { fetchImpl } = fakeFetch(okBody({ COEF_Z: '0 / 5', CODMANZANA: '1' }, RINGS));
         const res = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, PT, { fetchImpl });
-        expect(res.ok).toBe(false);
-        if (!res.ok) expect(res.reason).toBe('unparseable-edificabilidad');
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+            expect(res.ringLatLon).toHaveLength(4); // published geometry is the claim, never discarded
+            expect(res.edificabilidad).toBeNull(); // NOT 0 — the silent-zero trap is avoided
+            expect(res.coefZ).toBe('0 / 5'); // the coded token rides back for provenance
+        }
     });
 
-    it('PRESENT-but-unparseable COEF_Z → refuses (never defaults to 0)', async () => {
+    it('PRESENT-but-non-numeric COEF_Z ("n/a") → ring SHIPS, edificabilidad null, coefZ verbatim', async () => {
         const { fetchImpl } = fakeFetch(okBody({ COEF_Z: 'n/a', CODMANZANA: '1' }, RINGS));
         const res = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, PT, { fetchImpl });
-        expect(res.ok).toBe(false);
-        if (!res.ok) expect(res.reason).toBe('unparseable-edificabilidad');
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+            expect(res.ringLatLon).toHaveLength(4);
+            expect(res.edificabilidad).toBeNull(); // never defaults to 0
+            expect(res.coefZ).toBe('n/a');
+        }
     });
 
     it('a mismatched ringRef refuses WITHOUT fetching (wrong vintage / plane)', async () => {

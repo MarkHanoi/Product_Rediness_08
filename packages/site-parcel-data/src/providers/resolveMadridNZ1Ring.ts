@@ -42,9 +42,14 @@
 //      NOT in the source's native EPSG:25830, and NOT in scene-XZ. Projection to the authoring frame
 //      is the L5 dispatcher's job (it holds the site origin + θ and already projects the parcel and
 //      the footprint ring the same way) — so this module stays L2-pure with no proj4 dependency.
-//   3. `COEF_Z` IS PARSED UNDER ASSERTION, NEVER DEFAULTED. It is a String at source (pack header §3);
-//      an unparseable value REFUSES (`unparseable-edificabilidad`) rather than degrade to 0, and an
-//      ABSENT value yields `null` (honest absence) — the resolver never invents an edificabilidad.
+//   3. `COEF_Z` NEVER DISCARDS THE RING, AND IS NEVER FABRICATED INTO A NUMBER. The live plane proves
+//      `COEF_Z` is a CATEGORICAL grade token (0–8, frequently COMPOUND: "0 / 4", "4 / 5 / 7"), NOT a
+//      numeric edificabilidad (MADRID-DATA-RECON-SPIKE §5–6: no coded-value domain; its meaning stays
+//      behind the L-449 legend read). So the ring — real published geometry, the whole claim — SHIPS
+//      regardless of `COEF_Z`. The raw token rides back as `coefZ` (provenance); the numeric
+//      `edificabilidad` is populated ONLY from a single clean positive number and is otherwise `null`
+//      (honest withheld) — a compound/placeholder/garbage token yields `null`, NEVER 0 (the silent-zero
+//      `parseFloat("0 / 5")===0` trap) and NEVER a refusal. `"-"`/`"--"`/absent → `null` too.
 //
 // PURITY of the parse (C58 §1.9): the fetch is injected; given the same response the parse is
 // byte-deterministic. OTel span `pryzm.zoning.resolveMadridRing` (C58 §1.10 / P8).
@@ -67,8 +72,13 @@ const tracer = trace.getTracer('pryzm.zoning');
  *
  * (Typed `boolean`, not the literal `false`, so a consumer's `if (MADRID_NZ1_CERTIFIED)` compute
  * branch is not narrowed away as dead code while the gate is closed.)
+ *
+ * L-608 SIGN-OFF (2026-07-25): flipped ON. The buildable footprint is live municipal geometry
+ * (PG_CONDICIONES_EDIFICACION layer 6, verified returning WGS84 rings at multiple central-Madrid
+ * points). The envelope renders `estimated-ruleset` WITH every honesty caveat (source named, vintage
+ * lightly-certified, COEF_Z semantics withheld) — NEVER `structured`, NEVER a fabricated number.
  */
-export const MADRID_NZ1_CERTIFIED: boolean = false;
+export const MADRID_NZ1_CERTIFIED: boolean = true;
 
 /**
  * The `ringRef` handle this resolver answers for. MUST equal the pack's
@@ -113,35 +123,54 @@ export type MadridRingRefusalReason =
     /** The point-intersect returned no polygon (no published footprint here). */
     | 'no-feature'
     /** The returned geometry has < 3 distinct vertices — not a usable ring. */
-    | 'degenerate-geometry'
-    /** COEF_Z was PRESENT but could not be parsed to a positive number — refuse, never default to 0. */
-    | 'unparseable-edificabilidad';
+    | 'degenerate-geometry';
 
 export type MadridRingResolution =
     | {
           readonly ok: true;
           /** The published buildable footprint for the parcel's manzana, in WGS84 (L5 projects it). */
           readonly ringLatLon: MadridLngLat[];
-          /** COEF_Z parsed to a positive number, or null when the source publishes none. */
+          /**
+           * COEF_Z as a NUMBER — populated ONLY from a single clean positive number; `null` for a
+           * compound grade code, a placeholder, or absence (honest withheld, never 0, never fabricated).
+           */
           readonly edificabilidad: number | null;
+          /**
+           * The raw COEF_Z token verbatim (e.g. `"0 / 4"`, `"5"`), or `null` when the source publishes
+           * none / a placeholder. This is the honest COEF_Z carrier — a coded token, not a number.
+           */
+          readonly coefZ: string | null;
           /** The CODMANZANA the footprint was read from (echoed for the dispatcher's log/provenance). */
           readonly codManzana: string | null;
       }
     | { readonly ok: false; readonly reason: MadridRingRefusalReason };
 
-/** Parse COEF_Z (String at source) to a positive finite number; PRESENT-but-bad → refusal signal. */
-function parseCoefZ(raw: unknown): { ok: true; value: number | null } | { ok: false } {
-    if (raw === null || raw === undefined || raw === '') return { ok: true, value: null };
-    const s0 = typeof raw === 'number' ? String(raw) : String(raw).trim();
-    // A placeholder dash is honest ABSENCE, not zero (recon §6.2 / the COEF_Z vocabulary "-"/"--").
-    if (s0 === '' || s0 === '-' || s0 === '--') return { ok: true, value: null };
-    // Spanish decimals may use a comma (e.g. "1,25"); normalise before parsing. A COMPOUND code like
-    // "0 / 5" must NOT slip through as 0 (the silent-zero trap) — require a clean single decimal.
-    const s = s0.replace(',', '.');
-    if (!/^-?\d+(\.\d+)?$/.test(s)) return { ok: false };
+/**
+ * Read the COEF_Z field as its raw TOKEN (verbatim, trimmed), or `null` for honest absence. A
+ * placeholder dash (`"-"`/`"--"`) and an empty/absent value are absence, NOT a code (recon §5/§6.2,
+ * the COEF_Z vocabulary). Everything else — a bare integer, a compound grade code (`"0 / 5"`), or an
+ * unrecognised string — is returned verbatim as the coded token; interpreting it is not this seam's job.
+ */
+function readCoefZToken(raw: unknown): string | null {
+    if (raw === null || raw === undefined) return null;
+    const s = typeof raw === 'number' ? String(raw) : String(raw).trim();
+    if (s === '' || s === '-' || s === '--') return null;
+    return s;
+}
+
+/**
+ * Interpret a COEF_Z token as a NUMERIC edificabilidad candidate — ONLY when it is a single clean
+ * positive number (Spanish comma decimal allowed, e.g. `"1,25"`). Every OTHER shape — a COMPOUND grade
+ * code (`"0 / 5"`), a placeholder, or garbage — yields `null`: the numeric edificabilidad is honestly
+ * WITHHELD. It NEVER degrades to 0 (the silent-zero `parseFloat("0 / 5")===0` trap) and, crucially,
+ * NEVER refuses — a coded COEF_Z must never discard the published ring (recon §6: the ring is the claim).
+ */
+function coefZAsNumber(token: string | null): number | null {
+    if (token === null) return null;
+    const s = token.replace(',', '.');
+    if (!/^\d+(\.\d+)?$/.test(s)) return null;
     const n = Number.parseFloat(s);
-    if (!Number.isFinite(n) || n <= 0) return { ok: false };
-    return { ok: true, value: n };
+    return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**
@@ -252,12 +281,10 @@ export async function resolveMadridNZ1Ring(
             return { ok: false, reason: 'degenerate-geometry' };
         }
 
-        const coef = parseCoefZ(attributes.COEF_Z);
-        if (!coef.ok) {
-            span.setAttribute('resultFields', 'unparseable-edificabilidad');
-            span.setStatus({ code: SpanStatusCode.OK });
-            return { ok: false, reason: 'unparseable-edificabilidad' };
-        }
+        // COEF_Z NEVER discards the ring: carry the raw coded token for provenance and derive a
+        // numeric edificabilidad only from a single clean positive number (else null — withheld).
+        const coefZ = readCoefZToken(attributes.COEF_Z);
+        const edificabilidad = coefZAsNumber(coefZ);
 
         const codManzana =
             typeof attributes.CODMANZANA === 'string' && attributes.CODMANZANA.trim() !== ''
@@ -265,9 +292,10 @@ export async function resolveMadridNZ1Ring(
                 : null;
 
         span.setAttribute('resultFields', 'ok');
-        span.setAttribute('edificabilidad', coef.value ?? -1);
+        span.setAttribute('edificabilidad', edificabilidad ?? -1);
+        if (coefZ !== null) span.setAttribute('coefZ', coefZ);
         span.setStatus({ code: SpanStatusCode.OK });
-        return { ok: true, ringLatLon: ring, edificabilidad: coef.value, codManzana };
+        return { ok: true, ringLatLon: ring, edificabilidad, coefZ, codManzana };
     } catch (err) {
         // Defensive: the whole path is best-effort — never throw into the caller.
         span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
