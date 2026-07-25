@@ -62,8 +62,65 @@ export const PARIS_PLU_PATH = '/api/paris/plu';
 /** The GPU national WFS layer the zone identity is read from (probe §1). */
 export const PARIS_ZONE_URBA_LAYER = 'wfs_du:zone_urba';
 
-/** The Paris opendata dataset the numeric hauteur plafond is read from (probe §2). */
+/** The Paris opendata dataset the numeric hauteur plafond (height CEILING, UG.3.2.1) is read from (probe §2). */
 export const PARIS_HAUTEUR_DATASET = 'plub_hauteur';
+
+/** The Paris opendata dataset the HMC (Hauteur Maximale Constructible, UG.3.2.2) overlay is read from. */
+export const PARIS_HMC_DATASET = 'plub_hmc';
+
+/** The Paris opendata dataset the filet / gabarit-enveloppe frontage markings are read from. */
+export const PARIS_FILET_DATASET = 'plub_filet';
+
+/**
+ * Provenance tag for the height ceiling: it is READ from the PLU graphic (opendata `plub_hauteur`),
+ * the graphical annex of the règlement — not inferred, not estimated. Carried on every resolution so
+ * a consumer can cite the source of `heightCeiling_m` without re-deriving it.
+ */
+export const PARIS_HAUTEUR_SOURCE = 'PLU_GRAPHIC_DATA' as const;
+export type ParisHauteurSource = typeof PARIS_HAUTEUR_SOURCE;
+
+/**
+ * The filet `haut` LETTER code → frontage height in METRES (PLU-b gabarit-enveloppe table). `M` means
+ * "same height as the existing façade" — NOT a fixed number — so it maps to `null` (an honest withheld,
+ * with a note on the refusal), never a fabricated metre value. Codes are matched case-insensitively.
+ */
+export const PARIS_FILET_CODE_TO_METRES: Readonly<Record<string, number>> = {
+    K: 7,
+    V: 10,
+    O: 12,
+    P: 15,
+    B: 18,
+    N: 20,
+    G: 23,
+    L: 25,
+    // M = "même hauteur que la façade existante" → no fixed metre value (resolved to null).
+};
+
+/** Map a filet `haut` code to its frontage height in metres, or null (unknown code, or `M`). */
+export function parisFiletMetresForCode(code: string | null | undefined): number | null {
+    if (typeof code !== 'string') return null;
+    const key = code.trim().toUpperCase();
+    if (key === '') return null;
+    const m = PARIS_FILET_CODE_TO_METRES[key];
+    return typeof m === 'number' && Number.isFinite(m) ? m : null;
+}
+
+/**
+ * Derive the PLU dataset version (ISO `YYYY-MM-DD`) from the GPU `idurba` plan id, e.g.
+ * `75056_PLU_20260616` → `2026-06-16`. The current PLU bioclimatique was voted 16 June 2026; this
+ * reads the version LIVE from the resolved plan id rather than hardcoding a dataset date. Returns null
+ * when the id carries no parsable trailing `YYYYMMDD` (honest withheld, never a guessed date).
+ */
+export function parseParisSourceVersion(idurba: string | null | undefined): string | null {
+    if (typeof idurba !== 'string') return null;
+    const m = idurba.trim().match(/(\d{4})(\d{2})(\d{2})(?!\d)/);
+    if (!m) return null;
+    const [, y, mo, d] = m;
+    const month = Number(mo);
+    const day = Number(d);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return `${y}-${mo}-${d}`;
+}
 
 /**
  * The identified Paris PLU zone — the STRUCTURED identity half. Every field mirrors a `zone_urba`
@@ -97,14 +154,43 @@ export type ParisPluRefusalReason =
 export type ParisPluResolution =
     | {
           readonly ok: true;
-          /** The identified PLU zone, or null when the point carried a hauteur but no parsable zone. */
+          /** The identified PLU zone, or null when the point carried a height/overlay but no parsable zone. */
           readonly zone: ParisZoneIdentification | null;
           /**
-           * The hauteur plafond in METRES — populated ONLY from a single clean positive number the
-           * opendata layer published; `null` for absence (honest withheld, never 0, never fabricated).
+           * The height CEILING in METRES — the *plafond* of règlement UG.3.2.1. Populated ONLY from a
+           * single clean positive number `plub_hauteur` published; `null` for absence (honest withheld,
+           * never 0, never fabricated). ⚠ This is a CEILING, not a max building height — "d'autres
+           * règles peuvent limiter à une valeur inférieure" (UG.3.2.1). NEVER relabel it maxBuildingHeight.
            * A secteur-sauvegardé parcel (no PLU height sector) legitimately returns a zone + null here.
            */
+          readonly heightCeiling_m: number | null;
+          /** Provenance of `heightCeiling_m` — always the PLU graphic annex (see `PARIS_HAUTEUR_SOURCE`). */
+          readonly hauteurSource: ParisHauteurSource;
+          /**
+           * @deprecated Transitional alias of `heightCeiling_m` (identical value) kept so the L5
+           * dispatcher compiles unchanged during the rename. Read `heightCeiling_m` in new code.
+           */
           readonly hauteurPlafond_m: number | null;
+          /**
+           * The HMC (Hauteur Maximale Constructible, UG.3.2.2) ceiling in METRES from the `plub_hmc`
+           * overlay — a SEPARATE field from `heightCeiling_m`, NEVER collapsed into it. `null` where the
+           * overlay does not cover the point (honest absence). ⚠ Read `hmcDatum`: when it is `NGF` this
+           * is an ABSOLUTE altitude (metres NGF), not a metres-above-ground height.
+           */
+          readonly hmc_m: number | null;
+          /** The datum of `hmc_m` (e.g. `NGF` = absolute altitude), or null. Guards against misreading. */
+          readonly hmcDatum: string | null;
+          /** The raw filet frontage `haut` letter code (e.g. `N`), or null (no filet near the point). */
+          readonly filetCode: string | null;
+          /**
+           * The nearest filet frontage height in METRES, mapped from `filetCode` via the gabarit table
+           * (see `PARIS_FILET_CODE_TO_METRES`). `null` for code `M` ("same as existing façade") or an
+           * unknown code — honest withheld, never a fabricated metre value. Informational (a nearby
+           * frontage marking), never applied as a per-parcel constraint.
+           */
+          readonly filetFrontageHeight_m: number | null;
+          /** PLU dataset version `YYYY-MM-DD` derived from the plan `idurba` (see `parseParisSourceVersion`), or null. */
+          readonly sourceVersion: string | null;
       }
     | { readonly ok: false; readonly reason: ParisPluRefusalReason };
 
@@ -133,6 +219,15 @@ export interface ParisPluProxyResponse {
     readonly hauteur?: {
         readonly hauteur_m?: unknown;
     } | null;
+    /** HMC overlay half (UG.3.2.2): `hmc_m` numeric ceiling, `datum` its reference (e.g. `NGF`). */
+    readonly hmc?: {
+        readonly hmc_m?: unknown;
+        readonly datum?: unknown;
+    } | null;
+    /** Nearest filet frontage marking: raw `code` (the `haut` letter). */
+    readonly filet?: {
+        readonly code?: unknown;
+    } | null;
 }
 
 /** Read a string field verbatim (trimmed), or null for absence / blank / non-string. */
@@ -157,15 +252,31 @@ function readHauteurMetres(raw: unknown): number | null {
     return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** The PURE-parse result: the four structured facts + the derived version, all independently nullable. */
+export interface ParisPluParsed {
+    readonly zone: ParisZoneIdentification | null;
+    /** The height CEILING (UG.3.2.1) in metres, or null (honest withheld). NEVER a maxBuildingHeight. */
+    readonly heightCeiling_m: number | null;
+    /** The HMC (UG.3.2.2) ceiling in metres, or null — a SEPARATE field, never merged with the ceiling. */
+    readonly hmc_m: number | null;
+    /** The datum of `hmc_m` (e.g. `NGF` = absolute altitude), or null. */
+    readonly hmcDatum: string | null;
+    /** The raw filet frontage `haut` code (e.g. `N`), or null. */
+    readonly filetCode: string | null;
+    /** The filet frontage height in metres mapped from the code, or null (code `M`/unknown). */
+    readonly filetFrontageHeight_m: number | null;
+    /** The PLU dataset version `YYYY-MM-DD` derived from the zone's `idurba`, or null. */
+    readonly sourceVersion: string | null;
+}
+
 /**
- * PURE — map the proxy's combined body into the resolver's `{ zone, hauteurPlafond_m }` shape.
- * Deterministic; no I/O, no guess. A zone with no `libelle` is dropped (an identity needs a code);
- * a non-positive / absent hauteur becomes null. Returns null for both halves absent (the caller then
- * refuses `no-plu-here`).
+ * PURE — map the proxy's combined body into the resolver's structured shape. Deterministic; no I/O, no
+ * guess. A zone with no `libelle` is dropped (an identity needs a code); a non-positive / absent height
+ * becomes null. HMC stays a DISTINCT field (never folded into the ceiling); the filet code is mapped to
+ * metres via the gabarit table (`M`/unknown → null). `sourceVersion` is derived from the plan `idurba`.
+ * Returns all-null when the body is empty (the caller then refuses `no-plu-here`).
  */
-export function parseParisPluResponse(
-    body: ParisPluProxyResponse | null | undefined,
-): { zone: ParisZoneIdentification | null; hauteurPlafond_m: number | null } {
+export function parseParisPluResponse(body: ParisPluProxyResponse | null | undefined): ParisPluParsed {
     const zoneRaw = body?.zone ?? null;
     const zoneCode = readStr(zoneRaw?.libelle);
     const zone: ParisZoneIdentification | null = zoneCode
@@ -178,8 +289,13 @@ export function parseParisPluResponse(
               approvedOn: readStr(zoneRaw?.datappro),
           }
         : null;
-    const hauteurPlafond_m = readHauteurMetres(body?.hauteur?.hauteur_m);
-    return { zone, hauteurPlafond_m };
+    const heightCeiling_m = readHauteurMetres(body?.hauteur?.hauteur_m);
+    const hmc_m = readHauteurMetres(body?.hmc?.hmc_m);
+    const hmcDatum = hmc_m !== null ? readStr(body?.hmc?.datum) : null;
+    const filetCode = readStr(body?.filet?.code)?.toUpperCase() ?? null;
+    const filetFrontageHeight_m = parisFiletMetresForCode(filetCode);
+    const sourceVersion = parseParisSourceVersion(zone?.planId);
+    return { zone, heightCeiling_m, hmc_m, hmcDatum, filetCode, filetFrontageHeight_m, sourceVersion };
 }
 
 /**
@@ -233,8 +349,12 @@ export async function resolveParisPluZone(
             return { ok: false, reason: 'endpoint-unreachable' };
         }
 
-        const { zone, hauteurPlafond_m } = parseParisPluResponse(body);
-        if (!zone && hauteurPlafond_m === null) {
+        const parsed = parseParisPluResponse(body);
+        const { zone, heightCeiling_m, hmc_m, hmcDatum, filetCode, filetFrontageHeight_m, sourceVersion } =
+            parsed;
+        // no-plu-here is gated on the PRIMARY identity (zone + ceiling); HMC/filet ride along only when
+        // one of those is present (an enrichment never stands in for the identity).
+        if (!zone && heightCeiling_m === null) {
             span.setAttribute('resultFields', 'no-plu-here');
             span.setStatus({ code: SpanStatusCode.OK });
             return { ok: false, reason: 'no-plu-here' };
@@ -242,9 +362,23 @@ export async function resolveParisPluZone(
 
         span.setAttribute('resultFields', 'plu');
         if (zone) span.setAttribute('zoneCode', zone.zoneCode);
-        span.setAttribute('hauteurPlafond', hauteurPlafond_m ?? -1);
+        span.setAttribute('heightCeiling', heightCeiling_m ?? -1);
+        span.setAttribute('hmc', hmc_m ?? -1);
+        if (filetCode) span.setAttribute('filetCode', filetCode);
+        if (sourceVersion) span.setAttribute('sourceVersion', sourceVersion);
         span.setStatus({ code: SpanStatusCode.OK });
-        return { ok: true, zone, hauteurPlafond_m };
+        return {
+            ok: true,
+            zone,
+            heightCeiling_m,
+            hauteurSource: PARIS_HAUTEUR_SOURCE,
+            hauteurPlafond_m: heightCeiling_m, // @deprecated transitional alias (see the type).
+            hmc_m,
+            hmcDatum,
+            filetCode,
+            filetFrontageHeight_m,
+            sourceVersion,
+        };
     } catch (err) {
         // Defensive: the whole path is best-effort — never throw into the caller.
         span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });

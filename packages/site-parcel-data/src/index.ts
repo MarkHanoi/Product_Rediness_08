@@ -534,13 +534,40 @@ export {
 } from './rulepacks/chZoning.js';
 export {
     resolveChFarFromCantonCatalogue,
+    computeZurichBzoEnvelope,
     CH_FAR_CERTIFIED,
     CH_CANTON_FAR_CATALOGUES,
     type ChFarKind,
     type ChFarCatalogueEntry,
     type ChCantonFarCatalogue,
     type ChFarResolution,
+    type ZurichBzoComputedEnvelope,
+    type ZurichBzoEnvelopeComputation,
+    type ComputeZurichBzoEnvelopeInput,
 } from './providers/resolveChFarFromCantonCatalogue.js';
+// The Zürich BZO zone-parameter catalogue + per-parcel REGIME resolver (pure). The transcription of
+// ch/sources/bzo_zone_data.json; `resolveZurichBzoRegime` REFUSES `regime-ambiguous` rather than guess
+// (the W2bIII 8.5-vs-9.0 m discrepancy makes a guessed regime a fabricated height).
+export {
+    resolveZurichBzoRegime,
+    resolveZurichBzoEnvelopeParams,
+    zurichBzoZoneParams,
+    zurichBzoFarFor,
+    zurichBzoPendingCertFacts,
+    computeZurichBzoGfa,
+    ZURICH_BZO_ZONE_CATALOGUE,
+    ZURICH_BZO_SOURCE_DOCUMENTS,
+    ZURICH_BZO_REGIME_BY_DOC,
+    ZURICH_ZH_FAR_CATALOGUE,
+    ZURICH_CANTON,
+    type ZurichBzoRegime,
+    type ZurichBzoRegimeInput,
+    type ZurichBzoRegimeResolution,
+    type ZurichBzoZoneParams,
+    type ZurichBzoLegalSource,
+    type ZurichBzoEnvelopeParamsInput,
+    type ZurichBzoEnvelopeParamsResolution,
+} from './providers/chZurichBzoCatalogue.js';
 
 // ── PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique zone-ID + numeric hauteur provider +
 // honest envelope refusal. GPU `zone_urba` gives the zone identity (structured) and opendata
@@ -550,14 +577,22 @@ export { isInParis, PARIS_BBOX } from './providers/parisBbox.js';
 export {
     resolveParisPluZone,
     parseParisPluResponse,
+    parisFiletMetresForCode,
+    parseParisSourceVersion,
     PARIS_PLU_PATH,
     PARIS_ZONE_URBA_LAYER,
     PARIS_HAUTEUR_DATASET,
+    PARIS_HMC_DATASET,
+    PARIS_FILET_DATASET,
+    PARIS_HAUTEUR_SOURCE,
+    PARIS_FILET_CODE_TO_METRES,
     type ParisZoneIdentification,
     type ParisPluResolution,
     type ParisPluRefusalReason,
     type ParisPluDeps,
     type ParisPluProxyResponse,
+    type ParisPluParsed,
+    type ParisHauteurSource,
 } from './providers/resolveParisPluZone.js';
 export {
     PARIS_JURISDICTION_ID,
@@ -565,10 +600,12 @@ export {
     FR_PARIS_PLU_PACK,
     FR_PARIS_UG_ZONE_CODE,
     PARIS_PLU_ORDINANCE_REF,
+    PARIS_PLU_MISSING_RULES,
     parisUgHeightMassingSupported,
     parisPluEnvelopeRefusal,
     parisZoneCodeFor,
     parisZoneLabelFor,
+    type ParisPluRefusalExtras,
 } from './rulepacks/frParisPluBioclimatique.js';
 
 // ── SWITZERLAND / canton Zürich (BFS-Nr 261) — the REFERENCE-COMMUNE upgrade (ZURICH-BZO-PROBE). ──

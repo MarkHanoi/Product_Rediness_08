@@ -41,13 +41,34 @@
 // PURE + deterministic (no I/O). Strategic context —
 // docs/04-reference/jurisdictions/ch/RATE-IMPLEMENTATION-PLAN.md §Phase 2, recon §2/§5, C58 §1.4/§1.6.
 
+import type { EnvelopeRefusal } from '@pryzm/schemas';
+import { zurichBzoEnvelopeRefusal } from '../rulepacks/chZurichBzo.js';
+import {
+    ZURICH_CANTON,
+    ZURICH_ZH_FAR_CATALOGUE,
+    resolveZurichBzoEnvelopeParams,
+    zurichBzoPendingCertFacts,
+    computeZurichBzoGfa,
+    type ZurichBzoRegime,
+    type ZurichBzoEnvelopeParamsInput,
+    type ZurichBzoLegalSource,
+} from './chZurichBzoCatalogue.js';
+
 /**
  * The certification flag (L-449). **Default OFF.** While false, `resolveChFarFromCantonCatalogue`
- * returns `null` for every input — no Swiss FAR is signed off yet (`sources/VERIFICATION.md`). It
- * flips to true (or is replaced by a per-canton allow-list) only when a canton's `Typ` catalogue has
- * been harvested AND human-verified. A machine-mapped number is NEVER shown behind an unsigned gate.
+ * returns `not-certified` for every input and `computeZurichBzoEnvelope` returns the honest cited
+ * refusal — no Swiss FAR is signed off yet (`sources/VERIFICATION.md`). It flips to true (or is
+ * replaced by a per-canton allow-list) only when a canton's zone table has been transcribed/harvested
+ * AND human-verified. A machine-mapped number is NEVER shown behind an unsigned gate.
+ *
+ * ⚠ THE ONE-LINE FLIP. Setting this to `true` activates BOTH the FAR lookup (canton catalogues below)
+ * AND the Zürich BZO computed envelope (`computeZurichBzoEnvelope`). Do NOT flip it without completing
+ * `ch/sources/VERIFICATION.md` (human sign-off + confirmed per-parcel regime resolution).
+ *
+ * (Typed `boolean`, not the literal `false`, so the certified compute branches are not narrowed away
+ * as dead code while the gate is closed — same discipline as `FR_PARIS_PLU_CERTIFIED`.)
  */
-export const CH_FAR_CERTIFIED = false;
+export const CH_FAR_CERTIFIED: boolean = false;
 
 /** Which density ratio a harvested `Nutzungsziffer` is (INTERLIS `Nutzungsziffer_Art`). Semantics differ. */
 export type ChFarKind =
@@ -78,12 +99,18 @@ export interface ChFarCatalogueEntry {
 export type ChCantonFarCatalogue = ReadonlyMap<string, ChFarCatalogueEntry>;
 
 /**
- * The registry of harvested per-canton `Typ` catalogues, keyed by canton abbreviation (`AI`, `ZH`…).
+ * The registry of per-canton FAR catalogues, keyed by canton abbreviation (`AI`, `ZH`…).
  *
- * ⚠ DELIBERATELY EMPTY. No canton catalogue has been harvested + L-449-signed yet. Adding a canton is
- * a curated DATA artefact registered here (step 3/4 of the recipe), never an inline number.
+ * `ZH` carries the City of Zürich BZO transcription (`ZURICH_ZH_FAR_CATALOGUE`, the reference-commune
+ * pack). ⚠ Its presence here does NOT ship any number: while `CH_FAR_CERTIFIED` is OFF,
+ * `resolveChFarFromCantonCatalogue` short-circuits to `not-certified` BEFORE any catalogue read, so the
+ * registered rows are inert until the human sign-off flips the gate. The AZ rows are regime-independent
+ * (see `zurichBzoFarFor`); the regime-sensitive height lives in `resolveZurichBzoEnvelopeParams`, not
+ * here. Adding another canton is a curated DATA artefact registered here, never an inline number.
  */
-export const CH_CANTON_FAR_CATALOGUES: ReadonlyMap<string, ChCantonFarCatalogue> = new Map();
+export const CH_CANTON_FAR_CATALOGUES: ReadonlyMap<string, ChCantonFarCatalogue> = new Map([
+    [ZURICH_CANTON, ZURICH_ZH_FAR_CATALOGUE],
+]);
 
 /** The result of a FAR lookup — a signed number, or a typed reason it is absent. Never throws. */
 export type ChFarResolution =
@@ -129,4 +156,111 @@ export function resolveChFarFromCantonCatalogue(
         return { ok: false, reason: 'far-not-published' };
     }
     return { ok: true, far: entry.far, farKind: entry.farKind, source: entry.source };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ZÜRICH BZO — the COMPUTED envelope, gated behind `CH_FAR_CERTIFIED` (colocated with the flag)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// This is the concrete instantiation of the scaffold for the reference commune (City of Zürich): it
+// READS the transcribed BZO catalogue (`chZurichBzoCatalogue.ts`) and, when the human gate is ON,
+// computes an `estimated-ruleset` envelope (AZ × parcel area → GFA, with Vollgeschosse + Gebäudehöhe
+// as caps). While the gate is OFF (current), it returns the honest cited refusal — ENRICHED with the
+// transcribed AZ / height / storeys as "pending certification" reference facts, a strict upgrade over
+// the bare refusal, and never a fabricated number (§CONTEXT-DATA-HONESTY).
+
+/** The computed Zürich envelope (gate ON) — every value carries its regime + legal sources. */
+export interface ZurichBzoComputedEnvelope {
+    readonly zone: string;
+    /** Ausnützungsziffer as a fraction (the FAR). */
+    readonly far: number;
+    /** Max GFA in m² = `far × parcelAreaM2`. */
+    readonly maxGFA_m2: number;
+    /** Max full storeys — a cap carried alongside the GFA, never derived from it. */
+    readonly maxStoreys: number;
+    /** Max building height in metres — a cap; the regime-sensitive field. */
+    readonly maxHeight_m: number;
+    /** Which BZO regime this parcel was resolved under. */
+    readonly regime: ZurichBzoRegime;
+    /**
+     * ALWAYS `'estimated-ruleset'`, NEVER `'structured'` — this is a human transcription of a PDF
+     * table, not a live authoritative feed. Typed as the literal so a consumer cannot widen it.
+     */
+    readonly confidence: 'estimated-ruleset';
+    readonly legalSources: readonly ZurichBzoLegalSource[];
+}
+
+/** The compute result: a refusal (gate OFF, or the parcel could not be placed) or a computed envelope. */
+export type ZurichBzoEnvelopeComputation =
+    | { readonly computed: false; readonly refusal: EnvelopeRefusal }
+    | { readonly computed: true; readonly envelope: ZurichBzoComputedEnvelope };
+
+/** Input to `computeZurichBzoEnvelope` — the resolved zone identity + the parcel area (m²). */
+export interface ComputeZurichBzoEnvelopeInput extends ZurichBzoEnvelopeParamsInput {
+    /** The parcel's ground area in m² (from the cadastre) — the multiplicand for AZ × area. */
+    readonly parcelAreaM2: number;
+    /** Extra per-parcel facts to surface on the refusal card (address, area, coordinates). */
+    readonly extraFacts?: readonly string[];
+}
+
+/**
+ * The Zürich BZO buildable-envelope path — the ONE function the CH dispatch calls for a City-of-Zürich
+ * parcel once wired. Its behaviour is governed entirely by `CH_FAR_CERTIFIED`:
+ *
+ *   • GATE OFF (current) → returns `{ computed: false, refusal }`: the honest cited refusal
+ *     (`zurichBzoEnvelopeRefusal`) ENRICHED with the transcribed AZ / height / storeys as
+ *     "pending certification" reference facts. No envelope is drawn; no number is asserted.
+ *   • GATE ON (post-sign-off) → resolves the regime-aware params and, if the parcel can be placed,
+ *     returns `{ computed: true, envelope }` with `maxGFA_m2 = far × parcelAreaM2`, the storeys +
+ *     height carried as caps, and `confidence: 'estimated-ruleset'`. If the regime is undetermined
+ *     (or the zone is not in the catalogue), it STILL refuses — a guessed regime is a fabricated
+ *     height (W2bIII 8.5 vs 9.0 m).
+ *
+ * Flipping `CH_FAR_CERTIFIED` to `true` is the entire activation — no other code change is needed here.
+ */
+export function computeZurichBzoEnvelope(
+    input: ComputeZurichBzoEnvelopeInput,
+): ZurichBzoEnvelopeComputation {
+    const zoneForRefusal = {
+        typ: typeof input.typ === 'string' && input.typ.trim() !== '' ? input.typ.trim() : null,
+        rechtsstatus: null,
+        rechtsvorschriftUrl:
+            typeof input.rechtsvorschriftUrl === 'string' ? input.rechtsvorschriftUrl : null,
+        planUrl: null,
+        mutationsnummer: null,
+        objectid: null,
+    };
+
+    if (!CH_FAR_CERTIFIED) {
+        // OFF: the honest cited refusal, enriched with transcribed reference values (pending cert).
+        const enriched = [...zurichBzoPendingCertFacts(input), ...(input.extraFacts ?? [])];
+        return { computed: false, refusal: zurichBzoEnvelopeRefusal(zoneForRefusal, enriched) };
+    }
+
+    // ON: read the catalogue, regime-aware. Refuse (never guess) if the parcel cannot be placed.
+    const params = resolveZurichBzoEnvelopeParams(input);
+    if (!params.ok) {
+        const enriched = [...zurichBzoPendingCertFacts(input), ...(input.extraFacts ?? [])];
+        return { computed: false, refusal: zurichBzoEnvelopeRefusal(zoneForRefusal, enriched) };
+    }
+
+    const maxGFA_m2 = computeZurichBzoGfa(params.far, input.parcelAreaM2);
+    if (maxGFA_m2 === null) {
+        // No usable parcel area — refuse rather than emit a NaN / zero envelope.
+        const enriched = [...zurichBzoPendingCertFacts(input), ...(input.extraFacts ?? [])];
+        return { computed: false, refusal: zurichBzoEnvelopeRefusal(zoneForRefusal, enriched) };
+    }
+
+    return {
+        computed: true,
+        envelope: {
+            zone: params.zone,
+            far: params.far,
+            maxGFA_m2,
+            maxStoreys: params.maxStoreys,
+            maxHeight_m: params.maxHeight_m,
+            regime: params.regime,
+            confidence: 'estimated-ruleset',
+            legalSources: params.legalSources,
+        },
+    };
 }

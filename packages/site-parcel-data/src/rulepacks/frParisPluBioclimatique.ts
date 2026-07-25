@@ -57,13 +57,15 @@ export const FR_PARIS_PLU_CERTIFIED: boolean = false;
  * never a fabricated number. The doc name is filled per-parcel from the resolved zone when available.
  */
 export const PARIS_PLU_ORDINANCE_REF =
-    'Paris — PLU bioclimatique (Ville de Paris, INSEE 75056; règlement adopted by the Conseil de ' +
-    'Paris 20-11-2024, living text 16-06-2026, idurba 75056_PLU_20260616). Zone identity is read from ' +
-    'the Géoportail de l\'urbanisme national WFS (data.geopf.fr wfs_du:zone_urba) and the hauteur ' +
-    'plafond from Paris opendata (opendata.paris.fr plub_hauteur, PLU-b règlement art. 3.2.1/3.2.3) — ' +
-    'both verified live 2026-07-25. The emprise au sol, the gabarit-enveloppe and the rear-courtyard ' +
-    'rule are NOT published as structured data; they live in the règlement PDF, which is why the ' +
-    'buildable footprint is not asserted from the sources alone.';
+    'Paris — PLU bioclimatique (Ville de Paris, INSEE 75056; règlement voted by the Conseil de ' +
+    'Paris, living text 16-06-2026, idurba 75056_PLU_20260616). Zone identity is read from the ' +
+    'Géoportail de l\'urbanisme national WFS (data.geopf.fr wfs_du:zone_urba); the hauteur plafond ' +
+    '(UG.3.2.1) from Paris opendata plub_hauteur; the HMC (UG.3.2.2) from plub_hmc; and the filet / ' +
+    'gabarit-enveloppe frontage from plub_filet — all verified live 2026-07-25. The LEGAL authority is ' +
+    'the règlement PDF (75056_reglement_20260616.pdf); the Paris opendata layers are informational ' +
+    'graphic annexes of it. The emprise au sol, the emprise géométrique, the gabarit-enveloppe taper ' +
+    'and the rear-courtyard rule are NOT published as structured data; they live in the règlement, ' +
+    'which is why the buildable footprint is not asserted from the sources alone.';
 
 /**
  * The PLU zone this pack authors a massing rule for: `UG` (Zone urbaine générale) — the general urban
@@ -139,10 +141,40 @@ export function parisZoneLabelFor(zone: ParisZoneIdentification | null | undefin
     return 'Paris PLU zone';
 }
 
-/** Build the `knownFacts` lines that make the identified zone + hauteur LEGIBLE on the card (L-553). */
+/**
+ * The structured facts an enriched refusal carries beyond the zone + height ceiling. Each is a real
+ * published value the resolver read (or a null-honest withheld) — NEVER a fabricated figure.
+ */
+export interface ParisPluRefusalExtras {
+    /** HMC (Hauteur Maximale Constructible, UG.3.2.2) in metres, or null (no overlay at the point). */
+    readonly hmc_m?: number | null;
+    /** The datum of `hmc_m` (e.g. `NGF` = absolute altitude, not a metres-above-ground height). */
+    readonly hmcDatum?: string | null;
+    /** The nearest filet frontage `haut` code (e.g. `N`), or null. */
+    readonly filetCode?: string | null;
+    /** The filet frontage height in metres mapped from the code, or null (`M`/unknown). */
+    readonly filetFrontageHeight_m?: number | null;
+    /** The PLU dataset version `YYYY-MM-DD` derived from the plan `idurba`, or null. */
+    readonly sourceVersion?: string | null;
+}
+
+/**
+ * The rules the PLU-b règlement states but does NOT publish as structured data — the cumulative UG.3
+ * apparatus that (together, not a parcel×height product) yields the theoretical buildable volume. Named
+ * on the refusal so the user sees precisely WHICH legal inputs are withheld, not a vague "unavailable".
+ */
+export const PARIS_PLU_MISSING_RULES = [
+    'emprise_au_sol',
+    'emprise_geometrique',
+    'gabarit_enveloppe',
+    'cumulative_UG3_rules',
+] as const;
+
+/** Build the `knownFacts` lines that make the identified zone + structured facts LEGIBLE on the card (L-553). */
 function parisPluFacts(
     zone: ParisZoneIdentification | null | undefined,
-    hauteurPlafond_m: number | null,
+    heightCeiling_m: number | null,
+    extras: ParisPluRefusalExtras = {},
 ): string[] {
     const facts: string[] = [];
     if (zone) {
@@ -150,9 +182,26 @@ function parisPluFacts(
         if (zone.typeZone) facts.push(`Zone type: ${zone.typeZone}`);
         if (zone.planId) facts.push(`Plan: ${zone.planId}`);
     }
-    // The numeric hauteur is REAL published data — carry it as a fact even though the envelope refuses.
-    if (hauteurPlafond_m !== null) {
-        facts.push(`Hauteur plafond: ${hauteurPlafond_m} m (opendata plub_hauteur)`);
+    // The height CEILING is REAL published data (plub_hauteur) — carry it even though the envelope refuses.
+    // ⚠ It is the plafond (UG.3.2.1), NOT a max building height.
+    if (heightCeiling_m !== null) {
+        facts.push(`Height ceiling (plafond): ${heightCeiling_m} m (opendata plub_hauteur, UG.3.2.1)`);
+    }
+    // HMC is a DISTINCT ceiling (UG.3.2.2) — carry its datum so an NGF altitude is not misread as a height.
+    if (extras.hmc_m != null) {
+        const datum = extras.hmcDatum ? ` ${extras.hmcDatum}` : '';
+        facts.push(`HMC (hauteur max. constructible): ${extras.hmc_m} m${datum} (opendata plub_hmc, UG.3.2.2)`);
+    }
+    // Filet frontage gabarit — the nearest frontage marking (informational), raw code + mapped metres.
+    if (extras.filetCode) {
+        const metres =
+            extras.filetFrontageHeight_m != null
+                ? `${extras.filetFrontageHeight_m} m`
+                : 'same as existing façade';
+        facts.push(`Filet (frontage gabarit): code ${extras.filetCode} → ${metres} (opendata plub_filet)`);
+    }
+    if (extras.sourceVersion) {
+        facts.push(`PLU version: ${extras.sourceVersion}`);
     }
     return facts;
 }
@@ -174,33 +223,47 @@ function parisPluFacts(
  * the height, the fact that emprise is PDF-bound), never for a coverage number.
  *
  * @param zone            the identified PLU zone (its fields become facts); null on a WFS miss.
- * @param hauteurPlafond_m the real published height ceiling in metres, or null (withheld).
+ * @param heightCeiling_m the real published height ceiling (plafond, UG.3.2.1) in metres, or null.
  * @param extraFacts      additional per-parcel facts the caller holds (address, area, coordinates).
+ * @param extras          the further structured facts the resolver read — HMC, filet, source version.
  */
 export function parisPluEnvelopeRefusal(
     zone: ParisZoneIdentification | null | undefined = null,
-    hauteurPlafond_m: number | null = null,
+    heightCeiling_m: number | null = null,
     extraFacts: readonly string[] = [],
+    extras: ParisPluRefusalExtras = {},
 ): EnvelopeRefusal {
     const identified = zone != null;
     const doc = zone?.reglementDoc ? ` (règlement ${zone.reglementDoc})` : '';
+    // Legible summary of the structured facts found, for the headline.
+    const found: string[] = [];
+    if (heightCeiling_m !== null) found.push(`a ${heightCeiling_m} m height ceiling`);
+    if (extras.hmc_m != null) found.push(`HMC ${extras.hmc_m} m${extras.hmcDatum ? ` ${extras.hmcDatum}` : ''}`);
+    if (extras.filetCode) {
+        const m = extras.filetFrontageHeight_m != null ? `${extras.filetFrontageHeight_m} m` : 'façade-matched';
+        found.push(`filet ${extras.filetCode} (${m})`);
+    }
+    const foundClause = found.length > 0 ? ` with ${found.join(', ')}` : '';
     return {
         code: 'source-data-unavailable',
         headline: identified
-            ? `Zone identified (${parisZoneLabelFor(zone)})` +
-              (hauteurPlafond_m !== null ? ` with a ${hauteurPlafond_m} m height ceiling` : '') +
-              ' — but the emprise au sol is not published as data.'
+            ? `Zone identified (${parisZoneLabelFor(zone)})${foundClause} — but the buildable volume is ` +
+              'not computed: the PLU requires cumulative implantation/emprise/gabarit rules.'
             : 'Paris — the buildable envelope could not be resolved for this parcel.',
         detail:
-            'PRYZM reads the Paris PLU zone from the Géoportail de l\'urbanisme WFS and the hauteur ' +
-            'plafond from Paris opendata (plub_hauteur), both of which it shows above. What is NOT ' +
-            'published as structured data is the emprise au sol, the gabarit-enveloppe and the rear ' +
-            'courtyard rule — those live only in the PLU bioclimatique règlement' + doc + ', ' +
-            'article UG 3/4. Rather than fabricate a ground-coverage ratio to close the buildable ' +
-            'footprint, PRYZM declines to draw a volume: the zone and the height ceiling are shown, ' +
-            'no envelope is drawn, because its footprint cannot be cited yet.',
+            'PRYZM reads the Paris PLU zone from the Géoportail de l\'urbanisme WFS and, from Paris ' +
+            'opendata, the hauteur plafond (plub_hauteur, UG.3.2.1), the HMC (plub_hmc, UG.3.2.2) and the ' +
+            'nearest filet frontage gabarit (plub_filet) — all shown above where present. What is NOT ' +
+            'published as structured data is the emprise au sol, the emprise géométrique, the gabarit-' +
+            'enveloppe taper and the rear-courtyard rule — those live only in the PLU bioclimatique ' +
+            'règlement' + doc + ', article UG.3/UG.4 (missing: ' + PARIS_PLU_MISSING_RULES.join(', ') + '). ' +
+            'The règlement is explicit that the theoretical maximum volume results from the CUMULATIVE ' +
+            'application of the UG.3 implantation/emprise/gabarit rules — a parcel-footprint × height ' +
+            'product is NOT equivalent and PRYZM will not ship it as if it were. So rather than fabricate ' +
+            'a ground-coverage ratio to close the footprint, PRYZM declines to draw a volume: the zone and ' +
+            'the height facts are shown, but the envelope is withheld because its footprint cannot be cited yet.',
         ordinanceRef: PARIS_PLU_ORDINANCE_REF,
         legallyGrounded: false,
-        knownFacts: [...parisPluFacts(zone, hauteurPlafond_m), ...extraFacts],
+        knownFacts: [...parisPluFacts(zone, heightCeiling_m, extras), ...extraFacts],
     };
 }

@@ -105,3 +105,96 @@ completed for each field.
 **Sign-off:** NOT YET SIGNED OFF. No pack field may ship `confidence: 'structured'` until a named
 human verifier has reviewed an actual ÖREB extract and/or BZO document for the specific pilot parcel
 and completed the sign-off table. — UNASSIGNED, date TBD.
+
+---
+
+# City of Zürich (BFS-Nr 261, canton ZH) — BZO 700.100 zone-parameter transcription
+
+**Added 2026-07-25.** Founder-supplied values, transcribed from the BZO 700.100 primary PDFs and
+cross-checked. Machine catalogue: `packages/site-parcel-data/src/providers/chZurichBzoCatalogue.ts`;
+canonical data artefact: `ch/sources/bzo_zone_data.json`. **Certification gate `CH_FAR_CERTIFIED` is
+OFF** — these values are `estimated-ruleset` reference transcriptions, NOT `structured`, and NO
+computed envelope ships until the sign-off at the bottom of this section is completed by the repo owner.
+
+## The TWO parallel regimes
+
+Zürich runs two parallel BZO regimes over different plan areas. The value that governs a parcel depends
+on WHICH regime applies — resolvable from the parcel's `rechtsvorschrift_url` / plan area, **not the
+zone-code string alone**. `resolveZurichBzoRegime()` determines it and **REFUSES `regime-ambiguous`**
+when it cannot, rather than guess.
+
+### BZO 91/99 (older — most of the city; Art. 13 Wohnzonen, Art. 18 Zentrumszonen)
+
+| Zone | AZ | Vollgeschosse | Höhe (m) | Other |
+|---|---|---|---|---|
+| W2bI | 40 % | 2 | 9.0 | |
+| W2bII | 40 % | 2 | 9.0 | |
+| W2bIII | 45 % | 2 | **8.5** | Grundgrenzabstand 5 m, Überbauungsziffer 25 % |
+| W2 | 60 % | 2 | 9.0 | |
+| W3 | 90 % | 3 | 9.5 | |
+| W4b | 105 % | 4 | 12.5 | |
+| W4 | 120 % | 4 | 12.5 | |
+| W5 | 165 % | 5 | 15.5 | |
+| W6 | 205 % | 6 | 18.5 | |
+| Z5 | 200 % | 5 | 19.0 | Grundgrenzabstand 3.5 m |
+| Z6 | 230 % | 6 | 22.0 | |
+| Z7 | 260 % | 7 | 25.0 | |
+
+### BZO 2016 (newer plan area — different article numbering)
+
+| Zone | AZ | Vollgeschosse | Höhe (m) | vs 91/99 |
+|---|---|---|---|---|
+| W2bIII | 45 % | 2 | **9.0** | ⚠ Höhe 9.0 m (vs 8.5 m); AZ unchanged |
+| Z5 | 200 % | 5 | 19.0 | identical |
+| Z6 | 230 % | 6 | 22.0 | identical |
+| Z7 | 260 % | 7 | 25.0 | identical |
+
+Only the zones the founder cross-checked under BZO 2016 are carried; the rest are deliberately NOT
+transcribed under this regime (no value supplied, none guessed).
+
+## Cross-check — **PASS**
+
+- **Z5–Z7 AZ 200 / 230 / 260 %** independently corroborated (founder + the Stadt Zürich BZO summary
+  magnitudes for the centre zones), and identical across both regimes. ✅
+- The residential ladder (W2b… → W6) AZ / Vollgeschosse / Höhe transcribed from the BZO 700.100 table
+  and agree with the founder's second read. ✅
+- Machine-vs-artefact parity: `chZurichBzoCatalogue.test.ts` pins the catalogue values against this
+  table (W2bIII→0.45, Z5→2.00, Z6→2.30, Z7→2.60 both regimes; the full 91/99 ladder). ✅
+
+## The W2bIII DISCREPANCY (why per-parcel regime resolution is soundness-critical)
+
+`W2bIII` carries **AZ 0.45 in both regimes but max Gebäudehöhe 8.5 m (BZO 91/99) vs 9.0 m (BZO 2016)**.
+The FAR is regime-independent; the **height is not**. So a parcel's height cap **cannot** be taken from
+the zone code alone — the governing regime must be resolved first. A guessed regime is a fabricated
+height (§CONTEXT-DATA-HONESTY: a refusal and a fabrication must not collapse). This is exactly why
+`resolveZurichBzoRegime` / `resolveZurichBzoEnvelopeParams` refuse `regime-ambiguous` on any parcel
+they cannot place, and why the OFF-state refusal surfaces BOTH heights when the regime is unresolved.
+
+## Source PDFs (founder-supplied)
+
+| Regime | Document | Reference | URL status |
+|---|---|---|---|
+| BZO 91/99 | Bau- und Zonenordnung der Stadt Zürich (1991/1999) | Art. 13 / Art. 18 | oerebdocs.zh.ch `getDoc` base verified live 2026-07-25; **exact consolidated-PDF URL to be confirmed at sign-off** |
+| BZO 2016 | 700.100 Bau- und Zonenordnung der Stadt Zürich (2016) | Amtliche Sammlung 700.100 | oerebdocs.zh.ch `getDoc` base verified live 2026-07-25; **exact consolidated-PDF URL to be confirmed at sign-off** |
+
+## Open items before `CH_FAR_CERTIFIED = ON`
+
+1. **(a) Per-parcel regime resolution CONFIRMED.** `resolveZurichBzoRegime` currently resolves ONLY
+   from an explicit `planArea` tag; the `rechtsvorschrift_url → regime` crosswalk
+   (`ZURICH_BZO_REGIME_BY_DOC`) is **empty and unsigned**, so a parcel identified live by
+   `resolveZurichBzoZone` (which yields a `rechtsvorschrift_url`, not a plan-area tag) will refuse
+   `regime-ambiguous`. Before the gate flips, a human must verify and populate the docid→regime
+   mapping (or an equivalent plan-area lookup) so real parcels resolve a regime — otherwise the
+   computed envelope refuses every live parcel. **Status: NOT CONFIRMED.**
+2. **(b) Exact source-PDF URLs confirmed.** Replace the `founder-to-confirm` URL status in
+   `bzo_zone_data.json` / `ZURICH_BZO_SOURCE_DOCUMENTS` with the verified consolidated-PDF URLs for
+   both regimes. **Status: NOT CONFIRMED.**
+3. **(c) Human sign-off by the repo owner** — reviewing this transcription against the primary BZO
+   700.100 PDFs for the specific pilot parcel, then flipping `CH_FAR_CERTIFIED` to `true` (the single
+   one-line activation).
+
+**Zürich BZO sign-off:** ______________________________ (repo owner) · **Date:** __________ · UNSIGNED.
+
+*Until every open item above is closed and this line is signed, `CH_FAR_CERTIFIED` stays `false` and
+the honest cited refusal (enriched with these transcribed reference values, labelled "pending
+certification") is the shipping output for every City-of-Zürich parcel.*

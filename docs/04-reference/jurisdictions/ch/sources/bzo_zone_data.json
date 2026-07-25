@@ -1,0 +1,89 @@
+{
+  "$comment": [
+    "City of Zürich (BFS-Nr 261, canton ZH) — BZO zone-parameter catalogue. Founder-supplied,",
+    "transcribed from the BZO 700.100 primary PDFs and cross-checked (Z5–Z7 AZ 200/230/260%",
+    "independently corroborated against the Stadt Zürich BZO summary). This is a TRANSCRIPTION,",
+    "NOT a live authoritative feed — every value ships confidence `estimated-ruleset`, never",
+    "`structured`. It is the HUMAN-facing verification artefact; the machine catalogue that the",
+    "resolver reads is the typed transcription in",
+    "packages/site-parcel-data/src/providers/chZurichBzoCatalogue.ts, which cites THIS file and is",
+    "parity-guarded by chZurichBzoCatalogue.test.ts. NO number here may reach a rendered envelope",
+    "until CH_FAR_CERTIFIED is flipped ON by the repo owner (see VERIFICATION.md)."
+  ],
+  "catalogueId": "ch-zh-zurich-bzo-zone-params",
+  "municipality": { "name": "Zürich", "bfsNr": 261, "canton": "ZH" },
+  "status": "transcribed-pending-certification",
+  "certified": false,
+  "certificationFlag": "CH_FAR_CERTIFIED",
+  "certificationFlagState": false,
+  "confidenceOnCertification": "estimated-ruleset",
+  "retrieved": "2026-07-25",
+  "azUnit": "fraction",
+  "azUnitNote": "Ausnützungsziffer (AZ) is transcribed as a fraction of parcel area; the PDF states it as a percentage (e.g. 45% -> 0.45). Max GFA = AZ * parcel area.",
+  "twoRegimes": true,
+  "regimeNote": [
+    "TWO PARALLEL REGIMES govern different plan areas of the city. The value that applies to a",
+    "parcel depends on WHICH regime governs it — resolvable from the parcel's rechtsvorschrift_url /",
+    "plan area, NOT the zone-code string alone. See resolveZurichBzoRegime(). If the regime cannot be",
+    "determined for a parcel, the resolver REFUSES that parcel ('regime-ambiguous') and never guesses."
+  ],
+  "sourceDocuments": {
+    "bzo_91_99": {
+      "title": "Bau- und Zonenordnung der Stadt Zürich (BZO 1991/1999)",
+      "bzoVersion": "1991/1999",
+      "governingArticles": "Art. 13 (Wohnzonen), Art. 18 (Zentrumszonen)",
+      "url": "https://oerebdocs.zh.ch/getDoc?docid=573",
+      "urlStatus": "founder-supplied-primary-pdf — confirm exact consolidated-PDF URL at sign-off (oerebdocs getDoc base verified live 2026-07-25; the per-parcel rechtsvorschrift_url links the governing document)",
+      "coverage": "the older regime — most of the city"
+    },
+    "bzo_2016": {
+      "title": "700.100 Bau- und Zonenordnung der Stadt Zürich (BZO 2016)",
+      "bzoVersion": "2016",
+      "governingArticles": "BZO 2016 article numbering (differs from 91/99)",
+      "url": "https://oerebdocs.zh.ch/getDoc?docid=6808",
+      "urlStatus": "founder-supplied-primary-pdf — confirm exact consolidated-PDF URL at sign-off; Amtliche Sammlung 700.100 (oerebdocs getDoc base verified live 2026-07-25)",
+      "coverage": "the newer plan area"
+    }
+  },
+  "discrepancies": [
+    {
+      "zone": "W2bIII",
+      "field": "maxGebaeudehoehe_m",
+      "bzo_91_99": 8.5,
+      "bzo_2016": 9.0,
+      "az_agrees": 0.45,
+      "why_it_matters": "The AZ is identical (0.45) across both regimes, but the max Gebäudehöhe differs (8.5 m vs 9.0 m). A parcel's height cap therefore CANNOT be chosen from the zone code alone — the governing regime must be resolved first. This is the canonical case that makes per-parcel regime resolution soundness-critical."
+    }
+  ],
+  "regimes": {
+    "bzo_91_99": {
+      "label": "BZO 91/99",
+      "articles": "Art. 13 Wohnzonen; Art. 18 Zentrumszonen",
+      "zones": {
+        "W2bI":  { "az": 0.40, "maxVollgeschosse": 2, "maxGebaeudehoehe_m": 9.0, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W2bII": { "az": 0.40, "maxVollgeschosse": 2, "maxGebaeudehoehe_m": 9.0, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W2bIII": { "az": 0.45, "maxVollgeschosse": 2, "maxGebaeudehoehe_m": 8.5, "grundgrenzabstand_m": 5.0, "ueberbauungsziffer": 0.25, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W2":    { "az": 0.60, "maxVollgeschosse": 2, "maxGebaeudehoehe_m": 9.0, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W3":    { "az": 0.90, "maxVollgeschosse": 3, "maxGebaeudehoehe_m": 9.5, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W4b":   { "az": 1.05, "maxVollgeschosse": 4, "maxGebaeudehoehe_m": 12.5, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W4":    { "az": 1.20, "maxVollgeschosse": 4, "maxGebaeudehoehe_m": 12.5, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W5":    { "az": 1.65, "maxVollgeschosse": 5, "maxGebaeudehoehe_m": 15.5, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "W6":    { "az": 2.05, "maxVollgeschosse": 6, "maxGebaeudehoehe_m": 18.5, "provenance": { "document": "bzo_91_99", "article": "Art. 13", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "Z5":    { "az": 2.00, "maxVollgeschosse": 5, "maxGebaeudehoehe_m": 19.0, "grundgrenzabstand_m": 3.5, "provenance": { "document": "bzo_91_99", "article": "Art. 18", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "Z6":    { "az": 2.30, "maxVollgeschosse": 6, "maxGebaeudehoehe_m": 22.0, "provenance": { "document": "bzo_91_99", "article": "Art. 18", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } },
+        "Z7":    { "az": 2.60, "maxVollgeschosse": 7, "maxGebaeudehoehe_m": 25.0, "provenance": { "document": "bzo_91_99", "article": "Art. 18", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573", "retrieved": "2026-07-25", "bzoVersion": "1991/1999" } }
+      }
+    },
+    "bzo_2016": {
+      "label": "BZO 2016",
+      "articles": "BZO 2016 article numbering (differs from 91/99)",
+      "coverageNote": "Only the zones the founder cross-checked under BZO 2016 are transcribed here. Zones absent from this regime block are deliberately NOT carried — no BZO 2016 value was supplied for them, and none is guessed.",
+      "zones": {
+        "W2bIII": { "az": 0.45, "maxVollgeschosse": 2, "maxGebaeudehoehe_m": 9.0, "provenance": { "document": "bzo_2016", "article": "BZO 2016 Wohnzonen", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=6808", "retrieved": "2026-07-25", "bzoVersion": "2016" }, "discrepancyNote": "Höhe 9.0 m here vs 8.5 m under BZO 91/99; AZ unchanged at 0.45." },
+        "Z5":     { "az": 2.00, "maxVollgeschosse": 5, "maxGebaeudehoehe_m": 19.0, "provenance": { "document": "bzo_2016", "article": "BZO 2016 Zentrumszonen", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=6808", "retrieved": "2026-07-25", "bzoVersion": "2016" }, "discrepancyNote": "Identical to BZO 91/99 (200% / 5 / 19 m)." },
+        "Z6":     { "az": 2.30, "maxVollgeschosse": 6, "maxGebaeudehoehe_m": 22.0, "provenance": { "document": "bzo_2016", "article": "BZO 2016 Zentrumszonen", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=6808", "retrieved": "2026-07-25", "bzoVersion": "2016" }, "discrepancyNote": "Identical to BZO 91/99." },
+        "Z7":     { "az": 2.60, "maxVollgeschosse": 7, "maxGebaeudehoehe_m": 25.0, "provenance": { "document": "bzo_2016", "article": "BZO 2016 Zentrumszonen", "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=6808", "retrieved": "2026-07-25", "bzoVersion": "2016" }, "discrepancyNote": "Identical to BZO 91/99." }
+      }
+    }
+  }
+}
