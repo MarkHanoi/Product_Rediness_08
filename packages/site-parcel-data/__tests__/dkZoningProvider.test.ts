@@ -9,6 +9,7 @@ import type { Pt, ParcelEdgeClassification } from '@pryzm/schemas';
 import {
     computeBuildableEnvelope,
     mapPlandataToZoningRecord,
+    extractDkPlanIdentity,
     classifyDanishUse,
     isInDenmark,
     DkZoningProvider,
@@ -70,7 +71,10 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
         expect(rec!.zoneLabel).toBe('Lokalplan 123 Indre By');
     });
 
-    it('ABSENT dimensional fields → null record (caller falls back to estimated)', () => {
+    it('ABSENT dimensional fields → null record (§DK-HONEST-REFUSAL: caller REFUSES, never estimates)', () => {
+        // The mapper is unchanged: a dimensionless plan has no structured envelope to build → null.
+        // What changed is the CALLER — the DK dispatch path now builds a CITED refusal from the
+        // plan identity (see `extractDkPlanIdentity` below), never the generic estimated-default.
         const useOnly: PlandataZoningResponse = {
             layer: 'lokalplan',
             properties: { plannavn: 'Plan uden tal', anvendelsegenerel: 'Boligområde' },
@@ -389,6 +393,152 @@ describe('REAL live-probed Plandata features → structured (L-399a, probed 2026
         expect(env.status).toBe('ok');
         expect(env.maxHeight_m).toBe(24);
         expect(env.maxFAR).toBeCloseTo(1.5, 6);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §DK-HONEST-REFUSAL — a plan resolved but with no usable numbers must NOT collapse to the generic
+// estimated-default. The identity survives the mapper's null so the caller cites a real refusal.
+
+describe('extractDkPlanIdentity — identity survives a dimensionless plan (§DK-HONEST-REFUSAL)', () => {
+    it('extracts zone identity + doklink from a use-only plan the mapper returns null for', () => {
+        const useOnly: PlandataZoningResponse = {
+            layer: 'lokalplan',
+            properties: {
+                plannavn: 'Plan uden tal',
+                plannr: '777',
+                anvendelsegenerel: 'Boligområde',
+                doklink: 'https://dokument.plandata.dk/20_777.pdf',
+            },
+        };
+        // The mapper has no structured envelope to build → null …
+        expect(mapPlandataToZoningRecord(useOnly, { fetchDateISO: FETCH_DATE })).toBeNull();
+        // … but the identity + citation are still recoverable for the refusal card.
+        const id = extractDkPlanIdentity(useOnly)!;
+        expect(id).not.toBeNull();
+        expect(id.zoneCode).toBe('777'); // no anvgen code → falls to plannr
+        expect(id.zoneLabel).toBe('Plan uden tal');
+        expect(id.doklink).toBe('https://dokument.plandata.dk/20_777.pdf');
+        expect(id.layer).toBe('lokalplan');
+    });
+
+    it('no feature → null identity (a genuine no-plan)', () => {
+        expect(extractDkPlanIdentity(null)).toBeNull();
+        expect(extractDkPlanIdentity({ layer: 'lokalplan', properties: {} })).toBeNull();
+    });
+
+    it('DRIFT-GUARD — identity zoneCode/zoneLabel/doklink agree with the mapper on a full plan', () => {
+        // Same field precedence in both paths: the refusal names the SAME zone the structured
+        // record would have. Pin the agreement on the representative + delområde fixtures.
+        for (const fixture of [CPH_LOKALPLAN]) {
+            const rec = mapPlandataToZoningRecord(fixture, { fetchDateISO: FETCH_DATE })!;
+            const id = extractDkPlanIdentity(fixture)!;
+            expect(id.zoneCode).toBe(rec.zoneCode);
+            expect(id.zoneLabel).toBe(rec.zoneLabel);
+            expect(id.doklink).toBe(rec.ordinanceRef);
+        }
+        const delomraade: PlandataZoningResponse = {
+            layer: 'lokalplandelomraade',
+            properties: {
+                lp_plannavn: 'Lokalplan 410 Ørestad Syd',
+                lp_plannr: '410',
+                delnr: '3',
+                bebygpct: 185,
+                maxbygnhjd: 42,
+                doklink: 'https://dokument.plandata.dk/20_410_delomr3.pdf',
+            },
+        };
+        const recD = mapPlandataToZoningRecord(delomraade, { fetchDateISO: FETCH_DATE })!;
+        const idD = extractDkPlanIdentity(delomraade)!;
+        expect(idD.zoneCode).toBe(recD.zoneCode); // '410'
+        expect(idD.zoneLabel).toBe(recD.zoneLabel); // 'Lokalplan 410 Ørestad Syd (delområde 3)'
+        expect(idD.doklink).toBe(recD.ordinanceRef);
+    });
+});
+
+describe('DkZoningProvider.fetchZoningResultAtPoint — three honest outcomes (§DK-HONEST-REFUSAL)', () => {
+    const okFetch = (zoning: PlandataZoningResponse | null): typeof fetch =>
+        (async () => ({ ok: true, json: async () => ({ zoning }) })) as unknown as typeof fetch;
+
+    it('a plan WITH dimensions → { kind: "structured", record }', async () => {
+        const res = await DkZoningProvider.fetchZoningResultAtPoint(55.6761, 12.5683, {
+            fetchImpl: okFetch(CPH_LOKALPLAN),
+            nowISO: FETCH_DATE,
+        });
+        expect(res.kind).toBe('structured');
+        if (res.kind === 'structured') {
+            expect(res.record.structuredFields.maxHeight_m).toBe(24);
+        }
+    });
+
+    it('a plan WITHOUT usable numbers → { kind: "plan-without-numbers", identity } (cite, do not estimate)', async () => {
+        const useOnly: PlandataZoningResponse = {
+            layer: 'lokalplan',
+            properties: {
+                plannavn: 'Plan uden tal',
+                plannr: '777',
+                anvendelsegenerel: 'Boligområde',
+                doklink: 'https://dokument.plandata.dk/20_777.pdf',
+            },
+        };
+        const res = await DkZoningProvider.fetchZoningResultAtPoint(55.6761, 12.5683, {
+            fetchImpl: okFetch(useOnly),
+            nowISO: FETCH_DATE,
+        });
+        expect(res.kind).toBe('plan-without-numbers');
+        if (res.kind === 'plan-without-numbers') {
+            expect(res.identity.zoneLabel).toBe('Plan uden tal');
+            expect(res.identity.doklink).toBe('https://dokument.plandata.dk/20_777.pdf');
+        }
+    });
+
+    it('no plan at the point → { kind: "no-plan" }', async () => {
+        const res = await DkZoningProvider.fetchZoningResultAtPoint(55.6761, 12.5683, {
+            fetchImpl: okFetch(null),
+        });
+        expect(res.kind).toBe('no-plan');
+    });
+
+    it('non-DK point → { kind: "no-plan" } WITHOUT any fetch (jurisdiction guard)', async () => {
+        let calls = 0;
+        const countingFetch = (async () => {
+            calls++;
+            return { ok: true, json: async () => ({ zoning: CPH_LOKALPLAN }) };
+        }) as unknown as typeof fetch;
+        const res = await DkZoningProvider.fetchZoningResultAtPoint(41.3874, 2.1686, {
+            fetchImpl: countingFetch,
+        });
+        expect(res.kind).toBe('no-plan');
+        expect(calls).toBe(0);
+    });
+
+    it('upstream error / throw → { kind: "no-plan" }, never throws (refuse, never fabricate)', async () => {
+        const badFetch = (async () => ({ ok: false, json: async () => ({}) })) as unknown as typeof fetch;
+        await expect(
+            DkZoningProvider.fetchZoningResultAtPoint(55.6761, 12.5683, { fetchImpl: badFetch }),
+        ).resolves.toEqual({ kind: 'no-plan' });
+        const throwFetch = (async () => { throw new Error('network down'); }) as unknown as typeof fetch;
+        await expect(
+            DkZoningProvider.fetchZoningResultAtPoint(55.6761, 12.5683, { fetchImpl: throwFetch }),
+        ).resolves.toEqual({ kind: 'no-plan' });
+    });
+
+    it('§DATA-GAP — a REAL FAR/storeys-only lokalplan (Østerbrogade 224) resolves structured but ' +
+        'yields NO renderable height → the caller must refuse, not draw a heightless volume', () => {
+        // This is the exact founder case: Plandata publishes FAR + storeys but not maxbygnhjd, so
+        // the structured envelope has a null height. The dispatch predicate (status ok && height
+        // != null) is therefore FALSE here → the honest cited refusal path fires.
+        const rec = mapPlandataToZoningRecord(REAL_CPH_LOKALPLAN, { fetchDateISO: FETCH_DATE })!;
+        const env = computeBuildableEnvelope({
+            parcelRing: RECT,
+            edgeClassifications: UNCLASSIFIED,
+            zoning: rec,
+            rulePack: null,
+        });
+        expect(env.confidence).toBe('structured');
+        expect(env.status).toBe('ok');
+        expect(env.maxHeight_m).toBeNull(); // ← no renderable volume; caller refuses honestly
+        expect(env.maxFAR).toBeCloseTo(1.5, 6); // the number that rides in the refusal knownFacts
     });
 });
 
