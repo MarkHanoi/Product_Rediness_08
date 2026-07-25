@@ -62,18 +62,19 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install terrain compiler deps (standalone — NOT the pnpm workspace)
-        working-directory: tools/context-bake
-        # A TRANSIENT, uncommitted package.json scopes npm to THIS dir so it never walks up
-        # to the repo-root package.json (whose `workspace:*` deps npm cannot parse — that walk-up
-        # is what killed the install with EUNSUPPORTEDPROTOCOL). It is created and removed inside
-        # this step, so pnpm frozen-lockfile never sees it and tools/context-bake never becomes a
-        # workspace member. ESM `import('geotiff')` in terrain.mjs then resolves from ./node_modules.
+      - name: Install terrain compiler deps (in a TEMP dir OUTSIDE the repo)
+        # A local package.json does NOT stop npm walking UP to the repo-root package.json, whose
+        # `workspace:*` deps kill the install with EUNSUPPORTEDPROTOCOL (reproduced locally). The
+        # only reliable escape is to install in a dir with NO workspace parent, then move
+        # node_modules into tools/context-bake where terrain.mjs's `import('geotiff')` resolves it.
         run: |
           set -euo pipefail
+          TMP="$(mktemp -d)"
+          cd "$TMP"
           printf '{ "name": "pryzm-context-bake-standalone", "private": true, "version": "0.0.0" }\n' > package.json
           npm install --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1 proj4@2
-          rm -f package.json package-lock.json
+          rm -rf "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+          mv node_modules "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
 
       - name: Reproject self-test (proj4 control points) — fail the run before any bake if a def is wrong
         # reproject.mjs is the ONE shared horizontal projector for every non-NL city. Assert its
