@@ -179,13 +179,33 @@ they cannot place, and why the OFF-state refusal surfaces BOTH heights when the 
 
 ## Open items before `CH_FAR_CERTIFIED = ON`
 
-1. **(a) Per-parcel regime resolution CONFIRMED.** `resolveZurichBzoRegime` currently resolves ONLY
-   from an explicit `planArea` tag; the `rechtsvorschrift_url → regime` crosswalk
-   (`ZURICH_BZO_REGIME_BY_DOC`) is **empty and unsigned**, so a parcel identified live by
-   `resolveZurichBzoZone` (which yields a `rechtsvorschrift_url`, not a plan-area tag) will refuse
-   `regime-ambiguous`. Before the gate flips, a human must verify and populate the docid→regime
-   mapping (or an equivalent plan-area lookup) so real parcels resolve a regime — otherwise the
-   computed envelope refuses every live parcel. **Status: NOT CONFIRMED.**
+1. **(a) Per-parcel regime resolution — CROSSWALK POPULATED (from real docs); human sign-off still open.**
+   The `docid → regime` crosswalk (`ZURICH_BZO_REGIME_BY_DOC`) is **no longer empty**. It was populated
+   2026-07-25 by a probe-first pipeline (canonical artefact: `ch/sources/bzo_regime_crosswalk.json`;
+   reproducible script: `tools/ch-bzo-regime/`):
+   - **Endpoint used:** the live Stadt-Zürich BZO WFS
+     `https://www.ogd.stadt-zuerich.ch/wfs/geoportal/Nutzungsplanung___kommunale_Bau__und_Zonenordnung__BZO_`,
+     layer `bzo_zone_v`, field `rechtsvorschrift_url` — self-sourced the real docids from a broad polygon
+     sample (a single parcel's `rechtsvorschrift_url` can concatenate several `; `-separated
+     `getDoc?docid=<N>` links, so the resolver parses all docids and resolves only on consensus).
+   - **Classified from each document's own text** (`getDoc?docid=<N>` fetched + `classifyBzoRegimeFromDocText`):
+     - **`bzo_91_99` (8 docids):** 573, 562, 601, 606, 610, 615, 620 (BZO 92 → BZO 99 festsetzung
+       lineage: GRB Nr. 1559 vom 23. Oktober 1991; GRB 1815/1816 vom 24. November 1999), plus **16945**
+       (the consolidated "Bau- und Zonenordnung (BZO 91/99)" text, changes to 20. März 2024).
+     - **`bzo_2016` (4 docids):** 10868, 10984, 11130, 15172 (the BZO 2016 fassung / post-2016
+       `Teilrevision Bau- und Zonenordnung` + Stadtratsbeschluss (STRB) chain).
+   - **Deliberately EXCLUDED (refuse `regime-ambiguous`, never guessed):** 6808 / 6561 / 7315
+     (image-only scans, 0 extractable text), 16381 (a *cantonal* Nutzungszonen/Waldgrenzen Verfügung,
+     not the municipal BZO), 625 (a 2005 zone-plan change restating no lineage). ⚠ **6808 is the single
+     most frequent docid (~555 polygons in the sample).** The founder-supplied `bzo_zone_data.json`
+     labels it the "BZO 2016" consolidated 700.100 PDF, but that is **not verifiable from the document
+     text** (scanned image), so parcels linking only to 6808 still resolve `regime-ambiguous` — a
+     text-bearing BZO 2016 consolidated doc (the 2016 analogue of 91/99's `16945`), or the human
+     sign-off in item (b), would close them.
+   - Real parcels identified by `resolveZurichBzoZone` (which yield a `rechtsvorschrift_url`) now resolve
+     a regime whenever their governing docid(s) are classified above. **Status: crosswalk populated
+     from 12 real docs; the docid→regime verdicts still require the repo owner's review at sign-off —
+     NOT yet human-CONFIRMED.**
 2. **(b) Exact source-PDF URLs confirmed.** Replace the `founder-to-confirm` URL status in
    `bzo_zone_data.json` / `ZURICH_BZO_SOURCE_DOCUMENTS` with the verified consolidated-PDF URLs for
    both regimes. **Status: NOT CONFIRMED.**

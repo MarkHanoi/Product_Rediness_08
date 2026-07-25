@@ -1,0 +1,187 @@
+{
+  "$comment": [
+    "City of Zürich (BFS-Nr 261, canton ZH) — the oerebdocs docid -> BZO regime CROSSWALK.",
+    "This resolves WHICH of the two parallel BZO regimes (BZO 91/99 vs BZO 2016) governs a live",
+    "parcel, which the resolver otherwise refuses as 'regime-ambiguous'. The regime is soundness-",
+    "critical because the two regimes DISAGREE on the W2bIII max Gebaeudehoehe (8.5 m under 91/99 vs",
+    "9.0 m under 2016), so a guessed regime is a fabricated height (SS CONTEXT-DATA-HONESTY).",
+    "",
+    "HOW THIS WAS SOURCED (probe-first, 2026-07-25, no assumptions):",
+    "  1. Self-sourced the real docids from the LIVE Stadt-Zürich BZO WFS 'rechtsvorschrift_url' field",
+    "     (endpoint below), across a broad sample of bzo_zone_v polygons. A single parcel's",
+    "     rechtsvorschrift_url can carry MULTIPLE '; '-separated getDoc?docid=<N> links (verified in the",
+    "     raw GML), so the runtime resolver parses ALL docids and resolves only on consensus.",
+    "  2. Fetched each getDoc?docid=<N> PDF and classified it from its OWN verbatim legal-basis text via",
+    "     the pure classifyBzoRegimeFromDocText: BZO 91/99 cites the BZO 92 -> BZO 99 festsetzung lineage",
+    "     (GRB Nr. 1559 vom 23. Oktober 1991; GRB 1815/1816 vom 24. November 1999) or self-labels",
+    "     'Bau- und Zonenordnung (BZO 91/99)'; BZO 2016 cites the BZO 2016 fassung / a post-2016",
+    "     'Teilrevision Bau- und Zonenordnung' + Stadtratsbeschluss (STRB) chain. The 'BZO 91/99'",
+    "     self-label WINS over cross-referenced BZO-2016/STRB mentions (the consolidated 91/99 text",
+    "     cross-references the 2016 exception for grandfathered parcels — docid 16945).",
+    "  3. A docid whose document carries NO clear marker (an image-only scan, a non-municipal cantonal",
+    "     ordinance, or a zone-plan change that restates no lineage) is DELIBERATELY EXCLUDED from the",
+    "     runtime map (see 'excluded' below): the resolver refuses 'regime-ambiguous' for it rather than",
+    "     guess. Absence here is an honest refusal, never a bug.",
+    "",
+    "This crosswalk does NOT flip CH_FAR_CERTIFIED — it only makes regime RESOLUTION possible. The",
+    "density/height compute stays gated OFF behind the repo owner's separate human sign-off (VERIFICATION.md).",
+    "Machine parity: ZURICH_BZO_REGIME_BY_DOC in",
+    "packages/site-parcel-data/src/providers/chZurichBzoCatalogue.ts (parity-guarded by",
+    "chZurichBzoCatalogue.test.ts)."
+  ],
+  "crosswalkId": "ch-zh-zurich-bzo-regime-crosswalk",
+  "municipality": { "name": "Zürich", "bfsNr": 261, "canton": "ZH" },
+  "retrieved": "2026-07-25",
+  "status": "populated-from-real-docs",
+  "certificationFlag": "CH_FAR_CERTIFIED",
+  "certificationFlagState": false,
+  "wfsEndpoint": "https://www.ogd.stadt-zuerich.ch/wfs/geoportal/Nutzungsplanung___kommunale_Bau__und_Zonenordnung__BZO_",
+  "wfsLayer": "bzo_zone_v",
+  "wfsUrlField": "rechtsvorschrift_url",
+  "docBase": "https://oerebdocs.zh.ch/getDoc?docid=<N>",
+  "multiDocidNote": "A parcel's rechtsvorschrift_url may concatenate several getDoc?docid=<N> links with '; ' (e.g. 'https://oerebdocs.zh.ch/getDoc?docid=573; https://oerebdocs.zh.ch/getDoc?docid=6808'). The resolver requires CONSENSUS: any unclassified docid, or docids resolving to different regimes, => regime-ambiguous.",
+  "coverage": {
+    "classifiedDocids": 12,
+    "bzo_91_99": 8,
+    "bzo_2016": 4,
+    "excludedDocids": 5
+  },
+  "crosswalk": [
+    {
+      "docid": "573",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=573",
+      "retrieved": "2026-07-25",
+      "docTitle": "Baudirektion Kanton Zürich — Verfügung ARV/921/2000 vom 20. Juli 2000, Nutzungsplanung Stadt Zürich (Genehmigung)",
+      "marker": "«Mit Beschlüssen Nrn. 1815 und 1816 vom 24. November 1999 hat der Gemeinderat der Stadt Zürich die Teile I und II der Bau- und Zonenordnung 1999 (BZO 99) festgesetzt»; «GRB Nr. 1559 vom 23. Oktober 1991»"
+    },
+    {
+      "docid": "562",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=562",
+      "retrieved": "2026-07-25",
+      "docTitle": "Regierungsrat des Kantons Zürich, Beschluss vom 10. September 1997 — Nutzungsplanung Stadt Zürich, Revision (Teilgenehmigung Freihaltezonen)",
+      "marker": "«Mit Urnenabstimmung vom 17. Mai 1992 haben die Stimmberechtigten der Stadt Zürich die Vorlage für eine neue Bau- und Zonenordnung (BZO) angenommen»; «kommunalen Bau- und Zonenordnung 1992»"
+    },
+    {
+      "docid": "601",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=601",
+      "retrieved": "2026-07-25",
+      "docTitle": "Baudirektion Kanton Zürich — Verfügung ARV/305/2001 vom 15. März 2001, Nutzungsplanung Stadt Zürich (Genehmigung)",
+      "marker": "«den Teil III der Bau- und Zonenordnung 1999 festgesetzt»; «Bau- und Zonenordnung 1999 (BZO 99)»"
+    },
+    {
+      "docid": "606",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=606",
+      "retrieved": "2026-07-25",
+      "docTitle": "Baudirektion Kanton Zürich — Verfügung ARV/736/2001 vom 20. Juni 2001, öffentliche Bekanntmachung der Genehmigung",
+      "marker": "«genehmigte die Baudirektion die Teile I und II der Bau- und Zonenordnung 1992/1999 gemäss Beschlüssen des Gemeinderates der Stadt Zürich vom 24. November 1999»"
+    },
+    {
+      "docid": "610",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=610",
+      "retrieved": "2026-07-25",
+      "docTitle": "Baudirektion Kanton Zürich — Verfügung vom 26. Juli 2002, Nutzungsplanung Stadt Zürich (Gebiet Leutschenbach u.a.)",
+      "marker": "«Mit Beschlüssen Nrn. 1815 und 1816 vom 24. November 1999 hat der Gemeinderat der Stadt Zürich die Teile I und II der Bau- und Zonenordnung 1999 (BZO 99) festgesetzt»; «Bau- und Zonenordnung (BZO 92)»"
+    },
+    {
+      "docid": "615",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=615",
+      "retrieved": "2026-07-25",
+      "docTitle": "Baudirektion Kanton Zürich — Verfügung ARV/93/2003 vom 4. Februar 2003, Nutzungsplanung Stadt Zürich (Teile Va und VI der BZO 1999)",
+      "marker": "«um Genehmigung der Teile Va und VI der Bau- und Zonenordnung 1999»; «Bau- und Zonenordnung 1999 (BZO 99)»"
+    },
+    {
+      "docid": "620",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=620",
+      "retrieved": "2026-07-25",
+      "docTitle": "Baudirektion Kanton Zürich — Verfügung ARV/1088/2005 vom 14. Juli 2005, Nutzungsplanung Stadt Zürich (Zonenplan, Änderung)",
+      "marker": "«Mit BDV Nr. ARV/921/2000 vom 20. Juli 2000 wurde die Nutzungsplanung der Stadt Zürich gemäss GRB Nr. 1815 und 1816 vom 24. November 1999 genehmigt»"
+    },
+    {
+      "docid": "16945",
+      "regime": "bzo_91_99",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=16945",
+      "retrieved": "2026-07-25",
+      "docTitle": "Bau- und Zonenordnung (BZO 91/99) — consolidated ordinance text, Gemeinderatsbeschluss vom 23. Oktober 1991 mit Änderungen bis 20. März 2024",
+      "marker": "«Bau- und Zonenordnung (BZO 91/99) Gemeinderatsbeschluss vom 23. Oktober 1991 mit Änderungen bis 20. März 2024»; «Diese Fassung (BZO 91/99) ist anwendbar auf Grundstücke, die von der Inkraftsetzung der BZO 2016 wegen hängiger Rechtsmittelverfahren oder Gutheissungen im Rechtsmittelverfahren ausgenommen sind (vgl. STRB Nr. 686/2018)»",
+      "note": "The consolidated 91/99 fassung. It cross-references 'BZO 2016' and 'STRB Nr' for grandfathered parcels — hence the classifier treats the explicit 'BZO 91/99' self-label as decisive over those cross-references."
+    },
+    {
+      "docid": "10868",
+      "regime": "bzo_2016",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=10868",
+      "retrieved": "2026-07-25",
+      "docTitle": "Teilrevision Bau- und Zonenordnung (BZO 2016) — Zonenplanänderung",
+      "marker": "«Teilrevision Bau- und Zonenordnung (BZO-Teilrevision)»; «BZO 2016» (×7); Stadtratsbeschluss (STRB Nr) chain"
+    },
+    {
+      "docid": "10984",
+      "regime": "bzo_2016",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=10984",
+      "retrieved": "2026-07-25",
+      "docTitle": "Teilrevision Bau- und Zonenordnung (BZO, AS 700.100) — BZO 2016",
+      "marker": "«BZO 2016» (×9); «Teilrevision Bau- und Zonenordnung»; «Bau- und Zonenordnung (BZO, AS 700.100)»; STRB Nr chain (historical BZO 99 references present but not the doc's own fassung)"
+    },
+    {
+      "docid": "11130",
+      "regime": "bzo_2016",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=11130",
+      "retrieved": "2026-07-25",
+      "docTitle": "Baudirektion Kanton Zürich — Verfügung Nr. 1027/21 vom 24. November 2021, Teilrevision Nutzungsplanung Friesenberg",
+      "marker": "«BZO 2016» (×17); «Bau- und Zonenordnung (BZO; AS 700.100)»; post-2016 Teilrevision + STRB chain"
+    },
+    {
+      "docid": "15172",
+      "regime": "bzo_2016",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=15172",
+      "retrieved": "2026-07-25",
+      "docTitle": "Teilrevision Bau- und Zonenordnung — Zonenplanänderung «Harsplen» Zürich-Witikon (2024)",
+      "marker": "«Teilrevision Bau- und Zonenordnung Zonenplanänderung «Harsplen» Zürich-Witikon» (×38); Stadtratsbeschluss (STRB Nr. 859/2024) chain (2024)"
+    }
+  ],
+  "excluded": [
+    {
+      "docid": "6808",
+      "reason": "image-only PDF (≈50 MB, 0 extractable text characters) — classifier returns null, no textual marker to verify",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=6808",
+      "retrieved": "2026-07-25",
+      "note": "This is the MOST FREQUENT docid on the WFS sample (≈555 polygons). The founder-supplied bzo_zone_data.json labels docid 6808 the 'BZO 2016' consolidated 700.100 PDF, but that claim CANNOT be verified from the document text (scanned image), so per SS CONTEXT-DATA-HONESTY it is NOT added to the runtime map; parcels linking only to 6808 resolve 'regime-ambiguous' until a human verifies it (VERIFICATION.md open item b). A text-bearing BZO 2016 consolidated document (analogous to the BZO 91/99 docid 16945) would resolve them."
+    },
+    {
+      "docid": "6561",
+      "reason": "image-only PDF (≈57 MB, 0 extractable text) — classifier returns null",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=6561",
+      "retrieved": "2026-07-25"
+    },
+    {
+      "docid": "7315",
+      "reason": "image-only PDF (≈55 MB, 0 extractable text) — classifier returns null",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=7315",
+      "retrieved": "2026-07-25"
+    },
+    {
+      "docid": "16381",
+      "reason": "NOT a municipal BZO ordinance — Baudirektion Verfügung Nr. 0273/24 vom 6. September 2024, 'Kantonale und regionale Nutzungszonen / statische Waldgrenzen', Stadt Zürich. Carries no BZO-regime marker.",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=16381",
+      "retrieved": "2026-07-25"
+    },
+    {
+      "docid": "625",
+      "reason": "zone-plan change (Baudirektion Verfügung ARV/1315/2005 vom 24. Oktober 2005, Beschluss Nr. 4307 vom 8. Juni 2005, Erholungszone E1 Juchhof) that restates no BZO-regime lineage — classifier returns null",
+      "sourceUrl": "https://oerebdocs.zh.ch/getDoc?docid=625",
+      "retrieved": "2026-07-25"
+    }
+  ],
+  "sampledDocidFrequency": {
+    "$comment": "Approximate polygon counts for each docid across the WFS sample (bzo_zone_v, MAXFEATURES≈4000), to show the coverage weight. Not exhaustive of the whole city.",
+    "6808": 555, "573": 446, "562": 182, "601": 44, "16381": 19, "615": 15,
+    "10984": 14, "620": 13, "6561": 12, "7315": 10, "16945": 10, "610": 8,
+    "11130": 7, "10868": 6, "606": 5, "15172": 2, "625": 1
+  }
+}

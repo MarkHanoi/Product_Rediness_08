@@ -125,13 +125,43 @@ export const ZURICH_BZO_ZONE_CATALOGUE: Readonly<
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * The `rechtsvorschrift_url` → regime map. ⚠ DELIBERATELY EMPTY. Which oerebdocs document id maps to
- * which BZO regime is itself a HUMAN-VERIFIED fact (the docid→regime crosswalk is not published as
- * structured data), so until it is signed off, a URL alone cannot determine the regime — and
- * `resolveZurichBzoRegime` must refuse rather than guess. A verified entry here is a data drop, not a
- * redesign (mirrors `CH_CANTON_FAR_CATALOGUES`).
+ * THE STATIC CROSSWALK — the oerebdocs `docid` → BZO regime map, keyed by the numeric `docid` (a
+ * string, e.g. `'573'`), NOT by the raw URL. Populated 2026-07-25 from REAL documents: each `docid`
+ * was self-sourced from the live Stadt-Zürich BZO WFS `rechtsvorschrift_url` field, then fetched from
+ * `oerebdocs.zh.ch/getDoc?docid=<N>` and classified by `classifyBzoRegimeFromDocText` against its own
+ * verbatim legal-basis text. The canonical human artefact (with per-docid provenance: the marker text
+ * found, the source URL, retrieved date, and the DELIBERATELY-EXCLUDED unclassifiable docids) is
+ * `docs/04-reference/jurisdictions/ch/sources/bzo_regime_crosswalk.json`; `chZurichBzoCatalogue.test.ts`
+ * parity-guards this map against it.
+ *
+ * ⚠ A docid ABSENT from this map is NOT a bug and NEVER a guess: it means the governing document could
+ * not be classified from its own text (an image-only scan such as `docid=6808`, a cantonal — not
+ * municipal-BZO — ordinance such as `docid=16381`, or a zone-plan change that restates no regime
+ * lineage). For such a parcel `resolveZurichBzoRegime` REFUSES `regime-ambiguous` (§CONTEXT-DATA-HONESTY:
+ * a refusal and a fabrication must not collapse; the W2bIII 8.5-vs-9.0 m height forbids a coin flip).
+ *
+ * ⚠ This still does NOT flip `CH_FAR_CERTIFIED` — the crosswalk only makes regime RESOLUTION possible;
+ * the density/height compute stays gated OFF behind the repo owner's separate human sign-off.
  */
-export const ZURICH_BZO_REGIME_BY_DOC: ReadonlyMap<string, ZurichBzoRegime> = new Map();
+export const ZURICH_BZO_REGIME_BY_DOC: ReadonlyMap<string, ZurichBzoRegime> = new Map<
+    string,
+    ZurichBzoRegime
+>([
+    // BZO 91/99 — the older regime (BZO 92 → BZO 99 festsetzung lineage; the consolidated 91/99 text).
+    ['573', 'bzo_91_99'],
+    ['562', 'bzo_91_99'],
+    ['601', 'bzo_91_99'],
+    ['606', 'bzo_91_99'],
+    ['610', 'bzo_91_99'],
+    ['615', 'bzo_91_99'],
+    ['620', 'bzo_91_99'],
+    ['16945', 'bzo_91_99'], // the CONSOLIDATED "Bau- und Zonenordnung (BZO 91/99)" ordinance text.
+    // BZO 2016 — the newer regime (BZO 2016 fassung + post-2016 Teilrevisionen / Stadtratsbeschluss chain).
+    ['10868', 'bzo_2016'],
+    ['10984', 'bzo_2016'],
+    ['11130', 'bzo_2016'],
+    ['15172', 'bzo_2016'],
+]);
 
 /** Input to `resolveZurichBzoRegime` — the parcel's ordinance link and/or a known plan-area tag. */
 export interface ZurichBzoRegimeInput {
@@ -141,10 +171,94 @@ export interface ZurichBzoRegimeInput {
     readonly planArea?: string | null;
 }
 
-/** The regime resolution — a determined regime, or an honest refusal (never a guessed regime). */
+/**
+ * The regime resolution — a determined regime, or an honest refusal (never a guessed regime).
+ * `regime-ambiguous` — the regime genuinely cannot be placed (no signal, an unclassified docid, or two
+ *   docids that disagree). `regime-fetch-failed` — a runtime classify was attempted and the doc could
+ *   not be retrieved (the async resolver only; the pure `resolveZurichBzoRegime` never emits it).
+ */
 export type ZurichBzoRegimeResolution =
     | { readonly ok: true; readonly regime: ZurichBzoRegime }
-    | { readonly ok: false; readonly reason: 'regime-ambiguous' };
+    | { readonly ok: false; readonly reason: 'regime-ambiguous' | 'regime-fetch-failed' };
+
+// ──────────────────────────────────────────────────────────────────────────────────────────────
+// THE PURE CLASSIFIER — read the BZO regime off a fetched ordinance document's own text
+// ──────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Classify which BZO regime an oerebdocs ordinance document declares, from its extracted TEXT. PURE +
+ * deterministic — no I/O. Returns `null` when NO clear marker is present (an image-only scan, a
+ * non-BZO cantonal ordinance, or a zone-plan change that restates no regime lineage): the caller must
+ * then REFUSE `regime-ambiguous`, never guess (§CONTEXT-DATA-HONESTY — the W2bIII 8.5-vs-9.0 m height).
+ *
+ * The marker precedence is derived from REAL documents (verified 2026-07-25 against the fetched PDFs):
+ *   1. The explicit consolidated-fassung self-label `BZO 91/99` WINS — the consolidated
+ *      "Bau- und Zonenordnung (BZO 91/99)" text cross-references `BZO 2016` and the Stadtratsbeschluss
+ *      (STRB) chain for grandfathered parcels (`docid=16945`), so those markers are NOT 2016-exclusive
+ *      and must not be read as such.
+ *   2. Else the `BZO 2016` fassung / a post-2016 `Teilrevision Bau- und Zonenordnung` → `bzo_2016`
+ *      (these phrases never appear in the 2000–2005 91/99 genehmigung documents).
+ *   3. Else the 1991/1992/1999 festsetzung lineage (`BZO 92`/`BZO 99`, `Bau- und Zonenordnung 199x`,
+ *      the `1992/1999` fassung, GRB `1815 und 1816` / `Nr. 1559`, the `17. Mai 1992` Urnenabstimmung)
+ *      → `bzo_91_99`.
+ *   4. Else `null` — no clear marker.
+ */
+export function classifyBzoRegimeFromDocText(text: string | null | undefined): ZurichBzoRegime | null {
+    if (typeof text !== 'string' || text.trim() === '') return null;
+    const t = text;
+    // (1) Explicit consolidated-fassung self-label — decisive over the cross-referenced 2016/STRB markers.
+    if (/BZO\s*91\s*\/\s*99/i.test(t)) return 'bzo_91_99';
+    // (2) BZO 2016 fassung or a post-2016 Teilrevision der Bau- und Zonenordnung.
+    if (/\bBZO\s*2016\b/i.test(t) || /Teilrevision\s+Bau-\s*und\s+Zonenordnung/i.test(t)) {
+        return 'bzo_2016';
+    }
+    // (3) The 1991/1992/1999 festsetzung lineage.
+    if (
+        /\bBZO\s*9[29]\b/i.test(t) ||
+        /Bau-\s*und\s+Zonenordnung\s*199[29]/i.test(t) ||
+        /199[29]\s*\/\s*199[29]/.test(t) ||
+        /\b1815\s+und\s+1816\b/.test(t) ||
+        /\bNr\.?\s*1559\b/.test(t) ||
+        /Urnenabstimmung\s+vom\s+17\.\s*Mai\s+1992/i.test(t)
+    ) {
+        return 'bzo_91_99';
+    }
+    // (4) No clear marker — refuse to guess.
+    return null;
+}
+
+/**
+ * Extract every oerebdocs `docid` from a `rechtsvorschrift_url` value, in order, deduplicated. The WFS
+ * field can carry MULTIPLE `getDoc?docid=<N>` links for one parcel, separated by `; ` (verified live
+ * 2026-07-25, e.g. `…docid=573; …docid=6808`), so a single URL can name several governing documents.
+ * PURE. Returns `[]` when the input is not a string or carries no docid.
+ */
+export function extractOerebDocIds(url: string | null | undefined): string[] {
+    if (typeof url !== 'string') return [];
+    const ids: string[] = [];
+    const re = /docid=(\d+)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(url)) !== null) ids.push(m[1]!);
+    return [...new Set(ids)];
+}
+
+/**
+ * Resolve a regime from a set of docids via the static crosswalk. Returns a regime only on CONSENSUS:
+ *   • any docid ABSENT from the crosswalk (unclassifiable) ⇒ `null` (cannot confirm — refuse);
+ *   • docids that map to DIFFERENT regimes ⇒ `null` (genuinely conflicting — refuse);
+ *   • exactly one distinct regime across all docids ⇒ that regime.
+ * PURE. `[]` docids ⇒ `null`.
+ */
+function regimeFromDocIds(docIds: readonly string[]): ZurichBzoRegime | null {
+    if (docIds.length === 0) return null;
+    const regimes = new Set<ZurichBzoRegime>();
+    for (const id of docIds) {
+        const r = ZURICH_BZO_REGIME_BY_DOC.get(id);
+        if (!r) return null; // an unclassified governing document — cannot resolve, never guess.
+        regimes.add(r);
+    }
+    return regimes.size === 1 ? [...regimes][0]! : null; // conflicting regimes ⇒ refuse.
+}
 
 /** Normalise a free-form plan-area / regime string to a regime literal, or null if unrecognised. */
 function normalisePlanAreaToRegime(planArea: string | null | undefined): ZurichBzoRegime | null {
@@ -167,24 +281,25 @@ function normalisePlanAreaToRegime(planArea: string | null | undefined): ZurichB
 }
 
 /**
- * Resolve WHICH BZO regime governs a parcel — the soundness-critical step before any height cap.
+ * Resolve WHICH BZO regime governs a parcel — the soundness-critical step before any height cap. PURE
+ * (no I/O): it reads the STATIC docid→regime crosswalk, never fetches. The runtime-classify fallback
+ * (fetch + retry + `regime-fetch-failed`) lives in `resolveZurichBzoRegimeWithFetch`.
  *
  * Resolution order: (1) an explicit, recognised `planArea` tag the caller already holds wins; (2) else
- * a VERIFIED `rechtsvorschrift_url` → regime mapping (`ZURICH_BZO_REGIME_BY_DOC`, empty until signed
- * off); (3) else REFUSE `regime-ambiguous`. It NEVER guesses: with two regimes that disagree on the
- * W2bIII height (8.5 vs 9.0 m), a guessed regime is a fabricated height. This is why the resolver
- * refuses a parcel it cannot place, rather than defaulting to one regime.
+ * parse the oerebdocs `docid`(s) out of `rechtsvorschrift_url` and look each up in the static crosswalk
+ * (`ZURICH_BZO_REGIME_BY_DOC`) — resolving only on CONSENSUS (all classified, one regime); (3) else
+ * REFUSE `regime-ambiguous`. It NEVER guesses: with two regimes that disagree on the W2bIII height
+ * (8.5 vs 9.0 m), a guessed regime is a fabricated height. An unclassified docid, a conflict between a
+ * parcel's several docids, or no signal at all all refuse rather than default to one regime.
  */
 export function resolveZurichBzoRegime(input: ZurichBzoRegimeInput): ZurichBzoRegimeResolution {
     const fromPlanArea = normalisePlanAreaToRegime(input.planArea);
     if (fromPlanArea) return { ok: true, regime: fromPlanArea };
 
-    const url = typeof input.rechtsvorschriftUrl === 'string' ? input.rechtsvorschriftUrl.trim() : '';
-    if (url !== '') {
-        const mapped = ZURICH_BZO_REGIME_BY_DOC.get(url);
-        if (mapped) return { ok: true, regime: mapped };
-    }
-    // Neither a recognised plan area nor a verified ordinance-URL mapping — refuse, never guess.
+    const regime = regimeFromDocIds(extractOerebDocIds(input.rechtsvorschriftUrl));
+    if (regime) return { ok: true, regime };
+
+    // Neither a recognised plan area nor a resolvable ordinance-docid mapping — refuse, never guess.
     return { ok: false, reason: 'regime-ambiguous' };
 }
 

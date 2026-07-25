@@ -13,14 +13,19 @@
 //      shipping output is the honest cited refusal, ENRICHED with the transcribed values.
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
     resolveZurichBzoRegime,
     resolveZurichBzoEnvelopeParams,
+    classifyBzoRegimeFromDocText,
+    extractOerebDocIds,
     zurichBzoZoneParams,
     zurichBzoFarFor,
     computeZurichBzoGfa,
     computeZurichBzoEnvelope,
     ZURICH_BZO_ZONE_CATALOGUE,
+    ZURICH_BZO_REGIME_BY_DOC,
     ZURICH_ZH_FAR_CATALOGUE,
     CH_FAR_CERTIFIED,
     resolveChFarFromCantonCatalogue,
@@ -82,16 +87,135 @@ describe('resolveZurichBzoRegime — determines the regime, else REFUSES (never 
         expect(resolveZurichBzoRegime({ planArea: '1991/1999' })).toEqual({ ok: true, regime: 'bzo_91_99' });
     });
 
-    it('an UNMAPPED ordinance URL → `regime-ambiguous` (the docid→regime crosswalk is unsigned)', () => {
+    it('a CLASSIFIED ordinance URL now resolves from the static crosswalk', () => {
+        // docid 573 was classified bzo_91_99 from its own text (GRB 1815/1816 vom 24. November 1999).
+        expect(resolveZurichBzoRegime({ rechtsvorschriftUrl: 'https://oerebdocs.zh.ch/getDoc?docid=573' })).toEqual(
+            { ok: true, regime: 'bzo_91_99' },
+        );
+        // docid 15172 was classified bzo_2016 (2024 Teilrevision Bau- und Zonenordnung «Harsplen»).
+        expect(resolveZurichBzoRegime({ rechtsvorschriftUrl: 'https://oerebdocs.zh.ch/getDoc?docid=15172' })).toEqual(
+            { ok: true, regime: 'bzo_2016' },
+        );
+    });
+
+    it('an EXCLUDED docid (6808 — image-only scan) → `regime-ambiguous` (never guessed)', () => {
         const res = resolveZurichBzoRegime({ rechtsvorschriftUrl: 'https://oerebdocs.zh.ch/getDoc?docid=6808' });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('regime-ambiguous');
+    });
+
+    it('a multi-docid URL resolves on CONSENSUS, and refuses on conflict or an unclassified member', () => {
+        // Two 91/99 docids ⇒ consensus 91/99.
+        expect(
+            resolveZurichBzoRegime({
+                rechtsvorschriftUrl:
+                    'https://oerebdocs.zh.ch/getDoc?docid=573; https://oerebdocs.zh.ch/getDoc?docid=610',
+            }),
+        ).toEqual({ ok: true, regime: 'bzo_91_99' });
+        // 91/99 + 2016 ⇒ genuine conflict ⇒ refuse.
+        const conflict = resolveZurichBzoRegime({
+            rechtsvorschriftUrl:
+                'https://oerebdocs.zh.ch/getDoc?docid=573; https://oerebdocs.zh.ch/getDoc?docid=15172',
+        });
+        expect(conflict.ok).toBe(false);
+        if (!conflict.ok) expect(conflict.reason).toBe('regime-ambiguous');
+        // 91/99 + an unclassified (6808) ⇒ cannot confirm ⇒ refuse.
+        const withUnknown = resolveZurichBzoRegime({
+            rechtsvorschriftUrl:
+                'https://oerebdocs.zh.ch/getDoc?docid=573; https://oerebdocs.zh.ch/getDoc?docid=6808',
+        });
+        expect(withUnknown.ok).toBe(false);
+        if (!withUnknown.ok) expect(withUnknown.reason).toBe('regime-ambiguous');
     });
 
     it('no signal at all → `regime-ambiguous`', () => {
         const res = resolveZurichBzoRegime({});
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('regime-ambiguous');
+    });
+});
+
+describe('extractOerebDocIds — parses docid(s) from a rechtsvorschrift_url (single + multi)', () => {
+    it('extracts a single docid', () => {
+        expect(extractOerebDocIds('https://oerebdocs.zh.ch/getDoc?docid=573')).toEqual(['573']);
+    });
+    it('extracts multiple `; `-separated docids, deduplicated in order', () => {
+        expect(
+            extractOerebDocIds(
+                'https://oerebdocs.zh.ch/getDoc?docid=573; https://oerebdocs.zh.ch/getDoc?docid=6808; https://oerebdocs.zh.ch/getDoc?docid=573',
+            ),
+        ).toEqual(['573', '6808']);
+    });
+    it('returns [] for a URL with no docid, null, or a non-string', () => {
+        expect(extractOerebDocIds('https://example.org/no-docid-here')).toEqual([]);
+        expect(extractOerebDocIds(null)).toEqual([]);
+        expect(extractOerebDocIds(undefined)).toEqual([]);
+    });
+});
+
+describe('classifyBzoRegimeFromDocText — reads the regime off a document’s own text (real markers)', () => {
+    it('classifies BZO 91/99 from the GRB 1991/1999 festsetzung lineage', () => {
+        expect(
+            classifyBzoRegimeFromDocText(
+                'Mit Beschlüssen Nrn. 1815 und 1816 vom 24. November 1999 hat der Gemeinderat der Stadt ' +
+                    'Zürich die Teile I und II der Bau- und Zonenordnung 1999 (BZO 99) festgesetzt. GRB Nr. 1559 ' +
+                    'vom 23. Oktober 1991.',
+            ),
+        ).toBe('bzo_91_99');
+    });
+
+    it('classifies BZO 91/99 from the consolidated-fassung self-label even when it cross-references BZO 2016', () => {
+        // The real docid=16945 shape: it self-labels "BZO 91/99" AND mentions BZO 2016 + STRB for
+        // grandfathered parcels. The self-label must WIN (never misread as 2016).
+        expect(
+            classifyBzoRegimeFromDocText(
+                'Bau- und Zonenordnung (BZO 91/99) Gemeinderatsbeschluss vom 23. Oktober 1991 mit Änderungen ' +
+                    'bis 20. März 2024. Diese Fassung (BZO 91/99) ist anwendbar auf Grundstücke, die von der ' +
+                    'Inkraftsetzung der BZO 2016 ausgenommen sind (vgl. STRB Nr. 686/2018).',
+            ),
+        ).toBe('bzo_91_99');
+    });
+
+    it('classifies BZO 2016 from the 2016 fassung / a post-2016 Teilrevision + STRB chain', () => {
+        expect(
+            classifyBzoRegimeFromDocText(
+                'Teilrevision Bau- und Zonenordnung, Zonenplanänderung «Harsplen» Zürich-Witikon. ' +
+                    'Stadtratsbeschluss STRB Nr. 859/2024.',
+            ),
+        ).toBe('bzo_2016');
+        expect(classifyBzoRegimeFromDocText('… festgesetzt gemäss BZO 2016 …')).toBe('bzo_2016');
+    });
+
+    it('returns null when there is NO clear marker (→ the caller must refuse `regime-ambiguous`)', () => {
+        expect(classifyBzoRegimeFromDocText('Beschluss Nr. 4307 vom 8. Juni 2005, Erholungszone E1 Juchhof.')).toBeNull();
+        expect(classifyBzoRegimeFromDocText('')).toBeNull();
+        expect(classifyBzoRegimeFromDocText(null)).toBeNull();
+        expect(classifyBzoRegimeFromDocText('   ')).toBeNull();
+    });
+});
+
+describe('ZURICH_BZO_REGIME_BY_DOC — parity with the canonical bzo_regime_crosswalk.json artefact', () => {
+    it('every classified docid in the JSON crosswalk is in the machine map with the same regime (and vice versa)', () => {
+        const jsonPath = fileURLToPath(
+            new URL(
+                '../../../docs/04-reference/jurisdictions/ch/sources/bzo_regime_crosswalk.json',
+                import.meta.url,
+            ),
+        );
+        const artefact = JSON.parse(readFileSync(jsonPath, 'utf8')) as {
+            crosswalk: Array<{ docid: string; regime: string }>;
+            excluded: Array<{ docid: string }>;
+        };
+        // Map ⊇ artefact classified rows, with matching regime.
+        for (const row of artefact.crosswalk) {
+            expect(ZURICH_BZO_REGIME_BY_DOC.get(row.docid)).toBe(row.regime);
+        }
+        // Map ⊆ artefact classified rows (no machine entry without provenance).
+        const classified = new Set(artefact.crosswalk.map((r) => r.docid));
+        for (const docid of ZURICH_BZO_REGIME_BY_DOC.keys()) expect(classified.has(docid)).toBe(true);
+        expect(ZURICH_BZO_REGIME_BY_DOC.size).toBe(artefact.crosswalk.length);
+        // Excluded docids are NOT in the runtime map (they refuse rather than guess).
+        for (const row of artefact.excluded) expect(ZURICH_BZO_REGIME_BY_DOC.has(row.docid)).toBe(false);
     });
 });
 

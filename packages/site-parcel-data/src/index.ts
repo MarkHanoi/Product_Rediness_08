@@ -551,6 +551,8 @@ export {
 export {
     resolveZurichBzoRegime,
     resolveZurichBzoEnvelopeParams,
+    classifyBzoRegimeFromDocText,
+    extractOerebDocIds,
     zurichBzoZoneParams,
     zurichBzoFarFor,
     zurichBzoPendingCertFacts,
@@ -568,6 +570,16 @@ export {
     type ZurichBzoEnvelopeParamsInput,
     type ZurichBzoEnvelopeParamsResolution,
 } from './providers/chZurichBzoCatalogue.js';
+
+// The OPTIONAL runtime-classify FALLBACK for BZO regime resolution — fetches + classifies a governing
+// oerebdocs document when its docid is not yet in the static crosswalk, under a strict error contract
+// (`regime-fetch-failed` on transient failure after 2 retries; hard `regime-ambiguous` on a null marker).
+export {
+    resolveZurichBzoRegimeWithFetch,
+    CH_ZURICH_GETDOC_BASE,
+    type ZurichBzoRegimeAsyncResolution,
+    type ZurichBzoRegimeResolverDeps,
+} from './providers/zurichBzoRegimeResolver.js';
 
 // ── PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique zone-ID + numeric hauteur provider +
 // honest envelope refusal. GPU `zone_urba` gives the zone identity (structured) and opendata
