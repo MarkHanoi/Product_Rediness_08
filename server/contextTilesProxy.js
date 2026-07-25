@@ -127,3 +127,64 @@ export function makeContextTilesHandler(deps = {}) {
 }
 
 export const contextTilesHandler = makeContextTilesHandler();
+
+/**
+ * §CTX-TILES-TERRAIN — same-origin passthrough for the baked Cesium quantized-mesh TERRAIN under
+ * `<base>/terrain/<city>/…` (a `layer.json` + `*.terrain` LOD tiles). SEPARATE from the PMTiles
+ * handler above because terrain paths are MULTI-SEGMENT (`terrain/zurich/0/0/0.terrain`), which the
+ * single-segment `:layer` route cannot match — so without this route terrain requests fell through
+ * to the SPA catch-all and came back as `index.html`, which `CesiumTerrainProvider.fromUrl` cannot
+ * parse → the viewport silently kept flat ground (the "terrain looks flat in Zürich" report).
+ *
+ * ⚠ ALLOWLIST, NOT PASS-THROUGH — same reasoning as the PMTiles handler. The subpath must be
+ * `<slug>/…` ending in `layer.json` or `.terrain`, with no traversal, so this can never be turned
+ * into an open proxy for arbitrary bucket keys.
+ */
+export function makeContextTilesTerrainHandler(deps = {}) {
+    const fetchImpl = deps.fetch ?? globalThis.fetch;
+    const upstreamBase = deps.upstream ?? CONTEXT_TILES_UPSTREAM;
+
+    return async function contextTilesTerrainHandler(req, res) {
+        const sub = String(req.params?.[0] ?? '');
+        if (
+            sub.includes('..') || sub.startsWith('/') ||
+            !/^[a-z0-9][a-z0-9._/-]*$/.test(sub) ||
+            !/(?:\/layer\.json|\.terrain)$/.test(sub)
+        ) {
+            return res.status(404).json({ error: 'unknown terrain tile path' });
+        }
+
+        const base = upstreamBase.endsWith('/') ? upstreamBase : `${upstreamBase}/`;
+        const url = `${base}terrain/${sub}`;
+
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), CONTEXT_TILES_UPSTREAM_TIMEOUT_MS);
+        try {
+            const headers = {};
+            if (req.headers?.range) headers.Range = req.headers.range;
+            if (req.headers?.['if-none-match']) headers['If-None-Match'] = req.headers['if-none-match'];
+
+            const upstream = await fetchImpl(url, { headers, signal: ctrl.signal });
+            res.status(upstream.status);
+            for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified']) {
+                const v = upstream.headers.get(h);
+                if (v) res.setHeader(h, v);
+            }
+            // R2 objects already carry the right content-type from the bake; default by extension only
+            // if the bucket omitted it, so the Cesium reader never mis-parses a tile as JSON.
+            if (!upstream.headers.get('content-type')) {
+                res.setHeader('content-type', sub.endsWith('.terrain') ? 'application/vnd.quantized-mesh' : 'application/json');
+            }
+            res.setHeader('cache-control', upstream.headers.get('cache-control') || 'public, max-age=3600, must-revalidate');
+            if (upstream.status === 304 || upstream.status === 204) return res.end();
+            const buf = Buffer.from(await upstream.arrayBuffer());
+            return res.end(buf);
+        } catch {
+            return res.status(502).json({ error: 'terrain upstream unreachable' });
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+}
+
+export const contextTilesTerrainHandler = makeContextTilesTerrainHandler();

@@ -5940,16 +5940,18 @@ export class CesiumViewport {
    */
   private async maybeAttachTerrainProvider(lat: number, lon: number): Promise<void> {
     const viewer = this.viewer;
-    if (!viewer) return;
+    if (!viewer) { console.log('[CesiumViewport][terrain] skip: no viewer'); return; }
     // §A.21.D-GLOBE3 — on the paid photoreal path the Google 3D tiles already carry ground +
     // buildings at real elevation; laying our terrain mesh under them would double-ground / z-fight
     // the globe. Leave the photoreal path exactly as it was (the free Forma path is where terrain renders).
-    if (this.photorealTilesActive) return;
+    if (this.photorealTilesActive) { console.log('[CesiumViewport][terrain] skip: photoreal 3D tiles active'); return; }
     const city = cityForLonLat(lon, lat);
+    console.log(`[CesiumViewport][terrain] evaluate lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → city=${city ?? 'NONE (outside baked bboxes → flat)'}`);
     if (!city) return;                                 // no baked terrain here → flat (unchanged)
-    if (city === this.formaTerrainCity) return;        // provider already attached for this city
-    if (this.formaTerrainProbedCities.has(city)) return; // already tried + 404'd this session
+    if (city === this.formaTerrainCity) { console.log(`[CesiumViewport][terrain] skip: '${city}' already attached`); return; }
+    if (this.formaTerrainProbedCities.has(city)) { console.log(`[CesiumViewport][terrain] skip: '${city}' already probed this session`); return; }
     const url = terrainTilesetUrl(city);
+    console.log(`[CesiumViewport][terrain] '${city}' → tileset url=${url ?? 'NULL (no tiles base configured)'}`);
     if (!url) return;                                  // no tiles base configured → flat (unchanged)
     this.formaTerrainProbedCities.add(city);
 

@@ -46,7 +46,7 @@ import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
 import { EVENT_LOG_PATH, makeEventLogHandler } from './server/eventLog.js';
 // §OVERPASS-PROXY: same-origin Overpass proxy + shared cache for Forma 3D-site context
 import { OVERPASS_PATH, overpassBodyParser, overpassHandler } from './server/overpassProxy.js';
-import { CONTEXT_TILES_PATH, contextTilesHandler } from './server/contextTilesProxy.js';
+import { CONTEXT_TILES_PATH, contextTilesHandler, contextTilesTerrainHandler } from './server/contextTilesProxy.js';
 import { CATALOG_PROXY_PATH, catalogAssetHandler } from './server/catalogAssetProxy.js';
 // §PARCEL-PROXY (L-380): same-origin Catastro parcel proxy + shared cache (select-real-parcel)
 import { CATASTRO_PARCEL_PATH, catastroParcelHandler, CATASTRO_BLOCK_PATH, catastroBlockHandler } from './server/parcelZoningProxy.js';
@@ -401,6 +401,10 @@ app.post(OVERPASS_PATH, apiLimiter, overpassBodyParser, overpassHandler);
 // on the second site visit of any minute and present as the exact "context randomly doesn't
 // render" complaint this whole work stream exists to end. These are cacheable static bytes, not
 // an expensive upstream query; `globalLimiter` still applies.
+// §CTX-TILES-TERRAIN — MUST be registered before the single-segment `:layer` route. Terrain tiles
+// live at multi-segment `terrain/<city>/…` paths the `:layer` route can't match; without this they
+// fell through to the SPA and returned index.html (silent flat ground). Same no-limiter reasoning.
+app.get(`${CONTEXT_TILES_PATH}/terrain/*`, contextTilesTerrainHandler);
 app.get(`${CONTEXT_TILES_PATH}/:layer`, contextTilesHandler);
 
 // §CATALOG-R2-PROXY (L-578b) — the furniture catalogue (GLBs + thumbnails) over our own origin,
