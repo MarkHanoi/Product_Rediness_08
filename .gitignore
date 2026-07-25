@@ -28,6 +28,11 @@ attached_assets/
 # §L6 — local developer scratch files (TypeScript error dumps, etc.)
 .local/
 .local-*.txt
+
+# Terrain/context bake output + standalone (non-workspace) deps — ephemeral, rebuilt in CI
+# (terrain.mjs / bake.mjs write here; terrain-bake.yml installs deps standalone). Never source.
+tools/context-bake/out/
+tools/context-bake/package-lock.json
 .local-*.json
 
 # §A.31.e fix — MasterMiawW is a REFERENCE chatbot repo (see memory note

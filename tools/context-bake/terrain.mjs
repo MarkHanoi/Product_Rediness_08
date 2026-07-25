@@ -24,22 +24,26 @@
 //   plane, giving the rasant AT THE FAÇADE instead of one point at the block centre.
 //
 // TOOLCHAIN: pure-JS, no GDAL/PDAL (the repo box has neither — this file needs neither). The
-// national DTM arrives keyless over WCS as a GeoTIFF (see `dtmWcsUrl()` + `--fetch-nl`, live-
+// national DTM arrives keyless over WCS/WMS/STAC as a GeoTIFF (see §8b + --sample-city, live-
 // verified); everything after is Node. Deps install STANDALONE (a separate artefact, NOT the
 // pnpm workspace — `workspace:*` would choke a subdir `npm i`; mirror bake.mjs's Docker-image
-// property). In a scratch dir:  npm i geotiff@2 @mapbox/martini@0.2
-//   geotiff         — read the DTM GeoTIFF (national CRS)
+// property). In a scratch dir:  npm i geotiff@2 @mapbox/martini@0.2 proj4@2
+//   geotiff         — read the DTM GeoTIFF (native CRS)
 //   @mapbox/martini — RTIN error-bounded raster→TIN (Mapbox's MARTINI; pydelatin-equivalent)
+//   proj4           — the ONE shared horizontal reprojection (reproject.mjs) for every non-NL city
 //   (the quantized-mesh encoder is implemented in-file — no npm encoder exists that renders;
 //    it is verified by an INDEPENDENT decode round-trip in terrain.verify.mjs.)
 //
 // USAGE:
-//   node terrain.mjs --list                         # print the per-country DTM source registry
-//   node terrain.mjs --regions                       # print the 25 per-city REGIONS (bakeable vs blocked)
+//   node terrain.mjs --regions                       # print the per-city REGIONS (bakeable vs blocked)
+//   node terrain.mjs --selftest                      # proj4 reprojection self-test (control points)
 //   node terrain.mjs --probe                         # live-probe every source (HTTP + Content-Type)
-//   node terrain.mjs --fetch-nl amsterdam.tif        # keyless WCS GetCoverage → an AHN DTM GeoTIFF
-//   node terrain.mjs --tif <file> --country nl \     # compile ONE GeoTIFF → quantized-mesh tileset
-//        --out out/terrain/<city>                    #   (needs geotiff + @mapbox/martini installed)
+//   node terrain.mjs --sample-city barcelona         # fetch real DTM + print control-point elevations
+//   node terrain.mjs --bake-city barcelona \         # fetch national DTM → reproject → quantized-mesh
+//        --out out/terrain/barcelona                 #   (ES/FR/CH/NO/DE/IT/GB wired; NL closed-form)
+//   node terrain.mjs --fetch-nl amsterdam.tif        # keyless AHN WCS GetCoverage → a DTM GeoTIFF
+//   node terrain.mjs --tif <file> --country <cc> \   # compile ONE local GeoTIFF → quantized-mesh
+//        --out out/terrain/<city>
 //
 // Cross-refs: CONTEXT-DATA-TERRAIN.md (per-country sourcing) · globeGroundAnchor.ts (the datum
 // boundary) · CesiumViewport.ts (runtime wiring, §9 below) · CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md.
@@ -47,6 +51,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getProjector, selfTest as reprojectSelfTest } from './reproject.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -280,6 +285,9 @@ export const REGIONS = [
   { name: 'zurich',       source: 'ch', bbox: [8.45, 47.34, 8.62, 47.43] },
   { name: 'geneva',       source: 'ch', bbox: [6.09, 46.17, 6.18, 46.25] },
   { name: 'bern',         source: 'ch', bbox: [7.40, 46.93, 7.48, 46.99] },
+  // Köln is the NRW-covered German city (Geobasis NRW DGM1) — the DE terrain reference. Berlin/Munich
+  // stay BLOCKED below (different Länder, separate portals), mirroring the L-511 German state-router.
+  { name: 'koln',         source: 'de', bbox: [6.85, 50.88, 7.02, 50.99] },
   { name: 'madrid',       source: 'es', bbox: [-3.80, 40.33, -3.58, 40.52] },
   { name: 'barcelona',    source: 'es', bbox: [2.09, 41.32, 2.23, 41.47] },
   { name: 'cordoba',      source: 'es', bbox: [-4.85, 37.84, -4.72, 37.94] },
@@ -310,6 +318,26 @@ const isNodata = (v) => !Number.isFinite(v) || Math.abs(v) > NODATA_MAG;
 export async function readDtmGeoTIFF(path, geotiffMod) {
   const { fromFile } = geotiffMod;
   const tiff = await fromFile(path);
+  const img = await tiff.getImage();
+  const [values] = await img.readRasters();
+  const [minX, minY, maxX, maxY] = img.getBoundingBox();
+  const [resX, resY] = img.getResolution();
+  return {
+    width: img.getWidth(), height: img.getHeight(),
+    values: Float32Array.from(values),
+    bboxNative: [minX, minY, maxX, maxY], resX: Math.abs(resX), resY: Math.abs(resY),
+  };
+}
+
+/** Read a DTM GeoTIFF already in memory (ArrayBuffer/Buffer) → same shape as readDtmGeoTIFF.
+ *  Used by the per-country WCS/WMS/STAC fetchers, which stream the coverage rather than write a
+ *  temp file first. Some servers (e.g. GeoServer FORMAT=image/tiff) omit the geo-transform; those
+ *  callers must request the GEO-keyed flavour (image/geotiff) — verified per source in §8b. */
+export async function readDtmFromBuffer(arrayBuffer, geotiffMod) {
+  const { fromArrayBuffer } = geotiffMod;
+  const ab = arrayBuffer instanceof ArrayBuffer ? arrayBuffer
+    : arrayBuffer.buffer.slice(arrayBuffer.byteOffset, arrayBuffer.byteOffset + arrayBuffer.byteLength);
+  const tiff = await fromArrayBuffer(ab);
   const img = await tiff.getImage();
   const [values] = await img.readRasters();
   const [minX, minY, maxX, maxY] = img.getBoundingBox();
@@ -384,6 +412,49 @@ function sampleGrid(values, width, height, fx, fy) {
 function nativeToCell(X, Y, r) {
   const [minX, minY, maxX, maxY] = r.bboxNative;
   return { fx: (X - minX) / (maxX - minX) * (r.width - 1), fy: (maxY - Y) / (maxY - minY) * (r.height - 1) };
+}
+
+// ── §3b — THE WARP (native projected/geographic raster → a WGS-84 lon/lat-aligned grid) ─────────
+// WHY THIS IS THE CORRECTNESS FIX for non-NL countries: a Cesium quantized-mesh tile stores each
+// vertex only as (u,v) — a normalised position inside the tile's rectangular lon/lat extent — plus a
+// height. Cesium reconstructs the vertex at lerp(west,east,u)×lerp(south,north,v). So a rotated
+// projected grid (UTM/Lambert grid-north ≠ true-north; grid convergence) CANNOT be represented by
+// just reprojecting the tile CORNERS and keeping native pixels — the interior would shear. The fix
+// is to RESAMPLE onto a regular lon/lat grid: for each (lon,lat) post, forward-project to native
+// (X,Y) and bilinear-sample the raster. The rotation/scale is absorbed into the resample, so the
+// encoder's linear (u,v)↔lon/lat is then exact. For a geographic raster (ES/FR served in 4326) the
+// forward projector is the identity and this degenerates to a plain lon/lat resample.
+
+/** Inscribed WGS-84 rectangle that is guaranteed to lie INSIDE the (possibly rotated) native raster
+ *  footprint — so every warp sample hits real data, never the clamped edge. */
+export function inscribedWgs84Extent(raster, projector) {
+  const [minX, minY, maxX, maxY] = raster.bboxNative;
+  const c = {
+    sw: projector.inverse(minX, minY), se: projector.inverse(maxX, minY),
+    nw: projector.inverse(minX, maxY), ne: projector.inverse(maxX, maxY),
+  };
+  const w = Math.max(c.sw[0], c.nw[0]);
+  const e = Math.min(c.se[0], c.ne[0]);
+  const s = Math.max(c.sw[1], c.se[1]);
+  const n = Math.min(c.nw[1], c.ne[1]);
+  return [w, s, e, n];
+}
+
+/** Warp a native raster to a gridSize×gridSize WGS-84 grid over tileWsen=[w,s,e,n] (degrees).
+ *  Row-major, top row = north (gy=0 → lat=n), matching the encoder's v convention. */
+export function resampleToGeographicGrid(raster, forward, tileWsen, gridSize) {
+  const [w, s, e, n] = tileWsen;
+  const out = new Float32Array(gridSize * gridSize);
+  for (let gy = 0; gy < gridSize; gy++) {
+    const lat = n - (n - s) * (gy / (gridSize - 1));
+    for (let gx = 0; gx < gridSize; gx++) {
+      const lon = w + (e - w) * (gx / (gridSize - 1));
+      const [X, Y] = forward(lon, lat);
+      const { fx, fy } = nativeToCell(X, Y, raster);
+      out[gy * gridSize + gx] = sampleGrid(raster.values, raster.width, raster.height, fx, fy);
+    }
+  }
+  return out;
 }
 
 /**
@@ -628,6 +699,248 @@ async function fetchToFile(url, dest, timeoutMs = 60000) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// §8b — PER-COUNTRY DTM FETCH ADAPTERS  (the keyless multi-city bake — the point of this task)
+//
+// Each bakeable non-NL source has ONE descriptor here saying how to pull a real bare-earth DTM for
+// a WGS-84 bbox. `nativeCrs` is the CRS the returned GeoTIFF is IN — the ONLY per-country projection
+// knowledge, and it flows straight into the shared reproject.mjs projector for the §3b warp. Every
+// URL below was LIVE-VERIFIED 2026-07-25 from this machine (see the task report / the --sample-city
+// proof): sampled elevations match ground truth AND the correct vertical datum after the geoid lift.
+//
+//   kind 'wcs2-geo'  — OGC WCS 2.0.1, coverage already served in EPSG:4326 (no horizontal reproj).
+//   kind 'wcs2'      — OGC WCS 2.0.1 in a projected CRS; SUBSET in native E/N; SCALESIZE if allowed.
+//   kind 'wcs1'      — OGC WCS 1.0.0 (ArcGIS dialect): COVERAGE + CRS + BBOX + WIDTH/HEIGHT.
+//   kind 'wms'       — OGC WMS 1.3.0 GetMap FORMAT=image/geotiff (geographic CRS:84 or projected).
+//   kind 'stac-cog'  — swisstopo STAC: per-1km cloud-optimised GeoTIFF tiles, stitched client-side.
+//
+// `maxExtentM` caps the fetched box (centred on the site) so one request stays bounded — some hosts
+// cap area (GB EA) or serve static per-km tiles (CH). A capped city still gives the site its real
+// local relief + datum; a full-city mosaic pyramid is the documented follow-up, NOT a wrong tileset.
+// ═════════════════════════════════════════════════════════════════════════════
+export const DTM_FETCH = {
+  es: { kind: 'wcs2-geo', endpoint: 'https://servicios.idee.es/wcs-inspire/mdt',
+    coverageId: 'Elevacion4258_25', axisLat: 'lat', axisLon: 'long', nativeCrs: 'EPSG:4326',
+    maxExtentM: 22000, note: 'IGN PNOA MDT25 via INSPIRE WCS 2.0.1 — served in EPSG:4326 (geographic).' },
+  fr: { kind: 'wms', endpoint: 'https://data.geopf.fr/wms-r/wms', layer: 'ELEVATION.ELEVATIONGRIDCOVERAGE',
+    format: 'image/geotiff', requestCrs: 'CRS:84', nativeCrs: 'EPSG:4326', maxPx: 1200, maxExtentM: 30000,
+    note: 'IGN RGE ALTI via Géoplateforme WMS GetMap CRS:84 image/geotiff (geographic).' },
+  de: { kind: 'wcs2', endpoint: 'https://www.wcs.nrw.de/geobasis/wcs_nw_dgm', coverageId: 'nw_dgm',
+    axisX: 'x', axisY: 'y', nativeCrs: 'EPSG:25832', scaleSize: true, maxPx: 1100, maxExtentM: 30000,
+    note: 'Geobasis NRW DGM1 via WCS 2.0.1 (SUBSETTINGCRS 25832 + SCALESIZE). NRW only — other Länder = separate adapters.' },
+  no: { kind: 'wcs1', endpoint: 'https://wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25833', coverageId: 'nhm_dtm_topo_25833',
+    nativeCrs: 'EPSG:25833', maxPx: 1100, maxExtentM: 30000,
+    note: 'Kartverket NHM DTM via ArcGIS WCS 1.0.0 (COVERAGE+CRS+BBOX+WIDTH/HEIGHT, FORMAT=GeoTIFF).' },
+  it: { kind: 'wms', endpoint: 'http://tinitaly.pi.ingv.it/TINItaly_1_1/wms', layer: 'tinitaly_dem',
+    format: 'image/geotiff', requestCrs: 'EPSG:32632', nativeCrs: 'EPSG:32632', maxPx: 1100, maxExtentM: 30000,
+    note: 'INGV TINITALY 10 m national mosaic via GeoServer WMS GetMap (EPSG:32632). image/geotiff (image/tiff lacks geo-transform).' },
+  gb: { kind: 'wcs2', endpoint: 'https://environment.data.gov.uk/spatialdata/lidar-composite-digital-terrain-model-dtm-1m/wcs',
+    coverageId: '13787b9a-26a4-4775-8523-806d13af58fc__Lidar_Composite_Elevation_DTM_1m',
+    axisX: 'E', axisY: 'N', nativeCrs: 'EPSG:27700', scaleSize: false, maxExtentM: 3000,
+    note: 'EA LIDAR Composite DTM 1 m via WCS 2.0.1. ⚠ server REJECTS SCALESIZE + caps request area — bounded centre box only; full-city GB needs a tiled mosaic (follow-up).' },
+  ch: { kind: 'stac-cog', endpoint: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d',
+    resToken: '_2_2056_', nativeCrs: 'EPSG:2056', maxExtentM: 4000, maxTiles: 25,
+    note: 'swissALTI3D via STAC — per-1km 2 m COG GeoTIFF tiles (EPSG:2056), stitched over a centre block; full-city needs a mosaic job (follow-up).' },
+};
+
+/** apikey-gated sources: env var + a human hint. Wired but skip loudly until the founder adds the key. */
+export const APIKEY_SOURCES = {
+  dk: { env: 'DATAFORDELER_API_KEY', hint: 'mint at portal.datafordeler.dk (reuse the Matrikel key)' },
+  se: { env: 'LANTMATERIET_API_KEY', hint: 'free Lantmäteriet consumer key' },
+  fi: { env: 'MML_API_KEY', hint: 'free NLS open-data key (asiointi.maanmittauslaitos.fi)' },
+};
+
+const M_PER_DEG_LAT = 111320;
+const mPerDegLon = (lat) => 111320 * Math.cos(lat * D2R);
+
+/** Shrink a WGS-84 bbox to a maxExtentM-metre box centred on the same point (only if it exceeds it). */
+export function clampExtentM(bboxWsen, maxExtentM) {
+  if (!maxExtentM) return bboxWsen;
+  const [w, s, e, n] = bboxWsen;
+  const cLon = (w + e) / 2, cLat = (s + n) / 2;
+  const wM = (e - w) * mPerDegLon(cLat), hM = (n - s) * M_PER_DEG_LAT;
+  const halfLon = Math.min((e - w) / 2, (maxExtentM / 2) / mPerDegLon(cLat));
+  const halfLat = Math.min((n - s) / 2, (maxExtentM / 2) / M_PER_DEG_LAT);
+  if (wM <= maxExtentM && hM <= maxExtentM) return bboxWsen;
+  return [cLon - halfLon, cLat - halfLat, cLon + halfLon, cLat + halfLat];
+}
+
+/** aspect-correct pixel dims for a projected-metre box, capped at maxPx on the long side. */
+function pxDims(widthM, heightM, maxPx) {
+  const long = Math.max(widthM, heightM);
+  const scale = long > maxPx ? maxPx / long : 1;
+  return { width: Math.max(2, Math.round(widthM * scale)), height: Math.max(2, Math.round(heightM * scale)) };
+}
+
+async function fetchBuffer(url, { timeoutMs = 90000, accept } = {}) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctl.signal, headers: accept ? { Accept: accept } : {} });
+    const ct = res.headers.get('content-type') || '';
+    const ab = await res.arrayBuffer();
+    if (!res.ok) throw new Error(`HTTP ${res.status} ct=${ct} body="${Buffer.from(ab.slice(0, 180)).toString('utf8').replace(/\s+/g, ' ')}"`);
+    return { ab, ct, status: res.status };
+  } finally { clearTimeout(t); }
+}
+
+/** Forward-project the 4 WGS-84 corners → the bounding native box that covers them, padded. */
+function nativeBoxForBbox(bboxWsen, projector, padM = 200) {
+  const [w, s, e, n] = bboxWsen;
+  const pts = [projector.forward(w, s), projector.forward(e, s), projector.forward(w, n), projector.forward(e, n)];
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  return [Math.min(...xs) - padM, Math.min(...ys) - padM, Math.max(...xs) + padM, Math.max(...ys) + padM];
+}
+
+const crsUri = (epsg) => `http://www.opengis.net/def/crs/EPSG/0/${epsg.replace('EPSG:', '')}`;
+
+/**
+ * Fetch a real DTM for a WGS-84 bbox from a source's national service → { raster, nativeCrs, url }.
+ * `raster` is the readDtm* shape. Throws on a non-raster response (honest failure — never a fake tile).
+ */
+export async function fetchDtmRaster(sourceKey, bboxWsen, { geotiffMod, env = process.env } = {}) {
+  const cfg = DTM_FETCH[sourceKey];
+  if (!cfg) throw new Error(`no DTM fetch adapter for source '${sourceKey}'`);
+  const bbox = clampExtentM(bboxWsen, cfg.maxExtentM);
+  const [w, s, e, n] = bbox;
+
+  if (cfg.kind === 'wcs2-geo') {
+    const url = `${cfg.endpoint}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${cfg.coverageId}`
+      + `&FORMAT=image/tiff&SUBSET=${cfg.axisLat}(${s},${n})&SUBSET=${cfg.axisLon}(${w},${e})`
+      + `&SUBSETTINGCRS=${crsUri('EPSG:4326')}&OUTPUTCRS=${crsUri('EPSG:4326')}`;
+    const { ab } = await fetchBuffer(url, { accept: 'image/tiff' });
+    return { raster: await readDtmFromBuffer(ab, geotiffMod), nativeCrs: cfg.nativeCrs, url };
+  }
+
+  if (cfg.kind === 'wms') {
+    const proj = getProjector(cfg.requestCrs);
+    let bx, W, H, order;
+    if (proj.geographic) {
+      bx = [w, s, e, n]; order = [w, s, e, n]; // WMS 1.3.0 CRS:84 → lon,lat
+      const dims = pxDims((e - w) * mPerDegLon((s + n) / 2), (n - s) * M_PER_DEG_LAT, cfg.maxPx);
+      W = dims.width; H = dims.height;
+    } else {
+      const nb = nativeBoxForBbox(bbox, proj, 0); bx = nb; order = nb; // projected → minx,miny,maxx,maxy
+      const dims = pxDims(nb[2] - nb[0], nb[3] - nb[1], cfg.maxPx); W = dims.width; H = dims.height;
+    }
+    const url = `${cfg.endpoint}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${cfg.layer}&STYLES=`
+      + `&CRS=${cfg.requestCrs}&BBOX=${order.map((v) => v.toFixed(3)).join(',')}`
+      + `&WIDTH=${W}&HEIGHT=${H}&FORMAT=${encodeURIComponent(cfg.format)}`;
+    const { ab } = await fetchBuffer(url, { accept: cfg.format });
+    return { raster: await readDtmFromBuffer(ab, geotiffMod), nativeCrs: cfg.nativeCrs, url };
+  }
+
+  if (cfg.kind === 'wcs2') {
+    const proj = getProjector(cfg.nativeCrs);
+    const [x0, y0, x1, y1] = nativeBoxForBbox(bbox, proj, 100);
+    let url = `${cfg.endpoint}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${cfg.coverageId}`
+      + `&FORMAT=image/tiff&SUBSET=${cfg.axisX}(${x0.toFixed(0)},${x1.toFixed(0)})&SUBSET=${cfg.axisY}(${y0.toFixed(0)},${y1.toFixed(0)})`
+      + `&SUBSETTINGCRS=${crsUri(cfg.nativeCrs)}`;
+    if (cfg.scaleSize) {
+      const dims = pxDims(x1 - x0, y1 - y0, cfg.maxPx);
+      url += `&SCALESIZE=${cfg.axisX}(${dims.width}),${cfg.axisY}(${dims.height})`;
+    }
+    const { ab } = await fetchBuffer(url, { accept: 'image/tiff' });
+    return { raster: await readDtmFromBuffer(ab, geotiffMod), nativeCrs: cfg.nativeCrs, url };
+  }
+
+  if (cfg.kind === 'wcs1') {
+    const proj = getProjector(cfg.nativeCrs);
+    const [x0, y0, x1, y1] = nativeBoxForBbox(bbox, proj, 100);
+    // ⚠ SQUARE request. The Kartverket ArcGIS WCS emits a MALFORMED tiled GeoTIFF (tile-offset table
+    // longer than the data → geotiff "Offset outside DataView") for some non-square WIDTH/HEIGHT
+    // (1100×1041 fails; 1100×1100 + 900×852 read fine — live-isolated 2026-07-25). A square raster is
+    // geometrically correct because the BBOX still georeferences it: the (anisotropic) pixels are
+    // resolved by native X,Y in nativeToCell during the §3b warp, so no distortion reaches the mesh.
+    const dim = cfg.maxPx;
+    const url = `${cfg.endpoint}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${cfg.coverageId}`
+      + `&CRS=${cfg.nativeCrs}&BBOX=${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}`
+      + `&WIDTH=${dim}&HEIGHT=${dim}&FORMAT=GeoTIFF`;
+    const { ab } = await fetchBuffer(url, { accept: 'image/tiff' });
+    return { raster: await readDtmFromBuffer(ab, geotiffMod), nativeCrs: cfg.nativeCrs, url };
+  }
+
+  if (cfg.kind === 'stac-cog') {
+    return await fetchSwissAltiStac(cfg, bbox, geotiffMod);
+  }
+
+  throw new Error(`unknown fetch kind '${cfg.kind}' for ${sourceKey}`);
+}
+
+/** CH swissALTI3D: STAC items over the bbox → per-1km 2 m COG GeoTIFFs → stitched native (2056) raster. */
+async function fetchSwissAltiStac(cfg, bbox, geotiffMod) {
+  const [w, s, e, n] = bbox;
+  const itemsUrl = `${cfg.endpoint}/items?bbox=${w},${s},${e},${n}&limit=100`;
+  const { ab } = await fetchBuffer(itemsUrl, { accept: 'application/json' });
+  const json = JSON.parse(Buffer.from(ab).toString('utf8'));
+  const feats = json.features ?? [];
+  const hrefs = [];
+  for (const f of feats) {
+    const asset = Object.values(f.assets ?? {}).find((a) => typeof a.href === 'string' && a.href.includes(cfg.resToken) && /\.tif$/i.test(a.href));
+    if (asset) hrefs.push(asset.href);
+    if (hrefs.length >= cfg.maxTiles) break;
+  }
+  if (hrefs.length === 0) throw new Error(`swissALTI3D: STAC returned no ${cfg.resToken} COG tiles for bbox ${bbox.join(',')}`);
+  // Read each tile; accumulate the union native bbox + a common resolution.
+  const tiles = [];
+  for (const href of hrefs) {
+    const { ab: tb } = await fetchBuffer(href, { accept: 'image/tiff', timeoutMs: 120000 });
+    tiles.push(await readDtmFromBuffer(tb, geotiffMod));
+  }
+  const res = tiles[0].resX;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const t of tiles) {
+    minX = Math.min(minX, t.bboxNative[0]); minY = Math.min(minY, t.bboxNative[1]);
+    maxX = Math.max(maxX, t.bboxNative[2]); maxY = Math.max(maxY, t.bboxNative[3]);
+  }
+  const width = Math.round((maxX - minX) / res), height = Math.round((maxY - minY) / res);
+  const values = new Float32Array(width * height).fill(3.4e38); // nodata sentinel
+  for (const t of tiles) {
+    for (let ty = 0; ty < t.height; ty++) {
+      const Y = t.bboxNative[3] - (ty + 0.5) * t.resY; // native N of this row
+      const gy = Math.floor((maxY - Y) / res);
+      if (gy < 0 || gy >= height) continue;
+      for (let tx = 0; tx < t.width; tx++) {
+        const X = t.bboxNative[0] + (tx + 0.5) * t.resX;
+        const gx = Math.floor((X - minX) / res);
+        if (gx < 0 || gx >= width) continue;
+        const v = t.values[ty * t.width + tx];
+        if (!isNodata(v)) values[gy * width + gx] = v;
+      }
+    }
+  }
+  const raster = { width, height, values, bboxNative: [minX, minY, maxX, maxY], resX: res, resY: res };
+  return { raster, nativeCrs: cfg.nativeCrs, url: itemsUrl, tiles: hrefs.length };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §8c — GENERALIZED WARP COMPILE  (native raster + shared projector → quantized-mesh tileset)
+// This is compileTifToTileset's non-NL sibling: it uses the §3b geographic warp so ANY projected or
+// geographic national DTM produces a correct WGS-84-ellipsoidal quantized-mesh tileset. Same LOD
+// pyramid + layer.json + datum lift as the NL path — the ONLY new machinery is the reproject warp.
+// ═════════════════════════════════════════════════════════════════════════════
+export function compileWarpToTileset({ raster, nativeCrs, geoidSepM, outDir, gridSize = 257, Martini, tileWsen }) {
+  const proj = getProjector(nativeCrs);
+  const tile4 = tileWsen ?? inscribedWgs84Extent(raster, proj);
+  const filled = fillNodata(raster.values, raster.width, raster.height);
+  const gridGeo = resampleToGeographicGrid({ ...raster, values: filled }, proj.forward, tile4, gridSize);
+  const gridEll = Float32Array.from(gridGeo, (h) => napToEllipsoidal(h, geoidSepM));
+  const tile = { west: tile4[0] * D2R, south: tile4[1] * D2R, east: tile4[2] * D2R, north: tile4[3] * D2R };
+  const heightAt = (gx, gy) => gridEll[gy * gridSize + gx];
+  mkdirSync(outDir, { recursive: true });
+  const stats = [];
+  for (let lod = 0; lod < DEFAULT_LOD_ERRORS_M.length; lod++) {
+    const mesh = meshTile(gridEll, gridSize, DEFAULT_LOD_ERRORS_M[lod], Martini);
+    const enc = encodeQuantizedMesh(mesh, gridSize, tile, heightAt);
+    writeFileSync(resolve(outDir, `${lod}.terrain`), enc.buffer);
+    stats.push({ lod, ...enc.stats, bytes: enc.buffer.length });
+    console.log(`LOD${lod} err=${DEFAULT_LOD_ERRORS_M[lod]}m → ${enc.stats.triangles} tris, ${enc.stats.vertices} verts, `
+      + `h[${enc.stats.minH.toFixed(1)}..${enc.stats.maxH.toFixed(1)}]m, ${(enc.buffer.length / 1024).toFixed(1)} KB`);
+  }
+  writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(tile, DEFAULT_LOD_ERRORS_M.length - 1), null, 2));
+  console.log(`layer.json + ${DEFAULT_LOD_ERRORS_M.length} LOD tiles → ${outDir}  (tile extent ${tile4.map((v) => v.toFixed(4)).join(',')})`);
+  return { tileWsen: tile4, stats };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // §9 — RUNTIME WIRING (the Cesium terrain-provider + the L-584 datum fix).
 //
 // ✅ SHIPPED (Phase 3, 2026-07-25). The wiring documented below is now IMPLEMENTED in the client:
@@ -666,19 +979,24 @@ async function fetchToFile(url, dest, timeoutMs = 60000) {
 
 // ═════════════════════════════════════════════════════════════════════════════
 // §9b — COMPILE ONE DTM GeoTIFF → a Cesium quantized-mesh tileset dir (shared by --tif + --bake-city)
-// ⚠ Reprojection: NL uses the closed-form RD inverse (rdToWgs84). Other countries need proj4 for
-// their native horizCrs — until that adapter lands, only source 'nl' is wired end-to-end (§9).
+// NL keeps its dependency-free closed-form RD inverse (rdToWgs84) — the already-shipped, founder-
+// verified Amsterdam path, left byte-for-byte unchanged. EVERY other country routes through the
+// §8c shared warp (reproject.mjs proj4 + resampleToGeographicGrid) — no per-country projection code.
 // ═════════════════════════════════════════════════════════════════════════════
 export async function compileTifToTileset(tifPath, country, outDir, gridSize, geotiffMod, Martini) {
   const src = TERRAIN_SOURCES[country];
   const raster = await readDtmGeoTIFF(tifPath, geotiffMod);
+  if (country !== 'nl') {
+    // Non-NL GeoTIFF: warp from its native CRS. `--tif` callers pass --native-crs; else fall back to
+    // the source's DTM_FETCH nativeCrs. Honest: refuse rather than guess if neither is known.
+    const nativeCrs = (DTM_FETCH[country] && DTM_FETCH[country].nativeCrs);
+    if (!nativeCrs) throw new Error(`compileTifToTileset: no nativeCrs for '${country}' — pass a wired source or use compileWarpToTileset({nativeCrs}) directly`);
+    return compileWarpToTileset({ raster, nativeCrs, geoidSepM: src.geoidSepM, outDir, gridSize, Martini });
+  }
   const filled = fillNodata(raster.values, raster.width, raster.height);
   const grid = resampleSquare(filled, raster.width, raster.height, gridSize);
   const gridEll = grid.map((h) => napToEllipsoidal(h, src.geoidSepM));
   const [minX, minY, maxX, maxY] = raster.bboxNative;
-  if (country !== 'nl') {
-    throw new Error(`reproject adapter not wired for ${country} (${src.horizCrs}) — only NL RD-New today`);
-  }
   const [wLon, sLat] = rdToWgs84(minX, minY), [eLon, nLat] = rdToWgs84(maxX, maxY);
   const tile = { west: wLon * D2R, south: sLat * D2R, east: eLon * D2R, north: nLat * D2R };
   const heightAt = (gx, gy) => gridEll[gy * gridSize + gx];
@@ -693,6 +1011,67 @@ export async function compileTifToTileset(tifPath, country, outDir, gridSize, ge
   writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(tile, DEFAULT_LOD_ERRORS_M.length - 1), null, 2));
   console.log(`layer.json + ${DEFAULT_LOD_ERRORS_M.length} LOD tiles → ${outDir}`);
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §9c — BAKE ONE CITY end-to-end (fetch national DTM → warp compile) + SAMPLE (verification).
+// The honest core of the multi-city bake: resolve city → source → fetch real DTM → warp → tileset.
+// Skips (never fakes) for apikey-gated sources without a key and for BLOCKED cities.
+// ═════════════════════════════════════════════════════════════════════════════
+export async function bakeCity(region, { outDir, gridSize = 257, geotiffMod, Martini, env = process.env, bboxOverride } = {}) {
+  const src = TERRAIN_SOURCES[region.source];
+  const bbox = bboxOverride ?? region.bbox;
+  if (region.source === 'nl') {
+    // NL stays on the shipped closed-form proof path (see the --bake-city CLI branch).
+    throw new Error('bakeCity: NL uses the dedicated closed-form path in the CLI, not the generic adapter');
+  }
+  const apikey = APIKEY_SOURCES[region.source];
+  if (apikey && !env[apikey.env]) {
+    return { status: 'skip-apikey', reason: `${region.source.toUpperCase()} needs ${apikey.env} (${apikey.hint}) — not set; skipping loudly (no fake tile).` };
+  }
+  if (!DTM_FETCH[region.source]) {
+    return { status: 'skip-unwired', reason: `no DTM fetch adapter for source '${region.source}'.` };
+  }
+  const { raster, nativeCrs, url, tiles } = await fetchDtmRaster(region.source, bbox, { geotiffMod, env });
+  console.log(`  fetched DTM: ${raster.width}x${raster.height}px native ${nativeCrs}${tiles ? ` (${tiles} STAC tiles)` : ''}\n  via ${url}`);
+  const res = compileWarpToTileset({ raster, nativeCrs, geoidSepM: src.geoidSepM, outDir, gridSize, Martini });
+  return { status: 'ok', ...res, nativeCrs, url };
+}
+
+/** Fetch a coarse DTM for a city and print elevations at named control points — the placement +
+ *  datum proof (reproducible in CI). Returns the sampled rows so a caller/CI can assert them. */
+export async function sampleCity(region, probes, { geotiffMod, env = process.env } = {}) {
+  const src = TERRAIN_SOURCES[region.source];
+  const { raster, nativeCrs, url } = await fetchDtmRaster(region.source, region.bbox, { geotiffMod, env });
+  const [minX, minY, maxX, maxY] = raster.bboxNative;
+  const proj = getProjector(nativeCrs);
+  let mn = Infinity, mx = -Infinity, sum = 0, cnt = 0;
+  for (const v of raster.values) if (!isNodata(v)) { if (v < mn) mn = v; if (v > mx) mx = v; sum += v; cnt++; }
+  const rows = [];
+  for (const [name, lon, lat] of probes) {
+    const [X, Y] = proj.forward(lon, lat);
+    const { fx, fy } = nativeToCell(X, Y, raster);
+    const ortho = sampleGrid(raster.values, raster.width, raster.height, fx, fy);
+    rows.push({ name, lon, lat, orthoM: isNodata(ortho) ? null : +ortho.toFixed(1), ellipsoidalM: isNodata(ortho) ? null : +(ortho + src.geoidSepM).toFixed(1) });
+  }
+  return { url, nativeCrs, geoidSepM: src.geoidSepM, raster: { w: raster.width, h: raster.height, bboxNative: [minX, minY, maxX, maxY] },
+    stats: { minOrtho: +mn.toFixed(1), meanOrtho: +(sum / cnt).toFixed(1), maxOrtho: +mx.toFixed(1), valid: cnt, total: raster.values.length }, rows };
+}
+
+/** A few well-known control points per city for --sample-city (coast/valley → hill spread). */
+export const SAMPLE_PROBES = {
+  barcelona: [['Port/beach', 2.19, 41.375], ['Montjuïc', 2.155, 41.363], ['Tibidabo', 2.118, 41.422], ['Eixample', 2.163, 41.39]],
+  madrid: [['Puerta del Sol', -3.703, 40.417], ['Retiro', -3.683, 40.415], ['North M-30', -3.69, 40.50]],
+  cordoba: [['Mezquita', -4.779, 37.879], ['Guadalquivir', -4.78, 37.875], ['North hills', -4.80, 37.93]],
+  paris: [['Île de la Cité', 2.348, 48.854], ['Montmartre', 2.343, 48.887], ['Bois de Boulogne', 2.25, 48.86]],
+  lyon: [['Presqu’île', 4.833, 45.758], ['Fourvière', 4.822, 45.762], ['Rhône bank', 4.85, 45.75]],
+  zurich: [['Hauptbahnhof', 8.540, 47.378], ['Zürichberg', 8.573, 47.383], ['Lake shore', 8.545, 47.365]],
+  geneva: [['Old town', 6.148, 46.201], ['Lake', 6.15, 46.21], ['Salève foot', 6.16, 46.18]],
+  bern: [['Old town', 7.447, 46.948], ['Aare', 7.45, 46.95], ['Gurten foot', 7.44, 46.93]],
+  oslo: [['Fjord/Opera', 10.75, 59.907], ['Central', 10.74, 59.914], ['Inland N', 10.76, 59.955]],
+  london: [['Thames/City', -0.098, 51.508], ['Westminster', -0.1276, 51.5072], ['Hampstead', -0.178, 51.556]],
+  rome: [['Colosseum', 12.492, 41.890], ['Tiber', 12.472, 41.895], ['Monte Mario', 12.446, 41.925]],
+  milan: [['Duomo', 9.190, 45.464], ['Navigli', 9.175, 45.448], ['North', 9.2, 45.53]],
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // §10 — CLI
@@ -733,6 +1112,33 @@ async function main() {
 
   if (flag('--regions')) { printRegions(); return; }
 
+  if (flag('--selftest')) {
+    const { pass, rows } = reprojectSelfTest();
+    for (const r of rows) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.epsg.padEnd(11)} ctrlΔ=${r.ctrlErrM}m roundtripΔ=${r.roundTripErrM}m`);
+    console.log(pass ? '✅ reproject self-test PASS' : '❌ reproject self-test FAILED');
+    process.exit(pass ? 0 : 1);
+  }
+
+  // §SAMPLE-CITY — the placement + datum PROOF. Fetch a city's real DTM and print elevations at
+  // known control points (coast/valley → hill). Reproducible in CI; no tileset written.
+  if (flag('--sample-city')) {
+    const name = val('--sample-city');
+    const region = REGIONS.find((r) => r.name === name);
+    if (!region) { console.error(`unknown city '${name}' (see --regions)`); process.exit(1); }
+    if (region.blocked) { console.log(`SKIP ${name}: BLOCKED — ${region.blocked}`); return; }
+    if (region.source === 'nl') { console.log('use --fetch-nl for the NL proof (RD-New closed form).'); return; }
+    const geotiffMod = await import('geotiff');
+    const probes = SAMPLE_PROBES[name] || [['centroid', (region.bbox[0] + region.bbox[2]) / 2, (region.bbox[1] + region.bbox[3]) / 2]];
+    const r = await sampleCity(region, probes, { geotiffMod });
+    console.log(`═══ SAMPLE ${name} (${region.source.toUpperCase()} ${r.nativeCrs}, geoid lift +${r.geoidSepM} m) ═══`);
+    console.log(`  DTM query: ${r.url}`);
+    console.log(`  raster ${r.raster.w}x${r.raster.h}px · orthometric min/mean/max = ${r.stats.minOrtho}/${r.stats.meanOrtho}/${r.stats.maxOrtho} m (valid ${r.stats.valid}/${r.stats.total})`);
+    for (const row of r.rows) {
+      console.log(`    · ${row.name.padEnd(18)} (${row.lon},${row.lat}) → ${row.orthoM == null ? 'nodata' : `${row.orthoM} m orthometric → ${row.ellipsoidalM} m ellipsoidal`}`);
+    }
+    return;
+  }
+
   if (flag('--probe')) {
     for (const [code, s] of Object.entries(TERRAIN_SOURCES)) {
       if (code.startsWith('_')) continue;
@@ -768,34 +1174,38 @@ async function main() {
   }
 
   // §TERRAIN-BAKE-CITY — the CI entry point (terrain-bake.yml iterates BAKEABLE_REGIONS).
-  // Fetch this city's national DTM → compile → out/terrain/<city>/. HONEST: only source 'nl'
-  // (keyless AHN, RD-New) is wired end-to-end today; every other city SKIPS loudly (exit 0) with
-  // its registry probe verdict, so CI keeps going and never emits a wrong-datum tileset. As each
-  // per-country fetch/reproject adapter lands, its branch is added here and the city lights up.
+  // Fetch this city's national DTM → warp-compile → out/terrain/<city>/. NL uses its shipped closed-
+  // form proof path; ES/FR/CH/NO/DE/IT/GB use the §8b keyless per-country adapters + §8c shared warp.
+  // apikey-gated (DK/SE/FI) and BLOCKED cities SKIP LOUDLY (exit 0) — CI keeps going, never a fake tile.
   if (flag('--bake-city')) {
     const name = val('--bake-city');
     const region = REGIONS.find((r) => r.name === name);
     if (!region) { console.error(`unknown city '${name}' (see --regions)`); process.exit(1); }
     if (region.blocked) { console.log(`SKIP ${name}: BLOCKED — ${region.blocked}`); return; }
-    const src = TERRAIN_SOURCES[region.source];
     const outDir = val('--out') || resolve(HERE, 'out/terrain', name);
-    if (region.source !== 'nl') {
-      console.log(`SKIP ${name} (${region.source.toUpperCase()}): fetch/reproject adapter not yet wired `
-        + `(needs proj4 for ${src.horizCrs}; probe=${src.probe.verdict}). No tileset emitted — see CONTEXT-TERRAIN-COVERAGE.md.`);
-      return;
-    }
+    const gridSize = Number(val('--grid') || 257);
     const geotiffMod = await import('geotiff');
     const Martini = (await import('@mapbox/martini')).default;
-    mkdirSync(outDir, { recursive: true });
-    const tifPath = resolve(outDir, `${name}_dtm.tif`);
-    // Amsterdam-centre 256 m RD-New tile — the reproducible keyless proof box (§8/--fetch-nl).
-    const bboxRD = (val('--bbox-rd') || '120900,486900,121156,487156').split(',').map(Number);
-    const url = dtmWcsUrl(bboxRD);
-    console.log(`bake ${name}: fetch keyless AHN DTM → ${tifPath}\n  ${url}`);
-    const fr = await fetchToFile(url, tifPath);
-    console.log(`  ✔ ${fr.bytes} B ${fr.ct} TIFF magic ${fr.magic}`);
-    await compileTifToTileset(tifPath, region.source, outDir, Number(val('--grid') || 257), geotiffMod, Martini);
-    console.log(`✓ ${name} → ${outDir}`);
+
+    if (region.source === 'nl') {
+      // Shipped, founder-verified Amsterdam path — unchanged (dependency-free RD-New closed form).
+      mkdirSync(outDir, { recursive: true });
+      const tifPath = resolve(outDir, `${name}_dtm.tif`);
+      const bboxRD = (val('--bbox-rd') || '120900,486900,121156,487156').split(',').map(Number);
+      const url = dtmWcsUrl(bboxRD);
+      console.log(`bake ${name}: fetch keyless AHN DTM → ${tifPath}\n  ${url}`);
+      const fr = await fetchToFile(url, tifPath);
+      console.log(`  ✔ ${fr.bytes} B ${fr.ct} TIFF magic ${fr.magic}`);
+      await compileTifToTileset(tifPath, region.source, outDir, gridSize, geotiffMod, Martini);
+      console.log(`✓ ${name} → ${outDir}`);
+      return;
+    }
+
+    const bboxOverride = val('--bbox') ? val('--bbox').split(',').map(Number) : undefined;
+    console.log(`bake ${name} (${region.source.toUpperCase()}): ${DTM_FETCH[region.source]?.note ?? ''}`);
+    const res = await bakeCity(region, { outDir, gridSize, geotiffMod, Martini, bboxOverride });
+    if (res.status !== 'ok') { console.log(`SKIP ${name}: ${res.reason}`); return; }
+    console.log(`✓ ${name} → ${outDir}  (h ${res.stats[0].minH.toFixed(1)}..${res.stats[0].maxH.toFixed(1)} m ellipsoidal)`);
     return;
   }
 

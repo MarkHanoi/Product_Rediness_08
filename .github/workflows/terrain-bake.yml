@@ -13,18 +13,21 @@
 # standalone module that does NOT import bake.mjs. Two workflows = no collision, no shared
 # concurrency group, independent dispatch.
 #
-# TOOLCHAIN: pure Node — geotiff (read DTM) + @mapbox/martini (raster→TIN). NO Docker,
-# NO GDAL (terrain.mjs implements the quantized-mesh encoder in-file). Deps install
-# STANDALONE into tools/context-bake/node_modules (no package.json → NOT a pnpm workspace
-# member; ephemeral in CI, gitignored), exactly as terrain.mjs's header prescribes.
+# TOOLCHAIN: pure Node — geotiff (read DTM) + @mapbox/martini (raster→TIN) + proj4 (the ONE
+# shared horizontal-reprojection helper, reproject.mjs). NO Docker, NO GDAL (terrain.mjs
+# implements the quantized-mesh encoder in-file). Deps install STANDALONE into
+# tools/context-bake/node_modules (no package.json → NOT a pnpm workspace member; ephemeral
+# in CI, gitignored), exactly as terrain.mjs's header prescribes.
 #
-# HONEST CURRENT STATE (2026-07-25): only Amsterdam (NL AHN) is wired end-to-end — it is
-# the keyless, reprojection-proven one-city path (dtmWcsUrl + rdToWgs84). Every other
-# BAKEABLE city SKIPS loudly (its per-country fetch/reproject adapter — proj4 for the
-# native CRS — is not written yet), and every BLOCKED city is skipped with its reason.
-# So this run currently publishes `terrain/amsterdam/` and reports the rest as pending —
-# no wrong-datum tileset is ever emitted. As each adapter lands in terrain.mjs, its city
-# starts producing tiles here with no workflow change.
+# HONEST CURRENT STATE (2026-07-25): the per-country reprojection adapters are WIRED and
+# live-verified for the keyless cities — amsterdam (NL AHN, RD-New closed form), barcelona/
+# madrid/cordoba (ES PNOA MDT25), paris/lyon (FR RGE ALTI), zurich/geneva/bern (CH
+# swissALTI3D), oslo (NO NHM), koln (DE NRW DGM1), rome/milan (IT TINITALY) and london (GB EA
+# LIDAR). Each fetches its national DTM, reprojects native→WGS84 via reproject.mjs (proj4) and
+# lifts orthometric→ellipsoidal (§L-584 datum). apikey-gated cities (copenhagen /
+# stockholm / helsinki) and BLOCKED cities SKIP LOUDLY with a reason — no wrong-datum tileset
+# is ever emitted. GB/CH bake a bounded centre box (source area caps / static COG tiles);
+# full-city mosaics for those two are the documented follow-up.
 #
 # MANUAL ONLY. Founder clicks "Run workflow"; national DTMs change slowly.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -69,8 +72,14 @@ jobs:
         run: |
           set -euo pipefail
           printf '{ "name": "pryzm-context-bake-standalone", "private": true, "version": "0.0.0" }\n' > package.json
-          npm install --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1
+          npm install --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1 proj4@2
           rm -f package.json package-lock.json
+
+      - name: Reproject self-test (proj4 control points) — fail the run before any bake if a def is wrong
+        # reproject.mjs is the ONE shared horizontal projector for every non-NL city. Assert its
+        # national CRS defs against known city control points + a <1 cm round-trip BEFORE baking, so a
+        # bad def can never silently produce a mis-placed tileset.
+        run: node tools/context-bake/terrain.mjs --selftest
 
       - name: Plan — source registry + per-city regions + live probe
         run: |
@@ -107,7 +116,7 @@ jobs:
           set -euo pipefail
           cd tools/context-bake/out
           if [ ! -d terrain ] || [ -z "$(ls -A terrain 2>/dev/null)" ]; then
-            echo "::warning::no terrain/ tilesets were produced — all attempted cities skipped (adapters pending). This is expected until >1 country's fetch/reproject adapter lands."
+            echo "::warning::no terrain/ tilesets were produced — every attempted city skipped (apikey/blocked). Unexpected for the keyless cities; check the bake log for the per-city reason."
             exit 0
           fi
           fail=0
@@ -129,17 +138,25 @@ jobs:
           done
           [ "$fail" -eq 0 ] || exit 1
 
-      - name: Round-trip proof (independent decoder) — Amsterdam
-        # The encoder is hand-rolled, so a tileset is only trustworthy if a decoder we did NOT
-        # write reads it back. Runs only when Amsterdam was baked (its DTM tif is on disk).
+      - name: Round-trip proof (independent decoder) + placement/datum sample
+        # The encoder is hand-rolled, so a tileset is only trustworthy if a decoder we did NOT write
+        # reads it back. Amsterdam uses its local-tif verify; every baked non-NL city is re-fetched +
+        # warped + decoded via `--city`, which ALSO prints control-point elevations (coast/valley →
+        # hill) so a wrong datum or mis-projection is visible, not just a clean decode.
         run: |
           set -euo pipefail
-          TIF="tools/context-bake/out/terrain/amsterdam/amsterdam_dtm.tif"
+          cd tools/context-bake
+          TIF="out/terrain/amsterdam/amsterdam_dtm.tif"
           if [ -f "$TIF" ]; then
-            ( cd tools/context-bake && node terrain.verify.mjs "out/terrain/amsterdam/amsterdam_dtm.tif" nl )
-          else
-            echo "amsterdam not baked this run — skipping round-trip proof."
+            echo "── amsterdam (NL closed-form) ──"
+            node terrain.verify.mjs "$TIF" nl
           fi
+          for d in out/terrain/*/; do
+            city="$(basename "$d")"
+            [ "$city" = "amsterdam" ] && continue
+            echo "── $city (reproject adapter) ──"
+            node terrain.verify.mjs --city "$city" || { echo "::error::$city failed the round-trip/placement proof"; exit 1; }
+          done
 
       - name: Upload tilesets as a run artifact
         uses: actions/upload-artifact@v4
@@ -220,8 +237,11 @@ jobs:
             echo "(\`CesiumViewport.maybeAttachTerrainProvider\`) attaches them automatically for any "
             echo "site inside a baked city bbox — no code change needed."
             echo ""
-            echo "**Pending adapters:** only \`amsterdam\` is wired end-to-end today. The other bakeable"
-            echo "cities await a per-country DTM fetch + proj4 reprojection adapter in \`terrain.mjs\`."
-            echo "**apikey cities:** copenhagen (DATAFORDELER_API_KEY), stockholm (LANTMATERIET_API_KEY),"
-            echo "helsinki (MML_API_KEY) — add each as a REPO secret before baking those cities."
+            echo "**Wired end-to-end (keyless):** amsterdam, barcelona, madrid, cordoba, paris, lyon,"
+            echo "zurich, geneva, bern, oslo, koln, rome, milan, london — each reprojected via"
+            echo "\`reproject.mjs\` (proj4) + orthometric→ellipsoidal datum lift. (gb/ch bake a bounded"
+            echo "centre box — full-city mosaics are the follow-up.)"
+            echo "**apikey cities (skip until a REPO secret is added):** copenhagen (DATAFORDELER_API_KEY),"
+            echo "stockholm (LANTMATERIET_API_KEY), helsinki (MML_API_KEY)."
+            echo "**blocked:** lisbon/porto (PT), brussels (BE), berlin/munich (DE non-NRW), riyadh/jeddah (SA)."
           } >> "$GITHUB_STEP_SUMMARY"

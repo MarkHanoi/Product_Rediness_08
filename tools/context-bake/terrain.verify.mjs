@@ -25,10 +25,56 @@ const Martini = MartiniMod.default ?? MartiniMod;
 const decode = decodeMod.default ?? decodeMod;
 const T = await import('./terrain.mjs');
 
+const D2R = Math.PI / 180;
+
+// ── §CITY MODE — the generalized multi-country proof (the reprojection-adapter verification) ─────
+// `node terrain.verify.mjs --city <name>` fetches the city's REAL national DTM via the §8b adapter,
+// warps it (reproject.mjs + resampleToGeographicGrid), samples control-point elevations, then
+// encodes every LOD and DECODES each with the INDEPENDENT @here decoder. This is the honesty gate
+// for the NEW countries (ES/FR/CH/NO/DE/IT/GB), exactly as the NL block below is for Amsterdam.
+if (process.argv.includes('--city')) {
+  const name = process.argv[process.argv.indexOf('--city') + 1];
+  const region = T.REGIONS.find((r) => r.name === name);
+  if (!region) { console.error(`unknown city '${name}' (see terrain.mjs --regions)`); process.exit(1); }
+  const s = T.TERRAIN_SOURCES[region.source];
+  console.log(`═══ VERIFY CITY: ${name} — ${s.dataset} → Cesium quantized-mesh ═══\n`);
+
+  const probes = T.SAMPLE_PROBES[name] || [['centroid', (region.bbox[0] + region.bbox[2]) / 2, (region.bbox[1] + region.bbox[3]) / 2]];
+  const smp = await T.sampleCity(region, probes, { geotiffMod: geotiff });
+  console.log(`[1] FETCH  ${smp.raster.w}x${smp.raster.h}px native ${smp.nativeCrs}\n    ${smp.url}`);
+  console.log(`[2] DATUM  orthometric min/mean/max = ${smp.stats.minOrtho}/${smp.stats.meanOrtho}/${smp.stats.maxOrtho} m  → +${smp.geoidSepM} m geoid lift → ellipsoidal`);
+  console.log('[3] PLACEMENT (control-point elevations — must match ground truth):');
+  for (const r of smp.rows) console.log(`      · ${r.name.padEnd(18)} ${r.orthoM == null ? 'nodata' : `${r.orthoM} m ortho → ${r.ellipsoidalM} m ellipsoidal`}`);
+
+  // Bake in-memory + independent decode round-trip.
+  const { raster, nativeCrs } = await T.fetchDtmRaster(region.source, region.bbox, { geotiffMod: geotiff });
+  const proj = (await import('./reproject.mjs')).getProjector(nativeCrs);
+  const tile4 = T.inscribedWgs84Extent(raster, proj);
+  const filled = T.fillNodata(raster.values, raster.width, raster.height);
+  const gridSize = 257;
+  const gridEll = Float32Array.from(
+    T.resampleToGeographicGrid({ ...raster, values: filled }, proj.forward, tile4, gridSize),
+    (h) => T.napToEllipsoidal(h, s.geoidSepM));
+  const tile = { west: tile4[0] * D2R, south: tile4[1] * D2R, east: tile4[2] * D2R, north: tile4[3] * D2R };
+  const heightAt = (gx, gy) => gridEll[gy * gridSize + gx];
+  console.log('[4] MESH → ENCODE → DECODE (independent @here/quantized-mesh-decoder):');
+  let allPass = true;
+  for (const err of T.DEFAULT_LOD_ERRORS_M) {
+    const mesh = T.meshTile(gridEll, gridSize, err, Martini);
+    const { buffer, stats } = T.encodeQuantizedMesh(mesh, gridSize, tile, heightAt);
+    const dec = decode(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+    const pass = dec.triangleIndices.length / 3 === stats.triangles && dec.vertexData.length / 3 === stats.vertices
+      && Math.abs(dec.header.minHeight - stats.minH) < 0.01 && Math.abs(dec.header.maxHeight - stats.maxH) < 0.01;
+    allPass &&= pass;
+    console.log(`    err=${String(err).padStart(4)}m  enc ${String(stats.triangles).padStart(6)} tris/${String(stats.vertices).padStart(6)}v/${(buffer.length / 1024).toFixed(1).padStart(7)}KB  |  dec ${dec.triangleIndices.length / 3} tris header[${dec.header.minHeight.toFixed(1)}..${dec.header.maxHeight.toFixed(1)}]  ${pass ? 'PASS' : 'FAIL'}`);
+  }
+  console.log(`\n${allPass ? `✅ ${name}: real DTM ingested, reprojected + datum-lifted, meshed, encoded, decoded back correctly.` : `❌ ${name}: a LOD FAILED the round-trip`}`);
+  process.exit(allPass ? 0 : 1);
+}
+
 const TIF = process.argv[2] || 'amsterdam_ahn_dtm05.tif';
 const COUNTRY = process.argv[3] || 'nl';
 const src = T.TERRAIN_SOURCES[COUNTRY];
-const D2R = Math.PI / 180;
 
 console.log(`═══ VERIFY: ${src.dataset} → Cesium quantized-mesh (${TIF}) ═══\n`);
 
