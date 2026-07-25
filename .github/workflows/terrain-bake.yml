@@ -107,10 +107,19 @@ jobs:
             CITIES="$(node -e "import('./tools/context-bake/terrain.mjs').then(m => console.log(m.BAKEABLE_REGIONS.map(r => r.name).join(' ')))")"
           fi
           echo "cities to attempt: $CITIES"
+          # Per-city fault tolerance: a multi-city bake must NOT be all-or-nothing. One city's
+          # fetch/skip failure (a gated apikey city, or an upstream server quirk) must not throw
+          # away every city that DID bake. Capture failures as warnings; the Assert step below
+          # then validates whatever real tilesets were produced, and Publish uploads them.
+          failed=""
           for c in $CITIES; do
             echo "── $c ──"
-            node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c"
+            if ! node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c"; then
+              echo "::warning::terrain bake for '$c' failed — skipping (other cities continue)"
+              failed="$failed $c"
+            fi
           done
+          [ -n "$failed" ] && echo "::warning::cities that did not bake:$failed" || echo "all attempted cities baked"
 
       - name: Assert produced tilesets are real
         run: |
