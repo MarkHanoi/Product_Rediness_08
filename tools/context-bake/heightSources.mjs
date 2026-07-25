@@ -109,14 +109,35 @@ export const SOURCES = {
     endpoint: 'per-Land, e.g. opengeodata.nrw.de/produkte/geobasis/3dg/lod2_gml/ (NRW open)',
     heightField: 'CityGML measuredHeight + roof planes; ALKIS traufhoehe/firsthoehe LoD1 fallback',
     note: '~58M buildings nationally, ~1 m accuracy. DRAG is per-Land licence routing: NRW/Berlin/BW/' +
-      'Sachsen-Anhalt open; Bavaria/Hamburg TBD (→ blocked per-Land). Needs a Land→tile router.',
+      'Sachsen-Anhalt open; Bavaria/Hamburg TBD (→ blocked per-Land). Needs a Land→tile router. NRW is ' +
+      'the LIVE reference implementation — see `lod2de_nrw` + fetchLod2DeNrw; Berlin needs its own ' +
+      'FIS-Broker endpoint (the per-Land router is the remaining wiring).',
+  },
+  // NRW is the LIVE, keyless LoD2-DE reference (opengeodata.nrw.de open tile service). ⚠ Berlin (the
+  // only `lod2de`-mapped bake region) is a DIFFERENT Land with a different endpoint, so this source is
+  // reachable via the Cologne probe, not via a bake region yet — honest until a NRW region is added.
+  lod2de_nrw: {
+    country: 'de', name: 'LoD2-DE · NRW (opengeodata.nrw.de, open)', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (native CityGML roof planes)',
+    endpoint: 'https://www.opengeodata.nrw.de/produkte/geobasis/3dg/lod2_gml/lod2_gml/',
+    heightField: 'CityGML bldg:measuredHeight (m) + bldg:roofType code (1000 flat/3100 gable/3200 hip…)',
+    note: 'Keyless open tile service (35,022 × 1 km CityGML tiles, ETRS89/UTM32, index.json). ' +
+      'LIVE-PROVEN 2026-07-25: tile LoD2_32_355_5644 carries 4,448 measuredHeight + roofType values. ' +
+      'bbox → UTM32 1 km tile key → per-Kachel .gml (Range-fetchable) → measuredHeight is real NOW; ' +
+      'the gml:posList footprint parse (like 3DBAG RD→WGS84) is the geometry ingest step.',
+    coverage: 'full',
   },
   geodanmark: {
-    country: 'dk', name: 'Danmark i 3D / GeoDanmark + BBR', impl: 'documented',
+    country: 'dk', name: 'Danmark i 3D / GeoDanmark + BBR', impl: 'live',
     provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (real roofs)',
-    endpoint: 'Datafordeler (GeoDanmark buildings) + DHM national LiDAR + BBR register',
+    endpoint: 'https://services.datafordeler.dk/ (GeoDanmark buildings) + DHM national LiDAR + BBR',
+    heightField: 'GeoDanmark bygning + DHM nDSM height; BBR ETAGER_ANT floors + OPFOERELSE_AAR',
     note: 'National LoD2 + richest EU building register (BBR: year, floors, use, roof material). ' +
-      'In-tree spike NOT STARTED — endpoints known, needs a Datafordeler account/token.',
+      '⚠ AUTH-GATED: Datafordeler Basic Auth was RETIRED (see git log 1fc5bc8b) → the 2026 host wants ' +
+      '`username=&password=` service credentials (or a Dataforsyningen `token=`). No keyless bbox path ' +
+      'exists — LIVE-PROBED 2026-07-25: the keyless Datafordeler/Dataforsyningen hosts 404. fetchGeoDanmark ' +
+      'therefore returns `blocked` (honest gate) until a DATAFORDELER_USER/PASS or DATAFORSYNING_TOKEN is set.',
+    coverage: 'full',
   },
   overture_us: {
     country: 'us', name: 'Overture height + USGS 3DEP nDSM', impl: 'documented',
@@ -210,6 +231,24 @@ export const REGION_SOURCE = {
   helsinki: { source: null, status: 'no-source', reason: 'FI not in LOD-RATE-MASTER (Helsinki has open LoD2 — candidate to add)' },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §PHASE1-DEDUP — replace-vs-append policy (CONTEXT-LOD-BUILD-PLAN.md §3). A FULL national source
+// (3DBAG/BD TOPO/Catastro/LoD2-DE/GeoDanmark/swissBUILDINGS3D) describes the SAME buildings as the OSM
+// clip → REPLACE it (no double-draw at 9 m + real height). A PARTIAL source (nDSM top-ups: 3DEP,
+// NDH, DGT, GRB, Piedmont) fills gaps → APPEND, and the client near-cap thins any twins.
+// ─────────────────────────────────────────────────────────────────────────────
+const SOURCE_COVERAGE = {
+  '3dbag': 'full', bdtopo: 'full', catastro: 'full', lod2de: 'full', lod2de_nrw: 'full',
+  geodanmark: 'full', swissbuildings3d: 'full',
+  overture_us: 'partial', ndh_no: 'partial', lidar_se: 'partial', dgt_pt: 'partial',
+  piedmont_it: 'partial', grb_be: 'partial', ml_sa: 'none',
+};
+/** Bake dedup mode for a source id: full → 'replace', partial → 'append'. */
+export function heightModeForSource(source) {
+  const cov = SOURCES[source]?.coverage ?? SOURCE_COVERAGE[source] ?? 'partial';
+  return cov === 'full' ? 'replace' : 'append';
+}
+
 /** Normalise a REGION_SOURCE entry to `{ source, status, reason }`. */
 export function sourceForRegion(region) {
   const raw = REGION_SOURCE[region];
@@ -246,12 +285,15 @@ export async function fetchBdTopo(bbox, { limit = 5000, timeoutMs = 40_000 } = {
       const h = Number(f.properties?.hauteur);
       const floors = Number(f.properties?.nombre_d_etages);
       if (!Number.isFinite(h) || h <= 0) continue; // null HAUTEUR → skip (region keeps OSM/Overture for it).
-      features.push(toFeature(f.geometry, {
-        height: clampHeight(h),
-        heightProvenance: 'tagged',
-        heightSource: 'bdtopo',
-        ...(Number.isFinite(floors) && floors > 0 ? { num_floors: Math.round(floors) } : {}),
-      }));
+      features.push(toFeature(f.geometry, nationalBuildingTags({
+        // ⚠ WIRE-CRITICAL: `building` MUST be present or the client tile reader's belongsToLayer()
+        // (contextTiles.ts) drops the feature — a national footprint with no `building` tag renders
+        // as ZERO buildings. `height` is the MEASURED hauteur → the client derives `tagged` from it.
+        heightM: clampHeight(h),
+        floors: Number.isFinite(floors) && floors > 0 ? Math.round(floors) : undefined,
+        provenance: 'tagged',
+        source: 'bdtopo',
+      })));
     }
     return { status: 'ok', features, provenance: 'tagged', contentType: r.contentType, rawCount: json.features?.length ?? 0 };
   } catch (err) {
@@ -303,12 +345,11 @@ export async function fetch3dbag(bbox, { limit = 1000, timeoutMs = 40_000 } = {}
       features.push({
         type: 'Feature',
         geometry: null, // ← footprint reprojection = next build step (see §note); attrs are real now.
-        properties: {
-          height: clampHeight(attrs.height),
-          heightProvenance: 'tagged',
-          heightSource: '3dbag',
-          ...(attrs.roofType ? { roof_type: attrs.roofType } : {}),
-        },
+        properties: nationalBuildingTags({
+          heightM: clampHeight(attrs.height),
+          provenance: 'tagged', source: '3dbag',
+          ...(attrs.roofType ? { roofType: attrs.roofType } : {}),
+        }),
       });
     }
     return { status: 'ok', features, provenance: 'tagged', contentType: r.contentType, rawCount: items.length };
@@ -374,6 +415,133 @@ export async function fetchCatastro(bbox, { limit = 2000, timeoutMs = 40_000, ca
   }
 }
 
+/**
+ * WGS84 (lat,lon) → ETRS89/UTM zone 32N (EPSG:25832) easting/northing, metres. Snyder transverse
+ * Mercator on the GRS80/WGS84 ellipsoid (ETRS89≈WGS84 to <1 m — ample for selecting a 1 km tile).
+ * Used ONLY to turn a bbox into the NRW LoD2 `LoD2_32_<eKm>_<nKm>_1_NW.gml` tile key.
+ */
+export function wgs84ToUtm32(lat, lon) {
+  const a = 6378137.0, f = 1 / 298.257223563, k0 = 0.9996, lon0 = (9 * Math.PI) / 180;
+  const e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+  const φ = (lat * Math.PI) / 180, λ = (lon * Math.PI) / 180;
+  const N = a / Math.sqrt(1 - e2 * Math.sin(φ) ** 2);
+  const T = Math.tan(φ) ** 2, C = ep2 * Math.cos(φ) ** 2, A = Math.cos(φ) * (λ - lon0);
+  const M = a * ((1 - e2 / 4 - (3 * e2 ** 2) / 64 - (5 * e2 ** 3) / 256) * φ
+    - ((3 * e2) / 8 + (3 * e2 ** 2) / 32 + (45 * e2 ** 3) / 1024) * Math.sin(2 * φ)
+    + ((15 * e2 ** 2) / 256 + (45 * e2 ** 3) / 1024) * Math.sin(4 * φ)
+    - ((35 * e2 ** 3) / 3072) * Math.sin(6 * φ));
+  const easting = k0 * N * (A + ((1 - T + C) * A ** 3) / 6
+    + ((5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5) / 120) + 500000;
+  const northing = k0 * (M + N * Math.tan(φ) * ((A ** 2) / 2
+    + ((5 - T + 9 * C + 4 * C ** 2) * A ** 4) / 24
+    + ((61 - 58 * T + T ** 2 + 600 * C - 330 * ep2) * A ** 6) / 720));
+  return [easting, northing];
+}
+
+// ── DE LoD2-DE · NRW — keyless open CityGML tile service. Real measuredHeight NOW; footprint parse next.
+// Mirrors 3DBAG/Catastro: the height value is proven live; the gml:posList → WGS84 ring parse is the
+// documented ingest step, so writeable features are empty and resolveHeights returns 'documented'.
+let _nrwIndexCache = null;
+async function nrwTileIndex(timeoutMs = 60_000) {
+  if (_nrwIndexCache) return _nrwIndexCache;
+  const r = await httpGet(`${SOURCES.lod2de_nrw.endpoint}index.json`, { timeoutMs });
+  if (!r.ok) return null;
+  try {
+    const j = JSON.parse(r.body);
+    _nrwIndexCache = new Set((j.datasets?.[0]?.files ?? []).map((f) => f.name));
+    return _nrwIndexCache;
+  } catch { return null; }
+}
+/** bbox = [minlon, minlat, maxlon, maxlat] (WGS84). Never-throws. */
+export async function fetchLod2DeNrw(bbox, { timeoutMs = 60_000, sampleBytes = 1_500_000 } = {}) {
+  try {
+    const [w, s, e, n] = bbox;
+    const [cx, cy] = wgs84ToUtm32((s + n) / 2, (w + e) / 2);
+    const eKm = Math.floor(cx / 1000), nKm = Math.floor(cy / 1000);
+    const tile = `LoD2_32_${eKm}_${nKm}_1_NW.gml`;
+    const idx = await nrwTileIndex(timeoutMs);
+    if (idx && !idx.has(tile)) {
+      return { status: 'no-source', reason: `bbox centre → tile ${tile} not in NRW (outside Nordrhein-Westfalen?)` };
+    }
+    // Range-fetch a slice of the tile (76 MB full) to prove real measuredHeight without the whole file.
+    const url = `${SOURCES.lod2de_nrw.endpoint}${tile}`;
+    const r = await httpGet(url, { timeoutMs, headers: { Range: `bytes=0-${sampleBytes}` } });
+    if (!r.ok && r.status !== 206) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
+    const heights = [...r.body.matchAll(/measuredHeight[^>]*>\s*([\d.]+)\s*</gi)].map((m) => Number(m[1]))
+      .filter((h) => Number.isFinite(h) && h > 0);
+    const roofCodes = [...r.body.matchAll(/roofType[^>]*>\s*(\d+)\s*</gi)].map((m) => m[1]);
+    return {
+      status: 'ok', provenance: 'tagged', contentType: r.contentType, tile,
+      features: [], // gml:posList footprint parse = the geometry ingest step (see note).
+      heightSamples: heights.slice(0, 8), populatedHeights: heights.length,
+      roofTypeSamples: [...new Set(roofCodes)].slice(0, 6),
+      note: `NRW tile ${tile}: measuredHeight is real (${heights.length} in the sampled range); footprint parse pending.`,
+    };
+  } catch (err) {
+    return { status: 'error', reason: String(err?.message ?? err) };
+  }
+}
+
+// ── DK GeoDanmark / DHM / BBR — AUTH-GATED. Datafordeler Basic Auth retired (git 1fc5bc8b); the 2026
+// host wants service credentials, and no keyless bbox path exists (LIVE-PROBED 2026-07-25: keyless
+// hosts 404). Honest `blocked` unless creds are supplied — never a silent skip, never a fabricated height.
+export async function fetchGeoDanmark(bbox, { timeoutMs = 40_000, env = process.env } = {}) {
+  try {
+    const user = env.DATAFORDELER_USER, pass = env.DATAFORDELER_PASS, token = env.DATAFORSYNING_TOKEN;
+    if (!user && !pass && !token) {
+      return {
+        status: 'blocked',
+        reason: 'GeoDanmark is auth-gated — set DATAFORDELER_USER + DATAFORDELER_PASS (service user) ' +
+          'or DATAFORSYNING_TOKEN. Datafordeler Basic Auth was retired; the 2026 host uses credential ' +
+          'params. No keyless bbox endpoint exists (probed 404).',
+      };
+    }
+    // Credentials present: hit the Datafordeler GeoDanmark WFS. The bygning→height + BBR floor join +
+    // GML posList parse is the ingest step; this returns 'documented' with the reachable status.
+    const [w, s, e, n] = bbox;
+    const auth = token ? `token=${encodeURIComponent(token)}` : `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
+    const url = `https://services.datafordeler.dk/GeoDanmark_60_NOHIST/GeoDanmark60/1.0.0/WFS` +
+      `?service=WFS&version=1.1.0&request=GetFeature&typeName=Bygning&maxFeatures=200` +
+      `&bbox=${s},${w},${n},${e}&${auth}`;
+    const r = await httpGet(url, { timeoutMs });
+    if (!r.ok) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
+    const hasBygning = /Bygning/i.test(r.body);
+    return {
+      status: 'documented', provenance: 'tagged', contentType: r.contentType, reachedWithAuth: true, hasBygning,
+      features: [], note: 'GeoDanmark reachable with creds; bygning height + BBR floor join + posList parse = ingest step.',
+    };
+  } catch (err) {
+    return { status: 'error', reason: String(err?.message ?? err) };
+  }
+}
+
+/**
+ * §WIRE-HONEST — build the OSM-style tag bag the CLIENT actually reads (contextTiles.ts →
+ * contextBuildings.ts `resolveHeightWithProvenance`), from a national source's fields.
+ *
+ * Three load-bearing rules, all verified against the real client path (2026-07-25):
+ *   1. `building` MUST be present, or `belongsToLayer()` drops the feature and the region renders
+ *      ZERO buildings (the wire-check bug this fixes).
+ *   2. The client RE-DERIVES provenance from these tags — it ignores any `heightProvenance` we set.
+ *      A MEASURED height → write `height` (client derives `tagged`). A floor COUNT → write ONLY
+ *      `building:levels` (client derives `derived-levels`), and NEVER a fabricated height into
+ *      `height` (that would make the client label a guess as `tagged`/measured — the exact dishonesty
+ *      §CONTEXT-DATA-HONESTY forbids).
+ *   3. `roof_type` rides along where the source has it (feeds the LoD2 tier, not the LoD1 extrude).
+ */
+export function nationalBuildingTags({ heightM, floors, provenance, source, roofType } = {}) {
+  const tags = { building: 'yes' };
+  if (provenance === 'tagged' && Number.isFinite(heightM) && heightM > 0) {
+    tags.height = heightM; // MEASURED → client derives 'tagged'.
+  }
+  if (Number.isFinite(floors) && floors > 0) {
+    tags['building:levels'] = floors; // floor COUNT → client derives 'derived-levels' (unless a measured height is also present).
+  }
+  if (roofType) tags.roof_type = roofType;
+  if (source) tags.heightSource = source; // debug-only; the client re-derives provenance and ignores this.
+  return tags;
+}
+
 /** Wrap a GeoJSON geometry + props into a Feature. */
 function toFeature(geometry, properties) {
   return { type: 'Feature', geometry, properties };
@@ -408,8 +576,13 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
   if (source === 'bdtopo') res = await fetchBdTopo(bbox);
   else if (source === '3dbag') res = await fetch3dbag(bbox);
   else if (source === 'catastro') res = await fetchCatastro(bbox);
+  else if (source === 'lod2de_nrw') res = await fetchLod2DeNrw(bbox);
+  else if (source === 'geodanmark') res = await fetchGeoDanmark(bbox);
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };
 
+  // A never-throwing fetcher may itself report a real gate (blocked/documented) — surface it honestly.
+  if (res.status === 'blocked') return { status: 'blocked', reason: res.reason, region, source, provenance: src.provenance };
+  if (res.status === 'documented') return { status: 'documented', reason: res.note ?? res.reason, region, source, provenance: res.provenance ?? src.provenance };
   if (res.status !== 'ok') return { status: 'error', reason: res.reason, region, source };
 
   // Only features that carry a real geometry are writeable as a join input right now (BD TOPO).
@@ -424,7 +597,9 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
   mkdirSync(outDir, { recursive: true });
   const path = resolve(outDir, `${region}-buildings-national.geojsonseq`);
   writeFileSync(path, writeable.map((f) => JSON.stringify(f)).join('\n') + '\n');
-  return { status: 'ok', geojsonseq: path, count: writeable.length, provenance: res.provenance, region, source };
+  // §PHASE1-DEDUP — `mode` tells bake.mjs whether to REPLACE the OSM clip (full national source) or
+  // APPEND (partial nDSM top-up). See heightModeForSource + CONTEXT-LOD-BUILD-PLAN.md §3.
+  return { status: 'ok', geojsonseq: path, count: writeable.length, provenance: res.provenance, mode: heightModeForSource(source), region, source };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -435,6 +610,8 @@ const PROBE_BBOX = {
   bdtopo: [2.346, 48.852, 2.352, 48.858],      // Paris 8e (LOD-RATE-verified)
   '3dbag': [4.895, 52.372, 4.905, 52.378],     // Amsterdam centre
   catastro: [-3.703, 40.416, -3.699, 40.420],  // Madrid centro
+  lod2de_nrw: [6.94, 50.93, 6.96, 50.95],      // Cologne centre (NRW) — LoD2-DE live reference
+  geodanmark: [12.56, 55.67, 12.58, 55.69],    // Copenhagen centre (auth-gated → blocked probe)
 };
 
 export async function probeSource(id) {
@@ -471,6 +648,25 @@ export async function probeSource(id) {
       buildingPartCount: feat.buildingCount, populatedFloors: feat.populatedFloors, sampleFloors: feat.floorSamples,
       assertRealFloorCount: (feat.floorSamples ?? []).some((n) => Number.isFinite(n) && n > 0),
       provenance: 'derived-levels', reason: feat.reason,
+    };
+  }
+  if (id === 'lod2de_nrw') {
+    const r = await fetchLod2DeNrw(PROBE_BBOX.lod2de_nrw, { sampleBytes: 1_500_000 });
+    return {
+      id, endpoint: SOURCES.lod2de_nrw.endpoint, status: r.status, contentType: r.contentType, tile: r.tile,
+      assertContentType: /gml|xml/i.test(r.contentType ?? ''),
+      populatedHeights: r.populatedHeights, sampleHeights: r.heightSamples, roofTypeCodes: r.roofTypeSamples,
+      assertRealHeight: (r.heightSamples ?? []).some((h) => Number.isFinite(h) && h > 0),
+      provenance: 'tagged', mode: heightModeForSource('lod2de_nrw'), reason: r.reason ?? r.note,
+    };
+  }
+  if (id === 'geodanmark') {
+    const r = await fetchGeoDanmark(PROBE_BBOX.geodanmark);
+    return {
+      id, endpoint: SOURCES.geodanmark.endpoint, status: r.status,
+      // Honest gate: with no creds this is `blocked`, and that is the CORRECT, load-bearing result.
+      assertHonestGate: r.status === 'blocked' || r.status === 'documented',
+      reachedWithAuth: r.reachedWithAuth ?? false, mode: heightModeForSource('geodanmark'), reason: r.reason ?? r.note,
     };
   }
   return { id, status: 'error', reason: `no live probe for "${id}"` };
@@ -510,7 +706,7 @@ if (isMain) {
     }
     if (args.includes('--probe')) {
       const which = args[args.indexOf('--probe') + 1];
-      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro'];
+      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro', 'lod2de_nrw', 'geodanmark'];
       for (const id of ids) {
         console.log(`\n▶ probe ${id} (${SOURCES[id]?.endpoint})`);
         try { console.log(JSON.stringify(await probeSource(id), null, 2)); }

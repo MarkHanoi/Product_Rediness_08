@@ -27,6 +27,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
+// free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
+import { resolveHeights } from './heightSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -257,6 +260,40 @@ function overtureBuildingsCmd(region, geoAbs) {
   return tool('duckdb', ['-c', sql]);
 }
 
+// §PHASE1-HEIGHTS (North Star §6.1) — join national REAL heights into the buildings layer, modularly
+// and next to the Overture change (they co-locate here by design). `baseGeo` is the OSM/Overture
+// buildings GeoJSONSeq already produced for region `r`. Per the dedup policy (CONTEXT-LOD-BUILD-PLAN
+// §3), a FULL national source REPLACES the OSM clip (no double-draw at 9 m + real height); a PARTIAL
+// source APPENDS. Anything other than an `ok` national result keeps the OSM/Overture footprints at the
+// honest `assumed` default — never a fabricated height. Never throws; a source failure degrades to OSM.
+async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
+  if (DRY) {
+    console.log(`\n▶ national heights · ${r.name}: resolveHeights(${r.name}) would run (skipped in --dry-run)`);
+    geos.push(baseGeo);
+    return;
+  }
+  let nat;
+  try {
+    nat = await resolveHeights(r.name, { bbox: r.bbox.split(',').map(Number) });
+  } catch (e) {
+    nat = { status: 'error', reason: e.message };
+  }
+  if (nat.status === 'ok' && nat.geojsonseq) {
+    if (nat.mode === 'replace') {
+      // Full national source: use it INSTEAD of the OSM/Overture clip for this region.
+      geos.push(nat.geojsonseq);
+      console.log(`\n▶ national heights · ${r.name}: REPLACE with ${nat.source} — ${nat.count} bldg(s), ${nat.provenance}`);
+    } else {
+      // Partial source: keep OSM/Overture AND append the national heights; client near-cap thins twins.
+      geos.push(baseGeo, nat.geojsonseq);
+      console.log(`\n▶ national heights · ${r.name}: APPEND ${nat.source} — ${nat.count} bldg(s), ${nat.provenance}`);
+    }
+    return;
+  }
+  geos.push(baseGeo);
+  console.log(`\n▶ national heights · ${r.name}: ${nat.status}${nat.reason ? ' — ' + nat.reason : ''} (keeps OSM/Overture, honest ${'assumed'} default)`);
+}
+
 // ── download (Node, no toolchain needed) ─────────────────────────────────────
 async function download(url, dest) {
   if (existsSync(dest)) {
@@ -413,7 +450,13 @@ async function main() {
             '--geometry-types', l.geom, '--add-unique-id', 'type_id',
             '-o', geo, '--overwrite']));
       }
-      geos.push(geo);
+      // §PHASE1-HEIGHTS — the buildings layer gets the national real-height join (replace/append per
+      // dedup policy); every other layer (roads/water/parks) is pushed unchanged.
+      if (l.id === 'buildings') {
+        await pushBuildingsWithNationalHeights(r, geo, geos);
+      } else {
+        geos.push(geo);
+      }
     }
     const pmt = resolve(OUT, `${l.id}.pmtiles`);
     // tippecanoe accepts multiple inputs and unions them into the one named layer (`-l l.id`).
