@@ -150,6 +150,11 @@ import {
     chZoningEnvelopeRefusal,
     chZoneCodeFor,
     chZoneLabelFor,
+    // §DK-HONEST-REFUSAL — Denmark is a PACKED jurisdiction, so when Plandata resolves a plan but
+    // not enough structured numbers to draw a volume (or no plan), the DK path dispatches a CITED
+    // refusal (names the zone + links the plan PDF), NEVER the generic `estimated-default` triple.
+    dkPlandataNoNumbersRefusal,
+    dkPlandataNoPlanRefusal,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -900,11 +905,13 @@ type ZoningBoundary = {
  * REAL structured Plandata.dk zoning (`confidence: 'structured'`); everywhere
  * else dispatches the curated `estimated-default` envelope (`estimated-ruleset`).
  *
- * The DK path is async (same-origin proxy fetch) and best-effort: on ANY
- * failure / no-plan it falls back to the estimated envelope (already computed +
- * cached by `computeAndCacheEstimatedEnvelope`), so the envelope is NEVER broken
- * (C58 §1.2 fidelity-3 graceful degradation). Non-DK plots dispatch that same
- * precomputed estimated envelope synchronously — the geometry is solved once.
+ * The DK path is async (same-origin proxy fetch) and best-effort, but — §DK-HONEST-REFUSAL —
+ * it does NOT fall back to the estimated envelope: Denmark is a PACKED jurisdiction, so when
+ * Plandata resolves a plan without enough structured numbers to draw a volume (or no plan), it
+ * dispatches an HONEST CITED REFUSAL (names the zone + links the plan PDF), never the generic
+ * `estimated-default` triple — a fabricated estimate where a real pack exists is the
+ * §CONTEXT-DATA-HONESTY failure. Non-DK / unpacked plots dispatch that same precomputed estimated
+ * envelope synchronously — the geometry is solved once.
  *
  * §ENVELOPE-VIA-MASSING (L-402d) note: the estimated ring is already cached before
  * this runs (so the framing render has geometry); in Denmark the real structured
@@ -1189,44 +1196,158 @@ function applyRiyadhZoningThenFallback(
 }
 
 /**
- * L-399a — the Denmark path: fetch structured zoning from Plandata.dk (via the
- * same-origin keyless proxy), solve a `structured` envelope, and dispatch it (which
- * RE-caches `_lastEnvelope` with the real geometry so both renderers redraw the true
- * DK envelope over the estimated framing ring). On a miss / any failure, fall back to
- * the precomputed estimated envelope (never a broken envelope). Fully guarded — never
- * throws into the commit path.
+ * L-399a + §DK-HONEST-REFUSAL — the Denmark path: fetch structured zoning from Plandata.dk (via the
+ * same-origin keyless proxy) and dispatch ONE of three honest outcomes. Denmark is a PACKED,
+ * real-data jurisdiction, so this path NEVER falls back to the generic `estimated-default` triple
+ * (3/1.5/3, 12 m, FAR 2) — a fabricated estimate where a real pack exists is the exact
+ * §CONTEXT-DATA-HONESTY failure (a REFUSAL and a FAILURE collapsing to one value; L-422/L-459/L-467):
+ *
+ *   1. `structured` WITH a resolvable height → the real `structured` envelope (the zone-11
+ *      reference case, 24 m). Dispatch it — this RE-caches `_lastEnvelope` with the real geometry
+ *      so both renderers redraw the true DK envelope over the estimated framing ring.
+ *   2. a plan resolved but NO renderable height (Plandata publishes a plot ratio / storeys but not
+ *      `maxbygnhjd`, e.g. lokalplan 224 Østerbrogade — FAR 1.5, 5 storeys, height in the PDF only),
+ *      OR a plan with no structured numbers at all → a CITED refusal naming the zone + linking the
+ *      plan document + saying why (`dkPlandataNoNumbersRefusal`), never a heightless empty and
+ *      never the estimate. Same "Couldn't complete" card as Madrid NZ-1.
+ *   3. no adopted plan at the point / upstream miss → `dkPlandataNoPlanRefusal` (still honest, not
+ *      the estimate).
+ *
+ * Fully guarded — never throws into the commit path; on an unexpected error it leaves an honest
+ * refusal rather than a fabricated estimate.
  */
 async function applyDkZoningThenFallback(
     ctx: SiteContext,
     boundary: ZoningBoundary,
     lat: number,
     lon: number,
-    estimated: BuildableEnvelope | null,
+    _estimated: BuildableEnvelope | null,
 ): Promise<void> {
+    const TAG = '[gis][c58] §DK-HONEST-REFUSAL';
+    // A no-plan refusal has no resolved zone identity to name; this pilot code is the placeholder
+    // `zoneCode` (required, min length 1) — no number rides on it.
+    const DK_NO_PLAN_ZONE_CODE = 'DK-NO-PLAN';
     try {
-        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
-        const record = await DkZoningProvider.fetchZoningAtPoint(lat, lon);
-        if (!record) {
-            // No usable Danish plan at this point → the precomputed estimated envelope.
-            applyEstimatedZoning(ctx, estimated);
-            return;
-        }
         const site = ctx.store.getSite();
         if (!site) return;
-        const envelope = computeBuildableEnvelope({
-            parcelRing: boundary.polygon,
-            edgeClassifications: boundary.edgeClassifications,
-            zoning: record,
-            rulePack: null, // structured fields only → confidence 'structured' (C58 §1.2)
-        });
-        dispatchEnvelope(ctx, site.id, envelope, 'plandata-dk');
-        console.log(
-            `[gis][c58] DK Plandata structured zoning applied → confidence=${envelope.confidence} ` +
-                `zone=${envelope.zoneCode ?? 'n/a'} height=${envelope.maxHeight_m ?? 'n/a'}m.`,
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
+
+        // Per-parcel facts so a refusal card is never blank (L-553): location + parcel area + source.
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+        const baseFacts = [
+            `Location: Denmark (${lat.toFixed(5)}, ${lon.toFixed(5)})`,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            'Planning source: Plandata.dk (Erhvervsstyrelsen) — national plan register',
+        ].filter((s): s is string => typeof s === 'string');
+
+        const result = await DkZoningProvider.fetchZoningResultAtPoint(lat, lon);
+
+        if (result.kind === 'structured') {
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: result.record,
+                rulePack: null, // structured fields only → confidence 'structured' (C58 §1.2)
+            });
+            // A resolvable HEIGHT means a study volume can be drawn — dispatch the real envelope.
+            if (envelope.status === 'ok' && envelope.maxHeight_m !== null) {
+                dispatchEnvelope(ctx, site.id, envelope, 'plandata-dk');
+                console.log(
+                    `${TAG} structured envelope → confidence=${envelope.confidence} ` +
+                        `zone=${envelope.zoneCode ?? 'n/a'} height=${envelope.maxHeight_m}m.`,
+                );
+                return;
+            }
+            // Plan resolved, but Plandata publishes no maximum height in its structured fields →
+            // no volume to draw. Refuse honestly, STATING the numbers we DID resolve as facts
+            // (never as an allowance) and linking the plan document, instead of the estimate.
+            const resolvedFacts = [
+                envelope.maxFAR !== null
+                    ? `Plandata published: plot ratio (bebyggelsesprocent) → FAR ${envelope.maxFAR.toFixed(2)}`
+                    : null,
+                result.record.structuredFields.maxFloors !== null
+                    ? `Plandata published: maximum ${result.record.structuredFields.maxFloors} storeys`
+                    : null,
+            ].filter((s): s is string => typeof s === 'string');
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    result.record.zoneCode,
+                    dkPlandataNoNumbersRefusal({
+                        zoneLabel: result.record.zoneLabel,
+                        doklink: result.record.ordinanceRef,
+                        knownFacts: [...baseFacts, ...resolvedFacts],
+                    }),
+                    'none',
+                ),
+                'plandata-dk',
+            );
+            console.log(
+                `${TAG} plan resolved but no renderable height (FAR=${envelope.maxFAR ?? 'n/a'}) → ` +
+                    `cited refusal (zone=${result.record.zoneCode}); NOT the estimated default.`,
+            );
+            return;
+        }
+
+        if (result.kind === 'plan-without-numbers') {
+            const id = result.identity;
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    id.zoneCode,
+                    dkPlandataNoNumbersRefusal({
+                        zoneLabel: id.zoneLabel,
+                        doklink: id.doklink,
+                        knownFacts: baseFacts,
+                    }),
+                    'none',
+                ),
+                'plandata-dk',
+            );
+            console.log(
+                `${TAG} plan without structured numbers → cited refusal (zone=${id.zoneCode}); ` +
+                    `NOT the estimated default.`,
+            );
+            return;
+        }
+
+        // kind === 'no-plan' — no adopted plan at the point / upstream miss. HONEST refusal on a
+        // packed jurisdiction, NEVER the fabricated estimate.
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(DK_NO_PLAN_ZONE_CODE, dkPlandataNoPlanRefusal({ knownFacts: baseFacts }), 'none'),
+            'plandata-dk',
         );
+        console.log(`${TAG} no plan resolved → cited no-plan refusal; NOT the estimated default.`);
     } catch (e) {
-        console.warn('[gis][c58] DK zoning path failed (non-fatal) — falling back to estimated default:', e);
-        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+        // Best-effort — never block the commit. Leave an honest refusal rather than a fabricated
+        // estimate; if even that cannot dispatch, drop silently (the boundary is already set).
+        console.warn(`${TAG} DK zoning path failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(DK_NO_PLAN_ZONE_CODE, dkPlandataNoPlanRefusal(), 'none'),
+                    'plandata-dk',
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
     }
 }
 

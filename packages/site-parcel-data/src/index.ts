@@ -371,14 +371,26 @@ export { isInRiyadh, RIYADH_BBOX } from './providers/riyadhBbox.js';
 
 // ── L-399a — DK Plandata.dk zoning provider (C58 §3.1, the first real-data jurisdiction) ──
 export type { ZoningProvider, ZoningProviderDeps } from './providers/ZoningProvider.js';
-export { DkZoningProvider, PLANDATA_ZONING_PATH } from './providers/DkZoningProvider.js';
+export {
+    DkZoningProvider,
+    PLANDATA_ZONING_PATH,
+    type DkZoningResult,
+} from './providers/DkZoningProvider.js';
 export {
     mapPlandataToZoningRecord,
+    extractDkPlanIdentity,
     classifyDanishUse,
     type PlandataZoningResponse,
     type PlandataLayer,
     type MapPlandataOpts,
+    type DkPlanIdentity,
 } from './providers/mapPlandataToZoningRecord.js';
+// §DK-HONEST-REFUSAL — the DK cited-refusal builders (a plan resolved but no structured numbers,
+// or no plan at all) — dispatched instead of the generic `estimated-default` on a Danish parcel.
+export {
+    dkPlandataNoNumbersRefusal,
+    dkPlandataNoPlanRefusal,
+} from './rulepacks/dkPlandataRefusal.js';
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
 export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';

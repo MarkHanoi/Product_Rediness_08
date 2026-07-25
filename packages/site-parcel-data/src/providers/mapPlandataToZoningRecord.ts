@@ -135,9 +135,57 @@ export function classifyDanishUse(text: string | null): PermittedUse | null {
 }
 
 /**
+ * §DK-HONEST-REFUSAL — the plan's IDENTITY + citation, extractable even when the plan carries no
+ * usable dimensional number. `mapPlandataToZoningRecord` returns `null` for a dimensionless plan
+ * (it has no structured envelope to build), which DISCARDS the zone code + plan-document link. The
+ * DK dispatch path needs exactly those to build an HONEST cited refusal instead of the generic
+ * `estimated-default` — so this exposes the identity block on its own.
+ *
+ * ⚠ Field precedence is IDENTICAL to `mapPlandataToZoningRecord`'s (same `zoneCode`/`zoneLabel`/
+ * `doklink` derivation), so the refusal names the same zone the structured record would have. A
+ * drift-guard test pins that agreement. `null` only when there is no feature at all.
+ */
+export interface DkPlanIdentity {
+    readonly zoneCode: string;
+    readonly zoneLabel: string | null;
+    readonly doklink: string | null;
+    readonly layer: PlandataLayer;
+}
+
+export function extractDkPlanIdentity(
+    response: PlandataZoningResponse | null,
+): DkPlanIdentity | null {
+    if (!response || !response.properties) return null;
+    const p = response.properties;
+    // An empty attribute bag is "no feature" (the proxy's `pickFirstFeatureProps` already returns
+    // null for it) — never a `DK-LOKALPLAN` fallback identity for nothing.
+    if (Object.keys(p).length === 0) return null;
+    const planName = firstString(p.plannavn, p.lp_plannavn);
+    const planNr = firstString(p.plannr, p.lp_plannr);
+    const planId = firstString(p.planid, p.lokplan_id);
+    const delnr = firstString(p.delnr);
+    const useText = firstString(p.anvendelsegenerel, p.anvgen);
+    const layerFallbackCode =
+        response.layer === 'byggefelt'
+            ? 'DK-BYGGEFELT'
+            : response.layer === 'lokalplandelomraade'
+              ? 'DK-LOKALPLAN-DELOMRAADE'
+              : response.layer === 'lokalplan'
+                ? 'DK-LOKALPLAN'
+                : 'DK-KOMMUNEPLANRAMME';
+    const zoneCode = firstString(p.anvgen) ?? planNr ?? planId ?? layerFallbackCode;
+    const baseLabel = planName ?? useText ?? null;
+    const zoneLabel = baseLabel && delnr ? `${baseLabel} (delområde ${delnr})` : baseLabel;
+    const doklink = firstString(p.doklink);
+    return { zoneCode, zoneLabel, doklink, layer: response.layer };
+}
+
+/**
  * Map a fetched Plandata plan feature → a C58 `ZoningRecord` (structured), or
- * `null` when the plan carries no usable dimensional rule (→ caller falls back to
- * the estimated default, never a broken envelope).
+ * `null` when the plan carries no usable dimensional rule. ⚠ On `null` the DK dispatch path no
+ * longer falls to the estimated default — it builds an HONEST cited refusal from
+ * `extractDkPlanIdentity` (§DK-HONEST-REFUSAL). "No usable rule" is a data gap on a packed
+ * jurisdiction, not a licence to fabricate a triple.
  *
  * "Usable" = at least one of {maxHeight_m, maxFloors, plotRatioFAR} is published.
  * A plan with only a use class (or nothing) yields no meaningful study volume, so
