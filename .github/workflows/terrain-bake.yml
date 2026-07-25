@@ -137,9 +137,8 @@ jobs:
               fail=1; continue
             fi
             # At least one quantized-mesh LOD, non-trivial size (an empty encode is a few bytes).
-            n="$(ls "$d"/*.terrain 2>/dev/null | wc -l)"
-            biggest="$(ls -S "$d"/*.terrain 2>/dev/null | head -1)"
-            sz="$(stat -c %s "$biggest" 2>/dev/null || echo 0)"
+            n="$(find "$d" -name '*.terrain' 2>/dev/null | wc -l)"
+            sz="$(find "$d" -name '*.terrain' -printf '%s\n' 2>/dev/null | sort -rn | head -1)"; sz="${sz:-0}"
             echo "$city — $n .terrain LODs, largest $sz bytes, layer.json OK"
             if [ "$n" -lt 1 ] || [ "$sz" -lt 128 ]; then
               echo "::error::$city produced no real quantized-mesh tiles."
@@ -156,17 +155,17 @@ jobs:
         run: |
           set -euo pipefail
           cd tools/context-bake
-          TIF="out/terrain/amsterdam/amsterdam_dtm.tif"
-          if [ -f "$TIF" ]; then
-            echo "── amsterdam (NL closed-form) ──"
-            node terrain.verify.mjs "$TIF" nl
-          fi
+          # Validate the ACTUAL emitted tiles on disk — no re-fetch, no apikey needed (so apikey cities
+          # like copenhagen are proven too). --tileset parses layer.json, asserts every declared
+          # {z}/{x}/{y}.terrain exists, and independently decodes the root + finest tiles. This proves
+          # exactly what we are about to PUBLISH, not a freshly re-baked copy.
+          fail=0
           for d in out/terrain/*/; do
             city="$(basename "$d")"
-            [ "$city" = "amsterdam" ] && continue
-            echo "── $city (reproject adapter) ──"
-            node terrain.verify.mjs --city "$city" || { echo "::error::$city failed the round-trip/placement proof"; exit 1; }
+            echo "── $city (tileset decode proof) ──"
+            node terrain.verify.mjs --tileset "$d" || { echo "::error::$city failed the tileset decode proof"; fail=1; }
           done
+          [ "$fail" -eq 0 ] || exit 1
 
       - name: Upload tilesets as a run artifact
         uses: actions/upload-artifact@v4
