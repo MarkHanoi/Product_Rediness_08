@@ -71,6 +71,10 @@ import {
 // SWITZERLAND: same-origin KEYLESS national Nutzungsplanung WFS proxy (geodienste.ch) — returns the
 // zone-identification GML so the client renders the real zone; the buildable envelope refuses (Outcome B).
 import { CH_GRUNDNUTZUNG_PATH, chGrundnutzungHandler } from './server/chGrundnutzungProxy.js';
+// §PARIS-PLU-PROXY — the Ville-de-Paris PLU bioclimatique zone (GPU zone_urba) + numeric hauteur
+// plafond (opendata plub_hauteur) same-origin lookup. Client consumer: resolveParisPluZone. Zone +
+// height RENDER; the buildable envelope refuses unless FR_PARIS_PLU_CERTIFIED is signed (emprise PDF-bound).
+import { PARIS_PLU_PATH, parisPluHandler } from './server/parisPluProxy.js';
 // L-613 — the open, keyless non-Spain cadastres (FR/NL/NO/DE-NRW) under /api/parcel/:cc.
 import { EU_PARCEL_PATH, euParcelHandler } from './server/euCadastreProxy.js';
 // L-613 (Denmark slice) — the Danish Matrikel cadastral proxy (credential-gated Datafordeler).
@@ -456,6 +460,10 @@ app.get(CORDOBA_VCATASTRO_PATH, apiLimiter, cordobaVcatastroHandler);
 // geo-blocked). GET /api/ch/grundnutzung?lat=&lon= → the zone GML at the point (24-h coord cache).
 // Zone RENDERS client-side; buildable envelope REFUSES (density/height model+PDF-bound — Outcome B).
 app.get(CH_GRUNDNUTZUNG_PATH, apiLimiter, chGrundnutzungHandler);
+// §PARIS-PLU-PROXY — same-origin KEYLESS GPU zone_urba WFS + opendata plub_hauteur point lookups.
+// GET /api/paris/plu?lat=&lon= → { zone, hauteur }. Zone + numeric height RENDER; buildable envelope
+// refuses (emprise au sol PDF-bound) unless FR_PARIS_PLU_CERTIFIED. Never crashes.
+app.get(PARIS_PLU_PATH, apiLimiter, parisPluHandler);
 // L-613 — Spain-parity "Select parcel" for the open cadastres. ⚠ Denmark's dedicated route MUST be
 // registered BEFORE the `:cc` catch-all (Express matches specific paths before params). DK carries a
 // server-side Datafordeler credential (Matrikel is not keyless); without it → { parcel: null } →

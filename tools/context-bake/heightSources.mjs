@@ -51,6 +51,25 @@ const MAX_HEIGHT_M = 400;
 const METRES_PER_LEVEL = 3.2; // same assumed storey height the client uses for derived-levels.
 const clampHeight = (h) => Math.min(MAX_HEIGHT_M, Math.max(MIN_HEIGHT_M, h));
 
+// ── small honest helpers ────────────────────────────────────────────────────
+/** {min,median,max,n} for an array of numbers, or null. Load-bearing evidence in probes/reports. */
+function statsOf(arr) {
+  const a = arr.filter((x) => Number.isFinite(x));
+  if (a.length === 0) return null;
+  const s = [...a].sort((x, y) => x - y);
+  return { min: s[0], median: s[(s.length / 2) | 0], max: s[s.length - 1], n: s.length };
+}
+/** UTM zone number for a longitude (deg). Spain: lon −6..0 → 30 (EPSG:25830), 0..6 → 31 (25831). */
+const utmZoneForLon = (lon) => Math.floor((lon + 180) / 6) + 1;
+/** A city clip is small; a WFS bbox query over a whole country is infeasible. Guard (deg span). */
+const bboxTooLargeForWfs = ([w, s, e, n], maxSpanDeg = 0.6) => (e - w) > maxSpanDeg || (n - s) > maxSpanDeg;
+/** CityGML AdV roofType code → OSM roof:shape (for the LoD2 tier); unknown codes pass through. */
+const NRW_ROOF = {
+  1000: 'flat', 2100: 'skillion', 2200: 'skillion', 3100: 'gabled', 3200: 'hipped',
+  3300: 'half-hipped', 3400: 'mansard', 3500: 'pyramidal', 3600: 'conical', 3700: 'dome',
+  5000: 'dome', 9999: undefined,
+};
+
 // ── HTTP with a timeout, never-throw at the call sites that want graceful degradation ───────────
 async function httpGet(url, { timeoutMs = 30_000, headers = {} } = {}) {
   const ctl = new AbortController();
@@ -77,8 +96,10 @@ export const SOURCES = {
     provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (roof geometry present)',
     endpoint: 'https://api.3dbag.nl/collections/pand/items',
     heightField: 'b3_h_dak_50p (roof 50-pctile) / b3_h_nok (ridge), minus b3_h_maaiveld (ground)',
-    note: 'OGC API Features. CityJSON, CRS EPSG:7415 (RD+NAP). Full footprint needs RD→WGS84; the ' +
-      'roof heights + b3_dak_type are already true LoD2 attributes for the mesh tier.',
+    note: 'OGC API Features. CityJSON, CRS EPSG:7415 (RD+NAP). Footprint ingest BUILT 2026-07-25: ' +
+      'LoD0 MultiSurface vertices × metadata.transform → RD → rdToWgs84 → WGS84 rings; paginates ' +
+      '100/page via rel:next. b3_dak_type is the LoD2-mesh attribute for the next tier.',
+    coverage: 'full',
   },
   bdtopo: {
     country: 'fr', name: 'IGN BD TOPO® batiment', impl: 'live',
@@ -92,8 +113,13 @@ export const SOURCES = {
     provenance: 'derived-levels', lodNow: 'LoD1-floorcount', lodNext: 'LoD1-real-height (needs PNOA/ICGC nDSM)',
     endpoint: 'https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx',
     heightField: 'BuildingPart numberOfFloorsAboveGround (a COUNT, ×3.2 m — NOT a measurement)',
-    note: 'WFS 2.0, GML EPSG:25830. ⚠ ALTURAS is a floor COUNT → provenance derived-levels, never ' +
-      'tagged. Real measured height needs a LiDAR nDSM (PNOA/ICGC), licence UNVERIFIED — not built.',
+    note: 'WFS 2.0. Footprint ingest BUILT 2026-07-25: BuildingPart gml:posList (server returns EXACT ' +
+      'WGS84 via srsName=4326; native ETRS89/UTM30N|31N is the honest fallback) → Polygon rings; ' +
+      'single-shot per bbox (startIndex is IGNORED, count loosely caps Buildings), whole-country/large ' +
+      'bbox refused (tile to per-city bboxes; full city = INSPIRE ATOM bulk). ⚠ ALTURAS is ' +
+      'a floor COUNT → provenance derived-levels, never tagged. Measured height needs a LiDAR nDSM ' +
+      '(PNOA/ICGC), licence UNVERIFIED — not built.',
+    coverage: 'full',
   },
   swissbuildings3d: {
     country: 'ch', name: 'swissBUILDINGS3D 2.0/3.0 + GWR', impl: 'documented',
@@ -122,9 +148,9 @@ export const SOURCES = {
     endpoint: 'https://www.opengeodata.nrw.de/produkte/geobasis/3dg/lod2_gml/lod2_gml/',
     heightField: 'CityGML bldg:measuredHeight (m) + bldg:roofType code (1000 flat/3100 gable/3200 hip…)',
     note: 'Keyless open tile service (35,022 × 1 km CityGML tiles, ETRS89/UTM32, index.json). ' +
-      'LIVE-PROVEN 2026-07-25: tile LoD2_32_355_5644 carries 4,448 measuredHeight + roofType values. ' +
-      'bbox → UTM32 1 km tile key → per-Kachel .gml (Range-fetchable) → measuredHeight is real NOW; ' +
-      'the gml:posList footprint parse (like 3DBAG RD→WGS84) is the geometry ingest step.',
+      'Footprint ingest BUILT 2026-07-25: bbox → UTM32 1 km tile key → per-Kachel .gml → per-Building ' +
+      'GroundSurface gml:posList (X Y Z, UTM32) → utmNToWgs84 → WGS84 rings + measuredHeight + roofType. ' +
+      'Byte-range sample is truncated→append; pass fullTile for the whole 1 km tile (replace).',
     coverage: 'full',
   },
   geodanmark: {
@@ -202,8 +228,18 @@ export const SOURCES = {
 // A region absent here (or mapped to a no-source country) keeps OSM footprints = 9 m assumed.
 // ─────────────────────────────────────────────────────────────────────────────
 export const REGION_SOURCE = {
-  // ES — whole-Spain national bake + cities all share Catastro (floor-count → derived-levels).
+  // ES — all Catastro (floor-count → derived-levels). ⚠ A Catastro WFS bbox query CANNOT cover a whole
+  // country (server caps + scattered partials), so the `spain` whole-country box returns `documented`
+  // (keeps OSM) — see fetchCatastro's bboxTooLargeForWfs guard. To make Spain REAL, bake.mjs REGIONS
+  // must enumerate PER-CITY Spanish entries (city bbox → Catastro); the mappings below are ready so
+  // the orchestrator only adds the matching bbox rows (spain-latest.osm.pbf already covers them all):
+  //   barcelona '2.05,41.32,2.24,41.47'   madrid '-3.80,40.33,-3.60,40.52'
+  //   cordoba   '-4.85,37.83,-4.72,37.93'  valencia '-0.42,39.42,-0.30,39.52'
+  //   sevilla   '-6.03,37.32,-5.90,37.43'  malaga '-4.50,36.66,-4.35,36.76'
+  //   zaragoza  '-0.95,41.60,-0.80,41.70'  bilbao '-2.98,43.22,-2.88,43.29'
   spain: 'catastro',
+  barcelona: 'catastro', madrid: 'catastro', cordoba: 'catastro', valencia: 'catastro',
+  sevilla: 'catastro', malaga: 'catastro', zaragoza: 'catastro', bilbao: 'catastro',
   // NL
   amsterdam: '3dbag',
   // FR
@@ -324,38 +360,98 @@ export function wgs84ToRD(lat, lon) {
 // ── NL 3DBAG — OGC API Features. Heights are true LoD2 attrs; the `items` bbox is in RD. ─────────
 // The load-bearing LoD1 value is the roof-50pctile MINUS ground (b3_h_dak_50p − b3_h_maaiveld); the
 // roof planes + b3_dak_type are the LoD2-mesh attributes the next tier uses.
-export async function fetch3dbag(bbox, { limit = 1000, timeoutMs = 40_000 } = {}) {
+// GEOMETRY INGEST (built 2026-07-25): the CityJSONFeature carries `vertices` (integers) + a global
+// `metadata.transform` (scale/translate); the Building object's LoD0 MultiSurface indexes the
+// footprint ring → decode to RD (28992) → rdToWgs84 → WGS84 [lon,lat]. Height = b3_h_dak_50p −
+// b3_h_maaiveld (roof − ground) → `height` (tagged). The `items` bbox is in RD and paginates at
+// 100/page via a rel:next link; a truncated fetch downgrades to append (never deletes OSM).
+export async function fetch3dbag(bbox, { limit = 100, timeoutMs = 60_000, maxPages = 50 } = {}) {
   const [w, s, e, n] = bbox;
   const [x0, y0] = wgs84ToRD(s, w);
   const [x1, y1] = wgs84ToRD(n, e);
-  const url = `${SOURCES['3dbag'].endpoint}?bbox=${Math.round(Math.min(x0, x1))},${Math.round(Math.min(y0, y1))},` +
-    `${Math.round(Math.max(x0, x1))},${Math.round(Math.max(y0, y1))}&limit=${limit}`;
+  const rdBbox = `${Math.round(Math.min(x0, x1))},${Math.round(Math.min(y0, y1))},` +
+    `${Math.round(Math.max(x0, x1))},${Math.round(Math.max(y0, y1))}`;
+  let url = `${SOURCES['3dbag'].endpoint}?bbox=${rdBbox}&limit=${limit}`;
+  const features = [];
+  const heights = [];
+  let pages = 0, truncated = false, lastCt = '', numberMatched = null;
   try {
-    const r = await httpGet(url, { timeoutMs, headers: { Accept: 'application/city+json, application/json' } });
-    if (!r.ok) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
-    const json = JSON.parse(r.body);
-    // The items endpoint returns { features:[ CityJSONFeature… ] } or a CityJSON with CityObjects.
-    const items = json.features ?? [];
-    const features = [];
-    for (const it of items) {
-      const attrs = extract3dbagAttrs(it);
-      if (attrs === null) continue;
-      // Footprint extraction from CityJSON LoD0 boundaries + RD→WGS84 is the documented ingest step
-      // (proj4 RD/NAP). Height + roof type are already resolved here — the LoD1 value the tile needs.
-      features.push({
-        type: 'Feature',
-        geometry: null, // ← footprint reprojection = next build step (see §note); attrs are real now.
-        properties: nationalBuildingTags({
-          heightM: clampHeight(attrs.height),
-          provenance: 'tagged', source: '3dbag',
-          ...(attrs.roofType ? { roofType: attrs.roofType } : {}),
-        }),
-      });
+    for (; pages < maxPages && url; pages++) {
+      const r = await httpGet(url, { timeoutMs, headers: { Accept: 'application/city+json, application/json' } });
+      if (!r.ok) { if (pages === 0) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType }; break; }
+      lastCt = r.contentType;
+      const json = JSON.parse(r.body);
+      if (numberMatched == null) numberMatched = Number.isFinite(json.numberMatched) ? json.numberMatched : null;
+      const transform = json.metadata?.transform ?? json.transform ?? null;
+      for (const it of json.features ?? []) {
+        const built = build3dbagFeature(it, transform);
+        if (built === null) continue;                     // no real height OR no placeable footprint → skip
+        heights.push(built.properties.height);
+        features.push(built);
+      }
+      url = (json.links ?? []).find((l) => l.rel === 'next')?.href ?? null;
     }
-    return { status: 'ok', features, provenance: 'tagged', contentType: r.contentType, rawCount: items.length };
+    if (pages >= maxPages && url) truncated = true;
+    return {
+      status: 'ok', provenance: 'tagged', contentType: lastCt, features, truncated,
+      rawCount: numberMatched ?? features.length, heightStats: statsOf(heights),
+      heightSamples: heights.slice(0, 8),
+      note: `3DBAG roof−ground height → tagged; ${features.length} LoD0 footprint(s) RD→WGS84` +
+        `${truncated ? ' (TRUNCATED at page cap → append)' : ''}.`,
+    };
   } catch (err) {
+    if (features.length > 0) {
+      return { status: 'ok', provenance: 'tagged', contentType: lastCt, features, truncated: true,
+        rawCount: numberMatched ?? features.length, heightStats: statsOf(heights), note: `partial (network): ${String(err?.message ?? err)}` };
+    }
     return { status: 'error', reason: String(err?.message ?? err) };
   }
+}
+
+/** A 3DBAG CityJSONFeature → a WGS84 footprint Feature (real height), or null (skip honestly). */
+function build3dbagFeature(item, transform) {
+  const attrs = extract3dbagAttrs(item);
+  if (attrs === null) return null;                          // no real roof−ground height → skip
+  const ring = extract3dbagFootprint(item, transform);
+  if (ring === null) return null;                           // no LoD0 footprint we can place → skip
+  return toFeature(
+    { type: 'Polygon', coordinates: [ring] },
+    nationalBuildingTags({
+      heightM: clampHeight(attrs.height), provenance: 'tagged', source: '3dbag',
+      ...(attrs.roofType ? { roofType: attrs.roofType } : {}),
+    }),
+  );
+}
+
+/** LoD0 footprint ring (RD→WGS84 [lon,lat]) from a 3DBAG CityJSONFeature, or null. */
+function extract3dbagFootprint(item, transform) {
+  const verts = item?.vertices;
+  const cos = item?.CityObjects ?? item?.feature?.CityObjects;
+  if (!Array.isArray(verts) || !cos || !transform?.scale || !transform?.translate) return null;
+  // Prefer the Building object's LoD0 MultiSurface; else any object carrying an lod:0 geometry.
+  let boundaries = null;
+  for (const obj of Object.values(cos)) {
+    const g = (obj?.geometry ?? []).find((gg) => String(gg.lod) === '0' || String(gg.lod) === '0.0');
+    if (!g) continue;
+    if (obj.type === 'Building') { boundaries = g.boundaries; break; }
+    if (!boundaries) boundaries = g.boundaries;
+  }
+  // MultiSurface boundaries = [ surface ][ ring ][ vertexIdx ]; take the first surface's outer ring.
+  const idxRing = boundaries?.[0]?.[0];
+  if (!Array.isArray(idxRing) || idxRing.length < 3) return null;
+  const [sx, sy] = transform.scale, [tx0, ty0] = transform.translate;
+  const ring = [];
+  for (const idx of idxRing) {
+    const v = verts[idx];
+    if (!Array.isArray(v)) return null;
+    const { lat, lon } = rdToWgs84(v[0] * sx + tx0, v[1] * sy + ty0);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+    ring.push([lon, lat]);
+  }
+  if (ring.length < 3) return null;
+  const f = ring[0], l = ring[ring.length - 1];
+  if (f[0] !== l[0] || f[1] !== l[1]) ring.push([f[0], f[1]]);
+  return ring;
 }
 
 /** Pull a real height (roof − ground) + roof type out of a 3DBAG CityJSONFeature. */
@@ -383,32 +479,76 @@ function collect3dbagAttrObjects(item) {
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
 
 // ── ES Catastro — INSPIRE Buildings WFS. Height is a FLOOR COUNT → derived-levels (honest). ─────
-export async function fetchCatastro(bbox, { limit = 2000, timeoutMs = 40_000, capabilitiesOnly = false } = {}) {
+// GEOMETRY INGEST (built 2026-07-25): each <bu-ext2d:BuildingPart> carries a gml:posList footprint
+// (exterior + optional interior rings) AND numberOfFloorsAboveGround. srsName=EPSG:4326 makes the
+// server return EXACT WGS84 (lat,lon) posLists — better than a local reprojection, so the ring is
+// used directly (posListToWgs84Ring auto-detects the degree axis; the UTM30/31 route is the honest
+// fallback if the server ever emits native ETRS89/UTM). Floors → `building:levels` (derived-levels);
+// NEVER a fabricated metric height.
+//
+// ⚠ PAGINATION — this WFS is SINGLE-SHOT. LIVE-VERIFIED 2026-07-25: `startIndex` is IGNORED (a
+// startIndex=5000 request returned byte-identical data to startIndex=0) and `count` loosely caps the
+// number of parent Buildings (count=N → ≈N buildings → ~6–7×N parts), and the endpoint is slow
+// (~50 s for ~1000 buildings). So we do ONE request per bbox and detect truncation by whether the
+// distinct-Building count hit the cap; a truncated fetch downgrades to append (never deletes OSM).
+// FULL per-city coverage (dense cities > `buildingCap`) needs the Catastro INSPIRE ATOM
+// MUNICIPALITY bulk GML (one file per municipio) — the named next build, not this slow WFS.
+export async function fetchCatastro(bbox, { buildingCap = 3000, timeoutMs = 120_000, capabilitiesOnly = false } = {}) {
   const base = SOURCES.catastro.endpoint;
   if (capabilitiesOnly) {
     const r = await httpGet(`${base}?service=WFS&request=GetCapabilities`, { timeoutMs }).catch((e) => ({ ok: false, reason: String(e) }));
     return { status: r.ok ? 'ok' : 'error', contentType: r.contentType, hasBuilding: /bu:Building/.test(r.body ?? ''), reason: r.reason };
   }
+  if (!bbox) return { status: 'error', reason: 'no bbox supplied for catastro' };
   const [w, s, e, n] = bbox;
-  // ⚠ The floor COUNT lives on bu:BuildingPart, not bu:Building — live-verified 2026-07-24
-  // (Building's numberOfFloorsAboveGround is nil in central Madrid; BuildingPart is populated:
-  // 872/872 parts carried a floor value). Geometry comes back in EPSG:4326 directly (posList),
-  // so Catastro is footprint-wireable without reprojection. BBOX axis order = lat,lon (urn CRS).
-  const url = `${base}?service=WFS&version=2.0.0&request=GetFeature&typeNames=bu:BuildingPart` +
-    `&srsName=urn:ogc:def:crs:EPSG::4326&bbox=${s},${w},${n},${e},urn:ogc:def:crs:EPSG::4326&count=${limit}`;
+  // A whole-country/large WFS bbox is infeasible (single-shot + slow) — refuse LOUDLY so the caller
+  // keeps OSM rather than baking misleading coverage. Cities are enumerated as per-city bboxes.
+  if (bboxTooLargeForWfs(bbox)) {
+    return { status: 'documented', provenance: 'derived-levels',
+      reason: `Catastro bbox ${(e - w).toFixed(2)}°×${(n - s).toFixed(2)}° is too large for a single WFS query; ` +
+        'tile to per-neighbourhood bboxes (≤~0.6°) or use the INSPIRE ATOM municipality bulk GML.' };
+  }
+  const zone = utmZoneForLon((w + e) / 2); // fallback CRS only if a native-UTM posList ever appears.
+  const features = [];
+  const floorsAll = [];
+  const buildingIds = new Set();
   try {
+    // BBOX axis order = lat,lon (urn CRS). Single request; `count` caps parent Buildings.
+    const url = `${base}?service=WFS&version=2.0.0&request=GetFeature&typeNames=bu:BuildingPart` +
+      `&srsName=urn:ogc:def:crs:EPSG::4326&bbox=${s},${w},${n},${e},urn:ogc:def:crs:EPSG::4326&count=${buildingCap}`;
     const r = await httpGet(url, { timeoutMs });
     if (!r.ok) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
-    // Honest extraction: floor COUNT (→ derived-levels), NOT a measured height. Full GML posList→
-    // ring parse is the documented ingest step; the derived height = floors × 3.2 m is stamped there.
-    const floorMatches = [...r.body.matchAll(/numberOfFloorsAboveGround>\s*(\d+)\s*</gi)].map((m) => Number(m[1]));
-    const buildingCount = (r.body.match(/<bu-ext2d:BuildingPart\b/gi) ?? []).length;
+    const members = r.body.match(/<bu-ext2d:BuildingPart\b[\s\S]*?<\/bu-ext2d:BuildingPart>/g) ?? [];
+    for (const m of members) {
+      const idM = m.match(/gml:id="([^"]+?)(?:_part\d+)?"/);
+      if (idM) buildingIds.add(idM[1]); // strip _partN → the parent Building refcat, to detect the cap.
+      const extM = m.match(/<gml:exterior>[\s\S]*?<gml:posList[^>]*>([\s\S]*?)<\/gml:posList>/);
+      if (!extM) continue;                                   // no footprint → skip
+      const exterior = posListToWgs84Ring(extM[1], { dim: 2, srsZone: zone });
+      if (!exterior) continue;                               // unparseable ring → honest skip
+      const interiors = [...m.matchAll(/<gml:interior>[\s\S]*?<gml:posList[^>]*>([\s\S]*?)<\/gml:posList>/g)]
+        .map((x) => posListToWgs84Ring(x[1], { dim: 2, srsZone: zone })).filter(Boolean);
+      const fm = m.match(/numberOfFloorsAboveGround>\s*(\d+)/i);
+      const floors = fm ? Number(fm[1]) : undefined;
+      if (Number.isFinite(floors) && floors > 0) floorsAll.push(floors);
+      features.push(toFeature(
+        { type: 'Polygon', coordinates: [exterior, ...interiors] },
+        nationalBuildingTags({
+          floors: Number.isFinite(floors) && floors > 0 ? floors : undefined,
+          provenance: 'derived-levels', source: 'catastro',
+        }),
+      ));
+    }
+    // Cap hit (distinct buildings ≥ requested cap) → the bbox has more than one request can return
+    // and startIndex can't page → honest truncation → append (no OSM deletion).
+    const truncated = buildingIds.size >= buildingCap;
     return {
-      status: 'ok', provenance: 'derived-levels', contentType: r.contentType,
-      buildingCount, floorSamples: floorMatches.slice(0, 8),
-      populatedFloors: floorMatches.length,
-      features: [],
-      note: 'BuildingPart floor count → derived-levels; measured height needs nDSM (not built).',
+      status: 'ok', provenance: 'derived-levels', contentType: r.contentType, features, truncated,
+      buildingCount: members.length, distinctBuildings: buildingIds.size,
+      populatedFloors: floorsAll.length, floorSamples: floorsAll.slice(0, 8), floorStats: statsOf(floorsAll),
+      note: `Catastro BuildingPart floor count → derived-levels (client ×${METRES_PER_LEVEL} m); ` +
+        `${features.length} footprint(s) → WGS84${truncated ? ' (cap hit → append; use ATOM bulk for full city)' : ''}. ` +
+        'Measured height needs an nDSM (PNOA/ICGC) — not built.',
     };
   } catch (err) {
     return { status: 'error', reason: String(err?.message ?? err) };
@@ -438,9 +578,98 @@ export function wgs84ToUtm32(lat, lon) {
   return [easting, northing];
 }
 
-// ── DE LoD2-DE · NRW — keyless open CityGML tile service. Real measuredHeight NOW; footprint parse next.
-// Mirrors 3DBAG/Catastro: the height value is proven live; the gml:posList → WGS84 ring parse is the
-// documented ingest step, so writeable features are empty and resolveHeights returns 'documented'.
+// ─────────────────────────────────────────────────────────────────────────────
+// §REPROJECT — ONE honest inverse-projection helper set (no proj4). Mirrors the proven
+// server/dkMatrikelProxy.js `utm32nToWgs84` (Snyder inverse TM), GENERALISED per UTM zone so the
+// same maths serve ES UTM30N/31N (EPSG:25830/25831) AND DE UTM32N (25832); `rdToWgs84` is the exact
+// inverse of this file's forward `wgs84ToRD` polynomial (NL EPSG:28992). ETRS89 ≈ WGS84 (<1 m).
+// EVERY source's footprint ring flows through `posListToWgs84Ring`, so there is no per-source
+// copy-paste of reprojection maths (the task's single-helper requirement). A vertex that can't be
+// honestly placed → the whole ring is dropped (null), never emitted at a fabricated coordinate
+// (§CONTEXT-DATA-HONESTY). Validated live 2026-07-25: UTM32 Köln, RD Amsterdam, UTM30 Madrid,
+// UTM31 Barcelona all reproject to within metres of the query centroid.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** ETRS89/UTM zone `zone`N easting/northing (m) → { lat, lon } WGS84 deg. Snyder inverse TM.
+ *  zone 30 → EPSG:25830 (central meridian −3°), 31 → 25831 (+3°, Barcelona/Catalonia), 32 → 25832
+ *  (+9°, NRW). Zone-parameterised mirror of dkMatrikelProxy.utm32nToWgs84. */
+export function utmNToWgs84(E, N, zone) {
+  const a = 6378137.0, f = 1 / 298.257223563, k0 = 0.9996;
+  const e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+  const lon0 = ((zone * 6 - 183) * Math.PI) / 180, falseE = 500000;
+  const M = N / k0;
+  const mu = M / (a * (1 - e2 / 4 - (3 * e2 ** 2) / 64 - (5 * e2 ** 3) / 256));
+  const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+  const phi1 = mu + ((3 * e1) / 2 - (27 * e1 ** 3) / 32) * Math.sin(2 * mu)
+    + ((21 * e1 ** 2) / 16 - (55 * e1 ** 4) / 32) * Math.sin(4 * mu)
+    + ((151 * e1 ** 3) / 96) * Math.sin(6 * mu) + ((1097 * e1 ** 4) / 512) * Math.sin(8 * mu);
+  const sinP = Math.sin(phi1), cosP = Math.cos(phi1), tanP = Math.tan(phi1);
+  const C1 = ep2 * cosP * cosP, T1 = tanP * tanP;
+  const N1 = a / Math.sqrt(1 - e2 * sinP * sinP);
+  const R1 = (a * (1 - e2)) / Math.pow(1 - e2 * sinP * sinP, 1.5);
+  const D = (E - falseE) / (N1 * k0);
+  const lat = phi1 - (N1 * tanP / R1) * ((D * D) / 2
+    - ((5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * D ** 4) / 24
+    + ((61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * D ** 6) / 720);
+  const lon = lon0 + (D - ((1 + 2 * T1 + C1) * D ** 3) / 6
+    + ((5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * D ** 5) / 120) / cosP;
+  return { lat: (lat * 180) / Math.PI, lon: (lon * 180) / Math.PI };
+}
+
+/** RD New (EPSG:28992) X,Y (m) → { lat, lon } WGS84 deg. Schreutelkamp & Strang van Hees inverse
+ *  polynomial — the exact inverse of this file's forward `wgs84ToRD`; ~0.25 m over the Netherlands. */
+const _RD_INV_K = [[0, 1, 3235.65389], [2, 0, -32.58297], [0, 2, -0.24750], [2, 1, -0.84978],
+  [0, 3, -0.06550], [2, 2, -0.01709], [1, 0, -0.00738], [4, 0, 0.00530], [2, 3, -0.00039],
+  [4, 1, 0.00033], [1, 1, -0.00012]];
+const _RD_INV_L = [[1, 0, 5260.52916], [1, 1, 105.94684], [1, 2, 2.45656], [3, 0, -0.81885],
+  [1, 3, 0.05594], [3, 1, -0.05607], [0, 1, 0.01199], [3, 2, -0.00256], [1, 4, 0.00128],
+  [0, 2, 0.00022], [2, 0, -0.00022], [5, 0, 0.00026]];
+export function rdToWgs84(X, Y) {
+  const dx = 1e-5 * (X - 155000), dy = 1e-5 * (Y - 463000);
+  let sp = 0, sl = 0;
+  for (const [p, q, c] of _RD_INV_K) sp += c * dx ** p * dy ** q;
+  for (const [p, q, c] of _RD_INV_L) sl += c * dx ** p * dy ** q;
+  return { lat: 52.15517440 + sp / 3600, lon: 5.38720621 + sl / 3600 };
+}
+
+/**
+ * Parse a GML `gml:posList` string → a closed WGS84 [lon,lat] ring (GeoJSON order), or null if the
+ * ring is degenerate or a vertex can't be honestly placed. `dim` = ordinate stride (2 planar; 3 for
+ * CityGML X Y Z — the Z is dropped). CRS handling is AUTO-DETECTED, honestly:
+ *   • leading ordinates already in degree range → GML EPSG:4326 axis order (lat, lon). Catastro
+ *     returns exact server-reprojected WGS84 this way — strictly better than any local approximation.
+ *   • else the ordinates are projected easting/northing → reprojected from `srsZone` (UTM zone) or,
+ *     when `rd` is true, from RD New. A vertex with no valid CRS route drops the ring (never a
+ *     fabricated coordinate).
+ */
+export function posListToWgs84Ring(text, { dim = 2, srsZone = null, rd = false } = {}) {
+  const nums = String(text).trim().split(/\s+/).map(Number);
+  const ring = [];
+  for (let i = 0; i + dim <= nums.length; i += dim) {
+    const a = nums[i], b = nums[i + 1];
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    let lon, lat;
+    if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
+      lat = a; lon = b;                       // GML 4326 axis = lat, lon (degree range)
+    } else if (rd) {
+      ({ lat, lon } = rdToWgs84(a, b));
+    } else if (srsZone) {
+      ({ lat, lon } = utmNToWgs84(a, b, srsZone));
+    } else {
+      return null;                            // projected coords, no declared CRS → honest skip
+    }
+    if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    ring.push([lon, lat]);
+  }
+  if (ring.length < 4) return null;           // a polygon ring needs ≥3 distinct vertices + closure
+  const first = ring[0], last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]); // close
+  return ring;
+}
+
+// ── DE LoD2-DE · NRW — keyless open CityGML tile service. Real measuredHeight + GroundSurface footprint.
+// bbox → UTM32 1 km tile key → per-Kachel .gml → per-Building GroundSurface gml:posList (UTM32) →
+// utmNToWgs84 → WGS84 rings, carrying measuredHeight (tagged) + roofType. See fetchLod2DeNrw below.
 let _nrwIndexCache = null;
 async function nrwTileIndex(timeoutMs = 60_000) {
   if (_nrwIndexCache) return _nrwIndexCache;
@@ -452,8 +681,13 @@ async function nrwTileIndex(timeoutMs = 60_000) {
     return _nrwIndexCache;
   } catch { return null; }
 }
+// GEOMETRY INGEST (built 2026-07-25): each <bldg:Building> carries bldg:measuredHeight + roofType,
+// and a bldg:GroundSurface whose gml:posList is the LoD0 footprint (X Y Z, native ETRS89/UTM32 =
+// EPSG:25832, constant Z) → utmNToWgs84 → WGS84 [lon,lat]. Height → `height` (tagged); roofType
+// code → OSM roof:shape (LoD2 tier). A byte-range sample necessarily clips the LAST building, so a
+// non-`fullTile` fetch is `truncated:true` (→ append). `fullTile:true` fetches the whole 1 km tile.
 /** bbox = [minlon, minlat, maxlon, maxlat] (WGS84). Never-throws. */
-export async function fetchLod2DeNrw(bbox, { timeoutMs = 60_000, sampleBytes = 1_500_000 } = {}) {
+export async function fetchLod2DeNrw(bbox, { timeoutMs = 90_000, sampleBytes = 6_000_000, fullTile = false } = {}) {
   try {
     const [w, s, e, n] = bbox;
     const [cx, cy] = wgs84ToUtm32((s + n) / 2, (w + e) / 2);
@@ -463,19 +697,42 @@ export async function fetchLod2DeNrw(bbox, { timeoutMs = 60_000, sampleBytes = 1
     if (idx && !idx.has(tile)) {
       return { status: 'no-source', reason: `bbox centre → tile ${tile} not in NRW (outside Nordrhein-Westfalen?)` };
     }
-    // Range-fetch a slice of the tile (76 MB full) to prove real measuredHeight without the whole file.
     const url = `${SOURCES.lod2de_nrw.endpoint}${tile}`;
-    const r = await httpGet(url, { timeoutMs, headers: { Range: `bytes=0-${sampleBytes}` } });
+    const headers = fullTile ? {} : { Range: `bytes=0-${sampleBytes}` };
+    const r = await httpGet(url, { timeoutMs, headers });
     if (!r.ok && r.status !== 206) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
-    const heights = [...r.body.matchAll(/measuredHeight[^>]*>\s*([\d.]+)\s*</gi)].map((m) => Number(m[1]))
-      .filter((h) => Number.isFinite(h) && h > 0);
-    const roofCodes = [...r.body.matchAll(/roofType[^>]*>\s*(\d+)\s*</gi)].map((m) => m[1]);
+    const truncated = !fullTile; // a byte-range sample clips the trailing building — skip it below.
+    const blocks = r.body.match(/<bldg:Building\b[\s\S]*?<\/bldg:Building>/g) ?? [];
+    const features = [];
+    const heights = [];
+    const roofCodes = new Set();
+    for (const b of blocks) {
+      const hm = b.match(/measuredHeight[^>]*>\s*([\d.]+)\s*</i);
+      if (!hm) continue;
+      const h = Number(hm[1]);
+      if (!Number.isFinite(h) || h <= 0) continue;
+      const rtCode = (b.match(/roofType[^>]*>\s*(\d+)\s*</i) ?? [])[1];
+      // The honest LoD0 outline is the bldg:GroundSurface ring (constant Z).
+      const gs = b.match(/GroundSurface[\s\S]*?<gml:posList[^>]*>([\s\S]*?)<\/gml:posList>/i);
+      if (!gs) continue;
+      const ring = posListToWgs84Ring(gs[1], { dim: 3, srsZone: 32 });
+      if (!ring) continue;                                   // truncated/degenerate ring → honest skip
+      heights.push(h);
+      if (rtCode) roofCodes.add(rtCode);
+      features.push(toFeature(
+        { type: 'Polygon', coordinates: [ring] },
+        nationalBuildingTags({
+          heightM: clampHeight(h), provenance: 'tagged', source: 'lod2de_nrw',
+          roofType: rtCode ? (NRW_ROOF[rtCode] ?? rtCode) : undefined,
+        }),
+      ));
+    }
     return {
-      status: 'ok', provenance: 'tagged', contentType: r.contentType, tile,
-      features: [], // gml:posList footprint parse = the geometry ingest step (see note).
-      heightSamples: heights.slice(0, 8), populatedHeights: heights.length,
-      roofTypeSamples: [...new Set(roofCodes)].slice(0, 6),
-      note: `NRW tile ${tile}: measuredHeight is real (${heights.length} in the sampled range); footprint parse pending.`,
+      status: 'ok', provenance: 'tagged', contentType: r.contentType, tile, features, truncated,
+      heightSamples: heights.slice(0, 8), populatedHeights: heights.length, heightStats: statsOf(heights),
+      roofTypeSamples: [...roofCodes].slice(0, 6),
+      note: `NRW ${tile}: ${features.length} GroundSurface footprint(s) UTM32→WGS84 + measuredHeight (tagged)` +
+        `${truncated ? '; byte-range sample (trailing building clipped) — pass fullTile for the whole 1 km tile' : ''}.`,
     };
   } catch (err) {
     return { status: 'error', reason: String(err?.message ?? err) };
@@ -585,21 +842,28 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
   if (res.status === 'documented') return { status: 'documented', reason: res.note ?? res.reason, region, source, provenance: res.provenance ?? src.provenance };
   if (res.status !== 'ok') return { status: 'error', reason: res.reason, region, source };
 
-  // Only features that carry a real geometry are writeable as a join input right now (BD TOPO).
-  const writeable = res.features.filter((f) => f.geometry != null);
+  // Only features that carry a real geometry are writeable as a join input.
+  const writeable = (res.features ?? []).filter((f) => f.geometry != null);
   if (writeable.length === 0) {
     return {
       status: 'documented', region, source, provenance: res.provenance,
-      reason: `${src.name}: ${res.rawCount ?? res.buildingCount ?? 0} records reached, real heights confirmed, ` +
-        'but footprint geometry needs the reprojection step (see §note) before it can be tippecanoe-joined.',
+      reason: `${src.name}: ${res.rawCount ?? res.buildingCount ?? 0} record(s) reached, heights confirmed, ` +
+        'but no footprint geometry parsed for this bbox (see §note).',
     };
   }
   mkdirSync(outDir, { recursive: true });
   const path = resolve(outDir, `${region}-buildings-national.geojsonseq`);
   writeFileSync(path, writeable.map((f) => JSON.stringify(f)).join('\n') + '\n');
   // §PHASE1-DEDUP — `mode` tells bake.mjs whether to REPLACE the OSM clip (full national source) or
-  // APPEND (partial nDSM top-up). See heightModeForSource + CONTEXT-LOD-BUILD-PLAN.md §3.
-  return { status: 'ok', geojsonseq: path, count: writeable.length, provenance: res.provenance, mode: heightModeForSource(source), region, source };
+  // APPEND (partial top-up). A TRUNCATED full-source fetch is downgraded to append: replacing the OSM
+  // clip with a partial national set would DELETE the real buildings we didn't fetch — worse than a
+  // missing height (§CONTEXT-DATA-HONESTY). See heightModeForSource + CONTEXT-LOD-BUILD-PLAN.md §3.
+  const baseMode = heightModeForSource(source);
+  const mode = res.truncated && baseMode === 'replace' ? 'append' : baseMode;
+  return {
+    status: 'ok', geojsonseq: path, count: writeable.length, provenance: res.provenance,
+    mode, truncated: !!res.truncated, region, source,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -628,36 +892,48 @@ export async function probeSource(id) {
     };
   }
   if (id === '3dbag') {
-    const r = await fetch3dbag(bbox, { limit: 5 });
+    const r = await fetch3dbag(bbox, { limit: 100, maxPages: 1 });
     const heights = (r.features ?? []).map((f) => f.properties.height);
+    const ring0 = r.features?.[0]?.geometry?.coordinates?.[0];
     return {
       id, endpoint: SOURCES['3dbag'].endpoint, status: r.status, contentType: r.contentType,
       assertContentType: /json/i.test(r.contentType ?? ''),
-      sampleHeights: heights.slice(0, 3),
+      featureCount: r.features?.length ?? 0, heightStats: r.heightStats, sampleHeights: heights.slice(0, 3),
       sampleRoofTypes: (r.features ?? []).map((f) => f.properties.roof_type).filter(Boolean).slice(0, 3),
-      assertRealHeight: heights.some((h) => Number.isFinite(h) && h > 0), reason: r.reason, rawCount: r.rawCount,
+      sampleRing: ring0?.slice(0, 3),
+      assertRealHeight: heights.some((h) => Number.isFinite(h) && h > 0),
+      assertGeometry: Array.isArray(ring0) && ring0.length >= 4,
+      truncated: r.truncated, mode: heightModeForSource('3dbag'), reason: r.reason, rawCount: r.rawCount,
     };
   }
   if (id === 'catastro') {
     const caps = await fetchCatastro(null, { capabilitiesOnly: true });
-    const feat = await fetchCatastro(bbox, { limit: 50 });
+    const feat = await fetchCatastro(bbox, { buildingCap: 500 });
+    const ring0 = feat.features?.[0]?.geometry?.coordinates?.[0];
     return {
       id, endpoint: SOURCES.catastro.endpoint, status: feat.status, contentType: feat.contentType,
-      assertContentType: /xml/i.test(feat.contentType ?? '') || /xml/i.test(caps.contentType ?? ''),
+      assertContentType: /xml|unknown/i.test(feat.contentType ?? '') || /xml/i.test(caps.contentType ?? ''),
       capabilitiesHasBuilding: caps.hasBuilding,
-      buildingPartCount: feat.buildingCount, populatedFloors: feat.populatedFloors, sampleFloors: feat.floorSamples,
+      featureCount: feat.features?.length ?? 0, buildingPartCount: feat.buildingCount,
+      populatedFloors: feat.populatedFloors, floorStats: feat.floorStats, sampleFloors: feat.floorSamples,
+      sampleRing: ring0?.slice(0, 3),
       assertRealFloorCount: (feat.floorSamples ?? []).some((n) => Number.isFinite(n) && n > 0),
-      provenance: 'derived-levels', reason: feat.reason,
+      assertGeometry: Array.isArray(ring0) && ring0.length >= 4,
+      provenance: 'derived-levels', mode: heightModeForSource('catastro'), reason: feat.reason,
     };
   }
   if (id === 'lod2de_nrw') {
-    const r = await fetchLod2DeNrw(PROBE_BBOX.lod2de_nrw, { sampleBytes: 1_500_000 });
+    const r = await fetchLod2DeNrw(PROBE_BBOX.lod2de_nrw, { sampleBytes: 4_000_000 });
+    const ring0 = r.features?.[0]?.geometry?.coordinates?.[0];
     return {
       id, endpoint: SOURCES.lod2de_nrw.endpoint, status: r.status, contentType: r.contentType, tile: r.tile,
       assertContentType: /gml|xml/i.test(r.contentType ?? ''),
-      populatedHeights: r.populatedHeights, sampleHeights: r.heightSamples, roofTypeCodes: r.roofTypeSamples,
+      featureCount: r.features?.length ?? 0, populatedHeights: r.populatedHeights,
+      heightStats: r.heightStats, sampleHeights: r.heightSamples, roofTypeCodes: r.roofTypeSamples,
+      sampleRing: ring0?.slice(0, 3),
       assertRealHeight: (r.heightSamples ?? []).some((h) => Number.isFinite(h) && h > 0),
-      provenance: 'tagged', mode: heightModeForSource('lod2de_nrw'), reason: r.reason ?? r.note,
+      assertGeometry: Array.isArray(ring0) && ring0.length >= 4,
+      provenance: 'tagged', truncated: r.truncated, mode: heightModeForSource('lod2de_nrw'), reason: r.reason ?? r.note,
     };
   }
   if (id === 'geodanmark') {

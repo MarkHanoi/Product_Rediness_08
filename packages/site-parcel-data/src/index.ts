@@ -419,6 +419,40 @@ export {
     type MadridRingResolution,
     type MadridRingRefusalReason,
 } from './providers/resolveMadridNZ1Ring.js';
+// ── L-609 — Amsterdam (BAG/CBS gemeente 0363) jurisdiction gate + the bestemmingsplan explicit-area ──
+// pack, refusal + the `ringRef` resolver + maatvoering reader. The pack ships numeric fields null and
+// a bouwvlak HANDLE; `resolveAmsterdamBestemmingsplan` turns that handle into a WGS84 buildable ring
+// PLUS the live maatvoering (max bouwhoogte / bebouwingspercentage / bouwlagen) — or a typed refusal
+// (it never throws). Until the keyed RP-API-v4 proxy is wired AND a plan is verified, an Amsterdam
+// parcel REFUSES (never a fabricated number) — see `nlAmsterdamBestemmingsplan.ts`.
+export { isInAmsterdam, AMSTERDAM_BBOX } from './providers/amsterdamBbox.js';
+export {
+    NL_AMSTERDAM_BESTEMMINGSPLAN_PACK,
+    NL_AMS_RULE,
+    NL_AMS_ZONE_CODE,
+    NL_AMS_JURISDICTION_ID,
+    NL_AMS_ORDINANCE_REF,
+    bestemmingToPermittedUse,
+    nlAmsterdamRefusal,
+} from './rulepacks/nlAmsterdamBestemmingsplan.js';
+export {
+    resolveAmsterdamBestemmingsplan,
+    readMaatvoeringen,
+    classifyMaatvoering,
+    readMaatWaarde,
+    ringFromGeoJson,
+    NL_AMS_RING_REF,
+    NL_AMS_BESTEMMINGSPLAN_CERTIFIED,
+    NL_AMS_BESTEMMINGSPLAN_PATH,
+    type NlLatLon,
+    type AmsterdamBpDeps,
+    type AmsterdamBpResolution,
+    type AmsterdamBpRefusalReason,
+    type AmsterdamMaatvoering,
+    type MaatvoeringKind,
+    type RawMaatvoering,
+    type AmsterdamBpProxyResponse,
+} from './providers/resolveAmsterdamBestemmingsplan.js';
 // ── BARCELONA-GIS-AUDIT-SPIKE — Barcelona clau 18 (volumetria específica) explicit-area path. ──
 // The AMB Refós OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its
 // UNREGISTERED explicit-area pack declaration. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while
@@ -507,6 +541,64 @@ export {
     type ChCantonFarCatalogue,
     type ChFarResolution,
 } from './providers/resolveChFarFromCantonCatalogue.js';
+
+// ── PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique zone-ID + numeric hauteur provider +
+// honest envelope refusal. GPU `zone_urba` gives the zone identity (structured) and opendata
+// `plub_hauteur` the numeric height ceiling (18/25/31/37 m), but the emprise au sol is PDF-bound, so
+// the zone + height RENDER and the buildable envelope REFUSES unless FR_PARIS_PLU_CERTIFIED is signed.
+export { isInParis, PARIS_BBOX } from './providers/parisBbox.js';
+export {
+    resolveParisPluZone,
+    parseParisPluResponse,
+    PARIS_PLU_PATH,
+    PARIS_ZONE_URBA_LAYER,
+    PARIS_HAUTEUR_DATASET,
+    type ParisZoneIdentification,
+    type ParisPluResolution,
+    type ParisPluRefusalReason,
+    type ParisPluDeps,
+    type ParisPluProxyResponse,
+} from './providers/resolveParisPluZone.js';
+export {
+    PARIS_JURISDICTION_ID,
+    FR_PARIS_PLU_CERTIFIED,
+    FR_PARIS_PLU_PACK,
+    FR_PARIS_UG_ZONE_CODE,
+    PARIS_PLU_ORDINANCE_REF,
+    parisUgHeightMassingSupported,
+    parisPluEnvelopeRefusal,
+    parisZoneCodeFor,
+    parisZoneLabelFor,
+} from './rulepacks/frParisPluBioclimatique.js';
+
+// ── SWITZERLAND / canton Zürich (BFS-Nr 261) — the REFERENCE-COMMUNE upgrade (ZURICH-BZO-PROBE). ──
+// The City of Zürich BZO WFS (ogd.stadt-zuerich.ch bzo_zone_v) publishes a FINER municipal zone code
+// (`typ`, e.g. `W2bIII`) + a DIRECT link to THIS parcel's BZO 700.100 ordinance — a richer zone-ID
+// than the national resolver. The Ausnützungsziffer / height stay PDF-bound (Outcome B holds even
+// here), so the envelope is a cited refusal that NAMES the per-parcel ordinance. `resolveZurichBzoZone`
+// never throws; until the `/api/ch/zurich-bzo` proxy is wired it resolves unreachable and the CH path
+// falls through to the national resolver (the Madrid-proxy staging pattern).
+export { isInZurichCity, ZURICH_CITY_BBOX } from './providers/zurichBbox.js';
+export {
+    resolveZurichBzoZone,
+    parseZurichBzoGml,
+    CH_ZURICH_BZO_PATH,
+    CH_ZURICH_BZO_LAYER,
+    type ZurichBzoZoneIdentification,
+    type ZurichBzoResolution,
+    type ZurichBzoRefusalReason,
+    type ZurichBzoDeps,
+    type ZurichBzoFeature,
+} from './providers/zurichBzoProvider.js';
+export {
+    CH_ZURICH_JURISDICTION_ID,
+    CH_ZURICH_BZO_PACK,
+    CH_ZURICH_BZO_ORDINANCE_REF,
+    CH_ZURICH_BZO_FALLBACK_ZONE_CODE,
+    zurichBzoEnvelopeRefusal,
+    zurichBzoZoneCodeFor,
+    zurichBzoZoneLabelFor,
+} from './rulepacks/chZurichBzo.js';
 
 // ── L-613 — the PARCEL-PROVIDER routing registry (country-granularity; the national analogue of the
 //    zoning dispatch's city predicates). Routes a WGS84 click to the cadastre that answers there, or

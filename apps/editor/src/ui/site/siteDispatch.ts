@@ -150,11 +150,52 @@ import {
     chZoningEnvelopeRefusal,
     chZoneCodeFor,
     chZoneLabelFor,
+    // SWITZERLAND / canton Zürich (BFS-Nr 261, the reference commune) — the finer municipal BZO
+    // zone-ID. `resolveZurichBzoZone` (never throws) returns the `typ` code + a DIRECT link to this
+    // parcel's BZO 700.100 ordinance; the envelope still REFUSES (AZ/height are PDF-bound — Outcome B
+    // holds even here), but the refusal NAMES the per-parcel ordinance. Until the `/api/ch/zurich-bzo`
+    // proxy is wired the resolve is unreachable and this falls through to the national CH path.
+    isInZurichCity,
+    resolveZurichBzoZone,
+    zurichBzoEnvelopeRefusal,
+    zurichBzoZoneCodeFor,
+    zurichBzoZoneLabelFor,
     // §DK-HONEST-REFUSAL — Denmark is a PACKED jurisdiction, so when Plandata resolves a plan but
     // not enough structured numbers to draw a volume (or no plan), the DK path dispatches a CITED
     // refusal (names the zone + links the plan PDF), NEVER the generic `estimated-default` triple.
     dkPlandataNoNumbersRefusal,
     dkPlandataNoPlanRefusal,
+    // L-609 — Amsterdam (BAG/CBS gemeente 0363) bestemmingsplan explicit-area path. Like Madrid the
+    // ordinance publishes the buildable footprint as geometry (the `bouwvlak`); UNLIKE Madrid the
+    // `maatvoering` numbers ("maximum bouwhoogte (m)" etc.) carry unambiguous SVBP2012 units, so a
+    // certified parcel can render `structured` (real height fed into structuredFields), not just
+    // estimated-ruleset. `resolveAmsterdamBestemmingsplan` resolves the bouwvlak ring + maatvoering
+    // via the (to-be-wired) keyed `/api/nl/bestemmingsplan` proxy, or refuses (never throws). Gated
+    // on `NL_AMS_BESTEMMINGSPLAN_CERTIFIED` (default OFF): while closed the path REFUSES for every
+    // Amsterdam parcel (via `nlAmsterdamRefusal`), never a fabricated bouwhoogte.
+    isInAmsterdam,
+    resolveAmsterdamBestemmingsplan,
+    NL_AMS_RING_REF,
+    NL_AMS_BESTEMMINGSPLAN_CERTIFIED,
+    NL_AMSTERDAM_BESTEMMINGSPLAN_PACK,
+    NL_AMS_ZONE_CODE,
+    NL_AMS_JURISDICTION_ID,
+    bestemmingToPermittedUse,
+    nlAmsterdamRefusal,
+    // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique. `resolveParisPluZone` reads the zone
+    // identity (GPU zone_urba) + numeric hauteur plafond (opendata plub_hauteur), both real published
+    // data; the emprise au sol is PDF-bound. Gated on `FR_PARIS_PLU_CERTIFIED` (default OFF): while
+    // closed the path dispatches `parisPluEnvelopeRefusal` — a cited refusal that CARRIES the real zone
+    // + hauteur as knownFacts and names the règlement, never a fabricated coverage. When the emprise-as-
+    // parcel massing assumption is founder-signed, a UG parcel renders parcel×hauteur at estimated-ruleset.
+    isInParis,
+    resolveParisPluZone,
+    FR_PARIS_PLU_CERTIFIED,
+    FR_PARIS_PLU_PACK,
+    FR_PARIS_UG_ZONE_CODE,
+    parisUgHeightMassingSupported,
+    parisPluEnvelopeRefusal,
+    parisZoneCodeFor,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -1031,6 +1072,23 @@ function applyZoning(
             void applyChZoningThenFallback(ctx, boundary, qLat, qLon);
             return;
         }
+        // L-609 — an Amsterdam plot routes to the bestemmingsplan explicit-area path. Like Madrid,
+        // its fallback on failure is a cited REFUSAL, never the estimated triple: the ordinance
+        // publishes the buildable footprint (bouwvlak) as geometry, so a front/side/rear estimate
+        // would be the wrong SHAPE, and the RP-API-v4 key/proxy are not wired yet (gate default OFF).
+        if (qLat != null && qLon != null && isInAmsterdam(qLat, qLon)) {
+            void applyNlZoningThenFallback(ctx, boundary, qLat, qLon);
+            return;
+        }
+        // PARIS (Ville de Paris) — a Paris plot resolves its REAL PLU zone (GPU zone_urba) AND its
+        // numeric hauteur plafond (opendata plub_hauteur) and RENDERS both. The buildable envelope
+        // refuses by default (the emprise au sol is PDF-bound) — a cited refusal carrying the real
+        // zone + height, never the estimated triple. Under FR_PARIS_PLU_CERTIFIED a UG parcel renders
+        // parcel×hauteur as an estimated-ruleset massing cap. Same honesty discipline as Switzerland.
+        if (qLat != null && qLon != null && isInParis(qLat, qLon)) {
+            void applyParisZoningThenFallback(ctx, boundary, qLat, qLon);
+            return;
+        }
     } catch (e) {
         console.warn('[gis][c58] jurisdiction selection failed (non-fatal) — using estimated default:', e);
     }
@@ -1518,6 +1576,315 @@ async function applyMadridZoningThenFallback(
 }
 
 /**
+ * L-609 §NL-AMS-BESTEMMINGSPLAN — the Amsterdam (bestemmingsplan) explicit-area path.
+ *
+ * The Netherlands publishes the buildable envelope (`bouwvlak`) as geometry AND its dimensions
+ * (`maatvoering`) machine-readable (IMRO2012 / SVBP2012, DSO RP API v4). So this path RESOLVES the
+ * published bouwvlak into a ring by point-querying the parcel centroid (`resolveAmsterdamBestemmings-
+ * plan`, via the to-be-wired keyed `/api/nl/bestemmingsplan` proxy — never throws), and:
+ *   • WITH a bouwvlak → projects it into the authoring frame (same origin + θ the parcel used, exactly
+ *     like Madrid) and clips the parcel to it via `computeBuildableEnvelope`'s explicit-area branch.
+ *     The maatvoering rides in `structuredFields` (max bouwhoogte → maxHeight_m, bebouwingspercentage
+ *     → maxCoverage, aantal bouwlagen → maxFloors), so — UNLIKE Madrid — a clean "maximum bouwhoogte
+ *     (m)" makes the engine render `structured` (a real metre height with stated units), and a
+ *     bouwvlak-with-no-numbers renders `estimated-ruleset`. Never a fabricated number either way.
+ *   • WITHOUT a bouwvlak → a CITED REFUSAL (`nlAmsterdamRefusal`), status `'none'`. It does NOT fall
+ *     back to the estimated triple: a front/side/rear estimate is the wrong geometric SHAPE for an
+ *     explicit-area zone (the §CONTEXT-DATA-HONESTY failure this whole path exists to avoid).
+ *
+ * ⚠ GATED ON `NL_AMS_BESTEMMINGSPLAN_CERTIFIED` (default OFF). While the flag is false the path
+ * REFUSES for every Amsterdam parcel (the current shipping state): the RP-API-v4 key + same-origin
+ * proxy are not wired and no plan is human-verified. Same discipline as `MADRID_NZ1_CERTIFIED`.
+ *
+ * Best-effort + fully guarded — never throws into the commit path.
+ */
+async function applyNlZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+): Promise<void> {
+    const TAG = '[gis][c58] §NL-AMS-BESTEMMINGSPLAN';
+    const NL_SOURCE = 'nl-rp-api-v4';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) return; // No site to dispatch onto — nothing to render either way.
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(), 'none'),
+                NL_SOURCE,
+            );
+            return;
+        }
+
+        // ⚠⚠ THE CERTIFICATION GATE (default OFF). While closed, refuse for every Amsterdam parcel —
+        // the bouwvlak/maatvoering are real published data but the keyed proxy is not wired and no
+        // plan is verified. No resolve, no fabricated number; the honest cited refusal is the state.
+        if (!NL_AMS_BESTEMMINGSPLAN_CERTIFIED) {
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(), 'none'),
+                NL_SOURCE,
+            );
+            console.log(`${TAG} NL_AMS_BESTEMMINGSPLAN_CERTIFIED=false — cited refusal (proxy/key not wired).`);
+            return;
+        }
+
+        // Resolve the published bouwvlak ring (WGS84) + maatvoering by point-query at the parcel
+        // centroid. Never throws. `NL_AMS_RING_REF` equals the pack rule's `ringRef` (asserted + tested).
+        const resolution = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, { lat, lon });
+
+        if (resolution.ok && resolution.ringLatLon.length >= 3) {
+            // Project the WGS84 bouwvlak ring into the SAME authoring frame the parcel lives in —
+            // identical to `applyMadridZoningThenFallback` (equirectangular about the site origin,
+            // then the θ de-rotation). θ = 0 ⇒ identity. Any other frame yields a garbage clip.
+            const origin = { lat: site.location.latitude, lon: site.location.longitude };
+            const rawTheta = site.location.trueNorth;
+            const theta = Number.isFinite(rawTheta) ? rawTheta : 0;
+            const toAuthoringFrame = (p: LatLon): Pt => {
+                const xz = latLonToSceneXZ(p, origin.lat, origin.lon);
+                if (theta === 0) return { x: xz.x, z: xz.z };
+                const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+                return { x: e.east, z: -e.north };
+            };
+            const footprintRing: Pt[] = resolution.ringLatLon.map((ll) =>
+                toAuthoringFrame({ lat: ll.lat, lon: ll.lon }),
+            );
+
+            // The maatvoering is REAL published-structured data with STATED SVBP2012 units, so it
+            // rides in `structuredFields` (which the engine resolves as `published-structured` →
+            // `structured` confidence when every resolved number is structured). Absent numbers stay
+            // null (honest withheld). `maxGoothoogte` (eave) is deliberately NOT used as the height
+            // cap. The bestemming → permittedUse via the direct translation the schema mandates.
+            const use = bestemmingToPermittedUse(resolution.bestemming);
+            const record: ZoningRecord = {
+                zoneCode: NL_AMS_ZONE_CODE,
+                zoneLabel: resolution.bestemming
+                    ? `Bestemmingsplan — ${resolution.bestemming}`
+                    : 'Bestemmingsplan bouwvlak',
+                jurisdictionId: NL_AMS_JURISDICTION_ID,
+                structuredFields: {
+                    maxHeight_m: resolution.maat.maxBouwhoogte_m,
+                    maxFloors: resolution.maat.maxAantalBouwlagen,
+                    maxCoverage: resolution.maat.maxBebouwingspercentage,
+                    plotRatioFAR: resolution.maat.far,
+                    permittedUse: use ? [use] : [],
+                },
+                overlays: [],
+                ordinanceRef: null, // the pack zone supplies the real citation.
+                provenance: {
+                    source: NL_SOURCE,
+                    label: resolution.planNaam
+                        ? `DSO Ruimtelijke Plannen API v4 — ${resolution.planNaam}`
+                        : 'DSO Ruimtelijke Plannen API v4 (bestemmingsplan)',
+                    version: resolution.planId,
+                    license: null,
+                    crs: 'EPSG:4326',
+                },
+            };
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: record,
+                rulePack: NL_AMSTERDAM_BESTEMMINGSPLAN_PACK,
+                explicitAreaFootprint: footprintRing,
+            });
+            if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
+                const heightNote =
+                    resolution.maat.maxBouwhoogte_m !== null
+                        ? `maximum bouwhoogte ${resolution.maat.maxBouwhoogte_m} m`
+                        : 'no maximum bouwhoogte published for this bouwvlak (height withheld)';
+                const enriched: BuildableEnvelope = {
+                    ...envelope,
+                    caveats: [
+                        ...envelope.caveats,
+                        `Amsterdam bestemmingsplan${resolution.planNaam ? ` "${resolution.planNaam}"` : ''}: ` +
+                            `the buildable envelope is the published bouwvlak (IMRO2012 / SVBP2012), ` +
+                            `clipped to your parcel — real published geometry. Dimensions from the ` +
+                            `plan's maatvoering: ${heightNote}` +
+                            `${resolution.maat.maxBebouwingspercentage !== null ? `, maximum bebouwingspercentage ${(resolution.maat.maxBebouwingspercentage * 100).toFixed(0)} %` : ''}` +
+                            `${resolution.maat.maxAantalBouwlagen !== null ? `, maximum ${resolution.maat.maxAantalBouwlagen} bouwlagen` : ''}. ` +
+                            `Verify against the plan regels before relying on it.`,
+                    ],
+                };
+                dispatchEnvelope(ctx, site.id, enriched, NL_SOURCE);
+                console.log(
+                    `${TAG} explicit-area envelope OK → plan=${resolution.planId ?? 'n/a'} ` +
+                        `bestemming=${resolution.bestemming ?? 'n/a'} bouwhoogte=${resolution.maat.maxBouwhoogte_m ?? 'n/a'}m ` +
+                        `conf=${enriched.confidence} inset=${enriched.insetAreaM2.toFixed(1)}m² — clipped to the bouwvlak.`,
+                );
+                return;
+            }
+            console.log(`${TAG} bouwvlak resolved but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
+        } else if (!resolution.ok) {
+            console.log(`${TAG} bouwvlak not resolved (reason=${resolution.reason}) — cited refusal.`);
+        }
+
+        // No bouwvlak / no usable envelope → the honest cited refusal (never the estimated triple).
+        const planName = resolution.ok ? resolution.planNaam : null;
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(planName), 'none'),
+            NL_SOURCE,
+        );
+    } catch (e) {
+        // Best-effort — never block the commit. Leave an honest refusal rather than a fabricated
+        // estimate; if even that cannot dispatch, drop silently (the boundary is set).
+        console.warn(`${TAG} path failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(), 'none'),
+                    NL_SOURCE,
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
+ * PARIS (Ville de Paris, INSEE 75056) — the PLU bioclimatique path (a HYBRID of Switzerland's
+ * Outcome B and a real numeric height).
+ *
+ * `resolveParisPluZone(lat, lon)` (never throws) reads TWO real published facts — the PLU zone
+ * identity (GPU `zone_urba`) and the numeric hauteur plafond (opendata `plub_hauteur`) — but the
+ * emprise au sol that would close the buildable footprint is PDF-bound. So this path:
+ *   • DEFAULT (gate closed) → a CITED REFUSAL (`parisPluEnvelopeRefusal`) carrying the real zone +
+ *     the real height as `knownFacts` and naming the règlement for the missing emprise. status `'none'`.
+ *   • Under `FR_PARIS_PLU_CERTIFIED`, for a UG parcel WITH a resolved hauteur → a massing cap:
+ *     parcel footprint (emprise = the parcel, the signed ordre-continu assumption) × hauteur, at
+ *     `estimated-ruleset` WITH the emprise caveat — NEVER `structured`, NEVER a fabricated coverage.
+ *
+ * ⚠ NO ESTIMATED-TRIPLE FALLBACK, EVER. Like Switzerland/Madrid, a Paris parcel never falls to a
+ * front/side/rear estimate: that would be a fabricated emprise, the §CONTEXT-DATA-HONESTY failure.
+ * Best-effort + fully guarded — never throws into the commit path.
+ */
+async function applyParisZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+): Promise<void> {
+    const TAG = '[gis][c58] §PARIS-PLU';
+    const PARIS_SOURCE = 'gpu-paris-plu';
+    try {
+        const site = ctx.store.getSite();
+        if (!site) return; // No site to dispatch onto — nothing to render either way.
+
+        // Per-parcel facts for the refusal card so it is never a blank panel (L-553). Coordinates
+        // always; parcel area when a ring is available. No network beyond the zone resolve.
+        const facts: string[] = [`Location: Paris (${lat.toFixed(5)}, ${lon.toFixed(5)})`];
+        const hasRing = Array.isArray(boundary.polygon) && boundary.polygon.length >= 3;
+        if (hasRing) {
+            const ring = boundary.polygon;
+            const areaM2 = Math.abs(
+                ring.reduce((acc, p, i) => {
+                    const q = ring[(i + 1) % ring.length]!;
+                    return acc + (p.x * q.z - q.x * p.z);
+                }, 0) / 2,
+            );
+            if (Number.isFinite(areaM2) && areaM2 > 0) facts.push(`Parcel area: ${areaM2.toFixed(0)} m²`);
+        }
+
+        // (1) Resolve the zone identity + numeric hauteur. Never throws.
+        const resolution = await resolveParisPluZone(lat, lon);
+        const zone = resolution.ok ? resolution.zone : null;
+        const hauteur = resolution.ok ? resolution.hauteurPlafond_m : null;
+
+        // (2) CERTIFIED massing path — only for UG (ordre continu) with a resolved height + a real ring.
+        // The emprise = the parcel footprint (the human-signed assumption); the height is real data.
+        if (
+            FR_PARIS_PLU_CERTIFIED &&
+            hasRing &&
+            hauteur !== null &&
+            parisUgHeightMassingSupported(zone?.zoneCode)
+        ) {
+            const record: ZoningRecord = {
+                zoneCode: FR_PARIS_UG_ZONE_CODE,
+                zoneLabel: zone?.zoneLabel ?? 'Zone urbaine générale (UG)',
+                jurisdictionId: 'fr-75056-paris',
+                // The hauteur is REAL published data — fed as a structured field so the engine extrudes it.
+                structuredFields: { maxHeight_m: hauteur },
+                overlays: [],
+                ordinanceRef: null, // the pack zone supplies the real citation.
+                provenance: {
+                    source: PARIS_SOURCE,
+                    label: 'Paris PLU bioclimatique (GPU zone_urba + opendata plub_hauteur)',
+                    version: zone?.planId ?? null,
+                    license: null,
+                    crs: 'EPSG:4326',
+                },
+            };
+            const envelope = computeBuildableEnvelope({
+                parcelRing: boundary.polygon,
+                edgeClassifications: boundary.edgeClassifications,
+                zoning: record,
+                rulePack: FR_PARIS_PLU_PACK,
+            });
+            if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
+                const enriched: BuildableEnvelope = {
+                    ...envelope,
+                    caveats: [
+                        ...envelope.caveats,
+                        `Paris PLU bioclimatique (zone UG): the ${hauteur} m HEIGHT is READ from Paris ` +
+                            `opendata (plub_hauteur, règlement art. 3.2), real published data. The FOOTPRINT ` +
+                            `is the whole parcel — an ordre-continu (built-to-alignment) massing assumption, ` +
+                            `NOT a published emprise au sol: the true emprise, the gabarit-enveloppe taper and ` +
+                            `the rear courtyard reduce it and live only in the règlement PDF. Ships ` +
+                            `estimated-ruleset, not structured. Verify against the UG règlement before relying on it.`,
+                    ],
+                };
+                dispatchEnvelope(ctx, site.id, enriched, PARIS_SOURCE);
+                console.log(
+                    `${TAG} UG massing cap OK → zone=${zone?.zoneCode} hauteur=${hauteur}m ` +
+                        `inset=${enriched.insetAreaM2.toFixed(1)}m² (estimated-ruleset, gate CERTIFIED).`,
+                );
+                return;
+            }
+            console.log(`${TAG} certified but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
+        } else if (resolution.ok) {
+            console.log(
+                `${TAG} zone=${zone?.zoneCode ?? 'n/a'} hauteur=${hauteur ?? 'n/a'} — cited refusal ` +
+                    `(FR_PARIS_PLU_CERTIFIED=${FR_PARIS_PLU_CERTIFIED}; emprise PDF-bound).`,
+            );
+        } else {
+            console.log(`${TAG} not resolved (reason=${resolution.reason}) — cited refusal.`);
+        }
+
+        // (3) Default / non-UG / no-height → the cited refusal carrying the real zone + hauteur. The
+        // envelope stays a refusal: the emprise cannot be cited, so no footprint is drawn (never a guess).
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(parisZoneCodeFor(zone), parisPluEnvelopeRefusal(zone, hauteur, facts), 'none'),
+            PARIS_SOURCE,
+        );
+    } catch (e) {
+        // Best-effort — never block the commit. Leave an honest refusal rather than a fabricated
+        // estimate; if even that cannot dispatch, drop silently (the boundary is set).
+        console.warn(`${TAG} path failed (non-fatal) — attempting a cited refusal:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site) {
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(parisZoneCodeFor(null), parisPluEnvelopeRefusal(), 'none'),
+                    PARIS_SOURCE,
+                );
+            }
+        } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
  * SWITZERLAND — the national Grundnutzung (land-use zone) path (Outcome B).
  *
  * The national Nutzungsplanung WFS (geodienste.ch ms:grundnutzung) publishes the zone IDENTITY as
@@ -1559,6 +1926,33 @@ async function applyChZoningThenFallback(
                 }, 0) / 2,
             );
             if (Number.isFinite(areaM2) && areaM2 > 0) facts.push(`Parcel area: ${areaM2.toFixed(0)} m²`);
+        }
+
+        // (0) REFERENCE COMMUNE — City of Zürich (BFS-Nr 261). Prefer the finer municipal BZO zone-ID
+        // (its `typ` code + a DIRECT link to this parcel's BZO 700.100 ordinance) over the national
+        // Grundnutzung. Still a REFUSAL — the AZ/height are PDF-bound (Outcome B holds even here) — but
+        // one that NAMES the per-parcel ordinance. If the `/api/ch/zurich-bzo` proxy is not yet wired
+        // (or any miss), this resolves unreachable and we fall through to the national path below.
+        if (isInZurichCity(lat, lon)) {
+            const zh = await resolveZurichBzoZone(lat, lon);
+            if (zh.ok) {
+                const zhRefusal = zurichBzoEnvelopeRefusal(zh.zone, facts);
+                dispatchEnvelope(
+                    ctx,
+                    site.id,
+                    buildRefusedEnvelope(zurichBzoZoneCodeFor(zh.zone), zhRefusal, 'none'),
+                    'stadt-zuerich-bzo',
+                );
+                console.log(
+                    `${TAG} Zürich BZO zone identified (${zurichBzoZoneLabelFor(zh.zone)}) — rendered; ` +
+                        `buildable envelope REFUSES (AZ/height PDF-bound in BZO 700.100, Outcome B), ` +
+                        `citing ${zh.zone.rechtsvorschriftUrl ?? 'the BZO ordinance'}.`,
+                );
+                return;
+            }
+            console.log(
+                `${TAG} Zürich BZO not resolved (reason=${zh.reason}) — falling through to national CH path.`,
+            );
         }
 
         // (1) Identify the zone from the national WFS. Never throws.

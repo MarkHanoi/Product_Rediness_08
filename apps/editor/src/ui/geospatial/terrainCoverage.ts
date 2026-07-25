@@ -16,8 +16,9 @@
 //
 // DELIBERATELY OMITTED (kept flat — no baked terrain source): Lisbon/Porto (PT — no open national
 // bare-earth DTM), Brussels (BE — regional-split, no keyless national WCS; Brussels-Capital DTM
-// unsourced), Berlin/Munich (DE — per-Land; only NRW is sourced and neither city is in NRW),
-// Riyadh/Jeddah (SA — no open national DTM). See docs/04-reference/CONTEXT-TERRAIN-COVERAGE.md.
+// unsourced), Berlin/Munich (DE — per-Land; only NRW is sourced, so Köln IS covered but Berlin/
+// Munich are not in NRW), Riyadh/Jeddah (SA — no open national DTM).
+// See docs/04-reference/CONTEXT-TERRAIN-COVERAGE.md.
 import { contextTilesBaseUrl } from './contextTiles';
 
 /** A lon/lat bounding box `[west, south, east, north]`. */
@@ -52,6 +53,8 @@ export const TERRAIN_CITY_BBOXES: ReadonlyArray<{ readonly city: string; readonl
     { city: 'zurich', bbox: [8.45, 47.34, 8.62, 47.43] },
     { city: 'geneva', bbox: [6.09, 46.17, 6.18, 46.25] },
     { city: 'bern', bbox: [7.40, 46.93, 7.48, 46.99] },
+    // DE — Geobasis NRW DGM1 (keyless). Köln is the NRW-covered city; Berlin/Munich stay omitted.
+    { city: 'koln', bbox: [6.85, 50.88, 7.02, 50.99] },
     // ES — PNOA MDT (keyless, CC-BY)
     { city: 'barcelona', bbox: [2.09, 41.32, 2.23, 41.47] },
     { city: 'madrid', bbox: [-3.80, 40.33, -3.58, 40.52] },
