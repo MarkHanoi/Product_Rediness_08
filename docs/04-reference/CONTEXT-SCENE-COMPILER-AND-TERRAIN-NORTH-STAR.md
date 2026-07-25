@@ -302,6 +302,16 @@ click any building → its planning object (not a raycast into triangles). **Del
 
 ### 6.6 — C-CONTEXT contract (draft in parallel with Phase 2)
 
+> **Sourcing + decisions now recorded.** The per-jurisdiction terrain + height **sourcing** (dataset ·
+> endpoint · auth · licence · verdict, all rows) is canonicalised in
+> [`jurisdictions/GEO-DATA-SOURCING-MASTER.md`](jurisdictions/GEO-DATA-SOURCING-MASTER.md), and the
+> **decisions** it encodes (open-first/keyless; DERIVE heights from open DSM−DTM where no product exists;
+> Germany per-Land; unofficial APIs best-effort; Saudi = keyless Copernicus GLO-30 + GlobalBuildingAtlas
+> fallback; Spain heights = MDS Edificación) are recorded in
+> [`../02-decisions/adrs/ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md`](../02-decisions/adrs/ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md).
+> ADR-0277 **recommends this contract take the next free number C61** — it is flagged for the founder,
+> not minted. Fold principles (a)–(f) of ADR-0277 in on ratify.
+
 Ratify a new contract "Context Scene, Height & Terrain Engine" with these invariants:
 1. HeightProfile is the canonical height datum; no consumer stores a bare `height_m`.
 2. Robust statistics only (P90/trimmed-median); eroded footprint; terrain-plane ground.
@@ -311,6 +321,11 @@ Ratify a new contract "Context Scene, Height & Terrain Engine" with these invari
 6. Strict separation from the buildable-rule rate (C58) — this is the physical/context axis.
 
 ### 6.7 — Per-country data-source table (build this first as a spreadsheet)
+
+> **BUILT — see [`jurisdictions/GEO-DATA-SOURCING-MASTER.md`](jurisdictions/GEO-DATA-SOURCING-MASTER.md).**
+> That doc is the canonical per-jurisdiction sourcing table (terrain + height · dataset · endpoint · auth ·
+> licence · verdict · CI/secret notes) plus a "Founder actions required" list and a "Keyless — pure
+> engineering" list. Decisions in ADR-0277. This §6.7 sketch is superseded by it.
 
 Columns: `country · DTM source+licence · LiDAR source+density+licence · footprint (Overture/national) ·
 national LoD2 (y/n) · reachable-keyless (y/n)`. Seed from `LOD-RATE-MASTER.md` + the parcel-select

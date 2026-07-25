@@ -1,5 +1,12 @@
 # Building-height coverage & blockers — per jurisdiction
 
+> **Canonical sourcing: see [`GEO-DATA-SOURCING-MASTER.md`](./GEO-DATA-SOURCING-MASTER.md)** (dataset ·
+> endpoint · auth · licence · verdict, founder-verified 2026-07-25; decisions in
+> [ADR-0277](../../02-decisions/adrs/ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md)).
+> This doc reports **pipeline reachability/status**; the master is authoritative on *sourcing*. Where they
+> differ, the master wins — notably: **Bavaria/Munich is OK (keyless CC BY 4.0)**, not BLOCKED, and
+> "no national height *product*" is not a gap where heights DERIVE from open DSM−DTM (NO/GB/PT/IT).
+
 **The question this answers, for the founder to hand to an authority:** *"Which countries under our
 jurisdiction list CANNOT have 100 % real per-building heights, and exactly why?"*
 

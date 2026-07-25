@@ -1,5 +1,12 @@
 # Context Terrain — Coverage & Sourcing (Phase 3)
 
+> **Canonical sourcing: see [`jurisdictions/GEO-DATA-SOURCING-MASTER.md`](jurisdictions/GEO-DATA-SOURCING-MASTER.md)**
+> (terrain + height · dataset · endpoint · auth · licence · verdict, founder-verified 2026-07-25; decisions in
+> [ADR-0277](../02-decisions/adrs/ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md)). This doc
+> reports **per-city terrain pipeline status**; the master is authoritative on *sourcing*. Where they differ,
+> the master wins — notably: **Brussels-Capital is OK & keyless** (the §2.2 BLOCKED prompt below was a research
+> error), and **Bavaria/Munich is OK (keyless CC BY 4.0)**.
+
 > **Status: LIVE-PROBED SOURCING TABLE.** Every row's access verdict is a fact from an HTTP probe on
 > 2026-07-24 / re-probed 2026-07-25 from a non-Replit machine (see `tools/context-bake/terrain.mjs`
 > §1 `TERRAIN_SOURCES` for the exact probe URL + evidence string per country, and `--regions` for the

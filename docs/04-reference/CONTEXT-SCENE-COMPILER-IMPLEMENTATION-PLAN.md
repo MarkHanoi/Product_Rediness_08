@@ -989,6 +989,16 @@ if (hit) {
 
 **File:** `docs/02-decisions/contracts/C-CONTEXT-SCENE-HEIGHT-TERRAIN.md`
 
+> **Sourcing + decisions already recorded (2026-07-25).** Per-jurisdiction terrain + height **sourcing**
+> (dataset · endpoint · auth · licence · verdict · CI/secret names, all rows) is canonicalised in
+> [`jurisdictions/GEO-DATA-SOURCING-MASTER.md`](jurisdictions/GEO-DATA-SOURCING-MASTER.md); the **decisions**
+> (open-first/keyless; DERIVE heights from open DSM−DTM where no product exists; Germany per-Land; unofficial
+> APIs best-effort; Saudi keyless Copernicus GLO-30 + GlobalBuildingAtlas fallback; Spain heights = MDS
+> Edificación) are in
+> [`../02-decisions/adrs/ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md`](../02-decisions/adrs/ADR-0277-geo-data-sourcing-map-open-datasets-derived-heights.md).
+> ADR-0277 **recommends this contract take the next free number C61** (flagged for the founder, not minted)
+> and fold in principles (a)–(f). §4/§6 below stay the invariant sketch to lift into it on ratify.
+
 ```
 CONTRACT C-CONTEXT — Context Scene, Height & Terrain Engine
 
