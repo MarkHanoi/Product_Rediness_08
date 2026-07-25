@@ -211,7 +211,9 @@ jobs:
             --content-type 'application/json' \
             --cache-control 'public, max-age=86400'
           echo "── bucket after publish ──"
-          aws s3 ls "s3://pryzm-assets/tiles/terrain/" --endpoint-url "$ENDPOINT" --recursive --human-readable | head -50
+          # `| head` under `set -o pipefail` makes aws's SIGPIPE fail the whole (successful) publish.
+          # Make this cosmetic listing non-fatal so a good sync is never thrown away by the summary.
+          { aws s3 ls "s3://pryzm-assets/tiles/terrain/" --endpoint-url "$ENDPOINT" --recursive --human-readable || true; } | head -50 || true
 
       - name: Verify a tileset is publicly readable
         if: ${{ inputs.publish }}
