@@ -84,6 +84,10 @@ jobs:
       - name: Bake
         env:
           LAYER: ${{ inputs.layer }}
+          # DK Copenhagen REAL building heights: heightSources.mjs derives DHM nDSM (DSM−DTM) behind this
+          # apikey. Absent → resolveHeights('copenhagen') returns `blocked` and the region keeps OSM
+          # (honest 9 m default) — never a fabricated height. (Mirror of terrain-bake.yml's threading.)
+          DATAFORDELER_API_KEY: ${{ secrets.DATAFORDELER_API_KEY }}
         run: |
           set -euo pipefail
           if [ -n "$LAYER" ]; then

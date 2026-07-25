@@ -157,14 +157,17 @@ export const SOURCES = {
     country: 'dk', name: 'Danmark i 3D / GeoDanmark + BBR', impl: 'live',
     provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (real roofs)',
     endpoint: 'https://wfs.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_NOHIST_GML3/1.0.0/WFS (gdk60:Bygning) + DHM nDSM + BBR',
-    heightField: 'GeoDanmark bygning = FOOTPRINT ONLY (NO height attr — verified); height via DHM nDSM (DSM−DTM) or BBR ETAGER_ANT floors (BBRUUID join)',
+    heightField: 'GeoDanmark bygning = FOOTPRINT ONLY (NO height attr — verified); MEASURED height via DHM nDSM = P90(dhm_overflade − dhm_terraen) over the eroded footprint (fetchGeoDanmarkHeights)',
     note: 'Richest EU building register — but ⚠ GeoDanmark `Bygning` carries NO scalar height (VERIFIED ' +
       '2026-07-25 against the Datafordeler objekttypekatalog: attrs BBRUUID/bygningstype/målestedBygning/' +
       'metode3D/underMinimumBygning/BBRaktion/synligBygning/overlapBygning/geometri; metode3D is capture-' +
       'method, not a height). apikey-GATED: Basic Auth was RETIRED (git 1fc5bc8b); the 2026 host takes ' +
       '&apikey=<DATAFORDELER_API_KEY> (reuse the Matrikel/DHM key). No keyless bbox path (wfs.datafordeler.dk ' +
-      '→ HTTP 401 without a key). fetchGeoDanmark returns `blocked` (no key) or `documented` (footprints ' +
-      'reached, NO height → region keeps OSM). Real LoD1 height = DHM DSM−DTM nDSM or BBR floors — the follow-up.',
+      '→ HTTP 401 without a key). REAL LoD1 height BUILT 2026-07-25: fetchGeoDanmarkHeights fetches the DHM ' +
+      'DSM (dhm_overflade) + DTM (dhm_terraen) over a tiled EPSG:25832 bbox (WCS 1.0.0, same apikey) and sets ' +
+      'height = P90 of (DSM−DTM) over the footprint eroded inward (robust, never the peak) → `tagged`. Footprints ' +
+      'with no usable nDSM keep no height (assumed default). `blocked` (no key) / `documented` (no usable nDSM) / ' +
+      '`ok` (real heights). BBR ETAGER_ANT floors via BBRUUID (derived-levels) is a further follow-up.',
     coverage: 'full',
   },
   overture_us: {
@@ -758,50 +761,344 @@ export async function fetchLod2DeNrw(bbox, { timeoutMs = 90_000, sampleBytes = 6
 // heightless national set). The real DK LoD1 height FOLLOW-UP is either DHM DSM−DTM nDSM
 // (dhm_overflade − dhm_terraen, same DATAFORDELER_API_KEY → `tagged`) or the BBR ETAGER_ANT floor
 // count joined via BBRUUID (→ `derived-levels`). Neither is GeoDanmark itself, so neither is invented here.
+const GEODANMARK_BLOCKED_REASON =
+  'GeoDanmark is apikey-gated — set DATAFORDELER_API_KEY (mint at portal.datafordeler.dk; reuse the ' +
+  'Matrikel/DHM key). Datafordeler Basic Auth was retired (git 1fc5bc8b); the 2026 host takes &apikey=. ' +
+  'No keyless bbox path (wfs.datafordeler.dk → HTTP 401 without a key).';
+
+/**
+ * Shared GeoDanmark `Bygning` footprint fetch. Returns footprints in BOTH native EPSG:25832 (E,N — for
+ * nDSM raster sampling, the DHM's own CRS) and WGS84 lon/lat (for the GeoJSON output), so the height
+ * pass never re-projects a coordinate twice.
+ *
+ * ⚠ WFS bbox is METRIC (EPSG:25832 easting/northing), not lat/lon: this is a PROJECTED urn CRS, whose
+ * EPSG axis order is (E,N), so the request box is minE,minN,maxE,maxN. (The old lat/lon box selected a
+ * ~0 m² area near the projection origin — it only ever ran auth-blocked, so it was never caught live.)
+ * @returns { status:'ok', buildings:[{ extNative:[[E,N]…], interiorsNative:[[…]…], ringWgs84:[[lon,lat]…], cx,cy }], contentType }
+ *          | { status:'error'|'blocked', reason }
+ */
+async function fetchGeoDanmarkFootprints(bbox, { apikey, timeoutMs = 40_000, count = 6000 } = {}) {
+  const [w, s, e, n] = bbox;
+  // Project the 4 WGS84 corners → native EPSG:25832 and take the metric min/max (UTM grid convergence
+  // rotates the box slightly, so cover all four corners).
+  const c = [wgs84ToUtm32(s, w), wgs84ToUtm32(s, e), wgs84ToUtm32(n, w), wgs84ToUtm32(n, e)];
+  const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]);
+  const minE = Math.min(...xs), maxE = Math.max(...xs), minN = Math.min(...ys), maxN = Math.max(...ys);
+  const url = `https://wfs.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_NOHIST_GML3/1.0.0/WFS` +
+    `?service=WFS&version=2.0.0&request=GetFeature&typeNames=gdk60:Bygning` +
+    `&srsName=urn:ogc:def:crs:EPSG::25832&count=${count}` +
+    `&bbox=${minE.toFixed(0)},${minN.toFixed(0)},${maxE.toFixed(0)},${maxN.toFixed(0)},urn:ogc:def:crs:EPSG::25832` +
+    `&apikey=${encodeURIComponent(apikey)}`;
+  const r = await httpGet(url, { timeoutMs });
+  if (!r.ok) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
+  const members = r.body.match(/<gdk60:Bygning\b[\s\S]*?<\/gdk60:Bygning>/g) ?? [];
+  const buildings = [];
+  for (const m of members) {
+    const extM = m.match(/<gml:exterior>[\s\S]*?<gml:posList([^>]*)>([\s\S]*?)<\/gml:posList>/);
+    if (!extM) continue;
+    const dim = /srsDimension\s*=\s*"3"/i.test(extM[1]) ? 3 : 2; // GeoDanmark GML3 is normally 2D.
+    const extNative = parseNativeRing(extM[2], dim);
+    if (!extNative) continue;
+    const interiorsNative = [...m.matchAll(/<gml:interior>[\s\S]*?<gml:posList([^>]*)>([\s\S]*?)<\/gml:posList>/g)]
+      .map((x) => parseNativeRing(x[2], /srsDimension\s*=\s*"3"/i.test(x[1]) ? 3 : 2)).filter(Boolean);
+    const ringWgs84 = nativeRingToWgs84(extNative);
+    if (!ringWgs84) continue;
+    let cx = 0, cy = 0;
+    for (const [X, Y] of extNative) { cx += X; cy += Y; }
+    cx /= extNative.length; cy /= extNative.length;
+    buildings.push({ extNative, interiorsNative, ringWgs84, cx, cy });
+  }
+  return { status: 'ok', contentType: r.contentType, buildings };
+}
+
+/** Parse a GML posList in native EPSG:25832 → a closed [[E,N]…] ring (metres), or null if degenerate. */
+function parseNativeRing(text, dim) {
+  const nums = String(text).trim().split(/\s+/).map(Number);
+  const ring = [];
+  for (let i = 0; i + dim <= nums.length; i += dim) {
+    const E = nums[i], N = nums[i + 1];
+    if (!Number.isFinite(E) || !Number.isFinite(N)) return null;
+    ring.push([E, N]);
+  }
+  if (ring.length < 3) return null;
+  const f = ring[0], l = ring[ring.length - 1];
+  if (f[0] !== l[0] || f[1] !== l[1]) ring.push([f[0], f[1]]);
+  if (ring.length < 4) return null;
+  return ring;
+}
+/** Native EPSG:25832 [E,N] ring → WGS84 [lon,lat] ring (GeoJSON order), or null. */
+function nativeRingToWgs84(ringNative) {
+  const out = [];
+  for (const [E, N] of ringNative) {
+    const { lat, lon } = utmNToWgs84(E, N, 32);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+    out.push([lon, lat]);
+  }
+  return out.length >= 4 ? out : null;
+}
+
+// ── DHM nDSM (DSM−DTM) raster machinery — the REAL DK LoD1 height source. ────────────────────────
+// Denmark publishes NO building-height attribute (GeoDanmark Bygning = footprints only, verified), so
+// the honest height is the normalised DSM: (roof-inclusive surface) − (bare terrain), sampled inside
+// each footprint. Both coverages ride the SAME Datafordeler WCS behind the SAME apikey (mirrors the DK
+// terrain adapter in terrain.mjs): DSM=dhm_overflade, DTM=dhm_terraen, WCS 1.0.0, native EPSG:25832,
+// FORMAT=GTiff. Per §CONTEXT-DATA-HONESTY + the height-engine invariants (tools/height-engine): the
+// per-building height is the P90 of the nDSM over the footprint ERODED inward (façade/tree/overhang
+// returns excluded) — NEVER the raw peak (chimneys/antennae) — and a footprint with too few clean
+// samples gets NO height (honest skip → the client's assumed default), never a fabricated number.
+const DHM_WCS = {
+  endpoint: 'https://wcs.datafordeler.dk/DHMNedboer/dhm_wcs/1.0.0/WCS',
+  dsm: 'dhm_overflade', // surface model — includes buildings + vegetation
+  dtm: 'dhm_terraen',   // bare-earth terrain model
+  crs: 'EPSG:25832', format: 'GTiff', nativeResM: 0.4,
+};
+const DHM_NODATA_MAG = 1e6; // DHM encodes voids as very-large magnitudes; treat |v|>1e6 as nodata.
+
+// ⚠ SECRET-SAFE: the apikey rides ONLY on the request URL passed straight to fetch(); it is never
+// logged, returned, or embedded in any `note`/feature (defense-in-depth against a CI-log leak).
+/** WCS 1.0.0 GetCoverage URL for a DHM coverage over a native EPSG:25832 box → a GeoTIFF. */
+function dhmCoverageUrl(coverageId, [x0, y0, x1, y1], dim, apikey) {
+  return `${DHM_WCS.endpoint}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${coverageId}` +
+    `&CRS=${DHM_WCS.crs}&BBOX=${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}` +
+    `&WIDTH=${dim}&HEIGHT=${dim}&FORMAT=${DHM_WCS.format}&apikey=${encodeURIComponent(apikey)}`;
+}
+
+/** GET raw bytes with a timeout (never throws at the caller boundary; returns {ok,status,ct,ab}). */
+async function httpGetBuffer(url, { timeoutMs = 90_000 } = {}) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { redirect: 'follow', signal: ctl.signal, headers: { Accept: 'image/tiff' } });
+    const ct = res.headers.get('content-type') ?? '';
+    const ab = await res.arrayBuffer();
+    return { ok: res.ok, status: res.status, ct, ab };
+  } finally { clearTimeout(t); }
+}
+
+/** Lazy `geotiff` import — the module stays importable/probeable without the dep (mirrors terrain.mjs's
+ *  dependency-injection). geotiff IS installed under tools/context-bake/node_modules, so the bake path
+ *  resolves it; a bare checkout without it degrades to footprints-only `documented` (never a fake height). */
+let _geotiffMod = null;
+async function loadGeoTiff() {
+  if (_geotiffMod) return _geotiffMod;
+  try { _geotiffMod = await import('geotiff'); return _geotiffMod; }
+  catch { return null; }
+}
+
+/** Read a DHM GeoTIFF (ArrayBuffer) → { width, height, values:Float32Array (row-major, top=maxY),
+ *  bboxNative:[minX,minY,maxX,maxY] }. Native orthometric surface/terrain metres (DVR90). */
+async function readDhmRaster(ab, geotiffMod) {
+  const { fromArrayBuffer } = geotiffMod;
+  const buf = ab instanceof ArrayBuffer ? ab : ab.buffer.slice(ab.byteOffset, ab.byteOffset + ab.byteLength);
+  const tiff = await fromArrayBuffer(buf);
+  const img = await tiff.getImage();
+  const [values] = await img.readRasters();
+  const [minX, minY, maxX, maxY] = img.getBoundingBox();
+  return { width: img.getWidth(), height: img.getHeight(), values: Float32Array.from(values), bboxNative: [minX, minY, maxX, maxY] };
+}
+
+/** Bilinear sample of a native-CRS raster at (X,Y); NaN if outside the extent or all-nodata locally. */
+function sampleRasterNative(r, X, Y) {
+  const [minX, minY, maxX, maxY] = r.bboxNative;
+  if (X < minX || X > maxX || Y < minY || Y > maxY) return NaN;
+  const fx = ((X - minX) / (maxX - minX)) * (r.width - 1);
+  const fy = ((maxY - Y) / (maxY - minY)) * (r.height - 1);
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const x1 = Math.min(r.width - 1, x0 + 1), y1 = Math.min(r.height - 1, y0 + 1);
+  const tx = fx - x0, ty = fy - y0;
+  const q = [r.values[y0 * r.width + x0], r.values[y0 * r.width + x1], r.values[y1 * r.width + x0], r.values[y1 * r.width + x1]];
+  const bad = q.some((v) => !Number.isFinite(v) || Math.abs(v) > DHM_NODATA_MAG);
+  if (bad) { // any nodata corner → mean of the valid corners (honest nearest-valid), else NaN.
+    const ok = q.filter((v) => Number.isFinite(v) && Math.abs(v) <= DHM_NODATA_MAG);
+    return ok.length ? ok.reduce((a, b) => a + b, 0) / ok.length : NaN;
+  }
+  const [a, b, cc, d] = q;
+  return (a * (1 - tx) + b * tx) * (1 - ty) + (cc * (1 - tx) + d * tx) * ty;
+}
+
+const _pointInRing = (x, y, ring) => {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+};
+const _distToSeg = (px, py, ax, ay, bx, by) => {
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+  let t = l2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+};
+const _distToRings = (x, y, rings) => {
+  let best = Infinity;
+  for (const ring of rings) for (let i = 1; i < ring.length; i++) {
+    const d = _distToSeg(x, y, ring[i - 1][0], ring[i - 1][1], ring[i][0], ring[i][1]);
+    if (d < best) best = d;
+  }
+  return best;
+};
+const _percentile = (sortedAsc, p) => {
+  const idx = Math.min(sortedAsc.length - 1, Math.max(0, Math.round((p / 100) * (sortedAsc.length - 1))));
+  return sortedAsc[idx];
+};
+
+/**
+ * nDSM building height for ONE footprint from the DSM+DTM rasters. Samples a native grid at `sampleStep`
+ * over the footprint, keeps only cells inside the exterior, outside every hole, and ≥ `erodeM` from any
+ * boundary (façade/overhang erosion), computes nDSM = DSM−DTM per cell, then returns the P90 (robust to
+ * chimneys/antennae). Returns null when too few clean samples remain — an HONEST skip, never a guess.
+ */
+export function ndsmHeightForBuilding(b, dsm, dtm, { erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0 } = {}) {
+  const ext = b.extNative;
+  const rings = [ext, ...b.interiorsNative];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of ext) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  const nd = [];
+  for (let Y = minY + sampleStep / 2; Y <= maxY; Y += sampleStep) {
+    for (let X = minX + sampleStep / 2; X <= maxX; X += sampleStep) {
+      if (!_pointInRing(X, Y, ext)) continue;
+      let inHole = false;
+      for (let k = 1; k < rings.length; k++) if (_pointInRing(X, Y, rings[k])) { inHole = true; break; }
+      if (inHole) continue;
+      if (_distToRings(X, Y, rings) < erodeM) continue; // erode inward — drop façade/edge cells
+      const ds = sampleRasterNative(dsm, X, Y); if (!Number.isFinite(ds)) continue;
+      const dt = sampleRasterNative(dtm, X, Y); if (!Number.isFinite(dt)) continue;
+      const d = ds - dt;
+      if (!Number.isFinite(d) || d < -1) continue; // strongly negative = misalignment/noise → drop
+      nd.push(Math.max(0, d));
+    }
+  }
+  if (nd.length < minSamples) return null;
+  nd.sort((x, y) => x - y);
+  const h = _percentile(nd, percentile);
+  return h > 0 ? { height: clampHeight(h), samples: nd.length, medianNdsm: _percentile(nd, 50), maxNdsm: nd[nd.length - 1] } : null;
+}
+
+// ── DK GeoDanmark Bygning (footprints) — apikey-GATED (DATAFORDELER_API_KEY). ─────────────────────
+// Footprints-only variant (NO height). Kept as the honest low-tier: GeoDanmark `Bygning` carries no
+// scalar height (verified 2026-07-25 against the Datafordeler objekttypekatalog: BBRUUID/bygningstype/
+// målestedBygning/metode3D/underMinimumBygning/BBRaktion/synligBygning/overlapBygning/geometri —
+// metode3D is capture-method, not a height). Returns `documented` (region keeps OSM) or `blocked` (no
+// key). The REAL height path is fetchGeoDanmarkHeights (DHM DSM−DTM nDSM) below.
 export async function fetchGeoDanmark(bbox, { timeoutMs = 40_000, env = process.env } = {}) {
   const apikey = env.DATAFORDELER_API_KEY;
-  if (!apikey) {
-    return {
-      status: 'blocked',
-      reason: 'GeoDanmark is apikey-gated — set DATAFORDELER_API_KEY (mint at portal.datafordeler.dk; ' +
-        'reuse the Matrikel/DHM key). Datafordeler Basic Auth was retired (git 1fc5bc8b); the 2026 host ' +
-        'takes &apikey=. No keyless bbox path (wfs.datafordeler.dk → HTTP 401 without a key).',
-    };
-  }
+  if (!apikey) return { status: 'blocked', reason: GEODANMARK_BLOCKED_REASON };
   try {
-    // GeoDanmark Vektor WFS 2.0.0, typeName gdk60:Bygning, native EPSG:25832 (UTM32N). apikey on the URL.
-    const [w, s, e, n] = bbox;
-    const url = `https://wfs.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_NOHIST_GML3/1.0.0/WFS` +
-      `?service=WFS&version=2.0.0&request=GetFeature&typeNames=gdk60:Bygning` +
-      `&srsName=urn:ogc:def:crs:EPSG::25832&count=3000` +
-      `&bbox=${s},${w},${n},${e},urn:ogc:def:crs:EPSG::25832&apikey=${encodeURIComponent(apikey)}`;
-    const r = await httpGet(url, { timeoutMs });
-    if (!r.ok) return { status: 'error', reason: `HTTP ${r.status}`, contentType: r.contentType };
-    // Parse Bygning footprints: GM_Surface exterior gml:posList (E N, EPSG:25832) → utmNToWgs84 rings.
-    const members = r.body.match(/<gdk60:Bygning\b[\s\S]*?<\/gdk60:Bygning>/g) ?? [];
-    let footprints = 0;
-    let sampleRing = null;
-    for (const m of members) {
-      const extM = m.match(/<gml:exterior>[\s\S]*?<gml:posList([^>]*)>([\s\S]*?)<\/gml:posList>/);
-      if (!extM) continue;
-      const dim = /srsDimension\s*=\s*"3"/i.test(extM[1]) ? 3 : 2; // GeoDanmark GML3 is normally 2D.
-      const ring = posListToWgs84Ring(extM[2], { dim, srsZone: 32 });
-      if (!ring) continue;
-      footprints++;
-      if (!sampleRing) sampleRing = ring.slice(0, 3);
-      // ⚠ NO height/levels written — GeoDanmark Bygning carries neither (verified). Footprints are
-      // reached + counted as proof, but NOT emitted as a heightless REPLACE (region keeps OSM).
-    }
+    const fp = await fetchGeoDanmarkFootprints(bbox, { apikey, timeoutMs });
+    if (fp.status !== 'ok') return fp;
     return {
-      // `documented`, not `ok`: real footprints reached, but GeoDanmark supplies NO height, so the
-      // region KEEPS its OSM/Overture footprints (honest 9 m assumed) rather than losing them to a
-      // heightless national replace. Height is the DHM-nDSM / BBR-floors follow-up (see the header).
-      status: 'documented', provenance: 'assumed', contentType: r.contentType, reachedWithKey: true,
-      hasHeightAttribute: false, footprintCount: footprints, sampleRing, features: [],
-      note: `GeoDanmark Bygning reached with apikey — ${footprints} footprint(s) parsed (EPSG:25832→WGS84). ` +
-        '⚠ NO height attribute on the object (verified: BBRUUID/bygningstype/målestedBygning/metode3D/…/geometri, ' +
-        'no scalar height). Real DK height FOLLOW-UP = DHM DSM−DTM nDSM (dhm_overflade − dhm_terraen, same apikey → ' +
-        'tagged) OR BBR ETAGER_ANT floors via BBRUUID (derived-levels). Region keeps OSM until then — no fabricated height.',
+      status: 'documented', provenance: 'assumed', contentType: fp.contentType, reachedWithKey: true,
+      hasHeightAttribute: false, footprintCount: fp.buildings.length,
+      sampleRing: fp.buildings[0]?.ringWgs84?.slice(0, 3) ?? null, features: [],
+      note: `GeoDanmark Bygning reached with apikey — ${fp.buildings.length} footprint(s) (EPSG:25832→WGS84). ` +
+        '⚠ NO height attribute on the object. Real DK height = DHM DSM−DTM nDSM (fetchGeoDanmarkHeights).',
+    };
+  } catch (err) {
+    return { status: 'error', reason: String(err?.message ?? err) };
+  }
+}
+
+/**
+ * DK REAL LoD1 heights — GeoDanmark footprints × DHM nDSM (DSM−DTM). apikey-GATED (DATAFORDELER_API_KEY).
+ * For each `Bygning` footprint: height = P90 of (dhm_overflade − dhm_terraen) over the eroded footprint
+ * interior → provenance `tagged` (MEASURED from lidar). A footprint with no usable nDSM keeps NO height
+ * (honest — client renders the assumed default). §CONTEXT-DATA-HONESTY: never a fabricated height; the
+ * key-absent path is `blocked` (loud), not a silent skip.
+ *
+ * The region bbox (a whole city) is far larger than one WCS request, so the DHM rasters are fetched in a
+ * bounded TILE GRID (each ≤ `maxTilePx` px at `resM`); footprints are sampled from the tile containing
+ * their centroid (fetched box padded so edge cells are covered). Tiles with no footprints are skipped.
+ */
+export async function fetchGeoDanmarkHeights(bbox, {
+  timeoutMs = 40_000, env = process.env,
+  resM = 2.0, maxTilePx = 1000, maxTiles = 80, padM = 40,
+  erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0,
+} = {}) {
+  const apikey = env.DATAFORDELER_API_KEY;
+  if (!apikey) return { status: 'blocked', reason: GEODANMARK_BLOCKED_REASON };
+  try {
+    const fp = await fetchGeoDanmarkFootprints(bbox, { apikey, timeoutMs });
+    if (fp.status !== 'ok') return fp;
+    if (fp.buildings.length === 0) {
+      return { status: 'documented', provenance: 'assumed', reachedWithKey: true, footprintCount: 0, features: [],
+        note: 'GeoDanmark reached with apikey but 0 footprints in bbox — region keeps OSM.' };
+    }
+    const gt = await loadGeoTiff();
+    if (!gt) {
+      // Footprints reached but the raster reader is absent → cannot compute nDSM honestly. Keep OSM.
+      return { status: 'documented', provenance: 'assumed', reachedWithKey: true, footprintCount: fp.buildings.length, features: [],
+        note: `GeoDanmark ${fp.buildings.length} footprint(s) reached, but the geotiff dep is unavailable here — ` +
+          'no nDSM computed (install geotiff in the bake image). Region keeps OSM; no fabricated height.' };
+    }
+
+    // Tile the native EPSG:25832 extent covering the bbox.
+    const c = [wgs84ToUtm32(bbox[1], bbox[0]), wgs84ToUtm32(bbox[1], bbox[2]), wgs84ToUtm32(bbox[3], bbox[0]), wgs84ToUtm32(bbox[3], bbox[2])];
+    const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]);
+    const minE = Math.min(...xs), maxE = Math.max(...xs), minN = Math.min(...ys), maxN = Math.max(...ys);
+    const tileSpan = resM * maxTilePx;
+    const nx = Math.max(1, Math.ceil((maxE - minE) / tileSpan));
+    const ny = Math.max(1, Math.ceil((maxN - minN) / tileSpan));
+
+    let processedTiles = 0, tileErrors = 0, tileCapHit = false;
+    const heights = [];
+    outer:
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const tx0 = minE + ix * tileSpan, ty0 = minN + iy * tileSpan;
+        const tx1 = Math.min(tx0 + tileSpan, maxE), ty1 = Math.min(ty0 + tileSpan, maxN);
+        const inTile = fp.buildings.filter((b) => !b._done && b.cx >= tx0 && b.cx < tx1 + 1e-6 && b.cy >= ty0 && b.cy < ty1 + 1e-6);
+        if (inTile.length === 0) continue;
+        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
+        const box = [tx0 - padM, ty0 - padM, tx1 + padM, ty1 + padM];
+        const dim = Math.max(2, Math.min(maxTilePx, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) / resM)));
+        const dsmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dsm, box, dim, apikey), { timeoutMs: 120_000 });
+        const dtmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dtm, box, dim, apikey), { timeoutMs: 120_000 });
+        if (!dsmR.ok || !dtmR.ok || !/tiff/i.test(dsmR.ct) || !/tiff/i.test(dtmR.ct)) { tileErrors++; continue; }
+        let dsm, dtm;
+        try { dsm = await readDhmRaster(dsmR.ab, gt); dtm = await readDhmRaster(dtmR.ab, gt); }
+        catch { tileErrors++; continue; }
+        for (const b of inTile) {
+          b._done = true;
+          const h = ndsmHeightForBuilding(b, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
+          if (h) { b.height = h.height; heights.push(h.height); }
+        }
+        processedTiles++;
+      }
+    }
+
+    // Emit EVERY footprint. A measured nDSM → `height` (tagged); no usable nDSM → footprint only
+    // (building:yes, client assumes the default). Never a fabricated height.
+    const features = fp.buildings.map((b) => toFeature(
+      { type: 'Polygon', coordinates: [b.ringWgs84, ...b.interiorsNative.map((r) => nativeRingToWgs84(r)).filter(Boolean)] },
+      nationalBuildingTags({
+        heightM: Number.isFinite(b.height) ? b.height : undefined,
+        provenance: Number.isFinite(b.height) ? 'tagged' : 'assumed',
+        source: 'geodanmark',
+      }),
+    ));
+    const measured = heights.length;
+    if (measured === 0) {
+      // No building got a real height (raster errors / degenerate footprints). Do NOT replace OSM with a
+      // fully heightless national set — keep OSM (honest), same as the footprints-only path.
+      return { status: 'documented', provenance: 'assumed', reachedWithKey: true, hasHeightAttribute: false,
+        footprintCount: fp.buildings.length, features: [], tileErrors,
+        note: `GeoDanmark ${fp.buildings.length} footprint(s) reached but nDSM yielded 0 heights ` +
+          `(${tileErrors} tile fetch/read error(s)) — region keeps OSM; no fabricated height.` };
+    }
+    const coverage = measured / fp.buildings.length;
+    // If most footprints lack a measured height (or tiling was capped), don't REPLACE OSM — downgrade to
+    // APPEND (truncated) so real OSM height tags aren't dropped; the client near-cap thins twins.
+    const truncated = tileCapHit || coverage < 0.6;
+    heights.sort((a, b) => a - b);
+    return {
+      status: 'ok', provenance: 'tagged', contentType: fp.contentType, features, truncated,
+      footprintCount: fp.buildings.length, measuredCount: measured, coverage: Number(coverage.toFixed(3)),
+      heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+      tilesProcessed: processedTiles, tileErrors, tileCapHit, tileGrid: `${nx}×${ny}`,
+      note: `GeoDanmark × DHM nDSM (P90 of dhm_overflade−dhm_terraen, eroded ${erodeM} m) → ${measured}/${fp.buildings.length} ` +
+        `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} error(s)` +
+        `${truncated ? ' — partial coverage → APPEND (OSM kept)' : ' → REPLACE'}.`,
     };
   } catch (err) {
     return { status: 'error', reason: String(err?.message ?? err) };
@@ -870,7 +1167,7 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
   else if (source === '3dbag') res = await fetch3dbag(bbox);
   else if (source === 'catastro') res = await fetchCatastro(bbox);
   else if (source === 'lod2de_nrw') res = await fetchLod2DeNrw(bbox);
-  else if (source === 'geodanmark') res = await fetchGeoDanmark(bbox);
+  else if (source === 'geodanmark') res = await fetchGeoDanmarkHeights(bbox);
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };
 
   // A never-throwing fetcher may itself report a real gate (blocked/documented) — surface it honestly.
@@ -973,14 +1270,19 @@ export async function probeSource(id) {
     };
   }
   if (id === 'geodanmark') {
-    const r = await fetchGeoDanmark(PROBE_BBOX.geodanmark);
+    const r = await fetchGeoDanmarkHeights(PROBE_BBOX.geodanmark);
+    const heights = (r.features ?? []).map((f) => f.properties.height).filter((h) => Number.isFinite(h));
     return {
       id, endpoint: SOURCES.geodanmark.endpoint, status: r.status,
       // Honest gate: with no key this is `blocked`, and that is the CORRECT, load-bearing result.
-      assertHonestGate: r.status === 'blocked' || r.status === 'documented',
-      reachedWithKey: r.reachedWithKey ?? false, hasHeightAttribute: r.hasHeightAttribute ?? false,
-      footprintCount: r.footprintCount, sampleRing: r.sampleRing,
-      mode: heightModeForSource('geodanmark'), reason: r.reason ?? r.note,
+      // With the key: `ok` (real nDSM heights), or `documented` (footprints reached, no usable nDSM).
+      assertHonestGate: r.status === 'blocked' || r.status === 'documented' || r.status === 'ok',
+      reachedWithKey: r.reachedWithKey ?? (r.status === 'ok'),
+      footprintCount: r.footprintCount, measuredCount: r.measuredCount, coverage: r.coverage,
+      heightStats: r.heightStats, sampleHeights: heights.slice(0, 3),
+      tileGrid: r.tileGrid, tilesProcessed: r.tilesProcessed, tileErrors: r.tileErrors,
+      assertRealHeight: heights.some((h) => Number.isFinite(h) && h > 0),
+      provenance: 'tagged', truncated: r.truncated, mode: heightModeForSource('geodanmark'), reason: r.reason ?? r.note,
     };
   }
   return { id, status: 'error', reason: `no live probe for "${id}"` };
