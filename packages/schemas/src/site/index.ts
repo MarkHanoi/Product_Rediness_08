@@ -31,3 +31,6 @@ export * from './legacyProjectLocation.js';
 
 // C58 — zoning-rules & buildable-envelope schemas (pure L0 data shapes).
 export * from './zoning/index.js';
+
+// North Star §6.2 (Context Scene-Compiler & Terrain) — the regulation-aware HeightProfile datum.
+export * from './context/index.js';
