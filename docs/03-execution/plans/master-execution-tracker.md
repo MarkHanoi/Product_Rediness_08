@@ -4689,3 +4689,16 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 
 - L-627 (P2): stair 3D-creation regression + landing baluster missing + landing↔run gap. Agent a0a03b1e (worktree). Queue: geometry/stair (C11).
 - L-628 (P1): slab uneditable (type/material/layers; `updateLayers` "slab not found") + per-frame dep-resolver crash (rAF spam). Agent a05bfb4a (worktree). Queue: command-bus/element-store (C03/C11) — NOT UI.
+
+## Added 2026-07-26 — L-631 (terrain ON everywhere in 3D Site — founder P-priority; LOGGED, NOT fixed, CONFLICT escalated)
+
+| Item | Owner | Target | Depends on | Status |
+|---|---|---|---|---|
+| **L-631** — terrain relief is OFF in 3D Site (Forma) for every city; correct fix is the SiteFrame reseat THEN un-revert the gate | UNASSIGNED | TBD — gated on SiteFrame / Seam-2 landing | **C12 §9 SiteFrame authority** (Seam 2, `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` §3.2) · **L-584/L-585** context-building reseat · L-626 (terrain revert `89196071`) | **LOGGED — NOT FIXED. Human/founder decision required (see below).** |
+
+- **Symptom:** `CesiumViewport.ts:5993` skip-gate (`if (this.photorealTilesActive) … return;`) skips baked R2 terrain in Forma → flat base-0 ground everywhere; the L-626 one-line fix was **deliberately reverted** (commit `89196071`).
+- **Why reverted / why gate-only is wrong:** context buildings are base-0 single-point seated (L-584/L-585) → real relief z-fights them → white shells; the sun-hours heatmap drapes with no θ/ground (`CesiumViewport.ts:8896-8909`) → occluded/faint. C12 §9 sequences terrain-on-frame AFTER the SiteFrame `sampleGround` reseat, precisely to avoid this.
+- **Correct approach (Option A, sound):** stand up the SiteFrame ground authority → reseat context + envelope base + heatmap onto it → THEN un-revert the :5993 gate. Spans renderer (CesiumViewport), the context-building seat path, the heatmap drape, and the new SiteFrame authority — NOT the gate line alone.
+- **⚠ CONFLICT (escalated, NOT resolved):** founder wants terrain ON everywhere NOW (Option B: clear the gate → re-ships the white-buildings regression) vs the architecture's reseat-first order (Option A: correct but longer). Founder decision needed on accepting a known visual regression to hit "ON everywhere" sooner.
+- **Queue:** geospatial / render + **SiteFrame ground authority (C12 §9 / Seam 2)** — not the CesiumViewport gate in isolation. Contracts: C12 §9/§1.4/§7 · C58 §1.14 · C19 §1.1/§1.4 · C04 · C59. Principles P2/P3/P8.
+- **Number-collision notes:** audit **L-629 = Barcelona θ parcel-displacement** (NOT "terrain-in-Forma prereqs" as first framed); **L-630 taken** by a parallel agent (NL-envelope mislabel) → this is **L-631**; **L-626 row still reads "FIXED" but was reverted** (stale). Full write-up: `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` L-631.
