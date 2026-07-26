@@ -40,10 +40,10 @@ import type {
 export const PARIS_JURISDICTION_ID = 'fr-75056-paris';
 
 /**
- * ⚠⚠ THE CERTIFICATION GATE. **DEFAULT OFF.**
+ * ⚠⚠ THE CERTIFICATION GATE. **NOW ON (2026-07-26).**
  *
- * ── NEW SEMANTICS (2026-07-26, the STRUCTURED-DATA-FIRST upgrade) ──────────────────────────────
- * The engine no longer fabricates an emprise. `computeParisEnvelope` (below) now builds the envelope
+ * ── SEMANTICS (the STRUCTURED-DATA-FIRST upgrade) ─────────────────────────────────────────────
+ * The engine no longer fabricates an emprise. `computeParisEnvelope` (below) builds the envelope
  * from the PUBLISHED `plub_ecm` buildable-FOOTPRINT POLYGON — real geometry, extruded to the published
  * height ceiling — and refuses honestly per component where the data is absent (no ECM ⇒ footprint
  * refused; cour=X ⇒ a cited PARTIAL crown refusal, art. UG.3.2.4). So the "ONE assumption the data
@@ -51,22 +51,23 @@ export const PARIS_JURISDICTION_ID = 'fr-75056-paris';
  * signed off. This gate therefore no longer guards a fabrication; it is the founder switch that
  * AUTHORISES drawing the structured ECM volume in the UI.
  *
- * FLIP CRITERION (per the upgrade brief): flip ON only once (a) the test parcel reproduces the ECM
- * footprint + height (proven live — see the pack test / the report), and (b) every remaining UG.3
- * component either resolves structurally or carries an explicit citation — which `computeParisEnvelope`
- * guarantees BY CONSTRUCTION (the couronnement is always either resolved or a cited UG.3.2.4 refusal).
+ * FLIP CRITERION (met): (a) the test parcel reproduces the ECM footprint + height (proven live — see
+ * the pack test), and (b) every remaining UG.3 component either resolves structurally or carries an
+ * explicit citation — which `computeParisEnvelope` guarantees BY CONSTRUCTION (the couronnement is
+ * always either resolved or a cited UG.3.2.4 refusal). Both criteria hold, so the gate is ON.
  *
- * ⚠ WHY IT IS STILL OFF. The L5 editor dispatcher (`apps/editor/.../siteDispatch.ts`, out of this
- * change's scope) still consumes THIS flag to select the OLD fabricated parcel×hauteur massing cap via
- * `computeBuildableEnvelope(FR_PARIS_PLU_PACK)`. Flipping it ON *before* that dispatcher is repointed to
- * `resolveParisEnvelope` + `computeParisEnvelope` would ship the very fabrication this upgrade removes.
- * So it stays OFF until the dispatcher rewire lands and a human signs the structured envelope — the same
- * discipline as `MADRID_NZ1_CERTIFIED` / `CORDOBA_ENVELOPE_VERIFIED` / `BCN_REFOS_OV_CERTIFIED`.
+ * ── WHY ON IS NOW SAFE ────────────────────────────────────────────────────────────────────────
+ * The L5 editor dispatcher (`apps/editor/.../siteDispatch.ts`) has been repointed off the OLD
+ * fabricated parcel×hauteur massing cap and onto `resolveParisEnvelope` + `computeParisEnvelope`: it
+ * DRAWS the published ECM footprint extruded to the published height and REFUSES honestly (cited) where
+ * no ECM polygon covers the point. There is no longer a fabrication for this flag to gate — turning it
+ * ON ships REAL geometry, not the emprise=parcel assumption. Same discipline as `MADRID_NZ1_CERTIFIED`
+ * / `NL_BESTEMMINGSPLAN_CERTIFIED` (both ON: the ordinance publishes the footprint as geometry).
  *
- * (Typed `boolean`, not the literal `false`, so a consumer's `if (FR_PARIS_PLU_CERTIFIED)` compute
- * branch is not narrowed away as dead code while the gate is closed.)
+ * (Typed `boolean`, not the literal `true`, so a consumer's `if (!FR_PARIS_PLU_CERTIFIED)` refusal
+ * branch is not narrowed away as dead code while the gate is open.)
  */
-export const FR_PARIS_PLU_CERTIFIED: boolean = false;
+export const FR_PARIS_PLU_CERTIFIED: boolean = true;
 
 /**
  * The govern­ing citation carried on the refusal — cites the DATA sources and the règlement DOCUMENT,

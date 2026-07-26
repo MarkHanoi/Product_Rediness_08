@@ -95,8 +95,11 @@ describe('FR_PARIS_PLU_PACK — the curated pack shape', () => {
         expect(ug!.ordinanceRef).toBe(PARIS_PLU_ORDINANCE_REF);
     });
 
-    it('THE GATE IS OFF BY DEFAULT (a pack cannot self-certify the emprise assumption)', () => {
-        expect(FR_PARIS_PLU_CERTIFIED).toBe(false);
+    it('THE GATE IS ON (the ECM engine draws real published geometry — no fabricated emprise)', () => {
+        // Flipped ON 2026-07-26: `computeParisEnvelope` replaced the emprise=parcel assumption with the
+        // published `plub_ecm` footprint, and the L5 dispatcher (siteDispatch.ts) now draws that ECM
+        // volume + refuses honestly where no ECM covers the point. The flag no longer gates a fabrication.
+        expect(FR_PARIS_PLU_CERTIFIED).toBe(true);
     });
 
     it('parisUgHeightMassingSupported: UG only (UV / N / secteur-sauvegardé keep the refusal)', () => {
