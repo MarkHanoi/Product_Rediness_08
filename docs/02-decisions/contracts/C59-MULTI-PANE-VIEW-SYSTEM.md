@@ -1,6 +1,16 @@
 # C59 — Multi-Pane View System (renderer-agnostic view hosting)
 
 > **Stamp**: 2026-07-22 · **Status**: CANONICAL (Phase 1a landed — pure model; Phase 1b IMPLEMENTED — 2D-left/3D-right site authoring, single-Cesium re-target, boundary→3D fix — pending founder live verification; **Phase 2 IMPLEMENTED — registry-driven per-pane view picker + `PaneLayoutStore` command layer + the `canvas2d` plan mounter — pending founder live verification**; Phase 3/4 phased). L-412 stays OPEN and the contract stays CANONICAL (not ACTIVE) until the founder confirms Phases 1b **and 2** live. ⚠ **Phase 2 is built ON TOP of the unverified Phase 1b** (it reuses the same `MultiPaneController` + Cesium re-parent path): if Phase 1b's live re-parent proves wrong, Phase 2's picker inherits that fault — the switcher's decision layer is unit-pinned, its *mounting* is not.
+> **2026-07-25 addendum (L-625)**: **§6 added — STANDARDIZED VIEW PROPERTIES + the Sun/Shadow/Wind
+> single source of truth.** The founder's "no matter the view, all views should have the SAME
+> properties available where meaningful … kill duplicated information — Site Analysis and VIEW
+> PROPERTIES repeat Sun/Shadow/Wind". The **pure property registry landed**
+> (`viewPropertyModel.ts`, per-view applicability + single-owner) and the **shared-environment
+> single source of truth landed + WIRED** (`environmentAnalysisStore.ts`): the View Properties
+> panel no longer holds a private copy of Sun/Shadow/Wind/Climate/Population, and the Site Analysis
+> sun scrubber publishes into the same store. The active-view dropdown + full/split capability
+> matrix already existed (Phase 2 §1.4 picker); §6 records them as the standardization surface.
+> **NOT founder-verified live** (localhost is unusable here — unit-pinned + code-traced).
 > **2026-07-22 addendum (L-600)**: **§2 invariant 8 + §2.7 added — the SHARED CAMERA POSE.** The
 > founder's *"same camera angle in all 3 main 3D views"* is a Phase-3 capability that has **never
 > existed** (per-view camera memory is by design; the Cesium↔THREE boundary has never been
@@ -302,3 +312,100 @@ Each phase is independently shippable and CI-gated (tsc + vitest; the live phase
   about to change.
 - **SPEC-BUILDABLE-ENVELOPE-UX** (L-398/L-402b): the envelope render path is complete; C59 Phase 1b makes it visible during authoring by hosting the 3D Site in a pane rather than gating it behind a full-screen view swap.
 - **Contract-17 lineage.** The historical "Contract 17 §4 — split view" (referenced in `SplitViewManager.ts` / `initScene.ts`) is subsumed here; C59 is its canonical successor.
+
+---
+
+## §6 — Standardized view properties + the analysis-panel de-duplication (L-625)
+
+> **Founder, verbatim (2026-07-25):** *"A strong feature standardization — no matter the view, all
+> views should have the same properties available; an active-view dropdown to select from any other
+> view; open full-screen or split view for ANY view. Kill duplicated information — right now Site
+> Analysis and VIEW PROPERTIES repeat Sun/Shadow/Wind; sometimes the information is even repeated
+> across panels."*
+
+The multi-pane switcher (§1.4) answered *which view is in which pane*. L-625 answers the orthogonal
+question the founder raised next: *given a view, what PROPERTIES does it expose, and why is the same
+information showing up twice?* Four requirements, each mapped to a mechanism below.
+
+### §6.1 — Requirement matrix (what already existed vs. what L-625 added)
+
+| Founder requirement | Mechanism | Status |
+|---|---|---|
+| **(1) Same properties available, WHERE MEANINGFUL** | `viewPropertyModel.ts` — one property catalogue + per-view applicability | **NEW (L-625)** |
+| **(2) Active-view dropdown → switch a pane to ANY other view** | `PaneViewPicker` + `describePaneViewOptions` (§1.4) | Existed (Phase 2) |
+| **(3) Full-screen / split for ANY view** | `view.pane.solo` / `view.pane.restore-split` / `swap` + `describePaneLayoutActions` (§1.4) | Existed (Phase 2) |
+| **(4) Kill duplicated Sun/Shadow/Wind** | `environmentAnalysisStore.ts` — single source of truth | **NEW (L-625)** |
+
+Requirements (2) and (3) were **already built and unit-pinned** by the Phase-2 picker; L-625 does not
+rebuild them, it **records them here as the standardization surface** and adds the two missing halves.
+
+### §6.2 — The property registry (Requirement 1) — `viewPropertyModel.ts`
+
+A **pure** model (no DOM / no renderer / no I/O — P8 span-exempt, same rationale as §1.2/§1.4):
+
+- **`ViewProperty`** — the ONE standardized catalogue: `sun · shadow · wind · climate · population ·
+  postProcessing · sunPath · windRose · siteHeatmap · camera`. Adding a property is a single registry
+  entry, exactly as adding a view type is (invariant 6, applied to properties).
+- **`VIEW_PROPERTY_REGISTRY`** — each property carries `{ appliesTo: ViewType[], sharedEnvironment,
+  canonicalOwner }`.
+- **`propertiesForView(viewType)`** — the standardized set for a view: every catalogue property that
+  is **meaningful** there. "Same properties available **where meaningful**" is this function — not
+  "every control on every surface". A flat 2D map lists no sun/shadow/post-proc; a Canvas2D plan lists
+  only `camera`; the WebGPU BIM view lists the full environment set + post-processing; the Cesium 3D
+  Site adds the analysis layers (`sunPath`/`windRose`/`siteHeatmap`) that only exist there and drops
+  `postProcessing` (Cesium owns its own tone-mapping).
+- Pinned by `apps/editor/__tests__/ViewPropertyModel.test.ts`.
+
+Surfacing a property where it is **not** meaningful is a defect under this section — the founder asked
+for controls that apply, not a uniform wall of dead sliders.
+
+### §6.3 — The Sun/Shadow/Wind single source of truth (Requirement 4) — `environmentAnalysisStore.ts`
+
+The duplication root cause: the **View Properties** panel (`ViewPropertiesSection`) and the **Site
+Analysis** panel (`FormaSiteAnalysisControls`) each held a **private copy** of the sun angle/time, the
+shadow toggles and the wind vector, and each emitted its own `pryzm-set-*` event. Two mutually-unaware
+owners of the same value — the §0 disease, applied to environment state instead of pane layout.
+
+The fix is **structural, not cosmetic** (the C59 house style — cf. §2.7.3's "ONE pose, projected"):
+**one** store owns the shared environment; both panels read from, write through, and subscribe to it.
+
+- The properties with `sharedEnvironment: true` are **exactly** `sun · shadow · wind · climate ·
+  population` — the founder-named duplicated set (`sharedEnvironmentProperties()`, test-pinned).
+- `environmentAnalysisStore` holds that state; its typed setters are the **only** write path. Each
+  setter (a) updates state, (b) emits the **same** runtime-bus event the panels emitted before — so
+  `RealEnvironmentService` and the Cesium sun wiring are **untouched** (this is a de-dup of OWNERSHIP,
+  not a renderer rewrite), (c) persists the overlapping fields via `setSharedPostProcessing` so a panel
+  rebuild restores them, (d) notifies subscribers.
+- **`ViewPropertiesSection` migrated fully:** its private sun/shadow/wind/climate/population fields are
+  deleted; it reads `environmentAnalysisStore.getState()`, writes through the setters, and a leak-safe
+  subscription (self-disposes when the panel node is replaced) keeps its sliders in lock-step.
+- **`FormaSiteAnalysisControls` is the sun PRODUCER:** its scrubber publishes the scrubbed time-of-day
+  into the store (`setSunTime(..., 'site-analysis')`) so the BIM view's sun follows the site scrubber.
+  It is **one-directional (produce, no subscribe-writeback)** by design — the Cesium sun scrubber owns
+  a full `Date`; letting the store write back into it could feedback-loop with `onFormaSunChange`, so
+  the store↔Cesium link stays a producer edge, and the store↔BIM link is bidirectional. The measured
+  climate DATASET surfaces (wind rose, temperature card) are **not** shared-environment — they are
+  derived site data (`ClimateStore` normals), not user knobs, and remain owned by Site Analysis
+  (`canonicalOwner: 'site-analysis'`, `sharedEnvironment: false`).
+- Pinned by `apps/editor/__tests__/EnvironmentAnalysisStore.test.ts`.
+
+### §6.4 — Ownership: one canonical author per property (no double authoring)
+
+`canonicalOwner` names the panel that owns the **full** control for a property. The shared-environment
+knobs are authored in **View Properties**; the 3D-site analysis layers (`sunPath`/`windRose`/
+`siteHeatmap`) in **Site Analysis**. A panel may still SHOW a value it does not own (reading the shared
+store), but it never renders a second, independently-mutable authoring surface for it — that is what
+"repeated across panels" meant, and `propertiesOwnedBy()` is the machine-checkable answer.
+
+### §6.5 — Deferred / honest gaps
+
+- **The Site Analysis panel's own Sun & shadow scrubber controls are not deleted.** They are genuinely
+  a different UI (date + season presets + shadow-study sweep on the Cesium timeline) and remain the
+  site-view's sun surface; L-625 makes them SHARE the value (produce into the store) rather than hold a
+  divergent copy. Consolidating the two into one control widget is a follow-on, not this pass.
+- **Wind/climate/population from Site Analysis are read-only in that panel** (measured data), so there
+  is nothing to route into the shared store from there; only the sun is a two-panel user knob. The
+  registry records the applicability so a future Site-Analysis wind CONTROL would land on the same
+  store with no model change.
+- **Live cross-panel sync is proven by unit test** (store notify → subscriber), not by a live founder
+  session (localhost unusable). Same gate as every other C59 phase.

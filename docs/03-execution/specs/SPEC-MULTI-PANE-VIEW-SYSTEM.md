@@ -1,6 +1,6 @@
 # SPEC — Multi-Pane View System (design + phased build plan)
 
-> **Stamp**: 2026-07-18 · **Status**: DRAFT (design — governs the C59 build; Phase 1a landed; Phase 1b IMPLEMENTED — 2D-left/3D-right site authoring, single-Cesium re-target, boundary→3D fix — pending founder live verification, L-412 stays OPEN)
+> **Stamp**: 2026-07-25 · **Status**: DRAFT (design — governs the C59 build; Phase 1a landed; Phase 1b IMPLEMENTED — 2D-left/3D-right site authoring, single-Cesium re-target, boundary→3D fix — pending founder live verification, L-412 stays OPEN; **§7 added — L-625 standardized view properties + Sun/Shadow/Wind single source of truth, implemented + unit-pinned, pending founder live verification**)
 > **Trigger**: Founder — *"the user should generally be able to swap from one view to another and project whichever view it wants in EITHER left or right split view, NATIVELY — without shortcuts — super robust for the long run."*
 > **Governs / maps to**: [C59 — Multi-Pane View System](../../02-decisions/contracts/C59-MULTI-PANE-VIEW-SYSTEM.md) (normative), [C06 — UI Shell & Tools](../../02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md) §7, [C04](../../02-decisions/contracts/C04-*.md) (single rAF), audit item **L-412**. Absorbs **L-405** (view-mode switcher registry). Supersedes the narrow "3D-Site-on-right" + "enabler button" ideas.
 
@@ -59,3 +59,37 @@ mounter(rendererKind) : attaches the ONE renderer instance's canvas into paneEl
 
 ## §6 — Out of scope (this design)
 Real DK/ES zoning ingestion (L-399/L-400), generate-inside-envelope (L-401), presentation render tier (L-379). Those ride their own tracks and simply become **views** the pane host can mount.
+
+## §7 — Standardized view properties + Sun/Shadow/Wind de-dup (L-625) — mirrors C59 §6
+
+**Trigger** — Founder: *"no matter the view, all views should have the same properties available … an
+active-view dropdown to select from any other view … full-screen or split for ANY view … kill
+duplicated information — Site Analysis and VIEW PROPERTIES repeat Sun/Shadow/Wind."*
+
+The normative model is **C59 §6**; this is the design/trace half.
+
+- **Two of the four asks already shipped in Phase 2:** the per-pane **active-view dropdown**
+  (`PaneViewPicker` + `describePaneViewOptions`) and **full-screen / split for any view**
+  (`view.pane.solo` / `restore-split` / `swap` via `describePaneLayoutActions`). L-625 records them as
+  the standardization surface and does **not** rebuild them.
+- **New — property registry (`apps/editor/src/engine/views/viewPropertyModel.ts`):** one catalogue
+  (`ViewProperty`), a per-view applicability matrix (`VIEW_PROPERTY_REGISTRY` / `propertiesForView`),
+  the shared-environment set (`sharedEnvironmentProperties`), and one canonical owner per property
+  (`propertiesOwnedBy`). Pure, headless-testable — same discipline as §2's pure layer.
+- **New — shared single source of truth (`apps/editor/src/engine/views/environmentAnalysisStore.ts`):**
+  the ONE owner of Sun/Shadow/Wind/Climate/Population. Setters emit the **same** `pryzm-set-*` runtime
+  events the panels emitted before (renderer path untouched), persist overlapping fields to
+  `sharedRenderingState`, and notify subscribers. The **View Properties** panel is migrated onto it
+  (private copies deleted); the **Site Analysis** sun scrubber publishes into it (producer edge — no
+  writeback, so the Cesium scrubber can't feedback-loop).
+- **Traced seams:** `ViewPropertiesSection.ts` (the six env sections → store), `PropertyPanel.ts:667`
+  (construction site, unchanged), `FormaSiteAnalysisControls.ts` `pushSunTime()` (producer edge),
+  `SharedRenderingState.ts` (persistence backing for the overlapping fields).
+- **Gate:** `ViewPropertyModel.test.ts` + `EnvironmentAnalysisStore.test.ts` green; editor `typecheck`
+  clean (no new errors beyond the two known unrelated ones); `FormaSiteAnalysisControls.test.ts`
+  regression-clean. Founder browser-confirms live (localhost unusable here — L-625 stays OPEN until
+  then), verifying: a sun change in one panel moves the sun in the other; no view shows a control that
+  doesn't apply to it.
+- **Out of scope (this pass):** merging the Site Analysis Cesium sun scrubber and the View Properties
+  sun sliders into one widget (they share the value now, not the UI); a Site-Analysis wind CONTROL
+  (only the measured wind ROSE exists there today).
