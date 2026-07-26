@@ -26,7 +26,10 @@
 //
 // HONESTY — a FAILURE and an EMPTY answer must never collapse (§CONTEXT-DATA-HONESTY):
 //   • upstream OK, no plan at the point → 200 `{ plan: null }` → the client reads `no-plan`;
-//   • upstream OK, plan resolved        → 200 `{ plan, bestemmingsvlak, bouwvlak, maatvoeringen }`;
+//   • upstream OK, plan resolved        → 200 `{ plan, bestemmingsvlak, bouwvlak, maatvoeringen }`
+//                                          (bestemmingsvlak now carries `{ naam, geometrie }` — the
+//                                          zone footprint — for the §NL-SPARSE-FALLBACK when no
+//                                          bouwvlak is published; see resolveNlBestemmingsplan.ts);
 //   • upstream failure / timeout        → 502 `{ error }` → the client returns `endpoint-unreachable`.
 //
 // @see server/madridCondicionesProxy.js — the template this mirrors (cache/forward/never-crash)
@@ -215,7 +218,17 @@ export async function fetchNlBestemmingsplan(lat, lon, deps = {}) {
     const enkelForDossier = enkelFeatures.filter((f) => f.properties?.dossierid === governingDossier);
     const bestemmingNaam = enkelForDossier[0]?.properties?.naam ?? null;
     const bestemmingsvlakId = enkelForDossier[0]?.properties?.identificatie ?? null;
-    const bestemmingsvlak = bestemmingNaam ? { naam: bestemmingNaam } : null;
+    // §NL-SPARSE-FALLBACK — carry the enkelbestemming (zone) FOOTPRINT too, not only its naam. A live
+    // probe (Amsterdam/Rotterdam) showed `bouwvlak` is SPARSE: most parcels publish only an
+    // enkelbestemming (the zone) + a maatvoering ON that zone, with NO separate bouwvlak. So the zone
+    // polygon is the honest fallback footprint (an UPPER BOUND on the buildable extent, not a precise
+    // buildable area). The client resolver uses it ONLY when no bouwvlak resolves. First
+    // enkelbestemming feature for the governing dossier that carries geometry.
+    const bestemmingsvlakGeom = enkelForDossier.find((f) => f.geometry)?.geometry ?? null;
+    const bestemmingsvlak =
+        bestemmingNaam || bestemmingsvlakGeom
+            ? { naam: bestemmingNaam, geometrie: bestemmingsvlakGeom }
+            : null;
 
     // Plan identity: prefer the matching plangebied feature (carries the human plan `naam`); else fall
     // back to the substantive feature's `plangebied` (versioned plan id) and the dossier id.

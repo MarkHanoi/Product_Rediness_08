@@ -51,6 +51,22 @@
 //      a `minimum`/`minimale` maatvoering (e.g. "minimale bouwhoogte") is REFUSED as a max-height
 //      candidate, because publishing a floor as a ceiling is the exact §CONTEXT-DATA-HONESTY trap.
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §NL-SPARSE-FALLBACK — the bouwvlak is SPARSE (live probe: Amsterdam + Rotterdam)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// A live probe showed a separate `bouwvlak` polygon is the EXCEPTION, not the rule: most parcels
+// publish only an `enkelbestemming` (the zone) + a `maatvoering` (e.g. max bouwhoogte) ON that zone,
+// with NO bouwvlak. Refusing whenever no bouwvlak resolved therefore OVER-REFUSED broadly (the
+// founder hit "couldn't complete" on every Amsterdam parcel). So this resolver now has TWO ok cases,
+// discriminated by `ringSource`:
+//   • `'bouwvlak'`       — a bouwvlak resolved → the PRECISE footprint (dispatcher → `structured`).
+//   • `'bestemmingsvlak'`— no bouwvlak, but the ZONE footprint + a usable maatvoering are published →
+//                          the zone EXTENT as an UPPER BOUND (dispatcher → `estimated-ruleset` with a
+//                          caveat, NEVER `structured`). Mirrors the DK L-620 storey fix: use the real
+//                          published zone data instead of refusing a drawable parcel.
+// It refuses (`no-bouwvlak`) ONLY when NEITHER a bouwvlak NOR a usable zone-extent-plus-maatvoering
+// is present — a genuine absence, never fabricated (§CONTEXT-DATA-HONESTY).
+//
 // PURITY of the parse (C58 §1.9): the fetch is injected; given the same response the parse is
 // byte-deterministic. OTel span `pryzm.zoning.resolveNlBestemmingsplan` (C58 §1.10 / P8).
 //
@@ -118,7 +134,8 @@ export type NlBpRefusalReason =
     | 'endpoint-unreachable'
     /** The point is not covered by an adopted bestemmingsplan (no plan here). */
     | 'no-plan'
-    /** A plan resolved, but it publishes NO bouwvlak polygon covering the parcel. */
+    /** A plan resolved, but it publishes NEITHER a bouwvlak polygon NOR a usable zone-extent fallback
+     *  (no bestemmingsvlak footprint carrying a usable maatvoering). §NL-SPARSE-FALLBACK. */
     | 'no-bouwvlak'
     /** The bouwvlak geometry has < 3 distinct vertices — not a usable ring. */
     | 'degenerate-geometry';
@@ -146,7 +163,16 @@ export interface NlMaatvoering {
 export type NlBpResolution =
     | {
           readonly ok: true;
-          /** The published bouwvlak (buildable-envelope) ring for the parcel, in WGS84 (L5 projects it). */
+          /**
+           * WHICH ring `ringLatLon` is (§NL-SPARSE-FALLBACK). `'bouwvlak'` = the PRECISE published
+           * buildable footprint (the dispatcher renders it `structured`). `'bestemmingsvlak'` = the
+           * ZONE footprint used as an UPPER-BOUND extent because the plan published NO bouwvlak — the
+           * dispatcher renders it `estimated-ruleset` with an upper-bound caveat, NEVER `structured`.
+           */
+          readonly ringSource: 'bouwvlak' | 'bestemmingsvlak';
+          /** The published buildable-envelope ring for the parcel, in WGS84 (L5 projects it). Either the
+           *  precise bouwvlak or — when none is published — the zone (bestemmingsvlak) extent; see
+           *  `ringSource`. */
           readonly ringLatLon: NlLatLon[];
           /** The maatvoering numbers (validated; nulls are honest withheld). */
           readonly maat: NlMaatvoering;
@@ -325,8 +351,10 @@ function extractOuterRing(geometry: unknown): unknown {
 export interface NlBpProxyResponse {
     /** The governing bestemmingsplan for the point. `null` ⇒ no plan here. */
     readonly plan?: { readonly id?: unknown; readonly naam?: unknown } | null;
-    /** The bestemmingsvlak (zone) the point falls in — its `naam` is the bestemming. */
-    readonly bestemmingsvlak?: { readonly naam?: unknown } | null;
+    /** The bestemmingsvlak (zone) the point falls in — its `naam` is the bestemming, and (§NL-SPARSE-
+     *  FALLBACK) its `geometrie` is the zone footprint used as an UPPER-BOUND extent when the plan
+     *  publishes no separate `bouwvlak` (the common case — bouwvlak is sparse). */
+    readonly bestemmingsvlak?: { readonly naam?: unknown; readonly geometrie?: unknown } | null;
     /** The bouwvlak(ken) — the buildable-envelope polygon(s). First covering one is used. */
     readonly bouwvlak?: { readonly geometrie?: unknown } | null;
     readonly bouwvlakken?: ReadonlyArray<{ readonly geometrie?: unknown }> | null;
@@ -406,23 +434,6 @@ export async function resolveNlBestemmingsplan(
             return { ok: false, reason: 'no-plan' };
         }
 
-        // The bouwvlak polygon — the explicit-area footprint. Prefer the singular `bouwvlak`, else
-        // the first entry of `bouwvlakken`.
-        const bouwvlakGeom =
-            body?.bouwvlak?.geometrie ??
-            (Array.isArray(body?.bouwvlakken) ? body!.bouwvlakken![0]?.geometrie : undefined);
-        const ring = ringFromGeoJson(bouwvlakGeom);
-        if (!bouwvlakGeom) {
-            span.setAttribute('resultFields', 'no-bouwvlak');
-            span.setStatus({ code: SpanStatusCode.OK });
-            return { ok: false, reason: 'no-bouwvlak' };
-        }
-        if (!ring) {
-            span.setAttribute('resultFields', 'degenerate-geometry');
-            span.setStatus({ code: SpanStatusCode.OK });
-            return { ok: false, reason: 'degenerate-geometry' };
-        }
-
         const maat = readMaatvoeringen(body?.maatvoeringen);
         const bestemming =
             typeof body?.bestemmingsvlak?.naam === 'string' && body.bestemmingsvlak.naam.trim() !== ''
@@ -433,12 +444,54 @@ export async function resolveNlBestemmingsplan(
         const planNaam =
             typeof plan.naam === 'string' && plan.naam.trim() !== '' ? plan.naam.trim() : null;
 
-        span.setAttribute('resultFields', 'ok');
-        span.setAttribute('maxBouwhoogte', maat.maxBouwhoogte_m ?? -1);
-        span.setAttribute('maxBebouwingspercentage', maat.maxBebouwingspercentage ?? -1);
-        if (planId) span.setAttribute('planId', planId);
+        const ok = (
+            ringSource: 'bouwvlak' | 'bestemmingsvlak',
+            ringLatLon: NlLatLon[],
+        ): NlBpResolution => {
+            span.setAttribute('resultFields', 'ok');
+            span.setAttribute('ringSource', ringSource);
+            span.setAttribute('maxBouwhoogte', maat.maxBouwhoogte_m ?? -1);
+            span.setAttribute('maxBebouwingspercentage', maat.maxBebouwingspercentage ?? -1);
+            if (planId) span.setAttribute('planId', planId);
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: true, ringSource, ringLatLon, maat, bestemming, planId, planNaam };
+        };
+
+        // ── PRECISE path: the published bouwvlak — the explicit-area footprint. Prefer the singular
+        // `bouwvlak`, else the first entry of `bouwvlakken`. This path is UNCHANGED (§NL-SPARSE-
+        // FALLBACK preserves it exactly): a bouwvlak that resolves is the precise/structured case.
+        const bouwvlakGeom =
+            body?.bouwvlak?.geometrie ??
+            (Array.isArray(body?.bouwvlakken) ? body!.bouwvlakken![0]?.geometrie : undefined);
+        if (bouwvlakGeom) {
+            const ring = ringFromGeoJson(bouwvlakGeom);
+            if (!ring) {
+                span.setAttribute('resultFields', 'degenerate-geometry');
+                span.setStatus({ code: SpanStatusCode.OK });
+                return { ok: false, reason: 'degenerate-geometry' };
+            }
+            return ok('bouwvlak', ring);
+        }
+
+        // ── §NL-SPARSE-FALLBACK: no bouwvlak was published (the common NL case — bouwvlak is sparse).
+        // If the bestemmingsvlak (zone) itself carries a FOOTPRINT and the zone's maatvoering has a
+        // USABLE number (max bouwhoogte, and/or aantal bouwlagen / bebouwingspercentage), resolve the
+        // ZONE extent as the ring and mark it `'bestemmingsvlak'`. The dispatcher then draws it as an
+        // UPPER BOUND at `estimated-ruleset` (never `structured`) — mirroring the DK L-620 storey fix:
+        // use the real published zone data rather than refuse a perfectly drawable parcel. Refuse ONLY
+        // when there is NEITHER a bouwvlak NOR a usable zone-extent-plus-maatvoering.
+        const hasUsableMaat =
+            maat.maxBouwhoogte_m !== null ||
+            maat.maxAantalBouwlagen !== null ||
+            maat.maxBebouwingspercentage !== null;
+        const zoneRing = ringFromGeoJson(body?.bestemmingsvlak?.geometrie);
+        if (zoneRing && hasUsableMaat) {
+            return ok('bestemmingsvlak', zoneRing);
+        }
+
+        span.setAttribute('resultFields', 'no-bouwvlak');
         span.setStatus({ code: SpanStatusCode.OK });
-        return { ok: true, ringLatLon: ring, maat, bestemming, planId, planNaam };
+        return { ok: false, reason: 'no-bouwvlak' };
     } catch (err) {
         // Defensive: the whole path is best-effort — never throw into the caller.
         span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });

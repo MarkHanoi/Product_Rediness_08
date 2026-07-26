@@ -41,6 +41,37 @@ const okBody = (opts: {
     maatvoeringen: opts.maatvoeringen ?? [],
 });
 
+// A representative bestemmingsvlak (zone) polygon — the §NL-SPARSE-FALLBACK footprint (WGS84).
+const ZONE_RING: number[][] = [
+    [4.9038, 52.3673],
+    [4.9046, 52.3673],
+    [4.9046, 52.3681],
+    [4.9038, 52.3681],
+    [4.9038, 52.3673],
+];
+
+/**
+ * A body WITHOUT a bouwvlak but WITH the zone (bestemmingsvlak) footprint + a maatvoering — the
+ * §NL-SPARSE-FALLBACK case (the common NL parcel: only enkelbestemming + maatvoering, no bouwvlak).
+ */
+const fallbackBody = (opts: {
+    maatvoeringen?: Array<{ naam: string; waarde: unknown }>;
+    bestemming?: string;
+    zoneRing?: number[][];
+    withZoneGeom?: boolean;
+}) => ({
+    plan: { id: 'NL.IMRO.0363.testplan-va01', naam: 'Amsterdam Testplan' },
+    bestemmingsvlak: {
+        naam: opts.bestemming ?? 'Wonen',
+        geometrie:
+            opts.withZoneGeom === false
+                ? null
+                : { type: 'Polygon', coordinates: [opts.zoneRing ?? ZONE_RING] },
+    },
+    bouwvlak: null, // ⚠ no precise bouwvlak — the sparse case
+    maatvoeringen: opts.maatvoeringen ?? [],
+});
+
 /** The parcel query point (WGS84) — central Amsterdam. */
 const PT = { lat: 52.3676, lon: 4.9041 };
 
@@ -159,6 +190,7 @@ describe('resolveNlBestemmingsplan — the resolver', () => {
         const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(true);
         if (res.ok) {
+            expect(res.ringSource).toBe('bouwvlak'); // the PRECISE published footprint
             expect(res.ringLatLon).toHaveLength(4);
             expect(res.ringLatLon[0]).toEqual({ lat: 52.3675, lon: 4.9040 }); // WGS84, unprojected
             expect(res.maat.maxBouwhoogte_m).toBe(30);
@@ -166,6 +198,55 @@ describe('resolveNlBestemmingsplan — the resolver', () => {
             expect(res.bestemming).toBe('Wonen');
             expect(res.planId).toBe('NL.IMRO.0363.testplan-va01');
         }
+    });
+
+    it('§NL-SPARSE-FALLBACK — no bouwvlak, but zone footprint + a usable maatvoering → ok (ringSource=bestemmingsvlak)', async () => {
+        const { fetchImpl } = fakeFetch(
+            fallbackBody({
+                bestemming: 'Wonen',
+                maatvoeringen: [{ naam: 'maximum bouwhoogte (m)', waarde: '15' }],
+            }),
+        );
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+            expect(res.ringSource).toBe('bestemmingsvlak'); // the ZONE extent — an UPPER BOUND
+            expect(res.ringLatLon).toHaveLength(4); // closing vertex dropped
+            expect(res.maat.maxBouwhoogte_m).toBe(15);
+            expect(res.bestemming).toBe('Wonen');
+        }
+    });
+
+    it('§NL-SPARSE-FALLBACK — a storey count (no metres) is a usable maatvoering → ok', async () => {
+        const { fetchImpl } = fakeFetch(
+            fallbackBody({ maatvoeringen: [{ naam: 'maximum aantal bouwlagen', waarde: 4 }] }),
+        );
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+            expect(res.ringSource).toBe('bestemmingsvlak');
+            expect(res.maat.maxBouwhoogte_m).toBeNull(); // no metres — dispatcher derives from floors
+            expect(res.maat.maxAantalBouwlagen).toBe(4);
+        }
+    });
+
+    it('§NL-SPARSE-FALLBACK — zone footprint but NO usable maatvoering → `no-bouwvlak` (honest refusal)', async () => {
+        const { fetchImpl } = fakeFetch(fallbackBody({ maatvoeringen: [] }));
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
+        expect(res.ok).toBe(false);
+        if (!res.ok) expect(res.reason).toBe('no-bouwvlak');
+    });
+
+    it('§NL-SPARSE-FALLBACK — a usable maatvoering but NO zone footprint → `no-bouwvlak` (nothing to clip to)', async () => {
+        const { fetchImpl } = fakeFetch(
+            fallbackBody({
+                withZoneGeom: false,
+                maatvoeringen: [{ naam: 'maximum bouwhoogte (m)', waarde: '15' }],
+            }),
+        );
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
+        expect(res.ok).toBe(false);
+        if (!res.ok) expect(res.reason).toBe('no-bouwvlak');
     });
 
     it('a bouwvlak with NO maatvoering still ships the ring (numbers withheld null)', async () => {
