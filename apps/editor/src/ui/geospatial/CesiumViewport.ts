@@ -5985,7 +5985,12 @@ export class CesiumViewport {
     // §A.21.D-GLOBE3 — on the paid photoreal path the Google 3D tiles already carry ground +
     // buildings at real elevation; laying our terrain mesh under them would double-ground / z-fight
     // the globe. Leave the photoreal path exactly as it was (the free Forma path is where terrain renders).
-    if (this.photorealTilesActive) { console.log('[CesiumViewport][terrain] skip: photoreal 3D tiles active'); return; }
+    // §L-626 — but `photorealTilesActive` is set on photoreal LOAD (1680/1723) and only cleared on
+    // dispose (10833); entering Forma HIDES the photoreal tileset (2781) yet keeps the flag, so on any
+    // deployment WITH photoreal credentials the baked terrain was skipped even in 3D Site (flat grey).
+    // Gate on `&& !this.formaMode`: in Forma the photoreal tileset is show=false and the globe is shown,
+    // so draping our baked terrain is correct + harmless; in true photoreal mode the skip still holds.
+    if (this.photorealTilesActive && !this.formaMode) { console.log('[CesiumViewport][terrain] skip: photoreal 3D tiles active (non-Forma)'); return; }
     const city = cityForLonLat(lon, lat);
     console.log(`[CesiumViewport][terrain] evaluate lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → city=${city ?? 'NONE (outside baked bboxes → flat)'}`);
     if (!city) return;                                 // no baked terrain here → flat (unchanged)
