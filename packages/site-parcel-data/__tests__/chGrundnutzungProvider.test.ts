@@ -236,14 +236,16 @@ describe('chZoningEnvelopeRefusal + buildRefusedEnvelope — the envelope refuse
     });
 });
 
-describe('resolveChFarFromCantonCatalogue — the FAR scaffold (default OFF)', () => {
-    it('CH_FAR_CERTIFIED is false (no canton catalogue signed off yet)', () => {
-        expect(CH_FAR_CERTIFIED).toBe(false);
+describe('resolveChFarFromCantonCatalogue — the FAR scaffold (gate ON, ZH signed off)', () => {
+    it('CH_FAR_CERTIFIED is true (Zürich ZH catalogue owner-signed 2026-07-26)', () => {
+        expect(CH_FAR_CERTIFIED).toBe(true);
     });
 
-    it('returns `not-certified` for every input while the gate is closed (never a fabricated FAR)', () => {
+    it('refuses `no-canton-catalogue` for an UNHARVESTED canton (AI) — never a fabricated FAR', () => {
+        // Gate ON no longer short-circuits `not-certified`; an unsigned canton simply has no
+        // catalogue registered, so the lookup refuses honestly (never invents a number).
         const res = resolveChFarFromCantonCatalogue('1102', 'AI');
         expect(res.ok).toBe(false);
-        if (!res.ok) expect(res.reason).toBe('not-certified');
+        if (!res.ok) expect(res.reason).toBe('no-canton-catalogue');
     });
 });

@@ -160,6 +160,15 @@ import {
     zurichBzoEnvelopeRefusal,
     zurichBzoZoneCodeFor,
     zurichBzoZoneLabelFor,
+    // §L-616 — the COMPUTED Zürich BZO envelope, gated on the owner sign-off `CH_FAR_CERTIFIED`
+    // (ch/sources/VERIFICATION.md 2026-07-26). `zurichBzoStructuredFields` resolves the regime-aware
+    // `{ plotRatioFAR (AZ), maxHeight_m, maxFloors }` (or null when the regime is undetermined /
+    // the zone is not in the regime); fed to the shared engine with `rulePack: null`, the AZ binds
+    // `farLimitedHeight_m` so the massing is GFA-capped, never footprint×height (OVERSTATES-FAR).
+    zurichBzoStructuredFields,
+    CH_FAR_CERTIFIED,
+    CH_ZURICH_JURISDICTION_ID,
+    CH_ZURICH_BZO_ORDINANCE_REF,
     // §DK-HONEST-REFUSAL — Denmark is a PACKED jurisdiction, so when Plandata resolves a plan but
     // not enough structured numbers to draw a volume (or no plan), the DK path dispatches a CITED
     // refusal (names the zone + links the plan PDF), NEVER the generic `estimated-default` triple.
@@ -1982,6 +1991,89 @@ async function applyChZoningThenFallback(
         if (isInZurichCity(lat, lon)) {
             const zh = await resolveZurichBzoZone(lat, lon);
             if (zh.ok) {
+                // §L-616 — the COMPUTED BZO envelope, gated on `CH_FAR_CERTIFIED` (owner sign-off,
+                // ch/sources/VERIFICATION.md 2026-07-26). When ON, resolve the regime-aware structured
+                // fields (AZ as `plotRatioFAR`, the regime-correct Gebäudehöhe as `maxHeight_m`, the
+                // Vollgeschosse as `maxFloors`) and feed the SHARED engine with `rulePack: null` — the AZ
+                // then binds the engine's `farLimitedHeight_m` cap, so the massing is GFA-capped, never
+                // footprint×height (the OVERSTATES-FAR defect). `zurichBzoStructuredFields` is regime-aware
+                // and REFUSES (returns null) when the governing regime is undetermined (W2bIII 8.5 vs 9.0 m)
+                // or the zone is not carried in the resolved regime — we then keep the cited refusal, NEVER
+                // a guessed height (§CONTEXT-DATA-HONESTY). The envelope ships `estimated-ruleset`: the
+                // AZ/height are a HUMAN transcription of the BZO 700.100 PDF table, not a live WFS attribute.
+                const hasRing = Array.isArray(boundary.polygon) && boundary.polygon.length >= 3;
+                const structured = CH_FAR_CERTIFIED
+                    ? zurichBzoStructuredFields({
+                          typ: zh.zone.typ,
+                          rechtsvorschriftUrl: zh.zone.rechtsvorschriftUrl,
+                      })
+                    : null;
+                if (CH_FAR_CERTIFIED && hasRing && structured) {
+                    const record: ZoningRecord = {
+                        zoneCode: zurichBzoZoneCodeFor(zh.zone),
+                        zoneLabel: zurichBzoZoneLabelFor(zh.zone),
+                        jurisdictionId: CH_ZURICH_JURISDICTION_ID,
+                        // AZ under the ENGINE's FAR-cap field name (`plotRatioFAR`) so `farLimitedHeight_m`
+                        // binds; the regime-correct height + Vollgeschosse as caps.
+                        structuredFields: {
+                            plotRatioFAR: structured.plotRatioFAR,
+                            maxHeight_m: structured.maxHeight_m,
+                            maxFloors: structured.maxFloors,
+                        },
+                        overlays: [],
+                        ordinanceRef: zh.zone.rechtsvorschriftUrl ?? CH_ZURICH_BZO_ORDINANCE_REF,
+                        provenance: {
+                            source: 'stadt-zuerich-bzo',
+                            label: 'City of Zürich BZO 700.100 (zone-ID WFS + transcribed AZ/height table)',
+                            version: null,
+                            license: null,
+                            crs: 'EPSG:2056',
+                        },
+                    };
+                    const envelope = computeBuildableEnvelope({
+                        parcelRing: boundary.polygon,
+                        edgeClassifications: boundary.edgeClassifications,
+                        zoning: record,
+                        rulePack: null, // structured fields only → the AZ binds farLimitedHeight_m (L-616)
+                    });
+                    if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
+                        // Downgrade to estimated-ruleset: the AZ/height are a HUMAN transcription of the
+                        // BZO 700.100 PDF table, not a live authoritative feed (never `structured`).
+                        const enriched: BuildableEnvelope = {
+                            ...envelope,
+                            confidence: 'estimated-ruleset',
+                            caveats: [
+                                ...envelope.caveats,
+                                `City of Zürich BZO ${zurichBzoZoneLabelFor(zh.zone)}: AZ ` +
+                                    `${structured.plotRatioFAR} × parcel area caps the GFA (max ` +
+                                    `${structured.maxHeight_m} m / ${structured.maxFloors} Vollgeschosse). The ` +
+                                    `AZ/height are a HUMAN transcription of the BZO 700.100 Bauordnung table ` +
+                                    `(owner-signed, not a live WFS attribute) — ships estimated-ruleset. ` +
+                                    `Governing ordinance: ${zh.zone.rechtsvorschriftUrl ?? 'BZO 700.100'}.`,
+                            ],
+                        };
+                        dispatchEnvelope(ctx, site.id, enriched, 'stadt-zuerich-bzo');
+                        console.log(
+                            `${TAG} Zürich BZO COMPUTED envelope → zone=${zurichBzoZoneCodeFor(zh.zone)} ` +
+                                `AZ=${structured.plotRatioFAR} height=${structured.maxHeight_m}m ` +
+                                `floors=${structured.maxFloors} inset=${enriched.insetAreaM2.toFixed(1)}m² ` +
+                                `farLimitedHeight=${enriched.farLimitedHeight_m ?? 'n/a'}m ` +
+                                `(estimated-ruleset, gate ON).`,
+                        );
+                        return;
+                    }
+                    console.log(
+                        `${TAG} Zürich BZO certified but envelope status=${envelope.status} — cited refusal. ` +
+                            `caveats: ${envelope.caveats.join(' | ')}`,
+                    );
+                } else if (CH_FAR_CERTIFIED && hasRing && !structured) {
+                    console.log(
+                        `${TAG} Zürich BZO gate ON but structured fields unresolved (regime-ambiguous / ` +
+                            `not-in-regime for typ=${zh.zone.typ ?? 'n/a'}) — cited refusal, never a guessed height.`,
+                    );
+                }
+                // Gate OFF, no ring, helper null, or a non-ok envelope → the cited refusal that NAMES the
+                // per-parcel ordinance (the zone still renders; no fabricated number is ever drawn).
                 const zhRefusal = zurichBzoEnvelopeRefusal(zh.zone, facts);
                 dispatchEnvelope(
                     ctx,
@@ -1991,8 +2083,8 @@ async function applyChZoningThenFallback(
                 );
                 console.log(
                     `${TAG} Zürich BZO zone identified (${zurichBzoZoneLabelFor(zh.zone)}) — rendered; ` +
-                        `buildable envelope REFUSES (AZ/height PDF-bound in BZO 700.100, Outcome B), ` +
-                        `citing ${zh.zone.rechtsvorschriftUrl ?? 'the BZO ordinance'}.`,
+                        `buildable envelope REFUSES (gate/regime/ring), citing ` +
+                        `${zh.zone.rechtsvorschriftUrl ?? 'the BZO ordinance'}.`,
                 );
                 return;
             }

@@ -560,6 +560,11 @@ export {
     zurichBzoFarFor,
     zurichBzoPendingCertFacts,
     computeZurichBzoGfa,
+    // §L-616 — the ENGINE-shaped `structuredFields` a Zürich parcel drops on its C58 ZoningRecord
+    // (`{ plotRatioFAR, maxHeight_m, maxFloors }`, regime-aware, null on regime-ambiguity). The L5
+    // dispatcher copies it straight into the record so the shared engine's FAR-cap binds the massing.
+    zurichBzoStructuredFields,
+    type ZurichBzoStructuredFields,
     ZURICH_BZO_ZONE_CATALOGUE,
     ZURICH_BZO_SOURCE_DOCUMENTS,
     ZURICH_BZO_REGIME_BY_DOC,
