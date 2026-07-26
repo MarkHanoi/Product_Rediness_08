@@ -4,8 +4,8 @@
 // WHY THIS EXISTS — the same-origin seam the client's `resolveParisPluZone` needs.
 // ─────────────────────────────────────────────────────────────────────────────
 // A Paris parcel's PLU data lives in government services the browser cannot reach cross-origin
-// under CSP (`connect-src 'self'`). This proxy point-queries FOUR keyless upstreams and returns ONE
-// combined body `{ zone, hauteur, hmc, filet }` so the client makes a single same-origin call:
+// under CSP (`connect-src 'self'`). This proxy point-queries SIX keyless upstreams and returns ONE
+// combined body `{ zone, hauteur, hmc, filet, ecm, eal }` so the client makes a single same-origin call:
 //   • ZONE IDENTITY — the Géoportail de l'urbanisme national WFS (data.geopf.fr, layer
 //     wfs_du:zone_urba): a point-INTERSECTS returns the PLU zone code (libelle, e.g. `UG`), its label
 //     (libelong), the zone type (typezone), the règlement doc (nomfic) and the plan id (idurba).
@@ -17,10 +17,24 @@
 //     carried distinctly and NEVER collapsed into the hauteur plafond.
 //   • FILET / gabarit-enveloppe — Paris opendata dataset plub_filet: LineString frontage markings
 //     whose `haut` LETTER code encodes the frontage height (K/V/O/P/B/N/G/L → metres; M = same as the
-//     existing façade). Because filets are lines, this is a within-distance (not intersects) query.
+//     existing façade) and whose `cour` code encodes the CROWN/couronnement (X = continuous, per art.
+//     UG.3.2.4; P/H/C/L/M = pitched). Because filets are lines, this is a within-distance query.
+//   • ECM — *emprise constructible maximale* — Paris opendata dataset plub_ecm: a point-INTERSECTS
+//     returns the real buildable-FOOTPRINT POLYGON (geo_shape), the source planimetric area
+//     (st_area_shape, m²), the max coverage `emprise` (%, 0.0 = not specified) and the graphic
+//     `hauteur` (m, 0.0 = not specified) and the cadastral join (c_sec/c_asp/n_pc). ⚠ This layer does
+//     NOT cover the whole commune — where it is absent the client honestly REFUSES the footprint.
+//   • EAL — *espaces à libérer* — Paris opendata dataset plub_eal: a point-INTERSECTS returns
+//     liberation-strip polygons to SUBTRACT from the buildable footprint (geo_shape + st_area_shape).
 //
 // All the WFS/ODSQL knowledge (field names, axis order, CQL/ODSQL syntax) lives HERE (C58 §1.5); the
-// client just parses `{ zone, hauteur, hmc, filet }`.
+// client just parses `{ zone, hauteur, hmc, filet, ecm, eal }`.
+//
+// ⚠ QUERY MODE (verified live 2026-07-26): the opendata layers are queried with ODSQL
+// `where=intersects(geo_shape, geom'POINT(lon lat)')` (point-in-polygon) — NOT `geofilter.distance`,
+// which on these datasets does NOT filter (it returns the whole dataset sorted by distance, so the
+// nearest row can be kilometres away). ECM/EAL/HMC are point-INTERSECTS; the line-based filet stays a
+// within_distance query. Live at (48.88277, 2.39303): ECM 83.12 m² (emprise 0, hauteur 0), hauteur 25 m.
 //
 // ⚠ AXIS ORDER (verified live 2026-07-25): the GPU WFS CQL_FILTER with SRSNAME=EPSG:4326 wants
 // POINT(lat lon); the opendata ODSQL WKT wants the standard POINT(lon lat). They are DIFFERENT — do
@@ -55,6 +69,12 @@ export const PARIS_HMC_ENDPOINT =
 /** Paris opendata Explore v2.1 records endpoint for the filet / gabarit-enveloppe dataset (keyless). */
 export const PARIS_FILET_ENDPOINT =
     'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/plub_filet/records';
+/** Paris opendata Explore v2.1 records endpoint for the ECM (emprise constructible maximale) dataset (keyless). */
+export const PARIS_ECM_ENDPOINT =
+    'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/plub_ecm/records';
+/** Paris opendata Explore v2.1 records endpoint for the EAL (espaces à libérer) dataset (keyless). */
+export const PARIS_EAL_ENDPOINT =
+    'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/plub_eal/records';
 
 /**
  * The search radius for the nearest filet frontage LINE to the parcel point. Filets are LineString
@@ -136,15 +156,45 @@ export function buildParisHmcUrl(lat, lon) {
 
 /**
  * opendata `plub_filet` NEAREST-within-radius URL. Filets are LineString frontage markings, so this
- * is a within_distance (not intersects) query. `haut` is the letter code → frontage height. ⚠ POINT(lon lat).
+ * is a within_distance (not intersects) query. `haut` is the letter code → frontage height; `cour` is
+ * the CROWN/couronnement code (X = continuous per art. UG.3.2.4; P/H/C/L/M = pitched). ⚠ POINT(lon lat).
  */
 export function buildParisFiletUrl(lat, lon) {
     const qs = new URLSearchParams({
         where: `within_distance(geo_shape, geom'POINT(${lon} ${lat})', ${PARIS_FILET_RADIUS_M}m)`,
         limit: '1',
-        select: 'haut',
+        select: 'haut,cour',
     });
     return `${PARIS_FILET_ENDPOINT}?${qs.toString()}`;
+}
+
+/**
+ * opendata `plub_ecm` point-INTERSECTS URL — the *emprise constructible maximale* buildable footprint.
+ * Returns the real POLYGON (geo_shape), the source planimetric area (st_area_shape), the max coverage
+ * `emprise` (%, 0 = not specified), the graphic `hauteur` (m, 0 = not specified) and the cadastral join.
+ * ⚠ ODSQL WKT axis is the standard POINT(lon lat). ⚠ This layer does NOT cover the whole commune.
+ */
+export function buildParisEcmUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        where: `intersects(geo_shape, geom'POINT(${lon} ${lat})')`,
+        limit: '1',
+        select: 'emprise,hauteur,st_area_shape,c_sec,c_asp,n_pc,geo_shape',
+    });
+    return `${PARIS_ECM_ENDPOINT}?${qs.toString()}`;
+}
+
+/**
+ * opendata `plub_eal` point-INTERSECTS URL — the *espaces à libérer* liberation strips to SUBTRACT
+ * from the buildable footprint. Returns the polygon (geo_shape) + its source area (st_area_shape).
+ * ⚠ ODSQL WKT axis is the standard POINT(lon lat).
+ */
+export function buildParisEalUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        where: `intersects(geo_shape, geom'POINT(${lon} ${lat})')`,
+        limit: '1',
+        select: 'st_area_shape,geo_shape',
+    });
+    return `${PARIS_EAL_ENDPOINT}?${qs.toString()}`;
 }
 
 // ── upstream fetches — each returns { ok, value }: ok=false means TRANSPORT error, not empty ──────
@@ -219,39 +269,114 @@ export function extractParisHmc(records) {
 }
 
 /**
- * Extract the nearest filet frontage CODE from an opendata plub_filet records body, or null.
- * `haut` is the letter code (K/V/O/P/B/N/G/L → metres; M = same as existing façade) — the client maps
- * it to metres. Only the raw code travels the wire; the code→metres table lives client-side.
+ * Extract the nearest filet frontage CODE + CROWN code from an opendata plub_filet records body, or
+ * null. `haut` is the frontage letter code (K/V/O/P/B/N/G/L → metres; M = same as existing façade);
+ * `cour` is the CROWN/couronnement code (X = continuous per art. UG.3.2.4; P/H/C/L/M = pitched). Only
+ * the raw codes travel the wire; the code→metres table and the crown semantics live client-side.
  */
 export function extractParisFilet(records) {
     const rows = records && Array.isArray(records.results) ? records.results : [];
-    const raw = rows.length > 0 && rows[0] ? rows[0].haut : undefined;
-    const code = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
-    return code !== '' ? { code } : null;
+    const row = rows.length > 0 && rows[0] ? rows[0] : null;
+    if (!row) return null;
+    const code = typeof row.haut === 'string' ? row.haut.trim().toUpperCase() : '';
+    const cour = typeof row.cour === 'string' ? row.cour.trim().toUpperCase() : '';
+    if (code === '' && cour === '') return null;
+    return { code: code || null, cour: cour || null };
 }
 
 /**
- * Fetch the combined `{ zone, hauteur, hmc, filet }` at a WGS84 point, or null when BOTH PRIMARY
- * upstreams (zone + hauteur) are transport-unreachable (distinct from a reachable-but-empty answer).
- * HMC and filet are ENRICHMENTS — their transport failure or absence never forces the unreachable
- * verdict; they simply resolve null. NEVER throws.
+ * Extract the OUTER ring of a Paris opendata `geo_shape` (a GeoJSON Feature wrapping a Polygon or
+ * MultiPolygon) as an array of `[lon, lat]` pairs, or null. Holes/inner rings are dropped — the
+ * buildable footprint is the outer boundary; the ECM strips are already the net emprise. Pure.
+ */
+export function extractOuterRing(geoShape) {
+    const geom = geoShape && geoShape.geometry ? geoShape.geometry : geoShape;
+    if (!geom || !Array.isArray(geom.coordinates)) return null;
+    let outer = null;
+    if (geom.type === 'Polygon') outer = geom.coordinates[0];
+    else if (geom.type === 'MultiPolygon') outer = geom.coordinates[0] && geom.coordinates[0][0];
+    if (!Array.isArray(outer) || outer.length < 3) return null;
+    // Keep only clean [lon, lat] numeric pairs.
+    const ring = [];
+    for (const pt of outer) {
+        if (Array.isArray(pt) && pt.length >= 2 && Number.isFinite(pt[0]) && Number.isFinite(pt[1])) {
+            ring.push([pt[0], pt[1]]);
+        }
+    }
+    return ring.length >= 3 ? ring : null;
+}
+
+/** A finite positive number, or null. Paris publishes "not specified" as 0.0 — mapped to null here. */
+function positiveOrNull(raw) {
+    const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
+    return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Extract the ECM (emprise constructible maximale) buildable footprint from an opendata plub_ecm
+ * records body, or null (no ECM polygon at this point — the client honestly refuses the footprint).
+ * `ring` is the real polygon (WGS84 [lon,lat]); `areaM2` the source planimetric area (st_area_shape);
+ * `emprisePct` the max coverage % and `graphicHeight` the graphic height (both 0 = not specified → null).
+ */
+export function extractParisEcm(records) {
+    const rows = records && Array.isArray(records.results) ? records.results : [];
+    const row = rows.length > 0 && rows[0] ? rows[0] : null;
+    if (!row) return null;
+    const ring = extractOuterRing(row.geo_shape);
+    if (!ring) return null; // geometry is the whole point of ECM — no ring, no footprint.
+    const cadastral =
+        typeof row.c_asp === 'string' && row.c_asp.trim() !== '' ? row.c_asp.trim() : null;
+    return {
+        ring,
+        areaM2: positiveOrNull(row.st_area_shape),
+        emprisePct: positiveOrNull(row.emprise), // 0.0 = not specified → null
+        graphicHeight: positiveOrNull(row.hauteur), // 0.0 = not specified → null
+        cadastral,
+    };
+}
+
+/**
+ * Extract an EAL (espace à libérer) liberation strip from an opendata plub_eal records body, or null.
+ * `ring` is the polygon to SUBTRACT from the footprint (WGS84 [lon,lat]); `areaM2` its source area.
+ */
+export function extractParisEal(records) {
+    const rows = records && Array.isArray(records.results) ? records.results : [];
+    const row = rows.length > 0 && rows[0] ? rows[0] : null;
+    if (!row) return null;
+    const ring = extractOuterRing(row.geo_shape);
+    if (!ring) return null;
+    return { ring, areaM2: positiveOrNull(row.st_area_shape) };
+}
+
+/**
+ * Fetch the combined `{ zone, hauteur, hmc, filet, ecm, eal }` at a WGS84 point, or null when BOTH
+ * PRIMARY upstreams (zone + hauteur) are transport-unreachable (distinct from a reachable-but-empty
+ * answer). HMC, filet, ECM and EAL are ENRICHMENTS — their transport failure or absence never forces
+ * the unreachable verdict; they simply resolve null. NEVER throws.
+ *
+ * ⚠ ECM is an enrichment for REACHABILITY, but it is the STRUCTURED FOOTPRINT the envelope engine
+ * needs: where it is null the client refuses the footprint component honestly (never a parcel×% guess).
  */
 export async function fetchParisPlu(lat, lon, deps = {}) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    const [zoneRes, hautRes, hmcRes, filetRes] = await Promise.all([
+    const [zoneRes, hautRes, hmcRes, filetRes, ecmRes, ealRes] = await Promise.all([
         fetchJson(buildParisZoneUrbaUrl(lat, lon), deps),
         fetchJson(buildParisHauteurUrl(lat, lon), deps),
         fetchJson(buildParisHmcUrl(lat, lon), deps),
         fetchJson(buildParisFiletUrl(lat, lon), deps),
+        fetchJson(buildParisEcmUrl(lat, lon), deps),
+        fetchJson(buildParisEalUrl(lat, lon), deps),
     ]);
     // Both PRIMARY transport failures ⇒ a genuine unreachable (502), never an "empty PLU" answer.
-    // (HMC/filet are enrichments — excluded from the reachability verdict on purpose.)
+    // (HMC/filet/ecm/eal are enrichments — excluded from the reachability verdict on purpose.)
     if (!zoneRes.ok && !hautRes.ok) return null;
     return {
         zone: zoneRes.ok ? extractParisZone(zoneRes.value) : null,
         hauteur: hautRes.ok ? extractParisHauteur(hautRes.value) : null,
         hmc: hmcRes.ok ? extractParisHmc(hmcRes.value) : null,
         filet: filetRes.ok ? extractParisFilet(filetRes.value) : null,
+        ecm: ecmRes.ok ? extractParisEcm(ecmRes.value) : null,
+        eal: ealRes.ok ? extractParisEal(ealRes.value) : null,
     };
 }
 
@@ -260,8 +385,10 @@ export async function fetchParisPlu(lat, lon, deps = {}) {
 /**
  * `GET /api/paris/plu?lat=&lon=`
  *
- * 200 `{ zone, hauteur, hmc, filet }` — the combined body (any half may be null = nothing published
- *     there; HMC/filet are enrichment overlays that legitimately do not cover every point).
+ * 200 `{ zone, hauteur, hmc, filet, ecm, eal }` — the combined body (any half may be null = nothing
+ *     published there; HMC/filet/ecm/eal are enrichment overlays that legitimately do not cover every
+ *     point — ECM in particular is absent for large parts of the commune, and the client then refuses
+ *     the footprint component rather than fabricate one).
  * 502 `{ error }`         — BOTH primary upstreams (zone + hauteur) failed / timed out (distinct from
  *     an empty answer, so the client returns `endpoint-unreachable`, never `no-plu-here`).
  * 400                     — missing/invalid coordinates.
@@ -299,6 +426,8 @@ export function makeParisPluHandler(deps = {}) {
             hauteur: body.hauteur ?? null,
             hmc: body.hmc ?? null,
             filet: body.filet ?? null,
+            ecm: body.ecm ?? null,
+            eal: body.eal ?? null,
         };
         cacheSet(key, payload);
         res.setHeader('Cache-Control', 'public, max-age=86400');

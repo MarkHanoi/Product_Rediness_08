@@ -224,10 +224,72 @@ export interface ParisPluProxyResponse {
         readonly hmc_m?: unknown;
         readonly datum?: unknown;
     } | null;
-    /** Nearest filet frontage marking: raw `code` (the `haut` letter). */
+    /** Nearest filet frontage marking: raw `code` (the `haut` letter) + `cour` crown code. */
     readonly filet?: {
         readonly code?: unknown;
+        readonly cour?: unknown;
     } | null;
+    /**
+     * The ECM (*emprise constructible maximale*) buildable FOOTPRINT half — the real polygon the
+     * envelope engine extrudes. `ring` is the outer boundary in WGS84 `[lon, lat]` pairs; `areaM2`
+     * the source planimetric area (st_area_shape); `emprisePct`/`graphicHeight` the (nullable, 0 =
+     * not specified) coverage % and graphic height; `cadastral` the c_asp join. Null where no ECM
+     * polygon covers the point (the client then honestly refuses the footprint component).
+     */
+    readonly ecm?: {
+        readonly ring?: unknown;
+        readonly areaM2?: unknown;
+        readonly emprisePct?: unknown;
+        readonly graphicHeight?: unknown;
+        readonly cadastral?: unknown;
+    } | null;
+    /** An EAL (*espace à libérer*) liberation strip to SUBTRACT from the footprint, or null. */
+    readonly eal?: {
+        readonly ring?: unknown;
+        readonly areaM2?: unknown;
+    } | null;
+}
+
+/** A WGS84 coordinate pair `[lon, lat]` — the order Paris opendata `geo_shape` publishes. */
+export type ParisLonLat = readonly [number, number];
+
+/** Validate a wire ring (`unknown`) into a clean `[lon, lat]` array of ≥ 3 pairs, or null. Pure. */
+export function parseParisRing(raw: unknown): ParisLonLat[] | null {
+    if (!Array.isArray(raw) || raw.length < 3) return null;
+    const ring: ParisLonLat[] = [];
+    for (const pt of raw) {
+        if (
+            Array.isArray(pt) &&
+            pt.length >= 2 &&
+            typeof pt[0] === 'number' &&
+            Number.isFinite(pt[0]) &&
+            typeof pt[1] === 'number' &&
+            Number.isFinite(pt[1])
+        ) {
+            ring.push([pt[0], pt[1]]);
+        }
+    }
+    return ring.length >= 3 ? ring : null;
+}
+
+/** The parsed ECM footprint half — the real geometry the envelope engine extrudes. */
+export interface ParisEcmParsed {
+    /** The buildable-footprint outer ring in WGS84 `[lon, lat]` pairs (never fabricated). */
+    readonly ring: ParisLonLat[];
+    /** The source planimetric area of the footprint (st_area_shape) in m², or null. */
+    readonly areaM2: number | null;
+    /** Max coverage % (emprise), or null (0 = not specified in the source). */
+    readonly emprisePct: number | null;
+    /** The ECM's own graphic height in m, or null (0 = not specified). A weaker height than plub_hauteur. */
+    readonly graphicHeight: number | null;
+    /** The cadastral join (c_asp), or null. */
+    readonly cadastral: string | null;
+}
+
+/** The parsed EAL half — a liberation strip to subtract from the footprint. */
+export interface ParisEalParsed {
+    readonly ring: ParisLonLat[];
+    readonly areaM2: number | null;
 }
 
 /** Read a string field verbatim (trimmed), or null for absence / blank / non-string. */
@@ -265,6 +327,16 @@ export interface ParisPluParsed {
     readonly filetCode: string | null;
     /** The filet frontage height in metres mapped from the code, or null (code `M`/unknown). */
     readonly filetFrontageHeight_m: number | null;
+    /**
+     * The filet `cour` CROWN/couronnement code (e.g. `X` = continuous per art. UG.3.2.4; P/H/C/L/M =
+     * pitched), or null. When `X`, the crown geometry is PDF-bound (art. UG.3.2.4) and the envelope
+     * engine carries a cited PARTIAL refusal for the couronnement component — never an invented taper.
+     */
+    readonly courCode: string | null;
+    /** The parsed ECM buildable footprint, or null (no ECM polygon at the point → footprint refused). */
+    readonly ecm: ParisEcmParsed | null;
+    /** A parsed EAL liberation strip to subtract from the footprint, or null. */
+    readonly eal: ParisEalParsed | null;
     /** The PLU dataset version `YYYY-MM-DD` derived from the zone's `idurba`, or null. */
     readonly sourceVersion: string | null;
 }
@@ -294,8 +366,34 @@ export function parseParisPluResponse(body: ParisPluProxyResponse | null | undef
     const hmcDatum = hmc_m !== null ? readStr(body?.hmc?.datum) : null;
     const filetCode = readStr(body?.filet?.code)?.toUpperCase() ?? null;
     const filetFrontageHeight_m = parisFiletMetresForCode(filetCode);
+    const courCode = readStr(body?.filet?.cour)?.toUpperCase() ?? null;
+    const ecmRing = parseParisRing(body?.ecm?.ring);
+    const ecm: ParisEcmParsed | null = ecmRing
+        ? {
+              ring: ecmRing,
+              areaM2: readHauteurMetres(body?.ecm?.areaM2),
+              emprisePct: readHauteurMetres(body?.ecm?.emprisePct),
+              graphicHeight: readHauteurMetres(body?.ecm?.graphicHeight),
+              cadastral: readStr(body?.ecm?.cadastral),
+          }
+        : null;
+    const ealRing = parseParisRing(body?.eal?.ring);
+    const eal: ParisEalParsed | null = ealRing
+        ? { ring: ealRing, areaM2: readHauteurMetres(body?.eal?.areaM2) }
+        : null;
     const sourceVersion = parseParisSourceVersion(zone?.planId);
-    return { zone, heightCeiling_m, hmc_m, hmcDatum, filetCode, filetFrontageHeight_m, sourceVersion };
+    return {
+        zone,
+        heightCeiling_m,
+        hmc_m,
+        hmcDatum,
+        filetCode,
+        filetFrontageHeight_m,
+        courCode,
+        ecm,
+        eal,
+        sourceVersion,
+    };
 }
 
 /**
@@ -383,6 +481,141 @@ export async function resolveParisPluZone(
         // Defensive: the whole path is best-effort — never throw into the caller.
         span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
         console.warn('[paris-plu] unexpected error (non-fatal):', (err as Error)?.message ?? err);
+        return { ok: false, reason: 'endpoint-unreachable' };
+    } finally {
+        span.end();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// THE STRUCTURED-DATA-FIRST ENVELOPE INPUTS — the whole point of the Paris upgrade.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// `resolveParisPluZone` (above) returns the zone identity + height FACTS for the refusal card.
+// `resolveParisEnvelope` (below) additionally resolves the ECM buildable-FOOTPRINT POLYGON, the EAL
+// liberation strips and the crown code — the geometry the envelope engine (`computeParisEnvelope` in
+// the rule pack) extrudes into a real volume. It is a SEPARATE resolver so the existing zone/height
+// path is untouched; both share the same proxy body.
+
+/**
+ * The structured inputs the Paris envelope engine consumes — every field is a REAL published value
+ * (or an honest null), NEVER a fabricated coverage/height. The footprint is the ECM polygon itself
+ * (geometry, not a parcel×% guess); the height comes from the published `plub_hauteur` ceiling.
+ */
+export interface ParisEnvelopeInputs {
+    /** The identified PLU zone (GPU zone_urba), or null on a WFS miss. */
+    readonly zone: ParisZoneIdentification | null;
+    /** The ECM buildable-footprint polygon (WGS84 `[lon,lat]`), or null (no ECM → footprint refused). */
+    readonly ecmGeometry: ParisLonLat[] | null;
+    /** The source planimetric footprint area (st_area_shape) in m², or null. */
+    readonly ecmAreaM2: number | null;
+    /** Max coverage % (emprise), or null (0 = not specified in the source — NEVER fabricated). */
+    readonly ecmEmprisePct: number | null;
+    /** The ECM's own graphic height (m), or null (0 = not specified). Weaker than the plub_hauteur ceiling. */
+    readonly ecmHeight: number | null;
+    /** The cadastral join (c_asp) of the ECM footprint, or null. */
+    readonly ecmCadastral: string | null;
+    /** The published height CEILING (plub_hauteur, UG.3.2.1) in m, or null (honest withheld). */
+    readonly heightCeiling_m: number | null;
+    /** The HMC ceiling (plub_hmc, UG.3.2.2) in m, or null. ⚠ Read `hmcDatum` — `NGF` = absolute altitude. */
+    readonly hmc_m: number | null;
+    /** The datum of `hmc_m` (e.g. `NGF`), or null. Guards against reading an absolute altitude as a height. */
+    readonly hmcDatum: string | null;
+    /** The filet frontage `haut` code (e.g. `N`), or null. */
+    readonly filetCode: string | null;
+    /** The filet frontage height (m) mapped from `filetCode`, or null (code `M`/unknown). */
+    readonly filetHeight_m: number | null;
+    /** The filet `cour` crown code (`X` = continuous → PDF-bound crown; P/H/C/L/M = pitched), or null. */
+    readonly courCode: string | null;
+    /** An EAL liberation strip polygon (WGS84 `[lon,lat]`) to subtract from the footprint, or null. */
+    readonly ealGeometry: ParisLonLat[] | null;
+    /** The source area (st_area_shape) of the EAL strip in m², or null. */
+    readonly ealAreaM2: number | null;
+    /** The PLU dataset version `YYYY-MM-DD` derived from the plan `idurba`, or null. */
+    readonly sourceVersion: string | null;
+}
+
+/** Why a Paris ENVELOPE resolution refused. Same closed vocabulary as `resolveParisPluZone`. */
+export type ParisEnvelopeResolution =
+    | { readonly ok: true; readonly inputs: ParisEnvelopeInputs }
+    | { readonly ok: false; readonly reason: ParisPluRefusalReason };
+
+/**
+ * Resolve the STRUCTURED envelope inputs at a WGS84 point — the zone + height FACTS plus the ECM
+ * buildable-footprint POLYGON, the EAL strips and the crown code — via the same-origin `/api/paris/plu`
+ * proxy. NEVER throws; every failure is a typed refusal. The ECM polygon is the real footprint the
+ * engine extrudes (geometry, not a parcel×% approximation); where it is absent the engine refuses the
+ * footprint component honestly. Mirrors `resolveParisPluZone`'s honesty contract.
+ */
+export async function resolveParisEnvelope(
+    lat: number,
+    lon: number,
+    deps: ParisPluDeps = {},
+): Promise<ParisEnvelopeResolution> {
+    const span = tracer.startSpan('pryzm.zoning.resolveParisEnvelope');
+    span.setAttribute('provider', 'gpu-paris-plu-bioclimatique');
+    try {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !isInParis(lat, lon)) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, reason: 'out-of-paris' };
+        }
+        const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+        if (typeof fetchImpl !== 'function') {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, reason: 'endpoint-unreachable' };
+        }
+        const base = deps.pathBase ?? PARIS_PLU_PATH;
+        const url =
+            `${base}?lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lon))}`;
+
+        let body: ParisPluProxyResponse | null = null;
+        try {
+            const res = await fetchImpl(url, { method: 'GET', headers: { Accept: 'application/json' } });
+            if (!res || !res.ok) {
+                span.setStatus({ code: SpanStatusCode.OK });
+                return { ok: false, reason: 'endpoint-unreachable' };
+            }
+            body = (await res.json()) as ParisPluProxyResponse | null;
+        } catch (fetchErr) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            console.warn('[paris-envelope] fetch failed (non-fatal):', (fetchErr as Error)?.message ?? fetchErr);
+            return { ok: false, reason: 'endpoint-unreachable' };
+        }
+
+        const p = parseParisPluResponse(body);
+        // The envelope needs at LEAST a zone or a height for a card; an ECM alone (no zone/height) is
+        // still worth resolving, so gate `no-plu-here` on all three primary facts being absent.
+        if (!p.zone && p.heightCeiling_m === null && !p.ecm) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, reason: 'no-plu-here' };
+        }
+
+        span.setAttribute('hasEcm', p.ecm != null);
+        span.setAttribute('heightCeiling', p.heightCeiling_m ?? -1);
+        if (p.courCode) span.setAttribute('courCode', p.courCode);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return {
+            ok: true,
+            inputs: {
+                zone: p.zone,
+                ecmGeometry: p.ecm?.ring ?? null,
+                ecmAreaM2: p.ecm?.areaM2 ?? null,
+                ecmEmprisePct: p.ecm?.emprisePct ?? null,
+                ecmHeight: p.ecm?.graphicHeight ?? null,
+                ecmCadastral: p.ecm?.cadastral ?? null,
+                heightCeiling_m: p.heightCeiling_m,
+                hmc_m: p.hmc_m,
+                hmcDatum: p.hmcDatum,
+                filetCode: p.filetCode,
+                filetHeight_m: p.filetFrontageHeight_m,
+                courCode: p.courCode,
+                ealGeometry: p.eal?.ring ?? null,
+                ealAreaM2: p.eal?.areaM2 ?? null,
+                sourceVersion: p.sourceVersion,
+            },
+        };
+    } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+        console.warn('[paris-envelope] unexpected error (non-fatal):', (err as Error)?.message ?? err);
         return { ok: false, reason: 'endpoint-unreachable' };
     } finally {
         span.end();

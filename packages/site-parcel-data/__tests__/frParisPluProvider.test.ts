@@ -10,7 +10,9 @@
 import { describe, it, expect } from 'vitest';
 import {
     parseParisPluResponse,
+    parseParisRing,
     resolveParisPluZone,
+    resolveParisEnvelope,
     parisFiletMetresForCode,
     parseParisSourceVersion,
     PARIS_PLU_PATH,
@@ -19,6 +21,20 @@ import {
     type ParisPluProxyResponse,
 } from '../src/providers/resolveParisPluZone.js';
 import { isInParis } from '../src/providers/parisBbox.js';
+
+// A live-shaped ECM half on the combined body: the real footprint ring + source fields.
+const ECM_HALF = {
+    ring: [
+        [2.393, 48.882],
+        [2.3931, 48.882],
+        [2.3931, 48.8821],
+        [2.393, 48.8821],
+    ],
+    areaM2: 83.12,
+    emprisePct: null,
+    graphicHeight: null,
+    cadastral: '19-DL-0002',
+};
 
 // ── Fixtures anchored on the live 2026-07-25 probe. ──
 const UG_ZONE = {
@@ -212,6 +228,80 @@ describe('resolveParisPluZone — the impure seam (never throws)', () => {
         expect(seen.startsWith(PARIS_PLU_PATH)).toBe(true);
         expect(seen).toContain('lat=48.857');
         expect(seen).toContain('lon=2.38');
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+describe('parseParisRing + the ECM/cour/EAL parse — real footprint geometry, honest nulls', () => {
+    it('parseParisRing keeps clean [lon,lat] pairs (≥3), rejects short/garbage rings', () => {
+        expect(parseParisRing(ECM_HALF.ring)?.length).toBe(4);
+        expect(parseParisRing([[1, 2], [3, 4]])).toBeNull(); // < 3
+        expect(parseParisRing([[1, 2], ['x', 4], [5, 6], [7, 8]])?.length).toBe(3); // drops the bad pair
+        expect(parseParisRing(null)).toBeNull();
+    });
+
+    it('parseParisPluResponse lifts the cour crown code + the ECM footprint + the EAL strip', () => {
+        const p = parseParisPluResponse({
+            zone: { libelle: 'UG', idurba: '75056_PLU_20260616' },
+            hauteur: { hauteur_m: 25 },
+            filet: { code: 'N', cour: 'x' },
+            ecm: ECM_HALF,
+            eal: { ring: ECM_HALF.ring, areaM2: 6.6 },
+        });
+        expect(p.courCode).toBe('X'); // upper-cased
+        expect(p.ecm?.ring.length).toBe(4);
+        expect(p.ecm?.areaM2).toBe(83.12);
+        expect(p.ecm?.emprisePct).toBeNull(); // 0/absent = not specified
+        expect(p.ecm?.cadastral).toBe('19-DL-0002');
+        expect(p.eal?.areaM2).toBe(6.6);
+    });
+
+    it('an ECM half with no valid ring → ecm null (no geometry, no footprint)', () => {
+        const p = parseParisPluResponse({ zone: { libelle: 'UG' }, ecm: { ring: [[1, 2]], areaM2: 50 } });
+        expect(p.ecm).toBeNull();
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+describe('resolveParisEnvelope — the structured-envelope inputs seam (never throws)', () => {
+    const fullBody: ParisPluProxyResponse = {
+        zone: { libelle: 'UG', libelong: 'Zone urbaine générale', idurba: '75056_PLU_20260616' },
+        hauteur: { hauteur_m: 25 },
+        filet: { code: 'V', cour: 'C' },
+        ecm: ECM_HALF,
+    };
+    it('a Paris point with an ECM footprint → ok carrying the structured envelope inputs', async () => {
+        const res = await resolveParisEnvelope(PARIS.lat, PARIS.lon, { fetchImpl: okFetch(fullBody) });
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        expect(res.inputs.ecmGeometry?.length).toBe(4);
+        expect(res.inputs.ecmAreaM2).toBe(83.12);
+        expect(res.inputs.heightCeiling_m).toBe(25);
+        expect(res.inputs.courCode).toBe('C');
+        expect(res.inputs.sourceVersion).toBe('2026-06-16');
+    });
+
+    it('an ECM-only point (no zone, no height) still resolves ok — the footprint is worth carrying', async () => {
+        const res = await resolveParisEnvelope(PARIS.lat, PARIS.lon, { fetchImpl: okFetch({ ecm: ECM_HALF }) });
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        expect(res.inputs.ecmGeometry?.length).toBe(4);
+        expect(res.inputs.heightCeiling_m).toBeNull();
+    });
+
+    it('a point outside Paris → out-of-paris with no fetch; a bare empty body → no-plu-here', async () => {
+        let calls = 0;
+        const counting = (async () => { calls++; return { ok: true, json: async () => fullBody }; }) as unknown as typeof fetch;
+        expect(await resolveParisEnvelope(45.764, 4.8357, { fetchImpl: counting })).toEqual({ ok: false, reason: 'out-of-paris' });
+        expect(calls).toBe(0);
+        const empty = await resolveParisEnvelope(PARIS.lat, PARIS.lon, { fetchImpl: okFetch({ zone: null, hauteur: null }) });
+        expect(empty).toEqual({ ok: false, reason: 'no-plu-here' });
+    });
+
+    it('an upstream throw → endpoint-unreachable, never throws', async () => {
+        const throwing = (async () => { throw new Error('gpu down'); }) as unknown as typeof fetch;
+        await expect(resolveParisEnvelope(PARIS.lat, PARIS.lon, { fetchImpl: throwing }))
+            .resolves.toEqual({ ok: false, reason: 'endpoint-unreachable' });
     });
 });
 

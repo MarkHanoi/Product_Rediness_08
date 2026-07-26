@@ -1,4 +1,4 @@
-// L-609 — `resolveAmsterdamBestemmingsplan`: the Amsterdam bestemmingsplan `ringRef` resolver +
+// L-609 — `resolveNlBestemmingsplan`: the Amsterdam bestemmingsplan `ringRef` resolver +
 // maatvoering reader.
 //
 // The compliance-critical seam turned pure: given a FIXTURE proxy response (NEVER a live call —
@@ -9,14 +9,14 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-    resolveAmsterdamBestemmingsplan,
+    resolveNlBestemmingsplan,
     readMaatvoeringen,
     classifyMaatvoering,
     readMaatWaarde,
     ringFromGeoJson,
-    NL_AMS_RING_REF,
-    NL_AMS_RULE,
-    NL_AMS_BESTEMMINGSPLAN_CERTIFIED,
+    NL_RING_REF,
+    NL_RULE,
+    NL_BESTEMMINGSPLAN_CERTIFIED,
 } from '../src/index.js';
 
 // A representative bouwvlak polygon (GeoJSON, WGS84 [lon, lat], closing vertex repeated).
@@ -136,14 +136,14 @@ describe('ringFromGeoJson — closes the ring, drops the closing vertex', () => 
     });
 });
 
-describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
-    it('the certification gate is OFF (default — Amsterdam renders the cited refusal)', () => {
-        expect(NL_AMS_BESTEMMINGSPLAN_CERTIFIED).toBe(false);
+describe('resolveNlBestemmingsplan — the resolver', () => {
+    it('the certification gate is ON (§NL-NATIONWIDE — keyless PDOK, bouwhoogte verified live)', () => {
+        expect(NL_BESTEMMINGSPLAN_CERTIFIED).toBe(true);
     });
 
     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {
-        expect(NL_AMS_RING_REF).toBe('nl-ams-bestemmingsplan:bouwvlak-maatvoering/rp-v4');
-        expect(NL_AMS_RULE).toHaveProperty('ringRef', NL_AMS_RING_REF);
+        expect(NL_RING_REF).toBe('nl-bestemmingsplan:bouwvlak-maatvoering/pdok-wms');
+        expect(NL_RULE).toHaveProperty('ringRef', NL_RING_REF);
     });
 
     it('HAPPY PATH — closes the WGS84 bouwvlak ring + reads the maatvoering + bestemming', async () => {
@@ -156,7 +156,7 @@ describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
                 ],
             }),
         );
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(true);
         if (res.ok) {
             expect(res.ringLatLon).toHaveLength(4);
@@ -170,7 +170,7 @@ describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
 
     it('a bouwvlak with NO maatvoering still ships the ring (numbers withheld null)', async () => {
         const { fetchImpl } = fakeFetch(okBody({ bestemming: 'Gemengd', maatvoeringen: [] }));
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(true);
         if (res.ok) {
             expect(res.ringLatLon).toHaveLength(4);
@@ -180,7 +180,7 @@ describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
 
     it('a mismatched ringRef refuses WITHOUT fetching (wrong vintage / plane)', async () => {
         const { fetchImpl, calls } = fakeFetch(okBody({}));
-        const res = await resolveAmsterdamBestemmingsplan('nl-ams:something-else/v-9', PT, { fetchImpl });
+        const res = await resolveNlBestemmingsplan('nl-ams:something-else/v-9', PT, { fetchImpl });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('ringref-mismatch');
         expect(calls()).toBe(0);
@@ -188,7 +188,7 @@ describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
 
     it('a missing point refuses WITHOUT fetching', async () => {
         const { fetchImpl, calls } = fakeFetch(okBody({}));
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, null, { fetchImpl });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, null, { fetchImpl });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('no-point');
         expect(calls()).toBe(0);
@@ -196,28 +196,28 @@ describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
 
     it('no plan at the point → `no-plan`', async () => {
         const { fetchImpl } = fakeFetch({ plan: null });
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('no-plan');
     });
 
     it('a plan with no bouwvlak → `no-bouwvlak`', async () => {
         const { fetchImpl } = fakeFetch({ plan: { id: 'NL.IMRO.0363.x', naam: 'X' }, bouwvlak: null });
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('no-bouwvlak');
     });
 
     it('a degenerate bouwvlak geometry → `degenerate-geometry`', async () => {
         const { fetchImpl } = fakeFetch(okBody({ ring: [[4.9, 52.3], [4.9, 52.3]] }));
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('degenerate-geometry');
     });
 
     it('an upstream non-OK response → `endpoint-unreachable`, never throws', async () => {
         const badFetch = (async () => ({ ok: false, json: async () => ({}) })) as unknown as typeof fetch;
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl: badFetch });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl: badFetch });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('endpoint-unreachable');
     });
@@ -227,7 +227,7 @@ describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
             throw new Error('network down');
         }) as unknown as typeof fetch;
         await expect(
-            resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl: throwFetch }),
+            resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl: throwFetch }),
         ).resolves.toMatchObject({ ok: false, reason: 'endpoint-unreachable' });
     });
 
@@ -238,7 +238,7 @@ describe('resolveAmsterdamBestemmingsplan — the resolver', () => {
                 throw new Error('unexpected token');
             },
         })) as unknown as typeof fetch;
-        const res = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, PT, { fetchImpl: badJson });
+        const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl: badJson });
         expect(res.ok).toBe(false);
         if (!res.ok) expect(res.reason).toBe('endpoint-unreachable');
     });

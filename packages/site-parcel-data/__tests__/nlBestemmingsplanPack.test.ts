@@ -9,35 +9,35 @@
 import { describe, it, expect } from 'vitest';
 import { JurisdictionZoningContractSchema, EnvelopeRefusalSchema } from '@pryzm/schemas';
 import {
-    NL_AMSTERDAM_BESTEMMINGSPLAN_PACK,
-    NL_AMS_RULE,
-    NL_AMS_ZONE_CODE,
-    NL_AMS_JURISDICTION_ID,
-    NL_AMS_RING_REF,
+    NL_BESTEMMINGSPLAN_PACK,
+    NL_RULE,
+    NL_ZONE_CODE,
+    NL_JURISDICTION_ID,
+    NL_RING_REF,
     bestemmingToPermittedUse,
-    nlAmsterdamRefusal,
+    nlBestemmingsplanRefusal,
     isInAmsterdam,
 } from '../src/index.js';
 
-describe('NL_AMSTERDAM_BESTEMMINGSPLAN_PACK — the declaration', () => {
+describe('NL_BESTEMMINGSPLAN_PACK — the declaration', () => {
     it('parses against the JurisdictionZoningContract schema', () => {
         expect(() =>
-            JurisdictionZoningContractSchema.parse(NL_AMSTERDAM_BESTEMMINGSPLAN_PACK),
+            JurisdictionZoningContractSchema.parse(NL_BESTEMMINGSPLAN_PACK),
         ).not.toThrow();
     });
 
     it('declares an explicit-area rule whose ringRef equals the resolver handle (no drift)', () => {
-        expect(NL_AMS_RULE.kind).toBe('explicit-area');
-        if (NL_AMS_RULE.kind === 'explicit-area') {
-            expect(NL_AMS_RULE.ringRef).toBe(NL_AMS_RING_REF);
+        expect(NL_RULE.kind).toBe('explicit-area');
+        if (NL_RULE.kind === 'explicit-area') {
+            expect(NL_RULE.ringRef).toBe(NL_RING_REF);
         }
-        const zone = NL_AMSTERDAM_BESTEMMINGSPLAN_PACK.zones.find((z) => z.code === NL_AMS_ZONE_CODE);
+        const zone = NL_BESTEMMINGSPLAN_PACK.zones.find((z) => z.code === NL_ZONE_CODE);
         expect(zone).toBeDefined();
-        expect(zone!.geometricRule).toEqual(NL_AMS_RULE);
+        expect(zone!.geometricRule).toEqual(NL_RULE);
     });
 
     it('⚠ every numeric field is null — the pack asserts NO number (the maatvoering is live)', () => {
-        const zone = NL_AMSTERDAM_BESTEMMINGSPLAN_PACK.zones[0]!;
+        const zone = NL_BESTEMMINGSPLAN_PACK.zones[0]!;
         expect(zone.maxHeight_m).toBeNull();
         expect(zone.maxFloors).toBeNull();
         expect(zone.plotRatioFAR).toBeNull();
@@ -45,16 +45,16 @@ describe('NL_AMSTERDAM_BESTEMMINGSPLAN_PACK — the declaration', () => {
         expect(zone.setbacks).toEqual({ front_m: null, side_m: null, rear_m: null });
     });
 
-    it('has the Amsterdam jurisdiction id + estimated-ruleset default confidence', () => {
-        expect(NL_AMSTERDAM_BESTEMMINGSPLAN_PACK.jurisdictionId).toBe(NL_AMS_JURISDICTION_ID);
-        expect(NL_AMS_JURISDICTION_ID).toBe('nl-0363-amsterdam');
-        expect(NL_AMSTERDAM_BESTEMMINGSPLAN_PACK.defaultConfidence).toBe('estimated-ruleset');
+    it('has the national NL jurisdiction id + estimated-ruleset default confidence', () => {
+        expect(NL_BESTEMMINGSPLAN_PACK.jurisdictionId).toBe(NL_JURISDICTION_ID);
+        expect(NL_JURISDICTION_ID).toBe('nl-bestemmingsplan');
+        expect(NL_BESTEMMINGSPLAN_PACK.defaultConfidence).toBe('estimated-ruleset');
     });
 });
 
-describe('nlAmsterdamRefusal — the cited, honest refusal (the shipping state)', () => {
+describe('nlBestemmingsplanRefusal — the cited, honest refusal (the shipping state)', () => {
     it('is a valid EnvelopeRefusal, source-data-unavailable, legallyGrounded false', () => {
-        const r = nlAmsterdamRefusal();
+        const r = nlBestemmingsplanRefusal();
         expect(() => EnvelopeRefusalSchema.parse(r)).not.toThrow();
         expect(r.code).toBe('source-data-unavailable'); // transient — the data path, not the law
         expect(r.legallyGrounded).toBe(false);
@@ -62,7 +62,7 @@ describe('nlAmsterdamRefusal — the cited, honest refusal (the shipping state)'
     });
 
     it('names the plan when one is known (never a fabricated number in its place)', () => {
-        const r = nlAmsterdamRefusal('Amsterdam Zuidas');
+        const r = nlBestemmingsplanRefusal('Amsterdam Zuidas');
         expect(r.headline).toContain('Amsterdam Zuidas');
         // No numeric allowance anywhere in the refusal — it declines, it does not estimate.
         expect(r.detail).toMatch(/decline|no number/i);

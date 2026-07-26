@@ -38,7 +38,7 @@
 //   node heightSources.mjs --probe 3dbag     # probe one source
 //   node heightSources.mjs --resolve paris   # fetch one region's heights → out/<region>-buildings-national.geojsonseq
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -267,7 +267,17 @@ export const REGION_SOURCE = {
   spain: 'mds_edificacion',
   barcelona: 'mds_edificacion', madrid: 'mds_edificacion', cordoba: 'mds_edificacion', valencia: 'mds_edificacion',
   sevilla: 'mds_edificacion', malaga: 'mds_edificacion', zaragoza: 'mds_edificacion', bilbao: 'mds_edificacion',
-  // NL
+  // NL — 3DBAG (BAG × AHN LiDAR) = REAL MEASURED roof height (`tagged`), national coverage. Like
+  // Spain's MDS, heights are sampled per bbox: a CITY bbox resolves exactly; the whole-country
+  // `netherlands` bbox is refused per-tile (the 3DBAG `items` API is paginated — a 4°×3° scan would
+  // truncate at ~5000 arbitrary buildings) → `documented` (keeps OSM). So the whole-country region
+  // renders OSM footprints (honest 9 m assumed) until either per-city bbox rows are added OR the bake
+  // OSM-footprint-join is wired (stamp 3DBAG height onto bake's own OSM clip — the named follow-up,
+  // exactly Spain's MDS story). Ready per-city bboxes (netherlands-latest.osm.pbf covers them all):
+  //   amsterdam '4.83,52.34,4.97,52.42'   rotterdam '4.42,51.88,4.55,51.96'
+  //   utrecht   '5.06,52.06,5.16,52.12'   thehague  '4.25,52.04,4.35,52.10'
+  //   eindhoven '5.42,51.40,5.52,51.48'   groningen '6.52,53.20,6.60,53.25'
+  netherlands: '3dbag',
   amsterdam: '3dbag',
   // FR
   paris: 'bdtopo', lyon: 'bdtopo',
@@ -393,6 +403,17 @@ export function wgs84ToRD(lat, lon) {
 // b3_h_maaiveld (roof − ground) → `height` (tagged). The `items` bbox is in RD and paginates at
 // 100/page via a rel:next link; a truncated fetch downgrades to append (never deletes OSM).
 export async function fetch3dbag(bbox, { limit = 100, timeoutMs = 60_000, maxPages = 50 } = {}) {
+  // §NL-NATIONWIDE — a whole-country / large bbox is infeasible for the paginated `items` API (a
+  // 4°×3° NL bbox would truncate at maxPages×limit ≈ 5000 buildings → an arbitrary, non-representative
+  // append). Refuse LOUDLY so the caller keeps the OSM clip, exactly like fetchCatastro's guard. The
+  // real whole-country path is the OSM-footprint-join (stamp 3DBAG heights onto bake's own OSM clip),
+  // the same named follow-up as Spain's MDS. A CITY bbox (≤~0.6°, e.g. Amsterdam 0.14°) resolves.
+  if (bboxTooLargeForWfs(bbox)) {
+    return { status: 'documented', provenance: 'tagged',
+      reason: `3DBAG bbox ${(bbox[2] - bbox[0]).toFixed(2)}°×${(bbox[3] - bbox[1]).toFixed(2)}° is too large ` +
+        'for the paginated items API; tile to per-city bboxes (≤~0.6°) or use the OSM-footprint-join ' +
+        '(stamp 3DBAG height onto bake\'s OSM clip). Whole-country keeps OSM (honest assumed default).' };
+  }
   const [w, s, e, n] = bbox;
   const [x0, y0] = wgs84ToRD(s, w);
   const [x1, y1] = wgs84ToRD(n, e);
@@ -1304,6 +1325,237 @@ export async function fetchSpainBuildingHeights(bbox, {
     note: `MDS Edificación (mdsn_e025 P90 over eroded footprint, Catastro footprints) → ${measured}/${allBuildings.length} ` +
       `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s), ` +
       `${catastroErrors} Catastro error(s)${truncated ? ' — partial → APPEND (OSM kept)' : ' → REPLACE'}.`,
+  };
+}
+
+// ── ES WHOLE-COUNTRY join — stamp MDS Edificación heights onto bake's OWN OSM footprints. ────────
+// §MDS-OSM-JOIN (L-6xx, 2026-07-26) — the whole-country answer `fetchSpainBuildingHeights` names as
+// its follow-up. That fetcher pairs the MDS raster with CATASTRO footprints, one slow (~50 s) WFS
+// call per tile, and REFUSES a whole-country bbox — so `resolveHeights('spain')` returns `documented`
+// and the national `spain` region keeps the flat 9 m OSM guess. THIS function closes that gap: it
+// samples the SAME keyless MDS raster (mdsn_e025) against the OSM building footprints bake ALREADY
+// clipped for the region, stamping a MEASURED `height` (tagged) onto each. No Catastro, no second
+// draw (the OSM footprints are MUTATED in place, not appended beside a national set), works over the
+// whole `spain` bbox by tiling ONLY the tiles that actually contain footprints.
+//
+// HONESTY (§CONTEXT-DATA-HONESTY): a footprint that gets a clean MDS sample → real `height` (client
+// derives `tagged`). A footprint with no clean sample keeps its ORIGINAL OSM tags UNTOUCHED (its own
+// `height`/`building:levels`, else the client's assumed 9 m default) — never a fabricated number.
+// Tiles beyond `maxTiles`, or a raster/read error, leave their footprints at the OSM default — the
+// join only ever ADDS real heights, never removes a building or invents one.
+
+/** Exterior ring + holes (WGS84 [lon,lat]) + centroid for ONE GeoJSON building feature, or null.
+ *  Polygon → its rings; MultiPolygon → the LARGEST sub-polygon (a single P90 height per feature). */
+function footprintFromFeature(feat) {
+  const g = feat?.geometry;
+  if (!g) return null;
+  let rings = null;
+  if (g.type === 'Polygon' && Array.isArray(g.coordinates)) {
+    rings = g.coordinates;
+  } else if (g.type === 'MultiPolygon' && Array.isArray(g.coordinates)) {
+    let best = null, bestA = -Infinity;
+    for (const poly of g.coordinates) {
+      const ext = poly?.[0];
+      if (!Array.isArray(ext) || ext.length < 4) continue;
+      let a = 0;
+      for (let i = 0, j = ext.length - 1; i < ext.length; j = i++) a += ext[j][0] * ext[i][1] - ext[i][0] * ext[j][1];
+      a = Math.abs(a) / 2;
+      if (a > bestA) { bestA = a; best = poly; }
+    }
+    rings = best;
+  }
+  const ext = rings?.[0];
+  if (!Array.isArray(ext) || ext.length < 4) return null;
+  const interiors = rings.slice(1).filter((r) => Array.isArray(r) && r.length >= 4);
+  let clon = 0, clat = 0;
+  for (const [lon, lat] of ext) { clon += lon; clat += lat; }
+  clon /= ext.length; clat /= ext.length;
+  if (!Number.isFinite(clon) || !Number.isFinite(clat)) return null;
+  return { ext, interiors, clon, clat };
+}
+
+/**
+ * Stamp REAL MDS Edificación (mdsn_e025) heights onto an EXISTING OSM buildings GeoJSONSeq (bake's own
+ * clip). Reads `inPath`, tiles the region bbox, fetches the keyless MDS raster per POPULATED tile, and
+ * sets `height` = P90 of the raster over each eroded footprint (tagged). Writes the stamped features to
+ * `outPath` (same footprints, heights added — a REPLACE input, no double-draw). Never throws; a source
+ * failure leaves footprints at the OSM default. Mirrors the DK/ES tile-grid raster fetch.
+ * @param bbox [w,s,e,n] WGS84.
+ */
+export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
+  timeoutMs = 120_000,
+  tileSpanDeg = 0.025, maxTiles = 4000, padDeg = 0.0015,
+  erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 2.5,
+} = {}) {
+  if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `MDS join: input footprints not found (${inPath})` };
+  if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'MDS join: no bbox supplied' };
+  const gt = await loadGeoTiff();
+  if (!gt) {
+    return { status: 'documented', reason: 'MDS join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
+  }
+  // Parse the OSM footprints (one Feature per line).
+  const feats = [];
+  for (const line of readFileSync(inPath, 'utf8').split('\n')) {
+    const s = line.trim();
+    if (!s) continue;
+    try { feats.push(JSON.parse(s)); } catch { /* skip a malformed line honestly */ }
+  }
+  if (feats.length === 0) return { status: 'documented', reason: 'MDS join: 0 OSM footprint(s) in the clip; nothing to stamp.' };
+  // Attach a parsed footprint (ext ring + centroid) to each stampable feature.
+  const records = [];
+  for (const feat of feats) {
+    const fp = footprintFromFeature(feat);
+    if (fp) records.push({ feat, ...fp });
+  }
+
+  const [w, s, e, n] = bbox;
+  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
+  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
+  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
+  const heights = [];
+  try {
+    outer:
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
+        const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
+        const inTile = records.filter((r) => !r._done && r.clon >= tw && r.clon < te + 1e-9 && r.clat >= ts && r.clat < tn + 1e-9);
+        if (inTile.length === 0) { emptyTiles++; continue; }
+        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
+        const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
+        const rr = await httpGetBuffer(mdsCoverageUrl(rbox), { timeoutMs });
+        if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; for (const r of inTile) r._done = true; continue; }
+        let mds;
+        try { mds = await readDhmRaster(rr.ab, gt); }
+        catch { tileErrors++; for (const r of inTile) r._done = true; continue; }
+        for (const r of inTile) {
+          r._done = true;
+          const h = mdsHeightForBuilding(r.ext, r.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
+          if (h) {
+            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion' };
+            heights.push(h.height);
+          }
+        }
+        processedTiles++;
+      }
+    }
+  } catch (err) {
+    // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
+    tileCapHit = true;
+    void err;
+  }
+
+  // Emit EVERY footprint (stamped or original). REPLACE input for the region — same footprints, real
+  // heights where MDS answered, OSM default elsewhere.
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, feats.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  const measured = heights.length;
+  heights.sort((a, b) => a - b);
+  return {
+    status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
+    coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
+    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    note: `MDS Edificación stamped onto OSM footprints → ${measured}/${records.length} footprint(s) got a MEASURED ` +
+      `height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
+  };
+}
+
+// ── DK WHOLE-COUNTRY join — stamp DHM nDSM (DSM−DTM) heights onto bake's OWN OSM footprints. ──────
+// §DHM-OSM-JOIN (L-6xx, 2026-07-26) — the DK analogue of the ES MDS join above, and the whole-country
+// answer for Denmark. GeoDanmark's `Bygning` WFS is count-capped (≤6000 features/call) so it CANNOT
+// enumerate the country in one pass, and a DHM tile grid over the whole nation is many rasters — so
+// neither "the existing tile-grid with a higher maxTiles" nor `fetchGeoDanmarkHeights(whole-DK-bbox)`
+// scales (the latter would truncate to 6000 footprints then APPEND them beside the national OSM clip).
+// The OSM-footprint join is the pattern that works: use the OSM buildings bake ALREADY clipped as the
+// footprint set, and fetch DHM DSM+DTM ONLY for tiles that contain footprints, sampling nDSM per
+// building (P90 of DSM−DTM over the eroded interior → `tagged`), mirroring the DK city path exactly.
+//
+// apikey-GATED (DATAFORDELER_API_KEY — same key as the DK Matrikel proxy + DHM terrain adapter). No
+// key → `blocked` (loud), footprints keep the OSM default. §CONTEXT-DATA-HONESTY: never a fabricated
+// height; a footprint with no clean nDSM keeps its original OSM tags untouched.
+export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
+  env = process.env, timeoutMs = 120_000,
+  resM = 2.0, maxTilePx = 1000, tileSpanDeg = 0.02, maxTiles = 4000, padM = 40,
+  erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0,
+} = {}) {
+  const apikey = env.DATAFORDELER_API_KEY;
+  if (!apikey) return { status: 'blocked', reason: GEODANMARK_BLOCKED_REASON };
+  if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `DHM join: input footprints not found (${inPath})` };
+  if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'DHM join: no bbox supplied' };
+  const gt = await loadGeoTiff();
+  if (!gt) return { status: 'documented', reason: 'DHM join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
+
+  const feats = [];
+  for (const line of readFileSync(inPath, 'utf8').split('\n')) {
+    const s = line.trim();
+    if (!s) continue;
+    try { feats.push(JSON.parse(s)); } catch { /* skip malformed line */ }
+  }
+  if (feats.length === 0) return { status: 'documented', reason: 'DHM join: 0 OSM footprint(s) in the clip; nothing to stamp.' };
+  // Each stampable feature → native EPSG:25832 rings (DHM's own CRS) + a native centroid for tiling.
+  const records = [];
+  for (const feat of feats) {
+    const fp = footprintFromFeature(feat);
+    if (!fp) continue;
+    const extNative = fp.ext.map(([lon, lat]) => wgs84ToUtm32(lat, lon));
+    const interiorsNative = fp.interiors.map((r) => r.map(([lon, lat]) => wgs84ToUtm32(lat, lon)));
+    let cx = 0, cy = 0;
+    for (const [X, Y] of extNative) { cx += X; cy += Y; }
+    cx /= extNative.length; cy /= extNative.length;
+    records.push({ feat, extNative, interiorsNative, cx, cy });
+  }
+
+  // Native EPSG:25832 extent covering the bbox (cover all four corners for grid convergence).
+  const c = [wgs84ToUtm32(bbox[1], bbox[0]), wgs84ToUtm32(bbox[1], bbox[2]), wgs84ToUtm32(bbox[3], bbox[0]), wgs84ToUtm32(bbox[3], bbox[2])];
+  const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]);
+  const minE = Math.min(...xs), maxE = Math.max(...xs), minN = Math.min(...ys), maxN = Math.max(...ys);
+  const tileSpanM = tileSpanDeg * 111320; // ~metres for the chosen degree span (DK latitudes)
+  const nx = Math.max(1, Math.ceil((maxE - minE) / tileSpanM));
+  const ny = Math.max(1, Math.ceil((maxN - minN) / tileSpanM));
+  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
+  const heights = [];
+  try {
+    outer:
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const tx0 = minE + ix * tileSpanM, ty0 = minN + iy * tileSpanM;
+        const tx1 = Math.min(tx0 + tileSpanM, maxE), ty1 = Math.min(ty0 + tileSpanM, maxN);
+        const inTile = records.filter((r) => !r._done && r.cx >= tx0 && r.cx < tx1 + 1e-6 && r.cy >= ty0 && r.cy < ty1 + 1e-6);
+        if (inTile.length === 0) { emptyTiles++; continue; }
+        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
+        const box = [tx0 - padM, ty0 - padM, tx1 + padM, ty1 + padM];
+        const dim = Math.max(2, Math.min(maxTilePx, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) / resM)));
+        const dsmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dsm, box, dim, apikey), { timeoutMs });
+        const dtmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dtm, box, dim, apikey), { timeoutMs });
+        if (!dsmR.ok || !dtmR.ok || !/tiff/i.test(dsmR.ct) || !/tiff/i.test(dtmR.ct)) { tileErrors++; for (const r of inTile) r._done = true; continue; }
+        let dsm, dtm;
+        try { dsm = await readDhmRaster(dsmR.ab, gt); dtm = await readDhmRaster(dtmR.ab, gt); }
+        catch { tileErrors++; for (const r of inTile) r._done = true; continue; }
+        for (const r of inTile) {
+          r._done = true;
+          const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
+          if (h) {
+            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'geodanmark-dhm' };
+            heights.push(h.height);
+          }
+        }
+        processedTiles++;
+      }
+    }
+  } catch (err) { tileCapHit = true; void err; }
+
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, feats.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  const measured = heights.length;
+  heights.sort((a, b) => a - b);
+  return {
+    status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
+    coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
+    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    note: `DHM nDSM (P90 of dhm_overflade−dhm_terraen) stamped onto OSM footprints → ${measured}/${records.length} ` +
+      `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit)` : ''}.`,
   };
 }
 

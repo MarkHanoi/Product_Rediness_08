@@ -502,7 +502,9 @@ describe('§L-574 — construction-incomplete is its own refusal, not either exi
     it('the legal refusal still defaults to `not-applicable` — the default did not shift', () => {
         // Guard on the signature change: adding an optional 3rd parameter must not silently
         // re-status the 24.2 % of Barcelona that is a genuine legal refusal.
-        const legal = buildRefusedEnvelope('6b', barcelonaZoneRefusal('6b')!);
+        // Production attaches per-parcel facts before building (esBarcelonaZoneClassification
+        // `attach()`); ClassifiedRefusal omits `knownFacts`, so mirror that step here.
+        const legal = buildRefusedEnvelope('6b', { ...barcelonaZoneRefusal('6b')!, knownFacts: [] });
         expect(legal.status).toBe('not-applicable');
     });
 });

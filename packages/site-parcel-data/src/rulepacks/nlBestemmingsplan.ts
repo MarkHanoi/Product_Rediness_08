@@ -1,10 +1,11 @@
-// L-609 — Amsterdam (BAG/CBS gemeente 0363) rule pack: the bestemmingsplan `explicit-area` zone.
+// L-609 / §NL-NATIONWIDE — Netherlands (national) bestemmingsplan rule pack: the `explicit-area`
+// zone. NATIONWIDE (was Amsterdam gemeente 0363 only) and served by a KEYLESS source.
 //
-// ⚠⚠ THIS PACK IS A DECLARATION, NOT A SOLVE. Its numeric fields are all `null`: an Amsterdam
-//     parcel's REAL numbers come LIVE from the plan's `maatvoering` objects (resolved by
-//     `resolveAmsterdamBestemmingsplan`), not from this pack. What the pack declares is the SHAPE of
-//     the rule (`explicit-area` — the ordinance publishes the buildable `bouwvlak` as geometry) and
-//     the governing citation. Read this header before touching it or the registry.
+// ⚠⚠ THIS PACK IS A DECLARATION, NOT A SOLVE. Its numeric fields are all `null`: an NL parcel's
+//     REAL numbers come LIVE from the plan's `maatvoering` objects (resolved by
+//     `resolveNlBestemmingsplan`), not from this pack. What the pack declares is the SHAPE of the
+//     rule (`explicit-area` — the ordinance publishes the buildable `bouwvlak` as geometry) and the
+//     governing citation. Read this header before touching it or the registry.
 //
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 // WHY explicit-area, AND WHY NL IS THE STRONGEST CASE FOR IT (C58 §2.2 / ADR-0270)
@@ -18,29 +19,30 @@
 // UNAMBIGUOUS SVBP2012 units — "maximum bouwhoogte (m)" (height), "maximum bebouwingspercentage (%)"
 // (coverage), "maximum aantal bouwlagen" (storeys). Madrid's COEF_Z is a coded token whose FAR
 // semantics stay withheld (⇒ estimated-ruleset even when certified); a clean NL "maximum bouwhoogte
-// (m)" is a genuine `published-structured` metre value. So a CERTIFIED Amsterdam parcel with a real
-// maatvoering can render `structured` (the dispatcher feeds the height into `structuredFields`),
-// not merely `estimated-ruleset`. See `resolveAmsterdamBestemmingsplan.ts` + the dispatcher.
+// (m)" is a genuine `published-structured` metre value. So a CERTIFIED NL parcel with a real
+// maatvoering renders `structured` (the dispatcher feeds the height into `structuredFields`), not
+// merely `estimated-ruleset`. See `resolveNlBestemmingsplan.ts` + the dispatcher.
 //
 // ═════════════════════════════════════════════════════════════════════════════════════════════
-// WHY IT DOES NOT SOLVE YET, AND WHY THAT IS THE SAFE STATE (§CONTEXT-DATA-HONESTY)
+// WHY IT SOLVES NOW — the KEYLESS route (§NL-NATIONWIDE, 2026-07-26)
 // ═════════════════════════════════════════════════════════════════════════════════════════════
-// The national DSO **Ruimtelijke Plannen API v4** is LIVE and authoritative (probe L-609,
-// 2026-07-25 at 52.3676,4.9041: `POST …/plannen/_zoek` returned HTTP 401 "Missing API Key"), but it
-// is GATED behind an Informatiehuis Ruimte API key PRYZM does not yet hold, and no same-origin proxy
-// is wired. So until `NL_AMS_BESTEMMINGSPLAN_CERTIFIED` is signed the dispatcher renders the cited
-// `nlAmsterdamRefusal` — never a fabricated bouwhoogte (C58 §1.4). A plan that GENUINELY lacks a
-// maatvoering also refuses honestly (naming the plan), rather than invent a height.
+// The original slice routed through the DSO Ruimtelijke Plannen API v4, which is GATED behind an
+// Informatiehuis Ruimte API key PRYZM does not hold (probe 2026-07-25 → HTTP 401). This slice uses
+// the founder-verified KEYLESS route instead: the PDOK "Ruimtelijke plannen" WMS
+// (`service.pdok.nl/kadaster/ruimtelijke-plannen/wms/v1_0`), a national mirror of every officially-
+// published Wro/Bro plan. `GetFeatureInfo` at a point returns the bouwvlak geometry + the maatvoering
+// numbers, no key. Verified live (2026-07-26): maximum bouwhoogte Rotterdam 40 m, Utrecht 26 m,
+// Groningen 24 m. So `NL_BESTEMMINGSPLAN_CERTIFIED` is ON and a parcel with a resolved maatvoering
+// renders a real `structured` envelope; a plan that GENUINELY lacks a maatvoering refuses honestly
+// (naming the plan), rather than invent a height (§CONTEXT-DATA-HONESTY).
 //
 // ═════════════════════════════════════════════════════════════════════════════════════════════
-// WIRING TODO (orchestrator) — DO NOT DO THIS FROM AN IMPLEMENTER AGENT
+// REGISTRATION NOTE (orchestrator)
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 //   This file is intentionally NOT imported by `registry.ts` (mirrors the Madrid L-608 constraint):
-//   the dispatcher (`applyNlZoningThenFallback`) references the pack directly, gated on the flag.
-//   Full registration is unlocked only AFTER: (a) the `/api/nl/bestemmingsplan` proxy is wired with
-//   the key; (b) a real plan's `bouwvlak` + `maximum bouwhoogte (m)` are human-verified; (c) the
-//   `NL_AMS_BESTEMMINGSPLAN_CERTIFIED` gate is flipped. Then add an Amsterdam
-//   `JurisdictionRegistration` (extent = the Amsterdam bbox + `contains` predicate).
+//   the dispatcher (`applyNlZoningThenFallback`) references the pack directly, gated on
+//   `isInNetherlands` + `NL_BESTEMMINGSPLAN_CERTIFIED`. If a `JurisdictionRegistration` is ever
+//   added to the coverage globe, its extent is the national NL bbox + `contains` predicate.
 //
 // Confidence: `estimated-ruleset` as a PACK default — a pack cannot self-certify. The per-parcel
 // render is `structured` when a live maatvoering resolves under the certified gate (see above).
@@ -55,41 +57,41 @@ import {
     type EnvelopeRefusal,
     type PermittedUse,
 } from '@pryzm/schemas';
-import { NL_AMS_RING_REF } from '../providers/resolveAmsterdamBestemmingsplan.js';
+import { NL_RING_REF } from '../providers/resolveNlBestemmingsplan.js';
 
-/** The jurisdiction id Amsterdam packs and records use — gemeente 0363 (BAG/CBS). */
-export const NL_AMS_JURISDICTION_ID = 'nl-0363-amsterdam';
+/** The jurisdiction id NL bestemmingsplan packs and records use (national, was `nl-0363-amsterdam`). */
+export const NL_JURISDICTION_ID = 'nl-bestemmingsplan';
 
 /** The single generic zone code this pack answers for. The real bestemming (zone naam) rides on the
  *  `ZoningRecord` per parcel; the pack keys one `explicit-area` zone because the buildability SHAPE
  *  is identical across bestemmingen — the `bouwvlak` IS the rule (mirrors Madrid's one-rule pack). */
-export const NL_AMS_ZONE_CODE = 'nl-ams:bouwvlak' as const;
+export const NL_ZONE_CODE = 'nl:bouwvlak' as const;
 
 /** The governing citation carried on the pack + the refusal. */
-export const NL_AMS_ORDINANCE_REF =
+export const NL_ORDINANCE_REF =
     'Bestemmingsplan (Wet ruimtelijke ordening) — het buildable `bouwvlak` en de `maatvoering` ' +
     '(o.a. "maximum bouwhoogte (m)", "maximum bebouwingspercentage (%)", "maximum aantal ' +
-    'bouwlagen") worden machine-leesbaar gepubliceerd volgens IMRO2012 / SVBP2012, ontsloten via ' +
-    'de DSO Ruimtelijke Plannen API v4 (Kadaster / Informatiehuis Ruimte), ' +
-    'ruimte.omgevingswet.overheid.nl/ruimtelijke-plannen/api/opvragen/v4 (live geverifieerd ' +
-    '2026-07-25). Daarom is deze zone gemodelleerd als explicit-area (het bouwvlak IS de regel), ' +
-    'niet getranscribeerd naar setback-afstanden.';
+    'bouwlagen") worden machine-leesbaar gepubliceerd volgens IMRO2012 / SVBP2012, landelijk ' +
+    'keyless ontsloten via de PDOK-webservice "Ruimtelijke plannen" (WMS), ' +
+    'service.pdok.nl/kadaster/ruimtelijke-plannen/wms/v1_0 (live geverifieerd 2026-07-26). Daarom ' +
+    'is deze zone gemodelleerd als explicit-area (het bouwvlak IS de regel), niet getranscribeerd ' +
+    'naar setback-afstanden.';
 
 /**
- * The Amsterdam bestemmingsplan geometric rule. `explicit-area` carries ONLY a `ringRef`: the
- * `bouwvlak` geometry is resolved at the provider boundary (`resolveAmsterdamBestemmingsplan`),
- * never inlined here. The handle is versioned so the pack stays diffable across API vintages.
+ * The NL bestemmingsplan geometric rule. `explicit-area` carries ONLY a `ringRef`: the `bouwvlak`
+ * geometry is resolved at the provider boundary (`resolveNlBestemmingsplan`), never inlined here.
+ * The handle is versioned so the pack stays diffable across API vintages.
  */
-export const NL_AMS_RULE: GeometricRule = {
+export const NL_RULE: GeometricRule = {
     kind: 'explicit-area',
-    ringRef: NL_AMS_RING_REF,
+    ringRef: NL_RING_REF,
 };
 
 /**
- * The generic Amsterdam bestemmingsplan zone. Every numeric field is `null` — the parcel's real
- * numbers are the LIVE maatvoering, resolved externally; the `bouwvlak` geometry IS the shape rule.
+ * The generic NL bestemmingsplan zone. Every numeric field is `null` — the parcel's real numbers are
+ * the LIVE maatvoering, resolved externally; the `bouwvlak` geometry IS the shape rule.
  */
-function nlAmsterdamZone(code: string) {
+function nlZone(code: string) {
     return {
         code,
         label: 'Bestemmingsplan bouwvlak (IMRO2012 / SVBP2012)',
@@ -99,27 +101,27 @@ function nlAmsterdamZone(code: string) {
         plotRatioFAR: null,
         maxCoverage: null,
         setbacks: { front_m: null, side_m: null, rear_m: null },
-        geometricRule: NL_AMS_RULE,
+        geometricRule: NL_RULE,
         fieldProvenance: {},
-        ordinanceRef: NL_AMS_ORDINANCE_REF,
+        ordinanceRef: NL_ORDINANCE_REF,
     };
 }
 
 /**
- * The Amsterdam bestemmingsplan pack. `defaultConfidence: 'estimated-ruleset'` — a pack cannot
+ * The NL bestemmingsplan pack. `defaultConfidence: 'estimated-ruleset'` — a pack cannot
  * self-certify; the per-parcel render upgrades to `structured` when a live maatvoering resolves
  * under the certified gate. `source: 'manual'` — the pack asserts NO numbers (all null); the real
- * data source (`nl-rp-api-v4`) is stamped on the `ZoningRecord.provenance` at dispatch time.
+ * data source (`nl-pdok-rp-wms`) is stamped on the `ZoningRecord.provenance` at dispatch time.
  */
-export const NL_AMSTERDAM_BESTEMMINGSPLAN_PACK: JurisdictionZoningContract =
+export const NL_BESTEMMINGSPLAN_PACK: JurisdictionZoningContract =
     JurisdictionZoningContractSchema.parse({
-        jurisdictionId: NL_AMS_JURISDICTION_ID,
-        displayName: 'Amsterdam — bestemmingsplan bouwvlak + maatvoering (DSO RP API v4)',
+        jurisdictionId: NL_JURISDICTION_ID,
+        displayName: 'Netherlands — bestemmingsplan bouwvlak + maatvoering (PDOK RP WMS)',
         source: 'manual',
-        crs: 'EPSG:4326', // the proxy asks the RP API for WGS84 (content-crs epsg:4326); L5 projects it.
-        lastReviewed: '2026-07-25',
+        crs: 'EPSG:4326', // the proxy asks the RP WMS for WGS84 (crs EPSG:4326); L5 projects it.
+        lastReviewed: '2026-07-26',
         defaultConfidence: 'estimated-ruleset',
-        zones: [nlAmsterdamZone(NL_AMS_ZONE_CODE)],
+        zones: [nlZone(NL_ZONE_CODE)],
     });
 
 /**
@@ -156,23 +158,22 @@ export function bestemmingToPermittedUse(bestemming: string | null | undefined):
 }
 
 /**
- * L-609 — the Amsterdam bestemmingsplan REFUSAL, shipped WHILE the RP API v4 key/proxy are not
- * wired (and `NL_AMS_BESTEMMINGSPLAN_CERTIFIED` is OFF), OR when a resolved plan genuinely lacks a
- * `bouwvlak`.
+ * L-609 — the NL bestemmingsplan REFUSAL, shipped when a resolved plan genuinely lacks a `bouwvlak`
+ * (or no plan at all covers the point, or the keyless service is transiently unreachable).
  *
- * ⚠ THIS, NOT A NUMBER, IS THE CURRENT SHIPPING OUTPUT for an Amsterdam parcel. The honest answer
- * until the published `bouwvlak` + `maatvoering` are resolvable AND verified is a cited refusal —
- * never a fabricated bouwhoogte or bebouwingspercentage (C58 §1.4, §CONTEXT-DATA-HONESTY: a REFUSAL
- * and a FAILURE must not collapse to the same value).
+ * ⚠ With `NL_BESTEMMINGSPLAN_CERTIFIED` ON this is NOT the default output — a parcel WITH a resolved
+ * bouwvlak + maatvoering renders a real `structured` envelope. This refusal is the honest answer for
+ * the residual cases (§CONTEXT-DATA-HONESTY: a REFUSAL and a FAILURE must not collapse to the same
+ * value; never a fabricated bouwhoogte or bebouwingspercentage — C58 §1.4).
  *
  * `code: 'source-data-unavailable'` — PRYZM HOLDS the rule (this explicit-area declaration +
- * `resolveAmsterdamBestemmingsplan`), but cannot yet fetch the published `bouwvlak`/`maatvoering`
- * (no keyed same-origin proxy). `legallyGrounded: false` — the LAW is known; what is missing is our
- * data path, a statement about PRYZM's inputs, not about the ordinance. The `ordinanceRef` cites the
+ * `resolveNlBestemmingsplan`), but no bouwvlak/maatvoering could be resolved for THIS parcel.
+ * `legallyGrounded: false` — the LAW is known; what is missing is our data path for this parcel, a
+ * statement about PRYZM's inputs, not about the ordinance. The `ordinanceRef` cites the
  * bestemmingsplan / IMRO publication for the one LEGAL claim we make (that NL publishes the bouwvlak
  * as geometry), never for a number.
  */
-export function nlAmsterdamRefusal(
+export function nlBestemmingsplanRefusal(
     planName: string | null = null,
     knownFacts: readonly string[] = [],
 ): EnvelopeRefusal {
@@ -180,17 +181,18 @@ export function nlAmsterdamRefusal(
     return {
         code: 'source-data-unavailable',
         headline:
-            'Amsterdam bestemmingsplan — the published buildable envelope (bouwvlak) could not be ' +
-            `resolved for this parcel yet${planClause}.`,
+            'Bestemmingsplan — the published buildable envelope (bouwvlak) could not be resolved ' +
+            `for this parcel yet${planClause}.`,
         detail:
-            'PRYZM models the Amsterdam bestemmingsplan as an explicit-area zone: the plan publishes ' +
+            'PRYZM models the Dutch bestemmingsplan as an explicit-area zone: the plan publishes ' +
             'the buildable envelope (bouwvlak) and its dimensions (maatvoering — e.g. "maximum ' +
             'bouwhoogte (m)", "maximum bebouwingspercentage (%)") machine-readable per IMRO2012 / ' +
-            'SVBP2012, served by the national DSO Ruimtelijke Plannen API v4. That data must be ' +
-            'fetched live for your parcel through an authenticated key, which is not wired here yet. ' +
-            'Rather than fabricate a maximum height or coverage, PRYZM declines to draw a buildable ' +
-            'envelope — no number is shown because none can be cited.',
-        ordinanceRef: NL_AMS_ORDINANCE_REF,
+            'SVBP2012, served keyless by the national PDOK "Ruimtelijke plannen" WMS. For this ' +
+            'parcel no bouwvlak resolved (the point may fall outside an adopted plan, on a zone ' +
+            'without a bouwvlak, or the service was briefly unreachable). Rather than fabricate a ' +
+            'maximum height or coverage, PRYZM declines to draw a buildable envelope — no number is ' +
+            'shown because none can be cited.',
+        ordinanceRef: NL_ORDINANCE_REF,
         legallyGrounded: false,
         knownFacts: [...knownFacts],
     };

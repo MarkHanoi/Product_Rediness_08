@@ -1,12 +1,11 @@
 // PARIS — the PLU bioclimatique PACK test: the curated `FR_PARIS_PLU_PACK`, the honesty-preserving
 // `parisPluEnvelopeRefusal` (carries the real zone + hauteur, never a fabricated emprise), and the
-// CERTIFIED massing cap through `computeBuildableEnvelope` (parcel × hauteur at estimated-ruleset).
+// STRUCTURED-DATA-FIRST envelope engine `computeParisEnvelope` — the real ECM-footprint volume that
+// replaces the old fabricated parcel×hauteur massing cap.
 //
 // Mirrors `esMadridNZ1Pack.test.ts` / the CH pack tests: a pack that refuses the parts it cannot cite.
 
 import { describe, it, expect } from 'vitest';
-import type { Pt, ParcelEdgeClassification, ZoningRecord } from '@pryzm/schemas';
-import { computeBuildableEnvelope } from '../src/index.js';
 import {
     FR_PARIS_PLU_PACK,
     FR_PARIS_PLU_CERTIFIED,
@@ -14,12 +13,19 @@ import {
     PARIS_JURISDICTION_ID,
     PARIS_PLU_ORDINANCE_REF,
     PARIS_PLU_MISSING_RULES,
+    PARIS_ECM_MISSING_COURONNEMENT,
     parisUgHeightMassingSupported,
     parisPluEnvelopeRefusal,
     parisZoneCodeFor,
     parisZoneLabelFor,
+    computeParisEnvelope,
+    projectParisRingToEnu,
 } from '../src/rulepacks/frParisPluBioclimatique.js';
-import type { ParisZoneIdentification } from '../src/providers/resolveParisPluZone.js';
+import type {
+    ParisZoneIdentification,
+    ParisEnvelopeInputs,
+    ParisLonLat,
+} from '../src/providers/resolveParisPluZone.js';
 
 const UG_ZONE: ParisZoneIdentification = {
     zoneCode: 'UG',
@@ -30,19 +36,43 @@ const UG_ZONE: ParisZoneIdentification = {
     approvedOn: null,
 };
 
-// A 20 m × 30 m Paris parcel (600 m²), in scene-XZ (the frame dispatchParcelBoundary produced).
-const PARCEL: Pt[] = [{ x: 0, z: 0 }, { x: 20, z: 0 }, { x: 20, z: 30 }, { x: 0, z: 30 }];
-const EDGES: ParcelEdgeClassification[] = ['front', 'side', 'rear', 'side'];
+// The REAL live ECM footprint (plub_ecm, verified 2026-07-26 at 2.39303,48.88277): an 83.12 m² polygon
+// (st_area_shape), emprise 0, graphic hauteur 0, cadastral 19-DL-0002. WGS84 [lon,lat].
+const ECM_RING: ParisLonLat[] = [
+    [2.3931038094292516, 48.88276064338342],
+    [2.393001862080542, 48.88271733661974],
+    [2.392945092827867, 48.88277390868914],
+    [2.3930191509844616, 48.88280803048602],
+    [2.3930429653843492, 48.88281900338607],
+    [2.3930497999222764, 48.88282215240052],
+    [2.393065568606225, 48.882829417055696],
+    [2.3930732840190987, 48.88282192071428],
+    [2.3930879424678713, 48.88280767864911],
+    [2.393104230241959, 48.88279216510006],
+    [2.3931019714300135, 48.882791286699536],
+    [2.3931227489565896, 48.88276868763264],
+    [2.3931038094292516, 48.88276064338342],
+];
 
-function ugRecord(hauteur_m: number): ZoningRecord {
+/** The full live-probe inputs at the ECM parcel (zone UG, 25 m ceiling, filet V, crown C). */
+function envInputs(overrides: Partial<ParisEnvelopeInputs> = {}): ParisEnvelopeInputs {
     return {
-        zoneCode: FR_PARIS_UG_ZONE_CODE,
-        zoneLabel: 'Zone urbaine générale (UG)',
-        jurisdictionId: PARIS_JURISDICTION_ID,
-        structuredFields: { maxHeight_m: hauteur_m },
-        overlays: [],
-        ordinanceRef: null,
-        provenance: { source: 'gpu-paris-plu', label: 'Paris PLU-b', version: null, license: null, crs: 'EPSG:4326' },
+        zone: UG_ZONE,
+        ecmGeometry: ECM_RING,
+        ecmAreaM2: 83.122,
+        ecmEmprisePct: null,
+        ecmHeight: null,
+        ecmCadastral: '19-DL-0002',
+        heightCeiling_m: 25,
+        hmc_m: null,
+        hmcDatum: null,
+        filetCode: 'V',
+        filetHeight_m: 10,
+        courCode: 'C',
+        ealGeometry: null,
+        ealAreaM2: null,
+        sourceVersion: '2026-06-16',
+        ...overrides,
     };
 }
 
@@ -143,21 +173,107 @@ describe('parisPluEnvelopeRefusal — carries the real zone + hauteur, never a f
 });
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-describe('THE CERTIFIED MASSING CAP — parcel × hauteur through computeBuildableEnvelope', () => {
-    it('a UG parcel + a resolved 25 m height → full-parcel footprint at 25 m, estimated-ruleset', () => {
-        const env = computeBuildableEnvelope({
-            parcelRing: PARCEL,
-            edgeClassifications: EDGES,
-            zoning: ugRecord(25),
-            rulePack: FR_PARIS_PLU_PACK,
-        });
-        expect(env.status).toBe('ok');
-        // emprise = the parcel (0/0/0 setbacks) — the massing cap covers the whole 600 m².
-        expect(env.insetAreaM2).toBeCloseTo(600, 3);
-        expect(env.maxHeight_m).toBe(25);
-        // NEVER structured: the emprise is an assumption, not cited data.
-        expect(env.confidence).toBe('estimated-ruleset');
-        // No coverage is ever asserted.
-        expect(env.maxCoverage).toBeNull();
+describe('projectParisRingToEnu — the ECM ring → local-ENU-metres projection reproduces the source area', () => {
+    it('the live 83.12 m² ECM ring projects to ~83 m² (< 1 % drift vs st_area_shape)', () => {
+        const poly = projectParisRingToEnu(ECM_RING);
+        expect(poly.length).toBe(ECM_RING.length - 1); // closing vertex dropped
+        // Shoelace on the projected polygon.
+        let s = 0;
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!;
+            const b = poly[(i + 1) % poly.length]!;
+            s += a.x * b.z - b.x * a.z;
+        }
+        const area = Math.abs(s / 2);
+        expect(area).toBeGreaterThan(82);
+        expect(area).toBeLessThan(84);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+describe('computeParisEnvelope — the STRUCTURED ECM-footprint volume (geometry, never parcel×%)', () => {
+    it('the live ECM parcel → footprint ~83 m², 25 m, ~2077 m³ volume, confidence STRUCTURED', () => {
+        const r = computeParisEnvelope(envInputs());
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.footprintAreaM2).toBeCloseTo(83.06, 0); // real geometry, not a parcel×% guess
+        expect(r.height_m).toBe(25);
+        expect(r.heightBinding).toBe('height-ceiling');
+        expect(r.volumeM3).toBeCloseTo(83.06 * 25, 0);
+        expect(r.confidence).toBe('structured'); // ECM polygon + published ceiling both resolved
+        expect(r.components).toEqual({ footprint: 'structured', height: 'structured', couronnement: 'structured' });
+        expect(r.couronnementRefusal).toBeNull(); // cour = C (pitched), no crown refusal
+        expect(r.missingRules).toEqual([]);
+        expect(r.knownFacts.some((f) => f.includes('Buildable footprint (ECM)'))).toBe(true);
+        expect(r.knownFacts.some((f) => f.includes('Theoretical max volume'))).toBe(true);
+    });
+
+    it('cour = X (continuous crown) → PARTIAL refusal for the couronnement, but volume STILL ships', () => {
+        const r = computeParisEnvelope(envInputs({ courCode: 'X' }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        // Footprint + straight extrusion still computed.
+        expect(r.footprintAreaM2).toBeGreaterThan(82);
+        expect(r.volumeM3).toBeGreaterThan(2000);
+        // The crown component is a cited PARTIAL refusal, art. UG.3.2.4.
+        expect(r.components.couronnement).toBe('refused');
+        expect(r.couronnementRefusal).not.toBeNull();
+        expect(r.couronnementRefusal!.ordinanceRef).toContain('UG.3.2.4');
+        expect(r.couronnementRefusal!.legallyGrounded).toBe(false);
+        expect(r.missingRules).toEqual([PARIS_ECM_MISSING_COURONNEMENT]);
+        expect(r.caveats.some((c) => c.includes('UG.3.2.4'))).toBe(true);
+    });
+
+    it('NO ECM at the point → the FOOTPRINT component refuses (cited), carrying zone + height facts', () => {
+        const r = computeParisEnvelope(envInputs({ ecmGeometry: null }), ['Location: Paris (48.85700, 2.38000)']);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.refusedComponent).toBe('footprint');
+        expect(r.refusal.code).toBe('source-data-unavailable');
+        expect(r.refusal.legallyGrounded).toBe(false);
+        expect(r.refusal.knownFacts.some((f) => f.includes('Zone urbaine générale'))).toBe(true);
+        expect(r.refusal.knownFacts.some((f) => f.includes('25 m'))).toBe(true);
+        expect(r.refusal.knownFacts).toContain('Location: Paris (48.85700, 2.38000)');
+    });
+
+    it('ECM present but NO published height → the HEIGHT component refuses (never invents a height)', () => {
+        const r = computeParisEnvelope(envInputs({ heightCeiling_m: null, ecmHeight: null, hmc_m: null }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.refusedComponent).toBe('height');
+    });
+
+    it('height = MIN of the resolved candidates (ECM graphic 18 m beats the 25 m ceiling)', () => {
+        const r = computeParisEnvelope(envInputs({ ecmHeight: 18 }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.height_m).toBe(18);
+        expect(r.heightBinding).toBe('ecm-graphic');
+        expect(r.confidence).toBe('structured'); // the ceiling still resolved → structured
+    });
+
+    it('HMC with an NGF datum is an ABSOLUTE altitude — never applied as a height cap', () => {
+        const r = computeParisEnvelope(envInputs({ hmc_m: 85, hmcDatum: 'NGF' }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.height_m).toBe(25); // the NGF 85 is NOT min-ed in
+        expect(r.caveats.some((c) => c.includes('absolute altitude'))).toBe(true);
+    });
+
+    it('an EAL strip is SUBTRACTED from the footprint (reduces, never inflates)', () => {
+        const gross = computeParisEnvelope(envInputs());
+        const withEal = computeParisEnvelope(envInputs({ ealAreaM2: 10 }));
+        expect(gross.ok && withEal.ok).toBe(true);
+        if (!gross.ok || !withEal.ok) return;
+        expect(withEal.footprintAreaM2).toBeCloseTo(gross.footprintAreaM2 - 10, 3);
+        expect(withEal.footprintAreaM2).toBeLessThan(gross.footprintAreaM2);
+    });
+
+    it('no published ceiling, only the ECM graphic height → confidence drops to estimated-ruleset', () => {
+        const r = computeParisEnvelope(envInputs({ heightCeiling_m: null, ecmHeight: 20 }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.height_m).toBe(20);
+        expect(r.confidence).toBe('estimated-ruleset');
     });
 });

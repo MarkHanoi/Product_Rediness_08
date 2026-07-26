@@ -278,7 +278,15 @@ export const TERRAIN_SOURCES = {
 // ═════════════════════════════════════════════════════════════════════════════
 export const REGIONS = [
   // slug          source  bbox [W,S,E,N]                          note
+  // §NL-NATIONWIDE — NL terrain stays PER-CITY (keyless AHN). ⚠ This deliberately DIVERGES from
+  // bake.mjs's building REGIONS, which now bakes the WHOLE `netherlands` (buildings are cheap OSM
+  // tiles). Whole-country AHN quantized-mesh is a HEAVY bake (see the terrain follow-up note), so we
+  // cover the demo cities per-city and leave the country-wide DTM as a scoped follow-up.
   { name: 'amsterdam',    source: 'nl', bbox: [4.83, 52.34, 4.97, 52.42] },
+  { name: 'rotterdam',    source: 'nl', bbox: [4.42, 51.88, 4.55, 51.96] },
+  { name: 'utrecht',      source: 'nl', bbox: [5.06, 52.06, 5.16, 52.12] },
+  { name: 'thehague',     source: 'nl', bbox: [4.25, 52.04, 4.35, 52.10] },
+  { name: 'eindhoven',    source: 'nl', bbox: [5.42, 51.40, 5.52, 51.48] },
   { name: 'paris',        source: 'fr', bbox: [2.22, 48.80, 2.47, 48.91] },
   { name: 'lyon',         source: 'fr', bbox: [4.78, 45.70, 4.92, 45.80] },
   { name: 'rome',         source: 'it', bbox: [12.40, 41.83, 12.60, 41.99] },

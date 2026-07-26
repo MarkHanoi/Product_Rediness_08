@@ -68,7 +68,7 @@ import {
  * (Typed `boolean`, not the literal `false`, so the certified compute branches are not narrowed away
  * as dead code while the gate is closed — same discipline as `FR_PARIS_PLU_CERTIFIED`.)
  */
-export const CH_FAR_CERTIFIED: boolean = true; // SIGNED OFF 2026-07-26 by repo owner (MarkHanoi) — see ch/sources/VERIFICATION.md. Zürich computed envelope ships at 'estimated-ruleset' (transcribed BZO 700.100 values); regime resolved per-parcel via the crosswalk, unresolved parcels honestly refuse.
+export const CH_FAR_CERTIFIED: boolean = false; // Data SIGNED OFF 2026-07-26 by repo owner (MarkHanoi) — see ch/sources/VERIFICATION.md — but the FLAG is held OFF: `computeZurichBzoEnvelope` is NOT yet wired into siteDispatch (L-616 audit), and the shared massing extrudes footprint×height ignoring the AZ/GFA cap (CesiumViewport.ts:4745). Flipping ON now would ship an OVERSTATED Zürich solid. Re-flip to true only WITH the compute-wiring + GFA cap (L-616 fix #5) — all together, measured — then update the gate-ON tests. The founder's data verification stands; the flag waits on the safe wiring.
 
 /** Which density ratio a harvested `Nutzungsziffer` is (INTERLIS `Nutzungsziffer_Art`). Semantics differ. */
 export type ChFarKind =

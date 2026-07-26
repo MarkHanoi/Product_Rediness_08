@@ -419,40 +419,43 @@ export {
     type MadridRingResolution,
     type MadridRingRefusalReason,
 } from './providers/resolveMadridNZ1Ring.js';
-// ── L-609 — Amsterdam (BAG/CBS gemeente 0363) jurisdiction gate + the bestemmingsplan explicit-area ──
-// pack, refusal + the `ringRef` resolver + maatvoering reader. The pack ships numeric fields null and
-// a bouwvlak HANDLE; `resolveAmsterdamBestemmingsplan` turns that handle into a WGS84 buildable ring
-// PLUS the live maatvoering (max bouwhoogte / bebouwingspercentage / bouwlagen) — or a typed refusal
-// (it never throws). Until the keyed RP-API-v4 proxy is wired AND a plan is verified, an Amsterdam
-// parcel REFUSES (never a fabricated number) — see `nlAmsterdamBestemmingsplan.ts`.
+// ── L-609 / §NL-NATIONWIDE — Netherlands (national) bestemmingsplan explicit-area pack, refusal + ──
+// the `ringRef` resolver + maatvoering reader. NATIONWIDE (was Amsterdam-only) and KEYLESS (PDOK RP
+// WMS, was RP-API-v4 key-gated). The pack ships numeric fields null and a bouwvlak HANDLE;
+// `resolveNlBestemmingsplan` turns that handle into a WGS84 buildable ring PLUS the live maatvoering
+// (max bouwhoogte / bebouwingspercentage / bouwlagen) — or a typed refusal (it never throws). With
+// `NL_BESTEMMINGSPLAN_CERTIFIED` ON, a parcel with a resolved bouwvlak+maatvoering renders a real
+// `structured` envelope; residual cases refuse honestly — see `nlBestemmingsplan.ts`.
+// (The coarse jurisdiction gate is `isInNetherlands`, exported from the parcelProviders block below;
+//  `isInAmsterdam` is retained there for the city-level probe/coverage callers.)
 export { isInAmsterdam, AMSTERDAM_BBOX } from './providers/amsterdamBbox.js';
 export {
-    NL_AMSTERDAM_BESTEMMINGSPLAN_PACK,
-    NL_AMS_RULE,
-    NL_AMS_ZONE_CODE,
-    NL_AMS_JURISDICTION_ID,
-    NL_AMS_ORDINANCE_REF,
+    NL_BESTEMMINGSPLAN_PACK,
+    NL_RULE,
+    NL_ZONE_CODE,
+    NL_JURISDICTION_ID,
+    NL_ORDINANCE_REF,
     bestemmingToPermittedUse,
-    nlAmsterdamRefusal,
-} from './rulepacks/nlAmsterdamBestemmingsplan.js';
+    nlBestemmingsplanRefusal,
+} from './rulepacks/nlBestemmingsplan.js';
 export {
-    resolveAmsterdamBestemmingsplan,
+    resolveNlBestemmingsplan,
     readMaatvoeringen,
     classifyMaatvoering,
     readMaatWaarde,
     ringFromGeoJson,
-    NL_AMS_RING_REF,
-    NL_AMS_BESTEMMINGSPLAN_CERTIFIED,
-    NL_AMS_BESTEMMINGSPLAN_PATH,
+    NL_RING_REF,
+    NL_BESTEMMINGSPLAN_CERTIFIED,
+    NL_BESTEMMINGSPLAN_PATH,
     type NlLatLon,
-    type AmsterdamBpDeps,
-    type AmsterdamBpResolution,
-    type AmsterdamBpRefusalReason,
-    type AmsterdamMaatvoering,
+    type NlBpDeps,
+    type NlBpResolution,
+    type NlBpRefusalReason,
+    type NlMaatvoering,
     type MaatvoeringKind,
     type RawMaatvoering,
-    type AmsterdamBpProxyResponse,
-} from './providers/resolveAmsterdamBestemmingsplan.js';
+    type NlBpProxyResponse,
+} from './providers/resolveNlBestemmingsplan.js';
 // ── BARCELONA-GIS-AUDIT-SPIKE — Barcelona clau 18 (volumetria específica) explicit-area path. ──
 // The AMB Refós OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its
 // UNREGISTERED explicit-area pack declaration. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while
@@ -588,7 +591,9 @@ export {
 export { isInParis, PARIS_BBOX } from './providers/parisBbox.js';
 export {
     resolveParisPluZone,
+    resolveParisEnvelope,
     parseParisPluResponse,
+    parseParisRing,
     parisFiletMetresForCode,
     parseParisSourceVersion,
     PARIS_PLU_PATH,
@@ -605,6 +610,11 @@ export {
     type ParisPluProxyResponse,
     type ParisPluParsed,
     type ParisHauteurSource,
+    type ParisLonLat,
+    type ParisEcmParsed,
+    type ParisEalParsed,
+    type ParisEnvelopeInputs,
+    type ParisEnvelopeResolution,
 } from './providers/resolveParisPluZone.js';
 export {
     PARIS_JURISDICTION_ID,
@@ -613,11 +623,20 @@ export {
     FR_PARIS_UG_ZONE_CODE,
     PARIS_PLU_ORDINANCE_REF,
     PARIS_PLU_MISSING_RULES,
+    PARIS_ECM_MISSING_COURONNEMENT,
+    PARIS_UG324_CROWN_REF,
     parisUgHeightMassingSupported,
     parisPluEnvelopeRefusal,
+    computeParisEnvelope,
+    projectParisRingToEnu,
+    parisCouronnementRefusal,
     parisZoneCodeFor,
     parisZoneLabelFor,
     type ParisPluRefusalExtras,
+    type ParisEnvelopeComponents,
+    type ParisEnvelopeComponentStatus,
+    type ParisEnvelopeResult,
+    type ParisHeightBinding,
 } from './rulepacks/frParisPluBioclimatique.js';
 
 // ── SWITZERLAND / canton Zürich (BFS-Nr 261) — the REFERENCE-COMMUNE upgrade (ZURICH-BZO-PROBE). ──

@@ -31,8 +31,13 @@ export type TerrainBbox = readonly [number, number, number, number];
  * terrain.mjs, since the building bake uses one national `spain` region).
  */
 export const TERRAIN_CITY_BBOXES: ReadonlyArray<{ readonly city: string; readonly bbox: TerrainBbox }> = [
-    // NL — AHN (keyless, CC0)
+    // NL — AHN (keyless, CC0). §NL-NATIONWIDE — per-city terrain (whole-country AHN is a heavy
+    // follow-up); buildings/envelope/parcel are already nationwide.
     { city: 'amsterdam', bbox: [4.83, 52.34, 4.97, 52.42] },
+    { city: 'rotterdam', bbox: [4.42, 51.88, 4.55, 51.96] },
+    { city: 'utrecht', bbox: [5.06, 52.06, 5.16, 52.12] },
+    { city: 'thehague', bbox: [4.25, 52.04, 4.35, 52.10] },
+    { city: 'eindhoven', bbox: [5.42, 51.40, 5.52, 51.48] },
     // FR — RGE ALTI / IGN (keyless)
     { city: 'paris', bbox: [2.22, 48.80, 2.47, 48.91] },
     { city: 'lyon', bbox: [4.78, 45.70, 4.92, 45.80] },

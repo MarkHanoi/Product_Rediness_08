@@ -61,6 +61,10 @@ import { SIU_CLASSIFICATION_PATH, siuClassificationHandler } from './server/siuC
 // §MADRID-CONDICIONES-PROXY (L-608) — the Madrid PGOUM-97 NZ 1 buildable-footprint (explicit-area)
 // same-origin lookup. Client consumer: @pryzm/site-parcel-data → resolveMadridNZ1Ring.
 import { MADRID_CONDICIONES_PATH, madridCondicionesHandler } from './server/madridCondicionesProxy.js';
+// §NL-BESTEMMINGSPLAN-PROXY (L-609 / §NL-NATIONWIDE) — the Netherlands bestemmingsplan bouwvlak +
+// maatvoering lookup, NATIONWIDE + KEYLESS via the PDOK "Ruimtelijke plannen" WMS (GetFeatureInfo).
+// Client consumer: @pryzm/site-parcel-data → resolveNlBestemmingsplan.
+import { NL_BESTEMMINGSPLAN_PATH, nlBestemmingsplanHandler } from './server/nlBestemmingsplanProxy.js';
 // §CORDOBA-ZONING-PROXY (WIRING-TODO 5) — the COACo PGOU-2001 subzone + refcat-join same-origin
 // lookup. Client consumer: @pryzm/site-parcel-data → resolveCordobaSubzone. ⚠ Renders NO number
 // while CORDOBA_ENVELOPE_VERIFIED is false — the DATA path that turns on with the L-449 sign-off.
@@ -455,6 +459,10 @@ app.get(SIU_CLASSIFICATION_PATH, apiLimiter, siuClassificationHandler);
 // upstream OK → 200 { features }, upstream failure → 502 (distinct from an empty answer, so the
 // client returns endpoint-unreachable, never no-feature).
 app.get(MADRID_CONDICIONES_PATH, apiLimiter, madridCondicionesHandler);
+// §NL-BESTEMMINGSPLAN-PROXY — GET /api/nl/bestemmingsplan?lat=&lon= → { plan, bestemmingsvlak,
+// bouwvlak, maatvoeringen } (keyless PDOK RP WMS, governing-plan picked). Empty → { plan: null };
+// upstream failure → 502 (distinct from empty, so the client returns endpoint-unreachable). Never crashes.
+app.get(NL_BESTEMMINGSPLAN_PATH, apiLimiter, nlBestemmingsplanHandler);
 // §CORDOBA-ZONING-PROXY (WIRING-TODO 5) — COACo PGOU-2001 subzone (spatial) + refcat-join (attrs +
 // derived-planning override). ⚠ Renders NO number while CORDOBA_ENVELOPE_VERIFIED is false; the DATA
 // path that turns on with the L-449 sign-off. Same-origin, apiLimiter, never crashes.

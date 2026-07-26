@@ -165,23 +165,24 @@ import {
     // refusal (names the zone + links the plan PDF), NEVER the generic `estimated-default` triple.
     dkPlandataNoNumbersRefusal,
     dkPlandataNoPlanRefusal,
-    // L-609 — Amsterdam (BAG/CBS gemeente 0363) bestemmingsplan explicit-area path. Like Madrid the
-    // ordinance publishes the buildable footprint as geometry (the `bouwvlak`); UNLIKE Madrid the
+    // L-609 / §NL-NATIONWIDE — Netherlands (national) bestemmingsplan explicit-area path. Like Madrid
+    // the ordinance publishes the buildable footprint as geometry (the `bouwvlak`); UNLIKE Madrid the
     // `maatvoering` numbers ("maximum bouwhoogte (m)" etc.) carry unambiguous SVBP2012 units, so a
-    // certified parcel can render `structured` (real height fed into structuredFields), not just
-    // estimated-ruleset. `resolveAmsterdamBestemmingsplan` resolves the bouwvlak ring + maatvoering
-    // via the (to-be-wired) keyed `/api/nl/bestemmingsplan` proxy, or refuses (never throws). Gated
-    // on `NL_AMS_BESTEMMINGSPLAN_CERTIFIED` (default OFF): while closed the path REFUSES for every
-    // Amsterdam parcel (via `nlAmsterdamRefusal`), never a fabricated bouwhoogte.
-    isInAmsterdam,
-    resolveAmsterdamBestemmingsplan,
-    NL_AMS_RING_REF,
-    NL_AMS_BESTEMMINGSPLAN_CERTIFIED,
-    NL_AMSTERDAM_BESTEMMINGSPLAN_PACK,
-    NL_AMS_ZONE_CODE,
-    NL_AMS_JURISDICTION_ID,
+    // certified parcel renders `structured` (real height fed into structuredFields), not just
+    // estimated-ruleset. `resolveNlBestemmingsplan` resolves the bouwvlak ring + maatvoering via the
+    // KEYLESS `/api/nl/bestemmingsplan` proxy (PDOK RP WMS), or refuses (never throws). Gated on
+    // `NL_BESTEMMINGSPLAN_CERTIFIED` (ON — proven live nationwide): a parcel WITH a resolved
+    // bouwvlak+maatvoering renders structured; residual cases refuse (via `nlBestemmingsplanRefusal`),
+    // never a fabricated bouwhoogte. The coarse gate is `isInNetherlands` (national bbox).
+    isInNetherlands,
+    resolveNlBestemmingsplan,
+    NL_RING_REF,
+    NL_BESTEMMINGSPLAN_CERTIFIED,
+    NL_BESTEMMINGSPLAN_PACK,
+    NL_ZONE_CODE,
+    NL_JURISDICTION_ID,
     bestemmingToPermittedUse,
-    nlAmsterdamRefusal,
+    nlBestemmingsplanRefusal,
     // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique. `resolveParisPluZone` reads the zone
     // identity (GPU zone_urba) + numeric hauteur plafond (opendata plub_hauteur), both real published
     // data; the emprise au sol is PDF-bound. Gated on `FR_PARIS_PLU_CERTIFIED` (default OFF): while
@@ -1072,11 +1073,11 @@ function applyZoning(
             void applyChZoningThenFallback(ctx, boundary, qLat, qLon);
             return;
         }
-        // L-609 — an Amsterdam plot routes to the bestemmingsplan explicit-area path. Like Madrid,
-        // its fallback on failure is a cited REFUSAL, never the estimated triple: the ordinance
-        // publishes the buildable footprint (bouwvlak) as geometry, so a front/side/rear estimate
-        // would be the wrong SHAPE, and the RP-API-v4 key/proxy are not wired yet (gate default OFF).
-        if (qLat != null && qLon != null && isInAmsterdam(qLat, qLon)) {
+        // L-609 / §NL-NATIONWIDE — ANY Netherlands plot routes to the bestemmingsplan explicit-area
+        // path (nationwide, keyless PDOK RP WMS). Like Madrid, its fallback on failure is a cited
+        // REFUSAL, never the estimated triple: the ordinance publishes the buildable footprint
+        // (bouwvlak) as geometry, so a front/side/rear estimate would be the wrong SHAPE. Gate ON.
+        if (qLat != null && qLon != null && isInNetherlands(qLat, qLon)) {
             void applyNlZoningThenFallback(ctx, boundary, qLat, qLon);
             return;
         }
@@ -1576,25 +1577,27 @@ async function applyMadridZoningThenFallback(
 }
 
 /**
- * L-609 §NL-AMS-BESTEMMINGSPLAN — the Amsterdam (bestemmingsplan) explicit-area path.
+ * L-609 §NL-BESTEMMINGSPLAN (§NL-NATIONWIDE) — the Netherlands (national) bestemmingsplan
+ * explicit-area path. Fires for ANY NL plot (`isInNetherlands`), keyless.
  *
  * The Netherlands publishes the buildable envelope (`bouwvlak`) as geometry AND its dimensions
- * (`maatvoering`) machine-readable (IMRO2012 / SVBP2012, DSO RP API v4). So this path RESOLVES the
- * published bouwvlak into a ring by point-querying the parcel centroid (`resolveAmsterdamBestemmings-
- * plan`, via the to-be-wired keyed `/api/nl/bestemmingsplan` proxy — never throws), and:
+ * (`maatvoering`) machine-readable (IMRO2012 / SVBP2012), served KEYLESS nationwide by the PDOK
+ * "Ruimtelijke plannen" WMS. So this path RESOLVES the published bouwvlak into a ring by
+ * point-querying the parcel centroid (`resolveNlBestemmingsplan`, via the `/api/nl/bestemmingsplan`
+ * proxy — never throws), and:
  *   • WITH a bouwvlak → projects it into the authoring frame (same origin + θ the parcel used, exactly
  *     like Madrid) and clips the parcel to it via `computeBuildableEnvelope`'s explicit-area branch.
  *     The maatvoering rides in `structuredFields` (max bouwhoogte → maxHeight_m, bebouwingspercentage
  *     → maxCoverage, aantal bouwlagen → maxFloors), so — UNLIKE Madrid — a clean "maximum bouwhoogte
  *     (m)" makes the engine render `structured` (a real metre height with stated units), and a
  *     bouwvlak-with-no-numbers renders `estimated-ruleset`. Never a fabricated number either way.
- *   • WITHOUT a bouwvlak → a CITED REFUSAL (`nlAmsterdamRefusal`), status `'none'`. It does NOT fall
+ *   • WITHOUT a bouwvlak → a CITED REFUSAL (`nlBestemmingsplanRefusal`), status `'none'`. It does NOT fall
  *     back to the estimated triple: a front/side/rear estimate is the wrong geometric SHAPE for an
  *     explicit-area zone (the §CONTEXT-DATA-HONESTY failure this whole path exists to avoid).
  *
- * ⚠ GATED ON `NL_AMS_BESTEMMINGSPLAN_CERTIFIED` (default OFF). While the flag is false the path
- * REFUSES for every Amsterdam parcel (the current shipping state): the RP-API-v4 key + same-origin
- * proxy are not wired and no plan is human-verified. Same discipline as `MADRID_NZ1_CERTIFIED`.
+ * ⚠ GATED ON `NL_BESTEMMINGSPLAN_CERTIFIED` (ON — the keyless PDOK proxy is wired and real bouwhoogte
+ * verified live at Rotterdam 40 m / Utrecht 26 m / Groningen 24 m). Same discipline as
+ * `MADRID_NZ1_CERTIFIED`; if a regression re-closes the gate, every NL parcel refuses honestly.
  *
  * Best-effort + fully guarded — never throws into the commit path.
  */
@@ -1604,8 +1607,8 @@ async function applyNlZoningThenFallback(
     lat: number,
     lon: number,
 ): Promise<void> {
-    const TAG = '[gis][c58] §NL-AMS-BESTEMMINGSPLAN';
-    const NL_SOURCE = 'nl-rp-api-v4';
+    const TAG = '[gis][c58] §NL-BESTEMMINGSPLAN';
+    const NL_SOURCE = 'nl-pdok-rp-wms';
     try {
         const site = ctx.store.getSite();
         if (!site) return; // No site to dispatch onto — nothing to render either way.
@@ -1613,29 +1616,29 @@ async function applyNlZoningThenFallback(
             dispatchEnvelope(
                 ctx,
                 site.id,
-                buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(), 'none'),
+                buildRefusedEnvelope(NL_ZONE_CODE, nlBestemmingsplanRefusal(), 'none'),
                 NL_SOURCE,
             );
             return;
         }
 
-        // ⚠⚠ THE CERTIFICATION GATE (default OFF). While closed, refuse for every Amsterdam parcel —
-        // the bouwvlak/maatvoering are real published data but the keyed proxy is not wired and no
-        // plan is verified. No resolve, no fabricated number; the honest cited refusal is the state.
-        if (!NL_AMS_BESTEMMINGSPLAN_CERTIFIED) {
+        // ⚠⚠ THE CERTIFICATION GATE (ON). Kept as an explicit safety valve: if a regression flips
+        // `NL_BESTEMMINGSPLAN_CERTIFIED` false, every NL parcel refuses honestly rather than render a
+        // stale/uncertified number. No resolve, no fabricated number; the honest cited refusal.
+        if (!NL_BESTEMMINGSPLAN_CERTIFIED) {
             dispatchEnvelope(
                 ctx,
                 site.id,
-                buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(), 'none'),
+                buildRefusedEnvelope(NL_ZONE_CODE, nlBestemmingsplanRefusal(), 'none'),
                 NL_SOURCE,
             );
-            console.log(`${TAG} NL_AMS_BESTEMMINGSPLAN_CERTIFIED=false — cited refusal (proxy/key not wired).`);
+            console.log(`${TAG} NL_BESTEMMINGSPLAN_CERTIFIED=false — cited refusal (gate closed).`);
             return;
         }
 
         // Resolve the published bouwvlak ring (WGS84) + maatvoering by point-query at the parcel
-        // centroid. Never throws. `NL_AMS_RING_REF` equals the pack rule's `ringRef` (asserted + tested).
-        const resolution = await resolveAmsterdamBestemmingsplan(NL_AMS_RING_REF, { lat, lon });
+        // centroid. Never throws. `NL_RING_REF` equals the pack rule's `ringRef` (asserted + tested).
+        const resolution = await resolveNlBestemmingsplan(NL_RING_REF, { lat, lon });
 
         if (resolution.ok && resolution.ringLatLon.length >= 3) {
             // Project the WGS84 bouwvlak ring into the SAME authoring frame the parcel lives in —
@@ -1661,11 +1664,11 @@ async function applyNlZoningThenFallback(
             // cap. The bestemming → permittedUse via the direct translation the schema mandates.
             const use = bestemmingToPermittedUse(resolution.bestemming);
             const record: ZoningRecord = {
-                zoneCode: NL_AMS_ZONE_CODE,
+                zoneCode: NL_ZONE_CODE,
                 zoneLabel: resolution.bestemming
                     ? `Bestemmingsplan — ${resolution.bestemming}`
                     : 'Bestemmingsplan bouwvlak',
-                jurisdictionId: NL_AMS_JURISDICTION_ID,
+                jurisdictionId: NL_JURISDICTION_ID,
                 structuredFields: {
                     maxHeight_m: resolution.maat.maxBouwhoogte_m,
                     maxFloors: resolution.maat.maxAantalBouwlagen,
@@ -1689,7 +1692,7 @@ async function applyNlZoningThenFallback(
                 parcelRing: boundary.polygon,
                 edgeClassifications: boundary.edgeClassifications,
                 zoning: record,
-                rulePack: NL_AMSTERDAM_BESTEMMINGSPLAN_PACK,
+                rulePack: NL_BESTEMMINGSPLAN_PACK,
                 explicitAreaFootprint: footprintRing,
             });
             if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
@@ -1728,7 +1731,7 @@ async function applyNlZoningThenFallback(
         dispatchEnvelope(
             ctx,
             site.id,
-            buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(planName), 'none'),
+            buildRefusedEnvelope(NL_ZONE_CODE, nlBestemmingsplanRefusal(planName), 'none'),
             NL_SOURCE,
         );
     } catch (e) {
@@ -1741,7 +1744,7 @@ async function applyNlZoningThenFallback(
                 dispatchEnvelope(
                     ctx,
                     site.id,
-                    buildRefusedEnvelope(NL_AMS_ZONE_CODE, nlAmsterdamRefusal(), 'none'),
+                    buildRefusedEnvelope(NL_ZONE_CODE, nlBestemmingsplanRefusal(), 'none'),
                     NL_SOURCE,
                 );
             }

@@ -29,7 +29,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
 // free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
-import { resolveHeights } from './heightSources.mjs';
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq } from './heightSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -68,6 +68,26 @@ const REGIONS = [
     pbf: resolve(OUT, 'spain-latest.osm.pbf'),
     bbox: '-9.55,35.90,4.60,43.90',
     clipped: resolve(OUT, 'clip-spain.osm.pbf'),
+    // §MDS-OSM-JOIN (L-6xx) — whole-country REAL heights. `resolveHeights('spain')` returns
+    // `documented` (Catastro's per-tile WFS can't scan a nation), so the flat 9 m OSM guess would ship.
+    // Instead stamp the keyless CNIG MDS Edificación raster (mdsn_e025) onto bake's OWN OSM footprints
+    // (no Catastro, no double-draw, tiles only where footprints exist). See stampMdsHeightsOnGeojsonseq.
+    heightJoin: 'mds',
+  },
+  // §BAKE-DENMARK (L-6xx, 2026-07-26) — WHOLE DENMARK (national), mirrors `spain`. Geofabrik's Denmark
+  // extract is one national pbf; the national bbox (incl. Bornholm at ~lon 15.2) covers EVERY Danish
+  // jurisdiction so a DK site never shows "no surrounding building data". Buildings/roads/water/parks
+  // come from OSM; REAL per-building heights come from the DHM nDSM OSM-footprint JOIN (heightJoin:
+  // 'dhm', apikey-gated — see stampDhmHeightsOnGeojsonseq + the note there on why the OSM join, not a
+  // higher-maxTiles tile grid, is the whole-country pattern). Without DATAFORDELER_API_KEY the join is
+  // `blocked` and footprints keep the honest OSM default — never a fabricated height.
+  {
+    name: 'denmark',
+    pbfUrl: 'https://download.geofabrik.de/europe/denmark-latest.osm.pbf',
+    pbf: resolve(OUT, 'denmark-latest.osm.pbf'),
+    bbox: '7.70,54.40,15.30,57.90',
+    clipped: resolve(OUT, 'clip-denmark.osm.pbf'),
+    heightJoin: 'dhm',
   },
   // ── L-607 multi-city, all 13 jurisdictions (founder-chosen 2026-07-24) ───────────────────────
   // ⚠ Each `pbfUrl` is the SMALLEST Geofabrik extract that contains the city; `bbox` is a generous
@@ -86,9 +106,19 @@ const REGIONS = [
   { name: 'berlin',     pbfUrl: 'https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-berlin-latest.osm.pbf'),         bbox: '13.28,52.44,13.55,52.58',  clipped: resolve(OUT, 'clip-berlin.osm.pbf') },
   { name: 'munich',     pbfUrl: 'https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-bayern-latest.osm.pbf'),         bbox: '11.44,48.09,11.66,48.20',  clipped: resolve(OUT, 'clip-munich.osm.pbf') },
   { name: 'london',     pbfUrl: 'https://download.geofabrik.de/europe/great-britain/england/greater-london-latest.osm.pbf', pbf: resolve(OUT, 'greater-london-latest.osm.pbf'),  bbox: '-0.20,51.44,0.02,51.55',   clipped: resolve(OUT, 'clip-london.osm.pbf') },
-  { name: 'copenhagen', pbfUrl: 'https://download.geofabrik.de/europe/denmark-latest.osm.pbf',                        pbf: resolve(OUT, 'denmark-latest.osm.pbf'),                bbox: '12.50,55.63,12.65,55.72',  clipped: resolve(OUT, 'clip-copenhagen.osm.pbf') },
+  // ⚠ Copenhagen's own city region was REMOVED 2026-07-26 — the whole-`denmark` region above
+  // (national bbox, same denmark-latest.osm.pbf) fully contains it, so a separate Copenhagen clip
+  // would DOUBLE-BAKE the city into the merged buildings.pmtiles. Copenhagen now rides the national
+  // region (OSM footprints + DHM nDSM heights via the heightJoin, apikey-gated).
   { name: 'brussels',   pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '4.30,50.80,4.42,50.90',    clipped: resolve(OUT, 'clip-brussels.osm.pbf') },
-  { name: 'amsterdam',  pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                    pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '4.83,52.34,4.97,52.42',    clipped: resolve(OUT, 'clip-amsterdam.osm.pbf') },
+  // §NL-NATIONWIDE (2026-07-26) — WHOLE NETHERLANDS (national), mirroring the `spain` whole-country
+  // region. Geofabrik's Netherlands extract is one ~1.6 GB pbf; tiled whole it is well under R2's
+  // 10 GB free storage, and ONE country fits a single CI run. This national bbox covers EVERY NL
+  // jurisdiction — Amsterdam, Rotterdam, Utrecht, Groningen, and any rural site — so an NL site never
+  // shows "no surrounding building data". (Replaces the Amsterdam-only clip.) 3DBAG real heights are
+  // stamped per-CITY bbox — see heightSources.mjs REGION_SOURCE `netherlands` (the whole-country
+  // 3DBAG bbox is refused per-tile → keeps OSM; the OSM-footprint-join is the named follow-up).
+  { name: 'netherlands', pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                   pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '3.30,50.75,7.30,53.70',    clipped: resolve(OUT, 'clip-netherlands.osm.pbf') },
   { name: 'oslo',       pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '10.66,59.88,10.83,59.96',  clipped: resolve(OUT, 'clip-oslo.osm.pbf') },
   { name: 'stockholm',  pbfUrl: 'https://download.geofabrik.de/europe/sweden-latest.osm.pbf',                         pbf: resolve(OUT, 'sweden-latest.osm.pbf'),                 bbox: '17.98,59.28,18.14,59.37',  clipped: resolve(OUT, 'clip-stockholm.osm.pbf') },
   { name: 'helsinki',   pbfUrl: 'https://download.geofabrik.de/europe/finland-latest.osm.pbf',                        pbf: resolve(OUT, 'finland-latest.osm.pbf'),                bbox: '24.88,60.14,25.02,60.20',  clipped: resolve(OUT, 'clip-helsinki.osm.pbf') },
@@ -268,10 +298,42 @@ function overtureBuildingsCmd(region, geoAbs) {
 // honest `assumed` default — never a fabricated height. Never throws; a source failure degrades to OSM.
 async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
   if (DRY) {
-    console.log(`\n▶ national heights · ${r.name}: resolveHeights(${r.name}) would run (skipped in --dry-run)`);
+    const how = r.heightJoin ? `stamp ${r.heightJoin.toUpperCase()} heights onto OSM footprints` : `resolveHeights(${r.name})`;
+    console.log(`\n▶ national heights · ${r.name}: ${how} would run (skipped in --dry-run)`);
     geos.push(baseGeo);
     return;
   }
+
+  // §MDS-OSM-JOIN / §DHM-OSM-JOIN (L-6xx) — whole-country regions (spain/denmark) can't enumerate
+  // footprints via their national register per-tile, so they STAMP real heights onto bake's OWN OSM
+  // footprints (baseGeo). The stamped file has the SAME footprints with `height` added → a REPLACE
+  // input (no double-draw). Anything other than a measured `ok` keeps baseGeo at the honest OSM default.
+  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm') {
+    const stamped = resolve(OUT, `${r.name}-buildings-stamped.geojsonseq`);
+    const wsen = r.bbox.split(',').map(Number);
+    // §MDS = whole `spain` (many populated tiles); §DHM = whole `denmark`. Give the national bbox a
+    // generous tile cap so coverage is broad; a cap hit leaves the rest at the OSM default (honest).
+    const maxTiles = 20000;
+    let res;
+    try {
+      res = r.heightJoin === 'mds'
+        ? await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles })
+        : await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
+    } catch (e) {
+      res = { status: 'error', reason: e.message };
+    }
+    if (res.status === 'ok' && res.measuredCount > 0) {
+      geos.push(stamped); // REPLACE the plain OSM clip with the height-stamped SAME footprints.
+      console.log(`\n▶ national heights · ${r.name}: ${r.heightJoin.toUpperCase()} join — ${res.measuredCount}/${res.footprintCount} ` +
+        `OSM footprint(s) stamped (tagged), ${res.tilesProcessed} tile(s) → REPLACE. ${res.note}`);
+    } else {
+      geos.push(baseGeo);
+      console.log(`\n▶ national heights · ${r.name}: ${r.heightJoin.toUpperCase()} join ${res.status}` +
+        `${res.reason ? ' — ' + res.reason : ''} (keeps OSM, honest assumed default)`);
+    }
+    return;
+  }
+
   let nat;
   try {
     nat = await resolveHeights(r.name, { bbox: r.bbox.split(',').map(Number) });
