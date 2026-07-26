@@ -66,7 +66,7 @@ export const isInGermany = (lat: number, lon: number): boolean => within(GERMANY
 export const NRW_BBOX: CountryBbox = { minLat: 50.3, maxLat: 52.6, minLon: 5.8, maxLon: 9.5 };
 export const isInNRW = (lat: number, lon: number): boolean => within(NRW_BBOX, lat, lon);
 
-/** Switzerland (footprint-fallback: geodienste.ch AV is per-canton permission-gated — see registry). */
+/** Switzerland (cadastral since L-627: federal geo.admin.ch identify → real AV Grundstück — see registry). */
 export const SWITZERLAND_BBOX: CountryBbox = { minLat: 45.8, maxLat: 47.9, minLon: 5.8, maxLon: 10.6 };
 export const isInSwitzerland = (lat: number, lon: number): boolean => within(SWITZERLAND_BBOX, lat, lon);
 

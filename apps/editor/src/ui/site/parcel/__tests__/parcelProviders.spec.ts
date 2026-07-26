@@ -14,6 +14,7 @@ const PROXY_ROWS: ReadonlyArray<[string, unknown, string]> = [
     ['NL / PDOK', { parcel: { ring: [{ lat: 52.372, lon: 4.892 }, { lat: 52.373, lon: 4.893 }, { lat: 52.3725, lon: 4.8925 }], refcat: 'ASD04 F 6685', areaM2: 9402, address: 'Amsterdam', source: 'pdok-nl' } }, 'pdok-nl'],
     ['NO / Kartverket', { parcel: { ring: [{ lat: 59.9137, lon: 10.752 }, { lat: 59.9141, lon: 10.7524 }, { lat: 59.9139, lon: 10.7522 }], refcat: '0301-208/644', areaM2: 512, address: 'OSLO', source: 'geonorge-no' } }, 'geonorge-no'],
     ['DE-NRW / ALKIS', { parcel: { ring: [{ lat: 51.2287, lon: 6.7729 }, { lat: 51.2289, lon: 6.773 }, { lat: 51.2288, lon: 6.7731 }], refcat: '05311000400273', areaM2: 2355, address: 'Altstadt', source: 'alkis-nrw' } }, 'alkis-nrw'],
+    ['CH / swisstopo AV', { parcel: { ring: [{ lat: 47.3766, lon: 8.5414 }, { lat: 47.3772, lon: 8.5417 }, { lat: 47.3769, lon: 8.542 }], refcat: 'CH119192997709', areaM2: 640, address: 'ZH AA8048', source: 'swisstopo-av' } }, 'swisstopo-av'],
 ];
 
 describe('parseWfsProxyResponse — per-country proxy rows', () => {

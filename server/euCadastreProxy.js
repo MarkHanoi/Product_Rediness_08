@@ -12,16 +12,25 @@
  * any miss/upstream failure answers HTTP 200 `{ parcel: null }` so the client falls back to draw
  * (or, one layer up, to the OSM footprint).
  *
- * WIRED CADASTRES — each LIVE-PROBED keyless on 2026-07-24 (evidence in
+ * WIRED CADASTRES — each LIVE-PROBED keyless (evidence in
  * docs/04-reference/jurisdictions/PARCEL-SELECT-COVERAGE.md):
- *   • FR  data.geopf.fr WFS CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle   (GeoJSON, lon,lat)
- *   • NL  service.pdok.nl kadastralekaart WFS v5_0 kadastralekaart:Perceel  (GeoJSON, lon,lat)
- *   • NO  wfs.geonorge.no matrikkelen-eiendomskart-teig app:Teig            (GML 3.2.1, lon,lat)
- *   • DE-NRW www.wfs.nrw.de wfs_nw_alkis_vereinfacht ave:Flurstueck          (GML 3.2.1, lat,lon)
+ *   • FR  data.geopf.fr WFS CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle   (GeoJSON, lon,lat) — 2026-07-24
+ *   • NL  service.pdok.nl kadastralekaart WFS v5_0 kadastralekaart:Perceel  (GeoJSON, lon,lat) — 2026-07-24
+ *   • NO  wfs.geonorge.no matrikkelen-eiendomskart-teig app:Teig            (GML 3.2.1, lon,lat) — 2026-07-24
+ *   • DE-NRW www.wfs.nrw.de wfs_nw_alkis_vereinfacht ave:Flurstueck          (GML 3.2.1, lat,lon) — 2026-07-24
+ *   • CH  api3.geo.admin.ch identify ch.kantone.cadastralwebmap-farbe        (Esri JSON, lon,lat) — 2026-07-26
  *
  * The WFS services are BBOX-queryable (unlike Catastro's id-only WFS), so the flow is one call:
  * a small bbox around the click → keep the parcel whose ring CONTAINS the point (else the nearest
  * centroid). No point→id→geometry round-trip is needed.
+ *
+ * CH is the same one-call shape via a DIFFERENT transport: the federal geo.admin.ch REST `identify`
+ * service (Esri-JSON `rings`), not a WFS. It returns the real Amtliche-Vermessung *Grundstück* under
+ * the click carrying its federal EGRID (`egris_egrid`, e.g. CH119192997709), local parcel number,
+ * and canton — keyless, all-canton, live-verified for ZH + GE 2026-07-26. Licence: geo.admin.ch
+ * FSDI terms — free, commercial use permitted, fair-use bounded (~20 req/min avg; the same-origin
+ * proxy + 7-day per-parcel cache + apiLimiter keep us well under it), attribution
+ * "© swisstopo + canton". See docs/04-reference/jurisdictions/ch/findings/ZURICH-PARCEL-SOURCE.md.
  *
  * @see server/parcelZoningProxy.js — the Spain sibling this clones (cache/forward-once/fallback)
  * @see apps/editor/src/ui/site/parcel/WfsParcelProvider.ts — the client consumer
@@ -130,6 +139,38 @@ function parseGeoJsonCandidates(text) {
     return out;
 }
 
+// ── Esri-JSON parse (CH — geo.admin.ch identify) ─────────────────────────────
+// The federal `identify` service returns `{ results: [{ attributes, geometry }] }`. A polygon
+// geometry is `{ rings: [[[x,y],…],…] }`; the FIRST ring is the exterior, and with `sr=4326` the
+// pairs are [lon,lat] (Esri x,y order) — verified live 2026-07-26. Holes (subsequent rings) are
+// ignored: a parcel boundary only needs its exterior, exactly as the GeoJSON/GML paths take the
+// outer ring. Any error/exception body parses to `{ results: [] }` → [] → a clean miss.
+function outerRingFromEsri(geom) {
+    const rings = geom?.rings;
+    if (!Array.isArray(rings) || rings.length === 0) return [];
+    const coords = rings[0];
+    if (!Array.isArray(coords)) return [];
+    const ring = [];
+    for (const c of coords) {
+        if (!Array.isArray(c) || c.length < 2) continue;
+        const lon = Number(c[0]), lat = Number(c[1]);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) ring.push({ lat, lon });
+    }
+    return ring;
+}
+
+function parseEsriJsonCandidates(text) {
+    let json;
+    try { json = JSON.parse(text); } catch { return []; }
+    const results = Array.isArray(json?.results) ? json.results : [];
+    const out = [];
+    for (const f of results) {
+        const ring = outerRingFromEsri(f?.geometry);
+        if (ring.length >= 3) out.push({ ring, props: f?.attributes ?? {} });
+    }
+    return out;
+}
+
 // ── GML parse (NO, DE-NRW) — split into members, take each member's first posList ──
 function gmlText(block, tag) {
     const m = block.match(new RegExp(`<(?:[\\w.-]+:)?${tag}\\b[^>]*>\\s*([^<]*?)\\s*</(?:[\\w.-]+:)?${tag}>`, 'i'));
@@ -185,6 +226,28 @@ function nrwUrl(lat, lon) {
     return 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?service=WFS&version=2.0.0&request=GetFeature' +
         `&typeNames=ave:Flurstueck&srsName=EPSG:4326&count=20&bbox=${encodeURIComponent(bbox)}`;
 }
+/**
+ * Switzerland — the federal geo.admin.ch REST `identify` (NOT a WFS). A tiny map window + small
+ * pixel tolerance around the click; `returnGeometry=true` yields the parcel ring(s), and
+ * `pickCandidate` keeps the one whose ring CONTAINS the point (else the nearest centroid).
+ * `geometry` with `sr=4326` is `lon,lat`. The window (~±45 m) plus a 2-px tolerance robustly
+ * resolves a click that lands slightly off a boundary — the same intent as the ±38 m WFS bboxes.
+ */
+function chUrl(lat, lon) {
+    const d = 0.0006; // ~±45–65 m half-window around the click.
+    const params = new URLSearchParams({
+        geometry: `${lon},${lat}`,
+        geometryType: 'esriGeometryPoint',
+        layers: 'all:ch.kantone.cadastralwebmap-farbe',
+        tolerance: '2',
+        sr: '4326',
+        mapExtent: `${lon - d},${lat - d},${lon + d},${lat + d}`,
+        imageDisplay: '200,200,96',
+        returnGeometry: 'true',
+        limit: '20',
+    });
+    return `https://api3.geo.admin.ch/rest/services/all/MapServer/identify?${params.toString()}`;
+}
 
 function jsonProp(props, ...keys) {
     for (const k of keys) {
@@ -194,7 +257,7 @@ function jsonProp(props, ...keys) {
     return null;
 }
 
-/** @typedef {{ guard:(lat:number,lon:number)=>boolean, url:(lat:number,lon:number)=>string, format:'geojson'|'gml', axis?:'lonlat'|'latlon', source:string, normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null} }} SourceCfg */
+/** @typedef {{ guard:(lat:number,lon:number)=>boolean, url:(lat:number,lon:number)=>string, format:'geojson'|'gml'|'esrijson', axis?:'lonlat'|'latlon', source:string, normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null} }} SourceCfg */
 
 /** @type {Record<string, SourceCfg>} */
 export const EU_CADASTRE_SOURCES = {
@@ -259,6 +322,26 @@ export const EU_CADASTRE_SOURCES = {
             return { refcat, areaM2, address: address ?? null };
         },
     },
+    // CH — Amtliche Vermessung *Grundstück* via geo.admin.ch identify (Esri JSON). The identify
+    // attributes carry no area field, so area is derived from the (full, real) parcel ring, exactly
+    // like Norway's teig. refcat = the federal EGRID (the stable pan-Swiss id); the info-card address
+    // is "<canton> <local parcel no.>". Guard = the Swiss national bbox (+ Liechtenstein, which the
+    // federal service also serves). See switzerlandBbox.ts / registry.ts CH row.
+    ch: {
+        guard: (lat, lon) => lat >= 45.75 && lat <= 47.85 && lon >= 5.9 && lon <= 10.55,
+        url: chUrl,
+        format: 'esrijson',
+        source: 'swisstopo-av',
+        normalise: (c) => {
+            const p = c.props || {};
+            const egrid = String(jsonProp(p, 'egris_egrid') ?? '').trim();
+            const number = String(jsonProp(p, 'number') ?? '').trim();
+            const ak = String(jsonProp(p, 'ak') ?? '').trim();
+            const refcat = egrid || number; // prefer the federal EGRID; fall back to the local no.
+            const address = [ak, number].filter(Boolean).join(' ') || null;
+            return { refcat, areaM2: ringAreaM2(c.ring), address };
+        },
+    },
 };
 
 async function fetchTextOnce(url, deps = {}) {
@@ -304,7 +387,9 @@ export async function fetchEuParcelAtPoint(cc, lon, lat, deps = {}) {
 
     const candidates = cfg.format === 'geojson'
         ? parseGeoJsonCandidates(text)
-        : parseGmlCandidates(text, cfg.axis);
+        : cfg.format === 'esrijson'
+            ? parseEsriJsonCandidates(text)
+            : parseGmlCandidates(text, cfg.axis);
     const chosen = pickCandidate(candidates, lat, lon);
     if (!chosen) return null;
 
