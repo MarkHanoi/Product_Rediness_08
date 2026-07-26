@@ -42,9 +42,13 @@
 //   • OA  (Ordenación Abierta)    — FULL. `kind:'setback'`.
 //   • UAD (Unifamiliar Adosada)   — FULL. `kind:'setback'`, lateral = party-wall.
 //   • CTP-1 (Colonia Tradicional Popular) — PARTIAL. altura+ocupación+alignment clean; edificabilidad
-//     is DERIVED (null). Alignment zone (front on the vial line) → `setbacks:null`, `geometricRule:null`.
+//     is DERIVED (null). Alignment zone (front on the vial line) → `setbacks:null` PLUS an
+//     `alignment` geometricRule carrying the REAL 16 m *profundidad edificable* (Art. 13.8.2.4), so
+//     it clips to a depth band and never draws the whole parcel (L-616 guard).
 //   • MC  (Manzana Cerrada)       — PARTIAL. coverage+use clean; height is a per-street-width TABLE
-//     (null scalar); edificabilidad DERIVED except MC-3 (3.50, which the range gate flags). Alignment.
+//     (null scalar); edificabilidad DERIVED except MC-3 (3.50, which the range gate flags). Alignment
+//     zone with NO held depth → an `explicit-area` geometricRule with an UNRESOLVABLE footprint handle
+//     (CORDOBA_MC_FONDO_UNRESOLVED_RING): a cited STRUCTURAL REFUSAL, never a full-parcel box (L-616).
 //
 // WHAT IS DELIBERATELY NOT PACKED (each a cited "no", never an estimate) — see the SPEC:
 //   • Uso Industrial — 1 parcel, subzone-unbindable, ocupación DERIVED (the sufficiency trap).
@@ -87,6 +91,30 @@ const SRC =
     'PGOU-Córdoba-2001 (Texto Refundido Oct. 2002), Normativa: Usos Ordenanzas y Urbanización, ' +
     'Gerencia de Urbanismo, Ayuntamiento de Córdoba. MACHINE-EXTRACTED (OCR/vision), NOT ' +
     'human-verified — pipeline-extracted-unverified. See findings/OCR-EXTRACTION-RESULTS.md.';
+
+/**
+ * ⚠ L-616 GUARD — the MC (Manzana Cerrada) STRUCTURAL REFUSAL handle.
+ *
+ * Every MC subzone is an ALIGNMENT zone (façade on the vial line, Art. 13.5.2.3) with setbacks null.
+ * With NO `geometricRule` it would inset by 0 and draw the WHOLE PARCEL the day the gate opens
+ * (ENVELOPE-REALISM-MATRIX mechanism A — the latent OVERSTATES-BOTH this file must never permit).
+ *
+ * Unlike CTP-1, MC states NO *profundidad edificable* we hold (the findings' MC parameter table has
+ * no fondo row — CORDOBA-ORDINANCE-REGISTRY §5), and its height is a per-street-width TABLE we do
+ * not yet resolve (Art. 13.5.3.1, maxHeight null). So there is no honest depth to give an
+ * `alignment` rule, and `block-derived-alignment` is REFUSED on principle: it requires Art. 242's
+ * min/max/ratio clamps, which are Barcelona's numbers — supplying them here is the L-526 failure
+ * verbatim (see GeometricRule.ts §350 note). C58 §1.7a: never invent a value.
+ *
+ * The honest shape in the `GeometricRule` union is therefore `explicit-area` with a footprint HANDLE
+ * that is DELIBERATELY UNRESOLVABLE for Córdoba: no MC footprint geometry is ever injected, so the
+ * engine HARD-FAILS to `status:'degenerate'` and yields NO envelope (ZoningRulesEngine ~L661) — a
+ * cited structural refusal, never a full-parcel box. It lifts to a real envelope only once the MC
+ * street-width height resolver + a block-fondo geometry source exist (pack WIRING-TODO 6). The ring
+ * ref names that gap so a future reader does not mistake it for a published-geometry claim.
+ */
+export const CORDOBA_MC_FONDO_UNRESOLVED_RING =
+    'cordoba-mc-fondo:UNRESOLVED/pgou-13.5.3.1-street-width-table' as const;
 
 /**
  * The Córdoba PGOU-2001 pack. `source:'manual'` (curated artefact, no published-structured feed);
@@ -271,9 +299,28 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 // could apply the step from `sup_pc_m2`; a scalar is the conservative approximation.
                 maxCoverage: 0.8,
                 setbacks: { front_m: null, side_m: null, rear_m: null }, // alignment: façade on vial line
+                // ⚠ L-616 GUARD (ENVELOPE-REALISM-MATRIX, Córdoba row) — an ALIGNMENT rule, NOT the
+                // legacy setback inset. Without a geometricRule this alignment zone (setbacks null →
+                // 0 inset) would fall to the whole-parcel footprint the moment the gate opens
+                // (mechanism A). Art. 13.8.2.4 states a real *profundidad máxima edificable* of 16 m
+                // from the vial alignment (OCR READ-CLEAN, see OCR-EXTRACTION-RESULTS §2.4), so the
+                // honest shape is: build ON the vial line (offset 0), party walls on the laterals
+                // (adosada/medianera fabric), and a 16 m depth band. The engine composes
+                // inset-per-edge THEN clipToDepthBand; with no `front` edge it HARD-FAILS to
+                // `degenerate` (never a full-depth fallback — see ZoningRulesEngine ~L403).
+                geometricRule: {
+                    kind: 'alignment',
+                    alignTo: 'street',
+                    alignmentOffset_m: 0,
+                    sideTreatment: 'party-wall',
+                    buildableDepth_m: 16, // Art. 13.8.2.4 — máx 16 m desde la alineación de vial
+                },
                 fieldProvenance: {
                     maxHeight: 'pipeline-extracted', maxFloors: 'pipeline-extracted', maxCoverage: 'pipeline-extracted',
                     permittedUse: 'pipeline-extracted',
+                    // The 16 m depth is machine-extracted (OCR, 13.8.2.4), strictly below the human
+                    // `ordinance-pdf` tier. The engine reads `alignment.depth` for the derivation row.
+                    'alignment.depth': 'pipeline-extracted',
                     // NB: plotRatioFAR intentionally absent — it is null-DERIVED, not machine-extracted.
                 },
                 ordinanceRef:
@@ -293,6 +340,8 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: null,         // Art. 13.5.2.2 — "no se fija … Normas de composición" = DERIVED
                 maxCoverage: 0.7,           // Art. 13.5.2.5 — plantas altas 70 % (planta baja 100 %)
                 setbacks: { front_m: null, side_m: null, rear_m: null }, // alignment: façade on vial line
+                // ⚠ L-616 GUARD — structural refusal (never a full-parcel box). See CORDOBA_MC_FONDO_UNRESOLVED_RING.
+                geometricRule: { kind: 'explicit-area', ringRef: CORDOBA_MC_FONDO_UNRESOLVED_RING },
                 fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5 (ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial), 13.5.4 ' +
@@ -308,6 +357,8 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: null,
                 maxCoverage: 0.7,
                 setbacks: { front_m: null, side_m: null, rear_m: null },
+                // ⚠ L-616 GUARD — structural refusal (never a full-parcel box). See CORDOBA_MC_FONDO_UNRESOLVED_RING.
+                geometricRule: { kind: 'explicit-area', ringRef: CORDOBA_MC_FONDO_UNRESOLVED_RING },
                 fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5 (ocup. PB 100 % / PA 70 %), 13.5.2.3 (alineación a vial). ⚠ altura ' +
@@ -325,6 +376,8 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: 3.5,
                 maxCoverage: 0.7,
                 setbacks: { front_m: null, side_m: null, rear_m: null },
+                // ⚠ L-616 GUARD — structural refusal (never a full-parcel box). See CORDOBA_MC_FONDO_UNRESOLVED_RING.
+                geometricRule: { kind: 'explicit-area', ringRef: CORDOBA_MC_FONDO_UNRESOLVED_RING },
                 fieldProvenance: { maxFAR: 'pipeline-extracted', maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.2 (FAR 3,50 — ⚠ OUT OF RANGE [0.2,3.0], human-verify), 13.5.2.5 ' +
@@ -339,6 +392,8 @@ export const ES_CORDOBA_PGOU2001_PACK: JurisdictionZoningContract =
                 plotRatioFAR: null,
                 maxCoverage: 0.9,           // Art. 13.5.2.5.2 — MC-4 plantas altas 90 % (planta baja 100 %)
                 setbacks: { front_m: null, side_m: null, rear_m: null },
+                // ⚠ L-616 GUARD — structural refusal (never a full-parcel box). See CORDOBA_MC_FONDO_UNRESOLVED_RING.
+                geometricRule: { kind: 'explicit-area', ringRef: CORDOBA_MC_FONDO_UNRESOLVED_RING },
                 fieldProvenance: { maxCoverage: 'pipeline-extracted', permittedUse: 'pipeline-extracted' },
                 ordinanceRef:
                     'PGOU Art. 13.5.2.5.2 (ocup. PB 100 % / PA 90 %), 13.5.2.3 (alineación a vial). ⚠ altura ' +
@@ -387,4 +442,10 @@ export const CORDOBA_PGOU2001_ZONE_CODES = [
 //    subzone resolver (`ordenanza` + `O_*` link suffix → COACo WFS) + the re-tiered louder-than-
 //    estimated render turn on together WITH step 3; both are the same sign-off event.
 // 6. ⛔ OPEN. Author the CTP-1 ocupación step-function hook (from `sup_pc_m2`) and the MC per-street-width
-//    height resolver (the Córdoba analogue of `bcnAlcadaNucliAntic.ts`) to lift MC/CTP from partial to full.
+//    height resolver (the Córdoba analogue of `bcnAlcadaNucliAntic.ts`) + an MC block-fondo geometry
+//    source to lift MC/CTP from partial to full. Until then MC stays a structural refusal via
+//    `explicit-area` + CORDOBA_MC_FONDO_UNRESOLVED_RING (WIRING-TODO 7, below), CTP-1 clips to 16 m.
+// 7. ✅ DONE (L-616 guard). CTP-1 carries a real `alignment` geometricRule (16 m depth, Art. 13.8.2.4);
+//    MC-1..4 carry an `explicit-area` geometricRule with an UNRESOLVABLE footprint handle. Neither can
+//    ever fall to the whole-parcel inset (ENVELOPE-REALISM-MATRIX mechanism A) once the gate opens.
+//    Verified end-to-end in `esCordobaEnvelopeCompute.test.ts`.

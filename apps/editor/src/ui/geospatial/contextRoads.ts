@@ -13,6 +13,7 @@ import {
     fetchOverpassViaProxy,
     type Bbox,
 } from './contextBuildings';
+import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
 
 export interface ContextWay {
     /** Polyline as [lon,lat] pairs (open way — NOT a closed ring). */
@@ -78,6 +79,33 @@ function roadsFromElements(elements: OverpassWay[]): ContextRoadCollection {
     return { type: 'ContextRoadCollection', ways };
 }
 
+/**
+ * §CTX-PMTILES-READER (L-513b) — convert the baked-tile road features into the same `ContextWay[]`
+ * shape `roadsFromElements` produces. The reader keeps LINEAR geometry for roads
+ * (LAYER_IS_AREAL.roads = false), so each feature's `rings` are its linestring(s); one `ContextWay`
+ * per strand. `kind` is classified from the `highway` tag via the SAME `PEDESTRIAN` set the Overpass
+ * path uses, so footway/path/steps/cycleway bucket as 'pedestrian' for free. `osmId` is derived from
+ * the tile's stable synthetic id (spaced by 16 so multi-strand features never collide).
+ */
+function roadsFromTileFeatures(features: ContextTileFeature[]): ContextRoadCollection {
+    const ways: ContextWay[] = [];
+    for (const f of features) {
+        const hw = f.tags['highway'] ?? '';
+        const kind: 'road' | 'pedestrian' = PEDESTRIAN.has(hw) ? 'pedestrian' : 'road';
+        for (let ri = 0; ri < f.rings.length; ri++) {
+            const ring = f.rings[ri]!;
+            if (ring.length < 2) continue;
+            ways.push({
+                coords: ring.map((p) => [p[0]!, p[1]!] as const),
+                kind,
+                highway: hw,
+                osmId: f.syntheticId * 16 + ri,
+            });
+        }
+    }
+    return { type: 'ContextRoadCollection', ways };
+}
+
 export async function fetchContextRoads(
     lat: number, lon: number, signal?: AbortSignal,
 ): Promise<ContextRoadCollection> {
@@ -104,6 +132,29 @@ export async function fetchContextRoads(
 async function fetchRoadsForBbox(
     bbox: Bbox, key: string, signal?: AbortSignal,
 ): Promise<ContextRoadCollection> {
+    // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST, mirroring contextBuildings. We fall
+    // back to Overpass ONLY on a real read failure (`unavailable`); an honest empty `ok` result is an
+    // ANSWER and must NOT re-ask the third party (§CONTEXT-DATA-HONESTY). `aborted` = the caller
+    // cancelled → render nothing and let the newer request paint (§L-579). `disabled` (no tiles URL)
+    // simply falls through to the Overpass path below unchanged.
+    const tiled = await readContextTileFeatures('roads', bbox, signal);
+    if (tiled.status === 'ok') {
+        const collection = roadsFromTileFeatures(tiled.features);
+        cache.set(key, collection);
+        console.log(
+            `[gis] §CTX-PMTILES-READER roads: ${collection.ways.length} way(s) from ` +
+                `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call.`,
+        );
+        return collection;
+    }
+    if (tiled.status === 'aborted') return emptyRoadCollection();
+    if (tiled.status === 'unavailable') {
+        console.warn(
+            `[gis] §CTX-PMTILES-READER roads: tiles configured but unreadable (${tiled.reason}) ` +
+                '— falling back to live Overpass. This is a DEGRADED path, not the intended one.',
+        );
+    }
+
     const query = overpassRoadQuery(bbox);
 
     // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the

@@ -13,6 +13,7 @@ import {
     fetchOverpassViaProxy,
     type Bbox,
 } from './contextBuildings';
+import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
 
 export interface ContextWaterArea {
     /** Closed ring as [lon,lat] pairs (a lake / pond / reservoir polygon). */
@@ -93,6 +94,52 @@ function waterFromElements(elements: OverpassWay[], bbox: Bbox): ContextWaterCol
             areas.push({ ring: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
         } else {
             ways.push({ coords: el.geometry.map((p) => [p.lon, p.lat] as const), osmId: el.id });
+        }
+    }
+    const sea = buildSeaMaskFromCoastline(coastlines, bbox).map(
+        (ring, i): ContextWaterArea => ({ ring, osmId: -1 - i }),
+    );
+    return { type: 'ContextWaterCollection', areas, ways, sea };
+}
+
+/** Is a lon/lat ring closed (first point ≈ last)? Ring-shaped twin of `isClosed` below, used to
+ *  classify tile linework the same way the Overpass path classifies `out geom` geometry. */
+function isClosedRing(ring: number[][]): boolean {
+    if (ring.length < 4) return false;
+    const a = ring[0]!, z = ring[ring.length - 1]!;
+    return Math.abs(a[0]! - z[0]!) < 1e-9 && Math.abs(a[1]! - z[1]!) < 1e-9;
+}
+
+/**
+ * §CTX-PMTILES-READER (L-513b) — convert baked-tile water features into the same
+ * `ContextWaterCollection` shape `waterFromElements` produces. The water layer is MIXED
+ * (LAYER_IS_AREAL.water = false), so the reader returns BOTH polygon rings and linestrings; we split
+ * them exactly as the Overpass path does — `natural=water`/`landuse=reservoir`/`waterway=riverbank`
+ * or a geometrically closed ring → `areas`, everything else linear → `waterways`. Any baked
+ * `natural=coastline` linework feeds the SAME §FEAT-FORMA-SEA-CONTEXT sea-mask builder (L-185); when
+ * no coastline is baked, `sea` is legitimately empty. `osmId` derives from the stable synthetic id.
+ */
+function waterFromTileFeatures(features: ContextTileFeature[], bbox: Bbox): ContextWaterCollection {
+    const areas: ContextWaterArea[] = [];
+    const ways: ContextWaterway[] = [];
+    const coastlines: Array<Array<readonly [number, number]>> = [];
+    for (const f of features) {
+        const tags = f.tags;
+        for (let ri = 0; ri < f.rings.length; ri++) {
+            const ring = f.rings[ri]!;
+            if (ring.length < 2) continue;
+            const coords = ring.map((p) => [p[0]!, p[1]!] as const);
+            if (tags['natural'] === 'coastline') { coastlines.push(coords.slice()); continue; }
+            const osmId = f.syntheticId * 16 + ri;
+            const isArea = tags['natural'] === 'water'
+                || tags['landuse'] === 'reservoir'
+                || tags['waterway'] === 'riverbank'
+                || isClosedRing(ring);
+            if (isArea && ring.length >= 4) {
+                areas.push({ ring: coords, osmId });
+            } else {
+                ways.push({ coords, osmId });
+            }
         }
     }
     const sea = buildSeaMaskFromCoastline(coastlines, bbox).map(
@@ -365,6 +412,29 @@ export async function fetchContextWater(
 async function fetchWaterForBbox(
     bbox: Bbox, key: string, signal?: AbortSignal,
 ): Promise<ContextWaterCollection> {
+    // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST, mirroring contextBuildings. Fall
+    // back to Overpass ONLY on `unavailable` (a real read failure); an honest empty `ok` is an ANSWER
+    // (§CONTEXT-DATA-HONESTY). `aborted` = caller cancelled → render nothing (§L-579); `disabled`
+    // falls through to the Overpass path below unchanged.
+    const tiled = await readContextTileFeatures('water', bbox, signal);
+    if (tiled.status === 'ok') {
+        const collection = waterFromTileFeatures(tiled.features, bbox);
+        cache.set(key, collection);
+        console.log(
+            `[gis] §CTX-PMTILES-READER water: ${collection.areas.length} area(s) + ` +
+                `${collection.ways.length} waterway(s) + ${collection.sea.length} sea surface(s) from ` +
+                `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call.`,
+        );
+        return collection;
+    }
+    if (tiled.status === 'aborted') return emptyWaterCollection();
+    if (tiled.status === 'unavailable') {
+        console.warn(
+            `[gis] §CTX-PMTILES-READER water: tiles configured but unreadable (${tiled.reason}) ` +
+                '— falling back to live Overpass. This is a DEGRADED path, not the intended one.',
+        );
+    }
+
     const query = overpassWaterQuery(bbox);
 
     // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the

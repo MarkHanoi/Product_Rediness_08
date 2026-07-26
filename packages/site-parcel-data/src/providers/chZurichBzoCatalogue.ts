@@ -398,6 +398,48 @@ export function computeZurichBzoGfa(az: number, parcelAreaM2: number): number | 
 }
 
 /**
+ * The C58 `ZoningRecord.structuredFields` a Zürich BZO parcel contributes to the SHARED buildable-
+ * envelope engine (`computeBuildableEnvelope`) — the mapping the L5 dispatcher drops onto the record
+ * once `computeZurichBzoEnvelope` is wired in (L-616).
+ *
+ * ⚠ WHY `plotRatioFAR` (not a bare `far`/`az`): the engine's L-616 `farLimitedHeight_m` FAR-cap reads
+ * the AZ from `resolveNumber(structured.plotRatioFAR, zone?.plotRatioFAR, …)` — the EXACT field name
+ * `plotRatioFAR` (see ZoningRulesEngine + JurisdictionZoningContract). Emitting the AZ under any other
+ * key would leave `maxFAR` null → the shared massing would extrude footprint × `maxHeight_m` and IGNORE
+ * the AZ cap, the OVERSTATES-FAR defect L-616 exists to prevent. So the Zürich AZ MUST travel as
+ * `plotRatioFAR`, `maxHeight_m` as the regime-correct Gebäudehöhe, `maxFloors` as the Vollgeschosse.
+ *
+ * PURE and gate-INDEPENDENT (does NOT consult `CH_FAR_CERTIFIED`) — it is a data lookup, exactly like
+ * `resolveZurichBzoEnvelopeParams` on which it is built; the CERTIFICATION gate lives in
+ * `computeZurichBzoEnvelope`. Returns `null` when the regime/zone cannot be resolved (never a guess).
+ */
+export interface ZurichBzoStructuredFields {
+    /** Ausnützungsziffer (AZ) as a fraction — emitted under the ENGINE's FAR-cap field name. */
+    readonly plotRatioFAR: number;
+    /** Max Gebäudehöhe (m) under the resolved regime — the shell height cap. */
+    readonly maxHeight_m: number;
+    /** Max Vollgeschosse (full storeys) — the floor cap; also sets the FAR floor-height divisor. */
+    readonly maxFloors: number;
+}
+
+/**
+ * Build the engine-shaped `structuredFields` for a Zürich parcel: `{ plotRatioFAR, maxHeight_m,
+ * maxFloors }`, or `null` when the regime/zone cannot be placed. This is what the orchestrator copies
+ * into the C58 `ZoningRecord.structuredFields` so the shared engine's L-616 FAR-cap binds the massing.
+ */
+export function zurichBzoStructuredFields(
+    input: ZurichBzoEnvelopeParamsInput,
+): ZurichBzoStructuredFields | null {
+    const params = resolveZurichBzoEnvelopeParams(input);
+    if (!params.ok) return null;
+    return {
+        plotRatioFAR: params.far, // AZ under the engine's FAR-cap field name — the load-bearing rename.
+        maxHeight_m: params.maxHeight_m,
+        maxFloors: params.maxStoreys,
+    };
+}
+
+/**
  * The `knownFacts` lines that enrich the honest refusal (gate OFF) with the transcribed AZ / height /
  * storeys as REFERENCE values, clearly labelled "pending certification" so no chip reads them as a
  * cited ordinance figure. When the regime is undetermined, the W2bIII-style height ambiguity is shown

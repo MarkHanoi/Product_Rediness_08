@@ -31,6 +31,9 @@ import {
     resolveChFarFromCantonCatalogue,
 } from '../src/index.js';
 import { EnvelopeRefusalSchema } from '@pryzm/schemas';
+// Imported from the provider module directly (not the barrel) so the L-616 FAR-field helper is under
+// test WITHOUT requiring an index.ts export change (index is the orchestrator's to add — out of scope).
+import { zurichBzoStructuredFields } from '../src/providers/chZurichBzoCatalogue.js';
 
 describe('Zürich BZO catalogue — the transcribed zone table (both regimes)', () => {
     it('W2bIII AZ is 0.45 in BOTH regimes', () => {
@@ -262,6 +265,29 @@ describe('Zürich BZO — FAR is regime-independent, the GFA math is AZ × area'
     it('the registered ZH FAR catalogue carries every 91/99 zone as an AZ row', () => {
         expect(ZURICH_ZH_FAR_CATALOGUE.get('W2bIII')).toMatchObject({ far: 0.45, farKind: 'AZ' });
         expect(ZURICH_ZH_FAR_CATALOGUE.get('Z6')).toMatchObject({ far: 2.3, farKind: 'AZ' });
+    });
+});
+
+describe('L-616 — the Zürich AZ is emitted as `plotRatioFAR` (the ENGINE FAR-cap field)', () => {
+    it('zurichBzoStructuredFields emits plotRatioFAR = AZ (the exact field farLimitedHeight_m reads)', () => {
+        // W2bIII AZ 0.45; regime 91/99 → height 8.5 m; Vollgeschosse 2. The AZ MUST surface as
+        // `plotRatioFAR` (not `far`/`az`) or the shared engine's maxFAR stays null → OVERSTATES-FAR.
+        const s = zurichBzoStructuredFields({ typ: 'W2bIII', planArea: 'bzo_91_99' });
+        expect(s).not.toBeNull();
+        expect(s).toEqual({ plotRatioFAR: 0.45, maxHeight_m: 8.5, maxFloors: 2 });
+        // The field name is literally `plotRatioFAR` — the key ZoningRulesEngine's resolveNumber reads.
+        expect(Object.prototype.hasOwnProperty.call(s, 'plotRatioFAR')).toBe(true);
+    });
+
+    it('the regime-correct height rides with the FAR (Z7 under 2016 → AZ 2.6, 25 m, 7 storeys)', () => {
+        const s = zurichBzoStructuredFields({ typ: 'Z7', planArea: 'bzo_2016' });
+        expect(s).toEqual({ plotRatioFAR: 2.6, maxHeight_m: 25.0, maxFloors: 7 });
+    });
+
+    it('regime undetermined or unknown zone → null (never a guessed FAR/height)', () => {
+        expect(zurichBzoStructuredFields({ typ: 'W2bIII' })).toBeNull(); // regime-ambiguous
+        expect(zurichBzoStructuredFields({ typ: 'W3', planArea: 'bzo_2016' })).toBeNull(); // not-in-regime
+        expect(zurichBzoStructuredFields({ typ: '' })).toBeNull();
     });
 });
 

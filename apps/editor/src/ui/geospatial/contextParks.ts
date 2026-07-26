@@ -14,6 +14,7 @@ import {
     fetchOverpassViaProxy,
     type Bbox,
 } from './contextBuildings';
+import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
 
 export interface ContextParkArea {
     /** Closed ring as [lon,lat] pairs (a park / grass / wood polygon). */
@@ -83,6 +84,25 @@ function pushRing(
     areas.push({ ring: geom.map((p) => [p.lon, p.lat] as const), osmId });
 }
 
+/**
+ * §CTX-PMTILES-READER (L-513b) — convert baked-tile park features into the same
+ * `ContextParkCollection` shape `parksFromElements` produces. Parks are AREAL
+ * (LAYER_IS_AREAL.parks = true), so the reader already keeps ONLY polygon outer rings and drops the
+ * bake's duplicate linestrings; each ring ≥4 points becomes one filled `ContextParkArea`. `osmId`
+ * derives from the tile's stable synthetic id (spaced by 16 so multi-ring features never collide).
+ */
+function parksFromTileFeatures(features: ContextTileFeature[]): ContextParkCollection {
+    const areas: ContextParkArea[] = [];
+    for (const f of features) {
+        for (let ri = 0; ri < f.rings.length; ri++) {
+            const ring = f.rings[ri]!;
+            if (ring.length < 4) continue;
+            areas.push({ ring: ring.map((p) => [p[0]!, p[1]!] as const), osmId: f.syntheticId * 16 + ri });
+        }
+    }
+    return { type: 'ContextParkCollection', areas };
+}
+
 export async function fetchContextParks(
     lat: number, lon: number, signal?: AbortSignal,
 ): Promise<ContextParkCollection> {
@@ -93,6 +113,28 @@ export async function fetchContextParks(
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
+
+    // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST, mirroring contextBuildings. Fall
+    // back to Overpass ONLY on `unavailable` (a real read failure); an honest empty `ok` is an ANSWER
+    // (§CONTEXT-DATA-HONESTY). `aborted` = caller cancelled → render nothing (§L-579); `disabled`
+    // falls through to the Overpass path below unchanged.
+    const tiled = await readContextTileFeatures('parks', bbox, signal);
+    if (tiled.status === 'ok') {
+        const collection = parksFromTileFeatures(tiled.features);
+        cache.set(key, collection);
+        console.log(
+            `[gis] §CTX-PMTILES-READER parks: ${collection.areas.length} green area(s) from ` +
+                `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call.`,
+        );
+        return collection;
+    }
+    if (tiled.status === 'aborted') return emptyParkCollection();
+    if (tiled.status === 'unavailable') {
+        console.warn(
+            `[gis] §CTX-PMTILES-READER parks: tiles configured but unreadable (${tiled.reason}) ` +
+                '— falling back to live Overpass. This is a DEGRADED path, not the intended one.',
+        );
+    }
 
     const query = overpassParkQuery(bbox);
 

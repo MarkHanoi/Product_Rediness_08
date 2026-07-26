@@ -173,6 +173,14 @@ export interface ZurichBzoComputedEnvelope {
     readonly zone: string;
     /** Ausnützungsziffer as a fraction (the FAR). */
     readonly far: number;
+    /**
+     * The AZ under the ENGINE's FAR-cap field name (L-616). ALWAYS === `far`; carried as a distinct,
+     * engine-named field so the L5 dispatcher copies it straight into the C58 `ZoningRecord`
+     * `structuredFields.plotRatioFAR` — the EXACT key `computeBuildableEnvelope`'s `farLimitedHeight_m`
+     * reads (`resolveNumber(structured.plotRatioFAR, …)`). Emitting the AZ ONLY as `far` would leave the
+     * shared massing's `maxFAR` null → footprint × height with no AZ cap = the OVERSTATES-FAR defect.
+     */
+    readonly plotRatioFAR: number;
     /** Max GFA in m² = `far × parcelAreaM2`. */
     readonly maxGFA_m2: number;
     /** Max full storeys — a cap carried alongside the GFA, never derived from it. */
@@ -255,6 +263,9 @@ export function computeZurichBzoEnvelope(
         envelope: {
             zone: params.zone,
             far: params.far,
+            // L-616 — emit the AZ under the engine's FAR-cap field name so the wired dispatcher's
+            // ZoningRecord.structuredFields.plotRatioFAR binds the shared massing (no OVERSTATES-FAR).
+            plotRatioFAR: params.far,
             maxGFA_m2,
             maxStoreys: params.maxStoreys,
             maxHeight_m: params.maxHeight_m,
