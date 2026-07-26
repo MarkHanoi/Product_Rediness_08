@@ -2015,6 +2015,9 @@ async function applyParisZoningThenFallback(
             maxFAR: null,
             maxCoverage: null,
             maxVolumeM3: result.volumeM3,
+            // The drawn ring is the published ECM footprint geometry (never parcel×%), so it is a real
+            // solved footprint — not a full-parcel upper bound (L-619 flag stays false here).
+            footprintIsUpperBound: false,
             // The engine's NET buildable area (gross ECM footprint − any EAL strip) is the authoritative
             // figure; the drawn ring is the gross ECM outline (EAL is a scalar deduction, per the caveats).
             insetAreaM2: result.footprintAreaM2,

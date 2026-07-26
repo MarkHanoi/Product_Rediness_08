@@ -19,7 +19,8 @@
 | **BCN 13b semiintensiva** | null, block-derived depth `esBarcelonaSemiintensiva.ts:235,130-170` | null | null | No | No | No | **REALISTIC** |
 | **BCN 12 nucli antic** | null, block-derived depth `esBarcelonaNucliAntic.ts:342,191-207` | **1.40** `:338` | null | No | No | **YES** | **OVERSTATES-FAR** (live) |
 | **BCN 20a aïllada** | **REAL** front/side/rear `esBarcelona20aAillada.ts:526-539` | real `:522` | real 30% `:523` | No | No | **YES** | **OVERSTATES-FAR** (live) |
-| **BCN 22a industrial** | tiered-occupation — **NOT registered** `registry.ts:280-331` | 2.0 | 0.9 | Yes | — | — | **REFUSES** |
+| **BCN 22a industrial**
+ | tiered-occupation — **NOT registered** `registry.ts:280-331` | 2.0 | 0.9 | Yes | — | — | **REFUSES** |
 | **BCN 18 volumetria** | explicit-area, gated OFF | null | null | No | — | — | **REFUSES** |
 | **Madrid NZ1** | explicit-area, empty `registry.ts:397-401` | null | null | No | — | — | **REFUSES** (ring-only) |
 | **Córdoba PGOU-2001** | mixed (PAS/OA/UAD real; CTP-1/MC **null + no geometricRule**) — gate OFF | real | real | No | latent | latent | **REFUSES** (latent BOTH) |
