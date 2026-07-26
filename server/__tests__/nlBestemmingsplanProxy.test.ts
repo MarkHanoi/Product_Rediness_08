@@ -123,8 +123,24 @@ describe('fetchNlBestemmingsplan — consolidation (never throws)', () => {
         const body = await fetchNlBestemmingsplan(53.2194, 6.5665, { fetchImpl: layerFetch(ALL_LAYERS) });
         expect(body).not.toBeNull();
         expect(body!.plan.naam).toBe('Binnenstad'); // the detail plan, not "Herziening Parkeren 2021"
-        expect(body!.bestemmingsvlak).toEqual({ naam: 'Centrum - 1' });
+        // §NL-SPARSE-FALLBACK — the bestemmingsvlak now carries the zone FOOTPRINT too (used as an
+        // upper-bound extent when no bouwvlak is published), not only its naam.
+        expect(body!.bestemmingsvlak).toEqual({ naam: 'Centrum - 1', geometrie: { type: 'Polygon', coordinates: [RING] } });
         expect(body!.bouwvlak?.geometrie?.type).toBe('Polygon');
+        expect(body!.maatvoeringen).toEqual([{ naam: 'maximum bouwhoogte (m)', waarde: '24' }]);
+    });
+
+    it('§NL-SPARSE-FALLBACK — no bouwvlak, but the zone footprint + maatvoering still come back', async () => {
+        // The common NL case: enkelbestemming + maatvoering present, but NO bouwvlak layer feature.
+        const body = await fetchNlBestemmingsplan(53.2194, 6.5665, {
+            fetchImpl: layerFetch({
+                maatvoering: maatvoeringBody, enkelbestemming: enkelBody, bestemmingsplangebied: gebiedBody,
+                // bouwvlak layer intentionally absent → { features: [] }
+            }),
+        });
+        expect(body).not.toBeNull();
+        expect(body!.bouwvlak).toBeNull(); // no precise footprint published
+        expect(body!.bestemmingsvlak?.geometrie?.type).toBe('Polygon'); // but the zone extent is
         expect(body!.maatvoeringen).toEqual([{ naam: 'maximum bouwhoogte (m)', waarde: '24' }]);
     });
 

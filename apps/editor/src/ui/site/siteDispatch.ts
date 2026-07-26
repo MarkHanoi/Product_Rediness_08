@@ -1645,9 +1645,16 @@ async function applyMadridZoningThenFallback(
  *     → maxCoverage, aantal bouwlagen → maxFloors), so — UNLIKE Madrid — a clean "maximum bouwhoogte
  *     (m)" makes the engine render `structured` (a real metre height with stated units), and a
  *     bouwvlak-with-no-numbers renders `estimated-ruleset`. Never a fabricated number either way.
- *   • WITHOUT a bouwvlak → a CITED REFUSAL (`nlBestemmingsplanRefusal`), status `'none'`. It does NOT fall
- *     back to the estimated triple: a front/side/rear estimate is the wrong geometric SHAPE for an
- *     explicit-area zone (the §CONTEXT-DATA-HONESTY failure this whole path exists to avoid).
+ *   • §NL-SPARSE-FALLBACK: NO bouwvlak BUT the zone (bestemmingsvlak) carries a footprint + a usable
+ *     maatvoering → draw the ZONE EXTENT × the maatvoering height as an UPPER BOUND, FORCED to
+ *     `estimated-ruleset` with a caveat that no bouwvlak was published (so the extent is not a precise
+ *     buildable footprint). This mirrors the DK L-620 storey fix — use the real published zone data
+ *     instead of refusing. Bouwvlak is SPARSE in NL, so this is the COMMON case (a live Amsterdam probe
+ *     showed most parcels have only enkelbestemming + maatvoering, no bouwvlak).
+ *   • WITHOUT a bouwvlak AND without a usable zone-extent-plus-maatvoering → a CITED REFUSAL
+ *     (`nlBestemmingsplanRefusal`), status `'none'`. It does NOT fall back to the estimated triple: a
+ *     front/side/rear estimate is the wrong geometric SHAPE for an explicit-area zone (the
+ *     §CONTEXT-DATA-HONESTY failure this whole path exists to avoid).
  *
  * ⚠ GATED ON `NL_BESTEMMINGSPLAN_CERTIFIED` (ON — the keyless PDOK proxy is wired and real bouwhoogte
  * verified live at Rotterdam 40 m / Utrecht 26 m / Groningen 24 m). Same discipline as
@@ -1711,20 +1718,42 @@ async function applyNlZoningThenFallback(
                 toAuthoringFrame({ lat: ll.lat, lon: ll.lon }),
             );
 
-            // The maatvoering is REAL published-structured data with STATED SVBP2012 units, so it
+            // §NL-SPARSE-FALLBACK — is this the PRECISE bouwvlak, or the ZONE (bestemmingsvlak) extent
+            // used because the plan published no bouwvlak? The zone extent is an UPPER BOUND on the
+            // buildable footprint, so it renders at REDUCED confidence with a caveat, never `structured`.
+            const isZoneFallback = resolution.ringSource === 'bestemmingsvlak';
+
+            // §NL-SPARSE-FALLBACK height derivation (fallback branch only — the bouwvlak branch is
+            // UNCHANGED). When the zone publishes no max bouwhoogte in metres but DOES publish a storey
+            // count, derive a height (floors × ~3 m) — the DK L-620 pattern (a LABELLED derivation, not
+            // a fabricated default). The precise bouwvlak branch never derives; it uses the metre value.
+            const NL_FLOOR_H_M = 3.0;
+            const heightDerivedFromFloors =
+                isZoneFallback &&
+                resolution.maat.maxBouwhoogte_m === null &&
+                typeof resolution.maat.maxAantalBouwlagen === 'number' &&
+                resolution.maat.maxAantalBouwlagen > 0;
+            const effectiveMaxHeight_m = heightDerivedFromFloors
+                ? resolution.maat.maxAantalBouwlagen! * NL_FLOOR_H_M
+                : resolution.maat.maxBouwhoogte_m;
+
+            // The maatvoering is REAL published data with STATED SVBP2012 units, so it
             // rides in `structuredFields` (which the engine resolves as `published-structured` →
-            // `structured` confidence when every resolved number is structured). Absent numbers stay
-            // null (honest withheld). `maxGoothoogte` (eave) is deliberately NOT used as the height
-            // cap. The bestemming → permittedUse via the direct translation the schema mandates.
+            // `structured` confidence when every resolved number is structured — for the PRECISE
+            // bouwvlak case). Absent numbers stay null (honest withheld). `maxGoothoogte` (eave) is
+            // deliberately NOT used as the height cap. The bestemming → permittedUse via the direct
+            // translation the schema mandates.
             const use = bestemmingToPermittedUse(resolution.bestemming);
             const record: ZoningRecord = {
                 zoneCode: NL_ZONE_CODE,
                 zoneLabel: resolution.bestemming
                     ? `Bestemmingsplan — ${resolution.bestemming}`
-                    : 'Bestemmingsplan bouwvlak',
+                    : isZoneFallback
+                        ? 'Bestemmingsplan bestemmingsvlak (zone extent)'
+                        : 'Bestemmingsplan bouwvlak',
                 jurisdictionId: NL_JURISDICTION_ID,
                 structuredFields: {
-                    maxHeight_m: resolution.maat.maxBouwhoogte_m,
+                    maxHeight_m: effectiveMaxHeight_m,
                     maxFloors: resolution.maat.maxAantalBouwlagen,
                     maxCoverage: resolution.maat.maxBebouwingspercentage,
                     plotRatioFAR: resolution.maat.far,
@@ -1753,29 +1782,55 @@ async function applyNlZoningThenFallback(
                 const heightNote =
                     resolution.maat.maxBouwhoogte_m !== null
                         ? `maximum bouwhoogte ${resolution.maat.maxBouwhoogte_m} m`
-                        : 'no maximum bouwhoogte published for this bouwvlak (height withheld)';
-                const enriched: BuildableEnvelope = {
-                    ...envelope,
-                    caveats: [
-                        ...envelope.caveats,
-                        `Amsterdam bestemmingsplan${resolution.planNaam ? ` "${resolution.planNaam}"` : ''}: ` +
-                            `the buildable envelope is the published bouwvlak (IMRO2012 / SVBP2012), ` +
-                            `clipped to your parcel — real published geometry. Dimensions from the ` +
-                            `plan's maatvoering: ${heightNote}` +
-                            `${resolution.maat.maxBebouwingspercentage !== null ? `, maximum bebouwingspercentage ${(resolution.maat.maxBebouwingspercentage * 100).toFixed(0)} %` : ''}` +
-                            `${resolution.maat.maxAantalBouwlagen !== null ? `, maximum ${resolution.maat.maxAantalBouwlagen} bouwlagen` : ''}. ` +
-                            `Verify against the plan regels before relying on it.`,
-                    ],
-                };
+                        : heightDerivedFromFloors
+                            ? `height DERIVED from ${resolution.maat.maxAantalBouwlagen} bouwlagen × ~${NL_FLOOR_H_M} m ` +
+                              `(no maximum bouwhoogte published in metres — a labelled derivation, not a surveyed height)`
+                            : 'no maximum bouwhoogte published (height withheld)';
+                const percClause =
+                    resolution.maat.maxBebouwingspercentage !== null
+                        ? `, maximum bebouwingspercentage ${(resolution.maat.maxBebouwingspercentage * 100).toFixed(0)} %`
+                        : '';
+                const enriched: BuildableEnvelope = isZoneFallback
+                    ? {
+                          // §NL-SPARSE-FALLBACK — the zone extent is an UPPER BOUND, so FORCE the
+                          // confidence down to `estimated-ruleset` (the height is real, but the
+                          // FOOTPRINT is the zone, not a precise buildable area) and say so plainly.
+                          ...envelope,
+                          confidence: 'estimated-ruleset',
+                          caveats: [
+                              ...envelope.caveats,
+                              `No separate bouwvlak was published for this parcel, so the buildable ` +
+                                  `extent shown is the ZONE (bestemmingsvlak` +
+                                  `${resolution.bestemming ? ` "${resolution.bestemming}"` : ''}) footprint — ` +
+                                  `an UPPER BOUND on where you may build, NOT a precise published buildable ` +
+                                  `footprint. Height from the zone's maatvoering: ${heightNote}${percClause}. ` +
+                                  `Confidence is reduced accordingly — verify the plan regels for the exact ` +
+                                  `bouwvlak before relying on it.`,
+                          ],
+                      }
+                    : {
+                          ...envelope,
+                          caveats: [
+                              ...envelope.caveats,
+                              `Bestemmingsplan${resolution.planNaam ? ` "${resolution.planNaam}"` : ''}: ` +
+                                  `the buildable envelope is the published bouwvlak (IMRO2012 / SVBP2012), ` +
+                                  `clipped to your parcel — real published geometry. Dimensions from the ` +
+                                  `plan's maatvoering: ${heightNote}${percClause}` +
+                                  `${resolution.maat.maxAantalBouwlagen !== null ? `, maximum ${resolution.maat.maxAantalBouwlagen} bouwlagen` : ''}. ` +
+                                  `Verify against the plan regels before relying on it.`,
+                          ],
+                      };
                 dispatchEnvelope(ctx, site.id, enriched, NL_SOURCE);
                 console.log(
-                    `${TAG} explicit-area envelope OK → plan=${resolution.planId ?? 'n/a'} ` +
-                        `bestemming=${resolution.bestemming ?? 'n/a'} bouwhoogte=${resolution.maat.maxBouwhoogte_m ?? 'n/a'}m ` +
-                        `conf=${enriched.confidence} inset=${enriched.insetAreaM2.toFixed(1)}m² — clipped to the bouwvlak.`,
+                    `${TAG} explicit-area envelope OK → ringSource=${resolution.ringSource} ` +
+                        `plan=${resolution.planId ?? 'n/a'} bestemming=${resolution.bestemming ?? 'n/a'} ` +
+                        `height=${effectiveMaxHeight_m ?? 'n/a'}m${heightDerivedFromFloors ? ' (storey-derived)' : ''} ` +
+                        `conf=${enriched.confidence} inset=${enriched.insetAreaM2.toFixed(1)}m² — ` +
+                        `${isZoneFallback ? 'clipped to the ZONE extent (upper bound)' : 'clipped to the bouwvlak'}.`,
                 );
                 return;
             }
-            console.log(`${TAG} bouwvlak resolved but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
+            console.log(`${TAG} ring resolved (${resolution.ringSource}) but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
         } else if (!resolution.ok) {
             console.log(`${TAG} bouwvlak not resolved (reason=${resolution.reason}) — cited refusal.`);
         }
