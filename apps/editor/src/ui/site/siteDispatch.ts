@@ -821,6 +821,12 @@ export function dispatchClearParcelBoundary(ctx: SiteContext): boolean {
 
     const replacement = {
         ...site,
+        // §SEAM-2 INCREMENT 1 (g3) — RESET trueNorth to 0 on CLEAR. The boundary is what DERIVES θ,
+        // so clearing the boundary without clearing θ leaks the previous parcel's ±45° into the next
+        // Redraw: a freshly-drawn θ=0 parcel would then be read/de-rotated against a stale angle
+        // (write≠read). Zero is the identity and the honest "no parcel ⇒ no project north" state; the
+        // next commit republishes θ unconditionally (g1). θ-independent — correct at any site.
+        location: { ...site.location, trueNorth: 0 },
         parcel: {
             ...site.parcel,
             boundary: { polygon: [], edgeClassifications: [] },
@@ -910,11 +916,24 @@ export function dispatchParcelBoundary(
     // θ = 0 (a parcel already square to true north) ⇒ EXACT identity ⇒ byte-identical to
     // before for every existing project (ADR-0070 byte-identity).
     const projectNorthRad = deriveProjectNorthAngleFromParcel(boundary.polygon);
-    if (projectNorthRad !== 0) {
-        // Persist θ FIRST: the consumers (globe, solar, north arrow, plan pane) read it from
-        // `SiteLocation.trueNorth`, and `site.parcel-boundary-set` below triggers the first
-        // render. Setting it after would paint one frame in the wrong orientation.
-        dispatchSiteTrueNorth(ctx, projectNorthRad);
+
+    // §SEAM-2 INCREMENT 1 (g1) — PUBLISH θ UNCONDITIONALLY, including 0. Persist θ FIRST: the
+    // consumers (globe, solar, north arrow, plan pane) read it from `SiteLocation.trueNorth`, and
+    // `site.parcel-boundary-set` below triggers the first render — setting it after would paint one
+    // frame in the wrong orientation. This write used to be guarded behind `projectNorthRad !== 0`,
+    // so a parcel that folds to θ=0 NEVER published 0 and a PRIOR parcel's ±45° survived in the
+    // store: the θ_read then latched a stale angle onto a square ring (the redraw→θ=0 displacement).
+    // The write is the SSOT for the authoring frame; skipping it when the value is the identity is
+    // exactly what split write from read. θ-independent: 0 is written honestly (Denmark), a nonzero
+    // θ is written honestly (Barcelona).
+    //
+    // §SEAM-2 INCREMENT 1 (g2) — the write is TRANSACTIONAL. `dispatchSiteTrueNorth` can soft-reject
+    // (no Site / non-finite / store reject) and previously its boolean was ignored while the ring was
+    // de-rotated anyway → a ring squared to a θ the frame never recorded (a permanent write≠read
+    // split). De-rotate the ring ONLY when the θ write SUCCEEDED; if it failed, leave the ring in its
+    // TRUE frame — honest, since an un-published θ must never de-rotate.
+    const northWritten = dispatchSiteTrueNorth(ctx, projectNorthRad);
+    if (northWritten && projectNorthRad !== 0) {
         boundary = {
             // Edge ORDER is preserved by a rotation, so `edgeClassifications` (indexed by
             // edge) stays valid without recomputation.
@@ -928,6 +947,11 @@ export function dispatchParcelBoundary(
             `[gis] §L-430 project north — parcel squared to its dominant edge: `
             + `θ = ${(projectNorthRad * 180 / Math.PI).toFixed(2)}° (project→true). `
             + `Authoring frame is now orthogonal; 3D Site + globe re-apply θ for true north.`,
+        );
+    } else if (!northWritten) {
+        console.warn(
+            `[gis] §SEAM-2 (g2) — θ write soft-rejected (θ=${(projectNorthRad * 180 / Math.PI).toFixed(2)}°); `
+            + `leaving the ring in its TRUE frame rather than de-rotating against an unrecorded θ.`,
         );
     }
 

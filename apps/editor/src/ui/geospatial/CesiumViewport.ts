@@ -2484,7 +2484,19 @@ export class CesiumViewport {
    */
   private readProjectNorthRad(): number {
     try {
-      const store = this.runtime?.siteModelStore as
+      // §SEAM-2 INCREMENT 1 (g4) — read the store via `this.runtime || window.runtime`, mirroring the
+      // §L-412 Bug-2 boundary read. `this.runtime` can still be null on the legacy / lazy-import boot
+      // path (documented on the field at :1108), and a null runtime made θ_read latch 0 —
+      // INDISTINGUISHABLE from a site that genuinely has no project north (the §L-446 ambiguity below).
+      // The window.runtime fallback lets a present-but-nonzero θ be READ, so a real Barcelona θ≈45°
+      // reaches the globe; 0 is returned only when trueNorth is truly 0. θ-independent: identity for
+      // Denmark (θ≈0), correct for Barcelona (θ≈45°). The narrow window slot carries the full runtime
+      // at runtime (siteDispatch reads siteModelStore off it the same way); the cast is the established
+      // pattern for that gap between the narrow type and the live object.
+      const rt = (this.runtime
+        ?? (window.runtime as unknown as import('@pryzm/runtime-composer/types').PryzmRuntime | undefined))
+        ?? undefined;
+      const store = rt?.siteModelStore as
         | { getLocation?: () => { trueNorth?: number } | null }
         | undefined;
       const theta = store?.getLocation?.()?.trueNorth;
@@ -2509,7 +2521,7 @@ export class CesiumViewport {
           console.warn(
             '[CesiumViewport][§L-446] project north resolved to 0 — the model will render in ' +
             'PROJECT space on a TRUE-north globe. Which link is empty: ' +
-            `runtime=${this.runtime ? 'present' : 'NULL'} ` +
+            `runtime=${this.runtime ? 'present' : (rt ? 'via-window (g4 fallback)' : 'NULL')} ` +
             `siteModelStore=${store ? 'present' : 'MISSING'} ` +
             `getLocation=${typeof store?.getLocation === 'function' ? 'present' : 'MISSING'} ` +
             `location=${store?.getLocation?.() ? 'present' : 'NULL'} ` +

@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { SiteModelStore, siteCreate, siteSetParcelBoundary } from '@pryzm/stores';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
-import { dispatchClearParcelBoundary } from '../src/ui/site/siteDispatch.js';
+import { dispatchClearParcelBoundary, dispatchSiteTrueNorth } from '../src/ui/site/siteDispatch.js';
 
 const BOUNDARY = {
     polygon: [
@@ -70,5 +70,50 @@ describe('§L-384 dispatchClearParcelBoundary — C19-safe re-draw', () => {
         const { ctx } = ctxFor(store);
         dispatchClearParcelBoundary(ctx);
         expect(fired).toBeGreaterThan(0);
+    });
+
+    // §SEAM-2 INCREMENT 1 (g3) — a Redraw must NOT leak the previous parcel's project-north θ. The
+    // boundary is what DERIVES θ, so clearing the boundary while leaving trueNorth at a stale ±45°
+    // means the next (θ=0) parcel is read/de-rotated against an angle it never produced — the live
+    // Barcelona→θ=0 displacement. dispatchClearParcelBoundary resets trueNorth to the identity.
+    it('§SEAM-2 (g3) — resets trueNorth to 0 on clear (no stale θ leaks into the next Redraw)', () => {
+        const store = new SiteModelStore();
+        const cr = siteCreate({ projectId: 'proj-g3', location: { latitude: 41.39, longitude: 2.16 } }, store);
+        const siteId = cr.ok ? cr.event.siteId : '';
+        siteSetParcelBoundary({ siteId, boundary: BOUNDARY }, store);
+        const { ctx } = ctxFor(store);
+        // A Barcelona parcel committed θ ≈ 45°.
+        expect(dispatchSiteTrueNorth(ctx, Math.PI / 4)).toBe(true);
+        expect(store.getLocation()?.trueNorth ?? -1).toBeCloseTo(Math.PI / 4, 12);
+        // Redraw → CLEAR. θ falls back to the identity, not the previous parcel's angle.
+        expect(dispatchClearParcelBoundary(ctx)).toBe(true);
+        expect(store.getLocation()?.trueNorth).toBe(0);
+        expect(store.getParcelBoundary()?.polygon.length ?? 0).toBe(0);
+    });
+});
+
+// §SEAM-2 INCREMENT 1 (g1/g2) — the θ WRITE contract that makes θ_write == θ_read unviolable.
+// dispatchParcelBoundary now publishes θ via dispatchSiteTrueNorth UNCONDITIONALLY (including 0) and
+// de-rotates the committed ring ONLY when that write succeeded. These pin the two properties that
+// combination depends on: (g1) publishing 0 OVERWRITES a stale angle; (g2) a soft-reject is signalled
+// by the boolean the caller must honour before de-rotating.
+describe('§SEAM-2 dispatchSiteTrueNorth — unconditional + transactional θ write', () => {
+    it('§SEAM-2 (g1) — publishes θ UNCONDITIONALLY, including 0, overwriting a prior parcel’s ±45°', () => {
+        const store = new SiteModelStore();
+        siteCreate({ projectId: 'proj-g1', location: { latitude: 41.39, longitude: 2.16 } }, store);
+        const { ctx } = ctxFor(store);
+        // A prior parcel set θ ≈ 45°.
+        expect(dispatchSiteTrueNorth(ctx, Math.PI / 4)).toBe(true);
+        expect(store.getLocation()?.trueNorth ?? -1).toBeCloseTo(Math.PI / 4, 12);
+        // The next parcel folds to θ = 0. Publishing 0 must OVERWRITE the stale angle — the old
+        // `if (projectNorthRad !== 0)` guard skipped this write and left ±45° behind (write≠read).
+        expect(dispatchSiteTrueNorth(ctx, 0)).toBe(true);
+        expect(store.getLocation()?.trueNorth).toBe(0);
+    });
+
+    it('§SEAM-2 (g2) — soft-rejects (returns false) when no Site exists, so the caller must NOT de-rotate', () => {
+        const store = new SiteModelStore(); // no site created → dispatchSiteTrueNorth cannot write θ
+        const { ctx } = ctxFor(store);
+        expect(dispatchSiteTrueNorth(ctx, Math.PI / 4)).toBe(false);
     });
 });
