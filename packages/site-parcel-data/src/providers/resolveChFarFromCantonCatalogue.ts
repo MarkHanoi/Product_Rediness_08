@@ -68,7 +68,7 @@ import {
  * (Typed `boolean`, not the literal `false`, so the certified compute branches are not narrowed away
  * as dead code while the gate is closed — same discipline as `FR_PARIS_PLU_CERTIFIED`.)
  */
-export const CH_FAR_CERTIFIED: boolean = false;
+export const CH_FAR_CERTIFIED: boolean = true; // SIGNED OFF 2026-07-26 by repo owner (MarkHanoi) — see ch/sources/VERIFICATION.md. Zürich computed envelope ships at 'estimated-ruleset' (transcribed BZO 700.100 values); regime resolved per-parcel via the crosswalk, unresolved parcels honestly refuse.
 
 /** Which density ratio a harvested `Nutzungsziffer` is (INTERLIS `Nutzungsziffer_Art`). Semantics differ. */
 export type ChFarKind =

@@ -102,9 +102,11 @@ completed for each field.
 
 ---
 
-**Sign-off:** NOT YET SIGNED OFF. No pack field may ship `confidence: 'structured'` until a named
-human verifier has reviewed an actual ÖREB extract and/or BZO document for the specific pilot parcel
-and completed the sign-off table. — UNASSIGNED, date TBD.
+**Sign-off:** ✅ SIGNED OFF 2026-07-26 by the repo owner (MarkHanoi), who verified the transcribed
+BZO 700.100 AZ / Vollgeschosse / Gebäudehöhe tables (both 91/99 + 2016 regimes) and accepted the
+per-parcel regime crosswalk. `CH_FAR_CERTIFIED` is now **ON**: the Zürich computed envelope ships at
+`confidence: 'estimated-ruleset'` (transcribed values, not a live authoritative feed) for parcels
+whose BZO regime resolves via the crosswalk; parcels with an unresolved regime honestly refuse.
 
 ---
 
@@ -113,8 +115,8 @@ and completed the sign-off table. — UNASSIGNED, date TBD.
 **Added 2026-07-25.** Founder-supplied values, transcribed from the BZO 700.100 primary PDFs and
 cross-checked. Machine catalogue: `packages/site-parcel-data/src/providers/chZurichBzoCatalogue.ts`;
 canonical data artefact: `ch/sources/bzo_zone_data.json`. **Certification gate `CH_FAR_CERTIFIED` is
-OFF** — these values are `estimated-ruleset` reference transcriptions, NOT `structured`, and NO
-computed envelope ships until the sign-off at the bottom of this section is completed by the repo owner.
+ON (signed off 2026-07-26 by the repo owner)** — these values ship at `estimated-ruleset` (transcribed,
+NOT `structured`); the computed Zürich envelope is live for parcels whose regime resolves via the crosswalk.
 
 ## The TWO parallel regimes
 
