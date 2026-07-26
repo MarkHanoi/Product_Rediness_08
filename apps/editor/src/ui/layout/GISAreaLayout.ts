@@ -1868,6 +1868,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // ════════════════════════════════════════════════════════════════════════
     let formaEnvelopeVisible = true;
     let envelopePanel: HTMLDivElement | null = null;
+    // §L-621b — user-dismissed state for the Buildable-Envelope CARD (chrome), distinct
+    // from `formaEnvelopeVisible` (the massing GEOMETRY on/off). Mirrors the
+    // `FormaSiteAnalysisControls._userHidden` pattern so a ✕ / launcher-toggle hide
+    // survives the card's re-render + re-home cycles. The launcher pill re-opens it.
+    let envelopeCardHidden = false;
+    /** §L-621b — apply the hidden flag to the live card node (no-op when not built). */
+    const applyEnvelopeCardVisibility = (): void => {
+        if (envelopePanel) envelopePanel.style.display = envelopeCardHidden ? 'none' : '';
+    };
+    /** §L-621b — toggle the Buildable-Envelope card; returns the new visible state. */
+    const toggleEnvelopeCard = (): boolean => {
+        envelopeCardHidden = !envelopeCardHidden;
+        applyEnvelopeCardVisibility();
+        return !envelopeCardHidden;
+    };
 
     /**
      * Feed the envelope's inset ring + height to the render, when ON.
@@ -1969,6 +1984,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         } else if (envelopePanel.parentElement !== viewport) {
             viewport.appendChild(envelopePanel);
         }
+        // §L-621b — honour a prior ✕ / launcher-toggle dismissal across re-render + re-home.
+        applyEnvelopeCardVisibility();
         return envelopePanel;
     };
 
@@ -3764,6 +3781,69 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 document.body.appendChild(planBtn);
                 console.log('[gis][plan-gis] always-on Plan + Site (GIS) launcher mounted (L-104, C06 §7 launcher layer).');
             }
+
+            // §L-621b — RE-OPEN pills for the two 3D-Site chrome panels. Closing a panel
+            // (its own ✕) previously left no way back; these are the always-on toggles.
+            // Same fixed / launcher-layer collision-free slotting as the pills above
+            // (slots 5 + 6, stacked directly over "Plan + Site"); brand white + #6600FF.
+            const mkPanelPill = (
+                id: string,
+                testid: string,
+                slot: import('./zLayers').LauncherSlot,
+                label: string,
+                title: string,
+                isOpen: () => boolean,
+                onToggle: () => void,
+            ): void => {
+                if (document.getElementById(id)) return; // idempotent
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.id = id;
+                pill.setAttribute('data-testid', testid);
+                pill.textContent = label;
+                pill.title = title;
+                Object.assign(pill.style, {
+                    ...launcherRailStyle(slot),
+                    appearance: 'none', cursor: 'pointer',
+                    padding: '7px 12px', borderRadius: '9px',
+                    border: '1px solid #6600FF',
+                    font: '600 12px/1 system-ui, sans-serif',
+                    boxShadow: '0 3px 12px rgba(20,10,60,0.16)',
+                } satisfies Partial<CSSStyleDeclaration>);
+                const paint = (): void => {
+                    const open = isOpen();
+                    pill.style.background = open ? '#6600FF' : '#ffffff';
+                    pill.style.color = open ? '#ffffff' : '#6600FF';
+                };
+                paint();
+                pill.addEventListener('mouseenter', () => { if (!isOpen()) pill.style.background = '#f4f0ff'; });
+                pill.addEventListener('mouseleave', () => { paint(); });
+                pill.addEventListener('click', () => { onToggle(); paint(); });
+                document.body.appendChild(pill);
+            };
+
+            mkPanelPill(
+                'pryzm-site-analysis-launcher', 'site-analysis-launcher', 'siteAnalysis',
+                '☀ Site Analysis', 'Show / hide the site-analysis panel (sun · weather · wind)',
+                () => !!formaAnalysis?.isVisible(),
+                () => {
+                    // Panel only exists in Forma Plan/3D; bring the view up if it isn't mounted.
+                    if (!formaAnalysis) { applyFormaView('plan'); }
+                    else { formaAnalysis.toggle(); }
+                },
+            );
+            mkPanelPill(
+                'pryzm-envelope-card-launcher', 'envelope-card-launcher', 'envelopeCard',
+                '▧ Buildable Envelope', 'Show / hide the buildable-envelope facts card',
+                () => !envelopeCardHidden && !!envelopePanel,
+                () => {
+                    // Not built yet (not in the site view) → bring the Forma view up (which
+                    // renders the card) and ensure it is shown; otherwise flip its visibility.
+                    if (!envelopePanel) { envelopeCardHidden = false; applyFormaView('plan'); }
+                    else { toggleEnvelopeCard(); }
+                },
+            );
+            console.log('[gis][panels] §L-621b re-open pills mounted (Site Analysis + Buildable Envelope).');
         } catch (e) {
             console.warn('[gis][site-view] launcher mount failed (non-fatal):', e);
         }

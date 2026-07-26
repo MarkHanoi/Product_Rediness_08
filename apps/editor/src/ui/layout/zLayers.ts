@@ -130,14 +130,21 @@ export const LAUNCHER_RAIL = {
  * toggle). `splitView` is the non-launcher Split View toggle folded into the same
  * accounting so it can never be re-occluded (L-159).
  */
-export type LauncherSlot = 'splitView' | 'siteView' | 'planGis' | 'graph' | 'livingGraph';
+export type LauncherSlot =
+    | 'splitView' | 'siteView' | 'planGis' | 'graph' | 'livingGraph'
+    // §L-621b — re-open pills for the two 3D-Site chrome panels (Site Analysis + the
+    // Buildable-Envelope card). Appended ABOVE the existing occupants so the collision-
+    // free column stays monotonic — no existing slot index moves (C06 §7.2).
+    | 'siteAnalysis' | 'envelopeCard';
 
 export const LAUNCHER_SLOT_INDEX: Record<LauncherSlot, number> = {
-    splitView:   0,
-    siteView:    1,
-    planGis:     2,
-    graph:       3,
-    livingGraph: 4,
+    splitView:    0,
+    siteView:     1,
+    planGis:      2,
+    graph:        3,
+    livingGraph:  4,
+    siteAnalysis: 5,
+    envelopeCard: 6,
 };
 
 /**

@@ -30,6 +30,10 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import type { ClimateDataset, SiteId } from '@pryzm/schemas';
+// §L-621a — the SHARED floating-panel drag utility (same one ClimatePanel /
+// DesignParamsPanel / the Buildable-Envelope card use). Re-evaluates the handle on
+// each mousedown, so it survives this panel's per-render node swaps.
+import { makeDraggable } from '../makeDraggable';
 import {
     openClimatePanel,
     closeClimatePanel,
@@ -165,6 +169,8 @@ export class FormaSiteAnalysisControls {
     private sunUnsub: (() => void) | null = null;
     private climateUnsub: (() => void) | null = null;
     private studyTimer: number | null = null;
+    /** §L-621a — disposer for the shared makeDraggable listeners on this panel. */
+    private dragDispose: (() => void) | null = null;
 
     constructor(
         viewport: FormaSunViewport,
@@ -192,6 +198,13 @@ export class FormaSiteAnalysisControls {
             padding: '12px', background: '#ffffff', borderRadius: '12px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
             font: '500 12px/1.35 system-ui, sans-serif', color: '#2a2240',
+            // §L-621a — user-RESIZABLE via the same CSS `resize: both` pattern the
+            // Buildable-Envelope card uses (GISAreaLayout `ensureEnvelopePanel`). A hard
+            // minWidth keeps it from collapsing to a sliver; maxHeight + overflow keep a
+            // tall panel (many analysis blocks) on-screen and give the grip something to
+            // scroll. `resize` needs a non-visible overflow to take effect.
+            minWidth: '208px', maxWidth: '92vw', maxHeight: 'calc(100vh - 32px)',
+            boxSizing: 'border-box', overflow: 'auto', resize: 'both',
         } satisfies Partial<CSSStyleDeclaration>);
 
         root.appendChild(this.buildHeader());
@@ -205,6 +218,15 @@ export class FormaSiteAnalysisControls {
         this.root = root;
         // SITE-PANEL-UI — honour a prior ✕ dismissal when the view re-mounts.
         if (FormaSiteAnalysisControls._userHidden) root.style.display = 'none';
+
+        // §L-621a — MOVABLE by dragging the header (the SAME shared helper ClimatePanel
+        // uses). The handle is resolved lazily on each mousedown, so it survives the
+        // per-block re-renders; the ✕ is excluded so closing never starts a drag.
+        try {
+            this.dragDispose = makeDraggable(root, '.fsa-header', ['.fsa-close'], this.runtime);
+        } catch (e) {
+            console.warn('[forma-analysis] makeDraggable wiring failed (non-fatal):', e);
+        }
 
         // Live readout + slider follow the viewport's solved sun.
         try {
@@ -264,6 +286,8 @@ export class FormaSiteAnalysisControls {
     /** Remove every node, stop any running shadow study, drop subscriptions. */
     dispose(): void {
         this.stopShadowStudy();
+        // §L-621a — drop the drag listeners before the node is removed.
+        if (this.dragDispose) { try { this.dragDispose(); } catch { /* ignore */ } this.dragDispose = null; }
         if (this.sunUnsub) { try { this.sunUnsub(); } catch { /* ignore */ } this.sunUnsub = null; }
         if (this.climateUnsub) { try { this.climateUnsub(); } catch { /* ignore */ } this.climateUnsub = null; }
         // A.21.D24 — turn off any active 3D overlays so they don't linger when the
@@ -378,9 +402,12 @@ export class FormaSiteAnalysisControls {
      *  the Forma view keeps it hidden until the toolbar toggle re-opens it. */
     private buildHeader(): HTMLElement {
         const header = document.createElement('div');
+        // §L-621a — `.fsa-header` is the makeDraggable grip (wired in mount()); `cursor:move`
+        // advertises the drag affordance, matching ClimatePanel's `.clm-header`.
+        header.className = 'fsa-header';
         Object.assign(header.style, {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: '8px', marginBottom: '2px',
+            gap: '8px', marginBottom: '2px', cursor: 'move',
         } satisfies Partial<CSSStyleDeclaration>);
         const title = document.createElement('div');
         title.textContent = 'Site analysis';
@@ -389,7 +416,9 @@ export class FormaSiteAnalysisControls {
         } satisfies Partial<CSSStyleDeclaration>);
         const close = document.createElement('button');
         close.type = 'button';
-        close.className = 'pryzm-forma-analysis-close';
+        // §L-621a — keep the historic class (existing selectors) AND add `.fsa-close` so it
+        // is in makeDraggable's exclude list — a click on ✕ closes, never starts a drag.
+        close.className = 'pryzm-forma-analysis-close fsa-close';
         close.setAttribute('data-testid', 'forma-analysis-close');
         close.title = 'Hide site analysis';
         close.setAttribute('aria-label', 'Hide site analysis');

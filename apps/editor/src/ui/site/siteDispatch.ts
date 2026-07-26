@@ -1328,18 +1328,46 @@ async function applyDkZoningThenFallback(
         const result = await DkZoningProvider.fetchZoningResultAtPoint(lat, lon);
 
         if (result.kind === 'structured') {
+            // §L-620 — Plandata very often publishes a STOREY count (`maxetager`) but no
+            // max-height-in-METRES (`maxbygnhjd`) — a large slice of Copenhagen. The storey count is
+            // a REAL published constraint, so derive a height from it (floors × ~3 m) rather than
+            // refuse a perfectly drawable parcel. This is a LABELLED derivation (confidence drops to
+            // `estimated-ruleset`, a caveat states it) — categorically different from the fabricated
+            // 9 m default this family removed (L-459): the storey count is surveyed, only the floor
+            // height is assumed. Refuse ONLY when BOTH height AND storeys are absent.
+            const sf = result.record.structuredFields;
+            const DK_FLOOR_H_M = 3.0;
+            const heightDerivedFromFloors =
+                sf.maxHeight_m === null && typeof sf.maxFloors === 'number' && sf.maxFloors > 0;
+            const zoningForEnvelope = heightDerivedFromFloors
+                ? { ...result.record, structuredFields: { ...sf, maxHeight_m: sf.maxFloors! * DK_FLOOR_H_M } }
+                : result.record;
             const envelope = computeBuildableEnvelope({
                 parcelRing: boundary.polygon,
                 edgeClassifications: boundary.edgeClassifications,
-                zoning: result.record,
+                zoning: zoningForEnvelope,
                 rulePack: null, // structured fields only → confidence 'structured' (C58 §1.2)
             });
-            // A resolvable HEIGHT means a study volume can be drawn — dispatch the real envelope.
+            // A resolvable HEIGHT (published OR storey-derived) means a study volume can be drawn.
             if (envelope.status === 'ok' && envelope.maxHeight_m !== null) {
-                dispatchEnvelope(ctx, site.id, envelope, 'plandata-dk');
+                const env2: typeof envelope = heightDerivedFromFloors
+                    ? {
+                          ...envelope,
+                          confidence: 'estimated-ruleset',
+                          caveats: [
+                              ...envelope.caveats,
+                              `Max height DERIVED from ${sf.maxFloors} storeys × ~${DK_FLOOR_H_M} m ` +
+                                  `(Plandata published a storey count, not metres — a labelled ` +
+                                  `derivation, not a surveyed height).`,
+                          ],
+                      }
+                    : envelope;
+                dispatchEnvelope(ctx, site.id, env2, 'plandata-dk');
                 console.log(
-                    `${TAG} structured envelope → confidence=${envelope.confidence} ` +
-                        `zone=${envelope.zoneCode ?? 'n/a'} height=${envelope.maxHeight_m}m.`,
+                    `${TAG} ${heightDerivedFromFloors ? 'storey-DERIVED' : 'structured'} envelope → ` +
+                        `confidence=${env2.confidence} zone=${envelope.zoneCode ?? 'n/a'} ` +
+                        `height=${envelope.maxHeight_m}m` +
+                        `${heightDerivedFromFloors ? ` (from ${sf.maxFloors} storeys)` : ''}.`,
                 );
                 return;
             }
