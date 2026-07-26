@@ -69,6 +69,34 @@ Cadastral coverage is partial and per-jurisdiction. A provider MUST resolve to `
 
 **Why**: honesty mandate — a missing parcel is a data-coverage fact, surfaced plainly, not an error and not a silent empty state. The live `CatastroParcelProvider` already implements exactly this (`fetchParcelAtPoint` returns `null` on every failure, never throws).
 
+> **AMENDED 2026-07-26 (STRUCTURAL-SEAM-4, §CONTEXT-DATA-HONESTY / L-422/457/467/469).** The "one
+> `null` for BOTH a genuine absence AND an unavailable/timed-out source" rule above **encoded the very
+> failure≠empty conflation the honesty mandate exists to forbid** — a transient PDOK/geodienste/MUC
+> timeout was surfaced identically to "no parcel here", and downstream (C58) that empty becomes the
+> transient `source-data-unavailable` refusal whose card promises a retry that never helps
+> (`GISAreaLayout.ts:2372`, shown for permanent absences). "Never throw" is kept; "collapse to one
+> `null`" is retired. Normative:
+>
+> 1. **A provider MUST return a discriminated `FetchOutcome<T>`, never a bare `T | null`:**
+>    `{status:'found',value} | {status:'absent',reason} | {status:'transient',reason} | {status:'aborted'}`.
+>    `absent` = the source answered and there is no parcel/plan here (a durable coverage fact);
+>    `transient` = network / non-OK / timeout / abort (retryable); `aborted` = superseded by a newer
+>    selection (not-a-failure, never cached). This generalises the PROVEN context-building union
+>    (`'ok'|'aborted'|'unavailable'|'disabled'`, `contextBuildings.ts:897-924`, C12 §8) that already
+>    keeps the two apart end-to-end. It STILL never throws.
+> 2. **A `transient` MUST be auto-retried with bounded backoff at the provider/proxy seam** (the
+>    `overpassProxy.js` pattern) before it reaches the user; only a still-failing transient surfaces —
+>    as a *"temporarily unavailable, retrying"* state, **never** as "no parcel here — draw instead".
+> 3. **A same-origin proxy MUST NOT return `200 {…: null}` for an upstream failure** (the
+>    `chGrundnutzung`/`plandata`/`muc`/Catastro-parcel collapse): a failure carries a distinct status
+>    (`502` / an explicit `_upstreamFailed` flag) so the client can classify. `null`-on-the-wire for a
+>    failure is the same conflation one layer down.
+> 4. **A CI gate asserts every provider/proxy returns the discriminated outcome** — so a new adapter
+>    cloned from the Catastro template (§3.3) cannot silently re-introduce the flat `null`.
+>
+> C58 §1.13 carries the sibling amendment (a genuine-absence refusal code distinct from
+> `source-data-unavailable`, and the ban on the dispatcher flattening the resolver's distinction).
+
 ### §1.6 — EPSG handling reuses the single C12 projector
 
 Adapters reproject source geometry to WGS84 using the **existing** `proj4` engine wired into `packages/geospatial/` (C12), or the server proxy's GDAL/`ogr2ogr` offline-normalise path for heavy batch conversion. No adapter may introduce a second projection library or a parallel CRS registry.

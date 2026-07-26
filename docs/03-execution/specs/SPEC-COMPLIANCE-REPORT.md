@@ -51,7 +51,7 @@ interface ComplianceReport {
   zone: { code: string; label: string | null };
   envelope: BuildableEnvelope;           // C58 §2.4 (insetPolygon, maxHeight, maxFAR, maxVolumeM3, confidence, …)
   constraints: ComplianceConstraintRow[]; // one per DerivationEntry (§3.1)
-  confidence: 'authoritative' | 'structured' | 'estimated-ruleset';   // C58 §1.2 — echoed for the header chip
+  confidence: 'authoritative' | 'structured' | 'block-constructed' | 'estimated-ruleset' | 'not-determined';   // C58 §1.2 (5 members) — echoed for the header chip; per C58 §5.4 this MUST resolve to the WEAKEST field's provenance
   caveats: string[];                     // C58 §2.4
   generatedAt: ISODateString;
 }

@@ -133,7 +133,8 @@ evidence the diagnosis needs:
 ECEF coordinates in the shared scene graph at all (an LTP-ENU-relative group per §1.1), or C12
 must declare an explicit, contracted exception with a named frame flag that world-space consumers
 can test. Until one of those lands, this section stands as the record that the code disagrees
-with §1.1 and **the code is wrong**.
+with §1.1 and **the code is wrong**. ⇒ **The named frame is specified in §9 (the SiteFrame
+authority); L-604 is closed by folding this bridge under it.**
 
 **Also noted (separate, P3, not addressed):** `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts`
 is a **duplicate** of the live `plugins/geospatial` bridge and imports `three` directly. The live
@@ -276,6 +277,130 @@ points: `fetchContextBuildingsNearAndFar` (near+far split) and `fetchContextBuil
 
 ---
 
+## §9 — The SiteFrame authority — ONE owner of origin + project-north θ + ground (STRUCTURAL-SEAM-2)
+
+*(Added 2026-07-26. The normative form of the "named frame flag" §1.5 defers to. Grounds
+`docs/04-reference/SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3 §3.2. **Status: DRAFT — the
+target architecture; the AS-IS below is a KNOWN VIOLATION recorded so this contract stops implying a
+single frame the code does not have.**)*
+
+**The defect this closes — measured by code reading, this session.** The scene⇄world mapping is
+reconstructed independently at every geospatial consumer. The two modules designed to be the
+authority are both bypassed: `LTPENURebase` (§1.1) is **never imported by anything that renders**
+(`boundaryProjection.ts:8–30` explicitly declines it and ships its own equirectangular
+approximation), and `apps/editor/src/ui/geospatial/sceneEnuFrame.ts` is a *partial* extraction whose
+own header admits the mapping is "open-coded in ~15 sites … built by inspection, not by a machine
+check." Concretely:
+
+- **Origin has TWO competing authorities** — the frozen LTP-ENU origin (`getCurrentSiteOrigin()`) vs
+  the geocoded address (`siteModelStore.getLocation()`), documented at `globeGroundAnchor.ts:37–48`,
+  with `originSeparationMeters`/`georefOriginsDiverge` (:335–370) existing only to *measure the
+  divergence*. `overlayOrigin()` picks between them at runtime.
+- **θ (project→true north) is applied at ~13 sites across THREE idioms** — inline
+  `trueVectorToProjectNorth` (`siteDispatch.ts:912–923` + six zoning-clip sites), shared
+  `sceneXZToEnu` (`CesiumViewport.ts:3899/5273/7735`), `Matrix3.fromRotationZ(-θ)` baked into the
+  glTF matrix (:9151), and a GLSL `u_pryzmProjNorth` uniform (:8373).
+- **Ground is resolved in FOUR places** — `sampleTerrainMostDetailed` clamp (:5884→:5910), the
+  separate photoreal-tiles clamp (:5177–5413), the pure `globeGroundAnchor` reducer (:172–292), and
+  the shared `formaTerrainBaseHeight` field each consumer offsets on its own.
+- **The ECEF bridge is DUPLICATED** (`plugins/geospatial/` vs `packages/renderer-three/`), neither
+  θ-aware — §1.5 / L-604.
+
+Each jurisdiction lights up a different consumer, so the ONE seam surfaces as a differently-shaped
+bug per city: a θ-pivot *displacement* in Barcelona (Cerdà folds θ≈45° on 100 % of parcels, §C19
+§1.12.3), a *terrain reseat* fault on a Copenhagen slope (L-584/L-585), a heatmap that applies **no
+θ at all** (`CesiumViewport.ts:8896–8909`).
+
+**Normative (the target):**
+
+1. **There MUST be exactly one `SiteFrame`, constructed once in `composeRuntime` (P1)**, that owns
+   the scene⇄world mapping: a single `origin` (the frozen LTP-ENU — the geocoded address is
+   instrumentation only, never a second origin), a single `thetaRad` (the only θ source,
+   `SiteLocation.trueNorth`), and a single `sampleGround(x,z)` (the only ground authority). It
+   exposes `sceneToEnu` / `enuToScene` / `toCartesian` / `sampleGround`; it **delegates the proj4/UTM
+   math to `LTPENURebase`** so the §1.1 class is finally on the render path.
+2. **Every geospatial consumer MUST read the SiteFrame; none may re-derive origin, θ or ground.**
+   `sceneEnuFrame.ts`'s `sceneXZToEnu` becomes the frame's single internal implementation; the ~13
+   open-coded θ sites, the two origin authorities, and the four ground paths collapse into it.
+3. **The `CesiumThreeBridge` MUST be de-duplicated to one copy that re-parents into an
+   LTP-ENU-relative group** (never ECEF in the shared scene graph) — this closes §1.5 / L-604.
+4. **A CI gate `check-scene-frame-single-owner` MUST hard-fail on any open-coded frame math outside
+   the SiteFrame module** — `north = -z` / `-p.z`, `eastNorthUpToFixedFrame`, `fromRotationZ(theta)`.
+   This replaces "believed complete by inspection" (the `sceneEnuFrame.ts` inventory's own caveat)
+   with a machine check, because "one site migrated, one missed" is the exact failure the seam
+   produces.
+5. **⚠ The "θ = 0 everywhere, migrate consumers, then flip the producer" sequencing ADR-0115 relied
+   on is SPENT.** `sceneEnuFrame.ts:33` still asserts θ is 0 in production, but C19 §1.12 *measured*
+   θ ≈ ±45° on live Barcelona parcels and the producer is DONE (ADR-0115 item 8). The migration MUST
+   therefore assume θ ≠ 0 and gate it (clause 4), not sequence around a zero that no longer holds —
+   and MUST verify whether the still-unmigrated sites (the sun-hours heatmap, the caller-less
+   `RealSunService.setProjectNorth`, the C34 §1.4 north arrow) are **already** mixing frames in
+   production.
+6. **θ is a SINGLE-PRODUCER value: written once, unconditionally (incl. 0), transactionally with the
+   ring de-rotation, reset on clear, and read through ONE accessor.** The confirmed root of the
+   Barcelona displacement (C19 §1.12; the round-trip is exact iff θ_write = θ_read) is four defects
+   where the write and read drift apart: **g1** `siteDispatch.ts:913` guards the write behind
+   `projectNorthRad !== 0` so a θ = 0 parcel never overwrites a prior ±45°; **g2** `:917` ignores
+   `dispatchSiteTrueNorth`'s boolean return and de-rotates the ring even on a soft-reject (`:870-874`);
+   **g3** `:813-842` clears the boundary but not `trueNorth`; and the render latch
+   `CesiumViewport.readProjectNorthRad:2485-2526` reads `this.runtime` with no `window.runtime`
+   fallback and returns 0 both when θ is 0 and when the read fails (§L-446). The SiteFrame's
+   `setTheta` MUST persist unconditionally, de-rotate ONLY on a successful write, and `clear()` MUST
+   reset θ; the single `theta` accessor sources `this.runtime ?? window.runtime`. **The 3-gap
+   `siteDispatch` fix + the read-latch fix is the correct FIRST INCREMENT of this migration** (not a
+   throwaway patch): it establishes the θ_write = θ_read invariant at the current sites, and when the
+   SiteFrame lands the write becomes `siteFrame.setTheta(θ)` and the read `siteFrame.theta` — the same
+   discipline relocated into one object. It is independently shippable and verified by §SITE-FRAME-PROBE.
+7. **The `sampleGround` facet is the TERRAIN-IN-3D-SITE critical path (founder lead, 2026-07-26).**
+   Terrain-in-3D-Site everywhere is the current lead deliverable, and it is the first sound consumer of
+   the ground authority. It regressed (L-629, the L-626 revert of the `CesiumViewport.ts:5993`
+   `photorealTilesActive` guard) because every ground-seated object is seated on ONE scalar
+   `formaTerrainBaseHeight` (`:701`) sampled at the boundary CENTROID (`:3650`); drawing relief then
+   z-fights context buildings (white shells) and occludes the flat heatmap (faint). **Therefore:
+   `sampleGround(lat,lon)` MUST replace the single scalar, and EVERY distributed ground-seated consumer
+   MUST read it BEFORE the `:5993` guard is relaxed** — near context (`:2137`), far-ring context, the
+   sun-hours heatmap (drape / `CLAMP_TO_GROUND`), the parcel ring (`ParcelBoundarySceneRenderer.ts:169`),
+   and the envelope/massing base (`:3884`, the L-584 rasant fix). The reseat is a HARD PREREQUISITE of
+   terrain-on; shipping terrain-on first re-ships L-629 by construction. Sequenced as T0→T3 in the
+   Part-3 build order.
+
+**What one SiteFrame dissolves at once:** the Barcelona parcel/envelope θ-pivot displacement (one θ,
+one pivot), terrain-in-Site z-fighting + the L-584/L-585 reseat (one `sampleGround`), the
+heatmap-on-terrain occlusion (the overlay reads θ+ground from the frame), and the L-604 ECEF
+corruption — one substrate, four "different" city bugs retired together.
+
+**Sequencing (with the seams in the Part-3 plan):** SiteFrame is the **substrate and comes first** —
+the envelope solid (C58 §1.14) draws *through* it, so if the massing is rewritten while the frame is
+still sprayed, the new tiers/study-slabs re-inherit the spray. Within §9: stand up SiteFrame + the
+CI gate → migrate consumers + de-dup the bridge → terrain-on-frame → heatmap-on-frame.
+
+**Verification (localhost unusable):** unit-pin the ADR-0115 end-to-end property (a parcel squared
+into the authoring frame maps back to its ORIGINAL true-world bearing — the test that catches a θ
+applied in the wrong direction, which survives a naive round-trip) + the `check-scene-frame-single-
+owner` gate; then deploy → founder browser-test a **Barcelona xamfrà corner** (the θ-fold-to-0 case,
+C19 §1.12.2) and a **Copenhagen** sloped parcel (terrain reseat).
+
+**Reference (read-only):** `packages/geospatial/src/LTPENURebase.ts`,
+`apps/editor/src/ui/geospatial/sceneEnuFrame.ts`, `apps/editor/src/ui/geospatial/globeGroundAnchor.ts`,
+`apps/editor/src/ui/site/{boundaryProjection,siteDispatch}.ts`,
+`plugins/geospatial/src/CesiumThreeBridge.ts` (+ the `renderer-three` duplicate).
+
+**Known Violations (open):**
+- **L-631 (P1, founder-priority) — terrain relief is OFF in 3D Site (Forma) for every city.**
+  `CesiumViewport.maybeAttachTerrainProvider` early-returns at `CesiumViewport.ts:5993`
+  (`if (this.photorealTilesActive) { … return; }`), so baked R2 terrain is skipped in Forma → flat
+  base-0 ground everywhere. This is the **deliberate revert** of the L-626 fix (commit `89196071`),
+  made because enabling terrain-in-Forma before the reseat re-introduces the z-fight against base-0
+  context buildings (L-584/L-585) that this §9 sequencing exists to prevent. Per the §9 sequencing
+  ("… terrain-on-frame → heatmap-on-frame"), **terrain-on-frame is only sound AFTER SiteFrame's
+  `sampleGround` reseats context + envelope base + heatmap** — do NOT clear the :5993 gate on its own.
+  ⚠ The founder wants terrain ON everywhere NOW, which CONFLICTS with this sequencing; the
+  accept-a-known-regression-vs-do-it-in-order decision is escalated to the founder (see L-631 in
+  `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md`). Do NOT flip this §9 to ACTIVE on the back of a
+  gate-only change.
+
+---
+
 ## §6 — Contract History
 
 | Date | Change |
@@ -285,3 +410,5 @@ points: `fetchContextBuildingsNearAndFar` (near+far split) and `fetchContextBuil
 | 2026-07-17 | §7 Georeferenced building placement on the photoreal 3D-Tiles globe added (Known-good ACTIVE; ADR-0268; baseline `snapshot-cesium-3d-globe-working-2026-07-17`; evidence L-365). |
 | 2026-07-17 | §8 Context-building fetch strategy added — ONE far-extent Overpass query, near+far split client-side (§PERF-CTX-SINGLE-FETCH; L-368; closes the previously-ungoverned context-fetch-latency gap). |
 | 2026-07-17 | §7 "frame once, no jump" MUST refined — added the `§GLOBE-STALE-FRAME-REFRAME` (L-370) exception: a >20 m base-height jump between the early frame and the resolved datum re-frames ONCE even after user camera movement (the frame is stale), so no manual zoom is needed to find the lifted building. |
+| 2026-07-26 | **§9 The SiteFrame authority added (STRUCTURAL-SEAM-2).** The normative "named frame flag" §1.5 defers to: ONE owner of origin + project-north θ + ground, read by every consumer, with a `check-scene-frame-single-owner` CI gate replacing the by-inspection `sceneEnuFrame.ts` inventory, the ECEF bridge de-duplicated under it (closes §1.5 / L-604), and the record that the "θ=0 then flip" sequencing is spent (C19 §1.12 measured θ≈45° live). Grounds `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3. |
+| 2026-07-26 | §9 **Known Violation L-631 recorded** — terrain relief is OFF in 3D Site (Forma) everywhere (`CesiumViewport.ts:5993` skip-gate; L-626 fix reverted `89196071`) because terrain-on-frame is not sound until SiteFrame's `sampleGround` reseats context + envelope base + heatmap. Founder wants it ON now → CONFLICT with the §9 sequencing, escalated for a founder decision. Do not flip §9 to ACTIVE on a gate-only change. |

@@ -384,6 +384,439 @@ describes an engine that does not exist.
 | Live issue log (rows L-576 → L-585) | `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` |
 
 ---
+---
+
+# PART 3 — THE STRUCTURAL SEAMS (why the fixes keep recurring city-by-city)
+
+*Added 2026-07-26. This part answers a different question from Parts 1–2: not "how far along is
+Barcelona" but **"why has every site/envelope/terrain/georef fix been a per-city patch, and what
+single change per seam dissolves the whole family."** Every claim below is line-cited to production
+code, read this session. Governance-first: each seam names the contract that governs it and states
+whether the code violates it. Per the rule at the foot of this file, this is recorded HERE, in the
+canonical engineering map — not in a new `*-AUDIT.md`.*
+
+> **The thesis, stated up front and then proved against the city matrix (§3.5):** there are not N
+> city bugs. There are **three structural seams** — the render ignoring the envelope contract (§3.1),
+> the absent single SiteFrame (§3.2), and failure-rendered-as-absent (§3.4) — each surfacing once per
+> jurisdiction, plus **one candidate seam that turns out to be mostly already built** (§3.3, Seam 3 —
+> stated honestly rather than inflated to round the count). A patch at a city is a patch at a
+> *symptom* of a seam; the seam is the defect.
+
+## 3.1 · SEAM 1 — the massing render is a pure function of a hand-maintained 4-field projection, NOT of the envelope contract
+
+**Status: CONFIRMED, structural. This is the L-616 family and it is the single highest-leverage fix
+in the subsystem (Part 1 §1.3 already names layer 6 as the bottleneck by 2.5×).**
+
+### Root cause, line-cited
+The engine produces a rich, honest `BuildableEnvelope`
+(`packages/schemas/src/site/zoning/BuildableEnvelope.ts`): `insetPolygon`, `maxHeight_m`,
+`farLimitedHeight_m` (:389), `maxVolumeM3` (:394), `maxCoverage`, `maxFloors`,
+`footprintIsUpperBound` (:416), `tiers[]` (:465) with a `principalTier()` helper (:364) and a Zod
+refinement (:490–505) that **guarantees the legacy scalars never contradict the tiers** — i.e. a
+consumer that reads the whole object *cannot* be handed an over-stating solid.
+
+The 3D massing then **throws almost all of it away**, in two hand-maintained narrowing points:
+
+1. `apps/editor/src/ui/layout/GISAreaLayout.ts` `resolveFormaEnvelope()` (:1896–1934) reduces the
+   full object to **exactly four fields** — `{ ring, maxHeightM, farLimitedHeightM, confidence }`
+   (:1928–1932).
+2. `apps/editor/src/ui/geospatial/CesiumViewport.ts` `renderFormaMassing`'s `envelope?` param TYPE
+   (:3817–3836) *only accepts those four fields*. The extrude (§ENVELOPE-VIA-MASSING, :4718–4830)
+   then draws **one prism** = `envelope.ring × maxHeightM` (:4752, :4755, :4786–4802), plus a second
+   opaque solid when `farLimitedHeightM` binds (:4773–4821). `confidence` is consumed for **colour
+   only** (:4760).
+
+**Discarded, never reaching the render as data:** `maxVolumeM3`, `tiers[]`, `principalTier`,
+`maxCoverage`, `footprintIsUpperBound`, `maxFloors`, `insetAreaM2`, and the entire `derivation[]`.
+The render **re-derives** the solid (footprint × scalar height) instead of **consuming** the solid
+the engine already computed and proved non-overstating.
+
+The engine's own two overstating mechanisms compound it (measured in
+`jurisdictions/ENVELOPE-REALISM-MATRIX.md`, L-616): **A —** an unknown setback collapses to a 0
+inset (`ZoningRulesEngine.ts:249` `front.value ?? 0`) → the ring becomes the whole parcel; **B —**
+`maxFAR` is returned (`:826`) but never read into the volume (`:734–739` caps by coverage only, and
+only for tiered zones). But mechanisms A and B are *inputs the render would honour if it consumed
+them*; **fact #3 of the matrix is the actual root — the solid ignores `maxVolumeM3` entirely, so
+fixing the engine cannot bind the solid until the render reads it.**
+
+### Why this produced a per-city treadmill
+Every new honesty field was bolted onto the 4-field projection one defect at a time:
+`farLimitedHeightM` (L-616), `confidence`→hue (L-608). `footprintIsUpperBound` (L-619) and `tiers[]`
+(L-590b/ADR-0273) are **already in the schema and still NOT in the projection** — so the next
+jurisdiction that needs them (any Denmark karré; any Barcelona `22a`) forces yet another manual
+widening of two files. That is the treadmill, in code.
+
+### Contract that governs, and the violation
+**C58 §1.4** (an envelope MUST never render as more than it grants — over-statement is the one
+forbidden direction), **§1.7b.4** (a multi-tier envelope MUST NOT be drawn as one prism without
+saying so), **§1.13.3** (a refused envelope MUST zero every numeric field the massing reads). The
+shipped render **violates §1.7b.4 by construction** (it has no tier concept) and **cannot honour
+§1.4** (it has no volume/coverage input). Per governance, the code is wrong.
+
+### The canonical fix (the single structural change)
+**Invert the direction: the ENGINE emits the solid; the render only rasterises it.** Introduce ONE
+pure L2 total function
+
+```
+envelopeToMassing(env: BuildableEnvelope): MassingSolid[]
+   // packages/site-parcel-data/  — pure, deterministic, no THREE/DOM (C58 §1.9)
+```
+
+that returns the COMPLETE set of solids to draw, honouring **every** field in one place: `tiers[]` →
+one solid per tier at its own height; `footprintIsUpperBound` → a hatched *study* slab, never a
+confident prism; `farLimitedHeight_m` → the FAR solid inside the translucent legal shell;
+`maxVolumeM3`/`maxCoverage` → the volume cap. `renderFormaMassing` is rewritten to take
+`MassingSolid[]` and extrude each — it **never re-derives height from a scalar and has no per-field
+knowledge**. `resolveFormaEnvelope()`'s 4-field narrowing is deleted; the full `env` flows to the
+pure function.
+
+**What the schema must guarantee (already true):** the §490–505 refinement already forbids
+tiers-vs-scalars disagreement; `envelopeToMassing` is the render-side dual of that guarantee.
+
+**What makes over-statement structurally impossible — a CI property test over EVERY registered rule
+pack** (`check-envelope-solid-never-overstates`): for each pack's canonical parcel,
+`Σ volume(envelopeToMassing(env)) ≤ (env.maxVolumeM3 ?? Σ tier.area × tier.height)` and
+`footprintIsUpperBound ⇒ every solid carries the study style` and `tiers.length > 1 ⇒ solids.length
+> 1`. No jurisdiction can overstate at the render because the *shared* function is the only path and
+the test binds it for all packs at once. This **folds in** the DK-render honesty patch, the BCN-FAR
+patch, and the tiers patch — they stop being per-city work and become one function + one test.
+
+## 3.2 · SEAM 2 — there is no single SiteFrame authority; origin, project-north θ, and ground are each reconstructed per consumer
+
+**Status: CONFIRMED, structural — the deepest seam. Origin has TWO competing authorities; θ is
+applied at ~13 sites across THREE code idioms; ground is resolved in FOUR places; the ECEF bridge is
+DUPLICATED. This is already logged as an OPEN contract violation (C12 §1.5, L-604).**
+
+### Root cause, line-cited
+Two modules were *designed* to be the frame authority and neither is:
+- `packages/geospatial/src/LTPENURebase.ts` (the proper proj4/UTM LTP-ENU class) is **never imported
+  by anything that renders** — `boundaryProjection.ts:8–30` explicitly declines it ("not readily
+  available at this draw surface yet") and ships its own equirectangular approximation
+  (`latLonToSceneXZ`, :53–62).
+- `apps/editor/src/ui/geospatial/sceneEnuFrame.ts` is a *partial* extraction whose own header
+  (:6–10, :31–88) admits it: the mapping is "open-coded in ~15 sites inside an untestable file", the
+  inventory "was built by inspection, not by a machine check", and several sites are "NOT YET
+  MIGRATED".
+
+So each consumer reconstructs the frame:
+
+| Axis | Independent implementations found |
+|---|---|
+| **Origin** | **TWO documented competing authorities** — the LTP-ENU origin (`getCurrentSiteOrigin()`, frozen at boundary commit) vs the geocoded address (`siteModelStore.getLocation()`), per `globeGroundAnchor.ts:37–48`; `originSeparationMeters`/`georefOriginsDiverge` (:335–370) exist only to *measure the divergence*. `overlayOrigin()` (`CesiumViewport.ts:9041`) picks between them at runtime. Plus each `CesiumThreeBridge` builds its own `eastNorthUpToFixedFrame` from scratch. |
+| **θ (project→true north)** | ~13 sites, 3 idioms: inline `trueVectorToProjectNorth` (`siteDispatch.ts:912–923` + six zoning-clip sites :1030,1544,1714,1982,2431,2884); shared `sceneXZToEnu` (massing :3899, photoreal clamp :5273, façade :7735/7869); `Matrix3.fromRotationZ(-θ)` baked into the glTF matrix (:9151); a GLSL `u_pryzmProjNorth` uniform (:8373). |
+| **Ground elevation** | FOUR: `sampleTerrainMostDetailed` clamp (:5884→:5910), the separate photoreal-tiles clamp (:5177–5413→:5761), the pure `globeGroundAnchor` reducer (:172–292), and the shared `formaTerrainBaseHeight` field (:701) each consumer reads and offsets on its own (:3884, 6673, 7033, 8903). `ParcelBoundarySceneRenderer.ts:169` ignores terrain entirely (fixed `y≈0.02`). |
+| **ECEF bridge** | DUPLICATED: `plugins/geospatial/src/CesiumThreeBridge.ts` (imports the P2 facade) and `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts` (imports bare `three`) — identical `setAnchor` building the ENU→ECEF matrix, neither θ-aware (C12 §1.5). |
+
+### The CONFIRMED root cause — θ is a single value written in one frame and read in another (the structural half of L-536)
+The Barcelona parcel/envelope **displacement** the founder sees is not an envelope bug and not a
+projection error: the whole chain (Catastro ring → `buildBoundaryFromLatLonRing` → θ de-rotation in
+`dispatchParcelBoundary` → θ re-application in `CesiumViewport.toCartesian`/`sceneXZToEnu`)
+**round-trips to 1e-14 m for ANY θ, provided θ_write == θ_read** (C19 §1.12.1, measured). When they
+diverge, the net error is `R(θ_read − θ_write)` about the SCENE ORIGIN; because a SELECT flow anchors
+the scene at a site point offset from the parcel centroid by `d` (the L-521 anchor-vs-parcel split),
+the parcel swings along an arc `≈ 2·d·sin(Δθ/2)` — it **rotates AND translates off the real plot**,
+and the boundary and envelope move together (one `toCartesian` closure, one render θ). It is
+Barcelona-only because `R(0) = identity`, and the Cerdà grid is the fabric that produces non-zero θ.
+
+θ_write ≠ θ_read is produced by **three write gaps + one read latch**, all confirmed this session:
+
+| Gap | Site | Defect |
+|---|---|---|
+| **g1** | `siteDispatch.ts:913` | `if (projectNorthRad !== 0)` guards **both** the θ write and the ring de-rotation. A parcel that folds to θ = 0 (an Eixample *xamfrà* corner, ~1.1 % of parcels, C19 §1.12.2) **never publishes 0**, so a prior ±45° from the last select **survives** in `SiteLocation.trueNorth` and the render re-applies it to an un-de-rotated ring. |
+| **g2** | `siteDispatch.ts:917` → `:870–874` | `dispatchSiteTrueNorth(...)`'s **boolean return is ignored**. On a soft-reject the θ write does NOT happen (`:870–874` returns `false`), yet the caller **de-rotates the ring anyway** (`:918–926`). The de-rotation is not transactional with the write. |
+| **g3** | `siteDispatch.ts:813–842` | `dispatchClearParcelBoundary` clears the boundary and `_lastEnvelope` (`:840`) but **not `trueNorth`**. Redraw leaks the prior θ into the next select. |
+| **read latch** | `CesiumViewport.readProjectNorthRad:2485–2526` | reads θ from `this.runtime` with **no `window.runtime` fallback** (unlike `getFormaBoundary`, §L-412 Bug-2), and returns `0` **both** when θ is genuinely 0 **and** when the read fails — the §L-446 diagnostic itself states the two are "INDISTINGUISHABLE". So θ_read latches 0 on the null/legacy-runtime boot path while θ_write persisted ±45°. |
+
+**This proves the seam is a SINGLE-PRODUCER problem.** θ has no single owner that writes it once,
+unconditionally, transactionally, and reads it back through one accessor — so the write and the read
+drift apart at exactly the four sites above.
+
+### Why this produced a per-city treadmill
+Each jurisdiction lights up a *different* consumer of the frame, so the seam surfaces as a
+differently-shaped bug each time: Barcelona's Cerdà grid folds θ to ~45° on **100 % of parcels**
+(C19 §1.12.3), so the parcel/envelope *displacement* is a θ-pivot mismatch between the ~13 sites;
+Copenhagen sits on a slope, so the *terrain reseat* bug (L-584/L-585) is a ground-path
+disagreement; a heatmap city exposes the sun-hours rectangle that applies **no θ at all**
+(:8896–8909). Same seam, three "different" bugs, three patches.
+
+**A live inconsistency this review surfaced (must be verified, localhost being unusable):**
+`sceneEnuFrame.ts:33` asserts "θ is still 0 everywhere in production", but **C19 §1.12 measured
+θ ≈ ±45° on live Barcelona parcels** and the producer is marked DONE (ADR-0115 item 8, 2026-07-20).
+If the producer is live, then every "NOT YET MIGRATED" site (the sun-hours heatmap, the still-open
+`RealSunService.setProjectNorth` with no caller, the C34 §1.4 north-arrow) is **already mixing
+frames** — a latent, plausible-looking, silently-wrong render. The "wire consumers while θ=0, then
+flip" luxury ADR-0115 relied on is **already spent**; the migration below must therefore assume θ is
+non-zero and gate it, not sequence around a zero that no longer holds.
+
+### Contract that governs, and the violation
+**C12** owns coordinate transforms. **C12 §1.5 already declares this an OPEN P1 violation** (ECEF in
+the BIM scene graph, L-604) and states *"The real fix belongs here, in C12 … either the bridge must
+not place ECEF coordinates in the shared scene graph at all (an LTP-ENU-relative group per §1.1), or
+C12 must declare an explicit, contracted exception with a named frame flag."* **C19 §1.12** governs
+the θ round-trip and names any surface disagreement a θ-lifecycle fault. **ADR-0115 items 2/6**
+document the θ spray and the duplicated solar math as known follow-ups. The code violates C12 §1.1
+(scene frame MUST be local LTP-ENU) at the bridge and has no single owner for §1.5's "named frame
+flag".
+
+### The canonical fix (the single structural change)
+**One `SiteFrame` authority, constructed once at `composeRuntime` (P1), that every consumer reads and
+no consumer re-derives.** It is the C12 §1.5 "named frame" made real:
+
+```
+interface SiteFrame {                       // packages/geospatial/ (L2) — the single owner
+  origin: LtpEnuOrigin;                      // ONE origin (the frozen LTP-ENU; address is instrumentation)
+  thetaRad: number;                          // project→true north, the ONLY θ source
+  sceneToEnu(x, z): {east, north};           // the one θ-application (subsumes sceneXZToEnu)
+  enuToScene(east, north): {x, z};
+  toCartesian(x, z, up): Cartesian3;         // the one origin+θ→globe path (subsumes toCartesian/enu)
+  sampleGround(x, z): GroundAnchor;          // the one ground authority (subsumes the 4 paths)
+}
+```
+
+- **Collapse the two origin authorities into one:** the frozen LTP-ENU origin is authoritative; the
+  geocoded address is instrumentation only. `georefOriginsDiverge` becomes an *assertion*, not a
+  runtime choice.
+- **Fold `LTPENURebase` in** (SiteFrame delegates the proj4/UTM math to it) so the "proper" class is
+  finally on the render path.
+- **De-duplicate `CesiumThreeBridge`** to one copy that re-parents into an LTP-ENU-relative group
+  (closes C12 §1.5 / L-604) — no ECEF in the shared scene graph.
+- **Replace "believed complete by inspection" with a machine check** — a CI gate
+  `check-scene-frame-single-owner` that hard-fails on any open-coded `north = -z` / `-p.z` /
+  `eastNorthUpToFixedFrame` / `fromRotationZ(theta)` outside the SiteFrame module. This is what makes
+  "one site missed" impossible, which is the exact failure mode the seam produces.
+
+- **θ is written ONCE, unconditionally, transactionally, and read through ONE accessor** — the
+  single-producer discipline the g1/g2/g3 + read-latch gaps violate. Concretely the SiteFrame owns:
+  a `setTheta(θ)` that **always** persists (including 0, killing g1) and is **transactional** with the
+  ring de-rotation (de-rotate only if the write succeeded, killing g2); a `clear()` that **resets θ to
+  0** (killing g3); and a single `theta` getter sourced `this.runtime ?? window.runtime` (killing the
+  `readProjectNorthRad` latch, matching the `getFormaBoundary` §L-412 Bug-2 fallback).
+
+**Is the 3-gap `siteDispatch` fix the correct FIRST INCREMENT, or a throwaway patch?** It is the
+correct **first increment**, not a throwaway. The three write gaps + the read latch ARE the
+single-producer contract the SiteFrame will own; fixing them establishes the invariant *θ_write ==
+θ_read for all θ including 0* at the current producer/reader sites, and when SiteFrame lands
+`dispatchParcelBoundary`'s write becomes `siteFrame.setTheta(θ)` and `readProjectNorthRad` becomes
+`siteFrame.theta` — the **same discipline, relocated into one object**, not rewritten. It is
+independently shippable, independently verifiable (§SITE-FRAME-PROBE: `ringResidual ≈ 0`,
+`offsetFromOrigin` = the parcel-centroid distance and NOT a `2·d·sin(Δθ/2)` swing, on first-select /
+redraw→reselect-to-θ=0 / a forced soft-reject), and it closes the founder-visible Barcelona
+displacement **now** while the fuller SiteFrame (origin unification, `sampleGround`, bridge de-dup,
+the CI gate) follows as increments 2–4. Sequence position: **increment 1 of Seam 2, which is itself
+the first seam** (§3.6).
+
+**What it dissolves at once:** the Barcelona parcel/envelope θ-pivot displacement (one θ, one pivot),
+terrain-in-Site z-fighting and the L-584/L-585 reseat (one `sampleGround`), the heatmap-on-terrain
+occlusion (the heatmap reads θ+ground from the frame instead of being an un-rotated geographic
+rectangle), and the L-604 ECEF corruption — because they are the same seam.
+
+## 3.3 · SEAM 3 — "confidence is scalar, not per-field": PARTLY REFUTED (mostly already built)
+
+**Status: the honest verdict is that this is NOT a structural seam. The per-field machinery already
+exists and is wired.** Reported so the count is not inflated to a tidy three.
+
+### What the evidence shows
+The card (`GISAreaLayout.ts`) already renders per-field provenance: `buildComplianceReport(env)`
+(:2438, from `@pryzm/site-parcel-data`) turns `env.derivation[].fieldProvenance` into per-row
+`isEstimate`, and the "Why these numbers?" block badges **each row** EST/PUB (:2441–2459) plus an
+aggregate "N of M value(s) are ESTIMATED" caveat (:2468–2469). So "confidence is a single scalar the
+card collapses everything into" is **false at the data layer and largely false at the card**. C58
+§1.2/§1.6 and SPEC-COMPLIANCE-REPORT §3.1 already model per-field provenance; the schema carries it;
+the code consumes it.
+
+### The genuine residual (small, not structural)
+1. The single **headline chip** (`env.confidence`, :2398–2403) can read `structured` /
+   `block-constructed` while a *field* is estimated or an upper bound — it does not downgrade to the
+   **weakest** field. Fix: the headline is a pure derivation = `min(fieldProvenance over derivation)`
+   (a one-function rule), not a rewrite.
+2. **`footprintIsUpperBound`** — the founder's exact complaint (a STRUCTURED-looking envelope over an
+   unknown-setback footprint) — has **no chip**, and the render discards the flag entirely. This is
+   downstream of **Seam 1**: surface it once the massing consumes the full envelope.
+3. `SPEC-COMPLIANCE-REPORT.md:54` still lists a **3-member** confidence enum; C58 §1.2 has five
+   (`block-constructed`, `not-determined` added). A stale-spec divergence to reconcile in place.
+
+**Conclusion:** fold the headline-downgrade rule and the `footprintIsUpperBound` chip into C58 §5.1;
+sync the SPEC enum. There is no once-and-for-all rewrite here — the founder's specific grievance is
+real but is item (2), which Seam 1 already carries.
+
+## 3.4 · SEAM 4 — a transient fetch failure and a genuine absence are the same ANSWER (the §CONTEXT-DATA-HONESTY family, one layer up)
+
+**Status: CONFIRMED, structural. This is L-422/457/469 restated at the zoning-resolver layer — the
+exact family Part 1 §1.7's "a failure and an empty result are the same VALUE and must never be the
+same ANSWER" house-rule exists to prevent, breached on the compliance path.**
+
+### The tell, and the root
+Live on prod, the Netherlands refusal card says *"Re-select the parcel to try again — this usually
+clears on a second attempt"* (`GISAreaLayout.ts:2372`). But it is shown for parcels that are
+**genuinely, permanently outside any adopted plan** — for which no retry will ever change the answer.
+The retry it promises is even fictional: `GISAreaLayout.ts:2365-2371` — *"This is an INSTRUCTION, not
+a button: a working Retry needs a cached boundary and a re-invoke path that do not exist yet."*
+
+The root is a **three-part structural collapse**, confirmed this session:
+
+1. **No refusal code for a genuine data-empty.** `BuildableEnvelope.ts:203-214`'s closed
+   `EnvelopeRefusalCode` set has *legal* permanent codes (`public-system`, `derived-plan`, …) and
+   exactly **one transient** code, `source-data-unavailable`. A data-path *empty* ("the source
+   answered 200 and there is no plan/bouwvlak here") has **nowhere to go but the transient code**.
+   `isTransientRefusal` (`zoneRefusal.ts:151-153`) branches the whole UI on that one code, and the
+   card treats it as retryable.
+2. **The dispatcher flattens the resolver's own distinction.** The resolvers *do* classify —
+   `resolveNlBestemmingsplan.ts` returns `endpoint-unreachable` (transient) as a **distinct** reason
+   from `no-plan`/`no-bouwvlak` (absent, :417-435, :492-494). But `siteDispatch.ts:1839-1845` (NL) and
+   `:1440-1447` (DK) funnel **every** `!ok` reason into one `source-data-unavailable` refusal —
+   `nlBestemmingsplan.ts:191-192`'s `detail` even enumerates the three collapsed causes in one
+   sentence. **The resolver knows which it is; the dispatcher throws that knowledge away before the
+   card sees it.**
+3. **No automatic retry, and half the proxies collapse fail→empty on the wire.** No client resolver
+   retries at all — the "retry" is offloaded to a fictional human button. Proxies retry unevenly:
+   `overpassProxy.js` does it right (backoff + a distinct `_upstreamFailed` flag, :279-487), but
+   `chGrundnutzungProxy.js:249-250`, `plandataZoningProxy.js:420-421` and `mucZoningProxy.js:291-301`
+   return `200 {…: null}` for **both** an upstream failure and a genuine empty; the Catastro parcel
+   route (`parcelZoningProxy.js:351-353`) and `DkZoningProvider.ts:80-86` do the same — the flat
+   `null`-for-everything C57 §1.5 line 65 literally mandates.
+
+### Why this produced a per-city treadmill
+Each jurisdiction's upstream fails differently (PDOK WMS timeout; geodienste axis-order; MUC WMS
+miss), so the conflation surfaces as a different "flaky city" each time and gets a different card-copy
+patch — while the shared root (empty and unavailable share one code and one card) is never touched.
+
+### Contract that governs, and the violation
+**C57 §1.5** (parcel layer) *mandates* the collapse — "a provider MUST resolve to `null` … on: no
+parcel at the point, **an unavailable/timed-out source, a non-OK proxy response**, …" — so here the
+**contract itself encodes the §CONTEXT-DATA-HONESTY violation** and must be amended, not just the
+code. **C58 §1.13** (refusal vocabulary) has the transient/absent *intent* but no genuine-absence
+data code, and does not forbid the dispatcher flatten. The governing house-rule is
+§CONTEXT-DATA-HONESTY (L-422/457/467/469).
+
+### The canonical fix (the single structural change)
+**Generalise the proven context-building pattern into one shared outcome type carried end-to-end.**
+`contextBuildings.ts:897-924` already does this right for tiles — a first-class
+`'ok' | 'aborted' | 'unavailable' | 'disabled'` union, with the load-bearing rule that an *empty* is
+an answer (cacheable) while *unavailable* is transient (falls back) and *aborted* is not-a-failure
+(uncached). Lift it to L2 as one `FetchOutcome<T> = {status:'found',value} | {status:'absent',code} |
+{status:'transient',code} | {status:'aborted'}` that **every** provider, resolver and proxy returns —
+retiring the per-adapter ad-hoc reason enums and the flat `null`. Then:
+
+1. **Add a genuine-absence refusal code** to `EnvelopeRefusalCode` (e.g. `no-plan-at-point`) distinct
+   from `source-data-unavailable`, so an empty never wears the transient card.
+2. **Stop the dispatcher flatten** (`siteDispatch.ts:1839/1440`): carry the resolver's
+   transient-vs-absent status THROUGH to the refusal, so `isTransientRefusal` and the card branch on
+   the truth.
+3. **One bounded auto-retry-with-backoff at the transient boundary** (the `overpassProxy` pattern) so
+   a transient is *resolved by the machine*, and only a still-failing transient surfaces — as a
+   "temporarily unavailable, retrying" state, never as "no plan here / re-select to try again".
+4. **A CI gate** asserting every provider/proxy returns `FetchOutcome` (no bare `null`, no
+   `200 {null}` for a failure) — so a new adapter cloned from the Catastro template cannot
+   re-introduce the collapse.
+
+This is the same discipline as Seams 1 and 2: one shared type + one CI gate makes the honest
+classification structural rather than per-adapter goodwill.
+
+## 3.5 · Per-city mapping — proving "N cities, few seams"
+
+Cells are the founder's matrix, cross-read against `jurisdictions/ENVELOPE-REALISM-MATRIX.md` (L-616)
+and §4 of the rollout tracker. **Instance-of** is the whole point: every overstating cell is Seam 1;
+every θ-rotated or sloped cell is Seam 2.
+
+| City | Envelope realism (matrix) | Seam 1 (render overstates)? | Seam 2 (frame)? | Notes |
+|---|---|---|---|---|
+| **Barcelona** 13a/13b | REALISTIC (depth binds, FAR null) | **No** | **YES — θ-pivot**, Cerdà folds θ≈45° on 100% of parcels (C19 §1.12.3) | the parcel/envelope "displacement" IS Seam 2, not an envelope bug |
+| **Barcelona** 12 / 20a | OVERSTATES-FAR, **live** | **YES** — 1.40 edificabilitat / 30% ocupació discarded by the solid | YES (θ) | pure Seam 1 |
+| **Barcelona** 22a / 18 | REFUSES (unregistered / gated) | n/a | YES (θ) | refusal is correct; not a seam |
+| **Copenhagen (DK)** | **OVERSTATES-BOTH, live** (mechanism A+B) | **YES** — the founder's Copenhagen defect (L-619) | **YES — terrain reseat** (L-584/585, slope) | the one cell that stacks BOTH seams |
+| **Madrid** NZ1 | REFUSES (ring-only, decided) / BLOCKED by G1 router | n/a (deliberate) | latent (θ) if wired | not a seam — a decided scope + coverage gap |
+| **Córdoba** | REFUSES; **latent OVERSTATES-BOTH** behind `CORDOBA_ENVELOPE_VERIFIED` | **latent Seam 1** (null setbacks + no geometricRule → mechanism A on gate-open) | latent (θ) | add a geometricRule before signing |
+| **Paris** | REFUSES; **latent OVERSTATES-SETBACK** behind `FR_PARIS_PLU_CERTIFIED` | **latent Seam 1** (old UG zone `setbacks {0,0,0}`) | latent | repoint dispatcher to the ECM engine before flipping |
+| **Zürich** BZO | REFUSES; **latent OVERSTATES-FAR** if wired | **latent Seam 1** (AZ/GFA cap not in the solid) | latent | wire the cap into `envelopeToMassing`, not footprint×height |
+| **Netherlands** | REALISTIC (explicit-area real bouwvlak) | No | latent | neither seam |
+| **Riyadh** | REALISTIC (resolved pack, street-width setbacks) | No (add a guard so base-pack null setbacks can't reach the engine) | latent | founder demo market; neither seam |
+
+**The thesis holds.** Every live or latent *overstating* cell (DK; BCN 12/20a; Córdoba, Paris,
+Zürich latent) is one instance of **Seam 1**. Every θ-rotated or sloped cell (all Barcelona, DK) is
+one instance of **Seam 2**. No cell is a genuinely novel per-city defect — the two REALISTIC-but-safe
+cells (NL, Riyadh) are safe precisely *because* they happen to hit the paths the seams have not
+corrupted yet. Seam 3 is not a per-city phenomenon at all.
+
+## 3.6 · Build order — TERRAIN-IN-3D-SITE EVERYWHERE is the lead deliverable (founder directive, 2026-07-26)
+
+The founder has made **terrain-in-3D-Site on everywhere** the top-priority lead. It is not a fourth
+workstream bolted on — it is the **first sound consumer of the Seam-2 SiteFrame's ground facet**, and
+sequencing it correctly is exactly what stops the L-629 Madrid regression from re-shipping. So the
+build order is re-drawn with terrain as the **critical path**, and the other seams slotted around it
+in the order that lets terrain land as early as is sound.
+
+### Why terrain regressed, in one line (the L-629 constraint that governs the order)
+`CesiumViewport.ts:5993` `if (this.photorealTilesActive) return` is the guard the **L-626 revert
+restored** because draping baked terrain in Forma regressed Madrid: every ground-seated object is
+seated on **one scalar** `formaTerrainBaseHeight` (`:701`) sampled at the **boundary centroid**
+(`:3650`), so the moment relief is drawn the distributed objects no longer sit on it — context
+buildings **z-fight the relief → white shells**, and the sun-hours heatmap **paints at the flat
+centroid height → the mesh occludes it → faint** (comment `:5988-5992`). **Terrain-on before the
+reseat re-ships exactly this.** Hence the reseat is a HARD PREREQUISITE, encoded as the ordering
+below.
+
+### The base-0 / single-centroid consumers that MUST switch to `SiteFrame.sampleGround(lat,lon)`
+Every site that today adds the single scalar `formaTerrainBaseHeight` and must instead sample the
+ground at its OWN location:
+
+| Consumer | Where | Today | After |
+|---|---|---|---|
+| **Near context buildings** | `CesiumViewport.ts:2137` (`formaTerrainBaseHeight + heightM`) | seated on the site-centroid base | `sampleGround(bldg.lat,lon)` per building |
+| **Far-ring context** | `renderContextBuildingsFarRing` | flat/low-poly on the centroid base | `sampleGround` per footprint (batchable per tile) |
+| **Sun-hours heatmap** | the sun-hours ground overlay | painted flat at the centroid | **drape on terrain** — per-cell `sampleGround`, or Cesium `CLAMP_TO_GROUND` against the terrain provider |
+| **Parcel boundary ring** | `ParcelBoundarySceneRenderer.ts:169` (fixed `y≈0.02`) | ignores terrain entirely | `sampleGround` along the ring |
+| **Envelope / massing base** | `renderFormaMassing` `baseHeight` (`:3884`, `:4752`) | one centroid sample for the whole plot | `sampleGround` at the plot (the L-584 rasant fix rides here) |
+
+### THE CRITICAL PATH (terrain milestones — each gated on the previous)
+
+- **T0 — SiteFrame ground-elevation authority.** Add `sampleGround(lat,lon): GroundAnchor` to the
+  Seam-2 SiteFrame (§3.2), sampling the baked `CesiumTerrainProvider` per-location (flat base when a
+  city has no baked tileset — self-correcting per `:5975-5980`). This RETIRES the single
+  `formaTerrainBaseHeight` scalar as the universal base. Depends only on the frozen LTP-ENU origin,
+  which already exists — so it lands **without** waiting for the full origin unification.
+- **T1 — reseat every distributed consumer onto `sampleGround` (HARD PREREQUISITE for T2).** The five
+  rows above. This is the L-584/L-585 "single-point seat" fix made real, and it is the gate the L-626
+  revert is waiting on.
+- **T2 — enable terrain (un-revert L-626).** Relax the `:5993` `photorealTilesActive` guard so baked
+  terrain renders in Forma/3D-Site everywhere. **MUST NOT ship before T1** — that is the L-629
+  regression, by construction.
+- **T3 — verify on MADRID first** (the L-629 regression city): no white shells (context sits on
+  relief), no faint heatmap (draped on relief), stable nav; then the other baked-terrain cities
+  (Copenhagen slope, etc.). Deploy → founder browser-test (localhost unusable, Part 2 §2.6).
+
+### The full seam order around the critical path (terrain as early as sound)
+
+1. **Seam-2 increment 1 — the 3-gap θ fix (`siteDispatch` g1/g2/g3 + `readProjectNorthRad`)** ships
+   **first / in parallel**: it is tiny, independent of terrain, and closes the founder-visible
+   Barcelona displacement now (§3.2). Verified by §SITE-FRAME-PROBE.
+2. **Seam-2 increment 2 — the SiteFrame ground facet = T0 → T1 → T2 → T3 (the lead).** θ and ground
+   are two facets of the same SiteFrame; ground is the terrain critical path and does not block on the
+   full origin unification (it reads the one frozen origin).
+3. **Seam-2 increments 3–4 — full origin unification + bridge de-dup + `check-scene-frame-single-owner`
+   CI gate.** Hardening; terrain does not block on these, but they close L-604 and make the single
+   owner enforced rather than conventional.
+4. **Seam 1 — `envelopeToMassing` + the never-overstate CI test**, drawing **through** the now-single
+   frame (so the envelope base reads `sampleGround` too). Retires the L-616 bottleneck and folds in the
+   DK/BCN-FAR/tiers patches.
+5. **Seam 4 — the `FetchOutcome` union + genuine-absence code + one auto-retry** — independent of the
+   render/frame work; can proceed in parallel any time.
+6. **Seam 3 — the headline-downgrade chip** — after Seam 1 surfaces `footprintIsUpperBound`.
+
+### Verification strategy (localhost is unusable — Part 2 §2.6 / the memory rule)
+- **Unit-pin before deploy**, because all three structural seams are the class where an aggregate
+  looks healthy while the geometry is wrong (Part 1 §1.4's retracted-92.3% lesson): `envelopeToMassing`
+  gets the byte-deterministic never-overstate property test over **every** pack; `SiteFrame` gets the
+  ADR-0115 end-to-end property (a parcel squared into the authoring frame maps back to its ORIGINAL
+  true-world bearing) + the §SITE-FRAME-PROBE (`ringResidual ≈ 0`, `offsetFromOrigin` = centroid
+  distance, NOT a `2·d·sin` swing) + the `check-scene-frame-single-owner` grep gate; `sampleGround`
+  gets a fixture test that a building 300 m from the centroid on a synthetic slope seats at ITS ground,
+  not the centroid's. All pure-L2, testable off the untestable 8,000-line viewport.
+- **Then deploy → founder browser-test**, in order: **(1)** a Barcelona *xamfrà* corner (Seam-2 θ
+  fold-to-0, C19 §1.12.2); **(2) Madrid with terrain on** (the L-629 white-shell / faint-heatmap
+  regression — the lead acceptance); **(3)** Copenhagen (Seam-1 both-mechanisms + the sloped-terrain
+  reseat). If those three read correctly, the matrix's latent cells ride the same code paths.
+
+---
 
 ## Maintenance rule
 

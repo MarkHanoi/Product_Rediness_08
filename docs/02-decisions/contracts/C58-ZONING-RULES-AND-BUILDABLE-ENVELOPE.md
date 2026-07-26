@@ -393,6 +393,82 @@ triple; 86.1 % of all ground gets a constructed-or-cited answer.
 **Why**: honesty is not achieved by hiding a number. It is achieved by making "no envelope
 applies, and here is the article that says so" a *representable, first-class* result.
 
+### §1.13.8 — A TRANSIENT fetch failure and a GENUINE data-absence are different answers; the resolver's distinction MUST reach the card (STRUCTURAL-SEAM-4, L-422/457/467/469)
+
+**Added 2026-07-26.** §1.13 gave a *refusal* a first-class, cited representation. It left a hole one
+layer down: the `EnvelopeRefusalCode` set (`BuildableEnvelope.ts:203-214`) has *legal* permanent
+codes and exactly ONE transient code, `source-data-unavailable` — so a **data-path empty** ("the
+source answered and there is no plan/bouwvlak at this point") has nowhere to go but the transient
+code, and `isTransientRefusal` (`zoneRefusal.ts:151-153`) then dresses a permanent absence in the
+"usually clears on a second attempt" card (`GISAreaLayout.ts:2372`, whose retry is itself fictional,
+`:2365-2371`). Worse, the resolvers already classify — `resolveNlBestemmingsplan` returns
+`endpoint-unreachable` distinct from `no-plan`/`no-bouwvlak` — but `siteDispatch.ts:1839-1845` (NL)
+and `:1440-1447` (DK) **flatten every `!ok` reason into `source-data-unavailable`** before the card
+sees it. That is §CONTEXT-DATA-HONESTY (failure ≠ empty) breached on the compliance path.
+
+**Normative:**
+
+1. `EnvelopeRefusalCode` MUST carry a **genuine-absence** code (e.g. `no-plan-at-point`) distinct
+   from `source-data-unavailable`. An empty is a *durable* answer; only a genuine transient earns the
+   retry affordance.
+2. The dispatcher MUST **carry the resolver's transient-vs-absent status through** to the refusal —
+   it MUST NOT collapse `endpoint-unreachable`/`no-plan`/`no-bouwvlak` into one code. `isTransientRefusal`
+   and the card branch on the truth, not on the fact that everything was funnelled to one code.
+3. A **transient MUST be auto-retried** (bounded, with backoff) at the fetch seam before it can reach
+   a card (C57 §1.5 amendment); a still-failing transient surfaces as "temporarily unavailable,
+   retrying", never as a refusal a user is asked to manually re-select through.
+4. This rides the same shared `FetchOutcome` union C57 §1.5 mandates end-to-end; the proven
+   precedent is the context-building path's `'ok'|'aborted'|'unavailable'|'disabled'`
+   (`contextBuildings.ts:897-924`), which never let an empty and an unavailable share an answer.
+
+**Why**: §1.13 stopped us from rendering a *fabrication* as a refusal. §1.13.8 stops us from
+rendering a *transient failure* as a durable absence and a durable absence as a *retryable* transient
+— the same "these are different answers" discipline, at the fetch boundary.
+
+### §1.14 — The massing render is a PURE TOTAL FUNCTION of the whole envelope; it MUST NOT re-derive the solid from a hand-picked field subset (L-616 seam)
+
+**Added 2026-07-26 (STRUCTURAL-SEAM-1; grounds `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md`
+Part 3 §3.1 and `jurisdictions/ENVELOPE-REALISM-MATRIX.md`).**
+
+Every prior §1 invariant makes the *engine's* `BuildableEnvelope` honest — non-overstating (§1.4),
+tier-complete (§1.7b), zeroed on refusal (§1.13.3), with a schema refinement
+(`BuildableEnvelope.ts:490–505`) that guarantees the legacy scalars never contradict `tiers[]`. None
+of that binds the **3D solid the user actually sees**, and today the render throws the guarantee
+away: `apps/editor/src/ui/layout/GISAreaLayout.ts` `resolveFormaEnvelope()` narrows the envelope to
+`{ ring, maxHeightM, farLimitedHeightM, confidence }` and `CesiumViewport.renderFormaMassing`
+(:3817–3836) accepts only those four, extruding `ring × maxHeightM` as one prism. `maxVolumeM3`,
+`tiers[]`, `maxCoverage`, `footprintIsUpperBound`, `maxFloors`, `insetAreaM2` and `derivation[]` are
+**discarded before they reach the render** — so the render re-derives the solid instead of consuming
+the one the engine proved. Each honesty field has had to be hand-threaded into that subset one
+defect at a time (`farLimitedHeight_m` per L-616; `confidence`→hue per L-608), which is the per-city
+patch treadmill this invariant exists to end.
+
+**Normative:**
+
+1. There MUST be exactly ONE pure L2 total function `envelopeToMassing(env: BuildableEnvelope):
+   MassingSolid[]` (in `packages/site-parcel-data/`, no THREE/DOM/RNG per §1.9) that maps the WHOLE
+   envelope to the complete set of solids to draw. It is the render-side dual of the §490–505
+   refinement.
+2. The renderer (`renderFormaMassing`) MUST consume `MassingSolid[]` and rasterise each solid. It
+   MUST NOT re-derive a height from a scalar, MUST NOT hold per-field knowledge of the envelope, and
+   MUST NOT receive a hand-picked field subset. `resolveFormaEnvelope`'s narrowing is deleted.
+3. `envelopeToMassing` MUST honour every field in one place: `tiers[]` → one solid per tier at its
+   own `maxHeight_m` (§1.7b.4 — a multi-tier envelope is never one prism); `footprintIsUpperBound`
+   (§1.13/L-619) → a **study** style (hatched), never a confident prism; `farLimitedHeight_m` → the
+   FAR solid inside the translucent legal shell; `maxVolumeM3`/`maxCoverage` → the volume cap
+   (§1.7b.6). A null height MUST render a flat footprint slab, never an invented prism (§1.12.6).
+4. **A CI property test binds it for ALL packs at once** (`check-envelope-solid-never-overstates`,
+   §6): for every registered rule pack's canonical parcel,
+   `Σ volume(envelopeToMassing(env)) ≤ (env.maxVolumeM3 ?? Σ tier.area × tier.height)`,
+   `footprintIsUpperBound ⇒ every solid carries the study style`, and `tiers.length > 1 ⇒
+   solids.length > 1`. Because the shared function is the only render path and the test binds every
+   pack, **no jurisdiction can overstate at the render** — the DK-render, BCN-FAR and tiers patches
+   fold into one function + one test rather than N per-city fixes.
+
+**Why**: §1.4 is a promise the engine keeps and the render breaks. The only way to make
+over-statement *structurally* impossible — rather than patched pack by pack — is to make the picture
+a pure function of the object the contract already guarantees, and to prove it for every pack in CI.
+
 ## §2 — Schema
 
 Pure Zod (L0), `packages/schemas/src/elements/site/zoning/` (per **P5**).
@@ -588,6 +664,7 @@ The envelope render + provenance UX is specified in [SPEC-COMPLIANCE-REPORT](../
 - **§5.1 — Confidence label mandatory** (§1.4): the envelope's `confidence` chip is always shown; `estimated-ruleset` renders in the distinct "verify against ordinance" style with the `ordinanceRef` link. CI-gated. ⚠ **`block-constructed` MUST be worded "Real · constructed"** — never "verified", "certified" or "authoritative" — and MUST keep its citations and the "2008 modification not reflected" caveat (L-518, RISK-REGISTER R1). It is a real determination, not a municipal certificate, and the tier labels the rule rather than the input (§1.2). A surface MUST NOT compute this tier for itself: it arrives already stamped by the engine (L-572).
 - **§5.2 — Brand colour**: the plan setback-inset polygon and the 3D max-height volume render in PRYZM purple `#6600FF` (C18 / C19 §5.5); the translucent 3D volume uses the **existing** renderer path (no new THREE owner — P2 safe).
 - **§5.3 — Explain-why surfaced** (§1.3): each envelope constraint is traceable to its `DerivationEntry` in the compliance report.
+- **§5.4 — The headline confidence chip resolves to the WEAKEST field; `footprintIsUpperBound` wears its own chip** (STRUCTURAL-SEAM-3, 2026-07-26). Per-field provenance is already rendered (the card badges each derivation row EST/PUB via `buildComplianceReport`, `GISAreaLayout.ts:2441–2459`), so the "confidence is scalar" concern is largely already closed — but two residuals remain. (a) The single **headline** chip (`env.confidence`) MUST be a pure derivation `= min(fieldProvenance over derivation)` so it can never read `structured`/`block-constructed` while a field is `estimated` — the header is the whole-report honesty signal (SPEC-COMPLIANCE-REPORT §5) and MUST NOT out-rank its own rows. (b) `footprintIsUpperBound` (§1.13/L-619 — the founder's "STRUCTURED badge over an unknown-setback footprint" case) MUST carry a distinct "study upper bound" chip; surfacing it depends on §1.14 delivering the flag to the render. **NOTE — `SPEC-COMPLIANCE-REPORT.md:54` still lists a 3-member confidence enum; §1.2 has five (`block-constructed`, `not-determined`). Reconcile the spec enum in place.**
 
 ---
 
@@ -603,6 +680,7 @@ The envelope render + provenance UX is specified in [SPEC-COMPLIANCE-REPORT](../
 | `check-zoning-engine-purity` | `tools/ga-gate/check-zoning-purity.ts` | `ZoningRulesEngine` imports no THREE / DOM / I-O / RNG (§1.9, P5-adjacent) | On engine land |
 | `check-zoning-otel-spans` | `tools/ga-gate/check-zoning-spans.ts` | Every exported engine/provider fn opens `pryzm.zoning.<verb>` (§1.10) | On engine land |
 | `check-envelope-constrains-gen` | integration test | A generated footprint ⊂ `insetPolygon` and height ≤ `maxHeight` (§1.8) | After the bridge lands |
+| `check-envelope-solid-never-overstates` | unit test over EVERY registered pack + `tools/ga-gate/` | `Σ volume(envelopeToMassing(env)) ≤ maxVolumeM3` (or tier-summed cap); `footprintIsUpperBound ⇒ study style`; `tiers>1 ⇒ solids>1` (§1.14) | On `envelopeToMassing` land — **hard** |
 
 ### §6.1 — Integration test (the end-to-end wedge)
 
@@ -695,6 +773,8 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 | 2026-07-21 | Corrected the stale "0 % built" stamp (the engine, solvers, registry and one real pack ship; status stays DRAFT). Amended **§1.2** with `not-determined` + the still-open constructed tier (L-518). Added **§1.12** (construction-not-lookup + the measured provenance ladder, L-525a/L-537) and **§1.13** (refusal vocabulary + rule-pack registry, L-550). Updated **KG-1**; added **KG-3** (FAR/coverage never applied, L-551), **KG-4** (`explicit-area` unsolved, L-538), **KG-5** (24.0 % measured coverage, L-538). Recorded the **L-529 violation** of "the floor is not a fallback", including the refutation of the previously-confirmed half-illa root cause. |
 | 2026-07-22 | **THE ENVELOPE IS NO LONGER A SINGLE PRISM (ADR-0273, §L-590b).** Added **§1.7b** (multi-tier envelopes; the principal-tier rule and why it is the only non-over-stating summary; a tier's height may refuse while its region is determined; coverage binds a tiered volume) and **§2.4a** (`EnvelopeTier`). Added the `tiers` field to the §2.4 table and the three `tier.*` literals to `DerivationEntry`. Documented the **shipped `geometricRule` kinds as a table in §2.2**, including the new `tiered-occupation` — a contract that silently omitted a shipped rule kind is the drift C14 exists to prevent — with the normative statement that `tiered-occupation` is NOT `block-derived-alignment` with different numbers (equality vs minimum; no ordinance bounds vs two), and that a pack MUST NOT be given bounds its own article does not state. **Partially closed KG-3** (coverage now binds the study volume, on tiered envelopes only, with the reason the retro-fit was NOT taken in the same change). Added **KG-6**: clau `22a` is solved and still unregistered, and the remaining blocker is the Art. 350.1/350.2 *Pla Parcial* regime — a legal fact PRYZM does not hold, which gates the FOOTPRINT and not only the height. |
 | 2026-07-22 | **A REFUSAL MAY NOW STATE THE LIMITS THAT SURVIVE ITS OWN UNCERTAINTY (ADR-0276, §L-590c, founder-ruled).** Added **§1.13.7** — narrow, conditional permission for a refusal to publish, in prose under a narrowed citation and with **every numeric field still null (§1.13.3 unrelaxed)**, the limits the ordinance states in *every branch* of what the refusal is uncertain about; with the rule that a limit whose CONDITION cannot be stated alongside it must not be published at all, and that `knownFacts` is the wrong vehicle. Added the fourth `EnvelopeRefusalCode`, **`regime-undetermined`** (the ordinance states two regimes and no public source says which governs this parcel), argued against each of `no-rule-pack` / `source-data-unavailable` / `derived-plan`. **Updated KG-6**: clau `22a` now ships the regime-neutral half of PGM Art. 350 — and **CORRECTED this contract's own earlier claim** that the FAR *and* the occupation were regime-neutral: the FAR is (all three paragraphs state it), the occupation is only conditionally so (Art. 350.1.2n caps *aïllada* sectors at 70 %). Recorded the founder ruling ("C now, B in parallel, hold A"; **option A on hold**) and the Track-B finding that Barcelona's municipal WMS *does* answer the regime question — and that on Zona Franca 22a it answers "Pla Parcial, 18,30 / 24,40 m", i.e. option A would have under-stated by ~⅓. |
+| 2026-07-26 | **§1.13.8 added — a transient fetch failure ≠ a genuine data-absence (STRUCTURAL-SEAM-4).** The refusal code set has one transient code and no genuine-absence data code, so a `no-plan`/`no-bouwvlak` empty becomes the "usually clears on retry" card; and `siteDispatch.ts:1839/1440` flattens the resolver's distinct reasons into that one code. Fix: a genuine-absence code, carry the resolver status through, one bounded auto-retry, on the shared `FetchOutcome` union (C57 §1.5 sibling amendment). Grounds `SITE-FEASIBILITY-…` Part 3 §3.4. |
+| 2026-07-26 | **§1.14 added — the massing render is a PURE TOTAL FUNCTION of the whole envelope (STRUCTURAL-SEAM-1, L-616 family).** The render narrows the envelope to `{ring, maxHeightM, farLimitedHeightM, confidence}` (`GISAreaLayout.resolveFormaEnvelope` → `CesiumViewport.renderFormaMassing:3817–3836`) and re-derives a single prism, discarding `maxVolumeM3`/`tiers[]`/`maxCoverage`/`footprintIsUpperBound` — so the §1.4/§1.7b guarantees the engine keeps are broken at the picture. Fix: one pure L2 `envelopeToMassing(env): MassingSolid[]`, the render rasterises it, and a `check-envelope-solid-never-overstates` CI test binds every pack at once (§6). Added **§5.4** (Seam-3 residual — headline chip = weakest field; `footprintIsUpperBound` chip; the stale 3-member SPEC enum). Grounds `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3 + `jurisdictions/ENVELOPE-REALISM-MATRIX.md`. |
 | 2026-07-21 | **CLOSED the constructed-tier gap the row above left open (L-518 + L-572).** `'block-constructed'` is now documented as a full member of `EnvelopeConfidence` in **§1.2**, the **§4 field table** and **§5.1**; the three places that still listed a 3-member enum are corrected. Added the NORMATIVE assignment rule — the tier is stamped by `ZoningRulesEngine` keyed on the `alignment.depthBinding` derivation row, never re-derived by a UI surface, because assigning it in L5 made the honesty label a property of one UI path and would have badged a per-parcel report ESTIMATED on constructed data. Added the ordering constraint (upgrade BEFORE the estimated caveat — the two contradicted each other in shipped code, proven by a pre-fix-red test) and the honest limit that the tier labels the RULE, not the INPUT (a pure engine cannot verify its `blockRing` is real cadastral geometry; §1.6 provenance rides with the caller). |
 
 

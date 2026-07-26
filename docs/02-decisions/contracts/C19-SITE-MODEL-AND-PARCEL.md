@@ -176,6 +176,15 @@ real cadastral ring (WGS84)
 
 **Why**: a parcel boundary is a legal outline (§1.4). Two surfaces drawing the same legal outline differently is not a rendering nuance — it is the product telling the user two incompatible things about the plot they are about to build on.
 
+> **STRUCTURAL FIX (2026-07-26).** §1.12's θ-lifecycle faults are one instance of a broader seam: θ,
+> origin and ground are reconstructed independently at ~13+ geospatial consumers, with no single
+> owner (`SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3 §3.2). The canonical fix is the
+> **SiteFrame authority in [C12 §9](./C12-GEOSPATIAL.md)** — one owner of origin + θ + ground that
+> every consumer reads — which makes "the θ written at commit is the θ read at render" (§1.12.1) true
+> by construction rather than by per-consumer discipline. ⚠ Note the live inconsistency C12 §9.5
+> records: `sceneEnuFrame.ts` still assumes θ = 0 in production while §1.12 measured θ ≈ ±45° — to be
+> verified as part of that fix.
+
 ---
 
 ## §2 — Schema
