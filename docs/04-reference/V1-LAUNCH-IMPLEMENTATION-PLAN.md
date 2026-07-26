@@ -4972,3 +4972,11 @@ See audit **L-622**. Reuse the result-toggle-bar 3D-globe handler; confirm C59 p
 | # | Task | Notes |
 |---|---|---|
 | 1 | Add "3D globe" option to the pane-swap menu, dispatching the existing globe activation | `GISAreaLayout.ts` — same Cesium viewer, `keepPhotoreal` on (not the C59-Ph3 BIM retarget) |
+
+## L-623 — neighbour context buildings don't render in 3D Site · Phase 5 · P2 · OWNER: assistant · TARGET: after context investigation
+See audit **L-623**. Root unconfirmed (3 candidates); tied to the a3a33c5c context-layers investigation.
+| # | Task | Notes |
+|---|---|---|
+| 1 | Confirm root FIRST (context investigation) | tile-count cap→Overpass fallback (most likely) vs near-cap vs plot-clear over-hide |
+| 2 | (c) raise/adapt the z16 tile cap + prefer baked tiles over Overpass | `contextTiles.ts` — bake coverage so no Overpass fallback |
+| 3 | (a) if implicated, on-plot test → centroid-in-parcel / majority-overlap | `CesiumViewport.ts:6683` so touching neighbours survive |

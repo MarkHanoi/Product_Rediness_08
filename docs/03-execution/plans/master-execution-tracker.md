@@ -4666,3 +4666,11 @@ L-616 envelope work + the running deploy/bake. No contract violated; no missing-
 - **L-620** (P1) — DK refuses storeys+FAR when no metre-height (`siteDispatch.ts:1338`); fix = derive height from storeys (labelled). Queue: DK envelope dispatch (C58). HIGH leverage. Dep: uses L-616 floorHeight assumption.
 - **L-621** (P2) — Site Analysis + Envelope panels close/drag/resize + launcher access. Queue: UI/GIS shell (C06). Being implemented (bundled with L-622). OWNER: assistant.
 - **L-622** (P3) — add "3D globe" to the pane-swap menu. Queue: UI/GIS shell (C06/C59). Being implemented (bundled with L-621). OWNER: assistant.
+
+## Added 2026-07-26 — L-623 (neighbour context buildings not rendering — LOGGED, root unconfirmed)
+
+Founder: buildings next to the selected parcel often don't render in 3D Site. P2 (degrades the core
+site-context study — shadow/overlooking need neighbours). 3 candidate roots: §PLOT-CLEAR over-hide
+(unlikely — only 1 hidden in logs), near/far ring caps, or the z16 tile-count cap→Overpass fallback
+(most likely, same hot-path as the roads/water/green R2 gap). Queue: geospatial/context-rendering
+(C12). Dependency: confirm via the a3a33c5c context-layers investigation before fixing. OWNER: assistant.
