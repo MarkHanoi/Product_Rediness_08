@@ -9,8 +9,9 @@
 //      the reason per-parcel regime resolution is soundness-critical;
 //   3. regime resolution REFUSES `regime-ambiguous` when it cannot place the parcel, and never guesses;
 //   4. the FAR (AZ) is regime-independent but the ENVELOPE (height) is not;
-//   5. the GFA math is AZ × parcel area — but ONLY behind `CH_FAR_CERTIFIED`, which is OFF, so the
-//      shipping output is the honest cited refusal, ENRICHED with the transcribed values.
+//   5. the GFA math is AZ × parcel area, behind `CH_FAR_CERTIFIED` — now ON (owner-signed 2026-07-26,
+//      wired into siteDispatch + GFA-capped), so a regime-resolved parcel COMPUTES; a parcel whose
+//      regime is undetermined STILL refuses (gate-independent), never a guessed height.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -291,43 +292,53 @@ describe('L-616 — the Zürich AZ is emitted as `plotRatioFAR` (the ENGINE FAR-
     });
 });
 
-describe('CH_FAR_CERTIFIED is OFF — the honest refusal ships, enriched (never a fabricated number)', () => {
-    it('the gate is OFF (a human flips it, not this agent)', () => {
-        expect(CH_FAR_CERTIFIED).toBe(false);
+describe('CH_FAR_CERTIFIED is ON — the signed GFA-capped envelope computes (owner sign-off 2026-07-26)', () => {
+    it('the gate is ON (owner-signed 2026-07-26, ch/sources/VERIFICATION.md; wired + GFA-capped)', () => {
+        expect(CH_FAR_CERTIFIED).toBe(true);
     });
 
-    it('resolveChFarFromCantonCatalogue short-circuits to `not-certified`, even for a real ZH zone', () => {
+    it('resolveChFarFromCantonCatalogue resolves the SIGNED AZ for a real ZH zone (gate ON)', () => {
         const res = resolveChFarFromCantonCatalogue('W2bIII', 'ZH');
-        expect(res.ok).toBe(false);
-        if (!res.ok) expect(res.reason).toBe('not-certified');
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+            expect(res.far).toBe(0.45); // the transcribed W2bIII Ausnützungsziffer
+            expect(res.farKind).toBe('AZ'); // the number is meaningless without its kind
+        }
     });
 
-    it('computeZurichBzoEnvelope returns the cited refusal, ENRICHED with pending-cert reference values', () => {
+    it('computeZurichBzoEnvelope COMPUTES the GFA-capped envelope for a regime-resolved parcel', () => {
         const out = computeZurichBzoEnvelope({
             typ: 'W2bIII',
             planArea: 'bzo_91_99',
             parcelAreaM2: 1000,
             extraFacts: ['Parcel area: 1000 m²'],
         });
+        expect(out.computed).toBe(true);
+        if (out.computed) {
+            // AZ 0.45 × 1000 m² = 450 m² GFA; the AZ rides as `plotRatioFAR` (the engine FAR-cap field);
+            // the regime-correct 91/99 height (8.5 m) + Vollgeschosse (2) as caps; NEVER `structured`.
+            expect(out.envelope).toMatchObject({
+                zone: 'W2bIII',
+                far: 0.45,
+                plotRatioFAR: 0.45,
+                maxGFA_m2: 450,
+                maxStoreys: 2,
+                maxHeight_m: 8.5,
+                regime: 'bzo_91_99',
+                confidence: 'estimated-ruleset',
+            });
+        }
+    });
+
+    it('with regime undetermined, it STILL refuses (gate-independent) and surfaces the height AMBIGUITY', () => {
+        // Regime resolution is soundness-critical and gate-INDEPENDENT: with no plan area / ordinance
+        // link the regime cannot be placed (W2bIII 8.5 vs 9.0 m), so even with the gate ON the honest
+        // output is a cited refusal that shows BOTH regime heights — never a guessed one.
+        const out = computeZurichBzoEnvelope({ typ: 'W2bIII', parcelAreaM2: 1000 });
         expect(out.computed).toBe(false);
         if (!out.computed) {
             expect(() => EnvelopeRefusalSchema.parse(out.refusal)).not.toThrow();
             expect(out.refusal.legallyGrounded).toBe(false);
-            const facts = out.refusal.knownFacts.join(' | ');
-            // The transcribed AZ + height show as pending-cert reference values, clearly labelled.
-            expect(facts).toContain('45%');
-            expect(facts).toContain('pending certification');
-            expect(facts).toContain('8.5 m'); // regime-correct height for 91/99
-            expect(facts).toContain('Parcel area: 1000 m²');
-            // …but NO computed envelope / GFA is asserted.
-            expect(out).not.toHaveProperty('envelope');
-        }
-    });
-
-    it('with regime undetermined, the refusal surfaces the height AMBIGUITY (both regime values)', () => {
-        const out = computeZurichBzoEnvelope({ typ: 'W2bIII', parcelAreaM2: 1000 });
-        expect(out.computed).toBe(false);
-        if (!out.computed) {
             const facts = out.refusal.knownFacts.join(' | ');
             expect(facts).toContain('8.5 m (BZO 91/99)');
             expect(facts).toContain('9 m (BZO 2016)');

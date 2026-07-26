@@ -68,7 +68,7 @@ import {
  * (Typed `boolean`, not the literal `false`, so the certified compute branches are not narrowed away
  * as dead code while the gate is closed — same discipline as `FR_PARIS_PLU_CERTIFIED`.)
  */
-export const CH_FAR_CERTIFIED: boolean = false; // Data SIGNED OFF 2026-07-26 by repo owner (MarkHanoi) — see ch/sources/VERIFICATION.md — but the FLAG is held OFF: `computeZurichBzoEnvelope` is NOT yet wired into siteDispatch (L-616 audit), and the shared massing extrudes footprint×height ignoring the AZ/GFA cap (CesiumViewport.ts:4745). Flipping ON now would ship an OVERSTATED Zürich solid. Re-flip to true only WITH the compute-wiring + GFA cap (L-616 fix #5) — all together, measured — then update the gate-ON tests. The founder's data verification stands; the flag waits on the safe wiring.
+export const CH_FAR_CERTIFIED: boolean = true; // Data SIGNED OFF 2026-07-26 by repo owner (MarkHanoi) — see ch/sources/VERIFICATION.md — and the FLAG is now ON: the Zürich BZO compute is WIRED into siteDispatch's CH branch (applyChZoningThenFallback), which drops `zurichBzoStructuredFields` (AZ as `plotRatioFAR`) onto a C58 ZoningRecord and feeds `computeBuildableEnvelope({ …, rulePack: null })`. The AZ therefore binds the engine's L-616 `farLimitedHeight_m` cap, so the massing is GFA-capped (AZ × parcel area), never footprint×height — the OVERSTATES-FAR defect is closed. The path REFUSES (cited) when the regime is undetermined (W2bIII 8.5 vs 9.0 m) or the zone is not in the resolved regime — never a guessed height (§CONTEXT-DATA-HONESTY).
 
 /** Which density ratio a harvested `Nutzungsziffer` is (INTERLIS `Nutzungsziffer_Art`). Semantics differ. */
 export type ChFarKind =
