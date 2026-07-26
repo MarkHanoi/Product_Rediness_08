@@ -78,6 +78,20 @@ jobs:
         # (a few minutes) and is why this is not an every-push job.
         run: docker build -t pryzm-context-bake tools/context-bake
 
+      - name: Provision the height-join dependency (geotiff)
+        # §PHASE1-HEIGHTS — the national REAL-height joins (ES CNIG MDS Edificación mdsn_e025; DK DHM
+        # nDSM) decode the WCS GeoTIFF rasters in bake.mjs's HOST Node process, via heightSources.mjs's
+        # lazy `import('geotiff')`. geotiff is NOT an osmium/tippecanoe/DuckDB binary (those ride the
+        # Docker image), so it must be on the RUNNER's Node resolution path — nothing else installs it.
+        # Absent it, loadGeoTiff() returns null → the MDS/DHM join returns `documented` → the region
+        # ships the honest OSM 9 m default (NO real heights; never a fabricated one). Installed into the
+        # tool's OWN node_modules with plain npm (NOT pnpm) and --no-save/--no-package-lock so it never
+        # writes a package.json: `tools/*` is a pnpm workspace glob, and a new workspace package.json
+        # would drift pnpm-lock.yaml and break every other job's `pnpm install --frozen-lockfile`.
+        # Pinned to the version the join was live-verified against (heightSources.mjs §mds_edificacion).
+        working-directory: tools/context-bake
+        run: npm install --no-save --no-package-lock geotiff@2.1.3
+
       - name: Plan (tool availability + what will be produced)
         run: node tools/context-bake/bake.mjs --check
 
