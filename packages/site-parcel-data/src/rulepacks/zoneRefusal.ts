@@ -90,6 +90,9 @@ export function buildRefusedEnvelope(
         maxCoverage: null,
         maxVolumeM3: null,
         insetAreaM2: 0,
+        // §L-619 — a refusal draws no footprint at all; false like every other flag (this literal
+        // never goes through `.parse()`, so the schema default would not apply otherwise).
+        footprintIsUpperBound: false,
         permittedUse: [],
         confidence: 'not-determined',
         // The refusal is a statement about THIS parcel's zone — a parcel-level answer, even

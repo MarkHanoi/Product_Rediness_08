@@ -26,6 +26,26 @@ export { solveEstimatedEnvelope } from './solveEstimated.js';
 // tier moved down: a rule about the determination must not live in one of its consumers.
 export { applyConstructedHeight, type ConstructedHeightPatch } from './envelopeHeight.js';
 
+// ── §L-616 / §L-619 — the FAR-limited massing-height helper, shared by the engine AND ──
+// `applyConstructedHeight` so a FAR that caps floorspace below the height cap binds with ONE formula,
+// whether the height is known at solve time (BCN 20a) or attached afterwards (BCN 12 / 13a / 13b).
+export {
+    computeFarLimitedHeight,
+    farLimitedHeightCaveat,
+    ASSUMED_FLOOR_TO_FLOOR_M,
+    type FarLimitedHeightInput,
+    type FarLimitedHeightResult,
+} from './farLimitedHeight.js';
+
+// ── §L-619 — the Denmark perimeter-block (karré) COURTYARD rule: a conservative STUDY default that ──
+// reuses the block-derived-alignment depth-band machinery. Human-gated to the lokalplan/friareal; the
+// L5 DK dispatch passes it + a resolved block ring to carve the courtyard (see the module header for
+// the wiring, which is not yet done).
+export {
+    DK_PERIMETER_BLOCK_COURTYARD_RULE,
+    DK_PERIMETER_BLOCK_STUDY_CAVEAT,
+} from './rulepacks/dkPerimeterBlock.js';
+
 // L-402 — the compliance "explain-why" report model (pure; explains an envelope, never recomputes it).
 export {
     buildComplianceReport,

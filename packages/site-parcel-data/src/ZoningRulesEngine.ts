@@ -35,6 +35,7 @@ import { insetPolygonPerEdge, type PerEdgeSetbacks } from './geometry/insetPolyg
 import { solveBlockDerivedDepth, type BlockDepthBinding } from './geometry/blockDerivedDepth.js';
 import { solveBlockConcentricBandDepth } from './geometry/blockConcentricBand.js';
 import { solveExplicitArea } from './geometry/explicitArea.js';
+import { computeFarLimitedHeight, farLimitedHeightCaveat } from './farLimitedHeight.js';
 
 const tracer = trace.getTracer('pryzm.zoning');
 
@@ -270,6 +271,10 @@ export function computeBuildableEnvelope(
         // §L-616 — the FAR-realistic massing height (m), null when FAR does not bind. See the
         // computation inside the `status === 'ok'` block below.
         let farLimitedHeight_m: number | null = null;
+        // §L-619 / §CONTEXT-DATA-HONESTY — set TRUE when the footprint is the WHOLE parcel ONLY
+        // because the setbacks were UNKNOWN (all null), with no footprint-shaping geometric rule.
+        // Then the ring is an UPPER BOUND, not a solved footprint (the Copenhagen karré defect).
+        let footprintIsUpperBound = false;
         // §L-590b / ADR-0273 — the tiers of a multi-tier envelope. EMPTY for every rule kind that
         // yields a single prism, which is all of them except `tiered-occupation`.
         let tiers: EnvelopeTier[] = [];
@@ -759,27 +764,48 @@ export function computeBuildableEnvelope(
                     // below (never applied silently — §CONTEXT-DATA-HONESTY).
                     const parcelAreaM2 = polygonArea(parcelRing);
                     const footprintAreaM2 = insetAreaM2;
-                    if (
-                        typeof maxFAR.value === 'number' && maxFAR.value > 0 &&
-                        footprintAreaM2 > 0 &&
-                        typeof maxHeight.value === 'number' && maxHeight.value > 0
-                    ) {
-                        const maxGFA = maxFAR.value * parcelAreaM2;
-                        const floorsByFAR = maxGFA / footprintAreaM2;
-                        const floorHeightM =
-                            typeof maxFloors.value === 'number' && maxFloors.value > 0
-                                ? maxHeight.value / maxFloors.value
-                                : 3.0;
-                        const farHeight = floorsByFAR * floorHeightM;
-                        // FAR only lowers; never taller than the legal cap.
-                        farLimitedHeight_m = Math.min(maxHeight.value, farHeight);
-                        if (farLimitedHeight_m < maxHeight.value - 1e-6) {
-                            caveats.push(
-                                `FAR ${maxFAR.value} caps usable floorspace to ~${floorsByFAR.toFixed(1)} ` +
-                                    `floors (${farLimitedHeight_m.toFixed(1)} m at ~${floorHeightM.toFixed(1)} m ` +
-                                    `floors); the ${maxHeight.value} m height limit is the outer legal bound.`,
-                            );
-                        }
+                    // §L-616 — extracted to a shared helper so the block-derived zones whose height
+                    // is attached AFTER the solve (BCN 12 nucli antic / 13a / 13b, via
+                    // `applyConstructedHeight`) cap by FAR with the SAME arithmetic. Byte-identical to
+                    // the inline block it replaced.
+                    const far = computeFarLimitedHeight({
+                        maxFAR: maxFAR.value,
+                        parcelAreaM2,
+                        footprintAreaM2,
+                        maxHeight_m: maxHeight.value,
+                        maxFloors: maxFloors.value,
+                    });
+                    farLimitedHeight_m = far.farLimitedHeight_m;
+                    const farCaveat = farLimitedHeightCaveat(far, maxFAR.value!, maxHeight.value!);
+                    if (farCaveat) caveats.push(farCaveat);
+
+                    // §L-619 / §CONTEXT-DATA-HONESTY — is this full-parcel footprint an UPPER BOUND?
+                    //
+                    // The plain per-edge inset above collapses an UNKNOWN setback to 0 (`front.value
+                    // ?? 0`) — the sanctioned uniform fallback — but when EVERY setback is unresolved
+                    // (`from === 'none'`) AND no footprint-shaping geometric rule ran, the ring that
+                    // survives is the WHOLE parcel purely because we do not know the setbacks, not
+                    // because the ordinance permits full coverage. Presenting that as a solved solid
+                    // is the founder's Copenhagen karré defect (L-619): DK Plandata publishes no
+                    // structured byggelinjer, so a perimeter block that really leaves a central
+                    // courtyard was drawn filling its whole parcel. `unknown ≠ zero`. Flag it so the
+                    // renderer HATCHES the ring as a study upper bound rather than a confident
+                    // envelope — the height/FAR fields above are untouched (L-616 protected).
+                    const footprintShapingRule =
+                        geometricRule?.kind === 'alignment' ||
+                        geometricRule?.kind === 'block-derived-alignment' ||
+                        geometricRule?.kind === 'tiered-occupation' ||
+                        geometricRule?.kind === 'explicit-area';
+                    const setbacksAllUnknown =
+                        front.from === 'none' && side.from === 'none' && rear.from === 'none';
+                    if (setbacksAllUnknown && !footprintShapingRule) {
+                        footprintIsUpperBound = true;
+                        caveats.push(
+                            'Setbacks are UNKNOWN for this zone (none published), so this footprint is ' +
+                                'the WHOLE parcel as an UPPER BOUND — not a solved buildable area. A ' +
+                                'perimeter-block parcel typically leaves a central courtyard; the real ' +
+                                'footprint is smaller (§CONTEXT-DATA-HONESTY, L-619).',
+                        );
                     }
                 }
             }
@@ -875,6 +901,10 @@ export function computeBuildableEnvelope(
             maxCoverage: maxCoverage.value,
             maxVolumeM3,
             insetAreaM2,
+            // §L-619 / §CONTEXT-DATA-HONESTY — the ring is the whole parcel only because setbacks
+            // are unknown; a consumer must hatch it, not draw a confident solid. See the flag's
+            // schema docstring and the computation above.
+            footprintIsUpperBound,
             permittedUse,
             confidence,
             status,

@@ -394,6 +394,26 @@ export const BuildableEnvelopeSchema = z.object({
     maxVolumeM3: z.number().min(0).nullable().default(null),
     /** `area(insetPolygon)` in m² — the buildable-footprint area. */
     insetAreaM2: z.number().min(0).default(0),
+    /**
+     * §L-619 / §CONTEXT-DATA-HONESTY — TRUE when `insetPolygon` is the WHOLE parcel ONLY because the
+     * setbacks (byggelinjer / retiros / separacions) are UNKNOWN (published as null), NOT because the
+     * ordinance grants full-parcel coverage. The footprint is then an UPPER BOUND, not a solved
+     * buildable area, and a consumer MUST render it as such — hatched/flagged — never as a confident
+     * solid.
+     *
+     * This is the founder's Copenhagen karré defect (L-619): every perimeter block leaves a central
+     * courtyard, but DK Plandata publishes no structured setbacks, so the engine's `?? 0` inset drew
+     * the full 1,116 m² parcel. `unknown ≠ zero` — a null setback is not a licence to build to the
+     * boundary. The honest footprint is a perimeter depth-band around the frontage (the DK
+     * `block-derived-alignment` path); absent a resolvable block ring, this flag marks the full-parcel
+     * ring as the study upper bound instead.
+     *
+     * ⚠ Default FALSE, and false is the norm: every zone with RESOLVED setbacks (even a real 0), a
+     * footprint-shaping geometric rule (`alignment` / `block-derived-alignment` / `tiered-occupation`
+     * / `explicit-area`) or a genuine full-coverage grant is a real footprint and is unchanged.
+     * Additive with a default, so persisted envelopes remain valid.
+     */
+    footprintIsUpperBound: z.boolean().default(false),
     permittedUse: z.array(PermittedUseSchema).default([]),
     /** MANDATORY confidence label (C58 §1.2) — there is no unlabelled envelope. */
     confidence: EnvelopeConfidenceSchema,
