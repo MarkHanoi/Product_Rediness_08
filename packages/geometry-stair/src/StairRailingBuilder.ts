@@ -787,12 +787,25 @@ export class StairRailingBuilder {
                 seg1.userData.elementType = 'stair-railing';
                 seg1.userData.selectable = false;
                 group.add(seg1);
+                // §FIX-STAIR-LANDING-BALUSTERS — the L-landing connector previously
+                // emitted only the horizontal TOP RAIL (seg1/seg2), never the
+                // VERTICAL balusters/spindles the flights carry, so the landing
+                // rail floated with an open gap beneath it (the founder-reported
+                // "landing has no vertical elements"). Emit the SAME per-type infill
+                // the flights and the U-guard use, along the connector run, so the
+                // balustrade is continuous from run → landing → run. baseElev is the
+                // landing platform (flightEndElev); the balusters rise railHeight to
+                // meet the top rail.
+                this.emitHorizontalInfill(group, landingRailStart, corner, flightEndElev, railHeight, railing);
             }
             if (corner.distanceTo(landingRailEnd) > 0.05) {
                 const seg2 = buildSegment(corner, landingRailEnd);
                 seg2.userData.elementType = 'stair-railing';
                 seg2.userData.selectable = false;
                 group.add(seg2);
+                // §FIX-STAIR-LANDING-BALUSTERS — vertical infill for the second
+                // connector leg (corner → flight 2 rail start), matching seg1.
+                this.emitHorizontalInfill(group, corner, landingRailEnd, flightEndElev, railHeight, railing);
             }
         }
         // Inner open side (projLen ≈ treadDepth/2): no connector — each flight

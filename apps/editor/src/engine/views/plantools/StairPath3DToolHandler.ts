@@ -19,9 +19,14 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import {
     StairPathToolController,
+    resolveStairVerticalSpan,
+    DEFAULT_STOREY_HEIGHT,
     type StairSketchCoordinateProvider,
     type StairLevelOption,
 } from '@pryzm/geometry-stair';
+// §FIX-STAIR-3D-CREATION-BLOCKED — the 3D sketch handler realises an implied
+// level above (ADR-0098) through the SAME command the plan handler uses (P6).
+import { AddLevelCommand } from '@pryzm/command-registry';
 
 /** The minimal slice of the OBC `world` this handler reads (resolved live). */
 interface World3DRefs {
@@ -293,33 +298,77 @@ export class StairPath3DToolHandler {
         levels: StairLevelOption[];
     } | null {
         const raw = this._deps.getLevels();
-        if (!raw || raw.length < 2) return null;
+        if (!raw || raw.length === 0) {
+            console.error('[StairPath3DToolHandler] project has no levels');
+            return null;
+        }
 
-        const sorted = [...raw].sort(
+        // Base = the active level, else the lowest level in the project.
+        const sortedRaw = [...raw].sort(
             (a, b) => (a.elevation ?? a.height ?? 0) - (b.elevation ?? b.height ?? 0),
         );
-        const levels: StairLevelOption[] = sorted.map((l, i) => ({
-            id:        String(l.id),
-            name:      String(l.name ?? l.label ?? `Level ${i + 1}`),
-            elevation: Number(l.elevation ?? l.height ?? 0),
-        }));
+        const baseLevelId = this._deps.getActiveLevelId() ?? sortedRaw[0]?.id ?? '';
 
-        const activeId = this._deps.getActiveLevelId() ?? levels[0]?.id ?? '';
-        let baseIdx = levels.findIndex(l => l.id === activeId);
-        if (baseIdx < 0) baseIdx = 0;
-        // If the active level is the topmost, drop one so base < top stays valid.
-        if (baseIdx >= levels.length - 1) baseIdx = levels.length - 2;
+        // §FIX-STAIR-3D-CREATION-BLOCKED — route through the SINGLE vertical-span
+        // chokepoint (ADR-0098 / L-243), exactly as StairPathPlanToolHandler does.
+        // The old code HARD-REQUIRED two pre-existing levels (`raw.length < 2 →
+        // null`); on a fresh single-level project the 3D sketch therefore declined
+        // (`activate()` returned false) and BimService fell back to the plan/legacy
+        // path — which has no overlay in the 3D view, so nothing was created. That
+        // asymmetry is the "stair can only be created in plan now" regression: the
+        // plan handler stopped requiring two levels (it IMPLIES the one above), but
+        // this 3D handler was never updated to match. Parity is restored here.
+        let span = resolveStairVerticalSpan(raw, baseLevelId, DEFAULT_STOREY_HEIGHT);
 
-        const base = levels[baseIdx];
-        const top  = levels[baseIdx + 1];
-        if (!base || !top) return null;
+        if (span.status === 'needs-level-above') {
+            // ADR-0098 — the stair IMPLIES the level above; realise it with a
+            // COMMAND (P6), then re-resolve against the mutated level set. Never
+            // trust the payload we just sent — read the store back.
+            if (!this._createImpliedLevelAbove(span.suggestedName, span.suggestedElevation, span.height)) {
+                console.error('[StairPath3DToolHandler] could not create the implied level above');
+                return null;
+            }
+            span = resolveStairVerticalSpan(this._deps.getLevels(), baseLevelId, DEFAULT_STOREY_HEIGHT);
+        }
+
+        if (span.status !== 'ok') {
+            console.error('[StairPath3DToolHandler] stair span unresolvable:',
+                span.status === 'unresolvable' ? span.reason : span.status);
+            return null;
+        }
+
+        const levels: StairLevelOption[] = [...this._deps.getLevels()]
+            .sort((a, b) => (a.elevation ?? a.height ?? 0) - (b.elevation ?? b.height ?? 0))
+            .map((l, i) => ({
+                id:        String(l.id),
+                name:      String(l.name ?? l.label ?? `Level ${i + 1}`),
+                elevation: Number(l.elevation ?? l.height ?? 0),
+            }));
 
         return {
-            baseLevelId:        base.id,
-            topLevelId:         top.id,
-            baseLevelElevation: base.elevation,
-            topLevelElevation:  top.elevation,
+            baseLevelId:        span.baseLevelId,
+            topLevelId:         span.topLevelId,
+            baseLevelElevation: span.baseElevation,
+            topLevelElevation:  span.topElevation,
             levels,
         };
+    }
+
+    /**
+     * ADR-0098 / §FIX-STAIR-3D-CREATION-BLOCKED — create the level the stair
+     * implies, through `AddLevelCommand` (P6: commands are the only mutation
+     * path). `AddLevelCommand.execute()` is synchronous, so a re-resolve against
+     * the levels immediately afterwards observes the new level. Mirrors
+     * StairPathPlanToolHandler._createImpliedLevelAbove.
+     */
+    private _createImpliedLevelAbove(name: string, elevation: number, height: number): boolean {
+        try {
+            const levelId = `level-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            this._deps.commandManager.execute(new AddLevelCommand({ levelId, name, elevation, height }));
+            return true;
+        } catch (err) {
+            console.error('[StairPath3DToolHandler] AddLevelCommand failed:', err);
+            return false;
+        }
     }
 }
