@@ -34,6 +34,7 @@
 import type { BuildableEnvelope, DerivationEntry, EnvelopeTier } from '@pryzm/schemas';
 import { principalTier } from '@pryzm/schemas';
 import { polygonArea } from '@pryzm/site-validators';
+import { computeFarLimitedHeight, farLimitedHeightCaveat } from './farLimitedHeight.js';
 
 export interface ConstructedHeightPatch {
     /** The resolved height, metres. */
@@ -80,13 +81,39 @@ export function applyConstructedHeight(
         ? [...envelope.derivation, patch.derivationRow]
         : envelope.derivation;
 
-    // ── Single prism: today's behaviour, byte for byte. ───────────────────────────────────────
+    // ── Single prism: today's behaviour, PLUS the L-616 FAR cap now that the height exists. ──────
+    //
+    // §L-619 (BCN 12 OVERSTATES-FAR fix). The engine's L-616 block is SKIPPED for block-derived
+    // zones because they ship `maxHeight_m: null` and the *alçada reguladora* arrives here, AFTER the
+    // solve. So clau 12's real 1,40 FAR never bound the volume — the matrix's OVERSTATES-FAR verdict.
+    // Now that the height is known, recompute `farLimitedHeight_m` with the SAME helper the engine
+    // uses. Requires `parcelRing` (the FAR denominator); without it the FAR cap cannot be computed and
+    // is left untouched (an honest no-op, never a fabricated number). FAR-null zones (13a/13b) are
+    // unaffected — `computeFarLimitedHeight` returns null → the solid == the shell, unchanged.
     if (envelope.tiers.length === 0) {
+        const parcelAreaM2 =
+            patch.parcelRing && patch.parcelRing.length >= 3 ? polygonArea(patch.parcelRing) : null;
+        const far =
+            parcelAreaM2 !== null
+                ? computeFarLimitedHeight({
+                      maxFAR: envelope.maxFAR,
+                      parcelAreaM2,
+                      footprintAreaM2: envelope.insetAreaM2,
+                      maxHeight_m: patch.height_m,
+                      maxFloors: patch.maxFloors,
+                  })
+                : null;
+        const farCaveat =
+            far && envelope.maxFAR !== null
+                ? farLimitedHeightCaveat(far, envelope.maxFAR, patch.height_m)
+                : null;
         return {
             ...envelope,
             maxHeight_m: patch.height_m,
             maxFloors: patch.maxFloors,
             maxVolumeM3: envelope.insetAreaM2 * patch.height_m,
+            farLimitedHeight_m: far ? far.farLimitedHeight_m : envelope.farLimitedHeight_m,
+            caveats: farCaveat ? [...envelope.caveats, farCaveat] : envelope.caveats,
             derivation,
         };
     }
@@ -106,11 +133,30 @@ export function applyConstructedHeight(
     // would publish the short tier's ring beside the tall tier's height: an over-statement, and
     // one the schema would then reject.
     const principal = principalTier(tiers)!;
+    const parcelAreaM2 =
+        patch.parcelRing && patch.parcelRing.length >= 3 ? polygonArea(patch.parcelRing) : null;
     const cap =
-        envelope.maxCoverage !== null && patch.parcelRing && patch.parcelRing.length >= 3
-            ? envelope.maxCoverage * polygonArea(patch.parcelRing)
+        envelope.maxCoverage !== null && parcelAreaM2 !== null
+            ? envelope.maxCoverage * parcelAreaM2
             : Infinity;
     const effectiveArea = Math.min(principal.areaM2, cap);
+
+    // §L-619 — the L-616 FAR cap on the PRINCIPAL tier, with the same helper. Only meaningful once
+    // the principal tier has a height; FAR-null zones return null (unchanged). Denominator is the lot.
+    const far =
+        parcelAreaM2 !== null && principal.maxHeight_m !== null
+            ? computeFarLimitedHeight({
+                  maxFAR: envelope.maxFAR,
+                  parcelAreaM2,
+                  footprintAreaM2: principal.areaM2,
+                  maxHeight_m: principal.maxHeight_m,
+                  maxFloors: principal.maxFloors,
+              })
+            : null;
+    const farCaveat =
+        far && envelope.maxFAR !== null && principal.maxHeight_m !== null
+            ? farLimitedHeightCaveat(far, envelope.maxFAR, principal.maxHeight_m)
+            : null;
 
     return {
         ...envelope,
@@ -121,6 +167,8 @@ export function applyConstructedHeight(
         maxFloors: principal.maxFloors,
         maxVolumeM3:
             principal.maxHeight_m === null ? null : effectiveArea * principal.maxHeight_m,
+        farLimitedHeight_m: far ? far.farLimitedHeight_m : envelope.farLimitedHeight_m,
+        caveats: farCaveat ? [...envelope.caveats, farCaveat] : envelope.caveats,
         derivation,
     };
 }
