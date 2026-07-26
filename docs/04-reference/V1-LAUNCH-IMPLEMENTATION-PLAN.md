@@ -4922,3 +4922,16 @@ NOT one-off card onclicks.
 | 3 | Bidirectional: card row → highlight geometry; geometry pick → surface data | Both renderers (Cesium 3D · Three 3D · 2D plan) + the card |
 | 4 | Preserve the C23 "not derived" provenance honesty into the interactive rows | A `not derived` datum must stay visibly non-authoritative when clickable |
 | 5 | Fold in L-603 (clickable numbers) as the first slice | This item is its full bidirectional superset |
+
+## L-617 — 3 @pryzm/schemas round-trip failures (schema defaults violate own refinement / drifted) · Phase 1 · P3 · OWNER: UNASSIGNED · TARGET: TBD
+
+Pre-existing (found during L-616 verification, confirmed on clean base). See audit **L-617**.
+The CORRECT path reconciles defaults with refinements OR excludes refinement-guarded schemas from
+the empty-parse invariant with a documented reason — NOT `.skip`-ing the guard tests.
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | **Confirm production reachability FIRST** — set final severity | Grep for any `WaterSchema.parse` / `ViewTemplateSchema.parse` on partial/empty input in persistence/creation/load. If a hydrate path hits it → RE-CLASSIFY P1 (data-load crash) |
+| 2 | Water: reconcile `parse({})` with `.refine(surface > bottom)` | Likely fix = exclude refinement-guarded schemas from `round-trip.test.ts` ELEMENT_TYPES empty-parse (the refinement "empty pool has no water element" is intentional), OR give a valid default pair |
+| 3 | ViewTemplate: restore the drifted default | `view-template-roundtrip.test.ts:194` expects defaults the parse no longer applies |
+| 4 | Author the missing invariant | "a schema's DEFAULTS must satisfy its own refinements" — into C03 or C05 (currently only the test enforces it) |

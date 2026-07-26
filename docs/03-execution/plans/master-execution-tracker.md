@@ -4638,3 +4638,14 @@ for free; the per-zone edificabilidad/ocupación/altura table is a bounded **SOU
 
 ⚠ **Do not hardcode a per-city branch** — that repeats the Spain-only parcel-provider trap
 (L-613). Each city plugs its zoning WFS/REST + its normativa table into the shared registry.
+
+## Added 2026-07-26 — L-617 (schemas round-trip failures — LOGGED, not fixed)
+
+Pre-existing (found during L-616 verification, confirmed red on clean base ef64cdc6 by stashing the
+WIP). 3 `@pryzm/schemas` tests fail: `WaterSchema.parse({})` throws (both elevation defaults `0`
+vs `.refine(surface > bottom)`); `ViewTemplateSchema.parse({id,name})` default drift. **P3 backlog**
+per founder ("check for future") — BUT the FIRST task is to confirm production reachability: if any
+persistence/creation/load path parses these on partial input, RE-CLASSIFY **P1** (data-load crash).
+Queue: **schemas / persistence (C03/C05)** — NOT the geo queue where it surfaced. Coverage gap
+(defaults-satisfy-refinements) logged to MISSING-CONTRACTS-AUDIT. OWNER: UNASSIGNED · TARGET: TBD.
+Dependency: independent of the in-flight L-616 envelope work (different package, different subject).

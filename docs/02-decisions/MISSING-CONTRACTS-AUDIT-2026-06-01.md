@@ -655,3 +655,13 @@ tile-format + provenance (C23 badge), the honest empty-vs-unavailable-vs-out-of-
 trichotomy, and the Overpass-fallback demotion rule. **No new contract authored in this pass** —
 logged as the reserved slot it is, per C60 §7's "different question, different failure mode" test
 (which this passes: bake/serve/coverage is a distinct subject from C57's parcel ingestion).
+
+## Gap (L-617) — "schema defaults must satisfy their own refinements" is uncontracted
+
+Surfaced by 3 failing `@pryzm/schemas` round-trip tests (audit **L-617**): `WaterSchema.parse({})`
+throws because both elevation defaults are `0` while `.refine(surface > bottom)` rejects it; a
+`ViewTemplate` default also drifted. The invariant that **a schema's default object must itself be
+valid under the schema's refinements** (so `parse({})` round-trips deterministically) lives ONLY in
+`round-trip.test.ts`, not in any contract. It belongs in **C03** (schema shape) or **C05**
+(persistence round-trip determinism). **No contract authored in this pass** — logged as the
+reserved slot, per the "different question, different failure mode" test. Owner: UNASSIGNED · TARGET: TBD.
