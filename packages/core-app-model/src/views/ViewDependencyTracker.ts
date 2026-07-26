@@ -536,6 +536,14 @@ export class ViewDependencyTracker {
     private _onStoreEvent(event: StoreChangeEvent): void {
         if (!GEOMETRY_ELEMENT_TYPES.has(event.elementType)) return;
 
+        // §FIX-SLAB-PARAM-WIPE (defence-in-depth) — a malformed store event whose
+        // `elementId` is undefined (the historical slab full-replace-wipe) reaches
+        // `event.elementId.includes('::')` below and throws every rAF. The store bug is
+        // fixed at source (UpdateElementParameterCommand), but a `StoreChangeEvent` with no
+        // id carries no actionable target here, so drop it rather than let one bad emit
+        // flood the frame loop.
+        if (typeof event.elementId !== 'string' || event.elementId.length === 0) return;
+
         // §PERF-VIEW-BATCH-SUPPRESS: during a batch the coordinator delivers
         // thousands of buffered events through endBatchYielded().  Letting each
         // one reset the 300ms debounce timer would cause a single catastrophic
