@@ -46,6 +46,10 @@ import {
     monthlyTempSeries,
 } from '../climate/climateChartData';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
+// §FEAT-STANDARDIZED-VIEW-PROPERTIES (L-625, C59 §6) — the shared single source of truth
+// for Sun/Shadow/Wind. This panel publishes the scrubbed sun time-of-day into it so the
+// View Properties panel and the Site Analysis panel never diverge on the sun.
+import { environmentAnalysisStore } from '../../engine/views/environmentAnalysisStore';
 // §SITE-METRIC-WIND-CONTRAST — the pure OFFLINE bundled-normals ClimateDataset builder
 // (lat/lon → 12 monthly normals + a synthesised 16-sector wind rose). Used to give the
 // wind-rose PANEL (and its mean/prevailing readout) a real DIRECTIONAL rose the instant
@@ -560,9 +564,20 @@ export class FormaSiteAnalysisControls {
     }
 
     private pushSunTime(): void {
-        try { this.viewport.setFormaSunTime(this.currentScrubDate()); } catch (e) {
+        const date = this.currentScrubDate();
+        try { this.viewport.setFormaSunTime(date); } catch (e) {
             console.warn('[forma-analysis] setFormaSunTime failed:', e);
         }
+        // §FEAT-STANDARDIZED-VIEW-PROPERTIES (L-625, C59 §6) — the sun is a SHARED
+        // analysis property with ONE source of truth. This panel is the PRODUCER of the
+        // sun time-of-day: publish the scrubbed hour into `environmentAnalysisStore` so
+        // the BIM View Properties panel's sun follows the site scrubber (and never shows
+        // a divergent second copy). One-directional (produce, don't subscribe-writeback)
+        // so the Cesium scrubber can never enter a feedback loop with the store.
+        try {
+            const hours = date.getUTCHours() + date.getUTCMinutes() / 60;
+            environmentAnalysisStore.setSunTime(hours, 'site-analysis');
+        } catch { /* ignore — the store never blocks the viewport */ }
     }
 
     private onDateChange(): void { this.stopShadowStudy(); this.pushSunTime(); }

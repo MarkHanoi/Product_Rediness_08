@@ -36,49 +36,52 @@
  */
 
 import { sharedRenderingState, setSharedPostProcessing } from '@pryzm/core-app-model/rendering';
+// §FEAT-STANDARDIZED-VIEW-PROPERTIES (L-625, C59 §6) — the SINGLE SOURCE OF TRUTH for
+// Sun / Shadow / Wind / Climate / Population. This panel no longer holds a private copy
+// of those values (the divergent-copy that made "Site Analysis and VIEW PROPERTIES
+// repeat Sun/Shadow/Wind"): it reads from, writes through, and subscribes to the ONE
+// `environmentAnalysisStore`, so its values are identical to the Site Analysis panel's.
+import { environmentAnalysisStore } from '../../engine/views/environmentAnalysisStore';
 
 export class ViewPropertiesSection {
     /** Phase B (S73-WIRE) — runtime threaded by parent (added by widening — class had no explicit constructor). */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
     constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
         this.runtime = runtime;
-        // §FEAT-REAL-ENVIRONMENT (ADR-0106) — restore persisted environment/post-proc
-        // state so a panel rebuild (per selection) keeps the user's choices.
-        this._sunMode              = sharedRenderingState.sunMode;
-        this._groundShadowsEnabled = sharedRenderingState.groundShadows;
+        // §FEAT-REAL-ENVIRONMENT (ADR-0106) — restore persisted POST-PROCESSING state so a
+        // panel rebuild (per selection) keeps the user's choices. Sun / Shadow / Wind /
+        // Climate / Population state now lives in the shared `environmentAnalysisStore`
+        // singleton, which outlives panel rebuilds — no per-instance restore needed.
         this._aoEnabled            = sharedRenderingState.aoEnabled;
         this._bloomEnabled         = sharedRenderingState.bloomEnabled;
         this._exposure             = sharedRenderingState.exposure;
     }
 
-    // §FEAT-REAL-ENVIRONMENT-SUN (ADR-0106) — the sun is REAL: driven from the
-    // site lat/lon + time-of-day (same NOAA basis as the Cesium/Forma globe). In
-    // 'real+offset' mode the Azimuth/Elevation/Intensity sliders are OFFSETS /
-    // multipliers on the real value; in 'manual' they are absolute (legacy studio
-    // key). Defaults: real+offset, zero offset, ×1 intensity, noon.
-    private _sunMode: 'real+offset' | 'manual' = 'real+offset';
-    private _azimuth   = 0;    // offset(deg) in real+offset; absolute(deg) in manual
-    private _elevation = 0;    // offset(deg) in real+offset; absolute(deg) in manual
-    private _intensity = 1.0;  // multiplier in real+offset; absolute(0–2) in manual
-    private _timeHours = 12;   // time-of-day the real sun is solved for
-    private _shadowsEnabled = true;
-    private _groundShadowsEnabled = true; // §FEAT-GROUND-SHADOW-CATCHER — default ON
+    // §FEAT-STANDARDIZED-VIEW-PROPERTIES (L-625) — the shared analysis environment is
+    // the SINGLE SOURCE OF TRUTH; this getter is the only way this panel reads it.
+    private get _env() { return environmentAnalysisStore.getState(); }
+
+    // Post-processing is NOT a shared-environment property (it is the GPU render finish,
+    // meaningful only for the BIM 3D view — see `viewPropertyModel.ts`), so it stays a
+    // local field persisted via `sharedRenderingState`.
     private _aoEnabled      = false;
     private _bloomEnabled   = false;
     private _exposure       = 1.0;
 
-    // §ENV-PANEL-CLIMATE — founder request: heat / wind / population density for ALL views.
-    // Optional/defaulted environment fields; existing views are unaffected because every
-    // value carries a sensible default and only emits on user interaction.
-    private _temperature      = 20;  // °C
-    private _humidity         = 50;  // %
-    private _windDirection    = 0;   // ° (0 = North)
-    private _windSpeed        = 3;   // m/s
-    private _populationDensity = 0;  // persons / ha
+    /** Live-sync closures (one per control) re-read the shared store on notification. */
+    private readonly _syncFns: Array<() => void> = [];
 
     build(): HTMLElement {
         const root = document.createElement('div');
         root.className = 'vp-root';
+        // §L-625 — keep every control's displayed value in lock-step with the shared
+        // store, so a Sun/Shadow/Wind change made in the Site Analysis panel is reflected
+        // here live. Self-disposes when this panel is replaced (leak-safe, no dispose hook).
+        this._syncFns.length = 0;
+        const unsubscribe = environmentAnalysisStore.subscribe(() => {
+            if (!root.isConnected) { unsubscribe(); return; }
+            for (const fn of this._syncFns) { try { fn(); } catch { /* ignore */ } }
+        });
         root.appendChild(this._buildSection('SUN SETTINGS',        true,  this._buildSunSettings()));
         root.appendChild(this._buildSection('CLIMATE / HEAT',      false, this._buildClimateSettings()));
         root.appendChild(this._buildSection('WIND',                false, this._buildWindSettings()));
@@ -112,88 +115,93 @@ export class ViewPropertiesSection {
 
     private _buildSunSettings(): HTMLElement {
         const wrap = document.createElement('div');
+        const store = environmentAnalysisStore;
 
         // §FEAT-REAL-ENVIRONMENT-SUN — mode toggle: REAL (ephemeris) + offset vs MANUAL.
         // ON  = real+offset (sliders are offsets on the true solar position);
         // OFF = manual (sliders are absolute — the legacy studio key).
-        wrap.appendChild(this._buildToggleRow('Real sun (site + time)', this._sunMode === 'real+offset', (on) => {
-            this._sunMode = on ? 'real+offset' : 'manual';
-            window.runtime?.events?.emit('pryzm-set-sun-mode', { mode: this._sunMode });
-            setSharedPostProcessing({ sunMode: this._sunMode }); // persist across rebuilds
-            // Re-emit current slider values so the engine re-solves in the new mode.
-            this._applySunDirection();
-            this._applySunIntensity();
-        }));
+        // §L-625 — routed through the shared store (single source of truth); the store
+        // emits the mode event, persists it, and re-emits the current sun so the engine
+        // re-solves in the new mode — the identical behaviour, in ONE place.
+        wrap.appendChild(this._buildToggleRow('Real sun (site + time)', this._env.sun.mode === 'real+offset', (on) => {
+            store.setSunMode(on ? 'real+offset' : 'manual', 'view-properties');
+        }, () => this._env.sun.mode === 'real+offset'));
 
         // Time of day — drives the ephemeris in real+offset mode.
         wrap.appendChild(this._buildSliderRow(
-            'Time of day', this._timeHours, 0, 24, 0.25, 'h',
-            (v) => {
-                this._timeHours = v;
-                window.runtime?.events?.emit('pryzm-set-sun-time', { hours: v });
-            },
+            'Time of day', this._env.sun.timeHours, 0, 24, 0.25, 'h',
+            (v) => store.setSunTime(v, 'view-properties'),
+            () => this._env.sun.timeHours,
         ));
 
         // Azimuth / Elevation — OFFSETS in real+offset mode, ABSOLUTE in manual.
         // Range spans negative offsets so the sun can be nudged either way.
         wrap.appendChild(this._buildSliderRow(
-            'Azimuth', this._azimuth, -180, 180, 1, '°',
-            (v) => { this._azimuth   = v; this._applySunDirection(); },
+            'Azimuth', this._env.sun.azimuthDeg, -180, 180, 1, '°',
+            (v) => store.setSunOffsets({ azimuthDeg: v }, 'view-properties'),
+            () => this._env.sun.azimuthDeg,
         ));
         wrap.appendChild(this._buildSliderRow(
-            'Elevation', this._elevation, -90, 90, 1, '°',
-            (v) => { this._elevation = v; this._applySunDirection(); },
+            'Elevation', this._env.sun.elevationDeg, -90, 90, 1, '°',
+            (v) => store.setSunOffsets({ elevationDeg: v }, 'view-properties'),
+            () => this._env.sun.elevationDeg,
         ));
         wrap.appendChild(this._buildSliderRow(
-            'Intensity', this._intensity, 0.0, 2.0, 0.05, '×',
-            (v) => { this._intensity = v; this._applySunIntensity(); },
+            'Intensity', this._env.sun.intensity, 0.0, 2.0, 0.05, '×',
+            (v) => store.setSunOffsets({ intensity: v }, 'view-properties'),
+            () => this._env.sun.intensity,
         ));
 
         return wrap;
     }
 
-    // ─── §ENV-PANEL-CLIMATE — Climate / Heat ─────────────────────────────────
+    // ─── §ENV-PANEL-CLIMATE — Climate / Heat (§L-625 shared store) ────────────
     private _buildClimateSettings(): HTMLElement {
         const wrap = document.createElement('div');
+        const store = environmentAnalysisStore;
 
         wrap.appendChild(this._buildSliderRow(
-            'Temperature', this._temperature, -10, 45, 1, '°C',
-            (v) => { this._temperature = v; this._applyClimate(); },
+            'Temperature', this._env.climate.temperatureC, -10, 45, 1, '°C',
+            (v) => store.setClimate({ temperatureC: v }, 'view-properties'),
+            () => this._env.climate.temperatureC,
         ));
         wrap.appendChild(this._buildSliderRow(
-            'Humidity', this._humidity, 0, 100, 1, '%',
-            (v) => { this._humidity = v; this._applyClimate(); },
+            'Humidity', this._env.climate.humidityPct, 0, 100, 1, '%',
+            (v) => store.setClimate({ humidityPct: v }, 'view-properties'),
+            () => this._env.climate.humidityPct,
         ));
 
         return wrap;
     }
 
-    // ─── §ENV-PANEL-CLIMATE — Wind ───────────────────────────────────────────
+    // ─── §ENV-PANEL-CLIMATE — Wind (§L-625 shared store) ──────────────────────
     private _buildWindSettings(): HTMLElement {
         const wrap = document.createElement('div');
+        const store = environmentAnalysisStore;
 
         wrap.appendChild(this._buildSliderRow(
-            'Direction', this._windDirection, 0, 360, 1, '°',
-            (v) => { this._windDirection = v; this._applyWind(); },
+            'Direction', this._env.wind.directionDeg, 0, 360, 1, '°',
+            (v) => store.setWind({ directionDeg: v }, 'view-properties'),
+            () => this._env.wind.directionDeg,
         ));
         wrap.appendChild(this._buildSliderRow(
-            'Speed', this._windSpeed, 0, 30, 0.5, ' m/s',
-            (v) => { this._windSpeed = v; this._applyWind(); },
+            'Speed', this._env.wind.speedMs, 0, 30, 0.5, ' m/s',
+            (v) => store.setWind({ speedMs: v }, 'view-properties'),
+            () => this._env.wind.speedMs,
         ));
 
         return wrap;
     }
 
-    // ─── §ENV-PANEL-CLIMATE — Population Density ──────────────────────────────
+    // ─── §ENV-PANEL-CLIMATE — Population Density (§L-625 shared store) ─────────
     private _buildPopulationSettings(): HTMLElement {
         const wrap = document.createElement('div');
+        const store = environmentAnalysisStore;
 
         wrap.appendChild(this._buildSliderRow(
-            'Density', this._populationDensity, 0, 100, 1, '/ha',
-            (v) => {
-                this._populationDensity = v;
-                window.runtime?.events?.emit('pryzm-set-population-density', { density: v }); // F.events.14
-            },
+            'Density', this._env.population.densityPerHa, 0, 100, 1, '/ha',
+            (v) => store.setPopulation(v, 'view-properties'),
+            () => this._env.population.densityPerHa,
         ));
 
         return wrap;
@@ -201,17 +209,15 @@ export class ViewPropertiesSection {
 
     private _buildShadowSettings(): HTMLElement {
         const wrap = document.createElement('div');
-        wrap.appendChild(this._buildToggleRow('Cast shadows', this._shadowsEnabled, (v) => {
-            this._shadowsEnabled = v;
-            window.runtime?.events?.emit('pryzm-toggle-shadows', { enabled: v }); // F.events.14
-        }));
+        const store = environmentAnalysisStore;
+        wrap.appendChild(this._buildToggleRow('Cast shadows', this._env.shadows.cast, (v) => {
+            store.setShadowCast(v, 'view-properties');
+        }, () => this._env.shadows.cast));
         // §FEAT-GROUND-SHADOW-CATCHER — invisible L0 plane so every element casts a
         // grounded shadow even with no floor slab. Default ON.
-        wrap.appendChild(this._buildToggleRow('Ground shadows', this._groundShadowsEnabled, (v) => {
-            this._groundShadowsEnabled = v;
-            window.runtime?.events?.emit('pryzm-toggle-ground-shadows', { enabled: v });
-            setSharedPostProcessing({ groundShadows: v }); // persist across rebuilds
-        }));
+        wrap.appendChild(this._buildToggleRow('Ground shadows', this._env.shadows.ground, (v) => {
+            store.setGroundShadows(v, 'view-properties');
+        }, () => this._env.shadows.ground));
         return wrap;
     }
 
@@ -252,6 +258,9 @@ export class ViewPropertiesSection {
         step:     number,
         unit:     string,
         onChange: (v: number) => void,
+        /** §L-625 — optional shared-store reader; registers a live-sync closure so the
+         *  slider tracks a change made from the other panel. */
+        readValue?: () => number,
     ): HTMLElement {
         const row = document.createElement('div');
         row.className = 'vp-row';
@@ -284,6 +293,17 @@ export class ViewPropertiesSection {
             onChange(v);
         });
 
+        if (readValue) {
+            this._syncFns.push(() => {
+                const v = readValue();
+                // Don't fight a value the user is actively dragging into place.
+                if (parseFloat(slider.value) !== v) {
+                    slider.value = String(v);
+                    valDisplay.textContent = v.toFixed(step < 1 ? 2 : 0) + unit;
+                }
+            });
+        }
+
         row.appendChild(topRow);
         row.appendChild(slider);
         return row;
@@ -293,6 +313,8 @@ export class ViewPropertiesSection {
         label:    string,
         checked:  boolean,
         onChange: (v: boolean) => void,
+        /** §L-625 — optional shared-store reader for live cross-panel sync. */
+        readChecked?: () => boolean,
     ): HTMLElement {
         const row = document.createElement('div');
         row.className = 'vp-row vp-row--toggle';
@@ -307,59 +329,12 @@ export class ViewPropertiesSection {
         toggle.checked   = checked;
         toggle.addEventListener('change', () => onChange(toggle.checked));
 
+        if (readChecked) {
+            this._syncFns.push(() => { toggle.checked = readChecked(); });
+        }
+
         row.appendChild(lbl);
         row.appendChild(toggle);
         return row;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Lighting helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private _applySunDirection(): void {
-        // §FEAT-REAL-ENVIRONMENT-SUN — primary path: hand azimuth/elevation to the
-        // RealEnvironmentService as offsets (real+offset) or absolutes (manual). It
-        // drives the Pascal KEY LIGHT (the real shadow caster) from the true solar
-        // position, so shadows fall at the real sun angle.
-        window.runtime?.events?.emit('pryzm-set-sun-offsets', {
-            azimuthDeg:   this._azimuth,
-            elevationDeg: this._elevation,
-        });
-        // Manual mode also nudges the legacy OBC ShadowedScene light so viewports
-        // without the real-sun service still track the panel. In real+offset mode
-        // the key light is authoritative, so we skip the legacy emit to avoid a
-        // second, differently-angled directional light fighting the sun.
-        if (this._sunMode === 'manual') {
-            const azRad = (this._azimuth   * Math.PI) / 180;
-            const elRad = (this._elevation * Math.PI) / 180;
-            const x =  Math.sin(azRad) * Math.cos(elRad);
-            const y =  Math.sin(elRad);
-            const z =  Math.cos(azRad) * Math.cos(elRad);
-            window.runtime?.events?.emit('pryzm-set-sun-direction', { x, y, z }); // F.events.14
-        }
-    }
-
-    private _applySunIntensity(): void {
-        // Primary: intensity multiplier/absolute → RealEnvironmentService.
-        window.runtime?.events?.emit('pryzm-set-sun-offsets', { intensity: this._intensity });
-        // Manual mode also drives the legacy OBC light intensity.
-        if (this._sunMode === 'manual') {
-            window.runtime?.events?.emit('pryzm-set-sun-intensity', { intensity: this._intensity }); // F.events.14
-        }
-    }
-
-    // ─── §ENV-PANEL-CLIMATE — environment helpers ────────────────────────────
-    private _applyClimate(): void {
-        window.runtime?.events?.emit('pryzm-set-climate', { // F.events.14
-            temperature: this._temperature,
-            humidity:    this._humidity,
-        });
-    }
-
-    private _applyWind(): void {
-        window.runtime?.events?.emit('pryzm-set-wind', { // F.events.14
-            direction: this._windDirection,
-            speed:     this._windSpeed,
-        });
     }
 }
