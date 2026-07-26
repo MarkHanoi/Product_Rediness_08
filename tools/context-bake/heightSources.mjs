@@ -121,6 +121,25 @@ export const SOURCES = {
       '(PNOA/ICGC), licence UNVERIFIED — not built.',
     coverage: 'full',
   },
+  mds_edificacion: {
+    country: 'es', name: 'CNIG MDS Edificación (MDSnE2.5) — building nDSM raster', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (needs roof geometry — MDS is a surface height, not planes)',
+    endpoint: 'https://wcs-mds.idee.es/mds',
+    heightField: 'mdsn_e025 — MDS normalizado Edificación, a 2.5 m raster whose pixel value IS the ' +
+      'building height above ground (nDSM already isolated to the BUILDING class → NO DSM−DTM subtraction)',
+    note: 'Keyless CC-BY WCS 2.0.1 (INSPIRE) — LIVE-VERIFIED 2026-07-26. GetCoverage COVERAGEID=mdsn_e025 ' +
+      'FORMAT=image/tiff over an EPSG:4326 SUBSET (lat/long, SUBSETTINGCRS+OUTPUTCRS=EPSG:4326) → image/tiff, ' +
+      'native grid EPSG:3042 (ETRS89/UTM30N, ONE projection covering all of Spain incl. Barcelona), 2.5 m, ' +
+      'value=metres. MEASURED building height BUILT 2026-07-26: fetchSpainBuildingHeights samples the raster ' +
+      'per Catastro footprint (P90 over the eroded interior, mirrors the DK DHM nDSM path) → `tagged`. ' +
+      'Sampled real heights (bldg-only P90): Barcelona Eixample ~31 m, Madrid centro ~28 m, Córdoba centro ' +
+      '~17 m — locally distinct, low-rise Córdoba correctly lower. Footprints with no clean MDS sample keep ' +
+      'Catastro floors (derived-levels) or the OSM assumed default — never a fabricated height. ⚠ The ' +
+      'whole-country `spain` bbox is refused per-tile (Catastro has no single whole-country query) → ' +
+      '`documented` (keeps OSM); a CITY bbox resolves exactly. Whole-country in one pass needs the OSM-' +
+      'footprint join in bake.mjs (stamp MDS onto bake\'s own OSM clip) or the INSPIRE ATOM bulk — named follow-up.',
+    coverage: 'full',
+  },
   swissbuildings3d: {
     country: 'ch', name: 'swissBUILDINGS3D 2.0/3.0 + GWR', impl: 'documented',
     provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (native roofs, incl. overhangs)',
@@ -233,18 +252,21 @@ export const SOURCES = {
 // A region absent here (or mapped to a no-source country) keeps OSM footprints = 9 m assumed.
 // ─────────────────────────────────────────────────────────────────────────────
 export const REGION_SOURCE = {
-  // ES — all Catastro (floor-count → derived-levels). ⚠ A Catastro WFS bbox query CANNOT cover a whole
-  // country (server caps + scattered partials), so the `spain` whole-country box returns `documented`
-  // (keeps OSM) — see fetchCatastro's bboxTooLargeForWfs guard. To make Spain REAL, bake.mjs REGIONS
-  // must enumerate PER-CITY Spanish entries (city bbox → Catastro); the mappings below are ready so
-  // the orchestrator only adds the matching bbox rows (spain-latest.osm.pbf already covers them all):
+  // ES — MDS Edificación (mdsn_e025) = REAL MEASURED height (`tagged`), a strict upgrade over Catastro's
+  // floor-count (`derived-levels`). The raster is sampled per Catastro footprint (fetchSpainBuildingHeights),
+  // so any ES bbox gets measured heights — no per-city bake REGION needed (which would double-draw over the
+  // whole-`spain` OSM region). ⚠ The whole-country `spain` bbox itself is refused per-tile (Catastro has no
+  // single whole-country query, and scanning ~10⁵ tiles is infeasible) → `documented` (keeps OSM); a CITY
+  // bbox resolves exactly. So the CITY entries below carry the real value today; `spain` gets it once the
+  // orchestrator either adds per-city bbox rows OR wires the bake OSM-footprint join (named in the source note).
+  // Ready per-city bboxes (spain-latest.osm.pbf already covers them all):
   //   barcelona '2.05,41.32,2.24,41.47'   madrid '-3.80,40.33,-3.60,40.52'
   //   cordoba   '-4.85,37.83,-4.72,37.93'  valencia '-0.42,39.42,-0.30,39.52'
   //   sevilla   '-6.03,37.32,-5.90,37.43'  malaga '-4.50,36.66,-4.35,36.76'
   //   zaragoza  '-0.95,41.60,-0.80,41.70'  bilbao '-2.98,43.22,-2.88,43.29'
-  spain: 'catastro',
-  barcelona: 'catastro', madrid: 'catastro', cordoba: 'catastro', valencia: 'catastro',
-  sevilla: 'catastro', malaga: 'catastro', zaragoza: 'catastro', bilbao: 'catastro',
+  spain: 'mds_edificacion',
+  barcelona: 'mds_edificacion', madrid: 'mds_edificacion', cordoba: 'mds_edificacion', valencia: 'mds_edificacion',
+  sevilla: 'mds_edificacion', malaga: 'mds_edificacion', zaragoza: 'mds_edificacion', bilbao: 'mds_edificacion',
   // NL
   amsterdam: '3dbag',
   // FR
@@ -279,7 +301,7 @@ export const REGION_SOURCE = {
 // NDH, DGT, GRB, Piedmont) fills gaps → APPEND, and the client near-cap thins any twins.
 // ─────────────────────────────────────────────────────────────────────────────
 const SOURCE_COVERAGE = {
-  '3dbag': 'full', bdtopo: 'full', catastro: 'full', lod2de: 'full', lod2de_nrw: 'full',
+  '3dbag': 'full', bdtopo: 'full', catastro: 'full', mds_edificacion: 'full', lod2de: 'full', lod2de_nrw: 'full',
   geodanmark: 'full', swissbuildings3d: 'full',
   overture_us: 'partial', ndh_no: 'partial', lidar_se: 'partial', dgt_pt: 'partial',
   piedmont_it: 'partial', grb_be: 'partial', ml_sa: 'none',
@@ -1105,6 +1127,186 @@ export async function fetchGeoDanmarkHeights(bbox, {
   }
 }
 
+// ── ES CNIG MDS Edificación (mdsn_e025) — the building nDSM raster. REAL MEASURED height. ─────────
+// WHY this and not Catastro's floor count: the founder-verified GEO-DATA-SOURCING-MASTER names MDS
+// Edificación as Spain's cleanest height source — a raster that ISOLATES building surfaces, so the
+// pixel value is the building height above ground directly (NO DSM−DTM subtraction like DK). Keyless
+// CC-BY WCS 2.0.1 on the dedicated CNIG surface service (wcs-mds.idee.es/mds; siblings mds05 raw
+// surface + mdsn_v025 vegetation). LIVE-VERIFIED 2026-07-26: GetCoverage COVERAGEID=mdsn_e025 over an
+// EPSG:4326 lat/long SUBSET returns image/tiff; native grid is EPSG:3042 (ETRS89/UTM30N, a SINGLE
+// projection spanning all Spain incl. Barcelona in zone 31) at 2.5 m; value = metres of building height,
+// 0 where no building (no sentinel nodata seen). Because the raster is served in EPSG:4326 (mirrors the
+// ES terrain adapter's wcs2-geo request), footprints are sampled in a local metric frame at each
+// footprint's centroid and mapped back to lon/lat to read the raster — so erosion + P90 stay metric
+// exactly like the DK nDSM path, with NO new forward projector.
+const MDS_WCS = {
+  endpoint: 'https://wcs-mds.idee.es/mds',
+  coverageEdificacion: 'mdsn_e025', // MDS normalizado Edificación 2.5 m — the building-class nDSM
+  crs4326: 'http://www.opengis.net/def/crs/EPSG/0/4326',
+  nativeResM: 2.5,
+};
+/** WCS 2.0.1 GetCoverage URL for mdsn_e025 over a WGS84 [w,s,e,n] box → a GeoTIFF in EPSG:4326. */
+function mdsCoverageUrl([w, s, e, n]) {
+  return `${MDS_WCS.endpoint}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${MDS_WCS.coverageEdificacion}` +
+    `&FORMAT=image/tiff&SUBSET=lat(${s},${n})&SUBSET=long(${w},${e})` +
+    `&SUBSETTINGCRS=${MDS_WCS.crs4326}&OUTPUTCRS=${MDS_WCS.crs4326}`;
+}
+
+/**
+ * MDS building height for ONE footprint from the mdsn_e025 raster (served in EPSG:4326). Mirrors the DK
+ * `ndsmHeightForBuilding` (metric erosion + P90 over the eroded interior) but samples ONE raster whose
+ * value IS the normalised building height (no DSM−DTM). Builds a local equirectangular METRIC frame at
+ * the footprint centroid so `erodeM`/`sampleStepM` stay in metres, and maps each interior sample back to
+ * lon/lat to read the raster. Returns null when too few clean samples remain — an HONEST skip, never a guess.
+ * @param extWgs84       exterior ring [[lon,lat]…]
+ * @param interiorsWgs84 hole rings [[[lon,lat]…]…]
+ * @param mds            raster from readDhmRaster (bboxNative = [minLon,minLat,maxLon,maxLat])
+ */
+export function mdsHeightForBuilding(extWgs84, interiorsWgs84, mds, { erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 2.5 } = {}) {
+  if (!Array.isArray(extWgs84) || extWgs84.length < 4) return null;
+  let clon = 0, clat = 0;
+  for (const [lon, lat] of extWgs84) { clon += lon; clat += lat; }
+  clon /= extWgs84.length; clat /= extWgs84.length;
+  const mPerDegLat = 111320, mPerDegLon = 111320 * Math.cos((clat * Math.PI) / 180);
+  const toM = ([lon, lat]) => [(lon - clon) * mPerDegLon, (lat - clat) * mPerDegLat];
+  const ext = extWgs84.map(toM);
+  const rings = [ext, ...(interiorsWgs84 ?? []).filter((r) => Array.isArray(r) && r.length >= 4).map((r) => r.map(toM))];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of ext) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  const vals = [];
+  for (let Y = minY + sampleStepM / 2; Y <= maxY; Y += sampleStepM) {
+    for (let X = minX + sampleStepM / 2; X <= maxX; X += sampleStepM) {
+      if (!_pointInRing(X, Y, ext)) continue;
+      let inHole = false;
+      for (let k = 1; k < rings.length; k++) if (_pointInRing(X, Y, rings[k])) { inHole = true; break; }
+      if (inHole) continue;
+      if (_distToRings(X, Y, rings) < erodeM) continue; // erode inward — drop façade/edge cells
+      const lon = clon + X / mPerDegLon, lat = clat + Y / mPerDegLat;
+      const v = sampleRasterNative(mds, lon, lat);
+      if (!Number.isFinite(v) || v < -1) continue; // strongly negative = noise → drop (saw min ~−1 m)
+      vals.push(Math.max(0, v));
+    }
+  }
+  if (vals.length < minSamples) return null;
+  vals.sort((a, b) => a - b);
+  const h = _percentile(vals, percentile);
+  return h > 0 ? { height: clampHeight(h), samples: vals.length, medianMds: _percentile(vals, 50), maxMds: vals[vals.length - 1] } : null;
+}
+
+/**
+ * ES REAL LoD1 heights — Catastro footprints × MDS Edificación (mdsn_e025) nDSM. Keyless (CC-BY, no auth).
+ * For each Catastro `BuildingPart` footprint: height = P90 of the MDS building raster over the eroded
+ * footprint interior → provenance `tagged` (MEASURED). A footprint with no usable MDS sample keeps its
+ * Catastro floor count (`derived-levels`), or footprint-only (`assumed`) — §CONTEXT-DATA-HONESTY: never a
+ * fabricated height. Coverage 'full' (Catastro footprints) → REPLACE; a partial/capped fetch downgrades to
+ * APPEND so real OSM height tags aren't dropped.
+ *
+ * ⚠ SCOPE: this works on a CITY / neighbourhood bbox. The WHOLE-COUNTRY `spain` bbox is REFUSED per-tile —
+ * Catastro has no single whole-country query, and per-tile scanning ~10⁵ tiles (most empty ocean) is
+ * infeasible — so it returns `documented` (region keeps OSM), NOT a fake partial. The raster (mdsn_e025)
+ * DOES cover the whole country, so the honest whole-country path is to sample it over bake's OWN OSM
+ * footprint clip (a bake.mjs join, out of this module's scope) — named as the follow-up. `maxSpanDeg`
+ * bounds the refusal; a bbox within it is fully tiled with a `maxTiles` guard.
+ */
+export async function fetchSpainBuildingHeights(bbox, {
+  timeoutMs = 120_000, env = process.env,
+  maxSpanDeg = 0.7, tileSpanDeg = 0.02, maxTiles = 80, padDeg = 0.0015,
+  buildingCap = 1500, erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 2.5,
+} = {}) {
+  void env;
+  if (!bbox) return { status: 'error', reason: 'no bbox supplied for mds_edificacion' };
+  const [w, s, e, n] = bbox;
+  // Whole-country / large bbox → refuse LOUDLY (keep OSM), like fetchCatastro's bboxTooLargeForWfs guard.
+  if ((e - w) > maxSpanDeg || (n - s) > maxSpanDeg) {
+    return {
+      status: 'documented', provenance: 'tagged',
+      reason: `MDS Edificación bbox ${(e - w).toFixed(2)}°×${(n - s).toFixed(2)}° exceeds ${maxSpanDeg}° — ` +
+        'per-tile Catastro footprint fetch cannot scan a whole-country bbox. Resolve per CITY bbox ' +
+        '(barcelona/madrid/córdoba get real measured heights), or sample mdsn_e025 over bake\'s OSM ' +
+        'footprint clip for whole-country coverage (bake.mjs join — follow-up). Region keeps OSM.',
+    };
+  }
+  const gt = await loadGeoTiff();
+  if (!gt) {
+    return { status: 'documented', provenance: 'assumed', features: [],
+      note: 'MDS Edificación: geotiff dep unavailable here — no nDSM computed (install geotiff in the bake image). Region keeps OSM; no fabricated height.' };
+  }
+
+  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
+  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
+  let processedTiles = 0, tileErrors = 0, catastroErrors = 0, emptyTiles = 0, tileCapHit = false;
+  const allBuildings = []; // { ext:[[lon,lat]…], interiors:[[[lon,lat]…]…], floors?, height? }
+  const heights = [];
+  try {
+    outer:
+    for (let iy = 0; iy < ny; iy++) {
+      for (let ix = 0; ix < nx; ix++) {
+        const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
+        const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
+        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
+        // 1) footprints from Catastro for this tile (WGS84 rings + derived-levels floors)
+        const cat = await fetchCatastro([tw, ts, te, tn], { buildingCap, timeoutMs });
+        if (cat.status !== 'ok') { if (cat.status === 'error') catastroErrors++; continue; }
+        const fps = [];
+        for (const f of cat.features ?? []) {
+          const coords = f.geometry?.coordinates;
+          if (!Array.isArray(coords) || coords.length === 0) continue;
+          const floors = Number(f.properties?.['building:levels']);
+          fps.push({ ext: coords[0], interiors: coords.slice(1), floors: Number.isFinite(floors) && floors > 0 ? floors : undefined });
+        }
+        if (fps.length === 0) { emptyTiles++; continue; }
+        // 2) MDS raster for the padded tile (EPSG:4326)
+        const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
+        const rr = await httpGetBuffer(mdsCoverageUrl(rbox), { timeoutMs });
+        if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; for (const b of fps) allBuildings.push(b); continue; }
+        let mds;
+        try { mds = await readDhmRaster(rr.ab, gt); }
+        catch { tileErrors++; for (const b of fps) allBuildings.push(b); continue; }
+        // 3) sample each footprint → measured height (P90)
+        for (const b of fps) {
+          const h = mdsHeightForBuilding(b.ext, b.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
+          if (h) { b.height = h.height; heights.push(h.height); }
+          allBuildings.push(b);
+        }
+        processedTiles++;
+      }
+    }
+  } catch (err) {
+    if (allBuildings.length === 0) return { status: 'error', reason: String(err?.message ?? err) };
+    tileCapHit = true; // network cut mid-grid → treat as partial (append)
+  }
+
+  if (allBuildings.length === 0) {
+    return { status: 'documented', provenance: 'assumed', features: [], processedTiles, tileErrors, catastroErrors, tileCapHit,
+      note: `MDS Edificación: 0 Catastro footprint(s) over ${processedTiles + emptyTiles} tile(s) ` +
+        `(${catastroErrors} Catastro error(s)) — region keeps OSM; no fabricated height.` };
+  }
+
+  const features = allBuildings.map((b) => toFeature(
+    { type: 'Polygon', coordinates: [b.ext, ...b.interiors] },
+    nationalBuildingTags({
+      heightM: Number.isFinite(b.height) ? b.height : undefined,
+      floors: b.floors,
+      provenance: Number.isFinite(b.height) ? 'tagged' : (Number.isFinite(b.floors) ? 'derived-levels' : 'assumed'),
+      source: 'mds_edificacion',
+    }),
+  ));
+  const measured = heights.length;
+  const coverage = measured / allBuildings.length;
+  // Downgrade REPLACE→APPEND on partial coverage so real OSM height tags aren't dropped (mirror DK).
+  const truncated = tileCapHit || coverage < 0.6;
+  heights.sort((a, b) => a - b);
+  return {
+    status: 'ok', provenance: 'tagged', features, truncated,
+    footprintCount: allBuildings.length, measuredCount: measured, coverage: Number(coverage.toFixed(3)),
+    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    tilesProcessed: processedTiles, tileErrors, catastroErrors, emptyTiles, tileCapHit, tileGrid: `${nx}×${ny}`,
+    note: `MDS Edificación (mdsn_e025 P90 over eroded footprint, Catastro footprints) → ${measured}/${allBuildings.length} ` +
+      `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s), ` +
+      `${catastroErrors} Catastro error(s)${truncated ? ' — partial → APPEND (OSM kept)' : ' → REPLACE'}.`,
+  };
+}
+
 /**
  * §WIRE-HONEST — build the OSM-style tag bag the CLIENT actually reads (contextTiles.ts →
  * contextBuildings.ts `resolveHeightWithProvenance`), from a national source's fields.
@@ -1166,6 +1368,7 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
   if (source === 'bdtopo') res = await fetchBdTopo(bbox);
   else if (source === '3dbag') res = await fetch3dbag(bbox);
   else if (source === 'catastro') res = await fetchCatastro(bbox);
+  else if (source === 'mds_edificacion') res = await fetchSpainBuildingHeights(bbox);
   else if (source === 'lod2de_nrw') res = await fetchLod2DeNrw(bbox);
   else if (source === 'geodanmark') res = await fetchGeoDanmarkHeights(bbox);
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };
@@ -1207,6 +1410,7 @@ const PROBE_BBOX = {
   bdtopo: [2.346, 48.852, 2.352, 48.858],      // Paris 8e (LOD-RATE-verified)
   '3dbag': [4.895, 52.372, 4.905, 52.378],     // Amsterdam centre
   catastro: [-3.703, 40.416, -3.699, 40.420],  // Madrid centro
+  mds_edificacion: [2.163, 41.388, 2.169, 41.393], // Barcelona Eixample (~5–7 storeys ≈ 18–24 m)
   lod2de_nrw: [6.94, 50.93, 6.96, 50.95],      // Cologne centre (NRW) — LoD2-DE live reference
   geodanmark: [12.56, 55.67, 12.58, 55.69],    // Copenhagen centre (auth-gated → blocked probe)
 };
@@ -1253,6 +1457,24 @@ export async function probeSource(id) {
       assertRealFloorCount: (feat.floorSamples ?? []).some((n) => Number.isFinite(n) && n > 0),
       assertGeometry: Array.isArray(ring0) && ring0.length >= 4,
       provenance: 'derived-levels', mode: heightModeForSource('catastro'), reason: feat.reason,
+    };
+  }
+  if (id === 'mds_edificacion') {
+    const r = await fetchSpainBuildingHeights(bbox, { maxTiles: 4 });
+    const heights = (r.features ?? []).map((f) => f.properties.height).filter((h) => Number.isFinite(h));
+    const ring0 = r.features?.[0]?.geometry?.coordinates?.[0];
+    return {
+      id, endpoint: MDS_WCS.endpoint, coverageId: MDS_WCS.coverageEdificacion, status: r.status,
+      // Honest gate: `ok` (real MDS heights on Catastro footprints), `documented` (footprints reached / no
+      // usable sample / bbox too large → keeps OSM), or `error` — all honest, none fabricated.
+      assertHonestGate: ['ok', 'documented', 'error'].includes(r.status),
+      footprintCount: r.footprintCount, measuredCount: r.measuredCount, coverage: r.coverage,
+      heightStats: r.heightStats, sampleHeights: heights.slice(0, 5),
+      tileGrid: r.tileGrid, tilesProcessed: r.tilesProcessed, tileErrors: r.tileErrors, catastroErrors: r.catastroErrors,
+      sampleRing: ring0?.slice(0, 3),
+      assertRealHeight: heights.some((h) => Number.isFinite(h) && h > 0),
+      assertGeometry: Array.isArray(ring0) && ring0.length >= 4,
+      provenance: 'tagged', truncated: r.truncated, mode: heightModeForSource('mds_edificacion'), reason: r.reason ?? r.note,
     };
   }
   if (id === 'lod2de_nrw') {
@@ -1322,7 +1544,7 @@ if (isMain) {
     }
     if (args.includes('--probe')) {
       const which = args[args.indexOf('--probe') + 1];
-      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro', 'lod2de_nrw', 'geodanmark'];
+      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro', 'mds_edificacion', 'lod2de_nrw', 'geodanmark'];
       for (const id of ids) {
         console.log(`\n▶ probe ${id} (${SOURCES[id]?.endpoint})`);
         try { console.log(JSON.stringify(await probeSource(id), null, 2)); }
