@@ -183,18 +183,19 @@ import {
     NL_JURISDICTION_ID,
     bestemmingToPermittedUse,
     nlBestemmingsplanRefusal,
-    // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique. `resolveParisPluZone` reads the zone
-    // identity (GPU zone_urba) + numeric hauteur plafond (opendata plub_hauteur), both real published
-    // data; the emprise au sol is PDF-bound. Gated on `FR_PARIS_PLU_CERTIFIED` (default OFF): while
-    // closed the path dispatches `parisPluEnvelopeRefusal` — a cited refusal that CARRIES the real zone
-    // + hauteur as knownFacts and names the règlement, never a fabricated coverage. When the emprise-as-
-    // parcel massing assumption is founder-signed, a UG parcel renders parcel×hauteur at estimated-ruleset.
+    // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique, STRUCTURED-DATA-FIRST. `resolveParisEnvelope`
+    // reads the zone identity (GPU zone_urba), the numeric hauteur plafond (opendata plub_hauteur) AND the
+    // published `plub_ecm` buildable-FOOTPRINT polygon; `computeParisEnvelope` extrudes that real footprint
+    // to the published height (never parcel×hauteur) and refuses honestly per component (no ECM ⇒ footprint
+    // refused; cour=X ⇒ a cited PARTIAL crown refusal). Gated ON (`FR_PARIS_PLU_CERTIFIED`): the flag now
+    // AUTHORISES drawing the structured ECM volume — there is no fabrication left to gate. Where no ECM
+    // covers the point the path ships a cited refusal (`parisPluEnvelopeRefusal` / the engine's refusal),
+    // never the estimated triple.
     isInParis,
-    resolveParisPluZone,
+    resolveParisEnvelope,
+    computeParisEnvelope,
     FR_PARIS_PLU_CERTIFIED,
-    FR_PARIS_PLU_PACK,
-    FR_PARIS_UG_ZONE_CODE,
-    parisUgHeightMassingSupported,
+    PARIS_PLU_ORDINANCE_REF,
     parisPluEnvelopeRefusal,
     parisZoneCodeFor,
 } from '@pryzm/site-parcel-data';
@@ -1096,11 +1097,12 @@ function applyZoning(
             void applyNlZoningThenFallback(ctx, boundary, qLat, qLon);
             return;
         }
-        // PARIS (Ville de Paris) — a Paris plot resolves its REAL PLU zone (GPU zone_urba) AND its
-        // numeric hauteur plafond (opendata plub_hauteur) and RENDERS both. The buildable envelope
-        // refuses by default (the emprise au sol is PDF-bound) — a cited refusal carrying the real
-        // zone + height, never the estimated triple. Under FR_PARIS_PLU_CERTIFIED a UG parcel renders
-        // parcel×hauteur as an estimated-ruleset massing cap. Same honesty discipline as Switzerland.
+        // PARIS (Ville de Paris) — a Paris plot resolves its REAL PLU zone (GPU zone_urba), its numeric
+        // hauteur plafond (opendata plub_hauteur) AND the published `plub_ecm` buildable-footprint polygon,
+        // then DRAWS the real ECM footprint extruded to the published height (never parcel×hauteur). Where
+        // no ECM covers the point the path refuses honestly (cited), never the estimated triple. Like
+        // Madrid/Netherlands, the ordinance publishes the footprint as geometry, so a front/side/rear
+        // estimate would be the wrong SHAPE. Gate ON. Same honesty discipline as Switzerland.
         if (qLat != null && qLon != null && isInParis(qLat, qLon)) {
             void applyParisZoningThenFallback(ctx, boundary, qLat, qLon);
             return;
@@ -1796,21 +1798,24 @@ async function applyNlZoningThenFallback(
 }
 
 /**
- * PARIS (Ville de Paris, INSEE 75056) — the PLU bioclimatique path (a HYBRID of Switzerland's
- * Outcome B and a real numeric height).
+ * PARIS (Ville de Paris, INSEE 75056) — the PLU bioclimatique path, STRUCTURED-DATA-FIRST.
  *
- * `resolveParisPluZone(lat, lon)` (never throws) reads TWO real published facts — the PLU zone
- * identity (GPU `zone_urba`) and the numeric hauteur plafond (opendata `plub_hauteur`) — but the
- * emprise au sol that would close the buildable footprint is PDF-bound. So this path:
- *   • DEFAULT (gate closed) → a CITED REFUSAL (`parisPluEnvelopeRefusal`) carrying the real zone +
- *     the real height as `knownFacts` and naming the règlement for the missing emprise. status `'none'`.
- *   • Under `FR_PARIS_PLU_CERTIFIED`, for a UG parcel WITH a resolved hauteur → a massing cap:
- *     parcel footprint (emprise = the parcel, the signed ordre-continu assumption) × hauteur, at
- *     `estimated-ruleset` WITH the emprise caveat — NEVER `structured`, NEVER a fabricated coverage.
+ * `resolveParisEnvelope(lat, lon)` (never throws) reads the zone identity (GPU `zone_urba`), the
+ * numeric hauteur plafond (opendata `plub_hauteur`) AND the published `plub_ecm` buildable-FOOTPRINT
+ * polygon + crown code. `computeParisEnvelope` then extrudes that REAL footprint to the published
+ * height (never parcel×hauteur, never a fabricated emprise). So this path:
+ *   • ECM footprint + a published height resolve → DRAW the real volume: the ECM ring projected into
+ *     the parcel authoring frame, extruded to `min(published-height candidates)`, at `structured`
+ *     (or `estimated-ruleset` when only a weaker height field resolved). status `'ok'`.
+ *   • cour = X (continuous crown) → the volume STILL ships (straight prism) AND the engine's cited
+ *     PARTIAL couronnement refusal (art. UG.3.2.4) rides along in the caveats — never an invented taper.
+ *   • no ECM polygon at the point / no published height / a WFS miss → a CITED REFUSAL (the engine's
+ *     component refusal, or `parisPluEnvelopeRefusal`) carrying the real zone + height facts. status `'none'`.
  *
- * ⚠ NO ESTIMATED-TRIPLE FALLBACK, EVER. Like Switzerland/Madrid, a Paris parcel never falls to a
- * front/side/rear estimate: that would be a fabricated emprise, the §CONTEXT-DATA-HONESTY failure.
- * Best-effort + fully guarded — never throws into the commit path.
+ * ⚠ NO ESTIMATED-TRIPLE FALLBACK, EVER. Like Madrid/Netherlands, a Paris parcel never falls to a
+ * front/side/rear estimate: the ordinance publishes the footprint as geometry, so an estimate would be
+ * the wrong SHAPE (a fabricated emprise, the §CONTEXT-DATA-HONESTY failure). Gate ON — the flag now
+ * AUTHORISES drawing the structured ECM volume. Best-effort + fully guarded — never throws into commit.
  */
 async function applyParisZoningThenFallback(
     ctx: SiteContext,
@@ -1824,8 +1829,8 @@ async function applyParisZoningThenFallback(
         const site = ctx.store.getSite();
         if (!site) return; // No site to dispatch onto — nothing to render either way.
 
-        // Per-parcel facts for the refusal card so it is never a blank panel (L-553). Coordinates
-        // always; parcel area when a ring is available. No network beyond the zone resolve.
+        // Per-parcel facts for the card so it is never a blank panel (L-553). Coordinates always;
+        // parcel area when a ring is available. Threaded into every engine output (ok or refusal).
         const facts: string[] = [`Location: Paris (${lat.toFixed(5)}, ${lon.toFixed(5)})`];
         const hasRing = Array.isArray(boundary.polygon) && boundary.polygon.length >= 3;
         if (hasRing) {
@@ -1839,78 +1844,150 @@ async function applyParisZoningThenFallback(
             if (Number.isFinite(areaM2) && areaM2 > 0) facts.push(`Parcel area: ${areaM2.toFixed(0)} m²`);
         }
 
-        // (1) Resolve the zone identity + numeric hauteur. Never throws.
-        const resolution = await resolveParisPluZone(lat, lon);
-        const zone = resolution.ok ? resolution.zone : null;
-        const hauteur = resolution.ok ? resolution.hauteurPlafond_m : null;
-
-        // (2) CERTIFIED massing path — only for UG (ordre continu) with a resolved height + a real ring.
-        // The emprise = the parcel footprint (the human-signed assumption); the height is real data.
-        if (
-            FR_PARIS_PLU_CERTIFIED &&
-            hasRing &&
-            hauteur !== null &&
-            parisUgHeightMassingSupported(zone?.zoneCode)
-        ) {
-            const record: ZoningRecord = {
-                zoneCode: FR_PARIS_UG_ZONE_CODE,
-                zoneLabel: zone?.zoneLabel ?? 'Zone urbaine générale (UG)',
-                jurisdictionId: 'fr-75056-paris',
-                // The hauteur is REAL published data — fed as a structured field so the engine extrudes it.
-                structuredFields: { maxHeight_m: hauteur },
-                overlays: [],
-                ordinanceRef: null, // the pack zone supplies the real citation.
-                provenance: {
-                    source: PARIS_SOURCE,
-                    label: 'Paris PLU bioclimatique (GPU zone_urba + opendata plub_hauteur)',
-                    version: zone?.planId ?? null,
-                    license: null,
-                    crs: 'EPSG:4326',
-                },
-            };
-            const envelope = computeBuildableEnvelope({
-                parcelRing: boundary.polygon,
-                edgeClassifications: boundary.edgeClassifications,
-                zoning: record,
-                rulePack: FR_PARIS_PLU_PACK,
-            });
-            if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
-                const enriched: BuildableEnvelope = {
-                    ...envelope,
-                    caveats: [
-                        ...envelope.caveats,
-                        `Paris PLU bioclimatique (zone UG): the ${hauteur} m HEIGHT is READ from Paris ` +
-                            `opendata (plub_hauteur, règlement art. 3.2), real published data. The FOOTPRINT ` +
-                            `is the whole parcel — an ordre-continu (built-to-alignment) massing assumption, ` +
-                            `NOT a published emprise au sol: the true emprise, the gabarit-enveloppe taper and ` +
-                            `the rear courtyard reduce it and live only in the règlement PDF. Ships ` +
-                            `estimated-ruleset, not structured. Verify against the UG règlement before relying on it.`,
-                    ],
-                };
-                dispatchEnvelope(ctx, site.id, enriched, PARIS_SOURCE);
-                console.log(
-                    `${TAG} UG massing cap OK → zone=${zone?.zoneCode} hauteur=${hauteur}m ` +
-                        `inset=${enriched.insetAreaM2.toFixed(1)}m² (estimated-ruleset, gate CERTIFIED).`,
-                );
-                return;
-            }
-            console.log(`${TAG} certified but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
-        } else if (resolution.ok) {
-            console.log(
-                `${TAG} zone=${zone?.zoneCode ?? 'n/a'} hauteur=${hauteur ?? 'n/a'} — cited refusal ` +
-                    `(FR_PARIS_PLU_CERTIFIED=${FR_PARIS_PLU_CERTIFIED}; emprise PDF-bound).`,
+        // (1) Resolve the STRUCTURED envelope inputs — zone + hauteur + ECM footprint + crown. Never throws.
+        const resolution = await resolveParisEnvelope(lat, lon);
+        if (!resolution.ok) {
+            // Out-of-Paris / unreachable proxy / no-PLU-here → the enriched cited refusal (no facts to carry
+            // beyond location/area; the emprise cannot be cited, so no footprint is drawn — never a guess).
+            console.log(`${TAG} envelope inputs not resolved (reason=${resolution.reason}) — cited refusal.`);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(parisZoneCodeFor(null), parisPluEnvelopeRefusal(null, null, facts), 'none'),
+                PARIS_SOURCE,
             );
-        } else {
-            console.log(`${TAG} not resolved (reason=${resolution.reason}) — cited refusal.`);
+            return;
+        }
+        const inputs = resolution.inputs;
+        const zone = inputs.zone;
+
+        // (2) COMPUTE the envelope from the published ECM footprint + height (never parcel×hauteur).
+        const result = computeParisEnvelope(inputs, facts);
+
+        // (3) The gate AUTHORISES drawing the structured ECM volume. While OPEN, an `ok` engine result
+        // renders as a real volume; a component refusal (no ECM / no height) is the engine's own cited
+        // refusal. (While the gate is closed — never, now — an `ok` result would still be shown as the
+        // enriched zone+height refusal, so flipping the flag can never surface a fabrication.)
+        if (!result.ok) {
+            console.log(
+                `${TAG} zone=${zone?.zoneCode ?? 'n/a'} — component refusal (${result.refusedComponent}); ` +
+                    `no ECM footprint or no published height at this point.`,
+            );
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(parisZoneCodeFor(zone), result.refusal, 'none'),
+                PARIS_SOURCE,
+            );
+            return;
+        }
+        if (!FR_PARIS_PLU_CERTIFIED) {
+            // Defensive: gate closed but the engine computed a volume → show the enriched zone+height
+            // refusal, never the structured volume (the founder switch has not authorised drawing it).
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(
+                    parisZoneCodeFor(zone),
+                    parisPluEnvelopeRefusal(zone, inputs.heightCeiling_m, facts, {
+                        hmc_m: inputs.hmc_m,
+                        hmcDatum: inputs.hmcDatum,
+                        filetCode: inputs.filetCode,
+                        filetFrontageHeight_m: inputs.filetHeight_m,
+                        sourceVersion: inputs.sourceVersion,
+                    }),
+                    'none',
+                ),
+                PARIS_SOURCE,
+            );
+            console.log(`${TAG} gate CLOSED — enriched cited refusal (engine had a volume; not authorised to draw).`);
+            return;
         }
 
-        // (3) Default / non-UG / no-height → the cited refusal carrying the real zone + hauteur. The
-        // envelope stays a refusal: the emprise cannot be cited, so no footprint is drawn (never a guess).
-        dispatchEnvelope(
-            ctx,
-            site.id,
-            buildRefusedEnvelope(parisZoneCodeFor(zone), parisPluEnvelopeRefusal(zone, hauteur, facts), 'none'),
-            PARIS_SOURCE,
+        // (4) DRAW. Project the published ECM ring (WGS84) into the SAME authoring frame the parcel lives
+        // in — the equirectangular projection about the site origin, then the θ de-rotation
+        // `dispatchParcelBoundary` applied to the parcel ring. This mirrors the Madrid / BCN
+        // `toAuthoringFrame` exactly (any other frame yields a garbage placement), and it is the
+        // geo-anchored equivalent of re-anchoring the engine's centroid-relative `footprintPolygon`.
+        const origin = { lat: site.location.latitude, lon: site.location.longitude };
+        const rawTheta = site.location.trueNorth;
+        const theta = Number.isFinite(rawTheta) ? rawTheta : 0;
+        const toAuthoringFrame = (p: LatLon): Pt => {
+            const xz = latLonToSceneXZ(p, origin.lat, origin.lon);
+            if (theta === 0) return { x: xz.x, z: xz.z };
+            const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
+            return { x: e.east, z: -e.north };
+        };
+        const footprintRing: Pt[] = (inputs.ecmGeometry ?? []).map((ll) =>
+            toAuthoringFrame({ lat: ll[1], lon: ll[0] }),
+        );
+        if (footprintRing.length < 3) {
+            // The engine returned a footprint but the projection degenerated — refuse honestly rather
+            // than draw garbage (never a whole-parcel box).
+            console.log(`${TAG} ECM footprint projected to < 3 pts — cited refusal.`);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(parisZoneCodeFor(zone), parisPluEnvelopeRefusal(zone, inputs.heightCeiling_m, facts), 'none'),
+                PARIS_SOURCE,
+            );
+            return;
+        }
+
+        // Build the BuildableEnvelope from the engine result: the drawn ring is the published ECM
+        // footprint (geometry, never parcel×%); the height/volume/confidence/facts/caveats are the
+        // engine's. The crown PARTIAL refusal (cour=X) rides along as a caveat — the volume still ships.
+        const heightSource =
+            result.heightBinding === 'height-ceiling'
+                ? 'Paris opendata plub_hauteur (UG.3.2.1) — published height ceiling'
+                : result.heightBinding === 'ecm-graphic'
+                  ? 'Paris opendata plub_ecm graphic height — published'
+                  : 'Paris opendata plub_hmc (relative) — published';
+        const envelope: BuildableEnvelope = {
+            insetPolygon: footprintRing,
+            maxHeight_m: result.height_m,
+            farLimitedHeight_m: null,
+            maxFloors: null,
+            maxFAR: null,
+            maxCoverage: null,
+            maxVolumeM3: result.volumeM3,
+            // The engine's NET buildable area (gross ECM footprint − any EAL strip) is the authoritative
+            // figure; the drawn ring is the gross ECM outline (EAL is a scalar deduction, per the caveats).
+            insetAreaM2: result.footprintAreaM2,
+            permittedUse: [],
+            confidence: result.confidence,
+            granularity: 'parcel',
+            status: 'ok',
+            refusal: null,
+            zoneCode: parisZoneCodeFor(zone),
+            derivation: [
+                {
+                    constraint: 'maxHeight',
+                    value: result.height_m,
+                    zoneCode: parisZoneCodeFor(zone),
+                    source: heightSource,
+                    fieldProvenance:
+                        result.heightBinding === 'height-ceiling' ? 'published-structured' : 'estimated',
+                    ordinanceRef: PARIS_PLU_ORDINANCE_REF,
+                },
+            ],
+            caveats: [
+                ...result.caveats,
+                ...(result.couronnementRefusal
+                    ? [result.couronnementRefusal.headline, result.couronnementRefusal.detail]
+                    : []),
+                `Paris PLU bioclimatique (zone ${zone?.zoneCode ?? 'UG'}): the FOOTPRINT is the published ` +
+                    `emprise constructible maximale (opendata plub_ecm) — real geometry, extruded to the ` +
+                    `published ${result.height_m} m height. Verify against the UG règlement before relying on it.`,
+            ],
+            tiers: [],
+        };
+        dispatchEnvelope(ctx, site.id, envelope, PARIS_SOURCE);
+        console.log(
+            `${TAG} ECM envelope OK → zone=${zone?.zoneCode ?? 'n/a'} footprint=${result.footprintAreaM2.toFixed(1)}m² ` +
+                `height=${result.height_m}m (${result.heightBinding}) volume=${Math.round(result.volumeM3)}m³ ` +
+                `confidence=${result.confidence}${result.couronnementRefusal ? ' (crown cour=X: PARTIAL refusal)' : ''} ` +
+                `— structured ECM geometry, gate CERTIFIED.`,
         );
     } catch (e) {
         // Best-effort — never block the commit. Leave an honest refusal rather than a fabricated
