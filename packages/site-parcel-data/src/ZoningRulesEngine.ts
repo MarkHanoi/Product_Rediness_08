@@ -267,6 +267,9 @@ export function computeBuildableEnvelope(
         let insetPolygon: Pt[] = [];
         let insetAreaM2 = 0;
         let maxVolumeM3: number | null = null;
+        // §L-616 — the FAR-realistic massing height (m), null when FAR does not bind. See the
+        // computation inside the `status === 'ok'` block below.
+        let farLimitedHeight_m: number | null = null;
         // §L-590b / ADR-0273 — the tiers of a multi-tier envelope. EMPTY for every rule kind that
         // yields a single prism, which is all of them except `tiered-occupation`.
         let tiers: EnvelopeTier[] = [];
@@ -738,6 +741,46 @@ export function computeBuildableEnvelope(
                             );
                         }
                     }
+
+                    // ── §L-616 — FAR-BOUND REALISTIC MASSING HEIGHT (§CONTEXT-DATA-HONESTY). ──────
+                    //
+                    // The current 3D solid extrudes footprint × maxHeight and ignores FAR entirely,
+                    // overstating buildable VOLUME whenever FAR caps floorspace BELOW the height cap
+                    // (Copenhagen: 24 m / ~8 storeys drawn where FAR 1.5 permits ~1.5 floors — a ~5×
+                    // over-statement, the founder's corrected defect L-616). This computes the height a
+                    // FAR-realistic massing reaches INSIDE the legal height shell, so the renderer draws
+                    // BOTH: a translucent shell at `maxHeight_m` (the outer legal bound) and a solid at
+                    // this height (what FAR actually permits).
+                    //
+                    // FAR can only LOWER the height, never raise it above the legal cap. `null` when FAR
+                    // does not bind (`maxFAR` null — every Barcelona 13a/13b alignment zone) → the solid
+                    // == the shell, byte-identical to today. The 3.0 m floor-to-floor is an ASSUMPTION,
+                    // used only when the zone states no storey count, and it is SURFACED in the caveat
+                    // below (never applied silently — §CONTEXT-DATA-HONESTY).
+                    const parcelAreaM2 = polygonArea(parcelRing);
+                    const footprintAreaM2 = insetAreaM2;
+                    if (
+                        typeof maxFAR.value === 'number' && maxFAR.value > 0 &&
+                        footprintAreaM2 > 0 &&
+                        typeof maxHeight.value === 'number' && maxHeight.value > 0
+                    ) {
+                        const maxGFA = maxFAR.value * parcelAreaM2;
+                        const floorsByFAR = maxGFA / footprintAreaM2;
+                        const floorHeightM =
+                            typeof maxFloors.value === 'number' && maxFloors.value > 0
+                                ? maxHeight.value / maxFloors.value
+                                : 3.0;
+                        const farHeight = floorsByFAR * floorHeightM;
+                        // FAR only lowers; never taller than the legal cap.
+                        farLimitedHeight_m = Math.min(maxHeight.value, farHeight);
+                        if (farLimitedHeight_m < maxHeight.value - 1e-6) {
+                            caveats.push(
+                                `FAR ${maxFAR.value} caps usable floorspace to ~${floorsByFAR.toFixed(1)} ` +
+                                    `floors (${farLimitedHeight_m.toFixed(1)} m at ~${floorHeightM.toFixed(1)} m ` +
+                                    `floors); the ${maxHeight.value} m height limit is the outer legal bound.`,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -791,6 +834,8 @@ export function computeBuildableEnvelope(
         span.setAttribute('status', status);
         span.setAttribute('insetAreaM2', insetAreaM2);
         if (maxHeight.value !== null) span.setAttribute('maxHeight', maxHeight.value);
+        // §L-616 — record the FAR-realistic height when FAR bound it (null = FAR did not bind).
+        if (farLimitedHeight_m !== null) span.setAttribute('farLimitedHeight_m', farLimitedHeight_m);
         span.setStatus({ code: SpanStatusCode.OK });
 
         return {
@@ -822,6 +867,9 @@ export function computeBuildableEnvelope(
             // never drift: a producer that fills `tiers` and leaves these fields describing
             // something else fails to parse.
             maxHeight_m: tieredMaxHeight !== undefined ? tieredMaxHeight : maxHeight.value,
+            // §L-616 — the FAR-realistic massing height (the solid), inside `maxHeight_m` (the shell).
+            // Null when FAR does not bind → the solid == the shell (unchanged behaviour).
+            farLimitedHeight_m,
             maxFloors: tieredMaxFloors !== undefined ? tieredMaxFloors : maxFloors.value,
             maxFAR: maxFAR.value,
             maxCoverage: maxCoverage.value,

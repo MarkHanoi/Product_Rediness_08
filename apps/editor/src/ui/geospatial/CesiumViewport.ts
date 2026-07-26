@@ -3820,6 +3820,13 @@ export class CesiumViewport {
       /** Max height in metres (extrusion top); falls back to a nominal 9 m when null. */
       maxHeightM: number | null;
       /**
+       * §L-616 — the FAR-realistic massing height (m). When present + below `maxHeightM`, the
+       * render draws BOTH a translucent "height shell" at `maxHeightM` (the outer legal bound) and
+       * an opaque solid at this height (what FAR permits). Null / absent / ≥ `maxHeightM` → the
+       * single solid at `maxHeightM` as before (Barcelona 13a/13b and every current-good case).
+       */
+      farLimitedHeightM?: number | null;
+      /**
        * §ENVELOPE-CONFIDENCE-COLOUR (L-608) — the C58 confidence label, or null when unknown (a
        * persisted ring whose provenance was deliberately not re-derived). Drives the render hue:
        * a real determination is violet, an estimate / flat / unknown is grey. Optional — older
@@ -4756,37 +4763,71 @@ export class CesiumViewport {
             `[CesiumViewport][forma] §ENVELOPE-CONFIDENCE-COLOUR — envelope drawn GREY (${envStyle.cssHex}): ${envStyle.reason}.`,
           );
         }
-        // Identical entity construction to the storey-band massing prism (see above),
-        // differing ONLY in the translucent study fill (violet when confident, grey when
-        // provisional) + shadows-off (a study volume should not cast a solid building shadow).
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-buildable-envelope',
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: envBottom,
-            extrudedHeight: envTop,
-            material: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(0.34),
-            outline: true,
-            outlineColor: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(1.0),
-            outlineWidth: 2,
-            shadows: Cesium.ShadowMode.DISABLED,
-            perPositionHeight: false,
-            closeTop: true,
-            closeBottom: true,
-          },
-        });
-        this.formaMassingEntities.push(ent);
-        // §SITE-OVERLAY-NOT-BUILDING (L-468) — THE ONE THAT ACTUALLY MATTERED. The buildable
-        // envelope is the compliance constraint, not a massing block, so it must survive the
-        // "real model supersedes the massing" step. It was missing from the first pass, which
-        // is why the founder still lost it on both the Forma study and the photoreal globe.
-        this.formaSiteOverlayEntities.add(ent);
-        envelopeEntitiesAdded = 1;
-        console.log(
-          `[CesiumViewport][forma] buildable envelope drawn via massing path: ` +
-            `${envelope!.ring.length}-vertex inset, top ${envTop.toFixed(1)} m ` +
-            `(#6600FF translucent extruded polygon — same entity type as the storey massing).`,
-        );
+        // §L-616 — FAR-BOUND MASSING (§CONTEXT-DATA-HONESTY). When FAR caps usable floorspace
+        // BELOW the height cap, extruding footprint × maxHeight overstates buildable VOLUME (the
+        // founder's Copenhagen ~5× defect: 24 m / ~8 storeys drawn where FAR 1.5 permits ~1.5
+        // floors). In that case draw BOTH: a translucent "height shell" at the legal max height AND
+        // an opaque solid at the FAR-realistic height INSIDE it. When FAR does not bind
+        // (`farLimitedHeightM` null / absent / ≥ maxHeight — every Barcelona 13a/13b alignment zone
+        // and every current-good pack) draw exactly ONE solid to `envTop`, byte-identical to today.
+        const hasFarLimit =
+          typeof envelope!.farLimitedHeightM === 'number' &&
+          envelope!.farLimitedHeightM > 0 &&
+          hasRealHeight &&
+          envelope!.farLimitedHeightM < envelope!.maxHeightM! - 1e-6;
+
+        // One entity builder for both massings — identical construction to the storey-band prism,
+        // differing ONLY in the translucent study fill + shadows-off (a study volume must not cast a
+        // solid building shadow). `fillAlpha` is the only knob: ~0.08 for the see-through height
+        // shell, 0.34 for the solid FAR/legacy massing. Every entity is pushed to BOTH the massing
+        // list AND the §SITE-OVERLAY-NOT-BUILDING (L-468) survival set — the buildable envelope is a
+        // compliance constraint, not a massing block, so it must survive the "real model supersedes
+        // the massing" step (its omission in the first pass is why the founder lost it before).
+        const addEnvelopeEntity = (name: string, top: number, fillAlpha: number): void => {
+          const e = viewer.entities.add({
+            name,
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              height: envBottom,
+              extrudedHeight: top,
+              material: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(fillAlpha),
+              outline: true,
+              outlineColor: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(1.0),
+              outlineWidth: 2,
+              shadows: Cesium.ShadowMode.DISABLED,
+              perPositionHeight: false,
+              closeTop: true,
+              closeBottom: true,
+            },
+          });
+          this.formaMassingEntities.push(e);
+          this.formaSiteOverlayEntities.add(e);
+          envelopeEntitiesAdded += 1;
+        };
+
+        if (hasFarLimit) {
+          const shellTop = baseHeight + envelope!.maxHeightM!;
+          const farTop = baseHeight + envelope!.farLimitedHeightM!;
+          // Height shell FIRST (the legal-ceiling boundary): near-transparent fill so it reads as a
+          // boundary rather than a solid, but the outline stays full-alpha so the ceiling is legible.
+          addEnvelopeEntity('pryzm-forma-envelope-height-shell', shellTop, 0.08);
+          // FAR massing: the realistic solid the ordinance's floorspace cap actually permits.
+          addEnvelopeEntity('pryzm-forma-envelope-far-massing', farTop, 0.34);
+          console.log(
+            `[CesiumViewport][forma] §L-616 buildable envelope drawn SPLIT: FAR massing (solid) to ` +
+              `${farTop.toFixed(1)} m INSIDE a translucent height shell to ${shellTop.toFixed(1)} m ` +
+              `— ${envelope!.ring.length}-vertex inset, ${envStyle.cssHex} ` +
+              `(FAR caps floorspace below the ${envelope!.maxHeightM!.toFixed(1)} m legal ceiling).`,
+          );
+        } else {
+          // Unchanged single-solid path — same entity name so any name-based consumer is unaffected.
+          addEnvelopeEntity('pryzm-forma-buildable-envelope', envTop, 0.34);
+          console.log(
+            `[CesiumViewport][forma] buildable envelope drawn via massing path: ` +
+              `${envelope!.ring.length}-vertex inset, top ${envTop.toFixed(1)} m ` +
+              `(#6600FF translucent extruded polygon — same entity type as the storey massing).`,
+          );
+        }
       } catch (e) {
         console.warn('[CesiumViewport][forma] envelope volume failed — skipped:', e);
       }

@@ -81,6 +81,10 @@ export function buildRefusedEnvelope(
     return {
         insetPolygon: [],
         maxHeight_m: null,
+        // §L-616 — a refusal has no massing at all; the FAR-realistic height is null like every
+        // other numeric field (this literal never goes through `.parse()`, so the schema default
+        // would not apply and the field would be structurally absent on a type that requires it).
+        farLimitedHeight_m: null,
         maxFloors: null,
         maxFAR: null,
         maxCoverage: null,

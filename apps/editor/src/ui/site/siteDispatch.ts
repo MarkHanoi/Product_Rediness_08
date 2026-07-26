@@ -295,6 +295,14 @@ export function getLastBuildableEnvelope(): BuildableEnvelope | null {
 export interface RenderableBuildableEnvelope {
     readonly ring: ReadonlyArray<{ x: number; z: number }>;
     readonly maxHeightM: number | null;
+    /**
+     * §L-616 — the FAR-realistic massing height (m); the renderer draws a translucent shell at
+     * `maxHeightM` plus an opaque solid at this height when FAR caps floorspace below the height
+     * cap. Null when FAR does not bind (then the solid == the shell) — and ALSO null on the
+     * `persisted` / `re-inset` paths, which read back a ring WITHOUT its provenance and must not
+     * re-synthesise a value they did not re-derive (§1.7a, same honesty rule as `confidence`).
+     */
+    readonly farLimitedHeightM: number | null;
     readonly source: 'solved' | 'persisted' | 're-inset';
     /**
      * §ENVELOPE-CONFIDENCE-COLOUR (L-608) — the C58 confidence, but ONLY on the `solved` path where
@@ -315,6 +323,8 @@ export function resolveRenderableBuildableEnvelope(
         return {
             ring: solved.insetPolygon.map((p) => ({ x: p.x, z: p.z })),
             maxHeightM: solved.maxHeight_m,
+            // §L-616 — forward the FAR-realistic height so the renderer can draw the shell + solid.
+            farLimitedHeightM: solved.farLimitedHeight_m ?? null,
             source: 'solved',
             confidence: solved.confidence,
         };
@@ -331,6 +341,9 @@ export function resolveRenderableBuildableEnvelope(
             return {
                 ring: ring.map((p) => ({ x: p.x, z: p.z })),
                 maxHeightM: parcel?.maxHeight ?? null,
+                // §L-616 — null on the persisted path: FAR/inset-area were not re-derived, so a
+                // FAR-realistic height cannot be honestly reconstructed (same rule as `confidence`).
+                farLimitedHeightM: null,
                 source: 'persisted',
                 confidence: null,
             };
@@ -374,6 +387,8 @@ export function resolveRenderableBuildableEnvelope(
                 return {
                     ring: reInset.polygon.map((p) => ({ x: p.x, z: p.z })),
                     maxHeightM: parcel?.maxHeight ?? null,
+                    // §L-616 — null on the re-inset path: only geometry was re-derived, not FAR.
+                    farLimitedHeightM: null,
                     source: 're-inset',
                     confidence: null,
                 };

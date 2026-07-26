@@ -1879,7 +1879,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * falls back to the PERSISTED `Parcel.buildableRing` (C58 §1.7a / ADR-0270 option A).
      */
     const resolveFormaEnvelope = ():
-        | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null; confidence: EnvelopeConfidence | null }
+        | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null; farLimitedHeightM: number | null; confidence: EnvelopeConfidence | null }
         | null => {
         // §ENVELOPE-RESOLVE-DIAG (L-445) — say WHY, every time. The previous diagnostic reported
         // only `present=n`, which is a symptom with four possible causes (toggle off / no cached
@@ -1911,6 +1911,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return {
             ring: env.ring.map((p) => ({ x: p.x, z: p.z })),
             maxHeightM: env.maxHeightM,
+            // §L-616 — forward the FAR-realistic height so the Cesium massing draws the height shell
+            // + the FAR-sized solid when FAR binds; null → single solid at maxHeight (unchanged).
+            farLimitedHeightM: env.farLimitedHeightM,
             confidence: env.confidence,
         };
     };

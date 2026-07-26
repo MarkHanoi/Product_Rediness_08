@@ -377,6 +377,16 @@ export const BuildableEnvelopeSchema = z.object({
      *  `status !== 'ok'`. */
     insetPolygon: z.array(PtSchema).default([]),
     maxHeight_m: z.number().min(0).nullable().default(null),
+    /**
+     * §L-616 — the FAR-realistic massing height (m): the height a solid that respects FAR reaches
+     * INSIDE the `maxHeight_m` legal shell. **Null when FAR does not bind** (`maxFAR` null — every
+     * Barcelona 13a/13b alignment zone), and then the drawn solid == the height shell (unchanged
+     * behaviour). When non-null and below `maxHeight_m`, the renderer draws a translucent shell at
+     * `maxHeight_m` plus an opaque massing at this height, so a FAR that caps floorspace below the
+     * height cap can no longer overstate buildable volume (the Copenhagen ~5× defect). Nullable +
+     * default so existing constructors and persisted envelopes remain valid.
+     */
+    farLimitedHeight_m: z.number().min(0).nullable().default(null),
     maxFloors: z.number().int().min(0).nullable().default(null),
     maxFAR: z.number().min(0).nullable().default(null),
     maxCoverage: z.number().min(0).max(1).nullable().default(null),
