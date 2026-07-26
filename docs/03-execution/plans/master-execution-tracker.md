@@ -4659,3 +4659,10 @@ the "Site plan overlay / Upload plan · PDF" panel beneath it in the 2D-map site
 pixel). Single layer (client UI/CSS). OWNER: UNASSIGNED · TARGET: TBD. Independent of the in-flight
 L-616 envelope work + the running deploy/bake. No contract violated; no missing-contract gap
 (overlay positioning is not contract-worthy).
+
+## Added 2026-07-26 — L-619/620/621/622 (founder Copenhagen testing batch)
+
+- **L-619** (P2) — perimeter-block courtyard envelope (reuse Barcelona profunditat depth-band for DK karré) + `ENVELOPE-RULES.md` per city/country. Docs STARTED (`_TEMPLATE` + `dk/`). Queue: envelope geometry (C58) + jurisdiction docs. Dep: extends L-616 footprint half.
+- **L-620** (P1) — DK refuses storeys+FAR when no metre-height (`siteDispatch.ts:1338`); fix = derive height from storeys (labelled). Queue: DK envelope dispatch (C58). HIGH leverage. Dep: uses L-616 floorHeight assumption.
+- **L-621** (P2) — Site Analysis + Envelope panels close/drag/resize + launcher access. Queue: UI/GIS shell (C06). Being implemented (bundled with L-622). OWNER: assistant.
+- **L-622** (P3) — add "3D globe" to the pane-swap menu. Queue: UI/GIS shell (C06/C59). Being implemented (bundled with L-621). OWNER: assistant.

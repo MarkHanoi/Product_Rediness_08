@@ -4945,3 +4945,30 @@ to the existing overlay-stacking spacing (C06), not a magic pixel offset. Single
 |---|---|---|
 | 1 | Reposition the mode-toggle bar (or the overlay-plan tab) so they don't collide | `GISAreaLayout.ts` mode-toggle mount + `SitePlanOverlayController.ts` — use the same `top` rhythm as the other top-left overlays |
 | 2 | Verify at the onboarding "Draw boundary" step across viewport widths | The panels are absolutely positioned; check no collision at narrow + wide |
+
+## L-619 — perimeter-block courtyard envelope + per-jurisdiction ENVELOPE-RULES docs · Phase 5 · P2 · OWNER: UNASSIGNED · TARGET: TBD
+See audit **L-619**. Reuse `block-derived-alignment` (Barcelona profunditat) for DK karré courtyard; establish `ENVELOPE-RULES.md` per city + country.
+| # | Task | Notes |
+|---|---|---|
+| 1 | Reuse the Barcelona depth-band + courtyard carve for DK (and other perimeter-block cities) | `ZoningRulesEngine.ts` block-derived-alignment — no new machinery; band depth is human-gated |
+| 2 | Roll out `ENVELOPE-RULES.md` to every city + country folder | `_TEMPLATE/ENVELOPE-RULES.md` is the standard; DK done; Barcelona + index next |
+
+## L-620 — Denmark refuses storeys+FAR when no metre-height published · Phase 5 · P1 · OWNER: UNASSIGNED · TARGET: next DK pass
+See audit **L-620**. Over-strict refusal at `siteDispatch.ts:1338`. High leverage: flips many DK parcels refusal→envelope.
+| # | Task | Notes |
+|---|---|---|
+| 1 | When `maxHeight_m` null but `maxFloors>0`, derive height = floors × ~3 m, tag DERIVED, keep `estimated-ruleset` | do NOT mark `structured` (derived ≠ surveyed) |
+| 2 | Refuse only when BOTH height AND storeys absent | mirror the L-616 floorHeight assumption |
+
+## L-621 — Site Analysis + Envelope panels: close/drag/resize + launcher access buttons · Phase 5 · P2 · OWNER: assistant · TARGET: next Fly deploy
+See audit **L-621**. Reuse `makeDraggable` + C06 §7 launcher rail.
+| # | Task | Notes |
+|---|---|---|
+| 1 | Site Analysis panel: header + ✕ close + `makeDraggable` + resizable | `FormaSiteAnalysisControls.ts` (`_userHidden` flag exists) |
+| 2 | Launcher pills on the C06 §7 rail to open Site Analysis + Envelope panels | `GISAreaLayout.ts:3735` — mirror "3D Site"/"Plan + Site" |
+
+## L-622 — add "3D globe" to the per-pane SHOW-IN-THIS-PANE swap menu · Phase 5 · P3 · OWNER: assistant · TARGET: next Fly deploy
+See audit **L-622**. Reuse the result-toggle-bar 3D-globe handler; confirm C59 pane-swap wiring.
+| # | Task | Notes |
+|---|---|---|
+| 1 | Add "3D globe" option to the pane-swap menu, dispatching the existing globe activation | `GISAreaLayout.ts` — same Cesium viewer, `keepPhotoreal` on (not the C59-Ph3 BIM retarget) |
