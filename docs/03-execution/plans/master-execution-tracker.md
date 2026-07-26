@@ -4649,3 +4649,13 @@ persistence/creation/load path parses these on partial input, RE-CLASSIFY **P1**
 Queue: **schemas / persistence (C03/C05)** — NOT the geo queue where it surfaced. Coverage gap
 (defaults-satisfy-refinements) logged to MISSING-CONTRACTS-AUDIT. OWNER: UNASSIGNED · TARGET: TBD.
 Dependency: independent of the in-flight L-616 envelope work (different package, different subject).
+
+## Added 2026-07-26 — L-618 (site-authoring panel overlap — LOGGED, not fixed)
+
+Founder test (Copenhagen): the top-left "Select parcel · Draw boundary" mode-toggle bar overlaps
+the "Site plan overlay / Upload plan · PDF" panel beneath it in the 2D-map site-authoring view.
+**P3 cosmetic** — no functional block, but first-run onboarding polish. Queue: **UI / site-authoring
+(C06 UI-shell + C19 site-model)**. Fix = align to existing overlay-stacking spacing (not a magic
+pixel). Single layer (client UI/CSS). OWNER: UNASSIGNED · TARGET: TBD. Independent of the in-flight
+L-616 envelope work + the running deploy/bake. No contract violated; no missing-contract gap
+(overlay positioning is not contract-worthy).

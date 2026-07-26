@@ -4935,3 +4935,13 @@ the empty-parse invariant with a documented reason — NOT `.skip`-ing the guard
 | 2 | Water: reconcile `parse({})` with `.refine(surface > bottom)` | Likely fix = exclude refinement-guarded schemas from `round-trip.test.ts` ELEMENT_TYPES empty-parse (the refinement "empty pool has no water element" is intentional), OR give a valid default pair |
 | 3 | ViewTemplate: restore the drifted default | `view-template-roundtrip.test.ts:194` expects defaults the parse no longer applies |
 | 4 | Author the missing invariant | "a schema's DEFAULTS must satisfy its own refinements" — into C03 or C05 (currently only the test enforces it) |
+
+## L-618 — site-authoring UI overlap: "Select parcel · Draw boundary" bar over the "Upload plan / PDF" panel · Phase 5 · P3 · OWNER: UNASSIGNED · TARGET: TBD
+
+Cosmetic overlap on the first-run site-authoring screen. See audit **L-618**. CORRECT fix = align
+to the existing overlay-stacking spacing (C06), not a magic pixel offset. Single layer (client UI).
+
+| # | Task | Notes |
+|---|---|---|
+| 1 | Reposition the mode-toggle bar (or the overlay-plan tab) so they don't collide | `GISAreaLayout.ts` mode-toggle mount + `SitePlanOverlayController.ts` — use the same `top` rhythm as the other top-left overlays |
+| 2 | Verify at the onboarding "Draw boundary" step across viewport widths | The panels are absolutely positioned; check no collision at narrow + wide |
