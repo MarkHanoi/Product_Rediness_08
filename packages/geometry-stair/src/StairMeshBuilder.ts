@@ -426,14 +426,32 @@ export class StairMeshBuilder {
                 currentElevation += stair.riserHeight;
 
                 // Advance position along the flight's travel direction (XZ only).
+                // currentPosition now sits at the FAR edge of the step just climbed.
                 currentPosition.add(flatDir.clone().multiplyScalar(flightTread));
+
+                // §FIX-STAIR-LANDING-RUN-GAP — tile the treads over the flight's
+                // drawn span [flightStart, flightStart + totalRun] EXACTLY. The
+                // loop advances currentPosition to each step's FAR edge, so the
+                // tread/riser/nosing are placed relative to the step MIDPOINT
+                // (half a tread back). Previously they were placed AT the far edge
+                // (`currentPosition`), shifting the whole flight forward by half a
+                // tread: for a post-landing flight that opened a visible half-tread
+                // gap between the landing's outbound edge and the flight's first
+                // riser (the founder's "gap between the landing and the second
+                // run"), and it mismatched the stringers, which StairStringerBuilder
+                // lays from `flightStart`. Retreating by flightTread/2 makes the
+                // first riser land on the flight start (= the landing outbound edge
+                // → no gap) and the last tread butt the landing/top exactly, with
+                // treads and stringers coincident.
+                const placePos = currentPosition.clone()
+                    .add(flatDir.clone().multiplyScalar(-flightTread / 2));
 
                 // ── Tread ────────────────────────────────────────────────────
                 // Canonical: X=width (perp to travel), Y=thickness, Z=treadDepth (along +Z).
                 // After rotMatrix: Z axis → flatDir, so treadDepth lies along travel direction.
                 const treadGeometry = new THREE.BoxGeometry(stair.width, treadThickness, flightTread);
                 treadGeometry.applyMatrix4(rotMatrix);
-                const treadCenter = currentPosition.clone().setY(currentElevation - treadThickness / 2);
+                const treadCenter = placePos.clone().setY(currentElevation - treadThickness / 2);
                 treadGeometry.translate(treadCenter.x, treadCenter.y, treadCenter.z);
                 treads.push(treadGeometry);
 
@@ -442,11 +460,11 @@ export class StairMeshBuilder {
                 // After rotMatrix: Z axis → flatDir, so riser face is perpendicular to travel.
                 //
                 // The riser sits at the BACK EDGE of tread i (= front edge of tread i-1).
-                // currentPosition is the tread CENTRE, so the back edge is flightTread/2 behind.
+                // placePos is the tread CENTRE, so the back edge is flightTread/2 behind.
                 if (effectiveProps.riserVisible) {
                     const riserGeometry = new THREE.BoxGeometry(stair.width, stair.riserHeight, riserThickness);
                     riserGeometry.applyMatrix4(rotMatrix);
-                    const riserCenter = currentPosition.clone()
+                    const riserCenter = placePos.clone()
                         .add(flatDir.clone().multiplyScalar(-flightTread / 2))
                         .setY(currentElevation - stair.riserHeight / 2);
                     riserGeometry.translate(riserCenter.x, riserCenter.y, riserCenter.z);
@@ -458,7 +476,7 @@ export class StairMeshBuilder {
                 // After rotMatrix: Z axis → flatDir, nosing overhangs forward along travel.
                 //
                 // BUG-FIX §NOSING-01: The nosing must sit at the LEADING (forward) edge of
-                // the tread, not near its centre.  currentPosition is the tread centre, so
+                // the tread, not near its centre.  placePos is the tread centre, so
                 // the leading edge is +flightTread/2 forward; we then retreat nosingDepth/2
                 // so the box is centred on that edge.
                 if (effectiveProps.nosingType !== 'none') {
@@ -466,7 +484,7 @@ export class StairMeshBuilder {
                     const nosingThickness = 0.015;
                     const nosingGeometry = new THREE.BoxGeometry(stair.width, nosingThickness, nosingDepth);
                     nosingGeometry.applyMatrix4(rotMatrix);
-                    const nosingCenter = currentPosition.clone()
+                    const nosingCenter = placePos.clone()
                         .add(flatDir.clone().multiplyScalar(flightTread / 2 - nosingDepth / 2))
                         .setY(currentElevation + nosingThickness / 2);
                     nosingGeometry.translate(nosingCenter.x, nosingCenter.y, nosingCenter.z);
