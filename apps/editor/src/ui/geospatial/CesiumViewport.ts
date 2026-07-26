@@ -5985,12 +5985,13 @@ export class CesiumViewport {
     // §A.21.D-GLOBE3 — on the paid photoreal path the Google 3D tiles already carry ground +
     // buildings at real elevation; laying our terrain mesh under them would double-ground / z-fight
     // the globe. Leave the photoreal path exactly as it was (the free Forma path is where terrain renders).
-    // §L-626 REVERTED (L-629) — draping baked terrain in Forma/3D-Site regressed Madrid badly:
-    // buildings are single-point-seated (L-584) so they z-fight the relief → white shells; the
-    // sun-hours heatmap paints on flat ground → occluded by the mesh → faint; nav went unstable.
-    // Terrain-in-3D-Site is deferred until the building reseat + heatmap-on-terrain land. Until then
-    // keep the original guard: skip our terrain whenever the photoreal tileset has ever loaded.
-    if (this.photorealTilesActive) { console.log('[CesiumViewport][terrain] skip: photoreal 3D tiles active'); return; }
+    // §L-631 — FOUNDER DIRECTIVE (2026-07-26): terrain ON everywhere in 3D Site, issues solved as they
+    // come. Un-revert of L-626: in Forma the photoreal tileset is show=false and the globe is shown, so
+    // draping our baked terrain is correct; skip our terrain ONLY on the true photoreal (non-Forma) path
+    // where Google 3D tiles already carry ground. KNOWN interim regression until the SiteFrame reseat
+    // (T1) lands: base-0 context buildings z-fight the relief → white shells; heatmap on flat ground →
+    // faint (L-584/L-585 reseat is the in-flight fix). Accepted per founder decision.
+    if (this.photorealTilesActive && !this.formaMode) { console.log('[CesiumViewport][terrain] skip: photoreal 3D tiles active (non-Forma)'); return; }
     const city = cityForLonLat(lon, lat);
     console.log(`[CesiumViewport][terrain] evaluate lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → city=${city ?? 'NONE (outside baked bboxes → flat)'}`);
     if (!city) return;                                 // no baked terrain here → flat (unchanged)
