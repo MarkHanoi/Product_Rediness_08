@@ -102,12 +102,17 @@ const RELATIONSHIP_PRIORITY: Record<RelationshipType, number> = {
 function defaultRebuildDispatcher(tasks: RebuildTask[], triggerElementId: string, operation: string): void {
     if (tasks.length === 0) return;
 
+    // §FIX-SLAB-PARAM-WIPE (defence-in-depth) — `.substring` on an undefined id threw
+    // inside this scheduled flush callback every rAF (the founder's per-frame spam). ids
+    // are always strings under normal operation; guard so one malformed cascade can never
+    // flood the frame loop again.
+    const _id8 = (id: unknown): string => (typeof id === 'string' ? id.substring(0, 8) : String(id));
     const taskSummary = tasks
-        .map(t => `${t.elementId.substring(0, 8)}[${t.relationshipType}]`)
+        .map(t => `${_id8(t.elementId)}[${t.relationshipType}]`)
         .join(', ');
 
     console.debug(
-        `[DependencyResolver] CASCADE ${operation} on ${triggerElementId.substring(0, 8)} → ` +
+        `[DependencyResolver] CASCADE ${operation} on ${_id8(triggerElementId)} → ` +
         `${tasks.length} affected element(s): ${taskSummary}`
     );
 
@@ -224,6 +229,12 @@ export class DependencyResolver {
 
     private _onStoreChange(event: StoreChangeEvent): void {
         if (!this._enabled) return;
+
+        // §FIX-SLAB-PARAM-WIPE (defence-in-depth) — an event with no `elementId` (the
+        // historical slab full-replace-wipe) has no resolvable cascade target and, if it
+        // reached the flush dispatcher, its `.substring` threw every rAF. Fixed at source;
+        // guarded here so a malformed emit can never re-enter the frame loop.
+        if (typeof event.elementId !== 'string' || event.elementId.length === 0) return;
 
         if (event.operation === 'delete') {
             elementSpatialIndex.remove(event.elementId);

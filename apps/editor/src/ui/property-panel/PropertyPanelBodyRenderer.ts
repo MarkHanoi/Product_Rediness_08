@@ -240,12 +240,19 @@ export function _renderElementToContainer(
                     const thickness = parseFloat(
                         layers.reduce((s: number, l: any) => s + (l.thickness ?? 0), 0).toFixed(6)
                     );
-                    window.runtime?.bus?.executeCommand('slab.update', {
-                        id:           elementData.id,
-                        systemTypeId: elementData.systemTypeId ?? null,
+                    // §FIX-SLAB-TYPE-SWAP (mirrors §FIX-FLOOR-TYPE-SWAP L-106) — route through
+                    // 'element.changeType' → UpdateSlabLayersCommand on the LEGACY SlabStore
+                    // (the store SlabFragmentBuilder + plan + persistence read). The previous
+                    // 'slab.update' dispatch hit the DETACHED plugin Immer store, which is empty
+                    // for SlabTool-created slabs → canExecute "slab not found" and the save was
+                    // silently swallowed. Mirrors the wall layers editor's legacy route.
+                    window.runtime?.bus?.executeCommand('element.changeType', {
+                        elementId:    elementData.id,
+                        elementType:  'slab',
+                        newTypeId:    elementData.systemTypeId ?? '',
                         layers,
                         thickness,
-                    })?.catch((e: Error) => console.error('[PropertyPanel] slab.update (layers) failed:', e));
+                    })?.catch((e: Error) => console.error('[PropertyPanel] element.changeType (slab layers) failed:', e));
                 });
                 if (layersEditor) {
                     fullWidthWrap.appendChild(layersEditor);

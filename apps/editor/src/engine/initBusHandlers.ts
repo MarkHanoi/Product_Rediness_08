@@ -22,6 +22,12 @@ import {
   // (window.slabStore / window.handrailStore) that the fragment builders, the 2-D plan
   // projector, the IFC exporter and persistence read; only the bus route was missing.
   UpdateSlabPolygonCommand,
+  // §FIX-SLAB-TYPE-SWAP (mirrors §FIX-FLOOR-TYPE-SWAP L-106) — the slab branch of
+  // element.changeType runs this legacy command on the legacy SlabStore (the store
+  // the 3D SlabTool + plan bridge actually populate); the old 'slab.updateLayers'
+  // plugin-bus command read a DETACHED Immer store → "slab not found" for
+  // SlabTool-created slabs.
+  UpdateSlabLayersCommand,
   UpdateHandrailCommand,
   // §FIX-MATERIAL-REACHES-RECORD (Gate G7) — the legacy commands that own the geometry
   // stores for the families whose Material control was still dead (slab / wall / door /
@@ -743,6 +749,62 @@ export function initBusHandlers(
                             });
                         } catch (e) {
                             console.warn('[element.changeType] floor ring-buffer push failed (undo falls back to commandManager):', e);
+                        }
+                    }
+                    return;
+                }
+                if (elType === 'slab') {
+                    // §FIX-SLAB-TYPE-SWAP (mirrors §FIX-FLOOR-TYPE-SWAP L-106) — swap a
+                    // placed slab's type + layer stack IN PLACE (stable id).
+                    // UpdateSlabLayersCommand mutates the LEGACY SlabStore — the store the
+                    // 3D SlabTool (cm.execute) AND the plan-view bridge populate, and that
+                    // SlabFragmentBuilder + IFC export + persistence read. The previous
+                    // dispatch ('slab.updateLayers') targeted the plugin Immer slab store,
+                    // which is DETACHED / empty for SlabTool-created slabs → canExecute
+                    // "slab not found: <id>" (the founder's report). slabStore.update()
+                    // fires 'bim-slab-updated' → the builder rebuilds the mesh with the new
+                    // assembly + material. Mirrors the wall/floor branches (ADR-0105).
+                    //
+                    // Ring-buffer parity (§FIX-FURNITURE-TYPE-LIST-AND-UNDO L-68 /
+                    // §FIX-FLOOR-TYPE-SWAP L-106): the command runs through the LEGACY
+                    // commandManager (no ring entry), but the slab store IS ring-covered
+                    // (elementUndoStoreAdapter synthesises applyPatch from add/remove/update).
+                    // Without a ring entry a ring-first Ctrl+Z would pop the slab's earlier
+                    // CREATE (delete the slab) instead of reversing the swap. So we push an
+                    // invertible WHOLE-ELEMENT replace PatchPair on the SAME id; the
+                    // ring-first undo reverses THE SWAP (slabStore.update → mesh rebuild) and
+                    // shadow-drops the cm twin — one undo, stable id.
+                    const sstore = (window as unknown as { slabStore?: { getById?(id: string): unknown } }).slabStore;
+                    const before = sstore?.getById?.(cmd.elementId);
+                    const oldData = before ? structuredClone(before) : undefined;
+
+                    _cmExec(new UpdateSlabLayersCommand({
+                        slabId:       cmd.elementId,
+                        systemTypeId: cmd.newTypeId || null,
+                        layers:       (cmd.layers ?? []) as any,
+                        thickness:    cmd.thickness,
+                    }));
+
+                    const after = sstore?.getById?.(cmd.elementId);
+                    const newData = after ? structuredClone(after) : undefined;
+                    // Only push a ring entry when the command actually mutated the slab —
+                    // a rejected canExecute (bad layers/thickness) leaves data unchanged, and
+                    // a no-op PatchPair would surface as a phantom Ctrl+Z. Compare the
+                    // semantic signature (systemTypeId + thickness + layers) since SlabData
+                    // has no version stamp.
+                    const _sig = (d: any) => d ? JSON.stringify({ s: d.systemTypeId ?? null, t: d.thickness, l: d.layers }) : '';
+                    const changed = !!oldData && !!newData && _sig(oldData) !== _sig(newData);
+                    if (changed) {
+                        try {
+                            const rb = (window.runtime?.bus as unknown as { ringBuffer?: { push?(p: unknown): void } } | undefined)?.ringBuffer;
+                            const idPtr = toJsonPointer([cmd.elementId]);
+                            rb?.push?.({
+                                forward: { ops: [{ op: 'replace', path: idPtr, value: newData }] },
+                                inverse: { ops: [{ op: 'replace', path: idPtr, value: oldData }] },
+                                affectedStores: ['slab'],
+                            });
+                        } catch (e) {
+                            console.warn('[element.changeType] slab ring-buffer push failed (undo falls back to commandManager):', e);
                         }
                     }
                     return;

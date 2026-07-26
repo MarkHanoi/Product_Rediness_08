@@ -199,6 +199,24 @@ export class UpdateElementParameterCommand implements Command {
             } else {
                 store.update?.(elementId, parameters);
             }
+        } else if (t === 'slab') {
+            // §FIX-SLAB-PARAM-WIPE — SlabStore.update() does a FULL REPLACE (it expects a
+            // complete SlabData record and structuredClones + freezes it, per C03 §01 §3.4),
+            // NOT a partial merge like WallStore.update(). Passing the raw partial parameter
+            // set (e.g. { materialColor }) therefore WIPED the whole slab record — id,
+            // levelId, polygon, layers — leaving `{ materialColor }`. The store then emitted a
+            // StoreChangeEvent with `elementId: undefined` (slab.id gone), which crashed the
+            // downstream store-event listeners: ViewDependencyTracker._onStoreEvent
+            // (`event.elementId.includes('::')`) and DependencyResolver's cascade dispatcher
+            // (`triggerElementId.substring(0, 8)`) both assume a defined id — the founder's
+            // per-frame rAF spam. Merge onto the existing record first (mirrors the furniture
+            // branch above) so the record stays whole and the emit carries a real id.
+            const existing = store.getById?.(elementId);
+            if (existing) {
+                store.update?.(elementId, { ...existing, ...parameters });
+            } else {
+                store.update?.(elementId, parameters);
+            }
         } else {
             store.update?.(elementId, parameters);
         }

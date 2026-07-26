@@ -85,13 +85,22 @@ export function _buildTypeSelector(
                 console.warn('[PropertyPanel] Slab type apply: no layers or thickness — plain slab reset not yet implemented');
                 return;
             }
-            window.runtime?.bus?.executeCommand('slab.updateLayers', {
-                slabId:       elementData.id,
-                systemTypeId: payload.systemTypeId,
+            // §FIX-SLAB-TYPE-SWAP (mirrors §FIX-FLOOR-TYPE-SWAP L-106) — route through the
+            // uniform 'element.changeType' command (ADR-0105), which for slabs runs
+            // UpdateSlabLayersCommand on the LEGACY SlabStore — the store the 3D SlabTool +
+            // plan bridge actually populate (and that drives SlabFragmentBuilder). The
+            // previous 'slab.updateLayers' dispatch hit a DETACHED plugin Immer store, which
+            // is empty for SlabTool-created slabs → canExecute "slab not found" and the mesh
+            // never rebuilt. Now the type/layer swap applies + re-renders (material +
+            // assembly), undoable in one step. Mirrors wall/floor/door/window.
+            window.runtime?.bus?.executeCommand('element.changeType', {
+                elementId:    elementData.id,
+                elementType:  'slab',
+                newTypeId:    payload.systemTypeId ?? '',
                 layers:       payload.layers,
                 thickness:    payload.thickness,
             })?.then(() => host.onRerender({ ...elementData, systemTypeId: payload.systemTypeId, layers: payload.layers, thickness: payload.thickness }))
-              ?.catch((e: unknown) => console.warn('[PropertyPanel] slab.updateLayers failed:', e));
+              ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (slab) failed:', e));
         });
     }
 
