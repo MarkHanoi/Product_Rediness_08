@@ -4607,3 +4607,34 @@ be built without entering those files. Keep that property: sequence the wiring, 
 `§PLAN-CAMTARGET-SANITY` guard is the only thing preventing geometry being authored ~2 000 km from
 the site; L-600 is a missing convenience. **Do not let the visible request outrank the silent
 corruption risk when scheduling.**
+
+## Added 2026-07-26 — L-615 (Spain 10-biggest-cities envelope-certifiability survey — DOCUMENTED)
+
+Founder: "if Spain Envelope is by municipality — target the 10 biggest cities." Live-verified
+survey shipped as `docs/04-reference/jurisdictions/es/ES-CITY-ENVELOPE-CERTIFIABILITY-SURVEY.md`
+(every endpoint hit live 2026-07-26). Decides per city whether a **computed certified envelope**
+is reachable from a queryable GIS or is an honest **PDF refusal**.
+
+**Verdicts (ranked build order):**
+1. **Palma** — CERTIFIABLE, highest leverage: ArcGIS REST MUIB `/10` + **structured HTML
+   `normativa.jsp`** parameter sheet (NP/HR/O/setbacks machine-readable). One pattern covers
+   **all Balearic municipalities**.
+2. **Sevilla** — near-CERTIFIABLE: ArcGIS REST L25, **height already structured** (`altura_max`);
+   endpoint hands the per-parcel Normas PDF URL — only FAR/ocupación to digitize.
+3. **Zaragoza** — CERTIFIABLE: GeoServer WMS GetFeatureInfo (calificación) + WFS
+   `Alturas_Edificios`, cadastre-joinable; host is 503-flaky (WAF).
+4. **Córdoba** — model already verified (PEPCH'01 Arts 43-55); resolver is the build.
+5. **Las Palmas** (GRAFCAN WMS, covers all Canarias) / **Bilbao** (GeoBizkaia ArcGIS REST) —
+   PARTIAL, queryable key + full code→normativa crosswalk. ⚠ Bilbao: re-probe geoEuskadi
+   UDALPLAN WFS from a non-blocked egress before locking (geo-blocked here).
+6. **Valencia** — PARTIAL, code-only zoning (not even height); full parameter crosswalk.
+7. **Málaga** + **Murcia** — honest **PDF-ONLY** refusals; no queryable envelope backend live.
+   Deferred until a backend appears (Málaga PEPRI visor reopening; Murcia has none).
+
+**The recurring cost:** the GIS gives the spatial key (zone code + geometry + cadastral join)
+for free; the per-zone edificabilidad/ocupación/altura table is a bounded **SOURCING** task
+(human-gated), digitized into the C58 code→normativa crosswalk registry. Governed by **C58** +
+**§CONTEXT-DATA-HONESTY**. Per-city PACKS are the follow-on build (not started).
+
+⚠ **Do not hardcode a per-city branch** — that repeats the Spain-only parcel-provider trap
+(L-613). Each city plugs its zoning WFS/REST + its normativa table into the shared registry.

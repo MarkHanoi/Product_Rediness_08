@@ -10,6 +10,7 @@ contained exactly ONE tagged row (`30003 Águilas`) — the tagging pass was nev
 | `priority_318.csv` | Top 318 by population — the SEED tier |
 | `priority_407.csv` | Top 407 (5% of 8,132) — SEED + PRIORITY_407 |
 | `seed_counts_by_ccaa.csv` | Per-CCAA counts + live-verified region tier (drives sequencing) |
+| `ES-CITY-ENVELOPE-CERTIFIABILITY-SURVEY.md` | **10-biggest-cities envelope survey (live-verified 2026-07-26)** — per-city queryable-backend + verdict (CERTIFIABLE / PARTIAL / PDF-ONLY) + build order for the municipality envelope-pack rollout |
 
 Schema: `ine_code,municipio,provincia,ccaa,population,rank,tier,region_tier`
 
