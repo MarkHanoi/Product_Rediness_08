@@ -4980,3 +4980,13 @@ See audit **L-623**. Root unconfirmed (3 candidates); tied to the a3a33c5c conte
 | 1 | Confirm root FIRST (context investigation) | tile-count cap→Overpass fallback (most likely) vs near-cap vs plot-clear over-hide |
 | 2 | (c) raise/adapt the z16 tile cap + prefer baked tiles over Overpass | `contextTiles.ts` — bake coverage so no Overpass fallback |
 | 3 | (a) if implicated, on-plot test → centroid-in-parcel / majority-overlap | `CesiumViewport.ts:6683` so touching neighbours survive |
+
+## L-625 — standardize all views under C59 (unified properties + active-view dropdown + full/split) · Phase 5 · P2 · OWNER: assistant · TARGET: TBD (multi-phase)
+See audit **L-625**. Completing C59 (NOT a new architecture). Dedicated agent; design-first.
+| # | Task | Notes |
+|---|---|---|
+| 1 | `viewType`-aware `PaneRendererMounter` | the one engine-contract change unblocking 3D-globe/3D-Model in any pane (L-622 root) |
+| 2 | View-capability registry in `paneViewModel` | each view declares meaningful properties/analyses/toggles |
+| 3 | ONE unified property panel reading the registry (+ L-621 drag/resize/launcher) | replaces the Forma-only panel + Plan-only rail |
+| 4 | Active-view indicator + dropdown-to-any-view (extend PaneViewPicker) + universal full/split | via `paneLayoutStore` + SplitViewManager |
+| 5 | ADR extending C59 Phase-3 | design-first; do not fork the pane model |

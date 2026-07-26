@@ -4674,3 +4674,13 @@ site-context study — shadow/overlooking need neighbours). 3 candidate roots: �
 (unlikely — only 1 hidden in logs), near/far ring caps, or the z16 tile-count cap→Overpass fallback
 (most likely, same hot-path as the roads/water/green R2 gap). Queue: geospatial/context-rendering
 (C12). Dependency: confirm via the a3a33c5c context-layers investigation before fixing. OWNER: assistant.
+
+## Added 2026-07-26 — L-625 (view standardization — completing C59; dedicated agent)
+
+Founder-prioritized: every view (Plan/Section/3D-BIM/3D-globe/3D-Site/2D-Site) exposes the SAME
+property surface (shown where meaningful) + active-view dropdown to any view + full/split. This
+COMPLETES C59-MULTI-PANE-VIEW-SYSTEM (contract + SPEC exist; Phase-3+ unbuilt). Gap = viewType-aware
+mounter (L-622 root) + view-capability registry + unified property panel + universal full/split.
+P2 (major UX-coherence feature; views work individually today). Queue: view-system / C59 pane engine
+(engine/views/) — NOT UI-shell. Dedicated agent, design-first (ADR extending C59). OWNER: assistant.
+Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-globe pane-swap).
