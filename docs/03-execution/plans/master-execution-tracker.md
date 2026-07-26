@@ -4684,3 +4684,8 @@ mounter (L-622 root) + view-capability registry + unified property panel + unive
 P2 (major UX-coherence feature; views work individually today). Queue: view-system / C59 pane engine
 (engine/views/) — NOT UI-shell. Dedicated agent, design-first (ADR extending C59). OWNER: assistant.
 Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-globe pane-swap).
+
+## Added 2026-07-26 — L-627 (stair) + L-628 (slab editing) — dedicated agents
+
+- L-627 (P2): stair 3D-creation regression + landing baluster missing + landing↔run gap. Agent a0a03b1e (worktree). Queue: geometry/stair (C11).
+- L-628 (P1): slab uneditable (type/material/layers; `updateLayers` "slab not found") + per-frame dep-resolver crash (rAF spam). Agent a05bfb4a (worktree). Queue: command-bus/element-store (C03/C11) — NOT UI.

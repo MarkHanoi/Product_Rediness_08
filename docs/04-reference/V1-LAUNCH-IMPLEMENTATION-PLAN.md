@@ -4990,3 +4990,9 @@ See audit **L-625**. Completing C59 (NOT a new architecture). Dedicated agent; d
 | 3 | ONE unified property panel reading the registry (+ L-621 drag/resize/launcher) | replaces the Forma-only panel + Plan-only rail |
 | 4 | Active-view indicator + dropdown-to-any-view (extend PaneViewPicker) + universal full/split | via `paneLayoutStore` + SplitViewManager |
 | 5 | ADR extending C59 Phase-3 | design-first; do not fork the pane model |
+
+## L-627 — stair: 3D-creation regression + landing baluster/gap defects · Phase 5 · P2 · OWNER: assistant · TARGET: next deploy
+See audit **L-627**. Dedicated stair agent (worktree). Restore 3D StairTool registration + landing balusters + close landing↔run join.
+
+## L-628 — slab uneditable (type/material/layers) + per-frame dep-resolver crash · Phase 5 · P1 · OWNER: assistant · TARGET: next deploy
+See audit **L-628**. Dedicated slab agent (worktree). Fix store-registration/lookup (updateLayers "slab not found"), route type-change via command-bus like walls, guard the `_onStoreEvent`/`dep-resolver-flush` undefined-field crash.
