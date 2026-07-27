@@ -302,6 +302,11 @@ declare global {
         /** FORMA.2 — toggle the Cesium Forma massing render mode directly. Registered
          *  by CesiumViewport at mount. */
         pryzmSetCesiumFormaMode?: (on: boolean) => void;
+        /** §TERRAIN-TOGGLE (founder 2026-07-27) — flip the 3D-Site baked terrain ON/OFF live.
+         *  OFF → detach the terrain provider (flat ellipsoid ground) so the founder can study
+         *  the pre-terrain "buildings always visible" behaviour in high-relief cities; ON →
+         *  re-attach + re-clamp. Default ON. Registered by CesiumViewport at mount. */
+        pryzmSetFormaTerrain?: (on: boolean) => void;
         /** FORMA.6 — toggle the Forma study building fidelity ('real' = full PRYZM
          *  model / 'massing' = abstract pastel volumes). Default 'real'. Registered
          *  by GISAreaLayout; re-exports + re-places on switch to 'real'. */

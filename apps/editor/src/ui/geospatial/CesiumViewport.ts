@@ -97,7 +97,7 @@ import {
 import { realModelStaysVisible } from "./formaBuildingFidelity";
 // §TERRAIN-RENDER (Phase 3) — resolve a site's lon/lat to a baked-terrain city + its R2
 // quantized-mesh tileset URL, so we can attach a CesiumTerrainProvider where terrain exists.
-import { cityForLonLat, terrainTilesetUrl } from "./terrainCoverage";
+import { decideBakedTerrainAttach, terrainTilesetUrl } from "./terrainCoverage";
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -788,6 +788,13 @@ export class CesiumViewport {
    *  yet baked in R2 / not proxied) we don't re-attempt it, so un-baked sites stay flat
    *  without hammering the network on every pan. Cleared on dispose (project switch). */
   private formaTerrainProbedCities = new Set<string>();
+  /** §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF escape hatch for the 3D
+   *  Site. Default TRUE (terrain everywhere, per L-631). When FALSE the baked terrain provider
+   *  is detached and the scene reverts to flat ellipsoid ground so the founder can study the
+   *  pre-terrain "buildings always visible on flat ground" behaviour (high-relief Madrid/Zürich).
+   *  Independent of the depth-cull fix: `depthTestAgainstTerrain` is held OFF in Forma REGARDLESS
+   *  of this flag, so context buildings are never culled under relief even with terrain ON. */
+  private formaTerrainEnabled = true;
   /** §CESIUM-REALMODEL-TOKEN — monotonic tokens serialising overlapping async
    *  real-model placements (GLB export → `Cesium.Model.fromGltfAsync` → add). Two
    *  rapid view toggles could each await the model load and BOTH add a primitive
@@ -1836,8 +1843,12 @@ export class CesiumViewport {
           __pryzmFormaMode?: boolean;
           __pryzmFormaAO?: boolean;
           pryzmSetCesiumFormaMode?: (on: boolean) => void;
+          pryzmSetFormaTerrain?: (on: boolean) => void;
         };
         win.pryzmSetCesiumFormaMode = (on: boolean) => this.setFormaMode(on);
+        // §TERRAIN-TOGGLE (founder 2026-07-27) — console escape hatch to flip the 3D-Site
+        // terrain on/off for quick study without touching the panel checkbox.
+        win.pryzmSetFormaTerrain = (on: boolean) => this.setFormaTerrainEnabled(on);
         const flag = win.__pryzmFormaMode;
         // §FORMA-AO-OPT-IN (ADR-0087) — AO is OFF unless explicitly opted in.
         if (typeof win.__pryzmFormaAO === 'boolean') this.formaAoOptIn = win.__pryzmFormaAO;
@@ -2759,6 +2770,70 @@ export class CesiumViewport {
   }
 
   /**
+   * §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF control for the 3D Site.
+   * LIVE (no reload):
+   *   • OFF → detach the baked terrain provider (revert to the flat ellipsoid), reset the clamp
+   *     base to 0, and re-place context at the flat base — the pre-terrain "buildings always
+   *     visible on flat ground" study. The escape hatch for high-relief cities.
+   *   • ON  → re-attach the baked terrain for the current site + re-clamp/re-place onto it.
+   * `depthTestAgainstTerrain` is held OFF in Forma either way (context is never depth-culled),
+   * so the ON case shows terrain relief WITH all context + massing rendered on top.
+   * The default is ON (terrain everywhere, per L-631); this is the founder's study/escape control.
+   */
+  public setFormaTerrainEnabled(on: boolean): void {
+    const viewer = this.viewer;
+    if (!viewer) {
+      console.warn('[CesiumViewport] setFormaTerrainEnabled called before mount — ignored.');
+      return;
+    }
+    if (on === this.formaTerrainEnabled) return;
+    this.formaTerrainEnabled = on;
+    // §CTX-DEPTH-CULL-FIX — the depth test stays OFF in Forma regardless of the toggle so
+    // context buildings are never culled under relief when terrain is ON.
+    try { viewer.scene.globe.depthTestAgainstTerrain = false; } catch { /* ignore */ }
+    console.log(`[CTX-DIAG] terrain toggled → ${on ? 'on' : 'off'}`);
+    const at = this.contextBuildingsAt ?? this.formaMassingOrigin;
+    if (on) {
+      // Re-probe cities (the OFF→detach cleared the attached city; probed-set memo would
+      // otherwise skip the re-attach for a city already attached earlier this session).
+      this.formaTerrainProbedCities.clear();
+      if (at) void this.maybeAttachTerrainProvider(at.lat, at.lon);
+    } else {
+      this.detachBakedTerrain();
+      // Re-place context at the reset flat base so buildings seat on the ellipsoid ground now.
+      if (at) void this.loadContextBuildings(at.lat, at.lon, true);
+    }
+    viewer.scene.requestRender();
+  }
+
+  /** @returns whether the user TERRAIN ON/OFF toggle is currently ON (default true). */
+  public isFormaTerrainEnabled(): boolean {
+    return this.formaTerrainEnabled;
+  }
+
+  /**
+   * §TERRAIN-TOGGLE — detach the baked quantized-mesh terrain provider and revert to the default
+   * flat `EllipsoidTerrainProvider` (base 0). Mirrors the reset `applyFormaMode` does on the
+   * flat-ground study: clears the attached city + sampled-at memo + clamp base so the next clamp
+   * treats the ellipsoid surface (0) as ground. Never throws.
+   */
+  private detachBakedTerrain(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    try {
+      viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+    } catch (e) {
+      console.warn('[CesiumViewport][terrain] detach failed:', e);
+    }
+    this.formaTerrainCity = null;
+    this.formaTerrainSampledAt = null;
+    this.formaTerrainBaseHeight = 0;
+    try { viewer.scene.globe.depthTestAgainstTerrain = false; } catch { /* ignore */ }
+    console.log('[CesiumViewport][terrain] detached baked terrain → flat ellipsoid ground (base 0).');
+    viewer.scene.requestRender();
+  }
+
+  /**
    * Apply the Forma massing aesthetic to the live scene (§2). Each block mirrors
    * the defensive try/catch already used elsewhere in this file so one failing
    * GPU feature never blanks the viewport.
@@ -2782,9 +2857,17 @@ export class CesiumViewport {
       globe.showGroundAtmosphere = false;
       globe.enableLighting = false; // Forma ground is flat-lit, not sun-shaded (§2).
       globe.translucency.enabled = false;
-      // Flat-ground massing: terrain depth test is harmless and keeps placed
-      // geometry seated; leave it enabled for the flat case.
-      globe.depthTestAgainstTerrain = true;
+      // §CTX-DEPTH-CULL-FIX (founder 2026-07-27) — HOLD THE TERRAIN DEPTH TEST OFF IN FORMA.
+      // With baked relief now draped in Forma (L-631), `depthTestAgainstTerrain = true` culled
+      // any extruded context building (and the envelope) whose base sat BELOW the terrain mesh —
+      // exactly the Madrid/Zürich failure (~650 m baked ground buried the base-0 footprints, so
+      // roads drape-rendered flat but buildings vanished). Barcelona's low relief never tripped it.
+      // Turning the depth test OFF renders context + massing on top of the visible terrain in ALL
+      // cities; the only cosmetic cost is a footprint may visually intersect a steep slope — vastly
+      // better than vanishing, and it matches how low-relief Barcelona already looks. The flat/
+      // terrain-OFF path is unaffected (no relief to test against). §SITEFRAME reseat (deferred) is
+      // the eventual per-footprint in-place seat that would let the depth test return safely.
+      globe.depthTestAgainstTerrain = false;
     } catch (e) {
       console.warn('[CesiumViewport][forma] ground/imagery config failed:', e);
     }
@@ -6033,10 +6116,20 @@ export class CesiumViewport {
     // where Google 3D tiles already carry ground. KNOWN interim regression until the SiteFrame reseat
     // (T1) lands: base-0 context buildings z-fight the relief → white shells; heatmap on flat ground →
     // faint (L-584/L-585 reseat is the in-flight fix). Accepted per founder decision.
-    if (this.photorealTilesActive && !this.formaMode) { console.log('[CesiumViewport][terrain] skip: photoreal 3D tiles active (non-Forma)'); return; }
-    const city = cityForLonLat(lon, lat);
-    console.log(`[CesiumViewport][terrain] evaluate lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → city=${city ?? 'NONE (outside baked bboxes → flat)'}`);
-    if (!city) return;                                 // no baked terrain here → flat (unchanged)
+    // §TERRAIN-TOGGLE (founder 2026-07-27) — the pure gate: user toggle OFF, the photoreal path,
+    // or an un-baked city each keep flat ground (no regression). Only a positive decision attaches.
+    const decision = decideBakedTerrainAttach({
+      terrainEnabled: this.formaTerrainEnabled,
+      photorealActive: this.photorealTilesActive,
+      formaMode: this.formaMode,
+      lon, lat,
+    });
+    if (!decision.attach) {
+      console.log(`[CesiumViewport][terrain] skip: ${decision.reason} (lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → flat ground)`);
+      return;
+    }
+    const city = decision.city;
+    console.log(`[CesiumViewport][terrain] evaluate lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → city=${city}`);
     if (city === this.formaTerrainCity) { console.log(`[CesiumViewport][terrain] skip: '${city}' already attached`); return; }
     if (this.formaTerrainProbedCities.has(city)) { console.log(`[CesiumViewport][terrain] skip: '${city}' already probed this session`); return; }
     const url = terrainTilesetUrl(city);
@@ -6893,11 +6986,23 @@ export class CesiumViewport {
     //                      "seated before terrain streamed" and relies on the safe base being right.
     const reliefOn = this.groundReliefAttached();
     const baseAtRisk = reliefOn && Math.abs(contextSafeBase) < 1;
+    // §TERRAIN-TOGGLE / §CTX-DEPTH-CULL-FIX (founder 2026-07-27) — the depth-cull isolation line:
+    //   • terrainOn — the USER toggle (baked terrain attached at all).
+    //   • depthCull — the LIVE `depthTestAgainstTerrain` state. With the fix this is FALSE in Forma,
+    //                 so buildings render regardless of base-vs-relief height. If it ever reads TRUE
+    //                 with relief on and base≈0, THAT is the vanish bug.
+    //   • buildingsVisible≈ — placed when nothing culls; 0 only if the depth test is on AND the base
+    //                 is under un-streamed relief. So flipping terrain OFF (or the depthCull fix)
+    //                 makes buildingsVisible≈ jump back to placed — the founder's live confirmation.
+    const depthCull = !!viewer.scene.globe.depthTestAgainstTerrain;
+    const buildingsVisibleApprox = (depthCull && baseAtRisk) ? 0 : placed;
     console.log(
-      `[CTX-DIAG] placed=${placed} clampBase=${this.formaTerrainBaseHeight.toFixed(1)}m ` +
+      `[CTX-DIAG] terrainOn=${this.formaTerrainEnabled} depthCull=${depthCull} ` +
+        `buildingsPlaced=${placed} buildingsVisible≈${buildingsVisibleApprox} | ` +
+        `clampBase=${this.formaTerrainBaseHeight.toFixed(1)}m ` +
         `seatBase=${contextSafeBase.toFixed(1)}m relief=${reliefOn ? 'ON' : 'off'} ` +
-        `depthCull=${reliefOn ? 'active' : 'n/a'} seat[finite=${seatFinite} fallback=${seatFallback}] ` +
-        `safeBase=${baseAtRisk ? 'AT-RISK(base≈0 under relief → could cull; terrain not yet streamed at centroid)' : 'ok'}`,
+        `seat[finite=${seatFinite} fallback=${seatFallback}] ` +
+        `safeBase=${baseAtRisk ? 'AT-RISK(base≈0 under relief → could cull IF depthCull on; terrain not yet streamed at centroid)' : 'ok'}`,
     );
     // §CTX-LOADING-BADGE (L-524b) — first buildings are on screen, so the wait is over. If the
     // ring came back genuinely EMPTY we say THAT instead of silently clearing: "no context data
