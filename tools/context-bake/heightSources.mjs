@@ -155,10 +155,15 @@ export const SOURCES = {
       'over bake\'s own OSM footprints → P90 tagged height, the EXACT DK dhm/ES mds shape, no key. ' +
       '(2) LoD2-next — swissBUILDINGS3D CityGML volumetric solids (bulk download, not a bbox API) → ' +
       'offline extract + GWR-by-EGID; the cleaner height but a CityGML parser build. ' +
-      '⚠ impl stays `documented` (not `live`): the swisstopo raster GetCoverage endpoint + an OUTPUTCRS=' +
-      'EPSG:4326 GeoTIFF response are NOT live-probed this session (data.geo.admin.ch serves float ' +
-      'GeoTIFF tiles via STAC; a plain WCS-2 GetCoverage-in-4326 like ES MDS must be CONFIRMED with ' +
-      '`--probe swiss_ndsm` before bake-activating). Region keeps OSM until then — no fabricated height.',
+      '⚠ impl stays `documented` (not `live`) — LIVE-PROBED 2026-07-27, VERDICT REVISED: the plain WCS-2 ' +
+      'GetCoverage-in-4326 shape below is FALSE (returns HTTP 404 NoSuchKey — data.geo.admin.ch has no WCS ' +
+      'service; it is an object store). The keyless data IS live via STAC: BOTH collections return HTTP 200 ' +
+      '(ch.swisstopo.swissalti3d DTM + ch.swisstopo.swisssurface3d-raster DSM), each /items?bbox= exposing ' +
+      'per-1km COG GeoTIFF tiles in EPSG:2056 (LV95) at 0.5 m/2 m (CC-BY, commercial-OK — same host the ' +
+      'Zürich parcel work proved keyless). So the real LoD1-now wiring is the STAC→COG-stitch path (REUSE ' +
+      'terrain.mjs fetchSwissAltiStac for BOTH coverages) + an LV95↔WGS84 projector (LV95 is Swiss oblique ' +
+      'Mercator, NOT a UTM zone → needs proj4/reproject.mjs, which the buildings bake runner does not yet ' +
+      'install) → a BUILD, not a credential gate. Region keeps OSM until built — no fabricated height.',
   },
   lod2de: {
     country: 'de', name: 'LoD2-DE (per-Land CityGML)', impl: 'documented',
@@ -380,7 +385,15 @@ export async function fetchBdTopo(bbox, { limit = 5000, timeoutMs = 40_000 } = {
         source: 'bdtopo',
       })));
     }
-    return { status: 'ok', features, provenance: 'tagged', contentType: r.contentType, rawCount: json.features?.length ?? 0 };
+    // §BDTOPO-CAP-TRUNCATE (live-measured 2026-07-27) — BD TOPO batiment is a FULL national layer and a
+    // city bbox can hold FAR more than `limit` (Paris bake bbox = 317,361 buildings; the WFS caps at
+    // `limit`). A capped response is a TRUNCATED slice, so mark it: resolveHeights then downgrades
+    // replace→append (KEEP the full OSM clip + ADD these real heights) instead of REPLACING the whole
+    // region with ≤limit buildings — which would delete ~98% of Paris (completeness loss ≫ a missing
+    // height). Mirrors the 3DBAG/Catastro truncation→append rule; the full-city real-height coverage
+    // (paginate startIndex, or a BD-TOPO→OSM vector join) is the named follow-up.
+    const returned = json.features?.length ?? 0;
+    return { status: 'ok', features, provenance: 'tagged', contentType: r.contentType, rawCount: returned, truncated: returned >= limit };
   } catch (err) {
     return { status: 'error', reason: String(err?.message ?? err) };
   }
@@ -1193,15 +1206,25 @@ function mdsCoverageUrl([w, s, e, n]) {
 // robustness. Both swisstopo coverages are OpenData (CC-BY, no key). Requested in EPSG:4326 so the
 // footprints sample in a local metric frame with NO new projector (mirrors the ES MDS path); native
 // swisstopo grids are LV95 (EPSG:2056) — the OUTPUTCRS=4326 reprojection is the seam to live-probe.
-// ⚠ ENDPOINT UNVERIFIED THIS SESSION — data.geo.admin.ch delivers float GeoTIFF via STAC tiles; the
-// plain WCS GetCoverage-in-4326 below is the ES-MDS-shaped ASSUMPTION to confirm before activating.
+// ⚠ ENDPOINT VERDICT (LIVE-PROBED 2026-07-27): the plain WCS GetCoverage-in-4326 `endpoint` below is
+// DEAD — `https://data.geo.admin.ch/ch.swisstopo.swisssurface3d-raster/wcs` returns HTTP 404 NoSuchKey
+// (data.geo.admin.ch is an object store, NOT a WCS service). So swissCoverageUrl() cannot resolve and
+// stampSwissHeightsOnGeojsonseq degrades to `documented` (keeps OSM) — honest, never a fabricated height.
+// The keyless data is REACHABLE via STAC instead (both verified HTTP 200 this session):
+//   DSM  ch.swisstopo.swisssurface3d-raster  → /items?bbox= → per-1km COG .tif in EPSG:2056 (LV95)
+//   DTM  ch.swisstopo.swissalti3d            → /items?bbox= → per-1km COG .tif in EPSG:2056 (LV95)
+// Wiring this = the STAC→COG-stitch path (reuse terrain.mjs fetchSwissAltiStac for BOTH coverages) + an
+// LV95↔WGS84 projector (proj4/reproject.mjs; LV95 is NOT a UTM zone) — a BUILD, tracked as the gate.
 const SWISSTOPO_NDSM = {
-  // The swisstopo coverage/WCS host (OpenData). CONFIRM the exact GetCoverage contract via a live probe.
+  // ✖ DEAD (404) — kept only so the guard degrades to `documented`; the real route is STAC (see stacDsm/stacDtm).
   endpoint: 'https://data.geo.admin.ch/ch.swisstopo.swisssurface3d-raster/wcs',
+  stacDsm: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swisssurface3d-raster', // DSM (roof-inclusive)
+  stacDtm: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d',           // DTM (bare-earth)
   dsmCoverage: 'ch.swisstopo.swisssurface3d-raster', // DSM — roof-inclusive surface (incl. vegetation)
   dtmCoverage: 'ch.swisstopo.swissalti3d',           // DTM — bare-earth terrain
   crs4326: 'http://www.opengis.net/def/crs/EPSG/0/4326',
-  nativeResM: 0.5, // swissSURFACE3D/swissALTI3D native ~0.5 m.
+  nativeCrs: 'EPSG:2056', // ⚠ STAC COGs are LV95 (verified) — NOT the 4326 the swissCoverageUrl shape assumed.
+  nativeResM: 0.5, // swissSURFACE3D/swissALTI3D native ~0.5 m (2 m tiles also served).
 };
 /** WCS 2.0.1 GetCoverage URL for a swisstopo coverage over a WGS84 [w,s,e,n] box → GeoTIFF in EPSG:4326.
  *  Same shape as `mdsCoverageUrl`; the coverage id + host differ. Keyless. */
@@ -1653,11 +1676,13 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
 // height/levels, else the client's assumed 9 m default) — never a fabricated number; a raster/read error
 // or the maxTiles cap leaves those footprints at the OSM default. The join only ever ADDS real heights.
 //
-// ⚠ NOT LIVE-ACTIVE YET: the swisstopo GetCoverage endpoint + OUTPUTCRS=4326 GeoTIFF response are the
-// ES-MDS-shaped ASSUMPTION in SWISSTOPO_NDSM, NOT probed this session (data.geo.admin.ch ships float
-// GeoTIFF via STAC tiles). If the plain WCS route 404s/does-not-reproject, this returns `documented`
-// (footprints keep OSM) — it degrades honestly, never abends the bake. Confirm the endpoint, then wire
-// this into bake.mjs's §INTEGRATION for `zurich`/`geneva`/`bern` (orchestrator; not this module).
+// ⚠ NOT LIVE-ACTIVE — LIVE-PROBED 2026-07-27: the swissCoverageUrl WCS route in SWISSTOPO_NDSM returns
+// HTTP 404 (data.geo.admin.ch has no WCS service), so per-tile fetches fail and this returns `documented`
+// (footprints keep OSM) — it degrades honestly, never abends the bake, never fabricates a height. To make
+// it live: swap swissCoverageUrl for a STAC→COG-stitch fetch (both coverages are keyless HTTP 200 — reuse
+// terrain.mjs fetchSwissAltiStac) and add an LV95(EPSG:2056)↔WGS84 projector (the COGs are LV95, NOT the
+// 4326 this function's sampler assumes). Then wire heightJoin:'swiss' into bake.mjs's §INTEGRATION for
+// `zurich`/`geneva`/`bern` (orchestrator; not this module). See SWISSTOPO_NDSM stacDsm/stacDtm.
 export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
   timeoutMs = 120_000,
   tileSpanDeg = 0.02, maxTiles = 4000, padDeg = 0.0015,
