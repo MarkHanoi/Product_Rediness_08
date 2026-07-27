@@ -801,13 +801,17 @@ export class CesiumViewport {
    *  yet baked in R2 / not proxied) we don't re-attempt it, so un-baked sites stay flat
    *  without hammering the network on every pan. Cleared on dispose (project switch). */
   private formaTerrainProbedCities = new Set<string>();
-  /** §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF escape hatch for the 3D
-   *  Site. Default TRUE (terrain everywhere, per L-631). When FALSE the baked terrain provider
-   *  is detached and the scene reverts to flat ellipsoid ground so the founder can study the
-   *  pre-terrain "buildings always visible on flat ground" behaviour (high-relief Madrid/Zürich).
-   *  Independent of the depth-cull fix: `depthTestAgainstTerrain` is held OFF in Forma REGARDLESS
-   *  of this flag, so context buildings are never culled under relief even with terrain ON. */
-  private formaTerrainEnabled = true;
+  /** §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF escape hatch for the 3D Site.
+   *  §TERRAIN-DEFAULT-OFF (L-635, founder 2026-07-27) — DEFAULT NOW FALSE. Live evidence settled it:
+   *  with terrain OFF every city — flat Valencia/Barcelona AND high-relief Madrid (700 m) — renders
+   *  its context perfectly (`[CTX-DIAG] terrainOn=false buildingsPlaced=1600 buildingsVisible≈1600
+   *  seatBase=0.0m`), whereas terrain ON strands the Cesium camera off the site on high-ground /
+   *  envelope-refused cities (Madrid/Zürich/Amsterdam) so the (correctly 700 m-seated) buildings are
+   *  never in frame. Flat ground is the universally-correct render; terrain relief is one toggle away
+   *  (⛰ Terrain / `pryzmSetFormaTerrain(true)`) for studying a specific site. Flip back to `true` once
+   *  the terrain-ON camera-framing fix lands (offline root-cause in progress). Supersedes L-631's
+   *  "terrain everywhere" default — that shipped before we had proof terrain-ON breaks the camera. */
+  private formaTerrainEnabled = false;
   /** §CESIUM-REALMODEL-TOKEN — monotonic tokens serialising overlapping async
    *  real-model placements (GLB export → `Cesium.Model.fromGltfAsync` → add). Two
    *  rapid view toggles could each await the model load and BOTH add a primitive
