@@ -1844,11 +1844,17 @@ export class CesiumViewport {
           __pryzmFormaAO?: boolean;
           pryzmSetCesiumFormaMode?: (on: boolean) => void;
           pryzmSetFormaTerrain?: (on: boolean) => void;
+          pryzmContextDiag?: () => Record<string, unknown>;
         };
         win.pryzmSetCesiumFormaMode = (on: boolean) => this.setFormaMode(on);
         // §TERRAIN-TOGGLE (founder 2026-07-27) — console escape hatch to flip the 3D-Site
         // terrain on/off for quick study without touching the panel checkbox.
         win.pryzmSetFormaTerrain = (on: boolean) => this.setFormaTerrainEnabled(on);
+        // §CTX-DIAG-PROBE (L-635) — ONE-COMMAND state dump. Run `pryzmContextDiag()` in the
+        // 3D-Site console and paste the single object: it says definitively whether context
+        // buildings are (a) never placed, (b) placed but seated far off the camera, or (c)
+        // seated right but not drawn — ending the fetch-vs-seat-vs-render guessing.
+        win.pryzmContextDiag = () => this.contextDiag();
         const flag = win.__pryzmFormaMode;
         // §FORMA-AO-OPT-IN (ADR-0087) — AO is OFF unless explicitly opted in.
         if (typeof win.__pryzmFormaAO === 'boolean') this.formaAoOptIn = win.__pryzmFormaAO;
@@ -6085,6 +6091,72 @@ export class CesiumViewport {
    * z-fight (an unloaded tile is off-screen / not tessellated), so correctness holds exactly
    * where it is needed: wherever relief is drawn, its tiles ARE loaded and `getHeight` is exact.
    */
+  /**
+   * §CTX-DIAG-PROBE (L-635) — the definitive one-command context state dump (exposed as
+   * `window.pryzmContextDiag()`). Reads the LIVE runtime, not a theory: how many context
+   * entities exist, where they are seated, where the camera is, and whether the first one
+   * falls inside the view frustum — so "never placed" vs "placed but off-camera" vs "seated
+   * right, not drawn" is decided from data. Never throws.
+   */
+  private contextDiag(): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    try {
+      const viewer = this.viewer;
+      out.hasViewer = !!viewer;
+      out.formaMode = this.formaMode;
+      out.contextEntities = this.contextBuildingEntities.length;
+      out.contextPlacements = this.contextBuildingPlacements.length;
+      out.contextBuildingsAt = this.contextBuildingsAt;
+      out.formaTerrainEnabled = this.formaTerrainEnabled;
+      out.formaTerrainCity = this.formaTerrainCity;
+      out.formaTerrainBaseHeight = Number(this.formaTerrainBaseHeight.toFixed(2));
+      out.groundReliefAttached = this.groundReliefAttached();
+      const provider = viewer?.terrainProvider;
+      out.terrainProviderType = provider ? provider.constructor?.name ?? 'unknown' : 'none';
+      out.depthTestAgainstTerrain = !!viewer?.scene.globe.depthTestAgainstTerrain;
+      // Camera position in geographic terms.
+      if (viewer) {
+        const camCarto = viewer.camera.positionCartographic;
+        out.cameraLat = Number(Cesium.Math.toDegrees(camCarto.latitude).toFixed(5));
+        out.cameraLon = Number(Cesium.Math.toDegrees(camCarto.longitude).toFixed(5));
+        out.cameraHeightM = Number(camCarto.height.toFixed(1));
+        // Ground height the globe currently reports at the site centroid (undefined = tile not streamed).
+        if (this.contextBuildingsAt) {
+          const g = viewer.scene.globe.getHeight(
+            Cesium.Cartographic.fromDegrees(this.contextBuildingsAt.lon, this.contextBuildingsAt.lat),
+          );
+          out.globeGetHeightAtSite = typeof g === 'number' ? Number(g.toFixed(1)) : 'undefined(tile not streamed)';
+        }
+      }
+      // First context entity: its seated base/top + whether the camera can see it.
+      const first = this.contextBuildingEntities[0];
+      if (first?.polygon && viewer) {
+        const now = Cesium.JulianDate.now();
+        const base = first.polygon.height?.getValue(now);
+        const top = first.polygon.extrudedHeight?.getValue(now);
+        out.firstEntitySeatBaseM = typeof base === 'number' ? Number(base.toFixed(1)) : base;
+        out.firstEntitySeatTopM = typeof top === 'number' ? Number(top.toFixed(1)) : top;
+        out.firstEntityShow = first.show;
+        // Is the first entity inside the current view frustum? (visibility, not just existence.)
+        try {
+          const bs = first.polygon.hierarchy?.getValue(now);
+          const positions = bs?.positions as Cesium.Cartesian3[] | undefined;
+          if (positions && positions.length) {
+            const sphere = Cesium.BoundingSphere.fromPoints(positions);
+            const vis = viewer.camera.frustum
+              .computeCullingVolume(viewer.camera.position, viewer.camera.direction, viewer.camera.up)
+              .computeVisibility(sphere);
+            out.firstEntityInFrustum = vis !== Cesium.Intersect.OUTSIDE;
+          }
+        } catch { /* frustum probe best-effort */ }
+      }
+    } catch (e) {
+      out.error = String(e);
+    }
+    console.log('[CTX-DIAG] pryzmContextDiag →', out);
+    return out;
+  }
+
   private sampleGround(lat: number, lon: number, baseOverride?: number): number {
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — the fallback base is normally the settled centroid
     // (`formaTerrainBaseHeight`), but a caller placing context under attached relief passes an
@@ -6758,6 +6830,52 @@ export class CesiumViewport {
    * @param force re-fetch even when the centre is unchanged (e.g. after a
    *   project switch that cleared the entities).
    */
+  /**
+   * §CTX-BUILDINGS-SEAT-FIRST (L-635) — ensure the terrain ground base for a context site is
+   * RESOLVED before its buildings are placed, so they seat once at the true city elevation instead
+   * of at ellipsoid 0 then re-seated (the base-0-then-lift race). Awaited in PARALLEL with the
+   * footprint fetch (no added latency). Steps, each guarded so it can only ever return a usable base:
+   *   1. Attach the baked terrain for this city (idempotent; no-op on flat/keyless/terrain-off).
+   *   2. No real elevation provider (flat / un-baked / terrain toggled off) → base 0 is EXACT ground.
+   *   3. Already sampled for this exact centroid (clampTerrainThenReplace may have run) → reuse it.
+   *   4. Otherwise `sampleTerrainMostDetailed` at the centroid → set `formaTerrainBaseHeight`.
+   * Returns the resolved base (0 on the flat path). Never throws.
+   */
+  private async ensureGroundBaseForContext(lat: number, lon: number): Promise<number> {
+    try {
+      await this.maybeAttachTerrainProvider(lat, lon);   // idempotent; attaches baked terrain if any.
+    } catch { /* attach failure → stay on whatever ground we have */ }
+    const viewer = this.viewer;
+    if (!viewer) return this.formaTerrainBaseHeight;
+    const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
+    // Flat / keyless / un-baked city / terrain toggled off → the ellipsoid IS the ground (base 0).
+    if (!provider || !this.terrainProviderHasElevationData(provider)) return this.formaTerrainBaseHeight;
+    // Already resolved for this exact centroid → reuse (don't re-sample the network every load).
+    const prev = this.formaTerrainSampledAt;
+    if (
+      prev && Math.abs(prev.lat - lat) < 1e-6 && Math.abs(prev.lon - lon) < 1e-6 &&
+      Math.abs(this.formaTerrainBaseHeight) >= 1e-3
+    ) {
+      return this.formaTerrainBaseHeight;
+    }
+    try {
+      const carto = Cesium.Cartographic.fromDegrees(lon, lat);
+      const [result] = await Cesium.sampleTerrainMostDetailed(provider, [carto]);
+      const h = result?.height;
+      if (typeof h === 'number' && Number.isFinite(h)) {
+        this.formaTerrainBaseHeight = h;
+        this.formaTerrainSampledAt = { lat, lon };
+        console.log(
+          `[CTX-DIAG] seat-first: terrain ground sampled ${h.toFixed(1)} m at LAT ${lat.toFixed(5)} ` +
+            `LON ${lon.toFixed(5)} — context will be placed on it (no base-0 pass, no re-seat).`,
+        );
+      }
+    } catch (e) {
+      this.warnTerrainOnce('seat-first ground sample failed — using current base: ' + String(e));
+    }
+    return this.formaTerrainBaseHeight;
+  }
+
   public async loadContextBuildings(lat: number, lon: number, force = false): Promise<void> {
     const viewer = this.viewer;
     if (!viewer) return;
@@ -6811,7 +6929,18 @@ export class CesiumViewport {
     let near: ContextBuildingCollection;
     let far: ContextBuildingCollection;
     try {
-      const split = await fetchContextBuildingsNearAndFar(lat, lon, signal);
+      // §CTX-BUILDINGS-SEAT-FIRST (L-635) — resolve the terrain ground base IN PARALLEL with the
+      // footprint fetch, so context is seated ONCE at the real city elevation (~650 m Madrid) the
+      // first time — never at ellipsoid 0 then re-seated later (the base-0-then-lift race that left
+      // Madrid/Zürich/Amsterdam blank while flat Barcelona/Copenhagen rendered). The terrain sample
+      // overlaps the ~1–2 s Overpass/PMTiles read, so it adds no wall-clock: `ensureGroundBaseForContext`
+      // attaches the baked terrain + samples the centroid ground and sets `formaTerrainBaseHeight`
+      // BEFORE the placement loop below reads it via `resolveContextSafeBase`. Flat/keyless/terrain-off
+      // resolves to 0 immediately (no regression).
+      const [split] = await Promise.all([
+        fetchContextBuildingsNearAndFar(lat, lon, signal),
+        this.ensureGroundBaseForContext(lat, lon),
+      ]);
       near = split.near;
       far = split.far;
     } catch (e) {
