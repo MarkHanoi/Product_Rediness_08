@@ -45,11 +45,16 @@ import {
     resolveFacadeStudySubject,
     includeProposedMassingAsOccluder,
     type FacadeStudySubject,
+    type EnvelopeStudyInput,
 } from "./facadeStudySubject";
 // C06 §7 / §233 — z-index comes from the single named scale, never a hand-picked literal.
 import { zCss } from "../layout/zLayers";
-import { envelopeRenderStyle } from "../site/envelopeRenderStyle";
-import type { EnvelopeConfidence } from "@pryzm/schemas";
+// C58 §1.14 / STRUCTURAL-SEAM-1 — the massing render is a DUMB RASTERISER of `MassingSolid[]`
+// derived by the pure L2 `envelopeToMassing`. This viewport holds NO per-field knowledge of the
+// envelope: it maps each solid's hue to the SAME two colours the flat surfaces use (imported from the
+// single colour authority), and extrudes `[baseHeightM, topHeightM]` — it never re-derives a height.
+import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS } from "../site/envelopeRenderStyle";
+import type { MassingSolid } from "@pryzm/site-parcel-data";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
 import { fetchContextParks, type ContextParkCollection } from "./contextParks";
@@ -420,6 +425,32 @@ type FormaUse = keyof typeof FORMA_USE_COLOURS;
  * visible top + sides are unaffected; the buried base is simply never seen.
  */
 const FORMA_BASE_SINK_M = 0.6;
+
+/**
+ * §FACADE-STUDY-SUBJECT (L-596) × C58 §1.14 — collapse the envelope's `MassingSolid[]` to the ONE
+ * ring + height the envelope sun study runs on: the tallest VOLUME-CLAIMING solid (the FAR solid or
+ * the tallest tier — never the translucent legal-ceiling shell). Returns a ring with a null height
+ * when the envelope is a flat footprint slab (no volume claim), so the study REFUSES with the
+ * §ENVELOPE-NO-FABRICATED-HEIGHT (L-525a) message rather than inventing one. Null → no envelope.
+ * Pure: the render holds no envelope knowledge; it only picks the tallest solid the engine produced.
+ */
+function envelopeStudyInputFromSolids(
+  env: { solids: ReadonlyArray<MassingSolid> } | null | undefined,
+): EnvelopeStudyInput | null {
+  const solids = env?.solids ?? [];
+  if (solids.length === 0) return null;
+  let tallest: MassingSolid | null = null;
+  for (const s of solids) {
+    if (!s.claimsVolume) continue;
+    if (!tallest || s.topHeightM - s.baseHeightM > tallest.topHeightM - tallest.baseHeightM) tallest = s;
+  }
+  if (tallest) {
+    return { ring: tallest.ring, maxHeightM: tallest.topHeightM - tallest.baseHeightM };
+  }
+  // Only footprint slabs (no claimed height): expose the ring with a null height so the study
+  // refuses honestly instead of fabricating a height (L-525a).
+  return { ring: solids[0]!.ring, maxHeightM: null };
+}
 
 /**
  * FORMA.3 — NW oblique camera handoff (SPEC §4.5): heading 325°, pitch −45°.
@@ -3832,35 +3863,18 @@ export class CesiumViewport {
      */
     fullBuildingHeightM?: number;
     /**
-     * C58 (L-402b) — the BUILDABLE ENVELOPE study volume. When present + visible,
-     * a translucent PRYZM-purple (#6600FF) prism is extruded from the site base
-     * up to `maxHeightM`, from the setback-INSET ring (scene-XZ metres). Anchored
-     * through the SAME `toCartesian` ENU projection as the parcel boundary + the
-     * white massing (SPEC-BUILDABLE-ENVELOPE-UX §4 — no re-derivation), so the
-     * envelope base sits coincident with the inset of the drawn parcel. The parcel
-     * outline still draws on the ground so the setback gap reads. Optional — older
-     * callers omit it → unchanged behaviour.
+     * C58 §1.14 / STRUCTURAL-SEAM-1 — the BUILDABLE ENVELOPE study volume, as the COMPLETE set of
+     * solids to draw, already derived from the whole `BuildableEnvelope` by the pure L2
+     * `envelopeToMassing`. This viewport is a DUMB RASTERISER: it extrudes each solid's
+     * `[baseHeightM, topHeightM]` (metres above the site datum) through the SAME `toCartesian` ENU
+     * projection as the parcel boundary + the white massing (SPEC-BUILDABLE-ENVELOPE-UX §4 — no
+     * re-derivation) and reads `style` for hue/fill. It MUST NOT re-derive a height from a scalar and
+     * holds NO per-field knowledge of the envelope (tiers / FAR / upper-bound / confidence are all
+     * decided upstream). Empty / null → no envelope drawn (unchanged behaviour). Every honesty field
+     * — `tiers[]`, `farLimitedHeight_m`, `footprintIsUpperBound`, `maxVolumeM3` — reaches the picture
+     * through this one carrier, so no jurisdiction can overstate at the render.
      */
-    envelope?: {
-      /** Setback-inset ring in scene-XZ metres (C58 BuildableEnvelope.insetPolygon). */
-      ring: ReadonlyArray<{ x: number; z: number }>;
-      /** Max height in metres (extrusion top); falls back to a nominal 9 m when null. */
-      maxHeightM: number | null;
-      /**
-       * §L-616 — the FAR-realistic massing height (m). When present + below `maxHeightM`, the
-       * render draws BOTH a translucent "height shell" at `maxHeightM` (the outer legal bound) and
-       * an opaque solid at this height (what FAR permits). Null / absent / ≥ `maxHeightM` → the
-       * single solid at `maxHeightM` as before (Barcelona 13a/13b and every current-good case).
-       */
-      farLimitedHeightM?: number | null;
-      /**
-       * §ENVELOPE-CONFIDENCE-COLOUR (L-608) — the C58 confidence label, or null when unknown (a
-       * persisted ring whose provenance was deliberately not re-derived). Drives the render hue:
-       * a real determination is violet, an estimate / flat / unknown is grey. Optional — older
-       * callers omit it → treated as unknown → grey (the conservative, honest default).
-       */
-      confidence?: EnvelopeConfidence | null;
-    } | null;
+    envelope?: { solids: ReadonlyArray<MassingSolid> } | null;
   }): void {
     const viewer = this.viewer;
     if (!viewer) {
@@ -4725,143 +4739,80 @@ export class CesiumViewport {
       }
     }
 
-    // ── C58 buildable-envelope study volume ───────────────────────────────────
-    // §ENVELOPE-VIA-MASSING (L-402d — founder's architectural fix) — the buildable
-    // envelope is ONE MORE MASSING VOLUME, produced from the C58 `BuildableEnvelope`
-    // ring + max height and built EXACTLY like the storey-band massing prisms above:
+    // ── C58 §1.14 buildable-envelope study volume — the DUMB RASTERISER ─────────
+    // §ENVELOPE-VIA-MASSING (L-402d) / STRUCTURAL-SEAM-1 — the buildable envelope is
+    // a set of MASSING VOLUMES built EXACTLY like the storey-band massing prisms above:
     // the SAME `viewer.entities.add({ polygon: { hierarchy, height, extrudedHeight,
     // material } })` construction, the SAME `formaMassingEntities` lifecycle (cleared
     // by `clearFormaMassing` on every re-render), the SAME `toCartesian` ENU frame.
     //
-    // WHY (root cause of the old fragility): the envelope used to be a SEPARATE render
-    // path — a prism PLUS a bespoke `depthFailMaterial` top-ring polyline. That polyline
-    // was the L-402c crash (a Dash depth-fail material threw inside `scene.render()` and
-    // blanked the whole viewer) and, even after the crash fix, it kept the envelope on a
-    // one-off path that could render nothing while the proven massing path rendered fine.
-    // The founder's insight: the building massing ALREADY renders reliably on the Forma
-    // Site, and the envelope is a SIMPLER single extruded polygon — so it must go through
-    // the identical mechanism. No separate polyline, no depth-fail, no bespoke guards.
-    // Translucent #6600FF so the parcel + context still read through as a STUDY volume.
-    const envelope = input.envelope;
-    const envelopePresent = !!(envelope && envelope.ring && envelope.ring.length >= 3);
+    // ⚠ THIS LOOP HOLDS NO ENVELOPE KNOWLEDGE. Every decision — how many solids, each
+    // solid's ring / base / top, its hue, its fill, whether it is an upper-bound study
+    // extent, a FAR solid, a legal-ceiling shell, a tier or a flat footprint slab — was
+    // made by the pure L2 `envelopeToMassing` and arrives as `input.envelope.solids`.
+    // The render never re-derives a height from a scalar (C58 §1.14.2). That inversion
+    // is what makes render-side over-statement structurally impossible: every honesty
+    // field (`tiers[]`, `farLimitedHeight_m`, `footprintIsUpperBound`, `maxVolumeM3`,
+    // `confidence`) reaches the picture through this one carrier, proven non-overstating
+    // for every registered pack by `check-envelope-solid-never-overstates`.
+    //
+    // §L-616 folds in as the `far-massing` + `height-shell` roles; §L-619 (the DK/
+    // Copenhagen no-setbacks case) folds in as `style.footprintUpperBound` driving the
+    // near-wireframe fill — ONE code path, not two.
+    const envSolids = input.envelope?.solids ?? [];
+    const envelopePresent = envSolids.length > 0;
     let envelopeEntitiesAdded = 0;
-    if (envelopePresent) {
+    // The SINGLE colour authority: a solid's hue → the same two colours the flat surfaces use.
+    const hueCss = (hue: MassingSolid['style']['hue']): string =>
+      hue === 'confident' ? CONFIDENT_VIOLET_CSS : PROVISIONAL_GREY_CSS;
+    // Every entity is pushed to BOTH the massing list AND the §SITE-OVERLAY-NOT-BUILDING (L-468)
+    // survival set — the buildable envelope is a compliance constraint, not a massing block, so it
+    // must survive the "real model supersedes the massing" step. Shadows OFF (a study volume must
+    // not cast a solid building shadow). The extrusion is EXACTLY the solid's [base, top]; the base
+    // sink (no z-fight) applies only to a ground-touching solid (baseHeightM === 0).
+    for (const solid of envSolids) {
+      if (!solid.ring || solid.ring.length < 3) continue;
       try {
-        // §ENVELOPE-NO-FABRICATED-HEIGHT (L-525a) — ⚠ THIS USED TO BE `: 9`.
-        //
-        // When the zone published no maximum height (every Barcelona 13a alignment zone, BY DESIGN
-        // — the height is constructed from Art. 327.2, not stated), this fell back to a hardcoded
-        // 9 m and extruded it in the SAME translucent purple study volume as a real one. A
-        // fabricated ~PB+2 was therefore indistinguishable from a surveyed height, on streets whose
-        // real answer is PB+5 ≈ 20.75 m — the founder's "the height is absolutely not correct".
-        // That is the L-459 defect class (a fabricated value rendering exactly like a measured one)
-        // reached through the envelope instead of the context.
-        //
-        // With a known height we extrude it. WITHOUT one we now show a FOOTPRINT SLAB, not an
-        // invented building: it reads unmistakably as "this is the buildable area, we do not claim
-        // a height" instead of quietly asserting three storeys. An absent height costs a flat
-        // study volume; a fabricated one costs a wrong building, and only one of those is
-        // recoverable by a user who cannot see which it was.
-        const FOOTPRINT_ONLY_HEIGHT_M = 0.5;
-        const hasRealHeight =
-          typeof envelope!.maxHeightM === 'number' && envelope!.maxHeightM > 0;
-        if (!hasRealHeight) {
-          console.log(
-            `[CesiumViewport][forma] §ENVELOPE-NO-FABRICATED-HEIGHT — no maxHeight on this envelope, ` +
-              `so the study volume is drawn as a ${FOOTPRINT_ONLY_HEIGHT_M} m FOOTPRINT SLAB rather than ` +
-              `an invented prism. For Barcelona 13a this means the Art. 327.2 alçada could not be ` +
-              `constructed — since L-537 that is no longer "the street is unlisted" (the width is now ` +
-              `MEASURED from the block, ~86% of Barcelona frontages resolve): read the §BCN-ALCADA ` +
-              `line for the real reason — no block ring, no opposing frontage, or a width genuinely ` +
-              `between two storey bands. Fix the width source, not this fallback.`,
-          );
-        }
-        const envTop = baseHeight +
-          (hasRealHeight ? envelope!.maxHeightM! : FOOTPRINT_ONLY_HEIGHT_M);
-        const envBottom = baseHeight - FORMA_BASE_SINK_M; // seat below ground (no z-fight).
-        const positions = envelope!.ring.map((p) => toCartesian(p.x, p.z, envBottom));
-        // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — a confident, complete determination stays the unified
-        // violet; an estimate (`estimated-ruleset`/unverified/unknown) OR a flat footprint (no
-        // confirmed height, `hasRealHeight === false`) renders a muted grey, so the "COULDN'T
-        // COMPLETE" fallback the founder hit on clau 13a can never look like a surveyed envelope.
-        const envStyle = envelopeRenderStyle(envelope!.confidence ?? null, hasRealHeight);
-        if (!envStyle.complete) {
-          console.log(
-            `[CesiumViewport][forma] §ENVELOPE-CONFIDENCE-COLOUR — envelope drawn GREY (${envStyle.cssHex}): ${envStyle.reason}.`,
-          );
-        }
-        // §L-616 — FAR-BOUND MASSING (§CONTEXT-DATA-HONESTY). When FAR caps usable floorspace
-        // BELOW the height cap, extruding footprint × maxHeight overstates buildable VOLUME (the
-        // founder's Copenhagen ~5× defect: 24 m / ~8 storeys drawn where FAR 1.5 permits ~1.5
-        // floors). In that case draw BOTH: a translucent "height shell" at the legal max height AND
-        // an opaque solid at the FAR-realistic height INSIDE it. When FAR does not bind
-        // (`farLimitedHeightM` null / absent / ≥ maxHeight — every Barcelona 13a/13b alignment zone
-        // and every current-good pack) draw exactly ONE solid to `envTop`, byte-identical to today.
-        const hasFarLimit =
-          typeof envelope!.farLimitedHeightM === 'number' &&
-          envelope!.farLimitedHeightM > 0 &&
-          hasRealHeight &&
-          envelope!.farLimitedHeightM < envelope!.maxHeightM! - 1e-6;
-
-        // One entity builder for both massings — identical construction to the storey-band prism,
-        // differing ONLY in the translucent study fill + shadows-off (a study volume must not cast a
-        // solid building shadow). `fillAlpha` is the only knob: ~0.08 for the see-through height
-        // shell, 0.34 for the solid FAR/legacy massing. Every entity is pushed to BOTH the massing
-        // list AND the §SITE-OVERLAY-NOT-BUILDING (L-468) survival set — the buildable envelope is a
-        // compliance constraint, not a massing block, so it must survive the "real model supersedes
-        // the massing" step (its omission in the first pass is why the founder lost it before).
-        const addEnvelopeEntity = (name: string, top: number, fillAlpha: number): void => {
-          const e = viewer.entities.add({
-            name,
-            polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(positions),
-              height: envBottom,
-              extrudedHeight: top,
-              material: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(fillAlpha),
-              outline: true,
-              outlineColor: Cesium.Color.fromCssColorString(envStyle.cssHex).withAlpha(1.0),
-              outlineWidth: 2,
-              shadows: Cesium.ShadowMode.DISABLED,
-              perPositionHeight: false,
-              closeTop: true,
-              closeBottom: true,
-            },
-          });
-          this.formaMassingEntities.push(e);
-          this.formaSiteOverlayEntities.add(e);
-          envelopeEntitiesAdded += 1;
-        };
-
-        if (hasFarLimit) {
-          const shellTop = baseHeight + envelope!.maxHeightM!;
-          const farTop = baseHeight + envelope!.farLimitedHeightM!;
-          // Height shell FIRST (the legal-ceiling boundary): near-transparent fill so it reads as a
-          // boundary rather than a solid, but the outline stays full-alpha so the ceiling is legible.
-          addEnvelopeEntity('pryzm-forma-envelope-height-shell', shellTop, 0.08);
-          // FAR massing: the realistic solid the ordinance's floorspace cap actually permits.
-          addEnvelopeEntity('pryzm-forma-envelope-far-massing', farTop, 0.34);
-          console.log(
-            `[CesiumViewport][forma] §L-616 buildable envelope drawn SPLIT: FAR massing (solid) to ` +
-              `${farTop.toFixed(1)} m INSIDE a translucent height shell to ${shellTop.toFixed(1)} m ` +
-              `— ${envelope!.ring.length}-vertex inset, ${envStyle.cssHex} ` +
-              `(FAR caps floorspace below the ${envelope!.maxHeightM!.toFixed(1)} m legal ceiling).`,
-          );
-        } else {
-          // Unchanged single-solid path — same entity name so any name-based consumer is unaffected.
-          addEnvelopeEntity('pryzm-forma-buildable-envelope', envTop, 0.34);
-          console.log(
-            `[CesiumViewport][forma] buildable envelope drawn via massing path: ` +
-              `${envelope!.ring.length}-vertex inset, top ${envTop.toFixed(1)} m ` +
-              `(#6600FF translucent extruded polygon — same entity type as the storey massing).`,
-          );
-        }
+        const cssHex = hueCss(solid.style.hue);
+        const bottom = baseHeight + solid.baseHeightM - (solid.baseHeightM === 0 ? FORMA_BASE_SINK_M : 0);
+        const top = baseHeight + solid.topHeightM;
+        const positions = solid.ring.map((p) => toCartesian(p.x, p.z, bottom));
+        const e = viewer.entities.add({
+          name: solid.id,
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: bottom,
+            extrudedHeight: top,
+            material: Cesium.Color.fromCssColorString(cssHex).withAlpha(solid.style.fillAlpha),
+            outline: true,
+            outlineColor: Cesium.Color.fromCssColorString(cssHex).withAlpha(1.0),
+            outlineWidth: 2,
+            shadows: Cesium.ShadowMode.DISABLED,
+            perPositionHeight: false,
+            closeTop: true,
+            closeBottom: true,
+          },
+        });
+        this.formaMassingEntities.push(e);
+        this.formaSiteOverlayEntities.add(e);
+        envelopeEntitiesAdded += 1;
       } catch (e) {
-        console.warn('[CesiumViewport][forma] envelope volume failed — skipped:', e);
+        console.warn(`[CesiumViewport][forma] envelope solid "${solid.id}" failed — skipped:`, e);
       }
+    }
+    if (envelopePresent) {
+      const roles = envSolids.map((s) => `${s.role}@${s.topHeightM.toFixed(1)}m`).join(', ');
+      const upper = envSolids.some((s) => s.style.footprintUpperBound);
+      const grey = envSolids.some((s) => s.style.hue === 'provisional');
+      console.log(
+        `[CesiumViewport][forma] §ENVELOPE-VIA-MASSING (§1.14 rasteriser) drew ${envelopeEntitiesAdded}/` +
+          `${envSolids.length} solid(s): [${roles}]${upper ? ' · UPPER-BOUND (max extent)' : ''}` +
+          `${grey ? ' · provisional grey' : ' · confident violet'}.`,
+      );
     }
     // §ENVELOPE-VIA-MASSING diagnostic — envelope present? entities added? which viewer?
     // The founder's next console tells us EXACTLY where the paned render dies: if this
-    // logs `present=y added=1` on the SAME instanceId the camera framed, the envelope is
+    // logs `present=y added≥1` on the SAME instanceId the camera framed, the envelope is
     // in the shown viewer and any invisibility is a camera/occlusion issue, not a wrong
     // viewer / short-circuited add.
     console.log(
@@ -7935,7 +7886,7 @@ export class CesiumViewport {
     if (studySubject === 'envelope') {
       const resolution = resolveFacadeStudySubject({
         subject: 'envelope',
-        envelope: input?.envelope ?? null,
+        envelope: envelopeStudyInputFromSolids(input?.envelope),
         hasBuildingRing: false,
       });
       if (resolution.status === 'refused') {
@@ -7987,7 +7938,7 @@ export class CesiumViewport {
       // question" hint) is stated in exactly one place. It still REFUSES; it does not reach for
       // the envelope, which is the L-272 substitution this feature exists to keep closed.
       const refusal = resolveFacadeStudySubject({
-        subject: 'building', envelope: input?.envelope ?? null, hasBuildingRing: false,
+        subject: 'building', envelope: envelopeStudyInputFromSolids(input?.envelope), hasBuildingRing: false,
       });
       const reason = refusal.status === 'refused' ? refusal.reason : 'no building footprint';
       console.log(`[CesiumViewport][forma-facade] no building footprint (no boundary / wall-loop / slab / massing) — skipping façade analysis. ${reason}`);
@@ -9214,9 +9165,11 @@ export class CesiumViewport {
     // MISSES this key and recomputes. ⚠ This EXTENDS the §PERF-SUNHOURS-NO-RECOMPUTE cache; it
     // does not defeat it: with the subject unchanged the key is byte-identical to before, so every
     // existing repaint that short-circuited still short-circuits.
-    const env = inp?.envelope ?? null;
-    const envSig = env && env.ring?.length
-      ? `e${env.ring.length}:${(env.maxHeightM ?? 0).toFixed(1)}:${env.ring[0]!.x.toFixed(1)},${env.ring[0]!.z.toFixed(1)}`
+    // C58 §1.14 — the envelope's identity for the study cache is the tallest volume-claiming solid's
+    // ring + height (the study subject), derived the SAME way the façade study resolves it.
+    const envStudy = envelopeStudyInputFromSolids(inp?.envelope);
+    const envSig = envStudy && envStudy.ring.length
+      ? `e${envStudy.ring.length}:${(envStudy.maxHeightM ?? 0).toFixed(1)}:${envStudy.ring[0]!.x.toFixed(1)},${envStudy.ring[0]!.z.toFixed(1)}`
       : 'e0';
     return `${this.facadeStudySubject}|${envSig}|${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}|${bSig}|${wSig}|${sSig}|h${heightM.toFixed(1)}|${this.siteMetricSunDay}|${this.siteMetricGeometrySig()}`;
   }

@@ -16,7 +16,6 @@ import {
     getLastBuildableEnvelope,
     resolveRenderableBuildableEnvelope,
 } from '../site/siteDispatch';
-import type { EnvelopeConfidence } from '@pryzm/schemas';
 // §PARCEL-SELECT (L-380 P1 → L-613) — the real cadastral parcel data source for the map's
 // "Select parcel" mode. `defaultParcelProvider` is now the PER-JURISDICTION REGISTRY
 // (`parcelRegistry.ts`): a click routes to the right OPEN national cadastre — Catastro (ES),
@@ -73,7 +72,16 @@ import {
     type LiveUpdateEventBus,
 } from '../../engine/views/siteAuthoringPaneDecisions';
 // L-402 — the PURE explain-why report model (C58 §1.3 derivation → presentable rows).
-import { buildComplianceReport, BCN_ART323_DWELLING_MODULE_M2 } from '@pryzm/site-parcel-data';
+import {
+    buildComplianceReport,
+    BCN_ART323_DWELLING_MODULE_M2,
+    // C58 §1.14 / STRUCTURAL-SEAM-1 — the pure L2 function that turns a WHOLE `BuildableEnvelope`
+    // into the solids the 3D massing draws. `resolveFormaEnvelope` no longer narrows the envelope to
+    // four fields; it passes the full contract here so no honesty field is discarded at the render.
+    envelopeToMassing,
+    type MassingSolid,
+    type BuildableEnvelopeMassingInput,
+} from '@pryzm/site-parcel-data';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -1893,9 +1901,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * `resolveRenderableBuildableEnvelope()`, which prefers this session's solved envelope and
      * falls back to the PERSISTED `Parcel.buildableRing` (C58 §1.7a / ADR-0270 option A).
      */
-    const resolveFormaEnvelope = ():
-        | { ring: Array<{ x: number; z: number }>; maxHeightM: number | null; farLimitedHeightM: number | null; confidence: EnvelopeConfidence | null }
-        | null => {
+    const resolveFormaEnvelope = (): { solids: MassingSolid[] } | null => {
         // §ENVELOPE-RESOLVE-DIAG (L-445) — say WHY, every time. The previous diagnostic reported
         // only `present=n`, which is a symptom with four possible causes (toggle off / no cached
         // envelope / no persisted ring / degenerate re-inset). That ambiguity cost a full
@@ -1906,31 +1912,52 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.log('[gis][c58] §ENVELOPE-RESOLVE-DIAG — envelope OFF (user toggle); not rendered.');
             return null;
         }
-        const env = resolveRenderableBuildableEnvelope(runtime ?? null);
-        if (!env || env.ring.length < 3) {
+        // C58 §1.14 / STRUCTURAL-SEAM-1 — the 4-field narrowing is GONE. When this session solved a
+        // full envelope we pass the WHOLE `BuildableEnvelope` to the pure `envelopeToMassing`, so
+        // `tiers[]`, `maxVolumeM3`, `maxCoverage` and `footprintIsUpperBound` all reach the render
+        // that used to discard them. `envelopeToMassing` is the single place massing geometry is
+        // derived; this file only chooses the SOURCE envelope and forwards it.
+        const full = getLastBuildableEnvelope();
+        if (full && full.status === 'ok' && full.insetPolygon.length >= 3) {
+            const solids = envelopeToMassing(full);
+            console.log(
+                `[gis][c58] §ENVELOPE-RESOLVE-DIAG — SOLVED envelope → ${solids.length} solid(s) ` +
+                    `(source=solved, confidence=${full.confidence}, tiers=${full.tiers.length}, ` +
+                    `upperBound=${full.footprintIsUpperBound}, maxHeight=${full.maxHeight_m ?? 'n/a'} m).`,
+            );
+            return solids.length > 0 ? { solids } : null;
+        }
+        // L-445 fallback — this session did NOT solve (reload / open-from-hub). Recover the persisted
+        // ring (C58 §1.7a) via the geometry-only resolver and pass a MINIMAL envelope through the SAME
+        // pure function, so there is ONE render path. The minimal envelope carries only what was
+        // honestly re-derived — the ring + `Parcel.maxHeight` — with confidence null (⇒ provisional
+        // grey) and no tiers/FAR/upper-bound, exactly the §1.7a honesty rule: we do not re-synthesise
+        // provenance we did not re-derive.
+        const geo = resolveRenderableBuildableEnvelope(runtime ?? null);
+        if (!geo || geo.ring.length < 3) {
             console.log(
                 '[gis][c58] §ENVELOPE-RESOLVE-DIAG — NO ring available: no envelope solved this ' +
                     'session, no persisted buildableRing, and no re-inset from persisted setbacks ' +
-                    `(resolver returned ${env ? `${env.ring.length}-pt ring` : 'null'}). ` +
+                    `(resolver returned ${geo ? `${geo.ring.length}-pt ring` : 'null'}). ` +
                     'Re-commit the parcel to solve one.',
             );
             return null;
         }
-        console.log(
-            `[gis][c58] §ENVELOPE-RESOLVE-DIAG — ring OK: ${env.ring.length} pts, source=${env.source}, ` +
-                `maxHeight=${env.maxHeightM ?? 'n/a'} m.`,
-        );
-        // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — carry the confidence through so the Cesium prism can
-        // render grey for an estimate/flat envelope. Null on the persisted/re-inset paths (provenance
-        // deliberately not re-derived) → treated as unknown → grey, the conservative honest default.
-        return {
-            ring: env.ring.map((p) => ({ x: p.x, z: p.z })),
-            maxHeightM: env.maxHeightM,
-            // §L-616 — forward the FAR-realistic height so the Cesium massing draws the height shell
-            // + the FAR-sized solid when FAR binds; null → single solid at maxHeight (unchanged).
-            farLimitedHeightM: env.farLimitedHeightM,
-            confidence: env.confidence,
+        const minimal: BuildableEnvelopeMassingInput = {
+            insetPolygon: geo.ring.map((p) => ({ x: p.x, z: p.z })),
+            maxHeight_m: geo.maxHeightM,
+            farLimitedHeight_m: geo.farLimitedHeightM,
+            confidence: geo.confidence,
+            footprintIsUpperBound: false,
+            status: 'ok',
+            tiers: [],
         };
+        const solids = envelopeToMassing(minimal);
+        console.log(
+            `[gis][c58] §ENVELOPE-RESOLVE-DIAG — ring OK (source=${geo.source}) → ${solids.length} solid(s), ` +
+                `maxHeight=${geo.maxHeightM ?? 'n/a'} m (provenance not re-derived → provisional grey).`,
+        );
+        return solids.length > 0 ? { solids } : null;
     };
 
     /** §L-412 (C59 Phase 1b) — the DOM host for the 3D-Site chrome (envelope card).
@@ -2395,8 +2422,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // NOT wear the ESTIMATED badge — but it is a CONSTRUCTED determination, not an official
         // certificate, so the badge says "Real · constructed" (not a bare "verified"), per the
         // RISK-REGISTER R1 wording condition. Green (real) with the honest qualifier.
-        const badge =
-            env.confidence === 'estimated-ruleset'
+        // §L-619 / §CONTEXT-DATA-HONESTY — when the FOOTPRINT is a whole-parcel UPPER BOUND (the
+        // ordinance publishes no setbacks, so the inset could not be shaped — the Copenhagen case),
+        // the confidence badge must NOT read "STRUCTURED": the height/FAR are structured, but the
+        // FOOTPRINT is a maximum extent, and a "STRUCTURED" chip over a full-parcel ring is exactly
+        // the confident-solid overstatement L-616/L-619 exist to remove. Show an honest amber "Max
+        // extent" chip instead; the per-field provenance stays intact in the "Why these numbers?"
+        // rows (height/FAR are still badged PUB/EST there). Same signal the §1.14 rasteriser uses to
+        // draw the near-wireframe max-extent solid — one honesty decision, two surfaces.
+        const isUpperBound = env.footprintIsUpperBound === true;
+        const badge = isUpperBound
+            ? '<span title="The footprint shown is the whole parcel because this ordinance publishes no setbacks — a MAXIMUM extent, not a solved buildable area. The height and FAR are real; only the footprint is an upper bound." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Max extent — setbacks unpublished</span>'
+            : env.confidence === 'estimated-ruleset'
                 ? '<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
                 : env.confidence === 'block-constructed'
                 ? '<span title="Real inputs + accepted rule + constructed geometry — not an official municipal certificate" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Real · constructed</span>'
@@ -2496,11 +2533,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max FAR</span><span style="font-weight:600;">${farTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>`;
+        // §L-619 / §CONTEXT-DATA-HONESTY — the honest caveat for an upper-bound footprint. States,
+        // in words, that the footprint == the whole parcel BECAUSE the ordinance publishes no
+        // setbacks (so it could not be reduced), that a real building will therefore be smaller, and
+        // that this is a MAXIMUM extent, not a buildable solid. Height/FAR are untouched — they are
+        // structured; only the FOOTPRINT is the upper bound.
+        const upperBoundCaveat = isUpperBound
+            ? `<div style="margin-top:8px;padding:6px 8px;background:#fff6e8;border-radius:6px;color:#8a5a00;font-size:10px;line-height:1.5;">
+                 <b>Footprint = whole parcel.</b> This ordinance publishes no setbacks (e.g. byggelinjer),
+                 so the buildable area could not be reduced from the lot outline — the shape shown is a
+                 <b>maximum extent</b>, not a buildable solid. A real building will be smaller (neighbouring
+                 blocks here keep a rear-yard setback). Height and FAR are real; only the footprint is an upper bound.
+               </div>`
+            : '';
         panel.innerHTML =
-            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
+            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}
              </div>
              ${rows}
+             ${upperBoundCaveat}
              <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
                ${sourceLine}
              </div>
