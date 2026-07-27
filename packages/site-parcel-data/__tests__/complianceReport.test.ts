@@ -1,7 +1,11 @@
 // L-402 — pure tests for the compliance "explain-why" report model.
 
 import { describe, it, expect } from 'vitest';
-import { buildComplianceReport, formatConstraintValue } from '../src/complianceReport.js';
+import {
+    buildComplianceReport,
+    formatConstraintValue,
+    resolveHeadlineProvenance,
+} from '../src/complianceReport.js';
 import type { BuildableEnvelope } from '@pryzm/schemas';
 
 const entry = (
@@ -88,6 +92,80 @@ describe('§L-402 buildComplianceReport', () => {
         const r = buildComplianceReport(mkEnv({ confidence: 'structured', status: 'degenerate' } as Partial<BuildableEnvelope>))!;
         expect(r.confidence).toBe('structured');
         expect(r.status).toBe('degenerate');
+    });
+});
+
+describe('STRUCTURAL-SEAM-3 (C58 §5.4a) resolveHeadlineProvenance — headline = WEAKEST field', () => {
+    it('returns the empty (nothing-known) model for a null report', () => {
+        const h = resolveHeadlineProvenance(null);
+        expect(h.weakestField).toBeNull();
+        expect(h.hasRealField).toBe(false);
+        expect(h.hasEstimatedField).toBe(false);
+        expect(h.confidenceUnderRatesFields).toBe(false);
+    });
+
+    it('a MIXED report (published height + estimated setback) resolves the WEAKEST field to estimated', () => {
+        // The default mkEnv is exactly this shape: 2 estimated setbacks + 2 published-structured rows.
+        const h = resolveHeadlineProvenance(buildComplianceReport(mkEnv()));
+        expect(h.weakestField).toBe('estimated');
+        expect(h.hasEstimatedField).toBe(true);
+        expect(h.hasRealField).toBe(true);
+        // The scalar IS estimated AND a field IS estimated → not the L-630 under-rating case.
+        expect(h.confidenceUnderRatesFields).toBe(false);
+    });
+
+    it('the seam: a STRUCTURED envelope with one estimated field still resolves weakest = estimated', () => {
+        // The header must never out-rank its rows: confidence says `structured`, but a field is EST.
+        const env = mkEnv({ confidence: 'structured' } as Partial<BuildableEnvelope>);
+        const h = resolveHeadlineProvenance(buildComplianceReport(env));
+        expect(h.weakestField).toBe('estimated');
+        expect(h.hasEstimatedField).toBe(true);
+    });
+
+    it('L-630 (NL): estimated-ruleset scalar over ALL-published fields ⇒ confidenceUnderRatesFields, NOT estimated', () => {
+        // A real Amsterdam PDOK envelope: confidence forced to estimated-ruleset by the ZONE-EXTENT
+        // footprint, but every derivation row is real/published. The chip must NOT read "Estimated".
+        const env = mkEnv({
+            confidence: 'estimated-ruleset',
+            derivation: [
+                entry('maxHeight', 16.5, 'published-structured', 'PDOK maatvoering', 'NL-1', 'pdok-rp'),
+                entry('permittedUse', ['residential'], 'published-structured', 'PDOK enkelbestemming', 'NL-1', 'pdok-rp'),
+            ] as never,
+        } as Partial<BuildableEnvelope>);
+        const h = resolveHeadlineProvenance(buildComplianceReport(env));
+        expect(h.weakestField).toBe('published-structured');
+        expect(h.hasEstimatedField).toBe(false);
+        expect(h.hasRealField).toBe(true);
+        expect(h.confidenceUnderRatesFields).toBe(true);
+    });
+
+    it('a GENUINE estimated-default pack (all fields estimated) is NOT the under-rating case', () => {
+        const env = mkEnv({
+            confidence: 'estimated-ruleset',
+            derivation: [
+                entry('setback.front', 3, 'estimated'),
+                entry('maxHeight', 12, 'estimated'),
+            ] as never,
+        } as Partial<BuildableEnvelope>);
+        const h = resolveHeadlineProvenance(buildComplianceReport(env));
+        expect(h.hasEstimatedField).toBe(true);
+        expect(h.hasRealField).toBe(false);
+        expect(h.confidenceUnderRatesFields).toBe(false);
+    });
+
+    it('ranks pipeline-extracted strictly below ordinance-pdf and above estimated', () => {
+        const env = mkEnv({
+            confidence: 'structured',
+            derivation: [
+                entry('maxHeight', 12, 'ordinance-pdf', 'PDF §4', 'X-1', 'pack'),
+                entry('maxFAR', 2, 'pipeline-extracted', null, 'X-1', 'pack'),
+            ] as never,
+        } as Partial<BuildableEnvelope>);
+        const h = resolveHeadlineProvenance(buildComplianceReport(env));
+        expect(h.weakestField).toBe('pipeline-extracted');
+        expect(h.hasEstimatedField).toBe(false);
+        expect(h.hasRealField).toBe(true);
+        expect(h.confidenceUnderRatesFields).toBe(false); // scalar is `structured`, not estimated
     });
 });
 

@@ -74,6 +74,11 @@ import {
 // L-402 — the PURE explain-why report model (C58 §1.3 derivation → presentable rows).
 import {
     buildComplianceReport,
+    // STRUCTURAL-SEAM-3 (C58 §5.4) — the pure L2 authority for the HEADLINE confidence chip: it
+    // resolves to the WEAKEST per-field provenance, so the header can never out-rank its own rows,
+    // and it flags the L-630 NL case (real published fields under an `estimated-ruleset` scalar
+    // reduced for a zone-extent footprint, NOT a default pack).
+    resolveHeadlineProvenance,
     BCN_ART323_DWELLING_MODULE_M2,
     // C58 §1.14 / STRUCTURAL-SEAM-1 — the pure L2 function that turns a WHOLE `BuildableEnvelope`
     // into the solids the 3D massing draws. `resolveFormaEnvelope` no longer narrows the envelope to
@@ -2446,8 +2451,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // rows (height/FAR are still badged PUB/EST there). Same signal the §1.14 rasteriser uses to
         // draw the near-wireframe max-extent solid — one honesty decision, two surfaces.
         const isUpperBound = env.footprintIsUpperBound === true;
+        // STRUCTURAL-SEAM-3 (C58 §5.4a, L-630) — the headline chip is a pure derivation over the
+        // SAME per-field provenance the "Why these numbers?" rows carry, so it can never out-rank
+        // its own rows. `report` is built once here and reused by the explain-why block below.
+        const report = buildComplianceReport(env);
+        const headline = resolveHeadlineProvenance(report);
         const badge = isUpperBound
             ? '<span title="The footprint shown is the whole parcel because this ordinance publishes no setbacks — a MAXIMUM extent, not a solved buildable area. The height and FAR are real; only the footprint is an upper bound." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Max extent — setbacks unpublished</span>'
+            // C58 §5.4a — ANY estimated field forces "Estimated", EVEN when `env.confidence` claims
+            // `structured` / `block-constructed`: the header must not read stronger than its weakest
+            // row. This is the primary seam fix (the old code reached "Estimated" only via the scalar
+            // `confidence === 'estimated-ruleset'`, so a `structured` envelope with an estimated
+            // setback silently badged STRUCTURED).
+            : headline.hasEstimatedField
+                ? '<span title="At least one value in this determination is an ESTIMATE — the headline reflects the weakest field, never stronger than its own rows (see Why these numbers?)." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
+            // L-630 (NL) — `estimated-ruleset` scalar over REAL published fields: the confidence was
+            // reduced by the FOOTPRINT (a zone/bestemmingsvlak extent — an upper bound), NOT by field
+            // provenance. Badging "Estimated" here is the exact mislabel L-630 caught. Say what is
+            // true: the fields are real; the footprint is an upper bound.
+            : headline.confidenceUnderRatesFields
+                ? '<span title="The height and other fields shown are REAL, published values. The footprint shown is the ZONE extent (bestemmingsvlak) — an UPPER BOUND, not a precise per-building buildable area — so overall confidence is reduced. This is not a default rule pack." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Zone extent — upper bound</span>'
             : env.confidence === 'estimated-ruleset'
                 ? '<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
                 : env.confidence === 'block-constructed'
@@ -2472,7 +2495,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // rendered as plain text, never as an anchor href.
         const ordHref = safeHttpUrl(ordRef);
         const sourceLine =
-            env.confidence === 'estimated-ruleset'
+            // L-630 — a real published envelope whose `estimated-ruleset` scalar came from the
+            // zone-extent footprint (NOT a default pack) must NEVER show the "Default rule pack"
+            // line. State the true reason: the fields are real; the footprint is an upper bound.
+            headline.confidenceUnderRatesFields
+                ? '<span style="color:#8a83a0;font-size:10.5px;">Real published fields (e.g. height); the footprint is the zone extent — an upper bound — so overall confidence is reduced. Not a default rule pack.</span>'
+                : env.confidence === 'estimated-ruleset'
                 ? '<span style="color:#8a83a0;font-size:10.5px;">Default rule pack — real DK/ES zoning coming</span>'
                 : env.confidence === 'block-constructed'
                 ? '<span style="color:#8a83a0;font-size:10.5px;">Constructed per PGM Art. 242.2 from the real Catastro block — real inputs + accepted rule, not an official municipal certificate.</span>'
@@ -2487,7 +2515,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // determination — value · zone · source · provenance · citation — is one click away.
         // HONESTY (C58 §1.4): estimated rows are badged individually; a row with no citation
         // reads "no citation" rather than silently looking authoritative.
-        const report = buildComplianceReport(env);
+        // (`report` is built above the badge — STRUCTURAL-SEAM-3 — and reused here.)
         const whyBlock = (() => {
             if (!report || report.rows.length === 0) return '';
             const rowsHtml = report.rows.map((r) => {
@@ -2561,12 +2589,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  blocks here keep a rear-yard setback). Height and FAR are real; only the footprint is an upper bound.
                </div>`
             : '';
+        // STRUCTURAL-SEAM-3 / L-630 — the honest caveat for the NL zone-extent case: `confidence`
+        // is `estimated-ruleset` but every field is REAL/published; the reduction is the FOOTPRINT
+        // (a bestemmingsvlak zone extent — an upper bound), not the fields. `footprintIsUpperBound`
+        // is NOT set on this explicit-area path (that flag is the setback-inset / whole-parcel case
+        // above), so this is a sibling caveat, shown only when `upperBoundCaveat` is not.
+        const zoneExtentCaveat = !isUpperBound && headline.confidenceUnderRatesFields
+            ? `<div style="margin-top:8px;padding:6px 8px;background:#fff6e8;border-radius:6px;color:#8a5a00;font-size:10px;line-height:1.5;">
+                 <b>Footprint = zone extent.</b> No separate buildable footprint (bouwvlak) was published for
+                 this parcel, so the shape shown is the ZONE (bestemmingsvlak) extent — an <b>upper bound</b> on
+                 where you may build, not a precise per-building buildable area. The height and other fields are
+                 real, published values; only the footprint is an upper bound. A real building will be smaller.
+               </div>`
+            : '';
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${badge}
              </div>
              ${rows}
              ${upperBoundCaveat}
+             ${zoneExtentCaveat}
              <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
                ${sourceLine}
              </div>

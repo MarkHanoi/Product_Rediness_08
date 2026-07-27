@@ -217,3 +217,74 @@ export function buildComplianceReport(envelope: BuildableEnvelope | null): Compl
         hasAnyEstimate: estimatedRowCount > 0,
     };
 }
+
+// ── STRUCTURAL-SEAM-3 (C58 §5.4) — the HEADLINE chip is a pure derivation over the SAME per-field
+// provenance the rows carry ─────────────────────────────────────────────────────────────────────
+//
+// WHY THIS EXISTS (L-630, the NL smoking gun)
+// -------------------------------------------
+// The card shows ONE headline confidence chip. Historically it was keyed off the scalar
+// `env.confidence` alone, so it could read `structured` / `block-constructed` while a *field* in
+// the very same "Why these numbers?" table was `estimated` — the header out-ranking its own rows.
+// And the inverse, live on prod: a real Amsterdam PDOK envelope (height = published-structured
+// 16.5 m, footprint = real zone geometry) was badged "ESTIMATED / Default rule pack" because the
+// whole-envelope `confidence` was pushed to `estimated-ruleset` for a DIFFERENT reason (the
+// footprint is a zone-extent UPPER BOUND) than the caption claimed. The scalar collapsed the
+// per-field truth and then mis-stated the reason.
+//
+// THE RULE (C58 §5.4a): the headline reflects the WEAKEST per-field provenance — it must never read
+// stronger than its weakest row, and it must never read `estimated` when NO field is estimated.
+// This helper is the single pure authority for that; the card only maps its output to pixels.
+
+/** Provenance strength ladder (C58 §1.6). Higher = stronger; the headline takes the MINIMUM. */
+const PROVENANCE_RANK: Record<FieldProvenance, number> = {
+    'published-structured': 3,
+    'ordinance-pdf': 2,
+    'pipeline-extracted': 1,
+    estimated: 0,
+};
+
+/** The headline-chip honesty model, derived purely from a `ComplianceReport`. */
+export interface HeadlineProvenance {
+    /** The WEAKEST per-field provenance across all derivation rows; null when there are no rows. */
+    readonly weakestField: FieldProvenance | null;
+    /** True when ≥1 derivation row carries a real (non-`estimated`) provenance. */
+    readonly hasRealField: boolean;
+    /** True when ≥1 derivation row is an `estimated` value (mirrors `report.hasAnyEstimate`). */
+    readonly hasEstimatedField: boolean;
+    /**
+     * L-630. TRUE when the envelope-level `confidence` reads WEAKER than the rows justify —
+     * specifically `estimated-ruleset` while NO field is actually estimated (every row is real /
+     * published). The scalar was reduced for a reason OTHER than field provenance (a zone-extent /
+     * upper-bound footprint — the NL PDOK case), so the card MUST NOT badge it "Estimated /
+     * default rule pack": it must reflect the real fields and state the true reason.
+     */
+    readonly confidenceUnderRatesFields: boolean;
+}
+
+/**
+ * Resolve the headline-chip honesty model from a compliance report (C58 §5.4a). PURE — a total
+ * function of the report's per-field provenance + its echoed `confidence`; it invents nothing and
+ * never out-ranks the rows. The UI maps the result to a chip + caption; tests pin the semantics.
+ */
+export function resolveHeadlineProvenance(report: ComplianceReport | null): HeadlineProvenance {
+    if (!report) {
+        return {
+            weakestField: null,
+            hasRealField: false,
+            hasEstimatedField: false,
+            confidenceUnderRatesFields: false,
+        };
+    }
+    let weakest: FieldProvenance | null = null;
+    for (const row of report.rows) {
+        if (weakest === null || PROVENANCE_RANK[row.provenance] < PROVENANCE_RANK[weakest]) {
+            weakest = row.provenance;
+        }
+    }
+    const hasEstimatedField = report.hasAnyEstimate;
+    const hasRealField = report.rows.some((r) => !r.isEstimate);
+    const confidenceUnderRatesFields =
+        report.confidence === 'estimated-ruleset' && hasRealField && !hasEstimatedField;
+    return { weakestField: weakest, hasRealField, hasEstimatedField, confidenceUnderRatesFields };
+}

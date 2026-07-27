@@ -73,8 +73,10 @@ export {
 export {
     buildComplianceReport,
     formatConstraintValue,
+    resolveHeadlineProvenance,
     type ComplianceReport,
     type ComplianceReportRow,
+    type HeadlineProvenance,
 } from './complianceReport.js';
 
 // L-456 — proposed-vs-permitted capacity comparison (the *proyecto de ejecución* question:

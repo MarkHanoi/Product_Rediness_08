@@ -51,7 +51,7 @@ interface ComplianceReport {
   zone: { code: string; label: string | null };
   envelope: BuildableEnvelope;           // C58 §2.4 (insetPolygon, maxHeight, maxFAR, maxVolumeM3, confidence, …)
   constraints: ComplianceConstraintRow[]; // one per DerivationEntry (§3.1)
-  confidence: 'authoritative' | 'structured' | 'block-constructed' | 'estimated-ruleset' | 'not-determined';   // C58 §1.2 (5 members) — echoed for the header chip; per C58 §5.4 this MUST resolve to the WEAKEST field's provenance
+  confidence: 'authoritative' | 'structured' | 'block-constructed' | 'estimated-ruleset' | 'pipeline-extracted-unverified' | 'not-determined';   // C58 §1.2 (6 members — reconciled to EnvelopeConfidenceSchema; `pipeline-extracted-unverified` added) — echoed for the header chip; per C58 §5.4 this MUST resolve to the WEAKEST field's provenance (`resolveHeadlineProvenance`, @pryzm/site-parcel-data)
   caveats: string[];                     // C58 §2.4
   generatedAt: ISODateString;
 }
@@ -64,7 +64,7 @@ interface ComplianceConstraintRow {
   unit: string | null;                   // 'm' | 'm²/m²' | '%' | null
   status: 'pass' | 'fail' | 'estimated' | 'unknown';   // §3.2
   source: string;                        // rule-pack / provider id (C58 DerivationEntry.source)
-  fieldProvenance: 'published-structured' | 'ordinance-pdf' | 'estimated';   // C58 §1.6
+  fieldProvenance: 'published-structured' | 'ordinance-pdf' | 'pipeline-extracted' | 'estimated';   // C58 §1.6 (4 members — reconciled to FieldProvenanceSchema; `pipeline-extracted` added: a machine-extracted, human-UNverified value, strictly below `ordinance-pdf`)
   ordinanceRef: string | null;           // citation link (C58 §1.3)
 }
 ```
