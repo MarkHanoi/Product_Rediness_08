@@ -6881,11 +6881,16 @@ export class CesiumViewport {
     if (!viewer) return;
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
 
-    // §TERRAIN-RENDER (Phase 3) — attach baked terrain for this site's city if present. This is
-    // the one hook every location change / pan passes; it's idempotent + guarded, so it costs
-    // nothing on repeat and keeps flat ground for any un-baked city (no regression). Fire-and-
-    // forget: the async attach re-clamps the massing onto real ground when the tileset resolves.
-    void this.maybeAttachTerrainProvider(lat, lon);
+    // §TERRAIN-RENDER (Phase 3) / §CTX-SEAT-FIRST-PROBED-RACE (L-635) — the baked-terrain attach for
+    // this site's city now happens INSIDE `ensureGroundBaseForContext` (awaited, in the Promise.all
+    // below), NOT here as a fire-and-forget. A `void` call here was the Madrid-blank bug: it added the
+    // city to `formaTerrainProbedCities` BEFORE its `CesiumTerrainProvider.fromUrl` resolved, so the
+    // AWAITED attach inside `ensureGroundBaseForContext` hit the "already probed → return" guard and
+    // came back before terrain was actually attached → the ground sample saw the flat ellipsoid →
+    // context seated at base 0 (invisible ~650 m under Madrid's mesh). Barcelona (~12 m ground) hid
+    // the bug because base 0 ≈ its real ground. Attaching ONLY via the awaited path removes the race:
+    // the sample can't run until the provider is truly live. (No-op reloads early-return below with
+    // terrain already attached from the first load, so nothing regresses.)
 
     // Skip when unchanged (≈0.1 m) and we already have entities, unless forced.
     const prev = this.contextBuildingsAt;
