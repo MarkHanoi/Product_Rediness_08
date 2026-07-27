@@ -16,6 +16,10 @@ import {
     getLastBuildableEnvelope,
     resolveRenderableBuildableEnvelope,
 } from '../site/siteDispatch';
+// §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — the SINGLE origin authority shared by the parcel-ring
+// projection (`getSiteOrigin`) and the 3D-Site render frame (`getFormaOrigin`), so the ring and the
+// ENU frame are always built about ONE origin (closes the residual translation shift).
+import { resolveSiteFrameOrigin } from '../site/boundaryProjection';
 // §PARCEL-SELECT (L-380 P1 → L-613) — the real cadastral parcel data source for the map's
 // "Select parcel" mode. `defaultParcelProvider` is now the PER-JURISDICTION REGISTRY
 // (`parcelRegistry.ts`): a click routes to the right OPEN national cadastre — Catastro (ES),
@@ -187,15 +191,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // geocode `onFlyTo` callback below; consumed by getMapInitial().
     let lastGeocodeFrame: { lat: number; lon: number; bbox?: [number, number, number, number] } | null = null;
 
-    // Read the Site's location (set by the geocode search box) as the
-    // projection origin for the boundary-draw tool. Falls back to null so the
-    // draw tool uses its first clicked vertex.
+    // §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — THE parcel-ring projection origin, resolved through
+    // the SINGLE origin authority `resolveSiteFrameOrigin` that the 3D-Site render frame
+    // (`getFormaOrigin`) ALSO reads. This is the residual-shift fix: the ring used to be projected
+    // about the geocoded store location while the render framed about the LTP-ENU origin — two
+    // authorities that diverge once `setLtpOriginIfSafe` freezes the LTP origin under a committed
+    // boundary while the store location keeps moving (see resolveSiteFrameOrigin's header). Reading
+    // the LTP-ENU origin FIRST here (the frame every authored coordinate is baked in, C12 §1.5) makes
+    // the ring project about EXACTLY the origin the render frames at, so the parcel can no longer
+    // slide by dist(store, LTP). Falls back to null so the draw tool uses its first clicked vertex.
+    // θ-independent (translation origin only); identical pre-boundary, where the two sources coincide.
     const getSiteOrigin = (): { lat: number; lon: number } | null => {
         const loc = (runtime?.siteModelStore as { getSite?: () => { location?: { latitude: number; longitude: number } } | null } | undefined)?.getSite?.()?.location;
-        if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
-            return { lat: loc.latitude, lon: loc.longitude };
-        }
-        return null;
+        return resolveSiteFrameOrigin(getCurrentSiteOrigin(), loc, lastGeocodeFrame);
     };
 
     // A.8.c.f — read the geocoded Site location to centre the 2D map. The geocode
@@ -1259,21 +1267,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * `siteModelStore.getLocation()` is the geocoded ADDRESS — a DIFFERENT point
      * once a boundary is committed (~10-15 m away). So resolve the LTP origin
      * FIRST and use the address only as a pre-boundary fallback. */
+    // §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — the 3D-Site render frame reads the SAME single origin
+    // authority (`resolveSiteFrameOrigin`) as the parcel-ring projection (`getSiteOrigin`), so the
+    // ring and the ENU frame are built about ONE origin and cannot diverge (the residual Seam-2 shift
+    // fix — see resolveSiteFrameOrigin's header). Precedence: LTP-ENU origin (the scene frame, C12
+    // §1.5) → geocoded store location → last geocode frame.
     const getFormaOrigin = (): { lat: number; lon: number } | null => {
-        const ltp = getCurrentSiteOrigin();
-        if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) {
-            return { lat: ltp.lat, lon: ltp.lon };
-        }
-        // Pre-boundary fallback: no LTP origin set yet → the site location (address)
-        // and the scene frame still coincide, so either is correct.
         const loc = (runtime?.siteModelStore as
             | { getLocation?: () => { latitude: number; longitude: number } | null }
             | undefined)?.getLocation?.();
-        if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
-            return { lat: loc.latitude, lon: loc.longitude };
-        }
-        if (lastGeocodeFrame) return { lat: lastGeocodeFrame.lat, lon: lastGeocodeFrame.lon };
-        return null;
+        return resolveSiteFrameOrigin(getCurrentSiteOrigin(), loc, lastGeocodeFrame);
     };
 
     /** Read the committed parcel boundary ring (scene-XZ), or null.

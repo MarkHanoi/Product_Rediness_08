@@ -78,6 +78,48 @@ export function sceneXZToLatLon(
     return { lat, lon };
 }
 
+/**
+ * §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — THE ONE origin authority for a GIS site, shared by
+ * BOTH the parcel-ring projection (WRITE, at commit) and the 3D-Site ENU frame (READ, at render).
+ *
+ * THE RESIDUAL SHIFT THIS CLOSES. After the θ write≠read fix (commit 4a0e9f68) the parcel bearing
+ * is correct, but a TRANSLATION shift remained *intermittently*. Root cause: the ring was projected
+ * about the geocoded STORE LOCATION while the render built its ENU frame about the LTP-ENU origin
+ * (`getCurrentSiteOrigin`) — TWO competing origin authorities (C12 §1.5, L-604). They start equal
+ * (both set together by `setLtpOriginIfSafe`), but `setLtpOriginIfSafe` FREEZES the LTP origin once
+ * a boundary is committed (C19 §1.3 boundary-shift guard) while the store location keeps moving on
+ * any later geocode. So after "geocode → commit → re-geocode → Redraw → re-select" the ring was
+ * projected about the NEW store location while the frame stayed at the FROZEN LTP origin, sliding
+ * the parcel by dist(store, LTP) — the founder's "sometimes shifted" Barcelona parcel select.
+ *
+ * THE FIX IS THIS SINGLE PRECEDENCE, read identically by write and read: the LTP-ENU origin FIRST
+ * (the frame every authored coordinate is baked in — it IS the scene origin, C12 §1.5), then the
+ * geocoded store location, then the last geocode frame. Because both sides call this, the ring and
+ * the ENU frame can never again be built about different origins. θ-INDEPENDENT — it resolves only
+ * the translation origin (lat/lon), never the bearing; and identical to the old behaviour before any
+ * boundary exists, where the LTP origin and the store location are set together and coincide.
+ *
+ * Pure (no I/O / Cesium / THREE / DOM), like the rest of this module — the caller reads the three
+ * candidate sources and this decides between them, so the decision is unit-testable in isolation.
+ * A 0/0 lat/lon is the `ensureSite` Null-Island placeholder and is treated as "unset".
+ */
+export function resolveSiteFrameOrigin(
+    ltpOrigin: { lat: number; lon: number } | null | undefined,
+    storeLocation: { latitude: number; longitude: number } | null | undefined,
+    geocodeFrame: { lat: number; lon: number } | null | undefined,
+): { lat: number; lon: number } | null {
+    if (ltpOrigin && (ltpOrigin.lat !== 0 || ltpOrigin.lon !== 0)) {
+        return { lat: ltpOrigin.lat, lon: ltpOrigin.lon };
+    }
+    if (storeLocation && (storeLocation.latitude !== 0 || storeLocation.longitude !== 0)) {
+        return { lat: storeLocation.latitude, lon: storeLocation.longitude };
+    }
+    if (geocodeFrame && (geocodeFrame.lat !== 0 || geocodeFrame.lon !== 0)) {
+        return { lat: geocodeFrame.lat, lon: geocodeFrame.lon };
+    }
+    return null;
+}
+
 /** Signed area (shoelace) of an XZ ring; >0 ⇒ counter-clockwise in XZ. */
 function signedAreaXZ(ring: ReadonlyArray<XZPoint>): number {
     let a = 0;
