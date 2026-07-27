@@ -385,7 +385,15 @@ export async function fetchBdTopo(bbox, { limit = 5000, timeoutMs = 40_000 } = {
         source: 'bdtopo',
       })));
     }
-    return { status: 'ok', features, provenance: 'tagged', contentType: r.contentType, rawCount: json.features?.length ?? 0 };
+    // §BDTOPO-CAP-TRUNCATE (live-measured 2026-07-27) — BD TOPO batiment is a FULL national layer and a
+    // city bbox can hold FAR more than `limit` (Paris bake bbox = 317,361 buildings; the WFS caps at
+    // `limit`). A capped response is a TRUNCATED slice, so mark it: resolveHeights then downgrades
+    // replace→append (KEEP the full OSM clip + ADD these real heights) instead of REPLACING the whole
+    // region with ≤limit buildings — which would delete ~98% of Paris (completeness loss ≫ a missing
+    // height). Mirrors the 3DBAG/Catastro truncation→append rule; the full-city real-height coverage
+    // (paginate startIndex, or a BD-TOPO→OSM vector join) is the named follow-up.
+    const returned = json.features?.length ?? 0;
+    return { status: 'ok', features, provenance: 'tagged', contentType: r.contentType, rawCount: returned, truncated: returned >= limit };
   } catch (err) {
     return { status: 'error', reason: String(err?.message ?? err) };
   }
