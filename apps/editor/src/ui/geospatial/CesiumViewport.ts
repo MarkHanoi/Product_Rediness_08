@@ -472,6 +472,19 @@ const FORMA_FLY_DURATION_S = 1.2;
  */
 const GLOBE_STALE_FRAME_BASE_JUMP_M = 20;
 /**
+ * §GLOBE-CAMERA-STRANDED (L-635) — the camera height above which a "user moved the camera" latch is
+ * treated as BOGUS and the corrective site re-frame fires anyway. A view/project switch can reset the
+ * Cesium camera to a whole-globe altitude (the live Madrid trace parked it at ECEF ≈ 12.5e6 m ⇒
+ * ~6000 km up) and that reset emits a non-programmatic `moveStart` that mis-latches
+ * `formaUserMovedCamera`. A camera thousands of km out is not "the user's chosen site view" — the site
+ * is an invisible speck (the Madrid/Zürich blank). No legitimate Forma site frame sits anywhere near
+ * this high (site frames are altitude ∝ √area — hundreds of m to a few km; even a city-wide zoom-out is
+ * tens of km), so 100 km cleanly separates "stranded at globe scale → reframe" from "user's real view →
+ * preserve". Only relevant on high-ground cities, where a base-0 initial frame leaves the camera unable
+ * to see the 700 m-seated site until this reframe runs.
+ */
+const FORMA_STRANDED_CAMERA_HEIGHT_M = 100_000;
+/**
  * FORMA-PLAN-OBLIQUE — the Autodesk-Forma "plan" preset: a near-top-down but
  * still tilted camera so the directional shadows read as the depth cue (Forma's
  * "plan" is a Cesium plan-oblique, NOT a flat map). Heading North (0°), pitch
@@ -6397,6 +6410,22 @@ export class CesiumViewport {
       // forces a manual zoom-in to find the building. Re-frame ONCE in that case, despite the
       // user movement. Small settles (terrain jitter / progressive tile refinement, a few m)
       // still honour the user's camera control — the original §GLOBE-FRAME-NO-JUMP case.
+      // §GLOBE-CAMERA-STRANDED (L-635) — FIRST, if the camera is parked at globe scale (a view/
+      // project switch reset it and its `moveStart` mis-latched `formaUserMovedCamera`), the latch is
+      // bogus: there is no site view to preserve because the site is an invisible speck thousands of km
+      // below. Reframe unconditionally. This is the Madrid/Zürich "context seated at 700 m but nothing
+      // on screen" case — the buildings ARE placed (diag: buildingsPlaced=1600 seatBase=700.8), only the
+      // camera never came back to them. Low-ground cities (Barcelona/Copenhagen) never hit this branch
+      // because their normally-framed camera sits far below this height.
+      const camHeightM = this.viewer?.camera.positionCartographic?.height ?? 0;
+      if (camHeightM > FORMA_STRANDED_CAMERA_HEIGHT_M) {
+        console.log(
+          `[CesiumViewport][forma] §GLOBE-CAMERA-STRANDED — camera at globe scale ` +
+            `(${(camHeightM / 1000).toFixed(0)} km); the "user moved" latch is a view-switch reset, not a ` +
+            `real site view — reframing onto the ${this.formaTerrainBaseHeight.toFixed(0)} m site.`,
+        );
+        // fall through to the one-shot re-frame below (bypasses the base-jump suppression).
+      } else {
       const framedBase = this.formaFramedAtBaseHeight;
       const baseJumpM = framedBase == null ? 0 : Math.abs(this.formaTerrainBaseHeight - framedBase);
       if (baseJumpM <= GLOBE_STALE_FRAME_BASE_JUMP_M) {
@@ -6415,6 +6444,7 @@ export class CesiumViewport {
           `building moved out of the current frame, so re-framing ONCE despite the user's camera move.`,
       );
       // fall through to the one-shot re-frame below (still fires AT MOST ONCE via the latch).
+      }
     }
     this.formaInitialReframeFired = true;
     console.log(
