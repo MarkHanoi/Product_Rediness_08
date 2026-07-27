@@ -11,11 +11,11 @@
 //   2. cadastral jurisdiction → hit its same-origin proxy provider; on a HIT return the real
 //      parcel; on a MISS (outside the cadastre's territory / no parcel / upstream down) …
 //   3. … fall back to the universal OSM FOOTPRINT — labelled `footprint (OSM)`, NEVER as a
-//      cadastral parcel (C58 §1.4). Footprint-fallback jurisdictions (DK/CH/SA/other-Länder) go
+//      cadastral parcel (C58 §1.4). Footprint-fallback jurisdictions (SA/other-Länder) go
 //      straight here.
 //
 // The `ParcelFeature.source` each provider stamps ('catastro' · 'ign-fr' · 'pdok-nl' · 'geonorge-no'
-// · 'alkis-nrw' · 'footprint (OSM)') is the honest per-parcel provenance the info card renders.
+// · 'alkis-nrw' · 'swisstopo-av' · 'footprint (OSM)') is the honest per-parcel provenance the info card renders.
 
 import { trace } from '@opentelemetry/api';
 import { resolveParcelJurisdiction, type ParcelJurisdiction } from '@pryzm/site-parcel-data';

@@ -18,6 +18,7 @@ describe('resolveParcelJurisdiction — cadastral routing (live-probed open cada
         ['Oslo → Kartverket', 59.9139, 10.7522, 'geonorge-no'],
         ['Düsseldorf → ALKIS NRW', 51.2277, 6.7735, 'alkis-nrw'],
         ['Copenhagen → Matriklen (credential-gated, still routed cadastral)', 55.6761, 12.5683, 'matrikel-dk'],
+        ['Zürich → swisstopo AV (federal identify, keyless)', 47.3769, 8.5417, 'swisstopo-av'],
     ];
     for (const [name, lat, lon, providerId] of cadastral) {
         it(name, () => {
@@ -32,7 +33,6 @@ describe('resolveParcelJurisdiction — cadastral routing (live-probed open cada
 describe('resolveParcelJurisdiction — documented footprint-fallback jurisdictions', () => {
     const fallback: ReadonlyArray<[string, number, number, string]> = [
         ['Munich (non-NRW Germany)', 48.1351, 11.582, 'DE'],
-        ['Zurich (CH permission-gated)', 47.3769, 8.5417, 'CH'],
         ['Riyadh (SA geo-fenced)', 24.7136, 46.6753, 'SA'],
     ];
     for (const [name, lat, lon, regionCode] of fallback) {
@@ -65,6 +65,17 @@ describe('resolveParcelJurisdiction — universal footprint + never-throws', () 
     it('NRW precedes the whole-Germany footprint entry (order matters)', () => {
         // Düsseldorf is in both NRW_BBOX and GERMANY_BBOX; the cadastral entry must win.
         expect(resolveParcelJurisdiction(51.2277, 6.7735).providerId).toBe('alkis-nrw');
+    });
+    it('Zürich escapes FRANCE_BBOX (maxLon 8.3°) and routes to the Swiss AV cadastre', () => {
+        // 8.5417°E is east of France's eastern edge, so FR does not swallow it — CH wins.
+        expect(resolveParcelJurisdiction(47.3769, 8.5417).providerId).toBe('swisstopo-av');
+    });
+    it('Geneva is a documented FR/CH coarse-router casualty — routes to the French proxy, not CH', () => {
+        // 6.14°E, 46.20°N is inside FRANCE_BBOX, and FR precedes CH, so the coarse router sends
+        // Geneva to the French cadastre (which returns null for Swiss soil → the client falls to the
+        // OSM footprint). The swisstopo endpoint DOES serve Geneva parcels (live-probed), but reaching
+        // them needs a polygon gate, not a bbox — the same tradeoff as the NL/DE and CH/DE borders.
+        expect(resolveParcelJurisdiction(46.2044, 6.1432).providerId).toBe('ign-fr');
     });
     it('lists all registered jurisdictions (cadastral + fallback)', () => {
         const codes = listParcelJurisdictions().map((j) => j.regionCode);

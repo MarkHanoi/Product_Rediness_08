@@ -56,6 +56,18 @@ const NRW_GML = `<?xml version="1.0"?>
  </ave:Flurstueck></wfs:member>
 </wfs:FeatureCollection>`;
 
+// CH — geo.admin.ch identify Esri-JSON (rings are lon,lat; sr 4326). Real Zürich Grundstück shape
+// captured live 2026-07-26 (egris_egrid CH119192997709, number AA8048, ak ZH); ring trimmed to a
+// small square around the click. No area attribute → area is derived from the ring.
+const CH_ESRI = JSON.stringify({
+    results: [{
+        layerBodId: 'ch.kantone.cadastralwebmap-farbe',
+        featureId: 2619911,
+        attributes: { ak: 'ZH', number: 'AA8048', identnd: 'ZH0200000261', egris_egrid: 'CH119192997709', realestate_type: null, label: 'ZH' },
+        geometry: { rings: [[[8.5411, 47.3763], [8.5423, 47.3763], [8.5423, 47.3775], [8.5411, 47.3775], [8.5411, 47.3763]]], spatialReference: { wkid: 4326 } },
+    }],
+});
+
 /** A fake fetch that returns a fixed body for any URL (no network). */
 function fakeFetch(body: string, status = 200) {
     return async () => ({ ok: status >= 200 && status < 300, status, text: async () => body });
@@ -103,6 +115,18 @@ describe('fetchEuParcelAtPoint — per-country normalisation (captured fixtures)
         expect(p!.ring[0]!.lat).toBeGreaterThan(51);
         expect(p!.ring[0]!.lon).toBeLessThan(7);
     });
+
+    it('CH / swisstopo AV Esri-JSON (lon,lat) → EGRID refcat + canton+number address + derived area', async () => {
+        const p = await fetchEuParcelAtPoint('ch', 8.5417, 47.3769, { fetchImpl: fakeFetch(CH_ESRI) });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe('CH119192997709'); // the federal EGRID, not the local parcel number
+        expect(p!.address).toBe('ZH AA8048');
+        expect(p!.areaM2).toBeGreaterThan(0); // no area attribute → derived from the ring
+        // Esri rings are lon,lat → the ring must come back as {lat~47.37, lon~8.54}.
+        expect(p!.ring[0]!.lat).toBeGreaterThan(47);
+        expect(p!.ring[0]!.lon).toBeGreaterThan(8);
+        expect(p!.ring[0]!.lon).toBeLessThan(9);
+    });
 });
 
 describe('fetchEuParcelAtPoint — guards + never-throws', () => {
@@ -125,7 +149,15 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the four wired cadastres', () => {
-        expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual(['de-nrw', 'fr', 'nl', 'no']);
+    it('exposes exactly the five wired cadastres', () => {
+        expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual(['ch', 'de-nrw', 'fr', 'nl', 'no']);
+    });
+
+    it('CH guard short-circuits a click outside the Swiss bbox (no upstream call)', async () => {
+        let called = false;
+        const spy = async () => { called = true; return { ok: true, status: 200, text: async () => CH_ESRI }; };
+        const p = await fetchEuParcelAtPoint('ch', 2.3522, 48.8566, { fetchImpl: spy }); // Paris
+        expect(p).toBeNull();
+        expect(called).toBe(false);
     });
 });

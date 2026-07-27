@@ -19,7 +19,7 @@
 //   • `cadastral`          — an OPEN, keyless national cadastre answers here (live-probed). Route
 //                            to its same-origin proxy; on a miss fall to the footprint.
 //   • `footprint-fallback` — a cadastre EXISTS for this country but is NOT reachable keylessly from
-//                            our environment (token-gated / IP geo-fenced / per-canton licensed).
+//                            our environment (token-gated / IP geo-fenced / per-region licensed).
 //                            We deliberately DO NOT try it; we go straight to the OSM footprint and
 //                            label it honestly. `note` records the exact blocker.
 //   • the UNIVERSAL default — no country matched. Still a footprint verdict, so selection works
@@ -77,8 +77,8 @@ export interface ParcelJurisdiction {
  *     Dutch proxy (which would return null there → a wasted round-trip). Twente border towns are the
  *     inverse casualty and self-correct to footprint — acceptable for a proximity gate.
  *   • CH precedes the whole-Germany footprint entry so Zurich (which pokes into GERMANY_BBOX at
- *     47.37°N) is labelled Switzerland, not Germany. Both are footprint anyway, so no cadastre is
- *     lost either way — only the honest label.
+ *     47.37°N) routes to the Swiss AV cadastre, not to the German footprint. Since L-627 CH is
+ *     cadastral, so this ordering now genuinely protects a real cadastre (not just the label).
  * A misroute to a neighbour's CADASTRAL proxy is self-correcting (that proxy returns null for a
  * point outside its territory → the client falls to the footprint), so the only hard requirement
  * is that each country's INTERIOR routes to its own cadastre — which the tightened boxes ensure.
@@ -137,14 +137,19 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     },
     {
         // CH BEFORE the whole-Germany footprint entry (Zurich pokes into GERMANY_BBOX).
+        // L-627: flipped footprint → cadastral. The earlier "no keyless Liegenschaft layer" verdict
+        // was about the geodienste.ch/av_0 WFS host; the FEDERAL geo.admin.ch identify service DOES
+        // return the real Amtliche-Vermessung Grundstück keylessly (EGRID + parcel no. + canton),
+        // all-canton, live-verified for ZH + GE 2026-07-26. Licence: geo.admin.ch FSDI terms — free,
+        // commercial use permitted, fair-use bounded (~20 req/min avg), attribution "© swisstopo + canton".
         regionCode: 'CH',
         countryName: 'Switzerland',
-        providerId: 'footprint',
-        label: 'Building footprint (OSM)',
-        proxyPath: null,
-        kind: 'footprint-fallback',
+        providerId: 'swisstopo-av',
+        label: 'Amtliche Vermessung (Switzerland · swisstopo/cantons)',
+        proxyPath: '/api/parcel/ch',
+        kind: 'cadastral',
         contains: isInSwitzerland,
-        note: 'geodienste.ch AV WFS GetCapabilities is keyless, but the amtliche-Vermessung data is per-canton PERMISSION-GATED (no Liegenschaft layer served free) and LV95 — not keylessly resolvable. Footprint fallback until a per-canton feed is wired.',
+        note: 'api3.geo.admin.ch identify ch.kantone.cadastralwebmap-farbe → Esri-JSON rings; real Grundstück carrying egris_egrid (CH119192997709 @ Zürich), local number (AA8048), canton ak — keyless, all-canton (ZH + GE live-verified 2026-07-26). geo.admin.ch FSDI terms: free + commercial OK + fair-use (~20 req/min avg) + attribution © swisstopo + canton. See ch/findings/ZURICH-PARCEL-SOURCE.md.',
     },
     {
         regionCode: 'DE',
