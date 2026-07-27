@@ -207,6 +207,11 @@ import {
     PARIS_PLU_ORDINANCE_REF,
     parisPluEnvelopeRefusal,
     parisZoneCodeFor,
+    // §L-619 / ADR-0273 — the sanctioned, TIER-SAFE constructed-height attachment. Re-applies the
+    // L-616 FAR cap once the per-street *alçada reguladora* is known (block-derived zones ship
+    // `maxHeight_m: null`, so the engine's cap is skipped at solve time). Replaces the inline object
+    // spread the §BCN-ALCADA block used, which was both FAR-blind and tier-unsafe (see envelopeHeight.ts).
+    applyConstructedHeight,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -3254,45 +3259,60 @@ async function applyBcnZoningThenFallback(
             // §BCN-ALCADA (L-525a) — attach the CONSTRUCTED height + storey count, each with its own
             // citable "why" row. Only when we actually have one: leaving `maxHeight_m` null is what
             // makes the panel omit the row honestly, and is far better than a number nobody can cite.
+            //
+            // §L-619 / ADR-0273 — via the SANCTIONED helper, NOT an inline object spread. The spread
+            // this replaced set `maxVolumeM3 = insetAreaM2 × height` with (a) NO FAR cap and (b) no
+            // tier reconciliation. (a) is the L-616 OVERSTATES-FAR defect: block-derived zones ship
+            // `maxHeight_m: null`, so the engine's L-616 cap was SKIPPED at solve time (the height did
+            // not yet exist), and the spread never re-applied it — clau 12's real 1,40 índex (Art.
+            // 316.2) never bound the volume. `applyConstructedHeight` recomputes `farLimitedHeight_m`
+            // with the SAME `computeFarLimitedHeight` the engine uses, given the parcel ring as the
+            // FAR denominator (C58 §1.7b.6). (b) it is also tier-safe — a single reader for both.
+            // FAR-null zones (13a/13b, `maxFAR: null`) pass through byte-identically: the helper's
+            // single-prism branch reproduces exactly today's `maxHeight_m`/`maxFloors`/`maxVolumeM3`,
+            // and `computeFarLimitedHeight` returns null (solid == shell, no extra caveat).
             const dispatched =
                 alcadaHeightM === null
                     ? withTier
-                    : {
-                          ...withTier,
-                          maxHeight_m: alcadaHeightM,
+                    : applyConstructedHeight(withTier, {
+                          height_m: alcadaHeightM,
                           maxFloors: alcadaFloors,
-                          maxVolumeM3: withTier.insetAreaM2 * alcadaHeightM,
-                          derivation: [
-                              ...withTier.derivation,
-                              {
-                                  constraint: 'maxHeight' as const,
-                                  value: alcadaHeightM,
-                                  zoneCode: withTier.zoneCode ?? clau,
-                                  // The construction is stated in the source string so the panel's
-                                  // explain-why shows HOW the number was reached, not just what it is.
-                                  // §L-583 — the ARTICLE is the zone's own (Art. 327.2 for 13a/13E,
-                                  // Art. 328 for 13b), never a literal. A row that named the wrong
-                                  // article would be the most damaging output this path can
-                                  // produce: a real number under an authoritative-looking citation
-                                  // to a document that does not govern the parcel (L-526).
-                                  source:
-                                      `PGM ${alcadaArticle ?? 'alçada article n/a'} alçada ` +
-                                      `reguladora [width tier: ` +
-                                      `${alcadaProvenance ?? 'unknown'}] — ${alcadaWhy}`,
-                                  // NOT 'published'. The TABLE is the ordinance, but the WIDTH is
-                                  // never a published figure: it is a curated Cerdà nominal value
-                                  // pending L-528, a measurement attributed to a declared quantum,
-                                  // or a raw measurement — L-537's tier ladder, carried into this
-                                  // row verbatim so the panel's "Why these numbers?" says WHICH.
-                                  // Badging any of them as published would be the L-459 defect
-                                  // again (a constructed number rendering like a surveyed one).
-                                  fieldProvenance: 'ordinance-pdf' as const,
-                                  // §L-583 — the zone's own citation, resolved alongside the
-                                  // article that produced the number (never the 13a constant).
-                                  ordinanceRef: alcadaOrdinanceRef,
-                              },
-                          ],
-                      };
+                          // The parcel boundary polygon (scene-XZ) — the SAME ring handed to
+                          // `computeBuildableEnvelope` above and the FAR denominator L-616 needs.
+                          // Without it the cap is an honest no-op (never a fabricated number); with
+                          // it, clau 12's 1,40 índex binds the volume the moment the height is known.
+                          parcelRing: boundary.polygon,
+                          // The `maxHeight` derivation row — authored HERE because only this path
+                          // knows the article, the width tier and the "why". The helper appends it
+                          // verbatim; it never authors a citation of its own.
+                          derivationRow: {
+                              constraint: 'maxHeight' as const,
+                              value: alcadaHeightM,
+                              zoneCode: withTier.zoneCode ?? clau,
+                              // The construction is stated in the source string so the panel's
+                              // explain-why shows HOW the number was reached, not just what it is.
+                              // §L-583 — the ARTICLE is the zone's own (Art. 327.2 for 13a/13E,
+                              // Art. 328 for 13b), never a literal. A row that named the wrong
+                              // article would be the most damaging output this path can
+                              // produce: a real number under an authoritative-looking citation
+                              // to a document that does not govern the parcel (L-526).
+                              source:
+                                  `PGM ${alcadaArticle ?? 'alçada article n/a'} alçada ` +
+                                  `reguladora [width tier: ` +
+                                  `${alcadaProvenance ?? 'unknown'}] — ${alcadaWhy}`,
+                              // NOT 'published'. The TABLE is the ordinance, but the WIDTH is
+                              // never a published figure: it is a curated Cerdà nominal value
+                              // pending L-528, a measurement attributed to a declared quantum,
+                              // or a raw measurement — L-537's tier ladder, carried into this
+                              // row verbatim so the panel's "Why these numbers?" says WHICH.
+                              // Badging any of them as published would be the L-459 defect
+                              // again (a constructed number rendering like a surveyed one).
+                              fieldProvenance: 'ordinance-pdf' as const,
+                              // §L-583 — the zone's own citation, resolved alongside the
+                              // article that produced the number (never the 13a constant).
+                              ordinanceRef: alcadaOrdinanceRef,
+                          },
+                      });
             dispatchEnvelope(ctx, site.id, dispatched, 'muc-catastro');
             // §L-507-DEPTH-DIAG — surface the REAL numbers so the founder can correlate the panel
             // + the 3D envelope SHAPE with the data ("is the 26 m depth what the prism shows?").
