@@ -1073,6 +1073,19 @@ export class CesiumViewport {
   private contextBuildingsAbort: AbortController | null = null;
   /** One-time guard so the "context buildings unavailable" warning logs once. */
   private contextBuildingsWarned = false;
+  /** §SITEFRAME-GROUND-RESEAT (L-632) — the site (`lat,lon` key) a one-shot terrain-settle
+   *  re-seat has been ARMED (or already run) for. Context footprints are seated ONCE, at load
+   *  time, on `sampleGround` (`globe.getHeight`); but baked terrain tiles stream in progressively,
+   *  so at the single load moment MOST footprints have no tessellated tile under them yet →
+   *  `getHeight` is undefined → they fall back to the (possibly not-yet-clamped) centroid base and
+   *  sink under the relief (Madrid ~650 m ellipsoidal) → invisible, since `depthTestAgainstTerrain`
+   *  occludes anything below the mesh. This keys a SINGLE re-seat once the terrain has finished
+   *  streaming, so the buildings settle onto their real ground. Per-site so it never repeats on a
+   *  pan (no refetch loop). */
+  private contextTerrainReseatKey: string | null = null;
+  /** §SITEFRAME-GROUND-RESEAT (L-632) — unsubscribe for the armed `tileLoadProgressEvent` listener
+   *  (disposed the instant the one-shot re-seat fires, on a new site, and on dispose). */
+  private contextTerrainReseatDisposer: (() => void) | null = null;
   /** §A.21.D-GLOBE (2026-06-05) — debounce handle for the pan-driven context-building
    *  refresh so a flurry of camera moves coalesces into one Overpass fetch. */
   private contextPanRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -6904,6 +6917,97 @@ export class CesiumViewport {
     // §CTX-USE-COLOUR (L-599) — if the use MODE is on, colour the freshly-placed set (and refresh
     // the legend counts, which describe THIS scene). No-op when the mode is off.
     this.refreshContextUseColouringAfterLoad();
+
+    // §SITEFRAME-GROUND-RESEAT (L-632) — these footprints were just seated on `sampleGround` at ONE
+    // instant. With baked relief attached, most of the terrain has NOT streamed yet at that instant,
+    // so their per-point `getHeight` fell back to the centroid base and they can sit under the mesh
+    // (invisible). Arm a SINGLE re-seat for when the terrain finishes streaming so they settle onto
+    // their real ground. No-op on the flat/keyless path (load-time seat is already exact there).
+    this.armContextTerrainReseat(lat, lon);
+  }
+
+  /**
+   * §SITEFRAME-GROUND-RESEAT (L-632) — arm a ONE-SHOT re-seat of the context buildings for when the
+   * baked terrain finishes streaming.
+   *
+   * THE DEFECT THIS CLOSES (regression from the T1 per-point re-seat, 89cc9e6c): context footprints
+   * are placed exactly ONCE, seated on `sampleGround` → `globe.getHeight`, a SYNCHRONOUS in-memory
+   * read that only returns a height where the terrain tile under that point has already tessellated.
+   * At the single moment `loadContextBuildings` renders (right after its Overpass await), the baked
+   * terrain has mostly NOT streamed yet, so `getHeight` is `undefined` for most footprints and they
+   * fall back to `formaTerrainBaseHeight` — which on this async path may itself still be the pre-clamp
+   * 0. On a site like Madrid (terrain ≈ 650 m ellipsoidal) a footprint seated near 0 sits ~650 m under
+   * the mesh, and `globe.depthTestAgainstTerrain` culls it → the founder's "most context buildings do
+   * not appear". The FEW that survive are where high-detail tiles happened to already be loaded.
+   *
+   * THE FIX: subscribe once to Cesium's own `tileLoadProgressEvent`; when the tile queue drains to 0
+   * after having had work pending (terrain has streamed), re-run the placement ONCE with the tiles now
+   * tessellated so every footprint gets its real ground. Keyed per-site so it fires at most once and a
+   * later pan/refresh never re-triggers a refetch loop. P3-safe: no rAF, no per-frame work — a bounded
+   * event listener that disposes itself the instant it fires. When no terrain relief is attached (the
+   * flat/keyless path) the load-time seat is already exact, so this is a no-op there.
+   */
+  private armContextTerrainReseat(lat: number, lon: number): void {
+    // Only meaningful with real relief attached — the flat/keyless path seats correctly at load time.
+    if (!this.groundReliefAttached()) return;
+    const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+    // Already armed (or already re-seated) for this site → one-shot, never repeats.
+    if (this.contextTerrainReseatKey === key) return;
+    // A new site: drop any stale listener from the previous site before arming this one.
+    this.contextTerrainReseatDisposer?.();
+    this.contextTerrainReseatDisposer = null;
+    this.contextTerrainReseatKey = key;
+
+    const ev = this.viewer?.scene?.globe?.tileLoadProgressEvent as
+      | { addEventListener?: (cb: (queued: number) => void) => (() => void) | undefined }
+      | undefined;
+    // No progress event on this Cesium build → leave the load-time seat (flat-safe; never a crash).
+    if (!ev?.addEventListener) return;
+
+    let sawPending = false;
+    const off = ev.addEventListener((queued: number) => {
+      if (Number.isFinite(queued) && queued > 0) {
+        sawPending = true;
+        return;
+      }
+      // queue drained. If it was never pending, terrain was already settled at arm time → the
+      // load-time seat is already exact and a re-seat would only thrash; skip it.
+      if (!sawPending) return;
+      // One-shot: dispose FIRST so a re-entrant event can never double-fire the re-seat.
+      this.contextTerrainReseatDisposer?.();
+      this.contextTerrainReseatDisposer = null;
+      void this.reseatContextForSettledTerrain(key);
+    });
+    this.contextTerrainReseatDisposer = typeof off === 'function' ? off : null;
+  }
+
+  /**
+   * §SITEFRAME-GROUND-RESEAT (L-632) — the one-shot re-seat itself. Re-runs `loadContextBuildings`
+   * (forced) so every footprint is re-sampled against the now-tessellated terrain. First awaits
+   * `whenGroundSettled()` so the per-point fallback (`formaTerrainBaseHeight`) is the MEASURED
+   * centroid ground rather than a pre-clamp 0 — an un-tessellated far footprint then falls back to
+   * the real ground and stays VISIBLE (flat) rather than vanishing. Bails if the site changed under
+   * us. Never throws. The forced re-run re-enters `armContextTerrainReseat` with the SAME key, which
+   * early-returns (already keyed) — so exactly one re-seat happens, with no re-subscription.
+   */
+  private async reseatContextForSettledTerrain(key: string): Promise<void> {
+    const cur = this.contextBuildingsAt;
+    if (!cur) return;
+    if (`${cur.lat.toFixed(6)},${cur.lon.toFixed(6)}` !== key) return; // site moved on — abandon.
+    try {
+      await this.whenGroundSettled();
+    } catch { /* best-effort — the re-seat is still worthwhile on the tessellated tiles */ }
+    if (!this.viewer) return;
+    // Still the same site after the await?
+    const after = this.contextBuildingsAt;
+    if (!after || `${after.lat.toFixed(6)},${after.lon.toFixed(6)}` !== key) return;
+    try {
+      console.log(
+        '[CesiumViewport][forma] §SITEFRAME-GROUND-RESEAT (L-632) — terrain finished streaming; ' +
+          're-seating context buildings on their now-tessellated ground (one-shot).',
+      );
+      await this.loadContextBuildings(after.lat, after.lon, true);
+    } catch { /* re-seat is best-effort; the load-time seat remains otherwise */ }
   }
 
   /**
@@ -10923,6 +11027,11 @@ export class CesiumViewport {
       if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
       this.clearContextBuildings();
       this.contextBuildingsAt = null;
+      // §SITEFRAME-GROUND-RESEAT (L-632) — drop the one-shot terrain-settle re-seat listener + key
+      // so a re-mounted viewport (project switch) re-arms fresh for its new site.
+      this.contextTerrainReseatDisposer?.();
+      this.contextTerrainReseatDisposer = null;
+      this.contextTerrainReseatKey = null;
       // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
       // viewport re-loads its tileset), so the context-suppression decision is fresh.
       this.photorealTilesActive = false;
