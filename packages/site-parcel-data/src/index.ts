@@ -26,6 +26,29 @@ export { solveEstimatedEnvelope } from './solveEstimated.js';
 // tier moved down: a rule about the determination must not live in one of its consumers.
 export { applyConstructedHeight, type ConstructedHeightPatch } from './envelopeHeight.js';
 
+// ── C58 §1.14 / STRUCTURAL-SEAM-1 — the render-side dual of the schema refinement: ──
+// the ONE pure function that maps a WHOLE `BuildableEnvelope` to the solids the 3D massing draws, so
+// no jurisdiction can overstate at the render (retires the per-city treadmill; supersedes the L-616 /
+// L-608 / L-619 per-field narrowing). `renderFormaMassing` + `ParcelBoundarySceneRenderer` consume
+// `MassingSolid[]` and hold no per-field knowledge. `classifyEnvelopeCompleteness` is the single
+// honesty-hue authority the L5 `envelopeRenderStyle` (flat overlay + card) delegates to.
+export {
+    envelopeToMassing,
+    massingSolidVolumeM3,
+    totalMassingVolumeM3,
+    classifyEnvelopeCompleteness,
+    FOOTPRINT_ONLY_HEIGHT_M,
+    SOLID_FILL_ALPHA,
+    UPPER_BOUND_FILL_ALPHA,
+    SHELL_FILL_ALPHA,
+    type MassingSolid,
+    type MassingSolidRole,
+    type MassingSolidStyle,
+    type MassingHue,
+    type EnvelopeCompleteness,
+    type BuildableEnvelopeMassingInput,
+} from './envelopeToMassing.js';
+
 // ── §L-616 / §L-619 — the FAR-limited massing-height helper, shared by the engine AND ──
 // `applyConstructedHeight` so a FAR that caps floorspace below the height cap binds with ONE formula,
 // whether the height is known at solve time (BCN 20a) or attached afterwards (BCN 12 / 13a / 13b).

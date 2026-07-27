@@ -302,7 +302,10 @@ export class ParcelBoundarySceneRenderer {
             // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — a confident, complete determination renders in the
             // unified violet; an estimate or a flat (no-confirmed-height) envelope renders in a muted
             // grey so a "couldn't complete" fallback can never look like a surveyed answer.
-            const style = envelopeRenderStyle(env.confidence, hasRealHeight);
+            // §L-619 — an upper-bound footprint (no published setbacks) forces the provisional grey +
+            // the near-transparent fill below, so the plan/BIM view stays consistent with the globe's
+            // §1.14 rasteriser. Same shared classifier as `envelopeToMassing` — one honesty decision.
+            const style = envelopeRenderStyle(env.confidence, hasRealHeight, env.footprintIsUpperBound === true);
 
             const shape = new THREE.Shape();
             shape.moveTo(ring[0]!.x, -ring[0]!.z);
@@ -326,7 +329,9 @@ export class ParcelBoundarySceneRenderer {
             const mat = new THREE.MeshBasicMaterial({
                 color: style.hex,
                 transparent: true,
-                opacity: 0.16,
+                // §L-619 — a MAXIMUM-extent footprint (no published setbacks) renders near-wireframe so
+                // it reads as a provisional upper bound, not a solved study fill.
+                opacity: style.footprintUpperBound ? 0.05 : 0.16,
                 depthWrite: false,
                 side: THREE.DoubleSide,
             });

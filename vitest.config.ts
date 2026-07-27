@@ -48,6 +48,10 @@ export default defineConfig({
       // §PARCEL-SELECT (L-613): per-jurisdiction parcel-provider parse + footprint-pick specs
       // (captured fixtures, never live network; never-throws pinned).
       'apps/editor/src/ui/site/parcel/__tests__/**/*.spec.ts',
+      // §ENVELOPE-CONFIDENCE-COLOUR (L-608) / §L-619 / C58 §1.14: the honest-presentation decision
+      // for the buildable-envelope flat render (confident violet vs provisional grey vs upper-bound
+      // maximum-extent) — a thin adapter over the shared L2 completeness classifier.
+      'apps/editor/src/ui/site/__tests__/**/*.spec.ts',
     ],
     testTimeout: 10_000,
     // Wave A18-T27: coverage reporting via @vitest/coverage-v8 (c8/Istanbul).
