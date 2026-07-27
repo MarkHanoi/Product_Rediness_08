@@ -512,15 +512,18 @@ describe('DkZoningProvider.fetchZoningResultAtPoint — three honest outcomes (�
         expect(calls).toBe(0);
     });
 
-    it('upstream error / throw → { kind: "no-plan" }, never throws (refuse, never fabricate)', async () => {
+    it('STRUCTURAL-SEAM-4 — a non-OK upstream OR a network throw → { kind: "unreachable" } (transient, NOT no-plan), never throws', async () => {
+        // Corrected 2026-07-27: a source that did not answer is `unreachable` (retryable), NEVER
+        // collapsed into `no-plan` (a durable absence) — the failure≠empty conflation this seam removes.
+        // A network exception is caught internally and is likewise a transient failure, not "no plan".
         const badFetch = (async () => ({ ok: false, json: async () => ({}) })) as unknown as typeof fetch;
         await expect(
             DkZoningProvider.fetchZoningResultAtPoint(55.6761, 12.5683, { fetchImpl: badFetch }),
-        ).resolves.toEqual({ kind: 'no-plan' });
+        ).resolves.toEqual({ kind: 'unreachable' });
         const throwFetch = (async () => { throw new Error('network down'); }) as unknown as typeof fetch;
         await expect(
             DkZoningProvider.fetchZoningResultAtPoint(55.6761, 12.5683, { fetchImpl: throwFetch }),
-        ).resolves.toEqual({ kind: 'no-plan' });
+        ).resolves.toEqual({ kind: 'unreachable' });
     });
 
     it('§DATA-GAP — a REAL FAR/storeys-only lokalplan (Østerbrogade 224) resolves structured but ' +

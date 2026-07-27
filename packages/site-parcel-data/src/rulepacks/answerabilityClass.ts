@@ -18,7 +18,8 @@
 // class changes with it, with no edit to this file. That property is asserted, not asserted-about,
 // in `answerabilityClass.test.ts`.
 //
-// THE FIVE CLASSES, AND THE ONE AXIS THAT SEPARATES THEM
+// THE SIX CLASSES, AND THE ONE AXIS THAT SEPARATES THEM (the sixth, `no-plan-published`, is the
+// STRUCTURAL-SEAM-4 genuine data-absence — see its case in `classifyRefusalCode`)
 // -----------------------------------------------------
 // The axis is *who owns the reason there is (or is not) an envelope*, and it is already carried by
 // the disposition + refusal the registry returns — this module never re-derives it:
@@ -69,7 +70,7 @@ import {
 } from './registry.js';
 
 /**
- * The five user-facing answerability classes. A closed union rather than a string, for the same
+ * The six user-facing answerability classes. A closed union rather than a string, for the same
  * reason the refusal `code` is a closed enum: these render as distinct colours and distinct copy,
  * and a typo would silently paint one class as another.
  *
@@ -80,7 +81,15 @@ export type AnswerabilityClass =
     | 'systems-land'
     | 'plan-defined'
     | 'zone-unencoded'
-    | 'construction-incomplete';
+    | 'construction-incomplete'
+    // STRUCTURAL-SEAM-4 (C58 §1.13.8) — the authoritative planning source ANSWERED and there is no
+    // adopted plan / buildable footprint published at this point. A DURABLE data-absence, and it fits
+    // none of the four refusal buckets above without a false statement: it is NOT a legal denial
+    // (`systems-land`/`plan-defined`), NOT PRYZM's coverage gap (`zone-unencoded` says "buildable, we
+    // haven't encoded it YET" — the opposite of "the authority publishes nothing here"), and NOT the
+    // TRANSIENT `construction-incomplete` (a retry never changes a durable empty). Its own class so
+    // absent and unreachable can never share a colour (the §CONTEXT-DATA-HONESTY collapse, L-422/457/469).
+    | 'no-plan-published';
 
 /** Every class, frozen. Exported so the legend enumerates the SOURCE OF TRUTH, never a hand copy. */
 export const ANSWERABILITY_CLASSES: readonly AnswerabilityClass[] = Object.freeze([
@@ -89,6 +98,7 @@ export const ANSWERABILITY_CLASSES: readonly AnswerabilityClass[] = Object.freez
     'plan-defined',
     'zone-unencoded',
     'construction-incomplete',
+    'no-plan-published',
 ] as const);
 
 /** Compile-time exhaustiveness guard — an unmapped case becomes a `tsc` error, not a wrong colour. */
@@ -156,6 +166,12 @@ export function classifyRefusalCode(code: EnvelopeRefusalCode): AnswerabilityCla
         // false statement (§L-574).
         case 'source-data-unavailable':
             return 'construction-incomplete';
+
+        // ── STRUCTURAL-SEAM-4 — the source answered and there is genuinely no plan published here. ──
+        // A durable data-absence: not the law's denial, not our coverage gap, not a transient. Its
+        // own class so it never wears the transient's retry colour nor the coverage gap's "coming soon".
+        case 'no-plan-at-point':
+            return 'no-plan-published';
 
         default:
             return assertNever(code, 'EnvelopeRefusalCode');

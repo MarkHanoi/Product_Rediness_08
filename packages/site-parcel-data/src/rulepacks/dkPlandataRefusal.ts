@@ -65,28 +65,55 @@ export function dkPlandataNoNumbersRefusal(opts: {
 }
 
 /**
- * Plandata returned NO adopted plan at this point — no lokalplan, no delområde, no byggefelt, and
- * no kommuneplan framework — or Plandata was momentarily unreachable. On a Danish parcel this is
- * still an HONEST refusal, never the generic estimated triple: Denmark is a packed jurisdiction, so
- * the absence of a plan is a real finding about this parcel, not a licence to fabricate 3/1.5/3.
+ * STRUCTURAL-SEAM-4 (RECONCILED 2026-07-27) — Plandata ANSWERED and returned NO adopted plan at this
+ * point: no lokalplan, no delområde, no byggefelt, no kommuneplan framework. On a Danish parcel this
+ * is an HONEST refusal, never the generic estimated triple: Denmark is a packed jurisdiction, so the
+ * absence of a plan is a real finding about this parcel, not a licence to fabricate 3/1.5/3.
  *
- * `source-data-unavailable` (transient) rather than a legal "no": a Danish point genuinely outside
- * all planning instruments is rare, so an unreturned plan is far more likely a transient WFS miss
- * than a legal statement that no plan governs — the card therefore invites a retry (re-select).
+ * ⚠ This is now the GENUINE-ABSENCE case ONLY. It previously used `source-data-unavailable` (transient)
+ * AND folded in "or Plandata was momentarily unreachable" — the exact failure≠empty conflation
+ * seam-4 removes. Now that the plandata proxy returns 502 on a real upstream failure (→ the DK
+ * provider's `unreachable` result → `dkPlandataUnreachableRefusal`), this builder is reached ONLY
+ * when the WFS answered cleanly with zero features. So `code: 'no-plan-at-point'` (durable, no retry
+ * affordance): re-asking returns the same empty.
  */
 export function dkPlandataNoPlanRefusal(opts: {
     readonly knownFacts?: readonly string[];
 } = {}): EnvelopeRefusal {
     return {
-        code: 'source-data-unavailable',
-        headline: 'No adopted plan was returned for this parcel by Plandata.dk.',
+        code: 'no-plan-at-point',
+        headline: 'No adopted plan is published for this parcel in Plandata.dk.',
         detail:
-            'PRYZM queried Plandata.dk (the Danish national plan register) at this parcel and no ' +
-            'adopted plan came back — no lokalplan, sub-area (delområde), building field ' +
-            '(byggefelt) or kommuneplan framework — or Plandata was momentarily unavailable. ' +
-            'Rather than fall back to a generic estimate, PRYZM declines to draw a buildable ' +
-            'envelope: on a Danish parcel the honest answer is the cited absence, not a ' +
-            'fabricated setback triple. Re-select the parcel to try again.',
+            'PRYZM queried Plandata.dk (the Danish national plan register) at this parcel and it ' +
+            'answered with no adopted plan — no lokalplan, sub-area (delområde), building field ' +
+            '(byggefelt) or kommuneplan framework covers this point. This is Plandata’s answer, not ' +
+            'a failed fetch: it will not change on a retry. Rather than fall back to a generic ' +
+            'estimate, PRYZM declines to draw a buildable envelope: on a Danish parcel the honest ' +
+            'answer is the cited absence, not a fabricated setback triple.',
+        ordinanceRef: null,
+        legallyGrounded: false,
+        knownFacts: opts.knownFacts ? [...opts.knownFacts] : [],
+    };
+}
+
+/**
+ * STRUCTURAL-SEAM-4 — Plandata.dk did NOT answer (network error / non-OK / timeout — the proxy
+ * returned 502, or the WFS layers all errored). This is a TRANSIENT failure, distinct from a clean
+ * "no plan here": `code: 'source-data-unavailable'`, and the card says "temporarily unavailable,
+ * retrying" (reached only after the bounded auto-retry still failed). Never the generic estimate.
+ */
+export function dkPlandataUnreachableRefusal(opts: {
+    readonly knownFacts?: readonly string[];
+} = {}): EnvelopeRefusal {
+    return {
+        code: 'source-data-unavailable',
+        headline: 'Plandata.dk was temporarily unreachable for this parcel.',
+        detail:
+            'PRYZM queried Plandata.dk (the Danish national plan register) at this parcel and the ' +
+            'service did not answer (it has been retried automatically). This is a temporary outage ' +
+            'of the source, NOT a statement that no plan is published here. Rather than fall back to ' +
+            'a generic estimate, PRYZM declines to draw a buildable envelope until the plan can be ' +
+            'read. Re-select the parcel to try again.',
         ordinanceRef: null,
         legallyGrounded: false,
         knownFacts: opts.knownFacts ? [...opts.knownFacts] : [],

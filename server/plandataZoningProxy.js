@@ -263,11 +263,19 @@ export function pickFirstFeatureProps(text) {
  * 2xx non-empty body, else null. NEVER throws. `deps.fetchImpl` is injectable so
  * the route is unit-testable without the network.
  *
+ * STRUCTURAL-SEAM-4 (C57 §1.5) — the optional `net` accumulator lets the caller tell an
+ * UPSTREAM FAILURE (non-OK / timeout / network error — `net.failed` set true) apart from a
+ * clean 2xx that simply carried no plan (a genuine empty — `net.failed` left false). Without
+ * it, a failed fetch and an empty answer both return `null` and the proxy would surface an
+ * outage as "no plan here" (the failure≠empty conflation). A `null` return with `net.failed`
+ * still false is a clean empty (e.g. an empty body).
+ *
  * @param {string} url
  * @param {{ fetchImpl?: typeof fetch, timeoutMs?: number }} [deps]
+ * @param {{ failed: boolean }} [net]  mutable accumulator — set `failed=true` on upstream failure
  * @returns {Promise<string|null>}
  */
-export async function fetchTextOnce(url, deps = {}) {
+export async function fetchTextOnce(url, deps = {}, net) {
     const fetchImpl = deps.fetchImpl || fetch;
     const timeoutMs = deps.timeoutMs || PLANDATA_UPSTREAM_TIMEOUT_MS;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -288,11 +296,12 @@ export async function fetchTextOnce(url, deps = {}) {
             }
             if (!res.ok) {
                 console.warn(`[plandata-proxy] HTTP ${res.status} for ${url}`);
+                if (net) net.failed = true; // upstream failure, NOT an empty answer
                 return null;
             }
             const text = await res.text();
             if (text && text.length > 0) return text;
-            return null;
+            return null; // clean 2xx, empty body → a genuine empty, not a failure
         } catch (err) {
             console.warn(`[plandata-proxy] fetch failed (attempt ${attempt + 1}): ${err?.message ?? err}`);
             continue;
@@ -300,6 +309,7 @@ export async function fetchTextOnce(url, deps = {}) {
             clearTimeout(timer);
         }
     }
+    if (net) net.failed = true; // exhausted retries (429/503/504/timeout/network) → upstream failure
     return null;
 }
 
@@ -329,19 +339,25 @@ export async function fetchTextOnce(url, deps = {}) {
  * Returns `{ layer, properties }`, or null (no plan at the point / all upstreams
  * failed or empty). NEVER throws. `deps` is injectable for tests.
  *
+ * STRUCTURAL-SEAM-4 (C57 §1.5) — the optional `net` accumulator is threaded into every
+ * `fetchTextOnce` so the handler can distinguish "every layer answered cleanly with no plan"
+ * (a genuine empty → 200 `{ zoning: null }`) from "the WFS did not answer" (`net.failed` → 502),
+ * instead of collapsing both to the same `null`.
+ *
  * @param {number} lon  EPSG:4326 longitude
  * @param {number} lat  EPSG:4326 latitude
  * @param {{ fetchImpl?: typeof fetch, timeoutMs?: number }} [deps]
+ * @param {{ failed: boolean }} [net]  mutable accumulator — true if any upstream fetch failed
  * @returns {Promise<ZoningResult|null>}
  */
-export async function fetchZoningAtPoint(lon, lat, deps = {}) {
+export async function fetchZoningAtPoint(lon, lat, deps = {}, net) {
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
     /** @type {ZoningResult|null} The most-specific feature found, dimension or not. */
     let firstCandidate = null;
     for (const layer of PLANDATA_LAYERS) {
         for (const axis of /** @type {const} */ (['lonlat', 'latlon'])) {
             const url = buildPlandataWfsUrl(layer.typeName, lon, lat, axis);
-            const text = await fetchTextOnce(url, deps);
+            const text = await fetchTextOnce(url, deps, net);
             if (!text) continue;
             const props = pickFirstFeatureProps(text);
             if (!props) continue; // wrong axis order (off-map) → try the other
@@ -408,14 +424,31 @@ export function makePlandataZoningHandler(deps = {}) {
         _misses++;
 
         let zoning = null;
+        // STRUCTURAL-SEAM-4 — track whether any upstream fetch FAILED (vs answered empty).
+        const net = { failed: false };
         try {
-            zoning = await fetchZoningAtPoint(lon, lat, deps);
+            zoning = await fetchZoningAtPoint(lon, lat, deps, net);
         } catch (err) {
             console.warn('[plandata-proxy] unexpected error:', err?.message ?? err);
             zoning = null;
+            net.failed = true;
         }
-        cacheSet(key, zoning);
 
+        // STRUCTURAL-SEAM-4 (C57 §1.5.3) — a same-origin proxy MUST NOT return `200 {…: null}` for an
+        // upstream FAILURE. No plan resolved AND at least one upstream fetch failed → 502 (the client's
+        // DkZoningProvider reads `!res.ok` as `unreachable` → the transient, retried refusal), never a
+        // cached "no plan here". A clean empty (net.failed false) stays 200 `{ zoning: null }`.
+        if (zoning === null && net.failed) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('X-Plandata-Cache', 'MISS-UNREACHABLE');
+            return res.status(502).json({
+                error:
+                    'Plandata.dk did not answer. This is NOT a statement that the parcel has no ' +
+                    'published plan.',
+            });
+        }
+
+        cacheSet(key, zoning);
         setProxyCacheHeaders(res);
         res.setHeader('X-Plandata-Cache', zoning ? 'MISS-FETCH' : 'MISS-EMPTY');
         return res.status(200).json({ zoning });

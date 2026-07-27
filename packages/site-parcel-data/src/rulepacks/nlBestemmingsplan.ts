@@ -181,17 +181,46 @@ export function nlBestemmingsplanRefusal(
     return {
         code: 'source-data-unavailable',
         headline:
-            'Bestemmingsplan — the published buildable envelope (bouwvlak) could not be resolved ' +
-            `for this parcel yet${planClause}.`,
+            'Bestemmingsplan — the PDOK planning service was temporarily unreachable for this ' +
+            `parcel${planClause}.`,
         detail:
             'PRYZM models the Dutch bestemmingsplan as an explicit-area zone: the plan publishes ' +
             'the buildable envelope (bouwvlak) and its dimensions (maatvoering — e.g. "maximum ' +
             'bouwhoogte (m)", "maximum bebouwingspercentage (%)") machine-readable per IMRO2012 / ' +
-            'SVBP2012, served keyless by the national PDOK "Ruimtelijke plannen" WMS. For this ' +
-            'parcel no bouwvlak resolved (the point may fall outside an adopted plan, on a zone ' +
-            'without a bouwvlak, or the service was briefly unreachable). Rather than fabricate a ' +
+            'SVBP2012, served keyless by the national PDOK "Ruimtelijke plannen" WMS. That service ' +
+            'did not answer for this parcel (it has been retried automatically) — a temporary outage ' +
+            'of the source, NOT a statement that no plan is published here. Rather than fabricate a ' +
             'maximum height or coverage, PRYZM declines to draw a buildable envelope — no number is ' +
-            'shown because none can be cited.',
+            'shown because none can be cited. Re-select the parcel to try again.',
+        ordinanceRef: NL_ORDINANCE_REF,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+/**
+ * L-609 / STRUCTURAL-SEAM-4 — the NL GENUINE-ABSENCE refusal: the PDOK WMS ANSWERED and there is no
+ * adopted bestemmingsplan (or no bouwvlak / usable zone-extent) at this point. A DURABLE coverage
+ * fact, not a failed fetch — so `code: 'no-plan-at-point'`, NOT the transient `source-data-unavailable`,
+ * and the card offers no retry (re-asking returns the same empty). The other half of the seam-4 split
+ * from `nlBestemmingsplanRefusal` (§CONTEXT-DATA-HONESTY: absent ≠ unreachable, L-422/457/467/469).
+ */
+export function nlNoPlanRefusal(
+    planName: string | null = null,
+    knownFacts: readonly string[] = [],
+): EnvelopeRefusal {
+    const planClause = planName ? ` (plan: ${planName})` : '';
+    return {
+        code: 'no-plan-at-point',
+        headline:
+            `Bestemmingsplan — no published buildable envelope at this point${planClause}.`,
+        detail:
+            'PRYZM queried the national PDOK "Ruimtelijke plannen" WMS at this parcel and the source ' +
+            'answered with no usable buildable envelope here — the point falls outside an adopted ' +
+            'bestemmingsplan, or the plan publishes neither a bouwvlak nor a zone extent carrying a ' +
+            'usable maatvoering. This is the source’s answer, not a failed fetch: it will not change ' +
+            'on a retry. Rather than fabricate a maximum height or coverage, PRYZM declines to draw a ' +
+            'buildable envelope — no number is shown because none can be cited.',
         ordinanceRef: NL_ORDINANCE_REF,
         legallyGrounded: false,
         knownFacts: [...knownFacts],

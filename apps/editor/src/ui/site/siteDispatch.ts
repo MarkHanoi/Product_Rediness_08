@@ -49,6 +49,7 @@ import {
     solveEstimatedEnvelope,
     computeBuildableEnvelope,
     DkZoningProvider,
+    type DkZoningResult,
     isInDenmark,
     // ADR-0271 §BCN-REAL-ENVELOPE — Barcelona ensanche real-envelope path.
     isInBarcelona,
@@ -65,10 +66,12 @@ import {
     // L-608 — Madrid (INE 28079) NZ 1 explicit-area path. The pack ships numeric fields null and a
     // footprint HANDLE; `resolveMadridNZ1Ring` SPATIAL-intersects the parcel's WGS84 point against the
     // published PGOUM-97 plane (via the `/api/madrid/condiciones` proxy) and returns a WGS84 buildable
-    // ring (or refuses — it never throws). Gated on `MADRID_NZ1_CERTIFIED` (default OFF): while closed
-    // this path REFUSES (via `madridNZ1Refusal`), never a fabricated number; when the light L-449
-    // zone-code cert is signed it renders `estimated-ruleset` (the footprint is real published
-    // geometry, the COEF_Z semantics stay withheld), NEVER `structured`.
+    // ring (or refuses — it never throws). Gated on `MADRID_NZ1_CERTIFIED` (ON since L-608, 2026-07-25):
+    // a resolved footprint renders `estimated-ruleset` (real published geometry; the COEF_Z semantics
+    // stay withheld), NEVER `structured`. RECONCILED 2026-07-27 — this comment previously said "default
+    // OFF … while closed this path REFUSES", contradicting the flipped-ON flag. The refusal is now the
+    // residual answer, split by STRUCTURAL-SEAM-4: a genuine no-footprint point → `madridNZ1AbsentRefusal`
+    // (no-plan-at-point), a source that did not answer → the auto-retried transient `madridNZ1Refusal`.
     isInMadrid,
     resolveMadridNZ1Ring,
     MADRID_NZ1_RING_REF,
@@ -174,6 +177,17 @@ import {
     // refusal (names the zone + links the plan PDF), NEVER the generic `estimated-default` triple.
     dkPlandataNoNumbersRefusal,
     dkPlandataNoPlanRefusal,
+    // STRUCTURAL-SEAM-4 (C57 §1.5 / C58 §1.13.8) — the shared fetch-outcome union + bounded retry, and
+    // the genuine-absence refusal siblings. A transient fetch failure (`unreachable`) is retried and
+    // shown as "temporarily unavailable"; a genuine empty (`absent`/`no-plan-at-point`) is shown as
+    // "no plan here" — the two never share a card again (§CONTEXT-DATA-HONESTY, L-422/457/467/469).
+    retryWhileUnreachable,
+    resolutionToFetchOutcome,
+    fetchFound,
+    fetchTransient,
+    dkPlandataUnreachableRefusal,
+    madridNZ1AbsentRefusal,
+    nlNoPlanRefusal,
     // L-609 / §NL-NATIONWIDE — Netherlands (national) bestemmingsplan explicit-area path. Like Madrid
     // the ordinance publishes the buildable footprint as geometry (the `bouwvlak`); UNLIKE Madrid the
     // `maatvoering` numbers ("maximum bouwhoogte (m)" etc.) carry unambiguous SVBP2012 units, so a
@@ -1365,7 +1379,27 @@ async function applyDkZoningThenFallback(
             'Planning source: Plandata.dk (Erhvervsstyrelsen) — national plan register',
         ].filter((s): s is string => typeof s === 'string');
 
-        const result = await DkZoningProvider.fetchZoningResultAtPoint(lat, lon);
+        // STRUCTURAL-SEAM-4 — resolve WITH a bounded auto-retry on a TRANSIENT (source-did-not-answer)
+        // outcome, so a Plandata blip self-heals before it can reach a card. `unreachable` is the only
+        // retryable kind; `structured`/`plan-without-numbers`/`no-plan` are durable answers, returned
+        // immediately. A still-unreachable source surfaces the honest transient refusal below.
+        const dkOutcome = await retryWhileUnreachable<DkZoningResult>(async () => {
+            const r = await DkZoningProvider.fetchZoningResultAtPoint(lat, lon);
+            return r.kind === 'unreachable' ? fetchTransient('endpoint-unreachable') : fetchFound(r);
+        });
+        if (dkOutcome.status !== 'found') {
+            // Still unreachable after retries → the TRANSIENT refusal ("temporarily unavailable,
+            // retrying"), NEVER the `no-plan` absence card. This is the seam-4 un-flatten for DK.
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(DK_NO_PLAN_ZONE_CODE, dkPlandataUnreachableRefusal({ knownFacts: baseFacts }), 'none'),
+                'plandata-dk',
+            );
+            console.log(`${TAG} Plandata unreachable after retries → transient refusal; NOT no-plan.`);
+            return;
+        }
+        const result = dkOutcome.value;
 
         if (result.kind === 'structured') {
             // §L-620 — Plandata very often publishes a STOREY count (`maxetager`) but no
@@ -1505,16 +1539,20 @@ async function applyDkZoningThenFallback(
  *     like the BCN block ring) and clips the parcel to it via `computeBuildableEnvelope`'s
  *     explicit-area branch (`explicitAreaFootprint`), then dispatches the solved envelope with a
  *     caveat naming the source — `estimated-ruleset`, NEVER `structured`;
- *   • WITHOUT a ring → dispatches a CITED REFUSAL (`madridNZ1Refusal`), status `'none'`. It does
- *     NOT fall back to the estimated triple: a front/side/rear estimate is the wrong geometric
- *     SHAPE for an explicit-area zone — a fabricated number here would be exactly the
- *     §CONTEXT-DATA-HONESTY failure this whole path exists to avoid.
+ *   • WITHOUT a ring → dispatches a CITED REFUSAL, status `'none'`, split by STRUCTURAL-SEAM-4 on the
+ *     fetch outcome (via the bounded auto-retry): a source that did not answer → the transient,
+ *     retried `madridNZ1Refusal` ("temporarily unreachable"); a genuine no-footprint point → the
+ *     durable `madridNZ1AbsentRefusal` (`no-plan-at-point`, no retry card). It NEVER falls back to
+ *     the estimated triple: a front/side/rear estimate is the wrong geometric SHAPE for an
+ *     explicit-area zone — the §CONTEXT-DATA-HONESTY failure this whole path exists to avoid.
  *
- * ⚠ GATED ON `MADRID_NZ1_CERTIFIED` (default OFF). While the flag is false the path REFUSES for
- * every Madrid parcel (the current shipping state): the footprint is real published geometry, but
- * the NZ-1 zone-code / COEF_Z vintage needs a light L-449 human cert first. Flipping the flag to true
- * is that sign-off; then this renders `estimated-ruleset`. Same discipline as `BCN_REFOS_OV_CERTIFIED`
- * / `CORDOBA_ENVELOPE_VERIFIED`.
+ * ⚠ GATED ON `MADRID_NZ1_CERTIFIED` (ON since L-608, 2026-07-25). RECONCILED 2026-07-27 — this header
+ * previously said "default OFF … the path REFUSES for every Madrid parcel (the current shipping
+ * state)", which contradicts the flipped-ON flag and the L-608 sign-off. While ON, a resolved ring
+ * renders `estimated-ruleset` (the footprint is real published geometry; the NZ-1 COEF_Z vintage is
+ * only lightly certified, so no height/FAR is asserted from it). The gate is a retained safety valve:
+ * if a regression flips it false, every Madrid parcel refuses honestly. Same discipline as
+ * `BCN_REFOS_OV_CERTIFIED` / `CORDOBA_ENVELOPE_VERIFIED` / `NL_BESTEMMINGSPLAN_CERTIFIED`.
  *
  * Best-effort + fully guarded — never throws into the commit path.
  */
@@ -1556,7 +1594,19 @@ async function applyMadridZoningThenFallback(
         // Resolve the published footprint ring (WGS84) by SPATIAL point-intersect at the parcel
         // centroid. Never throws. `MADRID_NZ1_RING_REF` equals the pack rule's `ringRef` (asserted +
         // tested), so we pass the constant rather than reach into the `GeometricRule` union.
-        const resolution = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, { lat, lon });
+        //
+        // STRUCTURAL-SEAM-4 — wrapped in the bounded auto-retry: sigma.madrid.es was returning HTTP
+        // 500 systematically in recon, and the proxy surfaces that as 502 → the resolver's
+        // `endpoint-unreachable` → a TRANSIENT outcome. `retryWhileUnreachable` re-attempts it; only a
+        // still-failing transient reaches the honest "temporarily unreachable — retrying" refusal
+        // below, NEVER the "not available yet" permanent card it used to wear. `madridOutcome.status`
+        // then tells the final refusal apart: `transient` → `madridNZ1Refusal`; anything else (a
+        // genuine `no-feature`/`degenerate-geometry` absence) → `madridNZ1AbsentRefusal`.
+        let resolution!: Awaited<ReturnType<typeof resolveMadridNZ1Ring>>;
+        const madridOutcome = await retryWhileUnreachable(async () => {
+            resolution = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, { lat, lon });
+            return resolutionToFetchOutcome(resolution);
+        });
 
         if (resolution.ok && resolution.ringLatLon.length >= 3) {
             // (3) Project the WGS84 ring into the SAME authoring frame the parcel lives in: the
@@ -1631,14 +1681,18 @@ async function applyMadridZoningThenFallback(
             // REFUSE, never a whole-parcel box. The engine's caveats say which; still logged.
             console.log(`${TAG} ring resolved but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
         } else if (!resolution.ok) {
-            console.log(`${TAG} footprint not resolved (reason=${resolution.reason}) — cited refusal.`);
+            console.log(`${TAG} footprint not resolved (reason=${resolution.reason}, outcome=${madridOutcome.status}) — cited refusal.`);
         }
 
-        // No ring / no usable envelope → the honest cited refusal (never the estimated triple).
+        // STRUCTURAL-SEAM-4 — the honest cited refusal (never the estimated triple), branched on the
+        // fetch outcome: a still-failing TRANSIENT → the retry-honest `madridNZ1Refusal`; a genuine
+        // ABSENCE (source answered, no NZ-1 footprint here) → `madridNZ1AbsentRefusal` (no retry card).
+        const madridRefusal =
+            madridOutcome.status === 'transient' ? madridNZ1Refusal() : madridNZ1AbsentRefusal();
         dispatchEnvelope(
             ctx,
             site.id,
-            buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridNZ1Refusal(), 'none'),
+            buildRefusedEnvelope(MADRID_NZ1_ZONE_CODES[0], madridRefusal, 'none'),
             'madrid-pgoum',
         );
     } catch (e) {
@@ -1728,7 +1782,16 @@ async function applyNlZoningThenFallback(
 
         // Resolve the published bouwvlak ring (WGS84) + maatvoering by point-query at the parcel
         // centroid. Never throws. `NL_RING_REF` equals the pack rule's `ringRef` (asserted + tested).
-        const resolution = await resolveNlBestemmingsplan(NL_RING_REF, { lat, lon });
+        //
+        // STRUCTURAL-SEAM-4 — wrapped in the bounded auto-retry: a PDOK WMS 502 surfaces as the
+        // resolver's `endpoint-unreachable` → a TRANSIENT outcome, retried before it can reach a card.
+        // `nlOutcome.status` branches the final refusal: `transient` → the retry-honest
+        // `nlBestemmingsplanRefusal`; a genuine `no-plan`/`no-bouwvlak` absence → `nlNoPlanRefusal`.
+        let resolution!: Awaited<ReturnType<typeof resolveNlBestemmingsplan>>;
+        const nlOutcome = await retryWhileUnreachable(async () => {
+            resolution = await resolveNlBestemmingsplan(NL_RING_REF, { lat, lon });
+            return resolutionToFetchOutcome(resolution);
+        });
 
         if (resolution.ok && resolution.ringLatLon.length >= 3) {
             // Project the WGS84 bouwvlak ring into the SAME authoring frame the parcel lives in —
@@ -1861,15 +1924,21 @@ async function applyNlZoningThenFallback(
             }
             console.log(`${TAG} ring resolved (${resolution.ringSource}) but envelope status=${envelope.status} — refusing. caveats: ${envelope.caveats.join(' | ')}`);
         } else if (!resolution.ok) {
-            console.log(`${TAG} bouwvlak not resolved (reason=${resolution.reason}) — cited refusal.`);
+            console.log(`${TAG} bouwvlak not resolved (reason=${resolution.reason}, outcome=${nlOutcome.status}) — cited refusal.`);
         }
 
-        // No bouwvlak / no usable envelope → the honest cited refusal (never the estimated triple).
+        // STRUCTURAL-SEAM-4 — the honest cited refusal (never the estimated triple), branched on the
+        // fetch outcome: a still-failing TRANSIENT → the retry-honest `nlBestemmingsplanRefusal`; a
+        // genuine ABSENCE (source answered, no plan/bouwvlak here) → `nlNoPlanRefusal` (no retry card).
         const planName = resolution.ok ? resolution.planNaam : null;
+        const nlRefusal =
+            nlOutcome.status === 'transient'
+                ? nlBestemmingsplanRefusal(planName)
+                : nlNoPlanRefusal(planName);
         dispatchEnvelope(
             ctx,
             site.id,
-            buildRefusedEnvelope(NL_ZONE_CODE, nlBestemmingsplanRefusal(planName), 'none'),
+            buildRefusedEnvelope(NL_ZONE_CODE, nlRefusal, 'none'),
             NL_SOURCE,
         );
     } catch (e) {

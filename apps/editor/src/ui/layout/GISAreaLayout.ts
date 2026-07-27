@@ -2351,7 +2351,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // missing for this parcel. So it is the only one that says "try again", and the only
             // one whose chip implies motion rather than a settled state.
             const isTransient = r.code === 'source-data-unavailable';
-            const isGap = !isTransient && !r.legallyGrounded;
+            // STRUCTURAL-SEAM-4 (C58 §1.13.8) — a GENUINE data-absence: the source ANSWERED and there
+            // is no plan published at this point. Distinct from `isTransient` (a fetch that FAILED and
+            // is retried) and from `isGap` (a zone PRYZM has not encoded). It gets its own honest card:
+            // "no plan published here", and — crucially — NO retry affordance, because re-asking a
+            // source that already said "nothing here" would loop for ever (the failure≠empty conflation
+            // this whole seam removes, L-422/457/467/469).
+            const isAbsent = r.code === 'no-plan-at-point';
+            const isGap = !isTransient && !isAbsent && !r.legallyGrounded;
             // §L-577a — THE CHIP MUST NOT SHRINK. It rendered as `COULDN'T COMPL…` because it is a
             // flex item in the header row and flex items default to `flex-shrink: 1`, so the pill
             // was compressed below its own text and clipped. Two fixes, both needed: `flex:none`
@@ -2363,7 +2370,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // broken widget — the L-527/L-553 rule that an honest signal which is not LEGIBLE is
             // not honest in effect. Truncation was a layout defect, so it is fixed in the layout.
             const chip = isTransient
-                ? '<span title="We hold this zone\'s rules; a data source needed to apply them was unavailable for this parcel. Usually temporary." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Couldn’t complete</span>'
+                ? '<span title="We hold this zone\'s rules; the data source needed to apply them did not answer for this parcel. Temporary — it has been retried automatically." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Temporarily unavailable</span>'
+                : isAbsent
+                ? '<span title="The planning source answered and there is no adopted plan / buildable footprint published at this point. Not an error, and not a limit on your land." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No plan published here</span>'
                 : isGap
                 ? '<span title="PRYZM has not encoded this zone\'s rules yet — a coverage gap, not a legal finding and not an error" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Zone rules coming</span>'
                 : '<span title="The governing ordinance provides no private buildable envelope for this zone" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#3d4a5c;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">No envelope applies</span>';
@@ -2386,18 +2395,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // not the reason we failed. Our data path is (L-526).
             const cite = r.ordinanceRef
                 ? `<div style="margin-top:8px;color:#8a83a0;font-size:10px;line-height:1.45;">${escHtml(r.ordinanceRef)}</div>`
-                : isGap || isTransient
+                : isGap || isTransient || isAbsent
                 ? ''
                 : '<div style="margin-top:8px;color:#a49dbb;font-size:10px;">No citation held for this classification.</div>';
             const reasonLine = isTransient
-                // §L-574 — say the land is unaffected (same reassurance as the coverage gap, for
-                // the same reason) AND tell the user the one action that actually helps. This is
-                // an INSTRUCTION, not a button: a working Retry needs a cached boundary and a
-                // re-invoke path that do not exist yet, and a dead button would be worse than
-                // none — it would read as "we tried and it is permanently broken". Logged as the
-                // L-574 follow-up.
-                ? `<div style="margin-top:8px;color:#9a6414;font-size:10.5px;line-height:1.5;">Re-select the parcel to try again — this usually clears on a second attempt.</div>
-                   <div style="margin-top:4px;color:#a49dbb;font-size:10px;">Status <code style="font-size:10px;">${escHtml(r.code)}</code> — not an error, and not a limit on your land. Your parcel, boundary and area are unaffected.</div>`
+                // STRUCTURAL-SEAM-4 (RECONCILED) — the transient failure has ALREADY been auto-retried
+                // with backoff at the fetch seam before this card was shown (C57 §1.5 / C58 §1.13.8), so
+                // the old "this usually clears on a second attempt" was no longer honest — the machine
+                // already tried. Say what is true: the source was briefly unavailable, it was retried,
+                // and re-selecting re-runs the resolve. Removed the fictional-retry framing (the
+                // §CONTEXT-DATA-HONESTY point: an honest signal that overstates is not honest in effect).
+                ? `<div style="margin-top:8px;color:#9a6414;font-size:10.5px;line-height:1.5;">The planning source was temporarily unavailable and has been retried automatically. Re-select the parcel to try again.</div>
+                   <div style="margin-top:4px;color:#a49dbb;font-size:10px;">Status <code style="font-size:10px;">${escHtml(r.code)}</code> — a temporary source outage, not an error, and not a limit on your land. Your parcel, boundary and area are unaffected.</div>`
+                : isAbsent
+                // STRUCTURAL-SEAM-4 — a GENUINE absence: NO retry hint (the source already answered
+                // "nothing here"; re-asking returns the same empty — offering a retry would loop for
+                // ever). State it as the source's answer, and reassure that the land is unaffected.
+                ? `<div style="margin-top:8px;color:#3d4a5c;font-size:10.5px;line-height:1.5;">No adopted plan or buildable footprint is published at this point — this is the planning source’s answer, not an error, and it will not change on a retry.</div>
+                   <div style="margin-top:4px;color:#a49dbb;font-size:10px;">Status <code style="font-size:10px;">${escHtml(r.code)}</code> — not a limit on your land. Your parcel, boundary and area are unaffected.</div>`
                 : isGap
                 ? `<div style="margin-top:8px;color:#a49dbb;font-size:10px;">Coverage status <code style="font-size:10px;">${escHtml(r.code)}</code> — not an error. Your parcel, boundary and area are unaffected.</div>`
                 : `<div style="margin-top:8px;color:#8a83a0;font-size:10.5px;">Zone ${escHtml(env.zoneCode ?? 'n/a')} · reason <code style="font-size:10px;">${escHtml(r.code)}</code></div>`;

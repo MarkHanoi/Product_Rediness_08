@@ -145,6 +145,14 @@ describe('L-601 (a) — the code→class map is EXHAUSTIVE and total', () => {
         expect(classifyRefusalCode('source-data-unavailable')).toBe('construction-incomplete');
     });
 
+    it('STRUCTURAL-SEAM-4 — a genuine data-absence is its OWN class, never the transient/coverage colour', () => {
+        // `no-plan-at-point` (the source answered with no plan here) must not share a colour with the
+        // transient `source-data-unavailable` (retryable) nor the `zone-unencoded` coverage gap.
+        expect(classifyRefusalCode('no-plan-at-point')).toBe('no-plan-published');
+        expect(classifyRefusalCode('no-plan-at-point')).not.toBe('construction-incomplete');
+        expect(classifyRefusalCode('no-plan-at-point')).not.toBe('zone-unencoded');
+    });
+
     it('groups the plan-delegating and overlay codes as `plan-defined`', () => {
         expect(classifyRefusalCode('derived-plan')).toBe('plan-defined');
         expect(classifyRefusalCode('overlay-uncertain')).toBe('plan-defined');
@@ -160,9 +168,9 @@ describe('L-601 (a) — the code→class map is EXHAUSTIVE and total', () => {
         }
     });
 
-    it('exposes exactly the five classes, frozen', () => {
+    it('exposes exactly the six classes, frozen', () => {
         expect([...ANSWERABILITY_CLASSES].sort()).toEqual(
-            ['construction-incomplete', 'full-envelope', 'plan-defined', 'systems-land', 'zone-unencoded'].sort(),
+            ['construction-incomplete', 'full-envelope', 'no-plan-published', 'plan-defined', 'systems-land', 'zone-unencoded'].sort(),
         );
         expect(Object.isFrozen(ANSWERABILITY_CLASSES)).toBe(true);
     });

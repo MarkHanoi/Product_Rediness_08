@@ -35,9 +35,12 @@
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 //   1. IT NEVER THROWS. Every miss / unreachable endpoint / malformed body / unparseable edificabilidad
 //      returns a typed REFUSAL, so the L5 dispatcher shows a cited refusal, never a fabricated number
-//      (mirrors `resolveBcnRefosOV`). ⚠ Until the same-origin Madrid proxy is reachable AND the
-//      `MADRID_NZ1_CERTIFIED` gate is signed, production shows the NZ 1 refusal; that is the correct
-//      shipping state (the L-608 constraint), not a bug.
+//      (mirrors `resolveBcnRefosOV`). ⚠ RECONCILED 2026-07-27: the same-origin `/api/madrid/condiciones`
+//      proxy IS wired and `MADRID_NZ1_CERTIFIED` IS signed ON (L-608, 2026-07-25), so a resolved ring
+//      now renders `estimated-ruleset`. A refusal is the shipping state ONLY for the residual cases:
+//      a genuine no-footprint point (`no-feature`/`degenerate-geometry` → the dispatcher's
+//      `madridNZ1AbsentRefusal`) or a source that did not answer (`endpoint-unreachable` → the
+//      auto-retried transient `madridNZ1Refusal`). STRUCTURAL-SEAM-4 keeps those two DISTINCT.
 //   2. IT DOES NOT PROJECT. The ring comes back in WGS84 (the proxy asks the server for `outSR=4326`),
 //      NOT in the source's native EPSG:25830, and NOT in scene-XZ. Projection to the authoring frame
 //      is the L5 dispatcher's job (it holds the site origin + θ and already projects the parcel and
@@ -62,16 +65,17 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 const tracer = trace.getTracer('pryzm.zoning');
 
 /**
- * ⚠⚠ THE L-449 CERTIFICATION GATE. **DEFAULT OFF.** While false, the dispatcher keeps Madrid NZ 1's
- * cited refusal and this resolver's output is never rendered. Flip to true ONLY after a human
- * certifies the NZ-1 zone-code vintage against the live calificación plane (the light L-449 cert the
- * recon calls for — the footprint is real published geometry, but the zone-code / COEF_Z vintage
- * needs a human sign-off). Even then the envelope renders `estimated-ruleset`, NEVER `structured`
- * (the footprint is DATA but the COEF_Z semantics stay withheld) — see the dispatcher. Same discipline
- * as `CORDOBA_ENVELOPE_VERIFIED` / `BCN_REFOS_OV_CERTIFIED`.
+ * ⚠⚠ THE L-449 CERTIFICATION GATE. **NOW ON (L-608 sign-off, 2026-07-25).** RECONCILED 2026-07-27 —
+ * this docstring previously read "DEFAULT OFF … the dispatcher keeps Madrid NZ 1's cited refusal and
+ * this resolver's output is never rendered", which contradicted the `= true` below and the L-608
+ * sign-off. While the gate is ON, a resolved footprint renders `estimated-ruleset` (NEVER `structured`
+ * — the footprint is DATA but the COEF_Z semantics stay withheld; see the dispatcher). The safety
+ * valve is retained: if a regression flips this false, every Madrid parcel refuses honestly rather
+ * than render an uncertified number. Same discipline as `CORDOBA_ENVELOPE_VERIFIED` /
+ * `BCN_REFOS_OV_CERTIFIED` / `NL_BESTEMMINGSPLAN_CERTIFIED`.
  *
- * (Typed `boolean`, not the literal `false`, so a consumer's `if (MADRID_NZ1_CERTIFIED)` compute
- * branch is not narrowed away as dead code while the gate is closed.)
+ * (Typed `boolean`, not the literal `true`, so a consumer's `if (!MADRID_NZ1_CERTIFIED)` refusal
+ * branch is not narrowed away as dead code while the gate is open.)
  *
  * L-608 SIGN-OFF (2026-07-25): flipped ON. The buildable footprint is live municipal geometry
  * (PG_CONDICIONES_EDIFICACION layer 6, verified returning WGS84 rings at multiple central-Madrid

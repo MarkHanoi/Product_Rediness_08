@@ -96,6 +96,23 @@ Cadastral coverage is partial and per-jurisdiction. A provider MUST resolve to `
 >
 > C58 §1.13 carries the sibling amendment (a genuine-absence refusal code distinct from
 > `source-data-unavailable`, and the ban on the dispatcher flattening the resolver's distinction).
+>
+> **IMPLEMENTED 2026-07-27 (STRUCTURAL-SEAM-4).** The shared union ships as
+> `FetchOutcome<T> = {status:'found',value} | {status:'absent',reason} | {status:'transient',reason} | {status:'aborted'}`
+> in `packages/schemas/src/site/zoning/FetchOutcome.ts` (L0, pure), with the classifiers
+> `isTransientFetchReason` / `resolutionToFetchOutcome` and the shared transient-reason table
+> `TRANSIENT_FETCH_REASONS`. The bounded auto-retry is `retryWhileUnreachable` (default 3 attempts,
+> 300 ms → 600 ms backoff, injectable clock) in `packages/site-parcel-data/src/net/`. On the wire:
+> the Madrid (`/api/madrid/condiciones`) and NL (`/api/nl/bestemmingsplan`) proxies already returned
+> `502`-on-failure; the **plandata (DK) proxy was fixed here** to return `502` (not `200 {zoning:null}`)
+> when an upstream fetch fails, via a `net.failed` accumulator threaded through `fetchTextOnce`/
+> `fetchZoningAtPoint`, and `DkZoningProvider` now returns a `{kind:'unreachable'}` result rather than
+> collapsing a non-OK response into `no-plan`. **Scope note:** the CI gate shipped
+> (`packages/site-parcel-data/__tests__/fetchOutcomeHonesty.test.ts`) asserts the load-bearing
+> invariant — a resolver never maps a *transient* reason to the *absent* code (driving the real Madrid
+> + NL + DK resolvers with a failing vs a 200-empty fetch) — rather than a blanket every-proxy source
+> scan; the remaining Catastro-template proxies (`chGrundnutzung`/`muc`/`parcelZoning`) adopt the same
+> `502`-on-failure shape incrementally as they are next touched.
 
 ### §1.6 — EPSG handling reuses the single C12 projector
 

@@ -412,6 +412,27 @@ export {
 // ── L-606 — Riyadh (Saudi Arabia) city jurisdiction gate (bbox). ──
 export { isInRiyadh, RIYADH_BBOX } from './providers/riyadhBbox.js';
 
+// ── STRUCTURAL-SEAM-4 (C57 §1.5 / C58 §1.13.8) — the shared fetch-outcome union + bounded retry. ──
+// `FetchOutcome` and its classifiers live in `@pryzm/schemas` (L0); re-export them here so resolver
+// consumers bind to one vocabulary. `retryWhileUnreachable` is the one impure (clock) hop above the
+// pure resolvers, used by the L5 dispatcher around every explicit-area resolve.
+export type { FetchOutcome, TransientFetchReason } from '@pryzm/schemas';
+export {
+    fetchFound,
+    fetchAbsent,
+    fetchTransient,
+    fetchAborted,
+    isTransientOutcome,
+    isTransientFetchReason,
+    resolutionToFetchOutcome,
+    TRANSIENT_FETCH_REASONS,
+} from '@pryzm/schemas';
+export {
+    retryWhileUnreachable,
+    DEFAULT_ZONING_RETRY,
+    type UnreachableRetryPolicy,
+} from './net/retryWhileUnreachable.js';
+
 // ── L-399a — DK Plandata.dk zoning provider (C58 §3.1, the first real-data jurisdiction) ──
 export type { ZoningProvider, ZoningProviderDeps } from './providers/ZoningProvider.js';
 export {
@@ -433,6 +454,8 @@ export {
 export {
     dkPlandataNoNumbersRefusal,
     dkPlandataNoPlanRefusal,
+    // STRUCTURAL-SEAM-4 — the DK transient (source did not answer) refusal, distinct from no-plan.
+    dkPlandataUnreachableRefusal,
 } from './rulepacks/dkPlandataRefusal.js';
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
@@ -450,6 +473,9 @@ export {
     MADRID_JURISDICTION_ID,
     MADRID_NZ1_ORDINANCE_REF,
     madridNZ1Refusal,
+    // STRUCTURAL-SEAM-4 — the Madrid genuine-absence refusal (no-plan-at-point), distinct from the
+    // transient `madridNZ1Refusal`.
+    madridNZ1AbsentRefusal,
 } from './rulepacks/esMadridNZ1.js';
 export {
     resolveMadridNZ1Ring,
@@ -480,6 +506,9 @@ export {
     NL_ORDINANCE_REF,
     bestemmingToPermittedUse,
     nlBestemmingsplanRefusal,
+    // STRUCTURAL-SEAM-4 — the NL genuine-absence refusal (no-plan-at-point), distinct from the
+    // transient `nlBestemmingsplanRefusal`.
+    nlNoPlanRefusal,
 } from './rulepacks/nlBestemmingsplan.js';
 export {
     resolveNlBestemmingsplan,

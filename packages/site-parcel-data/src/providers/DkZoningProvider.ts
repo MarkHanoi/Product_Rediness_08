@@ -48,26 +48,49 @@ function todayISO(): string {
  *   • `plan-without-numbers`  — a plan resolved (we hold its zone identity + plan-document link)
  *                               but NOT enough structured numbers to draw a volume → honest cited
  *                               refusal, NEVER the estimated triple (§CONTEXT-DATA-HONESTY).
- *   • `no-plan`               — no adopted plan at the point / out-of-Denmark / upstream miss.
+ *   • `no-plan`               — the source ANSWERED and no adopted plan covers the point (a durable
+ *                               absence) / out-of-Denmark. NOT a fetch failure.
+ *   • `unreachable`           — STRUCTURAL-SEAM-4: Plandata did not answer (proxy 502 / network /
+ *                               timeout). A TRANSIENT failure, distinct from `no-plan`, so the
+ *                               dispatcher can retry it and show "temporarily unavailable" rather
+ *                               than a permanent "no plan here" (§CONTEXT-DATA-HONESTY, L-422/457/469).
  */
 export type DkZoningResult =
     | { readonly kind: 'structured'; readonly record: ZoningRecord }
     | { readonly kind: 'plan-without-numbers'; readonly identity: DkPlanIdentity }
-    | { readonly kind: 'no-plan' };
+    | { readonly kind: 'no-plan' }
+    | { readonly kind: 'unreachable' };
 
 /**
- * The one impure surface (C58 §1.9): fetch the raw winning Plandata feature at a WGS84 point via
- * the same-origin proxy, or `null` (out-of-Denmark / no-fetch / upstream miss / network error).
- * NEVER throws. Shared by both public methods so there is a single fetch path.
+ * STRUCTURAL-SEAM-4 — the classified outcome of the one impure fetch, so the caller can tell a
+ * genuine empty apart from a source that did not answer:
+ *   • `{ status:'answered', response }` — the proxy answered 200; `response` is the winning plan
+ *     feature, or `null` when the source answered with no plan here (a DURABLE absence).
+ *   • `{ status:'unreachable' }`        — non-OK (proxy 502) / no-fetch / network error / bad body.
+ * Out-of-Denmark / non-finite coords resolve to `answered` with `null` (a real "nothing here"), NOT
+ * `unreachable` — no fetch was even attempted, so it is not a source failure.
  */
-async function fetchPlandataResponse(
+type DkFetchOutcome =
+    | { readonly status: 'answered'; readonly response: PlandataZoningResponse | null }
+    | { readonly status: 'unreachable' };
+
+/**
+ * The one impure surface (C58 §1.9): fetch the raw winning Plandata feature at a WGS84 point via the
+ * same-origin proxy, CLASSIFIED as answered-vs-unreachable (STRUCTURAL-SEAM-4 — no longer collapsing
+ * an upstream failure to the same `null` a genuine empty uses). NEVER throws. Shared by both public
+ * methods so there is a single fetch path.
+ */
+async function fetchPlandataOutcome(
     lat: number,
     lon: number,
     deps: ZoningProviderDeps,
-): Promise<PlandataZoningResponse | null> {
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !isInDenmark(lat, lon)) return null;
+): Promise<DkFetchOutcome> {
+    // No fetch attempted (off-Denmark / bad coords) → a real "nothing here", not a source failure.
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !isInDenmark(lat, lon)) {
+        return { status: 'answered', response: null };
+    }
     const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
-    if (typeof fetchImpl !== 'function') return null;
+    if (typeof fetchImpl !== 'function') return { status: 'unreachable' };
     const base = deps.pathBase ?? PLANDATA_ZONING_PATH;
     const url =
         `${base}?lat=${encodeURIComponent(String(lat))}` +
@@ -77,13 +100,14 @@ async function fetchPlandataResponse(
             method: 'GET',
             headers: { Accept: 'application/json' },
         });
-        if (!res || !res.ok) return null;
+        // A non-OK proxy response (502 = upstream failure) is a TRANSIENT failure, NOT "no plan".
+        if (!res || !res.ok) return { status: 'unreachable' };
         const body = (await res.json()) as { zoning?: PlandataZoningResponse | null };
-        return body?.zoning ?? null;
+        return { status: 'answered', response: body?.zoning ?? null };
     } catch (fetchErr) {
-        // Network / parse failure → graceful null (caller refuses honestly, never fabricates).
+        // Network / parse failure → transient unreachable (caller retries, then refuses honestly).
         console.warn('[dk-zoning] fetch failed (non-fatal):', (fetchErr as Error)?.message ?? fetchErr);
-        return null;
+        return { status: 'unreachable' };
     }
 }
 
@@ -116,7 +140,10 @@ export const DkZoningProvider: DkZoningProviderShape = {
         const span = tracer.startSpan('pryzm.zoning.fetchZoning');
         span.setAttribute('provider', 'plandata-dk');
         try {
-            const response = await fetchPlandataResponse(lat, lon, deps);
+            const outcome = await fetchPlandataOutcome(lat, lon, deps);
+            // Back-compat method returns `ZoningRecord | null`: an unreachable source is a miss (null),
+            // exactly as before — callers of this method have no transient/absent distinction to make.
+            const response = outcome.status === 'answered' ? outcome.response : null;
             const record = response
                 ? mapPlandataToZoningRecord(response, { fetchDateISO: deps.nowISO ?? todayISO() })
                 : null;
@@ -145,7 +172,15 @@ export const DkZoningProvider: DkZoningProviderShape = {
         const span = tracer.startSpan('pryzm.zoning.fetchZoningResult');
         span.setAttribute('provider', 'plandata-dk');
         try {
-            const response = await fetchPlandataResponse(lat, lon, deps);
+            const outcome = await fetchPlandataOutcome(lat, lon, deps);
+            // STRUCTURAL-SEAM-4 — a source that did not answer is `unreachable` (transient), NEVER
+            // collapsed into `no-plan` (a durable absence). The dispatcher retries the former.
+            if (outcome.status === 'unreachable') {
+                span.setAttribute('resultFields', 'unreachable');
+                span.setStatus({ code: SpanStatusCode.OK });
+                return { kind: 'unreachable' };
+            }
+            const response = outcome.response;
             if (!response) {
                 span.setAttribute('resultFields', 'no-plan');
                 span.setStatus({ code: SpanStatusCode.OK });

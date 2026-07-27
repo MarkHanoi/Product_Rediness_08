@@ -317,6 +317,27 @@ describe('§PLANDATA-ZONING-PROXY /api/plandata/zoning', () => {
         expect(body.zoning).toBeNull();
     });
 
+    it('STRUCTURAL-SEAM-4 — upstream FAILURE (all layers 500) → 502, NOT 200 {zoning:null}', async () => {
+        // A dedicated app whose fetch always fails upstream: the proxy MUST NOT dress a failure as a
+        // clean empty (that is the failure≠empty conflation this seam removes). It returns 502 so the
+        // client's DkZoningProvider reads `unreachable` and retries, rather than "no plan here".
+        const failApp = express();
+        const failFetch = (async (u: string) =>
+            String(u).includes('geoserver.plandata.dk')
+                ? new Response('upstream boom', { status: 500 })
+                : new Response('', { status: 404 })) as unknown as typeof fetch;
+        failApp.get(PLANDATA_ZONING_PATH, makePlandataZoningHandler({ fetchImpl: failFetch, timeoutMs: 2000 }));
+        const a = await listen(failApp);
+        try {
+            const r = await fetch(`${a.url}${PLANDATA_ZONING_PATH}?lat=55.6761&lon=12.5683`);
+            expect(r.status).toBe(502);
+            const body = await r.json();
+            expect(body.error).toBeTruthy();
+        } finally {
+            await close(a.server);
+        }
+    });
+
     it('out-of-Denmark point → 200 { zoning: null } without any upstream call', async () => {
         const r = await get(41.3874, 2.1686); // Barcelona
         expect(r.status).toBe(200);

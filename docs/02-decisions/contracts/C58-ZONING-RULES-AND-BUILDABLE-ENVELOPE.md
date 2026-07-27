@@ -425,6 +425,22 @@ sees it. That is §CONTEXT-DATA-HONESTY (failure ≠ empty) breached on the comp
 rendering a *transient failure* as a durable absence and a durable absence as a *retryable* transient
 — the same "these are different answers" discipline, at the fetch boundary.
 
+**IMPLEMENTED 2026-07-27 (STRUCTURAL-SEAM-4).** (1) `EnvelopeRefusalCode` gained the genuine-absence
+code **`no-plan-at-point`** (`BuildableEnvelope.ts`), `legallyGrounded: false`, with NO retry
+affordance. (2) The dispatcher no longer flattens: `siteDispatch.ts` wraps each explicit-area resolve
+(Madrid/NL/DK) in `retryWhileUnreachable` and branches the refusal on the outcome —
+`transient` → the retry-honest `source-data-unavailable` builders (`madridNZ1Refusal` /
+`nlBestemmingsplanRefusal` / the new `dkPlandataUnreachableRefusal`); `absent` → the new
+`no-plan-at-point` builders (`madridNZ1AbsentRefusal` / `nlNoPlanRefusal`; `dkPlandataNoPlanRefusal`
+was moved from the transient code to `no-plan-at-point`). (3) The card (`GISAreaLayout.ts`) grows an
+`isAbsent` branch ("No plan published here", no retry line) and the transient copy was corrected from
+the fictional "usually clears on a second attempt" to "temporarily unavailable — retried
+automatically". (4) The answerability classifier (`answerabilityClass.ts`, L-601) gained a sixth
+class **`no-plan-published`** so a genuine absence never shares a colour with the transient
+`construction-incomplete` nor the `zone-unencoded` coverage gap. Rides the shared `FetchOutcome`
+union C57 §1.5 mandates (see that section's IMPLEMENTED note for the type + retry + proxy work). CI
+gate: `packages/site-parcel-data/__tests__/fetchOutcomeHonesty.test.ts`.
+
 ### §1.14 — The massing render is a PURE TOTAL FUNCTION of the whole envelope; it MUST NOT re-derive the solid from a hand-picked field subset (L-616 seam)
 
 **Added 2026-07-26 (STRUCTURAL-SEAM-1; grounds `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md`

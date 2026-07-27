@@ -211,6 +211,15 @@ export const EnvelopeRefusalCodeSchema = z.enum([
     'no-rule-pack',
     'source-data-unavailable',
     'regime-undetermined',
+    // STRUCTURAL-SEAM-4 (C58 §1.13.8, L-422/457/467/469) — GENUINE data-absence, distinct from the
+    // transient `source-data-unavailable`. The source ANSWERED and there is no adopted plan /
+    // bouwvlak / published footprint at this point. A DURABLE fact about coverage, not a fetch that
+    // failed: it earns "no plan published here", NEVER the "usually clears on a second attempt"
+    // retry card (which is honest ONLY for `source-data-unavailable`). Before this code existed, an
+    // empty had nowhere to go but the transient code, so every permanent absence wore a fictional
+    // retry affordance — the exact failure≠empty conflation §CONTEXT-DATA-HONESTY forbids.
+    // `legallyGrounded: false` (a statement about our DATA coverage at this point, not the law).
+    'no-plan-at-point',
 ]);
 export type EnvelopeRefusalCode = z.infer<typeof EnvelopeRefusalCodeSchema>;
 
@@ -247,14 +256,16 @@ export const EnvelopeRefusalSchema = z.object({
     /**
      * Is this refusal a statement about the LAW (true) or about PRYZM's coverage (false)?
      *
-     * `no-rule-pack`, `source-data-unavailable` and `regime-undetermined` are the `false` codes.
-     * The distinction is load-bearing: "the ordinance grants no envelope here", "we have not
-     * encoded this zone yet", "we hold the rule but could not fetch what it needs for your
-     * parcel" and "the ordinance states two regimes and no source says which one your parcel is
-     * in" are FOUR different claims and must never share a rendering. Only
-     * `source-data-unavailable` is transient, and it is the only one for which a RETRY affordance
-     * makes sense (L-574) — offering one on `regime-undetermined` would loop for ever, because
-     * no number of retries produces a legal fact nobody publishes (§L-590c / ADR-0274).
+     * `no-rule-pack`, `source-data-unavailable`, `regime-undetermined` and `no-plan-at-point` are
+     * the `false` codes. The distinction is load-bearing: "the ordinance grants no envelope here",
+     * "we have not encoded this zone yet", "we hold the rule but could not fetch what it needs for
+     * your parcel", "the ordinance states two regimes and no source says which one your parcel is
+     * in", and "the source answered and there is genuinely no plan published at this point" are
+     * FIVE different claims and must never share a rendering. Only `source-data-unavailable` is
+     * transient, and it is the only one for which a RETRY affordance makes sense (L-574) — offering
+     * one on `regime-undetermined` would loop for ever, because no number of retries produces a
+     * legal fact nobody publishes (§L-590c / ADR-0274); offering one on `no-plan-at-point`
+     * (STRUCTURAL-SEAM-4) would loop for ever because the source already answered "nothing here".
      */
     legallyGrounded: z.boolean(),
 });

@@ -13,3 +13,5 @@ export * from './EnvelopeNumbers.js';
 export * from './ZoningRecord.js';
 export * from './JurisdictionZoningContract.js';
 export * from './BuildableEnvelope.js';
+// STRUCTURAL-SEAM-4 — the shared fetch-outcome union (transient ≠ absent), C57 §1.5 / C58 §1.13.8.
+export * from './FetchOutcome.js';

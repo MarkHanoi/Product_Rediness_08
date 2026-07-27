@@ -162,40 +162,65 @@ export const ES_MADRID_NZ1_PACK: JurisdictionZoningContract =
     });
 
 /**
- * L-608 — the Madrid NZ 1 REFUSAL, shipped WHILE the zone-code is unverified and the published
- * footprint cannot be resolved live.
+ * L-608 / STRUCTURAL-SEAM-4 — the Madrid NZ 1 TRANSIENT refusal: PRYZM holds the rule and the
+ * footprint IS published, but the municipal source did not answer for this parcel (the sigma.madrid.es
+ * PG_CONDICIONES_EDIFICACION plane returned HTTP 500 in recon, 2026-07-23). This is NOT "no footprint
+ * here" and NOT "Madrid is not available yet" — it is a fetch that failed and will be retried.
  *
- * ⚠ THIS, NOT A NUMBER, IS THE CURRENT SHIPPING OUTPUT for a Madrid parcel. NZ 1 is an
- * `explicit-area` zone: PGOUM-97 publishes the buildable footprint (Fondo de la Edificación) and
- * the weighted edificabilidad (COEF_Z) AS GEOMETRY on the municipal ArcGIS plane, not as setback
- * numbers, so the honest answer until that geometry is resolvable AND the zone code is verified is
- * a cited refusal — never a fabricated setback triple or edificabilidad (C58 §1.4, the
- * §CONTEXT-DATA-HONESTY family: a REFUSAL and a FAILURE must not collapse to the same value).
+ * ⚠ RECONCILED 2026-07-27 (was worded "could not be resolved … yet", implying a permanent
+ * coming-soon, and used indiscriminately for BOTH the HTTP failure AND a genuine no-footprint point).
+ * With `MADRID_NZ1_CERTIFIED = true` (L-608 sign-off) and the same-origin `/api/madrid/condiciones`
+ * proxy wired (returning 502 on upstream failure, 200-empty on a genuine miss), the two cases are now
+ * DISTINCT: this builder is the TRANSIENT (`source-data-unavailable`) case — the dispatcher only
+ * reaches it after the bounded auto-retry still failed, so the copy says "temporarily unreachable —
+ * retrying". A genuine no-footprint point uses `madridNZ1AbsentRefusal` (`no-plan-at-point`) instead.
  *
- * `code: 'source-data-unavailable'` — the precise class here: PRYZM HOLDS the rule (this
- * explicit-area declaration + `resolveMadridNZ1Ring`), but cannot fetch the published footprint
- * this parcel's manzana needs (no same-origin Madrid proxy is wired yet), and the exact
- * Norma-Zonal code the live calificación plane reports for the parcel is not verified (that
- * service returned HTTP 500 on 2026-07-23). It is `legallyGrounded: false` for that reason — the
- * LAW is known; what is missing is our data path + the code verification, both statements about
- * PRYZM's inputs, not about the ordinance. The `ordinanceRef` cites PGOUM-97 for the one LEGAL
- * claim we do make (that NZ 1 is published as geometry), never for a number.
+ * `code: 'source-data-unavailable'` (transient, retry-honest): PRYZM HOLDS the rule (this
+ * explicit-area declaration + `resolveMadridNZ1Ring`), and the fetch of the published footprint did
+ * not complete. `legallyGrounded: false` — the LAW is known; what failed is our data path, a
+ * statement about PRYZM's inputs, not the ordinance. `ordinanceRef` cites PGOUM-97 for the one LEGAL
+ * claim we make (that NZ 1 is published as geometry), never for a number.
  */
 export function madridNZ1Refusal(knownFacts: readonly string[] = []): EnvelopeRefusal {
     return {
         code: 'source-data-unavailable',
         headline:
-            'Madrid Norma Zonal 1 — the published buildable footprint could not be resolved for ' +
-            'this parcel yet.',
+            'Madrid Norma Zonal 1 — the municipal source was temporarily unreachable for this parcel.',
         detail:
             'PRYZM models Madrid NZ 1 (PGOUM-97, protección del patrimonio histórico) as an ' +
             'explicit-area zone: the ordinance publishes the buildable footprint (Fondo de la ' +
             'Edificación) and the weighted edificabilidad (COEF_Z) directly as GEOMETRY on the ' +
-            'municipal ArcGIS plane, rather than as setback distances. That footprint must be ' +
-            'fetched live for your manzana, and it is not available here yet; the exact ' +
-            'Norma-Zonal code the calificación plane reports for this parcel is also not yet ' +
-            'verified. Rather than fabricate a setback triple or an edificabilidad, PRYZM ' +
-            'declines to draw a buildable envelope — no number is shown because none can be cited.',
+            'municipal ArcGIS plane, rather than as setback distances. That footprint is fetched ' +
+            'live for your manzana, and the municipal service did not answer this time (it has been ' +
+            'retried automatically). This is a temporary outage of the source, NOT a statement that ' +
+            'your parcel has no published footprint. Rather than fabricate a setback triple or an ' +
+            'edificabilidad, PRYZM declines to draw a buildable envelope — no number is shown ' +
+            'because none can be cited. Re-select the parcel to try again.',
+        ordinanceRef: MADRID_NZ1_ORDINANCE_REF,
+        legallyGrounded: false,
+        knownFacts: [...knownFacts],
+    };
+}
+
+/**
+ * L-608 / STRUCTURAL-SEAM-4 — the Madrid NZ 1 GENUINE-ABSENCE refusal: the municipal plane ANSWERED
+ * and there is no published NZ-1 buildable footprint at this point (the parcel is outside any NZ-1
+ * manzana, or the returned geometry was degenerate). A DURABLE fact, not a fetch failure — so
+ * `code: 'no-plan-at-point'`, NOT the transient `source-data-unavailable`, and the card offers NO
+ * retry (re-asking returns the same empty). This is the other half of the seam-4 split: absent and
+ * unreachable are different answers and must never share a card (§CONTEXT-DATA-HONESTY, L-422/457/469).
+ */
+export function madridNZ1AbsentRefusal(knownFacts: readonly string[] = []): EnvelopeRefusal {
+    return {
+        code: 'no-plan-at-point',
+        headline:
+            'Madrid Norma Zonal 1 — no published buildable footprint at this point.',
+        detail:
+            'PRYZM queried the municipal PGOUM-97 PG_CONDICIONES_EDIFICACION plane at this parcel and ' +
+            'the source answered with no NZ-1 buildable footprint (Fondo de la Edificación) here — ' +
+            'the point falls outside any NZ-1 manzana the plane publishes, or the returned geometry ' +
+            'was not a usable ring. This is the source’s answer, not a failed fetch: it will not ' +
+            'change on a retry. PRYZM declines to draw a buildable envelope rather than fabricate one.',
         ordinanceRef: MADRID_NZ1_ORDINANCE_REF,
         legallyGrounded: false,
         knownFacts: [...knownFacts],
