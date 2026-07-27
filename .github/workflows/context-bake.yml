@@ -84,13 +84,36 @@ jobs:
         # lazy `import('geotiff')`. geotiff is NOT an osmium/tippecanoe/DuckDB binary (those ride the
         # Docker image), so it must be on the RUNNER's Node resolution path — nothing else installs it.
         # Absent it, loadGeoTiff() returns null → the MDS/DHM join returns `documented` → the region
-        # ships the honest OSM 9 m default (NO real heights; never a fabricated one). Installed into the
-        # tool's OWN node_modules with plain npm (NOT pnpm) and --no-save/--no-package-lock so it never
-        # writes a package.json: `tools/*` is a pnpm workspace glob, and a new workspace package.json
-        # would drift pnpm-lock.yaml and break every other job's `pnpm install --frozen-lockfile`.
-        # Pinned to the version the join was live-verified against (heightSources.mjs §mds_edificacion).
-        working-directory: tools/context-bake
-        run: npm install --no-save --no-package-lock geotiff@2.1.3
+        # ships the honest OSM 9 m default (NO real heights; never a fabricated one).
+        #
+        # WHY NOT just `npm install` here (the pre-cb500dbb attempt, which failed EUNSUPPORTEDPROTOCOL):
+        # npm cannot run ANYWHERE inside the repo. The root package.json declares an npm-style
+        # `"workspaces": ["tools/*", …]`, so npm — even with working-directory: tools/context-bake —
+        # walks UP to the workspace root and reads its `workspace:*` specifiers, a pnpm-only protocol
+        # npm rejects with `Unsupported URL Type "workspace:"`. And we must NOT drop a package.json under
+        # tools/context-bake to stop that walk-up: `tools/*` is ALSO a pnpm workspace glob, so a new
+        # package.json there becomes a real workspace member and drifts pnpm-lock.yaml → breaks every
+        # other job's `pnpm install --frozen-lockfile` (the frozen-lockfile landmine).
+        #
+        # So install into an isolated scratch project OUTSIDE the repo (its own package.json, no
+        # workspaces field, no repo .npmrc in scope), then copy the resolved tree into
+        # tools/context-bake/node_modules — where Node ESM resolves the host-process `import('geotiff')`
+        # by walking node_modules up from the importing module. (NODE_PATH is CommonJS-only and would NOT
+        # satisfy an ESM bare-specifier import.) Pinned to the version the join was live-verified against
+        # (heightSources.mjs §mds_edificacion).
+        run: |
+          set -euo pipefail
+          HOSTDIR="${RUNNER_TEMP:-/tmp}/geotiff-host"
+          rm -rf "$HOSTDIR"; mkdir -p "$HOSTDIR"
+          printf '{"name":"pryzm-geotiff-host","private":true}\n' > "$HOSTDIR/package.json"
+          ( cd "$HOSTDIR" && npm install --no-package-lock geotiff@2.1.3 )
+          DEST="$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+          mkdir -p "$DEST"
+          cp -R "$HOSTDIR/node_modules/." "$DEST/"
+          # Fail loud here, not silently as a `documented` no-height 40 minutes into the bake, if the
+          # host process cannot actually resolve the dep it will lazy-import.
+          ( cd "$GITHUB_WORKSPACE/tools/context-bake" \
+            && node --input-type=module -e "const m=await import('geotiff'); if(typeof m.fromArrayBuffer!=='function'){console.error('geotiff.fromArrayBuffer missing');process.exit(1)} console.log('✓ geotiff resolvable from the bake host process (fromArrayBuffer ok)')" )
 
       - name: Plan (tool availability + what will be produced)
         run: node tools/context-bake/bake.mjs --check
