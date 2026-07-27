@@ -89,6 +89,43 @@ export function cityForLonLat(lon: number, lat: number): string | null {
 }
 
 /**
+ * §TERRAIN-TOGGLE (founder 2026-07-27) — the PURE decision "should the baked quantized-mesh
+ * terrain provider attach for this site right now?", factored out of `CesiumViewport.
+ * maybeAttachTerrainProvider` so the gate is unit-testable with no Cesium/DOM dependency.
+ *
+ * Ordered gates (first hit wins):
+ *   • toggle-off      — the user turned the 3D-Site terrain OFF (the founder escape hatch).
+ *   • photoreal       — the paid Google-3D-tiles path (non-Forma) already carries its own
+ *                       ground; draping our mesh under it double-grounds / z-fights.
+ *   • no-baked-city   — the site is outside every baked-terrain bbox → keep flat (no regression).
+ *   • attach          — a baked city applies; caller still guards on the tileset actually loading.
+ */
+export interface TerrainAttachInputs {
+    /** The user TERRAIN ON/OFF toggle (default ON). When false → never attach → flat ground. */
+    readonly terrainEnabled: boolean;
+    /** True when the paid Google photoreal 3D tileset is the live ground. */
+    readonly photorealActive: boolean;
+    /** True on the free Forma flat/massing study path (where our terrain IS drawn). */
+    readonly formaMode: boolean;
+    readonly lon: number;
+    readonly lat: number;
+}
+
+export type TerrainAttachDecision =
+    | { readonly attach: false; readonly reason: 'toggle-off' | 'photoreal' | 'no-baked-city' }
+    | { readonly attach: true; readonly city: string };
+
+export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttachDecision {
+    if (!inp.terrainEnabled) return { attach: false, reason: 'toggle-off' };
+    // Skip our terrain ONLY on the true photoreal (non-Forma) path; in Forma the photoreal
+    // tileset is hidden and the globe is shown, so draping baked terrain is correct.
+    if (inp.photorealActive && !inp.formaMode) return { attach: false, reason: 'photoreal' };
+    const city = cityForLonLat(inp.lon, inp.lat);
+    if (!city) return { attach: false, reason: 'no-baked-city' };
+    return { attach: true, city };
+}
+
+/**
  * The quantized-mesh tileset URL for a city, mirroring the PMTiles layout: the terrain lives at
  * `<tiles base>/terrain/<city>/{layer.json,{z}/{x}/{y}.terrain}`. `CesiumTerrainProvider.fromUrl`
  * appends `/layer.json`, so this returns the tileset DIRECTORY with no trailing slash. Returns

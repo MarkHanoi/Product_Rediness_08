@@ -117,6 +117,11 @@ export interface FormaSunViewport {
     // turning it off restores the scene's previous appearance exactly.
     setContextUseColouring?(on: boolean): void;
     getContextUseColouring?(): boolean;
+    // §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF control for the 3D Site.
+    // OFF detaches the baked terrain (flat ellipsoid ground) so high-relief cities can be studied
+    // without terrain; ON re-attaches. Default ON. Optional so older builds / test stubs degrade.
+    setFormaTerrainEnabled?(on: boolean): void;
+    isFormaTerrainEnabled?(): boolean;
 }
 
 /** Season presets → a representative day (UTC midnight) of the current year. */
@@ -832,12 +837,15 @@ export class FormaSiteAnalysisControls {
              *  never starves on first paint; the store-subscription repaint then
              *  feeds it the moment a fresh ingest lands. */
             needsClimate = false,
+            /** §TERRAIN-TOGGLE — start the toggle in the ON state (for layers that are ON by
+             *  default, e.g. 3D-Site terrain), so the button reflects reality at first paint. */
+            initialOn = false,
         ): void => {
             const b = document.createElement('button');
             b.type = 'button';
             b.textContent = label;
             const enabled = typeof apply === 'function';
-            let on = false;
+            let on = initialOn;
             const paint = () => {
                 b.style.background = on ? ACCENT : '#faf8ff';
                 b.style.color = on ? '#ffffff' : (enabled ? ACCENT : '#bdb6d6');
@@ -884,11 +892,20 @@ export class FormaSiteAnalysisControls {
         mkToggle('☀ Sun path', this.viewport.setSunPathOverlay?.bind(this.viewport));
         mkToggle('🌬 Wind', this.viewport.setWindOverlay?.bind(this.viewport), true);
         mkToggle('🌡 Heat', this.viewport.setHeatOverlay?.bind(this.viewport), true);
+        // §TERRAIN-TOGGLE (founder 2026-07-27) — Terrain (3D Site) ON/OFF. ON by default (terrain
+        // everywhere, per L-631); flip OFF to detach the baked terrain and study the flat-ground
+        // scene in high-relief cities (Madrid/Zürich). Live, no reload.
+        mkToggle(
+            '⛰ Terrain',
+            this.viewport.setFormaTerrainEnabled?.bind(this.viewport),
+            false,
+            this.viewport.isFormaTerrainEnabled?.() ?? true,
+        );
 
         block.appendChild(row);
         block.appendChild(this.smallNote(
             supported
-                ? 'Toggle 3D overlays onto the site. Sun-path needs no climate; wind/heat need climate data.'
+                ? 'Toggle 3D overlays onto the site. Sun-path needs no climate; wind/heat need climate data. Terrain is a 3D-Site layer — off = flat ground.'
                 : 'Open the 3D / Plan Forma view to see 3D overlays.',
         ));
         return block;
