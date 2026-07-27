@@ -459,31 +459,10 @@ function envelopeStudyInputFromSolids(
 const FORMA_FLY_HEADING_DEG = 325;
 const FORMA_FLY_PITCH_DEG = -45;
 const FORMA_FLY_DURATION_S = 1.2;
-/**
- * §GLOBE-STALE-FRAME-REFRAME (L-370) — the base-height jump (metres) above which a
- * late ground-datum settle makes the CURRENT camera frame STALE and the one-shot
- * corrective re-frame fires EVEN IF the user has since moved the camera. The photoreal
- * "3D globe" frames the building EARLY at base 0, then the Google-tile ground datum
- * resolves LATE and the building JUMPS up to sit on the tiles (e.g. 0 → ~707 m) — the
- * old frame now points at empty ground where the building WAS, so the founder had to
- * zoom in by hand to find it. A jump this large means the frame is stale regardless of
- * interaction; smaller settles (terrain jitter / progressive tile refinement, a few m)
- * still honour the user's camera control — the original §GLOBE-FRAME-NO-JUMP case.
- */
-const GLOBE_STALE_FRAME_BASE_JUMP_M = 20;
-/**
- * §GLOBE-CAMERA-STRANDED (L-635) — the camera height above which a "user moved the camera" latch is
- * treated as BOGUS and the corrective site re-frame fires anyway. A view/project switch can reset the
- * Cesium camera to a whole-globe altitude (the live Madrid trace parked it at ECEF ≈ 12.5e6 m ⇒
- * ~6000 km up) and that reset emits a non-programmatic `moveStart` that mis-latches
- * `formaUserMovedCamera`. A camera thousands of km out is not "the user's chosen site view" — the site
- * is an invisible speck (the Madrid/Zürich blank). No legitimate Forma site frame sits anywhere near
- * this high (site frames are altitude ∝ √area — hundreds of m to a few km; even a city-wide zoom-out is
- * tens of km), so 100 km cleanly separates "stranded at globe scale → reframe" from "user's real view →
- * preserve". Only relevant on high-ground cities, where a base-0 initial frame leaves the camera unable
- * to see the 700 m-seated site until this reframe runs.
- */
-const FORMA_STRANDED_CAMERA_HEIGHT_M = 100_000;
+// §GLOBE-SITE-IN-VIEW (L-635) — the old distance/height heuristics for the corrective reframe
+// (`GLOBE_STALE_FRAME_BASE_JUMP_M`, `FORMA_STRANDED_CAMERA_HEIGHT_M`) were removed: they both MISSED
+// Madrid (base-0 frame is underground at LOW height; a re-frame leaves base-jump ≈ 0). The reframe now
+// gates on the honest predicate `siteFramedInCurrentView()` — is the settled site actually in frustum.
 /**
  * FORMA-PLAN-OBLIQUE — the Autodesk-Forma "plan" preset: a near-top-down but
  * still tilted camera so the directional shadows read as the depth cue (Forma's
@@ -797,10 +776,12 @@ export class CesiumViewport {
   /** §TERRAIN-RENDER (Phase 3) — the city whose baked quantized-mesh terrain provider is
    *  currently attached to the viewer (`null` = default flat EllipsoidTerrainProvider). */
   private formaTerrainCity: string | null = null;
-  /** §TERRAIN-RENDER — cities already probed this session; once a city's tileset 404s (not
-   *  yet baked in R2 / not proxied) we don't re-attempt it, so un-baked sites stay flat
-   *  without hammering the network on every pan. Cleared on dispose (project switch). */
-  private formaTerrainProbedCities = new Set<string>();
+  /** §TERRAIN-SEAT-RACE (L-635) — the in-flight (or resolved) baked-terrain attach per city. Concurrent
+   *  callers `await` the SAME attach so none samples the flat ellipsoid before the provider is live (the
+   *  seat-at-0-under-700 m-terrain sink bug). A resolved entry (attached OR 404-no-op) also stops re-hammering
+   *  the network on repeat pans — it replaces the old fire-once `formaTerrainProbedCities` Set. Cleared on
+   *  dispose (project switch) and on a terrain toggle-ON re-probe. */
+  private formaTerrainAttach = new Map<string, Promise<void>>();
   /** §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF escape hatch for the 3D Site.
    *  Default TRUE — terrain is mandatory for ALL cities (founder). The terrain-ON seat/camera bug on
    *  high-ground cities (Madrid/Zürich/Amsterdam) is being FIXED, not worked around by defaulting off.
@@ -852,6 +833,10 @@ export class CesiumViewport {
    *  corrective re-frame must fire even after the user took the camera. `null` until the
    *  first building frame; treated as "no jump" so the small-settle protection is kept. */
   private formaFramedAtBaseHeight: number | null = null;
+  /** §GLOBE-SITE-IN-VIEW (L-635) — bounded one-shot "rescue" reframe: after the first frame has fired,
+   *  if the site is STILL off-screen (stale/underground frame) we reframe ONCE more, then latch this so
+   *  we never loop or fight a user. Reset with `formaInitialReframeFired` on every fresh site-open. */
+  private formaOffscreenRescueUsed = false;
   /** §GLOBE-FRAME-NO-JUMP — TRUE while one of our own `flyToFormaSite/Plan` flights
    *  is in progress, so the `moveStart`/`moveEnd` camera listeners can tell our
    *  programmatic motion apart from genuine user input (only the latter sets
@@ -2814,7 +2799,7 @@ export class CesiumViewport {
     if (on) {
       // Re-probe cities (the OFF→detach cleared the attached city; probed-set memo would
       // otherwise skip the re-attach for a city already attached earlier this session).
-      this.formaTerrainProbedCities.clear();
+      this.formaTerrainAttach.clear();
       if (at) void this.maybeAttachTerrainProvider(at.lat, at.lon);
     } else {
       this.detachBakedTerrain();
@@ -2917,6 +2902,7 @@ export class CesiumViewport {
     // §GLOBE-FRAME-NO-JUMP — the next framing open re-arms these (in renderFormaMassing);
     // clearing here keeps a half-finished prior run from leaking its latch across the switch.
     this.formaInitialReframeFired = false;
+    this.formaOffscreenRescueUsed = false;
     this.formaUserMovedCamera = false;
     // §GLOBE-STALE-FRAME-REFRAME (L-370) — the next building frame records its own base.
     this.formaFramedAtBaseHeight = null;
@@ -4976,6 +4962,7 @@ export class CesiumViewport {
       // suppress (or, worse, a prior open's view can't be re-flown). The async clamp
       // below settles the real base and fires `performInitialReframe` AT MOST ONCE.
       this.formaInitialReframeFired = false;
+      this.formaOffscreenRescueUsed = false;
       this.formaUserMovedCamera = false;
       if (preset === 'plan') this.flyToFormaPlan();
       else this.flyToFormaSite();
@@ -6269,39 +6256,40 @@ export class CesiumViewport {
     const city = decision.city;
     console.log(`[CesiumViewport][terrain] evaluate lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → city=${city}`);
     if (city === this.formaTerrainCity) { console.log(`[CesiumViewport][terrain] skip: '${city}' already attached`); return; }
-    if (this.formaTerrainProbedCities.has(city)) { console.log(`[CesiumViewport][terrain] skip: '${city}' already probed this session`); return; }
+    // §TERRAIN-SEAT-RACE (L-635) — SHARED, AWAITABLE, IDEMPOTENT attach. The old `formaTerrainProbedCities`
+    // Set was `.add(city)`-ed BEFORE the `fromUrl` await, so a concurrent caller saw `has(city)` and
+    // returned WITHOUT awaiting the in-flight attach — leaving `ensureGroundBaseForContext` to sample the
+    // still-flat ellipsoid → context seated at base 0, ~700 m UNDER Madrid's mesh (the sink bug). Now every
+    // concurrent caller awaits the SAME attach Promise, so none proceeds against the ellipsoid.
+    const existing = this.formaTerrainAttach.get(city);
+    if (existing) { await existing; return; }
     const url = terrainTilesetUrl(city);
     console.log(`[CesiumViewport][terrain] '${city}' → tileset url=${url ?? 'NULL (no tiles base configured)'}`);
     if (!url) return;                                  // no tiles base configured → flat (unchanged)
-    this.formaTerrainProbedCities.add(city);
-
-    let provider: Cesium.CesiumTerrainProvider;
-    try {
-      // fromUrl fetches `${url}/layer.json`; a 404 means "not baked yet" → rejects → we stay flat.
-      provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: false });
-    } catch {
-      console.log(
-        `[CesiumViewport][terrain] no baked terrain for '${city}' (${url}) — keeping flat ground.`,
-      );
-      return;
-    }
-    // Superseded / disposed during the await → drop it (a newer site owns the viewer now).
-    if (!this.isViewerLive() || this.viewer !== viewer) return;
-    // Already the attached city (a concurrent call for the SAME city won the race) → nothing to do.
-    if (this.formaTerrainCity === city) return;
-
-    viewer.terrainProvider = provider;
-    this.formaTerrainCity = city;
-    console.log(
-      `[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — re-clamping ground.`,
-    );
-    viewer.scene.requestRender();
-    // The massing was seated on the flat base before terrain arrived. Now that
-    // terrainProviderHasElevationData() is true, drop the sampled-at cache and re-clamp so it
-    // seats on the real sampled ground (the clamp re-samples + re-places seated at that height).
-    this.formaTerrainSampledAt = null;
-    const input = this.formaLastMassingInput;
-    if (input) void this.clampTerrainThenReplace(input);
+    const attach = (async (): Promise<void> => {
+      let provider: Cesium.CesiumTerrainProvider;
+      try {
+        // fromUrl fetches `${url}/layer.json`; a 404 means "not baked yet" → rejects → we stay flat.
+        provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: false });
+      } catch {
+        console.log(`[CesiumViewport][terrain] no baked terrain for '${city}' (${url}) — keeping flat ground.`);
+        return;                                          // resolved no-op → future calls await this, no re-hammer
+      }
+      // Superseded / disposed during the await → drop it (a newer site owns the viewer now).
+      if (!this.isViewerLive() || this.viewer !== viewer) return;
+      if (this.formaTerrainCity === city) return;        // a concurrent call for the SAME city already attached.
+      viewer.terrainProvider = provider;
+      this.formaTerrainCity = city;
+      console.log(`[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — re-clamping ground.`);
+      viewer.scene.requestRender();
+      // The massing was seated on the flat base before terrain arrived. Drop the sampled-at cache and
+      // re-clamp so it (and context) seats on the real sampled ground.
+      this.formaTerrainSampledAt = null;
+      const input = this.formaLastMassingInput;
+      if (input) void this.clampTerrainThenReplace(input);
+    })();
+    this.formaTerrainAttach.set(city, attach);
+    await attach;
   }
 
   /**
@@ -6345,6 +6333,7 @@ export class CesiumViewport {
   public armGlobeReframeOnBaseSettle(preset: 'oblique' | 'plan' = 'oblique'): void {
     this.formaReframeOnBaseSettle = preset;
     this.formaInitialReframeFired = false;
+    this.formaOffscreenRescueUsed = false;
     this.formaUserMovedCamera = false;
     // §GLOBE-STALE-FRAME-REFRAME (L-370) — the entry's building frame records its own base.
     this.formaFramedAtBaseHeight = null;
@@ -6393,66 +6382,57 @@ export class CesiumViewport {
    */
   private performInitialReframe(preset: 'oblique' | 'plan', reason: string): void {
     if (!this.formaMassingOrigin) return;
+    // §GLOBE-SITE-IN-VIEW (L-635) — the honest signal: is the site (seated on the SETTLED base) actually
+    // inside the camera frustum? This replaces the two fragile heuristics (camera-height > 100 km and
+    // base-jump > 20 m) that BOTH missed Madrid — its base-0 initial frame parks the camera ~700 m
+    // UNDERGROUND at a LOW height (so the height guard missed), and a re-frame can leave base-jump ≈ 0
+    // (so the jump guard suppressed). Frustum visibility is the thing we actually care about.
+    const siteVisible = this.siteFramedInCurrentView();
     if (this.formaInitialReframeFired) {
-      // The base settled again (tiles streamed a new height); the first frame already
-      // landed — do NOT yank the camera a second time.
+      // Already framed once. Only re-fire if the site is genuinely off-screen (a stale / underground /
+      // base-0 frame), and only ONE more time, so we never loop or yank a user who CAN see the site.
+      if (siteVisible || this.formaOffscreenRescueUsed) return;
+      this.formaOffscreenRescueUsed = true;
+    }
+    if (this.formaUserMovedCamera && siteVisible) {
+      // The TRUE §GLOBE-FRAME-NO-JUMP case: the user has a real view OF THE SITE — honour it, never yank.
+      this.formaInitialReframeFired = true;
+      console.log('[CesiumViewport][forma] §GLOBE-FRAME-NO-JUMP — user framed the site; suppressing re-frame.');
       return;
     }
-    if (this.formaUserMovedCamera) {
-      // §GLOBE-STALE-FRAME-REFRAME (L-370) — normally, once the user has taken the camera we
-      // do NOT re-fly them (honouring their view is the whole point of §GLOBE-FRAME-NO-JUMP).
-      // BUT on the photoreal "3D globe" the building is framed EARLY at base 0, then the
-      // Google-tile ground datum resolves LATE and the building JUMPS up to sit on the tiles
-      // (the live trace: 0 → 706.9 m). When the jump is that large the frame the user is
-      // looking at is STALE — it points at empty ground where the building WAS, hundreds of
-      // metres below the building's real seat — so suppressing the re-frame strands them and
-      // forces a manual zoom-in to find the building. Re-frame ONCE in that case, despite the
-      // user movement. Small settles (terrain jitter / progressive tile refinement, a few m)
-      // still honour the user's camera control — the original §GLOBE-FRAME-NO-JUMP case.
-      // §GLOBE-CAMERA-STRANDED (L-635) — FIRST, if the camera is parked at globe scale (a view/
-      // project switch reset it and its `moveStart` mis-latched `formaUserMovedCamera`), the latch is
-      // bogus: there is no site view to preserve because the site is an invisible speck thousands of km
-      // below. Reframe unconditionally. This is the Madrid/Zürich "context seated at 700 m but nothing
-      // on screen" case — the buildings ARE placed (diag: buildingsPlaced=1600 seatBase=700.8), only the
-      // camera never came back to them. Low-ground cities (Barcelona/Copenhagen) never hit this branch
-      // because their normally-framed camera sits far below this height.
-      const camHeightM = this.viewer?.camera.positionCartographic?.height ?? 0;
-      if (camHeightM > FORMA_STRANDED_CAMERA_HEIGHT_M) {
-        console.log(
-          `[CesiumViewport][forma] §GLOBE-CAMERA-STRANDED — camera at globe scale ` +
-            `(${(camHeightM / 1000).toFixed(0)} km); the "user moved" latch is a view-switch reset, not a ` +
-            `real site view — reframing onto the ${this.formaTerrainBaseHeight.toFixed(0)} m site.`,
-        );
-        // fall through to the one-shot re-frame below (bypasses the base-jump suppression).
-      } else {
-      const framedBase = this.formaFramedAtBaseHeight;
-      const baseJumpM = framedBase == null ? 0 : Math.abs(this.formaTerrainBaseHeight - framedBase);
-      if (baseJumpM <= GLOBE_STALE_FRAME_BASE_JUMP_M) {
-        // The user has already moved the camera and the base barely moved; honouring the late
-        // settle would override their view. Latch as fired so a later settle is also suppressed.
-        this.formaInitialReframeFired = true;
-        console.log(
-          '[CesiumViewport][forma] §GLOBE-FRAME-NO-JUMP — base settled but the user ' +
-            'already moved the camera; suppressing the corrective re-frame.',
-        );
-        return;
-      }
-      console.log(
-        `[CesiumViewport][forma] §GLOBE-STALE-FRAME-REFRAME (L-370) — the ground datum settled ` +
-          `${baseJumpM.toFixed(1)} m from the framed base (> ${GLOBE_STALE_FRAME_BASE_JUMP_M} m); the ` +
-          `building moved out of the current frame, so re-framing ONCE despite the user's camera move.`,
-      );
-      // fall through to the one-shot re-frame below (still fires AT MOST ONCE via the latch).
-      }
-    }
+    // Either the user hasn't taken control, OR the site is off-screen (stranded / underground / base-0
+    // frame) — reframe once regardless of the (often spurious view-switch) user-moved latch. THIS is the
+    // Madrid/Zürich/Amsterdam fix: the buildings ARE seated on the terrain, the camera just wasn't looking.
     this.formaInitialReframeFired = true;
     console.log(
-      `[CesiumViewport][forma] §GLOBE-FRAME-NO-JUMP — terrain base settled to ` +
-        `${this.formaTerrainBaseHeight.toFixed(1)} m after the initial frame; re-framing once ` +
-        `(${preset}, via ${reason}).`,
+      `[CesiumViewport][forma] §GLOBE-SITE-IN-VIEW reframe — settled base ` +
+        `${this.formaTerrainBaseHeight.toFixed(1)} m, siteVisible=${siteVisible} (${preset}, via ${reason}).`,
     );
     if (preset === 'plan') this.flyToFormaPlan();
     else this.flyToFormaSite();
+  }
+
+  /**
+   * §GLOBE-SITE-IN-VIEW (L-635) — TRUE iff the site (its bounding sphere, centred on the SETTLED base
+   * `formaTerrainBaseHeight`) is inside the camera frustum at a sane look-at range. The honest predicate
+   * behind the corrective reframe: neither camera height nor base-jump proves the user can SEE the site
+   * (a base-0 frame is underground at low height; a re-frame can leave base-jump ≈ 0 yet off-axis). Never
+   * throws — on any failure returns false so the caller reframes (safe default: get the site on screen).
+   */
+  private siteFramedInCurrentView(): boolean {
+    const viewer = this.viewer;
+    const sphere = this.modelBoundingSphere();     // centred at formaTerrainBaseHeight (the settled ground)
+    if (!viewer || !sphere) return false;
+    try {
+      const vis = viewer.camera.frustum
+        .computeCullingVolume(viewer.camera.position, viewer.camera.direction, viewer.camera.up)
+        .computeVisibility(sphere);
+      if (vis === Cesium.Intersect.OUTSIDE) return false;
+      const dist = Cesium.Cartesian3.distance(viewer.camera.position, sphere.center);
+      return Number.isFinite(dist) && dist < Math.max(50_000, sphere.radius * 200); // sane look-at range
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -11406,7 +11386,7 @@ export class CesiumViewport {
     // §TERRAIN-RENDER — a re-mounted viewer starts on the default flat ellipsoid again; forget
     // the attached city + the per-session 404 memory so the new site re-resolves + re-attaches.
     this.formaTerrainCity = null;
-    this.formaTerrainProbedCities.clear();
+    this.formaTerrainAttach.clear();
     // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — a re-mounted viewport has measured
     // NOTHING: the ground datum is unknown again (and the tileset load hook belongs to the
     // destroyed tileset). Never let a stale "resolved" flag authorise anchoring at 0.
@@ -11418,6 +11398,7 @@ export class CesiumViewport {
     this.formaReframeOnBaseSettle = null;
     // §GLOBE-FRAME-NO-JUMP — reset the per-open framing guards for a re-mounted viewport.
     this.formaInitialReframeFired = false;
+    this.formaOffscreenRescueUsed = false;
     this.formaUserMovedCamera = false;
     // §GLOBE-STALE-FRAME-REFRAME (L-370) — the next building frame records its own base.
     this.formaFramedAtBaseHeight = null;
