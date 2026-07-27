@@ -36,6 +36,8 @@ import {
     decideGroundAnchorAction,
     originSeparationMeters,
     georefOriginsDiverge,
+    resolveGroundSample,
+    ringCentroidLatLon,
     type GlobeGroundAnchorInput,
 } from '../src/ui/geospatial/globeGroundAnchor';
 
@@ -346,5 +348,59 @@ describe('§GLOBE-LONE-OUTLIER-CANNOT-SET-THE-DATUM (L-479) — the founder\'s e
         // the sparse-pick paths that predate the street ring.
         const anchor = resolveGlobeGroundAnchor(base({ tileSampleHeights: [80.1, 81.0, 80.5] }));
         expect(anchor.heightM).toBeCloseTo(80.1, 5);
+    });
+});
+
+// §SITEFRAME-GROUND (C12 §9 T0/T1) — the per-point ground authority the terrain reseat is built
+// on. These pin the PURE decisions behind `CesiumViewport.sampleGround` (the fallback rule) and
+// the per-footprint seat point (the ring centroid), so the reseat that removes the white
+// z-fighting context shells + the faint (terrain-occluded) heatmap is testable without a viewer.
+describe('§SITEFRAME-GROUND — resolveGroundSample (the per-point fallback rule)', () => {
+    it('a FINITE sample wins — the point seats on its OWN relief, not the centroid', () => {
+        // Neighbour on higher ground: real terrain here is 61 m, centroid base is 54 m.
+        expect(resolveGroundSample(61.2, 54)).toBeCloseTo(61.2, 6);
+        // Neighbour on lower ground: real terrain 47 m — it no longer floats at the centroid.
+        expect(resolveGroundSample(47.0, 54)).toBeCloseTo(47.0, 6);
+        // Zero is a legal MEASURED ground (sea-level ellipsoid) when it comes from a finite sample.
+        expect(resolveGroundSample(0, 54)).toBe(0);
+    });
+
+    it('an UNKNOWN sample falls back to the centroid base — never a stray 0 (the L-259 rule per-point)', () => {
+        // `globe.getHeight` returns undefined where the tile is not yet tessellated.
+        expect(resolveGroundSample(undefined, 54)).toBe(54);
+        expect(resolveGroundSample(null, 54)).toBe(54);
+        expect(resolveGroundSample(Number.NaN, 54)).toBe(54);
+        expect(resolveGroundSample(Number.POSITIVE_INFINITY, 54)).toBe(54);
+    });
+
+    it('with no terrain attached the centroid base is the honest flat 0 → fallback stays 0', () => {
+        expect(resolveGroundSample(undefined, 0)).toBe(0);
+    });
+});
+
+describe('§SITEFRAME-GROUND — ringCentroidLatLon (the footprint seat point)', () => {
+    it('returns the vertex-mean lat/lon of a [lon,lat] ring (longitude FIRST)', () => {
+        // A closed square around (lon 1.8, lat 40.8); the closing vertex repeats the first.
+        const ring = [
+            [1.0, 40.0],
+            [3.0, 40.0],
+            [3.0, 42.0],
+            [1.0, 42.0],
+            [1.0, 40.0],
+        ];
+        const c = ringCentroidLatLon(ring);
+        expect(c).not.toBeNull();
+        // mean lon = (1+3+3+1+1)/5 = 1.8 ; mean lat = (40+40+42+42+40)/5 = 40.8
+        expect(c!.lon).toBeCloseTo(1.8, 6);
+        expect(c!.lat).toBeCloseTo(40.8, 6);
+    });
+
+    it('ignores non-finite vertices and returns null for an empty / all-invalid ring', () => {
+        expect(ringCentroidLatLon([null, undefined, [Number.NaN, 5]])).toBeNull();
+        expect(ringCentroidLatLon([])).toBeNull();
+        // One good vertex among junk still yields that vertex.
+        const c = ringCentroidLatLon([null, [2.5, 41.5], [Number.NaN, Number.NaN]]);
+        expect(c!.lon).toBeCloseTo(2.5, 6);
+        expect(c!.lat).toBeCloseTo(41.5, 6);
     });
 });

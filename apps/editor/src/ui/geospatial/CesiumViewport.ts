@@ -84,6 +84,8 @@ import {
   decideGroundAnchorAction,
   originSeparationMeters,
   georefOriginsDiverge,
+  resolveGroundSample,
+  ringCentroidLatLon,
 } from "./globeGroundAnchor";
 // FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
 // show-all decision + geometry signature for the REAL full-fidelity Forma model.
@@ -5962,6 +5964,52 @@ export class CesiumViewport {
   }
 
   /**
+   * §SITEFRAME-GROUND (C12 §9 T0, C58 §1.14, C19 §1.4) — the per-point GROUND AUTHORITY.
+   *
+   * Returns the WGS-84 ELLIPSOIDAL ground height (m) at an arbitrary (lat, lon) by sampling
+   * the ATTACHED baked terrain provider through the globe's already-loaded tile geometry
+   * (`globe.getHeight` — a synchronous, in-memory read of the tessellated tiles; NO network,
+   * so it is cheap enough to call once per placed footprint and never needs batching). This
+   * REPLACES the single-centroid `formaTerrainBaseHeight` scalar as the concept consumers read
+   * when they span the wider relief: instead of every neighbour sitting at the ONE centroid
+   * height (so blocks on higher ground get buried by the mesh → the white z-fighting shells,
+   * and blocks on lower ground float), each reads the ground UNDER ITSELF.
+   *
+   * HONEST FALLBACK (never throws): when no real terrain provider is attached, or the tile at
+   * this point is not yet loaded (so `getHeight` returns `undefined`), we fall back to the
+   * resolved centroid base `formaTerrainBaseHeight` — which is itself the honest flat-0 when no
+   * terrain exists. Crucially this fallback only fires where there is NO visible relief to
+   * z-fight (an unloaded tile is off-screen / not tessellated), so correctness holds exactly
+   * where it is needed: wherever relief is drawn, its tiles ARE loaded and `getHeight` is exact.
+   */
+  private sampleGround(lat: number, lon: number): number {
+    const fallback = this.formaTerrainBaseHeight;
+    try {
+      const globe = this.viewer?.scene.globe;
+      const provider = this.viewer?.terrainProvider;
+      if (!globe || !provider || !this.terrainProviderHasElevationData(provider)) return fallback;
+      // `getHeight` is `undefined` where the tile is not yet tessellated → the pure fallback rule
+      // (`resolveGroundSample`) reuses the centroid base rather than a stray 0 (the L-259 rule).
+      return resolveGroundSample(globe.getHeight(Cesium.Cartographic.fromDegrees(lon, lat)), fallback);
+    } catch {
+      return fallback;
+    }
+  }
+
+  /**
+   * §SITEFRAME-GROUND (C12 §9 T0) — TRUE when a REAL baked terrain provider (relief) is
+   * currently attached, so `sampleGround` yields per-point elevation AND ground-clamped
+   * overlays (the site-metric heatmap) should DRAPE on the mesh instead of hovering on one
+   * flat centroid plane (where the relief occludes them → the faint heatmap). FALSE on the
+   * keyless / un-baked-city / ellipsoid path, where the flat base is exactly correct and the
+   * legacy flat placement must be preserved byte-for-byte (no regression).
+   */
+  private groundReliefAttached(): boolean {
+    const provider = this.viewer?.terrainProvider;
+    return !!provider && this.terrainProviderHasElevationData(provider);
+  }
+
+  /**
    * §TERRAIN-RENDER (Phase 3, North Star §6.3 / terrain.mjs §9) — attach the BAKED
    * quantized-mesh terrain tileset for the site's city so real ground renders under the
    * massing. Attaching a `CesiumTerrainProvider` (which exposes `availability`) is exactly
@@ -6670,9 +6718,10 @@ export class CesiumViewport {
     const originCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
     // §A.21.D-FORMA — bury the bottom face below ground so it never z-fights the
-    // flat ground plane (same fix as the proposed massing).
+    // flat ground plane (same fix as the proposed massing). §SITEFRAME-GROUND (T1): this is
+    // now only the CENTROID reference (for logging / the no-relief fallback); each footprint
+    // is re-seated on its OWN sampled ground in the loop below.
     const base = this.formaTerrainBaseHeight - FORMA_BASE_SINK_M;
-    const top = this.formaTerrainBaseHeight;
     // §A.21.D-FORMA2 — fully OPAQUE context (was 0.92) so nothing in the Forma
     // scene reads as transparent; the white proposed mass still stands out against
     // the muted off-white context.
@@ -6726,6 +6775,15 @@ export class CesiumViewport {
       try {
         const ring = f.geometry.coordinates[0];
         if (!ring || ring.length < 4) continue;
+        // §SITEFRAME-GROUND (C12 §9 T1) — seat THIS footprint on the ground UNDER ITSELF
+        // (per-point relief) rather than the single centroid base. With real terrain attached
+        // that removes the white z-fighting shells: a neighbour on higher ground no longer has
+        // the mesh punch up through its flat-centroid seat, and one on lower ground no longer
+        // floats. Falls back to the centroid base when no relief is loaded here (no z-fight to fix).
+        const fCentroid = ringCentroidLatLon(ring);
+        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon) : this.formaTerrainBaseHeight;
+        const fBase = fGround - FORMA_BASE_SINK_M;
+        const fTop = fGround;
         // lon/lat → local ENU metres about the origin, then ENU → ECEF.
         const positions = ring.map(([flon, flat]) => {
           const fc = Cesium.Cartesian3.fromDegrees(flon!, flat!, 0);
@@ -6735,10 +6793,10 @@ export class CesiumViewport {
             fc,
             new Cesium.Cartesian3(),
           );
-          // Re-place at the terrain base height in the SAME ENU frame.
+          // Re-place at this footprint's own ground base in the SAME ENU frame.
           return Cesium.Matrix4.multiplyByPoint(
             enu,
-            new Cesium.Cartesian3(localOffset.x, localOffset.y, base),
+            new Cesium.Cartesian3(localOffset.x, localOffset.y, fBase),
             new Cesium.Cartesian3(),
           );
         });
@@ -6769,9 +6827,9 @@ export class CesiumViewport {
             : 'pryzm-forma-context-building',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: base,
-            // Top preserved above ground: terrain base + the footprint's height.
-            extrudedHeight: top + Math.max(0.1, h),
+            height: fBase,
+            // Top preserved above ground: this footprint's own ground + its height.
+            extrudedHeight: fTop + Math.max(0.1, h),
             material: bodyFill,
             outline: true,
             outlineColor: outline,
@@ -6797,7 +6855,8 @@ export class CesiumViewport {
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][forma] context buildings rendered: ${placed} extruded footprint(s) ` +
-        `around LAT ${lat} LON ${lon} (base ${base.toFixed(1)} m, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
+        `around LAT ${lat} LON ${lon} (§SITEFRAME-GROUND per-footprint seat, centroid base ` +
+        `${base.toFixed(1)} m${this.groundReliefAttached() ? ', relief ON' : ', flat'}, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
     );
     // §CTX-LOADING-BADGE (L-524b) — first buildings are on screen, so the wait is over. If the
     // ring came back genuinely EMPTY we say THAT instead of silently clearing: "no context data
@@ -7031,8 +7090,9 @@ export class CesiumViewport {
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
     const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
-    const base = this.formaTerrainBaseHeight - FORMA_BASE_SINK_M;
-    const top = this.formaTerrainBaseHeight;
+    // §SITEFRAME-GROUND (T1) — each far footprint is re-seated on its OWN sampled ground in the
+    // loop (per-point relief), falling back to the centroid base where no relief is loaded, so
+    // the wider ring tracks the terrain instead of z-fighting one flat centroid plane.
     // A hair MORE transparent + no outline than the near ring so the distant massing reads
     // as clearly secondary (aerial-perspective) and stays cheap.
     const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.82);
@@ -7042,11 +7102,16 @@ export class CesiumViewport {
       try {
         const ring = f.geometry.coordinates[0];
         if (!ring || ring.length < 4) continue;
+        // §SITEFRAME-GROUND (T1) — seat this far footprint on the ground under itself.
+        const fCentroid = ringCentroidLatLon(ring);
+        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon) : this.formaTerrainBaseHeight;
+        const fBase = fGround - FORMA_BASE_SINK_M;
+        const fTop = fGround;
         const positions = ring.map(([flon, flat]) => {
           const fc = Cesium.Cartesian3.fromDegrees(flon!, flat!, 0);
           const localOffset = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
           return Cesium.Matrix4.multiplyByPoint(
-            enu, new Cesium.Cartesian3(localOffset.x, localOffset.y, base), new Cesium.Cartesian3(),
+            enu, new Cesium.Cartesian3(localOffset.x, localOffset.y, fBase), new Cesium.Cartesian3(),
           );
         });
         // §FEAT-FORMA-CONTEXT-EXTENT-LOD — LOW-POLY: cap the far height so distant blocks read
@@ -7058,8 +7123,8 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-building-far',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: base,
-            extrudedHeight: top + h,
+            height: fBase,
+            extrudedHeight: fTop + h,
             material: fill,
             outline: false,
             shadows: Cesium.ShadowMode.DISABLED,   // far ring never casts/receives (budget)
@@ -8894,6 +8959,13 @@ export class CesiumViewport {
     const R = tex.radiusM;
     const dLat = (R / 111_320);
     const dLon = R / (111_320 * Math.max(0.05, Math.cos((origin.lat * Math.PI) / 180)));
+    // §SITEFRAME-GROUND (C12 §9 T1) — when REAL relief is attached the heatmap must DRAPE on the
+    // terrain mesh, not hover on the ONE flat centroid plane (where the surrounding relief rises
+    // above the plane and occludes it → the faint heatmap the founder saw with terrain ON). We
+    // clamp the rectangle to ground (a terrain-classified ground primitive that carries the image
+    // material), so it paints ONTO the relief. On the keyless / un-baked / ellipsoid path there is
+    // no relief to occlude it, so we keep the exact flat `height: base + up` placement (no regression).
+    const drape = this.groundReliefAttached();
     const ent = viewer.entities.add({
       name: `pryzm-site-metric-${metric}`,
       rectangle: {
@@ -8901,7 +8973,12 @@ export class CesiumViewport {
           origin.lon - dLon, origin.lat - dLat,
           origin.lon + dLon, origin.lat + dLat,
         ),
-        height: base + up,
+        ...(drape
+          ? {
+              heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+              classificationType: Cesium.ClassificationType.TERRAIN,
+            }
+          : { height: base + up }),
         material: new Cesium.ImageMaterialProperty({
           image: canvas,
           transparent: true,
