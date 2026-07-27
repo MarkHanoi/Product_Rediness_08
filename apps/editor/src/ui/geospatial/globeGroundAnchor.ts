@@ -368,3 +368,47 @@ export function georefOriginsDiverge(ev: GeorefOriginEvidence, toleranceM = 1): 
     const sep = originSeparationMeters(ev.ltpOrigin, ev.storeLocation);
     return Number.isFinite(sep) && sep > toleranceM;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// §SITEFRAME-GROUND (C12 §9 — SiteFrame ground authority, DRAFT) — the PURE core of the
+// per-point ground sampler (T0). The Cesium wrapper (`CesiumViewport.sampleGround`) reads the
+// attached baked terrain via `globe.getHeight`; these are the deterministic, Cesium-free
+// decisions it is built on, so the fallback rule + the footprint seat point are unit-testable
+// WITHOUT a live viewer — the same precedent as the L-259 anchor decisions above.
+// ─────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * §SITEFRAME-GROUND (T0) — the per-point fallback rule. `sampled` is the raw ground height off
+ * the attached terrain (`globe.getHeight`, which is `undefined`/`NaN` where the tile has not yet
+ * tessellated); `centroidBaseM` is the resolved centroid base to fall back to. A FINITE sample
+ * wins (the point sits on its OWN relief); anything else falls back to the centroid — NEVER a
+ * stray 0 (the L-259 rule applied per-point). When no terrain is attached the centroid base is
+ * itself the honest flat-0, so the fallback stays correct. Deterministic; no Cesium/DOM.
+ */
+export function resolveGroundSample(sampled: number | null | undefined, centroidBaseM: number): number {
+    return typeof sampled === 'number' && Number.isFinite(sampled) ? sampled : centroidBaseM;
+}
+
+/**
+ * §SITEFRAME-GROUND (T1) — the [lon,lat] ring's vertex-mean centroid, the single point a
+ * footprint is ground-sampled at. A footprint is small against the terrain LOD, so one seat for
+ * the whole block is sound. Non-finite vertices are ignored; returns null when the ring has no
+ * finite vertex. Pure. NOTE the GeoJSON order: each pair is [lon, lat] (longitude FIRST).
+ */
+export function ringCentroidLatLon(
+    ring: ReadonlyArray<ReadonlyArray<number> | null | undefined>,
+): LatLon | null {
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const p of ring) {
+        const lon = p?.[0];
+        const lat = p?.[1];
+        if (typeof lon === 'number' && typeof lat === 'number' && Number.isFinite(lon) && Number.isFinite(lat)) {
+            sx += lon;
+            sy += lat;
+            n++;
+        }
+    }
+    return n > 0 ? { lat: sy / n, lon: sx / n } : null;
+}
