@@ -5970,13 +5970,67 @@ export class CesiumViewport {
     // the initial framing used the stale (pre-sample) base, re-fly once now that
     // the terrain base is resolved so the first activation isn't framed underground.
     this.reframeAfterBaseSettle();
-    // MAP-DATA-OVERTURE — the base height changed, so re-seat the context
-    // buildings on the new ground too (force, since the centre is unchanged).
-    // §A.21.D-GLOBE3 — but NOT on the photoreal "3D globe" where the loaded tiles
-    // already supply the context (our extrusions would duplicate them).
+    // §CTX-BUILDINGS-INPLACE-RESEAT (L-635) — the base height changed, so re-seat the context
+    // buildings onto the new ground. This was a `loadContextBuildings(force)` RE-FETCH, and that
+    // re-fetch is exactly what blanked Madrid: it `clearContextBuildings()` FIRST, then re-fetches,
+    // and any abort of that fetch (a concurrent pan or `site.location-changed` load — each aborts
+    // the previous, see §7053 doc) between the clear and the re-place leaves the scene EMPTY. High-
+    // relief Madrid widens that window (slow terrain sample + PMTiles read) so it lost the race every
+    // time, while flat Barcelona never entered it. The in-place re-seat cannot race: it rebuilds the
+    // EXISTING entities' scalar heights from their cached footprints — no network, no clear, no abort.
+    // If nothing is placed yet (initial load still in flight), it's a no-op and the initial load seats
+    // correctly itself via the now-settled `resolveContextSafeBase` — both orderings converge.
+    // §A.21.D-GLOBE3 — skip on the photoreal "3D globe" where the loaded tiles already supply context.
     if (!(input.keepPhotoreal && this.photorealTilesActive)) {
-      void this.loadContextBuildings(input.originLat, input.originLon, true);
+      this.reseatContextPlacementsForBase();
     }
+  }
+
+  /**
+   * §CTX-BUILDINGS-INPLACE-RESEAT (L-635) — re-seat the ALREADY-PLACED context building entities
+   * onto the settled terrain ground WITHOUT a re-fetch. This is the "right future enhancement" the
+   * §7053 pull-doc called for, now shipped: every context polygon is drawn with
+   * `perPositionHeight:false`, so it is seated entirely by its two SCALAR heights (`height` = base,
+   * `extrudedHeight` = top). Re-seating is therefore purely updating those two numbers per entity —
+   * preserving each footprint's OWN extruded thickness (near/far/height-clamped alike, read back off
+   * the entity so we never need to know which tier it came from). No network, no `clearContextBuildings`,
+   * no AbortController — so it structurally cannot race the pan / location-change loads that made the
+   * old `loadContextBuildings(force)` re-seat blank the scene. Fully guarded; never throws into a frame.
+   */
+  private reseatContextPlacementsForBase(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    if (this.contextBuildingPlacements.length === 0) return; // nothing placed yet — initial load will seat.
+    const now = Cesium.JulianDate.now();
+    const safeBase = this.formaTerrainBaseHeight;          // the just-settled city ground (~650 m Madrid).
+    let reseated = 0;
+    for (const { entity, feature } of this.contextBuildingPlacements) {
+      try {
+        const poly = entity.polygon;
+        if (!poly || !poly.height || !poly.extrudedHeight) continue;
+        const curBase = poly.height.getValue(now) as number | undefined;
+        const curTop = poly.extrudedHeight.getValue(now) as number | undefined;
+        if (typeof curBase !== 'number' || typeof curTop !== 'number') continue;
+        const thickness = curTop - curBase;                // the footprint's own height, clamp-agnostic.
+        const ring = feature.geometry.coordinates[0];
+        const c = ring ? ringCentroidLatLon(ring) : null;
+        // Per-point relief where its tile has streamed, else the settled safe base (never a culling ~0).
+        const fGround = c ? this.sampleGround(c.lat, c.lon, safeBase) : safeBase;
+        const fBase = fGround - FORMA_BASE_SINK_M;
+        if (Math.abs(fBase - curBase) < 1e-3) continue;    // already seated at this ground.
+        poly.height = new Cesium.ConstantProperty(fBase);
+        poly.extrudedHeight = new Cesium.ConstantProperty(fBase + thickness);
+        reseated++;
+      } catch {
+        // Skip a single entity; the re-seat must never break the whole pass.
+      }
+    }
+    if (reseated > 0) viewer.scene.requestRender();
+    console.log(
+      `[CTX-DIAG] in-place re-seat: ${reseated}/${this.contextBuildingPlacements.length} context ` +
+        `building(s) lifted onto settled ground (base ${safeBase.toFixed(1)} m) — no re-fetch, no race.`,
+    );
   }
 
   /**
