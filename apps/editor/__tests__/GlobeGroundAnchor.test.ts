@@ -378,6 +378,44 @@ describe('§SITEFRAME-GROUND — resolveGroundSample (the per-point fallback rul
     });
 });
 
+// §CTX-BUILDINGS-RENDER-FIRST (L-635) — THE MADRID STABILITY INVARIANT (founder URGENT regression:
+// "context buildings NOT rendering, all white/empty" on Madrid 3D Site).
+//
+// MECHANISM: Forma runs with `globe.depthTestAgainstTerrain = true`, so anything seated BELOW the
+// terrain mesh is culled → invisible. Madrid's baked ground is ≈ 650 m ELLIPSOIDAL. A context
+// footprint whose own tile has not tessellated yet reads `globe.getHeight === undefined`, so it
+// falls back to the centroid base. If that base is the pre-clamp ellipsoid 0, the footprint sits
+// ~650 m UNDER the mesh and vanishes. The fix keeps the placement UNCONDITIONAL and guarantees the
+// fallback base is the SETTLED ground (the ~650 m clamp / the ground already streamed at the
+// centroid), never a culling 0. `resolveGroundSample` is the pure core of that fallback: given an
+// unavailable per-point height it MUST return the (settled) base, never 0.
+describe('§CTX-BUILDINGS-RENDER-FIRST (L-635) — context footprints get a finite, non-culling base', () => {
+    // Madrid's settled ground once the centroid clamp lands (≈ 650 m ellipsoidal).
+    const MADRID_GROUND_M = 650;
+
+    it('an un-tessellated footprint under Madrid relief seats on the SETTLED ground, never a culling 0', () => {
+        // getHeight === undefined (tile not streamed) + settled centroid base 650 → seat at 650.
+        const seat = resolveGroundSample(undefined, MADRID_GROUND_M);
+        expect(Number.isFinite(seat)).toBe(true);
+        expect(seat).toBe(MADRID_GROUND_M);
+        // The invariant that keeps it VISIBLE: the seat is at (not ~650 m below) the mesh.
+        expect(seat).toBeGreaterThan(MADRID_GROUND_M - 1); // never sinks under the terrain → not culled.
+    });
+
+    it('every unavailable-height shape resolves to the settled base (finite, non-culling)', () => {
+        for (const bad of [undefined, null, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+            const seat = resolveGroundSample(bad as number | null | undefined, MADRID_GROUND_M);
+            expect(Number.isFinite(seat)).toBe(true);
+            expect(seat).toBe(MADRID_GROUND_M);
+        }
+    });
+
+    it('where the tile HAS streamed, the real per-point height still wins (progressive refinement intact)', () => {
+        // A footprint on slightly higher Madrid ground once its tile tessellates.
+        expect(resolveGroundSample(658.4, MADRID_GROUND_M)).toBeCloseTo(658.4, 6);
+    });
+});
+
 describe('§SITEFRAME-GROUND — ringCentroidLatLon (the footprint seat point)', () => {
     it('returns the vertex-mean lat/lon of a [lon,lat] ring (longitude FIRST)', () => {
         // A closed square around (lon 1.8, lat 40.8); the closing vertex repeats the first.
