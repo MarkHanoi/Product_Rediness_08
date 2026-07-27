@@ -1104,19 +1104,9 @@ export class CesiumViewport {
   private contextBuildingsAbort: AbortController | null = null;
   /** One-time guard so the "context buildings unavailable" warning logs once. */
   private contextBuildingsWarned = false;
-  /** §SITEFRAME-GROUND-RESEAT (L-632) — the site (`lat,lon` key) a one-shot terrain-settle
-   *  re-seat has been ARMED (or already run) for. Context footprints are seated ONCE, at load
-   *  time, on `sampleGround` (`globe.getHeight`); but baked terrain tiles stream in progressively,
-   *  so at the single load moment MOST footprints have no tessellated tile under them yet →
-   *  `getHeight` is undefined → they fall back to the (possibly not-yet-clamped) centroid base and
-   *  sink under the relief (Madrid ~650 m ellipsoidal) → invisible, since `depthTestAgainstTerrain`
-   *  occludes anything below the mesh. This keys a SINGLE re-seat once the terrain has finished
-   *  streaming, so the buildings settle onto their real ground. Per-site so it never repeats on a
-   *  pan (no refetch loop). */
-  private contextTerrainReseatKey: string | null = null;
-  /** §SITEFRAME-GROUND-RESEAT (L-632) — unsubscribe for the armed `tileLoadProgressEvent` listener
-   *  (disposed the instant the one-shot re-seat fires, on a new site, and on dispose). */
-  private contextTerrainReseatDisposer: (() => void) | null = null;
+  // §SITEFRAME-GROUND-RESEAT (L-632) → §CTX-BUILDINGS-RENDER-FIRST (L-635) — the one-shot
+  // terrain-settle re-seat and its `tileLoadProgressEvent` listener are PULLED: the re-fetch they
+  // drove blanked/raced Madrid context (see `armContextTerrainReseat`). No listener state remains.
   /** §A.21.D-GLOBE (2026-06-05) — debounce handle for the pan-driven context-building
    *  refresh so a flurry of camera moves coalesces into one Overpass fetch. */
   private contextPanRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -5958,8 +5948,13 @@ export class CesiumViewport {
    * z-fight (an unloaded tile is off-screen / not tessellated), so correctness holds exactly
    * where it is needed: wherever relief is drawn, its tiles ARE loaded and `getHeight` is exact.
    */
-  private sampleGround(lat: number, lon: number): number {
-    const fallback = this.formaTerrainBaseHeight;
+  private sampleGround(lat: number, lon: number, baseOverride?: number): number {
+    // §CTX-BUILDINGS-RENDER-FIRST (L-635) — the fallback base is normally the settled centroid
+    // (`formaTerrainBaseHeight`), but a caller placing context under attached relief passes an
+    // explicit SAFE base so an un-tessellated point can never fall back to a depth-culling ~0.
+    const fallback = typeof baseOverride === 'number' && Number.isFinite(baseOverride)
+      ? baseOverride
+      : this.formaTerrainBaseHeight;
     try {
       const globe = this.viewer?.scene.globe;
       const provider = this.viewer?.terrainProvider;
@@ -5970,6 +5965,29 @@ export class CesiumViewport {
     } catch {
       return fallback;
     }
+  }
+
+  /**
+   * §CTX-BUILDINGS-RENDER-FIRST (L-635) — the SAFE base height context footprints must seat on so
+   * they are never depth-culled under attached relief. THE INVARIANT: with real terrain attached
+   * (`depthTestAgainstTerrain` culls anything below the mesh), a footprint whose own tile has not
+   * tessellated must fall back to a base AT the settled ground — never the pre-clamp ellipsoid 0
+   * that sits ~650 m under Madrid's mesh (invisible).
+   *
+   *   • no relief attached          → the flat centroid base is exact (ellipsoid IS the ground).
+   *   • relief + a resolved base     → `formaTerrainBaseHeight` (the clamped city ground).
+   *   • relief but base still ≈ 0    → the centroid clamp has not landed (or its sample failed).
+   *     Recover the ground from whatever terrain has ALREADY streamed at the site centroid via
+   *     `globe.getHeight` (the coarse root tile is usually resolved right after attach), so context
+   *     seats at ~real ground and stays visible instead of vanishing while we wait for the clamp.
+   */
+  private resolveContextSafeBase(lat: number, lon: number): number {
+    const base = this.formaTerrainBaseHeight;
+    if (!this.groundReliefAttached()) return base;          // flat path — exact as-is.
+    if (Math.abs(base) >= 1) return base;                    // clamp already resolved a real ground.
+    // Relief attached but base ≈ 0 → seating here would depth-cull. Recover from streamed terrain.
+    const centroidGround = this.sampleGround(lat, lon);
+    return Number.isFinite(centroidGround) && Math.abs(centroidGround) >= 1 ? centroidGround : base;
   }
 
   /**
@@ -6659,12 +6677,25 @@ export class CesiumViewport {
       this.setContextLoadingVisible(true, 'Surrounding buildings unavailable');
       return;
     }
+    // §CTX-DIAG (L-635) — footprints fetched, BEFORE any seating/culling. This isolates a
+    // fetch/data problem (0 here = Overpass/PMTiles returned nothing or was aborted) from a
+    // seating/depth-cull problem (non-zero here but nothing on screen = culled under the mesh).
+    console.log(
+      `[CTX-DIAG] footprints fetched: near=${near.features.length} far=${far.features.length} ` +
+        `for LAT ${lat.toFixed(5)} LON ${lon.toFixed(5)} (force=${force}).`,
+    );
     const collection = near;
     // A newer load (or dispose) superseded us.
     // §CTX-LOADING-BADGE-ARM (L-585) — the badge is deliberately LEFT AS-IS on this path: a newer
     // load superseded us and armed it for itself, so clearing it here would blank the indicator
     // for a wait that is still running.
-    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) {
+      // §CTX-DIAG (L-635) — an aborted/superseded load is the classic "context never appears"
+      // cause: a re-fetch (terrain re-clamp, pan) cancelled this one mid-flight. Named so a chain
+      // of these in the console reads as "the fetch keeps getting restarted", not "no data".
+      console.log('[CTX-DIAG] context load ABORTED/superseded before placement (a newer load or dispose took over).');
+      return;
+    }
 
     // PW.2 (§DIAG-PARTY-WALL) — capture the neighbour footprints for the layout
     // pipeline (resolveBlindFacades reads them + projects them into world-XZ to
@@ -6746,7 +6777,17 @@ export class CesiumViewport {
       );
     }
 
+    // §CTX-BUILDINGS-RENDER-FIRST (L-635) — resolve the SAFE base ONCE for this placement so an
+    // un-tessellated footprint under attached relief can never fall back to a depth-culling ~0.
+    const contextSafeBase = this.resolveContextSafeBase(lat, lon);
     let placed = 0;
+    // §CTX-DIAG (L-635) — per-point seat provenance for the founder-readable log below: how many
+    // footprints got a REAL per-point terrain height off `globe.getHeight` vs fell back to the
+    // settled centroid base because their tile had not tessellated yet. A low finite-rate on a
+    // relief city (Madrid) is the signature of "seated before terrain streamed" — the exact
+    // condition the safe-base guarantee (never a depth-culling 0) exists to survive.
+    let seatFinite = 0;
+    let seatFallback = 0;
     for (const f of nearTiers.shadowed) {
       try {
         const ring = f.geometry.coordinates[0];
@@ -6757,7 +6798,14 @@ export class CesiumViewport {
         // the mesh punch up through its flat-centroid seat, and one on lower ground no longer
         // floats. Falls back to the centroid base when no relief is loaded here (no z-fight to fix).
         const fCentroid = ringCentroidLatLon(ring);
-        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon) : this.formaTerrainBaseHeight;
+        // §CTX-BUILDINGS-RENDER-FIRST (L-635) — seat on the per-point relief when its tile has
+        // streamed, else the SAFE base (settled ground, never a culling ~0), NOT a raw formaTerrainBaseHeight.
+        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon, contextSafeBase) : contextSafeBase;
+        // §CTX-DIAG (L-635) — a seat equal to the safe base is (approximately) a fallback; a
+        // different value came from a finite per-point `getHeight`. Approximate by construction
+        // (a point can legitimately equal the base) but exact enough to read the streaming state.
+        if (Number.isFinite(fGround) && fGround !== contextSafeBase) seatFinite++;
+        else seatFallback++;
         const fBase = fGround - FORMA_BASE_SINK_M;
         const fTop = fGround;
         // lon/lat → local ENU metres about the origin, then ENU → ECEF.
@@ -6834,6 +6882,23 @@ export class CesiumViewport {
         `around LAT ${lat} LON ${lon} (§SITEFRAME-GROUND per-footprint seat, centroid base ` +
         `${base.toFixed(1)} m${this.groundReliefAttached() ? ', relief ON' : ', flat'}, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
     );
+    // §CTX-DIAG (L-635) — THE FOUNDER-READABLE STABILITY LINE. Everything needed to tell
+    // "buildings placed but culled" from "no data" from "still fetching" in ONE line:
+    //   • placed         — how many entities are actually in the scene now.
+    //   • base           — the settled ground the un-tessellated footprints seat on. On a relief
+    //                      city this MUST be the clamped ground (~650 m Madrid), never 0 — a 0 here
+    //                      with relief ON is the depth-cull bug (buildings sink under the mesh).
+    //   • relief         — whether real baked terrain is attached (so depthTestAgainstTerrain culls).
+    //   • seat finite/fb — per-point terrain hits vs fallbacks: a fallback-heavy run on relief is
+    //                      "seated before terrain streamed" and relies on the safe base being right.
+    const reliefOn = this.groundReliefAttached();
+    const baseAtRisk = reliefOn && Math.abs(contextSafeBase) < 1;
+    console.log(
+      `[CTX-DIAG] placed=${placed} clampBase=${this.formaTerrainBaseHeight.toFixed(1)}m ` +
+        `seatBase=${contextSafeBase.toFixed(1)}m relief=${reliefOn ? 'ON' : 'off'} ` +
+        `depthCull=${reliefOn ? 'active' : 'n/a'} seat[finite=${seatFinite} fallback=${seatFallback}] ` +
+        `safeBase=${baseAtRisk ? 'AT-RISK(base≈0 under relief → could cull; terrain not yet streamed at centroid)' : 'ok'}`,
+    );
     // §CTX-LOADING-BADGE (L-524b) — first buildings are on screen, so the wait is over. If the
     // ring came back genuinely EMPTY we say THAT instead of silently clearing: "no context data
     // here" and "still loading" are different facts and must not look identical (the failure-vs-
@@ -6878,87 +6943,47 @@ export class CesiumViewport {
   }
 
   /**
-   * §SITEFRAME-GROUND-RESEAT (L-632) — arm a ONE-SHOT re-seat of the context buildings for when the
-   * baked terrain finishes streaming.
+   * §SITEFRAME-GROUND-RESEAT (L-632) → §CTX-BUILDINGS-RENDER-FIRST (L-635) — PULLED.
    *
-   * THE DEFECT THIS CLOSES (regression from the T1 per-point re-seat, 89cc9e6c): context footprints
-   * are placed exactly ONCE, seated on `sampleGround` → `globe.getHeight`, a SYNCHRONOUS in-memory
-   * read that only returns a height where the terrain tile under that point has already tessellated.
-   * At the single moment `loadContextBuildings` renders (right after its Overpass await), the baked
-   * terrain has mostly NOT streamed yet, so `getHeight` is `undefined` for most footprints and they
-   * fall back to `formaTerrainBaseHeight` — which on this async path may itself still be the pre-clamp
-   * 0. On a site like Madrid (terrain ≈ 650 m ellipsoidal) a footprint seated near 0 sits ~650 m under
-   * the mesh, and `globe.depthTestAgainstTerrain` culls it → the founder's "most context buildings do
-   * not appear". The FEW that survive are where high-detail tiles happened to already be loaded.
+   * WHAT THIS USED TO DO: subscribe to Cesium's `tileLoadProgressEvent` and, when the terrain tile
+   * queue drained to 0, re-run `loadContextBuildings(force)` ONCE so every footprint re-sampled its
+   * now-tessellated per-point ground. The intent was correct (better per-point seating); the
+   * MECHANISM was structurally unsafe and destabilised Madrid — the founder's URGENT regression
+   * ("context buildings NOT rendering, all white/empty, slower with each terrain change"):
    *
-   * THE FIX: subscribe once to Cesium's own `tileLoadProgressEvent`; when the tile queue drains to 0
-   * after having had work pending (terrain has streamed), re-run the placement ONCE with the tiles now
-   * tessellated so every footprint gets its real ground. Keyed per-site so it fires at most once and a
-   * later pan/refresh never re-triggers a refetch loop. P3-safe: no rAF, no per-frame work — a bounded
-   * event listener that disposes itself the instant it fires. When no terrain relief is attached (the
-   * flat/keyless path) the load-time seat is already exact, so this is a no-op there.
+   *   1. IT RE-FETCHES. `reseatContextForSettledTerrain` called `loadContextBuildings(force)`, which
+   *      `clearContextBuildings()` FIRST and then re-places from a fresh fetch. Any abort (a pan, a
+   *      later re-clamp), empty read, or slow Madrid PMTiles/Overpass read between the clear and the
+   *      re-place leaves the scene BLANK — buildings that were on screen vanish. Clearing visible
+   *      geometry on the promise of a re-fetch is the wrong shape for a "progressive enhancement".
+   *   2. IT RACES THE OTHER LOADS. Madrid's terrain re-clamp ALSO calls `loadContextBuildings(force)`
+   *      (clampTerrainThenReplace), and each `loadContextBuildings` aborts the previous in-flight
+   *      fetch. attach→clamp→load + drain→reseat→load stacked up as repeated multi-second fetches
+   *      that cancel each other — exactly "slower, and worse with each terrain change".
+   *   3. THE DRAIN SIGNAL IS UNRELIABLE ON HIGH RELIEF. Madrid terrain streams continuously as the
+   *      camera flies in, so "queue hits 0 after being pending" fires late, never, or repeatedly.
+   *
+   * WHY PULLING IT IS SUFFICIENT (not just safe): the terrain re-clamp path already re-places context
+   * AFTER `formaTerrainBaseHeight` is set to the settled city ground (`clampTerrainThenReplace` →
+   * `loadContextBuildings(force)` at the §MAP-DATA-OVERTURE re-seat). So context ends up seated at the
+   * settled ground (~650 m Madrid) — VISIBLE, never depth-culled — WITHOUT this listener. What we lose
+   * is only per-FOOTPRINT relief refinement (all near footprints share the settled centroid base),
+   * which is the mandate's accepted trade: *slightly-imperfect seating over vanished buildings*.
+   *
+   * The right future enhancement (NOT this hotfix) is an IN-PLACE re-seat that rebuilds the existing
+   * `contextBuildingPlacements` entities' heights from their CACHED features once terrain settles —
+   * no network, no clear, no race — behind a hard timeout. Until that exists, this stays pulled.
+   *
+   * Signature + call site kept so re-enabling is a one-method change; `lat,lon` logged so the pulled
+   * decision is visible in the founder's console at the exact site it would have armed for.
    */
   private armContextTerrainReseat(lat: number, lon: number): void {
-    // Only meaningful with real relief attached — the flat/keyless path seats correctly at load time.
-    if (!this.groundReliefAttached()) return;
-    const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
-    // Already armed (or already re-seated) for this site → one-shot, never repeats.
-    if (this.contextTerrainReseatKey === key) return;
-    // A new site: drop any stale listener from the previous site before arming this one.
-    this.contextTerrainReseatDisposer?.();
-    this.contextTerrainReseatDisposer = null;
-    this.contextTerrainReseatKey = key;
-
-    const ev = this.viewer?.scene?.globe?.tileLoadProgressEvent as
-      | { addEventListener?: (cb: (queued: number) => void) => (() => void) | undefined }
-      | undefined;
-    // No progress event on this Cesium build → leave the load-time seat (flat-safe; never a crash).
-    if (!ev?.addEventListener) return;
-
-    let sawPending = false;
-    const off = ev.addEventListener((queued: number) => {
-      if (Number.isFinite(queued) && queued > 0) {
-        sawPending = true;
-        return;
-      }
-      // queue drained. If it was never pending, terrain was already settled at arm time → the
-      // load-time seat is already exact and a re-seat would only thrash; skip it.
-      if (!sawPending) return;
-      // One-shot: dispose FIRST so a re-entrant event can never double-fire the re-seat.
-      this.contextTerrainReseatDisposer?.();
-      this.contextTerrainReseatDisposer = null;
-      void this.reseatContextForSettledTerrain(key);
-    });
-    this.contextTerrainReseatDisposer = typeof off === 'function' ? off : null;
-  }
-
-  /**
-   * §SITEFRAME-GROUND-RESEAT (L-632) — the one-shot re-seat itself. Re-runs `loadContextBuildings`
-   * (forced) so every footprint is re-sampled against the now-tessellated terrain. First awaits
-   * `whenGroundSettled()` so the per-point fallback (`formaTerrainBaseHeight`) is the MEASURED
-   * centroid ground rather than a pre-clamp 0 — an un-tessellated far footprint then falls back to
-   * the real ground and stays VISIBLE (flat) rather than vanishing. Bails if the site changed under
-   * us. Never throws. The forced re-run re-enters `armContextTerrainReseat` with the SAME key, which
-   * early-returns (already keyed) — so exactly one re-seat happens, with no re-subscription.
-   */
-  private async reseatContextForSettledTerrain(key: string): Promise<void> {
-    const cur = this.contextBuildingsAt;
-    if (!cur) return;
-    if (`${cur.lat.toFixed(6)},${cur.lon.toFixed(6)}` !== key) return; // site moved on — abandon.
-    try {
-      await this.whenGroundSettled();
-    } catch { /* best-effort — the re-seat is still worthwhile on the tessellated tiles */ }
-    if (!this.viewer) return;
-    // Still the same site after the await?
-    const after = this.contextBuildingsAt;
-    if (!after || `${after.lat.toFixed(6)},${after.lon.toFixed(6)}` !== key) return;
-    try {
-      console.log(
-        '[CesiumViewport][forma] §SITEFRAME-GROUND-RESEAT (L-632) — terrain finished streaming; ' +
-          're-seating context buildings on their now-tessellated ground (one-shot).',
-      );
-      await this.loadContextBuildings(after.lat, after.lon, true);
-    } catch { /* re-seat is best-effort; the load-time seat remains otherwise */ }
+    if (!this.groundReliefAttached()) return; // flat/keyless path already seats exactly — nothing to note.
+    console.log(
+      `[CTX-DIAG] terrain re-seat: DISABLED (pulled, L-635) at LAT ${lat.toFixed(5)} LON ${lon.toFixed(5)} — ` +
+        `context stays at the settled-ground base (${this.formaTerrainBaseHeight.toFixed(1)} m), visible; ` +
+        `the tileLoadProgress re-fetch that blanked/raced Madrid is removed.`,
+    );
   }
 
   /**
@@ -7164,6 +7189,9 @@ export class CesiumViewport {
     // as clearly secondary (aerial-perspective) and stays cheap.
     const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.82);
 
+    // §CTX-BUILDINGS-RENDER-FIRST (L-635) — same safe base as the near ring: an un-tessellated far
+    // footprint under attached relief must fall back to the settled ground, never a culling ~0.
+    const contextSafeBase = this.resolveContextSafeBase(lat, lon);
     let placed = 0;
     for (const f of far.features) {
       try {
@@ -7171,7 +7199,7 @@ export class CesiumViewport {
         if (!ring || ring.length < 4) continue;
         // §SITEFRAME-GROUND (T1) — seat this far footprint on the ground under itself.
         const fCentroid = ringCentroidLatLon(ring);
-        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon) : this.formaTerrainBaseHeight;
+        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon, contextSafeBase) : contextSafeBase;
         const fBase = fGround - FORMA_BASE_SINK_M;
         const fTop = fGround;
         const positions = ring.map(([flon, flat]) => {
@@ -10980,11 +11008,8 @@ export class CesiumViewport {
       if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
       this.clearContextBuildings();
       this.contextBuildingsAt = null;
-      // §SITEFRAME-GROUND-RESEAT (L-632) — drop the one-shot terrain-settle re-seat listener + key
-      // so a re-mounted viewport (project switch) re-arms fresh for its new site.
-      this.contextTerrainReseatDisposer?.();
-      this.contextTerrainReseatDisposer = null;
-      this.contextTerrainReseatKey = null;
+      // §SITEFRAME-GROUND-RESEAT (L-632) → §CTX-BUILDINGS-RENDER-FIRST (L-635) — the terrain-settle
+      // re-seat listener is pulled, so there is no per-site listener/key to tear down here.
       // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
       // viewport re-loads its tileset), so the context-suppression decision is fresh.
       this.photorealTilesActive = false;
