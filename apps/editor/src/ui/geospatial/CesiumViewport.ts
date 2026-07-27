@@ -802,16 +802,11 @@ export class CesiumViewport {
    *  without hammering the network on every pan. Cleared on dispose (project switch). */
   private formaTerrainProbedCities = new Set<string>();
   /** §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF escape hatch for the 3D Site.
-   *  §TERRAIN-DEFAULT-OFF (L-635, founder 2026-07-27) — DEFAULT NOW FALSE. Live evidence settled it:
-   *  with terrain OFF every city — flat Valencia/Barcelona AND high-relief Madrid (700 m) — renders
-   *  its context perfectly (`[CTX-DIAG] terrainOn=false buildingsPlaced=1600 buildingsVisible≈1600
-   *  seatBase=0.0m`), whereas terrain ON strands the Cesium camera off the site on high-ground /
-   *  envelope-refused cities (Madrid/Zürich/Amsterdam) so the (correctly 700 m-seated) buildings are
-   *  never in frame. Flat ground is the universally-correct render; terrain relief is one toggle away
-   *  (⛰ Terrain / `pryzmSetFormaTerrain(true)`) for studying a specific site. Flip back to `true` once
-   *  the terrain-ON camera-framing fix lands (offline root-cause in progress). Supersedes L-631's
-   *  "terrain everywhere" default — that shipped before we had proof terrain-ON breaks the camera. */
-  private formaTerrainEnabled = false;
+   *  Default TRUE — terrain is mandatory for ALL cities (founder). The terrain-ON seat/camera bug on
+   *  high-ground cities (Madrid/Zürich/Amsterdam) is being FIXED, not worked around by defaulting off.
+   *  We keep it ON so the `[CTX-TERRAIN-GAP]` diagnostic below measures the real terrain-on state
+   *  (are the context buildings sitting BELOW the terrain surface, and by how much) on every open. */
+  private formaTerrainEnabled = true;
   /** §CESIUM-REALMODEL-TOKEN — monotonic tokens serialising overlapping async
    *  real-model placements (GLB export → `Cesium.Model.fromGltfAsync` → add). Two
    *  rapid view toggles could each await the model load and BOTH add a primitive
@@ -7267,6 +7262,63 @@ export class CesiumViewport {
     // (invisible). Arm a SINGLE re-seat for when the terrain finishes streaming so they settle onto
     // their real ground. No-op on the flat/keyless path (load-time seat is already exact there).
     this.armContextTerrainReseat(lat, lon);
+
+    // §CTX-TERRAIN-GAP (L-635, founder-requested) — MEASURE whether the placed context buildings sit
+    // BELOW the terrain surface, and by how much, sampled NOW and again after the terrain finishes
+    // streaming (the gap can only appear once real relief has tessellated). This is the empirical
+    // answer to "are the buildings always below the terrain in these cities" — it counts, per load,
+    // how many placed footprints have their base under the live terrain surface at their own location.
+    this.logTerrainGapDiagnostic(lat, lon);
+  }
+
+  /**
+   * §CTX-TERRAIN-GAP (L-635) — empirical terrain-vs-building-seat measurement. For each placed context
+   * footprint, compares its seated base to the LIVE terrain surface height (`globe.getHeight`) AT THAT
+   * footprint's own location, and reports how many sit below the mesh and the worst gap. Sampled at
+   * t+0, t+3s and t+8s because the terrain streams progressively — a building can seat correctly at
+   * t+0 (coarse tile) yet end up under a finer mesh that streams in later. Pure logging; never throws.
+   */
+  private logTerrainGapDiagnostic(lat: number, lon: number): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const sample = (tag: string): void => {
+      try {
+        if (!this.isViewerLive()) return;
+        const globe = viewer.scene.globe;
+        const now = Cesium.JulianDate.now();
+        const centroidSurface = globe.getHeight(Cesium.Cartographic.fromDegrees(lon, lat));
+        let checked = 0;
+        let below = 0;
+        let worstGapM = 0;      // most-negative (base − surface); < 0 means base under the terrain
+        let sumGapM = 0;
+        for (const { entity, feature } of this.contextBuildingPlacements.slice(0, 120)) {
+          const ring = feature.geometry.coordinates[0];
+          const c = ring ? ringCentroidLatLon(ring) : null;
+          if (!c) continue;
+          const surf = globe.getHeight(Cesium.Cartographic.fromDegrees(c.lon, c.lat));
+          const base = entity.polygon?.height?.getValue(now);
+          if (typeof surf !== 'number' || typeof base !== 'number') continue;
+          const gap = base - surf;                 // negative ⇒ building base is UNDER the terrain surface
+          checked++;
+          sumGapM += gap;
+          if (gap < -1) below++;
+          if (gap < worstGapM) worstGapM = gap;
+        }
+        const avgGap = checked ? (sumGapM / checked) : 0;
+        console.log(
+          `[CTX-TERRAIN-GAP] ${tag} terrainOn=${this.formaTerrainEnabled} relief=${this.groundReliefAttached() ? 'ON' : 'off'} ` +
+            `centroidTerrainSurface=${typeof centroidSurface === 'number' ? centroidSurface.toFixed(1) + 'm' : 'undefined(not streamed)'} ` +
+            `seatBase=${this.formaTerrainBaseHeight.toFixed(1)}m | of ${checked} sampled footprints: ` +
+            `${below} BELOW terrain (avgGap=${avgGap.toFixed(1)}m, worst=${worstGapM.toFixed(1)}m under). ` +
+            `${below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'}`,
+        );
+      } catch (e) {
+        console.warn('[CTX-TERRAIN-GAP] sample failed:', e);
+      }
+    };
+    sample('t+0 ');
+    setTimeout(() => sample('t+3s'), 3000);
+    setTimeout(() => sample('t+8s'), 8000);
   }
 
   /**
