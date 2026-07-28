@@ -7166,13 +7166,11 @@ export class CesiumViewport {
     // scene reads as transparent; the white proposed mass still stands out against
     // the muted off-white context.
     const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill);
-    // §CTX-ASSUMED-HEIGHT-VISIBLE (L-527) — the "we do not know this building's height" fill. Kept
-    // in the SAME family as the surveyed fill (this is still background context, not an alarm) but
-    // cooler and slightly translucent, so a block of guesses reads as missing data rather than as
-    // surveyed massing. See the full rationale at the entity construction below.
-    const assumedFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill)
-      .withAlpha(0.55)
-      .brighten(0.12, new Cesium.Color());
+    // §CTX-SOLID-CONTEXT (L-636) — the translucent "assumed height" fill was REMOVED: on a city whose
+    // OSM heights are mostly guessed (Madrid), a scene of 55%-alpha brightened boxes doesn't self-shadow
+    // and reads as flat white, while a real-height city (Barcelona) rendered opaque + shaded. Per founder
+    // direction (visual parity), ALL context renders with the opaque `fill`. Honest "unknown height" is
+    // deferred to the height DATA (re-bake), not a washed material (C58 §1.4 trade-off, logged in L-636).
     const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.6);
 
     // §PLOT-CLEAR-ENVELOPE (L-402c) — drop any OSM footprint sitting ON the committed
@@ -7269,7 +7267,11 @@ export class CesiumViewport {
             new Cesium.Cartesian3(),
           );
         });
-        const h = f.properties.heightM;
+        // §CTX-MISSING-HEIGHT-FALLBACK (L-636) — a footprint with NO source height (heightM ≈ 0) was
+        // extruded to Math.max(0.1, 0) = a 0.1 m FLAT sliver. Fall back to a legible 9 m block so it reads
+        // as a building, not a flat outline. (Provenance handling for the FILL is below.)
+        const rawHeightM = f.properties.heightM;
+        const h = (Number.isFinite(rawHeightM) && rawHeightM >= 2) ? rawHeightM : 9;
         // §CTX-ASSUMED-HEIGHT-VISIBLE (L-527 interim) — a GUESS MUST NOT RENDER LIKE A MEASUREMENT.
         //
         // ~35-40% of Barcelona OSM footprints carry no `height` and no `building:levels`, so they
@@ -7288,8 +7290,17 @@ export class CesiumViewport {
         // instead of as surveyed massing. **Deliberately NOT done: inventing a better-looking
         // number** (e.g. inheriting a neighbourhood median). That would make fabricated data MORE
         // convincing, which is strictly worse than leaving it visibly wrong.
+        // §CTX-SOLID-CONTEXT (L-636 — founder side-by-side: Madrid buildings render FLAT WHITE while
+        // Barcelona renders SHADED, SAME geometry). Root: Madrid's OSM heights are mostly flagged
+        // 'assumed', so they took the TRANSLUCENT+cooler `assumedFill`, which does NOT self-shadow under
+        // the sun → flat white; Barcelona's real heights took the OPAQUE `fill` → shaded. Render ALL
+        // near-ring context with the OPAQUE fill so the sun-shadow pass shades every building = visual
+        // parity with Barcelona. ⚠ HONESTY TRADE-OFF (C58 §1.4 / §CTX-ASSUMED-HEIGHT-VISIBLE): the washed
+        // material was the DELIBERATE "unknown height" signal; per founder direction we drop the material
+        // signal for visual parity. The honest fix is real height DATA (re-bake Madrid MDS heights) so
+        // fewer footprints are 'assumed' at all. `isAssumedHeight` retained for the entity name/log only.
         const isAssumedHeight = f.properties.heightProvenance === 'assumed';
-        const bodyFill = isAssumedHeight ? assumedFill : fill;
+        const bodyFill = fill;
         const ent = viewer.entities.add({
           name: isAssumedHeight
             ? 'pryzm-forma-context-building-assumed-height'
@@ -7726,7 +7737,11 @@ export class CesiumViewport {
         // §FEAT-FORMA-CONTEXT-EXTENT-LOD — LOW-POLY: cap the far height so distant blocks read
         // as simple massing (never a stray far skyscraper dominating), and SHADOWS OFF — the
         // shadow pass is the perf driver the founder flagged, so the far ring never casts.
-        const trueH = Math.max(0.1, f.properties.heightM);
+        // §CTX-MISSING-HEIGHT-FALLBACK (L-636) — same as the near ring: a 0-height far footprint became a
+        // 0.1 m flat sliver → white wireframe z-fighting the terrain. Fall back to the 9 m assumed height so
+        // it extrudes into a legible low-poly block instead of a flat outline.
+        const rawFarHeightM = f.properties.heightM;
+        const trueH = (Number.isFinite(rawFarHeightM) && rawFarHeightM >= 2) ? rawFarHeightM : 9;
         const h = heightClampM === null ? trueH : Math.min(heightClampM, trueH);
         const ent = viewer.entities.add({
           name: 'pryzm-forma-context-building-far',
