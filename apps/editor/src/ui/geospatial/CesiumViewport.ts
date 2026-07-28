@@ -826,13 +826,6 @@ export class CesiumViewport {
    *  late base-settle — that would override their view. Distinguished from our own
    *  flights via `formaProgrammaticFlyInFlight`. Reset on each fresh framing open. */
   private formaUserMovedCamera = false;
-  /** §GLOBE-STALE-FRAME-REFRAME (L-370) — the `formaTerrainBaseHeight` that the CURRENT
-   *  building frame was flown against (recorded by `flyToFormaSite`). Used by
-   *  `performInitialReframe` to decide whether a late ground-datum settle moved the
-   *  building so far (> `GLOBE_STALE_FRAME_BASE_JUMP_M`) that the frame is STALE and the
-   *  corrective re-frame must fire even after the user took the camera. `null` until the
-   *  first building frame; treated as "no jump" so the small-settle protection is kept. */
-  private formaFramedAtBaseHeight: number | null = null;
   /** §GLOBE-SITE-IN-VIEW (L-635) — bounded one-shot "rescue" reframe: after the first frame has fired,
    *  if the site is STILL off-screen (stale/underground frame) we reframe ONCE more, then latch this so
    *  we never loop or fight a user. Reset with `formaInitialReframeFired` on every fresh site-open. */
@@ -2904,9 +2897,6 @@ export class CesiumViewport {
     this.formaInitialReframeFired = false;
     this.formaOffscreenRescueUsed = false;
     this.formaUserMovedCamera = false;
-    // §GLOBE-STALE-FRAME-REFRAME (L-370) — the next building frame records its own base.
-    this.formaFramedAtBaseHeight = null;
-
     // --- Hide the photogrammetry / 3D tilesets while in Forma mode (§2). ---
     try {
       const prims = scene.primitives;
@@ -4964,15 +4954,29 @@ export class CesiumViewport {
       this.formaInitialReframeFired = false;
       this.formaOffscreenRescueUsed = false;
       this.formaUserMovedCamera = false;
-      if (preset === 'plan') this.flyToFormaPlan();
-      else this.flyToFormaSite();
-      // §GLOBE-FIRST-FRAME-BASE — this framing used the CURRENT base, which on the
-      // first activation is still 0 (the async terrain/tile sample below hasn't run
-      // yet). Arm a one-shot re-frame so that when the clamp settles a DIFFERENT
-      // base, the camera re-flies once with the correct ground height instead of
-      // staying parked underground. Only arm when an async clamp will actually run
-      // (a re-place pass passes `_skipTerrainClamp` and must never re-fly).
-      this.formaReframeOnBaseSettle = input._skipTerrainClamp ? null : preset;
+      // §GLOBE-FIRST-FRAME-ABOVE (L-635) — on the Forma baked-terrain path, DEFER the first
+      // camera frame to the async ground-settle instead of framing synchronously here. Framing
+      // now uses `formaTerrainBaseHeight` = 0 (the terrain sample below hasn't run yet), which
+      // seats the camera AND the orbit pivot at the WGS-84 ELLIPSOID. On a terrain-attached city
+      // (Madrid ~700 m, Amsterdam offset) that is UNDER the real surface, so the landing is a
+      // white grazing wash with the roads/parks/water viewed edge-on and the pivot ~700 m too low
+      // — the founder-reported "camera below / pivots around the wrong root / roads-parks gone".
+      // Barcelona only ever looked right because base 0 ≈ its real ~12 m ground. The view-activation
+      // loading overlay already blocks on `whenGroundSettled()`, so deferring shows a clean loader
+      // → then exactly ONE correct above-ground frame: the clamp's terminal (settled / unchanged /
+      // flat-ellipsoid-0 alike) funnels through `reframeAfterBaseSettle()` → `performInitialReframe`
+      // once, with the settled base. The photoreal 3D-globe path (its ground is the Google mesh,
+      // already final) keeps the immediate frame — there is no underground window to avoid there.
+      const deferFrameToGroundSettle = !input._skipTerrainClamp && !input.keepPhotoreal;
+      if (deferFrameToGroundSettle) {
+        this.formaReframeOnBaseSettle = preset;
+      } else {
+        if (preset === 'plan') this.flyToFormaPlan();
+        else this.flyToFormaSite();
+        // Arm the one-shot re-frame so a late DIFFERENT base still re-flies once; a re-place
+        // pass (`_skipTerrainClamp`) never runs an async clamp, so it must never arm.
+        this.formaReframeOnBaseSettle = input._skipTerrainClamp ? null : preset;
+      }
     }
 
     // A.21.D24 — re-draw any active 3D climate overlays so the sun-path/wind/heat
@@ -6378,8 +6382,6 @@ export class CesiumViewport {
     this.formaInitialReframeFired = false;
     this.formaOffscreenRescueUsed = false;
     this.formaUserMovedCamera = false;
-    // §GLOBE-STALE-FRAME-REFRAME (L-370) — the entry's building frame records its own base.
-    this.formaFramedAtBaseHeight = null;
   }
 
   /**
@@ -6596,11 +6598,6 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] flyToFormaSite: no massing placed yet — ignored.');
       return;
     }
-    // §GLOBE-STALE-FRAME-REFRAME (L-370) — record the ground base this frame is being
-    // computed against (both the bounding-sphere and √area paths below seat the camera on
-    // `formaTerrainBaseHeight`). If a late datum settle then moves the building far from
-    // here, `performInitialReframe` knows the frame is stale and re-frames despite the user.
-    this.formaFramedAtBaseHeight = this.formaTerrainBaseHeight;
     // §GLOBE-FIT-BUILDING — prefer fitting the actual building bounding sphere (whole
     // tower framed, zoom-extents) for BOTH the initial landing and Zoom-to-Site; fall
     // back to the √area altitude heuristic below only when no sphere resolves.
@@ -7805,11 +7802,12 @@ export class CesiumViewport {
           corridor: {
             positions,
             width: roadWidthM(way.highway),
-            // §CTX-DRAPE-TERRAIN (L-635) — clamp the ribbon to the RENDERED terrain so it follows the
-            // topography instead of sitting on a flat plane the terrain surface then overlays. Flat
-            // ground-clamp (no extrusion) is the safe Cesium ground primitive — unlike the extruded
-            // RELATIVE_TO_GROUND that crashed. On flat/keyless it clamps to ellipsoid 0 (unchanged).
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            // §CTX-ABS-SEAT (L-635) — seat at the ABSOLUTE settled ground height, NOT CLAMP_TO_GROUND.
+            // Forma sets globe.depthTestAgainstTerrain=false, so the GroundPrimitive classification pass
+            // clampToGround relies on has no terrain stencil to paint into → clamped features render
+            // NOTHING on baked terrain (Madrid/Amsterdam). An absolute height draws in the standard opaque
+            // pass, depth-flag-independent, so it renders on any provider. `base` = the settled city ground.
+            height: base,
             cornerType: Cesium.CornerType.ROUNDED,
             material: roadColor,
             outline: false,
@@ -7909,8 +7907,7 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-water',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, // §CTX-DRAPE-TERRAIN (L-635) — follow terrain
-            zIndex: 10, // above parks (0), below the street grid
+            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (renders nothing on baked terrain: depthTestAgainstTerrain=false).
             material: waterFill,
             outline: false,
           },
@@ -7933,8 +7930,10 @@ export class CesiumViewport {
           polyline: {
             positions,
             width: 3,
-            clampToGround: true, // §CTX-DRAPE-TERRAIN (L-635) — follow the terrain surface
+            clampToGround: false, // §CTX-ABS-SEAT (L-635) — clampToGround renders nothing on baked terrain (depthTestAgainstTerrain=false); the positions already carry the absolute base height.
+            arcType: Cesium.ArcType.NONE,
             material: waterLine,
+            depthFailMaterial: new Cesium.ColorMaterialProperty(waterLine),
           },
         });
         this.contextWaterEntities.push(ent);
@@ -8008,10 +8007,7 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-park',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            // §CTX-DRAPE-TERRAIN (L-635) — clamp the green onto the terrain; zIndex 0 keeps it at the
-            // bottom of the ground stack (water/roads read on top) without z-fighting on the shared surface.
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-            zIndex: 0,
+            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (renders nothing on baked terrain: depthTestAgainstTerrain=false).
             material: parkFill,
             outline: true,
             outlineColor: parkEdge,
@@ -11461,8 +11457,6 @@ export class CesiumViewport {
     this.formaInitialReframeFired = false;
     this.formaOffscreenRescueUsed = false;
     this.formaUserMovedCamera = false;
-    // §GLOBE-STALE-FRAME-REFRAME (L-370) — the next building frame records its own base.
-    this.formaFramedAtBaseHeight = null;
     this.formaProgrammaticFlyInFlight = false;
     // FORMA.5 — drop sun observers so the scrubber UI doesn't leak across mounts.
     this.formaSunListeners.clear();
