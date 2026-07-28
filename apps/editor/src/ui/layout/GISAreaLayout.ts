@@ -681,15 +681,28 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.log('[gis] reframeSiteIn3D: no Site location yet — leaving camera as-is.');
             return;
         }
+        // §SITE-FRAME-ON-TERRAIN (L-635) — DO NOT fly to a raw ellipsoid 600 m here: on a high city
+        // (Madrid ~700 m) that lands the camera UNDER the terrain → blank until the user zooms out
+        // (Barcelona's ~63 m ground stays below 600 m, which is why it always looked fine). CTX-DIAG
+        // confirmed ALL geometry (buildings/roads/parks/water) already seats at the real ground on both
+        // cities — ONLY this camera altitude was ellipsoid-relative. Delegate to the CesiumViewport's
+        // terrain-aware frame: it attaches the baked terrain, samples the REAL ground and frames the
+        // §SITE-VIEWPOINT-CONSISTENT preset ABOVE it — correct on every city. Keep the raw fly as a
+        // fallback only if the terrain-aware method is somehow unavailable.
         try {
-            const Cesium = await getCesium();
-            viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromDegrees(o.lon, o.lat, 600),
-                orientation: { heading: 0, pitch: Cesium.Math.toRadians(-55), roll: 0 },
-                duration: 1.5,
-            });
-            viewer.scene.requestRender();
-            console.log('[gis] reframeSiteIn3D: framed plot at', o);
+            if (typeof cesiumViewport.frameSiteLocationOnTerrain === 'function') {
+                cesiumViewport.frameSiteLocationOnTerrain(o.lat, o.lon);
+                console.log('[gis] reframeSiteIn3D: framed plot (terrain-aware) at', o);
+            } else {
+                const Cesium = await getCesium();
+                viewer.camera.flyTo({
+                    destination: Cesium.Cartesian3.fromDegrees(o.lon, o.lat, 600),
+                    orientation: { heading: 0, pitch: Cesium.Math.toRadians(-55), roll: 0 },
+                    duration: 1.5,
+                });
+                viewer.scene.requestRender();
+                console.log('[gis] reframeSiteIn3D: framed plot (ellipsoid fallback) at', o);
+            }
         } catch (err) {
             console.warn('[gis] reframeSiteIn3D failed (non-fatal):', err);
         }

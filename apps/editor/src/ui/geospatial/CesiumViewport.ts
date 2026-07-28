@@ -2590,6 +2590,18 @@ export class CesiumViewport {
    * @param instant when true (framing at mount), jump there with `setView`;
    *   otherwise (an interactive location change) glide with a ~1.5 s `flyTo`.
    */
+  /**
+   * §SITE-FRAME-ON-TERRAIN (L-635) — PUBLIC terrain-aware site framing for external callers
+   * (GISAreaLayout.reframeSiteIn3D's no-massing/pre-plot fallback, which used to fly to a RAW ellipsoid
+   * 600 m — under Madrid's ~700 m plateau → blank until zoom-out; Barcelona's ~63 m ground stayed below
+   * 600 m, which is why it always looked fine). Delegates to the terrain-aware frameSiteLocation:
+   * attaches the baked terrain, samples the REAL ground height, and frames the §SITE-VIEWPOINT-CONSISTENT
+   * preset ABOVE it. Safe when no massing is placed.
+   */
+  public frameSiteLocationOnTerrain(lat: number, lon: number): void {
+    this.frameSiteLocation(lat, lon, { instant: false });
+  }
+
   private frameSiteLocation(lat: number, lon: number, opts: { instant?: boolean } = {}): void {
     // §SITE-FRAME-ON-TERRAIN (L-635) — SITE_FRAME_HEIGHT_M (600 m) is a height above the GROUND, but a
     // high city's ground is hundreds of metres above the WGS-84 ellipsoid (Madrid ~700 m). Framing at a
