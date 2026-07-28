@@ -313,6 +313,60 @@ export const REGIONS = [
   { name: 'benalmadena',  source: 'es', bbox: [-4.62, 36.56, -4.48, 36.66] }, // coast → Benalmádena Pueblo up the hill (~280 m)
   { name: 'fuengirola',   source: 'es', bbox: [-4.70, 36.49, -4.56, 36.63] }, // coast → Mijas Pueblo on the sierra (~430 m) + Sierra de Mijas
   { name: 'marbella',     source: 'es', bbox: [-4.95, 36.47, -4.82, 36.59] }, // coast → La Concha / Sierra Blanca (1215 m towering over the town)
+  // §ES-ALL-CAPITALS (L-636) — all Spanish provincial capitals + Balearics + Canaries + big non-capitals.
+  // Same keyless PNOA MDT source; each bbox is a formulaic ~0.14°×0.12° centre box (≤22 km ES cap → z10).
+  { name: 'sevilla',        source: 'es', bbox: [-6.0545, 37.3291, -5.9145, 37.4491] },
+  { name: 'zaragoza',       source: 'es', bbox: [-0.9591, 41.5888, -0.8191, 41.7088] },
+  { name: 'murcia',         source: 'es', bbox: [-1.2007, 37.9322, -1.0607, 38.0522] },
+  { name: 'palma',          source: 'es', bbox: [2.5802, 39.5096, 2.7202, 39.6296] },
+  { name: 'laspalmas',      source: 'es', bbox: [-15.5063, 28.0635, -15.3663, 28.1835] },
+  { name: 'bilbao',         source: 'es', bbox: [-3.005, 43.203, -2.865, 43.323] },
+  { name: 'alicante',       source: 'es', bbox: [-0.551, 38.2852, -0.411, 38.4052] },
+  { name: 'valladolid',     source: 'es', bbox: [-4.7945, 41.5923, -4.6545, 41.7123] },
+  { name: 'vigo',           source: 'es', bbox: [-8.7907, 42.1806, -8.6507, 42.3006] },
+  { name: 'gijon',          source: 'es', bbox: [-5.7311, 43.4722, -5.5911, 43.5922] },
+  { name: 'acoruna',        source: 'es', bbox: [-8.4815, 43.3023, -8.3415, 43.4223] },
+  { name: 'vitoria',        source: 'es', bbox: [-2.7416, 42.7867, -2.6016, 42.9067] },
+  { name: 'granada',        source: 'es', bbox: [-3.6686, 37.1173, -3.5286, 37.2373] },
+  { name: 'elche',          source: 'es', bbox: [-0.7826, 38.2099, -0.6426, 38.3299] },
+  { name: 'oviedo',         source: 'es', bbox: [-5.9194, 43.3019, -5.7794, 43.4219] },
+  { name: 'santacruztenerife', source: 'es', bbox: [-16.3218, 28.4036, -16.1818, 28.5236] },
+  { name: 'cartagena',      source: 'es', bbox: [-1.0666, 37.5657, -0.9266, 37.6857] },
+  { name: 'jerez',          source: 'es', bbox: [-6.1961, 36.625, -6.0561, 36.745] },
+  { name: 'alcaladehenares', source: 'es', bbox: [-3.4335, 40.422, -3.2935, 40.542] },
+  { name: 'pamplona',       source: 'es', bbox: [-1.7158, 42.7525, -1.5758, 42.8725] },
+  { name: 'almeria',        source: 'es', bbox: [-2.5337, 36.774, -2.3937, 36.894] },
+  { name: 'sansebastian',   source: 'es', bbox: [-2.0512, 43.2583, -1.9112, 43.3783] },
+  { name: 'santander',      source: 'es', bbox: [-3.88, 43.4023, -3.74, 43.5223] },
+  { name: 'castellon',      source: 'es', bbox: [-0.1213, 39.9264, 0.0187, 40.0464] },
+  { name: 'burgos',         source: 'es', bbox: [-3.7669, 42.2839, -3.6269, 42.4039] },
+  { name: 'albacete',       source: 'es', bbox: [-1.9285, 38.9343, -1.7885, 39.0543] },
+  { name: 'logrono',        source: 'es', bbox: [-2.5149, 42.4027, -2.3749, 42.5227] },
+  { name: 'lalaguna',       source: 'es', bbox: [-16.3859, 28.4274, -16.2459, 28.5474] },
+  { name: 'badajoz',        source: 'es', bbox: [-7.0407, 38.8194, -6.9007, 38.9394] },
+  { name: 'salamanca',      source: 'es', bbox: [-5.7335, 40.9101, -5.5935, 41.0301] },
+  { name: 'huelva',         source: 'es', bbox: [-7.0147, 37.2014, -6.8747, 37.3214] },
+  { name: 'lleida',         source: 'es', bbox: [0.55, 41.5576, 0.69, 41.6776] },
+  { name: 'tarragona',      source: 'es', bbox: [1.1745, 41.0589, 1.3145, 41.1789] },
+  { name: 'leon',           source: 'es', bbox: [-5.6371, 42.5387, -5.4971, 42.6587] },
+  { name: 'cadiz',          source: 'es', bbox: [-6.3586, 36.4671, -6.2186, 36.5871] },
+  { name: 'jaen',           source: 'es', bbox: [-3.8549, 37.7196, -3.7149, 37.8396] },
+  { name: 'ourense',        source: 'es', bbox: [-7.9339, 42.2758, -7.7939, 42.3958] },
+  { name: 'girona',         source: 'es', bbox: [2.7514, 41.9194, 2.8914, 42.0394] },
+  { name: 'lugo',           source: 'es', bbox: [-7.6259, 42.9521, -7.4859, 43.0721] },
+  { name: 'caceres',        source: 'es', bbox: [-6.4424, 39.4153, -6.3024, 39.5353] },
+  { name: 'santiago',       source: 'es', bbox: [-8.6148, 42.8182, -8.4748, 42.9382] },
+  { name: 'guadalajara',    source: 'es', bbox: [-3.2337, 40.5697, -3.0937, 40.6897] },
+  { name: 'pontevedra',     source: 'es', bbox: [-8.7144, 42.371, -8.5744, 42.491] },
+  { name: 'palencia',       source: 'es', bbox: [-4.5988, 41.9496, -4.4588, 42.0696] },
+  { name: 'ciudadreal',     source: 'es', bbox: [-3.9976, 38.9248, -3.8576, 39.0448] },
+  { name: 'zamora',         source: 'es', bbox: [-5.8146, 41.4433, -5.6746, 41.5633] },
+  { name: 'avila',          source: 'es', bbox: [-4.7512, 40.5965, -4.6112, 40.7165] },
+  { name: 'cuenca',         source: 'es', bbox: [-2.2074, 40.0104, -2.0674, 40.1304] },
+  { name: 'segovia',        source: 'es', bbox: [-4.1788, 40.8829, -4.0388, 41.0029] },
+  { name: 'soria',          source: 'es', bbox: [-2.549, 41.7066, -2.409, 41.8266] },
+  { name: 'teruel',         source: 'es', bbox: [-1.1765, 40.2856, -1.0365, 40.4056] },
+  { name: 'huesca',         source: 'es', bbox: [-0.4789, 42.0801, -0.3389, 42.2001] },
   { name: 'newyork',      source: 'us', bbox: [-74.03, 40.70, -73.91, 40.82] },
   { name: 'sanfrancisco', source: 'us', bbox: [-122.52, 37.70, -122.36, 37.83] },
   // ── BLOCKED cities (no open commercial DTM) — carried explicitly, SKIPPED with a reason ──
@@ -661,6 +715,13 @@ function computeVertexNormalsEcef(ecef, triangles, nV) {
 export function encodeQuantizedMesh(mesh, gridSize, tile, heightAt) {
   const nV = mesh.vertices.length / 2;
   const hs = new Float64Array(nV);
+  // §TERRAIN-NAN-GUARD (L-636) — NoData/NaN heights (a DTM masks its rivers/gorges, e.g. Toledo's Tagus)
+  // must NEVER reach the tile: a single NaN makes minH/maxH NaN → the header is NaN → Cesium crashes at
+  // render ("Cannot read properties of undefined (reading 'height')") even though the @here decoder reads
+  // it. Pre-pass a finite fallback (the tile's finite mean) and substitute it for any non-finite height.
+  let sumF = 0, cntF = 0;
+  for (let i = 0; i < nV; i++) { const h = heightAt(mesh.vertices[2 * i], mesh.vertices[2 * i + 1]); if (Number.isFinite(h)) { sumF += h; cntF++; } }
+  const fallbackH = cntF > 0 ? sumF / cntF : 0;
   let minH = Infinity, maxH = -Infinity;
   const ecef = [];
   for (let i = 0; i < nV; i++) {
@@ -668,11 +729,14 @@ export function encodeQuantizedMesh(mesh, gridSize, tile, heightAt) {
     const u = gx / (gridSize - 1), v = gy / (gridSize - 1); // gy=0 top(north)
     const lonDeg = (tile.west + (tile.east - tile.west) * u) / D2R;
     const latDeg = (tile.north - (tile.north - tile.south) * v) / D2R;
-    const h = heightAt(gx, gy);
+    const hRaw = heightAt(gx, gy);
+    const h = Number.isFinite(hRaw) ? hRaw : fallbackH; // NoData → tile-mean, never NaN
     hs[i] = h;
     if (h < minH) minH = h; if (h > maxH) maxH = h;
     ecef.push(ecefFromLonLatH(lonDeg, latDeg, h));
   }
+  if (!Number.isFinite(minH)) minH = 0;   // whole tile was NoData (all-NaN) → flat 0, never a NaN header
+  if (!Number.isFinite(maxH)) maxH = 0;
   const c = [0, 0, 0]; for (const p of ecef) { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; }
   c[0] /= nV; c[1] /= nV; c[2] /= nV;
   let radius = 0; for (const p of ecef) radius = Math.max(radius, len(sub(p, c)));
