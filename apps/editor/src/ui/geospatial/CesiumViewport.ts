@@ -7561,7 +7561,11 @@ export class CesiumViewport {
           const surf = gAny._surface as unknown as { tileProvider?: { computeTileVisibility?: (t: unknown, fs: unknown, o: unknown) => number }; _occluders?: unknown };
           const tp = surf?.tileProvider;
           const fs = (viewer.scene as unknown as { frameState?: unknown }).frameState;
-          const root = (lz as Array<{ x: number; y: number; data?: { tileBoundingRegion?: { minimumHeight?: number; maximumHeight?: number; boundingVolume?: { center?: { x: number; y: number; z: number } }; _orientedBoundingBox?: { center?: { x: number; y: number; z: number } } }; occludeePointInScaledSpace?: { x: number; y: number; z: number } } }>).find((t) => t.x === 0 && t.y === 0);
+          // Inspect the ACTIVE root (DONE=state 2 + renderable), not a hardcoded hemisphere: Barcelona
+          // (lon +2) lives in root(1,0), Burgos (lon −3) in root(0,0). The other root FAILS (st3) and is
+          // meaningless. Fall back to the first tile if none is renderable yet.
+          const rootList = lz as Array<{ x: number; y: number; state?: number; renderable?: boolean; data?: { tileBoundingRegion?: { minimumHeight?: number; maximumHeight?: number; boundingVolume?: { center?: { x: number; y: number; z: number } }; _orientedBoundingBox?: { center?: { x: number; y: number; z: number } } }; occludeePointInScaledSpace?: { x: number; y: number; z: number } } }>;
+          const root = rootList.find((t) => t.state === 2 && t.renderable) ?? rootList[0];
           if (root && tp?.computeTileVisibility && fs) {
             const vis = tp.computeTileVisibility(root, fs, surf._occluders);
             const tbr = root.data?.tileBoundingRegion;
@@ -7569,7 +7573,7 @@ export class CesiumViewport {
             const cMag = c ? Math.sqrt(c.x * c.x + c.y * c.y + c.z * c.z) : -1;
             const op = root.data?.occludeePointInScaledSpace;
             const opMag = op ? Math.sqrt(op.x * op.x + op.y * op.y + op.z * op.z) : -1;
-            cullDump = ` | §CULL-PROBE root(0,0) vis=${vis}(0=NONE/2=FULL) minH=${tbr?.minimumHeight?.toFixed(0)} maxH=${tbr?.maximumHeight?.toFixed(0)} bvCtrMag=${cMag.toFixed(0)}(want~6.38e6) occPtMag=${opMag.toFixed(4)}(want~1.0)`;
+            cullDump = ` | §CULL-PROBE root(${root.x},${root.y}) vis=${vis}(0=NONE/2=FULL) minH=${tbr?.minimumHeight?.toFixed(0)} maxH=${tbr?.maximumHeight?.toFixed(0)} bvCtrMag=${cMag.toFixed(0)}(want~6.38e6) occPtMag=${opMag.toFixed(4)}(want~1.0)`;
           } else {
             cullDump = ` | §CULL-PROBE missing root=${!!root} tp=${!!tp?.computeTileVisibility} fs=${!!fs}`;
           }

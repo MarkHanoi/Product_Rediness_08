@@ -1138,8 +1138,12 @@ const len = (a) => Math.sqrt(dot(a, a));
 /** Cesium EllipsoidalOccluder.computeHorizonCullingPoint (scaled-space), for the tile header. */
 export function horizonOcclusionPoint(positions, boundingCenter) {
   const dtpScaled = boundingCenter.map((v, i) => v * ONE_OVER_RADII[i]);
-  const dl = len(dtpScaled); const dtp = dtpScaled.map((v) => v / dl);
+  const dl = len(dtpScaled);
+  // Degenerate centre (all-vertices-at-geocentre) — never horizon-cull.
+  if (!(dl > 0)) return [0, 0, HORIZON_OCC_NEVER_CULL];
+  const dtp = dtpScaled.map((v) => v / dl);
   let resultMag = 0;
+  let wideAngle = false; // a vertex fell past the horizon-grazing cone (denom ≤ 0)
   for (const p of positions) {
     const sp = [p[0] * ONE_OVER_RADII[0], p[1] * ONE_OVER_RADII[1], p[2] * ONE_OVER_RADII[2]];
     let magSq = dot(sp, sp); let mag = Math.sqrt(magSq);
@@ -1149,15 +1153,29 @@ export function horizonOcclusionPoint(positions, boundingCenter) {
     const sinAlpha = len(cross(dir, dtp));
     const cosBeta = 1 / mag;
     const sinBeta = Math.sqrt(magSq - 1) * cosBeta;
-    const candidate = 1 / (cosAlpha * cosBeta - sinAlpha * sinBeta);
+    const denom = cosAlpha * cosBeta - sinAlpha * sinBeta;
+    if (!(denom > 0)) { wideAngle = true; continue; } // vertex >90° from centroid → single-point cull invalid
+    const candidate = 1 / denom;
     if (Number.isFinite(candidate) && candidate > resultMag) resultMag = candidate;
   }
-  // §HORIZON-OCC-SCALE (L-639) — the quantized-mesh header stores the horizon occlusion point in
-  // ELLIPSOID-SCALED ECEF (each axis ÷ radius, magnitude ~1), and Cesium reads it AS scaled-space for
-  // horizon culling. The old code multiplied back by RADII → stored full ECEF (~6.4e6). Return the
-  // scaled-space point directly (the interior-city 0-rendered-tiles / white-terrain candidate).
+  // §HORIZON-OCC-DEGENERATE (L-639) — THE interior-city white-terrain root cause, proven by Cesium's own
+  // computeTileVisibility=NONE + §CULL-PROBE occPtMag=0. Our per-city tile pyramid's coarse ancestor tiles
+  // (z0 spans a full HEMISPHERE) are flat filler that MARTINI reduces to CORNER vertices, every one >90°
+  // from the tile centroid → every `denom ≤ 0` → resultMag stays 0 → the stored occludee is (0,0,0) = the
+  // geocentre, which Cesium treats as ALWAYS below the horizon → the ROOT tile is culled → refinement never
+  // starts → 0 tiles render → white. A single occludee point provably CANNOT horizon-cull a >hemisphere
+  // tile (Cesium returns undefined here). So for wide-angle / degenerate tiles, place the occludee HIGH in
+  // the centroid direction (magnitude ≫ 1 = far above the ellipsoid) so the tile is NEVER wrongly
+  // horizon-culled. Safe: a per-city bake has no far-side geometry to over-render, and the camera is always
+  // AT the city. Narrow (fine) city tiles keep the exact cone result — their culling stays correct.
+  if (wideAngle || !(resultMag > 0)) return dtp.map((v) => v * HORIZON_OCC_NEVER_CULL);
+  // §HORIZON-OCC-SCALE — the header stores the occludee in ELLIPSOID-SCALED ECEF (÷radius, magnitude ~1);
+  // Cesium reads it AS scaled-space. (The old code multiplied back by RADII → full ECEF ~6.4e6.)
   return dtp.map((v) => v * resultMag);
 }
+// A scaled-space magnitude far above the ellipsoid — an occludee here is above every near-tile camera's
+// horizon, so Cesium never horizon-culls the tile. Used only for wide-angle/degenerate coarse ancestor tiles.
+const HORIZON_OCC_NEVER_CULL = 1e4;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // §6 — MESHING (MARTINI RTIN) + LOD PYRAMID
