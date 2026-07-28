@@ -6478,7 +6478,18 @@ export class CesiumViewport {
       // near-white baseColor (the "white mask"). Flat/un-baked cities keep enableLighting=false (§2 look);
       // detachBakedTerrain resets it. Harmless on the ellipsoid, but only relief benefits from the shading.
       try { viewer.scene.globe.enableLighting = true; } catch { /* ignore */ }
-      console.log(`[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — normals ON, globe lit, re-clamping ground.`);
+      // §GLOBE-RENDER-PROBE (L-639) — DEFENSIVELY force the globe surface to render the attached terrain.
+      // High-elevation interior cities (Burgos ~912m) show the terrain provider working (sampleTerrain=912m,
+      // buildings seat right) but the RENDERED globe collapsed (getHeight=-6.3e6, no visible ground). Assert
+      // globe.show + force a full quadtree re-tessellation (clearing the surface tile tree) so a stale/empty
+      // tile set can't leave high terrain undrawn. Harmless on cities that already render.
+      try {
+        const globeR = viewer.scene.globe;
+        globeR.show = true;
+        const surf = (globeR as unknown as { _surface?: { invalidateAllTiles?: () => void; tileProvider?: unknown } })._surface;
+        surf?.invalidateAllTiles?.();
+      } catch { /* ignore */ }
+      console.log(`[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — normals ON, globe lit + shown, tiles invalidated, re-clamping ground.`);
       viewer.scene.requestRender();
       // The massing was seated on the flat base before terrain arrived. Drop the sampled-at cache and
       // re-clamp so it (and context) seats on the real sampled ground.
@@ -7499,12 +7510,19 @@ export class CesiumViewport {
           if (gap < worstGapM) worstGapM = gap;
         }
         const avgGap = checked ? (sumGapM / checked) : 0;
+        // §GLOBE-RENDER-PROBE (L-639) — dump Cesium's ACTUAL globe-render state so a high-city (Burgos)
+        // console paste reveals WHY the globe won't draw correct terrain: is the globe shown, are tiles
+        // loaded, is it the baked provider, and HOW MANY terrain tiles are actually in the render list.
+        const gAny = globe as unknown as { show?: boolean; tilesLoaded?: boolean; _surface?: { _tilesToRender?: unknown[] } };
+        const provAny = viewer.terrainProvider as unknown as { constructor?: { name?: string }; hasVertexNormals?: boolean };
+        const renderedTiles = Array.isArray(gAny._surface?._tilesToRender) ? gAny._surface!._tilesToRender!.length : -1;
         console.log(
           `[CTX-TERRAIN-GAP] ${tag} terrainOn=${this.formaTerrainEnabled} relief=${this.groundReliefAttached() ? 'ON' : 'off'} ` +
             `centroidTerrainSurface=${typeof centroidSurface === 'number' ? centroidSurface.toFixed(1) + 'm' : 'undefined(not streamed)'} ` +
             `seatBase=${this.formaTerrainBaseHeight.toFixed(1)}m | of ${checked} sampled footprints: ` +
             `${below} BELOW terrain (avgGap=${avgGap.toFixed(1)}m, worst=${worstGapM.toFixed(1)}m under). ` +
-            `${below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'}`,
+            `${below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'} ` +
+            `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m`,
         );
       } catch (e) {
         console.warn('[CTX-TERRAIN-GAP] sample failed:', e);
