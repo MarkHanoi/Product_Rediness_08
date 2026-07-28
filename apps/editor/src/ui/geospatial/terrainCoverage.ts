@@ -694,8 +694,17 @@ export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttac
  * appends `/layer.json`, so this returns the tileset DIRECTORY with no trailing slash. Returns
  * `null` when no tiles base is configured (local/dev Overpass path).
  */
+/**
+ * §TERRAIN-CACHE-BUST (L-639) — a version stamp on the tileset URL. Terrain tiles are path-stable and
+ * cached (R2 1-day + the same-origin proxy 1-hour must-revalidate), so a re-bake keeps the SAME URL and
+ * the browser keeps serving the OLD tile — which is why the interior-city fixes (occlusion, sea-level)
+ * read byte-identical across deploys: they were never fetched. Cesium's Resource propagates a query
+ * string to every derived request (layer.json AND {z}/{x}/{y}.terrain), so `?v=…` busts the browser
+ * cache for the whole tileset. BUMP this whenever the terrain BAKE changes so clients pull fresh tiles.
+ */
+export const TERRAIN_TILESET_VERSION = 'L639d';
 export function terrainTilesetUrl(city: string): string | null {
     const base = contextTilesBaseUrl();
     if (!base) return null;
-    return `${base}terrain/${city}`;
+    return `${base}terrain/${city}?v=${TERRAIN_TILESET_VERSION}`;
 }
