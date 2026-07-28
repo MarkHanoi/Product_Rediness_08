@@ -7544,16 +7544,20 @@ export class CesiumViewport {
         // §GLOBE-RENDER-PROBE (L-639) — dump Cesium's ACTUAL globe-render state so a high-city (Burgos)
         // console paste reveals WHY the globe won't draw correct terrain: is the globe shown, are tiles
         // loaded, is it the baked provider, and HOW MANY terrain tiles are actually in the render list.
-        const gAny = globe as unknown as { show?: boolean; tilesLoaded?: boolean; _surface?: { _tilesToRender?: unknown[] } };
+        const gAny = globe as unknown as { show?: boolean; tilesLoaded?: boolean; _surface?: { _tilesToRender?: unknown[]; _levelZeroTiles?: Array<{ x: number; y: number; level: number; state?: number; renderable?: boolean; upsampledFromParent?: boolean; data?: { terrainState?: number } }> } };
         const provAny = viewer.terrainProvider as unknown as { constructor?: { name?: string }; hasVertexNormals?: boolean };
         const renderedTiles = Array.isArray(gAny._surface?._tilesToRender) ? gAny._surface!._tilesToRender!.length : -1;
+        // §GLOBE-RENDER-PROBE2 (L-639) — dump the level-0 quadtree tile states so we see WHY 0 tiles render.
+        // state: 0=START 1=LOADING 2=DONE 3=FAILED; R=renderable; U=upsampled; ts=terrainState.
+        const lz = gAny._surface?._levelZeroTiles ?? [];
+        const lzDump = lz.map((t) => `L0(${t.x},${t.y})st${t.state ?? '?'}${t.renderable ? 'R' : '-'}${t.upsampledFromParent ? 'U' : ''}ts${t.data?.terrainState ?? '?'}`).join(' ');
         console.log(
           `[CTX-TERRAIN-GAP] ${tag} terrainOn=${this.formaTerrainEnabled} relief=${this.groundReliefAttached() ? 'ON' : 'off'} ` +
             `centroidTerrainSurface=${typeof centroidSurface === 'number' ? centroidSurface.toFixed(1) + 'm' : 'undefined(not streamed)'} ` +
             `seatBase=${this.formaTerrainBaseHeight.toFixed(1)}m | of ${checked} sampled footprints: ` +
             `${below} BELOW terrain (avgGap=${avgGap.toFixed(1)}m, worst=${worstGapM.toFixed(1)}m under). ` +
             `${below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'} ` +
-            `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m`,
+            `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m | L0-TILES[${lz.length}]: ${lzDump}`,
         );
       } catch (e) {
         console.warn('[CTX-TERRAIN-GAP] sample failed:', e);
