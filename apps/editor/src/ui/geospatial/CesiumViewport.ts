@@ -7551,13 +7551,36 @@ export class CesiumViewport {
         // state: 0=START 1=LOADING 2=DONE 3=FAILED; R=renderable; U=upsampled; ts=terrainState.
         const lz = gAny._surface?._levelZeroTiles ?? [];
         const lzDump = lz.map((t) => `L0(${t.x},${t.y})st${t.state ?? '?'}${t.renderable ? 'R' : '-'}${t.upsampledFromParent ? 'U' : ''}ts${t.data?.terrainState ?? '?'}`).join(' ');
+        // §CULL-PROBE (L-639) — the DECISIVE question: root(0,0) is DONE+renderable but renders 0. Ask Cesium
+        // WHY. computeTileVisibility → 0=NONE (culled, the bug) / 1=PARTIAL / 2=FULL. Plus the tile's stored
+        // min/max height, its bounding-volume CENTRE magnitude (want ~6.38e6 = ellipsoid surface; ~0 = a
+        // geocentre-collapsed encode), and the horizon occlusion-point magnitude (want ~1.0 scaled; ~6.3e6 =
+        // the unscaled-ECEF encoder bug that horizon-culls the whole shell). One paste ends the guessing.
+        let cullDump = '';
+        try {
+          const surf = gAny._surface as unknown as { tileProvider?: { computeTileVisibility?: (t: unknown, fs: unknown, o: unknown) => number }; _occluders?: unknown };
+          const tp = surf?.tileProvider;
+          const fs = (viewer.scene as unknown as { frameState?: unknown }).frameState;
+          const root = (lz as Array<{ x: number; y: number; data?: { tileBoundingRegion?: { minimumHeight?: number; maximumHeight?: number; boundingVolume?: { center?: { x: number; y: number; z: number } }; _orientedBoundingBox?: { center?: { x: number; y: number; z: number } } }; occludeePointInScaledSpace?: { x: number; y: number; z: number } } }>).find((t) => t.x === 0 && t.y === 0);
+          if (root && tp?.computeTileVisibility && fs) {
+            const vis = tp.computeTileVisibility(root, fs, surf._occluders);
+            const tbr = root.data?.tileBoundingRegion;
+            const c = tbr?.boundingVolume?.center ?? tbr?._orientedBoundingBox?.center;
+            const cMag = c ? Math.sqrt(c.x * c.x + c.y * c.y + c.z * c.z) : -1;
+            const op = root.data?.occludeePointInScaledSpace;
+            const opMag = op ? Math.sqrt(op.x * op.x + op.y * op.y + op.z * op.z) : -1;
+            cullDump = ` | §CULL-PROBE root(0,0) vis=${vis}(0=NONE/2=FULL) minH=${tbr?.minimumHeight?.toFixed(0)} maxH=${tbr?.maximumHeight?.toFixed(0)} bvCtrMag=${cMag.toFixed(0)}(want~6.38e6) occPtMag=${opMag.toFixed(4)}(want~1.0)`;
+          } else {
+            cullDump = ` | §CULL-PROBE missing root=${!!root} tp=${!!tp?.computeTileVisibility} fs=${!!fs}`;
+          }
+        } catch (e) { cullDump = ` | §CULL-PROBE err:${(e as Error).message}`; }
         console.log(
           `[CTX-TERRAIN-GAP] ${tag} terrainOn=${this.formaTerrainEnabled} relief=${this.groundReliefAttached() ? 'ON' : 'off'} ` +
             `centroidTerrainSurface=${typeof centroidSurface === 'number' ? centroidSurface.toFixed(1) + 'm' : 'undefined(not streamed)'} ` +
             `seatBase=${this.formaTerrainBaseHeight.toFixed(1)}m | of ${checked} sampled footprints: ` +
             `${below} BELOW terrain (avgGap=${avgGap.toFixed(1)}m, worst=${worstGapM.toFixed(1)}m under). ` +
             `${below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'} ` +
-            `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m | L0-TILES[${lz.length}]: ${lzDump}`,
+            `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m | L0-TILES[${lz.length}]: ${lzDump}${cullDump}`,
         );
       } catch (e) {
         console.warn('[CTX-TERRAIN-GAP] sample failed:', e);
