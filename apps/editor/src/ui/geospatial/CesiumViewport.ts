@@ -2632,6 +2632,10 @@ export class CesiumViewport {
         }
       }
     } catch { /* stay at ground 0 — flat framing, never worse than before */ }
+    // §CAMERA-UNDERGROUND-FIX (L-639) — if this frame RACED the terrain attach and resolved 0 (or a low
+    // value) while the settled city ground is already higher, frame relative to the higher settled base so
+    // the camera can never park BELOW a high city's terrain (Burgos ~912 m) → frustum-cull → white.
+    if (this.formaTerrainBaseHeight > groundBase + 1) groundBase = this.formaTerrainBaseHeight;
     this.frameSiteLocationAtGround(lat, lon, groundBase, opts);
   }
 
@@ -6491,6 +6495,21 @@ export class CesiumViewport {
       } catch { /* ignore */ }
       console.log(`[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — normals ON, globe lit + shown, tiles invalidated, re-clamping ground.`);
       viewer.scene.requestRender();
+      // §CAMERA-UNDERGROUND-FIX (L-639) — THE interior-city white-terrain root. `frameSiteLocationOnResolvedGround`
+      // races this attach: on a high city it resolves groundBase=0 (terrain not yet attached) and parks the
+      // pre-plot camera at 0+600 = 600 m. But the terrain is at ~912 m, so the camera sits 312 m UNDERGROUND →
+      // Cesium frustum-culls every terrain tile (renderedTerrainTiles=0) → white, with buildings floating.
+      // (Coastal cities <600 m ground never tripped it — the camera stayed above.) Now that the real terrain
+      // is attached, sample the ground here and, if the camera is at/below it, RE-FRAME above the terrain.
+      try {
+        const [gr] = await Cesium.sampleTerrainMostDetailed(provider, [Cesium.Cartographic.fromDegrees(lon, lat)]);
+        const gh = gr?.height;
+        const camH = viewer.camera.positionCartographic.height;
+        if (typeof gh === 'number' && Number.isFinite(gh) && camH < gh + 5 && !this.formaUserMovedCamera) {
+          console.log(`[CesiumViewport][terrain] §CAMERA-UNDERGROUND-FIX camera ${camH.toFixed(0)} m is under terrain ${gh.toFixed(0)} m — re-framing above.`);
+          this.frameSiteLocationAtGround(lat, lon, gh, { instant: false });
+        }
+      } catch { /* best-effort camera lift */ }
       // The massing was seated on the flat base before terrain arrived. Drop the sampled-at cache and
       // re-clamp so it (and context) seats on the real sampled ground.
       this.formaTerrainSampledAt = null;
