@@ -6003,11 +6003,39 @@ export class CesiumViewport {
    * old `loadContextBuildings(force)` re-seat blank the scene. Fully guarded; never throws into a frame.
    */
   private reseatContextPlacementsForBase(): void {
-    // §CTX-CLAMP-TO-TERRAIN (L-635) — OBSOLETE, now a no-op. Context buildings are drawn with
-    // `heightReference: RELATIVE_TO_GROUND`, so the GPU clamps them onto the rendered terrain every frame
-    // as it streams — there is nothing to re-seat, and writing an ABSOLUTE `poly.height` here would fight
-    // the relative reference (float the building to terrain+height). Kept as a no-op so the call site in
-    // `clampTerrainThenReplace` stays valid; the whole absolute-seat/re-seat machinery is superseded.
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    if (this.contextBuildingPlacements.length === 0) return; // nothing placed yet — initial load will seat.
+    const now = Cesium.JulianDate.now();
+    const safeBase = this.formaTerrainBaseHeight;          // the just-settled city ground (~650 m Madrid).
+    let reseated = 0;
+    for (const { entity, feature } of this.contextBuildingPlacements) {
+      try {
+        const poly = entity.polygon;
+        if (!poly || !poly.height || !poly.extrudedHeight) continue;
+        const curBase = poly.height.getValue(now) as number | undefined;
+        const curTop = poly.extrudedHeight.getValue(now) as number | undefined;
+        if (typeof curBase !== 'number' || typeof curTop !== 'number') continue;
+        const thickness = curTop - curBase;                // the footprint's own height, clamp-agnostic.
+        const ring = feature.geometry.coordinates[0];
+        const c = ring ? ringCentroidLatLon(ring) : null;
+        // Per-point relief where its tile has streamed, else the settled safe base (never a culling ~0).
+        const fGround = c ? this.sampleGround(c.lat, c.lon, safeBase) : safeBase;
+        const fBase = fGround - FORMA_BASE_SINK_M;
+        if (Math.abs(fBase - curBase) < 1e-3) continue;    // already seated at this ground.
+        poly.height = new Cesium.ConstantProperty(fBase);
+        poly.extrudedHeight = new Cesium.ConstantProperty(fBase + thickness);
+        reseated++;
+      } catch {
+        // Skip a single entity; the re-seat must never break the whole pass.
+      }
+    }
+    if (reseated > 0) viewer.scene.requestRender();
+    console.log(
+      `[CTX-DIAG] in-place re-seat: ${reseated}/${this.contextBuildingPlacements.length} context ` +
+        `building(s) lifted onto settled ground (base ${safeBase.toFixed(1)} m) — no re-fetch, no race.`,
+    );
   }
 
   /**
@@ -6983,8 +7011,9 @@ export class CesiumViewport {
       return;
     }
 
-    // §CTX-CLAMP-TO-TERRAIN (L-635) — no ENU frame needed any more: context footprints are placed as
-    // ground-level lon/lat polygons and clamped to the rendered terrain by Cesium (RELATIVE_TO_GROUND).
+    // ONE ENU frame at the site origin — identical anchor to renderFormaMassing.
+    const originCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
     // §A.21.D-FORMA — bury the bottom face below ground so it never z-fights the
     // flat ground plane (same fix as the proposed massing). §SITEFRAME-GROUND (T1): this is
     // now only the CENTROID reference (for logging / the no-relief fallback); each footprint
@@ -7067,15 +7096,24 @@ export class CesiumViewport {
         // (a point can legitimately equal the base) but exact enough to read the streaming state.
         if (Number.isFinite(fGround) && fGround !== contextSafeBase) seatFinite++;
         else seatFallback++;
-        void fGround; // (retained above only for the seat-diag counters)
-        // §CTX-CLAMP-TO-TERRAIN (L-635) — positions at the ground (lon/lat, height 0). We NO LONGER
-        // seat at an absolute sampled height: Madrid's baked terrain RENDERS at a height that does not
-        // match `globe.getHeight`/`sampleTerrainMostDetailed` (the diagnostic saw getHeight return
-        // ~ -6.3e6 m garbage), so any absolute seat left the extrusions BELOW the drawn mesh. Instead we
-        // hand Cesium ground-level polygons and let the GPU clamp them to whatever surface it draws
-        // (`heightReference: RELATIVE_TO_GROUND`), so a building can NEVER sit under the terrain — on
-        // flat/keyless ground it clamps to ellipsoid 0 exactly as before.
-        const positions = ring.map(([flon, flat]) => Cesium.Cartesian3.fromDegrees(flon!, flat!));
+        const fBase = fGround - FORMA_BASE_SINK_M;
+        const fTop = fGround;
+        // lon/lat → local ENU metres about the origin, then ENU → ECEF.
+        const positions = ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon!, flat!, 0);
+          // Local ENU offset of this point from the origin (vector in metres).
+          const localOffset = Cesium.Matrix4.multiplyByPoint(
+            Cesium.Matrix4.inverse(enu, new Cesium.Matrix4()),
+            fc,
+            new Cesium.Cartesian3(),
+          );
+          // Re-place at this footprint's own ground base in the SAME ENU frame.
+          return Cesium.Matrix4.multiplyByPoint(
+            enu,
+            new Cesium.Cartesian3(localOffset.x, localOffset.y, fBase),
+            new Cesium.Cartesian3(),
+          );
+        });
         const h = f.properties.heightM;
         // §CTX-ASSUMED-HEIGHT-VISIBLE (L-527 interim) — a GUESS MUST NOT RENDER LIKE A MEASUREMENT.
         //
@@ -7103,14 +7141,9 @@ export class CesiumViewport {
             : 'pryzm-forma-context-building',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            // §CTX-CLAMP-TO-TERRAIN (L-635) — base + top are RELATIVE TO THE RENDERED GROUND, so Cesium
-            // clamps the whole extrusion onto the terrain surface Cesium actually draws (or ellipsoid 0
-            // when flat). A building can never sink under the mesh, and it tracks per-footprint relief for
-            // free — no absolute seat, no getHeight/sample dependence (both were wrong in Madrid).
-            height: -FORMA_BASE_SINK_M,
-            heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
-            extrudedHeight: Math.max(0.1, h),
-            extrudedHeightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+            height: fBase,
+            // Top preserved above ground: this footprint's own ground + its height.
+            extrudedHeight: fTop + Math.max(0.1, h),
             material: bodyFill,
             outline: true,
             outlineColor: outline,
@@ -7506,21 +7539,35 @@ export class CesiumViewport {
       || Math.abs(this.contextBuildingsAt.lon - lon) > 1e-9) return;
     if (far.features.length === 0) return;
 
-    // §CTX-CLAMP-TO-TERRAIN (L-635) — far footprints clamp to the rendered terrain (RELATIVE_TO_GROUND),
-    // so no ENU frame / absolute safe-base is needed; each far block tracks its own ground automatically.
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    // §SITEFRAME-GROUND (T1) — each far footprint is re-seated on its OWN sampled ground in the
+    // loop (per-point relief), falling back to the centroid base where no relief is loaded, so
+    // the wider ring tracks the terrain instead of z-fighting one flat centroid plane.
     // A hair MORE transparent + no outline than the near ring so the distant massing reads
     // as clearly secondary (aerial-perspective) and stays cheap.
     const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.82);
 
+    // §CTX-BUILDINGS-RENDER-FIRST (L-635) — same safe base as the near ring: an un-tessellated far
+    // footprint under attached relief must fall back to the settled ground, never a culling ~0.
+    const contextSafeBase = this.resolveContextSafeBase(lat, lon);
     let placed = 0;
     for (const f of far.features) {
       try {
         const ring = f.geometry.coordinates[0];
         if (!ring || ring.length < 4) continue;
-        // §CTX-CLAMP-TO-TERRAIN (L-635) — ground-level positions; Cesium clamps the extrusion to the
-        // rendered terrain (RELATIVE_TO_GROUND), same as the near ring, so far blocks never sink under
-        // the mesh either. No absolute seat / no getHeight dependence.
-        const positions = ring.map(([flon, flat]) => Cesium.Cartesian3.fromDegrees(flon!, flat!));
+        // §SITEFRAME-GROUND (T1) — seat this far footprint on the ground under itself.
+        const fCentroid = ringCentroidLatLon(ring);
+        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon, contextSafeBase) : contextSafeBase;
+        const fBase = fGround - FORMA_BASE_SINK_M;
+        const fTop = fGround;
+        const positions = ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon!, flat!, 0);
+          const localOffset = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return Cesium.Matrix4.multiplyByPoint(
+            enu, new Cesium.Cartesian3(localOffset.x, localOffset.y, fBase), new Cesium.Cartesian3(),
+          );
+        });
         // §FEAT-FORMA-CONTEXT-EXTENT-LOD — LOW-POLY: cap the far height so distant blocks read
         // as simple massing (never a stray far skyscraper dominating), and SHADOWS OFF — the
         // shadow pass is the perf driver the founder flagged, so the far ring never casts.
@@ -7530,10 +7577,8 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-building-far',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: -FORMA_BASE_SINK_M,
-            heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
-            extrudedHeight: h,
-            extrudedHeightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+            height: fBase,
+            extrudedHeight: fTop + h,
             material: fill,
             outline: false,
             shadows: Cesium.ShadowMode.DISABLED,   // far ring never casts/receives (budget)
