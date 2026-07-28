@@ -7099,6 +7099,18 @@ export class CesiumViewport {
           `[CTX-DIAG] seat-first: terrain ground sampled ${h.toFixed(1)} m at LAT ${lat.toFixed(5)} ` +
             `LON ${lon.toFixed(5)} — context will be placed on it (no base-0 pass, no re-seat).`,
         );
+        // §CAMERA-UNDERGROUND-FIX (L-639) — THE interior-city white-terrain root, fixed at the settle point.
+        // The pre-plot camera was framed at a stale base (0 → 600 m) BEFORE this resolved the real ground
+        // (h ≈ 912 m for Burgos). It now sits 300 m UNDERGROUND → Cesium frustum-culls EVERY terrain tile
+        // (renderedTerrainTiles=0) → white, buildings floating. Being clearly below the ground is NEVER a
+        // valid camera state, so re-frame above it UNCONDITIONALLY (no user-moved guard — the earlier guard
+        // was latched by the arrival flight and blocked the fix). A camera already above the ground (coastal,
+        // or a user who zoomed out) is > h so this no-ops.
+        const camH = viewer.camera.positionCartographic.height;
+        if (camH < h - 10) {
+          console.log(`[CesiumViewport][terrain] §CAMERA-UNDERGROUND-FIX camera ${camH.toFixed(0)} m is UNDER ground ${h.toFixed(0)} m — re-framing above.`);
+          this.frameSiteLocationAtGround(lat, lon, h, { instant: false });
+        }
       }
     } catch (e) {
       this.warnTerrainOnce('seat-first ground sample failed — using current base: ' + String(e));
