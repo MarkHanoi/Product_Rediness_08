@@ -1028,13 +1028,22 @@ export function inscribedWgs84Extent(raster, projector) {
 export function resampleToGeographicGrid(raster, forward, tileWsen, gridSize) {
   const [w, s, e, n] = tileWsen;
   const out = new Float32Array(gridSize * gridSize);
+  const W = raster.width, H = raster.height;
   for (let gy = 0; gy < gridSize; gy++) {
     const lat = n - (n - s) * (gy / (gridSize - 1));
     for (let gx = 0; gx < gridSize; gx++) {
       const lon = w + (e - w) * (gx / (gridSize - 1));
       const [X, Y] = forward(lon, lat);
       const { fx, fy } = nativeToCell(X, Y, raster);
-      out[gy * gridSize + gx] = sampleGrid(raster.values, raster.width, raster.height, fx, fy);
+      // §COARSE-TILE-SEALEVEL (L-639) — samples OUTSIDE the city DTM extent (the coarse ancestor tiles
+      // that span far beyond the city) must sit at SEA LEVEL (0 orthometric), NOT edge-clamped to the
+      // city's ~900 m. A coarse half-earth tile floating at 900 m gets HORIZON-CULLED by Cesium (proven
+      // via the L0-TILES probe: L0(0,0) is DONE+renderable but not rendered) → refinement blocked →
+      // interior cities render 0 terrain tiles (white). Sea-level fill makes coarse tiles earth-hugging
+      // like the coastal tiles that render fine. The fine city tiles are fully inside the DTM → unchanged.
+      out[gy * gridSize + gx] = (fx < 0 || fx > W - 1 || fy < 0 || fy > H - 1)
+        ? 0
+        : sampleGrid(raster.values, W, H, fx, fy);
     }
   }
   return out;
