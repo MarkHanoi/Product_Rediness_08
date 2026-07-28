@@ -7805,7 +7805,11 @@ export class CesiumViewport {
           corridor: {
             positions,
             width: roadWidthM(way.highway),
-            height: base,
+            // §CTX-DRAPE-TERRAIN (L-635) — clamp the ribbon to the RENDERED terrain so it follows the
+            // topography instead of sitting on a flat plane the terrain surface then overlays. Flat
+            // ground-clamp (no extrusion) is the safe Cesium ground primitive — unlike the extruded
+            // RELATIVE_TO_GROUND that crashed. On flat/keyless it clamps to ellipsoid 0 (unchanged).
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
             cornerType: Cesium.CornerType.ROUNDED,
             material: roadColor,
             outline: false,
@@ -7905,7 +7909,8 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-water',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: base,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, // §CTX-DRAPE-TERRAIN (L-635) — follow terrain
+            zIndex: 10, // above parks (0), below the street grid
             material: waterFill,
             outline: false,
           },
@@ -7928,10 +7933,8 @@ export class CesiumViewport {
           polyline: {
             positions,
             width: 3,
-            clampToGround: false,
-            arcType: Cesium.ArcType.NONE,
+            clampToGround: true, // §CTX-DRAPE-TERRAIN (L-635) — follow the terrain surface
             material: waterLine,
-            depthFailMaterial: new Cesium.ColorMaterialProperty(waterLine),
           },
         });
         this.contextWaterEntities.push(ent);
@@ -8005,7 +8008,10 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-park',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: base,
+            // §CTX-DRAPE-TERRAIN (L-635) — clamp the green onto the terrain; zIndex 0 keeps it at the
+            // bottom of the ground stack (water/roads read on top) without z-fighting on the shared surface.
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            zIndex: 0,
             material: parkFill,
             outline: true,
             outlineColor: parkEdge,
