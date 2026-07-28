@@ -62,6 +62,7 @@ export const TERRAIN_CITY_BBOXES: ReadonlyArray<{ readonly city: string; readonl
     { city: 'koln', bbox: [6.85, 50.88, 7.02, 50.99] },
     // ES — PNOA MDT (keyless, CC-BY)
     { city: 'barcelona', bbox: [2.09, 41.32, 2.23, 41.47] },
+    { city: 'valencia', bbox: [-0.43, 39.40, -0.30, 39.52] },
     { city: 'madrid', bbox: [-3.80, 40.33, -3.58, 40.52] },
     { city: 'cordoba', bbox: [-4.85, 37.84, -4.72, 37.94] },
     // US — 3DEP 1 m (public domain)

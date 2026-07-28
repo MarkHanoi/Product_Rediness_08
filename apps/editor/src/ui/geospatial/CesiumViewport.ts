@@ -2886,7 +2886,9 @@ export class CesiumViewport {
     this.formaTerrainSampledAt = null;
     this.formaTerrainBaseHeight = 0;
     try { viewer.scene.globe.depthTestAgainstTerrain = false; } catch { /* ignore */ }
-    console.log('[CesiumViewport][terrain] detached baked terrain → flat ellipsoid ground (base 0).');
+    // §TERRAIN-NORMALS (L-636) — flat ellipsoid ground has no relief to shade; restore the §2 flat-lit look.
+    try { viewer.scene.globe.enableLighting = false; } catch { /* ignore */ }
+    console.log('[CesiumViewport][terrain] detached baked terrain → flat ellipsoid ground (base 0), flat-lit.');
     viewer.scene.requestRender();
   }
 
@@ -6256,6 +6258,44 @@ export class CesiumViewport {
           }
         } catch { /* frustum probe best-effort */ }
       }
+      // §CTX-RENDER-SPLIT-PROBE (L-636) — the discriminating render state between a CORRECT baked-terrain
+      // city (Barcelona/Copenhagen) and a WHITE-MASK one (Madrid/Amsterdam/Zürich). Both attach baked
+      // terrain, so the differentiator is NOT "terrain vs flat" — it is somewhere in how the globe surface,
+      // its lighting/imagery, the ground features, or the terrain tiles themselves render. Dump all of it so
+      // a Madrid-vs-Copenhagen paste decides the root FROM DATA, not another theory.
+      if (viewer) {
+        const globe = viewer.scene.globe;
+        out.globeShow = globe.show;                                   // is the terrain MESH drawn, or only sampled?
+        out.globeEnableLighting = globe.enableLighting;               // flat-lit (no relief form) vs sun-shaded?
+        out.globeShowGroundAtmosphere = globe.showGroundAtmosphere;
+        try { out.globeBaseColor = globe.baseColor?.toCssColorString(); } catch { /* best-effort */ }
+        try { out.sceneBackground = viewer.scene.backgroundColor?.toCssColorString(); } catch { /* best-effort */ }
+        out.imageryLayerCount = viewer.imageryLayers.length;
+        try { out.imageryFirstShow = viewer.imageryLayers.length ? viewer.imageryLayers.get(0).show : null; } catch { /* best-effort */ }
+        out.roadEntities = this.contextRoadEntities.length;           // 0 = ground features never loaded (pre-plot)
+        out.waterEntities = this.contextWaterEntities.length;
+        out.parkEntities = this.contextParkEntities.length;
+        // Terrain provider internals: vertex normals gate lighting; availability gates tile loading.
+        const tp = provider as unknown as { hasVertexNormals?: boolean; availability?: unknown; _maximumLevel?: number };
+        out.terrainHasVertexNormals = tp?.hasVertexNormals;
+        out.terrainHasAvailability = !!tp?.availability;
+        out.terrainMaxLevel = tp?._maximumLevel;
+        out.globeTilesLoaded = globe.tilesLoaded;                     // false = terrain tiles still failing/streaming → white gaps
+        // Relief profile: sample the globe height on a 3×3 grid ±1 km around the site. A uniform value =
+        // flat/mesa; varying = real relief loaded; 'undefined' cells = tiles NOT tessellated (→ white).
+        if (this.contextBuildingsAt) {
+          const { lat: cLat, lon: cLon } = this.contextBuildingsAt;
+          const dLat = 0.009, dLon = 0.009 / Math.cos(cLat * Math.PI / 180); // ~1 km
+          const grid: (number | string)[] = [];
+          for (let iy = -1; iy <= 1; iy++) {
+            for (let ix = -1; ix <= 1; ix++) {
+              const h = globe.getHeight(Cesium.Cartographic.fromDegrees(cLon + ix * dLon, cLat + iy * dLat));
+              grid.push(typeof h === 'number' ? Number(h.toFixed(1)) : 'undef');
+            }
+          }
+          out.reliefGrid3x3 = grid;                                   // [NW,N,NE, W,C,E, SW,S,SE]
+        }
+      }
     } catch (e) {
       out.error = String(e);
     }
@@ -6420,7 +6460,10 @@ export class CesiumViewport {
       let provider: Cesium.CesiumTerrainProvider;
       try {
         // fromUrl fetches `${url}/layer.json`; a 404 means "not baked yet" → rejects → we stay flat.
-        provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: false });
+        // §TERRAIN-NORMALS (L-636) — request the baked Oct-Encoded Per-Vertex Normals so the globe can
+        // slope-shade relief under enableLighting. Without normals every slope paints the flat baseColor →
+        // high-relief cities (Madrid/Zürich) render as a featureless white mask while flat cities look fine.
+        provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: true });
       } catch {
         console.log(`[CesiumViewport][terrain] no baked terrain for '${city}' (${url}) — keeping flat ground.`);
         return;                                          // resolved no-op → future calls await this, no re-hammer
@@ -6430,7 +6473,12 @@ export class CesiumViewport {
       if (this.formaTerrainCity === city) return;        // a concurrent call for the SAME city already attached.
       viewer.terrainProvider = provider;
       this.formaTerrainCity = city;
-      console.log(`[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — re-clamping ground.`);
+      // §TERRAIN-NORMALS (L-636) — with baked relief + per-vertex normals attached, LIGHT the globe so the
+      // terrain slope-shades (form reads as light/shadow) instead of flat-lighting every slope the same
+      // near-white baseColor (the "white mask"). Flat/un-baked cities keep enableLighting=false (§2 look);
+      // detachBakedTerrain resets it. Harmless on the ellipsoid, but only relief benefits from the shading.
+      try { viewer.scene.globe.enableLighting = true; } catch { /* ignore */ }
+      console.log(`[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — normals ON, globe lit, re-clamping ground.`);
       viewer.scene.requestRender();
       // The massing was seated on the flat base before terrain arrived. Drop the sampled-at cache and
       // re-clamp so it (and context) seats on the real sampled ground.

@@ -304,6 +304,7 @@ export const REGIONS = [
   { name: 'koln',         source: 'de', bbox: [6.85, 50.88, 7.02, 50.99] },
   { name: 'madrid',       source: 'es', bbox: [-3.80, 40.33, -3.58, 40.52] },
   { name: 'barcelona',    source: 'es', bbox: [2.09, 41.32, 2.23, 41.47] },
+  { name: 'valencia',     source: 'es', bbox: [-0.43, 39.40, -0.30, 39.52] }, // ~0.13°/0.12° span → z10 like Barcelona; same PNOA MDT source
   { name: 'cordoba',      source: 'es', bbox: [-4.85, 37.84, -4.72, 37.94] },
   { name: 'newyork',      source: 'us', bbox: [-74.03, 40.70, -73.91, 40.82] },
   { name: 'sanfrancisco', source: 'us', bbox: [-122.52, 37.70, -122.36, 37.83] },
@@ -604,6 +605,45 @@ export const DEFAULT_LOD_ERRORS_M = [0.5, 1.5, 4.0, 12.0]; // level 0 (finest) �
 // ═════════════════════════════════════════════════════════════════════════════
 const zigzag = (n) => (n << 1) ^ (n >> 15); // 16-bit zigzag
 
+// §TERRAIN-NORMALS (L-636) — Oct-Encoded Per-Vertex Normals extension (quantized-mesh extension id 1).
+// WHY: without per-vertex normals the Cesium globe can only shade terrain by the ellipsoid normal, so
+// `globe.enableLighting` paints every slope the SAME flat baseColor → high-relief cities (Madrid/Zürich)
+// render as a featureless near-white "mask" while flat cities look fine. Emitting normals here + rendering
+// with `enableLighting=true` + `requestVertexNormals=true` is the three-part fix (all three required).
+// Oct16: a unit vec3 → 2×snorm8 via the standard octahedron mapping (matches Cesium AttributeCompression).
+const _snorm8 = (v) => Math.round((Math.max(-1, Math.min(1, v)) * 0.5 + 0.5) * 255) & 0xff;
+const _sign1 = (v) => (v < 0 ? -1 : 1);
+function octEncodeNormal(n) {
+  const l1 = Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) || 1;
+  let x = n[0] / l1, y = n[1] / l1;
+  if (n[2] < 0) { const ox = (1 - Math.abs(y)) * _sign1(x); const oy = (1 - Math.abs(x)) * _sign1(y); x = ox; y = oy; }
+  return [_snorm8(x), _snorm8(y)];
+}
+/** Area-weighted per-vertex normals in ECEF (accumulate un-normalised face normals, then normalise). */
+function computeVertexNormalsEcef(ecef, triangles, nV) {
+  const nx = new Float64Array(nV), ny = new Float64Array(nV), nz = new Float64Array(nV);
+  for (let t = 0; t < triangles.length; t += 3) {
+    const a = triangles[t], b = triangles[t + 1], c = triangles[t + 2];
+    const fn = cross(sub(ecef[b], ecef[a]), sub(ecef[c], ecef[a])); // magnitude ∝ 2×area → area weighting
+    nx[a] += fn[0]; ny[a] += fn[1]; nz[a] += fn[2];
+    nx[b] += fn[0]; ny[b] += fn[1]; nz[b] += fn[2];
+    nx[c] += fn[0]; ny[c] += fn[1]; nz[c] += fn[2];
+  }
+  const oct = new Uint8Array(nV * 2);
+  for (let i = 0; i < nV; i++) {
+    let x = nx[i], y = ny[i], z = nz[i];
+    const l = Math.sqrt(x * x + y * y + z * z);
+    if (l > 0) { x /= l; y /= l; z /= l; } else { const g = len(ecef[i]) || 1; x = ecef[i][0] / g; y = ecef[i][1] / g; z = ecef[i][2] / g; }
+    // Orient OUTWARD (away from the earth centre). Triangle winding is not guaranteed, so a face normal
+    // can point into the ellipsoid → the globe would light terrain from below. The ECEF position vector
+    // points from the centre to the vertex (≈ local up), so a negative dot means "inward" → flip.
+    if (x * ecef[i][0] + y * ecef[i][1] + z * ecef[i][2] < 0) { x = -x; y = -y; z = -z; }
+    const e = octEncodeNormal([x, y, z]);
+    oct[2 * i] = e[0]; oct[2 * i + 1] = e[1];
+  }
+  return oct;
+}
+
 /**
  * @param mesh          from meshTile(): vertices(Uint16 gx,gy), triangles(Uint32)
  * @param gridSize      2^k+1
@@ -652,11 +692,16 @@ export function encodeQuantizedMesh(mesh, gridSize, tile, heightAt) {
   let highest = 0;
   for (let i = 0; i < tris.length; i++) { const code = highest - tris[i]; idx[i] = code & 0xffff; if (code === 0) highest++; }
 
+  // §TERRAIN-NORMALS (L-636) — the Oct-Encoded Per-Vertex Normals extension, appended after the edge
+  // index lists. Extension record = uint8 extensionId(=1) + uint32 extensionLength(=nV*2) + oct bytes.
+  const octNormals = computeVertexNormalsEcef(ecef, tris, nV);
+  const xBytes = 1 + 4 + octNormals.length;
+
   const headerSize = 88;
   const vBytes = 4 + nV * 2 * 3;
   const iBytes = 4 + idx.length * 2;
   const eBytes = 4 * 4 + (west.length + south.length + east.length + north.length) * 2;
-  const buf = Buffer.alloc(headerSize + vBytes + iBytes + eBytes);
+  const buf = Buffer.alloc(headerSize + vBytes + iBytes + eBytes + xBytes);
   let o = 0;
   buf.writeDoubleLE(c[0], o); o += 8; buf.writeDoubleLE(c[1], o); o += 8; buf.writeDoubleLE(c[2], o); o += 8;
   buf.writeFloatLE(minH, o); o += 4; buf.writeFloatLE(maxH, o); o += 4;
@@ -673,7 +718,12 @@ export function encodeQuantizedMesh(mesh, gridSize, tile, heightAt) {
     buf.writeUInt32LE(list.length, o); o += 4;
     for (const vi of list) { buf.writeUInt16LE(vi, o); o += 2; }
   }
+  // §TERRAIN-NORMALS (L-636) — Oct-Encoded Per-Vertex Normals extension record.
+  buf.writeUInt8(1, o); o += 1;                       // extensionId = 1 (octvertexnormals)
+  buf.writeUInt32LE(octNormals.length, o); o += 4;    // extensionLength = nV * 2
+  for (let i = 0; i < octNormals.length; i++) { buf.writeUInt8(octNormals[i], o); o += 1; }
   return { buffer: buf, stats: { vertices: nV, triangles: idx.length / 3, minH, maxH, radius,
+    hasVertexNormals: true,
     edges: { west: west.length, south: south.length, east: east.length, north: north.length } } };
 }
 
@@ -740,6 +790,10 @@ export function layerJson(cityWsen, available) {
     scheme: 'tms', tiles: ['{z}/{x}/{y}.terrain'],
     projection: 'EPSG:4326', bounds: cityWsen, extent: cityWsen,
     minzoom: 0, maxzoom: available.length - 1, available,
+    // §TERRAIN-NORMALS (L-636) — every tile carries the Oct-Encoded Per-Vertex Normals extension, so
+    // Cesium requests it (requestVertexNormals:true) and can slope-shade relief under enableLighting.
+    // Without this the globe flat-lights terrain → high-relief cities render as a white mask.
+    extensions: ['octvertexnormals'],
   };
 }
 
@@ -1191,6 +1245,7 @@ export async function sampleCity(region, probes, { geotiffMod, env = process.env
 /** A few well-known control points per city for --sample-city (coast/valley → hill spread). */
 export const SAMPLE_PROBES = {
   barcelona: [['Port/beach', 2.19, 41.375], ['Montjuïc', 2.155, 41.363], ['Tibidabo', 2.118, 41.422], ['Eixample', 2.163, 41.39]],
+  valencia: [['Port/beach', -0.325, 39.46], ['Ciutat Vella', -0.375, 39.475], ['Túria park', -0.36, 39.47], ['Airport W', -0.42, 39.49]],
   madrid: [['Puerta del Sol', -3.703, 40.417], ['Retiro', -3.683, 40.415], ['North M-30', -3.69, 40.50]],
   cordoba: [['Mezquita', -4.779, 37.879], ['Guadalquivir', -4.78, 37.875], ['North hills', -4.80, 37.93]],
   paris: [['Île de la Cité', 2.348, 48.854], ['Montmartre', 2.343, 48.887], ['Bois de Boulogne', 2.25, 48.86]],

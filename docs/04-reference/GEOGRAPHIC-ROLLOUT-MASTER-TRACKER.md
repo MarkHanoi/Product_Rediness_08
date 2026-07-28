@@ -11,6 +11,7 @@ beyond?"* Created 2026-07-22.
 > | **What is broken / reported** (issue log L-NN) | [V1-LAUNCH-READINESS-AUDIT.md](./V1-LAUNCH-READINESS-AUDIT.md) |
 > | **What we are building, phased** | [V1-LAUNCH-IMPLEMENTATION-PLAN.md](./V1-LAUNCH-IMPLEMENTATION-PLAN.md) |
 > | **How the system works + how it scales** | [SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md](./SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md) |
+> | **How to REPLICATE a city end-to-end (all 8 layers, the golden recipe)** | [CITY-REPLICATION-STANDARD.md](./CITY-REPLICATION-STANDARD.md) |
 > | **Product phases A–D (all features)** | [master-execution-tracker.md](../03-execution/plans/master-execution-tracker.md) |
 > | **Sources: what exists, what we're missing** | [spain/SPAIN-GEODATA-SOURCE-COVERAGE.md](./spain/SPAIN-GEODATA-SOURCE-COVERAGE.md) |
 > | **⚠ Read before assuming a dataset exists** | [jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md](./jurisdictions/es/es-ct/08019-barcelona/BARCELONA-DATA-PIPELINE.md) |
