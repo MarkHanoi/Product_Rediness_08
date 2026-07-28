@@ -2832,10 +2832,9 @@ export class CesiumViewport {
     }
     if (on === this.formaTerrainEnabled) return;
     this.formaTerrainEnabled = on;
-    // §CTX-DEPTH-TEST-RETURN (L-635) — the depth test now tracks the toggle: ON with terrain (so the
-    // ground features drape onto the relief via clampToGround and buildings composite correctly against
-    // the mesh — safe because every tier seats per-footprint), OFF on the flat/keyless ground.
-    try { viewer.scene.globe.depthTestAgainstTerrain = on; } catch { /* ignore */ }
+    // §CTX-DEPTH-CULL-FIX — the depth test stays OFF in Forma regardless of the toggle so
+    // context buildings are never culled under relief when terrain is ON.
+    try { viewer.scene.globe.depthTestAgainstTerrain = false; } catch { /* ignore */ }
     console.log(`[CTX-DIAG] terrain toggled → ${on ? 'on' : 'off'}`);
     const at = this.contextBuildingsAt ?? this.formaMassingOrigin;
     if (on) {
@@ -2915,18 +2914,17 @@ export class CesiumViewport {
       globe.showGroundAtmosphere = false;
       globe.enableLighting = false; // Forma ground is flat-lit, not sun-shaded (§2).
       globe.translucency.enabled = false;
-      // §CTX-DEPTH-TEST-RETURN (L-635) — TURN THE TERRAIN DEPTH TEST BACK ON. The prior §CTX-DEPTH-
-      // CULL-FIX held it OFF because base-0 context footprints sat UNDER the ~700 m terrain and got
-      // culled — but that was BEFORE the per-footprint seat. EVERY context tier now seats on its own
-      // sampled ground (near + demoted + far all via sampleGround → renderContextBuildingsFarRing), so
-      // nothing sits under the mesh to be culled — the exact "would let the depth test return safely"
-      // condition this code anticipated. With the depth test ON, the terrain correctly composites with
-      // the scene, which is REQUIRED for the ground features (roads/parks/water) to DRAPE onto the
-      // relief via clampToGround (the classification pass needs the terrain stencil that only a live
-      // depth test populates — with it OFF those clamped features rendered NOTHING on baked terrain,
-      // the Madrid "white ground"). Buildings extrude UP from their per-footprint base so they read
-      // above the mesh; only the sub-ground FORMA_BASE_SINK sliver is (correctly) hidden.
-      globe.depthTestAgainstTerrain = true;
+      // §CTX-DEPTH-CULL-FIX (founder 2026-07-27) — HOLD THE TERRAIN DEPTH TEST OFF IN FORMA.
+      // With baked relief now draped in Forma (L-631), `depthTestAgainstTerrain = true` culled
+      // any extruded context building (and the envelope) whose base sat BELOW the terrain mesh —
+      // exactly the Madrid/Zürich failure (~650 m baked ground buried the base-0 footprints, so
+      // roads drape-rendered flat but buildings vanished). Barcelona's low relief never tripped it.
+      // Turning the depth test OFF renders context + massing on top of the visible terrain in ALL
+      // cities; the only cosmetic cost is a footprint may visually intersect a steep slope — vastly
+      // better than vanishing, and it matches how low-relief Barcelona already looks. The flat/
+      // terrain-OFF path is unaffected (no relief to test against). §SITEFRAME reseat (deferred) is
+      // the eventual per-footprint in-place seat that would let the depth test return safely.
+      globe.depthTestAgainstTerrain = false;
     } catch (e) {
       console.warn('[CesiumViewport][forma] ground/imagery config failed:', e);
     }
@@ -6055,10 +6053,11 @@ export class CesiumViewport {
     // §A.21.D-GLOBE3 — skip on the photoreal "3D globe" where the loaded tiles already supply context.
     if (!(input.keepPhotoreal && this.photorealTilesActive)) {
       this.reseatContextPlacementsForBase();
-      // §CTX-DRAPE-ON-TERRAIN (L-635) — roads/parks/water now DRAPE via clampToGround (depth test ON), so
-      // they follow the relief automatically and need no height re-seat. This call is a guarded no-op for
-      // clamped entities (its `!g.height` guard skips them); kept only as a safety net for any feature
-      // that ever falls back to an absolute `height`. It never writes `height` onto a clamped entity.
+      // §CTX-GROUND-FEATURES-RESEAT (L-635) — the SAME lift for roads/parks/water. They were seated at
+      // load-time `formaTerrainBaseHeight` (0 before the terrain settled) and — unlike the buildings —
+      // never re-seated, so on a high city they stayed ~700 m UNDER the risen terrain, out of the camera
+      // frame: Madrid's ground read as bare white (no green parks / no streets) while flat Barcelona's
+      // base-0 features sat exactly on its ~0 ground. Lift them onto the settled base so the ground reads.
       this.reseatContextGroundFeaturesForBase();
     }
   }
@@ -7906,12 +7905,12 @@ export class CesiumViewport {
           corridor: {
             positions,
             width: roadWidthM(way.highway),
-            // §CTX-DRAPE-ON-TERRAIN (L-635) — DRAPE the ribbon onto the terrain surface. Now that the
-            // depth test is ON (§CTX-DEPTH-TEST-RETURN) the terrain stencil is populated, so the
-            // GroundPrimitive classification pass clampToGround uses renders correctly on baked terrain —
-            // the road follows the relief instead of sitting at a flat height the mesh then hides (the
-            // Madrid "white ground"). On flat/keyless ground it clamps to the ellipsoid, unchanged.
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            // §CTX-ABS-SEAT (L-635) — seat at the ABSOLUTE settled ground height, NOT CLAMP_TO_GROUND.
+            // Forma sets globe.depthTestAgainstTerrain=false, so the GroundPrimitive classification pass
+            // clampToGround relies on has no terrain stencil to paint into → clamped features render
+            // NOTHING on baked terrain (Madrid/Amsterdam). An absolute height draws in the standard opaque
+            // pass, depth-flag-independent, so it renders on any provider. `base` = the settled city ground.
+            height: base,
             cornerType: Cesium.CornerType.ROUNDED,
             material: roadColor,
             outline: false,
@@ -8011,8 +8010,7 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-water',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, // §CTX-DRAPE-ON-TERRAIN (L-635) — drape on relief (depth test now ON).
-            zIndex: 10, // above parks (0), below the street grid
+            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (renders nothing on baked terrain: depthTestAgainstTerrain=false).
             material: waterFill,
             outline: false,
           },
@@ -8035,8 +8033,10 @@ export class CesiumViewport {
           polyline: {
             positions,
             width: 3,
-            clampToGround: true, // §CTX-DRAPE-ON-TERRAIN (L-635) — follow the terrain surface (depth test now ON).
+            clampToGround: false, // §CTX-ABS-SEAT (L-635) — clampToGround renders nothing on baked terrain (depthTestAgainstTerrain=false); the positions already carry the absolute base height.
+            arcType: Cesium.ArcType.NONE,
             material: waterLine,
+            depthFailMaterial: new Cesium.ColorMaterialProperty(waterLine),
           },
         });
         this.contextWaterEntities.push(ent);
@@ -8110,10 +8110,7 @@ export class CesiumViewport {
           name: 'pryzm-forma-context-park',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            // §CTX-DRAPE-ON-TERRAIN (L-635) — drape the green onto the relief (depth test now ON); zIndex 0
-            // keeps it at the bottom of the ground stack (water/roads read on top) without z-fighting.
-            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-            zIndex: 0,
+            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (renders nothing on baked terrain: depthTestAgainstTerrain=false).
             material: parkFill,
             outline: true,
             outlineColor: parkEdge,
