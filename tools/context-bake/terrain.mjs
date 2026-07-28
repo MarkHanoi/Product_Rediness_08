@@ -1274,8 +1274,16 @@ export function encodeQuantizedMesh(mesh, gridSize, tile, heightAt) {
   }
   if (!Number.isFinite(minH)) minH = 0;   // whole tile was NoData (all-NaN) → flat 0, never a NaN header
   if (!Number.isFinite(maxH)) maxH = 0;
-  const c = [0, 0, 0]; for (const p of ecef) { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; }
-  c[0] /= nV; c[1] /= nV; c[2] /= nV;
+  // §BOUNDING-CENTRE-RECT (L-639) — use the tile's GEOMETRIC rectangle centre (a real point ON the
+  // ellipsoid), NOT the vertex centroid. A coarse z0 tile spans lat[-90,90]; MARTINI reduces its flat
+  // filler to the 4 CORNERS, which sit at the POLES (lat ±90) → their average is (0,0,0) = the GEOCENTRE.
+  // That garbage centre was written to the header AND fed to horizonOcclusionPoint (dtp undefined →
+  // occludee (0,0,0) → tile always horizon-culled → interior-city white terrain). The rectangle centre
+  // is always a valid on-ellipsoid point, so the header centre is sane and the occlusion cone has a real
+  // direction to work from (wide-angle corners then trip the never-cull path in horizonOcclusionPoint).
+  const lonCdeg = ((tile.west + tile.east) / 2) / D2R;
+  const latCdeg = ((tile.north + tile.south) / 2) / D2R;
+  const c = ecefFromLonLatH(lonCdeg, latCdeg, (minH + maxH) / 2);
   let radius = 0; for (const p of ecef) radius = Math.max(radius, len(sub(p, c)));
   const occ = horizonOcclusionPoint(ecef, c);
 
