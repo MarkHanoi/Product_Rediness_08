@@ -305,7 +305,14 @@ export const REGIONS = [
   { name: 'madrid',       source: 'es', bbox: [-3.80, 40.33, -3.58, 40.52] },
   { name: 'barcelona',    source: 'es', bbox: [2.09, 41.32, 2.23, 41.47] },
   { name: 'valencia',     source: 'es', bbox: [-0.43, 39.40, -0.30, 39.52] }, // ~0.13°/0.12° span → z10 like Barcelona; same PNOA MDT source
+  { name: 'toledo',       source: 'es', bbox: [-4.08, 39.82, -3.95, 39.91] }, // DRAMATIC desnivel: old city on a granite promontory in the Tagus gorge (~100 m cliffs) — the relief-shading showcase
   { name: 'cordoba',      source: 'es', bbox: [-4.85, 37.84, -4.72, 37.94] },
+  // Costa del Sol (Málaga→Marbella) — big desnivel: coastal cities under the Sierra de Mijas / Sierra
+  // Blanca (La Concha 1215 m). Each ≤22 km (ES maxExtentM cap) so the whole bbox is fetched unclamped.
+  { name: 'malaga',       source: 'es', bbox: [-4.52, 36.66, -4.38, 36.78] }, // city + Gibralfaro + Montes de Málaga foothills
+  { name: 'benalmadena',  source: 'es', bbox: [-4.62, 36.56, -4.48, 36.66] }, // coast → Benalmádena Pueblo up the hill (~280 m)
+  { name: 'fuengirola',   source: 'es', bbox: [-4.70, 36.49, -4.56, 36.63] }, // coast → Mijas Pueblo on the sierra (~430 m) + Sierra de Mijas
+  { name: 'marbella',     source: 'es', bbox: [-4.95, 36.47, -4.82, 36.59] }, // coast → La Concha / Sierra Blanca (1215 m towering over the town)
   { name: 'newyork',      source: 'us', bbox: [-74.03, 40.70, -73.91, 40.82] },
   { name: 'sanfrancisco', source: 'us', bbox: [-122.52, 37.70, -122.36, 37.83] },
   // ── BLOCKED cities (no open commercial DTM) — carried explicitly, SKIPPED with a reason ──
@@ -1246,6 +1253,11 @@ export async function sampleCity(region, probes, { geotiffMod, env = process.env
 export const SAMPLE_PROBES = {
   barcelona: [['Port/beach', 2.19, 41.375], ['Montjuïc', 2.155, 41.363], ['Tibidabo', 2.118, 41.422], ['Eixample', 2.163, 41.39]],
   valencia: [['Port/beach', -0.325, 39.46], ['Ciutat Vella', -0.375, 39.475], ['Túria park', -0.36, 39.47], ['Airport W', -0.42, 39.49]],
+  toledo: [['Alcázar/old city', -4.021, 39.858], ['Tagus gorge', -4.030, 39.853], ['North plain', -4.020, 39.900], ['SW hills', -4.055, 39.845]],
+  malaga: [['Port', -4.417, 36.713], ['Gibralfaro', -4.410, 36.724], ['Montes N', -4.44, 36.76]],
+  benalmadena: [['Coast/Arroyo', -4.516, 36.600], ['Benalmádena Pueblo', -4.573, 36.596], ['Sierra N', -4.58, 36.64]],
+  fuengirola: [['Coast', -4.625, 36.540], ['Mijas Pueblo', -4.637, 36.596], ['Sierra de Mijas', -4.66, 36.61]],
+  marbella: [['Coast', -4.885, 36.508], ['Old town', -4.885, 36.516], ['La Concha foot', -4.90, 36.54]],
   madrid: [['Puerta del Sol', -3.703, 40.417], ['Retiro', -3.683, 40.415], ['North M-30', -3.69, 40.50]],
   cordoba: [['Mezquita', -4.779, 37.879], ['Guadalquivir', -4.78, 37.875], ['North hills', -4.80, 37.93]],
   paris: [['Île de la Cité', 2.348, 48.854], ['Montmartre', 2.343, 48.887], ['Bois de Boulogne', 2.25, 48.86]],

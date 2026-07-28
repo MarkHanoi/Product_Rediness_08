@@ -65,6 +65,12 @@ export const TERRAIN_CITY_BBOXES: ReadonlyArray<{ readonly city: string; readonl
     { city: 'valencia', bbox: [-0.43, 39.40, -0.30, 39.52] },
     { city: 'madrid', bbox: [-3.80, 40.33, -3.58, 40.52] },
     { city: 'cordoba', bbox: [-4.85, 37.84, -4.72, 37.94] },
+    { city: 'toledo', bbox: [-4.08, 39.82, -3.95, 39.91] },
+    // Costa del Sol (Málaga→Marbella) — big desnivel under the Sierra de Mijas / Sierra Blanca
+    { city: 'malaga', bbox: [-4.52, 36.66, -4.38, 36.78] },
+    { city: 'benalmadena', bbox: [-4.62, 36.56, -4.48, 36.66] },
+    { city: 'fuengirola', bbox: [-4.70, 36.49, -4.56, 36.63] },
+    { city: 'marbella', bbox: [-4.95, 36.47, -4.82, 36.59] },
     // US — 3DEP 1 m (public domain)
     { city: 'newyork', bbox: [-74.03, 40.70, -73.91, 40.82] },
     { city: 'sanfrancisco', bbox: [-122.52, 37.70, -122.36, 37.83] },
