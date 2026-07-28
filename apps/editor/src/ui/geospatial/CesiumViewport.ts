@@ -6005,7 +6005,49 @@ export class CesiumViewport {
     // §A.21.D-GLOBE3 — skip on the photoreal "3D globe" where the loaded tiles already supply context.
     if (!(input.keepPhotoreal && this.photorealTilesActive)) {
       this.reseatContextPlacementsForBase();
+      // §CTX-GROUND-FEATURES-RESEAT (L-635) — the SAME lift for roads/parks/water. They were seated at
+      // load-time `formaTerrainBaseHeight` (0 before the terrain settled) and — unlike the buildings —
+      // never re-seated, so on a high city they stayed ~700 m UNDER the risen terrain, out of the camera
+      // frame: Madrid's ground read as bare white (no green parks / no streets) while flat Barcelona's
+      // base-0 features sat exactly on its ~0 ground. Lift them onto the settled base so the ground reads.
+      this.reseatContextGroundFeaturesForBase();
     }
+  }
+
+  /**
+   * §CTX-GROUND-FEATURES-RESEAT (L-635) — lift the ALREADY-PLACED context ROAD / PARK / WATER entities
+   * onto the settled terrain ground, mirroring {@link reseatContextPlacementsForBase} for buildings.
+   * These flat features are seated by a single scalar `height` (roads = corridor.height; parks/water
+   * areas = polygon.height), so re-seating is just rewriting that one number per entity. Waterway
+   * POLYLINES carry their height in the positions (no scalar) — left as-is (thin, low-visibility). No
+   * network, no clear, no AbortController — structurally cannot race. Fully guarded; never throws.
+   */
+  private reseatContextGroundFeaturesForBase(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    const base = this.formaTerrainBaseHeight;              // the just-settled city ground (~700 m Madrid).
+    let n = 0;
+    // Preserve the original ground-stack layering (parks below roads below water) via small offsets, and
+    // keep every feature just ABOVE the terrain so it reads (depthTestAgainstTerrain=false draws it over).
+    const lift = (entities: readonly Cesium.Entity[], kind: 'polygon' | 'corridor', offset: number): void => {
+      for (const ent of entities) {
+        try {
+          const g = kind === 'polygon' ? ent.polygon : ent.corridor;
+          if (!g || !g.height) continue;                   // e.g. a waterway polyline has neither — skip.
+          g.height = new Cesium.ConstantProperty(base + offset);
+          n++;
+        } catch { /* skip one entity; the re-seat must never break the pass. */ }
+      }
+    };
+    lift(this.contextParkEntities, 'polygon', 0.01);
+    lift(this.contextRoadEntities, 'corridor', 0.02);
+    lift(this.contextWaterEntities, 'polygon', 0.03);
+    if (n > 0) viewer.scene.requestRender();
+    console.log(
+      `[CTX-DIAG] ground-features re-seat: ${n} road/park/water entity(ies) lifted onto settled ` +
+        `ground (base ${base.toFixed(1)} m) — no re-fetch, no race.`,
+    );
   }
 
   /**
