@@ -120,6 +120,30 @@ export function resolveSiteFrameOrigin(
     return null;
 }
 
+/**
+ * §L-635 (C57 §1.3 / §4, C19 §1.3, C12 §1.5) — the projection origin a parcel-boundary COMMIT
+ * must use. The always-on project-origin datum (the blue sphere, `initProjectOrigin.ts`) is pinned
+ * at world (0,0,0) by design (C13 / ADR-0115 project isolation); it is NOT moved to encode a lat/lon.
+ * So for that datum to sit ON the committed parcel boundary, the ring MUST be projected about a point
+ * that lies ON the boundary — its FIRST VERTEX — which then lands at scene (0,0). This is also the
+ * historical behaviour: the pre-regression commit fell back to the first drawn vertex whenever no
+ * site location was set, and the founder confirms the datum "always" sat on the boundary.
+ *
+ * THE REGRESSION THIS CLOSES. The commit paths projected about `fromSite ?? firstVertex`, i.e. they
+ * PREFERRED a previously-geocoded / stale site anchor over the parcel's own location, and set the
+ * LTP-ENU origin only AFTER projecting (and only when no anchor existed). Selecting or drawing a
+ * parcel away from the initial geocode (the normal explore-then-pick flow, wired for many cadastres
+ * in commit 03321663) therefore projected the ring dist(anchor, parcel) — up to hundreds of km — from
+ * world origin, leaving the datum sphere off the plot. C57 §1.3 / §4 REQUIRE `dispatchSiteLocation`
+ * to set the origin to the parcel's own location BEFORE the ring projects; this returns that origin.
+ *
+ * Pure (no I/O / THREE / DOM), unit-testable in isolation. Returns null for an empty ring.
+ */
+export function parcelFrameOrigin(ring: ReadonlyArray<LatLon>): LatLon | null {
+    const first = ring[0];
+    return first ? { lat: first.lat, lon: first.lon } : null;
+}
+
 /** Signed area (shoelace) of an XZ ring; >0 ⇒ counter-clockwise in XZ. */
 function signedAreaXZ(ring: ReadonlyArray<XZPoint>): number {
     let a = 0;

@@ -15,6 +15,7 @@ import type * as CesiumNS from 'cesium';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     buildBoundaryFromLatLonRing,
+    parcelFrameOrigin,
     latLonToSceneXZ,
     type LatLon,
 } from '../site/boundaryProjection.js';
@@ -262,27 +263,34 @@ export class SiteBoundaryDrawTool {
             return;
         }
 
-        // Origin for the local-tangent-plane projection: the Site location if set,
-        // else the first drawn vertex (so drawing works before a geocode search).
-        const fromSite = this.getOrigin();
-        const origin = fromSite ?? { lat: this.vertices[0]!.lat, lon: this.vertices[0]!.lon };
-        console.log('[gis] boundary-draw: projecting about origin', origin, fromSite ? '(from Site location)' : '(from first vertex)');
-
-        const built = buildBoundaryFromLatLonRing(this.vertices, origin.lat, origin.lon);
-        console.log(`[gis] boundary-draw: ${built.polygon.length} XZ pts`, built.polygon, built.edgeClassifications);
-
         const ctx = resolveSiteContext(this.runtime);
         if (!ctx) {
             this.cleanup();
             return;
         }
 
-        // If the Site had no geocoded location, record the projection origin (the
-        // first vertex) as the Site location so the apartment generator + future
-        // site intelligence share the SAME frame the boundary was projected in.
-        if (!fromSite) {
-            dispatchSiteLocation(ctx, { latitude: origin.lat, longitude: origin.lon, siteAddress: null });
+        // §L-635 (C57 §1.3 / §4, C19 §1.3, C12 §1.5) — ORIGIN-ON-PARCEL. Anchor the LTP-ENU frame
+        // origin to the PARCEL's own location (its first vertex, `parcelFrameOrigin`) and project the
+        // ring about that SAME point, so the boundary lands at world origin and the always-on
+        // project-origin datum sphere sits ON the boundary. C57 §1.3 / §4 REQUIRE dispatchSiteLocation
+        // to set the origin BEFORE the ring projects; the old `fromSite ?? firstVertex` precedence
+        // projected about a possibly-STALE / far-away geocoded anchor and set the location only after,
+        // so a parcel drawn away from the initial geocode landed dist(anchor, parcel) — up to hundreds
+        // of km — from origin, off the datum (the founder-reported regression). Set at commit time,
+        // before any boundary exists (C19 §1.4 — never a retroactive recentre); the render frame
+        // (getFormaOrigin) then reads this SAME origin, so ring and ENU frame cannot diverge
+        // (C12 §1.5 / SEAM-2, L-604). Any geocoded street address (C22 PII) is preserved for display.
+        const priorAnchor = this.getOrigin();
+        const origin = parcelFrameOrigin(this.vertices) ?? { lat: this.vertices[0]!.lat, lon: this.vertices[0]!.lon };
+        if (priorAnchor) {
+            console.log('[gis] boundary-draw: §L-635 anchoring origin to parcel first vertex', origin,
+                '— prior site anchor', priorAnchor, 'no longer used for the ring projection.');
         }
+        const existingAddress = ctx.store.getSite()?.location?.siteAddress ?? null;
+        dispatchSiteLocation(ctx, { latitude: origin.lat, longitude: origin.lon, siteAddress: existingAddress });
+
+        const built = buildBoundaryFromLatLonRing(this.vertices, origin.lat, origin.lon);
+        console.log(`[gis] boundary-draw: ${built.polygon.length} XZ pts`, built.polygon, built.edgeClassifications);
 
         // (dispatchParcelBoundary creates the Site if absent; rejects if the
         // parcel polygon is already set per C19 §1.4.)

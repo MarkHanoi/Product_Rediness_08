@@ -15,7 +15,12 @@
 // resolve the IDENTICAL origin, and the LTP-ENU origin is authoritative whenever it is set.
 
 import { describe, it, expect } from 'vitest';
-import { resolveSiteFrameOrigin } from '../src/ui/site/boundaryProjection';
+import {
+    resolveSiteFrameOrigin,
+    parcelFrameOrigin,
+    buildBoundaryFromLatLonRing,
+    type LatLon,
+} from '../src/ui/site/boundaryProjection';
 
 type Ltp = { lat: number; lon: number } | null;
 type StoreLoc = { latitude: number; longitude: number } | null;
@@ -77,5 +82,44 @@ describe('§SEAM-2 (L-604) resolveSiteFrameOrigin — single origin authority', 
         const out = resolveSiteFrameOrigin({ lat: 41.39, lon: 2.16 }, null, null);
         expect(out).toEqual({ lat: 41.39, lon: 2.16 });
         expect(Object.keys(out ?? {}).sort()).toEqual(['lat', 'lon']);
+    });
+});
+
+// §L-635 (C57 §1.3 / §4, C19 §1.3, C12 §1.5) — ORIGIN-ON-PARCEL. A parcel-boundary commit MUST
+// project the ring about the parcel's OWN first vertex so the ring lands at world origin and the
+// always-on project-origin datum sphere (pinned at world 0,0,0) sits ON the boundary — regardless of
+// any prior/geocoded site anchor that may be hundreds of km away.
+describe('§L-635 parcelFrameOrigin — datum sits on the parcel boundary', () => {
+    // A ~35 m Barcelona parcel (Eixample), far from lat/lon (0,0).
+    const RING: LatLon[] = [
+        { lat: 41.39100, lon: 2.16500 },
+        { lat: 41.39130, lon: 2.16540 },
+        { lat: 41.39110, lon: 2.16575 },
+        { lat: 41.39080, lon: 2.16535 },
+    ];
+
+    it('returns the parcel FIRST VERTEX (a point ON the boundary), never a centroid or anchor', () => {
+        expect(parcelFrameOrigin(RING)).toEqual({ lat: RING[0]!.lat, lon: RING[0]!.lon });
+        expect(parcelFrameOrigin([])).toBeNull();
+    });
+
+    it('projecting about that origin lands the first vertex at scene (0,0) — datum ON the boundary', () => {
+        const o = parcelFrameOrigin(RING)!;
+        const built = buildBoundaryFromLatLonRing(RING, o.lat, o.lon);
+        // Vertex 0 is the projection origin ⇒ exactly (0,0): the world-origin datum sits on it.
+        expect(Math.hypot(built.polygon[0]!.x, built.polygon[0]!.z)).toBeLessThan(1e-6);
+        // The ENTIRE ring stays at parcel scale (tens of metres) from origin — not the hundreds of km
+        // the stale-anchor regression produced.
+        const maxDist = Math.max(...built.polygon.map((p) => Math.hypot(p.x, p.z)));
+        expect(maxDist).toBeLessThan(200);
+    });
+
+    it('THE REGRESSION: projecting a far parcel about a STALE anchor lands it hundreds of km away', () => {
+        // Barcelona parcel, but projected about a Sydney anchor (the old `fromSite` precedence). This is
+        // the off-datum failure the fix removes by refusing to use any anchor but the parcel itself.
+        const staleAnchor = { lat: -33.8688, lon: 151.2093 };
+        const built = buildBoundaryFromLatLonRing(RING, staleAnchor.lat, staleAnchor.lon);
+        const maxDist = Math.max(...built.polygon.map((p) => Math.hypot(p.x, p.z)));
+        expect(maxDist).toBeGreaterThan(1_000_000); // > 1000 km from origin — datum off the plot.
     });
 });

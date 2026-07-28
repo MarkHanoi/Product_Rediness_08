@@ -46,6 +46,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     buildBoundaryFromLatLonRing,
+    parcelFrameOrigin,
     latLonToSceneXZ,
     type LatLon,
 } from '../site/boundaryProjection.js';
@@ -2128,22 +2129,32 @@ export function mountSiteBoundaryMap2D(
             return;
         }
 
-        const fromSite = getOrigin();
-        const origin = fromSite ?? { lat: vertices[0]!.lat, lon: vertices[0]!.lon };
-        console.log('[gis] map2d: projecting about origin', origin, fromSite ? '(from Site location)' : '(from first vertex)');
-
-        const built = buildBoundaryFromLatLonRing(vertices, origin.lat, origin.lon);
-        console.log(`[gis] map2d: ${built.polygon.length} XZ pts`, built.polygon, built.edgeClassifications);
-
         const ctx = resolveSiteContext(runtime);
         // No site context = a genuine failure; we can't set a boundary, so tear down.
         if (!ctx) { dispose(); return; }
 
-        // Record the projection origin as the Site location if it had none (so the
-        // apartment generator + future site intelligence share the SAME frame).
-        if (!fromSite) {
-            dispatchSiteLocation(ctx, { latitude: origin.lat, longitude: origin.lon, siteAddress: null });
+        // §L-635 (C57 §1.3 / §4, C19 §1.3, C12 §1.5) — ORIGIN-ON-PARCEL. Anchor the LTP-ENU frame
+        // origin to the PARCEL's own location (its first vertex, `parcelFrameOrigin`) and project the
+        // ring about that SAME point, so the boundary lands at world origin and the always-on
+        // project-origin datum sphere sits ON the boundary. C57 §1.3 / §4 REQUIRE dispatchSiteLocation
+        // to set the origin BEFORE the ring projects; the old `fromSite ?? firstVertex` precedence
+        // projected about a possibly-STALE / far-away geocoded anchor and set the location only after,
+        // so a parcel selected or drawn away from the initial geocode landed dist(anchor, parcel) —
+        // up to hundreds of km — from origin, off the datum (the founder-reported regression). Set at
+        // commit time, before any boundary exists (C19 §1.4 — never a retroactive recentre); the
+        // render frame (getFormaOrigin) then reads this SAME origin, so ring and ENU frame cannot
+        // diverge (C12 §1.5 / SEAM-2, L-604). Any geocoded street address (C22 PII) is preserved.
+        const priorAnchor = getOrigin();
+        const origin = parcelFrameOrigin(vertices) ?? { lat: vertices[0]!.lat, lon: vertices[0]!.lon };
+        if (priorAnchor) {
+            console.log('[gis] map2d: §L-635 anchoring origin to parcel first vertex', origin,
+                '— prior site anchor', priorAnchor, 'no longer used for the ring projection.');
         }
+        const existingAddress = ctx.store.getSite()?.location?.siteAddress ?? null;
+        dispatchSiteLocation(ctx, { latitude: origin.lat, longitude: origin.lon, siteAddress: existingAddress });
+
+        const built = buildBoundaryFromLatLonRing(vertices, origin.lat, origin.lon);
+        console.log(`[gis] map2d: ${built.polygon.length} XZ pts`, built.polygon, built.edgeClassifications);
 
         // §L-536-THETA-RESET — θ MUST be written on EVERY parcel commit, INCLUDING θ = 0.
         //
