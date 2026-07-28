@@ -448,25 +448,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                                     // A.8.c.f.2 — capture the bbox so the 2D Hektar
                                     // map can fit the exact plot when opened.
                                     lastGeocodeFrame = { lat: result.lat, lon: result.lon, bbox: result.bbox };
-                                    // We fly to the exact plot bbox below; the geocode
-                                    // box ALSO dispatches site.updateLocation, which the
-                                    // CesiumViewport subscribes to. Tell it to skip the
-                                    // resulting (coarser, point-altitude) re-fly so we
-                                    // don't double-fly — this bbox framing is better.
-                                    cesiumViewport?.suppressNextSiteLocationFly?.();
-                                    if (result.bbox) {
-                                        const [w, s, e, n] = result.bbox;
-                                        viewer.camera.flyTo({
-                                            destination: Cesium.Rectangle.fromDegrees(w, s, e, n),
-                                            duration: 2.5,
-                                        });
-                                    } else {
-                                        viewer.camera.flyTo({
-                                            destination: Cesium.Cartesian3.fromDegrees(result.lon, result.lat, 600),
-                                            duration: 2.5,
-                                        });
-                                    }
-                                    console.log('[gis] camera flying to', result.displayName);
+                                    // §SITE-FRAME-ON-TERRAIN (L-635) — DO NOT fly here at a raw ellipsoid
+                                    // altitude (bbox at ellipsoid 0 / point at 600 m). On a high-relief city
+                                    // (Madrid ~700 m) that lands the camera UNDER the terrain, so the 3D Site
+                                    // reads BLANK until the user zooms out (Barcelona's ~12 m ground stayed
+                                    // below the 600 m frame, so it looked fine). The geocode box dispatches
+                                    // site.updateLocation → CesiumViewport's now terrain-aware frameSiteLocation
+                                    // samples the REAL ground height and frames the §SITE-VIEWPOINT-CONSISTENT
+                                    // preset ABOVE it — correct on every city, and it IS the founder's
+                                    // "always the same camera position" request. So we no longer suppress it
+                                    // nor double-fly a coarser ellipsoid frame here; we delegate to it.
+                                    console.log('[gis] camera → terrain-aware site framing for', result.displayName);
                                 },
                             });
 
