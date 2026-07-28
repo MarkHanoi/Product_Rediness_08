@@ -6163,6 +6163,15 @@ export class CesiumViewport {
     const fallback = typeof baseOverride === 'number' && Number.isFinite(baseOverride)
       ? baseOverride
       : this.formaTerrainBaseHeight;
+    // §CTX-PERFOOTPRINT-SAMPLE (L-635) — PREFER the batch `sampleTerrainMostDetailed` height for this
+    // footprint if one was pre-sampled this load. This is the fix for "buildings sit below the terrain":
+    // `globe.getHeight` returns GARBAGE in Forma mode (the globe is show=false, so no tessellated tiles
+    // to read — the live diag showed seat[finite=0 fallback=101] on every load and getHeight ≈ -6.3e6 m),
+    // so per-footprint relief NEVER resolved and every building sat at the single flat centroid base while
+    // the roads draped on the real relief. `sampleTerrainMostDetailed` reads the terrain provider directly
+    // (works regardless of globe.show) and returns the correct height — batched once per load below.
+    const cached = this.contextGroundCache.get(`${lat.toFixed(6)},${lon.toFixed(6)}`);
+    if (typeof cached === 'number' && Number.isFinite(cached)) return cached;
     try {
       const globe = this.viewer?.scene.globe;
       const provider = this.viewer?.terrainProvider;
@@ -6172,6 +6181,40 @@ export class CesiumViewport {
       return resolveGroundSample(globe.getHeight(Cesium.Cartographic.fromDegrees(lon, lat)), fallback);
     } catch {
       return fallback;
+    }
+  }
+
+  /** §CTX-PERFOOTPRINT-SAMPLE (L-635) — per-footprint terrain heights sampled via
+   *  `sampleTerrainMostDetailed` for THIS context load, keyed `lat.toFixed(6),lon.toFixed(6)`.
+   *  Consulted by `sampleGround` so each building seats on its OWN real ground (not one flat base). */
+  private contextGroundCache = new Map<string, number>();
+
+  /**
+   * §CTX-PERFOOTPRINT-SAMPLE (L-635) — batch-sample the REAL terrain height under each footprint centroid
+   * via `sampleTerrainMostDetailed` (one network round-trip for the whole set) and cache them keyed by
+   * `lat,lon`, so `sampleGround` returns per-footprint relief instead of the broken `globe.getHeight`.
+   * No-op on the flat/keyless path (fallback base is already exact there). Never throws.
+   */
+  private async sampleContextGroundsBatch(centroids: ReadonlyArray<{ lat: number; lon: number }>): Promise<void> {
+    this.contextGroundCache.clear();
+    const viewer = this.viewer;
+    if (!viewer || centroids.length === 0) return;
+    const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
+    if (!provider || !this.terrainProviderHasElevationData(provider)) return; // flat/keyless → base is exact.
+    try {
+      const cartos = centroids.map((c) => Cesium.Cartographic.fromDegrees(c.lon, c.lat));
+      const sampled = await Cesium.sampleTerrainMostDetailed(provider, cartos);
+      let ok = 0;
+      for (let i = 0; i < sampled.length; i++) {
+        const h = sampled[i]?.height;
+        if (typeof h === 'number' && Number.isFinite(h)) {
+          this.contextGroundCache.set(`${centroids[i].lat.toFixed(6)},${centroids[i].lon.toFixed(6)}`, h);
+          ok++;
+        }
+      }
+      console.log(`[CTX-DIAG] per-footprint terrain: sampleTerrainMostDetailed resolved ${ok}/${centroids.length} real ground heights (getHeight is unusable in Forma).`);
+    } catch (e) {
+      console.warn('[CTX-DIAG] per-footprint terrain batch-sample failed — falling back to centroid base:', e);
     }
   }
 
@@ -7066,6 +7109,18 @@ export class CesiumViewport {
           `(of ${nearSplit.kept.length} kept). Coverage unchanged; shadow casters bounded.`,
       );
     }
+
+    // §CTX-PERFOOTPRINT-SAMPLE (L-635) — batch-sample the REAL terrain height under EVERY footprint about
+    // to be placed (near shadowed + demoted + far), in ONE sampleTerrainMostDetailed round-trip, so each
+    // building seats on its OWN relief. THE FIX for "buildings sit below the terrain": getHeight is
+    // unusable in Forma (globe show=false → garbage), so without this every building sat at one flat base
+    // while roads draped on the real relief. `sampleGround` reads this cache first. No-op on flat/keyless.
+    const groundCentroids: Array<{ lat: number; lon: number }> = [];
+    for (const f of nearTiers.shadowed) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) groundCentroids.push(c); }
+    for (const f of nearTiers.demoted) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) groundCentroids.push(c); }
+    for (const f of far.features) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) groundCentroids.push(c); }
+    await this.sampleContextGroundsBatch(groundCentroids);
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return; // a newer load superseded us during the sample.
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — resolve the SAFE base ONCE for this placement so an
     // un-tessellated footprint under attached relief can never fall back to a depth-culling ~0.
