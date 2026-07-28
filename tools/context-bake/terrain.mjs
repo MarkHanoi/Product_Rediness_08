@@ -1143,8 +1143,11 @@ export function horizonOcclusionPoint(positions, boundingCenter) {
     const candidate = 1 / (cosAlpha * cosBeta - sinAlpha * sinBeta);
     if (Number.isFinite(candidate) && candidate > resultMag) resultMag = candidate;
   }
-  const scaled = dtp.map((v) => v * resultMag);
-  return [scaled[0] * RADII[0], scaled[1] * RADII[1], scaled[2] * RADII[2]];
+  // §HORIZON-OCC-SCALE (L-639) — the quantized-mesh header stores the horizon occlusion point in
+  // ELLIPSOID-SCALED ECEF (each axis ÷ radius, magnitude ~1), and Cesium reads it AS scaled-space for
+  // horizon culling. The old code multiplied back by RADII → stored full ECEF (~6.4e6). Return the
+  // scaled-space point directly (the interior-city 0-rendered-tiles / white-terrain candidate).
+  return dtp.map((v) => v * resultMag);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
