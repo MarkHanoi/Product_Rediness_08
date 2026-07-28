@@ -2793,6 +2793,19 @@ export class CesiumViewport {
       // Re-probe cities (the OFF→detach cleared the attached city; probed-set memo would
       // otherwise skip the re-attach for a city already attached earlier this session).
       this.formaTerrainAttach.clear();
+      // §GLOBE-TOGGLE-REFRAME (L-635) — attaching terrain RAISES the ground to the real base
+      // (Madrid ~700 m; ~0 on flat cities). The camera is still at its flat-ground (base-0) pose,
+      // so on a high-relief city it ends up FAR BELOW the risen terrain → the white grazing
+      // "mask" that PERSISTS: Barcelona's ~12 m rise is sub-visible so it self-heals, but
+      // Madrid's ~700 m never recovers because the toggle path never re-framed. Arm the one-shot
+      // corrective reframe + clear the per-open latches so the terrain-settle re-frames the camera
+      // onto the risen ground — the SAME "camera below" mechanism the initial-load defer fixes,
+      // now applied to the toggle too. (Only ON needs it: toggling OFF lowers the ground, leaving
+      // the camera safely ABOVE it.) The settle terminal (`reframeAfterBaseSettle`) consumes it.
+      this.formaInitialReframeFired = false;
+      this.formaOffscreenRescueUsed = false;
+      this.formaUserMovedCamera = false;
+      this.formaReframeOnBaseSettle = 'oblique';
       if (at) void this.maybeAttachTerrainProvider(at.lat, at.lon);
     } else {
       this.detachBakedTerrain();
