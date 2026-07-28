@@ -2591,6 +2591,42 @@ export class CesiumViewport {
    *   otherwise (an interactive location change) glide with a ~1.5 s `flyTo`.
    */
   private frameSiteLocation(lat: number, lon: number, opts: { instant?: boolean } = {}): void {
+    // §SITE-FRAME-ON-TERRAIN (L-635) — SITE_FRAME_HEIGHT_M (600 m) is a height above the GROUND, but a
+    // high city's ground is hundreds of metres above the WGS-84 ellipsoid (Madrid ~700 m). Framing at a
+    // raw ellipsoid-relative altitude parked THIS no-massing pre-plot camera ~100 m UNDER Madrid's
+    // terrain → the 3D Site read BLANK until the user zoomed out (Barcelona's ~12 m ground stayed above
+    // it). There is no massing origin on this path, so the massing/photoreal base-settle reframe never
+    // fires — resolve the REAL ground height (attach the baked terrain if any, then
+    // sampleTerrainMostDetailed; getHeight is unusable in Forma) and frame relative to it. A flat /
+    // no-terrain city resolves to 0, exactly the previous behaviour.
+    if (!this.isViewerLive()) return;
+    void this.frameSiteLocationOnResolvedGround(lat, lon, opts);
+  }
+
+  /** §SITE-FRAME-ON-TERRAIN (L-635) — resolve the true ground height at (lat,lon), then frame above it. */
+  private async frameSiteLocationOnResolvedGround(
+    lat: number, lon: number, opts: { instant?: boolean },
+  ): Promise<void> {
+    let groundBase = 0;
+    try {
+      await this.maybeAttachTerrainProvider(lat, lon); // idempotent shared attach; no-op on flat cities.
+      const v = this.viewer;
+      if (this.isViewerLive() && v) {
+        const provider = v.terrainProvider as Cesium.TerrainProvider | undefined;
+        if (provider && this.terrainProviderHasElevationData(provider)) {
+          const [r] = await Cesium.sampleTerrainMostDetailed(provider, [Cesium.Cartographic.fromDegrees(lon, lat)]);
+          const h = r?.height;
+          if (typeof h === 'number' && Number.isFinite(h)) groundBase = h;
+        }
+      }
+    } catch { /* stay at ground 0 — flat framing, never worse than before */ }
+    this.frameSiteLocationAtGround(lat, lon, groundBase, opts);
+  }
+
+  /** §SITE-FRAME-ON-TERRAIN (L-635) — the actual camera framing, seated at `groundBase + SITE_FRAME_HEIGHT_M`. */
+  private frameSiteLocationAtGround(
+    lat: number, lon: number, groundBase: number, opts: { instant?: boolean } = {},
+  ): void {
     // §GLOBE-CRASH-GUARD — this runs from the deferred `site.location-changed`
     // subscription too, which can land after the viewport is disposed; gate on
     // isViewerLive() (not a bare null-check) so a settle on a torn-down viewer
@@ -2598,7 +2634,7 @@ export class CesiumViewport {
     if (!this.isViewerLive()) return;
     const viewer = this.viewer;
     if (!viewer) return; // isViewerLive() already proved this, kept for TS narrowing.
-    const destination = Cesium.Cartesian3.fromDegrees(lon, lat, SITE_FRAME_HEIGHT_M);
+    const destination = Cesium.Cartesian3.fromDegrees(lon, lat, groundBase + SITE_FRAME_HEIGHT_M);
     const orientation = {
       heading: 0,
       pitch: Cesium.Math.toRadians(SITE_FRAME_PITCH_DEG),
@@ -2620,7 +2656,7 @@ export class CesiumViewport {
       // one corrective re-frame, stranding the camera at the stale (underground)
       // base. Cleared on complete/cancel, exactly as `flyToFormaSite` does.
       viewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(lon, lat, SITE_ARRIVAL_HIGH_ALT_M),
+        destination: Cesium.Cartesian3.fromDegrees(lon, lat, groundBase + SITE_ARRIVAL_HIGH_ALT_M),
         orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
       });
       // §FEAT-GLOBE-DEFAULT-AUTOFRAME (L-226) — token-gated in-flight flag. When the
