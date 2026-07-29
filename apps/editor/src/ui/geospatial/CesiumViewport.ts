@@ -1175,6 +1175,10 @@ export class CesiumViewport {
   private contextSeaEntities: Cesium.Entity[] = [];
   private contextSeaAbort: AbortController | null = null;
   private contextSeaAt: { lat: number; lon: number } | null = null;
+  /** §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — the [lon,lat] sea rings currently drawn, so the land-use
+   *  drape can skip any polygon that sits over the sea (grey must not bleed past the coast). Kept in
+   *  sync by renderContextSeaRings / clearContextSea. */
+  private contextSeaRingsLonLat: Array<ReadonlyArray<readonly [number, number]>> = [];
   /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the ULTRA-CHEAP instanced far tier (T2): ALL
    *  buildings beyond the near circle batched into ONE shadowless, single-shared-material low-poly
    *  primitive (one draw call, per the ADR-0094 budget + the instancing memory). Kept OUT of
@@ -8476,6 +8480,9 @@ export class CesiumViewport {
 
     this.clearContextSea();
     this.contextSeaAt = { lat, lon };
+    // §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — remember the sea rings so the land-use drape can skip any
+    // polygon over the sea (grey must not bleed past the coast, the founder's port observation).
+    this.contextSeaRingsLonLat = [...collection.sea.map((a) => a.ring), ...supplementalSea];
     const seaPlaced = this.renderContextSeaRings(
       lat, lon, collection.sea.map((a) => a.ring), supplementalSea, viewer,
     );
@@ -8485,6 +8492,9 @@ export class CesiumViewport {
         `(${collection.sea.length} baked + ${supplementalSea.length} live-coastline supplement) — ` +
         `${seaPlaced === 0 ? 'HONEST no-op (inland / no coastline)' : 'always-on with terrain/location'}.`,
     );
+    // Re-clip the land-use drape against the freshly-loaded sea (idempotent; cached fetch). This makes
+    // the sea→land-use ordering irrelevant — whichever loads first, the grey ends at the coast.
+    if (this.contextSeaRingsLonLat.length > 0) void this.loadContextLanduse(lat, lon, true);
   }
 
   /**
@@ -8536,6 +8546,8 @@ export class CesiumViewport {
       try { viewer.entities.remove(ent); } catch { /* gone */ }
     }
     this.contextSeaEntities = [];
+    this.contextSeaRingsLonLat = []; // §FORMA-CTX-LANDUSE-SEA-CLIP — no sea ⇒ no land-use clip
+
   }
 
   /**
@@ -8710,8 +8722,19 @@ export class CesiumViewport {
     const ruralEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.ruralEdge).withAlpha(0.5);
 
     let placed = 0;
+    let clippedBySea = 0;
     for (const area of collection.areas) {
       try {
+        // §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — skip a land-use polygon that sits over the sea, so the
+        // grey never bleeds past the coastline (the founder's port observation). Centroid-in-sea is
+        // the cheap robust test: a polygon whose centre is water is a reclaimed/port/mislabelled area
+        // that should read as sea, not urban.
+        if (this.contextSeaRingsLonLat.length > 0 && area.ring.length >= 3) {
+          let cx = 0, cy = 0;
+          for (const p of area.ring) { cx += p[0]; cy += p[1]; }
+          cx /= area.ring.length; cy /= area.ring.length;
+          if (this.isLonLatInSea(cx, cy)) { clippedBySea++; continue; }
+        }
         const positions = area.ring.map(([flon, flat]) => {
           const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
           const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
@@ -8736,7 +8759,21 @@ export class CesiumViewport {
     }
     viewer.scene.requestRender();
     const urban = collection.areas.filter((a) => a.kind === 'urban').length;
-    console.log(`[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} area(s) (${urban} urban-grey, ${placed - urban} rural-brown).`);
+    console.log(`[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} area(s) (${urban} urban-grey, ${placed - urban} rural-brown)${clippedBySea > 0 ? `, ${clippedBySea} clipped off the sea` : ''}.`);
+  }
+
+  /** §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — even-odd test: is [lon,lat] inside ANY current sea ring?
+   *  Used to keep the land-use drape from bleeding over the coast into the sea. */
+  private isLonLatInSea(lon: number, lat: number): boolean {
+    for (const ring of this.contextSeaRingsLonLat) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i]![0], yi = ring[i]![1], xj = ring[j]![0], yj = ring[j]![1];
+        if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
   }
 
   /** §FORMA-CTX-LANDUSE — remove all land-use polygons (idempotent). */
