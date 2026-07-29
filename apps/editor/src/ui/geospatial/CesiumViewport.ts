@@ -483,7 +483,16 @@ const CONTEXT_FAR_RENDER_RADIUS_M = CONTEXT_BBOX_FAR_HALF_DEG * 111_320;   // ~1
  * a wider bbox is pure client-side extent — no re-bake. §CONTEXT-DATA-HONESTY: a wider read that
  * finds no coast/land-use still degrades to a quiet no-op, never a fabricated plane.
  */
-const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 4;                   // 0.032° ≈ 3.5 km radius
+const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 4;                   // 0.032° ≈ 3.5 km radius (city ground)
+/**
+ * §FORMA-CTX-SEA-EXTENT (L-642, founder — "the sea should not be a square … it should cover all the
+ * sea, the immensity") — the SEA gets its OWN, much larger extent than the city ground so the open
+ * water reads as vast (edge far beyond a city-zoom frame), not a tidy square around the plot. Sea is
+ * ONE big flat polygon clipped to the real coast (§SEA-WATER-SIDE-ROBUST), so a large extent is cheap
+ * + honest — inland (no coastline in range) it is still a quiet no-op. ~11 km radius: past the horizon
+ * of a normal 3D-Site zoom, so the coast stops reading as an island edge.
+ */
+const CONTEXT_SEA_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 12.5;                 // 0.10° ≈ 11 km radius (the immensity)
 /**
  * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — hard COUNT backstop on the instanced far tier.
  * The tier is cheap-by-construction (ONE primitive, one shared material, shadowless) and already
@@ -8447,10 +8456,10 @@ export class CesiumViewport {
     const signal = this.contextSeaAbort.signal;
 
     // Baked sea rings (usually EMPTY on a baked coastal city — the water bake carries no coastline)
-    // + the L-637 live-coastline supplement. §FORMA-CTX-WIDE-EXTENT (L-642) — fetched over the WIDE
-    // extent so the open sea fills the whole zoom-out view (cached under its own wide-bbox key).
+    // + the L-637 live-coastline supplement. §FORMA-CTX-SEA-EXTENT (L-642) — fetched over the large
+    // SEA extent so the open sea fills to the horizon (cached under its own bbox key).
     let collection: ContextWaterCollection;
-    try { collection = await fetchContextWater(lat, lon, signal, CONTEXT_WIDE_HALF_DEG); }
+    try { collection = await fetchContextWater(lat, lon, signal, CONTEXT_SEA_HALF_DEG); }
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -8546,11 +8555,11 @@ export class CesiumViewport {
     lat: number, lon: number, signal: AbortSignal,
   ): Promise<Array<Array<readonly [number, number]>>> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
-    // §FORMA-CTX-WIDE-EXTENT (L-642) — the coastline query + sea-mask closure run over the WIDE
-    // extent so the OPEN sea (the Mediterranean beyond the near disc) is filled, not just the
-    // harbour. This is the layer that actually draws Barcelona's sea (baked tiles carry no
-    // coastline), so the widen must happen HERE for the founder's "sea not all coloured" fix.
-    const bbox = contextBboxAround(lat, lon, CONTEXT_WIDE_HALF_DEG);
+    // §FORMA-CTX-SEA-EXTENT (L-642) — the coastline query + sea-mask closure run over the large SEA
+    // extent so the OPEN sea (the Mediterranean beyond the near disc) fills to the horizon, not just
+    // the harbour. This is the layer that actually draws Barcelona's sea (baked tiles carry no
+    // coastline), so the widen must happen HERE for the founder's "cover all the sea, the immensity".
+    const bbox = contextBboxAround(lat, lon, CONTEXT_SEA_HALF_DEG);
     const key = bbox.map((n) => n.toFixed(4)).join(',');
     const cached = FORMA_SEA_MASK_CACHE.get(key);
     if (cached) return cached;

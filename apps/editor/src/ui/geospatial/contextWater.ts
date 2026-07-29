@@ -315,6 +315,22 @@ function boundaryWalk(from: number, to: number, dir: 1 | -1, b: Bbox): Array<[nu
     return pts;
 }
 
+/** Euclidean distance (in lon/lat units) from point p to segment a→b. Used only for the
+ *  §SEA-WATER-SIDE-ROBUST "is the site ~on the coast?" guard, where the small anisotropy of
+ *  lon vs lat is immaterial (the threshold is a few metres). */
+function distPointToSegment(
+    p: readonly [number, number], a: readonly [number, number], b: readonly [number, number],
+): number {
+    const vx = b[0] - a[0], vy = b[1] - a[1];
+    const wx = p[0] - a[0], wy = p[1] - a[1];
+    const c1 = vx * wx + vy * wy;
+    if (c1 <= 0) return Math.hypot(wx, wy);
+    const c2 = vx * vx + vy * vy;
+    if (c2 <= c1) return Math.hypot(p[0] - b[0], p[1] - b[1]);
+    const t = c1 / c2;
+    return Math.hypot(p[0] - (a[0] + t * vx), p[1] - (a[1] + t * vy));
+}
+
 /** Even-odd point-in-polygon (ring = [lon,lat] loop). */
 function pointInRing(pt: readonly [number, number], ring: ReadonlyArray<readonly [number, number]>): boolean {
     let inside = false;
@@ -370,7 +386,28 @@ export function buildSeaMaskFromCoastline(
                 return ring;
             };
             const ringA = build(1), ringB = build(-1);
-            const pick = pointInRing(test, ringA) ? ringA : (pointInRing(test, ringB) ? ringB : null);
+            // §SEA-WATER-SIDE-ROBUST (L-642) — the two closings PARTITION the bbox (they share the
+            // coastline strand + the two complementary arcs of the perimeter), so exactly ONE of them
+            // contains the bbox CENTRE. The centre is the site origin, which — WHEN it is inland of the
+            // coast — is a known LAND point (the user's parcel is never out at sea), so the SEA ring is
+            // the one that does NOT contain it. This is robust where the OSM way-direction right-hand
+            // test (`test`) is not: a wide or complex coast (port breakwaters, river mouths) can invert
+            // the stored orientation through stitching and paint the LAND side blue (the founder's
+            // "blue everywhere — square, not only the seaside"). BUT if the site sits ~on the shoreline
+            // the centre is on the strand and the side-test is ambiguous (two identical coasts of
+            // opposite orientation must yield opposite seas — only the way-direction can tell them
+            // apart), so there we defer to the right-hand test.
+            const centre: readonly [number, number] = [(w + e) / 2, (s + n) / 2];
+            let dCentre = Infinity;
+            for (let k = 1; k < strand.length; k++) {
+                dCentre = Math.min(dCentre, distPointToSegment(centre, strand[k - 1]!, strand[k]!));
+            }
+            let pick: Array<readonly [number, number]> | null;
+            if (dCentre > eps) {
+                pick = pointInRing(centre, ringA) ? ringB : ringA;   // sea = the side WITHOUT the land centre
+            } else {
+                pick = pointInRing(test, ringA) ? ringA : (pointInRing(test, ringB) ? ringB : null);
+            }
             if (!pick || pick.length < 4) continue;
             rings.push(pick);
         }
