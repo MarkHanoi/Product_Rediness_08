@@ -2483,6 +2483,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 ? '<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Estimated</span>'
                 : env.confidence === 'block-constructed'
                 ? '<span title="Real inputs + accepted rule + constructed geometry — not an official municipal certificate" style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">Real · constructed</span>'
+            // C58 §1.6 / §6 / ADR-0279 BLOCKER-1 (the zoning fidelity-label gate) — a MACHINE-EXTRACTED,
+            // human-UNVERIFIED value must NOT wear certificate styling and must be LOUDER than "Estimated".
+            // A distinct red warning affordance, never the green pill; permanent until a human signs off
+            // (the value graduates only via a recorded verification event, never silently).
+                : env.confidence === 'pipeline-extracted-unverified'
+                ? '<span title="This value was MACHINE-EXTRACTED from an ordinance and has NOT been human-verified — it must not be relied on until a person signs it off. NOT an official determination." style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#fdecea;color:#b3261e;border:1px solid #f3b9b3;font-weight:800;font-size:10px;letter-spacing:.03em;text-transform:uppercase;">⚠ Unverified · machine-extracted</span>'
                 : `<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${env.confidence}</span>`;
         const heightTxt = env.maxHeight_m !== null ? `${env.maxHeight_m.toFixed(1)} m` : '—';
         const farTxt = env.maxFAR !== null ? env.maxFAR.toFixed(2) : '—';
