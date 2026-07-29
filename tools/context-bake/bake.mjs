@@ -213,6 +213,11 @@ const LAYERS = [
   // and `contextWater.ts` already splits them, so this is the one layer that keeps two types.
   { id: 'water',     filter: ['nwr/natural=water', 'nwr/waterway', 'w/water'],   geom: 'polygon,linestring', minz: 8,  maxz: 16, extra: [] },
   { id: 'parks',     filter: ['nwr/leisure=park', 'nwr/landuse=grass,forest,recreation_ground', 'nwr/natural=wood'], geom: 'polygon', minz: 10, maxz: 16, extra: [] },
+  // §FORMA-CTX-LANDUSE (founder 2026-07-29) — colour the TERRAIN by land use: grey urban / brown rural.
+  // The `landuse` TAG rides along (osmium keeps it, tippecanoe stores it as a feature attribute), so the
+  // client (`contextLanduse.ts`) classifies each polygon urban↔rural and drapes the matching colour. Green
+  // (parks) + blue (water) already have their own layers; this fills the URBAN grey + RURAL brown ground.
+  { id: 'landuse',   filter: ['nwr/landuse=residential,commercial,industrial,retail,farmland,meadow,orchard,vineyard,farmyard,allotments,greenhouse_horticulture,plant_nursery,quarry,brownfield,construction,railway,port'], geom: 'polygon', minz: 9, maxz: 16, extra: ['--drop-densest-as-needed'] },
 ];
 
 // ── args ─────────────────────────────────────────────────────────────────────

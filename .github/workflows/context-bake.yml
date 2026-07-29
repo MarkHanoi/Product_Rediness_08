@@ -34,7 +34,7 @@ on:
   workflow_dispatch:
     inputs:
       layer:
-        description: 'Bake a single layer only (buildings | roads | water | parks). Blank = all four.'
+        description: 'Bake a single layer only (buildings | roads | water | parks | landuse). Blank = all.'
         type: string
         default: ''
       publish:

@@ -58,6 +58,7 @@ import type { MassingSolid } from "@pryzm/site-parcel-data";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
 import { fetchContextParks, type ContextParkCollection } from "./contextParks";
+import { fetchContextLanduse, type ContextLanduseCollection } from "./contextLanduse";
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
 // (party/blind-wall detection in resolveBlindFacades). Editor-side store, no engine dep.
 import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
@@ -402,6 +403,14 @@ const FORMA_PALETTE = {
   park: '#A9C77E',
   /** §FORMA-CTX-PARKS — subtle green edge for the park areas. */
   parkEdge: '#8FB86B',
+  /** §FORMA-CTX-LANDUSE (founder 2026-07-29) — URBAN land-use (residential/commercial/industrial…)
+   *  painted a soft neutral grey so built-up ground reads distinctly from the neutral base + rural. */
+  urban: '#C4C1BB',
+  urbanEdge: '#AEABA4',
+  /** §FORMA-CTX-LANDUSE — RURAL land-use (farmland/meadow/orchard/vineyard…) a warm earthy brown/tan
+   *  so agricultural ground reads brown, matching the founder's "brown in rural areas". */
+  rural: '#CDB98C',
+  ruralEdge: '#B8A374',
 } as const;
 
 /**
@@ -1096,6 +1105,8 @@ export class CesiumViewport {
   /** §FORMA-CTX-PARKS — OSM park / green-space polygons (visual-only context). */
   private contextParkEntities: Cesium.Entity[] = [];
   private contextParkAbort: AbortController | null = null;
+  private contextLanduseEntities: Cesium.Entity[] = [];
+  private contextLanduseAbort: AbortController | null = null;
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
    *  load / dispose so a stale response can't repaint the wrong site). */
   private contextBuildingsAbort: AbortController | null = null;
@@ -3402,6 +3413,8 @@ export class CesiumViewport {
         // 3D tiles already show the real green space).
         this.contextParkAbort?.abort();
         this.clearContextParks();
+        this.contextLanduseAbort?.abort();
+        this.clearContextLanduse();
       } else {
         const loc = this.readSiteLocation();
         if (loc) void this.loadContextBuildings(loc.lat, loc.lon, true);
@@ -5122,6 +5135,7 @@ export class CesiumViewport {
           void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
           void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
           void this.loadContextParks(originLat, originLon);   // §FORMA-CTX-PARKS
+          void this.loadContextLanduse(originLat, originLon); // §FORMA-CTX-LANDUSE (grey urban / brown rural)
         } catch (e) {
           console.warn('[CesiumViewport][forma] context kickoff threw — envelope/massing kept:', e);
         }
@@ -6094,6 +6108,7 @@ export class CesiumViewport {
         } catch { /* skip one entity; the re-seat must never break the pass. */ }
       }
     };
+    lift(this.contextLanduseEntities, 'polygon', 0.005);
     lift(this.contextParkEntities, 'polygon', 0.01);
     lift(this.contextRoadEntities, 'corridor', 0.02);
     lift(this.contextWaterEntities, 'polygon', 0.03);
@@ -8275,6 +8290,84 @@ export class CesiumViewport {
       try { viewer.entities.remove(ent); } catch { /* gone */ }
     }
     this.contextParkEntities = [];
+  }
+
+  /**
+   * §FORMA-CTX-LANDUSE (founder 2026-07-29) — colour the TERRAIN by land use. Fetch OSM land-use polygons
+   * for the site and drape them as flat ground-clamped fills: URBAN (residential/commercial/industrial…)
+   * in grey, RURAL (farmland/meadow/orchard/vineyard…) in brown — the founder's "grey urban / brown
+   * rural". Green (parks) + blue (water) come from their own layers. These sit at the VERY BOTTOM of the
+   * ground stack (base + 0.005, below parks at +0.01) so parks + water + road ribbons + buildings all read
+   * on top. Mirrors loadContextParks' ENU bridge exactly. Visual-only; never throws.
+   */
+  public async loadContextLanduse(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    if (!force && this.contextLanduseEntities.length > 0 && this.contextBuildingsAt &&
+        Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
+        Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+
+    this.contextLanduseAbort?.abort();
+    this.contextLanduseAbort = new AbortController();
+    const signal = this.contextLanduseAbort.signal;
+
+    let collection: ContextLanduseCollection;
+    try { collection = await fetchContextLanduse(lat, lon, signal); }
+    catch { return; }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextLanduse();
+    if (collection.areas.length === 0) return;
+
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+    );
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    // Bottom of the ground stack — just above the flat ground, below parks (base + 0.01).
+    const base = this.formaTerrainBaseHeight + 0.005;
+    const urbanFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.urban).withAlpha(0.9);
+    const urbanEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.urbanEdge).withAlpha(0.5);
+    const ruralFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.rural).withAlpha(0.9);
+    const ruralEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.ruralEdge).withAlpha(0.5);
+
+    let placed = 0;
+    for (const area of collection.areas) {
+      try {
+        const positions = area.ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+          return this.enuToCartesian(enu, off.x, off.y, base);
+        });
+        if (positions.length < 4) continue;
+        const isUrban = area.kind === 'urban';
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-landuse',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, not clampToGround.
+            material: isUrban ? urbanFill : ruralFill,
+            outline: true,
+            outlineColor: isUrban ? urbanEdge : ruralEdge,
+            outlineWidth: 1,
+          },
+        });
+        this.contextLanduseEntities.push(ent);
+        placed++;
+      } catch { /* skip one malformed land-use polygon */ }
+    }
+    viewer.scene.requestRender();
+    const urban = collection.areas.filter((a) => a.kind === 'urban').length;
+    console.log(`[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} area(s) (${urban} urban-grey, ${placed - urban} rural-brown).`);
+  }
+
+  /** §FORMA-CTX-LANDUSE — remove all land-use polygons (idempotent). */
+  public clearContextLanduse(): void {
+    const viewer = this.viewer;
+    if (viewer) for (const ent of this.contextLanduseEntities) {
+      try { viewer.entities.remove(ent); } catch { /* gone */ }
+    }
+    this.contextLanduseEntities = [];
   }
 
   /** Log the "context buildings unavailable / degraded" message at most once. */

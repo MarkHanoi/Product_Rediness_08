@@ -65,7 +65,7 @@ import { PbfReader } from 'pbf';
 export type TileBbox = readonly [number, number, number, number];
 
 /** The layers baked by `tools/context-bake/` — the tile file is `<layer>.pmtiles`. */
-export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks';
+export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks' | 'landuse';
 
 /** One decoded tile feature: GeoJSON-ish rings in lon/lat plus the OSM tags that rode along. */
 export interface ContextTileFeature {
@@ -114,6 +114,7 @@ const LAYER_ZOOM: Record<ContextTileLayer, number> = {
     roads: 16,
     water: 16,
     parks: 16,
+    landuse: 16,
 };
 
 /**
@@ -125,6 +126,7 @@ const LAYER_DEFINING_TAGS: Record<ContextTileLayer, readonly string[]> = {
     roads: ['highway'],
     water: ['natural', 'water', 'waterway'],
     parks: ['leisure', 'landuse', 'natural'],
+    landuse: ['landuse'],
 };
 
 /** Whether the layer's payload is areal (polygons) or linear (ways). */
@@ -133,6 +135,7 @@ const LAYER_IS_AREAL: Record<ContextTileLayer, boolean> = {
     roads: false,
     water: false, // mixed: areas AND waterways — accept both, the consumer splits them.
     parks: true,
+    landuse: true,
 };
 
 /**
