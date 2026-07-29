@@ -1,0 +1,163 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# terrain-bake-all.yml — FULL-ROLLOUT sharded terrain re-bake (L-639)
+#
+# WHY this exists SEPARATELY from terrain-bake.yml: terrain-bake.yml bakes a city list in
+# ONE serial job under a 60-min cap — fine for a spot bake, impossible for the ~589 bakeable
+# European regions (≈7 h serial). This workflow shards BAKEABLE_REGIONS across N parallel
+# matrix jobs (default 12 → ≈49 cities/job → ≈30 min wall-clock for the whole of Europe).
+#
+# It is the tool for a pipeline-wide re-bake — e.g. after the L-639 horizon-occlusion /
+# rectangle-centre encoder fix (ADR-0278), every pre-fix tileset must be re-emitted. Each
+# shard writes ONLY its own cities to R2 (per-city paths, no cross-shard collision), so
+# fail-fast is OFF: one shard dying never discards the others.
+#
+# Single source of truth for the city list: tools/context-bake/terrain.mjs BAKEABLE_REGIONS.
+# MANUAL ONLY — the founder clicks "Run workflow".
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Bake ALL terrain (sharded) → R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: 'Parallel shards to split BAKEABLE_REGIONS across (12 ≈ 49 cities/shard).'
+        type: string
+        default: '12'
+      publish:
+        description: 'Upload to s3://pryzm-assets/tiles/terrain/. Untick to bake + inspect artifacts only.'
+        type: boolean
+        default: true
+
+# Distinct group from terrain-bake.yml so a full rollout and a spot bake never cancel each other.
+concurrency:
+  group: terrain-bake-all
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan shards
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          set -euo pipefail
+          N='${{ inputs.shards }}'
+          arr="$(node -e "console.log(JSON.stringify(Array.from({length:Number(process.argv[1])},(_,i)=>i)))" "$N")"
+          echo "matrix={\"shard\":$arr}" >> "$GITHUB_OUTPUT"
+          echo "sharding into $N parallel jobs: $arr"
+
+  bake:
+    name: Shard ${{ matrix.shard }}/${{ inputs.shards }} — DTM → TIN → quantized-mesh → R2
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install terrain compiler deps (in a TEMP dir OUTSIDE the repo)
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          cd "$TMP"
+          printf '{ "name": "pryzm-context-bake-standalone", "private": true, "version": "0.0.0" }\n' > package.json
+          npm install --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1 proj4@2
+          rm -rf "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+          mv node_modules "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+
+      - name: Reproject self-test (fail before any bake if a CRS def is wrong)
+        run: node tools/context-bake/terrain.mjs --selftest
+
+      - name: Bake this shard
+        env:
+          DATAFORDELER_API_KEY: ${{ secrets.DATAFORDELER_API_KEY }}
+          LANTMATERIET_API_KEY: ${{ secrets.LANTMATERIET_API_KEY }}
+          MML_API_KEY: ${{ secrets.MML_API_KEY }}
+          SHARD: ${{ matrix.shard }}
+          NSHARDS: ${{ inputs.shards }}
+        run: |
+          set -euo pipefail
+          # This shard's slice of the single source of truth (round-robin by index so each shard
+          # mixes fast/slow cities evenly instead of clustering one country in one job).
+          CITIES="$(node -e "import('./tools/context-bake/terrain.mjs').then(m => { const a=m.BAKEABLE_REGIONS.map(r=>r.name); const N=Number(process.env.NSHARDS), i=Number(process.env.SHARD); console.log(a.filter((_,k)=>k%N===i).join(' ')); })")"
+          echo "shard $SHARD/$NSHARDS cities: $CITIES"
+          failed=""
+          for c in $CITIES; do
+            echo "── $c ──"
+            if ! node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c"; then
+              echo "::warning::terrain bake for '$c' failed — skipping (other cities continue)"
+              failed="$failed $c"
+            fi
+          done
+          [ -n "$failed" ] && echo "::warning::shard $SHARD cities that did not bake:$failed" || echo "shard $SHARD: all attempted cities baked"
+
+      - name: Assert produced tilesets are real
+        run: |
+          set -euo pipefail
+          cd tools/context-bake/out
+          if [ ! -d terrain ] || [ -z "$(ls -A terrain 2>/dev/null)" ]; then
+            echo "::warning::shard produced no tilesets (all cities skipped) — check the bake log."
+            exit 0
+          fi
+          fail=0
+          for d in terrain/*/; do
+            city="$(basename "$d")"
+            if [ ! -f "$d/layer.json" ]; then echo "::error::$city has no layer.json."; fail=1; continue; fi
+            n="$(find "$d" -name '*.terrain' 2>/dev/null | wc -l)"
+            sz="$(find "$d" -name '*.terrain' -printf '%s\n' 2>/dev/null | sort -rn | head -1)"; sz="${sz:-0}"
+            echo "$city — $n .terrain LODs, largest $sz bytes"
+            if [ "$n" -lt 1 ] || [ "$sz" -lt 128 ]; then echo "::error::$city produced no real tiles."; fail=1; fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: Round-trip decode proof (independent decoder)
+        run: |
+          set -euo pipefail
+          cd tools/context-bake
+          [ -d out/terrain ] || { echo "no tilesets to verify"; exit 0; }
+          fail=0
+          for d in out/terrain/*/; do
+            city="$(basename "$d")"
+            echo "── $city (tileset decode proof) ──"
+            node terrain.verify.mjs --tileset "$d" || { echo "::error::$city failed the tileset decode proof"; fail=1; }
+          done
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: Publish this shard to R2
+        if: ${{ inputs.publish }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ ! -d tools/context-bake/out/terrain ] || [ -z "$(ls -A tools/context-bake/out/terrain 2>/dev/null)" ]; then
+            echo "nothing to publish this shard."; exit 0
+          fi
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot publish."; exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 sync tools/context-bake/out/terrain "s3://pryzm-assets/tiles/terrain" \
+            --endpoint-url "$ENDPOINT" --no-progress \
+            --exclude '*' --include '*.terrain' \
+            --content-type 'application/vnd.quantized-mesh' \
+            --cache-control 'public, max-age=86400'
+          aws s3 sync tools/context-bake/out/terrain "s3://pryzm-assets/tiles/terrain" \
+            --endpoint-url "$ENDPOINT" --no-progress \
+            --exclude '*' --include 'layer.json' --include '*/layer.json' \
+            --content-type 'application/json' \
+            --cache-control 'public, max-age=86400'
+          echo "shard ${{ matrix.shard }} published."
