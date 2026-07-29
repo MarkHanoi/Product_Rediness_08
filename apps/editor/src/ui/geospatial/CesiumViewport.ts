@@ -11,6 +11,9 @@ import {
     // nearest-N capped) split client-side, so the far ring never waits on a second network hop.
     fetchContextBuildingsNearAndFar,
     CONTEXT_BBOX_HALF_DEG,
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the far-ring half-extent, reused to derive the
+    // RADIAL (circle) far-tier cull radius so the two never drift apart from the fetch extent.
+    CONTEXT_BBOX_FAR_HALF_DEG,
     // §FEAT-FORMA-SEA-CONTEXT (L-637) — supplemental LIVE coastline fetch (the baked water tiles
     // carry no `natural=coastline`, so a baked coastal city has no sea mask). Reuses the SAME
     // §OVERPASS-PROXY + bbox helper the context loaders use — no parallel network path.
@@ -450,6 +453,28 @@ const FORMA_BASE_SINK_M = 0.6;
  * Overpass round-trip. Module scope so it survives viewer teardown (mirrors `contextWater`'s cache).
  */
 const FORMA_SEA_MASK_CACHE = new Map<string, Array<Array<readonly [number, number]>>>();
+
+/**
+ * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — RADIAL (circle) tier radii, the founder's
+ * "circle, not square". The near/far fetch is a SQUARE bbox whose corners reach ~1.4× farther than
+ * its edges; culling each tier to a CIRCLE of the on-axis extent drops those corners so zoom-out
+ * reads as a disc of city, not a square patch. Both are DERIVED from the existing fetch half-extents
+ * (≈111.32 km per degree of latitude) — no new magic number is introduced.
+ *
+ *   • SOLID near tier (extruded entities, unchanged look): distM ≤ CONTEXT_NEAR_RENDER_RADIUS_M.
+ *   • Instanced far tier (T2 low-poly): CONTEXT_NEAR_RENDER_RADIUS_M < distM ≤ CONTEXT_FAR_RENDER_RADIUS_M.
+ *   • Beyond CONTEXT_FAR_RENDER_RADIUS_M: culled (the horizon).
+ */
+const CONTEXT_NEAR_RENDER_RADIUS_M = CONTEXT_BBOX_HALF_DEG * 111_320;      // ~890 m (near bbox on-axis)
+const CONTEXT_FAR_RENDER_RADIUS_M = CONTEXT_BBOX_FAR_HALF_DEG * 111_320;   // ~1225 m (far bbox on-axis)
+/**
+ * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — hard COUNT backstop on the instanced far tier.
+ * The tier is cheap-by-construction (ONE primitive, one shared material, shadowless) and already
+ * bounded upstream by the far-ring budget cap + the radial cull above; this is a runaway guard so a
+ * pathologically dense district can never hand the batch an unbounded geometry set. Nearest-first, so
+ * when it bites it drops the FARTHEST footprints (least visible), never an arbitrary slice.
+ */
+const CONTEXT_FAR_TIER_MAX_INSTANCES = 4000;
 
 /**
  * §FACADE-STUDY-SUBJECT (L-596) × C58 §1.14 — collapse the envelope's `MassingSolid[]` to the ONE
@@ -1118,6 +1143,22 @@ export class CesiumViewport {
   /** FORMA-CTX-WATER — OSM water polygons + waterway polylines (visual-only). */
   private contextWaterEntities: Cesium.Entity[] = [];
   private contextWaterAbort: AbortController | null = null;
+  /** §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the STANDING sea/ocean layer, promoted to always-on
+   *  (loaded with the terrain/location like T0 terrain, no longer only on a parcel select). Its own
+   *  entity list + abort + at-guard give it a lifecycle independent of the on-select water bodies. */
+  private contextSeaEntities: Cesium.Entity[] = [];
+  private contextSeaAbort: AbortController | null = null;
+  private contextSeaAt: { lat: number; lon: number } | null = null;
+  /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the ULTRA-CHEAP instanced far tier (T2): ALL
+   *  buildings beyond the near circle batched into ONE shadowless, single-shared-material low-poly
+   *  primitive (one draw call, per the ADR-0094 budget + the instancing memory). Kept OUT of
+   *  `contextBuildingEntities`/`contextBuildingPlacements` so the near ring's pick + in-place re-seat
+   *  are untouched; this primitive has its own clear + rebuild path. `contextFarTierState` caches the
+   *  render inputs so the terrain-settle re-seat can rebuild it on the risen ground with no re-fetch. */
+  private contextFarTierPrimitive: Cesium.Primitive | null = null;
+  private contextFarTierState:
+    | { features: readonly ContextBuildingFeature[]; lat: number; lon: number }
+    | null = null;
   /** §FORMA-CTX-PARKS — OSM park / green-space polygons (visual-only context). */
   private contextParkEntities: Cesium.Entity[] = [];
   private contextParkAbort: AbortController | null = null;
@@ -2664,6 +2705,15 @@ export class CesiumViewport {
     // the camera can never park BELOW a high city's terrain (Burgos ~912 m) → frustum-cull → white.
     if (this.formaTerrainBaseHeight > groundBase + 1) groundBase = this.formaTerrainBaseHeight;
     this.frameSiteLocationAtGround(lat, lon, groundBase, opts);
+    // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — SEA ALWAYS-ON. This is the standing pre-plot framing
+    // funnel (initial location, geocode search, project restore, GISAreaLayout pre-plot reframe), the
+    // same point the baked terrain is attached above — so promote the sea here too: whenever the 3D-Site
+    // shows a location with terrain, the coast is present without a parcel select. Forma-only (the sea is
+    // a flat-ground Forma feature; on the photoreal globe the 3D tiles already carry the water). Guarded,
+    // cached + an HONEST no-op inland. `void`-fired so a slow coastline fetch never blocks the framing.
+    if (this.formaMode && !this.photorealTilesActive) {
+      void this.loadContextSea(lat, lon);
+    }
   }
 
   /** §SITE-FRAME-ON-TERRAIN (L-635) — the actual camera framing, seated at `groundBase + SITE_FRAME_HEIGHT_M`. */
@@ -3425,6 +3475,11 @@ export class CesiumViewport {
         this.clearContextRoads();
         this.contextWaterAbort?.abort();
         this.clearContextWater();
+        // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea is a FORMA-only flat feature; on
+        // the photoreal globe the 3D tiles already carry the water, so suppress it too (mirrors water).
+        this.contextSeaAbort?.abort();
+        this.clearContextSea();
+        this.contextSeaAt = null;
         // §FORMA-CTX-PARKS — same FORMA-only suppression on the photoreal globe (the
         // 3D tiles already show the real green space).
         this.contextParkAbort?.abort();
@@ -6095,6 +6150,11 @@ export class CesiumViewport {
       // frame: Madrid's ground read as bare white (no green parks / no streets) while flat Barcelona's
       // base-0 features sat exactly on its ~0 ground. Lift them onto the settled base so the ground reads.
       this.reseatContextGroundFeaturesForBase();
+      // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the instanced far tier is seated by absolute
+      // per-footprint ground too; rebuild it on the risen base so the wireframe far ring tracks the
+      // relief instead of sitting ~700 m under it. Cheap (bounded count), no re-fetch — same in-place
+      // principle as the near-ring re-seat above.
+      this.rebuildContextFarTierForBase();
     }
   }
 
@@ -6127,6 +6187,10 @@ export class CesiumViewport {
     lift(this.contextLanduseEntities, 'polygon', 0.005);
     lift(this.contextParkEntities, 'polygon', 0.01);
     lift(this.contextRoadEntities, 'corridor', 0.02);
+    // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea is a ground feature too; lift it onto
+    // the settled base with the same +0.02 seat renderContextSeaRings uses, so the coast tracks the
+    // risen terrain (Madrid ~700 m) instead of staying ~700 m under it.
+    lift(this.contextSeaEntities, 'polygon', 0.02);
     lift(this.contextWaterEntities, 'polygon', 0.03);
     if (n > 0) viewer.scene.requestRender();
     console.log(
@@ -7504,20 +7568,32 @@ export class CesiumViewport {
     // this renders immediately from `far` rather than gating on a separate Overpass round-trip.
     // §PLOT-CLEAR-ENVELOPE — the far ring gets the SAME on-plot filter (a large plot could
     // reach a far footprint), so the plot stays clear at every LOD tier.
-    // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the DEMOTED near-tier first: cheap shading, but
-    // TRUE height (no 24 m clamp) because these are the site's own immediate neighbours.
-    // plotClearSplit already ran on the near set above, so no second filter is needed.
-    if (nearTiers.demoted.length > 0) {
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — RADIAL (circle) tiers, not square. Split the
+    // demoted near tier by the near-render RADIUS: those INSIDE the circle stay SOLID (true-height
+    // shadowless entities — the immediate-neighbourhood look, UNCHANGED); those in the square bbox's
+    // CORNERS beyond the circle fall through to the cheap instanced far tier, so the SOLID tier reads
+    // as a disc, not a square. `distM` was stamped by selectNearRingRenderTiers — no re-measure.
+    const demotedSolid: ContextBuildingFeature[] = [];
+    const demotedToFar: ContextBuildingFeature[] = [];
+    for (const f of nearTiers.demoted) {
+      ((f.properties.distM ?? 0) <= CONTEXT_NEAR_RENDER_RADIUS_M ? demotedSolid : demotedToFar).push(f);
+    }
+    // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the DEMOTED SOLID near-tier: cheap shading, but TRUE
+    // height (no 24 m clamp) because these are the site's own immediate neighbours. plotClearSplit
+    // already ran on the near set above, so no second filter is needed.
+    if (demotedSolid.length > 0) {
       this.renderContextBuildingsFarRing(
-        { type: 'FeatureCollection', features: nearTiers.demoted }, lat, lon, viewer,
-        { heightClampM: null, label: 'near ring (demoted tier)' },
+        { type: 'FeatureCollection', features: demotedSolid }, lat, lon, viewer,
+        { heightClampM: null, label: 'near ring (demoted solid tier)' },
       );
     }
 
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the ULTRA-CHEAP T2 far tier. ALL buildings
+    // beyond the near circle (the far fetch + the demoted corners) rendered as ONE batched, shadowless,
+    // single-shared-material low-poly primitive — RADIALLY culled to a disc + count-capped, so the
+    // ADR-0094 large-scene budget holds (no 4× solid extrusions, the rejected fast-but-wrong path).
     const farSplit = this.plotClearSplit(far.features, parcelLonLat);
-    this.renderContextBuildingsFarRing(
-      { type: 'FeatureCollection', features: farSplit.kept }, lat, lon, viewer,
-    );
+    this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
 
     // §CTX-USE-COLOUR (L-599) — if the use MODE is on, colour the freshly-placed set (and refresh
     // the legend counts, which describe THIS scene). No-op when the mode is off.
@@ -7934,6 +8010,131 @@ export class CesiumViewport {
   }
 
   /**
+   * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the ULTRA-CHEAP instanced far tier (T2).
+   *
+   * THE BINDING CONSTRAINT (ADR-0094 large-scene budget + the WebGPU device-loss risk of memory
+   * `webgpu-heavy-scene-crash-and-instancing`: heavy scenes cascade to device-loss; per-element unique
+   * materials defeat instancing): a 4× context radius must NOT become 16× solid extruded buildings —
+   * the rejected fast-but-wrong path. So this tier is CHEAP BY CONSTRUCTION:
+   *   • ONE batched `Cesium.Primitive` (all footprints combined into one vertex buffer → one draw call),
+   *   • ONE shared appearance/material (`PerInstanceColorAppearance`, every instance the same colour),
+   *   • SHADOWLESS (`ShadowMode.DISABLED` — the shadow pass is the perf driver the founder flagged),
+   *   • RADIALLY culled to a disc (`CONTEXT_FAR_RENDER_RADIUS_M`) + a hard nearest-first count backstop.
+   *
+   * It is kept OUT of `contextBuildingEntities`/`contextBuildingPlacements`, so the near ring's pick +
+   * in-place terrain re-seat are untouched; this primitive owns its own clear + rebuild. Never throws.
+   */
+  private renderContextFarTierInstanced(
+    features: readonly ContextBuildingFeature[], lat: number, lon: number, viewer: Cesium.Viewer,
+  ): void {
+    if (!this.viewer || this.viewer !== viewer) return;
+    // A newer near/far load or a dispose superseded us, or the site moved (mirrors the far-ring guard).
+    if (!this.contextBuildingsAt
+      || Math.abs(this.contextBuildingsAt.lat - lat) > 1e-9
+      || Math.abs(this.contextBuildingsAt.lon - lon) > 1e-9) return;
+    // RADIAL (circle) cull + nearest-first count cap → bounded by construction (the "not square" disc).
+    const culled = features
+      .filter((f) => (f.properties.distM ?? Infinity) <= CONTEXT_FAR_RENDER_RADIUS_M)
+      .sort((a, b) => (a.properties.distM ?? 0) - (b.properties.distM ?? 0));
+    const bounded = culled.length > CONTEXT_FAR_TIER_MAX_INSTANCES
+      ? culled.slice(0, CONTEXT_FAR_TIER_MAX_INSTANCES) : culled;
+    // Cache the inputs so the terrain-settle re-seat can rebuild this primitive on the risen ground
+    // (no re-fetch — the same in-place principle as reseatContextPlacementsForBase for the near ring).
+    this.contextFarTierState = { features: bounded, lat, lon };
+    this.buildContextFarTierPrimitive(bounded, lat, lon, viewer);
+  }
+
+  /**
+   * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — (re)build the single batched far-tier primitive
+   * from `features`, seating each footprint on its OWN per-point relief (`sampleGround`, the same
+   * §SITEFRAME-GROUND seat the near/far rings use). Replaces any existing far primitive. Never throws.
+   */
+  private buildContextFarTierPrimitive(
+    features: readonly ContextBuildingFeature[], lat: number, lon: number, viewer: Cesium.Viewer,
+  ): void {
+    this.clearContextFarTier();
+    if (features.length === 0) { viewer.scene.requestRender(); return; }
+    // §CTX-BUILDINGS-RENDER-FIRST (L-635) — same safe base as the near/far rings: an un-tessellated
+    // footprint under attached relief falls back to the settled ground, never a depth-culling ~0.
+    const contextSafeBase = this.resolveContextSafeBase(lat, lon);
+    // A hair MORE transparent than the near ring so the distant massing reads as clearly secondary
+    // (aerial perspective) — and, critically, ONE colour shared by every instance (single material).
+    const farColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.6);
+    const instances: Cesium.GeometryInstance[] = [];
+    for (const f of features) {
+      try {
+        const ring = f.geometry.coordinates[0];
+        if (!ring || ring.length < 4) continue;
+        const fCentroid = ringCentroidLatLon(ring);
+        const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon, contextSafeBase) : contextSafeBase;
+        const fBase = fGround - FORMA_BASE_SINK_M;
+        // §CTX-MISSING-HEIGHT-FALLBACK (L-636) — a 0-height footprint → the legible 9 m default; then
+        // the far LOW-POLY clamp (24 m) so no stray distant tower dominates the wireframe far ring.
+        const rawH = f.properties.heightM;
+        const trueH = (Number.isFinite(rawH) && rawH >= 2) ? rawH : 9;
+        const h = Math.min(24, trueH);
+        const positions = ring.map(([flon, flat]) => Cesium.Cartesian3.fromDegrees(flon!, flat!));
+        const geom = new Cesium.PolygonGeometry({
+          polygonHierarchy: new Cesium.PolygonHierarchy(positions),
+          height: fBase,                 // §CTX-ABS-SEAT — absolute settled ground (scalar base).
+          extrudedHeight: fGround + h,
+          perPositionHeight: false,
+          closeTop: true,
+          closeBottom: false,
+          vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT,
+        });
+        instances.push(new Cesium.GeometryInstance({
+          geometry: geom,
+          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(farColor) },
+        }));
+      } catch { /* skip a malformed far footprint */ }
+    }
+    if (instances.length === 0) { viewer.scene.requestRender(); return; }
+    try {
+      const prim = new Cesium.Primitive({
+        geometryInstances: instances,
+        // ONE shared appearance for the whole batch; `flat` = no lighting/shadow shading → cheap.
+        appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
+        asynchronous: true,            // build off the main thread (single-rAF friendly; no jank).
+        shadows: Cesium.ShadowMode.DISABLED,
+      });
+      viewer.scene.primitives.add(prim);
+      this.contextFarTierPrimitive = prim;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD far-tier primitive build failed:', e);
+    }
+    viewer.scene.requestRender();
+    console.log(
+      `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642) instanced far tier: ${instances.length} ` +
+        `low-poly footprint(s) in ONE shadowless shared-material primitive (radial ≤${Math.round(CONTEXT_FAR_RENDER_RADIUS_M)} m, ` +
+        `cap ${CONTEXT_FAR_TIER_MAX_INSTANCES}).`,
+    );
+  }
+
+  /**
+   * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — rebuild the far-tier primitive on the settled
+   * terrain base (called from the terrain-settle in-place re-seat). No-op on the flat/keyless path
+   * (load-time seat is already exact there) or when no far tier is drawn. Never throws.
+   */
+  private rebuildContextFarTierForBase(): void {
+    const st = this.contextFarTierState;
+    const viewer = this.viewer;
+    if (!st || !viewer) return;
+    if (!this.groundReliefAttached()) return;
+    this.buildContextFarTierPrimitive(st.features, st.lat, st.lon, viewer);
+  }
+
+  /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — remove the instanced far-tier primitive
+   *  (idempotent; `primitives.remove` also destroys it). */
+  public clearContextFarTier(): void {
+    const viewer = this.viewer;
+    if (viewer && this.contextFarTierPrimitive) {
+      try { viewer.scene.primitives.remove(this.contextFarTierPrimitive); } catch { /* gone / destroyed with viewer */ }
+    }
+    this.contextFarTierPrimitive = null;
+  }
+
+  /**
    * §A.21.D-GLOBE (2026-06-05) — refresh context buildings as the camera PANS so
    * they don't render only in one fixed square around the site origin and then
    * vanish when the user moves (founder-reported "buildings stop showing as I move").
@@ -7992,6 +8193,11 @@ export class CesiumViewport {
       }
     }
     this.contextBuildingEntities = [];
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the instanced far tier loads + clears WITH the
+    // buildings, so drop its primitive here too (and its cached rebuild state) or it would leak across
+    // a re-load / project switch.
+    this.clearContextFarTier();
+    this.contextFarTierState = null;
     // §PLOT-CLEAR-ENVELOPE (L-418) — the entity refs are gone, so drop their footprint
     // pairings too (they are repopulated on the next placement).
     this.contextBuildingPlacements = [];
@@ -8131,13 +8337,13 @@ export class CesiumViewport {
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextWater();
-    // §FEAT-FORMA-SEA-CONTEXT (L-637) — even when the primary collection is empty we may still
-    // draw a live coastline-derived sea on a BAKED coastal city (the tiles carry no coastline —
-    // bake.mjs water filter = natural=water|waterway|water). So only bail early when there is
-    // genuinely nothing to draw AND no sea supplement to attempt.
-    const willTrySeaSupplement = collection.sea.length === 0 && contextTilesEnabled();
-    if (collection.areas.length === 0 && collection.ways.length === 0
-        && collection.sea.length === 0 && !willTrySeaSupplement) return;
+    // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the SEA is now a STANDING, always-on layer with its
+    // OWN lifecycle (loadContextSea, promoted to load with the terrain/location like T0 terrain), so
+    // this on-select water loader no longer draws it. Ensure it is present for this site (idempotent —
+    // a no-op if the standing load already covered this bbox). ONE sea render path, never two.
+    void this.loadContextSea(lat, lon, force);
+    // Only the inland lake/pond/river bodies remain here; bail when there are none (the sea is above).
+    if (collection.areas.length === 0 && collection.ways.length === 0) return;
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
@@ -8150,56 +8356,6 @@ export class CesiumViewport {
     const waterLine = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.95);
 
     let placed = 0;
-    // §FEAT-FORMA-SEA-CONTEXT (L-185) — open ocean/bay from the coastline sea-mask. These
-    // are large bbox-scale surfaces, so draw them FIRST + a hair BELOW the lakes/rivers so
-    // the smaller water bodies + road ribbons read cleanly on top and never z-fight. A
-    // slightly deeper blue so the sea reads as water, not the neutral Forma ground.
-    const seaBase = this.formaTerrainBaseHeight + 0.02;
-    const seaFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.9);
-    let seaPlaced = 0;
-    // Drape ONE closed sea ring on the settled ground (shared by the baked `collection.sea` and
-    // the L-637 live-coastline supplement below — one render path, never two). Same ENU bridge +
-    // §CTX-ABS-SEAT absolute height as every other ground feature.
-    const addSeaRing = (ring: ReadonlyArray<readonly [number, number]>): void => {
-      const positions = ring.map(([flon, flat]) => {
-        const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-        const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-        return this.enuToCartesian(enu, off.x, off.y, seaBase);
-      });
-      if (positions.length < 4) return;
-      const ent = viewer.entities.add({
-        name: 'pryzm-forma-context-sea',
-        polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(positions),
-          height: seaBase,
-          material: seaFill,
-          outline: false,
-        },
-      });
-      this.contextWaterEntities.push(ent);
-      placed++;
-      seaPlaced++;
-    };
-    for (const area of collection.sea) {
-      try { addSeaRing(area.ring); } catch { /* skip one malformed sea ring */ }
-    }
-    // §FEAT-FORMA-SEA-CONTEXT (L-637) — a BAKED coastal city (Barcelona/Almería/Lisbon) has an
-    // EMPTY `collection.sea` because the water bake carries no `natural=coastline` line-work, so
-    // the open sea renders as neutral ground. Until the bake adds the coastline layer, fetch the
-    // REAL coastline for this bbox live (same §OVERPASS-PROXY the water loader uses) and build the
-    // closed sea rings with the SAME pure `buildSeaMaskFromCoastline`. HONESTY (§CONTEXT-DATA-
-    // HONESTY): the sea is clipped to the real coast — never a fabricated flat plane over land.
-    // Best-effort + guarded: an inland site (no coastline) resolves to a quiet no-op; never throws.
-    if (collection.sea.length === 0 && contextTilesEnabled()) {
-      let supplementalSea: Array<Array<readonly [number, number]>> = [];
-      try { supplementalSea = await this.fetchSeaMaskViaOverpass(lat, lon, signal); }
-      catch { /* never-throw — degrade to no sea */ }
-      if (!signal.aborted && this.viewer === viewer) {
-        for (const ring of supplementalSea) {
-          try { addSeaRing(ring); } catch { /* skip one malformed sea ring */ }
-        }
-      }
-    }
     // Filled lake/pond/reservoir polygons.
     for (const area of collection.areas) {
       try {
@@ -8247,7 +8403,113 @@ export class CesiumViewport {
       } catch { /* skip one malformed waterway */ }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} water feature(s) (incl. ${seaPlaced} §FEAT-FORMA-SEA-CONTEXT sea surface(s); ${collection.sea.length} baked + ${seaPlaced - collection.sea.length} live-coastline supplement).`);
+    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} inland water feature(s) (lakes/rivers; the sea is the standing §FEAT-FORMA-SEA-CONTEXT layer).`);
+  }
+
+  /**
+   * §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the STANDING sea/ocean layer.
+   *
+   * Promotes the L-185/L-637 sea from a per-parcel-select feature (drawn inside loadContextWater) to
+   * an ALWAYS-ON layer loaded with the terrain/location — mirroring how the baked terrain is always
+   * attached — so the coast is present the moment the 3D-Site view frames a location, with no parcel
+   * select. Reuses the SAME sea-mask builder + ENU §CTX-ABS-SEAT ground-seat as before; only WHEN it
+   * loads changed. Guarded, cached (fetchContextWater's per-bbox cache + FORMA_SEA_MASK_CACHE for the
+   * live-coastline supplement), and an HONEST no-op inland (no coastline → no sea, never a fabricated
+   * plane, §CONTEXT-DATA-HONESTY). Never throws.
+   */
+  public async loadContextSea(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    if (!force && this.contextSeaEntities.length > 0 && this.contextSeaAt
+        && Math.abs(this.contextSeaAt.lat - lat) < 1e-6
+        && Math.abs(this.contextSeaAt.lon - lon) < 1e-6) return;
+
+    this.contextSeaAbort?.abort();
+    this.contextSeaAbort = new AbortController();
+    const signal = this.contextSeaAbort.signal;
+
+    // Baked sea rings (usually EMPTY on a baked coastal city — the water bake carries no coastline)
+    // + the L-637 live-coastline supplement. fetchContextWater is cached/shared per bbox, so when
+    // loadContextWater has already fetched this bbox this adds NO network read.
+    let collection: ContextWaterCollection;
+    try { collection = await fetchContextWater(lat, lon, signal); }
+    catch { return; }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    // §FEAT-FORMA-SEA-CONTEXT (L-637) — a BAKED coastal city has an EMPTY `collection.sea` (the water
+    // bake has no `natural=coastline`), so fetch the REAL coastline live (same §OVERPASS-PROXY the
+    // water loader uses) and close the sea rings with the SAME pure `buildSeaMaskFromCoastline`.
+    // Inland → the supplement resolves to `[]` → a quiet no-op (never a fabricated plane).
+    let supplementalSea: Array<Array<readonly [number, number]>> = [];
+    if (collection.sea.length === 0 && contextTilesEnabled()) {
+      try { supplementalSea = await this.fetchSeaMaskViaOverpass(lat, lon, signal); }
+      catch { /* never-throw — degrade to no sea */ }
+    }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextSea();
+    this.contextSeaAt = { lat, lon };
+    const seaPlaced = this.renderContextSeaRings(
+      lat, lon, collection.sea.map((a) => a.ring), supplementalSea, viewer,
+    );
+    viewer.scene.requestRender();
+    console.log(
+      `[CesiumViewport][forma] §FEAT-FORMA-SEA-CONTEXT standing sea: ${seaPlaced} surface(s) ` +
+        `(${collection.sea.length} baked + ${supplementalSea.length} live-coastline supplement) — ` +
+        `${seaPlaced === 0 ? 'HONEST no-op (inland / no coastline)' : 'always-on with terrain/location'}.`,
+    );
+  }
+
+  /**
+   * §FEAT-FORMA-SEA-CONTEXT — drape closed sea rings on the settled ground (§CTX-ABS-SEAT), via the
+   * SAME ENU bridge every other ground feature uses. Shared render for the standing sea layer;
+   * returns the number of rings placed into `contextSeaEntities`. Never throws per-ring.
+   */
+  private renderContextSeaRings(
+    lat: number, lon: number,
+    bakedRings: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+    supplementalRings: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+    viewer: Cesium.Viewer,
+  ): number {
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+    // A hair BELOW the lakes/rivers (base + 0.03) so those + road ribbons read cleanly on top, and a
+    // slightly deeper blue so the sea reads as water rather than the neutral Forma ground.
+    const seaBase = this.formaTerrainBaseHeight + 0.02;
+    const seaFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.9);
+    let placed = 0;
+    const addSeaRing = (ring: ReadonlyArray<readonly [number, number]>): void => {
+      const positions = ring.map(([flon, flat]) => {
+        const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+        const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+        return this.enuToCartesian(enu, off.x, off.y, seaBase);
+      });
+      if (positions.length < 4) return;
+      const ent = viewer.entities.add({
+        name: 'pryzm-forma-context-sea',
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(positions),
+          height: seaBase, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround.
+          material: seaFill,
+          outline: false,
+        },
+      });
+      this.contextSeaEntities.push(ent);
+      placed++;
+    };
+    for (const ring of bakedRings) { try { addSeaRing(ring); } catch { /* skip one malformed sea ring */ } }
+    for (const ring of supplementalRings) { try { addSeaRing(ring); } catch { /* skip one malformed sea ring */ } }
+    return placed;
+  }
+
+  /** §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — remove all standing sea polygons (idempotent). */
+  public clearContextSea(): void {
+    const viewer = this.viewer;
+    if (viewer) for (const ent of this.contextSeaEntities) {
+      try { viewer.entities.remove(ent); } catch { /* gone */ }
+    }
+    this.contextSeaEntities = [];
   }
 
   /**
@@ -11846,6 +12108,12 @@ export class CesiumViewport {
       if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
       this.clearContextBuildings();
       this.contextBuildingsAt = null;
+      // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea layer is per-viewport too; cancel +
+      // drop it so it doesn't leak across a project switch (a re-mount reloads it for the new site).
+      this.contextSeaAbort?.abort();
+      this.contextSeaAbort = null;
+      this.clearContextSea();
+      this.contextSeaAt = null;
       // §SITEFRAME-GROUND-RESEAT (L-632) → §CTX-BUILDINGS-RENDER-FIRST (L-635) — the terrain-settle
       // re-seat listener is pulled, so there is no per-site listener/key to tear down here.
       // §A.21.D-GLOBE3 — re-detect photoreal tiles on the next mount (a re-mounted
