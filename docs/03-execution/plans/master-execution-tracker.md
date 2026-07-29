@@ -4719,3 +4719,12 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 - **Correct fix:** (A) prefer parcel-containing-click over nearest; (B) land L-629 θ write==read. NOT a constant ring nudge (masks + corrupts geometry).
 - **Queue:** geospatial / parcel-data (C57) + C12 §9 SiteFrame — not UI. Depends on / overlaps: **L-629** (θ-displacement, diagnosed), L-640 (the diagnostic signals — DONE).
 - **⚠ NOT built — logged only.**
+
+## L-642 — Production layered radius-LOD 3D-Site context (P2, founder-prioritised) · OWNER: UNASSIGNED · TARGET: TBD
+- **What:** make the 3D-Site (Forma) production-beautiful at zoom-out — globe-like concentric LOD with Forma styling. Full write-up: audit **L-642**; SPEC: `docs/03-execution/specs/SPEC-3D-SITE-PRODUCTION-CONTEXT.md`.
+- **Tiers:** terrain (always) · sea/ocean (always, like terrain) · near SOLID ring at ~4× radius (buildings/roads/green/rail/trees, radius not square) · far WIREFRAME/low-poly ring of all buildings.
+- **NOT greenfield:** extends `CesiumViewport.ts` `§FEAT-FORMA-CONTEXT-EXTENT-LOD` (near/far ring) + `§FEAT-FORMA-CONTEXT-NEAR-CAP` (L-454). New bake layers: rail + trees.
+- **Binding constraint:** ADR-0094 large-scene perf budget + WebGPU device-loss (memory `webgpu-heavy-scene-crash-and-instancing`) → wireframe/low-poly outer tier + instancing, NOT 4× solid buildings.
+- **Coverage gap:** no contract governs the 3D-Site context render (logged in MISSING-CONTRACTS §GAP L-642) → candidate new contract ratifying the SPEC.
+- **Queue:** geospatial / 3D-Site context render + context bake. Depends on / builds atop: L-637 (sea), L-639 (terrain), L-454 (near-cap). NOT the envelope/parcel queues.
+- **⚠ NOT built — logged + spec'd only. Needs the SPEC signed off + a ratifying contract before implementation.**

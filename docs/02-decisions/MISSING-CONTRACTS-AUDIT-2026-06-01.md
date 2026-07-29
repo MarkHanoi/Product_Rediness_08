@@ -665,3 +665,21 @@ valid under the schema's refinements** (so `parse({})` round-trips deterministic
 `round-trip.test.ts`, not in any contract. It belongs in **C03** (schema shape) or **C05**
 (persistence round-trip determinism). **No contract authored in this pass** — logged as the
 reserved slot, per the "different question, different failure mode" test. Owner: UNASSIGNED · TARGET: TBD.
+
+---
+
+## §GAP (L-642) — the 3D-Site (Forma) CONTEXT render system has NO governing contract
+
+Surfaced by the founder's "make 3D-Site production-ready & beautiful at zoom-out" feature (audit **L-642**).
+The 3D-Site context LOD / extent / layer system — concentric near/far LOD rings, the context radius, which
+OSM layers are draped (buildings/roads/water/parks/landuse, and the requested rail/trees), the always-on
+terrain + sea, and the ADR-0094 large-scene performance budget — is real and substantial code
+(`CesiumViewport.ts` `§FEAT-FORMA-CONTEXT-EXTENT-LOD` + `§FEAT-FORMA-CONTEXT-NEAR-CAP` L-454) but is
+governed ONLY by reference docs (`CONTEXT-3D-PERFORMANCE-ARCHITECTURE`, `CONTEXT-LOD-BUILD-PLAN`,
+`CONTEXT-VIEW-DESIGN`) + `SPEC-FORMA-SITE-VIEW`. No C-contract binds its invariants (the render is a pure
+total function of the data; the perf budget; the honest-degradation of a missing layer; the LOD-tier
+rules). It sits adjacent to **C12** (geospatial substrate), **C58 §1.14** (massing render is a pure
+function), **C59** (Forma pane view) and **C10** (perf budget) but none of them own it. **Candidate: a new
+contract "3D-Site Context Render (LOD, Extent, Layers & Budget)"**, ratifying the new
+`SPEC-3D-SITE-PRODUCTION-CONTEXT.md`. No contract authored in this pass — logged as the coverage gap per
+the process. Owner: UNASSIGNED · TARGET: TBD.
