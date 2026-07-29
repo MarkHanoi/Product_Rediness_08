@@ -11,6 +11,8 @@ import { readContextTileFeatures, contextTilesEnabled, type ContextTileFeature }
 // §CTX-USE-COLOUR (L-599) — the pure "what does OSM say this building IS" resolver. Applied at
 // collection-build time so BOTH source paths (Overpass + baked tiles) carry the same raw tag.
 import { resolveUseTag } from './contextBuildingUse';
+// §CTX-HEIGHT-C62 (L-646) — the shared confidence/provenance vocabulary every PRYZM datum speaks.
+import type { DomainConfidence } from '@pryzm/schemas';
 //
 // WHY THIS EXISTS
 // ---------------
@@ -596,6 +598,31 @@ function resolveHeightWithProvenance(
         }
     }
     return { height_m: DEFAULT_BUILDING_HEIGHT_M, provenance: 'assumed' };
+}
+
+/**
+ * §CTX-HEIGHT-C62 (L-646) — map a height PROVENANCE rung to the shared C62 `DomainConfidence`, so a
+ * context building's height speaks the SAME confidence language as every other PRYZM datum (parcel
+ * C57, envelope C58) instead of a bespoke scale. Pure + deterministic; the numeric `height_m` stays
+ * as-is (the L-647 render needs a number to draw the wireframe) — this only makes the TRUST legible:
+ *   - `tagged`         → tier `structured` (a surveyed-ish OSM height), authority `osm`.
+ *   - `derived-levels` → tier `estimated` (real storey COUNT × our assumed storey height), authority `osm`.
+ *   - `assumed`        → tier `unknown` + typed `unknownReason` (never a fabricated confidence).
+ * `score` is left `null` — we never fabricate a 0..1 number (the honesty rule, C62 §1.2). Consumers
+ * derive confidence from provenance via THIS function (no new field on every feature). TODO (H2/H3,
+ * standard §1): a `measured-lidar` rung → `structured`/`regional-gis` and an ordinance rung →
+ * `estimated`/`inspire` once those sources are wired + signed off — do NOT fabricate them here.
+ */
+export function contextHeightConfidence(provenance: ContextHeightProvenance): DomainConfidence {
+    switch (provenance) {
+        case 'tagged':
+            return { tier: 'structured', score: null, authorityRank: 'osm', validationState: 'not-checked' };
+        case 'derived-levels':
+            return { tier: 'estimated', score: null, authorityRank: 'osm', validationState: 'not-checked' };
+        case 'assumed':
+        default:
+            return { tier: 'unknown', score: null, validationState: 'not-checked', unknownReason: 'authority-does-not-publish' };
+    }
 }
 
 /** Tally of how a collection's heights were arrived at (§CTX-HEIGHT-PROVENANCE, L-459). */
