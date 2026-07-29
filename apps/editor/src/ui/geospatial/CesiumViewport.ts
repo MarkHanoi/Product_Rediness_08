@@ -350,12 +350,16 @@ export interface TileLoadProgress {
 const GLOBE_LOADING_COLOUR = '#EDECF5';
 
 const FORMA_PALETTE = {
-  /** Flat neutral light-grey massing ground (§2 Ground & water).
-   *  §FORMA-SCENE-QUALITY (ADR-0089) — was a warm beige (#D9D5CE) that read
-   *  slightly "sandy"; the Spacio/Forma reference ground is a cooler, cleaner
-   *  architectural light-grey so the white massing + soft shadows read against a
-   *  neutral plane (not a warm desert). Still soft, never stark. */
-  ground: '#DDDCD9',
+  /** Base terrain ground = the colour of UNDRAPED land (mountains / rustic / open
+   *  country outside the city). §FORMA-CTX-LANDUSE-BASE (founder 2026-07-29):
+   *  "rustic - mountain - light brown" — the base is now a soft LIGHT BROWN so bare
+   *  relief and rural land read earthy, while URBAN ground is over-draped light grey
+   *  by the landuse layer (`urban` below). Before this the base was a light grey
+   *  (#DDDCD9), which made mountains read the SAME grey as the city — the founder's
+   *  "mountain rural is the same colour than the city urban areas" defect. Kept soft
+   *  and light (a hair warmer/lighter than `rural`) so the white massing + shadows
+   *  still read cleanly against it. */
+  ground: '#D6C7A6',
   /** Scene background — soft neutral (§2 Sky / background). §FORMA-SCENE-QUALITY:
    *  this is now the FALLBACK flat fill; the visible backdrop is the soft vertical
    *  sky GRADIENT painted on the container (buildFormaSkyGradientCss) showing
