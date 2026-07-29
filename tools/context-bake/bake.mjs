@@ -222,7 +222,12 @@ const LAYERS = [
   // The `landuse` TAG rides along (osmium keeps it, tippecanoe stores it as a feature attribute), so the
   // client (`contextLanduse.ts`) classifies each polygon urban↔rural and drapes the matching colour. Green
   // (parks) + blue (water) already have their own layers; this fills the URBAN grey + RURAL brown ground.
-  { id: 'landuse',   filter: ['nwr/landuse=residential,commercial,industrial,retail,farmland,meadow,orchard,vineyard,farmyard,allotments,greenhouse_horticulture,plant_nursery,quarry,brownfield,construction,railway,port'], geom: 'polygon', minz: 9, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  // ⚠ The tag list MUST stay a SUPERSET of the client classifier's URBAN∪RURAL sets
+  // (apps/editor/src/ui/geospatial/contextLanduse.ts) — any tag the client classifies but the bake
+  // omits can only ever arrive via the DEGRADED Overpass fallback, never the baked path, so the
+  // grey/brown drape would be silently incomplete for it. `garages`/`harbour` (urban) +
+  // `animal_keeping` (rural) were classified client-side but not emitted here; added to match.
+  { id: 'landuse',   filter: ['nwr/landuse=residential,commercial,industrial,retail,garages,farmland,meadow,orchard,vineyard,farmyard,allotments,greenhouse_horticulture,plant_nursery,animal_keeping,quarry,brownfield,construction,railway,port,harbour'], geom: 'polygon', minz: 9, maxz: 16, extra: ['--drop-densest-as-needed'] },
 ];
 
 // ── args ─────────────────────────────────────────────────────────────────────

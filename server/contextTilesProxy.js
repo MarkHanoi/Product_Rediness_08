@@ -50,7 +50,7 @@ export const CONTEXT_TILES_UPSTREAM =
  * open proxy: any path traversal or arbitrary key under the bucket would be fetchable through our
  * origin, wearing our CORS and our reputation. Only the four baked layers are reachable.
  */
-export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks'];
+export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks', 'landuse'];
 
 export const CONTEXT_TILES_UPSTREAM_TIMEOUT_MS = 15_000;
 
