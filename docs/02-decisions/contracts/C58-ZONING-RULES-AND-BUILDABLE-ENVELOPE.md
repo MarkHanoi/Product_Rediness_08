@@ -976,6 +976,9 @@ Two corollaries this contract should not lose:
 > Recorded per the logging protocol Step 4.3, so this contract does not silently keep
 > claiming a mapping that cannot hold.
 
+### §1.4/§10 — the CONSTRUCTED envelope FOOTPRINT overstates on Barcelona 13a (L-643)
+The buildable-envelope solid must be the intersection of every *derived* constraint (§1.4 fidelity, §10 partial-data honesty). On a Barcelona zone-13a parcel marked `REAL · CONSTRUCTED`, the solved footprint equals the **whole parcel** (`412 m²`, `alignment offset 0.0 m`), extruding over the block-interior *pati d'illa* / rear-garden that 13a keeps non-buildable — "unknown/whole-parcel rendered as buildable." Same class as L-616 (footprint not inset + FAR ceiling ignored) but on the **Art-242.2 construction path** (ADR-0271), not the DK Plandata path. MUST probe whether it is inset-collapse (L-529/L-581) or a missing interior-free exclusion before fixing. Tracked: audit **L-643**. Status: OPEN — the code does not yet honour this §; not marked resolved until a probe + fix + before/after footprint measurement lands.
+
 ### §1.7 — the 1:1 mapping to `setbacks.{front,side,rear}` DOES NOT HOLD for alignment-governed zones (L-451, ADR-0270)
 
 §1.7 asserts the envelope numeric results map 1:1 onto C19 mutable parcel fields and that C58

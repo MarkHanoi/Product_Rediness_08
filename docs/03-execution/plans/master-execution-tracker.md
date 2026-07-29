@@ -4728,3 +4728,21 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 - **Coverage gap:** no contract governs the 3D-Site context render (logged in MISSING-CONTRACTS §GAP L-642) → candidate new contract ratifying the SPEC.
 - **Queue:** geospatial / 3D-Site context render + context bake. Depends on / builds atop: L-637 (sea), L-639 (terrain), L-454 (near-cap). NOT the envelope/parcel queues.
 - **⚠ NOT built — logged + spec'd only. Needs the SPEC signed off + a ratifying contract before implementation.**
+
+## L-643 — Barcelona buildable-envelope overstates (footprint = whole parcel) (P1) · OWNER: UNASSIGNED · TARGET: TBD
+- **What:** on the reference city, the CONSTRUCTED 13a envelope footprint = whole parcel, covering the non-buildable pati d'illa. Full write-up: audit **L-643**.
+- **Approach:** PROBE first (inset-collapse [L-529/L-581] vs missing interior-free exclusion?), then fix the BCN Art-242.2 solver so footprint = depth-band ∩ parcel ∩ interior-free; before/after footprint measurement (L-581 caution).
+- **Queue:** geospatial / buildable-envelope (BCN rule-pack + `ZoningRulesEngine`). Family: L-525, L-529, L-581, L-616. Governs: C58 §1.4/§10, ADR-0271.
+
+## L-644 — deploy to Fly without paid GitHub Actions (P2) · OWNER: UNASSIGNED · TARGET: TBD
+- **What:** local `flyctl deploy --remote-only -a pryzm` (Fly remote builder, zero Actions minutes / sign-ins). Audit **L-644**. RESOLVED-IN-PRACTICE.
+- **Approach:** document as the default in `DEPLOYMENT-RUNBOOK.md`; keep Actions as CI-gated fallback. Queue: infra/deploy.
+
+## L-645 — cut-slab 3D-Site (CityWeft/topoexport-style earth section) (P2, founder-prioritised) · OWNER: UNASSIGNED · TARGET: TBD
+- **What:** auto-cut a bounded slab of terrain+context on site-select + hide surrounding terrain. Audit **L-645**. EXTENDS L-642.
+- **Approach:** clip terrain to the slab + base skirt + suppress outside terrain; design-research (Cesium clipping vs baked bounded-mesh) then fold into `SPEC-3D-SITE-PRODUCTION-CONTEXT` + the L-642 ratifying contract. Queue: geospatial / 3D-Site render + terrain bake. Depends on / shares coverage-gap with L-642.
+
+## L-646 — Building HEIGHTS honesty + per-city standard (P1) · OWNER: UNASSIGNED · TARGET: TBD
+- **What:** "not many building heights are correct." Heights bottom out in a fabricated 9 m default (the "9 m carpet"); no measured fallback. Full write-up: audit **L-646** + `docs/04-reference/BUILDING-HEIGHT-REPLICATION-STANDARD.md` (authored this pass).
+- **Approach (plan-first, mirrors the envelope):** honest source ladder (LiDAR DSM−DTM → OSM height → levels → ordinance → typed-unknown) × C62 confidence; per-city sourcing; CI fidelity gate. Implementation sequenced after sign-off — never a blind default-tune.
+- **Queue:** geospatial / context-buildings + massing height. Governs: C62, C12, C58 §1.2, §CONTEXT-DATA-HONESTY. Family: L-459, L-525.
