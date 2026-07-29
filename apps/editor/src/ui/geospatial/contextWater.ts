@@ -388,11 +388,17 @@ function isClosed(geom: Array<{ lat: number; lon: number }>): boolean {
 
 export async function fetchContextWater(
     lat: number, lon: number, signal?: AbortSignal,
+    // §FEAT-FORMA-SEA-CONTEXT-EXTENT (L-642) — the caller may request a WIDER extent so the sea
+    // mask (built by clipping the coastline to this bbox) covers the open sea across the zoom-out
+    // view, not just the ~890 m near disc (the founder: "the sea is not all coloured as it should").
+    // The sea is a few large flat polygons — cheap even at 4× the radius. Cache is keyed by bbox,
+    // so a narrow lakes/rivers read and a wide sea read coexist.
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
 ): Promise<ContextWaterCollection> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyWaterCollection();
     }
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const bbox = contextBboxAround(lat, lon, halfDeg);
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;

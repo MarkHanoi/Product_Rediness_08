@@ -121,11 +121,17 @@ function landuseFromTileFeatures(features: ContextTileFeature[]): ContextLanduse
 
 export async function fetchContextLanduse(
     lat: number, lon: number, signal?: AbortSignal,
+    // §FORMA-CTX-LANDUSE-EXTENT (L-642) — the caller may request a WIDER extent than the near
+    // context bbox so the grey-urban / brown-rural drape covers the zoom-out view, not just the
+    // ~890 m near disc (the founder: "the grey should cover all urban areas out of the circle").
+    // Cheap by construction — landuse is a handful of large flat polygons, not per-building geometry.
+    // Cache is keyed by the resulting bbox, so narrow + wide reads coexist without clobbering.
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
 ): Promise<ContextLanduseCollection> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyLanduseCollection();
     }
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const bbox = contextBboxAround(lat, lon, halfDeg);
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;

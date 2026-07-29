@@ -472,6 +472,19 @@ const FORMA_SEA_MASK_CACHE = new Map<string, Array<Array<readonly [number, numbe
 const CONTEXT_NEAR_RENDER_RADIUS_M = CONTEXT_BBOX_HALF_DEG * 111_320;      // ~890 m (near bbox on-axis)
 const CONTEXT_FAR_RENDER_RADIUS_M = CONTEXT_BBOX_FAR_HALF_DEG * 111_320;   // ~1225 m (far bbox on-axis)
 /**
+ * §FORMA-CTX-WIDE-EXTENT (L-642, founder 2026-07-29 — "the sea is not all coloured … the grey
+ * should cover all urban areas out of the circle") — the CHEAP ground layers (sea + land-use) are
+ * fetched + drawn over a MUCH wider extent than the buildings so the zoom-out reads as a whole coast
+ * and a whole city, not a small island patch. 4× the near half-deg → ~3.5 km radius (the founder's
+ * "4 times the existing size"). This is sound to widen because sea + land-use are a handful of large
+ * FLAT polygons (no per-building geometry, no shadows) — it does NOT touch the extruded building
+ * tiers, which stay bounded by the ADR-0094 large-scene budget (near solid ≤890 m, instanced far
+ * ≤1225 m, 4000-instance cap). The baked PMTiles already cover the whole national clip, so reading
+ * a wider bbox is pure client-side extent — no re-bake. §CONTEXT-DATA-HONESTY: a wider read that
+ * finds no coast/land-use still degrades to a quiet no-op, never a fabricated plane.
+ */
+const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 4;                   // 0.032° ≈ 3.5 km radius
+/**
  * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — hard COUNT backstop on the instanced far tier.
  * The tier is cheap-by-construction (ONE primitive, one shared material, shadowless) and already
  * bounded upstream by the far-ring budget cap + the radial cull above; this is a runaway guard so a
@@ -8434,10 +8447,10 @@ export class CesiumViewport {
     const signal = this.contextSeaAbort.signal;
 
     // Baked sea rings (usually EMPTY on a baked coastal city — the water bake carries no coastline)
-    // + the L-637 live-coastline supplement. fetchContextWater is cached/shared per bbox, so when
-    // loadContextWater has already fetched this bbox this adds NO network read.
+    // + the L-637 live-coastline supplement. §FORMA-CTX-WIDE-EXTENT (L-642) — fetched over the WIDE
+    // extent so the open sea fills the whole zoom-out view (cached under its own wide-bbox key).
     let collection: ContextWaterCollection;
-    try { collection = await fetchContextWater(lat, lon, signal); }
+    try { collection = await fetchContextWater(lat, lon, signal, CONTEXT_WIDE_HALF_DEG); }
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -8533,7 +8546,11 @@ export class CesiumViewport {
     lat: number, lon: number, signal: AbortSignal,
   ): Promise<Array<Array<readonly [number, number]>>> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    // §FORMA-CTX-WIDE-EXTENT (L-642) — the coastline query + sea-mask closure run over the WIDE
+    // extent so the OPEN sea (the Mediterranean beyond the near disc) is filled, not just the
+    // harbour. This is the layer that actually draws Barcelona's sea (baked tiles carry no
+    // coastline), so the widen must happen HERE for the founder's "sea not all coloured" fix.
+    const bbox = contextBboxAround(lat, lon, CONTEXT_WIDE_HALF_DEG);
     const key = bbox.map((n) => n.toFixed(4)).join(',');
     const cached = FORMA_SEA_MASK_CACHE.get(key);
     if (cached) return cached;
@@ -8662,7 +8679,10 @@ export class CesiumViewport {
     const signal = this.contextLanduseAbort.signal;
 
     let collection: ContextLanduseCollection;
-    try { collection = await fetchContextLanduse(lat, lon, signal); }
+    // §FORMA-CTX-WIDE-EXTENT (L-642) — fetch the grey-urban / brown-rural drape over the WIDE extent
+    // so it covers the whole zoom-out view, not just the near disc (founder: "the grey should cover
+    // all urban areas out of the circle"). Land-use is a few large flat polygons — cheap to widen.
+    try { collection = await fetchContextLanduse(lat, lon, signal, CONTEXT_WIDE_HALF_DEG); }
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
