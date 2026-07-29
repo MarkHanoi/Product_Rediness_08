@@ -118,7 +118,10 @@ A new city inherits the SiteFrame authority once it lands.
 ## 2 — Layer L3: Buildable envelope & jurisdiction rule pack
 
 **Authority:** `C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md` (governing), `C57`, C19, C12; ADRs
-0269–0277. **This is the one expensive layer.**
+0269–0277. **This is the one expensive layer.** → **The full end-to-end L3 recipe (stages P0–P11, the
+five onboarding slots, the data model + honesty model) is its own canonical standard:
+[`ENVELOPE-REPLICATION-STANDARD.md`](./ENVELOPE-REPLICATION-STANDARD.md) (ADR-0279) — the envelope
+sibling of this doc.** This section is the summary; that standard is the authority for L3 replication.
 
 ### 2.1 Three tiers, one composition
 - **L0 schemas** `packages/schemas/src/site/zoning/` — pure Zod slots (`JurisdictionZoningContract`,
