@@ -74,6 +74,7 @@ const GATES: Gate[] = [
   { name: 'xss-guards (P0/OI-051)',                   script: 'check-xss-guards.ts' },
   { name: 'custom-event-apps (OI-050/F.events.2)',    script: 'check-custom-event-apps.ts' },
   { name: 'zoning-fidelity-label (C58§6/ADR-0279)',   script: 'check-zoning-fidelity-label.ts' },
+  { name: 'height-fidelity (L-646/L-647)',            script: 'check-height-fidelity.ts' },
 ];
 
 let anyFailed = false;
