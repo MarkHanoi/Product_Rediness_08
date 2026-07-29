@@ -462,6 +462,19 @@ export {
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
 export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';
+// ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
+// The S2 router predicate + the S5 honesty gate + cited refusal. Registered as a REFUSAL
+// jurisdiction: it is ROUTED (shares Barcelona's MUC + PGM-1976), but `LHOSPITALET_ENVELOPE_VERIFIED`
+// is false until a human verifies its numbers equal Barcelona's, so a parcel here gets a cited
+// refusal, never a borrowed Barcelona envelope. See `esLHospitalet.ts` / `lhospitaletBbox.ts`.
+export { isInLHospitalet, LHOSPITALET_BBOX } from './providers/lhospitaletBbox.js';
+export {
+    LHOSPITALET_JURISDICTION_ID,
+    LHOSPITALET_ENVELOPE_VERIFIED,
+    LHOSPITALET_PGM_INSTRUMENT_REF,
+    LHOSPITALET_ROADMAP_LINE,
+    lhospitaletUnverifiedRefusal,
+} from './rulepacks/esLHospitalet.js';
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver
 // turns that handle into a WGS84 buildable ring per manzana (or a typed refusal — it never throws).

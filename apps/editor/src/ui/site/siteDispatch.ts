@@ -133,6 +133,15 @@ import {
     CORDOBA_ENVELOPE_VERIFIED,
     cordobaUnverifiedRefusal,
     cordobaNoRulePackRefusal,
+    // ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
+    // The S2 router predicate + the S5 honesty gate. L'Hospitalet shares Barcelona's MUC + PGM-1976,
+    // so it is ROUTED — but `LHOSPITALET_ENVELOPE_VERIFIED` is false until a human verifies its
+    // numbers equal Barcelona's, so `applyLHospitaletZoningThenFallback` dispatches a cited refusal
+    // (never a borrowed Barcelona envelope). Checked BEFORE `isInBarcelona` (L'Hospitalet is inside
+    // the loose Barcelona metro box), so Barcelona stays byte-identical.
+    isInLHospitalet,
+    LHOSPITALET_ENVELOPE_VERIFIED,
+    lhospitaletUnverifiedRefusal,
     // BARCELONA-GIS-AUDIT-SPIKE — clau 18 (volumetria específica) explicit-area path. The AMB Refós
     // OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its UNREGISTERED
     // pack. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while closed, clau 18 keeps its cited
@@ -1099,6 +1108,17 @@ function applyZoning(
         }
         if (qLat != null && qLon != null && isInDenmark(qLat, qLon)) {
             void applyDkZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+            return;
+        }
+        // Envelope Phase 2 §LH-ENVELOPE — an L'Hospitalet de Llobregat plot. ⚠ CHECKED BEFORE
+        // Barcelona ON PURPOSE: L'Hospitalet is physically INSIDE the loose Barcelona metropolitan
+        // box, so without this guard its parcels would fall into the Barcelona branch and be stamped
+        // with `es-08019-barcelona` packs/citations — a mis-citation on another municipality's land.
+        // Peeling it off FIRST leaves every Barcelona parcel byte-identical (`isInLHospitalet` is
+        // false for them, so they fall straight through to `isInBarcelona` below). While
+        // `LHOSPITALET_ENVELOPE_VERIFIED` is false the path renders a cited refusal, never a number.
+        if (qLat != null && qLon != null && isInLHospitalet(qLat, qLon)) {
+            void applyLHospitaletZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // ADR-0271 §BCN-REAL-ENVELOPE — a Barcelona-metro plot resolves the REAL, cited
@@ -2466,6 +2486,114 @@ async function applyCordobaZoningThenFallback(
         );
     } catch (e) {
         console.warn(`${TAG} Córdoba path failed (non-fatal) — falling back to estimated default:`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
+ * Envelope Phase 2 §LH-ENVELOPE — the L'Hospitalet de Llobregat (INE 08101) path. The SECOND Catalan
+ * municipality, wired to PROVE the "add-a-city = data at five slots" claim.
+ *
+ * ⚠⚠⚠ THE HONESTY GATE IS THE POINT OF THIS FUNCTION. L'Hospitalet is genuinely routed: it shares
+ * Barcelona's metropolitan instrument (PGM-1976) and reads its clau from the SAME Catalan MUC, and
+ * the Art. 242.2 buildable-DEPTH construction is metropolitan (it derives depth from the real block,
+ * not a municipal table), so the ARCHITECTURE fully transfers. What does NOT transfer without
+ * verification is the NUMBERS: which claus appear here + their rule shape (each AMB municipality
+ * layers its own *modificacions*), and Barcelona's *alçada reguladora* / official-street-width tables
+ * (those are `es-08019-barcelona` data). Reusing `ES_BARCELONA_ENSANCHE_PACK` for an L'Hospitalet
+ * parcel would stamp Barcelona's jurisdiction id + height table + citations onto another
+ * municipality's land — a confident mis-citation (§CONTEXT-DATA-HONESTY). So until a human verifies
+ * the equivalence per clau and signs `sources/VERIFICATION.md` (`LHOSPITALET_ENVELOPE_VERIFIED ===
+ * false`), this path renders NO number: it dispatches a cited "routed, not yet verified" REFUSAL for
+ * EVERY L'Hospitalet parcel. This is the same discipline that keeps Córdoba's OCR'd pack refusing.
+ *
+ * Fully guarded: any problem falls back to the precomputed estimated envelope; never throws into the
+ * commit path. `status: 'none'` on the refusal keeps every numeric field null and clears any stale
+ * `buildableRing` (dispatchEnvelope writes a ring only on `'ok'`).
+ */
+async function applyLHospitaletZoningThenFallback(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §LH-ENVELOPE';
+    // A placeholder zone code for the refusal envelope: while the verification gate is closed we do
+    // not bind a specific clau (the MUC fetch below is skipped — its result would be discarded, the
+    // same trade-off `applyCordobaZoningThenFallback` makes). `zoneCode` is required (min length 1);
+    // this names the municipality, not a clau, and no number rides on it.
+    const LHOSPITALET_ZONE_CODE = 'lhospitalet-pgm-unverified';
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site) {
+            applyEstimatedZoning(ctx, estimated);
+            return;
+        }
+        // Per-parcel facts for the refusal card so it is never a blank panel (L-553). Area only — no
+        // network while the gate is closed (the MUC clau lookup is deferred to the verified branch).
+        const parcelAreaM2 = (() => {
+            try {
+                const ring = boundary.polygon;
+                const a = Math.abs(
+                    ring.reduce((acc, p, i) => {
+                        const q = ring[(i + 1) % ring.length]!;
+                        return acc + (p.x * q.z - q.x * p.z);
+                    }, 0) / 2,
+                );
+                return Number.isFinite(a) && a > 0 ? a : null;
+            } catch { return null; }
+        })();
+        const knownFacts = [
+            `Location: L'Hospitalet de Llobregat (${lat.toFixed(5)}, ${lon.toFixed(5)}) — AMB, PGM-1976`,
+            parcelAreaM2 !== null ? `Parcel area: ${Math.round(parcelAreaM2).toLocaleString()} m²` : null,
+            'Planning source: Generalitat de Catalunya MUC + PGM-1976 (metropolitan) — clau numbers not yet verified vs Barcelona',
+        ].filter((s): s is string => typeof s === 'string');
+
+        if (!LHOSPITALET_ENVELOPE_VERIFIED) {
+            // ⚠⚠⚠ THE HONESTY GATE. Unverified → refuse, never a number. `status: 'none'` = attempted,
+            // value WITHHELD pending human verification (NOT `'not-applicable'`, which would assert the
+            // ordinance grants no envelope — the PGM DOES grant one; we simply have not verified we may
+            // reuse Barcelona's transcription of it).
+            const refusal = lhospitaletUnverifiedRefusal(null, null, knownFacts);
+            dispatchEnvelope(
+                ctx,
+                site.id,
+                buildRefusedEnvelope(LHOSPITALET_ZONE_CODE, refusal, 'none'),
+                'muc-catastro',
+            );
+            console.log(
+                `${TAG} §HONESTY-GATE LHOSPITALET_ENVELOPE_VERIFIED=false — dispatched the ` +
+                    `routed-not-verified refusal; NO number rendered (${refusal.code}). ` +
+                    `area=${parcelAreaM2?.toFixed(0) ?? 'n/a'} m². Signs off via sources/VERIFICATION.md.`,
+            );
+            return;
+        }
+
+        // ── VERIFICATION SIGNED (future) — once a human has confirmed, per clau, that L'Hospitalet's
+        // numbers/geometry equal Barcelona's (or authored an `es-08101-hospitalet` pack cited to
+        // L'Hospitalet), this branch reuses the EXACT Barcelona machinery: fetch the clau from the MUC
+        // (`fetchQualificationAtPoint`), ask the registry (`resolveZoneDisposition`), and for a covered
+        // clau run `computeBuildableEnvelope` against the dissolved block — identical to
+        // `applyBcnZoningThenFallback`. That resolver + pack land together WITH the sign-off, so they
+        // are not present while the gate is closed; refusing is the only honest output until then.
+        console.warn(
+            `${TAG} verification is signed but the L'Hospitalet pack/resolver is not wired yet ` +
+                `— dispatching the unverified refusal rather than a borrowed Barcelona number.`,
+        );
+        const refusal = lhospitaletUnverifiedRefusal(null, null, knownFacts);
+        dispatchEnvelope(
+            ctx,
+            site.id,
+            buildRefusedEnvelope(LHOSPITALET_ZONE_CODE, refusal, 'none'),
+            'muc-catastro',
+        );
+    } catch (e) {
+        console.warn(`${TAG} L'Hospitalet path failed (non-fatal) — falling back to estimated default:`, e);
         try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
     }
 }

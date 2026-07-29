@@ -92,6 +92,19 @@ import { CORDOBA_BBOX, isInCordoba } from '../providers/cordobaBbox.js';
 // `noRulePackRefusal` returns the Swiss cited refusal. The extent lights the C60 coverage globe.
 import { CH_JURISDICTION_ID, chZoningEnvelopeRefusal } from './chZoning.js';
 import { SWITZERLAND_BBOX, isInSwitzerland } from '../providers/switzerlandBbox.js';
+// ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
+// Registered as a REFUSAL jurisdiction, ON PURPOSE. L'Hospitalet shares Barcelona's metropolitan
+// instrument (PGM-1976) and its clau source (the Catalan MUC), so it is ROUTED and its parcels
+// resolve a zone — but PRYZM has NOT verified that any clau's numbers/geometry equal Barcelona's,
+// so `packsByZone` is empty and `noRulePackRefusal` returns the cited unverified refusal for every
+// parcel while `LHOSPITALET_ENVELOPE_VERIFIED` is false. The extent lights the C60 coverage globe
+// (we DO answer here — with an honest refusal). See `esLHospitalet.ts` on why Barcelona's packs are
+// NOT reused verbatim (mis-citation on another municipality's land).
+import {
+    LHOSPITALET_JURISDICTION_ID,
+    lhospitaletUnverifiedRefusal,
+} from './esLHospitalet.js';
+import { LHOSPITALET_BBOX, isInLHospitalet } from '../providers/lhospitaletBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -471,6 +484,49 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // identified-zone refusal via `resolveChZone`.
         noRulePackRefusal: (_zoneCode, _zoneLabel, knownFacts) =>
             chZoningEnvelopeRefusal(null, knownFacts ?? []),
+    },
+    // ── Envelope Phase 2 — L'Hospitalet de Llobregat (INE 08101), the SECOND Catalan municipality. ──
+    //
+    // ⚠ REGISTERED AS A REFUSAL JURISDICTION, ON PURPOSE — the honesty gate is the point of Phase 2.
+    // L'Hospitalet is the "cheapest possible proof" that onboarding a city is a DATA addition at five
+    // slots: it reuses Barcelona's zone source (the Catalan MUC, S3) and sits under the SAME
+    // metropolitan instrument (PGM-1976), so the router predicate (S2, `isInLHospitalet`), this
+    // registration (S5) and one dispatcher branch (L5) are the whole engineering cost. What it does
+    // NOT reuse is Barcelona's NUMBERS: `packsByZone` is deliberately EMPTY because no human has
+    // verified that any L'Hospitalet clau's height/FAR/coverage equals Barcelona's, and Barcelona's
+    // *alçada reguladora* / official-street-width tables are municipality-specific. Reusing
+    // `ES_BARCELONA_ENSANCHE_PACK` here would stamp `es-08019-barcelona` citations onto another
+    // municipality's land — a confident mis-citation. So `noRulePackRefusal` returns the cited
+    // unverified refusal for every L'Hospitalet parcel, and `resolveZoneDisposition` answers `refusal`.
+    // The extent still lights the C60 coverage globe (we DO answer here — with an honest refusal).
+    //
+    // WIRING TODO (orchestrator, when the L-449 gate clears): confirm the L'Hospitalet claus + rule
+    // shapes against the MUC + the municipal *text refós*, source L'Hospitalet's own height/street-
+    // width tables, author an `es-08101-hospitalet` pack (or an explicit per-clau equivalence ruling
+    // cited to L'Hospitalet), move it into `packsByZone`, and narrow `noRulePackRefusal`.
+    {
+        jurisdictionId: LHOSPITALET_JURISDICTION_ID,
+        displayName: "L'Hospitalet de Llobregat",
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // ⚠ THE SAME OBJECT/FUNCTION `siteDispatch.ts` routes on — imported, not restated. Checked
+        // BEFORE `isInBarcelona` (L'Hospitalet is inside the loose Barcelona metro box), so it peels
+        // off only L'Hospitalet's core and leaves every Barcelona parcel byte-identical.
+        extent: LHOSPITALET_BBOX,
+        contains: isInLHospitalet,
+        answerSummary:
+            "L'Hospitalet de Llobregat is routed and shares Barcelona's metropolitan plan (PGM-1976) " +
+            'and clau source (the Catalan MUC), so the Art. 242.2 buildable-depth construction applies ' +
+            "here as across the AMB. But PRYZM has NOT verified that any clau's numbers equal " +
+            "Barcelona's, so it answers with a cited refusal — never a borrowed Barcelona figure — " +
+            'until per-clau verification is signed.',
+        // No code maps to a pack yet — see the block comment above (the honesty gate).
+        packsByZone: packMap(),
+        // No per-zone legal refusals authored for L'Hospitalet; the coverage/verification refusal covers all.
+        refusalFor: () => null,
+        // Every L'Hospitalet zone code → the unverified refusal (the current honest state).
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            lhospitaletUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
 ];
 
