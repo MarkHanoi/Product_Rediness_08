@@ -1,7 +1,7 @@
 # City Replication Standard — "Replicate Barcelona"
 
 > **The canonical, code-grounded, end-to-end standard for bringing a city to full production
-> quality in the PRYZM 3D-Site.** Barcelona is the reference implementation: it renders correctly
+> quality in the PRYZM 3D-Site.** Barcelona is the reference impleCONmentation: it renders correctly
 > across every layer. This document is the *to-be-followed* recipe so every new city — and every
 > re-bake of a currently-broken one — is produced *identically* to the city that works.
 >
