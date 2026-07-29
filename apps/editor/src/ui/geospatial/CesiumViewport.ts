@@ -11,6 +11,11 @@ import {
     // nearest-N capped) split client-side, so the far ring never waits on a second network hop.
     fetchContextBuildingsNearAndFar,
     CONTEXT_BBOX_HALF_DEG,
+    // §FEAT-FORMA-SEA-CONTEXT (L-637) — supplemental LIVE coastline fetch (the baked water tiles
+    // carry no `natural=coastline`, so a baked coastal city has no sea mask). Reuses the SAME
+    // §OVERPASS-PROXY + bbox helper the context loaders use — no parallel network path.
+    fetchOverpassViaProxy,
+    contextBboxAround,
     // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — bound the EXPENSIVE half. The near ring was
     // uncapped while the cheap far ring was capped; this tiers it by the shadow-map horizon
     // (demoting the overflow rather than dropping it, so coverage is unchanged).
@@ -56,7 +61,10 @@ import { zCss } from "../layout/zLayers";
 import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS } from "../site/envelopeRenderStyle";
 import type { MassingSolid } from "@pryzm/site-parcel-data";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
-import { fetchContextWater, type ContextWaterCollection } from "./contextWater";
+import { fetchContextWater, buildSeaMaskFromCoastline, type ContextWaterCollection } from "./contextWater";
+// §FEAT-FORMA-SEA-CONTEXT (L-637) — the live coastline supplement only exists to compensate for
+// the BAKED tiles lacking a coastline layer, so it is gated on the baked-tiles path being active.
+import { contextTilesEnabled } from "./contextTiles";
 import { fetchContextParks, type ContextParkCollection } from "./contextParks";
 import { fetchContextLanduse, type ContextLanduseCollection } from "./contextLanduse";
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
@@ -434,6 +442,14 @@ type FormaUse = keyof typeof FORMA_USE_COLOURS;
  * visible top + sides are unaffected; the buried base is simply never seen.
  */
 const FORMA_BASE_SINK_M = 0.6;
+
+/**
+ * §FEAT-FORMA-SEA-CONTEXT (L-637) — per-bbox cache of the LIVE-coastline sea rings, keyed by the
+ * same `toFixed(4)` bbox key the water loader uses. The coastline is a static feature of the
+ * planet, so once fetched for a site it is reused across every re-seat / re-entry without a second
+ * Overpass round-trip. Module scope so it survives viewer teardown (mirrors `contextWater`'s cache).
+ */
+const FORMA_SEA_MASK_CACHE = new Map<string, Array<Array<readonly [number, number]>>>();
 
 /**
  * §FACADE-STUDY-SUBJECT (L-596) × C58 §1.14 — collapse the envelope's `MassingSolid[]` to the ONE
@@ -8115,7 +8131,13 @@ export class CesiumViewport {
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextWater();
-    if (collection.areas.length === 0 && collection.ways.length === 0 && collection.sea.length === 0) return;
+    // §FEAT-FORMA-SEA-CONTEXT (L-637) — even when the primary collection is empty we may still
+    // draw a live coastline-derived sea on a BAKED coastal city (the tiles carry no coastline —
+    // bake.mjs water filter = natural=water|waterway|water). So only bail early when there is
+    // genuinely nothing to draw AND no sea supplement to attempt.
+    const willTrySeaSupplement = collection.sea.length === 0 && contextTilesEnabled();
+    if (collection.areas.length === 0 && collection.ways.length === 0
+        && collection.sea.length === 0 && !willTrySeaSupplement) return;
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
@@ -8134,26 +8156,49 @@ export class CesiumViewport {
     // slightly deeper blue so the sea reads as water, not the neutral Forma ground.
     const seaBase = this.formaTerrainBaseHeight + 0.02;
     const seaFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.9);
+    let seaPlaced = 0;
+    // Drape ONE closed sea ring on the settled ground (shared by the baked `collection.sea` and
+    // the L-637 live-coastline supplement below — one render path, never two). Same ENU bridge +
+    // §CTX-ABS-SEAT absolute height as every other ground feature.
+    const addSeaRing = (ring: ReadonlyArray<readonly [number, number]>): void => {
+      const positions = ring.map(([flon, flat]) => {
+        const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+        const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+        return this.enuToCartesian(enu, off.x, off.y, seaBase);
+      });
+      if (positions.length < 4) return;
+      const ent = viewer.entities.add({
+        name: 'pryzm-forma-context-sea',
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(positions),
+          height: seaBase,
+          material: seaFill,
+          outline: false,
+        },
+      });
+      this.contextWaterEntities.push(ent);
+      placed++;
+      seaPlaced++;
+    };
     for (const area of collection.sea) {
-      try {
-        const positions = area.ring.map(([flon, flat]) => {
-          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-          return this.enuToCartesian(enu, off.x, off.y, seaBase);
-        });
-        if (positions.length < 4) continue;
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-sea',
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: seaBase,
-            material: seaFill,
-            outline: false,
-          },
-        });
-        this.contextWaterEntities.push(ent);
-        placed++;
-      } catch { /* skip one malformed sea ring */ }
+      try { addSeaRing(area.ring); } catch { /* skip one malformed sea ring */ }
+    }
+    // §FEAT-FORMA-SEA-CONTEXT (L-637) — a BAKED coastal city (Barcelona/Almería/Lisbon) has an
+    // EMPTY `collection.sea` because the water bake carries no `natural=coastline` line-work, so
+    // the open sea renders as neutral ground. Until the bake adds the coastline layer, fetch the
+    // REAL coastline for this bbox live (same §OVERPASS-PROXY the water loader uses) and build the
+    // closed sea rings with the SAME pure `buildSeaMaskFromCoastline`. HONESTY (§CONTEXT-DATA-
+    // HONESTY): the sea is clipped to the real coast — never a fabricated flat plane over land.
+    // Best-effort + guarded: an inland site (no coastline) resolves to a quiet no-op; never throws.
+    if (collection.sea.length === 0 && contextTilesEnabled()) {
+      let supplementalSea: Array<Array<readonly [number, number]>> = [];
+      try { supplementalSea = await this.fetchSeaMaskViaOverpass(lat, lon, signal); }
+      catch { /* never-throw — degrade to no sea */ }
+      if (!signal.aborted && this.viewer === viewer) {
+        for (const ring of supplementalSea) {
+          try { addSeaRing(ring); } catch { /* skip one malformed sea ring */ }
+        }
+      }
     }
     // Filled lake/pond/reservoir polygons.
     for (const area of collection.areas) {
@@ -8202,7 +8247,45 @@ export class CesiumViewport {
       } catch { /* skip one malformed waterway */ }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} water feature(s) (incl. ${collection.sea.length} §FEAT-FORMA-SEA-CONTEXT sea surface(s)).`);
+    console.log(`[CesiumViewport][forma] FORMA-CTX-WATER rendered: ${placed} water feature(s) (incl. ${seaPlaced} §FEAT-FORMA-SEA-CONTEXT sea surface(s); ${collection.sea.length} baked + ${seaPlaced - collection.sea.length} live-coastline supplement).`);
+  }
+
+  /**
+   * §FEAT-FORMA-SEA-CONTEXT (L-637) — supplemental LIVE coastline fetch for the open-sea mask.
+   *
+   * WHY THIS EXISTS: the baked water tiles do NOT carry `natural=coastline`
+   * (`tools/context-bake/bake.mjs` water filter = `natural=water | waterway | water`), so on a
+   * BAKED coastal city the tile reader honestly returns zero coastline and `collection.sea` is
+   * empty — the open sea then renders as neutral Forma ground. The PERMANENT fix is bake-side
+   * (add `nwr/natural=coastline` to that filter); until then this fetches ONLY the coastline ways
+   * for the site bbox through the SAME §OVERPASS-PROXY the water loader uses, and builds the
+   * closed sea rings with the SAME pure `buildSeaMaskFromCoastline` — so the sea is clipped to the
+   * REAL coast (§CONTEXT-DATA-HONESTY: never a fabricated plane). Cached per bbox so re-seats are
+   * free. NEVER throws: an inland site (no coastline) resolves to `[]`.
+   */
+  private async fetchSeaMaskViaOverpass(
+    lat: number, lon: number, signal: AbortSignal,
+  ): Promise<Array<Array<readonly [number, number]>>> {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const key = bbox.map((n) => n.toFixed(4)).join(',');
+    const cached = FORMA_SEA_MASK_CACHE.get(key);
+    if (cached) return cached;
+    const [w, s, e, n] = bbox;
+    const query = `[out:json][timeout:25];(way["natural"="coastline"](${s},${w},${n},${e}););out geom;`;
+    let res: { elements?: Array<{ geometry?: Array<{ lat: number; lon: number }> }> } | null = null;
+    try { res = await fetchOverpassViaProxy<{ geometry?: Array<{ lat: number; lon: number }> }>(query, signal); }
+    catch { return []; }
+    if (signal.aborted || !res || !Array.isArray(res.elements)) return [];
+    const coastlines: Array<Array<readonly [number, number]>> = [];
+    for (const el of res.elements) {
+      const g = el.geometry;
+      if (!Array.isArray(g) || g.length < 2) continue;
+      coastlines.push(g.map((p) => [p.lon, p.lat] as const));
+    }
+    const rings = buildSeaMaskFromCoastline(coastlines, bbox);
+    FORMA_SEA_MASK_CACHE.set(key, rings);
+    return rings;
   }
 
   /** FORMA-CTX-WATER — remove all water polygons/polylines (idempotent). */
