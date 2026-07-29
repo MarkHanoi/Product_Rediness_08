@@ -122,7 +122,7 @@ export function parseReverseGeocode(xml) {
     const blocks = xml.match(/<pcd\b[\s\S]*?<\/pcd>/gi);
     if (!blocks || blocks.length === 0) return null;
 
-    let best = null;
+    let best = null, second = null;
     for (const block of blocks) {
         const pc1 = (block.match(/<pc1\b[^>]*>\s*([^<]*?)\s*<\/pc1>/i) || [])[1];
         const pc2 = (block.match(/<pc2\b[^>]*>\s*([^<]*?)\s*<\/pc2>/i) || [])[1];
@@ -134,10 +134,17 @@ export function parseReverseGeocode(xml) {
         const disRaw = (block.match(/<dis\b[^>]*>\s*([^<]*?)\s*<\/dis>/i) || [])[1];
         const dis = disRaw != null ? Number.parseFloat(disRaw) : Number.POSITIVE_INFINITY;
         const distance = Number.isFinite(dis) ? dis : Number.POSITIVE_INFINITY;
-        if (!best || distance < best.distance) best = { refcat, address, distance };
+        const cand = { refcat, address, distance };
+        // §L-640 — keep nearest + 2nd-nearest so the caller has a match-confidence signal instead of
+        // us silently discarding the `dis` OVC already returns (a free cadastral-match fact).
+        if (!best || distance < best.distance) { second = best; best = cand; }
+        else if (!second || distance < second.distance) { second = cand; }
     }
     if (!best) return null;
-    return { refcat: best.refcat, address: best.address };
+    const pointToParcelM = Number.isFinite(best.distance) ? best.distance : null;
+    const candidateMarginM = (second && Number.isFinite(second.distance) && Number.isFinite(best.distance))
+        ? (second.distance - best.distance) : null;
+    return { refcat: best.refcat, address: best.address, pointToParcelM, candidateMarginM };
 }
 
 /**
@@ -170,15 +177,18 @@ export function parseParcelGml(gml) {
     }
     if (ring.length < 3) return null;
 
-    // areaValue (m²) when published; else derive from the ring (shoelace, m²).
-    let areaM2 = 0;
+    // §L-640 / C57 KV-3 — return the OFFICIAL registry area (INSPIRE `areaValue`) and the DERIVED
+    // (shoelace) area SEPARATELY, never collapsed. C57 §2.1 intends the published-vs-derived
+    // distinction; collapsing them presented a derived number as if official. `areaOfficialM2` is
+    // null when the source does not publish it (an honest Unknown, not a fabricated value).
+    let areaOfficialM2 = null;
     const areaMatch = gml.match(/<(?:[\w.-]+:)?areaValue\b[^>]*>\s*([\d.]+)\s*<\/(?:[\w.-]+:)?areaValue>/i);
     if (areaMatch && areaMatch[1]) {
         const v = Number.parseFloat(areaMatch[1]);
-        if (Number.isFinite(v) && v > 0) areaM2 = v;
+        if (Number.isFinite(v) && v > 0) areaOfficialM2 = v;
     }
-    if (areaM2 <= 0) areaM2 = ringAreaM2(ring);
-    return { ring, areaM2 };
+    const areaSigM2 = ringAreaM2(ring);
+    return { ring, areaOfficialM2, areaSigM2 };
 }
 
 /** Approx planar area (m²) of a small WGS84 lat/lon ring via local equirectangular. */
@@ -297,7 +307,14 @@ export async function fetchParcelAtPoint(lon, lat, deps = {}) {
     const result = {
         ring: parsed.ring,
         refcat: rc.refcat,
-        areaM2: parsed.areaM2,
+        // §L-640 — `areaM2` kept for backward-compat (official ?? derived); the SPLIT areas +
+        // the click→parcel distance/margin are the new raw signals the client's confidence derives
+        // from. `areaOfficialM2` is null when Catastro does not publish `areaValue` (honest Unknown).
+        areaM2: parsed.areaOfficialM2 != null ? parsed.areaOfficialM2 : parsed.areaSigM2,
+        areaOfficialM2: parsed.areaOfficialM2,
+        areaSigM2: parsed.areaSigM2,
+        pointToParcelM: rc.pointToParcelM ?? null,
+        candidateMarginM: rc.candidateMarginM ?? null,
         address: rc.address,
     };
     cacheSet(rc.refcat, result);

@@ -26,6 +26,51 @@
 
 import type { LatLon } from '../boundaryProjection.js';
 
+/** How the parcel corresponds to what was requested. L-640 Phase 1: built ONLY from
+ *  categorical FACTS (kind, areaSource, geometryComplete, click-inside) — never from an
+ *  invented numeric cutoff (that would violate the C58 §16 explainability the feature serves).
+ *  `high` never occurs on a derived-area or footprint-fallback parcel. */
+export type ParcelMatchTier = 'high' | 'medium' | 'low';
+
+/** Whether `areaOfficialM2` came from the source's registry (INSPIRE `areaValue`) or was
+ *  derived by shoelace from the ring. The C57 §2.1 honesty distinction (KV-3). */
+export type ParcelAreaSource = 'registry-declared' | 'derived-from-ring';
+
+/** §L-640 Phase 1 — cadastral confidence, honesty-gated. Raw numeric fields are shipped for
+ *  transparency + future calibration; the tiered `match` is derived ONLY from categorical facts. */
+export interface ParcelConfidence {
+    /** Fact-based tier (see ParcelMatchTier). */
+    readonly match: ParcelMatchTier;
+    /** Did the source publish an official registry area, or did we shoelace the ring? */
+    readonly areaSource: ParcelAreaSource;
+    /** The source's registry-declared area (INSPIRE `areaValue`), or null if unpublished. */
+    readonly areaOfficialM2: number | null;
+    /** Area computed from the polygon ring (shoelace) — always present. */
+    readonly areaSigM2: number;
+    /** |official − sig| / official, or null when no official area to compare. Shipped RAW;
+     *  NOT tiered on (no calibrated "agree" cutoff exists yet — a stated Phase-1 limitation). */
+    readonly areaDeltaPct: number | null;
+    /** Distance (m) from the query point to the parcel (Spain OVC `_Distancia`), or null for
+     *  point-in-polygon / ref-query providers. Shipped RAW; distance sub-tiers withheld (no data). */
+    readonly pointToParcelM: number | null;
+    /** Nearest vs 2nd-nearest candidate gap (m), or null. Shipped RAW; only single-vs-multiple
+     *  candidate COUNT is used as a fact — no margin cutoff (a stated Phase-1 limitation). */
+    readonly candidateMarginM: number | null;
+    /** The ring parsed cleanly (closed-able, ≥3 distinct vertices). A boolean fact. */
+    readonly geometryComplete: boolean;
+}
+
+/** §L-640 Phase 1 — pure geometry diagnostics derived from the ring (no source, honesty-safe). */
+export interface ParcelGeometryMetrics {
+    readonly areaSigM2: number;
+    readonly perimeterM: number;
+    readonly centroid: LatLon;
+    readonly bbox: { readonly west: number; readonly south: number; readonly east: number; readonly north: number };
+    readonly vertexCount: number;
+    /** Polsby–Popper compactness 4πA/P² ∈ (0,1]; 1 = a circle. */
+    readonly compactness: number;
+}
+
 /** A fetched cadastral parcel, normalised to a WGS84 lat/lon ring. */
 export interface ParcelFeature {
     /** The parcel boundary as a WGS84 lat/lon ring (outer ring; not necessarily
@@ -39,6 +84,10 @@ export interface ParcelFeature {
     readonly address?: string | null;
     /** Provenance tag — which provider/source produced this (L-373 credibility). */
     readonly source: string;
+    /** §L-640 Phase 1 — pure geometry diagnostics (optional; present when computed). */
+    readonly metrics?: ParcelGeometryMetrics;
+    /** §L-640 Phase 1 — cadastral confidence (optional; present when computed). */
+    readonly confidence?: ParcelConfidence;
 }
 
 /**

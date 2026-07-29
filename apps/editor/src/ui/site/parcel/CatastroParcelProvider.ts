@@ -13,6 +13,7 @@
 import { trace } from '@opentelemetry/api';
 import type { LatLon } from '../boundaryProjection.js';
 import type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
+import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
 
@@ -29,6 +30,11 @@ interface ProxyParcel {
     readonly areaM2?: unknown;
     readonly address?: unknown;
     readonly source?: unknown;
+    // §L-640 Phase 1 — the split areas + click→parcel signals (absent on older proxy builds → null).
+    readonly areaOfficialM2?: unknown;
+    readonly areaSigM2?: unknown;
+    readonly pointToParcelM?: unknown;
+    readonly candidateMarginM?: unknown;
 }
 
 function toFiniteNum(v: unknown): number | null {
@@ -75,7 +81,20 @@ export function parseProxyResponse(json: unknown): ParcelFeature | null {
         typeof parcel.address === 'string' && parcel.address.length > 0 ? parcel.address : null;
     const source = typeof parcel.source === 'string' && parcel.source.length > 0 ? parcel.source : 'catastro';
 
-    return { ring, refcat, areaM2, address, source };
+    // §L-640 Phase 1 — pure geometry diagnostics + honesty-gated cadastral confidence. Catastro is a
+    // real cadastre → kind 'cadastral'. `areaOfficialM2` is null when Catastro did not publish
+    // `areaValue`; `pointToParcelM` is the OVC `_Distancia` click→parcel distance (null on older proxy).
+    const metrics = computeParcelMetrics(ring);
+    const confidence = computeParcelConfidence({
+        ring,
+        kind: 'cadastral',
+        areaOfficialM2: toFiniteNum(parcel.areaOfficialM2),
+        areaSigM2: metrics.areaSigM2,
+        pointToParcelM: toFiniteNum(parcel.pointToParcelM),
+        candidateMarginM: toFiniteNum(parcel.candidateMarginM),
+    });
+
+    return { ring, refcat, areaM2, address, source, metrics, confidence };
 }
 
 /**
