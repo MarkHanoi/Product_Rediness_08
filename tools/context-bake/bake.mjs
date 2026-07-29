@@ -211,7 +211,12 @@ const LAYERS = [
   { id: 'roads',     filter: ['w/highway'],                                       geom: 'linestring',         minz: 10, maxz: 16, extra: ['--drop-densest-as-needed'] },
   // Water is genuinely MIXED — lakes/basins are areas, streams/rivers are ways. Both are wanted,
   // and `contextWater.ts` already splits them, so this is the one layer that keeps two types.
-  { id: 'water',     filter: ['nwr/natural=water', 'nwr/waterway', 'w/water'],   geom: 'polygon,linestring', minz: 8,  maxz: 16, extra: [] },
+  // §L-637 SEA — `w/natural=coastline` (ways) rides in the water layer so the sea flows through the
+  // BAKED path: the client `waterFromTileFeatures` reads the coastline ways and `buildSeaMaskFromCoastline`
+  // (L-185, §FEAT-FORMA-SEA-CONTEXT) stitches + closes them into blue sea polygons — zero Overpass. Until
+  // a re-bake propagates this, `CesiumViewport.fetchSeaMaskViaOverpass` supplies the coastline live (it
+  // self-disables once the baked `collection.sea` is non-empty).
+  { id: 'water',     filter: ['nwr/natural=water', 'nwr/waterway', 'w/water', 'w/natural=coastline'],   geom: 'polygon,linestring', minz: 8,  maxz: 16, extra: [] },
   { id: 'parks',     filter: ['nwr/leisure=park', 'nwr/landuse=grass,forest,recreation_ground', 'nwr/natural=wood'], geom: 'polygon', minz: 10, maxz: 16, extra: [] },
   // §FORMA-CTX-LANDUSE (founder 2026-07-29) — colour the TERRAIN by land use: grey urban / brown rural.
   // The `landuse` TAG rides along (osmium keeps it, tippecanoe stores it as a feature attribute), so the
