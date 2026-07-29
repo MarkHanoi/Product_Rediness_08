@@ -105,6 +105,12 @@ import {
     lhospitaletUnverifiedRefusal,
 } from './esLHospitalet.js';
 import { LHOSPITALET_BBOX, isInLHospitalet } from '../providers/lhospitaletBbox.js';
+// Badalona (INE 08015) — 3rd Catalan city, same refusal-jurisdiction pattern as L'Hospitalet.
+import {
+    BADALONA_JURISDICTION_ID,
+    badalonaUnverifiedRefusal,
+} from './esBadalona.js';
+import { BADALONA_BBOX, isInBadalona } from '../providers/badalonaBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -527,6 +533,32 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         // Every L'Hospitalet zone code → the unverified refusal (the current honest state).
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             lhospitaletUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ⚠ Badalona (INE 08015) — REGISTERED AS A REFUSAL JURISDICTION, same honesty gate as
+    // L'Hospitalet above. Same AMB fabric, PGM-1976 instrument + Catalan MUC (S3); `packsByZone` is
+    // deliberately EMPTY (no clau's numbers verified vs Barcelona; Barcelona's height/street-width
+    // tables are municipality-specific). `noRulePackRefusal` returns the cited unverified refusal for
+    // every Badalona parcel; the extent still lights the C60 coverage globe. WIRING TODO (L-449 gate):
+    // source Badalona's own tables, author an `es-08015-badalona` pack, move it into `packsByZone`.
+    {
+        jurisdictionId: BADALONA_JURISDICTION_ID,
+        displayName: 'Badalona',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // SAME object `siteDispatch.ts` routes on. Checked BEFORE `isInBarcelona` (Badalona is inside
+        // the loose Barcelona metro box), so it peels off only Badalona's core; Barcelona byte-identical.
+        extent: BADALONA_BBOX,
+        contains: isInBadalona,
+        answerSummary:
+            "Badalona is routed and shares Barcelona's metropolitan plan (PGM-1976) and clau source " +
+            '(the Catalan MUC), so the Art. 242.2 buildable-depth construction applies here as across ' +
+            "the AMB. But PRYZM has NOT verified that any clau's numbers equal Barcelona's, so it " +
+            'answers with a cited refusal — never a borrowed Barcelona figure — until per-clau ' +
+            'verification is signed.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            badalonaUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
 ];
 

@@ -475,6 +475,15 @@ export {
     LHOSPITALET_ROADMAP_LINE,
     lhospitaletUnverifiedRefusal,
 } from './rulepacks/esLHospitalet.js';
+// Badalona (INE 08015) — 3rd Catalan city; ROUTED, cited refusal until BADALONA_ENVELOPE_VERIFIED.
+export { isInBadalona, BADALONA_BBOX } from './providers/badalonaBbox.js';
+export {
+    BADALONA_JURISDICTION_ID,
+    BADALONA_ENVELOPE_VERIFIED,
+    BADALONA_PGM_INSTRUMENT_REF,
+    BADALONA_ROADMAP_LINE,
+    badalonaUnverifiedRefusal,
+} from './rulepacks/esBadalona.js';
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver
 // turns that handle into a WGS84 buildable ring per manzana (or a typed refusal — it never throws).
