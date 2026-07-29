@@ -63,6 +63,12 @@ export const PARCEL_CACHE_MAX_ENTRIES = 512;
 /** Per-upstream timeout (ms). The server pays it ONCE per plot (then cached). */
 export const CATASTRO_UPSTREAM_TIMEOUT_MS = 15_000;
 
+/** §L-641 — how many nearest OVC candidates to probe for click-containment before falling back to
+ *  the nearest. Bounded so a street/gap click costs at most K WFS geometry fetches (each then cached
+ *  by refcat). The common case — a click INSIDE the nearest parcel — resolves on the FIRST fetch and
+ *  never probes further. K=4 comfortably covers boundary/corner ambiguity between abutting plots. */
+export const PARCEL_CANDIDATE_MAX_K = 4;
+
 /** @typedef {{ ring: {lat:number,lon:number}[], refcat: string, areaM2: number, address: string|null }} ParcelResult */
 /** @typedef {{ value: ParcelResult, expires: number }} CacheEntry */
 /** @type {Map<string, CacheEntry>} refcat → normalised parcel. */
@@ -105,16 +111,24 @@ export function parcelCacheStats() {
 // ── XML/GML normalisation (server-side; no DOM) ──────────────────────────────
 
 /**
- * Parse an OVC `Consulta_RCCOOR_Distancia` XML response into the NEAREST parcel's
- * referencia catastral + address. Robust to the `_Distancia` list shape:
+ * Parse an OVC `Consulta_RCCOOR_Distancia` XML response into the ranked list of nearby parcel
+ * candidates (nearest-first) plus the nearest's referencia catastral + address. Robust to the
+ * `_Distancia` list shape:
  *   consulta_coordenadas_distancias > coordenadas_distancias > coordd > lpcd
  *     > pcd { pc { pc1, pc2 }, ldt, dis }
- * Returns the pcd with the smallest `dis`. REFCAT = pc1 + pc2 (14 chars). On the
- * error shape (`<lerr><err><cod>16</cod>` — "no reference at these coordinates")
- * or any malformed body → null. Never throws.
+ * REFCAT = pc1 + pc2 (14 chars). On the error shape (`<lerr><err><cod>16</cod>` — "no reference at
+ * these coordinates") or any malformed body → null. Never throws.
+ *
+ * §L-641 — the returned `candidates` array (ascending `dis`) is the instrument for the wrong-parcel
+ * fix. OVC `_Distancia` ranks candidates by distance to each parcel's ADDRESS/reference point, NOT
+ * by polygon containment (a live fixture at a deliberate select shows the nearest at `dis=7.03`,
+ * never 0), so the nearest-by-`dis` candidate is the ADJACENT parcel when the click lands near a
+ * shared boundary. `fetchParcelAtPoint` therefore prefers the candidate whose ring CONTAINS the
+ * click over the merely-nearest one. `refcat`/`pointToParcelM`/`candidateMarginM` stay the nearest's
+ * values (backward-compat with the L-640 confidence signal).
  *
  * @param {string} xml
- * @returns {{ refcat: string, address: string|null } | null}
+ * @returns {{ refcat: string, address: string|null, pointToParcelM: number|null, candidateMarginM: number|null, candidates: {refcat:string,address:string|null,distance:number}[] } | null}
  */
 export function parseReverseGeocode(xml) {
     if (typeof xml !== 'string' || xml.length === 0) return null;
@@ -122,7 +136,7 @@ export function parseReverseGeocode(xml) {
     const blocks = xml.match(/<pcd\b[\s\S]*?<\/pcd>/gi);
     if (!blocks || blocks.length === 0) return null;
 
-    let best = null, second = null;
+    const candidates = [];
     for (const block of blocks) {
         const pc1 = (block.match(/<pc1\b[^>]*>\s*([^<]*?)\s*<\/pc1>/i) || [])[1];
         const pc2 = (block.match(/<pc2\b[^>]*>\s*([^<]*?)\s*<\/pc2>/i) || [])[1];
@@ -134,17 +148,19 @@ export function parseReverseGeocode(xml) {
         const disRaw = (block.match(/<dis\b[^>]*>\s*([^<]*?)\s*<\/dis>/i) || [])[1];
         const dis = disRaw != null ? Number.parseFloat(disRaw) : Number.POSITIVE_INFINITY;
         const distance = Number.isFinite(dis) ? dis : Number.POSITIVE_INFINITY;
-        const cand = { refcat, address, distance };
-        // §L-640 — keep nearest + 2nd-nearest so the caller has a match-confidence signal instead of
-        // us silently discarding the `dis` OVC already returns (a free cadastral-match fact).
-        if (!best || distance < best.distance) { second = best; best = cand; }
-        else if (!second || distance < second.distance) { second = cand; }
+        candidates.push({ refcat, address, distance });
     }
-    if (!best) return null;
+    if (candidates.length === 0) return null;
+    // Ascending by OVC `dis` (distance to each parcel's reference point). Nearest first.
+    candidates.sort((a, b) => a.distance - b.distance);
+    const best = candidates[0];
+    const second = candidates[1] || null;
+    // §L-640 — the nearest `dis` + nearest-vs-2nd margin are the raw cadastral-match facts the L-640
+    // confidence derives from (a free signal OVC already returns; we no longer discard it).
     const pointToParcelM = Number.isFinite(best.distance) ? best.distance : null;
     const candidateMarginM = (second && Number.isFinite(second.distance) && Number.isFinite(best.distance))
         ? (second.distance - best.distance) : null;
-    return { refcat: best.refcat, address: best.address, pointToParcelM, candidateMarginM };
+    return { refcat: best.refcat, address: best.address, pointToParcelM, candidateMarginM, candidates };
 }
 
 /**
@@ -211,6 +227,30 @@ function ringAreaM2(ring) {
     return Math.abs(a / 2);
 }
 
+/**
+ * §L-641 — ray-casting point-in-ring test on a WGS84 lat/lon ring (planar-good at parcel scale).
+ * Mirrors the client `pointInRing` in `apps/editor/src/ui/site/parcel/parcelConfidence.ts` EXACTLY
+ * so the server's containment decision and the client's confidence signal can never disagree.
+ * Never throws; a degenerate ring (<3 vertices) is not "inside" anything.
+ *
+ * @param {number} lat
+ * @param {number} lon
+ * @param {{lat:number,lon:number}[]} ring
+ * @returns {boolean}
+ */
+export function pointInRing(lat, lon, ring) {
+    if (!Array.isArray(ring) || ring.length < 3) return false;
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const a = ring[i], b = ring[j];
+        if (!a || !b) continue;
+        const intersect = (a.lat > lat) !== (b.lat > lat) &&
+            lon < ((b.lon - a.lon) * (lat - a.lat)) / ((b.lat - a.lat) || 1e-12) + a.lon;
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
 // ── Upstream fetch (server-side, one retry, never-throw) ─────────────────────
 
 /**
@@ -259,13 +299,77 @@ export async function fetchTextOnce(url, deps = {}) {
 }
 
 /**
- * The full point→parcel resolution, server-side + cached:
- *   1. reverse-geocode (lon,lat) → refcat + address (OVC _Distancia)
- *   2. refcat cache hit? → return the normalised parcel
- *   3. else GetParcel(refcat) → parse GML → { ring, areaM2 } → cache by refcat
+ * Resolve ONE candidate refcat to its parsed geometry, cache-first.
  *
- * Resolves to the normalised ParcelResult, or null (no parcel at the point / any
- * upstream failure). NEVER throws. `deps` is injectable for tests.
+ * §L-641 — the cache now holds GEOMETRY ONLY (`{ ring, areaOfficialM2, areaSigM2 }`) keyed by
+ * refcat, NOT the per-click ParcelResult. The request-specific signals (pointToParcelM, address,
+ * click-containment) are always recomputed fresh, so a later click on the same plot can never
+ * inherit an earlier click's distance — and probing several candidates for containment costs at
+ * most one WFS fetch per distinct refcat, then free on repeat.
+ *
+ * @returns {Promise<{ ring: {lat:number,lon:number}[], areaOfficialM2: number|null, areaSigM2: number } | null>}
+ */
+async function resolveParcelGeometry(refcat, deps) {
+    const cached = cacheGet(refcat);
+    if (cached) { _hits++; return cached; }
+    _misses++;
+    const wfsUrl =
+        `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
+        `&STOREDQUERIE_ID=GetParcel&REFCAT=${encodeURIComponent(refcat)}&srsName=EPSG:4326`;
+    const gml = await fetchTextOnce(wfsUrl, deps);
+    if (!gml) return null;
+    const parsed = parseParcelGml(gml);
+    if (!parsed) return null;
+    const geom = { ring: parsed.ring, areaOfficialM2: parsed.areaOfficialM2, areaSigM2: parsed.areaSigM2 };
+    cacheSet(refcat, geom);
+    return geom;
+}
+
+/**
+ * Assemble the normalised ParcelResult for a chosen candidate + its geometry.
+ *
+ * §L-641 — when the click is VERIFIED inside the returned ring, `pointToParcelM` is 0: the polygon
+ * test is the authoritative click→parcel distance and beats OVC's reference-point `dis`. When NO
+ * candidate contained the click we return the nearest with its raw OVC distance, so the signal stays
+ * honestly nonzero and the client confidence (L-640) surfaces it as not-inside rather than snapping.
+ *
+ * @returns {ParcelResult}
+ */
+function buildParcelResult(cand, geom, rc, clickInside) {
+    return {
+        ring: geom.ring,
+        refcat: cand.refcat,
+        // §L-640 — `areaM2` kept for backward-compat (official ?? derived); the SPLIT areas + the
+        // click→parcel distance/margin are the raw signals the client's confidence derives from.
+        areaM2: geom.areaOfficialM2 != null ? geom.areaOfficialM2 : geom.areaSigM2,
+        areaOfficialM2: geom.areaOfficialM2,
+        areaSigM2: geom.areaSigM2,
+        pointToParcelM: clickInside
+            ? 0
+            : (Number.isFinite(cand.distance) ? cand.distance : (rc.pointToParcelM ?? null)),
+        candidateMarginM: rc.candidateMarginM ?? null,
+        // §L-641 — an explicit, authoritative containment fact (independent of the reference-point
+        // `dis`), carried for transparency/logging. The client already routes on `pointToParcelM`.
+        clickInside,
+        address: cand.address,
+    };
+}
+
+/**
+ * The full point→parcel resolution, server-side + cached:
+ *   1. reverse-geocode (lon,lat) → ranked candidates (OVC _Distancia)
+ *   2. §L-641 — resolve candidates NEAREST-FIRST and return the FIRST whose ring CONTAINS the click
+ *   3. if NONE contains it → return the nearest resolvable (honest nonzero pointToParcelM)
+ *
+ * §L-641 — OVC `_Distancia` ranks by distance to each parcel's ADDRESS/reference point, not by
+ * polygon containment, so the merely-nearest candidate is the ADJACENT parcel when the click sits
+ * near a shared boundary → a ring offset "to the side" (the reported intermittent, jurisdiction-
+ * independent bug). Preferring the CONTAINING parcel fixes it. §CONTEXT-DATA-HONESTY: a genuine
+ * street/gap click has NO containing parcel and must NOT be snapped — it falls back to the nearest
+ * carrying its true nonzero distance so the confidence label stays honest.
+ *
+ * Resolves to the normalised ParcelResult, or null (no parcel at the point / any upstream failure).
+ * NEVER throws. `deps` is injectable for tests.
  *
  * @param {number} lon  EPSG:4326 longitude
  * @param {number} lat  EPSG:4326 latitude
@@ -275,7 +379,7 @@ export async function fetchTextOnce(url, deps = {}) {
 export async function fetchParcelAtPoint(lon, lat, deps = {}) {
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
 
-    // 1. point → refcat (Coordenada_X = lon, Coordenada_Y = lat for EPSG:4326).
+    // 1. point → ranked candidates (Coordenada_X = lon, Coordenada_Y = lat for EPSG:4326).
     const rcUrl =
         `${CATASTRO_RCCOOR_ENDPOINT}?SRS=EPSG:4326` +
         `&Coordenada_X=${encodeURIComponent(String(lon))}` +
@@ -283,42 +387,35 @@ export async function fetchParcelAtPoint(lon, lat, deps = {}) {
     const rcXml = await fetchTextOnce(rcUrl, deps);
     if (!rcXml) return null;
     const rc = parseReverseGeocode(rcXml);
-    if (!rc) return null; // no cadastral reference at/near this point
+    if (!rc || !Array.isArray(rc.candidates) || rc.candidates.length === 0) return null;
 
-    // 2. cache hit by refcat?
-    const cached = cacheGet(rc.refcat);
-    if (cached) {
-        _hits++;
-        // Refresh the address from this lookup only if the cached one was empty.
-        return cached.address ? cached : { ...cached, address: rc.address };
+    // 2. §L-641 — prefer the candidate whose ring CONTAINS the click over the nearest-by-`dis`.
+    const candidates = rc.candidates.slice(0, PARCEL_CANDIDATE_MAX_K);
+    let fallback = null; // nearest candidate whose geometry we could actually resolve
+    for (const cand of candidates) {
+        const geom = await resolveParcelGeometry(cand.refcat, deps);
+        if (!geom) continue;
+        if (!fallback) fallback = { cand, geom };
+        if (pointInRing(lat, lon, geom.ring)) {
+            if (fallback.cand.refcat !== cand.refcat) {
+                console.log(
+                    `[catastro-proxy] §L-641 — click contained by ${cand.refcat} (dis ${cand.distance.toFixed(2)} m), ` +
+                    `NOT the nearest ${fallback.cand.refcat} (dis ${fallback.cand.distance.toFixed(2)} m); ` +
+                    'returning the CONTAINING parcel.',
+                );
+            }
+            return buildParcelResult(cand, geom, rc, /* clickInside */ true);
+        }
     }
-    _misses++;
 
-    // 3. refcat → parcel geometry (GML) → normalise.
-    const wfsUrl =
-        `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
-        `&STOREDQUERIE_ID=GetParcel&REFCAT=${encodeURIComponent(rc.refcat)}&srsName=EPSG:4326`;
-    const gml = await fetchTextOnce(wfsUrl, deps);
-    if (!gml) return null;
-    const parsed = parseParcelGml(gml);
-    if (!parsed) return null;
-
-    /** @type {ParcelResult} */
-    const result = {
-        ring: parsed.ring,
-        refcat: rc.refcat,
-        // §L-640 — `areaM2` kept for backward-compat (official ?? derived); the SPLIT areas +
-        // the click→parcel distance/margin are the new raw signals the client's confidence derives
-        // from. `areaOfficialM2` is null when Catastro does not publish `areaValue` (honest Unknown).
-        areaM2: parsed.areaOfficialM2 != null ? parsed.areaOfficialM2 : parsed.areaSigM2,
-        areaOfficialM2: parsed.areaOfficialM2,
-        areaSigM2: parsed.areaSigM2,
-        pointToParcelM: rc.pointToParcelM ?? null,
-        candidateMarginM: rc.candidateMarginM ?? null,
-        address: rc.address,
-    };
-    cacheSet(rc.refcat, result);
-    return result;
+    // 3. No candidate contained the click — a genuine street/gap click, or a boundary click OVC
+    // could not disambiguate. Return the nearest resolvable, honestly flagged as not-inside.
+    if (!fallback) return null;
+    console.log(
+        `[catastro-proxy] §L-641 — no candidate ring contains the click (${candidates.length} probed); ` +
+        `falling back to nearest ${fallback.cand.refcat} at dis ${fallback.cand.distance.toFixed(2)} m (not-inside).`,
+    );
+    return buildParcelResult(fallback.cand, fallback.geom, rc, /* clickInside */ false);
 }
 
 /** Set permissive same-origin cache headers on a parcel proxy response. */
