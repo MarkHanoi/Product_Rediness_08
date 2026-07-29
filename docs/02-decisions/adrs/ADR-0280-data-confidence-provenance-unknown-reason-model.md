@@ -1,6 +1,6 @@
 # 0280 — A shared Data-Confidence, Provenance & Unknown-Reason model (mint C62)
 
-**Status**: PROPOSED
+**Status**: ACCEPTED (2026-07-29 — ratified; C62 contract minted, schema exported. Consumer migration of C57 `ParcelConfidence` / C58 `EnvelopeConfidence` to instances of the generic is sequenced separately, not part of this ratification.)
 **Date**: 2026-07-29
 **Deciders**: founder (parcel-metadata review directive, L-640) + architecture team
 **Related contracts**: [C57 — Parcel Data Layer](../contracts/C57-PARCEL-DATA-LAYER.md) (its `ParcelConfidence` becomes a C62 instance), [C58 — Zoning Rules & Buildable Envelope](../contracts/C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (its `EnvelopeConfidence` becomes a C62 instance), [C55 — Geodata Analytical Layers](../contracts/C55-GEODATA-ANALYTICAL-LAYERS.md), [C19 — Site Model & Parcel](../contracts/C19-SITE-MODEL-AND-PARCEL.md); C61 (context-scene height/terrain, unratified per ADR-0279 §6) also inherits it once minted — **new candidate contract C62 is the cross-cutting owner these reference**

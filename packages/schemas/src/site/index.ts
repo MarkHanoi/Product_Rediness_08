@@ -34,3 +34,5 @@ export * from './zoning/index.js';
 
 // North Star §6.2 (Context Scene-Compiler & Terrain) — the regulation-aware HeightProfile datum.
 export * from './context/index.js';
+// §C62 (ADR-0280) — the shared data-confidence / provenance / unknown-reason model.
+export * from './metadata/DataConfidence.js';
