@@ -5,6 +5,7 @@ import type {
     Pt,
     ParcelEdgeClassification,
     ZoningRecord,
+    EnvelopeGranularity,
 } from '@pryzm/schemas';
 import { ZoningRecordSchema } from '@pryzm/schemas';
 import {
@@ -152,6 +153,98 @@ describe('computeBuildableEnvelope — structured fidelity (C58 §1.2 fidelity 1
         expect(env.confidence).toBe('structured');
         expect(env.maxHeight_m).toBe(18);
         expect(env.derivation.every((d) => d.fieldProvenance === 'published-structured')).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 1 — generic-engine leverage (ENVELOPE-IMPLEMENTATION-PLAN §1). Two engine
+// changes that lift EVERY setback-governed jurisdiction at once:
+//   (1) per-edge front/side/rear setbacks (the fallback is uniform ONLY for
+//       unclassified edges);
+//   (2) provider-stamped granularity flowing to `env.granularity`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('computeBuildableEnvelope — per-edge front/side/rear setbacks (C58 §10.3, Phase 1)', () => {
+    // A structured record carrying REAL, DISTINCT front/side/rear setbacks — no rule pack needed,
+    // and every number is `published-structured`, so the inset math is exercised in isolation.
+    const perEdgeRecord = (): ZoningRecord =>
+        ZoningRecordSchema.parse({
+            zoneCode: 'SYNTH-SETBACK',
+            zoneLabel: 'Synthetic setback zone',
+            jurisdictionId: 'synthetic',
+            structuredFields: {
+                maxHeight_m: 12,
+                setbacks: { front_m: 6, side_m: 2, rear_m: 4 },
+                permittedUse: ['residential'],
+            },
+            overlays: [],
+            provenance: { source: 'synthetic-test', label: 'test', version: null, license: null, crs: null },
+        });
+
+    // RECT edges (CCW): 0 = front (z=0 side), 1 = side (x=40), 2 = rear (z=20 side), 3 = side (x=0).
+    const MIXED: ParcelEdgeClassification[] = ['front', 'side', 'rear', 'side'];
+
+    it('insets each classified edge by its OWN setback, NOT the uniform mean', () => {
+        const perEdge = computeBuildableEnvelope({
+            parcelRing: RECT, edgeClassifications: MIXED, zoning: perEdgeRecord(), rulePack: null,
+        });
+        const uniformEnv = computeBuildableEnvelope({
+            parcelRing: RECT, edgeClassifications: UNCLASSIFIED, zoning: perEdgeRecord(), rulePack: null,
+        });
+        // Per-edge: sides inset 2 → x∈[2,38]; front 6 / rear 4 → z∈[6,16]. Area = 36 × 10 = 360 m².
+        expect(perEdge.status).toBe('ok');
+        expect(perEdge.insetAreaM2).toBeCloseTo(360, 4);
+        // Uniform fallback: mean(6,2,4)=4 on every edge → (40−8) × (20−8) = 32 × 12 = 384 m².
+        const u = (6 + 2 + 4) / 3;
+        expect(uniformEnv.insetAreaM2).toBeCloseTo((40 - 2 * u) * (20 - 2 * u), 4);
+        // THE PROOF: real per-edge setbacks yield a DIFFERENT footprint from the uniform fallback.
+        expect(Math.abs(perEdge.insetAreaM2 - uniformEnv.insetAreaM2)).toBeGreaterThan(1);
+    });
+
+    it('does NOT flag a uniform-setback caveat when EVERY edge is classified', () => {
+        const env = computeBuildableEnvelope({
+            parcelRing: RECT, edgeClassifications: MIXED, zoning: perEdgeRecord(), rulePack: null,
+        });
+        expect(env.caveats.some((c) => /uniform setback/i.test(c))).toBe(false);
+    });
+
+    it('DOES flag the fallback honestly when SOME edges are unclassified (§CONTEXT-DATA-HONESTY)', () => {
+        // One classified front edge + three unclassified → the three receive the uniform mean, a
+        // substitution that was SILENT before Phase 1 (the caveat used to fire only when ALL edges
+        // were unclassified).
+        const partial: ParcelEdgeClassification[] = ['front', 'unclassified', 'unclassified', 'unclassified'];
+        const env = computeBuildableEnvelope({
+            parcelRing: RECT, edgeClassifications: partial, zoning: perEdgeRecord(), rulePack: null,
+        });
+        expect(env.caveats.some((c) => /uniform setback/i.test(c))).toBe(true);
+    });
+});
+
+describe('computeBuildableEnvelope — provider-stamped granularity (C58 §1.11, Phase 1)', () => {
+    // A coarse source (Madrid VEDA at *ámbito* level): real published numbers, NOT about this plot.
+    const coarseRecord = (granularity?: EnvelopeGranularity): ZoningRecord =>
+        ZoningRecordSchema.parse({
+            zoneCode: 'ES-MADRID-VEDA',
+            zoneLabel: 'Ámbito VEDA',
+            jurisdictionId: 'es-madrid',
+            structuredFields: { maxHeight_m: 20, plotRatioFAR: 1.2, permittedUse: ['residential'] },
+            overlays: [],
+            ...(granularity ? { granularity } : {}),
+            provenance: { source: 'madrid-veda', label: 'Madrid VEDA', version: null, license: null, crs: null },
+        });
+
+    it('flows a coarse `ambito` granularity through to the envelope (§1.11.3 refuses it as parcel)', () => {
+        const env = computeBuildableEnvelope({
+            parcelRing: RECT, edgeClassifications: UNCLASSIFIED, zoning: coarseRecord('ambito'), rulePack: null,
+        });
+        expect(env.granularity).toBe('ambito');
+    });
+
+    it('defaults to `parcel` when the record stamps no granularity (byte-identical to before)', () => {
+        const env = computeBuildableEnvelope({
+            parcelRing: RECT, edgeClassifications: UNCLASSIFIED, zoning: coarseRecord(), rulePack: null,
+        });
+        expect(env.granularity).toBe('parcel');
     });
 });
 

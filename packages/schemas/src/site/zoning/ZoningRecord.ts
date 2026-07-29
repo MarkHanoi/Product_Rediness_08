@@ -10,6 +10,7 @@
 
 import { z } from 'zod';
 import { EnvelopeNumbersSchema } from './EnvelopeNumbers.js';
+import { EnvelopeGranularitySchema } from './BuildableEnvelope.js';
 
 /**
  * A minimal provenance stamp for a zoning record. C58 §2.1 references the
@@ -48,6 +49,21 @@ export const ZoningRecordSchema = z.object({
      * absent). `null` = the source published no citation (never fabricated).
      */
     ordinanceRef: z.string().min(1).nullable().default(null),
+    /**
+     * C58 §1.11 — the GRANULARITY the source answers at, when a provider knows it is coarser than
+     * the parcel. OPTIONAL and additive: a provider that returns a genuinely parcel-level record
+     * (every one shipped today — Barcelona MUC, DK Plandata) omits it, and `computeBuildableEnvelope`
+     * then stamps the envelope `'parcel'` (`zoning.granularity ?? 'parcel'`), so nothing changes.
+     *
+     * ⚠ It exists for the coarse sources §1.11 was written for — Madrid VEDA at *ámbito* level,
+     * Valencia `InventarioSuSuz` at *sector* level: real, published, authoritative NUMBERS that are
+     * nonetheless NOT about this plot. Such a provider stamps the true granularity here (`'ambito'`,
+     * `'sector'`, …) and it flows to `BuildableEnvelope.granularity`, where §1.11.3 forbids it being
+     * shown as this parcel's envelope. Granularity describes what the number is ABOUT, not what was
+     * used to compute it — so a parcel-level rule that merely READS block geometry (Art. 242.2) is
+     * still `'parcel'` and must NOT stamp a coarser value here.
+     */
+    granularity: EnvelopeGranularitySchema.optional(),
     provenance: ZoningProvenanceSchema,
 });
 export type ZoningRecord = z.infer<typeof ZoningRecordSchema>;

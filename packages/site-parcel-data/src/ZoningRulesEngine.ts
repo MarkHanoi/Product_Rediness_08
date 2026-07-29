@@ -241,20 +241,35 @@ export function computeBuildableEnvelope(
         const caveats: string[] = [];
 
         // ── Compute the setback inset (C58 §3.2). ────────────────────────────
-        // C58 §10.3: until per-edge front/side/rear classification exists, a
-        // uniform setback is the sanctioned fallback (flagged in caveats).
+        // PER-EDGE: `insetPolygonPerEdge` (via `setbackForClass`) insets each edge the C19 spine
+        // classifies `front`/`side`/`rear` by its OWN resolved setback; the uniform mean is the
+        // sanctioned fallback (C58 §10.3) ONLY for edges that remain `unclassified`. The `setbacks`
+        // object below carries all four values, and the classification array picks per edge — so
+        // when every edge is classified the inset is fully per-edge with no fallback anywhere.
+        //
+        // §CONTEXT-DATA-HONESTY: the fallback is flagged in caveats whenever it is ACTUALLY applied,
+        // i.e. as soon as ANY edge is unclassified (not only when ALL are) — a uniform value silently
+        // substituted on some edges is exactly the failure the honesty spine forbids. Zones whose
+        // setbacks are null/zero (every Barcelona alignment/block-derived clau — its setbacks are
+        // null, tested) never reach the caveat, so their output is byte-identical.
         const allUnclassified =
             edgeClassifications.length === 0 ||
             edgeClassifications.every((c) => c === 'unclassified');
+        const anyUnclassified =
+            edgeClassifications.length === 0 ||
+            edgeClassifications.some((c) => c === 'unclassified');
         const frontV = front.value ?? 0;
         const sideV = side.value ?? 0;
         const rearV = rear.value ?? 0;
         const present = [frontV, sideV, rearV].filter((v) => v > 0);
         const uniform = present.length > 0 ? present.reduce((a, b) => a + b, 0) / present.length : 0;
-        if (allUnclassified && (frontV || sideV || rearV)) {
+        if (anyUnclassified && (frontV || sideV || rearV)) {
             caveats.push(
-                `Uniform setback ${uniform.toFixed(2)} m applied (parcel edges are unclassified — ` +
-                    `per-edge front/side/rear pending C19 edge classification, C58 §10.3).`,
+                allUnclassified
+                    ? `Uniform setback ${uniform.toFixed(2)} m applied (parcel edges are unclassified — ` +
+                        `per-edge front/side/rear pending C19 edge classification, C58 §10.3).`
+                    : `Uniform setback ${uniform.toFixed(2)} m applied to the unclassified parcel edge(s); ` +
+                        `classified edges use their own front/side/rear setback (C58 §10.3).`,
             );
         }
         const setbacks: PerEdgeSetbacks = {
@@ -877,9 +892,14 @@ export function computeBuildableEnvelope(
             // make the generator refuse a valid parcel constraint.
             //
             // The genuinely coarse sources (Madrid VEDA *ámbito*, Valencia sector) enter through
-            // a PROVIDER, not this solver; when one lands it must stamp its own granularity on
-            // the `ZoningRecord` and this line becomes a read of that, not a constant.
-            granularity: 'parcel',
+            // a PROVIDER, not this solver: such a provider stamps its own granularity on the
+            // `ZoningRecord` (`ZoningRecord.granularity`), and this line now READS that stamp,
+            // defaulting to `'parcel'` when the record carries none. Every parcel-level source
+            // (Barcelona MUC, DK Plandata — none stamp it) is therefore unchanged, while a coarse
+            // provider's `'ambito'`/`'sector'` flows through to §1.11.3 where it is refused as a
+            // parcel constraint. Still NOT stamped by any rule KIND here (block-derived reads block
+            // geometry but yields a parcel-level answer — see the note above).
+            granularity: zoning.granularity ?? 'parcel',
             insetPolygon,
             // §L-590b — a TIERED envelope's headline height is the PRINCIPAL TIER's, not the
             // zone-level resolution, and the two genuinely differ: on Art. 350.2 the tall tier's
