@@ -28,6 +28,7 @@
  *   19. check-structuredclone-new-commands.ts — structuredClone undo in command-registry (OI-050 / Phase E.undo)
  *   20. check-xss-guards.ts                 — innerHTML interpolation safety ratchet (P0/OI-051)
  *   21. check-custom-event-apps.ts          — CustomEvent dispatches in apps/editor/src/ (OI-050 / Phase F.events.2)
+ *   22. check-zoning-fidelity-label.ts      — estimated zoning value never rendered authoritative (C58 §6 / ADR-0279 BLOCKER-1)
  *
  * Phase 0 (OI-046 through OI-050): Gates 16–19 are the new gates added to close
  * the aliasing loophole and establish ratchets for all four remaining legacy patterns.
@@ -72,6 +73,7 @@ const GATES: Gate[] = [
   { name: 'structuredclone-commands (OI-050/E.undo)', script: 'check-structuredclone-new-commands.ts' },
   { name: 'xss-guards (P0/OI-051)',                   script: 'check-xss-guards.ts' },
   { name: 'custom-event-apps (OI-050/F.events.2)',    script: 'check-custom-event-apps.ts' },
+  { name: 'zoning-fidelity-label (C58§6/ADR-0279)',   script: 'check-zoning-fidelity-label.ts' },
 ];
 
 let anyFailed = false;
