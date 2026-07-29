@@ -4711,3 +4711,11 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 - **Excluded (rejected, never re-propose):** listing/anúncio distance, ad confidence, listing reconciliation, valuation, market/ROI/financing (PRYZM has no listing concept — C19 §1.2).
 - **Queue:** geospatial / parcel-data (C57) — NOT UI. Depends on: nothing hard; reuses C58/C55/ADR-0277 confidence models. **Dependency for later phases:** C61 (context-scene confidence, unminted).
 - **⚠ NOT built — review + logging only. No schema/doc amendment until founder approves the plan.**
+
+## L-641 — Parcel-select boundary offset (P1) · OWNER: UNASSIGNED · TARGET: TBD (diagnose first)
+- **What:** selected cadastral parcel boundary is offset from the real parcel (intermittent, "everywhere"). Full write-up: `docs/04-reference/V1-LAUNCH-READINESS-AUDIT.md` L-641.
+- **Two candidate roots (diagnostic must separate):** (A) `parseReverseGeocode` returns the NEAREST parcel via Catastro `_Distancia` → near a boundary it resolves the ADJACENT parcel (C57, `server/parcelZoningProxy.js:108-140`); (B) L-629 Barcelona θ_write≠θ_read frame-split (C12 §9 SiteFrame, `siteDispatch.ts`).
+- **Diagnostic already available:** the L-640 `pointToParcelM` + a point-in-ring test (click vs returned ring) directly reveals root (A).
+- **Correct fix:** (A) prefer parcel-containing-click over nearest; (B) land L-629 θ write==read. NOT a constant ring nudge (masks + corrupts geometry).
+- **Queue:** geospatial / parcel-data (C57) + C12 §9 SiteFrame — not UI. Depends on / overlaps: **L-629** (θ-displacement, diagnosed), L-640 (the diagnostic signals — DONE).
+- **⚠ NOT built — logged only.**
