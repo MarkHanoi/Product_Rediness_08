@@ -203,10 +203,54 @@ The canonical fetched parcel. (The shipped interface in `apps/editor/src/ui/site
 |---|---|---|---|
 | `ring` | `LatLon[]` (WGS84, outer ring; may be open) | — | §1.1; consumed by `buildBoundaryFromLatLonRing` |
 | `refcat` | `string` | — | source's own parcel id (ES *referencia catastral*; DK `jordstykke` id; CH EGRID) |
-| `areaM2` | `number` | `0` | published area where the source supplies it; else 0 (client may derive) |
+| `areaM2` | `number` | `0` | backward-compat: official area where the source supplies it, else shoelace-derived. Consumers that need the honesty distinction MUST use `confidence.areaSource` + `confidence.areaOfficialM2` / `confidence.areaSigM2` (§2.4, added §L-640). |
 | `address` | `string \| null` | `null` | locator string — **PII** per [C22](./C22-PRIVACY-AND-PII-TIER.md) |
 | `jurisdictionId` | `string` | — | e.g. `'es-barcelona'`, `'dk'`, `'ch-zh'` — the key C58 resolves a rule pack by |
 | `provenance` | `ParcelProvenance` (§2.2) | — | §1.4 |
+| `metrics` | `ParcelGeometryMetrics` (§2.4) \| `undefined` | `undefined` | §L-640 Phase 1 — pure geometry diagnostics; present on all shipped adapters |
+| `confidence` | `ParcelConfidence` (§2.4) \| `undefined` | `undefined` | §L-640 Phase 1 — honesty-gated cadastral confidence; present on all shipped adapters |
+
+### §2.4 — `ParcelGeometryMetrics` and `ParcelConfidence` (added §L-640 Phase 1)
+
+**AMENDED 2026-07-29 (§L-640 Phase 1).** Fixes C57 §13 KV-3 (official vs derived area was silently collapsed). Implemented in `apps/editor/src/ui/site/parcel/parcelConfidence.ts` (a pure module, no THREE/DOM/network), wired into all three shipped adapters: `CatastroParcelProvider`, `WfsParcelProvider`, `footprintPick`.
+
+#### `ParcelGeometryMetrics` — pure geometry diagnostics from the ring
+
+Derived solely from the WGS84 ring using local-equirectangular projection about ring[0]. No source data; safe to compute on any provider output.
+
+| Field | Type | Notes |
+|---|---|---|
+| `areaSigM2` | `number` | Shoelace area (m²) |
+| `perimeterM` | `number` | Ring perimeter (m) |
+| `centroid` | `LatLon` | Area-weighted polygon centroid (fallback: vertex mean for degenerate ring) |
+| `bbox` | `{ west, south, east, north }` | WGS84 bounding box |
+| `vertexCount` | `number` | Number of vertices in the ring |
+| `compactness` | `number ∈ (0,1]` | Polsby–Popper: 4πA/P²; 1 = a circle |
+
+#### `ParcelConfidence` — honesty-gated cadastral confidence
+
+Tiers built **ONLY** from categorical facts (kind, areaSource, geometryComplete, click-inside). No calibrated numeric cutoff enters `match` — that would violate C58 §16 explainability. Raw numeric fields are shipped for transparency + future calibration but are **explicitly withheld from the tier** (a stated Phase-1 limitation; no measured distribution across N parcels exists yet).
+
+| Field | Type | Notes |
+|---|---|---|
+| `match` | `'high' \| 'medium' \| 'low'` | Fact-based tier (see rule below). `'high'` never occurs on a footprint-fallback or derived-area parcel |
+| `areaSource` | `'registry-declared' \| 'derived-from-ring'` | Whether `areaOfficialM2` came from the source's registry (INSPIRE `areaValue`) or was computed by shoelace. The C57 §2.1 honesty distinction (fixes KV-3) |
+| `areaOfficialM2` | `number \| null` | Registry-declared area, or null if unpublished |
+| `areaSigM2` | `number` | Shoelace-derived area — always present |
+| `areaDeltaPct` | `number \| null` | `|official − sig| / official × 100`, or null when no official area. **Shipped RAW; NOT tiered** (no calibrated agree-cutoff exists yet — stated Phase-1 limitation) |
+| `pointToParcelM` | `number \| null` | OVC `_Distancia` click→parcel distance (Spain only), or null for WFS/footprint providers. **Shipped RAW; distance sub-tiers withheld** (no measured distribution) |
+| `candidateMarginM` | `number \| null` | Nearest vs 2nd-nearest candidate gap (m), or null. **Shipped RAW; only single-vs-multiple count used as a fact** |
+| `geometryComplete` | `boolean` | Ring has ≥3 vertices and a non-degenerate area — a boolean fact, not a tier |
+
+**Match tier rule (categorical facts only, no numeric cutoff):**
+
+- `'low'` ← footprint-fallback **OR** geometryComplete = false (not a legal parcel / broken geom)
+- `'high'` ← cadastral AND geometryComplete AND areaSource = registry-declared AND click-inside (or click unavailable — null is not a penalty)
+- `'medium'` ← everything else (real cadastral polygon missing one corroborator)
+
+`pointToParcelM ≤ 1 m` is treated as "click-inside" — this 1 m constant is justified as coordinate/projection float-noise only, **not** as a calibrated distance tier.
+
+**Phase-1 limitation (explicit, stated):** `areaDeltaPct`, `pointToParcelM`, and `candidateMarginM` are shipped as raw numbers. No threshold exists yet for tiering them — to add one requires a measured distribution across N real parcels and founder sign-off. Until then, code MUST NOT use these fields to compute a `match` sub-tier.
 
 ### §2.2 — `ParcelProvenance`
 
@@ -405,6 +449,7 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 | 2026-07-17 | Initial DRAFT — fills the C57 reserved slot (compliance-authoring foundation, L-398/L-400/L-403). Grounds on the shipped Spain/Catastro parcel-select + the Denmark reference. Author: compliance-authoring governance track. |
 | 2026-07-21 | Added **§1.11** (cadastral publication quantum + tolerant block assembly, L-539) and **§1.12** (the manzana-prefix heuristic's measured limits, L-535/L-539/L-525). Added **§13 Known violations**. All grounded in the live-data probes listed there; no invariant is claimed conformant on documentation alone. |
 | 2026-07-24 | Added **§1.13** (provider-invariant parcel-select + one dispatch registry routed by the shared C58 predicates + Catastro as the reference clone + universal footprint fallback) and **§3.4** (the standardized add-a-jurisdiction recipe). Promoted **§10.1** from open-question to RESOLVED. Grounds on the founder-confirmed "Spain works 100%" reference + L-613 (parcel-select was Catastro-only, blocking every non-Spanish demo). Author: geospatial rollout track. |
+| 2026-07-29 | **§L-640 Phase 1 — `ParcelFeature.metrics` + `ParcelFeature.confidence` schema addition (§2.4); KV-3 RESOLVED.** Added `ParcelGeometryMetrics` and `ParcelConfidence` to the `ParcelFeature` schema (§2.1 updated, §2.4 new). All three shipped adapters (`CatastroParcelProvider`, `WfsParcelProvider`, footprint-fallback via `footprintPick`) now attach `metrics` + `confidence`. The match tier is built ONLY from categorical facts; raw numeric fields (`pointToParcelM`, `candidateMarginM`, `areaDeltaPct`) are shipped untiered with an explicit Phase-1 limitation recorded in §2.4. Server-side fix: `server/parcelZoningProxy.js` returns `areaOfficialM2` + `areaSigM2` separately, plus `pointToParcelM`/`candidateMarginM` (no longer discarded). Verified by `apps/editor/__tests__/parcelConfidence.test.ts` (15 tests, all passing). KV-3 (area-collapse honesty violation) marked RESOLVED in §13. |
 
 ---
 
@@ -424,7 +469,13 @@ External (non-contract): [ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md](
 
 ### KV-3 (L-640) — §2.1 `areaM2` silently reports a DERIVED area as if published
 
-§2.1 defines `areaM2` as "**published area where the source supplies it; else 0 (client may derive)**" — i.e. the official-vs-derived distinction is a contract intent. But `parseParcelGml` (`server/parcelZoningProxy.js:175-181`) extracts the INSPIRE `areaValue` (official registry area) when present **and** falls back to the shoelace `ringAreaM2` (derived), then **collapses both into a single `areaM2`** with no flag for which it is. A consumer cannot tell an authoritative registry area from a polygon-derived one — a §1.4 honesty violation (a derived number wears the "official" slot). Both values are already computed, so the *área oficial vs área SIG* delta is obtainable with **zero new upstream calls**; the fix is to stop collapsing them. Sibling signal: `parseReverseGeocode:134-140` computes the click→parcel distance (`dis`) and could compute the nearest-candidate margin, then discards both (a free cadastral match-confidence signal). **Status: OPEN.** Fix is Phase 1 of the L-640 parcel-metadata model (a `ParcelFeature.confidence` with `areaSource: 'registry-declared' | 'derived-from-ring'` + `areaOfficialM2`/`areaSigM2`/`areaDeltaPct`), gated on founder sign-off. Do NOT keep asserting §2.1's published/derived distinction while the code erases it.
+§2.1 defines `areaM2` as "**published area where the source supplies it; else 0 (client may derive)**" — i.e. the official-vs-derived distinction is a contract intent. But `parseParcelGml` (`server/parcelZoningProxy.js:175-181`) extracted the INSPIRE `areaValue` (official registry area) when present **and** fell back to the shoelace `ringAreaM2` (derived), then **collapsed both into a single `areaM2`** with no flag for which it is. A consumer could not tell an authoritative registry area from a polygon-derived one — a §1.4 honesty violation.
+
+**Status: RESOLVED (2026-07-29, §L-640 Phase 1).** Verified by `apps/editor/__tests__/parcelConfidence.test.ts` (15 tests, all passing) against both a real Spanish cadastral fixture (with registry-declared area) and a footprint-fallback fixture (always 'low'). The fix:
+- `server/parcelZoningProxy.js` now returns `areaOfficialM2` and `areaSigM2` separately (never collapsed); `pointToParcelM` and `candidateMarginM` are no longer discarded.
+- `apps/editor/src/ui/site/parcel/parcelConfidence.ts` — new pure module: `computeParcelMetrics()` (geometry diagnostics) + `computeParcelConfidence()` (honesty-gated tier built ONLY from categorical facts, per C58 §16 explainability; see §2.4 for the complete schema and the stated Phase-1 limitations on raw numeric fields).
+- All three shipped adapters (`CatastroParcelProvider`, `WfsParcelProvider`, `footprintPick`) attach `metrics` + `confidence` to their `ParcelFeature` output. Footprint-fallback parcels unconditionally yield `match:'low'` by construction.
+- `areaM2` remains for backward-compat; consumers needing the honesty distinction MUST use `confidence.areaSource` + `confidence.areaOfficialM2`/`confidence.areaSigM2` (§2.1, §2.4).
 
 ### KV-3 — §1.7's L2 lift has not happened; the shipped Spain adapter is still at L5
 

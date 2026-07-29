@@ -1,10 +1,16 @@
 // L-613 — the PURE footprint-pick, split out of `FootprintParcelProvider.ts` so it is unit-testable
 // WITHOUT dragging in the context-buildings network graph (contextBuildings → contextTiles → pmtiles).
 // Only a TYPE import from contextBuildings (erased at runtime), so this module has no heavy deps.
+//
+// §L-640 Phase 1 — footprint-fallback parcels attach metrics + confidence with confidence.match
+// HARD-CODED to 'low' by construction: an OSM footprint is never a legal parcel, so it can never
+// be labelled 'high' or 'medium' regardless of geometry quality. This is enforced via
+// computeParcelConfidence(kind:'footprint-fallback') which unconditionally yields 'low'.
 
 import type { LatLon } from '../boundaryProjection.js';
 import type { ParcelFeature } from './ParcelProvider.js';
 import type { ContextBuildingFeature } from '../../geospatial/contextBuildings.js';
+import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
 
 /** Ray-casting point-in-polygon on a GeoJSON [lon,lat] outer ring. */
 export function ringContainsLonLat(coords: number[][], lon: number, lat: number): boolean {
@@ -49,6 +55,10 @@ function toLatLonRing(coords: number[][]): LatLon[] {
  * `ParcelFeature` labelled `footprint (OSM)` — or null when nothing contains the point (an honest
  * "no footprint here"). NEVER a cadastral reference: the `refcat` is the OSM id, so the card can
  * never imply legality (C58 §1.4).
+ *
+ * §L-640 Phase 1: every footprint result carries metrics + confidence with confidence.match = 'low'
+ * by construction. A footprint is never a legal parcel, so 'high'/'medium' are structurally
+ * impossible — this is enforced via computeParcelConfidence(kind:'footprint-fallback').
  */
 export function pickFootprintAtPoint(
     features: readonly ContextBuildingFeature[],
@@ -62,12 +72,27 @@ export function pickFootprintAtPoint(
         const ring = toLatLonRing(outer);
         if (ring.length < 3) continue;
         const osmId = f.properties?.osmId;
+
+        // §L-640: pure geometry diagnostics + confidence. kind:'footprint-fallback' guarantees
+        // match:'low' unconditionally — no numeric threshold, no categorical override possible.
+        const metrics = computeParcelMetrics(ring);
+        const confidence = computeParcelConfidence({
+            ring,
+            kind: 'footprint-fallback',
+            areaOfficialM2: null,          // OSM footprints have no registry-declared area
+            areaSigM2: metrics.areaSigM2,
+            pointToParcelM: null,          // click-inside already confirmed above; not applicable
+            candidateMarginM: null,        // single footprint; no candidate ranking
+        });
+
         return {
             ring,
             refcat: typeof osmId === 'number' && Number.isFinite(osmId) ? `OSM ${osmId}` : 'OSM footprint',
             areaM2: ringAreaM2LonLat(outer),
             address: null,
             source: 'footprint (OSM)',
+            metrics,
+            confidence,
         };
     }
     return null;

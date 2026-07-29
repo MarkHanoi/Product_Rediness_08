@@ -13,6 +13,7 @@
 import { trace } from '@opentelemetry/api';
 import type { LatLon } from '../boundaryProjection.js';
 import type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
+import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
 
@@ -23,6 +24,13 @@ interface ProxyParcel {
     readonly areaM2?: unknown;
     readonly address?: unknown;
     readonly source?: unknown;
+    // §L-640 Phase 1 — split areas + click→parcel signals (absent on older proxy builds → null).
+    // WFS providers (FR/NL/NO/DE/CH) may return these when the EU cadastre proxy populates them;
+    // pointToParcelM / candidateMarginM are OVC-specific (Spain) and will be null for WFS providers.
+    readonly areaOfficialM2?: unknown;
+    readonly areaSigM2?: unknown;
+    readonly pointToParcelM?: unknown;
+    readonly candidateMarginM?: unknown;
 }
 
 function toFiniteNum(v: unknown): number | null {
@@ -51,6 +59,12 @@ function parseRing(raw: unknown): LatLon[] {
  * Normalise a proxy `{ parcel }` payload into a `ParcelFeature`, or null on a miss/malformed
  * response. `fallbackSource` labels the provenance when the proxy omits `source`. Exported so the
  * parse is unit-testable in isolation from `fetch`.
+ *
+ * §L-640 Phase 1 — attaches metrics + honesty-gated confidence (kind:'cadastral') using the same
+ * computeParcelMetrics/computeParcelConfidence from parcelConfidence.ts as CatastroParcelProvider.
+ * No logic is duplicated. `pointToParcelM`/`candidateMarginM` are OVC-specific (Spain) and will
+ * be null for WFS providers; `areaOfficialM2` is null when the proxy does not supply it (older
+ * builds or sources that do not publish a registry area).
  */
 export function parseWfsProxyResponse(json: unknown, fallbackSource: string): ParcelFeature | null {
     if (!json || typeof json !== 'object') return null;
@@ -69,7 +83,21 @@ export function parseWfsProxyResponse(json: unknown, fallbackSource: string): Pa
     const source =
         typeof parcel.source === 'string' && parcel.source.length > 0 ? parcel.source : fallbackSource;
 
-    return { ring, refcat, areaM2, address, source };
+    // §L-640: pure geometry diagnostics + honesty-gated confidence.
+    // WFS providers are real cadastral sources → kind:'cadastral'. pointToParcelM/candidateMarginM
+    // are OVC-specific (Spain only) and are null here — no penalty: null is treated as "unavailable"
+    // in computeParcelConfidence, not as "outside", so it does NOT downgrade the match tier.
+    const metrics = computeParcelMetrics(ring);
+    const confidence = computeParcelConfidence({
+        ring,
+        kind: 'cadastral',
+        areaOfficialM2: toFiniteNum(parcel.areaOfficialM2),
+        areaSigM2: metrics.areaSigM2,
+        pointToParcelM: toFiniteNum(parcel.pointToParcelM),
+        candidateMarginM: toFiniteNum(parcel.candidateMarginM),
+    });
+
+    return { ring, refcat, areaM2, address, source, metrics, confidence };
 }
 
 /**

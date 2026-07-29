@@ -62,10 +62,15 @@ server proxy** — never a browser→gov call.
   `Consulta_RCCOOR_Distancia` (keyless XML, `parseReverseGeocode:119`); (2) refcat→geometry via the
   INSPIRE Cadastral-Parcel WFS stored query `GetParcel` (GML 3.2.1, `parseParcelGml:159`, **EPSG:4326
   axis order lat,lon**). Cached by refcat, 7-day TTL, LRU ≤512. Miss/failure → HTTP 200
-  `{parcel:null}` — never crashes (`:351`).
+  `{parcel:null}` — never crashes (`:351`). **§L-640:** proxy returns `areaOfficialM2` (INSPIRE
+  `areaValue` when published) and `areaSigM2` (shoelace-derived) **separately** — never collapsed —
+  plus `pointToParcelM` and `candidateMarginM` from the OVC `_Distancia` response (previously
+  discarded). This fixes C57 §13 KV-3.
 - **Client adapter** — `apps/editor/src/ui/site/parcel/CatastroParcelProvider.ts`: pure fetch+parse
-  → a canonical `ParcelFeature { ring: LatLon[], refcat, areaM2, address, source }`, `null` on any
-  failure, opens `pryzm.parcel.fetchParcelAtPoint` span.
+  → a canonical `ParcelFeature { ring, refcat, areaM2, address, source, metrics, confidence }`,
+  `null` on any failure, opens `pryzm.parcel.fetchParcelAtPoint` span. **§L-640:** `metrics`
+  (`ParcelGeometryMetrics`) and `confidence` (`ParcelConfidence`) are attached on every successful
+  parse via `parcelConfidence.ts` (a pure module, no network). See §1.1a below.
 - **Routing registry** — the map consumes `registryParcelProvider`
   (`apps/editor/src/ui/site/parcel/parcelRegistry.ts:67`), which calls `resolveParcelJurisdiction`
   and routes to the cadastral proxy where one is open, else an OSM footprint fallback. The
@@ -73,6 +78,23 @@ server proxy** — never a browser→gov call.
   (`catastro`, `isInSpain`) is entry 1, the L-380 pilot; a `kind: 'cadastral'` vs
   `'footprint-fallback'` discriminator guarantees a footprint is **never** mislabelled as a legal
   parcel (C58 §1.4). `UNIVERSAL_FOOTPRINT_JURISDICTION` guarantees a click is never dead.
+
+### 1.1a §L-640 Phase 1 — `ParcelFeature.metrics` and `ParcelFeature.confidence` (added 2026-07-29)
+
+Every fetched parcel now carries two additional optional fields. Both are present on all shipped adapters (Catastro, WFS/European, footprint-fallback). **Authority for the full schema: C57 §2.4.**
+
+**`ParcelGeometryMetrics`** — pure geometry diagnostics from the WGS84 ring (local-equirectangular about ring[0]); no source data. Fields: `areaSigM2`, `perimeterM`, `centroid`, `bbox`, `vertexCount`, `compactness` (Polsby–Popper). Computed by `computeParcelMetrics()` in `parcelConfidence.ts`.
+
+**`ParcelConfidence`** — honesty-gated cadastral confidence. The `match` tier (`'high'|'medium'|'low'`) is built **ONLY** from categorical facts — never from a numeric cutoff (C58 §16 explainability mandate):
+- `'low'` ← footprint-fallback by kind (unconditional, construction guarantee) **OR** geometryComplete = false
+- `'high'` ← cadastral + geometryComplete + official area published + click-inside (or click unavailable)
+- `'medium'` ← everything else (real cadastral polygon missing one corroborator)
+
+Raw numeric fields (`pointToParcelM`, `candidateMarginM`, `areaDeltaPct`) are shipped for transparency + future calibration but are **explicitly NOT tiered** — no calibrated distribution across N parcels exists yet. This is a stated Phase-1 limitation; code MUST NOT use them to compute a sub-tier without founder sign-off and a measured dataset.
+
+**Footprint-fallback rule (hard):** `match` is **always** `'low'` for an OSM footprint, regardless of ring geometry quality. This is enforced via `kind:'footprint-fallback'` in `computeParcelConfidence()`, not by any threshold. A footprint is never a legal parcel; `'high'` and `'medium'` are structurally impossible for it.
+
+**Wiring:** all three shipped adapters call `computeParcelMetrics` + `computeParcelConfidence` from `parcelConfidence.ts` — no logic is duplicated. `WfsParcelProvider` (FR/NL/NO/DE/CH) also reads the split area fields when the EU cadastre proxy supplies them; older proxy builds without them yield `areaSource:'derived-from-ring'` and `match:'medium'` (honest degradation). Verified by `apps/editor/__tests__/parcelConfidence.test.ts` (15 tests, all passing).
 
 ### 1.2 The two UI paths ("Select parcel" | "Draw boundary")
 Both live in the MapLibre overlay `apps/editor/src/ui/geospatial/SiteBoundaryMap2D.ts`
