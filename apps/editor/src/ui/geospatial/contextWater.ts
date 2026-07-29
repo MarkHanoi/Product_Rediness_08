@@ -315,6 +315,14 @@ function boundaryWalk(from: number, to: number, dir: 1 | -1, b: Bbox): Array<[nu
     return pts;
 }
 
+/** Total length (in lon/lat units) of a polyline — used to pick the DOMINANT coastline
+ *  (§SEA-DOMINANT-COAST) so short port/jetty/river fragments do not each spawn a sea ring. */
+function polylineLength(line: ReadonlyArray<readonly [number, number]>): number {
+    let d = 0;
+    for (let i = 1; i < line.length; i++) d += Math.hypot(line[i]![0] - line[i - 1]![0], line[i]![1] - line[i - 1]![1]);
+    return d;
+}
+
 /** Euclidean distance (in lon/lat units) from point p to segment a→b. Used only for the
  *  §SEA-WATER-SIDE-ROBUST "is the site ~on the coast?" guard, where the small anisotropy of
  *  lon vs lat is immaterial (the threshold is a few metres). */
@@ -360,7 +368,19 @@ export function buildSeaMaskFromCoastline(
     const eps = 1e-4 * Math.min(spanX, spanY);
     const rings: Array<Array<readonly [number, number]>> = [];
 
-    for (const line of stitchCoastlineWays(ways)) {
+    // §SEA-DOMINANT-COAST (L-642) — close ONLY the LONGEST stitched coastline into a sea surface.
+    // A large sea bbox captures many SHORT coastline fragments (port breakwaters, jetties, marina
+    // walls, river mouths); each fragment, closed independently along the bbox perimeter, yields a
+    // spurious ring, and their union tiles the whole box blue — the founder's "huge square blue …
+    // it should follow the coastline, which it doesn't". The real shoreline is ONE long line, so
+    // using only it gives a single clean seaward polygon that hugs the coast. Dropped fragments are
+    // simply not drawn (§CONTEXT-DATA-HONESTY: never a fabricated plane).
+    const stitched = stitchCoastlineWays(ways);
+    let dominant: ReadonlyArray<readonly [number, number]> | null = null;
+    let dominantLen = -1;
+    for (const l of stitched) { const len = polylineLength(l); if (len > dominantLen) { dominantLen = len; dominant = l; } }
+    const centre: readonly [number, number] = [(w + e) / 2, (s + n) / 2];
+    for (const line of dominant ? [dominant] : []) {
         for (const strand of clipPolylineToBbox(line, bbox)) {
             if (strand.length < 2) continue;
             const start = strand[0]!, end = strand[strand.length - 1]!;
@@ -397,7 +417,6 @@ export function buildSeaMaskFromCoastline(
             // the centre is on the strand and the side-test is ambiguous (two identical coasts of
             // opposite orientation must yield opposite seas — only the way-direction can tell them
             // apart), so there we defer to the right-hand test.
-            const centre: readonly [number, number] = [(w + e) / 2, (s + n) / 2];
             let dCentre = Infinity;
             for (let k = 1; k < strand.length; k++) {
                 dCentre = Math.min(dCentre, distPointToSegment(centre, strand[k - 1]!, strand[k]!));
@@ -409,6 +428,10 @@ export function buildSeaMaskFromCoastline(
                 pick = pointInRing(test, ringA) ? ringA : (pointInRing(test, ringB) ? ringB : null);
             }
             if (!pick || pick.length < 4) continue;
+            // HARD GUARD — the sea must NEVER contain the land centre. If the chosen ring still does
+            // (a mis-closure on a pathological strand), drop it: no sea is honest, sea-over-the-city
+            // is not.
+            if (dCentre > eps && pointInRing(centre, pick)) continue;
             rings.push(pick);
         }
     }
