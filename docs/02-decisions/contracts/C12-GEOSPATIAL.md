@@ -401,6 +401,57 @@ C19 §1.12.2) and a **Copenhagen** sloped parcel (terrain reseat).
 
 ---
 
+## §10 — Baked terrain: quantized-mesh tile-header encoding invariants (L-639, ADR-0278)
+
+**Governs**: `tools/context-bake/terrain.mjs` (`encodeQuantizedMesh`, `horizonOcclusionPoint`) — the
+per-city Cesium quantized-mesh bake. **Rationale**: a per-city tile pyramid synthesises coarse ancestor
+tiles (above all **z0, a full hemisphere** `lat[-90,90]`) that are almost entirely flat filler. Two
+header fields, if computed naively, make Cesium **horizon-cull the root tile** — refinement never
+starts, **zero tiles render, and the whole city shows white terrain** (the long "interior cities are
+white, coastal are fine" bug; the split was really west-root `(0,0)` vs east-root `(1,0)`, not
+elevation). Both invariants are **MUST**, CI-guardable by decoding the emitted root tile.
+
+### §10.1 — Bounding centre = tile RECTANGLE centre, never the vertex centroid
+
+**MUST**: the tile bounding centre written to the header (and used as the horizon-occlusion cone axis)
+MUST be the ECEF of the tile rectangle's mid-longitude / mid-latitude at mean height:
+`ecefFromLonLatH((west+east)/2, (north+south)/2, (minH+maxH)/2)`.
+
+**MUST NOT**: use the vertex centroid. A flat coarse tile meshes (MARTINI) to its **corner vertices**,
+which for a pole-spanning tile sit at **lat ±90** — their average is the **geocentre (0,0,0)**, a
+garbage centre that both corrupts the header and gives the occlusion cone no valid direction.
+
+### §10.2 — Horizon occlusion point MUST NOT be the zero vector; never-cull wide-angle tiles
+
+**MUST**: `horizonOcclusionPoint` MUST return an occludee of magnitude ≈ 1 (fine tiles, the exact cone
+result) or a **high never-cull magnitude** (`HORIZON_OCC_NEVER_CULL = 1e4`) for **wide-angle /
+degenerate** tiles — defined as: centre direction undefined, OR any vertex past the horizon-grazing
+cone (`denom ≤ 0`, i.e. >90° from centre), OR `resultMag ≤ 0`. A single occludee point cannot correctly
+horizon-cull a >hemisphere tile (Cesium's own `computeHorizonCullingPoint` returns `undefined` there);
+a magnitude-`1e4` occludee sits above every near-tile camera's horizon so the tile is never wrongly
+culled. This is safe: a per-city bake has no far-side geometry to over-render.
+
+**MUST NOT**: emit `(0,0,0)`. Cesium treats a geocentre occludee as *always below the horizon* → the
+tile is *always* culled.
+
+### §10.3 — Tileset URL MUST be version-stamped; bump on every bake-output change
+
+**MUST**: `terrainTilesetUrl` appends `?v=TERRAIN_TILESET_VERSION`
+(`apps/editor/src/ui/geospatial/terrainCoverage.ts`). Terrain tiles are path-stable and cached (R2
+1-day + proxy 1-hour must-revalidate); Cesium's `Resource` propagates the query to `layer.json` + every
+`.terrain`. **Bump the version whenever the bake output changes** or a correct re-bake is invisible to
+clients (an entire debugging session was lost to browsers serving pre-fix tiles under an unchanged URL).
+
+### §10.4 — Verify the emitted tile, not the render loop
+
+**SHOULD**: after a bake, decode the root tile off R2 and assert `centerMag ≈ 6.38e6` and `occMag > 1`
+(never `0`) **before** shipping. The standing client forensic is `[CTX-TERRAIN-GAP] … §CULL-PROBE`
+(`CesiumViewport.ts`), which logs Cesium's own `computeTileVisibility` verdict for the active root tile.
+Terrain-render bugs are pinned by the runtime's own decision + the tile bytes, not by theorising from
+`globe.getHeight` (which returns ≈ −Earth-radius purely as a symptom of zero rendered tiles).
+
+---
+
 ## §6 — Contract History
 
 | Date | Change |
@@ -412,3 +463,4 @@ C19 §1.12.2) and a **Copenhagen** sloped parcel (terrain reseat).
 | 2026-07-17 | §7 "frame once, no jump" MUST refined — added the `§GLOBE-STALE-FRAME-REFRAME` (L-370) exception: a >20 m base-height jump between the early frame and the resolved datum re-frames ONCE even after user camera movement (the frame is stale), so no manual zoom is needed to find the lifted building. |
 | 2026-07-26 | **§9 The SiteFrame authority added (STRUCTURAL-SEAM-2).** The normative "named frame flag" §1.5 defers to: ONE owner of origin + project-north θ + ground, read by every consumer, with a `check-scene-frame-single-owner` CI gate replacing the by-inspection `sceneEnuFrame.ts` inventory, the ECEF bridge de-duplicated under it (closes §1.5 / L-604), and the record that the "θ=0 then flip" sequencing is spent (C19 §1.12 measured θ≈45° live). Grounds `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3. |
 | 2026-07-26 | §9 **Known Violation L-631 recorded** — terrain relief is OFF in 3D Site (Forma) everywhere (`CesiumViewport.ts:5993` skip-gate; L-626 fix reverted `89196071`) because terrain-on-frame is not sound until SiteFrame's `sampleGround` reseats context + envelope base + heatmap. Founder wants it ON now → CONFLICT with the §9 sequencing, escalated for a founder decision. Do not flip §9 to ACTIVE on a gate-only change. |
+| 2026-07-29 | **§10 Baked-terrain quantized-mesh encoding invariants added (L-639, ADR-0278).** Interior/west-hemisphere cities rendered white because the coarse z0 root tile was horizon-culled: the vertex-centroid bounding centre of a pole-spanning tile collapses to the geocentre → a zero horizon-occlusion point → Cesium always culls the root → 0 tiles render. Fix (MUST): rectangle-centre bounding centre (§10.1) + never-cull occludee for wide-angle tiles (§10.2) + version-stamped tileset URL (§10.3) + decode-the-tile verification (§10.4). Proven by `computeTileVisibility` + decoded R2 bytes (`occMag 0→10000`); Burgos/Madrid render full relief. |

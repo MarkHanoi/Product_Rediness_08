@@ -289,9 +289,32 @@ Measured from the live R2 tilesets (2026-07-28):
   re-baked through the standard adapter (or a wide NL bbox) to cover the site's context radius.
 - **Zürich** bakes a "bounded centre box" (CH swissALTI3D source area cap; `terrain-bake.yml:29`) →
   full-city mosaic is the documented follow-up.
-- **Madrid** is *wide and correct-extent* yet still white-masks → its defect is NOT extent; it is the
-  §7 render root. **Standard for a new city: use the full config bbox via `--bake-city`, no
-  hard-coded box, no centre-crop.**
+- **Madrid** is *wide and correct-extent* yet still white-masked → its defect was NOT extent; it was the
+  quantized-mesh encoder (§4.5 below, now SOLVED). **Standard for a new city: use the full config bbox
+  via `--bake-city`, no hard-coded box, no centre-crop.**
+
+### 4.5 The quantized-mesh encoder invariants (L-639, ADR-0278, C12 §10) — SOLVED 2026-07-29
+
+**This is the fix for the "interior/high cities render white" bug** (Madrid, Burgos, Toledo, Soria,
+Valladolid…). It was NEVER elevation: coastal-east cities (Barcelona lon +2) use root tile `(1,0)`,
+west-hemisphere cities (most of Spain) use root `(0,0)`, and only `(0,0)` was collapsing. The coarse
+**z0 tile spans a full hemisphere** (`lat[-90,90]`); flat filler meshes to its **corner vertices at the
+poles**, and two header fields then made Cesium **horizon-cull the root → 0 tiles render → white**:
+
+1. **Bounding centre.** The vertex centroid of pole-corners averages to the **geocentre (0,0,0)** →
+   garbage header centre + no valid occlusion-cone axis. **Fix (MUST):** use the tile's geometric
+   RECTANGLE centre `ecefFromLonLatH((W+E)/2,(S+N)/2,(minH+maxH)/2)` (`encodeQuantizedMesh`).
+2. **Horizon occlusion point.** A >hemisphere tile has every corner >90° from centre → no positive
+   occlusion candidate → occludee `(0,0,0)` = geocentre = *always below the horizon* → always culled.
+   **Fix (MUST):** `horizonOcclusionPoint` returns a **never-cull** occludee (magnitude `1e4`) for
+   wide-angle/degenerate tiles; fine city tiles keep the exact cone result.
+
+**Cache discipline (MUST):** bump `TERRAIN_TILESET_VERSION` (`terrainCoverage.ts`) on every bake-output
+change — `terrainTilesetUrl` appends `?v=…` so browsers re-fetch (path-stable tiles are cached ~1 day).
+**Verify (SHOULD):** decode the emitted root tile off R2 — `centerMag ≈ 6.38e6`, `occMag > 1` (never 0)
+— before shipping; the client forensic is `[CTX-TERRAIN-GAP] … §CULL-PROBE` (Cesium's own
+`computeTileVisibility`). **Full re-bake tool:** `.github/workflows/terrain-bake-all.yml` (sharded,
+parallel, all BAKEABLE_REGIONS). Proven: Burgos/Madrid render full shaded relief.
 
 ---
 
