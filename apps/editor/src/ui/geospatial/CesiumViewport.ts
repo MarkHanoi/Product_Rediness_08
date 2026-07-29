@@ -472,18 +472,19 @@ const FORMA_SEA_MASK_CACHE = new Map<string, Array<Array<readonly [number, numbe
 const CONTEXT_NEAR_RENDER_RADIUS_M = CONTEXT_BBOX_HALF_DEG * 111_320;      // ~890 m (near bbox on-axis)
 const CONTEXT_FAR_RENDER_RADIUS_M = CONTEXT_BBOX_FAR_HALF_DEG * 111_320;   // ~1225 m (far bbox on-axis)
 /**
- * §FORMA-CTX-WIDE-EXTENT (L-642, founder 2026-07-29 — "the sea is not all coloured … the grey
- * should cover all urban areas out of the circle") — the CHEAP ground layers (sea + land-use) are
- * fetched + drawn over a MUCH wider extent than the buildings so the zoom-out reads as a whole coast
- * and a whole city, not a small island patch. 4× the near half-deg → ~3.5 km radius (the founder's
- * "4 times the existing size"). This is sound to widen because sea + land-use are a handful of large
- * FLAT polygons (no per-building geometry, no shadows) — it does NOT touch the extruded building
- * tiers, which stay bounded by the ADR-0094 large-scene budget (near solid ≤890 m, instanced far
- * ≤1225 m, 4000-instance cap). The baked PMTiles already cover the whole national clip, so reading
- * a wider bbox is pure client-side extent — no re-bake. §CONTEXT-DATA-HONESTY: a wider read that
- * finds no coast/land-use still degrades to a quiet no-op, never a fabricated plane.
+ * §FORMA-CTX-WIDE-EXTENT (L-642, founder 2026-07-29 — "the grey should cover all urban areas out of
+ * the circle" → "not all the urban areas are greyed") — the CHEAP land-use drape is fetched + drawn
+ * over a MUCH wider extent than the buildings so the whole visible city reads as coloured ground, not
+ * a small grey patch on brown. Widened 4×→~8 km so urban land beyond the old 3.5 km disc (which was
+ * falling back to the brown base) is greyed too. This is sound to widen because land-use is a handful
+ * of large FLAT polygons (no per-building geometry, no shadows) — it does NOT touch the extruded
+ * building tiers, which stay bounded by the ADR-0094 large-scene budget (near solid ≤890 m, instanced
+ * far ≤1225 m, 4000-instance cap). The baked PMTiles already cover the whole national clip, so reading
+ * a wider bbox is pure client-side extent — no re-bake. §CONTEXT-DATA-HONESTY: a wider read that finds
+ * no land-use still degrades to a quiet no-op — and where OSM simply has NO land-use polygon (a real
+ * coverage gap) the base brown honestly shows through; it is never fabricated grey.
  */
-const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 4;                   // 0.032° ≈ 3.5 km radius (city ground)
+const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 9;                   // 0.072° ≈ 8 km radius (city ground)
 /**
  * §FORMA-CTX-SEA-EXTENT (L-642, founder — "the sea should not be a square … it should cover all the
  * sea, the immensity") — the SEA gets its OWN, much larger extent than the city ground so the open
