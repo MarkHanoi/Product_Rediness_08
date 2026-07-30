@@ -4746,3 +4746,89 @@ Dependency: builds on L-621 (panel drag/resize/launcher) + supersedes L-622 (3D-
 - **What:** "not many building heights are correct." Heights bottom out in a fabricated 9 m default (the "9 m carpet"); no measured fallback. Full write-up: audit **L-646** + `docs/04-reference/BUILDING-HEIGHT-REPLICATION-STANDARD.md` (authored this pass).
 - **Approach (plan-first, mirrors the envelope):** honest source ladder (LiDAR DSM−DTM → OSM height → levels → ordinance → typed-unknown) × C62 confidence; per-city sourcing; CI fidelity gate. Implementation sequenced after sign-off — never a blind default-tune.
 - **Queue:** geospatial / context-buildings + massing height. Governs: C62, C12, C58 §1.2, §CONTEXT-DATA-HONESTY. Family: L-459, L-525.
+
+---
+
+# §CITY-COMPLETION — Per-city completion matrix + master implementation plan (C63, L-648)
+
+> **Stamp**: 2026-07-30 · **Authority**: [C63 — City Completion & Dossier](../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md)
+> + [ADR-0281](../../02-decisions/adrs/ADR-0281-city-completion-scorecard-and-dossier-standard.md) +
+> [SPEC-CITY-COMPLETION-SCORECARD](../specs/SPEC-CITY-COMPLETION-SCORECARD.md). Issue: audit **L-648**.
+> **This is the single source of truth for "how complete is each city."**
+>
+> ⚠ **§CONTEXT-DATA-HONESTY (C63 §1.1/§1.2).** Every axis % is a scorecard-function output — NEVER
+> hand-typed. The function is **not yet built** (C63 §8), so **every cell below is honestly
+> `not-assessed` (`pending-implementation`)** — the correct current state, not a shortfall. A cell flips
+> to a number ONLY when the function computes it; `not-assessed ≠ 0 %`. The separate **documentary
+> disposition** table is code-confirmed state (registry / `heightSources.mjs` `impl` flags / dossier
+> gate booleans), explicitly **NOT a scorecard percentage**.
+
+## §CC.1 — The completion matrix (7 axes + overall — C63 §3/§4)
+
+Axes: **PAR**=Parcel · **LEG**=Legislation · **SRC**=Data-sources · **ENV**=Envelope · **TER**=Terrain ·
+**HGT**=Heights/LOD · **CTX**=Context. `n/a` below = `not-assessed (pending-implementation)`.
+
+| City (`code`) | PAR | LEG | SRC | ENV | TER | HGT | CTX | **Overall** | Dossier |
+|---|---|---|---|---|---|---|---|---|---|
+| Barcelona (`08019`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08019-barcelona](../../04-reference/jurisdictions/es/es-ct/08019-barcelona/) |
+| L'Hospitalet (`08101`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08101-hospitalet](../../04-reference/jurisdictions/es/es-ct/08101-hospitalet/) |
+| Badalona (`08015`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08015-badalona](../../04-reference/jurisdictions/es/es-ct/08015-badalona/) |
+| Sant Boi (`08200`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-ct/08200-sant-boi](../../04-reference/jurisdictions/es/es-ct/08200-sant-boi/) |
+| _(5th Catalan metro)_ | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | _candidate — not yet scaffolded_ |
+| Madrid (`28079`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-md/28079-madrid](../../04-reference/jurisdictions/es/es-md/28079-madrid/) |
+| Córdoba (`14021`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [es-an/14021-cordoba](../../04-reference/jurisdictions/es/es-an/14021-cordoba/) |
+| Munich (`09162`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [de-by/09162-munich](../../04-reference/jurisdictions/de/de-by/09162-munich/) |
+| Hamburg (`02000`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [de-hh/02000-hamburg](../../04-reference/jurisdictions/de/de-hh/02000-hamburg/) |
+| Rome (`058091`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [it-laz/058091-rome](../../04-reference/jurisdictions/it/it-laz/058091-rome/) |
+| Milan (`015146`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [it-lom/015146-milan](../../04-reference/jurisdictions/it/it-lom/015146-milan/) |
+| Turin (`001272`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [it-pie/001272-turin](../../04-reference/jurisdictions/it/it-pie/001272-turin/) |
+| Oslo (`0301`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [no-03/0301-oslo](../../04-reference/jurisdictions/no/no-03/0301-oslo/) |
+| Braga (`0303`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [pt-03/0303-braga](../../04-reference/jurisdictions/pt/pt-03/0303-braga/) |
+| Los Angeles (`0644000`) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [us-ca/0644000-los-angeles](../../04-reference/jurisdictions/us/us-ca/0644000-los-angeles/) |
+| Zürich (CH) | n/a | n/a | n/a | n/a | n/a | n/a | n/a | **n/a** | [ch/regions/zurich](../../04-reference/jurisdictions/ch/regions/zurich/) |
+
+## §CC.2 — Documentary disposition (code-confirmed state — NOT a scorecard %)
+
+Read from `rulepacks/registry.ts`, `heightSources.mjs` `impl` flags, the terrain R2 tilesets, and each
+dossier's gate booleans. This is qualitative disposition, **not** a completion percentage — do not treat
+any word here as an axis score. `honestyOk` is `true` for every city below (none renders a fabricated value).
+
+| City | Parcel | Envelope disposition | Terrain | Heights source (`impl`) | Context |
+|---|---|---|---|---|---|
+| Barcelona | Catastro live | **CONSTRUCTED** (13a/13b + cited refusals; Art. 242.2) | baked ✅ golden | MDS Edificación `tagged` (live) | baked ✅ |
+| L'Hospitalet | Catastro live | cited refusal (`VERIFIED=false`) | metropolitan | estimated (spain bake) | baked (spain) |
+| Badalona | Catastro live | cited refusal (routed) | metropolitan | estimated (spain bake) | baked (spain) |
+| Sant Boi | Catastro live | cited refusal (routed) | metropolitan | estimated (spain bake) | baked (spain) |
+| Madrid | Catastro live | refusal jurisdiction (NZ-1 `explicit-area`, empty `packsByZone`) | baked ⚠ white-mask (L-636) | rides spain/MDS `tagged` | baked (spain) |
+| Córdoba | Catastro live | OCR pack — refusing (not certified) | not-assessed | rides spain/MDS `tagged` (~17 m) | baked (spain) |
+| Munich | WFS candidate | scaffold | not-assessed | LoD2-DE `documented` | baked-region candidate |
+| Hamburg | WFS candidate | scaffold | not-assessed | LoD2-DE `documented` | baked-region candidate |
+| Rome | WFS candidate | scaffold | not-assessed | no national IT product `documented` | baked-region candidate |
+| Milan | WFS candidate | scaffold | not-assessed | no national IT product `documented` | baked-region candidate |
+| Turin | WFS candidate | scaffold | not-assessed | ARPA Piemonte Edifici 3D `documented` | baked-region candidate |
+| Oslo | WFS candidate | scaffold | not-assessed | NDH nDSM (free path) `documented` | baked-region candidate |
+| Braga | WFS candidate | scaffold | not-assessed | DGT LiDAR nDSM `documented` | baked-region candidate |
+| Los Angeles | no national parcel | scaffold | not-assessed | Overture + 3DEP nDSM `documented` | baked-region candidate |
+| Zürich | EGRID candidate | scaffold | baked ⚠ narrow centre box | swiss nDSM (KEYLESS) `documented` | baked-region candidate |
+
+## §CC.3 — Master implementation plan (per-axis next steps)
+
+**Sequencing (SPEC §5):** the three "port-free" axes are the cheap first computes; the two human-gated
+axes move only with the founder-signed legal work.
+
+1. **Build the scorecard schema + function** (`packages/schemas/src/site/completion/` + a `tools/` script)
+   — until this lands the matrix is all `not-assessed` by contract (C63 §8). **Cheapest first computes:**
+   DATA-SOURCES (read `heightSources.mjs`), TERRAIN (probe R2 `layer.json` + verify log), CONTEXT (probe
+   PMTiles layers) — no new upstream, no sampling.
+2. **PARCEL + HEIGHTS/LOD** — one sampling run per city (`computeParcelConfidence` over N parcels; read the
+   `heightProvenance` histogram from the bake output / context panel).
+3. **LEGISLATION + ENVELOPE** — per-clau `SOURCES.md` audit + the L-449 `VERIFICATION.md` gate + the C58
+   coverage measurement. Barcelona's `BARCELONA-COMPLETE-COVERAGE-PLAN.md` is the reference track.
+4. **Populate `COMPLETION.md`** in each dossier (template: `jurisdictions/_TEMPLATE/_CITY/COMPLETION.md`)
+   and the per-country `COUNTRY-COMPLETION.md` roll-up as axes compute.
+5. **Wire `tools/ga-gate/check-city-completion.ts`** (C63 §6) so a hand-typed cell or a fabricated render
+   fails CI.
+
+**Per-city dossier + next-step index:** each Dossier link in §CC.1 is the city's evidence container
+(C63 §5); its `NEXT.md` holds the resume steps + TRIP-WIRES, its `COMPLETION.md` (once created) is the
+scorecard face. FOUNDER DECISION pending: ratify/re-weight `CITY_COMPLETION_WEIGHTS` (C63 §4).

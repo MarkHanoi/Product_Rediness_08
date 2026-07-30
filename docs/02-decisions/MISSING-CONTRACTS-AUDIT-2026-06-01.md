@@ -683,3 +683,23 @@ function), **C59** (Forma pane view) and **C10** (perf budget) but none of them 
 contract "3D-Site Context Render (LOD, Extent, Layers & Budget)"**, ratifying the new
 `SPEC-3D-SITE-PRODUCTION-CONTEXT.md`. No contract authored in this pass — logged as the coverage gap per
 the process. Owner: UNASSIGNED · TARGET: TBD.
+
+---
+
+## §GAP-RESOLVED (L-648) — "no contract owns CITY COMPLETENESS + the dossier shape" → **CLOSED by C63**
+
+Surfaced by the founder's city-completion-scorecard directive (audit **L-648**). PRYZM replicates cities
+one at a time but had **no single, comparable, honest, machine-derivable measure of "how complete is city
+X"** across the eight replication layers, and **no enforced dossier folder shape** — completeness lived in
+prose, one per-country `RATE.md` number, and tribal memory, and any hand-typed completeness number was a
+§CONTEXT-DATA-HONESTY fabrication hazard. This sat adjacent to C57 (parcel), C58 (envelope), C60
+(coverage) and C62 (confidence vocabulary) but none of them owned the *cross-layer completeness measure*
+or the *dossier standard*. **RESOLVED this pass** by minting **[C63 — City Completion Scorecard & Dossier
+Standard](./contracts/C63-CITY-COMPLETION-AND-DOSSIER.md)** (ratified by
+[ADR-0281](./adrs/ADR-0281-city-completion-scorecard-and-dossier-standard.md), specced by
+[SPEC-CITY-COMPLETION-SCORECARD](../03-execution/specs/SPEC-CITY-COMPLETION-SCORECARD.md)): a 7-axis
+scorecard that is a *total function of state* (never hand-typed) composing C62, plus the fixed dossier
+shape (`_TEMPLATE/_CITY/`) and the master per-city completion matrix. Passes the C60 §7 "different
+question, different failure mode" test (cross-layer completeness + evidence-container shape is a distinct
+subject from any single-layer contract). Owner: UNASSIGNED · schedule: schema/function + CI gate sequenced
+after founder weighting sign-off (C63 §4/§8).
