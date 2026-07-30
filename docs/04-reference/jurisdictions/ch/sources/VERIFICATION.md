@@ -4,9 +4,50 @@
 
 ---
 
+## ✅ PARCEL geometry (Amtliche Vermessung) — L-449 sign-off (SIGNED 2026-07-30)
+
+**Verifier:** repo owner (MarkHanoi) · **Date:** 2026-07-30 · **Axis:** PARCEL (C63 Axis 1) ·
+**Scope:** parcel geometry + ownership-boundary ONLY (NOT the building-rule numbers in the sections below).
+
+> **Switzerland (CH):** swisstopo **Amtliche Vermessung (AV)** cadastral parcels are authoritative,
+> survey-grade cadastral data → score **HIGH** for parcel geometry + ownership-boundary. Downgrade
+> ONLY for non-AV derivatives, generalized map tiles, or tasks needing a contemporaneous field
+> survey. AV dataset = YES (engineering-grade); rendered web maps / non-authoritative copies = NO.
+
+**What this signs — and what it deliberately does NOT.** This L-449 gate is exercised for the PARCEL
+axis only. It does **not** sign any Ausnützungsziffer (FAR) / height / setback value — those stay
+UNSIGNED (see the building-rule *Status* section immediately below, and the still-open Zürich
+`CH_FAR_CERTIFIED` sign-off reconciliation tracked as RISK R3, which this decision does NOT touch).
+Raising PARCEL to HIGH does **not** raise the CH country composite to 100: PARCEL is one axis at 15 %
+weight (C63 §4), and LEGISLATION/ENVELOPE/HEIGHTS remain the binding cap.
+
+**Evidence basis (DERIVED, cited).** The federal geo.admin.ch `identify` on
+`ch.kantone.cadastralwebmap-farbe` returns the real AV *Grundstück* — federal **EGRID** + local parcel
+number + canton + the survey polygon — keyless and all-canton, live-verified for **ZH**
+(`CH119192997709`) and **GE** (`CH453165896335`) 2026-07-26 (`findings/ZURICH-PARCEL-SOURCE.md`; the
+cantonal ZH AV WFS `maps.zh.ch/wfs/AVZHWFS` returns a real 184-vertex ring, EGRID `CH349199778779`,
+`../ch-zh/0261-zurich/findings/ZURICH-BZO-PROBE.md` §1). AV is the Swiss statutory cadastre
+(cadastre.ch) — the analogue of Spain's *referencia catastral* / Denmark's Matrikel. This **resolves**
+the prior `footprint-fallback` verdict (`PARCEL-SELECT-COVERAGE.md`, 2026-07-24, which probed the
+*wrong host* — `geodienste.ch/db/av_0` land-cover, never the federal identify): the two claims do not
+both stand — the AV cadastral parcel is survey-grade and is PRYZM's shipping parcel source
+(`swisstopo-av`, cadastral, not footprint).
+
+**Standard field-survey caveat (unchanged by this sign-off).** HIGH covers the authoritative AV
+geometry as published; it is not a warrant of a contemporaneous on-site boundary survey for a specific
+transaction. Any task requiring a fresh field survey, or any *non-AV* derivative (generalized web-map
+tiles, scraped/rendered copies), downgrades on its own merits — the sign-off is for the AV dataset,
+not its derivatives.
+
+**Sign-off:** ✅ **SIGNED 2026-07-30 — repo owner (MarkHanoi)** · L-449 (PARCEL axis).
+
+---
+
 ## Status (2026-07-24)
 
-**NO PACK VALUES SIGNED OFF YET.** Live probes have confirmed endpoint availability and — as of the
+**NO PACK VALUES SIGNED OFF YET** *(building-rule numbers only — the PARCEL-geometry axis IS signed;
+see the L-449 section above. This section is scoped to Ausnützungsziffer / height / setback.)* Live
+probes have confirmed endpoint availability and — as of the
 2026-07-24 deciding probe — the STRUCTURE of the national zoning delivery: the geodienste WFS and the
 federal INTERLIS model carry **zone identification as data but NOT the density/height numbers** (FAR =
 optional model slot, unexposed by the national WFS; height = not modelled). This means even a fully
@@ -65,7 +106,8 @@ completed for each field.
 | INTERLIS model — FAR / height presence | `Nutzungsplanung_V1_2.ili` full read (2026-07-24) | Model read | ✅ **RESOLVED:** FAR = optional `Typ.Nutzungsziffer 0..9`; height = absent from model |
 | GWR building record — real field values | `madd.bfs.admin.ch/eCH-0206?egid=1175237` (2026-07-24) | HTTP probe | ✅ GKAT/GKLAS/GBAUJ/GAREA/GASTW transcribed verbatim |
 | ÖREB full `extract` content (any canton) | AG/ZH/BS json/xml/pdf attempted (2026-07-24) | HTTP probe | ⚠ ATTEMPTED-not-landed (per-canton path); NOT decision-relevant |
-| Any specific Swiss parcel — zone code, AZ, height (as a SIGNED value) | Not read for a named parcel | — | ❌ NOT CONFIRMED — needs L-449 human sign-off |
+| Swiss parcel **GEOMETRY + ownership-boundary** (AV / EGRID) | ZH `CH119192997709` + GE `CH453165896335` (`findings/ZURICH-PARCEL-SOURCE.md`); cantonal ZH AV WFS 184-vertex ring | Federal geo.admin.ch identify + cantonal AV WFS | ✅ **SIGNED 2026-07-30 (L-449, PARCEL axis) — HIGH.** AV = survey-grade; downgrade only for non-AV derivatives / generalized tiles / field-survey tasks (see the L-449 sign-off at the top of this file) |
+| Any specific Swiss parcel — zone code / AZ / height (as a SIGNED **building-rule** value) | Not read for a named parcel | — | ❌ NOT CONFIRMED — needs a separate L-449 building-rule sign-off (distinct from the PARCEL-geometry sign-off above) |
 | Cantonal Denkmalschutz WFS | NOT PROBED | — | ❌ NOT CONFIRMED |
 
 ---

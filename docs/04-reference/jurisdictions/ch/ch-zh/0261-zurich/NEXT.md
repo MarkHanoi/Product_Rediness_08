@@ -14,8 +14,9 @@ the swisstopo nDSM STAC join + re-bake (HEIGHTS/TERRAIN verify).
 
 ## 2 — THE NUMBER
 **Overall 66 %** on the ASSESSED subset (renormalised over DATA-SOURCES 80 · TERRAIN 50 · CONTEXT 56, weights
-15/10/5 → 19.8/30 = 0.66). PARCEL · LEGISLATION · ENVELOPE · HEIGHTS are `not-assessed` (typed reasons in
-`RATE.md`), NOT 0 % (C63 §1.2). The city's real LEGISLATION/ENVELOPE progress (the BZO pack) is UNMEASURED by
+15/10/5 → 19.8/30 = 0.66). **PARCEL is DERIVED/HIGH** (L-449 founder sign-off 2026-07-30 — AV survey-grade;
+qualitative, not yet folded into the numeric Overall). LEGISLATION · ENVELOPE · HEIGHTS are `not-assessed`
+(typed reasons in `RATE.md`), NOT 0 % (C63 §1.2). The city's real LEGISLATION/ENVELOPE progress (the BZO pack) is UNMEASURED by
 the scorecard, so it does not inflate the number — captured in prose + §3 below.
 
 ## 3 — BLOCKERS

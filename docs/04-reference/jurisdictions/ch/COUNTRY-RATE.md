@@ -23,7 +23,20 @@ the national data layer.
 **Legend.** `—` = **not-assessed** (a typed C62 UnknownReason lives in the city's `RATE.md`; `—` ≠ 0 %,
 C63 §1.2). `(cap)` = HEIGHTS measured-**capable** (swisstopo nDSM keyless + live-verified STAC) but the
 per-city bake is unlanded and the wiring is a BUILD (§SWISS-NDSM-STAC-BUILD) → still not-assessed.
-**Overall** is renormalised over the ASSESSED subset only (`partial`). DATA-SOURCES reads **80 %** because
+`HIGH` = a **DERIVED, founder-signed** qualitative score (not a scorecard-computed %). **Overall** is
+renormalised over the numerically-assessed subset only (`partial`).
+
+> **PARCEL = HIGH — L-449 founder sign-off (2026-07-30, signed decision).** swisstopo **Amtliche
+> Vermessung (AV)** cadastral parcels are authoritative, survey-grade cadastral data → all three CH
+> cities score **HIGH** on parcel geometry + ownership-boundary. Downgrade ONLY for non-AV derivatives,
+> generalized map tiles, or tasks needing a contemporaneous field survey (`sources/VERIFICATION.md`
+> → the PARCEL L-449 sign-off). This is a **qualitative DERIVED** score, not a
+> `computeParcelConfidence` scorecard number — so it moves the axis off `not-assessed` but is NOT
+> folded into the numeric **Overall** (which stays the DATA-SOURCES·TERRAIN·CONTEXT renorm until the
+> C63 §8 scorecard assigns PARCEL its numeric high/medium/low distribution). **This raises PARCEL, not
+> the CH composite to 100** — LEGISLATION/ENVELOPE/HEIGHTS remain the binding cap.
+
+DATA-SOURCES reads **80 %** because
 CH has a genuine national cadastre (swisstopo Amtliche Vermessung, keyless, all-canton) AND a national
 zone-GIS (geodienste `ms:grundnutzung` + the ÖREB/RDPPF cadastre) — the zone-GIS rated `documented` (0.5),
 not `live`, since `siteDispatch.ts`/proxy wiring is unconfirmed; the building-height slot is `documented`
@@ -53,16 +66,25 @@ REGIONS (`zurich` bbox `8.45,47.34,8.62,47.43`; `geneva` bbox `6.09,46.17,6.18,4
 `7.40,46.93,7.48,46.99`; all clipped from `switzerland-latest.osm.pbf`) AND `terrain.mjs` REGIONS (all
 three `source:'ch'` = swissALTI3D). No secondary tackled Swiss municipality sits inside any of the three
 tight city-centre bboxes. Cheap axes cited-derived (see each city's `RATE.md` for the full derivation);
-PARCEL/LEGISLATION/ENVELOPE/HEIGHTS are the human-gated axes, honestly `not-assessed` until scorecard-computed.
+PARCEL is **DERIVED/HIGH** (L-449 founder sign-off 2026-07-30 — AV survey-grade); LEGISLATION/ENVELOPE/HEIGHTS
+remain the human-gated axes, honestly `not-assessed` until scorecard-computed.
 
 | City (`BFS`) | PARCEL | LEGIS­LATION | DATA-SRC | ENVELOPE | TERRAIN | HEIGHTS/LOD | CONTEXT | **Overall** | Dossier |
 |---|---|---|---|---|---|---|---|---|---|
 | _Zürich (ch-zh)_ | | | | | | | | | |
-| Zürich (`0261`) | `—` | `—` | **80%** | `—` | **50%** | `—`(cap) | **56%** | **66%** `partial` | [dossier](./ch-zh/0261-zurich/RATE.md) |
+| Zürich (`0261`) | **HIGH**† | `—` | **80%** | `—` | **50%** | `—`(cap) | **56%** | **66%** `partial` | [dossier](./ch-zh/0261-zurich/RATE.md) |
 | _Genève (ch-ge)_ | | | | | | | | | |
-| Genève (`6621`) | `—` | `—` | **80%** | `—` | **50%** | `—`(cap) | **56%** | **66%** `partial` | [dossier](./ch-ge/6621-geneva/RATE.md) |
+| Genève (`6621`) | **HIGH**† | `—` | **80%** | `—` | **50%** | `—`(cap) | **56%** | **66%** `partial` | [dossier](./ch-ge/6621-geneva/RATE.md) |
 | _Bern (ch-be)_ | | | | | | | | | |
-| Bern (`0351`) | `—` | `—` | **80%** | `—` | **50%** | `—`(cap) | **56%** | **66%** `partial` | [dossier](./ch-be/0351-bern/RATE.md) |
+| Bern (`0351`) | **HIGH**† | `—` | **80%** | `—` | **50%** | `—`(cap) | **56%** | **66%** `partial` | [dossier](./ch-be/0351-bern/RATE.md) |
+
+† **PARCEL = HIGH** is the DERIVED, L-449 founder-signed score (2026-07-30; AV survey-grade — see the
+legend note + `sources/VERIFICATION.md`), NOT a `computeParcelConfidence` number. It moves PARCEL off
+`not-assessed`; the numeric **Overall** stays the DATA-SOURCES·TERRAIN·CONTEXT renorm (66 %) until the
+C63 §8 scorecard folds PARCEL's numeric distribution in — at which point every Overall rises modestly.
+Geneva caveat: the AV DATA is survey-grade, but the coarse FR/CH router resolves a Geneva click via the
+French cadastre (Geneva sits inside `FRANCE_BBOX`), so the parcel *wiring* needs a polygon gate — a
+routing fix, not a data-quality downgrade (`findings/ZURICH-PARCEL-SOURCE.md` §1).
 
 **Scaffolded totals (this pass):** 3 dossiers (Zürich, Genève, Bern), all **66 %** overall on the assessed
 subset (DATA-SOURCES 80 · TERRAIN 50 · CONTEXT 56). All three carry measured-**capable** HEIGHTS via the
@@ -109,19 +131,23 @@ All three scaffolded cities have `honestyOk: true` — they fabricate nothing.
   BZO 700.100 AZ/Vollgeschosse/Gebäudehöhe transcribed for two regimes) that computes an `estimated-ruleset`
   envelope for BZO-regime-resolved parcels. REFUSES: any parcel whose BZO regime is unresolved
   (`regime-ambiguous`) — the W2bIII 8.5 m vs 9.0 m height split makes a guessed regime a fabricated height,
-  so the resolver refuses rather than guess. UNKNOWN (typed): PARCEL quality `not-queried`; LEGISLATION +
+  so the resolver refuses rather than guess. PARCEL: **HIGH (DERIVED — L-449 signed 2026-07-30, AV
+  survey-grade)**, no longer `not-queried`. UNKNOWN (typed): LEGISLATION +
   ENVELOPE `not-queried` (a pack EXISTS but the per-clau verified count / buildable-land coverage is not
   scorecard-computed, AND the `VERIFICATION.md` sign-off is internally contradictory — see its RISK
   register); HEIGHTS `not-queried` (measured-CAPABLE via swisstopo nDSM, unbaked). `honestyOk: true`.
 - **Genève (`6621`)** — DOES: terrain (swissALTI3D) + national swisstopo AV cadastre (GE live-verified
   2026-07-26) + baked OSM context 5/9 + national zone-GIS (canton GE is `full` in the geodienste WFS; ÖREB
   GE `RdppfSVC.svc` live). REFUSES: a buildable envelope — the national CH zoning pack identifies the zone
-  but returns a CITED REFUSAL (no city FAR pack for GE), never a borrowed/invented number. UNKNOWN (typed):
-  PARCEL `not-queried`, LEGISLATION/ENVELOPE `pending-implementation` (no city pack), HEIGHTS `not-queried`.
+  but returns a CITED REFUSAL (no city FAR pack for GE), never a borrowed/invented number. PARCEL: **HIGH
+  (DERIVED — L-449 signed 2026-07-30, AV survey-grade)** — data-quality HIGH; ⚠ the FR/CH coarse router
+  needs a polygon gate to reach GE's AV (wiring, not data). UNKNOWN (typed):
+  LEGISLATION/ENVELOPE `pending-implementation` (no city pack), HEIGHTS `not-queried`.
   `honestyOk: true`.
 - **Bern (`0351`)** — DOES: terrain (swissALTI3D) + national swisstopo AV cadastre + baked OSM context 5/9
   + national zone-GIS via ÖREB BE. REFUSES: a buildable envelope (national cited-refusal only; no city FAR
-  pack). UNKNOWN (typed): PARCEL/LEGISLATION/ENVELOPE/HEIGHTS as GE. Bern-specific caveat: canton BE is in
+  pack). PARCEL: **HIGH (DERIVED — L-449 signed 2026-07-30, AV survey-grade)**. UNKNOWN (typed):
+  LEGISLATION/ENVELOPE/HEIGHTS as GE. Bern-specific caveat: canton BE is in
   the geodienste `ms:grundnutzung` **`incomplete`** cohort (BE, GR, SO, VS) — its national zone-GIS coverage
   is partial, so the `documented` (0.5) DATA-SOURCES credit rests on the ÖREB BE endpoint, not the WFS.
   `honestyOk: true`.

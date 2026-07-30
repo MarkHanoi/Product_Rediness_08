@@ -79,7 +79,7 @@ PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5.
 
 | C63 axis | Weight | Current premise (this pass) | After the phase lands (projected, CONTINGENT) |
 |---|---:|---|---|
-| **PARCEL** | 15 % | `not-assessed` — swisstopo-AV IS wired (keyless, all-canton, ZH+GE live-verified) but **no `computeParcelConfidence` run** for any city bbox | **Phase A** — a confidence run turns the wired cadastre into a measured `high/medium/low` distribution; CH is cadastral-capable (not footprint-fallback) so the score should be high |
+| **PARCEL** | 15 % | **DERIVED/HIGH — L-449 founder sign-off 2026-07-30** (swisstopo AV = authoritative survey-grade cadastre → HIGH; downgrade only for non-AV derivatives / field-survey tasks; `sources/VERIFICATION.md`). swisstopo-AV IS wired (keyless, all-canton, ZH+GE live-verified); no `computeParcelConfidence` run yet, so the score is **qualitative HIGH**, not a numeric % | **Phase A** — a confidence run REFINES the signed HIGH into a measured `high/medium/low` distribution + folds it into the numeric Overall (it does not establish the axis — that is signed) |
 | **DATA-SOURCES** | 15 % | **80 %** — cadastre `live`, terrain `live`, context `live`; zone-GIS + nDSM `documented` (0.5 each) | **Phase A/B** — zone-GIS → `live` once `siteDispatch.ts`/proxy wiring lands; nDSM → `live` once the STAC→COG bake lands (§SWISS-NDSM-STAC-BUILD) → up to 5/5 slots |
 | **HEIGHTS / LOD** | 10 % | `not-assessed` `(cap)` — measured-**capable** via swisstopo nDSM (keyless, STAC 200) but **unbaked/unwired** | **Phase B** — bakes the nDSM (DSM−DTM) → `tagged` measured heights replace the `assumed` default |
 | **TERRAIN** | 10 % | **50 %** — swissALTI3D baked but **unverified** (rung-50, no `terrain.verify.mjs` round-trip) | **Phase B** — an independent-decoder round-trip lifts rung 50 → 100 |
@@ -128,17 +128,21 @@ named probe/run executes — the probe queue lives in [`NEXT.md`](./NEXT.md).
   the three city bboxes (Zürich / Genève / Bern) to turn the *wired* cadastre into a *measured* PARCEL score,
   and lands the two `documented`→`live` DATA-SOURCES upgrades: the zone-GIS proxy wiring
   (`siteDispatch.ts` / the `/api/ch/zurich-bzo` proxy + CSP) and confirming the geodienste WFS licence/fee.
-- **Unlocks.** A **PARCEL measurement** (Axis 1 moves off `not-assessed`) and a **DATA-SOURCES bump** (Axis 3
-  can climb past 80 % as slots move `documented`→`live`). This is the cheapest measured win because the
-  hard part — a real national cadastre — is already wired and verified; only the confidence *run* is missing.
+- **Unlocks.** A **numeric PARCEL score** that REFINES the already-signed qualitative HIGH into a measured
+  `high/medium/low` distribution + folds it into the numeric Overall (Axis 1 is already off `not-assessed`
+  via the **L-449 founder sign-off 2026-07-30 — AV survey-grade = HIGH**, `sources/VERIFICATION.md`), and a
+  **DATA-SOURCES bump** (Axis 3 can climb past 80 % as slots move `documented`→`live`). This is the cheapest
+  measured win because the hard part — a real national cadastre — is already wired, verified, and signed;
+  only the numeric confidence *run* is missing.
 - **Axis.** PARCEL (Axis 1) · DATA-SOURCES (Axis 3).
 - **Effort.** Low. The provider exists; this is a scorecard run + a proxy/CSP wiring task, not a data hunt.
   ~1–2 dev-days for the confidence run across the three bboxes; ~2–3 for the zone-GIS proxy landing.
 - **Dependency.** The C63 scorecard function (`computeParcelConfidence` exists; the axis-scoring harness is
   C63 §8, not yet shipped). The zone-GIS `live` upgrade depends on the `siteDispatch.ts` proxy + CSP landing.
-- **Blocker.** No scorecard function shipped yet (C63 §8) → the PARCEL number cannot be *computed* today, only
-  the run designed. The geodienste WFS **fee structure is unconfirmed** ("Kosten können anfallen" — cantonal
-  fees) — must confirm free-for-production before ingestion (NEXT §3.4). NE ÖREB endpoint URL still unknown.
+- **Blocker.** No scorecard function shipped yet (C63 §8) → the numeric PARCEL % cannot be *computed* today,
+  only the run designed (the qualitative HIGH is already SIGNED, so the axis is not blocked — only its
+  numeric fold-in is). The geodienste WFS **fee structure is unconfirmed** ("Kosten können anfallen" —
+  cantonal fees) — must confirm free-for-production before ingestion (NEXT §3.4). NE ÖREB endpoint URL still unknown.
 
 ### Phase B — Bake swissBUILDINGS3D heights (nDSM) + verify swissALTI3D terrain
 
@@ -239,8 +243,9 @@ national numeric anchor.
 **Hard dependencies (must resolve in order):**
 - The C63 **scorecard function** (C63 §8) is not shipped — until it is, PARCEL/HEIGHTS/etc. can be *run and
   measured* but the composite is authored by the manual Phase-1 audit, not computed. No hand-typed axis number.
-- **`computeParcelConfidence` run** (Phase A) gates the PARCEL measurement for all three cities — the provider
-  is wired; the run is missing.
+- **`computeParcelConfidence` run** (Phase A) gates only the *numeric* PARCEL % for the three cities — the
+  qualitative axis is **already signed HIGH** (L-449 founder sign-off 2026-07-30, AV survey-grade); the
+  provider is wired and the run only refines the signed score into a distribution.
 - **L-449 human-verification gate** is mandatory before any legal numeric value serves `confidence:
   'structured'`. No Swiss numeric value is legitimately signed yet — and the Zürich `CH_FAR_CERTIFIED = ON`
   sign-off is **internally contradictory** (RISK R3), so it does NOT yet count as `human-reviewed`.

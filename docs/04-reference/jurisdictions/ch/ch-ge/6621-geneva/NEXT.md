@@ -11,7 +11,8 @@ catalogue — the next gain is a DIFFERENT kind of work (transcribe + sign the G
 
 ## 2 — THE NUMBER
 **Overall 66 %** on the ASSESSED subset (DATA-SOURCES 80 · TERRAIN 50 · CONTEXT 56; weights 15/10/5 →
-19.8/30). PARCEL/LEGISLATION/ENVELOPE/HEIGHTS `not-assessed` (typed reasons in `RATE.md`), NOT 0 %.
+19.8/30). **PARCEL DERIVED/HIGH** (L-449 sign-off 2026-07-30 — AV survey-grade; qualitative, not folded into
+the numeric Overall). LEGISLATION/ENVELOPE/HEIGHTS `not-assessed` (typed reasons in `RATE.md`), NOT 0 %.
 
 ## 3 — BLOCKERS
 ### 3.1 — No GE buildable-envelope pack (LEGISLATION + ENVELOPE)
