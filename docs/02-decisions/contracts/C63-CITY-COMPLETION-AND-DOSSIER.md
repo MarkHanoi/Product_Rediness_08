@@ -258,6 +258,62 @@ axes — the country composite master) + `README.md` (national data layer) + `LE
 structured-fill). Templates: `jurisdictions/_TEMPLATE/` + `_TEMPLATE/NAMING-CONVENTION.md` +
 `_TEMPLATE/MASTER-RATE-TRACKER.md`.
 
+### §5.1 — The EQUAL-SHAPE invariant (a folder is comparable only if it is identical)
+
+The dossier standard exists so any two cities — and any two countries — are **comparable by construction**:
+Oslo's folder has the same files in the same places as Barcelona's, so a reviewer, an agent, or the future
+scorecard function reads them the same way. This yields the load-bearing rule (the folder analogue of §1.3's
+"same ruler" invariant):
+
+> **Every country folder is IDENTICAL in shape to every other country folder; every city dossier is
+> IDENTICAL in shape to every other city dossier.** A file that exists is either **in the standard set**
+> (§5, §5.2) or it is **misplaced** (belongs in `findings/`, `archive/`, or another standard slot). There is
+> no third category. A missing standard file is a scaffold gap, logged — not an alternate shape.
+
+Idiosyncratic top-level files (a city's `BARCELONA-DATA-PIPELINE.md`, a `L-525-*` investigation, a raw
+research note) are **not** part of the standard set: they are `findings/` records that landed at the folder
+root. Normalisation (moving them to their standard home) is a mechanical, comparability-restoring act, not a
+content change. The one-time survey + move plan for the existing tree is
+[`jurisdictions/_NORMALIZATION.md`](../../04-reference/jurisdictions/_NORMALIZATION.md) (Phase 0 of the
+rollout program, [SPEC-CITY-COMPLETION-ROLLOUT](../../03-execution/specs/SPEC-CITY-COMPLETION-ROLLOUT.md)).
+
+### §5.2 — The country folder standard (the fixed country shape)
+
+A **country** folder `jurisdictions/<cc>/` (ISO 3166-1 alpha-2, lowercase) MUST contain the following, and
+nothing else at its root except the subdivision directories and the `regions/`/`topics/`/`sources/`/`findings/`
+subfolders below (templates: `jurisdictions/_TEMPLATE/`):
+
+| Slot | File / dir | Purpose | Standard |
+|---|---|---|---|
+| **composite master** | `COUNTRY-RATE.md` | the per-city 7-axis roll-up — the country "master RATE" (§5, `NAMING-CONVENTION.md`) | this contract §3/§4 |
+| README | `README.md` | national data layer: what is solved / achievable / absent | jurisdictions-README §authoring |
+| legislation detail | `LEGISLATION-RATE.md` | national structured-fill rate (feeds LEGISLATION) | jurisdictions-README §LEGISLATION-RATE |
+| LOD detail | `LOD-RATE.md` | national building/terrain LOD sub-rate (feeds HEIGHTS/LOD) | jurisdictions-README |
+| strategy | `COUNTRY-DATA-STRATEGY.md` | the reusable 7-step data-ceiling reasoning | `_TEMPLATE/COUNTRY-DATA-STRATEGY-TEMPLATE.md` |
+| plan | `RATE-IMPLEMENTATION-PLAN.md` | the phased national climb | jurisdictions-README |
+| resume | `NEXT.md` | where we stopped · blockers · resume steps | JURISDICTION-PLAYBOOK §5 |
+| evidence | `sources/SOURCES.md` + `sources/VERIFICATION.md` | national citations + human sign-off (L-449) | C58 §1.6 |
+| research | `findings/` | national data-source studies + recon spikes | — |
+| region index | `regions/README.md` | regional services, layer names, data currency | jurisdictions-README |
+| context topics | `topics/{buildings-lod-height,parks-trees,roads-pedestrian,water}.md` | per-context-layer national source notes (feed CONTEXT/HEIGHTS) | — (optional but standard where present) |
+| **subdivisions** | `<cc>-<subdiv>/` | one dir per region/CCAA/state, holding the `<code>-<slug>/` **city dossiers** (§5) | this contract §5 + §1.7 |
+
+**The nesting is fixed:** `jurisdictions/<cc>/<cc>-<subdiv>/<code>-<slug>/` — country → subdivision → city.
+The subdivision segment is `<cc>-<subdiv>` (e.g. `es-ct`, `de-by`, `no-03`); the city segment is
+`<code>-<slug>` (INE / INSEE / DICOFRE / AGS / LAU code + slug) and MUST equal the pack `jurisdictionId`
+identity (§1.7, `jurisdictions/README.md` join-key rule). A city placed directly under `<cc>/` (skipping the
+subdivision dir) is misplaced.
+
+### §5.3 — Where `findings/` and `sources/` sit (both levels)
+
+`findings/` and `sources/` appear at **both** the country level and the city level, and mean the same thing at
+each: `sources/` holds the **citable** evidence (`SOURCES.md` per-field citations + `VERIFICATION.md` human
+sign-off, the L-449 trust gate); `findings/` holds the **substantive investigation records** (the `L-NNN-*`
+spikes, data-source studies, OCR pilots) that are not themselves a citation. The rule (§5.1): a research doc or
+an `L-NNN` record at a folder **root** is misplaced — its home is that folder's `findings/`. Source PDFs never
+belong in either (they live on object storage per L-450; the dossier links to them). `archive/` (superseded
+handoffs, one-shot sourcing prompts) is the third permitted subfolder and is optional.
+
 ---
 
 ## §6 — CI gate (planned)
@@ -324,3 +380,22 @@ its one-line purpose + the axis it feeds.
 (honest ahead of the automated scorecard function because each cell cites the state it read, never a guess — §1.1);
 (3) **Phase 2 MAP** into the dossiers + roll-ups + global matrix; (4) **Phase 3 PLAN** a per-axis, per-city plan to
 drive each section → 100 %.
+
+### §8.2 — Extension L-650: the EQUAL folder standard (§5.1/§5.2/§5.3) + the rollout program
+
+Founder 2026-07-30 (audit **L-650**): before mass execution, the whole city-completion rollout is GOVERNED as a
+program — the equal country/city folder standard is made normative (this section's §5.1/§5.2/§5.3), and the
+audit→map→plan method is specified as a phased, fan-out-safe program. This EXTENDS this contract; it mints no new
+contract (the dossier standard's authority stays here). Ratified by
+[ADR-0282](../adrs/ADR-0282-equal-jurisdiction-folder-standard-and-city-completion-rollout-program.md).
+
+- **The equal folder standard** (§5.1/§5.2/§5.3): the country folder shape is now normative alongside the §5 city
+  shape; the EQUAL-SHAPE invariant makes "a file is either in the standard set or misplaced" a contract rule.
+- **The rollout program** — the phased method (Phase 0 normalise → Phase 1 per-country AUDIT batches → Phase 2 MAP →
+  Phase 3 PLAN) is specified in [SPEC-CITY-COMPLETION-ROLLOUT](../../03-execution/specs/SPEC-CITY-COMPLETION-ROLLOUT.md).
+  The **fan-out unit is one agent per country/region; the orchestrator is the single writer of the global matrix**
+  (the multi-agent single-writer discipline — a scoped agent writes only its own `jurisdictions/<cc>/**`).
+- **Phase 0 normalisation** of the existing tree (loose files → their standard home; missing standard files
+  scaffolded) is planned, file-by-file, in
+  [`jurisdictions/_NORMALIZATION.md`](../../04-reference/jurisdictions/_NORMALIZATION.md) — a plan only; the
+  orchestrator executes the moves (no code, no `git mv` by a scoped agent).

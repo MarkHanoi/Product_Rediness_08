@@ -4847,3 +4847,38 @@ of the L-648 automated function, each cell citing the state it read — C63 §1.
 countries+cities (cheap axes first: DATA-SOURCES/TERRAIN/CONTEXT, then PARCEL/HEIGHTS, then LEGISLATION/ENVELOPE);
 (2) **Phase 2 MAP** into dossiers + roll-ups + the §CC.1 matrix above; (3) **Phase 3 PLAN** per-axis, per-city
 L-items to drive each section → 100 %. OWNER: UNASSIGNED · TARGET: TBD.
+
+### §CC.5 — L-650: the rollout PROGRAM + the EQUAL country/city folder standard (EXTENDS C63)
+
+Audit **L-650** (C63 §5.1/§5.2/§5.3/§8.2 + [ADR-0282](../../02-decisions/adrs/ADR-0282-equal-jurisdiction-folder-standard-and-city-completion-rollout-program.md) +
+[SPEC-CITY-COMPLETION-ROLLOUT](../specs/SPEC-CITY-COMPLETION-ROLLOUT.md)). Governs the audit→map→plan work of
+§CC.4 as a **fan-out-safe program**, and makes the COUNTRY folder shape normative (not just the city dossier).
+
+**Governance DONE (docs-only pass):** C63 extended (equal-shape invariant §5.1 · normative country folder §5.2 ·
+findings/sources placement §5.3 · the program §8.2); `SPEC-CITY-COMPLETION-ROLLOUT` + `ADR-0282` +
+`jurisdictions/_NORMALIZATION.md` (the Phase-0 survey) + the `_TEMPLATE/_CITY/{ENVELOPE,HEIGHT,RISK-REGISTER}.md`
+stubs authored.
+
+**The fan-out unit = one agent per country; the ORCHESTRATOR is the single writer of this §CITY-COMPLETION
+matrix** (multi-agent single-writer discipline — a scoped country agent writes only its own
+`jurisdictions/<cc>/**`, never this matrix or another country).
+
+**Batch sequence (10 batches over the 23 baked `bake.mjs REGIONS`) — run Spain FIRST as the reference, then 9 in parallel:**
+
+| # | Batch | Dependencies / notes |
+|---|---|---|
+| 0 | **Phase 0 normalize** (orchestrator) | BLOCKS all batches — the systemic `RATE.md→LEGISLATION-RATE.md` split + `COUNTRY-RATE.md`/composite-`RATE.md` scaffolds + ~33 file moves + `gb/`/SF/Zürich/Stockholm/Helsinki/Amsterdam scaffolds. Plan: `_NORMALIZATION.md`. |
+| 1 | **Spain (es)** | ⚠ Spain agent's disjoint subtree — reconcile at merge. Reference batch (most mature). |
+| 2 | **Nordics (dk·no·se·fi)** | DK = the ~96 % legislation ceiling model. Copenhagen rides national DK. |
+| 3 | **DACH (de·ch)** | Zürich re-nested (Phase 0). Berlin/Munich need `RATE-IMPLEMENTATION-PLAN.md`. |
+| 4 | **France (fr)** | Author `fr/COUNTRY-DATA-STRATEGY.md` first (the worked exemplar). |
+| 5 | **Italy (it)** | Rome·Milan·Turin. |
+| 6 | **Iberia-PT (pt)** | Separate jurisdiction from ES (L-443). |
+| 7 | **UK (gb)** | ⚠ scaffold `gb/` first — London baked, no folder. |
+| 8 | **BeNeLux (be·nl)** | NL national bake ⊇ Amsterdam. |
+| 9 | **US (us)** | ⚠ scaffold a San-Francisco dossier (baked, none). |
+| 10 | **Saudi (sa)** | Overture buildings; live parcel geo-fenced. |
+
+**Each batch exit:** its `COUNTRY-RATE.md` roll-up populated (cheap axes DATA-SOURCES/TERRAIN/CONTEXT at
+minimum, each a CITED derivation — C63 §1.1) + every tackled city has a §5-shaped dossier. Then the orchestrator
+merges the country roll-ups into §CC.1 above. OWNER: UNASSIGNED · TARGET: Phase 0 → per-country batches.
