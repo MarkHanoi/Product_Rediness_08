@@ -484,6 +484,15 @@ export {
     BADALONA_ROADMAP_LINE,
     badalonaUnverifiedRefusal,
 } from './rulepacks/esBadalona.js';
+// Sant Boi de Llobregat (INE 08200) — 4th Catalan city; ROUTED, cited refusal until SANT_BOI_ENVELOPE_VERIFIED.
+export { isInSantBoi, SANT_BOI_BBOX } from './providers/santBoiBbox.js';
+export {
+    SANT_BOI_JURISDICTION_ID,
+    SANT_BOI_ENVELOPE_VERIFIED,
+    SANT_BOI_PGM_INSTRUMENT_REF,
+    SANT_BOI_ROADMAP_LINE,
+    santBoiUnverifiedRefusal,
+} from './rulepacks/esSantBoi.js';
 // ── L-608 — Madrid (INE 28079) jurisdiction gate + the NZ 1 explicit-area pack, refusal + ──
 // the `ringRef` resolver. The pack ships numeric fields null and a footprint HANDLE; the resolver
 // turns that handle into a WGS84 buildable ring per manzana (or a typed refusal — it never throws).

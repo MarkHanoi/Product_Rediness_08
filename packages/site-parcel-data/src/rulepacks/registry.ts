@@ -111,6 +111,12 @@ import {
     badalonaUnverifiedRefusal,
 } from './esBadalona.js';
 import { BADALONA_BBOX, isInBadalona } from '../providers/badalonaBbox.js';
+// Sant Boi de Llobregat (INE 08200) — 4th Catalan city, same refusal-jurisdiction pattern as Badalona.
+import {
+    SANT_BOI_JURISDICTION_ID,
+    santBoiUnverifiedRefusal,
+} from './esSantBoi.js';
+import { SANT_BOI_BBOX, isInSantBoi } from '../providers/santBoiBbox.js';
 
 /** The jurisdiction id Barcelona packs and records use. One constant, not a scattered literal. */
 export const BCN_JURISDICTION_ID = 'es-08019-barcelona';
@@ -559,6 +565,32 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         refusalFor: () => null,
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             badalonaUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ⚠ Sant Boi de Llobregat (INE 08200) — REGISTERED AS A REFUSAL JURISDICTION, same honesty gate
+    // as Badalona above. Same AMB fabric, PGM-1976 instrument + Catalan MUC (S3); `packsByZone` is
+    // deliberately EMPTY (no clau's numbers verified vs Barcelona; Barcelona's height/street-width
+    // tables are municipality-specific). `noRulePackRefusal` returns the cited unverified refusal for
+    // every Sant Boi parcel; the extent still lights the C60 coverage globe. WIRING TODO (L-449 gate):
+    // source Sant Boi's own tables, author an `es-08200-sant-boi` pack, move it into `packsByZone`.
+    {
+        jurisdictionId: SANT_BOI_JURISDICTION_ID,
+        displayName: 'Sant Boi de Llobregat',
+        countryCode: 'ES',
+        countryName: 'Spain',
+        // SAME object `siteDispatch.ts` routes on. Checked BEFORE `isInBarcelona` (Sant Boi is inside
+        // the loose Barcelona metro box), so it peels off only Sant Boi's core; Barcelona byte-identical.
+        extent: SANT_BOI_BBOX,
+        contains: isInSantBoi,
+        answerSummary:
+            "Sant Boi de Llobregat is routed and shares Barcelona's metropolitan plan (PGM-1976) and " +
+            'clau source (the Catalan MUC), so the Art. 242.2 buildable-depth construction applies here ' +
+            "as across the AMB. But PRYZM has NOT verified that any clau's numbers equal Barcelona's, so " +
+            'it answers with a cited refusal — never a borrowed Barcelona figure — until per-clau ' +
+            'verification is signed.',
+        packsByZone: packMap(),
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            santBoiUnverifiedRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
 ];
 
