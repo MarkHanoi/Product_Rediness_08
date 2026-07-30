@@ -1,98 +1,46 @@
-# Data Readiness Rate — Lyon Métropole (`69123`) city
+# City RATE — master completion scorecard — Lyon (fr-ara, INSEE 69123)
 
-**Headline rate: ~42%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 — scorecard function not yet shipped (C63 §8); the three CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition is IDENTICAL
-> across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany / France …) so
-> the scores are directly comparable. Derived from direct endpoint/schema checks, not assumed from
-> Lyon's open-data reputation.
+**Overall completion (assessed subset): `66%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed).
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| **Lyon Métropole** | **~42%** |
-| Paris | ~35% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| Marseille / AMP T1 | ~18% |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4).
 
-Lyon is the **highest-rated French city** in this study. The `data.grandlyon.com` `pluhauteur` layer
-provides **absolute metre height values** directly queryable via WFS — a genuinely structured,
-numeric, immediately usable height source with no decoding step required. This is qualitatively
-different from Paris (coded letters requiring an ADR-0274 engine KIND) and Marseille (graphic-
-primacy over the written règlement). Lyon is the cheapest implementation path among the three
-studied French cities and the recommended starting point.
+## The 7 axes (C63 §3 — fixed definitions)
 
----
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National IGN cadastre IS wired (`parcelProviders/registry.ts` `isInFrance`→`ign-fr`, `data.geopf.fr` WFS PARCELLAIRE EXPRESS, keyless, live). But Axis 1 measures the parcel-quality distribution over an N-parcel sample and **no `computeParcelConfidence` run has been executed** for the Lyon bbox (C63 §8). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | No rule pack registered for Lyon (`rulepacks/registry.ts` carries no FR pack); `sources/VERIFICATION.md` is OPEN. A structured-fill PRIOR exists — `~42 %` (`LEGISLATION-RATE.md`, the highest of the studied FR cities) — but that is the COARSE prior, not the L-449-verified per-clau count Axis 2 requires. Lyon's cheaper path: `data.grandlyon.com` `pluhauteur` gives **direct absolute-metre** heights (no decoding step), but CES/setbacks are PDF-only and the Lyon/Villeurbanne height-perimeter overlay is a structural exception. Inventing values is forbidden (§CONTEXT-DATA-HONESTY). |
+| 3 | **DATA-SOURCES** | 15 % | **80%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **live** (IGN PARCELLAIRE EXPRESS, `ign-fr`) · regional-zone-GIS **documented** (national GPU `zone-urba` + Grand Lyon `data.grandlyon.com` `pluzone`/`pluhauteur` — endpoints corroborated/live-verified in `LEGISLATION-RATE.md`; wiring into `siteDispatch.ts` NOT confirmed → `documented` not `live`) · building-height nDSM **documented** (`heightSources.mjs` `bdtopo` impl:`live`, `REGION_SOURCE` `lyon:'bdtopo'`; per-city bake NOT confirmed landed) · terrain DEM **live** (`terrain.mjs` source `fr` = RGE ALTI/IGN, keyless, HTTP 200) · context-OSM **live** (`bake.mjs` REGIONS `lyon`, Rhône-Alpes extract). Mean = (1.0+0.5+0.5+1.0+1.0)/5 = 0.8. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered for Lyon; solver coverage unmeasured (C58). See `ENVELOPE.md` — the numeric `pluhauteur` layer makes Lyon the cheapest FR envelope path, but no pack exists yet and CES/setback values are unsourced. |
+| 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `lyon` (source `fr` = RGE ALTI, bbox `[4.78,45.70,4.92,45.80]`). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip nor deployed `layer.json` 200 independently re-probed in this audit. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | Measured-**CAPABLE**: BD TOPO® `hauteur` wired + live (`heightSources.mjs` `bdtopo` impl:`live`; `REGION_SOURCE` `lyon:'bdtopo'`). Per-city bake NOT landed; no per-building provenance histogram probed. Capability is never reported as a measurement. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `lyon` context bake bbox (`bake.mjs` REGIONS `lyon`). Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees config-added (L-642) not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: Lyon is inland — genuinely absent (not applicable), not fabricated. Score 5/9. |
 
-## Field-by-field breakdown
+## §CONTEXT-DATA-HONESTY note
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry | ✅ Full | IGN PCI Express — `apicarto.ign.fr/api/cadastre` | ~100% |
-| Zone code | ✅ Full | GPU WFS + `data.grandlyon.com` `pluzone` layer (`zonage` field: UEi2, URm1, UL, UPr, UCe2a, etc.) | ~100% |
-| FAR / COS | ✅ N/A — definitively abolished | Abolished — loi ALUR 2014. Definitively "n/a" for every Lyon parcel. | 100% (N/A is the correct answer) |
-| Max height | ✅ Direct numeric | `data.grandlyon.com` `plu_h_opposable.pluhauteur` — field `hauteur` as absolute metres (e.g. "16"). VERIFIED LIVE 2026-07-23 (last_update_fme: 2026-04-23). **No decoding step required.** | ~60% (layer is live and numeric; fraction of all Lyon parcels covered — null rate across full bbox — not yet confirmed) |
-| Height — bande principale / secondaire | ❌ Confirmed null | `pluzone` fields `hauteur_bande_principale`, `hauteur_bande_secondaire` — confirmed NULL across 10 diverse zone types (UEi2, URm1, UL, UPr, UCe2a, UEi1, USP, N2). VERIFIED 2026-07-23. | ~0% (schema exists; values absent; may be in règlement PDF) |
-| Ground coverage (`emprise au sol` / CES) | ❌ Confirmed null | `pluzone` fields `ces`, `ces_bande_principale`, `ces_bande_secondaire` — confirmed NULL across same 10 zone types. VERIFIED 2026-07-23. | ~0% |
-| Setback rules | ❌ PDF | PLU-H règlement écrit — article series. Not in any confirmed GIS layer. | ~0% |
-| PLU-H document URL | ✅ Full | `pludocumentcommune` — `url_documents_plu_commune` field (e.g. `pluh.grandlyon.com/plu.php?select_commune=LYON5E`) | ~100% (document link; not a numeric rule) |
-| SUP overlays (ABF, etc.) | ⚠️ GPU only | GPU WFS `wfs_sup:assiette_sup_s` — GetFeature endpoint issue (same as nationally). | ~20% |
-| Existing building heights | ✅ Full | BD TOPO® `BATIMENT.hauteur` — national, confirmed non-null | ~90% |
+DOES: terrain (RGE ALTI, unverified rung-50) + national IGN cadastre parcel routing + baked OSM context (5/9 layers) + national GPU + Grand Lyon zone-GIS endpoints. REFUSES: an envelope (no rule pack) — never a borrowed/invented number. UNKNOWN (typed): PARCEL quality (`not-queried`), LEGISLATION + ENVELOPE (`pending-implementation`), HEIGHTS (`not-queried`, measured-capable via BD TOPO). `honestyOk: true`.
 
----
+## Dossier index (C63 §5)
 
-## The structural gap
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-Lyon's gap from Denmark (~96%) has two components. The first is partially closable; the second is
-structural.
-
-**Closable gap — `pluhauteur` coverage confirmation and emprise-from-PDF:**
-The `pluhauteur` layer is confirmed live and numeric, but the fraction of Lyon's parcels that fall
-inside a `pluhauteur` polygon is unconfirmed. If coverage is 70%, the effective height fill is
-~70% not ~60%. If it is 30%, the rate is lower. **This is the single most important remaining
-probe for Lyon** — one WFS count query against the full Lyon bbox resolves it.
-
-Emprise au sol (CES) and setbacks are in the PLU-H règlement PDFs, one document, one sourcing
-effort — a per-zone transcription task covering the main zone families (UCe, UEi, URm) adds ~10 pp.
-
-**Structural gap — Lyon and Villeurbanne height-perimeter overlay:**
-The PLU-H règlement uses separate "périmètres de hauteurs de façades" overlay zones for Lyon city
-and Villeurbanne — NOT the `pluhauteur` polygon attribute used for the 56 outer communes. This is
-a structural exception inside the same PLUi document: two communes inside a 58-commune document use
-a different height mechanism. Implementing the Lyon/Villeurbanne overlay join is an independent data-
-layer integration task (~8–10 dev-days), not a config change to the outer-commune attribute path.
-
-**Whether `pluhauteur` attributes appear on the national GPU WFS** (rather than only on
-`data.grandlyon.com`) is the critical unresolved pre-implementation probe. If GPU carries them →
-config-only implementation. If only `data.grandlyon.com` carries them → second data-source
-integration required.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Probe `pluhauteur` null rate — WFS count for full Lyon bbox vs parcel count | Confirms the true height-coverage fraction; may raise the ~60% height sub-score significantly | Low — one WFS count query |
-| Probe `pluhauteur` for Lyon 1er/2e arrondissement parcel — confirm Lyon city-centre coverage vs outer-commune coverage | Confirms whether the overlay-zone exception applies only to core Lyon/Villeurbanne or more broadly | Low |
-| Confirm whether `HBCPRINC`/`HBCSEC`/`PLAFOND` appear on the national GPU WFS or only on `data.grandlyon.com` | Determines the implementation path (config vs second data-source integration) | Low — one GPU WFS GetFeature for a Lyon parcel |
-| Read PLU-H règlement for a sample zone (e.g. UCe1a) — extract CES value verbatim | +10 pp on emprise (manually, for that zone family) | Medium |
-| Probe GPU zone-urba for a Lyon parcel — get `idurba` and règlement PDF link | Enables règlement PDF download for CES and setback sourcing | Low |
-
-**Realistic ceiling after coverage confirmation and key PDF reads: ~55–65%.** Lyon could reach near-
-Barcelona levels if the `pluhauteur` coverage fraction turns out to be high (>70% of parcels) and a
-PDF-reading programme covers the CES and setback articles for the main zone families.
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~42 % prior; the Lyon `pluhauteur` numeric-height research) | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status (BD TOPO measured-capable) | HEIGHTS/LOD |
+| [`README.md`](./README.md) | what governs here · zone taxonomy · pack status | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| [`sources/SOURCES.md`](./sources/SOURCES.md) · [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) | per-field citations · human sign-off (L-449) | LEGISLATION · ENVELOPE |
 
 ---
-
-*Last updated: 2026-07-24. `pluhauteur` VERIFIED LIVE 2026-07-23 (absolute metres; last_update_fme
-2026-04-23). `pluzone` height + CES fields confirmed NULL across 10 zone types 2026-07-23. GPU zone
-identification confirmed. `pluhauteur` null rate across full bbox: NOT YET PROBED — the single
-most important remaining probe. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Composite scaffolded under audit L-649 Phase-1; the legacy `RATE.md` (legislation) was migrated to `LEGISLATION-RATE.md` this pass.*

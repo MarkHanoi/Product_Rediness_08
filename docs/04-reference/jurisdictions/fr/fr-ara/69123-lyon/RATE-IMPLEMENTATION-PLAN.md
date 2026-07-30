@@ -1,6 +1,6 @@
 # Rate Implementation Plan — Lyon Métropole (`69123`) city
 
-**Current rate:** ~42% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** ~55–65% ·
+**Current LEGISLATION rate:** ~42% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md); composite master [`RATE.md`](./RATE.md)) · **Realistic ceiling:** ~55–65% ·
 **Gap to ceiling:** ~13–23 pts · **Gap to Denmark (~96%):** ~54 pts ·
 **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
 

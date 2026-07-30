@@ -1,102 +1,46 @@
-# Data Readiness Rate — Paris (`75056`) city
+# City RATE — master completion scorecard — Paris (fr-idf, INSEE 75056)
 
-**Headline rate: ~35%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 — scorecard function not yet shipped (C63 §8); the three CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition is IDENTICAL
-> across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany / France …) so
-> the scores are directly comparable. Derived from direct endpoint/schema checks, not assumed from
-> Paris's open-data reputation.
+**Overall completion (assessed subset): `66%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed).
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Lyon Métropole | ~42% |
-| **Paris** | **~35%** |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| Marseille / AMP T1 | ~18% |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4).
 
-Paris is the **second-highest-rated French city** in this study — above the national average (~22%)
-and above Marseille (~18%), but below Lyon (~42%). It scores higher than the national average
-because three purpose-built GIS height layers exist and are live on `opendata.paris.fr` — no other
-French city has this equivalent. It still sits below Barcelona (~48%) and well below Denmark (~96%)
-because the primary height layer is coded (letter codes, not metres), emprise au sol is PDF-only,
-and the gabarit formula requires a new engine KIND to compute.
+## The 7 axes (C63 §3 — fixed definitions)
 
-**Why Paris differs from the national average (~22%):**
-Paris has ~3 dedicated height GIS layers published by the city, where the national average is near
-zero structured height fields. The ~35% reflects zone + parcel (100% each) + coded height coverage
-via `plub_filet` (useful once decoded) + confirmed existing building heights via BD TOPO.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National IGN cadastre IS wired (`parcelProviders/registry.ts` `isInFrance`→`ign-fr`, provider `Cadastre (France · IGN PARCELLAIRE EXPRESS)`, `data.geopf.fr` WFS `CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle`, keyless, live — note cites real `idu 75104000AE0003 @ Paris`). But Axis 1 measures the parcel-quality distribution over an N-parcel sample and **no `computeParcelConfidence` run has been executed** for this bbox (C63 §8). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | No rule pack registered for Paris (`rulepacks/registry.ts` carries no FR pack); `sources/VERIFICATION.md` is **OPEN** (no signed sign-off). A rich structured-fill PRIOR exists — `~35 %` (`LEGISLATION-RATE.md`) — but that is the COARSE prior, not the L-449-verified per-clau count Axis 2 requires. Paris height is a two-layer geometric construction (`plub_filet` coded gabarit + `surface de nivellement de l'îlot` datum) needing a new engine KIND (ADR-0274) before any parcel-level fill; inventing values is forbidden (§CONTEXT-DATA-HONESTY). |
+| 3 | **DATA-SOURCES** | 15 % | **80%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **live** (IGN PARCELLAIRE EXPRESS, `parcelProviders/registry.ts` `ign-fr`) · regional-zone-GIS **documented** (national GPU `apicarto.ign.fr/api/gpu/zone-urba` returns UG/UGSU/UV/N — endpoint corroborated in `README.md`/`LEGISLATION-RATE.md`; wiring into `siteDispatch.ts` NOT confirmed → `documented` not `live`) · building-height nDSM **documented** (`heightSources.mjs` `bdtopo` impl:`live`, IGN BD TOPO® `batiment.hauteur`, `REGION_SOURCE` `paris:'bdtopo'`, live-probe bbox `[2.346,48.852,2.352,48.858]` Paris 8e "LOD-RATE-verified"; per-city bake NOT landed, §BDTOPO-CAP-TRUNCATE) · terrain DEM **live** (`terrain.mjs` source `fr` = RGE ALTI/IGN, keyless, HTTP 200) · context-OSM **live** (`bake.mjs` REGIONS `paris`, Île-de-France extract). Mean = (1.0+0.5+0.5+1.0+1.0)/5 = 0.8. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | No buildable-envelope rule pack registered for Paris; solver coverage unmeasured (C58). The gabarit-enveloppe + block-reference-surface mechanism needs the ADR-0274 engine KIND first (see `ENVELOPE.md`). BCN/Madrid/Córdoba have packs — Paris does not. |
+| 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `paris` (source `fr` = RGE ALTI, bbox `[2.22,48.80,2.47,48.91]`). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip nor deployed `layer.json` 200 independently re-probed in this audit. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | Measured-**CAPABLE**: BD TOPO® `hauteur` is wired + live (`heightSources.mjs` `bdtopo` impl:`live`; `REGION_SOURCE` `paris:'bdtopo'`; live-verified 5/5 non-null Paris 8e). But the per-city bake has NOT landed — the Paris bake bbox holds ~317,361 buildings and the single-shot WFS caps at `limit`, so a naïve bake would delete ~98 % (§BDTOPO-CAP-TRUNCATE); no per-building provenance histogram probed. Capability is never reported as a measurement. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `paris` context bake bbox (`bake.mjs` REGIONS `paris`). Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees are config-added (`bake.mjs`, L-642) but that re-bake is not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: Paris is inland — genuinely absent (not applicable), not fabricated. Score 5/9. |
 
----
+## §CONTEXT-DATA-HONESTY note
 
-## Field-by-field breakdown
+DOES: terrain (RGE ALTI, unverified rung-50) + national IGN cadastre parcel routing + baked OSM context (5/9 layers) + a national GPU zone-GIS endpoint. REFUSES: an envelope (no rule pack; ADR-0274 KIND not built) — never a borrowed/invented number. UNKNOWN (typed): PARCEL quality (`not-queried`), LEGISLATION + ENVELOPE (`pending-implementation`), HEIGHTS (`not-queried`, measured-capable via BD TOPO). `honestyOk: true`.
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry | ✅ Full | IGN PCI Express — `apicarto.ign.fr/api/cadastre` | ~100% |
-| Zone code | ✅ Full | GPU WFS / `apicarto.ign.fr/api/gpu/zone-urba` — returns UG, UGSU, UV, N | ~100% |
-| FAR / COS | ✅ N/A — definitively abolished | Abolished — loi ALUR 2014. Definitively "n/a" for every Paris parcel. | 100% (N/A is the correct answer) |
-| Height — zone-level ceilings | ✅ Partial | `plub_hauteur` (opendata.paris.fr) — 116 records, absolute metres (e.g. 25 m), arrondissement-level zones. VERIFIED LIVE 2026-07-23. | ~15% (116 zone polygons across a city of 20,000+ parcels — covers specific height-capped sectors only) |
-| Height — NGF absolute maxima | ✅ Partial | `plub_hmc` — 47 records, NGF altitude (e.g. 85 m, 67 m). Towers and major landmarks only. | ~3% (very narrow scope) |
-| Height — gabarit-enveloppe (primary layer) | ⚠️ Coded, not numeric | `plub_filet` — 20,644 records, field `haut` = letter code (M, K, C, B, G confirmed). Maps to height formula per PLU bioclimatique UG.10. Machine-readable but NOT directly numeric — decoding table not yet in system. | ~60% coverage → ~0% usable until UG.10 decoding table read |
-| Ground coverage (`emprise au sol`) | ❌ PDF | PLU bioclimatique règlement écrit — article UG.9. No GIS layer confirmed. | ~0% |
-| Setback / gabarit formula | ❌ PDF | PLU bioclimatique UG.6/UG.7/UG.10 — `H = P + 3.00 + D` formula. Requires reading the règlement verbatim. | ~0% |
-| SUP overlays (ABF) | ⚠️ Unconfirmed | GPU WFS `wfs_sup:assiette_sup_s` — layer listed in Capabilities; GetFeature returning Capabilities XML (endpoint issue). ABF sub-type code not confirmed. Paris has ~700 classified monuments → high ABF exposure. | ~20% (layer exists; not yet queryable per parcel) |
-| Existing building heights | ✅ Full | BD TOPO® `BATIMENT.hauteur` — VERIFIED LIVE 2026-07-23: 5/5 non-null in Paris 8th arr., values 9.5–21 m | ~95% |
+## Dossier index (C63 §5)
 
----
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-## The structural gap
-
-Paris's gap from Denmark (~96%) is driven by a single structural fact: **height in Paris is not a
-lookup table — it is a two-layer geometric construction**. The PLU bioclimatique uses:
-
-1. A computed **"surface de nivellement de l'îlot"** (block-level leveling surface) as the height
-   datum — not street level, not sea level, but a derived geometric construction from the block
-   ring. This surface must be computed, not looked up.
-2. A **gabarit-enveloppe formula** governing how the building fills its ceiling: `H = P + 3.00 + D`
-   at the side boundary (P = prospect distance, D ≤ 6 m), and `H = P + 4.00` with a 1:1 oblique
-   for vis-à-vis facades.
-
-Neither of these is a numeric field in an API — the `plub_filet` layer stores the result of the
-first step as a letter code (M/K/C/B/G), and the gabarit formula is in the PLU text. **No French
-city generalises to Paris's mechanism, and Paris's mechanism generalises to no other city.** A new
-engine KIND (ADR-0274, reference-surface + gabarit) is required before any Paris parcel-level
-height fill is possible.
-
-The `plub_filet` coded layer (20,644 records, ~60% coverage by street segment) is the largest
-piece of structured data in Paris's pack — but it is currently producing ~0% usable fills because
-the decoding table (PLU bioclimatique UG.10) has not been read and ingested. This is the highest-
-value single action for Paris: one PDF section read → +20 pp.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Read PLU bioclimatique UG.10 — extract `haut` letter decoding table (M/K/C/B/G → height formula) | +20 pp — converts `plub_filet` from coded to usable | Low — one PDF section |
-| Read UG.9 (emprise au sol) verbatim | +8 pp | Low |
-| Read UG.6/7 (implantation/setback formulas) verbatim | +5 pp | Low |
-| Fix GPU WFS `wfs_sup:assiette_sup_s` GetFeature endpoint | +3 pp — ABF overlay confirmed | Low |
-| Build ADR-0274 reference-surface + gabarit engine KIND | Prerequisite for `plub_filet` computed outputs — enables the gabarit formula to produce a parcel-level height number | High — 4–5 dev-days for the ADR; 10–12 for implementation |
-| Probe whether the "plan des hauteurs" is published as a queryable GIS layer or PDF plates only | Resolves a ±6–8 dev-day uncertainty in the hauteur plafond ingestion path | Low — one direct URL probe |
-
-**Realistic ceiling after PDF reading and ADR-0274 implementation: ~55–60%.** The remaining gap
-is the gabarit formula complexity (ADR-0274 KIND required) and PSMV/ABF overlay risk in the historic
-core.
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~35 % prior; the rich Paris height research) | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status (ADR-0274 gabarit KIND gate) | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status (BD TOPO measured-capable) | HEIGHTS/LOD |
+| [`README.md`](./README.md) | what governs here · zone taxonomy · pack status | all |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| [`sources/SOURCES.md`](./sources/SOURCES.md) · [`sources/VERIFICATION.md`](./sources/VERIFICATION.md) | per-field citations · human sign-off (L-449) | LEGISLATION · ENVELOPE |
 
 ---
-
-*Last updated: 2026-07-24. Three opendata.paris.fr height layers VERIFIED LIVE (2026-07-23):
-`plub_hauteur` (116 records, absolute metres), `plub_hmc` (47 records, NGF altitude), `plub_filet`
-(20,644 records, haut codes M/K/C/B/G confirmed). BD TOPO® hauteur VERIFIED LIVE (2026-07-23).
-GPU zone_urba confirmed live for Paris. Emprise au sol, setbacks, gabarit formula: PDF-only.
-Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Composite scaffolded under audit L-649 Phase-1; the legacy `RATE.md` (legislation) was migrated to `LEGISLATION-RATE.md` this pass.*

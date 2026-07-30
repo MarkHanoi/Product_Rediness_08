@@ -1,6 +1,6 @@
 # Rate Implementation Plan — Paris (`75056`) city
 
-**Current rate:** ~35% (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:** ~55–60% ·
+**Current LEGISLATION rate:** ~35% (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md); composite master [`RATE.md`](./RATE.md)) · **Realistic ceiling:** ~55–60% ·
 **Gap to ceiling:** ~20–25 pts · **Gap to Denmark (~96%):** ~61 pts ·
 **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
 
