@@ -1,99 +1,46 @@
-# Data Readiness Rate — Madrid (`es-md`, INE 28079) city
+# City RATE — master completion scorecard — Madrid (es-md, 28079)
 
-**Headline rate: ~68%**
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 (L-649 dossier normalization) — scorecard function not yet shipped (C63 §8); the three CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
-> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
-> assumed from the jurisdiction's open-data reputation.
+**Overall completion (assessed subset): `71%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed). The legislation detail lives in [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)
+(~68 % data-readiness — the richest Spanish city) and FEEDS Axis 2.
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| **Madrid** | **~68%** |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Spain (national) | ~34% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4).
 
-Madrid is the **richest urbanistic-data city in the Spanish set** and the second-highest in the whole
-benchmark, behind only Denmark. Its ~68% is driven by data the other Spanish cities do not publish:
-**NZ 1 (Protección del Patrimonio Histórico) publishes the buildable footprint (`Fondo de la
-Edificación`) AND the weighted edificabilidad (`COEF_Z`) as live queryable ArcGIS geometry+attributes**
-(verified live 2026-07-23, `findings/L-608-MADRID-PACK-SPEC.md` §2.1) — a genuinely structured envelope
-for the historic core, the first real case of the `explicit-area` model. On top of that the
-calificación / Norma-Zonal plane (`PG_ORDENACION`), the `Alineaciones` layer, and an ámbito-level
-`Visor_Edificabilidad` service are all published.
+## The 7 axes (C63 §3 — fixed definitions)
 
-⚠ **Two honesty caveats that qualify the 68%, stated up front (C58 §1.4):**
-1. **The metric measures DATA readiness, not PRYZM's current wiring.** Madrid's *shippable* envelope
-   resolution TODAY ≈ 0% — NZ 4/8 are document-gated (numbers in the NNUU PDF) and NZ 1 is
-   engine-gated (the `explicit-area` solver branch does not exist, C58 §2.2 KG-4). The ceiling once
-   the four Normas Zonales are sourced and NZ 1's solver ships is **~60–62% of residential clicks**
-   (0.65 × 0.96). The ~68% data-readiness rate sits *above* that engine ceiling because it credits
-   structured layers PRYZM has not yet consumed.
-2. **The per-Norma-Zonal land-share split is UNSOURCED.** The exact figure carries that uncertainty —
-   68% credits Madrid's structured calificación + NZ 1 footprint + ámbito edificabilidad, but a strict
-   per-field read lands lower for the NZ 4 (manzana cerrada) core, whose *fondo edificable* is
-   grado-structured in the PDF. Do not present 68% as a precision measurement.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National Catastro parcel provider IS wired (`parcelProviders/registry.ts` `isInSpain`→`catastro`). No `computeParcelConfidence` run for this bbox; the block-ring dissolve is **2/4 in Madrid** (`SPAIN-CADASTRAL-DISSOLVE-PROBE`, tolerant-mode gap, weaker than Barcelona's 2/2). Axis measures the parcel-quality distribution over an N-parcel sample — not yet run (C63 §8). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Measured legislation detail = [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md): **~68 % data-readiness** (second only to Denmark) — NZ 1 publishes `COEF_Z` + `Fondo de la Edificación` as live ArcGIS geometry; `PG_ORDENACION` calificación PRIOR-VERIFIED. But per-NZ land-share split UNSOURCED, NZ 4/8/5/7 numbers DOCUMENT-gated (NNUU Compendio 2023). No composite Axis-2 clau-inventory scorecard run; a % here would double-count the sub-rate. |
+| 3 | **DATA-SOURCES** | 15 % | **90%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **live** (Catastro national) · regional-zone-GIS **live** (PGOUM-97 planes on `sigma.madrid.es/.../pgoum97`, 12 services; `PG_ORDENACION` PRIOR-VERIFIED) · building-height nDSM **documented** (`heightSources.mjs` `REGION_SOURCE.madrid='mds_edificacion'`, per-city bbox configured; per-city bake not confirmed landed) · terrain DEM **live** (`terrain.mjs` TERRAIN_CITY `madrid`, source `es` = PNOA MDT) · context-OSM **live** (`bake.mjs` REGIONS `spain`). Mean = (1+1+0.5+1+1)/5 = 0.90. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | Madrid IS **registered** as a refusal jurisdiction (`rulepacks/registry.ts`, L-608); the `explicit-area` solver + NZ 1 provider/adapter have **SHIPPED + tested** (C58 §2.2 **KG-4 now open** — `esMadridNZ1.ts`, `esMadridNZ1Provider.ts`, `findings/L-608-*-SHIPPED.md`). But the **live envelope is still a cited refusal**: `resolveMadridNZ1Ring` has **no same-origin Madrid proxy wired**, so the published footprint can't be fetched, and the `PG_ORDENACION` calificación mapping is UNVERIFIED (HTTP 500). NZ 4/8/5/7 remain document-gated. Shippable resolution today ≈ 0 %; engine ceiling ~60–62 %. See [`ENVELOPE.md`](./ENVELOPE.md). |
+| 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `madrid` (source `es` = PNOA MDT) + control points (Puerta del Sol / Retiro / North M-30). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip re-probed here. Same rasant-datum caveat as Barcelona (L-584). |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | No measured height baked (Catastro footprint national; height coarse; nDSM ❌). The CNIG MDS Edificación per-city source is configured (`REGION_SOURCE.madrid`) but no per-city provenance histogram probed. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `spain` context bake bbox (`bake.mjs` REGIONS `spain`). Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees config-added (L-642) but not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: inland, n/a. Score 5/9. |
 
----
+## §CONTEXT-DATA-HONESTY note
 
-## Field-by-field breakdown
+DOES: terrain (PNOA MDT, unverified) + national Catastro + live PGOUM-97 zone GIS + NZ 1 published footprint data + a shipped `explicit-area` solver + NZ 1 provider + baked OSM context (5/9). REFUSES: a live envelope — Madrid is registered as a refusal jurisdiction; the ring resolver has no wired same-origin proxy and the calificación mapping is unverified, so every parcel gets the cited NZ 1 refusal; NZ 4/8 are document-gated (NNUU PDF unsourced); NZ 3 = `derived-plan` refusal. UNKNOWN (typed): PARCEL quality (`not-queried`), LEGISLATION + ENVELOPE (`pending-implementation`), HEIGHTS (`not-queried`). `honestyOk: true`. ⚠ The ~68 % legislation rate measures DATA readiness, NOT PRYZM's current wiring (~0 % shippable today) — do not conflate.
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry | ✅ Structured | Catastro INSPIRE WFS (national). Block ring: `dissolveParcelsToBlockRing` **2/4 in Madrid** (`SPAIN-CADASTRAL-DISSOLVE-PROBE`) — weaker than Barcelona's 2/2. | **~90%** (geometry national; block-ring tolerant-mode gap) |
-| Plan/zone existence + boundary | ✅ Structured | PGOUM-97 planes on `sigma.madrid.es/hosted/rest/services/pgoum97` — 12 services, live. | **~85%** |
-| Zone/use code (Norma Zonal) | ✅ Structured (PRIOR-VERIFIED) | `PG_ORDENACION` calificación plane — per-parcel Norma Zonal + uso pormenorizado. (⚠ returned HTTP 500 on the 2026-07-23 re-probe; PRIOR-VERIFIED, not re-confirmed this pass.) `PG_ORDENACION_SIN_AMBITO` L4 = a dedicated NZ 1.5 polygon, L5 = Alineaciones. | **~75%** |
-| Density metric (edificabilidad / FAR) | ⚠️ Partial — split by NZ | **NZ 1: LIVE DATA** — `COEF_Z` (String, coded, per-manzana, parsed under assertion) on layer 6. Ámbito-level `Visor_Edificabilidad` (Jan-2024) — **wrong granularity** (C58 §1.11), context only. **NZ 4/8/5/7: PDF** — grado-structured *fondo/edificabilidad* in the NNUU Compendio 2023. | **~40%** |
-| Max height (parcel-level) | ⚠️ Partial | NZ 1 conditions ride with the footprint plane. NZ 4/8 *altura de cornisa / nº plantas*: grado-structured in the NNUU PDF, not sourced this pass. | **~30%** |
-| Setback / alignment (ADR-0270) | ✅ Kind resolved; ⚠️ numbers split | NZ 1 → `explicit-area` (footprint published); NZ 4 → `alignment` (**`Alineaciones` published as a layer** — the official line is structured; the *fondo edificable* depth is PDF); NZ 8/5/7 → `setback` (retranqueos PDF); NZ 3 → `derived-plan` refusal. The SHAPE is fully resolved; the numbers are the gate. | **~50%** |
-| Building footprint + height (LOD1/2) | ✅ / ⚠️ | Catastro constructions (national footprint). **NZ 1's `Fondo de la Edificación` polyline IS the published buildable boundary** — Madrid publishes buildable depth as a *line you build to*, not a setback (the reason `explicit-area` exists, `es/README.md`). Height coarse. | **~55%** |
-| Terrain (DTM/DSM) | ✅ / ❌ | IGN MDT + Cesium World Terrain. nDSM ❌. Same rasant-datum caveat as Barcelona applies. | **~85%** terrain; nDSM ❌ |
-| Heritage overlay | ⚠️ Partial | NZ 1 IS the historic-protection zone and it is published as data (unlike Barcelona's invisible Ciutat Vella overlay) — a genuine Madrid advantage. NZ 2 (colonias históricas) less so. | **~40%** |
+## Dossier index (C63 §5)
 
----
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-## The structural gap
-
-**Madrid's data is richer than Barcelona's, and the gap is engine + document, not classification.**
-The zone code is live and structured, and for NZ 1 the *density and the footprint are published
-geometry* — the historic core is a solved data case, the first real `explicit-area` zone. That is why
-Madrid clears 68% where Barcelona sits at 48%: Barcelona must *construct* its density from the block
-ring, Madrid *publishes* it for the core.
-
-The residual to Denmark's 96% is two-part. First, the dominant residential typology — **NZ 4 manzana
-cerrada** — states its *fondo edificable* and *retranqueos* per grado in the PGOUM-97 NNUU (Compendio
-2023, Cap. 8.x), a prose PDF; those numbers were not transcribable citeably this pass (the compendio
-returned as compressed streams; web-search hits mixed a specific APR plan's values with the general
-norm — the exact secondary-source trap). Second, **~35% of residential land sits in a derived ámbito**
-(APR/APE/API/Plan Parcial) — the Madrid analogue of Barcelona's derived-planning trap: the general
-plan points at a per-site document, so the honest output is a `derived-plan` refusal, not an envelope.
-The Zod schema enforces this honesty: `AlignmentRuleSchema.buildableDepth_m` must be `.positive()` and
-`SetbackRuleSchema` needs the full triple — there is no way to author a functional NZ 4/8 pack without
-the sourced numbers.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Human-source NZ 4 *fondo edificable* + NZ 8 retranqueos from Compendio 2023 Cap. 8.x, per grado (L-449) | The single highest-leverage move — NZ 4 is central Madrid's dominant residential typology | High (human, per-grado read) |
-| Build the `explicit-area` engine branch + the NZ 1 ringRef resolver (KG-4) | Unblocks NZ 1's live footprint data into a shipped envelope; reusable for every footprint-publishing jurisdiction | Medium (one engine unit) |
-| Re-verify `PG_ORDENACION` live + run `returnCountOnly` before believing any zero | Re-confirms the calificación endpoint (currently PRIOR-VERIFIED only) | Low — one probe |
-| Ship the NZ 3 `derived-plan` refusal (copy in `sources/SOURCES.md`) | Turns the volumetría-específica share into a cited answer now | Low |
-| Verify `COEF_Z` coding + parse (defensive — an un-asserted `parseFloat` on a coded string is a silent-zero risk) | Makes NZ 1 edificabilidad shippable, not just present | Low |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~68 %) | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status | HEIGHTS/LOD |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| [`README.md`](./README.md) · `sources/` · `findings/` | governance · citations · L-NNN investigation records | LEGISLATION · — |
 
 ---
-
-*Last updated: 2026-07-24. NZ 1 `COEF_Z` + `Fondo de la Edificación` footprint confirmed LIVE DATA
-(2026-07-23). `PG_ORDENACION` calificación plane PRIOR-VERIFIED (HTTP 500 on re-probe, not
-re-confirmed this pass). NZ 4/8/5/7 numbers DOCUMENT-gated (NNUU Compendio 2023), unsourced. Shippable
-envelope resolution today ≈ 0% (engine-gated + document-gated); data-readiness ~68%; engine ceiling
-~60–62%; per-NZ land-share split UNSOURCED. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Normalized to the C63 7-file standard under audit L-649.*

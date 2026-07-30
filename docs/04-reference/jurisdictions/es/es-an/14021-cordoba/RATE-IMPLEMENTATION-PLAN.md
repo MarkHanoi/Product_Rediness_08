@@ -1,6 +1,6 @@
 # Rate Implementation Plan — Córdoba (`es-an`, INE 14021) city
 
-**Current rate:** ~8% municipality-wide (see [`RATE.md`](./RATE.md)) · **Realistic ceiling:**
+**Current rate:** ~8% municipality-wide (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)) · **Realistic ceiling:**
 **UNKNOWN until the authoritative GMU geometry is investigated** — the official Calificación mapping
 exists **city-wide** (see below); recovering the upstream vector geometry is the highest-value task ·
 ~89% partial / ~19% full-numeric **within the Sur + Noroeste pilot** (post-sign-off) ·

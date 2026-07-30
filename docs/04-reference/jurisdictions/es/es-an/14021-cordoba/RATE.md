@@ -1,104 +1,46 @@
-# Data Readiness Rate — Córdoba (`es-an`, INE 14021) city
+# City RATE — master completion scorecard — Córdoba (es-an, 14021)
 
-**Headline rate: ~8%** (municipality-wide) · **ASSESSED** (OCR extraction complete, unverified)
+<!-- generated-by: MANUAL C63-Phase-1-AUDIT 2026-07-30 (L-649 dossier normalization) — scorecard function not yet shipped (C63 §8); the three CHEAP axes (DATA-SOURCES · TERRAIN · CONTEXT) are cited-derived per C63 §8.1, every other axis is not-assessed with a typed C62 reason. NO cell is a fabricated number. -->
 
-> **Structured dimensional fill rate** — the fraction of parcel-level building-rule queries that
-> return a complete, machine-readable answer (**zone/use code + a density metric [FAR / coverage /
-> BYA / BRA / %-utilisation] + height**) **without reading an ordinance text/PDF**. This definition
-> is IDENTICAL across every jurisdiction (Denmark / Madrid / Saudi / Barcelona / Norway / Germany /
-> France …) so the scores are directly comparable. Derived from direct endpoint/schema checks, not
-> assumed from the jurisdiction's open-data reputation.
+**Overall completion (assessed subset): `66%` · `partial: true`** — renormalised over the ASSESSED
+axes only (DATA-SOURCES · TERRAIN · CONTEXT); the missing axes (PARCEL · LEGISLATION · ENVELOPE ·
+HEIGHTS/LOD) are honestly `not-assessed`, not 0 % (C63 §1.2/§1.5). **`honestyOk: true`** (no fabricated
+value; every unknown typed). This is the composite master; the legislation detail lives in
+[`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) (~8 % data-fill, OCR-unverified) and FEEDS Axis 2.
 
-| Jurisdiction | Rate |
-|---|---|
-| Denmark | ~96% |
-| Madrid | ~68% |
-| Saudi (national) | ~55% |
-| Barcelona | ~48% |
-| Spain (national) | ~34% |
-| Norway (national) | ~32% |
-| Germany (national) | ~28% |
-| France (national) | ~22% |
-| **Córdoba** | **~8%** |
+> **Weighting** `CITY_COMPLETION_WEIGHTS` — RATIFIED (founder, 2026-07-30): LEGISLATION 25 · ENVELOPE 20 ·
+> PARCEL 15 · DATA-SOURCES 15 · HEIGHTS/LOD 10 · TERRAIN 10 · CONTEXT 5 (C63 §4).
 
-Córdoba is the **shape-B OCR city** — a modern consolidated plan (PGOU-2001) with clean scanned
-ordinances — and its rate is the lowest in the assessed set for reasons that are *cited, not a
-data-quality excuse*. The metric asks for a structured answer **without reading a PDF**, and Córdoba's
-zoning numbers live in scanned ordinance PDFs. Three facts hold the municipality-wide rate to single
-digits:
+## The 7 axes (C63 §3 — fixed definitions)
 
-1. **Calificación geometry (the structured zone code) is published for 2 of ~10 districts only** — the
-   IMDEEC-funded COACo pilot (Sur + Noroeste, ~1.63 km²). Everywhere else the best answer is SIU
-   *clasificación* (land class: urbano / urbanizable / no urbanizable) — **not an envelope**
-   (`findings/CALIFICACION-ENDPOINT-PROBE.md`).
-2. **The density + height numbers are OCR-extracted from scanned PDFs and NOT human-verified** — tier
-   `pipeline-extracted-unverified`. Under the L-449 gate they cannot ship `structured`, and per the
-   metric they are not a without-a-PDF answer.
-3. **For the two dominant families, the key numbers are not even scalars:** Manzana Cerrada (the
-   largest by area) has its height as a **per-street-width TABLE** (null scalar until a street-width
-   resolver exists — the same gap as Barcelona) and its edificabilidad **DERIVED by algorithm**;
-   Colonia Tradicional Popular (the most common by parcel) has edificabilidad DERIVED too.
+| # | Axis | Weight | Score | Validation | Unknown reason | Derivation (which state was read) |
+|---|---|---:|---|---|---|---|
+| 1 | **PARCEL** | 15 % | `not-assessed` | `not-checked` | `not-queried` | National Catastro parcel provider IS wired (`parcelProviders/registry.ts` `isInSpain`→`catastro`), and the COACo pilot adds `coaco:vcatastro_urbanismo` (5,725 parcels). But no `computeParcelConfidence` run has been executed for this bbox, and the block-ring dissolve is **0/3 in Córdoba** (`SPAIN-CADASTRAL-DISSOLVE-PROBE`) — the dissolve fails before any rule is consulted (see `LEGISLATION-RATE.md`). |
+| 2 | **LEGISLATION** | 25 % | `not-assessed` | `not-checked` | `pending-implementation` | Measured legislation detail = [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md): ~8 % municipality-wide, ASSESSED but **OCR-extracted `pipeline-extracted-unverified`** (15-ordinance extraction complete, `SOURCES.md §C` empty). The authored starter pack `esCordobaPGOU2001.ts` is **UNREGISTERED / refusing**. No composite Axis-2 clau-inventory scorecard run; a % here would double-count the sub-rate. |
+| 3 | **DATA-SOURCES** | 15 % | **80%** | `not-checked` | — | 5-slot checklist: cadastre-parcel **live** (Catastro national + COACo pilot WFS) · regional-zone-GIS **documented/partial** (COACo `coaco:ordenanzas` calificación **live for 2 of ~10 districts**; national SIU serves *clasificación* only) · building-height nDSM **documented** (`heightSources.mjs` `REGION_SOURCE.cordoba='mds_edificacion'`, per-city bbox configured; per-city bake not confirmed landed) · terrain DEM **live** (`terrain.mjs` TERRAIN_CITY `cordoba`, source `es` = PNOA MDT) · context-OSM **live** (`bake.mjs` REGIONS `spain`). Mean = (1+0.5+0.5+1+1)/5 = 0.80. |
+| 4 | **ENVELOPE** | 20 % | `not-assessed` | `not-checked` | `pending-implementation` | Starter pack `esCordobaPGOU2001.ts` authored but **UNREGISTERED** (`rulepacks/registry.ts` has no live Córdoba pack); every extracted value is `pipeline-extracted-unverified` and the two dominant families (Manzana Cerrada, Colonia Tradicional Popular) have edificabilidad **DERIVED by algorithm** → `null`, never a number. Solver coverage unmeasured (C58). See [`ENVELOPE.md`](./ENVELOPE.md). |
+| 5 | **TERRAIN** | 10 % | **50%** | `not-checked` | — | Terrain bake row present: `terrain.mjs` TERRAIN_CITY `cordoba` (source `es` = PNOA MDT) + control points (Mezquita / Guadalquivir / North hills). Rung **50 = baked-but-unverified** — no `terrain.verify.mjs` round-trip re-probed in this audit. |
+| 6 | **HEIGHTS/LOD** | 10 % | `not-assessed` | `not-checked` | `not-queried` | No measured height baked (Catastro footprint national; nDSM ❌ per `LEGISLATION-RATE.md`). The CNIG MDS Edificación per-city source is configured (`REGION_SOURCE.cordoba`) but no per-city provenance histogram has been probed. |
+| 7 | **CONTEXT** | 5 % | **56%** | `not-checked` | — | Inside the `spain` context bake bbox (`bake.mjs` REGIONS `spain`). Confirmed long-shipped layers: buildings · roads · water · parks · landuse (**5/9**). rail + trees are config-added (L-642) but recorded as not-yet-landed → excluded (honest 0). pedestrian: not a baked layer. sea: inland city, n/a. Score 5/9. |
 
-⚠ **The CEILING is far higher than the rate.** The OCR pilot MEASURED that ~19% of pilot parcels get a
-*fully-numeric* envelope and ~89% get at least a *partial* one after human sign-off. So Córdoba's
-problem is **pilot COVERAGE (2/10 districts) + verification**, not OCR — the OCR is done and the
-documents are clean. See [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) §1.
+## §CONTEXT-DATA-HONESTY note
 
----
+DOES: terrain (PNOA MDT, unverified) + national Catastro + COACo pilot parcels + baked OSM context (5/9). REFUSES: an envelope — the OCR pack is `pipeline-extracted-unverified` and UNREGISTERED, the dominant families' density is an algorithm not a number (the pipeline emits `null` rather than fabricate). UNKNOWN (typed): PARCEL quality (`not-queried`, dissolve 0/3), LEGISLATION + ENVELOPE (`pending-implementation`), HEIGHTS (`not-queried`). `honestyOk: true`.
 
-## Field-by-field breakdown
+## Dossier index (C63 §5)
 
-Denominator = a parcel click anywhere in Córdoba (INE 14021), whole municipality.
+This `RATE.md` is the composite master; the siblings FEED it (naming: `../../_TEMPLATE/NAMING-CONVENTION.md`).
 
-| Field | Structured? | Source | Score |
-|---|---|---|---|
-| Parcel geometry | ✅ Structured | Catastro INSPIRE WFS (national) + `coaco:vcatastro_urbanismo` (5,725 parcels in the pilot). Block ring: **0/3 in Córdoba** (`SPAIN-CADASTRAL-DISSOLVE-PROBE`) — the dissolve fails before any rule is consulted. | **~85%** geometry; block-ring ❌ |
-| Plan/zone existence + boundary | ⚠️ Partial | PGOU-2001 confirmed in force via SIU `Planeamiento_Vigente`. Calificación polygons (`coaco:ordenanzas`, 453) live — **2 of ~10 districts only**. | **~25%** |
-| Zone/use code (calificación → ordenanza) | ⚠️ Pilot-only | COACo WFS carries the ordenanza code + a document `link` per polygon — structured, but geographically limited to Sur + Noroeste. Rest of city: SIU clasificación (land class only). | **~20%** |
-| Density metric (edificabilidad / FAR) | ❌ OCR-from-PDF, unverified + DERIVED | OCR-extracted (`findings/OCR-EXTRACTION-RESULTS.md`): clean scalars for PAS/OA/UAD (minor families); **DERIVED (algorithm) for Manzana Cerrada + Colonia Tradicional Popular** (the two dominant families) — `null`, never a number. MC-3 = 3.50 flagged out-of-range → human. All `pipeline-extracted-unverified`. | **~6%** |
-| Max height (parcel-level) | ❌ Table / OCR-unverified | Clean scalars for the minor families (PB+1/7 m etc.). **Manzana Cerrada height is a per-street-width TABLE → null scalar** (needs a Córdoba street-width resolver, not built). All unverified. | **~5%** |
-| Setback / alignment (ADR-0270) | ⚠️ Extracted, unverified | Front on the vial line (0) for MC/CTP; real retranqueos for UAD/PAS/OA. Kind is *calificación → ordenanza → document* (same shape as Barcelona's clau); NOT a stored-FAR or setback source by default. | **~15%** |
-| Building footprint + height (LOD1/2) | ⚠️ Partial | Catastro constructions (national footprint). Height coarse; nDSM ❌. | **~40%** footprint |
-| Terrain (DTM/DSM) | ✅ / ❌ | IGN MDT + Cesium World Terrain. nDSM ❌. | **~85%** terrain; nDSM ❌ |
-| Heritage overlay | ❌ Separate regime | The **casco histórico is under a separate PEPCH** (Plan Especial), plus CTP1-Campo de la Verdad defers to the Conjunto Histórico Tomo VI (a document not held) and Elemento Protegido is a preservation regime with no new envelope. Cited refusals, not data. | **~5%** |
-
----
-
-## The structural gap
-
-**The wall is not OCR — that is solved — it is pilot COVERAGE and verification.** Córdoba is the
-cleanest case for the extraction pipeline: 12 distinct readable documents (2 born-digital text, 10
-pristine clean rasters), zero OCR-accuracy loss on the numeric fields, image quality no obstacle. The
-15-ordinance extraction is *done*. But two facts keep the structured-fill rate at ~8% municipality-wide:
-
-**Coverage.** The calificación geometry that binds a parcel to an ordinance exists for only the Sur +
-Noroeste pilot (~1.63 km², 2 of ~10 districts). Outside it, a click resolves to SIU *clasificación* — a
-land class, not an envelope — so the whole-municipality fraction with an extractable envelope is
-**effectively 0%** until COACo extends the pilot or the PGOU PDFs are curated per-district against SITUA.
-
-**Verification + the DERIVED trap.** Every extracted value is `pipeline-extracted-unverified` (single-pass
-vision, no human sign-off) — so `SOURCES.md` §C (the verified table) is empty and nothing ships
-`structured`. And the two dominant families' density is stated as *"resultante de la aplicación de las
-Normas de composición"* — an **algorithm, not a number**; the pipeline correctly emits `null` rather
-than manufacture a value (the confident-wrong trap the auto-gates exist to stop, IND-1/2/3 ocupación
-being the verbatim example). So even in the pilot, the *fully-numeric* rate is ~19%, not ~89%.
-
----
-
-## What would raise the rate
-
-| Action | Rate impact | Effort |
+| File | About | Feeds axis |
 |---|---|---|
-| Human-verify the 15-ordinance OCR extraction (sign off `pipeline-extracted-unverified` → `estimated-ruleset`) against source crops | Unlocks the pilot: ~19% fully-numeric / ~89% partial *within Sur + Noroeste* | Medium (per-value human pass) |
-| COACo extends the calificación pilot beyond 2/10 districts (or per-district PGOU curation against SITUA) | The only lever that raises the *municipality-wide* rate off ~0% | High (external / curation) |
-| Build a Córdoba street-width resolver | Converts the Manzana Cerrada per-street-width height table into a parcel answer (same gap as Barcelona `bcnAlcadaNucliAntic.ts`) | Medium |
-| Recover the dead-link families (Unifamiliar Aislada `O_UAS1`) + resolve Campo de la Verdad (Tomo VI) | Closes 2 of the 4 not-extractable families | Low–Medium |
-| Register the authored starter pack `esCordobaPGOU2001.ts` after sign-off + a `pipeline-extracted-unverified` schema tier | Turns extracted values into a shippable amber pack | Medium |
+| **`RATE.md`** (this) | 7-axis composite completion scorecard | — |
+| [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md) | structured legislation/data-fill rate (~8 %, OCR-unverified) | LEGISLATION |
+| [`ENVELOPE.md`](./ENVELOPE.md) | buildable-envelope solver status | ENVELOPE |
+| [`HEIGHT.md`](./HEIGHT.md) | building-height provenance status | HEIGHTS/LOD |
+| [`NEXT.md`](./NEXT.md) | where we stopped · blockers · resume steps | all |
+| [`RISK-REGISTER.md`](./RISK-REGISTER.md) | honesty guardrails | — |
+| [`RATE-IMPLEMENTATION-PLAN.md`](./RATE-IMPLEMENTATION-PLAN.md) | phased climb to 100 % | all |
+| [`README.md`](./README.md) · `sources/` · `findings/` | governance · citations · L-NNN investigation records | LEGISLATION · — |
 
 ---
-
-*Last updated: 2026-07-24. Calificación endpoint (COACo WFS) confirmed live for 2 of ~10 districts;
-national SIU serves clasificación not calificación (proven negative). 15-ordinance OCR extraction
-COMPLETE but `pipeline-extracted-unverified` — nothing human-signed, `SOURCES.md` §C empty. Pilot-area
-resolution MEASURED (~19% full / ~89% partial / ~10.5% not-extractable); municipality-wide ≈ 0%
-structured today. Starter pack authored, UNREGISTERED. Maintainer: UNASSIGNED.*
+*Last updated: 2026-07-30. Maintainer: UNASSIGNED. Authority: [C63](../../../../02-decisions/contracts/C63-CITY-COMPLETION-AND-DOSSIER.md). Normalized to the C63 7-file standard under audit L-649.*

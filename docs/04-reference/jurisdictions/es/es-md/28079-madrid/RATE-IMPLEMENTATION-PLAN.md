@@ -1,6 +1,6 @@
 # Rate Implementation Plan — Madrid (`es-md`, INE 28079) city
 
-**Current rate:** ~68% data-readiness (see [`RATE.md`](./RATE.md)) · **PRYZM engine resolution
+**Current rate:** ~68% data-readiness (see [`LEGISLATION-RATE.md`](./LEGISLATION-RATE.md)) · **PRYZM engine resolution
 today:** ≈ 0% · **Realistic engine ceiling:** ~60–62% of residential clicks · **Gap to Denmark
 (~96%):** ~28 pts · **Last updated:** 2026-07-24 · **Owner:** UNASSIGNED
 
