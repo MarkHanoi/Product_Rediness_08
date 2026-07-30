@@ -177,6 +177,21 @@ per-layer probe list in [`GEOSPATIAL-DATA-INVENTORY.md`](./GEOSPATIAL-DATA-INVEN
 
 ### Phase C — PARCEL: HMLR / INSPIRE ownership polygons (confidence capped MEDIUM — never survey cadastre)
 
+> **STATUS (2026-07-30) — England PARCEL axis: `wired-pending-probe`.** The England provider
+> `packages/site-parcel-data/src/parcelProviders/gbOsInspireParcelProvider.ts` is BUILT — `isInEngland`
+> + `ENGLAND_BBOX` routing predicate, `fetchParcelAtPoint(point, deps)` → HMLR INSPIRE Index Polygons via
+> the same-origin proxy `/api/parcel/gb`, EPSG:27700→WGS84 with a `crs-unhandled` refusal (never
+> fabricated lat/lon), typed refusal union, never-throws, OTel span, unit-tested (fixture parse + the
+> honesty cap + CRS guard). **THE HONESTY INVARIANT IS ENCODED:** every resolved parcel carries
+> `generalBoundary: true` + a cited caveat (`GB_GENERAL_BOUNDARY_CAVEAT`, s.60 LRA 2002), and confidence
+> is **CAPPED MEDIUM by construction** — the `GbParcelMatchTier` union has NO `high` member, so England
+> can never be scored survey-grade like ES/IT/CH. **This moves NO RATE % cell.** It stays
+> `wired-pending-probe` until (1) the orchestrator registers `isInEngland→gb-os-inspire` in
+> `parcelProviders/registry.ts` (the ready-to-paste row is in the provider header + the Phase-4 report),
+> and (2) a LIVE probe of the INSPIRE download endpoint + OGL-v3 redistribution runs (both
+> `CONVERGENT-SECONDARY` today — the per-LPA ATOM/GML endpoint and the proxy point-query aggregation are
+> NOT yet live-probed). Scotland (RoS) / Wales (HMLR-Wales) / NI (LPS) are the same pattern, later.
+
 - **Goal.** Probe + wire the **HM Land Registry INSPIRE Index Polygons** (OGL, freehold ownership **index**
   extents) as a parcel-routing / footprint-fallback-plus source for England, and add a GB entry to
   `parcelProviders/registry.ts`. For the devolved jurisdictions, wire the corresponding **ownership** registry:
