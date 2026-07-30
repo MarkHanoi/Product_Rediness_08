@@ -40,6 +40,35 @@
 
 ---
 
+## §0.5 — Phase-4 EXECUTION LOG (live — updated as agents land)
+
+> **Started 2026-07-30.** This log records what Phase-4 has actually *changed*, cited by commit. The §1
+> ranked board below stays as the Phase-1 **audit baseline** (a planning estimate per §0.2). The **computed**
+> composite %s cannot move until the **C63 scorecard compute function lands** (in-flight, agent building
+> `tools/city-completion/computeScorecard.mjs` + the P5 schema) — it is the tool that recomputes the number.
+> Until then this log tracks **status + realised axis-deltas**, not re-scored composites. `not-assessed ≠ 0 %`.
+
+| Country | Phase-4 move | Status | Commit | Axis effect (honest) |
+|---|---|---|---|---|
+| 🇪🇸 Spain | MDS Edificación measured-height join extended to 6 metro capitals (Madrid/Valencia/Sevilla/Málaga/Zaragoza/Bilbao), priority-stamped + uncapped | **LANDED (code)** — re-bake DEFERRED (needs R2 write cred) | `3d687f22` | HEIGHTS: code ready; buildings stay *estimated* until the `buildings` re-bake+R2 upload runs |
+| 🇮🇹 Italy | `AgenziaEntrateParcelProvider` (national INSPIRE Catasto WFS) + 21 tests | **LANDED (code, inert)** — pending batch `registry.ts` row + server `/api/parcel/it` proxy + 1 live GetCapabilities probe | `893e62eb` | PARCEL+DATA-SOURCES: provider built & green (1019 tests); not yet routed (graceful OSM fallback) |
+| 🇩🇰 Denmark | L-449 SIGNED vs BR18: `FAR = maksbebyggelsesprocent/100`, height, storeys, `densityScope` preserved → offline rule pack | **IN-FLIGHT** — reshaped to **offline-legislation + DEFERRED live data** (Datafordeler MitID bootstrap blocked, founder 2026-07-30) | *(agent)* | LEGISLATION: credited (DERIVED, signed). PARCEL/live-data: **access-deferred, not a code gap** — Datafordeler adapter = canonical stub |
+| 🇨🇭 Switzerland | L-449 resolved = **YES**: swisstopo AV (Amtliche Vermessung) = survey-grade → parcel HIGH (AV dataset only; rendered tiles ≠ engineering-grade) | **IN-FLIGHT (docs)** | *(agent)* | PARCEL: → HIGH (signed); DATA-SOURCES measurement follows scorecard |
+| 🇧🇪 Belgium | `FlandersGrbParcelProvider` (GRB/CadGIS, keyless) — Flanders first; Wallonia/Brussels next behind one `isInBelgium` | **IN-FLIGHT** | *(agent)* | PARCEL+DATA-SOURCES: Flanders; national ceiling still region-split-capped |
+| 🇺🇸 USA | `NycPlutoParcelProvider` (MapPLUTO — lot geometry + zoning + FAR + height) — establishes the `CityParcelProvider` pattern | **IN-FLIGHT** | *(agent)* | PARCEL+DATA-SOURCES **and** a LEGISLATION bonus (PLUTO carries FAR/zoning) for NYC |
+| 🇪🇸 Madrid | Legislation extraction template (Barcelona-format, PGOUM Compendio 2024, article-cited) | **IN-FLIGHT (docs)** — then BLOCKED on founder-sourced numeric values | *(agent)* | LEGISLATION (25 %, heaviest): template ready; values are the human-gated 65 % |
+| C63 scorecard | `CityCompletionScorecard` P5 schema + `computeScorecard.mjs` + `computeParcelConfidence` helper | **IN-FLIGHT (enabler)** | *(agent)* | Unblocks the NL/FR/NO/CH "measure-already-wired" moves + **recomputes every composite %** |
+
+**Founder decisions locked this session (govern the board):**
+- 🇩🇰 DK + 🇸🇪 SE = **offline-legislation + deferred-live-data** — authoritative cadastre is identity-bootstrap-gated (MitID / BankID) and un-clearable by a foreign founder; both ship on canonical **stub adapters** (fill one method later, no engine change). Parcel axis = *access-deferred*, scored honestly, **not** a code gap.
+- 🇫🇮 FI = **only self-service unblock** — MML API key is create-it-yourself online; the one easy full-country win (pending founder key).
+- 🇪🇸 Madrid = **lead legislation city** after Barcelona.
+- 🇧🇪 BE = **Flanders first**; 🇺🇸 US = **NYC first** (both confirmed).
+
+**Orchestrator debt (batch when IT/BE/US all land):** one `registry.ts` pass wiring all new providers + evolve routing toward **bbox-intersection + priority-fallback** (retire per-country `if(isInX)` growth); wire the `/api/parcel/<cc>` server proxies; add **golden-parcel CI tests** per provider.
+
+---
+
 ## §1 — Per-country ranked board (top → bottom by score-gain-per-effort)
 
 | # | Country | Current composite | Ceiling (proj.) | Gap | Phase-A first move | Effort | Code-verified? | ROI |
